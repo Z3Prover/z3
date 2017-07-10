@@ -1190,6 +1190,7 @@ public:
 
     void get_model(std::unordered_map<var_index, mpq> & variable_values) const;
 
+    void get_model_do_not_care_about_diff_vars(std::unordered_map<var_index, mpq> & variable_values) const;
 
     void get_model(std::unordered_map<var_index, mpq> & variable_values) const {
         mpq delta = m_mpq_lar_core_solver.find_delta_for_strict_bounds(mpq(1, 2)); // start from 0.5 to have less clashes
