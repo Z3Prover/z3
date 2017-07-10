@@ -231,7 +231,7 @@ template <typename T, typename X> void lp_primal_simplex<T, X>::fill_A_x_and_bas
 template <typename T, typename X> void lp_primal_simplex<T, X>::solve_with_total_inf() {
     int total_vars = this->m_A->column_count() + this->row_count();
     if (total_vars == 0) {
-        this->m_status = OPTIMAL;
+        this->m_status = lp_status::OPTIMAL;
         return;
     }
     m_low_bounds.clear();

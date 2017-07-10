@@ -97,11 +97,11 @@ template <typename T, typename X> void lp_dual_core_solver<T, X>::start_with_ini
 }
 
 template <typename T, typename X> bool lp_dual_core_solver<T, X>::done() {
-    if (this->get_status() == OPTIMAL) {
+    if (this->get_status() == lp_status::OPTIMAL) {
         return true;
     }
     if (this->total_iterations() > this->m_settings.max_total_number_of_iterations) { // debug !!!!
-        this->set_status(ITERATIONS_EXHAUSTED);
+        this->set_status(lp_status::ITERATIONS_EXHAUSTED);
         return true;
     }
     return false; // todo, need to be more cases
@@ -185,8 +185,8 @@ template <typename T, typename X> void lp_dual_core_solver<T, X>::pricing_loop(u
         }
     } while (i != initial_offset_in_rows && rows_left);
     if (m_r == -1) {
-        if (this->get_status() != UNSTABLE) {
-            this->set_status(OPTIMAL);
+        if (this->get_status() != lp_status::UNSTABLE) {
+            this->set_status(lp_status::OPTIMAL);
         }
     } else {
         m_p = this->m_basis[m_r];
@@ -196,10 +196,10 @@ template <typename T, typename X> void lp_dual_core_solver<T, X>::pricing_loop(u
             return;
         }
         // failure in advance_on_known_p
-        if (this->get_status() == FLOATING_POINT_ERROR) {
+        if (this->get_status() == lp_status::FLOATING_POINT_ERROR) {
             return;
         }
-        this->set_status(UNSTABLE);
+        this->set_status(lp_status::UNSTABLE);
         m_forbidden_rows.insert(m_r);
     }
 }
@@ -481,12 +481,12 @@ template <typename T, typename X> void lp_dual_core_solver<T, X>::revert_to_prev
     this->change_basis_unconditionally(m_p, m_q);
     init_factorization(this->m_factorization, this->m_A, this->m_basis, this->m_settings);
     if (this->m_factorization->get_status() != LU_status::OK) {
-        this->set_status(FLOATING_POINT_ERROR); // complete failure
+        this->set_status(lp_status::FLOATING_POINT_ERROR); // complete failure
         return;
     }
     recover_leaving();
     if (!this->find_x_by_solving()) {
-        this->set_status(FLOATING_POINT_ERROR);
+        this->set_status(lp_status::FLOATING_POINT_ERROR);
         return;
     }
     recalculate_xB_and_d();
@@ -566,10 +566,10 @@ template <typename T, typename X> bool lp_dual_core_solver<T, X>::delta_keeps_th
 }
 
 template <typename T, typename X> void lp_dual_core_solver<T, X>::set_status_to_tentative_dual_unbounded_or_dual_unbounded() {
-    if (this->get_status() == TENTATIVE_DUAL_UNBOUNDED) {
-        this->set_status(DUAL_UNBOUNDED);
+    if (this->get_status() == lp_status::TENTATIVE_DUAL_UNBOUNDED) {
+        this->set_status(lp_status::DUAL_UNBOUNDED);
     } else {
-        this->set_status(TENTATIVE_DUAL_UNBOUNDED);
+        this->set_status(lp_status::TENTATIVE_DUAL_UNBOUNDED);
     }
 }
 
@@ -675,7 +675,7 @@ template <typename T, typename X> bool lp_dual_core_solver<T, X>::ratio_test() {
             set_status_to_tentative_dual_unbounded_or_dual_unbounded();
             return false;
         }
-        this->set_status(FEASIBLE);
+        this->set_status(lp_status::FEASIBLE);
         find_q_and_tight_set();
         if (!tight_breakpoinst_are_all_boxed())  break;
         T del = m_delta - delta_lost_on_flips_of_tight_breakpoints() * initial_delta_sign;
@@ -731,10 +731,10 @@ template <typename T, typename X> void lp_dual_core_solver<T, X>::update_xb_afte
 template <typename T, typename X> void lp_dual_core_solver<T, X>::one_iteration() {
     unsigned number_of_rows_to_try = get_number_of_rows_to_try_for_leaving();
     unsigned offset_in_rows = this->m_settings.random_next() % this->m_m();
-    if (this->get_status() == TENTATIVE_DUAL_UNBOUNDED) {
+    if (this->get_status() == lp_status::TENTATIVE_DUAL_UNBOUNDED) {
         number_of_rows_to_try = this->m_m();
     } else {
-        this->set_status(FEASIBLE);
+        this->set_status(lp_status::FEASIBLE);
     }
     pricing_loop(number_of_rows_to_try, offset_in_rows);
     lp_assert(problem_is_dual_feasible());
@@ -751,7 +751,7 @@ template <typename T, typename X> void lp_dual_core_solver<T, X>::solve() { // s
             return;
         }
         one_iteration();
-    } while (this->get_status() != FLOATING_POINT_ERROR && this->get_status() != DUAL_UNBOUNDED && this->get_status() != OPTIMAL &&
+    } while (this->get_status() != lp_status::FLOATING_POINT_ERROR && this->get_status() != lp_status::DUAL_UNBOUNDED && this->get_status() != lp_status::OPTIMAL &&
              this->iters_with_no_cost_growing() <= this->m_settings.max_number_of_iterations_with_no_improvements
              && this->total_iterations() <= this->m_settings.max_total_number_of_iterations);
 }

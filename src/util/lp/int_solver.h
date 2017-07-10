@@ -8,7 +8,6 @@
 #include "util/lp/iterator_on_row.h"
 #include "util/lp/int_set.h"
 #include "util/lp/lar_term.h"
-
 namespace lp {
 class lar_solver;
 template <typename T, typename X>
@@ -23,6 +22,9 @@ enum class lia_move {
 
 struct explanation {
     vector<std::pair<mpq, constraint_index>> m_explanation;
+    void push_justification(constraint_index j, const mpq& v) {
+        m_explanation.push_back(std::make_pair(v, j));
+    }
 };
 
 class int_solver {
@@ -31,10 +33,15 @@ public:
     lar_solver *m_lar_solver;
     int_set m_old_values_set;
     vector<impq> m_old_values_data;
-    int_set m_inf_int_set;
     unsigned m_branch_cut_counter;
+    linear_combination_iterator<mpq>* m_iter_on_gomory_row;
+    unsigned m_gomory_cut_inf_column;
+    bool m_found_free_var_in_gomory_row;
+    
     // methods
     int_solver(lar_solver* lp);
+    int_set& inf_int_set();
+    const int_set& inf_int_set() const;
     // main function to check that solution provided by lar_solver is valid for integral values,
     // or provide a way of how it can be adjusted.
     lia_move check(lar_term& t, mpq& k, explanation& ex);
@@ -78,6 +85,7 @@ private:
     const impq & lower_bound(unsigned j) const;
     const impq & upper_bound(unsigned j) const;
     bool is_int(unsigned j) const;
+    bool is_real(unsigned j) const;
     bool is_base(unsigned j) const;
     bool is_boxed(unsigned j) const;
     bool value_is_int(unsigned j) const;
@@ -88,8 +96,7 @@ private:
     const impq & get_value(unsigned j) const;
     void display_column(std::ostream & out, unsigned j) const;
     bool inf_int_set_is_correct() const;
-    void init_inf_int_set();
-    void update_column_in_inf_set_set(unsigned j);
+    void update_column_in_int_inf_set(unsigned j);
     bool column_is_int_inf(unsigned j) const;
     void trace_inf_rows() const;
     int find_inf_int_base_column();
@@ -97,7 +104,33 @@ private:
     lp_settings& settings();
     void move_non_base_vars_to_bounds();
     void branch_infeasible_int_var(unsigned);
-    bool mk_gomory_cut(unsigned row_index, explanation & ex);
+    lia_move mk_gomory_cut(lar_term& t, mpq& k,explanation & ex);
+    lia_move report_conflict_from_gomory_cut(mpq & k);
+    lia_move report_gomory_cut(lar_term& t, mpq& k, mpq& lcm_den, unsigned num_ints);
 	void init_check_data();
+    bool constrain_free_vars(linear_combination_iterator<mpq> *  r);
+    lia_move proceed_with_gomory_cut(lar_term& t, mpq& k, explanation& ex);
+    int find_next_free_var_in_gomory_row();
+    bool is_gomory_cut_target();
+    bool at_bound(unsigned j) const;
+    bool at_lower(unsigned j) const;
+    bool at_upper(unsigned j) const;
+
+    inline static bool is_rational(const impq & n) {
+        return is_zero(n.y);  
+    }
+
+    inline static
+    mpq fractional_part(const impq & n) {
+        lp_assert(is_rational);
+        return n.x - floor(n.x);
+    }
+    void real_case_in_gomory_cut(const mpq & a, unsigned x_j, mpq & k, lar_term& t, explanation & ex);
+    void int_case_in_gomory_cut(const mpq & a, unsigned x_j, mpq & k, lar_term& t, explanation& ex, mpq & lcm_den);
+    constraint_index column_upper_bound_constraint(unsigned j) const;
+    constraint_index column_low_bound_constraint(unsigned j) const;
+    void display_row_info(std::ostream & out, unsigned row_index) const;
+    void gomory_cut_adjust_t_and_k_for_size_1(const vector<std::pair<mpq, unsigned>> & pol, lar_term & t, mpq &k);
+    void gomory_cut_adjust_t_and_k_for_size_gt_1(vector<std::pair<mpq, unsigned>> & pol, lar_term & t, mpq &k, unsigned num_ints, mpq &lcm_den);
 };
 }

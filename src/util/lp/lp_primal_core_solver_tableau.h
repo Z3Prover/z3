@@ -35,7 +35,7 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::advance_on_e
     X t;
     int leaving = find_leaving_and_t_tableau(entering, t);
     if (leaving == -1) {
-        this->set_status(UNBOUNDED);
+        this->set_status(lp_status::UNBOUNDED);
         return;
     }
     advance_on_entering_and_leaving_tableau(entering, leaving, t);
@@ -100,12 +100,12 @@ template <typename T, typename X>
 unsigned lp_primal_core_solver<T, X>::solve_with_tableau() {
     init_run_tableau();
     if (this->current_x_is_feasible() && this->m_look_for_feasible_solution_only) {
-        this->set_status(FEASIBLE);
+        this->set_status(lp_status::FEASIBLE);
         return 0;
     }
         
     if ((!numeric_traits<T>::precise()) && this->A_mult_x_is_off()) {
-        this->set_status(FLOATING_POINT_ERROR);
+        this->set_status(lp_status::FLOATING_POINT_ERROR);
         return 0;
     }
     do {
@@ -117,8 +117,8 @@ unsigned lp_primal_core_solver<T, X>::solve_with_tableau() {
         else 
             one_iteration_tableau();
         switch (this->get_status()) {
-        case OPTIMAL:  // double check that we are at optimum
-        case INFEASIBLE:
+        case lp_status::OPTIMAL:  // double check that we are at optimum
+        case lp_status::INFEASIBLE:
             if (this->m_look_for_feasible_solution_only && this->current_x_is_feasible())
                 break;
             if (!numeric_traits<T>::precise()) {
@@ -127,7 +127,7 @@ unsigned lp_primal_core_solver<T, X>::solve_with_tableau() {
                 this->init_lu();
                 
                 if (this->m_factorization->get_status() != LU_status::OK) {
-                    this->set_status(FLOATING_POINT_ERROR);
+                    this->set_status(lp_status::FLOATING_POINT_ERROR);
                     break;
                 }
                 init_reduced_costs();
@@ -135,7 +135,7 @@ unsigned lp_primal_core_solver<T, X>::solve_with_tableau() {
                     decide_on_status_when_cannot_find_entering();
                     break;
                 }
-                this->set_status(UNKNOWN);
+                this->set_status(lp_status::UNKNOWN);
             } else { // precise case
                 if ((!this->infeasibility_costs_are_correct())) {
                     init_reduced_costs_tableau(); // forcing recalc
@@ -143,31 +143,31 @@ unsigned lp_primal_core_solver<T, X>::solve_with_tableau() {
                         decide_on_status_when_cannot_find_entering();
                         break;
                     }
-                    this->set_status(UNKNOWN);
+                    this->set_status(lp_status::UNKNOWN);
                 }
             }
             break;
-        case TENTATIVE_UNBOUNDED:
+        case lp_status::TENTATIVE_UNBOUNDED:
             this->init_lu();
             if (this->m_factorization->get_status() != LU_status::OK) {
-                this->set_status(FLOATING_POINT_ERROR);
+                this->set_status(lp_status::FLOATING_POINT_ERROR);
                 break;
             }
                 
             init_reduced_costs();
             break;
-        case UNBOUNDED:
+        case lp_status::UNBOUNDED:
             if (this->current_x_is_infeasible()) {
                 init_reduced_costs();
-                this->set_status(UNKNOWN);
+                this->set_status(lp_status::UNKNOWN);
             }
             break;
 
-        case UNSTABLE:
+        case lp_status::UNSTABLE:
             lp_assert(! (numeric_traits<T>::precise()));
             this->init_lu();
             if (this->m_factorization->get_status() != LU_status::OK) {
-                this->set_status(FLOATING_POINT_ERROR);
+                this->set_status(lp_status::FLOATING_POINT_ERROR);
                 break;
             }
             init_reduced_costs();
@@ -196,7 +196,7 @@ unsigned lp_primal_core_solver<T, X>::solve_with_tableau() {
             this->set_status(CANCELLED);
 	}
 
-    lp_assert(this->get_status() == FLOATING_POINT_ERROR
+    lp_assert(this->get_status() == lp_status::FLOATING_POINT_ERROR
                 ||
                 this->current_x_is_feasible() == false
                 ||
@@ -370,9 +370,9 @@ update_x_tableau(unsigned entering, const X& delta) {
             this->m_x[j] -= delta * this->m_A.get_val(c);
             update_inf_cost_for_column_tableau(j);
             if (is_zero(this->m_costs[j]))
-                this->m_inf_set.erase(j);
+                this->remove_column_from_inf_set(j);
             else
-                this->m_inf_set.insert(j);
+                this->insert_column_into_inf_set(j);
         }
     }
     lp_assert(this->A_mult_x_is_off() == false);
