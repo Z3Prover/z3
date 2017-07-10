@@ -26,7 +26,14 @@ class lp_core_solver_base {
 private:
     lp_status m_status;
 public:
-    bool current_x_is_feasible() const { return m_inf_set.size() == 0; }
+    bool current_x_is_feasible() const {
+        TRACE("feas",
+              if (m_inf_set.size()) {
+                  tout << "column " << m_inf_set.m_index[0] << " is infeasible" << std::endl;
+              }
+              );
+        return m_inf_set.size() == 0;
+    }
     bool current_x_is_infeasible() const { return m_inf_set.size() != 0; }
     int_set m_inf_set;
     bool m_using_infeas_costs;
@@ -700,5 +707,8 @@ public:
     }
 
     void calculate_pivot_row(unsigned i);
+    unsigned get_base_column_in_row(unsigned row_index) const {
+        return m_basis[row_index];
+    }
 };
 }

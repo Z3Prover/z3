@@ -36,7 +36,7 @@ enum class simplex_strategy_enum {
 
 std::string column_type_to_string(column_type t);
 
-enum lp_status {
+enum class lp_status {
     UNKNOWN,
     INFEASIBLE,
     TENTATIVE_UNBOUNDED,

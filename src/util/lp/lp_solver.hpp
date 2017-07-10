@@ -223,7 +223,7 @@ template <typename T, typename X>    bool lp_solver<T, X>::row_e_is_obsolete(std
     T rs = m_constraints[row_index].m_rs;
     if (row_is_zero(row)) {
         if (!is_zero(rs))
-            m_status = INFEASIBLE;
+            m_status = lp_status::INFEASIBLE;
         return true;
     }
 
@@ -233,7 +233,7 @@ template <typename T, typename X>    bool lp_solver<T, X>::row_e_is_obsolete(std
         T diff = low_bound - rs;
         if (!val_is_smaller_than_eps(diff, m_settings.refactor_tolerance)){
             // low_bound > rs + m_settings.refactor_epsilon
-            m_status = INFEASIBLE;
+            m_status = lp_status::INFEASIBLE;
             return true;
         }
         if (val_is_smaller_than_eps(-diff, m_settings.refactor_tolerance)){
@@ -248,7 +248,7 @@ template <typename T, typename X>    bool lp_solver<T, X>::row_e_is_obsolete(std
         T diff = rs - upper_bound;
         if (!val_is_smaller_than_eps(diff,  m_settings.refactor_tolerance)) {
             // upper_bound < rs - m_settings.refactor_tolerance
-            m_status = INFEASIBLE;
+            m_status = lp_status::INFEASIBLE;
             return true;
         }
         if (val_is_smaller_than_eps(-diff, m_settings.refactor_tolerance)){
@@ -264,7 +264,7 @@ template <typename T, typename X>  bool lp_solver<T, X>::row_ge_is_obsolete(std:
     T rs = m_constraints[row_index].m_rs;
     if (row_is_zero(row)) {
         if (rs > zero_of_type<X>())
-            m_status = INFEASIBLE;
+            m_status = lp_status::INFEASIBLE;
         return true;
     }
 
@@ -273,7 +273,7 @@ template <typename T, typename X>  bool lp_solver<T, X>::row_ge_is_obsolete(std:
         T diff = rs - upper_bound;
         if (!val_is_smaller_than_eps(diff, m_settings.refactor_tolerance)) {
             // upper_bound < rs - m_settings.refactor_tolerance
-            m_status = INFEASIBLE;
+            m_status = lp_status::INFEASIBLE;
             return true;
         }
         if (val_is_smaller_than_eps(-diff, m_settings.refactor_tolerance)){
@@ -290,7 +290,7 @@ template <typename T, typename X> bool lp_solver<T, X>::row_le_is_obsolete(std::
     T rs = m_constraints[row_index].m_rs;
     if (row_is_zero(row)) {
         if (rs < zero_of_type<X>())
-            m_status = INFEASIBLE;
+            m_status = lp_status::INFEASIBLE;
         return true;
     }
 

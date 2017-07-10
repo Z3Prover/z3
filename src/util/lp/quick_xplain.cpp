@@ -29,7 +29,7 @@ void quick_xplain::copy_constraint_and_add_constraint_vars(const lar_constraint&
 
 bool quick_xplain::infeasible() {
     m_qsol.solve();
-    return m_qsol.get_status() == INFEASIBLE;
+    return m_qsol.get_status() == lp_status::INFEASIBLE;
 }
 
 // u - unexplored constraints
@@ -100,7 +100,7 @@ bool quick_xplain::is_feasible(const vector<unsigned> & x, unsigned k) const {
         l.add_constraint(ls, c.m_kind, c.m_right_side);
     }
     l.solve();
-    return l.get_status() != INFEASIBLE;
+    return l.get_status() != lp_status::INFEASIBLE;
 }
 
 bool quick_xplain::x_is_minimal() const {
@@ -127,7 +127,7 @@ void quick_xplain::solve() {
     for (unsigned i : m_x)
         add_constraint_to_qsol(i);
     m_qsol.solve();
-    lp_assert(m_qsol.get_status() == INFEASIBLE);
+    lp_assert(m_qsol.get_status() == lp_status::INFEASIBLE);
     m_qsol.get_infeasibility_explanation(m_explanation);
     lp_assert(m_qsol.explanation_is_correct(m_explanation));
     lp_assert(x_is_minimal());

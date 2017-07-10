@@ -19,7 +19,7 @@ void int_solver::fix_non_base_columns() {
     }
     if (!change)
         return;
-    if (m_lar_solver->find_feasible_solution() == INFEASIBLE)
+    if (m_lar_solver->find_feasible_solution() == lp_status::INFEASIBLE)
         failed();
     init_inf_int_set();
     lp_assert(is_feasible() && inf_int_set_is_correct());
@@ -109,14 +109,13 @@ int int_solver::find_inf_int_boxed_base_column_with_smallest_range() {
 }
 
 bool int_solver::mk_gomory_cut(unsigned row_index, explanation & ex) {
-    lp_assert(false);
-    return true;
+
+    auto row_it = m_lar_solver->get_iterator_on_row(row_index);
+    
+    unsigned x_i = m_lar_solver->get_base_column_in_row(row_index);
+
+    lp_assert(column_is_int_inf(x_i));
     /*
-    const auto & row = m_lar_solver->A_r().m_rows[row_index];
-            // The following assertion is wrong. It may be violated in mixed-integer problems.
-    // SASSERT(!all_coeff_int(r));
-    theory_var x_i = r.get_base_var();
-        
     SASSERT(is_int(x_i));
     // The following assertion is wrong. It may be violated in mixed-real-interger problems.
     // The check is_gomory_cut_target will discard rows where any variable contains infinitesimals.
@@ -286,6 +285,8 @@ bool int_solver::mk_gomory_cut(unsigned row_index, explanation & ex) {
                                                                 ante.eqs().size(), ante.eqs().c_ptr(), ante, l)));
     return true;
     */
+    delete row_it;
+    return true;
 
 }
 

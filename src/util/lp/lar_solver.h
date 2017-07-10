@@ -48,7 +48,7 @@ class lar_solver : public column_namer {
     };
     //////////////////// fields //////////////////////////
     lp_settings m_settings;
-    stacked_value<lp_status> m_status;
+    lp_status m_status;
     stacked_value<simplex_strategy_enum> m_simplex_strategy;
     std::unordered_map<unsigned, ext_var_info> m_ext_vars_to_columns;
     vector<unsigned> m_columns_to_ext_vars_or_term_indices;
@@ -222,7 +222,7 @@ public:
     vector<unsigned> get_list_of_all_var_indices() const;
     void push();
 
-    static void clean_large_elements_after_pop(unsigned n, int_set& set);
+    static void clean_popped_elements(unsigned n, int_set& set);
 
     static void shrink_inf_set_after_pop(unsigned n, int_set & set);
 
@@ -447,5 +447,14 @@ public:
     }
     
     bool bound_is_integer_if_needed(unsigned j, const mpq & right_side) const;
+    linear_combination_iterator<mpq> * get_iterator_on_row(unsigned i) {
+        return m_mpq_lar_core_solver.m_r_solver.get_iterator_on_row(i);
+    }
+
+    unsigned get_base_column_in_row(unsigned row_index) const {
+        return m_mpq_lar_core_solver.m_r_solver.get_base_column_in_row(row_index);
+    }
+
+    
 };
 }

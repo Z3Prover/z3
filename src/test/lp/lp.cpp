@@ -1656,7 +1656,7 @@ void solve_some_mps(argument_parser & args_parser) {
     }
     if (!solve_for_rational) {
         solve_mps(file_names[6], false, 0, time_limit, false, dual, compare_with_primal, args_parser);
-        solve_mps_with_known_solution(file_names[3], nullptr, INFEASIBLE, dual); // chvatal: 135(d)
+        solve_mps_with_known_solution(file_names[3], nullptr, lp_status::INFEASIBLE, dual); // chvatal: 135(d)
         std::unordered_map<std::string, double> sol;
         sol["X1"] = 0;
         sol["X2"] = 6;
@@ -1666,8 +1666,8 @@ void solve_some_mps(argument_parser & args_parser) {
         sol["X6"] = 1;
         sol["X7"] = 1;
         sol["X8"] = 0;
-        solve_mps_with_known_solution(file_names[9], &sol, OPTIMAL, dual);
-        solve_mps_with_known_solution(file_names[0], &sol, OPTIMAL, dual);
+        solve_mps_with_known_solution(file_names[9], &sol, lp_status::OPTIMAL, dual);
+        solve_mps_with_known_solution(file_names[0], &sol, lp_status::OPTIMAL, dual);
         sol.clear();
         sol["X1"] = 25.0/14.0;
         // sol["X2"] = 0;
@@ -1676,10 +1676,10 @@ void solve_some_mps(argument_parser & args_parser) {
         // sol["X5"] = 0;
         // sol["X6"] = 0;
         // sol["X7"] = 9.0/14.0;
-        solve_mps_with_known_solution(file_names[5], &sol, OPTIMAL, dual); // chvatal: 135(e)
-        solve_mps_with_known_solution(file_names[4], &sol, OPTIMAL, dual); // chvatal: 135(e)
-        solve_mps_with_known_solution(file_names[2], nullptr, UNBOUNDED, dual); // chvatal: 135(c)
-        solve_mps_with_known_solution(file_names[1], nullptr, UNBOUNDED, dual); // chvatal: 135(b)
+        solve_mps_with_known_solution(file_names[5], &sol, lp_status::OPTIMAL, dual); // chvatal: 135(e)
+        solve_mps_with_known_solution(file_names[4], &sol, lp_status::OPTIMAL, dual); // chvatal: 135(e)
+        solve_mps_with_known_solution(file_names[2], nullptr, lp_status::UNBOUNDED, dual); // chvatal: 135(c)
+        solve_mps_with_known_solution(file_names[1], nullptr, lp_status::UNBOUNDED, dual); // chvatal: 135(b)
         solve_mps(file_names[8], false, 0, time_limit, false, dual, compare_with_primal, args_parser);
         // return;
         for (auto& s : file_names) {
@@ -1745,7 +1745,7 @@ void solve_rational() {
     expected_sol["x7"] = lp::mpq(1);
     expected_sol["x8"] = lp::mpq(0);
     solver.find_maximal_solution();
-    lp_assert(solver.get_status() == OPTIMAL);
+    lp_assert(solver.get_status() == lp_status::OPTIMAL);
     for (auto it : expected_sol) {
         lp_assert(it.second == solver.get_column_value_by_name(it.first));
     }
@@ -2433,12 +2433,12 @@ void run_lar_solver(argument_parser & args_parser, lar_solver * solver, mps_read
     sw.start();
     lp_status status = solver->solve();
     std::cout << "status is " <<  lp_status_to_string(status) << ", processed for " << sw.get_current_seconds() <<" seconds, and " << solver->get_total_iterations() << " iterations" << std::endl;
-    if (solver->get_status() == INFEASIBLE) {
+    if (solver->get_status() == lp_status::INFEASIBLE) {
         vector<std::pair<lp::mpq, constraint_index>> evidence;
         solver->get_infeasibility_explanation(evidence);
     }
     if (args_parser.option_is_used("--randomize_lar")) {
-        if (solver->get_status() != OPTIMAL) {
+        if (solver->get_status() != lp_status::OPTIMAL) {
             std::cout << "cannot check randomize on an infeazible  problem" << std::endl;
             return;
         }
@@ -2717,7 +2717,7 @@ void test_term() {
     auto status = solver.solve();
     std::cout << lp_status_to_string(status) << std::endl;
     std::unordered_map<var_index, mpq> model;
-    if (status != OPTIMAL)
+    if (status != lp_status::OPTIMAL)
         return;
     solver.get_model(model);
     
@@ -2745,7 +2745,7 @@ void test_evidence_for_total_inf_simple(argument_parser & args_parser) {
     auto status = solver.solve();
     std::cout << lp_status_to_string(status) << std::endl;
     std::unordered_map<var_index, mpq> model;
-    lp_assert(solver.get_status() == INFEASIBLE);
+    lp_assert(solver.get_status() == lp_status::INFEASIBLE);
 }
 void test_bound_propagation_one_small_sample1() {
     /*
