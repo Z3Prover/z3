@@ -311,7 +311,7 @@ bool sparse_matrix<T, X>::pivot_row_to_row(unsigned i, const T& alpha, unsigned 
     }
     
     
-    // clp the work vector
+    // clean the work vector
     for (unsigned k = 0; k < prev_size_i0; k++) {
         m_work_pivot_vector[i0_row_vals[k].m_index] = -1;
     }
@@ -334,7 +334,7 @@ bool sparse_matrix<T, X>::pivot_row_to_row(unsigned i, const T& alpha, unsigned 
 // set the max val as well
 // returns false if the resulting row is all zeroes, and true otherwise
 template <typename T, typename X>
-bool sparse_matrix<T, X>::set_row_from_work_vector_and_clp_work_vector_not_adjusted(unsigned i0, indexed_vector<T> & work_vec,
+bool sparse_matrix<T, X>::set_row_from_work_vector_and_clean_work_vector_not_adjusted(unsigned i0, indexed_vector<T> & work_vec,
                                                                                       lp_settings & settings) {
     remove_zero_elements_and_set_data_on_existing_elements_not_adjusted(i0, work_vec, settings);
     // all non-zero elements in m_work_pivot_vector are new
@@ -572,11 +572,11 @@ void sparse_matrix<T, X>::double_solve_U_y(indexed_vector<L>& y, const lp_settin
         active_rows.clear();
         solve_U_y_indexed_only(y_orig, settings, active_rows);
         add_delta_to_solution(y_orig, y);
-        y.clp_up();
+        y.clean_up();
     } else { // the dense version
         solve_U_y(y_orig.m_data);
         add_delta_to_solution(y_orig.m_data, y.m_data);
-        y.restore_index_and_clp_from_data();
+        y.restore_index_and_clean_from_data();
     }
     lp_assert(y.is_OK());
 }

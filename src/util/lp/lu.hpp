@@ -430,7 +430,7 @@ void lu<T, X>::solve_yB_with_error_check_indexed(indexed_vector<T> & y, const ve
             solve_yB_indexed(y);
         } else {
             solve_yB(y.m_data);
-            y.restore_index_and_clp_from_data();
+            y.restore_index_and_clean_from_data();
         }
         return;
     }
@@ -444,7 +444,7 @@ void lu<T, X>::solve_yB_with_error_check_indexed(indexed_vector<T> & y, const ve
             find_error_of_yB(m_y_copy.m_data, y.m_data, basis);
             solve_yB(m_y_copy.m_data);
             add_delta_to_solution(m_y_copy.m_data, y.m_data);
-            y.restore_index_and_clp_from_data();
+            y.restore_index_and_clean_from_data();
             m_y_copy.clear_all();
         } else {
             find_error_of_yB_indexed(y, heading, settings); // this works with m_y_copy
@@ -454,7 +454,7 @@ void lu<T, X>::solve_yB_with_error_check_indexed(indexed_vector<T> & y, const ve
         lp_assert(m_y_copy.is_OK());
     } else {
         solve_yB_with_error_check(y.m_data, basis);
-        y.restore_index_and_clp_from_data();
+        y.restore_index_and_clean_from_data();
     }
 }
 
@@ -909,7 +909,7 @@ void lu<T, X>::calculate_Lwave_Pwave_for_bump(unsigned replaced_column, unsigned
     if (replaced_column < lowest_row_of_the_bump) {
         diagonal_elem = m_row_eta_work_vector[lowest_row_of_the_bump];
         //          lp_assert(m_row_eta_work_vector.is_OK());
-        m_U.set_row_from_work_vector_and_clp_work_vector_not_adjusted(m_U.adjust_row(lowest_row_of_the_bump), m_row_eta_work_vector, m_settings);
+        m_U.set_row_from_work_vector_and_clean_work_vector_not_adjusted(m_U.adjust_row(lowest_row_of_the_bump), m_row_eta_work_vector, m_settings);
     } else {
         diagonal_elem = m_U(lowest_row_of_the_bump, lowest_row_of_the_bump); // todo - get it more efficiently
     }

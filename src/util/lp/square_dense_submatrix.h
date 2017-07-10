@@ -202,7 +202,7 @@ public:
                 }
             }
         }
-        m_work_vector.clp_up();
+        m_work_vector.clean_up();
         lp_assert(m_work_vector.is_OK());
         w = m_work_vector;
 #endif

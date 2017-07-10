@@ -208,7 +208,7 @@ public:
     
     void scan_row_to_work_vector(unsigned i);
 
-    void clp_row_work_vector(unsigned i);
+    void clean_row_work_vector(unsigned i);
 
 
 #ifdef Z3DEBUG
