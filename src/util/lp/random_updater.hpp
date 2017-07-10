@@ -51,7 +51,7 @@ random_updater::interval random_updater::get_interval_of_non_basic_var(unsigned 
         ret.set_upper_bound(m_core_solver.m_r_upper_bounds[j]);
         break;
     default:
-        SASSERT(false);
+        lp_assert(false);
     }
     return ret;
 }
@@ -59,15 +59,15 @@ random_updater::interval random_updater::get_interval_of_non_basic_var(unsigned 
 void random_updater::diminish_interval_for_basic_var(numeric_pair<mpq>& nb_x, unsigned j,
                                                      mpq & a,
                                                      interval & r) {
-    SASSERT(m_core_solver.m_r_heading[j] >= 0);
+    lp_assert(m_core_solver.m_r_heading[j] >= 0);
     numeric_pair<mpq> delta;
-    SASSERT(a != zero_of_type<mpq>());
+    lp_assert(a != zero_of_type<mpq>());
     switch (m_core_solver.get_column_type(j)) {
     case column_type::free_column:
         break;
     case column_type::low_bound:
         delta = m_core_solver.m_r_x[j] - m_core_solver.m_r_low_bounds[j];
-        SASSERT(delta >= zero_of_type<numeric_pair<mpq>>());
+        lp_assert(delta >= zero_of_type<numeric_pair<mpq>>());
         if (a > 0) {
             r.set_upper_bound(nb_x + delta / a);
         } else {
@@ -76,7 +76,7 @@ void random_updater::diminish_interval_for_basic_var(numeric_pair<mpq>& nb_x, un
         break;
     case column_type::upper_bound:
         delta = m_core_solver.m_r_upper_bounds()[j] - m_core_solver.m_r_x[j];
-        SASSERT(delta >= zero_of_type<numeric_pair<mpq>>());
+        lp_assert(delta >= zero_of_type<numeric_pair<mpq>>());
         if (a > 0) {
             r.set_low_bound(nb_x - delta / a);
         } else {
@@ -86,17 +86,17 @@ void random_updater::diminish_interval_for_basic_var(numeric_pair<mpq>& nb_x, un
     case column_type::boxed:
         if (a > 0) {
             delta = m_core_solver.m_r_x[j] - m_core_solver.m_r_low_bounds[j];
-            SASSERT(delta >= zero_of_type<numeric_pair<mpq>>());
+            lp_assert(delta >= zero_of_type<numeric_pair<mpq>>());
             r.set_upper_bound(nb_x + delta / a);
             delta = m_core_solver.m_r_upper_bounds()[j] - m_core_solver.m_r_x[j];
-            SASSERT(delta >= zero_of_type<numeric_pair<mpq>>());
+            lp_assert(delta >= zero_of_type<numeric_pair<mpq>>());
             r.set_low_bound(nb_x - delta / a);
         } else { // a < 0
             delta = m_core_solver.m_r_upper_bounds()[j] - m_core_solver.m_r_x[j];
-            SASSERT(delta >= zero_of_type<numeric_pair<mpq>>());
+            lp_assert(delta >= zero_of_type<numeric_pair<mpq>>());
             r.set_upper_bound(nb_x - delta / a);
             delta = m_core_solver.m_r_x[j] - m_core_solver.m_r_low_bounds[j];
-            SASSERT(delta >= zero_of_type<numeric_pair<mpq>>());
+            lp_assert(delta >= zero_of_type<numeric_pair<mpq>>());
             r.set_low_bound(nb_x + delta / a);
         }
         break;
@@ -105,7 +105,7 @@ void random_updater::diminish_interval_for_basic_var(numeric_pair<mpq>& nb_x, un
           r.set_upper_bound(nb_x);
           break;
     default:
-        SASSERT(false);
+        lp_assert(false);
     }
 }
 
@@ -128,15 +128,15 @@ random_updater::interval random_updater::find_shift_interval(unsigned j) {
 }
 
 void random_updater::shift_var(unsigned j, interval & r) {
-    SASSERT(r.contains(m_core_solver.m_r_x[j]));
-    SASSERT(m_core_solver.m_r_solver.column_is_feasible(j));
+    lp_assert(r.contains(m_core_solver.m_r_x[j]));
+    lp_assert(m_core_solver.m_r_solver.column_is_feasible(j));
     auto old_x = m_core_solver.m_r_x[j];
     remove_value(old_x);
     auto new_val = m_core_solver.m_r_x[j] = get_random_from_interval(r);
     add_value(new_val);
 
-    SASSERT(r.contains(m_core_solver.m_r_x[j]));
-    SASSERT(m_core_solver.m_r_solver.column_is_feasible(j));
+    lp_assert(r.contains(m_core_solver.m_r_x[j]));
+    lp_assert(m_core_solver.m_r_solver.column_is_feasible(j));
     auto delta = m_core_solver.m_r_x[j] - old_x;
    
     unsigned i;
@@ -145,9 +145,9 @@ void random_updater::shift_var(unsigned j, interval & r) {
     while(m_column_j->next(a, i)) {
         unsigned bj = m_core_solver.m_r_basis[i];
         m_core_solver.m_r_x[bj] -= a * delta;
-        SASSERT(m_core_solver.m_r_solver.column_is_feasible(bj));
+        lp_assert(m_core_solver.m_r_solver.column_is_feasible(bj));
     }
-    SASSERT(m_core_solver.m_r_solver.A_mult_x_is_off() == false);
+    lp_assert(m_core_solver.m_r_solver.A_mult_x_is_off() == false);
 }
 
 numeric_pair<mpq> random_updater::get_random_from_interval(interval & r) {
@@ -158,7 +158,7 @@ numeric_pair<mpq> random_updater::get_random_from_interval(interval & r) {
         return r.low_bound + numeric_pair<mpq>(rand % range, 0);
     if ((!r.low_bound_is_set) && r.upper_bound_is_set)
         return r.upper_bound - numeric_pair<mpq>(rand % range, 0);
-    SASSERT(r.low_bound_is_set && r.upper_bound_is_set);
+    lp_assert(r.low_bound_is_set && r.upper_bound_is_set);
     return r.low_bound + (rand % range) * (r.upper_bound - r.low_bound)/ range;
 }
 
@@ -198,7 +198,7 @@ void random_updater::add_value(numeric_pair<mpq>& v) {
 
 void random_updater::remove_value(numeric_pair<mpq>& v) {
     std::unordered_map<numeric_pair<mpq>, unsigned>::iterator it = m_values.find(v);
-    SASSERT(it != m_values.end());
+    lp_assert(it != m_values.end());
     it->second--;
     if (it->second == 0)
         m_values.erase((std::unordered_map<numeric_pair<mpq>, unsigned>::const_iterator)it);

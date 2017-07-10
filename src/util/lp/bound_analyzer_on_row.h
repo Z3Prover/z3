@@ -106,11 +106,11 @@ public :
     }
 
     const impq & ub(unsigned j) const {
-        SASSERT(upper_bound_is_available(j));
+        lp_assert(upper_bound_is_available(j));
         return m_bp.get_upper_bound(j);
     }
     const impq & lb(unsigned j) const {
-        SASSERT(low_bound_is_available(j));
+        lp_assert(low_bound_is_available(j));
         return m_bp.get_low_bound(j);
     }
 
@@ -168,7 +168,7 @@ public :
     void limit_all_monoids_from_above() {
         int strict = 0;
         mpq total;
-        SASSERT(is_zero(total));
+        lp_assert(is_zero(total));
         m_it.reset();
         mpq a; unsigned j;
         while (m_it.next(a, j)) {
@@ -195,7 +195,7 @@ public :
     void limit_all_monoids_from_below() {
         int strict = 0;
         mpq total;
-        SASSERT(is_zero(total));
+        lp_assert(is_zero(total));
         m_it.reset();
         mpq a; unsigned j;
         while (m_it.next(a, j)) {
@@ -287,7 +287,7 @@ public :
     //     mpq a; unsigned j;
     //     while (it->next(a, j)) {
     //         if (be.m_j == j) continue;
-    //         SASSERT(bound_is_available(j, is_neg(a) ? low_bound : !low_bound));
+    //         lp_assert(bound_is_available(j, is_neg(a) ? low_bound : !low_bound));
     //         be.m_vector_of_bound_signatures.emplace_back(a, j, numeric_traits<impq>::
     //                                                      is_neg(a)? low_bound: !low_bound);
     //     }

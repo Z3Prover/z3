@@ -35,7 +35,7 @@ public:
         unsigned m_i;
     public:
         ref(stacked_vector<B> &m, unsigned key) :m_vec(m), m_i(key) {
-            SASSERT(key < m.size());
+            lp_assert(key < m.size());
         }
         ref & operator=(const B & b) {
             m_vec.emplace_replace(m_i, b);
@@ -59,7 +59,7 @@ public:
         unsigned m_i;
     public:
         ref_const(const stacked_vector<B> &m, unsigned key) :m_vec(m), m_i(key) {
-            SASSERT(key < m.size());
+            lp_assert(key < m.size());
         }
  
         operator const B&() const {
@@ -87,7 +87,7 @@ public:
 
     /*
     const B & operator[](unsigned a) const {
-        SASSERT(a < m_vector.size());
+        lp_assert(a < m_vector.size());
         return m_vector[a];
     }
     */    
@@ -106,10 +106,10 @@ public:
     }
 
     template <typename T>  
-    void pop_tail(vector<T> & v, unsigned k) {
-        SASSERT(v.size() >= k);
-        v.resize(v.size() - k);
-    }
+	void pop_tail(vector<T> & v, unsigned k) {
+		lp_assert(v.size() >= k);
+		v.resize(v.size() - k);
+	}
 
     template <typename T>  
     void resize(vector<T> & v, unsigned new_size) {
@@ -117,8 +117,8 @@ public:
     }
     
     void pop(unsigned k) {
-        SASSERT(m_stack_of_vector_sizes.size() >= k);
-        SASSERT(k > 0);
+        lp_assert(m_stack_of_vector_sizes.size() >= k);
+        lp_assert(k > 0);
         resize(m_vector, m_stack_of_vector_sizes[m_stack_of_vector_sizes.size() - k]);
         pop_tail(m_stack_of_vector_sizes, k);
         unsigned first_change = m_stack_of_change_sizes[m_stack_of_change_sizes.size() - k];
@@ -138,15 +138,15 @@ public:
                 return;
             
             delta & d = m_stack.back();
-            SASSERT(m_vector.size() >= d.m_size);
+            lp_assert(m_vector.size() >= d.m_size);
             while (m_vector.size() > d.m_size)
                 m_vector.pop_back();
             
             for (auto & t : d.m_original_changed) {
-                SASSERT(t.first < m_vector.size());
+                lp_assert(t.first < m_vector.size());
                 m_vector[t.first] = t.second;
             }
-            //            SASSERT(d.m_deb_copy == m_vector);
+            //            lp_assert(d.m_deb_copy == m_vector);
             m_stack.pop_back();*/
     }   
 
@@ -175,10 +175,10 @@ public:
         m_vector.resize(m_vector.size() + 1);
     }
 
-    unsigned peek_size(unsigned k) const {
-        SASSERT(k > 0 && k <= m_stack_of_vector_sizes.size());
-        return m_stack_of_vector_sizes[m_stack_of_vector_sizes.size() - k];
-    }
+	unsigned peek_size(unsigned k) const {
+		lp_assert(k > 0 && k <= m_stack_of_vector_sizes.size());
+		return m_stack_of_vector_sizes[m_stack_of_vector_sizes.size() - k];
+	}
 
     const vector<B>& operator()() const { return m_vector; }
 };

@@ -46,7 +46,7 @@ public:
         m_scaling_maximum(scaling_maximum),
         m_column_scale(column_scale),
         m_settings(settings) {
-        SASSERT(m_column_scale.size() == 0);
+        lp_assert(m_column_scale.size() == 0);
         m_column_scale.resize(m_A.column_count(), numeric_traits<T>::one());
     }
 

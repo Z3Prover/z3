@@ -115,11 +115,11 @@ public:
     }
 
     T get_low_bound() const {
-        SASSERT(m_low_bound_is_set);
+        lp_assert(m_low_bound_is_set);
         return m_low_bound;
     }
     T get_upper_bound() const {
-        SASSERT(m_upper_bound_is_set);
+        lp_assert(m_upper_bound_is_set);
         return m_upper_bound;
     }
 
@@ -171,7 +171,7 @@ public:
     }
 
     T get_fixed_value() const {
-        SASSERT(m_is_fixed);
+        lp_assert(m_is_fixed);
         return m_fixed_value;
     }
 

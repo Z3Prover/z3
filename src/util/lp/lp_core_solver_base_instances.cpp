@@ -144,3 +144,4 @@ template bool lp::lp_core_solver_base<lp::mpq, lp::mpq>::inf_set_is_correct() co
 template bool lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::infeasibility_costs_are_correct() const;
 template bool lp::lp_core_solver_base<lp::mpq, lp::mpq >::infeasibility_costs_are_correct() const;
 template bool lp::lp_core_solver_base<double, double >::infeasibility_costs_are_correct() const;
+template void lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::calculate_pivot_row(unsigned int);

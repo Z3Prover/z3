@@ -208,7 +208,7 @@ public:
     
     void scan_row_to_work_vector(unsigned i);
 
-    void clean_row_work_vector(unsigned i);
+    void clp_row_work_vector(unsigned i);
 
 
 #ifdef Z3DEBUG
@@ -218,7 +218,7 @@ public:
     virtual void set_number_of_columns(unsigned /*n*/) { }
 #endif
 
-    T get_max_val_in_row(unsigned /* i */) const { SASSERT(false);   }
+    T get_max_val_in_row(unsigned /* i */) const { lp_unreachable();   }
 
     T get_balance() const;
 
@@ -234,7 +234,7 @@ public:
         for (auto & c : row) {
             unsigned j = c.m_j;
             auto & col = m_columns[j];
-            SASSERT(col[col.size() - 1].m_i == m_rows.size() -1 ); // todo : start here!!!!
+            lp_assert(col[col.size() - 1].m_i == m_rows.size() -1 ); // todo : start here!!!!
             col.pop_back();
         }
     }
@@ -261,7 +261,7 @@ public:
                 m_columns.pop_back(); // delete the last column
             m_stack.pop();
         }
-        SASSERT(is_correct());
+        lp_assert(is_correct());
     }
 
     void multiply_row(unsigned row, T const & alpha) {
@@ -277,7 +277,7 @@ public:
     }
     
     T dot_product_with_column(const vector<T> & y, unsigned j) const {
-        SASSERT(j < column_count());
+        lp_assert(j < column_count());
         T ret = numeric_traits<T>::zero();
         for (auto & it : m_columns[j]) {
             ret += y[it.m_i] * get_val(it); // get_value_of_column_cell(it);
@@ -296,20 +296,20 @@ public:
         // now fix the columns
         for (auto & rc : m_rows[i]) {
             column_cell & cc = m_columns[rc.m_j][rc.m_offset];
-            SASSERT(cc.m_i == ii);
+            lp_assert(cc.m_i == ii);
             cc.m_i = i;
         }
         for (auto & rc : m_rows[ii]) {
             column_cell & cc = m_columns[rc.m_j][rc.m_offset];
-            SASSERT(cc.m_i == i);
+            lp_assert(cc.m_i == i);
             cc.m_i = ii;
         }
     
     }
 
     void fill_last_row_with_pivoting(linear_combination_iterator<T> & it, const vector<int> & basis_heading) {
-        SASSERT(numeric_traits<T>::precise());
-        SASSERT(row_count() > 0);
+        lp_assert(numeric_traits<T>::precise());
+        lp_assert(row_count() > 0);
         m_work_vector.resize(column_count());
         T a;
         unsigned j;
@@ -347,13 +347,13 @@ public:
             alpha = zero_of_type<T>();
             m_work_vector.erase_from_index(j);
         }
-        SASSERT(m_work_vector.is_OK());
+        lp_assert(m_work_vector.is_OK());
         unsigned last_row = row_count() - 1;
     
         for (unsigned j : m_work_vector.m_index) {
             set (last_row, j, m_work_vector.m_data[j]);
         }
-        SASSERT(column_count() > 0);
+        lp_assert(column_count() > 0);
         set(last_row, column_count() - 1, one_of_type<T>());
     }
 
@@ -369,7 +369,7 @@ public:
     template <typename L>
     L dot_product_with_row(unsigned row, const vector<L> & w) const {
         L ret = zero_of_type<L>();
-        SASSERT(row < m_rows.size());
+        lp_assert(row < m_rows.size());
         for (auto & it : m_rows[row]) {
             ret += w[it.m_j] * it.get_val();
         }

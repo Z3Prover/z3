@@ -33,8 +33,8 @@ void row_eta_matrix<T, X>::apply_from_left(vector<X> & w, lp_settings &) {
         w_at_row += w[it.first] * it.second;
     }
     // w[m_row] = w_at_row;
-    // #ifdef Z3DEBUG
-    //         SASSERT(vectors_are_equal<T>(clone_w, w, m_dimension));
+    // #ifdef LEAN_DEBUG
+    //         lp_assert(vectors_are_equal<T>(clone_w, w, m_dimension));
     //         delete [] clone_w;
     // #endif
 }
@@ -58,7 +58,7 @@ void row_eta_matrix<T, X>::apply_from_left_local_to_T(indexed_vector<T> & w, lp_
         auto it = std::find(w.m_index.begin(), w.m_index.end(), m_row);
         w.m_index.erase(it);
     }
-    // TBD: SASSERT(check_vector_for_small_values(w, settings));
+    // TBD: lp_assert(check_vector_for_small_values(w, settings));
 }
 
 template <typename T, typename X>
@@ -80,7 +80,7 @@ void row_eta_matrix<T, X>::apply_from_left_local_to_X(indexed_vector<X> & w, lp_
         auto it = std::find(w.m_index.begin(), w.m_index.end(), m_row);
         w.m_index.erase(it);
     }
-    // TBD: does not compile SASSERT(check_vector_for_small_values(w, settings));
+    // TBD: does not compile lp_assert(check_vector_for_small_values(w, settings));
 }
 
 template <typename T, typename X>
@@ -95,15 +95,15 @@ void row_eta_matrix<T, X>::apply_from_right(vector<T> & w) {
     for (auto & it : m_row_vector.m_data) {
         w[it.first] += w_row * it.second;
     }
-#ifdef Z3DEBUG
-    // SASSERT(vectors_are_equal<T>(clone_w, w, m_dimension));
+#ifdef LEAN_DEBUG
+    // lp_assert(vectors_are_equal<T>(clone_w, w, m_dimension));
     // delete clone_w;
 #endif
 }
 
 template <typename T, typename X>
 void row_eta_matrix<T, X>::apply_from_right(indexed_vector<T> & w) {
-    SASSERT(w.is_OK());
+    lp_assert(w.is_OK());
     const T & w_row = w[m_row];
     if (numeric_traits<T>::is_zero(w_row)) return;
 #ifdef Z3DEBUG
@@ -144,8 +144,8 @@ void row_eta_matrix<T, X>::apply_from_right(indexed_vector<T> & w) {
             }
         }
     }
-#ifdef Z3DEBUG
-    // SASSERT(vectors_are_equal(wcopy, w.m_data));
+#ifdef LEAN_DEBUG
+    // lp_assert(vectors_are_equal(wcopy, w.m_data));
 
 #endif
 }
@@ -165,8 +165,8 @@ void row_eta_matrix<T, X>::conjugate_by_permutation(permutation_matrix<T, X> & p
         columns.push_back(it.first);
     for (unsigned i = static_cast<unsigned>(columns.size()); i-- > 0;)
         m_row_vector.m_data[i].first = p.get_rev(columns[i]);
-#ifdef Z3DEBUG
-    // SASSERT(deb == *this);
+#ifdef LEAN_DEBUG
+    // lp_assert(deb == *this);
 #endif
 }
 #ifdef Z3DEBUG
