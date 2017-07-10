@@ -1,7 +1,7 @@
 #include "util/lp/lar_solver.h"
 /*
   Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
+  Author: Nikolaj Bjorner, Lev Nachmanson
 */
 
 namespace lp {
