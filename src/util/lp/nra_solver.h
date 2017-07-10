@@ -1,6 +1,6 @@
 /*
   Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
+  Author: Nikolaj Bjorner
 */
 
 #pragma once

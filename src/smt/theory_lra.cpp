@@ -730,10 +730,10 @@ namespace smt {
             m_asserted_qhead(0), 
             m_assume_eq_head(0),
             m_num_conflicts(0),
+            m_use_nra_model(false),
             m_model_eqs(DEFAULT_HASHTABLE_INITIAL_CAPACITY, var_value_hash(*this), var_value_eq(*this)),
             m_solver(0),
-            m_resource_limit(*this),
-            m_use_nra_model(false) {
+            m_resource_limit(*this) {
         }
 
         ~imp() {
