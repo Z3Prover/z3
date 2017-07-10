@@ -1,6 +1,6 @@
 /*
   Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
+  Author: Nikolaj Bjorner, Lev Nachmanson
 */
 #pragma once
 #include "util/vector.h"
