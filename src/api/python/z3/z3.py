@@ -6054,6 +6054,24 @@ class Solver(Z3PPObject):
         """
         Z3_solver_pop(self.ctx.ref(), self.solver, num)
 
+    def num_scopes(self):
+        """Return the current number of backtracking points.
+
+        >>> s = Solver()
+        >>> s.num_scopes()
+        0L
+        >>> s.push()
+        >>> s.num_scopes()
+        1L
+        >>> s.push()
+        >>> s.num_scopes()
+        2L
+        >>> s.pop()
+        >>> s.num_scopes()
+        1L
+        """
+        return Z3_solver_get_num_scopes(self.ctx.ref(), self.solver)
+
     def reset(self):
         """Remove all asserted constraints and backtracking points created using `push()`.
 
