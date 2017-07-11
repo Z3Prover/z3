@@ -18,7 +18,7 @@ enum class lia_move {
         branch,
         cut,
         conflict,
-        bound,
+        continue_with_check,
         give_up
 };
 
@@ -36,6 +36,7 @@ public:
     unsigned m_branch_cut_counter;
     linear_combination_iterator<mpq>* m_iter_on_gomory_row;
     unsigned m_gomory_cut_inf_column;
+    bool m_found_free_var_in_gomory_row;
     // methods
     int_solver(lar_solver* lp);
     // main function to check that solution provided by lar_solver is valid for integral values,
@@ -106,5 +107,7 @@ private:
     bool constrain_free_vars(linear_combination_iterator<mpq> *  r);
     lia_move proceed_with_gomory_cut(lar_term& t, mpq& k, explanation& ex);
     int find_next_free_var_in_gomory_row();
+    bool is_gomory_cut_target();
+    bool at_bound(unsigned j) const;
 };
 }

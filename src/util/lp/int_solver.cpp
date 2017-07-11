@@ -110,13 +110,23 @@ int int_solver::find_inf_int_boxed_base_column_with_smallest_range() {
     
 }
 
-    /**
-       \brief Create bounds for (non base) free vars in the given row.
-       Return true if at least one variable was constrained.
-       This method is used to enable the application of gomory cuts.
-    */
+bool int_solver::is_gomory_cut_target() {
+    m_iter_on_gomory_row->reset();
+    unsigned j;
+    TRACE("gomory_cut", m_lar_solver->print_linear_iterator(m_iter_on_gomory_row, tout););
 
-   
+    while (m_iter_on_gomory_row->next(j)) {
+        // All non base variables must be at their bounds and assigned to rationals (that is, infinitesimals are not allowed).
+        if (j != m_gomory_cut_inf_column && (!at_bound(j) || !is_zero(get_value(j).y))) {
+            TRACE("gomory_cut", tout << "row is not gomory cut target:\n";
+                  display_column(tout, j);
+                  tout << "at_bound:      " << at_bound(j) << "\n";
+                  tout << "infinitesimal: " << !is_zero(get_value(j).y) << "\n";);
+            return false;
+        }
+    }
+    return true;
+}
 
 lia_move int_solver::mk_gomory_cut(explanation & ex) {
 
@@ -295,7 +305,7 @@ int int_solver::find_next_free_var_in_gomory_row() {
     lp_assert(m_iter_on_gomory_row != nullptr);
     unsigned j;
     while(m_iter_on_gomory_row->next(j)) {
-        if (is_free(j))
+        if (j != m_gomory_cut_inf_column && is_free(j))
             return static_cast<int>(j);
     }
     return -1;
@@ -304,11 +314,19 @@ int int_solver::find_next_free_var_in_gomory_row() {
 lia_move int_solver::proceed_with_gomory_cut(lar_term& t, mpq& k, explanation& ex) {
     int j = find_next_free_var_in_gomory_row();
     if (j != -1) {
+        m_found_free_var_in_gomory_row = true;
         lp_assert(t.is_empty());
         t.add_to_map(j, mpq(1));
         k = zero_of_type<mpq>();
-        return lia_move::bound;
+        return lia_move::branch; // branch on a free column
     }
+    if (m_found_free_var_in_gomory_row || !is_gomory_cut_target()) {
+        m_found_free_var_in_gomory_row = false;
+        delete m_iter_on_gomory_row;
+        m_iter_on_gomory_row = nullptr;
+        return lia_move::continue_with_check;
+    }
+
     delete m_iter_on_gomory_row;
     m_iter_on_gomory_row = nullptr;
     return mk_gomory_cut(ex);
@@ -317,7 +335,9 @@ lia_move int_solver::proceed_with_gomory_cut(lar_term& t, mpq& k, explanation& e
 
 lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
     if (m_iter_on_gomory_row != nullptr) {
-        return proceed_with_gomory_cut(t, k, ex);
+        auto ret = proceed_with_gomory_cut(t, k, ex);
+        if (ret != lia_move::continue_with_check)
+            return ret;
     }
 
 	init_check_data();
@@ -343,7 +363,7 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
         return lia_move::ok;
         
 
-    if ((++m_branch_cut_counter) % settings().m_int_branch_cut_threshold == 0) {
+    if (true || (++m_branch_cut_counter) % settings().m_int_branch_cut_threshold == 0) {
         move_non_base_vars_to_bounds();
         lp_status st = m_lar_solver->find_feasible_solution();
         if (st != lp_status::FEASIBLE && st != lp_status::OPTIMAL) {
@@ -641,7 +661,8 @@ linear_combination_iterator<mpq> * int_solver::get_column_iterator(unsigned j) {
 int_solver::int_solver(lar_solver* lar_slv) :
     m_lar_solver(lar_slv),
     m_branch_cut_counter(0),
-    m_iter_on_gomory_row(nullptr) {
+    m_iter_on_gomory_row(nullptr),
+    m_found_free_var_in_gomory_row(false) {
     lp_assert(m_old_values_set.size() == 0);
     m_old_values_set.resize(lar_slv->A_r().column_count());
     m_old_values_data.resize(lar_slv->A_r().column_count(), zero_of_type<impq>());    
@@ -831,6 +852,23 @@ bool int_solver::is_boxed(unsigned j) const {
 bool int_solver::is_free(unsigned j) const {
     return m_lar_solver->m_mpq_lar_core_solver.m_column_types[j] == column_type::free_column;
 }
+
+bool int_solver::at_bound(unsigned j) const {
+    auto & mpq_solver = m_lar_solver->m_mpq_lar_core_solver.m_r_solver;
+    switch (mpq_solver.m_column_types[j] ) {
+    case column_type::boxed:
+        return
+            mpq_solver.m_low_bounds[j] == get_value(j) ||
+            mpq_solver.m_upper_bounds[j] == get_value(j);
+    case column_type::low_bound:
+        return mpq_solver.m_low_bounds[j] == get_value(j);
+    case column_type::upper_bound:
+        return  mpq_solver.m_upper_bounds[j] == get_value(j);
+    default:
+        return false;
+    }
+}
+
 
 
 lp_settings& int_solver::settings() {
