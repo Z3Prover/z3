@@ -1259,6 +1259,11 @@ namespace smt {
                 // SAT core assigns a value to
                 return l_false;
             }
+            case lp::lia_move::bound: {
+                // todo nikolaj
+                // Need to set a bound >= k on the only  var from the term
+                return l_false;
+            }
             case lp::lia_move::cut: {
                 // m_explanation implies term <= k
                 app_ref b = mk_bound(term, k);
