@@ -39,24 +39,26 @@ void int_solver::failed() {
 }
 
 void int_solver::trace_inf_rows() const {
-    unsigned num = m_lar_solver->A_r().column_count();
-    for (unsigned v = 0; v < num; v++) {
-        if (is_int(v) && !get_value(v).is_int()) {
-            display_column(tout, v);
-        }
-    }
+    TRACE("arith_int_rows",
+          unsigned num = m_lar_solver->A_r().column_count();
+          for (unsigned v = 0; v < num; v++) {
+              if (is_int(v) && !get_value(v).is_int()) {
+                  display_column(tout, v);
+              }
+          }
     
-    num = 0;
-    for (unsigned i = 0; i < m_lar_solver->A_r().row_count(); i++) {
-        unsigned j = m_lar_solver->m_mpq_lar_core_solver.m_r_basis[i];
-        if (column_is_int_inf(j)) {
-            num++;
-            iterator_on_row<mpq> it(m_lar_solver->A_r().m_rows[i]);
-            m_lar_solver->print_linear_iterator(&it, tout);
-            tout << "\n";
-        }
-    }
-    tout << "num of int infeasible: " << num << "\n";
+          num = 0;
+          for (unsigned i = 0; i < m_lar_solver->A_r().row_count(); i++) {
+              unsigned j = m_lar_solver->m_mpq_lar_core_solver.m_r_basis[i];
+              if (column_is_int_inf(j)) {
+                  num++;
+                  iterator_on_row<mpq> it(m_lar_solver->A_r().m_rows[i]);
+                  m_lar_solver->print_linear_iterator(&it, tout);
+                  tout << "\n";
+              }
+          }
+          tout << "num of int infeasible: " << num << "\n";
+          );
 }
 
 int int_solver::find_inf_int_base_column() {

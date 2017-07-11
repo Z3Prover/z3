@@ -368,7 +368,6 @@ void lar_solver::pop(unsigned k) {
     unsigned m = A_r().row_count();
     clean_popped_elements(m, m_rows_with_changed_bounds);
     clean_inf_set_of_r_solver_after_pop();
-    m_status = m_mpq_lar_core_solver.m_r_solver.current_x_is_feasible()? lp_status::OPTIMAL: lp_status::UNKNOWN;
     lp_assert(m_settings.simplex_strategy() == simplex_strategy_enum::undecided ||
                 (!use_tableau()) || m_mpq_lar_core_solver.m_r_solver.reduced_costs_are_correct_tableau());
         
@@ -389,6 +388,8 @@ void lar_solver::pop(unsigned k) {
     m_settings.simplex_strategy() = m_simplex_strategy;
     lp_assert(sizes_are_correct());
     lp_assert((!m_settings.use_tableau()) || m_mpq_lar_core_solver.m_r_solver.reduced_costs_are_correct_tableau());
+    m_status = m_mpq_lar_core_solver.m_r_solver.current_x_is_feasible()? lp_status::OPTIMAL: lp_status::UNKNOWN;
+
 }
     
 vector<constraint_index> lar_solver::get_all_constraint_indices() const {
@@ -1139,9 +1140,11 @@ void lar_solver::get_model(std::unordered_map<var_index, mpq> & variable_values)
 }
 
 void lar_solver::get_model_do_not_care_about_diff_vars(std::unordered_map<var_index, mpq> & variable_values) const {
+    mpq delta = mpq(1);
+    delta = m_mpq_lar_core_solver.find_delta_for_strict_bounds(delta);
     for (unsigned i = 0; i < m_mpq_lar_core_solver.m_r_x.size(); i++ ) {
         const impq & rp = m_mpq_lar_core_solver.m_r_x[i];
-        variable_values[i] = rp.x + rp.y;
+        variable_values[i] = rp.x + delta * rp.y;
     }
 }
 
