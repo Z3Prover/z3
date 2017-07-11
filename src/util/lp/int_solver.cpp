@@ -110,26 +110,21 @@ int int_solver::find_inf_int_boxed_base_column_with_smallest_range() {
     
 }
 
-bool int_solver::mk_gomory_cut(unsigned row_index, explanation & ex) {
+    /**
+       \brief Create bounds for (non base) free vars in the given row.
+       Return true if at least one variable was constrained.
+       This method is used to enable the application of gomory cuts.
+    */
 
-    auto row_it = m_lar_solver->get_iterator_on_row(row_index);
+   
+
+lia_move int_solver::mk_gomory_cut(explanation & ex) {
+
+    lp_assert(column_is_int_inf(m_gomory_cut_inf_column));
+
+    return lia_move::give_up;
     
-    unsigned x_i = m_lar_solver->get_base_column_in_row(row_index);
-
-    lp_assert(column_is_int_inf(x_i));
     /*
-    SASSERT(is_int(x_i));
-    // The following assertion is wrong. It may be violated in mixed-real-interger problems.
-    // The check is_gomory_cut_target will discard rows where any variable contains infinitesimals.
-    // SASSERT(m_value[x_i].is_rational()); // infinitesimals are not used for integer variables
-    SASSERT(!m_value[x_i].is_int());     // the base variable is not assigned to an integer value.
-
-    if (constrain_free_vars(r) || !is_gomory_cut_target(r)) {
-        TRACE("gomory_cut", tout << "failed to apply gomory cut:\n";
-              tout << "constrain_free_vars(r):  " << constrain_free_vars(r) << "\n";);
-        return false;
-    }
-
     TRACE("gomory_cut", tout << "applying cut at:\n"; display_row_info(tout, r););
         
     antecedents ante(*this);
@@ -287,9 +282,6 @@ bool int_solver::mk_gomory_cut(unsigned row_index, explanation & ex) {
                                                                 ante.eqs().size(), ante.eqs().c_ptr(), ante, l)));
     return true;
     */
-    delete row_it;
-    return true;
-
 }
 
 void int_solver::init_check_data() {
@@ -299,9 +291,35 @@ void int_solver::init_check_data() {
 	m_old_values_data.resize(n);
 }
 
+int int_solver::find_next_free_var_in_gomory_row() {
+    lp_assert(m_iter_on_gomory_row != nullptr);
+    unsigned j;
+    while(m_iter_on_gomory_row->next(j)) {
+        if (is_free(j))
+            return static_cast<int>(j);
+    }
+    return -1;
+}
+
+lia_move int_solver::proceed_with_gomory_cut(lar_term& t, mpq& k, explanation& ex) {
+    int j = find_next_free_var_in_gomory_row();
+    if (j != -1) {
+        lp_assert(t.is_empty());
+        t.add_to_map(j, mpq(1));
+        k = zero_of_type<mpq>();
+        return lia_move::bound;
+    }
+    delete m_iter_on_gomory_row;
+    m_iter_on_gomory_row = nullptr;
+    return mk_gomory_cut(ex);
+ }
+
+
 lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
-	lp_assert(m_lar_solver->m_mpq_lar_core_solver.r_basis_is_OK());
-	lp_assert(is_feasible());
+    if (m_iter_on_gomory_row != nullptr) {
+        return proceed_with_gomory_cut(t, k, ex);
+    }
+
 	init_check_data();
     lp_assert(inf_int_set_is_correct());
     // currently it is a reimplementation of
@@ -333,13 +351,12 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
         }
         int j = find_inf_int_base_column();
         if (j != -1) {
+            // setup the call for gomory cut
             TRACE("arith_int", tout << "j = " << j << " does not have an integer assignment: " << get_value(j) << "\n";);
             unsigned row_index = m_lar_solver->m_mpq_lar_core_solver.m_r_heading[j];
-            if (!mk_gomory_cut(row_index, ex)) {
-                return lia_move::give_up;
-                // silent failure
-            }
-            return lia_move::cut;
+            m_iter_on_gomory_row = m_lar_solver->get_iterator_on_row(row_index);
+            m_gomory_cut_inf_column = j;
+            return check(t, k, ex);
         }
     }
     else {
@@ -623,7 +640,8 @@ linear_combination_iterator<mpq> * int_solver::get_column_iterator(unsigned j) {
 
 int_solver::int_solver(lar_solver* lar_slv) :
     m_lar_solver(lar_slv),
-    m_branch_cut_counter(0) {
+    m_branch_cut_counter(0),
+    m_iter_on_gomory_row(nullptr) {
     lp_assert(m_old_values_set.size() == 0);
     m_old_values_set.resize(lar_slv->A_r().column_count());
     m_old_values_data.resize(lar_slv->A_r().column_count(), zero_of_type<impq>());    
@@ -809,6 +827,11 @@ bool int_solver::is_base(unsigned j) const {
 bool int_solver::is_boxed(unsigned j) const {
     return m_lar_solver->m_mpq_lar_core_solver.m_column_types[j] == column_type::boxed;
 }
+
+bool int_solver::is_free(unsigned j) const {
+    return m_lar_solver->m_mpq_lar_core_solver.m_column_types[j] == column_type::free_column;
+}
+
 
 lp_settings& int_solver::settings() {
     return m_lar_solver->settings();

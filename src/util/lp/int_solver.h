@@ -18,6 +18,7 @@ enum class lia_move {
         branch,
         cut,
         conflict,
+        bound,
         give_up
 };
 
@@ -33,6 +34,8 @@ public:
     vector<impq> m_old_values_data;
     int_set m_inf_int_set;
     unsigned m_branch_cut_counter;
+    linear_combination_iterator<mpq>* m_iter_on_gomory_row;
+    unsigned m_gomory_cut_inf_column;
     // methods
     int_solver(lar_solver* lp);
     // main function to check that solution provided by lar_solver is valid for integral values,
@@ -80,6 +83,7 @@ private:
     bool is_int(unsigned j) const;
     bool is_base(unsigned j) const;
     bool is_boxed(unsigned j) const;
+    bool is_free(unsigned j) const;
     bool value_is_int(unsigned j) const;
     void set_value_for_nbasic_column(unsigned j, const impq & new_val);
     void fix_non_base_columns();
@@ -97,7 +101,10 @@ private:
     lp_settings& settings();
     void move_non_base_vars_to_bounds();
     void branch_infeasible_int_var(unsigned);
-    bool mk_gomory_cut(unsigned row_index, explanation & ex);
+    lia_move mk_gomory_cut(explanation & ex);
 	void init_check_data();
+    bool constrain_free_vars(linear_combination_iterator<mpq> *  r);
+    lia_move proceed_with_gomory_cut(lar_term& t, mpq& k, explanation& ex);
+    int find_next_free_var_in_gomory_row();
 };
 }
