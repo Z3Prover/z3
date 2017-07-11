@@ -4664,7 +4664,19 @@ namespace smt {
         if (!tha) {
             return false;
         }
-        TRACE("str", tout << "checking eqc of " << mk_pp(e, m) << " for arithmetic value" << std::endl;);
+
+        // first query theory_arith directly
+
+        expr_ref ival(m);
+        if (ctx.e_internalized(e) && tha->get_value(ctx.get_enode(e), ival)
+                && m_autil.is_numeral(ival, val) && val.is_int()) {
+            TRACE("str", tout << "theory_arith: " << mk_pp(e, m) << " = " << val << std::endl;);
+            return true;
+        }
+
+        // if this fails, fall back to checking eqc
+
+        TRACE("str", tout << "no result in theory_arith! checking eqc of " << mk_pp(e, m) << " for arithmetic value" << std::endl;);
         expr_ref _val(m);
         enode * en_e = ctx.get_enode(e);
         enode * it = en_e;
