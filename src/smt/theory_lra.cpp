@@ -1261,7 +1261,7 @@ namespace smt {
             }
             case lp::lia_move::bound: {
                 // todo nikolaj
-                // Need to set a bound >= k on the only  var from the term
+                // Need to set a bound x[j] >= k where j is the only  var from the term
                 return l_false;
             }
             case lp::lia_move::cut: {
