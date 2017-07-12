@@ -421,7 +421,7 @@ typedef enum
      It has the same semantics as Z3_OP_BUREM, but created in a context where the second operand can be assumed to be non-zero.
 
    - Z3_OP_BSMOD_I: Binary signed modulus.
-     It has the same semantics as Z3_OP_BSMOND, but created in a context where the second operand can be assumed to be non-zero.
+     It has the same semantics as Z3_OP_BSMOD, but created in a context where the second operand can be assumed to be non-zero.
 
    - Z3_OP_PR_UNDEF: Undef/Null proof object.
 
