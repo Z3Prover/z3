@@ -5,6 +5,7 @@
 
 #include "util/lp/int_solver.h"
 #include "util/lp/lar_solver.h"
+#include "util/lp/antecedents.h"
 namespace lp {
 
 void int_solver::fix_non_base_columns() {
@@ -128,108 +129,107 @@ bool int_solver::is_gomory_cut_target() {
     return true;
 }
 
+
+void int_solver::is_real_case_in_gomory_cut(const mpq & a, unsigned x_j, mpq & k, buffer<row_entry> & pol) {
+    mpq f_0  = fractional_part(get_value(m_gomory_cut_inf_column));
+    mpq new_a;
+    if (at_lower(x_j)) {
+        if (a.is_pos()) {
+            new_a  =  a / (mpq(1) - f_0);
+        }
+        else {
+            new_a  =  a / f_0;
+            new_a.neg();
+        }
+        k += lower_bound(x_j).x * k;  // k.addmul(new_a, lower_bound(x_j).x); // is it a faster operation
+        //        lower(x_j)->push_justification(ante, new_a, coeffs_enabled());*/
+    }
+    else {
+        lp_assert(at_upper(x_j));
+        if (a.is_pos()) {
+            new_a =   a / f_0; 
+            new_a.neg(); // the upper terms are inverted.
+        }
+        else {
+            new_a =   a / (mpq(1) - f_0); 
+        }
+        k += upper_bound(x_j).x * k; // k.addmul(new_a, upper_bound(x_j).get_rational());
+        //        upper(x_j)->push_justification(ante, new_a, coeffs_enabled());*/
+    }
+    TRACE("gomory_cut_detail", tout << a << "*v" << x_j << " k: " << k << "\n";);
+    pol.push_back(row_entry(new_a, x_j));
+}
+void int_solver::int_case_in_gomory_cut(const mpq & a, unsigned x_j, mpq & k, buffer<row_entry> & pol) {
+    /*
+    ++num_ints;
+    SASSERT(is_int(x_j));
+    mpq f_j = Ext::fractional_part(a);
+    TRACE("gomory_cut_detail", 
+          tout << a << "*v" << x_j << "\n";
+          tout << "fractional_part: " << Ext::fractional_part(a) << "\n";
+          tout << "f_j: " << f_j << "\n";
+          tout << "f_0: " << f_0 << "\n";
+          tout << "one_minus_f_0: " << one_minus_f_0 << "\n";);
+    if (!f_j.is_zero()) {
+        mpq new_a;
+        if (at_lower(x_j)) {
+            if (f_j <= one_minus_f_0) {
+                new_a = f_j / one_minus_f_0;
+            }
+            else {
+                new_a = (mpq(1) - f_j) / f_0;
+            }
+            k.addmul(new_a, lower_bound(x_j).get_rational());
+            lower(x_j)->push_justification(ante, new_a, coeffs_enabled());
+        }
+        else {
+            SASSERT(at_upper(x_j));
+            if (f_j <= f_0) {
+                new_a = f_j / f_0;
+            }
+            else {
+                new_a = (mpq(1) - f_j) / one_minus_f_0;
+            }
+            new_a.neg(); // the upper terms are inverted
+            k.addmul(new_a, upper_bound(x_j).get_rational());
+            upper(x_j)->push_justification(ante, new_a, coeffs_enabled());
+        }
+        TRACE("gomory_cut_detail", tout << "new_a: " << new_a << " k: " << k << "\n";);
+        pol.push_back(row_entry(new_a, x_j));
+        lcm_den = lcm(lcm_den, denominator(new_a));
+        }*/
+}
+
 lia_move int_solver::mk_gomory_cut(explanation & ex) {
 
     lp_assert(column_is_int_inf(m_gomory_cut_inf_column));
 
-    return lia_move::give_up;
-    
-    /*
-    TRACE("gomory_cut", tout << "applying cut at:\n"; display_row_info(tout, r););
+    TRACE("gomory_cut", tout << "applying cut at:\n"; m_lar_solver->print_linear_iterator(m_iter_on_gomory_row, tout); tout << "\n";);
         
-    antecedents ante(*this);
-
-    m_stats.m_gomory_cuts++;
-
+    antecedents ante();
     // gomory will be   pol >= k
-    numeral k(1);
+    mpq k(1);
     buffer<row_entry> pol;
-        
-    numeral f_0  = Ext::fractional_part(m_value[x_i]);
-    numeral one_minus_f_0 = numeral(1) - f_0; 
-    SASSERT(!f_0.is_zero());
-    SASSERT(!one_minus_f_0.is_zero());
-        
-    numeral lcm_den(1);
+       
+    mpq f_0  = fractional_part(get_value(m_gomory_cut_inf_column));
+    mpq one_minus_f_0 = mpq(1) - f_0;
+    lp_assert(!is_zero(f_0) && !is_zero(one_minus_f_0));
+    mpq lcm_den(1);
     unsigned num_ints = 0;
+    unsigned x_j;
+    mpq a;
 
-    typename vector<row_entry>::const_iterator it  = r.begin_entries();
-    typename vector<row_entry>::const_iterator end = r.end_entries();
-    for (; it != end; ++it) {
-        if (!it->is_dead() && it->m_var != x_i) {
-            theory_var x_j   = it->m_var;
-            numeral a_ij = it->m_coeff;
-            a_ij.neg();  // make the used format compatible with the format used in: Integrating Simplex with DPLL(T)
-            if (is_real(x_j)) {
-                numeral new_a_ij;
-                if (at_lower(x_j)) {
-                    if (a_ij.is_pos()) {
-                        new_a_ij  =  a_ij / one_minus_f_0;
-                    }
-                    else {
-                        new_a_ij  =  a_ij / f_0;
-                        new_a_ij.neg();
-                    }
-                    k.addmul(new_a_ij, lower_bound(x_j).get_rational());
-                    lower(x_j)->push_justification(ante, new_a_ij, coeffs_enabled());
-                }
-                else {
-                    SASSERT(at_upper(x_j));
-                    if (a_ij.is_pos()) {
-                        new_a_ij =   a_ij / f_0; 
-                        new_a_ij.neg(); // the upper terms are inverted.
-                    }
-                    else {
-                        new_a_ij =   a_ij / one_minus_f_0; 
-                    }
-                    k.addmul(new_a_ij, upper_bound(x_j).get_rational());
-                    upper(x_j)->push_justification(ante, new_a_ij, coeffs_enabled());
-                }
-                TRACE("gomory_cut_detail", tout << a_ij << "*v" << x_j << " k: " << k << "\n";);
-                pol.push_back(row_entry(new_a_ij, x_j));
-            }
-            else {
-                ++num_ints;
-                SASSERT(is_int(x_j));
-                numeral f_j = Ext::fractional_part(a_ij);
-                TRACE("gomory_cut_detail", 
-                      tout << a_ij << "*v" << x_j << "\n";
-                      tout << "fractional_part: " << Ext::fractional_part(a_ij) << "\n";
-                      tout << "f_j: " << f_j << "\n";
-                      tout << "f_0: " << f_0 << "\n";
-                      tout << "one_minus_f_0: " << one_minus_f_0 << "\n";);
-                if (!f_j.is_zero()) {
-                    numeral new_a_ij;
-                    if (at_lower(x_j)) {
-                        if (f_j <= one_minus_f_0) {
-                            new_a_ij = f_j / one_minus_f_0;
-                        }
-                        else {
-                            new_a_ij = (numeral(1) - f_j) / f_0;
-                        }
-                        k.addmul(new_a_ij, lower_bound(x_j).get_rational());
-                        lower(x_j)->push_justification(ante, new_a_ij, coeffs_enabled());
-                    }
-                    else {
-                        SASSERT(at_upper(x_j));
-                        if (f_j <= f_0) {
-                            new_a_ij = f_j / f_0;
-                        }
-                        else {
-                            new_a_ij = (numeral(1) - f_j) / one_minus_f_0;
-                        }
-                        new_a_ij.neg(); // the upper terms are inverted
-                        k.addmul(new_a_ij, upper_bound(x_j).get_rational());
-                        upper(x_j)->push_justification(ante, new_a_ij, coeffs_enabled());
-                    }
-                    TRACE("gomory_cut_detail", tout << "new_a_ij: " << new_a_ij << " k: " << k << "\n";);
-                    pol.push_back(row_entry(new_a_ij, x_j));
-                    lcm_den = lcm(lcm_den, denominator(new_a_ij));
-                }
-            }
-        }
+    while (m_iter_on_gomory_row->next(a, x_j)) {
+        if (x_j == m_gomory_cut_inf_column)
+            continue;
+        // make the format compatible with the format used in: Integrating Simplex with DPLL(T)
+        a.neg();  
+        if (is_real(x_j)) 
+            is_real_case_in_gomory_cut(a, x_j, k, pol);
+        else
+            int_case_in_gomory_cut(a, x_j, k, pol);
     }
-
+    /*
     CTRACE("empty_pol", pol.empty(), display_row_info(tout, r););
 
     expr_ref bound(get_manager());
@@ -276,8 +276,8 @@ lia_move int_solver::mk_gomory_cut(explanation & ex) {
                   }
                   tout << "k: " << k << "\n";);
         }
-        mk_polynomial_ge(pol.size(), pol.c_ptr(), k.to_rational(), bound);            
-    }
+        mk_polynomial_ge(pol.size(), pol.c_ptr(), k.to_rational(), bound);            */
+    /*
     TRACE("gomory_cut", tout << "new cut:\n" << bound << "\n"; ante.display(tout););
     literal l     = null_literal;
     context & ctx = get_context();
@@ -292,6 +292,7 @@ lia_move int_solver::mk_gomory_cut(explanation & ex) {
                                                                 ante.eqs().size(), ante.eqs().c_ptr(), ante, l)));
     return true;
     */
+   return lia_move::give_up;
 }
 
 void int_solver::init_check_data() {
@@ -327,9 +328,10 @@ lia_move int_solver::proceed_with_gomory_cut(lar_term& t, mpq& k, explanation& e
         return lia_move::continue_with_check;
     }
 
+    lia_move ret = mk_gomory_cut(ex);
     delete m_iter_on_gomory_row;
     m_iter_on_gomory_row = nullptr;
-    return mk_gomory_cut(ex);
+    return ret;
  }
 
 
@@ -792,6 +794,10 @@ bool int_solver::is_int(unsigned j) const {
     return m_lar_solver->column_is_int(j);
 }
 
+bool int_solver::is_real(unsigned j) const {
+    return !is_int(j);
+}
+
 bool int_solver::value_is_int(unsigned j) const {
     return m_lar_solver->m_mpq_lar_core_solver.m_r_x[j].is_int();
 }
@@ -856,6 +862,7 @@ bool int_solver::is_free(unsigned j) const {
 bool int_solver::at_bound(unsigned j) const {
     auto & mpq_solver = m_lar_solver->m_mpq_lar_core_solver.m_r_solver;
     switch (mpq_solver.m_column_types[j] ) {
+    case column_type::fixed:
     case column_type::boxed:
         return
             mpq_solver.m_low_bounds[j] == get_value(j) ||
@@ -864,6 +871,30 @@ bool int_solver::at_bound(unsigned j) const {
         return mpq_solver.m_low_bounds[j] == get_value(j);
     case column_type::upper_bound:
         return  mpq_solver.m_upper_bounds[j] == get_value(j);
+    default:
+        return false;
+    }
+}
+
+bool int_solver::at_lower(unsigned j) const {
+    auto & mpq_solver = m_lar_solver->m_mpq_lar_core_solver.m_r_solver;
+    switch (mpq_solver.m_column_types[j] ) {
+    case column_type::fixed:
+    case column_type::boxed:
+    case column_type::low_bound:
+        return mpq_solver.m_low_bounds[j] == get_value(j);
+    default:
+        return false;
+    }
+}
+
+bool int_solver::at_upper(unsigned j) const {
+    auto & mpq_solver = m_lar_solver->m_mpq_lar_core_solver.m_r_solver;
+    switch (mpq_solver.m_column_types[j] ) {
+    case column_type::fixed:
+    case column_type::boxed:
+    case column_type::upper_bound:
+        return mpq_solver.m_upper_bounds[j] == get_value(j);
     default:
         return false;
     }

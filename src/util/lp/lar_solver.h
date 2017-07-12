@@ -414,9 +414,7 @@ public:
         return v.is_int();
     }
 
-    
-    
-     bool column_is_real(unsigned j) const {
+    bool column_is_real(unsigned j) const {
         return !column_is_int(j);
     }	
 	

@@ -105,6 +105,7 @@ namespace lp_api {
         unsigned m_bound_propagations1;
         unsigned m_bound_propagations2;
         unsigned m_assert_diseq;
+        unsigned m_gomory_cuts;
         stats() { reset(); }
         void reset() {
             memset(this, 0, sizeof(*this));
@@ -1253,6 +1254,7 @@ namespace smt {
                 return l_false;
             }
             case lp::lia_move::cut: {
+                ++m_stats.m_gomory_cuts;
                 // m_explanation implies term <= k
                 app_ref b = mk_bound(term, k);
                 m_eqs.reset();

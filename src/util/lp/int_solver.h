@@ -27,6 +27,11 @@ struct explanation {
 };
 
 class int_solver {
+    struct row_entry {
+        mpq m_coeff;
+        unsigned m_var;
+        row_entry(const mpq & coeff, unsigned var) : m_coeff(coeff), m_var(var) {}
+    };
 public:
     // fields
     lar_solver *m_lar_solver;
@@ -82,6 +87,7 @@ private:
     const impq & lower_bound(unsigned j) const;
     const impq & upper_bound(unsigned j) const;
     bool is_int(unsigned j) const;
+    bool is_real(unsigned j) const;
     bool is_base(unsigned j) const;
     bool is_boxed(unsigned j) const;
     bool is_free(unsigned j) const;
@@ -109,5 +115,19 @@ private:
     int find_next_free_var_in_gomory_row();
     bool is_gomory_cut_target();
     bool at_bound(unsigned j) const;
+    bool at_lower(unsigned j) const;
+    bool at_upper(unsigned j) const;
+
+    inline static bool is_rational(const impq & n) {
+        return is_zero(n.y);  
+    }
+
+    inline static
+    mpq fractional_part(const impq & n) {
+        lp_assert(is_rational);
+        return n.x - floor(n.x);
+    }
+    void is_real_case_in_gomory_cut(const mpq & a, unsigned x_j, mpq & k, buffer<row_entry> & pol);
+    void int_case_in_gomory_cut(const mpq & a, unsigned x_j, mpq & k, buffer<row_entry> & pol);
 };
 }
