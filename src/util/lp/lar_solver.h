@@ -1283,22 +1283,12 @@ public:
         return m_vars_to_ul_pairs()[j].m_i != static_cast<row_index>(-1);
     }
 
-    void make_sure_that_the_bottom_right_elem_not_zero_in_tableau(unsigned i, unsigned j) {
-        // i, j - is the indices of the bottom-right element of the tableau
-        SASSERT(A_r().row_count() == i + 1 && A_r().column_count() == j + 1);
-        auto & last_column = A_r().m_columns[j];
-        int non_zero_column_cell_index = -1;
-        for (unsigned k = last_column.size(); k-- > 0;){
-            auto & cc = last_column[k];
-            if (cc.m_i == i)
-                return;
-            non_zero_column_cell_index = k;
-        }
+    bool column_is_real(unsigned j) const {
+        return !column_is_int(j);
+    }	
+	
+bool model_is_int_feasible() const;
 
-        SASSERT(non_zero_column_cell_index != -1);
-        SASSERT(static_cast<unsigned>(non_zero_column_cell_index) != i);
-        m_mpq_lar_core_solver.m_r_solver.transpose_rows_tableau(last_column[non_zero_column_cell_index].m_i, i);
-    }
 
     void remove_last_row_and_column_from_tableau(unsigned j) {
         SASSERT(A_r().column_count() == m_mpq_lar_core_solver.m_r_solver.m_costs.size());

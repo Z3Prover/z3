@@ -176,7 +176,6 @@ unsigned lp_primal_core_solver<T, X>::solve_with_tableau() {
         default:
             break; // do nothing
         }
-<<<<<<< 4e1b92d5c4f97eade0d9799f37d74f4d7f318269:src/util/lp/lp_primal_core_solver_tableau.h
 	} while (this->get_status() != FLOATING_POINT_ERROR
 		&&
 		this->get_status() != UNBOUNDED
@@ -196,21 +195,6 @@ unsigned lp_primal_core_solver<T, X>::solve_with_tableau() {
 	if (this->m_settings.get_cancel_flag()) {
             this->set_status(CANCELLED);
 	}
-=======
-    } while (this->get_status() != lp_status::FLOATING_POINT_ERROR
-             &&
-             this->get_status() != lp_status::UNBOUNDED
-             &&
-             this->get_status() != lp_status::OPTIMAL
-             &&
-             this->get_status() != lp_status::INFEASIBLE
-             &&
-             this->iters_with_no_cost_growing() <= this->m_settings.max_number_of_iterations_with_no_improvements
-             &&
-             this->total_iterations() <= this->m_settings.max_total_number_of_iterations
-             &&
-             !(this->current_x_is_feasible() && this->m_look_for_feasible_solution_only));
->>>>>>> fix a bug in the lar_solver::m_status update during push/pop:src/util/lp/lp_primal_core_solver_tableau.hpp
 
     lp_assert(this->get_status() == lp_status::FLOATING_POINT_ERROR
                 ||
