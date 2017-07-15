@@ -131,7 +131,7 @@ public:
     }
 
     bool is_literal(expr* e) const {
-        return 
+        return
             is_uninterp_const(e) ||
             (m.is_not(e, e) && is_uninterp_const(e));
     }
@@ -153,7 +153,7 @@ public:
                 asm2fml.insert(assumptions[i], assumptions[i]);
             }
         }
-        
+
         TRACE("sat", tout << _assumptions << "\n";);
         dep2asm_t dep2asm;
         m_model = 0;
@@ -163,7 +163,7 @@ public:
         if (r != l_true) return r;
 
         r = m_solver.check(m_asms.size(), m_asms.c_ptr());
-        
+
         switch (r) {
         case l_true:
             if (sz > 0) {
@@ -280,14 +280,14 @@ public:
             return r;
         }
 
-        // build map from bound variables to 
+        // build map from bound variables to
         // the consequences that cover them.
         u_map<unsigned> bool_var2conseq;
         for (unsigned i = 0; i < lconseq.size(); ++i) {
             TRACE("sat", tout << lconseq[i] << "\n";);
             bool_var2conseq.insert(lconseq[i][0].var(), i);
         }
-        
+
         // extract original fixed variables
         u_map<expr*> asm2dep;
         extract_asm2dep(dep2asm, asm2dep);
@@ -441,7 +441,7 @@ private:
 
     lbool internalize_vars(expr_ref_vector const& vars, sat::bool_var_vector& bvars) {
         for (unsigned i = 0; i < vars.size(); ++i) {
-            internalize_var(vars[i], bvars);            
+            internalize_var(vars[i], bvars);
         }
         return l_true;
     }
@@ -453,7 +453,7 @@ private:
         bool internalized = false;
         if (is_uninterp_const(v) && m.is_bool(v)) {
             sat::bool_var b = m_map.to_bool_var(v);
-            
+
             if (b != sat::null_bool_var) {
                 bvars.push_back(b);
                 internalized = true;
@@ -479,7 +479,7 @@ private:
         else if (is_uninterp_const(v) && bvutil.is_bv(v)) {
             // variable does not occur in assertions, so is unconstrained.
         }
-        CTRACE("sat", !internalized, tout << "unhandled variable " << mk_pp(v, m) << "\n";);        
+        CTRACE("sat", !internalized, tout << "unhandled variable " << mk_pp(v, m) << "\n";);
         return internalized;
     }
 
@@ -506,7 +506,7 @@ private:
         }
         expr_ref val(m);
         expr_ref_vector conj(m);
-        internalize_value(value, v, val);        
+        internalize_value(value, v, val);
         while (!premises.empty()) {
             expr* e = 0;
             VERIFY(asm2dep.find(premises.pop().index(), e));
