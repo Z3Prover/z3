@@ -38,7 +38,7 @@ namespace sat {
             unsigned m_num_resolves;
             unsigned m_num_bin_subsumes;
             unsigned m_num_clause_subsumes;
-            unsigned m_num_card_subsumes;
+            unsigned m_num_pb_subsumes;
             unsigned m_num_cut;
             unsigned m_num_gc;
             stats() { reset(); }
@@ -242,7 +242,9 @@ namespace sat {
         bool                      m_clause_removed;
         bool                      m_constraint_removed;
         literal_vector            m_roots;
+        svector<bool>             m_root_vars;
         unsigned_vector           m_weights;
+        svector<wliteral>         m_wlits;
         bool subsumes(card& c1, card& c2, literal_vector& comp);
         bool subsumes(card& c1, clause& c2, literal_vector& comp);
         bool subsumed(card& c1, literal l1, literal l2);

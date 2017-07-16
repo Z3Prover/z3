@@ -52,7 +52,7 @@ namespace sat {
         void collect_statistics(statistics & st) const;
         void reset_statistics();
 
-        void dec(unsigned c) { m_counter -= c; }
+        inline void dec(unsigned c) { m_counter -= c; }
     };
 
 };
