@@ -381,11 +381,13 @@ public:
 
     void print_constraints(std::ostream& out) const ;
 
-    void print_terms(std::ostream& out) const ;
+    void print_terms(std::ostream& out) const;
 
     void print_left_side_of_constraint(const lar_base_constraint * c, std::ostream & out) const;
 
     void print_term(lar_term const& term, std::ostream & out) const;
+
+    void print_term_as_indices(lar_term const& term, std::ostream & out) const;
 
     mpq get_left_side_val(const lar_base_constraint &  cns, const std::unordered_map<var_index, mpq> & var_map) const;
 

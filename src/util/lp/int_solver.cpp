@@ -336,6 +336,7 @@ lia_move int_solver::proceed_with_gomory_cut(lar_term& t, mpq& k, explanation& e
 lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
     if (m_iter_on_gomory_row != nullptr) {
         auto ret = proceed_with_gomory_cut(t, k, ex);
+        TRACE("gomory_cut", tout << "term t = "; m_lar_solver->print_term_as_indices(t, tout););
         if (ret != lia_move::continue_with_check)
             return ret;
     }
