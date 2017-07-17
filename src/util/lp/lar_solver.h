@@ -1227,13 +1227,7 @@ public:
 
     void print_constraints(std::ostream& out) const ;
 
-    void print_left_side_of_constraint(const lar_base_constraint * c, std::ostream & out) const {
-        print_linear_combination_of_column_indices(c->get_left_side_coefficients(), out);
-        mpq free_coeff = c->get_free_coeff_of_left_side();
-        if (!is_zero(free_coeff))
-            out << " + " << free_coeff;
-
-    }
+    void print_terms(std::ostream& out) const;
 
     void print_left_side_of_constraint(const lar_base_constraint * c, std::ostream & out) const;
 
@@ -1247,6 +1241,8 @@ public:
         }
         return ret;
     }
+
+    void print_term_as_indices(lar_term const& term, std::ostream & out) const;
 
     mpq get_left_side_val(const lar_base_constraint &  cns, const std::unordered_map<var_index, mpq> & var_map) const;
 
