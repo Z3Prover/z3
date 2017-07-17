@@ -52,7 +52,7 @@ class lar_solver : public column_namer {
     stacked_value<simplex_strategy_enum> m_simplex_strategy;
     std::unordered_map<unsigned, ext_var_info> m_ext_vars_to_columns;
     vector<unsigned> m_columns_to_ext_vars_or_term_indices;
-    stacked_vector<ul_pair> m_vars_to_ul_pairs;
+    stacked_vector<ul_pair> m_columns_to_ul_pairs;
     vector<lar_base_constraint*> m_constraints;
     stacked_value<unsigned> m_constraint_count;
     // the set of column indices j such that bounds have changed for j
@@ -433,7 +433,7 @@ public:
     }
 
     void get_bound_constraint_witnesses_for_column(unsigned j, constraint_index & lc, constraint_index & uc) const {
-        const ul_pair & ul = m_vars_to_ul_pairs[j];
+        const ul_pair & ul = m_columns_to_ul_pairs[j];
         lc = ul.low_bound_witness();
         uc = ul.upper_bound_witness();
     }
@@ -453,6 +453,13 @@ public:
         return m_mpq_lar_core_solver.m_r_solver.get_base_column_in_row(row_index);
     }
 
-    
+    constraint_index get_column_upper_bound_witness(unsigned j) const {
+        return m_columns_to_ul_pairs()[j].upper_bound_witness();
+    }
+
+    constraint_index get_column_low_bound_witness(unsigned j) const {
+        return m_columns_to_ul_pairs()[j].low_bound_witness();
+    }
+
 };
 }

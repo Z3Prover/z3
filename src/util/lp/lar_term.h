@@ -10,7 +10,7 @@ struct lar_term {
     std::unordered_map<unsigned, mpq> m_coeffs;
     mpq m_v;
     lar_term() {}
-    void add_to_map(unsigned j, const mpq& c) {
+    void add_monoid(const mpq& c, unsigned j) {
         auto it = m_coeffs.find(j);
         if (it == m_coeffs.end()) {
             m_coeffs.emplace(j, c);
@@ -34,7 +34,7 @@ struct lar_term {
     lar_term(const vector<std::pair<mpq, unsigned>>& coeffs,
              const mpq & v) : m_v(v) {
         for (const auto & p : coeffs) {
-            add_to_map(p.second, p.first);
+            add_monoid(p.first, p.second);
         }
     }
     bool operator==(const lar_term & a) const {  return false; } // take care not to create identical terms
@@ -56,7 +56,7 @@ struct lar_term {
         if (it == m_coeffs.end()) return;
         const mpq & b = it->second;
         for (unsigned it_j :li.m_index) {
-            add_to_map(it_j, - b * li.m_data[it_j]);
+            add_monoid(- b * li.m_data[it_j], it_j);
         }
         m_coeffs.erase(it);
     }
@@ -64,5 +64,16 @@ struct lar_term {
     bool contains(unsigned j) const {
         return m_coeffs.find(j) != m_coeffs.end();
     }
+
+    void negate() {
+        for (auto & t : m_coeffs)
+            t.second.neg();
+    }
+
+    void clear() {
+        m_coeffs.clear();
+        m_v = zero_of_type<mpq>();
+    }
+    
 };
 }

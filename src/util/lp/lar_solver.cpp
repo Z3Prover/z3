@@ -237,7 +237,7 @@ void lar_solver::explain_implied_bound(implied_bound & ib, bound_propagator & bp
         } 
         int a_sign = is_pos(a)? 1: -1;
         int sign = j_sign * a_sign;
-        const ul_pair & ul =  m_vars_to_ul_pairs[j];
+        const ul_pair & ul =  m_columns_to_ul_pairs[j];
         auto witness = sign > 0? ul.upper_bound_witness(): ul.low_bound_witness();
         lp_assert(is_valid(witness));
         bp.consume(a, witness);
@@ -309,7 +309,7 @@ lp_status lar_solver::solve() {
 void lar_solver::fill_explanation_from_infeasible_column(vector<std::pair<mpq, constraint_index>> & evidence) const{
 
     // this is the case when the lower bound is in conflict with the upper one
-    const ul_pair & ul =  m_vars_to_ul_pairs[m_infeasible_column_index];
+    const ul_pair & ul =  m_columns_to_ul_pairs[m_infeasible_column_index];
     evidence.push_back(std::make_pair(numeric_traits<mpq>::one(), ul.upper_bound_witness()));
     evidence.push_back(std::make_pair(-numeric_traits<mpq>::one(), ul.low_bound_witness()));
 }
@@ -325,7 +325,7 @@ vector<unsigned> lar_solver::get_list_of_all_var_indices() const {
 void lar_solver::push() {
     m_simplex_strategy = m_settings.simplex_strategy();
     m_simplex_strategy.push();
-    m_vars_to_ul_pairs.push();
+    m_columns_to_ul_pairs.push();
     m_infeasible_column_index.push();
     m_mpq_lar_core_solver.push();
     m_term_count = m_terms.size();
@@ -354,14 +354,14 @@ void lar_solver::pop(unsigned k) {
 
     int n_was = static_cast<int>(m_ext_vars_to_columns.size());
     m_infeasible_column_index.pop(k);
-    unsigned n = m_vars_to_ul_pairs.peek_size(k);
+    unsigned n = m_columns_to_ul_pairs.peek_size(k);
     for (unsigned j = n_was; j-- > n;)
         m_ext_vars_to_columns.erase(m_columns_to_ext_vars_or_term_indices[j]);
     m_columns_to_ext_vars_or_term_indices.resize(n);
     if (m_settings.use_tableau()) {
         pop_tableau();
     }
-    m_vars_to_ul_pairs.pop(k);
+    m_columns_to_ul_pairs.pop(k);
 
     m_mpq_lar_core_solver.pop(k);
     clean_popped_elements(n, m_columns_with_changed_bound);
@@ -531,15 +531,15 @@ void lar_solver::pop_core_solver_params(unsigned k) {
 
 
 void lar_solver::set_upper_bound_witness(var_index j, constraint_index ci) {
-    ul_pair ul = m_vars_to_ul_pairs[j];
+    ul_pair ul = m_columns_to_ul_pairs[j];
     ul.upper_bound_witness() = ci;
-    m_vars_to_ul_pairs[j] = ul;
+    m_columns_to_ul_pairs[j] = ul;
 }
 
 void lar_solver::set_low_bound_witness(var_index j, constraint_index ci) {
-    ul_pair ul = m_vars_to_ul_pairs[j];
+    ul_pair ul = m_columns_to_ul_pairs[j];
     ul.low_bound_witness() = ci;
-    m_vars_to_ul_pairs[j] = ul;
+    m_columns_to_ul_pairs[j] = ul;
 }
 
 void lar_solver::register_one_coeff_in_map(std::unordered_map<var_index, mpq> & coeffs, const mpq & a, unsigned j) {
@@ -1041,11 +1041,11 @@ mpq lar_solver::sum_of_right_sides_of_explanation(const vector<std::pair<mpq, un
 
 bool lar_solver::has_lower_bound(var_index var, constraint_index& ci, mpq& value, bool& is_strict) {
 
-    if (var >= m_vars_to_ul_pairs.size()) {
+    if (var >= m_columns_to_ul_pairs.size()) {
         // TBD: bounds on terms could also be used, caller may have to track these.
         return false;
     }
-    const ul_pair & ul = m_vars_to_ul_pairs[var];
+    const ul_pair & ul = m_columns_to_ul_pairs[var];
     ci = ul.low_bound_witness();
     if (ci != static_cast<constraint_index>(-1)) {
         auto& p = m_mpq_lar_core_solver.m_r_low_bounds()[var];
@@ -1060,11 +1060,11 @@ bool lar_solver::has_lower_bound(var_index var, constraint_index& ci, mpq& value
     
 bool lar_solver::has_upper_bound(var_index var, constraint_index& ci, mpq& value, bool& is_strict) {
 
-    if (var >= m_vars_to_ul_pairs.size()) {
+    if (var >= m_columns_to_ul_pairs.size()) {
         // TBD: bounds on terms could also be used, caller may have to track these.
         return false;
     }
-    const ul_pair & ul = m_vars_to_ul_pairs[var];
+    const ul_pair & ul = m_columns_to_ul_pairs[var];
     ci = ul.upper_bound_witness();
     if (ci != static_cast<constraint_index>(-1)) {
         auto& p = m_mpq_lar_core_solver.m_r_upper_bounds()[var];
@@ -1105,7 +1105,7 @@ void lar_solver::get_infeasibility_explanation_for_inf_sign(
         unsigned j = it.second;
 
         int adj_sign = coeff.is_pos() ? inf_sign : -inf_sign;
-        const ul_pair & ul = m_vars_to_ul_pairs[j];
+        const ul_pair & ul = m_columns_to_ul_pairs[j];
 
         constraint_index bound_constr_i = adj_sign < 0 ? ul.upper_bound_witness() : ul.low_bound_witness();
         lp_assert(bound_constr_i < m_constraints.size());
@@ -1238,7 +1238,7 @@ void lar_solver::pop() {
 }
 
 bool lar_solver::column_represents_row_in_tableau(unsigned j) {
-    return m_vars_to_ul_pairs()[j].m_i != static_cast<row_index>(-1);
+    return m_columns_to_ul_pairs()[j].m_i != static_cast<row_index>(-1);
 }
 
 void lar_solver::make_sure_that_the_bottom_right_elem_not_zero_in_tableau(unsigned i, unsigned j) {
@@ -1462,9 +1462,9 @@ var_index lar_solver::add_var(unsigned ext_j, bool is_int) {
 	if (it != m_ext_vars_to_columns.end()) {
 		return it->second.ext_j();
 	}
-	lp_assert(m_vars_to_ul_pairs.size() == A_r().column_count());
+	lp_assert(m_columns_to_ul_pairs.size() == A_r().column_count());
 	i = A_r().column_count();
-	m_vars_to_ul_pairs.push_back(ul_pair(static_cast<unsigned>(-1)));
+	m_columns_to_ul_pairs.push_back(ul_pair(static_cast<unsigned>(-1)));
 	add_non_basic_var_to_core_fields(ext_j, is_int);
 	lp_assert(sizes_are_correct());
 	return i;
@@ -1568,7 +1568,7 @@ void lar_solver::add_row_from_term_no_constraint(const lar_term * term, unsigned
 	// j will be a new variable
 	unsigned j = A_r().column_count();
 	ul_pair ul(j);
-	m_vars_to_ul_pairs.push_back(ul);
+	m_columns_to_ul_pairs.push_back(ul);
 	add_basic_var_to_core_fields();
 	if (use_tableau()) {
 		auto it = iterator_on_term_with_basis_var(*term, j);
@@ -1677,7 +1677,7 @@ void lar_solver::add_constraint_from_term_and_create_new_column_row(unsigned ter
 
 void lar_solver::decide_on_strategy_and_adjust_initial_state() {
 	lp_assert(strategy_is_undecided());
-	if (m_vars_to_ul_pairs.size() > m_settings.column_number_threshold_for_using_lu_in_lar_solver) {
+	if (m_columns_to_ul_pairs.size() > m_settings.column_number_threshold_for_using_lu_in_lar_solver) {
 		m_settings.simplex_strategy() = simplex_strategy_enum::lu;
 	}
 	else {
