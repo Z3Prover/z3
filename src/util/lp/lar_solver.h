@@ -65,7 +65,7 @@ class lar_solver : public column_namer {
     stacked_value<simplex_strategy_enum> m_simplex_strategy;
     std::unordered_map<unsigned, ext_var_info> m_ext_vars_to_columns;
     vector<unsigned> m_columns_to_ext_vars_or_term_indices;
-    stacked_vector<ul_pair> m_vars_to_ul_pairs;
+    stacked_vector<ul_pair> m_columns_to_ul_pairs;
     vector<lar_base_constraint*> m_constraints;
     stacked_value<unsigned> m_constraint_count;
     // the set of column indices j such that bounds have changed for j
@@ -1373,19 +1373,10 @@ bool model_is_int_feasible() const;
         SASSERT(A_r().column_count() == m_mpq_lar_core_solver.m_r_solver.m_costs.size());
     }
 
-
-    void pop_tableau() {
-        SASSERT(m_mpq_lar_core_solver.m_r_solver.m_costs.size() == A_r().column_count());
-
-        SASSERT(m_mpq_lar_core_solver.m_r_solver.m_basis.size() == A_r().row_count());
-        SASSERT(m_mpq_lar_core_solver.m_r_solver.basis_heading_is_correct());
-        // We remove last variables starting from m_column_names.size() to m_vec_of_canonic_left_sides.size().
-        // At this moment m_column_names is already popped
-        for (unsigned j = A_r().column_count(); j-- > m_columns_to_ext_vars_or_term_indices.size();)
-            remove_column_from_tableau(j);
-        SASSERT(m_mpq_lar_core_solver.m_r_solver.m_costs.size() == A_r().column_count());
-        SASSERT(m_mpq_lar_core_solver.m_r_solver.m_basis.size() == A_r().row_count());
-        SASSERT(m_mpq_lar_core_solver.m_r_solver.basis_heading_is_correct());
+    void get_bound_constraint_witnesses_for_column(unsigned j, constraint_index & lc, constraint_index & uc) const {
+        const ul_pair & ul = m_columns_to_ul_pairs[j];
+        lc = ul.low_bound_witness();
+        uc = ul.upper_bound_witness();
     }
 
 
@@ -1447,6 +1438,15 @@ bool model_is_int_feasible() const;
     unsigned get_base_column_in_row(unsigned row_index) const {
         return m_mpq_lar_core_solver.m_r_solver.get_base_column_in_row(row_index);
     }
+
+    constraint_index get_column_upper_bound_witness(unsigned j) const {
+        return m_columns_to_ul_pairs()[j].upper_bound_witness();
+    }
+
+    constraint_index get_column_low_bound_witness(unsigned j) const {
+        return m_columns_to_ul_pairs()[j].low_bound_witness();
+    }
+
 
 };
 }

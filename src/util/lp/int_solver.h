@@ -8,7 +8,6 @@
 #include "util/lp/iterator_on_row.h"
 #include "util/lp/int_set.h"
 #include "util/lp/lar_term.h"
-
 namespace lp {
 class lar_solver;
 template <typename T, typename X>
@@ -24,14 +23,12 @@ enum class lia_move {
 
 struct explanation {
     vector<std::pair<mpq, constraint_index>> m_explanation;
+    void push_justification(constraint_index j, const mpq& v) {
+        m_explanation.push_back(std::make_pair(v, j));
+    }
 };
 
 class int_solver {
-    struct row_entry {
-        mpq m_coeff;
-        unsigned m_var;
-        row_entry(const mpq & coeff, unsigned var) : m_coeff(coeff), m_var(var) {}
-    };
 public:
     // fields
     lar_solver *m_lar_solver;
@@ -108,7 +105,7 @@ private:
     lp_settings& settings();
     void move_non_base_vars_to_bounds();
     void branch_infeasible_int_var(unsigned);
-    lia_move mk_gomory_cut(explanation & ex);
+    lia_move mk_gomory_cut(lar_term& t, mpq& k,explanation & ex);
 	void init_check_data();
     bool constrain_free_vars(linear_combination_iterator<mpq> *  r);
     lia_move proceed_with_gomory_cut(lar_term& t, mpq& k, explanation& ex);
@@ -127,7 +124,10 @@ private:
         lp_assert(is_rational);
         return n.x - floor(n.x);
     }
-    void is_real_case_in_gomory_cut(const mpq & a, unsigned x_j, mpq & k, buffer<row_entry> & pol);
-    void int_case_in_gomory_cut(const mpq & a, unsigned x_j, mpq & k, buffer<row_entry> & pol);
+    void real_case_in_gomory_cut(const mpq & a, unsigned x_j, mpq & k, lar_term& t, explanation & ex);
+    void int_case_in_gomory_cut(const mpq & a, unsigned x_j, mpq & k, lar_term& t, explanation& ex, mpq & lcm_den);
+    constraint_index column_upper_bound_constraint(unsigned j) const;
+    constraint_index column_low_bound_constraint(unsigned j) const;
+    void display_row_info(std::ostream & out, unsigned row_index) const;
 };
 }
