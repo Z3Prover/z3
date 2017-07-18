@@ -4666,27 +4666,6 @@ namespace smt {
             TRACE("str", tout << "root of eqc of " << mk_pp(e, m) << " is not a numeral" << std::endl;);
             return false;
         }
-
-        // fallback code: iterate over eqc (slow for large cases, e.g. many terms with length 0)
-        /*
-        TRACE("str", tout << "checking eqc of " << mk_pp(e, m) << " for arithmetic value" << std::endl;);
-        expr_ref _val(m);
-        enode * en_e = ctx.get_enode(e);
-        enode * it = en_e;
-        do {
-            if (m_autil.is_numeral(it->get_owner(), val) && val.is_int()) {
-                // found an arithmetic term
-                TRACE("str", tout << mk_pp(it->get_owner(), m) << " is an integer ( ~= " << val << " )"
-                      << std::endl;);
-                return true;
-            } else {
-                TRACE("str", tout << mk_pp(it->get_owner(), m) << " not a numeral" << std::endl;);
-            }
-            it = it->get_next();
-        } while (it != en_e);
-        TRACE("str", tout << "no arithmetic values found in eqc" << std::endl;);
-        return false;
-        */
     }
 
     bool theory_str::lower_bound(expr* _e, rational& lo) {
