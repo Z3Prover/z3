@@ -4653,30 +4653,23 @@ namespace smt {
     }
 
     bool theory_str::get_arith_value(expr* e, rational& val) const {
-        if (opt_DisableIntegerTheoryIntegration) {
-            TRACE("str", tout << "WARNING: integer theory integration disabled" << std::endl;);
-            return false;
-        }
-
         context& ctx = get_context();
         ast_manager & m = get_manager();
-        theory_mi_arith* tha = get_th_arith(ctx, m_autil.get_family_id(), e);
-        if (!tha) {
+
+        // if an integer constant exists in the eqc, it should be the root
+        enode * en_e = ctx.get_enode(e);
+        enode * root_e = en_e->get_root();
+        if (m_autil.is_numeral(root_e->get_owner(), val) && val.is_int()) {
+            TRACE("str", tout << mk_pp(e, m) << " ~= " << mk_pp(root_e->get_owner(), m) << std::endl;);
+            return true;
+        } else {
+            TRACE("str", tout << "root of eqc of " << mk_pp(e, m) << " is not a numeral" << std::endl;);
             return false;
         }
 
-        // first query theory_arith directly
-
-        expr_ref ival(m);
-        if (ctx.e_internalized(e) && tha->get_value(ctx.get_enode(e), ival)
-                && m_autil.is_numeral(ival, val) && val.is_int()) {
-            TRACE("str", tout << "theory_arith: " << mk_pp(e, m) << " = " << val << std::endl;);
-            return true;
-        }
-
-        // if this fails, fall back to checking eqc
-
-        TRACE("str", tout << "no result in theory_arith! checking eqc of " << mk_pp(e, m) << " for arithmetic value" << std::endl;);
+        // fallback code: iterate over eqc (slow for large cases, e.g. many terms with length 0)
+        /*
+        TRACE("str", tout << "checking eqc of " << mk_pp(e, m) << " for arithmetic value" << std::endl;);
         expr_ref _val(m);
         enode * en_e = ctx.get_enode(e);
         enode * it = en_e;
@@ -4693,6 +4686,7 @@ namespace smt {
         } while (it != en_e);
         TRACE("str", tout << "no arithmetic values found in eqc" << std::endl;);
         return false;
+        */
     }
 
     bool theory_str::lower_bound(expr* _e, rational& lo) {
