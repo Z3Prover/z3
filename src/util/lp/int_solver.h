@@ -106,6 +106,8 @@ private:
     void move_non_base_vars_to_bounds();
     void branch_infeasible_int_var(unsigned);
     lia_move mk_gomory_cut(lar_term& t, mpq& k,explanation & ex);
+    lia_move report_conflict_from_gomory_cut(mpq & k);
+    lia_move report_gomory_cut(lar_term& t, mpq& k, mpq& lcm_den, unsigned num_ints);
 	void init_check_data();
     bool constrain_free_vars(linear_combination_iterator<mpq> *  r);
     lia_move proceed_with_gomory_cut(lar_term& t, mpq& k, explanation& ex);
@@ -129,5 +131,7 @@ private:
     constraint_index column_upper_bound_constraint(unsigned j) const;
     constraint_index column_low_bound_constraint(unsigned j) const;
     void display_row_info(std::ostream & out, unsigned row_index) const;
+    void gomory_cut_adjust_t_and_k_for_size_1(const vector<std::pair<mpq, unsigned>> & pol, lar_term & t, mpq &k);
+    void gomory_cut_adjust_t_and_k_for_size_gt_1(vector<std::pair<mpq, unsigned>> & pol, lar_term & t, mpq &k, unsigned num_ints, mpq &lcm_den);
 };
 }

@@ -149,8 +149,6 @@ public:
     lp_settings const & settings() const;
 
     void clear();
-
-
     lar_solver();
     void set_propagate_bounds_on_pivoted_rows_mode(bool v);
 
@@ -263,7 +261,7 @@ public:
 
 
     void substitute_terms_in_linear_expression( const vector<std::pair<mpq, var_index>>& left_side_with_terms,
-                          vector<std::pair<mpq, var_index>> &left_side, mpq & right_side) const;
+                          vector<std::pair<mpq, var_index>> &left_side, mpq & free_coeff) const;
 
 
     void detect_rows_of_bound_change_column_for_nbasic_column(unsigned j);
@@ -343,7 +341,7 @@ public:
     bool the_relations_are_of_same_type(const vector<std::pair<mpq, unsigned>> & evidence, lconstraint_kind & the_kind_of_sum) const;
 
     static void register_in_map(std::unordered_map<var_index, mpq> & coeffs, const lar_base_constraint & cn, const mpq & a);
-    static void register_one_coeff_in_map(std::unordered_map<var_index, mpq> & coeffs, const mpq & a, unsigned j);
+    static void register_monoid_in_map(std::unordered_map<var_index, mpq> & coeffs, const mpq & a, unsigned j);
 
 
     bool the_left_sides_sum_to_zero(const vector<std::pair<mpq, unsigned>> & evidence) const;
@@ -463,5 +461,17 @@ public:
         return m_columns_to_ul_pairs()[j].low_bound_witness();
     }
 
+    void subs_terms_for_debugging(lar_term& t) {
+        vector<std::pair<mpq, unsigned>> pol;
+        for (const auto & m : t.m_coeffs) {
+            pol.push_back(std::make_pair(m.second, adjust_column_index_to_term_index(m.first)));
+        }
+        mpq v = t.m_v;
+        
+        vector<std::pair<mpq, unsigned>> pol_after_subs;
+        substitute_terms_in_linear_expression(pol, pol_after_subs, v);
+        t.clear();
+        t = lar_term(pol_after_subs, v);
+    }
 };
 }
