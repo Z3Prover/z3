@@ -542,7 +542,7 @@ void lar_solver::set_low_bound_witness(var_index j, constraint_index ci) {
     m_columns_to_ul_pairs[j] = ul;
 }
 
-void lar_solver::register_one_coeff_in_map(std::unordered_map<var_index, mpq> & coeffs, const mpq & a, unsigned j) {
+void lar_solver::register_monoid_in_map(std::unordered_map<var_index, mpq> & coeffs, const mpq & a, unsigned j) {
     auto it = coeffs.find(j);
     if (it == coeffs.end()) {
         coeffs[j] = a;
@@ -553,18 +553,18 @@ void lar_solver::register_one_coeff_in_map(std::unordered_map<var_index, mpq> & 
 
 
 void lar_solver::substitute_terms_in_linear_expression(const vector<std::pair<mpq, var_index>>& left_side_with_terms,
-                                                       vector<std::pair<mpq, var_index>> &left_side, mpq & right_side) const {
+                                                       vector<std::pair<mpq, var_index>> &left_side, mpq & free_coeff) const {
     std::unordered_map<var_index, mpq> coeffs;
     for (auto & t : left_side_with_terms) {
         unsigned j = t.second;
         if (!is_term(j)) {
-            register_one_coeff_in_map(coeffs, t.first, j);
+            register_monoid_in_map(coeffs, t.first, j);
         } else {
             const lar_term & term = * m_terms[adjust_term_index(t.second)];
             for (auto & p : term.coeffs()){
-                register_one_coeff_in_map(coeffs, t.first * p.second , p.first);
+                register_monoid_in_map(coeffs, t.first * p.second , p.first);
             }
-            right_side += t.first * term.m_v;
+            free_coeff += t.first * term.m_v;
         }
     }
 
