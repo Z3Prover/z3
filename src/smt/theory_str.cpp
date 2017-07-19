@@ -4656,6 +4656,11 @@ namespace smt {
         context& ctx = get_context();
         ast_manager & m = get_manager();
 
+	// safety
+	if (!ctx.e_internalized(e)) {
+	  return false;
+	}
+	
         // if an integer constant exists in the eqc, it should be the root
         enode * en_e = ctx.get_enode(e);
         enode * root_e = en_e->get_root();
