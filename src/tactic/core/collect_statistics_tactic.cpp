@@ -47,10 +47,10 @@ class collect_statistics_tactic : public tactic {
 
 public:
     collect_statistics_tactic(ast_manager & m, params_ref const & p) :
-        m(m), 
+        m(m),
         m_params(p) {
-    }    
-        
+    }
+
     virtual ~collect_statistics_tactic() {}
 
     virtual tactic * translate(ast_manager & m_) {
@@ -60,21 +60,21 @@ public:
     virtual void updt_params(params_ref const & p) {
         m_params = p;
     }
-    
+
     virtual void collect_param_descrs(param_descrs & r) {}
 
     virtual void operator()(goal_ref const & g, goal_ref_buffer & result,
-                            model_converter_ref & mc, proof_converter_ref & pc, 
+                            model_converter_ref & mc, proof_converter_ref & pc,
                             expr_dependency_ref & core) {
         mc = 0;
-        tactic_report report("collect-statistics", *g);        
-        
+        tactic_report report("collect-statistics", *g);
+
         collect_proc cp(m, m_stats);
-        expr_mark visited;                            
+        expr_mark visited;
         const unsigned sz = g->size();
         for (unsigned i = 0; i < sz; i++)
             for_each_expr(cp, visited, g->form(i));
-        
+
         std::cout << "(" << std::endl;
         stats_type::iterator it = m_stats.begin();
         stats_type::iterator end = m_stats.end();
@@ -84,7 +84,7 @@ public:
 
         g->inc_depth();
         result.push_back(g.get());
-    }    
+    }
 
     virtual void cleanup() {}
 
@@ -98,11 +98,12 @@ protected:
     class collect_proc {
     public:
         ast_manager &            m;
-        stats_type &             m_stats;        
+        stats_type &             m_stats;
         obj_hashtable<sort>      m_seen_sorts;
         obj_hashtable<func_decl> m_seen_func_decls;
+        unsigned                 m_qdepth;
 
-        collect_proc(ast_manager & m, stats_type & s) : m(m), m_stats(s) {}
+        collect_proc(ast_manager & m, stats_type & s) : m(m), m_stats(s), m_qdepth(0) {}
 
         void operator()(var * v) {
             m_stats["bound-variables"]++;
@@ -113,7 +114,18 @@ protected:
             m_stats["quantifiers"]++;
             SASSERT(is_app(q->get_expr()));
             app * body = to_app(q->get_expr());
+            if (q->is_forall())
+                m_stats["forall-variables"] += q->get_num_decls();
+            else
+                m_stats["exists-variables"] += q->get_num_decls();
+            m_stats["patterns"] += q->get_num_patterns();
+            m_stats["no-patterns"] += q->get_num_no_patterns();
+            m_qdepth++;
+            if (m_stats.find("max-quantification-depth") == m_stats.end() ||
+                m_stats["max-quantification-depth"] < m_qdepth)
+                m_stats["max-quantification-depth"] = m_qdepth;
             this->operator()(body);
+            m_qdepth--;
         }
 
         void operator()(app * n) {
@@ -121,7 +133,7 @@ protected:
             this->operator()(n->get_decl());
         }
 
-        void operator()(sort * s) {            
+        void operator()(sort * s) {
             if (m.is_uninterp(s)) {
                 if (!m_seen_sorts.contains(s)) {
                     m_stats["uninterpreted-sorts"]++;
@@ -135,7 +147,7 @@ protected:
                 std::stringstream ss;
                 ss << "(declare-sort " << mk_ismt2_pp(s, m, prms) << ")";
                 m_stats[ss.str()]++;
-                
+
                 if (s->get_info()->get_num_parameters() > 0) {
                     std::stringstream ssname;
                     ssname << "(declare-sort (_ " << s->get_name() << " *))";
