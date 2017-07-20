@@ -281,7 +281,7 @@ lia_move int_solver::report_gomory_cut(lar_term& t, mpq& k, mpq &lcm_den, unsign
         gomory_cut_adjust_t_and_k_for_size_1(pol, t, k);
     else
         gomory_cut_adjust_t_and_k_for_size_gt_1(pol, t, k, num_ints, lcm_den);
-    m_lar_solver->subs_terms_for_debugging(t); // todo: remove later
+    m_lar_solver->subs_term_columns(t);
     return lia_move::cut;
 }
 

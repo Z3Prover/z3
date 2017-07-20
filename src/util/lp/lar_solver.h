@@ -461,14 +461,16 @@ public:
         return m_columns_to_ul_pairs()[j].low_bound_witness();
     }
 
-    void subs_terms_for_debugging(lar_term& t) {
-        vector<std::pair<mpq, unsigned>> pol;
+    void subs_term_columns(lar_term& t) {
+        vector<std::pair<mpq, unsigned> > pol;
         for (const auto & m : t.m_coeffs) {
             pol.push_back(std::make_pair(m.second, adjust_column_index_to_term_index(m.first)));
         }
+
+
         mpq v = t.m_v;
-        
         vector<std::pair<mpq, unsigned>> pol_after_subs;
+        // todo : remove the call to substitute_terms_in_linear_expression 
         substitute_terms_in_linear_expression(pol, pol_after_subs, v);
         t.clear();
         t = lar_term(pol_after_subs, v);
