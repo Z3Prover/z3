@@ -70,6 +70,16 @@ struct lar_term {
             t.second.neg();
     }
 
+    template <typename T>
+    T apply(const vector<T>& x) const {
+        T ret = T(m_v);
+        for (const auto & t : m_coeffs) {
+            ret += t.second * x[t.first];
+        }
+        return ret;
+    }
+   
+    
     void clear() {
         m_coeffs.clear();
         m_v = zero_of_type<mpq>();

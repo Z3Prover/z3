@@ -466,8 +466,6 @@ public:
         for (const auto & m : t.m_coeffs) {
             pol.push_back(std::make_pair(m.second, adjust_column_index_to_term_index(m.first)));
         }
-
-
         mpq v = t.m_v;
         vector<std::pair<mpq, unsigned>> pol_after_subs;
         // todo : remove the call to substitute_terms_in_linear_expression 

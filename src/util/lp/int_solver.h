@@ -133,5 +133,6 @@ private:
     void display_row_info(std::ostream & out, unsigned row_index) const;
     void gomory_cut_adjust_t_and_k_for_size_1(const vector<std::pair<mpq, unsigned>> & pol, lar_term & t, mpq &k);
     void gomory_cut_adjust_t_and_k_for_size_gt_1(vector<std::pair<mpq, unsigned>> & pol, lar_term & t, mpq &k, unsigned num_ints, mpq &lcm_den);
+    bool current_solution_is_inf_on_cut(const lar_term& t, const mpq& k) const;
 };
 }
