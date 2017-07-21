@@ -135,7 +135,7 @@ namespace smt {
                 m_qi_queue.insert(f, pat, max_generation, min_top_generation, max_top_generation); // TODO
                 m_num_instances++;
             }
-            TRACE("quantifier", 
+            TRACE("quantifier",
                   tout << mk_pp(q, m()) << " ";
                   for (unsigned i = 0; i < num_bindings; ++i) {
                       tout << mk_pp(bindings[i]->get_owner(), m()) << " ";
@@ -372,7 +372,7 @@ namespace smt {
         quantifier_manager_plugin * plugin = m_imp->m_plugin->mk_fresh();
         m_imp->~imp();
         m_imp = new (m_imp) imp(*this, ctx, p, plugin);
-        plugin->set_manager(*this);        
+        plugin->set_manager(*this);
     }
 
     void quantifier_manager::display(std::ostream & out) const {
