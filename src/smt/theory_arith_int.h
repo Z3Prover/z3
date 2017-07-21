@@ -1387,7 +1387,7 @@ namespace smt {
 
         m_branch_cut_counter++;
         // TODO: add giveup code
-        if (true || m_branch_cut_counter % m_params.m_arith_branch_cut_ratio == 0) { // remove true :todo
+        if (m_branch_cut_counter % m_params.m_arith_branch_cut_ratio == 0) {
             TRACE("opt_verbose", display(tout););
             move_non_base_vars_to_bounds();
             if (!make_feasible()) {

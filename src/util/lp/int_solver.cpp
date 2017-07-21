@@ -287,8 +287,6 @@ lia_move int_solver::report_gomory_cut(lar_term& t, mpq& k, mpq &lcm_den, unsign
         gomory_cut_adjust_t_and_k_for_size_1(pol, t, k);
     else
         gomory_cut_adjust_t_and_k_for_size_gt_1(pol, t, k, num_ints, lcm_den);
-    m_lar_solver->subs_term_columns(t);
-    lp_assert(current_solution_is_inf_on_cut(t, k));
     return lia_move::cut;
 }
 
@@ -323,7 +321,12 @@ lia_move int_solver::mk_gomory_cut(lar_term& t, mpq& k, explanation & expl) {
     if (t.is_empty())
         return report_conflict_from_gomory_cut(k);
 
-    return report_gomory_cut(t, k, lcm_den, num_ints);
+    auto ret = report_gomory_cut(t, k, lcm_den, num_ints);
+
+        // remove this call later :todo
+    m_lar_solver->subs_term_columns(t);
+    lp_assert(current_solution_is_inf_on_cut(t, k));
+    return ret;
     
 }
 
@@ -398,7 +401,7 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
         return lia_move::ok;
         
 
-    if (true || (++m_branch_cut_counter) % settings().m_int_branch_cut_threshold == 0) {
+    if ((++m_branch_cut_counter) % settings().m_int_branch_cut_threshold == 0) {
         move_non_base_vars_to_bounds();
         lp_status st = m_lar_solver->find_feasible_solution();
         if (st != lp_status::FEASIBLE && st != lp_status::OPTIMAL) {
@@ -421,15 +424,19 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
             TRACE("arith_int", tout << "j" << j << " does not have an integer assignment: " << get_value(j) << "\n";);
 
             lp_assert(t.is_empty());
-            t.add_monoid(1, j);
+            t.add_monoid(mpq(1), j);
             k = floor(get_value(j));
             TRACE("arith_int", tout << "branching v" << j << " = " << get_value(j) << "\n";
               display_column(tout, j);
               tout << "k = " << k << std::endl;
               );
+            // todo: remove this call later when theory_lra handles term indices
+            m_lar_solver->subs_term_columns(t);
+            lp_assert(current_solution_is_inf_on_cut(t, k));
             return lia_move::branch;
         }
     }
+
 	lp_assert(m_lar_solver->m_mpq_lar_core_solver.r_basis_is_OK());
 	//    return true;
     return lia_move::give_up;

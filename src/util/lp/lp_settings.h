@@ -205,7 +205,7 @@ public:
                     max_row_length_for_bound_propagation(300),
                     backup_costs(true),
                     column_number_threshold_for_using_lu_in_lar_solver(4000),
-                    m_int_branch_cut_threshold(10000000)
+                    m_int_branch_cut_threshold(100)
     {}
 
     void set_resource_limit(lp_resource_limit& lim) { m_resource_limit = &lim; }
