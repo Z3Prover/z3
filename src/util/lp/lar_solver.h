@@ -1435,7 +1435,7 @@ bool model_is_int_feasible() const;
         }
         mpq v = t.m_v;
         vector<std::pair<mpq, unsigned>> pol_after_subs;
-        // todo : remove the call to substitute_terms_in_linear_expression 
+        // todo : remove the call to substitute_terms_in_linear_expression, when theory_lra handles the terms indices
         substitute_terms_in_linear_expression(pol, pol_after_subs, v);
         t.clear();
         t = lar_term(pol_after_subs, v);
