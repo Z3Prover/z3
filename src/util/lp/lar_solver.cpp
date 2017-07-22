@@ -30,7 +30,17 @@ void clear() {lp_assert(false); // not implemented
 lar_solver::lar_solver() : m_status(lp_status::OPTIMAL),
                            m_infeasible_column_index(-1),
                            m_terms_start_index(1000000),
-                           m_mpq_lar_core_solver(m_settings, *this)
+                           m_mpq_lar_core_solver(m_settings, *this),
+                           m_tracker_of_x_change([&](unsigned j, const impq & x){
+                                   if (!var_is_int(j)) {
+                                       lp_assert(m_inf_int_set.contains(j) == false);
+                                       return;
+                                   }
+                                   if (m_mpq_lar_core_solver.m_r_x[j].is_int())
+                                       m_inf_int_set.erase(j);
+                                   else
+                                       m_inf_int_set.insert(j);
+                               })
 {
 }
     
@@ -279,6 +289,10 @@ lp_status lar_solver::get_status() const { return m_status;}
 
 void lar_solver::set_status(lp_status s) {m_status = s;}
 
+bool lar_solver::has_int_var() const {
+    return m_mpq_lar_core_solver.m_r_solver.m_tracker_of_x_change != nullptr;
+}
+
 lp_status lar_solver::find_feasible_solution() {
     m_settings.st().m_make_feasible++;
     if (A_r().column_count() > m_settings.st().m_max_cols)
@@ -288,6 +302,10 @@ lp_status lar_solver::find_feasible_solution() {
     if (strategy_is_undecided())
         decide_on_strategy_and_adjust_initial_state();
 
+    if (has_int_var()) {
+        m_inf_int_set.resize(A_r().column_count());
+    }
+    
     m_mpq_lar_core_solver.m_r_solver.m_look_for_feasible_solution_only = true;
     return solve();
 }
@@ -1474,6 +1492,9 @@ var_index lar_solver::add_var(unsigned ext_j, bool is_int) {
 	m_columns_to_ul_pairs.push_back(ul_pair(static_cast<unsigned>(-1)));
 	add_non_basic_var_to_core_fields(ext_j, is_int);
 	lp_assert(sizes_are_correct());
+    if (is_int) {
+        m_mpq_lar_core_solver.m_r_solver.set_tracker_of_x(& m_tracker_of_x_change);
+    }
 	return i;
 }
 

@@ -794,7 +794,7 @@ public:
             if (this->m_basis_heading[j] < 0)
                 continue;
             if (!this->column_is_feasible(j))
-                this->m_inf_set.insert(j);
+                this->insert_column_into_inf_set(j);
         }
     }
 

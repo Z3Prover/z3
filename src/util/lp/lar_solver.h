@@ -83,7 +83,8 @@ public:
     lar_core_solver m_mpq_lar_core_solver;
     unsigned constraint_count() const;
     const lar_base_constraint& get_constraint(unsigned ci) const;
-
+    std::function<void (unsigned, const impq&)> m_tracker_of_x_change;
+    int_set m_inf_int_set; 
     ////////////////// methods ////////////////////////////////
     static_matrix<mpq, numeric_pair<mpq>> & A_r() { return m_mpq_lar_core_solver.m_r_A;}
     static_matrix<mpq, numeric_pair<mpq>> const & A_r() const { return m_mpq_lar_core_solver.m_r_A;}
@@ -1440,5 +1441,7 @@ bool model_is_int_feasible() const;
         t.clear();
         t = lar_term(pol_after_subs, v);
     }
+
+    bool has_int_var() const;
 };
 }

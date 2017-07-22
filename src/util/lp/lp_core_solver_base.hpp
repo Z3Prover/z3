@@ -67,7 +67,8 @@ lp_core_solver_base(static_matrix<T, X> & A,
     m_steepest_edge_coefficients(A.column_count()),
     m_tracing_basis_changes(false),
     m_pivoted_rows(nullptr),
-    m_look_for_feasible_solution_only(false) {
+    m_look_for_feasible_solution_only(false),
+    m_tracker_of_x_change(nullptr) {
     lp_assert(bounds_for_boxed_are_set_correctly());    
     init();
     init_basis_heading_and_non_basic_columns_vector();
