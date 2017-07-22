@@ -1197,9 +1197,9 @@ lp_primal_core_solver<T, X>::init_infeasibility_cost_for_column(unsigned j) {
     }
     
     if (numeric_traits<T>::is_zero(this->m_costs[j])) {
-        this->m_inf_set.erase(j);
+        this->remove_column_from_inf_set(j);
     } else {
-        this->m_inf_set.insert(j);
+        this->insert_column_into_inf_set(j);
     }
     if (!this->m_settings.use_breakpoints_in_feasibility_search) {
         this->m_costs[j] = - this->m_costs[j];

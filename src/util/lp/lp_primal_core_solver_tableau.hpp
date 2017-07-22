@@ -349,9 +349,9 @@ update_x_tableau(unsigned entering, const X& delta) {
             this->m_x[j] -= delta * this->m_A.get_val(c);
             update_inf_cost_for_column_tableau(j);
             if (is_zero(this->m_costs[j]))
-                this->m_inf_set.erase(j);
+                this->remove_column_from_inf_set(j);
             else
-                this->m_inf_set.insert(j);
+                this->insert_column_into_inf_set(j);
         }
     }
     lp_assert(this->A_mult_x_is_off() == false);

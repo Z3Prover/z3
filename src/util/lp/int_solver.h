@@ -34,13 +34,15 @@ public:
     lar_solver *m_lar_solver;
     int_set m_old_values_set;
     vector<impq> m_old_values_data;
-    int_set m_inf_int_set;
     unsigned m_branch_cut_counter;
     linear_combination_iterator<mpq>* m_iter_on_gomory_row;
     unsigned m_gomory_cut_inf_column;
     bool m_found_free_var_in_gomory_row;
+    
     // methods
     int_solver(lar_solver* lp);
+    int_set& inf_int_set();
+    const int_set& inf_int_set() const;
     // main function to check that solution provided by lar_solver is valid for integral values,
     // or provide a way of how it can be adjusted.
     lia_move check(lar_term& t, mpq& k, explanation& ex);
@@ -96,7 +98,6 @@ private:
     const impq & get_value(unsigned j) const;
     void display_column(std::ostream & out, unsigned j) const;
     bool inf_int_set_is_correct() const;
-    void init_inf_int_set();
     void update_column_in_int_inf_set(unsigned j);
     bool column_is_int_inf(unsigned j) const;
     void trace_inf_rows() const;

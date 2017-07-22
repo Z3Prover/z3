@@ -69,6 +69,12 @@ public:
     bool                  m_tracing_basis_changes;
     int_set*              m_pivoted_rows;
     bool                  m_look_for_feasible_solution_only;
+    std::function<void (unsigned, const X &)> * m_tracker_of_x_change;
+
+    void set_tracker_of_x(std::function<void (unsigned, const X&)>* tracker) {
+        m_tracker_of_x_change = tracker;
+    }
+    
     void start_tracing_basis_changes() {
         m_trace_of_basis_change_vector.resize(0);
         m_tracing_basis_changes = true;
@@ -670,16 +676,20 @@ public:
 
     void update_column_in_inf_set(unsigned j) {
         if (column_is_feasible(j)) {
-            m_inf_set.erase(j);
+            remove_column_from_inf_set(j);
         } else {
-            m_inf_set.insert(j);
+            insert_column_into_inf_set(j);
         }
     }
     void insert_column_into_inf_set(unsigned j) {
+        if (m_tracker_of_x_change != nullptr)
+            (*m_tracker_of_x_change)(j, m_x[j]);
         m_inf_set.insert(j);
         lp_assert(!column_is_feasible(j));
     }
     void remove_column_from_inf_set(unsigned j) {
+        if (m_tracker_of_x_change != nullptr)
+            (*m_tracker_of_x_change)(j, m_x[j]);
         m_inf_set.erase(j);
         lp_assert(column_is_feasible(j));
     }

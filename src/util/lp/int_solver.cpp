@@ -21,7 +21,6 @@ void int_solver::fix_non_base_columns() {
         return;
     if (m_lar_solver->find_feasible_solution() == lp_status::INFEASIBLE)
         failed();
-    init_inf_int_set();
     lp_assert(is_feasible() && inf_int_set_is_correct());
 }
 
@@ -61,14 +60,22 @@ void int_solver::trace_inf_rows() const {
           );
 }
 
+int_set& int_solver::inf_int_set() {
+    return m_lar_solver->m_inf_int_set;
+}
+
+const int_set& int_solver::inf_int_set() const {
+    return m_lar_solver->m_inf_int_set;
+}
+
 int int_solver::find_inf_int_base_column() {
-    if (m_inf_int_set.is_empty())
+    if (inf_int_set().is_empty())
         return -1;
     int j = find_inf_int_boxed_base_column_with_smallest_range();
     if (j != -1)
         return j;
-    unsigned k = settings().random_next() % m_inf_int_set.m_index.size();
-    return m_inf_int_set.m_index[k];
+    unsigned k = settings().random_next() % inf_int_set().m_index.size();
+    return inf_int_set().m_index[k];
 }
 
 int int_solver::find_inf_int_boxed_base_column_with_smallest_range() {
@@ -79,7 +86,7 @@ int int_solver::find_inf_int_boxed_base_column_with_smallest_range() {
     unsigned n = 0;
     lar_core_solver & lcs = m_lar_solver->m_mpq_lar_core_solver;
 
-    for (int j : m_inf_int_set.m_index) {
+    for (int j : inf_int_set().m_index) {
         lp_assert(is_base(j) && column_is_int_inf(j));
         if (!is_boxed(j))
             continue;
@@ -331,7 +338,6 @@ lia_move int_solver::mk_gomory_cut(lar_term& t, mpq& k, explanation & expl) {
 }
 
 void int_solver::init_check_data() {
-	init_inf_int_set();
 	unsigned n = m_lar_solver->A_r().column_count();
 	m_old_values_set.resize(n);
 	m_old_values_data.resize(n);
@@ -402,12 +408,13 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
         
 
     if ((++m_branch_cut_counter) % settings().m_int_branch_cut_threshold == 0) {
-        move_non_base_vars_to_bounds();
+        move_non_base_vars_to_bounds(); // todo track changed variables
         lp_status st = m_lar_solver->find_feasible_solution();
         if (st != lp_status::FEASIBLE && st != lp_status::OPTIMAL) {
             return lia_move::give_up;
         }
-        init_inf_int_set(); // todo - can we avoid this call?
+        lp_assert(inf_int_set_is_correct());
+        //        init_inf_int_set(); // todo - can we avoid this call?
         int j = find_inf_int_base_column();
         if (j != -1) {
             // setup the call for gomory cut
@@ -862,7 +869,7 @@ void int_solver::display_column(std::ostream & out, unsigned j) const {
 
 bool int_solver::inf_int_set_is_correct() const {
     for (unsigned j = 0; j < m_lar_solver->A_r().column_count(); j++) {
-        if (m_inf_int_set.contains(j) != (is_int(j) && (!value_is_int(j))))
+        if (inf_int_set().contains(j) != (is_int(j) && (!value_is_int(j))))
             return false;
     }
     return true;
@@ -872,20 +879,11 @@ bool int_solver::column_is_int_inf(unsigned j) const {
     return is_int(j) && (!value_is_int(j));
 }
     
-void int_solver::init_inf_int_set() {
-    m_inf_int_set.clear();
-    m_inf_int_set.resize(m_lar_solver->A_r().column_count());
-	for (unsigned j = 0; j < m_lar_solver->A_r().column_count(); j++) {
-        if (column_is_int_inf(j))
-            m_inf_int_set.insert(j);
-    }
-}
-
 void int_solver::update_column_in_int_inf_set(unsigned j) {
     if (is_int(j) && (!value_is_int(j)))
-        m_inf_int_set.insert(j);
+        inf_int_set().insert(j);
     else
-        m_inf_int_set.erase(j);
+        inf_int_set().erase(j);
 }
 
 bool int_solver::is_base(unsigned j) const {
