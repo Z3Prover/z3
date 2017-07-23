@@ -429,7 +429,7 @@ format_ns::format * smt2_pp_environment::pp_sort(sort * s) {
     if ((get_sutil().is_seq(s) || get_sutil().is_re(s)) && !get_sutil().is_string(s)) {
         ptr_buffer<format> fs;
         fs.push_back(pp_sort(to_sort(s->get_parameter(0).get_ast())));
-        return mk_seq1(m, fs.begin(), fs.end(), f2f(), get_sutil().is_seq(s)?"Seq":"Re");
+        return mk_seq1(m, fs.begin(), fs.end(), f2f(), get_sutil().is_seq(s)?"Seq":"RegEx");
     }
     return format_ns::mk_string(get_manager(), s->get_name().str().c_str());
 }
