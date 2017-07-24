@@ -12,7 +12,7 @@
 Several online tutorials for Z3Py are available at:
 http://rise4fun.com/Z3Py/tutorial/guide
 
-Please send feedback, comments and/or corrections to leonardo@microsoft.com. Your comments are very valuable.
+Please send feedback, comments and/or corrections on the Issue tracker for https://github.com/Z3prover/z3.git. Your comments are very valuable.
 
 Small example:
 
@@ -6053,6 +6053,24 @@ class Solver(Z3PPObject):
         [x > 0]
         """
         Z3_solver_pop(self.ctx.ref(), self.solver, num)
+
+    def num_scopes(self):
+        """Return the current number of backtracking points.
+
+        >>> s = Solver()
+        >>> s.num_scopes()
+        0L
+        >>> s.push()
+        >>> s.num_scopes()
+        1L
+        >>> s.push()
+        >>> s.num_scopes()
+        2L
+        >>> s.pop()
+        >>> s.num_scopes()
+        1L
+        """
+        return Z3_solver_get_num_scopes(self.ctx.ref(), self.solver)
 
     def reset(self):
         """Remove all asserted constraints and backtracking points created using `push()`.

@@ -196,7 +196,7 @@ static void tst2() {
     // get_int64, get_uint64
     uint64 u1 = uint64_max.get_uint64();
     uint64 u2 = UINT64_MAX;
-    SASSERT(u1 == u2);
+    VERIFY(u1 == u2);
     std::cout << "int64_max: " << int64_max << ", INT64_MAX: " << INT64_MAX << ", int64_max.get_int64(): " << int64_max.get_int64() << ", int64_max.get_uint64(): " << int64_max.get_uint64() << "\n";
     SASSERT(int64_max.get_int64() == INT64_MAX);
     SASSERT(int64_min.get_int64() == INT64_MIN);

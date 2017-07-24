@@ -396,6 +396,33 @@ typedef enum
        The meaning is given by the equivalence
        (xor3 l1 l2 l3) <=> (xor (xor l1 l2) l3)
 
+   - Z3_OP_BSMUL_NO_OVFL: a predicate to check that bit-wise signed multiplication does not overflow.
+     Signed multiplication overflows if the operands have the same sign and the result of multiplication 
+     does not fit within the available bits. \sa Z3_mk_bvmul_no_overflow.
+
+   - Z3_OP_BUMUL_NO_OVFL: check that bit-wise unsigned multiplication does not overflow.
+     Unsigned multiplication overflows if the result does not fit within the available bits.
+     \sa Z3_mk_bvmul_no_overflow.
+    
+   - Z3_OP_BSMUL_NO_UDFL: check that bit-wise signed multiplication does not underflow.
+     Signed multiplication underflows if the operands have opposite signs and the result of multiplication
+     does not fit within the avaialble bits. Z3_mk_bvmul_no_underflow.
+    
+   - Z3_OP_BSDIV_I: Binary signed division. 
+     It has the same semantics as Z3_OP_BSDIV, but created in a context where the second operand can be assumed to be non-zero.
+
+   - Z3_OP_BUDIV_I: Binary unsigned division.
+     It has the same semantics as Z3_OP_BUDIV, but created in a context where the second operand can be assumed to be non-zero.
+    
+   - Z3_OP_BSREM_I: Binary signed remainder.
+     It has the same semantics as Z3_OP_BSREM, but created in a context where the second operand can be assumed to be non-zero.
+
+   - Z3_OP_BUREM_I: Binary unsigned remainder.
+     It has the same semantics as Z3_OP_BUREM, but created in a context where the second operand can be assumed to be non-zero.
+
+   - Z3_OP_BSMOD_I: Binary signed modulus.
+     It has the same semantics as Z3_OP_BSMOD, but created in a context where the second operand can be assumed to be non-zero.
+
    - Z3_OP_PR_UNDEF: Undef/Null proof object.
 
    - Z3_OP_PR_TRUE: Proof for the expression 'true'.
@@ -5349,7 +5376,10 @@ extern "C" {
 
     /**
        \brief Add a new formula \c a to the given goal.
-        Conjunctions are split into separate formulas.
+        The formula is split according to the following procedure that is applied
+        until a fixed-point:
+           Conjunctions are split into separate formulas.
+           Negations are distributed over disjunctions, resulting in separate formulas.
         If the goal is \c false, adding new formulas is a no-op.
         If the formula \c a is \c true, then nothing is added.
         If the formula \c a is \c false, then the entire goal is replaced by the formula \c false.

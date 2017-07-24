@@ -158,8 +158,7 @@ static void FUN_NAME(int a, ext_numeral_kind ak, int b, ext_numeral_kind bk, boo
     scoped_mpq _a(m), _b(m);                                            \
     m.set(_a, a);                                                       \
     m.set(_b, b);                                                       \
-    bool r = OP_NAME(m, _a, ak, _b, bk);                                \
-    SASSERT(r == expected);                                             \
+    VERIFY(expected == OP_NAME(m, _a, ak, _b, bk));                     \
 }
 
 #define MK_TST_REL(NAME) MK_TST_REL_CORE(tst_ ## NAME, NAME)

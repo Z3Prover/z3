@@ -462,7 +462,10 @@ namespace smt {
         expr_ref canonize(expr* e, dependency*& eqs);
         bool canonize(expr* e, expr_ref_vector& es, dependency*& eqs);
         bool canonize(expr_ref_vector const& es, expr_ref_vector& result, dependency*& eqs);
+        ptr_vector<expr> m_expand_todo;
         expr_ref expand(expr* e, dependency*& eqs);
+        expr_ref expand1(expr* e, dependency*& eqs);
+        expr_ref try_expand(expr* e, dependency*& eqs);
         void add_dependency(dependency*& dep, enode* a, enode* b);
 
         void get_concat(expr* e, ptr_vector<expr>& concats);

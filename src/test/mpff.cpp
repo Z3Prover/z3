@@ -435,7 +435,7 @@ static void tst_limits(unsigned prec) {
     bool overflow = false;
     try { m.inc(a); }
     catch (mpff_manager::overflow_exception) { overflow = true; }
-    SASSERT(overflow);
+    VERIFY(overflow);
     m.set_max(a);
     m.dec(a);
     SASSERT(m.eq(a, b));

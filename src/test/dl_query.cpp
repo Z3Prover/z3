@@ -40,7 +40,7 @@ void dl_query_ask_for_last_arg(context & ctx, func_decl * pred, relation_fact & 
 
     lbool is_sat = ctx.query(query);
     std::cerr << "@@ last arg query should succeed: " << should_be_successful << "\n";
-    SASSERT(is_sat != l_undef);
+    VERIFY(is_sat != l_undef);
 
     relation_fact res_fact(m);
     res_fact.push_back(f.back());

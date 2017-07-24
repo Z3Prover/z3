@@ -28,7 +28,6 @@ void tst_model_evaluator() {
     expr_ref vB2(m.mk_var(2, m.mk_bool_sort()), m);
     expr* vI0p = vI0.get();
     expr* vI1p = vI1.get();
-    expr* vB0p = vB0.get();
     expr* vB1p = vB1.get();
     expr* vB2p = vB2.get();
 

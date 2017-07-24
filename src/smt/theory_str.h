@@ -219,7 +219,7 @@ protected:
     /*
      * If DisableIntegerTheoryIntegration is set to true,
      * ALL calls to the integer theory integration methods
-     * (get_value, get_len_value, lower_bound, upper_bound)
+     * (get_arith_value, get_len_value, lower_bound, upper_bound)
      * will ignore what the arithmetic solver believes about length terms,
      * and will return no information.
      *
@@ -464,7 +464,7 @@ protected:
     bool in_same_eqc(expr * n1, expr * n2);
     expr * collect_eq_nodes(expr * n, expr_ref_vector & eqcSet);
 
-    bool get_value(expr* e, rational& val) const;
+    bool get_arith_value(expr* e, rational& val) const;
     bool get_len_value(expr* e, rational& val);
     bool lower_bound(expr* _e, rational& lo);
     bool upper_bound(expr* _e, rational& hi);

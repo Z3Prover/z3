@@ -36,13 +36,10 @@ namespace datalog {
 
 
     void relation_manager::reset_relations() {
-        relation_map::iterator it=m_relations.begin();
-        relation_map::iterator end=m_relations.end();
-        for(;it!=end;++it) {
-            func_decl * pred = it->m_key;
+        for (auto const& kv : m_relations) {
+            func_decl * pred = kv.m_key;
             get_context().get_manager().dec_ref(pred); //inc_ref in get_relation
-            relation_base * r=(*it).m_value;
-            r->deallocate();
+            kv.m_value->deallocate();
         }
         m_relations.reset();
     }
@@ -119,35 +116,25 @@ namespace datalog {
     }
 
     void relation_manager::collect_non_empty_predicates(decl_set & res) const {
-        relation_map::iterator it = m_relations.begin();
-        relation_map::iterator end = m_relations.end();
-        for(; it!=end; ++it) {
-            if(!it->m_value->fast_empty()) {
-                res.insert(it->m_key);
+        for (auto const& kv : m_relations) {
+            if (!kv.m_value->fast_empty()) {
+                res.insert(kv.m_key);
             }
         }
     }
 
     void relation_manager::restrict_predicates(const decl_set & preds) {
-        typedef ptr_vector<func_decl> fd_vector;
-        fd_vector to_remove;
+        ptr_vector<func_decl> to_remove;
 
-        relation_map::iterator rit = m_relations.begin();
-        relation_map::iterator rend = m_relations.end();
-        for(; rit!=rend; ++rit) {
-            func_decl * pred = rit->m_key;
+        for (auto const& kv : m_relations) {
+            func_decl* pred = kv.m_key;
             if (!preds.contains(pred)) {
                 to_remove.insert(pred);
             }
         }
 
-        fd_vector::iterator pit = to_remove.begin();
-        fd_vector::iterator pend = to_remove.end();
-        for(; pit!=pend; ++pit) {
-            func_decl * pred = *pit;
-            relation_base * rel;
-            VERIFY( m_relations.find(pred, rel) );
-            rel->deallocate();
+        for (func_decl* pred : to_remove) {
+            m_relations.find(pred)->deallocate();
             m_relations.remove(pred);
             get_context().get_manager().dec_ref(pred);
         }
@@ -283,18 +270,16 @@ namespace datalog {
     }
 
     table_plugin * relation_manager::get_table_plugin(symbol const& k) {
-        table_plugin_vector::iterator tpit = m_table_plugins.begin();
-        table_plugin_vector::iterator tpend = m_table_plugins.end();
-        for(; tpit!=tpend; ++tpit) {
-            if((*tpit)->get_name()==k) {
-                return *tpit;
+        for (table_plugin * tp : m_table_plugins) {
+            if (tp->get_name()==k) {
+                return tp;
             }
         }
         return 0;
     }
 
     table_relation_plugin & relation_manager::get_table_relation_plugin(table_plugin & tp) {
-        table_relation_plugin * res;
+        table_relation_plugin * res = 0;
         VERIFY( m_table_relation_plugins.find(&tp, res) );
         return *res;
     }
@@ -341,10 +326,9 @@ namespace datalog {
             return res;
         }
 
-        for (unsigned i = 0; i < m_relation_plugins.size(); ++i) {
-            p = m_relation_plugins[i];
-            if (p->can_handle_signature(s)) {
-                return p->mk_empty(s);
+        for (relation_plugin* p1 : m_relation_plugins) {
+            if (p1->can_handle_signature(s)) {
+                return p1->mk_empty(s);
             }
         }
 

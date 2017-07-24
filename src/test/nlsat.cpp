@@ -391,7 +391,6 @@ static void tst7() {
     params_ref      ps;
     reslimit        rlim;
     nlsat::solver s(rlim, ps);
-    anum_manager & am     = s.am();
     nlsat::pmanager & pm  = s.pm();
     nlsat::var x0, x1, x2, a, b, c, d;
     a  = s.mk_var(false);
@@ -423,7 +422,7 @@ static void tst7() {
 
     nlsat::literal_vector litsv(lits.size(), lits.c_ptr());
     lbool res = s.check(litsv);
-    SASSERT(res == l_false);
+    VERIFY(res == l_false);
     for (unsigned i = 0; i < litsv.size(); ++i) {
         s.display(std::cout, litsv[i]);
         std::cout << " ";

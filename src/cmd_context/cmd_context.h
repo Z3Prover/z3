@@ -42,6 +42,7 @@ Notes:
 
 class func_decls {
     func_decl * m_decls;
+    bool signatures_collide(func_decl* f, func_decl* g) const;
 public:
     func_decls():m_decls(0) {}
     func_decls(ast_manager & m, func_decl * f);

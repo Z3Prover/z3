@@ -72,14 +72,22 @@ void func_decls::finalize(ast_manager & m) {
     m_decls = 0;
 }
 
+bool func_decls::signatures_collide(func_decl* f, func_decl* g) const {
+    return f == g;
+}
+
 bool func_decls::contains(func_decl * f) const {
     if (GET_TAG(m_decls) == 0) {
-        return UNTAG(func_decl*, m_decls) == f;
+        func_decl* g = UNTAG(func_decl*, m_decls);
+        return g && signatures_collide(f, g);
     }
     else {
         func_decl_set * fs = UNTAG(func_decl_set *, m_decls);
-        return fs->contains(f);
+        for (func_decl* g : *fs) {
+            if (signatures_collide(f, g)) return true;
+        }
     }
+    return false;
 }
 
 bool func_decls::insert(ast_manager & m, func_decl * f) {

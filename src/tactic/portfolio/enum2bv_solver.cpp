@@ -116,7 +116,7 @@ public:
 
         // translate enumeration constants to bit-vectors.
         for (unsigned i = 0; i < vars.size(); ++i) {
-            func_decl* f;
+            func_decl* f = 0;
             if (is_app(vars[i]) && is_uninterp_const(vars[i]) && m_rewriter.enum2bv().find(to_app(vars[i])->get_decl(), f)) {
                 bvars.push_back(m.mk_const(f));
             }
@@ -128,7 +128,7 @@ public:
 
         // translate bit-vector consequences back to enumeration types
         for (unsigned i = 0; i < consequences.size(); ++i) {
-            expr* a, *b, *u, *v;
+            expr* a = 0, *b = 0, *u = 0, *v = 0;
             func_decl* f;
             rational num;
             unsigned bvsize;

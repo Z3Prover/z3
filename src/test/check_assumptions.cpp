@@ -38,7 +38,7 @@ void tst_check_assumptions()
 
     expr * npE = np.get();
     lbool res1 = ctx.check(1, &npE);
-    SASSERT(res1==l_true);
+    VERIFY(res1 == l_true);
 
     ctx.assert_expr(npE);
 

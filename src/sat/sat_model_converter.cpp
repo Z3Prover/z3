@@ -32,7 +32,7 @@ namespace sat {
     void model_converter::reset() {
         m_entries.finalize();
     }
-    
+
     void model_converter::operator()(model & m) const {
         vector<entry>::const_iterator begin = m_entries.begin();
         vector<entry>::const_iterator it    = m_entries.end();
@@ -46,7 +46,7 @@ namespace sat {
             literal_vector::const_iterator it2  = it->m_clauses.begin();
             literal_vector::const_iterator end2 = it->m_clauses.end();
             for (; it2 != end2; ++it2) {
-                literal l  = *it2;
+                literal l = *it2;
                 if (l == null_literal) {
                     // end of clause
                     if (!sat) {
@@ -56,6 +56,7 @@ namespace sat {
                     sat = false;
                     continue;
                 }
+
                 if (sat)
                     continue;
                 bool sign  = l.sign();
@@ -125,7 +126,7 @@ namespace sat {
         }
         return ok;
     }
-    
+
     model_converter::entry & model_converter::mk(kind k, bool_var v) {
         m_entries.push_back(entry(k, v));
         entry & e = m_entries.back();
@@ -218,7 +219,7 @@ namespace sat {
                 out << *it2;
             }
             out << ")";
-        }    
+        }
         out << ")\n";
     }
 
@@ -235,6 +236,24 @@ namespace sat {
         for (; it != end; ++it) {
             s.insert(it->m_var);
         }
+    }
+
+    unsigned model_converter::max_var(unsigned min) const {
+        unsigned result = min;
+        vector<entry>::const_iterator it = m_entries.begin();
+        vector<entry>::const_iterator end = m_entries.end();
+        for (; it != end; ++it) {
+            literal_vector::const_iterator lvit = it->m_clauses.begin();
+            literal_vector::const_iterator lvend = it->m_clauses.end();
+            for (; lvit != lvend; ++lvit) {
+                literal l = *lvit;
+                if (l != null_literal) {
+                    if (l.var() > result)
+                        result = l.var();
+                }
+            }
+        }
+        return result;
     }
 
 };

@@ -317,6 +317,9 @@ namespace smt {
 
 
         void found_not_handled(expr* n) {
+            if (a.is_div0(n)) {
+                return;
+            }
             m_not_handled = n;
             if (is_app(n) && is_underspecified(to_app(n))) {
                 TRACE("arith", tout << "Unhandled: " << mk_pp(n, m) << "\n";);
@@ -785,7 +788,7 @@ namespace smt {
         }
         
         void internalize_eq_eh(app * atom, bool_var) {
-            expr* lhs, *rhs;
+            expr* lhs = 0, *rhs = 0;
             VERIFY(m.is_eq(atom, lhs, rhs));
             enode * n1 = get_enode(lhs);
             enode * n2 = get_enode(rhs);
@@ -903,7 +906,7 @@ namespace smt {
         // to_int (to_real x) = x
         // to_real(to_int(x)) <= x < to_real(to_int(x)) + 1
         void mk_to_int_axiom(app* n) {
-            expr* x, *y;
+            expr* x = 0, *y = 0;
             VERIFY (a.is_to_int(n, x));            
             if (a.is_to_real(x, y)) {
                 mk_axiom(th.mk_eq(y, n, false));
@@ -919,7 +922,7 @@ namespace smt {
 
         // is_int(x) <=> to_real(to_int(x)) = x
         void mk_is_int_axiom(app* n) {
-            expr* x;
+            expr* x = 0;
             VERIFY(a.is_is_int(n, x));
             literal eq = th.mk_eq(a.mk_to_real(a.mk_to_int(x)), x, false);
             literal is_int = ctx().get_literal(n);
@@ -1417,12 +1420,14 @@ namespace smt {
                 return;
             }
             int num_of_p = m_solver->settings().st().m_num_of_implied_bounds;
+            (void)num_of_p;
             local_bound_propagator bp(*this);
             m_solver->propagate_bounds_for_touched_rows(bp);
             if (m.canceled()) {
                 return;
             }
             int new_num_of_p = m_solver->settings().st().m_num_of_implied_bounds;
+            (void)new_num_of_p;
             CTRACE("arith", new_num_of_p > num_of_p, tout << "found " << new_num_of_p << " implied bounds\n";);
             if (m_solver->get_status() == lp::lp_status::INFEASIBLE) {
                 set_conflict();
