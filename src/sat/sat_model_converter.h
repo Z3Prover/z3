@@ -26,7 +26,7 @@ namespace sat {
        \brief Stores eliminated variables and Blocked clauses.
        It uses these clauses to extend/patch the model produced for the
        simplified CNF formula.
-       
+
        This information may also be used to support incremental solving.
        If new clauses are asserted into the SAT engine, then we can
        restore the state by re-asserting all clauses in the model
@@ -50,7 +50,7 @@ namespace sat {
                 m_kind(src.m_kind),
                 m_clauses(src.m_clauses) {
             }
-            bool_var var() const { return m_var; } 
+            bool_var var() const { return m_var; }
             kind get_kind() const { return static_cast<kind>(m_kind); }
         };
     private:
@@ -74,8 +74,9 @@ namespace sat {
 
         void copy(model_converter const & src);
         void collect_vars(bool_var_set & s) const;
+        unsigned max_var(unsigned min) const;
     };
-    
+
 };
 
 #endif

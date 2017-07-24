@@ -120,6 +120,13 @@ if [ -n "${NO_SUPPRESS_OUTPUT}" ]; then
   )
 fi
 
+if [ -n "${Z3_WARNINGS_AS_ERRORS}" ]; then
+  BUILD_OPTS+=( \
+    "--build-arg" \
+    "Z3_WARNINGS_AS_ERRORS=${Z3_WARNINGS_AS_ERRORS}" \
+  )
+fi
+
 case ${LINUX_BASE} in
   ubuntu_14.04)
     BASE_DOCKER_FILE="${DOCKER_FILE_DIR}/z3_base_ubuntu_14.04.Dockerfile"

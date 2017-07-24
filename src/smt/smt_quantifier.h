@@ -75,7 +75,7 @@ namespace smt {
         };
 
         bool model_based() const;
-	bool mbqi_enabled(quantifier *q) const; // can mbqi instantiate this quantifier?
+        bool mbqi_enabled(quantifier *q) const; // can mbqi instantiate this quantifier?
         void adjust_model(proto_model * m);
         check_model_result check_model(proto_model * m, obj_map<enode, app *> const & root2value);
 
@@ -167,7 +167,7 @@ namespace smt {
         virtual void push() = 0;
         virtual void pop(unsigned num_scopes) = 0;
 
-        
+
 
     };
 };

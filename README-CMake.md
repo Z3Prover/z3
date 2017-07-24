@@ -266,6 +266,8 @@ The following useful options can be passed to CMake whilst configuring.
     Disabling this is useful for faster incremental builds. The documentation can be manually built by invoking the ``api_docs`` target.
 * ``LINK_TIME_OPTIMIZATION`` - BOOL. If set to ``TRUE`` link time optimization will be enabled.
 * ``API_LOG_SYNC`` - BOOL. If set to ``TRUE`` will enable experimental API log sync feature.
+* ``WARNINGS_AS_ERRORS`` - STRING. If set to ``TRUE`` compiler warnings will be treated as errors. If set to ``False`` compiler warnings will not be treated as errors.
+    If set to ``SERIOUS_ONLY`` a subset of compiler warnings will be treated as errors.
 
 On the command line these can be passed to ``cmake`` using the ``-D`` option. In ``ccmake`` and ``cmake-gui`` these can be set in the user interface.
 
@@ -381,3 +383,13 @@ It is tempting use file-globbing in ``CMakeLists.txt`` to find a set for files m
 use them as the sources to build a target. This however is a bad idea because it prevents CMake from knowing when it needs to rerun itself. This is why source file names are explicitly listed in the ``CMakeLists.txt`` so that when changes are made the source files used to build a target automatically triggers a rerun of CMake.
 
 Long story short. Don't use file globbing.
+
+### Serious warning flags
+
+By default the `WARNINGS_AS_ERRORS` flag is set to `SERIOUS_ONLY` which means
+some warnings will be treated as errors. These warnings are controlled by the
+relevant `*_WARNINGS_AS_ERRORS` list defined in
+`cmake/compiler_warnings.cmake`.
+
+Additional warnings should only be added here if the warnings has no false
+positives.

@@ -732,7 +732,7 @@ void bv_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol const
         op_names.push_back(builtin_name("bvudiv_i", OP_BUDIV_I));
         op_names.push_back(builtin_name("bvsrem_i", OP_BSREM_I));
         op_names.push_back(builtin_name("bvurem_i", OP_BUREM_I));
-        op_names.push_back(builtin_name("bvumod_i", OP_BSMOD_I));
+        op_names.push_back(builtin_name("bvsmod_i", OP_BSMOD_I));
 
         op_names.push_back(builtin_name("ext_rotate_left",OP_EXT_ROTATE_LEFT));
         op_names.push_back(builtin_name("ext_rotate_right",OP_EXT_ROTATE_RIGHT));
