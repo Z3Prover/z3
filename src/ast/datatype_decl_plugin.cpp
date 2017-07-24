@@ -20,6 +20,7 @@ Revision History:
 #include"warning.h"
 #include"ast_smt2_pp.h"
 
+
 /**
    \brief Auxiliary class used to declare inductive datatypes.
 */
@@ -124,6 +125,7 @@ static parameter const & read(unsigned num_parameters, parameter const * paramet
 static int read_int(unsigned num_parameters, parameter const * parameters, unsigned idx, bool_buffer & read_pos) {
     const parameter & r = read(num_parameters, parameters, idx, read_pos);
     if (!r.is_int()) {
+        TRACE("datatype", tout << "expected integer parameter at position " << idx << " got: " << r << "\n";);
         throw invalid_datatype();
     }
     return r.get_int();
@@ -132,9 +134,23 @@ static int read_int(unsigned num_parameters, parameter const * parameters, unsig
 static symbol read_symbol(unsigned num_parameters, parameter const * parameters, unsigned idx, bool_buffer & read_pos) {
     parameter const & r = read(num_parameters, parameters, idx, read_pos);
     if (!r.is_symbol()) {
+        TRACE("datatype", tout << "expected symol parameter at position " << idx << " got: " << r << "\n";);
         throw invalid_datatype();
     }
     return r.get_symbol();
+}
+
+static sort* read_sort(unsigned num_parameters, parameter const * parameters, unsigned idx, bool_buffer & read_pos) {
+    parameter const & r = read(num_parameters, parameters, idx, read_pos);
+    if (!r.is_ast()) {
+        TRACE("datatype", tout << "expected ast parameter at position " << idx << " got: " << r << "\n";);
+        throw invalid_datatype();
+    }
+    ast* a = r.get_ast();
+    if (!is_sort(a)) {
+        throw invalid_datatype();
+    }
+    return to_sort(a);
 }
 
 enum status {
@@ -160,7 +176,7 @@ static bool is_recursive_datatype(parameter const * parameters) {
             continue;
         }
         already_found[tid] = GRAY;
-        unsigned o                 = parameters[2 + 2*tid + 1].get_int(); // constructor offset
+        unsigned o                 = datatype_decl_plugin::constructor_offset(parameters, tid);  // constructor offset
         unsigned num_constructors  = parameters[o].get_int();            
         bool     can_process       = true;
         for (unsigned s = 1; s <= num_constructors; s++) {
@@ -210,7 +226,7 @@ static sort_size get_datatype_size(parameter const * parameters) {
             continue;
         }
         already_found[tid] = GRAY;
-        unsigned o                 = parameters[2 + 2*tid + 1].get_int(); // constructor offset
+        unsigned o                 = datatype_decl_plugin::constructor_offset(parameters, tid);
         unsigned num_constructors  = parameters[o].get_int();            
         bool     is_very_big       = false;
         bool     can_process       = true;
@@ -296,7 +312,7 @@ static bool is_well_founded(parameter const * parameters) {
         changed = false;
         for (unsigned tid = 0; tid < num_types; tid++) {
             if (!well_founded[tid]) {
-                unsigned o                 = parameters[2 + 2*tid + 1].get_int(); // constructor offset
+                unsigned o                 = datatype_decl_plugin::constructor_offset(parameters, tid); // constructor offset
                 unsigned num_constructors  = parameters[o].get_int();
                 for (unsigned s = 1; s <= num_constructors; s++) {
                     unsigned k_i           = parameters[o + s].get_int();
@@ -350,9 +366,14 @@ sort * datatype_decl_plugin::mk_sort(decl_kind k, unsigned num_parameters, param
             throw invalid_datatype();
         }
         unsigned tid       = read_int(num_parameters, parameters, 1, found);
+        unsigned num_sort_params = read_int(num_parameters, parameters, 2, found);
+        for (unsigned j = 0; j < num_sort_params; ++j) {
+            read_sort(num_parameters, parameters, 3 + j, found);
+        }
+        unsigned c_offset  = constructor_offset(parameters);
         for (unsigned j = 0; j < num_types; j++) {
-            read_symbol(num_parameters, parameters, 2 + 2*j, found); // type name
-            unsigned       o          = read_int(num_parameters, parameters, 2 + 2*j + 1, found);
+            read_symbol(num_parameters, parameters, c_offset + 2*j, found); // type name
+            unsigned       o          = read_int(num_parameters, parameters, c_offset + 2*j + 1, found);
             unsigned num_constructors = read_int(num_parameters, parameters, o, found);
             if (num_constructors == 0) {
                 throw invalid_datatype();
@@ -368,9 +389,9 @@ sort * datatype_decl_plugin::mk_sort(decl_kind k, unsigned num_parameters, param
                     parameter const & a_type = read(num_parameters, parameters, first_accessor + 2*r + 1, found); // accessort type
                     if (!a_type.is_int() && !a_type.is_ast()) {
                         throw invalid_datatype();
-                        if (a_type.is_ast() && !is_sort(a_type.get_ast())) {
-                            throw invalid_datatype();
-                        }
+                    }
+                    if (a_type.is_ast() && !is_sort(a_type.get_ast())) {
+                        throw invalid_datatype();
                     }
                 }
             }
@@ -387,7 +408,7 @@ sort * datatype_decl_plugin::mk_sort(decl_kind k, unsigned num_parameters, param
         
         // compute datatype size
         sort_size ts = get_datatype_size(parameters);
-        symbol const & tname = parameters[2+2*tid].get_symbol();
+        symbol const & tname = parameters[c_offset + 2*tid].get_symbol();
         return m_manager->mk_sort(tname,
                                   sort_info(m_family_id, k, ts, num_parameters, parameters, true));
     }
@@ -489,7 +510,7 @@ func_decl * datatype_decl_plugin::mk_func_decl(decl_kind k, unsigned num_paramet
     }
     unsigned c_idx            = parameters[1].get_int();
     unsigned tid              = datatype->get_parameter(1).get_int();
-    unsigned o                = datatype->get_parameter(2 + 2 * tid + 1).get_int();
+    unsigned o                = datatype_decl_plugin::constructor_offset(datatype, tid);
     unsigned num_constructors = datatype->get_parameter(o).get_int();
     if (c_idx >= num_constructors) {
         m_manager->raise_exception("invalid parameters for datatype operator");
@@ -504,8 +525,6 @@ func_decl * datatype_decl_plugin::mk_func_decl(decl_kind k, unsigned num_paramet
             return 0;
         }
         else {
-
-
             symbol   c_name           = datatype->get_parameter(k_i).get_symbol();
             unsigned num_accessors    = datatype->get_parameter(k_i + 2).get_int();
             if (num_accessors != arity) {
@@ -577,16 +596,22 @@ func_decl * datatype_decl_plugin::mk_func_decl(decl_kind k, unsigned num_paramet
     }
 }
 
-bool datatype_decl_plugin::mk_datatypes(unsigned num_datatypes, datatype_decl * const * datatypes, sort_ref_vector & new_types) {
+bool datatype_decl_plugin::mk_datatypes(unsigned num_datatypes, datatype_decl * const * datatypes, unsigned num_params, sort* const* sort_params, sort_ref_vector & new_types) {
     buffer<parameter> p;
     p.push_back(parameter(num_datatypes));
     p.push_back(parameter(-1));
+    p.push_back(parameter(num_params));
+    for (unsigned i = 0; i < num_params; ++i) {
+        p.push_back(parameter(sort_params[i]));
+    }
+    
+    unsigned c_offset = constructor_offset(p.c_ptr());
     for (unsigned i = 0; i < num_datatypes; i++) {
         p.push_back(parameter(datatypes[i]->get_name()));
         p.push_back(parameter(-1)); // offset is unknown at this point
     }
     for (unsigned i = 0; i < num_datatypes; i++) {
-        p[3+2*i] = parameter(p.size()); // save offset to constructor table
+        p[c_offset + 1 + 2*i] = parameter(p.size()); // save offset to constructor table
         ptr_vector<constructor_decl> const & constructors = datatypes[i]->get_constructors();
         unsigned num_constructors = constructors.size();
         p.push_back(parameter(num_constructors));
@@ -595,7 +620,7 @@ bool datatype_decl_plugin::mk_datatypes(unsigned num_datatypes, datatype_decl * 
         }
     }
     for (unsigned i = 0; i < num_datatypes; i++) {
-        unsigned       o          = p[3+2*i].get_int();
+        unsigned       o          = constructor_offset(p.c_ptr(), i);
         ptr_vector<constructor_decl> const & constructors = datatypes[i]->get_constructors();
         unsigned num_constructors = constructors.size();
         for (unsigned j = 0; j < num_constructors; j++) {
@@ -655,7 +680,7 @@ bool datatype_decl_plugin::is_fully_interp(sort const * s) const {
     parameter const * parameters = s->get_parameters();
     unsigned num_types        = parameters[0].get_int();
     for (unsigned tid = 0; tid < num_types; tid++) {
-        unsigned o                 = parameters[2 + 2*tid + 1].get_int(); // constructor offset
+        unsigned o                 = datatype_decl_plugin::constructor_offset(s, tid);
         unsigned num_constructors  = parameters[o].get_int();
         for (unsigned si = 1; si <= num_constructors; si++) {
             unsigned k_i           = parameters[o + si].get_int();
@@ -690,6 +715,28 @@ bool datatype_decl_plugin::is_value_visit(expr * arg, ptr_buffer<app> & todo) co
     else {
         return m_manager->is_value(arg);
     }
+}
+
+unsigned datatype_decl_plugin::constructor_offset(sort const* s)  {
+    return constructor_offset(s->get_parameters());
+}
+
+unsigned datatype_decl_plugin::constructor_offset(parameter const& p) {
+    return 3 + p.get_int();
+}
+
+unsigned datatype_decl_plugin::constructor_offset(parameter const* ps) {
+    return constructor_offset(ps[2]);
+}
+
+unsigned datatype_decl_plugin::constructor_offset(sort const* s, unsigned tid)  {
+    unsigned c_offset = constructor_offset(s->get_parameters());
+    return s->get_parameter(c_offset + 1 + 2*tid).get_int();
+}
+
+unsigned datatype_decl_plugin::constructor_offset(parameter const* ps, unsigned tid) {
+    unsigned c_offset = constructor_offset(ps[2]);
+    return ps[c_offset + 1 + 2*tid].get_int();
 }
 
 bool datatype_decl_plugin::is_value(app * e) const {
@@ -742,7 +789,7 @@ datatype_util::~datatype_util() {
 
 func_decl * datatype_util::get_constructor(sort * ty, unsigned c_id) {
     unsigned tid           = ty->get_parameter(1).get_int();
-    unsigned o             = ty->get_parameter(3 + 2*tid).get_int();
+    unsigned o             = datatype_decl_plugin::constructor_offset(ty, tid);
     unsigned k_i           = ty->get_parameter(o + c_id + 1).get_int();
     unsigned num_accessors = ty->get_parameter(k_i + 2).get_int();
     parameter p[2]         = { parameter(ty), parameter(c_id) };
@@ -765,7 +812,7 @@ ptr_vector<func_decl> const * datatype_util::get_datatype_constructors(sort * ty
     m_vectors.push_back(r);
     m_datatype2constructors.insert(ty, r);
     unsigned tid               = ty->get_parameter(1).get_int();
-    unsigned o                 = ty->get_parameter(3 + 2*tid).get_int();
+    unsigned o                 = datatype_decl_plugin::constructor_offset(ty, tid);
     unsigned num_constructors  = ty->get_parameter(o).get_int();
     for (unsigned c_id = 0; c_id < num_constructors; c_id++) {
         func_decl * c = get_constructor(ty, c_id);
@@ -880,7 +927,7 @@ ptr_vector<func_decl> const * datatype_util::get_constructor_accessors(func_decl
     unsigned c_id              = constructor->get_parameter(1).get_int();
     sort * datatype            = constructor->get_range();
     unsigned tid               = datatype->get_parameter(1).get_int();
-    unsigned o                 = datatype->get_parameter(3 + 2*tid).get_int();
+    unsigned o                 = datatype_decl_plugin::constructor_offset(datatype, tid);
     unsigned k_i               = datatype->get_parameter(o + c_id + 1).get_int();
     unsigned num_accessors     = datatype->get_parameter(k_i+2).get_int();
     parameter p[3]             = { parameter(datatype), parameter(c_id), parameter(-1) };

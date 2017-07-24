@@ -431,6 +431,14 @@ format_ns::format * smt2_pp_environment::pp_sort(sort * s) {
         fs.push_back(pp_sort(to_sort(s->get_parameter(0).get_ast())));
         return mk_seq1(m, fs.begin(), fs.end(), f2f(), get_sutil().is_seq(s)?"Seq":"Re");
     }
+    if (get_dtutil().is_datatype(s)) {
+        ptr_buffer<format> fs;
+        unsigned sz = get_dtutil().get_datatype_num_parameter_sorts(s);
+        for (unsigned i = 0; i < sz; i++) {
+            fs.push_back(pp_sort(get_dtutil().get_datatype_parameter_sort(s, i)));
+        }
+        return mk_seq1(m, fs.begin(), fs.end(), f2f(), s->get_name().str().c_str());        
+    }
     return format_ns::mk_string(get_manager(), s->get_name().str().c_str());
 }
 

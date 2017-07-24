@@ -30,6 +30,7 @@ Revision History:
 #include"fpa_decl_plugin.h"
 #include"dl_decl_plugin.h"
 #include"seq_decl_plugin.h"
+#include"datatype_decl_plugin.h"
 #include"smt2_util.h"
 
 class smt2_pp_environment {
@@ -50,6 +51,7 @@ public:
     virtual fpa_util & get_futil() = 0;
     virtual seq_util & get_sutil() = 0;
     virtual datalog::dl_decl_util& get_dlutil() = 0;
+    virtual datatype_util& get_dtutil() = 0;
     virtual bool uses(symbol const & s) const = 0; 
     virtual format_ns::format * pp_fdecl(func_decl * f, unsigned & len);
     virtual format_ns::format * pp_bv_literal(app * t, bool use_bv_lits, bool bv_neg);
@@ -74,9 +76,10 @@ class smt2_pp_environment_dbg : public smt2_pp_environment {
     array_util    m_arutil;
     fpa_util      m_futil;
     seq_util      m_sutil;
+    datatype_util m_dtutil;
     datalog::dl_decl_util m_dlutil;
 public:
-    smt2_pp_environment_dbg(ast_manager & m):m_manager(m), m_autil(m), m_bvutil(m), m_arutil(m), m_futil(m), m_sutil(m), m_dlutil(m) {}
+    smt2_pp_environment_dbg(ast_manager & m):m_manager(m), m_autil(m), m_bvutil(m), m_arutil(m), m_futil(m), m_sutil(m), m_dtutil(m), m_dlutil(m) {}
     virtual ast_manager & get_manager() const { return m_manager; }
     virtual arith_util & get_autil() { return m_autil; }
     virtual bv_util & get_bvutil() { return m_bvutil; }
@@ -84,6 +87,7 @@ public:
     virtual array_util & get_arutil() { return m_arutil; }
     virtual fpa_util & get_futil() { return m_futil; }
     virtual datalog::dl_decl_util& get_dlutil() { return m_dlutil; }
+    virtual datatype_util& get_dtutil() { return m_dtutil; }
     virtual bool uses(symbol const & s) const { return false; }
 };
 
