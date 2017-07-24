@@ -886,7 +886,7 @@ void mpf_manager::fma(mpf_rounding_mode rm, mpf const & x, mpf const & y, mpf co
         unsigned extra = 0;
         // Result could overflow into 4.xxx ...
         SASSERT(m_mpz_manager.lt(o.significand, m_powers2(2 * x.sbits + 2)));
-        if(m_mpz_manager.ge(o.significand, m_powers2(2 * x.sbits + 1)))
+        if (m_mpz_manager.ge(o.significand, m_powers2(2 * x.sbits + 1)))
         {
             extra++;
             o.exponent++;
