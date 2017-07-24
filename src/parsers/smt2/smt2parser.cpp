@@ -917,13 +917,6 @@ namespace smt2 {
             next();
         }
 
-        // (declare-datatypes ( sort_dec n+1 ) ( datatype_dec n+1 ) )
-
-        void parse_declare_datatypes_smt2() {
-            
-        }
-
-
         // ( declare-datatype symbol datatype_dec) 
         void parse_declare_datatype() {
             SASSERT(curr_is_identifier());
