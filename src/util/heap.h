@@ -43,6 +43,15 @@ class heap : private LT {
         return i >> 1; 
     }
 
+    void display(std::ostream& out, unsigned indent, int idx) const {
+        if (idx < static_cast<int>(m_values.size())) {
+            for (unsigned i = 0; i < indent; ++i) out << " ";
+            out << m_values[idx] << "\n";
+            display(out, indent + 1, left(idx));
+            display(out, indent + 1, right(idx));
+        }
+    }
+
 #ifdef Z3DEBUG
     // Return true if the value can be inserted in the heap. That is, the vector m_value2indices is big enough to store this value.
     bool is_valid_value(int v) const { 
@@ -59,10 +68,13 @@ class heap : private LT {
         }
         return true;
     }
+
+
 public:
     bool check_invariant() const { 
         return check_invariant_core(1); 
     }
+
 #endif
 private:
 
@@ -219,6 +231,7 @@ public:
 
     void insert(int val) {
         CASSERT("heap", check_invariant());
+        CASSERT("heap", !contains(val));
         SASSERT(is_valid_value(val));
         int idx              = static_cast<int>(m_values.size());
         m_value2indices[val] = idx;
@@ -272,6 +285,11 @@ public:
             }
         }
     }
+
+    void display(std::ostream& out) const {
+        display(out, 0, 1);
+    }
+
   
 };
 
