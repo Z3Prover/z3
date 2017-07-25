@@ -1947,35 +1947,25 @@ void mpf_manager::round(mpf_rounding_mode rm, mpf & o) {
 
     TRACE("mpf_dbg", tout << "Shift distance: " << m_mpz_manager.to_string(sigma) << " " << ((m_mpz_manager.is_nonneg(sigma))?"(LEFT)":"(RIGHT)") << std::endl;);
 
-    bool sticky = !m_mpz_manager.is_even(o.significand);
-    m_mpz_manager.machine_div2k(o.significand, 1); // Let f' = f_r/2
-
-    if (!m_mpz_manager.is_zero(sigma)) {
-        if (m_mpz_manager.is_neg(sigma)) { // Right shift
-            unsigned sigma_uint = (unsigned) -m_mpz_manager.get_int64(sigma); // sigma is capped, this is safe.
-            if (sticky)
-                m_mpz_manager.machine_div2k(o.significand, sigma_uint);
-            else
-            {
-                scoped_mpz sticky_rem(m_mpz_manager);
-                m_mpz_manager.machine_div_rem(o.significand, m_powers2(sigma_uint), o.significand, sticky_rem);
-                sticky = !m_mpz_manager.is_zero(sticky_rem);
-            }
-        }
-        else { // Left shift
-            unsigned sh_m = static_cast<unsigned>(m_mpz_manager.get_int64(sigma));
-            m_mpz_manager.mul2k(o.significand, sh_m, o.significand);
-            m_mpz_manager.set(sigma, 0);
-        }
+    if (m_mpz_manager.le(sigma, 0)) { // Right shift
+        scoped_mpz sticky_rem(m_mpz_manager);
+        unsigned sigma_uint = (unsigned)-m_mpz_manager.get_int64(sigma); // sigma is capped, this is safe.
+        sigma_uint += 2;
+        m_mpz_manager.machine_div_rem(o.significand, m_powers2(sigma_uint), o.significand, sticky_rem);
+        bool sticky = !m_mpz_manager.is_zero(sticky_rem);
+        if (sticky && m_mpz_manager.is_even(o.significand))
+            m_mpz_manager.inc(o.significand);
+    }
+    else { // Left shift
+        unsigned sigma_uint = static_cast<unsigned>(m_mpz_manager.get_int64(sigma));
+        m_mpz_manager.mul2k(o.significand, sigma_uint - 1, o.significand);
+        bool sticky = !m_mpz_manager.is_even(o.significand);
+        m_mpz_manager.machine_div2k(o.significand, 1);
+        if (sticky && m_mpz_manager.is_even(o.significand))
+            m_mpz_manager.inc(o.significand);
     }
 
-    TRACE("mpf_dbg", tout << "Before sticky: " << to_string(o) << std::endl;);
-
-    // Make sure o.significand is a [sbits+2] bit number (i.e. f1[0:sbits+1] == f1[0:sbits-1][round][sticky])
-    sticky = sticky || !m_mpz_manager.is_even(o.significand);
-    m_mpz_manager.machine_div2k(o.significand, 1);
-    if (sticky && m_mpz_manager.is_even(o.significand))
-        m_mpz_manager.inc(o.significand);
+    TRACE("mpf_dbg", tout << "After sticky: " << to_string(o) << std::endl;);
 
     if (OVF1 && OVFen) {
         o.exponent = beta;
@@ -1997,7 +1987,7 @@ void mpf_manager::round(mpf_rounding_mode rm, mpf & o) {
 
     // Significand rounding (sigrd)
 
-    sticky = !m_mpz_manager.is_even(o.significand); // new sticky bit!
+    bool sticky = !m_mpz_manager.is_even(o.significand); // new sticky bit!
     m_mpz_manager.machine_div2k(o.significand, 1);
     bool round = !m_mpz_manager.is_even(o.significand);
     m_mpz_manager.machine_div2k(o.significand, 1);
