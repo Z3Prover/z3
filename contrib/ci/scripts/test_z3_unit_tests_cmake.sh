@@ -1,6 +1,7 @@
 #!/bin/bash
 
 SCRIPT_DIR="$( cd ${BASH_SOURCE[0]%/*} ; echo $PWD )"
+. ${SCRIPT_DIR}/run_quiet.sh
 
 set -x
 set -e
@@ -21,4 +22,5 @@ cd "${Z3_BUILD_DIR}"
 
 # Build and run internal tests
 cmake --build $(pwd) --target test-z3 "${GENERATOR_ARGS[@]}"
-./test-z3
+# Run all tests that don't require arguments
+run_quiet ./test-z3 /a
