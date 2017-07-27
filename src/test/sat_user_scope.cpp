@@ -73,7 +73,7 @@ static void check_coherence(sat::solver& s1, trail_t& t) {
         s2.display(std::cout);
     }
     std::cout << is_sat1 << "\n";
-    SASSERT(is_sat1 == is_sat2);
+    ENSURE(is_sat1 == is_sat2);
 }
 
 void tst_sat_user_scope() {

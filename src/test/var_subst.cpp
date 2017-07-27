@@ -87,7 +87,7 @@ void tst_subst(ast_manager& m) {
     std::cout << mk_pp(e2, m) << "\n";
     std::cout << mk_pp(e3, m) << "\n";
     std::cout << mk_pp(t1, m) << "\n";
-    SASSERT(e3.get() == t1.get());
+    ENSURE(e3.get() == t1.get());
 
     // replace #2 -> #3, #3 -> #2
     e2 = m.mk_forall(2, ss, names, e1);
@@ -95,7 +95,7 @@ void tst_subst(ast_manager& m) {
     std::cout << mk_pp(e2, m) << "\n";
     std::cout << mk_pp(e3, m) << "\n";
     std::cout << mk_pp(t2, m) << "\n";
-    SASSERT(e3.get() == t2.get());
+    ENSURE(e3.get() == t2.get());
 
 }
 
