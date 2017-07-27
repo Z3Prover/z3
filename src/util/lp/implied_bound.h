@@ -28,7 +28,6 @@ struct implied_bound {
     bool m_coeff_before_j_is_pos;
     unsigned m_row_or_term_index;
     bool m_strict;
-    
     lconstraint_kind kind() const {
         lconstraint_kind k = m_is_low_bound? GE : LE;
         if (m_strict)
@@ -52,6 +51,7 @@ struct implied_bound {
         m_is_low_bound(low_bound),
         m_coeff_before_j_is_pos(coeff_before_j_is_pos),
         m_row_or_term_index(row_or_term_index),
-        m_strict(strict) {}
+        m_strict(strict) {
+    }
 };
 }

@@ -1385,6 +1385,7 @@ namespace smt {
 
         m_branch_cut_counter++;
         // TODO: add giveup code
+        TRACE("gomory_cut", tout << m_branch_cut_counter << ", " << m_params.m_arith_branch_cut_ratio << std::endl;);
         if (m_branch_cut_counter % m_params.m_arith_branch_cut_ratio == 0) {
             TRACE("opt_verbose", display(tout););
             move_non_base_vars_to_bounds();
@@ -1399,7 +1400,7 @@ namespace smt {
                 SASSERT(is_base(int_var));
                 row const & r = m_rows[get_var_row(int_var)];
                 if (!mk_gomory_cut(r)) {
-                    // silent failure
+                    TRACE("gomory_cut", tout << "silent failure\n";);
                 }
                 return FC_CONTINUE;
             }

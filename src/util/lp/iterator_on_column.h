@@ -57,7 +57,9 @@ struct iterator_on_column:linear_combination_iterator<T> {
         m_i = -1;
     }
 
-    linear_combination_iterator<mpq> * clone() override {
+    bool is_reset() const { return m_i == -1;}
+
+    linear_combination_iterator<mpq> * clone() {
         iterator_on_column * r = new iterator_on_column(m_column, m_A);
         return r;
     }

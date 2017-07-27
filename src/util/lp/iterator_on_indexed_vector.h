@@ -46,7 +46,10 @@ struct iterator_on_indexed_vector:linear_combination_iterator<T> {
     void reset() override {
         m_offset = 0;
     }
-    linear_combination_iterator<T>* clone() override {
+
+    bool is_reset() const { return m_offset == 0;}
+
+    linear_combination_iterator<T>* clone() {
         return new iterator_on_indexed_vector(m_v);
     }
 };

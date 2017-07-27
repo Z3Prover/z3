@@ -34,9 +34,6 @@ public:
     int_set m_old_values_set;
     vector<impq> m_old_values_data;
     unsigned m_branch_cut_counter;
-    linear_combination_iterator<mpq>* m_iter_on_gomory_row;
-    unsigned m_gomory_cut_inf_column;
-    bool m_found_free_var_in_gomory_row;
     
     // methods
     int_solver(lar_solver* lp);
@@ -80,16 +77,17 @@ private:
     void patch_int_infeasible_columns();
     bool get_freedom_interval_for_column(unsigned j, bool & inf_l, impq & l, bool & inf_u, impq & u, mpq & m);
     linear_combination_iterator<mpq> * get_column_iterator(unsigned j);
-    bool lower(unsigned j) const;
-    bool upper(unsigned j) const;
-    const impq & lower_bound(unsigned j) const;
+    const impq & low_bound(unsigned j) const;
     const impq & upper_bound(unsigned j) const;
     bool is_int(unsigned j) const;
     bool is_real(unsigned j) const;
     bool is_base(unsigned j) const;
     bool is_boxed(unsigned j) const;
+    bool is_fixed(unsigned j) const;
+    bool is_free(unsigned j) const;
     bool value_is_int(unsigned j) const;
-    void set_value(unsigned j, const impq & new_val);
+    void set_value_for_nbasic_column(unsigned j, const impq & new_val);
+    void set_value_for_nbasic_column_ignore_old_values(unsigned j, const impq & new_val);
     void fix_non_base_columns();
     void failed();
     bool is_feasible() const;
@@ -102,35 +100,44 @@ private:
     int find_inf_int_base_column();
     int find_inf_int_boxed_base_column_with_smallest_range();
     lp_settings& settings();
-    void move_non_base_vars_to_bounds();
+    bool move_non_base_vars_to_bounds();
     void branch_infeasible_int_var(unsigned);
-    lia_move mk_gomory_cut(lar_term& t, mpq& k,explanation & ex);
+    lia_move mk_gomory_cut(lar_term& t, mpq& k,explanation & ex, unsigned inf_col, linear_combination_iterator<mpq>& iter);
     lia_move report_conflict_from_gomory_cut(mpq & k);
-    lia_move report_gomory_cut(lar_term& t, mpq& k, mpq& lcm_den, unsigned num_ints);
+    void adjust_term_and_k_for_some_ints_case_gomory(lar_term& t, mpq& k, mpq& lcm_den);
 	void init_check_data();
     bool constrain_free_vars(linear_combination_iterator<mpq> *  r);
-    lia_move proceed_with_gomory_cut(lar_term& t, mpq& k, explanation& ex);
-    int find_next_free_var_in_gomory_row();
-    bool is_gomory_cut_target();
+    lia_move proceed_with_gomory_cut(lar_term& t, mpq& k, explanation& ex, unsigned j,                                                  linear_combination_iterator<mpq>& iter);
+    int find_free_var_in_gomory_row(linear_combination_iterator<mpq>& iter);
+    bool is_gomory_cut_target(linear_combination_iterator<mpq> &iter);
     bool at_bound(unsigned j) const;
-    bool at_lower(unsigned j) const;
+    bool at_low(unsigned j) const;
     bool at_upper(unsigned j) const;
-
+    bool has_low(unsigned j) const;
+    bool has_upper(unsigned j) const;
+    unsigned row_of_basic_column(unsigned j) const;
     inline static bool is_rational(const impq & n) {
         return is_zero(n.y);  
     }
 
     inline static
     mpq fractional_part(const impq & n) {
-        lp_assert(is_rational);
+        lp_assert(is_rational(n));
         return n.x - floor(n.x);
     }
-    void real_case_in_gomory_cut(const mpq & a, unsigned x_j, mpq & k, lar_term& t, explanation & ex);
-    void int_case_in_gomory_cut(const mpq & a, unsigned x_j, mpq & k, lar_term& t, explanation& ex, mpq & lcm_den);
+    void real_case_in_gomory_cut(const mpq & a, unsigned x_j, mpq & k, lar_term& t, explanation & ex, unsigned inf_column);
+    void int_case_in_gomory_cut(const mpq & a, unsigned x_j, mpq & k, lar_term& t, explanation& ex, mpq & lcm_den, unsigned inf_column);
     constraint_index column_upper_bound_constraint(unsigned j) const;
     constraint_index column_low_bound_constraint(unsigned j) const;
     void display_row_info(std::ostream & out, unsigned row_index) const;
-    void gomory_cut_adjust_t_and_k_for_size_1(const vector<std::pair<mpq, unsigned>> & pol, lar_term & t, mpq &k);
-    void gomory_cut_adjust_t_and_k_for_size_gt_1(vector<std::pair<mpq, unsigned>> & pol, lar_term & t, mpq &k, unsigned num_ints, mpq &lcm_den);
+    void gomory_cut_adjust_t_and_k(vector<std::pair<mpq, unsigned>> & pol, lar_term & t, mpq &k, bool num_ints, mpq &lcm_den);
+    bool current_solution_is_inf_on_cut(const lar_term& t, const mpq& k) const;
+public:
+    bool shift_var(unsigned j, unsigned range);
+private:
+    unsigned random();
+    bool non_basic_columns_are_at_bounds() const;
+    bool has_inf_int() const;
+    lia_move create_branch_on_column(int j, lar_term& t, mpq& k) const;
 };
 }

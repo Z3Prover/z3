@@ -389,8 +389,19 @@ namespace smt {
     void theory_arith<Ext>::display_vars(std::ostream & out) const {
         out << "vars:\n";
         int n = get_num_vars();
-        for (theory_var v = 0; v < n; v++)
-            display_var(out, v);
+		int inf_vars = 0;
+		int int_inf_vars = 0;
+		for (theory_var v = 0; v < n; v++) {
+			if ((lower(v) && lower(v)->get_value() > get_value(v))
+				|| (upper(v) && upper(v)->get_value() < get_value(v)))
+				inf_vars++;
+			if (is_int(v) && !get_value(v).is_int())
+				int_inf_vars++;
+		}
+		out << "infeasibles = " << inf_vars << " int_inf = " << int_inf_vars << std::endl;
+		for (theory_var v = 0; v < n; v++) {
+			display_var(out, v);
+		}
     }
 
     template<typename Ext>

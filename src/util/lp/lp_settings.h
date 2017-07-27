@@ -221,7 +221,8 @@ public:
                     max_row_length_for_bound_propagation(300),
                     backup_costs(true),
                     column_number_threshold_for_using_lu_in_lar_solver(4000),
-                    m_int_branch_cut_threshold(10000000)
+                    m_int_branch_cut_gomory_threshold(4),
+                    m_run_gcd_test(true)
     {}
 
     void set_resource_limit(lp_resource_limit& lim) { m_resource_limit = &lim; }
@@ -324,11 +325,12 @@ public:
 #endif
     bool use_breakpoints_in_feasibility_search;
     unsigned random_next() { return m_rand(); }
-    void random_seed(unsigned s) { m_rand.set_seed(s); }
+    void set_random_seed(unsigned s) { m_rand.set_seed(s); }
     unsigned max_row_length_for_bound_propagation;
     bool backup_costs;
     unsigned column_number_threshold_for_using_lu_in_lar_solver;
-    unsigned m_int_branch_cut_threshold;
+    unsigned m_int_branch_cut_gomory_threshold;
+    bool m_run_gcd_test;
 }; // end of lp_settings class
 
 
@@ -351,7 +353,7 @@ inline std::string T_to_string(const numeric_pair<mpq> & t) {
 
 inline std::string T_to_string(const mpq & t) {
     std::ostringstream strs;
-    strs << t.get_double();
+    strs << t;
     return strs.str();
 }
 

@@ -255,14 +255,23 @@ void lar_core_solver::fill_not_improvable_zero_sum() {
     }
 }
 
+unsigned lar_core_solver::get_number_of_non_ints() const {
+	unsigned n = 0;
+	for (auto & x : m_r_solver.m_x) {
+		if (x.is_int() == false)
+			n++;
+	}
+	return n;
+}
 
 void lar_core_solver::solve() {
     lp_assert(m_r_solver.non_basic_columns_are_set_correctly());
     lp_assert(m_r_solver.inf_set_is_correct());
-    if (m_r_solver.current_x_is_feasible() && m_r_solver.m_look_for_feasible_solution_only) {
-        m_r_solver.set_status(lp_status::OPTIMAL);
-        return;
-    }
+	TRACE("find_feas_stats", tout << "infeasibles = " << m_r_solver.m_inf_set.size() << ", int_infs = " << get_number_of_non_ints() << std::endl;);
+	if (m_r_solver.current_x_is_feasible() && m_r_solver.m_look_for_feasible_solution_only) {
+		m_r_solver.set_status(lp_status::OPTIMAL);
+		return;
+	}
     ++settings().st().m_need_to_solve_inf;
     lp_assert(!m_r_solver.A_mult_x_is_off());
     lp_assert((!settings().use_tableau()) || r_basis_is_OK());
@@ -278,6 +287,7 @@ void lar_core_solver::solve() {
             solve_on_signature_tableau(solution_signature, changes_of_basis);
         else 
             solve_on_signature(solution_signature, changes_of_basis);
+
         lp_assert(!settings().use_tableau() || r_basis_is_OK());
     } else {
         if (!settings().use_tableau()) {

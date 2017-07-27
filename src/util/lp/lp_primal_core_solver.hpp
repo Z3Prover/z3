@@ -864,7 +864,7 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::print_column
 template <typename T, typename X> unsigned lp_primal_core_solver<T, X>::solve() {
     if (numeric_traits<T>::precise() && this->m_settings.use_tableau())
         return solve_with_tableau();
-    
+
     init_run();
     if (this->current_x_is_feasible() && this->m_look_for_feasible_solution_only) {
         this->set_status(lp_status::FEASIBLE);
@@ -880,6 +880,7 @@ template <typename T, typename X> unsigned lp_primal_core_solver<T, X>::solve() 
             return this->total_iterations();
         }
         one_iteration();
+
         lp_assert(!this->m_using_infeas_costs || this->costs_on_nbasis_are_zeros());
         switch (this->get_status()) {
         case lp_status::OPTIMAL:  // double check that we are at optimum

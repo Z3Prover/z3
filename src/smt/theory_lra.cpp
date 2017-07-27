@@ -77,6 +77,7 @@ namespace lp_api {
             if (is_true) return inf_rational(m_value);                         // v >= value or v <= value
 
             if (m_is_int) {
+                SASSERT(m_value.is_int());
                 if (m_bound_kind == lower_t) return inf_rational(m_value - rational::one()); // v <= value - 1
                 return inf_rational(m_value + rational::one());                              // v >= value + 1
             }
@@ -86,7 +87,7 @@ namespace lp_api {
             }
         } 
         virtual std::ostream& display(std::ostream& out) const {
-            return out << "v" << get_var() << "  " << get_bound_kind() << " " << m_value;
+            return out << m_value << "  " << get_bound_kind() << " v" << get_var();
         }
     };
 
@@ -303,7 +304,10 @@ namespace smt {
             m_solver->settings().simplex_strategy() = static_cast<lp::simplex_strategy_enum>(lp.simplex_strategy());
             reset_variable_values();
             m_solver->settings().bound_propagation() = BP_NONE != propagation_mode();
-            m_solver->set_propagate_bounds_on_pivoted_rows_mode(lp.bprop_on_pivoted_rows());
+            m_solver->set_track_pivoted_rows(lp.bprop_on_pivoted_rows());
+            m_solver->settings().m_int_branch_cut_gomory_threshold = ctx().get_fparams().m_arith_branch_cut_ratio;
+            m_solver->settings().m_run_gcd_test = ctx().get_fparams().m_arith_gcd_test;
+            m_solver->settings().set_random_seed(ctx().get_fparams().m_random_seed);
             //m_solver->settings().set_ostream(0);
             m_lia = alloc(lp::int_solver, m_solver.get());
         }
@@ -318,6 +322,9 @@ namespace smt {
         }
 
         void found_not_handled(expr* n) {
+            if (a.is_div0(n)) {
+                return;
+            }
             m_not_handled = n;
             if (is_app(n) && is_underspecified(to_app(n))) {
                 TRACE("arith", tout << "Unhandled: " << mk_pp(n, m) << "\n";);
@@ -608,8 +615,8 @@ namespace smt {
         }
 
         bool all_zeros(vector<rational> const& v) const {
-            for (unsigned i = 0; i < v.size(); ++i) {
-                if (!v[i].is_zero()) {
+            for (rational const& r : v) {
+                if (!r.is_zero()) {
                     return false;
                 }
             }
@@ -708,7 +715,7 @@ namespace smt {
                         m_var_index2theory_var.setx(vi, v, UINT_MAX);
                     }
                     m_var_trail.push_back(v);
-                    TRACE("arith", tout << "v" << v << " := " << mk_pp(term, m) << " slack: " << vi << " scopes: " << m_scopes.size() << "\n";
+                    TRACE("arith_verbose", tout << "v" << v << " := " << mk_pp(term, m) << " slack: " << vi << " scopes: " << m_scopes.size() << "\n";
                           m_solver->print_term(m_solver->get_term(vi), tout); tout << "\n";);
                 }
                 rational val;
@@ -777,7 +784,7 @@ namespace smt {
             updt_unassigned_bounds(v, +1);
             m_bounds_trail.push_back(v);
             m_bool_var2bound.insert(bv, b);
-            TRACE("arith", tout << "Internalized " << mk_pp(atom, m) << "\n";);
+            TRACE("arith_verbose", tout << "Internalized " << mk_pp(atom, m) << "\n";);
             mk_bound_axioms(*b);
             //add_use_lists(b);
             return true;
@@ -801,7 +808,7 @@ namespace smt {
             if (n1->get_th_var(get_id()) != null_theory_var &&
                 n2->get_th_var(get_id()) != null_theory_var &&
                 n1 != n2) {
-                TRACE("arith", tout << mk_pp(atom, m) << "\n";);
+                TRACE("arith_verbose", tout << mk_pp(atom, m) << "\n";);
                 m_arith_eq_adapter.mk_axioms(n1, n2);
             }
         }
@@ -1037,20 +1044,32 @@ namespace smt {
             return m_solver->var_is_registered(m_theory_var2var_index[v]);
         }
 
+        mutable vector<std::pair<lp::var_index, rational>> m_todo_terms;
+ 
         lp::impq get_ivalue(theory_var v) const {
             lp_assert(can_get_ivalue(v));
             lp::var_index vi = m_theory_var2var_index[v];
             if (!m_solver->is_term(vi))
-                return m_solver->get_value(vi);
-
-            const lp::lar_term& term = m_solver->get_term(vi);
-            lp::impq result(term.m_v);
-            for (const auto & i:  term.m_coeffs) {
-                result += m_solver->get_value(i.first) * i.second;
+                return m_solver->get_column_value(vi);
+            m_todo_terms.push_back(std::make_pair(vi, rational::one()));
+            lp::impq result(0);
+            while (!m_todo_terms.empty()) {
+                vi = m_todo_terms.back().first;
+                rational coeff = m_todo_terms.back().second;
+                m_todo_terms.pop_back();
+                if (m_solver->is_term(vi)) {
+                    const lp::lar_term& term = m_solver->get_term(vi);
+                    result += term.m_v * coeff;
+                    for (const auto & i:  term.m_coeffs) {
+                        m_todo_terms.push_back(std::make_pair(i.first, coeff * i.second));
+                    }                    
+                }
+                else {
+                    result += m_solver->get_column_value(vi) * coeff;
+                }
             }
             return result;
         }
-
 
         rational get_value(theory_var v) const {
             if (!can_get_value(v)) return rational::zero();
@@ -1058,17 +1077,25 @@ namespace smt {
             if (m_variable_values.count(vi) > 0) {
                 return m_variable_values[vi];
             }
-            if (m_solver->is_term(vi)) {
-                const lp::lar_term& term = m_solver->get_term(vi);
-                rational result = term.m_v;
-                for (auto i = term.m_coeffs.begin();  i != term.m_coeffs.end(); ++i) {
-                    result += m_variable_values[i->first] * i->second;
+            m_todo_terms.push_back(std::make_pair(vi, rational::one()));
+            rational result(0);
+            while (!m_todo_terms.empty()) {
+                lp::var_index wi = m_todo_terms.back().first;
+                rational coeff = m_todo_terms.back().second;
+                m_todo_terms.pop_back();
+                if (m_solver->is_term(wi)) {
+                    const lp::lar_term& term = m_solver->get_term(wi);
+                    result += term.m_v * coeff;
+                    for (auto const& i : term.m_coeffs) {
+                        m_todo_terms.push_back(std::make_pair(i.first, i.second * coeff));
+                    }
                 }
-                m_variable_values[vi] = result;
-                return result;
+                else {
+                    result += m_variable_values[wi] * coeff;
+                }
             }
-            UNREACHABLE();
-            return m_variable_values[vi];
+            m_variable_values[vi] = result;
+            return result;
         }
 
         void init_variable_values() {
@@ -1230,9 +1257,12 @@ namespace smt {
 
         // create a bound atom representing term <= k
         app_ref mk_bound(lp::lar_term const& term, rational const& k) {
-            SASSERT(k.is_int());
-            app_ref t = mk_term(term, true);
-            app_ref atom(a.mk_le(t, a.mk_numeral(k, true)), m);
+            app_ref t = mk_term(term, k.is_int());
+            app_ref atom(a.mk_le(t, a.mk_numeral(k, k.is_int())), m);
+            expr_ref atom1(m);
+            proof_ref atomp(m);
+            ctx().get_simplifier()(atom, atom1, atomp);
+            atom = to_app(atom1);
             TRACE("arith", tout << atom << "\n";
                   m_solver->print_term(term, tout << "bound atom: "); tout << " <= " << k << "\n";
                   display(tout);
@@ -1243,7 +1273,10 @@ namespace smt {
         }
 
         lbool check_lia() {
-            if (m.canceled()) return l_undef;
+            if (m.canceled()) {
+                TRACE("arith", tout << "canceled\n";);
+                return l_undef;
+            }
             lp::lar_term term;
             lp::mpq k;
             lp::explanation ex; // TBD, this should be streamlined accross different explanations
@@ -1288,7 +1321,10 @@ namespace smt {
 
         lbool check_nra() {
             m_use_nra_model = false;
-            if (m.canceled()) return l_undef;
+            if (m.canceled()) {
+                TRACE("arith", tout << "canceled\n";);
+                return l_undef;
+            }
             if (!m_nra) return l_true;
             if (!m_nra->need_check()) return l_true;
             m_a1 = 0; m_a2 = 0;
@@ -1476,6 +1512,7 @@ namespace smt {
 
             void consume(rational const& v, unsigned j) override {
                 m_imp.set_evidence(j);
+                m_imp.m_explanation.push_back(std::make_pair(v, j));
             }
         };
 
@@ -1512,6 +1549,7 @@ namespace smt {
                 if (lit == null_literal) {
                     continue;
                 }
+                TRACE("arith", tout << lit << " bound: " << *b << " first: " << first << "\n";);
 
                 m_solver->settings().st().m_num_of_implied_bounds ++;
                 if (first) {
@@ -1519,6 +1557,7 @@ namespace smt {
                     m_core.reset();
                     m_eqs.reset();
                     m_params.reset();
+                    m_explanation.clear();
                     local_bound_propagator bp(*this);
                     m_solver->explain_implied_bound(be, bp);
                 }
@@ -1529,7 +1568,7 @@ namespace smt {
                       tout << "\n --> ";
                       ctx().display_literal_verbose(tout, lit);
                       tout << "\n";
-                      // display_evidence(tout, m_explanation);
+                      display_evidence(tout, m_explanation);
                       m_solver->print_implied_bound(be, tout);
                       );
                 DEBUG_CODE(
@@ -1547,8 +1586,8 @@ namespace smt {
             SASSERT(validate_assign(lit));
             if (m_core.size() < small_lemma_size() && m_eqs.empty()) {
                 m_core2.reset();
-                for (unsigned i = 0; i < m_core.size(); ++i) {
-                    m_core2.push_back(~m_core[i]);
+                for (auto const& c : m_core) {
+                    m_core2.push_back(~c);
                 }
                 m_core2.push_back(lit);
                 justification * js = nullptr;
@@ -1569,27 +1608,27 @@ namespace smt {
 
         literal is_bound_implied(lp::lconstraint_kind k, rational const& value, lp_api::bound const& b) const {
             if ((k == lp::LE || k == lp::LT) && b.get_bound_kind() == lp_api::upper_t && value <= b.get_value()) {
-                // v <= value <= b.get_value() => v <= b.get_value() 
+                TRACE("arith", tout << "v <= value <= b.get_value() => v <= b.get_value() \n";);
                 return literal(b.get_bv(), false);
             }
             if ((k == lp::GE || k == lp::GT) && b.get_bound_kind() == lp_api::lower_t && b.get_value() <= value) {
-                // b.get_value() <= value <= v => b.get_value() <= v 
+                TRACE("arith", tout << "b.get_value() <= value <= v => b.get_value() <= v \n";);
                 return literal(b.get_bv(), false);
             }
             if (k == lp::LE && b.get_bound_kind() == lp_api::lower_t && value < b.get_value()) {
-                // v <= value < b.get_value() => v < b.get_value()
+                TRACE("arith", tout << "v <= value < b.get_value() => v < b.get_value()\n";);
                 return literal(b.get_bv(), true);
             }
             if (k == lp::LT && b.get_bound_kind() == lp_api::lower_t && value <= b.get_value()) {
-                // v < value <= b.get_value() => v < b.get_value()
+                TRACE("arith", tout << "v < value <= b.get_value() => v < b.get_value()\n";);
                 return literal(b.get_bv(), true);
             }
             if (k == lp::GE && b.get_bound_kind() == lp_api::upper_t && b.get_value() < value) {
-                // b.get_value() < value <= v => b.get_value() < v
+                TRACE("arith", tout << "b.get_value() < value <= v => b.get_value() < v\n";);
                 return literal(b.get_bv(), true);
             }
             if (k == lp::GT && b.get_bound_kind() == lp_api::upper_t && b.get_value() <= value) {
-                // b.get_value() <= value < v => b.get_value() < v
+                TRACE("arith", tout << "b.get_value() <= value < v => b.get_value() < v\n";);
                 return literal(b.get_bv(), true);
             }
 
@@ -1923,16 +1962,29 @@ namespace smt {
             ++m_stats.m_bounds_propagations;
         }
 
+        svector<lp::var_index> m_todo_vars;
+
         void add_use_lists(lp_api::bound* b) {
             theory_var v = b->get_var();
             lp::var_index vi = get_var_index(v);
-            if (m_solver->is_term(vi)) {
+            if (!m_solver->is_term(vi)) {
+                return;
+            }
+            m_todo_vars.push_back(vi);
+            while (!m_todo_vars.empty()) {
+                vi = m_todo_vars.back();
+                m_todo_vars.pop_back();
                 lp::lar_term const& term = m_solver->get_term(vi);
                 for (auto i = term.m_coeffs.begin(); i != term.m_coeffs.end(); ++i) {
                     lp::var_index wi = i->first;
-                    unsigned w = m_var_index2theory_var[wi];
-                    m_use_list.reserve(w + 1, ptr_vector<lp_api::bound>());
-                    m_use_list[w].push_back(b);
+                    if (m_solver->is_term(wi)) {
+                        m_todo_vars.push_back(wi);
+                    }
+                    else {
+                        unsigned w = m_var_index2theory_var[wi];
+                        m_use_list.reserve(w + 1, ptr_vector<lp_api::bound>());
+                        m_use_list[w].push_back(b);
+                    }
                 }
             }
         }
@@ -1940,13 +1992,24 @@ namespace smt {
         void del_use_lists(lp_api::bound* b) {
             theory_var v = b->get_var();
             lp::var_index vi = m_theory_var2var_index[v];
-            if (m_solver->is_term(vi)) {
+            if (!m_solver->is_term(vi)) {
+                return;
+            }
+            m_todo_vars.push_back(vi);
+            while (!m_todo_vars.empty()) {
+                vi = m_todo_vars.back();
+                m_todo_vars.pop_back();
                 lp::lar_term const& term = m_solver->get_term(vi);
                 for (auto i = term.m_coeffs.begin(); i != term.m_coeffs.end(); ++i) {
                     lp::var_index wi = i->first;
-                    unsigned w = m_var_index2theory_var[wi];
-                    SASSERT(m_use_list[w].back() == b);
-                    m_use_list[w].pop_back();
+                    if (m_solver->is_term(wi)) {
+                        m_todo_vars.push_back(wi);
+                    }
+                    else {
+                        unsigned w = m_var_index2theory_var[wi];
+                        SASSERT(m_use_list[w].back() == b);
+                        m_use_list[w].pop_back();
+                    }
                 }
             }
         }
@@ -2033,6 +2096,9 @@ namespace smt {
                 lp::constraint_index ci;
                 rational value;
                 bool is_strict;
+                if (m_solver->is_term(wi)) {
+                    return false;
+                }
                 if (coeff.second.is_neg() == is_lub) {
                     // -3*x ... <= lub based on lower bound for x.
                     if (!m_solver->has_lower_bound(wi, ci, value, is_strict)) {
@@ -2378,15 +2444,31 @@ namespace smt {
             SASSERT(m_use_nra_model);
             lp::var_index vi = m_theory_var2var_index[v];
             if (m_solver->is_term(vi)) {
-                lp::lar_term const& term = m_solver->get_term(vi);
-                scoped_anum r1(m_nra->am());
-                m_nra->am().set(r, term.m_v.to_mpq());
-                
-                for (auto const coeff : term.m_coeffs) {
-                    lp::var_index wi = coeff.first;
-                    m_nra->am().set(r1, coeff.second.to_mpq());
-                    m_nra->am().mul(m_nra->value(wi), r1, r1);
-                    m_nra->am().add(r1, r, r);
+
+                m_todo_terms.push_back(std::make_pair(vi, rational::one()));
+
+                m_nra->am().set(r, 0);
+                while (!m_todo_terms.empty()) {
+                    rational wcoeff = m_todo_terms.back().second;
+                    lp::var_index wi = m_todo_terms.back().first; // todo : got a warning "wi is not used"
+                    m_todo_terms.pop_back();
+                    lp::lar_term const& term = m_solver->get_term(vi);
+                    scoped_anum r1(m_nra->am());
+                    rational c1 = term.m_v * wcoeff;
+                    m_nra->am().set(r1, c1.to_mpq());
+                    m_nra->am().add(r, r1, r);                
+                    for (auto const coeff : term.m_coeffs) {
+                        lp::var_index wi = coeff.first;
+                        c1 = coeff.second * wcoeff;
+                        if (m_solver->is_term(wi)) {
+                            m_todo_terms.push_back(std::make_pair(wi, c1));
+                        }
+                        else {
+                            m_nra->am().set(r1, c1.to_mpq());
+                            m_nra->am().mul(m_nra->value(wi), r1, r1);
+                            m_nra->am().add(r1, r, r);
+                        }
+                    }
                 }
                 return r;
             }
@@ -2431,11 +2513,22 @@ namespace smt {
 
         // Auxiliary verification utilities.
 
+        struct scoped_arith_mode {
+            smt_params& p;
+            scoped_arith_mode(smt_params& p) : p(p) {
+                p.m_arith_mode = AS_ARITH;
+            }
+            ~scoped_arith_mode() {
+                p.m_arith_mode = AS_LRA;
+            }
+        };
+
         bool validate_conflict() {
             if (dump_lemmas()) {
                 ctx().display_lemma_as_smt_problem(m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), false_literal);
             }
-            if (m_arith_params.m_arith_mode == AS_LRA) return true;
+            if (m_arith_params.m_arith_mode != AS_LRA) return true;
+            scoped_arith_mode _sa(ctx().get_fparams());
             context nctx(m, ctx().get_fparams(), ctx().get_params());
             add_background(nctx);
             bool result = l_true != nctx.check();
@@ -2448,7 +2541,8 @@ namespace smt {
             if (dump_lemmas()) {
                 ctx().display_lemma_as_smt_problem(m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), lit);
             }
-            if (m_arith_params.m_arith_mode == AS_LRA) return true;
+            if (m_arith_params.m_arith_mode != AS_LRA) return true;
+            scoped_arith_mode _sa(ctx().get_fparams());
             context nctx(m, ctx().get_fparams(), ctx().get_params());
             m_core.push_back(~lit);
             add_background(nctx);
@@ -2486,10 +2580,14 @@ namespace smt {
         theory_lra::inf_eps maximize(theory_var v, expr_ref& blocker, bool& has_shared) {
             lp::var_index vi = m_theory_var2var_index.get(v, UINT_MAX);
             vector<std::pair<rational, lp::var_index> > coeffs;
-            rational coeff;
+            rational coeff(0);
+            //
+            // TBD: change API for maximize_term to take a proper term as input.
+            // 
             if (m_solver->is_term(vi)) {
                 const lp::lar_term& term = m_solver->get_term(vi);
                 for (auto & ti : term.m_coeffs) {
+                    SASSERT(!m_solver->is_term(ti.first));
                     coeffs.push_back(std::make_pair(ti.second, ti.first));
                 }
                 coeff = term.m_v;
@@ -2547,7 +2645,13 @@ namespace smt {
         app_ref mk_term(lp::lar_term const& term, bool is_int) {     
             expr_ref_vector args(m);
             for (auto & ti : term.m_coeffs) {
-                theory_var w = m_var_index2theory_var[ti.first];
+                theory_var w;
+                if (m_solver->is_term(ti.first)) {
+                    w = m_term_index2theory_var[m_solver->adjust_term_index(ti.first)];
+                }
+                else {
+                    w = m_var_index2theory_var[ti.first];
+                }
                 expr* o = get_enode(w)->get_owner();
                 if (ti.second.is_one()) {
                     args.push_back(o);
