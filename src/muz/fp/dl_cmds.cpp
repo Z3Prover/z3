@@ -374,12 +374,9 @@ class dl_declare_rel_cmd : public cmd {
     unsigned         m_arg_idx;
     mutable unsigned m_query_arg_idx;
     symbol           m_rel_name;
-    scoped_ptr<sort_ref_vector>  m_domain;
+    ptr_vector<sort> m_domain;
     svector<symbol>  m_kinds;
 
-    void ensure_domain(cmd_context& ctx) {
-        if (!m_domain) m_domain = alloc(sort_ref_vector, ctx.m());
-    }
 
 public:
     dl_declare_rel_cmd(dl_context * dl_ctx):
@@ -395,7 +392,7 @@ public:
         ctx.m(); // ensure manager is initialized.
         m_arg_idx = 0; 
         m_query_arg_idx = 0; 
-        m_domain = 0;
+        m_domain.reset();
         m_kinds.reset();
     }
     virtual cmd_arg_kind next_arg_kind(cmd_context & ctx) const { 
@@ -406,8 +403,8 @@ public:
         }
     }
     virtual void set_next_arg(cmd_context & ctx, unsigned num, sort * const * slist) {
-        ensure_domain(ctx);
-        m_domain->append(num, slist);
+        m_domain.reset();
+        m_domain.append(num, slist);
         m_arg_idx++;
     }
     virtual void set_next_arg(cmd_context & ctx, symbol const & s) {
@@ -424,14 +421,12 @@ public:
         if(m_arg_idx<2) {
             throw cmd_exception("at least 2 arguments expected");
         }
-        ensure_domain(ctx);
         ast_manager& m = ctx.m();
 
         func_decl_ref pred(
-            m.mk_func_decl(m_rel_name, m_domain->size(), m_domain->c_ptr(), m.mk_bool_sort()), m);
+            m.mk_func_decl(m_rel_name, m_domain.size(), m_domain.c_ptr(), m.mk_bool_sort()), m);
         ctx.insert(pred);
         m_dl_ctx->register_predicate(pred, m_kinds.size(), m_kinds.c_ptr());
-        m_domain = 0;
     }
 
 };
