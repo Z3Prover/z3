@@ -2,8 +2,8 @@
   Copyright (c) 2017 Microsoft Corporation
   Author: Lev Nachmanson
 */
-#include "util/vector.h"
 #include <memory>
+#include "util/vector.h"
 #include "util/lp/row_eta_matrix.hpp"
 #include "util/lp/lu.h"
 namespace lean {

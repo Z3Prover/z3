@@ -1190,6 +1190,7 @@ namespace nlsat {
             info.m_lc       = lc_eq.get();
             info.m_lc_sign  = sign(lc_eq);
             info.m_lc_add   = false;
+            info.m_lc_add_ineq = false;
             info.m_lc_const = m_pm.is_const(lc_eq);
             SASSERT(info.m_lc != 0);
             scoped_literal new_lit(m_solver);

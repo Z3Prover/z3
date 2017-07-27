@@ -620,8 +620,8 @@ namespace smt2 {
             int idx = 0;
             if (d == 0) {
                 if (m_dt_name2idx.find(id, idx)) {
-                    unsigned num_params = m_dt_name2arity.find(id);
                     throw parser_exception("smtlib 2.6 parametric datatype sorts are not supported");
+                    // unsigned num_params = m_dt_name2arity.find(id);
                     // d = pm().mk_psort_dt_decl(num_params, id);
                 }
                 else {

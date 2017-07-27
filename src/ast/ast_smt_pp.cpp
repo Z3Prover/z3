@@ -366,13 +366,14 @@ class smt_printer {
             return;
         }
         else if (s->is_sort_of(m_dt_fid, DATATYPE_SORT)) {
+            m_out << m_renaming.get_symbol(s->get_name());            
+#if 0
             datatype_util util(m_manager);
             unsigned num_sorts = util.get_datatype_num_parameter_sorts(s);
             if (num_sorts > 0) {
                 m_out << "(";
             }
 
-            m_out << m_renaming.get_symbol(s->get_name());            
             if (num_sorts > 0) {
                 for (unsigned i = 0; i < num_sorts; ++i) {
                     m_out << " ";
@@ -380,6 +381,7 @@ class smt_printer {
                 }
                 m_out << ")";
             }
+#endif
             return;
         }
         else {
