@@ -6,7 +6,7 @@
 #include "util/vector.h"
 #include "util/lp/lp_primal_simplex.h"
 
-namespace lean {
+namespace lp {
 template <typename T, typename X> void lp_primal_simplex<T, X>::fill_costs_and_x_for_first_stage_solver(unsigned original_number_of_columns) {
     unsigned slack_var = original_number_of_columns;
     unsigned artificial = original_number_of_columns + this->m_slacks;
@@ -61,7 +61,7 @@ template <typename T, typename X> void lp_primal_simplex<T, X>::fill_costs_and_x
                                                                                                                 int row,
                                                                                                                 unsigned & slack_var,
                                                                                                                 unsigned & artificial) {
-    lean_assert(row >= 0 && row < this->row_count());
+    lp_assert(row >= 0 && row < this->row_count());
     auto & constraint = this->m_constraints[this->m_core_solver_rows_to_external_rows[row]];
     // we need to bring the program to the form Ax = b
     T rs = this->m_b[row];
@@ -86,7 +86,7 @@ template <typename T, typename X> void lp_primal_simplex<T, X>::fill_costs_and_x
         (*this->m_A)(row, slack_var) = - numeric_traits<T>::one();
 
         if (rs > 0) {
-            lean_assert(numeric_traits<T>::is_zero(this->m_x[slack_var]));
+            lp_assert(numeric_traits<T>::is_zero(this->m_x[slack_var]));
             // adding one artificial
             this->m_column_types[artificial] = column_type::low_bound;
             (*this->m_A)(row, artificial) = numeric_traits<T>::one();
@@ -108,7 +108,7 @@ template <typename T, typename X> void lp_primal_simplex<T, X>::fill_costs_and_x
 
         if (rs < 0) {
             // adding one artificial
-            lean_assert(numeric_traits<T>::is_zero(this->m_x[slack_var]));
+            lp_assert(numeric_traits<T>::is_zero(this->m_x[slack_var]));
             this->m_column_types[artificial] = column_type::low_bound;
             (*this->m_A)(row, artificial) = - numeric_traits<T>::one();
             this->m_costs[artificial] = artificial_cost;
@@ -152,7 +152,6 @@ template <typename T, typename X> void lp_primal_simplex<T, X>::set_core_solver_
 
 
 template <typename T, typename X> void lp_primal_simplex<T, X>::find_maximal_solution() {
-    int preprocessing_start_time = get_millisecond_count();
     if (this->problem_is_empty()) {
         this->m_status = lp_status::EMPTY;
         return;
@@ -169,7 +168,6 @@ template <typename T, typename X> void lp_primal_simplex<T, X>::find_maximal_sol
     fill_acceptable_values_for_x();
     this->count_slacks_and_artificials();
     set_core_solver_bounds();
-    update_time_limit_from_starting_time(preprocessing_start_time);
     solve_with_total_inf();
 }
 
@@ -179,12 +177,12 @@ template <typename T, typename X> void lp_primal_simplex<T, X>::fill_A_x_and_bas
 }
 
 template <typename T, typename X> void lp_primal_simplex<T, X>::fill_A_x_and_basis_for_stage_one_total_inf_for_row(unsigned row) {
-    lean_assert(row < this->row_count());
+    lp_assert(row < this->row_count());
     auto ext_row_it = this->m_core_solver_rows_to_external_rows.find(row);
-    lean_assert(ext_row_it != this->m_core_solver_rows_to_external_rows.end());
+    lp_assert(ext_row_it != this->m_core_solver_rows_to_external_rows.end());
     unsigned ext_row = ext_row_it->second;
     auto constr_it = this->m_constraints.find(ext_row);
-    lean_assert(constr_it != this->m_constraints.end());
+    lp_assert(constr_it != this->m_constraints.end());
     auto & constraint = constr_it->second;
     unsigned j = this->m_A->column_count(); // j is a slack variable
     this->m_A->add_column();
@@ -211,14 +209,14 @@ template <typename T, typename X> void lp_primal_simplex<T, X>::fill_A_x_and_bas
         this->m_upper_bounds[j] = m_low_bounds[j] = zero_of_type<X>();
         break;
     default:
-        lean_unreachable();
+        lp_unreachable();
     }
 }
 
 template <typename T, typename X> void lp_primal_simplex<T, X>::solve_with_total_inf() {
     int total_vars = this->m_A->column_count() + this->row_count();
     if (total_vars == 0) {
-        this->m_status = OPTIMAL;
+        this->m_status = lp_status::OPTIMAL;
         return;
     }
     m_low_bounds.clear();
@@ -283,10 +281,10 @@ template <typename T, typename X> T lp_primal_simplex<T, X>::get_row_value(unsig
     T ret = numeric_traits<T>::zero();
     for (auto & pair : it->second) {
         auto cit = this->m_map_from_var_index_to_column_info.find(pair.first);
-        lean_assert(cit != this->m_map_from_var_index_to_column_info.end());
+        lp_assert(cit != this->m_map_from_var_index_to_column_info.end());
         column_info<T> * ci = cit->second;
         auto sol_it = solution.find(ci->get_name());
-        lean_assert(sol_it != solution.end());
+        lp_assert(sol_it != solution.end());
         T column_val = sol_it->second;
         if (out != nullptr) {
             (*out) << pair.second << "(" << ci->get_name() << "=" << column_val << ") ";
@@ -331,7 +329,7 @@ template <typename T, typename X> bool lp_primal_simplex<T, X>::row_constraint_h
         }
         return true;;
     }
-    lean_unreachable();
+    lp_unreachable();
     return false; // it is unreachable
 }
 

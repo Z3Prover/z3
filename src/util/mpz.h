@@ -316,11 +316,11 @@ class mpz_manager {
     void big_rem(mpz const & a, mpz const & b, mpz & c);
 
     int big_compare(mpz const & a, mpz const & b);
-    
+
+public:
     unsigned size_info(mpz const & a);
     struct sz_lt;
 
-public:
     static bool precise() { return true; }
     static bool field() { return false; }
 

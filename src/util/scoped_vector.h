@@ -91,6 +91,31 @@ public:
         SASSERT(invariant());
     }
 
+    class iterator {
+        scoped_vector const& m_vec;
+        unsigned m_index;
+    public:
+        iterator(scoped_vector const& v, unsigned idx): m_vec(v), m_index(idx) {}
+        
+        bool operator==(iterator const& other) const { return &other.m_vec == &m_vec && other.m_index == m_index; }
+        bool operator!=(iterator const& other) const { return &other.m_vec != &m_vec || other.m_index != m_index; }
+        T const& operator*() { return m_vec[m_index]; }
+
+        iterator & operator++() {
+            ++m_index;
+            return *this;
+        }
+
+        iterator operator++(int) {
+            iterator r = *this;
+            ++m_index;
+            return r;
+        }
+    };
+
+    iterator begin() { return iterator(*this, 0); }
+    iterator end() { return iterator(*this, m_size); }
+
     void push_back(T const& t) {
         set_index(m_size, m_elems.size());
         m_elems.push_back(t);    

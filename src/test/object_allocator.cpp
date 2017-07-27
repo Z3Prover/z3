@@ -61,6 +61,7 @@ static void tst1() {
     m.recycle(c1);
     
     cell * c3 = m.allocate<true>();
+    (void)c3;
     SASSERT(c3->m_coeff.is_zero());
 }
 

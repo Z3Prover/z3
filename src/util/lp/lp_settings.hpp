@@ -6,7 +6,7 @@
 #include <string>
 #include "util/vector.h"
 #include "util/lp/lp_settings.h"
-namespace lean {
+namespace lp {
 std::string column_type_to_string(column_type t) {
     switch (t) {
     case column_type::fixed:       return "fixed";
@@ -14,27 +14,27 @@ std::string column_type_to_string(column_type t) {
     case column_type::low_bound:   return "low_bound";
     case column_type::upper_bound: return "upper_bound";
     case column_type::free_column: return "free_column";
-    default:  lean_unreachable();
+    default:  lp_unreachable();
     }
     return "unknown"; // it is unreachable
 }
 
 const char* lp_status_to_string(lp_status status) {
     switch (status) {
-    case UNKNOWN: return "UNKNOWN";
-    case INFEASIBLE: return "INFEASIBLE";
-    case UNBOUNDED: return "UNBOUNDED";
-    case TENTATIVE_DUAL_UNBOUNDED: return "TENTATIVE_DUAL_UNBOUNDED";
-    case DUAL_UNBOUNDED: return "DUAL_UNBOUNDED";
-    case OPTIMAL: return "OPTIMAL";
-    case FEASIBLE: return "FEASIBLE";
-    case FLOATING_POINT_ERROR: return "FLOATING_POINT_ERROR";
-    case TIME_EXHAUSTED: return "TIME_EXHAUSTED";
-    case ITERATIONS_EXHAUSTED: return "ITERATIONS_EXHAUSTED";
-    case EMPTY: return "EMPTY";
-    case UNSTABLE: return "UNSTABLE";
+    case lp_status::UNKNOWN: return "UNKNOWN";
+    case lp_status::INFEASIBLE: return "INFEASIBLE";
+    case lp_status::UNBOUNDED: return "UNBOUNDED";
+    case lp_status::TENTATIVE_DUAL_UNBOUNDED: return "TENTATIVE_DUAL_UNBOUNDED";
+    case lp_status::DUAL_UNBOUNDED: return "DUAL_UNBOUNDED";
+    case lp_status::OPTIMAL: return "OPTIMAL";
+    case lp_status::FEASIBLE: return "FEASIBLE";
+    case lp_status::FLOATING_POINT_ERROR: return "FLOATING_POINT_ERROR";
+    case lp_status::TIME_EXHAUSTED: return "TIME_EXHAUSTED";
+    case lp_status::ITERATIONS_EXHAUSTED: return "ITERATIONS_EXHAUSTED";
+    case lp_status::EMPTY: return "EMPTY";
+    case lp_status::UNSTABLE: return "UNSTABLE";
     default:
-        lean_unreachable();
+        lp_unreachable();
     }
     return "UNKNOWN";  // it is unreachable
 }
@@ -49,22 +49,9 @@ lp_status lp_status_from_string(std::string status) {
     if (status == "TIME_EXHAUSTED") return lp_status::TIME_EXHAUSTED;
     if (status == "ITERATIONS_EXHAUSTED") return lp_status::ITERATIONS_EXHAUSTED;
     if (status == "EMPTY") return lp_status::EMPTY;
-    lean_unreachable();
+    lp_unreachable();
     return lp_status::UNKNOWN; // it is unreachable
 }
-int get_millisecond_count() {
-    timeb tb;
-    ftime(&tb);
-    return tb.millitm + (tb.time & 0xfffff) * 1000;
-}
-
-int get_millisecond_span(int start_time) {
-    int span = get_millisecond_count() - start_time;
-    if (span < 0)
-        span += 0x100000 * 1000;
-    return span;
-}
-
 
 
 template <typename T>

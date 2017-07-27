@@ -1,0 +1,35 @@
+z3_add_component(qe
+  SOURCES
+    nlarith_util.cpp
+    nlqsat.cpp
+    qe_arith.cpp
+    qe_arith_plugin.cpp
+    qe_array_plugin.cpp
+    qe_arrays.cpp
+    qe_bool_plugin.cpp
+    qe_bv_plugin.cpp
+    qe_cmd.cpp
+    qe.cpp
+    qe_datatype_plugin.cpp
+    qe_datatypes.cpp
+    qe_dl_plugin.cpp
+    qe_lite.cpp
+    qe_mbp.cpp
+    qe_sat_tactic.cpp
+    qe_tactic.cpp
+    qsat.cpp
+    vsubst_tactic.cpp
+  COMPONENT_DEPENDENCIES
+    nlsat_tactic
+    nlsat
+    sat
+    smt
+    tactic
+  TACTIC_HEADERS
+    nlqsat.h
+    qe_lite.h
+    qe_sat_tactic.h
+    qe_tactic.h
+    qsat.h
+    vsubst_tactic.h
+)

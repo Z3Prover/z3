@@ -48,7 +48,7 @@ static void tst1() {
 	    SASSERT(v1.size() == v2.size());
 	    if (v1.size() > 0) {
 		unsigned idx = rand()%v1.size();
-		SASSERT(v1.get(idx) == v2[idx]);
+		VERIFY(v1.get(idx) == v2[idx]);
 	    }
 	}
 	else if (op <= 5) {

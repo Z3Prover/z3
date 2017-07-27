@@ -13,7 +13,10 @@
 #include "util/lp/lu.h"
 #include "util/lp/permutation_matrix.h"
 #include "util/lp/column_namer.h"
-namespace lean {
+#include "util/lp/iterator_on_row.h"
+#include "util/lp/iterator_on_pivot_row.h"
+
+namespace lp {
 
 template <typename T, typename X> // X represents the type of the x variable and the bounds
 class lp_core_solver_base {    
@@ -23,7 +26,14 @@ class lp_core_solver_base {
 private:
     lp_status m_status;
 public:
-    bool current_x_is_feasible() const { return m_inf_set.size() == 0; }
+    bool current_x_is_feasible() const {
+        TRACE("feas",
+              if (m_inf_set.size()) {
+                  tout << "column " << m_inf_set.m_index[0] << " is infeasible" << std::endl;
+              }
+              );
+        return m_inf_set.size() == 0;
+    }
     bool current_x_is_infeasible() const { return m_inf_set.size() != 0; }
     int_set m_inf_set;
     bool m_using_infeas_costs;
@@ -59,6 +69,12 @@ public:
     bool                  m_tracing_basis_changes;
     int_set*              m_pivoted_rows;
     bool                  m_look_for_feasible_solution_only;
+    std::function<void (unsigned, const X &)> * m_tracker_of_x_change;
+
+    void set_tracker_of_x(std::function<void (unsigned, const X&)>* tracker) {
+        m_tracker_of_x_change = tracker;
+    }
+    
     void start_tracing_basis_changes() {
         m_trace_of_basis_change_vector.resize(0);
         m_tracing_basis_changes = true;
@@ -182,11 +198,11 @@ public:
 
 
     bool need_to_pivot_to_basis_tableau() const {
-        lean_assert(m_A.is_correct());
+        lp_assert(m_A.is_correct());
         unsigned m = m_A.row_count();
         for (unsigned i = 0; i < m; i++) {
             unsigned bj = m_basis[i];
-            lean_assert(m_A.m_columns[bj].size() > 0);
+            lp_assert(m_A.m_columns[bj].size() > 0);
             if (m_A.m_columns[bj].size() > 1 || m_A.get_val(m_A.m_columns[bj][0]) != one_of_type<mpq>()) return true;
         }
         return false;
@@ -195,7 +211,7 @@ public:
     bool reduced_costs_are_correct_tableau() const {
         if (m_settings.simplex_strategy() == simplex_strategy_enum::tableau_rows)
             return true;
-        lean_assert(m_A.is_correct());
+        lp_assert(m_A.is_correct());
         if (m_using_infeas_costs) {
             if (infeasibility_costs_are_correct() == false) {
                 std::cout << "infeasibility_costs_are_correct() does not hold" << std::endl;
@@ -370,11 +386,11 @@ public:
     }
 
     bool make_column_feasible(unsigned j, numeric_pair<mpq> & delta) {
-        lean_assert(m_basis_heading[j] < 0);
+        lp_assert(m_basis_heading[j] < 0);
         auto & x = m_x[j];
         switch (m_column_types[j]) {
         case column_type::fixed:
-            lean_assert(m_low_bounds[j] == m_upper_bounds[j]);
+            lp_assert(m_low_bounds[j] == m_upper_bounds[j]);
             if (x != m_low_bounds[j]) {
                 delta = m_low_bounds[j] - x;
                 x = m_low_bounds[j];
@@ -410,7 +426,7 @@ public:
         case column_type::free_column:
             break;
         default:
-            lean_assert(false);
+            lp_assert(false);
             break;
         }
         return false;
@@ -429,6 +445,7 @@ public:
     void init_lu();
     int pivots_in_column_and_row_are_different(int entering, int leaving) const;
     void pivot_fixed_vars_from_basis();
+    bool pivot_column_general(unsigned j, unsigned j_basic, indexed_vector<T> & w);
     bool pivot_for_tableau_on_basis();
     bool pivot_row_for_tableau_on_basis(unsigned row);
     void init_basic_part_of_basis_heading() {
@@ -458,7 +475,7 @@ public:
     }
 
     void change_basis_unconditionally(unsigned entering, unsigned leaving) {
-        lean_assert(m_basis_heading[entering] < 0);
+        lp_assert(m_basis_heading[entering] < 0);
         int place_in_non_basis = -1 - m_basis_heading[entering];
         if (static_cast<unsigned>(place_in_non_basis) >= m_nbasis.size()) {
               // entering variable in not in m_nbasis, we need to put it back;
@@ -477,7 +494,8 @@ public:
     }
     
     void change_basis(unsigned entering, unsigned leaving) {
-        lean_assert(m_basis_heading[entering] < 0);
+        lp_assert(m_basis_heading[entering] < 0);
+		lp_assert(m_basis_heading[leaving] >= 0);
         
         int place_in_basis =  m_basis_heading[leaving];
         int place_in_non_basis = - m_basis_heading[entering] - 1;
@@ -518,7 +536,7 @@ public:
         case column_type::free_column:
             break;
         default:
-            lean_assert(false);
+            lp_assert(false);
             break;
         }
         return true;
@@ -566,10 +584,10 @@ public:
         case column_type::free_column:
             break;
         default:
-            lean_assert(false);
+            lp_assert(false);
         }
-        std::cout << "basis heading = " << m_basis_heading[j] << std::endl;
-        std::cout << "x = " << m_x[j] << std::endl;
+        out << "basis heading = " << m_basis_heading[j] << std::endl;
+        out << "x = " << m_x[j] << std::endl;
         /*
         std::cout << "cost = " << m_costs[j] << std::endl;
         std:: cout << "m_d = " << m_d[j] << std::endl;*/
@@ -658,24 +676,28 @@ public:
 
     void update_column_in_inf_set(unsigned j) {
         if (column_is_feasible(j)) {
-            m_inf_set.erase(j);
+            remove_column_from_inf_set(j);
         } else {
-            m_inf_set.insert(j);
+            insert_column_into_inf_set(j);
         }
     }
     void insert_column_into_inf_set(unsigned j) {
+        if (m_tracker_of_x_change != nullptr)
+            (*m_tracker_of_x_change)(j, m_x[j]);
         m_inf_set.insert(j);
-        lean_assert(!column_is_feasible(j));
+        lp_assert(!column_is_feasible(j));
     }
     void remove_column_from_inf_set(unsigned j) {
+        if (m_tracker_of_x_change != nullptr)
+            (*m_tracker_of_x_change)(j, m_x[j]);
         m_inf_set.erase(j);
-        lean_assert(column_is_feasible(j));
+        lp_assert(column_is_feasible(j));
     }
     bool costs_on_nbasis_are_zeros() const {
-        lean_assert(this->basis_heading_is_correct());
+        lp_assert(this->basis_heading_is_correct());
         for (unsigned j = 0; j < this->m_n(); j++) {
             if (this->m_basis_heading[j] < 0)
-                lean_assert(is_zero(this->m_costs[j]));
+                lp_assert(is_zero(this->m_costs[j]));
         }
         return true;
     }
@@ -685,6 +707,18 @@ public:
 
     const unsigned & iters_with_no_cost_growing() const {
         return m_iters_with_no_cost_growing;
+    }
+
+    linear_combination_iterator<T> * get_iterator_on_row(unsigned i) {
+        if (m_settings.use_tableau())
+            return new iterator_on_row<T>(m_A.m_rows[i]);
+        calculate_pivot_row(i);
+        return new iterator_on_pivot_row<T>(m_pivot_row, m_basis[i]);
+    }
+
+    void calculate_pivot_row(unsigned i);
+    unsigned get_base_column_in_row(unsigned row_index) const {
+        return m_basis[row_index];
     }
 };
 }

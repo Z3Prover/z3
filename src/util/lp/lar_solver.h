@@ -1,6 +1,6 @@
 /*
   Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
+  Author: Nikolaj Bjorner, Lev Nachmanson
 */
 #pragma once
 #include "util/vector.h"
@@ -33,7 +33,8 @@
 #include "util/lp/int_solver.h"
 #include "util/lp/nra_solver.h"
 
-namespace lean {
+namespace lp {
+
 
 
 class lar_solver : public column_namer {
@@ -48,11 +49,11 @@ class lar_solver : public column_namer {
     };
     //////////////////// fields //////////////////////////
     lp_settings m_settings;
-    stacked_value<lp_status> m_status;
+    lp_status m_status;
     stacked_value<simplex_strategy_enum> m_simplex_strategy;
     std::unordered_map<unsigned, ext_var_info> m_ext_vars_to_columns;
     vector<unsigned> m_columns_to_ext_vars_or_term_indices;
-    stacked_vector<ul_pair> m_vars_to_ul_pairs;
+    stacked_vector<ul_pair> m_columns_to_ul_pairs;
     vector<lar_base_constraint*> m_constraints;
     stacked_value<unsigned> m_constraint_count;
     // the set of column indices j such that bounds have changed for j
@@ -68,7 +69,8 @@ public:
     lar_core_solver m_mpq_lar_core_solver;
     unsigned constraint_count() const;
     const lar_base_constraint& get_constraint(unsigned ci) const;
-
+    std::function<void (unsigned, const impq&)> m_tracker_of_x_change;
+    int_set m_inf_int_set; 
     ////////////////// methods ////////////////////////////////
     static_matrix<mpq, numeric_pair<mpq>> & A_r();
     static_matrix<mpq, numeric_pair<mpq>> const & A_r() const;
@@ -77,7 +79,8 @@ public:
     
     static bool valid_index(unsigned j){ return static_cast<int>(j) >= 0;}
 
-
+    bool column_is_int(unsigned j) const;
+    bool column_is_fixed(unsigned j) const;
 public:
 
     // init region
@@ -85,9 +88,15 @@ public:
 
     var_index add_var(unsigned ext_j, bool is_integer);
 
-    void register_new_ext_var_index(unsigned ext_v);
+    void register_new_ext_var_index(unsigned ext_v, bool is_int);
 
-    void add_non_basic_var_to_core_fields(unsigned ext_j);
+    bool term_is_int(const lar_term * t) const;
+
+    bool var_is_int(var_index v) const;
+
+    bool ext_var_is_int(var_index ext_var) const;
+    
+    void add_non_basic_var_to_core_fields(unsigned ext_j, bool is_int);
 
     void add_new_var_to_core_fields_for_doubles(bool register_in_basis);
 
@@ -142,7 +151,6 @@ public:
     lp_settings const & settings() const;
 
     void clear();
-
 
     lar_solver();
     void set_propagate_bounds_on_pivoted_rows_mode(bool v);
@@ -215,7 +223,7 @@ public:
     vector<unsigned> get_list_of_all_var_indices() const;
     void push();
 
-    static void clean_large_elements_after_pop(unsigned n, int_set& set);
+    static void clean_popped_elements(unsigned n, int_set& set);
 
     static void shrink_inf_set_after_pop(unsigned n, int_set & set);
 
@@ -256,7 +264,7 @@ public:
 
 
     void substitute_terms_in_linear_expression( const vector<std::pair<mpq, var_index>>& left_side_with_terms,
-                          vector<std::pair<mpq, var_index>> &left_side, mpq & right_side) const;
+                          vector<std::pair<mpq, var_index>> &left_side, mpq & free_coeff) const;
 
 
     void detect_rows_of_bound_change_column_for_nbasic_column(unsigned j);
@@ -321,10 +329,9 @@ public:
     template <typename U, typename V>
     void copy_from_mpq_matrix(static_matrix<U, V> & matr);
 
+    column_type get_column_type(const column_info<mpq> & ci);
 
     bool try_to_set_fixed(column_info<mpq> & ci);
-
-    column_type get_column_type(const column_info<mpq> & ci);
 
     std::string get_column_name(unsigned j) const;
 
@@ -336,7 +343,7 @@ public:
     bool the_relations_are_of_same_type(const vector<std::pair<mpq, unsigned>> & evidence, lconstraint_kind & the_kind_of_sum) const;
 
     static void register_in_map(std::unordered_map<var_index, mpq> & coeffs, const lar_base_constraint & cn, const mpq & a);
-    static void register_one_coeff_in_map(std::unordered_map<var_index, mpq> & coeffs, const mpq & a, unsigned j);
+    static void register_monoid_in_map(std::unordered_map<var_index, mpq> & coeffs, const mpq & a, unsigned j);
 
 
     bool the_left_sides_sum_to_zero(const vector<std::pair<mpq, unsigned>> & evidence) const;
@@ -362,9 +369,9 @@ public:
                                                     int inf_sign) const;
 
 
-
     void get_model(std::unordered_map<var_index, mpq> & variable_values) const;
 
+    void get_model_do_not_care_about_diff_vars(std::unordered_map<var_index, mpq> & variable_values) const;
 
     std::string get_variable_name(var_index vi) const;
 
@@ -373,11 +380,13 @@ public:
 
     void print_constraints(std::ostream& out) const ;
 
-    void print_terms(std::ostream& out) const ;
+    void print_terms(std::ostream& out) const;
 
     void print_left_side_of_constraint(const lar_base_constraint * c, std::ostream & out) const;
 
     void print_term(lar_term const& term, std::ostream & out) const;
+
+    void print_term_as_indices(lar_term const& term, std::ostream & out) const;
 
     mpq get_left_side_val(const lar_base_constraint &  cns, const std::unordered_map<var_index, mpq> & var_map) const;
 
@@ -386,7 +395,7 @@ public:
     void fill_var_set_for_random_update(unsigned sz, var_index const * vars, vector<unsigned>& column_list);
 
     void random_update(unsigned sz, var_index const * vars);
-    void try_pivot_fixed_vars_from_basis();
+    void pivot_fixed_vars_from_basis();
     void pop();
     bool column_represents_row_in_tableau(unsigned j);
     void make_sure_that_the_bottom_right_elem_not_zero_in_tableau(unsigned i, unsigned j);
@@ -398,23 +407,74 @@ public:
     void pop_tableau();
     void clean_inf_set_of_r_solver_after_pop();
     void shrink_explanation_to_minimum(vector<std::pair<mpq, constraint_index>> & explanation) const;
-    inline
-    bool column_is_integer(unsigned j) const {
-        unsigned ext_var = m_columns_to_ext_vars_or_term_indices[j];
-        return m_ext_vars_to_columns.find(ext_var)->second.is_integer();
-    }
 
-    static bool impq_is_int(const impq& v) {
-        return v.x.is_int() && is_zero(v.y);
-    }
     
-    inline
+    
     bool column_value_is_integer(unsigned j) const {
         const impq & v = m_mpq_lar_core_solver.m_r_x[j];
-        return impq_is_int(v);
+        return v.is_int();
     }
 
-    inline bool column_is_real(unsigned j) const { return !column_is_integer(j); }	
-	final_check_status check_int_feasibility();
+    bool column_is_real(unsigned j) const {
+        return !column_is_int(j);
+    }	
+	
+	bool model_is_int_feasible() const;
+
+    const impq & column_low_bound(unsigned j) const {
+        return m_mpq_lar_core_solver.low_bound(j);
+    }
+
+    const impq & column_upper_bound(unsigned j) const {
+        return m_mpq_lar_core_solver.upper_bound(j);
+    }
+
+    bool column_is_bounded(unsigned j) const {
+        return m_mpq_lar_core_solver.column_is_bounded(j);
+    }
+
+    void get_bound_constraint_witnesses_for_column(unsigned j, constraint_index & lc, constraint_index & uc) const {
+        const ul_pair & ul = m_columns_to_ul_pairs[j];
+        lc = ul.low_bound_witness();
+        uc = ul.upper_bound_witness();
+    }
+    indexed_vector<mpq> & get_column_in_lu_mode(unsigned j) {
+        m_column_buffer.clear();
+        m_column_buffer.resize(A_r().row_count());
+        m_mpq_lar_core_solver.m_r_solver.solve_Bd(j, m_column_buffer);
+        return m_column_buffer;
+    }
+    
+    bool bound_is_integer_if_needed(unsigned j, const mpq & right_side) const;
+    linear_combination_iterator<mpq> * get_iterator_on_row(unsigned i) {
+        return m_mpq_lar_core_solver.m_r_solver.get_iterator_on_row(i);
+    }
+
+    unsigned get_base_column_in_row(unsigned row_index) const {
+        return m_mpq_lar_core_solver.m_r_solver.get_base_column_in_row(row_index);
+    }
+
+    constraint_index get_column_upper_bound_witness(unsigned j) const {
+        return m_columns_to_ul_pairs()[j].upper_bound_witness();
+    }
+
+    constraint_index get_column_low_bound_witness(unsigned j) const {
+        return m_columns_to_ul_pairs()[j].low_bound_witness();
+    }
+
+    void subs_term_columns(lar_term& t) {
+        vector<std::pair<mpq, unsigned> > pol;
+        for (const auto & m : t.m_coeffs) {
+            pol.push_back(std::make_pair(m.second, adjust_column_index_to_term_index(m.first)));
+        }
+        mpq v = t.m_v;
+        vector<std::pair<mpq, unsigned>> pol_after_subs;
+        // todo : remove the call to substitute_terms_in_linear_expression, when theory_lra handles the terms indices
+        substitute_terms_in_linear_expression(pol, pol_after_subs, v);
+        t.clear();
+        t = lar_term(pol_after_subs, v);
+    }
+
+    bool has_int_var() const;
 };
 }

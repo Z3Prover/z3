@@ -31,7 +31,7 @@ Author: Lev Nachmanson
 #include "util/lp/stacked_unordered_set.h"
 #include "util/lp/int_set.h"
 #include "util/stopwatch.h"
-namespace lean {
+namespace lp {
 unsigned seed = 1;
 
     random_gen g_rand;
@@ -78,7 +78,7 @@ void test_matrix(sparse_matrix<T, X> & a) {
 
     a.set(i, j, t);
 
-    lean_assert(a.get(i, j) == t);
+    lp_assert(a.get(i, j) == t);
 
     unsigned j1;
     if (j < m - 1) {
@@ -170,7 +170,7 @@ vector<int> allocate_basis_heading(unsigned count) { // the rest of initilizatio
 
 
 void init_basic_part_of_basis_heading(vector<unsigned> & basis, vector<int> & basis_heading) {
-    lean_assert(basis_heading.size() >= basis.size());
+    lp_assert(basis_heading.size() >= basis.size());
     unsigned m = basis.size();
     for (unsigned i = 0; i < m; i++) {
         unsigned column = basis[i];
@@ -225,7 +225,7 @@ void test_small_lu(lp_settings & settings) {
     vector<unsigned> non_basic_columns;
     init_basis_heading_and_non_basic_columns_vector(basis, heading, non_basic_columns);
     lu<double, double> l(m, basis, settings);
-    lean_assert(l.is_correct(basis));
+    lp_assert(l.is_correct(basis));
     indexed_vector<double> w(m.row_count());
     std::cout << "entering 2, leaving 0" << std::endl;
     l.prepare_entering(2, w); // to init vector w
@@ -235,7 +235,7 @@ void test_small_lu(lp_settings & settings) {
     // std::cout << "we were factoring " << std::endl;
     // print_matrix(get_B(l));
     // #endif
-    lean_assert(l.is_correct(basis));
+    lp_assert(l.is_correct(basis));
     std::cout << "entering 4, leaving 3" << std::endl;
     l.prepare_entering(4, w); // to init vector w
     l.replace_column(0, w, heading[3]);
@@ -247,7 +247,7 @@ void test_small_lu(lp_settings & settings) {
         print_matrix(&bl, std::cout);
     }
 #endif
-    lean_assert(l.is_correct(basis));
+    lp_assert(l.is_correct(basis));
 
     std::cout << "entering 5, leaving 1" << std::endl;
     l.prepare_entering(5, w); // to init vector w
@@ -260,7 +260,7 @@ void test_small_lu(lp_settings & settings) {
         print_matrix(&bl, std::cout);
     }
 #endif
-    lean_assert(l.is_correct(basis));
+    lp_assert(l.is_correct(basis));
     std::cout << "entering 3, leaving 2" << std::endl;
     l.prepare_entering(3, w); // to init vector w
     l.replace_column(0, w, heading[2]);
@@ -272,7 +272,7 @@ void test_small_lu(lp_settings & settings) {
         print_matrix(&bl, std::cout);
     }
 #endif
-    lean_assert(l.is_correct(basis));
+    lp_assert(l.is_correct(basis));
 
     m.add_row();
     m.add_column();
@@ -291,7 +291,7 @@ void test_small_lu(lp_settings & settings) {
     auto columns_to_replace = l.get_set_of_columns_to_replace_for_add_last_rows(heading);
     l.add_last_rows_to_B(heading, columns_to_replace);
     std::cout << "here" << std::endl;
-    lean_assert(l.is_correct(basis));
+    lp_assert(l.is_correct(basis));
 }
 
 #endif
@@ -373,7 +373,7 @@ void test_larger_lu_exp(lp_settings & settings) {
 
     dense_matrix<double, double> left_side = l.get_left_side(basis);
     dense_matrix<double, double> right_side = l.get_right_side();
-    lean_assert(left_side == right_side);
+    lp_assert(left_side == right_side);
     int leaving = 3;
     int entering = 8;
     for (unsigned i = 0; i < m.row_count(); i++) {
@@ -385,12 +385,12 @@ void test_larger_lu_exp(lp_settings & settings) {
     l.prepare_entering(entering, w);
     l.replace_column(0, w, heading[leaving]);
     change_basis(entering, leaving, basis, non_basic_columns, heading);
-    lean_assert(l.is_correct(basis));
+    lp_assert(l.is_correct(basis));
 
     l.prepare_entering(11, w); // to init vector w
     l.replace_column(0, w, heading[0]);
     change_basis(11, 0, basis, non_basic_columns, heading);
-    lean_assert(l.is_correct(basis));
+    lp_assert(l.is_correct(basis));
 }
 
 void test_larger_lu_with_holes(lp_settings & settings) {
@@ -432,7 +432,7 @@ void test_larger_lu_with_holes(lp_settings & settings) {
     l.prepare_entering(8, w); // to init vector w
     l.replace_column(0, w, heading[0]);
     change_basis(8, 0, basis, non_basic_columns, heading);
-    lean_assert(l.is_correct(basis));
+    lp_assert(l.is_correct(basis));
 }
 
 
@@ -479,7 +479,7 @@ void test_larger_lu(lp_settings& settings) {
     l.prepare_entering(9, w); // to init vector w
     l.replace_column(0, w, heading[0]);
     change_basis(9, 0, basis, non_basic_columns, heading);
-    lean_assert(l.is_correct(basis));
+    lp_assert(l.is_correct(basis));
 }
 
 
@@ -612,7 +612,7 @@ void test_swap_rows_with_permutation(sparse_matrix<T, X>& m){
     dense_matrix<double, double> original(&m);
     permutation_matrix<double, double> q(dim);
     print_matrix(m, std::cout);
-    lean_assert(original == q * m);
+    lp_assert(original == q * m);
     for (int i = 0; i < 100; i++) {
         unsigned row1 = my_random() % dim;
         unsigned row2 = my_random() % dim;
@@ -620,7 +620,7 @@ void test_swap_rows_with_permutation(sparse_matrix<T, X>& m){
         std::cout << "swap " << row1 << " " << row2 << std::endl;
         m.swap_rows(row1, row2);
         q.transpose_from_left(row1, row2);
-        lean_assert(original == q * m);
+        lp_assert(original == q * m);
         print_matrix(m, std::cout);
         std::cout << std::endl;
     }
@@ -636,7 +636,7 @@ void test_swap_cols_with_permutation(sparse_matrix<T, X>& m){
     dense_matrix<double, double> original(&m);
     permutation_matrix<double, double> q(dim);
     print_matrix(m, std::cout);
-    lean_assert(original == q * m);
+    lp_assert(original == q * m);
     for (int i = 0; i < 100; i++) {
         unsigned row1 = my_random() % dim;
         unsigned row2 = my_random() % dim;
@@ -644,7 +644,7 @@ void test_swap_cols_with_permutation(sparse_matrix<T, X>& m){
         std::cout << "swap " << row1 << " " << row2 << std::endl;
         m.swap_rows(row1, row2);
         q.transpose_from_right(row1, row2);
-        lean_assert(original == q * m);
+        lp_assert(original == q * m);
         print_matrix(m, std::cout);
         std::cout << std::endl;
     }
@@ -663,8 +663,8 @@ void test_swap_rows(sparse_matrix<T, X>& m, unsigned i0, unsigned i1){
     m.swap_rows(i0, i1);
 
     for (unsigned j = 0; j < m.dimension(); j++) {
-        lean_assert(mcopy(i0, j) == m(i1, j));
-        lean_assert(mcopy(i1, j) == m(i0, j));
+        lp_assert(mcopy(i0, j) == m(i1, j));
+        lp_assert(mcopy(i1, j) == m(i0, j));
     }
 }
 template <typename T, typename X>
@@ -678,15 +678,15 @@ void test_swap_columns(sparse_matrix<T, X>& m, unsigned i0, unsigned i1){
     m.swap_columns(i0, i1);
 
     for (unsigned j = 0; j < m.dimension(); j++) {
-        lean_assert(mcopy(j, i0) == m(j, i1));
-        lean_assert(mcopy(j, i1) == m(j, i0));
+        lp_assert(mcopy(j, i0) == m(j, i1));
+        lp_assert(mcopy(j, i1) == m(j, i0));
     }
 
     for (unsigned i = 0; i  < m.dimension(); i++) {
         if (i == i0 || i == i1)
             continue;
         for (unsigned j = 0; j < m.dimension(); j++) {
-            lean_assert(mcopy(j, i)== m(j, i));
+            lp_assert(mcopy(j, i)== m(j, i));
         }
     }
 }
@@ -748,7 +748,7 @@ void test_pivot_like_swaps_and_pivot(){
     m.pivot_row_to_row(pivot_row_0, beta, target_row, settings);
     //  print_matrix(m);
     for (unsigned j = 0; j < m.dimension(); j++) {
-        lean_assert(abs(row[j] - m(target_row, j)) < 0.00000001);
+        lp_assert(abs(row[j] - m(target_row, j)) < 0.00000001);
     }
 }
 
@@ -853,57 +853,57 @@ void sparse_matrix_with_permutaions_test() {
     m.multiply_from_left(q0);
     for (unsigned i = 0; i < dim; i++) {
         for (unsigned j = 0; j < dim; j++) {
-            lean_assert(m(i, j) == dm0.get_elem(q0[i], j));
+            lp_assert(m(i, j) == dm0.get_elem(q0[i], j));
         }
     }
 
     auto q0_dm = q0 * dm;
-    lean_assert(m == q0_dm);
+    lp_assert(m == q0_dm);
 
     m.multiply_from_left(q1);
     for (unsigned i = 0; i < dim; i++) {
         for (unsigned j = 0; j < dim; j++) {
-            lean_assert(m(i, j) == dm0.get_elem(q0[q1[i]], j));
+            lp_assert(m(i, j) == dm0.get_elem(q0[q1[i]], j));
         }
     }
 
 
     auto q1_q0_dm = q1 * q0_dm;
 
-    lean_assert(m == q1_q0_dm);
+    lp_assert(m == q1_q0_dm);
 
     m.multiply_from_right(p0);
 
     for (unsigned i = 0; i < dim; i++) {
         for (unsigned j = 0; j < dim; j++) {
-            lean_assert(m(i, j) == dm0.get_elem(q0[q1[i]], p0[j]));
+            lp_assert(m(i, j) == dm0.get_elem(q0[q1[i]], p0[j]));
         }
     }
 
     auto q1_q0_dm_p0 = q1_q0_dm * p0;
 
-    lean_assert(m == q1_q0_dm_p0);
+    lp_assert(m == q1_q0_dm_p0);
 
     m.multiply_from_right(p1);
 
     for (unsigned i = 0; i < dim; i++) {
         for (unsigned j = 0; j < dim; j++) {
-            lean_assert(m(i, j) == dm0.get_elem(q0[q1[i]], p1[p0[j]]));
+            lp_assert(m(i, j) == dm0.get_elem(q0[q1[i]], p1[p0[j]]));
         }
     }
 
     auto q1_q0_dm_p0_p1 = q1_q0_dm_p0 * p1;
-    lean_assert(m == q1_q0_dm_p0_p1);
+    lp_assert(m == q1_q0_dm_p0_p1);
 
     m.multiply_from_right(p1);
     for (unsigned i = 0; i < dim; i++) {
         for (unsigned j = 0; j < dim; j++) {
-            lean_assert(m(i, j) == dm0.get_elem(q0[q1[i]], p1[p1[p0[j]]]));
+            lp_assert(m(i, j) == dm0.get_elem(q0[q1[i]], p1[p1[p0[j]]]));
         }
     }
     auto q1_q0_dm_p0_p1_p1 = q1_q0_dm_p0_p1 * p1;
 
-    lean_assert(m == q1_q0_dm_p0_p1_p1);
+    lp_assert(m == q1_q0_dm_p0_p1_p1);
 }
 
 void test_swap_columns() {
@@ -1024,7 +1024,7 @@ void test_apply_reverse_from_right_to_perm(permutation_matrix<double, double> & 
 #ifdef LEAN_DEBUG
     auto rev = l.get_inverse();
     auto rs = pclone * rev;
-    lean_assert(p == rs)
+    lp_assert(p == rs)
 #endif
 }
 
@@ -1051,8 +1051,8 @@ void test_permutations() {
 
     p.apply_reverse_from_right_to_T(v);
     p.apply_reverse_from_right_to_T(vi);
-    lean_assert(vectors_are_equal(v, vi.m_data));
-    lean_assert(vi.is_OK());
+    lp_assert(vectors_are_equal(v, vi.m_data));
+    lp_assert(vi.is_OK());
 }
 
 void lp_solver_test() {
@@ -1159,12 +1159,14 @@ void solve_mps_double(std::string file_name, bool look_for_min, unsigned max_ite
     
     lp_solver<double, double> * solver =  reader.create_solver(dual);
     setup_solver(max_iterations, time_limit, look_for_min, args_parser, solver);
-    int begin = get_millisecond_count();
+    stopwatch sw;
+    sw.start();
     if (dual) {
         std::cout << "solving for dual" << std::endl;
     }
     solver->find_maximal_solution();
-    int span = get_millisecond_span(begin);
+    sw.stop();
+    double span = sw.get_seconds(); 
     std::cout << "Status: " << lp_status_to_string(solver->get_status()) << std::endl;
     if (solver->get_status() == lp_status::OPTIMAL) {
         if (reader.column_names().size() < 20) {
@@ -1198,7 +1200,7 @@ void solve_mps_double(std::string file_name, bool look_for_min, unsigned max_ite
                     compare_solutions(reader, primal_solver, solver);
                     print_x(reader, primal_solver);
                     std::cout << "dual cost is " << cost << ", but primal cost is " << primal_cost << std::endl;
-                    lean_assert(false);
+                    lp_assert(false);
                 }
             }
         }
@@ -1208,12 +1210,13 @@ void solve_mps_double(std::string file_name, bool look_for_min, unsigned max_ite
 }
 
 void solve_mps_rational(std::string file_name, bool look_for_min, unsigned max_iterations, unsigned time_limit, bool dual, argument_parser & args_parser) {
-    mps_reader<lean::mpq, lean::mpq> reader(file_name);
+    mps_reader<lp::mpq, lp::mpq> reader(file_name);
     reader.read();
     if (reader.is_ok()) {
         auto * solver =  reader.create_solver(dual);
         setup_solver(max_iterations, time_limit, look_for_min, args_parser, solver);
-        int begin = get_millisecond_count();
+        stopwatch sw;
+        sw.start();
         solver->find_maximal_solution();
         std::cout << "Status: " << lp_status_to_string(solver->get_status()) << std::endl;
 
@@ -1221,13 +1224,13 @@ void solve_mps_rational(std::string file_name, bool look_for_min, unsigned max_i
             // for (auto name: reader.column_names()) {
             //  std::cout << name << "=" << solver->get_column_value_by_name(name) << ' ';
             // }
-            lean::mpq cost = solver->get_current_cost();
+            lp::mpq cost = solver->get_current_cost();
             if (look_for_min) {
                 cost = -cost;
             }
             std::cout << "cost = " << cost.get_double() << std::endl;
         }
-        std::cout << "processed in " << get_millisecond_span(begin) / 1000.0 << " seconds, running for " << solver->m_total_iterations << " iterations" << std::endl;
+        std::cout << "processed in " << sw.get_current_seconds() / 1000.0 << " seconds, running for " << solver->m_total_iterations << " iterations" << std::endl;
         delete solver;
     } else {
         std::cout << "cannot process " << file_name << std::endl;
@@ -1259,7 +1262,7 @@ void solve_mps(std::string file_name, argument_parser & args_parser) {
 void solve_mps_in_rational(std::string file_name, bool dual, argument_parser & /*args_parser*/) {
     std::cout << "solving " << file_name << std::endl;
 
-    mps_reader<lean::mpq, lean::mpq> reader(file_name);
+    mps_reader<lp::mpq, lp::mpq> reader(file_name);
     reader.read();
     if (reader.is_ok()) {
         auto * solver =  reader.create_solver(dual);
@@ -1271,7 +1274,7 @@ void solve_mps_in_rational(std::string file_name, bool dual, argument_parser & /
                     std::cout << name << "=" << solver->get_column_value_by_name(name).get_double() << ' ';
                 }
             }
-            std::cout << std::endl << "cost = " << numeric_traits<lean::mpq>::get_double(solver->get_current_cost()) << std::endl;
+            std::cout << std::endl << "cost = " << numeric_traits<lp::mpq>::get_double(solver->get_current_cost()) << std::endl;
         }
         delete solver;
     } else {
@@ -1315,7 +1318,7 @@ void test_binary_priority_queue() {
 
     for (unsigned i = 0; i < 10; i++) {
         unsigned de = q.dequeue();
-        lean_assert(i == de);
+        lp_assert(i == de);
         std::cout << de << std::endl;
     }
     q.enqueue(2, 2);
@@ -1338,7 +1341,7 @@ void test_binary_priority_queue() {
     unsigned t = 0;
     while (q.size() > 0) {
         unsigned d =q.dequeue();
-        lean_assert(t++ == d);
+        lp_assert(t++ == d);
         std::cout << d << std::endl;
     }
 #endif
@@ -1367,7 +1370,7 @@ void solve_mps_with_known_solution(std::string file_name, std::unordered_map<std
         std::cout << "status is " << lp_status_to_string(solver->get_status()) << std::endl;
         if (status != solver->get_status()){
             std::cout << "status should be " << lp_status_to_string(status) << std::endl;
-            lean_assert(status == solver->get_status());
+            lp_assert(status == solver->get_status());
             throw "status is wrong";
         }
         if (solver->get_status() == lp_status::OPTIMAL) {
@@ -1378,7 +1381,7 @@ void solve_mps_with_known_solution(std::string file_name, std::unordered_map<std
                         std::cout << "expected:" << it.first << "=" <<
                             it.second <<", got " << solver->get_column_value_by_name(it.first) << std::endl;
                     }
-                    lean_assert(fabs(it.second - solver->get_column_value_by_name(it.first)) < 0.000001);
+                    lp_assert(fabs(it.second - solver->get_column_value_by_name(it.first)) < 0.000001);
                 }
             }
             if (reader.column_names().size() < 20) {
@@ -1463,127 +1466,127 @@ void fill_file_names(vector<std::string> &file_names,  std::set<std::string> & m
         return;
     }
     std::string home_dir_str(home_dir);
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/l0redund.mps");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/l1.mps");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/l2.mps");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/l3.mps");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/l4.mps");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/l4fix.mps");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/plan.mps");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/samp2.mps");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/murtagh.mps");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/l0.mps");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/AFIRO.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/SC50B.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/SC50A.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/KB2.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/SC105.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/STOCFOR1.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/ADLITTLE.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/BLEND.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/SCAGR7.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/SC205.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/SHARE2B.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/RECIPELP.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/LOTFI.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/VTP-BASE.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/SHARE1B.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/BOEING2.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/BORE3D.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/SCORPION.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/CAPRI.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/BRANDY.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/SCAGR25.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/SCTAP1.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/ISRAEL.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/SCFXM1.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/BANDM.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/E226.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/AGG.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/GROW7.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/ETAMACRO.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/FINNIS.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/SCSD1.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/STANDATA.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/STANDGUB.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/BEACONFD.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/STAIR.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/STANDMPS.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/GFRD-PNC.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/SCRS8.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/BOEING1.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/MODSZK1.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/DEGEN2.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/FORPLAN.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/AGG2.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/AGG3.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/SCFXM2.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/SHELL.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/PILOT4.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/SCSD6.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/SHIP04S.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/SEBA.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/GROW15.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/FFFFF800.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/BNL1.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/PEROLD.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/QAP8.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/SCFXM3.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/SHIP04L.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/GANGES.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/SCTAP2.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/GROW22.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/SHIP08S.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/PILOT-WE.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/MAROS.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/STOCFOR2.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/25FV47.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/SHIP12S.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/SCSD8.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/FIT1P.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/SCTAP3.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/SIERRA.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/PILOTNOV.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/CZPROB.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/FIT1D.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/PILOT-JA.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/SHIP08L.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/BNL2.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/NESM.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/CYCLE.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/acc-tight5.mps");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/SHIP12L.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/DEGEN3.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/GREENBEA.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/GREENBEB.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/80BAU3B.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/TRUSS.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/D2Q06C.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/WOODW.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/QAP12.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/D6CUBE.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/PILOT.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/DFL001.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/WOOD1P.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/FIT2P.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/PILOT87.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/STOCFOR3.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/QAP15.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/FIT2D.SIF");
-    file_names.push_back(home_dir_str + "/projects/lean/src/tests/util/lp/test_files/netlib/MAROS-R7.SIF");
-    minimums.insert("/projects/lean/src/tests/util/lp/test_files/netlib/FIT2P.SIF");
-    minimums.insert("/projects/lean/src/tests/util/lp/test_files/netlib/DFL001.SIF");
-    minimums.insert("/projects/lean/src/tests/util/lp/test_files/netlib/D2Q06C.SIF");
-    minimums.insert("/projects/lean/src/tests/util/lp/test_files/netlib/80BAU3B.SIF");
-    minimums.insert("/projects/lean/src/tests/util/lp/test_files/netlib/GREENBEB.SIF");
-    minimums.insert("/projects/lean/src/tests/util/lp/test_files/netlib/GREENBEA.SIF");
-    minimums.insert("/projects/lean/src/tests/util/lp/test_files/netlib/BNL2.SIF");
-    minimums.insert("/projects/lean/src/tests/util/lp/test_files/netlib/SHIP08L.SIF");
-    minimums.insert("/projects/lean/src/tests/util/lp/test_files/netlib/FIT1D.SIF");
-    minimums.insert("/projects/lean/src/tests/util/lp/test_files/netlib/SCTAP3.SIF");
-    minimums.insert("/projects/lean/src/tests/util/lp/test_files/netlib/SCSD8.SIF");
-    minimums.insert("/projects/lean/src/tests/util/lp/test_files/netlib/SCSD6.SIF");
-    minimums.insert("/projects/lean/src/tests/util/lp/test_files/netlib/MAROS-R7.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/l0redund.mps");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/l1.mps");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/l2.mps");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/l3.mps");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/l4.mps");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/l4fix.mps");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/plan.mps");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/samp2.mps");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/murtagh.mps");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/l0.mps");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/AFIRO.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/SC50B.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/SC50A.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/KB2.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/SC105.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/STOCFOR1.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/ADLITTLE.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/BLEND.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/SCAGR7.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/SC205.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/SHARE2B.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/RECIPELP.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/LOTFI.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/VTP-BASE.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/SHARE1B.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/BOEING2.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/BORE3D.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/SCORPION.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/CAPRI.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/BRANDY.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/SCAGR25.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/SCTAP1.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/ISRAEL.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/SCFXM1.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/BANDM.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/E226.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/AGG.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/GROW7.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/ETAMACRO.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/FINNIS.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/SCSD1.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/STANDATA.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/STANDGUB.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/BEACONFD.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/STAIR.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/STANDMPS.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/GFRD-PNC.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/SCRS8.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/BOEING1.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/MODSZK1.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/DEGEN2.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/FORPLAN.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/AGG2.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/AGG3.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/SCFXM2.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/SHELL.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/PILOT4.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/SCSD6.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/SHIP04S.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/SEBA.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/GROW15.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/FFFFF800.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/BNL1.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/PEROLD.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/QAP8.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/SCFXM3.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/SHIP04L.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/GANGES.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/SCTAP2.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/GROW22.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/SHIP08S.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/PILOT-WE.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/MAROS.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/STOCFOR2.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/25FV47.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/SHIP12S.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/SCSD8.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/FIT1P.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/SCTAP3.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/SIERRA.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/PILOTNOV.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/CZPROB.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/FIT1D.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/PILOT-JA.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/SHIP08L.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/BNL2.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/NESM.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/CYCLE.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/acc-tight5.mps");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/SHIP12L.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/DEGEN3.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/GREENBEA.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/GREENBEB.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/80BAU3B.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/TRUSS.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/D2Q06C.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/WOODW.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/QAP12.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/D6CUBE.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/PILOT.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/DFL001.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/WOOD1P.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/FIT2P.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/PILOT87.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/STOCFOR3.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/QAP15.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/FIT2D.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/MAROS-R7.SIF");
+    minimums.insert("/projects/lp/src/tests/util/lp/test_files/netlib/FIT2P.SIF");
+    minimums.insert("/projects/lp/src/tests/util/lp/test_files/netlib/DFL001.SIF");
+    minimums.insert("/projects/lp/src/tests/util/lp/test_files/netlib/D2Q06C.SIF");
+    minimums.insert("/projects/lp/src/tests/util/lp/test_files/netlib/80BAU3B.SIF");
+    minimums.insert("/projects/lp/src/tests/util/lp/test_files/netlib/GREENBEB.SIF");
+    minimums.insert("/projects/lp/src/tests/util/lp/test_files/netlib/GREENBEA.SIF");
+    minimums.insert("/projects/lp/src/tests/util/lp/test_files/netlib/BNL2.SIF");
+    minimums.insert("/projects/lp/src/tests/util/lp/test_files/netlib/SHIP08L.SIF");
+    minimums.insert("/projects/lp/src/tests/util/lp/test_files/netlib/FIT1D.SIF");
+    minimums.insert("/projects/lp/src/tests/util/lp/test_files/netlib/SCTAP3.SIF");
+    minimums.insert("/projects/lp/src/tests/util/lp/test_files/netlib/SCSD8.SIF");
+    minimums.insert("/projects/lp/src/tests/util/lp/test_files/netlib/SCSD6.SIF");
+    minimums.insert("/projects/lp/src/tests/util/lp/test_files/netlib/MAROS-R7.SIF");
 }
 
 void test_out_dir(std::string out_dir) {
@@ -1653,7 +1656,7 @@ void solve_some_mps(argument_parser & args_parser) {
     }
     if (!solve_for_rational) {
         solve_mps(file_names[6], false, 0, time_limit, false, dual, compare_with_primal, args_parser);
-        solve_mps_with_known_solution(file_names[3], nullptr, INFEASIBLE, dual); // chvatal: 135(d)
+        solve_mps_with_known_solution(file_names[3], nullptr, lp_status::INFEASIBLE, dual); // chvatal: 135(d)
         std::unordered_map<std::string, double> sol;
         sol["X1"] = 0;
         sol["X2"] = 6;
@@ -1663,8 +1666,8 @@ void solve_some_mps(argument_parser & args_parser) {
         sol["X6"] = 1;
         sol["X7"] = 1;
         sol["X8"] = 0;
-        solve_mps_with_known_solution(file_names[9], &sol, OPTIMAL, dual);
-        solve_mps_with_known_solution(file_names[0], &sol, OPTIMAL, dual);
+        solve_mps_with_known_solution(file_names[9], &sol, lp_status::OPTIMAL, dual);
+        solve_mps_with_known_solution(file_names[0], &sol, lp_status::OPTIMAL, dual);
         sol.clear();
         sol["X1"] = 25.0/14.0;
         // sol["X2"] = 0;
@@ -1673,10 +1676,10 @@ void solve_some_mps(argument_parser & args_parser) {
         // sol["X5"] = 0;
         // sol["X6"] = 0;
         // sol["X7"] = 9.0/14.0;
-        solve_mps_with_known_solution(file_names[5], &sol, OPTIMAL, dual); // chvatal: 135(e)
-        solve_mps_with_known_solution(file_names[4], &sol, OPTIMAL, dual); // chvatal: 135(e)
-        solve_mps_with_known_solution(file_names[2], nullptr, UNBOUNDED, dual); // chvatal: 135(c)
-        solve_mps_with_known_solution(file_names[1], nullptr, UNBOUNDED, dual); // chvatal: 135(b)
+        solve_mps_with_known_solution(file_names[5], &sol, lp_status::OPTIMAL, dual); // chvatal: 135(e)
+        solve_mps_with_known_solution(file_names[4], &sol, lp_status::OPTIMAL, dual); // chvatal: 135(e)
+        solve_mps_with_known_solution(file_names[2], nullptr, lp_status::UNBOUNDED, dual); // chvatal: 135(c)
+        solve_mps_with_known_solution(file_names[1], nullptr, lp_status::UNBOUNDED, dual); // chvatal: 135(b)
         solve_mps(file_names[8], false, 0, time_limit, false, dual, compare_with_primal, args_parser);
         // return;
         for (auto& s : file_names) {
@@ -1703,48 +1706,48 @@ void solve_some_mps(argument_parser & args_parser) {
 #endif
 
 void solve_rational() {
-    lp_primal_simplex<lean::mpq, lean::mpq> solver;
-    solver.add_constraint(lp_relation::Equal, lean::mpq(7), 0);
-    solver.add_constraint(lp_relation::Equal, lean::mpq(-3), 1);
+    lp_primal_simplex<lp::mpq, lp::mpq> solver;
+    solver.add_constraint(lp_relation::Equal, lp::mpq(7), 0);
+    solver.add_constraint(lp_relation::Equal, lp::mpq(-3), 1);
 
     // setting the cost
     int cost[] = {-3, -1, -1, 2, -1, 1, 1, -4};
     std::string var_names[8] = {"x1", "x2", "x3", "x4", "x5", "x6", "x7", "x8"};
 
     for (unsigned i = 0; i < 8; i++) {
-        solver.set_cost_for_column(i, lean::mpq(cost[i]));
+        solver.set_cost_for_column(i, lp::mpq(cost[i]));
         solver.give_symbolic_name_to_column(var_names[i], i);
     }
 
     int row0[] = {1, 0, 3, 1, -5, -2 , 4, -6};
     for (unsigned i = 0; i < 8; i++) {
-        solver.set_row_column_coefficient(0, i, lean::mpq(row0[i]));
+        solver.set_row_column_coefficient(0, i, lp::mpq(row0[i]));
     }
 
     int row1[] = {0, 1, -2, -1, 4, 1, -3, 5};
     for (unsigned i = 0; i < 8; i++) {
-        solver.set_row_column_coefficient(1, i, lean::mpq(row1[i]));
+        solver.set_row_column_coefficient(1, i, lp::mpq(row1[i]));
     }
 
     int bounds[] = {8, 6, 4, 15, 2, 10, 10, 3};
     for (unsigned i = 0; i < 8; i++) {
-        solver.set_low_bound(i, lean::mpq(0));
-        solver.set_upper_bound(i, lean::mpq(bounds[i]));
+        solver.set_low_bound(i, lp::mpq(0));
+        solver.set_upper_bound(i, lp::mpq(bounds[i]));
     }
 
-    std::unordered_map<std::string, lean::mpq>  expected_sol;
-    expected_sol["x1"] = lean::mpq(0);
-    expected_sol["x2"] = lean::mpq(6);
-    expected_sol["x3"] = lean::mpq(0);
-    expected_sol["x4"] = lean::mpq(15);
-    expected_sol["x5"] = lean::mpq(2);
-    expected_sol["x6"] = lean::mpq(1);
-    expected_sol["x7"] = lean::mpq(1);
-    expected_sol["x8"] = lean::mpq(0);
+    std::unordered_map<std::string, lp::mpq>  expected_sol;
+    expected_sol["x1"] = lp::mpq(0);
+    expected_sol["x2"] = lp::mpq(6);
+    expected_sol["x3"] = lp::mpq(0);
+    expected_sol["x4"] = lp::mpq(15);
+    expected_sol["x5"] = lp::mpq(2);
+    expected_sol["x6"] = lp::mpq(1);
+    expected_sol["x7"] = lp::mpq(1);
+    expected_sol["x8"] = lp::mpq(0);
     solver.find_maximal_solution();
-    lean_assert(solver.get_status() == OPTIMAL);
+    lp_assert(solver.get_status() == lp_status::OPTIMAL);
     for (auto it : expected_sol) {
-        lean_assert(it.second == solver.get_column_value_by_name(it.first));
+        lp_assert(it.second == solver.get_column_value_by_name(it.first));
     }
 }
 
@@ -1802,7 +1805,7 @@ std::unordered_map<std::string, double> * get_solution_from_glpsol_output(std::s
            return ret;
         }
 
-        lean_assert(split.size() > 3);
+        lp_assert(split.size() > 3);
         (*ret)[split[1]] = atof(split[3].c_str());
     } while (true);
 }
@@ -1826,7 +1829,7 @@ void test_init_U() {
 
     for (unsigned i = 0; i < 3; i++) {
         for (unsigned j = 0; j < 3; j ++) {
-            lean_assert(m(i, basis[j]) == u(i, j));
+            lp_assert(m(i, basis[j]) == u(i, j));
         }
     }
 
@@ -1854,7 +1857,7 @@ void test_replace_column() {
     for (unsigned column_to_replace = 0;  column_to_replace < m.dimension(); column_to_replace ++) {
         m.replace_column(column_to_replace, w, settings);
         for (unsigned i = 0; i < m.dimension(); i++) {
-            lean_assert(abs(w[i] - m(i, column_to_replace)) < 0.00000001);
+            lp_assert(abs(w[i] - m(i, column_to_replace)) < 0.00000001);
         }
     }
 }
@@ -1958,7 +1961,7 @@ void test_stacked_unsigned() {
     v = 3;
     v = 4;
     v.pop();
-    lean_assert(v == 2);
+    lp_assert(v == 2);
     v ++;
     v++;
     std::cout << "before push v=" << v << std::endl;
@@ -1968,7 +1971,7 @@ void test_stacked_unsigned() {
     v+=1;
     std::cout << "v = " << v << std::endl;
     v.pop(2);
-    lean_assert(v == 4);
+    lp_assert(v == 4);
     const unsigned & rr = v;
     std::cout << rr << std:: endl;
     
@@ -2017,7 +2020,7 @@ void test_stacked_set() {
     s.push();
     s.insert(4);
     s.pop();
-    lean_assert(s() == scopy);
+    lp_assert(s() == scopy);
     s.push();
     s.push();
     s.insert(4);
@@ -2025,7 +2028,7 @@ void test_stacked_set() {
     s.push();
     s.insert(4);
     s.pop(3);
-    lean_assert(s() == scopy);
+    lp_assert(s() == scopy);
 #endif
 }
 
@@ -2394,15 +2397,15 @@ void test_files_from_directory(std::string test_file_dir, argument_parser & args
 }
 
 
-std::unordered_map<std::string, lean::mpq> get_solution_map(lp_solver<lean::mpq, lean::mpq> * lps, mps_reader<lean::mpq, lean::mpq> & reader) {
-    std::unordered_map<std::string, lean::mpq> ret;
+std::unordered_map<std::string, lp::mpq> get_solution_map(lp_solver<lp::mpq, lp::mpq> * lps, mps_reader<lp::mpq, lp::mpq> & reader) {
+    std::unordered_map<std::string, lp::mpq> ret;
     for (auto it : reader.column_names()) {
         ret[it] = lps->get_column_value_by_name(it);
     }
     return ret;
 }
 
-void run_lar_solver(argument_parser & args_parser, lar_solver * solver, mps_reader<lean::mpq, lean::mpq> * reader) {
+void run_lar_solver(argument_parser & args_parser, lar_solver * solver, mps_reader<lp::mpq, lp::mpq> * reader) {
     std::string maxng = args_parser.get_option_value("--maxng");
     if (maxng.size() > 0) {
         solver->settings().max_number_of_iterations_with_no_improvements = atoi(maxng.c_str());
@@ -2422,19 +2425,20 @@ void run_lar_solver(argument_parser & args_parser, lar_solver * solver, mps_read
         }
         auto * lps = reader->create_solver(false);
         lps->find_maximal_solution();
-        std::unordered_map<std::string, lean::mpq> sol = get_solution_map(lps, *reader);
+        std::unordered_map<std::string, lp::mpq> sol = get_solution_map(lps, *reader);
         std::cout << "status = " << lp_status_to_string(solver->get_status()) <<  std::endl;
         return;
     }
-    int begin = get_millisecond_count();
+    stopwatch sw;
+    sw.start();
     lp_status status = solver->solve();
-    std::cout << "status is " <<  lp_status_to_string(status) << ", processed for " << get_millisecond_span(begin) / 1000.0 <<" seconds, and " << solver->get_total_iterations() << " iterations" << std::endl;
-    if (solver->get_status() == INFEASIBLE) {
-        vector<std::pair<lean::mpq, constraint_index>> evidence;
+    std::cout << "status is " <<  lp_status_to_string(status) << ", processed for " << sw.get_current_seconds() <<" seconds, and " << solver->get_total_iterations() << " iterations" << std::endl;
+    if (solver->get_status() == lp_status::INFEASIBLE) {
+        vector<std::pair<lp::mpq, constraint_index>> evidence;
         solver->get_infeasibility_explanation(evidence);
     }
     if (args_parser.option_is_used("--randomize_lar")) {
-        if (solver->get_status() != OPTIMAL) {
+        if (solver->get_status() != lp_status::OPTIMAL) {
             std::cout << "cannot check randomize on an infeazible  problem" << std::endl;
             return;
         }
@@ -2463,7 +2467,7 @@ lar_solver * create_lar_solver_from_file(std::string file_name, argument_parser 
         }
         return reader.create_lar_solver();
     }
-    mps_reader<lean::mpq, lean::mpq> reader(file_name);
+    mps_reader<lp::mpq, lp::mpq> reader(file_name);
     reader.read();
     if (!reader.is_ok()) {
         std::cout << "cannot process " << file_name << std::endl;
@@ -2474,8 +2478,8 @@ lar_solver * create_lar_solver_from_file(std::string file_name, argument_parser 
 
 void test_lar_on_file(std::string file_name, argument_parser & args_parser) {
     lar_solver * solver = create_lar_solver_from_file(file_name, args_parser);
-    mps_reader<lean::mpq, lean::mpq> reader(file_name);
-    mps_reader<lean::mpq, lean::mpq> * mps_reader = nullptr;
+    mps_reader<lp::mpq, lp::mpq> reader(file_name);
+    mps_reader<lp::mpq, lp::mpq> * mps_reader = nullptr;
     reader.read();
     if (reader.is_ok()) {
         mps_reader = & reader;
@@ -2520,28 +2524,28 @@ void test_lar_solver(argument_parser & args_parser) {
 }
 
 void test_numeric_pair() {
-    numeric_pair<lean::mpq> a;
-    numeric_pair<lean::mpq> b(2, lean::mpq(6, 2));
+    numeric_pair<lp::mpq> a;
+    numeric_pair<lp::mpq> b(2, lp::mpq(6, 2));
     a = b;
-    numeric_pair<lean::mpq> c(0.1, 0.5);
+    numeric_pair<lp::mpq> c(0.1, 0.5);
     a += 2*c;
     a -= c;
-    lean_assert (a == b + c);
-    numeric_pair<lean::mpq> d = a * 2;
+    lp_assert (a == b + c);
+    numeric_pair<lp::mpq> d = a * 2;
     std::cout << a  << std::endl;
-    lean_assert(b == b);
-    lean_assert(b < a);
-    lean_assert(b <= a);
-    lean_assert(a > b);
-    lean_assert(a != b);
-    lean_assert(a >= b);
-    lean_assert(-a < b);
-    lean_assert(a < 2 * b);
-    lean_assert(b + b > a);
-    lean_assert(lean::mpq(2.1) * b + b > a);
-    lean_assert(-b * lean::mpq(2.1) - b < lean::mpq(0.99)  * a);
-    std::cout << - b * lean::mpq(2.1) - b << std::endl;
-    lean_assert(-b *(lean::mpq(2.1) + 1) == - b * lean::mpq(2.1) - b);
+    lp_assert(b == b);
+    lp_assert(b < a);
+    lp_assert(b <= a);
+    lp_assert(a > b);
+    lp_assert(a != b);
+    lp_assert(a >= b);
+    lp_assert(-a < b);
+    lp_assert(a < 2 * b);
+    lp_assert(b + b > a);
+    lp_assert(lp::mpq(2.1) * b + b > a);
+    lp_assert(-b * lp::mpq(2.1) - b < lp::mpq(0.99)  * a);
+    std::cout << - b * lp::mpq(2.1) - b << std::endl;
+    lp_assert(-b *(lp::mpq(2.1) + 1) == - b * lp::mpq(2.1) - b);
 }
 
 void get_matrix_dimensions(std::ifstream & f, unsigned & m, unsigned & n) {
@@ -2562,7 +2566,7 @@ void read_row_cols(unsigned i, static_matrix<double, double>& A, std::ifstream &
         if (line== "row_end")
             break;
         auto r = split_and_trim(line);
-        lean_assert(r.size() == 4);
+        lp_assert(r.size() == 4);
         unsigned j = atoi(r[1].c_str());
         double v = atof(r[3].c_str());
         A.set(i, j, v);
@@ -2590,7 +2594,7 @@ void read_basis(vector<unsigned> & basis, std::ifstream & f) {
     std::cout << "reading basis" << std::endl;
     std::string line;
     getline(f, line);
-    lean_assert(line == "basis_start");
+    lp_assert(line == "basis_start");
     do {
         getline(f, line);
         if (line == "basis_end")
@@ -2603,7 +2607,7 @@ void read_basis(vector<unsigned> & basis, std::ifstream & f) {
 void read_indexed_vector(indexed_vector<double> & v, std::ifstream & f) {
     std::string line;
     getline(f, line);
-    lean_assert(line == "vector_start");
+    lp_assert(line == "vector_start");
     do {
         getline(f, line);
         if (line == "vector_end") break;
@@ -2643,7 +2647,7 @@ void check_lu_from_file(std::string lufile_name) {
     A.copy_column_to_vector(entering, a);
     indexed_vector<double> cd(d);
     B.apply_from_left(cd.m_data, settings);
-    lean_assert(vectors_are_equal(cd.m_data , a));
+    lp_assert(vectors_are_equal(cd.m_data , a));
 #endif
 }
 
@@ -2713,7 +2717,7 @@ void test_term() {
     auto status = solver.solve();
     std::cout << lp_status_to_string(status) << std::endl;
     std::unordered_map<var_index, mpq> model;
-    if (status != OPTIMAL)
+    if (status != lp_status::OPTIMAL)
         return;
     solver.get_model(model);
     
@@ -2741,7 +2745,7 @@ void test_evidence_for_total_inf_simple(argument_parser & args_parser) {
     auto status = solver.solve();
     std::cout << lp_status_to_string(status) << std::endl;
     std::unordered_map<var_index, mpq> model;
-    lean_assert(solver.get_status() == INFEASIBLE);
+    lp_assert(solver.get_status() == lp_status::INFEASIBLE);
 }
 void test_bound_propagation_one_small_sample1() {
     /*
@@ -2937,8 +2941,8 @@ void test_total_case_l(){
     ls.solve();
     bound_propagator bp(ls);
     ls.propagate_bounds_for_touched_rows(bp);
-    lean_assert(ev.size() == 4);
-    lean_assert(contains_j_kind(x, GE, - one_of_type<mpq>(), ev));
+    lp_assert(ev.size() == 4);
+    lp_assert(contains_j_kind(x, GE, - one_of_type<mpq>(), ev));
 }
 void test_bound_propagation() {
     test_total_case_u();
@@ -2958,17 +2962,17 @@ void test_int_set() {
     s.insert(1);
     s.insert(2);
     s.print(std::cout);
-    lean_assert(s.contains(2));
-    lean_assert(s.size() == 2);
+    lp_assert(s.contains(2));
+    lp_assert(s.size() == 2);
     s.erase(2);
-    lean_assert(s.size() == 1);
+    lp_assert(s.size() == 1);
     s.erase(2);
-    lean_assert(s.size() == 1);
+    lp_assert(s.size() == 1);
     s.print(std::cout);
     s.insert(3);
     s.insert(2);
     s.clear();
-    lean_assert(s.size() == 0);
+    lp_assert(s.size() == 0);
     
     
 }
@@ -3222,7 +3226,7 @@ void test_lp_local(int argn, char**argv) {
         ret = 0;
         return finalize(ret);
     }
-    //  lean::ccc = 0;
+    //  lp::ccc = 0;
     return finalize(0);
     test_init_U();
     test_replace_column();
@@ -3239,5 +3243,5 @@ void test_lp_local(int argn, char**argv) {
 }
 }
 void tst_lp(char ** argv, int argc, int& i) {
-    lean::test_lp_local(argc - 2, argv + 2);
+    lp::test_lp_local(argc - 2, argv + 2);
 }

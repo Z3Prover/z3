@@ -87,7 +87,7 @@ namespace z3 {
     inline std::ostream & operator<<(std::ostream & out, exception const & e) { out << e.msg(); return out; }
 
 #if !defined(Z3_THROW)
-#if __cpp_exceptions || _CPPUNWIND
+#if __cpp_exceptions || _CPPUNWIND || __EXCEPTIONS
 #define Z3_THROW(x) throw x
 #else
 #define Z3_THROW(x) {}
@@ -2796,6 +2796,6 @@ namespace z3 {
 
 /*@}*/
 /*@}*/
-
+#undef Z3_THROW
 #endif
 

@@ -219,7 +219,7 @@ protected:
     /*
      * If DisableIntegerTheoryIntegration is set to true,
      * ALL calls to the integer theory integration methods
-     * (get_value, get_len_value, lower_bound, upper_bound)
+     * (get_arith_value, get_len_value, lower_bound, upper_bound)
      * will ignore what the arithmetic solver believes about length terms,
      * and will return no information.
      *
@@ -330,9 +330,9 @@ protected:
 
     std::map<expr*, nfa> regex_nfa_cache; // Regex term --> NFA
 
-    char * char_set;
-    std::map<char, int> charSetLookupTable;
-    int charSetSize;
+    svector<char> char_set;
+    std::map<char, int>  charSetLookupTable;
+    int           charSetSize;
 
     obj_pair_map<expr, expr, expr*> concat_astNode_map;
 
@@ -464,7 +464,7 @@ protected:
     bool in_same_eqc(expr * n1, expr * n2);
     expr * collect_eq_nodes(expr * n, expr_ref_vector & eqcSet);
 
-    bool get_value(expr* e, rational& val) const;
+    bool get_arith_value(expr* e, rational& val) const;
     bool get_len_value(expr* e, rational& val);
     bool lower_bound(expr* _e, rational& lo);
     bool upper_bound(expr* _e, rational& hi);
@@ -553,7 +553,7 @@ protected:
     expr * gen_len_test_options(expr * freeVar, expr * indicator, int tries);
     expr * gen_free_var_options(expr * freeVar, expr * len_indicator,
             zstring len_valueStr, expr * valTesterInCbEq, zstring valTesterValueStr);
-    expr * gen_val_options(expr * freeVar, expr * len_indicator, expr * val_indicator,
+    expr* gen_val_options(expr * freeVar, expr * len_indicator, expr * val_indicator,
             zstring lenStr, int tries);
     void print_value_tester_list(svector<std::pair<int, expr*> > & testerList);
     bool get_next_val_encode(int_vector & base, int_vector & next);

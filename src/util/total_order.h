@@ -79,12 +79,7 @@ class total_order {
     }
     
     cell * to_cell(T const & a) const {
-        void * r;
-#ifdef Z3DEBUG
-        bool ok =
-#endif
-        m_map.find(a, r);
-        SASSERT(ok);
+        void * r = m_map.find(a);
         return reinterpret_cast<cell*>(r);
     }
 

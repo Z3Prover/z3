@@ -109,6 +109,7 @@ public:
     bool is_ge(func_decl* a) const;
     bool is_ge(expr* a) const { return is_app(a) && is_ge(to_app(a)->get_decl()); }
     bool is_ge(expr* a, rational& k) const;
+    bool is_aux_bool(func_decl* f) const { return is_decl_of(f, m_fid, OP_PB_AUX_BOOL); }
     bool is_aux_bool(expr* e) const { return is_app_of(e, m_fid, OP_PB_AUX_BOOL); }
     rational get_coeff(expr* a, unsigned index) const { return get_coeff(to_app(a)->get_decl(), index); }
     rational get_coeff(func_decl* a, unsigned index) const; 

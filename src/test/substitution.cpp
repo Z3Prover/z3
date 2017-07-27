@@ -35,6 +35,8 @@ void tst_substitution()
 
     bool ok1 = unif(v1.get(), v2.get(), subst, false);
     bool ok2 = unif(v2.get(), v1.get(), subst, false);
+    (void)ok1;
+    (void)ok2;
 
     expr_ref res(m);
 

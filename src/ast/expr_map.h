@@ -35,6 +35,13 @@ class expr_map {
     obj_map<expr, expr*>  m_expr2expr;
     obj_map<expr, proof*> m_expr2pr;
 public:
+    typedef obj_map<expr, expr*> Map;
+    typedef Map::iterator iterator;
+    typedef Map::key key;
+    typedef Map::value value;
+    typedef Map::data data;
+    typedef Map::entry entry;
+
     expr_map(ast_manager & m);
     expr_map(ast_manager & m, bool store_proofs);
     ~expr_map();
@@ -44,6 +51,8 @@ public:
     void erase(expr * k);
     void reset();
     void flush();
+    iterator begin () const { return m_expr2expr.begin (); }
+    iterator end () const {return m_expr2expr.end (); }
     void set_store_proofs(bool f) { 
         if (m_store_proofs != f) flush();
         m_store_proofs = f; 

@@ -11,7 +11,6 @@ void tst_checker1() {
     ast_manager m(PGM_FINE);
     expr_ref a(m);
     proof_ref p1(m), p2(m), p3(m), p4(m);
-    bool result;
     expr_ref_vector side_conditions(m);
 
     a = m.mk_const(symbol("a"), m.mk_bool_sort());
@@ -26,8 +25,7 @@ void tst_checker1() {
     proof_checker checker(m);
     p4 = m.mk_lemma(p3.get(), m.mk_or(a.get(), m.mk_not(a.get())));
     ast_ll_pp(std::cout, m, p4.get());
-    result = checker.check(p4.get(), side_conditions);
-    SASSERT(result);    
+    VERIFY(checker.check(p4.get(), side_conditions));
 }
 
 void tst_proof_checker() {

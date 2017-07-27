@@ -12,7 +12,7 @@
 #include "util/lp/lp_primal_core_solver.h"
 #include "util/lp/lp_solver.h"
 #include "util/lp/iterator_on_row.h"
-namespace lean {
+namespace lp {
 template <typename T, typename X>
 class lp_primal_simplex: public lp_solver<T, X> {
     lp_primal_core_solver<T, X> * m_core_solver;
@@ -54,10 +54,6 @@ public:
 
     
     void set_core_solver_bounds();
-
-    void update_time_limit_from_starting_time(int start_time) {
-        this->m_settings.time_limit -= (get_millisecond_span(start_time) / 1000.);
-    }
 
     void find_maximal_solution();
 

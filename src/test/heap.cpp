@@ -47,12 +47,13 @@ static void tst1() {
     for (; it != end; ++it) {
         SASSERT(h.contains(*it));
     }
-    int last = -1;
     while (!h.empty()) {
         int m1 = h.min_value();
         int m2 = h.erase_min();
+        (void)m1;
+        (void)m2;
         SASSERT(m1 == m2);
-        SASSERT(last < m2);
+        SASSERT(-1 < m2);
     }
 }
 
@@ -76,6 +77,7 @@ static void dump_heap(const int_heap2 & h, std::ostream & out) {
 }
 
 static void tst2() {
+    (void)dump_heap;
     int_heap2 h(N);
     for (int i = 0; i < N * 10; i++) {
         if (i % 1000 == 0) std::cout << "i: " << i << std::endl;

@@ -14,18 +14,20 @@ if (POLICY CMP0054)
   cmake_policy(SET CMP0054 OLD)
 endif()
 
-# Provide a friendly message if the user hasn't run the bootstrap script
-# to copy all the CMake files into their correct location.
-# It is unfortunate that we have to do this, see #461 for the discussion
-# on this.
-if (NOT (EXISTS "${CMAKE_SOURCE_DIR}/src/CMakeLists.txt"))
-  message(FATAL_ERROR "Cannot find \"${CMAKE_SOURCE_DIR}/src/CMakeLists.txt\""
-          ". This probably means you need to run"
-          "``python contrib/cmake/bootstrap.py create``")
+if (POLICY CMP0042)
+  # Enable `MACOSX_RPATH` by default.
+  cmake_policy(SET CMP0042 NEW)
 endif()
 
 set(CMAKE_USER_MAKE_RULES_OVERRIDE_CXX "${CMAKE_CURRENT_SOURCE_DIR}/cmake/cxx_compiler_flags_overrides.cmake")
 project(Z3 CXX)
+
+if ("${CMAKE_VERSION}" VERSION_LESS "3.4")
+  # FIXME: Drop this when we upgrade to newer CMake versions.
+  # HACK: Although we don't need C language support if it is not
+  # enabled CMake's `FindThreads` module fails in old CMake versions.
+  enable_language(C)
+endif()
 
 ################################################################################
 # Project version
@@ -107,7 +109,7 @@ if (EXISTS "${GIT_DIR}")
       endif()
       message(STATUS "Using Git hash in version output: ${Z3GITHASH}")
       # This mimics the behaviour of the old build system.
-      string(APPEND Z3_FULL_VERSION_STR " ${Z3GITHASH}")
+      set(Z3_FULL_VERSION_STR "${Z3_FULL_VERSION_STR} ${Z3GITHASH}")
     else()
       message(STATUS "Not using Git hash in version output")
       unset(Z3GITHASH) # Used in configure_file()
@@ -120,7 +122,7 @@ if (EXISTS "${GIT_DIR}")
       endif()
       message(STATUS "Using Git description in version output: ${Z3_GIT_DESCRIPTION}")
       # This mimics the behaviour of the old build system.
-      string(APPEND Z3_FULL_VERSION_STR " ${Z3_GIT_DESCRIPTION}")
+      set(Z3_FULL_VERSION_STR "${Z3_FULL_VERSION_STR} ${Z3_GIT_DESCRIPTION}")
     else()
       message(STATUS "Not including git descrption in version")
     endif()
@@ -275,18 +277,6 @@ else()
 endif()
 
 ################################################################################
-# FOCI2 support
-################################################################################
-# FIXME: What is this?
-option(USE_FOCI2 "Use FOCI2" OFF)
-if (USE_FOCI2)
-  message(FATAL_ERROR "TODO")
-  message(STATUS "Using FOCI2")
-else()
-  message(STATUS "Not using FOCI2")
-endif()
-
-################################################################################
 # OpenMP support
 ################################################################################
 option(USE_OPENMP "Use OpenMP" ON)
@@ -316,6 +306,23 @@ else()
   list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_NO_OMP_")
   message(STATUS "Not using OpenMP")
   set(USE_OPENMP OFF CACHE BOOL "Use OpenMP" FORCE)
+endif()
+
+################################################################################
+# API Log sync
+################################################################################
+option(API_LOG_SYNC
+  "Use locking when logging Z3 API calls (experimental)"
+  OFF
+)
+if (API_LOG_SYNC)
+  if (NOT USE_OPENMP)
+    message(FATAL_ERROR "API_LOG_SYNC feature requires OpenMP")
+  endif()
+  list(APPEND Z3_COMPONENT_CXX_DEFINES "-DZ3_LOG_SYNC")
+  message(STATUS "Using API_LOG_SYNC")
+else()
+  message(STATUS "Not using API_LOG_SYNC")
 endif()
 
 ################################################################################
@@ -517,10 +524,18 @@ add_subdirectory(src)
 # use Z3 via CMake.
 ################################################################################
 include(CMakePackageConfigHelpers)
-export(EXPORT Z3_EXPORTED_TARGETS
-  NAMESPACE z3::
-  FILE "${CMAKE_BINARY_DIR}/Z3Targets.cmake"
-)
+if ("${CMAKE_VERSION}" VERSION_LESS "3.0")
+  # FIXME: Remove this once we drop support for CMake 2.8.12
+  export(TARGETS libz3
+    NAMESPACE z3::
+    FILE "${CMAKE_BINARY_DIR}/Z3Targets.cmake"
+  )
+else()
+  export(EXPORT Z3_EXPORTED_TARGETS
+    NAMESPACE z3::
+    FILE "${CMAKE_BINARY_DIR}/Z3Targets.cmake"
+  )
+endif()
 set(Z3_FIRST_PACKAGE_INCLUDE_DIR "${CMAKE_BINARY_DIR}/src/api")
 set(Z3_SECOND_PACKAGE_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/src/api")
 set(Z3_CXX_PACKAGE_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/src/api/c++")
@@ -533,7 +548,6 @@ configure_package_config_file("${CMAKE_SOURCE_DIR}/cmake/Z3Config.cmake.in"
     Z3_FIRST_PACKAGE_INCLUDE_DIR
     Z3_SECOND_PACKAGE_INCLUDE_DIR
     Z3_CXX_PACKAGE_INCLUDE_DIR
-  INSTALL_PREFIX "${CMAKE_BINARY_DIR}"
 )
 unset(Z3_FIRST_PACKAGE_INCLUDE_DIR)
 unset(Z3_SECOND_PACKAGE_INCLUDE_DIR)

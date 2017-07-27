@@ -11,7 +11,7 @@ Author: Lev Nachmanson
 #include <set>
 #include <iostream>
 
-namespace lean {
+namespace lp {
 class argument_parser {
     std::unordered_map<std::string, std::string> m_options;
     std::unordered_map<std::string, std::string> m_options_with_after_string;

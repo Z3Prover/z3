@@ -3,7 +3,7 @@
   Author: Lev Nachmanson
 */
 #include "util/lp/lar_solver.h"
-namespace lean {
+namespace lp {
 bound_propagator::bound_propagator(lar_solver & ls):
     m_lar_solver(ls) {}
 column_type bound_propagator::get_column_type(unsigned j) const {

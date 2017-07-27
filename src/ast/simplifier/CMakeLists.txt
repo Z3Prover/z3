@@ -1,0 +1,29 @@
+z3_add_component(simplifier
+  SOURCES
+    arith_simplifier_params.cpp
+    arith_simplifier_plugin.cpp
+    array_simplifier_params.cpp
+    array_simplifier_plugin.cpp
+    basic_simplifier_plugin.cpp
+    bit2int.cpp
+    bv_elim.cpp
+    bv_simplifier_params.cpp
+    bv_simplifier_plugin.cpp
+    datatype_simplifier_plugin.cpp
+    elim_bounds.cpp
+    fpa_simplifier_plugin.cpp
+    inj_axiom.cpp
+    maximise_ac_sharing.cpp
+    poly_simplifier_plugin.cpp
+    pull_ite_tree.cpp
+    push_app_ite.cpp
+    seq_simplifier_plugin.cpp
+    simplifier.cpp
+    simplifier_plugin.cpp
+  COMPONENT_DEPENDENCIES
+    rewriter
+  PYG_FILES
+    arith_simplifier_params_helper.pyg
+    array_simplifier_params_helper.pyg
+    bv_simplifier_params_helper.pyg
+)

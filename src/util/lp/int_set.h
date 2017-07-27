@@ -6,7 +6,7 @@
 #include "util/vector.h"
 #include "util/lp/indexed_vector.h"
 #include <ostream>
-namespace lean {
+namespace lp {
 // serves at a set of non-negative integers smaller than the set size
 class int_set {
     vector<int> m_data;
@@ -20,7 +20,7 @@ public:
         return m_data[j] >= 0;
     }
     void insert(unsigned j) {
-        lean_assert(j < m_data.size());
+        lp_assert(j < m_data.size());
         if (contains(j)) return;
         m_data[j] = m_index.size();
         m_index.push_back(j);

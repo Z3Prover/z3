@@ -1,0 +1,17 @@
+z3_add_component(fpa_tactics
+  SOURCES
+    fpa2bv_model_converter.cpp
+    fpa2bv_tactic.cpp
+    qffp_tactic.cpp
+  COMPONENT_DEPENDENCIES
+    arith_tactics
+    bv_tactics
+    core_tactics
+    fpa
+    sat_tactic
+    smtlogic_tactics
+    smt_tactic
+  TACTIC_HEADERS
+    fpa2bv_tactic.h
+    qffp_tactic.h
+)

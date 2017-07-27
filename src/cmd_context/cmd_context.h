@@ -42,6 +42,7 @@ Notes:
 
 class func_decls {
     func_decl * m_decls;
+    bool signatures_collide(func_decl* f, func_decl* g) const;
 public:
     func_decls():m_decls(0) {}
     func_decls(ast_manager & m, func_decl * f);
@@ -123,7 +124,6 @@ public:
     virtual void display_assignment(std::ostream& out) = 0;
     virtual bool is_pareto() = 0;
     virtual void set_logic(symbol const& s) = 0;
-    virtual bool print_model() const = 0;
     virtual void get_box_model(model_ref& mdl, unsigned index) = 0;
     virtual void updt_params(params_ref const& p) = 0;
 };
@@ -160,7 +160,8 @@ protected:
     bool                         m_produce_assignments;
     status                       m_status;
     bool                         m_numeral_as_real;
-    bool                         m_ignore_check; // used by the API to disable check-sat() commands when parsing SMT 2.0 files.
+    bool                         m_ignore_check;      // used by the API to disable check-sat() commands when parsing SMT 2.0 files.
+    bool                         m_processing_pareto; // used when re-entering check-sat for pareto front.
     bool                         m_exit_on_error;
     
     static std::ostringstream    g_error_stream;
@@ -257,7 +258,6 @@ protected:
     bool logic_has_array() const;
     bool logic_has_datatype() const;
     bool logic_has_fpa() const;
-    bool logic_has_str() const;
 
     void print_unsupported_msg() { regular_stream() << "unsupported" << std::endl; }
     void print_unsupported_info(symbol const& s, int line, int pos) { if (s != symbol::null) diagnostic_stream() << "; " << s << " line: " << line << " position: " << pos << std::endl;}

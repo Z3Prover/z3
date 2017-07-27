@@ -8,6 +8,6 @@
 #include "util/debug.h"
 #include "util/lp/lp_settings.h"
 #include <unordered_map>
-namespace lean {
+namespace lp {
 typedef std::unordered_map<unsigned, non_basic_column_value_position> lar_solution_signature;
 }

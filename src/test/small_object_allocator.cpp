@@ -36,5 +36,14 @@ void tst_small_object_allocator() {
     r3 = new (soa) char[1];
     TRACE("small_object_allocator", 
           tout << "r1: " << (void*)r1 << " r2: " << (void*)r2 << " r3: " << (void*)r3 << " r4: " << (void*)r4 << "\n";);
+    (void)r1;
+    (void)r2;
+    (void)r3;
+    (void)r4;
 
+    (void)q1;
+
+    (void)p1;
+    (void)p2;
+    (void)p3;
 }

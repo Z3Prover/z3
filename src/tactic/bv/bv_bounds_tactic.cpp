@@ -234,6 +234,7 @@ class bv_bounds_simplifier : public ctx_simplify_tactic::simplifier {
         return false;
     }
 
+#if 0
     expr_set* get_expr_vars(expr* t) {
         unsigned id = t->get_id();
         m_expr_vars.reserve(id + 1);
@@ -259,7 +260,9 @@ class bv_bounds_simplifier : public ctx_simplify_tactic::simplifier {
         }
         return set;
     }
+#endif
 
+#if 0
     expr_cnt* get_expr_bounds(expr* t) {
         unsigned id = t->get_id();
         m_bound_exprs.reserve(id + 1);
@@ -288,6 +291,7 @@ class bv_bounds_simplifier : public ctx_simplify_tactic::simplifier {
         }
         return set;
     }
+#endif
 
 public:
     bv_bounds_simplifier(ast_manager& m, params_ref const& p) : m(m), m_params(p), m_bv(m) {
@@ -392,17 +396,86 @@ public:
         return result != 0;
     }
 
+    // check if t contains v
+    ptr_vector<expr> todo;
+    bool contains(expr* t, expr* v) {
+        ast_fast_mark1 mark;
+        todo.push_back(t);
+        while (!todo.empty()) {
+            t = todo.back();
+            todo.pop_back();
+            if (mark.is_marked(t)) {
+                continue;
+            }
+            if (t == v) {
+                todo.reset();
+                return true;
+            }
+            mark.mark(t);
+            
+            if (!is_app(t)) {
+                continue;
+            }
+            app* a = to_app(t);
+            todo.append(a->get_num_args(), a->get_args());
+        }
+        return false;
+    }
+
+    bool contains_bound(expr* t) {
+        ast_fast_mark1 mark1;
+        ast_fast_mark2 mark2;
+
+        todo.push_back(t);
+        while (!todo.empty()) {
+            t = todo.back();
+            todo.pop_back();
+            if (mark1.is_marked(t)) {
+                continue;
+            }
+            mark1.mark(t);
+            
+            if (!is_app(t)) {
+                continue;
+            }
+            interval b;
+            expr* e;
+            if (is_bound(t, e, b)) {
+                if (mark2.is_marked(e)) {
+                    todo.reset();
+                    return true;
+                }
+                mark2.mark(e);
+                if (m_bound.contains(e)) {
+                    todo.reset();
+                    return true;
+                }
+            }
+
+            app* a = to_app(t);
+            todo.append(a->get_num_args(), a->get_args());
+        }
+        return false;
+    }
+
     virtual bool may_simplify(expr* t) {
         if (m_bv.is_numeral(t))
             return false;
 
         while (m.is_not(t, t));
 
+        for (auto & v : m_bound) {
+            if (contains(t, v.m_key)) return true;
+        }
+
+#if 0
         expr_set* used_exprs = get_expr_vars(t);
         for (map::iterator I = m_bound.begin(), E = m_bound.end(); I != E; ++I) {
+            if (contains(t, I->m_key)) return true;
             if (I->m_value.is_singleton() && used_exprs->contains(I->m_key))
                 return true;
         }
+#endif
 
         expr* t1;
         interval b;
@@ -411,11 +484,16 @@ public:
             return b.is_full() || m_bound.contains(t1);
         }
 
+        if (contains_bound(t)) {
+            return true;
+        }
+#if 0
         expr_cnt* bounds = get_expr_bounds(t);
         for (expr_cnt::iterator I = bounds->begin(), E = bounds->end(); I != E; ++I) {
             if (I->m_value > 1 || m_bound.contains(I->m_key))
                 return true;
         }
+#endif
         return false;
     }
 

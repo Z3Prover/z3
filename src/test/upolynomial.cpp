@@ -129,18 +129,18 @@ static void tst_isolate_roots(polynomial_ref const & p, unsigned prec, mpbq_mana
                   tout << "fourier upper: " << um.sign_variations_at(fseq, uppers[i]) << "\n";);
             unsigned fsv_lower = um.sign_variations_at(fseq, lowers[i]);
             unsigned fsv_upper = um.sign_variations_at(fseq, uppers[i]);
-            SASSERT(um.eval_sign_at(q.size(), q.c_ptr(), lowers[i]) == 0 ||
-                    um.eval_sign_at(q.size(), q.c_ptr(), uppers[i]) == 0 ||
+            VERIFY(um.eval_sign_at(q.size(), q.c_ptr(), lowers[i]) == 0 ||
+                   um.eval_sign_at(q.size(), q.c_ptr(), uppers[i]) == 0 ||
                     // fsv_lower - fsv_upper is an upper bound for the number of roots in the interval
                     // fsv_upper - fsv_upper - num_roots is even
                     // Recall that num_roots == 1 in the interval.
-                    (fsv_lower - fsv_upper >= 1 && (fsv_lower - fsv_upper - 1) % 2 == 0));
-
+                   (fsv_lower - fsv_upper >= 1 && (fsv_lower - fsv_upper - 1) % 2 == 0));
+            
             // Double checking using Descartes bounds for the interval
             // Must use square free component.
             unsigned dab = um.descartes_bound_a_b(q_sqf.size(), q_sqf.c_ptr(), bqm, lowers[i], uppers[i]);
             TRACE("upolynomial", tout << "Descartes bound: " << dab << "\n";);
-            SASSERT(dab == 1);
+            VERIFY(dab == 1);
         }
     }
     std::cout << "\n";
@@ -164,7 +164,7 @@ static void check_roots(mpbq_vector const & roots, mpbq_vector const & lowers, m
         for (unsigned j = 0; j < roots.size(); j++) {
             if (to_rational(roots[j]) == r) {
                 SASSERT(!visited[j]);
-                SASSERT(!found);
+                VERIFY(!found);
                 found = true;
                 visited[j] = true;
             }
@@ -172,7 +172,7 @@ static void check_roots(mpbq_vector const & roots, mpbq_vector const & lowers, m
         for (unsigned j = 0; j < lowers.size(); j++) {
             unsigned j_prime = j + roots.size();
             if (to_rational(lowers[j]) < r && r < to_rational(uppers[j])) {
-                SASSERT(!found);
+                VERIFY(!found);
                 SASSERT(!visited[j_prime]);
                 found = true;
                 visited[j_prime] = true;
@@ -499,7 +499,7 @@ static void tst_refinable(polynomial_ref const & p, mpbq_manager & bqm, mpbq & a
         std::cout << "new (" << bqm.to_string(a) << ", " << bqm.to_string(b) << ")\n";
         int sign_a = um.eval_sign_at(_p.size(), _p.c_ptr(), a);
         int sign_b = um.eval_sign_at(_p.size(), _p.c_ptr(), b);
-        SASSERT(sign_a != 0 && sign_b != 0 && sign_a == -sign_b);
+        VERIFY(sign_a != 0 && sign_b != 0 && sign_a == -sign_b);
     }
     else {
         std::cout << "new root: " << bqm.to_string(a) << "\n";

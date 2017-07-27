@@ -7,7 +7,7 @@ Author: Lev Nachmanson
 #include <set>
 #include <stack>
 #include "util/vector.h"
-namespace lean {
+namespace lp {
 template < typename B> class stacked_vector {
     vector<unsigned> m_stack_of_vector_sizes;
     vector<unsigned> m_stack_of_change_sizes;
@@ -19,7 +19,7 @@ public:
         unsigned m_i;
     public:
         ref(stacked_vector<B> &m, unsigned key) :m_vec(m), m_i(key) {
-            lean_assert(key < m.size());
+            lp_assert(key < m.size());
         }
         ref & operator=(const B & b) {
             m_vec.emplace_replace(m_i, b);
@@ -32,7 +32,10 @@ public:
         operator const B&() const {
             return m_vec.m_vector[m_i];
         }
-
+        
+        bool operator==(B const& other) const {
+            return m_vec.m_vector[m_i] == other;
+        }
     };
 
     class ref_const {
@@ -40,7 +43,7 @@ public:
         unsigned m_i;
     public:
         ref_const(const stacked_vector<B> &m, unsigned key) :m_vec(m), m_i(key) {
-            lean_assert(key < m.size());
+            lp_assert(key < m.size());
         }
  
         operator const B&() const {
@@ -68,7 +71,7 @@ public:
 
     /*
     const B & operator[](unsigned a) const {
-        lean_assert(a < m_vector.size());
+        lp_assert(a < m_vector.size());
         return m_vector[a];
     }
     */    
@@ -88,7 +91,7 @@ public:
 
     template <typename T>  
 	void pop_tail(vector<T> & v, unsigned k) {
-		lean_assert(v.size() >= k);
+		lp_assert(v.size() >= k);
 		v.resize(v.size() - k);
 	}
 
@@ -98,8 +101,8 @@ public:
     }
     
     void pop(unsigned k) {
-        lean_assert(m_stack_of_vector_sizes.size() >= k);
-        lean_assert(k > 0);
+        lp_assert(m_stack_of_vector_sizes.size() >= k);
+        lp_assert(k > 0);
         resize(m_vector, m_stack_of_vector_sizes[m_stack_of_vector_sizes.size() - k]);
         pop_tail(m_stack_of_vector_sizes, k);
         unsigned first_change = m_stack_of_change_sizes[m_stack_of_change_sizes.size() - k];
@@ -119,15 +122,15 @@ public:
                 return;
             
             delta & d = m_stack.back();
-            lean_assert(m_vector.size() >= d.m_size);
+            lp_assert(m_vector.size() >= d.m_size);
             while (m_vector.size() > d.m_size)
                 m_vector.pop_back();
             
             for (auto & t : d.m_original_changed) {
-                lean_assert(t.first < m_vector.size());
+                lp_assert(t.first < m_vector.size());
                 m_vector[t.first] = t.second;
             }
-            //            lean_assert(d.m_deb_copy == m_vector);
+            //            lp_assert(d.m_deb_copy == m_vector);
             m_stack.pop_back();*/
     }   
 
@@ -157,7 +160,7 @@ public:
     }
 
 	unsigned peek_size(unsigned k) const {
-		lean_assert(k > 0 && k <= m_stack_of_vector_sizes.size());
+		lp_assert(k > 0 && k <= m_stack_of_vector_sizes.size());
 		return m_stack_of_vector_sizes[m_stack_of_vector_sizes.size() - k];
 	}
 

@@ -2503,7 +2503,7 @@ public:
         }
         
         virtual void subst(contains_app& x, rational const& vl, expr_ref& fml, expr_ref* def) {
-            nlarith::branch_conditions *brs;
+            nlarith::branch_conditions *brs = 0;
             VERIFY (m_cache.find(x.x(), fml, brs));
             SASSERT(vl.is_unsigned());
             SASSERT(vl.get_unsigned() < brs->size());

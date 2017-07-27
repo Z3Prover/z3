@@ -341,8 +341,8 @@ namespace smt {
 
         virtual void init(context* ctx);
         virtual final_check_status final_check_eh();
-        virtual bool internalize_atom(app* atom, bool) { return internalize_term(atom); }
-        virtual bool internalize_term(app*);
+        virtual bool internalize_atom(app* atom, bool);
+        virtual bool internalize_term(app*);        
         virtual void internalize_eq_eh(app * atom, bool_var v);
         virtual void new_eq_eh(theory_var, theory_var);
         virtual void new_diseq_eh(theory_var, theory_var);
@@ -387,6 +387,7 @@ namespace smt {
                            vector<rational> const& ll, vector<rational> const& rl);
         bool set_empty(expr* x);
         bool is_complex(eq const& e);
+        bool internalize_re(expr* e);
 
         bool check_extensionality();
         bool check_contains();
@@ -461,7 +462,10 @@ namespace smt {
         expr_ref canonize(expr* e, dependency*& eqs);
         bool canonize(expr* e, expr_ref_vector& es, dependency*& eqs);
         bool canonize(expr_ref_vector const& es, expr_ref_vector& result, dependency*& eqs);
+        ptr_vector<expr> m_expand_todo;
         expr_ref expand(expr* e, dependency*& eqs);
+        expr_ref expand1(expr* e, dependency*& eqs);
+        expr_ref try_expand(expr* e, dependency*& eqs);
         void add_dependency(dependency*& dep, enode* a, enode* b);
 
         void get_concat(expr* e, ptr_vector<expr>& concats);

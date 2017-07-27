@@ -6,7 +6,7 @@
 #include "util/lp/linear_combination_iterator.h"
 #include "util/lp/static_matrix.h"
 #include "util/lp/lar_term.h"
-namespace lean {
+namespace lp {
 template <typename T, typename X>
 struct iterator_on_column:linear_combination_iterator<T> {
     const vector<column_cell>& m_column; // the offset in term coeffs

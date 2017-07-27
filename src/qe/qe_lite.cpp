@@ -36,44 +36,7 @@ Revision History:
 #include "cooperate.h"
 #include "datatype_decl_plugin.h"
 
-class is_variable_proc {
-public:
-    virtual bool operator()(expr* e) const = 0;
-};
-
-class is_variable_test : public is_variable_proc {
-    enum is_var_kind { BY_VAR_SET, BY_VAR_SET_COMPLEMENT, BY_NUM_DECLS };
-    uint_set m_var_set;
-    unsigned m_num_decls;
-    is_var_kind m_var_kind;
-public:
-    is_variable_test(uint_set const& vars, bool index_of_bound) :
-        m_var_set(vars),
-        m_num_decls(0),
-        m_var_kind(index_of_bound?BY_VAR_SET:BY_VAR_SET_COMPLEMENT) {}
-
-    is_variable_test(unsigned num_decls) :
-        m_num_decls(num_decls),
-        m_var_kind(BY_NUM_DECLS) {}
-
-    virtual bool operator()(expr* e) const {
-        if (!is_var(e)) {
-            return false;
-        }
-        unsigned idx = to_var(e)->get_idx();
-        switch(m_var_kind) {
-        case BY_VAR_SET:
-            return m_var_set.contains(idx);
-        case BY_VAR_SET_COMPLEMENT:
-            return !m_var_set.contains(idx);
-        case BY_NUM_DECLS:
-            return idx < m_num_decls;
-        }
-        UNREACHABLE();
-        return false;
-    }
-};
-
+#include "qe_vartest.h"
 
 namespace eq {
     class der {
@@ -86,6 +49,7 @@ namespace eq {
 
         ptr_vector<expr> m_map;
         int_vector       m_pos2var;
+        int_vector       m_var2pos;
         ptr_vector<var>  m_inx2var;
         unsigned_vector  m_order;
         expr_ref_vector  m_subst_map;
@@ -578,6 +542,7 @@ namespace eq {
             largest_vinx = 0;
             m_map.reset();
             m_pos2var.reset();
+            m_var2pos.reset();
             m_inx2var.reset();
             m_pos2var.reserve(num_args, -1);
 
@@ -597,9 +562,47 @@ namespace eq {
                             m_map[idx] = t;
                             m_inx2var[idx] = v;
                             m_pos2var[i] = idx;
+                            m_var2pos.reserve(idx + 1, -1);
+                            m_var2pos[idx] = i;
                             def_count++;
                             largest_vinx = std::max(idx, largest_vinx);
                             m_new_exprs.push_back(t);
+                        }
+                        else if (!m.is_value(m_map[idx])) {
+                            // check if the new definition is simpler
+                            expr *old_def = m_map[idx];
+
+                            // -- prefer values
+                            if (m.is_value(t)) {
+                                m_pos2var[m_var2pos[idx]] = -1;
+                                m_pos2var[i] = idx;
+                                m_var2pos[idx] = i;
+                                m_map[idx] = t;
+                                m_new_exprs.push_back(t);
+                          }
+                          // -- prefer ground
+                          else if (is_app(t) && to_app(t)->is_ground() &&
+                                   (!is_app(old_def) ||
+                                    !to_app(old_def)->is_ground())) {
+                              m_pos2var[m_var2pos[idx]] = -1;
+                              m_pos2var[i] = idx;
+                              m_var2pos[idx] = i;
+                              m_map[idx] = t;
+                              m_new_exprs.push_back(t);
+                          }
+                          // -- prefer constants
+                          else if (is_uninterp_const(t)
+                                   /* && !is_uninterp_const(old_def) */){
+                              m_pos2var[m_var2pos[idx]] = -1;
+                              m_pos2var[i] = idx;
+                              m_var2pos[idx] = i;
+                              m_map[idx] = t;
+                              m_new_exprs.push_back(t);
+                          }
+                          TRACE ("qe_def",
+                                 tout << "Replacing definition of VAR " << idx << " from "
+                                 << mk_pp(old_def, m) << " to " << mk_pp(t, m)
+                                 << " inferred from: " << mk_pp(args[i], m) << "\n";);
                         }
                     }
                 }
@@ -825,12 +828,13 @@ namespace ar {
         }
 
         /**
-           Ex A. A[x] = t & Phi where x \not\in A, t. A \not\in t, x
+           Ex A. A[x] = t & Phi[A] where x \not\in A, t. A \not\in t, x
            =>
            Ex A. Phi[store(A,x,t)]
 
+           (Not implemented)
            Perhaps also:
-           Ex A. store(A,y,z)[x] = t & Phi where x \not\in A, t, y, z, A \not\in y z, t
+           Ex A. store(A,y,z)[x] = t & Phi[A] where x \not\in A, t, y, z, A \not\in y z, t
            =>
            Ex A, v . (x = y => z = t) & Phi[store(store(A,x,t),y,v)]
 
@@ -859,7 +863,8 @@ namespace ar {
                 expr_safe_replace rep(m);
                 rep.insert(A, B);
                 expr_ref tmp(m);
-                std::cout << mk_pp(e1, m) << " = " << mk_pp(e2, m) << "\n";
+                TRACE("qe_lite",
+                      tout << mk_pp(e1, m) << " = " << mk_pp(e2, m) << "\n";);
                 for (unsigned j = 0; j < conjs.size(); ++j) {
                     if (i == j) {
                         conjs[j] = m.mk_true();
@@ -1491,8 +1496,10 @@ namespace fm {
             unsigned sz = g.size();
             for (unsigned i = 0; i < sz; i++) {
                 expr * f = g[i];
-                if (is_occ(f))
+                if (is_occ(f)) {
+                    TRACE("qe_lite", tout << "OCC: " << mk_ismt2_pp(f, m) << "\n";);
                     continue;
+                }
                 TRACE("qe_lite", tout << "not OCC:\n" << mk_ismt2_pp(f, m) << "\n";);
                 quick_for_each_expr(proc, visited, f);
             }
@@ -2221,6 +2228,9 @@ namespace fm {
         void operator()(expr_ref_vector& fmls) {
             init(fmls);
             init_use_list(fmls);
+            for (auto & f : fmls) {
+                if (has_quantifiers(f)) return;
+            }
             if (m_inconsistent) {
                 m_new_fmls.reset();
                 m_new_fmls.push_back(m.mk_false());

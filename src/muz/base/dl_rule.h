@@ -298,7 +298,7 @@ namespace datalog {
         
         static unsigned get_obj_size(unsigned n) { return sizeof(rule) + n * sizeof(app *); }
 
-        rule() : m_ref_cnt(0) {}
+        rule() : m_ref_cnt(0), m_name(symbol::null) {}
         ~rule() {}
 
         void deallocate(ast_manager & m);
@@ -355,7 +355,12 @@ namespace datalog {
 
         void display(context & ctx, std::ostream & out) const;
 
-        symbol const& name() const { return m_name; }
+        /**
+           \brief Return the name(s) associated with this rule. Plural for preprocessed (e.g. obtained by inlining) rules.
+
+           This possibly returns a ";"-separated list of names.
+        */
+        symbol const& name() const { return m_name; } ;
 
         unsigned hash() const;
 

@@ -126,7 +126,7 @@ public class Expr extends AST
         if (isApp() && args.length != getNumArgs()) {
             throw new Z3Exception("Number of arguments does not match");
         }
-        return new Expr(getContext(), Native.updateTerm(getContext().nCtx(), getNativeObject(),
+        return Expr.create(getContext(), Native.updateTerm(getContext().nCtx(), getNativeObject(),
                 args.length, Expr.arrayToNative(args)));
     }
 
@@ -194,14 +194,7 @@ public class Expr extends AST
      **/
     public Expr translate(Context ctx)
     {
-        if (getContext() == ctx) {
-            return this;
-        } else {
-            return Expr.create(
-                ctx,
-                Native.translate(getContext().nCtx(), getNativeObject(),
-                    ctx.nCtx()));
-        }
+        return (Expr) super.translate(ctx);
     }
 
     /**
@@ -1275,6 +1268,35 @@ public class Expr extends AST
     public boolean isLabelLit()
     {
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_LABEL_LIT;
+    }
+
+    /**
+     * Check whether expression is a string constant.
+     * @return a boolean
+     */
+    public boolean isString() 
+    {
+        return isApp() && Native.isString(getContext().nCtx(), getNativeObject());
+    }
+
+    /**
+     * Retrieve string corresponding to string constant.
+     * Remark: the expression should be a string constant, (isString() should return true).
+     * @throws Z3Exception on error
+     * @return a string
+     */
+    public String getString()
+    {
+	return Native.getString(getContext().nCtx(), getNativeObject());
+    }
+
+    /**
+     * Check whether expression is a concatenation
+     * @return a boolean
+     */
+    public boolean isConcat() 
+    {
+        return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_SEQ_CONCAT;
     }
 
     /**

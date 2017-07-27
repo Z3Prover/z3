@@ -3,7 +3,7 @@
   Author: Lev Nachmanson
 */
 #pragma once
-namespace lean {
+namespace lp {
 template <typename T>
 struct linear_combination_iterator {
     virtual bool next(T & a, unsigned & i) = 0;
