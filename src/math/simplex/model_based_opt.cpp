@@ -954,7 +954,8 @@ namespace opt {
             row& r1 = m_rows[row_id1];
             vector<var> coeffs;
             mk_coeffs_without(coeffs, r1.m_vars, x);
-            add_divides(coeffs, r1.m_coeff, abs(a));
+            rational c = r1.m_coeff;
+            add_divides(coeffs, c, abs(a));
         }
         unsigned_vector const& row_ids = m_var2row_ids[x];
         uint_set visited;
