@@ -321,6 +321,7 @@ def mk_py_wrappers():
         core_py.write("def %s(" % name)
         display_args(num)
         core_py.write("):\n")
+        core_py.write("  _lib = lib()\n")
         core_py.write("  if _lib.%s is None:\n" % name)
         core_py.write("     return\n")
         if result != VOID:
@@ -1604,16 +1605,7 @@ def write_exe_c_preamble(exe_c):
 
 def write_core_py_post(core_py):
   core_py.write("""
-_dirs = ['.', os.path.dirname(os.path.abspath(__file__)), pkg_resources.resource_filename('z3', 'lib'), os.path.join(sys.prefix, 'lib'), None]
 
-for _dir in _dirs:
-   try:
-      init(_dir)
-      break
-   except:
-      pass
-if _lib is None:
-    raise Z3Exception("init(Z3_LIBRARY_PATH) must be invoked before using Z3-python")
 """)
     
 def write_core_py_preamble(core_py):
@@ -1631,6 +1623,16 @@ _lib = None
 
 def lib():
   global _lib
+  if _lib is None:
+     _dirs = ['.', os.path.dirname(os.path.abspath(__file__)), pkg_resources.resource_filename('z3', 'lib'), os.path.join(sys.prefix, 'lib'), None]
+     for _dir in _dirs:
+       try:
+          init(_dir)
+          break
+       except:
+          pass
+  if _lib is None:
+    raise Z3Exception("init(Z3_LIBRARY_PATH) must be invoked before using Z3-python")
   return _lib
 
 def _to_ascii(s):
