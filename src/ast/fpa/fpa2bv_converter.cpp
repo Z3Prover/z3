@@ -3904,9 +3904,6 @@ void fpa2bv_converter::round(sort * s, expr_ref & rm, expr_ref & sgn, expr_ref &
     SASSERT(m_bv_util.get_bv_size(sig) == sbits+4);
     SASSERT(m_bv_util.get_bv_size(exp) == ebits+2);
 
-    // bool UNFen = false;
-    // bool OVFen = false;
-
     expr_ref e_min(m), e_max(m);
     mk_min_exp(ebits, e_min);
     mk_max_exp(ebits, e_max);
@@ -4025,7 +4022,6 @@ void fpa2bv_converter::round(sort * s, expr_ref & rm, expr_ref & sgn, expr_ref &
     SASSERT(is_well_sorted(m, sig));
     SASSERT(m_bv_util.get_bv_size(sig) == sbits+2);
 
-    // CMW: The (OVF1 && OVFen) and (TINY && UNFen) cases are never taken.
     expr_ref ext_emin(m);
     ext_emin = m_bv_util.mk_zero_extend(2, e_min);
     m_simp.mk_ite(TINY, ext_emin, beta, exp);

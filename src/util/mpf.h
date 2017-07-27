@@ -285,8 +285,9 @@ protected:
     };
 
     std::string to_string_raw(mpf const & a);
-    std::string to_string_hexfloat(mpf const & a);    
+    std::string to_string_hexfloat(mpf const & a);
     std::string to_string_hexfloat(bool sgn, mpf_exp_t exp, scoped_mpz const & sig, unsigned ebits, unsigned sbits, unsigned rbits);
+    std::string to_string_binary(mpf const & x, unsigned upper_extra, unsigned lower_extra);
 public:
     powers2 m_powers2;
 };
