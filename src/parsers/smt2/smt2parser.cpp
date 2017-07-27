@@ -2238,6 +2238,9 @@ namespace smt2 {
                 m_assert_expr = m_scanner.cached_str(0, m_cache_end);
                 m_scanner.stop_caching();
             }
+            if (expr_stack().empty()) {
+                throw cmd_exception("invalid assert command, expression required as argument");
+            }
             expr * f = expr_stack().back();
             if (!m().is_bool(f))
                 throw cmd_exception("invalid assert command, term is not Boolean");
