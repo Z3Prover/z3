@@ -52,7 +52,6 @@ class heap : private LT {
         }
     }
 
-#ifdef Z3DEBUG
     // Return true if the value can be inserted in the heap. That is, the vector m_value2indices is big enough to store this value.
     bool is_valid_value(int v) const { 
         SASSERT(v >= 0 && v < static_cast<int>(m_value2indices.size())); 
@@ -75,7 +74,6 @@ public:
         return check_invariant_core(1); 
     }
 
-#endif
 private:
 
     void move_up(int idx) {

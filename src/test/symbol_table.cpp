@@ -26,9 +26,7 @@ static void tst1() {
     t.begin_scope();
     t.insert(symbol("boo"), 20);
     ENSURE(t.contains(symbol("boo")));
-#ifdef Z3DEBUG
     int tmp;
-#endif
     ENSURE(t.find(symbol("boo"), tmp) && tmp == 20);
     ENSURE(t.find(symbol("foo"), tmp) && tmp == 35);
     t.insert(symbol("foo"), 100);

@@ -317,9 +317,7 @@ static void tst_power(unsigned prec = 2) {
     ENSURE(m.eq(a, b));
 
     // checking special support for powers of 2 
-#ifdef Z3DEBUG
     unsigned k;
-#endif
     m.set(a, 1);
     ENSURE(m.is_power_of_two(a, k) && k == 0);
     m.set(a, 2);

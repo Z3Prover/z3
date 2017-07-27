@@ -18,8 +18,9 @@ Revision History:
 
 --*/
 
-#include "model_based_opt.h"
-#include "uint_set.h"
+#include "math/simplex/model_based_opt.h"
+#include "util/uint_set.h"
+#include "util/z3_exception.h"
 
 std::ostream& operator<<(std::ostream& out, opt::ineq_type ie) {
     switch (ie) {
@@ -867,6 +868,9 @@ namespace opt {
         rational D(1);
         for (unsigned i = 0; i < mod_rows.size(); ++i) {
             D = lcm(D, m_rows[mod_rows[i]].m_mod);            
+        }
+        if (D.is_zero()) {
+            throw default_exception("modulo 0 is not defined");
         }
         TRACE("opt", display(tout << "lcm: " << D << " tableau\n"););
         rational val_x = m_var2value[x];
