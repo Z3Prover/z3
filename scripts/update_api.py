@@ -321,7 +321,7 @@ def mk_py_wrappers():
         core_py.write("def %s(" % name)
         display_args(num)
         core_py.write("):\n")
-        core_py.write("  if _lib is None:\n")
+        core_py.write("  if _lib.%s is None:\n" % name)
         core_py.write("     return\n")
         if result != VOID:
             core_py.write("  r = _lib.%s(" % name)
