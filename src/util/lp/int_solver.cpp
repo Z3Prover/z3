@@ -358,7 +358,7 @@ lia_move int_solver::proceed_with_gomory_cut(lar_term& t, mpq& k, explanation& e
     if (j != -1) {
         m_found_free_var_in_gomory_row = true;
         lp_assert(t.is_empty());
-        t.add_monoid(mpq(1), j);
+        t.add_monoid(mpq(1), m_lar_solver->adjust_column_index_to_term_index(j));
         k = zero_of_type<mpq>();
         return lia_move::branch; // branch on a free column
     }
@@ -481,20 +481,14 @@ void int_solver::move_non_base_vars_to_bounds() {
 void int_solver::set_value_for_nbasic_column(unsigned j, const impq & new_val) {
 	lp_assert(!is_base(j));
     auto & x = m_lar_solver->m_mpq_lar_core_solver.m_r_x[j];
-    if (!m_old_values_set.contains(j)) {
+    if (m_lar_solver->has_int_var() && !m_old_values_set.contains(j)) {
         m_old_values_set.insert(j);
         m_old_values_data[j] = x;
     }
     auto delta = new_val - x;
     x = new_val;
-    m_lar_solver->change_basic_x_by_delta_on_column(j, delta);
-
-	auto * it = get_column_iterator(j);
     update_column_in_int_inf_set(j);
-	unsigned i;
-	while (it->next(i))
-		update_column_in_int_inf_set(m_lar_solver->m_mpq_lar_core_solver.m_r_basis[i]);
-	delete it;
+    m_lar_solver->change_basic_x_by_delta_on_column(j, delta);
 }
 
 void int_solver::patch_int_infeasible_columns() {
@@ -717,7 +711,8 @@ int_solver::int_solver(lar_solver* lar_slv) :
     m_found_free_var_in_gomory_row(false) {
     lp_assert(m_old_values_set.size() == 0);
     m_old_values_set.resize(lar_slv->A_r().column_count());
-    m_old_values_data.resize(lar_slv->A_r().column_count(), zero_of_type<impq>());    
+    m_old_values_data.resize(lar_slv->A_r().column_count(), zero_of_type<impq>());
+    m_lar_solver->set_int_solver(this);
 }
 
 bool int_solver::lower(unsigned j) const {
@@ -887,6 +882,10 @@ bool int_solver::is_boxed(unsigned j) const {
     return m_lar_solver->m_mpq_lar_core_solver.m_column_types[j] == column_type::boxed;
 }
 
+bool int_solver::is_fixed(unsigned j) const {
+    return m_lar_solver->m_mpq_lar_core_solver.m_column_types[j] == column_type::fixed;
+}
+
 bool int_solver::is_free(unsigned j) const {
     return m_lar_solver->m_mpq_lar_core_solver.m_column_types[j] == column_type::free_column;
 }
@@ -955,5 +954,67 @@ void int_solver::display_row_info(std::ostream & out, unsigned row_index) const 
     }
     rslv.print_column_bound_info(rslv.m_basis[row_index], out);
     delete it;
+}
+
+unsigned int_solver::random() {
+    return m_lar_solver->get_core_solver().settings().random_next();
+}
+
+bool int_solver::shift_var(unsigned j, unsigned range) {
+    if (is_fixed(j) || is_base(j))
+        return false;
+       
+    bool inf_l, inf_u;
+    impq l, u;
+    mpq m;
+    get_freedom_interval_for_column(j, inf_l, l, inf_u, u, m);
+    if (inf_l && inf_u) {
+        impq new_val = impq(random() % (range + 1));
+        set_value_for_nbasic_column(j, new_val);
+        return true;
+    }
+    if (is_int(j)) {
+        if (!inf_l) {
+            l = ceil(l);
+            if (!m.is_one())
+                l = m*ceil(l/m);
+        }
+        if (!inf_u) {
+            u = floor(u);
+            if (!m.is_one())
+                u = m*floor(u/m);
+        }
+    }
+    if (!inf_l && !inf_u && l >= u)
+        return false;
+    if (inf_u) {
+        SASSERT(!inf_l);
+        impq delta   = impq(random() % (range + 1));
+        impq new_val = l + m*delta;
+        set_value_for_nbasic_column(j, new_val);
+        return true;
+    }
+    if (inf_l) {
+        SASSERT(!inf_u);
+        impq delta   = impq(random() % (range + 1));
+        impq new_val = u - m*delta;
+        set_value_for_nbasic_column(j, new_val);
+        return true;
+    }
+    if (!is_int(j)) {
+        SASSERT(!inf_l && !inf_u);
+        mpq delta       = mpq(random() % (range + 1));
+        impq new_val = l + ((delta * (u - l)) / mpq(range)); 
+        set_value_for_nbasic_column(j, new_val);
+        return true;
+    }
+    else {
+        mpq r = (u.x - l.x) / m;
+        if (r < mpq(range))
+            range = static_cast<unsigned>(r.get_uint64());
+        impq new_val = l + m * (impq(random() % (range + 1)));
+        set_value_for_nbasic_column(j, new_val);
+        return true;
+    }
 }
 }

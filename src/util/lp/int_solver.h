@@ -89,6 +89,7 @@ private:
     bool is_real(unsigned j) const;
     bool is_base(unsigned j) const;
     bool is_boxed(unsigned j) const;
+    bool is_fixed(unsigned j) const;
     bool is_free(unsigned j) const;
     bool value_is_int(unsigned j) const;
     void set_value_for_nbasic_column(unsigned j, const impq & new_val);
@@ -135,5 +136,9 @@ private:
     void gomory_cut_adjust_t_and_k_for_size_1(const vector<std::pair<mpq, unsigned>> & pol, lar_term & t, mpq &k);
     void gomory_cut_adjust_t_and_k_for_size_gt_1(vector<std::pair<mpq, unsigned>> & pol, lar_term & t, mpq &k, unsigned num_ints, mpq &lcm_den);
     bool current_solution_is_inf_on_cut(const lar_term& t, const mpq& k) const;
+public:
+    bool shift_var(unsigned j, unsigned range);
+private:
+    unsigned random();
 };
 }

@@ -81,9 +81,18 @@ class lar_solver : public column_namer {
     indexed_vector<mpq>                     m_column_buffer;
 public:
     lar_core_solver m_mpq_lar_core_solver;
+private:
+    std::function<void (unsigned)> m_tracker_of_x_change;
+    int_solver * m_int_solver;
+public:
+    void set_int_solver(int_solver * int_slv) {
+        m_int_solver = int_slv;
+    }
+    int_solver * get_int_solver() {
+        return m_int_solver;
+    }
     unsigned constraint_count() const;
     const lar_base_constraint& get_constraint(unsigned ci) const;
-    std::function<void (unsigned)> m_tracker_of_x_change;
     int_set m_inf_int_set; 
     ////////////////// methods ////////////////////////////////
     static_matrix<mpq, numeric_pair<mpq>> & A_r() { return m_mpq_lar_core_solver.m_r_A;}
@@ -1375,6 +1384,8 @@ bool model_is_int_feasible() const;
     }
 
     bool inf_int_set_is_correct() const {
+        if (!has_int_var())
+            return true;
         for (unsigned j = 0; j < A_r().column_count(); j++) {
             if (m_inf_int_set.contains(j) != (column_is_int(j) && (!column_value_is_integer(j)))) {
                 TRACE("arith_int",
@@ -1403,5 +1414,9 @@ bool model_is_int_feasible() const;
             m_inf_int_set.insert(j);
     }
 
+    bool get_freedom_interval_for_column(unsigned j, bool & inf_l, impq & l, bool & inf_u, impq & u, mpq & m);
+
+    lar_core_solver & get_core_solver() { return m_mpq_lar_core_solver; }
+    
 };
 }

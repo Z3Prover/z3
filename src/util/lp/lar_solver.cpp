@@ -31,10 +31,11 @@ lar_solver::lar_solver() : m_status(lp_status::OPTIMAL),
                            m_infeasible_column_index(-1),
                            m_terms_start_index(1000000),
                            m_mpq_lar_core_solver(m_settings, *this),
-                           m_tracker_of_x_change([&](unsigned j){
+                           m_tracker_of_x_change([&](unsigned j) {
                                    call_assignment_tracker(j);
                                }
-                               )
+                               ),
+                           m_int_solver(nullptr)
 {}
     
 void lar_solver::set_propagate_bounds_on_pivoted_rows_mode(bool v) {
@@ -1260,7 +1261,7 @@ void lar_solver::fill_var_set_for_random_update(unsigned sz, var_index const * v
 void lar_solver::random_update(unsigned sz, var_index const * vars) {
     vector<unsigned> column_list;
     fill_var_set_for_random_update(sz, vars, column_list);
-    random_updater ru(m_mpq_lar_core_solver, column_list);
+    random_updater ru(*this, column_list);
     ru.update();
     lp_assert(inf_int_set_is_correct());
 }
