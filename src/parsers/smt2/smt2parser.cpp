@@ -1656,7 +1656,9 @@ namespace smt2 {
                 fr->m_in_decls = false;
                 SASSERT(symbol_stack().size() >= fr->m_sym_spos);
                 SASSERT(expr_stack().size() >= fr->m_expr_spos);
-                SASSERT(symbol_stack().size() - fr->m_sym_spos == expr_stack().size() - fr->m_expr_spos);
+                if (symbol_stack().size() - fr->m_sym_spos != expr_stack().size() - fr->m_expr_spos) {
+                    throw parser_exception("malformed let expression");
+                }
                 unsigned num_decls = expr_stack().size() - fr->m_expr_spos;
                 symbol * sym_it   = symbol_stack().c_ptr() + fr->m_sym_spos;
                 expr ** expr_it   = expr_stack().c_ptr() + fr->m_expr_spos;
