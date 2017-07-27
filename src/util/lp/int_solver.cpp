@@ -377,6 +377,8 @@ lia_move int_solver::proceed_with_gomory_cut(lar_term& t, mpq& k, explanation& e
 
 
 lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
+    TRACE("arith_int", tout << "ddd=" << ++lp_settings::ddd << std::endl;);
+    lp_assert(inf_int_set_is_correct());
     if (m_iter_on_gomory_row != nullptr) {
         auto ret = proceed_with_gomory_cut(t, k, ex);
         TRACE("gomory_cut", tout << "term t = "; m_lar_solver->print_term_as_indices(t, tout););
@@ -443,7 +445,7 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
             return lia_move::branch;
         }
     }
-
+    lp_assert(inf_int_set_is_correct());
 	lp_assert(m_lar_solver->m_mpq_lar_core_solver.r_basis_is_OK());
 	//    return true;
     return lia_move::give_up;
@@ -767,73 +769,62 @@ void set_upper(impq & u,
     }
 }
 
-bool int_solver::get_freedom_interval_for_column(unsigned x_j, bool & inf_l, impq & l, bool & inf_u, impq & u, mpq & m) {
+bool int_solver::get_freedom_interval_for_column(unsigned j, bool & inf_l, impq & l, bool & inf_u, impq & u, mpq & m) {
     auto & lcs = m_lar_solver->m_mpq_lar_core_solver;
-    if (lcs.m_r_heading[x_j] >= 0) // the basic var 
+    if (lcs.m_r_heading[j] >= 0) // the basic var 
         return false;
 
-    impq const & x_j_val = lcs.m_r_x[x_j];
-    linear_combination_iterator<mpq> *it = get_column_iterator(x_j);
+    impq const & xj = get_value(j);
+    linear_combination_iterator<mpq> *it = get_column_iterator(j);
 
     inf_l = true;
     inf_u = true;
     l = u = zero_of_type<impq>();
     m = mpq(1);
 
-    if (lower(x_j)) {
-        set_lower(l, inf_l, lower_bound(x_j));
+    if (lower(j)) {
+        set_lower(l, inf_l, lower_bound(j));
     }
-    if (upper(x_j)) {
-        set_upper(u, inf_u, upper_bound(x_j));
+    if (upper(j)) {
+        set_upper(u, inf_u, upper_bound(j));
     }
 
-    mpq a_ij; unsigned i;
-    while (it->next(a_ij, i)) {
-        unsigned x_i = lcs.m_r_basis[i];
-        impq const & x_i_val = lcs.m_r_x[x_i];
-        if (is_int(x_i) && is_int(x_j) && !a_ij.is_int())
-            m = lcm(m, denominator(a_ij));
-        bool x_i_lower = lower(x_i);
-        bool x_i_upper = upper(x_i);
-        if (a_ij.is_neg()) {
-            if (x_i_lower) {
-                impq new_l = x_j_val + ((x_i_val - lcs.m_r_low_bounds()[x_i]) / a_ij);
-                set_lower(l, inf_l, new_l);
-                if (!inf_l && !inf_u && l == u) break;;                
-            }
-            if (x_i_upper) {
-                impq new_u = x_j_val + ((x_i_val - lcs.m_r_upper_bounds()[x_i]) / a_ij);
-                set_upper(u, inf_u, new_u);
-                if (!inf_l && !inf_u && l == u) break;;                
-            }
+    mpq a; // the coefficient in the column
+    unsigned row_index;
+    while (it->next(a, row_index)) {
+        unsigned i = lcs.m_r_basis[row_index];
+        impq const & xi = get_value(i);
+        if (is_int(i) && is_int(j) && !a.is_int())
+            m = lcm(m, denominator(a));
+        if (a.is_neg()) {
+            if (lower(i))
+                set_lower(l, inf_l, xj + (xi - lcs.m_r_low_bounds()[i]) / a);
+
+            if (upper(i))
+                set_upper(u, inf_u, xj + (xi - lcs.m_r_upper_bounds()[i]) / a);
         }
         else {
-            if (x_i_upper) {
-                impq new_l = x_j_val + ((x_i_val - lcs.m_r_upper_bounds()[x_i]) / a_ij);
-                set_lower(l, inf_l, new_l);
-                if (!inf_l && !inf_u && l == u) break;;                
-            }
-            if (x_i_lower) {
-                impq new_u = x_j_val + ((x_i_val - lcs.m_r_low_bounds()[x_i]) / a_ij);
-                set_upper(u, inf_u, new_u);
-                if (!inf_l && !inf_u && l == u) break;;                
-            }
+            if (upper(i))
+                set_lower(l, inf_l, xj + (xi - lcs.m_r_upper_bounds()[i]) / a);
+            if (lower(i))
+                set_upper(u, inf_u, xj + (xi - lcs.m_r_low_bounds()[i]) / a);
         }
+        if (!inf_l && !inf_u && l == u) break;;                
     }
 
     delete it;
     TRACE("freedom_interval",
           tout << "freedom variable for:\n";
-          tout << m_lar_solver->get_column_name(x_j);
+          tout << m_lar_solver->get_column_name(j);
           tout << "[";
           if (inf_l) tout << "-oo"; else tout << l;
           tout << "; ";
           if (inf_u) tout << "oo";  else tout << u;
           tout << "]\n";
-          tout << "val = " << get_value(x_j) << "\n";
+          tout << "val = " << get_value(j) << "\n";
           );
-    lp_assert(inf_l || l <= get_value(x_j));
-    lp_assert(inf_u || u >= get_value(x_j));
+    lp_assert(inf_l || l <= get_value(j));
+    lp_assert(inf_u || u >= get_value(j));
     return true;
 
 }
@@ -847,7 +838,7 @@ bool int_solver::is_real(unsigned j) const {
 }
 
 bool int_solver::value_is_int(unsigned j) const {
-    return m_lar_solver->m_mpq_lar_core_solver.m_r_x[j].is_int();
+    return m_lar_solver->column_value_is_int(j);
 }
 
     
@@ -869,8 +860,10 @@ void int_solver::display_column(std::ostream & out, unsigned j) const {
 
 bool int_solver::inf_int_set_is_correct() const {
     for (unsigned j = 0; j < m_lar_solver->A_r().column_count(); j++) {
-        if (inf_int_set().contains(j) != (is_int(j) && (!value_is_int(j))))
+        if (inf_int_set().contains(j) != (is_int(j) && (!value_is_int(j)))) {
+            TRACE("arith_int", tout << "j= " << j << " inf_int_set().contains(j) = " << inf_int_set().contains(j) << ", is_int(j) = "   << is_int(j) << "\nvalue_is_int(j) = " << value_is_int(j) << ", val = " << get_value(j) << std::endl;); 
             return false;
+        }
     }
     return true;
 }

@@ -344,8 +344,7 @@ public:
             for (const auto & cc : m_r_solver.m_A.m_columns[j]){
                 unsigned i = cc.m_i;
                 unsigned jb = m_r_solver.m_basis[i];
-                m_r_solver.m_x[jb] -= delta * m_r_solver.m_A.get_val(cc);
-                m_r_solver.update_column_in_inf_set(jb);
+                m_r_solver.update_x_with_delta_and_track_feasibility(jb, - delta * m_r_solver.m_A.get_val(cc));
             }
             lp_assert(m_r_solver.A_mult_x_is_off() == false);
         }

@@ -84,9 +84,9 @@ public:
     bool                  m_tracing_basis_changes;
     int_set*              m_pivoted_rows;
     bool                  m_look_for_feasible_solution_only;
-    std::function<void (unsigned, const X &)> * m_tracker_of_x_change;
+    std::function<void (unsigned)> * m_tracker_of_x_change;
 
-    void set_tracker_of_x(std::function<void (unsigned, const X&)>* tracker) {
+    void set_tracker_of_x(std::function<void (unsigned)>* tracker) {
         m_tracker_of_x_change = tracker;
     }
     
@@ -401,6 +401,7 @@ public:
     }
 
     bool make_column_feasible(unsigned j, numeric_pair<mpq> & delta) {
+        bool ret = false;
         lp_assert(m_basis_heading[j] < 0);
         auto & x = m_x[j];
         switch (m_column_types[j]) {
@@ -408,43 +409,39 @@ public:
             lp_assert(m_low_bounds[j] == m_upper_bounds[j]);
             if (x != m_low_bounds[j]) {
                 delta = m_low_bounds[j] - x;
-                x = m_low_bounds[j];
-                return true;
+                ret = true;;
             }
             break;
         case column_type::boxed:
             if (x < m_low_bounds[j]) {
                 delta = m_low_bounds[j] - x;
-                x = m_low_bounds[j];
-                return true;
+                ret = true;;
             }
             if (x > m_upper_bounds[j]) {
                 delta = m_upper_bounds[j] - x;
-                x = m_upper_bounds[j];
-                return true;
+                ret = true;
             }
             break;
         case column_type::low_bound:
             if (x < m_low_bounds[j]) {
                 delta = m_low_bounds[j] - x;
-                x = m_low_bounds[j];
-                return true;
+                ret = true;
             }
             break;
         case column_type::upper_bound:
             if (x > m_upper_bounds[j]) {
                 delta = m_upper_bounds[j] - x;
-                x = m_upper_bounds[j];
-                return true;
+                ret = true;
             }
             break;
-        case column_type::free_column:
-            break;
         default:
-            lp_assert(false);
             break;
         }
-        return false;
+        if (ret)
+            add_delta_to_x_and_call_tracker(j, delta);
+
+        return ret;
+        
     }
 
     
@@ -689,22 +686,43 @@ public:
         return m_inf_set.contains(j);
     }
 
-    void update_column_in_inf_set(unsigned j) {
-        if (column_is_feasible(j)) {
+    void update_x_with_feasibility_tracking(unsigned j, const X & v) {
+        m_x[j] = v;
+        track_column_feasibility(j);
+    }
+
+    void update_x_with_delta_and_track_feasibility(unsigned j, const X & del) {
+        m_x[j] += del;
+        track_column_feasibility(j);
+    }
+
+    void update_x_and_call_tracker(unsigned j, const X & v) {
+        m_x[j] = v;
+        if (m_tracker_of_x_change != nullptr)
+            (*m_tracker_of_x_change)(j);
+    }
+
+    void add_delta_to_x_and_call_tracker(unsigned j, const X & delta) {
+        m_x[j] += delta;
+        if (m_tracker_of_x_change != nullptr)
+            (*m_tracker_of_x_change)(j);
+    }
+    
+    void track_column_feasibility(unsigned j) {
+        if (column_is_feasible(j))
             remove_column_from_inf_set(j);
-        } else {
+        else
             insert_column_into_inf_set(j);
-        }
     }
     void insert_column_into_inf_set(unsigned j) {
         if (m_tracker_of_x_change != nullptr)
-            (*m_tracker_of_x_change)(j, m_x[j]);
+            (*m_tracker_of_x_change)(j);
         m_inf_set.insert(j);
         lp_assert(!column_is_feasible(j));
     }
     void remove_column_from_inf_set(unsigned j) {
         if (m_tracker_of_x_change != nullptr)
-            (*m_tracker_of_x_change)(j, m_x[j]);
+            (*m_tracker_of_x_change)(j);
         m_inf_set.erase(j);
         lp_assert(column_is_feasible(j));
     }

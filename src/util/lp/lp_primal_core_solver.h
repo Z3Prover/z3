@@ -445,7 +445,7 @@ public:
 
     void advance_on_entering_and_leaving_tableau_rows(int entering, int leaving, const X &theta ) {
         this->update_basis_and_x_tableau(entering, leaving, theta);
-        this->update_column_in_inf_set(entering);
+        this->track_column_feasibility(entering);
     }
 
 

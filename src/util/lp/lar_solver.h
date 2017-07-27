@@ -83,7 +83,7 @@ public:
     lar_core_solver m_mpq_lar_core_solver;
     unsigned constraint_count() const;
     const lar_base_constraint& get_constraint(unsigned ci) const;
-    std::function<void (unsigned, const impq&)> m_tracker_of_x_change;
+    std::function<void (unsigned)> m_tracker_of_x_change;
     int_set m_inf_int_set; 
     ////////////////// methods ////////////////////////////////
     static_matrix<mpq, numeric_pair<mpq>> & A_r() { return m_mpq_lar_core_solver.m_r_A;}
@@ -94,6 +94,14 @@ public:
     static bool valid_index(unsigned j){ return static_cast<int>(j) >= 0;}
 
     bool column_is_int(unsigned j) const;
+    bool column_value_is_int(unsigned j) const {
+        return m_mpq_lar_core_solver.m_r_x[j].is_int();
+    }
+
+    const impq& get_column_value(unsigned j) const {
+        return m_mpq_lar_core_solver.m_r_x[j];
+    }
+    bool is_term(var_index j) const;
     bool column_is_fixed(unsigned j) const;
 public:
 
@@ -138,83 +146,7 @@ public:
 
     virtual ~lar_solver();
 
-    void print_implied_bound(const implied_bound& be, std::ostream & out) const {
-        out << "implied bound\n";
-        unsigned v = be.m_j;
-        if (is_term(v)) {
-            out << "it is a term number " << be.m_j << std::endl;
-            print_term(*m_orig_terms[be.m_j - m_terms_start_index],  out);
-        }
-        else {
-            out << get_column_name(v);
-        }
-        out << " " << lconstraint_kind_string(be.kind()) << " "  << be.m_bound << std::endl;
-        // for (auto & p : be.m_explanation) {
-        //     out << p.first << " : ";
-        //     print_constraint(p.second, out);
-        // }
-
-        // m_mpq_lar_core_solver.m_r_solver.print_column_info(be.m_j< m_terms_start_index? be.m_j : adjust_term_index(be.m_j), out);
-        out << "end of implied bound" << std::endl;
-    }
-
-    bool implied_bound_is_correctly_explained(implied_bound const & be, const vector<std::pair<mpq, unsigned>> & explanation) const {
-        std::unordered_map<unsigned, mpq> coeff_map;
-        auto rs_of_evidence = zero_of_type<mpq>();
-        unsigned n_of_G = 0, n_of_L = 0;
-        bool strict = false;
-        for (auto & it : explanation) {
-            mpq coeff = it.first;
-            constraint_index con_ind = it.second;
-            const auto & constr = *m_constraints[con_ind];
-            lconstraint_kind kind = coeff.is_pos() ? constr.m_kind : flip_kind(constr.m_kind);
-            register_in_map(coeff_map, constr, coeff);
-            if (kind == GT || kind == LT)
-                strict = true;
-            if (kind == GE || kind == GT) n_of_G++;
-            else if (kind == LE || kind == LT) n_of_L++;
-            rs_of_evidence += coeff*constr.m_right_side;
-        }
-        SASSERT(n_of_G == 0 || n_of_L == 0);
-        lconstraint_kind kind = n_of_G ? GE : (n_of_L ? LE : EQ);
-        if (strict)
-            kind = static_cast<lconstraint_kind>((static_cast<int>(kind) / 2));
-
-        if (!is_term(be.m_j)) {
-            if (coeff_map.size() != 1)
-                return false;
-            auto it = coeff_map.find(be.m_j);
-            if (it == coeff_map.end()) return false;
-            mpq ratio = it->second;
-            if (ratio < zero_of_type<mpq>()) {
-                kind = static_cast<lconstraint_kind>(-kind);
-            }
-            rs_of_evidence /= ratio;
-        } else {
-            const lar_term * t = m_orig_terms[adjust_term_index(be.m_j)];
-            const auto first_coeff = *t->m_coeffs.begin();
-            unsigned j = first_coeff.first;
-            auto it = coeff_map.find(j);
-            if (it == coeff_map.end())
-                return false;
-            mpq ratio = it->second / first_coeff.second;
-            for (auto & p : t->m_coeffs) {
-                it = coeff_map.find(p.first);
-                if (it == coeff_map.end())
-                    return false;
-                if (p.second * ratio != it->second)
-                    return false;
-            }
-            if (ratio < zero_of_type<mpq>()) {
-                kind = static_cast<lconstraint_kind>(-kind);
-            }
-            rs_of_evidence /= ratio;
-            rs_of_evidence += t->m_v * ratio;
-        }
-
-        return kind == be.kind() && rs_of_evidence == be.m_bound;
-    }
-
+    unsigned adjust_term_index(unsigned j) const;
 
     void analyze_new_bounds_on_row(
                                    unsigned row_index,
@@ -1261,8 +1193,8 @@ public:
     void clean_inf_set_of_r_solver_after_pop();
     void shrink_explanation_to_minimum(vector<std::pair<mpq, constraint_index>> & explanation) const;
 
-    bool column_represents_row_in_tableau(unsigned j) {
-        return m_vars_to_ul_pairs()[j].m_i != static_cast<row_index>(-1);
+    bool column_value_is_integer(unsigned j) const {
+        return get_column_value(j).is_int();
     }
 
     bool column_is_real(unsigned j) const {
@@ -1442,6 +1374,34 @@ bool model_is_int_feasible() const;
         t = lar_term(pol_after_subs, v);
     }
 
+    bool inf_int_set_is_correct() const {
+        for (unsigned j = 0; j < A_r().column_count(); j++) {
+            if (m_inf_int_set.contains(j) != (column_is_int(j) && (!column_value_is_integer(j)))) {
+                TRACE("arith_int",
+                      tout << "j= " << j <<
+                      " inf_int_set().contains(j) = " << m_inf_int_set.contains(j) <<
+                      ", column_is_int(j) = "   << column_is_int(j) <<
+                      "\n column_value_is_integer(j) = " << column_value_is_integer(j) <<
+                      ", val = " << get_column_value(j) << std::endl;); 
+                return false;
+            }
+        }
+        return true;
+}
+
+    
+    
     bool has_int_var() const;
+    void call_assignment_tracker(unsigned j) {
+        if (!var_is_int(j)) {
+            lp_assert(m_inf_int_set.contains(j) == false);
+            return;
+        }
+        if (m_mpq_lar_core_solver.m_r_x[j].is_int())
+            m_inf_int_set.erase(j);
+        else
+            m_inf_int_set.insert(j);
+    }
+
 };
 }

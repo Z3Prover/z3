@@ -1039,12 +1039,12 @@ namespace smt {
             lp_assert(can_get_ivalue(v));
             lp::var_index vi = m_theory_var2var_index[v];
             if (!m_solver->is_term(vi))
-                return m_solver->get_value(vi);
+                return m_solver->get_column_value(vi);
 
             const lp::lar_term& term = m_solver->get_term(vi);
             lp::impq result(term.m_v);
             for (const auto & i:  term.m_coeffs) {
-                result += m_solver->get_value(i.first) * i.second;
+                result += m_solver->get_column_value(i.first) * i.second;
             }
             return result;
         }

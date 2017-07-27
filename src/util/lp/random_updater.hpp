@@ -148,6 +148,64 @@ void random_updater::shift_var(unsigned j, interval & r) {
         lp_assert(m_core_solver.m_r_solver.column_is_feasible(bj));
     }
     lp_assert(m_core_solver.m_r_solver.A_mult_x_is_off() == false);
+
+    /*
+       if (is_fixed(v) || !is_non_base(v))
+            return false;
+        bool inf_l, inf_u;
+        inf_numeral l, u;
+        numeral m;
+        get_freedom_interval(v, inf_l, l, inf_u, u, m);
+        if (inf_l && inf_u) {
+            inf_numeral new_val = inf_numeral(m_random() % (RANGE + 1));
+            set_value(v, new_val);
+            return true;
+        }
+        if (is_int(v)) {
+            if (!inf_l) {
+                l = ceil(l);
+                if (!m.is_one())
+                    l = m*ceil(l/m);
+            }
+            if (!inf_u) {
+                u = floor(u);
+                if (!m.is_one())
+                    u = m*floor(u/m);
+            }
+        }
+        if (!inf_l && !inf_u && l >= u)
+            return false;
+        if (inf_u) {
+            SASSERT(!inf_l);
+            inf_numeral delta   = inf_numeral(m_random() % (RANGE + 1));
+            inf_numeral new_val = l + m*delta;
+            set_value(v, new_val);
+            return true;
+        }
+        if (inf_l) {
+            SASSERT(!inf_u);
+            inf_numeral delta   = inf_numeral(m_random() % (RANGE + 1));
+            inf_numeral new_val = u - m*delta;
+            set_value(v, new_val);
+            return true;
+        }
+        if (!is_int(v)) {
+            SASSERT(!inf_l && !inf_u);
+            numeral delta       = numeral(m_random() % (RANGE + 1));
+            inf_numeral new_val = l + ((delta * (u - l)) / numeral(RANGE)); 
+            set_value(v, new_val);
+            return true;
+        }
+        else {
+            unsigned range = RANGE;
+            numeral r = (u.get_rational() - l.get_rational()) / m;
+            if (r < numeral(RANGE))
+                range = static_cast<unsigned>(r.get_uint64());
+            inf_numeral new_val = l + m * (inf_numeral(m_random() % (range + 1)));
+            set_value(v, new_val);
+            return true;
+        }
+     */
 }
 
 numeric_pair<mpq> random_updater::get_random_from_interval(interval & r) {
