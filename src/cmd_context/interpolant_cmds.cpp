@@ -46,20 +46,14 @@ static void show_interpolant_and_maybe_check(cmd_context & ctx,
         m_params.set_bool("flat", true);
     th_rewriter s(ctx.m(), m_params);
   
-    expr_ref_vector exprs(ctx.m());
-    sort_ref_vector domain(ctx.m());
+    ctx.regular_stream() << "(interpolants";
     for(unsigned i = 0; i < interps.size(); i++){
         expr_ref r(ctx.m());
         proof_ref pr(ctx.m());
         s(to_expr(interps[i]),r,pr);
-        exprs.push_back(r);
-        domain.push_back(ctx.m().mk_bool_sort());
+        ctx.regular_stream() << "\n " << r;
     }
-    func_decl_ref fn(ctx.m());
-    fn = ctx.m().mk_func_decl(symbol("interpolants"), domain.size(), domain.c_ptr(), ctx.m().mk_bool_sort());
-    expr_ref tmp(ctx.m());
-    tmp = ctx.m().mk_app(fn, exprs.size(), exprs.c_ptr());
-    ctx.regular_stream() << tmp << "\n";
+    ctx.regular_stream() << ")\n";
 
     s.cleanup();
 
