@@ -902,6 +902,7 @@ void mpf_manager::fma(mpf_rounding_mode rm, mpf const & x, mpf const & y, mpf co
         TRACE("mpf_dbg", tout << "S'= " << m_mpz_manager.to_string(res.significand()) << std::endl;
                          tout << "S'= " << to_string_binary(res, 1, 0) << std::endl; );
 
+        // Renormalize
         bool renorm_sticky = false;
 
         SASSERT(m_mpz_manager.lt(res.significand(), m_powers2(2 * x.sbits + 1)));
@@ -915,6 +916,16 @@ void mpf_manager::fma(mpf_rounding_mode rm, mpf const & x, mpf const & y, mpf co
             TRACE("mpf_dbg", tout << "Add/Sub overflew into 4.xxx!" << std::endl;
                              tout << "S*= " << to_string_binary(res, 2, 0) << std::endl;);
         }
+
+        mpf_exp_t min_exp = mk_min_exp(x.ebits);
+        unsigned sig_width = m_mpz_manager.prev_power_of_two(res.get().significand) + 1;
+        mpf_exp_t sig_lz = 2 * x.sbits - sig_width; // want << lz
+        mpf_exp_t max_exp_delta = res.exponent() - min_exp;
+        unsigned renorm_delta = (unsigned) std::max((mpf_exp_t)0, std::min(sig_lz, max_exp_delta));
+        res.get().exponent -= renorm_delta;
+        m_mpz_manager.mul2k(res.significand(), renorm_delta);
+
+        TRACE("mpf_dbg", tout << "R*= " << to_string_binary(res, 2, 0) << " (renormalized, delta=" << renorm_delta << ")" << std::endl;);
 
         set(o, x.ebits, x.sbits, res.sign(), res.exponent(), mpz(0));
 
