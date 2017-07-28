@@ -106,7 +106,7 @@ class subst_cmd : public cmd {
 public:
     subst_cmd():cmd("dbg-subst") {}
     virtual char const * get_usage() const { return "<symbol> (<symbol>*) <symbol>"; }
-    virtual char const * get_descr() const { return "substitute the free variables in the AST referenced by <symbol> using the ASTs referenced by <symbol>*"; }
+    virtual char const * get_descr(cmd_context & ctx) const { return "substitute the free variables in the AST referenced by <symbol> using the ASTs referenced by <symbol>*"; }
     virtual unsigned get_arity() const { return 3; }
     virtual void prepare(cmd_context & ctx) { m_idx = 0; m_source = 0; }
     virtual cmd_arg_kind next_arg_kind(cmd_context & ctx) const {
@@ -285,7 +285,7 @@ protected:
 public:
     instantiate_cmd_core(char const * name):cmd(name) {}
     virtual char const * get_usage() const { return "<quantifier> (<symbol>*)"; }
-    virtual char const * get_descr() const { return "instantiate the quantifier using the given expressions."; }
+    virtual char const * get_descr(cmd_context & ctx) const { return "instantiate the quantifier using the given expressions."; }
     virtual unsigned get_arity() const { return 2; }
     virtual void prepare(cmd_context & ctx) { m_q = 0; m_args.reset(); }
 
@@ -333,7 +333,7 @@ class instantiate_nested_cmd : public instantiate_cmd_core {
 public:
     instantiate_nested_cmd():instantiate_cmd_core("dbg-instantiate-nested") {}
 
-    virtual char const * get_descr() const { return "instantiate the quantifier nested in the outermost quantifier, this command is used to test the instantiation procedure with quantifiers that contain free variables."; }
+    virtual char const * get_descr(cmd_context & ctx) const { return "instantiate the quantifier nested in the outermost quantifier, this command is used to test the instantiation procedure with quantifiers that contain free variables."; }
 
     virtual void set_next_arg(cmd_context & ctx, expr * s) {
         instantiate_cmd_core::set_next_arg(ctx, s);
