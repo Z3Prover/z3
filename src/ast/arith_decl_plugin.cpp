@@ -413,48 +413,6 @@ inline decl_kind arith_decl_plugin::fix_kind(decl_kind k, unsigned arity) {
     if (k == OP_SUB && arity == 1) {
         return OP_UMINUS;
     }
-    switch (k) {
-    case OP_LE:      break;
-    case OP_GE:      break;
-    case OP_LT:      break;
-    case OP_GT:      break;
-    case OP_ADD:     break;
-    case OP_SUB:     break;
-    case OP_UMINUS:  check_arity(arity, 1); break;
-    case OP_MUL:     break;
-    case OP_DIV:     check_arity(arity, 2); break;
-    case OP_IDIV:    check_arity(arity, 2); break;
-    case OP_REM:     check_arity(arity, 2); break;
-    case OP_MOD:     check_arity(arity, 2); break;
-    case OP_TO_REAL: check_arity(arity, 1); break;
-    case OP_TO_INT:  check_arity(arity, 1); break;
-    case OP_IS_INT:  check_arity(arity, 1); break;
-    case OP_POWER:   check_arity(arity, 2); break;
-    case OP_ABS:     check_arity(arity, 1); break;
-    case OP_SIN:     check_arity(arity, 1); break;
-    case OP_COS:     check_arity(arity, 1); break;
-    case OP_TAN:     check_arity(arity, 1); break;
-    case OP_ASIN:    check_arity(arity, 1); break;
-    case OP_ACOS:    check_arity(arity, 1); break;
-    case OP_ATAN:    check_arity(arity, 1); break;
-    case OP_SINH:    check_arity(arity, 1); break;
-    case OP_COSH:    check_arity(arity, 1); break;
-    case OP_TANH:    check_arity(arity, 1); break;
-    case OP_ASINH:   check_arity(arity, 1); break;
-    case OP_ACOSH:   check_arity(arity, 1); break;
-    case OP_ATANH:   check_arity(arity, 1); break;
-    case OP_PI:      break;
-    case OP_E:       break;
-    case OP_0_PW_0_INT:  break;
-    case OP_0_PW_0_REAL: break;
-    case OP_NEG_ROOT:    break;
-    case OP_DIV_0:       check_arity(arity, 1); break;
-    case OP_IDIV_0:      check_arity(arity, 1); break;
-    case OP_MOD_0:       check_arity(arity, 1); break;
-    case OP_U_ASIN:      break;
-    case OP_U_ACOS:      break;
-
-    }
     return k;
 }
 
