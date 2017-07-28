@@ -157,6 +157,7 @@ protected:
     func_decl * mk_func_decl(decl_kind k, bool is_real);
     virtual void set_manager(ast_manager * m, family_id id);
     decl_kind fix_kind(decl_kind k, unsigned arity);
+    void check_arity(unsigned arity, unsigned expected_arity);
     func_decl * mk_num_decl(unsigned num_parameters, parameter const * parameters, unsigned arity);
 
 public:
