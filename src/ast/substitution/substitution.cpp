@@ -85,7 +85,7 @@ void substitution::apply(unsigned num_actual_offsets, unsigned const * deltas, e
     m_state = APPLY;
 
     unsigned         j;
-    expr *           e;
+    expr *           e = 0;
     unsigned         off;
     expr_offset      n1;
     bool             visited;
@@ -214,7 +214,7 @@ void substitution::apply(unsigned num_actual_offsets, unsigned const * deltas, e
         }
     }
     SASSERT(m_apply_cache.contains(n));
-    m_apply_cache.find(n, e);
+    VERIFY(m_apply_cache.find(n, e));
     m_new_exprs.push_back(e);
     result = e;
     

@@ -1716,7 +1716,7 @@ namespace smt {
         CASSERT("arith", check_null_var_pos());
 
         r1.save_var_pos(m_var_pos);
-
+        
         // 
         // loop over variables in row2,
         // add terms in row2 to row1.
@@ -1769,7 +1769,7 @@ namespace smt {
             ADD_ROW(r_entry.m_coeff = it->m_coeff; r_entry.m_coeff *= coeff, 
                     r_entry.m_coeff += it->m_coeff * coeff);
         }
-        
+
         r1.reset_var_pos(m_var_pos);
         CASSERT("arith", check_null_var_pos());
         CASSERT("row_assignment_bug", valid_row_assignment(r1));
@@ -1778,7 +1778,7 @@ namespace smt {
             theory_var v = r1.get_base_var();
             if (is_int(v) && !get_value(v).is_int())
                 gcd_test(r1);
-        }
+        }        
     }
 
     /**
@@ -1797,6 +1797,7 @@ namespace smt {
             SASSERT(!is_non_base(v));
             add_row(r1, c, get_var_row(v), false);
         }
+        get_manager().limit().inc(sz);
     }
 
     // -----------------------------------
@@ -1852,6 +1853,7 @@ namespace smt {
         if (is_base(v) && !m_to_patch.contains(v) && (below_lower(v) || above_upper(v))) {
             m_to_patch.insert(v);
         }
+        get_manager().limit().inc();
     }
 
     /**
@@ -1928,6 +1930,8 @@ namespace smt {
             DIVIDE_ROW(it->m_coeff /= tmp);
         }
 
+        get_manager().limit().inc(r.size());
+
         set_var_row(x_i, -1);
         set_var_row(x_j, r_id);
         
@@ -1937,7 +1941,7 @@ namespace smt {
         set_var_kind(x_i, NON_BASE);
         set_var_kind(x_j, BASE);
     
-        eliminate<Lazy>(x_j, apply_gcd_test);
+        eliminate<Lazy>(x_j, apply_gcd_test);        
 
         CASSERT("arith", wf_rows());
         CASSERT("arith", wf_columns());
@@ -1972,6 +1976,7 @@ namespace smt {
         int s_pos = -1;
         for (; it != end; ++it, ++i) {
             if (!it->is_dead()) {
+                unsigned r1_sz = m_rows[r_id].size();
                 if (it->m_row_id != static_cast<int>(r_id)) {
                     row & r2      = m_rows[it->m_row_id];
                     theory_var s2 = r2.m_base_var; 
@@ -1979,13 +1984,14 @@ namespace smt {
                         a_kj = r2[it->m_row_idx].m_coeff;
                         a_kj.neg();
                         add_row(it->m_row_id, a_kj, r_id, apply_gcd_test);
+                        get_manager().limit().inc((r1_sz + r2.size()) * (a_kj.storage_size()));
                     }
                 }
                 else { 
                     s_pos = i;
                 }
             }
-        }
+        }        
         CTRACE("eliminate", !Lazy && c.size() != 1, 
                tout << "eliminating v" << x_i << ", Lazy: " << Lazy << ", c.size: " << c.size() << "\n";
                display(tout););

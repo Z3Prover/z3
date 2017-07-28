@@ -6,7 +6,7 @@
 #pragma once
 #include "util/vector.h"
 #include "util/lp/eta_matrix.h"
-namespace lean {
+namespace lp {
 
 // This is the sum of a unit matrix and a one-column matrix
 template <typename T, typename X>
@@ -60,7 +60,7 @@ void eta_matrix<T, X>::apply_from_right(vector<T> & w) {
     }
     w[m_column_index] = t;
 #ifdef LEAN_DEBUG
-    // lean_assert(vectors_are_equal<T>(clone_w, w, get_number_of_rows()));
+    // lp_assert(vectors_are_equal<T>(clone_w, w, get_number_of_rows()));
     // delete clone_w;
 #endif
 }
@@ -100,8 +100,8 @@ void eta_matrix<T, X>::apply_from_right(indexed_vector<T> & w) {
     }
     
 #ifdef LEAN_DEBUG
-    // lean_assert(w.is_OK());
-    // lean_assert(vectors_are_equal<T>(wcopy, w.m_data));
+    // lp_assert(w.is_OK());
+    // lp_assert(vectors_are_equal<T>(wcopy, w.m_data));
 #endif
 }
 #ifdef LEAN_DEBUG
@@ -130,7 +130,7 @@ void eta_matrix<T, X>::conjugate_by_permutation(permutation_matrix<T, X> & p) {
         pair.first = p.get_rev(pair.first);
     }
 #ifdef LEAN_DEBUG
-    // lean_assert(deb == *this);
+    // lp_assert(deb == *this);
 #endif
 }
 }

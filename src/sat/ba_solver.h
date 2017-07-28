@@ -267,10 +267,10 @@ namespace sat {
         void gc_half(char const* _method);
         void mutex_reduction();
 
-        typedef vector<std::pair<rational, lean::var_index>> lhs_t;
+        typedef vector<std::pair<rational, lp::var_index>> lhs_t;
         void lp_lookahead_reduction();
-        void lp_add_var(int coeff, lean::var_index v, lhs_t& lhs, rational& rhs);
-        void lp_add_clause(lean::lar_solver& s, svector<lean::var_index> const& vars, clause const& c);
+        void lp_add_var(int coeff, lp::var_index v, lhs_t& lhs, rational& rhs);
+        void lp_add_clause(lp::lar_solver& s, svector<lp::var_index> const& vars, clause const& c);
 
         unsigned use_count(literal lit) const { return m_cnstr_use_list[lit.index()].size() + m_clause_use_list.get(lit).size(); }
 

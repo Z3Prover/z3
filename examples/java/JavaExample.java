@@ -281,7 +281,7 @@ class JavaExample
     }
 
     void disprove(Context ctx, BoolExpr f, boolean useMBQI) 
-		throws TestFailedException
+        throws TestFailedException
     {
         BoolExpr[] a = {};
         disprove(ctx, f, useMBQI, a);
@@ -2279,6 +2279,29 @@ class JavaExample
         System.out.println(my);
     }
 
+    public void translationExample() {
+        Context ctx1 = new Context();
+        Context ctx2 = new Context();
+
+        Sort s1 = ctx1.getIntSort();
+        Sort s2 = ctx2.getIntSort();
+        Sort s3 = s1.translate(ctx2);
+
+        System.out.println(s1 == s2);
+        System.out.println(s1.equals(s2));
+        System.out.println(s2.equals(s3));
+        System.out.println(s1.equals(s3));
+
+        Expr e1 = ctx1.mkIntConst("e1");
+        Expr e2 = ctx2.mkIntConst("e1");
+        Expr e3 = e1.translate(ctx2);
+
+        System.out.println(e1 == e2);
+        System.out.println(e1.equals(e2));
+        System.out.println(e2.equals(e3));
+        System.out.println(e1.equals(e3));
+    }
+
     public static void main(String[] args)
     {
         JavaExample p = new JavaExample();
@@ -2300,8 +2323,8 @@ class JavaExample
                 HashMap<String, String> cfg = new HashMap<String, String>();
                 cfg.put("model", "true");
                 Context ctx = new Context(cfg);
-		
-		p.optimizeExample(ctx);
+        
+                p.optimizeExample(ctx);
                 p.basicTests(ctx);
                 p.castingTest(ctx);
                 p.sudokuExample(ctx);
@@ -2355,7 +2378,9 @@ class JavaExample
                 Context ctx = new Context(cfg);
                 p.quantifierExample3(ctx);
                 p.quantifierExample4(ctx);
-            }            
+            }
+
+            p.translationExample();
 
             Log.close();
             if (Log.isOpen())

@@ -3,7 +3,7 @@
   Author: Lev Nachmanson
 */
 #include "util/lp/binary_heap_upair_queue.hpp"
-namespace lean {
+namespace lp {
 template binary_heap_upair_queue<int>::binary_heap_upair_queue(unsigned int);
 template binary_heap_upair_queue<unsigned int>::binary_heap_upair_queue(unsigned int);
 template unsigned binary_heap_upair_queue<int>::dequeue_available_spot();

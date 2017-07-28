@@ -1,5 +1,15 @@
 RELEASE NOTES
 
+Version 4.5.x
+=============
+- New features (including):
+  - A new string solver from University of Waterloo
+  - A new linear real arithmetic solver
+  - Changed behavior for optimization commands from the SMT2 command-line interface.
+    Objective values are no longer printed by default. They can be retrieved by
+    issuing the command (get-objectives). Pareto front objectives are accessed by
+    issuing multiple (check-sat) calls until it returns unsat.
+
 Version 4.5.0
 =============
 

@@ -4,7 +4,7 @@
 */
 #pragma once
 #include "util/lp/linear_combination_iterator.h"
-namespace lean {
+namespace lp {
 template <typename T>
 struct iterator_on_row:linear_combination_iterator<T> {
     const vector<row_cell<T>> & m_row;

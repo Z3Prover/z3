@@ -232,7 +232,7 @@ namespace datalog {
         
         rule_set added_rules(m_ctx);
         proof_ref pr(m); 
-        rm.mk_rule(fml, pr, added_rules);
+        rm.mk_rule(fml, pr, added_rules, r.name());
         if (r.get_proof()) {
             // use def-axiom to encode that new rule is a weakening of the original.
             proof* p1 = r.get_proof();

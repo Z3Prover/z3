@@ -1632,8 +1632,6 @@ void fpa2bv_converter::mk_fma(func_decl * f, unsigned num, expr * const * args, 
 
     res_exp = e_exp;
 
-    // Result could overflow into 4.xxx ...
-
     family_id bvfid = m_bv_util.get_fid();
     expr_ref res_sgn_c1(m), res_sgn_c2(m), res_sgn_c3(m);
     expr_ref not_e_sgn(m), not_f_sgn(m), not_sign_bv(m);
@@ -1646,11 +1644,34 @@ void fpa2bv_converter::mk_fma(func_decl * f, unsigned num, expr * const * args, 
     expr * res_sgn_or_args[3] = { res_sgn_c1, res_sgn_c2, res_sgn_c3 };
     res_sgn = m_bv_util.mk_bv_or(3, res_sgn_or_args);
 
+    // Result could have overflown into 4.xxx.
+    SASSERT(m_bv_util.get_bv_size(sig_abs) == 2 * sbits + 2);
+    expr_ref ovfl_into_4(m);
+    ovfl_into_4 = m.mk_eq(m_bv_util.mk_extract(2 * sbits + 1, 2 * sbits, sig_abs),
+                          m_bv_util.mk_numeral(1, 2));
+    dbg_decouple("fpa2bv_fma_ovfl_into_4", ovfl_into_4);
     if (sbits > 5) {
-        sticky_raw = m_bv_util.mk_extract(sbits - 5, 0, sig_abs);
-        sticky = m_bv_util.mk_zero_extend(sbits + 3, m.mk_app(bvfid, OP_BREDOR, sticky_raw.get()));
-        expr * res_or_args[2] = { m_bv_util.mk_extract(2 * sbits - 1, sbits - 4, sig_abs), sticky };
-        res_sig = m_bv_util.mk_bv_or(2, res_or_args);
+        expr_ref sticky_raw(m), sig_upper(m), sticky_redd(m), res_sig_norm(m);
+        sticky_raw = m_bv_util.mk_extract(sbits - 4, 0, sig_abs);
+        sig_upper = m_bv_util.mk_extract(2 * sbits, sbits - 3, sig_abs);
+        SASSERT(m_bv_util.get_bv_size(sig_upper) == sbits + 4);
+        sticky_redd = m.mk_app(bvfid, OP_BREDOR, sticky_raw.get());
+        sticky = m_bv_util.mk_zero_extend(sbits + 3, sticky_redd);
+        expr * res_or_args[2] = { sig_upper, sticky };
+        res_sig_norm = m_bv_util.mk_bv_or(2, res_or_args);
+
+        expr_ref sticky_raw_ovfl(m), sig_upper_ovfl(m), sticky_redd_ovfl(m), sticky_ovfl(m), res_sig_ovfl(m);
+        sticky_raw_ovfl = m_bv_util.mk_extract(sbits - 4, 0, sig_abs);
+        sig_upper_ovfl = m_bv_util.mk_extract(2 * sbits, sbits - 3, sig_abs);
+        SASSERT(m_bv_util.get_bv_size(sig_upper_ovfl) == sbits + 4);
+        sticky_redd_ovfl = m.mk_app(bvfid, OP_BREDOR, sticky_raw_ovfl.get());
+        sticky_ovfl = m_bv_util.mk_zero_extend(sbits + 3, sticky_redd_ovfl);
+        expr * res_or_args_ovfl[2] = { sig_upper_ovfl, sticky_ovfl };
+        res_sig_ovfl = m_bv_util.mk_bv_or(2, res_or_args_ovfl);
+
+        res_sig = m.mk_ite(ovfl_into_4, res_sig_ovfl, res_sig_norm);
+        res_exp = m.mk_ite(ovfl_into_4, m_bv_util.mk_bv_add(res_exp, m_bv_util.mk_numeral(1, ebits+2)),
+                                        res_exp);
     }
     else {
         unsigned too_short = 6 - sbits;
@@ -1658,6 +1679,8 @@ void fpa2bv_converter::mk_fma(func_decl * f, unsigned num, expr * const * args, 
         res_sig = m_bv_util.mk_extract(sbits + 3, 0, sig_abs);
     }
     dbg_decouple("fpa2bv_fma_add_sum_sticky", sticky);
+    dbg_decouple("fpa2bv_fma_sig_abs", sig_abs);
+    dbg_decouple("fpa2bv_fma_res_sig", res_sig);
     SASSERT(m_bv_util.get_bv_size(res_sig) == sbits + 4);
 
     expr_ref is_zero_sig(m), nil_sbits4(m);

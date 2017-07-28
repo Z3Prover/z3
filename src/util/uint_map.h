@@ -38,6 +38,11 @@ public:
             return v != 0;
         }
     }
+    
+    T * find(unsigned k) const { 
+        SASSERT(k < m_map.size() && m_map[k] != 0); 
+        return m_map[k]; 
+    }
 
     void insert(unsigned k, T * v) {
         m_map.reserve(k+1);

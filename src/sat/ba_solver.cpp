@@ -2204,14 +2204,14 @@ namespace sat {
     // ----------------------------------
     // lp based relaxation 
 
-    void ba_solver::lp_add_var(int coeff, lean::var_index v, lhs_t& lhs, rational& rhs) {
+    void ba_solver::lp_add_var(int coeff, lp::var_index v, lhs_t& lhs, rational& rhs) {
         if (coeff < 0) {
             rhs += rational(coeff);
         }
         lhs.push_back(std::make_pair(rational(coeff), v));
     }
 
-    void ba_solver::lp_add_clause(lean::lar_solver& s, svector<lean::var_index> const& vars, clause const& c) {
+    void ba_solver::lp_add_clause(lp::lar_solver& s, svector<lp::var_index> const& vars, clause const& c) {
         lhs_t lhs;
         rational rhs;
         if (c.frozen()) return;
@@ -2219,26 +2219,26 @@ namespace sat {
         for (literal l : c) {
             lp_add_var(l.sign() ? -1 : 1, vars[l.var()], lhs, rhs);
         }
-        s.add_constraint(lhs, lean::GE, rhs);
+        s.add_constraint(lhs, lp::GE, rhs);
     }
 
     void ba_solver::lp_lookahead_reduction() {
-        lean::lar_solver solver;
+        lp::lar_solver solver;
         solver.settings().set_message_ostream(&std::cout);
         solver.settings().set_debug_ostream(&std::cout);
         solver.settings().print_statistics = true;
         solver.settings().report_frequency = 1000;
-        // solver.settings().simplex_strategy() = lean::simplex_strategy_enum::lu; - runs out of memory
+        // solver.settings().simplex_strategy() = lp::simplex_strategy_enum::lu; - runs out of memory
         // TBD: set rlimit on the solver
-        svector<lean::var_index> vars;
+        svector<lp::var_index> vars;
         for (unsigned i = 0; i < s().num_vars(); ++i) {
-            lean::var_index v = solver.add_var(i, false);
+            lp::var_index v = solver.add_var(i, false);
             vars.push_back(v);
-            solver.add_var_bound(v, lean::GE, rational::zero());
-            solver.add_var_bound(v, lean::LE, rational::one());
+            solver.add_var_bound(v, lp::GE, rational::zero());
+            solver.add_var_bound(v, lp::LE, rational::one());
             switch (value(v)) {
-            case l_true: solver.add_var_bound(v, lean::GE, rational::one()); break;
-            case l_false: solver.add_var_bound(v, lean::LE, rational::zero()); break;
+            case l_true: solver.add_var_bound(v, lp::GE, rational::one()); break;
+            case l_false: solver.add_var_bound(v, lp::LE, rational::zero()); break;
             default: break;
             }
         }
@@ -2263,7 +2263,7 @@ namespace sat {
                     int co = p.get_coeff(i);
                     lp_add_var(l.sign() ? -co : co, vars[l.var()], lhs, rhs);
                 }
-                solver.add_constraint(lhs, lean::GE, rhs);
+                solver.add_constraint(lhs, lp::GE, rhs);
                 break;
             }
             default:
@@ -2274,8 +2274,8 @@ namespace sat {
         std::cout << "lp solve\n";
         std::cout.flush();
 
-        lean::lp_status st = solver.solve();
-        if (st == lean::INFEASIBLE) {
+        lp::lp_status st = solver.solve();
+        if (st == lp::lp_status::INFEASIBLE) {
             std::cout << "infeasible\n";
             s().set_conflict(justification());
             return;
@@ -2283,30 +2283,30 @@ namespace sat {
         std::cout << "feasible\n";
         std::cout.flush();
         for (unsigned i = 0; i < s().num_vars(); ++i) {
-            lean::var_index v = vars[i];
+            lp::var_index v = vars[i];
             if (value(v) != l_undef) continue;
             // TBD: take initial model into account to limit queries.
             std::cout << "solve v" << v << "\n";
             std::cout.flush();
             solver.push();
-            solver.add_var_bound(v, lean::GE, rational::one());
+            solver.add_var_bound(v, lp::GE, rational::one());
             st = solver.solve();
             solver.pop(1);
-            if (st == lean::INFEASIBLE) {
+            if (st == lp::lp_status::INFEASIBLE) {
                 std::cout << "found unit: " << literal(v, true) << "\n";
                 s().assign(literal(v, true), justification());
-                solver.add_var_bound(v, lean::LE, rational::zero());
+                solver.add_var_bound(v, lp::LE, rational::zero());
                 continue;
             }
 
             solver.push();
-            solver.add_var_bound(v, lean::LE, rational::zero());
+            solver.add_var_bound(v, lp::LE, rational::zero());
             st = solver.solve();
             solver.pop(1);
-            if (st == lean::INFEASIBLE) {
+            if (st == lp::lp_status::INFEASIBLE) {
                 std::cout << "found unit: " << literal(v, false) << "\n";
                 s().assign(literal(v, false), justification());
-                solver.add_var_bound(v, lean::GE, rational::zero());
+                solver.add_var_bound(v, lp::GE, rational::zero());
                 continue;
             }
         }

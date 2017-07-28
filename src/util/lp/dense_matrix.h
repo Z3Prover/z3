@@ -6,7 +6,7 @@
 #ifdef LEAN_DEBUG
 #include "util/vector.h"
 #include "util/lp/matrix.h"
-namespace lean {
+namespace lp {
 // used for debugging purposes only
 template <typename T, typename X>
 class dense_matrix: public matrix<T, X> {
@@ -31,7 +31,7 @@ public:
     dense_matrix(unsigned m, unsigned n);
 
     dense_matrix operator*=(matrix<T, X> const & a) {
-        lean_assert(column_count() == a.row_count());
+        lp_assert(column_count() == a.row_count());
         dense_matrix c(row_count(), a.column_count());
         for (unsigned i = 0; i < row_count(); i++) {
             for (unsigned j = 0; j < a.column_count(); j++) {

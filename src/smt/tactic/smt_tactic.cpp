@@ -253,7 +253,7 @@ public:
                 if (m_ctx->canceled()) {
                     throw tactic_exception(Z3_CANCELED_MSG);
                 }
-                if (m_fail_if_inconclusive) {
+                if (m_fail_if_inconclusive && !m_candidate_models) {
                     std::stringstream strm;
                     strm << "smt tactic failed to show goal to be sat/unsat " << m_ctx->last_failure_as_string();
                     throw tactic_exception(strm.str().c_str());

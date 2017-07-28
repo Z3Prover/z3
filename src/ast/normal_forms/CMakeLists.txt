@@ -1,0 +1,13 @@
+z3_add_component(normal_forms
+  SOURCES
+    defined_names.cpp
+    name_exprs.cpp
+    nnf.cpp
+    pull_quant.cpp
+  COMPONENT_DEPENDENCIES
+    rewriter
+  PYG_FILES
+    nnf_params.pyg
+  EXTRA_REGISTER_MODULE_HEADERS
+    nnf.h
+)

@@ -120,9 +120,9 @@ class interval_tester {
     
     interval singleton(int i) { return interval(m, rational(i)); }
     interval all() { return interval(m); }
-    interval l(int i, bool o = false, int idx = 0) { return interval(m, rational(i), o, true, idx == 0 ? 0 : m.mk_leaf(reinterpret_cast<void*>(idx))); }
-    interval r(int i, bool o = false, int idx = 0) { return interval(m, rational(i), o, false, idx == 0 ? 0 : m.mk_leaf(reinterpret_cast<void*>(idx))); }
-    interval b(int l, int u, bool lo = false, bool uo = false, int idx_l = 0, int idx_u = 0) {
+    interval l(int i, bool o = false, size_t idx = 0) { return interval(m, rational(i), o, true, idx == 0 ? 0 : m.mk_leaf(reinterpret_cast<void*>(idx))); }
+    interval r(int i, bool o = false, size_t idx = 0) { return interval(m, rational(i), o, false, idx == 0 ? 0 : m.mk_leaf(reinterpret_cast<void*>(idx))); }
+    interval b(int l, int u, bool lo = false, bool uo = false, size_t idx_l = 0, size_t idx_u = 0) {
         return interval(m, rational(l), lo, idx_l == 0 ? 0 : m.mk_leaf(reinterpret_cast<void*>(idx_l)), rational(u), uo, idx_u == 0 ? 0 : m.mk_leaf(reinterpret_cast<void*>(idx_u)));
     }
 

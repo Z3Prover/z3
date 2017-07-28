@@ -7,7 +7,7 @@
 #include "util/vector.h"
 #include "util/debug.h"
 #include "util/lp/lp_utils.h"
-namespace lean {
+namespace lp {
 // the elements with the smallest priority are dequeued first
 template <typename T>
 class binary_heap_priority_queue {
@@ -60,7 +60,7 @@ public:
     /// return the first element of the queue and removes it from the queue
     unsigned dequeue();
     unsigned peek() const {
-        lean_assert(m_heap_size > 0);
+        lp_assert(m_heap_size > 0);
         return m_heap[1];
     }
 #ifdef LEAN_DEBUG

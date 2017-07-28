@@ -14,7 +14,7 @@ Author:
     Christoph Wintersteiger (cwinter) 2012-03-15
 
 Notes:
-    
+
 --*/
 
 using System;
@@ -33,7 +33,7 @@ namespace Microsoft.Z3
         /// </summary>
         /// <param name="a">A Sort</param>
         /// <param name="b">A Sort</param>
-        /// <returns>True if <paramref name="a"/> and <paramref name="b"/> are from the same context 
+        /// <returns>True if <paramref name="a"/> and <paramref name="b"/> are from the same context
         /// and represent the same sort; false otherwise.</returns>
         public static bool operator ==(Sort a, Sort b)
         {
@@ -49,7 +49,7 @@ namespace Microsoft.Z3
         /// </summary>
         /// <param name="a">A Sort</param>
         /// <param name="b">A Sort</param>
-        /// <returns>True if <paramref name="a"/> and <paramref name="b"/> are not from the same context 
+        /// <returns>True if <paramref name="a"/> and <paramref name="b"/> are not from the same context
         /// or represent different sorts; false otherwise.</returns>
         public static bool operator !=(Sort a, Sort b)
         {
@@ -113,10 +113,20 @@ namespace Microsoft.Z3
             return Native.Z3_sort_to_string(Context.nCtx, NativeObject);
         }
 
+        /// <summary>
+        /// Translates (copies) the sort to the Context <paramref name="ctx"/>.
+        /// </summary>
+        /// <param name="ctx">A context</param>
+        /// <returns>A copy of the sort which is associated with <paramref name="ctx"/></returns>
+        new public Sort Translate(Context ctx)
+        {
+            return (Sort)base.Translate(ctx);
+        }
+
         #region Internal
         /// <summary>
         /// Sort constructor
-        /// </summary>        
+        /// </summary>
         internal Sort(Context ctx, IntPtr obj) : base(ctx, obj) { Contract.Requires(ctx != null); }
 
 #if DEBUG
@@ -154,5 +164,5 @@ namespace Microsoft.Z3
             }
         }
         #endregion
-    }    
+    }
 }

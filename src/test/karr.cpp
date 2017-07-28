@@ -58,7 +58,7 @@ namespace karr {
         }
         lbool is_sat = hb.saturate();
         hb.display(std::cout);
-        SASSERT(is_sat == l_true);
+        VERIFY(is_sat == l_true);
         dst.reset();
         unsigned basis_size = hb.get_basis_size();
         for (unsigned i = 0; i < basis_size; ++i) {
@@ -85,7 +85,7 @@ namespace karr {
         }
         lbool is_sat = hb.saturate();
         hb.display(std::cout);
-        SASSERT(is_sat == l_true);
+        VERIFY(is_sat == l_true);
         dst.reset();
         unsigned basis_size = hb.get_basis_size();
         bool first_initial = true;

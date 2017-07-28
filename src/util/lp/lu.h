@@ -18,7 +18,7 @@
 #include "util/lp/row_eta_matrix.h"
 #include "util/lp/square_dense_submatrix.h"
 #include "util/lp/dense_matrix.h"
-namespace lean {
+namespace lp {
 #ifdef LEAN_DEBUG
 template <typename T, typename X> // print the nr x nc submatrix at the top left corner
 void print_submatrix(sparse_matrix<T, X> & m, unsigned mr, unsigned nc);
@@ -32,7 +32,7 @@ void print_matrix(sparse_matrix<T, X>& m, std::ostream & out);
 
 template <typename T, typename X>
 X dot_product(const vector<T> & a, const vector<X> & b) {
-    lean_assert(a.size() == b.size());
+    lp_assert(a.size() == b.size());
     auto r = zero_of_type<X>();
     for (unsigned i = 0; i < a.size(); i++) {
         r += a[i] * b[i];
@@ -99,7 +99,7 @@ public:
         m_i = p.apply_reverse(m_i);
 
 #ifdef LEAN_DEBUG
-        // lean_assert(*this == deb);
+        // lp_assert(*this == deb);
 #endif
     }
 }; // end of one_elem_on_diag
@@ -291,7 +291,7 @@ public:
     bool need_to_refactor() { return m_refactor_counter >= 200; }
     
     void adjust_dimension_with_matrix_A() {
-        lean_assert(m_A.row_count() >= m_dim);
+        lp_assert(m_A.row_count() >= m_dim);
         m_dim = m_A.row_count();
         m_U.resize(m_dim);
         m_Q.resize(m_dim);
@@ -305,7 +305,7 @@ public:
         unsigned m = m_A.row_count();
         unsigned m_prev = m_U.dimension();
 
-        lean_assert(m_A.column_count() == heading.size());
+        lp_assert(m_A.column_count() == heading.size());
 
         for (unsigned i = m_prev; i < m; i++) {
             for (const row_cell<T> & c : m_A.m_rows[i]) {
@@ -321,14 +321,14 @@ public:
     
     void add_last_rows_to_B(const vector<int> & heading, const std::unordered_set<unsigned> & columns_to_replace) {
         unsigned m = m_A.row_count();
-        lean_assert(m_A.column_count() == heading.size());
+        lp_assert(m_A.column_count() == heading.size());
         adjust_dimension_with_matrix_A();
         m_w_for_extension.resize(m);
         // At this moment the LU is correct      
         // for B extended by only by ones at the diagonal in the lower right corner
 
         for (unsigned j :columns_to_replace) {
-            lean_assert(heading[j] >= 0);
+            lp_assert(heading[j] >= 0);
             replace_column_with_only_change_at_last_rows(j, heading[j]);
             if (get_status() == LU_status::Degenerated)
                 break;

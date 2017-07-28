@@ -34,10 +34,6 @@ static void add_clause(sat::solver& s, random_gen& r, trail_t& t) {
     s.mk_clause(cls.size(), cls.c_ptr());
 }
 
-static void display_state(std::ostream& out, sat::solver& s, trail_t& t) {
-    s.display(out);
-}
-
 static void pop_user_scope(sat::solver& s, trail_t& t) {
     std::cout << "pop\n";
     s.user_pop(1);

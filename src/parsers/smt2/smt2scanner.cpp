@@ -23,7 +23,7 @@ namespace smt2 {
 
     void scanner::next() {
         if (m_cache_input)
-            m_cache.push_back(m_curr);                
+            m_cache.push_back(m_curr);
         SASSERT(!m_at_eof);
         if (m_interactive) {
             m_curr = m_stream.get();
@@ -293,11 +293,11 @@ namespace smt2 {
     }
 
     scanner::token scanner::scan() {
-        while (true) {            
+        while (true) {
             signed char c = curr();
             m_pos = m_spos;
 
-            if (m_at_eof)                
+            if (m_at_eof)
                 return EOF_TOKEN;
 
             switch (m_normalized[(unsigned char) c]) {

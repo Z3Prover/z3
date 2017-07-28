@@ -1,0 +1,15 @@
+z3_add_component(sls_tactic
+  SOURCES
+    bvsls_opt_engine.cpp
+    sls_engine.cpp
+    sls_tactic.cpp
+  COMPONENT_DEPENDENCIES
+    bv_tactics
+    core_tactics
+    normal_forms
+    tactic
+  PYG_FILES
+    sls_params.pyg
+  TACTIC_HEADERS
+    sls_tactic.h
+)

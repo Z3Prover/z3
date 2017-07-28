@@ -169,7 +169,7 @@ public:
         for (; bit != bend; ++bit) {
             if (!is_app(*bit)) continue;
             app* x = to_app(*bit);
-            bool s1, s2;
+            bool s1 = false, s2 = false;
             rational lo, hi;
             if (a.is_int(x) && 
                 bounds.has_lower(x, lo, s1) && !s1 && zero <= lo &&

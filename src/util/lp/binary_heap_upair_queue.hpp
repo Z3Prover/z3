@@ -6,7 +6,7 @@
 #include <set>
 #include "util/lp/lp_utils.h"
 #include "util/lp/binary_heap_upair_queue.h"
-namespace lean {
+namespace lp {
 template <typename T> binary_heap_upair_queue<T>::binary_heap_upair_queue(unsigned size) : m_q(size), m_pairs(size) {
     for (unsigned i = 0; i < size; i++)
         m_available_spots.push_back(i);
@@ -14,7 +14,7 @@ template <typename T> binary_heap_upair_queue<T>::binary_heap_upair_queue(unsign
 
 template <typename T> unsigned
 binary_heap_upair_queue<T>::dequeue_available_spot() {
-    lean_assert(m_available_spots.empty() == false);
+    lp_assert(m_available_spots.empty() == false);
     unsigned ret = m_available_spots.back();
     m_available_spots.pop_back();
     return ret;
@@ -54,7 +54,7 @@ template <typename T> void binary_heap_upair_queue<T>::enqueue(unsigned i, unsig
             m_pairs.resize(new_size);
         }
         ij_index = dequeue_available_spot();
-        // lean_assert(ij_index<m_pairs.size() && ij_index_is_new(ij_index));
+        // lp_assert(ij_index<m_pairs.size() && ij_index_is_new(ij_index));
         m_pairs[ij_index] = p;
         m_pairs_to_index[p] = ij_index;
     } else {
@@ -64,7 +64,7 @@ template <typename T> void binary_heap_upair_queue<T>::enqueue(unsigned i, unsig
 }
 
 template <typename T> void binary_heap_upair_queue<T>::dequeue(unsigned & i, unsigned &j) {
-    lean_assert(!m_q.is_empty());
+    lp_assert(!m_q.is_empty());
     unsigned ij_index = m_q.dequeue();
     upair & p = m_pairs[ij_index];
     i = p.first;

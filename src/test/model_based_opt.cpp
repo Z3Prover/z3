@@ -20,6 +20,7 @@ static void add_ineq(opt::model_based_opt& mbo,
     mbo.add_constraint(vars, rational(k), rel);
 }
 
+#if 0
 static void add_ineq(opt::model_based_opt& mbo, 
                      unsigned x, int a, 
                      unsigned y, int b, 
@@ -31,6 +32,7 @@ static void add_ineq(opt::model_based_opt& mbo,
     vars.push_back(var(z, rational(c)));
     mbo.add_constraint(vars, rational(k), rel);
 }
+#endif
 
 static void add_random_ineq(opt::model_based_opt& mbo,
                             random_gen& r,
@@ -295,7 +297,7 @@ static void test8() {
     unsigned z = mbo.add_var(rational(4));
     unsigned u = mbo.add_var(rational(5));
     unsigned v = mbo.add_var(rational(6));
-    unsigned w = mbo.add_var(rational(6));
+    //    unsigned w = mbo.add_var(rational(6));
 
     add_ineq(mbo, x0, 1, y, -1, 0, opt::t_le);
     add_ineq(mbo, x, 1, y, -1, 0, opt::t_lt);

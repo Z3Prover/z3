@@ -1,6 +1,6 @@
 /*
   Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
+  Author: Nikolaj Bjorner
 */
 
 #pragma once
@@ -10,7 +10,7 @@
 #include "util/params.h"
 #include "nlsat/nlsat_solver.h"
 
-namespace lean {
+namespace lp {
     class lar_solver;
 }
 
@@ -25,7 +25,7 @@ namespace nra {
 
     public:
 
-        solver(lean::lar_solver& s, reslimit& lim, params_ref const& p = params_ref());
+        solver(lp::lar_solver& s, reslimit& lim, params_ref const& p = params_ref());
         
         ~solver();
 
@@ -33,13 +33,13 @@ namespace nra {
           \brief Add a definition v = vs[0]*vs[1]*...*vs[sz-1]
           The variable v is equal to the product of variables vs.
         */
-        void add_monomial(lean::var_index v, unsigned sz, lean::var_index const* vs);
+        void add_monomial(lp::var_index v, unsigned sz, lp::var_index const* vs);
 
         /*
           \brief Check feasiblity of linear constraints augmented by polynomial definitions
           that are added.
          */
-        lbool check(lean::explanation_t& ex);
+        lbool check(lp::explanation_t& ex);
 
         /*
           \brief determine whether nra check is needed.
@@ -49,7 +49,9 @@ namespace nra {
         /*
           \brief Access model.
         */
-        nlsat::anum const& value(lean::var_index v) const;
+        nlsat::anum const& value(lp::var_index v) const;
+
+        nlsat::anum_manager& am();        
 
         /*
           \brief push and pop scope. 

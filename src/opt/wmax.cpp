@@ -216,7 +216,7 @@ namespace opt {
         rational remove_negations(smt::theory_wmaxsat& th, expr_ref_vector const& core, ptr_vector<expr>& keys, vector<rational>& weights) {
             rational min_weight(-1);
             for (unsigned i = 0; i < core.size(); ++i) {
-                expr* e;
+                expr* e = 0;
                 VERIFY(m.is_not(core[i], e));
                 keys.push_back(m_keys[e]);
                 rational weight = m_weights[e];

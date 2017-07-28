@@ -12,7 +12,7 @@
 #include "util/lp/lp_primal_core_solver.h"
 #include "util/lp/lp_solver.h"
 #include "util/lp/iterator_on_row.h"
-namespace lean {
+namespace lp {
 template <typename T, typename X>
 class lp_primal_simplex: public lp_solver<T, X> {
     lp_primal_core_solver<T, X> * m_core_solver;

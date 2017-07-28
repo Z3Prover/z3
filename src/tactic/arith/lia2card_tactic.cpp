@@ -176,7 +176,7 @@ public:
         bound_manager::iterator bit = bounds.begin(), bend = bounds.end();
         for (; bit != bend; ++bit) {
             expr* x = *bit;
-            bool s1, s2;
+            bool s1 = false, s2 = false;
             rational lo, hi;
             if (a.is_int(x) && 
                 bounds.has_lower(x, lo, s1) && !s1 && lo.is_zero() &&

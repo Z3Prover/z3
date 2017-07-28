@@ -35,6 +35,7 @@ static void tst1() {
     list<int> * l5 = append(r, l4, l2);
     TRACE("list", display(tout, l5->begin(), l5->end()); tout << "\n";);
     list<int> * l6 = append(r, l5, l5);
+    (void) l6;
     TRACE("list", display(tout, l6->begin(), l6->end()); tout << "\n";);
 }
 

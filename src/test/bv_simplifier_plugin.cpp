@@ -133,7 +133,7 @@ public:
         params[0] = parameter(2);
         ar = m_manager.mk_app(m_fid, OP_REPEAT, 1, params, 1, es);
         m_simp.reduce(ar->get_decl(), ar->get_num_args(), ar->get_args(), e);
-        SASSERT(((a64 << 32) | a64) == u64(e.get()));
+        VERIFY(((a64 << 32) | a64) == u64(e.get()));
 
         ar = m_manager.mk_app(m_fid, OP_BREDOR, e1.get());
         m_simp.reduce(ar->get_decl(), ar->get_num_args(), ar->get_args(), e);
@@ -163,11 +163,11 @@ public:
 
         ar = m_manager.mk_app(m_fid, OP_BIT0);
         m_simp.reduce(ar->get_decl(), ar->get_num_args(), ar->get_args(), e);        
-        SASSERT(!bit2bool(e.get()));
+        VERIFY(!bit2bool(e.get()));
 
         ar = m_manager.mk_app(m_fid, OP_BIT1);
         m_simp.reduce(ar->get_decl(), ar->get_num_args(), ar->get_args(), e);        
-        SASSERT(bit2bool(e.get()));
+        VERIFY(bit2bool(e.get()));
 
     }
 
@@ -187,113 +187,113 @@ public:
         
         ar = m_manager.mk_app(m_fid, OP_BADD, 2, e1e2);
         m_simp.reduce(ar->get_decl(), ar->get_num_args(), ar->get_args(), e);
-        SASSERT((a + b) == u32(e.get()));
+        VERIFY((a + b) == u32(e.get()));
         
         ar = m_manager.mk_app(m_fid, OP_BSUB, 2, e1e2);
         m_simp.reduce(ar->get_decl(), ar->get_num_args(), ar->get_args(), e);
-        SASSERT((a - b) == u32(e.get()));
+        VERIFY((a - b) == u32(e.get()));
 
         ar = m_manager.mk_app(m_fid, OP_BMUL, 2, e1e2);
         m_simp.reduce(ar->get_decl(), ar->get_num_args(), ar->get_args(), e);
-        SASSERT((a * b) == u32(e.get()));
+        VERIFY((a * b) == u32(e.get()));
 
         ar = m_manager.mk_app(m_fid, OP_BAND, 2, e1e2);
         m_simp.reduce(ar->get_decl(), ar->get_num_args(), ar->get_args(), e);
-        SASSERT((a & b) == u32(e.get()));
+        VERIFY((a & b) == u32(e.get()));
 
         ar = m_manager.mk_app(m_fid, OP_BOR, 2, e1e2);
         m_simp.reduce(ar->get_decl(), ar->get_num_args(), ar->get_args(), e);
-        SASSERT((a | b) == u32(e.get()));
+        VERIFY((a | b) == u32(e.get()));
 
         ar = m_manager.mk_app(m_fid, OP_BNOR, 2, e1e2);
         m_simp.reduce(ar->get_decl(), ar->get_num_args(), ar->get_args(), e);
-        SASSERT(~(a | b) == u32(e.get()));
+        VERIFY(~(a | b) == u32(e.get()));
 
         ar = m_manager.mk_app(m_fid, OP_BXOR, 2, e1e2);
         m_simp.reduce(ar->get_decl(), ar->get_num_args(), ar->get_args(), e);
-        SASSERT((a ^ b) == u32(e.get()));
+        VERIFY((a ^ b) == u32(e.get()));
 
         ar = m_manager.mk_app(m_fid, OP_BXNOR, 2, e1e2);
         m_simp.reduce(ar->get_decl(), ar->get_num_args(), ar->get_args(), e);
-        SASSERT((~(a ^ b)) == u32(e.get()));
+        VERIFY((~(a ^ b)) == u32(e.get()));
         
         ar = m_manager.mk_app(m_fid, OP_BNAND, 2, e1e2);
         m_simp.reduce(ar->get_decl(), ar->get_num_args(), ar->get_args(), e);
-        SASSERT((~(a & b)) == u32(e.get()));
+        VERIFY((~(a & b)) == u32(e.get()));
         
         ar = m_manager.mk_app(m_fid, OP_ULEQ, 2, e1e2);
         m_simp.reduce(ar->get_decl(), ar->get_num_args(), ar->get_args(), e);
-        SASSERT((a <= b) == ast2bool(e.get()));
+        VERIFY((a <= b) == ast2bool(e.get()));
 
         ar = m_manager.mk_app(m_fid, OP_UGEQ, 2, e1e2);
         m_simp.reduce(ar->get_decl(), ar->get_num_args(), ar->get_args(), e);
-        SASSERT((a >= b) == ast2bool(e.get()));
+        VERIFY((a >= b) == ast2bool(e.get()));
 
         ar = m_manager.mk_app(m_fid, OP_ULT, 2, e1e2);
         m_simp.reduce(ar->get_decl(), ar->get_num_args(), ar->get_args(), e);
-        SASSERT((a < b) == ast2bool(e.get()));
+        VERIFY((a < b) == ast2bool(e.get()));
 
         ar = m_manager.mk_app(m_fid, OP_UGT, 2, e1e2);
         m_simp.reduce(ar->get_decl(), ar->get_num_args(), ar->get_args(), e);
-        SASSERT((a > b) == ast2bool(e.get()));
+        VERIFY((a > b) == ast2bool(e.get()));
 
         ar = m_manager.mk_app(m_fid, OP_SLEQ, 2, e1e2);
         m_simp.reduce(ar->get_decl(), ar->get_num_args(), ar->get_args(), e);
-        SASSERT((sa <= sb) == ast2bool(e.get()));
+        VERIFY((sa <= sb) == ast2bool(e.get()));
 
         ar = m_manager.mk_app(m_fid, OP_SGEQ, 2, e1e2);
         m_simp.reduce(ar->get_decl(), ar->get_num_args(), ar->get_args(), e);
-        SASSERT((sa >= sb) == ast2bool(e.get()));
+        VERIFY((sa >= sb) == ast2bool(e.get()));
 
         ar = m_manager.mk_app(m_fid, OP_SLT, 2, e1e2);
         m_simp.reduce(ar->get_decl(), ar->get_num_args(), ar->get_args(), e);
-        SASSERT((sa < sb) == ast2bool(e.get()));
+        VERIFY((sa < sb) == ast2bool(e.get()));
 
         ar = m_manager.mk_app(m_fid, OP_SGT, 2, e1e2);
         m_simp.reduce(ar->get_decl(), ar->get_num_args(), ar->get_args(), e);
-        SASSERT((sa > sb) == ast2bool(e.get()));
+        VERIFY((sa > sb) == ast2bool(e.get()));
 
         ar = m_manager.mk_app(m_fid, OP_BSHL, 2, e1e2);
         m_simp.reduce(ar->get_decl(), ar->get_num_args(), ar->get_args(), e);
-        SASSERT(((b>=32)?0:(a << b)) == u32(e.get()));
+        VERIFY(((b>=32)?0:(a << b)) == u32(e.get()));
 
         ar = m_manager.mk_app(m_fid, OP_BLSHR, 2, e1e2);
         m_simp.reduce(ar->get_decl(), ar->get_num_args(), ar->get_args(), e);
-        SASSERT(((b>=32)?0:(a >> b)) == u32(e.get()));
+        VERIFY(((b>=32)?0:(a >> b)) == u32(e.get()));
 
         ar = m_manager.mk_app(m_fid, OP_BASHR, 2, e1e2);
         m_simp.reduce(ar->get_decl(), ar->get_num_args(), ar->get_args(), e);
 
         std::cout << "compare: " << sa << " >> " << b << " = " << (sa >> b) << " with " << i32(e.get()) << "\n";
-        SASSERT(b >= 32 || ((sa >> b) == i32(e.get())));
+        VERIFY(b >= 32 || ((sa >> b) == i32(e.get())));
 
         if (b != 0) {
             ar = m_manager.mk_app(m_fid, OP_BSDIV, 2, e1e2);
             m_simp.reduce(ar->get_decl(), ar->get_num_args(), ar->get_args(), e);
-            SASSERT((sa / sb) == i32(e.get()));
+            VERIFY((sa / sb) == i32(e.get()));
 
             ar = m_manager.mk_app(m_fid, OP_BUDIV, 2, e1e2);
             m_simp.reduce(ar->get_decl(), ar->get_num_args(), ar->get_args(), e);
-            SASSERT((a / b) == u32(e.get()));
+            VERIFY((a / b) == u32(e.get()));
 
             ar = m_manager.mk_app(m_fid, OP_BSREM, 2, e1e2);
             m_simp.reduce(ar->get_decl(), ar->get_num_args(), ar->get_args(), e);
-            //SASSERT((sa % sb) == i32(e.get()));
+            //VERIFY((sa % sb) == i32(e.get()));
 
             ar = m_manager.mk_app(m_fid, OP_BUREM, 2, e1e2);
             m_simp.reduce(ar->get_decl(), ar->get_num_args(), ar->get_args(), e);
-            SASSERT((a % b) == u32(e.get()));
+            VERIFY((a % b) == u32(e.get()));
 
             // TBD: BSMOD.
         }
 
         ar = m_manager.mk_app(m_fid, OP_CONCAT, 2, e1e2);
         m_simp.reduce(ar->get_decl(), ar->get_num_args(), ar->get_args(), e);
-        SASSERT(((a64 << 32) | b64) == u64(e.get()));
+        VERIFY(((a64 << 32) | b64) == u64(e.get()));
 
         ar = m_manager.mk_app(m_fid, OP_BCOMP, 2, e1e2);
         m_simp.reduce(ar->get_decl(), ar->get_num_args(), ar->get_args(), e);
-        SASSERT((a == b) == bit2bool(e.get()));
+        VERIFY((a == b) == bit2bool(e.get()));
     }
 
     void test() {
