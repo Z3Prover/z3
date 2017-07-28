@@ -123,6 +123,10 @@ sort * psort::find(sort * const * s) const {
 }
 
 void psort::finalize(pdecl_manager & m) {
+    reset_cache(m);
+}
+
+void psort::reset_cache(pdecl_manager& m) {
     m.del_inst_cache(m_inst_cache);
     m_inst_cache = 0;
 }
@@ -171,10 +175,11 @@ public:
         if (other->hcons_kind() != hcons_kind()) 
             return false;
         return get_num_params() == other->get_num_params() && m_idx == static_cast<psort_var const *>(other)->m_idx;
-    }
+    }    
     virtual void display(std::ostream & out) const {
         out << "s_" << m_idx;
     }
+    unsigned idx() const { return m_idx; }
 };
 
 class psort_app : public psort {
@@ -268,6 +273,10 @@ psort_decl::psort_decl(unsigned id, unsigned num_params, pdecl_manager & m, symb
 }
 
 void psort_decl::finalize(pdecl_manager & m) {
+    reset_cache(m);
+}
+
+void psort_decl::reset_cache(pdecl_manager& m) {
     m.del_inst_cache(m_inst_cache);
     m_inst_cache = 0;
 }
@@ -283,6 +292,27 @@ sort * psort_decl::find(sort * const * s) {
         return 0;
     return m_inst_cache->find(s);
 }
+
+#if 0
+psort_dt_decl::psort_dt_decl(unsigned id, unsigned num_params, pdecl_manager& m, symbol const& n):
+    psort_decl(id, num_params, m, n) { 
+}
+
+void psort_dt_decl::finalize(pdecl_manager& m) {
+    psort_decl::finalize(m);
+}
+
+
+sort * psort_dt_decl::instantiate(pdecl_manager & m, unsigned n, sort * const * s) {
+    UNREACHABLE();
+    return 0;
+}
+
+void psort_dt_decl::display(std::ostream & out) const {
+    out << get_name() << " " << get_num_params();
+}
+#endif
+
 
 psort_user_decl::psort_user_decl(unsigned id, unsigned num_params, pdecl_manager & m, symbol const & n, psort * p):
     psort_decl(id, num_params, m, n),
@@ -389,13 +419,15 @@ paccessor_decl::paccessor_decl(unsigned id, unsigned num_params, pdecl_manager &
     pdecl(id, num_params),
     m_name(n), 
     m_type(r) {
-    if (m_type.kind() == PTR_PSORT) 
+    if (m_type.kind() == PTR_PSORT) {
         m.inc_ref(r.get_psort());
+    }
 }
 
 void paccessor_decl::finalize(pdecl_manager & m) { 
-    if (m_type.kind() == PTR_PSORT) 
-        m.lazy_dec_ref(m_type.get_psort()); 
+    if (m_type.kind() == PTR_PSORT) {
+        m.lazy_dec_ref(m_type.get_psort());	
+    }
 }
 
 bool paccessor_decl::has_missing_refs(symbol & missing) const {
@@ -576,13 +608,13 @@ sort * pdatatype_decl::instantiate(pdecl_manager & m, unsigned n, sort * const *
         dts.m_buffer.push_back(instantiate_decl(m, s));
         datatype_decl * d_ptr = dts.m_buffer[0];
         sort_ref_vector sorts(m.m());
-        bool is_ok = m.get_dt_plugin()->mk_datatypes(1, &d_ptr, sorts);
+        bool is_ok = m.get_dt_plugin()->mk_datatypes(1, &d_ptr, m_num_params, s, sorts);
         TRACE("pdatatype_decl", tout << "instantiating " << m_name << " is_ok: " << is_ok << "\n";);
         if (is_ok) {
             r = sorts.get(0);
             cache(m, s, r);
             m.save_info(r, this, n, s);
-            m.notify_new_dt(r);
+            m.notify_new_dt(r, this);
             return r;
         }
     }
@@ -651,7 +683,7 @@ bool pdatatypes_decl::instantiate(pdecl_manager & m, sort * const * s) {
         dts.m_buffer.push_back((*it)->instantiate_decl(m, s));
     }
     sort_ref_vector sorts(m.m());
-    bool is_ok = m.get_dt_plugin()->mk_datatypes(dts.m_buffer.size(), dts.m_buffer.c_ptr(), sorts);
+    bool is_ok = m.get_dt_plugin()->mk_datatypes(dts.m_buffer.size(), dts.m_buffer.c_ptr(), m_num_params, s, sorts);
     if (!is_ok)
         return false;
     it  = m_datatypes.begin();
@@ -659,7 +691,7 @@ bool pdatatypes_decl::instantiate(pdecl_manager & m, sort * const * s) {
         sort * new_dt = sorts.get(i);
         (*it)->cache(m, s, new_dt);
         m.save_info(new_dt, *it, m_num_params, s);
-        m.notify_new_dt(new_dt);
+        m.notify_new_dt(new_dt, *it);
     }
     return true;
 }
@@ -853,6 +885,11 @@ psort_decl * pdecl_manager::mk_psort_user_decl(unsigned num_params, symbol const
     return new (a().allocate(sizeof(psort_user_decl))) psort_user_decl(m_id_gen.mk(), num_params, *this, n, def);
 }
 
+
+//psort_decl * pdecl_manager::mk_psort_dt_decl(unsigned num_params, symbol const & n) {
+//    return new (a().allocate(sizeof(psort_dt_decl))) psort_dt_decl(m_id_gen.mk(), num_params, *this, n);
+//}
+
 psort_decl * pdecl_manager::mk_psort_builtin_decl(symbol const & n, family_id fid, decl_kind k) {
     return new (a().allocate(sizeof(psort_builtin_decl))) psort_builtin_decl(m_id_gen.mk(), *this, n, fid, k);
 }
@@ -861,6 +898,7 @@ sort * pdecl_manager::instantiate(psort * p, unsigned num, sort * const * args) 
     // ignoring stack overflows... sorts are not deeply nested
     return p->instantiate(*this, args);
 }
+
 
 void pdecl_manager::del_decl_core(pdecl * p) {
     TRACE("pdecl_manager", 

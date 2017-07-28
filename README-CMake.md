@@ -265,6 +265,8 @@ The following useful options can be passed to CMake whilst configuring.
 * ``ALWAYS_BUILD_DOCS`` - BOOL. If set to ``TRUE`` and ``BUILD_DOCUMENTATION`` is ``TRUE`` then documentation for API bindings will always be built.
     Disabling this is useful for faster incremental builds. The documentation can be manually built by invoking the ``api_docs`` target.
 * ``LINK_TIME_OPTIMIZATION`` - BOOL. If set to ``TRUE`` link time optimization will be enabled.
+* ``ENABLE_CFI`` - BOOL. If set to ``TRUE`` will enable Control Flow Integrity security checks. This is only supported by MSVC and Clang and will
+    fail on other compilers. This requires LINK_TIME_OPTIMIZATION to also be enabled.
 * ``API_LOG_SYNC`` - BOOL. If set to ``TRUE`` will enable experimental API log sync feature.
 * ``WARNINGS_AS_ERRORS`` - STRING. If set to ``TRUE`` compiler warnings will be treated as errors. If set to ``False`` compiler warnings will not be treated as errors.
     If set to ``SERIOUS_ONLY`` a subset of compiler warnings will be treated as errors.

@@ -413,6 +413,38 @@ endif()
 include(${CMAKE_SOURCE_DIR}/cmake/compiler_lto.cmake)
 
 ################################################################################
+# Control flow integrity
+################################################################################
+option(ENABLE_CFI "Enable control flow integrity checking" OFF)
+if (ENABLE_CFI)
+  set(build_types_with_cfi "RELEASE" "RELWITHDEBINFO")
+  if (NOT LINK_TIME_OPTIMIZATION)
+    message(FATAL_ERROR "Cannot enable control flow integrity checking without link-time optimization."
+      "You should set LINK_TIME_OPTIMIZATION to ON or ENABLE_CFI to OFF.")
+  endif()
+  if (DEFINED CMAKE_CONFIGURATION_TYPES)
+    # Multi configuration generator
+    message(STATUS "Note CFI is only enabled for the following configurations: ${build_types_with_cfi}")
+    # No need for else because this is the same as the set that LTO requires.
+  endif()
+  if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
+    z3_add_cxx_flag("-fsanitize=cfi" REQUIRED)
+    z3_add_cxx_flag("-fsanitize-cfi-cross-dso" REQUIRED)
+  elseif ("x${CMAKE_CXX_COMPILER_ID}" STREQUAL "xMSVC")
+    z3_add_cxx_flag("/guard:cf" REQUIRED)
+    message(STATUS "Enabling CFI for MSVC")
+    foreach (_build_type ${build_types_with_cfi})
+      message(STATUS "Enabling CFI for MSVC")
+      string(APPEND CMAKE_EXE_LINKER_FLAGS_${_build_type} " /GUARD:CF")
+      string(APPEND CMAKE_SHARED_LINKER_FLAGS_${_build_type} " /GUARD:CF")
+    endforeach()
+  else()
+    message(FATAL_ERROR "Can't enable control flow integrity for compiler \"${CMAKE_CXX_COMPILER_ID}\"."
+      "You should set ENABLE_CFI to OFF or use Clang or MSVC to compile.")
+  endif()
+endif()
+
+################################################################################
 # MSVC specific flags inherited from old build system
 ################################################################################
 # FIXME: Remove "x.." when CMP0054 is set to NEW

@@ -79,14 +79,10 @@ bool is_debug_enabled(const char * tag);
 
 #define NOT_IMPLEMENTED_YET() { std::cerr << "NOT IMPLEMENTED YET!\n"; UNREACHABLE(); exit(ERR_NOT_IMPLEMENTED_YET); } ((void) 0)
 
-#ifdef Z3DEBUG
 #define VERIFY(_x_) if (!(_x_)) {                               \
         std::cerr << "Failed to verify: " << #_x_ << "\n";      \
         UNREACHABLE();                                          \
     }                                                           
-#else
-#define VERIFY(_x_) (void)(_x_)
-#endif
 
 #define ENSURE(_x_)                                         \
     if (!(_x_)) {                                           \

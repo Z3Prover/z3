@@ -12,7 +12,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "th_rewriter.h"
 
 unsigned populate_literals(unsigned k, smt::literal_vector& lits) {
-    SASSERT(k < (1u << lits.size()));
+    ENSURE(k < (1u << lits.size()));
     unsigned t = 0;
     for (unsigned i = 0; i < lits.size(); ++i) {
         if (k & (1 << i)) {
@@ -159,7 +159,7 @@ void tst_theory_pb() {
                 smt::context ctx(m, params);            
                 ctx.push();
                 smt::literal l = smt::theory_pb::assert_ge(ctx, k, lits.size(), lits.c_ptr());
-                SASSERT(l != smt::false_literal);
+                ENSURE(l != smt::false_literal);
                 ctx.assign(l, 0, false);
                 TRACE("pb", ctx.display(tout););
                 VERIFY(l_true == ctx.check());

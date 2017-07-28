@@ -46,6 +46,7 @@ public:
     unsigned get_ref_count() const { return m_ref_count; }
     unsigned hash() const { return m_id; }
     virtual void display(std::ostream & out) const {}
+    virtual void reset_cache(pdecl_manager& m) {}
 };
 
 class psort_inst_cache;
@@ -75,6 +76,7 @@ public:
     virtual char const * hcons_kind() const = 0;
     virtual unsigned hcons_hash() const = 0;
     virtual bool hcons_eq(psort const * other) const = 0;
+    virtual void reset_cache(pdecl_manager& m);
 };
 
 // for hash consing
@@ -102,6 +104,7 @@ public:
     // Only builtin declarations can have a variable number of parameters.
     bool has_var_params() const { return m_num_params == PSORT_DECL_VAR_PARAMS; }
     symbol const & get_name() const { return m_name; }
+    virtual void reset_cache(pdecl_manager& m);
 };
 
 class psort_user_decl : public psort_decl {
@@ -130,6 +133,20 @@ public:
     virtual sort * instantiate(pdecl_manager & m, unsigned n, unsigned const * s);
     virtual void display(std::ostream & out) const;
 };
+
+#if 0
+class psort_dt_decl : public psort_decl {
+protected:
+    friend class pdecl_manager;
+    psort_dt_decl(unsigned id, unsigned num_params, pdecl_manager & m, symbol const & n);
+    virtual size_t obj_size() const { return sizeof(psort_dt_decl); }
+    virtual void finalize(pdecl_manager & m);
+    virtual ~psort_dt_decl() {}
+public:
+    virtual sort * instantiate(pdecl_manager & m, unsigned n, sort * const * s);
+    virtual void display(std::ostream & out) const;
+};
+#endif
 
 class datatype_decl_plugin;
 class datatype_decl;
@@ -246,7 +263,7 @@ public:
 class new_datatype_eh {
 public:
     virtual ~new_datatype_eh() {}
-    virtual void operator()(sort * dt) = 0;
+    virtual void operator()(sort * dt, pdecl* pd) = 0;
 };
 
 class pdecl_manager {
@@ -279,10 +296,11 @@ public:
     small_object_allocator & a() const { return m_allocator; }
     family_id get_datatype_fid() const { return m_datatype_fid; }
     void set_new_datatype_eh(new_datatype_eh * eh) { m_new_dt_eh = eh; }
-    psort * mk_psort_cnst(sort * s);
+    psort * mk_psort_cnst(sort * s);    
     psort * mk_psort_var(unsigned num_params, unsigned vidx);
     psort * mk_psort_app(unsigned num_params, psort_decl * d, unsigned num_args, psort * const * args);
     psort * mk_psort_app(psort_decl * d);
+    // psort_decl * mk_psort_dt_decl(unsigned num_params, symbol const & n);
     psort_decl * mk_psort_user_decl(unsigned num_params, symbol const & n, psort * def);
     psort_decl * mk_psort_builtin_decl(symbol const & n, family_id fid, decl_kind k);
     paccessor_decl * mk_paccessor_decl(unsigned num_params, symbol const & s, ptype const & p);
@@ -304,7 +322,7 @@ public:
     void dec_ref(unsigned num, T * const * ps) { lazy_dec_ref(num, ps); del_decls(); }
     psort_inst_cache * mk_inst_cache(unsigned num_params);
     void del_inst_cache(psort_inst_cache * c);
-    void notify_new_dt(sort * dt) { if (m_new_dt_eh) (*m_new_dt_eh)(dt); }
+    void notify_new_dt(sort * dt, pdecl* pd) { if (m_new_dt_eh) (*m_new_dt_eh)(dt, pd); }
     datatype_decl_plugin * get_dt_plugin() const;
 
     void save_info(sort * s, psort_decl * d, unsigned num_args, sort * const * args);

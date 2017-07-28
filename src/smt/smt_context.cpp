@@ -1826,6 +1826,7 @@ namespace smt {
     }
     
     void context::rescale_bool_var_activity() {
+        TRACE("case_split", tout << "rescale\n";);
         svector<double>::iterator it  = m_activity.begin();
         svector<double>::iterator end = m_activity.end();
         for (; it != end; ++it)

@@ -66,7 +66,7 @@ void test2() {
     constructor_decl* B = mk_constructor_decl(symbol("B"), symbol("is-B"), 0, 0);
     constructor_decl* constrs[3] = { R, G, B };
     datatype_decl * enum_sort = mk_datatype_decl(symbol("RGB"), 3, constrs);
-    VERIFY(dt.mk_datatypes(1, &enum_sort, new_sorts));    
+    VERIFY(dt.mk_datatypes(1, &enum_sort, 0, 0, new_sorts));    
     del_constructor_decls(3, constrs);
     sort* rgb = new_sorts[0].get();
 
@@ -104,7 +104,7 @@ void test2() {
 
     VERIFY(l_true == fd_solver->check_sat(0,0));
     fd_solver->get_model(mr);
-    SASSERT(mr.get());
+    ENSURE(mr.get());
     model_smt2_pp(std::cout, m, *mr.get(), 0);
 
 }

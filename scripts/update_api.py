@@ -321,16 +321,19 @@ def mk_py_wrappers():
         core_py.write("def %s(" % name)
         display_args(num)
         core_py.write("):\n")
+        core_py.write("  _lib = lib()\n")
+        core_py.write("  if _lib.%s is None:\n" % name)
+        core_py.write("     return\n")
         if result != VOID:
-            core_py.write("  r = lib().%s(" % name)
+            core_py.write("  r = _lib.%s(" % name)
         else:
-            core_py.write("  lib().%s(" % name)
+            core_py.write("  _lib.%s(" % name)
         display_args_to_z3(params)
         core_py.write(")\n")
         if len(params) > 0 and param_type(params[0]) == CONTEXT:
-            core_py.write("  err = lib().Z3_get_error_code(a0)\n")
+            core_py.write("  err = _lib.Z3_get_error_code(a0)\n")
             core_py.write("  if err != Z3_OK:\n")
-            core_py.write("    raise Z3Exception(lib().Z3_get_error_msg(a0, err))\n")
+            core_py.write("    raise Z3Exception(_lib.Z3_get_error_msg(a0, err))\n")
         if result == STRING:
             core_py.write("  return _to_pystr(r)\n")
         elif result != VOID:
@@ -1600,6 +1603,11 @@ def write_exe_c_preamble(exe_c):
   #
   exe_c.write('void Z3_replayer_error_handler(Z3_context ctx, Z3_error_code c) { printf("[REPLAYER ERROR HANDLER]: %s\\n", Z3_get_error_msg(ctx, c)); }\n')
 
+def write_core_py_post(core_py):
+  core_py.write("""
+
+""")
+    
 def write_core_py_preamble(core_py):
   core_py.write('# Automatically generated file\n')
   core_py.write('import sys, os\n')
@@ -1612,18 +1620,19 @@ def write_core_py_preamble(core_py):
 _ext = 'dll' if sys.platform in ('win32', 'cygwin') else 'dylib' if sys.platform == 'darwin' else 'so'
 
 _lib = None
+
 def lib():
   global _lib
   if _lib is None:
-    _dirs = ['.', os.path.dirname(os.path.abspath(__file__)), pkg_resources.resource_filename('z3', 'lib'), os.path.join(sys.prefix, 'lib'), None]
-    for _dir in _dirs:
-      try:
-        init(_dir)
-        break
-      except:
-        pass
-    if _lib is None:
-        raise Z3Exception("init(Z3_LIBRARY_PATH) must be invoked before using Z3-python")
+     _dirs = ['.', os.path.dirname(os.path.abspath(__file__)), pkg_resources.resource_filename('z3', 'lib'), os.path.join(sys.prefix, 'lib'), None]
+     for _dir in _dirs:
+       try:
+          init(_dir)
+          break
+       except:
+          pass
+  if _lib is None:
+    raise Z3Exception("init(Z3_LIBRARY_PATH) must be invoked before using Z3-python")
   return _lib
 
 def _to_ascii(s):
@@ -1728,6 +1737,7 @@ def generate_files(api_files,
           def_APIs(api_files)
           mk_bindings(exe_c)
           mk_py_wrappers()
+          write_core_py_post(core_py)
 
           if mk_util.is_verbose():
             print("Generated '{}'".format(log_h.name))

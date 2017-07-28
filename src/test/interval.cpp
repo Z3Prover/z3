@@ -438,7 +438,7 @@ void tst_pi() {
         im.pi(i, r);
         nm.display_decimal(std::cout, im.lower(r), 32); std::cout << "   ";
         nm.display_decimal(std::cout, im.upper(r), 32); std::cout << "\n";
-        SASSERT(nm.lt(im.lower(r), im.upper(r)));
+        ENSURE(nm.lt(im.lower(r), im.upper(r)));
     }
     del_interval(imc, r);
 }

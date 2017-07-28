@@ -100,10 +100,16 @@ public:
        Contract for sort: 
          parameters[0]            - (int) n - number of recursive types.
          parameters[1]            - (int) i - index 0..n-1 of which type is defined.
-      
+
+         parameters[2]            - (int) p - number of type parameters.
+         
+         for j = 0..p-1
+         parameters[3 + j]        - (sort) s - type parameter
+               
+         c_offset := 3 + p
          for j in 0..n-1
-         parameters[2 + 2*j]      - (symbol) name of the type
-         parameters[2 + 2*j + 1]  - (int) o - offset where the constructors are defined.
+         parameters[c_offset + 2*j]      - (symbol) name of the type
+         parameters[c_offset + 2*j + 1]  - (int) o - offset where the constructors are defined.
       
          for each offset o at parameters[2 + 2*j + 1] for some j in 0..n-1
          parameters[o]            - (int) m - number of constructors
@@ -140,7 +146,7 @@ public:
     virtual func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters, 
                                      unsigned arity, sort * const * domain, sort * range);
     
-    bool mk_datatypes(unsigned num_datatypes, datatype_decl * const * datatypes, sort_ref_vector & new_sorts);
+    bool mk_datatypes(unsigned num_datatypes, datatype_decl * const * datatypes, unsigned num_params, sort* const* sort_params, sort_ref_vector & new_sorts);
 
     virtual expr * get_some_value(sort * s);
 
@@ -151,6 +157,13 @@ public:
     virtual bool is_unique_value(app * e) const { return is_value(e); }
 
     virtual void get_op_names(svector<builtin_name> & op_names, symbol const & logic);
+
+    static unsigned constructor_offset(sort const* s);
+    static unsigned constructor_offset(parameter const& p);
+    static unsigned constructor_offset(parameter const* ps);
+
+    static unsigned constructor_offset(sort const* s, unsigned tid);
+    static unsigned constructor_offset(parameter const* ps, unsigned tid);
 
 private:
     bool is_value_visit(expr * arg, ptr_buffer<app> & todo) const;
@@ -201,8 +214,17 @@ public:
     unsigned get_datatype_num_constructors(sort * ty) { 
         SASSERT(is_datatype(ty));
         unsigned tid = ty->get_parameter(1).get_int();
-        unsigned o = ty->get_parameter(3 + 2 * tid).get_int();
+        unsigned o = datatype_decl_plugin::constructor_offset(ty, tid);
         return ty->get_parameter(o).get_int(); 
+    }
+    unsigned get_datatype_num_parameter_sorts(sort * ty) {
+        SASSERT(is_datatype(ty));
+        return ty->get_parameter(2).get_int();
+    }
+    sort*  get_datatype_parameter_sort(sort * ty, unsigned idx) {
+        SASSERT(is_datatype(ty));
+        SASSERT(idx < get_datatype_num_parameter_sorts(ty));
+        return to_sort(ty->get_parameter(3 + idx).get_ast());
     }
     unsigned get_constructor_idx(func_decl * f) const { SASSERT(is_constructor(f)); return f->get_parameter(1).get_int(); }
     unsigned get_recognizer_constructor_idx(func_decl * f) const { SASSERT(is_recognizer(f)); return f->get_parameter(1).get_int(); }
@@ -217,6 +239,7 @@ public:
     bool is_constructor_of(unsigned num_params, parameter const* params, func_decl* f);
     void reset();
     void display_datatype(sort *s, std::ostream& strm);
+
 
 };
 
