@@ -841,7 +841,7 @@ void mpf_manager::fma(mpf_rounding_mode rm, mpf const & x, mpf const & y, mpf co
         SASSERT(m_mpz_manager.ge(mr.significand(), m_powers2(2*x.sbits - 2)));
 
         // Introduce extra bits into c in _[0].[sbits-1] s.t. c in _[0].[2*sbits-2]
-        c.set(x.ebits + 2, 2 * x.sbits - 1, c.sign(), c.exponent(), c.significand());
+        c.set(x.ebits+2, 2*x.sbits-1, c.sign(), c.exponent(), c.significand());
         m_mpz_manager.mul2k(c.significand(), x.sbits - 1);
 
         TRACE("mpf_dbg", tout << "C_= " << to_string(c) << std::endl;
@@ -888,7 +888,7 @@ void mpf_manager::fma(mpf_rounding_mode rm, mpf const & x, mpf const & y, mpf co
 
             if (m_mpz_manager.is_neg(res.significand())) {
                 m_mpz_manager.abs(res.significand());
-                res.get().sign |= c.sign();
+                res.get().sign = !res.sign();
             }
         }
         else {
