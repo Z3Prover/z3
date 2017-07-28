@@ -556,8 +556,6 @@ void mpf_manager::add_sub(mpf_rounding_mode rm, mpf const & x, mpf const & y, mp
         SASSERT(exp_delta <= INT_MAX);
         scoped_mpz sticky_rem(m_mpz_manager);
         m_mpz_manager.machine_div_rem(b.significand(), m_powers2((int)exp_delta), b.significand(), sticky_rem);
-        if (!m_mpz_manager.is_zero(sticky_rem) && m_mpz_manager.is_even(b.significand()))
-            m_mpz_manager.inc(b.significand());
 
         TRACE("mpf_dbg", tout << "A' = " << m_mpz_manager.to_string(a.significand()) << std::endl;);
         TRACE("mpf_dbg", tout << "B' = " << m_mpz_manager.to_string(b.significand()) << std::endl;);
@@ -566,10 +564,14 @@ void mpf_manager::add_sub(mpf_rounding_mode rm, mpf const & x, mpf const & y, mp
         if (sgn(a) != sgn(b)) {
             TRACE("mpf_dbg", tout << "SUBTRACTING" << std::endl;);
             m_mpz_manager.sub(a.significand(), b.significand(), o.significand);
+            if (!sticky_rem.is_zero() && m_mpz_manager.is_even(o.significand))
+                m_mpz_manager.dec(o.significand);
         }
         else {
             TRACE("mpf_dbg", tout << "ADDING" << std::endl;);
             m_mpz_manager.add(a.significand(), b.significand(), o.significand);
+            if (!sticky_rem.is_zero() && m_mpz_manager.is_even(o.significand))
+                m_mpz_manager.inc(o.significand);
         }
 
         TRACE("mpf_dbg", tout << "sum[-2:sbits+2] = " << m_mpz_manager.to_string(o.significand) << std::endl;);
@@ -805,7 +807,7 @@ void mpf_manager::fma(mpf_rounding_mode rm, mpf const & x, mpf const & y, mpf co
         o.ebits = x.ebits;
         o.sbits = x.sbits;
 
-        scoped_mpf mul_res(*this, x.ebits+2, 2*x.sbits-1);
+        scoped_mpf mr(*this);
         scoped_mpf a(*this, x.ebits, x.sbits), b(*this, x.ebits, x.sbits), c(*this, x.ebits, x.sbits);
         set(a, x);
         set(b, y);
@@ -828,20 +830,18 @@ void mpf_manager::fma(mpf_rounding_mode rm, mpf const & x, mpf const & y, mpf co
         SASSERT(m_mpz_manager.ge(b.significand(), m_powers2(x.sbits-1)));
 
         // A/B in _1.[sbits-1].
-        mul_res.get().sign = (a.sign() != b.sign());
-        mul_res.get().exponent = a.exponent() + b.exponent();
-        m_mpz_manager.mul(a.significand(), b.significand(), mul_res.significand());
+        mr.set(x.ebits+2, 2*x.sbits-1, a.sign() != b.sign(), a.exponent() + b.exponent());
+        m_mpz_manager.mul(a.significand(), b.significand(), mr.significand());
 
-        TRACE("mpf_dbg", tout << "M = " << to_string(mul_res) << std::endl;
-                         tout << "M = " << to_string_binary(mul_res, 1, 0) << std::endl;);
+        TRACE("mpf_dbg", tout << "M = " << to_string(mr) << std::endl;
+                         tout << "M = " << to_string_binary(mr, 1, 0) << std::endl;);
 
         // mul_res is [-1][0].[2*sbits - 2], i.e., >= 2^(2*sbits-2) and < 2^(2*sbits).
-        SASSERT(m_mpz_manager.lt(mul_res.significand(), m_powers2(2*x.sbits)));
-        SASSERT(m_mpz_manager.ge(mul_res.significand(), m_powers2(2*x.sbits - 2)));
+        SASSERT(m_mpz_manager.lt(mr.significand(), m_powers2(2*x.sbits)));
+        SASSERT(m_mpz_manager.ge(mr.significand(), m_powers2(2*x.sbits - 2)));
 
         // Introduce extra bits into c in _[0].[sbits-1] s.t. c in _[0].[2*sbits-2]
-        c.get().ebits = x.ebits + 2;
-        c.get().sbits = 2 * x.sbits - 1;
+        c.set(x.ebits + 2, 2 * x.sbits - 1, c.sign(), c.exponent(), c.significand());
         m_mpz_manager.mul2k(c.significand(), x.sbits - 1);
 
         TRACE("mpf_dbg", tout << "C_= " << to_string(c) << std::endl;
@@ -851,56 +851,58 @@ void mpf_manager::fma(mpf_rounding_mode rm, mpf const & x, mpf const & y, mpf co
         SASSERT(m_mpz_manager.is_zero(c.significand()) ||
                 m_mpz_manager.ge(c.significand(), m_powers2(2*x.sbits - 2)));
 
-        if (exp(c) > exp(mul_res)) {
+        if (exp(c) > exp(mr)) {
             TRACE("mpf_dbg", tout << "Swap!" << std::endl;);
-            mul_res.swap(c);
+            mr.swap(c);
         }
 
-        mpf_exp_t exp_delta_w = exp(mul_res) - exp(c);
-
-        SASSERT(exp(mul_res) >= exp(c) && exp_delta_w >= 0);
+        // Alignment shift with sticky bit computation.
+        mpf_exp_t exp_delta_w = exp(mr) - exp(c);
+        SASSERT(exp(mr) >= exp(c) && exp_delta_w >= 0);
 
         if (exp_delta_w > 2 * x.sbits)
             exp_delta_w = 2 * x.sbits;
-        unsigned exp_delta = (unsigned)exp_delta_w;
-        TRACE("mpf_dbg", tout << "exp_delta = " << exp_delta << std::endl;);
 
-        // Alignment shift with sticky bit computation.
+        unsigned exp_delta = (unsigned)exp_delta_w;
+
         scoped_mpz sticky_rem(m_mpz_manager);
         m_mpz_manager.machine_div_rem(c.significand(), m_powers2(exp_delta), c.significand(), sticky_rem);
-        TRACE("mpf_dbg", tout << "alignment shift -> sig = " << m_mpz_manager.to_string(c.significand()) <<
+        TRACE("mpf_dbg", tout << "alignment shift by delta=" << exp_delta << " -> sig = " << m_mpz_manager.to_string(c.significand()) <<
                          " sticky_rem = " << m_mpz_manager.to_string(sticky_rem) << std::endl;);
-        if (!m_mpz_manager.is_zero(sticky_rem) && m_mpz_manager.is_even(c.significand()))
-            m_mpz_manager.inc(c.significand());
+        bool alignment_sticky = !m_mpz_manager.is_zero(sticky_rem);
 
-        TRACE("mpf_dbg", tout << "M'= " << m_mpz_manager.to_string(mul_res.significand()) << std::endl;
-                         tout << "M'= " << to_string_binary(mul_res, 1, 0) << std::endl; );
+        TRACE("mpf_dbg", tout << "M'= " << m_mpz_manager.to_string(mr.significand()) << std::endl;
+                         tout << "M'= " << to_string_binary(mr, 1, 0) << std::endl; );
         TRACE("mpf_dbg", tout << "C'= " << m_mpz_manager.to_string(c.significand()) << std::endl;
                          tout << "C'= " << to_string_binary(c, 1, 0) << std::endl; );
 
-        scoped_mpf res(c);
-
-        res.get().sign = mul_res.sign();
-        res.get().exponent = mul_res.exponent();
-
         // Significand addition
+        scoped_mpf res(mr);
 
-        if (sgn(mul_res) != sgn(c)) {
+        if (sgn(mr) != sgn(c)) {
             TRACE("mpf_dbg", tout << "SUBTRACTING" << std::endl;);
-            m_mpz_manager.sub(mul_res.significand(), c.significand(), res.significand());
+            m_mpz_manager.sub(mr.significand(), c.significand(), res.significand());
+
+            if (alignment_sticky && m_mpz_manager.is_even(res.significand()))
+                m_mpz_manager.dec(res.get().significand);
 
             if (m_mpz_manager.is_neg(res.significand())) {
                 m_mpz_manager.abs(res.significand());
-                res.get().sign |= !mul_res.sign() && c.sign();
+                res.get().sign |= c.sign();
             }
         }
         else {
             TRACE("mpf_dbg", tout << "ADDING" << std::endl;);
-            m_mpz_manager.add(mul_res.significand(), c.significand(), res.significand());
+            m_mpz_manager.add(mr.significand(), c.significand(), res.significand());
+
+            if (alignment_sticky && m_mpz_manager.is_even(res.significand()))
+                m_mpz_manager.inc(res.get().significand);
         }
 
         TRACE("mpf_dbg", tout << "S'= " << m_mpz_manager.to_string(res.significand()) << std::endl;
                          tout << "S'= " << to_string_binary(res, 1, 0) << std::endl; );
+
+        bool renorm_sticky = false;
 
         SASSERT(m_mpz_manager.lt(res.significand(), m_powers2(2 * x.sbits + 1)));
         if (m_mpz_manager.ge(res.significand(), m_powers2(2 * x.sbits)))
@@ -908,10 +910,8 @@ void mpf_manager::fma(mpf_rounding_mode rm, mpf const & x, mpf const & y, mpf co
             SASSERT(exp(res) < mk_max_exp(x.ebits)); // NYI.
 
             res.get().exponent++;
-            bool sticky = !m_mpz_manager.is_even(res.significand());
+            renorm_sticky = !m_mpz_manager.is_even(res.significand());
             m_mpz_manager.machine_div2k(res.significand(), 1);
-            if (sticky && m_mpz_manager.is_even(res.significand()))
-                m_mpz_manager.inc(res.significand());
             TRACE("mpf_dbg", tout << "Add/Sub overflew into 4.xxx!" << std::endl;
                              tout << "S*= " << to_string_binary(res, 2, 0) << std::endl;);
         }
@@ -919,17 +919,18 @@ void mpf_manager::fma(mpf_rounding_mode rm, mpf const & x, mpf const & y, mpf co
         set(o, x.ebits, x.sbits, res.sign(), res.exponent(), mpz(0));
 
         if (x.sbits >= 4) {
-            m_mpz_manager.set(sticky_rem, 0);
             m_mpz_manager.machine_div_rem(res.significand(), m_powers2(x.sbits - 4), o.significand, sticky_rem);
-            if (!m_mpz_manager.is_zero(sticky_rem) && m_mpz_manager.is_even(o.significand))
-                m_mpz_manager.inc(o.significand);
+            renorm_sticky |= !m_mpz_manager.is_zero(sticky_rem);
         }
         else {
             m_mpz_manager.mul2k(res.significand(), 4 - x.sbits, o.significand);
         }
 
+        if (renorm_sticky && m_mpz_manager.is_even(o.significand))
+            m_mpz_manager.inc(o.significand);
+
         TRACE("mpf_dbg", tout << "sum[-1:sbits+2] = " << m_mpz_manager.to_string(o.significand) << std::endl;
-                         tout << "R = " << to_string_binary(o, 2, 3) << std::endl;);
+                         tout << "R = " << to_string_binary(o, 1, 3) << std::endl;);
 
         if (m_mpz_manager.is_zero(o.significand))
             mk_zero(x.ebits, x.sbits, rm == MPF_ROUND_TOWARD_NEGATIVE, o);
@@ -1634,6 +1635,8 @@ std::string mpf_manager::to_string_binary(mpf const & x, unsigned upper_extra, u
               "#b" + std::string(x.sbits - 1, '0') + " " +
               "(" + (sgn(x) ? "-" : "+") + "zero)";
     else {
+        SASSERT(m_mpz_manager.is_nonneg(sig(x)));
+
         res = std::string("") + "#b" + (sgn(x) ? "1" : "0") + " ";
 
         scoped_mpz tmp(m_mpz_manager);

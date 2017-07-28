@@ -1476,6 +1476,10 @@ void fpa2bv_converter::mk_fma(func_decl * f, unsigned num, expr * const * args, 
     mk_ite(c71, zero_cond, z, v7);
 
     // else comes the fused multiplication.
+    expr_ref one_1(m), zero_1(m);
+    one_1 = m_bv_util.mk_numeral(1, 1);
+    zero_1 = m_bv_util.mk_numeral(0, 1);
+
     unsigned ebits = m_util.get_ebits(f->get_range());
     unsigned sbits = m_util.get_sbits(f->get_range());
 
@@ -1585,26 +1589,19 @@ void fpa2bv_converter::mk_fma(func_decl * f, unsigned num, expr * const * args, 
     dbg_decouple("fpa2bv_fma_add_exp_delta_capped", exp_delta);
 
     // Alignment shift with sticky bit computation.
-    expr_ref shifted_big(m), shifted_f_sig(m), sticky_raw(m);
+    expr_ref shifted_big(m), shifted_f_sig(m);
+    expr_ref alignment_sticky_raw(m), alignment_sticky(m);
     shifted_big = m_bv_util.mk_bv_lshr(
         m_bv_util.mk_concat(f_sig, m_bv_util.mk_numeral(0, sbits)),
         m_bv_util.mk_zero_extend((3*sbits)-(ebits+2), exp_delta));
     shifted_f_sig = m_bv_util.mk_extract(3*sbits-1, sbits, shifted_big);
-    sticky_raw = m_bv_util.mk_extract(sbits-1, 0, shifted_big);
+    alignment_sticky_raw = m_bv_util.mk_extract(sbits-1, 0, shifted_big);
+    alignment_sticky = m.mk_app(m_bv_util.get_fid(), OP_BREDOR, alignment_sticky_raw.get());
     dbg_decouple("fpa2bv_fma_shifted_f_sig", shifted_f_sig);
+    dbg_decouple("fpa2bv_fma_f_sig_alignment_stickyw", alignment_sticky);
+    SASSERT(is_well_sorted(m, alignment_sticky));
     SASSERT(m_bv_util.get_bv_size(shifted_f_sig) == 2 * sbits);
     SASSERT(is_well_sorted(m, shifted_f_sig));
-
-    expr_ref sticky(m);
-    sticky = m_bv_util.mk_zero_extend(2*sbits-1, m.mk_app(m_bv_util.get_fid(), OP_BREDOR, sticky_raw.get()));
-    SASSERT(is_well_sorted(m, sticky));
-    dbg_decouple("fpa2bv_fma_f_sig_sticky_raw", sticky_raw);
-    dbg_decouple("fpa2bv_fma_f_sig_sticky", sticky);
-
-    expr * or_args[2] = { shifted_f_sig, sticky };
-    shifted_f_sig = m_bv_util.mk_bv_or(2, or_args);
-    SASSERT(is_well_sorted(m, shifted_f_sig));
-    dbg_decouple("fpa2bv_fma_f_sig_or_sticky", shifted_f_sig);
 
     // Significant addition.
     // Two extra bits for the sign and for catching overflows.
@@ -1621,9 +1618,19 @@ void fpa2bv_converter::mk_fma(func_decl * f, unsigned num, expr * const * args, 
     dbg_decouple("fpa2bv_fma_add_e_sig", e_sig);
     dbg_decouple("fpa2bv_fma_add_shifted_f_sig", shifted_f_sig);
 
-    expr_ref sum(m), e_plus_f(m), e_minus_f(m);
+    expr_ref sum(m), e_plus_f(m), e_minus_f(m), sticky_wide(m);
+    sticky_wide = m_bv_util.mk_zero_extend(2*sbits+1, alignment_sticky);
     e_plus_f = m_bv_util.mk_bv_add(e_sig, shifted_f_sig);
+    e_plus_f = m.mk_ite(m.mk_eq(m_bv_util.mk_extract(0, 0, e_plus_f), zero_1),
+                        m_bv_util.mk_bv_add(e_plus_f, sticky_wide),
+                        e_plus_f);
     e_minus_f = m_bv_util.mk_bv_sub(e_sig, shifted_f_sig);
+    e_minus_f = m.mk_ite(m.mk_eq(m_bv_util.mk_extract(0, 0, e_minus_f), zero_1),
+                         m_bv_util.mk_bv_sub(e_minus_f, sticky_wide),
+                         e_minus_f);
+    SASSERT(is_well_sorted(m, shifted_f_sig));
+    dbg_decouple("fpa2bv_fma_f_sig_or_sticky", shifted_f_sig);
+
     m_simp.mk_ite(eq_sgn, e_plus_f, e_minus_f, sum);
     SASSERT(m_bv_util.get_bv_size(sum) == 2*sbits + 2);
     SASSERT(is_well_sorted(m, sum));
@@ -1635,8 +1642,7 @@ void fpa2bv_converter::mk_fma(func_decl * f, unsigned num, expr * const * args, 
     dbg_decouple("fpa2bv_fma_add_sign_bv", sign_bv);
     dbg_decouple("fpa2bv_fma_add_n_sum", n_sum);
 
-    expr_ref res_sig_eq(m), sig_abs(m), one_1(m);
-    one_1 = m_bv_util.mk_numeral(1, 1);
+    expr_ref res_sig_eq(m), sig_abs(m);
     m_simp.mk_eq(sign_bv, one_1, res_sig_eq);
     m_simp.mk_ite(res_sig_eq, n_sum, sum, sig_abs);
     dbg_decouple("fpa2bv_fma_add_sig_abs", sig_abs);

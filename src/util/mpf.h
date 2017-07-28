@@ -300,6 +300,19 @@ class scoped_mpf : public _scoped_numeral<mpf_manager> {
     mpf_exp_t exponent() const { return get().exponent; }
     unsigned sbits() const { return get().sbits; }
     void set(unsigned ebits, unsigned sbits) { get().set(ebits, sbits); }
+    void set(unsigned ebits, unsigned sbits, bool sign, mpf_exp_t exp, mpz & significand) {
+        get().set(ebits, sbits);
+        get().exponent = exp;
+        get().sign = sign;
+        if (&get().significand != &significand)
+            m().mpz_manager().set(get().significand, significand);
+    }
+    void set(unsigned ebits, unsigned sbits, bool sign, mpf_exp_t exp) {
+        get().set(ebits, sbits);
+        get().exponent = exp;
+        get().sign = sign;
+        m().mpz_manager().set(get().significand, 0);
+    }
 public:
     scoped_mpf(mpf_manager & m):_scoped_numeral<mpf_manager>(m) {}
     scoped_mpf(scoped_mpf const & n):_scoped_numeral<mpf_manager>(n) {}
