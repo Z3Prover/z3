@@ -12,7 +12,7 @@ typedef datalog::table_base* (*mk_table_fn)(datalog::relation_manager& m, datalo
 
 static datalog::table_base* mk_bv_table(datalog::relation_manager& m, datalog::table_signature& sig) {
     datalog::table_plugin * p = m.get_table_plugin(symbol("bitvector"));
-    SASSERT(p);
+    ENSURE(p);
     return p->mk_empty(sig);
 }
 
@@ -57,12 +57,12 @@ static void test_table(mk_table_fn mk_table) {
         std::cout << "\n";
     }
 
-    SASSERT(table.contains_fact(row1));
-    SASSERT(table.contains_fact(row2));
-    SASSERT(!table.contains_fact(row3));
+    ENSURE(table.contains_fact(row1));
+    ENSURE(table.contains_fact(row2));
+    ENSURE(!table.contains_fact(row3));
 #if 0
     table.remove_facts(1, &row1);
-    SASSERT(!table.contains_fact(row1));
+    ENSURE(!table.contains_fact(row1));
 #endif
     table.add_fact(row1);
 

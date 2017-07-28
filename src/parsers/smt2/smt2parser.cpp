@@ -1656,7 +1656,9 @@ namespace smt2 {
                 fr->m_in_decls = false;
                 SASSERT(symbol_stack().size() >= fr->m_sym_spos);
                 SASSERT(expr_stack().size() >= fr->m_expr_spos);
-                SASSERT(symbol_stack().size() - fr->m_sym_spos == expr_stack().size() - fr->m_expr_spos);
+                if (symbol_stack().size() - fr->m_sym_spos != expr_stack().size() - fr->m_expr_spos) {
+                    throw parser_exception("malformed let expression");
+                }
                 unsigned num_decls = expr_stack().size() - fr->m_expr_spos;
                 symbol * sym_it   = symbol_stack().c_ptr() + fr->m_sym_spos;
                 expr ** expr_it   = expr_stack().c_ptr() + fr->m_expr_spos;
@@ -2237,6 +2239,9 @@ namespace smt2 {
             if (m_ctx.interactive_mode()) {
                 m_assert_expr = m_scanner.cached_str(0, m_cache_end);
                 m_scanner.stop_caching();
+            }
+            if (expr_stack().empty()) {
+                throw cmd_exception("invalid assert command, expression required as argument");
             }
             expr * f = expr_stack().back();
             if (!m().is_bool(f))

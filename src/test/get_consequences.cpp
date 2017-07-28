@@ -104,7 +104,7 @@ void test2() {
 
     VERIFY(l_true == fd_solver->check_sat(0,0));
     fd_solver->get_model(mr);
-    SASSERT(mr.get());
+    ENSURE(mr.get());
     model_smt2_pp(std::cout, m, *mr.get(), 0);
 
 }

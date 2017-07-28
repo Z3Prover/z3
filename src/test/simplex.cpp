@@ -84,7 +84,7 @@ void add_row(Simplex& S, vector<R> const& _v, R const& _b, bool is_eq = false) {
     coeffs.push_back(b.to_mpq().numerator());
     mpq_inf one(mpq(1),mpq(0));
     mpq_inf zero(mpq(0),mpq(0));
-    SASSERT(vars.size() == coeffs.size());
+    ENSURE(vars.size() == coeffs.size());
     S.set_lower(nv, zero);
     if (is_eq) S.set_upper(nv, zero);
     S.set_lower(nv+1, one);

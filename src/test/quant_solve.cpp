@@ -39,7 +39,7 @@ static void validate_quant_solution(ast_manager& m, expr* fml, expr* guard, qe::
     smt::kernel solver(m, fp);
     solver.assert_expr(tmp);
     lbool res = solver.check();
-    //SASSERT(res == l_false);
+    //ENSURE(res == l_false);
     if (res != l_false) {
         std::cout << "Validation failed: " << res << "\n";
         std::cout << mk_pp(tmp, m) << "\n";
@@ -75,7 +75,7 @@ static void validate_quant_solutions(app* x, expr* fml, expr_ref_vector& guards)
     solver.assert_expr(tmp);
     lbool res = solver.check();
     std::cout << "checked\n";
-    SASSERT(res == l_false);
+    ENSURE(res == l_false);
     if (res != l_false) {
         std::cout << res << "\n";
         fatal_error(0);
@@ -131,7 +131,7 @@ static expr_ref parse_fml(ast_manager& m, char const* str) {
            << "(assert " << str << ")\n";
     std::istringstream is(buffer.str());
     VERIFY(parse_smt2_commands(ctx, is));
-    SASSERT(ctx.begin_assertions() != ctx.end_assertions());
+    ENSURE(ctx.begin_assertions() != ctx.end_assertions());
     result = *ctx.begin_assertions();
     return result;
 }

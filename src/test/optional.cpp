@@ -22,11 +22,11 @@ Revision History:
 
 static void tst1() {
     optional<int> v;
-    SASSERT(!v);
-    SASSERT(v == false);
+    ENSURE(!v);
+    ENSURE(v == false);
     v = 10;
-    SASSERT(v);
-    SASSERT(*v == 10);
+    ENSURE(v);
+    ENSURE(*v == 10);
     TRACE("optional", tout << sizeof(v) << "\n";);
 }
 
@@ -45,25 +45,25 @@ struct OptFoo {
 
 static void tst2() {
     optional<OptFoo> v;
-    SASSERT(!v);
+    ENSURE(!v);
     v = OptFoo(10, 20);
-    SASSERT(v->m_x == 10);
-    SASSERT(v->m_y == 20);
+    ENSURE(v->m_x == 10);
+    ENSURE(v->m_y == 20);
     v = OptFoo(200, 300);
-    SASSERT(v->m_x == 200);
-    SASSERT(v->m_y == 300);
+    ENSURE(v->m_x == 200);
+    ENSURE(v->m_y == 300);
     TRACE("optional", tout << sizeof(v) << "\n";);
 }
 
 static void tst3() {
     optional<int *> v;
-    SASSERT(!v);
+    ENSURE(!v);
     int x = 10;
     v = &x;
-    SASSERT(v);
-    SASSERT(*v == &x);
+    ENSURE(v);
+    ENSURE(*v == &x);
     TRACE("optional", tout << sizeof(v) << "\n";);
-    SASSERT(*(*v) == 10);
+    ENSURE(*(*v) == 10);
 }
 
 void tst_optional() {

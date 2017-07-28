@@ -1040,6 +1040,7 @@ namespace smt {
             if (act > ACTIVITY_LIMIT)
                 rescale_bool_var_activity();
             m_case_split_queue->activity_increased_eh(v);
+            TRACE("case_split", tout << "v" << v << " " << m_bvar_inc << " -> " << act << "\n";);
         }
 
     protected:

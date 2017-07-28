@@ -1549,14 +1549,12 @@ namespace smt {
         expr_ref elseBranch(ctx.mk_eq_atom(result, expr->get_arg(0)), m);
 
         expr_ref breakdownAssert(m.mk_ite(condAst, m.mk_and(thenItems.size(), thenItems.c_ptr()), elseBranch), m);
+        assert_axiom(breakdownAssert);
+        
         SASSERT(breakdownAssert);
 
         expr_ref reduceToResult(ctx.mk_eq_atom(expr, result), m);
-        SASSERT(reduceToResult);
-
-        expr_ref finalAxiom(m.mk_and(breakdownAssert, reduceToResult), m);
-        SASSERT(finalAxiom);
-        assert_axiom(finalAxiom);
+        assert_axiom(reduceToResult);
     }
 
     void theory_str::instantiate_axiom_str_to_int(enode * e) {

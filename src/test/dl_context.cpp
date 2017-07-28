@@ -51,12 +51,12 @@ static lbool dl_context_eval_unary_predicate(ast_manager & m, context & ctx, cha
     dealloc(p);
 
     func_decl * pred = ctx.try_get_predicate_decl(symbol(pred_name));
-    SASSERT(pred);
-    SASSERT(pred->get_arity()==1);
+    ENSURE(pred);
+    ENSURE(pred->get_arity()==1);
     app_ref query_app(m.mk_app(pred, m.mk_var(0, pred->get_domain()[0])), m);
 
     lbool status = ctx.query(query_app);
-    SASSERT(status != l_undef);
+    ENSURE(status != l_undef);
     return status;
 }
 
@@ -77,9 +77,9 @@ static void dl_context_simple_query_test(params_ref & params) {
     app_ref c_1(decl_util.mk_constant(1, res1->get_signature()[0]), m);
     relation_fact f(m);
     f.push_back(c_0);
-    SASSERT(res1->contains_fact(f));
+    ENSURE(res1->contains_fact(f));
     f[0]=c_1;
-    SASSERT(!res1->contains_fact(f));
+    ENSURE(!res1->contains_fact(f));
 #endif
 }
 

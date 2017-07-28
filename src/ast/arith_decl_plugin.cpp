@@ -403,6 +403,12 @@ inline func_decl * arith_decl_plugin::mk_func_decl(decl_kind k, bool is_real) {
     }
 }
 
+void arith_decl_plugin::check_arity(unsigned arity, unsigned expected_arity) {
+    if (arity != expected_arity) {
+        m_manager->raise_exception("invalid number of arguments passed to function");
+    }
+}
+
 inline decl_kind arith_decl_plugin::fix_kind(decl_kind k, unsigned arity) {
     if (k == OP_SUB && arity == 1) {
         return OP_UMINUS;
