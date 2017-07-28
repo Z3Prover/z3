@@ -283,7 +283,7 @@ void int_solver::gomory_cut_adjust_t_and_k_for_size_1(const vector<std::pair<mpq
 bool int_solver::current_solution_is_inf_on_cut(const lar_term& t, const mpq& k) const {
     const auto & x = m_lar_solver->m_mpq_lar_core_solver.m_r_x;
     impq v = t.apply(x);
-    TRACE("gomory_cut", tout << "v = " << v << " k = " << k << std::endl;);
+    TRACE("current_solution_is_inf_on_cut", tout << "v = " << v << " k = " << k << std::endl;);
     return v > k;
 }
 
@@ -329,10 +329,8 @@ lia_move int_solver::mk_gomory_cut(lar_term& t, mpq& k, explanation & expl) {
         return report_conflict_from_gomory_cut(k);
 
     auto ret = report_gomory_cut(t, k, lcm_den, num_ints);
-
-        // remove this call later :todo
-    m_lar_solver->subs_term_columns(t);
     lp_assert(current_solution_is_inf_on_cut(t, k));
+    m_lar_solver->subs_term_columns(t);
     return ret;
     
 }
@@ -377,7 +375,7 @@ lia_move int_solver::proceed_with_gomory_cut(lar_term& t, mpq& k, explanation& e
 
 
 lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
-    TRACE("arith_int", tout << "ddd=" << ++lp_settings::ddd << std::endl;);
+    TRACE("arith_int", tout << "calling check" << ++lp_settings::ddd << std::endl;); // start here
     lp_assert(inf_int_set_is_correct());
     if (m_iter_on_gomory_row != nullptr) {
         auto ret = proceed_with_gomory_cut(t, k, ex);
@@ -410,7 +408,7 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
         
 
     if ((++m_branch_cut_counter) % settings().m_int_branch_cut_threshold == 0) {
-        move_non_base_vars_to_bounds(); // todo track changed variables
+        move_non_base_vars_to_bounds();
         lp_status st = m_lar_solver->find_feasible_solution();
         if (st != lp_status::FEASIBLE && st != lp_status::OPTIMAL) {
             return lia_move::give_up;
@@ -440,8 +438,8 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
               tout << "k = " << k << std::endl;
               );
             // todo: remove this call later when theory_lra handles term indices
-            m_lar_solver->subs_term_columns(t);
             lp_assert(current_solution_is_inf_on_cut(t, k));
+            m_lar_solver->subs_term_columns(t);
             return lia_move::branch;
         }
     }

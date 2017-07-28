@@ -1383,10 +1383,7 @@ bool model_is_int_feasible() const;
         t = lar_term(pol_after_subs, v);
     }
 
-    bool inf_int_set_is_correct() const {
-        if (!has_int_var())
-            return true;
-        for (unsigned j = 0; j < A_r().column_count(); j++) {
+    bool inf_int_set_is_correct_for_column(unsigned j) const {
             if (m_inf_int_set.contains(j) != (column_is_int(j) && (!column_value_is_integer(j)))) {
                 TRACE("arith_int",
                       tout << "j= " << j <<
@@ -1396,6 +1393,15 @@ bool model_is_int_feasible() const;
                       ", val = " << get_column_value(j) << std::endl;); 
                 return false;
             }
+            return true;
+    }
+    
+    bool inf_int_set_is_correct() const {
+        if (!has_int_var())
+            return true;
+        for (unsigned j = 0; j < A_r().column_count(); j++) {
+            if (inf_int_set_is_correct_for_column(j) == false)
+                return false;
         }
         return true;
 }
@@ -1414,9 +1420,6 @@ bool model_is_int_feasible() const;
             m_inf_int_set.insert(j);
     }
 
-    bool get_freedom_interval_for_column(unsigned j, bool & inf_l, impq & l, bool & inf_u, impq & u, mpq & m);
-
     lar_core_solver & get_core_solver() { return m_mpq_lar_core_solver; }
-    
 };
 }
