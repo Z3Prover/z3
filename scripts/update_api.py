@@ -768,11 +768,11 @@ def mk_log_macro(file, name, params):
                 cap = param_array_capacity_pos(p)
                 if cap not in auxs:
                     auxs.add(cap)
-                    file.write("unsigned _Z3_UNUSED Z3ARG%s; " % cap)
+                    file.write("unsigned _Z3_UNUSED Z3ARG%s = 0; " % cap)
                 sz  = param_array_size_pos(p)
                 if sz not in auxs:
                     auxs.add(sz)
-                    file.write("unsigned * _Z3_UNUSED Z3ARG%s; " % sz)
+                    file.write("unsigned * _Z3_UNUSED Z3ARG%s = 0; " % sz)
             file.write("%s _Z3_UNUSED Z3ARG%s; " % (param2str(p), i))
         i = i + 1
     file.write("if (_LOG_CTX.enabled()) { log_%s(" % name)
