@@ -503,6 +503,7 @@ namespace sat {
     // arcs are added in the opposite direction of implications.
     // So for implications l => u we add arcs u -> l
     void lookahead::init_arcs(literal l) {
+        literal_vector lits;
         literal_vector const& succ = m_binary[l.index()];
         for (unsigned i = 0; i < succ.size(); ++i) {
             literal u = succ[i];
@@ -510,6 +511,16 @@ namespace sat {
             if (u.index() > l.index() && is_stamped(u)) {
                 add_arc(~l, ~u);
                 add_arc( u,  l);
+            }
+        }
+        for (auto w : m_watches[l.index()]) {
+            if (w.is_ext_constraint() && m_s.m_ext->is_extended_binary(w.get_ext_constraint_idx(), lits)) {
+                for (literal u : lits) {
+                    if (u.index() > l.index() && is_stamped(u)) {
+                        add_arc(~l, ~u);
+                        add_arc( u,  l);
+                    }
+                }
             }
         }
     }
