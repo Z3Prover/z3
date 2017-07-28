@@ -57,7 +57,7 @@ struct unsigned_ext {
 
 static void is_sorted(svector<unsigned> const& v) {
     for (unsigned i = 0; i + 1 < v.size(); ++i) {
-        SASSERT(v[i] <= v[i+1]);
+        ENSURE(v[i] <= v[i+1]);
     }
 }
 
@@ -184,7 +184,7 @@ struct ast_ext2 {
 
 
 static void test_sorting_eq(unsigned n, unsigned k) {
-    SASSERT(k < n);
+    ENSURE(k < n);
     ast_manager m;
     reg_decl_plugins(m);
     ast_ext2 ext(m);
@@ -206,14 +206,14 @@ static void test_sorting_eq(unsigned n, unsigned k) {
         solver.assert_expr(ext.m_clauses[i].get());
     }
     lbool res = solver.check();
-    SASSERT(res == l_true);
+    ENSURE(res == l_true);
 
     solver.push();
     for (unsigned i = 0; i < k; ++i) {
         solver.assert_expr(in[i].get());
     }
     res = solver.check();
-    SASSERT(res == l_true);
+    ENSURE(res == l_true);
     solver.assert_expr(in[k].get());
     res = solver.check();
     if (res == l_true) {
@@ -227,7 +227,7 @@ static void test_sorting_eq(unsigned n, unsigned k) {
         model_smt2_pp(std::cout, m, *model, 0);
         TRACE("pb", model_smt2_pp(tout, m, *model, 0););
     }
-    SASSERT(res == l_false);
+    ENSURE(res == l_false);
     solver.pop(1);
     ext.m_clauses.reset();
 }
@@ -253,13 +253,13 @@ static void test_sorting_le(unsigned n, unsigned k) {
         solver.assert_expr(ext.m_clauses[i].get());
     }
     lbool res = solver.check();
-    SASSERT(res == l_true);
+    ENSURE(res == l_true);
 
     for (unsigned i = 0; i < k; ++i) {
         solver.assert_expr(in[i].get());
     }
     res = solver.check();
-    SASSERT(res == l_true);
+    ENSURE(res == l_true);
     solver.assert_expr(in[k].get());
     res = solver.check();
     if (res == l_true) {
@@ -273,7 +273,7 @@ static void test_sorting_le(unsigned n, unsigned k) {
         model_smt2_pp(std::cout, m, *model, 0);
         TRACE("pb", model_smt2_pp(tout, m, *model, 0););
     }
-    SASSERT(res == l_false);
+    ENSURE(res == l_false);
     solver.pop(1);
     ext.m_clauses.reset();
 }
@@ -300,14 +300,14 @@ void test_sorting_ge(unsigned n, unsigned k) {
         solver.assert_expr(ext.m_clauses[i].get());
     }
     lbool res = solver.check();
-    SASSERT(res == l_true);
+    ENSURE(res == l_true);
 
     solver.push();
     for (unsigned i = 0; i < n - k; ++i) {
         solver.assert_expr(m.mk_not(in[i].get()));
     }
     res = solver.check();
-    SASSERT(res == l_true);
+    ENSURE(res == l_true);
     solver.assert_expr(m.mk_not(in[n - k].get()));
     res = solver.check();
     if (res == l_true) {
@@ -321,7 +321,7 @@ void test_sorting_ge(unsigned n, unsigned k) {
         model_smt2_pp(std::cout, m, *model, 0);
         TRACE("pb", model_smt2_pp(tout, m, *model, 0););
     }
-    SASSERT(res == l_false);
+    ENSURE(res == l_false);
     solver.pop(1);
 }
 
@@ -364,15 +364,13 @@ void test_at_most_1(unsigned n, bool full) {
     for (unsigned i = 0; i < ext.m_clauses.size(); ++i) {
         solver.assert_expr(ext.m_clauses[i].get());
     }
-    lbool res;
     if (full) {
         solver.push();
         solver.assert_expr(m.mk_not(m.mk_eq(result1, result2)));
 
         std::cout << result1 << "\n";
 
-        res = solver.check();
-        SASSERT(res == l_false);
+        VERIFY(l_false == solver.check());
 
         solver.pop(1);
     }
@@ -390,8 +388,7 @@ void test_at_most_1(unsigned n, bool full) {
             std::cout << atom << "\n";
             if (is_true) ++k;
         }
-        res = solver.check();
-        SASSERT(res == l_true);
+        VERIFY(l_false == solver.check());
         if (k > 1) {
             solver.assert_expr(result1);
         }
@@ -402,8 +399,7 @@ void test_at_most_1(unsigned n, bool full) {
         else {
             solver.assert_expr(m.mk_not(result1));
         }
-        res = solver.check();
-        SASSERT(res == l_false);
+        VERIFY(l_false == solver.check());
         solver.pop(1);
     }
 }

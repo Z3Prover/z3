@@ -15,6 +15,7 @@ Author:
 Notes:
 
 --*/
+
 #include<signal.h>
 #include"tptr.h"
 #include"cmd_context.h"
@@ -71,14 +72,22 @@ void func_decls::finalize(ast_manager & m) {
     m_decls = 0;
 }
 
+bool func_decls::signatures_collide(func_decl* f, func_decl* g) const {
+    return f == g;
+}
+
 bool func_decls::contains(func_decl * f) const {
     if (GET_TAG(m_decls) == 0) {
-        return UNTAG(func_decl*, m_decls) == f;
+        func_decl* g = UNTAG(func_decl*, m_decls);
+        return g && signatures_collide(f, g);
     }
     else {
         func_decl_set * fs = UNTAG(func_decl_set *, m_decls);
-        return fs->contains(f);
+        for (func_decl* g : *fs) {
+            if (signatures_collide(f, g)) return true;
+        }
     }
+    return false;
 }
 
 bool func_decls::insert(ast_manager & m, func_decl * f) {
@@ -249,6 +258,7 @@ protected:
     array_util    m_arutil;
     fpa_util      m_futil;
     seq_util      m_sutil;
+    datatype_util m_dtutil;
 
     datalog::dl_decl_util m_dlutil;
 
@@ -270,7 +280,7 @@ protected:
     }
 
 public:
-    pp_env(cmd_context & o):m_owner(o), m_autil(o.m()), m_bvutil(o.m()), m_arutil(o.m()), m_futil(o.m()), m_sutil(o.m()), m_dlutil(o.m()) {}
+    pp_env(cmd_context & o):m_owner(o), m_autil(o.m()), m_bvutil(o.m()), m_arutil(o.m()), m_futil(o.m()), m_sutil(o.m()), m_dtutil(o.m()), m_dlutil(o.m()) {}
     virtual ~pp_env() {}
     virtual ast_manager & get_manager() const { return m_owner.m(); }
     virtual arith_util & get_autil() { return m_autil; }
@@ -278,6 +288,7 @@ public:
     virtual array_util & get_arutil() { return m_arutil; }
     virtual fpa_util & get_futil() { return m_futil; }
     virtual seq_util & get_sutil() { return m_sutil; }
+    virtual datatype_util & get_dtutil() { return m_dtutil; }
 
     virtual datalog::dl_decl_util& get_dlutil() { return m_dlutil; }
     virtual bool uses(symbol const & s) const {
@@ -325,8 +336,8 @@ cmd_context::cmd_context(bool main_ctx, ast_manager * m, symbol const & l):
     m_status(UNKNOWN),
     m_numeral_as_real(false),
     m_ignore_check(false),
-    m_exit_on_error(false),
     m_processing_pareto(false),
+    m_exit_on_error(false),
     m_manager(m),
     m_own_manager(m == 0),
     m_manager_initialized(false),
@@ -1209,6 +1220,7 @@ void cmd_context::push() {
     scope & s = m_scopes.back();
     s.m_func_decls_stack_lim   = m_func_decls_stack.size();
     s.m_psort_decls_stack_lim  = m_psort_decls_stack.size();
+    s.m_psort_inst_stack_lim   = m_psort_inst_stack.size();
     s.m_macros_stack_lim       = m_macros_stack.size();
     s.m_aux_pdecls_lim         = m_aux_pdecls.size();
     s.m_assertions_lim         = m_assertions.size();
@@ -1223,7 +1235,7 @@ void cmd_context::push(unsigned n) {
         push();
 }
 
-void cmd_context::restore_func_decls(unsigned old_sz) {
+void cmd_context::restore_func_decls(unsigned old_sz) {    
     SASSERT(old_sz <= m_func_decls_stack.size());
     svector<sf_pair>::iterator it  = m_func_decls_stack.begin() + old_sz;
     svector<sf_pair>::iterator end = m_func_decls_stack.end();
@@ -1234,6 +1246,14 @@ void cmd_context::restore_func_decls(unsigned old_sz) {
     m_func_decls_stack.resize(old_sz);
 }
 
+void cmd_context::restore_psort_inst(unsigned old_sz) {
+    for (unsigned i = old_sz; i < m_psort_inst_stack.size(); ++i) {
+        pdecl * s = m_psort_inst_stack[i];
+        s->reset_cache(*m_pmanager);
+    }
+    m_psort_inst_stack.resize(old_sz);
+}
+
 void cmd_context::restore_psort_decls(unsigned old_sz) {
     SASSERT(old_sz <= m_psort_decls_stack.size());
     svector<symbol>::iterator it  = m_psort_decls_stack.begin() + old_sz;
@@ -1241,9 +1261,7 @@ void cmd_context::restore_psort_decls(unsigned old_sz) {
     for (; it != end; ++it) {
         symbol const & s = *it;
         psort_decl * d = 0;
-        if (!m_psort_decls.find(s, d)) {
-            UNREACHABLE();
-        }
+        VERIFY(m_psort_decls.find(s, d));
         pm().dec_ref(d);
         m_psort_decls.erase(s);
     }
@@ -1257,9 +1275,7 @@ void cmd_context::restore_macros(unsigned old_sz) {
     for (; it != end; ++it) {
         symbol const & s = *it;
         macro _m;
-        if (!m_macros.find(s, _m)) {
-            UNREACHABLE();
-        }
+        VERIFY (m_macros.find(s, _m)); 
         m().dec_ref(_m.second);
         m_macros.erase(s);
     }
@@ -1322,7 +1338,9 @@ void cmd_context::pop(unsigned n) {
     restore_macros(s.m_macros_stack_lim);
     restore_aux_pdecls(s.m_aux_pdecls_lim);
     restore_assertions(s.m_assertions_lim);
+    restore_psort_inst(s.m_psort_inst_stack_lim);
     m_scopes.shrink(new_lvl);
+    
 }
 
 void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions) {
@@ -1359,7 +1377,6 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
             throw ex;
         }
         catch (z3_exception & ex) {
-            get_opt()->display_assignment(regular_stream());
             throw cmd_exception(ex.msg());
         }
         if (m_processing_pareto && r != l_true) {
@@ -1397,7 +1414,7 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
     }
     validate_check_sat_result(r);
     if (was_opt && r != l_false && !m_processing_pareto) {
-        get_opt()->display_assignment(regular_stream());
+        // get_opt()->display_assignment(regular_stream());
     }
 
     if (r == l_true && m_params.m_dump_models) {
@@ -1802,7 +1819,7 @@ cmd_context::dt_eh::dt_eh(cmd_context & owner):
 cmd_context::dt_eh::~dt_eh() {
 }
 
-void cmd_context::dt_eh::operator()(sort * dt) {
+void cmd_context::dt_eh::operator()(sort * dt, pdecl* pd) {
     TRACE("new_dt_eh", tout << "new datatype: "; m_owner.pm().display(tout, dt); tout << "\n";);
     ptr_vector<func_decl> const * constructors = m_dt_util.get_datatype_constructors(dt);
     unsigned num_constructors = constructors->size();
@@ -1821,7 +1838,12 @@ void cmd_context::dt_eh::operator()(sort * dt) {
             TRACE("new_dt_eh", tout << "new accessor: " << a->get_name() << "\n";);
         }
     }
+    if (m_owner.m_scopes.size() > 0) {
+        m_owner.m_psort_inst_stack.push_back(pd);
+        
+    }
 }
+
 
 std::ostream & operator<<(std::ostream & out, cmd_context::status st) {
     switch (st) {

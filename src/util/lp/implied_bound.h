@@ -5,7 +5,7 @@
 #pragma once
 #include "util/lp/lp_settings.h"
 #include "util/lp/lar_constraints.h"
-namespace lean {
+namespace lp {
 struct implied_bound {
     mpq m_bound;
     unsigned m_j; // the column for which the bound has been found

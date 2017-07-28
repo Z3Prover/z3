@@ -100,6 +100,7 @@ public:
         rational weight = ps().get_rat(symbol("weight"), rational::one());
         symbol id = ps().get_sym(symbol("id"), symbol::null);        
         get_opt(ctx, m_opt).add_soft_constraint(m_formula, weight, id);
+        ctx.print_success();
         reset(ctx);
     }
 
@@ -131,6 +132,7 @@ public:
             throw cmd_exception("malformed objective term: it cannot be a quantifier or bound variable");
         }
         get_opt(ctx, m_opt).add_objective(to_app(t), m_is_max);
+        ctx.print_success();
     }
 
     virtual void failure_cleanup(cmd_context & ctx) {
@@ -141,12 +143,35 @@ public:
     }
 };
 
+class get_objectives_cmd : public cmd {
+    opt::context* m_opt;
+public:
+    get_objectives_cmd(opt::context* opt):
+        cmd("get-objectives"),
+        m_opt(opt)
+    {}
+    
+    virtual void reset(cmd_context & ctx) { }
+    virtual char const * get_usage() const { return "(get-objectives)"; }
+    virtual char const * get_descr(cmd_context & ctx) const { return "retrieve the objective values (after optimization)"; }
+    virtual unsigned get_arity() const { return 0; }
+    virtual void prepare(cmd_context & ctx) {}
 
+
+    virtual void failure_cleanup(cmd_context & ctx) {
+        reset(ctx);
+    }
+
+    virtual void execute(cmd_context & ctx) {
+        get_opt(ctx, m_opt).display_assignment(ctx.regular_stream());        
+    }
+};
 
 void install_opt_cmds(cmd_context & ctx, opt::context* opt) {
     ctx.insert(alloc(assert_soft_cmd, opt));
     ctx.insert(alloc(min_maximize_cmd, true, opt));
     ctx.insert(alloc(min_maximize_cmd, false, opt));
+    ctx.insert(alloc(get_objectives_cmd, opt));
 }
 
 

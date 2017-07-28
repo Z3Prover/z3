@@ -15,7 +15,7 @@ Author: Lev Nachmanson
 #include "util/lp/lp_utils.h"
 #include "util/lp/lp_solver.h"
 
-namespace lean {
+namespace lp {
 
 template <typename T>
 struct test_result {

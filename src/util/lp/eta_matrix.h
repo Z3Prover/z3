@@ -7,7 +7,7 @@
 #include "util/vector.h"
 #include "util/lp/tail_matrix.h"
 #include "util/lp/permutation_matrix.h"
-namespace lean {
+namespace lp {
 
 // This is the sum of a unit matrix and a one-column matrix
 template <typename T, typename X>
@@ -61,7 +61,7 @@ public:
 
 
     void push_back(unsigned row_index, T val ) {
-        lean_assert(row_index != m_column_index);
+        lp_assert(row_index != m_column_index);
         m_column_vector.push_back(row_index, val);
     }
 

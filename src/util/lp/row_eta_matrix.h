@@ -10,7 +10,7 @@
 #include "util/lp/sparse_vector.h"
 #include "util/lp/indexed_vector.h"
 #include "util/lp/permutation_matrix.h"
-namespace lean {
+namespace lp {
     // This is the sum of a unit matrix and a lower triangular matrix
     // with non-zero elements only in one row
 template <typename T, typename X>
@@ -55,7 +55,7 @@ public:
     }
 
     void push_back(unsigned row_index, T val ) {
-        lean_assert(row_index != m_row);
+        lp_assert(row_index != m_row);
         m_row_vector.push_back(row_index, val);
     }
 

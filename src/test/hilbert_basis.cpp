@@ -286,8 +286,8 @@ static void gorrila_test(unsigned seed, unsigned n, unsigned k, unsigned bound, 
     random_gen rand(seed);
     reslimit rl;
     hilbert_basis hb(rl);
-    SASSERT(0 < bound);
-    SASSERT(k <= n);
+    ENSURE(0 < bound);
+    ENSURE(k <= n);
     int ibound = static_cast<int>(bound);
     for (unsigned i = 0; i < num_ineqs; ++i) {
         vector<rational> nv;

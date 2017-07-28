@@ -48,6 +48,7 @@ DEFINE_TYPE(Z3_rcf_num);
 /*@{*/
 
 /** @name Types
+    @{
 
    Most of the types in the C API are opaque pointers.
 
@@ -394,6 +395,33 @@ typedef enum
    - Z3_OP_XOR3 Compute ternary XOR.
        The meaning is given by the equivalence
        (xor3 l1 l2 l3) <=> (xor (xor l1 l2) l3)
+
+   - Z3_OP_BSMUL_NO_OVFL: a predicate to check that bit-wise signed multiplication does not overflow.
+     Signed multiplication overflows if the operands have the same sign and the result of multiplication 
+     does not fit within the available bits. \sa Z3_mk_bvmul_no_overflow.
+
+   - Z3_OP_BUMUL_NO_OVFL: check that bit-wise unsigned multiplication does not overflow.
+     Unsigned multiplication overflows if the result does not fit within the available bits.
+     \sa Z3_mk_bvmul_no_overflow.
+    
+   - Z3_OP_BSMUL_NO_UDFL: check that bit-wise signed multiplication does not underflow.
+     Signed multiplication underflows if the operands have opposite signs and the result of multiplication
+     does not fit within the avaialble bits. Z3_mk_bvmul_no_underflow.
+    
+   - Z3_OP_BSDIV_I: Binary signed division. 
+     It has the same semantics as Z3_OP_BSDIV, but created in a context where the second operand can be assumed to be non-zero.
+
+   - Z3_OP_BUDIV_I: Binary unsigned division.
+     It has the same semantics as Z3_OP_BUDIV, but created in a context where the second operand can be assumed to be non-zero.
+    
+   - Z3_OP_BSREM_I: Binary signed remainder.
+     It has the same semantics as Z3_OP_BSREM, but created in a context where the second operand can be assumed to be non-zero.
+
+   - Z3_OP_BUREM_I: Binary unsigned remainder.
+     It has the same semantics as Z3_OP_BUREM, but created in a context where the second operand can be assumed to be non-zero.
+
+   - Z3_OP_BSMOD_I: Binary signed modulus.
+     It has the same semantics as Z3_OP_BSMOD, but created in a context where the second operand can be assumed to be non-zero.
 
    - Z3_OP_PR_UNDEF: Undef/Null proof object.
 
@@ -5238,7 +5266,6 @@ extern "C" {
        def_API('Z3_get_error_msg', STRING, (_in(CONTEXT), _in(ERROR_CODE)))
     */
     Z3_string Z3_API Z3_get_error_msg(Z3_context c, Z3_error_code err);
-    /*@}*/
 
     /**
        \brief Return a string describing the given error code.
@@ -5349,6 +5376,13 @@ extern "C" {
 
     /**
        \brief Add a new formula \c a to the given goal.
+        The formula is split according to the following procedure that is applied
+        until a fixed-point:
+           Conjunctions are split into separate formulas.
+           Negations are distributed over disjunctions, resulting in separate formulas.
+        If the goal is \c false, adding new formulas is a no-op.
+        If the formula \c a is \c true, then nothing is added.
+        If the formula \c a is \c false, then the entire goal is replaced by the formula \c false.
 
        def_API('Z3_goal_assert', VOID, (_in(CONTEXT), _in(GOAL), _in(AST)))
     */
@@ -5791,9 +5825,35 @@ extern "C" {
     /** @name Solvers*/
     /*@{*/
     /**
-       \brief Create a new (incremental) solver. This solver also uses a
-       set of builtin tactics for handling the first check-sat command, and
-       check-sat commands that take more than a given number of milliseconds to be solved.
+       \brief Create a new solver. This solver is a "combined solver" (see
+       combined_solver module) that internally uses a non-incremental (solver1) and an
+       incremental solver (solver2). This combined solver changes its behaviour based
+       on how it is used and how its parameters are set.
+
+       If the solver is used in a non incremental way (i.e. no calls to
+       `Z3_solver_push()` or `Z3_solver_pop()`, and no calls to
+       `Z3_solver_assert()` or `Z3_solver_assert_and_track()` after checking
+       satisfiability without an intervening `Z3_solver_reset()`) then solver1
+       will be used. This solver will apply Z3's "default" tactic.
+
+       The "default" tactic will attempt to probe the logic used by the
+       assertions and will apply a specialized tactic if one is supported.
+       Otherwise the general `(and-then simplify smt)` tactic will be used.
+
+       If the solver is used in an incremental way then the combined solver
+       will switch to using solver2 (which behaves similarly to the general
+       "smt" tactic).
+
+       Note however it is possible to set the `solver2_timeout`,
+       `solver2_unknown`, and `ignore_solver1` parameters of the combined
+       solver to change its behaviour.
+
+       The function #Z3_solver_get_model retrieves a model if the
+       assertions is satisfiable (i.e., the result is \c
+       Z3_L_TRUE) and model construction is enabled.
+       The function #Z3_solver_get_model can also be used even
+       if the result is \c Z3_L_UNDEF, but the returned model
+       is not guaranteed to satisfy quantified assertions.
 
        \remark User must use #Z3_solver_inc_ref and #Z3_solver_dec_ref to manage solver objects.
        Even if the context was created using #Z3_mk_context instead of #Z3_mk_context_rc.
@@ -5803,7 +5863,17 @@ extern "C" {
     Z3_solver Z3_API Z3_mk_solver(Z3_context c);
 
     /**
-       \brief Create a new (incremental) solver.
+       \brief Create a new incremental solver.
+
+       This is equivalent to applying the "smt" tactic.
+
+       Unlike `Z3_mk_solver()` this solver
+         - Does not attempt to apply any logic specific tactics.
+         - Does not change its behaviour based on whether it used
+           incrementally/non-incrementally.
+
+       Note that these differences can result in very different performance
+       compared to `Z3_mk_solver()`.
 
        The function #Z3_solver_get_model retrieves a model if the
        assertions is satisfiable (i.e., the result is \c

@@ -38,6 +38,7 @@ void tst_simple_parser() {
     TRACE("simple_parser", tout << mk_pp(r, m) << "\n";);
     p.parse_string("(+ x (* y x) x)", r);
     float vals[2] = { 2.0f, 3.0f };
+    (void)vals;
     TRACE("simple_parser",
           tout << mk_pp(r, m) << "\n";
           tout << "val: " << eval(r, 2, vals) << "\n";);

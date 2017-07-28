@@ -35,25 +35,25 @@ nlsat::interval_set_ref tst_interval(nlsat::interval_set_ref const & s1,
     std::cout << "s2:            " << s2 << "\n";
     r = ism.mk_union(s1, s2);
     std::cout << "union(s1, s2): " << r <<  std::endl;
-    SASSERT(!check_num_intervals || ism.num_intervals(r) == expected_num_intervals);
-    SASSERT(ism.subset(s1, r));
-    SASSERT(ism.subset(s2, r));
+    ENSURE(!check_num_intervals || ism.num_intervals(r) == expected_num_intervals);
+    ENSURE(ism.subset(s1, r));
+    ENSURE(ism.subset(s2, r));
     if (ism.set_eq(s1, s2)) {
-        SASSERT(ism.set_eq(s1, r));
-        SASSERT(ism.set_eq(s2, r));
+        ENSURE(ism.set_eq(s1, r));
+        ENSURE(ism.set_eq(s2, r));
     }
     else {
-        SASSERT(ism.subset(s1, s2) || !ism.subset(r, s2));
-        SASSERT(ism.subset(s2, s1) || !ism.subset(r, s1));
+        ENSURE(ism.subset(s1, s2) || !ism.subset(r, s2));
+        ENSURE(ism.subset(s2, s1) || !ism.subset(r, s1));
     }
     nlsat::interval_set_ref r2(ism);
     r2 = ism.mk_union(s2, s1);
-    SASSERT(ism.set_eq(r, r2));
+    ENSURE(ism.set_eq(r, r2));
     anum zero;
     nlsat::interval_set_ref full(ism);
     nlsat::literal dummy(131, false);
     full = ism.mk(true, true, zero, true, true, zero, dummy);
-    SASSERT(ism.set_eq(r, full) == ism.is_full(r));
+    ENSURE(ism.set_eq(r, full) == ism.is_full(r));
     return r;
 }
 
@@ -178,8 +178,8 @@ static void tst3() {
 static nlsat::interval_set_ref mk_random(nlsat::interval_set_manager & ism, anum_manager & am, int range, int space, int tries, bool minus_inf, bool plus_inf,
                                        nlsat::literal lit) {
     static random_gen gen;
-    SASSERT(range > 0);
-    SASSERT(space > 0);
+    ENSURE(range > 0);
+    ENSURE(space > 0);
     nlsat::interval_set_ref r(ism), curr(ism);
     scoped_anum lower(am);
     scoped_anum upper(am);
@@ -227,17 +227,17 @@ static void check_subset_result(nlsat::interval_set_ref const & s1,
     unsigned num = ism.num_intervals(r);
     nlsat::literal_vector lits;
     ism.get_justifications(r, lits);
-    SASSERT(lits.size() <= 2);
+    ENSURE(lits.size() <= 2);
     for (unsigned i = 0; i < num; i++) {
         tmp = ism.get_interval(r, i);
         ism.get_justifications(tmp, lits);
-        SASSERT(lits.size() == 1);
+        ENSURE(lits.size() == 1);
         if (lits[0] == l1) {
-            SASSERT(ism.subset(tmp, s1));
+            ENSURE(ism.subset(tmp, s1));
         }
         else {
-            SASSERT(lits[0] == l2);
-            SASSERT(ism.subset(tmp, s2));
+            ENSURE(lits[0] == l2);
+            ENSURE(ism.subset(tmp, s2));
         }
     }
 }
@@ -293,7 +293,7 @@ static void tst5() {
     bool is_even[1] = { false };
     nlsat::bool_var b = s.mk_ineq_atom(nlsat::atom::GT, 1, _p, is_even);
     nlsat::atom * a = s.bool_var2atom(b);
-    SASSERT(a != 0);
+    ENSURE(a != 0);
     scoped_anum zero(am);
     am.set(zero, 0);
     as.set(0, zero);
@@ -391,7 +391,6 @@ static void tst7() {
     params_ref      ps;
     reslimit        rlim;
     nlsat::solver s(rlim, ps);
-    anum_manager & am     = s.am();
     nlsat::pmanager & pm  = s.pm();
     nlsat::var x0, x1, x2, a, b, c, d;
     a  = s.mk_var(false);
@@ -423,7 +422,7 @@ static void tst7() {
 
     nlsat::literal_vector litsv(lits.size(), lits.c_ptr());
     lbool res = s.check(litsv);
-    SASSERT(res == l_false);
+    VERIFY(res == l_false);
     for (unsigned i = 0; i < litsv.size(); ++i) {
         s.display(std::cout, litsv[i]);
         std::cout << " ";
@@ -433,7 +432,7 @@ static void tst7() {
     litsv.reset();
     litsv.append(2, lits.c_ptr());
     res = s.check(litsv);
-    SASSERT(res == l_true);
+    ENSURE(res == l_true);
     s.display(std::cout);
     s.am().display(std::cout, s.value(x0)); std::cout << "\n";
     s.am().display(std::cout, s.value(x1)); std::cout << "\n";

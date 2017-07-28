@@ -58,7 +58,7 @@ namespace karr {
         }
         lbool is_sat = hb.saturate();
         hb.display(std::cout);
-        SASSERT(is_sat == l_true);
+        VERIFY(is_sat == l_true);
         dst.reset();
         unsigned basis_size = hb.get_basis_size();
         for (unsigned i = 0; i < basis_size; ++i) {
@@ -85,7 +85,7 @@ namespace karr {
         }
         lbool is_sat = hb.saturate();
         hb.display(std::cout);
-        SASSERT(is_sat == l_true);
+        VERIFY(is_sat == l_true);
         dst.reset();
         unsigned basis_size = hb.get_basis_size();
         bool first_initial = true;
@@ -131,7 +131,7 @@ namespace karr {
         matrix T;
         // length of rows in Ab are twice as long as
         // length of rows in src.
-        SASSERT(2*src.A[0].size() == Ab.A[0].size());
+        ENSURE(2*src.A[0].size() == Ab.A[0].size());
         vector<rational> zeros;
         for (unsigned i = 0; i < src.A[0].size(); ++i) {
             zeros.push_back(rational(0));

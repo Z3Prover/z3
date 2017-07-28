@@ -90,8 +90,8 @@ namespace qe {
                 rational r1, r2;
                 expr_ref val1 = eval(e1); 
                 expr_ref val2 = eval(e2);
-                VERIFY(a.is_numeral(val1, r1));
-                VERIFY(a.is_numeral(val2, r2));
+                if (!a.is_numeral(val1, r1)) return false;
+                if (!a.is_numeral(val2, r2)) return false;
                 SASSERT(r1 != r2);
                 if (r1 < r2) {
                     std::swap(e1, e2);
@@ -107,7 +107,7 @@ namespace qe {
                 vector<std::pair<expr*,rational> > nums;
                 for (unsigned i = 0; i < alit->get_num_args(); ++i) {
                     val = eval(alit->get_arg(i));
-                    VERIFY(a.is_numeral(val, r));
+                    if (!a.is_numeral(val, r)) return false;
                     nums.push_back(std::make_pair(alit->get_arg(i), r));
                 }
                 std::sort(nums.begin(), nums.end(), compare_second());
@@ -129,7 +129,7 @@ namespace qe {
                     expr* arg1 = to_app(lit)->get_arg(i), *arg2 = 0;
                     rational r;
                     expr_ref val = eval(arg1);
-                    VERIFY(a.is_numeral(val, r));
+                    if (!a.is_numeral(val, r)) return false;
                     if (values.find(r, arg2)) {
                         ty = opt::t_eq;
                         linearize(mbo, eval,  mul, arg1, c, fmls, ts, tids);
@@ -196,7 +196,7 @@ namespace qe {
                     linearize(mbo, eval, mul, t3, c, fmls, ts, tids);
                 }
             }
-            else if (a.is_mod(t, t1, t2) && is_numeral(t2, mul1)) {
+            else if (a.is_mod(t, t1, t2) && is_numeral(t2, mul1) && !mul1.is_zero()) {
                 rational r;
                 val = eval(t);
                 VERIFY(a.is_numeral(val, r));

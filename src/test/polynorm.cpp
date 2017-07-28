@@ -25,7 +25,7 @@ static expr_ref parse_fml(ast_manager& m, char const* str) {
            << "(assert " << str << ")\n";
     std::istringstream is(buffer.str());
     VERIFY(parse_smt2_commands(ctx, is));
-    SASSERT(ctx.begin_assertions() != ctx.end_assertions());
+    ENSURE(ctx.begin_assertions() != ctx.end_assertions());
     result = *ctx.begin_assertions();
     return result;
 }
@@ -88,6 +88,8 @@ private:
         expr_ref_vector& factors = poly.factors();
         expr_ref_vector& coefficients = poly.coefficients();
         expr_ref& coefficient = poly.coefficient();
+        (void) coefficient;
+        (void) coefficients;
 
         m_rw(term);
 
@@ -123,8 +125,8 @@ private:
             else if (m_arith.is_numeral(f, r)) {
                 factors[i] = factors.back();
                 factors.pop_back();
-                SASSERT(coefficient.is_zero());
-                SASSERT(!r.is_zero());
+                ENSURE(coefficient.is_zero());
+                ENSURE(!r.is_zero());
                 coefficient = r;
                 --i; // repeat examining 'i'
             }
@@ -170,7 +172,7 @@ static expr_ref mk_mul(arith_util& arith, unsigned num_args, expr* const* args) 
 
 static void nf(expr_ref& term) {
     ast_manager& m = term.get_manager();
-    expr *e1, *e2;
+    expr *e1 = 0, *e2 = 0;
 
     th_rewriter rw(m);
     arith_util arith(m);
@@ -203,8 +205,8 @@ static void nf(expr_ref& term) {
         else if (arith.is_numeral(f, r)) {
             factors[i] = factors.back();
             factors.pop_back();
-            SASSERT(coefficient.is_zero());
-            SASSERT(!r.is_zero());
+            ENSURE(coefficient.is_zero());
+            ENSURE(!r.is_zero());
             coefficient = r;
             --i; // repeat examining 'i'
         }

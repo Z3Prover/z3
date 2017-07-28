@@ -43,6 +43,8 @@ public:
     }
 
     ~stopwatch() {};
+    
+    void add (const stopwatch &s) {/* TODO */}
 
     void reset() { m_elapsed.QuadPart = 0; }
     
@@ -89,6 +91,8 @@ public:
     }
 
     ~stopwatch() {}
+    
+    void add (const stopwatch &s) {m_time += s.m_time;}
     
     void reset() {
         m_time = 0ull;
@@ -140,6 +144,8 @@ public:
     }
 
     ~stopwatch() {}
+    
+    void add (const stopwatch &s) {m_time += s.m_time;}
     
     void reset() {
         m_time = 0ull;

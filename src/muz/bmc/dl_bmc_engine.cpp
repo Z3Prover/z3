@@ -979,7 +979,7 @@ namespace datalog {
             sort_ref_vector new_sorts(m);
             family_id dfid = m.mk_family_id("datatype");
             datatype_decl_plugin* dtp = static_cast<datatype_decl_plugin*>(m.get_plugin(dfid));
-            VERIFY (dtp->mk_datatypes(dts.size(), dts.c_ptr(), new_sorts));
+            VERIFY (dtp->mk_datatypes(dts.size(), dts.c_ptr(), 0, 0, new_sorts));
 
             it  = b.m_rules.begin_grouped_rules();
             for (unsigned i = 0; it != end; ++it, ++i) {
@@ -1021,7 +1021,7 @@ namespace datalog {
                     cnstrs.push_back(mk_constructor_decl(name, is_name, accs.size(), accs.c_ptr()));
                 }
                 dts.push_back(mk_datatype_decl(symbol("Path"), cnstrs.size(), cnstrs.c_ptr()));
-                VERIFY (dtp->mk_datatypes(dts.size(), dts.c_ptr(), new_sorts));
+                VERIFY (dtp->mk_datatypes(dts.size(), dts.c_ptr(), 0, 0, new_sorts));
                 m_path_sort = new_sorts[0].get();
             }
         }

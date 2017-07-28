@@ -12,7 +12,7 @@
 #include "util/lp/lp_settings.h"
 #include "util/lp/matrix.h"
 #include "util/lp/tail_matrix.h"
-namespace lean {
+namespace lp {
 #ifdef LEAN_DEBUG
     inline bool is_even(int k) {  return (k/2)*2 == k; }
 #endif
@@ -86,7 +86,7 @@ class permutation_matrix : public tail_matrix<T, X> {
         void apply_reverse_from_right_to_X(vector<X> & w);
 
         void set_val(unsigned i, unsigned pi) {
-            lean_assert(i < size() && pi < size());  m_permutation[i] = pi;  m_rev[pi] = i;  }
+            lp_assert(i < size() && pi < size());  m_permutation[i] = pi;  m_rev[pi] = i;  }
 
         void transpose_from_left(unsigned i, unsigned j);
 

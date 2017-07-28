@@ -2,11 +2,11 @@
   Copyright (c) 2017 Microsoft Corporation
   Author: Lev Nachmanson
 */
-#include "util/vector.h"
 #include <memory>
+#include "util/vector.h"
 #include "util/lp/row_eta_matrix.hpp"
 #include "util/lp/lu.h"
-namespace lean {
+namespace lp {
 template void row_eta_matrix<double, double>::conjugate_by_permutation(permutation_matrix<double, double>&);
 template void row_eta_matrix<mpq, numeric_pair<mpq> >::conjugate_by_permutation(permutation_matrix<mpq, numeric_pair<mpq> >&);
 template void row_eta_matrix<mpq, mpq>::conjugate_by_permutation(permutation_matrix<mpq, mpq>&);

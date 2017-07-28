@@ -9,7 +9,7 @@
 #include "util/debug.h"
 #include "util/lp/lp_utils.h"
 #include "util/lp/lp_settings.h"
-namespace lean {
+namespace lp {
 
 template <typename T>
 class sparse_vector {
@@ -27,7 +27,7 @@ public:
     }
 #endif
     void divide(T const & a) {
-        lean_assert(!lp_settings::is_eps_small_general(a, 1e-12));
+        lp_assert(!lp_settings::is_eps_small_general(a, 1e-12));
         for (auto & t : m_data) {  t.second /= a; }
     }
 

@@ -308,6 +308,9 @@ public:
     }
 
     virtual void execute(cmd_context & ctx) {
+        if (!m_tactic) {
+            throw cmd_exception("apply needs a tactic argument");
+        }
         params_ref p = ctx.params().merge_default_params(ps());
         tactic_ref tref = using_params(sexpr2tactic(ctx, m_tactic), p);
         {

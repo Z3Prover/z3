@@ -14,6 +14,36 @@ Copyright (c) 2015 Microsoft Corporation
 using namespace datalog;
 
 
+void tst_dl_context() {
+
+    return;
+
+#if 0
+    symbol relations[] = { symbol("tr_skip"), symbol("tr_sparse"), symbol("tr_hashtable"), symbol("smt_relation2")  };
+
+    const unsigned rel_cnt = sizeof(relations)/sizeof(symbol);
+    const char * test_file = "c:\\tvm\\src\\benchmarks\\datalog\\t0.datalog";
+
+    params_ref params;
+    for(unsigned rel_index=0; rel_index<rel_cnt; rel_index++) {
+        params.set_sym("default_relation", relations[rel_index]);
+        for(int eager_checking=1; eager_checking>=0; eager_checking--) {
+            params.set_bool("eager_emptiness_checking", eager_checking!=0);
+
+            std::cerr << "Testing " << relations[rel_index] << "\n";
+            std::cerr << "Eager emptiness checking " << (eager_checking!=0 ? "on" : "off") << "\n";
+            dl_context_simple_query_test(params);
+            dl_context_saturate_file(params, test_file);
+        }
+    }
+#endif
+
+}
+
+
+#if 0
+
+
 static lbool dl_context_eval_unary_predicate(ast_manager & m, context & ctx, char const* problem_text, 
         const char * pred_name) {
     parser* p = parser::create(ctx,m);
@@ -21,12 +51,12 @@ static lbool dl_context_eval_unary_predicate(ast_manager & m, context & ctx, cha
     dealloc(p);
 
     func_decl * pred = ctx.try_get_predicate_decl(symbol(pred_name));
-    SASSERT(pred);
-    SASSERT(pred->get_arity()==1);
+    ENSURE(pred);
+    ENSURE(pred->get_arity()==1);
     app_ref query_app(m.mk_app(pred, m.mk_var(0, pred->get_domain()[0])), m);
 
     lbool status = ctx.query(query_app);
-    SASSERT(status != l_undef);
+    ENSURE(status != l_undef);
     return status;
 }
 
@@ -47,9 +77,9 @@ static void dl_context_simple_query_test(params_ref & params) {
     app_ref c_1(decl_util.mk_constant(1, res1->get_signature()[0]), m);
     relation_fact f(m);
     f.push_back(c_0);
-    SASSERT(res1->contains_fact(f));
+    ENSURE(res1->contains_fact(f));
     f[0]=c_1;
-    SASSERT(!res1->contains_fact(f));
+    ENSURE(!res1->contains_fact(f));
 #endif
 }
 
@@ -72,29 +102,4 @@ void dl_context_saturate_file(params_ref & params, const char * f) {
     ctx.get_rel_context()->saturate();
     std::cerr << "Done\n";
 }
-
-void tst_dl_context() {
-    symbol relations[] = { symbol("tr_skip"), symbol("tr_sparse"), symbol("tr_hashtable"), symbol("smt_relation2")  };
-    const unsigned rel_cnt = sizeof(relations)/sizeof(symbol);
-
-    return;
-#if 0
-    const char * test_file = "c:\\tvm\\src\\benchmarks\\datalog\\t0.datalog";
-
-    params_ref params;
-    for(unsigned rel_index=0; rel_index<rel_cnt; rel_index++) {
-        params.set_sym("default_relation", relations[rel_index]);
-        for(int eager_checking=1; eager_checking>=0; eager_checking--) {
-            params.set_bool("eager_emptiness_checking", eager_checking!=0);
-
-            std::cerr << "Testing " << relations[rel_index] << "\n";
-            std::cerr << "Eager emptiness checking " << (eager_checking!=0 ? "on" : "off") << "\n";
-            dl_context_simple_query_test(params);
-            dl_context_saturate_file(params, test_file);
-        }
-    }
 #endif
-}
-
-
-

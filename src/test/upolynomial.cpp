@@ -101,10 +101,10 @@ static void tst_isolate_roots(polynomial_ref const & p, unsigned prec, mpbq_mana
     std::cout << "num. roots: " << roots.size() + lowers.size() << "\n";
     std::cout << "sign var(-oo): " << um.sign_variations_at_minus_inf(sseq) << "\n";
     std::cout << "sign var(+oo): " << um.sign_variations_at_plus_inf(sseq) << "\n";
-    SASSERT(roots.size() + lowers.size() == um.sign_variations_at_minus_inf(sseq) - um.sign_variations_at_plus_inf(sseq));
+    ENSURE(roots.size() + lowers.size() == um.sign_variations_at_minus_inf(sseq) - um.sign_variations_at_plus_inf(sseq));
     std::cout << "roots:";
     for (unsigned i = 0; i < roots.size(); i++) {
-        SASSERT(um.eval_sign_at(q.size(), q.c_ptr(), roots[i]) == 0);
+        ENSURE(um.eval_sign_at(q.size(), q.c_ptr(), roots[i]) == 0);
         std::cout << " "; bqm.display_decimal(std::cout, roots[i], prec);
     }
     {
@@ -118,7 +118,7 @@ static void tst_isolate_roots(polynomial_ref const & p, unsigned prec, mpbq_mana
             bqm.display_decimal(std::cout, uppers[i], prec);
             std::cout << ")";
             // Check interval with Sturm sequence. Small detail: Sturm sequence is for close intervals.
-            SASSERT(um.eval_sign_at(q.size(), q.c_ptr(), lowers[i]) == 0 ||
+            ENSURE(um.eval_sign_at(q.size(), q.c_ptr(), lowers[i]) == 0 ||
                     um.eval_sign_at(q.size(), q.c_ptr(), uppers[i]) == 0 ||
                     um.sign_variations_at(sseq, lowers[i]) - um.sign_variations_at(sseq, uppers[i]) == 1);
             // Fourier sequence may also be used to check if the interval is isolating
@@ -129,18 +129,18 @@ static void tst_isolate_roots(polynomial_ref const & p, unsigned prec, mpbq_mana
                   tout << "fourier upper: " << um.sign_variations_at(fseq, uppers[i]) << "\n";);
             unsigned fsv_lower = um.sign_variations_at(fseq, lowers[i]);
             unsigned fsv_upper = um.sign_variations_at(fseq, uppers[i]);
-            SASSERT(um.eval_sign_at(q.size(), q.c_ptr(), lowers[i]) == 0 ||
-                    um.eval_sign_at(q.size(), q.c_ptr(), uppers[i]) == 0 ||
+            VERIFY(um.eval_sign_at(q.size(), q.c_ptr(), lowers[i]) == 0 ||
+                   um.eval_sign_at(q.size(), q.c_ptr(), uppers[i]) == 0 ||
                     // fsv_lower - fsv_upper is an upper bound for the number of roots in the interval
                     // fsv_upper - fsv_upper - num_roots is even
                     // Recall that num_roots == 1 in the interval.
-                    (fsv_lower - fsv_upper >= 1 && (fsv_lower - fsv_upper - 1) % 2 == 0));
-
+                   (fsv_lower - fsv_upper >= 1 && (fsv_lower - fsv_upper - 1) % 2 == 0));
+            
             // Double checking using Descartes bounds for the interval
             // Must use square free component.
             unsigned dab = um.descartes_bound_a_b(q_sqf.size(), q_sqf.c_ptr(), bqm, lowers[i], uppers[i]);
             TRACE("upolynomial", tout << "Descartes bound: " << dab << "\n";);
-            SASSERT(dab == 1);
+            VERIFY(dab == 1);
         }
     }
     std::cout << "\n";
@@ -155,7 +155,7 @@ static void tst_isolate_roots(polynomial_ref const & p, unsigned prec = 5) {
 }
 
 static void check_roots(mpbq_vector const & roots, mpbq_vector const & lowers, mpbq_vector const & uppers, unsigned expected_sz, rational const * expected_roots) {
-    SASSERT(expected_sz == roots.size() + lowers.size());
+    ENSURE(expected_sz == roots.size() + lowers.size());
     svector<bool> visited;
     visited.resize(expected_sz, false);
     for (unsigned i = 0; i < expected_sz; i++) {
@@ -163,8 +163,8 @@ static void check_roots(mpbq_vector const & roots, mpbq_vector const & lowers, m
         bool found = false;
         for (unsigned j = 0; j < roots.size(); j++) {
             if (to_rational(roots[j]) == r) {
-                SASSERT(!visited[j]);
-                SASSERT(!found);
+                ENSURE(!visited[j]);
+                VERIFY(!found);
                 found = true;
                 visited[j] = true;
             }
@@ -172,13 +172,13 @@ static void check_roots(mpbq_vector const & roots, mpbq_vector const & lowers, m
         for (unsigned j = 0; j < lowers.size(); j++) {
             unsigned j_prime = j + roots.size();
             if (to_rational(lowers[j]) < r && r < to_rational(uppers[j])) {
-                SASSERT(!found);
-                SASSERT(!visited[j_prime]);
+                VERIFY(!found);
+                ENSURE(!visited[j_prime]);
                 found = true;
                 visited[j_prime] = true;
             }
         }
-        SASSERT(found);
+        ENSURE(found);
     }
 }
 
@@ -292,21 +292,21 @@ static void tst_remove_one_half() {
     upolynomial::scoped_numeral_vector _p(um), _q(um), _r(um);
     um.to_numeral_vector(p, _p);
     um.to_numeral_vector(r, _r);
-    SASSERT(um.has_one_half_root(_p.size(), _p.c_ptr()));
+    ENSURE(um.has_one_half_root(_p.size(), _p.c_ptr()));
     um.remove_one_half_root(_p.size(), _p.c_ptr(), _q);
-    SASSERT(!um.has_one_half_root(_q.size(), _q.c_ptr()));
+    ENSURE(!um.has_one_half_root(_q.size(), _q.c_ptr()));
     std::cout << "_p: "; um.display(std::cout, _p); std::cout << "\n";
     std::cout << "_r: "; um.display(std::cout, _r); std::cout << "\n";
     std::cout << "_q: "; um.display(std::cout, _q); std::cout << "\n";
-    SASSERT(um.eq(_q, _r));
+    ENSURE(um.eq(_q, _r));
 
     p = (((x^5) - 1000000000)^3)*((3*x - 10000000)^2)*((10*x - 632)^2);
     um.to_numeral_vector(p, _p);
-    SASSERT(!um.has_one_half_root(_p.size(), _p.c_ptr()));
+    ENSURE(!um.has_one_half_root(_p.size(), _p.c_ptr()));
 
     p = (x - 2)*(x - 4)*(x - 8)*(x - 16)*(x - 32)*(x - 64)*(2*x - 1)*(4*x - 1)*(8*x - 1)*(16*x - 1)*(32*x - 1);
     um.to_numeral_vector(p, _p);
-    SASSERT(um.has_one_half_root(_p.size(), _p.c_ptr()));
+    ENSURE(um.has_one_half_root(_p.size(), _p.c_ptr()));
 }
 
 template<typename pmanager>
@@ -499,11 +499,11 @@ static void tst_refinable(polynomial_ref const & p, mpbq_manager & bqm, mpbq & a
         std::cout << "new (" << bqm.to_string(a) << ", " << bqm.to_string(b) << ")\n";
         int sign_a = um.eval_sign_at(_p.size(), _p.c_ptr(), a);
         int sign_b = um.eval_sign_at(_p.size(), _p.c_ptr(), b);
-        SASSERT(sign_a != 0 && sign_b != 0 && sign_a == -sign_b);
+        VERIFY(sign_a != 0 && sign_b != 0 && sign_a == -sign_b);
     }
     else {
         std::cout << "new root: " << bqm.to_string(a) << "\n";
-        SASSERT(um.eval_sign_at(_p.size(), _p.c_ptr(), a) == 0);
+        ENSURE(um.eval_sign_at(_p.size(), _p.c_ptr(), a) == 0);
     }
 }
 
@@ -608,13 +608,13 @@ static void tst_translate_q() {
     upolynomial::manager um(rl, nm);
     upolynomial::scoped_numeral_vector _p(um), _q(um);
     um.to_numeral_vector(p, _p);
-    SASSERT(um.eval_sign_at(_p.size(), _p.c_ptr(), mpq(1)) == 0);
-    SASSERT(um.eval_sign_at(_p.size(), _p.c_ptr(), mpq(2)) == 0);
-    SASSERT(um.eval_sign_at(_p.size(), _p.c_ptr(), mpq(3)) == 0);
-    SASSERT(um.eval_sign_at(_p.size(), _p.c_ptr(), mpq(4)) == 0);
-    SASSERT(um.eval_sign_at(_p.size(), _p.c_ptr(), mpq(-1)) != 0);
-    SASSERT(um.eval_sign_at(_p.size(), _p.c_ptr(), mpq(5)) != 0);
-    SASSERT(um.eval_sign_at(_p.size(), _p.c_ptr(), mpq(-2)) != 0);
+    ENSURE(um.eval_sign_at(_p.size(), _p.c_ptr(), mpq(1)) == 0);
+    ENSURE(um.eval_sign_at(_p.size(), _p.c_ptr(), mpq(2)) == 0);
+    ENSURE(um.eval_sign_at(_p.size(), _p.c_ptr(), mpq(3)) == 0);
+    ENSURE(um.eval_sign_at(_p.size(), _p.c_ptr(), mpq(4)) == 0);
+    ENSURE(um.eval_sign_at(_p.size(), _p.c_ptr(), mpq(-1)) != 0);
+    ENSURE(um.eval_sign_at(_p.size(), _p.c_ptr(), mpq(5)) != 0);
+    ENSURE(um.eval_sign_at(_p.size(), _p.c_ptr(), mpq(-2)) != 0);
     scoped_mpq c(nm);
     nm.set(c, 1, 3);
     scoped_mpq r1(nm);
@@ -623,32 +623,32 @@ static void tst_translate_q() {
     scoped_mpq r2(nm);
     r2 = 3;
     r2 -= c;
-    SASSERT(um.eval_sign_at(_p.size(), _p.c_ptr(), r1) != 0);
-    SASSERT(um.eval_sign_at(_p.size(), _p.c_ptr(), r2) != 0);
+    ENSURE(um.eval_sign_at(_p.size(), _p.c_ptr(), r1) != 0);
+    ENSURE(um.eval_sign_at(_p.size(), _p.c_ptr(), r2) != 0);
     std::cout << "p: "; um.display(std::cout, _p); std::cout << "\n";
     um.translate_q(_p.size(), _p.c_ptr(), c, _q);
     std::cout << "q: "; um.display(std::cout, _q); std::cout << "\n";
-    SASSERT(um.eval_sign_at(_q.size(), _q.c_ptr(), mpq(1)) != 0);
-    SASSERT(um.eval_sign_at(_q.size(), _q.c_ptr(), mpq(2)) != 0);
-    SASSERT(um.eval_sign_at(_q.size(), _q.c_ptr(), mpq(3)) != 0);
-    SASSERT(um.eval_sign_at(_q.size(), _q.c_ptr(), mpq(4)) != 0);
-    SASSERT(um.eval_sign_at(_q.size(), _q.c_ptr(), mpq(-1)) != 0);
-    SASSERT(um.eval_sign_at(_q.size(), _q.c_ptr(), mpq(5)) != 0);
-    SASSERT(um.eval_sign_at(_q.size(), _q.c_ptr(), mpq(-2)) != 0);
-    SASSERT(um.eval_sign_at(_q.size(), _q.c_ptr(), r1) == 0);
-    SASSERT(um.eval_sign_at(_q.size(), _q.c_ptr(), r2) == 0);
+    ENSURE(um.eval_sign_at(_q.size(), _q.c_ptr(), mpq(1)) != 0);
+    ENSURE(um.eval_sign_at(_q.size(), _q.c_ptr(), mpq(2)) != 0);
+    ENSURE(um.eval_sign_at(_q.size(), _q.c_ptr(), mpq(3)) != 0);
+    ENSURE(um.eval_sign_at(_q.size(), _q.c_ptr(), mpq(4)) != 0);
+    ENSURE(um.eval_sign_at(_q.size(), _q.c_ptr(), mpq(-1)) != 0);
+    ENSURE(um.eval_sign_at(_q.size(), _q.c_ptr(), mpq(5)) != 0);
+    ENSURE(um.eval_sign_at(_q.size(), _q.c_ptr(), mpq(-2)) != 0);
+    ENSURE(um.eval_sign_at(_q.size(), _q.c_ptr(), r1) == 0);
+    ENSURE(um.eval_sign_at(_q.size(), _q.c_ptr(), r2) == 0);
     um.p_1_div_x(_p.size(), _p.c_ptr());
     std::cout << "p: "; um.display(std::cout, _p); std::cout << "\n";
-    SASSERT(um.eval_sign_at(_p.size(), _p.c_ptr(), mpq(1)) == 0);
+    ENSURE(um.eval_sign_at(_p.size(), _p.c_ptr(), mpq(1)) == 0);
     nm.set(c, 1, 2);
-    SASSERT(um.eval_sign_at(_p.size(), _p.c_ptr(), c) == 0);
+    ENSURE(um.eval_sign_at(_p.size(), _p.c_ptr(), c) == 0);
     nm.set(c, 1, 3);
-    SASSERT(um.eval_sign_at(_p.size(), _p.c_ptr(), c) == 0);
+    ENSURE(um.eval_sign_at(_p.size(), _p.c_ptr(), c) == 0);
     nm.set(c, 1, 4);
-    SASSERT(um.eval_sign_at(_p.size(), _p.c_ptr(), c) == 0);
-    SASSERT(um.eval_sign_at(_p.size(), _p.c_ptr(), mpq(2)) != 0);
-    SASSERT(um.eval_sign_at(_p.size(), _p.c_ptr(), mpq(3)) != 0);
-    SASSERT(um.eval_sign_at(_p.size(), _p.c_ptr(), mpq(4)) != 0);
+    ENSURE(um.eval_sign_at(_p.size(), _p.c_ptr(), c) == 0);
+    ENSURE(um.eval_sign_at(_p.size(), _p.c_ptr(), mpq(2)) != 0);
+    ENSURE(um.eval_sign_at(_p.size(), _p.c_ptr(), mpq(3)) != 0);
+    ENSURE(um.eval_sign_at(_p.size(), _p.c_ptr(), mpq(4)) != 0);
 }
 
 static void tst_convert_q2bq(unsynch_mpq_manager & m, polynomial_ref const & p, mpq const & a, mpq const & b) {
@@ -848,9 +848,9 @@ static void tst_exact_div(polynomial_ref const & p1, polynomial_ref const & p2, 
         std::cout << "expected:  "; um.display(std::cout, _q); std::cout << "\n";
     }
     std::cout.flush();
-    SASSERT(res == expected);
-    SASSERT(expected == um.divides(_p1.size(), _p1.c_ptr(), _p2.size(), _p2.c_ptr()));
-    SASSERT(!expected || um.eq(_r, _q));
+    ENSURE(res == expected);
+    ENSURE(expected == um.divides(_p1.size(), _p1.c_ptr(), _p2.size(), _p2.c_ptr()));
+    ENSURE(!expected || um.eq(_r, _q));
 }
 
 static void tst_exact_div() {
@@ -878,7 +878,7 @@ static void tst_exact_div() {
 }
 
 static void tst_fact(polynomial_ref const & p, unsigned num_distinct_factors, upolynomial::factor_params const & params = upolynomial::factor_params()) {
-    SASSERT(is_univariate(p));
+    ENSURE(is_univariate(p));
     std::cout << "---------------\n";
     std::cout << "p: " << p << std::endl;
     reslimit rl; upolynomial::manager um(rl, p.m().m());
@@ -891,11 +891,11 @@ static void tst_fact(polynomial_ref const & p, unsigned num_distinct_factors, up
     for (unsigned i = 0; i < fs.distinct_factors(); i++) {
         std::cout << "*("; um.display(std::cout, fs[i]); std::cout << ")^" << fs.get_degree(i) << std::endl;
     }
-    SASSERT(fs.distinct_factors() == num_distinct_factors);
+    ENSURE(fs.distinct_factors() == num_distinct_factors);
     upolynomial::scoped_numeral_vector _r(um);
     fs.multiply(_r);
     TRACE("upolynomial", tout << "_r: "; um.display(tout, _r); tout << "\n_p: "; um.display(tout, _p); tout << "\n";);
-    SASSERT(um.eq(_p, _r));
+    ENSURE(um.eq(_p, _r));
 }
 
 static void tst_fact() {
@@ -992,8 +992,8 @@ static void tst_fact() {
 }
 
 static void tst_rem(polynomial_ref const & p, polynomial_ref const & q, polynomial_ref const & expected) {
-    SASSERT(is_univariate(p));
-    SASSERT(is_univariate(q));
+    ENSURE(is_univariate(p));
+    ENSURE(is_univariate(q));
     std::cout << "---------------\n";
     std::cout << "p: " << p << std::endl;
     std::cout << "q: " << q << std::endl;
@@ -1005,7 +1005,7 @@ static void tst_rem(polynomial_ref const & p, polynomial_ref const & q, polynomi
     polynomial_ref r(p.m());
     r = p.m().to_polynomial(_r.size(), _r.c_ptr(), 0);
     std::cout << "r: " << r << std::endl;
-    SASSERT(eq(expected, r));
+    ENSURE(eq(expected, r));
 }
 
 static void tst_rem() {
@@ -1022,7 +1022,7 @@ static void tst_rem() {
 }
 
 static void tst_lower_bound(polynomial_ref const & p) {
-    SASSERT(is_univariate(p));
+    ENSURE(is_univariate(p));
     std::cout << "---------------\n";
     std::cout << "p: " << p << std::endl;
     reslimit rl; upolynomial::manager um(rl, p.m().m());

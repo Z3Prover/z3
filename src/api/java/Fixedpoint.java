@@ -88,6 +88,7 @@ public class Fixedpoint extends Z3Object
     /**
      * Add rule into the fixedpoint solver.
      *
+     * @param rule implication (Horn clause) representing rule
      * @param name Nullable rule name.
      * @throws Z3Exception
      **/
@@ -178,6 +179,7 @@ public class Fixedpoint extends Z3Object
     /**
      * Update named rule into in the fixedpoint solver.
      *
+     * @param rule implication (Horn clause) representing rule
      * @param name Nullable rule name.
      * @throws Z3Exception
      **/

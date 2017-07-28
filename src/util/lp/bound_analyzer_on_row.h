@@ -13,7 +13,7 @@
 // We try to pin a var by pushing the total by using the variable bounds
 // In a loop we drive the partial sum down, denoting the variables of this process by _u.
 // In the same loop trying to pin variables by pushing the partial sum up, denoting the variable related to it by _l
-namespace lean {
+namespace lp {
 
 class bound_analyzer_on_row {
     
@@ -91,11 +91,11 @@ public :
     }
 
     const impq & ub(unsigned j) const {
-        lean_assert(upper_bound_is_available(j));
+        lp_assert(upper_bound_is_available(j));
         return m_bp.get_upper_bound(j);
     }
     const impq & lb(unsigned j) const {
-        lean_assert(low_bound_is_available(j));
+        lp_assert(low_bound_is_available(j));
         return m_bp.get_low_bound(j);
     }
 
@@ -153,7 +153,7 @@ public :
     void limit_all_monoids_from_above() {
         int strict = 0;
         mpq total;
-        lean_assert(is_zero(total));
+        lp_assert(is_zero(total));
         m_it.reset();
         mpq a; unsigned j;
         while (m_it.next(a, j)) {
@@ -180,7 +180,7 @@ public :
     void limit_all_monoids_from_below() {
         int strict = 0;
         mpq total;
-        lean_assert(is_zero(total));
+        lp_assert(is_zero(total));
         m_it.reset();
         mpq a; unsigned j;
         while (m_it.next(a, j)) {
@@ -272,7 +272,7 @@ public :
     //     mpq a; unsigned j;
     //     while (it->next(a, j)) {
     //         if (be.m_j == j) continue;
-    //         lean_assert(bound_is_available(j, is_neg(a) ? low_bound : !low_bound));
+    //         lp_assert(bound_is_available(j, is_neg(a) ? low_bound : !low_bound));
     //         be.m_vector_of_bound_signatures.emplace_back(a, j, numeric_traits<impq>::
     //                                                      is_neg(a)? low_bound: !low_bound);
     //     }

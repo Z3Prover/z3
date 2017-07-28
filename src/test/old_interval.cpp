@@ -23,96 +23,96 @@ static void tst1() {
     ext_numeral minus_inf(false);
     ext_numeral zero(0);
 
-    SASSERT(ext_numeral(10) + ext_numeral(3) == ext_numeral(13));
-    SASSERT(inf + zero == inf);
-    SASSERT(minus_inf + zero == minus_inf);
-    SASSERT(minus_inf + ext_numeral(3) == minus_inf);
-    SASSERT(inf + inf == inf);
-    SASSERT(minus_inf + minus_inf == minus_inf);
-    SASSERT(minus_inf + ext_numeral(10) == minus_inf);
-    SASSERT(minus_inf + ext_numeral(-10) == minus_inf);
-    SASSERT(inf + ext_numeral(10) == inf);
-    SASSERT(inf + ext_numeral(-10) == inf);
+    ENSURE(ext_numeral(10) + ext_numeral(3) == ext_numeral(13));
+    ENSURE(inf + zero == inf);
+    ENSURE(minus_inf + zero == minus_inf);
+    ENSURE(minus_inf + ext_numeral(3) == minus_inf);
+    ENSURE(inf + inf == inf);
+    ENSURE(minus_inf + minus_inf == minus_inf);
+    ENSURE(minus_inf + ext_numeral(10) == minus_inf);
+    ENSURE(minus_inf + ext_numeral(-10) == minus_inf);
+    ENSURE(inf + ext_numeral(10) == inf);
+    ENSURE(inf + ext_numeral(-10) == inf);
 
-    SASSERT(ext_numeral(10) - ext_numeral(3) == ext_numeral(7));
-    SASSERT(inf - zero == inf);
-    SASSERT(minus_inf - zero == minus_inf);
-    SASSERT(minus_inf - ext_numeral(3) == minus_inf);
-    SASSERT(inf - minus_inf == inf);
-    SASSERT(minus_inf - inf == minus_inf);
-    SASSERT(zero - minus_inf == inf);
-    SASSERT(zero - inf == minus_inf);
-    SASSERT(ext_numeral(-10) - minus_inf == inf);
-    SASSERT(ext_numeral(10) - minus_inf == inf);
-    SASSERT(ext_numeral(-10) - inf == minus_inf);
-    SASSERT(ext_numeral(10) - inf == minus_inf);
+    ENSURE(ext_numeral(10) - ext_numeral(3) == ext_numeral(7));
+    ENSURE(inf - zero == inf);
+    ENSURE(minus_inf - zero == minus_inf);
+    ENSURE(minus_inf - ext_numeral(3) == minus_inf);
+    ENSURE(inf - minus_inf == inf);
+    ENSURE(minus_inf - inf == minus_inf);
+    ENSURE(zero - minus_inf == inf);
+    ENSURE(zero - inf == minus_inf);
+    ENSURE(ext_numeral(-10) - minus_inf == inf);
+    ENSURE(ext_numeral(10) - minus_inf == inf);
+    ENSURE(ext_numeral(-10) - inf == minus_inf);
+    ENSURE(ext_numeral(10) - inf == minus_inf);
 
-    SASSERT(ext_numeral(10) * inf == inf);
-    SASSERT(ext_numeral(-10) * inf == minus_inf);
-    SASSERT(zero * inf == zero);
-    SASSERT(zero * minus_inf == zero);
-    SASSERT(zero * ext_numeral(10) == zero);
-    SASSERT(ext_numeral(10) * ext_numeral(-20) == ext_numeral(-200));
-    SASSERT(ext_numeral(3) * ext_numeral(2) == ext_numeral(6));
-    SASSERT(inf * inf == inf);
-    SASSERT(inf * minus_inf == minus_inf);
-    SASSERT(minus_inf * minus_inf == inf);
-    SASSERT(minus_inf * inf == minus_inf);
-    SASSERT(minus_inf * ext_numeral(10) == minus_inf);
-    SASSERT(minus_inf * ext_numeral(-10) == inf);
+    ENSURE(ext_numeral(10) * inf == inf);
+    ENSURE(ext_numeral(-10) * inf == minus_inf);
+    ENSURE(zero * inf == zero);
+    ENSURE(zero * minus_inf == zero);
+    ENSURE(zero * ext_numeral(10) == zero);
+    ENSURE(ext_numeral(10) * ext_numeral(-20) == ext_numeral(-200));
+    ENSURE(ext_numeral(3) * ext_numeral(2) == ext_numeral(6));
+    ENSURE(inf * inf == inf);
+    ENSURE(inf * minus_inf == minus_inf);
+    ENSURE(minus_inf * minus_inf == inf);
+    ENSURE(minus_inf * inf == minus_inf);
+    ENSURE(minus_inf * ext_numeral(10) == minus_inf);
+    ENSURE(minus_inf * ext_numeral(-10) == inf);
 
-    SASSERT(minus_inf < inf);
-    SASSERT(!(inf < minus_inf));
-    SASSERT(minus_inf < ext_numeral(10));
-    SASSERT(ext_numeral(-3) < inf);
-    SASSERT(ext_numeral(-10) < ext_numeral(4));
-    SASSERT(ext_numeral(2) < ext_numeral(10));
-    SASSERT(!(inf < ext_numeral(30)));
-    SASSERT(!(ext_numeral(10) < minus_inf));
-    SASSERT(!(inf < inf));
-    SASSERT(!(minus_inf < minus_inf));
-    SASSERT(!(zero < zero));
-    SASSERT(!(ext_numeral(10) < ext_numeral(10)));
-    SASSERT(inf > minus_inf);
-    SASSERT(inf > zero);
-    SASSERT(inf > ext_numeral(10));
-    SASSERT(ext_numeral(10) > minus_inf);
-    SASSERT(zero > minus_inf);
-    SASSERT(!(zero > inf));
-    SASSERT(!(minus_inf > inf));
-    SASSERT(inf >= minus_inf);
-    SASSERT(inf >= inf);
-    SASSERT(minus_inf >= minus_inf);
-    SASSERT(inf >= zero);
-    SASSERT(zero >= minus_inf);
-    SASSERT(inf <= inf);
-    SASSERT(minus_inf <= minus_inf);
-    SASSERT(zero <= inf);
-    SASSERT(minus_inf <= zero);
+    ENSURE(minus_inf < inf);
+    ENSURE(!(inf < minus_inf));
+    ENSURE(minus_inf < ext_numeral(10));
+    ENSURE(ext_numeral(-3) < inf);
+    ENSURE(ext_numeral(-10) < ext_numeral(4));
+    ENSURE(ext_numeral(2) < ext_numeral(10));
+    ENSURE(!(inf < ext_numeral(30)));
+    ENSURE(!(ext_numeral(10) < minus_inf));
+    ENSURE(!(inf < inf));
+    ENSURE(!(minus_inf < minus_inf));
+    ENSURE(!(zero < zero));
+    ENSURE(!(ext_numeral(10) < ext_numeral(10)));
+    ENSURE(inf > minus_inf);
+    ENSURE(inf > zero);
+    ENSURE(inf > ext_numeral(10));
+    ENSURE(ext_numeral(10) > minus_inf);
+    ENSURE(zero > minus_inf);
+    ENSURE(!(zero > inf));
+    ENSURE(!(minus_inf > inf));
+    ENSURE(inf >= minus_inf);
+    ENSURE(inf >= inf);
+    ENSURE(minus_inf >= minus_inf);
+    ENSURE(inf >= zero);
+    ENSURE(zero >= minus_inf);
+    ENSURE(inf <= inf);
+    ENSURE(minus_inf <= minus_inf);
+    ENSURE(zero <= inf);
+    ENSURE(minus_inf <= zero);
 
     ext_numeral val(10);
     val.neg();
-    SASSERT(val == ext_numeral(-10));
+    ENSURE(val == ext_numeral(-10));
     val = inf;
     val.neg();
-    SASSERT(val == minus_inf);
+    ENSURE(val == minus_inf);
     val.neg();
-    SASSERT(val == inf);
+    ENSURE(val == inf);
 
-    SASSERT(minus_inf.sign());
-    SASSERT(!zero.sign());
-    SASSERT(!inf.sign());
-    SASSERT(ext_numeral(-10).sign());
-    SASSERT(!ext_numeral(10).sign());
+    ENSURE(minus_inf.sign());
+    ENSURE(!zero.sign());
+    ENSURE(!inf.sign());
+    ENSURE(ext_numeral(-10).sign());
+    ENSURE(!ext_numeral(10).sign());
     
-    SASSERT(inf.is_infinite());
-    SASSERT(minus_inf.is_infinite());
-    SASSERT(!zero.is_infinite());
-    SASSERT(!ext_numeral(10).is_infinite());
-    SASSERT(!inf.is_zero());
-    SASSERT(!minus_inf.is_zero());
-    SASSERT(zero.is_zero());
-    SASSERT(!ext_numeral(10).is_zero());
+    ENSURE(inf.is_infinite());
+    ENSURE(minus_inf.is_infinite());
+    ENSURE(!zero.is_infinite());
+    ENSURE(!ext_numeral(10).is_infinite());
+    ENSURE(!inf.is_zero());
+    ENSURE(!minus_inf.is_zero());
+    ENSURE(zero.is_zero());
+    ENSURE(!ext_numeral(10).is_zero());
 }
 
 class interval_tester {
@@ -120,9 +120,9 @@ class interval_tester {
     
     interval singleton(int i) { return interval(m, rational(i)); }
     interval all() { return interval(m); }
-    interval l(int i, bool o = false, int idx = 0) { return interval(m, rational(i), o, true, idx == 0 ? 0 : m.mk_leaf(reinterpret_cast<void*>(idx))); }
-    interval r(int i, bool o = false, int idx = 0) { return interval(m, rational(i), o, false, idx == 0 ? 0 : m.mk_leaf(reinterpret_cast<void*>(idx))); }
-    interval b(int l, int u, bool lo = false, bool uo = false, int idx_l = 0, int idx_u = 0) {
+    interval l(int i, bool o = false, size_t idx = 0) { return interval(m, rational(i), o, true, idx == 0 ? 0 : m.mk_leaf(reinterpret_cast<void*>(idx))); }
+    interval r(int i, bool o = false, size_t idx = 0) { return interval(m, rational(i), o, false, idx == 0 ? 0 : m.mk_leaf(reinterpret_cast<void*>(idx))); }
+    interval b(int l, int u, bool lo = false, bool uo = false, size_t idx_l = 0, size_t idx_u = 0) {
         return interval(m, rational(l), lo, idx_l == 0 ? 0 : m.mk_leaf(reinterpret_cast<void*>(idx_l)), rational(u), uo, idx_u == 0 ? 0 : m.mk_leaf(reinterpret_cast<void*>(idx_u)));
     }
 
@@ -182,12 +182,12 @@ static void tst2() {
     m.set(y, mpz(-2), mpz(3));
     m.add(x, y, z);
     std::cout << "x: " << x << ", y: " << y << ", z: " << z << "\n";
-    SASSERT(nm.eq(z.lower(), mpz(-1)));
-    SASSERT(nm.eq(z.upper(), mpz(5)));
+    ENSURE(nm.eq(z.lower(), mpz(-1)));
+    ENSURE(nm.eq(z.upper(), mpz(5)));
     m.mul(x, y, z);
     std::cout << "x: " << x << ", y: " << y << ", z: " << z << "\n";
-    SASSERT(nm.eq(z.lower(), mpz(-4)));
-    SASSERT(nm.eq(z.upper(), mpz(6)));
+    ENSURE(nm.eq(z.lower(), mpz(-4)));
+    ENSURE(nm.eq(z.upper(), mpz(6)));
 }
 
 void tst_old_interval() {

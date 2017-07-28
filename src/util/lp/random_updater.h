@@ -12,7 +12,7 @@ Author: Lev Nachmanson
 #include "util/lp/linear_combination_iterator.h"
 // see http://research.microsoft.com/projects/z3/smt07.pdf
 // The class searches for a feasible solution with as many different values of variables as it can find
-namespace lean {
+namespace lp {
 template <typename T> struct numeric_pair; // forward definition
 class lar_core_solver; // forward definition
 class random_updater {

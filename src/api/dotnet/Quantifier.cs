@@ -14,7 +14,7 @@ Author:
     Christoph Wintersteiger (cwinter) 2012-03-19
 
 Notes:
-    
+
 --*/
 
 using System;
@@ -155,6 +155,16 @@ namespace Microsoft.Z3
 
                 return new BoolExpr(Context, Native.Z3_get_quantifier_body(Context.nCtx, NativeObject));
             }
+        }
+
+        /// <summary>
+        /// Translates (copies) the quantifier to the Context <paramref name="ctx"/>.
+        /// </summary>
+        /// <param name="ctx">A context</param>
+        /// <returns>A copy of the quantifier which is associated with <paramref name="ctx"/></returns>
+        new public Quantifier Translate(Context ctx)
+        {
+            return (Quantifier)base.Translate(ctx);
         }
 
         #region Internal

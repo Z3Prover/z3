@@ -194,14 +194,7 @@ public class Expr extends AST
      **/
     public Expr translate(Context ctx)
     {
-        if (getContext() == ctx) {
-            return this;
-        } else {
-            return Expr.create(
-                ctx,
-                Native.translate(getContext().nCtx(), getNativeObject(),
-                    ctx.nCtx()));
-        }
+        return (Expr) super.translate(ctx);
     }
 
     /**
@@ -1295,6 +1288,15 @@ public class Expr extends AST
     public String getString()
     {
 	return Native.getString(getContext().nCtx(), getNativeObject());
+    }
+
+    /**
+     * Check whether expression is a concatenation
+     * @return a boolean
+     */
+    public boolean isConcat() 
+    {
+        return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_SEQ_CONCAT;
     }
 
     /**

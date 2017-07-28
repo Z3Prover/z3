@@ -668,7 +668,7 @@ namespace datalog {
             T * el = it->m_key;
             item_set * out_edges = it->m_value;
 
-            unsigned el_comp;
+            unsigned el_comp = 0;
             VERIFY( m_component_nums.find(el, el_comp) );
 
             item_set::iterator eit = out_edges->begin();

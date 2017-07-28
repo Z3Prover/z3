@@ -52,7 +52,7 @@ extern "C" {
 
         {
             datatype_decl * dt = mk_datatype_decl(to_symbol(name), 1, constrs);
-            bool is_ok = mk_c(c)->get_dt_plugin()->mk_datatypes(1, &dt, tuples);
+            bool is_ok = mk_c(c)->get_dt_plugin()->mk_datatypes(1, &dt, 0, 0, tuples);
             del_datatype_decl(dt);
 
             if (!is_ok) {
@@ -119,7 +119,7 @@ extern "C" {
 
         {
             datatype_decl * dt = mk_datatype_decl(to_symbol(name), n, constrs.c_ptr());
-            bool is_ok = mk_c(c)->get_dt_plugin()->mk_datatypes(1, &dt, sorts);
+            bool is_ok = mk_c(c)->get_dt_plugin()->mk_datatypes(1, &dt, 0, 0, sorts);
             del_datatype_decl(dt);
 
             if (!is_ok) {
@@ -180,7 +180,7 @@ extern "C" {
         sort_ref_vector sorts(m);
         {
             datatype_decl * decl = mk_datatype_decl(to_symbol(name), 2, constrs);
-            bool is_ok = mk_c(c)->get_dt_plugin()->mk_datatypes(1, &decl, sorts);
+            bool is_ok = mk_c(c)->get_dt_plugin()->mk_datatypes(1, &decl, 0, 0, sorts);
             del_datatype_decl(decl);
 
             if (!is_ok) {
@@ -357,7 +357,7 @@ extern "C" {
         sort_ref_vector sorts(m);
         {
             datatype_decl * data = mk_datatype_decl(c, name, num_constructors, constructors);
-            bool is_ok = mk_c(c)->get_dt_plugin()->mk_datatypes(1, &data, sorts);
+            bool is_ok = mk_c(c)->get_dt_plugin()->mk_datatypes(1, &data, 0, 0, sorts);
             del_datatype_decl(data);
 
             if (!is_ok) {
@@ -420,7 +420,7 @@ extern "C" {
             datas.push_back(mk_datatype_decl(c,sort_names[i], cl->size(), reinterpret_cast<Z3_constructor*>(cl->c_ptr())));
         }
         sort_ref_vector _sorts(m);
-        bool ok = mk_c(c)->get_dt_plugin()->mk_datatypes(datas.size(), datas.c_ptr(), _sorts);
+        bool ok = mk_c(c)->get_dt_plugin()->mk_datatypes(datas.size(), datas.c_ptr(), 0, 0, _sorts);
         del_datatype_decls(datas.size(), datas.c_ptr());
 
         if (!ok) {

@@ -12,28 +12,21 @@
 #include "util/lp/lp_utils.h"
 #include "util/stopwatch.h"
 
-namespace lean {
+namespace lp {
 typedef unsigned var_index;
 typedef unsigned constraint_index;
 typedef unsigned row_index;
 
-enum class final_check_status {
-    DONE,
-    CONTINUE,
-    UNSAT,
-    GIVEUP
-};
 
 typedef vector<std::pair<mpq, constraint_index>> explanation_t;
 
-
 enum class column_type  {
     free_column = 0,
-        low_bound = 1,
-        upper_bound = 2,
-        boxed = 3,
-        fixed = 4
-        };
+    low_bound = 1,
+    upper_bound = 2,
+    boxed = 3,
+    fixed = 4
+};
 
 enum class simplex_strategy_enum {
     undecided = 3,
@@ -44,7 +37,7 @@ enum class simplex_strategy_enum {
 
 std::string column_type_to_string(column_type t);
 
-enum lp_status {
+enum class lp_status {
     UNKNOWN,
     INFEASIBLE,
     TENTATIVE_UNBOUNDED,
@@ -86,11 +79,14 @@ public:
 };
 
 struct stats {
+    unsigned m_make_feasible;
     unsigned m_total_iterations;
     unsigned m_iters_with_no_cost_growing;
     unsigned m_num_factorizations;
     unsigned m_num_of_implied_bounds;
     unsigned m_need_to_solve_inf;
+    unsigned m_max_cols;
+    unsigned m_max_rows;
     stats() { reset(); }
     void reset() { memset(this, 0, sizeof(*this)); }
 };
@@ -209,7 +205,8 @@ public:
                     use_breakpoints_in_feasibility_search(false),
                     max_row_length_for_bound_propagation(300),
                     backup_costs(true),
-                    column_number_threshold_for_using_lu_in_lar_solver(4000)
+                    column_number_threshold_for_using_lu_in_lar_solver(4000),
+                    m_int_branch_cut_threshold(100)
     {}
 
     void set_resource_limit(lp_resource_limit& lim) { m_resource_limit = &lim; }
@@ -289,13 +286,13 @@ public:
         return m_simplex_strategy;
     }
 
-	bool use_lu() const {
-		return m_simplex_strategy == simplex_strategy_enum::lu;
-	}
+    bool use_lu() const {
+        return m_simplex_strategy == simplex_strategy_enum::lu;
+    }
 
     bool use_tableau() const {
-		return m_simplex_strategy == simplex_strategy_enum::tableau_rows ||
-			m_simplex_strategy == simplex_strategy_enum::tableau_costs;
+        return m_simplex_strategy == simplex_strategy_enum::tableau_rows ||
+            m_simplex_strategy == simplex_strategy_enum::tableau_costs;
     }
 
     bool use_tableau_rows() const {
@@ -316,6 +313,7 @@ public:
     unsigned max_row_length_for_bound_propagation;
     bool backup_costs;
     unsigned column_number_threshold_for_using_lu_in_lar_solver;
+    unsigned m_int_branch_cut_threshold;
 }; // end of lp_settings class
 
 
@@ -377,7 +375,7 @@ inline void print_blanks(int n, std::ostream & out) {
 // after a push of the last element we ensure that the vector increases
 // we also suppose that before the last push the vector was increasing
 inline void ensure_increasing(vector<unsigned> & v) {
-    lean_assert(v.size() > 0);
+    lp_assert(v.size() > 0);
     unsigned j = v.size() - 1;
     for (; j > 0; j-- )
         if (v[j] <= v[j - 1]) {

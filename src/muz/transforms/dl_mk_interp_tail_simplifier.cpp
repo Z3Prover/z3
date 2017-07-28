@@ -84,7 +84,7 @@ namespace datalog {
         mk_rule_inliner::remove_duplicate_tails(m_tail, m_neg);
 
         SASSERT(m_tail.size() == m_neg.size());
-        res = m_context.get_rule_manager().mk(m_head, m_tail.size(), m_tail.c_ptr(), m_neg.c_ptr());
+        res = m_context.get_rule_manager().mk(m_head, m_tail.size(), m_tail.c_ptr(), m_neg.c_ptr(),m_rule->name());
         res->set_accounting_parent_object(m_context, m_rule);
         res->norm_vars(res.get_manager());
     }
@@ -250,7 +250,7 @@ namespace datalog {
         bool detect_equivalences(expr_ref_vector& v, bool inside_disjunction)
         {
             bool have_pair = false;
-            unsigned prev_pair_idx;
+            unsigned prev_pair_idx = 0;
             arg_pair ap;
 
             unsigned read_idx = 0;
@@ -296,21 +296,20 @@ namespace datalog {
         br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, 
             proof_ref & result_pr)
         {
-
             if (m.is_not(f) && (m.is_and(args[0]) || m.is_or(args[0]))) {
-                SASSERT(num==1);
+                SASSERT(num == 1);
                 expr_ref tmp(m);
                 app* a = to_app(args[0]);
                 m_app_args.reset();
-                for (unsigned i = 0; i < a->get_num_args(); ++i) {
-                    m_brwr.mk_not(a->get_arg(i), tmp);
+                for (expr* arg : *a) {
+                    m_brwr.mk_not(arg, tmp);
                     m_app_args.push_back(tmp);
                 }
                 if (m.is_and(args[0])) {
-                    result = m.mk_or(m_app_args.size(), m_app_args.c_ptr());
+                    result = mk_or(m_app_args); 
                 }
                 else {
-                    result = m.mk_and(m_app_args.size(), m_app_args.c_ptr());
+                    result = mk_and(m_app_args); 
                 }
                 return BR_REWRITE2;
             }
@@ -557,7 +556,7 @@ namespace datalog {
             }
 
             SASSERT(m_tail.size() == m_tail_neg.size());
-            res = m_context.get_rule_manager().mk(head, m_tail.size(), m_tail.c_ptr(), m_tail_neg.c_ptr());
+            res = m_context.get_rule_manager().mk(head, m_tail.size(), m_tail.c_ptr(), m_tail_neg.c_ptr(), r->name());
             res->set_accounting_parent_object(m_context, r);
         }
         else {

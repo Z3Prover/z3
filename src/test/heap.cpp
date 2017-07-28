@@ -33,32 +33,33 @@ static void tst1() {
     for (int i = 0; i < N * 3; i++) {
         int val = rand() % N;
         if (!h.contains(val)) {
-            SASSERT(!t.contains(val));
+            ENSURE(!t.contains(val));
             h.insert(val);
             t.insert(val);
         }
         else {
-            SASSERT(t.contains(val));
+            ENSURE(t.contains(val));
         }
     }
-    SASSERT(h.check_invariant());
+    ENSURE(h.check_invariant());
     int_set::iterator it  = t.begin();
     int_set::iterator end = t.end();
     for (; it != end; ++it) {
-        SASSERT(h.contains(*it));
+        ENSURE(h.contains(*it));
     }
-    int last = -1;
     while (!h.empty()) {
         int m1 = h.min_value();
         int m2 = h.erase_min();
-        SASSERT(m1 == m2);
-        SASSERT(last < m2);
+        (void)m1;
+        (void)m2;
+        ENSURE(m1 == m2);
+        ENSURE(-1 < m2);
     }
 }
 
 int g_value[N];
 
-struct lt_proc2 { bool operator()(int v1, int v2) const { SASSERT(v1 < N && v2 < N); return g_value[v1] < g_value[v2]; } };
+struct lt_proc2 { bool operator()(int v1, int v2) const { ENSURE(v1 < N && v2 < N); return g_value[v1] < g_value[v2]; } };
 typedef heap<lt_proc2> int_heap2;
 
 static void init_values() {
@@ -76,6 +77,7 @@ static void dump_heap(const int_heap2 & h, std::ostream & out) {
 }
 
 static void tst2() {
+    (void)dump_heap;
     int_heap2 h(N);
     for (int i = 0; i < N * 10; i++) {
         if (i % 1000 == 0) std::cout << "i: " << i << std::endl;
@@ -87,7 +89,7 @@ static void tst2() {
                 TRACE("heap", tout << "inserting: " << val << "\n";);
                 h.insert(val);
                 TRACE("heap", dump_heap(h, tout););
-                SASSERT(h.contains(val));
+                ENSURE(h.contains(val));
             }
         }
         else if (cmd <= 6) {
@@ -96,7 +98,7 @@ static void tst2() {
                 TRACE("heap", tout << "removing: " << val << "\n";);
                 h.erase(val);
                 TRACE("heap", dump_heap(h, tout););
-                SASSERT(!h.contains(val));
+                ENSURE(!h.contains(val));
             }
         }
         else if (cmd <= 8) {
@@ -117,10 +119,10 @@ static void tst2() {
             }
         }
         else {
-            SASSERT(h.check_invariant());
+            ENSURE(h.check_invariant());
         }
     }
-    SASSERT(h.check_invariant());
+    ENSURE(h.check_invariant());
 }
 
 void tst_heap() {

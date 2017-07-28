@@ -103,6 +103,7 @@ namespace smt {
 
     void context::justify(literal lit, index_set& s) {
         ast_manager& m = m_manager;
+        (void)m;
         b_justification js = get_justification(lit.var());
         switch (js.get_kind()) {
         case b_justification::CLAUSE: {

@@ -37,7 +37,7 @@ static expr_ref parse_fml(ast_manager& m, char const* str) {
            << "(assert " << str << ")\n";
     std::istringstream is(buffer.str());
     VERIFY(parse_smt2_commands(ctx, is));
-    SASSERT(ctx.begin_assertions() != ctx.end_assertions());
+    ENSURE(ctx.begin_assertions() != ctx.end_assertions());
     result = *ctx.begin_assertions();
     return result;
 }
@@ -163,7 +163,7 @@ static app_ref generate_ineqs(ast_manager& m, sort* s, vector<expr_ref_vector>& 
     
     app* x = vars[0].get();
     app* y = vars[1].get();
-    app* z = vars[2].get();
+    // app* z = vars[2].get();
     // 
     // ax <= by, ax < by, not (ax >= by), not (ax > by)
     // 
@@ -247,7 +247,7 @@ static void test2(char const *ex) {
     ctx.push();
     ctx.assert_expr(fml);
     lbool result = ctx.check();
-    SASSERT(result == l_true);
+    VERIFY(result == l_true);
     ref<model> md;
     ctx.get_model(md);  
     ctx.pop(1);

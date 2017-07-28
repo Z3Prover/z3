@@ -25,6 +25,12 @@ import java.util.Map;
 
 /**
  * The main interaction with Z3 happens via the Context.
+ * For applications that spawn an unbounded number of contexts, 
+ * the proper use is within a try-with-resources
+ * scope so that the Context object gets garbage collected in
+ * a predictable way. Contexts maintain all data-structures
+ * related to terms and formulas that are created relative
+ * to them. 
  **/
 public class Context implements AutoCloseable {
     private final long m_ctx;

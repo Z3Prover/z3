@@ -61,12 +61,13 @@ static void tst1() {
     m.recycle(c1);
     
     cell * c3 = m.allocate<true>();
-    SASSERT(c3->m_coeff.is_zero());
+    (void)c3;
+    ENSURE(c3->m_coeff.is_zero());
 }
 
 static void tst2() {
     cell_allocator m;
-    SASSERT(m.capacity() >= 2);
+    ENSURE(m.capacity() >= 2);
     cell_allocator::worker_object_allocator m1 = m.get_worker_allocator(0);
     cell_allocator::worker_object_allocator m2 = m.get_worker_allocator(1);
     m.enable_concurrent(true);
@@ -82,7 +83,7 @@ static void tst2() {
                 c = m1.allocate<true>();
             else 
                 c = m2.allocate<true>();
-            SASSERT(c->m_coeff.is_zero());
+            ENSURE(c->m_coeff.is_zero());
             int val = rand();
             c->m_coeff = rational(val);
             object_coeff_pairs.push_back(std::make_pair(c, val));
@@ -92,7 +93,7 @@ static void tst2() {
                 unsigned idx = rand() % object_coeff_pairs.size();
                 cell * c = object_coeff_pairs[idx].first;
                 CTRACE("object_allocator", c->m_coeff != rational(object_coeff_pairs[idx].second), tout << c->m_coeff << " != " << rational(object_coeff_pairs[idx].second) << "\n";);
-                SASSERT(c->m_coeff == rational(object_coeff_pairs[idx].second));
+                ENSURE(c->m_coeff == rational(object_coeff_pairs[idx].second));
                 if (idx < 5)
                     m1.recycle(c);
                 else 
@@ -117,5 +118,5 @@ void tst_object_allocator() {
     tst2();
     TRACE("object_allocator", tout << "num. allocated cells: " << cell::g_num_allocated_cells << "\nnum. deallocated cells: " << cell::g_num_deallocated_cells << 
           "\nnum. recycled cells: " << cell::g_num_recycled_cells << "\n";);
-    SASSERT(cell::g_num_allocated_cells == cell::g_num_deallocated_cells);
+    ENSURE(cell::g_num_allocated_cells == cell::g_num_deallocated_cells);
 }

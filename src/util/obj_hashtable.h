@@ -70,6 +70,7 @@ public:
             m_value(v) {
         }
         Value const & get_value() const { return m_value; }
+        Key & get_key () const { return *m_key; }
         unsigned hash() const { return m_key->hash(); }
         bool operator==(key_data const & other) const { return m_key == other.m_key; }
     };
@@ -100,6 +101,8 @@ public:
         m_table(DEFAULT_HASHTABLE_INITIAL_CAPACITY) {}
     
     typedef typename table::iterator iterator;
+    typedef typename table::data data;
+    typedef typename table::entry entry;
     typedef Key    key;
     typedef Value  value;
 

@@ -46,20 +46,14 @@ static void show_interpolant_and_maybe_check(cmd_context & ctx,
         m_params.set_bool("flat", true);
     th_rewriter s(ctx.m(), m_params);
   
+    ctx.regular_stream() << "(interpolants";
     for(unsigned i = 0; i < interps.size(); i++){
-
         expr_ref r(ctx.m());
         proof_ref pr(ctx.m());
         s(to_expr(interps[i]),r,pr);
-
-        ctx.regular_stream()  << mk_pp(r.get(), ctx.m()) << std::endl;
-#if 0
-        ast_smt_pp pp(ctx.m());
-        pp.set_logic(ctx.get_logic().str().c_str());
-        pp.display_smt2(ctx.regular_stream(), to_expr(interps[i]));
-        ctx.regular_stream() << std::endl;
-#endif
+        ctx.regular_stream() << "\n " << r;
     }
+    ctx.regular_stream() << ")\n";
 
     s.cleanup();
 

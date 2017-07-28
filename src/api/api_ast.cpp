@@ -558,6 +558,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_get_sort(c, a);
         RESET_ERROR_CODE();
+        CHECK_IS_EXPR(a, 0);
         Z3_sort r = of_sort(mk_c(c)->m().get_sort(to_expr(a)));
         RETURN_Z3(r);
         Z3_CATCH_RETURN(0);
@@ -821,9 +822,13 @@ extern "C" {
         RESET_ERROR_CODE();
         std::ostringstream buffer;
         switch (mk_c(c)->get_print_mode()) {
-        case Z3_PRINT_SMTLIB_FULL:
-            buffer << mk_pp(to_ast(a), mk_c(c)->m());
+        case Z3_PRINT_SMTLIB_FULL: {
+            params_ref p;
+            p.set_uint("max_depth", 4294967295u);
+            p.set_uint("min_alias_size", 4294967295u);
+            buffer << mk_pp(to_ast(a), mk_c(c)->m(), p);
             break;
+        }
         case Z3_PRINT_LOW_LEVEL:
             buffer << mk_ll_pp(to_ast(a), mk_c(c)->m());
             break;
@@ -1066,7 +1071,7 @@ extern "C" {
             case OP_BIT2BOOL: return Z3_OP_BIT2BOOL;
             case OP_BSMUL_NO_OVFL: return Z3_OP_BSMUL_NO_OVFL;
             case OP_BUMUL_NO_OVFL: return Z3_OP_BUMUL_NO_OVFL;
-            case OP_BSMUL_NO_UDFL: return Z3_OP_BSMUL_NO_UDFL;                
+            case OP_BSMUL_NO_UDFL: return Z3_OP_BSMUL_NO_UDFL;
             case OP_BSDIV_I: return Z3_OP_BSDIV_I;
             case OP_BUDIV_I: return Z3_OP_BUDIV_I;
             case OP_BSREM_I: return Z3_OP_BSREM_I;
