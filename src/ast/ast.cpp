@@ -2178,7 +2178,10 @@ app * ast_manager::mk_app(func_decl * decl, unsigned num_args, expr * const * ar
         throw ast_exception(buffer.str().c_str());
     }
     app * r = 0;
-    if (num_args > 2 && !decl->is_flat_associative()) {
+    if (num_args == 1 && decl->is_chainable() && decl->get_arity() == 2) {
+        r = mk_true();
+    }
+    else if (num_args > 2 && !decl->is_flat_associative()) {
         if (decl->is_right_associative()) {
             unsigned j = num_args - 1;
             r = mk_app_core(decl, args[j-1], args[j]);

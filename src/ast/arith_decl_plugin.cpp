@@ -414,10 +414,10 @@ inline decl_kind arith_decl_plugin::fix_kind(decl_kind k, unsigned arity) {
         return OP_UMINUS;
     }
     switch (k) {
-    case OP_LE:      check_arity(arity, 2); break;
-    case OP_GE:      check_arity(arity, 2); break;
-    case OP_LT:      check_arity(arity, 2); break;
-    case OP_GT:      check_arity(arity, 2); break;
+    case OP_LE:      break;
+    case OP_GE:      break;
+    case OP_LT:      break;
+    case OP_GT:      break;
     case OP_ADD:     break;
     case OP_SUB:     break;
     case OP_UMINUS:  check_arity(arity, 1); break;
