@@ -120,7 +120,7 @@ int int_solver::find_inf_int_boxed_base_column_with_smallest_range() {
 bool int_solver::is_gomory_cut_target() {
     m_iter_on_gomory_row->reset();
     unsigned j;
-    TRACE("gomory_cut", m_lar_solver->print_linear_iterator(m_iter_on_gomory_row, tout);
+    TRACE("gomory_cut", m_lar_solver->print_linear_iterator_indices_only(m_iter_on_gomory_row, tout);
           m_iter_on_gomory_row->reset();
           );
 
@@ -140,6 +140,7 @@ bool int_solver::is_gomory_cut_target() {
 
 
 void int_solver::real_case_in_gomory_cut(const mpq & a, unsigned x_j, mpq & k, lar_term& pol, explanation & expl) {
+    TRACE("gomory_cut_detail", tout << "real\n";);
     mpq f_0  = fractional_part(get_value(m_gomory_cut_inf_column));
     mpq new_a;
     if (at_lower(x_j)) {
@@ -179,45 +180,47 @@ constraint_index int_solver::column_low_bound_constraint(unsigned j) const {
 }
 
 
-void int_solver::int_case_in_gomory_cut(const mpq & a, unsigned x_j, mpq & k, lar_term & pol, explanation& expl, mpq & lcm_den) {
+void int_solver::int_case_in_gomory_cut(const mpq & a, unsigned x_j, mpq & k, lar_term & t, explanation& expl, mpq & lcm_den) {
+    lp_assert(!a.is_int());
     mpq f_0  = fractional_part(get_value(m_gomory_cut_inf_column));
     lp_assert(is_int(x_j));
     mpq f_j =  fractional_part(a);
     TRACE("gomory_cut_detail", 
-          tout << a << "*v" << x_j << "\n";
+          tout << a << " v" << x_j << "\n";
           tout << "fractional_part: " << fractional_part(a) << "\n";
           tout << "f_j: " << f_j << "\n";
           tout << "f_0: " << f_0 << "\n";
-          tout << "one_minus_f_0: " << 1 - f_0 << "\n";);
-    if (!f_j.is_zero()) {
-        mpq new_a;
-        if (at_lower(x_j)) {
-            auto one_minus_f_0 = 1 - f_0;
-            if (f_j <= one_minus_f_0) {
-                new_a = f_j / one_minus_f_0;
-            }
-            else {
-                new_a = (1 - f_j) / f_0;
-            }
-            k.addmul(new_a, lower_bound(x_j).x);
-            expl.push_justification(column_low_bound_constraint(x_j), new_a);
+          tout << "1 - f_0: " << 1 - f_0 << "\n";
+          tout << "at_lower(" << x_j << ") = " << at_lower(x_j) << std::endl;
+          );
+    lp_assert (!f_j.is_zero());
+    mpq new_a;
+    if (at_lower(x_j)) {
+        auto one_minus_f_0 = 1 - f_0;
+        if (f_j <= one_minus_f_0) {
+            new_a = f_j / one_minus_f_0;
         }
         else {
-            SASSERT(at_upper(x_j));
-            if (f_j <= f_0) {
-                new_a = f_j / f_0;
-            }
-            else {
-                new_a = (mpq(1) - f_j) / 1 - f_0;
-            }
-            new_a.neg(); // the upper terms are inverted
-            k.addmul(new_a, upper_bound(x_j).x);
-            expl.push_justification(column_upper_bound_constraint(x_j), new_a);
+            new_a = (1 - f_j) / f_0;
         }
-        TRACE("gomory_cut_detail", tout << "new_a: " << new_a << " k: " << k << "\n";);
-        pol.add_monoid(new_a, x_j);
-        lcm_den = lcm(lcm_den, denominator(new_a));
+        k.addmul(new_a, lower_bound(x_j).x);
+        expl.push_justification(column_low_bound_constraint(x_j), new_a);
     }
+    else {
+        SASSERT(at_upper(x_j));
+        if (f_j <= f_0) {
+            new_a = f_j / f_0;
+        }
+        else {
+            new_a = (mpq(1) - f_j) / (1 - f_0);
+        }
+        new_a.neg(); // the upper terms are inverted
+        k.addmul(new_a, upper_bound(x_j).x);
+        expl.push_justification(column_upper_bound_constraint(x_j), new_a);
+    }
+    TRACE("gomory_cut_detail", tout << "new_a: " << new_a << " k: " << k << "\n";);
+    t.add_monoid(new_a, x_j);
+    lcm_den = lcm(lcm_den, denominator(new_a));
 }
 
 lia_move int_solver::report_conflict_from_gomory_cut(mpq & k) {
@@ -230,70 +233,58 @@ lia_move int_solver::report_conflict_from_gomory_cut(mpq & k) {
     return lia_move::conflict;
 }
 
-void int_solver::gomory_cut_adjust_t_and_k_for_size_gt_1(
+void int_solver::gomory_cut_adjust_t_and_k(
                                                          vector<std::pair<mpq, unsigned>> & pol,
                                                          lar_term & t,
                                                          mpq &k,
-                                                         unsigned num_ints,
+                                                         bool some_ints,
                                                          mpq & lcm_den) {
-        if (num_ints > 0) {
-            lcm_den = lcm(lcm_den, denominator(k));
-            TRACE("gomory_cut_detail", tout << "k: " << k << " lcm_den: " << lcm_den << "\n";
-                  linear_combination_iterator_on_vector<mpq> pi(pol);
-                  m_lar_solver->print_linear_iterator(&pi, tout);
-                  tout << "\nk: " << k << "\n";);
-            lp_assert(lcm_den.is_pos());
-            if (!lcm_den.is_one()) {
-                // normalize coefficients of integer parameters to be integers.
-                for (auto & pi: pol) {
-                    pi.first *= lcm_den;
-                    SASSERT(!is_int(pi.second) || pi.first.is_int());
-                }
-                k *= lcm_den;
+    TRACE("gomory_cut_detail", tout << "size of t = " << t.size()  << std::endl;);
+    if (some_ints) {
+        lcm_den = lcm(lcm_den, denominator(k));
+        TRACE("gomory_cut_detail", tout << "k: " << k << " lcm_den: " << lcm_den << "\n";
+              linear_combination_iterator_on_vector<mpq> pi(pol);
+              m_lar_solver->print_linear_iterator(&pi, tout);
+              tout << "\nk: " << k << "\n";);
+        lp_assert(lcm_den.is_pos());
+        if (!lcm_den.is_one()) {
+            // normalize coefficients of integer parameters to be integers.
+            for (auto & pi: pol) {
+                pi.first *= lcm_den;
+                SASSERT(!is_int(pi.second) || pi.first.is_int());
             }
-            TRACE("gomory_cut_detail", tout << "after *lcm_den\n";
-                  for (unsigned i = 0; i < pol.size(); i++) {
-                      tout << pol[i].first << " * v" << pol[i].second << "\n";
-                  }
-                  tout << "k: " << k << "\n";);
+            k *= lcm_den;
         }
-        t.clear();
-        // negate everything to return -pol <= -k
-        for (const auto & pi: pol)
-            t.add_monoid(-pi.first, pi.second);
-        k.neg();
-}
-
-
-void int_solver::gomory_cut_adjust_t_and_k_for_size_1(const vector<std::pair<mpq, unsigned>> & pol, lar_term& t, mpq &k) {
-    lp_assert(pol.size() == 1);
-    unsigned j = pol[0].second;
-    k /= pol[0].first;
-    bool is_lower = pol[0].first.is_pos();
-    if (is_int(j) && !k.is_int()) {
-        k = is_lower?ceil(k):floor(k);
+        TRACE("gomory_cut_detail", tout << "after *lcm_den\n";
+              for (unsigned i = 0; i < pol.size(); i++) {
+                  tout << pol[i].first << " * v" << pol[i].second << "\n";
+              }
+              tout << "k: " << k << "\n";);
     }
-    if (is_lower) { // returning -t <= -k which is equivalent to t >= k
-        k.neg();
-        t.negate();
-    }
+    t.clear();
+    // negate everything to return -pol <= -k
+    for (const auto & pi: pol)
+        t.add_monoid(-pi.first, pi.second);
+    k.neg();
 }
-
 
 bool int_solver::current_solution_is_inf_on_cut(const lar_term& t, const mpq& k) const {
     const auto & x = m_lar_solver->m_mpq_lar_core_solver.m_r_x;
     impq v = t.apply(x);
-    TRACE("current_solution_is_inf_on_cut", tout << "v = " << v << " k = " << k << std::endl;);
+    TRACE(
+          "current_solution_is_inf_on_cut", tout << "v = " << v << " k = " << k << std::endl;
+          if (v <=k) {
+              tout << "v <= k - it should not happen!\n";
+          }
+          );
+    
     return v > k;
 }
 
-lia_move int_solver::report_gomory_cut(lar_term& t, mpq& k, mpq &lcm_den, unsigned num_ints) {
+lia_move int_solver::report_gomory_cut(lar_term& t, mpq& k, mpq &lcm_den, bool some_ints) {
     lp_assert(!t.is_empty());
     auto pol = t.coeffs_as_vector();
-    if (pol.size() == 1)
-        gomory_cut_adjust_t_and_k_for_size_1(pol, t, k);
-    else
-        gomory_cut_adjust_t_and_k_for_size_gt_1(pol, t, k, num_ints, lcm_den);
+    gomory_cut_adjust_t_and_k(pol, t, k, some_ints, lcm_den);
     return lia_move::cut;
 }
 
@@ -304,14 +295,16 @@ lia_move int_solver::mk_gomory_cut(lar_term& t, mpq& k, explanation & expl) {
 
     lp_assert(column_is_int_inf(m_gomory_cut_inf_column));
 
-    TRACE("gomory_cut", tout << "applying cut at:\n"; m_lar_solver->print_linear_iterator(m_iter_on_gomory_row, tout); tout << std::endl; m_iter_on_gomory_row->reset(););
+    TRACE("gomory_cut", tout << "applying cut at:\n"; m_lar_solver->print_linear_iterator_indices_only(m_iter_on_gomory_row, tout); tout << std::endl; m_iter_on_gomory_row->reset();
+          tout << "f0 = " << T_to_string(get_value(m_gomory_cut_inf_column) - floor(get_value(m_gomory_cut_inf_column).x)) << "\n";
+          );
         
     // gomory will be   t >= k
     k = 1;
     mpq lcm_den(1);
-    unsigned num_ints = 0;
     unsigned x_j;
     mpq a;
+    bool some_int_columns = false;
     while (m_iter_on_gomory_row->next(a, x_j)) {
         if (x_j == m_gomory_cut_inf_column)
             continue;
@@ -320,7 +313,8 @@ lia_move int_solver::mk_gomory_cut(lar_term& t, mpq& k, explanation & expl) {
         if (is_real(x_j)) 
             real_case_in_gomory_cut(a, x_j, k, t, expl);
         else {
-            num_ints++;
+            if (a.is_int()) continue; // f_j will be zero and no monomial will be added
+            some_int_columns = true;
             int_case_in_gomory_cut(a, x_j, k, t, expl, lcm_den);
         }
     }
@@ -328,7 +322,7 @@ lia_move int_solver::mk_gomory_cut(lar_term& t, mpq& k, explanation & expl) {
     if (t.is_empty())
         return report_conflict_from_gomory_cut(k);
 
-    auto ret = report_gomory_cut(t, k, lcm_den, num_ints);
+    auto ret = report_gomory_cut(t, k, lcm_den, some_int_columns);
     lp_assert(current_solution_is_inf_on_cut(t, k));
     m_lar_solver->subs_term_columns(t);
     return ret;
@@ -375,7 +369,7 @@ lia_move int_solver::proceed_with_gomory_cut(lar_term& t, mpq& k, explanation& e
 
 
 lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
-    TRACE("arith_int", tout << "calling check" << ++lp_settings::ddd << std::endl;); // start here
+    TRACE("arith_int", tout << "calling check " << ++lp_settings::ddd << std::endl;); // start here
     lp_assert(inf_int_set_is_correct());
     if (m_iter_on_gomory_row != nullptr) {
         auto ret = proceed_with_gomory_cut(t, k, ex);
@@ -410,7 +404,9 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
     if ((++m_branch_cut_counter) % settings().m_int_branch_cut_threshold == 0) {
         move_non_base_vars_to_bounds();
         lp_status st = m_lar_solver->find_feasible_solution();
+        lp_assert(non_basic_columns_are_at_bounds());
         if (st != lp_status::FEASIBLE && st != lp_status::OPTIMAL) {
+            TRACE("arith_int", tout << "give_up\n";);
             return lia_move::give_up;
         }
         lp_assert(inf_int_set_is_correct());
@@ -1014,5 +1010,31 @@ bool int_solver::shift_var(unsigned j, unsigned range) {
         set_value_for_nbasic_column(j, new_val);
         return true;
     }
+}
+
+bool int_solver::non_basic_columns_are_at_bounds() const {
+    auto & lcs = m_lar_solver->m_mpq_lar_core_solver;
+    for (unsigned j : lcs.m_r_nbasis) {
+        auto & val = lcs.m_r_x[j];
+        switch (lcs.m_column_types()[j]) {
+        case column_type::boxed:
+            if (val != lcs.m_r_low_bounds()[j] && val != lcs.m_r_upper_bounds()[j])
+                return false;
+            break;
+        case column_type::low_bound:
+            if (val != lcs.m_r_low_bounds()[j])
+                return false;
+            break;
+        case column_type::upper_bound:
+            if (val != lcs.m_r_upper_bounds()[j])
+                return false;
+            break;
+        default:
+            if (is_int(j) && !val.is_int()) {
+                return false;
+            }
+        }
+    }
+    return true;
 }
 }

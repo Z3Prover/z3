@@ -40,7 +40,7 @@ public:
         T a;
         unsigned i;
         while (it->next(a, i)) {
-            coeff.emplace_back(a, i);
+            coeff.push_back(std::make_pair(a, i));
         }
         print_linear_combination_of_column_indices_only(coeff, out);
     }
@@ -65,7 +65,7 @@ public:
             else if (val != numeric_traits<T>::one())
                 out << T_to_string(val);
         
-            out << "_" << it.second;
+            out << "v" << it.second;
         }
     }
     
