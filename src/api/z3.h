@@ -33,5 +33,6 @@ Notes:
 #include "api/z3_interp.h"
 #include "api/z3_fpa.h"
 
+#include"z3_spacer.h"
 #endif
 

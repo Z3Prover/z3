@@ -14,6 +14,7 @@ set(Z3_API_HEADER_FILES_TO_SCAN
   z3_optimization.h
   z3_interp.h
   z3_fpa.h
+  z3_spacer.h
 )
 set(Z3_FULL_PATH_API_HEADER_FILES_TO_SCAN "")
 foreach (header_file ${Z3_API_HEADER_FILES_TO_SCAN})
@@ -169,6 +170,7 @@ set (libz3_public_headers
   z3_polynomial.h
   z3_rcf.h
   z3_v1.h
+  z3_spacer.h
 )
 foreach (header ${libz3_public_headers})
   set_property(TARGET libz3 APPEND PROPERTY
