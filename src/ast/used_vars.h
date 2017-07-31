@@ -19,8 +19,8 @@ Revision History:
 #ifndef USED_VARS_H_
 #define USED_VARS_H_
 
-#include"ast.h"
-#include"expr_delta_pair.h"
+#include "ast/ast.h"
+#include "ast/expr_delta_pair.h"
 
 class used_vars {
     ptr_vector<sort> m_found_vars;

@@ -22,16 +22,16 @@ Revision History:
 #ifndef AST_SMT2_PP_H_
 #define AST_SMT2_PP_H_
 
-#include"format.h"
-#include"params.h"
-#include"arith_decl_plugin.h"
-#include"bv_decl_plugin.h"
-#include"array_decl_plugin.h"
-#include"fpa_decl_plugin.h"
-#include"dl_decl_plugin.h"
-#include"seq_decl_plugin.h"
-#include"datatype_decl_plugin.h"
-#include"smt2_util.h"
+#include "ast/format.h"
+#include "util/params.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/array_decl_plugin.h"
+#include "ast/fpa_decl_plugin.h"
+#include "ast/dl_decl_plugin.h"
+#include "ast/seq_decl_plugin.h"
+#include "ast/datatype_decl_plugin.h"
+#include "util/smt2_util.h"
 
 class smt2_pp_environment {
 protected:

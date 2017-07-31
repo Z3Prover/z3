@@ -19,10 +19,10 @@ Revision History:
 #ifndef PDECL_H_
 #define PDECL_H_
 
-#include"ast.h"
-#include"obj_hashtable.h" 
-#include"dictionary.h"
-#include"format.h"
+#include "ast/ast.h"
+#include "util/obj_hashtable.h"
+#include "util/dictionary.h"
+#include "ast/format.h"
 
 class pdecl_manager;
 

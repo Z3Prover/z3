@@ -21,10 +21,10 @@ Revision History:
 #ifndef __QE_MBP_H__
 #define __QE_MBP_H__
 
-#include "ast.h"
-#include "params.h"
-#include "model.h"
-#include "model_based_opt.h"
+#include "ast/ast.h"
+#include "util/params.h"
+#include "model/model.h"
+#include "math/simplex/model_based_opt.h"
 
 
 namespace qe {

@@ -19,8 +19,8 @@ Revision History:
 #ifndef COST_PARSER_H_
 #define COST_PARSER_H_
 
-#include"simple_parser.h"
-#include"arith_decl_plugin.h"
+#include "parsers/util/simple_parser.h"
+#include "ast/arith_decl_plugin.h"
 
 class cost_parser : public simple_parser {
     arith_util     m_util;

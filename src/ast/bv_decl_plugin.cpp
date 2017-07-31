@@ -17,11 +17,11 @@ Revision History:
 
 --*/
 #include<sstream>
-#include"bv_decl_plugin.h"
-#include"arith_decl_plugin.h"
-#include"warning.h"
-#include"ast_pp.h"
-#include"ast_smt2_pp.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/arith_decl_plugin.h"
+#include "util/warning.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_smt2_pp.h"
 
 bv_decl_plugin::bv_decl_plugin():
     m_bv_sym("bv"),

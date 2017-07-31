@@ -24,8 +24,8 @@
 #pragma warning(disable:4101)
 #endif
 
-#include "iz3base.h"
-#include "iz3checker.h"
+#include "interp/iz3base.h"
+#include "interp/iz3checker.h"
 
 #include <algorithm>
 #include <stdio.h>

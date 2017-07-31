@@ -18,8 +18,8 @@ Author:
 Notes:
 
 --*/
-#include"expr_map.h"
-#include"dec_ref_util.h"
+#include "ast/expr_map.h"
+#include "util/dec_ref_util.h"
 
 expr_map::expr_map(ast_manager & m):
     m_manager(m),

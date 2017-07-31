@@ -16,7 +16,7 @@ Author:
 Revision History:
 
 --*/
-#include"theory_dense_diff_logic_def.h"
+#include "smt/theory_dense_diff_logic_def.h"
 
 namespace smt {
     template class theory_dense_diff_logic<mi_ext>;

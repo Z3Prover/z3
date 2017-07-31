@@ -16,11 +16,11 @@ Author:
 Notes:
 
 --*/
-#include"arith_rewriter.h"
+#include "ast/rewriter/arith_rewriter.h"
 #include"arith_rewriter_params.hpp"
-#include"poly_rewriter_def.h"
-#include"algebraic_numbers.h"
-#include"ast_pp.h"
+#include "ast/rewriter/poly_rewriter_def.h"
+#include "math/polynomial/algebraic_numbers.h"
+#include "ast/ast_pp.h"
 
 void arith_rewriter::updt_local_params(params_ref const & _p) {
     arith_rewriter_params p(_p);

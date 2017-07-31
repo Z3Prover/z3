@@ -14,10 +14,10 @@ Author:
     Leonardo (leonardo) 2008-01-08
     
 --*/
-#include"arith_simplifier_plugin.h"
-#include"ast_pp.h"
-#include"ast_ll_pp.h"
-#include"ast_smt2_pp.h"
+#include "ast/simplifier/arith_simplifier_plugin.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
+#include "ast/ast_smt2_pp.h"
 
 arith_simplifier_plugin::~arith_simplifier_plugin() {
 }

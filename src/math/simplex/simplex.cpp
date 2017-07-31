@@ -17,9 +17,9 @@ Notes:
 
 --*/
 
-#include"simplex.h"
-#include"sparse_matrix_def.h"
-#include"simplex_def.h"
+#include "math/simplex/simplex.h"
+#include "math/simplex/sparse_matrix_def.h"
+#include "math/simplex/simplex_def.h"
 namespace simplex {
     template class simplex<mpz_ext>;
     template class simplex<mpq_ext>;

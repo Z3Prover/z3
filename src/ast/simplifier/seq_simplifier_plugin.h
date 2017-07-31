@@ -17,9 +17,9 @@ Author:
 #ifndef SEQ_SIMPLIFIER_PLUGIN_H_
 #define SEQ_SIMPLIFIER_PLUGIN_H_
 
-#include"basic_simplifier_plugin.h"
-#include"seq_decl_plugin.h"
-#include"seq_rewriter.h"
+#include "ast/simplifier/basic_simplifier_plugin.h"
+#include "ast/seq_decl_plugin.h"
+#include "ast/rewriter/seq_rewriter.h"
 
 class seq_simplifier_plugin : public simplifier_plugin {
     seq_util     m_util;

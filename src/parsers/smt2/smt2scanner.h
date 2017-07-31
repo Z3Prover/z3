@@ -20,10 +20,10 @@ Revision History:
 #define SMT2SCANNER_H_
 
 #include<iostream>
-#include"symbol.h"
-#include"vector.h"
-#include"rational.h"
-#include"cmd_context.h"
+#include "util/symbol.h"
+#include "util/vector.h"
+#include "util/rational.h"
+#include "cmd_context/cmd_context.h"
 
 namespace smt2 {
 

@@ -4,9 +4,9 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
-#include "bv_elim.h"
-#include "bv_decl_plugin.h"
-#include "var_subst.h"
+#include "ast/simplifier/bv_elim.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/rewriter/var_subst.h"
 #include <sstream>
 
 void bv_elim::elim(quantifier* q, quantifier_ref& r) {

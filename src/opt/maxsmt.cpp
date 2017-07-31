@@ -18,16 +18,16 @@ Notes:
 --*/
 
 #include <typeinfo>
-#include "maxsmt.h"
-#include "maxres.h"
-#include "wmax.h"
-#include "ast_pp.h"
-#include "uint_set.h"
-#include "opt_context.h"
-#include "theory_wmaxsat.h"
-#include "theory_pb.h"
-#include "ast_util.h"
-#include "pb_decl_plugin.h"
+#include "opt/maxsmt.h"
+#include "opt/maxres.h"
+#include "opt/wmax.h"
+#include "ast/ast_pp.h"
+#include "util/uint_set.h"
+#include "opt/opt_context.h"
+#include "smt/theory_wmaxsat.h"
+#include "smt/theory_pb.h"
+#include "ast/ast_util.h"
+#include "ast/pb_decl_plugin.h"
 
 
 namespace opt {

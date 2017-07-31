@@ -18,11 +18,11 @@ Notes:
 
 --*/
 
-#include "solver.h"
-#include "mus.h"
-#include "ast_pp.h"
-#include "ast_util.h"
-#include "model_evaluator.h"
+#include "solver/solver.h"
+#include "solver/mus.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_util.h"
+#include "model/model_evaluator.h"
 
 
 struct mus::imp {

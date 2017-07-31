@@ -22,8 +22,8 @@ Revision History:
 #define SYMBOLIC_AUTOMATA_H_
 
 
-#include "automaton.h"
-#include "boolean_algebra.h"
+#include "math/automata/automaton.h"
+#include "math/automata/boolean_algebra.h"
 
 
 template<class T, class M = default_value_manager<T> >

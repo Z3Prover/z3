@@ -17,8 +17,8 @@ Revision History:
 
 --*/
 
-#include"uint_set.h"
-#include"vector.h"
+#include "util/uint_set.h"
+#include "util/vector.h"
 
 static void tst1(unsigned n) {
     uint_set       s1;
@@ -131,7 +131,7 @@ static void tst4() {
     ENSURE(!s.contains(0));
 }
 
-#include "map.h"
+#include "util/map.h"
 
 template <typename Value>
 struct uint_map : public map<uint_set, Value, uint_set::hash, uint_set::eq> {};

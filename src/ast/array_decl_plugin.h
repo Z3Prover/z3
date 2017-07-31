@@ -19,7 +19,7 @@ Revision History:
 #ifndef ARRAY_DECL_PLUGIN_H_
 #define ARRAY_DECL_PLUGIN_H_
 
-#include"ast.h"
+#include "ast/ast.h"
 
 
 inline sort* get_array_range(sort const * s) {

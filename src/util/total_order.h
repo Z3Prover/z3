@@ -19,11 +19,11 @@ Revision History:
 #ifndef TOTAL_ORDER_H_
 #define TOTAL_ORDER_H_
 
-#include"util.h"
-#include"small_object_allocator.h"
-#include"map.h"
-#include"uint_map.h"
-#include"trace.h"
+#include "util/util.h"
+#include "util/small_object_allocator.h"
+#include "util/map.h"
+#include "util/uint_map.h"
+#include "util/trace.h"
 
 /**
    \brief An object for maintaining a total-order on sets of T values.

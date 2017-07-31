@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#include"mpf.h"
-#include"f2n.h"
+#include "util/mpf.h"
+#include "util/f2n.h"
 
 static void bug_set_int() {
     mpf_manager fm;

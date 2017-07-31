@@ -21,7 +21,7 @@ Revision History:
 #ifndef BOOLEAN_ALGEBRA_H_
 #define BOOLEAN_ALGEBRA_H_
 
-#include "util.h"
+#include "util/util.h"
 
 template<class T>
 class positive_boolean_algebra {

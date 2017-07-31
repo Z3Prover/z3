@@ -16,11 +16,11 @@ Author:
 Revision History:
 
 --*/
-#include"datatype_factory.h"
-#include"proto_model.h"
-#include"ast_pp.h"
-#include"ast_ll_pp.h"
-#include"expr_functors.h"
+#include "smt/proto_model/datatype_factory.h"
+#include "smt/proto_model/proto_model.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
+#include "ast/expr_functors.h"
 
 datatype_factory::datatype_factory(ast_manager & m, proto_model & md):
     struct_factory(m, m.mk_family_id("datatype"), md),

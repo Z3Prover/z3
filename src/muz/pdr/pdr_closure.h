@@ -20,7 +20,7 @@ Revision History:
 #ifndef PDR_CLOSURE_H_
 #define PDR_CLOSURE_H_
 
-#include "arith_decl_plugin.h"
+#include "ast/arith_decl_plugin.h"
 
 namespace pdr {
 

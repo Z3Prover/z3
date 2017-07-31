@@ -16,11 +16,11 @@ Author:
 Notes:
 
 --*/
-#include"env_params.h"
-#include"params.h"
-#include"gparams.h"
-#include"util.h"
-#include"memory_manager.h"
+#include "util/env_params.h"
+#include "util/params.h"
+#include "util/gparams.h"
+#include "util/util.h"
+#include "util/memory_manager.h"
 
 void env_params::updt_params() {
     params_ref p = gparams::get();

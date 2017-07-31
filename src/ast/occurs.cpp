@@ -16,9 +16,9 @@ Author:
 Revision History:
 
 --*/
-#include"occurs.h"
+#include "ast/occurs.h"
 
-#include"for_each_expr.h"
+#include "ast/for_each_expr.h"
 
 // -----------------------------------
 //

@@ -26,7 +26,7 @@ Revision History:
 #ifndef MPZZP_H_
 #define MPZZP_H_
 
-#include "mpz.h"
+#include "util/mpz.h"
 
 class mpzzp_manager {
     typedef unsynch_mpz_manager numeral_manager;

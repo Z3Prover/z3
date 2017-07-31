@@ -18,10 +18,10 @@ Notes:
 #ifndef PARAMETRIC_CMD_H_
 #define PARAMETRIC_CMD_H_
 
-#include"params.h"
-#include"symbol.h"
-#include"string_buffer.h"
-#include"cmd_context_types.h"
+#include "util/params.h"
+#include "util/symbol.h"
+#include "util/string_buffer.h"
+#include "util/cmd_context_types.h"
 
 class parametric_cmd : public cmd {
 public:

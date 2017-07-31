@@ -19,8 +19,8 @@ Copyright (c) 2011 Microsoft Corporation
 #ifndef BIT_BLASTER_TACTIC_H_
 #define BIT_BLASTER_TACTIC_H_
  
- #include"params.h"
- #include"bit_blaster_rewriter.h"
+#include "util/params.h"
+#include "ast/rewriter/bit_blaster/bit_blaster_rewriter.h"
  class ast_manager;
  class tactic;
  

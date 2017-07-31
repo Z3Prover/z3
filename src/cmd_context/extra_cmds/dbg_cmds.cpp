@@ -16,20 +16,20 @@ Notes:
 
 --*/
 #include<iomanip>
-#include"cmd_context.h"
-#include"cmd_util.h"
-#include"rewriter.h"
-#include"shared_occs.h"
-#include"for_each_expr.h"
-#include"rewriter.h"
-#include"bool_rewriter.h"
-#include"ast_lt.h"
-#include"simplify_cmd.h"
-#include"ast_smt2_pp.h"
-#include"bound_manager.h"
-#include"used_vars.h"
-#include"var_subst.h"
-#include"gparams.h"
+#include "cmd_context/cmd_context.h"
+#include "cmd_context/cmd_util.h"
+#include "ast/rewriter/rewriter.h"
+#include "ast/shared_occs.h"
+#include "ast/for_each_expr.h"
+#include "ast/rewriter/rewriter.h"
+#include "ast/rewriter/bool_rewriter.h"
+#include "ast/ast_lt.h"
+#include "cmd_context/simplify_cmd.h"
+#include "ast/ast_smt2_pp.h"
+#include "tactic/arith/bound_manager.h"
+#include "ast/used_vars.h"
+#include "ast/rewriter/var_subst.h"
+#include "util/gparams.h"
 
 #ifndef _EXTERNAL_RELEASE
 

@@ -14,7 +14,7 @@ Author:
     Nikolaj Bjorner (nbjorner) 2016-02-05
 
 --*/
-#include"seq_simplifier_plugin.h"
+#include "ast/simplifier/seq_simplifier_plugin.h"
 
 seq_simplifier_plugin::seq_simplifier_plugin(ast_manager & m, basic_simplifier_plugin & b) :
 simplifier_plugin(symbol("seq"), m),

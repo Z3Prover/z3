@@ -19,7 +19,7 @@ Revision History:
 #ifndef FORMAT_H_
 #define FORMAT_H_
 
-#include"ast.h"
+#include "ast/ast.h"
 
 namespace format_ns {
     typedef app format;

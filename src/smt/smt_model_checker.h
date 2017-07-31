@@ -21,11 +21,11 @@ Revision History:
 #ifndef SMT_MODEL_CHECKER_H_
 #define SMT_MODEL_CHECKER_H_
 
-#include"ast.h"
-#include"obj_hashtable.h"
-#include"qi_params.h"
-#include"smt_params.h"
-#include"region.h"
+#include "ast/ast.h"
+#include "util/obj_hashtable.h"
+#include "smt/params/qi_params.h"
+#include "smt/params/smt_params.h"
+#include "util/region.h"
 
 class proto_model;
 class model;

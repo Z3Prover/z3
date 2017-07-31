@@ -5,13 +5,13 @@ Copyright (c) 2015 Microsoft Corporation
 --*/
 
 
-#include"datalog_parser.h"
-#include"string_buffer.h"
-#include"str_hashtable.h"
-#include"ast_pp.h"
-#include"arith_decl_plugin.h"
-#include"region.h"
-#include"warning.h"
+#include "muz/fp/datalog_parser.h"
+#include "util/string_buffer.h"
+#include "util/str_hashtable.h"
+#include "ast/ast_pp.h"
+#include "ast/arith_decl_plugin.h"
+#include "util/region.h"
+#include "util/warning.h"
 #include<iostream>
 #include<sstream>
 #include<cstdio>

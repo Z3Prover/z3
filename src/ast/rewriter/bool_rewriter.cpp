@@ -16,9 +16,9 @@ Author:
 Notes:
 
 --*/
-#include"bool_rewriter.h"
+#include "ast/rewriter/bool_rewriter.h"
 #include"bool_rewriter_params.hpp"
-#include"rewriter_def.h"
+#include "ast/rewriter/rewriter_def.h"
 
 void bool_rewriter::updt_params(params_ref const & _p) {
     bool_rewriter_params p(_p);

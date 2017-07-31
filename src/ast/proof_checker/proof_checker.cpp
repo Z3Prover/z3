@@ -4,14 +4,14 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
-#include "proof_checker.h"
-#include "ast_ll_pp.h"
-#include "ast_pp.h"
+#include "ast/proof_checker/proof_checker.h"
+#include "ast/ast_ll_pp.h"
+#include "ast/ast_pp.h"
 // include "spc_decl_plugin.h"
-#include "ast_smt_pp.h"
-#include "arith_decl_plugin.h"
-#include "th_rewriter.h"
-#include "var_subst.h"
+#include "ast/ast_smt_pp.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "ast/rewriter/var_subst.h"
 
 #define IS_EQUIV(_e_) (m.is_eq(_e_) || m.is_iff(_e_))
 

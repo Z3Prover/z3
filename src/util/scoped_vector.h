@@ -19,7 +19,7 @@ Revision History:
 #ifndef SCOPED_VECTOR_H_
 #define SCOPED_VECTOR_H_
 
-#include"vector.h"
+#include "util/vector.h"
 
 template<typename T>
 class scoped_vector {

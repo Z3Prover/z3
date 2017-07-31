@@ -19,14 +19,14 @@ Revision History:
 
 
 #include <sstream>
-#include"ast_pp.h"
-#include"dl_check_table.h"
-#include"dl_context.h"
-#include"dl_finite_product_relation.h"
-#include"dl_product_relation.h"
-#include"dl_sieve_relation.h"
-#include"dl_table_relation.h"
-#include"dl_relation_manager.h"
+#include "ast/ast_pp.h"
+#include "muz/rel/dl_check_table.h"
+#include "muz/base/dl_context.h"
+#include "muz/rel/dl_finite_product_relation.h"
+#include "muz/rel/dl_product_relation.h"
+#include "muz/rel/dl_sieve_relation.h"
+#include "muz/rel/dl_table_relation.h"
+#include "muz/rel/dl_relation_manager.h"
 
 namespace datalog {
 

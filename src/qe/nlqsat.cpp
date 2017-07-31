@@ -18,22 +18,22 @@ Revision History:
 
 --*/
 
-#include "nlqsat.h"
-#include "nlsat_solver.h"
-#include "nlsat_explain.h"
-#include "nlsat_assignment.h"
-#include "qsat.h"
-#include "quant_hoist.h"
-#include "goal2nlsat.h"
-#include "expr2var.h"
-#include "uint_set.h"
-#include "ast_util.h"
-#include "tseitin_cnf_tactic.h"
-#include "expr_safe_replace.h"
-#include "ast_pp.h"
-#include "for_each_expr.h"
-#include "rewriter.h"
-#include "rewriter_def.h"
+#include "qe/nlqsat.h"
+#include "nlsat/nlsat_solver.h"
+#include "nlsat/nlsat_explain.h"
+#include "nlsat/nlsat_assignment.h"
+#include "qe/qsat.h"
+#include "ast/rewriter/quant_hoist.h"
+#include "nlsat/tactic/goal2nlsat.h"
+#include "ast/expr2var.h"
+#include "util/uint_set.h"
+#include "ast/ast_util.h"
+#include "tactic/core/tseitin_cnf_tactic.h"
+#include "ast/rewriter/expr_safe_replace.h"
+#include "ast/ast_pp.h"
+#include "ast/for_each_expr.h"
+#include "ast/rewriter/rewriter.h"
+#include "ast/rewriter/rewriter_def.h"
 
 
 namespace qe {

@@ -14,8 +14,8 @@ Author:
     Leonardo de Moura (leonardo) 2012-10-20
 
 --*/
-#include"der.h"
-#include"tactical.h"
+#include "ast/rewriter/der.h"
+#include "tactic/tactical.h"
 
 class der_tactic : public tactic {
     struct imp {

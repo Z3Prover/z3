@@ -19,9 +19,9 @@ Revision History:
 #ifndef SMT_THEORY_H_
 #define SMT_THEORY_H_
 
-#include"smt_enode.h"
-#include"obj_hashtable.h"
-#include"statistics.h"
+#include "smt/smt_enode.h"
+#include "util/obj_hashtable.h"
+#include "util/statistics.h"
 #include<typeinfo>
 
 namespace smt {

@@ -5,7 +5,7 @@ Copyright (c) 2015 Microsoft Corporation
 --*/
 
 #include<stdio.h>
-#include"z3.h"
+#include "api/z3.h"
 
 void tst_api_bug() {
     unsigned vmajor, vminor, vbuild, vrevision;

@@ -18,8 +18,8 @@ Revision History:
 #ifndef API_MODEL_H_
 #define API_MODEL_H_
 
-#include"api_util.h"
-#include"model.h"
+#include "api/api_util.h"
+#include "model/model.h"
 
 struct Z3_model_ref : public api::object {
     model_ref  m_model;

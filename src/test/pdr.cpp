@@ -4,8 +4,8 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
-#include "pdr_context.h"
-#include "reg_decl_plugins.h"
+#include "muz/pdr/pdr_context.h"
+#include "ast/reg_decl_plugins.h"
 
 
 using namespace pdr;

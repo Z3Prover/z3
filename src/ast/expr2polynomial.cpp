@@ -17,13 +17,13 @@ Author:
 Notes:
 
 --*/
-#include"expr2polynomial.h"
-#include"expr2var.h"
-#include"arith_decl_plugin.h"
-#include"ast_smt2_pp.h"
-#include"z3_exception.h"
-#include"cooperate.h"
-#include"common_msgs.h"
+#include "ast/expr2polynomial.h"
+#include "ast/expr2var.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/ast_smt2_pp.h"
+#include "util/z3_exception.h"
+#include "util/cooperate.h"
+#include "util/common_msgs.h"
 
 struct expr2polynomial::imp {
     struct frame {

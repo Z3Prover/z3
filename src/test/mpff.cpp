@@ -17,9 +17,9 @@ Revision History:
 
 --*/
 #include<sstream>
-#include"mpff.h"
-#include"mpz.h"
-#include"mpq.h"
+#include "util/mpff.h"
+#include "util/mpz.h"
+#include "util/mpq.h"
 
 static void tst1() {
     try {

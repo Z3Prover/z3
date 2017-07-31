@@ -14,7 +14,7 @@
 
  Revision History:
 --*/
-#include"mk_extract_proc.h"
+#include "ast/rewriter/mk_extract_proc.h"
 mk_extract_proc::mk_extract_proc(bv_util & u):
     m_util(u),
     m_high(0),

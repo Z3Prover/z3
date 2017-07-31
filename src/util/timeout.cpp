@@ -19,13 +19,13 @@ Revision History:
 
 --*/
 #include<iostream>
-#include"z3_omp.h"
-#include"util.h"
-#include"timeout.h"
-#include"error_codes.h"
+#include "util/z3_omp.h"
+#include "util/util.h"
+#include "util/timeout.h"
+#include "util/error_codes.h"
 
-#include"event_handler.h"
-#include"scoped_timer.h"
+#include "util/event_handler.h"
+#include "util/scoped_timer.h"
 
 scoped_timer * g_timeout = 0;
 void (* g_on_timeout)() = 0;

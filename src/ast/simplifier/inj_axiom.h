@@ -19,7 +19,7 @@ Revision History:
 #ifndef INJ_AXIOM_H_
 #define INJ_AXIOM_H_
 
-#include"ast.h"
+#include "ast/ast.h"
 
 bool simplify_inj_axiom(ast_manager & m, quantifier * q, expr_ref & result);
 

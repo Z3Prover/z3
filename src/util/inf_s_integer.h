@@ -19,8 +19,8 @@ Revision History:
 #ifndef INF_S_INTEGER_H_
 #define INF_S_INTEGER_H_
 
-#include"s_integer.h"
-#include"rational.h"
+#include "util/s_integer.h"
+#include "util/rational.h"
 
 class inf_s_integer {
     static inf_s_integer m_zero;

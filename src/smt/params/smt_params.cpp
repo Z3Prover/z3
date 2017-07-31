@@ -16,10 +16,10 @@ Author:
 Revision History:
 
 --*/
-#include"smt_params.h"
+#include "smt/params/smt_params.h"
 #include"smt_params_helper.hpp"
 #include"model_params.hpp"
-#include"gparams.h"
+#include "util/gparams.h"
 
 void smt_params::updt_local_params(params_ref const & _p) {
     smt_params_helper p(_p);

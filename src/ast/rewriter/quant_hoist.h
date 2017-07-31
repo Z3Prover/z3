@@ -22,7 +22,7 @@ Revision History:
 #ifndef QUANTIFIER_HOISTER_H_
 #define QUANTIFIER_HOISTER_H_
 
-#include "ast.h"
+#include "ast/ast.h"
 
 class quantifier_hoister {
     class impl;

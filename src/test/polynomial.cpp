@@ -17,11 +17,11 @@ Notes:
 
 --*/
 #if !defined(__clang__)
-#include"polynomial.h"
-#include"polynomial_var2value.h"
-#include"polynomial_cache.h"
-#include"linear_eq_solver.h"
-#include"rlimit.h"
+#include "math/polynomial/polynomial.h"
+#include "math/polynomial/polynomial_var2value.h"
+#include "math/polynomial/polynomial_cache.h"
+#include "math/polynomial/linear_eq_solver.h"
+#include "util/rlimit.h"
 
 static void tst1() {
     std::cout << "\n----- Basic testing -------\n";

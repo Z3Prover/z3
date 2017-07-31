@@ -19,7 +19,7 @@ Notes:
 #ifndef AIG_TACTIC_H_
 #define AIG_TACTIC_H_
 
-#include"params.h"
+#include "util/params.h"
 class tactic;
 
 tactic * mk_aig_tactic(params_ref const & p = params_ref());

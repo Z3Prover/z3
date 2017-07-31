@@ -17,9 +17,9 @@ Revision History:
 
 --*/
 
-#include "dl_bound_relation.h"
-#include "debug.h"
-#include "ast_pp.h"
+#include "muz/rel/dl_bound_relation.h"
+#include "util/debug.h"
+#include "ast/ast_pp.h"
 
 namespace datalog {
 

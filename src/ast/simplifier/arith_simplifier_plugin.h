@@ -17,10 +17,10 @@ Author:
 #ifndef ARITH_SIMPLIFIER_PLUGIN_H_
 #define ARITH_SIMPLIFIER_PLUGIN_H_
 
-#include"basic_simplifier_plugin.h"
-#include"poly_simplifier_plugin.h"
-#include"arith_decl_plugin.h"
-#include"arith_simplifier_params.h"
+#include "ast/simplifier/basic_simplifier_plugin.h"
+#include "ast/simplifier/poly_simplifier_plugin.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/simplifier/arith_simplifier_params.h"
 
 /**
    \brief Simplifier for the arith family.

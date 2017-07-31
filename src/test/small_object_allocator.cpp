@@ -5,9 +5,9 @@ Copyright (c) 2015 Microsoft Corporation
 --*/
 
 #include<iostream>
-#include"util.h"
-#include"trace.h"
-#include"small_object_allocator.h"
+#include "util/util.h"
+#include "util/trace.h"
+#include "util/small_object_allocator.h"
 
 void tst_small_object_allocator() {
     small_object_allocator soa;

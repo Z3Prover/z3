@@ -20,17 +20,17 @@ Author:
 Revision History:
 
 --*/
-#include"tactical.h"
-#include"rewriter_def.h"
-#include"arith_decl_plugin.h"
-#include"algebraic_numbers.h"
-#include"nnf_tactic.h"
-#include"simplify_tactic.h"
-#include"th_rewriter.h"
-#include"filter_model_converter.h"
-#include"extension_model_converter.h"
-#include"ast_smt2_pp.h"
-#include"expr_replacer.h"
+#include "tactic/tactical.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "ast/arith_decl_plugin.h"
+#include "math/polynomial/algebraic_numbers.h"
+#include "tactic/core/nnf_tactic.h"
+#include "tactic/core/simplify_tactic.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "tactic/filter_model_converter.h"
+#include "tactic/extension_model_converter.h"
+#include "ast/ast_smt2_pp.h"
+#include "ast/rewriter/expr_replacer.h"
 
 /*
 ----

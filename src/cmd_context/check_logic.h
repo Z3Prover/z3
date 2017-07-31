@@ -19,7 +19,7 @@ Revision History:
 #ifndef CHECK_LOGIC_H_
 #define CHECK_LOGIC_H_
 
-#include"ast.h"
+#include "ast/ast.h"
 
 class check_logic {
     struct imp;

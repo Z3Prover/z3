@@ -17,19 +17,19 @@ Notes:
 
 --*/
 
-#include "bounded_int2bv_solver.h"
-#include "solver_na2as.h"
-#include "tactic.h"
-#include "pb2bv_rewriter.h"
-#include "filter_model_converter.h"
-#include "extension_model_converter.h"
-#include "ast_pp.h"
-#include "model_smt2_pp.h"
-#include "bound_manager.h"
-#include "bv2int_rewriter.h"
-#include "expr_safe_replace.h"
-#include "bv_decl_plugin.h"
-#include "arith_decl_plugin.h"
+#include "tactic/portfolio/bounded_int2bv_solver.h"
+#include "solver/solver_na2as.h"
+#include "tactic/tactic.h"
+#include "ast/rewriter/pb2bv_rewriter.h"
+#include "tactic/filter_model_converter.h"
+#include "tactic/extension_model_converter.h"
+#include "ast/ast_pp.h"
+#include "model/model_smt2_pp.h"
+#include "tactic/arith/bound_manager.h"
+#include "tactic/arith/bv2int_rewriter.h"
+#include "ast/rewriter/expr_safe_replace.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/arith_decl_plugin.h"
 
 class bounded_int2bv_solver : public solver_na2as {
     ast_manager&     m;

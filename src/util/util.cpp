@@ -17,7 +17,7 @@ Revision History:
 
 --*/
 
-#include"util.h"
+#include "util/util.h"
 
 static unsigned g_verbosity_level = 0;
 

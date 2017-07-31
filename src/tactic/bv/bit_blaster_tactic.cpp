@@ -16,12 +16,12 @@ Author:
 Notes:
 
 --*/
-#include"tactical.h"
-#include"bit_blaster_model_converter.h"
-#include"bit_blaster_rewriter.h"
-#include"ast_pp.h"
-#include"model_pp.h"
-#include"rewriter_types.h"
+#include "tactic/tactical.h"
+#include "tactic/bv/bit_blaster_model_converter.h"
+#include "ast/rewriter/bit_blaster/bit_blaster_rewriter.h"
+#include "ast/ast_pp.h"
+#include "model/model_pp.h"
+#include "ast/rewriter/rewriter_types.h"
 
 class bit_blaster_tactic : public tactic {
 

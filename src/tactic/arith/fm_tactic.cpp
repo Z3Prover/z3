@@ -21,17 +21,17 @@ Author:
 Revision History:
 
 --*/
-#include"fm_tactic.h"
-#include"tactical.h"
-#include"arith_decl_plugin.h"
-#include"for_each_expr.h"
-#include"cooperate.h"
-#include"ast_smt2_pp.h"
-#include"ast_pp.h"
-#include"id_gen.h"
-#include"model_evaluator.h"
-#include"model_v2_pp.h"
-#include"simplify_tactic.h"
+#include "tactic/arith/fm_tactic.h"
+#include "tactic/tactical.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/for_each_expr.h"
+#include "util/cooperate.h"
+#include "ast/ast_smt2_pp.h"
+#include "ast/ast_pp.h"
+#include "util/id_gen.h"
+#include "model/model_evaluator.h"
+#include "model/model_v2_pp.h"
+#include "tactic/core/simplify_tactic.h"
 
 class fm_tactic : public tactic {
     typedef ptr_vector<app> clauses;

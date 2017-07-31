@@ -19,7 +19,7 @@ Revision History:
 #ifndef THEORY_PB_PARAMS_H_
 #define THEORY_PB_PARAMS_H_
 
-#include"params.h"
+#include "util/params.h"
 
 
 struct theory_pb_params {

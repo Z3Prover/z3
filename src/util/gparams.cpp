@@ -16,9 +16,9 @@ Author:
 Notes:
 
 --*/
-#include"gparams.h"
-#include"dictionary.h"
-#include"trace.h"
+#include "util/gparams.h"
+#include "util/dictionary.h"
+#include "util/trace.h"
 
 extern void gparams_register_modules();
 

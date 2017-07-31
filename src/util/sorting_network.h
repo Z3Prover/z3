@@ -19,7 +19,7 @@ Notes:
 
 --*/
 
-#include "vector.h"
+#include "util/vector.h"
 
 #ifndef SORTING_NETWORK_H_
 #define SORTING_NETWORK_H_

@@ -19,8 +19,8 @@ Notes:
 #ifndef ARITH_REWRITER_H_
 #define ARITH_REWRITER_H_
 
-#include"poly_rewriter.h"
-#include"arith_decl_plugin.h"
+#include "ast/rewriter/poly_rewriter.h"
+#include "ast/arith_decl_plugin.h"
 
 class arith_rewriter_core {
 protected:

@@ -18,15 +18,15 @@ Revision History:
 
 --*/
 #include<typeinfo>
-#include"api_context.h"
-#include"smtparser.h"
+#include "api/api_context.h"
+#include "parsers/smt/smtparser.h"
 #include"version.h"
-#include"ast_pp.h"
-#include"ast_ll_pp.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
 #include"api_log_macros.h"
-#include"api_util.h"
-#include"reg_decl_plugins.h"
-#include"realclosure.h"
+#include "api/api_util.h"
+#include "ast/reg_decl_plugins.h"
+#include "math/realclosure/realclosure.h"
 
 // The install_tactics procedure is automatically generated
 void install_tactics(tactic_manager & ctx);

@@ -25,12 +25,12 @@
 #pragma warning(disable:4101)
 #endif
 
-#include "iz3base.h"
+#include "interp/iz3base.h"
 #include <stdio.h>
 #include <fstream>
 #include <iostream>
 #include <ostream>
-#include "solver.h"
+#include "solver/solver.h"
 #include "../smt/smt_solver.h"
 
 

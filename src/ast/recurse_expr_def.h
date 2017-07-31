@@ -19,7 +19,7 @@ Revision History:
 #ifndef RECURSE_EXPR_DEF_H_
 #define RECURSE_EXPR_DEF_H_
 
-#include"recurse_expr.h"
+#include "ast/recurse_expr.h"
 
 template<typename T, typename Visitor, bool IgnorePatterns, bool CallDestructors>
 inline void recurse_expr<T, Visitor, IgnorePatterns, CallDestructors>::visit(expr * n, bool & visited) {

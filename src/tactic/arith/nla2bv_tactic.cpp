@@ -18,19 +18,19 @@ Notes:
     The original file was called qfnla2bv.cpp
 
 --*/
-#include "tactical.h"
-#include "arith_decl_plugin.h"
-#include "bv_decl_plugin.h"
-#include "for_each_expr.h"
-#include "expr_replacer.h"
-#include "optional.h"
-#include "bv2int_rewriter.h"
-#include "bv2real_rewriter.h"
-#include "extension_model_converter.h"
-#include "filter_model_converter.h"
-#include "bound_manager.h"
-#include "obj_pair_hashtable.h"
-#include "ast_smt2_pp.h"
+#include "tactic/tactical.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/for_each_expr.h"
+#include "ast/rewriter/expr_replacer.h"
+#include "util/optional.h"
+#include "tactic/arith/bv2int_rewriter.h"
+#include "tactic/arith/bv2real_rewriter.h"
+#include "tactic/extension_model_converter.h"
+#include "tactic/filter_model_converter.h"
+#include "tactic/arith/bound_manager.h"
+#include "util/obj_pair_hashtable.h"
+#include "ast/ast_smt2_pp.h"
 
 //
 // 

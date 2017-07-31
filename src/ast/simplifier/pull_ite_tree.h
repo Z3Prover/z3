@@ -19,11 +19,11 @@ Revision History:
 #ifndef PULL_ITE_TREE_H_
 #define PULL_ITE_TREE_H_
 
-#include"ast.h"
-#include"simplifier.h"
-#include"recurse_expr.h"
-#include"obj_hashtable.h"
-#include"expr_map.h"
+#include "ast/ast.h"
+#include "ast/simplifier/simplifier.h"
+#include "ast/recurse_expr.h"
+#include "util/obj_hashtable.h"
+#include "ast/expr_map.h"
 
 /**
    \brief Functor for applying the following transformation

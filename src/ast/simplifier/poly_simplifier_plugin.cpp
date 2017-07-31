@@ -14,11 +14,11 @@ Author:
     Leonardo (leonardo) 2008-01-08
     
 --*/
-#include"poly_simplifier_plugin.h"
-#include"ast_pp.h"
-#include"ast_util.h"
-#include"ast_smt2_pp.h"
-#include"ast_ll_pp.h"
+#include "ast/simplifier/poly_simplifier_plugin.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_util.h"
+#include "ast/ast_smt2_pp.h"
+#include "ast/ast_ll_pp.h"
 
 poly_simplifier_plugin::poly_simplifier_plugin(symbol const & fname, ast_manager & m, decl_kind add, decl_kind mul, decl_kind uminus, decl_kind sub,
                                                decl_kind num):

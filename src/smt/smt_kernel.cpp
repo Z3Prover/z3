@@ -16,9 +16,9 @@ Author:
 Revision History:
 
 --*/
-#include"smt_kernel.h"
-#include"smt_context.h" 
-#include"ast_smt2_pp.h"
+#include "smt/smt_kernel.h"
+#include "smt/smt_context.h"
+#include "ast/ast_smt2_pp.h"
 #include"smt_params_helper.hpp"
 
 namespace smt {

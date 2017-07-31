@@ -19,9 +19,9 @@ Revision History:
 #ifndef MODEL_EVALUATOR_H_
 #define MODEL_EVALUATOR_H_
 
-#include"ast.h"
-#include"rewriter_types.h"
-#include"params.h"
+#include "ast/ast.h"
+#include "ast/rewriter/rewriter_types.h"
+#include "util/params.h"
 class model;
 
 typedef rewriter_exception model_evaluator_exception;

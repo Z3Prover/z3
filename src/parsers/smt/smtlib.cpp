@@ -5,9 +5,9 @@ Copyright (c) 2015 Microsoft Corporation
 --*/
 
 
-#include"smtlib.h"
-#include"ast_pp.h"
-#include"ast_smt2_pp.h"
+#include "parsers/smt/smtlib.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_smt2_pp.h"
 
 #ifdef _WINDOWS
 #ifdef ARRAYSIZE

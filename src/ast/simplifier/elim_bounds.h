@@ -19,9 +19,9 @@ Revision History:
 #ifndef ELIM_BOUNDS_H_
 #define ELIM_BOUNDS_H_
 
-#include"ast.h"
-#include"arith_decl_plugin.h"
-#include"simplifier.h"
+#include "ast/ast.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/simplifier/simplifier.h"
 
 /**
    \brief Functor for eliminating irrelevant bounds in quantified formulas.

@@ -15,8 +15,8 @@ Author:
 
 --*/
 
-#include "dataflow.h"
-#include "reachability.h"
+#include "muz/dataflow/dataflow.h"
+#include "muz/dataflow/reachability.h"
 
 namespace datalog {
 

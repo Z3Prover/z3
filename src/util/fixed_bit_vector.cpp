@@ -20,9 +20,9 @@ Revision History:
 --*/
 
 #include<limits.h>
-#include"fixed_bit_vector.h"
-#include"trace.h"
-#include"hash.h"
+#include "util/fixed_bit_vector.h"
+#include "util/trace.h"
+#include "util/hash.h"
 
 void fixed_bit_vector::set(fixed_bit_vector const& other, unsigned hi, unsigned lo) {
     if ((lo % 32) == 0) {

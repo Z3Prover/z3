@@ -25,8 +25,8 @@
 #pragma warning(disable:4267)
 #endif
 
-#include "duality.h"
-#include "duality_profiling.h"
+#include "duality/duality.h"
+#include "duality/duality_profiling.h"
 
 #include <stdio.h>
 #include <set>

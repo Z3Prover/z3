@@ -18,12 +18,12 @@ Notes:
 --*/
 #include<math.h>
 
-#include"ast_smt2_pp.h"
-#include"well_sorted.h"
-#include"th_rewriter.h"
+#include "ast/ast_smt2_pp.h"
+#include "ast/well_sorted.h"
+#include "ast/rewriter/th_rewriter.h"
 
-#include"fpa2bv_converter.h"
-#include"fpa_rewriter.h"
+#include "ast/fpa/fpa2bv_converter.h"
+#include "ast/rewriter/fpa_rewriter.h"
 
 #define BVULT(X,Y,R) { expr_ref bvult_eq(m), bvult_not(m); m_simp.mk_eq(X, Y, bvult_eq); m_simp.mk_not(bvult_eq, bvult_not); expr_ref t(m); t = m_bv_util.mk_ule(X,Y); m_simp.mk_and(t, bvult_not, R); }
 

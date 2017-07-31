@@ -20,8 +20,8 @@ Notes:
 #ifndef SCOPED_PTR_VECTOR_H_
 #define SCOPED_PTR_VECTOR_H_
 
-#include"vector.h"
-#include"util.h"
+#include "util/vector.h"
+#include "util/util.h"
 
 template<typename T>
 class scoped_ptr_vector {

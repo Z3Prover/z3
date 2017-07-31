@@ -17,13 +17,13 @@ Notes:
 
 --*/
 
-#include"ctx_solver_simplify_tactic.h"
-#include"arith_decl_plugin.h"
-#include"smt_params.h"
-#include"smt_kernel.h"
-#include"ast_pp.h"
-#include"mk_simplified_app.h"
-#include"ast_util.h"
+#include "smt/tactic/ctx_solver_simplify_tactic.h"
+#include "ast/arith_decl_plugin.h"
+#include "smt/params/smt_params.h"
+#include "smt/smt_kernel.h"
+#include "ast/ast_pp.h"
+#include "ast/rewriter/mk_simplified_app.h"
+#include "ast/ast_util.h"
 
 class ctx_solver_simplify_tactic : public tactic {
     ast_manager&          m;

@@ -4,12 +4,12 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
-#include "smt_context.h"
-#include "ast_pp.h"
-#include "model_v2_pp.h"
-#include "reg_decl_plugins.h"
-#include "theory_pb.h"
-#include "th_rewriter.h"
+#include "smt/smt_context.h"
+#include "ast/ast_pp.h"
+#include "model/model_v2_pp.h"
+#include "ast/reg_decl_plugins.h"
+#include "smt/theory_pb.h"
+#include "ast/rewriter/th_rewriter.h"
 
 unsigned populate_literals(unsigned k, smt::literal_vector& lits) {
     ENSURE(k < (1u << lits.size()));

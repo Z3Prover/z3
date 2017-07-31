@@ -4,15 +4,15 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
-#include "ast.h"
-#include "nlarith_util.h"
-#include "arith_decl_plugin.h"
-#include "ast_pp.h"
-#include "qe.h"
-#include "expr_replacer.h"
-#include "arith_rewriter.h"
-#include "arith_simplifier_plugin.h"
-#include "expr_functors.h"
+#include "ast/ast.h"
+#include "qe/nlarith_util.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/ast_pp.h"
+#include "qe/qe.h"
+#include "ast/rewriter/expr_replacer.h"
+#include "ast/rewriter/arith_rewriter.h"
+#include "ast/simplifier/arith_simplifier_plugin.h"
+#include "ast/expr_functors.h"
 
 namespace nlarith {
 

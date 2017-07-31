@@ -21,17 +21,17 @@ Revision History:
 #include<iostream>
 #include<time.h>
 #include<signal.h>
-#include"smtlib_solver.h"
-#include"timeout.h"
-#include"smt2parser.h"
-#include"dl_cmds.h"
-#include"dbg_cmds.h"
-#include"opt_cmds.h"
-#include"polynomial_cmds.h"
-#include"subpaving_cmds.h"
-#include"smt2_extra_cmds.h"
-#include"smt_strategic_solver.h"
-#include"smt_solver.h"
+#include "parsers/smt/smtlib_solver.h"
+#include "util/timeout.h"
+#include "parsers/smt2/smt2parser.h"
+#include "muz/fp/dl_cmds.h"
+#include "cmd_context/extra_cmds/dbg_cmds.h"
+#include "opt/opt_cmds.h"
+#include "cmd_context/extra_cmds/polynomial_cmds.h"
+#include "cmd_context/extra_cmds/subpaving_cmds.h"
+#include "smt/smt2_extra_cmds.h"
+#include "tactic/portfolio/smt_strategic_solver.h"
+#include "smt/smt_solver.h"
 
 extern bool g_display_statistics;
 static clock_t             g_start_time;

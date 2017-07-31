@@ -19,13 +19,13 @@ Notes:
 #ifndef SEQ_REWRITER_H_
 #define SEQ_REWRITER_H_
 
-#include"seq_decl_plugin.h"
-#include"arith_decl_plugin.h"
-#include"rewriter_types.h"
-#include"params.h"
-#include"lbool.h"
-#include"automaton.h"
-#include"symbolic_automata.h"
+#include "ast/seq_decl_plugin.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/rewriter/rewriter_types.h"
+#include "util/params.h"
+#include "util/lbool.h"
+#include "math/automata/automaton.h"
+#include "math/automata/symbolic_automata.h"
 
 class sym_expr {
     enum ty {

@@ -19,17 +19,17 @@ Revision History:
 #ifndef SMT_PARAMS_H_
 #define SMT_PARAMS_H_
 
-#include"ast.h"
-#include"dyn_ack_params.h"
-#include"qi_params.h"
-#include"theory_arith_params.h"
-#include"theory_array_params.h"
-#include"theory_bv_params.h"
-#include"theory_str_params.h"
-#include"theory_pb_params.h"
-#include"theory_datatype_params.h"
-#include"preprocessor_params.h"
-#include"context_params.h"
+#include "ast/ast.h"
+#include "smt/params/dyn_ack_params.h"
+#include "smt/params/qi_params.h"
+#include "smt/params/theory_arith_params.h"
+#include "smt/params/theory_array_params.h"
+#include "smt/params/theory_bv_params.h"
+#include "smt/params/theory_str_params.h"
+#include "smt/params/theory_pb_params.h"
+#include "smt/params/theory_datatype_params.h"
+#include "smt/params/preprocessor_params.h"
+#include "cmd_context/context_params.h"
 
 enum phase_selection { 
     PS_ALWAYS_FALSE,

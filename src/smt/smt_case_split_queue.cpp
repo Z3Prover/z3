@@ -16,14 +16,14 @@ Author:
 Revision History:
 
 --*/
-#include"smt_context.h"
-#include"smt_case_split_queue.h"
-#include"warning.h"
-#include"stopwatch.h"
-#include"for_each_expr.h"
-#include"ast_pp.h"
-#include"map.h"
-#include"hashtable.h"
+#include "smt/smt_context.h"
+#include "smt/smt_case_split_queue.h"
+#include "util/warning.h"
+#include "util/stopwatch.h"
+#include "ast/for_each_expr.h"
+#include "ast/ast_pp.h"
+#include "util/map.h"
+#include "util/hashtable.h"
 
 namespace smt {
 

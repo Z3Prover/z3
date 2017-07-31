@@ -16,7 +16,7 @@ Author:
 Revision History:
 
 --*/
-#include"goal_shared_occs.h"
+#include "tactic/goal_shared_occs.h"
 
 void goal_shared_occs::operator()(goal const & g) {
     m_occs.reset();

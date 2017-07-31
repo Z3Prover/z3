@@ -16,7 +16,7 @@ Author:
 Notes:
 
 --*/
-#include"datatype_rewriter.h"
+#include "ast/rewriter/datatype_rewriter.h"
 
 br_status datatype_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
     SASSERT(f->get_family_id() == get_fid());

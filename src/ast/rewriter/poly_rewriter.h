@@ -19,10 +19,10 @@ Notes:
 #ifndef POLY_REWRITER_H_
 #define POLY_REWRITER_H_
 
-#include"ast.h"
-#include"obj_hashtable.h"
-#include"rewriter_types.h"
-#include"params.h"
+#include "ast/ast.h"
+#include "util/obj_hashtable.h"
+#include "ast/rewriter/rewriter_types.h"
+#include "util/params.h"
 
 template<typename Config>
 class poly_rewriter : public Config {

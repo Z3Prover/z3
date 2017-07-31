@@ -19,9 +19,9 @@ Notes:
 #ifndef CHECK_SAT_RESULT_H_
 #define CHECK_SAT_RESULT_H_
 
-#include"model.h"
-#include"lbool.h"
-#include"statistics.h"
+#include "model/model.h"
+#include "util/lbool.h"
+#include "util/statistics.h"
 
 /**
    \brief Abstract interface for the result of a (check-sat) like command.

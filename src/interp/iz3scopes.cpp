@@ -21,7 +21,7 @@
 
 #include <algorithm>
 
-#include "iz3scopes.h"
+#include "interp/iz3scopes.h"
 
 
 /** computes the least common ancestor of two nodes in the tree, or SHRT_MAX if none */

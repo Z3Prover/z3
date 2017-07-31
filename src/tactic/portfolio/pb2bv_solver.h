@@ -19,8 +19,8 @@ Notes:
 #ifndef PB2BV_SOLVER_H_
 #define PB2BV_SOLVER_H_
 
-#include"ast.h"
-#include"params.h"
+#include "ast/ast.h"
+#include "util/params.h"
 
 class solver;
 

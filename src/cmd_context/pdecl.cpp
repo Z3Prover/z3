@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#include"pdecl.h"
-#include"datatype_decl_plugin.h"
+#include "cmd_context/pdecl.h"
+#include "ast/datatype_decl_plugin.h"
 using namespace format_ns;
 
 class psort_inst_cache {

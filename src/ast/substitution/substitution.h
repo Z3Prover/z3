@@ -33,9 +33,9 @@ Revision History:
 #ifndef SUBSTITUTION_H_
 #define SUBSTITUTION_H_
 
-#include"expr_offset_map.h"
-#include"var_offset_map.h"
-#include"ast_pp.h"
+#include "ast/substitution/expr_offset_map.h"
+#include "ast/substitution/var_offset_map.h"
+#include "ast/ast_pp.h"
 
 /**
    \brief A mapping from (variable,offset) to expr_offset.

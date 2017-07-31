@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#include"proof_converter.h"
-#include"ast_smt2_pp.h"
+#include "tactic/proof_converter.h"
+#include "ast/ast_smt2_pp.h"
 
 class concat_proof_converter : public concat_converter<proof_converter> {
 public:

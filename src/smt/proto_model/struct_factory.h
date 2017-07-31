@@ -19,8 +19,8 @@ Revision History:
 #ifndef STRUCT_FACTORY_H_
 #define STRUCT_FACTORY_H_
 
-#include"value_factory.h"
-#include"obj_hashtable.h"
+#include "smt/proto_model/value_factory.h"
+#include "util/obj_hashtable.h"
 
 class proto_model;
 

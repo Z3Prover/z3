@@ -17,8 +17,8 @@ Revision History:
 
 --*/
 
-#include "dl_lazy_table.h"
-#include "dl_relation_manager.h"
+#include "muz/rel/dl_lazy_table.h"
+#include "muz/rel/dl_relation_manager.h"
 #include <sstream>
 
 namespace datalog {

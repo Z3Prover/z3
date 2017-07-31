@@ -16,10 +16,10 @@ Author:
 Revision History:
 
 --*/
-#include "model2expr.h"
-#include "for_each_ast.h"
-#include "bool_rewriter.h"
-#include "var_subst.h"
+#include "model/model2expr.h"
+#include "ast/for_each_ast.h"
+#include "ast/rewriter/bool_rewriter.h"
+#include "ast/rewriter/var_subst.h"
 
 struct for_each_symbol_proc {
     symbol_set& m_symbols;

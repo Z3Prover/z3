@@ -16,7 +16,7 @@ Author:
 Revision History:
 
 --*/
-#include "ast.h"
+#include "ast/ast.h"
 
 static void tst1() {
     ast_manager m;

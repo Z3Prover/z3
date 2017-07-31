@@ -16,7 +16,7 @@ Author:
 Revision History:
 
 --*/
-#include"symbol_table.h"
+#include "util/symbol_table.h"
 
 static void tst1() {
     symbol_table<int> t;

@@ -19,7 +19,7 @@ Revision History:
 #ifndef DIMACS_H_
 #define DIMACS_H_
 
-#include"sat_types.h"
+#include "sat/sat_types.h"
 
 void parse_dimacs(std::istream & s, sat::solver & solver);
 

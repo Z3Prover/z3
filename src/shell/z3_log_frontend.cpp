@@ -20,9 +20,9 @@ Revision History:
 #include<iostream>
 #include<fstream>
 #include<time.h>
-#include"util.h"
-#include"error_codes.h"
-#include"z3_replayer.h"
+#include "util/util.h"
+#include "util/error_codes.h"
+#include "api/z3_replayer.h"
 
 static void solve(char const * stream_name, std::istream & in) {
     clock_t start_time = clock();

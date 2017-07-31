@@ -21,12 +21,12 @@ Revision History:
 #ifndef UFBV_REWRITER_H_
 #define UFBV_REWRITER_H_
 
-#include"ast.h"
-#include"substitution.h"
-#include"obj_hashtable.h"
-#include"obj_pair_hashtable.h"
-#include"array_map.h"
-#include"basic_simplifier_plugin.h"
+#include "ast/ast.h"
+#include "ast/substitution/substitution.h"
+#include "util/obj_hashtable.h"
+#include "util/obj_pair_hashtable.h"
+#include "util/array_map.h"
+#include "ast/simplifier/basic_simplifier_plugin.h"
 
 /**
    \brief Apply demodulators as a preprocessing technique.

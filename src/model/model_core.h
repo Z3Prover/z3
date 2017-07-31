@@ -19,9 +19,9 @@ Revision History:
 #ifndef MODEL_CORE_H_
 #define MODEL_CORE_H_
 
-#include"ast.h"
-#include"obj_hashtable.h"
-#include"func_interp.h"
+#include "ast/ast.h"
+#include "util/obj_hashtable.h"
+#include "model/func_interp.h"
 
 class model_core {
 protected:

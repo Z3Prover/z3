@@ -3,8 +3,8 @@
 Copyright (c) 2015 Microsoft Corporation
 
 --*/
-#include"rlimit.h"
-#include "hilbert_basis.h"
+#include "util/rlimit.h"
+#include "math/hilbert/hilbert_basis.h"
 
 /*
   Test generation of linear congruences a la Karr.

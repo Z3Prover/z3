@@ -16,13 +16,13 @@ Author:
 Revision History:
 
 --*/
-#include "arith_decl_plugin.h"
-#include "bv_decl_plugin.h"
-#include "datatype_decl_plugin.h"
-#include "array_decl_plugin.h"
-#include "format.h"
-#include "ast_translation.h"
-#include "ast_ll_pp.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/datatype_decl_plugin.h"
+#include "ast/array_decl_plugin.h"
+#include "ast/format.h"
+#include "ast/ast_translation.h"
+#include "ast/ast_ll_pp.h"
 
 ast_translation::~ast_translation() {
     reset_cache();

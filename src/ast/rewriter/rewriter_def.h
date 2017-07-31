@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#include"rewriter.h"
-#include"ast_smt2_pp.h"
+#include "ast/rewriter/rewriter.h"
+#include "ast/ast_smt2_pp.h"
 
 template<typename Config>
 template<bool ProofGen>

@@ -20,11 +20,11 @@ Revision History:
 #ifndef DL_BMC_ENGINE_H_
 #define DL_BMC_ENGINE_H_
 
-#include "params.h"
-#include "statistics.h"
-#include "smt_kernel.h"
-#include "bv_decl_plugin.h"
-#include "smt_params.h"
+#include "util/params.h"
+#include "util/statistics.h"
+#include "smt/smt_kernel.h"
+#include "ast/bv_decl_plugin.h"
+#include "smt/params/smt_params.h"
 
 
 namespace datalog {

@@ -16,11 +16,11 @@ Author:
 Revision History:
 
 --*/
-#include"arith_decl_plugin.h"
-#include"warning.h"
-#include"algebraic_numbers.h"
-#include"id_gen.h"
-#include"ast_smt2_pp.h"
+#include "ast/arith_decl_plugin.h"
+#include "util/warning.h"
+#include "math/polynomial/algebraic_numbers.h"
+#include "util/id_gen.h"
+#include "ast/ast_smt2_pp.h"
 
 struct arith_decl_plugin::algebraic_numbers_wrapper {
     unsynch_mpq_manager           m_qmanager;

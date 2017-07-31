@@ -16,15 +16,15 @@ Author:
 Revision History:
 
 --*/
-#include"pattern_inference.h"
-#include"ast_ll_pp.h"
-#include"ast_pp.h"
-#include"ast_util.h"
-#include"warning.h"
-#include"arith_decl_plugin.h"
-#include"pull_quant.h"
-#include"well_sorted.h"
-#include"for_each_expr.h"
+#include "ast/pattern/pattern_inference.h"
+#include "ast/ast_ll_pp.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_util.h"
+#include "util/warning.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/normal_forms/pull_quant.h"
+#include "ast/well_sorted.h"
+#include "ast/for_each_expr.h"
 
 void smaller_pattern::save(expr * p1, expr * p2) {
     expr_pair e(p1, p2);
@@ -576,7 +576,7 @@ void pattern_inference::mk_patterns(unsigned num_bindings,
     m_candidates.reset();
 }
 
-#include"database.h" // defines g_pattern_database
+#include "database.h"
 
 void pattern_inference::reduce1_quantifier(quantifier * q) {
     TRACE("pattern_inference", tout << "processing:\n" << mk_pp(q, m) << "\n";);

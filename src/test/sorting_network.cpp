@@ -4,16 +4,16 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
-#include "trace.h"
-#include "vector.h"
-#include "ast.h"
-#include "ast_pp.h"
-#include "reg_decl_plugins.h"
-#include "sorting_network.h"
-#include "smt_kernel.h"
-#include "model_smt2_pp.h"
-#include "smt_params.h"
-#include "ast_util.h"
+#include "util/trace.h"
+#include "util/vector.h"
+#include "ast/ast.h"
+#include "ast/ast_pp.h"
+#include "ast/reg_decl_plugins.h"
+#include "util/sorting_network.h"
+#include "smt/smt_kernel.h"
+#include "model/model_smt2_pp.h"
+#include "smt/params/smt_params.h"
+#include "ast/ast_util.h"
 
 
 

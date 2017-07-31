@@ -4,8 +4,8 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
-#include "proof_checker.h"
-#include "ast_ll_pp.h"
+#include "ast/proof_checker/proof_checker.h"
+#include "ast/ast_ll_pp.h"
 
 void tst_checker1() {
     ast_manager m(PGM_FINE);

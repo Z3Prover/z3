@@ -19,7 +19,7 @@ Revision History:
 #ifndef NLSAT_INTERVAL_SET_H_
 #define NLSAT_INTERVAL_SET_H_
 
-#include"nlsat_types.h"
+#include "nlsat/nlsat_types.h"
 
 namespace nlsat {
 

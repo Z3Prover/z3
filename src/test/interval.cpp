@@ -17,12 +17,12 @@ Revision History:
 
 --*/
 #include<cstdlib>
-#include"interval_def.h"
-#include"dependency.h"
-#include"mpq.h"
-#include"ast.h"
-#include"debug.h"
-#include"rlimit.h"
+#include "math/interval/interval_def.h"
+#include "util/dependency.h"
+#include "util/mpq.h"
+#include "ast/ast.h"
+#include "util/debug.h"
+#include "util/rlimit.h"
 
 template class interval_manager<im_default_config>;
 typedef im_default_config::interval interval;
@@ -390,7 +390,7 @@ static void tst_div(unsigned N, unsigned magnitude) {
     del_interval(imc, a); del_interval(imc, b); del_interval(imc, r);
 }
 
-#include"im_float_config.h"
+#include "test/im_float_config.h"
 
 #if 0
 static void tst_float() {

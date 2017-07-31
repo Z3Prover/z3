@@ -19,7 +19,7 @@ Notes:
 #ifndef EXPR_SUBSTITUTION_H_
 #define EXPR_SUBSTITUTION_H_
 
-#include"ast.h"
+#include "ast/ast.h"
 
 class expr_substitution {
     ast_manager &                                m_manager;

@@ -16,10 +16,10 @@ Author:
 Revision History:
 
 --*/
-#include"trace.h"
-#include"util.h"
-#include"region.h"
-#include"list.h"
+#include "util/trace.h"
+#include "util/util.h"
+#include "util/region.h"
+#include "util/list.h"
 
 static void tst1() {
     region r;

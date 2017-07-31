@@ -19,7 +19,7 @@ Revision History:
 #ifndef ARITH_SIMPLIFIER_PARAMS_H_
 #define ARITH_SIMPLIFIER_PARAMS_H_
 
-#include"params.h"
+#include "util/params.h"
 
 struct arith_simplifier_params { 
     bool    m_arith_expand_eqs;

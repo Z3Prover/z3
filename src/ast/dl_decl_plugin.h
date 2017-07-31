@@ -19,9 +19,9 @@ Revision History:
 #ifndef DL_DECL_PLUGIN_H_
 #define DL_DECL_PLUGIN_H_
 
-#include"ast.h"
-#include "arith_decl_plugin.h"
-#include "bv_decl_plugin.h"
+#include "ast/ast.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/bv_decl_plugin.h"
 
 namespace datalog {
 

@@ -19,10 +19,10 @@ Revision History:
 #ifndef SMTLIB_H_
 #define SMTLIB_H_
 
-#include "ast.h"
-#include "symbol_table.h"
-#include "map.h"
-#include "arith_decl_plugin.h"
+#include "ast/ast.h"
+#include "util/symbol_table.h"
+#include "util/map.h"
+#include "ast/arith_decl_plugin.h"
 
 namespace smtlib {    
 

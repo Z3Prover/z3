@@ -21,8 +21,8 @@ Notes:
 #ifndef EXPR_MAP_H_
 #define EXPR_MAP_H_
 
-#include"ast.h"
-#include"obj_hashtable.h"
+#include "ast/ast.h"
+#include "util/obj_hashtable.h"
 
 /**
    \brief Map from expressions to expressions+proofs.

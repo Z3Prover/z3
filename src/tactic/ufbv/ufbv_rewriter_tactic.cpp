@@ -16,11 +16,11 @@ Author:
 Notes:
 
 --*/
-#include"tactical.h"
-#include"simplifier.h"
-#include"basic_simplifier_plugin.h"
-#include"ufbv_rewriter.h"
-#include"ufbv_rewriter_tactic.h"
+#include "tactic/tactical.h"
+#include "ast/simplifier/simplifier.h"
+#include "ast/simplifier/basic_simplifier_plugin.h"
+#include "tactic/ufbv/ufbv_rewriter.h"
+#include "tactic/ufbv/ufbv_rewriter_tactic.h"
 
 class ufbv_rewriter_tactic : public tactic {
 

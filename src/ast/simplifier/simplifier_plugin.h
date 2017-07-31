@@ -18,7 +18,7 @@ Author:
 #ifndef SIMPLIFIER_PLUGIN_H_
 #define SIMPLIFIER_PLUGIN_H_
 
-#include"ast.h"
+#include "ast/ast.h"
 
 class simplifier;
 

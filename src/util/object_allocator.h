@@ -20,8 +20,8 @@ Revision History:
 #ifndef OBJECT_ALLOCATOR_H_
 #define OBJECT_ALLOCATOR_H_
 
-#include"util.h"
-#include"vector.h"
+#include "util/util.h"
+#include "util/vector.h"
 
 #define DEFAULT_NUM_WORKERS 8
 #define NUM_OBJECTS_PER_PAGE 1024

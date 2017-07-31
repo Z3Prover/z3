@@ -19,18 +19,18 @@ Revision History:
 
 --*/
 
-#include "dt2bv_tactic.h"
-#include "tactical.h"
-#include "filter_model_converter.h"
-#include "datatype_decl_plugin.h"
-#include "bv_decl_plugin.h"
-#include "rewriter_def.h"
-#include "filter_model_converter.h"
-#include "extension_model_converter.h"
-#include "var_subst.h"
-#include "ast_util.h"
-#include "enum2bv_rewriter.h"
-#include "ast_pp.h"
+#include "tactic/bv/dt2bv_tactic.h"
+#include "tactic/tactical.h"
+#include "tactic/filter_model_converter.h"
+#include "ast/datatype_decl_plugin.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "tactic/filter_model_converter.h"
+#include "tactic/extension_model_converter.h"
+#include "ast/rewriter/var_subst.h"
+#include "ast/ast_util.h"
+#include "ast/rewriter/enum2bv_rewriter.h"
+#include "ast/ast_pp.h"
 
 
 class dt2bv_tactic : public tactic {

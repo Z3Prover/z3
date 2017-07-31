@@ -19,7 +19,7 @@ Revision History:
 #ifndef BV_SIMPLIFIER_PARAMS_H_
 #define BV_SIMPLIFIER_PARAMS_H_
 
-#include"params.h"
+#include "util/params.h"
 
 struct bv_simplifier_params {
     bool  m_hi_div0; //!< if true, uses the hardware interpretation for div0, mod0, ... if false, div0, mod0, ... are considered uninterpreted.

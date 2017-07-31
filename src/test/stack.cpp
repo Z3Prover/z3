@@ -16,8 +16,8 @@ Notes:
 
 --*/
 #include<utility>
-#include"stack.h"
-#include"vector.h"
+#include "util/stack.h"
+#include "util/vector.h"
 
 typedef std::pair<unsigned, unsigned> point;
 

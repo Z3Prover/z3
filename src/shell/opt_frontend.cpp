@@ -7,12 +7,12 @@ Copyright (c) 2015 Microsoft Corporation
 #include<fstream>
 #include<signal.h>
 #include<time.h>
-#include"opt_context.h"
-#include"ast_util.h"
-#include"arith_decl_plugin.h"
-#include"gparams.h"
-#include"timeout.h"
-#include"reg_decl_plugins.h"
+#include "opt/opt_context.h"
+#include "ast/ast_util.h"
+#include "ast/arith_decl_plugin.h"
+#include "util/gparams.h"
+#include "util/timeout.h"
+#include "ast/reg_decl_plugins.h"
 
 extern bool g_display_statistics;
 static bool g_first_interrupt = true;

@@ -19,8 +19,8 @@ Revision History:
 #ifndef SUBPAVING_MPFX_H_
 #define SUBPAVING_MPFX_H_
 
-#include"subpaving_t.h"
-#include"mpfx.h"
+#include "math/subpaving/subpaving_t.h"
+#include "util/mpfx.h"
 
 namespace subpaving {
 

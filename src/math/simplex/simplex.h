@@ -32,11 +32,11 @@ Notes:
 #ifndef SIMPLEX_H_
 #define SIMPLEX_H_
 
-#include "sparse_matrix.h"
-#include "mpq_inf.h"
-#include "heap.h"
-#include "lbool.h"
-#include "uint_set.h"
+#include "math/simplex/sparse_matrix.h"
+#include "util/mpq_inf.h"
+#include "util/heap.h"
+#include "util/lbool.h"
+#include "util/uint_set.h"
 
 namespace simplex {
 

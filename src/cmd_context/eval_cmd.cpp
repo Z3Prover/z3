@@ -16,12 +16,12 @@ Author:
 Notes:
 
 --*/
-#include"cmd_context.h"
-#include"model_evaluator.h"
-#include"parametric_cmd.h"
-#include"scoped_timer.h"
-#include"scoped_ctrl_c.h"
-#include"cancel_eh.h"
+#include "cmd_context/cmd_context.h"
+#include "model/model_evaluator.h"
+#include "cmd_context/parametric_cmd.h"
+#include "util/scoped_timer.h"
+#include "util/scoped_ctrl_c.h"
+#include "util/cancel_eh.h"
 
 class eval_cmd : public parametric_cmd {
     expr *                   m_target;

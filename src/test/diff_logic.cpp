@@ -17,11 +17,11 @@ Revision History:
 
 --*/
 #ifdef _WINDOWS
-#include"rational.h"
-#include"diff_logic.h"
-#include"smt_literal.h"
-#include"util.h"
-#include"debug.h"
+#include "util/rational.h"
+#include "smt/diff_logic.h"
+#include "smt/smt_literal.h"
+#include "util/util.h"
+#include "util/debug.h"
 
 struct diff_logic_ext {
     typedef rational numeral;

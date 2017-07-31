@@ -16,16 +16,16 @@ Author:
 Notes:
 
 --*/
-#include"tactical.h"
-#include"goal2nlsat.h"
-#include"nlsat_solver.h"
-#include"model.h"
-#include"expr2var.h"
-#include"arith_decl_plugin.h"
-#include"ast_smt2_pp.h"
-#include"z3_exception.h"
-#include"algebraic_numbers.h"
-#include"ast_pp.h"
+#include "tactic/tactical.h"
+#include "nlsat/tactic/goal2nlsat.h"
+#include "nlsat/nlsat_solver.h"
+#include "model/model.h"
+#include "ast/expr2var.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/ast_smt2_pp.h"
+#include "util/z3_exception.h"
+#include "math/polynomial/algebraic_numbers.h"
+#include "ast/ast_pp.h"
 
 class nlsat_tactic : public tactic {
     struct expr_display_var_proc : public nlsat::display_var_proc {

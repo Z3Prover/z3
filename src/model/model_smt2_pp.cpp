@@ -18,10 +18,10 @@ Revision History:
 
 --*/
 #include<sstream>
-#include"model_smt2_pp.h"
-#include"ast_smt2_pp.h"
-#include"func_decl_dependencies.h"
-#include"pp.h"
+#include "model/model_smt2_pp.h"
+#include "ast/ast_smt2_pp.h"
+#include "ast/func_decl_dependencies.h"
+#include "ast/pp.h"
 using namespace format_ns;
 
 static void pp_indent(std::ostream & out, unsigned indent) {

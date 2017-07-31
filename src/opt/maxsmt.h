@@ -19,15 +19,15 @@ Notes:
 #ifndef OPT_MAXSMT_H_
 #define OPT_MAXSMT_H_
 
-#include"ast.h"
-#include"params.h"
-#include"solver.h"
-#include"filter_model_converter.h"
-#include"statistics.h"
-#include"smt_context.h"
-#include"smt_theory.h"
-#include"theory_wmaxsat.h"
-#include"opt_solver.h"
+#include "ast/ast.h"
+#include "util/params.h"
+#include "solver/solver.h"
+#include "tactic/filter_model_converter.h"
+#include "util/statistics.h"
+#include "smt/smt_context.h"
+#include "smt/smt_theory.h"
+#include "smt/theory_wmaxsat.h"
+#include "opt/opt_solver.h"
 
 namespace opt {
 

@@ -20,9 +20,9 @@ Revision History:
 #define DL_RELATION_MANAGER_H_
 
 
-#include"map.h"
-#include"vector.h"
-#include"dl_base.h"
+#include "util/map.h"
+#include "util/vector.h"
+#include "muz/rel/dl_base.h"
 
 namespace datalog {
 

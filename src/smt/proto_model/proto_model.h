@@ -28,15 +28,15 @@ Revision History:
 #ifndef PROTO_MODEL_H_
 #define PROTO_MODEL_H_
 
-#include"model_core.h"
-#include"model_evaluator.h"
-#include"value_factory.h"
-#include"plugin_manager.h"
-#include"arith_decl_plugin.h"
-#include"func_decl_dependencies.h"
-#include"model.h"
-#include"params.h"
-#include"th_rewriter.h"
+#include "model/model_core.h"
+#include "model/model_evaluator.h"
+#include "smt/proto_model/value_factory.h"
+#include "util/plugin_manager.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/func_decl_dependencies.h"
+#include "model/model.h"
+#include "util/params.h"
+#include "ast/rewriter/th_rewriter.h"
 
 class proto_model : public model_core {
     plugin_manager<value_factory> m_factories;

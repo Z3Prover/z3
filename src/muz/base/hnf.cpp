@@ -43,20 +43,20 @@ Notes:
      
                 
 --*/
-#include"hnf.h"
-#include"warning.h"
-#include"used_vars.h"
-#include"well_sorted.h"
-#include"var_subst.h"
-#include"name_exprs.h"
-#include"act_cache.h"
-#include"cooperate.h"
-#include"ast_pp.h"
-#include"quant_hoist.h"
-#include"ast_util.h"
-#include"dl_util.h"
-#include"for_each_ast.h"
-#include"for_each_expr.h"
+#include "muz/base/hnf.h"
+#include "util/warning.h"
+#include "ast/used_vars.h"
+#include "ast/well_sorted.h"
+#include "ast/rewriter/var_subst.h"
+#include "ast/normal_forms/name_exprs.h"
+#include "ast/act_cache.h"
+#include "util/cooperate.h"
+#include "ast/ast_pp.h"
+#include "ast/rewriter/quant_hoist.h"
+#include "ast/ast_util.h"
+#include "muz/base/dl_util.h"
+#include "ast/for_each_ast.h"
+#include "ast/for_each_expr.h"
 
 class hnf::imp {
 

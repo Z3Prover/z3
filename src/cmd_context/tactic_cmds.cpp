@@ -16,21 +16,21 @@ Notes:
 
 --*/
 #include<sstream>
-#include"tactic_cmds.h"
-#include"cmd_context.h"
-#include"cmd_util.h"
-#include"parametric_cmd.h"
-#include"scoped_timer.h"
-#include"scoped_ctrl_c.h"
-#include"cancel_eh.h"
-#include"model_smt2_pp.h"
-#include"ast_smt2_pp.h"
-#include"tactic.h"
-#include"tactical.h"
-#include"probe.h"
-#include"check_sat_result.h"
-#include"cmd_context_to_goal.h"
-#include"echo_tactic.h"
+#include "cmd_context/tactic_cmds.h"
+#include "cmd_context/cmd_context.h"
+#include "cmd_context/cmd_util.h"
+#include "cmd_context/parametric_cmd.h"
+#include "util/scoped_timer.h"
+#include "util/scoped_ctrl_c.h"
+#include "util/cancel_eh.h"
+#include "model/model_smt2_pp.h"
+#include "ast/ast_smt2_pp.h"
+#include "tactic/tactic.h"
+#include "tactic/tactical.h"
+#include "tactic/probe.h"
+#include "solver/check_sat_result.h"
+#include "cmd_context/cmd_context_to_goal.h"
+#include "cmd_context/echo_tactic.h"
 
 tactic_cmd::~tactic_cmd() {
     dealloc(m_factory);

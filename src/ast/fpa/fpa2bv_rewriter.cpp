@@ -18,9 +18,9 @@ Notes:
 --*/
 
 
-#include"rewriter_def.h"
-#include"fpa2bv_rewriter.h"
-#include"cooperate.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "ast/fpa/fpa2bv_rewriter.h"
+#include "util/cooperate.h"
 #include"fpa2bv_rewriter_params.hpp"
 
 

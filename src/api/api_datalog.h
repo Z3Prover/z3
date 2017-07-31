@@ -19,11 +19,11 @@ Revision History:
 #ifndef API_DATALOG_H_
 #define API_DATALOG_H_
 
-#include"z3.h"
-#include"ast.h"
-#include"smt_params.h"
-#include"smt_kernel.h"
-#include"api_util.h"
+#include "api/z3.h"
+#include "ast/ast.h"
+#include "smt/params/smt_params.h"
+#include "smt/smt_kernel.h"
+#include "api/api_util.h"
 
 typedef void (*reduce_app_callback_fptr)(void*, func_decl*, unsigned, expr*const*, expr**);
 typedef void (*reduce_assign_callback_fptr)(void*, func_decl*, unsigned, expr*const*, unsigned, expr*const*);

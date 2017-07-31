@@ -17,8 +17,8 @@ Revision History:
 
 --*/
 
-#include"smt_context.h"
-#include"theory_dummy.h"
+#include "smt/smt_context.h"
+#include "smt/theory_dummy.h"
 
 namespace smt {
 

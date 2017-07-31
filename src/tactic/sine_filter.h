@@ -19,7 +19,7 @@ Revision History:
 #ifndef SINE_TACTIC_H_
 #define SINE_TACTIC_H_
 
-#include"params.h"
+#include "util/params.h"
 class ast_manager;
 class tactic;
 

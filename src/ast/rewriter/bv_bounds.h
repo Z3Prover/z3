@@ -19,9 +19,9 @@
  --*/
 #ifndef BV_BOUNDS_H_23754
 #define BV_BOUNDS_H_23754
-#include"ast.h"
-#include"bv_decl_plugin.h"
-#include"rewriter_types.h"
+#include "ast/ast.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/rewriter/rewriter_types.h"
 
 /* \brief A class to analyze constraints on bit vectors.
 

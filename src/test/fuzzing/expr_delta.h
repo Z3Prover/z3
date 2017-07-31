@@ -20,7 +20,7 @@ Revision History:
 #ifndef EXPR_DELTA_H_
 #define EXPR_DELTA_H_
 
-#include "ast.h"
+#include "ast/ast.h"
 
 class expr_delta {
     ast_manager&    m_manager;

@@ -19,7 +19,7 @@ Revision History:
 #ifndef ARITH_DECL_PLUGIN_H_
 #define ARITH_DECL_PLUGIN_H_
 
-#include"ast.h"
+#include "ast/ast.h"
 class sexpr;
 
 namespace algebraic_numbers {

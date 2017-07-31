@@ -22,7 +22,7 @@ Revision History:
 #ifndef FARKAS_UTIL_H_
 #define FARKAS_UTIL_H_
 
-#include "arith_decl_plugin.h"
+#include "ast/arith_decl_plugin.h"
 
 namespace smt {
 

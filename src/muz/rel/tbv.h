@@ -21,9 +21,9 @@ Revision History:
 #ifndef TBV_H_
 #define TBV_H_
 
-#include "fixed_bit_vector.h"
-#include "rational.h"
-#include "ast.h"
+#include "util/fixed_bit_vector.h"
+#include "util/rational.h"
+#include "ast/ast.h"
 
 class tbv;
 

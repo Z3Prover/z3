@@ -16,15 +16,15 @@ Author:
 Notes:
 
 --*/
-#include"tactical.h"
-#include"cooperate.h"
-#include"bound_manager.h"
-#include"ast_pp.h"
-#include"expr_safe_replace.h" // NB: should use proof-producing expr_substitute in polished version.
-#include"arith_decl_plugin.h"
-#include"elim01_tactic.h"
-#include"model_smt2_pp.h"
-#include"th_rewriter.h"
+#include "tactic/tactical.h"
+#include "util/cooperate.h"
+#include "tactic/arith/bound_manager.h"
+#include "ast/ast_pp.h"
+#include "ast/rewriter/expr_safe_replace.h"
+#include "ast/arith_decl_plugin.h"
+#include "tactic/arith/elim01_tactic.h"
+#include "model/model_smt2_pp.h"
+#include "ast/rewriter/th_rewriter.h"
 
 class bool2int_model_converter : public model_converter {
     ast_manager&                   m;

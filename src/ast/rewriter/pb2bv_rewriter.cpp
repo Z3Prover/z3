@@ -17,14 +17,14 @@ Notes:
 
 --*/
 
-#include"rewriter.h"
-#include"rewriter_def.h"
-#include"statistics.h"
-#include"pb2bv_rewriter.h"
-#include"sorting_network.h"
-#include"ast_util.h"
-#include"ast_pp.h"
-#include"lbool.h"
+#include "ast/rewriter/rewriter.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "util/statistics.h"
+#include "ast/rewriter/pb2bv_rewriter.h"
+#include "util/sorting_network.h"
+#include "ast/ast_util.h"
+#include "ast/ast_pp.h"
+#include "util/lbool.h"
 
 
 struct pb2bv_rewriter::imp {

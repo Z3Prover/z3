@@ -24,7 +24,7 @@ Revision History:
 #ifndef EXPR_OFFSET_H_
 #define EXPR_OFFSET_H_
 
-#include"ast.h"
+#include "ast/ast.h"
 
 class expr_offset {
     expr *    m_expr;

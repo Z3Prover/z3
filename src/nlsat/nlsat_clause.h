@@ -19,8 +19,8 @@ Revision History:
 #ifndef NLSAT_CLAUSE_H_
 #define NLSAT_CLAUSE_H_
 
-#include"nlsat_types.h"
-#include"vector.h"
+#include "nlsat/nlsat_types.h"
+#include "util/vector.h"
 
 namespace nlsat {
 

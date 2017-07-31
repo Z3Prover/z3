@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#include"polynomial_cache.h"
-#include"chashtable.h"
+#include "math/polynomial/polynomial_cache.h"
+#include "util/chashtable.h"
 
 namespace polynomial {
 

@@ -19,9 +19,9 @@ Revision History:
 #ifndef SAT_PAR_H_
 #define SAT_PAR_H_
 
-#include"sat_types.h"
-#include"hashtable.h"
-#include"map.h"
+#include "sat/sat_types.h"
+#include "util/hashtable.h"
+#include "util/map.h"
 
 namespace sat {
 

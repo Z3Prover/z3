@@ -19,15 +19,15 @@ Revision History:
 --*/
 
 #include <sstream>
-#include "pdr_manager.h"
-#include "ast_smt2_pp.h"
-#include "for_each_expr.h"
-#include "has_free_vars.h"
-#include "expr_replacer.h"
-#include "expr_abstract.h"
-#include "model2expr.h"
-#include "model_smt2_pp.h"
-#include "model_converter.h"
+#include "muz/pdr/pdr_manager.h"
+#include "ast/ast_smt2_pp.h"
+#include "ast/for_each_expr.h"
+#include "ast/has_free_vars.h"
+#include "ast/rewriter/expr_replacer.h"
+#include "ast/expr_abstract.h"
+#include "model/model2expr.h"
+#include "model/model_smt2_pp.h"
+#include "tactic/model_converter.h"
 
 namespace pdr {
 

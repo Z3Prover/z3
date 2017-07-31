@@ -16,15 +16,15 @@ Author:
 Revision History:
 
 --*/
-#include"check_logic.h"
-#include"arith_decl_plugin.h"
-#include"array_decl_plugin.h"
-#include"bv_decl_plugin.h"
-#include"seq_decl_plugin.h"
-#include"pb_decl_plugin.h"
-#include"datatype_decl_plugin.h"
-#include"ast_pp.h"
-#include"for_each_expr.h"
+#include "cmd_context/check_logic.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/array_decl_plugin.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/seq_decl_plugin.h"
+#include "ast/pb_decl_plugin.h"
+#include "ast/datatype_decl_plugin.h"
+#include "ast/ast_pp.h"
+#include "ast/for_each_expr.h"
 #include<sstream>
 
 struct check_logic::imp {

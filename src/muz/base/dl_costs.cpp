@@ -17,11 +17,11 @@ Revision History:
 
 --*/
 
-#include "debug.h"
-#include "stopwatch.h"
-#include "dl_context.h"
-#include "dl_rule.h"
-#include "dl_costs.h"
+#include "util/debug.h"
+#include "util/stopwatch.h"
+#include "muz/base/dl_context.h"
+#include "muz/base/dl_rule.h"
+#include "muz/base/dl_costs.h"
 
 namespace datalog {
 

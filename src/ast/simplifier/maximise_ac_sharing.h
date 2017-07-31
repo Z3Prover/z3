@@ -19,10 +19,10 @@ Revision History:
 #ifndef MAXIMISE_AC_SHARING_H_
 #define MAXIMISE_AC_SHARING_H_
 
-#include"simplifier.h"
-#include"hashtable.h"
-#include"bv_decl_plugin.h"
-#include"region.h"
+#include "ast/simplifier/simplifier.h"
+#include "util/hashtable.h"
+#include "ast/bv_decl_plugin.h"
+#include "util/region.h"
 
 /**
    \brief Functor used to maximise the amount of shared terms in an expression.

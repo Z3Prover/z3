@@ -18,11 +18,11 @@ Notes:
 
 --*/
 
-#include"expr_functors.h"
-#include"rule_properties.h"
-#include"dl_rule_set.h"
-#include"for_each_expr.h"
-#include"dl_context.h"
+#include "ast/expr_functors.h"
+#include "muz/base/rule_properties.h"
+#include "muz/base/dl_rule_set.h"
+#include "ast/for_each_expr.h"
+#include "muz/base/dl_context.h"
 
 using namespace datalog;
 rule_properties::rule_properties(ast_manager & m, rule_manager& rm, context& ctx, i_expr_pred& p): 

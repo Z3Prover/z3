@@ -20,10 +20,10 @@ Revision History:
 
 
 #include <sstream>
-#include"ast_pp.h"
-#include "rewriter.h"
-#include "rewriter_def.h"
-#include"dl_mk_subsumption_checker.h"
+#include "ast/ast_pp.h"
+#include "ast/rewriter/rewriter.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "muz/transforms/dl_mk_subsumption_checker.h"
 
 namespace datalog {
 

@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#include"expr_substitution.h"
-#include"ref_util.h"
+#include "ast/expr_substitution.h"
+#include "util/ref_util.h"
 
 typedef obj_map<expr, proof*> expr2proof;
 typedef obj_map<expr, expr_dependency*> expr2expr_dependency;

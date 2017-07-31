@@ -19,8 +19,8 @@ Revision History:
 #ifndef DEPENDENCY_H_
 #define DEPENDENCY_H_
 
-#include"vector.h"
-#include"region.h"
+#include "util/vector.h"
+#include "util/region.h"
 
 template<typename C>
 class dependency_manager {

@@ -19,8 +19,8 @@ Revision History:
 #ifndef REF_VECTOR_H_
 #define REF_VECTOR_H_
 
-#include"vector.h"
-#include"obj_ref.h"
+#include "util/vector.h"
+#include "util/obj_ref.h"
 
 /**
    \brief Vector of smart pointers.

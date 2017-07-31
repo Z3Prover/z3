@@ -22,8 +22,8 @@ Revision History:
 #define SYMBOLIC_AUTOMATA_DEF_H_
 
 
-#include "symbolic_automata.h"
-#include "hashtable.h"
+#include "math/automata/symbolic_automata.h"
+#include "util/hashtable.h"
 
 
 

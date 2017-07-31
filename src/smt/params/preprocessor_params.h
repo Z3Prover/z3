@@ -19,10 +19,10 @@ Revision History:
 #ifndef PREPROCESSOR_PARAMS_H_
 #define PREPROCESSOR_PARAMS_H_
 
-#include"pattern_inference_params.h"
-#include"bit_blaster_params.h"
-#include"bv_simplifier_params.h"
-#include"arith_simplifier_params.h"
+#include "ast/pattern/pattern_inference_params.h"
+#include "ast/rewriter/bit_blaster/bit_blaster_params.h"
+#include "ast/simplifier/bv_simplifier_params.h"
+#include "ast/simplifier/arith_simplifier_params.h"
 
 enum lift_ite_kind {
     LI_NONE,

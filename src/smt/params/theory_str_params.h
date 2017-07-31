@@ -18,7 +18,7 @@ Revision History:
 #ifndef THEORY_STR_PARAMS_H
 #define THEORY_STR_PARAMS_H
 
-#include"params.h"
+#include "util/params.h"
 
 struct theory_str_params {
     /*

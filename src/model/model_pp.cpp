@@ -17,12 +17,12 @@ Revision History:
 
 
 --*/
-#include"model_pp.h"
-#include"model_core.h"
-#include"ast_pp.h"
-#include"ast_smt2_pp.h"
-#include"used_symbols.h"
-#include"pp.h"
+#include "model/model_pp.h"
+#include "model/model_core.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_smt2_pp.h"
+#include "ast/used_symbols.h"
+#include "ast/pp.h"
 
 static void display_uninterp_sorts(std::ostream & out, model_core const & md) {
     ast_manager & m = md.get_manager();

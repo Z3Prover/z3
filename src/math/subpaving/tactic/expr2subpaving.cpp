@@ -17,14 +17,14 @@ Author:
 Notes:
 
 --*/
-#include"expr2subpaving.h"
-#include"expr2var.h"
-#include"ref_util.h"
-#include"z3_exception.h"
-#include"cooperate.h"
-#include"arith_decl_plugin.h"
-#include"scoped_numeral_buffer.h"
-#include"common_msgs.h"
+#include "math/subpaving/tactic/expr2subpaving.h"
+#include "ast/expr2var.h"
+#include "util/ref_util.h"
+#include "util/z3_exception.h"
+#include "util/cooperate.h"
+#include "ast/arith_decl_plugin.h"
+#include "util/scoped_numeral_buffer.h"
+#include "util/common_msgs.h"
 
 struct expr2subpaving::imp {
     struct frame {

@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#include "rlimit.h"
-#include "common_msgs.h"
+#include "util/rlimit.h"
+#include "util/common_msgs.h"
 
 reslimit::reslimit():
     m_cancel(0),

@@ -16,12 +16,12 @@ Author:
 Notes:
 
 --*/
-#include"tactical.h"
-#include"goal2sat.h"
-#include"sat_solver.h"
-#include"filter_model_converter.h"
-#include"ast_smt2_pp.h"
-#include"model_v2_pp.h"
+#include "tactic/tactical.h"
+#include "sat/tactic/goal2sat.h"
+#include "sat/sat_solver.h"
+#include "tactic/filter_model_converter.h"
+#include "ast/ast_smt2_pp.h"
+#include "model/model_v2_pp.h"
 
 class sat_tactic : public tactic {
 

@@ -19,8 +19,8 @@ Revision History:
 #ifndef MACRO_FINDER_H_
 #define MACRO_FINDER_H_
 
-#include"macro_manager.h"
-#include"arith_simplifier_plugin.h"
+#include "ast/macros/macro_manager.h"
+#include "ast/simplifier/arith_simplifier_plugin.h"
 
 
 bool is_macro_head(expr * n, unsigned num_decls);

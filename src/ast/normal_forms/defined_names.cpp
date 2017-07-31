@@ -16,12 +16,12 @@ Author:
 Revision History:
 
 --*/
-#include"defined_names.h"
-#include"obj_hashtable.h"
-#include"used_vars.h"
-#include"var_subst.h"
-#include"ast_smt2_pp.h"
-#include"ast_pp.h"
+#include "ast/normal_forms/defined_names.h"
+#include "util/obj_hashtable.h"
+#include "ast/used_vars.h"
+#include "ast/rewriter/var_subst.h"
+#include "ast/ast_smt2_pp.h"
+#include "ast/ast_pp.h"
 
 struct defined_names::impl {
     typedef obj_map<expr, app *>   expr2name;

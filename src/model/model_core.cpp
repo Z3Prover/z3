@@ -16,7 +16,7 @@ Author:
 Revision History:
 
 --*/
-#include"model_core.h"
+#include "model/model_core.h"
 
 model_core::~model_core() {
     decl2expr::iterator it1  = m_interp.begin();

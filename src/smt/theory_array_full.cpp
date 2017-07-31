@@ -17,12 +17,12 @@ Revision History:
 
 --*/
 
-#include "smt_context.h"
-#include "theory_array_full.h"
-#include "ast_ll_pp.h"
-#include "ast_pp.h"
-#include "ast_smt2_pp.h"
-#include "stats.h"
+#include "smt/smt_context.h"
+#include "smt/theory_array_full.h"
+#include "ast/ast_ll_pp.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_smt2_pp.h"
+#include "util/stats.h"
 
 namespace smt {
 

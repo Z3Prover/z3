@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#include"unifier.h"
-#include"ast_pp.h"
+#include "ast/substitution/unifier.h"
+#include "ast/ast_pp.h"
 
 void unifier::reset(unsigned num_offsets) {
     m_todo.reset();

@@ -16,10 +16,10 @@ Author:
 Notes:
 
 --*/
-#include "bv2int_rewriter.h"
-#include "rewriter_def.h"
-#include "ast_pp.h"
-#include "ast_util.h"
+#include "tactic/arith/bv2int_rewriter.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_util.h"
 
 void bv2int_rewriter_ctx::update_params(params_ref const& p) {
     m_max_size = p.get_uint("max_bv_size", UINT_MAX);

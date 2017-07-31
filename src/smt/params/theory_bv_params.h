@@ -19,7 +19,7 @@ Revision History:
 #ifndef THEORY_BV_PARAMS_H_
 #define THEORY_BV_PARAMS_H_
 
-#include"params.h"
+#include "util/params.h"
 
 enum bv_solver_id {
     BS_NO_BV,

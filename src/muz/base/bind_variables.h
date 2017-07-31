@@ -21,7 +21,7 @@ Notes:
 #ifndef BIND_VARIABLES_H_
 #define BIND_VARIABLES_H_
 
-#include"ast.h"
+#include "ast/ast.h"
 
 class bind_variables {
     typedef obj_map<app, var*> var2bound;

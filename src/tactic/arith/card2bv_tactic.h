@@ -19,12 +19,12 @@ Notes:
 #ifndef CARD2BV_TACTIC_H_
 #define CARD2BV_TACTIC_H_
 
-#include"params.h"
-#include"pb_decl_plugin.h"
-#include"th_rewriter.h"
-#include"rewriter.h"
+#include "util/params.h"
+#include "ast/pb_decl_plugin.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "ast/rewriter/rewriter.h"
 #include<typeinfo>
-#include"sorting_network.h"
+#include "util/sorting_network.h"
 
 
 class ast_manager;

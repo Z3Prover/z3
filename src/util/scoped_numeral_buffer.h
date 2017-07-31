@@ -19,7 +19,7 @@ Revision History:
 #ifndef SCOPED_NUMERAL_BUFFER_H_
 #define SCOPED_NUMERAL_BUFFER_H_
 
-#include"buffer.h"
+#include "util/buffer.h"
 
 template<typename Manager, unsigned INITIAL_SIZE = 16>
 class _scoped_numeral_buffer : public sbuffer<typename Manager::numeral, INITIAL_SIZE> {

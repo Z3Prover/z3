@@ -18,14 +18,14 @@ Revision History:
 --*/
 
 
-#include "horn_subsume_model_converter.h"
-#include "var_subst.h"
-#include "ast_pp.h"
-#include "model_smt2_pp.h"
-#include "bool_rewriter.h"
-#include "th_rewriter.h"
-#include "for_each_expr.h"
-#include "well_sorted.h"
+#include "tactic/horn_subsume_model_converter.h"
+#include "ast/rewriter/var_subst.h"
+#include "ast/ast_pp.h"
+#include "model/model_smt2_pp.h"
+#include "ast/rewriter/bool_rewriter.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "ast/for_each_expr.h"
+#include "ast/well_sorted.h"
 
 void horn_subsume_model_converter::insert(app* head, expr* body) {
     m_delay_head.push_back(head);

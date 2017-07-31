@@ -16,12 +16,12 @@ Author:
 Revision History:
 
 --*/
-#include"smt_context.h"
-#include"theory_bv.h"
-#include"ast_ll_pp.h"
-#include"ast_pp.h"
-#include"smt_model_generator.h"
-#include"stats.h"
+#include "smt/smt_context.h"
+#include "smt/theory_bv.h"
+#include "ast/ast_ll_pp.h"
+#include "ast/ast_pp.h"
+#include "smt/smt_model_generator.h"
+#include "util/stats.h"
 
 
 namespace smt {

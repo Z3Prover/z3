@@ -20,7 +20,7 @@ Revision History:
 #ifndef SAT_INTEGRITY_CHECKER_H_
 #define SAT_INTEGRITY_CHECKER_H_
 
-#include"sat_types.h"
+#include "sat/sat_types.h"
 
 namespace sat {
     class integrity_checker {

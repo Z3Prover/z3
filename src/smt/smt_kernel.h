@@ -27,12 +27,12 @@ Revision History:
 #ifndef SMT_KERNEL_H_
 #define SMT_KERNEL_H_
 
-#include"ast.h"
-#include"params.h"
-#include"model.h"
-#include"lbool.h"
-#include"statistics.h"
-#include"smt_failure.h"
+#include "ast/ast.h"
+#include "util/params.h"
+#include "model/model.h"
+#include "util/lbool.h"
+#include "util/statistics.h"
+#include "smt/smt_failure.h"
 
 struct smt_params;
 class progress_callback;

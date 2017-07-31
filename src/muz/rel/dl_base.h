@@ -23,12 +23,12 @@ Revision History:
 
 #include<iosfwd>
 
-#include"ast.h"
-#include"map.h"
-#include"vector.h"
-#include"ref.h"
-#include"dl_util.h"
-#include"dl_context.h"
+#include "ast/ast.h"
+#include "util/map.h"
+#include "util/vector.h"
+#include "util/ref.h"
+#include "muz/base/dl_util.h"
+#include "muz/base/dl_context.h"
 
 namespace datalog {
 

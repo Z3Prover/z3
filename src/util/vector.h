@@ -24,12 +24,12 @@ Revision History:
 #ifndef VECTOR_H_
 #define VECTOR_H_
 
-#include"debug.h"
+#include "util/debug.h"
 #include<algorithm>
 #include<memory.h>
-#include"memory_manager.h"
-#include"hash.h"
-#include"z3_exception.h"
+#include "util/memory_manager.h"
+#include "util/hash.h"
+#include "util/z3_exception.h"
 
 // disable warning for constant 'if' expressions.
 // these are used heavily in templates.

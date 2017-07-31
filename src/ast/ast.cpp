@@ -18,14 +18,14 @@ Revision History:
 --*/
 #include<sstream>
 #include<cstring>
-#include"ast.h"
-#include"ast_pp.h"
-#include"ast_ll_pp.h"
-#include"buffer.h"
-#include"warning.h"
-#include"string_buffer.h"
-#include"ast_util.h"
-#include"ast_smt2_pp.h"
+#include "ast/ast.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
+#include "util/buffer.h"
+#include "util/warning.h"
+#include "util/string_buffer.h"
+#include "ast/ast_util.h"
+#include "ast/ast_smt2_pp.h"
 
 // -----------------------------------
 //

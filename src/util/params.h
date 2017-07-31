@@ -19,8 +19,8 @@ Notes:
 #ifndef PARAMS_H_
 #define PARAMS_H_
 
-#include"cmd_context_types.h"
-#include"vector.h"
+#include "util/cmd_context_types.h"
+#include "util/vector.h"
 
 std::string norm_param_name(char const * n);
 std::string norm_param_name(symbol const & n);

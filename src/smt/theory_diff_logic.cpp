@@ -17,11 +17,11 @@ Author:
 Revision History:
 
 --*/
-#include "theory_diff_logic.h"
+#include "smt/theory_diff_logic.h"
 
-#include"rational.h"
-#include"theory_diff_logic_def.h"
-#include"sparse_matrix_def.h"
+#include "util/rational.h"
+#include "smt/theory_diff_logic_def.h"
+#include "math/simplex/sparse_matrix_def.h"
 
 namespace smt {
 

@@ -19,16 +19,16 @@ Revision History:
 #ifndef PATTERN_INFERENCE_H_
 #define PATTERN_INFERENCE_H_
 
-#include"ast.h"
-#include"simplifier.h"
-#include"pattern_inference_params.h"
-#include"vector.h"
-#include"uint_set.h"
-#include"nat_set.h"
-#include"obj_hashtable.h"
-#include"obj_pair_hashtable.h"
-#include"map.h"
-#include"expr_pattern_match.h"
+#include "ast/ast.h"
+#include "ast/simplifier/simplifier.h"
+#include "ast/pattern/pattern_inference_params.h"
+#include "util/vector.h"
+#include "util/uint_set.h"
+#include "util/nat_set.h"
+#include "util/obj_hashtable.h"
+#include "util/obj_pair_hashtable.h"
+#include "util/map.h"
+#include "ast/pattern/expr_pattern_match.h"
 
 /**
    \brief A pattern p_1 is smaller than a pattern p_2 iff 

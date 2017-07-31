@@ -16,9 +16,9 @@ Author:
 Notes:
 
 --*/
-#include"realclosure.h"
-#include"mpz_matrix.h"
-#include"rlimit.h"
+#include "math/realclosure/realclosure.h"
+#include "math/realclosure/mpz_matrix.h"
+#include "util/rlimit.h"
 
 static void tst1() {
     unsynch_mpq_manager qm;

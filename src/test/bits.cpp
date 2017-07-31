@@ -5,11 +5,11 @@ Copyright (c) 2015 Microsoft Corporation
 --*/
 
 // Test some bit hacks
-#include"util.h"
-#include"debug.h"
-#include"vector.h"
-#include"mpz.h"
-#include"bit_util.h"
+#include "util/util.h"
+#include "util/debug.h"
+#include "util/vector.h"
+#include "util/mpz.h"
+#include "util/bit_util.h"
 
 static void tst_shl(unsigned src_sz, unsigned const * src, unsigned k, 
                     unsigned dst_sz, unsigned const * dst, bool trace = true) {

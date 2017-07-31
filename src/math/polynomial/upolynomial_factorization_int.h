@@ -26,7 +26,7 @@ Notes:
 #ifndef UPOLYNOMIAL_FACTORIZATION_INT_H_
 #define UPOLYNOMIAL_FACTORIZATION_INT_H_
 
-#include"upolynomial_factorization.h"
+#include "math/polynomial/upolynomial_factorization.h"
 
 namespace upolynomial {
     // copy p from some manager to zp_p in Z_p[x]

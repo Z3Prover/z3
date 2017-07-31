@@ -25,8 +25,8 @@
 #pragma warning(disable:4101)
 #endif
 
-#include "iz3proof.h"
-#include "iz3profiling.h"
+#include "interp/iz3proof.h"
+#include "interp/iz3profiling.h"
 
 #include<algorithm>
 #include <iterator>

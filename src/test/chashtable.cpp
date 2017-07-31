@@ -16,10 +16,10 @@ Author:
 Revision History:
 
 --*/
-#include"chashtable.h"
-#include"hashtable.h"
-#include"hash.h"
-#include"util.h"
+#include "util/chashtable.h"
+#include "util/hashtable.h"
+#include "util/hash.h"
+#include "util/util.h"
 
 typedef chashtable<int, int_hash, default_eq<int> > int_table;
 typedef cmap<int, int, int_hash, default_eq<int> > int_map;

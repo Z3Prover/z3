@@ -18,10 +18,10 @@ Author:
 Notes:
 
 --*/
-#include"solver.h"
-#include"scoped_timer.h"
+#include "solver/solver.h"
+#include "util/scoped_timer.h"
 #include"combined_solver_params.hpp"
-#include"common_msgs.h"
+#include "util/common_msgs.h"
 #define PS_VB_LVL 15
 
 /**

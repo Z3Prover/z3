@@ -16,14 +16,14 @@ Author:
 Notes:
 
 --*/
-#include"tactical.h"
-#include"cooperate.h"
-#include"ast_smt2_pp.h"
-#include"card2bv_tactic.h"
-#include"pb2bv_rewriter.h"
-#include"ast_util.h"
-#include"ast_pp.h"
-#include"filter_model_converter.h"
+#include "tactic/tactical.h"
+#include "util/cooperate.h"
+#include "ast/ast_smt2_pp.h"
+#include "tactic/arith/card2bv_tactic.h"
+#include "ast/rewriter/pb2bv_rewriter.h"
+#include "ast/ast_util.h"
+#include "ast/ast_pp.h"
+#include "tactic/filter_model_converter.h"
 
 class card2bv_tactic : public tactic {
     ast_manager &              m;

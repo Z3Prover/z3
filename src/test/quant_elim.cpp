@@ -4,20 +4,20 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
-#include "ast.h"
-#include "smt_params.h"
-#include "simplifier.h"
-#include "qe.h"
-#include "basic_simplifier_plugin.h"
-#include "arith_simplifier_plugin.h"
-#include "array_simplifier_plugin.h"
-#include "bv_simplifier_plugin.h"
-#include "ast_pp.h"
-#include "smtlib.h"
-#include "smtparser.h"
-#include "lbool.h"
+#include "ast/ast.h"
+#include "smt/params/smt_params.h"
+#include "ast/simplifier/simplifier.h"
+#include "qe/qe.h"
+#include "ast/simplifier/basic_simplifier_plugin.h"
+#include "ast/simplifier/arith_simplifier_plugin.h"
+#include "ast/simplifier/array_simplifier_plugin.h"
+#include "ast/simplifier/bv_simplifier_plugin.h"
+#include "ast/ast_pp.h"
+#include "parsers/smt/smtlib.h"
+#include "parsers/smt/smtparser.h"
+#include "util/lbool.h"
 #include <sstream>
-#include "reg_decl_plugins.h"
+#include "ast/reg_decl_plugins.h"
 
 
 static void test_qe(ast_manager& m, lbool expected_outcome, expr* fml, char const* option) {

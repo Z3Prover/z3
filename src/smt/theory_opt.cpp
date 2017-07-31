@@ -18,10 +18,10 @@ Notes:
 
 --*/
 
-#include "arith_decl_plugin.h"
-#include "smt_types.h"
-#include "smt_theory.h"
-#include "theory_opt.h"
+#include "ast/arith_decl_plugin.h"
+#include "smt/smt_types.h"
+#include "smt/smt_theory.h"
+#include "smt/theory_opt.h"
 
 namespace smt {
     bool theory_opt::is_linear(ast_manager& m, expr* term) {

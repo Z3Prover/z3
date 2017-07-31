@@ -19,9 +19,9 @@ Revision History:
 #ifndef THEORY_ARRAY_FULL_H_
 #define THEORY_ARRAY_FULL_H_
 
-#include "theory_array.h"
-#include "simplifier.h"
-#include "ast_trail.h"
+#include "smt/theory_array.h"
+#include "ast/simplifier/simplifier.h"
+#include "ast/ast_trail.h"
 
 namespace smt {
 

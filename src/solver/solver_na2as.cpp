@@ -19,8 +19,8 @@ Author:
 Notes:
 
 --*/
-#include"solver_na2as.h"
-#include"ast_smt2_pp.h"
+#include "solver/solver_na2as.h"
+#include "ast/ast_smt2_pp.h"
 
 
 solver_na2as::solver_na2as(ast_manager & m):

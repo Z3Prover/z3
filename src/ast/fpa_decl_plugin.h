@@ -19,11 +19,11 @@ Revision History:
 #ifndef fpa_decl_plugin_H_
 #define fpa_decl_plugin_H_
 
-#include"ast.h"
-#include"id_gen.h"
-#include"arith_decl_plugin.h"
-#include"bv_decl_plugin.h"
-#include"mpf.h"
+#include "ast/ast.h"
+#include "util/id_gen.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/bv_decl_plugin.h"
+#include "util/mpf.h"
 
 enum fpa_sort_kind {
     FLOATING_POINT_SORT,

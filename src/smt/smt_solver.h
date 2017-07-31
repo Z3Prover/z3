@@ -21,8 +21,8 @@ Notes:
 #ifndef SMT_SOLVER_H_
 #define SMT_SOLVER_H_
 
-#include"ast.h"
-#include"params.h"
+#include "ast/ast.h"
+#include "util/params.h"
 
 class solver;
 class solver_factory;

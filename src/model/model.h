@@ -19,9 +19,9 @@ Revision History:
 #ifndef MODEL_H_
 #define MODEL_H_
 
-#include"model_core.h"
-#include"ref.h"
-#include"ast_translation.h"
+#include "model/model_core.h"
+#include "util/ref.h"
+#include "ast/ast_translation.h"
 
 class model : public model_core {
 protected:

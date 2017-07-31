@@ -18,12 +18,12 @@ Revision History:
 --*/
 #include<sstream>
 
-#include "ast_pp.h"
-#include "array_decl_plugin.h"
-#include "datatype_decl_plugin.h"
-#include "dl_decl_plugin.h"
-#include "warning.h"
-#include "reg_decl_plugins.h"
+#include "ast/ast_pp.h"
+#include "ast/array_decl_plugin.h"
+#include "ast/datatype_decl_plugin.h"
+#include "ast/dl_decl_plugin.h"
+#include "util/warning.h"
+#include "ast/reg_decl_plugins.h"
 
 namespace datalog {
 

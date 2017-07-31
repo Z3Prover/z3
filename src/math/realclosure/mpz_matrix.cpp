@@ -28,8 +28,8 @@ Author:
 Notes:
 
 --*/
-#include"mpz_matrix.h"
-#include"buffer.h"
+#include "math/realclosure/mpz_matrix.h"
+#include "util/buffer.h"
 
 mpz_matrix_manager::mpz_matrix_manager(unsynch_mpz_manager & nm, small_object_allocator & a):
     m_nm(nm),

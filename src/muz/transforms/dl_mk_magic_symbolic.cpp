@@ -52,8 +52,8 @@ Revision History:
 
 --*/
 
-#include"dl_mk_magic_symbolic.h"
-#include"dl_context.h"
+#include "muz/transforms/dl_mk_magic_symbolic.h"
+#include "muz/base/dl_context.h"
 
 namespace datalog {
 

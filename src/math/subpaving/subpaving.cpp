@@ -22,13 +22,13 @@ Author:
 Revision History:
 
 --*/
-#include"subpaving.h"
-#include"subpaving_types.h"
-#include"subpaving_mpq.h"
-#include"subpaving_mpf.h"
-#include"subpaving_hwf.h"
-#include"subpaving_mpff.h"
-#include"subpaving_mpfx.h"
+#include "math/subpaving/subpaving.h"
+#include "math/subpaving/subpaving_types.h"
+#include "math/subpaving/subpaving_mpq.h"
+#include "math/subpaving/subpaving_mpf.h"
+#include "math/subpaving/subpaving_hwf.h"
+#include "math/subpaving/subpaving_mpff.h"
+#include "math/subpaving/subpaving_mpfx.h"
 
 namespace subpaving {
 

@@ -16,6 +16,6 @@ Author:
 Revision History:
 
 --*/
-#include"interval_def.h"
+#include "math/interval/interval_def.h"
 
 template class interval_manager<im_default_config>;

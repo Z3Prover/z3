@@ -20,8 +20,8 @@ Revision History:
 #define DL_PRODUCT_RELATION_H_
 
 
-#include "dl_context.h"
-#include "dl_relation_manager.h"
+#include "muz/base/dl_context.h"
+#include "muz/rel/dl_relation_manager.h"
 
 namespace datalog {
 

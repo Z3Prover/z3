@@ -16,11 +16,11 @@ Author:
 Revision History:
 
 --*/
-#include"nlsat_explain.h"
-#include"nlsat_assignment.h"
-#include"nlsat_evaluator.h"
-#include"algebraic_numbers.h"
-#include"ref_buffer.h"
+#include "nlsat/nlsat_explain.h"
+#include "nlsat/nlsat_assignment.h"
+#include "nlsat/nlsat_evaluator.h"
+#include "math/polynomial/algebraic_numbers.h"
+#include "util/ref_buffer.h"
 
 namespace nlsat {
 

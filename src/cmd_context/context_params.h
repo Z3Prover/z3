@@ -20,7 +20,7 @@ Notes:
 #ifndef CONTEXT_PARAMS_H_
 #define CONTEXT_PARAMS_H_
 
-#include"params.h"
+#include "util/params.h"
 class ast_manager;
 
 class context_params {

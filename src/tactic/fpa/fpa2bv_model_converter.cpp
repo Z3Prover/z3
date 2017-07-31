@@ -16,9 +16,9 @@ Author:
 Notes:
 
 --*/
-#include"ast_smt2_pp.h"
-#include"fpa_rewriter.h"
-#include"fpa2bv_model_converter.h"
+#include "ast/ast_smt2_pp.h"
+#include "ast/rewriter/fpa_rewriter.h"
+#include "tactic/fpa/fpa2bv_model_converter.h"
 
 void fpa2bv_model_converter::display(std::ostream & out) {
     out << "(fpa2bv-model-converter";

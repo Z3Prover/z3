@@ -19,13 +19,13 @@ Revision History:
 #ifndef THEORY_FPA_H_
 #define THEORY_FPA_H_
 
-#include"smt_theory.h"
-#include"trail.h"
-#include"fpa2bv_converter.h"
-#include"fpa2bv_rewriter.h"
-#include"th_rewriter.h"
-#include"value_factory.h"
-#include"smt_model_generator.h"
+#include "smt/smt_theory.h"
+#include "util/trail.h"
+#include "ast/fpa/fpa2bv_converter.h"
+#include "ast/fpa/fpa2bv_rewriter.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "smt/proto_model/value_factory.h"
+#include "smt/smt_model_generator.h"
 
 namespace smt {
 

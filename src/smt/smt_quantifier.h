@@ -19,10 +19,10 @@ Revision History:
 #ifndef SMT_QUANTIFIER_H_
 #define SMT_QUANTIFIER_H_
 
-#include"ast.h"
-#include"statistics.h"
-#include"params.h"
-#include"smt_types.h"
+#include "ast/ast.h"
+#include "util/statistics.h"
+#include "util/params.h"
+#include "smt/smt_types.h"
 
 class proto_model;
 struct smt_params;

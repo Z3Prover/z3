@@ -16,19 +16,19 @@ Author:
 Revision History:
 
 --*/
-#include"smt2parser.h"
-#include"smt2scanner.h"
-#include"stack.h"
-#include"datatype_decl_plugin.h"
-#include"bv_decl_plugin.h"
-#include"arith_decl_plugin.h"
-#include"seq_decl_plugin.h"
-#include"ast_pp.h"
-#include"well_sorted.h"
-#include"pattern_validation.h"
-#include"rewriter.h"
-#include"has_free_vars.h"
-#include"ast_smt2_pp.h"
+#include "parsers/smt2/smt2parser.h"
+#include "parsers/smt2/smt2scanner.h"
+#include "util/stack.h"
+#include "ast/datatype_decl_plugin.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/seq_decl_plugin.h"
+#include "ast/ast_pp.h"
+#include "ast/well_sorted.h"
+#include "parsers/util/pattern_validation.h"
+#include "ast/rewriter/rewriter.h"
+#include "ast/has_free_vars.h"
+#include "ast/ast_smt2_pp.h"
 #include"parser_params.hpp"
 #include<sstream>
 

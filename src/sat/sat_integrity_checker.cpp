@@ -17,9 +17,9 @@ Author:
 Revision History:
 
 --*/
-#include"sat_integrity_checker.h"
-#include"sat_solver.h"
-#include"trace.h"
+#include "sat/sat_integrity_checker.h"
+#include "sat/sat_solver.h"
+#include "util/trace.h"
 
 namespace sat {
     

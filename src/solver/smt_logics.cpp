@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#include "symbol.h"
-#include "smt_logics.h"
+#include "util/symbol.h"
+#include "solver/smt_logics.h"
 
 
 

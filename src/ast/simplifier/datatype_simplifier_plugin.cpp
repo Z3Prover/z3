@@ -15,7 +15,7 @@ Author:
     
 --*/
 
-#include"datatype_simplifier_plugin.h"
+#include "ast/simplifier/datatype_simplifier_plugin.h"
 
 datatype_simplifier_plugin::datatype_simplifier_plugin(ast_manager & m, basic_simplifier_plugin & b):
     simplifier_plugin(symbol("datatype"), m),

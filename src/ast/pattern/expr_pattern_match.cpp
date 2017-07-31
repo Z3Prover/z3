@@ -29,13 +29,13 @@ Notes:
 
 --*/
 
-#include"ast.h"
-#include"expr_pattern_match.h"
-#include"for_each_ast.h"
-#include"ast_ll_pp.h"
-#include"ast_pp.h"
-#include"cmd_context.h"
-#include"smt2parser.h"
+#include "ast/ast.h"
+#include "ast/pattern/expr_pattern_match.h"
+#include "ast/for_each_ast.h"
+#include "ast/ast_ll_pp.h"
+#include "ast/ast_pp.h"
+#include "cmd_context/cmd_context.h"
+#include "parsers/smt2/smt2parser.h"
 
 expr_pattern_match::expr_pattern_match(ast_manager & manager):
     m_manager(manager), m_precompiled(manager) {        

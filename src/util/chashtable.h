@@ -28,11 +28,11 @@ Revision History:
 #ifndef CHASHTABLE_H_
 #define CHASHTABLE_H_
 
-#include"memory_manager.h"
-#include"debug.h"
-#include"trace.h"
+#include "util/memory_manager.h"
+#include "util/debug.h"
+#include "util/trace.h"
 #ifdef Z3DEBUG
-#include"hashtable.h"
+#include "util/hashtable.h"
 #endif
 
 #define CH_STATISTICS

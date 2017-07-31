@@ -18,12 +18,12 @@ Notes:
 --*/
 #include<math.h>
 
-#include"ast_smt2_pp.h"
-#include"well_sorted.h"
-#include"th_rewriter.h"
-#include"fpa_rewriter.h"
+#include "ast/ast_smt2_pp.h"
+#include "ast/well_sorted.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "ast/rewriter/fpa_rewriter.h"
 
-#include"bv2fpa_converter.h"
+#include "ast/fpa/bv2fpa_converter.h"
 
 
 bv2fpa_converter::bv2fpa_converter(ast_manager & m) :

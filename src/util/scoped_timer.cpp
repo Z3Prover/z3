@@ -21,8 +21,8 @@ Revision History:
 #define _WIN32_WINNT 0x0600
 #endif
 
-#include"z3_exception.h"
-#include"z3_omp.h"
+#include "util/z3_exception.h"
+#include "util/z3_omp.h"
 #if defined(_WINDOWS) || defined(_CYGWIN)
 // Windows
 #include<windows.h>
@@ -44,14 +44,14 @@ Revision History:
 // Other platforms
 #endif 
 
-#include"scoped_timer.h"
+#include "util/scoped_timer.h"
 #ifdef _CYGWIN
 #undef min
 #undef max
 #endif
-#include"util.h"
+#include "util/util.h"
 #include<limits.h>
-#include"z3_omp.h"
+#include "util/z3_omp.h"
 
 struct scoped_timer::imp {
     event_handler *  m_eh;

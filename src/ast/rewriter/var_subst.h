@@ -19,9 +19,9 @@ Notes:
 #ifndef VAR_SUBST_H_
 #define VAR_SUBST_H_
 
-#include"rewriter.h"
-#include"used_vars.h"
-#include"params.h"
+#include "ast/rewriter/rewriter.h"
+#include "ast/used_vars.h"
+#include "util/params.h"
 
 /**
    \brief Alias for var_shifter class.

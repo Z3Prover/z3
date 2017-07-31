@@ -18,14 +18,14 @@ Notes:
 
 --*/
 
-#include"cooperate.h"
-#include"bv_decl_plugin.h"
-#include"array_decl_plugin.h"
-#include"params.h"
-#include"ast_pp.h"
-#include"bvarray2uf_rewriter.h"
-#include"rewriter_def.h"
-#include"ref_util.h"
+#include "util/cooperate.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/array_decl_plugin.h"
+#include "util/params.h"
+#include "ast/ast_pp.h"
+#include "tactic/bv/bvarray2uf_rewriter.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "util/ref_util.h"
 
 // [1] C. M. Wintersteiger, Y. Hamadi, and L. de Moura: Efficiently Solving
 //     Quantified Bit-Vector Formulas, in Formal Methods in System Design,

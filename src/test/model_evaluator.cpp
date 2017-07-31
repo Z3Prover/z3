@@ -1,9 +1,9 @@
-#include "model.h"
-#include "model_evaluator.h"
-#include "model_pp.h"
-#include "arith_decl_plugin.h"
-#include "reg_decl_plugins.h"
-#include "ast_pp.h"
+#include "model/model.h"
+#include "model/model_evaluator.h"
+#include "model/model_pp.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/reg_decl_plugins.h"
+#include "ast/ast_pp.h"
 
 
 void tst_model_evaluator() {

@@ -18,13 +18,13 @@ Revision History:
 --*/
 
 #include <sstream>
-#include "ast_pp.h"
-#include "for_each_expr.h"
-#include "model.h"
-#include "rewriter.h"
-#include "rewriter_def.h"
-#include "pdr_util.h"
-#include "pdr_sym_mux.h"
+#include "ast/ast_pp.h"
+#include "ast/for_each_expr.h"
+#include "model/model.h"
+#include "ast/rewriter/rewriter.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "muz/pdr/pdr_util.h"
+#include "muz/pdr/pdr_sym_mux.h"
 
 using namespace pdr;
 

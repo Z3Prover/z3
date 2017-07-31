@@ -19,7 +19,7 @@ Revision History:
 
 #include<utility>
 #include<sstream>
-#include"dl_mk_unbound_compressor.h"
+#include "muz/transforms/dl_mk_unbound_compressor.h"
 
 namespace datalog {
 

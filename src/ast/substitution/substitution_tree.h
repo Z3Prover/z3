@@ -19,8 +19,8 @@ Revision History:
 #ifndef SUBSTITUTION_TREE_H_
 #define SUBSTITUTION_TREE_H_
 
-#include"ast.h"
-#include"substitution.h"
+#include "ast/ast.h"
+#include "ast/substitution/substitution.h"
 
 /**
    \brief Substitution tree visitor.

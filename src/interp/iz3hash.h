@@ -36,7 +36,7 @@
 #include <string>
 #include <vector>
 #include <iterator>
-#include "hash.h"
+#include "util/hash.h"
 
 #define stl_ext hash_space
 

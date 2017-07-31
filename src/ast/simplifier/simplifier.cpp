@@ -16,12 +16,12 @@ Author:
 Notes:
 
 --*/
-#include"simplifier.h"
-#include"var_subst.h"
-#include"ast_ll_pp.h"
-#include"ast_pp.h"
-#include"well_sorted.h"
-#include"ast_smt_pp.h"
+#include "ast/simplifier/simplifier.h"
+#include "ast/rewriter/var_subst.h"
+#include "ast/ast_ll_pp.h"
+#include "ast/ast_pp.h"
+#include "ast/well_sorted.h"
+#include "ast/ast_smt_pp.h"
 
 simplifier::simplifier(ast_manager & m):
     base_simplifier(m),

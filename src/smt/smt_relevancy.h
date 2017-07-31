@@ -19,7 +19,7 @@ Revision History:
 #ifndef SMT_RELEVANCY_H_
 #define SMT_RELEVANCY_H_
 
-#include"ast.h"
+#include "ast/ast.h"
 
 namespace smt {
     class context;

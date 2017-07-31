@@ -17,10 +17,10 @@ Revision History:
 
 --*/
 #include<sstream>
-#include"array_decl_plugin.h"
-#include"warning.h"
-#include"ast_pp.h"
-#include"ast_ll_pp.h"
+#include "ast/array_decl_plugin.h"
+#include "util/warning.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
 
 array_decl_plugin::array_decl_plugin():
     m_store_sym("store"),

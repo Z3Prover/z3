@@ -18,8 +18,8 @@ Notes:
 
 --*/
 
-#include "sat_solver.h"
-#include "sat_mus.h"
+#include "sat/sat_solver.h"
+#include "sat/sat_mus.h"
 
 namespace sat {
 

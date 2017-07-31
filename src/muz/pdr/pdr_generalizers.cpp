@@ -18,13 +18,13 @@ Revision History:
 --*/
 
 
-#include "pdr_context.h"
-#include "pdr_farkas_learner.h"
-#include "pdr_generalizers.h"
-#include "expr_abstract.h"
-#include "var_subst.h"
-#include "expr_safe_replace.h"
-#include "model_smt2_pp.h"
+#include "muz/pdr/pdr_context.h"
+#include "muz/pdr/pdr_farkas_learner.h"
+#include "muz/pdr/pdr_generalizers.h"
+#include "ast/expr_abstract.h"
+#include "ast/rewriter/var_subst.h"
+#include "ast/rewriter/expr_safe_replace.h"
+#include "model/model_smt2_pp.h"
 
 
 namespace pdr {

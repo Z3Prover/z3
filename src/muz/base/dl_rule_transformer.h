@@ -19,10 +19,10 @@ Revision History:
 #ifndef DL_RULE_TRANSFORMER_H_
 #define DL_RULE_TRANSFORMER_H_
 
-#include"map.h"
-#include"vector.h"
-#include"dl_rule.h"
-#include"dl_rule_set.h"
+#include "util/map.h"
+#include "util/vector.h"
+#include "muz/base/dl_rule.h"
+#include "muz/base/dl_rule_set.h"
 
 namespace datalog {
 

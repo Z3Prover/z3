@@ -19,10 +19,10 @@ Notes:
 #ifndef PB_REWRITER_H_
 #define PB_REWRITER_H_
 
-#include"pb_decl_plugin.h"
-#include"rewriter_types.h"
-#include"params.h"
-#include"lbool.h"
+#include "ast/pb_decl_plugin.h"
+#include "ast/rewriter/rewriter_types.h"
+#include "util/params.h"
+#include "util/lbool.h"
 
 
 template<typename PBU>

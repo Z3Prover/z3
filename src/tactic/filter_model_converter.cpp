@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#include"filter_model_converter.h"
-#include"model_v2_pp.h"
+#include "tactic/filter_model_converter.h"
+#include "model/model_v2_pp.h"
 
 filter_model_converter::~filter_model_converter() {
 }

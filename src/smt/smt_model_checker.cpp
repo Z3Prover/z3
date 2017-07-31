@@ -17,16 +17,16 @@ Revision History:
 
 --*/
 
-#include"smt_model_checker.h"
-#include"smt_context.h"
-#include"smt_model_finder.h"
-#include"pull_quant.h"
-#include"for_each_expr.h"
-#include"var_subst.h"
-#include"ast_pp.h"
-#include"ast_ll_pp.h"
-#include"model_pp.h"
-#include"ast_smt2_pp.h"
+#include "smt/smt_model_checker.h"
+#include "smt/smt_context.h"
+#include "smt/smt_model_finder.h"
+#include "ast/normal_forms/pull_quant.h"
+#include "ast/for_each_expr.h"
+#include "ast/rewriter/var_subst.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
+#include "model/model_pp.h"
+#include "ast/ast_smt2_pp.h"
 
 namespace smt {
 

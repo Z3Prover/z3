@@ -14,9 +14,9 @@
 
  Revision History:
 --*/
-#include"ackr_helper.h"
-#include"ackr_bound_probe.h"
-#include"ast_smt2_pp.h"
+#include "ackermannization/ackr_helper.h"
+#include "ackermannization/ackr_bound_probe.h"
+#include "ast/ast_smt2_pp.h"
 
 /*
   For each function f, calculate the number of its occurrences o_f and compute "o_f choose 2".

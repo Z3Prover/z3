@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#include"elim_term_ite.h"
-#include"ast_smt2_pp.h"
+#include "smt/elim_term_ite.h"
+#include "ast/ast_smt2_pp.h"
 
 void elim_term_ite::operator()(expr * n,                        
                                expr_ref_vector & new_defs,        

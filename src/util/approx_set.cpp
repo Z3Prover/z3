@@ -17,7 +17,7 @@ Revision History:
 
 --*/
 
-#include"approx_set.h"
+#include "util/approx_set.h"
 
 void approx_set::display(std::ostream & out) const {
     out << "{";

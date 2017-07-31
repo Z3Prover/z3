@@ -21,16 +21,16 @@ Notes:
     - Deal with push/pop (later)
 
 --*/
-#include "opt_cmds.h"
-#include "cmd_context.h"
-#include "ast_pp.h"
-#include "opt_context.h"
-#include "cancel_eh.h"
-#include "scoped_ctrl_c.h"
-#include "scoped_timer.h"
-#include "parametric_cmd.h"
+#include "opt/opt_cmds.h"
+#include "cmd_context/cmd_context.h"
+#include "ast/ast_pp.h"
+#include "opt/opt_context.h"
+#include "util/cancel_eh.h"
+#include "util/scoped_ctrl_c.h"
+#include "util/scoped_timer.h"
+#include "cmd_context/parametric_cmd.h"
 #include "opt_params.hpp"
-#include "model_smt2_pp.h"
+#include "model/model_smt2_pp.h"
 
 static opt::context& get_opt(cmd_context& cmd, opt::context* opt) {
     if (opt) {

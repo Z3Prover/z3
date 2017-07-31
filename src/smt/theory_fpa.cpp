@@ -16,12 +16,12 @@ Author:
 Revision History:
 
 --*/
-#include"ast_smt2_pp.h"
-#include"smt_context.h"
-#include"theory_fpa.h"
-#include"theory_bv.h"
-#include"smt_model_generator.h"
-#include"bv2fpa_converter.h"
+#include "ast/ast_smt2_pp.h"
+#include "smt/smt_context.h"
+#include "smt/theory_fpa.h"
+#include "smt/theory_bv.h"
+#include "smt/smt_model_generator.h"
+#include "ast/fpa/bv2fpa_converter.h"
 
 namespace smt {
 

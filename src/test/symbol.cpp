@@ -17,8 +17,8 @@ Revision History:
 
 --*/
 #include<iostream>
-#include"symbol.h"
-#include"debug.h"
+#include "util/symbol.h"
+#include "util/debug.h"
 
 static void tst1() {
     symbol s1("foo");

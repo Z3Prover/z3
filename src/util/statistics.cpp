@@ -16,11 +16,11 @@ Author:
 Notes:
 
 --*/
-#include"statistics.h"
-#include"map.h"
-#include"str_hashtable.h"
-#include"buffer.h"
-#include"smt2_util.h"
+#include "util/statistics.h"
+#include "util/map.h"
+#include "util/str_hashtable.h"
+#include "util/buffer.h"
+#include "util/smt2_util.h"
 #include<iomanip>
 
 void statistics::update(char const * key, unsigned inc) {

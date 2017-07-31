@@ -4,10 +4,10 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
-#include "bv_simplifier_plugin.h"
-#include "arith_decl_plugin.h"
-#include "ast_pp.h"
-#include "reg_decl_plugins.h"
+#include "ast/simplifier/bv_simplifier_plugin.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/ast_pp.h"
+#include "ast/reg_decl_plugins.h"
 
 class tst_bv_simplifier_plugin_cls {
     class mgr {

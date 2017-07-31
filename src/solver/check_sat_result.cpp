@@ -16,7 +16,7 @@ Author:
 Notes:
 
 --*/
-#include"check_sat_result.h"
+#include "solver/check_sat_result.h"
 
 simple_check_sat_result::simple_check_sat_result(ast_manager & m):
     m_core(m),

@@ -26,14 +26,14 @@
 #include <set>
 #include <iostream>
 
-#include "iz3mgr.h"
-#include "iz3pp.h"
-#include "func_decl_dependencies.h"
-#include"for_each_expr.h"
-#include"ast_smt_pp.h"
-#include"ast_smt2_pp.h"
-#include"expr_functors.h"
-#include"expr_abstract.h"
+#include "interp/iz3mgr.h"
+#include "interp/iz3pp.h"
+#include "ast/func_decl_dependencies.h"
+#include "ast/for_each_expr.h"
+#include "ast/ast_smt_pp.h"
+#include "ast/ast_smt2_pp.h"
+#include "ast/expr_functors.h"
+#include "ast/expr_abstract.h"
 
 
 using namespace stl_ext;

@@ -28,13 +28,13 @@ Revision History:
 #ifndef GOAL_H_
 #define GOAL_H_
 
-#include"ast.h"
-#include"ast_translation.h"
-#include"ast_printer.h"
-#include"for_each_expr.h"
-#include"ref.h"
-#include"ref_vector.h"
-#include"ref_buffer.h"
+#include "ast/ast.h"
+#include "ast/ast_translation.h"
+#include "ast/ast_printer.h"
+#include "ast/for_each_expr.h"
+#include "util/ref.h"
+#include "util/ref_vector.h"
+#include "util/ref_buffer.h"
 
 class goal {
 public:

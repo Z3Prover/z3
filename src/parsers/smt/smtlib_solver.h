@@ -19,9 +19,9 @@ Revision History:
 #ifndef SMTLIB_SOLVER_H_
 #define SMTLIB_SOLVER_H_
 
-#include"smtparser.h"
-#include"context_params.h"
-#include"lbool.h"
+#include "parsers/smt/smtparser.h"
+#include "cmd_context/context_params.h"
+#include "util/lbool.h"
 
 class cmd_context;
 

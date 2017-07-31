@@ -16,14 +16,14 @@ Author:
 Revision History:
 
 --*/
-#include"mam.h"
-#include"smt_context.h"
-#include"pool.h"
-#include"ast_pp.h"
-#include"ast_ll_pp.h"
-#include"trail.h"
-#include"stopwatch.h"
-#include"ast_smt2_pp.h"
+#include "smt/mam.h"
+#include "smt/smt_context.h"
+#include "util/pool.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
+#include "util/trail.h"
+#include "util/stopwatch.h"
+#include "ast/ast_smt2_pp.h"
 #include<algorithm>
 
 // #define _PROFILE_MAM

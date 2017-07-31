@@ -19,10 +19,10 @@ Revision History:
 #ifndef SMT_JUSTIFICATION_H_
 #define SMT_JUSTIFICATION_H_
 
-#include"ast.h"
-#include"smt_types.h"
-#include"smt_literal.h"
-#include"smt_eq_justification.h"
+#include "ast/ast.h"
+#include "smt/smt_types.h"
+#include "smt/smt_literal.h"
+#include "smt/smt_eq_justification.h"
 
 namespace smt {
     

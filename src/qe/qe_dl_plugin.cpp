@@ -5,11 +5,11 @@ Copyright (c) 2015 Microsoft Corporation
 --*/
 
 
-#include "qe.h"
-#include "expr_safe_replace.h"
-#include "dl_decl_plugin.h"
-#include "obj_pair_hashtable.h"
-#include "ast_pp.h"
+#include "qe/qe.h"
+#include "ast/rewriter/expr_safe_replace.h"
+#include "ast/dl_decl_plugin.h"
+#include "util/obj_pair_hashtable.h"
+#include "ast/ast_pp.h"
 
 
 namespace qe {

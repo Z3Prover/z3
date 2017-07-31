@@ -5,8 +5,8 @@
 #pragma once
 #include "util/vector.h"
 #include "util/lp/linear_combination_iterator.h"
-#include "implied_bound.h"
-#include "test_bound_analyzer.h"
+#include "util/lp/implied_bound.h"
+#include "util/lp/test_bound_analyzer.h"
 #include <functional>
 #include "util/lp/bound_propagator.h"
 // We have an equality : sum by j of row[j]*x[j] = rs

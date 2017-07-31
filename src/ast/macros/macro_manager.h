@@ -19,12 +19,12 @@ Revision History:
 #ifndef MACRO_MANAGER_H_
 #define MACRO_MANAGER_H_
 
-#include"ast_util.h"
-#include"obj_hashtable.h"
-#include"simplifier.h"
-#include"recurse_expr.h"
-#include"func_decl_dependencies.h"
-#include"macro_util.h"
+#include "ast/ast_util.h"
+#include "util/obj_hashtable.h"
+#include "ast/simplifier/simplifier.h"
+#include "ast/recurse_expr.h"
+#include "ast/func_decl_dependencies.h"
+#include "ast/macros/macro_util.h"
 
 /**
    \brief Macros are universally quantified formulas of the form:

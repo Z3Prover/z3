@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#include"page.h"
-#include"debug.h"
+#include "util/page.h"
+#include "util/debug.h"
 
 inline void set_page_header(char * page, char * prev, bool default_page) {
     size_t header = reinterpret_cast<size_t>(prev) | static_cast<size_t>(default_page); 

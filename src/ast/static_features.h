@@ -19,13 +19,13 @@ Revision History:
 #ifndef STATIC_FEATURES_H_
 #define STATIC_FEATURES_H_
 
-#include"ast.h"
-#include"arith_decl_plugin.h"
-#include"bv_decl_plugin.h"
-#include"array_decl_plugin.h"
-#include"fpa_decl_plugin.h"
-#include"seq_decl_plugin.h"
-#include"map.h"
+#include "ast/ast.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/array_decl_plugin.h"
+#include "ast/fpa_decl_plugin.h"
+#include "ast/seq_decl_plugin.h"
+#include "util/map.h"
 
 struct static_features {
     ast_manager &            m_manager;

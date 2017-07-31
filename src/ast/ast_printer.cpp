@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#include"ast_printer.h"
-#include"pp.h"
+#include "ast/ast_printer.h"
+#include "ast/pp.h"
 
 class simple_ast_printer_context : public ast_printer_context {
     ast_manager & m_manager;

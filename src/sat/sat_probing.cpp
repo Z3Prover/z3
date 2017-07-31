@@ -17,8 +17,8 @@ Author:
 Revision History:
 
 --*/
-#include"sat_probing.h"
-#include"sat_solver.h"
+#include "sat/sat_probing.h"
+#include "sat/sat_solver.h"
 
 namespace sat {
     probing::probing(solver & _s, params_ref const & p):

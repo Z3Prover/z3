@@ -17,15 +17,15 @@ Author:
 Notes:
 
 --*/
-#include"tactical.h"
-#include"bv_decl_plugin.h"
-#include"expr_replacer.h"
-#include"extension_model_converter.h"
-#include"filter_model_converter.h"
-#include"ast_smt2_pp.h"
+#include "tactic/tactical.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/rewriter/expr_replacer.h"
+#include "tactic/extension_model_converter.h"
+#include "tactic/filter_model_converter.h"
+#include "ast/ast_smt2_pp.h"
 
-#include"bvarray2uf_tactic.h"
-#include"bvarray2uf_rewriter.h"
+#include "tactic/bv/bvarray2uf_tactic.h"
+#include "tactic/bv/bvarray2uf_rewriter.h"
 
 class bvarray2uf_tactic : public tactic {
 

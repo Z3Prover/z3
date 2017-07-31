@@ -16,7 +16,7 @@ Author:
 Revision History:
 
 --*/
-#include"preprocessor_params.h"
+#include "smt/params/preprocessor_params.h"
 #include"smt_params_helper.hpp"
 
 void preprocessor_params::updt_local_params(params_ref const & _p) {

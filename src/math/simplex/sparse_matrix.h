@@ -19,8 +19,8 @@ Notes:
 #ifndef SPARSE_MATRIX_H_
 #define SPARSE_MATRIX_H_
 
-#include "mpq_inf.h"
-#include "statistics.h"
+#include "util/mpq_inf.h"
+#include "util/statistics.h"
 
 namespace simplex {
 

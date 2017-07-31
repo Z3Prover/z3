@@ -16,10 +16,10 @@ Author:
 Notes:
 
 --*/
-#include"aig.h"
-#include"goal.h"
-#include"ast_smt2_pp.h"
-#include"cooperate.h"
+#include "tactic/aig/aig.h"
+#include "tactic/goal.h"
+#include "ast/ast_smt2_pp.h"
+#include "util/cooperate.h"
 
 #define USE_TWO_LEVEL_RULES
 #define FIRST_NODE_ID (UINT_MAX/2)

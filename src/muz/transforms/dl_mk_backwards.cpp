@@ -17,8 +17,8 @@ Revision History:
 
 --*/
 
-#include"dl_mk_backwards.h"
-#include"dl_context.h"
+#include "muz/transforms/dl_mk_backwards.h"
+#include "muz/base/dl_context.h"
 
 namespace datalog {
 

@@ -21,7 +21,7 @@ Revision History:
 #include <string>
 #include <windows.h>
 #include <strsafe.h>
-#include "for_each_file.h"
+#include "test/for_each_file.h"
 
 bool for_each_file(for_each_file_proc& proc, const char* base, const char* suffix)
 {

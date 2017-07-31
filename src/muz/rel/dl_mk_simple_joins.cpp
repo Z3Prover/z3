@@ -20,10 +20,10 @@ Revision History:
 #include<utility>
 #include<sstream>
 #include<limits>
-#include"dl_mk_simple_joins.h"
-#include"dl_relation_manager.h"
-#include"ast_pp.h"
-#include"trace.h"
+#include "muz/rel/dl_mk_simple_joins.h"
+#include "muz/rel/dl_relation_manager.h"
+#include "ast/ast_pp.h"
+#include "util/trace.h"
 
 
 namespace datalog {

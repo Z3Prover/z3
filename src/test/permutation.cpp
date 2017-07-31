@@ -16,9 +16,9 @@ Author:
 Revision History:
 
 --*/
-#include"permutation.h"
-#include"util.h"
-#include"vector.h"
+#include "util/permutation.h"
+#include "util/util.h"
+#include "util/vector.h"
 
 void apply_permutation_copy(unsigned sz, unsigned const * src, unsigned const * p, unsigned * target) {
     for (unsigned i = 0; i < sz; i++) {

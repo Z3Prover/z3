@@ -18,8 +18,8 @@ Notes:
 
 --*/
 
-#include "vector.h"
-#include "uint_set.h"
+#include "util/vector.h"
+#include "util/uint_set.h"
 
 
 template<class T>

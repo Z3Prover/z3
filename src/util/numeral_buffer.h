@@ -19,7 +19,7 @@ Revision History:
 #ifndef NUMERAL_BUFFER_H_
 #define NUMERAL_BUFFER_H_
 
-#include"vector.h"
+#include "util/vector.h"
 
 template<typename Numeral, typename NumeralManager>
 class numeral_buffer {

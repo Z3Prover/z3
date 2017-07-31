@@ -21,15 +21,15 @@ Revision History:
 #ifndef SAT_SIMPLIFIER_H_
 #define SAT_SIMPLIFIER_H_
 
-#include"sat_types.h"
-#include"sat_clause.h"
-#include"sat_clause_set.h"
-#include"sat_clause_use_list.h"
-#include"sat_watched.h"
-#include"sat_model_converter.h"
-#include"heap.h"
-#include"statistics.h"
-#include"params.h"
+#include "sat/sat_types.h"
+#include "sat/sat_clause.h"
+#include "sat/sat_clause_set.h"
+#include "sat/sat_clause_use_list.h"
+#include "sat/sat_watched.h"
+#include "sat/sat_model_converter.h"
+#include "util/heap.h"
+#include "util/statistics.h"
+#include "util/params.h"
 
 namespace sat {
     class solver;

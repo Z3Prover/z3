@@ -18,10 +18,10 @@ Revision History:
 --*/
 #ifndef SYMBOL_TABLE_H_
 #define SYMBOL_TABLE_H_
-#include"vector.h"
-#include"hashtable.h"
-#include"hash.h"
-#include"symbol.h"
+#include "util/vector.h"
+#include "util/hashtable.h"
+#include "util/hash.h"
+#include "util/symbol.h"
 
 /**
    \brief Quick & Dirty symbol table.

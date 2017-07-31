@@ -5,8 +5,8 @@ Copyright (c) 2015 Microsoft Corporation
 --*/
 
 
-#include "timeout.h"
-#include "trace.h"
+#include "util/timeout.h"
+#include "util/trace.h"
 
 #ifdef _WINDOWS
 

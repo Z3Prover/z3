@@ -20,7 +20,7 @@ Revision History:
 #define THEORY_ARITH_PARAMS_H_
 
 #include<limits.h>
-#include"params.h"
+#include "util/params.h"
 
 enum arith_solver_id {
     AS_NO_ARITH,

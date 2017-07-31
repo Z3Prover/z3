@@ -16,7 +16,7 @@ Author:
 Revision History:
 
 --*/
-#include"qi_params.h"
+#include "smt/params/qi_params.h"
 #include"smt_params_helper.hpp"
 
 void qi_params::updt_params(params_ref const & _p) {

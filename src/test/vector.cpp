@@ -16,7 +16,7 @@ Author:
 Revision History:
 
 --*/
-#include"vector.h"
+#include "util/vector.h"
 
 static void tst1() {
     svector<int> v1;

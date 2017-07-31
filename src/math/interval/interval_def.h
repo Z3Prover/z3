@@ -19,12 +19,12 @@ Revision History:
 #ifndef INTERVAL_DEF_H_
 #define INTERVAL_DEF_H_
 
-#include"interval.h"
-#include"debug.h"
-#include"trace.h"
-#include"scoped_numeral.h"
-#include"cooperate.h"
-#include"common_msgs.h"
+#include "math/interval/interval.h"
+#include "util/debug.h"
+#include "util/trace.h"
+#include "util/scoped_numeral.h"
+#include "util/cooperate.h"
+#include "util/common_msgs.h"
 
 #define DEFAULT_PI_PRECISION 2
 

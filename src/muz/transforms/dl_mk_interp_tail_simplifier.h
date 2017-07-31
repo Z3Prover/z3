@@ -20,11 +20,11 @@ Revision History:
 #ifndef DL_MK_INTERP_TAIL_SIMPLIFIER_H_
 #define DL_MK_INTERP_TAIL_SIMPLIFIER_H_
 
-#include "dl_context.h"
-#include "dl_rule_transformer.h"
-#include "unifier.h"
-#include "substitution.h"
-#include "arith_decl_plugin.h"
+#include "muz/base/dl_context.h"
+#include "muz/base/dl_rule_transformer.h"
+#include "ast/substitution/unifier.h"
+#include "ast/substitution/substitution.h"
+#include "ast/arith_decl_plugin.h"
 
 namespace datalog {
 

@@ -22,8 +22,8 @@
 #include<cstdio>
 #include<string>
 #include<string.h>
-#include"util.h"
-#include"memory_manager.h"
+#include "util/util.h"
+#include "util/memory_manager.h"
 
 // This string buffer will not use the heap if the data consumes less than INITIAL_SIZE bytes. 
 template<unsigned INITIAL_SIZE=64>

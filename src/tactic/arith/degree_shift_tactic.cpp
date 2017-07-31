@@ -19,14 +19,14 @@ Author:
 Revision History:
 
 --*/
-#include"tactical.h"
-#include"filter_model_converter.h"
-#include"extension_model_converter.h"
-#include"cooperate.h"
-#include"arith_decl_plugin.h"
-#include"simplify_tactic.h"
-#include"ast_smt2_pp.h"
-#include"rewriter_def.h"
+#include "tactic/tactical.h"
+#include "tactic/filter_model_converter.h"
+#include "tactic/extension_model_converter.h"
+#include "util/cooperate.h"
+#include "ast/arith_decl_plugin.h"
+#include "tactic/core/simplify_tactic.h"
+#include "ast/ast_smt2_pp.h"
+#include "ast/rewriter/rewriter_def.h"
 
 class degree_shift_tactic : public tactic {
     struct     imp {

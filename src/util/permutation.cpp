@@ -16,7 +16,7 @@ Author:
 Revision History:
 
 --*/
-#include"permutation.h"
+#include "util/permutation.h"
 
 permutation::permutation(unsigned size) {
     reset(size);

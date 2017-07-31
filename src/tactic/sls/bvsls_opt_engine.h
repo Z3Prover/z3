@@ -19,7 +19,7 @@ Notes:
 #ifndef BVSLS_OPT_ENGINE_H_
 #define BVSLS_OPT_ENGINE_H_
 
-#include "sls_engine.h"
+#include "tactic/sls/sls_engine.h"
 
 class bvsls_opt_engine : public sls_engine {
     sls_tracker   & m_hard_tracker;

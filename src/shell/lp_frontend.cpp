@@ -10,11 +10,11 @@ Author:
 #include "lp_params.hpp"
 #include "util/lp/lp_settings.h"
 #include "util/lp/mps_reader.h"
-#include "timeout.h"
-#include "cancel_eh.h"
-#include "scoped_timer.h"
-#include "rlimit.h"
-#include "gparams.h"
+#include "util/timeout.h"
+#include "util/cancel_eh.h"
+#include "util/scoped_timer.h"
+#include "util/rlimit.h"
+#include "util/gparams.h"
 #include <signal.h>
 
 static lean::lp_solver<double, double>* g_solver = 0;

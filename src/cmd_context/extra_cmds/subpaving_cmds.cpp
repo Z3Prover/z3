@@ -16,12 +16,12 @@ Notes:
 
 --*/
 #include<sstream>
-#include"cmd_context.h"
-#include"cmd_util.h"
-#include"expr2subpaving.h"
-#include"th_rewriter.h"
-#include"ast_smt2_pp.h"
-#include"expr2var.h"
+#include "cmd_context/cmd_context.h"
+#include "cmd_context/cmd_util.h"
+#include "math/subpaving/tactic/expr2subpaving.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "ast/ast_smt2_pp.h"
+#include "ast/expr2var.h"
 
 static void to_subpaving(cmd_context & ctx, expr * t) {
     ast_manager & m = ctx.m();

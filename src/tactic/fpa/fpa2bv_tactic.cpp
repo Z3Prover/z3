@@ -16,11 +16,11 @@ Author:
 Notes:
 
 --*/
-#include"tactical.h"
-#include"fpa2bv_rewriter.h"
-#include"simplify_tactic.h"
-#include"fpa2bv_tactic.h"
-#include"fpa2bv_model_converter.h"
+#include "tactic/tactical.h"
+#include "ast/fpa/fpa2bv_rewriter.h"
+#include "tactic/core/simplify_tactic.h"
+#include "tactic/fpa/fpa2bv_tactic.h"
+#include "tactic/fpa/fpa2bv_model_converter.h"
 
 class fpa2bv_tactic : public tactic {
     struct imp {
