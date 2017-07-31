@@ -1667,7 +1667,7 @@ void fpa2bv_converter::mk_fma(func_decl * f, unsigned num, expr * const * args, 
     dbg_decouple("fpa2bv_fma_is_sig_neg", is_sig_neg);
 
     // Result could have overflown into 4.xxx.
-    SASSERT(m_bv_util.get_bv_size(sig_abs) == 2*sbits+4);
+    SASSERT(m_bv_util.get_bv_size(sig_abs) == 2*sbits+5);
     expr_ref extra(m), extra_is_zero(m);
     extra = m_bv_util.mk_extract(2*sbits+4, 2*sbits+3, sig_abs);
     extra_is_zero = m.mk_eq(extra, m_bv_util.mk_numeral(0, 2));
