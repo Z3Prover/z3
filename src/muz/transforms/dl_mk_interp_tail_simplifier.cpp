@@ -27,6 +27,7 @@ Revision History:
 #include "muz/transforms/dl_mk_interp_tail_simplifier.h"
 #include "ast/ast_util.h"
 
+#include "fixedpoint_params.hpp"
 namespace datalog {
 
     // -----------------------------------
@@ -397,6 +398,8 @@ namespace datalog {
     }
 
     bool mk_interp_tail_simplifier::propagate_variable_equivalences(rule * r, rule_ref& res) {
+      if (!m_context.get_params ().xform_tail_simplifier_pve ())
+        return false;
         unsigned u_len = r->get_uninterpreted_tail_size();
         unsigned len = r->get_tail_size();
         if (u_len == len) {
