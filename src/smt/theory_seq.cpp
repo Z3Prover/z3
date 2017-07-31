@@ -1891,7 +1891,7 @@ bool theory_seq::solve_ne(unsigned idx) {
                     new_ls.push_back(ls);
                     new_rs.push_back(rs);
                 }
-                else {
+                else if (nl != nr) {                
                     literal lit(mk_eq(nl, nr, false));
                     ctx.mark_as_relevant(lit);
                     new_lits.push_back(lit);
