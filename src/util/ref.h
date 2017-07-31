@@ -50,6 +50,7 @@ public:
         inc_ref();
     }
 
+   ref (ref && r): m_ptr (r.detach ()) {}
     ~ref() {
         dec_ref();
     }
@@ -89,6 +90,14 @@ public:
         return *this;
     }
 
+    ref & operator=(ref &&r) {
+        if (this != &r) {
+           dec_ref ();
+           m_ptr = r.detach ();
+        }
+        return *this;
+    }
+
     void reset() {
         dec_ref();
         m_ptr = 0;
@@ -106,6 +115,11 @@ public:
 
     friend bool operator!=(const ref & r1, const ref & r2) {
         return r1.m_ptr != r2.m_ptr;
+    }
+    friend void swap (ref &r1, ref &r2) {
+        T* tmp = r1.m_ptr;
+        r1.m_ptr = r2.m_ptr;
+        r2.m_ptr = tmp;
     }
 };
 

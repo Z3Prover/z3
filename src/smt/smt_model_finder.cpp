@@ -760,7 +760,7 @@ namespace smt {
                 ptr_vector<expr> const & exceptions   = n->get_exceptions();
                 ptr_vector<node> const & avoid_set    = n->get_avoid_set();
                 obj_map<expr, unsigned> const & elems = s->get_elems();
-                SASSERT(!elems.empty());
+                if (elems.empty()) return;
                 if (!exceptions.empty() || !avoid_set.empty()) {
                     ptr_buffer<expr> ex_vals;
                     collect_exceptions_values(n, ex_vals);
@@ -927,15 +927,14 @@ namespace smt {
                 ptr_buffer<expr> values;
                 get_instantiation_set_values(n, values);
                 sort * s        = n->get_sort();
-                expr * else_val = eval(n->get_else(), true);
-                func_decl *   p  = m_manager.mk_fresh_func_decl(1, &s, s);
+                func_decl *   p = m_manager.mk_fresh_func_decl(1, &s, s);
                 func_interp * pi = alloc(func_interp, m_manager, 1);
-                pi->set_else(else_val);
                 m_model->register_aux_decl(p, pi);
-                ptr_buffer<expr>::const_iterator it  = values.begin();
-                ptr_buffer<expr>::const_iterator end = values.end();
-                for (; it != end; ++it) {
-                    expr * v = *it;
+                if (n->get_else()) {
+                    expr * else_val = eval(n->get_else(), true);
+                    pi->set_else(else_val);
+                }
+                for (expr * v : values) {
                     pi->insert_new_entry(&v, v);
                 }
                 n->set_proj(p);

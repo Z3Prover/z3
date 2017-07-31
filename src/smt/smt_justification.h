@@ -181,6 +181,7 @@ namespace smt {
         enode *         m_node2;
     public:
         eq_propagation_justification(enode * n1, enode * n2):m_node1(n1), m_node2(n2) {
+            SASSERT(n1 != n2);
         }
 
         virtual void get_antecedents(conflict_resolution & cr);
