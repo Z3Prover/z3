@@ -32,6 +32,7 @@ Revision History:
 #include "muz/transforms/dl_transforms.h"
 #include "muz/transforms/dl_mk_rule_inliner.h"
 #include "ast/scoped_proof.h"
+#include "muz/base/fixedpoint_params.hpp"
 
 namespace datalog {
 
@@ -143,6 +144,7 @@ namespace datalog {
             b.m_fparams.m_model = true;
             b.m_fparams.m_model_compact = true;
             b.m_fparams.m_mbqi = true;
+            b.m_rule_trace.reset();
         }
 
         void mk_qrule_vars(datalog::rule const& r, unsigned rule_id, expr_ref_vector& sub) {
@@ -279,6 +281,7 @@ namespace datalog {
                 }
                 SASSERT(r);
                 mk_qrule_vars(*r, i, sub);
+                b.m_rule_trace.push_back(r);
                 // we have rule, we have variable names of rule.
 
                 // extract values for the variables in the rule.
@@ -470,6 +473,7 @@ namespace datalog {
             b.m_fparams.m_model_compact = true;
             // b.m_fparams.m_mbqi = true;
             b.m_fparams.m_relevancy_lvl = 2;
+            b.m_rule_trace.reset();
         }
 
         lbool check(unsigned level) {
@@ -507,6 +511,7 @@ namespace datalog {
                 }
             }
             SASSERT(r);
+            b.m_rule_trace.push_back(r);
             rm.to_formula(*r, fml);
             IF_VERBOSE(1, verbose_stream() << mk_pp(fml, m) << "\n";);
             prs.push_back(r->get_proof());
@@ -760,6 +765,7 @@ namespace datalog {
             b.m_fparams.m_model_compact = true;
             b.m_fparams.m_mbqi = false;
             b.m_fparams.m_relevancy_lvl = 2;
+            b.m_rule_trace.reset();
         }
 
         func_decl_ref mk_predicate(func_decl* pred) {
@@ -1078,6 +1084,7 @@ namespace datalog {
                     }
                     head = rl->get_head();
                     pr = m.mk_hyper_resolve(sz+1, prs.c_ptr(), head, positions, substs);
+                    b.m_rule_trace.push_back(rl.get());
                     return pr;
                 }
             }
@@ -1154,7 +1161,8 @@ namespace datalog {
 
         lbool check() {
             setup();
-            for (unsigned i = 0; ; ++i) {
+            unsigned max_depth = b.m_ctx.get_params().bmc_linear_unrolling_depth();
+            for (unsigned i = 0; i < max_depth; ++i) {
                 IF_VERBOSE(1, verbose_stream() << "level: " << i << "\n";);
                 b.checkpoint();
                 compile(i);
@@ -1167,6 +1175,7 @@ namespace datalog {
                     return res;
                 }
             }
+            return l_undef;
         }
 
     private:
@@ -1202,6 +1211,7 @@ namespace datalog {
                     }
                 }
                 SASSERT(r);
+                b.m_rule_trace.push_back(r);
                 mk_rule_vars(*r, level, i, sub);
                 // we have rule, we have variable names of rule.
 
@@ -1284,6 +1294,7 @@ namespace datalog {
             b.m_fparams.m_model_compact = true;
             b.m_fparams.m_mbqi = false;
             // m_fparams.m_auto_config = false;
+            b.m_rule_trace.reset();
         }
 
 
@@ -1426,7 +1437,8 @@ namespace datalog {
         m_solver(m, m_fparams),
         m_rules(ctx),
         m_query_pred(m),
-        m_answer(m) {
+        m_answer(m),
+        m_rule_trace(ctx.get_rule_manager()) {
     }
 
     bmc::~bmc() {}
@@ -1528,6 +1540,10 @@ namespace datalog {
 
     expr_ref bmc::get_answer() {
         return m_answer;
+    }
+
+    void bmc::get_rules_along_trace(datalog::rule_ref_vector& rules) {
+        rules.append(m_rule_trace);
     }
 
     void bmc::compile(rule_set const& rules, expr_ref_vector& fmls, unsigned level) {
