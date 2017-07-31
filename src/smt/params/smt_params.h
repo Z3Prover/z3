@@ -219,6 +219,15 @@ struct smt_params : public preprocessor_params,
 
     // -----------------------------------
     //
+    // Spacer hacking
+    //
+    // -----------------------------------
+    bool                m_dump_benchmarks;
+    double              m_dump_min_time;
+    bool                m_dump_recheck;
+
+    // -----------------------------------
+    //
     // Solver selection
     //
     // -----------------------------------
