@@ -33,8 +33,9 @@ Revision History:
 #include "muz/transforms/dl_mk_quantifier_instantiation.h"
 #include "muz/transforms/dl_mk_subsumption_checker.h"
 #include "muz/transforms/dl_mk_scale.h"
-#include "muz/base/fixedpoint_params.hpp"
 #include "muz/transforms/dl_mk_array_eq_rewrite.h"
+#include "muz/transforms/dl_mk_array_instantiation.h"
+#include "fixedpoint_params.hpp"
 
 namespace datalog {
 
