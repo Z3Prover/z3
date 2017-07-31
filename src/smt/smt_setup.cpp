@@ -720,12 +720,7 @@ namespace smt {
     }
 
     void setup::setup_i_arith() {
-        if (m_params.m_arith_mode == AS_OPTINF) {
-            m_context.register_plugin(alloc(smt::theory_lra, m_manager, m_params));
-        }
-        else {
-            m_context.register_plugin(alloc(smt::theory_i_arith, m_manager, m_params));
-        }
+        m_context.register_plugin(alloc(smt::theory_i_arith, m_manager, m_params));        
     }
 
     void setup::setup_r_arith() {
