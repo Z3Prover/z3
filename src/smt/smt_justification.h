@@ -148,6 +148,7 @@ namespace smt {
             m_node1(n1),
             m_node2(n2),
             m_js(js) {
+                SASSERT(n1 != n2);
         }
 
         virtual void get_antecedents(conflict_resolution & cr);

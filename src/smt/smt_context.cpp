@@ -2406,7 +2406,7 @@ namespace smt {
         if (m_manager.has_trace_stream())
             m_manager.trace_stream() << "[pop] " << num_scopes << " " << m_scope_lvl << "\n";
 
-        TRACE("context", tout << "backtracking: " << num_scopes << "\n";);
+        TRACE("context", tout << "backtracking: " << num_scopes << " from " << m_scope_lvl << "\n";);
         TRACE("pop_scope_detail", display(tout););
         SASSERT(num_scopes > 0);
         SASSERT(num_scopes <= m_scope_lvl);
@@ -2901,10 +2901,10 @@ namespace smt {
         }
         push_scope();
         m_base_scopes.push_back(base_scope());
-        base_scope & bs              = m_base_scopes.back();
-        bs.m_lemmas_lim              = m_lemmas.size();
-        bs.m_inconsistent            = inconsistent();
-        bs.m_simp_qhead_lim          = m_simp_qhead;
+        base_scope & bs = m_base_scopes.back();
+        bs.m_lemmas_lim = m_lemmas.size();
+        bs.m_inconsistent = inconsistent();
+        bs.m_simp_qhead_lim = m_simp_qhead;
         m_base_lvl++;
         m_search_lvl++; // Not really necessary. But, it is useful to enforce the invariant m_search_lvl >= m_base_lvl
         SASSERT(m_base_lvl <= m_scope_lvl);
@@ -2912,6 +2912,7 @@ namespace smt {
 
     void context::pop(unsigned num_scopes) {
         SASSERT (num_scopes > 0);
+        if (num_scopes > m_scope_lvl) return;
         pop_to_base_lvl();
         pop_scope(num_scopes);
     }
