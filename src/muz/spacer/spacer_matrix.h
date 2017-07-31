@@ -18,7 +18,8 @@ Revision History:
 #ifndef _SPACER_MATRIX_H_
 #define _SPACER_MATRIX_H_
 
-#include "ast.h"
+#include "util/rational.h"
+#include "util/vector.h"
 
 namespace spacer {
 

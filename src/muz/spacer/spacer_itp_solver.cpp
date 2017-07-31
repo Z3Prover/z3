@@ -16,13 +16,13 @@ Author:
 Notes:
 
 --*/
-#include"spacer_itp_solver.h"
-#include"ast.h"
-#include"spacer_util.h"
-#include"spacer_farkas_learner.h"
-#include"expr_replacer.h"
-#include "spacer_unsat_core_learner.h"
-#include "spacer_unsat_core_plugin.h"
+#include"muz/spacer/spacer_itp_solver.h"
+#include"ast/ast.h"
+#include"muz/spacer/spacer_util.h"
+#include"muz/spacer/spacer_farkas_learner.h"
+#include"ast/rewriter/expr_replacer.h"
+#include"muz/spacer/spacer_unsat_core_learner.h"
+#include"muz/spacer/spacer_unsat_core_plugin.h"
 
 namespace spacer {
 void itp_solver::push ()
