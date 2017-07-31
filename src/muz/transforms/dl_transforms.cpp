@@ -33,7 +33,8 @@ Revision History:
 #include "muz/transforms/dl_mk_quantifier_instantiation.h"
 #include "muz/transforms/dl_mk_subsumption_checker.h"
 #include "muz/transforms/dl_mk_scale.h"
-#include"fixedpoint_params.hpp"
+#include "muz/base/fixedpoint_params.hpp"
+#include "muz/transforms/dl_mk_array_eq_rewrite.h"
 
 namespace datalog {
 
@@ -46,6 +47,11 @@ namespace datalog {
         transf.register_plugin(alloc(datalog::mk_coi_filter, ctx));
         transf.register_plugin(alloc(datalog::mk_interp_tail_simplifier, ctx));
 
+        if (ctx.get_params().xform_instantiate_arrays()) {
+            transf.register_plugin(alloc(datalog::mk_array_instantiation, ctx, 34999));
+        }
+        if(ctx.get_params().xform_transform_arrays())
+            transf.register_plugin(alloc(datalog::mk_array_eq_rewrite, ctx, 34998));
         if (ctx.get_params().xform_quantify_arrays()) {
             transf.register_plugin(alloc(datalog::mk_quantifier_abstraction, ctx, 38000));
         }
@@ -83,7 +89,7 @@ namespace datalog {
         transf.register_plugin(alloc(datalog::mk_karr_invariants, ctx, 36010));
         transf.register_plugin(alloc(datalog::mk_scale, ctx, 36030));
         if (!ctx.get_params().xform_quantify_arrays()) {
-            transf.register_plugin(alloc(datalog::mk_array_blast, ctx, 36000));
+            transf.register_plugin(alloc(datalog::mk_array_blast, ctx, 35999));
         }
         if (ctx.get_params().xform_magic()) {
             transf.register_plugin(alloc(datalog::mk_magic_symbolic, ctx, 36020));
