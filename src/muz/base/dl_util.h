@@ -52,6 +52,7 @@ namespace datalog {
         ~verbose_action();
     };
 
+    typedef ref_vector<rule, rule_manager> rule_ref_vector;
     enum PDR_CACHE_MODE {
         NO_CACHE,
         HASH_CACHE,
