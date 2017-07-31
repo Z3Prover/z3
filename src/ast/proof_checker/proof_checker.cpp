@@ -1299,7 +1299,7 @@ bool proof_checker::check_arith_literal(bool is_pos, app* lit0, rational const& 
         is_pos = !is_pos;
     }
     if (!a.is_le(lit) && !a.is_lt(lit) && !a.is_ge(lit) && !a.is_gt(lit) && !m.is_eq(lit)) {
-        IF_VERBOSE(0, verbose_stream() << mk_pp(lit, m) << "\n";);
+        IF_VERBOSE(2, verbose_stream() << "Not arith literal: " << mk_pp(lit, m) << "\n";);
         return false;
     }
     SASSERT(lit->get_num_args() == 2);
@@ -1363,7 +1363,7 @@ bool proof_checker::check_arith_literal(bool is_pos, app* lit0, rational const& 
         rw(sum);
     }
 
-    IF_VERBOSE(0, verbose_stream() << coeff << "\n" << mk_pp(lit0, m) << "\n" << mk_pp(sum, m) << "\n";);
+    IF_VERBOSE(2, verbose_stream() << "coeff,lit,sum " << coeff << "\n" << mk_pp(lit0, m) << "\n" << mk_pp(sum, m) << "\n";);
 #endif
 
     return true;

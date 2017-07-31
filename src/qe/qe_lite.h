@@ -31,7 +31,10 @@ class qe_lite {
     class impl;
     impl * m_impl;
 public:
-    qe_lite(ast_manager & m, params_ref const & p);
+    /** 
+        use_array_der controls whether equalities over array reads are simplified
+     */
+    qe_lite(ast_manager& m, params_ref const & p, bool use_array_der = true);
 
     ~qe_lite();
 
