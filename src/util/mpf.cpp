@@ -840,16 +840,19 @@ void mpf_manager::fma(mpf_rounding_mode rm, mpf const & x, mpf const & y, mpf co
         SASSERT(m_mpz_manager.lt(mr.significand(), m_powers2(2*x.sbits)));
         SASSERT(m_mpz_manager.ge(mr.significand(), m_powers2(2*x.sbits - 2)));
 
-        // Introduce extra bits into c in _[0].[sbits-1] s.t. c in _[0].[2*sbits-2]
-        c.set(x.ebits+2, 2*x.sbits-1, c.sign(), c.exponent(), c.significand());
-        m_mpz_manager.mul2k(c.significand(), x.sbits - 1);
+        // Introduce (sbits+3) extra bits into c in _[0].[sbits-1] s.t. c in _[0].[2*sbits-2]
+        c.set(x.ebits+2, 2*x.sbits-1+3, c.sign(), c.exponent(), c.significand());
+        m_mpz_manager.mul2k(c.significand(), x.sbits - 1 + 3);
+        // And + 3 bits into mr as well.
+        mr.set(x.ebits + 2, 2 * x.sbits - 1 + 3, mr.sign(), mr.exponent(), mr.significand());
+        m_mpz_manager.mul2k(mr.significand(), 3);
 
         TRACE("mpf_dbg", tout << "C_= " << to_string(c) << std::endl;
                          tout << "C_= " << to_string_binary(c, 1, 0) << std::endl;);
 
-        SASSERT(m_mpz_manager.lt(c.significand(), m_powers2(2*x.sbits)));
+        SASSERT(m_mpz_manager.lt(c.significand(), m_powers2(2*x.sbits + 3)));
         SASSERT(m_mpz_manager.is_zero(c.significand()) ||
-                m_mpz_manager.ge(c.significand(), m_powers2(2*x.sbits - 2)));
+                m_mpz_manager.ge(c.significand(), m_powers2(2*x.sbits - 2 + 3)));
 
         if (exp(c) > exp(mr)) {
             TRACE("mpf_dbg", tout << "Swap!" << std::endl;);
@@ -860,8 +863,8 @@ void mpf_manager::fma(mpf_rounding_mode rm, mpf const & x, mpf const & y, mpf co
         mpf_exp_t exp_delta_w = exp(mr) - exp(c);
         SASSERT(exp(mr) >= exp(c) && exp_delta_w >= 0);
 
-        if (exp_delta_w > 2 * x.sbits)
-            exp_delta_w = 2 * x.sbits;
+        if (exp_delta_w > 2 * x.sbits + 3)
+            exp_delta_w = 2 * x.sbits + 3;
 
         unsigned exp_delta = (unsigned)exp_delta_w;
 
@@ -905,8 +908,8 @@ void mpf_manager::fma(mpf_rounding_mode rm, mpf const & x, mpf const & y, mpf co
         // Renormalize
         bool renorm_sticky = false;
 
-        SASSERT(m_mpz_manager.lt(res.significand(), m_powers2(2 * x.sbits + 1)));
-        if (m_mpz_manager.ge(res.significand(), m_powers2(2 * x.sbits)))
+        SASSERT(m_mpz_manager.lt(res.significand(), m_powers2(2 * x.sbits + 1 + 3)));
+        if (m_mpz_manager.ge(res.significand(), m_powers2(2 * x.sbits + 3)))
         {
             SASSERT(exp(res) < mk_max_exp(x.ebits)); // NYI.
 
@@ -919,7 +922,7 @@ void mpf_manager::fma(mpf_rounding_mode rm, mpf const & x, mpf const & y, mpf co
 
         mpf_exp_t min_exp = mk_min_exp(x.ebits);
         unsigned sig_width = m_mpz_manager.prev_power_of_two(res.get().significand) + 1;
-        mpf_exp_t sig_lz = 2 * x.sbits - sig_width;
+        mpf_exp_t sig_lz = 2 * x.sbits + 3 - sig_width;
         mpf_exp_t max_exp_delta = res.exponent() - min_exp;
         unsigned renorm_delta = (unsigned) std::max((mpf_exp_t)0, std::min(sig_lz, max_exp_delta));
         res.get().exponent -= renorm_delta;
@@ -930,11 +933,11 @@ void mpf_manager::fma(mpf_rounding_mode rm, mpf const & x, mpf const & y, mpf co
         set(o, x.ebits, x.sbits, res.sign(), res.exponent(), mpz(0));
 
         if (x.sbits >= 4) {
-            m_mpz_manager.machine_div_rem(res.significand(), m_powers2(x.sbits - 4), o.significand, sticky_rem);
+            m_mpz_manager.machine_div_rem(res.significand(), m_powers2(x.sbits - 4 + 3), o.significand, sticky_rem);
             renorm_sticky |= !m_mpz_manager.is_zero(sticky_rem);
         }
         else {
-            m_mpz_manager.mul2k(res.significand(), 4 - x.sbits, o.significand);
+            m_mpz_manager.mul2k(res.significand(), 4 - x.sbits + 3, o.significand);
         }
 
         if (renorm_sticky && m_mpz_manager.is_even(o.significand))
