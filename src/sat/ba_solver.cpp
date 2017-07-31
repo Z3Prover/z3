@@ -1812,8 +1812,8 @@ namespace sat {
             }
         }
         else {
-            unsigned coeff = 0;
-            for (unsigned j = 0; j < p.num_watch(); ++j) {
+            unsigned coeff = 0, j = 0;
+            for (; j < p.size(); ++j) {
                 if (p[j].second == l) {
                     coeff = p[j].first;
                     break;
@@ -1828,10 +1828,11 @@ namespace sat {
 
             SASSERT(coeff > 0);
             unsigned slack = p.slack() - coeff;
+            j = std::max(j + 1, p.num_watch());
             
-            for (unsigned i = p.num_watch(); i < p.size(); ++i) {
-                literal lit = p[i].second;
-                unsigned w = p[i].first;
+            for (; j < p.size(); ++j) {
+                literal lit = p[j].second;
+                unsigned w = p[j].first;
                 SASSERT(l_false == value(lit));
                 if (slack + w < k) {
                     slack += w;
@@ -2118,9 +2119,11 @@ namespace sat {
     };
 
     void ba_solver::gc() {
-        std::stable_sort(m_learned.begin(), m_learned.end(), constraint_glue_lt());
-        gc_half("glue");
-        cleanup_constraints(m_learned, true);
+        if (m_learned.size() >= 2 * m_constraints.size()) {
+            std::stable_sort(m_learned.begin(), m_learned.end(), constraint_glue_lt());
+            gc_half("glue");
+            cleanup_constraints(m_learned, true);
+        }
     }
 
     void ba_solver::gc_half(char const* st_name) {
@@ -2274,7 +2277,7 @@ namespace sat {
         }        
         while (m_simplify_change || trail_sz < s().init_trail_size());
 
-        IF_VERBOSE(1, verbose_stream() << "(ba.simplify :trail " << trail_sz 
+        IF_VERBOSE(1, verbose_stream() << "(ba.simplify "
                    << " :vars " << s().num_vars() - trail_sz 
                    << " :constraints " << m_constraints.size() 
                    << " :lemmas " << m_learned.size() 
@@ -3132,6 +3135,85 @@ namespace sat {
 
         return result;
     }
+
+    void ba_solver::init_use_list(ext_use_list& ul) {
+        ul.init(s().num_vars());
+        for (constraint const* cp : m_constraints) {
+            ext_constraint_idx idx = cp->index();
+            if (cp->lit() != null_literal) {
+                ul.insert(cp->lit(), idx);
+                ul.insert(~cp->lit(), idx);                
+            }
+            switch (cp->tag()) {
+            case card_t: {
+                card const& c = cp->to_card();
+                for (literal l : c) {
+                    ul.insert(l, idx);
+                }
+                break;
+            }
+            case pb_t: {
+                pb const& p = cp->to_pb();
+                for (wliteral w : p) {
+                    ul.insert(w.second, idx);
+                }
+                break;
+            }
+            case xor_t: {
+                xor const& x = cp->to_xor();
+                for (literal l : x) {
+                    ul.insert(l, idx);
+                    ul.insert(~l, idx);
+                }
+                break;
+            }
+            default:
+                UNREACHABLE();
+            }                            
+        }
+    }
+
+    //
+    // literal is used in a clause (C or l), it
+    // it occurs negatively in constraint c.
+    // all literals in C are marked
+    // 
+    bool ba_solver::is_blocked(literal l, ext_constraint_idx idx) {
+        constraint const& c = index2constraint(idx);
+        simplifier& sim = s().m_simplifier;
+        if (c.lit() != null_literal) return false;
+        switch (c.tag()) {
+        case card_t: {
+            card const& ca = c.to_card();
+            unsigned weight = 0;
+            for (literal l2 : ca) {
+                if (sim.is_marked(~l2)) ++weight;
+            }
+            return weight >= ca.k();
+        }
+        case pb_t: {
+            pb const& p = c.to_pb();
+            unsigned weight = 0, offset = 0;
+            for (wliteral l2 : p) {
+                if (~l2.second == l) {
+                    offset = l2.first;
+                    break;
+                }
+            }
+            SASSERT(offset != 0);
+            for (wliteral l2 : p) {
+                if (sim.is_marked(~l2.second)) {
+                    weight += std::min(offset, l2.first);
+                }
+            }
+            return weight >= p.k();
+        }
+        default:
+            break;
+        }
+        return false;
+    }
+
 
     void ba_solver::find_mutexes(literal_vector& lits, vector<literal_vector> & mutexes) {
         literal_set slits(lits);

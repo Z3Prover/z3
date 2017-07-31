@@ -26,6 +26,7 @@ Revision History:
 #include"sat_clause_set.h"
 #include"sat_clause_use_list.h"
 #include"sat_watched.h"
+#include"sat_extension.h"
 #include"sat_model_converter.h"
 #include"heap.h"
 #include"statistics.h"
@@ -51,6 +52,7 @@ namespace sat {
         solver &               s;
         unsigned               m_num_calls;
         use_list               m_use_list;
+        ext_use_list           m_ext_use_list;
         clause_set             m_sub_todo;
         svector<bin_clause>    m_sub_bin_todo;
         unsigned               m_last_sub_trail_sz; // size of the trail since last cleanup

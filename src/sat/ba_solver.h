@@ -444,6 +444,8 @@ namespace sat {
         virtual void pop_reinit();
         virtual void gc(); 
         virtual double get_reward(literal l, ext_justification_idx idx, literal_occs_fun& occs) const;
+        virtual void init_use_list(ext_use_list& ul);
+        virtual bool is_blocked(literal l, ext_constraint_idx idx);
 
         ptr_vector<constraint> const & constraints() const { return m_constraints; }
 

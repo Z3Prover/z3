@@ -70,7 +70,13 @@ namespace sat {
 
     inline watch_list const & simplifier::get_wlist(literal l) const { return s.get_wlist(l); }
 
-    inline bool simplifier::is_external(bool_var v) const { return s.is_external(v); }
+    inline bool simplifier::is_external(bool_var v) const { 
+        return 
+            s.is_assumption(v) ||
+            (s.is_external(v) && 
+             (!m_ext_use_list.get(literal(v, false)).empty() ||
+              !m_ext_use_list.get(literal(v, true)).empty()));
+    }
 
     inline bool simplifier::was_eliminated(bool_var v) const { return s.was_eliminated(v); }
 
@@ -130,6 +136,7 @@ namespace sat {
         m_visited.finalize();
         m_bs_cs.finalize();
         m_bs_ls.finalize();
+        m_ext_use_list.finalize();
     }
 
     void simplifier::initialize() {
@@ -137,6 +144,7 @@ namespace sat {
         s.m_cleaner(true);
         m_last_sub_trail_sz = s.m_trail.size();
         m_use_list.init(s.num_vars());
+        if (s.m_ext) s.m_ext->init_use_list(m_ext_use_list);
         m_sub_todo.reset();
         m_sub_bin_todo.reset();
         m_elim_todo.reset();
@@ -187,7 +195,7 @@ namespace sat {
                 subsume();
             if (s.inconsistent())
                 return;
-            if (!learned && m_resolution)
+            if (!learned && m_resolution && s.m_config.m_num_threads == 1)
                 elim_vars();
             if (s.inconsistent())
                 return;
@@ -937,7 +945,7 @@ namespace sat {
         }
 
         bool process_var(bool_var v) {
-            return !s.is_external(v) && !s.was_eliminated(v);
+            return !s.s.is_assumption(v) &&  !s.was_eliminated(v);
         }
 
         void operator()(unsigned num_vars) {
@@ -989,7 +997,7 @@ namespace sat {
                     }
                     s.unmark_all(c);
                     it.next();
-                    }
+                }
             }
             for (clause* c : m_to_remove) {
                 s.remove_clause(*c);
@@ -1028,33 +1036,34 @@ namespace sat {
         }
 
         bool all_tautology(literal l) {
-            {
-                watch_list & wlist = s.get_wlist(l);
-                m_counter -= wlist.size();
-                watch_list::iterator it  = wlist.begin();
-                watch_list::iterator end = wlist.end();
-                for (; it != end; ++it) {
-                    if (!it->is_binary_non_learned_clause())
-                        continue;
-                    if (!s.is_marked(~it->get_literal()))
-                        return false;
-                }
+            watch_list & wlist = s.get_wlist(l);
+            m_counter -= wlist.size();
+            for (auto const& w : wlist) {
+                if (w.is_binary_non_learned_clause() && 
+                    !s.is_marked(~w.get_literal()))
+                    return false;
             }
-            {
-                clause_use_list & neg_occs = s.m_use_list.get(~l);
-                clause_use_list::iterator it = neg_occs.mk_iterator();
-                while (!it.at_end()) {
-                    clause & c = it.curr();
-                    m_counter -= c.size();
-                    unsigned sz = c.size();
-                    unsigned i;
-                    for (i = 0; i < sz; i++) {
-                        if (s.is_marked(~c[i]))
-                            break;
-                    }
-                    if (i == sz)
-                        return false;
-                    it.next();
+
+            clause_use_list & neg_occs = s.m_use_list.get(~l);
+            clause_use_list::iterator it = neg_occs.mk_iterator();
+            while (!it.at_end()) {
+                clause & c = it.curr();
+                m_counter -= c.size();
+                unsigned sz = c.size();
+                unsigned i;
+                for (i = 0; i < sz; i++) {
+                    if (s.is_marked(~c[i]))
+                        break;
+                }
+                if (i == sz)
+                    return false;
+                it.next();
+            }
+
+            ext_constraint_list const& ext_list = s.m_ext_use_list.get(~l);
+            for (ext_constraint_idx idx : ext_list) {
+                if (!s.s.m_ext->is_blocked(l, idx)) {
+                    return false;
                 }
             }
             return true;
@@ -1171,8 +1180,8 @@ namespace sat {
         SASSERT(c1.contains(l));
         SASSERT(c2.contains(~l));
         bool res = true;
+        m_elim_counter -= c1.size() + c2.size();
         unsigned sz = c1.size();
-        m_elim_counter -= sz;
         for (unsigned i = 0; i < sz; ++i) {
             literal l2 = c1[i];
             if (l == l2)
@@ -1183,7 +1192,6 @@ namespace sat {
 
         literal not_l = ~l;
         sz = c2.size();
-        m_elim_counter -= sz;
         for (unsigned i = 0; i < sz; ++i) {
             literal l2 = c2[i];
             if (not_l == l2)
@@ -1199,8 +1207,6 @@ namespace sat {
         sz = c1.size();
         for (unsigned i = 0; i < sz; ++i) {
             literal l2 = c1[i];
-            if (l == l2)
-                continue;
             m_visited[l2.index()] = false;
         }
         return res;
