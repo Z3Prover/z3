@@ -65,12 +65,13 @@ def init_project_def():
     add_lib('transforms', ['muz', 'hilbert', 'dataflow'], 'muz/transforms')
     add_lib('rel', ['muz', 'transforms'], 'muz/rel')
     add_lib('pdr', ['muz', 'transforms', 'arith_tactics', 'core_tactics', 'smt_tactic'], 'muz/pdr')
+    add_lib('spacer', ['muz', 'transforms', 'arith_tactics', 'smt_tactic'], 'muz/spacer')
     add_lib('clp', ['muz', 'transforms'], 'muz/clp')
     add_lib('tab', ['muz', 'transforms'], 'muz/tab')
     add_lib('bmc', ['muz', 'transforms'], 'muz/bmc')
     add_lib('ddnf', ['muz', 'transforms', 'rel'], 'muz/ddnf')
     add_lib('duality_intf', ['muz', 'transforms', 'duality'], 'muz/duality')
-    add_lib('fp',  ['muz', 'pdr', 'clp', 'tab', 'rel', 'bmc', 'duality_intf', 'ddnf'], 'muz/fp')
+    add_lib('fp',  ['muz', 'pdr', 'clp', 'tab', 'rel', 'bmc', 'duality_intf', 'ddnf', 'spacer'], 'muz/fp')
     add_lib('nlsat_smt_tactic', ['nlsat_tactic', 'smt_tactic'], 'tactic/nlsat_smt')
     add_lib('ufbv_tactic', ['normal_forms', 'core_tactics', 'macros', 'smt_tactic', 'rewriter'], 'tactic/ufbv')
     add_lib('sat_solver', ['solver', 'core_tactics', 'aig_tactic', 'bv_tactics', 'arith_tactics', 'sat_tactic'], 'sat/sat_solver')
@@ -79,7 +80,7 @@ def init_project_def():
     add_lib('portfolio', ['smtlogic_tactics', 'sat_solver', 'ufbv_tactic', 'fpa_tactics', 'aig_tactic', 'fp',  'qe','sls_tactic', 'subpaving_tactic'], 'tactic/portfolio')
     add_lib('smtparser', ['portfolio'], 'parsers/smt')
     add_lib('opt', ['smt', 'smtlogic_tactics', 'sls_tactic', 'sat_solver'], 'opt')
-    API_files = ['z3_api.h', 'z3_ast_containers.h', 'z3_algebraic.h', 'z3_polynomial.h', 'z3_rcf.h', 'z3_fixedpoint.h', 'z3_optimization.h', 'z3_interp.h', 'z3_fpa.h']
+    API_files = ['z3_api.h', 'z3_ast_containers.h', 'z3_algebraic.h', 'z3_polynomial.h', 'z3_rcf.h', 'z3_fixedpoint.h', 'z3_optimization.h', 'z3_interp.h', 'z3_fpa.h', 'z3_spacer.h']
     add_lib('api', ['portfolio', 'smtparser', 'realclosure', 'interp', 'opt'],
             includes2install=['z3.h', 'z3_v1.h', 'z3_macros.h'] + API_files)
     add_exe('shell', ['api', 'sat', 'extra_cmds','opt'], exe_name='z3')

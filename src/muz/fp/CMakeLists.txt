@@ -12,6 +12,7 @@ z3_add_component(fp
     muz
     pdr
     rel
+    spacer
     tab
   TACTIC_HEADERS
     horn_tactic.h

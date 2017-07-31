@@ -25,6 +25,7 @@ namespace datalog {
     enum DL_ENGINE {
         DATALOG_ENGINE,
         PDR_ENGINE,
+        SPACER_ENGINE,
         QPDR_ENGINE,
         BMC_ENGINE,
         QBMC_ENGINE,
