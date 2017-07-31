@@ -16,7 +16,7 @@ Author:
 Revision History:
 
 --*/
-#include"old_interval.h"
+#include "smt/old_interval.h"
 
 static void tst1() {
     ext_numeral inf(true);
@@ -166,9 +166,9 @@ public:
     }
 };
 
-#include"basic_interval.h"
-#include"mpz.h"
-#include"scoped_numeral.h"
+#include "util/basic_interval.h"
+#include "util/mpz.h"
+#include "util/scoped_numeral.h"
 
 static void tst2() {
     typedef basic_interval_manager<unsynch_mpz_manager, false> mpzi_manager;

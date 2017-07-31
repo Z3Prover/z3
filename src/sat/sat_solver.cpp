@@ -16,11 +16,11 @@ Author:
 Revision History:
 
 --*/
-#include"sat_solver.h"
-#include"sat_integrity_checker.h"
-#include"luby.h"
-#include"trace.h"
-#include"max_cliques.h"
+#include "sat/sat_solver.h"
+#include "sat/sat_integrity_checker.h"
+#include "util/luby.h"
+#include "util/trace.h"
+#include "util/max_cliques.h"
 
 // define to update glue during propagation
 #define UPDATE_GLUE

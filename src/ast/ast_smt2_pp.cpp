@@ -18,12 +18,12 @@ Author:
 Revision History:
 
 --*/
-#include"ast_smt2_pp.h"
-#include"shared_occs.h"
-#include"pp.h"
-#include"ast_ll_pp.h"
-#include"ast_pp.h"
-#include"algebraic_numbers.h"
+#include "ast/ast_smt2_pp.h"
+#include "ast/shared_occs.h"
+#include "ast/pp.h"
+#include "ast/ast_ll_pp.h"
+#include "ast/ast_pp.h"
+#include "math/polynomial/algebraic_numbers.h"
 #include"pp_params.hpp"
 using namespace format_ns;
 

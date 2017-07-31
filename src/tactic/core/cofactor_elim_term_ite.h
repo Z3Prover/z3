@@ -19,8 +19,8 @@ Revision History:
 #ifndef COFACTOR_ELIM_TERM_ITE_H_
 #define COFACTOR_ELIM_TERM_ITE_H_
 
-#include"ast.h"
-#include"params.h"
+#include "ast/ast.h"
+#include "util/params.h"
 
 class cofactor_elim_term_ite {
     struct     imp;

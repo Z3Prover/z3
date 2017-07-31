@@ -24,8 +24,8 @@ Revision History:
 #ifndef CHECKED_INT64_H_
 #define CHECKED_INT64_H_
 
-#include"z3_exception.h"
-#include"rational.h"
+#include "util/z3_exception.h"
+#include "util/rational.h"
 
 template<bool CHECK>
 class checked_int64 {

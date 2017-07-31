@@ -19,10 +19,10 @@ Notes:
 #ifndef ARRAY_REWRITER_H_
 #define ARRAY_REWRITER_H_
 
-#include"array_decl_plugin.h"
-#include"rewriter_types.h"
-#include"lbool.h"
-#include"params.h"
+#include "ast/array_decl_plugin.h"
+#include "ast/rewriter/rewriter_types.h"
+#include "util/lbool.h"
+#include "util/params.h"
 
 /**
    \brief Cheap rewrite rules for Arrays

@@ -16,7 +16,7 @@ Author:
 Revision History:
 
 --*/
-#include"matcher.h"
+#include "ast/substitution/matcher.h"
 
 bool matcher::operator()(expr * e1, expr * e2, substitution & s) {
     reset();

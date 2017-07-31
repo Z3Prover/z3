@@ -20,8 +20,8 @@ Revision History:
 #ifndef BV_ELIM_H_
 #define BV_ELIM_H_
 
-#include "ast.h"
-#include "simplifier.h"
+#include "ast/ast.h"
+#include "ast/simplifier/simplifier.h"
 
 class bv_elim {
     ast_manager& m_manager;

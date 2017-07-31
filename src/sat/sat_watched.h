@@ -19,8 +19,8 @@ Revision History:
 #ifndef SAT_WATCHED_H_
 #define SAT_WATCHED_H_
 
-#include"sat_types.h"
-#include"vector.h"
+#include "sat/sat_types.h"
+#include "util/vector.h"
 
 namespace sat {
     /**

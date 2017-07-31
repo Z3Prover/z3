@@ -20,8 +20,8 @@ Notes:
 #ifndef OPT_PARETO_H_
 #define OPT_PARETO_H_
 
-#include "solver.h"
-#include "model.h"
+#include "solver/solver.h"
+#include "model/model.h"
 
 namespace opt {
    

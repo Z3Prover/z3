@@ -19,8 +19,8 @@ Author:
 Revision History:
 
 --*/
-#include"for_each_expr.h"
-#include"expr_stat.h"
+#include "ast/for_each_expr.h"
+#include "ast/expr_stat.h"
 
 void get_expr_stat(expr * n, expr_stat & r) {
     typedef std::pair<expr *, unsigned> pair;

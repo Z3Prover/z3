@@ -16,10 +16,10 @@ Author:
 Revision History:
 
 --*/
-#include"bit_blaster.h"
-#include"bit_blaster_tpl_def.h"
-#include"ast_pp.h"
-#include"bv_decl_plugin.h"
+#include "ast/rewriter/bit_blaster/bit_blaster.h"
+#include "ast/rewriter/bit_blaster/bit_blaster_tpl_def.h"
+#include "ast/ast_pp.h"
+#include "ast/bv_decl_plugin.h"
 
 bit_blaster_cfg::bit_blaster_cfg(bv_util & u, bit_blaster_params const & p, bool_rewriter& rw):
     m_util(u),

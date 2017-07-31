@@ -18,21 +18,21 @@ Revision History:
 
 --*/
 
-#include "ast_smt2_pp.h"
-#include "array_decl_plugin.h"
-#include "bool_rewriter.h"
-#include "dl_decl_plugin.h"
-#include "for_each_expr.h"
-#include "dl_util.h"
-#include "rewriter.h"
-#include "rewriter_def.h"
-#include "pdr_util.h"
-#include "pdr_farkas_learner.h"
-#include "th_rewriter.h"
-#include "ast_ll_pp.h"
-#include "arith_bounds_tactic.h"
-#include "proof_utils.h"
-#include "reg_decl_plugins.h"
+#include "ast/ast_smt2_pp.h"
+#include "ast/array_decl_plugin.h"
+#include "ast/rewriter/bool_rewriter.h"
+#include "ast/dl_decl_plugin.h"
+#include "ast/for_each_expr.h"
+#include "muz/base/dl_util.h"
+#include "ast/rewriter/rewriter.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "muz/pdr/pdr_util.h"
+#include "muz/pdr/pdr_farkas_learner.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "ast/ast_ll_pp.h"
+#include "tactic/arith/arith_bounds_tactic.h"
+#include "muz/base/proof_utils.h"
+#include "ast/reg_decl_plugins.h"
 
 
 namespace pdr {

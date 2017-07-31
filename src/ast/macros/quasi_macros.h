@@ -20,9 +20,9 @@ Revision History:
 #define QUASI_MACROS_H_
 
 #include<sstream>
-#include"macro_manager.h"
-#include"basic_simplifier_plugin.h"
-#include"simplifier.h"
+#include "ast/macros/macro_manager.h"
+#include "ast/simplifier/basic_simplifier_plugin.h"
+#include "ast/simplifier/simplifier.h"
 
 /**
    \brief Finds quasi macros and applies them.

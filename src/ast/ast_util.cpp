@@ -16,7 +16,7 @@ Author:
 Revision History:
 
 --*/
-#include "ast_util.h"
+#include "ast/ast_util.h"
 
 app * mk_list_assoc_app(ast_manager & m, func_decl * f, unsigned num_args, expr * const * args) {
     SASSERT(f->is_associative());

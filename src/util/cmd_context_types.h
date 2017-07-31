@@ -17,8 +17,8 @@ Notes:
 #ifndef CMD_CONTEXT_TYPES_H_
 #define CMD_CONTEXT_TYPES_H_
 
-#include"symbol.h"
-#include"z3_exception.h"
+#include "util/symbol.h"
+#include "util/z3_exception.h"
 #include<sstream>
 class rational;
 class expr;

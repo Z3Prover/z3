@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#include"smt_context.h"
-#include"smt_enode.h"
+#include "smt/smt_context.h"
+#include "smt/smt_enode.h"
 
 namespace smt {
     

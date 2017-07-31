@@ -21,13 +21,13 @@ Notes:
 #define SLS_TRACKER_H_
 
 #include<math.h>
-#include"for_each_expr.h"
-#include"ast_smt2_pp.h"
-#include"bv_decl_plugin.h"
-#include"model.h"
+#include "ast/for_each_expr.h"
+#include "ast/ast_smt2_pp.h"
+#include "ast/bv_decl_plugin.h"
+#include "model/model.h"
 
 #include"sls_params.hpp"
-#include"sls_powers.h"
+#include "tactic/sls/sls_powers.h"
 
 class sls_tracker {
     ast_manager         & m_manager;

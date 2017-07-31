@@ -23,16 +23,16 @@ Revision History:
 #include<list>
 #include<utility>
 
-#include "ast.h"
-#include "hashtable.h"
-#include "map.h"
-#include "obj_pair_hashtable.h"
-#include "ref_vector.h"
-#include "vector.h"
+#include "ast/ast.h"
+#include "util/hashtable.h"
+#include "util/map.h"
+#include "util/obj_pair_hashtable.h"
+#include "util/ref_vector.h"
+#include "util/vector.h"
 
-#include "dl_base.h"
-#include "dl_context.h"
-#include "dl_instruction.h"
+#include "muz/rel/dl_base.h"
+#include "muz/base/dl_context.h"
+#include "muz/rel/dl_instruction.h"
 
 namespace datalog {
 

@@ -16,7 +16,7 @@ Author:
 Revision History:
 
 --*/
-#include "sat_par.h"
+#include "sat/sat_par.h"
 
 
 namespace sat {

@@ -16,9 +16,9 @@ Author:
 Revision History:
 
 --*/
-#include"datatype_decl_plugin.h"
-#include"warning.h"
-#include"ast_smt2_pp.h"
+#include "ast/datatype_decl_plugin.h"
+#include "util/warning.h"
+#include "ast/ast_smt2_pp.h"
 
 
 /**

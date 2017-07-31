@@ -20,9 +20,9 @@ Revision History:
 #ifndef MACRO_UTIL_H_
 #define MACRO_UTIL_H_
 
-#include"ast.h"
-#include"obj_hashtable.h"
-#include"simplifier.h"
+#include "ast/ast.h"
+#include "util/obj_hashtable.h"
+#include "ast/simplifier/simplifier.h"
 
 class poly_simplifier_plugin;
 class arith_simplifier_plugin;

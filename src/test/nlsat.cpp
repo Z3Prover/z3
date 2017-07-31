@@ -16,14 +16,14 @@ Author:
 Notes:
 
 --*/
-#include"nlsat_assignment.h"
-#include"nlsat_interval_set.h"
-#include"nlsat_evaluator.h"
-#include"nlsat_solver.h"
-#include"util.h"
-#include"nlsat_explain.h"
-#include"polynomial_cache.h"
-#include"rlimit.h"
+#include "nlsat/nlsat_assignment.h"
+#include "nlsat/nlsat_interval_set.h"
+#include "nlsat/nlsat_evaluator.h"
+#include "nlsat/nlsat_solver.h"
+#include "util/util.h"
+#include "nlsat/nlsat_explain.h"
+#include "math/polynomial/polynomial_cache.h"
+#include "util/rlimit.h"
 
 nlsat::interval_set_ref tst_interval(nlsat::interval_set_ref const & s1,
                                      nlsat::interval_set_ref const & s2,

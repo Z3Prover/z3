@@ -19,15 +19,15 @@ Notes:
 --*/
 
 #include <typeinfo>
-#include "theory_pb.h"
-#include "smt_context.h"
-#include "ast_pp.h"
-#include "sorting_network.h"
-#include "uint_set.h"
-#include "smt_model_generator.h"
-#include "pb_rewriter_def.h"
-#include "sparse_matrix_def.h"
-#include "simplex_def.h"
+#include "smt/theory_pb.h"
+#include "smt/smt_context.h"
+#include "ast/ast_pp.h"
+#include "util/sorting_network.h"
+#include "util/uint_set.h"
+#include "smt/smt_model_generator.h"
+#include "ast/rewriter/pb_rewriter_def.h"
+#include "math/simplex/sparse_matrix_def.h"
+#include "math/simplex/simplex_def.h"
 
 
 namespace smt {

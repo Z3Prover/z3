@@ -19,7 +19,7 @@ Revision History:
 #ifndef ARRAY_SIMPLIFIER_PARAMS_H_
 #define ARRAY_SIMPLIFIER_PARAMS_H_
 
-#include"params.h"
+#include "util/params.h"
 
 struct array_simplifier_params {
     bool            m_array_canonize_simplify;

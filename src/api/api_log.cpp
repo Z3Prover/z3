@@ -16,9 +16,9 @@ Revision History:
 
 --*/
 #include<fstream>
-#include"z3.h"
+#include "api/z3.h"
 #include"api_log_macros.h"
-#include"util.h"
+#include "util/util.h"
 #include"version.h"
 
 std::ostream * g_z3_log = 0;

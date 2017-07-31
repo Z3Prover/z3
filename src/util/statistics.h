@@ -20,8 +20,8 @@ Notes:
 #define STATISTICS_H_
 
 #include<iostream>
-#include"vector.h"
-#include"rlimit.h"
+#include "util/vector.h"
+#include "util/rlimit.h"
 
 class statistics {
     typedef std::pair<char const *, unsigned> key_val_pair;

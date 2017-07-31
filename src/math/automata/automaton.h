@@ -22,9 +22,9 @@ Revision History:
 #define AUTOMATON_H_
 
 
-#include "util.h"
-#include "vector.h"
-#include "uint_set.h"
+#include "util/util.h"
+#include "util/vector.h"
+#include "util/uint_set.h"
 
 template<class T>
 class default_value_manager {

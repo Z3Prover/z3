@@ -19,9 +19,9 @@ Revision History:
 #ifndef SMT_CG_TABLE_H_
 #define SMT_CG_TABLE_H_
 
-#include"smt_enode.h"
-#include"hashtable.h"
-#include"chashtable.h"
+#include "smt/smt_enode.h"
+#include "util/hashtable.h"
+#include "util/chashtable.h"
 
 namespace smt {
 

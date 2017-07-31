@@ -17,8 +17,8 @@ Revision History:
 
 --*/
 
-#include"util.h"
-#include"trace.h"
+#include "util/util.h"
+#include "util/trace.h"
 
 static void tst1() {
     random_gen r(0);

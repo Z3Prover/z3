@@ -3,21 +3,21 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
-#include "trace.h"
-#include "vector.h"
-#include "ast.h"
-#include "ast_pp.h"
-#include "statistics.h"
-#include "reg_decl_plugins.h"
-#include "pb2bv_rewriter.h"
-#include "smt_kernel.h"
-#include "model_smt2_pp.h"
-#include "smt_params.h"
-#include "ast_util.h"
-#include "pb_decl_plugin.h"
-#include "th_rewriter.h"
-#include "fd_solver.h"
-#include "solver.h"
+#include "util/trace.h"
+#include "util/vector.h"
+#include "ast/ast.h"
+#include "ast/ast_pp.h"
+#include "util/statistics.h"
+#include "ast/reg_decl_plugins.h"
+#include "ast/rewriter/pb2bv_rewriter.h"
+#include "smt/smt_kernel.h"
+#include "model/model_smt2_pp.h"
+#include "smt/params/smt_params.h"
+#include "ast/ast_util.h"
+#include "ast/pb_decl_plugin.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "tactic/portfolio/fd_solver.h"
+#include "solver/solver.h"
 
 static void test1() {
     ast_manager m;

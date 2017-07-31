@@ -19,8 +19,8 @@ Revision History:
 #ifndef MPQ_INF_H_
 #define MPQ_INF_H_
 
-#include"mpq.h"
-#include"hash.h"
+#include "util/mpq.h"
+#include "util/hash.h"
 
 typedef std::pair<mpq, mpq> mpq_inf;
 

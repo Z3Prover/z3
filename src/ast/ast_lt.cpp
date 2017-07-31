@@ -16,7 +16,7 @@ Author:
 Revision History:
 
 --*/
-#include"ast.h"
+#include "ast/ast.h"
 
 #define check_symbol(S1,S2) if (S1 != S2) return lt(S1,S2)
 #define check_value(V1,V2) if (V1 != V2) return V1 < V2

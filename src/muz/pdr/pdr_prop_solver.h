@@ -23,13 +23,13 @@ Revision History:
 #include <map>
 #include <string>
 #include <utility>
-#include "ast.h"
-#include "obj_hashtable.h"
-#include "smt_kernel.h"
-#include "util.h"
-#include "vector.h"
-#include "pdr_manager.h"
-#include "pdr_smt_context_manager.h"
+#include "ast/ast.h"
+#include "util/obj_hashtable.h"
+#include "smt/smt_kernel.h"
+#include "util/util.h"
+#include "util/vector.h"
+#include "muz/pdr/pdr_manager.h"
+#include "muz/pdr/pdr_smt_context_manager.h"
 
 
 namespace pdr {

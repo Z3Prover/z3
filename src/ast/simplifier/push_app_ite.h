@@ -19,8 +19,8 @@ Revision History:
 #ifndef PUSH_APP_ITE_H_
 #define PUSH_APP_ITE_H_
 
-#include"ast.h"
-#include"simplifier.h"
+#include "ast/ast.h"
+#include "ast/simplifier/simplifier.h"
 
 /**
    \brief Functor for applying the following transformation:

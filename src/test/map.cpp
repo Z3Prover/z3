@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#include"map.h"
-#include"str_hashtable.h"
+#include "util/map.h"
+#include "util/str_hashtable.h"
 
 static void tst1() {
   map<char const *, int, str_hash_proc, str_eq_proc> str2int;

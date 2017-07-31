@@ -17,11 +17,11 @@ Notes:
 
 --*/
 
-#include"rewriter.h"
-#include"rewriter_def.h"
-#include"enum2bv_rewriter.h"
-#include"ast_util.h"
-#include"ast_pp.h"
+#include "ast/rewriter/rewriter.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "ast/rewriter/enum2bv_rewriter.h"
+#include "ast/ast_util.h"
+#include "ast/ast_pp.h"
 
 struct enum2bv_rewriter::imp {
     ast_manager&              m;

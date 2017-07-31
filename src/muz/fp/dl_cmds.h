@@ -18,7 +18,7 @@ Notes:
 #ifndef DL_CMDS_H_
 #define DL_CMDS_H_
 
-#include "ast.h"
+#include "ast/ast.h"
 
 class cmd_context;
 

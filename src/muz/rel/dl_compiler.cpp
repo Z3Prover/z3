@@ -19,15 +19,15 @@ Revision History:
 
 
 #include <sstream>
-#include"ref_vector.h"
-#include"dl_context.h"
-#include"rel_context.h"
-#include"dl_rule.h"
-#include"dl_util.h"
-#include"dl_compiler.h"
-#include"ast_pp.h"
+#include "util/ref_vector.h"
+#include "muz/base/dl_context.h"
+#include "muz/rel/rel_context.h"
+#include "muz/base/dl_rule.h"
+#include "muz/base/dl_util.h"
+#include "muz/rel/dl_compiler.h"
+#include "ast/ast_pp.h"
 // include"ast_smt2_pp.h"
-#include"ast_util.h"
+#include "ast/ast_util.h"
 
 
 namespace datalog {

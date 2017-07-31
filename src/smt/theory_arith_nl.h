@@ -19,7 +19,7 @@ Revision History:
 #ifndef THEORY_ARITH_NL_H_
 #define THEORY_ARITH_NL_H_
 
-#include"ast_smt2_pp.h"
+#include "ast/ast_smt2_pp.h"
 
 namespace smt {
 

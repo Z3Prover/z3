@@ -19,12 +19,12 @@ Notes:
 #ifndef RPOLYNOMIAL_H_
 #define RPOLYNOMIAL_H_
 
-#include"mpz.h"
-#include"rational.h"
-#include"obj_ref.h"
-#include"ref_vector.h"
-#include"z3_exception.h"
-#include"polynomial.h"
+#include "util/mpz.h"
+#include "util/rational.h"
+#include "util/obj_ref.h"
+#include "util/ref_vector.h"
+#include "util/z3_exception.h"
+#include "math/polynomial/polynomial.h"
 
 namespace rpolynomial {
     

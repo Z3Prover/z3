@@ -4,9 +4,9 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
-#include "z3.h"
-#include "trace.h"
-#include "debug.h"
+#include "api/z3.h"
+#include "util/trace.h"
+#include "util/debug.h"
 
 static Z3_ast mk_var(Z3_context ctx, char const* name, Z3_sort s) {
     return Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, name), s);

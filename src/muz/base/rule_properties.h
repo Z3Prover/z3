@@ -21,10 +21,10 @@ Notes:
 #ifndef RULE_PROPERTIES_H_
 #define RULE_PROPERTIES_H_
 
-#include"ast.h"
-#include"datatype_decl_plugin.h"
-#include"bv_decl_plugin.h"
-#include"dl_rule.h"
+#include "ast/ast.h"
+#include "ast/datatype_decl_plugin.h"
+#include "ast/bv_decl_plugin.h"
+#include "muz/base/dl_rule.h"
 
 namespace datalog {
     class rule_properties {

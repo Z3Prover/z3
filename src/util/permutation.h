@@ -20,7 +20,7 @@ Revision History:
 #define PERMUTATION_H_
 
 #include<iostream>
-#include"vector.h"
+#include "util/vector.h"
 
 class permutation {
     unsigned_vector m_p;

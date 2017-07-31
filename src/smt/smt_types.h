@@ -19,9 +19,9 @@ Revision History:
 #ifndef SMT_TYPES_H_
 #define SMT_TYPES_H_
 
-#include"list.h"
-#include"vector.h"
-#include"lbool.h"
+#include "util/list.h"
+#include "util/vector.h"
+#include "util/lbool.h"
 
 class model;
 

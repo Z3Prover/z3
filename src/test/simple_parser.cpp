@@ -16,13 +16,13 @@ Author:
 Revision History:
 
 --*/
-#include"cost_parser.h"
-#include"cost_evaluator.h"
-#include"arith_decl_plugin.h"
-#include"ast_pp.h"
-#include"well_sorted.h"
-#include"warning.h"
-#include"reg_decl_plugins.h"
+#include "parsers/util/cost_parser.h"
+#include "smt/cost_evaluator.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/ast_pp.h"
+#include "ast/well_sorted.h"
+#include "util/warning.h"
+#include "ast/reg_decl_plugins.h"
 
 void tst_simple_parser() {
     ast_manager    m;

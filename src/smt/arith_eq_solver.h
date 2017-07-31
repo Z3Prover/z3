@@ -17,8 +17,8 @@ Author:
 #ifndef ARITH_EQ_SOLVER_H_
 #define ARITH_EQ_SOLVER_H_
 
-#include"arith_decl_plugin.h"
-#include"arith_rewriter.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/rewriter/arith_rewriter.h"
 
 /**
    \brief Simplifier for the arith family.

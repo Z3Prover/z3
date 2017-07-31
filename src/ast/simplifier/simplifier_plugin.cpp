@@ -16,7 +16,7 @@ Author:
 Revision History:
 
 --*/
-#include"simplifier_plugin.h"
+#include "ast/simplifier/simplifier_plugin.h"
 
 /**
    \brief Copy every args[i] mult[i] times to new_args.

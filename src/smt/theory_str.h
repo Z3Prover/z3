@@ -17,19 +17,19 @@
 #ifndef _THEORY_STR_H_
 #define _THEORY_STR_H_
 
-#include"smt_theory.h"
-#include"theory_str_params.h"
-#include"trail.h"
-#include"th_rewriter.h"
-#include"value_factory.h"
-#include"smt_model_generator.h"
-#include"arith_decl_plugin.h"
+#include "smt/smt_theory.h"
+#include "smt/params/theory_str_params.h"
+#include "util/trail.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "smt/proto_model/value_factory.h"
+#include "smt/smt_model_generator.h"
+#include "ast/arith_decl_plugin.h"
 #include<set>
 #include<stack>
 #include<vector>
 #include<map>
-#include"seq_decl_plugin.h"
-#include"union_find.h"
+#include "ast/seq_decl_plugin.h"
+#include "util/union_find.h"
 
 namespace smt {
 

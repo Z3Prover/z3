@@ -19,7 +19,7 @@ Revision History:
 #ifndef SMT2_PARSER_H_
 #define SMT2_PARSER_H_
 
-#include"cmd_context.h"
+#include "cmd_context/cmd_context.h"
 
 bool parse_smt2_commands(cmd_context & ctx, std::istream & is, bool interactive = false, params_ref const & p = params_ref(), char const * filename = 0);
 

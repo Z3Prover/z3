@@ -15,11 +15,11 @@ Author:
 Revision History:
 
 --*/
-#include"func_interp.h"
-#include"var_subst.h"
-#include"obj_hashtable.h"
-#include"ast_pp.h"
-#include"ast_smt2_pp.h"
+#include "model/func_interp.h"
+#include "ast/rewriter/var_subst.h"
+#include "util/obj_hashtable.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_smt2_pp.h"
 
 func_entry::func_entry(ast_manager & m, unsigned arity, expr * const * args, expr * result):
     m_args_are_values(true),

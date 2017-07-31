@@ -24,11 +24,11 @@
 #pragma warning(disable:4101)
 #endif
 
-#include "iz3translate.h"
-#include "iz3proof.h"
-#include "iz3profiling.h"
-#include "iz3interp.h"
-#include "iz3proof_itp.h"
+#include "interp/iz3translate.h"
+#include "interp/iz3proof.h"
+#include "interp/iz3profiling.h"
+#include "interp/iz3interp.h"
+#include "interp/iz3proof_itp.h"
 
 #include <assert.h>
 #include <algorithm>

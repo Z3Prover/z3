@@ -19,14 +19,14 @@ Revision History:
 
 --*/
 
-#include "quant_hoist.h"
-#include "expr_functors.h"
-#include "ast_smt_pp.h"
-#include "bool_rewriter.h"
-#include "var_subst.h"
-#include "ast_pp.h"
-#include "ast_counter.h"
-#include "expr_safe_replace.h"
+#include "ast/rewriter/quant_hoist.h"
+#include "ast/expr_functors.h"
+#include "ast/ast_smt_pp.h"
+#include "ast/rewriter/bool_rewriter.h"
+#include "ast/rewriter/var_subst.h"
+#include "ast/ast_pp.h"
+#include "ast/rewriter/ast_counter.h"
+#include "ast/rewriter/expr_safe_replace.h"
 
 //
 // Bring quantifiers of common type into prenex form.

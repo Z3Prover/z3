@@ -16,7 +16,7 @@ Author:
 Revision History:
 
 --*/
-#include"nlsat_clause.h"
+#include "nlsat/nlsat_clause.h"
 
 namespace nlsat {
 

@@ -20,7 +20,7 @@ Revision History:
 #ifndef COFACTOR_TERM_ITE_TACTIC_H_
 #define COFACTOR_TERM_ITE_TACTIC_H_
 
-#include"params.h"
+#include "util/params.h"
 class ast_manager;
 class tactic;
 

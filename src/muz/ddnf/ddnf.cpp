@@ -20,12 +20,12 @@ Revision History:
 
 --*/
 
-#include "ddnf.h"
-#include "dl_rule_set.h"
-#include "dl_context.h"
-#include "scoped_proof.h"
-#include "bv_decl_plugin.h"
-#include "tbv.h"
+#include "muz/ddnf/ddnf.h"
+#include "muz/base/dl_rule_set.h"
+#include "muz/base/dl_context.h"
+#include "ast/scoped_proof.h"
+#include "ast/bv_decl_plugin.h"
+#include "muz/rel/tbv.h"
 
 namespace datalog {
 

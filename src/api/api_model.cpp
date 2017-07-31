@@ -16,15 +16,15 @@ Revision History:
 
 --*/
 #include<iostream>
-#include"z3.h"
+#include "api/z3.h"
 #include"api_log_macros.h"
-#include"api_context.h"
-#include"api_model.h"
-#include"api_ast_vector.h"
-#include"array_decl_plugin.h"
-#include"model.h"
-#include"model_v2_pp.h"
-#include"model_smt2_pp.h"
+#include "api/api_context.h"
+#include "api/api_model.h"
+#include "api/api_ast_vector.h"
+#include "ast/array_decl_plugin.h"
+#include "model/model.h"
+#include "model/model_v2_pp.h"
+#include "model/model_smt2_pp.h"
 #include"model_params.hpp"
 #include"model_evaluator_params.hpp"
 

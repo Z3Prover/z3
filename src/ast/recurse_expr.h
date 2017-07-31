@@ -19,8 +19,8 @@ Revision History:
 #ifndef RECURSE_EXPR_H_
 #define RECURSE_EXPR_H_
 
-#include"ast.h"
-#include"obj_hashtable.h"
+#include "ast/ast.h"
+#include "util/obj_hashtable.h"
 
 template<typename T, typename Visitor, bool IgnorePatterns=false, bool CallDestructors=true>
 class recurse_expr : public Visitor {

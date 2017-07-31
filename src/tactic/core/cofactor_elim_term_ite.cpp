@@ -16,14 +16,14 @@ Author:
 Revision History:
 
 --*/
-#include"cofactor_elim_term_ite.h"
-#include"mk_simplified_app.h"
-#include"rewriter_def.h"
-#include"cooperate.h"
-#include"for_each_expr.h"
-#include"ast_smt2_pp.h"
-#include"ast_ll_pp.h"
-#include"tactic.h"
+#include "tactic/core/cofactor_elim_term_ite.h"
+#include "ast/rewriter/mk_simplified_app.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "util/cooperate.h"
+#include "ast/for_each_expr.h"
+#include "ast/ast_smt2_pp.h"
+#include "ast/ast_ll_pp.h"
+#include "tactic/tactic.h"
 
 struct cofactor_elim_term_ite::imp {
     ast_manager &      m;

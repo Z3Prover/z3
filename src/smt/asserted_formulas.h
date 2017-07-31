@@ -19,17 +19,17 @@ Revision History:
 #ifndef ASSERTED_FORMULAS_H_
 #define ASSERTED_FORMULAS_H_
 
-#include"smt_params.h"
-#include"simplifier.h"
-#include"basic_simplifier_plugin.h"
-#include"static_features.h" 
-#include"macro_manager.h"
-#include"macro_finder.h"
-#include"defined_names.h"
-#include"maximise_ac_sharing.h"
-#include"bit2int.h"
-#include"statistics.h"
-#include"pattern_inference.h"
+#include "smt/params/smt_params.h"
+#include "ast/simplifier/simplifier.h"
+#include "ast/simplifier/basic_simplifier_plugin.h"
+#include "ast/static_features.h"
+#include "ast/macros/macro_manager.h"
+#include "ast/macros/macro_finder.h"
+#include "ast/normal_forms/defined_names.h"
+#include "ast/simplifier/maximise_ac_sharing.h"
+#include "ast/simplifier/bit2int.h"
+#include "util/statistics.h"
+#include "ast/pattern/pattern_inference.h"
 
 class arith_simplifier_plugin;
 class bv_simplifier_plugin;

@@ -17,12 +17,12 @@ Author:
 #ifndef BV_SIMPLIFIER_PLUGIN_H_
 #define BV_SIMPLIFIER_PLUGIN_H_
 
-#include"basic_simplifier_plugin.h"
-#include"poly_simplifier_plugin.h"
-#include"bv_decl_plugin.h"
-#include"map.h"
-#include"bv_simplifier_params.h"
-#include"arith_decl_plugin.h"
+#include "ast/simplifier/basic_simplifier_plugin.h"
+#include "ast/simplifier/poly_simplifier_plugin.h"
+#include "ast/bv_decl_plugin.h"
+#include "util/map.h"
+#include "ast/simplifier/bv_simplifier_params.h"
+#include "ast/arith_decl_plugin.h"
 
 /**
    \brief Simplifier for the bv family.

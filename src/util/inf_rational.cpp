@@ -16,7 +16,7 @@ Author:
 Revision History:
 
 --*/
-#include"inf_rational.h"
+#include "util/inf_rational.h"
 
 inf_rational inf_rational::m_zero;
 inf_rational inf_rational::m_one;

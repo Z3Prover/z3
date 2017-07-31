@@ -21,17 +21,17 @@ Revision History:
 
 #include<sstream>
 #include<iostream>
-#include"ast_smt_pp.h"
-#include"arith_decl_plugin.h"
-#include"bv_decl_plugin.h"
-#include"array_decl_plugin.h"
-#include"datatype_decl_plugin.h"
-#include"fpa_decl_plugin.h"
-#include"vector.h"
-#include"for_each_ast.h"
-#include"decl_collector.h"
-#include"smt2_util.h"
-#include"seq_decl_plugin.h"
+#include "ast/ast_smt_pp.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/array_decl_plugin.h"
+#include "ast/datatype_decl_plugin.h"
+#include "ast/fpa_decl_plugin.h"
+#include "util/vector.h"
+#include "ast/for_each_ast.h"
+#include "ast/decl_collector.h"
+#include "util/smt2_util.h"
+#include "ast/seq_decl_plugin.h"
 
 // ---------------------------------------
 // smt_renaming

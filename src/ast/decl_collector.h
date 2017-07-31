@@ -20,8 +20,8 @@ Revision History:
 #ifndef SMT_DECL_COLLECTOR_H_
 #define SMT_DECL_COLLECTOR_H_
 
-#include"ast.h"
-#include"datatype_decl_plugin.h"
+#include "ast/ast.h"
+#include "ast/datatype_decl_plugin.h"
 
 class decl_collector {
     ast_manager &         m_manager;

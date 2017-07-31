@@ -19,7 +19,7 @@ Revision History:
 #ifndef ADD_BOUNDS_H_
 #define ADD_BOUNDS_H_
 
-#include"params.h"
+#include "util/params.h"
 
 class ast_manager;
 class goal;

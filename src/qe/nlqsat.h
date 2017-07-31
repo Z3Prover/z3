@@ -21,7 +21,7 @@ Revision History:
 #ifndef QE_NLQSAT_H__
 #define QE_NLQSAT_H__
 
-#include "tactic.h"
+#include "tactic/tactic.h"
 
 
 tactic * mk_nlqsat_tactic(ast_manager & m, params_ref const& p = params_ref());

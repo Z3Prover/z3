@@ -16,7 +16,7 @@ Author:
 Revision History:
 
 --*/
-#include"sat_clause_set.h"
+#include "sat/sat_clause_set.h"
 
 namespace sat {
 

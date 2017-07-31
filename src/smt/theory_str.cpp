@@ -14,17 +14,17 @@
   Revision History:
 
   --*/
-#include"ast_smt2_pp.h"
-#include"smt_context.h"
-#include"theory_str.h"
-#include"smt_model_generator.h"
-#include"ast_pp.h"
-#include"ast_ll_pp.h"
+#include "ast/ast_smt2_pp.h"
+#include "smt/smt_context.h"
+#include "smt/theory_str.h"
+#include "smt/smt_model_generator.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
 #include<list>
 #include<algorithm>
-#include"theory_seq_empty.h"
-#include"theory_arith.h"
-#include"ast_util.h"
+#include "smt/theory_seq_empty.h"
+#include "smt/theory_arith.h"
+#include "ast/ast_util.h"
 
 namespace smt {
 

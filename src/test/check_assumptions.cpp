@@ -4,13 +4,13 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
-#include "memory_manager.h"
-#include "smt_params.h"
-#include "ast.h"
-#include "arith_decl_plugin.h"
-#include "bv_decl_plugin.h"
-#include "smt_context.h"
-#include "reg_decl_plugins.h"
+#include "util/memory_manager.h"
+#include "smt/params/smt_params.h"
+#include "ast/ast.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/bv_decl_plugin.h"
+#include "smt/smt_context.h"
+#include "ast/reg_decl_plugins.h"
 
 void tst_check_assumptions()
 {

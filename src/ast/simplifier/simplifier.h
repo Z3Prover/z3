@@ -19,11 +19,11 @@ Notes:
 #ifndef SIMPLIFIER_H_
 #define SIMPLIFIER_H_
 
-#include"base_simplifier.h"
-#include"simplifier_plugin.h"
-#include"plugin_manager.h"
-#include"ast_util.h"
-#include"obj_hashtable.h"
+#include "ast/simplifier/base_simplifier.h"
+#include "ast/simplifier/simplifier_plugin.h"
+#include "util/plugin_manager.h"
+#include "ast/ast_util.h"
+#include "util/obj_hashtable.h"
 
 /**
    \brief Local simplifier.

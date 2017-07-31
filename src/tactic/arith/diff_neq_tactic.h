@@ -23,7 +23,7 @@ Revision History:
 #ifndef DIFF_NEQ_TACTIC_H_
 #define DIFF_NEQ_TACTIC_H_
 
-#include"params.h"
+#include "util/params.h"
 class ast_manager;
 class tactic;
 

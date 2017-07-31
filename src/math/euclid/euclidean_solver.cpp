@@ -16,9 +16,9 @@ Author:
 Revision History:
 
 --*/
-#include"euclidean_solver.h"
-#include"numeral_buffer.h"
-#include"heap.h"
+#include "math/euclid/euclidean_solver.h"
+#include "util/numeral_buffer.h"
+#include "util/heap.h"
 
 struct euclidean_solver::imp {
     typedef unsigned                             var; 

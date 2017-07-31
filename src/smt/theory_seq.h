@@ -19,16 +19,16 @@ Revision History:
 #ifndef THEORY_SEQ_H_
 #define THEORY_SEQ_H_
 
-#include "smt_theory.h"
-#include "seq_decl_plugin.h"
-#include "theory_seq_empty.h"
-#include "th_rewriter.h"
-#include "ast_trail.h"
-#include "scoped_vector.h"
-#include "scoped_ptr_vector.h"
-#include "automaton.h"
-#include "seq_rewriter.h"
-#include "union_find.h"
+#include "smt/smt_theory.h"
+#include "ast/seq_decl_plugin.h"
+#include "smt/theory_seq_empty.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "ast/ast_trail.h"
+#include "util/scoped_vector.h"
+#include "util/scoped_ptr_vector.h"
+#include "math/automata/automaton.h"
+#include "ast/rewriter/seq_rewriter.h"
+#include "util/union_find.h"
 
 namespace smt {
 

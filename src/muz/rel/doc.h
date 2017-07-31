@@ -23,9 +23,9 @@ Revision History:
 #ifndef DOC_H_
 #define DOC_H_
 
-#include "tbv.h"
-#include "union_find.h"
-#include "buffer.h"
+#include "muz/rel/tbv.h"
+#include "util/union_find.h"
+#include "util/buffer.h"
 
 
 class doc;

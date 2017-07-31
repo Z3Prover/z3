@@ -19,7 +19,7 @@ Revision History:
 #ifndef BV_DECL_PLUGIN_H_
 #define BV_DECL_PLUGIN_H_
 
-#include"ast.h"
+#include "ast/ast.h"
 
 enum bv_sort_kind {
     BV_SORT

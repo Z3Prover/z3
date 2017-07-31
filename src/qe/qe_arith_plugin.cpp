@@ -18,21 +18,21 @@ Revision History:
 
 --*/
 
-#include "qe.h"
-#include "ast_pp.h"
-#include "expr_safe_replace.h"
-#include "bool_rewriter.h"
-#include "bv_decl_plugin.h"
-#include "arith_decl_plugin.h"
-#include "arith_eq_solver.h"
-#include "arith_rewriter.h"
-#include "th_rewriter.h"
-#include "factor_rewriter.h"
-#include "obj_pair_hashtable.h"
-#include "nlarith_util.h"
-#include "model_evaluator.h"
-#include "smt_kernel.h"
-#include "qe_arith.h"
+#include "qe/qe.h"
+#include "ast/ast_pp.h"
+#include "ast/rewriter/expr_safe_replace.h"
+#include "ast/rewriter/bool_rewriter.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/arith_decl_plugin.h"
+#include "smt/arith_eq_solver.h"
+#include "ast/rewriter/arith_rewriter.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "ast/rewriter/factor_rewriter.h"
+#include "util/obj_pair_hashtable.h"
+#include "qe/nlarith_util.h"
+#include "model/model_evaluator.h"
+#include "smt/smt_kernel.h"
+#include "qe/qe_arith.h"
 
 namespace qe {
 

@@ -19,11 +19,11 @@ Revision History:
     Leonardo de Moura (leonardo) 2010-12-15: Moved dependency management to func_decl_dependencies.h
 
 --*/
-#include"macro_manager.h"
-#include"for_each_expr.h"
-#include"var_subst.h"
-#include"ast_pp.h"
-#include"recurse_expr_def.h"
+#include "ast/macros/macro_manager.h"
+#include "ast/for_each_expr.h"
+#include "ast/rewriter/var_subst.h"
+#include "ast/ast_pp.h"
+#include "ast/recurse_expr_def.h"
 
 macro_manager::macro_manager(ast_manager & m, simplifier & s):
     m_manager(m),

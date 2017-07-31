@@ -17,11 +17,11 @@ Revision History:
 
 --*/
 
-#include"pattern_validation.h"
-#include"for_each_expr.h"
-#include"warning.h"
+#include "parsers/util/pattern_validation.h"
+#include "ast/for_each_expr.h"
+#include "util/warning.h"
 
-#include"ast_pp.h"
+#include "ast/ast_pp.h"
 
 struct pattern_validation_functor {
     uint_set & m_found_vars;

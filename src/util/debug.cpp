@@ -21,8 +21,8 @@ Revision History:
 #include<unistd.h>
 #endif
 #include<iostream>
-#include"str_hashtable.h"
-#include"z3_exception.h"
+#include "util/str_hashtable.h"
+#include "util/z3_exception.h"
 
 static volatile bool g_enable_assertions = true;
 

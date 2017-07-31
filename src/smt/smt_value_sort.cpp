@@ -18,10 +18,10 @@ Revision History:
 
 --*/
 
-#include "smt_value_sort.h"
-#include "bv_decl_plugin.h"
-#include "arith_decl_plugin.h"
-#include "datatype_decl_plugin.h"
+#include "smt/smt_value_sort.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/datatype_decl_plugin.h"
 
 namespace smt {
 

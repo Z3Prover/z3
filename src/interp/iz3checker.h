@@ -20,8 +20,8 @@
 #ifndef IZ3_CHECKER_H
 #define IZ3_CHECKER_H
 
-#include "iz3mgr.h"
-#include "solver.h"
+#include "interp/iz3mgr.h"
+#include "solver/solver.h"
 
 bool iz3check(ast_manager &_m_manager,
 	      solver *s,

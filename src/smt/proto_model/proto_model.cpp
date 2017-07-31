@@ -16,15 +16,15 @@ Author:
 Revision History:
 
 --*/
-#include"proto_model.h"
+#include "smt/proto_model/proto_model.h"
 #include"model_params.hpp"
-#include"ast_pp.h"
-#include"ast_ll_pp.h"
-#include"var_subst.h"
-#include"array_decl_plugin.h"
-#include"well_sorted.h"
-#include"used_symbols.h"
-#include"model_v2_pp.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
+#include "ast/rewriter/var_subst.h"
+#include "ast/array_decl_plugin.h"
+#include "ast/well_sorted.h"
+#include "ast/used_symbols.h"
+#include "model/model_v2_pp.h"
 
 proto_model::proto_model(ast_manager & m, params_ref const & p):
     model_core(m),
@@ -441,8 +441,8 @@ model * proto_model::mk_model() {
 
 #if 0
 
-#include"simplifier.h"
-#include"basic_simplifier_plugin.h"
+#include "ast/simplifier/simplifier.h"
+#include "ast/simplifier/basic_simplifier_plugin.h"
 
 // Auxiliary function for computing fi(args[0], ..., args[fi.get_arity() - 1]).
 // The result is stored in result.

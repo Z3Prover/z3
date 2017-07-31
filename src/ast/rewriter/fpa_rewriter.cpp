@@ -16,9 +16,9 @@ Author:
 Notes:
 
 --*/
-#include"fpa_rewriter.h"
+#include "ast/rewriter/fpa_rewriter.h"
 #include"fpa_rewriter_params.hpp"
-#include"ast_smt2_pp.h"
+#include "ast/ast_smt2_pp.h"
 
 fpa_rewriter::fpa_rewriter(ast_manager & m, params_ref const & p) :
     m_util(m),

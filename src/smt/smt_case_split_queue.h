@@ -19,9 +19,9 @@ Revision History:
 #ifndef SMT_CASE_SPLIT_QUEUE_H_
 #define SMT_CASE_SPLIT_QUEUE_H_
 
-#include"smt_types.h"
-#include"heap.h"
-#include"smt_params.h"
+#include "smt/smt_types.h"
+#include "util/heap.h"
+#include "smt/params/smt_params.h"
 
 namespace smt {
     class context;

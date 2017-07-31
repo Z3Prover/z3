@@ -16,16 +16,16 @@ Author:
 Notes:
 
 --*/
-#include"solver_na2as.h"
-#include"smt_kernel.h"
-#include"reg_decl_plugins.h"
-#include"smt_params.h"
+#include "solver/solver_na2as.h"
+#include "smt/smt_kernel.h"
+#include "ast/reg_decl_plugins.h"
+#include "smt/params/smt_params.h"
 #include"smt_params_helper.hpp"
-#include"mus.h"
-#include"for_each_expr.h"
-#include"ast_smt2_pp.h"
-#include"func_decl_dependencies.h"
-#include"dec_ref_util.h"
+#include "solver/mus.h"
+#include "ast/for_each_expr.h"
+#include "ast/ast_smt2_pp.h"
+#include "ast/func_decl_dependencies.h"
+#include "util/dec_ref_util.h"
 
 namespace smt {
 

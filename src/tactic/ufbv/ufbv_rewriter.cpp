@@ -20,11 +20,11 @@ Revision History:
 
 --*/
 
-#include"ast_pp.h"
-#include"ufbv_rewriter.h"
-#include"for_each_expr.h"
-#include"var_subst.h"
-#include"uint_set.h"
+#include "ast/ast_pp.h"
+#include "tactic/ufbv/ufbv_rewriter.h"
+#include "ast/for_each_expr.h"
+#include "ast/rewriter/var_subst.h"
+#include "util/uint_set.h"
 
 ufbv_rewriter::ufbv_rewriter(ast_manager & m, basic_simplifier_plugin & p):
     m_manager(m),

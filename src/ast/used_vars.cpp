@@ -17,7 +17,7 @@ Revision History:
 
 --*/
 
-#include"used_vars.h"
+#include "ast/used_vars.h"
 
 void used_vars::process(expr * n, unsigned delta) {
     unsigned j, idx;

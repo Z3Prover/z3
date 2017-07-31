@@ -16,9 +16,9 @@ Author:
 Revision History:
 
 --*/
-#include"smt_clause.h"
-#include"smt_justification.h"
-#include"ast_ll_pp.h"
+#include "smt/smt_clause.h"
+#include "smt/smt_justification.h"
+#include "ast/ast_ll_pp.h"
 
 namespace smt {
     /**

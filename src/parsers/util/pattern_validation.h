@@ -19,9 +19,9 @@ Revision History:
 #ifndef PATTERN_VALIDATION_H_
 #define PATTERN_VALIDATION_H_
 
-#include"ast.h"
-#include"uint_set.h"
-#include"vector.h"
+#include "ast/ast.h"
+#include "util/uint_set.h"
+#include "util/vector.h"
 
 class pattern_validator {
     family_id          m_bfid;

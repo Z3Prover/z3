@@ -16,11 +16,11 @@ Author:
 Revision History:
 
 --*/
-#include"elim_bounds.h"
-#include"used_vars.h"
-#include"obj_hashtable.h"
-#include"var_subst.h"
-#include"ast_pp.h"
+#include "ast/simplifier/elim_bounds.h"
+#include "ast/used_vars.h"
+#include "util/obj_hashtable.h"
+#include "ast/rewriter/var_subst.h"
+#include "ast/ast_pp.h"
 
 elim_bounds::elim_bounds(ast_manager & m):
     m_manager(m),

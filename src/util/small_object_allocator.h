@@ -20,8 +20,8 @@ Revision History:
 #ifndef SMALL_OBJECT_ALLOCATOR_H_
 #define SMALL_OBJECT_ALLOCATOR_H_
 
-#include"machine.h"
-#include"debug.h"
+#include "util/machine.h"
+#include "util/debug.h"
 
 class small_object_allocator {
     static const unsigned CHUNK_SIZE     = (8192 - sizeof(void*)*2);

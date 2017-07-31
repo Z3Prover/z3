@@ -16,15 +16,15 @@ Author:
 Revision History:
 
 --*/
-#include"smt_quantifier.h"
-#include"smt_context.h"
-#include"smt_quantifier_stat.h"
-#include"smt_model_finder.h"
-#include"smt_model_checker.h"
-#include"smt_quick_checker.h"
-#include"mam.h"
-#include"qi_queue.h"
-#include"ast_smt2_pp.h"
+#include "smt/smt_quantifier.h"
+#include "smt/smt_context.h"
+#include "smt/smt_quantifier_stat.h"
+#include "smt/smt_model_finder.h"
+#include "smt/smt_model_checker.h"
+#include "smt/smt_quick_checker.h"
+#include "smt/mam.h"
+#include "smt/qi_queue.h"
+#include "ast/ast_smt2_pp.h"
 
 namespace smt {
 

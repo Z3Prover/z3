@@ -16,9 +16,9 @@ Author:
 Notes:
 
 --*/
-#include"cmd_context.h"
-#include"smt2parser.h"
-#include"smt2_extra_cmds.h"
+#include "cmd_context/cmd_context.h"
+#include "parsers/smt2/smt2parser.h"
+#include "smt/smt2_extra_cmds.h"
 
 class include_cmd : public cmd {
     char const * m_filename;

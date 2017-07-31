@@ -18,13 +18,13 @@ Revision History:
 --*/
 
 
-#include"ast_pp.h"
-#include"union_find.h"
-#include"vector.h"
-#include"dl_context.h"
-#include"dl_base.h"
-#include"bool_rewriter.h"
-#include"dl_relation_manager.h"
+#include "ast/ast_pp.h"
+#include "util/union_find.h"
+#include "util/vector.h"
+#include "muz/base/dl_context.h"
+#include "muz/rel/dl_base.h"
+#include "ast/rewriter/bool_rewriter.h"
+#include "muz/rel/dl_relation_manager.h"
 #include<sstream>
 
 

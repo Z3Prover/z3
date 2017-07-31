@@ -20,12 +20,12 @@ Revision History:
 #define MPF_H_
 
 #include<string>
-#include"mpz.h"
-#include"mpq.h"
-#include"map.h"
-#include"scoped_numeral.h"
-#include"scoped_numeral_vector.h"
-#include"hash.h"
+#include "util/mpz.h"
+#include "util/mpq.h"
+#include "util/map.h"
+#include "util/scoped_numeral.h"
+#include "util/scoped_numeral_vector.h"
+#include "util/hash.h"
 
 typedef enum {
     MPF_ROUND_NEAREST_TEVEN,

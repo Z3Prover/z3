@@ -16,7 +16,7 @@ Revision History:
 
 #ifndef _ACKERMANNIZE_TACTIC_H_
 #define _ACKERMANNIZE_TACTIC_H_
-#include"tactical.h"
+#include "tactic/tactical.h"
 
 tactic * mk_ackermannize_bv_tactic(ast_manager & m, params_ref const & p);
 

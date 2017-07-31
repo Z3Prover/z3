@@ -17,12 +17,12 @@ Revision History:
 
 --*/
 
-#include "pdr_smt_context_manager.h"
-#include "has_free_vars.h"
-#include "ast_pp.h"
-#include "ast_smt_pp.h"
+#include "muz/pdr/pdr_smt_context_manager.h"
+#include "ast/has_free_vars.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_smt_pp.h"
 #include <sstream>
-#include "smt_params.h"
+#include "smt/params/smt_params.h"
 
 namespace pdr {
 

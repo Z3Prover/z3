@@ -23,21 +23,21 @@ Notes:
 
 #include<sstream>
 #include<vector>
-#include"ast.h"
-#include"ast_printer.h"
-#include"pdecl.h"
-#include"dictionary.h"
-#include"solver.h"
-#include"datatype_decl_plugin.h"
-#include"stopwatch.h"
-#include"cmd_context_types.h"
-#include"event_handler.h"
-#include"sexpr.h"
-#include"tactic_manager.h"
-#include"check_logic.h"
-#include"progress_callback.h"
-#include"scoped_ptr_vector.h"
-#include"context_params.h"
+#include "ast/ast.h"
+#include "ast/ast_printer.h"
+#include "cmd_context/pdecl.h"
+#include "util/dictionary.h"
+#include "solver/solver.h"
+#include "ast/datatype_decl_plugin.h"
+#include "util/stopwatch.h"
+#include "util/cmd_context_types.h"
+#include "util/event_handler.h"
+#include "util/sexpr.h"
+#include "cmd_context/tactic_manager.h"
+#include "cmd_context/check_logic.h"
+#include "solver/progress_callback.h"
+#include "util/scoped_ptr_vector.h"
+#include "cmd_context/context_params.h"
 
 
 class func_decls {

@@ -20,9 +20,9 @@ Notes:
 #ifndef THEORY_WMAXSAT_H_
 #define THEORY_WMAXSAT_H_
 
-#include "smt_theory.h"
-#include "smt_clause.h"
-#include "filter_model_converter.h"
+#include "smt/smt_theory.h"
+#include "smt/smt_clause.h"
+#include "tactic/filter_model_converter.h"
 
 namespace smt {
     class theory_wmaxsat : public theory {

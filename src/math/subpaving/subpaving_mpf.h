@@ -19,9 +19,9 @@ Revision History:
 #ifndef SUBPAVING_MPF_H_
 #define SUBPAVING_MPF_H_
 
-#include"subpaving_t.h"
-#include"mpf.h"
-#include"f2n.h"
+#include "math/subpaving/subpaving_t.h"
+#include "util/mpf.h"
+#include "util/f2n.h"
 
 namespace subpaving {
 

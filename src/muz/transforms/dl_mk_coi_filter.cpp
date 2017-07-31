@@ -17,11 +17,11 @@ Author:
 
 --*/
 
-#include "dl_mk_coi_filter.h"
-#include "dataflow.h"
-#include "reachability.h"
-#include "ast_pp.h"
-#include "extension_model_converter.h"
+#include "muz/transforms/dl_mk_coi_filter.h"
+#include "muz/dataflow/dataflow.h"
+#include "muz/dataflow/reachability.h"
+#include "ast/ast_pp.h"
+#include "tactic/extension_model_converter.h"
 
 namespace datalog {
     rule_set * mk_coi_filter::operator()(rule_set const & source) {

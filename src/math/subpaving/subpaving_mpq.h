@@ -19,8 +19,8 @@ Revision History:
 #ifndef SUBPAVING_MPQ_H_
 #define SUBPAVING_MPQ_H_
 
-#include"subpaving_t.h"
-#include"mpq.h"
+#include "math/subpaving/subpaving_t.h"
+#include "util/mpq.h"
 
 namespace subpaving {
 

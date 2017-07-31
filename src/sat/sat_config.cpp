@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#include"sat_config.h"
-#include"sat_types.h"
+#include "sat/sat_config.h"
+#include "sat/sat_types.h"
 #include"sat_params.hpp"
 
 namespace sat {

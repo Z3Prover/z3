@@ -19,8 +19,8 @@ Notes:
 --*/
 
 #include<iostream>
-#include"rational.h"
-#include"z3_macros.h"
+#include "util/rational.h"
+#include "api/z3_macros.h"
 
 #ifndef Z3_PRIVATE_H_
 #define Z3_PRIVATE_H_

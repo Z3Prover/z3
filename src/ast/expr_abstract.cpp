@@ -17,8 +17,8 @@ Notes:
 
 --*/    
 
-#include "expr_abstract.h"
-#include "map.h"
+#include "ast/expr_abstract.h"
+#include "util/map.h"
 
 void expr_abstractor::operator()(unsigned base, unsigned num_bound, expr* const* bound, expr* n, expr_ref& result) {
     

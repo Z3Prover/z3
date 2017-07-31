@@ -15,12 +15,12 @@ Author:
     Nikolaj Bjorner (nbjorner) 2008-01-05
     
 --*/
-#include"bv_simplifier_plugin.h"
-#include"ast_ll_pp.h"
-#include"ast_pp.h"
-#include"arith_decl_plugin.h"
-#include"obj_hashtable.h"
-#include"ast_util.h"
+#include "ast/simplifier/bv_simplifier_plugin.h"
+#include "ast/ast_ll_pp.h"
+#include "ast/ast_pp.h"
+#include "ast/arith_decl_plugin.h"
+#include "util/obj_hashtable.h"
+#include "ast/ast_util.h"
 
 bv_simplifier_plugin::~bv_simplifier_plugin() {
     flush_caches();

@@ -21,8 +21,8 @@ Revision History:
 #ifndef SEQ_DECL_PLUGIN_H_
 #define SEQ_DECL_PLUGIN_H_
 
-#include "ast.h"
-#include "bv_decl_plugin.h"
+#include "ast/ast.h"
+#include "ast/bv_decl_plugin.h"
 
 
 enum seq_sort_kind {

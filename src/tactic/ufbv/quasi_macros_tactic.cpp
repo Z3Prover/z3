@@ -16,16 +16,16 @@ Author:
 Notes:
 
 --*/
-#include"tactical.h"
-#include"simplifier.h"
-#include"basic_simplifier_plugin.h"
-#include"arith_simplifier_plugin.h"
-#include"bv_simplifier_plugin.h"
-#include"macro_manager.h"
-#include"macro_finder.h"
-#include"extension_model_converter.h"
-#include"quasi_macros.h"
-#include"quasi_macros_tactic.h"
+#include "tactic/tactical.h"
+#include "ast/simplifier/simplifier.h"
+#include "ast/simplifier/basic_simplifier_plugin.h"
+#include "ast/simplifier/arith_simplifier_plugin.h"
+#include "ast/simplifier/bv_simplifier_plugin.h"
+#include "ast/macros/macro_manager.h"
+#include "ast/macros/macro_finder.h"
+#include "tactic/extension_model_converter.h"
+#include "ast/macros/quasi_macros.h"
+#include "tactic/ufbv/quasi_macros_tactic.h"
 
 class quasi_macros_tactic : public tactic {
 

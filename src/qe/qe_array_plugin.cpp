@@ -5,11 +5,11 @@ Copyright (c) 2015 Microsoft Corporation
 --*/
 
 
-#include "qe.h"
-#include "array_decl_plugin.h"
-#include "expr_safe_replace.h"
-#include "ast_pp.h"
-#include "arith_decl_plugin.h"
+#include "qe/qe.h"
+#include "ast/array_decl_plugin.h"
+#include "ast/rewriter/expr_safe_replace.h"
+#include "ast/ast_pp.h"
+#include "ast/arith_decl_plugin.h"
 
 namespace qe {
     // ---------------------

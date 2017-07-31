@@ -21,13 +21,13 @@ Revision History:
 
 #include<limits.h>
 #include<string>
-#include"util.h"
-#include"small_object_allocator.h"
-#include"trace.h"
-#include"scoped_numeral.h"
-#include"scoped_numeral_vector.h"
-#include"z3_omp.h"
-#include"mpn.h"
+#include "util/util.h"
+#include "util/small_object_allocator.h"
+#include "util/trace.h"
+#include "util/scoped_numeral.h"
+#include "util/scoped_numeral_vector.h"
+#include "util/z3_omp.h"
+#include "util/mpn.h"
 
 unsigned u_gcd(unsigned u, unsigned v);
 uint64 u64_gcd(uint64 u, uint64 v);

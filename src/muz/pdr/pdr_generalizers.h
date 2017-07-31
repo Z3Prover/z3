@@ -20,9 +20,9 @@ Revision History:
 #ifndef PDR_GENERALIZERS_H_
 #define PDR_GENERALIZERS_H_
 
-#include "pdr_context.h"
-#include "pdr_closure.h"
-#include "arith_decl_plugin.h"
+#include "muz/pdr/pdr_context.h"
+#include "muz/pdr/pdr_closure.h"
+#include "ast/arith_decl_plugin.h"
 
 namespace pdr {
 

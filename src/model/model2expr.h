@@ -19,7 +19,7 @@ Revision History:
 #ifndef MODEL2EXPR_H_
 #define MODEL2EXPR_H_
 
-#include"model.h"
+#include "model/model.h"
 
 void model2expr(model& m, expr_ref& result);
 

@@ -16,10 +16,10 @@ Author:
 Revision History:
 
 --*/
-#include"dimacs.h"
+#include "sat/dimacs.h"
 #undef max
 #undef min
-#include"sat_solver.h"
+#include "sat/sat_solver.h"
 
 class stream_buffer {
     std::istream & m_stream;

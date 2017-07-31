@@ -16,9 +16,9 @@ Author:
 Notes:
 
 --*/
-#include"tactic.h"
-#include"probe.h"
-#include"cmd_context.h"
+#include "tactic/tactic.h"
+#include "tactic/probe.h"
+#include "cmd_context/cmd_context.h"
 
 class echo_tactic : public skip_tactic {
     cmd_context & m_ctx;

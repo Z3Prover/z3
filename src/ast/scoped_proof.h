@@ -19,7 +19,7 @@ Revision History:
 #ifndef SCOPED_PROOF_H_
 #define SCOPED_PROOF_H_
 
-#include "ast.h"
+#include "ast/ast.h"
 
 class scoped_proof_mode {
     ast_manager&   m;

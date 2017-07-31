@@ -19,9 +19,9 @@ Revision History:
 #ifndef PTR_SCOPED_BUFFER_H_
 #define PTR_SCOPED_BUFFER_H_
 
-#include"util.h"
-#include"debug.h"
-#include"buffer.h"
+#include "util/util.h"
+#include "util/debug.h"
+#include "util/buffer.h"
 
 template<typename T, unsigned INITIAL_SIZE=16, typename D = delete_proc<T> >
 class ptr_scoped_buffer : private ptr_buffer<T, INITIAL_SIZE> {

@@ -19,10 +19,10 @@ Revision History:
 #ifndef DATATYPE_DECL_PLUGIN_H_
 #define DATATYPE_DECL_PLUGIN_H_
 
-#include"ast.h"
-#include"tptr.h"
-#include"buffer.h"
-#include"obj_hashtable.h"
+#include "ast/ast.h"
+#include "util/tptr.h"
+#include "util/buffer.h"
+#include "util/obj_hashtable.h"
 
 enum datatype_sort_kind {
     DATATYPE_SORT

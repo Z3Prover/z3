@@ -20,7 +20,7 @@ Revision History:
 #ifndef TPTR_H_
 #define TPTR_H_
 
-#include"machine.h"
+#include "util/machine.h"
 
 #define TAG_SHIFT        PTR_ALIGNMENT
 #define ALIGNMENT_VALUE  (1 << PTR_ALIGNMENT)

@@ -16,10 +16,10 @@ Author:
 Notes:
 
 --*/
-#include"trace.h"
-#include"arith_decl_plugin.h"
-#include"model_v2_pp.h"
-#include"pb2bv_model_converter.h"
+#include "util/trace.h"
+#include "ast/arith_decl_plugin.h"
+#include "model/model_v2_pp.h"
+#include "tactic/arith/pb2bv_model_converter.h"
 
 pb2bv_model_converter::pb2bv_model_converter(ast_manager & _m) : m(_m) {
 

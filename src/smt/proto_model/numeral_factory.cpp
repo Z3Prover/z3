@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#include"numeral_factory.h"
-#include"ast_pp.h"
+#include "smt/proto_model/numeral_factory.h"
+#include "ast/ast_pp.h"
 
 app * arith_factory::mk_value_core(rational const & val, sort * s) {
     return m_util.mk_numeral(val, s);

@@ -17,9 +17,9 @@ Revision History:
 
 --*/
 #ifdef _WINDOWS
-#include"matcher.h"
-#include"ast_pp.h"
-#include "reg_decl_plugins.h"
+#include "ast/substitution/matcher.h"
+#include "ast/ast_pp.h"
+#include "ast/reg_decl_plugins.h"
 
 
 void tst_match(ast_manager & m, app * t, app * i) {

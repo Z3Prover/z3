@@ -17,9 +17,9 @@ Notes:
 
 --*/
 
-#include"rewriter.h"
-#include"rewriter_def.h"
-#include"label_rewriter.h"
+#include "ast/rewriter/rewriter.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "ast/rewriter/label_rewriter.h"
 
 
 label_rewriter::label_rewriter(ast_manager & m) : 

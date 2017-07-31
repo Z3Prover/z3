@@ -17,10 +17,10 @@ Revision History:
 
 --*/
 
-#include"mpz.h"
-#include"rational.h"
-#include"timeit.h"
-#include"scoped_numeral.h"
+#include "util/mpz.h"
+#include "util/rational.h"
+#include "util/timeit.h"
+#include "util/scoped_numeral.h"
 
 static void tst1() {
     synch_mpz_manager m;

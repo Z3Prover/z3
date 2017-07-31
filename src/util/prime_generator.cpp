@@ -16,7 +16,7 @@ Author:
 Notes:
 
 --*/
-#include"prime_generator.h"
+#include "util/prime_generator.h"
 
 #define PRIME_LIST_MAX_SIZE 1<<20
 

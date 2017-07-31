@@ -21,10 +21,10 @@ Revision History:
 #ifndef NLSAT_SOLVER_H_
 #define NLSAT_SOLVER_H_
 
-#include"nlsat_types.h"
-#include"params.h"
-#include"statistics.h"
-#include"rlimit.h"
+#include "nlsat/nlsat_types.h"
+#include "util/params.h"
+#include "util/statistics.h"
+#include "util/rlimit.h"
 
 namespace nlsat {
 

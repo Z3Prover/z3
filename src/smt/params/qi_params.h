@@ -19,8 +19,8 @@ Revision History:
 #ifndef QI_PARAMS_H_
 #define QI_PARAMS_H_
 
-#include"util.h"
-#include"params.h"
+#include "util/util.h"
+#include "util/params.h"
 
 enum quick_checker_mode {
     MC_NO,     // do not use (cheap) model checking based instantiation

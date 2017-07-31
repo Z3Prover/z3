@@ -16,9 +16,9 @@ Author:
 Notes:
 
 --*/
-#include"rpolynomial.h"
-#include"tptr.h"
-#include"buffer.h"
+#include "math/polynomial/rpolynomial.h"
+#include "util/tptr.h"
+#include "util/buffer.h"
 
 namespace rpolynomial {
 

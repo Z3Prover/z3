@@ -20,7 +20,7 @@
 #ifndef IZ3_PP_H
 #define IZ3_PP_H
 
-#include "iz3mgr.h"
+#include "interp/iz3mgr.h"
 
 /** Exception thrown in case of mal-formed tree interpoloation
     specification */

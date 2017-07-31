@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#include"static_features.h"
-#include"ast_pp.h"
+#include "ast/static_features.h"
+#include "ast/ast_pp.h"
 
 static_features::static_features(ast_manager & m):
     m_manager(m),

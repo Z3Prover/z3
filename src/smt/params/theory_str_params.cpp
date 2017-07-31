@@ -15,7 +15,7 @@ Revision History:
 
 --*/
 
-#include"theory_str_params.h"
+#include "smt/params/theory_str_params.h"
 #include"smt_params_helper.hpp"
 
 void theory_str_params::updt_params(params_ref const & _p) {

@@ -22,7 +22,7 @@ Revision History:
 #ifndef MAX_BV_SHARING_TACTIC_H_
 #define MAX_BV_SHARING_TACTIC_H_
 
-#include"params.h"
+#include "util/params.h"
 class ast_manager;
 class tactic;
 

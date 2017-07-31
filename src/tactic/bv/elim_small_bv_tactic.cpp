@@ -16,19 +16,19 @@ Author:
 Revision History:
 
 --*/
-#include"tactical.h"
-#include"rewriter_def.h"
-#include"filter_model_converter.h"
-#include"cooperate.h"
-#include"bv_decl_plugin.h"
-#include"used_vars.h"
-#include"well_sorted.h"
-#include"var_subst.h"
-#include"simplifier.h"
-#include"basic_simplifier_plugin.h"
-#include"bv_simplifier_plugin.h"
+#include "tactic/tactical.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "tactic/filter_model_converter.h"
+#include "util/cooperate.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/used_vars.h"
+#include "ast/well_sorted.h"
+#include "ast/rewriter/var_subst.h"
+#include "ast/simplifier/simplifier.h"
+#include "ast/simplifier/basic_simplifier_plugin.h"
+#include "ast/simplifier/bv_simplifier_plugin.h"
 
-#include"elim_small_bv_tactic.h"
+#include "tactic/bv/elim_small_bv_tactic.h"
 
 class elim_small_bv_tactic : public tactic {
 

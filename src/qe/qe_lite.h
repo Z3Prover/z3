@@ -21,9 +21,9 @@ Revision History:
 #ifndef QE_LITE_H_
 #define QE_LITE_H_
 
-#include "ast.h"
-#include "uint_set.h"
-#include "params.h"
+#include "ast/ast.h"
+#include "util/uint_set.h"
+#include "util/params.h"
 
 class tactic;
 

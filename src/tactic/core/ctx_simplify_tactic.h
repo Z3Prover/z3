@@ -19,8 +19,8 @@ Notes:
 #ifndef CTX_SIMPLIFY_TACTIC_H_
 #define CTX_SIMPLIFY_TACTIC_H_
 
-#include"tactical.h"
-#include"goal_num_occurs.h"
+#include "tactic/tactical.h"
+#include "tactic/goal_num_occurs.h"
 
 class ctx_simplify_tactic : public tactic {
 public:

@@ -19,7 +19,7 @@ Revision History:
 #ifndef USES_THEORY_H_
 #define USES_THEORY_H_
 
-#include"ast.h"
+#include "ast/ast.h"
 
 /**
    \brief Return true if the given expression contains a symbol of the given theory.

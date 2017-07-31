@@ -17,10 +17,10 @@ Revision History:
 
 --*/
 
-#include"macro_finder.h"
-#include"occurs.h"
-#include"ast_pp.h"
-#include"ast_ll_pp.h"
+#include "ast/macros/macro_finder.h"
+#include "ast/occurs.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
 
 bool macro_finder::is_macro(expr * n, app_ref & head, expr_ref & def) {
     if (!is_quantifier(n) || !to_quantifier(n)->is_forall())

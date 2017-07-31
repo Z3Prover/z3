@@ -19,9 +19,9 @@ Revision History:
 #ifndef SMT_QUICK_CHECKER_H_
 #define SMT_QUICK_CHECKER_H_
 
-#include"ast.h"
-#include"simplifier.h"
-#include"obj_hashtable.h"
+#include "ast/ast.h"
+#include "ast/simplifier/simplifier.h"
+#include "util/obj_hashtable.h"
 
 namespace smt {
     class context;

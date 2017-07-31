@@ -23,9 +23,9 @@ Revision History:
 
 --*/
 
-#include "dl_mk_quantifier_instantiation.h"
-#include "dl_context.h"
-#include "pattern_inference.h"
+#include "muz/transforms/dl_mk_quantifier_instantiation.h"
+#include "muz/base/dl_context.h"
+#include "ast/pattern/pattern_inference.h"
 
 
 namespace datalog {

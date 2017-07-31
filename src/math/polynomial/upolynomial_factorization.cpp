@@ -22,10 +22,10 @@ Notes:
    [3] Henri Cohen. A Course in Computational Algebraic Number Theory. Springer Verlag, 1993.
 
 --*/
-#include"trace.h"
-#include"util.h"
-#include"upolynomial_factorization_int.h"
-#include"prime_generator.h"
+#include "util/trace.h"
+#include "util/util.h"
+#include "math/polynomial/upolynomial_factorization_int.h"
+#include "util/prime_generator.h"
 
 using namespace std;
 

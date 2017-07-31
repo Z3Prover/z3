@@ -2,13 +2,13 @@
 #include<time.h>
 #include<string>
 #include<cstring>
-#include"util.h"
-#include"trace.h"
-#include"debug.h"
-#include"timeit.h"
-#include"warning.h"
-#include "memory_manager.h"
-#include"gparams.h"
+#include "util/util.h"
+#include "util/trace.h"
+#include "util/debug.h"
+#include "util/timeit.h"
+#include "util/warning.h"
+#include "util/memory_manager.h"
+#include "util/gparams.h"
 
 //
 // Unit tests fail by asserting.

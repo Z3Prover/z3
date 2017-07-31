@@ -20,9 +20,9 @@ Notes:
 #ifndef NNF_H_
 #define NNF_H_
 
-#include"ast.h"
-#include"params.h"
-#include"defined_names.h"
+#include "ast/ast.h"
+#include "util/params.h"
+#include "ast/normal_forms/defined_names.h"
 
 class nnf {
     struct imp;

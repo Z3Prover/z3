@@ -19,8 +19,8 @@ Revision History:
 #ifndef THEORY_ARITH_INV_H_
 #define THEORY_ARITH_INV_H_
 
-#include"theory_arith.h"
-#include"ast_pp.h"
+#include "smt/theory_arith.h"
+#include "ast/ast_pp.h"
 
 namespace smt {
 

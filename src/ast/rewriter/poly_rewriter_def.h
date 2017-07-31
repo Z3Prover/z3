@@ -16,11 +16,11 @@ Author:
 Notes:
 
 --*/
-#include"poly_rewriter.h"
+#include "ast/rewriter/poly_rewriter.h"
 #include"poly_rewriter_params.hpp"
-#include"ast_lt.h"
-#include"ast_ll_pp.h"
-#include"ast_smt2_pp.h"
+#include "ast/ast_lt.h"
+#include "ast/ast_ll_pp.h"
+#include "ast/ast_smt2_pp.h"
 
 
 template<typename Config>

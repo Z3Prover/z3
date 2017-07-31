@@ -17,7 +17,7 @@ Author:
 #ifndef POLY_SIMPLIFIER_PLUGIN_H_
 #define POLY_SIMPLIFIER_PLUGIN_H_
 
-#include "simplifier_plugin.h"
+#include "ast/simplifier/simplifier_plugin.h"
 
 /**
    \brief Abstract class that provides simplification functions for polynomials.

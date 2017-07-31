@@ -16,9 +16,9 @@ Author:
 Revision History:
 
 --*/
-#include"smt_context.h"
-#include"dyn_ack.h"
-#include"ast_pp.h"
+#include "smt/smt_context.h"
+#include "smt/dyn_ack.h"
+#include "ast/ast_pp.h"
 
 namespace smt {
 

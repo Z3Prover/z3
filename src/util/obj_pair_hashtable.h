@@ -19,8 +19,8 @@ Revision History:
 #ifndef OBJ_PAIR_HASHTABLE_H_
 #define OBJ_PAIR_HASHTABLE_H_
 
-#include"hash.h"
-#include"hashtable.h"
+#include "util/hash.h"
+#include "util/hashtable.h"
 
 /**
    \brief Special entry for a hashtable of pairs of obj pointers (i.e.,

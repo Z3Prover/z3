@@ -17,11 +17,11 @@ Revision History:
 
 --*/
 
-#include"array_factory.h"
-#include"array_decl_plugin.h"
-#include"proto_model.h"
-#include"func_interp.h"
-#include"ast_pp.h"
+#include "smt/proto_model/array_factory.h"
+#include "ast/array_decl_plugin.h"
+#include "smt/proto_model/proto_model.h"
+#include "model/func_interp.h"
+#include "ast/ast_pp.h"
 
 func_decl * mk_aux_decl_for_array_sort(ast_manager & m, sort * s) {
     ptr_buffer<sort> domain;

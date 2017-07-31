@@ -20,9 +20,9 @@
 #ifndef IZ3_INTERP_H
 #define IZ3_INTERP_H
 
-#include "iz3hash.h"
-#include "iz3exception.h"
-#include "solver.h"
+#include "interp/iz3hash.h"
+#include "interp/iz3exception.h"
+#include "solver/solver.h"
 
 class iz3base;
 

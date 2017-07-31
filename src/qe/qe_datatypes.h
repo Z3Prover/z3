@@ -21,8 +21,8 @@ Revision History:
 #ifndef __QE_DATATYPES_H_
 #define __QE_DATATYPES_H_
 
-#include "datatype_decl_plugin.h"
-#include "qe_mbp.h"
+#include "ast/datatype_decl_plugin.h"
+#include "qe/qe_mbp.h"
 
 namespace qe {
 

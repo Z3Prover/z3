@@ -19,9 +19,9 @@ Notes:
 #ifndef MODEL_CONVERTER_H_
 #define MODEL_CONVERTER_H_
 
-#include"model.h"
-#include"converter.h"
-#include"ref.h"
+#include "model/model.h"
+#include "tactic/converter.h"
+#include "util/ref.h"
 
 class labels_vec : public svector<symbol> {};
 

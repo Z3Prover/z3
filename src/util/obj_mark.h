@@ -19,7 +19,7 @@ Revision History:
 #ifndef OBJ_MARK_H_
 #define OBJ_MARK_H_
 
-#include"bit_vector.h"
+#include "util/bit_vector.h"
 
 template<typename T>
 struct default_t2uint {

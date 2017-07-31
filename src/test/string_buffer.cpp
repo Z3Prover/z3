@@ -17,9 +17,9 @@ Revision History:
 
 --*/
 #include<cstdlib>
-#include"debug.h"
-#include"string_buffer.h"
-#include"trace.h"
+#include "util/debug.h"
+#include "util/string_buffer.h"
+#include "util/trace.h"
 
 static void tst1() {
   string_buffer<> b;

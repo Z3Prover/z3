@@ -17,12 +17,12 @@ Notes:
    
 --*/
 
-#include "fd_solver.h"
-#include "tactic.h"
-#include "inc_sat_solver.h"
-#include "enum2bv_solver.h"
-#include "pb2bv_solver.h"
-#include "bounded_int2bv_solver.h"
+#include "tactic/portfolio/fd_solver.h"
+#include "tactic/tactic.h"
+#include "sat/sat_solver/inc_sat_solver.h"
+#include "tactic/portfolio/enum2bv_solver.h"
+#include "tactic/portfolio/pb2bv_solver.h"
+#include "tactic/portfolio/bounded_int2bv_solver.h"
 
 solver * mk_fd_solver(ast_manager & m, params_ref const & p) {
     solver* s = mk_inc_sat_solver(m, p);

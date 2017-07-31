@@ -19,10 +19,10 @@ Revision History:
 
 --*/
 
-#include "smt_farkas_util.h"
-#include "ast_pp.h"
-#include "th_rewriter.h"
-#include "bool_rewriter.h"
+#include "smt/smt_farkas_util.h"
+#include "ast/ast_pp.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "ast/rewriter/bool_rewriter.h"
 
 
 namespace smt {

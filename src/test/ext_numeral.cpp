@@ -17,8 +17,8 @@ Notes:
 
 --*/
 #include<sstream>
-#include"mpq.h"
-#include"ext_numeral.h"
+#include "util/mpq.h"
+#include "util/ext_numeral.h"
 
 #define MK_TST_UNARY(NAME)                                              \
 static void tst_ ## NAME(int a, ext_numeral_kind ak, int expected_c, ext_numeral_kind expected_ck) { \

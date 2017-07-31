@@ -20,9 +20,9 @@ Notes:
 #ifndef NETWORK_FLOW_DEF_H_
 #define NETWORK_FLOW_DEF_H_
 
-#include"network_flow.h"
-#include"uint_set.h"
-#include"spanning_tree_def.h"
+#include "math/simplex/network_flow.h"
+#include "util/uint_set.h"
+#include "smt/spanning_tree_def.h"
 
 namespace smt {
 

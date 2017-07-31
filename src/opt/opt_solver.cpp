@@ -19,20 +19,20 @@ Notes:
    
 --*/
 #include <typeinfo>
-#include "reg_decl_plugins.h"
-#include "opt_solver.h"
-#include "smt_context.h"
-#include "theory_arith.h"
-#include "theory_diff_logic.h"
-#include "theory_dense_diff_logic.h"
-#include "theory_pb.h"
-#include "theory_lra.h"
-#include "ast_pp.h"
-#include "ast_smt_pp.h"
+#include "ast/reg_decl_plugins.h"
+#include "opt/opt_solver.h"
+#include "smt/smt_context.h"
+#include "smt/theory_arith.h"
+#include "smt/theory_diff_logic.h"
+#include "smt/theory_dense_diff_logic.h"
+#include "smt/theory_pb.h"
+#include "smt/theory_lra.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_smt_pp.h"
 #include "pp_params.hpp"
 #include "opt_params.hpp"
-#include "model_smt2_pp.h"
-#include "stopwatch.h"
+#include "model/model_smt2_pp.h"
+#include "util/stopwatch.h"
 
 namespace opt {
 

@@ -15,20 +15,20 @@ Author:
 Notes:
 
 --*/
-#include"cmd_context.h"
+#include "cmd_context/cmd_context.h"
 #include"version.h"
-#include"ast_smt_pp.h"
-#include"ast_smt2_pp.h"
-#include"ast_pp.h"
-#include"model_smt2_pp.h"
-#include"array_decl_plugin.h"
-#include"pp.h"
-#include"cmd_util.h"
-#include"simplify_cmd.h"
-#include"eval_cmd.h"
-#include"gparams.h"
-#include"env_params.h"
-#include"well_sorted.h"
+#include "ast/ast_smt_pp.h"
+#include "ast/ast_smt2_pp.h"
+#include "ast/ast_pp.h"
+#include "model/model_smt2_pp.h"
+#include "ast/array_decl_plugin.h"
+#include "ast/pp.h"
+#include "cmd_context/cmd_util.h"
+#include "cmd_context/simplify_cmd.h"
+#include "cmd_context/eval_cmd.h"
+#include "util/gparams.h"
+#include "util/env_params.h"
+#include "ast/well_sorted.h"
 #include"pp_params.hpp"
 
 class help_cmd : public cmd {

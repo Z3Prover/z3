@@ -4,10 +4,10 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
-#include "dl_util.h"
-#include "proof_utils.h"
-#include "ast_smt2_pp.h"
-#include "var_subst.h"
+#include "muz/base/dl_util.h"
+#include "muz/base/proof_utils.h"
+#include "ast/ast_smt2_pp.h"
+#include "ast/rewriter/var_subst.h"
 
 class reduce_hypotheses {
     typedef obj_hashtable<expr> expr_set;

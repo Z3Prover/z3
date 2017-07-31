@@ -17,17 +17,17 @@ Author:
 Revision History:
 
 --*/
-#include"macro_util.h"
-#include"occurs.h"
-#include"ast_util.h"
-#include"arith_simplifier_plugin.h"
-#include"bv_simplifier_plugin.h"
-#include"var_subst.h"
-#include"ast_pp.h"
-#include"ast_ll_pp.h"
-#include"for_each_expr.h"
-#include"well_sorted.h"
-#include"bool_rewriter.h"
+#include "ast/macros/macro_util.h"
+#include "ast/occurs.h"
+#include "ast/ast_util.h"
+#include "ast/simplifier/arith_simplifier_plugin.h"
+#include "ast/simplifier/bv_simplifier_plugin.h"
+#include "ast/rewriter/var_subst.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
+#include "ast/for_each_expr.h"
+#include "ast/well_sorted.h"
+#include "ast/rewriter/bool_rewriter.h"
 
 macro_util::macro_util(ast_manager & m, simplifier & s):
     m_manager(m),

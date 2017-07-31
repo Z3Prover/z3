@@ -33,8 +33,8 @@
 #include <iterator>
 
 
-#include "duality.h"
-#include "duality_profiling.h"
+#include "duality/duality.h"
+#include "duality/duality_profiling.h"
 
 // TODO: do we need these?
 #ifdef Z3OPS

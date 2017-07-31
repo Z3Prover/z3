@@ -28,9 +28,9 @@ Notes:
 #ifndef NETWORK_FLOW_H_
 #define NETWORK_FLOW_H_
 
-#include"inf_rational.h"
-#include"diff_logic.h"
-#include"spanning_tree.h"
+#include "util/inf_rational.h"
+#include "smt/diff_logic.h"
+#include "smt/spanning_tree.h"
 
 namespace smt {
 

@@ -19,11 +19,11 @@ Notes:
 #ifndef BV2FPA_CONVERTER_H_
 #define BV2FPA_CONVERTER_H_
 
-#include"fpa_decl_plugin.h"
-#include"bv_decl_plugin.h"
-#include"th_rewriter.h"
-#include"model_core.h"
-#include"fpa2bv_converter.h"
+#include "ast/fpa_decl_plugin.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "model/model_core.h"
+#include "ast/fpa/fpa2bv_converter.h"
 
 
 class bv2fpa_converter {

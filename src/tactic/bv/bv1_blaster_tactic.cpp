@@ -22,13 +22,13 @@ Author:
 Notes:
 
 --*/
-#include"tactical.h"
-#include"bit_blaster_model_converter.h"
-#include"bv_decl_plugin.h"
-#include"rewriter_def.h"
-#include"for_each_expr.h"
-#include"cooperate.h"
-#include"bv_rewriter.h"
+#include "tactic/tactical.h"
+#include "tactic/bv/bit_blaster_model_converter.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "ast/for_each_expr.h"
+#include "util/cooperate.h"
+#include "ast/rewriter/bv_rewriter.h"
 
 class bv1_blaster_tactic : public tactic {
 

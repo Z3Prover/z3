@@ -16,14 +16,14 @@ Author:
 Revision History:
 
 --*/
-#include "dl_register_engine.h"
-#include "dl_bmc_engine.h"
-#include "clp_context.h"
-#include "tab_context.h"
-#include "rel_context.h"
-#include "pdr_dl_interface.h"
-#include "ddnf.h"
-#include "duality_dl_interface.h"
+#include "muz/fp/dl_register_engine.h"
+#include "muz/bmc/dl_bmc_engine.h"
+#include "muz/clp/clp_context.h"
+#include "muz/tab/tab_context.h"
+#include "muz/rel/rel_context.h"
+#include "muz/pdr/pdr_dl_interface.h"
+#include "muz/ddnf/ddnf.h"
+#include "muz/duality/duality_dl_interface.h"
 
 namespace datalog {
     register_engine::register_engine(): m_ctx(0) {}

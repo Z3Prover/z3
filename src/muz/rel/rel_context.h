@@ -20,12 +20,12 @@ Revision History:
 --*/
 #ifndef REL_CONTEXT_H_
 #define REL_CONTEXT_H_
-#include "ast.h"
-#include "dl_relation_manager.h"
-#include "dl_instruction.h"
-#include "dl_engine_base.h"
-#include "dl_context.h"
-#include "lbool.h"
+#include "ast/ast.h"
+#include "muz/rel/dl_relation_manager.h"
+#include "muz/rel/dl_instruction.h"
+#include "muz/base/dl_engine_base.h"
+#include "muz/base/dl_context.h"
+#include "util/lbool.h"
 
 namespace datalog {
 

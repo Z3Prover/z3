@@ -19,8 +19,8 @@ Notes:
 #ifndef TACTICAL_H_
 #define TACTICAL_H_
 
-#include"tactic.h"
-#include"probe.h"
+#include "tactic/tactic.h"
+#include "tactic/probe.h"
 
 tactic * and_then(unsigned num, tactic * const * ts);
 tactic * and_then(tactic * t1, tactic * t2);

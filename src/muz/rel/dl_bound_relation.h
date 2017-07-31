@@ -19,14 +19,14 @@ Revision History:
 #ifndef DL_BOUND_RELATION_H_
 #define DL_BOUND_RELATION_H_
 
-#include "dl_context.h"
-#include "dl_relation_manager.h"
-#include "dl_base.h"
-#include "uint_set.h"
-#include "dl_vector_relation.h"
-#include "dl_interval_relation.h"
-#include "arith_decl_plugin.h"
-#include "basic_simplifier_plugin.h"
+#include "muz/base/dl_context.h"
+#include "muz/rel/dl_relation_manager.h"
+#include "muz/rel/dl_base.h"
+#include "util/uint_set.h"
+#include "muz/rel/dl_vector_relation.h"
+#include "muz/rel/dl_interval_relation.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/simplifier/basic_simplifier_plugin.h"
 
 namespace datalog {
 

@@ -18,7 +18,7 @@ Notes:
 
 --*/
 
-#include "bind_variables.h"
+#include "muz/base/bind_variables.h"
 
 bind_variables::bind_variables(ast_manager & m):
     m(m),

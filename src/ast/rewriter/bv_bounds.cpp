@@ -14,8 +14,8 @@
 
  Revision History:
 --*/
-#include"bv_bounds.h"
-#include"ast_smt2_pp.h"
+#include "ast/rewriter/bv_bounds.h"
+#include "ast/ast_smt2_pp.h"
 
 bv_bounds::~bv_bounds() {
     reset();

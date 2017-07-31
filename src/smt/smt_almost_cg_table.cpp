@@ -17,7 +17,7 @@ Revision History:
 
 --*/
 
-#include"smt_almost_cg_table.h"
+#include "smt/smt_almost_cg_table.h"
 
 namespace smt {
 

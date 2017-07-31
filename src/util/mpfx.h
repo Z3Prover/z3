@@ -19,13 +19,13 @@ Revision History:
 #ifndef MPFX_H_
 #define MPFX_H_
 
-#include"id_gen.h"
-#include"util.h"
-#include"vector.h"
-#include"z3_exception.h"
-#include"scoped_numeral.h"
-#include"scoped_numeral_vector.h"
-#include"mpn.h"
+#include "util/id_gen.h"
+#include "util/util.h"
+#include "util/vector.h"
+#include "util/z3_exception.h"
+#include "util/scoped_numeral.h"
+#include "util/scoped_numeral_vector.h"
+#include "util/mpn.h"
 
 class mpfx_manager;
 

@@ -11,8 +11,8 @@ Abstract:
 
 --*/
 
-#include "aig_exporter.h"
-#include "dl_context.h"
+#include "muz/rel/aig_exporter.h"
+#include "muz/base/dl_context.h"
 #include <set>
 
 namespace datalog {

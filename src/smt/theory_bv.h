@@ -19,16 +19,16 @@ Revision History:
 #ifndef THEORY_BV_H_
 #define THEORY_BV_H_
 
-#include"smt_theory.h"
-#include"theory_bv_params.h"
-#include"bit_blaster.h"
-#include"trail.h"
-#include"union_find.h"
-#include"simplifier.h"
-#include"bv_simplifier_plugin.h"
-#include"arith_decl_plugin.h"
-#include"arith_simplifier_plugin.h"
-#include"numeral_factory.h"
+#include "smt/smt_theory.h"
+#include "smt/params/theory_bv_params.h"
+#include "ast/rewriter/bit_blaster/bit_blaster.h"
+#include "util/trail.h"
+#include "util/union_find.h"
+#include "ast/simplifier/simplifier.h"
+#include "ast/simplifier/bv_simplifier_plugin.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/simplifier/arith_simplifier_plugin.h"
+#include "smt/proto_model/numeral_factory.h"
 
 namespace smt {
     

@@ -30,11 +30,11 @@ Author:
 Notes:
 
 --*/
-#include"tactical.h"
-#include"bound_propagator.h"
-#include"arith_decl_plugin.h"
-#include"simplify_tactic.h"
-#include"ast_smt2_pp.h"
+#include "tactic/tactical.h"
+#include "tactic/arith/bound_propagator.h"
+#include "ast/arith_decl_plugin.h"
+#include "tactic/core/simplify_tactic.h"
+#include "ast/ast_smt2_pp.h"
 
 class propagate_ineqs_tactic : public tactic {
     struct     imp;

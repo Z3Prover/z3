@@ -16,14 +16,14 @@ Author:
 Revision History:
 
 --*/
-#include"model.h"
-#include"ast_pp.h"
-#include"ast_ll_pp.h"
-#include"var_subst.h"
-#include"array_decl_plugin.h"
-#include"well_sorted.h"
-#include"used_symbols.h"
-#include"model_evaluator.h"
+#include "model/model.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
+#include "ast/rewriter/var_subst.h"
+#include "ast/array_decl_plugin.h"
+#include "ast/well_sorted.h"
+#include "ast/used_symbols.h"
+#include "model/model_evaluator.h"
 
 model::model(ast_manager & m):
     model_core(m) {

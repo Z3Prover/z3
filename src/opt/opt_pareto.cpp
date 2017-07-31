@@ -18,9 +18,9 @@ Notes:
    
 --*/
 
-#include "opt_pareto.h"
-#include "ast_pp.h"
-#include "model_smt2_pp.h"
+#include "opt/opt_pareto.h"
+#include "ast/ast_pp.h"
+#include "model/model_smt2_pp.h"
 
 namespace opt {
 

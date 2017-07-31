@@ -17,7 +17,7 @@ Author:
 #ifndef DISTRIBUTE_FORALL_TACTIC_H_
 #define DISTRIBUTE_FORALL_TACTIC_H_
 
-#include"params.h"
+#include "util/params.h"
 class ast_manager;
 class tactic;
 

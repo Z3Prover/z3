@@ -19,12 +19,12 @@ Revision History:
 #ifndef THEORY_DENSE_DIFF_LOGIC_DEF_H_
 #define THEORY_DENSE_DIFF_LOGIC_DEF_H_
 
-#include"smt_context.h"
-#include"theory_dense_diff_logic.h"
-#include"ast_pp.h"
-#include"smt_model_generator.h"
-#include"simplex.h"
-#include"simplex_def.h"
+#include "smt/smt_context.h"
+#include "smt/theory_dense_diff_logic.h"
+#include "ast/ast_pp.h"
+#include "smt/smt_model_generator.h"
+#include "math/simplex/simplex.h"
+#include "math/simplex/simplex_def.h"
 
 namespace smt {
 

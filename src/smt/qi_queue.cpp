@@ -16,13 +16,13 @@ Author:
 Revision History:
 
 --*/
-#include"smt_context.h"
-#include"qi_queue.h"
-#include"warning.h"
-#include"ast_pp.h"
-#include"ast_ll_pp.h"
-#include"var_subst.h"
-#include"stats.h"
+#include "smt/smt_context.h"
+#include "smt/qi_queue.h"
+#include "util/warning.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
+#include "ast/rewriter/var_subst.h"
+#include "util/stats.h"
 
 namespace smt {
 

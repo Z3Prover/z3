@@ -18,8 +18,8 @@ Notes:
 #ifndef OPT_CMDS_H_
 #define OPT_CMDS_H_
 
-#include "ast.h"
-#include "opt_context.h"
+#include "ast/ast.h"
+#include "opt/opt_context.h"
 
 class cmd_context;
 

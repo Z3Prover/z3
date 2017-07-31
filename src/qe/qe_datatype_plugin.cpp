@@ -99,13 +99,13 @@ Copyright (c) 2015 Microsoft Corporation
 // maintain set of equations and disequations with x.
 //
 
-#include "qe.h"
-#include "datatype_decl_plugin.h"
-#include "expr_safe_replace.h"
-#include "obj_pair_hashtable.h"
-#include "for_each_expr.h"
-#include "ast_pp.h"
-#include "ast_ll_pp.h"
+#include "qe/qe.h"
+#include "ast/datatype_decl_plugin.h"
+#include "ast/rewriter/expr_safe_replace.h"
+#include "util/obj_pair_hashtable.h"
+#include "ast/for_each_expr.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
 
 namespace qe {
 

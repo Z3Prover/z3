@@ -17,12 +17,12 @@ Author:
 Revision History:
 
 --*/
-#include"tactical.h"
-#include"propagate_values_tactic.h"
-#include"th_rewriter.h"
-#include"ast_smt2_pp.h"
-#include"expr_substitution.h"
-#include"goal_shared_occs.h"
+#include "tactic/tactical.h"
+#include "tactic/core/propagate_values_tactic.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "ast/ast_smt2_pp.h"
+#include "ast/expr_substitution.h"
+#include "tactic/goal_shared_occs.h"
 
 class propagate_values_tactic : public tactic {
     struct     imp {

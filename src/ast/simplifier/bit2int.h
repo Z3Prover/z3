@@ -19,11 +19,11 @@ Revision History:
 #ifndef BIT2INT_H_
 #define BIT2INT_H_
 
-#include"bv_decl_plugin.h"
-#include"arith_decl_plugin.h"
-#include"act_cache.h"
-#include"basic_simplifier_plugin.h"
-#include"bv_simplifier_plugin.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/act_cache.h"
+#include "ast/simplifier/basic_simplifier_plugin.h"
+#include "ast/simplifier/bv_simplifier_plugin.h"
 
 
 class bit2int {

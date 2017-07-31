@@ -19,9 +19,9 @@ Revision History:
 #ifndef TRAIL_H_
 #define TRAIL_H_
 
-#include"obj_hashtable.h"
-#include"region.h"
-#include"obj_ref.h"
+#include "util/obj_hashtable.h"
+#include "util/region.h"
+#include "util/obj_ref.h"
 
 template<typename Ctx>
 class trail {

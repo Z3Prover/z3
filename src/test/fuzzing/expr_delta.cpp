@@ -4,8 +4,8 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
-#include "expr_delta.h"
-#include "ast_pp.h"
+#include "test/fuzzing/expr_delta.h"
+#include "ast/ast_pp.h"
 
 expr_delta::expr_delta(ast_manager& m) : m_manager(m), m_exprs(m) {}
 

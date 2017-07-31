@@ -17,7 +17,7 @@ Revision History:
 
 --*/
 #include<sstream>
-#include"inf_int_rational.h"
+#include "util/inf_int_rational.h"
 
 inf_int_rational inf_int_rational::m_zero;
 inf_int_rational inf_int_rational::m_one;

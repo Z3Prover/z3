@@ -19,8 +19,8 @@ Revision History:
 #ifndef NLSAT_ASSIGNMENT_H_
 #define NLSAT_ASSIGNMENT_H_
 
-#include"nlsat_types.h"
-#include"algebraic_numbers.h"
+#include "nlsat/nlsat_types.h"
+#include "math/polynomial/algebraic_numbers.h"
 
 namespace nlsat {
 

@@ -17,8 +17,8 @@ Author:
 Revision History:
 
 --*/
-#include"tactical.h"
-#include"cofactor_elim_term_ite.h"
+#include "tactic/tactical.h"
+#include "tactic/core/cofactor_elim_term_ite.h"
 
 /**
    \brief Wrapper for applying cofactor_elim_term_ite in an assertion set.

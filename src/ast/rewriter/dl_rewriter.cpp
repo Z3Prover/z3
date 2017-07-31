@@ -17,7 +17,7 @@ Revision History:
 
 --*/
 
-#include"dl_rewriter.h"
+#include "ast/rewriter/dl_rewriter.h"
     
     br_status dl_rewriter::mk_app_core(
         func_decl * f, unsigned num_args, expr* const* args, expr_ref& result) {

@@ -19,14 +19,14 @@ Notes:
 #ifndef SLS_ENGINE_H_
 #define SLS_ENGINE_H_
 
-#include"stopwatch.h"
-#include"lbool.h"
-#include"model_converter.h"
-#include"goal.h"
+#include "util/stopwatch.h"
+#include "util/lbool.h"
+#include "tactic/model_converter.h"
+#include "tactic/goal.h"
 
-#include"sls_tracker.h"
-#include"sls_evaluator.h"
-#include"statistics.h"
+#include "tactic/sls/sls_tracker.h"
+#include "tactic/sls/sls_evaluator.h"
+#include "util/statistics.h"
 
 class sls_engine {
 public:

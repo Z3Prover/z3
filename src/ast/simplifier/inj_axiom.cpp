@@ -16,11 +16,11 @@ Author:
 Revision History:
 
 --*/
-#include"inj_axiom.h"
-#include"ast_pp.h"
-#include"ast_ll_pp.h"
-#include"has_free_vars.h"
-#include"well_sorted.h"
+#include "ast/simplifier/inj_axiom.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
+#include "ast/has_free_vars.h"
+#include "ast/well_sorted.h"
 
 /**
    \brief Little HACK for simplifying injectivity axioms

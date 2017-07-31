@@ -16,16 +16,16 @@ Author:
 Notes:
 
 --*/
-#include"solve_eqs_tactic.h"
-#include"simplify_tactic.h"
-#include"propagate_values_tactic.h"
-#include"bit_blaster_tactic.h"
-#include"elim_uncnstr_tactic.h"
-#include"max_bv_sharing_tactic.h"
-#include"bv_size_reduction_tactic.h"
-#include"ctx_simplify_tactic.h"
-#include"sat_tactic.h"
-#include"smt_tactic.h"
+#include "tactic/core/solve_eqs_tactic.h"
+#include "tactic/core/simplify_tactic.h"
+#include "tactic/core/propagate_values_tactic.h"
+#include "tactic/bv/bit_blaster_tactic.h"
+#include "tactic/core/elim_uncnstr_tactic.h"
+#include "tactic/bv/max_bv_sharing_tactic.h"
+#include "tactic/bv/bv_size_reduction_tactic.h"
+#include "tactic/core/ctx_simplify_tactic.h"
+#include "sat/tactic/sat_tactic.h"
+#include "smt/tactic/smt_tactic.h"
 
 tactic * mk_qfaufbv_tactic(ast_manager & m, params_ref const & p) {
     params_ref main_p;

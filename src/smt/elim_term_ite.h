@@ -19,8 +19,8 @@ Revision History:
 #ifndef ELIM_TERM_ITE_H_
 #define ELIM_TERM_ITE_H_
 
-#include"simplifier.h"
-#include"defined_names.h"
+#include "ast/simplifier/simplifier.h"
+#include "ast/normal_forms/defined_names.h"
 
 class elim_term_ite : public simplifier {
     defined_names &    m_defined_names;

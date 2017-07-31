@@ -19,8 +19,8 @@ Revision History:
 #ifndef POOL_H_
 #define POOL_H_
 
-#include"util.h"
-#include"vector.h"
+#include "util/util.h"
+#include "util/vector.h"
 
 template<typename T>
 class pool {

@@ -16,10 +16,10 @@ Author:
 Revision History:
 
 --*/
-#include"pull_ite_tree.h"
-#include"recurse_expr_def.h"
-#include"for_each_expr.h"
-#include"ast_pp.h"
+#include "ast/simplifier/pull_ite_tree.h"
+#include "ast/recurse_expr_def.h"
+#include "ast/for_each_expr.h"
+#include "ast/ast_pp.h"
 
 pull_ite_tree::pull_ite_tree(ast_manager & m, simplifier & s):
     m_manager(m),

@@ -16,10 +16,10 @@ Author:
 Notes:
 
 --*/
-#include"bv_rewriter.h"
+#include "ast/rewriter/bv_rewriter.h"
 #include"bv_rewriter_params.hpp"
-#include"poly_rewriter_def.h"
-#include"ast_smt2_pp.h"
+#include "ast/rewriter/poly_rewriter_def.h"
+#include "ast/ast_smt2_pp.h"
 
 
 void bv_rewriter::updt_local_params(params_ref const & _p) {
@@ -2314,7 +2314,7 @@ void bv_rewriter::mk_t1_add_t2_eq_c(expr * t1, expr * t2, expr * c, expr_ref & r
         result = m().mk_eq(t1, m_util.mk_bv_sub(c, t2));
 }
 
-#include "ast_pp.h"
+#include "ast/ast_pp.h"
 
 bool bv_rewriter::isolate_term(expr* lhs, expr* rhs, expr_ref& result) {
     if (!m_util.is_numeral(lhs) || !is_add(rhs)) {

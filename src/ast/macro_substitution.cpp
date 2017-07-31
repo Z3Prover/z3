@@ -18,8 +18,8 @@ Author:
 Notes:
 
 --*/
-#include"macro_substitution.h"
-#include"ref_util.h"
+#include "ast/macro_substitution.h"
+#include "util/ref_util.h"
 
 typedef obj_map<func_decl, proof*>           func_decl2proof;
 typedef obj_map<func_decl, expr_dependency*> func_decl2expr_dependency;

@@ -19,12 +19,12 @@ Revision History:
 #ifndef DIFF_LOGIC_H_
 #define DIFF_LOGIC_H_
 
-#include"vector.h"
-#include"heap.h"
-#include"statistics.h"
-#include"trace.h"
-#include"warning.h"
-#include"uint_set.h"
+#include "util/vector.h"
+#include "util/heap.h"
+#include "util/statistics.h"
+#include "util/trace.h"
+#include "util/warning.h"
+#include "util/uint_set.h"
 #include<deque>
 
 typedef int dl_var;

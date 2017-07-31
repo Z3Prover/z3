@@ -21,15 +21,15 @@ Revision History:
 #ifndef QE_H_
 #define QE_H_
 
-#include "ast.h"
-#include "smt_params.h"
-#include "statistics.h"
-#include "lbool.h"
-#include "expr_functors.h"
-#include "simplifier.h"
-#include "rewriter.h"
-#include "model.h"
-#include "params.h"
+#include "ast/ast.h"
+#include "smt/params/smt_params.h"
+#include "util/statistics.h"
+#include "util/lbool.h"
+#include "ast/expr_functors.h"
+#include "ast/simplifier/simplifier.h"
+#include "ast/rewriter/rewriter.h"
+#include "model/model.h"
+#include "util/params.h"
 
 namespace qe {
 

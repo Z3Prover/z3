@@ -5,14 +5,14 @@ Copyright (c) 2015 Microsoft Corporation
 --*/
 
 
-#include "ast.h"
-#include "smt_params.h"
-#include "smt_context.h"
-#include "arith_decl_plugin.h"
-#include "bv_decl_plugin.h"
-#include "array_decl_plugin.h"
-#include "model_v2_pp.h"
-#include "reg_decl_plugins.h"
+#include "ast/ast.h"
+#include "smt/params/smt_params.h"
+#include "smt/smt_context.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/array_decl_plugin.h"
+#include "model/model_v2_pp.h"
+#include "ast/reg_decl_plugins.h"
 
 void tst_model_retrieval()
 {          

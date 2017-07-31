@@ -17,10 +17,10 @@ Author:
 Revision History:
 
 --*/
-#include"substitution.h"
-#include"ast_pp.h"
-#include"ast_ll_pp.h"
-#include"rewriter.h"
+#include "ast/substitution/substitution.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
+#include "ast/rewriter/rewriter.h"
 
 substitution::substitution(ast_manager & m):
     m_manager(m),

@@ -17,7 +17,7 @@ Revision History:
 
 --*/
 
-#include"num_occurs.h"
+#include "ast/num_occurs.h"
 
 void num_occurs::process(expr * t, expr_fast_mark1 & visited) {
     ptr_buffer<expr, 128> stack;

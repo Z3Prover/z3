@@ -17,7 +17,7 @@ Author:
 #ifndef BASIC_SIMPLIFIER_PLUGIN_H_
 #define BASIC_SIMPLIFIER_PLUGIN_H_
 
-#include"simplifier_plugin.h"
+#include "ast/simplifier/simplifier_plugin.h"
 
 class bool_rewriter;
 

@@ -20,9 +20,9 @@ Revision History:
 #define MPN_H_
 
 #include<ostream>
-#include"util.h"
-#include"buffer.h"
-#include"z3_omp.h"
+#include "util/util.h"
+#include "util/buffer.h"
+#include "util/z3_omp.h"
 
 typedef unsigned int mpn_digit;
 

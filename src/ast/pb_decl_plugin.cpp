@@ -17,8 +17,8 @@ Revision History:
 
 --*/
 
-#include "pb_decl_plugin.h"
-#include "ast_util.h"
+#include "ast/pb_decl_plugin.h"
+#include "ast/ast_util.h"
 
 pb_decl_plugin::pb_decl_plugin():
     m_at_most_sym("at-most"),

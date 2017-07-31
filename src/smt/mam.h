@@ -19,8 +19,8 @@ Revision History:
 #ifndef MAM_H_
 #define MAM_H_
 
-#include"ast.h"
-#include"smt_types.h"
+#include "ast/ast.h"
+#include "smt/smt_types.h"
 
 namespace smt {
     /**

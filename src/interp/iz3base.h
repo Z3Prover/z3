@@ -21,8 +21,8 @@
 #ifndef IZ3BASE_H
 #define IZ3BASE_H
 
-#include "iz3mgr.h"
-#include "iz3scopes.h"
+#include "interp/iz3mgr.h"
+#include "interp/iz3scopes.h"
 
 namespace hash_space {
     template <>

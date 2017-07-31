@@ -17,8 +17,8 @@ Author:
 Notes:
 
 --*/
-#include"tactical.h"
-#include"split_clause_tactic.h"
+#include "tactic/tactical.h"
+#include "tactic/core/split_clause_tactic.h"
 
 class split_clause_tactic : public tactic {
     bool          m_largest_clause;

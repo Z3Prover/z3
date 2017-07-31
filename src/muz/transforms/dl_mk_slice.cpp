@@ -50,12 +50,12 @@ Revision History:
 
 --*/
 
-#include "dl_mk_slice.h"
-#include "ast_pp.h"
-#include "ast_util.h"
-#include "expr_functors.h"
-#include "dl_mk_rule_inliner.h"
-#include "model_smt2_pp.h"
+#include "muz/transforms/dl_mk_slice.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_util.h"
+#include "ast/expr_functors.h"
+#include "muz/transforms/dl_mk_rule_inliner.h"
+#include "model/model_smt2_pp.h"
 
 namespace datalog {
 

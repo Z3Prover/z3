@@ -16,7 +16,7 @@ Author:
 Revision History:
 
 --*/
-#include"bv_simplifier_params.h"
+#include "ast/simplifier/bv_simplifier_params.h"
 #include"bv_simplifier_params_helper.hpp"
 #include"bv_rewriter_params.hpp"
 

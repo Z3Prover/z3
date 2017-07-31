@@ -19,7 +19,7 @@ Revision History:
 #ifndef SCOPED_NUMERAL_VECTOR_H_
 #define SCOPED_NUMERAL_VECTOR_H_
 
-#include"vector.h"
+#include "util/vector.h"
 
 template<typename Manager>
 class _scoped_numeral_vector : public svector<typename Manager::numeral> {

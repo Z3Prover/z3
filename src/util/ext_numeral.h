@@ -21,7 +21,7 @@ Revision History:
 #define EXT_NUMERAL_H_
 
 #include<iostream>
-#include"debug.h"
+#include "util/debug.h"
     
 enum ext_numeral_kind { EN_MINUS_INFINITY, EN_NUMERAL, EN_PLUS_INFINITY };
 

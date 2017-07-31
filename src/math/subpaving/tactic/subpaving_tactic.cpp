@@ -16,16 +16,16 @@ Author:
 Revision History:
 
 --*/
-#include"tactical.h"
-#include"simplify_tactic.h"
-#include"expr2subpaving.h"
-#include"expr2var.h"
-#include"arith_decl_plugin.h"
-#include"ast_smt2_pp.h"
-#include"hwf.h"
-#include"mpff.h"
-#include"mpfx.h"
-#include"f2n.h"
+#include "tactic/tactical.h"
+#include "tactic/core/simplify_tactic.h"
+#include "math/subpaving/tactic/expr2subpaving.h"
+#include "ast/expr2var.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/ast_smt2_pp.h"
+#include "util/hwf.h"
+#include "util/mpff.h"
+#include "util/mpfx.h"
+#include "util/f2n.h"
 
 class subpaving_tactic : public tactic {
 

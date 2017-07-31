@@ -20,7 +20,7 @@ Revision History:
 #define NAT_SET_H_
 
 #include<limits.h>
-#include"vector.h"
+#include "util/vector.h"
 
 class nat_set {
     unsigned          m_curr_timestamp;

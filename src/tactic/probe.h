@@ -24,7 +24,7 @@ Revision History:
 #ifndef PROBE_H_
 #define PROBE_H_
 
-#include"goal.h"
+#include "tactic/goal.h"
 
 class probe {
 public:

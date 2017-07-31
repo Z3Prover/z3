@@ -19,7 +19,7 @@ Revision History:
 #ifndef DL_ENGINE_BASE_H_
 #define DL_ENGINE_BASE_H_
 
-#include "model.h"
+#include "model/model.h"
 
 namespace datalog {
     enum DL_ENGINE {

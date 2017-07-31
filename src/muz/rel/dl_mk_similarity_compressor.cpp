@@ -19,8 +19,8 @@ Revision History:
 
 #include<utility>
 #include<sstream>
-#include"dl_mk_similarity_compressor.h"
-#include"dl_relation_manager.h"
+#include "muz/rel/dl_mk_similarity_compressor.h"
+#include "muz/rel/dl_relation_manager.h"
 
 namespace datalog {
 

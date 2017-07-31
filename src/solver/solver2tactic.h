@@ -19,8 +19,8 @@ Notes:
 #ifndef SOLVER2TACTIC_H_
 #define SOLVER2TACTIC_H_
 
-#include "tactic.h"
-#include "filter_model_converter.h"
+#include "tactic/tactic.h"
+#include "tactic/filter_model_converter.h"
 class solver;
 
 tactic * mk_solver2tactic(solver* s);

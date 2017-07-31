@@ -18,12 +18,12 @@ Revision History:
 --*/
 
 #include<sstream>
-#include"for_each_expr.h"
-#include"well_sorted.h"
-#include"ast_ll_pp.h"
-#include"ast_pp.h"
-#include"warning.h"
-#include"ast_smt2_pp.h"
+#include "ast/for_each_expr.h"
+#include "ast/well_sorted.h"
+#include "ast/ast_ll_pp.h"
+#include "ast/ast_pp.h"
+#include "util/warning.h"
+#include "ast/ast_smt2_pp.h"
 
 struct well_sorted_proc {
     ast_manager & m_manager;

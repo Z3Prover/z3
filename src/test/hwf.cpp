@@ -16,9 +16,9 @@ Author:
 Revision History:
 
 --*/
-#include"hwf.h"
-#include"f2n.h"
-#include"rational.h"
+#include "util/hwf.h"
+#include "util/f2n.h"
+#include "util/rational.h"
 
 static void bug_set_double() {
     hwf_manager m;

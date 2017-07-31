@@ -17,13 +17,13 @@ Revision History:
 
 --*/
 
-#include "clp_context.h"
-#include "dl_context.h"
-#include "unifier.h"
-#include "var_subst.h"
-#include "substitution.h"
-#include "smt_kernel.h"
-#include "dl_transforms.h"
+#include "muz/clp/clp_context.h"
+#include "muz/base/dl_context.h"
+#include "ast/substitution/unifier.h"
+#include "ast/rewriter/var_subst.h"
+#include "ast/substitution/substitution.h"
+#include "smt/smt_kernel.h"
+#include "muz/transforms/dl_transforms.h"
 
 namespace datalog {
 

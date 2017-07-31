@@ -4,20 +4,20 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
-#include "ast.h"
-#include "smt_params.h"
-#include "qe.h"
-#include "arith_decl_plugin.h"
-#include "ast_pp.h"
-#include "lbool.h"
+#include "ast/ast.h"
+#include "smt/params/smt_params.h"
+#include "qe/qe.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/ast_pp.h"
+#include "util/lbool.h"
 #include <sstream>
-#include "expr_replacer.h"
-#include "smt_kernel.h"
-#include "reg_decl_plugins.h"
-#include "expr_abstract.h"
-#include "model_smt2_pp.h"
-#include "smt2parser.h"
-#include "var_subst.h"
+#include "ast/rewriter/expr_replacer.h"
+#include "smt/smt_kernel.h"
+#include "ast/reg_decl_plugins.h"
+#include "ast/expr_abstract.h"
+#include "model/model_smt2_pp.h"
+#include "parsers/smt2/smt2parser.h"
+#include "ast/rewriter/var_subst.h"
 
 static void validate_quant_solution(ast_manager& m, expr* fml, expr* guard, qe::def_vector const& defs) {
     // verify:

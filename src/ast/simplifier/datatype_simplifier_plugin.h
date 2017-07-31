@@ -17,8 +17,8 @@ Author:
 #ifndef DATATYPE_SIMPLIFIER_PLUGIN_H_
 #define DATATYPE_SIMPLIFIER_PLUGIN_H_
 
-#include"basic_simplifier_plugin.h"
-#include"datatype_decl_plugin.h"
+#include "ast/simplifier/basic_simplifier_plugin.h"
+#include "ast/datatype_decl_plugin.h"
 
 /**
    \brief Simplifier for the arith family.

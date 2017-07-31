@@ -16,13 +16,13 @@ Author:
 Revision History:
 
 --*/
-#include"smt_context.h"
-#include"expr_stat.h"
-#include"ast_pp.h"
-#include"ast_ll_pp.h"
-#include"ast_smt2_pp.h"
-#include"smt_model_finder.h"
-#include"for_each_expr.h"
+#include "smt/smt_context.h"
+#include "ast/expr_stat.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
+#include "ast/ast_smt2_pp.h"
+#include "smt/smt_model_finder.h"
+#include "ast/for_each_expr.h"
 
 namespace smt {
 

@@ -16,7 +16,7 @@ Author:
 Revision History:
 
 --*/
-#include"cost_parser.h"
+#include "parsers/util/cost_parser.h"
 
 cost_parser::cost_parser(ast_manager & m):
     simple_parser(m),

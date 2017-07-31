@@ -20,8 +20,8 @@ Notes:
 #ifndef EXTENSION_MODEL_CONVERTER_H_
 #define EXTENSION_MODEL_CONVERTER_H_
 
-#include"ast.h"
-#include"model_converter.h"
+#include "ast/ast.h"
+#include "tactic/model_converter.h"
 
 
 class extension_model_converter : public model_converter {

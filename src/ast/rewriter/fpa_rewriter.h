@@ -19,11 +19,11 @@ Notes:
 #ifndef FLOAT_REWRITER_H_
 #define FLOAT_REWRITER_H_
 
-#include"ast.h"
-#include"rewriter.h"
-#include"params.h"
-#include"fpa_decl_plugin.h"
-#include"mpf.h"
+#include "ast/ast.h"
+#include "ast/rewriter/rewriter.h"
+#include "util/params.h"
+#include "ast/fpa_decl_plugin.h"
+#include "util/mpf.h"
 
 class fpa_rewriter {
     fpa_util      m_util;

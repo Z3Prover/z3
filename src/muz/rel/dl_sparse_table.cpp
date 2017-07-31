@@ -18,9 +18,9 @@ Revision History:
 --*/
 
 #include<utility>
-#include"dl_context.h"
-#include"dl_util.h"
-#include"dl_sparse_table.h"
+#include "muz/base/dl_context.h"
+#include "muz/base/dl_util.h"
+#include "muz/rel/dl_sparse_table.h"
 
 namespace datalog {
 

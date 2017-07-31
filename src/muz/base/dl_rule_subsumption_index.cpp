@@ -20,9 +20,9 @@ Revision History:
 
 
 #include <sstream>
-#include "ast_pp.h"
+#include "ast/ast_pp.h"
 
-#include "dl_rule_subsumption_index.h"
+#include "muz/base/dl_rule_subsumption_index.h"
 
 namespace datalog {
   

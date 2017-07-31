@@ -19,9 +19,9 @@ Revision History:
 #ifndef THEORY_ARRAY_BASE_H_
 #define THEORY_ARRAY_BASE_H_
 
-#include"smt_theory.h"
-#include"array_decl_plugin.h"
-#include"array_factory.h"
+#include "smt/smt_theory.h"
+#include "ast/array_decl_plugin.h"
+#include "smt/proto_model/array_factory.h"
 
 namespace smt {
 

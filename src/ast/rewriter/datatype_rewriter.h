@@ -19,8 +19,8 @@ Notes:
 #ifndef DATATYPE_REWRITER_H_
 #define DATATYPE_REWRITER_H_
 
-#include"datatype_decl_plugin.h"
-#include"rewriter_types.h"
+#include "ast/datatype_decl_plugin.h"
+#include "ast/rewriter/rewriter_types.h"
 
 class datatype_rewriter {
     datatype_util    m_util;

@@ -19,16 +19,16 @@ Revision History:
 
 #include<sstream>
 #include<limits>
-#include"arith_decl_plugin.h"
-#include"bv_decl_plugin.h"
-#include"dl_context.h"
-#include"for_each_expr.h"
-#include"ast_smt_pp.h"
-#include"ast_smt2_pp.h"
-#include"datatype_decl_plugin.h"
-#include"scoped_proof.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/bv_decl_plugin.h"
+#include "muz/base/dl_context.h"
+#include "ast/for_each_expr.h"
+#include "ast/ast_smt_pp.h"
+#include "ast/ast_smt2_pp.h"
+#include "ast/datatype_decl_plugin.h"
+#include "ast/scoped_proof.h"
 #include"fixedpoint_params.hpp"
-#include"ast_pp_util.h"
+#include "ast/ast_pp_util.h"
 
 
 namespace datalog {

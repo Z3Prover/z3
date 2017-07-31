@@ -15,9 +15,9 @@ Author:
 
 Revision History:
 --*/
-#include"model_v2_pp.h"
-#include"model_core.h"
-#include"ast_pp.h"
+#include "model/model_v2_pp.h"
+#include "model/model_core.h"
+#include "ast/ast_pp.h"
 
 static void display_function(std::ostream & out, model_core const & md, func_decl * f, bool partial) {
     ast_manager & m = md.get_manager();

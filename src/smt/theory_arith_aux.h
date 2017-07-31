@@ -19,11 +19,11 @@ Revision History:
 #ifndef THEORY_ARITH_AUX_H_
 #define THEORY_ARITH_AUX_H_
 
-#include"inf_eps_rational.h"
-#include"theory_arith.h"
-#include"smt_farkas_util.h"
-#include"th_rewriter.h"
-#include"filter_model_converter.h"
+#include "util/inf_eps_rational.h"
+#include "smt/theory_arith.h"
+#include "smt/smt_farkas_util.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "tactic/filter_model_converter.h"
 
 namespace smt {
 

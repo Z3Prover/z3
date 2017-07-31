@@ -18,13 +18,13 @@ Revision History:
 
 --*/
 
-#include "value_factory.h"
-#include "smt_context.h"
-#include "smt_model_generator.h"
-#include "theory_seq.h"
-#include "ast_trail.h"
-#include "theory_arith.h"
-#include "smt_kernel.h"
+#include "smt/proto_model/value_factory.h"
+#include "smt/smt_context.h"
+#include "smt/smt_model_generator.h"
+#include "smt/theory_seq.h"
+#include "ast/ast_trail.h"
+#include "smt/theory_arith.h"
+#include "smt/smt_kernel.h"
 
 using namespace smt;
 

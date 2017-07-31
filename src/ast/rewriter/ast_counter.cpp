@@ -17,7 +17,7 @@ Revision History:
 
 --*/
 
-#include "ast_counter.h"
+#include "ast/rewriter/ast_counter.h"
 
 void counter::update(unsigned el, int delta) {
     int & counter = get(el);

@@ -18,10 +18,10 @@ Author:
 #ifndef DATAFLOW_H_
 #define DATAFLOW_H_
 
-#include "dl_rule.h"
-#include "dl_rule_set.h"
-#include "hashtable.h"
-#include "vector.h"
+#include "muz/base/dl_rule.h"
+#include "muz/base/dl_rule_set.h"
+#include "util/hashtable.h"
+#include "util/vector.h"
 
 namespace datalog {
     template <typename Fact> class fact_reader;

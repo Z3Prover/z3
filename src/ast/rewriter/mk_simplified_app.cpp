@@ -16,13 +16,13 @@ Author:
 Notes:
 
 --*/
-#include"mk_simplified_app.h"
-#include"bool_rewriter.h"
-#include"arith_rewriter.h"
-#include"bv_rewriter.h"
-#include"datatype_rewriter.h"
-#include"array_rewriter.h"
-#include"fpa_rewriter.h"
+#include "ast/rewriter/mk_simplified_app.h"
+#include "ast/rewriter/bool_rewriter.h"
+#include "ast/rewriter/arith_rewriter.h"
+#include "ast/rewriter/bv_rewriter.h"
+#include "ast/rewriter/datatype_rewriter.h"
+#include "ast/rewriter/array_rewriter.h"
+#include "ast/rewriter/fpa_rewriter.h"
 
 struct mk_simplified_app::imp {
     ast_manager &         m;

@@ -19,10 +19,10 @@ Revision History:
 
 --*/
 
-#include "bit2int.h"
-#include "ast_pp.h"
-#include "ast_ll_pp.h"
-#include "for_each_ast.h"
+#include "ast/simplifier/bit2int.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
+#include "ast/for_each_ast.h"
 
 #define CHECK(_x_) if (!(_x_)) { UNREACHABLE(); }
 

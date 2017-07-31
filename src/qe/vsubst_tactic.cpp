@@ -40,12 +40,12 @@ Notes:
         a*a + b*b + c < 0  => c < 0
 
 --*/
-#include"tactic.h"
-#include"qe.h"
-#include"arith_decl_plugin.h"
-#include"for_each_expr.h"
-#include"extension_model_converter.h"
-#include"ast_smt2_pp.h"
+#include "tactic/tactic.h"
+#include "qe/qe.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/for_each_expr.h"
+#include "tactic/extension_model_converter.h"
+#include "ast/ast_smt2_pp.h"
 
 class vsubst_tactic : public tactic {
     params_ref m_params;

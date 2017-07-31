@@ -17,10 +17,10 @@ Notes:
 
 --*/
 #include<iomanip>
-#include"tactic.h"
-#include"probe.h"
-#include"stopwatch.h"
-#include"model_v2_pp.h"
+#include "tactic/tactic.h"
+#include "tactic/probe.h"
+#include "util/stopwatch.h"
+#include "model/model_v2_pp.h"
 
 
 struct tactic_report::imp {

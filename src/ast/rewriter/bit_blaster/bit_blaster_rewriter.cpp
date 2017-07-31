@@ -16,13 +16,13 @@ Author:
 Notes:
 
 --*/
-#include"bit_blaster_rewriter.h"
-#include"bv_decl_plugin.h"
-#include"bit_blaster_tpl_def.h"
-#include"rewriter_def.h"
-#include"bool_rewriter.h"
-#include"ref_util.h"
-#include"ast_smt2_pp.h"
+#include "ast/rewriter/bit_blaster/bit_blaster_rewriter.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/rewriter/bit_blaster/bit_blaster_tpl_def.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "ast/rewriter/bool_rewriter.h"
+#include "util/ref_util.h"
+#include "ast/ast_smt2_pp.h"
 
 struct blaster_cfg {
     typedef rational numeral;

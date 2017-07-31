@@ -14,9 +14,9 @@ Author:
     Leonardo (leonardo) 2008-01-07
     
 --*/
-#include"basic_simplifier_plugin.h"
-#include"ast_ll_pp.h"
-#include"bool_rewriter.h"
+#include "ast/simplifier/basic_simplifier_plugin.h"
+#include "ast/ast_ll_pp.h"
+#include "ast/rewriter/bool_rewriter.h"
 
 basic_simplifier_plugin::basic_simplifier_plugin(ast_manager & m):
     simplifier_plugin(symbol("basic"), m), 

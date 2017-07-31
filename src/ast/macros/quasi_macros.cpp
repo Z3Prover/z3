@@ -16,11 +16,11 @@ Author:
 Revision History:
 
 --*/
-#include"quasi_macros.h"
-#include"for_each_expr.h"
-#include"ast_pp.h"
-#include"uint_set.h"
-#include"var_subst.h"
+#include "ast/macros/quasi_macros.h"
+#include "ast/for_each_expr.h"
+#include "ast/ast_pp.h"
+#include "util/uint_set.h"
+#include "ast/rewriter/var_subst.h"
 
 quasi_macros::quasi_macros(ast_manager & m, macro_manager & mm, simplifier & s) :
   m_manager(m),

@@ -16,7 +16,7 @@ Author:
 Revision History:
 
 --*/
-#include "mpbq.h"
+#include "util/mpbq.h"
 
 static void tst1() {
     unsynch_mpz_manager zm;

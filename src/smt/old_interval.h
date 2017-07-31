@@ -19,8 +19,8 @@ Revision History:
 #ifndef OLD_INTERVAL_H_
 #define OLD_INTERVAL_H_
 
-#include"rational.h"
-#include"dependency.h"
+#include "util/rational.h"
+#include "util/dependency.h"
 
 class ext_numeral {
 public:

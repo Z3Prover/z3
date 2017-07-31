@@ -19,11 +19,11 @@ Notes:
 #ifndef BV_REWRITER_H_
 #define BV_REWRITER_H_
 
-#include"poly_rewriter.h"
-#include"bv_decl_plugin.h"
-#include"arith_decl_plugin.h"
-#include"mk_extract_proc.h"
-#include"bv_trailing.h"
+#include "ast/rewriter/poly_rewriter.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/rewriter/mk_extract_proc.h"
+#include "ast/rewriter/bv_trailing.h"
 
 class bv_rewriter_core {
 protected:

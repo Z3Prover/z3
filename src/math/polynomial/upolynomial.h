@@ -24,12 +24,12 @@ Notes:
 #ifndef UPOLYNOMIAL_H_
 #define UPOLYNOMIAL_H_
 
-#include"mpzzp.h"
-#include"rational.h"
-#include"polynomial.h"
-#include"z3_exception.h"
-#include"mpbq.h"
-#include"rlimit.h"
+#include "util/mpzzp.h"
+#include "util/rational.h"
+#include "math/polynomial/polynomial.h"
+#include "util/z3_exception.h"
+#include "util/mpbq.h"
+#include "util/rlimit.h"
 #define FACTOR_VERBOSE_LVL 1000
 
 namespace upolynomial {

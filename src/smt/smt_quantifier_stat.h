@@ -19,10 +19,10 @@ Revision History:
 #ifndef SMT_QUANTIFIER_STAT_H_
 #define SMT_QUANTIFIER_STAT_H_
 
-#include"ast.h"
-#include"obj_hashtable.h"
-#include"approx_nat.h"
-#include"region.h"
+#include "ast/ast.h"
+#include "util/obj_hashtable.h"
+#include "util/approx_nat.h"
+#include "util/region.h"
 
 namespace smt {
     

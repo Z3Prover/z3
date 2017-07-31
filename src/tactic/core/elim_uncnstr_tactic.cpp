@@ -16,18 +16,18 @@ Author:
 Notes:
 
 --*/
-#include"tactical.h"
-#include"extension_model_converter.h"
-#include"filter_model_converter.h"
-#include"rewriter_def.h"
-#include"arith_decl_plugin.h"
-#include"bv_decl_plugin.h"
-#include"array_decl_plugin.h"
-#include"datatype_decl_plugin.h"
-#include"collect_occs.h"
-#include"cooperate.h"
-#include"ast_smt2_pp.h"
-#include"ast_ll_pp.h"
+#include "tactic/tactical.h"
+#include "tactic/extension_model_converter.h"
+#include "tactic/filter_model_converter.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/array_decl_plugin.h"
+#include "ast/datatype_decl_plugin.h"
+#include "tactic/core/collect_occs.h"
+#include "util/cooperate.h"
+#include "ast/ast_smt2_pp.h"
+#include "ast/ast_ll_pp.h"
 
 class elim_uncnstr_tactic : public tactic {
 

@@ -16,10 +16,10 @@ Author:
 
 --*/
 
-#include "bv_bounds_tactic.h"
-#include "ctx_simplify_tactic.h"
-#include "bv_decl_plugin.h"
-#include "ast_pp.h"
+#include "tactic/bv/bv_bounds_tactic.h"
+#include "tactic/core/ctx_simplify_tactic.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/ast_pp.h"
 #include <climits>
 
 static uint64 uMaxInt(unsigned sz) {

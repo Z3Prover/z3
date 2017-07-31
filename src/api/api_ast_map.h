@@ -18,8 +18,8 @@ Revision History:
 #ifndef API_AST_MAP_H_
 #define API_AST_MAP_H_
 
-#include"api_util.h"
-#include"obj_hashtable.h"
+#include "api/api_util.h"
+#include "util/obj_hashtable.h"
 
 struct Z3_ast_map_ref : public api::object {
     ast_manager &            m;

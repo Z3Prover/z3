@@ -19,8 +19,8 @@ Revision History:
 #ifndef SMT_CHECKER_H_
 #define SMT_CHECKER_H_
 
-#include"ast.h"
-#include"obj_hashtable.h"
+#include "ast/ast.h"
+#include "util/obj_hashtable.h"
 
 namespace smt {
 

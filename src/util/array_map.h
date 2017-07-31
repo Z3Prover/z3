@@ -19,8 +19,8 @@ Revision History:
 #ifndef ARRAY_MAP_H_
 #define ARRAY_MAP_H_
 
-#include"vector.h"
-#include"optional.h"
+#include "util/vector.h"
+#include "util/optional.h"
 
 /**
    \brief Implements a mapping from Key to Data.

@@ -19,8 +19,8 @@ Revision History:
 #ifndef THEORY_SEQ_EMPTY_H_
 #define THEORY_SEQ_EMPTY_H_
 
-#include "smt_theory.h"
-#include "seq_decl_plugin.h"
+#include "smt/smt_theory.h"
+#include "ast/seq_decl_plugin.h"
 
 namespace smt {
     class seq_factory : public value_factory {

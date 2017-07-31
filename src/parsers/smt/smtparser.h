@@ -20,9 +20,9 @@ Revision History:
 #define SMT_PARSER_H_
 
 #include<iostream>
-#include"ast.h"
-#include"vector.h"
-#include"smtlib.h"
+#include "ast/ast.h"
+#include "util/vector.h"
+#include "parsers/smt/smtlib.h"
 
 namespace smtlib {
     class parser {

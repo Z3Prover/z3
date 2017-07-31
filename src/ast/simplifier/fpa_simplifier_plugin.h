@@ -17,9 +17,9 @@ Author:
 #ifndef FPA_SIMPLIFIER_PLUGIN_H_
 #define FPA_SIMPLIFIER_PLUGIN_H_
 
-#include"basic_simplifier_plugin.h"
-#include"fpa_decl_plugin.h"
-#include"fpa_rewriter.h"
+#include "ast/simplifier/basic_simplifier_plugin.h"
+#include "ast/fpa_decl_plugin.h"
+#include "ast/rewriter/fpa_rewriter.h"
 
 class fpa_simplifier_plugin : public simplifier_plugin {
     fpa_util     m_util;

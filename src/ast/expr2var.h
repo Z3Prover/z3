@@ -23,8 +23,8 @@ Notes:
 #ifndef EXPR2VAR_H_
 #define EXPR2VAR_H_
 
-#include"ast.h"
-#include"obj_hashtable.h"
+#include "ast/ast.h"
+#include "util/obj_hashtable.h"
 
 /**
    \brief The mapping between Z3 expressions and (low level) variables.

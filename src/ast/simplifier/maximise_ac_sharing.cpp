@@ -17,9 +17,9 @@ Revision History:
 
 --*/
 
-#include"maximise_ac_sharing.h"
-#include"ast_pp.h"
-#include"basic_simplifier_plugin.h"
+#include "ast/simplifier/maximise_ac_sharing.h"
+#include "ast/ast_pp.h"
+#include "ast/simplifier/basic_simplifier_plugin.h"
 
 maximise_ac_sharing::ac_plugin::ac_plugin(symbol const & fname, ast_manager & m, maximise_ac_sharing & owner):
     simplifier_plugin(fname, m),

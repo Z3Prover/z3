@@ -14,7 +14,7 @@ Author:
     Christoph (cwinter) 2015-01-14
 
 --*/
-#include"fpa_simplifier_plugin.h"
+#include "ast/simplifier/fpa_simplifier_plugin.h"
 
 fpa_simplifier_plugin::fpa_simplifier_plugin(ast_manager & m, basic_simplifier_plugin & b) :
 simplifier_plugin(symbol("fpa"), m),

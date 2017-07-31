@@ -20,7 +20,7 @@ Notes:
 #ifndef EQ2BV_TACTIC_H_
 #define EQ2BV_TACTIC_H_
 
-#include"params.h"
+#include "util/params.h"
 class ast_manager;
 class tactic;
 

@@ -20,7 +20,7 @@ Revision History:
 #define HASH_H_
 
 #include<algorithm>
-#include"util.h"
+#include "util/util.h"
 
 #define mix(a,b,c)              \
 {                               \

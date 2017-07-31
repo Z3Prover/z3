@@ -19,10 +19,10 @@ Notes:
 #include<sstream>
 #include<stdarg.h>
 #include<sstream>
-#include"z3_exception.h"
-#include"warning.h"
-#include"error_codes.h"
-#include"debug.h"
+#include "util/z3_exception.h"
+#include "util/warning.h"
+#include "util/error_codes.h"
+#include "util/debug.h"
 
 unsigned z3_exception::error_code() const { 
     return ERR_OK; 

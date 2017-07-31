@@ -17,11 +17,11 @@ Revision History:
 
 --*/
 
-#include "debug.h"
-#include "ast_pp.h"
-#include "dl_context.h"
-#include "dl_external_relation.h"
-#include "dl_decl_plugin.h"
+#include "util/debug.h"
+#include "ast/ast_pp.h"
+#include "muz/base/dl_context.h"
+#include "muz/rel/dl_external_relation.h"
+#include "ast/dl_decl_plugin.h"
 
 namespace datalog {
        

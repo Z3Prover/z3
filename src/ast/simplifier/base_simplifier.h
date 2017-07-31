@@ -19,8 +19,8 @@ Notes:
 #ifndef BASE_SIMPLIFIER_H_
 #define BASE_SIMPLIFIER_H_
 
-#include"expr_map.h"
-#include"ast_pp.h"
+#include "ast/expr_map.h"
+#include "ast/ast_pp.h"
 
 /**
    \brief Implements basic functionality used by expression simplifiers.

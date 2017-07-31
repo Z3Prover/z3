@@ -19,7 +19,7 @@ Revision History:
 #ifndef THEORY_ARRAY_PARAMS_H_
 #define THEORY_ARRAY_PARAMS_H_
 
-#include"array_simplifier_params.h"
+#include "ast/simplifier/array_simplifier_params.h"
 
 enum array_solver_id {
     AR_NO_ARRAY,

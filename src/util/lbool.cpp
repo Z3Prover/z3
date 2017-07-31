@@ -16,7 +16,7 @@ Author:
 Revision History:
 
 --*/
-#include"lbool.h"
+#include "util/lbool.h"
 
 std::ostream & operator<<(std::ostream & out, lbool b) {
     switch(b) {

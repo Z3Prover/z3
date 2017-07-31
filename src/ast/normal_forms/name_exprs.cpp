@@ -16,9 +16,9 @@ Author:
 Notes:
 
 --*/
-#include"name_exprs.h"
-#include"rewriter_def.h"
-#include"ast_smt2_pp.h"
+#include "ast/normal_forms/name_exprs.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "ast/ast_smt2_pp.h"
 
 class name_exprs_core : public name_exprs {
     struct cfg : public default_rewriter_cfg {

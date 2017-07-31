@@ -35,8 +35,8 @@ bool assertions_enabled();
 # define __has_builtin(x) 0
 #endif
 
-#include"error_codes.h"
-#include"warning.h"
+#include "util/error_codes.h"
+#include "util/warning.h"
 
 #ifdef Z3DEBUG
 #define DEBUG_CODE(CODE) { CODE } ((void) 0)

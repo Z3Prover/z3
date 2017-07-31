@@ -19,8 +19,8 @@ Notes:
 #ifndef SEXPR2UPOLYNOMIAL_H_
 #define SEXPR2UPOLYNOMIAL_H_
 
-#include"upolynomial.h"
-#include"cmd_context_types.h"
+#include "math/polynomial/upolynomial.h"
+#include "util/cmd_context_types.h"
 class sexpr;
 
 class sexpr2upolynomial_exception : public cmd_exception {

@@ -3,15 +3,15 @@ Copyright (c) 2016 Microsoft Corporation
 
 --*/
 
-#include "inc_sat_solver.h"
-#include "bv_decl_plugin.h"
-#include "datatype_decl_plugin.h"
-#include "reg_decl_plugins.h"
-#include "ast_pp.h"
-#include "dt2bv_tactic.h"
-#include "tactic.h"
-#include "model_smt2_pp.h"
-#include "fd_solver.h"
+#include "sat/sat_solver/inc_sat_solver.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/datatype_decl_plugin.h"
+#include "ast/reg_decl_plugins.h"
+#include "ast/ast_pp.h"
+#include "tactic/bv/dt2bv_tactic.h"
+#include "tactic/tactic.h"
+#include "model/model_smt2_pp.h"
+#include "tactic/portfolio/fd_solver.h"
 
 static expr_ref mk_const(ast_manager& m, char const* name, sort* s) {
     return expr_ref(m.mk_const(symbol(name), s), m);

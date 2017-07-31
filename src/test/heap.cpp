@@ -17,9 +17,9 @@ Revision History:
 
 --*/
 #include<iostream>
-#include"heap.h"
-#include"hashtable.h"
-#include"trace.h"
+#include "util/heap.h"
+#include "util/hashtable.h"
+#include "util/trace.h"
 
 struct lt_proc { bool operator()(int v1, int v2) const { return v1 < v2; } };
 typedef heap<lt_proc> int_heap;

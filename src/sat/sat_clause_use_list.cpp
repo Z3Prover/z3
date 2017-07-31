@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#include"sat_clause.h"
-#include"sat_clause_use_list.h"
+#include "sat/sat_clause.h"
+#include "sat/sat_clause_use_list.h"
 
 namespace sat {
 

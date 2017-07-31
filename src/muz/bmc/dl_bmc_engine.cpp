@@ -17,21 +17,21 @@ Revision History:
 
 --*/
 
-#include "dl_context.h"
-#include "dl_rule_transformer.h"
-#include "dl_bmc_engine.h"
-#include "dl_mk_slice.h"
-#include "smt_kernel.h"
-#include "datatype_decl_plugin.h"
-#include "dl_decl_plugin.h"
-#include "bool_rewriter.h"
-#include "model_smt2_pp.h"
-#include "ast_smt_pp.h"
-#include "well_sorted.h"
-#include "rewriter_def.h"
-#include "dl_transforms.h"
-#include "dl_mk_rule_inliner.h"
-#include "scoped_proof.h"
+#include "muz/base/dl_context.h"
+#include "muz/base/dl_rule_transformer.h"
+#include "muz/bmc/dl_bmc_engine.h"
+#include "muz/transforms/dl_mk_slice.h"
+#include "smt/smt_kernel.h"
+#include "ast/datatype_decl_plugin.h"
+#include "ast/dl_decl_plugin.h"
+#include "ast/rewriter/bool_rewriter.h"
+#include "model/model_smt2_pp.h"
+#include "ast/ast_smt_pp.h"
+#include "ast/well_sorted.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "muz/transforms/dl_transforms.h"
+#include "muz/transforms/dl_mk_rule_inliner.h"
+#include "ast/scoped_proof.h"
 
 namespace datalog {
 

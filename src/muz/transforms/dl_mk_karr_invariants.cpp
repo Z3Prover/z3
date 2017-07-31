@@ -32,13 +32,13 @@ Revision History:
            
 --*/
 
-#include"expr_safe_replace.h"
-#include"bool_rewriter.h"
-#include"for_each_expr.h"
+#include "ast/rewriter/expr_safe_replace.h"
+#include "ast/rewriter/bool_rewriter.h"
+#include "ast/for_each_expr.h"
 
-#include"dl_mk_karr_invariants.h"
-#include"dl_mk_backwards.h"
-#include"dl_mk_loop_counter.h"
+#include "muz/transforms/dl_mk_karr_invariants.h"
+#include "muz/transforms/dl_mk_backwards.h"
+#include "muz/transforms/dl_mk_loop_counter.h"
 
 namespace datalog {
 

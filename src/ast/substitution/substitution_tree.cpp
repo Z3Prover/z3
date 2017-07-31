@@ -16,9 +16,9 @@ Author:
 Revision History:
 
 --*/
-#include"substitution_tree.h"
-#include"ast_pp.h"
-#include"ast_smt2_pp.h"
+#include "ast/substitution/substitution_tree.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_smt2_pp.h"
 
 /**
    \brief Return the next available register.

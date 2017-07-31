@@ -19,15 +19,15 @@ Revision History:
 #ifndef ARRAY_SIMPLIFIER_PLUGIN_H_
 #define ARRAY_SIMPLIFIER_PLUGIN_H_
 
-#include"ast.h"
-#include"map.h"
-#include"array_decl_plugin.h"
-#include"simplifier_plugin.h"
-#include"basic_simplifier_plugin.h"
-#include"array_simplifier_params.h"
-#include"simplifier.h"
-#include"obj_hashtable.h"
-#include"lbool.h"
+#include "ast/ast.h"
+#include "util/map.h"
+#include "ast/array_decl_plugin.h"
+#include "ast/simplifier/simplifier_plugin.h"
+#include "ast/simplifier/basic_simplifier_plugin.h"
+#include "ast/simplifier/array_simplifier_params.h"
+#include "ast/simplifier/simplifier.h"
+#include "util/obj_hashtable.h"
+#include "util/lbool.h"
 
 class array_simplifier_plugin : public simplifier_plugin {
 

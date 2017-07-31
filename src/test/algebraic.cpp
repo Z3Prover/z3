@@ -16,10 +16,10 @@ Author:
 Notes:
 
 --*/
-#include"algebraic_numbers.h"
-#include"polynomial_var2value.h"
-#include"mpbq.h"
-#include"rlimit.h"
+#include "math/polynomial/algebraic_numbers.h"
+#include "math/polynomial/polynomial_var2value.h"
+#include "util/mpbq.h"
+#include "util/rlimit.h"
 
 static void display_anums(std::ostream & out, scoped_anum_vector const & rs) {
     out << "numbers in decimal:\n";

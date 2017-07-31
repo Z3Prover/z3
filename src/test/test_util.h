@@ -6,7 +6,7 @@ Copyright (c) 2015 Microsoft Corporation
 
 #pragma once
 
-#include "stopwatch.h"
+#include "util/stopwatch.h"
 
 struct test_context {
     bool test_ok;

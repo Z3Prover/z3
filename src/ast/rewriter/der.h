@@ -21,8 +21,8 @@ Revision History:
 #ifndef DER_H_
 #define DER_H_
 
-#include"ast.h"
-#include"var_subst.h"
+#include "ast/ast.h"
+#include "ast/rewriter/var_subst.h"
 
 /*
   New DER: the class DER (above) eliminates variables one by one.

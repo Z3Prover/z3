@@ -19,9 +19,9 @@ Revision History:
 #ifndef FOR_EACH_AST_H_
 #define FOR_EACH_AST_H_
 
-#include"ast.h"
-#include"trace.h"
-#include"map.h"
+#include "ast/ast.h"
+#include "util/trace.h"
+#include "util/map.h"
 
 template<typename T>
 bool for_each_ast_args(ptr_vector<ast> & stack, ast_mark & visited, unsigned num_args, T * const * args) {

@@ -44,22 +44,22 @@ Author:
 Revision History:
 
 --*/
-#include "tactical.h"
-#include "nl_purify_tactic.h"
-#include "smt_tactic.h"
-#include "rewriter.h"
-#include "nlsat_tactic.h"
-#include "filter_model_converter.h"
-#include "obj_pair_hashtable.h"
-#include "rewriter_def.h"
-#include "ast_pp.h"
-#include "trace.h"
-#include "smt_solver.h"
-#include "solver.h"
-#include "model_smt2_pp.h"
-#include "expr_safe_replace.h"
-#include "ast_util.h"
-#include "solver2tactic.h"
+#include "tactic/tactical.h"
+#include "tactic/nlsat_smt/nl_purify_tactic.h"
+#include "smt/tactic/smt_tactic.h"
+#include "ast/rewriter/rewriter.h"
+#include "nlsat/tactic/nlsat_tactic.h"
+#include "tactic/filter_model_converter.h"
+#include "util/obj_pair_hashtable.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "ast/ast_pp.h"
+#include "util/trace.h"
+#include "smt/smt_solver.h"
+#include "solver/solver.h"
+#include "model/model_smt2_pp.h"
+#include "ast/rewriter/expr_safe_replace.h"
+#include "ast/ast_util.h"
+#include "solver/solver2tactic.h"
 
 class nl_purify_tactic : public tactic {
 

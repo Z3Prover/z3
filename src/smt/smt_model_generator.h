@@ -28,10 +28,10 @@ Revision History:
 #ifndef SMT_MODEL_GENERATOR_H_
 #define SMT_MODEL_GENERATOR_H_
 
-#include"ast.h"
-#include"smt_types.h"
-#include"obj_hashtable.h"
-#include"map.h"
+#include "ast/ast.h"
+#include "smt/smt_types.h"
+#include "util/obj_hashtable.h"
+#include "util/map.h"
 
 class value_factory;
 class proto_model;

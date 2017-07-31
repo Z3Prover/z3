@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#include"tactical.h"
-#include"aig.h"
+#include "tactic/tactical.h"
+#include "tactic/aig/aig.h"
 
 class aig_manager;
 
