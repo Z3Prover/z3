@@ -207,6 +207,7 @@ namespace datalog {
         bool               m_enable_bind_variables;
         execution_result   m_last_status;
         expr_ref           m_last_answer;
+        expr_ref           m_last_ground_answer;
         DL_ENGINE          m_engine_type;
 
 
@@ -277,6 +278,8 @@ namespace datalog {
         bool xform_bit_blast() const;        
         bool xform_slice() const;
         bool xform_coi() const;
+        bool array_blast() const;
+        bool array_blast_full() const;
 
         void register_finite_sort(sort * s, sort_kind k);
 
@@ -408,6 +411,10 @@ namespace datalog {
         unsigned get_num_levels(func_decl* pred);
 
         /**
+            Retrieve reachable facts of 'pred'.
+         */
+        expr_ref get_reachable(func_decl *pred);
+        /**
            Retrieve the current cover of 'pred' up to 'level' unfoldings.
            Return just the delta that is known at 'level'. To
            obtain the full set of properties of 'pred' one should query
@@ -421,6 +428,11 @@ namespace datalog {
          */
         void add_cover(int level, func_decl* pred, expr* property);
 
+        /**
+          Add an invariant of predicate 'pred'.
+         */
+        void add_invariant (func_decl *pred, expr *property);
+      
         /**
            \brief Check rule subsumption.
         */
@@ -509,6 +521,7 @@ namespace datalog {
 
         lbool query(expr* q);
 
+        lbool query_from_lvl (expr* q, unsigned lvl);
         /**
            \brief retrieve model from inductive invariant that shows query is unsat.
            
@@ -545,6 +558,18 @@ namespace datalog {
            in the query that are derivable.
         */
         expr* get_answer_as_formula();
+        /**
+         * get bottom-up (from query) sequence of ground predicate instances
+         * (for e.g. P(0,1,0,0,3)) that together form a ground derivation to query
+         */
+        expr* get_ground_sat_answer ();
+
+        /**
+         * \brief obtain the sequence of rules along the counterexample trace
+         */
+        void get_rules_along_trace (rule_ref_vector& rules);
+
+        void get_rules_along_trace_as_formulas (expr_ref_vector& rules, svector<symbol>& names);
 
 
         void collect_statistics(statistics& st) const;
