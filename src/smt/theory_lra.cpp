@@ -795,11 +795,7 @@ namespace smt {
         }
 
         void internalize_eq_eh(app * atom, bool_var) {
-<<<<<<< 0ead4ccab212f2aff00b4971b646f0c98e2f65f0
             expr* lhs = nullptr, *rhs = nullptr;
-=======
-            expr* lhs = 0, *rhs = 0;
->>>>>>> handle integer vars in random_update
             VERIFY(m.is_eq(atom, lhs, rhs));
             enode * n1 = get_enode(lhs);
             enode * n2 = get_enode(rhs);
@@ -917,13 +913,8 @@ namespace smt {
         // to_int (to_real x) = x
         // to_real(to_int(x)) <= x < to_real(to_int(x)) + 1
         void mk_to_int_axiom(app* n) {
-<<<<<<< 0ead4ccab212f2aff00b4971b646f0c98e2f65f0
             expr* x = nullptr, *y = nullptr;
             VERIFY (a.is_to_int(n, x));
-=======
-            expr* x = 0, *y = 0;
-            VERIFY (a.is_to_int(n, x));            
->>>>>>> handle integer vars in random_update
             if (a.is_to_real(x, y)) {
                 mk_axiom(th.mk_eq(y, n, false));
             }
@@ -938,11 +929,7 @@ namespace smt {
 
         // is_int(x) <=> to_real(to_int(x)) = x
         void mk_is_int_axiom(app* n) {
-<<<<<<< 0ead4ccab212f2aff00b4971b646f0c98e2f65f0
             expr* x = nullptr;
-=======
-            expr* x = 0;
->>>>>>> handle integer vars in random_update
             VERIFY(a.is_is_int(n, x));
             literal eq = th.mk_eq(a.mk_to_real(a.mk_to_int(x)), x, false);
             literal is_int = ctx().get_literal(n);
@@ -1077,12 +1064,7 @@ namespace smt {
             }
             return result;
         }
-<<<<<<< 0ead4ccab212f2aff00b4971b646f0c98e2f65f0
 
-
-=======
-        
->>>>>>> handle integer vars in random_update
         rational get_value(theory_var v) const {
             if (!can_get_value(v)) return rational::zero();
             lp::var_index vi = m_theory_var2var_index[v];
@@ -1106,13 +1088,8 @@ namespace smt {
                     result += m_variable_values[wi] * coeff;
                 }
             }
-<<<<<<< 0ead4ccab212f2aff00b4971b646f0c98e2f65f0
-            UNREACHABLE();
-            return m_variable_values[vi];
-=======
             m_variable_values[vi] = result;
             return result;
->>>>>>> handle integer vars in random_update
         }
 
         void init_variable_values() {
@@ -2463,7 +2440,7 @@ namespace smt {
                 m_nra->am().set(r, 0);
                 while (!m_todo_terms.empty()) {
                     rational wcoeff = m_todo_terms.back().second;
-                    lp::var_index wi = m_todo_terms.back().first;
+                    lp::var_index wi = m_todo_terms.back().first; // todo : got a warning "wi is not used"
                     m_todo_terms.pop_back();
                     lp::lar_term const& term = m_solver->get_term(vi);
                     scoped_anum r1(m_nra->am());

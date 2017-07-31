@@ -648,32 +648,9 @@ public:
 
     bool tableau_with_costs() const;
 
-    bool costs_are_used() const {
-        return m_settings.simplex_strategy() != simplex_strategy_enum::tableau_rows;
-    }
-
-    void change_basic_x_by_delta_on_column(unsigned j, const numeric_pair<mpq> & delta) {
-        if (use_tableau()) {
-            for (const auto & c : A_r().m_columns[j]) {
-                unsigned bj = m_mpq_lar_core_solver.m_r_basis[c.m_i];
-                m_mpq_lar_core_solver.m_r_x[bj] -= A_r().get_val(c) * delta;
-                if (tableau_with_costs()) {
-                    m_basic_columns_with_changed_cost.insert(bj);
-                }
-                m_mpq_lar_core_solver.m_r_solver.update_column_in_inf_set(bj);
-            }
-        } else {
-            m_column_buffer.clear();
-            m_column_buffer.resize(A_r().row_count());
-            m_mpq_lar_core_solver.m_r_solver.solve_Bd(j, m_column_buffer);
-            for (unsigned i : m_column_buffer.m_index) {
-                unsigned bj = m_mpq_lar_core_solver.m_r_basis[i];
-                m_mpq_lar_core_solver.m_r_x[bj] -= m_column_buffer[i] * delta;
-                m_mpq_lar_core_solver.m_r_solver.update_column_in_inf_set(bj);
-            }
-        }
-    }
-
+    bool costs_are_used() const;
+    
+    void change_basic_columns_dependend_on_a_given_nb_column(unsigned j, const numeric_pair<mpq> & delta);
     void update_x_and_inf_costs_for_column_with_changed_bounds(unsigned j);
 
     void detect_rows_with_changed_bounds_for_column(unsigned j) {

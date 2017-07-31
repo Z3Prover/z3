@@ -93,6 +93,7 @@ private:
     bool is_free(unsigned j) const;
     bool value_is_int(unsigned j) const;
     void set_value_for_nbasic_column(unsigned j, const impq & new_val);
+    void set_value_for_nbasic_column_ignore_old_values(unsigned j, const impq & new_val);
     void fix_non_base_columns();
     void failed();
     bool is_feasible() const;

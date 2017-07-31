@@ -664,7 +664,7 @@ bool lar_solver::costs_are_used() const {
     return m_settings.simplex_strategy() != simplex_strategy_enum::tableau_rows;
 }
     
-void lar_solver::change_basic_x_by_delta_on_column(unsigned j, const numeric_pair<mpq> & delta) {
+void lar_solver::change_basic_columns_dependend_on_a_given_nb_column(unsigned j, const numeric_pair<mpq> & delta) {
     lp_assert(inf_int_set_is_correct());
     if (use_tableau()) {
         for (const auto & c : A_r().m_columns[j]) {
@@ -703,7 +703,7 @@ void lar_solver::update_x_and_inf_costs_for_column_with_changed_bounds(unsigned 
     } else {
         numeric_pair<mpq> delta;
         if (m_mpq_lar_core_solver.m_r_solver.make_column_feasible(j, delta))
-            change_basic_x_by_delta_on_column(j, delta);
+            change_basic_columns_dependend_on_a_given_nb_column(j, delta);
     }
 }
 
@@ -1407,7 +1407,7 @@ void lar_solver::clean_inf_set_of_r_solver_after_pop() {
         numeric_pair<mpq> delta;
         if (m_mpq_lar_core_solver.m_r_solver.make_column_feasible(j, delta)) {
             
-            change_basic_x_by_delta_on_column(j, delta);
+            change_basic_columns_dependend_on_a_given_nb_column(j, delta);
         }
         became_feas.push_back(j);
     }
