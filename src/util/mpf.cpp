@@ -919,7 +919,7 @@ void mpf_manager::fma(mpf_rounding_mode rm, mpf const & x, mpf const & y, mpf co
 
         mpf_exp_t min_exp = mk_min_exp(x.ebits);
         unsigned sig_width = m_mpz_manager.prev_power_of_two(res.get().significand) + 1;
-        mpf_exp_t sig_lz = 2 * x.sbits - sig_width; // want << lz
+        mpf_exp_t sig_lz = 2 * x.sbits - sig_width;
         mpf_exp_t max_exp_delta = res.exponent() - min_exp;
         unsigned renorm_delta = (unsigned) std::max((mpf_exp_t)0, std::min(sig_lz, max_exp_delta));
         res.get().exponent -= renorm_delta;
