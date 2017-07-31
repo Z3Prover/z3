@@ -1598,7 +1598,7 @@ void fpa2bv_converter::mk_fma(func_decl * f, unsigned num, expr * const * args, 
     alignment_sticky_raw = m_bv_util.mk_extract(sbits-1, 0, shifted_big);
     alignment_sticky = m.mk_app(m_bv_util.get_fid(), OP_BREDOR, alignment_sticky_raw.get());
     dbg_decouple("fpa2bv_fma_shifted_f_sig", shifted_f_sig);
-    dbg_decouple("fpa2bv_fma_f_sig_alignment_stickyw", alignment_sticky);
+    dbg_decouple("fpa2bv_fma_f_sig_alignment_sticky", alignment_sticky);
     SASSERT(is_well_sorted(m, alignment_sticky));
     SASSERT(m_bv_util.get_bv_size(shifted_f_sig) == 2 * sbits);
     SASSERT(is_well_sorted(m, shifted_f_sig));
@@ -1672,6 +1672,26 @@ void fpa2bv_converter::mk_fma(func_decl * f, unsigned num, expr * const * args, 
     extra_is_zero = m.mk_eq(extra, m_bv_util.mk_numeral(0, 2));
     dbg_decouple("fpa2bv_fma_extra", extra);
 
+    res_exp = m.mk_ite(extra_is_zero, e_exp, m_bv_util.mk_bv_add(e_exp, m_bv_util.mk_numeral(1, ebits + 2)));
+
+    // Renormalize
+    expr_ref zero_e2(m), min_exp(m), sig_lz(m), max_exp_delta(m), sig_lz_capped(m), renorm_delta(m);
+    zero_e2 = m_bv_util.mk_numeral(0, ebits + 2);
+    mk_min_exp(ebits, min_exp);
+    min_exp = m_bv_util.mk_sign_extend(2, min_exp);
+    mk_leading_zeros(sig_abs, ebits+2, sig_lz);
+    sig_lz = m_bv_util.mk_bv_sub(sig_lz, m_bv_util.mk_numeral(2, ebits+2));
+    max_exp_delta = m_bv_util.mk_bv_sub(res_exp, min_exp);
+    sig_lz_capped = m.mk_ite(m_bv_util.mk_sle(sig_lz, max_exp_delta), sig_lz, max_exp_delta);
+    renorm_delta = m.mk_ite(m_bv_util.mk_sle(zero_e2, sig_lz_capped), sig_lz_capped, zero_e2);
+    res_exp = m_bv_util.mk_bv_sub(res_exp, renorm_delta);
+    sig_abs = m_bv_util.mk_bv_shl(sig_abs, m_bv_util.mk_zero_extend(2*sbits-ebits, renorm_delta));
+    dbg_decouple("fpa2bv_fma_min_exp", min_exp);
+    dbg_decouple("fpa2bv_fma_max_exp_delta", max_exp_delta);
+    dbg_decouple("fpa2bv_fma_sig_lz", sig_lz);
+    dbg_decouple("fpa2bv_fma_sig_lz_capped", sig_lz_capped);
+    dbg_decouple("fpa2bv_fma_renorm_delta", renorm_delta);
+
     unsigned too_short = 0;
     if (sbits < 5) {
         too_short = 6 - sbits + 1;
@@ -1705,7 +1725,6 @@ void fpa2bv_converter::mk_fma(func_decl * f, unsigned num, expr * const * args, 
     SASSERT(m_bv_util.get_bv_size(res_sig_2) == sbits + 4);
 
     res_sig = m.mk_ite(extra_is_zero, res_sig_1, res_sig_2);
-    res_exp = m.mk_ite(extra_is_zero, e_exp, m_bv_util.mk_bv_add(e_exp, m_bv_util.mk_numeral(1, ebits + 2)));
 
     dbg_decouple("fpa2bv_fma_res_sig", res_sig);
     dbg_decouple("fpa2bv_fma_res_exp", res_exp);
