@@ -773,7 +773,7 @@ def mk_log_macro(file, name, params):
                 if sz not in auxs:
                     auxs.add(sz)
                     file.write("unsigned * _Z3_UNUSED Z3ARG%s = 0; " % sz)
-            file.write("%s _Z3_UNUSED Z3ARG%s; " % (param2str(p), i))
+            file.write("%s _Z3_UNUSED Z3ARG%s = 0; " % (param2str(p), i))
         i = i + 1
     file.write("if (_LOG_CTX.enabled()) { log_%s(" % name)
     i = 0
