@@ -2714,13 +2714,21 @@ void fpa2bv_converter::mk_to_fp_real_int(func_decl * f, unsigned num, expr * con
     SASSERT(m_util.is_bv2rm(args[0]));
     expr * bv_rm = to_app(args[0])->get_arg(0);
 
-    rational q;
-    if (!m_arith_util.is_numeral(args[1], q))
-        UNREACHABLE();
+    SASSERT((m_arith_util.is_int(args[1]) && m_arith_util.is_real(args[2])) ||
+            (m_arith_util.is_real(args[1]) && m_arith_util.is_int(args[2])));
 
-    rational e;
-    if (!m_arith_util.is_numeral(args[2], e))
-        UNREACHABLE();
+    rational q, e;
+
+    if (m_arith_util.is_int(args[1]) && m_arith_util.is_real(args[2])) {
+        if (!m_arith_util.is_numeral(args[1], e) ||
+            !m_arith_util.is_numeral(args[2], q))
+            UNREACHABLE();
+    }
+    else {
+        if (!m_arith_util.is_numeral(args[2], e) ||
+            !m_arith_util.is_numeral(args[1], q))
+            UNREACHABLE();
+    }
 
     SASSERT(e.is_int64());
     SASSERT(m_mpz_manager.eq(e.to_mpq().denominator(), 1));
