@@ -1681,6 +1681,7 @@ bool theory_seq::solve_binary_eq(expr_ref_vector const& ls, expr_ref_vector cons
         bool has_conflict = false;
         for (unsigned j = 0; !has_conflict && j < sz; ++j) {
             unsigned j1 = (offset + j) % sz;
+            if (xs[j] == ys[j1]) continue;
             literal eq = mk_eq(xs[j], ys[j1], false);
             switch (ctx.get_assignment(eq)) {
             case l_false:
