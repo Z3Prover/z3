@@ -20,8 +20,8 @@ Revision History:
 #ifndef _SPACER_GENERALIZERS_H_
 #define _SPACER_GENERALIZERS_H_
 
-#include "spacer_context.h"
-#include "arith_decl_plugin.h"
+#include "muz/spacer/spacer_context.h"
+#include "ast/arith_decl_plugin.h"
 
 namespace spacer {
 

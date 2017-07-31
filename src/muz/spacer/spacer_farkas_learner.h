@@ -20,7 +20,7 @@ Revision History:
 #ifndef _SPACER_FARKAS_LEARNER_H_
 #define _SPACER_FARKAS_LEARNER_H_
 
-#include "ast.h"
+#include "ast/ast.h"
 
 namespace spacer {
 

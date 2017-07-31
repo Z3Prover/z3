@@ -21,7 +21,7 @@ Revision History:
 #ifndef _SPACER_ANTIUNIFY_H_
 #define _SPACER_ANTIUNIFY_H_
 
-#include "ast.h"
+#include "ast/ast.h"
 
 namespace spacer {
 class anti_unifier

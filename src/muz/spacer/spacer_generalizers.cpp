@@ -19,12 +19,12 @@ Revision History:
 --*/
 
 
-#include "spacer_context.h"
-#include "spacer_generalizers.h"
-#include "expr_abstract.h"
-#include "var_subst.h"
-#include "for_each_expr.h"
-#include "obj_equiv_class.h"
+#include "muz/spacer/spacer_context.h"
+#include "muz/spacer/spacer_generalizers.h"
+#include "ast/expr_abstract.h"
+#include "ast/rewriter/var_subst.h"
+#include "ast/for_each_expr.h"
+#include "muz/spacer/obj_equiv_class.h"
 
 
 namespace spacer {

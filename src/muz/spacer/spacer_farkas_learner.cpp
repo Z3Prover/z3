@@ -19,21 +19,21 @@ Revision History:
 --*/
 
 //TODO: reorder, delete unnecessary includes
-#include "ast_smt2_pp.h"
-#include "array_decl_plugin.h"
-#include "bool_rewriter.h"
-#include "dl_decl_plugin.h"
-#include "for_each_expr.h"
-#include "dl_util.h"
-#include "rewriter.h"
-#include "rewriter_def.h"
-#include "spacer_util.h"
-#include "spacer_farkas_learner.h"
-#include "th_rewriter.h"
-#include "ast_ll_pp.h"
-#include "proof_utils.h"
-#include "reg_decl_plugins.h"
-#include "smt_farkas_util.h"
+#include "ast/ast_smt2_pp.h"
+#include "ast/array_decl_plugin.h"
+#include "ast/rewriter/bool_rewriter.h"
+#include "ast/dl_decl_plugin.h"
+#include "ast/for_each_expr.h"
+#include "muz/base/dl_util.h"
+#include "ast/rewriter/rewriter.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "muz/spacer/spacer_util.h"
+#include "muz/spacer/spacer_farkas_learner.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "ast/ast_ll_pp.h"
+#include "muz/base/proof_utils.h"
+#include "ast/reg_decl_plugins.h"
+#include "smt/smt_farkas_util.h"
 
 namespace spacer {
 
@@ -437,4 +437,3 @@ bool farkas_learner::is_farkas_lemma(ast_manager& m, expr* e)
         d->get_num_parameters() >= m.get_num_parents(to_app(e)) + 2;
 }
 }
-

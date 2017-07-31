@@ -18,13 +18,13 @@ Revision History:
 
 --*/
 
-#include"spacer_antiunify.h"
-#include"ast.h"
-#include"rewriter.h"
-#include"rewriter_def.h"
-#include"arith_decl_plugin.h"
-#include"ast_util.h"
-#include"expr_abstract.h"
+#include"muz/spacer/spacer_antiunify.h"
+#include"ast/ast.h"
+#include"ast/rewriter/rewriter.h"
+#include"ast/rewriter/rewriter_def.h"
+#include"ast/arith_decl_plugin.h"
+#include"ast/ast_util.h"
+#include"ast/expr_abstract.h"
 
 namespace spacer {
 

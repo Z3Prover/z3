@@ -25,8 +25,8 @@ Revision History:
 #ifndef OBJ_EQUIV_CLASS_H_
 #define OBJ_EQUIV_CLASS_H_
 
-#include "union_find.h"
-#include "ast_util.h"
+#include "util/union_find.h"
+#include "ast/ast_util.h"
 
 namespace spacer {
 //All functions naturally add their parameters to the union_find class
