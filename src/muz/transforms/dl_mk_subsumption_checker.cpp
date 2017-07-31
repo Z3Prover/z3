@@ -25,6 +25,7 @@ Revision History:
 #include "ast/rewriter/rewriter_def.h"
 #include "muz/transforms/dl_mk_subsumption_checker.h"
 
+#include "fixedpoint_params.hpp"
 namespace datalog {
 
 
@@ -328,6 +329,8 @@ namespace datalog {
 
     rule_set * mk_subsumption_checker::operator()(rule_set const & source) {
         // TODO mc
+        if (!m_context.get_params ().xform_subsumption_checker()) 
+          return 0;
 
         m_have_new_total_rule = false;
         collect_ground_unconditional_rule_heads(source);
