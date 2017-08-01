@@ -19,7 +19,8 @@ Revision History:
 #ifndef _SPACER_MIN_CUT_H_
 #define _SPACER_MIN_CUT_H_
 
-#include "ast.h"
+#include "ast/ast.h"
+#include "util/vector.h"
 
 namespace spacer {
 

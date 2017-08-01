@@ -20,8 +20,8 @@ Notes:
 #ifndef SPACER_QE_PROJECT_H_
 #define SPACER_QE_PROJECT_H_
 
-#include "model.h"
-#include "expr_map.h"
+#include "model/model.h"
+#include "ast/expr_map.h"
 
 namespace qe {
     /**

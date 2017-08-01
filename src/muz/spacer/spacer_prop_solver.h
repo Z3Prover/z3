@@ -23,14 +23,15 @@ Revision History:
 #include <map>
 #include <string>
 #include <utility>
-#include "ast.h"
-#include "obj_hashtable.h"
-#include "smt_kernel.h"
-#include "util.h"
-#include "vector.h"
-#include "spacer_manager.h"
-#include "spacer_smt_context_manager.h"
-#include "spacer_itp_solver.h"
+
+#include "ast/ast.h"
+#include "util/obj_hashtable.h"
+#include "smt/smt_kernel.h"
+#include "util/util.h"
+#include "util/vector.h"
+#include "muz/spacer/spacer_manager.h"
+#include "muz/spacer/spacer_smt_context_manager.h"
+#include "muz/spacer/spacer_itp_solver.h"
 
 struct fixedpoint_params;
 

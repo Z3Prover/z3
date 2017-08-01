@@ -18,19 +18,23 @@ Revision History:
 
 --*/
 
-#include <sstream>
-#include "model.h"
-#include "spacer_util.h"
-#include "spacer_prop_solver.h"
-#include "ast_smt2_pp.h"
-#include "dl_util.h"
-#include "model_pp.h"
-#include "smt_params.h"
-#include "datatype_decl_plugin.h"
-#include "bv_decl_plugin.h"
-#include "spacer_farkas_learner.h"
-#include "ast_smt2_pp.h"
-#include "expr_replacer.h"
+#include "ast/ast_smt2_pp.h"
+#include "ast/datatype_decl_plugin.h"
+#include "ast/bv_decl_plugin.h"
+
+#include "ast/rewriter/expr_replacer.h"
+
+#include "smt/params/smt_params.h"
+
+#include "model/model.h"
+#include "model/model_pp.h"
+
+#include "muz/base/dl_util.h"
+
+#include "muz/spacer/spacer_util.h"
+#include "muz/spacer/spacer_farkas_learner.h"
+#include "muz/spacer/spacer_prop_solver.h"
+
 #include "fixedpoint_params.hpp"
 
 namespace spacer {

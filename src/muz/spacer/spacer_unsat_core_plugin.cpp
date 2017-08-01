@@ -15,19 +15,21 @@ Revision History:
 
 
 --*/
-#include "spacer_unsat_core_plugin.h"
-
-#include "spacer_unsat_core_learner.h"
-
-#include "smt_farkas_util.h"
-#include "bool_rewriter.h"
-#include "arith_decl_plugin.h"
 #include <set>
-#include "smt_solver.h"
-#include "solver.h"
 #include <limits>
-#include "spacer_proof_utils.h"
-#include "spacer_matrix.h"
+
+#include "ast/rewriter/bool_rewriter.h"
+#include "ast/arith_decl_plugin.h"
+
+#include "solver/solver.h"
+
+#include "smt/smt_farkas_util.h"
+#include "smt/smt_solver.h"
+
+#include "muz/spacer/spacer_proof_utils.h"
+#include "muz/spacer/spacer_matrix.h"
+#include "muz/spacer/spacer_unsat_core_plugin.h"
+#include "muz/spacer/spacer_unsat_core_learner.h"
 
 namespace spacer
 {

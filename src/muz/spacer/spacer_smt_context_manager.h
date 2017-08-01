@@ -20,11 +20,11 @@ Revision History:
 #ifndef _SPACER_SMT_CONTEXT_MANAGER_H_
 #define _SPACER_SMT_CONTEXT_MANAGER_H_
 
-#include "smt_kernel.h"
-#include "func_decl_dependencies.h"
-#include "dl_util.h"
-#include "spacer_virtual_solver.h"
-#include "stopwatch.h"
+#include "util/stopwatch.h"
+
+#include "smt/smt_kernel.h"
+#include "muz/base/dl_util.h"
+#include "muz/spacer/spacer_virtual_solver.h"
 
 namespace spacer {
 

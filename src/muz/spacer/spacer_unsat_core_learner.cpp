@@ -15,13 +15,12 @@ Revision History:
 
 
 --*/
-#include "spacer_unsat_core_learner.h"
-
-#include "spacer_unsat_core_plugin.h"
-
-#include "proof_utils.h"
-#include "for_each_expr.h"
 #include <unordered_map>
+
+#include "muz/spacer/spacer_unsat_core_learner.h"
+#include "muz/spacer/spacer_unsat_core_plugin.h"
+#include "ast/for_each_expr.h"
+
 namespace spacer
 {
 

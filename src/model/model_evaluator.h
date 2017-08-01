@@ -22,7 +22,9 @@ Revision History:
 #include "ast/ast.h"
 #include "ast/rewriter/rewriter_types.h"
 #include "util/params.h"
+
 class model;
+class model_core;
 
 typedef rewriter_exception model_evaluator_exception;
 
@@ -46,7 +48,7 @@ public:
 
     void cleanup(params_ref const & p = params_ref());
     void reset(params_ref const & p = params_ref());
-    
+
     unsigned get_num_steps() const;
 };
 

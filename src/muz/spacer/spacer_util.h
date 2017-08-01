@@ -22,20 +22,20 @@ Revision History:
 #ifndef _SPACER_UTIL_H_
 #define _SPACER_UTIL_H_
 
-#include "ast.h"
-#include "ast_pp.h"
-#include "obj_hashtable.h"
-#include "ref_vector.h"
-#include "simplifier.h"
-#include "trace.h"
-#include "vector.h"
-#include "arith_decl_plugin.h"
-#include "array_decl_plugin.h"
-#include "bv_decl_plugin.h"
-#include "model.h"
+#include "ast/ast.h"
+#include "ast/ast_pp.h"
+#include "util/obj_hashtable.h"
+#include "util/ref_vector.h"
+#include "ast/simplifier/simplifier.h"
+#include "util/trace.h"
+#include "util/vector.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/array_decl_plugin.h"
+#include "ast/bv_decl_plugin.h"
+#include "model/model.h"
 
-#include "stopwatch.h"
-#include "spacer_antiunify.h"
+#include "util/stopwatch.h"
+#include "muz/spacer/spacer_antiunify.h"
 
 class model;
 class model_core;

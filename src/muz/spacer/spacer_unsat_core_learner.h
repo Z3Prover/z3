@@ -18,9 +18,9 @@ Revision History:
 #ifndef _SPACER_UNSAT_CORE_LEARNER_H_
 #define _SPACER_UNSAT_CORE_LEARNER_H_
 
-#include "ast.h"
-#include "spacer_util.h"
-#include "spacer_proof_utils.h"
+#include "ast/ast.h"
+#include "muz/spacer/spacer_util.h"
+#include "muz/spacer/spacer_proof_utils.h"
 
 namespace spacer {
 
