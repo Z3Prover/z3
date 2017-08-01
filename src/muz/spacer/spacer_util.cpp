@@ -63,7 +63,7 @@ Notes:
 #include "tactic/arith/propagate_ineqs_tactic.h"
 #include "tactic/arith/arith_bounds_tactic.h"
 
-#include "muz/spacer/obj_equiv_class.h"
+#include "ast/factor_equivs.h"
 
 namespace spacer {
 

@@ -3,9 +3,11 @@ Copyright (c) 2017 Arie Gurfinkel
 
 Module Name:
 
-    obj_equiv_class.h
+    factor_equivs.h
 
 Abstract:
+  Factor equivalence classes out of an expression.
+
   "Equivalence class structure" for objs. Uses a union_find structure internally.
   Operations are :
   -Declare a new equivalence class with a single element
@@ -17,19 +19,19 @@ Abstract:
 Author:
 
     Julien Braine
+    Arie Gurfinkel
 
 Revision History:
 
 */
 
-#ifndef OBJ_EQUIV_CLASS_H_
-#define OBJ_EQUIV_CLASS_H_
+#ifndef FACTOR_EQUIVS_H_
+#define FACTOR_EQUIVS_H_
 
 #include "util/union_find.h"
 #include "ast/ast_util.h"
 
-namespace spacer {
-//All functions naturally add their parameters to the union_find class
+///All functions naturally add their parameters to the union_find class
 template<typename OBJ, typename Manager>
 class obj_equiv_class {
     basic_union_find m_uf;
@@ -164,87 +166,18 @@ typedef obj_equiv_class<expr, ast_manager> expr_equiv_class;
 
 
 /**
-   Factors input vector v into equivalence classes and the rest
+ *  Factors input vector v into equivalence classes and the rest
  */
-inline void factor_eqs(expr_ref_vector &v, expr_equiv_class &equiv) {
-    ast_manager &m = v.get_manager();
-    arith_util arith(m);
-    expr *e1, *e2;
-
-    flatten_and(v);
-    unsigned j = 0;
-    for (unsigned i = 0; i < v.size(); ++i) {
-        if (m.is_eq(v.get(i), e1, e2)) {
-            if (arith.is_zero(e1)) {
-                expr* t;
-                t = e1; e1 = e2; e2 = t;
-            }
-
-            // y + -1*x == 0
-            if (arith.is_zero(e2) && arith.is_add(e1) &&
-                to_app(e1)->get_num_args() == 2) {
-                expr *a0, *a1, *x;
-
-                a0 = to_app(e1)->get_arg(0);
-                a1 = to_app(e1)->get_arg(1);
-
-                if (arith.is_times_minus_one(a1, x)) {
-                    e1 = a0;
-                    e2 = x;
-                }
-                else if (arith.is_times_minus_one(a0, x)) {
-                    e1 = a1;
-                    e2 = x;
-                }
-            }
-            equiv.merge(e1, e2);
-        }
-        else {
-            if (j < i) {v[j] = v.get(i);}
-            j++;
-        }
-    }
-    v.shrink(j);
-}
-
+void factor_eqs(expr_ref_vector &v, expr_equiv_class &equiv);
 /**
  * converts equivalence classes to equalities
  */
-inline void equiv_to_expr(expr_equiv_class &equiv, expr_ref_vector &out) {
-    ast_manager &m = out.get_manager();
-    for (auto eq_class : equiv) {
-        expr *rep = nullptr;
-        for (expr *elem : eq_class) {
-            if (!m.is_value (elem)) {
-                rep = elem;
-                break;
-            }
-        }
-        SASSERT(rep);
-        for (expr *elem : eq_class) {
-            if (rep != elem) {out.push_back (m.mk_eq (rep, elem));}
-        }
-    }
-}
+void equiv_to_expr(expr_equiv_class &equiv, expr_ref_vector &out);
 
 /**
  * expands equivalence classes to all derivable equalities
  */
-inline bool equiv_to_expr_full(expr_equiv_class &equiv, expr_ref_vector &out) {
-    ast_manager &m = out.get_manager();
-    bool dirty = false;
-    for (auto eq_class : equiv) {
-        for (auto a = eq_class.begin(), end = eq_class.end(); a != end; ++a) {
-            expr_equiv_class::iterator b(a);
-            for (++b; b != end; ++b) {
-                out.push_back(m.mk_eq(*a, *b));
-                dirty = true;
-            }
-        }
-    }
-    return dirty;
-}
+bool equiv_to_expr_full(expr_equiv_class &equiv, expr_ref_vector &out);
 
-}
 
 #endif

@@ -22,11 +22,7 @@ Revision History:
 #include "muz/base/dl_context.h"
 #include "muz/base/fixedpoint_params.hpp"
 #include "muz/transforms/dl_mk_array_eq_rewrite.h"
-#include "../spacer/obj_equiv_class.h"
-
-// NSB code review: avoid dependency on spacer inside this directory.
-// The python build system will rightfully complain if you include 
-// "muz/spacer/obj_equiv_class.h".
+#include "ast/factor_equivs.h"
 
 namespace datalog {
 
@@ -65,7 +61,7 @@ namespace datalog {
             new_tail.push_back(r.get_tail(i));
         }
 
-        spacer::expr_equiv_class array_eq_classes(m);
+        expr_equiv_class array_eq_classes(m);
         for(unsigned i = nb_predicates; i < tail_size; i++) {
             expr* cond = r.get_tail(i);
             expr* e1, *e2;
