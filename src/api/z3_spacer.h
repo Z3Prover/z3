@@ -128,7 +128,7 @@ extern "C" {
 
        def_API ('Z3_qe_lite', AST, (_in(CONTEXT), _in(AST_VECTOR), _in(AST)))
     */
-    Z3_ast Z3_qe_lite
+    Z3_ast Z3_API Z3_qe_lite
       (Z3_context c,
        Z3_ast_vector vars,
        Z3_ast body);
