@@ -732,7 +732,12 @@ namespace smt {
     }
 
     void setup::setup_i_arith() {
-        m_context.register_plugin(alloc(smt::theory_i_arith, m_manager, m_params));        
+        if (AS_LRA == m_params.m_arith_mode) {
+            setup_r_arith();
+        }
+        else {
+            m_context.register_plugin(alloc(smt::theory_i_arith, m_manager, m_params));
+        }
     }
 
     void setup::setup_r_arith() {
@@ -740,13 +745,20 @@ namespace smt {
     }
 
     void setup::setup_mi_arith() {
-        if (m_params.m_arith_mode == AS_OPTINF) {
+        switch (m_params.m_arith_mode) {
+        case AS_OPTINF:
             m_context.register_plugin(alloc(smt::theory_inf_arith, m_manager, m_params));            
-        }
-        else {
+            break;
+        case AS_LRA:
+            setup_r_arith();
+            break;
+        default:
             m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
+            break;
         }
     }
+
+
 
     void setup::setup_arith() {
         static_features    st(m_manager);

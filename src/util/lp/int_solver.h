@@ -110,7 +110,7 @@ private:
     void branch_infeasible_int_var(unsigned);
     lia_move mk_gomory_cut(lar_term& t, mpq& k,explanation & ex);
     lia_move report_conflict_from_gomory_cut(mpq & k);
-    lia_move report_gomory_cut(lar_term& t, mpq& k, mpq& lcm_den, bool some_ints);
+    void adjust_term_and_k_for_some_ints_case_gomory(lar_term& t, mpq& k, mpq& lcm_den);
 	void init_check_data();
     bool constrain_free_vars(linear_combination_iterator<mpq> *  r);
     lia_move proceed_with_gomory_cut(lar_term& t, mpq& k, explanation& ex);

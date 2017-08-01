@@ -168,7 +168,7 @@ void int_solver::real_case_in_gomory_cut(const mpq & a, unsigned x_j, mpq & k, l
         expl.push_justification(column_upper_bound_constraint(x_j), new_a);
     }
     TRACE("gomory_cut_detail", tout << a << "*v" << x_j << " k: " << k << "\n";);
-    pol.add_monoid(new_a, x_j);
+    pol.add_monomial(new_a, x_j);
 }
 
 constraint_index int_solver::column_upper_bound_constraint(unsigned j) const {
@@ -219,7 +219,7 @@ void int_solver::int_case_in_gomory_cut(const mpq & a, unsigned x_j, mpq & k, la
         expl.push_justification(column_upper_bound_constraint(x_j), new_a);
     }
     TRACE("gomory_cut_detail", tout << "new_a: " << new_a << " k: " << k << "\n";);
-    t.add_monoid(new_a, x_j);
+    t.add_monomial(new_a, x_j);
     lcm_den = lcm(lcm_den, denominator(new_a));
 }
 
@@ -233,19 +233,34 @@ lia_move int_solver::report_conflict_from_gomory_cut(mpq & k) {
     return lia_move::conflict;
 }
 
-void int_solver::gomory_cut_adjust_t_and_k(
-                                                         vector<std::pair<mpq, unsigned>> & pol,
-                                                         lar_term & t,
-                                                         mpq &k,
-                                                         bool some_ints,
-                                                         mpq & lcm_den) {
-    TRACE("gomory_cut_detail", tout << "size of t = " << t.size()  << std::endl;);
-    if (some_ints) {
+void int_solver::gomory_cut_adjust_t_and_k(vector<std::pair<mpq, unsigned>> & pol,
+                                           lar_term & t,
+                                           mpq &k,
+                                           bool some_ints,
+                                           mpq & lcm_den) {
+    if (!some_ints)
+        return;
+        
+    t.clear();
+    if (pol.size() == 1) {
+        unsigned v = pol[0].second;
+        lp_assert(is_int(v));
+        bool k_is_int = k.is_int();
+        const mpq& a = pol[0].first;
+        k /= a;
+        if (a.is_pos()) { // we have av >= k
+            if (!k_is_int)
+                k = ceil(k);
+            // switch size
+            t.add_monomial(- mpq(1), v);
+            k.neg();
+        } else {
+            if (!k_is_int)
+                k = floor(k);
+            t.add_monomial(mpq(1), v);
+        }
+    } else if (some_ints) {
         lcm_den = lcm(lcm_den, denominator(k));
-        TRACE("gomory_cut_detail", tout << "k: " << k << " lcm_den: " << lcm_den << "\n";
-              linear_combination_iterator_on_vector<mpq> pi(pol);
-              m_lar_solver->print_linear_iterator(&pi, tout);
-              tout << "\nk: " << k << "\n";);
         lp_assert(lcm_den.is_pos());
         if (!lcm_den.is_one()) {
             // normalize coefficients of integer parameters to be integers.
@@ -255,17 +270,11 @@ void int_solver::gomory_cut_adjust_t_and_k(
             }
             k *= lcm_den;
         }
-        TRACE("gomory_cut_detail", tout << "after *lcm_den\n";
-              for (unsigned i = 0; i < pol.size(); i++) {
-                  tout << pol[i].first << " * v" << pol[i].second << "\n";
-              }
-              tout << "k: " << k << "\n";);
+        // negate everything to return -pol <= -k
+        for (const auto & pi: pol)
+            t.add_monomial(-pi.first, pi.second);
+        k.neg();
     }
-    t.clear();
-    // negate everything to return -pol <= -k
-    for (const auto & pi: pol)
-        t.add_monoid(-pi.first, pi.second);
-    k.neg();
 }
 
 bool int_solver::current_solution_is_inf_on_cut(const lar_term& t, const mpq& k) const {
@@ -281,11 +290,43 @@ bool int_solver::current_solution_is_inf_on_cut(const lar_term& t, const mpq& k)
     return v > k;
 }
 
-lia_move int_solver::report_gomory_cut(lar_term& t, mpq& k, mpq &lcm_den, bool some_ints) {
+void int_solver::adjust_term_and_k_for_some_ints_case_gomory(lar_term& t, mpq& k, mpq &lcm_den) {
     lp_assert(!t.is_empty());
     auto pol = t.coeffs_as_vector();
-    gomory_cut_adjust_t_and_k(pol, t, k, some_ints, lcm_den);
-    return lia_move::cut;
+    t.clear();
+    if (pol.size() == 1) {
+        unsigned v = pol[0].second;
+        lp_assert(is_int(v));
+        bool k_is_int = k.is_int();
+        const mpq& a = pol[0].first;
+        k /= a;
+        if (a.is_pos()) { // we have av >= k
+            if (!k_is_int)
+                k = ceil(k);
+            // switch size
+            t.add_monomial(- mpq(1), v);
+            k.neg();
+        } else {
+            if (!k_is_int)
+                k = floor(k);
+            t.add_monomial(mpq(1), v);
+        }
+    } else {
+        lcm_den = lcm(lcm_den, denominator(k));
+        lp_assert(lcm_den.is_pos());
+        if (!lcm_den.is_one()) {
+            // normalize coefficients of integer parameters to be integers.
+            for (auto & pi: pol) {
+                pi.first *= lcm_den;
+                SASSERT(!is_int(pi.second) || pi.first.is_int());
+            }
+            k *= lcm_den;
+        }
+        // negate everything to return -pol <= -k
+        for (const auto & pi: pol)
+            t.add_monomial(-pi.first, pi.second);
+        k.neg();
+    }
 }
 
 
@@ -321,11 +362,12 @@ lia_move int_solver::mk_gomory_cut(lar_term& t, mpq& k, explanation & expl) {
 
     if (t.is_empty())
         return report_conflict_from_gomory_cut(k);
+    if (some_int_columns)
+        adjust_term_and_k_for_some_ints_case_gomory(t, k, lcm_den);
 
-    auto ret = report_gomory_cut(t, k, lcm_den, some_int_columns);
     lp_assert(current_solution_is_inf_on_cut(t, k));
     m_lar_solver->subs_term_columns(t);
-    return ret;
+    return lia_move::cut;
     
 }
 
@@ -350,7 +392,7 @@ lia_move int_solver::proceed_with_gomory_cut(lar_term& t, mpq& k, explanation& e
     if (j != -1) {
         m_found_free_var_in_gomory_row = true;
         lp_assert(t.is_empty());
-        t.add_monoid(mpq(1), m_lar_solver->adjust_column_index_to_term_index(j));
+        t.add_monomial(mpq(1), m_lar_solver->adjust_column_index_to_term_index(j));
         k = zero_of_type<mpq>();
         return lia_move::branch; // branch on a free column
     }
@@ -401,7 +443,7 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
         return lia_move::ok;
         
 
-    if ((++m_branch_cut_counter) % settings().m_int_branch_cut_threshold == 0) {
+    if ((++m_branch_cut_counter) % settings().m_int_branch_cut_gomory_threshold == 0) {
         move_non_base_vars_to_bounds();
         lp_status st = m_lar_solver->find_feasible_solution();
         lp_assert(non_basic_columns_are_at_bounds());
@@ -427,13 +469,12 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
             TRACE("arith_int", tout << "j" << j << " does not have an integer assignment: " << get_value(j) << "\n";);
 
             lp_assert(t.is_empty());
-            t.add_monoid(mpq(1), j);
+            t.add_monomial(mpq(1), j);
             k = floor(get_value(j));
             TRACE("arith_int", tout << "branching v" << j << " = " << get_value(j) << "\n";
               display_column(tout, j);
               tout << "k = " << k << std::endl;
               );
-            // todo: remove this call later when theory_lra handles term indices
             lp_assert(current_solution_is_inf_on_cut(t, k));
             m_lar_solver->subs_term_columns(t);
             return lia_move::branch;

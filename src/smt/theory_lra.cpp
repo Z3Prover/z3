@@ -304,6 +304,7 @@ namespace smt {
             reset_variable_values();
             m_solver->settings().bound_propagation() = BP_NONE != propagation_mode();
             m_solver->set_propagate_bounds_on_pivoted_rows_mode(lp.bprop_on_pivoted_rows());
+            m_solver->settings().m_int_branch_cut_gomory_threshold = ctx().get_fparams().m_arith_branch_cut_ratio;
             //m_solver->settings().set_ostream(0);
             m_lia = alloc(lp::int_solver, m_solver.get());
         }
@@ -1269,7 +1270,10 @@ namespace smt {
         }
 
         lbool check_lia() {
-            if (m.canceled()) return l_undef;
+            if (m.canceled()) {
+                TRACE("arith", tout << "canceled\n";);
+                return l_undef;
+            }
             lp::lar_term term;
             lp::mpq k;
             lp::explanation ex; // TBD, this should be streamlined accross different explanations
@@ -1315,7 +1319,10 @@ namespace smt {
 
         lbool check_nra() {
             m_use_nra_model = false;
-            if (m.canceled()) return l_undef;
+            if (m.canceled()) {
+                TRACE("arith", tout << "canceled\n";);
+                return l_undef;
+            }
             if (!m_nra) return l_true;
             if (!m_nra->need_check()) return l_true;
             m_a1 = 0; m_a2 = 0;
