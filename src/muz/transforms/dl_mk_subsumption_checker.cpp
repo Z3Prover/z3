@@ -25,7 +25,7 @@ Revision History:
 #include "ast/rewriter/rewriter_def.h"
 #include "muz/transforms/dl_mk_subsumption_checker.h"
 
-#include "fixedpoint_params.hpp"
+#include "muz/base/fixedpoint_params.hpp"
 namespace datalog {
 
 

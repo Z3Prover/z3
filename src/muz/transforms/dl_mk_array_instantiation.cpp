@@ -17,13 +17,13 @@ Revision History:
 --*/
 
 
-#include "dl_mk_array_instantiation.h"
-#include "dl_context.h"
-#include "pattern_inference.h"
-#include "dl_context.h"
-#include "expr_safe_replace.h"
-#include "expr_abstract.h"
-#include"fixedpoint_params.hpp"
+#include "muz/transforms/dl_mk_array_instantiation.h"
+#include "muz/base/dl_context.h"
+#include "ast/pattern/pattern_inference.h"
+#include "muz/base/dl_context.h"
+#include "ast/rewriter/expr_safe_replace.h"
+#include "ast/expr_abstract.h"
+#include "muz/base/fixedpoint_params.hpp"
 #include "../spacer/obj_equiv_class.h"
 
 namespace datalog {

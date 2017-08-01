@@ -27,7 +27,7 @@ Notes:
 #include "util/cooperate.h"
 #include "util/luby.h"
 
-#include"sls_params.hpp"
+#include "tactic/sls/sls_params.hpp"
 #include "tactic/sls/sls_engine.h"
 
 

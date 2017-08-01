@@ -27,7 +27,7 @@ Revision History:
 #include "ast/ast_smt2_pp.h"
 #include "ast/datatype_decl_plugin.h"
 #include "ast/scoped_proof.h"
-#include"fixedpoint_params.hpp"
+#include "muz/base/fixedpoint_params.hpp"
 #include "ast/ast_pp_util.h"
 
 

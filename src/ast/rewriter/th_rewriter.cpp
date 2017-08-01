@@ -17,7 +17,7 @@ Notes:
 
 --*/
 #include "ast/rewriter/th_rewriter.h"
-#include"rewriter_params.hpp"
+#include "ast/rewriter/rewriter_params.hpp"
 #include "ast/rewriter/bool_rewriter.h"
 #include "ast/rewriter/arith_rewriter.h"
 #include "ast/rewriter/bv_rewriter.h"

@@ -27,12 +27,12 @@ Notes:
 #include "tactic/bv/bv_size_reduction_tactic.h"
 #include "tactic/core/reduce_args_tactic.h"
 #include "tactic/smtlogics/qfbv_tactic.h"
-#include"qfufbv_tactic_params.hpp"
+#include "tactic/smtlogics/qfufbv_tactic_params.hpp"
 ///////////////
 #include "model/model_smt2_pp.h"
 #include "util/cooperate.h"
 #include "ackermannization/lackr.h"
-#include"ackermannization_params.hpp"
+#include "ackermannization/ackermannization_params.hpp"
 #include "tactic/smtlogics/qfufbv_ackr_model_converter.h"
 ///////////////
 #include "sat/sat_solver/inc_sat_solver.h"

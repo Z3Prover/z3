@@ -35,7 +35,7 @@ Revision History:
 #include "muz/spacer/spacer_farkas_learner.h"
 #include "muz/spacer/spacer_prop_solver.h"
 
-#include "fixedpoint_params.hpp"
+#include "muz/base/fixedpoint_params.hpp"
 
 namespace spacer {
 

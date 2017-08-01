@@ -25,7 +25,7 @@ Notes:
 #include "util/scoped_ptr_vector.h"
 #include "util/mpbqi.h"
 #include "util/timeit.h"
-#include"algebraic_params.hpp"
+#include "math/polynomial/algebraic_params.hpp"
 #include "util/common_msgs.h"
 
 namespace algebraic_numbers {

@@ -257,8 +257,10 @@ else()
   message(FATAL_ERROR "Platform \"${CMAKE_SYSTEM_NAME}\" not recognised")
 endif()
 
-list(APPEND Z3_COMPONENT_EXTRA_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/src")
-
+list(APPEND Z3_COMPONENT_EXTRA_INCLUDE_DIRS 
+  "${CMAKE_BINARY_DIR}/src"
+  "${CMAKE_SOURCE_DIR}/src"
+)
 ################################################################################
 # GNU multiple precision library support
 ################################################################################

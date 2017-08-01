@@ -70,7 +70,7 @@ Revision History:
 #define DL_MK_ARRAY_INSTANTIATION_H_
 
 
-#include "dl_rule_transformer.h"
+#include "muz/base/dl_rule_transformer.h"
 #include "../spacer/obj_equiv_class.h"
 
 namespace datalog {

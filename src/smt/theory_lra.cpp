@@ -26,7 +26,7 @@ Revision History:
 #include "util/lp/lar_solver.h"
 #include "util/nat_set.h"
 #include "util/optional.h"
-#include "lp_params.hpp"
+#include "util/lp/lp_params.hpp"
 #include "util/inf_rational.h"
 #include "smt/smt_theory.h"
 #include "smt/smt_context.h"

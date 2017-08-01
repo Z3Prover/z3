@@ -21,7 +21,7 @@ Revision History:
 #include "sat/sat_elim_eqs.h"
 #include "util/stopwatch.h"
 #include "util/trace.h"
-#include"sat_scc_params.hpp"
+#include "sat/sat_scc_params.hpp"
 
 namespace sat {
 

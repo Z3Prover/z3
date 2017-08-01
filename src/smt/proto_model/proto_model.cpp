@@ -17,7 +17,7 @@ Revision History:
 
 --*/
 #include "smt/proto_model/proto_model.h"
-#include"model_params.hpp"
+#include "model/model_params.hpp"
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/rewriter/var_subst.h"

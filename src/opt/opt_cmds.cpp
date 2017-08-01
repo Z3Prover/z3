@@ -29,7 +29,7 @@ Notes:
 #include "util/scoped_ctrl_c.h"
 #include "util/scoped_timer.h"
 #include "cmd_context/parametric_cmd.h"
-#include "opt_params.hpp"
+#include "opt/opt_params.hpp"
 #include "model/model_smt2_pp.h"
 
 static opt::context& get_opt(cmd_context& cmd, opt::context* opt) {

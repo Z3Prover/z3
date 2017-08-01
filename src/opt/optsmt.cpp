@@ -37,7 +37,7 @@ Notes:
 #include "ast/ast_util.h"
 #include "model/model_pp.h"
 #include "ast/rewriter/th_rewriter.h"
-#include "opt_params.hpp"
+#include "opt/opt_params.hpp"
 
 namespace opt {
 

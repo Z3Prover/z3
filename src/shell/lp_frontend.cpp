@@ -7,7 +7,7 @@ Author:
 
 --*/
 
-#include "lp_params.hpp"
+#include "util/lp/lp_params.hpp"
 #include "util/lp/lp_settings.h"
 #include "util/lp/mps_reader.h"
 #include "util/timeout.h"

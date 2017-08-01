@@ -32,7 +32,7 @@ Notes:
 #include "muz/spacer/spacer_manager.h"
 #include "muz/spacer/spacer_prop_solver.h"
 
-#include "fixedpoint_params.hpp"
+#include "muz/base/fixedpoint_params.hpp"
 
 namespace datalog {
     class rule_set;
@@ -174,7 +174,7 @@ class pred_transformer {
     };
 
     /// manager of the lemmas in all the frames
-#include "spacer_legacy_frames.h"
+#include "muz/spacer/spacer_legacy_frames.h"
     class frames {
     private:
         pred_transformer &m_pt;

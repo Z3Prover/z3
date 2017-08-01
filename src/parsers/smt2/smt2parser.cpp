@@ -29,7 +29,7 @@ Revision History:
 #include "ast/rewriter/rewriter.h"
 #include "ast/has_free_vars.h"
 #include "ast/ast_smt2_pp.h"
-#include"parser_params.hpp"
+#include "parsers/util/parser_params.hpp"
 #include<sstream>
 
 namespace smt2 {

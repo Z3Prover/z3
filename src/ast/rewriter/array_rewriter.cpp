@@ -17,7 +17,7 @@ Notes:
 
 --*/
 #include "ast/rewriter/array_rewriter.h"
-#include"array_rewriter_params.hpp"
+#include "ast/rewriter/array_rewriter_params.hpp"
 #include "ast/ast_lt.h"
 #include "ast/ast_pp.h"
 

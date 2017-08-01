@@ -20,7 +20,7 @@ Notes:
 #include "opt/opt_context.h"
 #include "ast/ast_pp.h"
 #include "opt/opt_solver.h"
-#include "opt_params.hpp"
+#include "opt/opt_params.hpp"
 #include "ast/for_each_expr.h"
 #include "tactic/goal.h"
 #include "tactic/tactic.h"

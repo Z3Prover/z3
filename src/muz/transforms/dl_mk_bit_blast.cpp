@@ -24,7 +24,7 @@ Revision History:
 #include "ast/rewriter/expr_safe_replace.h"
 #include "tactic/filter_model_converter.h"
 #include "muz/transforms/dl_mk_interp_tail_simplifier.h"
-#include "fixedpoint_params.hpp"
+#include "muz/base/fixedpoint_params.hpp"
 #include "ast/scoped_proof.h"
 #include "model/model_v2_pp.h"
 

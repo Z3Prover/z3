@@ -29,8 +29,8 @@ Notes:
 #include "smt/theory_lra.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_smt_pp.h"
-#include "pp_params.hpp"
-#include "opt_params.hpp"
+#include "ast/pp_params.hpp"
+#include "opt/opt_params.hpp"
 #include "model/model_smt2_pp.h"
 #include "util/stopwatch.h"
 

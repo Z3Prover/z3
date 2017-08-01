@@ -61,7 +61,7 @@ Notes:
 #include "sat/sat_solver/inc_sat_solver.h"
 #include "opt/opt_context.h"
 #include "ast/pb_decl_plugin.h"
-#include "opt_params.hpp"
+#include "opt/opt_params.hpp"
 #include "ast/ast_util.h"
 #include "smt/smt_solver.h"
 

@@ -17,7 +17,7 @@ Revision History:
 
 --*/
 #include "smt/params/dyn_ack_params.h"
-#include"smt_params_helper.hpp"
+#include "smt/params/smt_params_helper.hpp"
 
 void dyn_ack_params::updt_params(params_ref const & _p) {
     smt_params_helper p(_p);

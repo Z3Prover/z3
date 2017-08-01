@@ -31,7 +31,7 @@
 #include "interp/iz3interp.h"
 #include "interp/iz3checker.h"
 #include "interp/iz3profiling.h"
-#include"interp_params.hpp"
+#include "interp/interp_params.hpp"
 #include "ast/scoped_proof.h"
 
 static void show_interpolant_and_maybe_check(cmd_context & ctx,

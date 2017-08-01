@@ -20,7 +20,7 @@ Notes:
 
 --*/
 #include "math/realclosure/realclosure.h"
-#include"rcf_params.hpp"
+#include "math/realclosure/rcf_params.hpp"
 #include "util/array.h"
 #include "util/mpbq.h"
 #include "math/realclosure/mpz_matrix.h"

@@ -19,7 +19,7 @@ Revision History:
 #define DL_MK_ARRAY_EQ_REWRITE_H_
 
 
-#include "dl_rule_transformer.h"
+#include "muz/base/dl_rule_transformer.h"
 #include "../spacer/obj_equiv_class.h"
 
 namespace datalog {
@@ -29,13 +29,13 @@ namespace datalog {
        //Context objects
        ast_manager&      m;
        context&          m_ctx;
-       array_util   m_a;
+       array_util        m_a;
     
        //Rule set context
-       const rule_set*src_set;
-       rule_set*dst;
-       rule_manager* src_manager;
-       unsigned cnt;//Index for new variables
+       const rule_set*   m_src_set;
+       rule_set*         m_dst;
+       rule_manager*     m_src_manager;
+       unsigned          m_cnt;//Index for new variables
 
        expr* replace(expr* e, expr* new_val, expr* old_val);
        void instantiate_rule(const rule& r, rule_set & dest);

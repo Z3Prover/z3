@@ -18,7 +18,7 @@ Revision History:
 
 #include "muz/transforms/dl_mk_scale.h"
 #include "muz/base/dl_context.h"
-#include"fixedpoint_params.hpp"
+#include "muz/base/fixedpoint_params.hpp"
 
 namespace datalog {
 

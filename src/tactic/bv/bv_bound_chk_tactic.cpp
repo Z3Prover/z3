@@ -19,7 +19,7 @@
 #include "ast/rewriter/rewriter.h"
 #include "ast/rewriter/rewriter_def.h"
 #include "ast/rewriter/bv_bounds.h"
-#include"rewriter_params.hpp"
+#include "ast/rewriter/rewriter_params.hpp"
 #include "ast/rewriter/bool_rewriter.h"
 #include "util/cooperate.h"
 

@@ -17,7 +17,7 @@ Revision History:
 
 --*/
 #include "ast/pp.h"
-#include"pp_params.hpp"
+#include "ast/pp_params.hpp"
 using namespace format_ns;
 
 static std::pair<unsigned, bool> space_upto_line_break(ast_manager & m, format * f) {

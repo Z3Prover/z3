@@ -29,7 +29,7 @@ Notes:
 #include "util/gparams.h"
 #include "util/env_params.h"
 #include "ast/well_sorted.h"
-#include"pp_params.hpp"
+#include "ast/pp_params.hpp"
 
 class help_cmd : public cmd {
     svector<symbol> m_cmds;

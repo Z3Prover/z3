@@ -27,7 +27,7 @@ Notes:
 #include "tactic/core/nnf_tactic.h"
 #include "util/stopwatch.h"
 #include "tactic/sls/sls_tactic.h"
-#include"sls_params.hpp"
+#include "tactic/sls/sls_params.hpp"
 #include "tactic/sls/sls_engine.h"
 
 class sls_tactic : public tactic {    

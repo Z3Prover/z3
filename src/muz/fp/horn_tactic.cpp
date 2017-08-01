@@ -27,7 +27,7 @@ Revision History:
 #include "muz/transforms/dl_mk_slice.h"
 #include "tactic/filter_model_converter.h"
 #include "muz/transforms/dl_transforms.h"
-#include"fixedpoint_params.hpp"
+#include "muz/base/fixedpoint_params.hpp"
 #include "ast/ast_util.h"
 #include "ast/rewriter/var_subst.h"
 

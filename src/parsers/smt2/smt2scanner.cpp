@@ -17,7 +17,7 @@ Revision History:
 
 --*/
 #include "parsers/smt2/smt2scanner.h"
-#include"parser_params.hpp"
+#include "parsers/util/parser_params.hpp"
 
 namespace smt2 {
 

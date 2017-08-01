@@ -20,7 +20,7 @@ Notes:
 --*/
 #include "solver/solver.h"
 #include "util/scoped_timer.h"
-#include"combined_solver_params.hpp"
+#include "solver/combined_solver_params.hpp"
 #include "util/common_msgs.h"
 #define PS_VB_LVL 15
 

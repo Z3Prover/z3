@@ -30,7 +30,7 @@ Revision History:
 #include "ast/for_each_expr.h"
 #include "ast/substitution/matcher.h"
 #include "ast/scoped_proof.h"
-#include "fixedpoint_params.hpp"
+#include "muz/base/fixedpoint_params.hpp"
 #include "ast/ast_util.h"
 
 namespace tb {

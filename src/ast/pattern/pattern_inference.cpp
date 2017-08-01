@@ -576,7 +576,7 @@ void pattern_inference::mk_patterns(unsigned num_bindings,
     m_candidates.reset();
 }
 
-#include "database.h"
+#include "ast/pattern/database.h"
 
 void pattern_inference::reduce1_quantifier(quantifier * q) {
     TRACE("pattern_inference", tout << "processing:\n" << mk_pp(q, m) << "\n";);

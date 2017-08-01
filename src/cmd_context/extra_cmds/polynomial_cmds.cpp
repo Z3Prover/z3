@@ -29,7 +29,7 @@ Notes:
 #include "math/polynomial/polynomial_var2value.h"
 #include "ast/expr2var.h"
 #include "ast/pp.h"
-#include"pp_params.hpp"
+#include "ast/pp_params.hpp"
 
 static void to_poly(cmd_context & ctx, expr * t) {
     polynomial::numeral_manager nm;

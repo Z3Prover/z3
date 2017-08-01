@@ -43,7 +43,7 @@ Notes:
 #include "cmd_context/interpolant_cmds.h"
 #include "model/model_smt2_pp.h"
 #include "model/model_v2_pp.h"
-#include"model_params.hpp"
+#include "model/model_params.hpp"
 #include "ast/rewriter/th_rewriter.h"
 #include "tactic/tactic_exception.h"
 #include "solver/smt_logics.h"

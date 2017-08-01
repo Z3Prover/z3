@@ -18,19 +18,19 @@ Notes:
 --*/
 
 #include <iostream>
-#include "z3.h"
+#include "api/z3.h"
 #include "api_log_macros.h"
-#include "api_context.h"
-#include "api_util.h"
-#include "api_model.h"
-#include "api_ast_map.h"
-#include "api_ast_vector.h"
+#include "api/api_context.h"
+#include "api/api_util.h"
+#include "api/api_model.h"
+#include "api/api_ast_map.h"
+#include "api/api_ast_vector.h"
 
-#include "qe_vartest.h"
-#include "qe_lite.h"
-#include "spacer_util.h"
+#include "qe/qe_vartest.h"
+#include "qe/qe_lite.h"
+#include "muz/spacer/spacer_util.h"
 
-#include "expr_map.h"
+#include "ast/expr_map.h"
 
 extern "C"
 {

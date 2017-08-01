@@ -26,7 +26,7 @@ Notes:
 #include "ast/bv_decl_plugin.h"
 #include "model/model.h"
 
-#include"sls_params.hpp"
+#include "tactic/sls/sls_params.hpp"
 #include "tactic/sls/sls_powers.h"
 
 class sls_tracker {

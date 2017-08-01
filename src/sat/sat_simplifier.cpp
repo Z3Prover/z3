@@ -19,7 +19,7 @@ Revision History:
 
 --*/
 #include "sat/sat_simplifier.h"
-#include"sat_simplifier_params.hpp"
+#include "sat/sat_simplifier_params.hpp"
 #include "sat/sat_solver.h"
 #include "util/stopwatch.h"
 #include "util/trace.h"

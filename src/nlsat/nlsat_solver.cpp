@@ -31,7 +31,7 @@ Revision History:
 #include "util/dependency.h"
 #include "math/polynomial/polynomial_cache.h"
 #include "util/permutation.h"
-#include"nlsat_params.hpp"
+#include "nlsat/nlsat_params.hpp"
 
 #define NLSAT_EXTRA_VERBOSE
 

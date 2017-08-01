@@ -35,7 +35,7 @@ Revision History:
 #include "muz/transforms/dl_mk_scale.h"
 #include "muz/transforms/dl_mk_array_eq_rewrite.h"
 #include "muz/transforms/dl_mk_array_instantiation.h"
-#include "fixedpoint_params.hpp"
+#include "muz/base/fixedpoint_params.hpp"
 
 namespace datalog {
 

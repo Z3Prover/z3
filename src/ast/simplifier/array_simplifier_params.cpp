@@ -17,7 +17,7 @@ Revision History:
 
 --*/
 #include "ast/simplifier/array_simplifier_params.h"
-#include"array_simplifier_params_helper.hpp"
+#include "ast/simplifier/array_simplifier_params_helper.hpp"
 
 void array_simplifier_params::updt_params(params_ref const & _p) {
     array_simplifier_params_helper p(_p);

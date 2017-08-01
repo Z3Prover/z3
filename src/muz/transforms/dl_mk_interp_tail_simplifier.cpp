@@ -27,7 +27,7 @@ Revision History:
 #include "muz/transforms/dl_mk_interp_tail_simplifier.h"
 #include "ast/ast_util.h"
 
-#include "fixedpoint_params.hpp"
+#include "muz/base/fixedpoint_params.hpp"
 namespace datalog {
 
     // -----------------------------------

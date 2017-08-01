@@ -25,8 +25,8 @@ Revision History:
 #include "model/model.h"
 #include "model/model_v2_pp.h"
 #include "model/model_smt2_pp.h"
-#include"model_params.hpp"
-#include"model_evaluator_params.hpp"
+#include "model/model_params.hpp"
+#include "model/model_evaluator_params.hpp"
 
 extern "C" {
 

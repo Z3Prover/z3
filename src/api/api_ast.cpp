@@ -37,7 +37,7 @@ Revision History:
 #include "util/scoped_ctrl_c.h"
 #include "util/cancel_eh.h"
 #include "util/scoped_timer.h"
-#include"pp_params.hpp"
+#include "ast/pp_params.hpp"
 
 extern bool is_numeral_sort(Z3_context c, Z3_sort ty);
 

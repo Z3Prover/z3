@@ -17,7 +17,7 @@ Notes:
 
 --*/
 #include "ast/rewriter/poly_rewriter.h"
-#include"poly_rewriter_params.hpp"
+#include "ast/rewriter/poly_rewriter_params.hpp"
 #include "ast/ast_lt.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/ast_smt2_pp.h"

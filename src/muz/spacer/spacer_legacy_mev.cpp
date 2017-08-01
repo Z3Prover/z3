@@ -22,7 +22,7 @@ Copyright (c) 2017 Arie Gurfinkel
 #include "muz/spacer/spacer_manager.h"
 #include "muz/spacer/spacer_legacy_mev.h"
 #include "muz/spacer/spacer_util.h"
-#include "arith_decl_plugin.h"
+#include "ast/arith_decl_plugin.h"
 #include "ast/rewriter/expr_replacer.h"
 #include "model/model_smt2_pp.h"
 #include "ast/scoped_proof.h"

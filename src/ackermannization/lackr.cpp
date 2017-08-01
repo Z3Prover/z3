@@ -16,7 +16,7 @@
 --*/
 
 #include "ackermannization/lackr.h"
-#include"ackermannization_params.hpp"
+#include "ackermannization/ackermannization_params.hpp"
 #include "tactic/tactic.h"
 #include "ackermannization/lackr_model_constructor.h"
 #include "ackermannization/ackr_info.h"

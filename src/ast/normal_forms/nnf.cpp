@@ -18,7 +18,7 @@ Notes:
 
 --*/
 #include "ast/normal_forms/nnf.h"
-#include"nnf_params.hpp"
+#include "ast/normal_forms/nnf_params.hpp"
 #include "util/warning.h"
 #include "ast/used_vars.h"
 #include "ast/well_sorted.h"

@@ -20,7 +20,7 @@ Notes:
 #include "smt/smt_kernel.h"
 #include "ast/reg_decl_plugins.h"
 #include "smt/params/smt_params.h"
-#include"smt_params_helper.hpp"
+#include "smt/params/smt_params_helper.hpp"
 #include "solver/mus.h"
 #include "ast/for_each_expr.h"
 #include "ast/ast_smt2_pp.h"

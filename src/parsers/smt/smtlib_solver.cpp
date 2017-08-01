@@ -28,8 +28,8 @@ Revision History:
 #include "solver/solver.h"
 #include "tactic/portfolio/smt_strategic_solver.h"
 #include "cmd_context/cmd_context.h"
-#include"model_params.hpp"
-#include"parser_params.hpp"
+#include "model/model_params.hpp"
+#include "parsers/util/parser_params.hpp"
 
 namespace smtlib {
 

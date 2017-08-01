@@ -17,8 +17,8 @@ Revision History:
 
 --*/
 #include "smt/params/smt_params.h"
-#include"smt_params_helper.hpp"
-#include"model_params.hpp"
+#include "smt/params/smt_params_helper.hpp"
+#include "model/model_params.hpp"
 #include "util/gparams.h"
 
 void smt_params::updt_local_params(params_ref const & _p) {
