@@ -330,8 +330,7 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
                 {
                     SASSERT(!m_learner.is_a_marked(premise));
 
-                    // XXX AG: why is this condition is based on step and not on premise?
-                    if (m_learner.only_contains_symbols_b(m_learner.m.get_fact(step)) && !m_learner.is_h_marked(step))
+                    if (m_learner.only_contains_symbols_b(m_learner.m.get_fact(premise)) && !m_learner.is_h_marked(premise))
                     {
                         rational coefficient;
                         VERIFY(params[i].is_rational(coefficient));
@@ -589,6 +588,17 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
 
     unsat_core_plugin_min_cut::unsat_core_plugin_min_cut(unsat_core_learner& learner, ast_manager& m) : unsat_core_plugin(learner), m(m){}
 
+    /*
+     * traverses proof rooted in step and constructs graph, which corresponds to the proof-DAG, with the following differences:
+     *
+     * 1) we want to skip vertices, which have a conclusion, which we don't like (call those steps bad and the other ones good). In other words, we start at a good step r and compute the smallest subproof with root r, which has only good leaves. Then we add an edge from the root to each of the leaves and remember that we already dealt with s. Then we recurse on all leaves.
+     * 2) we want to introduce two vertices for all (unskipped) edges in order to run the min-cut algorithm
+     * 3) we want to introduce a single super-source vertex, which is connected to all source-vertices of the proof-DAG and a
+     * single super-sink vertex, to which all sink-vertices of the proof-DAG are connected
+     *
+     * 1) is dealt with using advance_to_lowest_partial_cut
+     * 2) and 3) are dealt with using add_edge
+     */
     void unsat_core_plugin_min_cut::compute_partial_core(proof* step)
     {
         ptr_vector<proof> todo;
@@ -604,21 +614,28 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
             proof* current = todo.back();
             todo.pop_back();
 
+            // if we need to deal with the node and if we haven't added the corresponding edges so far
             if (!m_learner.is_closed(current) && !m_visited.is_marked(current))
             {
-                m_visited.mark(current, true);
+                // compute smallest subproof rooted in current, which has only good edges
+                // add an edge from current to each leaf of that subproof
+                // add the leaves to todo
                 advance_to_lowest_partial_cut(current, todo);
+                
+                m_visited.mark(current, true);
+
             }
         }
         m_learner.set_closed(step, true);
     }
 
-    void unsat_core_plugin_min_cut::advance_to_lowest_partial_cut(proof* step, ptr_vector<proof>& todo2)
+    
+    void unsat_core_plugin_min_cut::advance_to_lowest_partial_cut(proof* step, ptr_vector<proof>& todo)
     {
         bool is_sink = true;
 
         ast_manager &m = m_learner.m;
-        ptr_vector<proof> todo;
+        ptr_vector<proof> todo_subproof;
 
         for (unsigned i = 0, sz = m.get_num_parents(step); i < sz; ++i)
         {
@@ -626,16 +643,16 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
             {
                 if (m_learner.is_b_marked(premise))
                 {
-                    todo.push_back(premise);
+                    todo_subproof.push_back(premise);
                 }
             }
         }
-        while (!todo.empty())
+        while (!todo_subproof.empty())
         {
-            proof* current = todo.back();
-            todo.pop_back();
+            proof* current = todo_subproof.back();
+            todo_subproof.pop_back();
 
-            // if current step hasn't been processed,
+            // if we need to deal with the node
             if (!m_learner.is_closed(current))
             {
                 SASSERT(!m_learner.is_a_marked(current)); // by I.H. the step must be already visited
@@ -648,26 +665,28 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
                         (m.is_asserted(current) ||
                          is_literal(m, m.get_fact(current))))
                     {
-                        // add corresponding edges and continue original traversel
+                        // we found a leaf of the subproof, so
+                        // 1) we add corresponding edges
                         if (m_learner.is_a_marked(step))
                         {
                             add_edge(nullptr, current); // current is sink
                         }
                         else
                         {
-                            add_edge(step, current);
+                            add_edge(step, current); // standard edge
                         }
-                        todo2.push_back(current);
+                        // 2) add the leaf to todo
+                        todo.push_back(current);
                         is_sink = false;
                     }
-                    // otherwise recurse on premises
+                    // otherwise continue search for leaves of subproof
                     else
                     {
                         for (unsigned i = 0; i < m_learner.m.get_num_parents(current); ++i)
                         {
                             SASSERT(m_learner.m.is_proof(current->get_arg(i)));
                             proof* premise = m.get_parent (current, i);
-                            todo.push_back(premise);
+                            todo_subproof.push_back(premise);
                         }
                     }
                 }
@@ -680,6 +699,12 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
         }
     }
 
+    /*
+     * adds an edge from the out-vertex of i to the in-vertex of j to the graph
+     * if i or j isn't already present, it adds the corresponding in- and out-vertices to the graph
+     * if i is a nullptr, it is treated as source vertex
+     * if j is a nullptr, it is treated as sink vertex
+     */
     void unsat_core_plugin_min_cut::add_edge(proof* i, proof* j)
     {
         unsigned node_i;
@@ -748,6 +773,10 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
         m_min_cut.add_edge(node_i, node_j, 1);
     }
 
+    /*
+     * computes min-cut on the graph constructed by compute_partial_core-method
+     * and adds the corresponding lemmas to the core
+     */
     void unsat_core_plugin_min_cut::finalize()
     {
         vector<unsigned int> cut_nodes;
