@@ -264,6 +264,7 @@ lbool prop_solver::check_assumptions(const expr_ref_vector & _hard,
         else { m_ctx->assert_expr(bg[i]); }
 
     unsigned soft_sz = soft.size();
+    (void) soft_sz;
     lbool res = internal_check_assumptions(hard, soft);
     if (!m_use_push_bg) { m_ctx->pop(1); }
 

@@ -788,7 +788,7 @@ namespace qe {
         }
 
         unsigned find_max(model& mdl, bool do_pos) {
-            unsigned result;
+            unsigned result = UINT_MAX;
             bool found = false;
             bool found_strict = false;
             rational found_val (0), r, r_plus_x, found_c;
@@ -2078,6 +2078,7 @@ namespace qe {
             sort* v_sort = m.get_sort (v);
             sort* val_sort = get_array_range (v_sort);
             sort* idx_sort = get_array_domain (v_sort, 0);
+            (void) idx_sort;
 
             unsigned start = m_idx_reprs.size (); // append at the end
 

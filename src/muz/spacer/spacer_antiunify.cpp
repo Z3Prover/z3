@@ -335,8 +335,8 @@ bool naive_convex_closure::compute_closure(anti_unifier& au, ast_manager& m,
 
     // for each substitution entry
     bool is_first_key = true;
-    unsigned lower_bound;
-    unsigned upper_bound;
+    unsigned lower_bound = 0;
+    unsigned upper_bound = 0;
     for (const auto& pair : au.get_substitution(0)) {
         // construct vector
         expr* key = &pair.get_key();
@@ -355,8 +355,8 @@ bool naive_convex_closure::compute_closure(anti_unifier& au, ast_manager& m,
         }
 
         // check whether vector represents interval
-        unsigned current_lower_bound;
-        unsigned current_upper_bound;
+        unsigned current_lower_bound = 0;
+        unsigned current_upper_bound = 0;
 
         // if vector represents interval
         if (get_range(entries, current_lower_bound, current_upper_bound)) {

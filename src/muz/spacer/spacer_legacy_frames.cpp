@@ -79,6 +79,7 @@ bool pred_transformer::legacy_frames::propagate_to_next_level(unsigned src_level
 {
 
     ast_manager &m = m_pt.get_ast_manager();
+    (void) m;
     if (m_levels.size() <= src_level) { return true; }
     if (m_levels [src_level].empty()) { return true; }
 

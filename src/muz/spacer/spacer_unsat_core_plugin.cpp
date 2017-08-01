@@ -444,10 +444,10 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
                     }
 
 
-    void unsat_core_plugin_farkas_lemma_bounded::finalize()
-                    {
-        if(m_linear_combinations.empty())
-        {return;}
+    void unsat_core_plugin_farkas_lemma_bounded::finalize()  {
+        if (m_linear_combinations.empty()) {
+            return;
+        }
         DEBUG_CODE(
             for (auto& linear_combination : m_linear_combinations) {
                 SASSERT(linear_combination.size() > 0);
@@ -457,12 +457,9 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
         ptr_vector<app> ordered_basis;
         obj_map<app, unsigned> map;
         unsigned counter = 0;
-        for (const auto& linear_combination : m_linear_combinations)
-                {
-            for (const auto& pair : linear_combination)
-        {
-                if (!map.contains(pair.first))
-            {
+        for (const auto& linear_combination : m_linear_combinations) {
+            for (const auto& pair : linear_combination) {
+                if (!map.contains(pair.first)) {
                     ordered_basis.push_back(pair.first);
                     map.insert(pair.first, counter++);
                 }
@@ -472,14 +469,12 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
         // 2. populate matrix
         spacer_matrix matrix(m_linear_combinations.size(), ordered_basis.size());
 
-        for (unsigned i=0; i < m_linear_combinations.size(); ++i)
-            {
+        for (unsigned i=0; i < m_linear_combinations.size(); ++i) {
             auto linear_combination = m_linear_combinations[i];
-            for (const auto& pair : linear_combination)
-        {
+            for (const auto& pair : linear_combination) {
                 matrix.set(i, map[pair.first], pair.second);
             }
-            }
+        }
         matrix.print_matrix();
 
         // 3. normalize matrix to integer values
@@ -489,8 +484,7 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
         arith_util util(m);
 
         vector<expr_ref_vector> coeffs;
-        for (unsigned i=0; i < matrix.num_rows(); ++i)
-            {
+        for (unsigned i=0; i < matrix.num_rows(); ++i) {
             coeffs.push_back(expr_ref_vector(m));
         }
 
@@ -532,19 +526,17 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
             }
 
             // assert bounds for all s_jn
-            for (unsigned l=0; l < n; ++l)
-                {
-                for (unsigned j=0; j < matrix.num_cols(); ++j)
-                    {
+            for (unsigned l=0; l < n; ++l) {
+                for (unsigned j=0; j < matrix.num_cols(); ++j) {
                     expr* s_jn = bounded_vectors[j][l].get();
-
+                    
                     expr_ref lb(util.mk_le(util.mk_int(0), s_jn), m);
                     expr_ref ub(util.mk_le(s_jn, util.mk_int(1)), m);
                     s->assert_expr(lb);
                     s->assert_expr(ub);
-                    }
                 }
-
+            }
+            
             // assert: forall i,j: a_ij = sum_k w_ik * s_jk
             for (unsigned i=0; i < matrix.num_rows(); ++i)
                 {
@@ -568,34 +560,30 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
             lbool res = s->check_sat(0,0);
 
             // if sat extract model and add corresponding linear combinations to core
-            if (res == lbool::l_true)
-                {
+            if (res == lbool::l_true) {
                 model_ref model;
                 s->get_model(model);
-
-                for (int k=0; k < n; ++k)
-        {
-            ptr_vector<app> literals;
-            vector<rational> coefficients;
-                    for (unsigned j=0; j < matrix.num_cols(); ++j)
-            {
+                
+                for (unsigned k=0; k < n; ++k) {
+                    ptr_vector<app> literals;
+                    vector<rational> coefficients;
+                    for (unsigned j=0; j < matrix.num_cols(); ++j) {
                         expr_ref evaluation(m);
-
+                        
                         model.get()->eval(bounded_vectors[j][k].get(), evaluation, false);
-                        if (!util.is_zero(evaluation))
-                {
+                        if (!util.is_zero(evaluation)) {
                             literals.push_back(ordered_basis[j]);
                             coefficients.push_back(rational(1));
-                }
-            }
+                        }
+                    }
                     SASSERT(!literals.empty()); // since then previous outer loop would have found solution already
-            expr_ref linear_combination(m);
-            compute_linear_combination(coefficients, literals, linear_combination);
-
-            m_learner.add_lemma_to_core(linear_combination);
-        }
+                    expr_ref linear_combination(m);
+                    compute_linear_combination(coefficients, literals, linear_combination);
+                    
+                    m_learner.add_lemma_to_core(linear_combination);
+                }
                 return;
-    }
+            }
         }
     }
 

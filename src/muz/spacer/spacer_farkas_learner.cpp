@@ -389,11 +389,11 @@ void farkas_learner::get_lemmas(proof* root, expr_set const& bs, expr_ref_vector
     simplify_bounds(lemmas);
 }
 
-void farkas_learner::get_asserted(proof* p, expr_set const& bs, ast_mark& b_closed, obj_hashtable<expr>& lemma_set, expr_ref_vector& lemmas)
+void farkas_learner::get_asserted(proof* p0, expr_set const& bs, ast_mark& b_closed, obj_hashtable<expr>& lemma_set, expr_ref_vector& lemmas)
 {
     ast_manager& m = lemmas.get_manager();
     ast_mark visited;
-    proof* p0 = p;
+    proof* p = p0;
     ptr_vector<proof> todo;
     todo.push_back(p);
 

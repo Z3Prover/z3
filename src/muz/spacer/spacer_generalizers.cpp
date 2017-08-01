@@ -133,9 +133,7 @@ void unsat_core_generalizer::operator()(lemma_ref &lemma)
 
     unsigned uses_level;
     expr_ref_vector core(m);
-    bool r;
-    r = pt.is_invariant(lemma->level(), lemma->get_expr(), uses_level, &core);
-    SASSERT(r);
+    VERIFY(pt.is_invariant(lemma->level(), lemma->get_expr(), uses_level, &core));
 
     CTRACE("spacer", old_sz > core.size(),
            tout << "unsat core reduced lemma from: "
@@ -185,6 +183,7 @@ void lemma_array_eq_generalizer::operator() (lemma_ref &lemma)
     // -- find array constants
     ast_manager &m = lemma->get_ast_manager();
     manager &pm = m_ctx.get_manager();
+    (void)pm;
 
     expr_ref_vector core(m);
     expr_ref v(m);
