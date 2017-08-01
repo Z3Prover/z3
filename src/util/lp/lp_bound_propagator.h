@@ -6,14 +6,14 @@
 #include "util/lp/lp_settings.h"
 namespace lean {
 class lar_solver;
-class bound_propagator {
+class lp_bound_propagator {
     std::unordered_map<unsigned, unsigned> m_improved_low_bounds; // these maps map a column index to the corresponding index in ibounds
     std::unordered_map<unsigned, unsigned> m_improved_upper_bounds;
     lar_solver & m_lar_solver;
 public:
     vector<implied_bound> m_ibounds;
 public:
-    bound_propagator(lar_solver & ls);
+    lp_bound_propagator(lar_solver & ls);
     column_type get_column_type(unsigned) const;
     const impq & get_low_bound(unsigned) const;
     const impq & get_upper_bound(unsigned) const;

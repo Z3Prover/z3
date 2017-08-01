@@ -51,7 +51,7 @@ class lar_solver : public column_namer {
     vector<lar_term*>                       m_terms;
     vector<lar_term*>                       m_orig_terms;
     const var_index                         m_terms_start_index;
-    indexed_vector<mpq>                     m_column_buffer;    
+    indexed_vector<mpq>                     m_column_buffer;
 public:
     lar_core_solver m_mpq_lar_core_solver;
     unsigned constraint_count() const {
@@ -66,7 +66,7 @@ public:
     static_matrix<mpq, numeric_pair<mpq>> const & A_r() const { return m_mpq_lar_core_solver.m_r_A;}
     static_matrix<double, double> & A_d() { return m_mpq_lar_core_solver.m_d_A;}
     static_matrix<double, double > const & A_d() const { return m_mpq_lar_core_solver.m_d_A;}
-    
+
     static bool valid_index(unsigned j){ return static_cast<int>(j) >= 0;}
 
 
@@ -84,7 +84,7 @@ public:
                    m_terms_start_index(1000000),
                    m_mpq_lar_core_solver(m_settings, *this)
     {}
-    
+
     void set_propagate_bounds_on_pivoted_rows_mode(bool v) {
         m_mpq_lar_core_solver.m_r_solver.m_pivoted_rows = v? (& m_rows_with_changed_bounds) : nullptr;
     }
@@ -99,7 +99,7 @@ public:
     }
 
 #include "util/lp/init_lar_solver.h"
-    
+
     numeric_pair<mpq> const& get_value(var_index vi) const { return m_mpq_lar_core_solver.m_r_x[vi]; }
 
     bool is_term(var_index j) const {
@@ -113,7 +113,7 @@ public:
 
 
     bool use_lu() const { return m_settings.simplex_strategy() == simplex_strategy_enum::lu; }
-    
+
     bool sizes_are_correct() const {
         lean_assert(strategy_is_undecided() || !m_mpq_lar_core_solver.need_to_presolve_with_double_solver() || A_r().column_count() == A_d().column_count());
         lean_assert(A_r().column_count() == m_mpq_lar_core_solver.m_r_solver.m_column_types.size());
@@ -121,8 +121,8 @@ public:
         lean_assert(A_r().column_count() == m_mpq_lar_core_solver.m_r_x.size());
         return true;
     }
-    
- 
+
+
     void print_implied_bound(const implied_bound& be, std::ostream & out) const {
         out << "implied bound\n";
         unsigned v = be.m_j;
@@ -138,11 +138,11 @@ public:
         //     out << p.first << " : ";
         //     print_constraint(p.second, out);
         // }
-        
+
         // m_mpq_lar_core_solver.m_r_solver.print_column_info(be.m_j< m_terms_start_index? be.m_j : adjust_term_index(be.m_j), out);
         out << "end of implied bound" << std::endl;
     }
-    
+
     bool implied_bound_is_correctly_explained(implied_bound const & be, const vector<std::pair<mpq, unsigned>> & explanation) const {
         std::unordered_map<unsigned, mpq> coeff_map;
         auto rs_of_evidence = zero_of_type<mpq>();
@@ -164,7 +164,7 @@ public:
         lconstraint_kind kind = n_of_G ? GE : (n_of_L ? LE : EQ);
         if (strict)
             kind = static_cast<lconstraint_kind>((static_cast<int>(kind) / 2));
-      
+
         if (!is_term(be.m_j)) {
             if (coeff_map.size() != 1)
                 return false;
@@ -200,13 +200,13 @@ public:
         return kind == be.kind() && rs_of_evidence == be.m_bound;
     }
 
-    
+
     void analyze_new_bounds_on_row(
                                    unsigned row_index,
-                                   bound_propagator & bp) {
+                                   lp_bound_propagator & bp) {
         lean_assert(!use_tableau());
         iterator_on_pivot_row<mpq> it(m_mpq_lar_core_solver.get_pivot_row(), m_mpq_lar_core_solver.m_r_basis[row_index]);
-     
+
         bound_analyzer_on_row ra_pos(it,
                                      zero_of_type<numeric_pair<mpq>>(),
                                      row_index,
@@ -217,7 +217,7 @@ public:
 
     void analyze_new_bounds_on_row_tableau(
                                            unsigned row_index,
-                                           bound_propagator & bp
+                                           lp_bound_propagator & bp
                                            ) {
 
         if (A_r().m_rows[row_index].size() > settings().max_row_length_for_bound_propagation)
@@ -231,20 +231,20 @@ public:
                                            );
     }
 
-    
+
     void substitute_basis_var_in_terms_for_row(unsigned i) {
         // todo : create a map from term basic vars to the rows where they are used
         unsigned basis_j = m_mpq_lar_core_solver.m_r_solver.m_basis[i];
         for (unsigned k = 0; k < m_terms.size(); k++) {
             if (term_is_used_as_row(k))
                 continue;
-            if (!m_terms[k]->contains(basis_j)) 
+            if (!m_terms[k]->contains(basis_j))
                 continue;
             m_terms[k]->subst(basis_j, m_mpq_lar_core_solver.m_r_solver.m_pivot_row);
         }
     }
-    
-    void calculate_implied_bounds_for_row(unsigned i, bound_propagator & bp) {
+
+    void calculate_implied_bounds_for_row(unsigned i, lp_bound_propagator & bp) {
         if(use_tableau()) {
             analyze_new_bounds_on_row_tableau(i, bp);
         } else {
@@ -269,7 +269,7 @@ public:
       bound_evidences.push_back(fill_bound_evidence(implied_evidence));
       }
       }
-    
+
       void fill_bound_evidence_on_term(implied_bound & ie, implied_bound& be) {
       lean_assert(false);
       }
@@ -282,7 +282,7 @@ public:
       while (it.next(a, j)) {
       if (j == ie.m_j) continue;
       const ul_pair & ul = m_vars_to_ul_pairs[j];
-            
+
       if (is_neg(a)) { // so the monoid has a positive coeff on the right side
       constraint_index witness = toggle ? ul.m_low_bound_witness : ul.m_upper_bound_witness;
       lean_assert(is_valid(witness));
@@ -305,7 +305,7 @@ public:
 
       implied_bound fill_implied_bound_for_upper_bound(implied_bound& implied_evidence) {
       lean_assert(false);
-        
+
       be.m_j = implied_evidence.m_j;
       be.m_bound = implied_evidence.m_bound.x;
       be.m_kind = implied_evidence.m_bound.y.is_zero() ? LE : LT;
@@ -315,12 +315,12 @@ public:
       lean_assert(is_valid(witness));
       be.m_explanation.emplace_back(t.m_coeff, witness);
       }
-        
+
       }
     */
     /*
       void process_new_implied_evidence_for_upper_bound(
-      implied_bound& implied_evidence, 
+      implied_bound& implied_evidence,
       vector<implied_bound> & implied_bounds,
       std::unordered_map<unsigned, unsigned> & improved_upper_bounds) {
       unsigned existing_index;
@@ -336,7 +336,7 @@ public:
       }
     */
     //    implied_bound * get_existing_
-  
+
     linear_combination_iterator<mpq> * create_new_iter_from_term(unsigned term_index) const {
         lean_assert(false); // not implemented
         return nullptr;
@@ -347,13 +347,13 @@ public:
         unsigned ext_var_or_term = m_columns_to_ext_vars_or_term_indices[j];
         return ext_var_or_term < m_terms_start_index ? j : ext_var_or_term;
     }
-    
-    void propagate_bounds_on_a_term(const lar_term& t, bound_propagator & bp, unsigned term_offset) {
+
+    void propagate_bounds_on_a_term(const lar_term& t, lp_bound_propagator & bp, unsigned term_offset) {
         lean_assert(false); // not implemented
     }
 
 
-    void explain_implied_bound(implied_bound & ib, bound_propagator & bp) {
+    void explain_implied_bound(implied_bound & ib, lp_bound_propagator & bp) {
         unsigned i = ib.m_row_or_term_index;
         int bound_sign = ib.m_is_low_bound? 1: -1;
         int j_sign = (ib.m_coeff_before_j_is_pos ? 1 :-1) * bound_sign;
@@ -367,7 +367,7 @@ public:
             if (j == m_j) continue;
             if (is_term(j)) {
                 j = m_ext_vars_to_columns[j];
-            } 
+            }
             int a_sign = is_pos(a)? 1: -1;
             int sign = j_sign * a_sign;
             const ul_pair & ul =  m_vars_to_ul_pairs[j];
@@ -383,8 +383,8 @@ public:
 		lean_assert(is_term(term));
 		return contains(m_ext_vars_to_columns, term);
     }
-    
-    void propagate_bounds_on_terms(bound_propagator & bp) {
+
+    void propagate_bounds_on_terms(lp_bound_propagator & bp) {
         for (unsigned i = 0; i < m_terms.size(); i++) {
             if (term_is_used_as_row(i + m_terms_start_index))
                 continue; // this term is used a left side of a constraint,
@@ -395,7 +395,7 @@ public:
 
 
     // goes over touched rows and tries to induce bounds
-    void propagate_bounds_for_touched_rows(bound_propagator & bp) {
+    void propagate_bounds_for_touched_rows(lp_bound_propagator & bp) {
         if (!use_tableau())
             return;  // ! todo : enable bound propagaion here. The current bug is that after the pop
         // the changed terms become incorrect!
@@ -420,7 +420,7 @@ public:
         m_mpq_lar_core_solver.m_r_solver.m_look_for_feasible_solution_only = true;
         return solve();
     }
-    
+
     lp_status solve() {
         if (m_status == INFEASIBLE) {
             return m_status;
@@ -430,7 +430,7 @@ public:
             if (m_settings.bound_propagation())
                 detect_rows_with_changed_bounds();
         }
-       
+
         m_columns_with_changed_bound.clear();
         return m_status;
     }
@@ -443,7 +443,7 @@ public:
         evidence.push_back(std::make_pair(-numeric_traits<mpq>::one(), ul.low_bound_witness()));
     }
 
-    
+
     unsigned get_total_iterations() const { return m_mpq_lar_core_solver.m_r_solver.total_iterations(); }
     // see http://research.microsoft.com/projects/z3/smt07.pdf
     // This method searches for a feasible solution with as many different values of variables, reverenced in vars, as it can find
@@ -481,7 +481,7 @@ public:
         set.resize(n);
     }
 
-    
+
     void pop(unsigned k) {
         int n_was = static_cast<int>(m_ext_vars_to_columns.size());
 		m_status.pop(k);
@@ -502,14 +502,14 @@ public:
         clean_inf_set_of_r_solver_after_pop();
         lean_assert(m_settings.simplex_strategy() == simplex_strategy_enum::undecided ||
 			(!use_tableau()) || m_mpq_lar_core_solver.m_r_solver.reduced_costs_are_correct_tableau());
-        
-        
+
+
         lean_assert(ax_is_correct());
         lean_assert(m_mpq_lar_core_solver.m_r_solver.inf_set_is_correct());
         m_constraint_count.pop(k);
         for (unsigned i = m_constraint_count; i < m_constraints.size(); i++)
             delete m_constraints[i];
-        
+
         m_constraints.resize(m_constraint_count);
         m_term_count.pop(k);
         for (unsigned i = m_term_count; i < m_terms.size(); i++) {
@@ -523,7 +523,7 @@ public:
 		lean_assert(sizes_are_correct());
         lean_assert((!m_settings.use_tableau()) || m_mpq_lar_core_solver.m_r_solver.reduced_costs_are_correct_tableau());
     }
-    
+
     vector<constraint_index> get_all_constraint_indices() const {
         vector<constraint_index> ret;
         constraint_index i = 0;
@@ -536,7 +536,7 @@ public:
                                   impq &term_max) {
         if (settings().simplex_strategy() == simplex_strategy_enum::undecided)
             decide_on_strategy_and_adjust_initial_state();
- 
+
         m_mpq_lar_core_solver.solve();
         if (m_mpq_lar_core_solver.m_r_solver.get_status() == UNBOUNDED)
             return false;
@@ -560,12 +560,12 @@ public:
         }
         return true;
     }
-    
+
     void set_costs_to_zero(const vector<std::pair<mpq, var_index>> & term) {
         auto & rslv = m_mpq_lar_core_solver.m_r_solver;
         auto & jset = m_mpq_lar_core_solver.m_r_solver.m_inf_set; // hijack this set that should be empty right now
         lean_assert(jset.m_index.size()==0);
-        
+
         for (auto & p : term) {
             unsigned j = p.second;
             rslv.m_costs[j] = zero_of_type<mpq>();
@@ -582,13 +582,13 @@ public:
             rslv.m_d[j] = zero_of_type<mpq>();
 
         jset.clear();
-        
+
         lean_assert(reduced_costs_are_zeroes_for_r_solver());
         lean_assert(costs_are_zeros_for_r_solver());
     }
 
     void prepare_costs_for_r_solver(const vector<std::pair<mpq, var_index>> & term) {
-        
+
         auto & rslv = m_mpq_lar_core_solver.m_r_solver;
         rslv.m_using_infeas_costs = false;
         lean_assert(costs_are_zeros_for_r_solver());
@@ -604,7 +604,7 @@ public:
         }
         lean_assert(rslv.reduced_costs_are_correct_tableau());
     }
-    
+
     bool maximize_term_on_corrected_r_solver(const vector<std::pair<mpq, var_index>> & term,
                                              impq &term_max) {
         settings().backup_costs = false;
@@ -627,7 +627,7 @@ public:
                 m_mpq_lar_core_solver.m_r_solver.set_status(OPTIMAL);
                 return ret;
             }
-            
+
         case simplex_strategy_enum::lu:
             lean_assert(false); // not implemented
             return false;
@@ -635,7 +635,7 @@ public:
             lean_unreachable(); // wrong mode
         }
         return false;
-    }    
+    }
     // starting from a given feasible state look for the maximum of the term
     // return true if found and false if unbounded
     bool maximize_term(const vector<std::pair<mpq, var_index>> & term,
@@ -644,9 +644,9 @@ public:
         m_mpq_lar_core_solver.m_r_solver.m_look_for_feasible_solution_only = false;
         return maximize_term_on_corrected_r_solver(term, term_max);
     }
-    
 
-    
+
+
     const lar_term &  get_term(unsigned j) const {
         lean_assert(j >= m_terms_start_index);
         return *m_terms[j - m_terms_start_index];
@@ -697,14 +697,14 @@ public:
         else
             m_column_buffer.clear();
         lean_assert(m_column_buffer.size() == 0 && m_column_buffer.is_OK());
-        
+
         m_mpq_lar_core_solver.m_r_solver.solve_Bd(j, m_column_buffer);
         for (unsigned i : m_column_buffer.m_index)
             m_rows_with_changed_bounds.insert(i);
     }
 
 
-    
+
     void detect_rows_of_bound_change_column_for_nbasic_column_tableau(unsigned j) {
         for (auto & rc : m_mpq_lar_core_solver.m_r_A.m_columns[j])
             m_rows_with_changed_bounds.insert(rc.m_i);
@@ -715,7 +715,7 @@ public:
     bool use_tableau_costs() const {
         return m_settings.simplex_strategy() == simplex_strategy_enum::tableau_costs;
     }
-    
+
     void detect_rows_of_column_with_bound_change(unsigned j) {
         if (m_mpq_lar_core_solver.m_r_heading[j] >= 0) { // it is a basic column
             // just mark the row at touched and exit
@@ -739,7 +739,7 @@ public:
             r += c.m_value * m_mpq_lar_core_solver.m_r_x[c.m_j];
         return is_zero(r);
     }
-    
+
     bool ax_is_correct() const {
         for (unsigned i = 0; i < A_r().row_count(); i++) {
             if (!row_is_correct(i))
@@ -755,7 +755,7 @@ public:
     bool costs_are_used() const {
         return m_settings.simplex_strategy() != simplex_strategy_enum::tableau_rows;
     }
-    
+
     void change_basic_x_by_delta_on_column(unsigned j, const numeric_pair<mpq> & delta) {
         if (use_tableau()) {
             for (const auto & c : A_r().m_columns[j]) {
@@ -795,7 +795,7 @@ public:
         }
     }
 
-    
+
     void detect_rows_with_changed_bounds_for_column(unsigned j) {
         if (m_mpq_lar_core_solver.m_r_heading[j] >= 0) {
             m_rows_with_changed_bounds.insert(m_mpq_lar_core_solver.m_r_heading[j]);
@@ -804,10 +804,10 @@ public:
 
         if (use_tableau())
             detect_rows_of_bound_change_column_for_nbasic_column_tableau(j);
-        else 
+        else
             detect_rows_of_bound_change_column_for_nbasic_column(j);
     }
-    
+
     void detect_rows_with_changed_bounds() {
         for (auto j : m_columns_with_changed_bound.m_index)
             detect_rows_with_changed_bounds_for_column(j);
@@ -830,7 +830,7 @@ public:
         }
     }
 
-    
+
     void solve_with_core_solver() {
         if (!use_tableau())
             add_last_rows_to_lu(m_mpq_lar_core_solver.m_r_solver);
@@ -844,34 +844,34 @@ public:
         }
         if (use_tableau())
             update_x_and_inf_costs_for_columns_with_changed_bounds_tableau();
-        else 
+        else
             update_x_and_inf_costs_for_columns_with_changed_bounds();
         m_mpq_lar_core_solver.solve();
         set_status(m_mpq_lar_core_solver.m_r_solver.get_status());
         lean_assert(m_status != OPTIMAL || all_constraints_hold());
     }
 
-    
+
     numeric_pair<mpq> get_basic_var_value_from_row_directly(unsigned i) {
         numeric_pair<mpq> r = zero_of_type<numeric_pair<mpq>>();
-        
+
         unsigned bj = m_mpq_lar_core_solver.m_r_solver.m_basis[i];
         for (const auto & c: A_r().m_rows[i]) {
             if (c.m_j == bj) continue;
             const auto & x = m_mpq_lar_core_solver.m_r_x[c.m_j];
-            if (!is_zero(x)) 
+            if (!is_zero(x))
                 r -= c.m_value * x;
         }
         return r;
     }
-    
-    
-    
+
+
+
     numeric_pair<mpq> get_basic_var_value_from_row(unsigned i) {
         if (settings().use_tableau()) {
             return get_basic_var_value_from_row_directly(i);
         }
-        
+
         numeric_pair<mpq> r = zero_of_type<numeric_pair<mpq>>();
         m_mpq_lar_core_solver.calculate_pivot_row(i);
         for (unsigned j : m_mpq_lar_core_solver.m_r_solver.m_pivot_row.m_index) {
@@ -900,9 +900,9 @@ public:
                 f = nullptr;
             }
         }
-        
+
     }
-    
+
     bool x_is_correct() const {
         if (m_mpq_lar_core_solver.m_r_x.size() != A_r().column_count()) {
             //            std::cout << "the size is off " << m_r_solver.m_x.size() << ", " << A().column_count() << std::endl;
@@ -921,7 +921,7 @@ public:
             }
         }
         return true;;
-    
+
     }
 
     bool var_is_registered(var_index vj) const {
@@ -938,7 +938,7 @@ public:
         return m_constraint_count.stack_size();
     }
 
-    void fill_last_row_of_A_r(static_matrix<mpq, numeric_pair<mpq>> & A, const lar_term * ls) {    
+    void fill_last_row_of_A_r(static_matrix<mpq, numeric_pair<mpq>> & A, const lar_term * ls) {
         lean_assert(A.row_count() > 0);
         lean_assert(A.column_count() > 0);
         unsigned last_row = A.row_count() - 1;
@@ -995,7 +995,7 @@ public:
     }
 
     std::string get_column_name(unsigned j) const {
-        if (j >= m_terms_start_index) 
+        if (j >= m_terms_start_index)
             return std::string("_t") + T_to_string(j);
         if (j >= m_columns_to_ext_vars_or_term_indices.size())
             return std::string("_s") + T_to_string(j);
@@ -1039,7 +1039,7 @@ public:
             return true;
         std::unordered_map<var_index, mpq> var_map;
         get_model(var_map);
-    
+
         for (unsigned i = 0; i < m_constraints.size(); i++) {
             if (!constraint_holds(*m_constraints[i], var_map)) {
                 print_constraint(i, std::cout);
@@ -1201,7 +1201,7 @@ public:
             return false;
         }
     }
-    
+
     bool has_upper_bound(var_index var, constraint_index& ci, mpq& value, bool& is_strict) {
 
         if (var >= m_vars_to_ul_pairs.size()) {
@@ -1253,7 +1253,7 @@ public:
             constraint_index bound_constr_i = adj_sign < 0 ? ul.upper_bound_witness() : ul.low_bound_witness();
             lean_assert(bound_constr_i < m_constraints.size());
             explanation.push_back(std::make_pair(coeff, bound_constr_i));
-        } 
+        }
     }
 
 
@@ -1263,9 +1263,9 @@ public:
         lean_assert(m_status == OPTIMAL);
         unsigned i;
         do {
-            
+
             // different pairs have to produce different singleton values
-            std::unordered_set<impq> set_of_different_pairs; 
+            std::unordered_set<impq> set_of_different_pairs;
             std::unordered_set<mpq> set_of_different_singles;
             delta = m_mpq_lar_core_solver.find_delta_for_strict_bounds(delta);
             for (i = 0; i < m_mpq_lar_core_solver.m_r_x.size(); i++ ) {
@@ -1278,7 +1278,7 @@ public:
                     delta /= mpq(2);
                     break;
                 }
-                    
+
                 variable_values[i] = x;
             }
         } while (i != m_mpq_lar_core_solver.m_r_x.size());
@@ -1318,7 +1318,7 @@ public:
         mpq free_coeff = c->get_free_coeff_of_left_side();
         if (!is_zero(free_coeff))
             out << " + " << free_coeff;
-        
+
     }
 
     void print_term(lar_term const& term, std::ostream & out) const {
@@ -1345,7 +1345,7 @@ public:
     }
 
     void fill_var_set_for_random_update(unsigned sz, var_index const * vars, vector<unsigned>& column_list) {
-        for (unsigned i = 0; i < sz; i++) {        
+        for (unsigned i = 0; i < sz; i++) {
             var_index var = vars[i];
             if (var >= m_terms_start_index) { // handle the term
                 for (auto & it : m_terms[var - m_terms_start_index]->m_coeffs) {
@@ -1412,7 +1412,7 @@ public:
             if (cost_is_nz) {
                 m_mpq_lar_core_solver.m_r_solver.m_d[rc.m_j] += cost_j*rc.get_val();
             }
-            
+
             A_r().remove_element(last_row, rc);
         }
         lean_assert(last_row.size() == 0);
@@ -1484,7 +1484,7 @@ public:
 
         lean_assert(m_mpq_lar_core_solver.m_r_solver.m_basis.size() == A_r().row_count());
         lean_assert(m_mpq_lar_core_solver.m_r_solver.basis_heading_is_correct());
-        // We remove last variables starting from m_column_names.size() to m_vec_of_canonic_left_sides.size().    
+        // We remove last variables starting from m_column_names.size() to m_vec_of_canonic_left_sides.size().
         // At this moment m_column_names is already popped
         for (unsigned j = A_r().column_count(); j-- > m_columns_to_ext_vars_or_term_indices.size();)
             remove_column_from_tableau(j);
@@ -1526,8 +1526,8 @@ public:
         }
         for (unsigned j : became_feas)
             m_mpq_lar_core_solver.m_r_solver.m_inf_set.erase(j);
-    
-    
+
+
         if (use_tableau_costs()) {
             for (unsigned j : became_feas)
                 m_mpq_lar_core_solver.m_r_solver.update_inf_cost_for_column_tableau(j);
@@ -1544,6 +1544,6 @@ public:
         lean_assert(this->explanation_is_correct(explanation));
     }
 
-    
+
 };
 }

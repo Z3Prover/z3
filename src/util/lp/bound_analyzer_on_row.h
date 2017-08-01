@@ -16,9 +16,9 @@
 namespace lean {
 
 class bound_analyzer_on_row {
-    
+
     linear_combination_iterator<mpq> & m_it;
-    bound_propagator &                 m_bp;
+    lp_bound_propagator &                 m_bp;
     unsigned           m_row_or_term_index;
     int                m_column_of_u; // index of an unlimited from above monoid
                                // -1 means that such a value is not found, -2 means that at least two of such monoids were found
@@ -31,7 +31,7 @@ public :
                           linear_combination_iterator<mpq> &it,
                           const numeric_pair<mpq>& rs,
                           unsigned row_or_term_index,
-                          bound_propagator & bp
+                          lp_bound_propagator & bp
                           )
         :
         m_it(it),
@@ -45,7 +45,7 @@ public :
 
     unsigned j;
     void analyze() {
-        
+
         mpq a; unsigned j;
         while (((m_column_of_l != -2) || (m_column_of_u != -2)) && m_it.next(a, j))
             analyze_bound_on_var_on_coeff(j, a);
@@ -136,7 +136,7 @@ public :
             strict = !is_zero(ub(j).y);
             return a * ub(j).x;
         }
-        
+
         strict = !is_zero(lb(j).y);
         return a * lb(j).x;
     }
@@ -145,10 +145,10 @@ public :
         if (is_neg(a)) {
             return a * ub(j).x;
         }
-        
+
         return a * lb(j).x;
     }
-    
+
 
     void limit_all_monoids_from_above() {
         int strict = 0;
@@ -194,7 +194,7 @@ public :
             bool str;
 			bool a_is_pos = is_pos(a);
 			mpq bound = total / a + monoid_max_no_mult(a_is_pos, j, str);
-            bool astrict = strict - static_cast<int>(str) > 0; 
+            bool astrict = strict - static_cast<int>(str) > 0;
             if (a_is_pos) {
                 limit_j(j, bound, true, true, astrict);
             }
@@ -204,7 +204,7 @@ public :
         }
     }
 
-    
+
     void limit_monoid_u_from_below() {
         // we are going to limit from below the monoid m_column_of_u,
         // every other monoid is impossible to limit from below
@@ -225,7 +225,7 @@ public :
         }
 
         bound /= u_coeff;
-        
+
         if (numeric_traits<impq>::is_pos(u_coeff)) {
             limit_j(m_column_of_u, bound, true, true, strict);
         } else {
@@ -260,7 +260,7 @@ public :
             limit_j(m_column_of_l, bound, false, true, strict);
         }
     }
-    
+
     // // it is the coefficent before the bounded column
     // void provide_evidence(bool coeff_is_pos) {
     //     /*
@@ -284,27 +284,27 @@ public :
         m_bp.try_add_bound(u, j, is_low_bound, coeff_before_j_is_pos, m_row_or_term_index, strict);
     }
 
-    
+
     void advance_u(unsigned j) {
         if (m_column_of_u == -1)
             m_column_of_u = j;
         else
             m_column_of_u = -2;
     }
-    
+
     void advance_l(unsigned j) {
         if (m_column_of_l == -1)
             m_column_of_l = j;
         else
             m_column_of_l = -2;
     }
-    
+
     void analyze_bound_on_var_on_coeff(int j, const mpq &a) {
         switch (m_bp.get_column_type(j)) {
         case column_type::low_bound:
             if (numeric_traits<mpq>::is_pos(a))
                 advance_u(j);
-            else 
+            else
                 advance_l(j);
             break;
         case column_type::upper_bound:
@@ -325,7 +325,7 @@ public :
     static void analyze_row(linear_combination_iterator<mpq> &it,
                             const numeric_pair<mpq>& rs,
                             unsigned row_or_term_index,
-                            bound_propagator & bp
+                            lp_bound_propagator & bp
                             ) {
         bound_analyzer_on_row a(it, rs, row_or_term_index, bp);
         a.analyze();
