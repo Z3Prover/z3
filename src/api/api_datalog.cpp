@@ -605,5 +605,6 @@ extern "C" {
 
     }
     
+#include "api_datalog_spacer.inc"
 
 };

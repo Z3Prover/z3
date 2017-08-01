@@ -49,6 +49,9 @@ void smt_params::updt_local_params(params_ref const & _p) {
     else if (_p.get_bool("arith.least_error_pivot", false))
         m_arith_pivot_strategy = ARITH_PIVOT_LEAST_ERROR;
     theory_array_params::updt_params(_p);
+    m_dump_benchmarks = false;
+    m_dump_min_time = 0.5;
+    m_dump_recheck = false;
 }
 
 void smt_params::updt_params(params_ref const & p) {
