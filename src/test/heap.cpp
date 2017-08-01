@@ -70,7 +70,7 @@ static void init_values() {
         g_value[i] = heap_rand();
 }
 
-#if _TRACE
+#ifdef _TRACE
 static void dump_heap(const int_heap2 & h, std::ostream & out) {
     //   int_heap2::const_iterator it  = h.begin();
     //   int_heap2::const_iterator end = h.end();
