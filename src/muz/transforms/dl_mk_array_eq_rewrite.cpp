@@ -77,7 +77,7 @@ namespace datalog {
             }
         }
 
-        for (auto & c_eq : array_eq_classes) {
+        for (auto c_eq : array_eq_classes) {
             expr* representative = *(c_eq.begin());
             for (expr * v : c_eq) {
                 if (!is_var(v)) {
