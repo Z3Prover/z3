@@ -15,24 +15,25 @@ Revision History:
 
 
 --*/
-#include "spacer_unsat_core_plugin.h"
-
-#include "spacer_unsat_core_learner.h"
-
-#include "smt_farkas_util.h"
-#include "bool_rewriter.h"
-#include "arith_decl_plugin.h"
 #include <set>
-#include "smt_solver.h"
-#include "solver.h"
 #include <limits>
-#include "spacer_proof_utils.h"
-#include "spacer_matrix.h"
+
+#include "ast/rewriter/bool_rewriter.h"
+#include "ast/arith_decl_plugin.h"
+
+#include "solver/solver.h"
+
+#include "smt/smt_farkas_util.h"
+#include "smt/smt_solver.h"
+
+#include "muz/spacer/spacer_proof_utils.h"
+#include "muz/spacer/spacer_matrix.h"
+#include "muz/spacer/spacer_unsat_core_plugin.h"
+#include "muz/spacer/spacer_unsat_core_learner.h"
 
 namespace spacer
 {
 
-#pragma mark - unsat_core_plugin_lemma
 
 void unsat_core_plugin_lemma::compute_partial_core(proof* step)
 {
@@ -105,7 +106,6 @@ void unsat_core_plugin_lemma::add_lowest_split_to_core(proof* step) const
 }
 
 
-#pragma mark - unsat_core_plugin_farkas_lemma
 void unsat_core_plugin_farkas_lemma::compute_partial_core(proof* step)
 {
     ast_manager &m = m_learner.m;
@@ -285,7 +285,6 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
     }
 }
 
-#pragma mark - unsat_core_plugin_farkas_optimized
     void unsat_core_plugin_farkas_lemma_optimized::compute_partial_core(proof* step)
     {
         SASSERT(m_learner.is_a_marked(step));
@@ -444,7 +443,6 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
         res = mk_not(m, negated_linear_combination); //TODO: rewrite the get-method to return nonnegated stuff?
                     }
 
-#pragma mark - unsat_core_plugin_farkas_bounded
 
     void unsat_core_plugin_farkas_lemma_bounded::finalize()
                     {
@@ -557,7 +555,7 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
 
                     app_ref sum(m);
                     sum = util.mk_int(0);
-                    for (int k=0; k < n; ++k)
+                    for (unsigned k=0; k < n; ++k)
                         {
                         sum = util.mk_add(sum, util.mk_mul(coeffs[i][k].get(), bounded_vectors[j][k].get()));
                         }
@@ -579,7 +577,7 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
         {
             ptr_vector<app> literals;
             vector<rational> coefficients;
-                    for (int j=0; j < matrix.num_cols(); ++j)
+                    for (unsigned j=0; j < matrix.num_cols(); ++j)
             {
                         expr_ref evaluation(m);
 
@@ -601,7 +599,6 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
         }
     }
 
-#pragma mark - unsat_core_plugin_min_cut
     unsat_core_plugin_min_cut::unsat_core_plugin_min_cut(unsat_core_learner& learner, ast_manager& m) : unsat_core_plugin(learner), m(m){}
 
     void unsat_core_plugin_min_cut::compute_partial_core(proof* step)

@@ -17,16 +17,16 @@ Revision History:
 
 --*/
 
-#include "spacer_smt_context_manager.h"
-#include "has_free_vars.h"
-#include "ast_pp.h"
-#include "ast_smt_pp.h"
-#include <sstream>
-#include "smt_params.h"
 
-#include "ast_pp_util.h"
-#include "smt_context.h"
-#include "spacer_util.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_pp_util.h"
+#include "ast/ast_smt_pp.h"
+
+#include "smt/smt_context.h"
+#include "smt/params/smt_params.h"
+
+#include "muz/spacer/spacer_util.h"
+#include "muz/spacer/spacer_smt_context_manager.h"
 namespace spacer {
 
 

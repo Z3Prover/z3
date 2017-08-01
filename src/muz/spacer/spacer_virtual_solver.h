@@ -18,12 +18,12 @@ Notes:
 --*/
 #ifndef SPACER_VIRTUAL_SOLVER_H_
 #define SPACER_VIRTUAL_SOLVER_H_
-#include"ast.h"
-#include"params.h"
-#include"solver_na2as.h"
-#include"smt_kernel.h"
-#include"smt_params.h"
-#include"stopwatch.h"
+#include"ast/ast.h"
+#include"util/params.h"
+#include"solver/solver_na2as.h"
+#include"smt/smt_kernel.h"
+#include"smt/params/smt_params.h"
+#include"util/stopwatch.h"
 namespace spacer {
 class virtual_solver_factory;
 

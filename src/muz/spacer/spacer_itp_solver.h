@@ -19,9 +19,9 @@ Notes:
 #ifndef SPACER_ITP_SOLVER_H_
 #define SPACER_ITP_SOLVER_H_
 
-#include "solver.h"
-#include "expr_substitution.h"
-#include"stopwatch.h"
+#include"solver/solver.h"
+#include"ast/expr_substitution.h"
+#include"util/stopwatch.h"
 namespace spacer {
 class itp_solver : public solver {
 private:

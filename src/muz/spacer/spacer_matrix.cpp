@@ -15,7 +15,7 @@ Revision History:
 
 
 --*/
-#include "spacer_matrix.h"
+#include "muz/spacer/spacer_matrix.h"
 
 namespace spacer
 {

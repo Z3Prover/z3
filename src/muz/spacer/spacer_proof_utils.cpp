@@ -16,11 +16,11 @@ Revision History:
 
 --*/
 
-#include "spacer_proof_utils.h"
-#include "ast_util.h"
-#include "ast_pp.h"
+#include "muz/spacer/spacer_proof_utils.h"
+#include "ast/ast_util.h"
+#include "ast/ast_pp.h"
 
-#include "proof_checker.h"
+#include "ast/proof_checker/proof_checker.h"
 
 namespace spacer {
 

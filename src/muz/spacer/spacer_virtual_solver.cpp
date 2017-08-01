@@ -17,15 +17,15 @@ Notes:
 
 --*/
 
-#include "spacer_virtual_solver.h"
-#include "ast_util.h"
-#include "ast_pp_util.h"
-#include "spacer_util.h"
-#include "bool_rewriter.h"
+#include "muz/spacer/spacer_virtual_solver.h"
+#include "ast/ast_util.h"
+#include "ast/ast_pp_util.h"
+#include "muz/spacer/spacer_util.h"
+#include "ast/rewriter/bool_rewriter.h"
 
-#include "proof_checker.h"
+#include "ast/proof_checker/proof_checker.h"
 
-#include "scoped_proof.h"
+#include "ast/scoped_proof.h"
 
 namespace spacer {
 virtual_solver::virtual_solver(virtual_solver_factory &factory,

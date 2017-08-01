@@ -20,9 +20,9 @@ Revision History:
 #ifndef _SYM_MUX_H_
 #define _SYM_MUX_H_
 
-#include "ast.h"
-#include "map.h"
-#include "vector.h"
+#include "ast/ast.h"
+#include "util/map.h"
+#include "util/vector.h"
 #include <vector>
 
 class model_core;

@@ -18,8 +18,8 @@ Revision History:
 #ifndef _SPACER_UNSAT_CORE_PLUGIN_H_
 #define _SPACER_UNSAT_CORE_PLUGIN_H_
 
-#include "ast.h"
-#include "spacer_min_cut.h"
+#include "ast/ast.h"
+#include "muz/spacer/spacer_min_cut.h"
 
 namespace spacer {
 

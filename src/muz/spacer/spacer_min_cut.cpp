@@ -15,7 +15,7 @@ Revision History:
 
 
 --*/
-#include "spacer_min_cut.h"
+#include "muz/spacer/spacer_min_cut.h"
 
 namespace spacer {
 

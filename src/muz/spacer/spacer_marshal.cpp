@@ -9,14 +9,15 @@ Abstract:
    marshaling and unmarshaling of expressions
 
    --*/
-#include "spacer_marshal.h"
+#include "muz/spacer/spacer_marshal.h"
 
 #include <sstream>
-#include "cmd_context.h"
-#include "smt2parser.h"
-#include "vector.h"
-#include "ast_smt_pp.h"
-#include "ast_pp.h"
+
+#include "cmd_context/cmd_context.h"
+#include "parsers/smt2/smt2parser.h"
+#include "util/vector.h"
+#include "ast/ast_smt_pp.h"
+#include "ast/ast_pp.h"
 
 namespace spacer {
 std::ostream &marshal(std::ostream &os, expr_ref e, ast_manager &m)

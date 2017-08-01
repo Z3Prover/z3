@@ -28,8 +28,10 @@ Notes:
 #undef max
 #endif
 #include <queue>
-#include "spacer_manager.h"
-#include "spacer_prop_solver.h"
+
+#include "muz/spacer/spacer_manager.h"
+#include "muz/spacer/spacer_prop_solver.h"
+
 #include "fixedpoint_params.hpp"
 
 namespace datalog {

@@ -18,10 +18,10 @@ Revision History:
 #ifndef _SPACER_MEV_ARRAY_H_
 #define _SPACER_MEV_ARRAY_H_
 
-#include"ast.h"
-#include"rewriter_types.h"
-#include"params.h"
-#include "array_decl_plugin.h"
+#include"ast/ast.h"
+#include"ast/rewriter/rewriter_types.h"
+#include"util/params.h"
+#include"ast/array_decl_plugin.h"
 
 /**
  * based on model_evaluator in muz/pdr/pdr_util.h

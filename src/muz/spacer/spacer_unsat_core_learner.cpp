@@ -15,19 +15,16 @@ Revision History:
 
 
 --*/
-#include "spacer_unsat_core_learner.h"
-
-#include "spacer_unsat_core_plugin.h"
-
-#include "proof_utils.h"
-#include "for_each_expr.h"
 #include <unordered_map>
+
+#include "muz/spacer/spacer_unsat_core_learner.h"
+#include "muz/spacer/spacer_unsat_core_plugin.h"
+#include "ast/for_each_expr.h"
+
 namespace spacer
 {
 
-#pragma mark - proof iterators
 
-# pragma mark - main methods
 unsat_core_learner::~unsat_core_learner()
 {
     std::for_each(m_plugins.begin(), m_plugins.end(), delete_proc<unsat_core_plugin>());
@@ -262,7 +259,6 @@ void unsat_core_learner::finalize()
     }
 }
 
-#pragma mark - API
 
 bool unsat_core_learner::is_a_marked(proof* p)
 {
@@ -290,7 +286,6 @@ void unsat_core_learner::set_closed(proof* p, bool value)
         m_unsat_core.push_back(lemma);
     }
 
-# pragma mark - checking for b_symbols
 
 class collect_pure_proc {
     func_decl_set& m_symbs;

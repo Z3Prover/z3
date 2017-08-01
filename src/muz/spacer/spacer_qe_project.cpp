@@ -21,20 +21,24 @@ Revision History:
 
 --*/
 
-#include "spacer_qe_project.h"
-#include "qe_vartest.h"
-#include "qe.h"
-#include "arith_decl_plugin.h"
-#include "ast_pp.h"
-#include "th_rewriter.h"
-#include "expr_functors.h"
-#include "expr_substitution.h"
-#include "expr_replacer.h"
-#include "model_pp.h"
-#include "expr_safe_replace.h"
-#include "model_evaluator.h"
-#include "qe_lite.h"
-#include "spacer_mev_array.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/ast_pp.h"
+#include "ast/expr_functors.h"
+#include "ast/expr_substitution.h"
+
+#include "ast/rewriter/expr_replacer.h"
+#include "ast/rewriter/expr_safe_replace.h"
+#include "ast/rewriter/th_rewriter.h"
+
+#include "model/model_evaluator.h"
+#include "model/model_pp.h"
+
+#include "qe/qe.h"
+#include "qe/qe_vartest.h"
+#include "qe/qe_lite.h"
+
+#include "muz/spacer/spacer_mev_array.h"
+#include "muz/spacer/spacer_qe_project.h"
 
 namespace
 {

@@ -14,20 +14,20 @@ Author:
 Revision History:
 
 --*/
-#include"model.h"
+#include"model/model.h"
 #include"model_evaluator_params.hpp"
-#include"rewriter_types.h"
-#include"model_evaluator.h"
-#include"spacer_mev_array.h"
-#include"bool_rewriter.h"
-#include"arith_rewriter.h"
-#include"bv_rewriter.h"
-#include"datatype_rewriter.h"
-#include"array_rewriter.h"
-#include"rewriter_def.h"
-#include"cooperate.h"
-#include"ast_pp.h"
-#include"func_interp.h"
+#include"ast/rewriter/rewriter_types.h"
+#include"model/model_evaluator.h"
+#include"muz/spacer/spacer_mev_array.h"
+#include"ast/rewriter/bool_rewriter.h"
+#include"ast/rewriter/arith_rewriter.h"
+#include"ast/rewriter/bv_rewriter.h"
+#include"ast/rewriter/datatype_rewriter.h"
+#include"ast/rewriter/array_rewriter.h"
+#include"ast/rewriter/rewriter_def.h"
+#include"util/cooperate.h"
+#include"ast/ast_pp.h"
+#include"model/func_interp.h"
 
 
 

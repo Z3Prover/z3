@@ -13,8 +13,9 @@ Abstract:
 #define _SPACER_MARSHAL_H_
 
 #include <string>
-#include "ast.h"
 #include <iostream>
+
+#include "ast/ast.h"
 
 namespace spacer {
 std::ostream &marshal(std::ostream &os, expr_ref e, ast_manager &m);
