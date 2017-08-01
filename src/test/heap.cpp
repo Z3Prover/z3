@@ -17,6 +17,7 @@ Revision History:
 
 --*/
 #include<iostream>
+#include "util/util.h"
 #include "util/heap.h"
 #include "util/hashtable.h"
 #include "util/trace.h"
@@ -27,11 +28,13 @@ struct int_hash_proc { unsigned operator()(int v) const { return v * 17; }};
 typedef int_hashtable<int_hash_proc, default_eq<int> > int_set;
 #define N 10000
 
+static random_gen heap_rand(1);
+
 static void tst1() {
     int_heap h(N);
     int_set  t;
     for (int i = 0; i < N * 3; i++) {
-        int val = rand() % N;
+        int val = heap_rand() % N;
         if (!h.contains(val)) {
             ENSURE(!t.contains(val));
             h.insert(val);
@@ -64,9 +67,10 @@ typedef heap<lt_proc2> int_heap2;
 
 static void init_values() {
     for (unsigned i = 0; i < N; i++) 
-        g_value[i] = rand();
+        g_value[i] = heap_rand();
 }
 
+#if _TRACE
 static void dump_heap(const int_heap2 & h, std::ostream & out) {
     //   int_heap2::const_iterator it  = h.begin();
     //   int_heap2::const_iterator end = h.end();
@@ -75,16 +79,16 @@ static void dump_heap(const int_heap2 & h, std::ostream & out) {
     //   }
     //   out << "\n";
 }
+#endif
 
 static void tst2() {
-    (void)dump_heap;
     int_heap2 h(N);
     for (int i = 0; i < N * 10; i++) {
         if (i % 1000 == 0) std::cout << "i: " << i << std::endl;
-        int cmd = rand() % 10;
+        int cmd = heap_rand() % 10;
         if (cmd <= 3) {
             // insert
-            int val = rand() % N;
+            int val = heap_rand() % N;
             if (!h.contains(val)) {
                 TRACE("heap", tout << "inserting: " << val << "\n";);
                 h.insert(val);
@@ -93,7 +97,7 @@ static void tst2() {
             }
         }
         else if (cmd <= 6) {
-            int val = rand() % N;
+            int val = heap_rand() % N;
             if (h.contains(val)) {
                 TRACE("heap", tout << "removing: " << val << "\n";);
                 h.erase(val);
@@ -103,9 +107,9 @@ static void tst2() {
         }
         else if (cmd <= 8) {
             // increased & decreased
-            int val = rand() % N;
+            int val = heap_rand() % N;
             int old_v = g_value[val];
-            int new_v = rand();
+            int new_v = heap_rand();
             if (h.contains(val)) {
                 g_value[val] = new_v;
                 if (old_v < new_v) {
@@ -128,8 +132,12 @@ static void tst2() {
 void tst_heap() {
     // enable_debug("heap");
     enable_trace("heap");
-    tst1();
-    init_values();
-    tst2();
+    unsigned i = 0;
+    while (i < 3) {
+        heap_rand.set_seed(i++);
+        tst1();
+        init_values();
+        tst2();
+    }
 }
 
