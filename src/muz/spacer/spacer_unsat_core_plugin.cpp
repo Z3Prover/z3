@@ -330,8 +330,7 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
                 {
                     SASSERT(!m_learner.is_a_marked(premise));
 
-                    // XXX AG: why is this condition is based on step and not on premise?
-                    if (m_learner.only_contains_symbols_b(m_learner.m.get_fact(step)) && !m_learner.is_h_marked(step))
+                    if (m_learner.only_contains_symbols_b(m_learner.m.get_fact(premise)) && !m_learner.is_h_marked(premise))
                     {
                         rational coefficient;
                         VERIFY(params[i].is_rational(coefficient));
