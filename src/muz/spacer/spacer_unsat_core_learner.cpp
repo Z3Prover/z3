@@ -25,9 +25,7 @@ Revision History:
 namespace spacer
 {
 
-#pragma mark - proof iterators
 
-# pragma mark - main methods
 unsat_core_learner::~unsat_core_learner()
 {
     std::for_each(m_plugins.begin(), m_plugins.end(), delete_proc<unsat_core_plugin>());
@@ -262,7 +260,6 @@ void unsat_core_learner::finalize()
     }
 }
 
-#pragma mark - API
 
 bool unsat_core_learner::is_a_marked(proof* p)
 {
@@ -290,7 +287,6 @@ void unsat_core_learner::set_closed(proof* p, bool value)
         m_unsat_core.push_back(lemma);
     }
 
-# pragma mark - checking for b_symbols
 
 class collect_pure_proc {
     func_decl_set& m_symbs;
