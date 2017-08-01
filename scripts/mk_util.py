@@ -3046,6 +3046,7 @@ def mk_vs_proj_cl_compile(f, name, components, debug):
         else:
             f.write(';')
         f.write(get_component(dep).to_src_dir)
+    f.write(';%s\n' % os.path.join(REV_BUILD_DIR, SRC_DIR))
     f.write('</AdditionalIncludeDirectories>\n')
     f.write('    </ClCompile>\n')
 

@@ -8,7 +8,7 @@
 #include "util/lp/implied_bound.h"
 #include "util/lp/test_bound_analyzer.h"
 #include <functional>
-#include "util/lp/bound_propagator.h"
+#include "util/lp/lp_bound_propagator.h"
 // We have an equality : sum by j of row[j]*x[j] = rs
 // We try to pin a var by pushing the total by using the variable bounds
 // In a loop we drive the partial sum down, denoting the variables of this process by _u.
