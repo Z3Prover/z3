@@ -1122,7 +1122,13 @@ lemma::lemma(pob_ref const &p) :
     m_bindings(m), m_lvl(p->level()),
     m_pob(p), m_new_pob(m_pob) {SASSERT(m_pob);}
 
-lemma::lemma(pob_ref const &p, expr_ref_vector &cube, unsigned lvl) : lemma(p) {
+lemma::lemma(pob_ref const &p, expr_ref_vector &cube, unsigned lvl) :
+    m_ref_count(0), 
+    m(p->get_ast_manager()),
+    m_body(m), m_cube(m),
+    m_bindings(m), m_lvl(p->level()),
+    m_pob(p), m_new_pob(m_pob)
+{
     update_cube(p, cube);
     set_level(lvl);
 }
