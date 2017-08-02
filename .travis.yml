@@ -65,4 +65,7 @@ env:
 #    - os: osx
 #      osx_image: xcode 8.2
 script:
-  - contrib/ci/scripts/travis_ci_entry_point.sh
+  # Use `travis_wait` to handle commands that don't show output for a long period of time.
+  # Currently this is the LTO build which can be very slow.
+  # Allow at most 45 minutes for the build.
+  - travis_wait 45 contrib/ci/scripts/travis_ci_entry_point.sh
