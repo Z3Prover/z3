@@ -11,16 +11,14 @@ Author:
 
     Julien Braine
 
-Revision History:   
+Revision History:
 
 --*/
 
 #ifndef DL_MK_ARRAY_EQ_REWRITE_H_
 #define DL_MK_ARRAY_EQ_REWRITE_H_
 
-
 #include "muz/base/dl_rule_transformer.h"
-#include "../spacer/obj_equiv_class.h"
 
 namespace datalog {
 
@@ -30,7 +28,7 @@ namespace datalog {
        ast_manager&      m;
        context&          m_ctx;
        array_util        m_a;
-    
+
        //Rule set context
        const rule_set*   m_src_set;
        rule_set*         m_dst;
@@ -51,4 +49,3 @@ namespace datalog {
 };
 
 #endif /* DL_MK_ARRAY_EQ_REWRITE_H_ */
-

@@ -50,7 +50,6 @@ Notes:
 #include "util/luby.h"
 #include "ast/rewriter/expr_safe_replace.h"
 #include "ast/expr_abstract.h"
-#include "muz/spacer/obj_equiv_class.h"
 
 namespace spacer {
 
@@ -1123,7 +1122,7 @@ lemma::lemma(pob_ref const &p) :
     m_pob(p), m_new_pob(m_pob) {SASSERT(m_pob);}
 
 lemma::lemma(pob_ref const &p, expr_ref_vector &cube, unsigned lvl) :
-    m_ref_count(0), 
+    m_ref_count(0),
     m(p->get_ast_manager()),
     m_body(m), m_cube(m),
     m_bindings(m), m_lvl(p->level()),

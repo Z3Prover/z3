@@ -24,7 +24,7 @@ Revision History:
 #include "ast/expr_abstract.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/for_each_expr.h"
-#include "muz/spacer/obj_equiv_class.h"
+#include "ast/factor_equivs.h"
 
 
 namespace spacer {
