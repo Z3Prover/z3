@@ -34,25 +34,19 @@ Revision History:
 void factor_eqs(expr_ref_vector &v, expr_equiv_class &equiv) {
     ast_manager &m = v.get_manager();
     arith_util arith(m);
-    expr *e1, *e2;
+    expr *e1 = 0, *e2 = 0;
 
     flatten_and(v);
     unsigned j = 0;
     for (unsigned i = 0; i < v.size(); ++i) {
         if (m.is_eq(v.get(i), e1, e2)) {
             if (arith.is_zero(e1)) {
-                expr* t;
-                t = e1; e1 = e2; e2 = t;
+                std::swap(e1, e2);
             }
 
             // y + -1*x == 0
-            if (arith.is_zero(e2) && arith.is_add(e1) &&
-                to_app(e1)->get_num_args() == 2) {
-                expr *a0, *a1, *x;
-
-                a0 = to_app(e1)->get_arg(0);
-                a1 = to_app(e1)->get_arg(1);
-
+            expr* a0 = 0, *a1 = 0, *x = 0;
+            if (arith.is_zero(e2) && arith.is_add(e1, a0, a1)) {
                 if (arith.is_times_minus_one(a1, x)) {
                     e1 = a0;
                     e2 = x;
@@ -65,7 +59,9 @@ void factor_eqs(expr_ref_vector &v, expr_equiv_class &equiv) {
             equiv.merge(e1, e2);
         }
         else {
-            if (j < i) {v[j] = v.get(i);}
+            if (j < i) { 
+                v[j] = v.get(i); 
+            }
             j++;
         }
     }
@@ -80,14 +76,16 @@ void equiv_to_expr(expr_equiv_class &equiv, expr_ref_vector &out) {
     for (auto eq_class : equiv) {
         expr *rep = nullptr;
         for (expr *elem : eq_class) {
-            if (!m.is_value (elem)) {
+            if (!m.is_value(elem)) {
                 rep = elem;
                 break;
             }
         }
         SASSERT(rep);
         for (expr *elem : eq_class) {
-            if (rep != elem) {out.push_back (m.mk_eq (rep, elem));}
+            if (rep != elem) {
+                out.push_back (m.mk_eq (rep, elem));
+            }
         }
     }
 }
