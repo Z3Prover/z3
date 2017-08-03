@@ -23,6 +23,7 @@ z3_add_component(ast
     expr_map.cpp
     expr_stat.cpp
     expr_substitution.cpp
+    factor_equivs.cpp
     for_each_ast.cpp
     for_each_expr.cpp
     format.cpp
