@@ -590,7 +590,7 @@ def mk_def_file_internal(defname, dll_name, export_header_files):
 
 def path_after_src(h_file):
     h_file = h_file.replace("\\","/")
-    idx = h_file.index("src/")
+    idx = h_file.rfind("src/")
     if idx == -1:
         return h_file
     return h_file[idx + 4:]
