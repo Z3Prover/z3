@@ -1543,7 +1543,5 @@ public:
         quick_xplain::run(explanation, *this);
         lean_assert(this->explanation_is_correct(explanation));
     }
-
-
 };
 }

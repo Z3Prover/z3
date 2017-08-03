@@ -15,7 +15,7 @@ public:
         T a;
         unsigned i;
         while (it->next(a, i)) {
-            coeff.emplace_back(a, i);
+            coeff.push_back(std::make_pair(a, i));
         }
         print_linear_combination_of_column_indices(coeff, out);
     }
