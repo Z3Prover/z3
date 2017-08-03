@@ -294,8 +294,9 @@ class pred_transformer {
 
     void init_sig();
     void ensure_level(unsigned level);
-    void add_lemma_core (lemma *lemma);
-    void add_lemma_from_child (pred_transformer &child, lemma *lemma, unsigned lvl);
+    void add_lemma_core (lemma *lemma, bool ground_only = false);
+    void add_lemma_from_child (pred_transformer &child, lemma *lemma,
+                               unsigned lvl, bool ground_only = false);
 
     void mk_assumptions(func_decl* head, expr* fml, expr_ref_vector& result);
 

@@ -314,7 +314,8 @@ bool pred_transformer::propagate_to_next_level (unsigned src_level)
 
 
 /// \brief adds a lema to the solver and to child solvers
-void pred_transformer::add_lemma_core(lemma* lemma)
+void pred_transformer::add_lemma_core(lemma* lemma,
+                                      bool ground_only)
 {
     unsigned lvl = lemma->level();
     expr* l = lemma->get_expr();
@@ -346,7 +347,8 @@ void pred_transformer::add_lemma_core(lemma* lemma)
     }
 
     for (unsigned i = 0, sz = m_use.size (); i < sz; ++i)
-    { m_use [i]->add_lemma_from_child(*this, lemma, next_level(lvl)); }
+    { m_use [i]->add_lemma_from_child(*this, lemma,
+                                      next_level(lvl), ground_only); }
 }
 
 bool pred_transformer::add_lemma (expr *e, unsigned lvl) {
@@ -355,7 +357,8 @@ bool pred_transformer::add_lemma (expr *e, unsigned lvl) {
 }
 
 void pred_transformer::add_lemma_from_child (pred_transformer& child,
-                                             lemma* lemma, unsigned lvl)
+                                             lemma* lemma, unsigned lvl,
+                                             bool ground_only)
 {
     ensure_level(lvl);
     expr_ref_vector fmls(m);
@@ -365,21 +368,25 @@ void pred_transformer::add_lemma_from_child (pred_transformer& child,
         expr_ref_vector inst(m);
         expr* a = to_app(fmls.get(i))->get_arg(0);
         expr* l = to_app(fmls.get(i))->get_arg(1);
-        if (get_context().use_instantiate())
-        { lemma->mk_insts(inst, l); }
+        if (get_context().use_instantiate()) {
+            lemma->mk_insts(inst, l);
+        }
         for (unsigned j=0; j < inst.size(); j++) {
             inst.set(j, m.mk_implies(a, inst.get(j)));
         }
-        if (lemma->is_ground() || get_context().use_qlemmas())
-        { inst.push_back(fmls.get(i)); }
+        if (lemma->is_ground() || (get_context().use_qlemmas() && !ground_only)) {
+            inst.push_back(fmls.get(i));
+        }
         SASSERT (!inst.empty ());
         for (unsigned j = 0; j < inst.size(); ++j) {
             TRACE("spacer_detail", tout << "child property: "
                   << mk_pp(inst.get (j), m) << "\n";);
-            if (is_infty_level(lvl))
-            { m_solver.assert_expr(inst.get(j)); }
-            else
-            { m_solver.assert_expr(inst.get(j), lvl); }
+            if (is_infty_level(lvl)) {
+                m_solver.assert_expr(inst.get(j));
+            }
+            else {
+                m_solver.assert_expr(inst.get(j), lvl);
+            }
         }
     }
 
@@ -1263,18 +1270,21 @@ bool pred_transformer::frames::add_lemma(lemma *lem)
             if (!lem->get_bindings().empty()) {
                 m_lemmas [i]->add_binding(lem->get_bindings());
             }
-            // if the lemma is at a higher level, skip it
-            // XXX if there are new bindings, we need to assert new instances
+            // if the lemma is at a higher level, skip it,
+            // but still assert any new instances
             if (m_lemmas [i]->level() >= lem->level()) {
                 TRACE("spacer", tout << "Already at a higher level: "
                       << pp_level(m_lemmas [i]->level()) << "\n";);
+                if (!lem->get_bindings().empty()) {
+                    m_pt.add_lemma_core(m_lemmas[i], true);
+                }
                 return false;
             }
 
             // update level of the existing lemma
             m_lemmas [i]->set_level(lem->level());
             // assert lemma in the solver
-            m_pt.add_lemma_core(m_lemmas[i]);
+            m_pt.add_lemma_core(m_lemmas[i], false);
             // move the lemma to its new place to maintain sortedness
             for (unsigned j = i; (j + 1) < sz && m_lt(m_lemmas [j + 1], m_lemmas[j]); ++j) {
                 m_lemmas.swap (j, j+1);
