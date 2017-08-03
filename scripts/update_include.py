@@ -45,7 +45,7 @@ def find_paths(dir):
     for root, dirs, files in os.walk(dir):
         root1 = root.replace("\\","/")[4:]
         for f in files:
-            if f.endswith('.h'):
+            if f.endswith('.h') or f.endswith('.hpp') or f.endswith('.cpp'):
                 path = "%s/%s" % (root1, f)
                 paths[f] = path
             if f.endswith('.pyg'):
