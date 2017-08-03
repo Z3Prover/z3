@@ -81,8 +81,9 @@ app * arith_decl_plugin::mk_numeral(algebraic_numbers::anum const & val, bool is
         return mk_numeral(rval, is_int);
     }
     else {
-        if (is_int)
+        if (is_int) {            
             m_manager->raise_exception("invalid irrational value passed as an integer");
+        }
         unsigned idx = aw().mk_id(val);
         parameter p(idx, true);
         SASSERT(p.is_external());

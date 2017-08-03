@@ -1224,7 +1224,9 @@ namespace smt {
         app * rhs      = to_app(n->get_arg(1));
         expr * rhs2;
         if (m_util.is_to_real(rhs, rhs2) && is_app(rhs2)) { rhs = to_app(rhs2); }
-        SASSERT(m_util.is_numeral(rhs));
+        if (!m_util.is_numeral(rhs)) {
+            throw default_exception("malformed atomic constraint");
+        }
         theory_var v   = internalize_term_core(lhs);
         if (v == null_theory_var) {
             TRACE("arith_internalize", tout << "failed to internalize: #" << n->get_id() << "\n";);
