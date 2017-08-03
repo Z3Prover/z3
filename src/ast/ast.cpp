@@ -2210,7 +2210,7 @@ app * ast_manager::mk_app(func_decl * decl, unsigned num_args, expr * const * ar
         r = mk_app_core(decl, num_args, args);
     }
     SASSERT(r != 0);
-    TRACE("app_ground", tout << "ground: " << r->is_ground() << "\n" << mk_ll_pp(r, *this) << "\n";);
+    TRACE("app_ground", tout << "ground: " << r->is_ground() << " id: " << r->get_id() << "\n" << mk_ll_pp(r, *this) << "\n";);
     return r;
 }
 
