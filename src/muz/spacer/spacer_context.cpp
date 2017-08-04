@@ -769,7 +769,7 @@ bool pred_transformer::is_invariant(unsigned level, expr* lemma,
     expr_ref_vector conj(m), aux(m);
     expr_ref glemma(m);
 
-    if (false && is_quantifier(lemma)) {
+    if (!get_context().use_qlemmas() && is_quantifier(lemma)) {
         SASSERT(is_forall(lemma));
         app_ref_vector tmp(m);
         ground_expr(to_quantifier(lemma)->get_expr (), glemma, tmp);

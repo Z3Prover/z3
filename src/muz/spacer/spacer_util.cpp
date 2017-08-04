@@ -1166,21 +1166,21 @@ void mk_epp::rw(expr *e, expr_ref &out)
     arw(e, out);
 }
 
-    void ground_expr (expr *e, expr_ref &out, app_ref_vector &vars)
-    {
-         expr_free_vars fv;
-         ast_manager &m = out.get_manager ();
-         fv (e);
-         if (vars.size () < fv.size ())
-    { vars.resize(fv.size()); }
-         for (unsigned i = 0, sz = fv.size (); i < sz; ++i) {
-             SASSERT (fv[i]);
-             std::string str = "zk!" + datalog::to_string(sz - 1 - i);
-             vars [i] = m.mk_const (symbol(str.c_str()), fv [i]);
-         }
-         var_subst vs(m);
-         vs (e, vars.size (), (expr**) vars.c_ptr (), out);
+void ground_expr(expr *e, expr_ref &out, app_ref_vector &vars) {
+    expr_free_vars fv;
+    ast_manager &m = out.get_manager();
+
+    fv(e);
+    if (vars.size() < fv.size()) {
+        vars.resize(fv.size());
     }
+    for (unsigned i = 0, sz = fv.size(); i < sz; ++i) {
+        sort *s = fv[i] ? fv[i] : m.mk_bool_sort();
+        vars[i] = mk_zk_const(m, i, s);
+        var_subst vs(m, false);
+        vs(e, vars.size(), (expr * *) vars.c_ptr(), out);
+    }
+}
 
 
     struct index_term_finder {
