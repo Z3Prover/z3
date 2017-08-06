@@ -6189,27 +6189,33 @@ namespace smt {
             expr * arg_str = a->get_arg(0);
             zstring str;
             if (u.str.is_string(arg_str, str)) {
-                TRACE("str", tout << "build NFA for '" << str << "'" << "\n";);
-                /*
-                 * For an n-character string, we make (n-1) intermediate states,
-                 * labelled i_(0) through i_(n-2).
-                 * Then we construct the following transitions:
-                 * start --str[0]--> i_(0) --str[1]--> i_(1) --...--> i_(n-2) --str[n-1]--> final
-                 */
-                unsigned last = start;
-                for (int i = 0; i <= ((int)str.length()) - 2; ++i) {
-                    unsigned i_state = next_id();
-                    make_transition(last, str[i], i_state);
-                    TRACE("str", tout << "string transition " << last << "--" << str[i] << "--> " << i_state << "\n";);
-                    last = i_state;
-                }
-                make_transition(last, str[(str.length() - 1)], end);
-                TRACE("str", tout << "string transition " << last << "--" << str[(str.length() - 1)] << "--> " << end << "\n";);
-            } else {
-                TRACE("str", tout << "invalid string constant in Str2Reg" << std::endl;);
-                m_valid = false;
-                return;
-            }
+                if (str.length() == 0) {
+		  // transitioning on the empty string is handled specially
+		  TRACE("str", tout << "empty string epsilon-move " << start << " --> " << end << std::endl;);
+		  make_epsilon_move(start, end);
+	        } else {
+                  TRACE("str", tout << "build NFA for '" << str << "'" << "\n";);
+                  /*
+                   * For an n-character string, we make (n-1) intermediate states,
+                   * labelled i_(0) through i_(n-2).
+                   * Then we construct the following transitions:
+                   * start --str[0]--> i_(0) --str[1]--> i_(1) --...--> i_(n-2) --str[n-1]--> final
+                   */
+                  unsigned last = start;
+                  for (int i = 0; i <= ((int)str.length()) - 2; ++i) {
+		    unsigned i_state = next_id();
+		    make_transition(last, str[i], i_state);
+		    TRACE("str", tout << "string transition " << last << "--" << str[i] << "--> " << i_state << "\n";);
+		    last = i_state;
+                  }
+                  make_transition(last, str[(str.length() - 1)], end);
+                  TRACE("str", tout << "string transition " << last << "--" << str[(str.length() - 1)] << "--> " << end << "\n";);
+		}
+	    } else { // ! u.str.is_string(arg_str, str)
+              TRACE("str", tout << "invalid string constant in Str2Reg" << std::endl;);
+              m_valid = false;
+              return;
+	    }
         } else if (u.re.is_concat(e)){
             app * a = to_app(e);
             expr * re1 = a->get_arg(0);
