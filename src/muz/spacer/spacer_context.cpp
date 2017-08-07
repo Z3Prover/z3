@@ -333,7 +333,18 @@ void pred_transformer::add_lemma_core(lemma* lemma,
     STRACE ("spacer.expand-add",
             tout << "add-lemma: " << pp_level (lvl) << " "
             << head ()->get_name () << " "
-            << mk_epp (l, m) << "\n\n";);
+            << mk_epp (l, m) << "\n";
+
+            if (!lemma->is_ground()) {
+                expr_ref_vector inst(m);
+                lemma->mk_insts(inst);
+                for (unsigned i = 0, sz = inst.size(); i < sz; ++i) {
+                    tout << mk_epp(inst.get(i), m) << "\n";
+                }
+
+            }
+            tout << "\n";
+        );
 
 
     if (is_infty_level(lvl)) { m_stats.m_num_invariants++; }
@@ -3046,6 +3057,8 @@ bool context::propagate(unsigned min_prop_lvl,
     if (m_params.pdr_simplify_formulas_pre()) {
         simplify_formulas();
     }
+    STRACE ("spacer.expand-add", tout << "Propagating\n";);
+
     IF_VERBOSE (1, verbose_stream () << "Propagating: " << std::flush;);
 
     for (unsigned lvl = min_prop_lvl; lvl <= full_prop_lvl; lvl++) {
