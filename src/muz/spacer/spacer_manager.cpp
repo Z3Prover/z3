@@ -384,4 +384,26 @@ bool has_zk_const(expr *e){
     return false;
 }
 
+bool is_zk_const (const app *a, int &n) {
+    if (!is_uninterp_const(a)) return false;
+
+    const symbol &name = a->get_decl()->get_name();
+    if (name.str().compare (0, 3, "sk!") != 0) {
+        return false;
+    }
+
+    n = std::stoi(name.str().substr(3));
+    return true;
+}
+bool sk_lt_proc::operator()(const app *a1, const app *a2) {
+    if (a1 == a2) return false;
+    int n1, n2;
+    bool z1, z2;
+    z1 = is_zk_const(a1, n1);
+    z2 = is_zk_const(a2, n2);
+    if (z1 && z2) return n1 < n2;
+    if (z1 != z2) return z1;
+    return ast_lt_proc()(a1, a2);
+}
+
 }

@@ -341,6 +341,10 @@ public:
 app* mk_zk_const (ast_manager &m, unsigned idx, sort *s);
 void find_zk_const(expr* e, app_ref_vector &out);
 bool has_zk_const(expr* e);
+
+struct sk_lt_proc {
+    bool operator()(const app* a1, const app* a2);
+};
 }
 
 #endif
