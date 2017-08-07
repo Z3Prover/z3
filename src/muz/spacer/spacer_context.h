@@ -135,7 +135,9 @@ public:
     unsigned level () const {return m_lvl;}
     void set_level (unsigned lvl) {m_lvl = lvl;}
     app_ref_vector& get_bindings() {return m_bindings;}
-    void add_binding(app_ref_vector const &binding) {m_bindings.append(binding);}
+    bool has_binding(app_ref_vector const &binding);
+    void add_binding(app_ref_vector const &binding);
+    void instantiate(expr * const * exprs, expr_ref &result, expr *e = nullptr);
     void mk_insts(expr_ref_vector& inst, expr* e = nullptr);
     bool is_ground () {return !is_quantifier (get_expr());}
 

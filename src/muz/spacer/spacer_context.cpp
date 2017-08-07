@@ -1248,26 +1248,58 @@ void lemma::update_cube (pob_ref const &p, expr_ref_vector &cube) {
     if (m_cube.empty()) {m_cube.push_back(m.mk_true());}
 }
 
-void lemma::mk_insts(expr_ref_vector &out, expr* e)
-{
+bool lemma::has_binding(app_ref_vector const &binding) {
+    expr *lem = get_expr();
+    unsigned num_decls = to_quantifier(lem)->get_num_decls();
+
+    SASSERT(bindings.size() == num_decls);
+
+    for (unsigned off = 0, sz = m_bindings.size(); off < sz; off += num_decls) {
+        unsigned i = 0;
+        for (; i < num_decls; ++i) {
+            if (m_bindings.get(off + i) != binding.get(i)) {
+                break;
+            }
+        }
+        if (i == num_decls) return true;
+    }
+    return false;
+}
+void lemma::add_binding(app_ref_vector const &binding) {
+    if (!has_binding(binding)) {
+        m_bindings.append(binding);
+
+        TRACE("spacer",
+              tout << "new binding: ";
+              for (unsigned i = 0; i < binding.size(); i++)
+                  tout << mk_pp(binding.get(i), m) <<  " ";
+              tout << "\n";);
+    }
+}
+void lemma::instantiate(expr * const * exprs, expr_ref &result, expr *e) {
     expr *lem = e == nullptr ? get_expr() : e;
     if (!is_quantifier (lem) || m_bindings.empty()) {return;}
 
     expr *body = to_quantifier(lem)->get_expr();
     unsigned num_decls = to_quantifier(lem)->get_num_decls();
-    expr_ref inst(m);
     var_subst vs(m, false);
-    for (unsigned i = 0,
-             sz = m_bindings.size() / num_decls,
-             off = 0;
-         i < sz;
-         ++i, off += num_decls) {
-        inst.reset();
-        vs.reset();
-        vs(body, num_decls, (expr**) m_bindings.c_ptr() + off, inst);
+    vs(body, num_decls, exprs, result);
+}
+
+void lemma::mk_insts(expr_ref_vector &out, expr* e)
+{
+    expr *lem = e == nullptr ? get_expr() : e;
+    if (!is_quantifier (lem) || m_bindings.empty()) {return;}
+
+    unsigned num_decls = to_quantifier(lem)->get_num_decls();
+    expr_ref inst(m);
+    for (unsigned off = 0, sz = m_bindings.size(); off < sz; off += num_decls) {
+        instantiate((expr * const *) m_bindings.c_ptr() + off, inst, e);
         out.push_back(inst);
+        inst.reset();
     }
 }
+
 
 bool pred_transformer::frames::add_lemma(lemma *lem)
 {
