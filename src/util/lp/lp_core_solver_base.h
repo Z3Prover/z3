@@ -581,19 +581,20 @@ public:
     }
 
     void print_column_info(unsigned j, std::ostream & out) const {
-        out << "column_index = " << j << ", name = "<< column_name(j) << " type = " << column_type_to_string(m_column_types[j]) << std::endl;
+        out << "column_index = " << j << ", name = "<< column_name(j) << std::endl;
         switch (m_column_types[j]) {
         case column_type::fixed:
         case column_type::boxed:
-            out << "(" << m_low_bounds[j] << ", " << m_upper_bounds[j] << ")" << std::endl;
+            out << "[" << m_low_bounds[j] << ", " << m_upper_bounds[j] << "]" << std::endl;
             break;
         case column_type::low_bound:
-            out << m_low_bounds[j] << std::endl;
+            out << "[" << m_low_bounds[j] << "," << "oo" << "]" << std::endl;
             break;
         case column_type::upper_bound:
-            out << m_upper_bounds[j] << std::endl;
+            out << "[-oo, " << m_upper_bounds[j] << ']'<< std::endl;
             break;
         case column_type::free_column:
+            out << "[-oo, oo]"<< std::endl;
             break;
         default:
             lp_assert(false);

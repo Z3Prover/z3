@@ -27,6 +27,7 @@ struct linear_combination_iterator {
     virtual linear_combination_iterator * clone() = 0;
     virtual ~linear_combination_iterator(){}
     virtual unsigned size() const = 0;
+    virtual bool is_reset() const = 0;
 };
 template <typename T>
 struct linear_combination_iterator_on_vector : linear_combination_iterator<T> {
@@ -50,7 +51,7 @@ struct linear_combination_iterator_on_vector : linear_combination_iterator<T> {
         m_offset++;
         return true;
     }
-    
+    bool is_reset() const { return m_offset == 0;}
     void reset() {m_offset = 0;}
     linear_combination_iterator<T> * clone() {
         return new linear_combination_iterator_on_vector(m_vector);

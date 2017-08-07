@@ -126,7 +126,7 @@ private:
 
     inline static
     mpq fractional_part(const impq & n) {
-        lp_assert(is_rational);
+        lp_assert(is_rational(n));
         return n.x - floor(n.x);
     }
     void real_case_in_gomory_cut(const mpq & a, unsigned x_j, mpq & k, lar_term& t, explanation & ex);
@@ -141,5 +141,6 @@ public:
 private:
     unsigned random();
     bool non_basic_columns_are_at_bounds() const;
+    bool has_inf_int() const;
 };
 }

@@ -324,7 +324,7 @@ public:
 #endif
     bool use_breakpoints_in_feasibility_search;
     unsigned random_next() { return m_rand(); }
-    void random_seed(unsigned s) { m_rand.set_seed(s); }
+    void set_random_seed(unsigned s) { m_rand.set_seed(s); }
     unsigned max_row_length_for_bound_propagation;
     bool backup_costs;
     unsigned column_number_threshold_for_using_lu_in_lar_solver;
@@ -351,7 +351,7 @@ inline std::string T_to_string(const numeric_pair<mpq> & t) {
 
 inline std::string T_to_string(const mpq & t) {
     std::ostringstream strs;
-    strs << t.get_double();
+    strs << t;
     return strs.str();
 }
 

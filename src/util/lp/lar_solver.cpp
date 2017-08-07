@@ -731,7 +731,6 @@ void lar_solver::update_x_and_inf_costs_for_columns_with_changed_bounds() {
 }
 
 void lar_solver::update_x_and_inf_costs_for_columns_with_changed_bounds_tableau() {
-    lp_assert(ax_is_correct());
     for (auto j : m_columns_with_changed_bound.m_index)
         update_x_and_inf_costs_for_column_with_changed_bounds(j);
 
@@ -744,7 +743,6 @@ void lar_solver::update_x_and_inf_costs_for_columns_with_changed_bounds_tableau(
 
     
 void lar_solver::solve_with_core_solver() {
-    lp_assert(inf_int_set_is_correct());
     if (!use_tableau())
         add_last_rows_to_lu(m_mpq_lar_core_solver.m_r_solver);
     if (m_mpq_lar_core_solver.need_to_presolve_with_double_solver()) {
@@ -755,15 +753,13 @@ void lar_solver::solve_with_core_solver() {
         m_basic_columns_with_changed_cost.clear();
         m_basic_columns_with_changed_cost.resize(m_mpq_lar_core_solver.m_r_x.size());
     }
-    lp_assert(inf_int_set_is_correct());
     if (use_tableau())
         update_x_and_inf_costs_for_columns_with_changed_bounds_tableau();
     else 
         update_x_and_inf_costs_for_columns_with_changed_bounds();
-    lp_assert(inf_int_set_is_correct());
     m_mpq_lar_core_solver.solve();
-    lp_assert(inf_int_set_is_correct());
     set_status(m_mpq_lar_core_solver.m_r_solver.get_status());
+    lp_assert(inf_int_set_is_correct());
     lp_assert(m_status != lp_status::OPTIMAL || all_constraints_hold());
 }
 

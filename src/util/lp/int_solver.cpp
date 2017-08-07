@@ -8,7 +8,6 @@
 namespace lp {
 
 void int_solver::fix_non_base_columns() {
-	lp_assert(is_feasible() && inf_int_set_is_correct());
     auto & lcs = m_lar_solver->m_mpq_lar_core_solver;
     bool change = false;
     for (unsigned j : lcs.m_r_nbasis) {
@@ -68,6 +67,10 @@ const int_set& int_solver::inf_int_set() const {
     return m_lar_solver->m_inf_int_set;
 }
 
+bool int_solver::has_inf_int() const {
+    return !inf_int_set().is_empty();
+}
+
 int int_solver::find_inf_int_base_column() {
     if (inf_int_set().is_empty())
         return -1;
@@ -83,11 +86,12 @@ int int_solver::find_inf_int_boxed_base_column_with_smallest_range() {
     mpq range;
     mpq new_range;
     mpq small_range_thresold(1024);
-    unsigned n = 0;
+    unsigned n;
     lar_core_solver & lcs = m_lar_solver->m_mpq_lar_core_solver;
 
     for (int j : inf_int_set().m_index) {
         lp_assert(is_base(j) && column_is_int_inf(j));
+        lp_assert(!is_fixed(j));
         if (!is_boxed(j))
             continue;
         new_range  = lcs.m_r_upper_bounds()[j].x - lcs.m_r_low_bounds()[j].x;
@@ -106,8 +110,8 @@ int int_solver::find_inf_int_boxed_base_column_with_smallest_range() {
             continue;
         }
         if (new_range == range) {
-            n++;
-            if (settings().random_next() % n == 0) {
+            lp_assert(n >= 1);
+            if (settings().random_next() % (++n) == 0) {
                 result = j;
                 continue;
             }
@@ -140,7 +144,7 @@ bool int_solver::is_gomory_cut_target() {
 
 
 void int_solver::real_case_in_gomory_cut(const mpq & a, unsigned x_j, mpq & k, lar_term& pol, explanation & expl) {
-    TRACE("gomory_cut_detail", tout << "real\n";);
+    TRACE("gomory_cut_detail_real", tout << "real\n";);
     mpq f_0  = fractional_part(get_value(m_gomory_cut_inf_column));
     mpq new_a;
     if (at_lower(x_j)) {
@@ -151,8 +155,8 @@ void int_solver::real_case_in_gomory_cut(const mpq & a, unsigned x_j, mpq & k, l
             new_a  =  a / f_0;
             new_a.neg();
         }
-        k += lower_bound(x_j).x * k;  // k.addmul(new_a, lower_bound(x_j).x); // is it a faster operation
-        
+        k.addmul(new_a, lower_bound(x_j).x); // is it a faster operation than
+        // k += lower_bound(x_j).x * new_a;  
         expl.push_justification(column_low_bound_constraint(x_j), new_a);
     }
     else {
@@ -164,10 +168,10 @@ void int_solver::real_case_in_gomory_cut(const mpq & a, unsigned x_j, mpq & k, l
         else {
             new_a =   a / (mpq(1) - f_0); 
         }
-        k += upper_bound(x_j).x * k; // k.addmul(new_a, upper_bound(x_j).get_rational());
+        k.addmul(new_a, upper_bound(x_j).x); //  k += upper_bound(x_j).x * new_a; 
         expl.push_justification(column_upper_bound_constraint(x_j), new_a);
     }
-    TRACE("gomory_cut_detail", tout << a << "*v" << x_j << " k: " << k << "\n";);
+    TRACE("gomory_cut_detail_real", tout << a << "*v" << x_j << " k: " << k << "\n";);
     pol.add_monomial(new_a, x_j);
 }
 
@@ -181,13 +185,13 @@ constraint_index int_solver::column_low_bound_constraint(unsigned j) const {
 
 
 void int_solver::int_case_in_gomory_cut(const mpq & a, unsigned x_j, mpq & k, lar_term & t, explanation& expl, mpq & lcm_den) {
+    lp_assert(is_int(x_j));
     lp_assert(!a.is_int());
     mpq f_0  = fractional_part(get_value(m_gomory_cut_inf_column));
-    lp_assert(is_int(x_j));
+    lp_assert(f_0 > zero_of_type<mpq>() && f_0 < one_of_type<mpq>());
     mpq f_j =  fractional_part(a);
     TRACE("gomory_cut_detail", 
-          tout << a << " v" << x_j << "\n";
-          tout << "fractional_part: " << fractional_part(a) << "\n";
+          tout << a << " x_j" << x_j << " k = " << k << "\n";
           tout << "f_j: " << f_j << "\n";
           tout << "f_0: " << f_0 << "\n";
           tout << "1 - f_0: " << 1 - f_0 << "\n";
@@ -295,23 +299,24 @@ void int_solver::adjust_term_and_k_for_some_ints_case_gomory(lar_term& t, mpq& k
     auto pol = t.coeffs_as_vector();
     t.clear();
     if (pol.size() == 1) {
+        TRACE("gomory_cut_detail", tout << "pol.size() is 1" << std::endl;);
         unsigned v = pol[0].second;
         lp_assert(is_int(v));
-        bool k_is_int = k.is_int();
         const mpq& a = pol[0].first;
         k /= a;
         if (a.is_pos()) { // we have av >= k
-            if (!k_is_int)
+            if (!k.is_int())
                 k = ceil(k);
             // switch size
             t.add_monomial(- mpq(1), v);
             k.neg();
         } else {
-            if (!k_is_int)
+            if (!k.is_int())
                 k = floor(k);
             t.add_monomial(mpq(1), v);
         }
     } else {
+        TRACE("gomory_cut_detail", tout << "pol.size() > 1" << std::endl;);
         lcm_den = lcm(lcm_den, denominator(k));
         lp_assert(lcm_den.is_pos());
         if (!lcm_den.is_one()) {
@@ -327,6 +332,8 @@ void int_solver::adjust_term_and_k_for_some_ints_case_gomory(lar_term& t, mpq& k
             t.add_monomial(-pi.first, pi.second);
         k.neg();
     }
+    TRACE("gomory_cut_detail", tout << "k = " << k << std::endl;);
+    lp_assert(k.is_int());
 }
 
 
@@ -337,7 +344,12 @@ lia_move int_solver::mk_gomory_cut(lar_term& t, mpq& k, explanation & expl) {
     lp_assert(column_is_int_inf(m_gomory_cut_inf_column));
 
     TRACE("gomory_cut", tout << "applying cut at:\n"; m_lar_solver->print_linear_iterator_indices_only(m_iter_on_gomory_row, tout); tout << std::endl; m_iter_on_gomory_row->reset();
-          tout << "f0 = " << T_to_string(get_value(m_gomory_cut_inf_column) - floor(get_value(m_gomory_cut_inf_column).x)) << "\n";
+          unsigned j;
+          while(m_iter_on_gomory_row->next(j)) {
+              m_lar_solver->m_mpq_lar_core_solver.m_r_solver.print_column_info(j, tout);
+          }
+          m_iter_on_gomory_row->reset();
+          tout << "m_gomory_cut_inf_column = " << m_gomory_cut_inf_column << std::endl;
           );
         
     // gomory will be   t >= k
@@ -346,6 +358,7 @@ lia_move int_solver::mk_gomory_cut(lar_term& t, mpq& k, explanation & expl) {
     unsigned x_j;
     mpq a;
     bool some_int_columns = false;
+    lp_assert(m_iter_on_gomory_row->is_reset());
     while (m_iter_on_gomory_row->next(a, x_j)) {
         if (x_j == m_gomory_cut_inf_column)
             continue;
@@ -411,7 +424,6 @@ lia_move int_solver::proceed_with_gomory_cut(lar_term& t, mpq& k, explanation& e
 
 
 lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
-    TRACE("arith_int", tout << "calling check " << ++lp_settings::ddd << std::endl;); // start here
     lp_assert(inf_int_set_is_correct());
     if (m_iter_on_gomory_row != nullptr) {
         auto ret = proceed_with_gomory_cut(t, k, ex);
@@ -425,7 +437,7 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
     // currently it is a reimplementation of
     // final_check_status theory_arith<Ext>::check_int_feasibility()
     // from theory_arith_int.h
-	if (m_lar_solver->model_is_int_feasible())
+	if (!has_inf_int())
 		return lia_move::ok;
     if (!gcd_test(ex))
         return lia_move::conflict;
@@ -439,11 +451,12 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
 	fix_non_base_columns();
 	TRACE("arith_int_rows", trace_inf_rows(););
     
-    if (find_inf_int_base_column() == -1)
+    if (!has_inf_int())
         return lia_move::ok;
-        
-
+    TRACE("gomory_cut", tout << m_branch_cut_counter+1 << ", " << settings().m_int_branch_cut_gomory_threshold << std::endl;);
+         
     if ((++m_branch_cut_counter) % settings().m_int_branch_cut_gomory_threshold == 0) {
+        lp_assert(m_iter_on_gomory_row == nullptr);
         move_non_base_vars_to_bounds();
         lp_status st = m_lar_solver->find_feasible_solution();
         lp_assert(non_basic_columns_are_at_bounds());
@@ -452,7 +465,6 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
             return lia_move::give_up;
         }
         lp_assert(inf_int_set_is_correct());
-        //        init_inf_int_set(); // todo - can we avoid this call?
         int j = find_inf_int_base_column();
         if (j != -1) {
             // setup the call for gomory cut
