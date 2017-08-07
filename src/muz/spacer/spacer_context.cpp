@@ -1787,7 +1787,7 @@ void pob::set_post(expr* post, app_ref_vector const &b) {
 
     m_binding.append(b);
 
-    std::sort (m_binding.c_ptr(), m_binding.c_ptr() + m_binding.size(), ast_lt_proc());
+    std::sort (m_binding.c_ptr(), m_binding.c_ptr() + m_binding.size(), sk_lt_proc());
 
     // skolemize implicit existential quantifier
     ast_manager &m = get_ast_manager();
