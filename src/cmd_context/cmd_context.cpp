@@ -76,6 +76,15 @@ bool func_decls::signatures_collide(func_decl* f, func_decl* g) const {
     return f == g;
 }
 
+bool func_decls::signatures_collide(unsigned n, sort* const* domain, sort* range, func_decl* g) const {
+    if (g->get_range() != range) return false;
+    if (n != g->get_arity()) return false;
+    for (unsigned i = 0; i < n; ++i) {
+        if (domain[i] != g->get_domain(i)) return false;
+    }
+    return true;
+}
+
 bool func_decls::contains(func_decl * f) const {
     if (GET_TAG(m_decls) == 0) {
         func_decl* g = UNTAG(func_decl*, m_decls);
@@ -85,6 +94,21 @@ bool func_decls::contains(func_decl * f) const {
         func_decl_set * fs = UNTAG(func_decl_set *, m_decls);
         for (func_decl* g : *fs) {
             if (signatures_collide(f, g)) return true;
+        }
+    }
+    return false;
+}
+
+
+bool func_decls::contains(unsigned n, sort* const* domain, sort* range) const {
+    if (GET_TAG(m_decls) == 0) {
+        func_decl* g = UNTAG(func_decl*, m_decls);
+        return g && signatures_collide(n, domain, range, g);
+    }
+    else {
+        func_decl_set * fs = UNTAG(func_decl_set *, m_decls);
+        for (func_decl* g : *fs) {
+            if (signatures_collide(n, domain, range, g)) return true;
         }
     }
     return false;
@@ -204,6 +228,94 @@ func_decl * func_decls::find(ast_manager & m, unsigned num_args, expr * const * 
         sorts.push_back(m.get_sort(args[i]));
     return find(num_args, sorts.c_ptr(), range);
 }
+
+void macro_decls::finalize(ast_manager& m) {
+    for (auto v : *m_decls) m.dec_ref(v.m_body);
+    dealloc(m_decls);
+}
+
+bool macro_decls::insert(ast_manager& m, unsigned arity, sort *const* domain, expr* body) {
+    if (find(arity, domain)) return false;
+    m.inc_ref(body);
+    if (!m_decls) m_decls = alloc(vector<macro_decl>);
+    m_decls->push_back(macro_decl(arity, domain, body));
+    return true;
+}
+
+expr* macro_decls::find(unsigned arity, sort *const* domain) const {
+    if (!m_decls) return 0;
+    for (auto v : *m_decls) {
+        if (v.m_domain.size() != arity) continue;
+        bool eq = true;
+        for (unsigned i = 0; eq && i < arity; ++i) {
+            eq = domain[i] == v.m_domain[i];
+        }
+        if (eq) return v.m_body;
+    }
+    return 0;
+}
+
+void macro_decls::erase_last(ast_manager& m) {
+    SASSERT(m_decls);
+    SASSERT(!m_decls->empty());
+    m.dec_ref(m_decls->back().m_body);
+    m_decls->pop_back();
+}
+
+bool cmd_context::contains_func_decl(symbol const& s, unsigned n, sort* const* domain, sort* range) const {
+    func_decls fs;
+    return m_func_decls.find(s, fs) && fs.contains(n, domain, range);
+}
+
+bool cmd_context::contains_macro(symbol const& s) const {
+    return m_macros.contains(s);
+}
+
+bool cmd_context::contains_macro(symbol const& s, func_decl* f) const {
+    return contains_macro(s, f->get_arity(), f->get_domain());
+}
+
+bool cmd_context::contains_macro(symbol const& s, unsigned arity, sort *const* domain) const {
+    macro_decls decls;
+    return m_macros.find(s, decls) && 0 != decls.find(arity, domain);
+}
+
+void cmd_context::insert_macro(symbol const& s, unsigned arity, sort*const* domain, expr* t) {
+    macro_decls decls;
+    if (!m_macros.find(s, decls)) {
+        VERIFY(decls.insert(m(), arity, domain, t));
+        m_macros.insert(s, decls);
+    }
+    else {
+        VERIFY(decls.insert(m(), arity, domain, t));
+    }    
+}
+
+void cmd_context::erase_macro(symbol const& s) {
+    macro_decls decls;
+    VERIFY(m_macros.find(s, decls));
+    decls.erase_last(m());    
+}
+
+bool cmd_context::macros_find(symbol const& s, unsigned n, expr*const* args, expr*& t) const {
+    macro_decls decls;
+    if (!m_macros.find(s, decls)) {
+        return false;
+    }
+    for (macro_decl const& d : decls) {
+        if (d.m_domain.size() != n) continue;
+        bool eq = true;
+        for (unsigned i = 0; eq && i < n; ++i) {
+            eq = d.m_domain[i] == m().get_sort(args[i]);
+        }
+        if (eq) {
+            t = d.m_body;
+            return true;
+        }
+    }
+    return false;
+}
+
 
 ast_object_ref::ast_object_ref(cmd_context & ctx, ast * a):m_ast(a) {
     ctx.m().inc_ref(a);
@@ -658,7 +770,7 @@ void cmd_context::insert(symbol const & s, func_decl * f) {
     if (!m_check_logic(f)) {
         throw cmd_exception(m_check_logic.get_last_error());
     }
-    if (m_macros.contains(s)) {
+    if (contains_macro(s, f)) {
         throw cmd_exception("invalid declaration, named expression already defined with this name ", s);
     }
     if (m_builtin_decls.contains(s)) {
@@ -697,20 +809,20 @@ void cmd_context::insert(symbol const & s, psort_decl * p) {
     TRACE("cmd_context", tout << "new sort decl\n"; p->display(tout); tout << "\n";);
 }
 
-void cmd_context::insert(symbol const & s, unsigned arity, expr * t) {
+void cmd_context::insert(symbol const & s, unsigned arity, sort *const* domain, expr * t) {
+    expr_ref _t(t, m());
     m_check_sat_result = 0;
     if (m_builtin_decls.contains(s)) {
         throw cmd_exception("invalid macro/named expression, builtin symbol ", s);
     }
-    if (m_macros.contains(s)) {
+    if (contains_macro(s, arity, domain)) {
         throw cmd_exception("named expression already defined");
     }
-    if (m_func_decls.contains(s)) {
+    if (contains_func_decl(s, arity, domain, m().get_sort(t))) {
         throw cmd_exception("invalid named expression, declaration already defined with this name ", s);
     }
-    m().inc_ref(t);
     TRACE("insert_macro", tout << "new macro " << arity << "\n" << mk_pp(t, m()) << "\n";);
-    m_macros.insert(s, macro(arity, t));
+    insert_macro(s, arity, domain, t);
     if (!m_global_decls) {
         m_macros_stack.push_back(s);
     }
@@ -783,8 +895,9 @@ func_decl * cmd_context::find_func_decl(symbol const & s) const {
         }
         throw cmd_exception("invalid function declaration reference, must provide signature for builtin symbol ", s);
     }
-    if (m_macros.contains(s))
+    if (contains_macro(s)) {
         throw cmd_exception("invalid function declaration reference, named expressions (aka macros) cannot be referenced ", s);
+    }
     func_decls fs;
     if (m_func_decls.find(s, fs)) {
         if (fs.more_than_one())
@@ -840,7 +953,7 @@ func_decl * cmd_context::find_func_decl(symbol const & s, unsigned num_indices, 
         return f;
     }
 
-    if (m_macros.contains(s))
+    if (contains_macro(s, arity, domain)) 
         throw cmd_exception("invalid function declaration reference, named expressions (aka macros) cannot be referenced ", s);
 
     if (num_indices > 0)
@@ -862,11 +975,6 @@ psort_decl * cmd_context::find_psort_decl(symbol const & s) const {
     return p;
 }
 
-cmd_context::macro cmd_context::find_macro(symbol const & s) const {
-    macro m;
-    m_macros.find(s, m);
-    return m;
-}
 
 cmd * cmd_context::find_cmd(symbol const & s) const {
     cmd * c = 0;
@@ -918,21 +1026,14 @@ void cmd_context::mk_app(symbol const & s, unsigned num_args, expr * const * arg
     }
     if (num_indices > 0)
         throw cmd_exception("invalid use of indexed indentifier, unknown builtin function ", s);
-    macro _m;
-    if (m_macros.find(s, _m)) {
-        if (num_args != _m.first)
-            throw cmd_exception("invalid defined function application, incorrect number of arguments ", s);
-        if (num_args == 0) {
-            result = _m.second;
-            return;
-        }
-        SASSERT(num_args > 0);
+    expr* _t;
+    if (macros_find(s, num_args, args, _t)) {
         TRACE("macro_bug", tout << "well_sorted_check_enabled(): " << well_sorted_check_enabled() << "\n";
               tout << "s: " << s << "\n";
-              tout << "body:\n" << mk_ismt2_pp(_m.second, m()) << "\n";
+              tout << "body:\n" << mk_ismt2_pp(_t, m()) << "\n";
               tout << "args:\n"; for (unsigned i = 0; i < num_args; i++) tout << mk_ismt2_pp(args[i], m()) << "\n" << mk_pp(m().get_sort(args[i]), m()) << "\n";);
         var_subst subst(m());
-        subst(_m.second, num_args, args, result);
+        subst(_t, num_args, args, result);
         if (well_sorted_check_enabled() && !is_well_sorted(m(), result))
             throw cmd_exception("invalid macro application, sort mismatch ", s);
         return;
@@ -956,7 +1057,6 @@ void cmd_context::mk_app(symbol const & s, unsigned num_args, expr * const * arg
         if (f->get_arity() != 0)
             throw cmd_exception("invalid function application, missing arguments ", s);
         result = m().mk_const(f);
-        return;
     }
     else {
         func_decl * f = fs.find(m(), num_args, args, range);
@@ -965,7 +1065,6 @@ void cmd_context::mk_app(symbol const & s, unsigned num_args, expr * const * arg
         if (well_sorted_check_enabled())
             m().check_sort(f, num_args, args);
         result = m().mk_app(f, num_args, args);
-        return;
     }
 }
 
@@ -1023,21 +1122,6 @@ void cmd_context::erase_psort_decl(symbol const & s) {
     erase_psort_decl_core(s);
 }
 
-void cmd_context::erase_macro_core(symbol const & s) {
-    macro _m;
-    if (m_macros.find(s, _m)) {
-        m().dec_ref(_m.second);
-        m_macros.erase(s);
-    }
-}
-
-void cmd_context::erase_macro(symbol const & s) {
-    if (!global_decls()) {
-        throw cmd_exception("macros (aka named expressions) can only be erased when global (instead of scoped) declarations are used");
-    }
-    erase_macro_core(s);
-}
-
 void cmd_context::erase_cmd(symbol const & s) {
     cmd * c;
     if (m_cmds.find(s, c)) {
@@ -1087,11 +1171,8 @@ void cmd_context::reset_psort_decls() {
 }
 
 void cmd_context::reset_macros() {
-    dictionary<macro>::iterator  it  = m_macros.begin();
-    dictionary<macro>::iterator  end = m_macros.end();
-    for (; it != end; ++it) {
-        expr * t = (*it).m_value.second;
-        m().dec_ref(t);
+    for (auto & kv : m_macros) {
+        kv.m_value.finalize(m());
     }
     m_macros.reset();
     m_macros_stack.reset();
@@ -1274,10 +1355,7 @@ void cmd_context::restore_macros(unsigned old_sz) {
     svector<symbol>::iterator end = m_macros_stack.end();
     for (; it != end; ++it) {
         symbol const & s = *it;
-        macro _m;
-        VERIFY (m_macros.find(s, _m)); 
-        m().dec_ref(_m.second);
-        m_macros.erase(s);
+        erase_macro(s);
     }
     m_macros_stack.shrink(old_sz);
 }

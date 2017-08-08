@@ -59,7 +59,12 @@ bool basic_simplifier_plugin::reduce(func_decl * f, unsigned num_args, expr * co
         mk_iff(args[0], args[1], result); 
         return true;
     case OP_XOR: 
-        mk_xor(args[0], args[1], result); 
+        switch (num_args) {
+        case 0: result = m_manager.mk_true(); break;
+        case 1: result = args[0]; break;
+        case 2: mk_xor(args[0], args[1], result); break;
+        default: UNREACHABLE(); break;
+        }
         return true;
     case OP_NOT:      
         SASSERT(num_args == 1);

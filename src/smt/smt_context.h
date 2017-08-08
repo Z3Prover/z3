@@ -257,7 +257,15 @@ namespace smt {
             return m_params;
         }
 
-        bool get_cancel_flag() { return !m_manager.limit().inc(); }
+        bool get_cancel_flag() { 
+            if (m_manager.limit().inc()) {
+                // get_simplifier().reset();
+                return false;
+            }
+            else {
+                return true;
+            }
+        }
 
         region & get_region() {
             return m_region;

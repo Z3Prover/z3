@@ -992,7 +992,7 @@ namespace smt2 {
             TRACE("name_expr", tout << "naming: " << s << " ->\n" << mk_pp(n, m()) << "\n";);
             if (!is_ground(n) && has_free_vars(n))
                 throw parser_exception("invalid named expression, expression contains free variables");
-            m_ctx.insert(s, 0, n);
+            m_ctx.insert(s, 0, 0, n);
             m_last_named_expr.first  = s;
             m_last_named_expr.second = n;
         }
@@ -1984,7 +1984,7 @@ namespace smt2 {
             parse_expr();
             if (m().get_sort(expr_stack().back()) != sort_stack().back())
                 throw parser_exception("invalid function/constant definition, sort mismatch");
-            m_ctx.insert(id, num_vars, expr_stack().back());
+            m_ctx.insert(id, num_vars, sort_stack().c_ptr() + sort_spos, expr_stack().back());
             check_rparen("invalid function/constant definition, ')' expected");
             // restore stacks & env
             symbol_stack().shrink(sym_spos);
@@ -2135,7 +2135,7 @@ namespace smt2 {
             parse_expr();
             if (m().get_sort(expr_stack().back()) != sort_stack().back())
                 throw parser_exception("invalid constant definition, sort mismatch");
-            m_ctx.insert(id, 0, expr_stack().back());
+            m_ctx.insert(id, 0, 0, expr_stack().back());
             check_rparen("invalid constant definition, ')' expected");
             expr_stack().pop_back();
             sort_stack().pop_back();

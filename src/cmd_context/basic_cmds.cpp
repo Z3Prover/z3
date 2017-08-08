@@ -135,28 +135,30 @@ ATOMIC_CMD(get_assignment_cmd, "get-assignment", "retrieve assignment", {
     model_ref m;
     ctx.get_check_sat_result()->get_model(m);
     ctx.regular_stream() << "(";
-    dictionary<cmd_context::macro> const & macros = ctx.get_macros();
-    dictionary<cmd_context::macro>::iterator it  = macros.begin();
-    dictionary<cmd_context::macro>::iterator end = macros.end();
+    dictionary<macro_decls> const & macros = ctx.get_macros();
+    dictionary<macro_decls>::iterator it  = macros.begin();
+    dictionary<macro_decls>::iterator end = macros.end();
     for (bool first = true; it != end; ++it) {
         symbol const & name = (*it).m_key;
-        cmd_context::macro const & _m    = (*it).m_value;
-        if (_m.first == 0 && ctx.m().is_bool(_m.second)) {
-            expr_ref val(ctx.m());
-            m->eval(_m.second, val, true);
-            if (ctx.m().is_true(val) || ctx.m().is_false(val)) {
-                if (first)
-                    first = false;
-                else
-                    ctx.regular_stream() << " ";
-                ctx.regular_stream() << "(";
-                if (is_smt2_quoted_symbol(name)) {
-                    ctx.regular_stream() << mk_smt2_quoted_symbol(name);
+        macro_decls const & _m    = (*it).m_value;
+        for (auto md : _m) {
+            if (md.m_domain.size() == 0 && ctx.m().is_bool(md.m_body)) {
+                expr_ref val(ctx.m());
+                m->eval(md.m_body, val, true);
+                if (ctx.m().is_true(val) || ctx.m().is_false(val)) {
+                    if (first)
+                        first = false;
+                    else
+                        ctx.regular_stream() << " ";
+                    ctx.regular_stream() << "(";
+                    if (is_smt2_quoted_symbol(name)) {
+                        ctx.regular_stream() << mk_smt2_quoted_symbol(name);
+                    }
+                    else {
+                        ctx.regular_stream() << name;
+                    }
+                    ctx.regular_stream() << " " << (ctx.m().is_true(val) ? "true" : "false") << ")";
                 }
-                else {
-                    ctx.regular_stream() << name;
-                }
-                ctx.regular_stream() << " " << (ctx.m().is_true(val) ? "true" : "false") << ")";
             }
         }
     }

@@ -43,11 +43,13 @@ Notes:
 class func_decls {
     func_decl * m_decls;
     bool signatures_collide(func_decl* f, func_decl* g) const;
+    bool signatures_collide(unsigned n, sort*const* domain, sort* range, func_decl* g) const;
 public:
     func_decls():m_decls(0) {}
     func_decls(ast_manager & m, func_decl * f);
     void finalize(ast_manager & m);
     bool contains(func_decl * f) const;
+    bool contains(unsigned n, sort* const* domain, sort* range) const;
     bool insert(ast_manager & m, func_decl * f);
     void erase(ast_manager & m, func_decl * f);
     bool more_than_one() const;
@@ -56,6 +58,29 @@ public:
     func_decl * first() const;
     func_decl * find(unsigned arity, sort * const * domain, sort * range) const;
     func_decl * find(ast_manager & m, unsigned num_args, expr * const * args, sort * range) const;
+};
+
+struct macro_decl {
+    ptr_vector<sort> m_domain;
+    expr*            m_body;
+
+    macro_decl(unsigned arity, sort *const* domain, expr* body):
+        m_domain(arity, domain), m_body(body) {}
+    
+    void dec_ref(ast_manager& m) { m.dec_ref(m_body); }
+    
+};
+
+class macro_decls {
+    vector<macro_decl>* m_decls;
+public:    
+    macro_decls() { m_decls = 0; }
+    void finalize(ast_manager& m);
+    bool insert(ast_manager& m, unsigned arity, sort *const* domain, expr* body);
+    expr* find(unsigned arity, sort *const* domain) const;    
+    void erase_last(ast_manager& m);
+    vector<macro_decl>::iterator begin() const { return m_decls->begin(); }
+    vector<macro_decl>::iterator end() const { return m_decls->end(); }
 };
 
 /**
@@ -184,7 +209,7 @@ protected:
     dictionary<func_decls>       m_func_decls;
     obj_map<func_decl, symbol>   m_func_decl2alias;
     dictionary<psort_decl*>      m_psort_decls;
-    dictionary<macro>            m_macros;
+    dictionary<macro_decls>      m_macros;
     // the following fields m_func_decls_stack, m_psort_decls_stack and m_exprs_stack are used when m_global_decls == false
     typedef std::pair<symbol, func_decl *> sf_pair;
     svector<sf_pair>             m_func_decls_stack;
@@ -253,7 +278,6 @@ protected:
 
     void erase_func_decl_core(symbol const & s, func_decl * f);
     void erase_psort_decl_core(symbol const & s);
-    void erase_macro_core(symbol const & s);
 
     bool logic_has_arith() const;
     bool logic_has_bv() const;
@@ -267,6 +291,16 @@ protected:
     void print_unsupported_info(symbol const& s, int line, int pos) { if (s != symbol::null) diagnostic_stream() << "; " << s << " line: " << line << " position: " << pos << std::endl;}
 
     void mk_solver();
+
+    bool contains_func_decl(symbol const& s, unsigned n, sort* const* domain, sort* range) const;
+
+    bool contains_macro(symbol const& s) const;
+    bool contains_macro(symbol const& s, func_decl* f) const;
+    bool contains_macro(symbol const& s, unsigned arity, sort *const* domain) const;    
+    void insert_macro(symbol const& s, unsigned arity, sort*const* domain, expr* t);
+    void erase_macro(symbol const& s);
+    bool macros_find(symbol const& s, unsigned n, expr*const* args, expr*& t) const;
+
 
 public:
     cmd_context(bool main_ctx = true, ast_manager * m = 0, symbol const & l = symbol::null);
@@ -337,7 +371,7 @@ public:
     void insert(func_decl * f) { insert(f->get_name(), f); }
     void insert(symbol const & s, psort_decl * p);
     void insert(psort_decl * p) { insert(p->get_name(), p); }
-    void insert(symbol const & s, unsigned arity, expr * t);
+    void insert(symbol const & s, unsigned arity, sort *const* domain, expr * t);
     void insert(symbol const & s, object_ref *);
     void insert(tactic_cmd * c) { tactic_manager::insert(c); }
     void insert(probe_info * p) { tactic_manager::insert(p); } 
@@ -348,7 +382,6 @@ public:
     func_decl * find_func_decl(symbol const & s, unsigned num_indices, unsigned const * indices, 
                                unsigned arity, sort * const * domain, sort * range) const;
     psort_decl * find_psort_decl(symbol const & s) const;
-    macro find_macro(symbol const & s) const;
     cmd * find_cmd(symbol const & s) const;
     sexpr * find_user_tactic(symbol const & s) const;
     object_ref * find_object_ref(symbol const & s) const;
@@ -360,7 +393,6 @@ public:
     void erase_func_decl(symbol const & s, func_decl * f);
     void erase_func_decl(func_decl * f) { erase_func_decl(f->get_name(), f); }
     void erase_psort_decl(symbol const & s);
-    void erase_macro(symbol const & s);
     void erase_object_ref(symbol const & s);
     void erase_user_tactic(symbol const & s);
     void reset_func_decls();
@@ -400,7 +432,7 @@ public:
     void validate_check_sat_result(lbool r); 
     unsigned num_scopes() const { return m_scopes.size(); }
 
-    dictionary<macro> const & get_macros() const { return m_macros; }
+    dictionary<macro_decls> const & get_macros() const { return m_macros; }
 
     bool is_model_available() const;
 
