@@ -584,26 +584,26 @@ public:
     }
 
     void print_column_info(unsigned j, std::ostream & out) const {
-        out << "column_index = " << j << ", name = "<< column_name(j) << std::endl;
+        out << "j = " << j << ", name = "<< column_name(j);
         switch (m_column_types[j]) {
         case column_type::fixed:
         case column_type::boxed:
-            out << "[" << m_low_bounds[j] << ", " << m_upper_bounds[j] << "]" << std::endl;
+            out << " [" << m_low_bounds[j] << ", " << m_upper_bounds[j] << "]";
             break;
         case column_type::low_bound:
-            out << "[" << m_low_bounds[j] << "," << "oo" << "]" << std::endl;
+            out << " [" << m_low_bounds[j] << "," << "oo" << "]";
             break;
         case column_type::upper_bound:
-            out << "[-oo, " << m_upper_bounds[j] << ']'<< std::endl;
+            out << " [-oo, " << m_upper_bounds[j] << ']';
             break;
         case column_type::free_column:
-            out << "[-oo, oo]"<< std::endl;
+            out << " [-oo, oo]";
             break;
         default:
             lp_assert(false);
         }
-        out << "basis heading = " << m_basis_heading[j] << std::endl;
-        out << "x = " << m_x[j] << std::endl;
+        //        out << "basis heading = " << m_basis_heading[j] << std::endl;
+        out << " x =                " << m_x[j] << std::endl;
         /*
         std::cout << "cost = " << m_costs[j] << std::endl;
         std:: cout << "m_d = " << m_d[j] << std::endl;*/
