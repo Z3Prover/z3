@@ -81,9 +81,7 @@ private:
     void patch_int_infeasible_columns();
     bool get_freedom_interval_for_column(unsigned j, bool & inf_l, impq & l, bool & inf_u, impq & u, mpq & m);
     linear_combination_iterator<mpq> * get_column_iterator(unsigned j);
-    bool lower(unsigned j) const;
-    bool upper(unsigned j) const;
-    const impq & lower_bound(unsigned j) const;
+    const impq & low_bound(unsigned j) const;
     const impq & upper_bound(unsigned j) const;
     bool is_int(unsigned j) const;
     bool is_real(unsigned j) const;
@@ -117,8 +115,10 @@ private:
     int find_next_free_var_in_gomory_row();
     bool is_gomory_cut_target();
     bool at_bound(unsigned j) const;
-    bool at_lower(unsigned j) const;
+    bool at_low(unsigned j) const;
     bool at_upper(unsigned j) const;
+    bool has_low(unsigned j) const;
+    bool has_upper(unsigned j) const;
 
     inline static bool is_rational(const impq & n) {
         return is_zero(n.y);  

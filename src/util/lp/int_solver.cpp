@@ -128,13 +128,20 @@ bool int_solver::is_gomory_cut_target() {
           m_iter_on_gomory_row->reset();
           );
 
+    // All non base variables must be at their bounds and assigned to rationals (that is, infinitesimals are not allowed).
     while (m_iter_on_gomory_row->next(j)) {
-        // All non base variables must be at their bounds and assigned to rationals (that is, infinitesimals are not allowed).
-        if (j != m_gomory_cut_inf_column && (!at_bound(j) || !is_zero(get_value(j).y))) {
+        if (j == m_gomory_cut_inf_column) continue;
+        if (!is_zero(get_value(j).y)) {
             TRACE("gomory_cut", tout << "row is not gomory cut target:\n";
                   display_column(tout, j);
-                  tout << "at_bound:      " << at_bound(j) << "\n";
                   tout << "infinitesimal: " << !is_zero(get_value(j).y) << "\n";);
+            return false;
+        }
+
+        if (!at_bound(j)) {
+            TRACE("gomory_cut", tout << "row is not gomory cut target:\n";
+                  display_column(tout, j);
+                  tout << "at_bound:      " << at_bound(j) << "\n";);
             return false;
         }
     }
@@ -147,7 +154,7 @@ void int_solver::real_case_in_gomory_cut(const mpq & a, unsigned x_j, mpq & k, l
     TRACE("gomory_cut_detail_real", tout << "real\n";);
     mpq f_0  = fractional_part(get_value(m_gomory_cut_inf_column));
     mpq new_a;
-    if (at_lower(x_j)) {
+    if (at_low(x_j)) {
         if (a.is_pos()) {
             new_a  =  a / (1 - f_0);
         }
@@ -155,7 +162,7 @@ void int_solver::real_case_in_gomory_cut(const mpq & a, unsigned x_j, mpq & k, l
             new_a  =  a / f_0;
             new_a.neg();
         }
-        k.addmul(new_a, lower_bound(x_j).x); // is it a faster operation than
+        k.addmul(new_a, low_bound(x_j).x); // is it a faster operation than
         // k += lower_bound(x_j).x * new_a;  
         expl.push_justification(column_low_bound_constraint(x_j), new_a);
     }
@@ -195,11 +202,11 @@ void int_solver::int_case_in_gomory_cut(const mpq & a, unsigned x_j, mpq & k, la
           tout << "f_j: " << f_j << "\n";
           tout << "f_0: " << f_0 << "\n";
           tout << "1 - f_0: " << 1 - f_0 << "\n";
-          tout << "at_lower(" << x_j << ") = " << at_lower(x_j) << std::endl;
+          tout << "at_low(" << x_j << ") = " << at_low(x_j) << std::endl;
           );
     lp_assert (!f_j.is_zero());
     mpq new_a;
-    if (at_lower(x_j)) {
+    if (at_low(x_j)) {
         auto one_minus_f_0 = 1 - f_0;
         if (f_j <= one_minus_f_0) {
             new_a = f_j / one_minus_f_0;
@@ -207,11 +214,11 @@ void int_solver::int_case_in_gomory_cut(const mpq & a, unsigned x_j, mpq & k, la
         else {
             new_a = (1 - f_j) / f_0;
         }
-        k.addmul(new_a, lower_bound(x_j).x);
+        k.addmul(new_a, low_bound(x_j).x);
         expl.push_justification(column_low_bound_constraint(x_j), new_a);
     }
     else {
-        SASSERT(at_upper(x_j));
+        lp_assert(at_upper(x_j));
         if (f_j <= f_0) {
             new_a = f_j / f_0;
         }
@@ -439,8 +446,9 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
     // from theory_arith_int.h
 	if (!has_inf_int())
 		return lia_move::ok;
-    if (!gcd_test(ex))
-        return lia_move::conflict;
+    if (settings().m_run_gcd_test)
+        if (!gcd_test(ex))
+            return lia_move::conflict;
     /*
       if (m_params.m_arith_euclidean_solver)
             apply_euclidean_solver();
@@ -494,7 +502,7 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
     }
     lp_assert(inf_int_set_is_correct());
 	lp_assert(m_lar_solver->m_mpq_lar_core_solver.r_basis_is_OK());
-	//    return true;
+	lp_unreachable();
     return lia_move::give_up;
 }
 
@@ -722,7 +730,7 @@ bool int_solver::ext_gcd_test(iterator_on_row<mpq> & it,
             else {
                 // l += ncoeff * upper_bound(j).get_rational();
                 l.addmul(ncoeff, m_lar_solver->column_upper_bound(j).x);
-                // u += ncoeff * lower_bound(j).get_rational();
+                // u += ncoeff * low_bound(j).get_rational();
                 u.addmul(ncoeff, m_lar_solver->column_low_bound(j).x);
             }
             add_to_explanation_from_fixed_or_boxed_column(j, ex);
@@ -770,7 +778,7 @@ int_solver::int_solver(lar_solver* lar_slv) :
     m_lar_solver->set_int_solver(this);
 }
 
-bool int_solver::lower(unsigned j) const {
+bool int_solver::has_low(unsigned j) const {
     switch (m_lar_solver->m_mpq_lar_core_solver.m_column_types()[j]) {
     case column_type::fixed:
     case column_type::boxed:
@@ -781,7 +789,7 @@ bool int_solver::lower(unsigned j) const {
     }
 }
 
-bool int_solver::upper(unsigned j) const {
+bool int_solver::has_upper(unsigned j) const {
     switch (m_lar_solver->m_mpq_lar_core_solver.m_column_types()[j]) {
     case column_type::fixed:
     case column_type::boxed:
@@ -790,14 +798,6 @@ bool int_solver::upper(unsigned j) const {
     default:
         return false;
     }
-}
-
-const impq& int_solver::lower_bound(unsigned j) const {
-    return m_lar_solver->m_mpq_lar_core_solver.m_r_low_bounds()[j];
-}
-
-const impq& int_solver::upper_bound(unsigned j) const {
-    return m_lar_solver->m_mpq_lar_core_solver.m_r_upper_bounds()[j];
 }
 
 
@@ -832,10 +832,10 @@ bool int_solver::get_freedom_interval_for_column(unsigned j, bool & inf_l, impq 
     l = u = zero_of_type<impq>();
     m = mpq(1);
 
-    if (lower(j)) {
-        set_lower(l, inf_l, lower_bound(j));
+    if (has_low(j)) {
+        set_lower(l, inf_l, low_bound(j));
     }
-    if (upper(j)) {
+    if (has_upper(j)) {
         set_upper(u, inf_u, upper_bound(j));
     }
 
@@ -847,16 +847,16 @@ bool int_solver::get_freedom_interval_for_column(unsigned j, bool & inf_l, impq 
         if (is_int(i) && is_int(j) && !a.is_int())
             m = lcm(m, denominator(a));
         if (a.is_neg()) {
-            if (lower(i))
+            if (has_low(i))
                 set_lower(l, inf_l, xj + (xi - lcs.m_r_low_bounds()[i]) / a);
 
-            if (upper(i))
+            if (has_upper(i))
                 set_upper(u, inf_u, xj + (xi - lcs.m_r_upper_bounds()[i]) / a);
         }
         else {
-            if (upper(i))
+            if (has_upper(i))
                 set_lower(l, inf_l, xj + (xi - lcs.m_r_upper_bounds()[i]) / a);
-            if (lower(i))
+            if (has_low(i))
                 set_upper(u, inf_u, xj + (xi - lcs.m_r_low_bounds()[i]) / a);
         }
         if (!inf_l && !inf_u && l == u) break;;                
@@ -962,7 +962,7 @@ bool int_solver::at_bound(unsigned j) const {
     }
 }
 
-bool int_solver::at_lower(unsigned j) const {
+bool int_solver::at_low(unsigned j) const {
     auto & mpq_solver = m_lar_solver->m_mpq_lar_core_solver.m_r_solver;
     switch (mpq_solver.m_column_types[j] ) {
     case column_type::fixed:
@@ -1097,5 +1097,13 @@ bool int_solver::non_basic_columns_are_at_bounds() const {
         }
     }
     return true;
+}
+
+const impq& int_solver::low_bound(unsigned j) const {
+    return m_lar_solver->column_low_bound(j);
+}
+
+const impq& int_solver::upper_bound(unsigned j) const {
+    return m_lar_solver->column_upper_bound(j);
 }
 }

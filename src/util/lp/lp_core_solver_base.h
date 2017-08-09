@@ -45,6 +45,9 @@ public:
         TRACE("feas",
               if (m_inf_set.size()) {
                   tout << "column " << m_inf_set.m_index[0] << " is infeasible" << std::endl;
+                  print_column_info(m_inf_set.m_index[0], tout);
+              } else {
+                  tout << "x is feasible\n";
               }
               );
         return m_inf_set.size() == 0;
