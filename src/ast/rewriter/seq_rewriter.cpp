@@ -656,8 +656,8 @@ br_status seq_rewriter::mk_seq_contains(expr* a, expr* b, expr_ref& result) {
     unsigned sz = as.size();
     expr* b0 = bs[0].get();
     expr* bL = bs[bs.size()-1].get();
-    for (; offs < as.size() && m().are_distinct(b0, as[offs].get()); ++offs) {};
-    for (; sz > offs && m().are_distinct(bL, as[sz-1].get()); --sz) {}
+    for (; offs < as.size() && m_util.str.is_unit(b0) && m_util.str.is_unit(as[offs].get()) && m().are_distinct(b0, as[offs].get()); ++offs) {};
+    for (; sz > offs && m_util.str.is_unit(bL) && m_util.str.is_unit(as[sz-1].get()) && m().are_distinct(bL, as[sz-1].get()); --sz) {}
     if (offs == sz) {
         result = m().mk_eq(b, m_util.str.mk_empty(m().get_sort(b)));
         return BR_REWRITE2;

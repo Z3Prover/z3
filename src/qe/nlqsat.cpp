@@ -429,8 +429,9 @@ namespace qe {
         }
 
         struct div {
-            expr_ref num, den, name;
-            div(ast_manager& m, expr* n, expr* d, expr* nm):
+            expr_ref num, den;
+            app_ref name;
+            div(ast_manager& m, expr* n, expr* d, app* nm):
                 num(n, m), den(d, m), name(nm, m) {}            
         };
 
@@ -442,9 +443,9 @@ namespace qe {
             div_rewriter_cfg(nlqsat& s): m(s.m), a(s.m) {}
             ~div_rewriter_cfg() {}
             br_status reduce_app(func_decl* f, unsigned sz, expr* const* args, expr_ref& result, proof_ref& pr) {
-                if (is_decl_of(f, a.get_family_id(), OP_DIV) && sz == 2 && !a.is_numeral(args[1]) && is_ground(args[0]) && is_ground(args[1])) {
+                if (is_decl_of(f, a.get_family_id(), OP_DIV) && sz == 2 && !a.is_numeral(args[1])) {                    
                     result = m.mk_fresh_const("div", a.mk_real());
-                    m_divs.push_back(div(m, args[0], args[1], result));
+                    m_divs.push_back(div(m, args[0], args[1], to_app(result)));
                     return BR_DONE;
                 }
                 return BR_FAILED;
@@ -496,7 +497,7 @@ namespace qe {
                 if (a.is_power(n, n1, n2) && a.is_numeral(n2, r) && r.is_unsigned()) {
                     return;
                 }
-                if (a.is_div(n, n1, n2) && is_ground(n1) && is_ground(n2) && s.m_mode == qsat_t) {
+                if (a.is_div(n, n1, n2) && s.m_mode == qsat_t) {
                     m_has_divs = true;
                     return;
                 }
@@ -508,7 +509,7 @@ namespace qe {
             bool has_divs() const { return m_has_divs; }
         };
 
-        void purify(expr_ref& fml) {
+        void purify(expr_ref& fml, app_ref_vector& pvars, expr_ref_vector& paxioms) {
             is_pure_proc  is_pure(*this);
             {
                 expr_fast_mark1 visited;
@@ -520,19 +521,34 @@ namespace qe {
                 proof_ref pr(m);
                 rw(fml, fml, pr);
                 vector<div> const& divs = rw.divs();
-                expr_ref_vector axioms(m);
                 for (unsigned i = 0; i < divs.size(); ++i) {
-                    axioms.push_back(
+                    pvars.push_back(divs[i].name);
+                    paxioms.push_back(
                         m.mk_or(m.mk_eq(divs[i].den, arith.mk_numeral(rational(0), false)), 
                                 m.mk_eq(divs[i].num, arith.mk_mul(divs[i].den, divs[i].name))));                    
                     for (unsigned j = i + 1; j < divs.size(); ++j) {
-                        axioms.push_back(m.mk_or(m.mk_not(m.mk_eq(divs[i].den, divs[j].den)),
-                                                 m.mk_not(m.mk_eq(divs[i].num, divs[j].num)), 
-                                                 m.mk_eq(divs[i].name, divs[j].name)));
+                        paxioms.push_back(m.mk_or(m.mk_not(m.mk_eq(divs[i].den, divs[j].den)),
+                                                  m.mk_not(m.mk_eq(divs[i].num, divs[j].num)), 
+                                                  m.mk_eq(divs[i].name, divs[j].name)));
                     }
                 }
-                axioms.push_back(fml);
-                fml = mk_and(axioms);
+            }
+        }
+
+        void ackermanize_div(bool is_forall, vector<app_ref_vector>& qvars, expr_ref& fml) {
+            app_ref_vector pvars(m);
+            expr_ref_vector paxioms(m);
+            purify(fml, pvars, paxioms);            
+            if (pvars.empty()) {
+                return;
+            }
+            expr_ref ante = mk_and(paxioms);
+            qvars[qvars.size()-2].append(pvars);
+            if (!is_forall) {
+                fml = m.mk_implies(ante, fml);
+            }
+            else {
+                fml = m.mk_and(fml, ante);
             }
         }
 
@@ -602,7 +618,6 @@ namespace qe {
             app_ref_vector vars(m);
             bool is_forall = false;   
             pred_abs abs(m);
-            purify(fml);
             abs.get_free_vars(fml, vars);
             insert_set(m_free_vars, vars);
             qvars.push_back(vars); 
@@ -624,7 +639,11 @@ namespace qe {
             }
             while (!vars.empty());
             SASSERT(qvars.back().empty()); 
+
+            ackermanize_div(is_forall, qvars, fml);
+
             init_expr2var(qvars);
+
 
             goal2nlsat g2s;
 
