@@ -1685,6 +1685,8 @@ namespace smt {
             u.str.is_string(range1, range1val);
             u.str.is_string(range2, range2val);
             return zstring("[") + range1val + zstring("-") + range2val + zstring("]");
+        } else if (u.re.is_full(a_regex)) {
+            return zstring("(.*)");
         } else {
             TRACE("str", tout << "BUG: unrecognized regex term " << mk_pp(regex, get_manager()) << std::endl;);
             UNREACHABLE(); return zstring("");
@@ -1714,6 +1716,12 @@ namespace smt {
 
         expr_ref str(ex->get_arg(0), m);
         app * regex = to_app(ex->get_arg(1));
+
+        // quick reference for the following code:
+        //  - ex: top-level regex membership term
+        //  - str: string term appearing in ex
+        //  - regex: regex term appearing in ex
+        //  ex ::= (str.in.re str regex)
 
         if (u.re.is_to_re(regex)) {
             expr_ref rxStr(regex->get_arg(0), m);
@@ -1794,6 +1802,9 @@ namespace smt {
             expr_ref finalAxiom(m.mk_iff(ex, rhs), m);
             SASSERT(finalAxiom);
             assert_axiom(finalAxiom);
+        } else if (u.re.is_full(regex)) {
+            // trivially true for any string!
+            assert_axiom(ex);
         } else {
             TRACE("str", tout << "ERROR: unknown regex expression " << mk_pp(regex, m) << "!" << std::endl;);
             NOT_IMPLEMENTED_YET();
@@ -6284,6 +6295,10 @@ namespace smt {
             }
 
             TRACE("str", tout << "range NFA: start = " << start << ", end = " << end << std::endl;);
+        } else if (u.re.is_full(e)) {
+            NOT_IMPLEMENTED_YET();
+            m_valid = false;
+            return;
         } else {
             TRACE("str", tout << "invalid regular expression" << std::endl;);
             m_valid = false;
