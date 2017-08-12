@@ -31,14 +31,15 @@ Notes:
 #include "tactic/smtlogics/qfaufbv_tactic.h"
 #include "tactic/smtlogics/qfufbv_tactic.h"
 #include "tactic/smtlogics/qfidl_tactic.h"
+#include "tactic/smtlogics/nra_tactic.h"
 #include "tactic/portfolio/default_tactic.h"
+#include "tactic/portfolio/fd_solver.h"
 #include "tactic/ufbv/ufbv_tactic.h"
 #include "tactic/fpa/qffp_tactic.h"
 #include "tactic/smtlogics/qfufnra_tactic.h"
 #include "muz/fp/horn_tactic.h"
 #include "smt/smt_solver.h"
 #include "sat/sat_solver/inc_sat_solver.h"
-#include "tactic/portfolio/fd_solver.h"
 #include "ast/rewriter/bv_rewriter.h"
 #include "solver/solver2tactic.h"
 
@@ -78,6 +79,8 @@ tactic * mk_tactic_for_logic(ast_manager & m, params_ref const & p, symbol const
         return mk_uflra_tactic(m, p);
     else if (logic=="LRA")
         return mk_lra_tactic(m, p);
+    else if (logic=="NRA")
+        return mk_nra_tactic(m, p);
     else if (logic=="LIA")
         return mk_lia_tactic(m, p);
     else if (logic=="UFBV")

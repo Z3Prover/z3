@@ -755,6 +755,13 @@ br_status arith_rewriter::mk_mod_core(expr * arg1, expr * arg2, expr_ref & resul
         return BR_DONE;
     }
 
+    if (arg1 == arg2 && !m_util.is_numeral(arg2)) {
+        expr_ref zero(m_util.mk_int(0), m()), abs(m());
+        mk_abs_core(arg2, abs);
+        result = m().mk_ite(m().mk_eq(arg2, zero), m_util.mk_mod(zero, zero), abs);
+        return BR_DONE;
+    }
+
     // mod is idempotent on non-zero modulus.
     expr* t1, *t2;
     if (m_util.is_mod(arg1, t1, t2) && t2 == arg2 && m_util.is_numeral(arg2, v2, is_int) && is_int && !v2.is_zero()) {

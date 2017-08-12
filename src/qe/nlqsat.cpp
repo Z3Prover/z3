@@ -18,22 +18,22 @@ Revision History:
 
 --*/
 
-#include "qe/nlqsat.h"
-#include "nlsat/nlsat_solver.h"
-#include "nlsat/nlsat_explain.h"
-#include "nlsat/nlsat_assignment.h"
-#include "qe/qsat.h"
-#include "ast/rewriter/quant_hoist.h"
-#include "nlsat/tactic/goal2nlsat.h"
-#include "ast/expr2var.h"
 #include "util/uint_set.h"
+#include "ast/expr2var.h"
 #include "ast/ast_util.h"
-#include "tactic/core/tseitin_cnf_tactic.h"
 #include "ast/rewriter/expr_safe_replace.h"
 #include "ast/ast_pp.h"
 #include "ast/for_each_expr.h"
 #include "ast/rewriter/rewriter.h"
 #include "ast/rewriter/rewriter_def.h"
+#include "ast/rewriter/quant_hoist.h"
+#include "qe/nlqsat.h"
+#include "qe/qsat.h"
+#include "nlsat/nlsat_solver.h"
+#include "nlsat/nlsat_explain.h"
+#include "nlsat/nlsat_assignment.h"
+#include "nlsat/tactic/goal2nlsat.h"
+#include "tactic/core/tseitin_cnf_tactic.h"
 
 
 namespace qe {
@@ -292,8 +292,8 @@ namespace qe {
             nlsat::var_vector vs;
             m_solver.vars(l, vs);
             TRACE("qe", m_solver.display(tout, l); tout << "\n";);
-            for (unsigned i = 0; i < vs.size(); ++i) {
-                level.merge(m_rvar2level[vs[i]]);
+            for (unsigned v : vs) {
+                level.merge(m_rvar2level[v]);                
             }
             set_level(l.var(), level);
             return level;
@@ -438,14 +438,20 @@ namespace qe {
         class div_rewriter_cfg : public default_rewriter_cfg {
             ast_manager&  m;
             arith_util    a;
+            expr_ref      m_zero;
             vector<div>   m_divs;
         public:
-            div_rewriter_cfg(nlqsat& s): m(s.m), a(s.m) {}
+            div_rewriter_cfg(nlqsat& s): m(s.m), a(s.m), m_zero(a.mk_real(0), m) {}
             ~div_rewriter_cfg() {}
             br_status reduce_app(func_decl* f, unsigned sz, expr* const* args, expr_ref& result, proof_ref& pr) {
                 if (is_decl_of(f, a.get_family_id(), OP_DIV) && sz == 2 && !a.is_numeral(args[1])) {                    
                     result = m.mk_fresh_const("div", a.mk_real());
                     m_divs.push_back(div(m, args[0], args[1], to_app(result)));
+                    return BR_DONE;
+                }
+                if (is_decl_of(f, a.get_family_id(), OP_DIV_0) && sz == 1 && !a.is_numeral(args[0])) {                    
+                    result = m.mk_fresh_const("div", a.mk_real());
+                    m_divs.push_back(div(m, args[0], m_zero, to_app(result)));
                     return BR_DONE;
                 }
                 return BR_FAILED;
@@ -497,7 +503,11 @@ namespace qe {
                 if (a.is_power(n, n1, n2) && a.is_numeral(n2, r) && r.is_unsigned()) {
                     return;
                 }
-                if (a.is_div(n, n1, n2) && s.m_mode == qsat_t) {
+                if (a.is_div(n) && s.m_mode == qsat_t) {
+                    m_has_divs = true;
+                    return;
+                }
+                if (a.is_div0(n) && s.m_mode == qsat_t) {
                     m_has_divs = true;
                     return;
                 }
@@ -539,7 +549,7 @@ namespace qe {
             app_ref_vector pvars(m);
             expr_ref_vector paxioms(m);
             purify(fml, pvars, paxioms);            
-            if (pvars.empty()) {
+            if (paxioms.empty()) {
                 return;
             }
             expr_ref ante = mk_and(paxioms);
@@ -551,6 +561,7 @@ namespace qe {
                 fml = m.mk_and(fml, ante);
             }
         }
+
 
         void reset() {
             //m_solver.reset();
@@ -618,10 +629,12 @@ namespace qe {
             app_ref_vector vars(m);
             bool is_forall = false;   
             pred_abs abs(m);
+
             abs.get_free_vars(fml, vars);
             insert_set(m_free_vars, vars);
             qvars.push_back(vars); 
             vars.reset();  
+
             if (m_mode == elim_t) {
                 is_forall = true;
                 hoist.pull_quantifier(is_forall, fml, vars);
@@ -638,6 +651,7 @@ namespace qe {
                 qvars.push_back(vars);
             }
             while (!vars.empty());
+            SASSERT(qvars.size() >= 2);
             SASSERT(qvars.back().empty()); 
 
             ackermanize_div(is_forall, qvars, fml);

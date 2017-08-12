@@ -20,23 +20,23 @@ Notes:
 
 --*/
 
-#include "smt/smt_kernel.h"
-#include "qe/qe_mbp.h"
-#include "smt/params/smt_params.h"
+#include "ast/expr_abstract.h"
 #include "ast/ast_util.h"
 #include "ast/rewriter/quant_hoist.h"
 #include "ast/ast_pp.h"
-#include "model/model_v2_pp.h"
-#include "qe/qsat.h"
-#include "ast/expr_abstract.h"
-#include "qe/qe.h"
-#include "ast/rewriter/label_rewriter.h"
-#include "ast/rewriter/expr_replacer.h"
 #include "ast/rewriter/th_rewriter.h"
+#include "ast/rewriter/expr_replacer.h"
+#include "model/model_v2_pp.h"
 #include "model/model_evaluator.h"
+#include "smt/smt_kernel.h"
+#include "smt/params/smt_params.h"
 #include "smt/smt_solver.h"
 #include "solver/solver.h"
 #include "solver/mus.h"
+#include "qe/qsat.h"
+#include "qe/qe_mbp.h"
+#include "qe/qe.h"
+#include "ast/rewriter/label_rewriter.h"
 
 namespace qe {
 
