@@ -122,6 +122,9 @@ class seq_rewriter {
     br_status mk_re_loop(unsigned num_args, expr* const* args, expr_ref& result);
     br_status mk_re_range(expr* lo, expr* hi, expr_ref& result);
 
+    bool cannot_contain_prefix(expr* a, expr* b);
+    bool cannot_contain_suffix(expr* a, expr* b);
+
     bool set_empty(unsigned sz, expr* const* es, bool all, expr_ref_vector& lhs, expr_ref_vector& rhs);
     bool is_subsequence(unsigned n, expr* const* l, unsigned m, expr* const* r, 
                         expr_ref_vector& lhs, expr_ref_vector& rhs, bool& is_sat);

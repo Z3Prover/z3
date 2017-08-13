@@ -597,6 +597,45 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
     return BR_FAILED;
 }
 
+bool seq_rewriter::cannot_contain_suffix(expr* a, expr* b) {
+    
+    if (m_util.str.is_unit(a) && m_util.str.is_unit(b) && m().are_distinct(a, b)) {
+        return true;
+    }
+    zstring A, B;
+    if (m_util.str.is_string(a, A) && m_util.str.is_string(b, B)) {
+        // some prefix of a is a suffix of b
+        bool found = false;
+        for (unsigned i = 1; !found && i <= A.length(); ++i) {
+            found = A.extract(0, i).suffixof(B);
+        }
+        return !found;
+    }
+
+    return false;
+}
+
+
+bool seq_rewriter::cannot_contain_prefix(expr* a, expr* b) {
+    
+    if (m_util.str.is_unit(a) && m_util.str.is_unit(b) && m().are_distinct(a, b)) {
+        return true;
+    }
+    zstring A, B;
+    if (m_util.str.is_string(a, A) && m_util.str.is_string(b, B)) {
+        // some suffix of a is a prefix of b
+        bool found = false;
+        for (unsigned i = 0; !found && i < A.length(); ++i) {
+            found = A.extract(i, A.length()-i).suffixof(B);
+        }
+        return !found;
+    }
+
+    return false;
+}
+
+
+
 br_status seq_rewriter::mk_seq_contains(expr* a, expr* b, expr_ref& result) {
     zstring c, d;
     if (m_util.str.is_string(a, c) && m_util.str.is_string(b, d)) {
@@ -666,8 +705,8 @@ br_status seq_rewriter::mk_seq_contains(expr* a, expr* b, expr_ref& result) {
     unsigned sz = as.size();
     expr* b0 = bs[0].get();
     expr* bL = bs[bs.size()-1].get();
-    for (; offs < as.size() && m_util.str.is_unit(b0) && m_util.str.is_unit(as[offs].get()) && m().are_distinct(b0, as[offs].get()); ++offs) {};
-    for (; sz > offs && m_util.str.is_unit(bL) && m_util.str.is_unit(as[sz-1].get()) && m().are_distinct(bL, as[sz-1].get()); --sz) {}
+    for (; offs < as.size() && cannot_contain_prefix(as[offs].get(), b0); ++offs) {}
+    for (; sz > offs && cannot_contain_suffix(as[sz-1].get(), bL); --sz) {}
     if (offs == sz) {
         result = m().mk_eq(b, m_util.str.mk_empty(m().get_sort(b)));
         return BR_REWRITE2;
