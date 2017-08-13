@@ -449,6 +449,7 @@ namespace smt {
         proof_ref pr(m);
 
         s(ante, s_ante, pr);
+        if (ctx.get_cancel_flag()) return;
         negated = m.is_not(s_ante, s_ante_n);
         if (negated) s_ante = s_ante_n;
         ctx.internalize(s_ante, false);
@@ -456,6 +457,7 @@ namespace smt {
         if (negated) l_ante.neg();
 
         s(conseq, s_conseq, pr);
+        if (ctx.get_cancel_flag()) return;
         negated = m.is_not(s_conseq, s_conseq_n);
         if (negated) s_conseq = s_conseq_n;
         ctx.internalize(s_conseq, false);
@@ -1413,6 +1415,12 @@ namespace smt {
         final_check_status result = FC_DONE;
         final_check_status ok;
         do {
+            if (get_context().get_cancel_flag()) {
+                return FC_GIVEUP;
+            }
+
+            SASSERT(m_to_patch.empty());
+
             TRACE("arith", tout << "m_final_check_idx: " << m_final_check_idx << ", result: " << result << "\n";);
             switch (m_final_check_idx) {
             case 0:
@@ -2307,7 +2315,7 @@ namespace smt {
                 return false;
             }
             TRACE("arith_make_feasible_detail", display(tout););
-            if (get_context().get_cancel_flag()) {
+            if (get_context().get_cancel_flag()) {                
                 return true;
             }
         }

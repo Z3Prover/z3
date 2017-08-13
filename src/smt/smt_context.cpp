@@ -128,6 +128,10 @@ namespace smt {
         return literal(v, lit.sign());                                   
     }
 
+    bool context::get_cancel_flag() { 
+        return !m_manager.limit().inc();
+    }
+
 
     void context::copy(context& src_ctx, context& dst_ctx) {
         ast_manager& dst_m = dst_ctx.get_manager();
@@ -235,10 +239,8 @@ namespace smt {
         }
 
         // copy theory plugins
-        ptr_vector<theory>::iterator it2  = src.m_theory_set.begin();
-        ptr_vector<theory>::iterator end2 = src.m_theory_set.end();
-        for (; it2 != end2; ++it2) {
-            theory * new_th = (*it2)->mk_fresh(&dst);
+        for (theory* old_th : src.m_theory_set) {
+            theory * new_th = old_th->mk_fresh(&dst);
             dst.register_plugin(new_th);
         }
     }
@@ -248,9 +250,7 @@ namespace smt {
         new_ctx->set_logic(l == 0 ? m_setup.get_logic() : *l);
         copy_plugins(*this, *new_ctx);        
         return new_ctx;
-    }
-
-       
+    }       
 
     void context::init() {
         app * t       = m_manager.mk_true();
@@ -2403,81 +2403,86 @@ namespace smt {
     */
     unsigned context::pop_scope_core(unsigned num_scopes) {
 
-        if (m_manager.has_trace_stream())
-            m_manager.trace_stream() << "[pop] " << num_scopes << " " << m_scope_lvl << "\n";
-
-        TRACE("context", tout << "backtracking: " << num_scopes << " from " << m_scope_lvl << "\n";);
-        TRACE("pop_scope_detail", display(tout););
-        SASSERT(num_scopes > 0);
-        SASSERT(num_scopes <= m_scope_lvl);
-        SASSERT(m_scopes.size() == m_scope_lvl);
-
-        unsigned new_lvl    = m_scope_lvl - num_scopes;
-        
-        cache_generation(new_lvl);
-        m_qmanager->pop(num_scopes);
-        m_case_split_queue->pop_scope(num_scopes);
-
-        TRACE("pop_scope", tout << "backtracking: " << num_scopes << ", new_lvl: " << new_lvl << "\n";);
-        scope & s           = m_scopes[new_lvl];
-        TRACE("context", tout << "backtracking new_lvl: " << new_lvl << "\n";);
-
-        unsigned units_to_reassert_lim = s.m_units_to_reassert_lim;
-
-        if (new_lvl < m_base_lvl) {
-            base_scope & bs = m_base_scopes[new_lvl];
-            del_clauses(m_lemmas, bs.m_lemmas_lim);
-            m_simp_qhead    = bs.m_simp_qhead_lim;
-            if (!bs.m_inconsistent) {
-                m_conflict    = null_b_justification;
-                m_not_l       = null_literal;
-                m_unsat_proof = 0;
+        try {
+            if (m_manager.has_trace_stream())
+                m_manager.trace_stream() << "[pop] " << num_scopes << " " << m_scope_lvl << "\n";
+            
+            TRACE("context", tout << "backtracking: " << num_scopes << " from " << m_scope_lvl << "\n";);
+            TRACE("pop_scope_detail", display(tout););
+            SASSERT(num_scopes > 0);
+            SASSERT(num_scopes <= m_scope_lvl);
+            SASSERT(m_scopes.size() == m_scope_lvl);
+            
+            unsigned new_lvl = m_scope_lvl - num_scopes;
+            
+            cache_generation(new_lvl);
+            m_qmanager->pop(num_scopes);
+            m_case_split_queue->pop_scope(num_scopes);
+            
+            TRACE("pop_scope", tout << "backtracking: " << num_scopes << ", new_lvl: " << new_lvl << "\n";);
+            scope & s = m_scopes[new_lvl];
+            TRACE("context", tout << "backtracking new_lvl: " << new_lvl << "\n";);
+            
+            unsigned units_to_reassert_lim = s.m_units_to_reassert_lim;
+            
+            if (new_lvl < m_base_lvl) {
+                base_scope & bs = m_base_scopes[new_lvl];
+                del_clauses(m_lemmas, bs.m_lemmas_lim);
+                m_simp_qhead = bs.m_simp_qhead_lim;
+                if (!bs.m_inconsistent) {
+                    m_conflict = null_b_justification;
+                    m_not_l = null_literal;
+                    m_unsat_proof = 0;
+                }
+                m_base_scopes.shrink(new_lvl);
             }
-            m_base_scopes.shrink(new_lvl);
-        } 
-        else {
-            m_conflict = null_b_justification;
-            m_not_l    = null_literal;
+            else {
+                m_conflict = null_b_justification;
+                m_not_l = null_literal;
+            }
+            del_clauses(m_aux_clauses, s.m_aux_clauses_lim);
+            
+            m_relevancy_propagator->pop(num_scopes);
+            
+            m_fingerprints.pop_scope(num_scopes);
+            unassign_vars(s.m_assigned_literals_lim);
+            undo_trail_stack(s.m_trail_stack_lim);
+            
+            for (theory* th : m_theory_set) {
+                th->pop_scope_eh(num_scopes);
+            }
+            
+            del_justifications(m_justifications, s.m_justifications_lim);
+            
+            m_asserted_formulas.pop_scope(num_scopes);
+            
+            m_eq_propagation_queue.reset();
+            m_th_eq_propagation_queue.reset();
+            m_th_diseq_propagation_queue.reset();
+            m_atom_propagation_queue.reset();
+            
+            m_region.pop_scope(num_scopes);
+            m_scopes.shrink(new_lvl);
+            
+            m_scope_lvl = new_lvl;
+            if (new_lvl < m_base_lvl) {
+                m_base_lvl = new_lvl;
+                m_search_lvl = new_lvl; // Remark: not really necessary
+            }
+            
+            unsigned num_bool_vars = get_num_bool_vars();
+            // any variable >= num_bool_vars was deleted during backtracking.
+            reinit_clauses(num_scopes, num_bool_vars);
+            reassert_units(units_to_reassert_lim);
+            TRACE("pop_scope_detail", tout << "end of pop_scope: \n"; display(tout););
+            CASSERT("context", check_invariant());
+            return num_bool_vars;
         }
-        del_clauses(m_aux_clauses, s.m_aux_clauses_lim);
-
-        m_relevancy_propagator->pop(num_scopes);
-
-        m_fingerprints.pop_scope(num_scopes);
-        unassign_vars(s.m_assigned_literals_lim);
-        undo_trail_stack(s.m_trail_stack_lim);
-        
-        ptr_vector<theory>::iterator it  = m_theory_set.begin();
-        ptr_vector<theory>::iterator end = m_theory_set.end();
-        for (; it != end; ++it) {
-            (*it)->pop_scope_eh(num_scopes);
+        catch (...) {
+            // throwing inside pop is just not cool.
+            UNREACHABLE();
+            throw;
         }
-
-        del_justifications(m_justifications, s.m_justifications_lim);
-
-        m_asserted_formulas.pop_scope(num_scopes);
-
-        m_eq_propagation_queue.reset();
-        m_th_eq_propagation_queue.reset();
-        m_th_diseq_propagation_queue.reset();
-        m_atom_propagation_queue.reset();
-
-        m_region.pop_scope(num_scopes);
-        m_scopes.shrink(new_lvl);
-
-        m_scope_lvl         = new_lvl;
-        if (new_lvl < m_base_lvl) {
-            m_base_lvl      = new_lvl; 
-            m_search_lvl    = new_lvl; // Remark: not really necessary
-        }
-
-        unsigned num_bool_vars = get_num_bool_vars();
-        // any variable >= num_bool_vars was deleted during backtracking.
-        reinit_clauses(num_scopes, num_bool_vars);
-        reassert_units(units_to_reassert_lim);
-        TRACE("pop_scope_detail", tout << "end of pop_scope: \n"; display(tout););
-        CASSERT("context", check_invariant());
-        return num_bool_vars;
     }
 
     void context::pop_scope(unsigned num_scopes) {
@@ -3418,10 +3423,9 @@ namespace smt {
     }
 
     void context::init_search() {
-        ptr_vector<theory>::iterator it  = m_theory_set.begin();
-        ptr_vector<theory>::iterator end = m_theory_set.end();
-        for (; it != end; ++it)
-            (*it)->init_search_eh();
+        for (theory* th : m_theory_set) {
+            th->init_search_eh();
+        }
         m_qmanager->init_search_eh();
         m_assumption_core.reset();
         m_incomplete_theories.reset();
