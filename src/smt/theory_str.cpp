@@ -4667,6 +4667,7 @@ namespace smt {
             return true;
         } else {
             TRACE("str", tout << "root of eqc of " << mk_pp(e, m) << " is not a numeral" << std::endl;);
+            return false;
             theory_mi_arith* tha = get_th_arith(ctx, m_autil.get_family_id(), e);
             if (!tha) return false;
             expr_ref val_e(m);
