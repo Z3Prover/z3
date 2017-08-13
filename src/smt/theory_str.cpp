@@ -8420,6 +8420,7 @@ namespace smt {
     // Check agreement between integer and string theories for the term a = (str.to-int S).
     // Returns true if axioms were added, and false otherwise.
     bool theory_str::finalcheck_str2int(app * a) {
+        SASSERT(u.str.is_stoi(a));
         bool axiomAdd = false;
         context & ctx = get_context();
         ast_manager & m = get_manager();
@@ -8446,7 +8447,10 @@ namespace smt {
             }
         } else {
             TRACE("str", tout << "integer theory has no assignment for " << mk_pp(a, m) << std::endl;);
-            NOT_IMPLEMENTED_YET();
+            expr_ref is_zero(ctx.mk_eq_atom(a, m_autil.mk_int(0)), m);
+            literal is_zero_l = mk_literal(is_zero);
+            axiomAdd = true;
+            // NOT_IMPLEMENTED_YET();
         }
 
         return axiomAdd;
