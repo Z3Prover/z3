@@ -4656,7 +4656,7 @@ namespace smt {
 
 	// safety
 	if (!ctx.e_internalized(e)) {
-	  return false;
+            return false;
 	}
 	
         // if an integer constant exists in the eqc, it should be the root
@@ -4667,6 +4667,10 @@ namespace smt {
             return true;
         } else {
             TRACE("str", tout << "root of eqc of " << mk_pp(e, m) << " is not a numeral" << std::endl;);
+            theory_mi_arith* tha = get_th_arith(ctx, m_autil.get_family_id(), e);
+            if (!tha) return false;
+            expr_ref val_e(m);
+            if (tha->get_value(root_e, val_e) && m_autil.is_numeral(val_e, val) && val.is_int()) return true;
             return false;
         }
     }
@@ -8450,6 +8454,7 @@ namespace smt {
             expr_ref is_zero(ctx.mk_eq_atom(a, m_autil.mk_int(0)), m);
             literal is_zero_l = mk_literal(is_zero);
             axiomAdd = true;
+            TRACE("str", ctx.display(tout););
             // NOT_IMPLEMENTED_YET();
         }
 
