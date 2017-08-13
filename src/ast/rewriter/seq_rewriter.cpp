@@ -608,6 +608,7 @@ br_status seq_rewriter::mk_seq_contains(expr* a, expr* b, expr_ref& result) {
     m_util.str.get_concat(a, as);
     m_util.str.get_concat(b, bs);
     bool all_values = true;
+    TRACE("seq", tout << mk_pp(a, m()) << " contains " << mk_pp(b, m()) << "\n";);
    
     if (bs.empty()) {
         result = m().mk_true();
@@ -650,6 +651,15 @@ br_status seq_rewriter::mk_seq_contains(expr* a, expr* b, expr_ref& result) {
     if (as.empty()) {
         result = m().mk_eq(b, m_util.str.mk_empty(m().get_sort(b)));
         return BR_REWRITE2;
+    }
+
+    if (bs.size() == 1 && m_util.str.is_string(bs[0].get(), c)) {
+        for (auto a_i : as) {
+            if (m_util.str.is_string(a_i, d) && d.contains(c)) {
+                result = m().mk_true();
+                return BR_DONE;
+            }
+        }
     }
 
     unsigned offs = 0;
