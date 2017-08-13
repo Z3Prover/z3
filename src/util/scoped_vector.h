@@ -113,8 +113,8 @@ public:
         }
     };
 
-    iterator begin() { return iterator(*this, 0); }
-    iterator end() { return iterator(*this, m_size); }
+    iterator begin() const { return iterator(*this, 0); }
+    iterator end() const  { return iterator(*this, m_size); }
 
     void push_back(T const& t) {
         set_index(m_size, m_elems.size());
