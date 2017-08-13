@@ -1952,6 +1952,7 @@ void seq_rewriter::split_units(expr_ref_vector& lhs, expr_ref_vector& rhs) {
 }
 
 
+
 bool seq_rewriter::is_epsilon(expr* e) const {
     expr* e1;
     return m_util.re.is_to_re(e, e1) && m_util.str.is_empty(e1);
