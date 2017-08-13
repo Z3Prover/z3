@@ -281,33 +281,37 @@ endif()
 ################################################################################
 # OpenMP support
 ################################################################################
-option(USE_OPENMP "Use OpenMP" ON)
-set(OPENMP_FOUND FALSE)
-if (USE_OPENMP)
-  # Because this is on by default we make the configure succeed with a warning
-  # if OpenMP support is not detected.
-  find_package(OpenMP)
-  if (NOT OPENMP_FOUND)
-    message(WARNING "OpenMP support was requested but your compiler doesn't support it")
-  endif()
-endif()
-
+find_package(OpenMP)
 if (OPENMP_FOUND)
-    list(APPEND Z3_COMPONENT_CXX_FLAGS ${OpenMP_CXX_FLAGS})
-    # GCC and Clang need to have additional flags passed to the linker.
-    # We can't do ``target_link_libraries(libz3 INTERFACE ${OpenMP_CXX_FLAGS})``
-    # because ``/openmp`` is interpreted as file name rather than a linker
-    # flag by MSVC and breaks the build
-    if (("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang") OR
-        ("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU"))
-      list(APPEND Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS ${OpenMP_CXX_FLAGS})
-    endif()
-    unset(CMAKE_REQUIRED_FLAGS)
-    message(STATUS "Using OpenMP")
+  set(USE_OPENMP_DEFAULT ON)
+else()
+  set(USE_OPENMP_DEFAULT OFF)
+endif()
+# By setting `USE_OPENMP` this way configuration will fail during the first
+# configure if the user explicitly passes `-DUSE_OPENMP=ON` and the compiler
+# does not support OpenMP. However if the option is not set explicitly during
+# the first configure OpenMP support will be automatically enabled/disabled
+# depending on whether OpenMP is available.
+option(USE_OPENMP "Use OpenMP" ${USE_OPENMP_DEFAULT})
+
+if (USE_OPENMP)
+  if (NOT OPENMP_FOUND)
+    message(FATAL_ERROR "USE_OPENMP is ON but your compiler does not support OpenMP")
+  endif()
+
+  list(APPEND Z3_COMPONENT_CXX_FLAGS ${OpenMP_CXX_FLAGS})
+  # GCC and Clang need to have additional flags passed to the linker.
+  # We can't do ``target_link_libraries(libz3 INTERFACE ${OpenMP_CXX_FLAGS})``
+  # because ``/openmp`` is interpreted as file name rather than a linker
+  # flag by MSVC and breaks the build
+  if (("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang") OR
+      ("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU"))
+    list(APPEND Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS ${OpenMP_CXX_FLAGS})
+  endif()
+  message(STATUS "Using OpenMP")
 else()
   list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_NO_OMP_")
   message(STATUS "Not using OpenMP")
-  set(USE_OPENMP OFF CACHE BOOL "Use OpenMP" FORCE)
 endif()
 
 ################################################################################
