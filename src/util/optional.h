@@ -23,32 +23,35 @@ Revision History:
 
 template<typename T>
 class optional {
-    char m_obj[sizeof(T)];
-    char m_initialized;
+    union {
+        T m_obj;
+        char m_dummy;
+    };
+    bool m_initialized;
 
     void construct(const T & val) {
-        m_initialized = 1;
-        new (reinterpret_cast<void *>(m_obj)) T(val);
+        m_initialized = true;
+        new (&m_obj) T(val);
     }
 
     void destroy() {
-        if (m_initialized == 1) {
-            reinterpret_cast<T *>(m_obj)->~T();
+        if (m_initialized) {
+            m_obj.~T();
         }
-        m_initialized = 0;
+        m_initialized = false;
     }
 
 public:
     optional():
-        m_initialized(0) {}
+        m_initialized(false) {}
 
     explicit optional(const T & val) {
         construct(val);
     }
 
     optional(const optional<T> & val):
-        m_initialized(0) {
-        if (val.m_initialized == 1) {
+        m_initialized(false) {
+        if (val.m_initialized) {
             construct(*val);
         }
     }
@@ -59,13 +62,13 @@ public:
     
     static optional const & undef() { static optional u;  return u; }
  
-    bool initialized() const { return m_initialized == 1; }
-    operator bool() const { return m_initialized == 1; }
-    bool operator!() const { return m_initialized == 0; }
+    bool initialized() const { return m_initialized; }
+    operator bool() const { return m_initialized; }
+    bool operator!() const { return !m_initialized; }
     
     T * get() const { 
-        if (m_initialized == 1) {
-            return reinterpret_cast<T *>(m_obj);
+        if (m_initialized) {
+            return &m_obj;
         }
         else {
             return 0;
@@ -73,29 +76,29 @@ public:
     }
 
     void set_invalid() {
-        if (m_initialized == 1) {
+        if (m_initialized) {
             destroy();
         }
     }
 
     T * operator->() {
-        SASSERT(m_initialized==1);
-        return reinterpret_cast<T *>(m_obj);
+        SASSERT(m_initialized);
+        return &m_obj;
     }
 
     T const * operator->() const {
-        SASSERT(m_initialized==1);
-        return reinterpret_cast<T const *>(m_obj);
+        SASSERT(m_initialized);
+        return &m_obj;
     }
 
     const T & operator*() const {
-        SASSERT(m_initialized==1);
-        return *reinterpret_cast<T const*>(m_obj);
+        SASSERT(m_initialized);
+        return m_obj;
     }
     
     T & operator*() {
-        SASSERT(m_initialized==1);
-        return *reinterpret_cast<T *>(m_obj);
+        SASSERT(m_initialized);
+        return m_obj;
     }
 
     optional & operator=(const T & val) {

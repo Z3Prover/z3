@@ -502,9 +502,8 @@ void reduce_args_tactic::operator()(goal_ref const & g,
 }
 
 void reduce_args_tactic::cleanup() {
-    ast_manager & m   = m_imp->m();    
-    imp * d = alloc(imp, m);
-    std::swap(d, m_imp);    
-    dealloc(d);
+    ast_manager & m   = m_imp->m();
+    m_imp->~imp();
+    m_imp = new (m_imp) imp(m);
 }
 
