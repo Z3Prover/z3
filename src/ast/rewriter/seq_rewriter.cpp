@@ -1083,6 +1083,16 @@ br_status seq_rewriter::mk_str_itos(expr* a, expr_ref& result) {
     return BR_FAILED;
 }
 
+/**
+   \brief rewrite str.to.int according to the rules:
+   - if the expression is a string which is a non-empty 
+     sequence of digits 0-9 extract the corresponding numeral.
+   - if the expression is a string that contains any other character 
+     or is empty, produce -1
+   - if the expression is int.to.str(x) produce
+      ite(x >= 0, x, -1)
+     
+*/
 br_status seq_rewriter::mk_str_stoi(expr* a, expr_ref& result) {
     zstring str;
     if (m_util.str.is_string(a, str)) {
