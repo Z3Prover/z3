@@ -3290,11 +3290,11 @@ namespace smt {
 
         internalize_assertions();
         lbool r = l_undef;
+        TRACE("before_search", display(tout););
         if (m_asserted_formulas.inconsistent()) {
             r = l_false;
         }
         else {
-            TRACE("after_internalization", display(tout););
             if (inconsistent()) {
                 VERIFY(!resolve_conflict()); // build the proof
                 r = l_false;
