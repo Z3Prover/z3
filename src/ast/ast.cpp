@@ -57,7 +57,7 @@ parameter& parameter::operator=(parameter const& other) {
     case PARAM_INT: m_int = other.get_int(); break;
     case PARAM_AST: m_ast = other.get_ast(); break;
     case PARAM_SYMBOL: m_symbol = other.get_symbol(); break;
-    case PARAM_RATIONAL: m_rational = other.get_rational(); break;
+    case PARAM_RATIONAL: new (&m_rational) rational(other.get_rational()); break;
     case PARAM_DOUBLE: m_dval = other.m_dval; break;
     case PARAM_EXTERNAL: m_ext_id = other.m_ext_id; break;
     default:
