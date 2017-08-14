@@ -1072,26 +1072,27 @@ br_status seq_rewriter::mk_seq_suffix(expr* a, expr* b, expr_ref& result) {
 br_status seq_rewriter::mk_str_itos(expr* a, expr_ref& result) {
     rational r;
     if (m_autil.is_numeral(a, r)) {
-        result = m_util.str.mk_string(symbol(r.to_string().c_str()));
+        if (r.is_int() && !r.is_neg()) {
+            result = m_util.str.mk_string(symbol(r.to_string().c_str()));
+        }
+        else {
+            result = m_util.str.mk_string(symbol(""));
+        }
         return BR_DONE;
     }
     return BR_FAILED;
 }
+
 br_status seq_rewriter::mk_str_stoi(expr* a, expr_ref& result) {
     zstring str;
     if (m_util.str.is_string(a, str)) {
         std::string s = str.encode();
+        if (s.length() == 0) {
+            result = m_autil.mk_int(-1);
+            return BR_DONE;
+        } 
         for (unsigned i = 0; i < s.length(); ++i) {
-            if (s[i] == '-') { 
-                if (i != 0) {
-                    result = m_autil.mk_int(-1);
-                    return BR_DONE; 
-                }
-            }
-            else if ('0' <= s[i] && s[i] <= '9') {
-                continue;
-            }
-            else {
+            if (!('0' <= s[i] && s[i] <= '9')) {
                 result = m_autil.mk_int(-1);
                 return BR_DONE;
             }
