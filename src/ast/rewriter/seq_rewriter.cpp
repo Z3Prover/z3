@@ -1082,9 +1082,19 @@ br_status seq_rewriter::mk_str_stoi(expr* a, expr_ref& result) {
     if (m_util.str.is_string(a, str)) {
         std::string s = str.encode();
         for (unsigned i = 0; i < s.length(); ++i) {
-            if (s[i] == '-') { if (i != 0) return BR_FAILED; }
-            else if ('0' <= s[i] && s[i] <= '9') continue;
-            return BR_FAILED;            
+            if (s[i] == '-') { 
+                if (i != 0) {
+                    result = m_autil.mk_int(-1);
+                    return BR_DONE; 
+                }
+            }
+            else if ('0' <= s[i] && s[i] <= '9') {
+                continue;
+            }
+            else {
+                result = m_autil.mk_int(-1);
+                return BR_DONE;
+            }
         }
         rational r(s.c_str());
         result = m_autil.mk_numeral(r, true);

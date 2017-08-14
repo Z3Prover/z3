@@ -520,7 +520,7 @@ bool theory_seq::branch_variable_mb() {
             break;
         }
     }
-    TRACE("seq", tout << "branch_variable_mb\n";);
+    CTRACE("seq", change, tout << "branch_variable_mb\n";);
     return change;
 }
 
@@ -2348,7 +2348,14 @@ bool theory_seq::add_stoi_axiom(expr* e) {
     rational val;
     TRACE("seq", tout << mk_pp(e, m) << "\n";);
     VERIFY(m_util.str.is_stoi(e, n));    
-    if (get_num_value(e, val) && !m_stoi_axioms.contains(val)) {
+    if (!get_num_value(e, val)) {
+        literal l = mk_literal(m_autil.mk_ge(e, arith_util(m).mk_int(-1)));
+        add_axiom(l);
+        TRACE("seq", tout << l << " " << ctx.get_assignment(l) << "\n";
+              ctx.display(tout););
+        return true;
+    }
+    if (!m_stoi_axioms.contains(val)) {
         m_stoi_axioms.insert(val);
         if (!val.is_minus_one()) {
             app_ref e1(m_util.str.mk_string(symbol(val.to_string().c_str())), m);            
@@ -3467,6 +3474,7 @@ bool theory_seq::get_num_value(expr* e, rational& val) const {
         next = next->get_next();
     }
     while (next != n);
+    TRACE("seq", tout << "no value for " << mk_pp(e, m) << "\n";);
     return false;
 }
 
