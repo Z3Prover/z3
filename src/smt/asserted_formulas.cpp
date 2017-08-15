@@ -138,7 +138,6 @@ void asserted_formulas::set_eliminate_and(bool flag) {
     m_bsimp->set_eliminate_and(flag);
 }
 
-#include "th_rewriter.h"
 
 void asserted_formulas::assert_expr(expr * e, proof * _in_pr) {
     if (inconsistent()) 
@@ -163,8 +162,6 @@ void asserted_formulas::assert_expr(expr * e, proof * _in_pr) {
     }
     set_eliminate_and(false); // do not eliminate and before nnf.
     m_simplifier(r1, r2, pr2);
-    th_rewriter rw(m);
-    rw(r2);
     TRACE("assert_expr_bug", tout << "after...\n" << mk_pp(r1, m) << "\n";);
     if (m.proofs_enabled()) {
         if (e == r2)

@@ -55,7 +55,6 @@ namespace smt {
         // }
         TRACE("setup", tout << "configuring logical context, logic: " << m_logic << " " << cm << "\n";);
         
-        m_params.m_relevancy_lvl           = 0;
         m_already_configured = true;
         
         switch (cm) {
