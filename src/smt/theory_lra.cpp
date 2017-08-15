@@ -1261,6 +1261,10 @@ namespace smt {
         app_ref mk_bound(lp::lar_term const& term, rational const& k) {
             app_ref t = mk_term(term, k.is_int());
             app_ref atom(a.mk_le(t, a.mk_numeral(k, k.is_int())), m);
+            expr_ref atom1(m);
+            proof_ref atomp(m);
+            ctx().get_simplifier()(atom, atom1, atomp);
+            atom = to_app(atom1);
             TRACE("arith", tout << atom << "\n";
                   m_solver->print_term(term, tout << "bound atom: "); tout << " <= " << k << "\n";
                   display(tout);
