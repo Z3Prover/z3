@@ -379,8 +379,15 @@ void pred_transformer::add_lemma_from_child (pred_transformer& child,
         expr_ref_vector inst(m);
         expr* a = to_app(fmls.get(i))->get_arg(0);
         expr* l = to_app(fmls.get(i))->get_arg(1);
-        if (get_context().use_instantiate()) {
+        if (!lemma->is_ground() && get_context().use_instantiate()) {
+            expr_ref grnd_lemma(m);
+            app_ref_vector tmp(m);
             lemma->mk_insts(inst, l);
+            // -- take ground instance of the current lemma
+            ground_expr(to_quantifier(l)->get_expr(), grnd_lemma, tmp);
+            STRACE("spacer.expand-add",
+                   tout << "Adding instance: " << mk_epp(grnd_lemma, m) << "\n";);
+            inst.push_back(grnd_lemma);
         }
         for (unsigned j=0; j < inst.size(); j++) {
             inst.set(j, m.mk_implies(a, inst.get(j)));
