@@ -2086,6 +2086,7 @@ namespace smt {
         for (; it != end; ++it) {
             enode * p = *it;
             if (p->get_decl() == f  && 
+				p->get_num_args() > i && 
                 m_context.is_relevant(p)  &&
                 p->is_cgr() && 
                 p->get_arg(i)->get_root() == n) {
