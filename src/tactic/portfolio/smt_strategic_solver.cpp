@@ -93,7 +93,7 @@ tactic * mk_tactic_for_logic(ast_manager & m, params_ref const & p, symbol const
         return mk_qffpbv_tactic(m, p);
     else if (logic=="HORN")
         return mk_horn_tactic(m, p);
-    else if (logic == "QF_FD")
+    else if (logic == "QF_FD" || logic == "SAT")
         return mk_solver2tactic(mk_fd_solver(m, p));
     //else if (logic=="QF_UFNRA")
     //    return mk_qfufnra_tactic(m, p);
@@ -102,7 +102,7 @@ tactic * mk_tactic_for_logic(ast_manager & m, params_ref const & p, symbol const
 }
 
 static solver* mk_special_solver_for_logic(ast_manager & m, params_ref const & p, symbol const& logic) {
-    if (logic == "QF_FD") 
+    if (logic == "QF_FD" || logic == "SAT") 
         return mk_fd_solver(m, p);
     return 0;
 }

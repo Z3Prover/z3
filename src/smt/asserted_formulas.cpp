@@ -16,31 +16,31 @@ Author:
 Revision History:
 
 --*/
-#include "smt/asserted_formulas.h"
+#include "util/warning.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/ast_pp.h"
+#include "ast/for_each_expr.h"
+#include "ast/well_sorted.h"
 #include "ast/simplifier/arith_simplifier_plugin.h"
 #include "ast/simplifier/array_simplifier_plugin.h"
 #include "ast/simplifier/datatype_simplifier_plugin.h"
 #include "ast/simplifier/fpa_simplifier_plugin.h"
 #include "ast/simplifier/seq_simplifier_plugin.h"
 #include "ast/simplifier/bv_simplifier_plugin.h"
-#include "ast/for_each_expr.h"
-#include "ast/well_sorted.h"
-#include "ast/normal_forms/pull_quant.h"
 #include "ast/simplifier/pull_ite_tree.h"
 #include "ast/simplifier/push_app_ite.h"
-#include "smt/elim_term_ite.h"
-#include "ast/pattern/pattern_inference.h"
-#include "ast/normal_forms/nnf.h"
 #include "ast/simplifier/bv_elim.h"
 #include "ast/simplifier/inj_axiom.h"
-#include "ast/rewriter/der.h"
 #include "ast/simplifier/elim_bounds.h"
-#include "util/warning.h"
 #include "ast/simplifier/bit2int.h"
+#include "ast/normal_forms/pull_quant.h"
+#include "ast/normal_forms/nnf.h"
+#include "ast/pattern/pattern_inference.h"
+#include "ast/rewriter/der.h"
 #include "ast/rewriter/distribute_forall.h"
 #include "ast/macros/quasi_macros.h"
+#include "smt/asserted_formulas.h"
+#include "smt/elim_term_ite.h"
 
 asserted_formulas::asserted_formulas(ast_manager & m, smt_params & p):
     m(m),
@@ -137,6 +137,7 @@ void asserted_formulas::set_eliminate_and(bool flag) {
     flush_cache();
     m_bsimp->set_eliminate_and(flag);
 }
+
 
 void asserted_formulas::assert_expr(expr * e, proof * _in_pr) {
     if (inconsistent()) 

@@ -53,7 +53,8 @@ namespace smt {
         //    warning_msg("ignoring MODEL_COMPACT=true because it cannot be used with MBQI=true");
         //    m_params.m_model_compact = false;
         // }
-        TRACE("setup", tout << "configuring logical context, logic: " << m_logic << "\n";);
+        TRACE("setup", tout << "configuring logical context, logic: " << m_logic << " " << cm << "\n";);
+        
         m_already_configured = true;
         
         switch (cm) {
@@ -202,6 +203,9 @@ namespace smt {
     void setup::setup_QF_UF() {
         m_params.m_relevancy_lvl           = 0;
         m_params.m_nnf_cnf                 = false;
+        m_params.m_restart_strategy        = RS_LUBY;
+        m_params.m_phase_selection         = PS_CACHING_CONSERVATIVE2;
+        m_params.m_random_initial_activity = IA_RANDOM;
     }
 
     void setup::setup_QF_BVRE() {
@@ -210,13 +214,9 @@ namespace smt {
         m_context.register_plugin(alloc(theory_seq, m_manager));
     }
 
-    void setup::setup_QF_UF(static_features const & st) {
+    void setup::setup_QF_UF(static_features const & st) {        
         check_no_arithmetic(st, "QF_UF");
-        m_params.m_relevancy_lvl           = 0;
-        m_params.m_nnf_cnf                 = false;
-        m_params.m_restart_strategy        = RS_LUBY;
-        m_params.m_phase_selection         = PS_CACHING_CONSERVATIVE2;
-        m_params.m_random_initial_activity = IA_RANDOM;
+        setup_QF_UF();
         TRACE("setup",
               tout << "st.m_num_theories: " << st.m_num_theories << "\n";
               tout << "st.m_num_uninterpreted_functions: " << st.m_num_uninterpreted_functions << "\n";);
@@ -548,6 +548,7 @@ namespace smt {
     }
 
     void setup::setup_QF_BV() {
+        TRACE("setup", tout << "qf-bv\n";);
         m_params.m_relevancy_lvl       = 0;
         m_params.m_arith_reflect       = false; 
         m_params.m_bv_cc               = false;
@@ -877,7 +878,7 @@ namespace smt {
     void setup::setup_unknown() {
         static_features st(m_manager);
         st.collect(m_context.get_num_asserted_formulas(), m_context.get_asserted_formulas());
-
+        TRACE("setup", tout << "setup_unknown\n";);        
         setup_arith();
         setup_arrays();
         setup_bv();
@@ -916,7 +917,7 @@ namespace smt {
               tout << "has fpa: " << st.m_has_fpa << "\n"; 
               tout << "has arrays: " << st.m_has_arrays << "\n";);
 
-        if (st.num_non_uf_theories() == 0) {
+        if (st.num_non_uf_theories() == 0) {           
             setup_QF_UF(st);
             return;
         }
