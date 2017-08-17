@@ -121,38 +121,28 @@ int int_solver::find_inf_int_boxed_base_column_with_smallest_range() {
     
 }
 
-bool int_solver::is_gomory_cut_target() {
-    m_iter_on_gomory_row->reset();
+bool int_solver::is_gomory_cut_target(linear_combination_iterator<mpq> &iter) {
     unsigned j;
-    TRACE("gomory_cut", m_lar_solver->print_linear_iterator_indices_only(m_iter_on_gomory_row, tout);
-          m_iter_on_gomory_row->reset();
-          );
-
+    lp_assert(iter.is_reset());
     // All non base variables must be at their bounds and assigned to rationals (that is, infinitesimals are not allowed).
-    while (m_iter_on_gomory_row->next(j)) {
-        if (j == m_gomory_cut_inf_column) continue;
+    while (iter.next(j)) {
+        if (is_base(j)) continue;
         if (!is_zero(get_value(j).y)) {
             TRACE("gomory_cut", tout << "row is not gomory cut target:\n";
                   display_column(tout, j);
                   tout << "infinitesimal: " << !is_zero(get_value(j).y) << "\n";);
-            return false;
-        }
-
-        if (!at_bound(j)) {
-            TRACE("gomory_cut", tout << "row is not gomory cut target:\n";
-                  display_column(tout, j);
-                  tout << "at_bound:      " << at_bound(j) << "\n";);
+            iter.reset();
             return false;
         }
     }
-    m_iter_on_gomory_row->reset();
+    iter.reset();
     return true;
 }
 
 
-void int_solver::real_case_in_gomory_cut(const mpq & a, unsigned x_j, mpq & k, lar_term& pol, explanation & expl) {
+void int_solver::real_case_in_gomory_cut(const mpq & a, unsigned x_j, mpq & k, lar_term& pol, explanation & expl, unsigned gomory_cut_inf_column) {
     TRACE("gomory_cut_detail_real", tout << "real\n";);
-    mpq f_0  = fractional_part(get_value(m_gomory_cut_inf_column));
+    mpq f_0  = fractional_part(get_value(gomory_cut_inf_column));
     mpq new_a;
     if (at_low(x_j)) {
         if (a.is_pos()) {
@@ -191,10 +181,10 @@ constraint_index int_solver::column_low_bound_constraint(unsigned j) const {
 }
 
 
-void int_solver::int_case_in_gomory_cut(const mpq & a, unsigned x_j, mpq & k, lar_term & t, explanation& expl, mpq & lcm_den) {
+void int_solver::int_case_in_gomory_cut(const mpq & a, unsigned x_j, mpq & k, lar_term & t, explanation& expl, mpq & lcm_den, unsigned inf_column) {
     lp_assert(is_int(x_j));
     lp_assert(!a.is_int());
-    mpq f_0  = fractional_part(get_value(m_gomory_cut_inf_column));
+    mpq f_0  = fractional_part(get_value(inf_column));
     lp_assert(f_0 > zero_of_type<mpq>() && f_0 < one_of_type<mpq>());
     mpq f_j =  fractional_part(a);
     TRACE("gomory_cut_detail", 
@@ -235,9 +225,7 @@ void int_solver::int_case_in_gomory_cut(const mpq & a, unsigned x_j, mpq & k, la
 }
 
 lia_move int_solver::report_conflict_from_gomory_cut(mpq & k) {
-    TRACE("empty_pol",
-          display_row_info(tout,
-                           m_lar_solver->m_mpq_lar_core_solver.m_r_heading[m_gomory_cut_inf_column]););
+    TRACE("empty_pol",);
     lp_assert(k.is_pos());
     // conflict 0 >= k where k is positive
     k.neg(); // returning 0 <= -k
@@ -346,17 +334,19 @@ void int_solver::adjust_term_and_k_for_some_ints_case_gomory(lar_term& t, mpq& k
 
 
 
-lia_move int_solver::mk_gomory_cut(lar_term& t, mpq& k, explanation & expl) {
+lia_move int_solver::mk_gomory_cut(lar_term& t, mpq& k, explanation & expl, unsigned inf_col, linear_combination_iterator<mpq>& iter) {
 
-    lp_assert(column_is_int_inf(m_gomory_cut_inf_column));
+    lp_assert(column_is_int_inf(inf_col));
 
-    TRACE("gomory_cut", tout << "applying cut at:\n"; m_lar_solver->print_linear_iterator_indices_only(m_iter_on_gomory_row, tout); tout << std::endl; m_iter_on_gomory_row->reset();
+    TRACE("gomory_cut",
+          tout << "applying cut at:\n"; m_lar_solver->print_linear_iterator_indices_only(&iter, tout); tout << std::endl;
+          iter.reset();
           unsigned j;
-          while(m_iter_on_gomory_row->next(j)) {
+          while(iter.next(j)) {
               m_lar_solver->m_mpq_lar_core_solver.m_r_solver.print_column_info(j, tout);
           }
-          m_iter_on_gomory_row->reset();
-          tout << "m_gomory_cut_inf_column = " << m_gomory_cut_inf_column << std::endl;
+          iter.reset();
+          tout << "inf_col = " << inf_col << std::endl;
           );
         
     // gomory will be   t >= k
@@ -365,18 +355,18 @@ lia_move int_solver::mk_gomory_cut(lar_term& t, mpq& k, explanation & expl) {
     unsigned x_j;
     mpq a;
     bool some_int_columns = false;
-    lp_assert(m_iter_on_gomory_row->is_reset());
-    while (m_iter_on_gomory_row->next(a, x_j)) {
-        if (x_j == m_gomory_cut_inf_column)
+    lp_assert(iter.is_reset());
+    while (iter.next(a, x_j)) {
+        if (x_j == inf_col)
             continue;
         // make the format compatible with the format used in: Integrating Simplex with DPLL(T)
         a.neg();  
         if (is_real(x_j)) 
-            real_case_in_gomory_cut(a, x_j, k, t, expl);
+            real_case_in_gomory_cut(a, x_j, k, t, expl, inf_col);
         else {
             if (a.is_int()) continue; // f_j will be zero and no monomial will be added
             some_int_columns = true;
-            int_case_in_gomory_cut(a, x_j, k, t, expl, lcm_den);
+            int_case_in_gomory_cut(a, x_j, k, t, expl, lcm_den, inf_col);
         }
     }
 
@@ -397,48 +387,38 @@ void int_solver::init_check_data() {
 	m_old_values_data.resize(n);
 }
 
-int int_solver::find_next_free_var_in_gomory_row() {
-    lp_assert(m_iter_on_gomory_row != nullptr);
+int int_solver::find_free_var_in_gomory_row(linear_combination_iterator<mpq>& iter) {
     unsigned j;
-    while(m_iter_on_gomory_row->next(j)) {
-        if (j != m_gomory_cut_inf_column && is_free(j))
+    while(iter.next(j)) {
+        if (!is_base(j) && is_free(j))
             return static_cast<int>(j);
     }
+    iter.reset();
     return -1;
 }
 
-lia_move int_solver::proceed_with_gomory_cut(lar_term& t, mpq& k, explanation& ex) {
-    int j = find_next_free_var_in_gomory_row();
-    if (j != -1) {
-        m_found_free_var_in_gomory_row = true;
+lia_move int_solver::proceed_with_gomory_cut(lar_term& t, mpq& k, explanation& ex, unsigned j,                                                  linear_combination_iterator<mpq>& iter) {
+    int free_j = find_free_var_in_gomory_row(iter);
+    if (free_j != -1) {
         lp_assert(t.is_empty());
-        t.add_monomial(mpq(1), m_lar_solver->adjust_column_index_to_term_index(j));
+        t.add_monomial(mpq(1), m_lar_solver->adjust_column_index_to_term_index(free_j));
         k = zero_of_type<mpq>();
         return lia_move::branch; // branch on a free column
     }
-    if (m_found_free_var_in_gomory_row || !is_gomory_cut_target()) {
-        m_found_free_var_in_gomory_row = false;
-        delete m_iter_on_gomory_row;
-        m_iter_on_gomory_row = nullptr;
-        return lia_move::continue_with_check;
-    }
 
-    lia_move ret = mk_gomory_cut(t, k, ex);
-    delete m_iter_on_gomory_row;
-    m_iter_on_gomory_row = nullptr;
-    return ret;
+    if (!is_gomory_cut_target(iter))
+        return create_branch_on_column(j, t, k);
+    
+    return mk_gomory_cut(t, k, ex, j, iter);
  }
 
 
+unsigned int_solver::row_of_basic_column(unsigned j) const {
+    return m_lar_solver->m_mpq_lar_core_solver.m_r_heading[j];
+}
+
 lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
     lp_assert(inf_int_set_is_correct());
-    if (m_iter_on_gomory_row != nullptr) {
-        auto ret = proceed_with_gomory_cut(t, k, ex);
-        TRACE("gomory_cut", tout << "term t = "; m_lar_solver->print_term_as_indices(t, tout););
-        if (ret != lia_move::continue_with_check)
-            return ret;
-    }
-
 	init_check_data();
     lp_assert(inf_int_set_is_correct());
     // currently it is a reimplementation of
@@ -462,73 +442,59 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
     if (!has_inf_int())
         return lia_move::ok;
     TRACE("gomory_cut", tout << m_branch_cut_counter+1 << ", " << settings().m_int_branch_cut_gomory_threshold << std::endl;);
-         
     if ((++m_branch_cut_counter) % settings().m_int_branch_cut_gomory_threshold == 0) {
-        lp_assert(m_iter_on_gomory_row == nullptr);
-        move_non_base_vars_to_bounds();
-        lp_status st = m_lar_solver->find_feasible_solution();
-        lp_assert(non_basic_columns_are_at_bounds());
-        if (st != lp_status::FEASIBLE && st != lp_status::OPTIMAL) {
-            TRACE("arith_int", tout << "give_up\n";);
-            return lia_move::give_up;
+        if (move_non_base_vars_to_bounds()) {
+            lp_status st = m_lar_solver->find_feasible_solution();
+            lp_assert(non_basic_columns_are_at_bounds());
+            if (st != lp_status::FEASIBLE && st != lp_status::OPTIMAL) {
+                TRACE("arith_int", tout << "give_up\n";);
+                return lia_move::give_up;
+            }
         }
-        lp_assert(inf_int_set_is_correct());
         int j = find_inf_int_base_column();
-        if (j != -1) {
-            // setup the call for gomory cut
-            TRACE("arith_int", tout << "j = " << j << " does not have an integer assignment: " << get_value(j) << "\n";);
-            unsigned row_index = m_lar_solver->m_mpq_lar_core_solver.m_r_heading[j];
-            m_iter_on_gomory_row = m_lar_solver->get_iterator_on_row(row_index);
-            m_gomory_cut_inf_column = j;
-            return check(t, k, ex);
-        }
+        lp_assert(j != -1);
+        TRACE("arith_int", tout << "j = " << j << " does not have an integer assignment: " << get_value(j) << "\n";);
+        auto iter_on_gomory_row = m_lar_solver->get_iterator_on_row(row_of_basic_column(j));
+        lia_move ret = proceed_with_gomory_cut(t, k, ex, j, *iter_on_gomory_row);
+        delete iter_on_gomory_row;
+        return ret;
     }
-    else {
-        int j = find_inf_int_base_column();
-        if (j != -1) {
-            TRACE("arith_int", tout << "j" << j << " does not have an integer assignment: " << get_value(j) << "\n";);
 
-            lp_assert(t.is_empty());
-            t.add_monomial(mpq(1), j);
-            k = floor(get_value(j));
-            TRACE("arith_int", tout << "branching v" << j << " = " << get_value(j) << "\n";
-              display_column(tout, j);
-              tout << "k = " << k << std::endl;
-              );
-            lp_assert(current_solution_is_inf_on_cut(t, k));
-            m_lar_solver->subs_term_columns(t);
-            return lia_move::branch;
-        }
-    }
-    lp_assert(inf_int_set_is_correct());
-	lp_assert(m_lar_solver->m_mpq_lar_core_solver.r_basis_is_OK());
-	lp_unreachable();
-    return lia_move::give_up;
+    return create_branch_on_column(find_inf_int_base_column(), t, k);
 }
 
-void int_solver::move_non_base_vars_to_bounds() {
+bool int_solver::move_non_base_vars_to_bounds() {
     auto & lcs = m_lar_solver->m_mpq_lar_core_solver;
+    bool change = false;
     for (unsigned j : lcs.m_r_nbasis) {
         auto & val = lcs.m_r_x[j];
         switch (lcs.m_column_types()[j]) {
         case column_type::boxed:
-            if (val != lcs.m_r_low_bounds()[j] && val != lcs.m_r_upper_bounds()[j])
+            if (val != lcs.m_r_low_bounds()[j] && val != lcs.m_r_upper_bounds()[j]) {
                 set_value_for_nbasic_column(j, lcs.m_r_low_bounds()[j]);
+                change = true;
+            }
             break;
         case column_type::low_bound:
-            if (val != lcs.m_r_low_bounds()[j])
+            if (val != lcs.m_r_low_bounds()[j]) {
                 set_value_for_nbasic_column(j, lcs.m_r_low_bounds()[j]);
+                change = true;
+            }
             break;
         case column_type::upper_bound:
-            if (val != lcs.m_r_upper_bounds()[j])
+            if (val != lcs.m_r_upper_bounds()[j]) {
                 set_value_for_nbasic_column(j, lcs.m_r_upper_bounds()[j]);
+                change = true;
+            }
             break;
         default:
-            if (is_int(j) && !val.is_int()) {
+            if (is_int(j) && !val.is_int()) { 
                 set_value_for_nbasic_column(j, impq(floor(val)));
+                change = true;
             }
         }
     }
+    return change;
 }
 
 void int_solver::set_value_for_nbasic_column_ignore_old_values(unsigned j, const impq & new_val) {
@@ -769,9 +735,7 @@ linear_combination_iterator<mpq> * int_solver::get_column_iterator(unsigned j) {
 
 int_solver::int_solver(lar_solver* lar_slv) :
     m_lar_solver(lar_slv),
-    m_branch_cut_counter(0),
-    m_iter_on_gomory_row(nullptr),
-    m_found_free_var_in_gomory_row(false) {
+    m_branch_cut_counter(0) {
     lp_assert(m_old_values_set.size() == 0);
     m_old_values_set.resize(lar_slv->A_r().column_count());
     m_old_values_data.resize(lar_slv->A_r().column_count(), zero_of_type<impq>());
@@ -1075,7 +1039,7 @@ bool int_solver::shift_var(unsigned j, unsigned range) {
 
 bool int_solver::non_basic_columns_are_at_bounds() const {
     auto & lcs = m_lar_solver->m_mpq_lar_core_solver;
-    for (unsigned j : lcs.m_r_nbasis) {
+    for (unsigned j :lcs.m_r_nbasis) {
         auto & val = lcs.m_r_x[j];
         switch (lcs.m_column_types()[j]) {
         case column_type::boxed:
@@ -1101,6 +1065,21 @@ bool int_solver::non_basic_columns_are_at_bounds() const {
 
 const impq& int_solver::low_bound(unsigned j) const {
     return m_lar_solver->column_low_bound(j);
+}
+
+lia_move int_solver::create_branch_on_column(int j, lar_term& t, mpq& k) const {
+    lp_assert(t.is_empty());
+    lp_assert(j != -1);
+    t.add_monomial(mpq(1), j);
+    k = floor(get_value(j));
+    TRACE("arith_int", tout << "branching v" << j << " = " << get_value(j) << "\n";
+          display_column(tout, j);
+          tout << "k = " << k << std::endl;
+          );
+    lp_assert(current_solution_is_inf_on_cut(t, k));
+    m_lar_solver->subs_term_columns(t);
+    return lia_move::branch;
+
 }
 
 const impq& int_solver::upper_bound(unsigned j) const {

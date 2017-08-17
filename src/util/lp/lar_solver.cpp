@@ -81,12 +81,6 @@ void lar_solver::print_implied_bound(const implied_bound& be, std::ostream & out
         out << get_column_name(v);
     }
     out << " " << lconstraint_kind_string(be.kind()) << " "  << be.m_bound << std::endl;
-    // for (auto & p : be.m_explanation) {
-    //     out << p.first << " : ";
-    //     print_constraint(p.second, out);
-    // }
-        
-    // m_mpq_lar_core_solver.m_r_solver.print_column_info(be.m_j< m_terms_start_index? be.m_j : adjust_term_index(be.m_j), out);
     out << "end of implied bound" << std::endl;
 }
     

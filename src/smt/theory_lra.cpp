@@ -77,6 +77,7 @@ namespace lp_api {
             if (is_true) return inf_rational(m_value);                         // v >= value or v <= value
 
             if (m_is_int) {
+                SASSERT(m_value.is_int());
                 if (m_bound_kind == lower_t) return inf_rational(m_value - rational::one()); // v <= value - 1
                 return inf_rational(m_value + rational::one());                              // v >= value + 1
             }
@@ -86,7 +87,7 @@ namespace lp_api {
             }
         } 
         virtual std::ostream& display(std::ostream& out) const {
-            return out << "v" << get_var() << "  " << get_bound_kind() << " " << m_value;
+            return out << m_value << "  " << get_bound_kind() << " v" << get_var();
         }
     };
 
@@ -712,7 +713,7 @@ namespace smt {
                         m_var_index2theory_var.setx(vi, v, UINT_MAX);
                     }
                     m_var_trail.push_back(v);
-                    TRACE("arith", tout << "v" << v << " := " << mk_pp(term, m) << " slack: " << vi << " scopes: " << m_scopes.size() << "\n";
+                    TRACE("arith_verbose", tout << "v" << v << " := " << mk_pp(term, m) << " slack: " << vi << " scopes: " << m_scopes.size() << "\n";
                           m_solver->print_term(m_solver->get_term(vi), tout); tout << "\n";);
                 }
                 rational val;
@@ -781,7 +782,7 @@ namespace smt {
             updt_unassigned_bounds(v, +1);
             m_bounds_trail.push_back(v);
             m_bool_var2bound.insert(bv, b);
-            TRACE("arith", tout << "Internalized " << mk_pp(atom, m) << "\n";);
+            TRACE("arith_verbose", tout << "Internalized " << mk_pp(atom, m) << "\n";);
             mk_bound_axioms(*b);
             //add_use_lists(b);
             return true;
@@ -805,7 +806,7 @@ namespace smt {
             if (n1->get_th_var(get_id()) != null_theory_var &&
                 n2->get_th_var(get_id()) != null_theory_var &&
                 n1 != n2) {
-                TRACE("arith", tout << mk_pp(atom, m) << "\n";);
+                TRACE("arith_verbose", tout << mk_pp(atom, m) << "\n";);
                 m_arith_eq_adapter.mk_axioms(n1, n2);
             }
         }
@@ -1517,6 +1518,7 @@ namespace smt {
 
             void consume(rational const& v, unsigned j) override {
                 m_imp.set_evidence(j);
+                m_imp.m_explanation.push_back(std::make_pair(v, j));
             }
         };
 
@@ -1553,6 +1555,7 @@ namespace smt {
                 if (lit == null_literal) {
                     continue;
                 }
+                TRACE("arith", tout << lit << " bound: " << *b << " first: " << first << "\n";);
 
                 m_solver->settings().st().m_num_of_implied_bounds ++;
                 if (first) {
@@ -1560,6 +1563,7 @@ namespace smt {
                     m_core.reset();
                     m_eqs.reset();
                     m_params.reset();
+                    m_explanation.clear();
                     local_bound_propagator bp(*this);
                     m_solver->explain_implied_bound(be, bp);
                 }
@@ -1570,7 +1574,7 @@ namespace smt {
                       tout << "\n --> ";
                       ctx().display_literal_verbose(tout, lit);
                       tout << "\n";
-                      // display_evidence(tout, m_explanation);
+                      display_evidence(tout, m_explanation);
                       m_solver->print_implied_bound(be, tout);
                       );
                 DEBUG_CODE(
@@ -1610,27 +1614,27 @@ namespace smt {
 
         literal is_bound_implied(lp::lconstraint_kind k, rational const& value, lp_api::bound const& b) const {
             if ((k == lp::LE || k == lp::LT) && b.get_bound_kind() == lp_api::upper_t && value <= b.get_value()) {
-                // v <= value <= b.get_value() => v <= b.get_value() 
+                TRACE("arith", tout << "v <= value <= b.get_value() => v <= b.get_value() \n";);
                 return literal(b.get_bv(), false);
             }
             if ((k == lp::GE || k == lp::GT) && b.get_bound_kind() == lp_api::lower_t && b.get_value() <= value) {
-                // b.get_value() <= value <= v => b.get_value() <= v 
+                TRACE("arith", tout << "b.get_value() <= value <= v => b.get_value() <= v \n";);
                 return literal(b.get_bv(), false);
             }
             if (k == lp::LE && b.get_bound_kind() == lp_api::lower_t && value < b.get_value()) {
-                // v <= value < b.get_value() => v < b.get_value()
+                TRACE("arith", tout << "v <= value < b.get_value() => v < b.get_value()\n";);
                 return literal(b.get_bv(), true);
             }
             if (k == lp::LT && b.get_bound_kind() == lp_api::lower_t && value <= b.get_value()) {
-                // v < value <= b.get_value() => v < b.get_value()
+                TRACE("arith", tout << "v < value <= b.get_value() => v < b.get_value()\n";);
                 return literal(b.get_bv(), true);
             }
             if (k == lp::GE && b.get_bound_kind() == lp_api::upper_t && b.get_value() < value) {
-                // b.get_value() < value <= v => b.get_value() < v
+                TRACE("arith", tout << "b.get_value() < value <= v => b.get_value() < v\n";);
                 return literal(b.get_bv(), true);
             }
             if (k == lp::GT && b.get_bound_kind() == lp_api::upper_t && b.get_value() <= value) {
-                // b.get_value() <= value < v => b.get_value() < v
+                TRACE("arith", tout << "b.get_value() <= value < v => b.get_value() < v\n";);
                 return literal(b.get_bv(), true);
             }
 
@@ -2515,11 +2519,22 @@ namespace smt {
 
         // Auxiliary verification utilities.
 
+        struct scoped_arith_mode {
+            smt_params& p;
+            scoped_arith_mode(smt_params& p) : p(p) {
+                p.m_arith_mode = AS_ARITH;
+            }
+            ~scoped_arith_mode() {
+                p.m_arith_mode = AS_LRA;
+            }
+        };
+
         bool validate_conflict() {
             if (dump_lemmas()) {
                 ctx().display_lemma_as_smt_problem(m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), false_literal);
             }
-            if (m_arith_params.m_arith_mode == AS_LRA) return true;
+            if (m_arith_params.m_arith_mode != AS_LRA) return true;
+            scoped_arith_mode _sa(ctx().get_fparams());
             context nctx(m, ctx().get_fparams(), ctx().get_params());
             add_background(nctx);
             bool result = l_true != nctx.check();
@@ -2532,7 +2547,8 @@ namespace smt {
             if (dump_lemmas()) {
                 ctx().display_lemma_as_smt_problem(m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), lit);
             }
-            if (m_arith_params.m_arith_mode == AS_LRA) return true;
+            if (m_arith_params.m_arith_mode != AS_LRA) return true;
+            scoped_arith_mode _sa(ctx().get_fparams());
             context nctx(m, ctx().get_fparams(), ctx().get_params());
             m_core.push_back(~lit);
             add_background(nctx);
