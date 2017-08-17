@@ -39,7 +39,7 @@ namespace smt {
     class model_checker {
         ast_manager &                               m; // _manager;
         qi_params const &                           m_params;
-        // copy of smt_params for auxiliary context. 
+        // copy of smt_params for auxiliary context.
         // the idea is to use a different configuration for the aux context (e.g., disable relevancy)
         scoped_ptr<smt_params>                      m_fparams;
         quantifier_manager *                        m_qm;
@@ -83,8 +83,8 @@ namespace smt {
 
         struct is_model_value {};
         expr_mark m_visited;
-        bool contains_model_value(expr* e);
-        void add_instance(quantifier* q, expr_ref_vector const& bindings, unsigned max_generation);
+        bool contains_model_value(expr * e);
+        void add_instance(quantifier * q, expr_ref_vector const & bindings, unsigned max_generation);
 
     public:
         model_checker(ast_manager & m, qi_params const & p, model_finder & mf);
