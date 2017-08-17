@@ -2080,13 +2080,14 @@ namespace smt {
     */
     enode_vector * interpreter::mk_depth1_vector(enode * n, func_decl * f, unsigned i) {
         enode_vector * v = mk_enode_vector();
+        unsigned num_args = n->get_num_args();
         n = n->get_root();
         enode_vector::const_iterator it  = n->begin_parents();
         enode_vector::const_iterator end = n->end_parents();
         for (; it != end; ++it) {
             enode * p = *it;
             if (p->get_decl() == f  && 
-				p->get_num_args() > i && 
+                p->get_num_args() == num_args && 
                 m_context.is_relevant(p)  &&
                 p->is_cgr() && 
                 p->get_arg(i)->get_root() == n) {
@@ -2105,6 +2106,7 @@ namespace smt {
         enode * n = m_registers[j2->m_reg]->get_root();
         if (n->get_num_parents() == 0)
             return 0;
+        unsigned num_args = n->get_num_args();
         enode_vector * v  = mk_enode_vector();
         enode_vector::const_iterator it1  = n->begin_parents();
         enode_vector::const_iterator end1 = n->end_parents();
@@ -2121,6 +2123,7 @@ namespace smt {
                 for (; it2 != end2; ++it2) {
                     enode * p2 = *it2;
                     if (p2->get_decl() == f &&
+                        num_args == n->get_num_args() && 
                         m_context.is_relevant(p2) &&
                         p2->is_cgr() && 
                         p2->get_arg(i)->get_root() == p) {
