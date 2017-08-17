@@ -729,6 +729,12 @@ void pattern_inference::reduce1_quantifier(quantifier * q) {
         return;
     }
 
+    IF_IVERBOSE(10,
+        verbose_stream() << "(smt.inferred-patterns :qid " << q->get_qid() << "\n";
+        for (unsigned i = 0; i < new_patterns.size(); i++)
+            verbose_stream() << "  " << mk_ismt2_pp(new_patterns[i], m, 2) << "\n";
+        verbose_stream() << ")\n"; );
+
     cache_result(q, new_q, pr);
 }
 
