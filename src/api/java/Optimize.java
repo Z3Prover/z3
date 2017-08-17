@@ -299,6 +299,24 @@ public class Optimize extends Z3Object {
     }
 
     /**
+     * Parse an SMT-LIB2 file with optimization objectives and constraints.
+     * The parsed constraints and objectives are added to the optimization context.
+     */
+    public void fromFile(String file)
+    {
+	Native.optimizeFromFile(getContext().nCtx(), getNativeObject(), file);
+    }
+
+    /**
+     * Similar to FromFile. Instead it takes as argument a string.
+     */
+    public void fromString(String s)
+    {
+	Native.optimizeFromString(getContext().nCtx(), getNativeObject(), s);
+    }
+
+
+    /**
      *  Optimize statistics.
      **/
     public Statistics getStatistics()
