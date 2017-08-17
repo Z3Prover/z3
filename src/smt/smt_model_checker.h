@@ -73,8 +73,8 @@ namespace smt {
         };
 
         region                                     m_new_instances_region;
-        expr_ref_vector                            m_new_instances_bindings;
         ptr_vector<instance>                       m_new_instances;
+        expr_ref_vector                            m_pinned_exprs;
         bool add_instance(quantifier * q, model * cex, expr_ref_vector & sks, bool use_inv);
         void reset_new_instances();
         void assert_new_instances();

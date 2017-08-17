@@ -40,7 +40,7 @@ namespace smt {
         m_max_cexs(1),
         m_iteration_idx(0),
         m_curr_model(0),
-        m_new_instances_bindings(m) {
+        m_pinned_exprs(m) {
     }
 
     model_checker::~model_checker() {
@@ -200,8 +200,12 @@ namespace smt {
     }
 
     void model_checker::add_instance(quantifier* q, expr_ref_vector const& bindings, unsigned max_generation) {
+        SASSERT(q->get_num_decls() == bindings.size());
+
         for (unsigned i = 0; i < bindings.size(); i++)
-            m_new_instances_bindings.push_back(bindings[i]);
+            m_pinned_exprs.push_back(bindings[i]);
+        m_pinned_exprs.push_back(q);
+
         void * mem = m_new_instances_region.allocate(instance::get_obj_size(q->get_num_decls()));
         instance * new_inst = new (mem) instance(q, bindings.c_ptr(), max_generation);
         m_new_instances.push_back(new_inst);
@@ -469,8 +473,9 @@ namespace smt {
     }
 
     void model_checker::reset_new_instances() {
-        m_new_instances_region.reset();
+        m_pinned_exprs.reset();
         m_new_instances.reset();
+        m_new_instances_region.reset();
     }
 
     void model_checker::reset() {
