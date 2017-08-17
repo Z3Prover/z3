@@ -51,6 +51,7 @@ Notes:
 #include "ast/rewriter/expr_safe_replace.h"
 #include "ast/expr_abstract.h"
 
+#include "smt/smt_solver.h"
 namespace spacer {
 
 // ----------------
@@ -648,20 +649,44 @@ bool pred_transformer::is_blocked (pob &n, unsigned &uses_level)
     return res == l_false;
 }
 
-bool pred_transformer::is_qblocked (pob &n)
-{
-    // XXX Trivial implementation to get us started
-    smt::kernel solver (m, get_manager ().fparams2());
+
+bool pred_transformer::is_qblocked (pob &n) {
+    // XXX currently disabled
+    return false;
+    params_ref p;
+    p.set_bool("arith.ignore_int", true);
+    p.set_bool("array.weak", true);
+    p.set_bool("mbqi", false);
+    scoped_ptr<solver> s;
+    s = mk_smt_solver(m, p, symbol::null);
+    s->updt_params(p);
+    // XXX force parameters to be set
+    s->push();
+    s->pop(1);
+
     expr_ref_vector frame_lemmas(m);
     m_frames.get_frame_geq_lemmas (n.level (), frame_lemmas);
 
     // assert all lemmas
+    bool has_quant = false;
     for (unsigned i = 0, sz = frame_lemmas.size (); i < sz; ++i)
-    { solver.assert_expr(frame_lemmas.get(i)); }
-    // assert cti
-    solver.assert_expr (n.post ());
-    lbool res = solver.check ();
+    {
+        has_quant = has_quant || is_quantifier(frame_lemmas.get(i));
+        s->assert_expr(frame_lemmas.get(i));
+    }
+    if (!has_quant) return false;
 
+    // assert cti
+    s->assert_expr(n.post());
+    lbool res = s->check_sat(0, 0);
+
+    // if (res == l_false) {
+    //     expr_ref_vector core(m);
+    //     solver->get_itp_core(core);
+    //     expr_ref c(m);
+    //     c = mk_and(core);
+    //     STRACE("spacer.expand-add", tout << "core: " << mk_epp(c,m) << "\n";);
+    // }
     return res == l_false;
 }
 
@@ -2937,6 +2962,11 @@ lbool context::expand_node(pob& n)
                     << watch.get_seconds () << "\n";);
 
         return l_false;
+    }
+
+    if (n.pt().is_qblocked(n)) {
+        STRACE("spacer.expand-add",
+               tout << "This pob can be blocked by instantiation\n";);
     }
 
     smt_params &fparams = m_pm.fparams();
