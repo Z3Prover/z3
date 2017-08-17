@@ -2088,6 +2088,7 @@ namespace smt {
             if (p->get_decl() == f  &&
                 m_context.is_relevant(p)  &&
                 p->is_cgr() &&
+                i < p->get_num_args() &&
                 p->get_arg(i)->get_root() == n) {
                 v->push_back(p);
             }
