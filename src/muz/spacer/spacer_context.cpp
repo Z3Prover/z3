@@ -1183,7 +1183,7 @@ void lemma::mk_expr_core() {
             m_body = m.mk_quantifier(true, zks.size(),
                                      sorts.c_ptr(),
                                      names.c_ptr(),
-                                     m_body, 0, symbol(m_body->get_id()));
+                                     m_body, 15, symbol(m_body->get_id()));
             if (m_new_pob) {
                 add_binding(m_pob->get_binding());
             }
