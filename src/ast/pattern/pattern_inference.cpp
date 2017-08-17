@@ -54,7 +54,7 @@ bool smaller_pattern::process(expr * p1, expr * p2) {
             unsigned num1  = app1->get_num_args();
             if (num1 != app2->get_num_args() || app1->get_decl() != app2->get_decl())
                 return false;
-            for (unsigned i = 0; i < num1; i++) 
+            for (unsigned i = 0; i < num1; i++)
                 save(app1->get_arg(i), app2->get_arg(i));
             break;
         }
@@ -67,7 +67,7 @@ bool smaller_pattern::process(expr * p1, expr * p2) {
                     return false;
             }
             // it is a variable bound by an external quantifier
-            else if (p1 != p2) 
+            else if (p1 != p2)
                 return false;
             break;
         }
@@ -137,7 +137,7 @@ bool pattern_inference::collect::visit_children(expr * n, unsigned delta) {
     bool visited = true;
     unsigned i;
     switch (n->get_kind()) {
-    case AST_APP: 
+    case AST_APP:
         i = to_app(n)->get_num_args();
         while (i > 0) {
             --i;
@@ -187,14 +187,14 @@ void pattern_inference::collect::save_candidate(expr * n, unsigned delta) {
             save(n, delta, 0);
             return;
         }
-        
+
         if (c->get_num_args() == 0) {
             save(n, delta, alloc(info, m, n, uint_set(), 1));
             return;
         }
 
         ptr_buffer<expr> buffer;
-        bool changed   = false; // false if none of the children is mapped to a node different from itself. 
+        bool changed   = false; // false if none of the children is mapped to a node different from itself.
         uint_set free_vars;
         unsigned size  = 1;
         unsigned num   = c->get_num_args();
@@ -216,7 +216,7 @@ void pattern_inference::collect::save_candidate(expr * n, unsigned delta) {
             if (child != child_info->m_node.get())
                 changed = true;
         }
-            
+
         app * new_node = 0;
         if (changed)
             new_node = m.mk_app(decl, buffer.size(), buffer.c_ptr());
@@ -229,11 +229,11 @@ void pattern_inference::collect::save_candidate(expr * n, unsigned delta) {
         //
         // Remark: The rule above has an exception. The operators (div, idiv, mod) are allowed to be
         // used as patterns even when they are not nested in other terms. The motivation is that
-        // Z3 currently doesn't implement them (i.e., they are uninterpreted). So, some users add axioms 
+        // Z3 currently doesn't implement them (i.e., they are uninterpreted). So, some users add axioms
         // stating properties about these operators.
         family_id fid = c->get_family_id();
         decl_kind k   = c->get_decl_kind();
-        if (!free_vars.empty() && 
+        if (!free_vars.empty() &&
             (fid != m_afid || (fid == m_afid && !m_owner.m_nested_arith_only && (k == OP_DIV || k == OP_IDIV || k == OP_MOD || k == OP_REM || k == OP_MUL)))) {
             TRACE("pattern_inference", tout << "potential candidate: \n" << mk_pp(new_node, m) << "\n";);
             m_owner.add_candidate(new_node, free_vars, size);
@@ -288,7 +288,7 @@ void pattern_inference::filter_looping_patterns(ptr_vector<app> & result) {
                         uint_set const & s2 = e2->get_data().m_value.m_free_vars;
                         // Remark: the comparison operator only makes sense if both AST nodes
                         // contain the same number of variables.
-                        // Example: 
+                        // Example:
                         // (f X Y) <: (f (g X Z W) Y)
                         if (s1 == s2 && m_le(m_num_bindings, n1, n2) && !m_le(m_num_bindings, n2, n1)) {
                             smaller = true;
@@ -421,12 +421,12 @@ void pattern_inference::candidates2unary_patterns(ptr_vector<app> const & candid
 }
 
 // TODO: this code is too inefficient when the number of candidate
-// patterns is too big.  
+// patterns is too big.
 // HACK: limit the number of case-splits:
 #define MAX_SPLITS 32
 
-void pattern_inference::candidates2multi_patterns(unsigned max_num_patterns, 
-                                                  ptr_vector<app> const & candidate_patterns, 
+void pattern_inference::candidates2multi_patterns(unsigned max_num_patterns,
+                                                  ptr_vector<app> const & candidate_patterns,
                                                   app_ref_buffer & result) {
     SASSERT(!candidate_patterns.empty());
     m_pre_patterns.push_back(alloc(pre_pattern));
@@ -464,7 +464,7 @@ void pattern_inference::candidates2multi_patterns(unsigned max_num_patterns,
                 m_pre_patterns.push_back(curr);
             }
         }
-        TRACE("pattern_inference", tout << "m_pre_patterns.size(): " << m_pre_patterns.size() << 
+        TRACE("pattern_inference", tout << "m_pre_patterns.size(): " << m_pre_patterns.size() <<
               "\nnum_splits: " << num_splits << "\n";);
     }
 }
@@ -478,7 +478,7 @@ void pattern_inference::reset_pre_patterns() {
 static void dump_app_vector(std::ostream & out, ptr_vector<app> const & v, ast_manager & m) {
     ptr_vector<app>::const_iterator it  = v.begin();
     ptr_vector<app>::const_iterator end = v.end();
-    for (; it != end; ++it) 
+    for (; it != end; ++it)
         out << mk_pp(*it, m) << "\n";
 }
 #endif
@@ -487,8 +487,8 @@ bool pattern_inference::is_forbidden(app * n) const {
     func_decl const * decl = n->get_decl();
     if (is_ground(n))
         return false;
-    // Remark: skolem constants should not be used in patterns, since they do not 
-    // occur outside of the quantifier. That is, Z3 will never match this kind of 
+    // Remark: skolem constants should not be used in patterns, since they do not
+    // occur outside of the quantifier. That is, Z3 will never match this kind of
     // pattern.
     if (m_params.m_pi_avoid_skolems && decl->is_skolem()) {
         CTRACE("pattern_inference_skolem", decl->is_skolem(), tout << "ignoring: " << mk_pp(n, m) << "\n";);
@@ -521,9 +521,9 @@ bool pattern_inference::has_preferred_patterns(ptr_vector<app> & candidate_patte
     return found;
 }
 
-void pattern_inference::mk_patterns(unsigned num_bindings,                  
-                                    expr *   n,                                
-                                    unsigned num_no_patterns, 
+void pattern_inference::mk_patterns(unsigned num_bindings,
+                                    expr *   n,
+                                    unsigned num_no_patterns,
                                     expr * const * no_patterns,
                                     app_ref_buffer & result) {
     m_num_bindings    = num_bindings;
@@ -532,7 +532,7 @@ void pattern_inference::mk_patterns(unsigned num_bindings,
 
     m_collect(n, num_bindings);
 
-    TRACE("pattern_inference", 
+    TRACE("pattern_inference",
           tout << mk_pp(n, m);
           tout << "\ncandidates:\n";
           unsigned num = m_candidates.size();
@@ -558,7 +558,7 @@ void pattern_inference::mk_patterns(unsigned num_bindings,
             m_tmp1.reset();
             candidates2unary_patterns(m_tmp2, m_tmp1, result);
             unsigned num_extra_multi_patterns = m_params.m_pi_max_multi_patterns;
-            if (result.empty()) 
+            if (result.empty())
                 num_extra_multi_patterns++;
             if (num_extra_multi_patterns > 0 && !m_tmp1.empty()) {
                 // m_pattern_weight_lt is not a total order
@@ -604,7 +604,7 @@ void pattern_inference::reduce1_quantifier(quantifier * q) {
             else {
                 quantifier_ref tmp(m);
                 tmp   = m.update_quantifier(q, new_patterns.size(), (expr**) new_patterns.c_ptr(), q->get_expr());
-                new_q = m.update_quantifier_weight(tmp, new_weight); 
+                new_q = m.update_quantifier_weight(tmp, new_weight);
                 TRACE("pattern_inference", tout << "found patterns in database, weight: " << new_weight << "\n" << mk_pp(new_q, m) << "\n";);
             }
             proof * pr = 0;
@@ -635,15 +635,15 @@ void pattern_inference::reduce1_quantifier(quantifier * q) {
         proof * new_pattern_pr;
         get_cached(q->get_no_pattern(i), new_pattern, new_pattern_pr);
         new_no_patterns.push_back(new_pattern);
-    } 
-    
+    }
+
     app_ref_buffer new_patterns(m);
-    
+
     if (m_params.m_pi_arith == AP_CONSERVATIVE)
         m_forbidden.push_back(m_afid);
 
     mk_patterns(q->get_num_decls(), new_body, new_no_patterns.size(), new_no_patterns.c_ptr(), new_patterns);
-    
+
     if (new_patterns.empty() && !new_no_patterns.empty()) {
         if (new_patterns.empty()) {
             mk_patterns(q->get_num_decls(), new_body, 0, 0, new_patterns);
@@ -652,7 +652,7 @@ void pattern_inference::reduce1_quantifier(quantifier * q) {
             }
         }
     }
-    
+
     if (m_params.m_pi_arith == AP_CONSERVATIVE) {
         m_forbidden.pop_back();
         if (new_patterns.empty()) {
@@ -661,13 +661,13 @@ void pattern_inference::reduce1_quantifier(quantifier * q) {
             if (!new_patterns.empty()) {
                 weight = std::max(weight, static_cast<int>(m_params.m_pi_arith_weight));
                 if (m_params.m_pi_warnings) {
-                    warning_msg("using arith. in pattern (quantifier id: %s), the weight was increased to %d (this value can be modified using PI_ARITH_WEIGHT=<val>).", 
+                    warning_msg("using arith. in pattern (quantifier id: %s), the weight was increased to %d (this value can be modified using PI_ARITH_WEIGHT=<val>).",
                                 q->get_qid().str().c_str(), weight);
                 }
             }
         }
     }
-    
+
     if (m_params.m_pi_arith != AP_NO && new_patterns.empty()) {
         if (new_patterns.empty()) {
             flet<bool> l1(m_nested_arith_only, false); // try to find a non-nested arith pattern
@@ -676,8 +676,8 @@ void pattern_inference::reduce1_quantifier(quantifier * q) {
             if (!new_patterns.empty()) {
                 weight = std::max(weight, static_cast<int>(m_params.m_pi_non_nested_arith_weight));
                 if (m_params.m_pi_warnings) {
-                    warning_msg("using non nested arith. pattern (quantifier id: %s), the weight was increased to %d (this value can be modified using PI_NON_NESTED_ARITH_WEIGHT=<val>).", 
-                                q->get_qid().str().c_str(), weight);         
+                    warning_msg("using non nested arith. pattern (quantifier id: %s), the weight was increased to %d (this value can be modified using PI_NON_NESTED_ARITH_WEIGHT=<val>).",
+                                q->get_qid().str().c_str(), weight);
                 }
                 // verbose_stream() << mk_pp(q, m) << "\n";
             }
@@ -689,12 +689,12 @@ void pattern_inference::reduce1_quantifier(quantifier * q) {
     if (weight != q->get_weight())
         new_q = m.update_quantifier_weight(new_q, weight);
     proof_ref pr(m);
-    if (m.fine_grain_proofs()) {  
+    if (m.fine_grain_proofs()) {
         if (new_body_pr == 0)
             new_body_pr = m.mk_reflexivity(new_body);
         pr = m.mk_quant_intro(q, new_q, new_body_pr);
     }
-    
+
     if (new_patterns.empty() && m_params.m_pi_pull_quantifiers) {
         pull_quant pull(m);
         expr_ref   new_expr(m);
@@ -728,9 +728,14 @@ void pattern_inference::reduce1_quantifier(quantifier * q) {
         cache_result(q, q, 0);
         return;
     }
-    
-    cache_result(q, new_q, pr);
 
+    IF_IVERBOSE(10,
+        verbose_stream() << "(smt.inferred-patterns :qid " << q->get_qid() << "\n";
+        for (unsigned i = 0; i < new_patterns.size(); i++)
+            verbose_stream() << "  " << mk_ismt2_pp(new_patterns[i], m, 2) << "\n";
+        verbose_stream() << ")\n"; );
+
+    cache_result(q, new_q, pr);
 }
 
 
@@ -739,7 +744,7 @@ void pattern_inference::reduce1_quantifier(quantifier * q) {
 static void dump_expr_vector(std::ostream & out, ptr_vector<expr> const & v, ast_manager & m) {
     ptr_vector<expr>::const_iterator it  = v.begin();
     ptr_vector<expr>::const_iterator end = v.end();
-    for (; it != end; ++it) 
+    for (; it != end; ++it)
         out << mk_pp(*it, m) << "\n";
 }
 #endif

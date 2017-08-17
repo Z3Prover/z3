@@ -18,7 +18,7 @@
 #include<sstream>
 #include<vector>
 #include "api/z3.h"
-#include"api_log_macros.h"
+#include "api/api_log_macros.h"
 #include "api/api_context.h"
 #include "api/api_tactic.h"
 #include "api/api_solver.h"

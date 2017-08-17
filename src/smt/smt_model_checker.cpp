@@ -40,7 +40,7 @@ namespace smt {
         m_max_cexs(1),
         m_iteration_idx(0),
         m_curr_model(0),
-        m_new_instances_bindings(m) {
+        m_pinned_exprs(m) {
     }
 
     model_checker::~model_checker() {
@@ -53,8 +53,8 @@ namespace smt {
     }
 
     void model_checker::set_qm(quantifier_manager & qm) {
-        SASSERT(m_qm == 0); 
-        SASSERT(m_context == 0); 
+        SASSERT(m_qm == 0);
+        SASSERT(m_context == 0);
         m_qm = &qm;
         m_context = &(m_qm->get_context());
     }
@@ -112,7 +112,7 @@ namespace smt {
         if (!m_curr_model->eval(q->get_expr(), tmp, true)) {
             return;
         }
-        TRACE("model_checker", tout << "q after applying interpretation:\n" << mk_ismt2_pp(tmp, m) << "\n";);        
+        TRACE("model_checker", tout << "q after applying interpretation:\n" << mk_ismt2_pp(tmp, m) << "\n";);
         ptr_buffer<expr> subst_args;
         unsigned num_decls = q->get_num_decls();
         subst_args.resize(num_decls, 0);
@@ -139,7 +139,7 @@ namespace smt {
     bool model_checker::add_instance(quantifier * q, model * cex, expr_ref_vector & sks, bool use_inv) {
         if (cex == 0) {
             TRACE("model_checker", tout << "no model is available\n";);
-            return false; 
+            return false;
         }
         unsigned num_decls = q->get_num_decls();
         // Remark: sks were created for the flat version of q.
@@ -187,21 +187,25 @@ namespace smt {
             }
             bindings.set(num_decls - i - 1, sk_value);
         }
-        
+
         TRACE("model_checker", tout << q->get_qid() << " found (use_inv: " << use_inv << ") new instance: ";
               for (unsigned i = 0; i < num_decls; i++) {
                   tout << mk_ismt2_pp(bindings[i].get(), m) << " ";
               }
               tout << "\n";);
-        
+
         max_generation = std::max(m_qm->get_generation(q), max_generation);
         add_instance(q, bindings, max_generation);
         return true;
     }
 
     void model_checker::add_instance(quantifier* q, expr_ref_vector const& bindings, unsigned max_generation) {
-        for (unsigned i = 0; i < bindings.size(); i++) 
-            m_new_instances_bindings.push_back(bindings[i]);
+        SASSERT(q->get_num_decls() == bindings.size());
+
+        for (unsigned i = 0; i < bindings.size(); i++)
+            m_pinned_exprs.push_back(bindings[i]);
+        m_pinned_exprs.push_back(q);
+
         void * mem = m_new_instances_region.allocate(instance::get_obj_size(q->get_num_decls()));
         instance * new_inst = new (mem) instance(q, bindings.c_ptr(), max_generation);
         m_new_instances.push_back(new_inst);
@@ -260,39 +264,39 @@ namespace smt {
     bool model_checker::check(quantifier * q) {
         SASSERT(!m_aux_context->relevancy());
         m_aux_context->push();
-        
+
         quantifier * flat_q = get_flat_quantifier(q);
-        TRACE("model_checker", tout << "model checking:\n" << mk_ismt2_pp(q->get_expr(), m) << "\n" << 
+        TRACE("model_checker", tout << "model checking:\n" << mk_ismt2_pp(q->get_expr(), m) << "\n" <<
               mk_ismt2_pp(flat_q->get_expr(), m) << "\n";);
         expr_ref_vector sks(m);
 
         assert_neg_q_m(flat_q, sks);
-        TRACE("model_checker", tout << "skolems:\n"; 
+        TRACE("model_checker", tout << "skolems:\n";
               for (unsigned i = 0; i < sks.size(); i++) {
                   expr * sk = sks.get(i);
                   tout << mk_ismt2_pp(sk, m) << " " << mk_pp(m.get_sort(sk), m) << "\n";
               });
-        
+
         lbool r = m_aux_context->check();
         TRACE("model_checker", tout << "[complete] model-checker result: " << to_sat_str(r) << "\n";);
         if (r != l_true) {
             m_aux_context->pop(1);
             return r == l_false; // quantifier is satisfied by m_curr_model
         }
-        
+
         model_ref complete_cex;
-        m_aux_context->get_model(complete_cex); 
-        
+        m_aux_context->get_model(complete_cex);
+
         // try to find new instances using instantiation sets.
         m_model_finder.restrict_sks_to_inst_set(m_aux_context.get(), q, sks);
-        
+
         unsigned num_new_instances = 0;
 
         while (true) {
             lbool r = m_aux_context->check();
-            TRACE("model_checker", tout << "[restricted] model-checker (" << (num_new_instances+1) << ") result: " << to_sat_str(r) << "\n";);                
+            TRACE("model_checker", tout << "[restricted] model-checker (" << (num_new_instances+1) << ") result: " << to_sat_str(r) << "\n";);
             if (r != l_true)
-                break; 
+                break;
             model_ref cex;
             m_aux_context->get_model(cex);
             if (!add_instance(q, cex.get(), sks, true)) {
@@ -302,7 +306,7 @@ namespace smt {
             if (num_new_instances >= m_max_cexs || !add_blocking_clause(cex.get(), sks)) {
                 TRACE("model_checker", tout << "Add blocking clause failed new-instances: " << num_new_instances << " max-cex: " << m_max_cexs << "\n";);
                 // add_blocking_clause failed... stop the search for new counter-examples...
-                break; 
+                break;
             }
         }
 
@@ -395,17 +399,17 @@ namespace smt {
 
         check_quantifiers(false, found_relevant, num_failures);
 
-        
+
         if (found_relevant)
             m_iteration_idx++;
 
         TRACE("model_checker", tout << "model after check:\n"; model_pp(tout, *md););
-        TRACE("model_checker", tout << "model checker result: " << (num_failures == 0) << "\n";);        
+        TRACE("model_checker", tout << "model checker result: " << (num_failures == 0) << "\n";);
         m_max_cexs += m_params.m_mbqi_max_cexs;
 
         if (num_failures == 0 && !m_context->validate_model()) {
             num_failures = 1;
-            // this time force expanding recursive function definitions 
+            // this time force expanding recursive function definitions
             // that are not forced true in the current model.
             check_quantifiers(true, found_relevant, num_failures);
         }
@@ -426,7 +430,7 @@ namespace smt {
         for (; it != end; ++it) {
             quantifier * q = *it;
         if(!m_qm->mbqi_enabled(q)) continue;
-            TRACE("model_checker", 
+            TRACE("model_checker",
                   tout << "Check: " << mk_pp(q, m) << "\n";
                   tout << m_context->get_assignment(q) << "\n";);
 
@@ -469,8 +473,9 @@ namespace smt {
     }
 
     void model_checker::reset_new_instances() {
-        m_new_instances_region.reset();
+        m_pinned_exprs.reset();
         m_new_instances.reset();
+        m_new_instances_region.reset();
     }
 
     void model_checker::reset() {
@@ -505,7 +510,7 @@ namespace smt {
                           expr * b = inst->m_bindings[i];
                           tout << mk_pp(b, m) << "\n";
                       });
-                TRACE("model_checker_instance", 
+                TRACE("model_checker_instance",
                       expr_ref inst_expr(m);
                       instantiate(m, q, inst->m_bindings, inst_expr);
                       tout << "(assert " << mk_ismt2_pp(inst_expr, m) << ")\n";);

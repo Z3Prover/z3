@@ -36,15 +36,8 @@ function(z3_add_component_dependencies_to_target target_name)
   # Remaing args should be component names
   set(_expanded_deps ${ARGN})
   foreach (dependency ${_expanded_deps})
-    # FIXME: Adding these include paths wouldn't be necessary if the sources
-    # used include paths rooted in the ``src`` directory.
-    get_property(_dep_include_dirs GLOBAL PROPERTY Z3_${dependency}_INCLUDES)
-    foreach (inc_dir ${_dep_include_dirs})
-      target_include_directories(${target_name} PRIVATE "${inc_dir}")
-    endforeach()
-    unset(_dep_include_dirs)
     # Ensure this component's dependencies are built before this component.
-    # This important because we might need the generated header files in
+    # This is important because we might need the generated header files in
     # other components.
     add_dependencies(${target_name} ${dependency})
   endforeach()
@@ -214,18 +207,14 @@ macro(z3_add_component component_name)
     target_compile_options(${component_name} PRIVATE ${flag})
   endforeach()
 
-  # It's unfortunate that we have to manage the include directories and dependencies ourselves.
+  # It's unfortunate that we have to manage dependencies ourselves.
   #
   # If we weren't building "object" libraries we could use
   # ```
-  # target_include_directories(${component_name} INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}")
   # target_link_libraries(${component_name} INTERFACE ${Z3_MOD_COMPONENT_DEPENDENCIES})
   # ```
   # but we can't do that with "object" libraries.
 
-  # Record this component's include directories
-  set_property(GLOBAL PROPERTY Z3_${component_name}_INCLUDES "${CMAKE_CURRENT_SOURCE_DIR}")
-  set_property(GLOBAL APPEND PROPERTY Z3_${component_name}_INCLUDES "${CMAKE_CURRENT_BINARY_DIR}")
   set_property(GLOBAL PROPERTY Z3_${component_name}_DEPS "")
   # Record this component's dependencies
   foreach (dependency ${Z3_MOD_COMPONENT_DEPENDENCIES})
@@ -242,12 +231,6 @@ macro(z3_add_component component_name)
     z3_add_component_dependencies_to_target(${component_name} ${_expanded_deps})
   endif()
   #message(STATUS "Component \"${component_name}\" has the following dependencies ${_expanded_deps}")
-
-  # For any generated header files for this component
-  target_include_directories(${component_name} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
-  # So that any generated header files can refer to source files in the component's
-  # source tree
-  target_include_directories(${component_name} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
 
   # Add any extra include directories
   foreach (extra_include ${Z3_COMPONENT_EXTRA_INCLUDE_DIRS})
@@ -283,7 +266,6 @@ macro(z3_add_install_tactic_rule)
   endforeach()
   unset(_component_tactic_header_files)
 
-  list(APPEND _search_paths "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}")
   add_custom_command(OUTPUT "install_tactic.cpp"
     COMMAND "${PYTHON_EXECUTABLE}"
     "${CMAKE_SOURCE_DIR}/scripts/mk_install_tactic_cpp.py"
@@ -311,13 +293,6 @@ macro(z3_add_memory_initializer_rule)
     )
   endif()
   z3_expand_dependencies(_expanded_components ${ARGN})
-  # Get paths to search
-  set(_search_paths "")
-  foreach (dependency ${_expanded_components})
-    get_property(_dep_include_dirs GLOBAL PROPERTY Z3_${dependency}_INCLUDES)
-    list(APPEND _search_paths ${_dep_include_dirs})
-  endforeach()
-  list(APPEND _search_paths "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}")
 
   # Get header files that declare initializers and finalizers
   set(_mem_init_finalize_headers "")
