@@ -18,7 +18,7 @@ Notes:
 
 --*/
 #include "api/z3.h"
-#include"api_log_macros.h"
+#include "api/api_log_macros.h"
 #include "api/api_context.h"
 #include "api/api_ast_vector.h"
 #include "math/polynomial/algebraic_numbers.h"
