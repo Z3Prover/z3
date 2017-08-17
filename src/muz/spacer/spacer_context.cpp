@@ -2212,6 +2212,19 @@ void context::init_lemma_generalizers(datalog::rule_set& rules)
 
     fparams.m_mbqi = m_params.spacer_mbqi();
 
+    if (!m_params.spacer_ground_cti()) {
+        fparams.m_pi_use_database = true;
+        fparams.m_phase_selection = PS_CACHING_CONSERVATIVE2;
+        fparams.m_restart_strategy = RS_GEOMETRIC;
+        fparams.m_restart_factor = 1.5;
+        fparams.m_eliminate_bounds = true;
+        fparams.m_qi_quick_checker = MC_UNSAT;
+        fparams.m_propagate_booleans = true;
+        fparams.m_qi_eager_threshold = 10;
+        fparams.m_qi_lazy_threshold = 20;
+        fparams.m_ng_lift_ite = LI_FULL;
+    }
+
     if (get_params().spacer_use_eqclass()) {
         m_lemma_generalizers.push_back (alloc(lemma_eq_generalizer, *this));
     }
