@@ -1573,7 +1573,7 @@ def def_APIs(api_files):
 
 def write_log_h_preamble(log_h):
   log_h.write('// Automatically generated file\n')
-  log_h.write('#include\"z3.h\"\n')
+  log_h.write('#include\"api/z3.h\"\n')
   log_h.write('#ifdef __GNUC__\n')
   log_h.write('#define _Z3_UNUSED __attribute__((unused))\n')
   log_h.write('#else\n')
@@ -1592,14 +1592,14 @@ def write_log_h_preamble(log_h):
 def write_log_c_preamble(log_c):
   log_c.write('// Automatically generated file\n')
   log_c.write('#include<iostream>\n')
-  log_c.write('#include\"z3.h\"\n')
-  log_c.write('#include\"api_log_macros.h\"\n')
-  log_c.write('#include\"z3_logger.h\"\n')
+  log_c.write('#include\"api/z3.h\"\n')
+  log_c.write('#include\"api/api_log_macros.h\"\n')
+  log_c.write('#include\"api/z3_logger.h\"\n')
 
 def write_exe_c_preamble(exe_c):
   exe_c.write('// Automatically generated file\n')
-  exe_c.write('#include\"z3.h\"\n')
-  exe_c.write('#include\"z3_replayer.h\"\n')
+  exe_c.write('#include\"api/z3.h\"\n')
+  exe_c.write('#include\"api/z3_replayer.h\"\n')
   #
   exe_c.write('void Z3_replayer_error_handler(Z3_context ctx, Z3_error_code c) { printf("[REPLAYER ERROR HANDLER]: %s\\n", Z3_get_error_msg(ctx, c)); }\n')
 

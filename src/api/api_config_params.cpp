@@ -18,7 +18,7 @@ Revision History:
 #include "api/z3.h"
 #include "api/api_context.h"
 #include "ast/pp.h"
-#include"api_log_macros.h"
+#include "api/api_log_macros.h"
 #include "api/api_util.h"
 #include "cmd_context/cmd_context.h"
 #include "util/symbol.h"
