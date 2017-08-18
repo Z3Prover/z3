@@ -1828,6 +1828,7 @@ end
 (** Sequences, Strings and Regular Expressions **)
 module Seq : 
 sig
+  (* create a sequence sort *)
   val mk_seq_sort : context -> Sort.sort -> Sort.sort
 
   (* test if sort is a sequence sort *)
