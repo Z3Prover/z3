@@ -239,7 +239,7 @@ namespace smt {
         for (; it != end; ++it) {
             theory_var b = it->get_base_var();
             if (b == null_theory_var) {
-                TRACE("theory_arith_int", display_row(tout << "null: ", *it, true); );
+                TRACE("arith_int", display_row(tout << "null: ", *it, true); );
                 continue;
             }
             bool is_tight = false;
@@ -257,7 +257,7 @@ namespace smt {
                 const_coeff = u->get_value().get_rational();
             }
             if (!is_tight) {
-                TRACE("theory_arith_int", 
+                TRACE("arith_int", 
                       display_row(tout << "!tight: ", *it, true); 
                       display_var(tout, b);
                       );
