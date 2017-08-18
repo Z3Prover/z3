@@ -155,7 +155,7 @@ public:
 
     void fill_evidence(unsigned row);
 
-
+	unsigned get_number_of_non_ints() const;
 
     void solve();
 

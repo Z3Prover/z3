@@ -304,7 +304,7 @@ namespace smt {
             m_solver->settings().simplex_strategy() = static_cast<lp::simplex_strategy_enum>(lp.simplex_strategy());
             reset_variable_values();
             m_solver->settings().bound_propagation() = BP_NONE != propagation_mode();
-            m_solver->set_propagate_bounds_on_pivoted_rows_mode(lp.bprop_on_pivoted_rows());
+            m_solver->set_track_pivoted_rows(lp.bprop_on_pivoted_rows());
             m_solver->settings().m_int_branch_cut_gomory_threshold = ctx().get_fparams().m_arith_branch_cut_ratio;
             m_solver->settings().m_run_gcd_test = ctx().get_fparams().m_arith_gcd_test;
             m_solver->settings().set_random_seed(ctx().get_fparams().m_random_seed);

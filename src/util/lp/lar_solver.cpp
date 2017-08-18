@@ -38,9 +38,14 @@ lar_solver::lar_solver() : m_status(lp_status::OPTIMAL),
                            m_int_solver(nullptr)
 {}
     
-void lar_solver::set_propagate_bounds_on_pivoted_rows_mode(bool v) {
+void lar_solver::set_track_pivoted_rows(bool v) {
     m_mpq_lar_core_solver.m_r_solver.m_pivoted_rows = v? (& m_rows_with_changed_bounds) : nullptr;
 }
+
+bool lar_solver::get_track_pivoted_rows() const {
+    return m_mpq_lar_core_solver.m_r_solver.m_pivoted_rows != nullptr;
+}
+
 
 lar_solver::~lar_solver(){
     for (auto c : m_constraints)

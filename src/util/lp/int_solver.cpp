@@ -418,13 +418,12 @@ unsigned int_solver::row_of_basic_column(unsigned j) const {
 }
 
 lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
-    lp_assert(inf_int_set_is_correct());
 	init_check_data();
     lp_assert(inf_int_set_is_correct());
-    // currently it is a reimplementation of
+    // it is mostly a reimplementation of
     // final_check_status theory_arith<Ext>::check_int_feasibility()
     // from theory_arith_int.h
-	if (!has_inf_int())
+	if (!has_inf_int()) 
 		return lia_move::ok;
     if (settings().m_run_gcd_test)
         if (!gcd_test(ex))
@@ -432,15 +431,18 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
     /*
       if (m_params.m_arith_euclidean_solver)
             apply_euclidean_solver();
-        
     */
+	bool track_pivoted_rows = m_lar_solver->get_track_pivoted_rows();
+    m_lar_solver->set_track_pivoted_rows(false);
     m_lar_solver->pivot_fixed_vars_from_basis();
 	patch_int_infeasible_columns();
 	fix_non_base_columns();
 	TRACE("arith_int_rows", trace_inf_rows(););
     
-    if (!has_inf_int())
+    if (!has_inf_int()) {
+        m_lar_solver->set_track_pivoted_rows(track_pivoted_rows);
         return lia_move::ok;
+    }
     TRACE("gomory_cut", tout << m_branch_cut_counter+1 << ", " << settings().m_int_branch_cut_gomory_threshold << std::endl;);
     if ((++m_branch_cut_counter) % settings().m_int_branch_cut_gomory_threshold == 0) {
         if (move_non_base_vars_to_bounds()) {
@@ -448,6 +450,7 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
             lp_assert(non_basic_columns_are_at_bounds());
             if (st != lp_status::FEASIBLE && st != lp_status::OPTIMAL) {
                 TRACE("arith_int", tout << "give_up\n";);
+                m_lar_solver->set_track_pivoted_rows(track_pivoted_rows);
                 return lia_move::give_up;
             }
         }
@@ -457,9 +460,11 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
         auto iter_on_gomory_row = m_lar_solver->get_iterator_on_row(row_of_basic_column(j));
         lia_move ret = proceed_with_gomory_cut(t, k, ex, j, *iter_on_gomory_row);
         delete iter_on_gomory_row;
+        m_lar_solver->set_track_pivoted_rows(track_pivoted_rows);
         return ret;
     }
 
+    m_lar_solver->set_track_pivoted_rows(track_pivoted_rows);
     return create_branch_on_column(find_inf_int_base_column(), t, k);
 }
 

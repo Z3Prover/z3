@@ -151,8 +151,10 @@ public:
 
     void clear();
     lar_solver();
-    void set_propagate_bounds_on_pivoted_rows_mode(bool v);
+    void set_track_pivoted_rows(bool v);
 
+    bool get_track_pivoted_rows() const;
+    
     virtual ~lar_solver();
 
     unsigned adjust_term_index(unsigned j) const;
