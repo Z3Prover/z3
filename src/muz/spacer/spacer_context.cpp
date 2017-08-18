@@ -715,6 +715,8 @@ lbool pred_transformer::is_reachable(pob& n, expr_ref_vector* core,
     // prepare the solver
     prop_solver::scoped_level _sl(m_solver, n.level());
     prop_solver::scoped_subset_core _sc (m_solver, !n.use_farkas_generalizer ());
+    prop_solver::scoped_weakness _sw(m_solver, 0,
+                                     ctx.weak_abs() ? n.weakness() : UINT_MAX);
     m_solver.set_core(core);
     m_solver.set_model(model);
 
@@ -806,17 +808,20 @@ lbool pred_transformer::is_reachable(pob& n, expr_ref_vector* core,
     return l_undef;
 }
 
-bool pred_transformer::is_invariant(unsigned level, expr* lemma,
+bool pred_transformer::is_invariant(unsigned level, lemma* lem,
                                     unsigned& solver_level, expr_ref_vector* core)
 {
-    expr_ref_vector conj(m), aux(m);
-    expr_ref glemma(m);
+    expr_ref lemma(m);
+    lemma = lem->get_expr();
 
-    if (!get_context().use_qlemmas() && is_quantifier(lemma)) {
-        SASSERT(is_forall(lemma));
+    expr_ref_vector conj(m), aux(m);
+    expr_ref gnd_lemma(m);
+
+
+    if (!get_context().use_qlemmas() && !lem->is_ground()) {
         app_ref_vector tmp(m);
-        ground_expr(to_quantifier(lemma)->get_expr (), glemma, tmp);
-        lemma = glemma.get();
+        ground_expr(to_quantifier(lemma)->get_expr (), gnd_lemma, tmp);
+        lemma = gnd_lemma.get();
     }
 
     conj.push_back(mk_not(m, lemma));
@@ -824,6 +829,8 @@ bool pred_transformer::is_invariant(unsigned level, expr* lemma,
 
     prop_solver::scoped_level _sl(m_solver, level);
     prop_solver::scoped_subset_core _sc (m_solver, true);
+    prop_solver::scoped_weakness _sw (m_solver, 1,
+                                      ctx.weak_abs() ? lem->weakness() : UINT_MAX);
     m_solver.set_core(core);
     m_solver.set_model(nullptr);
     expr * bg = m_extend_lit.get ();
@@ -839,7 +846,7 @@ bool pred_transformer::is_invariant(unsigned level, expr* lemma,
 }
 
 bool pred_transformer::check_inductive(unsigned level, expr_ref_vector& state,
-                                       unsigned& uses_level)
+                                       unsigned& uses_level, unsigned weakness)
 {
     manager& pm = get_manager();
     expr_ref_vector conj(m), core(m);
@@ -848,6 +855,8 @@ bool pred_transformer::check_inductive(unsigned level, expr_ref_vector& state,
     mk_assumptions(head(), states, conj);
     prop_solver::scoped_level _sl(m_solver, level);
     prop_solver::scoped_subset_core _sc (m_solver, true);
+    prop_solver::scoped_weakness _sw (m_solver, 1,
+                                      ctx.weak_abs() ? weakness : UINT_MAX);
     m_solver.set_core(&core);
     m_solver.set_model (nullptr);
     expr_ref_vector aux (m);
@@ -1412,10 +1421,9 @@ bool pred_transformer::frames::propagate_to_next_level (unsigned level)
 
 
         unsigned solver_level;
-        expr * curr = m_lemmas [i]->get_expr ();
-        if (m_pt.is_invariant(tgt_level, curr, solver_level)) {
+        if (m_pt.is_invariant(tgt_level, m_lemmas.get(i), solver_level)) {
             m_lemmas [i]->set_level (solver_level);
-            m_pt.add_lemma_core (m_lemmas [i]);
+            m_pt.add_lemma_core (m_lemmas.get(i));
 
             // percolate the lemma up to its new place
             for (unsigned j = i; (j+1) < sz && m_lt (m_lemmas[j+1], m_lemmas[j]); ++j) {
@@ -2968,12 +2976,6 @@ lbool context::expand_node(pob& n)
         STRACE("spacer.expand-add",
                tout << "This pob can be blocked by instantiation\n";);
     }
-
-    smt_params &fparams = m_pm.fparams();
-    flet<bool> _arith_ignore_int_(fparams.m_arith_ignore_int,
-                                  m_weak_abs && n.weakness() < 1);
-    flet<bool> _array_weak_(fparams.m_array_weak,
-                            m_weak_abs && n.weakness() < 2);
 
     lbool res = n.pt ().is_reachable (n, &cube, &model, uses_level, is_concrete, r,
                                       reach_pred_used, num_reuse_reach);

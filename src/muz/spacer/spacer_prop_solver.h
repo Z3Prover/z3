@@ -136,7 +136,22 @@ public:
         ~scoped_delta_level() {m_delta = false;}
     };
 
+    class scoped_weakness {
 
+        smt_params &m_params;
+        bool m_arith_ignore_int;
+        bool m_array_weak;
+    public:
+        scoped_weakness(prop_solver &ps, unsigned solver_id, unsigned weakness) :
+            m_params(*ps.m_fparams[solver_id == 0 ? 0 : 0 /*1*/]) {
+            m_params.m_arith_ignore_int = weakness < 1;
+            m_params.m_array_weak = weakness < 2;
+        }
+        ~scoped_weakness() {
+            m_params.m_arith_ignore_int = m_arith_ignore_int;
+            m_params.m_array_weak = m_array_weak;
+        }
+    };
 };
 }
 

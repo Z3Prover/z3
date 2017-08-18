@@ -131,6 +131,7 @@ public:
 
     bool has_pob() {return m_pob;}
     pob_ref &get_pob() {return m_pob;}
+    inline unsigned weakness();
 
     unsigned level () const {return m_lvl;}
     void set_level (unsigned lvl) {m_lvl = lvl;}
@@ -399,10 +400,15 @@ public:
                        datalog::rule const*& r,
                        vector<bool>& reach_pred_used,
                        unsigned& num_reuse_reach);
-    bool is_invariant(unsigned level, expr* lemma,
+    bool is_invariant(unsigned level, lemma* lem,
                       unsigned& solver_level, expr_ref_vector* core = nullptr);
+
+    bool is_invariant(unsigned level, expr* lem,
+                      unsigned& solver_level, expr_ref_vector* core = nullptr)
+        { UNREACHABLE();}
+
     bool check_inductive(unsigned level, expr_ref_vector& state,
-                         unsigned& assumes_level);
+                         unsigned& assumes_level, unsigned weakness = UINT_MAX);
 
     expr_ref get_formulas(unsigned level, bool add_axioms);
 
@@ -549,7 +555,7 @@ struct pob_ref_gt :
         {return gt (n1.get (), n2.get ());}
 };
 
-
+inline unsigned lemma::weakness() {return m_pob ? m_pob->weakness() : UINT_MAX;}
 /**
  */
 class derivation {
@@ -774,6 +780,7 @@ public:
     bool use_native_mbp () {return m_use_native_mbp;}
     bool use_ground_cti () {return m_ground_cti;}
     bool use_instantiate () { return m_instantiate; }
+    bool weak_abs() {return m_weak_abs;}
     bool use_qlemmas () {return m_use_qlemmas; }
 
     ast_manager&      get_ast_manager() const { return m; }

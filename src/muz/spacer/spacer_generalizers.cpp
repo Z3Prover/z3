@@ -33,7 +33,8 @@ void lemma_sanity_checker::operator()(lemma_ref &lemma) {
     expr_ref_vector cube(lemma->get_ast_manager());
     cube.append(lemma->get_cube());
     ENSURE(lemma->get_pob()->pt().check_inductive(lemma->level(),
-                                                  cube, uses_level));
+                                                  cube, uses_level,
+                                                  lemma->weakness()));
 }
 
 
@@ -58,6 +59,8 @@ void lemma_bool_inductive_generalizer::operator()(lemma_ref &lemma) {
     ptr_vector<expr> processed;
     expr_ref_vector extra_lits(m);
 
+    unsigned weakness = lemma->weakness();
+
     unsigned i = 0, num_failures = 0;
     while (i < cube.size() &&
            (!m_failure_limit || num_failures < m_failure_limit)) {
@@ -65,7 +68,7 @@ void lemma_bool_inductive_generalizer::operator()(lemma_ref &lemma) {
         lit = cube.get(i);
         cube[i] = true_expr;
         if (cube.size() > 1 &&
-            pt.check_inductive(lemma->level(), cube, uses_level)) {
+            pt.check_inductive(lemma->level(), cube, uses_level, weakness)) {
             num_failures = 0;
             dirty = true;
             for (i = 0; i < cube.size() &&
@@ -82,7 +85,7 @@ void lemma_bool_inductive_generalizer::operator()(lemma_ref &lemma) {
                 SASSERT(extra_lits.size() > 1);
                 for (unsigned j = 0, sz = extra_lits.size(); !found && j < sz; ++j) {
                     cube[i] = extra_lits.get(j);
-                    if (pt.check_inductive(lemma->level(), cube, uses_level)) {
+                    if (pt.check_inductive(lemma->level(), cube, uses_level, weakness)) {
                         num_failures = 0;
                         dirty = true;
                         found = true;
@@ -185,6 +188,8 @@ void lemma_array_eq_generalizer::operator() (lemma_ref &lemma)
     manager &pm = m_ctx.get_manager();
     (void)pm;
 
+    unsigned weakness = lemma->weakness();
+
     expr_ref_vector core(m);
     expr_ref v(m);
     func_decl_set symb;
@@ -264,7 +269,7 @@ void lemma_array_eq_generalizer::operator() (lemma_ref &lemma)
     pred_transformer &pt = lemma->get_pob()->pt();
     // -- check if it is consistent with the transition relation
     unsigned uses_level1;
-    if (pt.check_inductive(lemma->level(), lits, uses_level1)) {
+    if (pt.check_inductive(lemma->level(), lits, uses_level1, weakness)) {
         TRACE("core_array_eq", tout << "Inductive!\n";);
         lemma->update_cube(lemma->get_pob(),lits);
         lemma->set_level(uses_level1);
