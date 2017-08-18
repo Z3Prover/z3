@@ -63,10 +63,7 @@ class array_map {
     }
 
     void really_flush() {
-        typename vector<optional<entry> >::iterator it  = m_map.begin();
-        typename vector<optional<entry> >::iterator end = m_map.end();
-        for (; it != end; ++it) {
-            optional<entry> & e = *it;
+        for (optional<entry> & e : m_map) {
             if (e) {
                 m_plugin.del_eh(e->m_key, e->m_data);
                 e.set_invalid();

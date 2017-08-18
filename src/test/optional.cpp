@@ -18,6 +18,7 @@ Revision History:
 --*/
 #include "util/trace.h"
 #include "util/debug.h"
+#include "util/memory_manager.h"
 #include "util/optional.h"
 
 static void tst1() {
