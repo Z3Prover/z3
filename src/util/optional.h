@@ -21,7 +21,7 @@ Revision History:
 #ifndef OPTIONAL_H_
 #define OPTIONAL_H_
 
-template<typename T>
+template<class T>
 class optional {
     T* m_obj;
     char m_initialized;

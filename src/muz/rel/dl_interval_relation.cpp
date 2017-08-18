@@ -18,7 +18,6 @@ Revision History:
 --*/
 
 #include "util/debug.h"
-#include "util/optional.h"
 #include "ast/ast_pp.h"
 #include "muz/rel/dl_interval_relation.h"
 #include "muz/rel/dl_relation_manager.h"
