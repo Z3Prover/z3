@@ -6223,7 +6223,8 @@ namespace smt {
                     TRACE("str", tout << "string transition " << last << "--" << str[(str.length() - 1)] << "--> " << end << "\n";);
                 }
             } else { // ! u.str.is_string(arg_str, str)
-                TRACE("str", tout << "invalid string constant in Str2Reg" << std::endl;);
+                TRACE("str", tout << "WARNING: invalid string constant in str.to.re! Cancelling." << std::endl;);
+                u.get_manager().raise_exception("invalid term in str.to.re, argument must be a string constant");
                 m_valid = false;
                 return;
             }
