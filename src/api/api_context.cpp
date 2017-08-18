@@ -142,7 +142,7 @@ namespace api {
         #pragma omp critical (set_interruptable)
         {
             if (m_interruptable)
-                (*m_interruptable)();
+                (*m_interruptable)(API_INTERRUPT_EH_CALLER);
             m_limit.cancel();
             m().limit().cancel();
         }

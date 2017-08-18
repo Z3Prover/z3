@@ -296,9 +296,13 @@ extern "C" {
                 result = to_solver_ref(s)->check_sat(num_assumptions, _assumptions);
             }
             catch (z3_exception & ex) {
+                to_solver_ref(s)->set_reason_unknown(eh);
                 mk_c(c)->handle_exception(ex);
                 return Z3_L_UNDEF;
             }
+        }
+        if (result == l_undef) {
+            to_solver_ref(s)->set_reason_unknown(eh);
         }
         return static_cast<Z3_lbool>(result);
     }
@@ -466,9 +470,13 @@ extern "C" {
                 result = to_solver_ref(s)->get_consequences(_assumptions, _variables, _consequences);
             }
             catch (z3_exception & ex) {
+                to_solver_ref(s)->set_reason_unknown(eh);
                 mk_c(c)->handle_exception(ex);
                 return Z3_L_UNDEF;
             }
+        }
+        if (result == l_undef) {
+            to_solver_ref(s)->set_reason_unknown(eh);
         }
         for (unsigned i = 0; i < _consequences.size(); ++i) {
             to_ast_vector_ref(consequences).push_back(_consequences[i].get());

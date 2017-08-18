@@ -85,7 +85,7 @@ struct scoped_timer::imp {
             obj->m_first = false;
         }
         else {
-            obj->m_eh->operator()();
+            obj->m_eh->operator()(TIMEOUT_EH_CALLER);
         }
     }
 #elif defined(__APPLE__) && defined(__MACH__)

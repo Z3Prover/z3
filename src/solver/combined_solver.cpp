@@ -89,8 +89,8 @@ private:
                 m_solver->get_manager().limit().dec_cancel();
             }
         }
-        virtual void operator()() {
-            m_canceled = true;
+        virtual void operator()(event_handler_caller_t caller_id) {
+            m_canceled = true;            
             m_solver->get_manager().limit().inc_cancel();
         }
     };
