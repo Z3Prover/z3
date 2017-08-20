@@ -84,6 +84,7 @@ public:
     // Primitives for building models
     //
     void register_aux_decl(func_decl * f, func_interp * fi);
+    void register_aux_decl(func_decl * f);
     void reregister_decl(func_decl * f, func_interp * new_fi, func_decl * f_aux);
     void compress();
     void cleanup();

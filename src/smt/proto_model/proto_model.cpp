@@ -42,6 +42,11 @@ proto_model::proto_model(ast_manager & m, params_ref const & p):
 
 void proto_model::register_aux_decl(func_decl * d, func_interp * fi) {
     model_core::register_decl(d, fi);
+    TRACE("cleanup_bug", tout << "register " << d->get_name() << "\n";);
+    m_aux_decls.insert(d);
+}
+
+void proto_model::register_aux_decl(func_decl * d) {
     m_aux_decls.insert(d);
 }
 
@@ -220,31 +225,29 @@ void proto_model::remove_aux_decls_not_in_set(ptr_vector<func_decl> & decls, fun
 */
 void proto_model::cleanup() {
     func_decl_set found_aux_fs;
-    decl2finterp::iterator it  = m_finterp.begin();
-    decl2finterp::iterator end = m_finterp.end();
-    for (; it != end; ++it) {
-        func_interp * fi = (*it).m_value;
+    for (auto const& kv : m_finterp) {
+        func_interp * fi = kv.m_value;
         cleanup_func_interp(fi, found_aux_fs);
     }
 
+    TRACE("cleanup_bug", 
+        for (func_decl* faux : m_aux_decls) {
+            tout << faux->get_name() << "\n";
+        });
     // remove auxiliary declarations that are not used.
     if (found_aux_fs.size() != m_aux_decls.size()) {
         remove_aux_decls_not_in_set(m_decls, found_aux_fs);
         remove_aux_decls_not_in_set(m_func_decls, found_aux_fs);
 
-        func_decl_set::iterator it2  = m_aux_decls.begin();
-        func_decl_set::iterator end2 = m_aux_decls.end();
-        for (; it2 != end2; ++it2) {
-            func_decl * faux = *it2;
+        for (func_decl* faux : m_aux_decls) {
             if (!found_aux_fs.contains(faux)) {
                 TRACE("cleanup_bug", tout << "eliminating " << faux->get_name() << "\n";);
-                func_interp * fi = 0;
-                m_finterp.find(faux, fi);
-                SASSERT(fi != 0);
-                m_finterp.erase(faux);
-                m_manager.dec_ref(faux);
-                dealloc(fi);
+                unregister_decl(faux);
             }
+            else {
+                TRACE("cleanup_bug", tout << "not eliminating " << faux->get_name() << "\n";);
+            }
+
         }
         m_aux_decls.swap(found_aux_fs);
     }
@@ -270,10 +273,8 @@ ptr_vector<expr> const & proto_model::get_universe(sort * s) const {
     ptr_vector<expr> & tmp = const_cast<proto_model*>(this)->m_tmp;
     tmp.reset();
     obj_hashtable<expr> const & u = get_known_universe(s);
-    obj_hashtable<expr>::iterator it = u.begin();
-    obj_hashtable<expr>::iterator end = u.end();
-    for (; it != end; ++it)
-        tmp.push_back(*it);
+    for (expr * e : u) 
+        tmp.push_back(e);
     return tmp;
 }
 
@@ -356,10 +357,7 @@ bool proto_model::is_as_array(expr * v) const {
 }
 
 void proto_model::compress() {
-    ptr_vector<func_decl>::iterator it  = m_func_decls.begin();
-    ptr_vector<func_decl>::iterator end = m_func_decls.end();
-    for (; it != end; ++it) {
-        func_decl * f = *it;
+    for (func_decl* f : m_func_decls) {
         func_interp * fi = get_func_interp(f);
         SASSERT(fi != 0);
         fi->compress();
@@ -412,17 +410,13 @@ model * proto_model::mk_model() {
     TRACE("proto_model", tout << "mk_model\n"; model_v2_pp(tout, *this););
     model * m = alloc(model, m_manager);
 
-    decl2expr::iterator it1  = m_interp.begin();
-    decl2expr::iterator end1 = m_interp.end();
-    for (; it1 != end1; ++it1) {
-        m->register_decl(it1->m_key, it1->m_value);
+    for (auto const& kv : m_interp) {
+        m->register_decl(kv.m_key, kv.m_value);
     }
 
-    decl2finterp::iterator it2  = m_finterp.begin();
-    decl2finterp::iterator end2 = m_finterp.end();
-    for (; it2 != end2; ++it2) {
-        m->register_decl(it2->m_key, it2->m_value);
-        m_manager.dec_ref(it2->m_key);
+    for (auto const& kv : m_finterp) {
+        m->register_decl(kv.m_key, kv.m_value);
+        m_manager.dec_ref(kv.m_key);
     }
 
     m_finterp.reset(); // m took the ownership of the func_interp's

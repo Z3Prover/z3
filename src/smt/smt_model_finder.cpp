@@ -628,18 +628,14 @@ namespace smt {
                 ptr_vector<expr> const & exceptions   = n->get_exceptions();
                 ptr_vector<node> const & avoid_set    = n->get_avoid_set();
                 
-                ptr_vector<expr>::const_iterator it1  = exceptions.begin();
-                ptr_vector<expr>::const_iterator end1 = exceptions.end();
-                for (; it1 != end1; ++it1) {
-                    expr * val = eval(*it1, true);
+                for (expr* e : exceptions) {
+                    expr * val = eval(e, true);
                     SASSERT(val != 0);
                     r.push_back(val);
                 }
                 
-                ptr_vector<node>::const_iterator it2  = avoid_set.begin();
-                ptr_vector<node>::const_iterator end2 = avoid_set.end();
-                for (; it2 != end2; ++it2) {
-                    node * n = (*it2)->get_root();
+                for (node* a : avoid_set) {
+                    node * n = a->get_root();
                     if (!n->is_mono_proj() && n->get_else() != 0) {
                         expr * val = eval(n->get_else(), true);
                         SASSERT(val != 0);
@@ -661,11 +657,9 @@ namespace smt {
 
                 expr *    t_result   = 0;
                 unsigned  gen_result = UINT_MAX; 
-                obj_map<expr, unsigned>::iterator it1  = elems.begin();
-                obj_map<expr, unsigned>::iterator end1 = elems.end();
-                for (; it1 != end1; ++it1) {
-                    expr *     t = (*it1).m_key;
-                    unsigned gen = (*it1).m_value;
+                for (auto const& kv : elems) {
+                    expr *     t = kv.m_key;
+                    unsigned gen = kv.m_value;
                     expr * t_val = eval(t, true);
                     SASSERT(t_val != 0);
                     ptr_buffer<expr>::const_iterator it2  = ex_vals.begin();
@@ -699,6 +693,7 @@ namespace smt {
                 if (m_sort2k.find(s, r))
                     return r;
                 r = m_manager.mk_fresh_const("k", s);
+                m_model->register_aux_decl(r->get_decl());
                 m_sort2k.insert(s, r);
                 m_ks.push_back(r);
                 return r;

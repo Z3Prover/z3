@@ -89,10 +89,7 @@ namespace smt {
     void model_checker::restrict_to_universe(expr * sk, obj_hashtable<expr> const & universe) {
         SASSERT(!universe.empty());
         ptr_buffer<expr> eqs;
-        obj_hashtable<expr>::iterator it  = universe.begin();
-        obj_hashtable<expr>::iterator end = universe.end();
-        for (; it != end; ++it) {
-            expr * e = *it;
+        for (expr * e : universe) {
             eqs.push_back(m.mk_eq(sk, e));
         }
         expr_ref fml(m.mk_or(eqs.size(), eqs.c_ptr()), m);

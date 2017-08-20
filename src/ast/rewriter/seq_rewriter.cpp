@@ -864,11 +864,11 @@ br_status seq_rewriter::mk_seq_prefix(expr* a, expr* b, expr_ref& result) {
     expr_ref_vector as(m()), bs(m());
 
     if (a1 != b1 && isc1 && isc2) {
-        TRACE("seq", tout << s1 << " " << s2 << "\n";);
         if (s1.length() <= s2.length()) {
             if (s1.prefixof(s2)) {
                 if (a == a1) {
                     result = m().mk_true();
+                    TRACE("seq", tout << s1 << " " << s2 << " " << result << "\n";);
                     return BR_DONE;
                 }               
                 m_util.str.get_concat(a, as);
@@ -878,10 +878,12 @@ br_status seq_rewriter::mk_seq_prefix(expr* a, expr* b, expr_ref& result) {
                 bs[0] = m_util.str.mk_string(s2);
                 result = m_util.str.mk_prefix(m_util.str.mk_concat(as.size()-1, as.c_ptr()+1),
                                               m_util.str.mk_concat(bs.size(), bs.c_ptr()));
+                TRACE("seq", tout << s1 << " " << s2 << " " << result << "\n";);
                 return BR_REWRITE_FULL;
             }
             else {
                 result = m().mk_false();
+                TRACE("seq", tout << s1 << " " << s2 << " " << result << "\n";);
                 return BR_DONE;
             }
         }
@@ -889,6 +891,7 @@ br_status seq_rewriter::mk_seq_prefix(expr* a, expr* b, expr_ref& result) {
             if (s2.prefixof(s1)) {
                 if (b == b1) {
                     result = m().mk_false();
+                    TRACE("seq", tout << s1 << " " << s2 << " " << result << "\n";);
                     return BR_DONE;
                 }
                 m_util.str.get_concat(a, as);
@@ -898,10 +901,12 @@ br_status seq_rewriter::mk_seq_prefix(expr* a, expr* b, expr_ref& result) {
                 as[0] = m_util.str.mk_string(s1);
                 result = m_util.str.mk_prefix(m_util.str.mk_concat(as.size(), as.c_ptr()),
                                      m_util.str.mk_concat(bs.size()-1, bs.c_ptr()+1));
+                TRACE("seq", tout << s1 << " " << s2 << " " << result << "\n";);
                 return BR_REWRITE_FULL;                
             }
             else {
                 result = m().mk_false();
+                TRACE("seq", tout << s1 << " " << s2 << " " << result << "\n";);
                 return BR_DONE;
             }
         }        
@@ -930,9 +935,6 @@ br_status seq_rewriter::mk_seq_prefix(expr* a, expr* b, expr_ref& result) {
     if (i == as.size()) {
         result = mk_and(eqs);
         TRACE("seq", tout << result << "\n";);
-        if (m().is_true(result)) {
-            return BR_DONE;
-        }
         return BR_REWRITE3;
     }
     SASSERT(i < as.size());
