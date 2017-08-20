@@ -397,25 +397,38 @@ int int_solver::find_free_var_in_gomory_row(linear_combination_iterator<mpq>& it
     return -1;
 }
 
-lia_move int_solver::proceed_with_gomory_cut(lar_term& t, mpq& k, explanation& ex, unsigned j,                                                  linear_combination_iterator<mpq>& iter) {
-    int free_j = find_free_var_in_gomory_row(iter);
+lia_move int_solver::proceed_with_gomory_cut(lar_term& t, mpq& k, explanation& ex, unsigned j) {
+    lia_move ret;
+    linear_combination_iterator<mpq>* iter = m_lar_solver->get_iterator_on_row(row_of_basic_column(j));
+    int free_j = find_free_var_in_gomory_row(*iter);
     if (free_j != -1) {
-        lp_assert(t.is_empty());
-        t.add_monomial(mpq(1), m_lar_solver->adjust_column_index_to_term_index(free_j));
-        k = zero_of_type<mpq>();
-        return lia_move::branch; // branch on a free column
+        ret = create_branch_on_column(j, t, k, true);
+    } else if (!is_gomory_cut_target(*iter)) {
+        ret = create_branch_on_column(j, t, k, false);
+    } else {
+        ret = mk_gomory_cut(t, k, ex, j, *iter);
     }
-
-    if (!is_gomory_cut_target(iter))
-        return create_branch_on_column(j, t, k);
-    
-    return mk_gomory_cut(t, k, ex, j, iter);
- }
+    delete iter;
+    return ret;
+}
 
 
 unsigned int_solver::row_of_basic_column(unsigned j) const {
     return m_lar_solver->m_mpq_lar_core_solver.m_r_heading[j];
 }
+
+// this will allow to disable and restore tracking of the pivot rows
+struct pivoted_rows_tracking_control {
+    lar_solver * m_lar_solver;
+    bool m_track_pivoted_rows;
+    pivoted_rows_tracking_control(lar_solver* ls) :
+        m_lar_solver(ls),
+        m_track_pivoted_rows(ls->get_track_pivoted_rows())
+    {}
+    ~pivoted_rows_tracking_control() {
+        m_lar_solver->set_track_pivoted_rows(m_track_pivoted_rows);
+    }
+};
 
 lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
 	init_check_data();
@@ -428,21 +441,12 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
     if (settings().m_run_gcd_test)
         if (!gcd_test(ex))
             return lia_move::conflict;
-    /*
-      if (m_params.m_arith_euclidean_solver)
-            apply_euclidean_solver();
-    */
-	bool track_pivoted_rows = m_lar_solver->get_track_pivoted_rows();
-    m_lar_solver->set_track_pivoted_rows(false);
+    pivoted_rows_tracking_control pc(m_lar_solver);
+    /* if (m_params.m_arith_euclidean_solver) apply_euclidean_solver();  */
     m_lar_solver->pivot_fixed_vars_from_basis();
 	patch_int_infeasible_columns();
 	fix_non_base_columns();
-	TRACE("arith_int_rows", trace_inf_rows(););
-    
-    if (!has_inf_int()) {
-        m_lar_solver->set_track_pivoted_rows(track_pivoted_rows);
-        return lia_move::ok;
-    }
+    if (!has_inf_int()) return lia_move::ok;
     TRACE("gomory_cut", tout << m_branch_cut_counter+1 << ", " << settings().m_int_branch_cut_gomory_threshold << std::endl;);
     if ((++m_branch_cut_counter) % settings().m_int_branch_cut_gomory_threshold == 0) {
         if (move_non_base_vars_to_bounds()) {
@@ -450,22 +454,15 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
             lp_assert(non_basic_columns_are_at_bounds());
             if (st != lp_status::FEASIBLE && st != lp_status::OPTIMAL) {
                 TRACE("arith_int", tout << "give_up\n";);
-                m_lar_solver->set_track_pivoted_rows(track_pivoted_rows);
                 return lia_move::give_up;
             }
         }
         int j = find_inf_int_base_column();
         lp_assert(j != -1);
         TRACE("arith_int", tout << "j = " << j << " does not have an integer assignment: " << get_value(j) << "\n";);
-        auto iter_on_gomory_row = m_lar_solver->get_iterator_on_row(row_of_basic_column(j));
-        lia_move ret = proceed_with_gomory_cut(t, k, ex, j, *iter_on_gomory_row);
-        delete iter_on_gomory_row;
-        m_lar_solver->set_track_pivoted_rows(track_pivoted_rows);
-        return ret;
+        return proceed_with_gomory_cut(t, k, ex, j);
     }
-
-    m_lar_solver->set_track_pivoted_rows(track_pivoted_rows);
-    return create_branch_on_column(find_inf_int_base_column(), t, k);
+    return create_branch_on_column(find_inf_int_base_column(), t, k, false);
 }
 
 bool int_solver::move_non_base_vars_to_bounds() {
@@ -1072,17 +1069,15 @@ const impq& int_solver::low_bound(unsigned j) const {
     return m_lar_solver->column_low_bound(j);
 }
 
-lia_move int_solver::create_branch_on_column(int j, lar_term& t, mpq& k) const {
+lia_move int_solver::create_branch_on_column(int j, lar_term& t, mpq& k, bool free_column) const {
     lp_assert(t.is_empty());
     lp_assert(j != -1);
-    t.add_monomial(mpq(1), j);
-    k = floor(get_value(j));
+    t.add_monomial(mpq(1), m_lar_solver->adjust_column_index_to_term_index(j));
+    k = free_column? mpq(0) : floor(get_value(j));
     TRACE("arith_int", tout << "branching v" << j << " = " << get_value(j) << "\n";
           display_column(tout, j);
           tout << "k = " << k << std::endl;
           );
-    lp_assert(current_solution_is_inf_on_cut(t, k));
-    m_lar_solver->subs_term_columns(t);
     return lia_move::branch;
 
 }

@@ -43,6 +43,7 @@ public:
     // main function to check that solution provided by lar_solver is valid for integral values,
     // or provide a way of how it can be adjusted.
     lia_move check(lar_term& t, mpq& k, explanation& ex);
+    lia_move check_wrapper(lar_term& t, mpq& k, explanation& ex);
 private:
 
     // how to tighten bounds for integer variables.
@@ -108,7 +109,7 @@ private:
     void adjust_term_and_k_for_some_ints_case_gomory(lar_term& t, mpq& k, mpq& lcm_den);
 	void init_check_data();
     bool constrain_free_vars(linear_combination_iterator<mpq> *  r);
-    lia_move proceed_with_gomory_cut(lar_term& t, mpq& k, explanation& ex, unsigned j,                                                  linear_combination_iterator<mpq>& iter);
+    lia_move proceed_with_gomory_cut(lar_term& t, mpq& k, explanation& ex, unsigned j);
     int find_free_var_in_gomory_row(linear_combination_iterator<mpq>& iter);
     bool is_gomory_cut_target(linear_combination_iterator<mpq> &iter);
     bool at_bound(unsigned j) const;
@@ -139,6 +140,6 @@ private:
     unsigned random();
     bool non_basic_columns_are_at_bounds() const;
     bool has_inf_int() const;
-    lia_move create_branch_on_column(int j, lar_term& t, mpq& k) const;
+    lia_move create_branch_on_column(int j, lar_term& t, mpq& k, bool free_column) const;
 };
 }
