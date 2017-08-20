@@ -1683,6 +1683,8 @@ namespace smt {
             u.str.is_string(range1, range1val);
             u.str.is_string(range2, range2val);
             return zstring("[") + range1val + zstring("-") + range2val + zstring("]");
+        } else if (u.re.is_full(a_regex)) {
+            return zstring("(.*)");
         } else {
             TRACE("str", tout << "BUG: unrecognized regex term " << mk_pp(regex, get_manager()) << std::endl;);
             UNREACHABLE(); return zstring("");
@@ -1712,6 +1714,12 @@ namespace smt {
 
         expr_ref str(ex->get_arg(0), m);
         app * regex = to_app(ex->get_arg(1));
+
+        // quick reference for the following code:
+        //  - ex: top-level regex membership term
+        //  - str: string term appearing in ex
+        //  - regex: regex term appearing in ex
+        //  ex ::= (str.in.re str regex)
 
         if (u.re.is_to_re(regex)) {
             expr_ref rxStr(regex->get_arg(0), m);
@@ -1792,6 +1800,9 @@ namespace smt {
             expr_ref finalAxiom(m.mk_iff(ex, rhs), m);
             SASSERT(finalAxiom);
             assert_axiom(finalAxiom);
+        } else if (u.re.is_full(regex)) {
+            // trivially true for any string!
+            assert_axiom(ex);
         } else {
             TRACE("str", tout << "ERROR: unknown regex expression " << mk_pp(regex, m) << "!" << std::endl;);
             NOT_IMPLEMENTED_YET();
@@ -6192,24 +6203,31 @@ namespace smt {
             expr * arg_str = a->get_arg(0);
             zstring str;
             if (u.str.is_string(arg_str, str)) {
-                TRACE("str", tout << "build NFA for '" << str << "'" << "\n";);
-                /*
-                 * For an n-character string, we make (n-1) intermediate states,
-                 * labelled i_(0) through i_(n-2).
-                 * Then we construct the following transitions:
-                 * start --str[0]--> i_(0) --str[1]--> i_(1) --...--> i_(n-2) --str[n-1]--> final
-                 */
-                unsigned last = start;
-                for (int i = 0; i <= ((int)str.length()) - 2; ++i) {
-                    unsigned i_state = next_id();
-                    make_transition(last, str[i], i_state);
-                    TRACE("str", tout << "string transition " << last << "--" << str[i] << "--> " << i_state << "\n";);
-                    last = i_state;
+                if (str.length() == 0) {
+                    // transitioning on the empty string is handled specially
+                    TRACE("str", tout << "empty string epsilon-move " << start << " --> " << end << std::endl;);
+                    make_epsilon_move(start, end);
+                } else {
+                    TRACE("str", tout << "build NFA for '" << str << "'" << "\n";);
+                    /*
+                     * For an n-character string, we make (n-1) intermediate states,
+                     * labelled i_(0) through i_(n-2).
+                     * Then we construct the following transitions:
+                     * start --str[0]--> i_(0) --str[1]--> i_(1) --...--> i_(n-2) --str[n-1]--> final
+                     */
+                    unsigned last = start;
+                    for (int i = 0; i <= ((int)str.length()) - 2; ++i) {
+                        unsigned i_state = next_id();
+                        make_transition(last, str[i], i_state);
+                        TRACE("str", tout << "string transition " << last << "--" << str[i] << "--> " << i_state << "\n";);
+                        last = i_state;
+                    }
+                    make_transition(last, str[(str.length() - 1)], end);
+                    TRACE("str", tout << "string transition " << last << "--" << str[(str.length() - 1)] << "--> " << end << "\n";);
                 }
-                make_transition(last, str[(str.length() - 1)], end);
-                TRACE("str", tout << "string transition " << last << "--" << str[(str.length() - 1)] << "--> " << end << "\n";);
-            } else {
-                TRACE("str", tout << "invalid string constant in Str2Reg" << std::endl;);
+            } else { // ! u.str.is_string(arg_str, str)
+                TRACE("str", tout << "WARNING: invalid string constant in str.to.re! Cancelling." << std::endl;);
+                u.get_manager().raise_exception("invalid term in str.to.re, argument must be a string constant");
                 m_valid = false;
                 return;
             }
@@ -6281,6 +6299,19 @@ namespace smt {
             }
 
             TRACE("str", tout << "range NFA: start = " << start << ", end = " << end << std::endl;);
+        } else if (u.re.is_full(e)) {
+            // effectively the same as .* where . can be any single character
+            // start --e--> tmp
+            // tmp --e--> end
+            // tmp --C--> tmp for every character C
+            unsigned tmp = next_id();
+            make_epsilon_move(start, tmp);
+            make_epsilon_move(tmp, end);
+            for (unsigned int i = 0; i < 256; ++i) {
+                char ch = (char)i;
+                make_transition(tmp, ch, tmp);
+            }
+            TRACE("str", tout << "re.all NFA: start = " << start << ", end = " << end << std::endl;);
         } else {
             TRACE("str", tout << "invalid regular expression" << std::endl;);
             m_valid = false;
