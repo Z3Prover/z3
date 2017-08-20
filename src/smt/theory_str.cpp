@@ -166,18 +166,14 @@ namespace smt {
         }
     }
 
-    void theory_str::assert_axiom(expr * _e) {
+    void theory_str::assert_axiom(expr * e) {
         if (opt_VerifyFinalCheckProgress) {
             finalCheckProgressIndicator = true;
         }
 
-        if (get_manager().is_true(_e)) return;
+        if (get_manager().is_true(e)) return;
+        TRACE("str", tout << "asserting " << mk_ismt2_pp(e, get_manager()) << std::endl;);
         context & ctx = get_context();
-        ast_manager& m = get_manager();
-        TRACE("str", tout << "asserting " << mk_ismt2_pp(_e, m) << std::endl;);
-        expr_ref e(_e, m);
-        th_rewriter rw(m);
-        rw(e);
         if (!ctx.b_internalized(e)) {
             ctx.internalize(e, false);
         }
@@ -189,6 +185,7 @@ namespace smt {
         m_trail.push_back(e);
 
         //TRACE("str", tout << "done asserting " << mk_ismt2_pp(e, get_manager()) << std::endl;);
+
     }
 
     expr * theory_str::rewrite_implication(expr * premise, expr * conclusion) {
@@ -1423,6 +1420,104 @@ namespace smt {
     void theory_str::instantiate_axiom_Substr(enode * e) {
         context & ctx = get_context();
         ast_manager & m = get_manager();
+
+        app * expr = e->get_owner();
+        if (axiomatized_terms.contains(expr)) {
+            TRACE("str", tout << "already set up Substr axiom for " << mk_pp(expr, m) << std::endl;);
+            return;
+        }
+        axiomatized_terms.insert(expr);
+
+        TRACE("str", tout << "instantiate Substr axiom for " << mk_pp(expr, m) << std::endl;);
+
+        expr_ref substrBase(expr->get_arg(0), m);
+        expr_ref substrPos(expr->get_arg(1), m);
+        expr_ref substrLen(expr->get_arg(2), m);
+        SASSERT(substrBase);
+        SASSERT(substrPos);
+        SASSERT(substrLen);
+
+        expr_ref zero(m_autil.mk_numeral(rational::zero(), true), m);
+        expr_ref minusOne(m_autil.mk_numeral(rational::minus_one(), true), m);
+        SASSERT(zero);
+        SASSERT(minusOne);
+
+        expr_ref_vector argumentsValid_terms(m);
+        // pos >= 0
+        argumentsValid_terms.push_back(m_autil.mk_ge(substrPos, zero));
+        // pos < strlen(base)
+        // --> pos + -1*strlen(base) < 0
+        argumentsValid_terms.push_back(m.mk_not(m_autil.mk_ge(
+                                                    m_autil.mk_add(substrPos, m_autil.mk_mul(minusOne, substrLen)),
+                                                    zero)));
+
+        // len >= 0
+        argumentsValid_terms.push_back(m_autil.mk_ge(substrLen, zero));
+
+        expr_ref argumentsValid(mk_and(argumentsValid_terms), m);
+        SASSERT(argumentsValid);
+        ctx.internalize(argumentsValid, false);
+
+        // (pos+len) >= strlen(base)
+        // --> pos + len + -1*strlen(base) >= 0
+        expr_ref lenOutOfBounds(m_autil.mk_ge(
+                                    m_autil.mk_add(substrPos, substrLen, m_autil.mk_mul(minusOne, mk_strlen(substrBase))),
+                                    zero), m);
+        SASSERT(lenOutOfBounds);
+        ctx.internalize(argumentsValid, false);
+
+        // Case 1: pos < 0 or pos >= strlen(base) or len < 0
+        // ==> (Substr ...) = ""
+        expr_ref case1_premise(m.mk_not(argumentsValid), m);
+        SASSERT(case1_premise);
+        ctx.internalize(case1_premise, false);
+        expr_ref case1_conclusion(ctx.mk_eq_atom(expr, mk_string("")), m);
+        SASSERT(case1_conclusion);
+        ctx.internalize(case1_conclusion, false);
+        expr_ref case1(rewrite_implication(case1_premise, case1_conclusion), m);
+        SASSERT(case1);
+
+        // Case 2: (pos >= 0 and pos < strlen(base) and len >= 0) and (pos+len) >= strlen(base)
+        // ==> base = t0.t1 AND len(t0) = pos AND (Substr ...) = t1
+        expr_ref t0(mk_str_var("t0"), m);
+        expr_ref t1(mk_str_var("t1"), m);
+        expr_ref case2_conclusion(m.mk_and(
+                                      ctx.mk_eq_atom(substrBase, mk_concat(t0,t1)),
+                                      ctx.mk_eq_atom(mk_strlen(t0), substrPos),
+                                      ctx.mk_eq_atom(expr, t1)), m);
+        expr_ref case2(rewrite_implication(m.mk_and(argumentsValid, lenOutOfBounds), case2_conclusion), m);
+        SASSERT(case2);
+
+        // Case 3: (pos >= 0 and pos < strlen(base) and len >= 0) and (pos+len) < strlen(base)
+        // ==> base = t2.t3.t4 AND len(t2) = pos AND len(t3) = len AND (Substr ...) = t3
+
+        expr_ref t2(mk_str_var("t2"), m);
+        expr_ref t3(mk_str_var("t3"), m);
+        expr_ref t4(mk_str_var("t4"), m);
+        expr_ref_vector case3_conclusion_terms(m);
+        case3_conclusion_terms.push_back(ctx.mk_eq_atom(substrBase, mk_concat(t2, mk_concat(t3, t4))));
+        case3_conclusion_terms.push_back(ctx.mk_eq_atom(mk_strlen(t2), substrPos));
+        case3_conclusion_terms.push_back(ctx.mk_eq_atom(mk_strlen(t3), substrLen));
+        case3_conclusion_terms.push_back(ctx.mk_eq_atom(expr, t3));
+        expr_ref case3_conclusion(mk_and(case3_conclusion_terms), m);
+        expr_ref case3(rewrite_implication(m.mk_and(argumentsValid, m.mk_not(lenOutOfBounds)), case3_conclusion), m);
+        SASSERT(case3);
+
+        ctx.internalize(case1, false);
+        ctx.internalize(case2, false);
+        ctx.internalize(case3, false);
+
+        expr_ref finalAxiom(m.mk_and(case1, case2, case3), m);
+        SASSERT(finalAxiom);
+        assert_axiom(finalAxiom);
+    }
+
+#if 0
+    // rewrite
+    // requires to add th_rewriter to assert_axiom to enforce normal form.
+    void theory_str::instantiate_axiom_Substr(enode * e) {
+        context & ctx = get_context();
+        ast_manager & m = get_manager();
         expr* substrBase = 0;
         expr* substrPos = 0;
         expr* substrLen = 0;
@@ -1495,6 +1590,7 @@ namespace smt {
         assert_axiom(case2);
         assert_axiom(case3);
     }
+#endif
 
     void theory_str::instantiate_axiom_Replace(enode * e) {
         context & ctx = get_context();
