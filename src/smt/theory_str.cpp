@@ -6297,9 +6297,18 @@ namespace smt {
 
             TRACE("str", tout << "range NFA: start = " << start << ", end = " << end << std::endl;);
         } else if (u.re.is_full(e)) {
-            NOT_IMPLEMENTED_YET();
-            m_valid = false;
-            return;
+            // effectively the same as .* where . can be any single character
+            // start --e--> tmp
+            // tmp --e--> end
+            // tmp --C--> tmp for every character C
+            unsigned tmp = next_id();
+            make_epsilon_move(start, tmp);
+            make_epsilon_move(tmp, end);
+            for (unsigned int i = 0; i < 256; ++i) {
+                char ch = (char)i;
+                make_transition(tmp, ch, tmp);
+            }
+            TRACE("str", tout << "re.all NFA: start = " << start << ", end = " << end << std::endl;);
         } else {
             TRACE("str", tout << "invalid regular expression" << std::endl;);
             m_valid = false;
