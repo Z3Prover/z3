@@ -8567,7 +8567,7 @@ namespace smt {
         } else {
             TRACE("str", tout << "integer theory has no assignment for " << mk_pp(a, m) << std::endl;);
             expr_ref is_zero(ctx.mk_eq_atom(a, m_autil.mk_int(0)), m);
-            literal is_zero_l = mk_literal(is_zero);
+            /* literal is_zero_l = */ mk_literal(is_zero);
             axiomAdd = true;
             TRACE("str", ctx.display(tout););
             // NOT_IMPLEMENTED_YET();

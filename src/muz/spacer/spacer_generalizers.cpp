@@ -133,7 +133,7 @@ void unsat_core_generalizer::operator()(lemma_ref &lemma)
 
     unsigned uses_level;
     expr_ref_vector core(m);
-    VERIFY(pt.is_invariant(lemma->level(), lemma->get_expr(), uses_level, &core));
+    VERIFY(pt.is_invariant(old_level, lemma->get_expr(), uses_level, &core));
 
     CTRACE("spacer", old_sz > core.size(),
            tout << "unsat core reduced lemma from: "
