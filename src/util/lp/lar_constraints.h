@@ -44,8 +44,7 @@ inline std::string lconstraint_kind_string(lconstraint_kind t) {
     return std::string(); // it is unreachable
 }
 
-class lar_base_constraint {
-public:
+struct lar_base_constraint {
     lconstraint_kind m_kind;
     mpq m_right_side;
     virtual vector<std::pair<mpq, var_index>> get_left_side_coefficients() const = 0;

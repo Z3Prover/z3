@@ -603,7 +603,12 @@ public:
             lp_assert(false);
         }
         //        out << "basis heading = " << m_basis_heading[j] << std::endl;
-        out << " x =                " << m_x[j] << std::endl;
+        out << " x =                " << m_x[j];
+        if (m_basis_heading[j] >= 0)
+            out << " base\n";
+        else
+            out << " nbas\n";
+                
         /*
         std::cout << "cost = " << m_costs[j] << std::endl;
         std:: cout << "m_d = " << m_d[j] << std::endl;*/

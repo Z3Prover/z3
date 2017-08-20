@@ -346,7 +346,7 @@ public:
                 unsigned jb = m_r_solver.m_basis[i];
                 m_r_solver.update_x_with_delta_and_track_feasibility(jb, - delta * m_r_solver.m_A.get_val(cc));
             }
-            lp_assert(m_r_solver.A_mult_x_is_off() == false);
+            CASSERT("A_off", m_r_solver.A_mult_x_is_off() == false);
         }
         lp_assert(m_r_solver.inf_set_is_correct());
     }
@@ -781,7 +781,6 @@ public:
             if (m_column_types()[j] != column_type::boxed)
                 continue;
             update_delta(delta, m_r_low_bounds[j], m_r_upper_bounds[j]);
-
         }
         return delta;
     }

@@ -25,7 +25,6 @@ Revision History:
 #include "../rational.h"
 #include "../sstream.h"
 #include "../z3_exception.h"
-
 #else
  // include "util/numerics/mpq.h"
  // include "util/numerics/numeric_traits.h"
@@ -50,7 +49,20 @@ public:
     static unsigned one() { return 1; }
     static bool is_zero(unsigned v) { return v == 0; }
     static double get_double(unsigned const & d) { return d; }
+    static bool is_int(unsigned) {return true;}
 };
+
+template <>  class numeric_traits<int> {
+public:
+    static bool precise() { return true; }
+    static int const zero() { return 0; }
+    static int const one() { return 1; }
+    static bool is_zero(int v) { return v == 0; }
+    static double const get_double(int const & d) { return d; }
+    static bool is_int(int) {return true;}
+    static bool is_pos(int j) {return j > 0;}
+};
+
 
 template <>  class numeric_traits<double> {
     public:
@@ -79,6 +91,7 @@ template <>  class numeric_traits<double> {
         static rational from_string(std::string const & str) { return rational(str.c_str()); }
         static bool is_pos(const rational & d) {return d.is_pos();}
         static bool is_neg(const rational & d) {return d.is_neg();}
+        static bool is_int(const rational & d) {return d.is_int();}
     };
 
 template <typename X, typename Y>

@@ -226,7 +226,7 @@ template <typename T, typename X> bool lp_core_solver_base<T, X>::
 A_mult_x_is_off() const {
     lp_assert(m_x.size() == m_A.column_count());
     if (numeric_traits<T>::precise()) {
-        for (unsigned i = 0; i < m_m(); i++) {
+		for (unsigned i = 0; i < m_m(); i++) {
             X delta = m_b[i] - m_A.dot_product_with_row(i, m_x);
             if (delta != numeric_traits<X>::zero()) {
                 std::cout << "precise x is off (";
@@ -591,7 +591,7 @@ update_basis_and_x(int entering, int leaving, X const & tt) {
         restore_x_and_refactor(entering, leaving, tt);
         if (m_status == lp_status::FLOATING_POINT_ERROR)
             return false;
-        lp_assert(!A_mult_x_is_off());
+        CASSERT("A_off", !A_mult_x_is_off());
         m_iters_with_no_cost_growing++;
         //        LP_OUT(m_settings, "rolled back after failing of init_factorization()" << std::endl);
         m_status = lp_status::UNSTABLE;
@@ -630,7 +630,7 @@ divide_row_by_pivot(unsigned pivot_row, unsigned pivot_col) {
 }
 template <typename T, typename X> bool lp_core_solver_base<T, X>::
 pivot_column_tableau(unsigned j, unsigned piv_row_index) {
-    if (!divide_row_by_pivot(piv_row_index, j))
+	if (!divide_row_by_pivot(piv_row_index, j))
         return false;
     auto &column = m_A.m_columns[j];
     int pivot_col_cell_index = -1;

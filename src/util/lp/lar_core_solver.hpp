@@ -222,7 +222,7 @@ void lar_core_solver::calculate_pivot_row(unsigned i) {
 }
 
 void lar_core_solver::fill_not_improvable_zero_sum_from_inf_row() {
-    lp_assert(m_r_solver.A_mult_x_is_off() == false);
+    CASSERT("A_off", m_r_solver.A_mult_x_is_off() == false);
     unsigned bj = m_r_basis[m_r_solver.m_inf_row_index_for_tableau];
     m_infeasible_sum_sign =  m_r_solver.inf_sign_of_column(bj);
     m_infeasible_linear_combination.clear();
@@ -273,7 +273,7 @@ void lar_core_solver::solve() {
 		return;
 	}
     ++settings().st().m_need_to_solve_inf;
-    lp_assert(!m_r_solver.A_mult_x_is_off());
+    CASSERT("A_off", !m_r_solver.A_mult_x_is_off());
     lp_assert((!settings().use_tableau()) || r_basis_is_OK());
     if (need_to_presolve_with_double_solver()) {
         prefix_d();

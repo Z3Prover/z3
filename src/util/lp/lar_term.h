@@ -89,6 +89,7 @@ struct lar_term {
         m_coeffs.clear();
         m_v = zero_of_type<mpq>();
     }
+
     
 };
 }

@@ -34,7 +34,6 @@ Revision History:
 #include "util/lp/lp_primal_core_solver.h"
 #include "util/lp/random_updater.h"
 #include <stack>
-#include "util/lp/stacked_map.h"
 #include "util/lp/stacked_value.h"
 #include "util/lp/stacked_vector.h"
 #include "util/lp/stacked_unordered_set.h"
@@ -67,6 +66,11 @@ class lar_solver : public column_namer {
     vector<unsigned> m_columns_to_ext_vars_or_term_indices;
     stacked_vector<ul_pair> m_columns_to_ul_pairs;
     vector<lar_base_constraint*> m_constraints;
+public :
+    const vector<lar_base_constraint*>& constraints() const {
+        return m_constraints;
+    }
+private:
     stacked_value<unsigned> m_constraint_count;
     // the set of column indices j such that bounds have changed for j
 
@@ -160,33 +164,12 @@ public:
     unsigned adjust_term_index(unsigned j) const;
 
     void analyze_new_bounds_on_row(
-                                   unsigned row_index,
-                                   lp_bound_propagator & bp) {
-        SASSERT(!use_tableau());
-        iterator_on_pivot_row<mpq> it(m_mpq_lar_core_solver.get_pivot_row(), m_mpq_lar_core_solver.m_r_basis[row_index]);
-
-        bound_analyzer_on_row ra_pos(it,
-                                     zero_of_type<numeric_pair<mpq>>(),
-                                     row_index,
-                                     bp
-                                     );
-        ra_pos.analyze();
-    }
+        unsigned row_index,
+        bound_propagator & bp);
 
     void analyze_new_bounds_on_row_tableau(
-                                           unsigned row_index,
-                                           lp_bound_propagator & bp
-                                           ) {
-
-        if (A_r().m_rows[row_index].size() > settings().max_row_length_for_bound_propagation)
-            return;
-        iterator_on_row<mpq> it(A_r().m_rows[row_index]);
-        SASSERT(use_tableau());
-        bound_analyzer_on_row::analyze_row(it,
-                                           zero_of_type<numeric_pair<mpq>>(),
-                                           row_index,
-                                           bp
-                                           );
+        unsigned row_index,
+        bound_propagator & bp);
 
     void substitute_basis_var_in_terms_for_row(unsigned i) {
         // todo : create a map from term basic vars to the rows where they are used
@@ -588,7 +571,7 @@ public:
 
 
     void substitute_terms_in_linear_expression( const vector<std::pair<mpq, var_index>>& left_side_with_terms,
-                          vector<std::pair<mpq, var_index>> &left_side, mpq & free_coeff) const;
+                                                vector<std::pair<mpq, var_index>> &left_side, mpq & free_coeff) const;
 
 
     void detect_rows_of_bound_change_column_for_nbasic_column(unsigned j) {
@@ -1080,9 +1063,9 @@ public:
     }
 
     void get_infeasibility_explanation_for_inf_sign(
-                                                    vector<std::pair<mpq, constraint_index>> & explanation,
-                                                    const vector<std::pair<mpq, unsigned>> & inf_row,
-                                                    int inf_sign) const;
+        vector<std::pair<mpq, constraint_index>> & explanation,
+        const vector<std::pair<mpq, unsigned>> & inf_row,
+        int inf_sign) const;
 
 
             int adj_sign = coeff.is_pos() ? inf_sign : -inf_sign;
@@ -1173,10 +1156,10 @@ public:
     bool column_represents_row_in_tableau(unsigned j);
     void make_sure_that_the_bottom_right_elem_not_zero_in_tableau(unsigned i, unsigned j);
     void remove_last_row_and_column_from_tableau(unsigned j);
-    void remove_last_column_from_tableau(unsigned j);
+    void remove_last_column_from_A();
 
     void remove_last_column_from_basis_tableau(unsigned j);
-    void remove_column_from_tableau(unsigned j);
+    void remove_last_column_from_tableau();
     void pop_tableau();
     void clean_inf_set_of_r_solver_after_pop();
     void shrink_explanation_to_minimum(vector<std::pair<mpq, constraint_index>> & explanation) const;
@@ -1189,7 +1172,7 @@ public:
         return !column_is_int(j);
     }	
 	
-bool model_is_int_feasible() const;
+    bool model_is_int_feasible() const;
 
 
     void remove_last_row_and_column_from_tableau(unsigned j) {
@@ -1363,16 +1346,16 @@ bool model_is_int_feasible() const;
     }
 
     bool inf_int_set_is_correct_for_column(unsigned j) const {
-            if (m_inf_int_set.contains(j) != (column_is_int(j) && (!column_value_is_integer(j)))) {
-                TRACE("arith_int",
-                      tout << "j= " << j <<
-                      " inf_int_set().contains(j) = " << m_inf_int_set.contains(j) <<
-                      ", column_is_int(j) = "   << column_is_int(j) <<
-                      "\n column_value_is_integer(j) = " << column_value_is_integer(j) <<
-                      ", val = " << get_column_value(j) << std::endl;); 
-                return false;
-            }
-            return true;
+        if (m_inf_int_set.contains(j) != (column_is_int(j) && (!column_value_is_integer(j)))) {
+            TRACE("arith_int",
+                  tout << "j= " << j <<
+                  " inf_int_set().contains(j) = " << m_inf_int_set.contains(j) <<
+                  ", column_is_int(j) = "   << column_is_int(j) <<
+                  "\n column_value_is_integer(j) = " << column_value_is_integer(j) <<
+                  ", val = " << get_column_value(j) << std::endl;); 
+            return false;
+        }
+        return true;
     }
     
     bool inf_int_set_is_correct() const {
@@ -1383,10 +1366,7 @@ bool model_is_int_feasible() const;
                 return false;
         }
         return true;
-}
-
-    
-    
+    }
     bool has_int_var() const;
     void call_assignment_tracker(unsigned j) {
         if (!var_is_int(j)) {
@@ -1400,5 +1380,6 @@ bool model_is_int_feasible() const;
     }
 
     lar_core_solver & get_core_solver() { return m_mpq_lar_core_solver; }
+    
 };
 }
