@@ -32,10 +32,11 @@ void (* g_on_timeout)() = 0;
 
 class g_timeout_eh : public event_handler {
 public:
-    void operator()() {
+    void operator()(event_handler_caller_t caller_id) {
         #pragma omp critical (g_timeout_cs) 
         {
             std::cout << "timeout\n";
+            m_caller_id = caller_id;
             if (g_on_timeout)
                 g_on_timeout();
             if (g_timeout) 
