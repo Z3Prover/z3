@@ -1085,4 +1085,14 @@ lia_move int_solver::create_branch_on_column(int j, lar_term& t, mpq& k, bool fr
 const impq& int_solver::upper_bound(unsigned j) const {
     return m_lar_solver->column_upper_bound(j);
 }
+void int_solver::display_inf_or_int_inf_columns(std::ostream & out) const {
+    out << "int inf\n";
+    for (unsigned j : m_lar_solver->m_inf_int_set.m_index) {
+        display_column(out, j);
+    }
+    out << "regular inf\n";
+    for (unsigned j : m_lar_solver->m_mpq_lar_core_solver.m_r_solver.m_inf_set.m_index) {
+        display_column(out, j);
+    }
+}
 }

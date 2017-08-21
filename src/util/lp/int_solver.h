@@ -141,5 +141,7 @@ private:
     bool non_basic_columns_are_at_bounds() const;
     bool has_inf_int() const;
     lia_move create_branch_on_column(int j, lar_term& t, mpq& k, bool free_column) const;
+public:
+    void display_inf_or_int_inf_columns(std::ostream & out) const;
 };
 }

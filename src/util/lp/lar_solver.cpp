@@ -285,7 +285,6 @@ bool lar_solver::has_int_var() const {
 }
 
 lp_status lar_solver::find_feasible_solution() {
-    TRACE("arith_int", );
     lp_assert(inf_int_set_is_correct());
     m_settings.st().m_make_feasible++;
     if (A_r().column_count() > m_settings.st().m_max_cols)
@@ -301,6 +300,7 @@ lp_status lar_solver::find_feasible_solution() {
     
     m_mpq_lar_core_solver.m_r_solver.m_look_for_feasible_solution_only = true;
     auto ret = solve();
+    TRACE("intinf", m_int_solver->display_inf_or_int_inf_columns(tout););
     lp_assert(inf_int_set_is_correct());
     return ret;
 }
@@ -756,6 +756,7 @@ void lar_solver::solve_with_core_solver() {
         update_x_and_inf_costs_for_columns_with_changed_bounds_tableau();
     else 
         update_x_and_inf_costs_for_columns_with_changed_bounds();
+	TRACE("intinf", m_int_solver->display_inf_or_int_inf_columns(tout););
     m_mpq_lar_core_solver.solve();
     set_status(m_mpq_lar_core_solver.m_r_solver.get_status());
     lp_assert(inf_int_set_is_correct());
