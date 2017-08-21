@@ -99,9 +99,9 @@ void model_core::unregister_decl(func_decl * d) {
     
     decl2finterp::obj_map_entry * ef = m_finterp.find_core(d);
     if (ef && ef->get_data().m_value != 0) {
+        m_manager.dec_ref(ef->get_data().m_key);
         dealloc(ef->get_data().m_value);
         m_finterp.remove(d);
         m_func_decls.erase(d);
-        m_manager.dec_ref(ef->get_data().m_key);
     }
 }
