@@ -444,8 +444,8 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
     pivoted_rows_tracking_control pc(m_lar_solver);
     /* if (m_params.m_arith_euclidean_solver) apply_euclidean_solver();  */
     m_lar_solver->pivot_fixed_vars_from_basis();
-	patch_int_infeasible_columns();
-	fix_non_base_columns();
+    patch_int_infeasible_columns();
+    fix_non_base_columns();
     if (!has_inf_int()) return lia_move::ok;
     TRACE("gomory_cut", tout << m_branch_cut_counter+1 << ", " << settings().m_int_branch_cut_gomory_threshold << std::endl;);
     if ((++m_branch_cut_counter) % settings().m_int_branch_cut_gomory_threshold == 0) {
