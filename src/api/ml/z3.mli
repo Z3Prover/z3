@@ -1912,7 +1912,7 @@ sig
   (* union of regular expressions *)
   val mk_re_union : context -> Expr.expr list -> Expr.expr 
 
-  (* concatenation of regular expressions* )
+  (* concatenation of regular expressions *)
   val mk_re_concat : context -> Expr.expr list -> Expr.expr 
   
   (* regular expression for the range between two characters *)
