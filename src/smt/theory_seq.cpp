@@ -427,7 +427,7 @@ bool theory_seq::branch_unit_variable() {
             break;
         }
     }
-    CTRACE("seq", result, "branch unit variable";);
+    CTRACE("seq", result, tout << "branch unit variable";);
     return result;
 }
 
@@ -3552,7 +3552,7 @@ bool theory_seq::get_length(expr* e, rational& val) const {
             }
         }
     }
-    CTRACE("seq", !val.is_int(), "length is not an integer\n";);
+    CTRACE("seq", !val.is_int(), tout << "length is not an integer\n";);
     return val.is_int();
 }
 
