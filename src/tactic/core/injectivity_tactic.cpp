@@ -268,7 +268,6 @@ public:
     virtual void collect_param_descrs(param_descrs & r) {
         insert_max_memory(r);
         insert_produce_models(r);
-        r.insert("elim_and", CPK_BOOL, "(default: false) eliminate conjunctions during (internal) calls to the simplifier.");
     }
     
     virtual void operator()(goal_ref const & g, 
