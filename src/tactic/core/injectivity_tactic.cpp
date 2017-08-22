@@ -284,7 +284,8 @@ public:
 			(*m_eq)(curr, rw, pr);
 			g->update(i, rw, pr, g->dep(i));
 		}
-    }
+		result.push_back(g.get());
+	}
     
     virtual void cleanup() {
 		InjHelper * m = alloc(InjHelper, m_manager);
