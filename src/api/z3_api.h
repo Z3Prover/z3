@@ -4680,6 +4680,14 @@ extern "C" {
 
     /** @name Models */
     /*@{*/
+
+    /**
+       \brief Create a fresh model object. It has reference count 0.
+
+       def_API('Z3_mk_model', MODEL, (_in(CONTEXT),))
+    */
+    Z3_model Z3_API Z3_mk_model(Z3_context c);
+
     /**
        \brief Increment the reference counter of the given model.
 
@@ -4851,6 +4859,21 @@ extern "C" {
     Z3_func_decl Z3_API Z3_get_as_array_func_decl(Z3_context c, Z3_ast a);
 
     /**
+       \brief Create a fresh func_interp object, add it to a model for a specified function. 
+       It has reference count 0.       
+
+       def_API('Z3_add_func_interp', FUNC_INTERP, (_in(CONTEXT), _in(MODEL), _in(FUNC_DECL), _in(AST)))
+    */
+    Z3_func_interp Z3_API Z3_add_func_interp(Z3_context c, Z3_model m, Z3_func_decl f, Z3_ast else_val);
+
+    /**
+       \brief Add a constant interpretation.
+
+       def_API('Z3_add_const_interp', VOID, (_in(CONTEXT), _in(MODEL), _in(FUNC_DECL), _in(AST)))
+     */
+    void Z3_API Z3_add_const_interp(Z3_context c, Z3_model m, Z3_func_decl f, Z3_ast a);
+
+    /**
        \brief Increment the reference counter of the given Z3_func_interp object.
 
        def_API('Z3_func_interp_inc_ref', VOID, (_in(CONTEXT), _in(FUNC_INTERP)))
@@ -4903,6 +4926,13 @@ extern "C" {
        def_API('Z3_func_interp_get_arity', UINT, (_in(CONTEXT), _in(FUNC_INTERP)))
     */
     unsigned Z3_API Z3_func_interp_get_arity(Z3_context c, Z3_func_interp f);
+
+    /**
+       \brief add a function entry to a function interpretation.
+
+       def_API('Z3_add_func_entry', VOID, (_in(CONTEXT), _in(FUNC_INTERP), _in(AST_VECTOR), _in(AST)))
+     */
+    void Z3_API Z3_add_func_entry(Z3_context c, Z3_func_interp fi, Z3_ast_vector args, Z3_ast value);
 
     /**
        \brief Increment the reference counter of the given Z3_func_entry object.
