@@ -20,7 +20,6 @@ Revision History:
 #define MACRO_FINDER_H_
 
 #include "ast/macros/macro_manager.h"
-#include "ast/simplifier/arith_simplifier_plugin.h"
 
 
 bool is_macro_head(expr * n, unsigned num_decls);
@@ -37,7 +36,7 @@ class macro_finder {
     ast_manager &               m_manager; 
     macro_manager &             m_macro_manager;
     macro_util &                m_util;
-    arith_simplifier_plugin * get_arith_simp() { return m_util.get_arith_simp(); }
+    arith_util                  m_autil;
     bool expand_macros(unsigned num, expr * const * exprs, proof * const * prs, expr_ref_vector & new_exprs, proof_ref_vector & new_prs);
     bool is_arith_macro(expr * n, proof * pr, expr_ref_vector & new_exprs, proof_ref_vector & new_prs);
 

@@ -21,8 +21,7 @@ Revision History:
 
 #include<sstream>
 #include "ast/macros/macro_manager.h"
-#include "ast/simplifier/basic_simplifier_plugin.h"
-#include "ast/simplifier/simplifier.h"
+#include "ast/rewriter/th_rewriter.h"
 
 /**
    \brief Finds quasi macros and applies them.
@@ -32,7 +31,7 @@ class quasi_macros {
 
     ast_manager &             m_manager;
     macro_manager &           m_macro_manager;
-    simplifier &              m_simplifier;
+    th_rewriter               m_rewriter;
     occurrences_map           m_occurrences;
     ptr_vector<expr>          m_todo;    
 
@@ -57,7 +56,7 @@ class quasi_macros {
     void apply_macros(unsigned n, expr * const * exprs, proof * const * prs, expr_ref_vector & new_exprs, proof_ref_vector & new_prs);
 
 public:
-    quasi_macros(ast_manager & m, macro_manager & mm, simplifier & s);
+    quasi_macros(ast_manager & m, macro_manager & mm);
     ~quasi_macros();
     
     /**

@@ -39,7 +39,6 @@ protected:
 
     bool is_numeral(expr * n) const { return Config::is_numeral(n); }
     bool is_numeral(expr * n, numeral & r) const { return Config::is_numeral(n, r); }
-    bool is_zero(expr * n) const { return Config::is_zero(n); }
     bool is_minus_one(expr * n) const { return Config::is_minus_one(n); }
     void normalize(numeral & c) { Config::normalize(c, m_curr_sort); }
     app * mk_numeral(numeral const & r) { return Config::mk_numeral(r, m_curr_sort); }
@@ -111,6 +110,9 @@ public:
     bool is_mul(expr * n) const { return is_app_of(n, get_fid(), mul_decl_kind()); }
     bool is_add(func_decl * f) const { return is_decl_of(f, get_fid(), add_decl_kind()); }
     bool is_mul(func_decl * f) const { return is_decl_of(f, get_fid(), mul_decl_kind()); }
+    bool is_times_minus_one(expr * n, expr*& r) const;
+    bool is_var_plus_ground(expr * n, bool & inv, var * & v, expr_ref & t);
+
 
     br_status mk_mul_core(unsigned num_args, expr * const * args, expr_ref & result) {
         SASSERT(num_args > 0);

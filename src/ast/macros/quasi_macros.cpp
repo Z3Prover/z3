@@ -22,10 +22,10 @@ Revision History:
 #include "util/uint_set.h"
 #include "ast/rewriter/var_subst.h"
 
-quasi_macros::quasi_macros(ast_manager & m, macro_manager & mm, simplifier & s) :
-  m_manager(m),
+quasi_macros::quasi_macros(ast_manager & m, macro_manager & mm) :
+  m_manager(m), 
   m_macro_manager(mm),
-  m_simplifier(s),
+  m_rewriter(m),
   m_new_vars(m),
   m_new_eqs(m),
   m_new_qsorts(m) {
@@ -299,8 +299,8 @@ void quasi_macros::apply_macros(unsigned n, expr * const * exprs, proof * const 
         proof_ref pr(m_manager), ps(m_manager);
         proof * p = m_manager.proofs_enabled() ? prs[i] : 0;
         m_macro_manager.expand_macros(exprs[i], p, r, pr);
-        m_simplifier(r, rs, ps);
-        new_exprs.push_back(rs);
+        m_rewriter(r);
+        new_exprs.push_back(r);
         new_prs.push_back(ps);    
     }
 }

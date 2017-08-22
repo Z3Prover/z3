@@ -35,7 +35,6 @@ protected:
     
     bool is_numeral(expr * n) const { return m_util.is_numeral(n); }
     bool is_numeral(expr * n, numeral & r) const { return m_util.is_numeral(n, r); }
-    bool is_zero(expr * n) const { return m_util.is_zero(n); }
     bool is_minus_one(expr * n) const { return m_util.is_minus_one(n); }
     void normalize(numeral & c, sort * s) {}
     app * mk_numeral(numeral const & r, sort * s) { return m_util.mk_numeral(r, s); }
@@ -45,6 +44,7 @@ protected:
     decl_kind power_decl_kind() const { return OP_POWER; }
 public:
     arith_rewriter_core(ast_manager & m):m_util(m) {}
+    bool is_zero(expr * n) const { return m_util.is_zero(n); }
 };
 
 class arith_rewriter : public poly_rewriter<arith_rewriter_core> {

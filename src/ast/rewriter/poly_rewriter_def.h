@@ -931,3 +931,63 @@ expr* poly_rewriter<Config>::merge_muls(expr* x, expr* y) {
     m1[k] = mk_add_app(2, args);
     return mk_mul_app(k+1, m1.c_ptr());
 }
+
+template<typename Config>
+bool poly_rewriter<Config>::is_times_minus_one(expr * n, expr* & r) const {
+    if (is_mul(n) && to_app(n)->get_num_args() == 2 && is_minus_one(to_app(n)->get_arg(0))) {
+        r = to_app(n)->get_arg(1);
+        return true;
+    }
+    return false;
+}
+
+/**
+   \brief Return true if n is can be put into the form (+ v t) or (+ (- v) t)
+   \c inv = true will contain true if (- v) is found, and false otherwise.
+*/
+template<typename Config>
+bool poly_rewriter<Config>::is_var_plus_ground(expr * n, bool & inv, var * & v, expr_ref & t) {
+    if (!is_add(n) || is_ground(n))
+        return false;
+    
+    ptr_buffer<expr> args;
+    v = 0;
+    expr * curr = to_app(n);
+    bool stop = false;
+    inv = false;
+    while (!stop) {
+        expr * arg;
+        expr * neg_arg;
+        if (is_add(curr)) {
+            arg  = to_app(curr)->get_arg(0);
+            curr = to_app(curr)->get_arg(1);
+        }
+        else {
+            arg  = curr;
+            stop = true;
+        }
+        if (is_ground(arg)) {
+            TRACE("model_checker_bug", tout << "pushing:\n" << mk_pp(arg, m()) << "\n";);
+            args.push_back(arg);
+        }
+        else if (is_var(arg)) {
+            if (v != 0)
+                return false; // already found variable
+            v = to_var(arg);
+        }
+        else if (is_times_minus_one(arg, neg_arg) && is_var(neg_arg)) {
+            if (v != 0)
+                return false; // already found variable
+            v = to_var(neg_arg);
+            inv = true;
+        }
+        else {
+            return false; // non ground term.
+        }
+    }
+    if (v == 0)
+        return false; // did not find variable
+    SASSERT(!args.empty());
+    mk_add(args.size(), args.c_ptr(), t);
+    return true;
+}

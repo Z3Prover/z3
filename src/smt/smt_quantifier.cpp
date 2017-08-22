@@ -434,7 +434,7 @@ namespace smt {
 
             m_mam           = mk_mam(*m_context);
             m_lazy_mam      = mk_mam(*m_context);
-            m_model_finder  = alloc(model_finder, m, m_context->get_simplifier());
+            m_model_finder  = alloc(model_finder, m);
             m_model_checker = alloc(model_checker, m, *m_fparams, *(m_model_finder.get()));
 
             m_model_finder->set_context(m_context);

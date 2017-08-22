@@ -48,14 +48,12 @@ bool macro_finder::is_macro(expr * n, app_ref & head, expr_ref & def) {
 bool macro_finder::is_arith_macro(expr * n, proof * pr, expr_ref_vector & new_exprs, proof_ref_vector & new_prs) {
     if (!is_quantifier(n) || !to_quantifier(n)->is_forall())
         return false;
-    arith_simplifier_plugin * as = get_arith_simp();
-    arith_util & autil = as->get_arith_util();
     expr * body        = to_quantifier(n)->get_expr();
     unsigned num_decls = to_quantifier(n)->get_num_decls();
     
-    if (!autil.is_le(body) && !autil.is_ge(body) && !m_manager.is_eq(body))
+    if (!m_autil.is_le(body) && !m_autil.is_ge(body) && !m_manager.is_eq(body))
         return false;
-    if (!as->is_add(to_app(body)->get_arg(0)))
+    if (!m_autil.is_add(to_app(body)->get_arg(0)))
         return false;
     app_ref head(m_manager);
     expr_ref def(m_manager);
@@ -66,10 +64,10 @@ bool macro_finder::is_arith_macro(expr * n, proof * pr, expr_ref_vector & new_ex
     
     if (!inv || m_manager.is_eq(body))
         new_body = m_manager.mk_app(to_app(body)->get_decl(), head, def);
-    else if (as->is_le(body))
-        new_body = autil.mk_ge(head, def);
+    else if (m_autil.is_le(body))
+        new_body = m_autil.mk_ge(head, def);
     else
-        new_body = autil.mk_le(head, def);
+        new_body = m_autil.mk_le(head, def);
 
     quantifier_ref new_q(m_manager); 
     new_q = m_manager.update_quantifier(to_quantifier(n), new_body);
@@ -88,10 +86,9 @@ bool macro_finder::is_arith_macro(expr * n, proof * pr, expr_ref_vector & new_ex
     func_decl * k   = m_manager.mk_fresh_func_decl(f->get_name(), symbol::null, f->get_arity(), f->get_domain(), f->get_range());
     app * k_app     = m_manager.mk_app(k, head->get_num_args(), head->get_args());
     expr_ref_buffer new_rhs_args(m_manager);
-    expr_ref new_rhs2(m_manager);
-    as->mk_add(def, k_app, new_rhs2);
+    expr_ref new_rhs2(m_autil.mk_add(def, k_app), m_manager);
     expr * body1    = m_manager.mk_eq(head, new_rhs2);
-    expr * body2    = m_manager.mk_app(new_body->get_decl(), k_app, as->mk_numeral(rational(0)));
+    expr * body2    = m_manager.mk_app(new_body->get_decl(), k_app, m_autil.mk_int(0));
     quantifier * q1 = m_manager.update_quantifier(new_q, body1);
     expr * patterns[1] = { m_manager.mk_pattern(k_app) };
     quantifier * q2 = m_manager.update_quantifier(new_q, 1, patterns, body2);
@@ -158,7 +155,8 @@ static void pseudo_predicate_macro2macro(ast_manager & m, app * head, app * t, e
 macro_finder::macro_finder(ast_manager & m, macro_manager & mm):
     m_manager(m),
     m_macro_manager(mm),
-    m_util(mm.get_util()) {
+    m_util(mm.get_util()),
+    m_autil(m) {
 }
 
 macro_finder::~macro_finder() {

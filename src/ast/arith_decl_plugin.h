@@ -389,16 +389,16 @@ public:
     app * mk_lt(expr * arg1, expr * arg2) const { return m_manager.mk_app(m_afid, OP_LT, arg1, arg2); }
     app * mk_gt(expr * arg1, expr * arg2) const { return m_manager.mk_app(m_afid, OP_GT, arg1, arg2); }
 
-    app * mk_add(unsigned num_args, expr * const * args) { return m_manager.mk_app(m_afid, OP_ADD, num_args, args); }
-    app * mk_add(expr * arg1, expr * arg2) { return m_manager.mk_app(m_afid, OP_ADD, arg1, arg2); }
-    app * mk_add(expr * arg1, expr * arg2, expr* arg3) { return m_manager.mk_app(m_afid, OP_ADD, arg1, arg2, arg3); }
+    app * mk_add(unsigned num_args, expr * const * args) const { return m_manager.mk_app(m_afid, OP_ADD, num_args, args); }
+    app * mk_add(expr * arg1, expr * arg2) const { return m_manager.mk_app(m_afid, OP_ADD, arg1, arg2); }
+    app * mk_add(expr * arg1, expr * arg2, expr* arg3) const { return m_manager.mk_app(m_afid, OP_ADD, arg1, arg2, arg3); }
 
-    app * mk_sub(expr * arg1, expr * arg2) { return m_manager.mk_app(m_afid, OP_SUB, arg1, arg2); }
-    app * mk_sub(unsigned num_args, expr * const * args) { return m_manager.mk_app(m_afid, OP_SUB, num_args, args); }
-    app * mk_mul(expr * arg1, expr * arg2) { return m_manager.mk_app(m_afid, OP_MUL, arg1, arg2); }
-    app * mk_mul(expr * arg1, expr * arg2, expr* arg3) { return m_manager.mk_app(m_afid, OP_MUL, arg1, arg2, arg3); }
-    app * mk_mul(unsigned num_args, expr * const * args) { return m_manager.mk_app(m_afid, OP_MUL, num_args, args); }
-    app * mk_uminus(expr * arg) { return m_manager.mk_app(m_afid, OP_UMINUS, arg); }
+    app * mk_sub(expr * arg1, expr * arg2) const { return m_manager.mk_app(m_afid, OP_SUB, arg1, arg2); }
+    app * mk_sub(unsigned num_args, expr * const * args) const { return m_manager.mk_app(m_afid, OP_SUB, num_args, args); }
+    app * mk_mul(expr * arg1, expr * arg2) const { return m_manager.mk_app(m_afid, OP_MUL, arg1, arg2); }
+    app * mk_mul(expr * arg1, expr * arg2, expr* arg3) const { return m_manager.mk_app(m_afid, OP_MUL, arg1, arg2, arg3); }
+    app * mk_mul(unsigned num_args, expr * const * args) const { return m_manager.mk_app(m_afid, OP_MUL, num_args, args); }
+    app * mk_uminus(expr * arg) const { return m_manager.mk_app(m_afid, OP_UMINUS, arg); }
     app * mk_div(expr * arg1, expr * arg2) { return m_manager.mk_app(m_afid, OP_DIV, arg1, arg2); }
     app * mk_idiv(expr * arg1, expr * arg2) { return m_manager.mk_app(m_afid, OP_IDIV, arg1, arg2); }
     app * mk_rem(expr * arg1, expr * arg2) { return m_manager.mk_app(m_afid, OP_REM, arg1, arg2); }

@@ -23,8 +23,6 @@ Revision History:
 #include "ast/arith_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"
 #include "ast/array_decl_plugin.h"
-#include "ast/simplifier/arith_simplifier_plugin.h"
-#include "ast/simplifier/bv_simplifier_plugin.h"
 #include "ast/normal_forms/pull_quant.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/for_each_expr.h"
@@ -392,9 +390,9 @@ namespace smt {
            The idea is to create node objects based on the information produced by the quantifier_analyzer.
         */
         class auf_solver : public evaluator {
-            ast_manager &             m_manager;
-            arith_simplifier_plugin * m_asimp;
-            bv_simplifier_plugin *    m_bvsimp;
+            ast_manager &             m;
+            arith_util                m_arith;
+            bv_util                   m_bv;
             ptr_vector<node>          m_nodes;
             unsigned                  m_next_node_id;
             key2node                  m_uvars;
@@ -466,16 +464,16 @@ namespace smt {
             }
 
         public:
-            auf_solver(ast_manager & m, simplifier & s):
-                m_manager(m),
+            auf_solver(ast_manager & m):
+                m(m),
+                m_arith(m),
+                m_bv(m),
                 m_next_node_id(0),
                 m_context(0),
                 m_ks(m),
                 m_model(0),
                 m_eval_cache_range(m),
                 m_new_constraints(0) {
-                m_asimp  = static_cast<arith_simplifier_plugin*>(s.get_plugin(m.mk_family_id("arith")));
-                m_bvsimp = static_cast<bv_simplifier_plugin*>(s.get_plugin(m.mk_family_id("bv")));
             }
 
             virtual ~auf_solver() {
@@ -488,12 +486,8 @@ namespace smt {
                 m_context = ctx;
             }
             
-            ast_manager & get_manager() const { return m_manager; }
-            
-            arith_simplifier_plugin * get_arith_simp() const { return m_asimp; }
-
-            bv_simplifier_plugin * get_bv_simp() const { return m_bvsimp; }
-            
+            ast_manager & get_manager() const { return m; }
+                        
             void reset() {
                 flush_nodes();
                 m_nodes.reset();
@@ -538,7 +532,7 @@ namespace smt {
             void mk_instantiation_sets() {
                 for (node* curr : m_nodes) {
                     if (curr->is_root()) {
-                        curr->mk_instantiation_set(m_manager);
+                        curr->mk_instantiation_set(m);
                     }
                 }
             }
@@ -554,7 +548,7 @@ namespace smt {
                         for (auto const& kv : elems) {
                             expr * n     = kv.m_key;
                             expr * n_val = eval(n, true);
-                            if (!n_val || !m_manager.is_value(n_val))
+                            if (!n_val || !m.is_value(n_val))
                                 to_delete.push_back(n);
                         }
                         for (expr* e : to_delete) {
@@ -568,7 +562,7 @@ namespace smt {
                 display_key2node(out, m_uvars);
                 display_A_f_is(out);           
                 for (node* n : m_nodes) {
-                    n->display(out, m_manager);
+                    n->display(out, m);
                 }
             }
 
@@ -577,14 +571,14 @@ namespace smt {
                 if (m_eval_cache[model_completion].find(n, r)) {
                     return r;
                 }
-                expr_ref tmp(m_manager);
+                expr_ref tmp(m);
                 if (!m_model->eval(n, tmp, model_completion)) {
                     r = 0;
-                    TRACE("model_finder", tout << "eval\n" << mk_pp(n, m_manager) << "\n-----> null\n";);
+                    TRACE("model_finder", tout << "eval\n" << mk_pp(n, m) << "\n-----> null\n";);
                 }
                 else {
                     r = tmp;
-                    TRACE("model_finder", tout << "eval\n" << mk_pp(n, m_manager) << "\n----->\n" << mk_pp(r, m_manager) << "\n";);
+                    TRACE("model_finder", tout << "eval\n" << mk_pp(n, m) << "\n----->\n" << mk_pp(r, m) << "\n";);
                 }
                 m_eval_cache[model_completion].insert(n, r);
                 m_eval_cache_range.push_back(r);
@@ -636,7 +630,7 @@ namespace smt {
                     SASSERT(t_val != 0);
                     bool found = false;
                     for (expr* v : ex_vals) {
-                        if (!m_manager.are_distinct(t_val, v)) {
+                        if (!m.are_distinct(t_val, v)) {
                             found = true;
                             break;
                         }
@@ -652,7 +646,7 @@ namespace smt {
             bool is_infinite(sort * s) const {
                 // we should not assume that uninterpreted sorts are infinite in benchmarks with quantifiers.
                 return 
-                    !m_manager.is_uninterp(s) &&
+                    !m.is_uninterp(s) &&
                     s->is_infinite();
             }
 
@@ -665,7 +659,7 @@ namespace smt {
                 app * r = 0;
                 if (m_sort2k.find(s, r))
                     return r;
-                r = m_manager.mk_fresh_const("k", s);
+                r = m.mk_fresh_const("k", s);
                 m_model->register_aux_decl(r->get_decl());
                 m_sort2k.insert(s, r);
                 m_ks.push_back(r);
@@ -680,7 +674,7 @@ namespace smt {
                Remark: this method uses get_fresh_value, so it may fail.
             */
             expr * get_k_interp(app * k) {
-                sort * s = m_manager.get_sort(k);
+                sort * s = m.get_sort(k);
                 SASSERT(is_infinite(s));
                 func_decl * k_decl = k->get_decl();
                 expr * r = m_model->get_const_interp(k_decl);
@@ -691,7 +685,7 @@ namespace smt {
                     return 0;
                 m_model->register_decl(k_decl, r);
                 SASSERT(m_model->get_const_interp(k_decl) == r);
-                TRACE("model_finder", tout << mk_pp(r, m_manager) << "\n";);
+                TRACE("model_finder", tout << mk_pp(r, m) << "\n";);
                 return r;
             }
 
@@ -701,18 +695,18 @@ namespace smt {
                It invokes get_k_interp that may fail.
             */
             bool assert_k_diseq_exceptions(app * k, ptr_vector<expr> const & exceptions) {
-                TRACE("assert_k_diseq_exceptions", tout << "assert_k_diseq_exceptions, " << "k: " << mk_pp(k, m_manager) << "\nexceptions:\n";
-                      for (expr * e : exceptions) tout << mk_pp(e, m_manager) << "\n";);
+                TRACE("assert_k_diseq_exceptions", tout << "assert_k_diseq_exceptions, " << "k: " << mk_pp(k, m) << "\nexceptions:\n";
+                      for (expr * e : exceptions) tout << mk_pp(e, m) << "\n";);
                 expr * k_interp = get_k_interp(k);
                 if (k_interp == 0)
                     return false;
                 for (expr * ex : exceptions) {
                     expr * ex_val = eval(ex, true);
-                    if (!m_manager.are_distinct(k_interp, ex_val)) {
+                    if (!m.are_distinct(k_interp, ex_val)) {
                         SASSERT(m_new_constraints);
                         // This constraint cannot be asserted into m_context during model construction.
                         // We must save it, and assert it during a restart.
-                        m_new_constraints->push_back(m_manager.mk_not(m_manager.mk_eq(k, ex)));
+                        m_new_constraints->push_back(m.mk_not(m.mk_eq(k, ex)));
                     }
                 }
                 return true;
@@ -735,7 +729,7 @@ namespace smt {
                         return;
                     }
                     sort * s = n->get_sort();
-                    TRACE("model_finder", tout << "trying to create k for " << mk_pp(s, m_manager) << ", is_infinite: " << is_infinite(s) << "\n";);
+                    TRACE("model_finder", tout << "trying to create k for " << mk_pp(s, m) << ", is_infinite: " << is_infinite(s) << "\n";);
                     if (is_infinite(s)) {
                         app * k = get_k_for(s);
                         if (assert_k_diseq_exceptions(k, exceptions)) {
@@ -758,28 +752,33 @@ namespace smt {
             void add_mono_exceptions(node * n) {
                 SASSERT(n->is_mono_proj());
                 sort * s = n->get_sort();
-                arith_simplifier_plugin * as = get_arith_simp();
-                bv_simplifier_plugin    * bs = get_bv_simp();
-                bool is_int = as->is_int_sort(s);
-                bool is_bv  = bs->is_bv_sort(s);
-                if (!is_int && !is_bv)
-                    return;
-                poly_simplifier_plugin * ps = as;
-                if (is_bv)
-                    ps = bs;
-                ps->set_curr_sort(s);
-                expr_ref one(m_manager);
-                one = ps->mk_one();
+                arith_rewriter arw(m);
+                bv_rewriter brw(m);
                 ptr_vector<expr> const & exceptions  = n->get_exceptions();
-                for (expr * e : exceptions) {
-                    expr_ref e_plus_1(m_manager);
-                    expr_ref e_minus_1(m_manager);
-                    TRACE("mf_simp_bug", tout << "e:\n" << mk_ismt2_pp(e, m_manager) << "\none:\n" << mk_ismt2_pp(one, m_manager) << "\n";);
-                    ps->mk_add(e, one, e_plus_1); 
-                    ps->mk_sub(e, one, e_minus_1);
-                    // Note: exceptions come from quantifiers bodies. So, they have generation 0.
-                    n->insert(e_plus_1, 0);
-                    n->insert(e_minus_1, 0);
+                if (m_arith.is_int(s)) {
+                    expr_ref one(m_arith.mk_int(1), m);
+                    for (expr * e : exceptions) {
+                        expr_ref e_plus_1(m_arith.mk_add(e, one), m);
+                        expr_ref e_minus_1(m_arith.mk_sub(e, one), m);
+                        TRACE("mf_simp_bug", tout << "e:\n" << mk_ismt2_pp(e, m) << "\none:\n" << mk_ismt2_pp(one, m) << "\n";);
+                        // Note: exceptions come from quantifiers bodies. So, they have generation 0.
+                        n->insert(e_plus_1, 0);
+                        n->insert(e_minus_1, 0);
+                    }
+                }
+                else if (m_bv.is_bv_sort(s)) {
+                    expr_ref one(m_bv.mk_numeral(rational(1), s), m);
+                    for (expr * e : exceptions) {
+                        expr_ref e_plus_1(m_bv.mk_bv_add(e, one), m);
+                        expr_ref e_minus_1(m_bv.mk_bv_sub(e, one), m);
+                        TRACE("mf_simp_bug", tout << "e:\n" << mk_ismt2_pp(e, m) << "\none:\n" << mk_ismt2_pp(one, m) << "\n";);
+                        // Note: exceptions come from quantifiers bodies. So, they have generation 0.
+                        n->insert(e_plus_1, 0);
+                        n->insert(e_minus_1, 0);
+                    }
+                }
+                else {
+                    return;
                 }
             }
 
@@ -797,16 +796,17 @@ namespace smt {
                 }
                 TRACE("model_finder_bug", tout << "values for the instantiation_set of @" << n->get_id() << "\n";
                       for (expr * v : values) {
-                          tout << mk_pp(v, m_manager) << "\n";
+                          tout << mk_pp(v, m) << "\n";
                       });
             }
 
+            template<class T>
             struct numeral_lt {
-                poly_simplifier_plugin * m_p;
-                numeral_lt(poly_simplifier_plugin * p):m_p(p) {}
-                bool operator()(expr * e1, expr * e2) {
+                T& m_util;
+                numeral_lt(T& a): m_util(a) {}
+                bool operator()(expr* e1, expr* e2) {
                     rational v1, v2;
-                    if (m_p->is_numeral(e1, v1) && m_p->is_numeral(e2, v2)) {
+                    if (m_util.is_numeral(e1, v1) && m_util.is_numeral(e2, v1)) {
                         return v1 < v2;
                     }
                     else {
@@ -815,15 +815,16 @@ namespace smt {
                 }
             };
 
+
             struct signed_bv_lt {
-                bv_simplifier_plugin * m_bs;
+                bv_util& m_bv;
                 unsigned               m_bv_size;
-                signed_bv_lt(bv_simplifier_plugin * bs, unsigned sz):m_bs(bs), m_bv_size(sz) {}
+                signed_bv_lt(bv_util& bv, unsigned sz):m_bv(bv), m_bv_size(sz) {}
                 bool operator()(expr * e1, expr * e2) {
                     rational v1, v2;
-                    if (m_bs->is_numeral(e1, v1) && m_bs->is_numeral(e2, v2)) {
-                        v1 = m_bs->norm(v1, m_bv_size, true);
-                        v2 = m_bs->norm(v2, m_bv_size, true);
+                    if (m_bv.is_numeral(e1, v1) && m_bv.is_numeral(e2, v2)) {
+                        v1 = m_bv.norm(v1, m_bv_size, true);
+                        v2 = m_bv.norm(v2, m_bv_size, true);
                         return v1 < v2;
                     }
                     else {
@@ -834,15 +835,14 @@ namespace smt {
 
             void sort_values(node * n, ptr_buffer<expr> & values) {
                 sort * s = n->get_sort();
-                if (get_arith_simp()->is_arith_sort(s)) {
-                    std::sort(values.begin(), values.end(), numeral_lt(get_arith_simp()));
+                if (m_arith.is_int(s) || m_arith.is_real(s)) {
+                    std::sort(values.begin(), values.end(), numeral_lt<arith_util>(m_arith));
                 }
                 else if (!n->is_signed_proj()) {
-                    std::sort(values.begin(), values.end(), numeral_lt(get_bv_simp()));
+                    std::sort(values.begin(), values.end(), numeral_lt<bv_util>(m_bv));
                 }
                 else {
-                    bv_simplifier_plugin * bs = get_bv_simp();
-                    std::sort(values.begin(), values.end(), signed_bv_lt(bs, bs->get_bv_size(s)));
+                    std::sort(values.begin(), values.end(), signed_bv_lt(m_bv, m_bv.get_bv_size(s)));
                }
             }
 
@@ -853,27 +853,25 @@ namespace smt {
                 if (values.empty()) return;
                 sort_values(n, values);
                 sort * s = n->get_sort();
-                arith_simplifier_plugin * as = get_arith_simp();
-                bv_simplifier_plugin    * bs = get_bv_simp();
-                bool is_arith  = as->is_arith_sort(s);
+                bool is_arith  = m_arith.is_int(s) || m_arith.is_real(s);
                 bool is_signed = n->is_signed_proj();
                 unsigned sz = values.size();
                 SASSERT(sz > 0);
-                func_decl * p = m_manager.mk_fresh_func_decl(1, &s, s);
+                func_decl * p = m.mk_fresh_func_decl(1, &s, s);
                 expr * pi     = values[sz - 1];
-                expr_ref var(m_manager);
-                var = m_manager.mk_var(0, s);
+                expr_ref var(m);
+                var = m.mk_var(0, s);
                 for (unsigned i = sz - 1; i >= 1; i--) {
-                    expr_ref c(m_manager);
+                    expr_ref c(m);
                     if (is_arith) 
-                        as->mk_lt(var, values[i], c);
+                        c = m_arith.mk_lt(var, values[i]);
                     else if (!is_signed)
-                        bs->mk_ult(var, values[i], c);
+                        c = m.mk_not(m_bv.mk_ule(values[i], var));
                     else
-                        bs->mk_slt(var, values[i], c);
-                    pi = m_manager.mk_ite(c, values[i-1], pi);
+                        c = m.mk_not(m_bv.mk_sle(values[i], var));
+                    pi = m.mk_ite(c, values[i-1], pi);
                 }
-                func_interp * rpi = alloc(func_interp, m_manager, 1);
+                func_interp * rpi = alloc(func_interp, m, 1);
                 rpi->set_else(pi);
                 m_model->register_aux_decl(p, rpi);
                 n->set_proj(p);
@@ -884,8 +882,8 @@ namespace smt {
                 ptr_buffer<expr> values;
                 get_instantiation_set_values(n, values);
                 sort * s        = n->get_sort();
-                func_decl *   p = m_manager.mk_fresh_func_decl(1, &s, s);
-                func_interp * pi = alloc(func_interp, m_manager, 1);
+                func_decl *   p = m.mk_fresh_func_decl(1, &s, s);
+                func_interp * pi = alloc(func_interp, m, 1);
                 m_model->register_aux_decl(p, pi);
                 if (n->get_else()) {
                     expr * else_val = eval(n->get_else(), true);
@@ -916,7 +914,7 @@ namespace smt {
                     if (!r.contains(f)) {
                         func_interp * fi = m_model->get_func_interp(f);
                         if (fi == 0) {
-                            fi = alloc(func_interp, m_manager, f->get_arity());
+                            fi = alloc(func_interp, m, f->get_arity());
                             m_model->register_decl(f, fi);
                             SASSERT(fi->is_partial());
                         }
@@ -938,7 +936,7 @@ namespace smt {
                 for (node * n : m_root_nodes) {
                     SASSERT(n->is_root());
                     sort * s = n->get_sort();
-                    if (m_manager.is_uninterp(s) && 
+                    if (m.is_uninterp(s) && 
                         // Making all uninterpreted sorts finite.
                         // n->must_avoid_itself() && 
                         !m_model->is_finite(s)) {
@@ -962,7 +960,7 @@ namespace smt {
                         // If these module values "leak" inside the logical context, they may affect satisfiability.
                         // 
                         sort * ns = n->get_sort();
-                        if (m_manager.is_fully_interp(ns)) {
+                        if (m.is_fully_interp(ns)) {
                             n->insert(m_model->get_some_value(ns), 0);
                         }
                         else {
@@ -973,18 +971,18 @@ namespace smt {
                         sort2elems.insert(n->get_sort(), elems.begin()->m_key);
                     }
                 }
-                expr_ref_vector trail(m_manager);
+                expr_ref_vector trail(m);
                 for (unsigned i = 0; i < need_fresh.size(); ++i) {
                     expr * e;
                     node* n = need_fresh[i];
                     sort* s = n->get_sort();
                     if (!sort2elems.find(s, e)) {
-                        e = m_manager.mk_fresh_const("elem", s);
+                        e = m.mk_fresh_const("elem", s);
                         trail.push_back(e);
                         sort2elems.insert(s, e);
                     }
                     n->insert(e, 0);
-                    TRACE("model_finder", tout << "fresh constant: " << mk_pp(e, m_manager) << "\n";);
+                    TRACE("model_finder", tout << "fresh constant: " << mk_pp(e, m) << "\n";);
                 }
             }
 
@@ -1037,13 +1035,13 @@ namespace smt {
                     if (fi->is_constant())
                         continue; // there is no point in using the projection for fi, since fi is the constant function.
                     
-                    expr_ref_vector args(m_manager);
+                    expr_ref_vector args(m);
                     bool has_proj = false;
                     for (unsigned i = 0; i < arity; i++) {
-                        var * v = m_manager.mk_var(i, f->get_domain(i));
+                        var * v = m.mk_var(i, f->get_domain(i));
                         func_decl * pi = get_f_i_proj(f, i);
                         if (pi != 0) {
-                            args.push_back(m_manager.mk_app(pi, v));
+                            args.push_back(m.mk_app(pi, v));
                             has_proj = true;
                         }
                         else {
@@ -1052,11 +1050,11 @@ namespace smt {
                     }
                     if (has_proj) {
                         // f_aux will be assigned to the old interpretation of f.
-                        func_decl *   f_aux  = m_manager.mk_fresh_func_decl(f->get_name(), symbol::null, arity, f->get_domain(), f->get_range());
-                        func_interp * new_fi = alloc(func_interp, m_manager, arity);
-                        new_fi->set_else(m_manager.mk_app(f_aux, args.size(), args.c_ptr()));
+                        func_decl *   f_aux  = m.mk_fresh_func_decl(f->get_name(), symbol::null, arity, f->get_domain(), f->get_range());
+                        func_interp * new_fi = alloc(func_interp, m, arity);
+                        new_fi->set_else(m.mk_app(f_aux, args.size(), args.c_ptr()));
                         TRACE("model_finder", tout << "Setting new interpretation for " << f->get_name() << "\n" << 
-                              mk_pp(new_fi->get_else(), m_manager) << "\n";);
+                              mk_pp(new_fi->get_else(), m) << "\n";);
                         m_model->reregister_decl(f, new_fi, f_aux);
                     }
                 }
@@ -1256,21 +1254,21 @@ namespace smt {
                 if (A_f_i == S_j) {
                     // there is no finite fixpoint... we just copy the i-th arguments of A_f_i - m_offset
                     // hope for the best...
-                    arith_simplifier_plugin * as = s.get_arith_simp();
-                    bv_simplifier_plugin * bs    = s.get_bv_simp();
                     node * S_j = s.get_uvar(q, m_var_j);
                     enode_vector::const_iterator it  = ctx->begin_enodes_of(m_f);
                     enode_vector::const_iterator end = ctx->end_enodes_of(m_f);
                     for (; it != end; it++) {
                         enode * n = *it;
                         if (ctx->is_relevant(n)) {
+                            arith_util arith(ctx->get_manager());
+                            bv_util bv(ctx->get_manager());
                             enode * e_arg = n->get_arg(m_arg_i);
                             expr * arg    = e_arg->get_owner();
                             expr_ref arg_minus_k(ctx->get_manager());
-                            if (bs->is_bv(arg))
-                                bs->mk_sub(arg, m_offset, arg_minus_k);
+                            if (bv.is_bv(arg))
+                                arg_minus_k = bv.mk_bv_sub(arg, m_offset);
                             else
-                                as->mk_sub(arg, m_offset, arg_minus_k);
+                                arg_minus_k = arith.mk_sub(arg, m_offset);
                             S_j->insert(arg_minus_k, e_arg->get_generation());
                         }
                     }
@@ -1290,20 +1288,20 @@ namespace smt {
 
             template<bool PLUS>
             void copy_instances(node * from, node * to, auf_solver & s) {
-                arith_simplifier_plugin * as = s.get_arith_simp();
-                bv_simplifier_plugin * bs    = s.get_bv_simp();
-                poly_simplifier_plugin * ps  = as;
-                if (bs->is_bv_sort(from->get_sort()))
-                    ps = bs;
                 instantiation_set const * from_s        = from->get_instantiation_set();
                 obj_map<expr, unsigned> const & elems_s = from_s->get_elems();
+
+                arith_util arith(m_offset.get_manager());
+                bv_util bv(m_offset.get_manager());
+                bool is_bv = bv.is_bv_sort(from->get_sort());
+
                 for (auto const& kv : elems_s) {
                     expr * n = kv.m_key;
                     expr_ref n_k(m_offset.get_manager());
                     if (PLUS)
-                        ps->mk_add(n, m_offset, n_k);
+                        n_k = is_bv ? bv.mk_bv_add(n, m_offset) : arith.mk_add(n, m_offset);
                     else
-                        ps->mk_sub(n, m_offset, n_k);
+                        n_k = is_bv ? bv.mk_bv_sub(n, m_offset) : arith.mk_sub(n, m_offset);
                     to->insert(n_k, kv.m_value);
                 }
             }
@@ -1897,11 +1895,8 @@ namespace smt {
                 m_info->insert_qinfo(qi);
             }
 
-            arith_simplifier_plugin * get_arith_simp() const { return m_mutil.get_arith_simp(); }
-            bv_simplifier_plugin * get_bv_simp() const { return m_mutil.get_bv_simp(); }
-
-            bool is_var_plus_ground(expr * n, bool & inv, var * & v, expr_ref & t) const {
-                return get_arith_simp()->is_var_plus_ground(n, inv, v, t) || get_bv_simp()->is_var_plus_ground(n, inv, v, t);
+            bool is_var_plus_ground(expr * n, bool & inv, var * & v, expr_ref & t) {
+                return m_mutil.is_var_plus_ground(n, inv, v, t);
             }
 
             bool is_var_plus_ground(expr * n, var * & v, expr_ref & t) {
@@ -1917,10 +1912,7 @@ namespace smt {
             }
 
             bool is_zero(expr * n) const {
-                if (get_bv_simp()->is_bv(n))
-                    return get_bv_simp()->is_zero_safe(n);
-                else 
-                    return get_arith_simp()->is_zero_safe(n);
+                return m_mutil.is_zero_safe(n);
             }
 
             bool is_times_minus_one(expr * n, expr * & arg) const {
@@ -1951,7 +1943,7 @@ namespace smt {
                 m_mutil.mk_add(t1, t2, r);
             }
 
-            bool is_var_and_ground(expr * lhs, expr * rhs, var * & v, expr_ref & t, bool & inv) const {
+            bool is_var_and_ground(expr * lhs, expr * rhs, var * & v, expr_ref & t, bool & inv) {
                 inv = false; // true if invert the sign
                 TRACE("is_var_and_ground", tout << "is_var_and_ground: " << mk_ismt2_pp(lhs, m_manager) << " " << mk_ismt2_pp(rhs, m_manager) << "\n";);
                 if (is_var(lhs) && is_ground(rhs)) {
@@ -1986,12 +1978,12 @@ namespace smt {
                 return false;
             }
 
-            bool is_var_and_ground(expr * lhs, expr * rhs, var * & v, expr_ref & t) const {
+            bool is_var_and_ground(expr * lhs, expr * rhs, var * & v, expr_ref & t) {
                 bool inv;
                 return is_var_and_ground(lhs, rhs, v, t, inv);
             }
             
-            bool is_x_eq_t_atom(expr * n, var * & v, expr_ref & t) const {
+            bool is_x_eq_t_atom(expr * n, var * & v, expr_ref & t) {
                 if (!is_app(n))
                     return false;
                 if (m_manager.is_eq(n))
@@ -1999,7 +1991,7 @@ namespace smt {
                 return false;
             }
 
-            bool is_var_minus_var(expr * n, var * & v1, var * & v2) const {
+            bool is_var_minus_var(expr * n, var * & v1, var * & v2) {
                 if (!is_add(n))
                     return false;
                 expr * arg1 = to_app(n)->get_arg(0);
@@ -2018,7 +2010,7 @@ namespace smt {
                 return true;
             }
 
-            bool is_var_and_var(expr * lhs, expr * rhs, var * & v1, var * & v2) const {
+            bool is_var_and_var(expr * lhs, expr * rhs, var * & v1, var * & v2) {
                 if (is_var(lhs) && is_var(rhs)) {
                     v1 = to_var(lhs);
                     v2 = to_var(rhs);
@@ -2029,11 +2021,11 @@ namespace smt {
                     (is_var_minus_var(rhs, v1, v2) && is_zero(lhs));
             }
 
-            bool is_x_eq_y_atom(expr * n, var * & v1, var * & v2) const {
+            bool is_x_eq_y_atom(expr * n, var * & v1, var * & v2) {
                 return m_manager.is_eq(n) && is_var_and_var(to_app(n)->get_arg(0), to_app(n)->get_arg(1), v1, v2);
             }
 
-            bool is_x_gle_y_atom(expr * n, var * & v1, var * & v2) const {
+            bool is_x_gle_y_atom(expr * n, var * & v1, var * & v2) {
                 return is_le_ge(n) && is_var_and_var(to_app(n)->get_arg(0), to_app(n)->get_arg(1), v1, v2);
             }
 
@@ -2379,10 +2371,10 @@ namespace smt {
             
  
         public:
-            quantifier_analyzer(model_finder& mf, ast_manager & m, simplifier & s):
+            quantifier_analyzer(model_finder& mf, ast_manager & m):
                 m_mf(mf),
                 m_manager(m),
-                m_mutil(m, s),
+                m_mutil(m),
                 m_array_util(m), 
                 m_arith_util(m),
                 m_bv_util(m),
@@ -3152,11 +3144,11 @@ namespace smt {
     //
     // -----------------------------------
     
-    model_finder::model_finder(ast_manager & m, simplifier & s):
+    model_finder::model_finder(ast_manager & m):
         m_manager(m),
         m_context(0),
-        m_analyzer(alloc(quantifier_analyzer, *this, m, s)),
-        m_auf_solver(alloc(auf_solver, m, s)),
+        m_analyzer(alloc(quantifier_analyzer, *this, m)),
+        m_auf_solver(alloc(auf_solver, m)),
         m_dependencies(m),
         m_sm_solver(alloc(simple_macro_solver, m, m_q2info)),
         m_hint_solver(alloc(hint_solver, m, m_q2info)),
