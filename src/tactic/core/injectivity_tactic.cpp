@@ -157,7 +157,7 @@ class injectivity_tactic : public tactic {
 			for (unsigned i = 0; i < goal->size(); ++i) {
 				func_decl *f, *g;
 				if (!is_axiom(goal->form(i), f, g)) continue;
-				TRACE("injectivity_finder", tout << "Marking " << f->get_name() << " as injective" << std::endl;);
+				TRACE("injectivity", tout << "Marking " << f->get_name() << " as injective" << std::endl;);
 				inj_map.insert(f, g);
 				// TODO: Record that g is f's pseudoinverse
 			}
@@ -213,7 +213,7 @@ class injectivity_tactic : public tactic {
 				return BR_FAILED;
 
 			SASSERT(m().get_sort(a->get_arg(0)) == m().get_sort(b->get_arg(0)));
-			TRACE("injectivity_eq", tout << "Rewriting (= " << mk_ismt2_pp(args[0], m()) <<
+			TRACE("injectivity", tout << "Rewriting (= " << mk_ismt2_pp(args[0], m()) <<
 				                              " " << mk_ismt2_pp(args[1], m()) << ")" << std::endl;);
 			result = m().mk_eq(a->get_arg(0), b->get_arg(0));
 			result_pr = nullptr;
@@ -276,11 +276,9 @@ public:
                             model_converter_ref & mc, 
                             proof_converter_ref & pc,
                             expr_dependency_ref & core) {
-		std::cerr << "injectivity finder: " << m_finder << std::endl;
         (*m_finder)(g, result, mc, pc, core);
 		
 		for (unsigned i = 0; i < g->size(); ++i) {
-			std::cerr << "injectivity rewrite " << i << std::endl;
 			expr*     curr = g->form(i);
 			expr_ref  rw(m_manager);
 			proof_ref pr(m_manager);
