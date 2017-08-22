@@ -427,7 +427,7 @@ bool theory_seq::branch_unit_variable() {
             break;
         }
     }
-    CTRACE("seq", result, "branch unit variable";);
+    CTRACE("seq", result, tout << "branch unit variable";);
     return result;
 }
 
@@ -3224,26 +3224,32 @@ void theory_seq::add_indexof_axiom(expr* i) {
 /*
   let r = replace(a, s, t)
 
+  a = "" => s = "" or r = a
+  contains(a, s) or r = a
+  s = "" => r = t+a
+  
   tightest_prefix(s, x)
   (contains(a, s) -> r = xty & a = xsy) &
   (!contains(a, s) -> r = a)
 
 */
 void theory_seq::add_replace_axiom(expr* r) {
+    context& ctx = get_context();
     expr* a = 0, *s = 0, *t = 0;
     VERIFY(m_util.str.is_replace(r, a, s, t));
     expr_ref x  = mk_skolem(m_indexof_left, a, s);
     expr_ref y  = mk_skolem(m_indexof_right, a, s);
     expr_ref xty = mk_concat(x, t, y);
     expr_ref xsy = mk_concat(x, s, y);
+    literal a_emp = mk_eq_empty(a, true);
+    literal s_emp = mk_eq_empty(s, true);
     literal cnt = mk_literal(m_util.str.mk_contains(a, s));
-    literal a_emp = mk_eq_empty(a);
-    literal s_emp = mk_eq_empty(s);
     add_axiom(~a_emp, s_emp, mk_seq_eq(r, a));
     add_axiom(cnt,  mk_seq_eq(r, a));
     add_axiom(~s_emp, mk_seq_eq(r, mk_concat(t, a)));
     add_axiom(~cnt, a_emp, s_emp, mk_seq_eq(a, xsy));
     add_axiom(~cnt, a_emp, s_emp, mk_seq_eq(r, xty));
+    ctx.force_phase(cnt);
     tightest_prefix(s, x);
 }
 
@@ -3546,7 +3552,7 @@ bool theory_seq::get_length(expr* e, rational& val) const {
             }
         }
     }
-    CTRACE("seq", !val.is_int(), "length is not an integer\n";);
+    CTRACE("seq", !val.is_int(), tout << "length is not an integer\n";);
     return val.is_int();
 }
 

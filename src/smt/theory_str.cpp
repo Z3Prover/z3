@@ -185,6 +185,7 @@ namespace smt {
         m_trail.push_back(e);
 
         //TRACE("str", tout << "done asserting " << mk_ismt2_pp(e, get_manager()) << std::endl;);
+
     }
 
     expr * theory_str::rewrite_implication(expr * premise, expr * conclusion) {
@@ -1449,6 +1450,7 @@ namespace smt {
         argumentsValid_terms.push_back(m.mk_not(m_autil.mk_ge(
                                                     m_autil.mk_add(substrPos, m_autil.mk_mul(minusOne, substrLen)),
                                                     zero)));
+
         // len >= 0
         argumentsValid_terms.push_back(m_autil.mk_ge(substrLen, zero));
 
@@ -1488,6 +1490,7 @@ namespace smt {
 
         // Case 3: (pos >= 0 and pos < strlen(base) and len >= 0) and (pos+len) < strlen(base)
         // ==> base = t2.t3.t4 AND len(t2) = pos AND len(t3) = len AND (Substr ...) = t3
+
         expr_ref t2(mk_str_var("t2"), m);
         expr_ref t3(mk_str_var("t3"), m);
         expr_ref t4(mk_str_var("t4"), m);
@@ -1508,6 +1511,86 @@ namespace smt {
         SASSERT(finalAxiom);
         assert_axiom(finalAxiom);
     }
+
+#if 0
+    // rewrite
+    // requires to add th_rewriter to assert_axiom to enforce normal form.
+    void theory_str::instantiate_axiom_Substr(enode * e) {
+        context & ctx = get_context();
+        ast_manager & m = get_manager();
+        expr* substrBase = 0;
+        expr* substrPos = 0;
+        expr* substrLen = 0;
+
+        app * expr = e->get_owner();
+        if (axiomatized_terms.contains(expr)) {
+            TRACE("str", tout << "already set up Substr axiom for " << mk_pp(expr, m) << std::endl;);
+            return;
+        }
+        axiomatized_terms.insert(expr);
+
+        TRACE("str", tout << "instantiate Substr axiom for " << mk_pp(expr, m) << std::endl;);
+
+        VERIFY(u.str.is_extract(expr, substrBase, substrPos, substrLen));
+
+        expr_ref zero(m_autil.mk_numeral(rational::zero(), true), m);
+        expr_ref minusOne(m_autil.mk_numeral(rational::minus_one(), true), m);
+        SASSERT(zero);
+        SASSERT(minusOne);
+
+        expr_ref_vector argumentsValid_terms(m);
+        // pos >= 0
+        argumentsValid_terms.push_back(m_autil.mk_ge(substrPos, zero));
+        // pos < strlen(base)
+        // --> pos + -1*strlen(base) < 0
+        argumentsValid_terms.push_back(m.mk_not(m_autil.mk_ge(
+                                                    m_autil.mk_add(substrPos, m_autil.mk_mul(minusOne, substrLen)),
+                                                    zero)));
+        // len >= 0
+        argumentsValid_terms.push_back(m_autil.mk_ge(substrLen, zero));
+
+
+        // (pos+len) >= strlen(base)
+        // --> pos + len + -1*strlen(base) >= 0
+        expr_ref lenOutOfBounds(m_autil.mk_ge(
+                                    m_autil.mk_add(substrPos, substrLen, m_autil.mk_mul(minusOne, mk_strlen(substrBase))),
+                                    zero), m);
+        expr_ref argumentsValid = mk_and(argumentsValid_terms);
+
+        // Case 1: pos < 0 or pos >= strlen(base) or len < 0
+        // ==> (Substr ...) = ""
+        expr_ref case1_premise(m.mk_not(argumentsValid), m);
+        expr_ref case1_conclusion(ctx.mk_eq_atom(expr, mk_string("")), m);
+        expr_ref case1(m.mk_implies(case1_premise, case1_conclusion), m);
+
+        // Case 2: (pos >= 0 and pos < strlen(base) and len >= 0) and (pos+len) >= strlen(base)
+        // ==> base = t0.t1 AND len(t0) = pos AND (Substr ...) = t1
+        expr_ref t0(mk_str_var("t0"), m);
+        expr_ref t1(mk_str_var("t1"), m);
+        expr_ref case2_conclusion(m.mk_and(
+                                      ctx.mk_eq_atom(substrBase, mk_concat(t0,t1)),
+                                      ctx.mk_eq_atom(mk_strlen(t0), substrPos),
+                                      ctx.mk_eq_atom(expr, t1)), m);
+        expr_ref case2(m.mk_implies(m.mk_and(argumentsValid, lenOutOfBounds), case2_conclusion), m);
+
+        // Case 3: (pos >= 0 and pos < strlen(base) and len >= 0) and (pos+len) < strlen(base)
+        // ==> base = t2.t3.t4 AND len(t2) = pos AND len(t3) = len AND (Substr ...) = t3
+        expr_ref t2(mk_str_var("t2"), m);
+        expr_ref t3(mk_str_var("t3"), m);
+        expr_ref t4(mk_str_var("t4"), m);
+        expr_ref_vector case3_conclusion_terms(m);
+        case3_conclusion_terms.push_back(ctx.mk_eq_atom(substrBase, mk_concat(t2, mk_concat(t3, t4))));
+        case3_conclusion_terms.push_back(ctx.mk_eq_atom(mk_strlen(t2), substrPos));
+        case3_conclusion_terms.push_back(ctx.mk_eq_atom(mk_strlen(t3), substrLen));
+        case3_conclusion_terms.push_back(ctx.mk_eq_atom(expr, t3));
+        expr_ref case3_conclusion(mk_and(case3_conclusion_terms), m);
+        expr_ref case3(m.mk_implies(m.mk_and(argumentsValid, m.mk_not(lenOutOfBounds)), case3_conclusion), m);
+
+        assert_axiom(case1);
+        assert_axiom(case2);
+        assert_axiom(case3);
+    }
+#endif
 
     void theory_str::instantiate_axiom_Replace(enode * e) {
         context & ctx = get_context();
@@ -8484,7 +8567,7 @@ namespace smt {
         } else {
             TRACE("str", tout << "integer theory has no assignment for " << mk_pp(a, m) << std::endl;);
             expr_ref is_zero(ctx.mk_eq_atom(a, m_autil.mk_int(0)), m);
-            literal is_zero_l = mk_literal(is_zero);
+            /* literal is_zero_l = */ mk_literal(is_zero);
             axiomAdd = true;
             TRACE("str", ctx.display(tout););
             // NOT_IMPLEMENTED_YET();

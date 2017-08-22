@@ -17,16 +17,15 @@ Revision History:
 
 --*/
 
-#include "smt/smt_model_checker.h"
-#include "smt/smt_context.h"
-#include "smt/smt_model_finder.h"
 #include "ast/normal_forms/pull_quant.h"
 #include "ast/for_each_expr.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/ast_pp.h"
-#include "ast/ast_ll_pp.h"
-#include "model/model_pp.h"
 #include "ast/ast_smt2_pp.h"
+#include "smt/smt_model_checker.h"
+#include "smt/smt_context.h"
+#include "smt/smt_model_finder.h"
+#include "model/model_pp.h"
 
 namespace smt {
 
@@ -65,11 +64,9 @@ namespace smt {
     expr * model_checker::get_term_from_ctx(expr * val) {
         if (m_value2expr.empty()) {
             // populate m_value2expr
-            obj_map<enode, app *>::iterator it  = m_root2value->begin();
-            obj_map<enode, app *>::iterator end = m_root2value->end();
-            for (; it != end; ++it) {
-                enode * n   = (*it).m_key;
-                expr  * val = (*it).m_value;
+            for (auto const& kv : *m_root2value) {
+                enode * n   = kv.m_key;
+                expr  * val = kv.m_value;
                 n = n->get_eq_enode_with_min_gen();
                 m_value2expr.insert(val, n->get_owner());
             }
@@ -89,10 +86,7 @@ namespace smt {
     void model_checker::restrict_to_universe(expr * sk, obj_hashtable<expr> const & universe) {
         SASSERT(!universe.empty());
         ptr_buffer<expr> eqs;
-        obj_hashtable<expr>::iterator it  = universe.begin();
-        obj_hashtable<expr>::iterator end = universe.end();
-        for (; it != end; ++it) {
-            expr * e = *it;
+        for (expr * e : universe) {
             eqs.push_back(m.mk_eq(sk, e));
         }
         expr_ref fml(m.mk_or(eqs.size(), eqs.c_ptr()), m);
@@ -201,9 +195,8 @@ namespace smt {
 
     void model_checker::add_instance(quantifier* q, expr_ref_vector const& bindings, unsigned max_generation) {
         SASSERT(q->get_num_decls() == bindings.size());
-
-        for (unsigned i = 0; i < bindings.size(); i++)
-            m_pinned_exprs.push_back(bindings[i]);
+        for (expr* b : bindings) 
+            m_pinned_exprs.push_back(b);
         m_pinned_exprs.push_back(q);
 
         void * mem = m_new_instances_region.allocate(instance::get_obj_size(q->get_num_decls()));
@@ -237,10 +230,8 @@ namespace smt {
 
     bool model_checker::add_blocking_clause(model * cex, expr_ref_vector & sks) {
         SASSERT(cex != 0);
-        unsigned num_sks  = sks.size();
         expr_ref_buffer diseqs(m);
-        for (unsigned i = 0; i < num_sks; i++) {
-            expr * sk        = sks.get(i);
+        for (expr * sk : sks) {
             func_decl * sk_d = to_app(sk)->get_decl();
             expr_ref sk_value(m);
             sk_value  = cex->get_const_interp(sk_d);
@@ -272,8 +263,7 @@ namespace smt {
 
         assert_neg_q_m(flat_q, sks);
         TRACE("model_checker", tout << "skolems:\n";
-              for (unsigned i = 0; i < sks.size(); i++) {
-                  expr * sk = sks.get(i);
+              for (expr* sk : sks) {
                   tout << mk_ismt2_pp(sk, m) << " " << mk_pp(m.get_sort(sk), m) << "\n";
               });
 
@@ -486,10 +476,7 @@ namespace smt {
         TRACE("model_checker_bug_detail", tout << "assert_new_instances, inconsistent: " << m_context->inconsistent() << "\n";);
         ptr_buffer<enode> bindings;
         ptr_vector<enode> dummy;
-        ptr_vector<instance>::iterator it  = m_new_instances.begin();
-        ptr_vector<instance>::iterator end = m_new_instances.end();
-        for (; it != end; ++it) {
-            instance * inst = *it;
+        for (instance* inst : m_new_instances) {
             quantifier * q  = inst->m_q;
             if (m_context->b_internalized(q)) {
                 bindings.reset();

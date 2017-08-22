@@ -2080,16 +2080,15 @@ namespace smt {
     */
     enode_vector * interpreter::mk_depth1_vector(enode * n, func_decl * f, unsigned i) {
         enode_vector * v = mk_enode_vector();
-        unsigned num_args = n->get_num_args();
         n = n->get_root();
         enode_vector::const_iterator it  = n->begin_parents();
         enode_vector::const_iterator end = n->end_parents();
         for (; it != end; ++it) {
             enode * p = *it;
             if (p->get_decl() == f  && 
+                i < p->get_num_args() && 
                 m_context.is_relevant(p)  &&
                 p->is_cgr() &&
-                i < p->get_num_args() &&
                 p->get_arg(i)->get_root() == n) {
                 v->push_back(p);
             }
