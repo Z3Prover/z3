@@ -7,22 +7,6 @@
 #include "util/lp/lar_solver.h"
 namespace lp {
 
-void int_solver::fix_non_base_columns() {
-    auto & lcs = m_lar_solver->m_mpq_lar_core_solver;
-    bool change = false;
-    for (unsigned j : lcs.m_r_nbasis) {
-        if (column_is_int_inf(j)) {
-            change = true;
-            set_value_for_nbasic_column(j, floor(lcs.m_r_x[j].x));
-        }
-    }
-    if (!change)
-        return;
-    if (m_lar_solver->find_feasible_solution() == lp_status::INFEASIBLE)
-        failed();
-    lp_assert(is_feasible() && inf_int_set_is_correct());
-}
-
 void int_solver::failed() {
     auto & lcs = m_lar_solver->m_mpq_lar_core_solver;
     
@@ -424,8 +408,12 @@ struct pivoted_rows_tracking_control {
     pivoted_rows_tracking_control(lar_solver* ls) :
         m_lar_solver(ls),
         m_track_pivoted_rows(ls->get_track_pivoted_rows())
-    {}
+	{
+		TRACE("pivoted_rows", tout << "pivoted rows = " << ls->m_mpq_lar_core_solver.m_r_solver.m_pivoted_rows->size() << std::endl;);
+		m_lar_solver->set_track_pivoted_rows(false);
+	}
     ~pivoted_rows_tracking_control() {
+		TRACE("pivoted_rows", tout << "pivoted rows = " << m_lar_solver->m_mpq_lar_core_solver.m_r_solver.m_pivoted_rows->size() << std::endl;);
         m_lar_solver->set_track_pivoted_rows(m_track_pivoted_rows);
     }
 };
@@ -443,13 +431,15 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
             return lia_move::conflict;
     pivoted_rows_tracking_control pc(m_lar_solver);
     /* if (m_params.m_arith_euclidean_solver) apply_euclidean_solver();  */
-    m_lar_solver->pivot_fixed_vars_from_basis();
-    patch_int_infeasible_columns();
-    fix_non_base_columns();
-    if (!has_inf_int()) return lia_move::ok;
+    //m_lar_solver->pivot_fixed_vars_from_basis();
+    patch_int_infeasible_nbasic_columns();
+	if (!has_inf_int())
+		return lia_move::ok;
+
+	// lp_assert(non_basic_columns_are_at_bounds());
     TRACE("gomory_cut", tout << m_branch_cut_counter+1 << ", " << settings().m_int_branch_cut_gomory_threshold << std::endl;);
     if ((++m_branch_cut_counter) % settings().m_int_branch_cut_gomory_threshold == 0) {
-        if (move_non_base_vars_to_bounds()) {
+        if (move_non_basic_columns_to_bounds()) {
             lp_status st = m_lar_solver->find_feasible_solution();
             lp_assert(non_basic_columns_are_at_bounds());
             if (st != lp_status::FEASIBLE && st != lp_status::OPTIMAL) {
@@ -458,43 +448,54 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
             }
         }
         int j = find_inf_int_base_column();
-        lp_assert(j != -1);
+		if (j == -1) return lia_move::ok;
         TRACE("arith_int", tout << "j = " << j << " does not have an integer assignment: " << get_value(j) << "\n";);
         return proceed_with_gomory_cut(t, k, ex, j);
     }
     return create_branch_on_column(find_inf_int_base_column(), t, k, false);
 }
 
-bool int_solver::move_non_base_vars_to_bounds() {
+bool int_solver::move_non_basic_column_to_bounds(unsigned j) {
+	auto & lcs = m_lar_solver->m_mpq_lar_core_solver;
+	auto & val = lcs.m_r_x[j];
+	switch (lcs.m_column_types()[j]) {
+	case column_type::boxed:
+		if (val != lcs.m_r_low_bounds()[j] && val != lcs.m_r_upper_bounds()[j]) {
+			if (random() % 2 == 0)
+				set_value_for_nbasic_column(j, lcs.m_r_low_bounds()[j]);
+			else
+				set_value_for_nbasic_column(j, lcs.m_r_upper_bounds()[j]);
+			return true;
+		}
+		break;
+	case column_type::low_bound:
+		if (val != lcs.m_r_low_bounds()[j]) {
+			set_value_for_nbasic_column(j, lcs.m_r_low_bounds()[j]);
+			return true;
+		}
+		break;
+	case column_type::upper_bound:
+		if (val != lcs.m_r_upper_bounds()[j]) {
+			set_value_for_nbasic_column(j, lcs.m_r_upper_bounds()[j]);
+			return true;
+		}		
+		break;
+	default:
+		if (is_int(j) && !val.is_int()) {
+			set_value_for_nbasic_column(j, impq(floor(val)));
+			return true;
+		}
+		break;
+	}
+	return false;
+}
+
+bool int_solver::move_non_basic_columns_to_bounds() {
     auto & lcs = m_lar_solver->m_mpq_lar_core_solver;
     bool change = false;
     for (unsigned j : lcs.m_r_nbasis) {
-        auto & val = lcs.m_r_x[j];
-        switch (lcs.m_column_types()[j]) {
-        case column_type::boxed:
-            if (val != lcs.m_r_low_bounds()[j] && val != lcs.m_r_upper_bounds()[j]) {
-                set_value_for_nbasic_column(j, lcs.m_r_low_bounds()[j]);
-                change = true;
-            }
-            break;
-        case column_type::low_bound:
-            if (val != lcs.m_r_low_bounds()[j]) {
-                set_value_for_nbasic_column(j, lcs.m_r_low_bounds()[j]);
-                change = true;
-            }
-            break;
-        case column_type::upper_bound:
-            if (val != lcs.m_r_upper_bounds()[j]) {
-                set_value_for_nbasic_column(j, lcs.m_r_upper_bounds()[j]);
-                change = true;
-            }
-            break;
-        default:
-            if (is_int(j) && !val.is_int()) { 
-                set_value_for_nbasic_column(j, impq(floor(val)));
-                change = true;
-            }
-        }
+		if (move_non_basic_column_to_bounds(j))
+			change = true;
     }
     return change;
 }
@@ -522,53 +523,68 @@ void int_solver::set_value_for_nbasic_column(unsigned j, const impq & new_val) {
     m_lar_solver->change_basic_columns_dependend_on_a_given_nb_column(j, delta);
 }
 
-void int_solver::patch_int_infeasible_columns() {
-    bool inf_l, inf_u;
-    impq l, u;
-    mpq m;
-    auto & lcs = m_lar_solver->m_mpq_lar_core_solver;
-    for (unsigned j : lcs.m_r_nbasis) {
-        if (!is_int(j))
-            continue;
-        get_freedom_interval_for_column(j, inf_l, l, inf_u, u, m);
-        impq & val = lcs.m_r_x[j];
-        bool val_is_int = val.is_int();
-        bool m_is_one = m.is_one();
-        if (m.is_one() && val_is_int)
-            continue;
-        // check whether value of j is already a multiple of m.
-        if (val_is_int && (val.x / m).is_int())
-            continue;
-        TRACE("patch_int",
-              tout << "TARGET j" << j << " -> [";
-              if (inf_l) tout << "-oo"; else tout << l;
-              tout << ", ";
-              if (inf_u) tout << "oo"; else tout << u;
-              tout << "]";
-              tout << ", m: " << m << ", val: " << val << ", is_int: " << m_lar_solver->column_is_int(j) << "\n";);
-        if (!inf_l) {
-            l = m_is_one? ceil(l) : m * ceil(l / m);
-            if (inf_u || l <= u) {
-                TRACE("patch_int",
-                      tout << "patching with l: " << l << '\n';);
-                
-                set_value_for_nbasic_column(j, l);
-            } else {
-                TRACE("patch_int", 
-                      tout << "not patching " << l << "\n";);
-            }
-        } else if (!inf_u) {
-            u = m_is_one? floor(u) : m * floor(u / m);
-            set_value_for_nbasic_column(j, u);
-            TRACE("patch_int",
-                  tout << "patching with u: " << u << '\n';);
-        } else {
-            set_value_for_nbasic_column(j, impq(0));
-            TRACE("patch_int",
-                  tout << "patching with 0\n";);
-        }
-		lp_assert(is_feasible() && inf_int_set_is_correct());
+void int_solver::patch_int_infeasible_non_basic_column(unsigned j) {
+	if (!is_int(j)) return;
+	bool inf_l, inf_u;
+	impq l, u;
+	mpq m;
+	if (!get_value(j).is_int() || !get_freedom_interval_for_column(j, inf_l, l, inf_u, u, m)) {
+		move_non_basic_column_to_bounds(j);
+		return;
 	}
+	auto & lcs = m_lar_solver->m_mpq_lar_core_solver; 
+	impq & val = lcs.m_r_x[j];
+	bool val_is_int = val.is_int();
+	bool m_is_one = m.is_one();
+	if (m.is_one() && val_is_int)
+		return;
+	// check whether value of j is already a multiple of m.
+	if (val_is_int && (val.x / m).is_int())
+		return;
+	TRACE("patch_int",
+		tout << "TARGET j" << j << " -> [";
+	if (inf_l) tout << "-oo"; else tout << l;
+	tout << ", ";
+	if (inf_u) tout << "oo"; else tout << u;
+	tout << "]";
+	tout << ", m: " << m << ", val: " << val << ", is_int: " << m_lar_solver->column_is_int(j) << "\n";);
+	if (!inf_l) {
+		l = m_is_one ? ceil(l) : m * ceil(l / m);
+		if (inf_u || l <= u) {
+			TRACE("patch_int",
+				tout << "patching with l: " << l << '\n';);
+
+			set_value_for_nbasic_column(j, l);
+		}
+		else {
+			TRACE("patch_int",
+				tout << "not patching " << l << "\n";);
+		}
+	}
+	else if (!inf_u) {
+		u = m_is_one ? floor(u) : m * floor(u / m);
+		set_value_for_nbasic_column(j, u);
+		TRACE("patch_int",
+			tout << "patching with u: " << u << '\n';);
+	}
+	else {
+		set_value_for_nbasic_column(j, impq(0));
+		TRACE("patch_int",
+			tout << "patching with 0\n";);
+	}
+}
+void int_solver::patch_int_infeasible_nbasic_columns() {
+	lp_assert(is_feasible());
+	for (unsigned j : m_lar_solver->m_mpq_lar_core_solver.m_r_nbasis) {
+		patch_int_infeasible_non_basic_column(j);
+		if (!is_feasible())
+			break;
+	}
+	if (!is_feasible()) {
+		move_non_basic_columns_to_bounds();
+		m_lar_solver->find_feasible_solution();
+	}
+	lp_assert(is_feasible() && inf_int_set_is_correct());
 }
 
 mpq get_denominators_lcm(iterator_on_row<mpq> &it) {
@@ -881,7 +897,7 @@ bool int_solver::inf_int_set_is_correct() const {
             return false;
         }
     }
-    return true;
+	return true;
 }
 
 bool int_solver::column_is_int_inf(unsigned j) const {

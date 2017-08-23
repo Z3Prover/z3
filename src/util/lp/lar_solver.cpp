@@ -379,10 +379,7 @@ void lar_solver::pop(unsigned k) {
     if (m_settings.use_tableau()) {
         pop_tableau();
     }
-    TRACE("arith_int", tout << "pop" << std::endl;);
-    lp_assert(inf_int_set_is_correct());
-    TRACE("arith_int", tout << "pop" << std::endl;);
-    
+	lp_assert(A_r().column_count() == n);
     m_columns_to_ul_pairs.pop(k);
 
     m_mpq_lar_core_solver.pop(k);
@@ -1320,8 +1317,8 @@ void lar_solver::remove_last_row_and_column_from_tableau(unsigned j) {
     slv.m_b.pop_back();
 }
 
-void lar_solver::remove_last_column_from_tableau(unsigned j) {
-    lp_assert(j == A_r().column_count() - 1);
+void lar_solver::remove_last_column_from_A() {
+    unsigned j = A_r().column_count() - 1;
     // the last column has to be empty
     lp_assert(A_r().m_columns[j].size() == 0);
     A_r().m_columns.pop_back();
@@ -1355,9 +1352,9 @@ void lar_solver::remove_last_column_from_basis_tableau(unsigned j) {
     lp_assert(rslv.basis_heading_is_correct());
 }
 
-void lar_solver::remove_column_from_tableau(unsigned j) {
+void lar_solver::remove_last_column_from_tableau() {
     auto& rslv = m_mpq_lar_core_solver.m_r_solver;
-    lp_assert(j == A_r().column_count() - 1);
+	unsigned j = A_r().column_count() - 1;
     lp_assert(A_r().column_count() == m_mpq_lar_core_solver.m_r_solver.m_costs.size());
     if (column_represents_row_in_tableau(j)) {
         remove_last_row_and_column_from_tableau(j);
@@ -1365,7 +1362,7 @@ void lar_solver::remove_column_from_tableau(unsigned j) {
             rslv.change_basis_unconditionally(j, rslv.m_basis[A_r().row_count()]); // A_r().row_count() is the index of the last row in the basis still
     }
     else {
-        remove_last_column_from_tableau(j);
+        remove_last_column_from_A();
     }
     rslv.m_x.pop_back();
     rslv.m_d.pop_back();
@@ -1383,8 +1380,8 @@ void lar_solver::pop_tableau() {
     lp_assert(m_mpq_lar_core_solver.m_r_solver.basis_heading_is_correct());
     // We remove last variables starting from m_column_names.size() to m_vec_of_canonic_left_sides.size().    
     // At this moment m_column_names is already popped
-    for (unsigned j = A_r().column_count(); j-- > m_columns_to_ext_vars_or_term_indices.size();)
-        remove_column_from_tableau(j);
+    while (A_r().column_count() > m_columns_to_ext_vars_or_term_indices.size())
+        remove_last_column_from_tableau();
     lp_assert(m_mpq_lar_core_solver.m_r_solver.m_costs.size() == A_r().column_count());
     lp_assert(m_mpq_lar_core_solver.m_r_solver.m_basis.size() == A_r().row_count());
     lp_assert(m_mpq_lar_core_solver.m_r_solver.basis_heading_is_correct());

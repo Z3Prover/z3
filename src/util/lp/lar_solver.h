@@ -1173,10 +1173,10 @@ public:
     bool column_represents_row_in_tableau(unsigned j);
     void make_sure_that_the_bottom_right_elem_not_zero_in_tableau(unsigned i, unsigned j);
     void remove_last_row_and_column_from_tableau(unsigned j);
-    void remove_last_column_from_tableau(unsigned j);
+    void remove_last_column_from_A();
 
     void remove_last_column_from_basis_tableau(unsigned j);
-    void remove_column_from_tableau(unsigned j);
+    void remove_last_column_from_tableau();
     void pop_tableau();
     void clean_inf_set_of_r_solver_after_pop();
     void shrink_explanation_to_minimum(vector<std::pair<mpq, constraint_index>> & explanation) const;

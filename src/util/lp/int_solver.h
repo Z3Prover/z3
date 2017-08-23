@@ -43,6 +43,7 @@ public:
     // main function to check that solution provided by lar_solver is valid for integral values,
     // or provide a way of how it can be adjusted.
     lia_move check(lar_term& t, mpq& k, explanation& ex);
+	bool move_non_basic_column_to_bounds(unsigned j);
     lia_move check_wrapper(lar_term& t, mpq& k, explanation& ex);
 private:
 
@@ -75,8 +76,8 @@ private:
                       explanation & ex);
     void fill_explanation_from_fixed_columns(iterator_on_row<mpq> & it, explanation &);
     void add_to_explanation_from_fixed_or_boxed_column(unsigned j, explanation &);
-    void remove_fixed_vars_from_base();
-    void patch_int_infeasible_columns();
+	void patch_int_infeasible_non_basic_column(unsigned j);
+	void patch_int_infeasible_nbasic_columns();
     bool get_freedom_interval_for_column(unsigned j, bool & inf_l, impq & l, bool & inf_u, impq & u, mpq & m);
     linear_combination_iterator<mpq> * get_column_iterator(unsigned j);
     const impq & low_bound(unsigned j) const;
@@ -90,7 +91,7 @@ private:
     bool value_is_int(unsigned j) const;
     void set_value_for_nbasic_column(unsigned j, const impq & new_val);
     void set_value_for_nbasic_column_ignore_old_values(unsigned j, const impq & new_val);
-    void fix_non_base_columns();
+    bool non_basic_columns_are_at_bounds() const;
     void failed();
     bool is_feasible() const;
     const impq & get_value(unsigned j) const;
@@ -102,7 +103,7 @@ private:
     int find_inf_int_base_column();
     int find_inf_int_boxed_base_column_with_smallest_range();
     lp_settings& settings();
-    bool move_non_base_vars_to_bounds();
+    bool move_non_basic_columns_to_bounds();
     void branch_infeasible_int_var(unsigned);
     lia_move mk_gomory_cut(lar_term& t, mpq& k,explanation & ex, unsigned inf_col, linear_combination_iterator<mpq>& iter);
     lia_move report_conflict_from_gomory_cut(mpq & k);
@@ -138,7 +139,6 @@ public:
     bool shift_var(unsigned j, unsigned range);
 private:
     unsigned random();
-    bool non_basic_columns_are_at_bounds() const;
     bool has_inf_int() const;
     lia_move create_branch_on_column(int j, lar_term& t, mpq& k, bool free_column) const;
 public:
