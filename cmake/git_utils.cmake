@@ -4,23 +4,55 @@
 # of the git directory changes CMake will be forced to re-run. This useful
 # for fetching the current git hash and including it in the build.
 #
-# `GIT_DIR` is the path to the git directory (i.e. the `.git` directory)
+# `GIT_DOT_FILE` is the path to the git directory (i.e. the `.git` directory) or
+# `.git` file used by a git worktree.
 # `SUCCESS_VAR` is the name of the variable to set. It will be set to TRUE
 # if the dependency was successfully added and FALSE otherwise.
-function(add_git_dir_dependency GIT_DIR SUCCESS_VAR)
+function(add_git_dir_dependency GIT_DOT_FILE SUCCESS_VAR)
   if (NOT "${ARGC}" EQUAL 2)
     message(FATAL_ERROR "Invalid number (${ARGC}) of arguments")
   endif()
 
-  if (NOT IS_ABSOLUTE "${GIT_DIR}")
-    message(FATAL_ERROR "GIT_DIR (\"${GIT_DIR}\") is not an absolute path")
+  if (NOT IS_ABSOLUTE "${GIT_DOT_FILE}")
+    message(FATAL_ERROR "GIT_DOT_FILE (\"${GIT_DOT_FILE}\") is not an absolute path")
   endif()
 
-  if (NOT IS_DIRECTORY "${GIT_DIR}")
-    message(FATAL_ERROR "GIT_DIR (\"${GIT_DIR}\") is not a directory")
+  if (NOT EXISTS "${GIT_DOT_FILE}")
+    message(FATAL_ERROR "GIT_DOT_FILE (\"${GIT_DOT_FILE}\") does not exist")
   endif()
 
-  set(GIT_HEAD_FILE "${GIT_DIR}/HEAD")
+  if (NOT IS_DIRECTORY "${GIT_DOT_FILE}")
+    # Might be a git worktree. In this case we need parse out the worktree
+    # git directory
+    file(READ "${GIT_DOT_FILE}" GIT_DOT_FILE_DATA LIMIT 512)
+    string(STRIP "${GIT_DOT_FILE_DATA}" GIT_DOT_FILE_DATA_STRIPPED)
+    if ("${GIT_DOT_FILE_DATA_STRIPPED}" MATCHES "^gitdir:[ ]*(.+)$")
+      # Git worktree
+      message(STATUS "Found git worktree")
+      set(GIT_WORKTREE_DIR "${CMAKE_MATCH_1}")
+      set(GIT_HEAD_FILE "${GIT_WORKTREE_DIR}/HEAD")
+      # Figure out where real git directory lives
+      set(GIT_COMMON_DIR_FILE "${GIT_WORKTREE_DIR}/commondir")
+      if (NOT EXISTS "${GIT_COMMON_DIR_FILE}")
+        message(FATAL_ERROR "Found git worktree dir but could not find \"${GIT_COMMON_DIR_FILE}\"")
+      endif()
+      file(READ "${GIT_COMMON_DIR_FILE}" GIT_COMMON_DIR_FILE_DATA LIMIT 512)
+      string(STRIP "${GIT_COMMON_DIR_FILE_DATA}" GIT_COMMON_DIR_FILE_DATA_STRIPPED)
+      get_filename_component(GIT_DIR "${GIT_WORKTREE_DIR}/${GIT_COMMON_DIR_FILE_DATA_STRIPPED}" ABSOLUTE)
+      if (NOT IS_DIRECTORY "${GIT_DIR}")
+        message(FATAL_ERROR "Failed to compute path to git directory from git worktree")
+      endif()
+    else()
+      message(FATAL_ERROR "GIT_DOT_FILE (\"${GIT_DOT_FILE}\") is not a directory or a pointer to git worktree directory")
+    endif()
+  else()
+    # Just a normal `.git` directory
+    message(STATUS "Found simple git working directory")
+    set(GIT_HEAD_FILE "${GIT_DOT_FILE}/HEAD")
+    set(GIT_DIR "${GIT_DOT_FILE}")
+  endif()
+  message(STATUS "Found git directory \"${GIT_DIR}\"")
+
   if (NOT EXISTS "${GIT_HEAD_FILE}")
     message(AUTHOR_WARNING "Git head file \"${GIT_HEAD_FILE}\" cannot be found")
     set(${SUCCESS_VAR} FALSE PARENT_SCOPE)
@@ -79,24 +111,25 @@ function(add_git_dir_dependency GIT_DIR SUCCESS_VAR)
   set(${SUCCESS_VAR} TRUE PARENT_SCOPE)
 endfunction()
 
-# get_git_head_hash(GIT_DIR OUTPUT_VAR)
+# get_git_head_hash(GIT_DOT_FILE OUTPUT_VAR)
 #
-# Retrieve the current commit hash for a git working directory where `GIT_DIR`
-# is the `.git` directory in the root of the git working directory.
+# Retrieve the current commit hash for a git working directory where
+# `GIT_DOT_FILE` is the `.git` directory or `.git` pointer file in a git
+# worktree in the root of the git working directory.
 #
 # `OUTPUT_VAR` should be the name of the variable to put the result in. If this
 # function fails then either a fatal error will be raised or `OUTPUT_VAR` will
 # contain a string with the suffix `NOTFOUND` which can be used in CMake `if()`
 # commands.
-function(get_git_head_hash GIT_DIR OUTPUT_VAR)
+function(get_git_head_hash GIT_DOT_FILE OUTPUT_VAR)
   if (NOT "${ARGC}" EQUAL 2)
     message(FATAL_ERROR "Invalid number of arguments")
   endif()
-  if (NOT IS_DIRECTORY "${GIT_DIR}")
-    message(FATAL_ERROR "\"${GIT_DIR}\" is not a directory")
+  if (NOT EXISTS "${GIT_DOT_FILE}")
+    message(FATAL_ERROR "\"${GIT_DOT_FILE}\" does not exist")
   endif()
-  if (NOT IS_ABSOLUTE "${GIT_DIR}")
-    message(FATAL_ERROR \""${GIT_DIR}\" is not an absolute path")
+  if (NOT IS_ABSOLUTE "${GIT_DOT_FILE}")
+    message(FATAL_ERROR \""${GIT_DOT_FILE}\" is not an absolute path")
   endif()
   find_package(Git)
   # NOTE: Use `GIT_FOUND` rather than `Git_FOUND` which was only
@@ -105,7 +138,7 @@ function(get_git_head_hash GIT_DIR OUTPUT_VAR)
     set(${OUTPUT_VAR} "GIT-NOTFOUND" PARENT_SCOPE)
     return()
   endif()
-  get_filename_component(GIT_WORKING_DIR "${GIT_DIR}" DIRECTORY)
+  get_filename_component(GIT_WORKING_DIR "${GIT_DOT_FILE}" DIRECTORY)
   execute_process(
     COMMAND
       "${GIT_EXECUTABLE}"
@@ -128,24 +161,25 @@ function(get_git_head_hash GIT_DIR OUTPUT_VAR)
   set(${OUTPUT_VAR} "${Z3_GIT_HASH}" PARENT_SCOPE)
 endfunction()
 
-# get_git_head_describe(GIT_DIR OUTPUT_VAR)
+# get_git_head_describe(GIT_DOT_FILE OUTPUT_VAR)
 #
 # Retrieve the output of `git describe` for a git working directory where
-# `GIT_DIR` is the `.git` directory in the root of the git working directory.
+# `GIT_DOT_FILE` is the `.git` directory or `.git` pointer file in a git
+# worktree in the root of the git working directory.
 #
 # `OUTPUT_VAR` should be the name of the variable to put the result in. If this
 # function fails then either a fatal error will be raised or `OUTPUT_VAR` will
 # contain a string with the suffix `NOTFOUND` which can be used in CMake `if()`
 # commands.
-function(get_git_head_describe GIT_DIR OUTPUT_VAR)
+function(get_git_head_describe GIT_DOT_FILE OUTPUT_VAR)
   if (NOT "${ARGC}" EQUAL 2)
     message(FATAL_ERROR "Invalid number of arguments")
   endif()
-  if (NOT IS_DIRECTORY "${GIT_DIR}")
-    message(FATAL_ERROR "\"${GIT_DIR}\" is not a directory")
+  if (NOT EXISTS "${GIT_DOT_FILE}")
+    message(FATAL_ERROR "\"${GIT_DOT_FILE}\" does not exist")
   endif()
-  if (NOT IS_ABSOLUTE "${GIT_DIR}")
-    message(FATAL_ERROR \""${GIT_DIR}\" is not an absolute path")
+  if (NOT IS_ABSOLUTE "${GIT_DOT_FILE}")
+    message(FATAL_ERROR \""${GIT_DOT_FILE}\" is not an absolute path")
   endif()
   find_package(Git)
   # NOTE: Use `GIT_FOUND` rather than `Git_FOUND` which was only
@@ -154,7 +188,7 @@ function(get_git_head_describe GIT_DIR OUTPUT_VAR)
     set(${OUTPUT_VAR} "GIT-NOTFOUND" PARENT_SCOPE)
     return()
   endif()
-  get_filename_component(GIT_WORKING_DIR "${GIT_DIR}" DIRECTORY)
+  get_filename_component(GIT_WORKING_DIR "${GIT_DOT_FILE}" DIRECTORY)
   execute_process(
     COMMAND
       "${GIT_EXECUTABLE}"
