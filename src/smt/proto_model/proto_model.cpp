@@ -161,8 +161,10 @@ void proto_model::cleanup_func_interp(func_interp * fi, func_decl_set & found_au
                     continue;
                 }
                 func_decl * f = t->get_decl();
-                if (m_aux_decls.contains(f))
+                if (m_aux_decls.contains(f)) {
+                    TRACE("model_bug", tout << f->get_name() << "\n";);
                     found_aux_fs.insert(f);
+                }
                 expr_ref new_t(m_manager);
                 new_t = m_rewrite.mk_app(f, args.size(), args.c_ptr());
                 if (t != new_t.get())
@@ -180,9 +182,7 @@ void proto_model::cleanup_func_interp(func_interp * fi, func_decl_set & found_au
         }
     }
 
-    if (!cache.find(fi_else, a)) {
-        UNREACHABLE();
-    }
+    VERIFY(cache.find(fi_else, a));
 
     fi->set_else(a);
 }

@@ -112,6 +112,7 @@ public:
     bool is_mul(func_decl * f) const { return is_decl_of(f, get_fid(), mul_decl_kind()); }
     bool is_times_minus_one(expr * n, expr*& r) const;
     bool is_var_plus_ground(expr * n, bool & inv, var * & v, expr_ref & t);
+    bool is_zero(expr* e) const;
 
 
     br_status mk_mul_core(unsigned num_args, expr * const * args, expr_ref & result) {

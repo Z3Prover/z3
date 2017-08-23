@@ -65,6 +65,13 @@ expr * poly_rewriter<Config>::get_power_body(expr * t, rational & k) {
 }
 
 template<typename Config>
+bool poly_rewriter<Config>::is_zero(expr* e) const {
+    rational v;
+    return is_numeral(e, v) && v.is_zero();
+}
+
+
+template<typename Config>
 expr * poly_rewriter<Config>::mk_mul_app(unsigned num_args, expr * const * args) { 
     switch (num_args) {
     case 0: 
