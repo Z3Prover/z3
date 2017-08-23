@@ -22,9 +22,9 @@ Revision History:
 
 #include "ast/ast.h"
 #include "ast/ast_pp.h"
+#include "ast/ast_util.h"
 #include "util/obj_hashtable.h"
 #include "util/ref_vector.h"
-#include "ast/simplifier/simplifier.h"
 #include "util/trace.h"
 #include "util/vector.h"
 #include "ast/arith_decl_plugin.h"

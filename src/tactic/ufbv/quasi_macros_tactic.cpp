@@ -62,7 +62,7 @@ class quasi_macros_tactic : public tactic {
             bv_simplifier_plugin * bvsimp = alloc(bv_simplifier_plugin, m_manager, *bsimp, bv_params);
             simp.register_plugin(bvsimp);
                 
-            macro_manager mm(m_manager, simp);
+            macro_manager mm(m_manager);
             quasi_macros qm(m_manager, mm);
             bool more = true;
         

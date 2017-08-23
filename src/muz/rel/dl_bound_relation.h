@@ -27,6 +27,7 @@ Revision History:
 #include "muz/rel/dl_interval_relation.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/simplifier/basic_simplifier_plugin.h"
+#include "ast/rewriter/bool_rewriter.h"
 
 namespace datalog {
 
@@ -44,7 +45,7 @@ namespace datalog {
         class filter_interpreted_fn;
         class filter_intersection_fn;
         arith_util m_arith;
-        basic_simplifier_plugin m_bsimp;
+        bool_rewriter m_bsimp;
     public:
         bound_relation_plugin(relation_manager& m);
         virtual bool can_handle_signature(const relation_signature & s);

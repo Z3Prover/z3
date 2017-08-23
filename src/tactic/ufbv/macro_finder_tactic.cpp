@@ -64,7 +64,7 @@ class macro_finder_tactic : public tactic {
             bv_simplifier_plugin * bvsimp = alloc(bv_simplifier_plugin, m_manager, *bsimp, bv_params);
             simp.register_plugin(bvsimp);
                 
-            macro_manager mm(m_manager, simp);
+            macro_manager mm(m_manager);
             macro_finder mf(m_manager, mm);
             
             expr_ref_vector forms(m_manager), new_forms(m_manager);

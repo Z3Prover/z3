@@ -29,7 +29,7 @@ Notes:
 #include "ast/dl_decl_plugin.h"
 #include "ast/pb_decl_plugin.h"
 #include "ast/seq_decl_plugin.h"
-#include "ast/simplifier/basic_simplifier_plugin.h"
+#include "ast/rewriter/bool_rewriter.h"
 
 class fpa2bv_converter {
 public:
@@ -39,7 +39,7 @@ public:
 
 protected:
     ast_manager              & m;
-    basic_simplifier_plugin    m_simp;
+    bool_rewriter              m_simp;
     fpa_util                   m_util;
     bv_util                    m_bv_util;
     arith_util                 m_arith_util;

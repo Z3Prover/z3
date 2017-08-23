@@ -52,7 +52,7 @@ asserted_formulas::asserted_formulas(ast_manager & m, smt_params & p):
     m_asserted_formulas(m),
     m_asserted_formula_prs(m),
     m_asserted_qhead(0),
-    m_macro_manager(m, m_simplifier),
+    m_macro_manager(m),
     m_bit2int(m),
     m_bv_sharing(m),
     m_inconsistent(false){

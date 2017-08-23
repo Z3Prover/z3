@@ -19,8 +19,8 @@ Revision History:
 #ifndef MACRO_MANAGER_H_
 #define MACRO_MANAGER_H_
 
-#include "ast/ast_util.h"
 #include "util/obj_hashtable.h"
+#include "ast/ast_util.h"
 #include "ast/simplifier/simplifier.h"
 #include "ast/recurse_expr.h"
 #include "ast/func_decl_dependencies.h"
@@ -36,8 +36,7 @@ Revision History:
    It has support for backtracking and tagging declarations in an expression as forbidded for being macros.
 */
 class macro_manager {
-    ast_manager &                    m_manager;
-    simplifier  &                    m_simplifier;
+    ast_manager &                    m;
     macro_util                       m_util;
 
     obj_map<func_decl, quantifier *> m_decl2macro;    // func-decl -> quantifier
@@ -58,21 +57,24 @@ class macro_manager {
     void restore_decls(unsigned old_sz);
     void restore_forbidden(unsigned old_sz);
     
+    struct macro_expander_cfg;
+    struct macro_expander_rw;
+
     class macro_expander : public simplifier {
     protected:
         macro_manager &   m_macro_manager;
         virtual bool get_subst(expr * n, expr_ref & r, proof_ref & p);
         virtual void reduce1_quantifier(quantifier * q);
     public:
-        macro_expander(ast_manager & m, macro_manager & mm, simplifier & s);
+        macro_expander(ast_manager & m, macro_manager & mm);
         ~macro_expander();
     };
     friend class macro_expander;
 
 public:
-    macro_manager(ast_manager & m, simplifier & s);
+    macro_manager(ast_manager & m);
     ~macro_manager();
-    ast_manager & get_manager() const { return m_manager; }
+    ast_manager & get_manager() const { return m; }
     macro_util & get_util() { return m_util; }
     bool insert(func_decl * f, quantifier * m, proof * pr);
     bool has_macros() const { return !m_macros.empty(); }

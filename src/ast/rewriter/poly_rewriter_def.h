@@ -118,6 +118,9 @@ expr * poly_rewriter<Config>::mk_mul_app(numeral const & c, expr * arg) {
     if (c.is_one()) {
         return arg;
     }
+    else if (is_zero(arg)) {
+        return arg;
+    }
     else {
         expr * new_args[2] = { mk_numeral(c), arg };
         return mk_mul_app(2, new_args); 
@@ -654,6 +657,7 @@ br_status poly_rewriter<Config>::mk_sub(unsigned num_args, expr * const * args, 
     ptr_buffer<expr> new_args;
     new_args.push_back(args[0]);
     for (unsigned i = 1; i < num_args; i++) {
+        if (is_zero(args[i])) continue;
         expr * aux_args[2] = { minus_one, args[i] };
         new_args.push_back(mk_mul_app(2, aux_args));
     }
