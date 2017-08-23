@@ -20,6 +20,7 @@ Revision History:
 #define PULL_ITE_TREE_H_
 
 #include "ast/ast.h"
+#include "ast/rewriter/th_rewriter.h"
 #include "ast/simplifier/simplifier.h"
 #include "ast/recurse_expr.h"
 #include "util/obj_hashtable.h"
@@ -34,7 +35,7 @@ Revision History:
 */
 class pull_ite_tree {
     ast_manager &         m_manager;
-    simplifier &          m_simplifier;
+    th_rewriter           m_rewriter;
     func_decl *           m_p;
     ptr_vector<expr>      m_args;
     unsigned              m_arg_idx; //!< position of the ite argument
@@ -56,7 +57,7 @@ class pull_ite_tree {
         return m_manager.mk_app(m_p, m_args.size(), m_args.c_ptr());
     }
 public:
-    pull_ite_tree(ast_manager & m, simplifier & s);
+    pull_ite_tree(ast_manager & m);
     /**
        \brief Apply the transformation above if n contains an ite-expression.
        Store the result in r. If n does not contain an ite-expression, then

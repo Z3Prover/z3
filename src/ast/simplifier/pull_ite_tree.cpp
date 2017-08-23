@@ -21,9 +21,9 @@ Revision History:
 #include "ast/for_each_expr.h"
 #include "ast/ast_pp.h"
 
-pull_ite_tree::pull_ite_tree(ast_manager & m, simplifier & s):
+pull_ite_tree::pull_ite_tree(ast_manager & m):
     m_manager(m),
-    m_simplifier(s),
+    m_rewriter(m),
     m_cache(m) {
 }
 
@@ -64,7 +64,7 @@ void pull_ite_tree::reduce(expr * n) {
         get_cached(e_old, e, e_pr);
         expr_ref r(m_manager);
         expr * args[3] = {c, t, e};
-        m_simplifier.mk_app(to_app(n)->get_decl(), 3, args, r);
+        r = m_rewriter.mk_app(to_app(n)->get_decl(), 3, args);
         if (!m_manager.proofs_enabled()) {
             // expr * r = m_manager.mk_ite(c, t, e);
             cache_result(n, r, 0);
@@ -117,7 +117,7 @@ void pull_ite_tree::reduce(expr * n) {
     else {
         expr_ref r(m_manager);
         m_args[m_arg_idx] = n;
-        m_simplifier.mk_app(m_p, m_args.size(), m_args.c_ptr(), r);
+        r = m_rewriter.mk_app(m_p, m_args.size(), m_args.c_ptr());
         if (!m_manager.proofs_enabled()) {
             // expr * r = m_manager.mk_app(m_p, m_args.size(), m_args.c_ptr());
             cache_result(n, r, 0);
@@ -181,7 +181,7 @@ void pull_ite_tree::operator()(app * n, app_ref & r, proof_ref & pr) {
 
 pull_ite_tree_star::pull_ite_tree_star(ast_manager & m, simplifier & s):
     simplifier(m),
-    m_proc(m, s) {
+    m_proc(m) {
     borrow_plugins(s);
 }
 
