@@ -1530,7 +1530,7 @@ extern "C" {
        In contrast to #Z3_mk_context_rc, the life time of Z3_ast objects
        are determined by the scope level of #Z3_solver_push and #Z3_solver_pop.
        In other words, a Z3_ast object remains valid until there is a
-       call to Z3_pop that takes the current scope below the level where
+       call to Z3_solver_pop that takes the current scope below the level where
        the object was created.
 
        Note that all other reference counted objects, including Z3_model,

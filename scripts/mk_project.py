@@ -23,6 +23,10 @@ def init_project_def():
     add_lib('subpaving', ['interval'], 'math/subpaving')
     add_lib('ast', ['util', 'polynomial'])
     add_lib('rewriter', ['ast', 'polynomial', 'automata'], 'ast/rewriter')
+    # Simplifier module will be deleted in the future.
+    # It has been replaced with rewriter module.
+    add_lib('simplifier', ['rewriter'], 'ast/simplifier')
+    add_lib('macros', ['simplifier'], 'ast/macros')
     add_lib('normal_forms', ['rewriter'], 'ast/normal_forms')
     add_lib('model', ['rewriter'])
     add_lib('tactic', ['ast', 'model'])
@@ -30,7 +34,7 @@ def init_project_def():
     add_lib('parser_util', ['ast'], 'parsers/util')
     add_lib('grobner', ['ast'], 'math/grobner')
     add_lib('euclid', ['util'], 'math/euclid')
-    add_lib('core_tactics', ['tactic', 'normal_forms'], 'tactic/core')
+    add_lib('core_tactics', ['tactic', 'macros', 'normal_forms', 'rewriter'], 'tactic/core')
     add_lib('sat_tactic', ['tactic', 'sat'], 'sat/tactic')
     add_lib('arith_tactics', ['core_tactics', 'sat'], 'tactic/arith')
     add_lib('nlsat_tactic', ['nlsat', 'sat_tactic', 'arith_tactics'], 'nlsat/tactic')
@@ -43,11 +47,7 @@ def init_project_def():
     add_lib('extra_cmds', ['cmd_context', 'subpaving_tactic', 'arith_tactics'], 'cmd_context/extra_cmds')
     add_lib('smt2parser', ['cmd_context', 'parser_util'], 'parsers/smt2')
     add_lib('proof_checker', ['rewriter'], 'ast/proof_checker')
-    # Simplifier module will be deleted in the future.
-    # It has been replaced with rewriter module.
-    add_lib('simplifier', ['rewriter'], 'ast/simplifier')
     add_lib('fpa', ['ast', 'util', 'simplifier', 'model'], 'ast/fpa')
-    add_lib('macros', ['simplifier'], 'ast/macros')
     add_lib('pattern', ['normal_forms', 'smt2parser', 'simplifier'], 'ast/pattern')
     add_lib('bit_blaster', ['rewriter', 'simplifier'], 'ast/rewriter/bit_blaster')
     add_lib('smt_params', ['ast', 'simplifier', 'pattern', 'bit_blaster'], 'smt/params')
