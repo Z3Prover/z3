@@ -5,7 +5,7 @@ z3_add_component(fpa
     fpa2bv_rewriter.cpp
   COMPONENT_DEPENDENCIES
     ast
-    simplifier
+    rewriter
     model
     util
   PYG_FILES

@@ -61,6 +61,7 @@ public:
     bool operator()(unsigned num_bindings, expr * p1, expr * p2);
 };
 
+#if 0
 class pattern_inference_old : public simplifier {
     pattern_inference_params & m_params;
     family_id                  m_bfid;
@@ -244,6 +245,7 @@ public:
 
     bool is_forbidden(app * n) const;
 };
+#endif
 
 class pattern_inference_cfg :  public default_rewriter_cfg {
     ast_manager&               m;

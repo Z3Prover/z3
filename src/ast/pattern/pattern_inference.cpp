@@ -89,6 +89,15 @@ bool smaller_pattern::operator()(unsigned num_bindings, expr * p1, expr * p2) {
     return process(p1, p2);
 }
 
+
+#ifdef _TRACE
+static void dump_app_vector(std::ostream & out, ptr_vector<app> const & v, ast_manager & m) {
+    for (app * e : v) 
+        out << mk_pp(e, m) << "\n";
+}
+#endif
+
+#if 0
 pattern_inference_old::pattern_inference_old(ast_manager & m, pattern_inference_params & params):
     simplifier(m),
     m_params(params),
@@ -470,12 +479,6 @@ void pattern_inference_old::reset_pre_patterns() {
     m_pre_patterns.reset();
 }
 
-#ifdef _TRACE
-static void dump_app_vector(std::ostream & out, ptr_vector<app> const & v, ast_manager & m) {
-    for (app * e : v) 
-        out << mk_pp(e, m) << "\n";
-}
-#endif
 
 bool pattern_inference_old::is_forbidden(app * n) const {
     func_decl const * decl = n->get_decl();
@@ -567,7 +570,6 @@ void pattern_inference_old::mk_patterns(unsigned num_bindings,
     m_candidates.reset();
 }
 
-#include "ast/pattern/database.h"
 
 void pattern_inference_old::reduce1_quantifier(quantifier * q) {
     TRACE("pattern_inference", tout << "processing:\n" << mk_pp(q, m) << "\n";);
@@ -729,6 +731,9 @@ void pattern_inference_old::reduce1_quantifier(quantifier * q) {
     cache_result(q, new_q, pr);
 }
 
+#endif
+
+#include "ast/pattern/database.h"
 
 
 pattern_inference_cfg::pattern_inference_cfg(ast_manager & m, pattern_inference_params & params):

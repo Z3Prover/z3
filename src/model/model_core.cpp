@@ -19,18 +19,14 @@ Revision History:
 #include "model/model_core.h"
 
 model_core::~model_core() {
-    decl2expr::iterator it1  = m_interp.begin();
-    decl2expr::iterator end1 = m_interp.end();
-    for (; it1 != end1; ++it1) {
-        m_manager.dec_ref(it1->m_key);
-        m_manager.dec_ref(it1->m_value);
+    for (auto & kv : m_interp) {
+        m_manager.dec_ref(kv.m_key);
+        m_manager.dec_ref(kv.m_value);
     }
 
-    decl2finterp::iterator it2  = m_finterp.begin();
-    decl2finterp::iterator end2 = m_finterp.end();
-    for (; it2 != end2; ++it2) {
-        m_manager.dec_ref(it2->m_key);
-        dealloc(it2->m_value);
+    for (auto & kv : m_finterp) {
+        m_manager.dec_ref(kv.m_key);
+        dealloc(kv.m_value);
     }
 }
 

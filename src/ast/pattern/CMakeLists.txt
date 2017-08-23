@@ -29,7 +29,7 @@ z3_add_component(pattern
     ${CMAKE_CURRENT_BINARY_DIR}/database.h
   COMPONENT_DEPENDENCIES
     normal_forms
-    simplifier
+    rewriter
     smt2parser
   PYG_FILES
     pattern_inference_params_helper.pyg

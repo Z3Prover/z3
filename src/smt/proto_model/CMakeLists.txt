@@ -8,6 +8,6 @@ z3_add_component(proto_model
     value_factory.cpp
   COMPONENT_DEPENDENCIES
     model
-    simplifier
+    rewriter
     smt_params
 )
