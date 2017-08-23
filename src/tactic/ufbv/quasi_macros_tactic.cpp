@@ -17,10 +17,6 @@ Notes:
 
 --*/
 #include "tactic/tactical.h"
-#include "ast/simplifier/simplifier.h"
-#include "ast/simplifier/basic_simplifier_plugin.h"
-#include "ast/simplifier/arith_simplifier_plugin.h"
-#include "ast/simplifier/bv_simplifier_plugin.h"
 #include "ast/macros/macro_manager.h"
 #include "ast/macros/macro_finder.h"
 #include "tactic/extension_model_converter.h"
@@ -50,18 +46,7 @@ class quasi_macros_tactic : public tactic {
             fail_if_unsat_core_generation("quasi-macros", g);
 
             bool produce_proofs = g->proofs_enabled();
-            
-            simplifier simp(m_manager);
-            basic_simplifier_plugin * bsimp = alloc(basic_simplifier_plugin, m_manager);
-            bsimp->set_eliminate_and(true);
-            simp.register_plugin(bsimp);
-            arith_simplifier_params a_params;
-            arith_simplifier_plugin * asimp = alloc(arith_simplifier_plugin, m_manager, *bsimp, a_params);
-            simp.register_plugin(asimp);
-            bv_simplifier_params bv_params;
-            bv_simplifier_plugin * bvsimp = alloc(bv_simplifier_plugin, m_manager, *bsimp, bv_params);
-            simp.register_plugin(bvsimp);
-                
+                            
             macro_manager mm(m_manager);
             quasi_macros qm(m_manager, mm);
             bool more = true;
