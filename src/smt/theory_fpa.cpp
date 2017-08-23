@@ -237,8 +237,9 @@ namespace smt {
 
         if (m_fpa_util.is_fp(e)) {
             expr * cargs[3] = { to_app(e)->get_arg(0), to_app(e)->get_arg(1), to_app(e)->get_arg(2) };
-            res = m_bv_util.mk_concat(3, cargs);
-            m_th_rw((expr_ref&)res);
+            expr_ref tmp(m_bv_util.mk_concat(3, cargs), m);            
+            m_th_rw(tmp);
+            res = to_app(tmp);
         }
         else {
             sort * es = m.get_sort(e);

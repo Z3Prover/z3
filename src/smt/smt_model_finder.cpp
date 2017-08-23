@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#include "smt/smt_model_finder.h"
-#include "smt/smt_context.h"
+#include "util/cooperate.h"
+#include "util/backtrackable_set.h"
 #include "ast/ast_util.h"
 #include "ast/macros/macro_util.h"
 #include "ast/arith_decl_plugin.h"
@@ -27,14 +27,14 @@ Revision History:
 #include "ast/simplifier/bv_simplifier_plugin.h"
 #include "ast/normal_forms/pull_quant.h"
 #include "ast/rewriter/var_subst.h"
-#include "util/backtrackable_set.h"
 #include "ast/for_each_expr.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/well_sorted.h"
-#include "model/model_pp.h"
 #include "ast/ast_smt2_pp.h"
-#include "util/cooperate.h"
+#include "model/model_pp.h"
+#include "smt/smt_model_finder.h"
+#include "smt/smt_context.h"
 #include "tactic/tactic_exception.h"
 
 namespace smt {
@@ -56,11 +56,9 @@ namespace smt {
                 v1.swap(v2);
                 return;
             }
-            typename ptr_vector<T>::iterator it  = v2.begin(); 
-            typename ptr_vector<T>::iterator end = v2.end(); 
-            for (; it != end; ++it) {
-                if (!v1.contains(*it))
-                    v1.push_back(*it);
+            for (T* t : v2) {
+                if (!v1.contains(t))
+                    v1.push_back(t);
             }
             v2.finalize();
         }
@@ -88,10 +86,8 @@ namespace smt {
             instantiation_set(ast_manager & m):m_manager(m) {}
             
             ~instantiation_set() {  
-                obj_map<expr, unsigned>::iterator it  = m_elems.begin();
-                obj_map<expr, unsigned>::iterator end = m_elems.end();
-                for (; it != end; ++it) {
-                    m_manager.dec_ref((*it).m_key);
+                for (auto const& kv : m_elems) {
+                    m_manager.dec_ref(kv.m_key);
                 }
                 m_elems.reset();
             }
@@ -116,16 +112,12 @@ namespace smt {
             }
             
             void display(std::ostream & out) const {
-                obj_map<expr, unsigned>::iterator it  = m_elems.begin();
-                obj_map<expr, unsigned>::iterator end = m_elems.end();
-                for (; it != end; ++it) {
-                    out << mk_bounded_pp((*it).m_key, m_manager) << " [" << (*it).m_value << "]\n";
+                for (auto const& kv : m_elems) {
+                    out << mk_bounded_pp(kv.m_key, m_manager) << " [" << kv.m_value << "]\n";
                 }
                 out << "inverse:\n";
-                obj_map<expr, expr *>::iterator it2   = m_inv.begin();
-                obj_map<expr, expr *>::iterator end2  = m_inv.end();
-                for (; it2 != end2; ++it2) {
-                    out << mk_bounded_pp((*it2).m_key, m_manager) << " -> " << mk_bounded_pp((*it2).m_value, m_manager) << "\n";
+                for (auto const& kv : m_inv) {
+                    out << mk_bounded_pp(kv.m_key, m_manager) << " -> " << mk_bounded_pp(kv.m_value, m_manager) << "\n";
                 }
             }
 
@@ -142,12 +134,10 @@ namespace smt {
             }
 
             void mk_inverse(evaluator & ev) {
-                obj_map<expr, unsigned>::iterator it  = m_elems.begin();
-                obj_map<expr, unsigned>::iterator end = m_elems.end();
-                for (; it != end; ++it) {
-                    expr *     t = (*it).m_key;
+                for (auto const& kv : m_elems) {
+                    expr *     t = kv.m_key;
                     SASSERT(!contains_model_value(t));
-                    unsigned gen = (*it).m_value;
+                    unsigned gen = kv.m_value;
                     expr * t_val = ev.eval(t, true);
                     if (!t_val) break;
                     TRACE("model_finder", tout << mk_pp(t, m_manager) << " " << mk_pp(t_val, m_manager) << "\n";);
@@ -329,17 +319,13 @@ namespace smt {
                     out << "root node ------\n";
                     out << "@" << m_id << " mono: " << m_mono_proj << " signed: " << m_signed_proj << ", sort: " << mk_pp(m_sort, m) << "\n";
                     out << "avoid-set: ";
-                    ptr_vector<node>::const_iterator it1  = m_avoid_set.begin();
-                    ptr_vector<node>::const_iterator end1 = m_avoid_set.end();
-                    for (; it1 != end1; ++it1) {
-                        out << "@" << (*it1)->get_root()->get_id() << " ";
+                    for (node* n : m_avoid_set) {
+                        out << "@" << n->get_root()->get_id() << " ";
                     }
                     out << "\n";
                     out << "exceptions: ";
-                    ptr_vector<expr>::const_iterator it2  = m_exceptions.begin();
-                    ptr_vector<expr>::const_iterator end2 = m_exceptions.end();
-                    for (; it2 != end2; ++it2) {
-                        out << mk_bounded_pp((*it2), m) << " ";
+                    for (expr * e : m_exceptions) {
+                        out << mk_bounded_pp(e, m) << " ";
                     }
                     out << "\n";
                     if (m_else)
@@ -368,10 +354,8 @@ namespace smt {
             // return true if m_avoid_set.contains(this)
             bool must_avoid_itself() const {
                 node * r = get_root();
-                ptr_vector<node>::const_iterator it  = m_avoid_set.begin();
-                ptr_vector<node>::const_iterator end = m_avoid_set.end();
-                for (; it != end; ++it) {
-                    if (r == (*it)->get_root())
+                for (node* n : m_avoid_set) {
+                    if (r == n->get_root())
                         return true;
                 }
                 return false;
@@ -460,23 +444,19 @@ namespace smt {
             }
 
             void display_key2node(std::ostream & out, key2node const & m) const {
-                key2node::iterator it  = m.begin();
-                key2node::iterator end = m.end();
-                for (; it != end; ++it) {
-                    ast  *   a  = (*it).m_key.first;
-                    unsigned i  = (*it).m_key.second;
-                    node *   n  = (*it).m_value;
+                for (auto const& kv : m) {
+                    ast  *   a  = kv.m_key.first;
+                    unsigned i  = kv.m_key.second;
+                    node *   n  = kv.m_value;
                     out << "#" << a->get_id() << ":" << i << " -> @" << n->get_id() << "\n";
                 }
             }
 
             void display_A_f_is(std::ostream & out) const {
-                key2node::iterator it  = m_A_f_is.begin();
-                key2node::iterator end = m_A_f_is.end();
-                for (; it != end; ++it) {
-                    func_decl * f  = static_cast<func_decl*>((*it).m_key.first);
-                    unsigned    i  = (*it).m_key.second;
-                    node *      n  = (*it).m_value;
+                for (auto const& kv : m_A_f_is) {
+                    func_decl * f  = static_cast<func_decl*>(kv.m_key.first);
+                    unsigned    i  = kv.m_key.second;
+                    node *      n  = kv.m_value;
                     out << f->get_name() << ":" << i << " -> @" << n->get_id() << "\n";
                 }
             }
@@ -556,10 +536,7 @@ namespace smt {
             }
             
             void mk_instantiation_sets() {
-                ptr_vector<node>::const_iterator it  = m_nodes.begin();
-                ptr_vector<node>::const_iterator end = m_nodes.end();
-                for (; it != end; ++it) {
-                    node * curr = *it;
+                for (node* curr : m_nodes) {
                     if (curr->is_root()) {
                         curr->mk_instantiation_set(m_manager);
                     }
@@ -569,22 +546,19 @@ namespace smt {
             // For each instantiation_set, reemove entries that do not evaluate to values.
             void cleanup_instantiation_sets() {
                 ptr_vector<expr> to_delete;
-                ptr_vector<node>::const_iterator it  = m_nodes.begin();
-                ptr_vector<node>::const_iterator end = m_nodes.end();
-                for (; it != end; ++it) {
-                    node * curr = *it;
+                for (node * curr : m_nodes) {
                     if (curr->is_root()) {
                         instantiation_set * s = curr->get_instantiation_set();
                         to_delete.reset();
                         obj_map<expr, unsigned> const & elems = s->get_elems();
-                        for (obj_map<expr, unsigned>::iterator it = elems.begin(); it != elems.end(); it++) {
-                            expr * n     = it->m_key;
+                        for (auto const& kv : elems) {
+                            expr * n     = kv.m_key;
                             expr * n_val = eval(n, true);
                             if (!n_val || !m_manager.is_value(n_val))
                                 to_delete.push_back(n);
                         }
-                        for (ptr_vector<expr>::iterator it = to_delete.begin(); it != to_delete.end(); it++) {
-                            s->remove(*it);
+                        for (expr* e : to_delete) {
+                            s->remove(e);
                         }
                     }
                 }
@@ -592,11 +566,9 @@ namespace smt {
 
             void display_nodes(std::ostream & out) const {
                 display_key2node(out, m_uvars);
-                display_A_f_is(out);                
-                ptr_vector<node>::const_iterator it  = m_nodes.begin();
-                ptr_vector<node>::const_iterator end = m_nodes.end();
-                for (; it != end; ++it) {
-                    (*it)->display(out, m_manager);
+                display_A_f_is(out);           
+                for (node* n : m_nodes) {
+                    n->display(out, m_manager);
                 }
             }
 
@@ -628,18 +600,14 @@ namespace smt {
                 ptr_vector<expr> const & exceptions   = n->get_exceptions();
                 ptr_vector<node> const & avoid_set    = n->get_avoid_set();
                 
-                ptr_vector<expr>::const_iterator it1  = exceptions.begin();
-                ptr_vector<expr>::const_iterator end1 = exceptions.end();
-                for (; it1 != end1; ++it1) {
-                    expr * val = eval(*it1, true);
+                for (expr* e : exceptions) {
+                    expr * val = eval(e, true);
                     SASSERT(val != 0);
                     r.push_back(val);
                 }
                 
-                ptr_vector<node>::const_iterator it2  = avoid_set.begin();
-                ptr_vector<node>::const_iterator end2 = avoid_set.end();
-                for (; it2 != end2; ++it2) {
-                    node * n = (*it2)->get_root();
+                for (node* a : avoid_set) {
+                    node * n = a->get_root();
                     if (!n->is_mono_proj() && n->get_else() != 0) {
                         expr * val = eval(n->get_else(), true);
                         SASSERT(val != 0);
@@ -661,20 +629,19 @@ namespace smt {
 
                 expr *    t_result   = 0;
                 unsigned  gen_result = UINT_MAX; 
-                obj_map<expr, unsigned>::iterator it1  = elems.begin();
-                obj_map<expr, unsigned>::iterator end1 = elems.end();
-                for (; it1 != end1; ++it1) {
-                    expr *     t = (*it1).m_key;
-                    unsigned gen = (*it1).m_value;
+                for (auto const& kv : elems) {
+                    expr *     t = kv.m_key;
+                    unsigned gen = kv.m_value;
                     expr * t_val = eval(t, true);
                     SASSERT(t_val != 0);
-                    ptr_buffer<expr>::const_iterator it2  = ex_vals.begin();
-                    ptr_buffer<expr>::const_iterator end2 = ex_vals.end();
-                    for (; it2 != end2; ++it2) {
-                        if (!m_manager.are_distinct(t_val, *it2))
+                    bool found = false;
+                    for (expr* v : ex_vals) {
+                        if (!m_manager.are_distinct(t_val, v)) {
+                            found = true;
                             break;
+                        }
                     }
-                    if (it2 == end2 && (t_result == 0 || gen < gen_result)) {
+                    if (!found && (t_result == 0 || gen < gen_result)) {
                         t_result   = t;
                         gen_result = gen;
                     }
@@ -699,6 +666,7 @@ namespace smt {
                 if (m_sort2k.find(s, r))
                     return r;
                 r = m_manager.mk_fresh_const("k", s);
+                m_model->register_aux_decl(r->get_decl());
                 m_sort2k.insert(s, r);
                 m_ks.push_back(r);
                 return r;
@@ -734,14 +702,11 @@ namespace smt {
             */
             bool assert_k_diseq_exceptions(app * k, ptr_vector<expr> const & exceptions) {
                 TRACE("assert_k_diseq_exceptions", tout << "assert_k_diseq_exceptions, " << "k: " << mk_pp(k, m_manager) << "\nexceptions:\n";
-                      for (unsigned i = 0; i < exceptions.size(); i++) tout << mk_pp(exceptions[i], m_manager) << "\n";);
+                      for (expr * e : exceptions) tout << mk_pp(e, m_manager) << "\n";);
                 expr * k_interp = get_k_interp(k);
                 if (k_interp == 0)
                     return false;
-                ptr_vector<expr>::const_iterator it  = exceptions.begin();
-                ptr_vector<expr>::const_iterator end = exceptions.end();
-                for (; it != end; ++it) {
-                    expr * ex     = *it;
+                for (expr * ex : exceptions) {
                     expr * ex_val = eval(ex, true);
                     if (!m_manager.are_distinct(k_interp, ex_val)) {
                         SASSERT(m_new_constraints);
@@ -806,10 +771,7 @@ namespace smt {
                 expr_ref one(m_manager);
                 one = ps->mk_one();
                 ptr_vector<expr> const & exceptions  = n->get_exceptions();
-                ptr_vector<expr>::const_iterator it  = exceptions.begin();
-                ptr_vector<expr>::const_iterator end = exceptions.end();
-                for (; it != end; ++it) {
-                    expr * e = *it;
+                for (expr * e : exceptions) {
                     expr_ref e_plus_1(m_manager);
                     expr_ref e_minus_1(m_manager);
                     TRACE("mf_simp_bug", tout << "e:\n" << mk_ismt2_pp(e, m_manager) << "\none:\n" << mk_ismt2_pp(one, m_manager) << "\n";);
@@ -825,10 +787,8 @@ namespace smt {
                 instantiation_set const * s           = n->get_instantiation_set();
                 obj_hashtable<expr> already_found;
                 obj_map<expr, unsigned> const & elems = s->get_elems();
-                obj_map<expr, unsigned>::iterator it  = elems.begin();
-                obj_map<expr, unsigned>::iterator end = elems.end();
-                for (; it != end; ++it) {
-                    expr *     t = (*it).m_key;
+                for (auto const& kv : elems) {
+                    expr *     t = kv.m_key;
                     expr * t_val = eval(t, true);
                     if (t_val && !already_found.contains(t_val)) {
                         values.push_back(t_val);
@@ -836,10 +796,7 @@ namespace smt {
                     }
                 }
                 TRACE("model_finder_bug", tout << "values for the instantiation_set of @" << n->get_id() << "\n";
-                      ptr_buffer<expr>::const_iterator it  = values.begin();
-                      ptr_buffer<expr>::const_iterator end = values.end();
-                      for (; it != end; ++it) {
-                          expr * v = *it;
+                      for (expr * v : values) {
                           tout << mk_pp(v, m_manager) << "\n";
                       });
             }
@@ -941,10 +898,7 @@ namespace smt {
             }
             
             void mk_projections() {
-                ptr_vector<node>::const_iterator it  = m_root_nodes.begin();
-                ptr_vector<node>::const_iterator end = m_root_nodes.end();
-                for (; it != end; ++it) {
-                    node * n = *it;
+                for (node * n : m_root_nodes) {
                     SASSERT(n->is_root());
                     if (n->is_mono_proj())
                         mk_mono_proj(n);
@@ -957,10 +911,8 @@ namespace smt {
                \brief Store in r the partial functions that have A_f_i nodes.
             */
             void collect_partial_funcs(func_decl_set & r) {
-                key2node::iterator it  = m_A_f_is.begin();
-                key2node::iterator end = m_A_f_is.end();
-                for (; it != end; ++it) {
-                    func_decl * f = to_func_decl((*it).m_key.first);
+                for (auto const& kv : m_A_f_is) {
+                    func_decl * f = to_func_decl(kv.m_key.first);
                     if (!r.contains(f)) {
                         func_interp * fi = m_model->get_func_interp(f);
                         if (fi == 0) {
@@ -983,10 +935,7 @@ namespace smt {
                for more details.
             */
             void mk_sorts_finite() {
-                ptr_vector<node>::const_iterator it  = m_root_nodes.begin();
-                ptr_vector<node>::const_iterator end = m_root_nodes.end();
-                for (; it != end; ++it) {
-                    node * n = *it;
+                for (node * n : m_root_nodes) {
                     SASSERT(n->is_root());
                     sort * s = n->get_sort();
                     if (m_manager.is_uninterp(s) && 
@@ -998,13 +947,10 @@ namespace smt {
                 }
             }
 
-            void add_elem_to_empty_inst_sets() {
-                ptr_vector<node>::const_iterator it  = m_root_nodes.begin();
-                ptr_vector<node>::const_iterator end = m_root_nodes.end();
+            void add_elem_to_empty_inst_sets() {                
                 obj_map<sort, expr*> sort2elems;
                 ptr_vector<node> need_fresh;
-                for (; it != end; ++it) {
-                    node * n = *it;
+                for (node * n : m_root_nodes) {
                     SASSERT(n->is_root());
                     instantiation_set const * s           = n->get_instantiation_set();
                     TRACE("model_finder", s->display(tout););
@@ -1047,10 +993,7 @@ namespace smt {
              */
             void collect_root_nodes() {
                 m_root_nodes.reset();
-                ptr_vector<node>::const_iterator it  = m_nodes.begin();
-                ptr_vector<node>::const_iterator end = m_nodes.end();
-                for (; it != end; ++it) {
-                    node * n = *it;
+                for (node * n : m_nodes) {
                     if (n->is_root())
                         m_root_nodes.push_back(n);
                 }
@@ -1085,10 +1028,7 @@ namespace smt {
                collected in the beginning of fix_model().
              */
             void complete_partial_funcs(func_decl_set const & partial_funcs) {
-                func_decl_set::iterator it  = partial_funcs.begin();
-                func_decl_set::iterator end = partial_funcs.end();
-                for (; it != end; ++it) {
-                    func_decl * f    = *it;
+                for (func_decl * f : partial_funcs) {
                     // Complete the current interpretation
                     m_model->complete_partial_func(f);
                     
@@ -1129,10 +1069,7 @@ namespace smt {
             }
             
             void mk_inverses() {
-                ptr_vector<node>::const_iterator it  = m_root_nodes.begin();
-                ptr_vector<node>::const_iterator end = m_root_nodes.end();
-                for (; it != end; ++it) {
-                    node * n = *it;
+                for (node * n : m_root_nodes) {
                     SASSERT(n->is_root());
                     mk_inverse(n);
                 }
@@ -1360,16 +1297,14 @@ namespace smt {
                     ps = bs;
                 instantiation_set const * from_s        = from->get_instantiation_set();
                 obj_map<expr, unsigned> const & elems_s = from_s->get_elems();
-                obj_map<expr, unsigned>::iterator it  = elems_s.begin();
-                obj_map<expr, unsigned>::iterator end = elems_s.end();
-                for (; it != end; ++it) {
-                    expr * n = (*it).m_key;
+                for (auto const& kv : elems_s) {
+                    expr * n = kv.m_key;
                     expr_ref n_k(m_offset.get_manager());
                     if (PLUS)
                         ps->mk_add(n, m_offset, n_k);
                     else
                         ps->mk_sub(n, m_offset, n_k);
-                    to->insert(n_k, (*it).m_value);
+                    to->insert(n_k, kv.m_value);
                 }
             }
 
@@ -1414,10 +1349,7 @@ namespace smt {
                 app * nested_array = to_app(auf_arr->get_arg(0));
                 ptr_buffer<enode> nested_arrays;
                 get_auf_arrays(nested_array, ctx, nested_arrays);
-                ptr_buffer<enode>::const_iterator it  = nested_arrays.begin();
-                ptr_buffer<enode>::const_iterator end = nested_arrays.end();
-                for (; it != end; ++it) {
-                    enode * curr = *it;
+                for (enode * curr : nested_arrays) {
                     enode_vector::iterator it2  = curr->begin_parents();
                     enode_vector::iterator end2 = curr->end_parents();
                     for (; it2 != end2; ++it2) {
@@ -1433,6 +1365,7 @@ namespace smt {
         class select_var : public qinfo {
         protected:
             ast_manager & m_manager; 
+            array_util    m_array;
             app *         m_select; // It must satisfy is_auf_select... see bool is_auf_select(expr * t) const
             unsigned      m_arg_i;
             unsigned      m_var_j;
@@ -1441,13 +1374,13 @@ namespace smt {
 
             func_decl * get_array_func_decl(app * ground_array, auf_solver & s) {
                 expr * ground_array_interp = s.eval(ground_array, false);
-                if (ground_array_interp != 0 && s.get_model()->is_as_array(ground_array_interp))
-                    return to_func_decl(to_app(ground_array_interp)->get_decl()->get_parameter(0).get_ast());
+                if (ground_array_interp != 0 && m_array.is_as_array(ground_array_interp))
+                    return m_array.get_as_array_func_decl(ground_array_interp);
                 return 0;
             }
 
         public:
-            select_var(ast_manager & m, app * s, unsigned i, unsigned j):m_manager(m), m_select(s), m_arg_i(i), m_var_j(j) {}
+            select_var(ast_manager & m, app * s, unsigned i, unsigned j):m_manager(m), m_array(m), m_select(s), m_arg_i(i), m_var_j(j) {}
             virtual ~select_var() {}
 
             virtual char const * get_kind() const {
@@ -1470,16 +1403,12 @@ namespace smt {
                 get_auf_arrays(get_array(), ctx, arrays);
                 TRACE("select_var", 
                       tout << "enodes matching: "; display(tout); tout << "\n";
-                      ptr_buffer<enode>::const_iterator it  = arrays.begin();
-                      ptr_buffer<enode>::const_iterator end = arrays.end();
-                      for (; it != end; ++it) {
-                          tout << "#" << (*it)->get_owner()->get_id() << "\n" << mk_pp((*it)->get_owner(), m_manager) << "\n";
+                      for (enode* n : arrays) {
+                          tout << "#" << n->get_owner()->get_id() << "\n" << mk_pp(n->get_owner(), m_manager) << "\n";
                       });
                 node * n1 = s.get_uvar(q, m_var_j);                
-                ptr_buffer<enode>::const_iterator it  = arrays.begin();
-                ptr_buffer<enode>::const_iterator end = arrays.end();
-                for (; it != end; ++it) {
-                    app * ground_array = (*it)->get_owner();
+                for (enode* n : arrays) {
+                    app * ground_array = n->get_owner();
                     func_decl * f = get_array_func_decl(ground_array, s);
                     if (f) {
                         SASSERT(m_arg_i >= 1);
@@ -1492,10 +1421,7 @@ namespace smt {
             virtual void populate_inst_sets(quantifier * q, auf_solver & s, context * ctx) {
                 ptr_buffer<enode> arrays;
                 get_auf_arrays(get_array(), ctx, arrays);
-                ptr_buffer<enode>::const_iterator it  = arrays.begin();
-                ptr_buffer<enode>::const_iterator end = arrays.end();
-                for (; it != end; ++it) {
-                    enode * curr = (*it);
+                for (enode * curr : arrays) {
                     app * ground_array = curr->get_owner();
                     func_decl * f = get_array_func_decl(ground_array, s);
                     if (f) {
@@ -1778,11 +1704,9 @@ namespace smt {
             void insert_qinfo(qinfo * qi) {
                 // I'm assuming the number of qinfo's per quantifier is small. So, the linear search is not a big deal.
                 scoped_ptr<qinfo> q(qi);
-                ptr_vector<qinfo>::iterator it  = m_qinfo_vect.begin();            
-                ptr_vector<qinfo>::iterator end = m_qinfo_vect.end();            
-                for (; it != end; ++it) {
+                for (qinfo* qi2 : m_qinfo_vect) {
                     checkpoint();
-                    if (qi->is_equal(*it)) {
+                    if (qi->is_equal(qi2)) {
                         return;
                     }
                 }
@@ -1876,22 +1800,16 @@ namespace smt {
                 out << "IS_AUF: " << m_is_auf << ", has x=y: " << m_has_x_eq_y << "\n";
                 out << "unary function fragment: " << unary_function_fragment() << "\n";
                 out << "ng decls: ";
-                func_decl_set::iterator it1  = m_ng_decls.begin();
-                func_decl_set::iterator end1 = m_ng_decls.end();
-                for (; it1 != end1; ++it1) {
-                    out << (*it1)->get_name() << " ";
+                for (func_decl * f : m_ng_decls) {
+                    out << f->get_name() << " ";
                 }
                 out << "\ninfo bits:\n";
-                ptr_vector<qinfo>::const_iterator it2  = m_qinfo_vect.begin();
-                ptr_vector<qinfo>::const_iterator end2 = m_qinfo_vect.end();
-                for (; it2 != end2; ++it2) {
-                    out << "  "; (*it2)->display(out); out << "\n";
+                for (qinfo* qi : m_qinfo_vect) {
+                    out << "  "; qi->display(out); out << "\n";
                 }
                 out << "\nmacros:\n";
-                ptr_vector<cond_macro>::const_iterator it3  = m_cond_macros.begin();
-                ptr_vector<cond_macro>::const_iterator end3 = m_cond_macros.end();
-                for (; it3 != end3; ++it3) {
-                    out << "  "; (*it3)->display(out); out << "\n";
+                for (cond_macro* cm : m_cond_macros) {
+                    out << "  "; cm->display(out); out << "\n";
                 }
             }
 
@@ -1900,23 +1818,19 @@ namespace smt {
                     // make sure a node exists for each variable.
                     s.get_uvar(m_flat_q, i);
                 }
-                ptr_vector<qinfo>::const_iterator it  = m_qinfo_vect.begin();
-                ptr_vector<qinfo>::const_iterator end = m_qinfo_vect.end();
-                for (; it != end; ++it) {
-                    (*it)->process_auf(m_flat_q, s, ctx);
+                for (qinfo * qi : m_qinfo_vect) {
+                    qi->process_auf(m_flat_q, s, ctx);
                 }
             }
 
             void populate_inst_sets(auf_solver & s, context * ctx) {
-                ptr_vector<qinfo>::const_iterator it  = m_qinfo_vect.begin();
-                ptr_vector<qinfo>::const_iterator end = m_qinfo_vect.end();
-                for (; it != end; ++it)
-                    (*it)->populate_inst_sets(m_flat_q, s, ctx);
+                for (qinfo * qi : m_qinfo_vect) {
+                    qi->populate_inst_sets(m_flat_q, s, ctx);
+                }
                 // second pass
-                it  = m_qinfo_vect.begin();
-                for (; it != end; ++it) {
+                for (qinfo * qi : m_qinfo_vect) {
                     checkpoint();
-                    (*it)->populate_inst_sets2(m_flat_q, s, ctx);
+                    qi->populate_inst_sets2(m_flat_q, s, ctx);
                 }
             }
 
@@ -1929,14 +1843,9 @@ namespace smt {
                 if (m_uvar_inst_sets != 0)
                     return;
                 m_uvar_inst_sets = alloc(ptr_vector<instantiation_set>);
-                ptr_vector<qinfo>::const_iterator it  = m_qinfo_vect.begin();
-                ptr_vector<qinfo>::const_iterator end = m_qinfo_vect.end();
-                for (; it != end; ++it)
-                    (*it)->populate_inst_sets(m_flat_q, m_the_one, *m_uvar_inst_sets, ctx);
-                ptr_vector<instantiation_set>::iterator it2  = m_uvar_inst_sets->begin();
-                ptr_vector<instantiation_set>::iterator end2 = m_uvar_inst_sets->end();
-                for (; it2 != end2; ++it2) {
-                    instantiation_set * s = *it2;
+                for (qinfo* qi : m_qinfo_vect) 
+                    qi->populate_inst_sets(m_flat_q, m_the_one, *m_uvar_inst_sets, ctx);
+                for (instantiation_set * s : *m_uvar_inst_sets) {
                     if (s != 0)
                         s->mk_inverse(ev);
                 }
@@ -2230,9 +2139,7 @@ namespace smt {
                 expr * a = to_app(t)->get_arg(0);
                 if (!is_ground(a) && !is_auf_select(a))
                     return false;
-                unsigned num_args = to_app(t)->get_num_args();
-                for (unsigned i = 1; i < num_args; i++) {
-                    expr * arg = to_app(t)->get_arg(i);
+                for (expr * arg : *to_app(t)) {
                     if (!is_ground(arg) && !is_var(arg))
                         return false;
                 }
@@ -2258,9 +2165,9 @@ namespace smt {
                     }
                 }
                 else {
-                    unsigned num_args = t->get_num_args();
-                    for (unsigned i = 0; i < num_args; i++)
-                        visit_term(t->get_arg(i));
+                    for (expr * arg : *t) {
+                        visit_term(arg);
+                    }
                 }
             }
 
@@ -2577,10 +2484,7 @@ namespace smt {
                \brief Return true if \c f is in (qs\{q})
             */
             bool contains(func_decl * f, ptr_vector<quantifier> const & qs, quantifier * q) {
-                ptr_vector<quantifier>::const_iterator it  = qs.begin();
-                ptr_vector<quantifier>::const_iterator end = qs.end();
-                for (; it != end; ++it) {
-                    quantifier * other = *it;
+                for (quantifier * other : qs) {
                     if (q == other)
                         continue;
                     quantifier_info * other_qi = get_qinfo(other);
@@ -2619,13 +2523,11 @@ namespace smt {
 
             virtual bool process(ptr_vector<quantifier> const & qs, ptr_vector<quantifier> & new_qs, ptr_vector<quantifier> & residue) {
                 bool removed = false;
-                ptr_vector<quantifier>::const_iterator it  = qs.begin();
-                ptr_vector<quantifier>::const_iterator end = qs.end();
-                for (; it != end; ++it) {
-                    if (process(*it, qs))
+                for (quantifier* q : qs) {
+                    if (process(q, qs))
                         removed = true;
                     else
-                        new_qs.push_back(*it);
+                        new_qs.push_back(q);
                 }
                 return removed;
             }
@@ -2774,20 +2676,15 @@ namespace smt {
             void register_decls_as_forbidden(quantifier * q) {
                 quantifier_info * qi = get_qinfo(q);
                 func_decl_set const & ng_decls = qi->get_ng_decls();
-                func_decl_set::iterator it  = ng_decls.begin();
-                func_decl_set::iterator end = ng_decls.end();
-                for (; it != end; ++it) {
-                    m_forbidden.insert(*it);
+                for (func_decl* f : ng_decls) {
+                    m_forbidden.insert(f);
                 }
             }
 
             void preprocess(ptr_vector<quantifier> const & qs, ptr_vector<quantifier> & qcandidates, ptr_vector<quantifier> & non_qcandidates) {
                 ptr_vector<quantifier> curr(qs);
                 while (true) {
-                    ptr_vector<quantifier>::iterator it  = curr.begin();
-                    ptr_vector<quantifier>::iterator end = curr.end();
-                    for (; it != end; ++it) {
-                        quantifier * q = *it;
+                    for (quantifier * q : curr) {
                         if (is_candidate(q)) {
                             qcandidates.push_back(q);
                         }
@@ -2805,16 +2702,10 @@ namespace smt {
             }
 
             void mk_q_f_defs(ptr_vector<quantifier> const & qs) {
-                ptr_vector<quantifier>::const_iterator it  = qs.begin();
-                ptr_vector<quantifier>::const_iterator end = qs.end();
-                for (; it != end; ++it) {
-                    quantifier *      q  = *it;
+                for (quantifier * q : qs) {
                     quantifier_info * qi = get_qinfo(q);
                     func_decl_set const & ng_decls = qi->get_ng_decls();
-                    func_decl_set::iterator it2  = ng_decls.begin();
-                    func_decl_set::iterator end2 = ng_decls.end();
-                    for (; it2 != end2; ++it2) {
-                        func_decl * f = *it2;
+                    for (func_decl* f : ng_decls) {
                         if (!m_forbidden.contains(f))
                             insert_q_f(q, f);
                     }
@@ -2831,40 +2722,30 @@ namespace smt {
             }
             
             static void display_quantifier_set(std::ostream & out, quantifier_set const * s) {
-                quantifier_set::iterator it  = s->begin();
-                quantifier_set::iterator end = s->end();
-                for (; it != end; ++it) {
-                    quantifier * q = *it;
+                for (quantifier* q : *s) {
                     out << q->get_qid() << " ";
                 }
                 out << "\n";
             }
             
             void display_qcandidates(std::ostream & out, ptr_vector<quantifier> const & qcandidates) const {
-                ptr_vector<quantifier>::const_iterator it1  = qcandidates.begin();
-                ptr_vector<quantifier>::const_iterator end1 = qcandidates.end();
-                for (; it1 != end1; ++it1) {
-                    quantifier * q = *it1;
+                for (quantifier * q : qcandidates) {
                     out << q->get_qid() << " ->\n" << mk_pp(q, m_manager) << "\n";
                     quantifier_info * qi = get_qinfo(q);
                     qi->display(out);
                     out << "------\n";
                 }
                 out << "Sets Q_f\n";
-                q_f::iterator it2 = m_q_f.begin();
-                q_f::iterator end2 = m_q_f.end();
-                for (; it2 != end2; ++it2) {
-                    func_decl * f = (*it2).m_key;
-                    quantifier_set * s = (*it2).m_value;
+                for (auto const& kv : m_q_f) {
+                    func_decl * f = kv.m_key;
+                    quantifier_set * s = kv.m_value;
                     out << f->get_name() << " -> "; display_quantifier_set(out, s);
                 }
                 out << "Sets Q_{f = def}\n";
-                q_f_def::iterator it3  = m_q_f_def.begin();
-                q_f_def::iterator end3 = m_q_f_def.end();
-                for (; it3 != end3; ++it3) {
-                    func_decl * f = (*it3).get_key1();
-                    expr * def    = (*it3).get_key2();
-                    quantifier_set * s = (*it3).get_value();
+                for (auto const& kv : m_q_f_def) {
+                    func_decl * f = kv.get_key1();
+                    expr * def    = kv.get_key2();
+                    quantifier_set * s = kv.get_value();
                     out << f->get_name() << " " << mk_pp(def, m_manager) << " ->\n"; display_quantifier_set(out, s);
                 }
             }
@@ -2899,32 +2780,23 @@ namespace smt {
 
             void display_search_state(std::ostream & out) const {
                 out << "fs:\n";
-                f2def::iterator it3  = m_fs.begin();
-                f2def::iterator end3 = m_fs.end();
-                for (; it3 != end3; ++it3) {
-                    out << (*it3).m_key->get_name() << " ";
+                for (auto const& kv : m_fs) {
+                    out << kv.m_key->get_name() << " ";
                 }
                 out << "\nsatisfied:\n";
-                qsset::iterator it  = m_satisfied.begin();
-                qsset::iterator end = m_satisfied.end();
-                for (; it != end; ++it) {
-                    out << (*it)->get_qid() << " ";
+                for (auto q : m_satisfied) {
+                    out << q->get_qid() << " ";
                 }
                 out << "\nresidue:\n";
-                qset::iterator it2  = m_residue.begin();
-                qset::iterator end2 = m_residue.end();
-                for (; it2 != end2; ++it2) {
-                    out << (*it2)->get_qid() << " ";
+                for (auto q : m_residue) {
+                    out << q->get_qid() << " ";
                 }
                 out << "\n";
             }
             
             bool check_satisfied_residue_invariant() {
                 DEBUG_CODE(
-                    qsset::iterator it  = m_satisfied.begin();
-                    qsset::iterator end = m_satisfied.end();
-                    for (; it != end; ++it) {
-                        quantifier * q = *it;
+                    for (quantifier * q : m_satisfied) {
                         SASSERT(!m_residue.contains(q));
                         quantifier_info * qi = get_qinfo(q);
                         SASSERT(qi != 0);
@@ -2939,10 +2811,7 @@ namespace smt {
                 SASSERT(check_satisfied_residue_invariant());
                 quantifier_set * q_f     = get_q_f(f);
                 quantifier_set * q_f_def = get_q_f_def(f, def);
-                quantifier_set::iterator it  = q_f_def->begin();
-                quantifier_set::iterator end = q_f_def->end();
-                for (; it != end; ++it) {
-                    quantifier * q = *it;
+                for (quantifier * q : *q_f_def) {
                     if (!m_satisfied.contains(q)) {
                         useful = true;
                         m_residue.erase(q);
@@ -2954,10 +2823,7 @@ namespace smt {
                 }
                 if (!useful)
                     return false;
-                it  = q_f->begin();
-                end = q_f->end();
-                for (; it != end; ++it) {
-                    quantifier * q = *it;
+                for (quantifier * q : *q_f) {
                     if (!m_satisfied.contains(q)) {
                         m_residue.insert(q);
                     }
@@ -2971,10 +2837,7 @@ namespace smt {
                The candidates must not be elements of m_fs.
             */
             void get_candidates_from_residue(func_decl_set & candidates) {
-                qset::iterator it  = m_residue.begin();
-                qset::iterator end = m_residue.end();
-                for (; it != end; ++it) {
-                    quantifier * q = *it;
+                for (quantifier * q : m_residue) {
                     quantifier_info * qi = get_qinfo(q);
 
                     quantifier_info::macro_iterator it2  = qi->begin_macros();
@@ -3003,10 +2866,7 @@ namespace smt {
                       display_search_state(tout););
 
                 expr_set * s = get_f_defs(f);
-                expr_set::iterator it  = s->begin();
-                expr_set::iterator end = s->end();
-                for (; it != end; ++it) {
-                    expr * def = *it;
+                for (expr * def : *s) {
                     
                     SASSERT(!m_fs.contains(f));
 
@@ -3041,17 +2901,13 @@ namespace smt {
                 get_candidates_from_residue(candidates);
 
                 TRACE("model_finder_hint", tout << "candidates from residue:\n";
-                      func_decl_set::iterator it  = candidates.begin();
-                      func_decl_set::iterator end = candidates.end();
-                      for (; it != end; ++it) {
-                          tout << (*it)->get_name() << " ";
+                      for (func_decl * f : candidates) {
+                          tout << f->get_name() << " ";
                       }
                       tout << "\n";);
 
-                func_decl_set::iterator it  = candidates.begin();
-                func_decl_set::iterator end = candidates.end();
-                for (; it != end; ++it) {
-                    greedy(*it, depth);
+                for (func_decl* f : candidates) {
+                    greedy(f, depth);
                 }
             }
 
@@ -3071,10 +2927,7 @@ namespace smt {
                \brief Copy the quantifiers from qcandidates to new_qs that are not in m_satisfied.
             */
             void copy_non_satisfied(ptr_vector<quantifier> const & qcandidates, ptr_vector<quantifier> & new_qs) {
-                ptr_vector<quantifier>::const_iterator it  = qcandidates.begin();
-                ptr_vector<quantifier>::const_iterator end = qcandidates.end();
-                for (; it != end; ++it) {
-                    quantifier * q = *it;
+                for (quantifier * q : qcandidates) {
                     if (!m_satisfied.contains(q))
                         new_qs.push_back(q);
                 }
@@ -3085,11 +2938,9 @@ namespace smt {
                quantifiers in m_satisfied.
             */
             void set_interp() {
-                f2def::iterator it  = m_fs.begin();
-                f2def::iterator end = m_fs.end();
-                for (; it != end; ++it) {
-                    func_decl * f = (*it).m_key;
-                    expr * def    = (*it).m_value;
+                for (auto const& kv : m_fs) {                    
+                    func_decl * f = kv.m_key;
+                    expr * def    = kv.m_value;
                     set_else_interp(f, def);
                 }
             }
@@ -3113,10 +2964,7 @@ namespace smt {
                 }
                 mk_q_f_defs(qcandidates);
                 TRACE("model_finder_hint", tout << "starting hint-solver search using:\n"; display_qcandidates(tout, qcandidates););
-                func_decl_set::iterator it  = m_candidates.begin();
-                func_decl_set::iterator end = m_candidates.end();
-                for (; it != end; ++it) {
-                    func_decl * f = *it;
+                for (func_decl * f : m_candidates) {
                     try {
                         process(f);
                     }
@@ -3195,10 +3043,7 @@ namespace smt {
             typedef std::pair<cond_macro *, quantifier *> mq_pair;
 
             void collect_candidates(ptr_vector<quantifier> const & qs, obj_map<func_decl, mq_pair> & full_macros, func_decl_set & cond_macros) {
-                ptr_vector<quantifier>::const_iterator it  = qs.begin();
-                ptr_vector<quantifier>::const_iterator end = qs.end();
-                for (; it != end; ++it) {
-                    quantifier * q = *it;
+                for (quantifier * q : qs) {
                     quantifier_info * qi = get_qinfo(q);
                     quantifier_info::macro_iterator it2  = qi->begin_macros();
                     quantifier_info::macro_iterator end2 = qi->end_macros();
@@ -3221,12 +3066,10 @@ namespace smt {
             }
 
             void process_full_macros(obj_map<func_decl, mq_pair> const & full_macros, obj_hashtable<quantifier> & removed) {
-                obj_map<func_decl, mq_pair>::iterator it  = full_macros.begin();
-                obj_map<func_decl, mq_pair>::iterator end = full_macros.end();
-                for (; it != end; ++it) {
-                    func_decl * f  = (*it).m_key;
-                    cond_macro * m = (*it).m_value.first;
-                    quantifier * q = (*it).m_value.second;
+                for (auto const& kv : full_macros) {
+                    func_decl * f  = kv.m_key;
+                    cond_macro * m = kv.m_value.first;
+                    quantifier * q = kv.m_value.second;
                     SASSERT(m->is_unconditional());
                     if (add_macro(f, m->get_def())) {
                         get_qinfo(q)->set_the_one(f);
@@ -3238,10 +3081,7 @@ namespace smt {
             void process(func_decl * f, ptr_vector<quantifier> const & qs, obj_hashtable<quantifier> & removed) {
                 expr_ref fi_else(m_manager);
                 ptr_buffer<quantifier> to_remove;
-                ptr_vector<quantifier>::const_iterator it  = qs.begin();
-                ptr_vector<quantifier>::const_iterator end = qs.end();
-                for (; it != end; ++it) {
-                    quantifier * q = *it;
+                for (quantifier * q : qs) {
                     if (removed.contains(q))
                         continue;
                     cond_macro * m = get_macro_for(f, q);
@@ -3259,20 +3099,16 @@ namespace smt {
                     }
                 }
                 if (fi_else.get() != 0 && add_macro(f, fi_else)) {
-                    ptr_buffer<quantifier>::iterator it2  = to_remove.begin();
-                    ptr_buffer<quantifier>::iterator end2 = to_remove.end();
-                    for (; it2 != end2; ++it2) {
-                        get_qinfo(*it2)->set_the_one(f);
-                        removed.insert(*it2);
+                    for (quantifier * q : to_remove) {
+                        get_qinfo(q)->set_the_one(f);
+                        removed.insert(q);
                     }
                 }
             }
 
             void process_cond_macros(func_decl_set const & cond_macros, ptr_vector<quantifier> const & qs, obj_hashtable<quantifier> & removed) {
-                func_decl_set::iterator it  = cond_macros.begin();
-                func_decl_set::iterator end = cond_macros.end();
-                for (; it != end; ++it) {
-                    process(*it, qs, removed);
+                for (func_decl * f : cond_macros) {
+                    process(f, qs, removed);
                 }
             }
 
@@ -3287,10 +3123,7 @@ namespace smt {
                 process_full_macros(full_macros, removed);
                 process_cond_macros(cond_macros, qs, removed);
 
-                ptr_vector<quantifier>::const_iterator it  = qs.begin();
-                ptr_vector<quantifier>::const_iterator end = qs.end();
-                for (; it != end; ++it) {
-                    quantifier * q = *it;
+                for (quantifier * q : qs) {
                     if (removed.contains(q))
                         continue;
                     new_qs.push_back(q);
@@ -3409,10 +3242,7 @@ namespace smt {
     }
 
     void model_finder::collect_relevant_quantifiers(ptr_vector<quantifier> & qs) const {
-        ptr_vector<quantifier>::const_iterator it  = m_quantifiers.begin();
-        ptr_vector<quantifier>::const_iterator end = m_quantifiers.end();
-        for (; it != end; ++it) {
-            quantifier * q = *it;
+        for (quantifier * q : m_quantifiers) {
             if (m_context->is_relevant(q) && m_context->get_assignment(q) == l_true)
                 qs.push_back(q);
         }
@@ -3422,26 +3252,19 @@ namespace smt {
         m_auf_solver->reset();
         m_auf_solver->set_model(m);
 
-        ptr_vector<quantifier>::const_iterator it  = qs.begin();
-        ptr_vector<quantifier>::const_iterator end = qs.end();
-        for (; it != end; ++it) {
-            quantifier * q       = *it;
+        for (quantifier * q : qs) {
             quantifier_info * qi = get_quantifier_info(q);
             qi->process_auf(*(m_auf_solver.get()), m_context);
         }
         m_auf_solver->mk_instantiation_sets();
-        it  = qs.begin();
-        for (; it != end; ++it) {
-            quantifier * q       = *it;
+
+        for (quantifier * q : qs) {        
             quantifier_info * qi = get_quantifier_info(q);
             qi->populate_inst_sets(*(m_auf_solver.get()), m_context);
         }
         m_auf_solver->fix_model(m_new_constraints);
         TRACE("model_finder", 
-              ptr_vector<quantifier>::const_iterator it  = qs.begin();
-              ptr_vector<quantifier>::const_iterator end = qs.end();
-              for (; it != end; ++it) {
-                  quantifier * q = *it;
+              for (quantifier * q : qs) {
                   quantifier_info * qi = get_quantifier_info(q);
                   quantifier * fq = qi->get_flat_q();
                   tout << "#" << fq->get_id() << " ->\n" << mk_pp(fq, m_manager) << "\n";

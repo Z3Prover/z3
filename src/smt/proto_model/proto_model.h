@@ -41,7 +41,6 @@ Revision History:
 class proto_model : public model_core {
     plugin_manager<value_factory> m_factories;
     user_sort_factory *           m_user_sort_factory;
-    family_id                     m_afid;        //!< array family id: hack for displaying models in V1.x style
     func_decl_set                 m_aux_decls;
     ptr_vector<expr>              m_tmp;
     model_evaluator               m_eval;
@@ -58,7 +57,6 @@ class proto_model : public model_core {
     void remove_aux_decls_not_in_set(ptr_vector<func_decl> & decls, func_decl_set const & s);
     void cleanup_func_interp(func_interp * fi, func_decl_set & found_aux_fs);
 
-    bool is_select_of_model_value(expr* e) const;
 
 public:
     proto_model(ast_manager & m, params_ref const & p = params_ref());
@@ -68,7 +66,6 @@ public:
 
     bool eval(expr * e, expr_ref & result, bool model_completion = false);
 
-    bool is_as_array(expr * v) const;
     
     value_factory * get_factory(family_id fid);
 
@@ -84,6 +81,7 @@ public:
     // Primitives for building models
     //
     void register_aux_decl(func_decl * f, func_interp * fi);
+    void register_aux_decl(func_decl * f);
     void reregister_decl(func_decl * f, func_interp * new_fi, func_decl * f_aux);
     void compress();
     void cleanup();

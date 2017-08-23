@@ -98,7 +98,7 @@ peq::peq (app* p, ast_manager& m):
     m_eq (m),
     m_arr_u (m)
 {
-    SASSERT (is_partial_eq (p));
+    VERIFY (is_partial_eq (p));
     SASSERT (m_arr_u.is_array (m_lhs) &&
              m_arr_u.is_array (m_rhs) &&
              m_eq_proc (m.get_sort (m_lhs), m.get_sort (m_rhs)));
