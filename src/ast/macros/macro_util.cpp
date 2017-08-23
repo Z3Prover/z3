@@ -105,19 +105,19 @@ app * macro_util::mk_zero(sort * s) const {
 
 void macro_util::mk_sub(expr * t1, expr * t2, expr_ref & r) const {
     if (is_bv(t1)) {
-        r = m_bv.mk_bv_sub(t1, t2);
+        m_bv_rw.mk_sub(t1, t2, r);
     }
     else {
-        r = m_arith.mk_sub(t1, t2);
+        m_arith_rw.mk_sub(t1, t2, r);
     }
 }
 
 void macro_util::mk_add(expr * t1, expr * t2, expr_ref & r) const {
     if (is_bv(t1)) {
-        r = m_bv.mk_bv_add(t1, t2);
+        m_bv_rw.mk_add(t1, t2, r);
     }
     else {
-        r = m_arith.mk_add(t1, t2);
+        m_arith_rw.mk_add(t1, t2, r);
     }
 }
 
@@ -312,9 +312,10 @@ bool macro_util::is_arith_macro(expr * n, unsigned num_decls, app_ref & head, ex
     expr_ref tmp(m_manager);
     tmp = m_arith.mk_add(args.size(), args.c_ptr());
     if (inv)
-        def = m_arith.mk_sub(tmp, rhs);
+        mk_sub(tmp, rhs, def);
     else
-        def = m_arith.mk_sub(rhs, tmp);
+        mk_sub(rhs, tmp, def);
+    TRACE("macro_util", tout << def << "\n";);
     return true;
 }
 

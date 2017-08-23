@@ -60,8 +60,8 @@ private:
     ast_manager &               m_manager;
     bv_util                     m_bv;
     arith_util                  m_arith;
-    arith_rewriter              m_arith_rw;
-    bv_rewriter                 m_bv_rw;
+    mutable arith_rewriter      m_arith_rw;
+    mutable bv_rewriter         m_bv_rw;
     obj_hashtable<func_decl> *  m_forbidden_set;
 
     bool is_forbidden(func_decl * f) const { return m_forbidden_set != 0 && m_forbidden_set->contains(f); }

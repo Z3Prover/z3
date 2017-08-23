@@ -755,11 +755,13 @@ namespace smt {
                 arith_rewriter arw(m);
                 bv_rewriter brw(m);
                 ptr_vector<expr> const & exceptions  = n->get_exceptions();
+                expr_ref e_minus_1(m), e_plus_1(m);
                 if (m_arith.is_int(s)) {
                     expr_ref one(m_arith.mk_int(1), m);
+                    arith_rewriter arith_rw(m);
                     for (expr * e : exceptions) {
-                        expr_ref e_plus_1(m_arith.mk_add(e, one), m);
-                        expr_ref e_minus_1(m_arith.mk_sub(e, one), m);
+                        arith_rw.mk_sub(e, one, e_minus_1);
+                        arith_rw.mk_add(e, one, e_plus_1);
                         TRACE("mf_simp_bug", tout << "e:\n" << mk_ismt2_pp(e, m) << "\none:\n" << mk_ismt2_pp(one, m) << "\n";);
                         // Note: exceptions come from quantifiers bodies. So, they have generation 0.
                         n->insert(e_plus_1, 0);
@@ -768,9 +770,10 @@ namespace smt {
                 }
                 else if (m_bv.is_bv_sort(s)) {
                     expr_ref one(m_bv.mk_numeral(rational(1), s), m);
+                    bv_rewriter bv_rw(m);
                     for (expr * e : exceptions) {
-                        expr_ref e_plus_1(m_bv.mk_bv_add(e, one), m);
-                        expr_ref e_minus_1(m_bv.mk_bv_sub(e, one), m);
+                        bv_rw.mk_add(e, one, e_plus_1);
+                        bv_rw.mk_sub(e, one, e_minus_1);
                         TRACE("mf_simp_bug", tout << "e:\n" << mk_ismt2_pp(e, m) << "\none:\n" << mk_ismt2_pp(one, m) << "\n";);
                         // Note: exceptions come from quantifiers bodies. So, they have generation 0.
                         n->insert(e_plus_1, 0);
@@ -806,7 +809,7 @@ namespace smt {
                 numeral_lt(T& a): m_util(a) {}
                 bool operator()(expr* e1, expr* e2) {
                     rational v1, v2;
-                    if (m_util.is_numeral(e1, v1) && m_util.is_numeral(e2, v1)) {
+                    if (m_util.is_numeral(e1, v1) && m_util.is_numeral(e2, v2)) {
                         return v1 < v2;
                     }
                     else {
@@ -1260,15 +1263,16 @@ namespace smt {
                     for (; it != end; it++) {
                         enode * n = *it;
                         if (ctx->is_relevant(n)) {
-                            arith_util arith(ctx->get_manager());
+                            arith_rewriter arith_rw(ctx->get_manager());
                             bv_util bv(ctx->get_manager());
+                            bv_rewriter bv_rw(ctx->get_manager());
                             enode * e_arg = n->get_arg(m_arg_i);
                             expr * arg    = e_arg->get_owner();
                             expr_ref arg_minus_k(ctx->get_manager());
-                            if (bv.is_bv(arg))
-                                arg_minus_k = bv.mk_bv_sub(arg, m_offset);
+                            if (bv.is_bv(arg))                                
+                                bv_rw.mk_sub(arg, m_offset, arg_minus_k);
                             else
-                                arg_minus_k = arith.mk_sub(arg, m_offset);
+                                arith_rw.mk_sub(arg, m_offset, arg_minus_k);
                             S_j->insert(arg_minus_k, e_arg->get_generation());
                         }
                     }
@@ -1291,17 +1295,29 @@ namespace smt {
                 instantiation_set const * from_s        = from->get_instantiation_set();
                 obj_map<expr, unsigned> const & elems_s = from_s->get_elems();
 
-                arith_util arith(m_offset.get_manager());
-                bv_util bv(m_offset.get_manager());
-                bool is_bv = bv.is_bv_sort(from->get_sort());
+                arith_rewriter arith_rw(m_offset.get_manager());
+                bv_rewriter bv_rw(m_offset.get_manager());
+                bool is_bv = bv_util(m_offset.get_manager()).is_bv_sort(from->get_sort());
 
                 for (auto const& kv : elems_s) {
                     expr * n = kv.m_key;
                     expr_ref n_k(m_offset.get_manager());
-                    if (PLUS)
-                        n_k = is_bv ? bv.mk_bv_add(n, m_offset) : arith.mk_add(n, m_offset);
-                    else
-                        n_k = is_bv ? bv.mk_bv_sub(n, m_offset) : arith.mk_sub(n, m_offset);
+                    if (PLUS) {
+                        if (is_bv) {
+                            bv_rw.mk_add(n, m_offset, n_k);
+                        }
+                        else {
+                            arith_rw.mk_add(n, m_offset, n_k);
+                        }
+                    }
+                    else {
+                        if (is_bv) {
+                            bv_rw.mk_sub(n, m_offset, n_k);
+                        }
+                        else {
+                            arith_rw.mk_sub(n, m_offset, n_k);
+                        }
+                    }
                     to->insert(n_k, kv.m_value);
                 }
             }
