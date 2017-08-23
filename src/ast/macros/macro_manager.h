@@ -60,17 +60,6 @@ class macro_manager {
     struct macro_expander_cfg;
     struct macro_expander_rw;
 
-    class macro_expander : public simplifier {
-    protected:
-        macro_manager &   m_macro_manager;
-        virtual bool get_subst(expr * n, expr_ref & r, proof_ref & p);
-        virtual void reduce1_quantifier(quantifier * q);
-    public:
-        macro_expander(ast_manager & m, macro_manager & mm);
-        ~macro_expander();
-    };
-    friend class macro_expander;
-
 public:
     macro_manager(ast_manager & m);
     ~macro_manager();

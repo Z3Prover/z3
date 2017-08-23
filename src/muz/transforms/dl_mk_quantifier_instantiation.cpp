@@ -70,7 +70,7 @@ namespace datalog {
         if (q->get_num_patterns() == 0) {
             proof_ref new_pr(m);
             pattern_inference_params params;
-            pattern_inference infer(m, params);
+            pattern_inference_old infer(m, params);
             infer(q, qe, new_pr);
             q = to_quantifier(qe);
         }

@@ -21,6 +21,7 @@ Revision History:
 #include "ast/ast_pp.h"
 #include "ast/for_each_expr.h"
 #include "ast/well_sorted.h"
+#include "ast/rewriter/rewriter_def.h"
 #include "ast/simplifier/arith_simplifier_plugin.h"
 #include "ast/simplifier/array_simplifier_plugin.h"
 #include "ast/simplifier/datatype_simplifier_plugin.h"
@@ -517,7 +518,7 @@ void asserted_formulas::reduce_and_solve() {
 void asserted_formulas::infer_patterns() {
     IF_IVERBOSE(10, verbose_stream() << "(smt.pattern-inference)\n";);
     TRACE("before_pattern_inference", display(tout););
-    pattern_inference infer(m, m_params);
+    pattern_inference_rw infer(m, m_params);
     expr_ref_vector  new_exprs(m);
     proof_ref_vector new_prs(m);
     unsigned i  = m_asserted_qhead;
