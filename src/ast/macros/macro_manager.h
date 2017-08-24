@@ -52,12 +52,12 @@ class macro_manager {
         unsigned m_forbidden_lim;
     };
     svector<scope>                   m_scopes;
-    
+
     func_decl_dependencies           m_deps;
 
     void restore_decls(unsigned old_sz);
     void restore_forbidden(unsigned old_sz);
-    
+
     class macro_expander : public simplifier {
     protected:
         macro_manager &   m_macro_manager;
@@ -91,8 +91,8 @@ public:
     quantifier * get_macro_quantifier(func_decl * f) const { quantifier * q = 0; m_decl2macro.find(f, q); return q; }
     void get_head_def(quantifier * q, func_decl * d, app * & head, expr * & def) const;
     void expand_macros(expr * n, proof * pr, expr_ref & r, proof_ref & new_pr);
-    
-    
+
+
 };
 
 #endif /* MACRO_MANAGER_H_ */
