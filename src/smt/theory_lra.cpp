@@ -2455,7 +2455,7 @@ namespace smt {
                 m_nra->am().set(r, 0);
                 while (!m_todo_terms.empty()) {
                     rational wcoeff = m_todo_terms.back().second;
-                    lp::var_index wi = m_todo_terms.back().first; // todo : got a warning "wi is not used"
+                    //                 lp::var_index wi = m_todo_terms.back().first; // todo : got a warning "wi is not used"
                     m_todo_terms.pop_back();
                     lp::lar_term const& term = m_solver->get_term(vi);
                     scoped_anum r1(m_nra->am());

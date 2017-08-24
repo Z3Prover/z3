@@ -1318,9 +1318,8 @@ void lar_solver::remove_last_row_and_column_from_tableau(unsigned j) {
 }
 
 void lar_solver::remove_last_column_from_A() {
-    unsigned j = A_r().column_count() - 1;
     // the last column has to be empty
-    lp_assert(A_r().m_columns[j].size() == 0);
+    lp_assert(A_r().m_columns.back().size() == 0);
     A_r().m_columns.pop_back();
 }
 

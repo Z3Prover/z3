@@ -35,33 +35,28 @@ void  static_matrix<T, X>::init_row_columns(unsigned m, unsigned n) {
 }
 
 
-template <typename T, typename X> void static_matrix<T, X>::scan_row_ii_to_offset_vector(unsigned ii) {
-    auto & rvals = m_rows[ii];
-    unsigned size = rvals.size();
-    for (unsigned j = 0; j < size; j++)
+template <typename T, typename X> void static_matrix<T, X>::scan_row_ii_to_offset_vector(const row_strip & rvals) {
+    for (unsigned j = 0; j < rvals.size(); j++)
         m_vector_of_row_offsets[rvals[j].m_j] = j;
 }
 
 
 template <typename T, typename X> bool static_matrix<T, X>::pivot_row_to_row_given_cell(unsigned i, column_cell & c, unsigned pivot_col) {
     unsigned ii = c.m_i;
-    lp_assert(i < row_count() && ii < column_count());
-    lp_assert(i != ii);
-    
+    lp_assert(i < row_count() && ii < column_count() && i != ii);
     m_became_zeros.reset();
     T alpha = -get_val(c);
-	lp_assert(!is_zero(alpha));
+    lp_assert(!is_zero(alpha));
     auto & ii_row_vals = m_rows[ii];
     remove_element(ii_row_vals, ii_row_vals[c.m_offset]);
-    scan_row_ii_to_offset_vector(ii);
-    lp_assert(!is_zero(alpha));
+    scan_row_ii_to_offset_vector(ii_row_vals);
     unsigned prev_size_ii = ii_row_vals.size();
     // run over the pivot row and update row ii
     for (const auto & iv : m_rows[i]) {
         unsigned j = iv.m_j;
         if (j == pivot_col) continue;
         T alv = alpha * iv.m_value;
-		lp_assert(!is_zero(iv.m_value));
+        lp_assert(!is_zero(iv.m_value));
         int j_offs = m_vector_of_row_offsets[j];
         if (j_offs == -1) { // it is a new element
             add_new_element(ii, j, alv);
@@ -353,11 +348,12 @@ template <typename T, typename X>    T static_matrix<T, X>::get_row_balance(unsi
 }
 
 template <typename T, typename X> bool static_matrix<T, X>::is_correct() const {
-    for (auto & r : m_rows) {
+    for (unsigned i = 0; i < m_rows.size(); i++) {
+        auto &r = m_rows[i];
         std::unordered_set<unsigned> s;
         for (auto & rc : r) {
             if (s.find(rc.m_j) != s.end()) {
-                std::cout << "found column " << rc.m_j << " twice in a row" << std::endl;
+                std::cout << "found column " << rc.m_j << " twice in a row " << i << std::endl;
                 return false;
             }
             s.insert(rc.m_j);
@@ -369,11 +365,13 @@ template <typename T, typename X> bool static_matrix<T, X>::is_correct() const {
                 return false;
         }
     }
-    for (auto & c : m_columns) {
+    
+    for (unsigned j = 0; j < m_columns.size(); j++) {
+        auto & c = m_columns[j];
         std::unordered_set<unsigned> s;
         for (auto & cc : c) {
             if (s.find(cc.m_i) != s.end()) {
-                std::cout << "found row " << cc.m_i << " twice in a column" << std::endl;
+                std::cout << "found row " << cc.m_i << " twice in a column " << j << std::endl;
                 return false;
             }
             s.insert(cc.m_i);

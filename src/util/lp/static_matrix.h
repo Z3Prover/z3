@@ -97,6 +97,14 @@ public:
     const T & get_val(const column_cell & c) const {
         return m_rows[c.m_i][c.m_offset].get_val();
     }
+
+    row_cell<T> & get_row_cell(const column_cell & c) {
+        return m_rows[c.m_i][c.m_offset];
+    }
+
+    column_cell & get_column_cell(const row_cell<T> &rc) {
+        return m_columns[rc.m_j][rc.m_offset];
+    }
     
     void init_row_columns(unsigned m, unsigned n);
 
@@ -287,7 +295,7 @@ public:
 
     // pivot row i to row ii
     bool pivot_row_to_row_given_cell(unsigned i, column_cell& c, unsigned);
-    void scan_row_ii_to_offset_vector(unsigned ii);
+    void scan_row_ii_to_offset_vector(const row_strip & rvals);
 
     void transpose_rows(unsigned i, unsigned ii) {
         auto t = m_rows[i];
