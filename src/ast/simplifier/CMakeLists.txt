@@ -15,8 +15,6 @@ z3_add_component(simplifier
     inj_axiom.cpp
     maximise_ac_sharing.cpp
     poly_simplifier_plugin.cpp
-    pull_ite_tree.cpp
-    push_app_ite.cpp
     seq_simplifier_plugin.cpp
     simplifier.cpp
     simplifier_plugin.cpp

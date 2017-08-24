@@ -16,7 +16,7 @@ Author:
 Revision History:
 
 --*/
-#include "ast/simplifier/pull_ite_tree.h"
+#include "ast/rewriter/pull_ite_tree.h"
 #include "ast/recurse_expr_def.h"
 #include "ast/for_each_expr.h"
 #include "ast/ast_pp.h"

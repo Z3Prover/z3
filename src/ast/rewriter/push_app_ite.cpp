@@ -17,7 +17,7 @@ Author:
 Revision History:
 
 --*/
-#include "ast/simplifier/push_app_ite.h"
+#include "ast/rewriter/push_app_ite.h"
 #include "ast/ast_pp.h"
 
 push_app_ite::push_app_ite(simplifier & s, bool conservative):

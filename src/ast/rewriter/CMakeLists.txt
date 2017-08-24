@@ -19,6 +19,8 @@ z3_add_component(rewriter
     mk_simplified_app.cpp
     pb_rewriter.cpp
     pb2bv_rewriter.cpp
+    push_app_ite.cpp
+    pull_ite_tree.cpp
     quant_hoist.cpp
     rewriter.cpp
     seq_rewriter.cpp
