@@ -22,7 +22,6 @@ Revision History:
 #include "ast/ast.h"
 #include "ast/rewriter/rewriter.h"
 #include "ast/rewriter/th_rewriter.h"
-#include "ast/simplifier/simplifier.h"
 #include "ast/expr_map.h"
 #include "ast/recurse_expr.h"
 #include "util/obj_hashtable.h"
@@ -67,36 +66,6 @@ public:
        When proof generation is enabled, pr is a proof for n = r.
     */
     void operator()(app * n, app_ref & r, proof_ref & pr);
-};
-
-/**
-   \brief Functor for applying the pull_ite_tree on subexpressions n that
-   satisfy the is_target virtual predicate.
-*/
-class pull_ite_tree_star : public simplifier {
-protected:
-    pull_ite_tree m_proc;
-    virtual bool get_subst(expr * n, expr_ref & r, proof_ref & p);
-public:
-    pull_ite_tree_star(ast_manager & m, simplifier & s);
-    virtual ~pull_ite_tree_star() { release_plugins(); }
-    virtual bool is_target(app * n) const = 0;
-};
-
-/**
-   \brief Apply pull_ite_tree on predicates of the form
-   (p ite v) and (p v ite)
-
-   where:
-   - p is an interpreted predicate
-   - ite is an ite-term expression
-   - v is a value
-*/
-class pull_cheap_ite_tree_star : public pull_ite_tree_star {
-public:
-    pull_cheap_ite_tree_star(ast_manager & m, simplifier & s):pull_ite_tree_star(m, s) {}
-    virtual ~pull_cheap_ite_tree_star() {}
-    virtual bool is_target(app * n) const;
 };
 
 /**
