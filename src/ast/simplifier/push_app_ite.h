@@ -21,6 +21,7 @@ Revision History:
 
 #include "ast/ast.h"
 #include "ast/simplifier/simplifier.h"
+#include "ast/rewriter/rewriter.h"
 
 /**
    \brief Functor for applying the following transformation:
@@ -30,7 +31,6 @@ Revision History:
 class push_app_ite : public simplifier {
 protected:
     bool          m_conservative;
-    int has_ite_arg(unsigned num_args, expr * const * args);
     void apply(func_decl * decl, unsigned num_args, expr * const * args, expr_ref & result);
     virtual bool is_target(func_decl * decl, unsigned num_args, expr * const * args);
     void reduce_core(expr * n);
@@ -58,6 +58,47 @@ public:
     ng_push_app_ite(simplifier & s, bool conservative = true);
     virtual ~ng_push_app_ite() {}
 };
+
+struct push_app_ite_cfg : public default_rewriter_cfg {
+    ast_manager& m;
+    bool m_conservative;
+    virtual bool is_target(func_decl * decl, unsigned num_args, expr * const * args);
+    br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr);
+    push_app_ite_cfg(ast_manager& m, bool conservative = true): m(m), m_conservative(conservative) {}
+};
+
+/**
+   \brief Variation of push_app_ite that applies the transformation on nonground terms only.
+
+   \remark This functor uses the app::is_ground method. This method is not
+   completly precise, for instance, any term containing a quantifier is marked as non ground.
+*/
+class ng_push_app_ite_cfg : public push_app_ite_cfg {
+protected:
+    virtual bool is_target(func_decl * decl, unsigned num_args, expr * const * args);
+public:
+    ng_push_app_ite_cfg(ast_manager& m, bool conservative = true): push_app_ite_cfg(m, conservative) {}
+    virtual ~ng_push_app_ite_cfg() {}
+};
+
+struct push_app_ite_rw : public rewriter_tpl<push_app_ite_cfg> {
+    push_app_ite_cfg m_cfg;
+public:
+    push_app_ite_rw(ast_manager& m, bool conservative = true):
+        rewriter_tpl<push_app_ite_cfg>(m, m.proofs_enabled(), m_cfg),
+        m_cfg(m, conservative)
+    {}
+};
+
+struct ng_push_app_ite_rw : public rewriter_tpl<ng_push_app_ite_cfg> {
+    ng_push_app_ite_cfg m_cfg;
+public:
+    ng_push_app_ite_rw(ast_manager& m, bool conservative = true):
+        rewriter_tpl<ng_push_app_ite_cfg>(m, m.proofs_enabled(), m_cfg),
+        m_cfg(m, conservative)
+    {}
+};
+
 
 #endif /* PUSH_APP_ITE_H_ */
 

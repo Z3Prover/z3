@@ -20,11 +20,12 @@ Revision History:
 #define PULL_ITE_TREE_H_
 
 #include "ast/ast.h"
+#include "ast/rewriter/rewriter.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/simplifier/simplifier.h"
+#include "ast/expr_map.h"
 #include "ast/recurse_expr.h"
 #include "util/obj_hashtable.h"
-#include "ast/expr_map.h"
 
 /**
    \brief Functor for applying the following transformation
@@ -96,6 +97,47 @@ public:
     pull_cheap_ite_tree_star(ast_manager & m, simplifier & s):pull_ite_tree_star(m, s) {}
     virtual ~pull_cheap_ite_tree_star() {}
     virtual bool is_target(app * n) const;
+};
+
+/**
+   \brief Functor for applying the pull_ite_tree on subexpressions n that
+   satisfy the is_target virtual predicate.
+*/
+class pull_ite_tree_cfg : public default_rewriter_cfg {
+protected:
+    ast_manager& m;
+    expr_ref_vector m_trail;
+    pull_ite_tree m_proc;
+public:
+    pull_ite_tree_cfg(ast_manager & m);
+    virtual ~pull_ite_tree_cfg() {}
+    virtual bool is_target(app * n) const = 0;
+    bool get_subst(expr * n, expr* & r, proof* & p);
+};
+
+/**
+   \brief Apply pull_ite_tree on predicates of the form
+   (p ite v) and (p v ite)
+
+   where:
+   - p is an interpreted predicate
+   - ite is an ite-term expression
+   - v is a value
+*/
+class pull_cheap_ite_tree_cfg : public pull_ite_tree_cfg {
+public:
+    pull_cheap_ite_tree_cfg(ast_manager & m):pull_ite_tree_cfg(m) {}
+    virtual ~pull_cheap_ite_tree_cfg() {}
+    virtual bool is_target(app * n) const;
+};
+
+class pull_cheap_ite_tree_rw  : public rewriter_tpl<pull_cheap_ite_tree_cfg> {
+    pull_cheap_ite_tree_cfg m_cfg;
+public:
+    pull_cheap_ite_tree_rw(ast_manager& m):
+        rewriter_tpl<pull_cheap_ite_tree_cfg>(m, m.proofs_enabled(), m_cfg),
+        m_cfg(m)
+    {}
 };
 
 #endif /* PULL_ITE_TREE_H_ */

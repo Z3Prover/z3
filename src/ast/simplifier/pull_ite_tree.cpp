@@ -209,5 +209,41 @@ bool pull_cheap_ite_tree_star::is_target(app * n) const {
 
 
 
+pull_ite_tree_cfg::pull_ite_tree_cfg(ast_manager & m):
+    m(m),
+    m_trail(m),
+    m_proc(m) {
+}
+
+bool pull_ite_tree_cfg::get_subst(expr * n, expr* & r, proof* & p) {
+    if (is_app(n) && is_target(to_app(n))) {
+        app_ref tmp(m);
+        proof_ref pr(m);
+        m_proc(to_app(n), tmp, pr);
+        if (tmp != n) {
+            r = tmp;
+            p = pr;
+            m_trail.push_back(r);
+            m_trail.push_back(p);
+            return true;
+        }
+    }
+    return false;
+}
+
+bool pull_cheap_ite_tree_cfg::is_target(app * n) const {
+    bool r = 
+        n->get_num_args() == 2 &&
+        n->get_family_id() != null_family_id &&
+        m.is_bool(n) &&
+        (m.is_value(n->get_arg(0)) || m.is_value(n->get_arg(1))) &&
+        (m.is_term_ite(n->get_arg(0)) || m.is_term_ite(n->get_arg(1)));
+    TRACE("pull_ite_target", tout << mk_pp(n, m) << "\nresult: " << r << "\n";);
+    return r;
+}
+
+
+
+
 
 

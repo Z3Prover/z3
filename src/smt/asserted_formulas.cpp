@@ -755,7 +755,7 @@ void asserted_formulas::propagate_booleans() {
         return changed;                                                 \
     }
 
-MK_SIMPLIFIER(pull_cheap_ite_trees, pull_cheap_ite_tree_star functor(m, m_simplifier), "pull_cheap_ite_trees", "pull-cheap-ite-trees", false);
+MK_SIMPLIFIER(pull_cheap_ite_trees, pull_cheap_ite_tree_rw functor(m), "pull_cheap_ite_trees", "pull-cheap-ite-trees", false);
 
 MK_SIMPLIFIER(pull_nested_quantifiers, pull_nested_quant functor(m), "pull_nested_quantifiers", "pull-nested-quantifiers", false);
 
@@ -830,8 +830,8 @@ MK_SIMPLIFIER(elim_bvs_from_quantifiers, bv_elim_star functor(m), "bv_elim", "el
         reduce_and_solve();                                             \
     }
 
-LIFT_ITE(lift_ite, push_app_ite functor(m_simplifier, m_params.m_lift_ite == LI_CONSERVATIVE), "lifting ite");
-LIFT_ITE(ng_lift_ite, ng_push_app_ite functor(m_simplifier, m_params.m_ng_lift_ite == LI_CONSERVATIVE), "lifting ng ite");
+LIFT_ITE(lift_ite, push_app_ite_rw functor(m, m_params.m_lift_ite == LI_CONSERVATIVE), "lifting ite");
+LIFT_ITE(ng_lift_ite, ng_push_app_ite_rw functor(m, m_params.m_ng_lift_ite == LI_CONSERVATIVE), "lifting ng ite");
 
 unsigned asserted_formulas::get_total_size() const {
     expr_mark visited;
