@@ -11,6 +11,7 @@ Abstract:
   - Discover axioms of the form `forall x. (= (g (f x)) x`
     Mark `f` as injective
   - Rewrite (sub)terms of the form `(= (f x) (f y))` to `(= x y)` whenever `f` is injective.
+  - Rewrite (sub)terms of the form `(g (f x))` whenever `g` is the pseudoinverse of `f`.
 
 Author:
 
@@ -232,12 +233,58 @@ class injectivity_tactic : public tactic {
         }
     };
 
-    struct rewriter_inverse { };
+    struct rewriter_inv_cfg : public default_rewriter_cfg {
+        ast_manager              & m_manager;
+        InjHelper                & inj_map;
+
+        ast_manager & m() const { return m_manager; }
+
+        rewriter_inv_cfg(ast_manager & m, InjHelper & map) : m_manager(m), inj_map(map) {
+        }
+
+        ~rewriter_inv_cfg() {
+        }
+
+        br_status reduce_app(func_decl * g, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
+            if (num != 1)
+                return BR_FAILED;
+
+            // We are rewriting (g (f x))
+            if (!is_app(args[0]))
+                return BR_FAILED;
+
+            const app* const a = to_app(args[0]);
+            func_decl* const f = a->get_decl();
+
+            if (a->get_num_args() != 1)
+                return BR_FAILED;
+
+            // g is the pseudoinverse of f
+            if (!inj_map.contains(f, g))
+                return BR_FAILED;
+
+            expr* const body = a->get_arg(0);
+            TRACE("injectivity", tout << "Rewriting (" << g->get_name() <<
+                " (" << f->get_name() << " (" << mk_ismt2_pp(body, m()) << ")))" << std::endl;);
+            result = body;
+            result_pr = nullptr;
+            return BR_DONE;
+        }
+
+    };
+
+    struct rewriter_inv : public rewriter_tpl<rewriter_inv_cfg> {
+        rewriter_inv_cfg m_cfg;
+        rewriter_inv(ast_manager & m, InjHelper & map) :
+            rewriter_tpl<rewriter_inv_cfg>(m, m.proofs_enabled(), m_cfg),
+            m_cfg(m, map) {
+        }
+    };
 
     finder *           m_finder;
     rewriter_eq *      m_eq;
+    rewriter_inv *     m_inv;
     InjHelper *        m_map;
-//    rewriter_inverse * m_inverse;
 
     ast_manager &      m_manager;
 
@@ -248,6 +295,7 @@ public:
         m_map = alloc(InjHelper, m);
         m_finder = alloc(finder, m, *m_map);
         m_eq = alloc(rewriter_eq, m, *m_map);
+        m_inv = alloc(rewriter_inv, m, *m_map);
     }
 
     virtual tactic * translate(ast_manager & m) {
@@ -257,6 +305,7 @@ public:
     virtual ~injectivity_tactic() {
         dealloc(m_finder);
         dealloc(m_eq);
+        dealloc(m_inv);
         dealloc(m_map);
     }
 
@@ -274,10 +323,11 @@ public:
 
         for (unsigned i = 0; i < g->size(); ++i) {
             expr*     curr = g->form(i);
-            expr_ref  rw(m_manager);
+            expr_ref  r_eq(m_manager), r_inv(m_manager);
             proof_ref pr(m_manager);
-            (*m_eq)(curr, rw, pr);
-            g->update(i, rw, pr, g->dep(i));
+            (*m_eq)(curr, r_eq, pr);
+            (*m_inv)(r_eq, r_inv, pr);
+            g->update(i, r_inv, pr, g->dep(i));
         }
         result.push_back(g.get());
     }
@@ -286,8 +336,10 @@ public:
         InjHelper * m = alloc(InjHelper, m_manager);
         finder * f = alloc(finder, m_manager, *m);
         rewriter_eq * r_eq = alloc(rewriter_eq, m_manager, *m);
-        std::swap(m, m_map), std::swap(f, m_finder), std::swap(r, m_eq);
-        dealloc(m), dealloc(f), dealloc(r);
+        rewriter_inv * r_inv = alloc(rewriter_inv, m_manager, *m);
+
+        std::swap(m, m_map), std::swap(f, m_finder), std::swap(r_eq, m_eq), std::swap(r_inv, m_inv);
+        dealloc(m), dealloc(f), dealloc(r_eq), dealloc(r_inv);
     }
 
 
