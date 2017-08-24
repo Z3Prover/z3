@@ -45,9 +45,13 @@ class injectivity_tactic : public tactic {
             }
         }
 
-        bool find(func_decl* const f, func_decl* const g) const {
+        bool contains(func_decl* const f) const {
+            return obj_map::contains(f);
+        }
+
+        bool contains(func_decl* const f, func_decl* const g) const {
             obj_hashtable<func_decl> *m;
-            if(! obj_map::find(f, m))
+            if(! find(f, m))
                 return false;
 
             return m->contains(g);
@@ -70,10 +74,9 @@ class injectivity_tactic : public tactic {
         ast_manager & m_manager;
         InjHelper   & inj_map;
 
-        finder(ast_manager & m, InjHelper & map, params_ref const & p) :
+        finder(ast_manager & m, InjHelper & map) :
             m_manager(m),
             inj_map(map) {
-            updt_params(p);
         }
 
         ast_manager & m() const { return m_manager; }
@@ -163,7 +166,6 @@ class injectivity_tactic : public tactic {
             }
         }
 
-        void updt_params(params_ref const & p) {}
     };
 
     struct rewriter_eq_cfg : public default_rewriter_cfg {
@@ -174,7 +176,7 @@ class injectivity_tactic : public tactic {
 
         ast_manager & m() const { return m_manager; }
 
-        rewriter_eq_cfg(ast_manager & m, InjHelper & map, params_ref const & p) : m_manager(m), inj_map(map) {
+        rewriter_eq_cfg(ast_manager & m, InjHelper & map) : m_manager(m), inj_map(map) {
         }
 
         ~rewriter_eq_cfg() {
@@ -224,9 +226,9 @@ class injectivity_tactic : public tactic {
 
     struct rewriter_eq : public rewriter_tpl<rewriter_eq_cfg> {
         rewriter_eq_cfg m_cfg;
-        rewriter_eq(ast_manager & m, InjHelper & map, params_ref const & p) :
+        rewriter_eq(ast_manager & m, InjHelper & map) :
             rewriter_tpl<rewriter_eq_cfg>(m, m.proofs_enabled(), m_cfg),
-            m_cfg(m, map, p) {
+            m_cfg(m, map) {
         }
     };
 
@@ -237,32 +239,25 @@ class injectivity_tactic : public tactic {
     InjHelper *        m_map;
 //    rewriter_inverse * m_inverse;
 
-    params_ref         m_params;
     ast_manager &      m_manager;
 
 public:
-    injectivity_tactic(ast_manager & m, params_ref const & p):
-        m_params(p),
+    injectivity_tactic(ast_manager & m):
         m_manager(m) {
         TRACE("injectivity", tout << "constructed new tactic" << std::endl;);
         m_map = alloc(InjHelper, m);
-        m_finder = alloc(finder, m, *m_map, p);
-        m_eq = alloc(rewriter_eq, m, *m_map, p);
+        m_finder = alloc(finder, m, *m_map);
+        m_eq = alloc(rewriter_eq, m, *m_map);
     }
 
     virtual tactic * translate(ast_manager & m) {
-        return alloc(injectivity_tactic, m, m_params);
+        return alloc(injectivity_tactic, m);
     }
 
     virtual ~injectivity_tactic() {
         dealloc(m_finder);
         dealloc(m_eq);
         dealloc(m_map);
-    }
-
-    virtual void updt_params(params_ref const & p) {
-        m_params = p;
-        m_finder->updt_params(p);
     }
 
     virtual void collect_param_descrs(param_descrs & r) {
@@ -289,8 +284,8 @@ public:
 
     virtual void cleanup() {
         InjHelper * m = alloc(InjHelper, m_manager);
-        finder * f = alloc(finder, m_manager, *m, m_params);
-        rewriter_eq * r = alloc(rewriter_eq, m_manager, *m, m_params);
+        finder * f = alloc(finder, m_manager, *m);
+        rewriter_eq * r_eq = alloc(rewriter_eq, m_manager, *m);
         std::swap(m, m_map), std::swap(f, m_finder), std::swap(r, m_eq);
         dealloc(m), dealloc(f), dealloc(r);
     }
@@ -298,6 +293,6 @@ public:
 
 };
 
-tactic * mk_injectivity_tactic(ast_manager & m, params_ref const & p) {
-    return alloc(injectivity_tactic, m, p);
+tactic * mk_injectivity_tactic(ast_manager & m) {
+    return alloc(injectivity_tactic, m);
 }
