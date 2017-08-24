@@ -22,12 +22,8 @@ Revision History:
 
 #include "ast/ast.h"
 #include "util/obj_hashtable.h"
-#include "ast/simplifier/simplifier.h"
-
-class poly_simplifier_plugin;
-class arith_simplifier_plugin;
-class bv_simplifier_plugin;
-class basic_simplifier_plugin;
+#include "ast/rewriter/arith_rewriter.h"
+#include "ast/rewriter/bv_rewriter.h"
 
 class macro_util {
 public:
@@ -62,10 +58,10 @@ public:
 
 private:
     ast_manager &               m_manager;
-    bv_util                     m_bv;
-    simplifier &                m_simplifier;
-    arith_simplifier_plugin *   m_arith_simp;
-    bv_simplifier_plugin    *   m_bv_simp;
+    mutable arith_rewriter      m_arith_rw;
+    arith_util &                m_arith_util;
+    mutable bv_rewriter         m_bv_rw;
+    bv_util &                   m_bv_util;
     obj_hashtable<func_decl> *  m_forbidden_set;
 
     bool is_forbidden(func_decl * f) const { return m_forbidden_set != 0 && m_forbidden_set->contains(f); }
@@ -94,11 +90,13 @@ private:
 
 
 public:
-    macro_util(ast_manager & m, simplifier & s);
+    macro_util(ast_manager & m);
     void set_forbidden_set(obj_hashtable<func_decl> * s) { m_forbidden_set = s; }
 
-    arith_simplifier_plugin * get_arith_simp() const;
-    bv_simplifier_plugin * get_bv_simp() const;
+    arith_util & get_arith_util() const { return m_arith_util; }
+    bv_util & get_bv_util() const { return m_bv_util; }
+    arith_rewriter & get_arith_rw() const { return m_arith_rw; }
+    bv_rewriter & get_bv_rw() const { return m_bv_rw; }
 
     bool is_macro_head(expr * n, unsigned num_decls) const;
     bool is_left_simple_macro(expr * n, unsigned num_decls, app_ref & head, expr_ref & def) const;
@@ -137,7 +135,6 @@ public:
     void mk_sub(expr * t1, expr * t2, expr_ref & r) const;
     void mk_add(expr * t1, expr * t2, expr_ref & r) const;
     void mk_add(unsigned num_args, expr * const * args, sort * s, expr_ref & r) const;
-    poly_simplifier_plugin * get_poly_simp_for(sort * s) const;
 };
 
 #endif
