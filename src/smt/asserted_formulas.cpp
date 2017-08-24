@@ -56,7 +56,8 @@ asserted_formulas::asserted_formulas(ast_manager & m, smt_params & p):
     m_macro_manager(m),
     m_bit2int(m),
     m_bv_sharing(m),
-    m_inconsistent(false){
+    m_inconsistent(false), 
+    m_has_quantifiers(false) {
 
     m_bsimp = 0;
     m_bvsimp = 0;
@@ -143,6 +144,7 @@ void asserted_formulas::set_eliminate_and(bool flag) {
 void asserted_formulas::assert_expr(expr * e, proof * _in_pr) {
     if (inconsistent()) 
         return;
+    m_has_quantifiers |= ::has_quantifiers(e);
     if (!m_params.m_preprocess) {
         push_assertion(e, _in_pr, m_asserted_formulas, m_asserted_formula_prs);
         return;

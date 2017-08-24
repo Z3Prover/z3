@@ -26,6 +26,7 @@ Revision History:
 #include "muz/transforms/dl_mk_quantifier_instantiation.h"
 #include "muz/base/dl_context.h"
 #include "ast/pattern/pattern_inference.h"
+#include "ast/rewriter/rewriter_def.h"
 
 
 namespace datalog {
