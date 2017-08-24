@@ -44,13 +44,12 @@ template <typename T, typename X> void static_matrix<T, X>::scan_row_ii_to_offse
 template <typename T, typename X> bool static_matrix<T, X>::pivot_row_to_row_given_cell(unsigned i, column_cell & c, unsigned pivot_col) {
     unsigned ii = c.m_i;
     lp_assert(i < row_count() && ii < column_count() && i != ii);
-    m_became_zeros.reset();
     T alpha = -get_val(c);
     lp_assert(!is_zero(alpha));
-    auto & ii_row_vals = m_rows[ii];
-    remove_element(ii_row_vals, ii_row_vals[c.m_offset]);
-    scan_row_ii_to_offset_vector(ii_row_vals);
-    unsigned prev_size_ii = ii_row_vals.size();
+    auto & rowii = m_rows[ii];
+    remove_element(rowii, rowii[c.m_offset]);
+    scan_row_ii_to_offset_vector(rowii);
+    unsigned prev_size_ii = rowii.size();
     // run over the pivot row and update row ii
     for (const auto & iv : m_rows[i]) {
         unsigned j = iv.m_j;
@@ -62,25 +61,20 @@ template <typename T, typename X> bool static_matrix<T, X>::pivot_row_to_row_giv
             add_new_element(ii, j, alv);
         }
         else {
-            auto & row_el_iv = ii_row_vals[j_offs];
-            row_el_iv.m_value += alv;
-            if (is_zero(row_el_iv.m_value)) {
-                m_became_zeros.push_back(j_offs);
-                ensure_increasing(m_became_zeros);
-            }
+            rowii[j_offs].m_value += alv;
         }
     }
-    
     // clean the work vector
     for (unsigned k = 0; k < prev_size_ii; k++) {
-        m_vector_of_row_offsets[ii_row_vals[k].m_j] = -1;
+        m_vector_of_row_offsets[rowii[k].m_j] = -1;
     }
 
-    for (unsigned k = m_became_zeros.size(); k-- > 0; ) {
-        unsigned j = m_became_zeros[k];
-        remove_element(ii_row_vals, ii_row_vals[j]);
+    // remove zeroes
+    for (unsigned k = rowii.size(); k-- > 0;  ) {
+        if (is_zero(rowii[k].m_value)) 
+            remove_element(rowii, rowii[k]);
     }
-    return !ii_row_vals.empty();
+    return !rowii.empty();
 }
 
 
@@ -363,6 +357,11 @@ template <typename T, typename X> bool static_matrix<T, X>::is_correct() const {
                 return false;
             if (rc.get_val() != get_val(m_columns[rc.m_j][rc.m_offset]))
                 return false;
+            if (is_zero(rc.get_val())) {
+                std::cout << "found zero column " << rc.m_j << " in row " << i << std::endl;
+                return false;
+            }
+            
         }
     }
     
