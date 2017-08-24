@@ -28,7 +28,7 @@ Revision History:
 macro_manager::macro_manager(ast_manager & m, simplifier & s):
     m_manager(m),
     m_simplifier(s),
-    m_util(m),
+    m_util(m, s),
     m_decls(m),
     m_macros(m),
     m_macro_prs(m),

@@ -29,10 +29,10 @@ protected:
     bool        m_expand_power;
     bool        m_mul2power;
     bool        m_expand_tan;
-
+    
     ast_manager & m() const { return m_util.get_manager(); }
     family_id get_fid() const { return m_util.get_family_id(); }
-
+    
     bool is_numeral(expr * n) const { return m_util.is_numeral(n); }
     bool is_numeral(expr * n, numeral & r) const { return m_util.is_numeral(n, r); }
     bool is_zero(expr * n) const { return m_util.is_zero(n); }
@@ -77,7 +77,7 @@ class arith_rewriter : public poly_rewriter<arith_rewriter_core> {
     br_status mk_div_irrat_rat(expr * arg1, expr * arg2, expr_ref & result);
     br_status mk_div_rat_irrat(expr * arg1, expr * arg2, expr_ref & result);
     br_status mk_div_irrat_irrat(expr * arg1, expr * arg2, expr_ref & result);
-
+    
     bool is_reduce_power_target(expr * arg, bool is_eq);
     expr * reduce_power(expr * arg, bool is_eq);
     br_status reduce_power(expr * arg1, expr * arg2, op_kind kind, expr_ref & result);
@@ -154,16 +154,16 @@ public:
         if (mk_rem_core(arg1, arg2, result) == BR_FAILED)
             result = m().mk_app(get_fid(), OP_REM, arg1, arg2);
     }
-
+    
     br_status mk_to_int_core(expr * arg, expr_ref & result);
     br_status mk_to_real_core(expr * arg, expr_ref & result);
-    void mk_to_int(expr * arg, expr_ref & result) {
+    void mk_to_int(expr * arg, expr_ref & result) { 
         if (mk_to_int_core(arg, result) == BR_FAILED)
-            result = m().mk_app(get_fid(), OP_TO_INT, 1, &arg);
+            result = m().mk_app(get_fid(), OP_TO_INT, 1, &arg); 
     }
-    void mk_to_real(expr * arg, expr_ref & result) {
-        if (mk_to_real_core(arg, result) == BR_FAILED)
-            result = m().mk_app(get_fid(), OP_TO_REAL, 1, &arg);
+    void mk_to_real(expr * arg, expr_ref & result) { 
+        if (mk_to_real_core(arg, result) == BR_FAILED)  
+            result = m().mk_app(get_fid(), OP_TO_REAL, 1, &arg); 
     }
     br_status mk_is_int(expr * arg, expr_ref & result);
 
@@ -178,8 +178,6 @@ public:
     br_status mk_sinh_core(expr * arg, expr_ref & result);
     br_status mk_cosh_core(expr * arg, expr_ref & result);
     br_status mk_tanh_core(expr * arg, expr_ref & result);
-
-    arith_util & get_util() { return m_util; }
 };
 
 #endif

@@ -20,8 +20,8 @@ Revision History:
 #include "ast/macros/macro_util.h"
 #include "ast/occurs.h"
 #include "ast/ast_util.h"
-#include "ast/arith_decl_plugin.h"
-#include "ast/bv_decl_plugin.h"
+#include "ast/simplifier/arith_simplifier_plugin.h"
+#include "ast/simplifier/bv_simplifier_plugin.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
@@ -29,73 +29,96 @@ Revision History:
 #include "ast/well_sorted.h"
 #include "ast/rewriter/bool_rewriter.h"
 
-macro_util::macro_util(ast_manager & m):
+macro_util::macro_util(ast_manager & m, simplifier & s):
     m_manager(m),
-    m_arith_rw(m),
-    m_arith_util(m_arith_rw.get_util()),
-    m_bv_rw(m),
-    m_bv_util(m_bv_rw.get_util()),
+    m_bv(m),
+    m_simplifier(s),
+    m_arith_simp(0),
+    m_bv_simp(0),
     m_forbidden_set(0),
     m_curr_clause(0) {
 }
 
+arith_simplifier_plugin * macro_util::get_arith_simp() const {
+    if (m_arith_simp == 0) {
+        const_cast<macro_util*>(this)->m_arith_simp = static_cast<arith_simplifier_plugin*>(m_simplifier.get_plugin(m_manager.mk_family_id("arith")));
+    }
+    SASSERT(m_arith_simp != 0);
+    return m_arith_simp;
+}
+
+bv_simplifier_plugin * macro_util::get_bv_simp() const {
+    if (m_bv_simp == 0) {
+        const_cast<macro_util*>(this)->m_bv_simp = static_cast<bv_simplifier_plugin*>(m_simplifier.get_plugin(m_manager.mk_family_id("bv")));
+    }
+    SASSERT(m_bv_simp != 0);
+    return m_bv_simp;
+}
+
+
 bool macro_util::is_bv(expr * n) const {
-    return m_bv_util.is_bv(n);
+    return m_bv.is_bv(n);
 }
 
 bool macro_util::is_bv_sort(sort * s) const {
-    return m_bv_util.is_bv_sort(s);
+    return m_bv.is_bv_sort(s);
 }
 
 bool macro_util::is_add(expr * n) const {
-    return m_arith_util.is_add(n) || m_bv_util.is_bv_add(n);
+    return get_arith_simp()->is_add(n) || m_bv.is_bv_add(n);
 }
 
 bool macro_util::is_times_minus_one(expr * n, expr * & arg) const {
-    return is_app(n) && to_app(n)->get_num_args() == 2 &&
-                ((m_arith_rw.is_mul(n) && m_arith_rw.is_times_minus_one(to_app(n)->get_arg(0), arg)) ||
-                 (m_bv_rw.is_mul(n) && m_bv_rw.is_times_minus_one(to_app(n)->get_arg(0), arg)));
+    return get_arith_simp()->is_times_minus_one(n, arg) || get_bv_simp()->is_times_minus_one(n, arg);
 }
 
 bool macro_util::is_le(expr * n) const {
-    return m_arith_util.is_le(n) || m_bv_util.is_bv_ule(n) || m_bv_util.is_bv_sle(n);
+    return get_arith_simp()->is_le(n) || m_bv.is_bv_ule(n) || m_bv.is_bv_sle(n);
 }
 
 bool macro_util::is_le_ge(expr * n) const {
-    return m_arith_util.is_le(n) || m_arith_util.is_ge(n) ||
-           m_bv_util.is_bv_ule(n) || m_bv_util.is_bv_sle(n);
+    return get_arith_simp()->is_le_ge(n) || m_bv.is_bv_ule(n) || m_bv.is_bv_sle(n);
+}
+
+poly_simplifier_plugin * macro_util::get_poly_simp_for(sort * s) const {
+    if (is_bv_sort(s))
+        return get_bv_simp();
+    else
+        return get_arith_simp();
 }
 
 app * macro_util::mk_zero(sort * s) const {
-    if (is_bv_sort(s))
-        return m_bv_util.mk_numeral(rational(0), s);
-    else
-        return m_arith_util.mk_numeral(0, s);
+    poly_simplifier_plugin * ps = get_poly_simp_for(s);
+    ps->set_curr_sort(s);
+    return ps->mk_zero();
 }
 
 void macro_util::mk_sub(expr * t1, expr * t2, expr_ref & r) const {
-    if (is_bv(t1))
-        r = m_bv_util.mk_bv_sub(t1, t2);
-    else
-        r = m_arith_util.mk_sub(t1, t2);
+    if (is_bv(t1)) {
+        r = m_bv.mk_bv_sub(t1, t2);
+    }
+    else {
+        get_arith_simp()->mk_sub(t1, t2, r);
+    }
 }
 
 void macro_util::mk_add(expr * t1, expr * t2, expr_ref & r) const {
-    if (is_bv(t1))
-        r = m_bv_util.mk_bv_add(t1, t2);
-    else
-        m_arith_util.mk_add(t1, t2, r);
+    if (is_bv(t1)) {
+        r = m_bv.mk_bv_add(t1, t2);
+    }
+    else {
+        get_arith_simp()->mk_add(t1, t2, r);
+    }
 }
 
 void macro_util::mk_add(unsigned num_args, expr * const * args, sort * s, expr_ref & r) const {
-    if (num_args == 0)
+    if (num_args == 0) {
         r = mk_zero(s);
-    else if (num_args == 1)
-        r = args[0];
-    else if (is_bv_sort(s))
-        m_bv_rw.mk_add(num_args, args, r);
-    else
-        m_arith_rw.mk_add(num_args, args, r);
+        return;
+    }
+    poly_simplifier_plugin * ps = get_poly_simp_for(s);
+    ps->set_curr_sort(s);
+    ps->mk_add(num_args, args, r);
 }
 
 /**
@@ -218,12 +241,13 @@ bool macro_util::poly_contains_head(expr * n, func_decl * f, expr * exception) c
 
 bool macro_util::is_arith_macro(expr * n, unsigned num_decls, app_ref & head, expr_ref & def, bool & inv) const {
     // TODO: obsolete... we should move to collect_arith_macro_candidates
-    if (!m_manager.is_eq(n) && !m_arith_util.is_le(n) && !m_arith_util.is_ge(n))
+    arith_simplifier_plugin * as = get_arith_simp();
+    if (!m_manager.is_eq(n) && !as->is_le(n) && !as->is_ge(n))
         return false;
     expr * lhs = to_app(n)->get_arg(0);
     expr * rhs = to_app(n)->get_arg(1);
 
-    if (!m_arith_util.is_numeral(rhs))
+    if (!as->is_numeral(rhs))
         return false;
 
     inv = false;
@@ -248,7 +272,7 @@ bool macro_util::is_arith_macro(expr * n, unsigned num_decls, app_ref & head, ex
             !poly_contains_head(lhs, to_app(arg)->get_decl(), arg)) {
             h = arg;
         }
-        else if (h == 0 && m_arith_util.is_times_minus_one(arg, neg_arg) &&
+        else if (h == 0 && as->is_times_minus_one(arg, neg_arg) &&
                  is_macro_head(neg_arg, num_decls) &&
                  !is_forbidden(to_app(neg_arg)->get_decl()) &&
                  !poly_contains_head(lhs, to_app(neg_arg)->get_decl(), arg)) {
@@ -263,11 +287,11 @@ bool macro_util::is_arith_macro(expr * n, unsigned num_decls, app_ref & head, ex
         return false;
     head = to_app(h);
     expr_ref tmp(m_manager);
-    m_arith_rw.mk_add(args.size(), args.c_ptr(), tmp);
+    as->mk_add(args.size(), args.c_ptr(), tmp);
     if (inv)
-        m_arith_rw.mk_sub(tmp, rhs, def);
+        as->mk_sub(tmp, rhs, def);
     else
-        m_arith_rw.mk_sub(rhs, tmp, def);
+        as->mk_sub(rhs, tmp, def);
     return true;
 }
 

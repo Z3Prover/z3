@@ -1873,12 +1873,12 @@ namespace smt {
            fill the structure quantifier_info.
         */
         class quantifier_analyzer {
-            model_finder &       m_mf;
+            model_finder&        m_mf;
             ast_manager &        m_manager;
             macro_util           m_mutil;
             array_util           m_array_util;
-            arith_util &         m_arith_util;
-            bv_util &            m_bv_util;
+            arith_util           m_arith_util;
+            bv_util              m_bv_util;
 
             quantifier_info *    m_info;
 
@@ -1897,12 +1897,14 @@ namespace smt {
                 m_info->insert_qinfo(qi);
             }
 
+            arith_simplifier_plugin * get_arith_simp() const { return m_mutil.get_arith_simp(); }
+            bv_simplifier_plugin * get_bv_simp() const { return m_mutil.get_bv_simp(); }
+
             bool is_var_plus_ground(expr * n, bool & inv, var * & v, expr_ref & t) const {
-                return m_mutil.get_arith_rw().is_var_plus_ground(n, inv, v, t) ||
-                       m_mutil.get_bv_rw().is_var_plus_ground(n, inv, v, t);
+                return get_arith_simp()->is_var_plus_ground(n, inv, v, t) || get_bv_simp()->is_var_plus_ground(n, inv, v, t);
             }
 
-            bool is_var_plus_ground(expr * n, var * & v, expr_ref & t) const {
+            bool is_var_plus_ground(expr * n, var * & v, expr_ref & t) {
                 bool inv;
                 TRACE("is_var_plus_ground", tout << mk_pp(n, m_manager) << "\n";
                       tout << "is_var_plus_ground: " << is_var_plus_ground(n, inv, v, t) << "\n";
@@ -1915,11 +1917,10 @@ namespace smt {
             }
 
             bool is_zero(expr * n) const {
-                if (m_bv_util.is_bv(n))
-                    return m_bv_util.is_zero(n);
-                else {
-                    return m_arith_util.is_zero(n);
-                }
+                if (get_bv_simp()->is_bv(n))
+                    return get_bv_simp()->is_zero_safe(n);
+                else
+                    return get_arith_simp()->is_zero_safe(n);
             }
 
             bool is_times_minus_one(expr * n, expr * & arg) const {
@@ -1938,7 +1939,7 @@ namespace smt {
                 return m_bv_util.is_bv_sle(n);
             }
 
-            expr * mk_one(sort * s) const {
+            expr * mk_one(sort * s) {
                 return m_bv_util.is_bv_sort(s) ? m_bv_util.mk_numeral(rational(1), s) : m_arith_util.mk_numeral(rational(1), s);
             }
 
@@ -1950,7 +1951,7 @@ namespace smt {
                 m_mutil.mk_add(t1, t2, r);
             }
 
-            bool is_var_and_ground(expr * lhs, expr * rhs, var * & v, expr_ref & t, bool & inv) {
+            bool is_var_and_ground(expr * lhs, expr * rhs, var * & v, expr_ref & t, bool & inv) const {
                 inv = false; // true if invert the sign
                 TRACE("is_var_and_ground", tout << "is_var_and_ground: " << mk_ismt2_pp(lhs, m_manager) << " " << mk_ismt2_pp(rhs, m_manager) << "\n";);
                 if (is_var(lhs) && is_ground(rhs)) {
@@ -1985,12 +1986,12 @@ namespace smt {
                 return false;
             }
 
-            bool is_var_and_ground(expr * lhs, expr * rhs, var * & v, expr_ref & t) {
+            bool is_var_and_ground(expr * lhs, expr * rhs, var * & v, expr_ref & t) const {
                 bool inv;
                 return is_var_and_ground(lhs, rhs, v, t, inv);
             }
 
-            bool is_x_eq_t_atom(expr * n, var * & v, expr_ref & t) {
+            bool is_x_eq_t_atom(expr * n, var * & v, expr_ref & t) const {
                 if (!is_app(n))
                     return false;
                 if (m_manager.is_eq(n))
@@ -2381,10 +2382,10 @@ namespace smt {
             quantifier_analyzer(model_finder& mf, ast_manager & m, simplifier & s):
                 m_mf(mf),
                 m_manager(m),
-                m_mutil(m),
+                m_mutil(m, s),
                 m_array_util(m),
-                m_arith_util(m_mutil.get_arith_util()),
-                m_bv_util(m_mutil.get_bv_util()),
+                m_arith_util(m),
+                m_bv_util(m),
                 m_info(0) {
             }
 
