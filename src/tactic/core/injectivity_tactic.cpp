@@ -31,19 +31,22 @@ Notes:
 
 class injectivity_tactic : public tactic {
 
-    struct InjHelper : public obj_map<func_decl, obj_hashtable<func_decl>*> {
+    // FIXME: the expr_dependency* probably leads to an extra indirection
+    struct InjHelper : public obj_map<func_decl, obj_map<func_decl, expr_dependency*>*> {
+        typedef obj_map<func_decl, expr_dependency*> intermediate_map;
         ast_manager & m_manager;
 
-        void insert(func_decl* const f, func_decl* const g) {
-            obj_hashtable<func_decl> *m;
+        void insert(func_decl* const f, func_decl* const g, expr_dependency* dep) {
+            intermediate_map *m;
             if (! obj_map::find(f, m)) {
                 m_manager.inc_ref(f);
-                m = alloc(obj_hashtable<func_decl>); // TODO: Check we don't leak memory
+                m = alloc(intermediate_map); // TODO: Check we don't leak memory
                 obj_map::insert(f, m);
             }
             if (!m->contains(g)) {
                 m_manager.inc_ref(g);
-                m->insert(g);
+                m_manager.inc_ref(dep);
+                m->insert(g, dep);
             }
         }
 
@@ -52,18 +55,37 @@ class injectivity_tactic : public tactic {
         }
 
         bool contains(func_decl* const f, func_decl* const g) const {
-            obj_hashtable<func_decl> *m;
-            if(! find(f, m))
+            intermediate_map *m;
+            if (!obj_map::find(f, m))
                 return false;
 
             return m->contains(g);
         }
 
-        InjHelper(ast_manager& m) : obj_map<func_decl, obj_hashtable<func_decl>*>(), m_manager(m) {}
+        bool find(func_decl* const f, expr_dependency* &dep) const {
+            intermediate_map *m;
+            if (!obj_map::find(f, m))
+                return false;
+
+            dep = m->begin()->get_value();
+            return true;
+        }
+
+        bool find(func_decl* const f, func_decl* const g, expr_dependency* &dep) const {
+            intermediate_map *m;
+            if (!obj_map::find(f, m))
+                return false;
+
+            return m->find(g, dep);
+        }
+
+        InjHelper(ast_manager& m) : obj_map<func_decl, intermediate_map*>(), m_manager(m) {}
         ~InjHelper() {
             for(auto m : *this) {
-                for (func_decl* f : *m.get_value())
-                    m_manager.dec_ref(f);
+                for (auto n : *m.get_value()) {
+                    m_manager.dec_ref(n.m_key);
+                    m_manager.dec_ref(n.get_value());
+                }
 
                 m_manager.dec_ref(m.m_key);
                 dealloc(m.m_value);
@@ -156,39 +178,38 @@ class injectivity_tactic : public tactic {
             SASSERT(goal->is_well_sorted());
             mc = 0; pc = 0; core = 0;
             tactic_report report("injectivity", *goal);
-            fail_if_unsat_core_generation("injectivity", goal); // TODO: Support UNSAT cores
-            fail_if_proof_generation("injectivity", goal);
 
             for (unsigned i = 0; i < goal->size(); ++i) {
                 func_decl *f, *g;
                 if (!is_axiom(goal->form(i), f, g)) continue;
                 TRACE("injectivity", tout << "Marking " << f->get_name() << " as injective" << std::endl;);
-                inj_map.insert(f, g);
-                // TODO: Record that g is f's pseudoinverse
+                inj_map.insert(f, g, goal->dep(i));
             }
         }
 
     };
 
     struct rewriter_eq_cfg : public default_rewriter_cfg {
-        ast_manager              & m_manager;
-        InjHelper                & inj_map;
-//        expr_ref_vector            m_out;
-//        sort_ref_vector            m_bindings;
+        ast_manager         & m_manager;
+        InjHelper           & inj_map;
+        expr_dependency_ref   deps;
 
         ast_manager & m() const { return m_manager; }
 
-        rewriter_eq_cfg(ast_manager & m, InjHelper & map) : m_manager(m), inj_map(map) {
+        rewriter_eq_cfg(ast_manager & m, InjHelper & map) :
+            m_manager(m),
+            inj_map(map),
+            deps(m) {
         }
 
         ~rewriter_eq_cfg() {
         }
 
         void cleanup_buffers() {
-//            m_out.finalize();
         }
 
         void reset() {
+            deps.reset();
         }
 
         br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
@@ -213,7 +234,8 @@ class injectivity_tactic : public tactic {
             if (a->get_num_args() != 1 || b->get_num_args() != 1)
                 return BR_FAILED;
 
-            if (!inj_map.contains(a->get_decl()))
+            expr_dependency* dep;
+            if (!inj_map.find(a->get_decl(), dep))
                 return BR_FAILED;
 
             SASSERT(m().get_sort(a->get_arg(0)) == m().get_sort(b->get_arg(0)));
@@ -221,6 +243,7 @@ class injectivity_tactic : public tactic {
                                               " " << mk_ismt2_pp(args[1], m()) << ")" << std::endl;);
             result = m().mk_eq(a->get_arg(0), b->get_arg(0));
             result_pr = nullptr;
+            deps = m().mk_join(deps, dep);
             return BR_DONE;
         }
 
@@ -232,15 +255,21 @@ class injectivity_tactic : public tactic {
             rewriter_tpl<rewriter_eq_cfg>(m, m.proofs_enabled(), m_cfg),
             m_cfg(m, map) {
         }
+
+        expr_dependency_ref dep() { return m_cfg.deps; }
     };
 
     struct rewriter_inv_cfg : public default_rewriter_cfg {
-        ast_manager              & m_manager;
-        InjHelper                & inj_map;
+        ast_manager         & m_manager;
+        InjHelper           & inj_map;
+        expr_dependency_ref   deps;
 
         ast_manager & m() const { return m_manager; }
 
-        rewriter_inv_cfg(ast_manager & m, InjHelper & map) : m_manager(m), inj_map(map) {
+        rewriter_inv_cfg(ast_manager & m, InjHelper & map) :
+            m_manager(m),
+            inj_map(map),
+            deps(m) {
         }
 
         ~rewriter_inv_cfg() {
@@ -261,7 +290,8 @@ class injectivity_tactic : public tactic {
                 return BR_FAILED;
 
             // g is the pseudoinverse of f
-            if (!inj_map.contains(f, g))
+            expr_dependency *dep;
+            if (!inj_map.find(f, g, dep))
                 return BR_FAILED;
 
             expr* const body = a->get_arg(0);
@@ -269,6 +299,7 @@ class injectivity_tactic : public tactic {
                 " (" << f->get_name() << " (" << mk_ismt2_pp(body, m()) << ")))" << std::endl;);
             result = body;
             result_pr = nullptr;
+            deps = m().mk_join(deps, dep);
             return BR_DONE;
         }
 
@@ -280,6 +311,8 @@ class injectivity_tactic : public tactic {
             rewriter_tpl<rewriter_inv_cfg>(m, m.proofs_enabled(), m_cfg),
             m_cfg(m, map) {
         }
+
+        expr_dependency_ref dep() { return m_cfg.deps; }
     };
 
     finder *           m_finder;
@@ -320,6 +353,8 @@ public:
                             model_converter_ref & mc,
                             proof_converter_ref & pc,
                             expr_dependency_ref & core) {
+        fail_if_proof_generation("injectivity", g);
+
         (*m_finder)(g, result, mc, pc, core);
 
         const bool want_eq = p.eq(), want_inv = p.inv();
@@ -339,7 +374,8 @@ public:
             else
                 r_inv = r_eq;
 
-            g->update(i, r_inv, pr, g->dep(i));
+            expr_dependency* dep = m_manager.mk_join(g->dep(i), m_manager.mk_join(m_eq->dep(), m_inv->dep()));
+            g->update(i, r_inv, pr, dep);
         }
 
         result.push_back(g.get());
