@@ -32,27 +32,27 @@ bool macro_finder::is_macro(expr * n, app_ref & head, expr_ref & def) {
 }
 
 /**
-   \brief Detect macros of the form 
+   \brief Detect macros of the form
    1- (forall (X) (= (+ (f X) (R X)) c))
    2- (forall (X) (<= (+ (f X) (R X)) c))
    3- (forall (X) (>= (+ (f X) (R X)) c))
 
    The second and third cases are first converted into
    (forall (X) (= (f X) (+ c (* -1 (R x)) (k X))))
-   and 
+   and
    (forall (X) (<= (k X) 0)) when case 2
    (forall (X) (>= (k X) 0)) when case 3
 
    For case 2 & 3, the new quantifiers are stored in new_exprs and new_prs.
 */
-bool macro_finder::is_arith_macro(expr * n, proof * pr, expr_ref_vector & new_exprs, proof_ref_vector & new_prs) {
+bool macro_finder::is_arith_macro(expr * n, proof * pr, expr_dependency * dep, expr_ref_vector & new_exprs, proof_ref_vector & new_prs, expr_dependency_ref_vector & new_deps) {
     if (!is_quantifier(n) || !to_quantifier(n)->is_forall())
         return false;
     arith_simplifier_plugin * as = get_arith_simp();
     arith_util & autil = as->get_arith_util();
     expr * body        = to_quantifier(n)->get_expr();
     unsigned num_decls = to_quantifier(n)->get_num_decls();
-    
+
     if (!autil.is_le(body) && !autil.is_ge(body) && !m_manager.is_eq(body))
         return false;
     if (!as->is_add(to_app(body)->get_arg(0)))
@@ -63,7 +63,7 @@ bool macro_finder::is_arith_macro(expr * n, proof * pr, expr_ref_vector & new_ex
     if (!m_util.is_arith_macro(body, num_decls, head, def, inv))
         return false;
     app_ref new_body(m_manager);
-    
+
     if (!inv || m_manager.is_eq(body))
         new_body = m_manager.mk_app(to_app(body)->get_decl(), head, def);
     else if (as->is_le(body))
@@ -71,18 +71,19 @@ bool macro_finder::is_arith_macro(expr * n, proof * pr, expr_ref_vector & new_ex
     else
         new_body = autil.mk_le(head, def);
 
-    quantifier_ref new_q(m_manager); 
+    quantifier_ref new_q(m_manager);
     new_q = m_manager.update_quantifier(to_quantifier(n), new_body);
     proof * new_pr      = 0;
     if (m_manager.proofs_enabled()) {
         proof * rw  = m_manager.mk_rewrite(n, new_q);
         new_pr      = m_manager.mk_modus_ponens(pr, rw);
     }
+    expr_dependency * new_dep = dep;
     if (m_manager.is_eq(body)) {
-        return m_macro_manager.insert(head->get_decl(), new_q, new_pr);
+        return m_macro_manager.insert(head->get_decl(), new_q, new_pr, new_dep);
     }
     // is ge or le
-    // 
+    //
     TRACE("macro_finder", tout << "is_arith_macro: is_ge or is_le\n";);
     func_decl * f   = head->get_decl();
     func_decl * k   = m_manager.mk_fresh_func_decl(f->get_name(), symbol::null, f->get_arity(), f->get_domain(), f->get_range());
@@ -111,6 +112,10 @@ bool macro_finder::is_arith_macro(expr * n, proof * pr, expr_ref_vector & new_ex
         new_prs.push_back(pr1);
         new_prs.push_back(pr2);
     }
+    if (dep) {
+        new_deps.push_back(new_dep);
+        new_deps.push_back(new_dep);
+    }
     return true;
 }
 
@@ -118,7 +123,7 @@ bool macro_finder::is_arith_macro(expr * n, proof * pr, expr_ref_vector & new_ex
    n is of the form: (forall (X) (iff (= (f X) t) def[X]))
 
    Convert it into:
-   
+
    (forall (X) (= (f X) (ite def[X] t (k X))))
    (forall (X) (not (= (k X) t)))
 
@@ -126,13 +131,13 @@ bool macro_finder::is_arith_macro(expr * n, proof * pr, expr_ref_vector & new_ex
 
    The new quantifiers and proofs are stored in new_exprs and new_prs
 */
-static void pseudo_predicate_macro2macro(ast_manager & m, app * head, app * t, expr * def, quantifier * q, proof * pr, 
-                                         expr_ref_vector & new_exprs, proof_ref_vector & new_prs) {
+static void pseudo_predicate_macro2macro(ast_manager & m, app * head, app * t, expr * def, quantifier * q, proof * pr, expr_dependency * dep,
+                                         expr_ref_vector & new_exprs, proof_ref_vector & new_prs, expr_dependency_ref_vector & new_deps ) {
     func_decl * f = head->get_decl();
     func_decl * k = m.mk_fresh_func_decl(f->get_name(), symbol::null, f->get_arity(), f->get_domain(), f->get_range());
     app * k_app   = m.mk_app(k, head->get_num_args(), head->get_args());
     app * ite     = m.mk_ite(def, t, k_app);
-    app * body_1  = m.mk_eq(head, ite); 
+    app * body_1  = m.mk_eq(head, ite);
     app * body_2  = m.mk_not(m.mk_eq(k_app, t));
     quantifier * q1 = m.update_quantifier(q, body_1);
     expr * pats[1] = { m.mk_pattern(k_app) };
@@ -153,6 +158,8 @@ static void pseudo_predicate_macro2macro(ast_manager & m, app * head, app * t, e
         new_prs.push_back(pr1);
         new_prs.push_back(pr2);
     }
+    new_deps.push_back(dep);
+    new_deps.push_back(dep);
 }
 
 macro_finder::macro_finder(ast_manager & m, macro_manager & mm):
@@ -164,57 +171,67 @@ macro_finder::macro_finder(ast_manager & m, macro_manager & mm):
 macro_finder::~macro_finder() {
 }
 
-bool macro_finder::expand_macros(unsigned num, expr * const * exprs, proof * const * prs, expr_ref_vector & new_exprs, proof_ref_vector & new_prs) {
+bool macro_finder::expand_macros(unsigned num, expr * const * exprs, proof * const * prs, expr_dependency * const * deps,  expr_ref_vector & new_exprs, proof_ref_vector & new_prs, expr_dependency_ref_vector & new_deps) {
     TRACE("macro_finder", tout << "starting expand_macros:\n";
           m_macro_manager.display(tout););
     bool found_new_macro = false;
     for (unsigned i = 0; i < num; i++) {
         expr * n       = exprs[i];
         proof * pr     = m_manager.proofs_enabled() ? prs[i] : 0;
+        expr_dependency * depi = deps != 0 ? deps[i] : 0;
         expr_ref new_n(m_manager), def(m_manager);
         proof_ref new_pr(m_manager);
-        m_macro_manager.expand_macros(n, pr, new_n, new_pr);
+        expr_dependency_ref new_dep(m_manager);
+        m_macro_manager.expand_macros(n, pr, depi, new_n, new_pr, new_dep);
         app_ref head(m_manager), t(m_manager);
-        if (is_macro(new_n, head, def) && m_macro_manager.insert(head->get_decl(), to_quantifier(new_n.get()), new_pr)) {
+        if (is_macro(new_n, head, def) && m_macro_manager.insert(head->get_decl(), to_quantifier(new_n.get()), new_pr, new_dep)) {
             TRACE("macro_finder_found", tout << "found new macro: " << head->get_decl()->get_name() << "\n" << new_n << "\n";);
             found_new_macro = true;
         }
-        else if (is_arith_macro(new_n, new_pr, new_exprs, new_prs)) {
+        else if (is_arith_macro(new_n, new_pr, new_dep, new_exprs, new_prs, new_deps)) {
             TRACE("macro_finder_found", tout << "found new arith macro:\n" << new_n << "\n";);
             found_new_macro = true;
         }
-        else if (m_util.is_pseudo_predicate_macro(new_n, head, t, def)) { 
+        else if (m_util.is_pseudo_predicate_macro(new_n, head, t, def)) {
             TRACE("macro_finder_found", tout << "found new pseudo macro:\n" << head << "\n" << t << "\n" << def << "\n";);
-            pseudo_predicate_macro2macro(m_manager, head, t, def, to_quantifier(new_n), new_pr, new_exprs, new_prs);
+            pseudo_predicate_macro2macro(m_manager, head, t, def, to_quantifier(new_n), new_pr, new_dep, new_exprs, new_prs, new_deps);
             found_new_macro = true;
         }
         else {
             new_exprs.push_back(new_n);
             if (m_manager.proofs_enabled())
                 new_prs.push_back(new_pr);
+            if (deps != 0)
+                new_deps.push_back(new_dep);
         }
     }
     return found_new_macro;
 }
 
-void macro_finder::operator()(unsigned num, expr * const * exprs, proof * const * prs, expr_ref_vector & new_exprs, proof_ref_vector & new_prs) {
+void macro_finder::operator()(unsigned num, expr * const * exprs, proof * const * prs, expr_dependency * const * deps, expr_ref_vector & new_exprs, proof_ref_vector & new_prs, expr_dependency_ref_vector & new_deps) {
     TRACE("macro_finder", tout << "processing macros...\n";);
     expr_ref_vector   _new_exprs(m_manager);
     proof_ref_vector  _new_prs(m_manager);
-    if (expand_macros(num, exprs, prs, _new_exprs, _new_prs)) {
+    expr_dependency_ref_vector _new_deps(m_manager);
+    if (expand_macros(num, exprs, prs, deps, _new_exprs, _new_prs, _new_deps)) {
         while (true) {
             expr_ref_vector  old_exprs(m_manager);
             proof_ref_vector old_prs(m_manager);
+            expr_dependency_ref_vector old_deps(m_manager);
             _new_exprs.swap(old_exprs);
             _new_prs.swap(old_prs);
+            _new_deps.swap(old_deps);
             SASSERT(_new_exprs.empty());
             SASSERT(_new_prs.empty());
-            if (!expand_macros(old_exprs.size(), old_exprs.c_ptr(), old_prs.c_ptr(), _new_exprs, _new_prs))
+            SASSERT(_new_deps.empty());
+            if (!expand_macros(old_exprs.size(), old_exprs.c_ptr(), old_prs.c_ptr(), old_deps.c_ptr(),
+                               _new_exprs, _new_prs, _new_deps))
                 break;
         }
     }
     new_exprs.append(_new_exprs);
     new_prs.append(_new_prs);
+    new_deps.append(_new_deps);
 }
 
 

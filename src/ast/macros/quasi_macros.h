@@ -54,7 +54,7 @@ class quasi_macros {
 
     void find_occurrences(expr * e);
     bool find_macros(unsigned n, expr * const * exprs);
-    void apply_macros(unsigned n, expr * const * exprs, proof * const * prs, expr_ref_vector & new_exprs, proof_ref_vector & new_prs);
+    void apply_macros(unsigned n, expr * const * exprs, proof * const * prs, expr_dependency * const * deps, expr_ref_vector & new_exprs, proof_ref_vector & new_prs, expr_dependency_ref_vector & new_deps);
 
 public:
     quasi_macros(ast_manager & m, macro_manager & mm, simplifier & s);
@@ -63,7 +63,7 @@ public:
     /**
        \brief Find pure function macros and apply them.
     */
-    bool operator()(unsigned n, expr * const * exprs, proof * const * prs, expr_ref_vector & new_exprs, proof_ref_vector & new_prs);
+    bool operator()(unsigned n, expr * const * exprs, proof * const * prs, expr_dependency * const * deps, expr_ref_vector & new_exprs, proof_ref_vector & new_prs, expr_dependency_ref_vector & new_deps);
 };
 
 #endif

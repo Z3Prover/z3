@@ -42,9 +42,11 @@ class macro_manager {
 
     obj_map<func_decl, quantifier *> m_decl2macro;    // func-decl -> quantifier
     obj_map<func_decl, proof *>      m_decl2macro_pr; // func-decl -> quantifier_proof
+    obj_map<func_decl, expr_dependency *> m_decl2macro_dep; // func-decl -> unsat core dependency
     func_decl_ref_vector             m_decls;
     quantifier_ref_vector            m_macros;
     proof_ref_vector                 m_macro_prs;
+    expr_dependency_ref_vector       m_macro_deps;
     obj_hashtable<func_decl>         m_forbidden_set;
     func_decl_ref_vector             m_forbidden;
     struct scope {
@@ -64,6 +66,7 @@ class macro_manager {
         virtual bool get_subst(expr * n, expr_ref & r, proof_ref & p);
         virtual void reduce1_quantifier(quantifier * q);
     public:
+        expr_dependency_ref m_used_macro_dependencies;
         macro_expander(ast_manager & m, macro_manager & mm, simplifier & s);
         ~macro_expander();
     };
@@ -74,7 +77,7 @@ public:
     ~macro_manager();
     ast_manager & get_manager() const { return m_manager; }
     macro_util & get_util() { return m_util; }
-    bool insert(func_decl * f, quantifier * m, proof * pr);
+    bool insert(func_decl * f, quantifier * m, proof * pr, expr_dependency * dep);
     bool has_macros() const { return !m_macros.empty(); }
     void push_scope();
     void pop_scope(unsigned num_scopes);
@@ -90,7 +93,7 @@ public:
     func_decl * get_macro_interpretation(unsigned i, expr_ref & interp) const;
     quantifier * get_macro_quantifier(func_decl * f) const { quantifier * q = 0; m_decl2macro.find(f, q); return q; }
     void get_head_def(quantifier * q, func_decl * d, app * & head, expr * & def) const;
-    void expand_macros(expr * n, proof * pr, expr_ref & r, proof_ref & new_pr);
+    void expand_macros(expr * n, proof * pr, expr_dependency * dep, expr_ref & r, proof_ref & new_pr, expr_dependency_ref & new_dep);
 
 
 };
