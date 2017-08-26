@@ -22,7 +22,6 @@ Revision History:
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
 #include "util/stats.h"
-#include "ast/simplifier/simplifier.h"
 #include "ast/ast_smt2_pp.h"
 
 namespace smt {

@@ -44,9 +44,8 @@ public:
     }
     
     virtual void execute(cmd_context & ctx) {
-        smt_params par;
         proof_ref pr(ctx.m());
-        qe::expr_quant_elim_star1 qe(ctx.m(), par);
+        qe::simplify_rewriter_star qe(ctx.m());
         expr_ref result(ctx.m());
 
         qe(m_target, result, pr);            

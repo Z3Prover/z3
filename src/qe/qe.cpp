@@ -1310,6 +1310,10 @@ namespace qe {
         m_s.mk_atom(e, p, result);
     }    
 
+    void i_solver_context::collect_statistics(statistics& st) const {
+       // tbd
+    }
+
     typedef ref_vector_ptr_hash<expr, ast_manager> expr_ref_vector_hash;
     typedef ref_vector_ptr_eq<expr, ast_manager>   expr_ref_vector_eq;
     typedef hashtable<expr_ref_vector*, expr_ref_vector_hash, expr_ref_vector_eq> clause_table;
@@ -2393,6 +2397,7 @@ namespace qe {
 
 
 
+#if 0
     // ------------------------------------------------
     // expr_quant_elim_star1
 
@@ -2433,13 +2438,7 @@ namespace qe {
         simplifier(m), m_quant_elim(m, p), m_assumption(m.mk_true())
     {
     }
-
-    void expr_quant_elim_star1::reduce_with_assumption(expr* ctx, expr* fml, expr_ref& result) {
-        proof_ref pr(m);
-        m_assumption = ctx;
-        (*this)(fml, result, pr);
-        m_assumption = m.mk_true();
-    }
+#endif
 
 
     void hoist_exists(expr_ref& fml, app_ref_vector& vars) {
@@ -2488,6 +2487,7 @@ namespace qe {
 
         virtual ~simplify_solver_context() { reset(); }    
         
+
         void solve(expr_ref& fml, app_ref_vector& vars) {
             init(fml, vars);
             bool solved  = true;
@@ -2580,6 +2580,10 @@ namespace qe {
             m_ctx.updt_params(p);
         }
 
+        void collect_statistics(statistics & st) const {
+            m_ctx.collect_statistics(st);
+        }
+
         bool reduce_quantifier(
             quantifier * old_q, 
             expr * new_body, 
@@ -2645,6 +2649,10 @@ namespace qe {
 
     void simplify_rewriter_cfg::updt_params(params_ref const& p) {
         imp->updt_params(p);
+    }
+
+    void simplify_rewriter_cfg::collect_statistics(statistics & st) const {
+        imp->collect_statistics(st);
     }
 
     bool simplify_rewriter_cfg::pre_visit(expr* e) {

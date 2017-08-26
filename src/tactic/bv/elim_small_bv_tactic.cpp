@@ -24,9 +24,7 @@ Revision History:
 #include "ast/used_vars.h"
 #include "ast/well_sorted.h"
 #include "ast/rewriter/var_subst.h"
-#include "ast/simplifier/simplifier.h"
-#include "ast/simplifier/basic_simplifier_plugin.h"
-#include "ast/simplifier/bv_simplifier_plugin.h"
+#include "ast/rewriter/th_rewriter.h"
 
 #include "tactic/bv/elim_small_bv_tactic.h"
 
@@ -36,7 +34,7 @@ class elim_small_bv_tactic : public tactic {
         ast_manager               & m;
         params_ref                  m_params;
         bv_util                     m_util;
-        simplifier                  m_simp;
+        th_rewriter                 m_simp;
         ref<filter_model_converter> m_mc;
         goal *                      m_goal;
         unsigned                    m_max_bits;
@@ -56,14 +54,6 @@ class elim_small_bv_tactic : public tactic {
             updt_params(p);
             m_goal = 0;
             m_max_steps = UINT_MAX;
-
-            basic_simplifier_plugin * bsimp = alloc(basic_simplifier_plugin, m);
-            // bsimp->set_eliminate_and(true);
-            m_simp.register_plugin(bsimp);
-
-            bv_simplifier_params bv_params;
-            bv_simplifier_plugin * bvsimp = alloc(bv_simplifier_plugin, m, *bsimp, bv_params);
-            m_simp.register_plugin(bvsimp);
         }
 
         bool max_steps_exceeded(unsigned long long num_steps) const {

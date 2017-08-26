@@ -25,6 +25,7 @@ Revision History:
 #include "ast/ast_pp.h"
 #include "ast/expr_functors.h"
 #include "ast/expr_substitution.h"
+#include "ast/ast_util.h"
 
 #include "ast/rewriter/expr_replacer.h"
 #include "ast/rewriter/expr_safe_replace.h"
