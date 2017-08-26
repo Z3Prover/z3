@@ -467,7 +467,8 @@ unsigned asserted_formulas_new::propagate_values(unsigned i) {
         proof * pr  = m_formulas[i].get_proof();
         new_pr = m.mk_modus_ponens(pr, new_pr);                         
     }
-    m_formulas[i] = justified_expr(m, new_n, new_pr);
+    justified_expr j(m, new_n, new_pr);
+    m_formulas[i] = j;
     update_substitution(new_n, new_pr);
     return n != new_n ? 1 : 0;
 }

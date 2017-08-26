@@ -2474,15 +2474,15 @@ class justified_expr {
     ast_manager& m;
     expr*        m_fml;
     proof*       m_proof;
- public:
- justified_expr(ast_manager& m, expr* fml, proof* p):
-    m(m),
-    m_fml(fml),
-    m_proof(p) {
+public:
+    justified_expr(ast_manager& m, expr* fml, proof* p):
+        m(m),
+        m_fml(fml),
+        m_proof(p) {
         m.inc_ref(fml);
         m.inc_ref(p);
     }
-
+    
     justified_expr& operator=(justified_expr& other) {
         SASSERT(&m == &other.m);
         if (this != &other) {
