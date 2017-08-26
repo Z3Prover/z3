@@ -29,9 +29,9 @@ Revision History:
 #include "ast/rewriter/pull_ite_tree.h"
 #include "ast/rewriter/push_app_ite.h"
 #include "ast/rewriter/inj_axiom.h"
-#include "ast/rewriter/bv_elim2.h"
+#include "ast/rewriter/bv_elim.h"
 #include "ast/rewriter/der.h"
-#include "ast/rewriter/elim_bounds2.h"
+#include "ast/rewriter/elim_bounds.h"
 #include "ast/macros/macro_manager.h"
 #include "ast/macros/macro_finder.h"
 #include "ast/normal_forms/defined_names.h"
@@ -210,7 +210,7 @@ class asserted_formulas_new {
     void apply_quasi_macros();
     void nnf_cnf();
     void reduce_and_solve();
-    void flush_cache() { m_rewriter.reset(); }
+    void flush_cache() { m_rewriter.reset(); m_rewriter.set_substitution(&m_substitution); }
     void set_eliminate_and(bool flag);
     void propagate_values();
     unsigned propagate_values(unsigned i);

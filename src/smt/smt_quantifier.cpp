@@ -16,6 +16,8 @@ Author:
 Revision History:
 
 --*/
+#include "ast/ast_pp.h"
+#include "ast/ast_smt2_pp.h"
 #include "smt/smt_quantifier.h"
 #include "smt/smt_context.h"
 #include "smt/smt_quantifier_stat.h"
@@ -24,7 +26,6 @@ Revision History:
 #include "smt/smt_quick_checker.h"
 #include "smt/mam.h"
 #include "smt/qi_queue.h"
-#include "ast/ast_smt2_pp.h"
 
 namespace smt {
 

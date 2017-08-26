@@ -6,13 +6,13 @@ z3_add_component(rewriter
     bit2int.cpp
     bool_rewriter.cpp
     bv_bounds.cpp
-    bv_elim2.cpp
+    bv_elim.cpp
     bv_rewriter.cpp
     datatype_rewriter.cpp
     der.cpp
     distribute_forall.cpp
     dl_rewriter.cpp
-    elim_bounds2.cpp
+    elim_bounds.cpp
     enum2bv_rewriter.cpp
     expr_replacer.cpp
     expr_safe_replace.cpp

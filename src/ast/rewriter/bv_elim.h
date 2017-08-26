@@ -17,8 +17,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef BV_ELIM2_H_
-#define BV_ELIM2_H_
+#ifndef BV_ELIM_H_
+#define BV_ELIM_H_
 
 #include "ast/ast.h"
 #include "ast/rewriter/rewriter.h"

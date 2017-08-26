@@ -4,7 +4,7 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
-#include "ast/rewriter/bv_elim2.h"
+#include "ast/rewriter/bv_elim.h"
 #include "ast/bv_decl_plugin.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/rewriter/rewriter_def.h"

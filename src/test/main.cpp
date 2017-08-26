@@ -166,7 +166,6 @@ int main(int argc, char ** argv) {
     TST(timeout);
     TST(proof_checker);
     TST(simplifier);
-    TST(bv_simplifier_plugin);
     TST(bit_blaster);
     TST(var_subst);
     TST(simple_parser);

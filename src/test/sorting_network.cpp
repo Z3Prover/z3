@@ -220,7 +220,7 @@ static void test_sorting_eq(unsigned n, unsigned k) {
         TRACE("pb",
               unsigned sz = solver.size();
               for (unsigned i = 0; i < sz; ++i) {
-                  tout << mk_pp(solver.get_formulas()[i], m) << "\n";
+                  tout << mk_pp(solver.get_formula(i), m) << "\n";
               });
         model_ref model;
         solver.get_model(model);
@@ -266,7 +266,7 @@ static void test_sorting_le(unsigned n, unsigned k) {
         TRACE("pb",
               unsigned sz = solver.size();
               for (unsigned i = 0; i < sz; ++i) {
-                  tout << mk_pp(solver.get_formulas()[i], m) << "\n";
+                  tout << mk_pp(solver.get_formula(i), m) << "\n";
               });
         model_ref model;
         solver.get_model(model);
@@ -314,7 +314,7 @@ void test_sorting_ge(unsigned n, unsigned k) {
         TRACE("pb",
               unsigned sz = solver.size();
               for (unsigned i = 0; i < sz; ++i) {
-                  tout << mk_pp(solver.get_formulas()[i], m) << "\n";
+                  tout << mk_pp(solver.get_formula(i), m) << "\n";
               });
         model_ref model;
         solver.get_model(model);

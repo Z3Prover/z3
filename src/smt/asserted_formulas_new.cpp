@@ -431,7 +431,7 @@ void asserted_formulas_new::propagate_values() {
     flush_cache();
 
     unsigned num_prop = 0;
-    while (true) {
+    while (!inconsistent()) {
         m_expr2depth.reset();
         m_scoped_substitution.push();
         unsigned prop = num_prop;
@@ -474,6 +474,9 @@ unsigned asserted_formulas_new::propagate_values(unsigned i) {
     }
     justified_expr j(m, new_n, new_pr);
     m_formulas[i] = j;
+    if (m.is_false(j.get_fml())) {
+        m_inconsistent = true;
+    }
     update_substitution(new_n, new_pr);
     return n != new_n ? 1 : 0;
 }
@@ -484,13 +487,16 @@ void asserted_formulas_new::update_substitution(expr* n, proof* pr) {
         compute_depth(lhs);
         compute_depth(rhs);
         if (is_gt(lhs, rhs)) {
+            TRACE("propagate_values", tout << "insert " << mk_pp(lhs, m) << " -> " << mk_pp(rhs, m) << "\n";);
             m_scoped_substitution.insert(lhs, rhs, pr);
             return;
         }
         if (is_gt(rhs, lhs)) {
+            TRACE("propagate_values", tout << "insert " << mk_pp(rhs, m) << " -> " << mk_pp(lhs, m) << "\n";);
             m_scoped_substitution.insert(rhs, lhs, m.mk_symmetry(pr));
             return;
         }
+        TRACE("propagate_values", tout << "incompatible " << mk_pp(n, m) << "\n";);
     }
     if (m.is_not(n, n1)) {
         m_scoped_substitution.insert(n1, m.mk_false(), m.mk_iff_false(pr)); 

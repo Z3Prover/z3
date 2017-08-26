@@ -21,34 +21,7 @@ Revision History:
 
 #include "ast/normal_forms/defined_names.h"
 #include "ast/rewriter/rewriter.h"
-#include "ast/simplifier/simplifier.h"
 #include "ast/justified_expr.h"
-
-
-class elim_term_ite : public simplifier {
-    defined_names &    m_defined_names;
-    proof_ref_vector   m_coarse_proofs;
-    expr_ref_vector *  m_new_defs;
-    proof_ref_vector * m_new_def_proofs;
-    void reduce_core(expr * n);
-    bool visit_children(expr * n);
-    void reduce1(expr * n);
-    void reduce1_app(app * n);
-    void reduce1_quantifier(quantifier * q);
-public:
-    elim_term_ite(ast_manager & m, defined_names & d):simplifier(m), m_defined_names(d), m_coarse_proofs(m) { 
-        m_use_oeq = true; 
-        enable_ac_support(false);
-    }
-    virtual ~elim_term_ite() {}
-    void operator()(expr * n,                          // [IN]
-                    expr_ref_vector & new_defs,        // [OUT] new definitions
-                    proof_ref_vector & new_def_proofs, // [OUT] proofs of the new definitions 
-                    expr_ref & r,                      // [OUT] resultant expression
-                    proof_ref & pr                     // [OUT] proof for (~ n r)
-                    );
-};
-
 
 class elim_term_ite_cfg : public default_rewriter_cfg {
     ast_manager&           m;

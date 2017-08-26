@@ -19,11 +19,12 @@ Revision History:
 --*/
 
 #include <typeinfo>
+#include "ast/ast_pp.h"
+#include "ast/ast_trail.h"
 #include "smt/proto_model/value_factory.h"
 #include "smt/smt_context.h"
 #include "smt/smt_model_generator.h"
 #include "smt/theory_seq.h"
-#include "ast/ast_trail.h"
 #include "smt/theory_arith.h"
 #include "smt/smt_kernel.h"
 
