@@ -21,7 +21,7 @@ Revision History:
 
 #include "ast/ast.h"
 #include "ast/arith_decl_plugin.h"
-#include "ast/rewriter/rewrite.h"
+#include "ast/rewriter/rewriter.h"
 
 /**
    \brief Functor for eliminating irrelevant bounds in quantified formulas.
