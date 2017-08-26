@@ -38,7 +38,9 @@ class macro_finder {
     macro_util &                m_util;
     arith_util                  m_autil;
     bool expand_macros(unsigned num, expr * const * exprs, proof * const * prs, expr_ref_vector & new_exprs, proof_ref_vector & new_prs);
+    bool expand_macros(unsigned n, justified_expr const * fmls, vector<justified_expr>& new_fmls);
     bool is_arith_macro(expr * n, proof * pr, expr_ref_vector & new_exprs, proof_ref_vector & new_prs);
+    bool is_arith_macro(expr * n, proof * pr, vector<justified_expr>& new_fmls);
 
     bool is_macro(expr * n, app_ref & head, expr_ref & def);
     bool is_pseudo_head(expr * n, unsigned num_decls, app * & head, app * & t);
@@ -48,6 +50,7 @@ public:
     macro_finder(ast_manager & m, macro_manager & mm);
     ~macro_finder();
     void operator()(unsigned n, expr * const * exprs, proof * const * prs, expr_ref_vector & new_exprs, proof_ref_vector & new_prs);
+    void operator()(unsigned n, justified_expr const* fmls, vector<justified_expr>& new_fmls);
 };
 
 #endif /* MACRO_FINDER_H_ */

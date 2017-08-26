@@ -12,7 +12,6 @@ z3_add_component(simplifier
     datatype_simplifier_plugin.cpp
     elim_bounds.cpp
     fpa_simplifier_plugin.cpp
-    inj_axiom.cpp
     maximise_ac_sharing.cpp
     poly_simplifier_plugin.cpp
     seq_simplifier_plugin.cpp

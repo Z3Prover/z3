@@ -3,6 +3,7 @@ z3_add_component(smt
     arith_eq_adapter.cpp
     arith_eq_solver.cpp
     asserted_formulas.cpp
+    asserted_formulas_new.cpp
     cached_var_subst.cpp
     cost_evaluator.cpp
     dyn_ack.cpp

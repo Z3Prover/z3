@@ -12,16 +12,16 @@ Copyright (c) 2015 Microsoft Corporation
 void bv_elim::elim(quantifier* q, quantifier_ref& r) {
 
     svector<symbol>  names, _names;
-    sort_ref_buffer  sorts(m_manager), _sorts(m_manager);
-    expr_ref_buffer  pats(m_manager);
-    expr_ref_buffer  no_pats(m_manager);
-    expr_ref_buffer  subst_map(m_manager), _subst_map(m_manager);
-    var_subst        subst(m_manager);
-    bv_util          bv(m_manager);
-    expr_ref         new_body(m_manager);
+    sort_ref_buffer  sorts(m), _sorts(m);
+    expr_ref_buffer  pats(m);
+    expr_ref_buffer  no_pats(m);
+    expr_ref_buffer  subst_map(m), _subst_map(m);
+    var_subst        subst(m);
+    bv_util          bv(m);
+    expr_ref         new_body(m);
     expr*            old_body = q->get_expr();
     unsigned num_decls = q->get_num_decls();
-    family_id bfid = m_manager.mk_family_id("bv");
+    family_id bfid = m.mk_family_id("bv");
 
     //
     // Traverse sequence of bound variables to eliminate
@@ -37,23 +37,23 @@ void bv_elim::elim(quantifier* q, quantifier_ref& r) {
         if (bv.is_bv_sort(s)) {
             // convert n-bit bit-vector variable into sequence of n-Booleans.
             unsigned num_bits = bv.get_bv_size(s);
-            expr_ref_buffer args(m_manager);
-            expr_ref bv(m_manager);
+            expr_ref_buffer args(m);
+            expr_ref bv(m);
             for (unsigned j = 0; j < num_bits; ++j) {
                 std::ostringstream new_name;
                 new_name << nm.str();
                 new_name << "_";
                 new_name << j;
-                var* v = m_manager.mk_var(var_idx++, m_manager.mk_bool_sort());                
+                var* v = m.mk_var(var_idx++, m.mk_bool_sort());                
                 args.push_back(v);
-                _sorts.push_back(m_manager.mk_bool_sort());
+                _sorts.push_back(m.mk_bool_sort());
                 _names.push_back(symbol(new_name.str().c_str()));
             }
-            bv = m_manager.mk_app(bfid, OP_MKBV, 0, 0, args.size(), args.c_ptr());
+            bv = m.mk_app(bfid, OP_MKBV, 0, 0, args.size(), args.c_ptr());
             _subst_map.push_back(bv.get());
         }
         else {
-            _subst_map.push_back(m_manager.mk_var(var_idx++, s));
+            _subst_map.push_back(m.mk_var(var_idx++, s));
             _sorts.push_back(s);
             _names.push_back(nm);
         }
@@ -78,26 +78,26 @@ void bv_elim::elim(quantifier* q, quantifier_ref& r) {
     subst(old_body, sub_size, sub, new_body);
 
     for (unsigned j = 0; j < q->get_num_patterns(); j++) {
-        expr_ref pat(m_manager);        
+        expr_ref pat(m);        
         subst(q->get_pattern(j), sub_size, sub, pat);
         pats.push_back(pat);
     }
     for (unsigned j = 0; j < q->get_num_no_patterns(); j++) {
-        expr_ref nopat(m_manager);
+        expr_ref nopat(m);
         subst(q->get_no_pattern(j), sub_size, sub, nopat);
         no_pats.push_back(nopat);
     }
 
-    r = m_manager.mk_quantifier(true, 
-                                names.size(),
-                                sorts.c_ptr(),
-                                names.c_ptr(),
-                                new_body.get(),
-                                q->get_weight(),
-                                q->get_qid(),
-                                q->get_skid(),
-                                pats.size(), pats.c_ptr(),
-                                no_pats.size(), no_pats.c_ptr());
+    r = m.mk_quantifier(true, 
+                        names.size(),
+                        sorts.c_ptr(),
+                        names.c_ptr(),
+                        new_body.get(),
+                        q->get_weight(),
+                        q->get_qid(),
+                        q->get_skid(),
+                        pats.size(), pats.c_ptr(),
+                        no_pats.size(), no_pats.c_ptr());
 }
 
 bool bv_elim_star::visit_quantifier(quantifier* q) {

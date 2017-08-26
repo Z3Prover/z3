@@ -152,6 +152,14 @@ void macro_manager::mark_forbidden(unsigned n, expr * const * exprs) {
         for_each_expr(p, visited, exprs[i]);
 }
 
+void macro_manager::mark_forbidden(unsigned n, justified_expr const * exprs) {
+    expr_mark visited;
+    macro_manager_ns::proc p(m_forbidden_set, m_forbidden);
+    for (unsigned i = 0; i < n; i++)
+        for_each_expr(p, visited, exprs[i].get_fml());
+}
+
+
 void macro_manager::get_head_def(quantifier * q, func_decl * d, app * & head, expr * & def) const {
     app * body = to_app(q->get_expr());
     SASSERT(m.is_eq(body) || m.is_iff(body));

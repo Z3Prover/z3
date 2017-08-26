@@ -24,9 +24,9 @@ Revision History:
 #include "ast/simplifier/simplifier.h"
 
 class bv_elim {
-    ast_manager& m_manager;
+    ast_manager& m;
 public:
-    bv_elim(ast_manager& m) : m_manager(m) {};
+    bv_elim(ast_manager& m) : m(m) {};
 
     void elim(quantifier* q, quantifier_ref& r);
 };

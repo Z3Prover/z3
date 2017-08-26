@@ -53,7 +53,9 @@ class quasi_macros {
 
     void find_occurrences(expr * e);
     bool find_macros(unsigned n, expr * const * exprs);
+    bool find_macros(unsigned n, justified_expr const* expr);
     void apply_macros(unsigned n, expr * const * exprs, proof * const * prs, expr_ref_vector & new_exprs, proof_ref_vector & new_prs);
+    void apply_macros(unsigned n, justified_expr const* fmls, vector<justified_expr>& new_fmls);
 
 public:
     quasi_macros(ast_manager & m, macro_manager & mm);
@@ -63,6 +65,7 @@ public:
        \brief Find pure function macros and apply them.
     */
     bool operator()(unsigned n, expr * const * exprs, proof * const * prs, expr_ref_vector & new_exprs, proof_ref_vector & new_prs);    
+    bool operator()(unsigned n, justified_expr const* fmls, vector<justified_expr>& new_fmls);
 };
 
 #endif
