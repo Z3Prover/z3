@@ -59,6 +59,11 @@ asserted_formulas_new::asserted_formulas_new(ast_manager & m, smt_params & p):
     m_apply_quasi_macros(*this) {
 
     m_macro_finder = alloc(macro_finder, m, m_macro_manager);
+
+    params_ref pa;
+    pa.set_bool("arith_lhs", true);
+    m_rewriter.updt_params(pa);
+
 }
 
 void asserted_formulas_new::setup() {
@@ -103,7 +108,7 @@ void asserted_formulas_new::push_assertion(expr * e, proof * pr, vector<justifie
     }
     else if (m.is_not(e, e1) && m.is_or(e1)) {
         for (unsigned i = 0; i < to_app(e1)->get_num_args(); ++i) {
-            expr* arg = to_app(e1)->get_arg(i), *e2;
+            expr* arg = to_app(e1)->get_arg(i);
             proof_ref _pr(m.mk_not_or_elim(pr, i), m);
             expr_ref  narg(mk_not(m, arg), m);
             push_assertion(narg, _pr, result);            
@@ -117,6 +122,7 @@ void asserted_formulas_new::push_assertion(expr * e, proof * pr, vector<justifie
 void asserted_formulas_new::set_eliminate_and(bool flag) {
     params_ref p;
     p.set_bool("elim_and", true);
+    p.set_bool("arith_lhs", true);
     m_rewriter.updt_params(p);
     flush_cache();
 }
@@ -430,7 +436,6 @@ void asserted_formulas_new::propagate_values() {
         m_scoped_substitution.push();
         unsigned prop = num_prop;
         TRACE("propagate_values", tout << "before:\n"; display(tout););
-        IF_IVERBOSE(10, verbose_stream() << "(smt.propagate-values)\n";);
         unsigned i  = m_qhead;
         unsigned sz = m_formulas.size();
         for (; i < sz; i++) {

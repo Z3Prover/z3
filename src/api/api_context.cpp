@@ -150,8 +150,9 @@ namespace api {
     
     void context::set_error_code(Z3_error_code err) {
         m_error_code = err; 
-        if (err != Z3_OK) 
+        if (err != Z3_OK) {
             invoke_error_handler(err); 
+        }
     }
 
     void context::check_searching() {

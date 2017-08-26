@@ -1222,14 +1222,14 @@ mk_ismt2_pp::mk_ismt2_pp(ast * t, ast_manager & m, unsigned indent, unsigned num
 
 std::ostream& operator<<(std::ostream& out, mk_ismt2_pp const & p) {
     smt2_pp_environment_dbg env(p.m_manager);    
-    if (is_expr(p.m_ast)) {
+    if (p.m_ast == 0) {
+        out << "null";
+    }
+    else if (is_expr(p.m_ast)) {
         ast_smt2_pp(out, to_expr(p.m_ast), env, p.m_params, p.m_indent, p.m_num_vars, p.m_var_prefix);
     }
     else if (is_sort(p.m_ast)) {
         ast_smt2_pp(out, to_sort(p.m_ast), env, p.m_params, p.m_indent);
-    }
-    else if (p.m_ast == 0) {
-        out << "null";
     }
     else {
         SASSERT(is_func_decl(p.m_ast));
