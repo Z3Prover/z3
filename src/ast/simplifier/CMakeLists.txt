@@ -5,7 +5,6 @@ z3_add_component(simplifier
     array_simplifier_params.cpp
     array_simplifier_plugin.cpp
     basic_simplifier_plugin.cpp
-    bit2int.cpp
     bv_elim.cpp
     bv_simplifier_params.cpp
     bv_simplifier_plugin.cpp

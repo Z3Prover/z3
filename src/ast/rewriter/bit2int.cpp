@@ -19,15 +19,16 @@ Revision History:
 
 --*/
 
-#include "ast/simplifier/bit2int.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/for_each_ast.h"
+#include "ast/rewriter/bit2int.h"
+
 
 #define CHECK(_x_) if (!(_x_)) { UNREACHABLE(); }
 
 bit2int::bit2int(ast_manager & m) : 
-    m_manager(m), m_bv_util(m), m_arith_util(m), m_cache(m), m_bit0(m) {
+    m_manager(m), m_bv_util(m), m_rewriter(m), m_arith_util(m), m_cache(m), m_bit0(m) {
     m_bit0     = m_bv_util.mk_numeral(0,1);
 }
 
@@ -67,7 +68,7 @@ unsigned bit2int::get_numeral_bits(numeral const& k) {
 void bit2int::align_size(expr* e, unsigned sz, expr_ref& result) {
     unsigned sz1 = m_bv_util.get_bv_size(e);
     SASSERT(sz1 <= sz);
-    m_bv_simplifier->mk_zeroext(sz-sz1, e, result);    
+    result = m_rewriter.mk_zero_extend(sz-sz1, e);
 }
 
 void bit2int::align_sizes(expr_ref& a, expr_ref& b) {
@@ -75,11 +76,11 @@ void bit2int::align_sizes(expr_ref& a, expr_ref& b) {
     unsigned sz2 = m_bv_util.get_bv_size(b);
     expr_ref tmp(m_manager);
     if (sz1 > sz2) {
-        m_bv_simplifier->mk_zeroext(sz1-sz2, b, tmp);    
+        tmp = m_rewriter.mk_zero_extend(sz1-sz2, b);    
         b = tmp;
     }
     else if (sz2 > sz1) {
-        m_bv_simplifier->mk_zeroext(sz2-sz1, a, tmp);    
+        tmp = m_rewriter.mk_zero_extend(sz2-sz1, a);    
         a = tmp;
     }
 }
@@ -123,11 +124,11 @@ bool bit2int::mk_add(expr* e1, expr* e2, expr_ref& result) {
             return true;
         }
         align_sizes(tmp1, tmp2);
-        m_bv_simplifier->mk_zeroext(1, tmp1, tmp1);
-        m_bv_simplifier->mk_zeroext(1, tmp2, tmp2);
+        tmp1 = m_rewriter.mk_zero_extend(1, tmp1);
+        tmp2 = m_rewriter.mk_zero_extend(1, tmp2);
         SASSERT(m_bv_util.get_bv_size(tmp1) == m_bv_util.get_bv_size(tmp2));
-        m_bv_simplifier->mk_add(tmp1, tmp2, tmp3);
-        m_bv_simplifier->mk_bv2int(tmp3, m_arith_util.mk_int(), result);
+        tmp3 = m_rewriter.mk_bv_add(tmp1, tmp2);
+        result = m_rewriter.mk_bv2int(tmp3);
         return true;
     }
     return false;
@@ -143,14 +144,14 @@ bool bit2int::mk_comp(eq_type ty, expr* e1, expr* e2, expr_ref& result) {
         SASSERT(m_bv_util.get_bv_size(tmp1) == m_bv_util.get_bv_size(tmp2));
         switch(ty) {
         case lt:
-            m_bv_simplifier->mk_leq_core(false, tmp2, tmp1, tmp3);
+            tmp3 = m_rewriter.mk_ule(tmp2, tmp1);
             result = m_manager.mk_not(tmp3);
             break;
         case le:
-            m_bv_simplifier->mk_leq_core(false,tmp1, tmp2, result);
+            result = m_rewriter.mk_ule(tmp1, tmp2);
             break;
         case eq:
-            result = m_manager.mk_eq(tmp1,tmp2);
+            result = m_manager.mk_eq(tmp1, tmp2);
             break;
         }
         return true;
@@ -167,12 +168,12 @@ bool bit2int::mk_mul(expr* e1, expr* e2, expr_ref& result) {
     if (extract_bv(e1, sz1, sign1, tmp1) &&
         extract_bv(e2, sz2, sign2, tmp2)) {
         align_sizes(tmp1, tmp2);
-        m_bv_simplifier->mk_zeroext(m_bv_util.get_bv_size(tmp1), tmp1, tmp1);
-        m_bv_simplifier->mk_zeroext(m_bv_util.get_bv_size(tmp2), tmp2, tmp2);
+        tmp1 = m_rewriter.mk_zero_extend(m_bv_util.get_bv_size(tmp1), tmp1);
+        tmp2 = m_rewriter.mk_zero_extend(m_bv_util.get_bv_size(tmp2), tmp2);
 
         SASSERT(m_bv_util.get_bv_size(tmp1) == m_bv_util.get_bv_size(tmp2));
-        m_bv_simplifier->mk_mul(tmp1, tmp2, tmp3);
-        m_bv_simplifier->mk_bv2int(tmp3, m_arith_util.mk_int(), result);
+        tmp3 = m_rewriter.mk_bv_mul(tmp1, tmp2);
+        result = m_rewriter.mk_bv2int(tmp3);
         if (sign1 != sign2) {
             result = m_arith_util.mk_uminus(result);
         }
@@ -187,8 +188,7 @@ bool bit2int::is_bv_poly(expr* n, expr_ref& pos, expr_ref& neg) {
     numeral k;
     bool is_int;
     todo.push_back(n);
-    m_bv_simplifier->mk_bv2int(m_bit0, m_arith_util.mk_int(), pos);
-    m_bv_simplifier->mk_bv2int(m_bit0, m_arith_util.mk_int(), neg);
+    neg = pos = m_rewriter.mk_bv2int(m_bit0);
         
     while (!todo.empty()) {
         n = todo.back();
@@ -372,8 +372,8 @@ void bit2int::visit(app* n) {
             tmp1 = tmp_p;
             tmp2 = e2bv;
             align_sizes(tmp1, tmp2);
-            m_bv_simplifier->mk_bv_urem(tmp1, tmp2, tmp3);
-            m_bv_simplifier->mk_bv2int(tmp3, m_arith_util.mk_int(), result);
+            tmp3 = m_rewriter.mk_bv_urem(tmp1, tmp2);
+            result = m_rewriter.mk_bv2int(tmp3);
             cache_result(n, result);
             return;
         }
@@ -382,25 +382,24 @@ void bit2int::visit(app* n) {
         tmp1 = tmp_n;
         tmp2 = e2bv;
         align_sizes(tmp1, tmp2);
-        m_bv_simplifier->mk_bv_urem(tmp1, tmp2, tmp3);
+        tmp3 = m_rewriter.mk_bv_urem(tmp1, tmp2);
         // e2 - (neg1 mod e2)
         tmp1 = e2bv;
         tmp2 = tmp3;
         align_sizes(tmp1, tmp2);
-        m_bv_simplifier->mk_sub(tmp1, tmp2, tmp3);
+        tmp3 = m_rewriter.mk_bv_sub(tmp1, tmp2);
         // pos1 + (e2 - (neg1 mod e2))
         tmp1 = tmp_p;
         tmp2 = tmp3;
         align_sizes(tmp1, tmp2);
-        m_bv_simplifier->mk_zeroext(1, tmp1, tmp_p);
-        m_bv_simplifier->mk_zeroext(1, tmp2, tmp_n);
-        m_bv_simplifier->mk_add(tmp_p, tmp_n, tmp1);
+        tmp_p = m_rewriter.mk_zero_extend(1, tmp1);
+        tmp_n = m_rewriter.mk_zero_extend(1, tmp2);
+        tmp1 = m_rewriter.mk_bv_add(tmp_p, tmp_n);
         // (pos1 + (e2 - (neg1 mod e2))) mod e2
         tmp2 = e2bv;
         align_sizes(tmp1, tmp2);
-        m_bv_simplifier->mk_bv_urem(tmp1, tmp2, tmp3);
-
-        m_bv_simplifier->mk_bv2int(tmp3, m_arith_util.mk_int(), result);
+        tmp3 = m_rewriter.mk_bv_urem(tmp1, tmp2);
+        result = m_rewriter.mk_bv2int(tmp3);
 
         cache_result(n, result);
     }

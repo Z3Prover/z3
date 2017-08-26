@@ -33,7 +33,6 @@ Revision History:
 #include "ast/simplifier/bv_simplifier_plugin.h"
 #include "ast/simplifier/bv_elim.h"
 #include "ast/simplifier/elim_bounds.h"
-#include "ast/simplifier/bit2int.h"
 #include "ast/normal_forms/pull_quant.h"
 #include "ast/normal_forms/nnf.h"
 #include "ast/pattern/pattern_inference.h"
@@ -70,7 +69,6 @@ asserted_formulas::asserted_formulas(ast_manager & m, smt_params & p):
     basic_simplifier_plugin * basic_simp = 0;
     bv_simplifier_plugin * bv_simp = 0;
     setup_simplifier_plugins(m_pre_simplifier, basic_simp, arith_simp, bv_simp);
-    m_bit2int.set_bv_simplifier(bv_simp);
     m_pre_simplifier.enable_presimp();
 }
 
@@ -262,7 +260,7 @@ void asserted_formulas::reduce() {
     INVOKE(m_params.m_propagate_values, propagate_values());
     INVOKE(m_params.m_macro_finder && has_quantifiers(), find_macros());
     INVOKE(m_params.m_nnf_cnf || (m_params.m_mbqi && has_quantifiers()), nnf_cnf());
-    INVOKE(m_params.m_eliminate_and, eliminate_and());
+    INVOKE(/*m_params.m_eliminate_and*/ true, eliminate_and());
     INVOKE(m_params.m_pull_cheap_ite_trees, pull_cheap_ite_trees());
     INVOKE(m_params.m_pull_nested_quantifiers && has_quantifiers(), pull_nested_quantifiers());
     INVOKE(m_params.m_ng_lift_ite != LI_NONE, ng_lift_ite());

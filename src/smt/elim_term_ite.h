@@ -59,6 +59,7 @@ public:
     }
     virtual ~elim_term_ite_cfg() {}
     vector<justified_expr> const& new_defs() const { return m_new_defs; }
+    void reset() { m_new_defs.reset(); }
     br_status reduce_app(func_decl* f, unsigned n, expr *const* args, expr_ref& result, proof_ref& result_pr);
 };
 
@@ -70,6 +71,7 @@ public:
         m_cfg(m, dn) 
     {}
     vector<justified_expr> const& new_defs() const { return m_cfg.new_defs(); }
+    void reset() { m_cfg.reset(); }
 };
 
 

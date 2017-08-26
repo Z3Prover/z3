@@ -22,9 +22,7 @@ Revision History:
 #include "ast/bv_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/act_cache.h"
-#include "ast/simplifier/basic_simplifier_plugin.h"
-#include "ast/simplifier/bv_simplifier_plugin.h"
-
+#include "ast/rewriter/bv_rewriter.h"
 
 class bit2int {
 protected:
@@ -60,8 +58,8 @@ protected:
     typedef act_cache expr_map;
     ast_manager &             m_manager;
     bv_util                   m_bv_util;
+    bv_rewriter               m_rewriter;
     arith_util                m_arith_util;
-    bv_simplifier_plugin    * m_bv_simplifier;
 
     expr_map                  m_cache;      // map: ast  -> ast    ref. counters are incremented when inserted here.
     expr_ref                  m_bit0;
@@ -88,7 +86,6 @@ protected:
 
 public:
     bit2int(ast_manager & m);
-    void set_bv_simplifier(bv_simplifier_plugin * p) { m_bv_simplifier = p; }
     void operator()(expr * m, expr_ref & result, proof_ref& p);
 };
 

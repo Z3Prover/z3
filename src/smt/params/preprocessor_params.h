@@ -39,7 +39,7 @@ struct preprocessor_params : public pattern_inference_params,
     bool            m_pull_cheap_ite_trees;
     bool            m_pull_nested_quantifiers;
     bool            m_eliminate_term_ite;
-    bool            m_eliminate_and; // represent (and a b) as (not (or (not a) (not b)))
+//    bool            m_eliminate_and; // represent (and a b) as (not (or (not a) (not b)))
     bool            m_macro_finder;
     bool            m_propagate_values;
     bool            m_propagate_booleans;
@@ -62,7 +62,7 @@ public:
         m_pull_cheap_ite_trees(false),
         m_pull_nested_quantifiers(false),
         m_eliminate_term_ite(false),
-        m_eliminate_and(true),
+       // m_eliminate_and(true),
         m_macro_finder(false),
         m_propagate_values(true),
         m_propagate_booleans(false), // TODO << check peformance

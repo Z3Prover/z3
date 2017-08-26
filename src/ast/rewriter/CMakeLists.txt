@@ -3,13 +3,16 @@ z3_add_component(rewriter
     arith_rewriter.cpp
     array_rewriter.cpp
     ast_counter.cpp
+    bit2int.cpp
     bool_rewriter.cpp
     bv_bounds.cpp
+    bv_elim2.cpp
     bv_rewriter.cpp
     datatype_rewriter.cpp
     der.cpp
     distribute_forall.cpp
     dl_rewriter.cpp
+    elim_bounds2.cpp
     enum2bv_rewriter.cpp
     expr_replacer.cpp
     expr_safe_replace.cpp
@@ -17,6 +20,7 @@ z3_add_component(rewriter
     fpa_rewriter.cpp
     inj_axiom.cpp
     label_rewriter.cpp
+    maximize_ac_sharing.cpp
     mk_simplified_app.cpp
     pb_rewriter.cpp
     pb2bv_rewriter.cpp

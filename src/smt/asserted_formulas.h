@@ -24,7 +24,7 @@ Revision History:
 #include "ast/simplifier/simplifier.h"
 #include "ast/simplifier/basic_simplifier_plugin.h"
 #include "ast/simplifier/maximise_ac_sharing.h"
-#include "ast/simplifier/bit2int.h"
+#include "ast/rewriter/bit2int.h"
 #include "ast/macros/macro_manager.h"
 #include "ast/macros/macro_finder.h"
 #include "ast/normal_forms/defined_names.h"
