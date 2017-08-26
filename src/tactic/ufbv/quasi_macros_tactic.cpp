@@ -31,49 +31,55 @@ class quasi_macros_tactic : public tactic {
         imp(ast_manager & m, params_ref const & p) : m_manager(m) {
             updt_params(p);
         }
-        
+
         ast_manager & m() const { return m_manager; }
-        
-        
-        void operator()(goal_ref const & g, 
-                        goal_ref_buffer & result, 
-                        model_converter_ref & mc, 
+
+
+        void operator()(goal_ref const & g,
+                        goal_ref_buffer & result,
+                        model_converter_ref & mc,
                         proof_converter_ref & pc,
                         expr_dependency_ref & core) {
             SASSERT(g->is_well_sorted());
             mc = 0; pc = 0; core = 0;
             tactic_report report("quasi-macros", *g);
-            fail_if_unsat_core_generation("quasi-macros", g);
 
             bool produce_proofs = g->proofs_enabled();
+            bool produce_unsat_cores = g->unsat_core_enabled();
                             
             macro_manager mm(m_manager);
             quasi_macros qm(m_manager, mm);
             bool more = true;
-        
+
             expr_ref_vector forms(m_manager), new_forms(m_manager);
             proof_ref_vector proofs(m_manager), new_proofs(m_manager);
+            expr_dependency_ref_vector deps(m_manager), new_deps(m_manager);
 
             unsigned size = g->size();
             for (unsigned i = 0; i < size; i++) {
                 forms.push_back(g->form(i));
                 proofs.push_back(g->pr(i));
+                deps.push_back(g->dep(i));
             }
-        
+
             while (more) { // CMW: use repeat(...) ?
                 if (m().canceled())
                     throw tactic_exception(m().limit().get_cancel_msg());
-            
+
                 new_forms.reset();
                 new_proofs.reset();
-                more = qm(forms.size(), forms.c_ptr(), proofs.c_ptr(), new_forms, new_proofs);            
+                new_deps.reset();
+                more = qm(forms.size(), forms.c_ptr(), proofs.c_ptr(), deps.c_ptr(), new_forms, new_proofs, new_deps);
                 forms.swap(new_forms);
-                proofs.swap(new_proofs);            
+                proofs.swap(new_proofs);
+                deps.swap(new_deps);
             }
 
             g->reset();
             for (unsigned i = 0; i < new_forms.size(); i++)
-                g->assert_expr(new_forms.get(i), produce_proofs ? new_proofs.get(i) : 0, 0);
+                g->assert_expr(forms.get(i),
+                               produce_proofs ? proofs.get(i) : 0,
+                               produce_unsat_cores ? deps.get(i) : 0);
 
             extension_model_converter * evmc = alloc(extension_model_converter, mm.get_manager());
             unsigned num = mm.get_num_macros();
@@ -93,7 +99,7 @@ class quasi_macros_tactic : public tactic {
         void updt_params(params_ref const & p) {
         }
     };
-    
+
     imp *      m_imp;
     params_ref m_params;
 
@@ -106,7 +112,7 @@ public:
     virtual tactic * translate(ast_manager & m) {
         return alloc(quasi_macros_tactic, m, m_params);
     }
-        
+
     virtual ~quasi_macros_tactic() {
         dealloc(m_imp);
     }
@@ -121,19 +127,19 @@ public:
         insert_produce_models(r);
         insert_produce_proofs(r);
     }
-    
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
+
+    virtual void operator()(goal_ref const & in,
+                            goal_ref_buffer & result,
+                            model_converter_ref & mc,
                             proof_converter_ref & pc,
                             expr_dependency_ref & core) {
         (*m_imp)(in, result, mc, pc, core);
     }
-    
+
     virtual void cleanup() {
         ast_manager & m = m_imp->m();
         imp * d = alloc(imp, m, m_params);
-        std::swap(d, m_imp);        
+        std::swap(d, m_imp);
         dealloc(d);
     }
 

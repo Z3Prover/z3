@@ -34,6 +34,7 @@ macro_manager::macro_manager(ast_manager & m):
     m_decls(m),
     m_macros(m),
     m_macro_prs(m),
+    m_macro_deps(m),
     m_forbidden(m),
     m_deps(m) {
     m_util.set_forbidden_set(&m_forbidden_set);
@@ -64,11 +65,13 @@ void macro_manager::restore_decls(unsigned old_sz) {
         m_deps.erase(m_decls.get(i));
         if (m.proofs_enabled())
             m_decl2macro_pr.erase(m_decls.get(i));
+        m_decl2macro_dep.erase(m_decls.get(i));
     }
     m_decls.shrink(old_sz);
     m_macros.shrink(old_sz);
     if (m.proofs_enabled())
         m_macro_prs.shrink(old_sz);
+    m_macro_deps.shrink(old_sz);
 }
 
 void macro_manager::restore_forbidden(unsigned old_sz) {
@@ -81,16 +84,18 @@ void macro_manager::restore_forbidden(unsigned old_sz) {
 void macro_manager::reset() {
     m_decl2macro.reset();
     m_decl2macro_pr.reset();
+    m_decl2macro_dep.reset();
     m_decls.reset();
     m_macros.reset();
     m_macro_prs.reset();
+    m_macro_deps.reset();
     m_scopes.reset();
     m_forbidden_set.reset();
     m_forbidden.reset();
     m_deps.reset();
 }
 
-bool macro_manager::insert(func_decl * f, quantifier * q, proof * pr) {
+bool macro_manager::insert(func_decl * f, quantifier * q, proof * pr, expr_dependency* dep) {
     TRACE("macro_insert", tout << "trying to create macro: " << f->get_name() << "\n" << mk_pp(q, m) << "\n";);
 
     // if we already have a macro for f then return false;
@@ -117,6 +122,8 @@ bool macro_manager::insert(func_decl * f, quantifier * q, proof * pr) {
         m_macro_prs.push_back(pr);
         m_decl2macro_pr.insert(f, pr);
     }
+    m_macro_deps.push_back(dep);
+    m_decl2macro_dep.insert(f, dep);
 
     TRACE("macro_insert", tout << "A macro was successfully created for: " << f->get_name() << "\n";);
 
@@ -307,7 +314,7 @@ struct macro_manager::macro_expander_rw : public rewriter_tpl<macro_manager::mac
 };
 
 
-void macro_manager::expand_macros(expr * n, proof * pr, expr_ref & r, proof_ref & new_pr) {
+void macro_manager::expand_macros(expr * n, proof * pr, expr_dependency * dep, expr_ref & r, proof_ref & new_pr, expr_dependency_ref & new_dep) {
     if (has_macros()) {
         // Expand macros with "real" proof production support (NO rewrite*)
         expr_ref old_n(m);
@@ -339,6 +346,7 @@ void macro_manager::expand_macros(expr * n, proof * pr, expr_ref & r, proof_ref 
     else {
         r      = n;
         new_pr = pr;
+        new_dep = dep;
     }
 }
 

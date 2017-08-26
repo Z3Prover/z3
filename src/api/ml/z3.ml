@@ -1964,7 +1964,7 @@ struct
   let from_file (x:optimize) (s:string) = Z3native.optimize_from_file (gc x) x s
   let from_string (x:optimize) (s:string) = Z3native.optimize_from_string (gc x) x s
   let get_assertions (x:optimize) = AST.ASTVector.to_expr_list (Z3native.optimize_get_assertions (gc x) x)
-  let get_objectives (x:optimize) = AST.ASTVector.to_expr_list (Z3native.optimize_get_statistics (gc x) x)
+  let get_objectives (x:optimize) = AST.ASTVector.to_expr_list (Z3native.optimize_get_objectives (gc x) x)
 end
 
 

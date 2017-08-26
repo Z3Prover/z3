@@ -209,7 +209,7 @@ namespace smt {
             ~scoped_mk_model() {
                 if (m_ctx.m_proto_model.get() != 0) {
                     m_ctx.m_model = m_ctx.m_proto_model->mk_model();
-                    m_ctx.add_rec_funs_to_model();            
+                    m_ctx.add_rec_funs_to_model();
                     m_ctx.m_proto_model = 0; // proto_model is not needed anymore.
                 }
             }
@@ -1566,7 +1566,7 @@ namespace smt {
         func_decl * get_macro_func_decl(unsigned i) const { return m_asserted_formulas.get_macro_func_decl(i); }
         func_decl * get_macro_interpretation(unsigned i, expr_ref & interp) const { return m_asserted_formulas.get_macro_interpretation(i, interp); }
         quantifier * get_macro_quantifier(func_decl * f) const { return m_asserted_formulas.get_macro_quantifier(f); }
-        void insert_macro(func_decl * f, quantifier * m, proof * pr) { m_asserted_formulas.insert_macro(f, m, pr); }
+        void insert_macro(func_decl * f, quantifier * m, proof * pr, expr_dependency * dep) { m_asserted_formulas.insert_macro(f, m, pr, dep); }
     };
 
 };

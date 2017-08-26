@@ -82,8 +82,8 @@ namespace smt {
             expr_mark               m_visited;
         public:
             instantiation_set(ast_manager & m):m_manager(m) {}
-            
-            ~instantiation_set() {  
+
+            ~instantiation_set() {
                 for (auto const& kv : m_elems) {
                     m_manager.dec_ref(kv.m_key);
                 }
@@ -108,7 +108,7 @@ namespace smt {
                 m_elems.erase(n);
                 m_manager.dec_ref(n);
             }
-            
+
             void display(std::ostream & out) const {
                 for (auto const& kv : m_elems) {
                     out << mk_bounded_pp(kv.m_key, m_manager) << " [" << kv.m_value << "]\n";
@@ -124,7 +124,7 @@ namespace smt {
                 m_inv.find(v, t);
                 return t;
             }
-            
+
             unsigned get_generation(expr * t) const {
                 unsigned gen = 0;
                 m_elems.find(t, gen);
@@ -185,15 +185,15 @@ namespace smt {
         };
 
         /**
-           During model construction time, 
+           During model construction time,
            we solve several constraints that impose restrictions
            on how the model for the ground formulas may be extended to
            a model to the relevant universal quantifiers.
-           
+
            The class node and its subclasses are used to solve
            these constraints.
         */
-        
+
         // -----------------------------------
         //
         // nodes
@@ -207,14 +207,14 @@ namespace smt {
             unsigned            m_id;
             node *              m_find;
             unsigned            m_eqc_size;
-            
+
             sort *              m_sort; // sort of the elements in the instantiation set.
-            
+
             bool                m_mono_proj;     // relevant for integers & reals & bit-vectors
             bool                m_signed_proj;   // relevant for bit-vectors.
             ptr_vector<node>    m_avoid_set;
             ptr_vector<expr>    m_exceptions;
-            
+
             instantiation_set * m_set;
 
             expr *              m_else;
@@ -284,7 +284,7 @@ namespace smt {
                 if (!ex.contains(n))
                     ex.push_back(n);
             }
-            
+
             void set_mono_proj() {
                 get_root()->m_mono_proj = true;
             }
@@ -346,7 +346,7 @@ namespace smt {
             instantiation_set * get_instantiation_set() { return get_root()->m_set; }
 
             ptr_vector<expr> const & get_exceptions() const { return get_root()->m_exceptions; }
-            
+
             ptr_vector<node> const & get_avoid_set() const { return get_root()->m_avoid_set; }
 
             // return true if m_avoid_set.contains(this)
@@ -364,8 +364,8 @@ namespace smt {
                 SASSERT(get_root()->m_else == 0);
                 get_root()->m_else = e;
             }
-            
-            expr * get_else() const { 
+
+            expr * get_else() const {
                 return get_root()->m_else;
             }
 
@@ -373,7 +373,7 @@ namespace smt {
                 SASSERT(get_root()->m_proj == 0);
                 get_root()->m_proj = f;
             }
-            
+
             func_decl * get_proj() const {
                 return get_root()->m_proj;
             }
@@ -382,7 +382,7 @@ namespace smt {
         typedef std::pair<ast *, unsigned> ast_idx_pair;
         typedef pair_hash<obj_ptr_hash<ast>, unsigned_hash> ast_idx_pair_hash;
         typedef map<ast_idx_pair, node *, ast_idx_pair_hash, default_eq<ast_idx_pair> > key2node;
-        
+
         /**
            \brief Auxiliary class for processing the "Almost uninterpreted fragment" described in the paper:
            Complete instantiation for quantified SMT formulas
@@ -400,16 +400,16 @@ namespace smt {
 
             context *                 m_context;
 
-            // Mapping from sort to auxiliary constant. 
-            // This auxiliary constant is used as a "witness" that is asserted as different from a 
-            // finite number of terms. 
+            // Mapping from sort to auxiliary constant.
+            // This auxiliary constant is used as a "witness" that is asserted as different from a
+            // finite number of terms.
             // It is only safe to use this constant for infinite sorts.
-            obj_map<sort, app *>      m_sort2k; 
+            obj_map<sort, app *>      m_sort2k;
             expr_ref_vector           m_ks; // range of m_sort2k
-            
+
             // Support for evaluating expressions in the current model.
             proto_model *             m_model;
-            obj_map<expr, expr *>     m_eval_cache[2];            
+            obj_map<expr, expr *>     m_eval_cache[2];
             expr_ref_vector           m_eval_cache_range;
 
             ptr_vector<node>          m_root_nodes;
@@ -426,7 +426,7 @@ namespace smt {
                 m_eval_cache[1].reset();
                 m_eval_cache_range.reset();
             }
-            
+
             node * mk_node(key2node & m, ast * n, unsigned i, sort * s) {
                 node * r = 0;
                 ast_idx_pair k(n, i);
@@ -480,7 +480,7 @@ namespace smt {
                 flush_nodes();
                 reset_eval_cache();
             }
-        
+
             void set_context(context * ctx) {
                 SASSERT(m_context==0);
                 m_context = ctx;
@@ -503,21 +503,21 @@ namespace smt {
                 m_model = m;
             }
 
-            proto_model * get_model() const { 
+            proto_model * get_model() const {
                 SASSERT(m_model);
                 return m_model;
             }
-            
-            node * get_uvar(quantifier * q, unsigned i) { 
+
+            node * get_uvar(quantifier * q, unsigned i) {
                 SASSERT(i < q->get_num_decls());
                 sort * s = q->get_decl_sort(q->get_num_decls() - i - 1);
-                return mk_node(m_uvars, q, i, s); 
+                return mk_node(m_uvars, q, i, s);
             }
 
-            node * get_A_f_i(func_decl * f, unsigned i) { 
+            node * get_A_f_i(func_decl * f, unsigned i) {
                 SASSERT(i < f->get_arity());
                 sort * s = f->get_domain(i);
-                return mk_node(m_A_f_is, f, i, s); 
+                return mk_node(m_A_f_is, f, i, s);
             }
 
             instantiation_set const * get_uvar_inst_set(quantifier * q, unsigned i) const {
@@ -528,7 +528,7 @@ namespace smt {
                     return r->get_instantiation_set();
                 return 0;
             }
-            
+
             void mk_instantiation_sets() {
                 for (node* curr : m_nodes) {
                     if (curr->is_root()) {
@@ -560,7 +560,7 @@ namespace smt {
 
             void display_nodes(std::ostream & out) const {
                 display_key2node(out, m_uvars);
-                display_A_f_is(out);           
+                display_A_f_is(out);
                 for (node* n : m_nodes) {
                     n->display(out, m);
                 }
@@ -593,13 +593,13 @@ namespace smt {
             void collect_exceptions_values(node * n, ptr_buffer<expr> & r) {
                 ptr_vector<expr> const & exceptions   = n->get_exceptions();
                 ptr_vector<node> const & avoid_set    = n->get_avoid_set();
-                
+
                 for (expr* e : exceptions) {
                     expr * val = eval(e, true);
                     SASSERT(val != 0);
                     r.push_back(val);
                 }
-                
+
                 for (node* a : avoid_set) {
                     node * n = a->get_root();
                     if (!n->is_mono_proj() && n->get_else() != 0) {
@@ -622,7 +622,7 @@ namespace smt {
                 obj_map<expr, unsigned> const & elems = s->get_elems();
 
                 expr *    t_result   = 0;
-                unsigned  gen_result = UINT_MAX; 
+                unsigned  gen_result = UINT_MAX;
                 for (auto const& kv : elems) {
                     expr *     t = kv.m_key;
                     unsigned gen = kv.m_value;
@@ -651,7 +651,7 @@ namespace smt {
             }
 
             /**
-               \brief Return a fresh constant k that is used as a witness for elements that must be different from 
+               \brief Return a fresh constant k that is used as a witness for elements that must be different from
                a set of values.
             */
             app * get_k_for(sort * s) {
@@ -668,7 +668,7 @@ namespace smt {
 
             /**
                \brief Get the interpretation for k in m_model.
-               If m_model does not provide an interpretation for k, then 
+               If m_model does not provide an interpretation for k, then
                create a fresh one.
 
                Remark: this method uses get_fresh_value, so it may fail.
@@ -711,7 +711,7 @@ namespace smt {
                 }
                 return true;
             }
-            
+
             void set_projection_else(node * n) {
                 SASSERT(n->is_root());
                 SASSERT(!n->is_mono_proj());
@@ -738,7 +738,7 @@ namespace smt {
                             return;
                         }
                     }
-                    // TBD: add support for the else of bitvectors. 
+                    // TBD: add support for the else of bitvectors.
                     // Idea: get the term t with the minimal interpreation and use t - 1.
                 }
                 n->set_else((*(elems.begin())).m_key);
@@ -897,7 +897,7 @@ namespace smt {
                 }
                 n->set_proj(p);
             }
-            
+
             void mk_projections() {
                 for (node * n : m_root_nodes) {
                     SASSERT(n->is_root());
@@ -907,7 +907,7 @@ namespace smt {
                         mk_simple_proj(n);
                 }
             }
-            
+
             /**
                \brief Store in r the partial functions that have A_f_i nodes.
             */
@@ -927,7 +927,7 @@ namespace smt {
                     }
                 }
             }
-            
+
             /**
                \brief Make sorts associated with nodes that must avoid themselves finite.
                Only uninterpreted sorts are considered.
@@ -941,14 +941,14 @@ namespace smt {
                     sort * s = n->get_sort();
                     if (m.is_uninterp(s) && 
                         // Making all uninterpreted sorts finite.
-                        // n->must_avoid_itself() && 
+                        // n->must_avoid_itself() &&
                         !m_model->is_finite(s)) {
                         m_model->freeze_universe(s);
                     }
                 }
             }
 
-            void add_elem_to_empty_inst_sets() {                
+            void add_elem_to_empty_inst_sets() {
                 obj_map<sort, expr*> sort2elems;
                 ptr_vector<node> need_fresh;
                 for (node * n : m_root_nodes) {
@@ -957,11 +957,11 @@ namespace smt {
                     TRACE("model_finder", s->display(tout););
                     obj_map<expr, unsigned> const & elems = s->get_elems();
                     if (elems.empty()) {
-                        // The method get_some_value cannot be used if n->get_sort() is an uninterpreted sort or is a sort built using uninterpreted sorts 
+                        // The method get_some_value cannot be used if n->get_sort() is an uninterpreted sort or is a sort built using uninterpreted sorts
                         // (e.g., (Array S S) where S is uninterpreted). The problem is that these sorts do not have a fixed interpretation.
                         // Moreover, a model assigns an arbitrary intepretation to these sorts using "model_values" a model value.
                         // If these module values "leak" inside the logical context, they may affect satisfiability.
-                        // 
+                        //
                         sort * ns = n->get_sort();
                         if (m.is_fully_interp(ns)) {
                             n->insert(m_model->get_some_value(ns), 0);
@@ -999,14 +999,14 @@ namespace smt {
                         m_root_nodes.push_back(n);
                 }
             }
-            
+
             /**
                \brief Return the projection function for f at argument i.
-               Return 0, if there is none. 
+               Return 0, if there is none.
 
                \remark This method assumes that mk_projections was already
                invoked.
-               
+
                \remark f may have a non partial interpretation on m_model.
                This may happen because the evaluator uses model_completion.
                In the beginning of fix_model() we collected all f with
@@ -1023,16 +1023,16 @@ namespace smt {
                     return 0;
                 return r->get_proj();
             }
-            
+
             /**
-               \brief Complete the interpretation of the functions that were 
+               \brief Complete the interpretation of the functions that were
                collected in the beginning of fix_model().
              */
             void complete_partial_funcs(func_decl_set const & partial_funcs) {
                 for (func_decl * f : partial_funcs) {
                     // Complete the current interpretation
                     m_model->complete_partial_func(f);
-                    
+
                     unsigned arity   = f->get_arity();
                     func_interp * fi = m_model->get_func_interp(f);
                     if (fi->is_constant())
@@ -1068,7 +1068,7 @@ namespace smt {
                 instantiation_set * s                 = n->get_instantiation_set();
                 s->mk_inverse(*this);
             }
-            
+
             void mk_inverses() {
                 for (node * n : m_root_nodes) {
                     SASSERT(n->is_root());
@@ -1108,7 +1108,7 @@ namespace smt {
            information about the quantifier structure. These bits are
            instances of subclasses of qinfo.
         */
-        
+
         /**
            \brief Generic bit of information collected when analyzing quantifiers.
            The subclasses are defined in the .cpp file.
@@ -1119,7 +1119,7 @@ namespace smt {
             virtual char const * get_kind() const = 0;
             virtual bool is_equal(qinfo const * qi) const = 0;
             virtual void display(std::ostream & out) const { out << "[" << get_kind() << "]"; }
-            
+
             // AUF fragment solver
             virtual void process_auf(quantifier * q, auf_solver & s, context * ctx) = 0;
             virtual void populate_inst_sets(quantifier * q, auf_solver & s, context * ctx) = 0;
@@ -1140,17 +1140,17 @@ namespace smt {
             f_var(func_decl * f, unsigned i, unsigned j):m_f(f), m_arg_i(i), m_var_j(j) {}
             virtual ~f_var() {}
 
-            virtual char const * get_kind() const { 
-                return "f_var"; 
+            virtual char const * get_kind() const {
+                return "f_var";
             }
-            
+
             virtual bool is_equal(qinfo const * qi) const {
                 if (qi->get_kind() != get_kind())
                     return false;
                 f_var const * other = static_cast<f_var const *>(qi);
                 return m_f == other->m_f && m_arg_i == other->m_arg_i && m_var_j == other->m_var_j;
             }
-            
+
             virtual void display(std::ostream & out) const {
                 out << "(" << m_f->get_name() << ":" << m_arg_i << " -> v!" << m_var_j << ")";
             }
@@ -1170,7 +1170,7 @@ namespace smt {
                        for (unsigned i = 0; i < m_f->get_arity(); i++) tout << mk_pp(m_f->get_domain(i), m) << " ";
                        tout << "-> " << mk_pp(m_f->get_range(), m) << "\n";
                        );
-                                               
+
                 n1->merge(n2);
             }
 
@@ -1192,7 +1192,7 @@ namespace smt {
                         // a necessary instantiation.
                         enode * e_arg = n->get_arg(m_arg_i);
                         expr * arg    = e_arg->get_owner();
-                        A_f_i->insert(arg, e_arg->get_generation());                        
+                        A_f_i->insert(arg, e_arg->get_generation());
                     }
                 }
             }
@@ -1205,7 +1205,7 @@ namespace smt {
                     uvar_inst_sets[m_var_j] = alloc(instantiation_set, ctx->get_manager());
                 instantiation_set * s = uvar_inst_sets[m_var_j];
                 SASSERT(s != 0);
-                
+
                 enode_vector::const_iterator it  = ctx->begin_enodes_of(m_f);
                 enode_vector::const_iterator end = ctx->end_enodes_of(m_f);
                 for (; it != end; it++) {
@@ -1213,7 +1213,7 @@ namespace smt {
                     if (ctx->is_relevant(n)) {
                         enode * e_arg = n->get_arg(m_arg_i);
                         expr * arg    = e_arg->get_owner();
-                        s->insert(arg, e_arg->get_generation());                        
+                        s->insert(arg, e_arg->get_generation());
                     }
                 }
             }
@@ -1228,19 +1228,19 @@ namespace smt {
             }
             virtual ~f_var_plus_offset() {}
 
-            virtual char const * get_kind() const { 
-                return "f_var_plus_offset"; 
+            virtual char const * get_kind() const {
+                return "f_var_plus_offset";
             }
-            
+
             virtual bool is_equal(qinfo const * qi) const {
                 if (qi->get_kind() != get_kind())
                     return false;
                 f_var_plus_offset const * other = static_cast<f_var_plus_offset const *>(qi);
                 return m_f == other->m_f && m_arg_i == other->m_arg_i && m_var_j == other->m_var_j && m_offset.get() == other->m_offset.get();
             }
-            
+
             virtual void display(std::ostream & out) const {
-                out << "(" << m_f->get_name() << ":" << m_arg_i << " - " << 
+                out << "(" << m_f->get_name() << ":" << m_arg_i << " - " <<
                     mk_bounded_pp(m_offset.get(), m_offset.get_manager()) << " -> v!" << m_var_j << ")";
             }
 
@@ -1344,11 +1344,11 @@ namespace smt {
 
         /**
            \brief auf_arr is a term (pattern) of the form:
-           
+
            FORM :=  GROUND-TERM
                 |   (select FORM VAR)
-                
-           Store in arrays, all enodes that match the pattern     
+
+           Store in arrays, all enodes that match the pattern
         */
         void get_auf_arrays(app * auf_arr, context * ctx, ptr_buffer<enode> & arrays) {
             if (is_ground(auf_arr)) {
@@ -1375,10 +1375,10 @@ namespace smt {
                 }
             }
         }
-        
+
         class select_var : public qinfo {
         protected:
-            ast_manager & m_manager; 
+            ast_manager & m_manager;
             array_util    m_array;
             app *         m_select; // It must satisfy is_auf_select... see bool is_auf_select(expr * t) const
             unsigned      m_arg_i;
@@ -1398,16 +1398,16 @@ namespace smt {
             virtual ~select_var() {}
 
             virtual char const * get_kind() const {
-                return "select_var"; 
+                return "select_var";
             }
-            
+
             virtual bool is_equal(qinfo const * qi) const {
                 if (qi->get_kind() != get_kind())
                     return false;
                 select_var const * other = static_cast<select_var const *>(qi);
                 return m_select == other->m_select && m_arg_i == other->m_arg_i && m_var_j == other->m_var_j;
             }
-            
+
             virtual void display(std::ostream & out) const {
                 out << "(" << mk_bounded_pp(m_select, m_manager) << ":" << m_arg_i << " -> v!" << m_var_j << ")";
             }
@@ -1415,12 +1415,12 @@ namespace smt {
             virtual void process_auf(quantifier * q, auf_solver & s, context * ctx) {
                 ptr_buffer<enode> arrays;
                 get_auf_arrays(get_array(), ctx, arrays);
-                TRACE("select_var", 
+                TRACE("select_var",
                       tout << "enodes matching: "; display(tout); tout << "\n";
                       for (enode* n : arrays) {
                           tout << "#" << n->get_owner()->get_id() << "\n" << mk_pp(n->get_owner(), m_manager) << "\n";
                       });
-                node * n1 = s.get_uvar(q, m_var_j);                
+                node * n1 = s.get_uvar(q, m_var_j);
                 for (enode* n : arrays) {
                     app * ground_array = n->get_owner();
                     func_decl * f = get_array_func_decl(ground_array, s);
@@ -1443,7 +1443,7 @@ namespace smt {
                         enode_vector::iterator it2  = curr->begin_parents();
                         enode_vector::iterator end2 = curr->end_parents();
                         for (; it2 != end2; ++it2) {
-                            enode * p = *it2; 
+                            enode * p = *it2;
                             if (ctx->is_relevant(p) && p->get_owner()->get_decl() == m_select->get_decl()) {
                                 SASSERT(m_arg_i < p->get_owner()->get_num_args());
                                 enode * e_arg = p->get_arg(m_arg_i);
@@ -1454,7 +1454,7 @@ namespace smt {
                 }
             }
         };
-        
+
         class var_pair : public qinfo {
         protected:
             unsigned    m_var_i;
@@ -1464,16 +1464,16 @@ namespace smt {
                 if (m_var_i > m_var_j)
                     std::swap(m_var_i, m_var_j);
             }
-            
+
             virtual ~var_pair() {}
 
             virtual bool is_equal(qinfo const * qi) const {
                 if (qi->get_kind() != get_kind())
                     return false;
                 var_pair const * other = static_cast<var_pair const *>(qi);
-                return m_var_i == other->m_var_i && m_var_j == other->m_var_j; 
+                return m_var_i == other->m_var_i && m_var_j == other->m_var_j;
             }
-            
+
             virtual void display(std::ostream & out) const {
                 out << "(" << get_kind() << ":v!" << m_var_i << ":v!" << m_var_j << ")";
             }
@@ -1508,7 +1508,7 @@ namespace smt {
                 n1->merge(n2);
             }
         };
-        
+
         class x_leq_y : public var_pair {
         public:
             x_leq_y(unsigned i, unsigned j):var_pair(i, j) {}
@@ -1527,7 +1527,7 @@ namespace smt {
         public:
             x_sleq_y(unsigned i, unsigned j):x_leq_y(i, j) {}
             virtual char const * get_kind() const { return "x_sleq_y"; }
-            
+
             virtual void process_auf(quantifier * q, auf_solver & s, context * ctx) {
                 node * n1 = s.get_uvar(q, m_var_i);
                 node * n2 = s.get_uvar(q, m_var_j);
@@ -1536,7 +1536,7 @@ namespace smt {
                 n1->set_signed_proj();
             }
         };
-        
+
         class var_expr_pair : public qinfo {
         protected:
             unsigned    m_var_i;
@@ -1545,19 +1545,19 @@ namespace smt {
             var_expr_pair(ast_manager & m, unsigned i, expr * t):
                 m_var_i(i), m_t(t, m) {}
             ~var_expr_pair() {}
-            
+
             virtual bool is_equal(qinfo const * qi) const {
                 if (qi->get_kind() != get_kind())
                     return false;
                 var_expr_pair const * other = static_cast<var_expr_pair const *>(qi);
                 return m_var_i == other->m_var_i && m_t.get() == other->m_t.get();
             }
-            
+
             virtual void display(std::ostream & out) const {
                 out << "(" << get_kind() << ":v!" << m_var_i << ":" << mk_bounded_pp(m_t.get(), m_t.get_manager()) << ")";
             }
         };
-        
+
         class x_eq_t : public var_expr_pair {
         public:
             x_eq_t(ast_manager & m, unsigned i, expr * t):
@@ -1605,7 +1605,7 @@ namespace smt {
                 S_q_i->insert(m_t, 0);
             }
         };
-        
+
         class x_gle_t : public var_expr_pair {
         public:
             x_gle_t(ast_manager & m, unsigned i, expr * t):
@@ -1648,16 +1648,16 @@ namespace smt {
                 m_manager.inc_ref(m_cond);
                 SASSERT(!m_hint || m_cond == 0);
             }
-            
+
             ~cond_macro() {
                 m_manager.dec_ref(m_def);
                 m_manager.dec_ref(m_cond);
             }
 
             func_decl * get_f() const { return m_f; }
-            
+
             expr * get_def() const { return m_def; }
-            
+
             expr * get_cond() const { return m_cond; }
 
             bool is_unconditional() const { return m_cond == 0 || m_manager.is_true(m_cond); }
@@ -1674,7 +1674,7 @@ namespace smt {
                 out << "[" << m_f->get_name() << " -> " << mk_bounded_pp(m_def, m_manager, 6);
                 if (m_hint)
                     out << " *hint*";
-                else 
+                else
                     out << " when " << mk_bounded_pp(m_cond, m_manager, 6);
                 out << "] weight: " << m_weight;
             }
@@ -1689,7 +1689,7 @@ namespace smt {
         // -----------------------------------
 
         class quantifier_analyzer;
-        
+
         /**
            \brief Store relevant information regarding a particular universal quantifier.
            This information is populated by quantifier_analyzer.
@@ -1763,7 +1763,7 @@ namespace smt {
                        tout << mk_pp(q, m) << "\n" << mk_pp(m_flat_q, m) << "\n";);
                 SASSERT(!has_quantifiers(m_flat_q->get_expr()));
             }
-            
+
             ~quantifier_info() {
                 std::for_each(m_qinfo_vect.begin(), m_qinfo_vect.end(), delete_proc<qinfo>());
                 std::for_each(m_cond_macros.begin(), m_cond_macros.end(), delete_proc<cond_macro>());
@@ -1773,7 +1773,7 @@ namespace smt {
             bool is_auf() const { return m_is_auf; }
 
             quantifier * get_flat_q() const { return m_flat_q; }
-            
+
             bool unary_function_fragment() const {
                 unsigned sz = m_ng_decls.size();
                 if (sz > 1)
@@ -1857,7 +1857,7 @@ namespace smt {
                 if (m_uvar_inst_sets != 0)
                     return;
                 m_uvar_inst_sets = alloc(ptr_vector<instantiation_set>);
-                for (qinfo* qi : m_qinfo_vect) 
+                for (qinfo* qi : m_qinfo_vect)
                     qi->populate_inst_sets(m_flat_q, m_the_one, *m_uvar_inst_sets, ctx);
                 for (instantiation_set * s : *m_uvar_inst_sets) {
                     if (s != 0)
@@ -1881,7 +1881,7 @@ namespace smt {
                 }
             }
         };
-        
+
         /**
            \brief Functor used to traverse/analyze a quantifier and
            fill the structure quantifier_info.
@@ -1897,9 +1897,9 @@ namespace smt {
             quantifier_info *    m_info;
 
             typedef enum { POS, NEG } polarity;
-            
+
             polarity neg(polarity p) { return p == POS ? NEG : POS; }
-            
+
             obj_hashtable<expr>  m_pos_cache;
             obj_hashtable<expr>  m_neg_cache;
             typedef std::pair<expr *, polarity> entry;
@@ -1935,22 +1935,22 @@ namespace smt {
                 return m_mutil.is_times_minus_one(n, arg);
             }
 
-            bool is_le(expr * n) const { 
+            bool is_le(expr * n) const {
                 return m_mutil.is_le(n);
             }
-            
+
             bool is_le_ge(expr * n) const {
                 return m_mutil.is_le_ge(n);
             }
 
-            bool is_signed_le(expr * n) const { 
-                return m_bv_util.is_bv_sle(n); 
+            bool is_signed_le(expr * n) const {
+                return m_bv_util.is_bv_sle(n);
             }
-            
-            expr * mk_one(sort * s) { 
-                return m_bv_util.is_bv_sort(s) ? m_bv_util.mk_numeral(rational(1), s) : m_arith_util.mk_numeral(rational(1), s); 
+
+            expr * mk_one(sort * s) {
+                return m_bv_util.is_bv_sort(s) ? m_bv_util.mk_numeral(rational(1), s) : m_arith_util.mk_numeral(rational(1), s);
             }
-            
+
             void mk_sub(expr * t1, expr * t2, expr_ref & r) const {
                 m_mutil.mk_sub(t1, t2, r);
             }
@@ -2032,7 +2032,7 @@ namespace smt {
                     v2 = to_var(rhs);
                     return true;
                 }
-                return 
+                return
                     (is_var_minus_var(lhs, v1, v2) && is_zero(rhs)) ||
                     (is_var_minus_var(rhs, v1, v2) && is_zero(lhs));
             }
@@ -2050,7 +2050,7 @@ namespace smt {
                     return false;
                 if (sign) {
                     bool r = is_le_ge(atom) && is_var_and_ground(to_app(atom)->get_arg(0), to_app(atom)->get_arg(1), v, t);
-                    CTRACE("is_x_gle_t", r, tout << "is_x_gle_t: " << mk_ismt2_pp(atom, m_manager) << "\n--->\n" 
+                    CTRACE("is_x_gle_t", r, tout << "is_x_gle_t: " << mk_ismt2_pp(atom, m_manager) << "\n--->\n"
                            << mk_ismt2_pp(v, m_manager) << " " << mk_ismt2_pp(t, m_manager) << "\n";
                            tout << "sign: " << sign << "\n";);
                     return r;
@@ -2070,7 +2070,7 @@ namespace smt {
                                 mk_add(tmp, one, t);
                             else
                                 mk_sub(tmp, one, t);
-                            TRACE("is_x_gle_t", tout << "is_x_gle_t: " << mk_ismt2_pp(atom, m_manager) << "\n--->\n" 
+                            TRACE("is_x_gle_t", tout << "is_x_gle_t: " << mk_ismt2_pp(atom, m_manager) << "\n--->\n"
                                   << mk_ismt2_pp(v, m_manager) << " " << mk_ismt2_pp(t, m_manager) << "\n";
                                   tout << "sign: " << sign << "\n";);
                             return true;
@@ -2084,19 +2084,19 @@ namespace smt {
                 m_pos_cache.reset();
                 m_neg_cache.reset();
             }
-            
-            obj_hashtable<expr> & get_cache(polarity pol) { 
-                return pol == POS ? m_pos_cache : m_neg_cache; 
+
+            obj_hashtable<expr> & get_cache(polarity pol) {
+                return pol == POS ? m_pos_cache : m_neg_cache;
             }
 
             void visit_formula(expr * n, polarity pol) {
                 if (is_ground(n))
                     return; // ground terms do not need to be visited.
                 obj_hashtable<expr> & c = get_cache(pol);
-                if (!c.contains(n)) { 
-                    m_ftodo.push_back(entry(n, pol));  
+                if (!c.contains(n)) {
+                    m_ftodo.push_back(entry(n, pol));
                     c.insert(n);
-                } 
+                }
             }
 
             void visit_term(expr * n) {
@@ -2106,7 +2106,7 @@ namespace smt {
                     m_pos_cache.insert(n);
                 }
             }
-            
+
             /**
                \brief Process unintrepreted applications.
             */
@@ -2119,14 +2119,14 @@ namespace smt {
                         insert_qinfo(alloc(f_var, t->get_decl(), i, to_var(arg)->get_idx()));
                         continue;
                     }
-                    
+
                     var * v;
                     expr_ref k(m_manager);
                     if (is_var_plus_ground(arg, v, k)) {
                         insert_qinfo(alloc(f_var_plus_offset, m_manager, t->get_decl(), i, v->get_idx(), k.get()));
                         continue;
                     }
-                    
+
                     visit_term(arg);
                 }
             }
@@ -2135,9 +2135,9 @@ namespace smt {
             /**
                \brief A term \c t is said to be a auf_select if
                it is of ther form
-               
+
                (select a i) Where:
-               
+
                where a is ground or is_auf_select(a) == true
                and the indices are ground terms or variables.
             */
@@ -2181,11 +2181,11 @@ namespace smt {
 
             void process_app(app * t) {
                 SASSERT(!is_ground(t));
-                
+
                 if (t->get_family_id() != m_manager.get_basic_family_id()) {
                     m_info->m_ng_decls.insert(t->get_decl());
                 }
-                
+
                 if (is_uninterp(t)) {
                     process_u_app(t);
                 }
@@ -2193,19 +2193,19 @@ namespace smt {
                     process_i_app(t);
                 }
             }
-            
+
             void process_terms_on_stack() {
                 while (!m_ttodo.empty()) {
                     expr * curr = m_ttodo.back();
                     m_ttodo.pop_back();
-                    
+
                     if (m_manager.is_bool(curr)) {
                         // formula nested in a term.
                         visit_formula(curr, POS);
                         visit_formula(curr, NEG);
                         continue;
                     }
-                    
+
                     if (is_app(curr)) {
                         process_app(to_app(curr));
                     }
@@ -2223,7 +2223,7 @@ namespace smt {
                 CTRACE("model_finder_bug", is_ground(atom), tout << mk_pp(atom, m_manager) << "\n";);
                 SASSERT(!is_ground(atom));
                 SASSERT(m_manager.is_bool(atom));
-                
+
                 if (is_var(atom)) {
                     if (sign) {
                         // atom (not X) can be viewed as X != true
@@ -2235,7 +2235,7 @@ namespace smt {
                     }
                     return;
                 }
-                
+
                 if (is_app(atom)) {
                     var * v, * v1, * v2;
                     expr_ref t(m_manager);
@@ -2267,18 +2267,18 @@ namespace smt {
                     }
                     return;
                 }
-                
+
                 SASSERT(is_quantifier(atom));
                 UNREACHABLE();
             }
 
-            void process_literal(expr * atom, polarity pol) { 
-                process_literal(atom, pol == NEG); 
+            void process_literal(expr * atom, polarity pol) {
+                process_literal(atom, pol == NEG);
             }
-            
+
             void process_or(app * n, polarity p) {
                 unsigned num_args = n->get_num_args();
-                for (unsigned i = 0; i < num_args; i++) 
+                for (unsigned i = 0; i < num_args; i++)
                     visit_formula(n->get_arg(i), p);
             }
 
@@ -2299,7 +2299,7 @@ namespace smt {
             void checkpoint() {
                 m_mf.checkpoint("quantifier_analyzer");
             }
-            
+
             void process_formulas_on_stack() {
                 while (!m_ftodo.empty()) {
                     checkpoint();
@@ -2359,7 +2359,7 @@ namespace smt {
                 SASSERT(m_manager.is_bool(n));
                 visit_formula(n, POS);
             }
-            
+
             void process_clause(expr * cls) {
                 SASSERT(is_clause(m_manager, cls));
                 unsigned num_lits = get_clause_num_literals(m_manager, cls);
@@ -2379,13 +2379,13 @@ namespace smt {
                 m_mutil.collect_macro_candidates(q, candidates);
                 unsigned num_candidates = candidates.size();
                 for (unsigned i = 0; i < num_candidates; i++) {
-                    cond_macro * m = alloc(cond_macro, m_manager, candidates.get_f(i), candidates.get_def(i), candidates.get_cond(i), 
+                    cond_macro * m = alloc(cond_macro, m_manager, candidates.get_f(i), candidates.get_def(i), candidates.get_cond(i),
                                            candidates.ineq(i), candidates.satisfy_atom(i), candidates.hint(i), q->get_weight());
                     m_info->insert_macro(m);
                 }
             }
-            
- 
+
+
         public:
             quantifier_analyzer(model_finder& mf, ast_manager & m):
                 m_mf(mf),
@@ -2396,8 +2396,8 @@ namespace smt {
                 m_bv_util(m),
                 m_info(0) {
             }
-            
-                
+
+
             void operator()(quantifier_info * d) {
                 m_info = d;
                 quantifier * q = d->get_flat_q();
@@ -2406,7 +2406,7 @@ namespace smt {
                 reset_cache();
                 SASSERT(m_ttodo.empty());
                 SASSERT(m_ftodo.empty());
-                
+
                 if (is_clause(m_manager, e)) {
                     process_clause(e);
                 }
@@ -2420,7 +2420,7 @@ namespace smt {
                 }
 
                 collect_macro_candidates(q);
-                
+
                 m_info = 0;
             }
 
@@ -2460,7 +2460,7 @@ namespace smt {
                 m_q2info(q2i),
                 m_model(0) {
             }
-            
+
             virtual ~base_macro_solver() {}
 
             /**
@@ -2478,13 +2478,13 @@ namespace smt {
             }
         };
 
-        
+
         /**
            \brief The simple macro solver satisfies quantifiers that contain
            (conditional) macros for a function f that does not occur in any other quantifier.
-           
+
            Since f does not occur in any other quantifier, I don't need to track the dependencies
-           of f. That is, recursive definition cannot be created. 
+           of f. That is, recursive definition cannot be created.
         */
         class simple_macro_solver : public base_macro_solver {
         protected:
@@ -2519,7 +2519,7 @@ namespace smt {
                         // I know the (partial) interpretation of f satisfied the ground part.
                         // MBQI will force extra instantiations if the the (partial) interpretation of f
                         // does not satisfy the quantifier.
-                        // In all other cases the "else" of f will satisfy the quantifier. 
+                        // In all other cases the "else" of f will satisfy the quantifier.
                         set_else_interp(f, f_else);
                         TRACE("model_finder", tout << "satisfying the quantifier using simple macro:\n";
                               m->display(tout); tout << "\n";);
@@ -2555,7 +2555,7 @@ namespace smt {
               Let Q_{f_i = def_i} be the set of quantifiers where f_i = def_i is a macro.
               Then, the set Q can be satisfied using f_1 = def_1 ... f_n = d_n
               when
-              
+
               Q_{f_1} union ... union Q_{f_n} = Q_{f_1 = def_1} ... Q_{f_n = d_n} (*)
 
               So, given a set of macros f_1 = def_1, ..., f_n = d_n, it is very easy to check
@@ -2591,8 +2591,8 @@ namespace smt {
             typedef obj_pair_map<func_decl, expr, quantifier_set *> q_f_def;
             typedef obj_pair_hashtable<func_decl, expr> f_def_set;
             typedef obj_hashtable<expr> expr_set;
-            typedef obj_map<func_decl, expr_set *> f2defs; 
-            
+            typedef obj_map<func_decl, expr_set *> f2defs;
+
             q_f                        m_q_f;
             q_f_def                    m_q_f_def;
             ptr_vector<quantifier_set> m_qsets;
@@ -2728,14 +2728,14 @@ namespace smt {
                     }
                 }
             }
-            
+
             static void display_quantifier_set(std::ostream & out, quantifier_set const * s) {
                 for (quantifier* q : *s) {
                     out << q->get_qid() << " ";
                 }
                 out << "\n";
             }
-            
+
             void display_qcandidates(std::ostream & out, ptr_vector<quantifier> const & qcandidates) const {
                 for (quantifier * q : qcandidates) {
                     out << q->get_qid() << " ->\n" << mk_pp(q, m_manager) << "\n";
@@ -2757,14 +2757,14 @@ namespace smt {
                     out << f->get_name() << " " << mk_pp(def, m_manager) << " ->\n"; display_quantifier_set(out, s);
                 }
             }
-            
+
             //
             // Search: main procedures
             //
 
             struct ev_handler {
                 hint_solver * m_owner;
-                
+
                 void operator()(quantifier * q, bool ins) {
                     quantifier_info * qi = m_owner->get_qinfo(q);
                     qi->set_the_one(0);
@@ -2777,7 +2777,7 @@ namespace smt {
 
 
             typedef backtrackable_set<quantifier_set, quantifier *> qset;
-            typedef backtrackable_set<quantifier_set, quantifier *, ev_handler> qsset;            
+            typedef backtrackable_set<quantifier_set, quantifier *, ev_handler> qsset;
             typedef obj_map<func_decl, expr *> f2def;
 
             qset         m_residue;
@@ -2801,7 +2801,7 @@ namespace smt {
                 }
                 out << "\n";
             }
-            
+
             bool check_satisfied_residue_invariant() {
                 DEBUG_CODE(
                     for (quantifier * q : m_satisfied) {
@@ -2813,7 +2813,7 @@ namespace smt {
                 return true;
             }
 
-            
+
             bool update_satisfied_residue(func_decl * f, expr * def) {
                 bool useful = false;
                 SASSERT(check_satisfied_residue_invariant());
@@ -2839,7 +2839,7 @@ namespace smt {
                 SASSERT(check_satisfied_residue_invariant());
                 return true;
             }
-            
+
             /**
                \brief Extract from m_residue, func_decls that can be used as macros to satisfy it.
                The candidates must not be elements of m_fs.
@@ -2869,13 +2869,13 @@ namespace smt {
                 if (depth >= GREEDY_MAX_DEPTH)
                     return; // failed
 
-                TRACE("model_finder_hint", 
+                TRACE("model_finder_hint",
                       tout << "greedy depth: " << depth << ", f: " << f->get_name() << "\n";
                       display_search_state(tout););
 
                 expr_set * s = get_f_defs(f);
                 for (expr * def : *s) {
-                    
+
                     SASSERT(!m_fs.contains(f));
 
                     m_satisfied.push_scope();
@@ -2887,7 +2887,7 @@ namespace smt {
                         greedy(depth + 1); // greedy throws exception in case of success
                         // reachable iff greedy failed.
                     }
-                    
+
                     m_satisfied.pop_scope();
                     m_residue.pop_scope();
                     m_fs.erase(f);
@@ -2900,7 +2900,7 @@ namespace smt {
             */
             void greedy(unsigned depth) {
                 if (m_residue.empty()) {
-                    TRACE("model_finder_hint", 
+                    TRACE("model_finder_hint",
                           tout << "found subset that is satisfied by macros\n";
                           display_search_state(tout););
                     throw found_satisfied_subset();
@@ -2946,7 +2946,7 @@ namespace smt {
                quantifiers in m_satisfied.
             */
             void set_interp() {
-                for (auto const& kv : m_fs) {                    
+                for (auto const& kv : m_fs) {
                     func_decl * f = kv.m_key;
                     expr * def    = kv.m_value;
                     set_else_interp(f, def);
@@ -3034,7 +3034,7 @@ namespace smt {
                     return true;
                 return false;
             }
-            
+
             cond_macro * get_macro_for(func_decl * f, quantifier * q) {
                 cond_macro * r = 0;
                 quantifier_info * qi = get_qinfo(q);
@@ -3153,10 +3153,10 @@ namespace smt {
             }
         };
     };
-    
+
     // -----------------------------------
     //
-    // model finder 
+    // model finder
     //
     // -----------------------------------
     
@@ -3171,11 +3171,11 @@ namespace smt {
         m_nm_solver(alloc(non_auf_macro_solver, m, m_q2info, m_dependencies)),
         m_new_constraints(m) {
     }
-    
+
     model_finder::~model_finder() {
         reset();
     }
-        
+
     void model_finder::checkpoint() {
         checkpoint("model_finder");
     }
@@ -3192,14 +3192,14 @@ namespace smt {
         SASSERT(info != 0);
         return info;
     }
-        
+
     void model_finder::set_context(context * ctx) {
-        SASSERT(m_context == 0); 
+        SASSERT(m_context == 0);
         m_context = ctx;
         m_auf_solver->set_context(ctx);
         m_nm_solver->set_params(ctx->get_fparams());
     }
-            
+
     void model_finder::register_quantifier(quantifier * q) {
         TRACE("model_finder", tout << "registering:\n" << mk_pp(q, m_manager) << "\n";);
         quantifier_info * new_info = alloc(quantifier_info, *this, m_manager, q);
@@ -3208,15 +3208,15 @@ namespace smt {
         m_analyzer->operator()(new_info);
         TRACE("model_finder", tout << "after analyzer:\n"; new_info->display(tout););
     }
-    
+
     void model_finder::push_scope() {
         m_scopes.push_back(scope());
         scope & s = m_scopes.back();
         s.m_quantifiers_lim = m_quantifiers.size();
     }
-    
+
     void model_finder::restore_quantifiers(unsigned old_size) {
-        unsigned curr_size = m_quantifiers.size(); 
+        unsigned curr_size = m_quantifiers.size();
         SASSERT(old_size <= curr_size);
         for (unsigned i = old_size; i < curr_size; i++) {
             quantifier * q = m_quantifiers[i];
@@ -3227,7 +3227,7 @@ namespace smt {
         }
         m_quantifiers.shrink(old_size);
     }
-    
+
     void model_finder::pop_scope(unsigned num_scopes) {
         unsigned lvl      = m_scopes.size();
         SASSERT(num_scopes <= lvl);
@@ -3236,7 +3236,7 @@ namespace smt {
         restore_quantifiers(s.m_quantifiers_lim);
         m_scopes.shrink(new_lvl);
     }
-    
+
     void model_finder::reset() {
         m_scopes.reset();
         m_dependencies.reset();
@@ -3244,7 +3244,7 @@ namespace smt {
         SASSERT(m_q2info.empty());
         SASSERT(m_quantifiers.empty());
     }
-    
+
     void model_finder::init_search_eh() {
         // do nothing in the current version
     }
@@ -3266,12 +3266,12 @@ namespace smt {
         }
         m_auf_solver->mk_instantiation_sets();
 
-        for (quantifier * q : qs) {        
+        for (quantifier * q : qs) {
             quantifier_info * qi = get_quantifier_info(q);
             qi->populate_inst_sets(*(m_auf_solver.get()), m_context);
         }
         m_auf_solver->fix_model(m_new_constraints);
-        TRACE("model_finder", 
+        TRACE("model_finder",
               for (quantifier * q : qs) {
                   quantifier_info * qi = get_quantifier_info(q);
                   quantifier * fq = qi->get_flat_q();
@@ -3293,7 +3293,7 @@ namespace smt {
         qs.swap(new_qs);
         TRACE("model_finder", tout << "model after processing simple macros:\n"; model_pp(tout, *m););
     }
-    
+
     void model_finder::process_non_auf_macros(ptr_vector<quantifier> & qs, ptr_vector<quantifier> & residue, proto_model * m) {
         ptr_vector<quantifier> new_qs;
         m_nm_solver->operator()(m, qs, new_qs, residue);
@@ -3355,12 +3355,12 @@ namespace smt {
               << "\ni: " << i << " " << flat_q->get_num_decls() - q->get_num_decls() + i << "\n";);
         if (r != 0)
             return r;
-        // quantifier was not processed by AUF solver... 
+        // quantifier was not processed by AUF solver...
         // it must have been satisfied by "macro"/"hint".
         quantifier_info * qinfo = get_quantifier_info(q);
         SASSERT(qinfo);
         SASSERT(qinfo->get_the_one() != 0);
-        
+
         return qinfo->get_macro_based_inst_set(i, m_context, *(m_auf_solver.get()));
     }
 
@@ -3381,11 +3381,11 @@ namespace smt {
         }
         return t;
     }
-    
+
     /**
        \brief Assert constraints restricting the possible values of the skolem constants can be assigned to.
        The idea is to restrict them to the values in the instantiation sets.
-    
+
        \remark q is the quantifier before flattening.
 
        Return true if something was asserted.
@@ -3433,7 +3433,7 @@ namespace smt {
                 TRACE("model_finder_bug_detail", tout << "asserting new constraint: " << mk_pp(c, m_manager) << "\n";);
                 m_context->internalize(c, true);
                 literal l(m_context->get_literal(c));
-                m_context->mark_as_relevant(l);         
+                m_context->mark_as_relevant(l);
                 // asserting it as an AXIOM
                 m_context->assign(l, b_justification());
             }
