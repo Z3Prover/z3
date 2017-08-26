@@ -21,7 +21,6 @@ Revision History:
 
 #include "util/obj_hashtable.h"
 #include "ast/ast_util.h"
-#include "ast/simplifier/simplifier.h"
 #include "ast/recurse_expr.h"
 #include "ast/func_decl_dependencies.h"
 #include "ast/macros/macro_util.h"

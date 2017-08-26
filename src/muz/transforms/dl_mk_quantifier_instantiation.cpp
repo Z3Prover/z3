@@ -27,6 +27,7 @@ Revision History:
 #include "muz/base/dl_context.h"
 #include "ast/pattern/pattern_inference.h"
 #include "ast/rewriter/rewriter_def.h"
+#include "ast/ast_util.h"
 
 
 namespace datalog {

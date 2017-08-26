@@ -19,9 +19,9 @@ Revision History:
 #ifndef ELIM_TERM_ITE_H_
 #define ELIM_TERM_ITE_H_
 
-#include "ast/simplifier/simplifier.h"
 #include "ast/normal_forms/defined_names.h"
 #include "ast/rewriter/rewriter.h"
+#include "ast/simplifier/simplifier.h"
 
 class elim_term_ite : public simplifier {
     defined_names &    m_defined_names;
@@ -46,7 +46,6 @@ public:
                     proof_ref & pr                     // [OUT] proof for (~ n r)
                     );
 };
-
 
 
 class elim_term_ite_cfg : public default_rewriter_cfg {
