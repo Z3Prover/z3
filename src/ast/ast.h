@@ -2470,41 +2470,6 @@ public:
     void operator()(AST * n) { m_manager.inc_ref(n); }
 };
 
-class justified_expr {
-    ast_manager& m;
-    expr*        m_fml;
-    proof*       m_proof;
-public:
-    justified_expr(ast_manager& m, expr* fml, proof* p):
-        m(m),
-        m_fml(fml),
-        m_proof(p) {
-        m.inc_ref(fml);
-        m.inc_ref(p);
-    }
-    
-    justified_expr& operator=(justified_expr& other) {
-        SASSERT(&m == &other.m);
-        if (this != &other) {
-            m.dec_ref(m_fml);
-            m.dec_ref(m_proof);
-            m_fml = other.get_fml();
-            m_proof = other.get_proof();
-            m.inc_ref(m_fml);
-            m.inc_ref(m_proof);
-        }
-        return *this;
-    }
-    
-    ~justified_expr() {
-        m.dec_ref(m_fml);
-        m.dec_ref(m_proof);
-    }
-    
-    expr* get_fml() const { return m_fml; }
-    proof* get_proof() const { return m_proof; }        
-};
-
 
 #endif /* AST_H_ */
 

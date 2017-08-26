@@ -20,6 +20,7 @@ Revision History:
 #define QUASI_MACROS_H_
 
 #include<sstream>
+#include "ast/justified_expr.h"
 #include "ast/macros/macro_manager.h"
 #include "ast/rewriter/th_rewriter.h"
 

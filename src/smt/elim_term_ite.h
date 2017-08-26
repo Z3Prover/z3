@@ -22,6 +22,8 @@ Revision History:
 #include "ast/normal_forms/defined_names.h"
 #include "ast/rewriter/rewriter.h"
 #include "ast/simplifier/simplifier.h"
+#include "ast/justified_expr.h"
+
 
 class elim_term_ite : public simplifier {
     defined_names &    m_defined_names;
