@@ -385,7 +385,7 @@ namespace smt {
     {
         ast_manager & m = get_manager();
         context & ctx = get_context();
-        simplifier & simp = ctx.get_simplifier();
+        th_rewriter & simp = ctx.get_rewriter();
 
         expr_ref res(m), t(m);
         proof_ref t_pr(m);

@@ -1139,7 +1139,7 @@ namespace datalog {
             md->eval(path, path);
             IF_VERBOSE(2, verbose_stream() << mk_pp(trace, m) << "\n";
                        for (unsigned i = 0; i < b.m_solver.size(); ++i) {
-                           verbose_stream() << mk_pp(b.m_solver.get_formulas()[i], m) << "\n";
+                           verbose_stream() << mk_pp(b.m_solver.get_formula(i), m) << "\n";
                        });
             scoped_proof _sp(m);
             proof_ref pr(m);

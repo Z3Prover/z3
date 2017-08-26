@@ -30,6 +30,7 @@ Revision History:
 #include "ast/normal_forms/defined_names.h"
 #include "ast/pattern/pattern_inference.h"
 #include "smt/params/smt_params.h"
+#include "ast/rewriter/th_rewriter.h"
 
 class arith_simplifier_plugin;
 class bv_simplifier_plugin;
@@ -39,6 +40,7 @@ class asserted_formulas {
     smt_params &                 m_params;
     simplifier                   m_pre_simplifier;
     simplifier                   m_simplifier;
+    th_rewriter                  m_rewriter;
     basic_simplifier_plugin *    m_bsimp;
     bv_simplifier_plugin *       m_bvsimp;
     defined_names                m_defined_names;
@@ -121,7 +123,8 @@ public:
     proof * const * get_formula_proofs() const { return m_asserted_formula_prs.c_ptr(); }
     void init(unsigned num_formulas, expr * const * formulas, proof * const * prs);
     void register_simplifier_plugin(simplifier_plugin * p) { m_simplifier.register_plugin(p); }
-    simplifier & get_simplifier() { return m_simplifier; }
+    // simplifier & get_simplifier() { return m_simplifier; }
+    th_rewriter& get_rewriter() { return m_rewriter; }
     void get_assertions(ptr_vector<expr> & result);
     bool empty() const { return m_asserted_formulas.empty(); }
     void collect_static_features();

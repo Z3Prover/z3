@@ -36,7 +36,7 @@ Revision History:
 #include "smt/smt_case_split_queue.h"
 #include "smt/smt_almost_cg_table.h"
 #include "smt/smt_failure.h"
-#include "smt/asserted_formulas.h"
+#include "smt/asserted_formulas_new.h"
 #include "smt/smt_types.h"
 #include "smt/dyn_ack.h"
 #include "ast/ast_smt_pp.h"
@@ -81,7 +81,7 @@ namespace smt {
         params_ref                  m_params;
         setup                       m_setup;
         timer                       m_timer;
-        asserted_formulas           m_asserted_formulas;
+        asserted_formulas_new       m_asserted_formulas;
         scoped_ptr<quantifier_manager>   m_qmanager;
         scoped_ptr<model_generator>      m_model_generator;
         scoped_ptr<relevancy_propagator> m_relevancy_propagator;
@@ -245,8 +245,8 @@ namespace smt {
             return m_manager;
         }
 
-        simplifier & get_simplifier() {
-            return m_asserted_formulas.get_simplifier();
+        th_rewriter & get_rewriter() {
+            return m_asserted_formulas.get_rewriter();
         }
 
         smt_params & get_fparams() {
@@ -1467,8 +1467,6 @@ namespace smt {
 
         bool set_logic(symbol const& logic) { return m_setup.set_logic(logic); }
 
-        void register_plugin(simplifier_plugin * s);
-
         void register_plugin(theory * th);
 
         void assert_expr(expr * e);
@@ -1540,9 +1538,9 @@ namespace smt {
 
         proof * get_asserted_formula_proof(unsigned idx) const { return m_asserted_formulas.get_formula_proof(idx); }
 
-        expr * const * get_asserted_formulas() const { return m_asserted_formulas.get_formulas(); }
+        void get_asserted_formulas(ptr_vector<expr>& r) const { m_asserted_formulas.get_assertions(r); }
 
-        proof * const * get_asserted_formula_proofs() const { return m_asserted_formulas.get_formula_proofs(); }
+        //proof * const * get_asserted_formula_proofs() const { return m_asserted_formulas.get_formula_proofs(); }
 
         void get_assumptions_core(ptr_vector<expr> & result);
 

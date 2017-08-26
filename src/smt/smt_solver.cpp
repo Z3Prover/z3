@@ -216,7 +216,7 @@ namespace smt {
 
         virtual expr * get_assertion(unsigned idx) const {
             SASSERT(idx < get_num_assertions());
-            return m_context.get_formulas()[idx];
+            return m_context.get_formula(idx);
         }
 
         struct collect_fds_proc {

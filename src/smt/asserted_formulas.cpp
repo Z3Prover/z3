@@ -47,6 +47,7 @@ asserted_formulas::asserted_formulas(ast_manager & m, smt_params & p):
     m_params(p),
     m_pre_simplifier(m),
     m_simplifier(m),
+    m_rewriter(m),
     m_defined_names(m),
     m_static_features(m),
     m_asserted_formulas(m),

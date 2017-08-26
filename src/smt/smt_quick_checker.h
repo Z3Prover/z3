@@ -20,7 +20,7 @@ Revision History:
 #define SMT_QUICK_CHECKER_H_
 
 #include "ast/ast.h"
-#include "ast/simplifier/simplifier.h"
+#include "ast/rewriter/th_rewriter.h"
 #include "util/obj_hashtable.h"
 
 namespace smt {
@@ -77,7 +77,7 @@ namespace smt {
 
         context &            m_context;
         ast_manager &        m_manager;
-        simplifier &         m_simplifier;
+        th_rewriter &        m_simplifier;
         collector            m_collector;
         expr_ref_vector      m_new_exprs;
         vector<enode_vector> m_candidate_vectors; 

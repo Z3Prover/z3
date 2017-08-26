@@ -21,6 +21,7 @@ Revision History:
 #include "smt/theory_array_full.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/ast_pp.h"
+#include "ast/ast_util.h"
 #include "ast/ast_smt2_pp.h"
 #include "util/stats.h"
 
@@ -515,7 +516,7 @@ namespace smt {
 
         expr_ref sel1(m), sel2(m);
         sel1 = mk_select(args1.size(), args1.c_ptr());
-        m_simp->mk_app(f, args2.size(), args2.c_ptr(), sel2);
+        sel2 = ctx.get_rewriter().mk_app(f, args2.size(), args2.c_ptr());
         ctx.internalize(sel1, false);
         ctx.internalize(sel2, false);
         
@@ -553,7 +554,7 @@ namespace smt {
 
         expr* def1 = mk_default(map);
         expr_ref def2(get_manager());
-        m_simp->mk_app(f, args2.size(), args2.c_ptr(), def2);
+        def2 = ctx.get_rewriter().mk_app(f, args2.size(), args2.c_ptr());
         ctx.internalize(def1, false);
         ctx.internalize(def2, false);
         return try_assign_eq(def1, def2);
@@ -722,9 +723,7 @@ namespace smt {
             }
             
             expr_ref eq(m);
-            simplifier_plugin* p = m_simp->get_plugin(m.get_basic_family_id());
-            basic_simplifier_plugin* bp = static_cast<basic_simplifier_plugin*>(p);
-            bp->mk_and(eqs.size(), eqs.c_ptr(), eq);
+            eq = mk_and(eqs);
             expr* defA = mk_default(store_app->get_arg(0));
             def2 = m.mk_ite(eq, store_app->get_arg(num_args-1), defA); 
 #if 0

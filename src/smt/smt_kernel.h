@@ -85,7 +85,12 @@ namespace smt {
         /**
            \brief Return the array of asserted formulas.
         */
-        expr * const * get_formulas() const;
+        void get_formulas(ptr_vector<expr>& r) const;
+
+        /**
+           \brief return the formula at index idx.
+        */
+        expr* get_formula(unsigned idx) const;
         
         /**
            \brief Create a backtracking point (aka scope level).

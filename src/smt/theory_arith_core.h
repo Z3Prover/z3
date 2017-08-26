@@ -442,7 +442,7 @@ namespace smt {
     void theory_arith<Ext>::mk_axiom(expr * ante, expr * conseq) {
         ast_manager & m = get_manager();
         context & ctx   = get_context();
-        simplifier & s  = ctx.get_simplifier();
+        th_rewriter & s  = ctx.get_rewriter();
         expr_ref s_ante(m), s_conseq(m);
         expr* s_conseq_n, * s_ante_n;
         bool negated;

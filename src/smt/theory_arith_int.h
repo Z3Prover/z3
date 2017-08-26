@@ -455,9 +455,8 @@ namespace smt {
         pol = m_util.mk_add(_args.size(), _args.c_ptr());
         result = m_util.mk_ge(pol, m_util.mk_numeral(k, all_int));
         TRACE("arith_mk_polynomial", tout << "before simplification:\n" << result << "\n";);
-        simplifier & s = get_context().get_simplifier();
         proof_ref pr(m);
-        s(result, result, pr);
+        get_context().get_rewriter()(result, result, pr);
         TRACE("arith_mk_polynomial", tout << "after simplification:\n" << result << "\n";);
         SASSERT(is_well_sorted(get_manager(), result));
     }
