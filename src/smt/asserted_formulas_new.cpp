@@ -84,7 +84,6 @@ asserted_formulas_new::~asserted_formulas_new() {
 
 void asserted_formulas_new::push_assertion(expr * e, proof * pr, vector<justified_expr>& result) {
     if (inconsistent()) {
-        SASSERT(!result.empty());
         return;
     }
     expr* e1 = 0;
@@ -106,13 +105,8 @@ void asserted_formulas_new::push_assertion(expr * e, proof * pr, vector<justifie
         for (unsigned i = 0; i < to_app(e1)->get_num_args(); ++i) {
             expr* arg = to_app(e1)->get_arg(i), *e2;
             proof_ref _pr(m.mk_not_or_elim(pr, i), m);
-            if (m.is_not(arg, e2)) {
-                push_assertion(e2, _pr, result);
-            }
-            else {
-                expr_ref narg(m.mk_not(arg), m);
-                push_assertion(narg, _pr, result);
-            }
+            expr_ref  narg(mk_not(m, arg), m);
+            push_assertion(narg, _pr, result);            
         }        
     }
     else {
@@ -154,8 +148,7 @@ void asserted_formulas_new::assert_expr(expr * e, proof * _in_pr) {
 }
 
 void asserted_formulas_new::assert_expr(expr * e) {
-    if (!inconsistent()) 
-        assert_expr(e, m.mk_asserted(e));
+    assert_expr(e, m.mk_asserted(e));
 }
 
 void asserted_formulas_new::get_assertions(ptr_vector<expr> & result) const {
@@ -220,8 +213,8 @@ void asserted_formulas_new::reduce() {
     if (!m_params.m_preprocess) 
         return;    
     if (m_macro_manager.has_macros()) 
-        expand_macros();
-
+        invoke(m_find_macros);
+    
     TRACE("before_reduce", display(tout););
     CASSERT("well_sorted", check_well_sorted());
           
@@ -313,11 +306,6 @@ void asserted_formulas_new::swap_asserted_formulas(vector<justified_expr>& formu
     m_formulas.append(formulas);
 }
 
-void asserted_formulas_new::find_macros_fn::operator()() {
-    TRACE("before_find_macros", af.display(tout););
-    af.find_macros_core();
-    TRACE("after_find_macros", af.display(tout););
-}
 
 void asserted_formulas_new::find_macros_core() {
     vector<justified_expr> new_fmls;
@@ -325,12 +313,6 @@ void asserted_formulas_new::find_macros_core() {
     (*m_macro_finder)(sz - m_qhead, m_formulas.c_ptr() + m_qhead, new_fmls);
     swap_asserted_formulas(new_fmls);
     reduce_and_solve();
-}
-
-
-void asserted_formulas_new::expand_macros() {
-    IF_IVERBOSE(10, verbose_stream() << "(smt.expand-macros)\n";);
-    find_macros_core();
 }
 
 void asserted_formulas_new::apply_quasi_macros() {
