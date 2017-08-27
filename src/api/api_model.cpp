@@ -337,9 +337,9 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
 
-    void Z3_API Z3_add_func_entry(Z3_context c, Z3_func_interp fi, Z3_ast_vector args, Z3_ast value) {
+    void Z3_API Z3_func_interp_add_entry(Z3_context c, Z3_func_interp fi, Z3_ast_vector args, Z3_ast value) {
         Z3_TRY;
-        LOG_Z3_add_func_entry(c, fi, args, value);
+        LOG_Z3_func_interp_add_entry(c, fi, args, value);
         //CHECK_NON_NULL(fi, void);
         //CHECK_NON_NULL(args, void);
         //CHECK_NON_NULL(value, void);
