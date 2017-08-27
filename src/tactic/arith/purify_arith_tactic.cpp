@@ -297,8 +297,8 @@ struct purify_arith_proc {
             push_cnstr(OR(EQ(y, mk_real_zero()),
                           EQ(u().mk_mul(y, k), x)));
             push_cnstr_pr(result_pr);
-
-            if (complete()) {
+            rational r;
+            if (complete() && (!u().is_numeral(y, r) || r.is_zero())) {
                 // y != 0 \/ k = div-0(x)
                 push_cnstr(OR(NOT(EQ(y, mk_real_zero())),
                               EQ(k, u().mk_div(x, mk_real_zero()))));
@@ -348,7 +348,8 @@ struct purify_arith_proc {
             push_cnstr(OR(u().mk_ge(y, zero), u().mk_lt(k2, u().mk_mul(u().mk_numeral(rational(-1), true), y))));
             push_cnstr_pr(mod_pr);
 
-            if (complete()) {
+            rational r;
+            if (complete() && (!u().is_numeral(y, r) || r.is_zero())) {
                 push_cnstr(OR(NOT(EQ(y, zero)), EQ(k1, u().mk_idiv(x, zero))));
                 push_cnstr_pr(result_pr);
 

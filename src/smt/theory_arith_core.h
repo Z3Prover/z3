@@ -449,9 +449,8 @@ namespace smt {
         expr_ref s_ante(m), s_conseq(m);
         expr* s_conseq_n, * s_ante_n;
         bool negated;
-        proof_ref pr(m);
 
-        s(ante, s_ante, pr);
+        s(ante, s_ante);
         if (ctx.get_cancel_flag()) return;
         negated = m.is_not(s_ante, s_ante_n);
         if (negated) s_ante = s_ante_n;
@@ -459,7 +458,7 @@ namespace smt {
         literal l_ante = ctx.get_literal(s_ante);
         if (negated) l_ante.neg();
 
-        s(conseq, s_conseq, pr);
+        s(conseq, s_conseq);
         if (ctx.get_cancel_flag()) return;
         negated = m.is_not(s_conseq, s_conseq_n);
         if (negated) s_conseq = s_conseq_n;

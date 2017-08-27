@@ -178,7 +178,7 @@ void arith_decl_plugin::set_manager(ast_manager * m, family_id id) {
     MK_AC_OP(m_i_mul_decl, "*", OP_MUL, i);
     MK_LEFT_ASSOC_OP(m_i_div_decl, "div", OP_IDIV, i);
     MK_OP(m_i_rem_decl, "rem", OP_REM, i);
-    //MK_OP(m_i_mod_decl, "mod", OP_MOD, i);
+    MK_OP(m_i_mod_decl, "mod", OP_MOD, i);
     MK_UNARY(m_i_uminus_decl, "-", OP_UMINUS, i);
 
     m_to_real_decl = m->mk_func_decl(symbol("to_real"), i, r, func_decl_info(id, OP_TO_REAL));
@@ -215,18 +215,8 @@ void arith_decl_plugin::set_manager(ast_manager * m, family_id id) {
     m_e = m->mk_const(e_decl);
     m->inc_ref(m_e);
 
-    //func_decl * z_pw_z_int = m->mk_const_decl(symbol("0^0-int"), i, func_decl_info(id, OP_0_PW_0_INT));
-    //m_0_pw_0_int = m->mk_const(z_pw_z_int);
-    //m->inc_ref(m_0_pw_0_int);
-
-    //func_decl * z_pw_z_real = m->mk_const_decl(symbol("0^0-real"), r, func_decl_info(id, OP_0_PW_0_REAL));
-    //m_0_pw_0_real = m->mk_const(z_pw_z_real);
-    //m->inc_ref(m_0_pw_0_real);
 
     MK_OP(m_neg_root_decl, "neg-root", OP_NEG_ROOT, r);
-    //MK_UNARY(m_div_0_decl, "/0", OP_DIV_0, r);
-    //MK_UNARY(m_idiv_0_decl, "div0", OP_IDIV_0, i);
-    //MK_UNARY(m_mod_0_decl, "mod0", OP_MOD_0, i);
     MK_UNARY(m_u_asin_decl, "asin-u", OP_U_ASIN, r);
     MK_UNARY(m_u_acos_decl, "acos-u", OP_U_ACOS, r);
 }
@@ -279,12 +269,7 @@ arith_decl_plugin::arith_decl_plugin():
     m_atanh_decl(0),
     m_pi(0),
     m_e(0),
-    m_0_pw_0_int(0),
-    m_0_pw_0_real(0),
     m_neg_root_decl(0),
-    m_div_0_decl(0),
-    m_idiv_0_decl(0),
-    m_mod_0_decl(0),
     m_u_asin_decl(0),
     m_u_acos_decl(0),
     m_convert_int_numerals_to_real(false) {
@@ -339,12 +324,7 @@ void arith_decl_plugin::finalize() {
     DEC_REF(m_atanh_decl);
     DEC_REF(m_pi);
     DEC_REF(m_e);
-    DEC_REF(m_0_pw_0_int);
-    DEC_REF(m_0_pw_0_real);
     DEC_REF(m_neg_root_decl);
-    DEC_REF(m_div_0_decl);
-    DEC_REF(m_idiv_0_decl);
-    DEC_REF(m_mod_0_decl);
     DEC_REF(m_u_asin_decl);
     DEC_REF(m_u_acos_decl);
     m_manager->dec_array_ref(m_small_ints.size(), m_small_ints.c_ptr());

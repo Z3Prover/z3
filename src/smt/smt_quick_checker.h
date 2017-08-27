@@ -77,7 +77,6 @@ namespace smt {
 
         context &            m_context;
         ast_manager &        m_manager;
-        th_rewriter &        m_simplifier;
         collector            m_collector;
         expr_ref_vector      m_new_exprs;
         vector<enode_vector> m_candidate_vectors; 

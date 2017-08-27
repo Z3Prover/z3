@@ -43,13 +43,13 @@ static void FUN_NAME(int a, ext_numeral_kind ak, int b, ext_numeral_kind bk, int
     scoped_mpq _a(m), _b(m), _c(m);                                     \
     m.set(_a, a);                                                       \
     m.set(_b, b);                                                       \
-    ext_numeral_kind ck;                                                \
+    ext_numeral_kind ck(EN_NUMERAL);                                    \
     OP_NAME(m, _a, ak, _b, bk, _c, ck);                                 \
-    ENSURE(ck == expected_ck);                                         \
+    ENSURE(ck == expected_ck);                                          \
     if (expected_ck == EN_NUMERAL) {                                    \
         scoped_mpq _expected_c(m);                                      \
         m.set(_expected_c, expected_c);                                 \
-        ENSURE(m.eq(_c, _expected_c));                                 \
+        ENSURE(m.eq(_c, _expected_c));                                  \
     }                                                                   \
 }
 
