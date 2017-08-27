@@ -444,14 +444,10 @@ namespace qe {
             div_rewriter_cfg(nlqsat& s): m(s.m), a(s.m), m_zero(a.mk_real(0), m) {}
             ~div_rewriter_cfg() {}
             br_status reduce_app(func_decl* f, unsigned sz, expr* const* args, expr_ref& result, proof_ref& pr) {
-                if (is_decl_of(f, a.get_family_id(), OP_DIV) && sz == 2 && !a.is_numeral(args[1])) {                    
+                rational r;
+                if (is_decl_of(f, a.get_family_id(), OP_DIV) && sz == 2 && (!a.is_numeral(args[1], r) || r.is_zero())) {                    
                     result = m.mk_fresh_const("div", a.mk_real());
                     m_divs.push_back(div(m, args[0], args[1], to_app(result)));
-                    return BR_DONE;
-                }
-                if (is_decl_of(f, a.get_family_id(), OP_DIV_0) && sz == 1 && !a.is_numeral(args[0])) {                    
-                    result = m.mk_fresh_const("div", a.mk_real());
-                    m_divs.push_back(div(m, args[0], m_zero, to_app(result)));
                     return BR_DONE;
                 }
                 return BR_FAILED;
@@ -504,10 +500,6 @@ namespace qe {
                     return;
                 }
                 if (a.is_div(n) && s.m_mode == qsat_t) {
-                    m_has_divs = true;
-                    return;
-                }
-                if (a.is_div0(n) && s.m_mode == qsat_t) {
                     m_has_divs = true;
                     return;
                 }
