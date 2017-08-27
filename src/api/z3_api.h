@@ -4926,6 +4926,16 @@ extern "C" {
     Z3_ast Z3_API Z3_func_interp_get_else(Z3_context c, Z3_func_interp f);
 
     /**
+       \brief Return the 'else' value of the given function interpretation.
+
+       A function interpretation is represented as a finite map and an 'else' value.
+       This procedure can be used to update the 'else' value.
+
+       def_API('Z3_func_interp_set_else', VOID, (_in(CONTEXT), _in(FUNC_INTERP), _in(AST)))
+    */
+    void Z3_API Z3_func_interp_set_else(Z3_context c, Z3_func_interp f, Z3_ast else_value);
+
+    /**
        \brief Return the arity (number of arguments) of the given function interpretation.
 
        def_API('Z3_func_interp_get_arity', UINT, (_in(CONTEXT), _in(FUNC_INTERP)))

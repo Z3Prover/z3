@@ -319,6 +319,15 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
 
+    void Z3_API Z3_func_interp_set_else(Z3_context c, Z3_func_interp f, Z3_ast else_value) {
+        Z3_TRY;
+        LOG_Z3_func_interp_set_else(c, f, else_value);
+        RESET_ERROR_CODE();
+        // CHECK_NON_NULL(f, 0);
+        to_func_interp_ref(f)->set_else(to_expr(else_value));
+        Z3_CATCH;
+    }
+
     unsigned Z3_API Z3_func_interp_get_arity(Z3_context c, Z3_func_interp f) {
         Z3_TRY;
         LOG_Z3_func_interp_get_arity(c, f);

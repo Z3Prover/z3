@@ -1735,6 +1735,10 @@ namespace z3 {
             Z3_add_func_entry(ctx(), m_interp, args, value);
             check_error();
         }
+        void set_else(expr& value) {
+            Z3_func_entry_set_else(ctx(), m_interp, value);
+            check_error();
+        }
     };
 
     class model : public object {
