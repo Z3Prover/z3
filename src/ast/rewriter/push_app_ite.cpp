@@ -73,6 +73,7 @@ br_status push_app_ite_cfg::reduce_app(func_decl * f, unsigned num, expr * const
     expr_ref e_new(m.mk_app(f, num, args_prime), m);
     args_prime[ite_arg_idx] = old;
     result = m.mk_ite(c, t_new, e_new);
+    TRACE("push_app_ite", tout << result << "\n";);
     if (m.proofs_enabled()) {
         result_pr = m.mk_rewrite(m.mk_app(f, num, args), result);
     }

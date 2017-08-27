@@ -293,9 +293,6 @@ namespace smt {
         }
 
         void found_not_handled(expr* n) {
-            if (a.is_div0(n)) {
-                return;
-            }
             m_not_handled = n;
             if (is_app(n) && is_underspecified(to_app(n))) {
                 m_underspecified.push_back(to_app(n));

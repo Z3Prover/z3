@@ -36,7 +36,7 @@ Revision History:
 #include "smt/smt_case_split_queue.h"
 #include "smt/smt_almost_cg_table.h"
 #include "smt/smt_failure.h"
-#include "smt/asserted_formulas_new.h"
+#include "smt/asserted_formulas.h"
 #include "smt/smt_types.h"
 #include "smt/dyn_ack.h"
 #include "ast/ast_smt_pp.h"
@@ -81,7 +81,7 @@ namespace smt {
         params_ref                  m_params;
         setup                       m_setup;
         timer                       m_timer;
-        asserted_formulas_new       m_asserted_formulas;
+        asserted_formulas           m_asserted_formulas;
         scoped_ptr<quantifier_manager>   m_qmanager;
         scoped_ptr<model_generator>      m_model_generator;
         scoped_ptr<relevancy_propagator> m_relevancy_propagator;

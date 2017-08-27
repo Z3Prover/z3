@@ -148,8 +148,8 @@ namespace smt {
         dst_ctx.set_logic(src_ctx.m_setup.get_logic());
         dst_ctx.copy_plugins(src_ctx, dst_ctx);
 
-        asserted_formulas_new& src_af = src_ctx.m_asserted_formulas;
-        asserted_formulas_new& dst_af = dst_ctx.m_asserted_formulas;
+        asserted_formulas& src_af = src_ctx.m_asserted_formulas;
+        asserted_formulas& dst_af = dst_ctx.m_asserted_formulas;
 
         // Copy asserted formulas.
         for (unsigned i = 0; i < src_af.get_num_formulas(); ++i) {

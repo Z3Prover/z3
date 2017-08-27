@@ -395,7 +395,8 @@ namespace smt {
 
     template<typename Ext>
     theory_var theory_arith<Ext>::internalize_div(app * n) {
-        if (!m_util.is_numeral(n->get_arg(1))) found_underspecified_op(n);
+        rational r(1);
+        if (!m_util.is_numeral(n->get_arg(1), r) || r.is_zero()) found_underspecified_op(n);
         found_underspecified_op(n);
         theory_var s      = mk_binary_op(n);
         context & ctx     = get_context();
@@ -419,7 +420,8 @@ namespace smt {
     template<typename Ext>
     theory_var theory_arith<Ext>::internalize_mod(app * n) {
         TRACE("arith_mod", tout << "internalizing...\n" << mk_pp(n, get_manager()) << "\n";);
-        if (!m_util.is_numeral(n->get_arg(1))) found_underspecified_op(n);
+        rational r(1);
+        if (!m_util.is_numeral(n->get_arg(1), r) || r.is_zero()) found_underspecified_op(n);
         theory_var s      = mk_binary_op(n);
         context & ctx     = get_context();
         if (!ctx.relevancy())
@@ -429,7 +431,8 @@ namespace smt {
 
     template<typename Ext>
     theory_var theory_arith<Ext>::internalize_rem(app * n) {
-        if (!m_util.is_numeral(n->get_arg(1))) found_underspecified_op(n);
+        rational r(1);
+        if (!m_util.is_numeral(n->get_arg(1), r) || r.is_zero()) found_underspecified_op(n);
         theory_var s  = mk_binary_op(n);
         context & ctx = get_context();
         if (!ctx.relevancy()) {
@@ -734,11 +737,6 @@ namespace smt {
             return internalize_div(n);
         else if (m_util.is_idiv(n))
             return internalize_idiv(n);
-        else if (is_app_of(n, get_id(), OP_IDIV_0) || is_app_of(n, get_id(), OP_DIV_0)) {
-            ctx.internalize(n->get_arg(0), false);
-            enode * e = mk_enode(n);
-            return mk_var(e);
-        }
         else if (m_util.is_mod(n)) 
             return internalize_mod(n);
         else if (m_util.is_rem(n)) 
@@ -1226,7 +1224,8 @@ namespace smt {
         app * rhs      = to_app(n->get_arg(1));
         expr * rhs2;
         if (m_util.is_to_real(rhs, rhs2) && is_app(rhs2)) { rhs = to_app(rhs2); }
-        if (!m_util.is_numeral(rhs)) {
+        if (!m_util.is_numeral(rhs)) {        
+            UNREACHABLE();
             throw default_exception("malformed atomic constraint");
         }
         theory_var v   = internalize_term_core(lhs);

@@ -508,21 +508,21 @@ br_status poly_rewriter<Config>::mk_nflat_add_core(unsigned num_args, expr * con
     expr_fast_mark2 multiple; // multiple.is_marked(power_product) if power_product occurs more than once
     bool     has_multiple = false;
     expr *   prev = 0;
-    bool     ordered      = true;
+    bool     ordered  = true;
     for (unsigned i = 0; i < num_args; i++) {
         expr * arg = args[i];
+
         if (is_numeral(arg, a)) {
             num_coeffs++;
             c += a;
+            ordered = !m_sort_sums || i == 0;
         }
-        else {
-            // arg is not a numeral
-            if (m_sort_sums && ordered) {
-                if (prev != 0 && lt(arg, prev))
-                    ordered = false;
-                prev = arg;
-            }
+        else if (m_sort_sums && ordered) {
+            if (prev != 0 && lt(arg, prev)) 
+                ordered = false;
+            prev = arg;        
         }
+
 
         arg = get_power_product(arg);
         if (visited.is_marked(arg)) {
@@ -535,8 +535,8 @@ br_status poly_rewriter<Config>::mk_nflat_add_core(unsigned num_args, expr * con
     }
     normalize(c);
     SASSERT(m_sort_sums || ordered);
-    TRACE("sort_sums", 
-          tout << "ordered: " << ordered << "\n";
+    TRACE("rewriter", 
+          tout << "ordered: " << ordered << " sort sums: " << m_sort_sums << "\n";
           for (unsigned i = 0; i < num_args; i++) tout << mk_ismt2_pp(args[i], m()) << "\n";);
 
     if (has_multiple) {
@@ -589,13 +589,14 @@ br_status poly_rewriter<Config>::mk_nflat_add_core(unsigned num_args, expr * con
             hoist_cmul(new_args);
         }
         else if (m_sort_sums) {
-            TRACE("sort_sums_bug", tout << "new_args.size(): " << new_args.size() << "\n";);
+            TRACE("rewriter_bug", tout << "new_args.size(): " << new_args.size() << "\n";);
             if (c.is_zero())
                 std::sort(new_args.c_ptr(), new_args.c_ptr() + new_args.size(), ast_to_lt());
             else
                 std::sort(new_args.c_ptr() + 1, new_args.c_ptr() + new_args.size(), ast_to_lt());
         }
         result = mk_add_app(new_args.size(), new_args.c_ptr());
+        TRACE("rewriter", tout << result << "\n";);
         if (hoist_multiplication(result)) {
             return BR_REWRITE_FULL;
         }

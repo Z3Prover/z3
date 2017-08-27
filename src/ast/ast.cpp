@@ -2355,6 +2355,7 @@ quantifier * ast_manager::mk_quantifier(bool forall, unsigned num_decls, sort * 
     SASSERT(num_decls > 0);
     DEBUG_CODE({
             for (unsigned i = 0; i < num_patterns; ++i) {
+                TRACE("ast", tout << i << " " << mk_pp(patterns[i], *this) << "\n";);
                 SASSERT(is_pattern(patterns[i]));
             }});
     unsigned sz               = quantifier::get_obj_size(num_decls, num_patterns, num_no_patterns);

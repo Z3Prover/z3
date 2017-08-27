@@ -496,6 +496,7 @@ void rewriter_tpl<Config>::process_quantifier(quantifier * q, frame & fr) {
     expr * const * new_pats;
     expr * const * new_no_pats;
     if (rewrite_patterns()) {
+        TRACE("reduce_quantifier_bug", tout << "rewrite patterns\n";);
         new_pats    = it + 1;
         new_no_pats = new_pats + q->get_num_patterns();
     }
@@ -518,7 +519,7 @@ void rewriter_tpl<Config>::process_quantifier(quantifier * q, frame & fr) {
     }
     else {
         expr_ref tmp(m());
-
+        TRACE("reduce_quantifier_bug", tout << mk_ismt2_pp(q, m()) << " " << mk_ismt2_pp(new_body, m()) << "\n";);
         if (!m_cfg.reduce_quantifier(q, new_body, new_pats, new_no_pats, m_r, m_pr)) {
             if (fr.m_new_child) {
                 m_r = m().update_quantifier(q, q->get_num_patterns(), new_pats, q->get_num_no_patterns(), new_no_pats, new_body);

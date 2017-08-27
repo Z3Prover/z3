@@ -301,7 +301,7 @@ struct purify_arith_proc {
             if (complete()) {
                 // y != 0 \/ k = div-0(x)
                 push_cnstr(OR(NOT(EQ(y, mk_real_zero())),
-                              EQ(k, u().mk_div0(x))));
+                              EQ(k, u().mk_div(x, mk_real_zero()))));
                 push_cnstr_pr(result_pr);
             }
         }
@@ -349,10 +349,10 @@ struct purify_arith_proc {
             push_cnstr_pr(mod_pr);
 
             if (complete()) {
-                push_cnstr(OR(NOT(EQ(y, zero)), EQ(k1, u().mk_idiv0(x))));
+                push_cnstr(OR(NOT(EQ(y, zero)), EQ(k1, u().mk_idiv(x, zero))));
                 push_cnstr_pr(result_pr);
 
-                push_cnstr(OR(NOT(EQ(y, zero)), EQ(k2, u().mk_mod0(x))));
+                push_cnstr(OR(NOT(EQ(y, zero)), EQ(k2, u().mk_mod(x, zero))));
                 push_cnstr_pr(mod_pr);
             }
         }
@@ -414,7 +414,7 @@ struct purify_arith_proc {
                 // (^ x 0) --> k  |  x != 0 implies k = 1,   x = 0 implies k = 0^0 
                 push_cnstr(OR(EQ(x, zero), EQ(k, one)));
                 push_cnstr_pr(result_pr);
-                push_cnstr(OR(NOT(EQ(x, zero)), EQ(k, is_int ? u().mk_0_pw_0_int() : u().mk_0_pw_0_real())));
+                push_cnstr(OR(NOT(EQ(x, zero)), EQ(k, u().mk_power(zero, zero))));
                 push_cnstr_pr(result_pr);
             }
             else if (!is_int) {

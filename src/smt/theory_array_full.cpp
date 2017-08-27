@@ -516,7 +516,8 @@ namespace smt {
 
         expr_ref sel1(m), sel2(m);
         sel1 = mk_select(args1.size(), args1.c_ptr());
-        sel2 = ctx.get_rewriter().mk_app(f, args2.size(), args2.c_ptr());
+        sel2 = m.mk_app(f, args2.size(), args2.c_ptr());
+        ctx.get_rewriter()(sel2);
         ctx.internalize(sel1, false);
         ctx.internalize(sel2, false);
         
@@ -537,6 +538,7 @@ namespace smt {
         SASSERT(is_map(mp));
                 
         app* map = mp->get_owner();
+        ast_manager& m = get_manager();
         context& ctx = get_context();
         if (!ctx.add_fingerprint(this, 0, 1, &mp)) {
             return false;
@@ -552,9 +554,9 @@ namespace smt {
             args2.push_back(mk_default(map->get_arg(i)));
         }
 
+        expr_ref def2(m.mk_app(f, args2.size(), args2.c_ptr()), m);
+        ctx.get_rewriter()(def2);
         expr* def1 = mk_default(map);
-        expr_ref def2(get_manager());
-        def2 = ctx.get_rewriter().mk_app(f, args2.size(), args2.c_ptr());
         ctx.internalize(def1, false);
         ctx.internalize(def2, false);
         return try_assign_eq(def1, def2);

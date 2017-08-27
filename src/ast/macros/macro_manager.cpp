@@ -213,11 +213,13 @@ func_decl * macro_manager::get_macro_interpretation(unsigned i, expr_ref & inter
 struct macro_manager::macro_expander_cfg : public default_rewriter_cfg {
     ast_manager& m; 
     macro_manager& mm;
+    expr_dependency_ref m_used_macro_dependencies; 
     expr_ref_vector m_trail;
 
     macro_expander_cfg(ast_manager& m, macro_manager& mm):
         m(m),
         mm(mm),
+        m_used_macro_dependencies(m),
         m_trail(m)
     {}
 
@@ -297,8 +299,10 @@ struct macro_manager::macro_expander_cfg : public default_rewriter_cfg {
                 p = m.mk_unit_resolution(2, prs);
             }
             else {
-                p = 0;
+                p = 0; 
             }
+            expr_dependency * ed = mm.m_decl2macro_dep.find(d); 
+            m_used_macro_dependencies = m.mk_join(m_used_macro_dependencies, ed); 
             return true;
         }
         return false;
@@ -307,6 +311,7 @@ struct macro_manager::macro_expander_cfg : public default_rewriter_cfg {
 
 struct macro_manager::macro_expander_rw : public rewriter_tpl<macro_manager::macro_expander_cfg> {
     macro_expander_cfg m_cfg;
+
     macro_expander_rw(ast_manager& m, macro_manager& mm):
         rewriter_tpl<macro_manager::macro_expander_cfg>(m, m.proofs_enabled(), m_cfg),
         m_cfg(m, mm) 
@@ -319,8 +324,10 @@ void macro_manager::expand_macros(expr * n, proof * pr, expr_dependency * dep, e
         // Expand macros with "real" proof production support (NO rewrite*)
         expr_ref old_n(m);
         proof_ref old_pr(m);
+        expr_dependency_ref old_dep(m);
         old_n  = n;
         old_pr = pr;
+        old_dep = dep;
         bool change = false;
         for (;;) {
             macro_expander_rw proc(m, *this);
@@ -328,10 +335,12 @@ void macro_manager::expand_macros(expr * n, proof * pr, expr_dependency * dep, e
             TRACE("macro_manager_bug", tout << "expand_macros:\n" << mk_pp(n, m) << "\n";);
             proc(old_n, r, n_eq_r_pr);
             new_pr = m.mk_modus_ponens(old_pr, n_eq_r_pr);
+            new_dep = m.mk_join(old_dep, proc.m_cfg.m_used_macro_dependencies); 
             if (r.get() == old_n.get())
                 break;
             old_n  = r;
             old_pr = new_pr;
+            old_dep = new_dep;
             change = true;
         }
         // apply th_rewrite to the result.
