@@ -4954,9 +4954,9 @@ extern "C" {
        If an two entries are added with the same arguments, only the second insertion survives and the
        first inserted entry is removed.
 
-       def_API('Z3_add_func_entry', VOID, (_in(CONTEXT), _in(FUNC_INTERP), _in(AST_VECTOR), _in(AST)))
+       def_API('Z3_func_interp_add_entry', VOID, (_in(CONTEXT), _in(FUNC_INTERP), _in(AST_VECTOR), _in(AST)))
      */
-    void Z3_API Z3_add_func_entry(Z3_context c, Z3_func_interp fi, Z3_ast_vector args, Z3_ast value);
+    void Z3_API Z3_func_interp_add_entry(Z3_context c, Z3_func_interp fi, Z3_ast_vector args, Z3_ast value);
 
     /**
        \brief Increment the reference counter of the given Z3_func_entry object.

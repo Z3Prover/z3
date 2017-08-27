@@ -1732,11 +1732,11 @@ namespace z3 {
         unsigned num_entries() const { unsigned r = Z3_func_interp_get_num_entries(ctx(), m_interp); check_error(); return r; }
         func_entry entry(unsigned i) const { Z3_func_entry e = Z3_func_interp_get_entry(ctx(), m_interp, i); check_error(); return func_entry(ctx(), e); }
         void add_entry(expr_vector const& args, expr& value) {
-            Z3_add_func_entry(ctx(), m_interp, args, value);
+            Z3_func_interp_add_entry(ctx(), m_interp, args, value);
             check_error();
         }
         void set_else(expr& value) {
-            Z3_func_entry_set_else(ctx(), m_interp, value);
+            Z3_func_interp_set_else(ctx(), m_interp, value);
             check_error();
         }
     };
