@@ -407,7 +407,8 @@ namespace smt {
 
     template<typename Ext>
     theory_var theory_arith<Ext>::internalize_idiv(app * n) {
-        found_underspecified_op(n);
+        rational r;
+        if (!m_util.is_numeral(n->get_arg(1), r) || r.is_zero()) found_underspecified_op(n);
         theory_var s      = mk_binary_op(n);
         context & ctx     = get_context();
         app * mod         = m_util.mk_mod(n->get_arg(0), n->get_arg(1));

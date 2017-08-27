@@ -405,8 +405,6 @@ bool arith_simplifier_plugin::reduce(func_decl * f, unsigned num_args, expr * co
     case OP_POWER:                    return false;
     case OP_ABS:      SASSERT(num_args == 1); mk_abs(args[0], result); break;
     case OP_IRRATIONAL_ALGEBRAIC_NUM: return false;
-    case OP_DIV_0: return false;
-    case OP_IDIV_0: return false;
     default:
         return false;
     }

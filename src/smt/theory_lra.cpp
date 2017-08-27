@@ -377,7 +377,12 @@ namespace smt {
                 }
                 else if (is_app(n) && a.get_family_id() == to_app(n)->get_family_id()) {
                     app* t = to_app(n);
-                    found_not_handled(n);
+                    if (a.is_div(n, n1, n2) && is_numeral(n2, r)) {
+                        // skip
+                    }
+                    else {
+                        found_not_handled(n);
+                    }
                     internalize_args(t);
                     mk_enode(t);
                     theory_var v = mk_var(n);
