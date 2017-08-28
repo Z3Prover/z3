@@ -288,7 +288,7 @@ typename symbolic_automata<T, M>::automaton_t*
 symbolic_automata<T, M>::mk_determinstic_param(automaton_t& a, bool flip_acceptance) {
     vector<std::pair<vector<bool>, ref_t> > min_terms;
     vector<ref_t> predicates;
-    
+
     map<uint_set, unsigned, uint_set::hash, uint_set::eq> s2id; // set of states to unique id
     vector<uint_set> id2s;                           // unique id to set of b-states
     uint_set set;
@@ -296,9 +296,19 @@ symbolic_automata<T, M>::mk_determinstic_param(automaton_t& a, bool flip_accepta
     moves_t new_mvs;                                 // moves in the resulting automaton
     unsigned_vector new_final_states;                // new final states
     unsigned p_state_id = 0;                         // next state identifier
-    
+
+    TRACE("seq", tout << "mk-deterministic " << flip_acceptance << " " << set << " " << a.is_final_configuration(set) << "\n";);    
     // adds non-final states of a to final if flipping and and final otherwise
-    if (a.is_final_configuration(set) != flip_acceptance) {
+    unsigned_vector init_states;
+    a.get_epsilon_closure(a.init(), init_states);
+    bool found_final = false;
+    for (unsigned s : init_states) {
+        if (a.is_final_state(s)) {
+            found_final = true;
+            break;
+        }
+    }
+    if (found_final != flip_acceptance) {
         new_final_states.push_back(p_state_id);
     }
     
@@ -342,6 +352,7 @@ symbolic_automata<T, M>::mk_determinstic_param(automaton_t& a, bool flip_accepta
             
             bool is_new = !s2id.contains(set);
             if (is_new) {
+                TRACE("seq", tout << "mk-deterministic " << flip_acceptance << " " << set << " " << a.is_final_configuration(set) << "\n";);    
                 if (a.is_final_configuration(set) != flip_acceptance) {
                     new_final_states.push_back(p_state_id);
                 }

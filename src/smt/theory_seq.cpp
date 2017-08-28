@@ -3391,15 +3391,22 @@ void theory_seq::propagate_in_re(expr* n, bool is_true) {
         return;
     }
 
-    eautomaton* a = get_automaton(e2);
+    expr_ref e3(e2, m);
+    context& ctx = get_context();
+    literal lit = ctx.get_literal(n);
+    if (!is_true) {
+        e3 = m_util.re.mk_complement(e2);
+        is_true = true;
+        lit.neg();
+    }
+    eautomaton* a = get_automaton(e3);
     if (!a) return;
 
-    context& ctx = get_context();
 
     expr_ref len(m_util.str.mk_length(e1), m);
     for (unsigned i = 0; i < a->num_states(); ++i) {
-        literal acc = mk_accept(e1, len, e2, i);
-        literal rej = mk_reject(e1, len, e2, i);
+        literal acc = mk_accept(e1, len, e3, i);
+        literal rej = mk_reject(e1, len, e3, i);
         add_axiom(a->is_final_state(i)?acc:~acc);
         add_axiom(a->is_final_state(i)?~rej:rej);
     }
@@ -3408,17 +3415,16 @@ void theory_seq::propagate_in_re(expr* n, bool is_true) {
     unsigned_vector states;
     a->get_epsilon_closure(a->init(), states);
     literal_vector lits;
-    literal lit = ctx.get_literal(n);
     if (is_true) {
         lits.push_back(~lit);
     }
     for (unsigned i = 0; i < states.size(); ++i) {
         if (is_true) {
-            lits.push_back(mk_accept(e1, zero, e2, states[i]));
+            lits.push_back(mk_accept(e1, zero, e3, states[i]));
         }
         else {
             literal nlit = ~lit;
-            propagate_lit(0, 1, &nlit, mk_reject(e1, zero, e2, states[i]));
+            propagate_lit(0, 1, &nlit, mk_reject(e1, zero, e3, states[i]));
         }
     }
     if (is_true) {
