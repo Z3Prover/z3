@@ -402,7 +402,7 @@ bool arith_simplifier_plugin::reduce(func_decl * f, unsigned num_args, expr * co
     case OP_TO_REAL:  SASSERT(num_args == 1); mk_to_real(args[0], result); break;
     case OP_TO_INT:   SASSERT(num_args == 1); mk_to_int(args[0], result); break;
     case OP_IS_INT:   SASSERT(num_args == 1); mk_is_int(args[0], result); break;
-    case OP_POWER:                    return false;
+    case OP_POWER:    SASSERT(num_args == 2); mk_power(args[0], args[1], result); break;
     case OP_ABS:      SASSERT(num_args == 1); mk_abs(args[0], result); break;
     case OP_IRRATIONAL_ALGEBRAIC_NUM: return false;
     default:
@@ -410,6 +410,25 @@ bool arith_simplifier_plugin::reduce(func_decl * f, unsigned num_args, expr * co
     }
     TRACE("arith_simplifier_plugin", tout << mk_pp(result.get(), m_manager) << "\n";);
     return true;
+}
+
+void arith_simplifier_plugin::mk_power(expr* x, expr* y, expr_ref& result) {
+    rational a, b;
+    if (is_numeral(y, b) && b.is_one()) {
+        result = x;
+        return;
+    }
+    if (is_numeral(x, a) && is_numeral(y, b) && b.is_unsigned()) {
+        if (b.is_zero() && !a.is_zero()) {
+            result = m_util.mk_numeral(rational(1), m_manager.get_sort(x));
+            return;
+        }
+        if (!b.is_zero()) {
+            result = m_util.mk_numeral(power(a, b.get_unsigned()), m_manager.get_sort(x));
+            return;
+        }
+    }
+    result = m_util.mk_power(x, y);
 }
 
 void arith_simplifier_plugin::mk_abs(expr * arg, expr_ref & result) {
