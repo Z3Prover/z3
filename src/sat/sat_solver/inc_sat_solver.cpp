@@ -388,6 +388,9 @@ private:
         m_subgoals.reset();
         init_preprocess();
         SASSERT(g->models_enabled());
+        if (g->proofs_enabled()) {
+            throw default_exception("generation of proof objects is not supported in this mode");
+        }
         SASSERT(!g->proofs_enabled());
         TRACE("sat", g->display(tout););
         try {
