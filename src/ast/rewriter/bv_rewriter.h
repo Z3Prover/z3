@@ -42,6 +42,7 @@ protected:
     decl_kind mul_decl_kind() const { return OP_BMUL; }
     bool use_power() const { return false; }
     decl_kind power_decl_kind() const { UNREACHABLE(); return static_cast<decl_kind>(UINT_MAX); }
+
 public:
     bv_rewriter_core(ast_manager & m):m_util(m) {}
 };
@@ -108,6 +109,10 @@ class bv_rewriter : public poly_rewriter<bv_rewriter_core> {
     br_status mk_bv_ashr(expr * arg1, expr * arg2, expr_ref & result);
     bool is_minus_one_core(expr * arg) const;
     bool is_x_minus_one(expr * arg, expr * & x);
+    bool is_add_no_overflow(expr* e);
+    bool is_mul_no_overflow(expr* e);
+    unsigned num_leading_zero_bits(expr* e);
+
     br_status mk_bv_sdiv_core(expr * arg1, expr * arg2, bool hi_div0, expr_ref & result);
     br_status mk_bv_udiv_core(expr * arg1, expr * arg2, bool hi_div0, expr_ref & result);
     br_status mk_bv_srem_core(expr * arg1, expr * arg2, bool hi_div0, expr_ref & result);
