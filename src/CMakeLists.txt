@@ -68,9 +68,6 @@ add_subdirectory(cmd_context)
 add_subdirectory(cmd_context/extra_cmds)
 add_subdirectory(parsers/smt2)
 add_subdirectory(ast/proof_checker)
-## Simplifier module will be deleted in the future.
-## It has been replaced with rewriter component.
-add_subdirectory(ast/simplifier)
 add_subdirectory(ast/fpa)
 add_subdirectory(ast/macros)
 add_subdirectory(ast/pattern)

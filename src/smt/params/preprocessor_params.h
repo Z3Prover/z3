@@ -21,8 +21,6 @@ Revision History:
 
 #include "ast/pattern/pattern_inference_params.h"
 #include "ast/rewriter/bit_blaster/bit_blaster_params.h"
-#include "ast/simplifier/bv_simplifier_params.h"
-#include "ast/simplifier/arith_simplifier_params.h"
 
 enum lift_ite_kind {
     LI_NONE,
@@ -31,9 +29,7 @@ enum lift_ite_kind {
 };
 
 struct preprocessor_params : public pattern_inference_params, 
-                             public bit_blaster_params,
-                             public bv_simplifier_params,
-                             public arith_simplifier_params {
+                             public bit_blaster_params {
     lift_ite_kind   m_lift_ite;
     lift_ite_kind   m_ng_lift_ite;  // lift ite for non ground terms
     bool            m_pull_cheap_ite_trees;

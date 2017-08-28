@@ -21,11 +21,9 @@ Revision History:
 
 #include "util/params.h"
 
-struct array_simplifier_params {
-    bool            m_array_canonize_simplify;
-    bool            m_array_simplify; // temporary hack for disabling array simplifier plugin.
+struct array_simplifier_params1 {
 
-    array_simplifier_params(params_ref const & p = params_ref()) {
+    array_simplifier_params1(params_ref const & p = params_ref()) {
         updt_params(p);
     }
 

@@ -42,6 +42,8 @@ void theory_arith_params::updt_params(params_ref const & _p) {
 #define DISPLAY_PARAM(X) out << #X"=" << X << std::endl;
 
 void theory_arith_params::display(std::ostream & out) const {
+    DISPLAY_PARAM(m_arith_expand_eqs);
+    DISPLAY_PARAM(m_arith_process_all_eqs);
     DISPLAY_PARAM(m_arith_mode);
     DISPLAY_PARAM(m_arith_auto_config_simplex); //!< force simplex solver in auto_config
     DISPLAY_PARAM(m_arith_blands_rule_threshold);

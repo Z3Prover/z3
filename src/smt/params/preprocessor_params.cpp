@@ -30,8 +30,6 @@ void preprocessor_params::updt_local_params(params_ref const & _p) {
 
 void preprocessor_params::updt_params(params_ref const & p) {
     pattern_inference_params::updt_params(p);
-    bv_simplifier_params::updt_params(p);
-    arith_simplifier_params::updt_params(p);
     updt_local_params(p);
 }
 
@@ -40,8 +38,6 @@ void preprocessor_params::updt_params(params_ref const & p) {
 void preprocessor_params::display(std::ostream & out) const {
     pattern_inference_params::display(out);
     bit_blaster_params::display(out);
-    bv_simplifier_params::display(out);
-    arith_simplifier_params::display(out);
 
     DISPLAY_PARAM(m_lift_ite);
     DISPLAY_PARAM(m_ng_lift_ite);

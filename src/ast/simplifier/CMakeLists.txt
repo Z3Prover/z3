@@ -2,11 +2,11 @@ z3_add_component(simplifier
   SOURCES
      arith_simplifier_params.cpp
 #    arith_simplifier_plugin.cpp
-     array_simplifier_params.cpp
+#    array_simplifier_params.cpp
 #    array_simplifier_plugin.cpp
 #    basic_simplifier_plugin.cpp
 #    bv_elim.cpp
-     bv_simplifier_params.cpp
+#    bv_simplifier_params.cpp
 #    bv_simplifier_plugin.cpp
 #    datatype_simplifier_plugin.cpp
 #    elim_bounds.cpp
@@ -18,8 +18,5 @@ z3_add_component(simplifier
 #    simplifier_plugin.cpp
   COMPONENT_DEPENDENCIES
     rewriter
-  PYG_FILES
-    arith_simplifier_params_helper.pyg
-    array_simplifier_params_helper.pyg
-    bv_simplifier_params_helper.pyg
+
 )

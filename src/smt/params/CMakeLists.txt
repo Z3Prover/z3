@@ -13,7 +13,6 @@ z3_add_component(smt_params
     ast
     bit_blaster
     pattern
-    simplifier
   PYG_FILES
     smt_params_helper.pyg
 )
