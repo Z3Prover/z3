@@ -69,7 +69,7 @@ private:
                     m_post2expr.push_back(e);
                     todo.pop_back();
                     for (expr* arg : *a) {
-                        add_edge(m_parents, a, arg);
+                        add_edge(m_parents, arg, a);
                     }
                 }
             }
@@ -83,12 +83,17 @@ private:
         unsigned n1 = m_expr2post[x];
         unsigned n2 = m_expr2post[y];
         while (n1 != n2) {
-            if (n1 < n2)
-                n1 = m_doms[n1];
-            else if (n1 > n2)
-                n2 = m_doms[n2];
+            if (n1 < n2) {
+                x = m_doms[x];
+                n1 = m_expr2post[x];
+            }
+            else if (n1 > n2) {
+                y = m_doms[y];
+                n2 = m_expr2post[y];
+            }
         }
-        return n1;
+        SASSERT(x == y);
+        return x;
     }
 
     void compute_dominators() {
@@ -111,6 +116,7 @@ private:
                 }
                 if (!m_doms.find(child, idom2) || idom2 != new_idom) {
                     m_doms.insert(child, new_idom);
+                    change = true;
                 }
             }
         }
@@ -118,10 +124,7 @@ private:
 
     void extract_tree() {
         for (auto const& kv : m_doms) {
-            expr * child = kv.m_key;
-            for (expr * parent : kv.m_value) {
-                add_edge(m_tree, parent, child);
-            }
+            add_edge(m_tree, kv.m_value, kv.m_key);
         }
     }    
 
