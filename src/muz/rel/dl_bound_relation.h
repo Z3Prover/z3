@@ -26,7 +26,6 @@ Revision History:
 #include "muz/rel/dl_vector_relation.h"
 #include "muz/rel/dl_interval_relation.h"
 #include "ast/arith_decl_plugin.h"
-#include "ast/simplifier/basic_simplifier_plugin.h"
 #include "ast/rewriter/bool_rewriter.h"
 
 namespace datalog {

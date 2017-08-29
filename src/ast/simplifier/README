@@ -1,2 +1,0 @@
-Simplifier module is now obsolete.
-It is still being used in many places, but we will eventually replace all occurrences with the new rewriter module.

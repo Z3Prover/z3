@@ -23,7 +23,6 @@ Revision History:
 #include "util/obj_pair_hashtable.h"
 #include "ast/arith_decl_plugin.h"
 #include "util/statistics.h"
-#include "ast/simplifier/arith_simplifier_plugin.h"
 
 namespace smt {
 

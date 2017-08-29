@@ -20,8 +20,6 @@ Revision History:
 #include "ast/macros/macro_util.h"
 #include "ast/occurs.h"
 #include "ast/ast_util.h"
-#include "ast/simplifier/arith_simplifier_plugin.h"
-#include "ast/simplifier/bv_simplifier_plugin.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"

@@ -19,12 +19,11 @@ Revision History:
 #ifndef THEORY_ARITH_INT_H_
 #define THEORY_ARITH_INT_H_
 
-#include "ast/ast_ll_pp.h"
-#include "ast/simplifier/arith_simplifier_plugin.h"
-#include "ast/well_sorted.h"
-#include "math/euclid/euclidean_solver.h"
 #include "util/numeral_buffer.h"
+#include "ast/ast_ll_pp.h"
+#include "ast/well_sorted.h"
 #include "ast/ast_smt2_pp.h"
+#include "math/euclid/euclidean_solver.h"
 
 namespace smt {
 

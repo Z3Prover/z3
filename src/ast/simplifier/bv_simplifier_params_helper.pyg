@@ -1,4 +1,0 @@
-def_module_params(class_name='bv_simplifier_params_helper',
-                  module_name="old_simplify", # Parameters will be in the old_simplify module
-                  export=True,
-                  params=(('bv.bv2int_distribute', BOOL, True, 'if true, then int2bv is distributed over arithmetical operators'),))
