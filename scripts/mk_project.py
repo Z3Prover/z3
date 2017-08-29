@@ -23,10 +23,7 @@ def init_project_def():
     add_lib('subpaving', ['interval'], 'math/subpaving')
     add_lib('ast', ['util', 'polynomial'])
     add_lib('rewriter', ['ast', 'polynomial', 'automata'], 'ast/rewriter')
-    # Simplifier module will be deleted in the future.
-    # It has been replaced with rewriter module.
-    add_lib('simplifier', ['rewriter'], 'ast/simplifier')
-    add_lib('macros', ['simplifier'], 'ast/macros')
+    add_lib('macros', ['rewriter'], 'ast/macros')
     add_lib('normal_forms', ['rewriter'], 'ast/normal_forms')
     add_lib('model', ['rewriter'])
     add_lib('tactic', ['ast', 'model'])
@@ -47,11 +44,11 @@ def init_project_def():
     add_lib('extra_cmds', ['cmd_context', 'subpaving_tactic', 'arith_tactics'], 'cmd_context/extra_cmds')
     add_lib('smt2parser', ['cmd_context', 'parser_util'], 'parsers/smt2')
     add_lib('proof_checker', ['rewriter'], 'ast/proof_checker')
-    add_lib('fpa', ['ast', 'util', 'simplifier', 'model'], 'ast/fpa')
-    add_lib('pattern', ['normal_forms', 'smt2parser', 'simplifier'], 'ast/pattern')
-    add_lib('bit_blaster', ['rewriter', 'simplifier'], 'ast/rewriter/bit_blaster')
-    add_lib('smt_params', ['ast', 'simplifier', 'pattern', 'bit_blaster'], 'smt/params')
-    add_lib('proto_model', ['model', 'simplifier', 'smt_params'], 'smt/proto_model')
+    add_lib('fpa', ['ast', 'util', 'rewriter', 'model'], 'ast/fpa')
+    add_lib('pattern', ['normal_forms', 'smt2parser', 'rewriter'], 'ast/pattern')
+    add_lib('bit_blaster', ['rewriter', 'rewriter'], 'ast/rewriter/bit_blaster')
+    add_lib('smt_params', ['ast', 'rewriter', 'pattern', 'bit_blaster'], 'smt/params')
+    add_lib('proto_model', ['model', 'rewriter', 'smt_params'], 'smt/proto_model')
     add_lib('smt', ['bit_blaster', 'macros', 'normal_forms', 'cmd_context', 'proto_model',
                     'substitution', 'grobner', 'euclid', 'simplex', 'proof_checker', 'pattern', 'parser_util', 'fpa', 'lp'])
     add_lib('bv_tactics', ['tactic', 'bit_blaster', 'core_tactics'], 'tactic/bv')
