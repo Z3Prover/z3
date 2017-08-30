@@ -24,6 +24,7 @@ Notes:
 #include <utility>
 #include "tactic/tactical.h"
 #include "ast/rewriter/rewriter_def.h"
+#include "tactic/core/injectivity_params.hpp"
 #include "tactic/core/injectivity_tactic.h"
 #include "util/dec_ref_util.h"
 
@@ -287,10 +288,11 @@ class injectivity_tactic : public tactic {
     InjHelper *        m_map;
 
     ast_manager &      m_manager;
+    injectivity_params const &  p;
 
 public:
-    injectivity_tactic(ast_manager & m):
-        m_manager(m) {
+    injectivity_tactic(ast_manager & m, params_ref const & _p):
+        m_manager(m), p(_p) {
         TRACE("injectivity", tout << "constructed new tactic" << std::endl;);
         m_map = alloc(InjHelper, m);
         m_finder = alloc(finder, m, *m_map);
@@ -299,7 +301,7 @@ public:
     }
 
     virtual tactic * translate(ast_manager & m) {
-        return alloc(injectivity_tactic, m);
+        return alloc(injectivity_tactic, m, p.p);
     }
 
     virtual ~injectivity_tactic() {
@@ -310,8 +312,7 @@ public:
     }
 
     virtual void collect_param_descrs(param_descrs & r) {
-        insert_max_memory(r);
-        insert_produce_models(r);
+        p.collect_param_descrs(r);
     }
 
     virtual void operator()(goal_ref const & g,
@@ -321,14 +322,26 @@ public:
                             expr_dependency_ref & core) {
         (*m_finder)(g, result, mc, pc, core);
 
+        const bool want_eq = p.eq(), want_inv = p.inv();
+
         for (unsigned i = 0; i < g->size(); ++i) {
             expr*     curr = g->form(i);
             expr_ref  r_eq(m_manager), r_inv(m_manager);
             proof_ref pr(m_manager);
-            (*m_eq)(curr, r_eq, pr);
-            (*m_inv)(r_eq, r_inv, pr);
+
+            if (want_eq)
+                (*m_eq)(curr, r_eq, pr);
+            else
+                r_eq = curr;
+
+            if (want_inv)
+                (*m_inv)(r_eq, r_inv, pr);
+            else
+                r_inv = r_eq;
+
             g->update(i, r_inv, pr, g->dep(i));
         }
+
         result.push_back(g.get());
     }
 
@@ -345,6 +358,6 @@ public:
 
 };
 
-tactic * mk_injectivity_tactic(ast_manager & m) {
-    return alloc(injectivity_tactic, m);
+tactic * mk_injectivity_tactic(ast_manager & m, params_ref const & p) {
+    return alloc(injectivity_tactic, m, p);
 }

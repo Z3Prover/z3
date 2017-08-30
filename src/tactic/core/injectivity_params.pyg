@@ -1,0 +1,8 @@
+# -*- mode: python -*-
+def_module_params('injectivity',
+                  export=True,
+                  description='Preprocessor for reasoning on injective functions.',
+                  params=(
+						('eq', BOOL, 1, 'Push equalities down injective functions (rewrite (= (f x) (f y)) as (= x y)).'),
+						('inv', BOOL, 1, 'Rewrite (g (f x)) as (x) whenever g is a pseudoinverse of f')
+			  ))

@@ -23,10 +23,10 @@ Notes:
 class ast_manager;
 class tactic;
 
-tactic * mk_injectivity_tactic(ast_manager & m);
+tactic * mk_injectivity_tactic(ast_manager & m, params_ref const & p);
 
 /*
-  ADD_TACTIC("injectivity",  "Identifies and applies injectivity axioms.", "mk_injectivity_tactic(m)")
+  ADD_TACTIC("injectivity",  "Identifies and applies injectivity axioms.", "mk_injectivity_tactic(m, p)")
 */
 
 #endif

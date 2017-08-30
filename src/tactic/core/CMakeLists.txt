@@ -25,6 +25,8 @@ z3_add_component(core_tactics
     normal_forms
     rewriter
     tactic
+  PYG_FILES
+    injectivity_params.pyg
   TACTIC_HEADERS
     blast_term_ite_tactic.h
     cofactor_term_ite_tactic.h
