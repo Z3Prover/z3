@@ -177,7 +177,6 @@ class injectivity_tactic : public tactic {
                         expr_dependency_ref & core) {
             SASSERT(goal->is_well_sorted());
             mc = 0; pc = 0; core = 0;
-            tactic_report report("injectivity", *goal);
 
             for (unsigned i = 0; i < goal->size(); ++i) {
                 func_decl *f, *g;
@@ -354,6 +353,7 @@ public:
                             proof_converter_ref & pc,
                             expr_dependency_ref & core) {
         fail_if_proof_generation("injectivity", g);
+        tactic_report report("injectivity", *g);
 
         (*m_finder)(g, result, mc, pc, core);
 
