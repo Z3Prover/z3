@@ -1701,9 +1701,14 @@ void cmd_context::complete_model() {
             func_decl * f = v.get_entry(i);
             if (!md->has_interpretation(f)) {
                 sort * range = f->get_range();
-                func_interp * fi = alloc(func_interp, m(), f->get_arity());
-                fi->set_else(m().get_some_value(range));
-                md->register_decl(f, fi);
+                expr * some_val = m().get_some_value(range);
+                if (f->get_arity() > 0) {
+                    func_interp * fi = alloc(func_interp, m(), f->get_arity());
+                    fi->set_else(some_val);
+                    md->register_decl(f, fi);
+                }
+                else
+                    md->register_decl(f, some_val);
             }
         }
     }
