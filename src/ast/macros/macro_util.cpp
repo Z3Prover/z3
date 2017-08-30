@@ -37,23 +37,6 @@ macro_util::macro_util(ast_manager & m):
     m_curr_clause(0) {
 }
 
-#if 0
-arith_simplifier_plugin * macro_util::get_arith_simp() const {
-    if (m_arith_simp == 0) {
-        const_cast<macro_util*>(this)->m_arith_simp = static_cast<arith_simplifier_plugin*>(m_simplifier.get_plugin(m_manager.mk_family_id("arith")));
-    }
-    SASSERT(m_arith_simp != 0);
-    return m_arith_simp;
-}
-
-bv_simplifier_plugin * macro_util::get_bv_simp() const {
-    if (m_bv_simp == 0) {
-        const_cast<macro_util*>(this)->m_bv_simp = static_cast<bv_simplifier_plugin*>(m_simplifier.get_plugin(m_manager.mk_family_id("bv")));
-    }
-    SASSERT(m_bv_simp != 0);
-    return m_bv_simp;
-}
-#endif
 
 bool macro_util::is_bv(expr * n) const {
     return m_bv.is_bv(n);

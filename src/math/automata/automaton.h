@@ -107,11 +107,10 @@ public:
         m_init = init;
         m_delta.push_back(moves());
         m_delta_inv.push_back(moves());
-        for (unsigned i = 0; i < final.size(); ++i) {
-            add_to_final_states(final[i]);
+        for (unsigned f : final) {
+            add_to_final_states(f);
         }
-        for (unsigned i = 0; i < mvs.size(); ++i) {
-            move const& mv = mvs[i];
+        for (move const& mv : mvs) {
             unsigned n = std::max(mv.src(), mv.dst());
             if (n >= m_delta.size()) {
                 m_delta.resize(n+1, moves());
@@ -280,8 +279,8 @@ public:
         }
         else {
             init = a.num_states();
-            for (unsigned i = 0; i < a.m_final_states.size(); ++i) {
-                mvs.push_back(move(m, init, a.m_final_states[i]));
+            for (unsigned st : a.m_final_states) {
+                mvs.push_back(move(m, init, st));
             }
         }
         return alloc(automaton, m, init, final, mvs);        
@@ -471,18 +470,17 @@ public:
     moves const& get_moves_to(unsigned state) const { return m_delta_inv[state]; }
     bool initial_state_is_source() const { return m_delta_inv[m_init].empty(); }
     bool is_final_state(unsigned s) const { return m_final_set.contains(s); }
-	bool is_final_configuration(uint_set s) const { 
-		for (uint_set::iterator it = s.begin(), end = s.end(); it != end; ++it) {
-			if (is_final_state(*it))
-				return true;
-		}
-		return false; 
-	}
+    bool is_final_configuration(uint_set s) const {
+        for (unsigned i : s) {
+            if (is_final_state(i))
+                return true;
+        }
+        return false; 
+    }
     bool is_epsilon_free() const {
-        for (unsigned i = 0; i < m_delta.size(); ++i) {
-            moves const& mvs = m_delta[i];
-            for (unsigned j = 0; j < mvs.size(); ++j) {
-                if (!mvs[j].t()) return false;
+        for (moves const& mvs : m_delta) {
+            for (move const & m : mvs) {
+                if (!m.t()) return false;
             }
         }
         return true;
@@ -490,8 +488,8 @@ public:
 
     bool all_epsilon_in(unsigned s) {
         moves const& mvs = m_delta_inv[s];
-        for (unsigned j = 0; j < mvs.size(); ++j) {
-            if (mvs[j].t()) return false;
+        for (move const& m : mvs) {
+            if (m.t()) return false;
         }
         return true;
     }
@@ -504,15 +502,15 @@ public:
     bool is_loop_state(unsigned s) const {
         moves mvs;
         get_moves_from(s, mvs);
-        for (unsigned i = 0; i < mvs.size(); ++i) {
-            if (s == mvs[i].dst()) return true;
+        for (move const& m : mvs) {
+            if (s == m.dst()) return true;
         }
         return false;
     }
 
     unsigned move_count() const {
         unsigned result = 0;
-        for (unsigned i = 0; i < m_delta.size(); result += m_delta[i].size(), ++i) {}
+        for (moves const& mvs : m_delta) result += mvs.size();
         return result;
     }
     void get_epsilon_closure(unsigned state, unsigned_vector& states) {
@@ -524,13 +522,13 @@ public:
     void get_moves_from(unsigned state, moves& mvs, bool epsilon_closure = true) const {
         get_moves(state, m_delta, mvs, epsilon_closure);
     }
-	void get_moves_from_states(uint_set states, moves& mvs, bool epsilon_closure = true) const {
-		for (uint_set::iterator it = states.begin(), end = states.end(); it != end; ++it) {
-			moves curr;
-			get_moves(*it, m_delta, curr, epsilon_closure);
-			mvs.append(curr);
-		}
-	}
+    void get_moves_from_states(uint_set states, moves& mvs, bool epsilon_closure = true) const {
+        for (unsigned i : states) {
+            moves curr;
+            get_moves(i, m_delta, curr, epsilon_closure);
+            mvs.append(curr);
+        }
+    }
     void get_moves_to(unsigned state, moves& mvs, bool epsilon_closure = true) {
         get_moves(state, m_delta_inv, mvs, epsilon_closure);
     }
@@ -543,8 +541,7 @@ public:
         out << "\n";
         for (unsigned i = 0; i < m_delta.size(); ++i) {
             moves const& mvs = m_delta[i];
-            for (unsigned j = 0; j < mvs.size(); ++j) {
-                move const& mv = mvs[j];
+            for (move const& mv : mvs) {
                 out << i << " -> " << mv.dst() << " ";
                 if (mv.t()) {
                     out << "if "; 
