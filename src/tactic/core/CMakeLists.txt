@@ -7,6 +7,7 @@ z3_add_component(core_tactics
     ctx_simplify_tactic.cpp
     der_tactic.cpp
     distribute_forall_tactic.cpp
+    dom_simplify_tactic.cpp
     elim_term_ite_tactic.cpp
     elim_uncnstr_tactic.cpp
     injectivity_tactic.cpp
