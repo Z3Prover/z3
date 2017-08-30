@@ -364,18 +364,18 @@ public:
             expr_ref  r_eq(m_manager), r_inv(m_manager);
             proof_ref pr(m_manager);
 
-            if (want_eq)
-                (*m_eq)(curr, r_eq, pr);
-            else
-                r_eq = curr;
-
             if (want_inv)
-                (*m_inv)(r_eq, r_inv, pr);
+                (*m_inv)(curr, r_inv, pr);
             else
-                r_inv = r_eq;
+                r_inv = curr;
+
+            if (want_eq)
+                (*m_eq)(r_inv, r_eq, pr);
+            else
+                r_eq = r_inv;
 
             expr_dependency* dep = m_manager.mk_join(g->dep(i), m_manager.mk_join(m_eq->dep(), m_inv->dep()));
-            g->update(i, r_inv, pr, dep);
+            g->update(i, r_eq, pr, dep);
         }
 
         result.push_back(g.get());
