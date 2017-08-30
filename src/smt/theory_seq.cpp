@@ -19,11 +19,12 @@ Revision History:
 --*/
 
 #include <typeinfo>
+#include "ast/ast_pp.h"
+#include "ast/ast_trail.h"
 #include "smt/proto_model/value_factory.h"
 #include "smt/smt_context.h"
 #include "smt/smt_model_generator.h"
 #include "smt/theory_seq.h"
-#include "ast/ast_trail.h"
 #include "smt/theory_arith.h"
 #include "smt/smt_kernel.h"
 
@@ -150,9 +151,8 @@ void theory_seq::solution_map::pop_scope(unsigned num_scopes) {
 }
 
 void theory_seq::solution_map::display(std::ostream& out) const {
-    eqdep_map_t::iterator it = m_map.begin(), end = m_map.end();
-    for (; it != end; ++it) {
-        out << mk_pp(it->m_key, m) << " |-> " << mk_pp(it->m_value.first, m) << "\n";
+    for (auto const& kv : m_map) {
+        out << mk_pp(kv.m_key, m) << " |-> " << mk_pp(kv.m_value.first, m) << "\n";
     }
 }
 
@@ -186,9 +186,8 @@ void theory_seq::exclusion_table::pop_scope(unsigned num_scopes) {
 }
 
 void theory_seq::exclusion_table::display(std::ostream& out) const {
-    table_t::iterator it = m_table.begin(), end = m_table.end();
-    for (; it != end; ++it) {
-        out << mk_pp(it->first, m) << " != " << mk_pp(it->second, m) << "\n";
+    for (auto const& kv : m_table) {
+        out << mk_pp(kv.first, m) << " != " << mk_pp(kv.second, m) << "\n";
     }
 }
 
@@ -213,6 +212,7 @@ theory_seq::theory_seq(ast_manager& m):
     m_trail_stack(*this),
     m_ls(m), m_rs(m),
     m_lhs(m), m_rhs(m),
+    m_res(m),
     m_atoms_qhead(0),
     m_new_solution(false),
     m_new_propagation(false),
@@ -936,18 +936,14 @@ bool theory_seq::check_length_coherence0(expr* e) {
 
 bool theory_seq::check_length_coherence() {
 
-    obj_hashtable<expr>::iterator it = m_length.begin(), end = m_length.end();
 #if 1
-    for (; it != end; ++it) {
-        expr* e = *it;
+    for (expr* e : m_length) {
         if (check_length_coherence0(e)) {
             return true;
         }
     }
-    it = m_length.begin();
 #endif
-    for (; it != end; ++it) {
-        expr* e = *it;
+    for (expr* e : m_length) {
         if (check_length_coherence(e)) {
             return true;
         }
@@ -956,10 +952,9 @@ bool theory_seq::check_length_coherence() {
 }
 
 bool theory_seq::fixed_length() {
-    obj_hashtable<expr>::iterator it = m_length.begin(), end = m_length.end();
     bool found = false;
-    for (; it != end; ++it) {
-        if (fixed_length(*it)) {
+    for (expr* e : m_length) {
+        if (fixed_length(e)) {
             found = true;
         }
     }
@@ -2501,12 +2496,11 @@ void theory_seq::display(std::ostream & out) const {
     }
     if (!m_re2aut.empty()) {
         out << "Regex\n";
-        obj_map<expr, eautomaton*>::iterator it = m_re2aut.begin(), end = m_re2aut.end();
-        for (; it != end; ++it) {
-            out << mk_pp(it->m_key, m) << "\n";
+        for (auto const& kv : m_re2aut) {
+            out << mk_pp(kv.m_key, m) << "\n";
             display_expr disp(m);
-            if (it->m_value) {
-                it->m_value->display(out, disp);
+            if (kv.m_value) {
+                kv.m_value->display(out, disp);
             }
         }
     }
@@ -2520,9 +2514,7 @@ void theory_seq::display(std::ostream & out) const {
     }
 
     if (!m_length.empty()) {
-        obj_hashtable<expr>::iterator it = m_length.begin(), end = m_length.end();
-        for (; it != end; ++it) {
-            expr* e = *it;
+        for (expr* e : m_length) {
             rational lo(-1), hi(-1);
             lower_bound(e, lo);
             upper_bound(e, hi);
@@ -2633,6 +2625,12 @@ void theory_seq::collect_statistics(::statistics & st) const {
     st.update("seq extensionality", m_stats.m_extensionality);
     st.update("seq fixed length", m_stats.m_fixed_length);
     st.update("seq int.to.str", m_stats.m_int_string);
+}
+
+void theory_seq::init_search_eh() {
+    m_re2aut.reset();
+    m_res.reset();
+    m_automata.reset();
 }
 
 void theory_seq::init_model(expr_ref_vector const& es) {
@@ -3396,7 +3394,6 @@ void theory_seq::propagate_in_re(expr* n, bool is_true) {
     literal lit = ctx.get_literal(n);
     if (!is_true) {
         e3 = m_util.re.mk_complement(e2);
-        is_true = true;
         lit.neg();
     }
     eautomaton* a = get_automaton(e3);
@@ -3415,26 +3412,17 @@ void theory_seq::propagate_in_re(expr* n, bool is_true) {
     unsigned_vector states;
     a->get_epsilon_closure(a->init(), states);
     literal_vector lits;
-    if (is_true) {
-        lits.push_back(~lit);
-    }
+    lits.push_back(~lit);
+    
     for (unsigned i = 0; i < states.size(); ++i) {
-        if (is_true) {
-            lits.push_back(mk_accept(e1, zero, e3, states[i]));
-        }
-        else {
-            literal nlit = ~lit;
-            propagate_lit(0, 1, &nlit, mk_reject(e1, zero, e3, states[i]));
-        }
+        lits.push_back(mk_accept(e1, zero, e3, states[i]));
     }
-    if (is_true) {
-        if (lits.size() == 2) {
-            propagate_lit(0, 1, &lit, lits[1]);
-        }
-        else {
-            TRACE("seq", ctx.display_literals_verbose(tout, lits); tout << "\n";);
-            ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
-        }
+    if (lits.size() == 2) {
+        propagate_lit(0, 1, &lit, lits[1]);
+    }
+    else {
+        TRACE("seq", ctx.display_literals_verbose(tout, lits); tout << "\n";);
+        ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
     }
 }
 
@@ -4179,10 +4167,8 @@ eautomaton* theory_seq::get_automaton(expr* re) {
         TRACE("seq", result->display(tout, disp););
     }
     m_automata.push_back(result);
-    m_trail_stack.push(push_back_vector<theory_seq, scoped_ptr_vector<eautomaton> >(m_automata));
-
     m_re2aut.insert(re, result);
-    m_trail_stack.push(insert_obj_map<theory_seq, expr, eautomaton*>(m_re2aut, re));
+    m_res.push_back(re);
     return result;
 }
 
@@ -4263,6 +4249,10 @@ void theory_seq::propagate_acc_rej_length(literal lit, expr* e) {
     if (m_util.str.is_length(idx)) return;
     SASSERT(m_autil.is_numeral(idx));
     SASSERT(get_context().get_assignment(lit) == l_true);
+    if (aut->is_sink_state(src)) {
+        propagate_lit(0, 1, &lit, false_literal);
+        return;
+    }
     bool is_final = aut->is_final_state(src);
     if (is_final == is_acc) {
         propagate_lit(0, 1, &lit, mk_literal(m_autil.mk_ge(m_util.str.mk_length(s), idx)));
