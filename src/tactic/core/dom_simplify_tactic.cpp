@@ -115,8 +115,6 @@ void expr_dominators::extract_tree() {
     }
 }    
 
-
-
 void expr_dominators::compile(expr * e) {
     reset();
     m_root = e;
@@ -130,7 +128,6 @@ void expr_dominators::compile(unsigned sz, expr * const* es) {
     compile(e);
 }
 
-
 void expr_dominators::reset() {
     m_expr2post.reset();
     m_post2expr.reset();
@@ -142,11 +139,8 @@ void expr_dominators::reset() {
 
 
 
-// goes to header file:
-
-
-
-// implementation:
+// -----------------------
+// dom_simplify_tactic
 
 tactic * dom_simplify_tactic::translate(ast_manager & m) {
     return alloc(dom_simplify_tactic, m, m_simplifier->translate(m), m_params);
@@ -340,3 +334,109 @@ void dom_simplify_tactic::simplify_goal(goal& g) {
 }
 
 
+// ----------------------
+// expr_substitution_simplifier
+
+bool expr_substitution_simplifier::assert_expr(expr * t, bool sign) {
+    expr* tt;    
+    if (!sign) {
+        update_substitution(t, 0);
+    }
+    else if (m.is_not(t, tt)) {
+        update_substitution(tt, 0);
+    }
+    else {
+        expr_ref nt(m.mk_not(t), m);
+        update_substitution(nt, 0);
+    }
+    return true;
+}
+
+
+bool expr_substitution_simplifier::is_gt(expr* lhs, expr* rhs) {
+    if (lhs == rhs) {
+        return false;
+    }
+    if (m.is_value(rhs)) {
+        return true;
+    }
+    SASSERT(is_ground(lhs) && is_ground(rhs));
+    if (depth(lhs) > depth(rhs)) {
+        return true;
+    }
+    if (depth(lhs) == depth(rhs) && is_app(lhs) && is_app(rhs)) {
+        app* l = to_app(lhs);
+        app* r = to_app(rhs);
+        if (l->get_decl()->get_id() != r->get_decl()->get_id()) {
+            return l->get_decl()->get_id() > r->get_decl()->get_id();
+        }
+        if (l->get_num_args() != r->get_num_args()) {
+            return l->get_num_args() > r->get_num_args();
+        }
+        for (unsigned i = 0; i < l->get_num_args(); ++i) {
+            if (l->get_arg(i) != r->get_arg(i)) {
+                return is_gt(l->get_arg(i), r->get_arg(i));
+            }
+        }
+        UNREACHABLE();
+    }
+    
+    return false;
+}
+
+void expr_substitution_simplifier::update_substitution(expr* n, proof* pr) {
+    expr* lhs, *rhs, *n1;
+    if (is_ground(n) && (m.is_eq(n, lhs, rhs) || m.is_iff(n, lhs, rhs))) {
+        compute_depth(lhs);
+        compute_depth(rhs);
+        if (is_gt(lhs, rhs)) {
+            TRACE("propagate_values", tout << "insert " << mk_pp(lhs, m) << " -> " << mk_pp(rhs, m) << "\n";);
+            m_scoped_substitution.insert(lhs, rhs, pr);
+            return;
+        }
+        if (is_gt(rhs, lhs)) {
+            TRACE("propagate_values", tout << "insert " << mk_pp(rhs, m) << " -> " << mk_pp(lhs, m) << "\n";);
+            m_scoped_substitution.insert(rhs, lhs, m.mk_symmetry(pr));
+            return;
+        }
+        TRACE("propagate_values", tout << "incompatible " << mk_pp(n, m) << "\n";);
+    }
+    if (m.is_not(n, n1)) {
+        m_scoped_substitution.insert(n1, m.mk_false(), m.mk_iff_false(pr)); 
+    }
+    else {
+        m_scoped_substitution.insert(n, m.mk_true(), m.mk_iff_true(pr)); 
+    }
+}
+
+void expr_substitution_simplifier::compute_depth(expr* e) {
+    ptr_vector<expr> todo;
+    todo.push_back(e);    
+    while (!todo.empty()) {
+        e = todo.back();
+        unsigned d = 0;
+        if (m_expr2depth.contains(e)) {
+            todo.pop_back();
+            continue;
+        }
+        if (is_app(e)) {
+            app* a = to_app(e);
+            bool visited = true;
+            for (expr* arg : *a) {
+                unsigned d1 = 0;
+                if (m_expr2depth.find(arg, d1)) {
+                    d = std::max(d, d1);
+                }
+                else {
+                    visited = false;
+                    todo.push_back(arg);
+                }
+            }
+            if (!visited) {
+                continue;
+            }
+        }
+        todo.pop_back();
+        m_expr2depth.insert(e, d + 1);
+    }
+}

@@ -21,6 +21,7 @@ Notes:
 #define DOM_SIMPLIFY_TACTIC_H_
 
 #include "ast/ast.h"
+#include "ast/expr_substitution.h"
 #include "tactic/tactic.h"
 
 
@@ -127,6 +128,36 @@ public:
                             expr_dependency_ref & core);
 
     virtual void cleanup();
+};
+
+class expr_substitution_simplifier : public dom_simplify_tactic::simplifier {
+    ast_manager&             m;
+    expr_substitution        m_subst;
+    scoped_expr_substitution m_scoped_substitution;
+    obj_map<expr, unsigned>  m_expr2depth;
+
+    // move from asserted_formulas to here..
+    void compute_depth(expr* e);
+    bool is_gt(expr* lhs, expr* rhs);
+    unsigned depth(expr* e) { return m_expr2depth[e]; }
+
+public:
+    expr_substitution_simplifier(ast_manager& m): m(m), m_subst(m), m_scoped_substitution(m_subst) {}
+    virtual ~expr_substitution_simplifier() {}
+    virtual bool assert_expr(expr * t, bool sign);
+
+    void update_substitution(expr* n, proof* pr);
+    
+    virtual void operator()(expr_ref& r) { r = m_scoped_substitution.find(r); }
+    
+    virtual void pop(unsigned num_scopes) { m_scoped_substitution.pop(num_scopes); }
+    
+    virtual simplifier * translate(ast_manager & m) {
+        SASSERT(m_subst.empty());
+        return alloc(expr_substitution_simplifier, m);
+    }
+
+    
 };
 
 #endif

@@ -26,6 +26,7 @@ Notes:
 #include "math/automata/automaton.h"
 #include "ast/well_sorted.h"
 #include "ast/rewriter/var_subst.h"
+#include "ast/rewriter/bool_rewriter.h"
 #include "math/automata/symbolic_automata_def.h"
 
 
@@ -102,7 +103,6 @@ public:
                 return sym_expr::mk_pred(fml, x->get_sort());
             }
         }
-
         sort* s = x->get_sort();
         if (m.is_bool(s)) s = y->get_sort();
         var_ref v(m.mk_var(0, s), m);
@@ -112,7 +112,10 @@ public:
             return y;
         }
         if (m.is_true(fml2)) return x;
-        expr_ref fml(m.mk_and(fml1, fml2), m);
+        if (fml1 == fml2) return x;        
+        bool_rewriter br(m);
+        expr_ref fml(m);
+        br.mk_and(fml1, fml2, fml);
         return sym_expr::mk_pred(fml, x->get_sort());
     }
     virtual T mk_or(T x, T y) {
@@ -120,12 +123,15 @@ public:
             x->get_char() == y->get_char()) {
             return x;
         }
+        if (x == y) return x;
         var_ref v(m.mk_var(0, x->get_sort()), m);
         expr_ref fml1 = x->accept(v);
         expr_ref fml2 = y->accept(v);        
         if (m.is_false(fml1)) return y;
         if (m.is_false(fml2)) return x;
-        expr_ref fml(m.mk_or(fml1, fml2), m);
+        bool_rewriter br(m);
+        expr_ref fml(m);
+        br.mk_or(fml1, fml2, fml);
         return sym_expr::mk_pred(fml, x->get_sort());
     }
 
@@ -197,10 +203,10 @@ void re2automaton::set_solver(expr_solver* solver) {
 
 eautomaton* re2automaton::operator()(expr* e) { 
     eautomaton* r = re2aut(e); 
-    if (r) {
-        display_expr1 disp(m);
+    if (r) {        
         r->compress(); 
-        TRACE("seq", r->display(tout, disp););
+        bool_rewriter br(m);
+        TRACE("seq", display_expr1 disp(m); r->display(tout, disp););
     }
     return r;
 } 

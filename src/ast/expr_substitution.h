@@ -79,6 +79,7 @@ public:
         }
     }
     bool empty() const { return m_subst.empty(); }
+    expr* find(expr * e) { proof* pr; expr* d = 0; if (find(e, d, pr)) return d; else return e; }
     bool find(expr * s, expr * & def, proof * & def_pr) { return m_subst.find(s, def, def_pr); }
     bool find(expr * s, expr * & def, proof * & def_pr, expr_dependency * & def_dep) { return m_subst.find(s, def, def_pr, def_dep); }
     bool contains(expr * s) { return m_subst.contains(s); }

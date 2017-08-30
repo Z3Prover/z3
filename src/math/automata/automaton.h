@@ -300,6 +300,16 @@ public:
         }
     }
 
+    bool is_sink_state(unsigned s) const {
+        if (is_final_state(s)) return false;
+        moves mvs;
+        get_moves_from(s, mvs);
+        for (move const& m : mvs) {
+            if (s != m.dst()) return false;
+        }
+        return true;
+    }
+
     void add_init_to_final_states() {
         add_to_final_states(init());
     }
