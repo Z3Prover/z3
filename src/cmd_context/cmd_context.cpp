@@ -229,6 +229,28 @@ func_decl * func_decls::find(ast_manager & m, unsigned num_args, expr * const * 
     return find(num_args, sorts.c_ptr(), range);
 }
 
+unsigned func_decls::get_num_entries() const {
+    if (!more_than_one())
+        return 1;
+
+    func_decl_set * fs = UNTAG(func_decl_set *, m_decls);
+    return fs->size();
+}
+
+func_decl * func_decls::get_entry(unsigned inx) {
+    if (!more_than_one()) {
+        SASSERT(inx == 0);
+        return first();
+    }
+    else {
+        func_decl_set * fs = UNTAG(func_decl_set *, m_decls);
+        auto b = fs->begin();
+        for (unsigned i = 0; i < inx; i++)
+            b++;
+        return *b;
+    }
+}
+
 void macro_decls::finalize(ast_manager& m) {
     for (auto v : *m_decls) m.dec_ref(v.m_body);
     dealloc(m_decls);
@@ -288,13 +310,13 @@ void cmd_context::insert_macro(symbol const& s, unsigned arity, sort*const* doma
     }
     else {
         VERIFY(decls.insert(m(), arity, domain, t));
-    }    
+    }
 }
 
 void cmd_context::erase_macro(symbol const& s) {
     macro_decls decls;
     VERIFY(m_macros.find(s, decls));
-    decls.erase_last(m());    
+    decls.erase_last(m());
 }
 
 bool cmd_context::macros_find(symbol const& s, unsigned n, expr*const* args, expr*& t) const {
@@ -870,11 +892,11 @@ void cmd_context::insert_rec_fun(func_decl* f, expr_ref_vector const& binding, s
     }
 
     //
-    // disable warning given the current way they are used 
-    // (Z3 will here silently assume and not check the definitions to be well founded, 
+    // disable warning given the current way they are used
+    // (Z3 will here silently assume and not check the definitions to be well founded,
     // and please use HSF for everything else).
     //
-    if (false && !ids.empty() && !m_rec_fun_declared) {        
+    if (false && !ids.empty() && !m_rec_fun_declared) {
         warning_msg("recursive function definitions are assumed well-founded");
         m_rec_fun_declared = true;
     }
@@ -953,7 +975,7 @@ func_decl * cmd_context::find_func_decl(symbol const & s, unsigned num_indices, 
         return f;
     }
 
-    if (contains_macro(s, arity, domain)) 
+    if (contains_macro(s, arity, domain))
         throw cmd_exception("invalid function declaration reference, named expressions (aka macros) cannot be referenced ", s);
 
     if (num_indices > 0)
@@ -1316,7 +1338,7 @@ void cmd_context::push(unsigned n) {
         push();
 }
 
-void cmd_context::restore_func_decls(unsigned old_sz) {    
+void cmd_context::restore_func_decls(unsigned old_sz) {
     SASSERT(old_sz <= m_func_decls_stack.size());
     svector<sf_pair>::iterator it  = m_func_decls_stack.begin() + old_sz;
     svector<sf_pair>::iterator end = m_func_decls_stack.end();
@@ -1418,7 +1440,7 @@ void cmd_context::pop(unsigned n) {
     restore_assertions(s.m_assertions_lim);
     restore_psort_inst(s.m_psort_inst_stack_lim);
     m_scopes.shrink(new_lvl);
-    
+
 }
 
 void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions) {
@@ -1488,6 +1510,7 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
     }
     display_sat_result(r);
     if (r == l_true) {
+        complete_model();
         validate_model();
     }
     validate_check_sat_result(r);
@@ -1548,7 +1571,7 @@ void cmd_context::reset_assertions() {
         if (m_solver) m_solver->push();
     }
 }
-    
+
 
 void cmd_context::display_model(model_ref& mdl) {
     if (mdl) {
@@ -1631,6 +1654,60 @@ struct contains_array_op_proc {
     }
     void operator()(quantifier * n) {}
 };
+
+/**
+    \brief Complete the model if necessary.
+*/
+void cmd_context::complete_model() {
+    if (!is_model_available() ||
+        gparams::get_value("model.completion") != "true")
+        return;
+
+    model_ref md;
+    get_check_sat_result()->get_model(md);
+    SASSERT(md.get() != 0);
+    params_ref p;
+    p.set_uint("max_degree", UINT_MAX); // evaluate algebraic numbers of any degree.
+    p.set_uint("sort_store", true);
+    p.set_bool("completion", true);
+    model_evaluator evaluator(*(md.get()), p);
+    evaluator.set_expand_array_equalities(false);
+
+    scoped_rlimit _rlimit(m().limit(), 0);
+    cancel_eh<reslimit> eh(m().limit());
+    expr_ref r(m());
+    scoped_ctrl_c ctrlc(eh);
+
+    for (auto kd : m_psort_decls) {
+        symbol const & k = kd.m_key;
+        psort_decl * v = kd.m_value;
+        if (v->is_user_decl()) {
+            SASSERT(!v->has_var_params());
+            IF_VERBOSE(12, verbose_stream() << "(model.completion " << k << ")\n"; );
+            ptr_vector<sort> param_sorts(v->get_num_params(), m().mk_bool_sort());
+            sort * srt = v->instantiate(*m_pmanager, param_sorts.size(), param_sorts.c_ptr());
+            if (!md->has_uninterpreted_sort(srt)) {
+                expr * singleton = m().get_some_value(srt);
+                md->register_usort(srt, 1, &singleton);
+            }
+        }
+    }
+
+    for (auto kd : m_func_decls) {
+        symbol const & k = kd.m_key;
+        func_decls & v = kd.m_value;
+        IF_VERBOSE(12, verbose_stream() << "(model.completion " << k << ")\n"; );
+        for (unsigned i = 0; i < v.get_num_entries(); i++) {
+            func_decl * f = v.get_entry(i);
+            if (!md->has_interpretation(f)) {
+                sort * range = f->get_range();
+                func_interp * fi = alloc(func_interp, m(), f->get_arity());
+                fi->set_else(m().get_some_value(range));
+                md->register_decl(f, fi);
+            }
+        }
+    }
+}
 
 /**
    \brief Check if the current model satisfies the quantifier free formulas.
@@ -1918,7 +1995,7 @@ void cmd_context::dt_eh::operator()(sort * dt, pdecl* pd) {
     }
     if (m_owner.m_scopes.size() > 0) {
         m_owner.m_psort_inst_stack.push_back(pd);
-        
+
     }
 }
 
