@@ -14,17 +14,17 @@
   Revision History:
 
   --*/
-#include"ast_smt2_pp.h"
-#include"smt_context.h"
-#include"theory_str.h"
-#include"smt_model_generator.h"
-#include"ast_pp.h"
-#include"ast_ll_pp.h"
+#include "ast/ast_smt2_pp.h"
+#include "smt/smt_context.h"
+#include "smt/theory_str.h"
+#include "smt/smt_model_generator.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
 #include<list>
 #include<algorithm>
-#include"theory_seq_empty.h"
-#include"theory_arith.h"
-#include"ast_util.h"
+#include "smt/theory_seq_empty.h"
+#include "smt/theory_arith.h"
+#include "ast/ast_util.h"
 
 namespace smt {
 
@@ -166,14 +166,18 @@ namespace smt {
         }
     }
 
-    void theory_str::assert_axiom(expr * e) {
+    void theory_str::assert_axiom(expr * _e) {
         if (opt_VerifyFinalCheckProgress) {
             finalCheckProgressIndicator = true;
         }
 
-        if (get_manager().is_true(e)) return;
-        TRACE("str", tout << "asserting " << mk_ismt2_pp(e, get_manager()) << std::endl;);
+        if (get_manager().is_true(_e)) return;
         context & ctx = get_context();
+        ast_manager& m = get_manager();
+        TRACE("str", tout << "asserting " << mk_ismt2_pp(_e, m) << std::endl;);
+        expr_ref e(_e, m);
+        th_rewriter rw(m);
+        rw(e);
         if (!ctx.b_internalized(e)) {
             ctx.internalize(e, false);
         }
@@ -1419,6 +1423,9 @@ namespace smt {
     void theory_str::instantiate_axiom_Substr(enode * e) {
         context & ctx = get_context();
         ast_manager & m = get_manager();
+        expr* substrBase = 0;
+        expr* substrPos = 0;
+        expr* substrLen = 0;
 
         app * expr = e->get_owner();
         if (axiomatized_terms.contains(expr)) {
@@ -1429,12 +1436,7 @@ namespace smt {
 
         TRACE("str", tout << "instantiate Substr axiom for " << mk_pp(expr, m) << std::endl;);
 
-        expr_ref substrBase(expr->get_arg(0), m);
-        expr_ref substrPos(expr->get_arg(1), m);
-        expr_ref substrLen(expr->get_arg(2), m);
-        SASSERT(substrBase);
-        SASSERT(substrPos);
-        SASSERT(substrLen);
+        VERIFY(u.str.is_extract(expr, substrBase, substrPos, substrLen));
 
         expr_ref zero(m_autil.mk_numeral(rational::zero(), true), m);
         expr_ref minusOne(m_autil.mk_numeral(rational::minus_one(), true), m);
@@ -1452,28 +1454,19 @@ namespace smt {
         // len >= 0
         argumentsValid_terms.push_back(m_autil.mk_ge(substrLen, zero));
 
-        expr_ref argumentsValid(mk_and(argumentsValid_terms), m);
-        SASSERT(argumentsValid);
-        ctx.internalize(argumentsValid, false);
 
         // (pos+len) >= strlen(base)
         // --> pos + len + -1*strlen(base) >= 0
         expr_ref lenOutOfBounds(m_autil.mk_ge(
                                     m_autil.mk_add(substrPos, substrLen, m_autil.mk_mul(minusOne, mk_strlen(substrBase))),
                                     zero), m);
-        SASSERT(lenOutOfBounds);
-        ctx.internalize(argumentsValid, false);
+        expr_ref argumentsValid = mk_and(argumentsValid_terms);
 
         // Case 1: pos < 0 or pos >= strlen(base) or len < 0
         // ==> (Substr ...) = ""
         expr_ref case1_premise(m.mk_not(argumentsValid), m);
-        SASSERT(case1_premise);
-        ctx.internalize(case1_premise, false);
         expr_ref case1_conclusion(ctx.mk_eq_atom(expr, mk_string("")), m);
-        SASSERT(case1_conclusion);
-        ctx.internalize(case1_conclusion, false);
-        expr_ref case1(rewrite_implication(case1_premise, case1_conclusion), m);
-        SASSERT(case1);
+        expr_ref case1(m.mk_implies(case1_premise, case1_conclusion), m);
 
         // Case 2: (pos >= 0 and pos < strlen(base) and len >= 0) and (pos+len) >= strlen(base)
         // ==> base = t0.t1 AND len(t0) = pos AND (Substr ...) = t1
@@ -1483,8 +1476,7 @@ namespace smt {
                                       ctx.mk_eq_atom(substrBase, mk_concat(t0,t1)),
                                       ctx.mk_eq_atom(mk_strlen(t0), substrPos),
                                       ctx.mk_eq_atom(expr, t1)), m);
-        expr_ref case2(rewrite_implication(m.mk_and(argumentsValid, lenOutOfBounds), case2_conclusion), m);
-        SASSERT(case2);
+        expr_ref case2(m.mk_implies(m.mk_and(argumentsValid, lenOutOfBounds), case2_conclusion), m);
 
         // Case 3: (pos >= 0 and pos < strlen(base) and len >= 0) and (pos+len) < strlen(base)
         // ==> base = t2.t3.t4 AND len(t2) = pos AND len(t3) = len AND (Substr ...) = t3
@@ -1497,16 +1489,11 @@ namespace smt {
         case3_conclusion_terms.push_back(ctx.mk_eq_atom(mk_strlen(t3), substrLen));
         case3_conclusion_terms.push_back(ctx.mk_eq_atom(expr, t3));
         expr_ref case3_conclusion(mk_and(case3_conclusion_terms), m);
-        expr_ref case3(rewrite_implication(m.mk_and(argumentsValid, m.mk_not(lenOutOfBounds)), case3_conclusion), m);
-        SASSERT(case3);
+        expr_ref case3(m.mk_implies(m.mk_and(argumentsValid, m.mk_not(lenOutOfBounds)), case3_conclusion), m);
 
-        ctx.internalize(case1, false);
-        ctx.internalize(case2, false);
-        ctx.internalize(case3, false);
-
-        expr_ref finalAxiom(m.mk_and(case1, case2, case3), m);
-        SASSERT(finalAxiom);
-        assert_axiom(finalAxiom);
+        assert_axiom(case1);
+        assert_axiom(case2);
+        assert_axiom(case3);
     }
 
     void theory_str::instantiate_axiom_Replace(enode * e) {
@@ -1549,14 +1536,12 @@ namespace smt {
         expr_ref elseBranch(ctx.mk_eq_atom(result, expr->get_arg(0)), m);
 
         expr_ref breakdownAssert(m.mk_ite(condAst, m.mk_and(thenItems.size(), thenItems.c_ptr()), elseBranch), m);
+        assert_axiom(breakdownAssert);
+        
         SASSERT(breakdownAssert);
 
         expr_ref reduceToResult(ctx.mk_eq_atom(expr, result), m);
-        SASSERT(reduceToResult);
-
-        expr_ref finalAxiom(m.mk_and(breakdownAssert, reduceToResult), m);
-        SASSERT(finalAxiom);
-        assert_axiom(finalAxiom);
+        assert_axiom(reduceToResult);
     }
 
     void theory_str::instantiate_axiom_str_to_int(enode * e) {
@@ -4658,7 +4643,7 @@ namespace smt {
 
 	// safety
 	if (!ctx.e_internalized(e)) {
-	  return false;
+            return false;
 	}
 	
         // if an integer constant exists in the eqc, it should be the root
@@ -8422,6 +8407,7 @@ namespace smt {
     // Check agreement between integer and string theories for the term a = (str.to-int S).
     // Returns true if axioms were added, and false otherwise.
     bool theory_str::finalcheck_str2int(app * a) {
+        SASSERT(u.str.is_stoi(a));
         bool axiomAdd = false;
         context & ctx = get_context();
         ast_manager & m = get_manager();
@@ -8448,7 +8434,11 @@ namespace smt {
             }
         } else {
             TRACE("str", tout << "integer theory has no assignment for " << mk_pp(a, m) << std::endl;);
-            NOT_IMPLEMENTED_YET();
+            expr_ref is_zero(ctx.mk_eq_atom(a, m_autil.mk_int(0)), m);
+            literal is_zero_l = mk_literal(is_zero);
+            axiomAdd = true;
+            TRACE("str", ctx.display(tout););
+            // NOT_IMPLEMENTED_YET();
         }
 
         return axiomAdd;
