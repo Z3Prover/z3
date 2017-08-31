@@ -25,6 +25,7 @@ Revision History:
 #include "util/util.h"
 #include "util/vector.h"
 #include "util/uint_set.h"
+#include "util/trace.h"
 
 template<class T>
 class default_value_manager {
@@ -383,12 +384,12 @@ public:
                     else if (1 == in_degree(dst) && (!is_final_state(dst) || is_final_state(src)) && init() != dst) {
                         moves const& mvs = m_delta[dst];
                         moves mvs1;
-                        for (unsigned k = 0; k < mvs.size(); ++k) {
-                            mvs1.push_back(move(m, src, mvs[k].dst(), mvs[k].t()));
+                        for (move const& mv : mvs) {
+                            mvs1.push_back(move(m, src, mv.dst(), mv.t()));
                         }
-                        for (unsigned k = 0; k < mvs1.size(); ++k) {
-                            remove(dst, mvs1[k].dst(), mvs1[k].t());
-                            add(mvs1[k]);
+                        for (move const& mv : mvs1) {
+                            remove(dst, mv.dst(), mv.t());
+                            add(mv);
                         }
                     }
                     //
@@ -401,13 +402,13 @@ public:
                         unsigned_vector src0s;
                         moves const& mvs = m_delta_inv[dst];
                         moves mvs1;
-                        for (unsigned k = 0; k < mvs.size(); ++k) {
-                            SASSERT(mvs[k].is_epsilon());
-                            mvs1.push_back(move(m, mvs[k].src(), dst1, t));
+                        for (move const& mv1 : mvs) {
+                            SASSERT(mv1.is_epsilon());
+                            mvs1.push_back(move(m, mv1.src(), dst1, t));
                         }
-                        for (unsigned k = 0; k < mvs1.size(); ++k) {
-                            remove(mvs1[k].src(), dst, 0);
-                            add(mvs1[k]);
+                        for (move const& mv1 : mvs1) {
+                            remove(mv1.src(), dst, 0);
+                            add(mv1);
                         }
                         remove(dst, dst1, t);    
                         --j;
@@ -419,12 +420,12 @@ public:
                     else if (1 == out_degree(src) && init() != src && (!is_final_state(src) || is_final_state(dst))) {
                         moves const& mvs = m_delta_inv[src];
                         moves mvs1;
-                        for (unsigned k = 0; k < mvs.size(); ++k) {
-                            mvs1.push_back(move(m, mvs[k].src(), dst, mvs[k].t()));
+                        for (move const& mv : mvs) {
+                            mvs1.push_back(move(m, mv.src(), dst, mv.t()));
                         }
-                        for (unsigned k = 0; k < mvs1.size(); ++k) {
-                            remove(mvs1[k].src(), src, mvs1[k].t());
-                            add(mvs1[k]);
+                        for (move const& mv : mvs1) {
+                            remove(mv.src(), src, mv.t());
+                            add(mv);
                         }
                     }
                     else {
@@ -447,6 +448,7 @@ public:
                 break;
             }
         }
+        sinkify_dead_states();
     }
 
     bool is_sequence(unsigned& length) const {
@@ -564,6 +566,40 @@ public:
     }
 private:
 
+    void sinkify_dead_states() {
+        uint_set dead_states;
+        for (unsigned i = 0; i < m_delta.size(); ++i) {
+            if (!m_final_states.contains(i)) {
+                dead_states.insert(i);
+            }
+        }
+        bool change = true;
+        unsigned_vector to_remove;
+        while (change) {
+            change = false;
+            to_remove.reset();
+            for (unsigned s : dead_states) {
+                moves const& mvs = m_delta[s];
+                for (move const& mv : mvs) {
+                    if (!dead_states.contains(mv.dst())) {
+                        to_remove.push_back(s);
+                        break;
+                    }
+                }
+            }
+            change = !to_remove.empty();
+            for (unsigned s : to_remove) {
+                dead_states.remove(s);
+            }
+            to_remove.reset();
+        }
+        TRACE("seq", tout << "remove: " << dead_states << "\n";);
+        for (unsigned s : dead_states) {
+            CTRACE("seq", !m_delta[s].empty(), tout << "live state " << s << "\n";); 
+            m_delta[s].reset();
+        }
+    }
+
     void remove_dead_states() {
         unsigned_vector remap;
         for (unsigned i = 0; i < m_delta.size(); ++i) {
@@ -669,8 +705,8 @@ private:
     }
 
     static void append_final(unsigned offset, automaton const& a, unsigned_vector& final) {
-        for (unsigned i = 0; i < a.m_final_states.size(); ++i) {
-            final.push_back(a.m_final_states[i]+offset);
+        for (unsigned s : a.m_final_states) {
+            final.push_back(s+offset);
         }
     }
  

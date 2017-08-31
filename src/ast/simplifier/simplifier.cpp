@@ -591,8 +591,10 @@ void simplifier::mk_ac_congruent_term(app * n, app_ref & r, proof_ref & p) {
                 if (m_ac_cache.find(to_app(arg), new_arg)) {
                     SASSERT(new_arg != 0);
                     new_args.push_back(new_arg);
-                    if (arg != new_arg)
+                    if (arg != new_arg) {
+                        TRACE("ac", tout << mk_pp(arg, m) << " -> " << mk_pp(new_arg, m) << "\n";);
                         has_new_arg = true;
+                    }
                     if (m.fine_grain_proofs()) {
                         proof * pr = 0;
                         m_ac_pr_cache.find(to_app(arg), pr);
@@ -610,8 +612,10 @@ void simplifier::mk_ac_congruent_term(app * n, app_ref & r, proof_ref & p) {
                 proof * pr;
                 get_cached(arg, new_arg, pr);
                 new_args.push_back(new_arg);
-                if (arg != new_arg)
+                if (arg != new_arg) {
+                    TRACE("ac", tout << "cached: " << mk_pp(arg, m) << " -> " << mk_pp(new_arg, m) << "\n";);
                     has_new_arg = true;
+                }
                 if (m.fine_grain_proofs() && pr != 0)
                     new_arg_prs.push_back(pr);
             }
@@ -627,6 +631,7 @@ void simplifier::mk_ac_congruent_term(app * n, app_ref & r, proof_ref & p) {
             else {
                 app * new_curr = m.mk_app(f, new_args.size(), new_args.c_ptr());
                 m_ac_cache.insert(curr, new_curr);
+                TRACE("ac", tout << mk_pp(curr, m) << " -> " << mk_pp(new_curr, m) << "\n";);
                 if (m.fine_grain_proofs()) {
                     proof * p = m.mk_congruence(curr, new_curr, new_arg_prs.size(), new_arg_prs.c_ptr());
                     m_ac_pr_cache.insert(curr, p);

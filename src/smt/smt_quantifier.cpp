@@ -492,6 +492,7 @@ namespace smt {
 
         virtual void assign_eh(quantifier * q) {
             m_active = true;
+            ast_manager& m = m_context->get_manager();
             if (!m_fparams->m_ematching) {
                 return;
             }
@@ -514,7 +515,11 @@ namespace smt {
                 app * mp = to_app(q->get_pattern(i));
                 SASSERT(m_context->get_manager().is_pattern(mp));
                 bool unary = (mp->get_num_args() == 1);
-                if (!unary && j >= num_eager_multi_patterns) {
+                if (m.is_rec_fun_def(q) && i > 0) {
+                    // add only the first pattern
+                    TRACE("quantifier", tout << "skip recursive function body " << mk_ismt2_pp(mp, m) << "\n";);
+                }
+                else if (!unary && j >= num_eager_multi_patterns) {
                     TRACE("quantifier", tout << "delaying (too many multipatterns):\n" << mk_ismt2_pp(mp, m_context->get_manager()) << "\n"
                           << "j: " << j << " unary: " << unary << " m_params.m_qi_max_eager_multipatterns: " << m_fparams->m_qi_max_eager_multipatterns
                           << " num_eager_multi_patterns: " << num_eager_multi_patterns << "\n";);

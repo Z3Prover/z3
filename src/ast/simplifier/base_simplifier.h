@@ -37,6 +37,7 @@ protected:
                tout << mk_pp(n, m) << "\n";
                tout << mk_pp(r, m) << "\n";
                tout << mk_pp(p, m) << "\n";);
+        TRACE("cache", tout << mk_pp(n, m) << " -> " << mk_pp(r, m) << "\n";);
         SASSERT(is_rewrite_proof(n, r, p));
     }
     void reset_cache() { m_cache.reset(); }

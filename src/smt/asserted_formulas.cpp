@@ -645,7 +645,7 @@ void asserted_formulas::propagate_values() {
                 new_prs2.push_back(pr);
         }
     }
-    TRACE("propagate_values", tout << "found: " << found << "\n";);
+    TRACE("propagate_values", tout << "found: " << found << "\n" << new_exprs2 << "\n";);
     // If C is not empty, then reduce R using the updated simplifier cache with entries
     // x -> n for each constraint 'x = n' in C.
     if (found) {
@@ -656,6 +656,7 @@ void asserted_formulas::propagate_values() {
             expr_ref new_n(m);
             proof_ref new_pr(m);
             m_simplifier(n, new_n, new_pr);
+            TRACE("propagate_values", tout << mk_pp(n, m) << " -> " << new_n << "\n";);
             if (n == new_n.get()) {
                 push_assertion(n, pr, new_exprs1, new_prs1);
             }
