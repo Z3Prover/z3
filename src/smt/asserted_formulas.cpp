@@ -514,8 +514,14 @@ bool asserted_formulas::is_gt(expr* lhs, expr* rhs) {
     if (lhs == rhs) {
         return false;
     }
-    if (m.is_value(rhs)) {
+    // values are always less in ordering than non-values.
+    bool v1 = m.is_value(lhs);
+    bool v2 = m.is_value(rhs);
+    if (!v1 && v2) {
         return true;
+    }
+    if (v1 && !v2) {
+        return false;
     }
     SASSERT(is_ground(lhs) && is_ground(rhs));
     if (depth(lhs) > depth(rhs)) {
