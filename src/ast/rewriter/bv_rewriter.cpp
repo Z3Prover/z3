@@ -20,6 +20,7 @@ Notes:
 #include "ast/rewriter/bv_rewriter_params.hpp"
 #include "ast/rewriter/poly_rewriter_def.h"
 #include "ast/ast_smt2_pp.h"
+#include "ast/ast_lt.h"
 
 
 void bv_rewriter::updt_local_params(params_ref const & _p) {

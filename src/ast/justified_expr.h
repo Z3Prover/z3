@@ -21,12 +21,12 @@ public:
     justified_expr& operator=(justified_expr const& other) {
         SASSERT(&m == &other.m);
         if (this != &other) {
+            m.inc_ref(other.get_fml());
+            m.inc_ref(other.get_proof());
             m.dec_ref(m_fml);
             m.dec_ref(m_proof);
             m_fml = other.get_fml();
             m_proof = other.get_proof();
-            m.inc_ref(m_fml);
-            m.inc_ref(m_proof);
         }
         return *this;
     }

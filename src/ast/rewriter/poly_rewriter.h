@@ -48,7 +48,6 @@ protected:
     decl_kind power_decl_kind() const { return Config::power_decl_kind(); }
     bool is_power(expr * t) const { return is_app_of(t, get_fid(), power_decl_kind()); }
     expr * get_power_body(expr * t, rational & k);
-    struct mon_pw_lt; // functor used to sort monomial elements when use_power() == true
 
     expr * mk_mul_app(unsigned num_args, expr * const * args);
     expr * mk_mul_app(numeral const & c, expr * arg);
@@ -84,6 +83,14 @@ protected:
     struct hoist_cmul_lt;
     bool is_mul(expr * t, numeral & c, expr * & pp);
     void hoist_cmul(expr_ref_buffer & args);
+
+    class mon_lt {
+        poly_rewriter& rw;
+        int ordinal(expr* e) const;
+    public:
+        mon_lt(poly_rewriter& rw): rw(rw) {}
+        bool operator()(expr* e1, expr * e2) const;
+    };
 
 public:
     poly_rewriter(ast_manager & m, params_ref const & p = params_ref()):

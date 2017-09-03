@@ -26,7 +26,6 @@ void arith_rewriter::updt_local_params(params_ref const & _p) {
     arith_rewriter_params p(_p);
     m_arith_lhs       = p.arith_lhs();
     m_gcd_rounding    = p.gcd_rounding();
-    m_eq2ineq         = p.eq2ineq();
     m_elim_to_real    = p.elim_to_real();
     m_push_to_real    = p.push_to_real();
     m_anum_simp       = p.algebraic_number_evaluator();
@@ -371,7 +370,7 @@ br_status arith_rewriter::mk_le_ge_eq_core(expr * arg1, expr * arg2, op_kind kin
     if ((is_zero(arg1) && is_reduce_power_target(arg2, kind == EQ)) ||
         (is_zero(arg2) && is_reduce_power_target(arg1, kind == EQ)))
         return reduce_power(arg1, arg2, kind, result);
-    br_status st = cancel_monomials(arg1, arg2, m_arith_lhs, new_arg1, new_arg2);
+    br_status st = cancel_monomials(arg1, arg2, true, new_arg1, new_arg2);
     TRACE("mk_le_bug", tout << "st: " << st << " " << new_arg1 << " " << new_arg2 << "\n";);
     if (st != BR_FAILED) {
         arg1 = new_arg1;
@@ -455,11 +454,7 @@ br_status arith_rewriter::mk_le_ge_eq_core(expr * arg1, expr * arg2, op_kind kin
             st = BR_DONE;
         }
     }
-    if (kind == EQ && m_expand_eqs) {
-        result = m().mk_and(m_util.mk_le(arg1, arg2), m_util.mk_ge(arg1, arg2));
-        return BR_REWRITE2;
-    }
-    else if (is_numeral(arg2, a2) && is_neg_poly(arg1, new_arg1)) {
+    if (is_numeral(arg2, a2) && is_neg_poly(arg1, new_arg1)) {
         a2.neg();
         new_arg2 = m_util.mk_numeral(a2, m_util.is_int(new_arg1));
         switch (kind) {
@@ -500,12 +495,19 @@ br_status arith_rewriter::mk_gt_core(expr * arg1, expr * arg2, expr_ref & result
     return BR_REWRITE2;
 }
 
+bool arith_rewriter::is_arith_term(expr * n) const {
+    return n->get_kind() == AST_APP && to_app(n)->get_family_id() == get_fid();
+}
+
 br_status arith_rewriter::mk_eq_core(expr * arg1, expr * arg2, expr_ref & result) {
-    if (m_eq2ineq) {
+    if (m_expand_eqs) {
         result = m().mk_and(m_util.mk_le(arg1, arg2), m_util.mk_ge(arg1, arg2));
         return BR_REWRITE2;
     }
-    return mk_le_ge_eq_core(arg1, arg2, EQ, result);
+    if (m_arith_lhs || is_arith_term(arg1) || is_arith_term(arg2)) {
+        return mk_le_ge_eq_core(arg1, arg2, EQ, result);
+    }
+    return BR_FAILED;
 }
 
 expr_ref arith_rewriter::neg_monomial(expr* e) const {

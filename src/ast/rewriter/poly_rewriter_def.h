@@ -18,7 +18,7 @@ Notes:
 --*/
 #include "ast/rewriter/poly_rewriter.h"
 #include "ast/rewriter/poly_rewriter_params.hpp"
-#include "ast/ast_lt.h"
+// include "ast/ast_lt.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/ast_smt2_pp.h"
 
@@ -192,20 +192,8 @@ br_status poly_rewriter<Config>::mk_flat_mul_core(unsigned num_args, expr * cons
 
 
 template<typename Config>
-struct poly_rewriter<Config>::mon_pw_lt {
-    poly_rewriter<Config> & m_owner;
-    mon_pw_lt(poly_rewriter<Config> & o):m_owner(o) {}
-    
-    bool operator()(expr * n1, expr * n2) const { 
-        rational k;
-        return lt(m_owner.get_power_body(n1, k), 
-                  m_owner.get_power_body(n2, k));
-    }
-};
-
-
-template<typename Config>
 br_status poly_rewriter<Config>::mk_nflat_mul_core(unsigned num_args, expr * const * args, expr_ref & result) {
+    mon_lt lt(*this);
     SASSERT(num_args >= 2);
     // cheap case
     numeral a;
@@ -320,11 +308,8 @@ br_status poly_rewriter<Config>::mk_nflat_mul_core(unsigned num_args, expr * con
         if (ordered && num_coeffs == 0 && !use_power())
             return BR_FAILED;
         if (!ordered) {
-            if (use_power())
-                std::sort(new_args.begin(), new_args.end(), mon_pw_lt(*this));
-            else
-                std::sort(new_args.begin(), new_args.end(), ast_to_lt());
-            TRACE("poly_rewriter",
+            std::sort(new_args.begin(), new_args.end(), lt);
+        TRACE("poly_rewriter",
                   tout << "after sorting:\n";
                   for (unsigned i = 0; i < new_args.size(); i++) {
                       if (i > 0)
@@ -499,7 +484,42 @@ void poly_rewriter<Config>::hoist_cmul(expr_ref_buffer & args) {
 }
 
 template<typename Config>
+bool poly_rewriter<Config>::mon_lt::operator()(expr* e1, expr * e2) const {
+    return ordinal(e1) < ordinal(e2);
+}
+
+inline bool is_essentially_var(expr * n, family_id fid) {
+    SASSERT(is_var(n) || is_app(n));
+    return is_var(n) || to_app(n)->get_family_id() != fid;
+}
+
+template<typename Config>
+int poly_rewriter<Config>::mon_lt::ordinal(expr* e) const {
+    rational k;
+    if (is_essentially_var(e, rw.get_fid())) {
+        return e->get_id();
+    }
+    else if (rw.is_mul(e)) {
+        if (rw.is_numeral(to_app(e)->get_arg(0)))
+            return to_app(e)->get_arg(1)->get_id();
+        else
+            return e->get_id();
+    }
+    else if (rw.is_numeral(e)) {
+        return -1;
+    }
+    else if (rw.use_power() && rw.is_power(e) && rw.is_numeral(to_app(e)->get_arg(1), k) && k > rational(1)) {
+        return to_app(e)->get_arg(0)->get_id();
+    }
+    else {
+        return e->get_id();
+    }
+}
+
+
+template<typename Config>
 br_status poly_rewriter<Config>::mk_nflat_add_core(unsigned num_args, expr * const * args, expr_ref & result) {
+    mon_lt lt(*this);
     SASSERT(num_args >= 2);
     numeral c;
     unsigned num_coeffs = 0;
@@ -591,9 +611,9 @@ br_status poly_rewriter<Config>::mk_nflat_add_core(unsigned num_args, expr * con
         else if (m_sort_sums) {
             TRACE("rewriter_bug", tout << "new_args.size(): " << new_args.size() << "\n";);
             if (c.is_zero())
-                std::sort(new_args.c_ptr(), new_args.c_ptr() + new_args.size(), ast_to_lt());
+                std::sort(new_args.c_ptr(), new_args.c_ptr() + new_args.size(), mon_lt(*this));
             else
-                std::sort(new_args.c_ptr() + 1, new_args.c_ptr() + new_args.size(), ast_to_lt());
+                std::sort(new_args.c_ptr() + 1, new_args.c_ptr() + new_args.size(), mon_lt(*this));
         }
         result = mk_add_app(new_args.size(), new_args.c_ptr());
         TRACE("rewriter", tout << result << "\n";);
@@ -624,10 +644,10 @@ br_status poly_rewriter<Config>::mk_nflat_add_core(unsigned num_args, expr * con
         }
         else if (!ordered) {
             if (c.is_zero())
-                std::sort(new_args.c_ptr(), new_args.c_ptr() + new_args.size(), ast_to_lt());
+                std::sort(new_args.c_ptr(), new_args.c_ptr() + new_args.size(), lt);
             else 
-                std::sort(new_args.c_ptr() + 1, new_args.c_ptr() + new_args.size(), ast_to_lt());
-        }
+                std::sort(new_args.c_ptr() + 1, new_args.c_ptr() + new_args.size(), lt);
+    }
         result = mk_add_app(new_args.size(), new_args.c_ptr());        
         if (hoist_multiplication(result)) {
             return BR_REWRITE_FULL;
@@ -681,6 +701,7 @@ br_status poly_rewriter<Config>::mk_sub(unsigned num_args, expr * const * args, 
 template<typename Config>
 br_status poly_rewriter<Config>::cancel_monomials(expr * lhs, expr * rhs, bool move, expr_ref & lhs_result, expr_ref & rhs_result) {
     set_curr_sort(m().get_sort(lhs));
+    mon_lt lt(*this);
     unsigned lhs_sz;
     expr * const * lhs_monomials = get_monomials(lhs, lhs_sz);
     unsigned rhs_sz;
@@ -831,7 +852,7 @@ br_status poly_rewriter<Config>::cancel_monomials(expr * lhs, expr * rhs, bool m
     if (move) {
         if (m_sort_sums) { 
             // + 1 to skip coefficient
-            std::sort(new_lhs_monomials.begin() + 1, new_lhs_monomials.end(), ast_to_lt());
+            std::sort(new_lhs_monomials.begin() + 1, new_lhs_monomials.end(), lt);
         }
         c_at_rhs = true;
     }

@@ -120,7 +120,7 @@ void asserted_formulas::push_assertion(expr * e, proof * pr, vector<justified_ex
 void asserted_formulas::set_eliminate_and(bool flag) {
     params_ref p;
     p.set_bool("elim_and", flag);
-    p.set_bool("arith_lhs", true);
+//    p.set_bool("arith_lhs", true);
     p.set_bool("sort_sums", true);
     p.set_bool("rewrite_patterns", true);
     p.set_bool("expand_eqs", m_params.m_arith_expand_eqs);
@@ -429,7 +429,6 @@ void asserted_formulas::commit(unsigned new_qhead) {
 }
 
 void asserted_formulas::propagate_values() {
-    TRACE("propagate_values", tout << "before:\n"; display(tout););
     flush_cache();
 
     unsigned num_prop = 0;
@@ -466,7 +465,7 @@ void asserted_formulas::propagate_values() {
 }
 
 unsigned asserted_formulas::propagate_values(unsigned i) {
-    expr * n = m_formulas[i].get_fml();
+    expr_ref n(m_formulas[i].get_fml(), m);
     expr_ref new_n(m);                                                  
     proof_ref new_pr(m);                                                
     m_rewriter(n, new_n, new_pr);                                       
@@ -476,6 +475,9 @@ unsigned asserted_formulas::propagate_values(unsigned i) {
     }
     justified_expr j(m, new_n, new_pr);
     m_formulas[i] = j;
+    if (m_formulas[i].get_fml() != new_n) {
+        std::cout << "NOT updated\n";
+    }
     if (m.is_false(j.get_fml())) {
         m_inconsistent = true;
     }

@@ -50,12 +50,12 @@ public:
 class arith_rewriter : public poly_rewriter<arith_rewriter_core> {
     bool m_arith_lhs;
     bool m_gcd_rounding;
-    bool m_eq2ineq;
     bool m_elim_to_real;
     bool m_push_to_real;
     bool m_anum_simp;
     bool m_elim_rem;
     bool m_expand_eqs;
+    bool m_process_all_eqs;
     unsigned m_max_degree;
 
     void get_coeffs_gcd(expr * t, numeral & g, bool & first, unsigned & num_consts);
@@ -82,6 +82,8 @@ class arith_rewriter : public poly_rewriter<arith_rewriter_core> {
     bool is_reduce_power_target(expr * arg, bool is_eq);
     expr * reduce_power(expr * arg, bool is_eq);
     br_status reduce_power(expr * arg1, expr * arg2, op_kind kind, expr_ref & result);
+
+    bool is_arith_term(expr * n) const;
 
     bool is_pi_multiple(expr * t, rational & k);
     bool is_pi_offset(expr * t, rational & k, expr * & m);
