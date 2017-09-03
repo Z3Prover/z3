@@ -25,7 +25,7 @@ Notes:
 void arith_rewriter::updt_local_params(params_ref const & _p) {
     arith_rewriter_params p(_p);
     m_arith_lhs       = p.arith_lhs();
-    m_arith_ineq_lhs  = p.arith_ineq_lhs;
+    m_arith_ineq_lhs  = p.arith_ineq_lhs();
     m_gcd_rounding    = p.gcd_rounding();
     m_elim_to_real    = p.elim_to_real();
     m_push_to_real    = p.push_to_real();
