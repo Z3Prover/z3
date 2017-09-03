@@ -24,6 +24,12 @@ Revision History:
 
 namespace datatype {
 
+    void accessor::fix_range(sort_ref_vector const& dts) {
+        if (!m_range) {
+            m_range = dts[m_index];
+        }
+    }
+
     func_decl_ref accessor::instantiate(sort_ref_vector const& ps) const {
         unsigned n = ps.size();
         SASSERT(n == get_def().params().size());
@@ -284,6 +290,14 @@ namespace datatype {
                 def const& d = *m_defs[s];
                 sort_ref_vector ps(m);
                 sorts.push_back(d.instantiate(ps));
+            }
+            for (symbol const& s : m_def_block) {
+                def& d = *m_defs[s];
+                for (constructor& c : d) {
+                    for (accessor& a : c) {
+                        // a.fix_range(sorts);
+                    }
+                }
             }
             if (!u().is_well_founded(sorts.size(), sorts.c_ptr())) {
                 m_manager->raise_exception("datatype is not well-founded");

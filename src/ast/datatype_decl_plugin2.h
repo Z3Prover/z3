@@ -46,17 +46,24 @@ namespace datatype {
     class accessor {
         ast_manager& m;
         symbol   m_name;
-        sort_ref m_domain;
         sort_ref m_range;
+        unsigned m_index;    // reference to recursive data-type may only get resolved after all mutually recursive data-types are procssed.
         constructor* m_constructor;
     public:
-        accessor(ast_manager& m, symbol const& n):
+        accessor(ast_manager& m, symbol const& n, sort* range):
             m(m),
             m_name(n),
-            m_domain(m),
-            m_range(m)
+            m_range(range, m),
+            m_index(UINT_MAX)
+        {}
+        accessor(ast_manager& m, symbol const& n, unsigned index):
+            m(m),
+            m_name(n),
+            m_range(m),
+            m_index(index)
         {}
         sort* range() const { return m_range; }
+        void fix_range(sort_ref_vector const& dts);
         symbol const& name() const { return m_name; }
         func_decl_ref instantiate(sort_ref_vector const& ps) const;
         func_decl_ref instantiate(sort* dt) const;
@@ -78,6 +85,8 @@ namespace datatype {
         vector<accessor> const& accessors() const { return m_accessors; }
         vector<accessor>::const_iterator begin() const { return m_accessors.begin(); }
         vector<accessor>::const_iterator end() const { return m_accessors.end(); }
+        vector<accessor>::iterator begin() { return m_accessors.begin(); }
+        vector<accessor>::iterator end() { return m_accessors.end(); }
         func_decl_ref instantiate(sort_ref_vector const& ps) const;
         func_decl_ref instantiate(sort* dt) const;
         void attach(def* d) { m_def = d; }
@@ -205,6 +214,8 @@ namespace datatype {
         vector<constructor> const& constructors() const { return m_constructors; }
         vector<constructor>::const_iterator begin() const { return m_constructors.begin(); }
         vector<constructor>::const_iterator end() const { return m_constructors.end(); }
+        vector<constructor>::iterator begin() { return m_constructors.begin(); }
+        vector<constructor>::iterator end() { return m_constructors.end(); }
         sort_ref_vector const& params() const { return m_params; }
         util& u() const { return m_util; }
         param_size::size* sort_size() { return m_sort_size; }

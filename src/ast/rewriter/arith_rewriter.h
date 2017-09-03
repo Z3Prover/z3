@@ -49,6 +49,7 @@ public:
 
 class arith_rewriter : public poly_rewriter<arith_rewriter_core> {
     bool m_arith_lhs;
+    bool m_arith_ineq_lhs;
     bool m_gcd_rounding;
     bool m_elim_to_real;
     bool m_push_to_real;

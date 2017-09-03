@@ -120,7 +120,7 @@ void asserted_formulas::push_assertion(expr * e, proof * pr, vector<justified_ex
 void asserted_formulas::set_eliminate_and(bool flag) {
     params_ref p;
     p.set_bool("elim_and", flag);
-//    p.set_bool("arith_lhs", true);
+    p.set_bool("arith_ineq_lhs", true);
     p.set_bool("sort_sums", true);
     p.set_bool("rewrite_patterns", true);
     p.set_bool("expand_eqs", m_params.m_arith_expand_eqs);
