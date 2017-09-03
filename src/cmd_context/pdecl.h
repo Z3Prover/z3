@@ -134,20 +134,6 @@ public:
     virtual void display(std::ostream & out) const;
 };
 
-#if 0
-class psort_dt_decl : public psort_decl {
-protected:
-    friend class pdecl_manager;
-    psort_dt_decl(unsigned id, unsigned num_params, pdecl_manager & m, symbol const & n);
-    virtual size_t obj_size() const { return sizeof(psort_dt_decl); }
-    virtual void finalize(pdecl_manager & m);
-    virtual ~psort_dt_decl() {}
-public:
-    virtual sort * instantiate(pdecl_manager & m, unsigned n, sort * const * s);
-    virtual void display(std::ostream & out) const;
-};
-#endif
-
 class datatype_decl_plugin;
 class datatype_decl;
 class constructor_decl;

@@ -15,13 +15,12 @@ Author:
 
 Revision History:
 
-    // compute sort sizes and insert them.
-    // have a notion of pre-sort or just attach sort size after declaration.
-
 --*/
-#include "ast/datatype_decl_plugin2.h"
 #include "util/warning.h"
+#include "ast/datatype_decl_plugin2.h"
+#include "ast/array_decl_plugin.h"
 #include "ast/ast_smt2_pp.h"
+
 
 namespace datatype {
 
@@ -78,6 +77,32 @@ namespace datatype {
         BLACK
     };
 
+    namespace param_size {
+        size* size::mk_offset(sort_size const& s) { return alloc(offset, s); }
+        size* size::mk_param(sort_ref& p) { return alloc(sparam, p); }
+        size* size::mk_plus(size* a1, size* a2) { return alloc(plus, a1, a2); }
+        size* size::mk_times(size* a1, size* a2) { return alloc(times, a1, a2); }
+        size* size::mk_times(ptr_vector<size>& szs) {
+            if (szs.empty()) return mk_offset(sort_size(1));
+            if (szs.size() == 1) return szs[0];
+            size* r = szs[0];
+            for (unsigned i = 1; i < szs.size(); ++i) {
+                r = mk_times(r, szs[i]);
+            }
+            return r;
+        }
+        size* size::mk_plus(ptr_vector<size>& szs) {
+            if (szs.empty()) return mk_offset(sort_size(0));
+            if (szs.size() == 1) return szs[0];
+            size* r = szs[0];
+            for (unsigned i = 1; i < szs.size(); ++i) {
+                r = mk_plus(r, szs[i]);
+            }
+            return r;
+        }
+        size* size::mk_power(size* a1, size* a2) { return alloc(power, a1, a2); }
+    }
+
     namespace decl {
 
         plugin::~plugin() {
@@ -125,9 +150,16 @@ namespace datatype {
                                 
                 sort* s = m_manager->mk_sort(name.get_symbol(),
                                              sort_info(m_family_id, k, num_parameters, parameters, true));
-                // compute datatype size
-                sort_size ts = u().get_datatype_size(s); 
-                s->set_num_elements(ts);
+                def* d = 0;
+                if (m_defs.find(s->get_name(), d) && d->sort_size()) {
+                    obj_map<sort, sort_size> S;
+                    for (unsigned i = 1; i < num_parameters; ++i) {
+                        sort* r = to_sort(parameters[i].get_ast());
+                        S.insert(d->params()[i], r->get_num_elements()); 
+                    }
+                    sort_size ts = d->sort_size()->fold(S);
+                    s->set_num_elements(ts);
+                }
                 return s;
             }
             catch (invalid_datatype) {
@@ -256,6 +288,7 @@ namespace datatype {
             if (!u().is_well_founded(sorts.size(), sorts.c_ptr())) {
                 m_manager->raise_exception("datatype is not well-founded");
             }
+            u().compute_datatype_size_functions(m_def_block);
         }
 
         void plugin::del(symbol const& s) {
@@ -418,84 +451,111 @@ namespace datatype {
         }
         return false;
     }
+
+    unsigned util::get_datatype_num_parameter_sorts(sort * ty) {
+        SASSERT(ty->get_num_parameters() >= 1);
+        return ty->get_num_parameters() - 1;
+    }
+
+    sort* util::get_datatype_parameter_sort(sort * ty, unsigned idx) {
+        SASSERT(idx < get_datatype_num_parameter_sorts(ty));
+        return to_sort(ty->get_parameter(idx+1).get_ast());
+    }
+
+    param_size::size* util::get_sort_size(sort_ref_vector const& params, sort* s) {
+        if (params.empty()) {
+            return param_size::size::mk_offset(s->get_num_elements());
+        }
+        if (is_datatype(s)) {
+            param_size::size* sz;
+            obj_map<sort, param_size::size*> S;
+            unsigned n = get_datatype_num_parameter_sorts(s);
+            for (unsigned i = 0; i < n; ++i) {
+                sort* ps = get_datatype_parameter_sort(s, i);
+                sz = get_sort_size(params, ps);
+                sz->inc_ref();
+                S.insert(ps, sz); 
+            }
+            def & d = get_def(s->get_name());
+            sz = d.sort_size()->subst(S);
+            for (auto & kv : S) {
+                kv.m_value->dec_ref();
+            }
+            return sz;
+        }
+        array_util autil(m);
+        if (autil.is_array(s)) {
+            unsigned n = get_array_arity(s);
+            ptr_vector<param_size::size> szs;
+            for (unsigned i = 0; i < n; ++i) {
+                szs.push_back(get_sort_size(params, get_array_domain(s, i)));
+            }
+            param_size::size* sz1 = param_size::size::mk_times(szs);
+            param_size::size* sz2 = get_sort_size(params, get_array_range(s));
+            return param_size::size::mk_power(sz2, sz1);
+        }
+        for (sort* p : params) {           
+            if (s == p) return param_size::size::mk_param(sort_ref(s, m));
+        }
+        return param_size::size::mk_offset(s->get_num_elements());        
+    }
     
-    /**
-       \brief Return the size of the inductive datatype.
-       Pre-condition: The given argument constains the parameters of an inductive datatype.
-    */
-    sort_size util::get_datatype_size(sort* s0) {
-        obj_map<sort, status> already_found;
-        obj_map<sort, sort_size> szs;
-        ptr_vector<sort> todo;
-        todo.push_back(s0);
+    void util::compute_datatype_size_functions(svector<symbol> const& names) {
+        map<symbol, status, symbol_hash_proc, symbol_eq_proc> already_found;
+        map<symbol, param_size::size*, symbol_hash_proc, symbol_eq_proc> szs;
+
+        svector<symbol> todo(names);
         status st;
         while (!todo.empty()) {
-            sort* s  = todo.back();
+            symbol s = todo.back();
             if (already_found.find(s, st) && st == BLACK) {
                 todo.pop_back();
                 continue;
             }
             already_found.insert(s, GRAY);
-            bool     is_very_big       = false;
-            bool     can_process       = true;
-            def const& d = get_def(s);
+            bool is_infinite = false;
+            bool can_process = true;
+            def& d = get_def(s);
             for (constructor const& c : d) {
                 for (accessor const& a : c) {
-                    func_decl_ref ac = a.instantiate(s);
-                    sort* r = ac->get_range();
+                    sort* r = a.range();
                     if (is_datatype(r)) {
-                        if (already_found.find(r, st)) {
+                        symbol s2 = r->get_name();
+                        if (already_found.find(s2, st)) {
                             // type is infinite
-                            if (st == GRAY) return sort_size();
+                            if (st == GRAY) {
+                                is_infinite = true;
+                            }
                         }
-                        else {
-                            todo.push_back(r);
+                        else if (names.contains(s2)) {
+                            todo.push_back(s2);
                             can_process = false;
                         }
                     }
-                    else if (r->is_infinite()) {
-                        // type is infinite
-                        return sort_size();
-                    }
-                    else if (r->is_very_big()) {
-                        is_very_big = true;
-                    }
                 }
+            }
+            if (!can_process) {
+                continue;
+            }
+            todo.pop_back();
+            already_found.insert(s, BLACK);
+            if (is_infinite) {
+                d.set_sort_size(param_size::size::mk_offset(sort_size::mk_infinite()));
+                continue;
             }
 
-            if (can_process) {
-                todo.pop_back();
-                already_found.insert(s, BLACK);
-                if (is_very_big) {
-                    szs.insert(s, sort_size::mk_very_big());
+            ptr_vector<param_size::size> s_add;        
+            for (constructor const& c : d) {
+                ptr_vector<param_size::size> s_mul;
+                for (accessor const& a : c) {
+                    s_mul.push_back(get_sort_size(d.params(), a.range()));
                 }
-                else {
-                    // the type is not infinite nor the number of elements is infinite...
-                    // computing the number of elements
-                    rational num;
-                    def const& d = get_def(s);
-                    for (constructor const& c : d) {
-                        rational c_num(1); 
-                        for (accessor const& a : c) {
-                            func_decl_ref ac = a.instantiate(s);
-                            sort* r = ac->get_range();
-                            if (szs.contains(r)) {
-                                c_num *= rational(szs[r].size(), rational::ui64());
-                            }
-                            else {
-                                SASSERT(!r->is_infinite() && !r->is_very_big());
-                                c_num *= rational(r->get_num_elements().size(), rational::ui64());
-                            }
-                        }
-                        num += c_num;
-                    }
-                    szs.insert(s, sort_size(num));
-                }
+                s_add.push_back(param_size::size::mk_times(s_mul));
             }
+            d.set_sort_size(param_size::size::mk_plus(s_add));
         }
-        return szs[s0];
     }
-
+    
 
     /**
        \brief Return true if the inductive datatype is well-founded.

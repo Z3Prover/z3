@@ -85,11 +85,100 @@ namespace datatype {
         util& u() const;
     };
 
+    namespace param_size {
+        class size {
+            unsigned m_ref;
+        public:
+            size(): m_ref(0) {}
+            virtual ~size() {}
+            void inc_ref() { ++m_ref; }
+            void dec_ref() { --m_ref; if (m_ref == 0) dealloc(this); }
+            static size* mk_offset(sort_size const& s); 
+            static size* mk_param(sort_ref& p); 
+            static size* mk_plus(size* a1, size* a2); 
+            static size* mk_times(size* a1, size* a2); 
+            static size* mk_plus(ptr_vector<size>& szs);
+            static size* mk_times(ptr_vector<size>& szs);
+            static size* mk_power(size* a1, size* a2);
+            
+            virtual size* subst(obj_map<sort, size*>& S) = 0;
+            virtual sort_size fold(obj_map<sort, sort_size> const& S) = 0;
+            
+        };
+        struct offset : public size {
+            sort_size m_offset;
+            offset(sort_size const& s): m_offset(s) {}
+            virtual ~offset() {}
+            virtual size* subst(obj_map<sort,size*>& S) { return this; }
+            virtual sort_size fold(obj_map<sort, sort_size> const& S) { return m_offset; }
+        };
+        struct plus : public size {
+            size* m_arg1, *m_arg2;
+            plus(size* a1, size* a2): m_arg1(a1), m_arg2(a2) { a1->inc_ref(); a2->inc_ref();}
+            virtual ~plus() { m_arg1->dec_ref(); m_arg2->dec_ref(); }
+            virtual size* subst(obj_map<sort,size*>& S) { return mk_plus(m_arg1->subst(S), m_arg2->subst(S)); }
+            virtual sort_size fold(obj_map<sort, sort_size> const& S) { 
+                sort_size s1 = m_arg1->fold(S);
+                sort_size s2 = m_arg2->fold(S);
+                if (s1.is_infinite()) return s1;
+                if (s2.is_infinite()) return s2;
+                if (s1.is_very_big()) return s1;
+                if (s2.is_very_big()) return s2;
+                rational r = rational(s1.size(), rational::ui64()) + rational(s2.size(), rational::ui64());
+                return sort_size(r);
+            }
+        };
+        struct times : public size {
+            size* m_arg1, *m_arg2;
+            times(size* a1, size* a2): m_arg1(a1), m_arg2(a2) { a1->inc_ref(); a2->inc_ref(); }
+            virtual ~times() { m_arg1->dec_ref(); m_arg2->dec_ref(); }
+            virtual size* subst(obj_map<sort,size*>& S) { return mk_times(m_arg1->subst(S), m_arg2->subst(S)); }
+            virtual sort_size fold(obj_map<sort, sort_size> const& S) { 
+                sort_size s1 = m_arg1->fold(S);
+                sort_size s2 = m_arg2->fold(S);
+                if (s1.is_infinite()) return s1;
+                if (s2.is_infinite()) return s2;
+                if (s1.is_very_big()) return s1;
+                if (s2.is_very_big()) return s2;
+                rational r = rational(s1.size(), rational::ui64()) * rational(s2.size(), rational::ui64());
+                return sort_size(r);
+            }
+        };
+        struct power : public size {
+            size* m_arg1, *m_arg2;
+            power(size* a1, size* a2): m_arg1(a1), m_arg2(a2) { a1->inc_ref(); a2->inc_ref(); }
+            virtual ~power() { m_arg1->dec_ref(); m_arg2->dec_ref(); }
+            virtual size* subst(obj_map<sort,size*>& S) { return mk_power(m_arg1->subst(S), m_arg2->subst(S)); }
+            virtual sort_size fold(obj_map<sort, sort_size> const& S) { 
+                sort_size s1 = m_arg1->fold(S);
+                sort_size s2 = m_arg2->fold(S);
+                // s1^s2
+                if (s1.is_infinite()) return s1;
+                if (s2.is_infinite()) return s2;
+                if (s1.is_very_big()) return s1;
+                if (s2.is_very_big()) return s2;
+                if (s1.size() == 1) return s1;
+                if (s2.size() == 1) return s1;
+                if (s1.size() > (2 << 20) || s2.size() > 10) return sort_size::mk_very_big();
+                rational r = ::power(rational(s1.size(), rational::ui64()), static_cast<unsigned>(s2.size()));
+                return sort_size(r);
+            }
+        };
+        struct sparam : public size {
+            sort_ref m_param;
+            sparam(sort_ref& p): m_param(p) {}
+            virtual ~sparam() {}
+            virtual size* subst(obj_map<sort,size*>& S) { return S[m_param]; }
+            virtual sort_size fold(obj_map<sort, sort_size> const& S) { return S[m_param]; }
+        };
+    };
+
     class def {
         ast_manager&        m;
         util&               m_util;
         symbol              m_name;
         unsigned            m_class_id;
+        param_size::size*   m_sort_size;
         sort_ref_vector     m_params;
         mutable sort_ref    m_sort;
         vector<constructor> m_constructors;
@@ -99,9 +188,13 @@ namespace datatype {
             m_util(u),
             m_name(n),
             m_class_id(class_id),            
+            m_sort_size(0),
             m_params(m, num_params, params), 
             m_sort(m)
         {}
+        ~def() {
+            if (m_sort_size) m_sort_size->dec_ref();
+        }
         void add(constructor& c) {
             m_constructors.push_back(c);
             c.attach(this);
@@ -114,6 +207,8 @@ namespace datatype {
         vector<constructor>::const_iterator end() const { return m_constructors.end(); }
         sort_ref_vector const& params() const { return m_params; }
         util& u() const { return m_util; }
+        param_size::size* sort_size() { return m_sort_size; }
+        void set_sort_size(param_size::size* p) { m_sort_size = p; p->inc_ref(); }
     };
 
     namespace decl {
@@ -155,7 +250,8 @@ namespace datatype {
 
             void del(symbol const& d);
 
-            def const& get_def(sort* s) const { def* d = 0; VERIFY(m_defs.find(datatype_name(s), d)); return *d; }
+            def const& get_def(sort* s) const { return *(m_defs[datatype_name(s)]); }
+            def& get_def(symbol const& s) { return *(m_defs[s]); }
 
         private:
             bool is_value_visit(expr * arg, ptr_buffer<app> & todo) const;
@@ -213,8 +309,11 @@ namespace datatype {
 
         bool is_recursive_core(sort * s) const;
         sort_size get_datatype_size(sort* s0);
+        void compute_datatype_size_functions(svector<symbol> const& names);
+        param_size::size* get_sort_size(sort_ref_vector const& params, sort* s);
         bool is_well_founded(unsigned num_types, sort* const* sorts);
         def const& get_def(sort* s) const;
+        def& get_def(symbol const& s) { return m_plugin->get_def(s); }
         void get_subsorts(sort* s, ptr_vector<sort>& sorts) const;        
 
     public:

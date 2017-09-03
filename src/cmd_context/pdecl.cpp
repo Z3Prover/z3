@@ -39,15 +39,13 @@ public:
         }
         else {
             SASSERT(m_const == 0);
-            obj_map<sort, void *>::iterator it  = m_map.begin();
-            obj_map<sort, void *>::iterator end = m_map.end();
-            for (; it != end; ++it) {
-                m.m().dec_ref((*it).m_key);
+            for (auto kv : m_map) {
+                m.m().dec_ref(kv.m_key);
                 if (m_num_params == 1) {
-                    m.m().dec_ref(static_cast<sort*>((*it).m_value));
+                    m.m().dec_ref(static_cast<sort*>(kv.m_value));
                 }
                 else {
-                    psort_inst_cache * child = static_cast<psort_inst_cache*>((*it).m_value);
+                    psort_inst_cache * child = static_cast<psort_inst_cache*>(kv.m_value);
                     child->finalize(m);
                     child->~psort_inst_cache();
                     m.a().deallocate(sizeof(psort_inst_cache), child);
@@ -485,20 +483,16 @@ void pconstructor_decl::finalize(pdecl_manager & m) {
 }
 
 bool pconstructor_decl::has_missing_refs(symbol & missing) const {
-    ptr_vector<paccessor_decl>::const_iterator it  = m_accessors.begin();
-    ptr_vector<paccessor_decl>::const_iterator end = m_accessors.end();
-    for (; it != end; ++it) {
-        if ((*it)->has_missing_refs(missing))
+    for (paccessor_decl* a : m_accessors) {
+        if (a->has_missing_refs(missing))
             return true;
     }
     return false;
 }
 
 bool pconstructor_decl::fix_missing_refs(dictionary<int> const & symbol2idx, symbol & missing) {
-    ptr_vector<paccessor_decl>::iterator it  = m_accessors.begin();
-    ptr_vector<paccessor_decl>::iterator end = m_accessors.end();
-    for (; it != end; ++it) {
-        if (!(*it)->fix_missing_refs(symbol2idx, missing))
+    for (paccessor_decl* a : m_accessors) {
+        if (!a->fix_missing_refs(symbol2idx, missing))
             return false;
     }
     return true;
@@ -506,20 +500,16 @@ bool pconstructor_decl::fix_missing_refs(dictionary<int> const & symbol2idx, sym
 
 constructor_decl * pconstructor_decl::instantiate_decl(pdecl_manager & m, sort * const * s) {
     ptr_buffer<accessor_decl> as;
-    ptr_vector<paccessor_decl>::iterator it  = m_accessors.begin();
-    ptr_vector<paccessor_decl>::iterator end = m_accessors.end();
-    for (; it != end; ++it) 
-        as.push_back((*it)->instantiate_decl(m, s));
+    for (paccessor_decl* a : m_accessors) 
+        as.push_back(a->instantiate_decl(m, s));
     return mk_constructor_decl(m_name, m_recogniser_name, as.size(), as.c_ptr());
 }
 
 void pconstructor_decl::display(std::ostream & out, pdatatype_decl const * const * dts) const {
     out << "(" << m_name;
-    ptr_vector<paccessor_decl>::const_iterator it  = m_accessors.begin();
-    ptr_vector<paccessor_decl>::const_iterator end = m_accessors.end();
-    for (; it != end; ++it) {
+    for (paccessor_decl* a : m_accessors) {
         out << " ";
-        (*it)->display(out, dts);
+        a->display(out, dts);
     }
     out << ")";
 }
@@ -538,23 +528,17 @@ void pdatatype_decl::finalize(pdecl_manager & m) {
 }
 
 bool pdatatype_decl::has_missing_refs(symbol & missing) const {
-    ptr_vector<pconstructor_decl>::const_iterator it  = m_constructors.begin();
-    ptr_vector<pconstructor_decl>::const_iterator end = m_constructors.end();
-    for (; it != end; ++it) {
-        if ((*it)->has_missing_refs(missing))
+    for (auto c : m_constructors) 
+        if (c->has_missing_refs(missing))
             return true;
-    }
     return false;
 }
 
 bool pdatatype_decl::has_duplicate_accessors(symbol & duplicated) const {
     hashtable<symbol, symbol_hash_proc, symbol_eq_proc> names;
-    ptr_vector<pconstructor_decl>::const_iterator it  = m_constructors.begin();
-    ptr_vector<pconstructor_decl>::const_iterator end = m_constructors.end();
-    for (; it != end; ++it) {
-        ptr_vector<paccessor_decl> const& acc = (*it)->m_accessors;
-        for (unsigned i = 0; i < acc.size(); ++i) {
-            symbol const& name = acc[i]->get_name();
+    for (auto c : m_constructors) {
+        for (auto a : c->m_accessors) {
+            symbol const& name = a->get_name();
             if (names.contains(name)) {
                 duplicated = name;
                 return true;
@@ -567,10 +551,8 @@ bool pdatatype_decl::has_duplicate_accessors(symbol & duplicated) const {
 
 
 bool pdatatype_decl::fix_missing_refs(dictionary<int> const & symbol2idx, symbol & missing) {
-    ptr_vector<pconstructor_decl>::iterator it  = m_constructors.begin();
-    ptr_vector<pconstructor_decl>::iterator end = m_constructors.end();
-    for (; it != end; ++it) {
-        if (!(*it)->fix_missing_refs(symbol2idx, missing))
+    for (auto c : m_constructors) {
+        if (!c->fix_missing_refs(symbol2idx, missing))
             return false;
     }
     return true;
@@ -578,10 +560,8 @@ bool pdatatype_decl::fix_missing_refs(dictionary<int> const & symbol2idx, symbol
 
 datatype_decl * pdatatype_decl::instantiate_decl(pdecl_manager & m, sort * const * s) {
     ptr_buffer<constructor_decl> cs;
-    ptr_vector<pconstructor_decl>::iterator it  = m_constructors.begin();
-    ptr_vector<pconstructor_decl>::iterator end = m_constructors.end();
-    for (; it != end; ++it) {
-        cs.push_back((*it)->instantiate_decl(m, s));
+    for (auto c : m_constructors) {
+        cs.push_back(c->instantiate_decl(m, s));
     }
     return mk_datatype_decl(m_name, cs.size(), cs.c_ptr());
 }
@@ -624,17 +604,16 @@ sort * pdatatype_decl::instantiate(pdecl_manager & m, unsigned n, sort * const *
 void pdatatype_decl::display(std::ostream & out) const {
     out << "(declare-datatype " << m_name;
     display_sort_args(out, m_num_params);
-    ptr_vector<pconstructor_decl>::const_iterator it  = m_constructors.begin();
-    ptr_vector<pconstructor_decl>::const_iterator end = m_constructors.end();
-    for (bool first = true; it != end; ++it) {
+    bool first = true;
+    for (auto c : m_constructors) {
         if (!first)
             out << " ";
         if (m_parent) {
-            (*it)->display(out, m_parent->children());
+            c->display(out, m_parent->children());
         }
         else {
             pdatatype_decl const * dts[1] = { this };
-            (*it)->display(out, dts);
+            c->display(out, dts);
         }
         first = false;
     }
@@ -647,11 +626,9 @@ pdatatypes_decl::pdatatypes_decl(unsigned id, unsigned num_params, pdecl_manager
     m_datatypes(num_datatypes, dts) {
     m.inc_ref(num_datatypes, dts);
 
-    ptr_vector<pdatatype_decl>::iterator it  = m_datatypes.begin();
-    ptr_vector<pdatatype_decl>::iterator end = m_datatypes.end();
-    for (; it != end; ++it) {
-        SASSERT((*it)->m_parent == 0);
-        (*it)->m_parent = this;
+    for (auto d : m_datatypes) {
+        SASSERT(d->m_parent == 0);
+        d->m_parent = this;
     }
 }
 
@@ -662,36 +639,30 @@ void pdatatypes_decl::finalize(pdecl_manager & m) {
 bool pdatatypes_decl::fix_missing_refs(symbol & missing) {
     TRACE("fix_missing_refs", tout << "pdatatypes_decl::fix_missing_refs\n";);
     dictionary<int> symbol2idx;
-    ptr_vector<pdatatype_decl>::iterator it  = m_datatypes.begin();
-    ptr_vector<pdatatype_decl>::iterator end = m_datatypes.end();
-    for (unsigned idx = 0; it != end; ++it, ++idx)
-        symbol2idx.insert((*it)->get_name(), idx);
-
-    it  = m_datatypes.begin();
-    for (unsigned idx = 0; it != end; ++it, ++idx) {
-        if (!(*it)->fix_missing_refs(symbol2idx, missing))
+    int idx = 0;
+    for (pdatatype_decl* d : m_datatypes) 
+        symbol2idx.insert(d->get_name(), idx++);
+    for (pdatatype_decl* d : m_datatypes) 
+        if (!d->fix_missing_refs(symbol2idx, missing))
             return false;
-    }
     return true;
 }
 
 bool pdatatypes_decl::instantiate(pdecl_manager & m, sort * const * s) {
     datatype_decl_buffer dts;
-    ptr_vector<pdatatype_decl>::iterator it  = m_datatypes.begin();
-    ptr_vector<pdatatype_decl>::iterator end = m_datatypes.end();
-    for (; it != end; ++it) {
-        dts.m_buffer.push_back((*it)->instantiate_decl(m, s));
+    for (auto d : m_datatypes) {
+        dts.m_buffer.push_back(d->instantiate_decl(m, s));
     }
     sort_ref_vector sorts(m.m());
     bool is_ok = m.get_dt_plugin()->mk_datatypes(dts.m_buffer.size(), dts.m_buffer.c_ptr(), m_num_params, s, sorts);
     if (!is_ok)
         return false;
-    it  = m_datatypes.begin();
-    for (unsigned i = 0; it != end; ++it, ++i) {
-        sort * new_dt = sorts.get(i);
-        (*it)->cache(m, s, new_dt);
-        m.save_info(new_dt, *it, m_num_params, s);
-        m.notify_new_dt(new_dt, *it);
+    unsigned i = 0;
+    for (auto d : m_datatypes) {
+        sort * new_dt = sorts.get(i++);
+        d->cache(m, s, new_dt);
+        m.save_info(new_dt, d, m_num_params, s);
+        m.notify_new_dt(new_dt, d);
     }
     return true;
 }
@@ -965,11 +936,9 @@ void pdecl_manager::save_info(sort * s, psort_decl * d, unsigned num_indices, un
 }
 
 void pdecl_manager::reset_sort_info() {
-    obj_map<sort, sort_info *>::iterator it  = m_sort2info.begin();
-    obj_map<sort, sort_info *>::iterator end = m_sort2info.end();
-    for (; it != end; ++it) {
-        sort * s         = (*it).m_key;
-        sort_info * info = (*it).m_value;
+    for (auto kv : m_sort2info) {
+        sort * s         = kv.m_key;
+        sort_info * info = kv.m_value;
         m().dec_ref(s);
         unsigned sz = info->obj_size();
         info->finalize(*this);
