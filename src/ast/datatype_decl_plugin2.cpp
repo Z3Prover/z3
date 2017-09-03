@@ -495,7 +495,10 @@ namespace datatype {
             return param_size::size::mk_power(sz2, sz1);
         }
         for (sort* p : params) {           
-            if (s == p) return param_size::size::mk_param(sort_ref(s, m));
+            if (s == p) {
+                sort_ref sr(s, m);
+                return param_size::size::mk_param(sr);
+            }
         }
         return param_size::size::mk_offset(s->get_num_elements());        
     }
