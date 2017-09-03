@@ -150,7 +150,7 @@ public:
 
     virtual expr * get_some_value(sort * s);
 
-    virtual bool is_fully_interp(sort const * s) const;
+    virtual bool is_fully_interp(sort * s) const;
 
     virtual bool is_value(app* e) const;
 

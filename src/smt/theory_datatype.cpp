@@ -437,10 +437,7 @@ namespace smt {
             ctx.set_conflict(ctx.mk_justification(ext_theory_conflict_justification(get_id(), r, 0, 0, m_used_eqs.size(), m_used_eqs.c_ptr())));
             TRACE("occurs_check",
                   tout << "occurs_check: true\n";
-                  enode_pair_vector::const_iterator it  = m_used_eqs.begin();
-                  enode_pair_vector::const_iterator end = m_used_eqs.end();
-                  for(; it != end; ++it) {
-                      enode_pair const & p = *it;
+                  for (enode_pair const& p : m_used_eqs) {
                       tout << "eq: #" << p.first->get_owner_id() << " #" << p.second->get_owner_id() << "\n";
                       tout << mk_bounded_pp(p.first->get_owner(), get_manager()) << " " << mk_bounded_pp(p.second->get_owner(), get_manager()) << "\n";
                   });
@@ -613,11 +610,9 @@ namespace smt {
                 d1->m_constructor = d2->m_constructor;
             }
         }
-        ptr_vector<enode>::iterator it   = d2->m_recognizers.begin();
-        ptr_vector<enode>::iterator end  = d2->m_recognizers.end();
-        for (; it != end; ++it) 
-            if (*it)
-                add_recognizer(v1, *it);
+        for (enode* e : d2->m_recognizers) 
+            if (e)
+                add_recognizer(v1, e);
     }
 
     void theory_datatype::unmerge_eh(theory_var v1, theory_var v2) {

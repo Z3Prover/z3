@@ -188,18 +188,14 @@ decl_info::decl_info(decl_info const& other) :
 
 
 void decl_info::init_eh(ast_manager & m) {
-    vector<parameter>::iterator it  = m_parameters.begin();
-    vector<parameter>::iterator end = m_parameters.end();
-    for (; it != end; ++it) {
-        it->init_eh(m);
+    for (parameter & p : m_parameters) {
+        p.init_eh(m);
     }
 }
 
 void decl_info::del_eh(ast_manager & m) {
-    vector<parameter>::iterator it  = m_parameters.begin();
-    vector<parameter>::iterator end = m_parameters.end();
-    for (; it != end; ++it) {
-        it->del_eh(m, m_family_id);
+    for (parameter & p : m_parameters) {
+        p.del_eh(m, m_family_id);
     }
 }
 
@@ -1935,6 +1931,35 @@ sort * ast_manager::mk_sort(symbol const & name, sort_info * info) {
     return register_node(new_node);
 }
 
+sort * ast_manager::substitute(sort* s, unsigned n, sort * const * src, sort * const * dst) {
+    for (unsigned i = 0; i < n; ++i) {
+        if (s == src[i]) return dst[i];
+    }
+
+    vector<parameter> ps;
+    bool change = false;
+    sort_ref_vector sorts(*this);
+    for (unsigned i = 0; i < s->get_num_parameters(); ++i) {
+        parameter const& p = s->get_parameter(i);
+        if (p.is_ast()) {
+            SASSERT(is_sort(p.get_ast()));
+            change = true;
+            sorts.push_back(substitute(to_sort(p.get_ast()), n, src, dst));
+            ps.push_back(parameter(sorts.back()));
+        }
+        else {
+            ps.push_back(p);
+        }
+    }
+    if (!change) {
+        return s;
+    }
+    decl_info dinfo(s->get_family_id(), s->get_decl_kind(), ps.size(), ps.c_ptr(), s->private_parameters());
+    sort_info sinfo(dinfo, s->get_num_elements());
+    return mk_sort(s->get_name(), &sinfo);
+}
+
+
 sort * ast_manager::mk_uninterpreted_sort(symbol const & name, unsigned num_parameters, parameter const * parameters) {
     user_sort_plugin * plugin = get_user_sort_plugin();
     decl_kind kind = plugin->register_name(name);
@@ -2580,7 +2605,7 @@ expr * ast_manager::get_some_value(sort * s) {
     return mk_model_value(0, s);
 }
 
-bool ast_manager::is_fully_interp(sort const * s) const {
+bool ast_manager::is_fully_interp(sort * s) const {
     if (is_uninterp(s))
         return false;
     family_id fid = s->get_family_id();

@@ -14,6 +14,7 @@ z3_add_component(ast
     ast_util.cpp
     bv_decl_plugin.cpp
     datatype_decl_plugin.cpp
+    datatype_decl_plugin2.cpp
     decl_collector.cpp
     dl_decl_plugin.cpp
     expr2polynomial.cpp

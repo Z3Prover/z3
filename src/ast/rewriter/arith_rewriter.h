@@ -55,6 +55,7 @@ class arith_rewriter : public poly_rewriter<arith_rewriter_core> {
     bool m_push_to_real;
     bool m_anum_simp;
     bool m_elim_rem;
+    bool m_expand_eqs;
     unsigned m_max_degree;
 
     void get_coeffs_gcd(expr * t, numeral & g, bool & first, unsigned & num_consts);
@@ -88,6 +89,8 @@ class arith_rewriter : public poly_rewriter<arith_rewriter_core> {
     bool is_2_pi_integer_offset(expr * t, expr * & m);
     bool is_pi_integer(expr * t);
     bool is_pi_integer_offset(expr * t, expr * & m);
+    bool is_neg_poly(expr* e, expr_ref& neg) const;
+    expr_ref neg_monomial(expr * e) const;
     expr * mk_sin_value(rational const & k);
     app * mk_sqrt(rational const & k);
 

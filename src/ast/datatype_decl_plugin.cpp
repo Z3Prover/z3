@@ -675,7 +675,7 @@ expr * datatype_decl_plugin::get_some_value(sort * s) {
     return m_manager->mk_app(c, args.size(), args.c_ptr());
 }
 
-bool datatype_decl_plugin::is_fully_interp(sort const * s) const {
+bool datatype_decl_plugin::is_fully_interp(sort * s) const {
     SASSERT(s->is_sort_of(m_family_id, DATATYPE_SORT));
     parameter const * parameters = s->get_parameters();
     unsigned num_types        = parameters[0].get_int();

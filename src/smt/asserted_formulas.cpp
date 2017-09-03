@@ -123,6 +123,8 @@ void asserted_formulas::set_eliminate_and(bool flag) {
     p.set_bool("arith_lhs", true);
     p.set_bool("sort_sums", true);
     p.set_bool("rewrite_patterns", true);
+    p.set_bool("expand_eqs", m_params.m_arith_expand_eqs);
+    p.set_bool("gcd_rounding", true);
     m_rewriter.updt_params(p);
     flush_cache();
 }

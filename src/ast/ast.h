@@ -335,13 +335,17 @@ public:
               unsigned num_parameters = 0, parameter const * parameters = 0, bool private_parameters = false):
         decl_info(family_id, k, num_parameters, parameters, private_parameters), m_num_elements(num_elements) {
     }
-    sort_info(sort_info const& other) : decl_info(other), m_num_elements(other.m_num_elements) {
+    sort_info(sort_info const& other) : decl_info(other), m_num_elements(other.m_num_elements) {            
     }
+    sort_info(decl_info const& di, sort_size const& num_elements) : 
+        decl_info(di), m_num_elements(num_elements) {}
+
     ~sort_info() {}
 
     bool is_infinite() const { return m_num_elements.is_infinite(); }
     bool is_very_big() const { return m_num_elements.is_very_big(); }
     sort_size const & get_num_elements() const { return m_num_elements; }
+    void set_num_elements(sort_size const& s) { m_num_elements = s; }
 };
 
 std::ostream & operator<<(std::ostream & out, sort_info const & info);
@@ -567,6 +571,7 @@ public:
     bool is_very_big() const { return get_info() == 0 || get_info()->is_very_big(); }
     bool is_sort_of(family_id fid, decl_kind k) const { return get_family_id() == fid && get_decl_kind() == k; }
     sort_size const & get_num_elements() const { return get_info()->get_num_elements(); }
+    void set_num_elements(sort_size const& s) { get_info()->set_num_elements(s); }
     unsigned get_size() const { return get_obj_size(); }
 };
 
@@ -988,7 +993,7 @@ public:
 
     // Return true if the interpreted sort s does not depend on uninterpreted sorts.
     // This may be the case, for example, for array and datatype sorts.
-    virtual bool is_fully_interp(sort const * s) const { return true; }
+    virtual bool is_fully_interp(sort * s) const { return true; }
 
     // Event handlers for deleting/translating PARAM_EXTERNAL
     virtual void del(parameter const & p) {}
@@ -1655,6 +1660,8 @@ public:
 
     sort * mk_sort(family_id fid, decl_kind k, unsigned num_parameters = 0, parameter const * parameters = 0);
 
+    sort * substitute(sort* s, unsigned n, sort * const * src, sort * const * dst);
+
     sort * mk_bool_sort() const { return m_bool_sort; }
 
     sort * mk_proof_sort() const { return m_proof_sort; }
@@ -1667,7 +1674,7 @@ public:
        \brief A sort is "fully" interpreted if it is interpreted,
        and doesn't depend on other uninterpreted sorts.
     */
-    bool is_fully_interp(sort const * s) const;
+    bool is_fully_interp(sort * s) const;
 
     func_decl * mk_func_decl(family_id fid, decl_kind k, unsigned num_parameters, parameter const * parameters,
                              unsigned arity, sort * const * domain, sort * range = 0);

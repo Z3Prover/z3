@@ -12,4 +12,5 @@ def_module_params(module_name='rewriter',
                           ("arith_lhs", BOOL, False, "all monomials are moved to the left-hand-side, and the right-hand-side is just a constant."),
                           ("elim_to_real", BOOL, False, "eliminate to_real from arithmetic predicates that contain only integers."),
                           ("push_to_real", BOOL, True, "distribute to_real over * and +."),
+                          ("expand_eqs", BOOL, False, "expand equalities into two inequalities"),
                           ("elim_rem", BOOL, False, "replace (rem x y) with (ite (>= y 0) (mod x y) (- (mod x y))).")))
