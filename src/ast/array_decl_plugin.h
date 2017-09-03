@@ -127,7 +127,7 @@ class array_decl_plugin : public decl_plugin {
 
     virtual expr * get_some_value(sort * s);
 
-    virtual bool is_fully_interp(sort const * s) const;
+    virtual bool is_fully_interp(sort * s) const;
 };
 
 class array_recognizers {

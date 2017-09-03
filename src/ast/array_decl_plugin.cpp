@@ -546,7 +546,7 @@ expr * array_decl_plugin::get_some_value(sort * s) {
     return m_manager->mk_app(m_family_id, OP_CONST_ARRAY, 1, &p, 1, &v);
 }
 
-bool array_decl_plugin::is_fully_interp(sort const * s) const {
+bool array_decl_plugin::is_fully_interp(sort * s) const {
     SASSERT(s->is_sort_of(m_family_id, ARRAY_SORT));
     unsigned sz = get_array_arity(s);
     for (unsigned i = 0; i < sz; i++) {
