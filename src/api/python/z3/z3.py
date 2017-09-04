@@ -3640,7 +3640,7 @@ def BitVecs(names, bv, ctx=None):
     >>> Product(x, y, z)
     1*x*y*z
     >>> simplify(Product(x, y, z))
-    z*x*y
+    x*y*z
     """
     ctx = _get_ctx(ctx)
     if isinstance(names, str):
@@ -7647,7 +7647,7 @@ def simplify(a, *arguments, **keywords):
     >>> simplify(x + 1 + y + x + 1)
     2 + 2*x + y
     >>> simplify((x + 1)*(y + 1), som=True)
-    1 + x + y + y*x
+    1 + x + y + x*y
     >>> simplify(Distinct(x, y, 1), blast_distinct=True)
     And(Not(x == y), Not(x == 1), Not(y == 1))
     >>> simplify(And(x == 0, y == 1), elim_and=True)
