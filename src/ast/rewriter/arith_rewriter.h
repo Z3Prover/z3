@@ -55,7 +55,7 @@ class arith_rewriter : public poly_rewriter<arith_rewriter_core> {
     bool m_push_to_real;
     bool m_anum_simp;
     bool m_elim_rem;
-    bool m_expand_eqs;
+    bool m_eq2ineq;
     bool m_process_all_eqs;
     unsigned m_max_degree;
 

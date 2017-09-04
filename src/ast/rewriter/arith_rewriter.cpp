@@ -35,7 +35,7 @@ void arith_rewriter::updt_local_params(params_ref const & _p) {
     m_mul2power       = p.mul_to_power();
     m_elim_rem        = p.elim_rem();
     m_expand_tan      = p.expand_tan();
-    m_expand_eqs      = p.expand_eqs();
+    m_eq2ineq         = p.eq2ineq();
     set_sort_sums(p.sort_sums());
 }
 
@@ -501,7 +501,7 @@ bool arith_rewriter::is_arith_term(expr * n) const {
 }
 
 br_status arith_rewriter::mk_eq_core(expr * arg1, expr * arg2, expr_ref & result) {
-    if (m_expand_eqs) {
+    if (m_eq2ineq) {
         result = m().mk_and(m_util.mk_le(arg1, arg2), m_util.mk_ge(arg1, arg2));
         return BR_REWRITE2;
     }

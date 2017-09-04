@@ -1835,16 +1835,16 @@ namespace pdr {
                 !m_params.pdr_use_convex_interior_generalizer()) {
                 if (classify.is_dl()) {
                     m_fparams.m_arith_mode = AS_DIFF_LOGIC;
-                    m_fparams.m_arith_expand_eqs = true;
+                    m_fparams.m_arith_eq2ineq = true;
                 }
                 else if (classify.is_utvpi()) {
                     IF_VERBOSE(1, verbose_stream() << "UTVPI\n";);
                     m_fparams.m_arith_mode = AS_UTVPI;
-                    m_fparams.m_arith_expand_eqs = true;
+                    m_fparams.m_arith_eq2ineq = true;
                 }
                 else {
                     m_fparams.m_arith_mode = AS_ARITH;
-                    m_fparams.m_arith_expand_eqs = false;
+                    m_fparams.m_arith_eq2ineq = false;
                 }
             }
         }

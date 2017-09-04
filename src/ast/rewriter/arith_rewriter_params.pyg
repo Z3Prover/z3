@@ -12,5 +12,5 @@ def_module_params(module_name='rewriter',
                           ("arith_ineq_lhs", BOOL, False, "rewrite inequalities so that right-hand-side is a constant."),
                           ("elim_to_real", BOOL, False, "eliminate to_real from arithmetic predicates that contain only integers."),
                           ("push_to_real", BOOL, True, "distribute to_real over * and +."),
-                          ("expand_eqs", BOOL, False, "expand equalities into two inequalities"),
+                          ("eq2ineq", BOOL, False, "expand equalities into two inequalities"),
                           ("elim_rem", BOOL, False, "replace (rem x y) with (ite (>= y 0) (mod x y) (- (mod x y))).")))

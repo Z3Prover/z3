@@ -38,14 +38,14 @@ void theory_arith_params::updt_params(params_ref const & _p) {
     m_arith_dump_lemmas = p.arith_dump_lemmas();
     m_arith_reflect = p.arith_reflect();
     arith_rewriter_params ap(_p);
-    m_arith_expand_eqs = ap.expand_eqs();
+    m_arith_eq2ineq = ap.eq2ineq();
 }
 
 
 #define DISPLAY_PARAM(X) out << #X"=" << X << std::endl;
 
 void theory_arith_params::display(std::ostream & out) const {
-    DISPLAY_PARAM(m_arith_expand_eqs);
+    DISPLAY_PARAM(m_arith_eq2ineq);
     DISPLAY_PARAM(m_arith_process_all_eqs);
     DISPLAY_PARAM(m_arith_mode);
     DISPLAY_PARAM(m_arith_auto_config_simplex); //!< force simplex solver in auto_config

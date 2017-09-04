@@ -49,7 +49,7 @@ enum arith_pivot_strategy {
 };
 
 struct theory_arith_params {
-    bool                    m_arith_expand_eqs;
+    bool                    m_arith_eq2ineq;
     bool                    m_arith_process_all_eqs;
     arith_solver_id         m_arith_mode;
     bool                    m_arith_auto_config_simplex; //!< force simplex solver in auto_config
@@ -110,7 +110,7 @@ struct theory_arith_params {
 
 
     theory_arith_params(params_ref const & p = params_ref()):
-        m_arith_expand_eqs(false),
+        m_arith_eq2ineq(false),
         m_arith_process_all_eqs(false),
         m_arith_mode(AS_ARITH),
         m_arith_auto_config_simplex(false),

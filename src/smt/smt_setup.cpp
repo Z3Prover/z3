@@ -226,7 +226,7 @@ namespace smt {
 
     void setup::setup_QF_RDL() {
         m_params.m_relevancy_lvl       = 0;
-        m_params.m_arith_expand_eqs    = true;
+        m_params.m_arith_eq2ineq       = true;
         m_params.m_arith_reflect       = false;
         m_params.m_arith_propagate_eqs = false;
         m_params.m_nnf_cnf             = false;
@@ -266,7 +266,7 @@ namespace smt {
         TRACE("setup", tout << "setup_QF_RDL(st)\n";);
         check_no_uninterpreted_functions(st, "QF_RDL");
         m_params.m_relevancy_lvl       = 0;
-        m_params.m_arith_expand_eqs    = true;
+        m_params.m_arith_eq2ineq       = true;
         m_params.m_arith_reflect       = false;
         m_params.m_arith_propagate_eqs = false;
         m_params.m_nnf_cnf             = false;
@@ -318,7 +318,7 @@ namespace smt {
     void setup::setup_QF_IDL() {
         TRACE("setup", tout << "setup_QF_IDL()\n";);
         m_params.m_relevancy_lvl       = 0;
-        m_params.m_arith_expand_eqs    = true;
+        m_params.m_arith_eq2ineq       = true;
         m_params.m_arith_reflect       = false;
         m_params.m_arith_propagate_eqs = false;
         m_params.m_arith_small_lemma_size = 30;
@@ -336,7 +336,7 @@ namespace smt {
         TRACE("setup", tout << "setup_QF_IDL(st)\n";);
         check_no_uninterpreted_functions(st, "QF_IDL");
         m_params.m_relevancy_lvl       = 0;
-        m_params.m_arith_expand_eqs    = true;
+        m_params.m_arith_eq2ineq       = true;
         m_params.m_arith_reflect       = false;
         m_params.m_arith_propagate_eqs = false;
         m_params.m_arith_small_lemma_size = 30;
@@ -390,7 +390,7 @@ namespace smt {
         m_params.m_arith_reflect    = false;
         m_params.m_nnf_cnf          = false;
         m_params.m_arith_eq_bounds  = true;
-        m_params.m_arith_expand_eqs = true;
+        m_params.m_arith_eq2ineq    = true;
         m_params.m_phase_selection  = PS_ALWAYS_FALSE;
         m_params.m_restart_strategy = RS_GEOMETRIC;
         m_params.m_restart_factor   = 1.5;
@@ -406,8 +406,8 @@ namespace smt {
         m_params.m_arith_reflect    = false;
         m_params.m_nnf_cnf          = false;
         if (st.m_num_uninterpreted_functions == 0) {
-            m_params.m_arith_expand_eqs       = true;
-            m_params.m_arith_propagate_eqs    = false;
+            m_params.m_arith_eq2ineq        = true;
+            m_params.m_arith_propagate_eqs  = false;
             if (is_dense(st)) {
                 m_params.m_arith_small_lemma_size = 128;
                 m_params.m_lemma_gc_half          = true;
@@ -440,7 +440,7 @@ namespace smt {
     void setup::setup_QF_LRA() {
         TRACE("setup", tout << "setup_QF_LRA(st)\n";);
         m_params.m_relevancy_lvl       = 0;
-        m_params.m_arith_expand_eqs    = true;
+        m_params.m_arith_eq2ineq       = true;
         m_params.m_arith_reflect       = false;
         m_params.m_arith_propagate_eqs = false;
         m_params.m_eliminate_term_ite  = true;
@@ -451,7 +451,7 @@ namespace smt {
     void setup::setup_QF_LRA(static_features const & st) {
         check_no_uninterpreted_functions(st, "QF_LRA");
         m_params.m_relevancy_lvl       = 0;
-        m_params.m_arith_expand_eqs    = true;
+        m_params.m_arith_eq2ineq       = true;
         m_params.m_arith_reflect       = false;
         m_params.m_arith_propagate_eqs = false;
         m_params.m_eliminate_term_ite  = true;
@@ -480,7 +480,7 @@ namespace smt {
     void setup::setup_QF_LIA() {
         TRACE("setup", tout << "setup_QF_LIA(st)\n";);
         m_params.m_relevancy_lvl       = 0;
-        m_params.m_arith_expand_eqs    = true;
+        m_params.m_arith_eq2ineq       = true;
         m_params.m_arith_reflect       = false; 
         m_params.m_arith_propagate_eqs = false; 
         m_params.m_nnf_cnf             = false;
@@ -492,12 +492,12 @@ namespace smt {
         TRACE("setup", tout << "QF_LIA setup\n";);
 
         m_params.m_relevancy_lvl       = 0;
-        m_params.m_arith_expand_eqs    = true;
+        m_params.m_arith_eq2ineq       = true;
         m_params.m_arith_reflect       = false; 
         m_params.m_arith_propagate_eqs = false;
         m_params.m_nnf_cnf             = false;
         if (st.m_max_ite_tree_depth > 50) {
-            m_params.m_arith_expand_eqs     = false;
+            m_params.m_arith_eq2ineq        = false;
             m_params.m_pull_cheap_ite_trees = true;
             m_params.m_arith_propagate_eqs  = true;
             m_params.m_relevancy_lvl        = 2; 
@@ -507,7 +507,7 @@ namespace smt {
             m_params.m_arith_gcd_test         = false;
             m_params.m_arith_branch_cut_ratio = 4;
             m_params.m_relevancy_lvl          = 2; 
-            m_params.m_arith_expand_eqs       = true;
+            m_params.m_arith_eq2ineq          = true;
             m_params.m_eliminate_term_ite     = true;
             // if (st.m_num_exprs < 5000 && st.m_num_ite_terms < 50) { // safeguard to avoid high memory consumption
             // TODO: implement analsysis function to decide where lift ite is too expensive.
@@ -755,7 +755,7 @@ namespace smt {
             m_context.register_plugin(alloc(smt::theory_dummy, m_manager.mk_family_id("arith"), "no arithmetic"));
             break;
         case AS_DIFF_LOGIC:
-            m_params.m_arith_expand_eqs  = true;
+            m_params.m_arith_eq2ineq  = true;
             if (fixnum) {
                 if (int_only)
                     m_context.register_plugin(alloc(smt::theory_fidl, m_manager, m_params));
@@ -770,7 +770,7 @@ namespace smt {
             }
             break;
         case AS_DENSE_DIFF_LOGIC:
-            m_params.m_arith_expand_eqs  = true;
+            m_params.m_arith_eq2ineq  = true;
             if (fixnum) {
                 if (int_only)
                     m_context.register_plugin(alloc(smt::theory_dense_si, m_manager, m_params));
@@ -785,7 +785,7 @@ namespace smt {
             }
             break;
         case AS_UTVPI:
-            m_params.m_arith_expand_eqs  = true;
+            m_params.m_arith_eq2ineq  = true;
             if (int_only)
                 m_context.register_plugin(alloc(smt::theory_iutvpi, m_manager));
             else

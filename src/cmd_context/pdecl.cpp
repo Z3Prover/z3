@@ -292,27 +292,6 @@ sort * psort_decl::find(sort * const * s) {
     return m_inst_cache->find(s);
 }
 
-#if 0
-psort_dt_decl::psort_dt_decl(unsigned id, unsigned num_params, pdecl_manager& m, symbol const& n):
-    psort_decl(id, num_params, m, n) {
-}
-
-void psort_dt_decl::finalize(pdecl_manager& m) {
-    psort_decl::finalize(m);
-}
-
-
-sort * psort_dt_decl::instantiate(pdecl_manager & m, unsigned n, sort * const * s) {
-    UNREACHABLE();
-    return 0;
-}
-
-void psort_dt_decl::display(std::ostream & out) const {
-    out << get_name() << " " << get_num_params();
-}
-#endif
-
-
 psort_user_decl::psort_user_decl(unsigned id, unsigned num_params, pdecl_manager & m, symbol const & n, psort * p) :
     psort_decl(id, num_params, m, n),
     m_def(p) {
@@ -858,10 +837,6 @@ psort_decl * pdecl_manager::mk_psort_user_decl(unsigned num_params, symbol const
     return new (a().allocate(sizeof(psort_user_decl))) psort_user_decl(m_id_gen.mk(), num_params, *this, n, def);
 }
 
-
-//psort_decl * pdecl_manager::mk_psort_dt_decl(unsigned num_params, symbol const & n) {
-//    return new (a().allocate(sizeof(psort_dt_decl))) psort_dt_decl(m_id_gen.mk(), num_params, *this, n);
-//}
 
 psort_decl * pdecl_manager::mk_psort_builtin_decl(symbol const & n, family_id fid, decl_kind k) {
     return new (a().allocate(sizeof(psort_builtin_decl))) psort_builtin_decl(m_id_gen.mk(), *this, n, fid, k);
