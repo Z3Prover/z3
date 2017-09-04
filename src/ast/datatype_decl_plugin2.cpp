@@ -31,6 +31,7 @@ namespace datatype {
     }
 
     func_decl_ref accessor::instantiate(sort_ref_vector const& ps) const {
+        ast_manager& m = ps.get_manager();
         unsigned n = ps.size();
         SASSERT(n == get_def().params().size());
         sort_ref range(m.substitute(m_range, n, get_def().params().c_ptr(), ps.c_ptr()), m);
@@ -52,8 +53,8 @@ namespace datatype {
 
     func_decl_ref constructor::instantiate(sort_ref_vector const& ps) const {
         sort_ref_vector domain(m);
-        for (accessor const& a : accessors()) {
-            domain.push_back(a.instantiate(ps)->get_range());
+        for (accessor const* a : accessors()) {
+            domain.push_back(a->instantiate(ps)->get_range());
         }
         sort_ref range = get_def().instantiate(ps);
         parameter pas[1] = { parameter(name()) };
@@ -293,9 +294,9 @@ namespace datatype {
             }
             for (symbol const& s : m_def_block) {
                 def& d = *m_defs[s];
-                for (constructor& c : d) {
-                    for (accessor& a : c) {
-                        // a.fix_range(sorts);
+                for (constructor* c : d) {
+                    for (accessor* a : *c) {
+                        a->fix_range(sorts);
                     }
                 }
             }
@@ -401,9 +402,9 @@ namespace datatype {
         def const& d = get_def(s);
         bool is_interp = true;
         m_fully_interp_trail.push_back(s);
-        for (constructor const& c : d) {
-            for (accessor const& a : c) {
-                func_decl_ref ac = a.instantiate(s);
+        for (constructor const* c : d) {
+            for (accessor const* a : *c) {
+                func_decl_ref ac = a->instantiate(s);
                 sort* r = ac->get_range();
                 if (!m.is_fully_interp(r)) {
                     is_interp = false;
@@ -438,9 +439,9 @@ namespace datatype {
             already_found.insert(s, GRAY);
             def const& d = get_def(s);
             bool can_process       = true;
-            for (constructor const& c : d) {
-                for (accessor const& a : c) {
-                    sort* d = a.range();
+            for (constructor const* c : d) {
+                for (accessor const* a : *c) {
+                    sort* d = a->range();
                     // check if d is a datatype sort
                     subsorts.reset();
                     get_subsorts(d, subsorts);
@@ -533,9 +534,9 @@ namespace datatype {
             bool is_infinite = false;
             bool can_process = true;
             def& d = get_def(s);
-            for (constructor const& c : d) {
-                for (accessor const& a : c) {
-                    sort* r = a.range();
+            for (constructor const* c : d) {
+                for (accessor const* a : *c) {
+                    sort* r = a->range();
                     if (is_datatype(r)) {
                         symbol s2 = r->get_name();
                         if (already_found.find(s2, st)) {
@@ -562,10 +563,10 @@ namespace datatype {
             }
 
             ptr_vector<param_size::size> s_add;        
-            for (constructor const& c : d) {
+            for (constructor const* c : d) {
                 ptr_vector<param_size::size> s_mul;
-                for (accessor const& a : c) {
-                    s_mul.push_back(get_sort_size(d.params(), a.range()));
+                for (accessor const* a : *c) {
+                    s_mul.push_back(get_sort_size(d.params(), a->range()));
                 }
                 s_add.push_back(param_size::size::mk_times(s_mul));
             }
@@ -594,10 +595,10 @@ namespace datatype {
                 }
                 sort* s = sorts[tid];
                 def const& d = get_def(s);
-                for (constructor const& c : d) {
+                for (constructor const* c : d) {
                     bool found_nonwf = false;
-                    for (accessor const& a : c) {
-                        if (sort2id.find(a.range(), id) && !well_founded[id]) {
+                    for (accessor const* a : *c) {
+                        if (sort2id.find(a->range(), id) && !well_founded[id]) {
                             found_nonwf = true;
                             break;
                         }
@@ -652,8 +653,8 @@ namespace datatype {
         m_vectors.push_back(r);
         m_datatype2constructors.insert(ty, r);
         def const& d = get_def(ty);
-        for (constructor const& c : d) {
-            func_decl_ref f = c.instantiate(ty);
+        for (constructor const* c : d) {
+            func_decl_ref f = c->instantiate(ty);
             m_asts.push_back(f);
             r->push_back(f);
         }
@@ -671,10 +672,10 @@ namespace datatype {
         m_constructor2accessors.insert(con, res);
         sort * datatype = con->get_range();
         def const& d = get_def(datatype);
-        for (constructor const& c : d) {
-            if (c.name() == con->get_name()) {
-                for (accessor const& a : c) {
-                    res->push_back(a.instantiate(datatype));
+        for (constructor const* c : d) {
+            if (c->name() == con->get_name()) {
+                for (accessor const* a : *c) {
+                    res->push_back(a->instantiate(datatype));
                 }
                 break;
             }
@@ -739,9 +740,9 @@ namespace datatype {
         symbol c_id   = accessor->get_parameter(1).get_symbol();
         def const& d = get_def(datatype);
         func_decl_ref fn(m);
-        for (constructor const& c : d) {
-            if (c.name() == c_id) {
-                fn = c.instantiate(datatype);
+        for (constructor const* c : d) {
+            if (c->name() == c_id) {
+                fn = c->instantiate(datatype);
                 break;
             }
         }
