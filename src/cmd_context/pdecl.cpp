@@ -566,7 +566,8 @@ datatype_decl * pdatatype_decl::instantiate_decl(pdecl_manager & m, sort * const
     for (auto c : m_constructors) {
         cs.push_back(c->instantiate_decl(m, s));
     }
-    return mk_datatype_decl(m_name, cs.size(), cs.c_ptr());
+    datatype_util util(m.m());
+    return mk_datatype_decl(util, m_name, cs.size(), cs.c_ptr());
 }
 
 struct datatype_decl_buffer {
@@ -679,9 +680,7 @@ struct pdecl_manager::sort_info {
     }
     virtual ~sort_info() {}
     virtual unsigned obj_size() const { return sizeof(sort_info); }
-    virtual void finalize(pdecl_manager & m) {
-        m.dec_ref(m_decl);
-    }
+    virtual void finalize(pdecl_manager & m) { m.dec_ref(m_decl); }
     virtual void display(std::ostream & out, pdecl_manager const & m) const = 0;
     virtual format * pp(pdecl_manager const & m) const = 0;
 };

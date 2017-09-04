@@ -23,6 +23,7 @@ Revision History:
 #include "util/obj_hashtable.h"
 #include "util/dictionary.h"
 #include "ast/format.h"
+#include "ast/datatype_decl_plugin.h"
 
 class pdecl_manager;
 
@@ -139,10 +140,10 @@ public:
     virtual void display(std::ostream & out) const;
 };
 
-class datatype_decl_plugin;
-class datatype_decl;
-class constructor_decl;
-class accessor_decl;
+//class datatype_decl_plugin;
+//class datatype_decl;
+//class constructor_decl;
+//class accessor_decl;
 
 class pdatatypes_decl;
 class pdatatype_decl;

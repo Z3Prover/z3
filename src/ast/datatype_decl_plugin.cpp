@@ -95,7 +95,7 @@ public:
     ptr_vector<constructor_decl> const & get_constructors() const { return m_constructors; }
 };
 
-datatype_decl * mk_datatype_decl(symbol const & n, unsigned num_constructors, constructor_decl * const * cs) {
+datatype_decl * mk_datatype_decl(datatype_util&, symbol const & n, unsigned num_constructors, constructor_decl * const * cs) {
     return alloc(datatype_decl, n, num_constructors, cs);
 }
 

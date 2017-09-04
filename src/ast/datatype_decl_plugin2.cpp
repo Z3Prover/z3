@@ -1,5 +1,5 @@
 /*++
-Copyright (c) 2006 Microsoft Corporation
+Copyright (c) 2017 Microsoft Corporation
 
 Module Name:
 
@@ -11,18 +11,21 @@ Abstract:
 
 Author:
 
-    Leonardo de Moura (leonardo) 2008-01-10.
+    Nikolaj Bjorner (nbjorner) 2017-9-1 
 
 Revision History:
 
 --*/
+
+#include "ast/datatype_decl_plugin.h"
+
+#ifdef DATATYPE_V2
 #include "util/warning.h"
 #include "ast/datatype_decl_plugin2.h"
 #include "ast/array_decl_plugin.h"
 #include "ast/ast_smt2_pp.h"
 
 
-#ifdef DATATYPE_V2
 namespace datatype {
 
     void accessor::fix_range(sort_ref_vector const& dts) {
@@ -57,6 +60,7 @@ namespace datatype {
     util& constructor::u() const { return m_def->u(); }
 
     func_decl_ref constructor::instantiate(sort_ref_vector const& ps) const {
+        ast_manager& m = ps.get_manager();
         sort_ref_vector domain(m);
         for (accessor const* a : accessors()) {
             domain.push_back(a->instantiate(ps)->get_range());
@@ -281,6 +285,11 @@ namespace datatype {
             }
         }
 
+        def* plugin::mk(symbol const& name, unsigned n, sort * const * params) {
+            ast_manager& m = *m_manager;
+            return alloc(def, m, u(), name, m_class_id, n, params);
+        }
+
         def& plugin::add(symbol const& name, unsigned n, sort * const * params) {
             ast_manager& m = *m_manager;
             def* d = 0;
@@ -311,6 +320,21 @@ namespace datatype {
                 m_manager->raise_exception("datatype is not well-founded");
             }
             u().compute_datatype_size_functions(m_def_block);
+        }
+
+        bool plugin::mk_datatypes(unsigned num_datatypes, def * const * datatypes, unsigned num_params, sort* const* sort_params, sort_ref_vector & new_sorts) {
+            begin_def_block();
+            for (unsigned i = 0; i < num_datatypes; ++i) {
+                if (m_defs.find(datatypes[i]->name(), d)) dealloc(d);
+                m_defs.insert(datatypes[i]->name(), datatypes[i]);
+                m_def_block.push_back(datatypes[i]->name());
+            }
+            end_def_block();            
+            sort_ref_vector ps(*m_manager);
+            for (symbol const& s : m_def_block) {                
+                new_sorts.push_back(m_defs[s]->instantiate(ps));
+            }
+            return true;
         }
 
         void plugin::del(symbol const& s) {
@@ -705,7 +729,7 @@ namespace datatype {
         return d;
     }
 
-    func_decl * util::get_recognizer_constructor(func_decl * recognizer) {
+    func_decl * util::get_recognizer_constructor(func_decl * recognizer) const {
         SASSERT(is_recognizer(recognizer));
         return to_func_decl(recognizer->get_parameter(0).get_ast());
     }
@@ -856,6 +880,22 @@ namespace datatype {
         return 0;
     }
 
+    unsigned util::get_constructor_idx(func_decl * f) const {
+        unsigned idx = 0;
+        def const& d = get_def(f->get_range());
+        for (constructor* c : d) {
+            if (c->name() == f->get_name()) {
+                return idx;
+            }
+            ++idx;
+        }
+        UNREACHABLE();
+        return 0;
+    }
+    unsigned util::get_recognizer_constructor_idx(func_decl * f) const {
+        return get_constructor_idx(get_recognizer_constructor(f));
+    }
+
 
     /**
        \brief Two datatype sorts s1 and s2 are siblings if they were
@@ -869,6 +909,12 @@ namespace datatype {
             return get_def(s1).id() == get_def(s2).id();
         }
     }
+
+    unsigned util::get_datatype_num_constructors(sort * ty) {
+        def const& d = get_def(ty->get_name());
+        return d.constructors().size();
+    }
+
 
     void util::display_datatype(sort *s0, std::ostream& strm) {
         ast_mark mark;
@@ -902,4 +948,14 @@ namespace datatype {
         }
     }
 }
+
+datatype_decl * mk_datatype_decl(datatype_util& u, symbol const & n, unsigned num_constructors, constructor_decl * const * cs) {
+    datatype::decl::plugin* p = u.get_plugin();
+    datatype::def( d = p->mk(n, 0, 0);
+    for (unsigned i = 0; i < num_constructors; ++i) {
+        d->add(cs[i]);
+    }
+    return d;
+}
+
 #endif

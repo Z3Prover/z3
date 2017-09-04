@@ -36,6 +36,7 @@ protected:
     bool                    m_sort_sums;
     bool                    m_hoist_mul;
     bool                    m_hoist_cmul;
+    bool                    m_ast_order;
 
     bool is_numeral(expr * n) const { return Config::is_numeral(n); }
     bool is_numeral(expr * n, numeral & r) const { return Config::is_numeral(n, r); }

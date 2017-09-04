@@ -16,7 +16,7 @@ Author:
 Revision History:
 
 --*/
-// define DATATYPE_V2
+//define DATATYPE_V2
 #ifdef DATATYPE_V2
 #include "ast/datatype_decl_plugin2.h"
 #else
@@ -79,14 +79,14 @@ class datatype_decl;
 class datatype_util;
 
 accessor_decl * mk_accessor_decl(symbol const & n, type_ref const & t);
-void del_accessor_decl(accessor_decl * d);
-void del_accessor_decls(unsigned num, accessor_decl * const * as);
+//void del_accessor_decl(accessor_decl * d);
+//void del_accessor_decls(unsigned num, accessor_decl * const * as);
 // Remark: the constructor becomes the owner of the accessor_decls
 constructor_decl * mk_constructor_decl(symbol const & n, symbol const & r, unsigned num_accessors, accessor_decl * const * acs);
-void del_constructor_decl(constructor_decl * d);
-void del_constructor_decls(unsigned num, constructor_decl * const * cs);
+//void del_constructor_decl(constructor_decl * d);
+//void del_constructor_decls(unsigned num, constructor_decl * const * cs);
 // Remark: the datatype becomes the owner of the constructor_decls
-datatype_decl * mk_datatype_decl(symbol const & n, unsigned num_constructors, constructor_decl * const * cs);
+datatype_decl * mk_datatype_decl(datatype_util& u, symbol const & n, unsigned num_constructors, constructor_decl * const * cs);
 void del_datatype_decl(datatype_decl * d);
 void del_datatype_decls(unsigned num, datatype_decl * const * ds);
 

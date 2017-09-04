@@ -51,7 +51,7 @@ extern "C" {
         constructor_decl* constrs[1] = { mk_constructor_decl(to_symbol(name), recognizer, acc.size(), acc.c_ptr()) };
 
         {
-            datatype_decl * dt = mk_datatype_decl(to_symbol(name), 1, constrs);
+            datatype_decl * dt = mk_datatype_decl(dt_util, to_symbol(name), 1, constrs);
             bool is_ok = mk_c(c)->get_dt_plugin()->mk_datatypes(1, &dt, 0, 0, tuples);
             del_datatype_decl(dt);
 
@@ -113,7 +113,7 @@ extern "C" {
 
 
         {
-            datatype_decl * dt = mk_datatype_decl(to_symbol(name), n, constrs.c_ptr());
+            datatype_decl * dt = mk_datatype_decl(dt_util, to_symbol(name), n, constrs.c_ptr());
             bool is_ok = mk_c(c)->get_dt_plugin()->mk_datatypes(1, &dt, 0, 0, sorts);
             del_datatype_decl(dt);
 
@@ -160,6 +160,7 @@ extern "C" {
         LOG_Z3_mk_list_sort(c, name, elem_sort, nil_decl, is_nil_decl, cons_decl, is_cons_decl, head_decl, tail_decl);
         RESET_ERROR_CODE();
         ast_manager& m = mk_c(c)->m();
+        datatype_util& dt_util = mk_c(c)->dtutil();
         mk_c(c)->reset_last_result();
         datatype_util data_util(m);
         accessor_decl* head_tail[2] = {
@@ -174,7 +175,7 @@ extern "C" {
 
         sort_ref_vector sorts(m);
         {
-            datatype_decl * decl = mk_datatype_decl(to_symbol(name), 2, constrs);
+            datatype_decl * decl = mk_datatype_decl(dt_util, to_symbol(name), 2, constrs);
             bool is_ok = mk_c(c)->get_dt_plugin()->mk_datatypes(1, &decl, 0, 0, sorts);
             del_datatype_decl(decl);
 
@@ -316,6 +317,7 @@ extern "C" {
                                            Z3_symbol name,
                                            unsigned num_constructors,
                                            Z3_constructor constructors[]) {
+        datatype_util& dt_util = mk_c(c)->dtutil();
         ptr_vector<constructor_decl> constrs;
         for (unsigned i = 0; i < num_constructors; ++i) {
             constructor* cn = reinterpret_cast<constructor*>(constructors[i]);
@@ -330,7 +332,7 @@ extern "C" {
             }
             constrs.push_back(mk_constructor_decl(cn->m_name, cn->m_tester, acc.size(), acc.c_ptr()));
         }
-        return mk_datatype_decl(to_symbol(name), num_constructors, constrs.c_ptr());
+        return mk_datatype_decl(dt_util, to_symbol(name), num_constructors, constrs.c_ptr());
     }
 
     Z3_sort Z3_API Z3_mk_datatype(Z3_context c,

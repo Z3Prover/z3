@@ -455,7 +455,7 @@ br_status arith_rewriter::mk_le_ge_eq_core(expr * arg1, expr * arg2, op_kind kin
             st = BR_DONE;
         }
     }
-    if (is_numeral(arg2, a2) && is_neg_poly(arg1, new_arg1)) {
+    if (m_arith_lhs && is_numeral(arg2, a2) && is_neg_poly(arg1, new_arg1)) {
         a2.neg();
         new_arg2 = m_util.mk_numeral(a2, m_util.is_int(new_arg1));
         switch (kind) {
@@ -523,7 +523,7 @@ expr_ref arith_rewriter::neg_monomial(expr* e) const {
         }
         else {
             args.push_back(m_util.mk_numeral(rational(-1), m_util.is_int(e)));
-            args.append(to_app(e)->get_num_args(), to_app(e)->get_args());
+            args.push_back(e);
         }
     }
     else {

@@ -1,5 +1,5 @@
 /*++
-Copyright (c) 2006 Microsoft Corporation
+Copyright (c) 2017 Microsoft Corporation
 
 Module Name:
 
@@ -11,9 +11,12 @@ Abstract:
 
 Author:
 
-    Leonardo de Moura (leonardo) 2008-01-09.
+    Nikolaj Bjorner (nbjorner) 2017-9-1 
 
 Revision History:
+
+    rewritten to support SMTLIB-2.6 parameters from
+     Leonardo de Moura (leonardo) 2008-01-09.
 
 --*/
 #ifndef DATATYPE_DECL_PLUGIN2_H_
@@ -74,12 +77,11 @@ namespace datatype {
     };
 
     class constructor {
-        ast_manager&     m;
         symbol           m_name;
         ptr_vector<accessor> m_accessors;
         def*             m_def;
     public:
-        constructor(ast_manager& m, symbol n): m(m), m_name(n) {}
+        constructor(symbol n): m_name(n) {}
         ~constructor();
         void add(accessor* a) { m_accessors.push_back(a); a->attach(this); }
         symbol const& name() const { return m_name; }
@@ -262,7 +264,11 @@ namespace datatype {
 
             def& add(symbol const& name, unsigned n, sort * const * params);
 
+            def* mk(symbol const& name, unsigned n, sort * const * params);
+
             void del(symbol const& d);
+
+            bool mk_datatypes(unsigned num_datatypes, def * const * datatypes, unsigned num_params, sort* const* sort_params, sort_ref_vector & new_sorts);
 
             def const& get_def(sort* s) const { return *(m_defs[datatype_name(s)]); }
             def& get_def(symbol const& s) { return *(m_defs[s]); }
@@ -299,9 +305,7 @@ namespace datatype {
         family_id     m_family_id;
         mutable decl::plugin* m_plugin;
 
-        
-        func_decl * get_constructor(sort * ty, unsigned c_id) const;
-        
+                
         obj_map<sort, ptr_vector<func_decl> *>      m_datatype2constructors;
         obj_map<sort, func_decl *>                  m_datatype2nonrec_constructor;
         obj_map<func_decl, ptr_vector<func_decl> *> m_constructor2accessors;
@@ -310,14 +314,13 @@ namespace datatype {
         obj_map<func_decl, func_decl *>             m_accessor2constructor;
         obj_map<sort, bool>                         m_is_recursive;
         obj_map<sort, bool>                         m_is_enum;
-        mutable obj_map<sort, bool>                         m_is_fully_interp;
+        mutable obj_map<sort, bool>                 m_is_fully_interp;
         mutable ast_ref_vector                      m_asts;
         ptr_vector<ptr_vector<func_decl> >          m_vectors;
         unsigned                                    m_start;
-        mutable ptr_vector<sort>                            m_fully_interp_trail;
+        mutable ptr_vector<sort>                    m_fully_interp_trail;
         
         func_decl * get_non_rec_constructor_core(sort * ty, ptr_vector<sort> & forbidden_set);
-        func_decl * get_constructor(sort * ty, unsigned c_id);
 
         friend class decl::plugin;
 
@@ -353,7 +356,7 @@ namespace datatype {
         func_decl * get_constructor_recognizer(func_decl * constructor);
         ptr_vector<func_decl> const & get_constructor_accessors(func_decl * constructor);
         func_decl * get_accessor_constructor(func_decl * accessor);
-        func_decl * get_recognizer_constructor(func_decl * recognizer);
+        func_decl * get_recognizer_constructor(func_decl * recognizer) const;
         family_id get_family_id() const { return m_family_id; }
         bool are_siblings(sort * s1, sort * s2);
         bool is_func_decl(op_kind k, unsigned num_params, parameter const* params, func_decl* f);
@@ -362,11 +365,12 @@ namespace datatype {
         void display_datatype(sort *s, std::ostream& strm);
         bool is_fully_interp(sort * s) const;
         sort_ref_vector datatype_params(sort * s) const;
+        unsigned get_constructor_idx(func_decl * f) const;
+        unsigned get_recognizer_constructor_idx(func_decl * f) const;
     };
 
 };
 
-#ifdef DATATYPE_V2
 typedef datatype::accessor accessor_decl;
 typedef datatype::constructor constructor_decl;
 typedef datatype::def datatype_decl;
@@ -394,7 +398,22 @@ inline accessor_decl * mk_accessor_decl(symbol const & n, type_ref const & t) {
         return alloc(accessor_decl, n, t.get_sort());
     }
 }
-#endif
+
+inline constructor_decl * mk_constructor_decl(symbol const & n, symbol const & r, unsigned num_accessors, accessor_decl * * acs) {
+    constructor_decl* c = alloc(constructor_decl, n);
+    for (unsigned i = 0; i < num_accessors; ++i) {
+        c->add(acs[i]);
+    }
+    return c;
+}
+
+
+
+// Remark: the datatype becomes the owner of the constructor_decls
+datatype_decl * mk_datatype_decl(datatype_util& u, symbol const & n, unsigned num_constructors, constructor_decl * const * cs);
+inline void del_datatype_decl(datatype_decl * d) {}
+inline void del_datatype_decls(unsigned num, datatype_decl * const * ds) {}
+
 
 #endif /* DATATYPE_DECL_PLUGIN_H_ */
 

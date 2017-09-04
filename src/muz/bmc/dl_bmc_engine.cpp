@@ -979,7 +979,7 @@ namespace datalog {
                     symbol is_name(_name.str().c_str());
                     cnstrs.push_back(mk_constructor_decl(name, is_name, accs.size(), accs.c_ptr()));
                 }
-                dts.push_back(mk_datatype_decl(pred->get_name(), cnstrs.size(), cnstrs.c_ptr()));
+                dts.push_back(mk_datatype_decl(dtu, pred->get_name(), cnstrs.size(), cnstrs.c_ptr()));
             }
 
 
@@ -1027,7 +1027,7 @@ namespace datalog {
                     accs.push_back(mk_accessor_decl(name, tr));
                     cnstrs.push_back(mk_constructor_decl(name, is_name, accs.size(), accs.c_ptr()));
                 }
-                dts.push_back(mk_datatype_decl(symbol("Path"), cnstrs.size(), cnstrs.c_ptr()));
+                dts.push_back(mk_datatype_decl(dtu, symbol("Path"), cnstrs.size(), cnstrs.c_ptr()));
                 VERIFY (dtp->mk_datatypes(dts.size(), dts.c_ptr(), 0, 0, new_sorts));
                 m_path_sort = new_sorts[0].get();
             }

@@ -18,7 +18,8 @@ Notes:
 --*/
 #include "ast/rewriter/poly_rewriter.h"
 #include "ast/rewriter/poly_rewriter_params.hpp"
-// include "ast/ast_lt.h"
+#include "ast/rewriter/arith_rewriter_params.hpp"
+#include "ast/ast_lt.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/ast_smt2_pp.h"
 
@@ -33,6 +34,8 @@ void poly_rewriter<Config>::updt_params(params_ref const & _p) {
     m_som_blowup = p.som_blowup();
     if (!m_flat) m_som = false;
     if (m_som) m_hoist_mul = false;
+    arith_rewriter_params ap(_p);
+    m_ast_order  = !ap.arith_ineq_lhs();
 }
 
 template<typename Config>
@@ -485,6 +488,8 @@ void poly_rewriter<Config>::hoist_cmul(expr_ref_buffer & args) {
 
 template<typename Config>
 bool poly_rewriter<Config>::mon_lt::operator()(expr* e1, expr * e2) const {
+    if (rw.m_ast_order) 
+        return lt(e1,e2);
     return ordinal(e1) < ordinal(e2);
 }
 
