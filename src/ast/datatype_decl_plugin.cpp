@@ -20,6 +20,7 @@ Revision History:
 #include "util/warning.h"
 #include "ast/ast_smt2_pp.h"
 
+#ifndef DATATYPE_V2
 
 /**
    \brief Auxiliary class used to declare inductive datatypes.
@@ -802,11 +803,11 @@ func_decl * datatype_util::get_constructor(sort * ty, unsigned c_id) {
     return d;
 }
 
-ptr_vector<func_decl> const * datatype_util::get_datatype_constructors(sort * ty) {
+ptr_vector<func_decl> const & datatype_util::get_datatype_constructors(sort * ty) {
     SASSERT(is_datatype(ty));
     ptr_vector<func_decl> * r = 0;
     if (m_datatype2constructors.find(ty, r))
-        return r;
+        return *r;
     r = alloc(ptr_vector<func_decl>);
     m_asts.push_back(ty);
     m_vectors.push_back(r);
@@ -819,7 +820,7 @@ ptr_vector<func_decl> const * datatype_util::get_datatype_constructors(sort * ty
         m_asts.push_back(c);
         r->push_back(c);
     }
-    return r;
+    return *r;
 }
 
 /**
@@ -854,12 +855,12 @@ func_decl * datatype_util::get_non_rec_constructor_core(sort * ty, ptr_vector<so
     //   1) T_i's are not recursive
     // If there is no such constructor, then we select one that 
     //   2) each type T_i is not recursive or contains a constructor that does not depend on T
-    ptr_vector<func_decl> const * constructors = get_datatype_constructors(ty);
+    ptr_vector<func_decl> const & constructors = get_datatype_constructors(ty);
     // step 1)
-    unsigned sz = constructors->size();
+    unsigned sz = constructors.size();
     ++m_start;
     for (unsigned j = 0; j < sz; ++j) {        
-        func_decl * c = (*constructors)[(j + m_start) % sz];
+        func_decl * c = constructors[(j + m_start) % sz];
         unsigned num_args = c->get_arity();
         unsigned i = 0;
         for (; i < num_args; i++) {
@@ -872,7 +873,7 @@ func_decl * datatype_util::get_non_rec_constructor_core(sort * ty, ptr_vector<so
     }
     // step 2)
     for (unsigned j = 0; j < sz; ++j) {        
-        func_decl * c = (*constructors)[(j + m_start) % sz];
+        func_decl * c = constructors[(j + m_start) % sz];
         TRACE("datatype_util_bug", tout << "non_rec_constructor c: " << c->get_name() << "\n";);
         unsigned num_args = c->get_arity();
         unsigned i = 0;
@@ -915,11 +916,11 @@ func_decl * datatype_util::get_constructor_recognizer(func_decl * constructor) {
     return d;
 }
 
-ptr_vector<func_decl> const * datatype_util::get_constructor_accessors(func_decl * constructor) {
+ptr_vector<func_decl> const & datatype_util::get_constructor_accessors(func_decl * constructor) {
     SASSERT(is_constructor(constructor));
     ptr_vector<func_decl> * res = 0;
     if (m_constructor2accessors.find(constructor, res))
-        return res;
+        return *res;
     res = alloc(ptr_vector<func_decl>);
     m_asts.push_back(constructor);
     m_vectors.push_back(res);
@@ -938,7 +939,7 @@ ptr_vector<func_decl> const * datatype_util::get_constructor_accessors(func_decl
         m_asts.push_back(d);
         res->push_back(d);
     }
-    return res;
+    return *res;
 }
 
 func_decl * datatype_util::get_accessor_constructor(func_decl * accessor) { 
@@ -988,7 +989,7 @@ bool datatype_util::is_enum_sort(sort* s) {
     bool r = false;
     if (m_is_enum.find(s, r))
         return r;
-    ptr_vector<func_decl> const& cnstrs = *get_datatype_constructors(s);
+    ptr_vector<func_decl> const& cnstrs = get_datatype_constructors(s);
     r = true;
     for (unsigned i = 0; r && i < cnstrs.size(); ++i) {
         r = cnstrs[i]->get_arity() == 0;
@@ -1048,14 +1049,14 @@ void datatype_util::display_datatype(sort *s0, std::ostream& strm) {
         todo.pop_back();
         strm << s->get_name() << " =\n";
 
-        ptr_vector<func_decl> const * cnstrs = get_datatype_constructors(s);
-        for (unsigned i = 0; i < cnstrs->size(); ++i) {
-            func_decl* cns = (*cnstrs)[i];
+        ptr_vector<func_decl> const & cnstrs = get_datatype_constructors(s);
+        for (unsigned i = 0; i < cnstrs.size(); ++i) {
+            func_decl* cns = cnstrs[i];
             func_decl* rec = get_constructor_recognizer(cns);
             strm << "  " << cns->get_name() << " :: " << rec->get_name() << " :: ";
-            ptr_vector<func_decl> const * accs = get_constructor_accessors(cns);
-            for (unsigned j = 0; j < accs->size(); ++j) {
-                func_decl* acc = (*accs)[j];
+            ptr_vector<func_decl> const & accs = get_constructor_accessors(cns);
+            for (unsigned j = 0; j < accs.size(); ++j) {
+                func_decl* acc = accs[j];
                 sort* s1 = acc->get_range();
                 strm << "(" << acc->get_name() << ": " << s1->get_name() << ") "; 
                 if (is_datatype(s1) && are_siblings(s1, s0) && !mark.is_marked(s1)) {
@@ -1090,3 +1091,5 @@ bool datatype_util::is_constructor_of(unsigned num_params, parameter const* para
         params[1] == f->get_parameter(1);
 }
 
+
+#endif

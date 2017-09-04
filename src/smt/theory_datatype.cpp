@@ -97,12 +97,9 @@ namespace smt {
         SASSERT(m_util.is_datatype(get_manager().get_sort(n->get_owner())));
         ast_manager & m = get_manager();
         ptr_vector<expr> args;
-        ptr_vector<func_decl> const * accessors   = m_util.get_constructor_accessors(c);
-        SASSERT(c->get_arity() == accessors->size());
-        ptr_vector<func_decl>::const_iterator it  = accessors->begin();
-        ptr_vector<func_decl>::const_iterator end = accessors->end();
-        for (; it != end; ++it) {
-            func_decl * d = *it;
+        ptr_vector<func_decl> const & accessors   = m_util.get_constructor_accessors(c);
+        SASSERT(c->get_arity() == accessors.size());
+        for (func_decl * d : accessors) {
             SASSERT(d->get_arity() == 1);
             expr * acc    = m.mk_app(d, n->get_owner());
             args.push_back(acc);
@@ -123,15 +120,14 @@ namespace smt {
         SASSERT(is_constructor(n));
         ast_manager & m   = get_manager();
         func_decl * d     = n->get_decl();
-        ptr_vector<func_decl> const * accessors   = m_util.get_constructor_accessors(d);
-        SASSERT(n->get_num_args() == accessors->size());
-        ptr_vector<func_decl>::const_iterator it  = accessors->begin();
-        ptr_vector<func_decl>::const_iterator end = accessors->end();
-        for (unsigned i = 0; it != end; ++it, ++i) {
-            func_decl * acc   = *it;
+        ptr_vector<func_decl> const & accessors   = m_util.get_constructor_accessors(d);
+        SASSERT(n->get_num_args() == accessors.size());
+        unsigned i = 0;
+        for (func_decl * acc : accessors) {
             app * acc_app     = m.mk_app(acc, n->get_owner());
             enode * arg       = n->get_arg(i);
             assert_eq_axiom(arg, acc_app, null_literal);
+            ++i;
         }
     }
 
@@ -172,15 +168,12 @@ namespace smt {
         func_decl * acc  = to_func_decl(upd->get_parameter(0).get_ast());
         func_decl * con  = m_util.get_accessor_constructor(acc);
         func_decl * rec  = m_util.get_constructor_recognizer(con);
-        ptr_vector<func_decl> const * accessors   = m_util.get_constructor_accessors(con);
-        ptr_vector<func_decl>::const_iterator it  = accessors->begin();
-        ptr_vector<func_decl>::const_iterator end = accessors->end();
+        ptr_vector<func_decl> const & accessors   = m_util.get_constructor_accessors(con);
         app_ref rec_app(m.mk_app(rec, arg1), m);
         ctx.internalize(rec_app, false);
         literal is_con(ctx.get_bool_var(rec_app));
-        for (; it != end; ++it) {
+        for (func_decl* acc1 : accessors) {
             enode* arg;
-            func_decl * acc1   = *it;
             if (acc1 == acc) {
                 arg = n->get_arg(1);
             }
@@ -215,7 +208,7 @@ namespace smt {
             ast_manager & m = get_manager();
             sort * s      = m.get_sort(n->get_owner());
             if (m_util.get_datatype_num_constructors(s) == 1) {
-                func_decl * c = m_util.get_datatype_constructors(s)->get(0);
+                func_decl * c = m_util.get_datatype_constructors(s)[0];
                 assert_is_constructor_axiom(n, c, null_literal);
             }
             else {
@@ -716,8 +709,8 @@ namespace smt {
             enode * r = d->m_recognizers[unassigned_idx];
             literal consequent;
             if (!r) {
-                ptr_vector<func_decl> const * constructors = m_util.get_datatype_constructors(dt);
-                func_decl * rec = m_util.get_constructor_recognizer(constructors->get(unassigned_idx));
+                ptr_vector<func_decl> const & constructors = m_util.get_datatype_constructors(dt);
+                func_decl * rec = m_util.get_constructor_recognizer(constructors[unassigned_idx]);
                 app * rec_app   = get_manager().mk_app(rec, n->get_owner());
                 ctx.internalize(rec_app, false);
                 consequent = literal(ctx.get_bool_var(rec_app));
@@ -781,9 +774,9 @@ namespace smt {
                 for (unsigned idx = 0; it != end; ++it, ++idx) {
                     enode * curr = *it;
                     if (curr == 0) {
-                        ptr_vector<func_decl> const * constructors = m_util.get_datatype_constructors(s);
+                        ptr_vector<func_decl> const & constructors = m_util.get_datatype_constructors(s);
                         // found empty slot...
-                        r = m_util.get_constructor_recognizer(constructors->get(idx));
+                        r = m_util.get_constructor_recognizer(constructors[idx]);
                         break;
                     }
                     else if (!ctx.is_relevant(curr)) { 

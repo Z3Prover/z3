@@ -65,7 +65,7 @@ namespace datalog {
             else if (m_dt.is_accessor(n)) {
                 sort* s = m.get_sort(n->get_arg(0));
                 SASSERT(m_dt.is_datatype(s));
-                if (m_dt.get_datatype_constructors(s)->size() > 1) {
+                if (m_dt.get_datatype_constructors(s).size() > 1) {
                     m_found = true;
                     m_func = n->get_decl();
                 }

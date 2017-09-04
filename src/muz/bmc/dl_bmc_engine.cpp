@@ -808,7 +808,7 @@ namespace datalog {
             datatype_util dtu(m);
             ptr_vector<sort> sorts;
             func_decl* p = r.get_decl();
-            ptr_vector<func_decl> const& succs  = *dtu.get_datatype_constructors(m.get_sort(path));
+            ptr_vector<func_decl> const& succs  = dtu.get_datatype_constructors(m.get_sort(path));
             // populate substitution of bound variables.
             r.get_vars(m, sorts);
             sub.reset();
@@ -871,8 +871,8 @@ namespace datalog {
                 path_var  = m.mk_var(0, m_path_sort);
                 trace_var = m.mk_var(1, pred_sort);
                 // sort* sorts[2] = { pred_sort, m_path_sort };
-                ptr_vector<func_decl> const& cnstrs = *dtu.get_datatype_constructors(pred_sort);
-                ptr_vector<func_decl> const& succs  = *dtu.get_datatype_constructors(m_path_sort);
+                ptr_vector<func_decl> const& cnstrs = dtu.get_datatype_constructors(pred_sort);
+                ptr_vector<func_decl> const& succs  = dtu.get_datatype_constructors(m_path_sort);
                 SASSERT(cnstrs.size() == rls.size());
                 pred = m.mk_app(mk_predicate(p), trace_var.get(), path_var.get());
                 for (unsigned i = 0; i < rls.size(); ++i) {
@@ -1039,8 +1039,8 @@ namespace datalog {
             sort* trace_sort = m.get_sort(trace);
             func_decl* p = m_sort2pred.find(trace_sort);
             datalog::rule_vector const& rules = b.m_rules.get_predicate_rules(p);
-            ptr_vector<func_decl> const& cnstrs = *dtu.get_datatype_constructors(trace_sort);
-            ptr_vector<func_decl> const& succs  = *dtu.get_datatype_constructors(m_path_sort);
+            ptr_vector<func_decl> const& cnstrs = dtu.get_datatype_constructors(trace_sort);
+            ptr_vector<func_decl> const& succs  = dtu.get_datatype_constructors(m_path_sort);
             for (unsigned i = 0; i < cnstrs.size(); ++i) {
                 if (trace->get_decl() == cnstrs[i]) {
                     svector<std::pair<unsigned, unsigned> > positions;

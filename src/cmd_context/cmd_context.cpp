@@ -1954,19 +1954,19 @@ cmd_context::dt_eh::~dt_eh() {
 
 void cmd_context::dt_eh::operator()(sort * dt, pdecl* pd) {
     TRACE("new_dt_eh", tout << "new datatype: "; m_owner.pm().display(tout, dt); tout << "\n";);
-    ptr_vector<func_decl> const * constructors = m_dt_util.get_datatype_constructors(dt);
-    unsigned num_constructors = constructors->size();
+    ptr_vector<func_decl> const & constructors = m_dt_util.get_datatype_constructors(dt);
+    unsigned num_constructors = constructors.size();
     for (unsigned j = 0; j < num_constructors; j++) {
-        func_decl * c = constructors->get(j);
+        func_decl * c = constructors[j];
         m_owner.insert(c);
         TRACE("new_dt_eh", tout << "new constructor: " << c->get_name() << "\n";);
         func_decl * r = m_dt_util.get_constructor_recognizer(c);
         m_owner.insert(r);
         TRACE("new_dt_eh", tout << "new recognizer: " << r->get_name() << "\n";);
-        ptr_vector<func_decl> const * accessors = m_dt_util.get_constructor_accessors(c);
-        unsigned num_accessors = accessors->size();
+        ptr_vector<func_decl> const & accessors = m_dt_util.get_constructor_accessors(c);
+        unsigned num_accessors = accessors.size();
         for (unsigned k = 0; k < num_accessors; k++) {
-            func_decl * a = accessors->get(k);
+            func_decl * a = accessors[k];
             m_owner.insert(a);
             TRACE("new_dt_eh", tout << "new accessor: " << a->get_name() << "\n";);
         }

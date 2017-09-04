@@ -22,6 +22,7 @@ Revision History:
 #include "ast/ast_smt2_pp.h"
 
 
+#ifdef DATATYPE_V2
 namespace datatype {
 
     void accessor::fix_range(sort_ref_vector const& dts) {
@@ -49,6 +50,10 @@ namespace datatype {
     def const& accessor::get_def() const { return m_constructor->get_def(); }
     util& accessor::u() const { return m_constructor->u(); }
 
+    constructor::~constructor() {
+        for (accessor* a : m_accessors) dealloc(a);
+        m_accessors.reset();
+    }
     util& constructor::u() const { return m_def->u(); }
 
     func_decl_ref constructor::instantiate(sort_ref_vector const& ps) const {
@@ -164,7 +169,7 @@ namespace datatype {
                         sort* r = to_sort(parameters[i].get_ast());
                         S.insert(d->params()[i], r->get_num_elements()); 
                     }
-                    sort_size ts = d->sort_size()->fold(S);
+                    sort_size ts = d->sort_size()->eval(S);
                     s->set_num_elements(ts);
                 }
                 return s;
@@ -278,7 +283,9 @@ namespace datatype {
 
         def& plugin::add(symbol const& name, unsigned n, sort * const * params) {
             ast_manager& m = *m_manager;
-            def* d = alloc(def, m, u(), name, m_class_id, n, params);
+            def* d = 0;
+            if (m_defs.find(name, d)) dealloc(d);
+            d = alloc(def, m, u(), name, m_class_id, n, params);
             m_defs.insert(name, d);
             m_def_block.push_back(name);
             return *d;
@@ -895,3 +902,4 @@ namespace datatype {
         }
     }
 }
+#endif

@@ -907,7 +907,6 @@ public:
     void pp_dt(ast_mark& mark, sort* s) {
         SASSERT(s->is_sort_of(m_dt_fid, DATATYPE_SORT));
         datatype_util util(m_manager);
-        ptr_vector<func_decl> const* decls;
         ptr_vector<sort> rec_sorts;
 
         rec_sorts.push_back(s);
@@ -916,10 +915,10 @@ public:
         // collect siblings and sorts that have not already been printed.
         for (unsigned h = 0; h < rec_sorts.size(); ++h) {
             s = rec_sorts[h];
-            decls = util.get_datatype_constructors(s);
+            ptr_vector<func_decl> const& decls = util.get_datatype_constructors(s);
 
-            for (unsigned i = 0; i < decls->size(); ++i) {
-                func_decl* f = (*decls)[i];
+            for (unsigned i = 0; i < decls.size(); ++i) {
+                func_decl* f = decls[i];
                 for (unsigned j = 0; j < f->get_arity(); ++j) {
                     sort* s2 = f->get_domain(j);
                     if (!mark.is_marked(s2)) {
@@ -955,11 +954,11 @@ public:
             m_out << "(";
             m_out << m_renaming.get_symbol(s->get_name());
             m_out << " ";
-            decls = util.get_datatype_constructors(s);
+            ptr_vector<func_decl> const& decls = util.get_datatype_constructors(s);
 
-            for (unsigned i = 0; i < decls->size(); ++i) {
-                func_decl* f = (*decls)[i];
-                ptr_vector<func_decl> const& accs = *util.get_constructor_accessors(f);
+            for (unsigned i = 0; i < decls.size(); ++i) {
+                func_decl* f = decls[i];
+                ptr_vector<func_decl> const& accs = util.get_constructor_accessors(f);
                 if (m_is_smt2 || accs.size() > 0) {
                     m_out << "(";
                 }
@@ -976,7 +975,7 @@ public:
                 }
                 if (m_is_smt2 || accs.size() > 0) {
                     m_out << ")";
-                    if (i + 1 < decls->size()) {
+                    if (i + 1 < decls.size()) {
                         m_out << " ";
                     }
                 }

@@ -69,18 +69,13 @@ extern "C" {
         // create constructor
         SASSERT(dt_util.is_datatype(tuple));
         SASSERT(!dt_util.is_recursive(tuple));
-        ptr_vector<func_decl> const * decls = dt_util.get_datatype_constructors(tuple);
-        func_decl* decl = (*decls)[0];
+        ptr_vector<func_decl> const & decls = dt_util.get_datatype_constructors(tuple);
+        func_decl* decl = (decls)[0];
         mk_c(c)->save_multiple_ast_trail(decl);
         *mk_tuple_decl = of_func_decl(decl);
 
         // Create projections
-        ptr_vector<func_decl> const * accs = dt_util.get_constructor_accessors(decl);
-        if (!accs) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
-        }
-        ptr_vector<func_decl> const & _accs = *accs;
+        ptr_vector<func_decl> const & _accs = dt_util.get_constructor_accessors(decl);
         SASSERT(_accs.size() == num_fields);
         for (unsigned i = 0; i < _accs.size(); i++) {
             mk_c(c)->save_multiple_ast_trail(_accs[i]);
@@ -136,10 +131,10 @@ extern "C" {
         // create constructor
         SASSERT(dt_util.is_datatype(e));
         SASSERT(!dt_util.is_recursive(e));
-        ptr_vector<func_decl> const * decls = dt_util.get_datatype_constructors(e);
-        SASSERT(decls && decls->size() == n);
+        ptr_vector<func_decl> const & decls = dt_util.get_datatype_constructors(e);
+        SASSERT(decls.size() == n);
         for (unsigned i = 0; i < n; ++i) {
-            func_decl* decl = (*decls)[i];
+            func_decl* decl = (decls)[i];
             mk_c(c)->save_multiple_ast_trail(decl);
             enum_consts[i] = of_func_decl(decl);
             decl = dt_util.get_constructor_recognizer(decl);
@@ -191,7 +186,7 @@ extern "C" {
         sort * s = sorts.get(0);
 
         mk_c(c)->save_multiple_ast_trail(s);
-        ptr_vector<func_decl> const& cnstrs = *data_util.get_datatype_constructors(s);
+        ptr_vector<func_decl> const& cnstrs = data_util.get_datatype_constructors(s);
         SASSERT(cnstrs.size() == 2);
         func_decl* f;
         if (nil_decl) {
@@ -215,18 +210,16 @@ extern "C" {
             *is_cons_decl = of_func_decl(f);
         }
         if (head_decl) {
-            ptr_vector<func_decl> const* acc = data_util.get_constructor_accessors(cnstrs[1]);
-            SASSERT(acc);
-            SASSERT(acc->size() == 2);
-            f = (*acc)[0];
+            ptr_vector<func_decl> const& acc = data_util.get_constructor_accessors(cnstrs[1]);
+            SASSERT(acc.size() == 2);
+            f = (acc)[0];
             mk_c(c)->save_multiple_ast_trail(f);
             *head_decl = of_func_decl(f);
         }
         if (tail_decl) {
-            ptr_vector<func_decl> const* acc = data_util.get_constructor_accessors(cnstrs[1]);
-            SASSERT(acc);
-            SASSERT(acc->size() == 2);
-            f = (*acc)[1];
+            ptr_vector<func_decl> const& acc = data_util.get_constructor_accessors(cnstrs[1]);
+            SASSERT(acc.size() == 2);
+            f = (acc)[1];
             mk_c(c)->save_multiple_ast_trail(f);
             *tail_decl = of_func_decl(f);
         }
@@ -301,13 +294,9 @@ extern "C" {
             *tester = of_func_decl(f2);
         }
 
-        ptr_vector<func_decl> const* accs = data_util.get_constructor_accessors(f);
-        if (!accs && num_fields > 0) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
-            return;
-        }
+        ptr_vector<func_decl> const& accs = data_util.get_constructor_accessors(f);
         for (unsigned i = 0; i < num_fields; ++i) {
-            func_decl* f2 = (*accs)[i];
+            func_decl* f2 = (accs)[i];
             mk_c(c)->save_multiple_ast_trail(f2);
             accessors[i] = of_func_decl(f2);
         }
@@ -368,11 +357,11 @@ extern "C" {
         sort * s = sorts.get(0);
 
         mk_c(c)->save_ast_trail(s);
-        ptr_vector<func_decl> const* cnstrs = data_util.get_datatype_constructors(s);
+        ptr_vector<func_decl> const& cnstrs = data_util.get_datatype_constructors(s);
 
         for (unsigned i = 0; i < num_constructors; ++i) {
             constructor* cn = reinterpret_cast<constructor*>(constructors[i]);
-            cn->m_constructor = (*cnstrs)[i];
+            cn->m_constructor = cnstrs[i];
         }
         RETURN_Z3_mk_datatype(of_sort(s));
         Z3_CATCH_RETURN(0);
@@ -434,10 +423,10 @@ extern "C" {
             mk_c(c)->save_multiple_ast_trail(s);
             sorts[i] = of_sort(s);
             constructor_list* cl = reinterpret_cast<constructor_list*>(constructor_lists[i]);
-            ptr_vector<func_decl> const* cnstrs = data_util.get_datatype_constructors(s);
+            ptr_vector<func_decl> const& cnstrs = data_util.get_datatype_constructors(s);
             for (unsigned j = 0; j < cl->size(); ++j) {
                 constructor* cn = (*cl)[j];
-                cn->m_constructor = (*cnstrs)[j];
+                cn->m_constructor = cnstrs[j];
             }
         }
         RETURN_Z3_mk_datatypes;
@@ -456,12 +445,7 @@ extern "C" {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             return 0;
         }
-        ptr_vector<func_decl> const * decls = dt_util.get_datatype_constructors(_t);
-        if (!decls) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
-            return 0;
-        }
-        return decls->size();
+        return dt_util.get_datatype_constructors(_t).size();
         Z3_CATCH_RETURN(0);
     }
 
@@ -474,12 +458,12 @@ extern "C" {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             return 0;
         }
-        ptr_vector<func_decl> const * decls = dt_util.get_datatype_constructors(_t);
-        if (!decls || idx >= decls->size()) {
+        ptr_vector<func_decl> const & decls = dt_util.get_datatype_constructors(_t);
+        if (idx >= decls.size()) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             return 0;
         }
-        func_decl* decl = (*decls)[idx];
+        func_decl* decl = (decls)[idx];
         mk_c(c)->save_ast_trail(decl);
         return of_func_decl(decl);
     }
@@ -504,12 +488,12 @@ extern "C" {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             RETURN_Z3(0);
         }
-        ptr_vector<func_decl> const * decls = dt_util.get_datatype_constructors(_t);
-        if (!decls || idx >= decls->size()) {
+        ptr_vector<func_decl> const & decls = dt_util.get_datatype_constructors(_t);
+        if (idx >= decls.size()) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             RETURN_Z3(0);
         }
-        func_decl* decl = (*decls)[idx];
+        func_decl* decl = (decls)[idx];
         decl = dt_util.get_constructor_recognizer(decl);
         mk_c(c)->save_ast_trail(decl);
         RETURN_Z3(of_func_decl(decl));
@@ -527,23 +511,23 @@ extern "C" {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             RETURN_Z3(0);
         }
-        ptr_vector<func_decl> const * decls = dt_util.get_datatype_constructors(_t);
-        if (!decls || idx_c >= decls->size()) {
+        ptr_vector<func_decl> const & decls = dt_util.get_datatype_constructors(_t);
+        if (idx_c >= decls.size()) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             return 0;
         }
-        func_decl* decl = (*decls)[idx_c];
+        func_decl* decl = (decls)[idx_c];
         if (decl->get_arity() <= idx_a) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             RETURN_Z3(0);
         }
-        ptr_vector<func_decl> const * accs = dt_util.get_constructor_accessors(decl);
-        SASSERT(accs && accs->size() == decl->get_arity());
-        if (!accs || accs->size() <= idx_a) {
+        ptr_vector<func_decl> const & accs = dt_util.get_constructor_accessors(decl);
+        SASSERT(accs.size() == decl->get_arity());
+        if (accs.size() <= idx_a) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             RETURN_Z3(0);
         }
-        decl = (*accs)[idx_a];
+        decl = (accs)[idx_a];
         mk_c(c)->save_ast_trail(decl);
         RETURN_Z3(of_func_decl(decl));
         Z3_CATCH_RETURN(0);
@@ -574,16 +558,13 @@ extern "C" {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             return 0;
         }
-        ptr_vector<func_decl> const * decls = dt_util.get_datatype_constructors(tuple);
-        if (!decls || decls->size() != 1) {
+        ptr_vector<func_decl> const & decls = dt_util.get_datatype_constructors(tuple);
+        if (decls.size() != 1) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             return 0;
         }
-        ptr_vector<func_decl> const * accs = dt_util.get_constructor_accessors((*decls)[0]);
-        if (!accs) {
-            return 0;
-        }
-        return accs->size();
+        ptr_vector<func_decl> const & accs = dt_util.get_constructor_accessors(decls[0]);
+        return accs.size();
         Z3_CATCH_RETURN(0);
     }
 
@@ -597,21 +578,17 @@ extern "C" {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             RETURN_Z3(0);
         }
-        ptr_vector<func_decl> const * decls = dt_util.get_datatype_constructors(tuple);
-        if (!decls || decls->size() != 1) {
+        ptr_vector<func_decl> const & decls = dt_util.get_datatype_constructors(tuple);
+        if (decls.size() != 1) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             RETURN_Z3(0);
         }
-        ptr_vector<func_decl> const * accs = dt_util.get_constructor_accessors((*decls)[0]);
-        if (!accs) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
-        }
-        if (accs->size() <= i) {
+        ptr_vector<func_decl> const & accs = dt_util.get_constructor_accessors((decls)[0]);
+        if (accs.size() <= i) {
             SET_ERROR_CODE(Z3_IOB);
             RETURN_Z3(0);
         }
-        func_decl* acc = (*accs)[i];
+        func_decl* acc = (accs)[i];
         mk_c(c)->save_ast_trail(acc);
         RETURN_Z3(of_func_decl(acc));
         Z3_CATCH_RETURN(0);

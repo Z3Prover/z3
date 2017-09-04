@@ -75,7 +75,7 @@ namespace qe {
             app_ref arg(m);
             SASSERT(dt.is_constructor(m_val));
             func_decl* f = m_val->get_decl();
-            ptr_vector<func_decl> const& acc = *dt.get_constructor_accessors(f);
+            ptr_vector<func_decl> const& acc = dt.get_constructor_accessors(f);
             for (unsigned i = 0; i < acc.size(); ++i) {
                 arg = m.mk_fresh_const(acc[i]->get_name().str().c_str(), acc[i]->get_range());
                 model.register_decl(arg->get_decl(), m_val->get_arg(i));
@@ -152,7 +152,7 @@ namespace qe {
             }
             func_decl* c = a->get_decl();
             func_decl* rec = dt.get_constructor_recognizer(c);
-            ptr_vector<func_decl> const & acc = *dt.get_constructor_accessors(c);
+            ptr_vector<func_decl> const & acc = dt.get_constructor_accessors(c);
             SASSERT(acc.size() == a->get_num_args());
             //
             // It suffices to solve just the first available equality.
@@ -230,7 +230,7 @@ namespace qe {
                 return false;
             }
             func_decl* c = to_app(l)->get_decl();
-            ptr_vector<func_decl> const& acc = *dt.get_constructor_accessors(c);
+            ptr_vector<func_decl> const& acc = dt.get_constructor_accessors(c);
             if (!is_app_of(r, c)) {
                 lits.push_back(m.mk_app(dt.get_constructor_recognizer(c), r));
             }

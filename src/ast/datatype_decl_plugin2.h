@@ -24,17 +24,12 @@ Revision History:
 #include "util/symbol_table.h"
 #include "util/obj_hashtable.h"
 
-namespace datatype {
-
-    class util;
-    class def;
-    class accessor;
-    class constructor;
+#ifdef DATATYPE_V2
 
     enum sort_kind {
         DATATYPE_SORT
     };
-    
+   
     enum op_kind {
         OP_DT_CONSTRUCTOR,
         OP_DT_RECOGNISER,
@@ -42,6 +37,14 @@ namespace datatype {
         OP_DT_UPDATE_FIELD,
         LAST_DT_OP
     };
+
+namespace datatype {
+
+    class util;
+    class def;
+    class accessor;
+    class constructor;
+ 
 
     class accessor {
         symbol   m_name;
@@ -109,7 +112,7 @@ namespace datatype {
             static size* mk_power(size* a1, size* a2);
             
             virtual size* subst(obj_map<sort, size*>& S) = 0;
-            virtual sort_size fold(obj_map<sort, sort_size> const& S) = 0;
+            virtual sort_size eval(obj_map<sort, sort_size> const& S) = 0;
             
         };
         struct offset : public size {
@@ -117,16 +120,16 @@ namespace datatype {
             offset(sort_size const& s): m_offset(s) {}
             virtual ~offset() {}
             virtual size* subst(obj_map<sort,size*>& S) { return this; }
-            virtual sort_size fold(obj_map<sort, sort_size> const& S) { return m_offset; }
+            virtual sort_size eval(obj_map<sort, sort_size> const& S) { return m_offset; }
         };
         struct plus : public size {
             size* m_arg1, *m_arg2;
             plus(size* a1, size* a2): m_arg1(a1), m_arg2(a2) { a1->inc_ref(); a2->inc_ref();}
             virtual ~plus() { m_arg1->dec_ref(); m_arg2->dec_ref(); }
             virtual size* subst(obj_map<sort,size*>& S) { return mk_plus(m_arg1->subst(S), m_arg2->subst(S)); }
-            virtual sort_size fold(obj_map<sort, sort_size> const& S) { 
-                sort_size s1 = m_arg1->fold(S);
-                sort_size s2 = m_arg2->fold(S);
+            virtual sort_size eval(obj_map<sort, sort_size> const& S) { 
+                sort_size s1 = m_arg1->eval(S);
+                sort_size s2 = m_arg2->eval(S);
                 if (s1.is_infinite()) return s1;
                 if (s2.is_infinite()) return s2;
                 if (s1.is_very_big()) return s1;
@@ -140,9 +143,9 @@ namespace datatype {
             times(size* a1, size* a2): m_arg1(a1), m_arg2(a2) { a1->inc_ref(); a2->inc_ref(); }
             virtual ~times() { m_arg1->dec_ref(); m_arg2->dec_ref(); }
             virtual size* subst(obj_map<sort,size*>& S) { return mk_times(m_arg1->subst(S), m_arg2->subst(S)); }
-            virtual sort_size fold(obj_map<sort, sort_size> const& S) { 
-                sort_size s1 = m_arg1->fold(S);
-                sort_size s2 = m_arg2->fold(S);
+            virtual sort_size eval(obj_map<sort, sort_size> const& S) { 
+                sort_size s1 = m_arg1->eval(S);
+                sort_size s2 = m_arg2->eval(S);
                 if (s1.is_infinite()) return s1;
                 if (s2.is_infinite()) return s2;
                 if (s1.is_very_big()) return s1;
@@ -156,9 +159,9 @@ namespace datatype {
             power(size* a1, size* a2): m_arg1(a1), m_arg2(a2) { a1->inc_ref(); a2->inc_ref(); }
             virtual ~power() { m_arg1->dec_ref(); m_arg2->dec_ref(); }
             virtual size* subst(obj_map<sort,size*>& S) { return mk_power(m_arg1->subst(S), m_arg2->subst(S)); }
-            virtual sort_size fold(obj_map<sort, sort_size> const& S) { 
-                sort_size s1 = m_arg1->fold(S);
-                sort_size s2 = m_arg2->fold(S);
+            virtual sort_size eval(obj_map<sort, sort_size> const& S) { 
+                sort_size s1 = m_arg1->eval(S);
+                sort_size s2 = m_arg2->eval(S);
                 // s1^s2
                 if (s1.is_infinite()) return s1;
                 if (s2.is_infinite()) return s2;
@@ -176,7 +179,7 @@ namespace datatype {
             sparam(sort_ref& p): m_param(p) {}
             virtual ~sparam() {}
             virtual size* subst(obj_map<sort,size*>& S) { return S[m_param]; }
-            virtual sort_size fold(obj_map<sort, sort_size> const& S) { return S[m_param]; }
+            virtual sort_size eval(obj_map<sort, sort_size> const& S) { return S[m_param]; }
         };
     };
 
@@ -201,6 +204,8 @@ namespace datatype {
         {}
         ~def() {
             if (m_sort_size) m_sort_size->dec_ref();
+            for (constructor* c : m_constructors) dealloc(c);
+            m_constructors.reset();
         }
         void add(constructor* c) {
             m_constructors.push_back(c);
@@ -361,5 +366,36 @@ namespace datatype {
 
 };
 
+#ifdef DATATYPE_V2
+typedef datatype::accessor accessor_decl;
+typedef datatype::constructor constructor_decl;
+typedef datatype::def datatype_decl;
+typedef datatype::decl::plugin datatype_decl_plugin;
+typedef datatype::util datatype_util;
+
+class type_ref {
+    void * m_data;
+public:
+    type_ref():m_data(TAG(void *, static_cast<void*>(0), 1)) {}
+    type_ref(int idx):m_data(BOXINT(void *, idx)) {}
+    type_ref(sort * s):m_data(TAG(void *, s, 1)) {}
+    
+    bool is_idx() const { return GET_TAG(m_data) == 0; }
+    bool is_sort() const { return GET_TAG(m_data) == 1; }
+    sort * get_sort() const { return UNTAG(sort *, m_data); }
+    int get_idx() const { return UNBOXINT(m_data); }
+};
+
+inline accessor_decl * mk_accessor_decl(symbol const & n, type_ref const & t) {
+    if (t.is_idx()) {
+        return alloc(accessor_decl, n, t.get_idx());
+    }
+    else {
+        return alloc(accessor_decl, n, t.get_sort());
+    }
+}
+#endif
+
 #endif /* DATATYPE_DECL_PLUGIN_H_ */
 
+#endif DATATYPE_V2
