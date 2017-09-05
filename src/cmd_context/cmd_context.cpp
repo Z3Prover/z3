@@ -795,7 +795,6 @@ void cmd_context::insert(symbol const & s, func_decl * f) {
     dictionary<func_decls>::entry * e = m_func_decls.insert_if_not_there2(s, func_decls());
     func_decls & fs = e->get_data().m_value;
     if (!fs.insert(m(), f)) {
-        UNREACHABLE();
         std::string msg = "invalid declaration, ";
         msg += f->get_arity() == 0 ? "constant" : "function";
         msg += " '";
