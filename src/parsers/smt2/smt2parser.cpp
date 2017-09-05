@@ -16,8 +16,6 @@ Author:
 Revision History:
 
 --*/
-#include "parsers/smt2/smt2parser.h"
-#include "parsers/smt2/smt2scanner.h"
 #include "util/stack.h"
 #include "ast/datatype_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"
@@ -25,10 +23,12 @@ Revision History:
 #include "ast/seq_decl_plugin.h"
 #include "ast/ast_pp.h"
 #include "ast/well_sorted.h"
-#include "parsers/util/pattern_validation.h"
 #include "ast/rewriter/rewriter.h"
 #include "ast/has_free_vars.h"
 #include "ast/ast_smt2_pp.h"
+#include "parsers/smt2/smt2parser.h"
+#include "parsers/smt2/smt2scanner.h"
+#include "parsers/util/pattern_validation.h"
 #include "parsers/util/parser_params.hpp"
 #include<sstream>
 
@@ -885,6 +885,9 @@ namespace smt2 {
             }
             else if (sz == 1) {
                 check_missing(new_dt_decls[0], line, pos);
+#ifdef DATATYPE_V2
+                new_dt_decls[0]->commit(pm());
+#endif
             }
             else {
                 SASSERT(sz > 1);
@@ -897,8 +900,13 @@ namespace smt2 {
                     err_msg += "'";
                     throw parser_exception(err_msg, line, pos);
                 }
+#ifndef DATATYPE_V2
                 m_ctx.insert_aux_pdecl(dts.get());
+#else
+                dts->commit(pm());
+#endif
             }
+#ifndef DATATYPE_V2
             for (unsigned i = 0; i < sz; i++) {
                 pdatatype_decl * d = new_dt_decls[i];
                 SASSERT(d != 0);
@@ -911,6 +919,13 @@ namespace smt2 {
                     s = d->instantiate(pm(), 0, 0);
                 }
             }
+#else
+            for (unsigned i = 0; i < sz; i++) {
+                pdatatype_decl * d = new_dt_decls[i];
+                symbol duplicated;
+                check_duplicate(d, line, pos);
+            }                
+#endif
             TRACE("declare_datatypes", tout << "i: " << i << " new_dt_decls.size(): " << sz << "\n";
                   for (unsigned i = 0; i < sz; i++) tout << new_dt_decls[i]->get_name() << "\n";);
             m_ctx.print_success();
@@ -940,12 +955,16 @@ namespace smt2 {
             check_missing(d, line, pos);
             check_duplicate(d, line, pos);
 
+#ifndef DATATYPE_V2
             m_ctx.insert(d);
             if (d->get_num_params() == 0) {
                 // if datatype is not parametric... then force instantiation to register accessor, recognizers and constructors...
                 sort_ref s(m());
                 s = d->instantiate(pm(), 0, 0);
             }
+#else
+            d->commit(pm());
+#endif
             check_rparen_next("invalid end of datatype declaration, ')' expected");
             m_ctx.print_success();
         }
@@ -1909,6 +1928,8 @@ namespace smt2 {
                     m_dt_name2idx.insert(dt_name, i);
                     m_dt_name2arity.insert(dt_name, u);
                     m_dt_names.push_back(dt_name);
+                    psort_decl * decl = pm().mk_psort_dt_decl(u, dt_name);
+                    m_ctx.insert(decl);
                     check_rparen("invalid sort declaration, ')' expected");
                 }
                 else {

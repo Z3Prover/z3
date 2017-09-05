@@ -21,17 +21,17 @@ Revision History:
 
 #include<sstream>
 #include<iostream>
+#include "util/vector.h"
+#include "util/smt2_util.h"
 #include "ast/ast_smt_pp.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"
 #include "ast/array_decl_plugin.h"
 #include "ast/datatype_decl_plugin.h"
+#include "ast/seq_decl_plugin.h"
 #include "ast/fpa_decl_plugin.h"
-#include "util/vector.h"
 #include "ast/for_each_ast.h"
 #include "ast/decl_collector.h"
-#include "util/smt2_util.h"
-#include "ast/seq_decl_plugin.h"
 
 // ---------------------------------------
 // smt_renaming
@@ -210,7 +210,19 @@ class smt_printer {
     void pp_decl(func_decl* d) {
         symbol sym = m_renaming.get_symbol(d->get_name());
         if (d->get_family_id() == m_dt_fid) {
+#ifdef DATATYPE_V2
+            std::cout << "printing " << sym << "\n";
+            datatype_util util(m_manager);
+            if (util.is_recognizer(d)) {
+                std::cout << d->get_num_parameters() << "\n";
+                visit_params(false, sym, d->get_num_parameters(), d->get_parameters());
+            }
+            else {
+                m_out << sym;
+            }
+#else
             m_out << sym;
+#endif
         }
         else if (m_manager.is_ite(d)) {
             if (!m_is_smt2 && is_bool(d->get_range())) {
@@ -366,14 +378,15 @@ class smt_printer {
             return;
         }
         else if (s->is_sort_of(m_dt_fid, DATATYPE_SORT)) {
+#ifndef DATATYPE_V2
             m_out << m_renaming.get_symbol(s->get_name());            
-#if 0
+#else
             datatype_util util(m_manager);
             unsigned num_sorts = util.get_datatype_num_parameter_sorts(s);
             if (num_sorts > 0) {
                 m_out << "(";
             }
-
+            m_out << m_renaming.get_symbol(s->get_name());            
             if (num_sorts > 0) {
                 for (unsigned i = 0; i < num_sorts; ++i) {
                     m_out << " ";
@@ -533,7 +546,8 @@ class smt_printer {
             pp_arg(curr, n);
             m_out << ")";
 
-        } else if (m_manager.is_distinct(decl)) {
+        } 
+        else if (m_manager.is_distinct(decl)) {
             ptr_vector<expr> args(num_args, n->get_args());
             unsigned         idx = 0;
             m_out << "(and";
@@ -915,7 +929,7 @@ public:
         // collect siblings and sorts that have not already been printed.
         for (unsigned h = 0; h < rec_sorts.size(); ++h) {
             s = rec_sorts[h];
-            ptr_vector<func_decl> const& decls = util.get_datatype_constructors(s);
+            ptr_vector<func_decl> const& decls = *util.get_datatype_constructors(s);
 
             for (unsigned i = 0; i < decls.size(); ++i) {
                 func_decl* f = decls[i];
@@ -954,11 +968,11 @@ public:
             m_out << "(";
             m_out << m_renaming.get_symbol(s->get_name());
             m_out << " ";
-            ptr_vector<func_decl> const& decls = util.get_datatype_constructors(s);
+            ptr_vector<func_decl> const& decls = *util.get_datatype_constructors(s);
 
             for (unsigned i = 0; i < decls.size(); ++i) {
                 func_decl* f = decls[i];
-                ptr_vector<func_decl> const& accs = util.get_constructor_accessors(f);
+                ptr_vector<func_decl> const& accs = *util.get_constructor_accessors(f);
                 if (m_is_smt2 || accs.size() > 0) {
                     m_out << "(";
                 }

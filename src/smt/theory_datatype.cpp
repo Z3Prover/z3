@@ -17,13 +17,13 @@ Revision History:
 
 --*/
 
+#include "util/stats.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
+#include "ast/ast_smt2_pp.h"
 #include "smt/smt_context.h"
 #include "smt/theory_datatype.h"
 #include "smt/smt_model_generator.h"
-#include "ast/ast_pp.h"
-#include "ast/ast_ll_pp.h"
-#include "util/stats.h"
-#include "ast/ast_smt2_pp.h"
 
 namespace smt {
     
@@ -97,7 +97,7 @@ namespace smt {
         SASSERT(m_util.is_datatype(get_manager().get_sort(n->get_owner())));
         ast_manager & m = get_manager();
         ptr_vector<expr> args;
-        ptr_vector<func_decl> const & accessors   = m_util.get_constructor_accessors(c);
+        ptr_vector<func_decl> const & accessors   = *m_util.get_constructor_accessors(c);
         SASSERT(c->get_arity() == accessors.size());
         for (func_decl * d : accessors) {
             SASSERT(d->get_arity() == 1);
@@ -120,7 +120,7 @@ namespace smt {
         SASSERT(is_constructor(n));
         ast_manager & m   = get_manager();
         func_decl * d     = n->get_decl();
-        ptr_vector<func_decl> const & accessors   = m_util.get_constructor_accessors(d);
+        ptr_vector<func_decl> const & accessors   = *m_util.get_constructor_accessors(d);
         SASSERT(n->get_num_args() == accessors.size());
         unsigned i = 0;
         for (func_decl * acc : accessors) {
@@ -168,7 +168,7 @@ namespace smt {
         func_decl * acc  = to_func_decl(upd->get_parameter(0).get_ast());
         func_decl * con  = m_util.get_accessor_constructor(acc);
         func_decl * rec  = m_util.get_constructor_recognizer(con);
-        ptr_vector<func_decl> const & accessors   = m_util.get_constructor_accessors(con);
+        ptr_vector<func_decl> const & accessors = *m_util.get_constructor_accessors(con);
         app_ref rec_app(m.mk_app(rec, arg1), m);
         ctx.internalize(rec_app, false);
         literal is_con(ctx.get_bool_var(rec_app));
@@ -208,7 +208,7 @@ namespace smt {
             ast_manager & m = get_manager();
             sort * s      = m.get_sort(n->get_owner());
             if (m_util.get_datatype_num_constructors(s) == 1) {
-                func_decl * c = m_util.get_datatype_constructors(s)[0];
+                func_decl * c = m_util.get_datatype_constructors(s)->get(0);
                 assert_is_constructor_axiom(n, c, null_literal);
             }
             else {
@@ -709,7 +709,7 @@ namespace smt {
             enode * r = d->m_recognizers[unassigned_idx];
             literal consequent;
             if (!r) {
-                ptr_vector<func_decl> const & constructors = m_util.get_datatype_constructors(dt);
+                ptr_vector<func_decl> const & constructors = *m_util.get_datatype_constructors(dt);
                 func_decl * rec = m_util.get_constructor_recognizer(constructors[unassigned_idx]);
                 app * rec_app   = get_manager().mk_app(rec, n->get_owner());
                 ctx.internalize(rec_app, false);
@@ -774,7 +774,7 @@ namespace smt {
                 for (unsigned idx = 0; it != end; ++it, ++idx) {
                     enode * curr = *it;
                     if (curr == 0) {
-                        ptr_vector<func_decl> const & constructors = m_util.get_datatype_constructors(s);
+                        ptr_vector<func_decl> const & constructors = *m_util.get_datatype_constructors(s);
                         // found empty slot...
                         r = m_util.get_constructor_recognizer(constructors[idx]);
                         break;
@@ -793,7 +793,7 @@ namespace smt {
         }
         SASSERT(r != 0);
         app * r_app     = m.mk_app(r, n->get_owner());
-        TRACE("datatype", tout << "creating split: " << mk_bounded_pp(r_app, m) << "\n";);
+        TRACE("datatype", tout << "creating split: " << mk_pp(r_app, m) << "\n";);
         ctx.internalize(r_app, false);
         bool_var bv     = ctx.get_bool_var(r_app);
         ctx.set_true_first_flag(bv);

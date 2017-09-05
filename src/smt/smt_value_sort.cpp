@@ -52,7 +52,7 @@ namespace smt {
                 // simple
             }
             else if (data.is_datatype(s)) {
-                ptr_vector<func_decl> const& cs = data.get_datatype_constructors(s);
+                ptr_vector<func_decl> const& cs = *data.get_datatype_constructors(s);
                 for (unsigned i = 0; i < cs.size(); ++i) {
                     func_decl* f = cs[i];
                     for (unsigned j = 0; j < f->get_arity(); ++j) {

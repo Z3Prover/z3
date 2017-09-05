@@ -1287,10 +1287,8 @@ decl_kind user_sort_plugin::register_name(symbol s) {
 
 decl_plugin * user_sort_plugin::mk_fresh() {
     user_sort_plugin * p = alloc(user_sort_plugin);
-    svector<symbol>::iterator it  = m_sort_names.begin();
-    svector<symbol>::iterator end = m_sort_names.end();
-    for (; it != end; ++it)
-        p->register_name(*it);
+    for (symbol const& s : m_sort_names) 
+        p->register_name(s);
     return p;
 }
 
@@ -1410,26 +1408,20 @@ ast_manager::~ast_manager() {
     dec_ref(m_true);
     dec_ref(m_false);
     dec_ref(m_undef_proof);
-    ptr_vector<decl_plugin>::iterator it  = m_plugins.begin();
-    ptr_vector<decl_plugin>::iterator end = m_plugins.end();
-    for (; it != end; ++it) {
-        if (*it)
-            (*it)->finalize();
+    for (decl_plugin* p : m_plugins) {
+        if (p)
+            p->finalize();
     }
-    it = m_plugins.begin();
-    for (; it != end; ++it) {
-        if (*it) 
-            dealloc(*it);
+    for (decl_plugin* p : m_plugins) {
+        if (p) 
+            dealloc(p);
     }
     m_plugins.reset();
     while (!m_ast_table.empty()) {
         DEBUG_CODE(std::cout << "ast_manager LEAKED: " << m_ast_table.size() << std::endl;);
         ptr_vector<ast> roots;
         ast_mark mark;
-        ast_table::iterator it_a = m_ast_table.begin();
-        ast_table::iterator end_a = m_ast_table.end();
-        for (; it_a != end_a; ++it_a) {
-            ast* n = (*it_a);
+        for (ast * n : m_ast_table) {
             switch (n->get_kind()) {
             case AST_SORT: {
                 sort_info* info = to_sort(n)->get_info();
@@ -1462,9 +1454,7 @@ ast_manager::~ast_manager() {
                 break;
             }           
         }        
-        it_a = m_ast_table.begin();
-        for (; it_a != end_a; ++it_a) {
-            ast* n = *it_a;
+        for (ast * n : m_ast_table) {
             if (!mark.is_marked(n)) {
                 roots.push_back(n);
             }
@@ -1659,11 +1649,8 @@ bool ast_manager::is_bool(expr const * n) const {
 
 #ifdef Z3DEBUG
 bool ast_manager::slow_not_contains(ast const * n) {
-    ast_table::iterator it  = m_ast_table.begin();
-    ast_table::iterator end = m_ast_table.end();
     unsigned num = 0;
-    for (; it != end; ++it) {
-        ast * curr = *it;
+    for (ast * curr : m_ast_table) {
         if (compare_nodes(curr, n)) {
             TRACE("nondet_bug",
                   tout << "id1:   " << curr->get_id() << ", id2: " << n->get_id() << "\n";

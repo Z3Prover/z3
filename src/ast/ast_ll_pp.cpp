@@ -284,7 +284,7 @@ public:
         }
         unsigned num_args = to_app(n)->get_num_args();
         if (num_args > 0) 
-            m_out << "(";
+            m_out << "(_ ";
         display_name(to_app(n)->get_decl());
         display_params(to_app(n)->get_decl());
         for (unsigned i = 0; i < num_args; i++) {

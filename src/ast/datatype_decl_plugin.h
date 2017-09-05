@@ -16,7 +16,7 @@ Author:
 Revision History:
 
 --*/
-//define DATATYPE_V2
+// define DATATYPE_V2
 #ifdef DATATYPE_V2
 #include "ast/datatype_decl_plugin2.h"
 #else
@@ -78,15 +78,11 @@ class constructor_decl;
 class datatype_decl;
 class datatype_util;
 
-accessor_decl * mk_accessor_decl(symbol const & n, type_ref const & t);
-//void del_accessor_decl(accessor_decl * d);
-//void del_accessor_decls(unsigned num, accessor_decl * const * as);
+accessor_decl * mk_accessor_decl(ast_manager& m, symbol const & n, type_ref const & t);
 // Remark: the constructor becomes the owner of the accessor_decls
 constructor_decl * mk_constructor_decl(symbol const & n, symbol const & r, unsigned num_accessors, accessor_decl * const * acs);
-//void del_constructor_decl(constructor_decl * d);
-//void del_constructor_decls(unsigned num, constructor_decl * const * cs);
 // Remark: the datatype becomes the owner of the constructor_decls
-datatype_decl * mk_datatype_decl(datatype_util& u, symbol const & n, unsigned num_constructors, constructor_decl * const * cs);
+datatype_decl * mk_datatype_decl(datatype_util& u, symbol const & n, unsigned num_params, sort * const* params, unsigned num_constructors, constructor_decl * const * cs);
 void del_datatype_decl(datatype_decl * d);
 void del_datatype_decls(unsigned num, datatype_decl * const * ds);
 
@@ -216,7 +212,7 @@ public:
     bool is_recognizer(app * f) const { return is_app_of(f, m_family_id, OP_DT_RECOGNISER); }
     bool is_accessor(app * f) const { return is_app_of(f, m_family_id, OP_DT_ACCESSOR); }
     bool is_update_field(app * f) const { return is_app_of(f, m_family_id, OP_DT_UPDATE_FIELD); }
-    ptr_vector<func_decl> const & get_datatype_constructors(sort * ty);
+    ptr_vector<func_decl> const * get_datatype_constructors(sort * ty);
     unsigned get_datatype_num_constructors(sort * ty) { 
         SASSERT(is_datatype(ty));
         unsigned tid = ty->get_parameter(1).get_int();
@@ -236,7 +232,7 @@ public:
     unsigned get_recognizer_constructor_idx(func_decl * f) const { SASSERT(is_recognizer(f)); return f->get_parameter(1).get_int(); }
     func_decl * get_non_rec_constructor(sort * ty);
     func_decl * get_constructor_recognizer(func_decl * constructor);
-    ptr_vector<func_decl> const & get_constructor_accessors(func_decl * constructor);
+    ptr_vector<func_decl> const * get_constructor_accessors(func_decl * constructor);
     func_decl * get_accessor_constructor(func_decl * accessor);
     func_decl * get_recognizer_constructor(func_decl * recognizer);
     family_id get_family_id() const { return m_family_id; }

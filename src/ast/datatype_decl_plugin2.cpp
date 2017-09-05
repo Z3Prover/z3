@@ -37,6 +37,7 @@ namespace datatype {
     func_decl_ref accessor::instantiate(sort_ref_vector const& ps) const {
         ast_manager& m = ps.get_manager();
         unsigned n = ps.size();
+        SASSERT(m_range);
         SASSERT(n == get_def().params().size());
         sort_ref range(m.substitute(m_range, n, get_def().params().c_ptr(), ps.c_ptr()), m);
         sort_ref src(get_def().instantiate(ps));
@@ -79,13 +80,14 @@ namespace datatype {
         sort_ref s(m);
         if (!m_sort) {
             vector<parameter> ps;
+            ps.push_back(parameter(m_name));
             for (sort * s : m_params) ps.push_back(parameter(s));
             m_sort = m.mk_sort(u().get_family_id(), DATATYPE_SORT, ps.size(), ps.c_ptr());
         }
         if (sorts.empty()) {
             return m_sort;
         }
-        return sort_ref(m.substitute(m_sort, sorts.size(), sorts.c_ptr(), m_params.c_ptr()), m);
+        return sort_ref(m.substitute(m_sort, sorts.size(), m_params.c_ptr(), sorts.c_ptr()), m);
     }
 
     enum status {
@@ -135,6 +137,7 @@ namespace datatype {
 
         util & plugin::u() const {
             SASSERT(m_manager);
+            SASSERT(m_family_id != null_family_id);
             if (m_util.get() == 0) {
                 m_util = alloc(util, *m_manager);
             }
@@ -146,9 +149,11 @@ namespace datatype {
         sort * plugin::mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) {
             try {
                 if (k != DATATYPE_SORT) {
+                    TRACE("datatype", tout << "invalid kind parameter to datatype\n";);
                     throw invalid_datatype();
                 }
                 if (num_parameters < 1) {
+                    TRACE("datatype", tout << "at least one parameter expected to datatype declaration\n";);
                     throw invalid_datatype();                    
                 }
                 parameter const & name = parameters[0];
@@ -169,12 +174,16 @@ namespace datatype {
                 def* d = 0;
                 if (m_defs.find(s->get_name(), d) && d->sort_size()) {
                     obj_map<sort, sort_size> S;
-                    for (unsigned i = 1; i < num_parameters; ++i) {
-                        sort* r = to_sort(parameters[i].get_ast());
+                    for (unsigned i = 0; i + 1 < num_parameters; ++i) {
+                        sort* r = to_sort(parameters[i + 1].get_ast());
                         S.insert(d->params()[i], r->get_num_elements()); 
                     }
                     sort_size ts = d->sort_size()->eval(S);
+                    TRACE("datatype", tout << name << " has size " << ts << "\n";);
                     s->set_num_elements(ts);
+                }
+                else {
+                    TRACE("datatype", tout << "not setting size for " << name << "\n";);
                 }
                 return s;
             }
@@ -227,14 +236,12 @@ namespace datatype {
             return m.mk_func_decl(symbol("update-field"), arity, domain, range, info);
         }
 
+#define VALIDATE_PARAM(_pred_) if (!(_pred_)) m_manager->raise_exception("invalid parameter to datatype function");
         
         func_decl * decl::plugin::mk_constructor(unsigned num_parameters, parameter const * parameters, 
                                                  unsigned arity, sort * const * domain, sort * range) {
             ast_manager& m = *m_manager;
-            SASSERT(num_parameters == 1 && parameters[0].is_symbol() && range && u().is_datatype(range));
-            if (num_parameters != 1 || !parameters[0].is_symbol() || !range || !u().is_datatype(range)) {
-                m_manager->raise_exception("invalid parameters for datatype constructor");
-            }
+            VALIDATE_PARAM(num_parameters == 1 && parameters[0].is_symbol() && range && u().is_datatype(range));
             // we blindly trust other conditions are met, including domain types.
             symbol name = parameters[0].get_symbol();
             func_decl_info info(m_family_id, OP_DT_CONSTRUCTOR, num_parameters, parameters);
@@ -245,27 +252,27 @@ namespace datatype {
         func_decl * decl::plugin::mk_recognizer(unsigned num_parameters, parameter const * parameters, 
                                                 unsigned arity, sort * const * domain, sort *) {
             ast_manager& m = *m_manager;
-            SASSERT(arity == 1 && num_parameters == 1 && parameters[0].is_ast() && is_func_decl(parameters[0].get_ast()));
-            SASSERT(u().is_datatype(domain[0]));
+            VALIDATE_PARAM(arity == 1 && num_parameters == 1 && parameters[0].is_ast() && is_func_decl(parameters[0].get_ast()));
+            VALIDATE_PARAM(u().is_datatype(domain[0]));
             // blindly trust that parameter is a constructor
             sort* range = m_manager->mk_bool_sort();
+            func_decl* f = to_func_decl(parameters[0].get_ast());
             func_decl_info info(m_family_id, OP_DT_RECOGNISER, num_parameters, parameters);
             info.m_private_parameters = true;
-            symbol name = to_func_decl(parameters[0].get_ast())->get_name();
-            return m.mk_func_decl(name, arity, domain, range);
+            return m.mk_func_decl(symbol("is"), arity, domain, range, info);
         }
 
         func_decl * decl::plugin::mk_accessor(unsigned num_parameters, parameter const * parameters, 
                                               unsigned arity, sort * const * domain, sort * range) 
         {            
             ast_manager& m = *m_manager;
-            SASSERT(arity == 1 && num_parameters == 2 && parameters[0].is_symbol() && parameters[0].is_symbol());
-            SASSERT(u().is_datatype(domain[0]));
+            VALIDATE_PARAM(arity == 1 && num_parameters == 2 && parameters[0].is_symbol() && parameters[1].is_symbol());
+            VALIDATE_PARAM(u().is_datatype(domain[0]));
             SASSERT(range);
             func_decl_info info(m_family_id, OP_DT_ACCESSOR, num_parameters, parameters);
             info.m_private_parameters = true;
             symbol name = parameters[0].get_symbol();
-            return m.mk_func_decl(name, arity, domain, range);            
+            return m.mk_func_decl(name, arity, domain, range, info);           
         }
 
         func_decl * decl::plugin::mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters, 
@@ -290,15 +297,20 @@ namespace datatype {
             return alloc(def, m, u(), name, m_class_id, n, params);
         }
 
+#if 0
         def& plugin::add(symbol const& name, unsigned n, sort * const * params) {
             ast_manager& m = *m_manager;
             def* d = 0;
-            if (m_defs.find(name, d)) dealloc(d);
+            if (m_defs.find(name, d)) {
+                TRACE("datatype", tout << "delete previous version for " << name << "\n";);
+                dealloc(d);
+            }
             d = alloc(def, m, u(), name, m_class_id, n, params);
             m_defs.insert(name, d);
             m_def_block.push_back(name);
             return *d;
         }
+#endif
 
         void plugin::end_def_block() {
             ast_manager& m = *m_manager;
@@ -325,7 +337,11 @@ namespace datatype {
         bool plugin::mk_datatypes(unsigned num_datatypes, def * const * datatypes, unsigned num_params, sort* const* sort_params, sort_ref_vector & new_sorts) {
             begin_def_block();
             for (unsigned i = 0; i < num_datatypes; ++i) {
-                if (m_defs.find(datatypes[i]->name(), d)) dealloc(d);
+                def* d = 0;
+                if (m_defs.find(datatypes[i]->name(), d)) {
+                    TRACE("datatype", tout << "delete previous version for " << datatypes[i]->name() << "\n";);
+                    dealloc(d);
+                }
                 m_defs.insert(datatypes[i]->name(), datatypes[i]);
                 m_def_block.push_back(datatypes[i]->name());
             }
@@ -391,6 +407,7 @@ namespace datatype {
         }
         
         void plugin::get_op_names(svector<builtin_name> & op_names, symbol const & logic) {
+            op_names.push_back(builtin_name("is", OP_DT_RECOGNISER));
             if (logic == symbol::null) {
                 op_names.push_back(builtin_name("update-field", OP_DT_UPDATE_FIELD));
             }
@@ -548,6 +565,10 @@ namespace datatype {
         }
         return param_size::size::mk_offset(s->get_num_elements());        
     }
+
+    bool util::is_declared(sort* s) const {
+        return m_plugin->is_declared(s);
+    }
     
     void util::compute_datatype_size_functions(svector<symbol> const& names) {
         map<symbol, status, symbol_hash_proc, symbol_eq_proc> already_found;
@@ -668,17 +689,18 @@ namespace datatype {
         m_asts(m),
         m_start(0) {
         m_plugin = dynamic_cast<decl::plugin*>(m.get_plugin(m_family_id));
+        SASSERT(m_plugin);
     }
 
     util::~util() {
         std::for_each(m_vectors.begin(), m_vectors.end(), delete_proc<ptr_vector<func_decl> >());
     }
 
-    ptr_vector<func_decl> const & util::get_datatype_constructors(sort * ty) {
+    ptr_vector<func_decl> const * util::get_datatype_constructors(sort * ty) {
         SASSERT(is_datatype(ty));
         ptr_vector<func_decl> * r = 0;
         if (m_datatype2constructors.find(ty, r))
-            return *r;
+            return r;
         r = alloc(ptr_vector<func_decl>);
         m_asts.push_back(ty);
         m_vectors.push_back(r);
@@ -689,14 +711,15 @@ namespace datatype {
             m_asts.push_back(f);
             r->push_back(f);
         }
-        return *r;
+        return r;
     }
 
-    ptr_vector<func_decl> const & util::get_constructor_accessors(func_decl * con) {
+    ptr_vector<func_decl> const * util::get_constructor_accessors(func_decl * con) {
         SASSERT(is_constructor(con));
         ptr_vector<func_decl> * res = 0;
-        if (m_constructor2accessors.find(con, res))
-            return *res;
+        if (m_constructor2accessors.find(con, res)) {
+            return res;
+        }
         res = alloc(ptr_vector<func_decl>);
         m_asts.push_back(con);
         m_vectors.push_back(res);
@@ -706,12 +729,14 @@ namespace datatype {
         for (constructor const* c : d) {
             if (c->name() == con->get_name()) {
                 for (accessor const* a : *c) {
-                    res->push_back(a->instantiate(datatype));
+                    func_decl_ref fn = a->instantiate(datatype);
+                    res->push_back(fn);
+                    m_asts.push_back(fn);
                 }
                 break;
             }
         }
-        return *res;
+        return res;
     }
 
     func_decl * util::get_constructor_recognizer(func_decl * constructor) {
@@ -752,7 +777,7 @@ namespace datatype {
         bool r = false;
         if (m_is_enum.find(s, r))
             return r;
-        ptr_vector<func_decl> const& cnstrs = get_datatype_constructors(s);
+        ptr_vector<func_decl> const& cnstrs = *get_datatype_constructors(s);
         r = true;
         for (unsigned i = 0; r && i < cnstrs.size(); ++i) {
             r = cnstrs[i]->get_arity() == 0;
@@ -833,7 +858,7 @@ namespace datatype {
         //   1) T_i's are not recursive
         // If there is no such constructor, then we select one that 
         //   2) each type T_i is not recursive or contains a constructor that does not depend on T
-        ptr_vector<func_decl> const& constructors = get_datatype_constructors(ty);
+        ptr_vector<func_decl> const& constructors = *get_datatype_constructors(ty);
         // step 1)
         unsigned sz = constructors.size();
         ++m_start;
@@ -928,12 +953,12 @@ namespace datatype {
             todo.pop_back();
             strm << s->get_name() << " =\n";
 
-            ptr_vector<func_decl> const& cnstrs = get_datatype_constructors(s);
+            ptr_vector<func_decl> const& cnstrs = *get_datatype_constructors(s);
             for (unsigned i = 0; i < cnstrs.size(); ++i) {
                 func_decl* cns = cnstrs[i];
                 func_decl* rec = get_constructor_recognizer(cns);
                 strm << "  " << cns->get_name() << " :: " << rec->get_name() << " :: ";
-                ptr_vector<func_decl> const & accs = get_constructor_accessors(cns);
+                ptr_vector<func_decl> const & accs = *get_constructor_accessors(cns);
                 for (unsigned j = 0; j < accs.size(); ++j) {
                     func_decl* acc = accs[j];
                     sort* s1 = acc->get_range();
@@ -949,9 +974,9 @@ namespace datatype {
     }
 }
 
-datatype_decl * mk_datatype_decl(datatype_util& u, symbol const & n, unsigned num_constructors, constructor_decl * const * cs) {
+datatype_decl * mk_datatype_decl(datatype_util& u, symbol const & n, unsigned num_params, sort*const* params, unsigned num_constructors, constructor_decl * const * cs) {
     datatype::decl::plugin* p = u.get_plugin();
-    datatype::def( d = p->mk(n, 0, 0);
+    datatype::def* d = p->mk(n, num_params, params);
     for (unsigned i = 0; i < num_constructors; ++i) {
         d->add(cs[i]);
     }

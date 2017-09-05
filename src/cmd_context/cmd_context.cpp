@@ -682,8 +682,6 @@ bool cmd_context::logic_has_datatype() const {
 void cmd_context::init_manager_core(bool new_manager) {
     SASSERT(m_manager != 0);
     SASSERT(m_pmanager != 0);
-    m_dt_eh    = alloc(dt_eh, *this);
-    m_pmanager->set_new_datatype_eh(m_dt_eh.get());
     if (new_manager) {
         decl_plugin * basic = m_manager->get_plugin(m_manager->get_basic_family_id());
         register_builtin_sorts(basic);
@@ -719,6 +717,8 @@ void cmd_context::init_manager_core(bool new_manager) {
             }
         }
     }
+    m_dt_eh = alloc(dt_eh, *this);
+    m_pmanager->set_new_datatype_eh(m_dt_eh.get());
     if (!has_logic()) {
         // add list type only if the logic is not specified.
         // it prevents clashes with builtin types.
@@ -795,6 +795,7 @@ void cmd_context::insert(symbol const & s, func_decl * f) {
     dictionary<func_decls>::entry * e = m_func_decls.insert_if_not_there2(s, func_decls());
     func_decls & fs = e->get_data().m_value;
     if (!fs.insert(m(), f)) {
+        UNREACHABLE();
         std::string msg = "invalid declaration, ";
         msg += f->get_arity() == 0 ? "constant" : "function";
         msg += " '";
@@ -1954,21 +1955,17 @@ cmd_context::dt_eh::~dt_eh() {
 
 void cmd_context::dt_eh::operator()(sort * dt, pdecl* pd) {
     TRACE("new_dt_eh", tout << "new datatype: "; m_owner.pm().display(tout, dt); tout << "\n";);
-    ptr_vector<func_decl> const & constructors = m_dt_util.get_datatype_constructors(dt);
-    unsigned num_constructors = constructors.size();
-    for (unsigned j = 0; j < num_constructors; j++) {
-        func_decl * c = constructors[j];
-        m_owner.insert(c);
+    for (func_decl * c : *m_dt_util.get_datatype_constructors(dt)) {
         TRACE("new_dt_eh", tout << "new constructor: " << c->get_name() << "\n";);
+        m_owner.insert(c);        
+#ifndef DATATYPE_V2
         func_decl * r = m_dt_util.get_constructor_recognizer(c);
         m_owner.insert(r);
         TRACE("new_dt_eh", tout << "new recognizer: " << r->get_name() << "\n";);
-        ptr_vector<func_decl> const & accessors = m_dt_util.get_constructor_accessors(c);
-        unsigned num_accessors = accessors.size();
-        for (unsigned k = 0; k < num_accessors; k++) {
-            func_decl * a = accessors[k];
-            m_owner.insert(a);
+#endif
+        for (func_decl * a : *m_dt_util.get_constructor_accessors(c)) {
             TRACE("new_dt_eh", tout << "new accessor: " << a->get_name() << "\n";);
+            m_owner.insert(a);            
         }
     }
     if (m_owner.m_scopes.size() > 0) {

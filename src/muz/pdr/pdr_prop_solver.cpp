@@ -135,7 +135,7 @@ namespace pdr {
                     func_decl* f = to_app(val)->get_decl();
                     func_decl* r = dt.get_constructor_recognizer(f);
                     conjs[i] = m.mk_app(r, c);
-                    ptr_vector<func_decl> const& acc = dt.get_constructor_accessors(f);
+                    ptr_vector<func_decl> const& acc = *dt.get_constructor_accessors(f);
                     for (unsigned j = 0; j < acc.size(); ++j) {
                         conjs.push_back(m.mk_eq(apply_accessor(acc, j, f, c), to_app(val)->get_arg(j)));
                     }

@@ -50,19 +50,19 @@ namespace datatype {
  
 
     class accessor {
-        symbol   m_name;
-        sort*    m_range;
+        symbol    m_name;
+        sort_ref  m_range;
         unsigned m_index;    // reference to recursive data-type may only get resolved after all mutually recursive data-types are procssed.
         constructor* m_constructor;
     public:
-        accessor(symbol const& n, sort* range):
+        accessor(ast_manager& m, symbol const& n, sort* range):
             m_name(n),
-            m_range(range),
+            m_range(range, m),
             m_index(UINT_MAX)
         {}
-        accessor(symbol const& n, unsigned index):
+        accessor(ast_manager& m, symbol const& n, unsigned index):
             m_name(n),
-            m_range(0),
+            m_range(m),
             m_index(index)
         {}
         sort* range() const { return m_range; }
@@ -262,8 +262,6 @@ namespace datatype {
 
             void end_def_block();
 
-            def& add(symbol const& name, unsigned n, sort * const * params);
-
             def* mk(symbol const& name, unsigned n, sort * const * params);
 
             void del(symbol const& d);
@@ -272,7 +270,7 @@ namespace datatype {
 
             def const& get_def(sort* s) const { return *(m_defs[datatype_name(s)]); }
             def& get_def(symbol const& s) { return *(m_defs[s]); }
-
+            bool is_declared(sort* s) const { return m_defs.contains(datatype_name(s)); }
         private:
             bool is_value_visit(expr * arg, ptr_buffer<app> & todo) const;
         
@@ -337,6 +335,7 @@ namespace datatype {
         util(ast_manager & m);
         ~util();
         ast_manager & get_manager() const { return m; }
+        // sort * mk_datatype_sort(symbol const& name, unsigned n, sort* const* params); 
         bool is_datatype(sort const* s) const { return is_sort_of(s, m_family_id, DATATYPE_SORT); }
         bool is_enum_sort(sort* s);
         bool is_recursive(sort * ty);
@@ -348,13 +347,13 @@ namespace datatype {
         bool is_recognizer(app * f) const { return is_app_of(f, m_family_id, OP_DT_RECOGNISER); }
         bool is_accessor(app * f) const { return is_app_of(f, m_family_id, OP_DT_ACCESSOR); }
         bool is_update_field(app * f) const { return is_app_of(f, m_family_id, OP_DT_UPDATE_FIELD); }
-        ptr_vector<func_decl> const & get_datatype_constructors(sort * ty);
+        ptr_vector<func_decl> const * get_datatype_constructors(sort * ty);
         unsigned get_datatype_num_constructors(sort * ty);
         unsigned get_datatype_num_parameter_sorts(sort * ty);
         sort*  get_datatype_parameter_sort(sort * ty, unsigned idx);
         func_decl * get_non_rec_constructor(sort * ty);
         func_decl * get_constructor_recognizer(func_decl * constructor);
-        ptr_vector<func_decl> const & get_constructor_accessors(func_decl * constructor);
+        ptr_vector<func_decl> const * get_constructor_accessors(func_decl * constructor);
         func_decl * get_accessor_constructor(func_decl * accessor);
         func_decl * get_recognizer_constructor(func_decl * recognizer) const;
         family_id get_family_id() const { return m_family_id; }
@@ -362,11 +361,13 @@ namespace datatype {
         bool is_func_decl(op_kind k, unsigned num_params, parameter const* params, func_decl* f);
         bool is_constructor_of(unsigned num_params, parameter const* params, func_decl* f);
         void reset();
+        bool is_declared(sort* s) const;
         void display_datatype(sort *s, std::ostream& strm);
         bool is_fully_interp(sort * s) const;
         sort_ref_vector datatype_params(sort * s) const;
         unsigned get_constructor_idx(func_decl * f) const;
         unsigned get_recognizer_constructor_idx(func_decl * f) const;
+        decl::plugin* get_plugin() { return m_plugin; }
     };
 
 };
@@ -390,12 +391,12 @@ public:
     int get_idx() const { return UNBOXINT(m_data); }
 };
 
-inline accessor_decl * mk_accessor_decl(symbol const & n, type_ref const & t) {
+inline accessor_decl * mk_accessor_decl(ast_manager& m, symbol const & n, type_ref const & t) {
     if (t.is_idx()) {
-        return alloc(accessor_decl, n, t.get_idx());
+        return alloc(accessor_decl, m, n, t.get_idx());
     }
     else {
-        return alloc(accessor_decl, n, t.get_sort());
+        return alloc(accessor_decl, m, n, t.get_sort());
     }
 }
 
@@ -410,7 +411,7 @@ inline constructor_decl * mk_constructor_decl(symbol const & n, symbol const & r
 
 
 // Remark: the datatype becomes the owner of the constructor_decls
-datatype_decl * mk_datatype_decl(datatype_util& u, symbol const & n, unsigned num_constructors, constructor_decl * const * cs);
+datatype_decl * mk_datatype_decl(datatype_util& u, symbol const & n, unsigned num_params, sort*const* params, unsigned num_constructors, constructor_decl * const * cs);
 inline void del_datatype_decl(datatype_decl * d) {}
 inline void del_datatype_decls(unsigned num, datatype_decl * const * ds) {}
 
