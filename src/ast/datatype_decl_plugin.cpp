@@ -857,9 +857,9 @@ func_decl * datatype_util::get_non_rec_constructor_core(sort * ty, ptr_vector<so
     ptr_vector<func_decl> const * constructors = get_datatype_constructors(ty);
     // step 1)
     unsigned sz = constructors->size();
-    ++m_start;
+    unsigned start = ++m_start;
     for (unsigned j = 0; j < sz; ++j) {        
-        func_decl * c = (*constructors)[(j + m_start) % sz];
+        func_decl * c = (*constructors)[(j + start) % sz];
         unsigned num_args = c->get_arity();
         unsigned i = 0;
         for (; i < num_args; i++) {
@@ -872,7 +872,7 @@ func_decl * datatype_util::get_non_rec_constructor_core(sort * ty, ptr_vector<so
     }
     // step 2)
     for (unsigned j = 0; j < sz; ++j) {        
-        func_decl * c = (*constructors)[(j + m_start) % sz];
+        func_decl * c = (*constructors)[(j + start) % sz];
         TRACE("datatype_util_bug", tout << "non_rec_constructor c: " << c->get_name() << "\n";);
         unsigned num_args = c->get_arity();
         unsigned i = 0;
