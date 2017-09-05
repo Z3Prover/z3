@@ -1952,7 +1952,7 @@ bool seq_rewriter::solve_itos(unsigned szl, expr* const* ls, unsigned szr, expr*
         }
     }
 
-    if (szr == 1 && m_util.str.is_itos(rs[0], r) && !m_util.str.is_itos(ls[0])) {
+    if (szr == 1 && szl >= 1 && m_util.str.is_itos(rs[0], r) && !m_util.str.is_itos(ls[0])) {
         return solve_itos(szr, rs, szl, ls, rhs, lhs, is_sat);
     }
 

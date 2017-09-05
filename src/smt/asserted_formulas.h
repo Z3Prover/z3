@@ -220,6 +220,8 @@ class asserted_formulas {
     unsigned depth(expr* e) { return m_expr2depth[e]; }
     bool pull_cheap_ite_trees();
 
+    void init(unsigned num_formulas, expr * const * formulas, proof * const * prs);
+
 public:
     asserted_formulas(ast_manager & m, smt_params & p);
     ~asserted_formulas();

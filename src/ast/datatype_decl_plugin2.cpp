@@ -847,6 +847,7 @@ namespace datatype {
         r = 0;
         ptr_vector<sort> forbidden_set;
         forbidden_set.push_back(ty);
+        TRACE("util_bug", tout << "invoke get-non-rec: " << sort_ref(ty, m) << "\n";);
         r = get_non_rec_constructor_core(ty, forbidden_set);
         SASSERT(forbidden_set.back() == ty);
         SASSERT(r);
@@ -866,46 +867,53 @@ namespace datatype {
         //   1) T_i's are not recursive
         // If there is no such constructor, then we select one that 
         //   2) each type T_i is not recursive or contains a constructor that does not depend on T
+
         ptr_vector<func_decl> const& constructors = *get_datatype_constructors(ty);
-        // step 1)
         unsigned sz = constructors.size();
-        ++m_start;
+        TRACE("util_bug", tout << "get-non-rec constructor: " << sort_ref(ty, m) << "\n";
+              tout << "forbidden: ";
+              for (sort* s : forbidden_set) tout << sort_ref(s, m) << " ";
+              tout << "\n";
+              tout << "constructors: " << sz << "\n";
+              for (func_decl* f : constructors) tout << func_decl_ref(f, m) << "\n";
+              );
+        // step 1)
+        unsigned start = ++m_start;
         for (unsigned j = 0; j < sz; ++j) {        
-            func_decl * c = constructors[(j + m_start) % sz];
+            func_decl * c = constructors[(j + start) % sz];
+            TRACE("util_bug", tout << "checking " << sort_ref(ty, m) << ": " << func_decl_ref(c, m) << "\n";);
             unsigned num_args = c->get_arity();
             unsigned i = 0;
-            for (; i < num_args; i++) {
-                sort * T_i = c->get_domain(i);
-                if (is_datatype(T_i))
-                    break;
-            }
-            if (i == num_args)
+            for (; i < num_args && !is_datatype(c->get_domain(i)); i++);
+            if (i == num_args) {
+                TRACE("util_bug", tout << "found non-rec " << func_decl_ref(c, m) << "\n";);
                 return c;
+            }
         }
         // step 2)
         for (unsigned j = 0; j < sz; ++j) {        
-            func_decl * c = constructors[(j + m_start) % sz];
-            TRACE("util_bug", tout << "non_rec_constructor c: " << c->get_name() << "\n";);
+            func_decl * c = constructors[(j + start) % sz];
+            TRACE("util_bug", tout << "non_rec_constructor c: " << j << " " << func_decl_ref(c, m) << "\n";);
             unsigned num_args = c->get_arity();
             unsigned i = 0;
             for (; i < num_args; i++) {
                 sort * T_i = c->get_domain(i);
-                TRACE("util_bug", tout << "c: " << c->get_name() << " i: " << i << " T_i: " << T_i->get_name() << "\n";);
+                TRACE("util_bug", tout << "c: " << i << " " << sort_ref(T_i, m) << "\n";);
                 if (!is_datatype(T_i)) {
-                    TRACE("util_bug", tout << "T_i is not a datatype\n";);
+                    TRACE("util_bug", tout << sort_ref(T_i, m) << " is not a datatype\n";);
                     continue;
                 }
                 if (std::find(forbidden_set.begin(), forbidden_set.end(), T_i) != forbidden_set.end()) {
-                    TRACE("util_bug", tout << "T_i is in forbidden_set\n";);
+                    TRACE("util_bug", tout << sort_ref(T_i, m) << " is in forbidden_set\n";);
                     break;
                 }
                 forbidden_set.push_back(T_i);
                 func_decl * nested_c = get_non_rec_constructor_core(T_i, forbidden_set);
                 SASSERT(forbidden_set.back() == T_i);
                 forbidden_set.pop_back();
-                TRACE("util_bug", tout << "nested_c: " << nested_c->get_name() << "\n";);
                 if (nested_c == 0)
                     break;
+                TRACE("util_bug", tout << "nested_c: " << nested_c->get_name() << "\n";);
             }
             if (i == num_args)
                 return c;
