@@ -49,7 +49,7 @@ class asserted_formulas {
 
     macro_manager               m_macro_manager;
     scoped_ptr<macro_finder>    m_macro_finder;
-    
+
     bit2int                     m_bit2int;
 
     maximise_bv_sharing         m_bv_sharing;
@@ -87,7 +87,7 @@ class asserted_formulas {
     bool apply_bit2int();
     void lift_ite();
     bool elim_bvs_from_quantifiers();
-    void ng_lift_ite(); 
+    void ng_lift_ite();
 #ifdef Z3DEBUG
     bool check_well_sorted() const;
 #endif
@@ -114,8 +114,8 @@ public:
     unsigned get_num_formulas() const { return m_asserted_formulas.size(); }
     unsigned get_formulas_last_level() const;
     unsigned get_qhead() const { return m_asserted_qhead; }
-    void commit(); 
-    void commit(unsigned new_qhead); 
+    void commit();
+    void commit(unsigned new_qhead);
     expr * get_formula(unsigned idx) const { return m_asserted_formulas.get(idx); }
     proof * get_formula_proof(unsigned idx) const { return m.proofs_enabled() ? m_asserted_formula_prs.get(idx) : 0; }
     expr * const * get_formulas() const { return m_asserted_formulas.c_ptr(); }
@@ -130,7 +130,7 @@ public:
     void collect_statistics(statistics & st) const;
     // TODO: improve precision of the following method.
     bool has_quantifiers() const { return m_simplifier.visited_quantifier(); /* approximation */ }
-    
+
     // -----------------------------------
     //
     // Macros
@@ -141,9 +141,7 @@ public:
     func_decl * get_macro_func_decl(unsigned i) const { return m_macro_manager.get_macro_func_decl(i); }
     func_decl * get_macro_interpretation(unsigned i, expr_ref & interp) const { return m_macro_manager.get_macro_interpretation(i, interp); }
     quantifier * get_macro_quantifier(func_decl * f) const { return m_macro_manager.get_macro_quantifier(f); }
-    // auxiliary function used to create a logic context based on a model.
-    void insert_macro(func_decl * f, quantifier * m, proof * pr) { m_macro_manager.insert(f, m, pr); }
-
+    void insert_macro(func_decl * f, quantifier * m, proof * pr, expr_dependency * dep) { m_macro_manager.insert(f, m, pr, dep); }
 };
 
 #endif /* ASSERTED_FORMULAS_H_ */

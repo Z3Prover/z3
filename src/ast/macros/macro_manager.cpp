@@ -25,13 +25,14 @@ Revision History:
 #include "ast/ast_pp.h"
 #include "ast/recurse_expr_def.h"
 
-macro_manager::macro_manager(ast_manager & m, simplifier & s):
+macro_manager::macro_manager(ast_manager & m, simplifier & s) :
     m_manager(m),
     m_simplifier(s),
     m_util(m, s),
     m_decls(m),
     m_macros(m),
     m_macro_prs(m),
+    m_macro_deps(m),
     m_forbidden(m),
     m_deps(m) {
     m_util.set_forbidden_set(&m_forbidden_set);
@@ -60,13 +61,16 @@ void macro_manager::restore_decls(unsigned old_sz) {
     for (unsigned i = old_sz; i < sz; i++) {
         m_decl2macro.erase(m_decls.get(i));
         m_deps.erase(m_decls.get(i));
-        if (m_manager.proofs_enabled())
+        if (m_manager.proofs_enabled()) {
             m_decl2macro_pr.erase(m_decls.get(i));
+            m_decl2macro_dep.erase(m_decls.get(i));
+        }
     }
     m_decls.shrink(old_sz);
     m_macros.shrink(old_sz);
     if (m_manager.proofs_enabled())
         m_macro_prs.shrink(old_sz);
+    m_macro_deps.shrink(old_sz);
 }
 
 void macro_manager::restore_forbidden(unsigned old_sz) {
@@ -79,16 +83,18 @@ void macro_manager::restore_forbidden(unsigned old_sz) {
 void macro_manager::reset() {
     m_decl2macro.reset();
     m_decl2macro_pr.reset();
+    m_decl2macro_dep.reset();
     m_decls.reset();
     m_macros.reset();
     m_macro_prs.reset();
+    m_macro_deps.reset();
     m_scopes.reset();
     m_forbidden_set.reset();
     m_forbidden.reset();
     m_deps.reset();
 }
 
-bool macro_manager::insert(func_decl * f, quantifier * m, proof * pr) {
+bool macro_manager::insert(func_decl * f, quantifier * m, proof * pr, expr_dependency * dep) {
     TRACE("macro_insert", tout << "trying to create macro: " << f->get_name() << "\n" << mk_pp(m, m_manager) << "\n";);
 
     // if we already have a macro for f then return false;
@@ -115,6 +121,8 @@ bool macro_manager::insert(func_decl * f, quantifier * m, proof * pr) {
         m_macro_prs.push_back(pr);
         m_decl2macro_pr.insert(f, pr);
     }
+    m_macro_deps.push_back(dep);
+    m_decl2macro_dep.insert(f, dep);
 
     TRACE("macro_insert", tout << "A macro was successfully created for: " << f->get_name() << "\n";);
 
@@ -195,7 +203,8 @@ func_decl * macro_manager::get_macro_interpretation(unsigned i, expr_ref & inter
 
 macro_manager::macro_expander::macro_expander(ast_manager & m, macro_manager & mm, simplifier & s):
     simplifier(m),
-    m_macro_manager(mm) {
+    m_macro_manager(mm),
+    m_used_macro_dependencies(m) {
     // REMARK: theory simplifier should not be used by macro_expander...
     // is_arith_macro rewrites a quantifer such as:
     //   forall (x Int) (= (+ x (+ (f x) 1)) 2)
@@ -286,34 +295,41 @@ bool macro_manager::macro_expander::get_subst(expr * _n, expr_ref & r, proof_ref
         }
         else {
             p = 0;
+            expr_dependency * ed = m_macro_manager.m_decl2macro_dep.find(d);
+            m_used_macro_dependencies = m.mk_join(m_used_macro_dependencies, ed);
         }
         return true;
     }
     return false;
 }
 
-void macro_manager::expand_macros(expr * n, proof * pr, expr_ref & r, proof_ref & new_pr) {
+void macro_manager::expand_macros(expr * n, proof * pr, expr_dependency * dep, expr_ref & r, proof_ref & new_pr, expr_dependency_ref & new_dep) {
     if (has_macros()) {
         // Expand macros with "real" proof production support (NO rewrite*)
         expr_ref old_n(m_manager);
         proof_ref old_pr(m_manager);
+        expr_dependency_ref old_dep(m_manager);
         old_n  = n;
         old_pr = pr;
+        old_dep = dep;
         for (;;) {
             macro_expander proc(m_manager, *this, m_simplifier);
             proof_ref n_eq_r_pr(m_manager);
             TRACE("macro_manager_bug", tout << "expand_macros:\n" << mk_pp(n, m_manager) << "\n";);
             proc(old_n, r, n_eq_r_pr);
             new_pr = m_manager.mk_modus_ponens(old_pr, n_eq_r_pr);
+            new_dep = m_manager.mk_join(old_dep, proc.m_used_macro_dependencies);
             if (r.get() == old_n.get())
                 return;
             old_n  = r;
             old_pr = new_pr;
+            old_dep = new_dep;
         }
     }
     else {
         r      = n;
         new_pr = pr;
+        new_dep = dep;
     }
 }
 

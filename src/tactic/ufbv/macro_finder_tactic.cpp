@@ -49,9 +49,9 @@ class macro_finder_tactic : public tactic {
             SASSERT(g->is_well_sorted());
             mc = 0; pc = 0; core = 0;
             tactic_report report("macro-finder", *g);
-            fail_if_unsat_core_generation("macro-finder", g);
 
             bool produce_proofs = g->proofs_enabled();
+            bool unsat_core_enabled = g->unsat_core_enabled();
 
             simplifier simp(m_manager);
             basic_simplifier_plugin * bsimp = alloc(basic_simplifier_plugin, m_manager);
@@ -69,17 +69,21 @@ class macro_finder_tactic : public tactic {
 
             expr_ref_vector forms(m_manager), new_forms(m_manager);
             proof_ref_vector proofs(m_manager), new_proofs(m_manager);
-            unsigned   size = g->size();
+            expr_dependency_ref_vector deps(m_manager), new_deps(m_manager);
+            unsigned size = g->size();
             for (unsigned idx = 0; idx < size; idx++) {
                 forms.push_back(g->form(idx));
                 proofs.push_back(g->pr(idx));
+                deps.push_back(g->dep(idx));
             }
 
-            mf(forms.size(), forms.c_ptr(), proofs.c_ptr(), new_forms, new_proofs);
+            mf(forms.size(), forms.c_ptr(), proofs.c_ptr(), deps.c_ptr(), new_forms, new_proofs, new_deps);
 
             g->reset();
             for (unsigned i = 0; i < new_forms.size(); i++)
-                g->assert_expr(new_forms.get(i), produce_proofs ? new_proofs.get(i) : 0, 0);
+                g->assert_expr(new_forms.get(i),
+                               produce_proofs ? new_proofs.get(i) : 0,
+                               unsat_core_enabled ? new_deps.get(i) : 0);
 
             extension_model_converter * evmc = alloc(extension_model_converter, mm.get_manager());
             unsigned num = mm.get_num_macros();

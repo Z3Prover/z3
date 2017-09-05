@@ -86,10 +86,13 @@ typedef ptr_hashtable<psort, psort_hash_proc, psort_eq_proc> psort_table;
 
 #define PSORT_DECL_VAR_PARAMS UINT_MAX
 
+typedef enum { PSORT_BASE = 0, PSORT_USER, PSORT_BUILTIN } psort_decl_kind;
+
 class psort_decl : public pdecl {
 protected:
     friend class pdecl_manager;
     symbol                        m_name;
+    psort_decl_kind               m_psort_kind;
     psort_inst_cache *            m_inst_cache;
     void cache(pdecl_manager & m, sort * const * s, sort * r);
     sort * find(sort * const * s);
@@ -105,6 +108,8 @@ public:
     bool has_var_params() const { return m_num_params == PSORT_DECL_VAR_PARAMS; }
     symbol const & get_name() const { return m_name; }
     virtual void reset_cache(pdecl_manager& m);
+    bool is_user_decl() const { return m_psort_kind == PSORT_USER; }
+    bool is_builtin_decl() const { return m_psort_kind == PSORT_BUILTIN; }
 };
 
 class psort_user_decl : public psort_decl {
@@ -209,7 +214,7 @@ class pconstructor_decl : public pdecl {
     symbol                     m_name;
     symbol                     m_recogniser_name;
     ptr_vector<paccessor_decl> m_accessors;
-    pconstructor_decl(unsigned id, unsigned num_params, pdecl_manager & m, 
+    pconstructor_decl(unsigned id, unsigned num_params, pdecl_manager & m,
                       symbol const & n, symbol const & r, unsigned num_accessors, paccessor_decl * const * accessors);
     virtual void finalize(pdecl_manager & m);
     virtual size_t obj_size() const { return sizeof(pconstructor_decl); }
@@ -229,7 +234,7 @@ class pdatatype_decl : public psort_decl {
     friend class pdatatypes_decl;
     ptr_vector<pconstructor_decl> m_constructors;
     pdatatypes_decl *             m_parent;
-    pdatatype_decl(unsigned id, unsigned num_params, pdecl_manager & m, symbol const & n, 
+    pdatatype_decl(unsigned id, unsigned num_params, pdecl_manager & m, symbol const & n,
                    unsigned num_constructors, pconstructor_decl * const * constructors);
     virtual void finalize(pdecl_manager & m);
     virtual size_t obj_size() const { return sizeof(pdatatype_decl); }
@@ -282,7 +287,7 @@ class pdecl_manager {
     struct indexed_sort_info;
 
     obj_map<sort, sort_info *>   m_sort2info; // for pretty printing sorts
-    
+
     void init_list();
     void del_decl_core(pdecl * p);
     void del_decl(pdecl * p);
@@ -296,7 +301,7 @@ public:
     small_object_allocator & a() const { return m_allocator; }
     family_id get_datatype_fid() const { return m_datatype_fid; }
     void set_new_datatype_eh(new_datatype_eh * eh) { m_new_dt_eh = eh; }
-    psort * mk_psort_cnst(sort * s);    
+    psort * mk_psort_cnst(sort * s);
     psort * mk_psort_var(unsigned num_params, unsigned vidx);
     psort * mk_psort_app(unsigned num_params, psort_decl * d, unsigned num_args, psort * const * args);
     psort * mk_psort_app(psort_decl * d);

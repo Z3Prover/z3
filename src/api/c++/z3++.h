@@ -1731,6 +1731,14 @@ namespace z3 {
         expr else_value() const { Z3_ast r = Z3_func_interp_get_else(ctx(), m_interp); check_error(); return expr(ctx(), r); }
         unsigned num_entries() const { unsigned r = Z3_func_interp_get_num_entries(ctx(), m_interp); check_error(); return r; }
         func_entry entry(unsigned i) const { Z3_func_entry e = Z3_func_interp_get_entry(ctx(), m_interp, i); check_error(); return func_entry(ctx(), e); }
+        void add_entry(expr_vector const& args, expr& value) {
+            Z3_func_interp_add_entry(ctx(), m_interp, args, value);
+            check_error();
+        }
+        void set_else(expr& value) {
+            Z3_func_interp_set_else(ctx(), m_interp, value);
+            check_error();
+        }
     };
 
     class model : public object {
@@ -1740,6 +1748,7 @@ namespace z3 {
             Z3_model_inc_ref(ctx(), m);
         }
     public:
+        model(context & c):object(c) { init(Z3_mk_model(c)); }
         model(context & c, Z3_model m):object(c) { init(m); }
         model(model const & s):object(s) { init(s.m_model); }
         ~model() { Z3_model_dec_ref(ctx(), m_model); }
@@ -1793,6 +1802,17 @@ namespace z3 {
         bool has_interp(func_decl f) const {
             check_context(*this, f);
             return 0 != Z3_model_has_interp(ctx(), m_model, f);
+        }
+
+        func_interp add_func_interp(func_decl& f, expr& else_val) {
+            Z3_func_interp r = Z3_add_func_interp(ctx(), m_model, f, else_val);
+            check_error();
+            return func_interp(ctx(), r);
+        }
+
+        void add_const_interp(func_decl& f, expr& value) {
+            Z3_add_const_interp(ctx(), m_model, f, value);
+            check_error();
         }
 
         friend std::ostream & operator<<(std::ostream & out, model const & m);

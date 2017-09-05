@@ -22,6 +22,8 @@ Revision History:
 void preprocessor_params::updt_local_params(params_ref const & _p) {
     smt_params_helper p(_p);
     m_macro_finder            = p.macro_finder();
+    m_quasi_macros            = p.quasi_macros();
+    m_restricted_quasi_macros = p.restricted_quasi_macros();
     m_pull_nested_quantifiers = p.pull_nested_quantifiers();
     m_refine_inj_axiom        = p.refine_inj_axioms();
 }

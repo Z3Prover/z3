@@ -328,6 +328,7 @@ namespace smt {
         // maintain automata with regular expressions.
         scoped_ptr_vector<eautomaton>  m_automata;
         obj_map<expr, eautomaton*>     m_re2aut;
+        expr_ref_vector                m_res;
 
         // queue of asserted atoms
         ptr_vector<expr>               m_atoms;
@@ -361,6 +362,7 @@ namespace smt {
         virtual void collect_statistics(::statistics & st) const;
         virtual model_value_proc * mk_value(enode * n, model_generator & mg);
         virtual void init_model(model_generator & mg);
+        virtual void init_search_eh();
 
         void init_model(expr_ref_vector const& es);
         // final check 
