@@ -18,7 +18,10 @@ Notes:
 
 #include<signal.h>
 #include "util/tptr.h"
-#include "cmd_context/cmd_context.h"
+#include "util/cancel_eh.h"
+#include "util/scoped_ctrl_c.h"
+#include "util/dec_ref_util.h"
+#include "util/scoped_timer.h"
 #include "ast/func_decl_dependencies.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"
@@ -31,22 +34,19 @@ Notes:
 #include "ast/rewriter/var_subst.h"
 #include "ast/pp.h"
 #include "ast/ast_smt2_pp.h"
-#include "cmd_context/basic_cmds.h"
-#include "util/cancel_eh.h"
-#include "util/scoped_ctrl_c.h"
-#include "util/dec_ref_util.h"
 #include "ast/decl_collector.h"
 #include "ast/well_sorted.h"
-#include "model/model_evaluator.h"
 #include "ast/for_each_expr.h"
-#include "util/scoped_timer.h"
-#include "cmd_context/interpolant_cmds.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "model/model_evaluator.h"
 #include "model/model_smt2_pp.h"
 #include "model/model_v2_pp.h"
 #include "model/model_params.hpp"
-#include "ast/rewriter/th_rewriter.h"
 #include "tactic/tactic_exception.h"
 #include "solver/smt_logics.h"
+#include "cmd_context/basic_cmds.h"
+#include "cmd_context/interpolant_cmds.h"
+#include "cmd_context/cmd_context.h"
 
 func_decls::func_decls(ast_manager & m, func_decl * f):
     m_decls(TAG(func_decl*, f, 0)) {
@@ -61,11 +61,9 @@ void func_decls::finalize(ast_manager & m) {
     else {
         TRACE("func_decls", tout << "finalize...\n";);
         func_decl_set * fs = UNTAG(func_decl_set *, m_decls);
-        func_decl_set::iterator it  = fs->begin();
-        func_decl_set::iterator end = fs->end();
-        for (; it != end; ++it) {
-            TRACE("func_decls", tout << "dec_ref of " << (*it)->get_name() << " ref_count: " << (*it)->get_ref_count() << "\n";);
-            m.dec_ref(*it);
+        for (func_decl * f : *fs) {
+            TRACE("func_decls", tout << "dec_ref of " << f->get_name() << " ref_count: " << f->get_ref_count() << "\n";);
+            m.dec_ref(f);
         }
         dealloc(fs);
     }
@@ -161,10 +159,7 @@ bool func_decls::clash(func_decl * f) const {
     if (GET_TAG(m_decls) == 0)
         return false;
     func_decl_set * fs = UNTAG(func_decl_set *, m_decls);
-    func_decl_set::iterator it  = fs->begin();
-    func_decl_set::iterator end = fs->end();
-    for (; it != end; ++it) {
-        func_decl * g = *it;
+    for (func_decl * g : *fs) {
         if (g == f)
             continue;
         if (g->get_arity() != f->get_arity())
@@ -201,10 +196,7 @@ func_decl * func_decls::find(unsigned arity, sort * const * domain, sort * range
     if (!more_than_one())
         return first();
     func_decl_set * fs = UNTAG(func_decl_set *, m_decls);
-    func_decl_set::iterator it  = fs->begin();
-    func_decl_set::iterator end = fs->end();
-    for (; it != end; it++) {
-        func_decl * f = *it;
+    for (func_decl * f : *fs) {
         if (range != 0 && f->get_range() != range)
             continue;
         if (f->get_arity() != arity)
@@ -1957,11 +1949,9 @@ void cmd_context::dt_eh::operator()(sort * dt, pdecl* pd) {
     for (func_decl * c : *m_dt_util.get_datatype_constructors(dt)) {
         TRACE("new_dt_eh", tout << "new constructor: " << c->get_name() << "\n";);
         m_owner.insert(c);        
-#ifndef DATATYPE_V2
         func_decl * r = m_dt_util.get_constructor_recognizer(c);
         m_owner.insert(r);
         TRACE("new_dt_eh", tout << "new recognizer: " << r->get_name() << "\n";);
-#endif
         for (func_decl * a : *m_dt_util.get_constructor_accessors(c)) {
             TRACE("new_dt_eh", tout << "new accessor: " << a->get_name() << "\n";);
             m_owner.insert(a);            

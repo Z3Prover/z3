@@ -36,7 +36,8 @@ Revision History:
     enum op_kind {
         OP_DT_CONSTRUCTOR,
         OP_DT_RECOGNISER,
-        OP_DT_ACCESSOR,
+        OP_DT_IS,
+        OP_DT_ACCESSOR,        
         OP_DT_UPDATE_FIELD,
         LAST_DT_OP
     };
@@ -78,13 +79,15 @@ namespace datatype {
 
     class constructor {
         symbol           m_name;
+        symbol           m_recognizer;
         ptr_vector<accessor> m_accessors;
         def*             m_def;
     public:
-        constructor(symbol n): m_name(n) {}
+        constructor(symbol n, symbol const& r): m_name(n), m_recognizer(r) {}
         ~constructor();
         void add(accessor* a) { m_accessors.push_back(a); a->attach(this); }
         symbol const& name() const { return m_name; }
+        symbol const& recognizer() const { return m_recognizer; }
         ptr_vector<accessor> const& accessors() const { return m_accessors; }
         ptr_vector<accessor>::const_iterator begin() const { return m_accessors.begin(); }
         ptr_vector<accessor>::const_iterator end() const { return m_accessors.end(); }
@@ -290,6 +293,10 @@ namespace datatype {
                 unsigned num_parameters, parameter const * parameters, 
                 unsigned arity, sort * const * domain, sort * range);
 
+            func_decl * mk_is(
+                unsigned num_parameters, parameter const * parameters, 
+                unsigned arity, sort * const * domain, sort * range);
+
             symbol datatype_name(sort * s) const {
                 //SASSERT(u().is_datatype(s));
                 return s->get_parameter(0).get_symbol();
@@ -340,11 +347,15 @@ namespace datatype {
         bool is_enum_sort(sort* s);
         bool is_recursive(sort * ty);
         bool is_constructor(func_decl * f) const { return is_decl_of(f, m_family_id, OP_DT_CONSTRUCTOR); }
-        bool is_recognizer(func_decl * f) const { return is_decl_of(f, m_family_id, OP_DT_RECOGNISER); }
+        bool is_recognizer(func_decl * f) const { return is_recognizer0(f) || is_is(f); }
+        bool is_recognizer0(func_decl * f) const { return is_decl_of(f, m_family_id, OP_DT_RECOGNISER); }
+        bool is_is(func_decl * f) const { return is_decl_of(f, m_family_id, OP_DT_IS); }
         bool is_accessor(func_decl * f) const { return is_decl_of(f, m_family_id, OP_DT_ACCESSOR); }
         bool is_update_field(func_decl * f) const { return is_decl_of(f, m_family_id, OP_DT_UPDATE_FIELD); }
         bool is_constructor(app * f) const { return is_app_of(f, m_family_id, OP_DT_CONSTRUCTOR); }
-        bool is_recognizer(app * f) const { return is_app_of(f, m_family_id, OP_DT_RECOGNISER); }
+        bool is_recognizer0(app * f) const { return is_app_of(f, m_family_id, OP_DT_RECOGNISER);} 
+        bool is_is(app * f) const { return is_app_of(f, m_family_id, OP_DT_IS);} 
+        bool is_recognizer(app * f) const { return is_recognizer0(f) || is_is(f); }
         bool is_accessor(app * f) const { return is_app_of(f, m_family_id, OP_DT_ACCESSOR); }
         bool is_update_field(app * f) const { return is_app_of(f, m_family_id, OP_DT_UPDATE_FIELD); }
         ptr_vector<func_decl> const * get_datatype_constructors(sort * ty);
@@ -401,7 +412,7 @@ inline accessor_decl * mk_accessor_decl(ast_manager& m, symbol const & n, type_r
 }
 
 inline constructor_decl * mk_constructor_decl(symbol const & n, symbol const & r, unsigned num_accessors, accessor_decl * * acs) {
-    constructor_decl* c = alloc(constructor_decl, n);
+    constructor_decl* c = alloc(constructor_decl, n, r);
     for (unsigned i = 0; i < num_accessors; ++i) {
         c->add(acs[i]);
     }

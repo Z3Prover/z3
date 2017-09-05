@@ -255,11 +255,9 @@ public:
             result->m_core.append(core_elems.size(), core_elems.c_ptr());
             if (p.get_bool("print_unsat_core", false)) {
                 ctx.regular_stream() << "(unsat-core";
-                ptr_vector<expr>::const_iterator it  = core_elems.begin();
-                ptr_vector<expr>::const_iterator end = core_elems.end();
-                for (; it != end; ++it) {
+                for (expr * e : core_elems) {
                     ctx.regular_stream() << " ";
-                    ctx.display(ctx.regular_stream(), *it);
+                    ctx.display(ctx.regular_stream(), e);
                 }
                 ctx.regular_stream() << ")" << std::endl;
             }

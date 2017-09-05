@@ -753,18 +753,14 @@ br_status poly_rewriter<Config>::cancel_monomials(expr * lhs, expr * rhs, bool m
 
     normalize(c);
 
-    TRACE("mk_le_bug", tout << c << "\n";);
-
     if (!has_multiple && num_coeffs <= 1) {
         if (move) {
             if (is_numeral(rhs)) {
-                TRACE("mk_le_bug", tout << "rhs is numeral\n";);
                 return BR_FAILED;
             }
         }
         else {
             if (num_coeffs == 0 || is_numeral(rhs)) {
-                TRACE("mk_le_bug", tout << "rhs is numeral or no coeffs\n";);
                 return BR_FAILED;
             }
         }

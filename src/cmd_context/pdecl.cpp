@@ -267,8 +267,8 @@ public:
 
 psort_decl::psort_decl(unsigned id, unsigned num_params, pdecl_manager & m, symbol const & n):
     pdecl(id, num_params),
-    m_psort_kind(PSORT_BASE),
     m_name(n),
+    m_psort_kind(PSORT_BASE),
     m_inst_cache(0) {
 }
 

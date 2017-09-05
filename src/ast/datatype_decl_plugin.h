@@ -16,7 +16,7 @@ Author:
 Revision History:
 
 --*/
-// define DATATYPE_V2
+#define DATATYPE_V2
 #ifdef DATATYPE_V2
 #include "ast/datatype_decl_plugin2.h"
 #else

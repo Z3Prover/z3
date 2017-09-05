@@ -23,6 +23,7 @@ br_status datatype_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr 
     switch(f->get_decl_kind()) {
     case OP_DT_CONSTRUCTOR: return BR_FAILED;
     case OP_DT_RECOGNISER:
+    case OP_DT_IS:
         //
         // simplify is_cons(cons(x,y)) -> true
         // simplify is_cons(nil) -> false

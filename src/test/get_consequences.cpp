@@ -65,12 +65,12 @@ void test2() {
     constructor_decl* G = mk_constructor_decl(symbol("G"), symbol("is-G"), 0, 0);
     constructor_decl* B = mk_constructor_decl(symbol("B"), symbol("is-B"), 0, 0);
     constructor_decl* constrs[3] = { R, G, B };
-    datatype_decl * enum_sort = mk_datatype_decl(dtutil, symbol("RGB"), 3, constrs);
+    datatype_decl * enum_sort = mk_datatype_decl(dtutil, symbol("RGB"), 0, nullptr, 3, constrs);
     VERIFY(dt.mk_datatypes(1, &enum_sort, 0, 0, new_sorts));    
     sort* rgb = new_sorts[0].get();
 
     expr_ref x = mk_const(m, "x", rgb), y = mk_const(m, "y", rgb), z = mk_const(m, "z", rgb);
-    ptr_vector<func_decl> const& enums = dtutil.get_datatype_constructors(rgb);
+    ptr_vector<func_decl> const& enums = *dtutil.get_datatype_constructors(rgb);
     expr_ref r = expr_ref(m.mk_const(enums[0]), m);
     expr_ref g = expr_ref(m.mk_const(enums[1]), m);
     expr_ref b = expr_ref(m.mk_const(enums[2]), m);

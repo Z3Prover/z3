@@ -236,7 +236,7 @@ namespace datatype {
             return m.mk_func_decl(symbol("update-field"), arity, domain, range, info);
         }
 
-#define VALIDATE_PARAM(_pred_) if (!(_pred_)) m_manager->raise_exception("invalid parameter to datatype function");
+#define VALIDATE_PARAM(_pred_) if (!(_pred_)) m_manager->raise_exception("invalid parameter to datatype function "  #_pred_);
         
         func_decl * decl::plugin::mk_constructor(unsigned num_parameters, parameter const * parameters, 
                                                  unsigned arity, sort * const * domain, sort * range) {
@@ -252,12 +252,25 @@ namespace datatype {
         func_decl * decl::plugin::mk_recognizer(unsigned num_parameters, parameter const * parameters, 
                                                 unsigned arity, sort * const * domain, sort *) {
             ast_manager& m = *m_manager;
-            VALIDATE_PARAM(arity == 1 && num_parameters == 1 && parameters[0].is_ast() && is_func_decl(parameters[0].get_ast()));
+            VALIDATE_PARAM(arity == 1 && num_parameters == 2 && parameters[1].is_symbol() && parameters[0].is_ast() && is_func_decl(parameters[0].get_ast()));
             VALIDATE_PARAM(u().is_datatype(domain[0]));
             // blindly trust that parameter is a constructor
             sort* range = m_manager->mk_bool_sort();
             func_decl* f = to_func_decl(parameters[0].get_ast());
             func_decl_info info(m_family_id, OP_DT_RECOGNISER, num_parameters, parameters);
+            info.m_private_parameters = true;
+            return m.mk_func_decl(symbol(parameters[1].get_symbol()), arity, domain, range, info);
+        }
+
+        func_decl * decl::plugin::mk_is(unsigned num_parameters, parameter const * parameters, 
+                                                unsigned arity, sort * const * domain, sort *) {
+            ast_manager& m = *m_manager;
+            VALIDATE_PARAM(arity == 1 && num_parameters == 1 && parameters[0].is_ast() && is_func_decl(parameters[0].get_ast()));
+            VALIDATE_PARAM(u().is_datatype(domain[0]));
+            // blindly trust that parameter is a constructor
+            sort* range = m_manager->mk_bool_sort();
+            func_decl* f = to_func_decl(parameters[0].get_ast());
+            func_decl_info info(m_family_id, OP_DT_IS, num_parameters, parameters);
             info.m_private_parameters = true;
             return m.mk_func_decl(symbol("is"), arity, domain, range, info);
         }
@@ -282,6 +295,8 @@ namespace datatype {
                 return mk_constructor(num_parameters, parameters, arity, domain, range);
             case OP_DT_RECOGNISER:
                 return mk_recognizer(num_parameters, parameters, arity, domain, range);                
+            case OP_DT_IS:
+                return mk_is(num_parameters, parameters, arity, domain, range);                
             case OP_DT_ACCESSOR:
                 return mk_accessor(num_parameters, parameters, arity, domain, range);                
             case OP_DT_UPDATE_FIELD: 
@@ -297,20 +312,6 @@ namespace datatype {
             return alloc(def, m, u(), name, m_class_id, n, params);
         }
 
-#if 0
-        def& plugin::add(symbol const& name, unsigned n, sort * const * params) {
-            ast_manager& m = *m_manager;
-            def* d = 0;
-            if (m_defs.find(name, d)) {
-                TRACE("datatype", tout << "delete previous version for " << name << "\n";);
-                dealloc(d);
-            }
-            d = alloc(def, m, u(), name, m_class_id, n, params);
-            m_defs.insert(name, d);
-            m_def_block.push_back(name);
-            return *d;
-        }
-#endif
 
         void plugin::end_def_block() {
             ast_manager& m = *m_manager;
@@ -407,7 +408,7 @@ namespace datatype {
         }
         
         void plugin::get_op_names(svector<builtin_name> & op_names, symbol const & logic) {
-            op_names.push_back(builtin_name("is", OP_DT_RECOGNISER));
+            op_names.push_back(builtin_name("is", OP_DT_IS));
             if (logic == symbol::null) {
                 op_names.push_back(builtin_name("update-field", OP_DT_UPDATE_FIELD));
             }
@@ -739,18 +740,25 @@ namespace datatype {
         return res;
     }
 
-    func_decl * util::get_constructor_recognizer(func_decl * constructor) {
-        SASSERT(is_constructor(constructor));
+    func_decl * util::get_constructor_recognizer(func_decl * con) {
+        SASSERT(is_constructor(con));
         func_decl * d = 0;
-        if (m_constructor2recognizer.find(constructor, d))
+        if (m_constructor2recognizer.find(con, d))
             return d;
-        sort * datatype = constructor->get_range();
-        parameter ps[1] = { parameter(constructor) };
-        d  = m.mk_func_decl(m_family_id, OP_DT_RECOGNISER, 1, ps, 1, &datatype);
+        sort * datatype = con->get_range();
+        def const& dd = get_def(datatype);
+        symbol r;
+        for (constructor const* c : dd) {
+            if (c->name() == con->get_name()) {
+                r = c->recognizer();
+            }
+        }
+        parameter ps[2] = { parameter(con), parameter(r) };
+        d  = m.mk_func_decl(m_family_id, OP_DT_RECOGNISER, 2, ps, 1, &datatype);
         SASSERT(d);
-        m_asts.push_back(constructor);
+        m_asts.push_back(con);
         m_asts.push_back(d);
-        m_constructor2recognizer.insert(constructor, d);
+        m_constructor2recognizer.insert(con, d);
         return d;
     }
 
@@ -917,10 +925,10 @@ namespace datatype {
         UNREACHABLE();
         return 0;
     }
+
     unsigned util::get_recognizer_constructor_idx(func_decl * f) const {
         return get_constructor_idx(get_recognizer_constructor(f));
     }
-
 
     /**
        \brief Two datatype sorts s1 and s2 are siblings if they were
