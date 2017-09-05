@@ -429,4 +429,4 @@ inline void del_datatype_decls(unsigned num, datatype_decl * const * ds) {}
 
 #endif /* DATATYPE_DECL_PLUGIN_H_ */
 
-#endif DATATYPE_V2
+#endif /* DATATYPE_V2 */
