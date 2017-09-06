@@ -361,7 +361,7 @@ namespace datatype {
             return true;
         }
 
-        void plugin::del(symbol const& s) {
+        void plugin::remove(symbol const& s) {
             def* d = 0;
             if (m_defs.find(s, d)) dealloc(d);
             m_defs.remove(s);

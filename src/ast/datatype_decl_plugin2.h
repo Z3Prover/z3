@@ -267,7 +267,7 @@ namespace datatype {
 
             def* mk(symbol const& name, unsigned n, sort * const * params);
 
-            void del(symbol const& d);
+            void remove(symbol const& d);
 
             bool mk_datatypes(unsigned num_datatypes, def * const * datatypes, unsigned num_params, sort* const* sort_params, sort_ref_vector & new_sorts);
 
