@@ -78,6 +78,7 @@ namespace datatype {
 
     sort_ref def::instantiate(sort_ref_vector const& sorts) const {
         sort_ref s(m);
+        TRACE("datatype", tout << "instantiate " << m_name << "\n";);
         if (!m_sort) {
             vector<parameter> ps;
             ps.push_back(parameter(m_name));
@@ -315,6 +316,7 @@ namespace datatype {
 
         void plugin::end_def_block() {
             ast_manager& m = *m_manager;
+
             sort_ref_vector sorts(m);
             for (symbol const& s : m_def_block) {
                 def const& d = *m_defs[s];
@@ -332,7 +334,12 @@ namespace datatype {
             if (!u().is_well_founded(sorts.size(), sorts.c_ptr())) {
                 m_manager->raise_exception("datatype is not well-founded");
             }
+
             u().compute_datatype_size_functions(m_def_block);
+            for (symbol const& s : m_def_block) {
+                sort_ref_vector ps(m);
+                m_defs[s]->instantiate(ps);
+            }
         }
 
         bool plugin::mk_datatypes(unsigned num_datatypes, def * const * datatypes, unsigned num_params, sort* const* sort_params, sort_ref_vector & new_sorts) {
@@ -579,6 +586,8 @@ namespace datatype {
         status st;
         while (!todo.empty()) {
             symbol s = todo.back();
+            TRACE("datatype", tout << "Sort size for " << s << "\n";);
+
             if (already_found.find(s, st) && st == BLACK) {
                 todo.pop_back();
                 continue;
