@@ -96,6 +96,8 @@ class asserted_formulas {
     void max_bv_sharing();
     bool canceled() { return m.canceled(); }
 
+    void init(unsigned num_formulas, expr * const * formulas, proof * const * prs);
+
 public:
     asserted_formulas(ast_manager & m, smt_params & p);
     ~asserted_formulas();
@@ -118,7 +120,6 @@ public:
     proof * get_formula_proof(unsigned idx) const { return m.proofs_enabled() ? m_asserted_formula_prs.get(idx) : 0; }
     expr * const * get_formulas() const { return m_asserted_formulas.c_ptr(); }
     proof * const * get_formula_proofs() const { return m_asserted_formula_prs.c_ptr(); }
-    void init(unsigned num_formulas, expr * const * formulas, proof * const * prs);
     void register_simplifier_plugin(simplifier_plugin * p) { m_simplifier.register_plugin(p); }
     simplifier & get_simplifier() { return m_simplifier; }
     void get_assertions(ptr_vector<expr> & result);

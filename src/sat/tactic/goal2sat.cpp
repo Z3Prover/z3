@@ -248,6 +248,7 @@ struct goal2sat::imp {
                 for (unsigned i = 0; i < num; ++i) {
                     m_result_stack[i].neg();
                 }                
+                mk_clause(m_result_stack.size(), m_result_stack.c_ptr());
             }
             else {
                 for (unsigned i = 0; i < num; ++i) {
@@ -278,6 +279,7 @@ struct goal2sat::imp {
             if (sign)
                 l.neg();
             m_result_stack.push_back(l);
+            TRACE("goal2sat", tout << m_result_stack << "\n";);
         }
     }
 
