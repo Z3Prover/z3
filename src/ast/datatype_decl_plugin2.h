@@ -334,7 +334,6 @@ namespace datatype {
         void compute_datatype_size_functions(svector<symbol> const& names);
         param_size::size* get_sort_size(sort_ref_vector const& params, sort* s);
         bool is_well_founded(unsigned num_types, sort* const* sorts);
-        def const& get_def(sort* s) const;
         def& get_def(symbol const& s) { return m_plugin->get_def(s); }
         void get_subsorts(sort* s, ptr_vector<sort>& sorts) const;        
 
@@ -380,6 +379,7 @@ namespace datatype {
         unsigned get_recognizer_constructor_idx(func_decl * f) const;
         decl::plugin* get_plugin() { return m_plugin; }
         void get_defs(sort* s, ptr_vector<def>& defs);
+        def const& get_def(sort* s) const;
     };
 
 };

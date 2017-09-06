@@ -897,6 +897,7 @@ namespace smt2 {
                 m_ctx.insert_aux_pdecl(dts.get());
 #else
                 dts->commit(pm());
+				m_ctx.insert_aux_pdecl(dts.get());
 #endif
             }
 #ifndef DATATYPE_V2

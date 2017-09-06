@@ -346,6 +346,7 @@ namespace datatype {
             begin_def_block();
             for (unsigned i = 0; i < num_datatypes; ++i) {
                 def* d = 0;
+                TRACE("datatype", tout << "declaring " << datatypes[i]->name() << "\n";);
                 if (m_defs.find(datatypes[i]->name(), d)) {
                     TRACE("datatype", tout << "delete previous version for " << datatypes[i]->name() << "\n";);
                     dealloc(d);

@@ -261,6 +261,8 @@ class pdatatypes_decl : public pdecl {
     virtual ~pdatatypes_decl() {}
 public:
     pdatatype_decl const * const * children() const { return m_datatypes.c_ptr(); }
+    pdatatype_decl * const * begin() const { return m_datatypes.begin(); }
+    pdatatype_decl * const * end() const { return m_datatypes.end(); }
 #ifdef DATATYPE_V2
     // commit declaration 
     bool commit(pdecl_manager& m);
@@ -316,6 +318,7 @@ public:
     pdatatypes_decl * mk_pdatatypes_decl(unsigned num_params, unsigned num, pdatatype_decl * const * dts);
     pdatatype_decl * mk_plist_decl() { if (!m_list) init_list(); return m_list; }
     bool fix_missing_refs(pdatatypes_decl * s, symbol & missing) { return s->fix_missing_refs(missing); }
+    sort * instantiate_datatype(psort_decl* p, symbol const& name, unsigned n, sort * const* s);
     sort * instantiate(psort * s, unsigned num, sort * const * args);
 
     void lazy_dec_ref(pdecl * p) { p->dec_ref(); if (p->get_ref_count() == 0) m_to_delete.push_back(p); }

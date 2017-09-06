@@ -360,28 +360,7 @@ sort * psort_dt_decl::instantiate(pdecl_manager & m, unsigned n, sort * const * 
     return 0;
 #else
     SASSERT(n == m_num_params);
-    sort * r = find(s);
-    if (r)
-        return r;
-    buffer<parameter> ps;
-    ps.push_back(parameter(m_name));
-    for (unsigned i = 0; i < n; i++)
-        ps.push_back(parameter(s[i]));
-    datatype_util util(m.m());
-    r = m.m().mk_sort(util.get_family_id(), DATATYPE_SORT, ps.size(), ps.c_ptr());
-    cache(m, s, r);
-    m.save_info(r, this, n, s);
-    if (m_num_params > 0 && util.is_declared(r)) {
-        bool has_typevar = false;
-        // crude check ..
-        for (unsigned i = 0; !has_typevar && i < n; ++i) {
-            has_typevar = s[i]->get_name().is_numerical();
-        }
-        if (!has_typevar) {
-            m.notify_new_dt(r, this);
-        }
-    }
-    return r;
+    return m.instantiate_datatype(this, m_name, n, s);
 #endif
 }
 
@@ -603,32 +582,39 @@ struct datatype_decl_buffer {
 };
 
 #ifdef DATATYPE_V2
+
 sort * pdatatype_decl::instantiate(pdecl_manager & m, unsigned n, sort * const * s) {
-    // TBD: copied
-    SASSERT(n == m_num_params);
-    sort * r = find(s);
-    if (r)
-        return r;
-    buffer<parameter> ps;
-    ps.push_back(parameter(m_name));
-    for (unsigned i = 0; i < n; i++)
-        ps.push_back(parameter(s[i]));
+    sort * r = m.instantiate_datatype(this, m_name, n, s);
     datatype_util util(m.m());
-    r = m.m().mk_sort(util.get_family_id(), DATATYPE_SORT, ps.size(), ps.c_ptr());
-    cache(m, s, r);
-    m.save_info(r, this, n, s);
-    if (m_num_params > 0 && util.is_declared(r)) {
-        bool has_typevar = false;
-        // crude check ..
-        for (unsigned i = 0; !has_typevar && i < n; ++i) {
-            has_typevar = s[i]->get_name().is_numerical();
-        }
-        if (!has_typevar) {
-            m.notify_new_dt(r, this);
+    if (r && n > 0 && util.is_declared(r)) {
+        ast_mark mark;
+        datatype::def const& d = util.get_def(r);
+        mark.mark(r, true);
+        sort_ref_vector params(m.m(), n, s);
+        for (datatype::constructor* c : d) {
+            for (datatype::accessor* a : *c) {
+                sort* rng = a->range();
+                if (util.is_datatype(rng) && !mark.is_marked(rng) && m_parent) {
+                    mark.mark(rng, true);
+                    // TBD: search over more than just parents
+                    for (pdatatype_decl* p : *m_parent) {
+                        if (p->get_name() == rng->get_name()) {
+                            ptr_vector<sort> ps;
+                            func_decl_ref acc = a->instantiate(params);
+                            for (unsigned j = 0; j < util.get_datatype_num_parameter_sorts(rng); ++j) {
+                                ps.push_back(util.get_datatype_parameter_sort(acc->get_range(), j));
+                            }
+                            m.instantiate_datatype(p, p->get_name(), ps.size(), ps.c_ptr());
+                            break;
+                        }
+                    }
+                }
+            }
         }
     }
     return r;
 }
+
 #else
 sort * pdatatype_decl::instantiate(pdecl_manager & m, unsigned n, sort * const * s) {
     SASSERT(m_num_params == n);
@@ -729,6 +715,33 @@ bool pdatatypes_decl::fix_missing_refs(symbol & missing) {
 }
 
 #ifdef DATATYPE_V2
+sort* pdecl_manager::instantiate_datatype(psort_decl* p, symbol const& name, unsigned n, sort * const* s) {
+    TRACE("datatype", tout << name << " "; for (unsigned i = 0; i < n; ++i) tout << s[i]->get_name() << " "; tout << "\n";);
+    pdecl_manager& m = *this;
+    sort * r = p->find(s);
+    if (r)
+        return r;
+    buffer<parameter> ps;
+    ps.push_back(parameter(name));
+    for (unsigned i = 0; i < n; i++)
+        ps.push_back(parameter(s[i]));
+    datatype_util util(m.m());
+    r = m.m().mk_sort(util.get_family_id(), DATATYPE_SORT, ps.size(), ps.c_ptr());
+    p->cache(m, s, r);
+    m.save_info(r, p, n, s);
+    if (n > 0 && util.is_declared(r)) {
+        bool has_typevar = false;
+        // crude check ..
+        for (unsigned i = 0; !has_typevar && i < n; ++i) {
+            has_typevar = s[i]->get_name().is_numerical();
+        }
+        if (!has_typevar) {
+            m.notify_new_dt(r, p);
+        }
+    }
+    return r;
+}
+
 bool pdatatypes_decl::instantiate(pdecl_manager & m, sort * const * s) {
     UNREACHABLE();
     return false;
@@ -887,6 +900,7 @@ void pdecl_manager::init_list() {
                                   mk_pconstructor_decl(1, symbol("insert"), symbol("is-insert"), 2, as) };
     m_list = mk_pdatatype_decl(1, symbol("List"), 2, cs);
     inc_ref(m_list);
+    m_list->commit(*this);
 }
 
 pdecl_manager::pdecl_manager(ast_manager & m):
@@ -966,7 +980,6 @@ psort_decl * pdecl_manager::mk_psort_user_decl(unsigned num_params, symbol const
 }
 
 psort_decl * pdecl_manager::mk_psort_dt_decl(unsigned num_params, symbol const & n) {
-    // std::cout << "insert dt-psort: " << n << " " << num_params << "\n";
     return new (a().allocate(sizeof(psort_dt_decl))) psort_dt_decl(m_id_gen.mk(), num_params, *this, n);    
 }
 
