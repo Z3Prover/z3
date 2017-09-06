@@ -379,6 +379,7 @@ namespace datatype {
         unsigned get_constructor_idx(func_decl * f) const;
         unsigned get_recognizer_constructor_idx(func_decl * f) const;
         decl::plugin* get_plugin() { return m_plugin; }
+        void get_defs(sort* s, ptr_vector<def>& defs);
     };
 
 };

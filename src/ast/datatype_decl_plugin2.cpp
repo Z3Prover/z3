@@ -965,35 +965,56 @@ namespace datatype {
         return d.constructors().size();
     }
 
+    void util::get_defs(sort* s0, ptr_vector<def>& defs) {
+        svector<symbol> mark;
+        ptr_buffer<sort> todo;
+        todo.push_back(s0);
+        mark.push_back(s0->get_name());
+        while (!todo.empty()) {
+            sort* s = todo.back();
+            todo.pop_back();
+            defs.push_back(&m_plugin->get_def(s->get_name()));
+            def const& d = get_def(s);
+            for (constructor* c : d) {
+                for (accessor* a : *c) {
+                    sort* s = a->range();
+                    if (are_siblings(s0, s) && !mark.contains(s->get_name())) {
+                        mark.push_back(s->get_name());
+                        todo.push_back(s);
+                    }
+                }
+            }
+        }
+    }
 
-    void util::display_datatype(sort *s0, std::ostream& strm) {
+    void util::display_datatype(sort *s0, std::ostream& out) {
         ast_mark mark;
         ptr_buffer<sort> todo;
         SASSERT(is_datatype(s0));
-        strm << s0->get_name() << " where\n";
+        out << s0->get_name() << " where\n";
         todo.push_back(s0);
         mark.mark(s0, true);
         while (!todo.empty()) {
             sort* s = todo.back();
             todo.pop_back();
-            strm << s->get_name() << " =\n";
+            out << s->get_name() << " =\n";
 
             ptr_vector<func_decl> const& cnstrs = *get_datatype_constructors(s);
             for (unsigned i = 0; i < cnstrs.size(); ++i) {
                 func_decl* cns = cnstrs[i];
                 func_decl* rec = get_constructor_recognizer(cns);
-                strm << "  " << cns->get_name() << " :: " << rec->get_name() << " :: ";
+                out << "  " << cns->get_name() << " :: " << rec->get_name() << " :: ";
                 ptr_vector<func_decl> const & accs = *get_constructor_accessors(cns);
                 for (unsigned j = 0; j < accs.size(); ++j) {
                     func_decl* acc = accs[j];
                     sort* s1 = acc->get_range();
-                    strm << "(" << acc->get_name() << ": " << s1->get_name() << ") "; 
+                    out << "(" << acc->get_name() << ": " << s1->get_name() << ") "; 
                     if (is_datatype(s1) && are_siblings(s1, s0) && !mark.is_marked(s1)) {
                         mark.mark(s1, true);
                         todo.push_back(s1);
                     }          
                 }
-                strm << "\n";
+                out << "\n";
             }
         }
     }

@@ -432,7 +432,8 @@ void asserted_formulas::propagate_values() {
     flush_cache();
 
     unsigned num_prop = 0;
-    while (!inconsistent()) {
+    unsigned num_iterations = 0;
+    while (!inconsistent() && ++num_iterations < 2) {
         m_expr2depth.reset();
         m_scoped_substitution.push();
         unsigned prop = num_prop;
