@@ -619,14 +619,7 @@ namespace smt2 {
             psort_decl * d = m_ctx.find_psort_decl(id);
             int idx = 0;
             if (d == 0) {
-                if (m_dt_name2idx.find(id, idx)) {
-                    throw parser_exception("smtlib 2.6 parametric datatype sorts are not supported");
-                    // unsigned num_params = m_dt_name2arity.find(id);
-                    // d = pm().mk_psort_dt_decl(num_params, id);
-                }
-                else {
-                    unknown_sort(id);                
-                }
+                unknown_sort(id);                                
             }
             next();
             void * mem      = m_stack.allocate(sizeof(psort_frame));
@@ -924,10 +917,11 @@ namespace smt2 {
                 pdatatype_decl * d = new_dt_decls[i];
                 symbol duplicated;
                 check_duplicate(d, line, pos);
+                m_ctx.insert(d);
             }                
 #endif
             TRACE("declare_datatypes", tout << "i: " << i << " new_dt_decls.size(): " << sz << "\n";
-                  for (unsigned i = 0; i < sz; i++) tout << new_dt_decls[i]->get_name() << "\n";);
+                  for (unsigned j = 0; j < new_dt_decls.size(); ++j) tout << new_dt_decls[j]->get_name() << "\n";);
             m_ctx.print_success();
             next();
         }

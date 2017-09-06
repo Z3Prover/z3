@@ -660,6 +660,7 @@ void pdatatype_decl::display(std::ostream & out) const {
 
 #ifdef DATATYPE_V2
 bool pdatatype_decl::commit(pdecl_manager& m) {
+    TRACE("datatype", tout << m_name << "\n";);
     sort_ref_vector ps(m.m());
     for (unsigned i = 0; i < m_num_params; ++i) {
         ps.push_back(m.m().mk_uninterpreted_sort(symbol(i), 0, 0));
@@ -669,10 +670,8 @@ bool pdatatype_decl::commit(pdecl_manager& m) {
     datatype_decl * d_ptr = dts.m_buffer[0];
     sort_ref_vector sorts(m.m());
     bool is_ok = m.get_dt_plugin()->mk_datatypes(1, &d_ptr, m_num_params, ps.c_ptr(), sorts);
-    if (is_ok) {
-        if (m_num_params == 0) {
-            m.notify_new_dt(sorts.get(0), this);        
-        }
+    if (is_ok && m_num_params == 0) {
+        m.notify_new_dt(sorts.get(0), this);        
     }
     return is_ok;
 }
@@ -917,6 +916,7 @@ pconstructor_decl * pdecl_manager::mk_pconstructor_decl(unsigned num_params,
 }
 
 pdatatype_decl * pdecl_manager::mk_pdatatype_decl(unsigned num_params, symbol const & s, unsigned num, pconstructor_decl * const * cs) {
+    TRACE("datatype", tout << s << " has " << num_params << " parameters\n";);
     return new (a().allocate(sizeof(pdatatype_decl))) pdatatype_decl(m_id_gen.mk(), num_params, *this,
                                                                      s, num, cs);
 }
