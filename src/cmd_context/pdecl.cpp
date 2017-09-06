@@ -604,8 +604,30 @@ struct datatype_decl_buffer {
 
 #ifdef DATATYPE_V2
 sort * pdatatype_decl::instantiate(pdecl_manager & m, unsigned n, sort * const * s) {
-    UNREACHABLE();
-    return 0;
+    // TBD: copied
+    SASSERT(n == m_num_params);
+    sort * r = find(s);
+    if (r)
+        return r;
+    buffer<parameter> ps;
+    ps.push_back(parameter(m_name));
+    for (unsigned i = 0; i < n; i++)
+        ps.push_back(parameter(s[i]));
+    datatype_util util(m.m());
+    r = m.m().mk_sort(util.get_family_id(), DATATYPE_SORT, ps.size(), ps.c_ptr());
+    cache(m, s, r);
+    m.save_info(r, this, n, s);
+    if (m_num_params > 0 && util.is_declared(r)) {
+        bool has_typevar = false;
+        // crude check ..
+        for (unsigned i = 0; !has_typevar && i < n; ++i) {
+            has_typevar = s[i]->get_name().is_numerical();
+        }
+        if (!has_typevar) {
+            m.notify_new_dt(r, this);
+        }
+    }
+    return r;
 }
 #else
 sort * pdatatype_decl::instantiate(pdecl_manager & m, unsigned n, sort * const * s) {

@@ -917,7 +917,10 @@ namespace smt2 {
                 pdatatype_decl * d = new_dt_decls[i];
                 symbol duplicated;
                 check_duplicate(d, line, pos);
-                m_ctx.insert(d);
+                if (!is_smt2_6) {
+                    // datatypes are inserted up front in SMT2.6 mode, so no need to re-insert them.
+                    m_ctx.insert(d);
+                }
             }                
 #endif
             TRACE("declare_datatypes", tout << "i: " << i << " new_dt_decls.size(): " << sz << "\n";
