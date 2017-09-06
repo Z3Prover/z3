@@ -43,6 +43,9 @@ format * smt2_pp_environment::pp_fdecl_name(symbol const & s, unsigned & len) co
         len = static_cast<unsigned>(str.length());
         return mk_string(m, str.c_str());
     }
+    else if (!s.bare_str()) {
+        return mk_string(m,"null");
+    }
     else {
         len = static_cast<unsigned>(strlen(s.bare_str()));
         return mk_string(m, s.bare_str());
