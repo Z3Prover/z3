@@ -736,6 +736,7 @@ ast_manager & th_rewriter::m() const {
 void th_rewriter::updt_params(params_ref const & p) {
     m_params = p;
     m_imp->cfg().updt_params(p);
+    IF_VERBOSE(10, verbose_stream() << p << "\n";);
 }
 
 void th_rewriter::get_param_descrs(param_descrs & r) {

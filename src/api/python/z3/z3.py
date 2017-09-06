@@ -8185,9 +8185,9 @@ def sequence_interpolant(v,p=None,ctx=None):
     If parameters p are supplied, these are used in creating the
     solver that determines satisfiability.
 
-    >>> x = Int('x')
-    >>> y = Int('y')
-    >>> print(sequence_interpolant([x < 0, y == x , y > 2]))
+    x = Int('x')
+    y = Int('y')
+    print(sequence_interpolant([x < 0, y == x , y > 2]))
     [Not(x >= 0), Not(y >= 0)]
     """
     f = v[0]

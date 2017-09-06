@@ -52,6 +52,7 @@ class asserted_formulas {
     static_features             m_static_features;
     vector<justified_expr>      m_formulas;
     unsigned                    m_qhead;
+    bool                        m_elim_and;
     macro_manager               m_macro_manager;
     scoped_ptr<macro_finder>    m_macro_finder;  
     maximize_bv_sharing_rw      m_bv_sharing;

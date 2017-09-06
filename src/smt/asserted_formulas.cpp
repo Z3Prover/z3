@@ -60,6 +60,7 @@ asserted_formulas::asserted_formulas(ast_manager & m, smt_params & p):
 
     m_macro_finder = alloc(macro_finder, m, m_macro_manager);
 
+    m_elim_and = true;
     set_eliminate_and(false);
 
 }
@@ -118,7 +119,10 @@ void asserted_formulas::push_assertion(expr * e, proof * pr, vector<justified_ex
 }
 
 void asserted_formulas::set_eliminate_and(bool flag) {
+    if (flag == m_elim_and) return;
+    m_elim_and = flag;
     params_ref p;
+    p.set_bool("pull_cheap_ite", false);
     p.set_bool("elim_and", flag);
     p.set_bool("arith_ineq_lhs", true);
     p.set_bool("sort_sums", true);
