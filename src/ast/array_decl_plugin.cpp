@@ -240,9 +240,12 @@ func_decl* array_decl_plugin::mk_select(unsigned arity, sort * const * domain) {
     sort * s = domain[0];
     unsigned num_parameters = s->get_num_parameters();
     parameter const* parameters = s->get_parameters();
+    std::cout << s->get_ref_count() << " " << sort_ref(s, *m_manager) << "\n";
  
     if (num_parameters != arity) {
-        m_manager->raise_exception("select requires as many arguments as the size of the domain");
+        std::stringstream strm;
+        strm << "select requires " << num_parameters << " arguments, but was provided with " << arity << " arguments";
+        m_manager->raise_exception(strm.str().c_str());
         return 0;
     }
     ptr_buffer<sort> new_domain; // we need this because of coercions.

@@ -26,6 +26,7 @@ Revision History:
 #include "util/string_buffer.h"
 #include "ast/ast_util.h"
 #include "ast/ast_smt2_pp.h"
+#include "ast/array_decl_plugin.h"
 
 // -----------------------------------
 //
@@ -360,13 +361,14 @@ app::app(func_decl * decl, unsigned num_args, expr * const * args):
 //
 // -----------------------------------
 
-quantifier::quantifier(bool forall, unsigned num_decls, sort * const * decl_sorts, symbol const * decl_names, expr * body,
+quantifier::quantifier(quantifier_kind k, unsigned num_decls, sort * const * decl_sorts, symbol const * decl_names, expr * body, sort* s,
                        int weight, symbol const & qid, symbol const & skid, unsigned num_patterns, expr * const * patterns,
                        unsigned num_no_patterns, expr * const * no_patterns):
     expr(AST_QUANTIFIER),
-    m_forall(forall),
+    m_kind(k),
     m_num_decls(num_decls),
     m_expr(body),
+    m_sort(s),
     m_depth(::get_depth(body) + 1),
     m_weight(weight),
     m_has_unused_vars(true),
@@ -385,6 +387,25 @@ quantifier::quantifier(bool forall, unsigned num_decls, sort * const * decl_sort
         memcpy(const_cast<expr **>(get_no_patterns()), no_patterns, sizeof(expr *) * num_no_patterns);
 }
 
+quantifier::quantifier(unsigned num_decls, sort * const * decl_sorts, symbol const * decl_names, expr * body, sort* s):
+    expr(AST_QUANTIFIER),
+    m_kind(lambda_k),
+    m_num_decls(num_decls),
+    m_expr(body),
+    m_sort(s),
+    m_depth(::get_depth(body) + 1),
+    m_weight(0),
+    m_has_unused_vars(true),
+    m_has_labels(::has_labels(body)),
+    m_qid(symbol()),
+    m_skid(symbol()),
+    m_num_patterns(0),
+    m_num_no_patterns(0) {
+    memcpy(const_cast<sort **>(get_decl_sorts()), decl_sorts, sizeof(sort *) * num_decls);
+    memcpy(const_cast<symbol*>(get_decl_names()), decl_names, sizeof(symbol) * num_decls);   
+}
+
+
 // -----------------------------------
 //
 // Auxiliary functions
@@ -392,21 +413,16 @@ quantifier::quantifier(bool forall, unsigned num_decls, sort * const * decl_sort
 // -----------------------------------
 
 sort * get_sort(expr const * n) {
-    while (true) {
-        switch(n->get_kind()) {
-        case AST_APP:
-            return to_app(n)->get_decl()->get_range();
-        case AST_VAR:
-            return to_var(n)->get_sort();
-        case AST_QUANTIFIER:
-            // The sort of the quantifier is the sort of the nested expression.
-            // This code assumes the given expression is well-sorted.
-            n = to_quantifier(n)->get_expr();
-            break;
-        default:
-            UNREACHABLE();
-            return 0;
-        }
+    switch(n->get_kind()) {
+    case AST_APP:
+        return to_app(n)->get_decl()->get_range();
+    case AST_VAR:
+        return to_var(n)->get_sort();
+    case AST_QUANTIFIER:
+        return to_quantifier(n)->get_sort();
+    default:
+        UNREACHABLE();
+        return 0;
     }
 }
 
@@ -466,7 +482,7 @@ bool compare_nodes(ast const * n1, ast const * n2) {
             to_var(n1)->get_sort() == to_var(n2)->get_sort();
     case AST_QUANTIFIER:
         return
-            to_quantifier(n1)->is_forall()           == to_quantifier(n2)->is_forall() &&
+            to_quantifier(n1)->get_kind()            == to_quantifier(n2)->get_kind() &&
             to_quantifier(n1)->get_num_decls()       == to_quantifier(n2)->get_num_decls() &&
             compare_arrays(to_quantifier(n1)->get_decl_sorts(),
                            to_quantifier(n2)->get_decl_sorts(),
@@ -563,7 +579,7 @@ unsigned get_node_hash(ast const * n) {
     case AST_QUANTIFIER:
         a = ast_array_hash(to_quantifier(n)->get_decl_sorts(),
                            to_quantifier(n)->get_num_decls(),
-                           to_quantifier(n)->is_forall() ? 31 : 19);
+                           to_quantifier(n)->get_kind() == forall_k ? 31 : 19);
         b = to_quantifier(n)->get_num_patterns();
         c = to_quantifier(n)->get_expr()->hash();
         mix(a,b,c);
@@ -1786,6 +1802,7 @@ ast * ast_manager::register_node_core(ast * n) {
     case AST_QUANTIFIER:
         inc_array_ref(to_quantifier(n)->get_num_decls(), to_quantifier(n)->get_decl_sorts());
         inc_ref(to_quantifier(n)->get_expr());
+        inc_ref(to_quantifier(n)->get_sort());
         inc_array_ref(to_quantifier(n)->get_num_patterns(), to_quantifier(n)->get_patterns());
         inc_array_ref(to_quantifier(n)->get_num_no_patterns(), to_quantifier(n)->get_no_patterns());
         break;
@@ -1849,6 +1866,7 @@ void ast_manager::delete_node(ast * n) {
         case AST_QUANTIFIER:
             dec_array_ref(worklist, to_quantifier(n)->get_num_decls(), to_quantifier(n)->get_decl_sorts());
             dec_ref(worklist, to_quantifier(n)->get_expr());
+            dec_ref(worklist, to_quantifier(n)->get_sort());
             dec_array_ref(worklist, to_quantifier(n)->get_num_patterns(), to_quantifier(n)->get_patterns());
             dec_array_ref(worklist, to_quantifier(n)->get_num_no_patterns(), to_quantifier(n)->get_no_patterns());
             break;
@@ -2357,7 +2375,7 @@ bool ast_manager::is_pattern(expr const * n, ptr_vector<expr> &args) {
 }
 
 
-quantifier * ast_manager::mk_quantifier(bool forall, unsigned num_decls, sort * const * decl_sorts, symbol const * decl_names,
+quantifier * ast_manager::mk_quantifier(quantifier_kind k, unsigned num_decls, sort * const * decl_sorts, symbol const * decl_names,
                                         expr * body, int weight , symbol const & qid, symbol const & skid,
                                         unsigned num_patterns, expr * const * patterns,
                                         unsigned num_no_patterns, expr * const * no_patterns) {
@@ -2371,7 +2389,17 @@ quantifier * ast_manager::mk_quantifier(bool forall, unsigned num_decls, sort * 
             }});
     unsigned sz               = quantifier::get_obj_size(num_decls, num_patterns, num_no_patterns);
     void * mem                = allocate_node(sz);
-    quantifier * new_node = new (mem) quantifier(forall, num_decls, decl_sorts, decl_names, body,
+
+    sort *s = 0;
+    if (k == lambda_k) {
+        array_util autil(*this);
+        s = autil.mk_array_sort(num_decls, decl_sorts, ::get_sort(body));
+    }
+    else {
+        s = mk_bool_sort();
+    }
+
+    quantifier * new_node = new (mem) quantifier(k, num_decls, decl_sorts, decl_names, body, s,
                                                  weight, qid, skid, num_patterns, patterns,
                                                  num_no_patterns, no_patterns);
     quantifier * r = register_node(new_node);
@@ -2387,6 +2415,19 @@ quantifier * ast_manager::mk_quantifier(bool forall, unsigned num_decls, sort * 
 
     return r;
 }
+
+quantifier * ast_manager::mk_lambda(unsigned num_decls, sort * const * decl_sorts, symbol const * decl_names, expr * body) {
+    SASSERT(body);
+    unsigned sz               = quantifier::get_obj_size(num_decls, 0, 0);
+    void * mem                = allocate_node(sz);
+    array_util autil(*this);
+    sort* s = autil.mk_array_sort(num_decls, decl_sorts, ::get_sort(body));
+    quantifier * new_node = new (mem) quantifier(num_decls, decl_sorts, decl_names, body, s);
+    quantifier * r = register_node(new_node);
+    std::cout << sort_ref(s, *this) << "\n";
+    return r;
+}
+
 
 // Return true if the patterns of q are the given ones.
 static bool same_patterns(quantifier * q, unsigned num_patterns, expr * const * patterns) {
@@ -2411,7 +2452,7 @@ static bool same_no_patterns(quantifier * q, unsigned num_no_patterns, expr * co
 quantifier * ast_manager::update_quantifier(quantifier * q, unsigned num_patterns, expr * const * patterns, expr * body) {
     if (q->get_expr() == body && same_patterns(q, num_patterns, patterns))
         return q;
-    return mk_quantifier(q->is_forall(),
+    return mk_quantifier(q->get_kind(),
                          q->get_num_decls(),
                          q->get_decl_sorts(),
                          q->get_decl_names(),
@@ -2428,7 +2469,7 @@ quantifier * ast_manager::update_quantifier(quantifier * q, unsigned num_pattern
 quantifier * ast_manager::update_quantifier(quantifier * q, unsigned num_patterns, expr * const * patterns, unsigned num_no_patterns, expr * const * no_patterns, expr * body) {
     if (q->get_expr() == body && same_patterns(q, num_patterns, patterns) && same_no_patterns(q, num_no_patterns, no_patterns))
         return q;
-    return mk_quantifier(q->is_forall(),
+    return mk_quantifier(q->get_kind(),
                          q->get_num_decls(),
                          q->get_decl_sorts(),
                          q->get_decl_names(),
@@ -2445,7 +2486,7 @@ quantifier * ast_manager::update_quantifier(quantifier * q, unsigned num_pattern
 quantifier * ast_manager::update_quantifier(quantifier * q, expr * body) {
     if (q->get_expr() == body)
         return q;
-    return mk_quantifier(q->is_forall(),
+    return mk_quantifier(q->get_kind(),
                          q->get_num_decls(),
                          q->get_decl_sorts(),
                          q->get_decl_names(),
@@ -2463,7 +2504,7 @@ quantifier * ast_manager::update_quantifier_weight(quantifier * q, int w) {
     if (q->get_weight() == w)
         return q;
     TRACE("update_quantifier_weight", tout << "#" << q->get_id() << " " << q->get_weight() << " -> " << w << "\n";);
-    return mk_quantifier(q->is_forall(),
+    return mk_quantifier(q->get_kind(),
                          q->get_num_decls(),
                          q->get_decl_sorts(),
                          q->get_decl_names(),
@@ -2477,10 +2518,10 @@ quantifier * ast_manager::update_quantifier_weight(quantifier * q, int w) {
                          q->get_no_patterns());
 }
 
-quantifier * ast_manager::update_quantifier(quantifier * q, bool is_forall, expr * body) {
-    if (q->get_expr() == body && q->is_forall() == is_forall)
+quantifier * ast_manager::update_quantifier(quantifier * q, quantifier_kind k, expr * body) {
+    if (q->get_expr() == body && q->get_kind() == k)
         return q;
-    return mk_quantifier(is_forall,
+    return mk_quantifier(k,
                          q->get_num_decls(),
                          q->get_decl_sorts(),
                          q->get_decl_names(),
@@ -2494,10 +2535,10 @@ quantifier * ast_manager::update_quantifier(quantifier * q, bool is_forall, expr
                          q->get_no_patterns());
 }
 
-quantifier * ast_manager::update_quantifier(quantifier * q, bool is_forall, unsigned num_patterns, expr * const * patterns, expr * body) {
-    if (q->get_expr() == body && q->is_forall() == is_forall && same_patterns(q, num_patterns, patterns))
+quantifier * ast_manager::update_quantifier(quantifier * q, quantifier_kind k, unsigned num_patterns, expr * const * patterns, expr * body) {
+    if (q->get_expr() == body && q->get_kind() == k && same_patterns(q, num_patterns, patterns))
         return q;
-    return mk_quantifier(is_forall,
+    return mk_quantifier(k,
                          q->get_num_decls(),
                          q->get_decl_sorts(),
                          q->get_decl_names(),

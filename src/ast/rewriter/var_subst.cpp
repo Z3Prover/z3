@@ -52,6 +52,10 @@ void unused_vars_eliminator::operator()(quantifier* q, expr_ref & result) {
         result = q->get_expr();
         return;
     }
+    if (q->get_kind() == lambda_k) {
+        result = q;
+        return;
+    }
     if (!q->may_have_unused_vars()) {
         result = q;
         return;
@@ -136,7 +140,7 @@ void unused_vars_eliminator::operator()(quantifier* q, expr_ref & result) {
         new_no_patterns.push_back(tmp);
     }
 
-    result = m.mk_quantifier(q->is_forall(),
+    result = m.mk_quantifier(q->get_kind(),
                              used_decl_sorts.size(),
                              used_decl_sorts.c_ptr(),
                              used_decl_names.c_ptr(),

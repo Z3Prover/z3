@@ -606,7 +606,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         quantifier_ref q1(m());
         proof * p1 = 0;
         if (is_quantifier(new_body) &&
-            to_quantifier(new_body)->is_forall() == old_q->is_forall() &&
+            to_quantifier(new_body)->get_kind() == old_q->get_kind() &&
             !old_q->has_patterns() &&
             !to_quantifier(new_body)->has_patterns()) {
 
@@ -619,7 +619,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
             sorts.append(nested_q->get_num_decls(), nested_q->get_decl_sorts());
             names.append(nested_q->get_num_decls(), nested_q->get_decl_names());
 
-            q1 = m().mk_quantifier(old_q->is_forall(),
+            q1 = m().mk_quantifier(old_q->get_kind(),
                                    sorts.size(),
                                    sorts.c_ptr(),
                                    names.c_ptr(),

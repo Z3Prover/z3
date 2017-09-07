@@ -100,7 +100,7 @@ bool bv_elim_cfg::reduce_quantifier(quantifier * q,
         no_pats.push_back(nopat);
     }
 
-    result = m.mk_quantifier(true, 
+    result = m.mk_quantifier(forall_k, 
                         names.size(),
                         sorts.c_ptr(),
                         names.c_ptr(),

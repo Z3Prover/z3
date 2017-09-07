@@ -74,6 +74,11 @@ class skolemizer {
     cache         m_cache_pr;
 
     void process(quantifier * q, expr_ref & r, proof_ref & p) {
+        if (q->get_kind() == lambda_k) {
+            r = q;
+            p = 0;
+            return;
+        }
         used_vars uv;
         uv(q);
         SASSERT(is_well_sorted(m(), q));
@@ -128,7 +133,7 @@ class skolemizer {
                 expr * p = q->get_pattern(i);
                 if (is_sk_hack(p)) {
                     expr * sk_hack = to_app(p)->get_arg(0);
-                    if (q->is_forall()) // check whether is in negative/positive context.
+                    if (q->get_kind() == forall_k) // check whether is in negative/positive context.
                         tmp  = m().mk_or(body, m().mk_not(sk_hack)); // negative context
                     else
                         tmp  = m().mk_and(body, sk_hack); // positive context
@@ -743,7 +748,11 @@ struct nnf::imp {
         proof_ref pr(m());
         if (fr.m_i == 0) {
             fr.m_i = 1;
-            if (q->is_forall() == fr.m_pol || !m_skolemize) {
+            if (is_lambda(q)) {
+                if (!visit(q->get_expr(), fr.m_pol, true))
+                    return false;
+            }
+            else if (is_forall(q) == fr.m_pol || !m_skolemize) {
                 if (!visit(q->get_expr(), fr.m_pol, true))
                     return false;
             }
@@ -754,13 +763,16 @@ struct nnf::imp {
             }
         }
 
-        if (q->is_forall() == fr.m_pol || !m_skolemize) {
+        if (is_lambda(q)) {
+
+        }
+        else if (is_forall(q) == fr.m_pol || !m_skolemize) {
             expr * new_expr     = m_result_stack.back();
             proof * new_expr_pr = proofs_enabled() ? m_result_pr_stack.back() : 0;
             
             ptr_buffer<expr> new_patterns;
 
-            if (q->is_forall() == fr.m_pol) {
+            if (is_forall(q) == fr.m_pol) {
                 // collect non sk_hack patterns
                 unsigned num_patterns = q->get_num_patterns();
                 for (unsigned i = 0; i < num_patterns; i++) {

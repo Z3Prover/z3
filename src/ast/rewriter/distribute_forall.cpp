@@ -100,7 +100,7 @@ void distribute_forall::reduce1_app(app * a) {
 
 void distribute_forall::reduce1_quantifier(quantifier * q) {
     // This transformation is applied after skolemization/quantifier elimination. So, all quantifiers are universal.
-    SASSERT(q->is_forall());
+    SASSERT(q->get_kind() == forall_k);
 
     // This transformation is applied after basic pre-processing steps.
     // So, we can assume that

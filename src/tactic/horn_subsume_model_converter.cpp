@@ -123,7 +123,7 @@ bool horn_subsume_model_converter::mk_horn(
     // formula is closed.
     DEBUG_CODE(expr_free_vars fv; fv(clause); SASSERT(fv.empty()););
         
-    while (is_quantifier(clause) && to_quantifier(clause)->is_forall()) {
+    while (is_quantifier(clause) && to_quantifier(clause)->get_kind() == forall_k) {
         quantifier* q = to_quantifier(clause);
         clause = q->get_expr();
     }

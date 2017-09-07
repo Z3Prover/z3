@@ -979,7 +979,7 @@ class smt2_printer {
         }
         format * f_decls = pp_var_decls(q);
         format * fs[2] = { f_decls, f_body };
-        char const * header = q->is_forall() ? "forall" : "exists";
+        char const * header = q->get_kind() == forall_k ? "forall" : (q->get_kind() == exists_k ? "exists" : "lambda");
         format * f = mk_seq3<format**, f2f>(m(), fs, fs+2, f2f(), header, 1, SMALL_INDENT);
 
         info f_info = m_info_stack.back();

@@ -242,7 +242,7 @@ public:
 
     void operator()(quantifier * n) {
         display_def_header(n);
-        m_out << "(" << (n->is_forall() ? "forall" : "exists") << " ";
+        m_out << "(" << (n->get_kind() == forall_k ? "forall" : (n->get_kind() == exists_k ? "exists" : "lambda")) << " ";
         unsigned num_decls = n->get_num_decls();
         m_out << "(vars ";
         for (unsigned i = 0; i < num_decls; i++) {

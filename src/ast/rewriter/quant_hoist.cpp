@@ -84,7 +84,7 @@ public:
 
     unsigned pull_quantifier(bool is_forall, expr_ref& fml, ptr_vector<sort>* sorts, svector<symbol>* names, bool use_fresh, bool rewrite_ok) {
         unsigned index = var_counter().get_next_var(fml);
-        while (is_quantifier(fml) && (is_forall == to_quantifier(fml)->is_forall())) {
+        while (is_quantifier(fml) && (is_forall == (to_quantifier(fml)->get_kind() == forall_k))) {
             quantifier* q = to_quantifier(fml);
             index += q->get_num_decls();
             if (names) {
@@ -277,12 +277,16 @@ private:
         }
         case AST_QUANTIFIER: {
             quantifier* q = to_quantifier(fml);
-            expr_ref tmp(m);
-            if (!is_compatible(qt, q->is_forall())) {
+            if (q->get_kind() == lambda_k) {
                 result = fml;
                 break;
             }
-            set_quantifier_type(qt, q->is_forall());
+            expr_ref tmp(m);
+            if (!is_compatible(qt, q->get_kind() == forall_k)) {
+                result = fml;
+                break;
+            }
+            set_quantifier_type(qt, q->get_kind() == forall_k);
             extract_quantifier(q, vars, tmp, use_fresh);
             pull_quantifier(tmp, qt, vars, result, use_fresh, rewrite_ok);
             break;

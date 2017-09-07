@@ -32,7 +32,7 @@ bool simplify_inj_axiom(ast_manager & m, quantifier * q, expr_ref & result) {
     expr* arg1 = 0, * arg2 = 0, *narg = 0;
     expr* app1 = 0, * app2 = 0;
     expr* var1 = 0, * var2 = 0;
-    if (q->is_forall() && m.is_or(n, arg1, arg2)) {
+    if (q->get_kind() == forall_k && m.is_or(n, arg1, arg2)) {
         if (m.is_not(arg2)) 
             std::swap(arg1, arg2);
         if (m.is_not(arg1, narg) && 
