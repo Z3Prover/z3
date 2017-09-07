@@ -88,7 +88,7 @@ extern "C" {
         expr_ref result(mk_c(c)->m());
         if (num_decls > 0) {
             result = mk_c(c)->m().mk_quantifier(
-                (0 != is_forall),
+                is_forall ? forall_k : exists_k,
                 names.size(), ts, names.c_ptr(), to_expr(body),
                 weight,
                 qid,

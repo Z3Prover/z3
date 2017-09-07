@@ -2620,7 +2620,7 @@ namespace qe {
                 names.push_back(vars[i]->get_decl()->get_name());
             }
             if (!vars.empty()) {
-                result = m.mk_quantifier(old_q->is_forall(), vars.size(), sorts.c_ptr(), names.c_ptr(), result, 1);
+                result = m.mk_quantifier(old_q->get_kind(), vars.size(), sorts.c_ptr(), names.c_ptr(), result, 1);
             }            
             result_pr = 0;        
             return true;

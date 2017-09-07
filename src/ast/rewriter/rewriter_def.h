@@ -533,7 +533,7 @@ void rewriter_tpl<Config>::process_quantifier(quantifier * q, frame & fr) {
     }
     result_stack().shrink(fr.m_spos);
     result_stack().push_back(m_r.get());
-    SASSERT(m().is_bool(m_r));
+    SASSERT(is_lambda(m_r) || m().is_bool(m_r));
     if (!ProofGen) {
         SASSERT(num_decls <= m_bindings.size());
         m_bindings.shrink(m_bindings.size() - num_decls);

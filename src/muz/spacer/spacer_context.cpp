@@ -1151,11 +1151,11 @@ void lemma::mk_expr_core() {
                           m_body);
             ptr_buffer<sort> sorts;
             svector<symbol> names;
-            for (unsigned i=0, sz=zks.size(); i < sz; ++i) {
-                sorts.push_back(get_sort(zks.get(i)));
-                names.push_back(zks.get(i)->get_decl()->get_name());
+            for (app* zk : zks) {
+                sorts.push_back(get_sort(zk));
+                names.push_back(zk->get_decl()->get_name());
             }
-            m_body = m.mk_quantifier(true, zks.size(),
+            m_body = m.mk_quantifier(forall_k, zks.size(),
                                      sorts.c_ptr(),
                                      names.c_ptr(),
                                      m_body, 0, symbol(m_body->get_id()));

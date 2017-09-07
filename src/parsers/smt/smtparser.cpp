@@ -2555,7 +2555,7 @@ private:
             
             if (m_smt->ignore_user_patterns()) {
                 TRACE("pat_bug", tout << "ignoring user patterns...: " << m_patterns.size() << "\n";);
-                result = m_smt->m_manager.mk_quantifier(m_is_forall, 
+                result = m_smt->m_manager.mk_quantifier(m_is_forall ? forall_k : exists_k, 
                                                         m_sorts.size(),   // num_decls
                                                         m_sorts.c_ptr(),  // decl_sorts
                                                         m_vars.begin(),   // decl_names
@@ -2572,7 +2572,7 @@ private:
                 if (!m_no_patterns.empty()) {
                     m_smt->set_error("patterns were provided, ignoring :nopat attribute.", ((proto_expr*)0));
                 }
-                result = m_smt->m_manager.mk_quantifier(m_is_forall, 
+                result = m_smt->m_manager.mk_quantifier(m_is_forall  ? forall_k : exists_k, 
                                                         m_sorts.size(),   // num_decls
                                                         m_sorts.c_ptr(),  // decl_sorts
                                                         m_vars.begin(),   // decl_names
@@ -2586,7 +2586,7 @@ private:
                                                         0);
             }
             else {
-                result = m_smt->m_manager.mk_quantifier(m_is_forall, 
+                result = m_smt->m_manager.mk_quantifier(m_is_forall ? forall_k : exists_k, 
                                                         m_sorts.size(),   // num_decls
                                                         m_sorts.c_ptr(),  // decl_sorts
                                                         m_vars.begin(),   // decl_names

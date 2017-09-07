@@ -168,7 +168,7 @@ namespace Duality {
         expr_abstract(m(), 0, num_bound, VEC2PTR(bound_asts), to_expr(body.raw()), abs_body);
         expr_ref result(m());
         result = m().mk_quantifier(
-            op == Forall,
+            op == Forall ? forall_k : exists_k,
             names.size(), VEC2PTR(types), VEC2PTR(names), abs_body.get(),
             0,
             ::symbol(),
@@ -194,7 +194,7 @@ namespace Duality {
         }
         expr_ref result(m());
         result = m().mk_quantifier(
-            op == Forall,
+            op == Forall ? forall_k : exists_k,
             names.size(), VEC2PTR(types), VEC2PTR(names), to_expr(body.raw()),
             0,
             ::symbol(),
@@ -377,13 +377,13 @@ namespace Duality {
         std::vector< ::expr *> _patterns(num_patterns);
         for(unsigned i = 0; i < num_patterns; i++)
             _patterns[i] = to_expr(patterns[i].raw());
-        return q.ctx().cook(q.m().update_quantifier(thing, is_forall, num_patterns, VEC2PTR(_patterns), to_expr(b.raw())));
+        return q.ctx().cook(q.m().update_quantifier(thing, is_forall ? forall_k : exists_k, num_patterns, VEC2PTR(_patterns), to_expr(b.raw())));
     }
 
     expr clone_quantifier(decl_kind dk, const expr &q, const expr &b){
         quantifier *thing = to_quantifier(q.raw());
         bool is_forall = dk == Forall;
-        return q.ctx().cook(q.m().update_quantifier(thing, is_forall, to_expr(b.raw())));
+        return q.ctx().cook(q.m().update_quantifier(thing, is_forall ? forall_k : exists_k, to_expr(b.raw())));
     }
 
     void expr::get_patterns(std::vector<expr> &pats) const {

@@ -156,12 +156,6 @@ namespace smt2 {
                 m_as_sort(as_sort) {}
         };
 
-        enum quantifier_kind {
-            forall_k,
-            exists_k,
-            lambda_k
-        };
-
         struct quant_frame : public expr_frame {
             quantifier_kind m_kind;
             symbol   m_qid;
@@ -1746,28 +1740,19 @@ namespace smt2 {
             TRACE("parse_quantifier", tout << "body:\n" << mk_pp(expr_stack().back(), m()) << "\n";);
             if (fr->m_qid == symbol::null)
                 fr->m_qid = symbol(m_scanner.get_line());
-            quantifier * new_q;
-            if (fr->m_kind == lambda_k) {
-                new_q = m().mk_lambda(num_decls,
+            if (fr->m_kind != lambda_k && !m().is_bool(expr_stack().back()))
+                throw parser_exception("quantifier body must be a Boolean expression");
+            quantifier* new_q = m().mk_quantifier(fr->m_kind,
+                                      num_decls,
                                       sort_stack().c_ptr() + fr->m_sort_spos,
                                       symbol_stack().c_ptr() + fr->m_sym_spos,
-                                      expr_stack().back());
-            }
-            else {
-                if (!m().is_bool(expr_stack().back()))
-                    throw parser_exception("quantifier body must be a Boolean expression");
-                new_q = m().mk_quantifier(fr->m_kind == forall_k,
-                                          num_decls,
-                                          sort_stack().c_ptr() + fr->m_sort_spos,
-                                          symbol_stack().c_ptr() + fr->m_sym_spos,
-                                          expr_stack().back(),
-                                          fr->m_weight,
-                                          fr->m_qid,
-                                          fr->m_skid,
-                                          num_pats, pattern_stack().c_ptr() + fr->m_pat_spos,
-                                          num_nopats, nopattern_stack().c_ptr() + fr->m_nopat_spos
-                                          );
-            }
+                                      expr_stack().back(),
+                                      fr->m_weight,
+                                      fr->m_qid,
+                                      fr->m_skid,
+                                      num_pats, pattern_stack().c_ptr() + fr->m_pat_spos,
+                                      num_nopats, nopattern_stack().c_ptr() + fr->m_nopat_spos
+                                      );
             TRACE("mk_quantifier", tout << "id: " << new_q->get_id() << "\n" << mk_ismt2_pp(new_q, m()) << "\n";);
             TRACE("skid", tout << "new_q->skid: " << new_q->get_skid() << "\n";);
             expr_stack().shrink(fr->m_expr_spos);

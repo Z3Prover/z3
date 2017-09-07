@@ -764,7 +764,7 @@ struct nnf::imp {
         }
 
         if (is_lambda(q)) {
-
+            NOT_IMPLEMENTED_YET();
         }
         else if (is_forall(q) == fr.m_pol || !m_skolemize) {
             expr * new_expr     = m_result_stack.back();
@@ -794,7 +794,8 @@ struct nnf::imp {
                     new_q_pr = m().mk_nnf_pos(q, new_q, 1, &new_expr_pr);
             }
             else {
-                new_q = m().update_quantifier(q, !q->is_forall(), new_patterns.size(), new_patterns.c_ptr(), new_expr);
+                quantifier_kind k = q->is_forall()? exists_k : forall_k;
+                new_q = m().update_quantifier(q, k, new_patterns.size(), new_patterns.c_ptr(), new_expr);
                 if (proofs_enabled())
                     new_q_pr = m().mk_nnf_neg(q, new_q, 1, &new_expr_pr);
             }

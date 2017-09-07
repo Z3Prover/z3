@@ -240,7 +240,6 @@ func_decl* array_decl_plugin::mk_select(unsigned arity, sort * const * domain) {
     sort * s = domain[0];
     unsigned num_parameters = s->get_num_parameters();
     parameter const* parameters = s->get_parameters();
-    std::cout << s->get_ref_count() << " " << sort_ref(s, *m_manager) << "\n";
  
     if (num_parameters != arity) {
         std::stringstream strm;

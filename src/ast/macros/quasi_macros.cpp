@@ -251,7 +251,7 @@ void quasi_macros::quasi_macro_to_macro(quantifier * q, app * a, expr * t, quant
 
     eq = m_manager.mk_eq(appl, ite);
 
-    macro = m_manager.mk_quantifier(true, new_var_names_rev.size(),
+    macro = m_manager.mk_quantifier(forall_k, new_var_names_rev.size(),
                                     new_qsorts_rev.c_ptr(), new_var_names_rev.c_ptr(), eq);
 }
 

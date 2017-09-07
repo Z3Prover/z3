@@ -1079,7 +1079,7 @@ namespace datalog {
                     quantifier* q = to_quantifier(body);
                     expr* e = q->get_expr();
                     if (m.is_implies(e, body, e2)) {
-                        fml = m.mk_quantifier(false, q->get_num_decls(),
+                        fml = m.mk_quantifier(exists_k, q->get_num_decls(),
                                               q->get_decl_sorts(), q->get_decl_names(),
                                               body);
                     }

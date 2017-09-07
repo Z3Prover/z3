@@ -194,7 +194,7 @@ iz3mgr::ast iz3mgr::make_quant(opr op, const std::vector<ast> &bvs, ast &body){
     expr_abstract(m(), 0, num_bound, &bound_asts[0], to_expr(body.raw()), abs_body);
     expr_ref result(m());
     result = m().mk_quantifier(
-        op == Forall, 
+        op == Forall ? forall_k : exists_k, 
         names.size(), &types[0], &names[0], abs_body.get(),            
         0, 
         symbol("itp"),

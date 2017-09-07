@@ -805,6 +805,10 @@ class quantifier : public expr {
 
 public:
     quantifier_kind get_kind() const { return m_kind; }
+    bool is_forall() const { return m_kind == forall_k; }
+    bool is_exists() const { return m_kind == exists_k; }
+    bool is_lambda() const { return m_kind == lambda_k; }
+
     unsigned get_num_decls() const { return m_num_decls; }
     sort * const * get_decl_sorts() const { return reinterpret_cast<sort * const *>(m_patterns_decls); }
     symbol const * get_decl_names() const { return reinterpret_cast<symbol const *>(get_decl_sorts() + m_num_decls); }
