@@ -176,8 +176,8 @@ namespace smt {
         ast_manager& m = get_manager();
         TRACE("str", tout << "asserting " << mk_ismt2_pp(_e, m) << std::endl;);
         expr_ref e(_e, m);
-        th_rewriter rw(m);
-        rw(e);
+        //th_rewriter rw(m);
+        //rw(e);
         if (!ctx.b_internalized(e)) {
             ctx.internalize(e, false);
         }
@@ -1491,9 +1491,21 @@ namespace smt {
         expr_ref case3_conclusion(mk_and(case3_conclusion_terms), m);
         expr_ref case3(m.mk_implies(m.mk_and(argumentsValid, m.mk_not(lenOutOfBounds)), case3_conclusion), m);
 
-        assert_axiom(case1);
-        assert_axiom(case2);
-        assert_axiom(case3);
+        {
+            th_rewriter rw(m);
+
+            expr_ref case1_rw(case1, m);
+            rw(case1_rw);
+            assert_axiom(case1_rw);
+
+            expr_ref case2_rw(case2, m);
+            rw(case2_rw);
+            assert_axiom(case2_rw);
+
+            expr_ref case3_rw(case3, m);
+            rw(case3_rw);
+            assert_axiom(case3_rw);
+        }
     }
 
     void theory_str::instantiate_axiom_Replace(enode * e) {
