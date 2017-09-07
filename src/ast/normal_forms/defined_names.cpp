@@ -16,17 +16,19 @@ Author:
 Revision History:
 
 --*/
-#include "ast/normal_forms/defined_names.h"
 #include "util/obj_hashtable.h"
+#include "ast/normal_forms/defined_names.h"
 #include "ast/used_vars.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/ast_smt2_pp.h"
 #include "ast/ast_pp.h"
+#include "ast/ast_util.h"
+#include "ast/array_decl_plugin.h"
 
 struct defined_names::impl {
     typedef obj_map<expr, app *>   expr2name;
     typedef obj_map<expr, proof *> expr2proof;
-    ast_manager &    m_manager;
+    ast_manager &    m;
     symbol           m_z3name;
 
     /**
@@ -62,7 +64,7 @@ struct defined_names::impl {
     void cache_new_name_intro_proof(expr * e, proof * pr);
     void bound_vars(sort_ref_buffer const & sorts, buffer<symbol> const & names, expr * def_conjunct, app * name, expr_ref & result);
     void bound_vars(sort_ref_buffer const & sorts, buffer<symbol> const & names, expr * def_conjunct, app * name, expr_ref_buffer & result);
-    virtual void mk_definition(expr * e, app * n, sort_ref_buffer & var_sorts, buffer<symbol> const & var_names, expr_ref & new_def);
+    virtual void mk_definition(expr * e, app * n, sort_ref_buffer & var_sorts, buffer<symbol> & var_names, expr_ref & new_def);
     bool mk_name(expr * e, expr_ref & new_def, proof_ref & new_def_pr, app_ref & n, proof_ref & pr);
     void push_scope();
     void pop_scope(unsigned num_scopes);
@@ -79,7 +81,7 @@ struct defined_names::pos_impl : public defined_names::impl {
 
 
 defined_names::impl::impl(ast_manager & m, char const * prefix):
-    m_manager(m),
+    m(m),
     m_exprs(m),
     m_names(m),
     m_apply_proofs(m) {
@@ -107,20 +109,20 @@ app * defined_names::impl::gen_name(expr * e, sort_ref_buffer & var_sorts, buffe
         sort * s = uv.get(i);
         if (s) {
             domain.push_back(s);
-            new_args.push_back(m_manager.mk_var(i, s));
+            new_args.push_back(m.mk_var(i, s));
             var_sorts.push_back(s);
         }
         else {
-            var_sorts.push_back(m_manager.mk_bool_sort()); // could be any sort.
+            var_sorts.push_back(m.mk_bool_sort()); // could be any sort.
         }
         var_names.push_back(symbol(i));
     }
 
-    sort * range = m_manager.get_sort(e);
-    func_decl * new_skolem_decl = m_manager.mk_fresh_func_decl(m_z3name, symbol::null, domain.size(), domain.c_ptr(), range);
-    app * n = m_manager.mk_app(new_skolem_decl, new_args.size(), new_args.c_ptr());
-    TRACE("mk_definition_bug", tout << "gen_name: " << mk_ismt2_pp(n, m_manager) << "\n";
-          for (unsigned i = 0; i < var_sorts.size(); i++) tout << mk_pp(var_sorts[i], m_manager) << " ";
+    sort * range = m.get_sort(e);
+    func_decl * new_skolem_decl = m.mk_fresh_func_decl(m_z3name, symbol::null, domain.size(), domain.c_ptr(), range);
+    app * n = m.mk_app(new_skolem_decl, new_args.size(), new_args.c_ptr());
+    TRACE("mk_definition_bug", tout << "gen_name: " << mk_ismt2_pp(n, m) << "\n";
+          for (unsigned i = 0; i < var_sorts.size(); i++) tout << mk_pp(var_sorts[i], m) << " ";
           tout << "\n";);
     return n;
 }
@@ -153,17 +155,17 @@ void defined_names::impl::bound_vars(sort_ref_buffer const & sorts, buffer<symbo
     if (sorts.empty())
         result = def_conjunct;
     else {
-        expr * patterns[1] = { m_manager.mk_pattern(name) };
-        quantifier_ref q(m_manager);
-        q = m_manager.mk_forall(sorts.size(),
+        expr * patterns[1] = { m.mk_pattern(name) };
+        quantifier_ref q(m);
+        q = m.mk_forall(sorts.size(),
                                 sorts.c_ptr(),
                                 names.c_ptr(),
                                 def_conjunct,
                                 1, symbol::null, symbol::null,
                                 1, patterns);
-        TRACE("mk_definition_bug", tout << "before elim_unused_vars:\n" << mk_ismt2_pp(q, m_manager) << "\n";);
-        elim_unused_vars(m_manager, q, params_ref(), result);
-        TRACE("mk_definition_bug", tout << "after elim_unused_vars:\n" << mk_ismt2_pp(result, m_manager) << "\n";);
+        TRACE("mk_definition_bug", tout << "before elim_unused_vars:\n" << mk_ismt2_pp(q, m) << "\n";);
+        elim_unused_vars(m, q, params_ref(), result);
+        TRACE("mk_definition_bug", tout << "after elim_unused_vars:\n" << mk_ismt2_pp(result, m) << "\n";);
     }
 }
 
@@ -173,43 +175,58 @@ void defined_names::impl::bound_vars(sort_ref_buffer const & sorts, buffer<symbo
    In this case, The application \c name is used as a pattern for the new quantifier.
 */
 void defined_names::impl::bound_vars(sort_ref_buffer const & sorts, buffer<symbol> const & names, expr * def_conjunct, app * name, expr_ref_buffer & result) {
-    expr_ref tmp(m_manager);
+    expr_ref tmp(m);
     bound_vars(sorts, names, def_conjunct, name, tmp);
     result.push_back(tmp);
 }
 
-#define MK_OR      m_manager.mk_or
-#define MK_NOT     m_manager.mk_not
-#define MK_EQ      m_manager.mk_eq
+#define MK_OR      m.mk_or
+#define MK_NOT     m.mk_not
+#define MK_EQ      m.mk_eq
 
-void defined_names::impl::mk_definition(expr * e, app * n, sort_ref_buffer & var_sorts, buffer<symbol> const & var_names, expr_ref & new_def) {
-    expr_ref_buffer defs(m_manager);
-    if (m_manager.is_bool(e)) {
+void defined_names::impl::mk_definition(expr * e, app * n, sort_ref_buffer & var_sorts, buffer<symbol> & var_names, expr_ref & new_def) {
+    expr_ref_buffer defs(m);
+    if (m.is_bool(e)) {
         bound_vars(var_sorts, var_names, MK_OR(MK_NOT(n), e), n, defs);
         bound_vars(var_sorts, var_names, MK_OR(n, MK_NOT(e)), n, defs);
     }
-    else if (m_manager.is_term_ite(e)) {
+    else if (m.is_term_ite(e)) {
         bound_vars(var_sorts, var_names, MK_OR(MK_NOT(to_app(e)->get_arg(0)), MK_EQ(n, to_app(e)->get_arg(1))), n, defs);
         bound_vars(var_sorts, var_names, MK_OR(to_app(e)->get_arg(0),         MK_EQ(n, to_app(e)->get_arg(2))), n, defs);
+    }
+    else if (is_lambda(e)) {
+        quantifier* q = to_quantifier(e);
+        q->get_num_decls();
+        q->get_decl_sorts();
+        q->get_decl_names();
+        expr_ref_vector args(m);
+        args.push_back(n);
+        var_sorts.append(q->get_num_decls(), q->get_decl_sorts());
+        var_names.append(q->get_num_decls(), q->get_decl_names());
+        array_util autil(m);
+        expr_ref n2(autil.mk_select(args.size(), args.c_ptr()), m);
+        expr_ref e2(e, m); // TBD 
+        bound_vars(var_sorts, var_names, MK_EQ(e2, n2), n, defs);
     }
     else {
         bound_vars(var_sorts, var_names, MK_EQ(e, n), n, defs);
     }
-    new_def = defs.size() == 1 ? defs[0] : m_manager.mk_and(defs.size(), defs.c_ptr());
+    new_def = mk_and(m, defs.size(), defs.c_ptr());
 }
+
 
 void defined_names::pos_impl::mk_definition(expr * e, app * n, sort_ref_buffer & var_sorts, buffer<symbol> const & var_names, expr_ref & new_def) {
     bound_vars(var_sorts, var_names, MK_OR(MK_NOT(n), e), n, new_def);
 }
 
 bool defined_names::impl::mk_name(expr * e, expr_ref & new_def, proof_ref & new_def_pr, app_ref & n, proof_ref & pr) {
-    TRACE("mk_definition_bug", tout << "making name for:\n" << mk_ismt2_pp(e, m_manager) << "\n";);
+    TRACE("mk_definition_bug", tout << "making name for:\n" << mk_ismt2_pp(e, m) << "\n";);
 
     app *   n_ptr;
     if (m_expr2name.find(e, n_ptr)) {
         TRACE("mk_definition_bug", tout << "name for expression is already cached..., returning false...\n";);
         n = n_ptr;
-        if (m_manager.proofs_enabled()) {
+        if (m.proofs_enabled()) {
             proof * pr_ptr = 0;
             m_expr2proof.find(e, pr_ptr);
             SASSERT(pr_ptr);
@@ -218,24 +235,24 @@ bool defined_names::impl::mk_name(expr * e, expr_ref & new_def, proof_ref & new_
         return false;
     }
     else {
-        sort_ref_buffer  var_sorts(m_manager);
+        sort_ref_buffer  var_sorts(m);
         buffer<symbol>   var_names;
 
         n = gen_name(e, var_sorts, var_names);
         cache_new_name(e, n);
 
-        TRACE("mk_definition_bug", tout << "name: " << mk_ismt2_pp(n, m_manager) << "\n";);
+        TRACE("mk_definition_bug", tout << "name: " << mk_ismt2_pp(n, m) << "\n";);
         // variables are in reverse order in quantifiers
         std::reverse(var_sorts.c_ptr(), var_sorts.c_ptr() + var_sorts.size());
         std::reverse(var_names.c_ptr(), var_names.c_ptr() + var_names.size());
 
         mk_definition(e, n, var_sorts, var_names, new_def);
 
-       TRACE("mk_definition_bug", tout << "new_def:\n" << mk_ismt2_pp(new_def, m_manager) << "\n";);
+        TRACE("mk_definition_bug", tout << "new_def:\n" << mk_ismt2_pp(new_def, m) << "\n";);
 
-        if (m_manager.proofs_enabled()) {
-            new_def_pr = m_manager.mk_def_intro(new_def);
-            pr         = m_manager.mk_apply_def(e, n, new_def_pr);
+        if (m.proofs_enabled()) {
+            new_def_pr = m.mk_def_intro(new_def);
+            pr         = m.mk_apply_def(e, n, new_def_pr);
             cache_new_name_intro_proof(e, pr);
         }
         return true;
@@ -257,7 +274,7 @@ void defined_names::impl::pop_scope(unsigned num_scopes) {
     SASSERT(sz == m_names.size());
     while (old_sz != sz) {
         --sz;
-        if (m_manager.proofs_enabled()) {
+        if (m.proofs_enabled()) {
             m_expr2proof.erase(m_exprs.back());
             m_apply_proofs.pop_back();
         }
