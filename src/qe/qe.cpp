@@ -2339,13 +2339,18 @@ namespace qe {
             case AST_QUANTIFIER: {
                 app_ref_vector vars(m);
                 quantifier* q = to_quantifier(e);
-                bool is_fa = q->is_forall();
-                tmp = q->get_expr();
-                extract_vars(q, tmp, vars);
-                elim(tmp);
-                init_qe();
-                m_qe->set_assumption(m_assumption);
-                m_qe->eliminate(is_fa, vars.size(), vars.c_ptr(), tmp);
+                if (q->is_lambda()) {
+                    tmp = e;
+                }
+                else {
+                    bool is_fa = q->is_forall();
+                    tmp = q->get_expr();
+                    extract_vars(q, tmp, vars);
+                    elim(tmp);
+                    init_qe();
+                    m_qe->set_assumption(m_assumption);
+                    m_qe->eliminate(is_fa, vars.size(), vars.c_ptr(), tmp);
+                }
                 m_trail.push_back(tmp);
                 m_visited.insert(e, tmp);
                 todo.pop_back();

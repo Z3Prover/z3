@@ -1246,6 +1246,9 @@ namespace qe {
                 fml = push_not(fml);
             }
             hoist(fml);
+            if (!is_ground(fml)) {
+                throw tactic_exception("formula is not hoistable");
+            }
             m_pred_abs.abstract_atoms(fml, defs);
             fml = m_pred_abs.mk_abstract(fml);
             m_ex.assert_expr(mk_and(defs));

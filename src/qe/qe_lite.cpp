@@ -462,11 +462,15 @@ namespace eq {
             }
 
             expr_ref t(m);
-            if (q->is_forall()) {
+            switch (q->get_kind()) {
+            case forall_k:
                 rw.mk_or(m_new_args.size(), m_new_args.c_ptr(), t);
-            }
-            else {
+                break;
+            case exists_k:
                 rw.mk_and(m_new_args.size(), m_new_args.c_ptr(), t);
+                break;
+            default:
+                t = e;
             }
             expr_ref new_e(m);
             m_subst(t, m_subst_map.size(), m_subst_map.c_ptr(), new_e);
@@ -2312,7 +2316,9 @@ public:
             for (unsigned i = 0; i < q->get_num_decls(); ++i) {
                 indices.insert(i);
             }
-            m_imp(indices, true, result);
+			if (q->get_kind() != lambda_k) {
+				m_imp(indices, true, result);
+			}
             if (is_forall(q)) {
                 result = push_not(result);
             }
