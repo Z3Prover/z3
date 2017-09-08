@@ -61,15 +61,14 @@ namespace smt {
         }
 
         virtual solver * translate(ast_manager & m, params_ref const & p) {
+            ast_translation translator(get_manager(), m);
+
             solver * result = alloc(solver, m, p, m_logic);
             smt::kernel::copy(m_context, result->m_context);
 
-            ast_translation translator(get_manager(), m);
-            obj_map<expr, expr*>::iterator it = m_name2assertion.begin();
-            obj_map<expr, expr*>::iterator end = m_name2assertion.end();
-            for (; it != end; it++)
-                result->m_name2assertion.insert(translator(it->m_key),
-                                                translator(it->m_value));
+            for (auto & kv : m_name2assertion) 
+                result->m_name2assertion.insert(translator(kv.m_key),
+                                                translator(kv.m_value));
 
             return result;
         }
@@ -264,7 +263,7 @@ namespace smt {
         }
 
         void compute_assrtn_fds(ptr_vector<expr> & core, vector<func_decl_set> & assrtn_fds) {
-            assrtn_fds.resize(m_name2assertion.size());
+            assrtn_fds.resize(m_name2assertion.size());            
             obj_map<expr, expr*>::iterator ait = m_name2assertion.begin();
             obj_map<expr, expr*>::iterator aend = m_name2assertion.end();
             for (unsigned i = 0; ait != aend; ait++, i++) {
@@ -277,10 +276,7 @@ namespace smt {
         }
 
         bool fds_intersect(func_decl_set & pattern_fds, func_decl_set & assrtn_fds) {
-            func_decl_set::iterator it = pattern_fds.begin();
-            func_decl_set::iterator end = pattern_fds.end();
-            for (; it != end; it++) {
-                func_decl * fd = *it;
+            for (func_decl * fd : pattern_fds) {
                 if (assrtn_fds.contains(fd))
                     return true;
             }

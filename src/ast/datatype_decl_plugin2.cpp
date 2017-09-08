@@ -24,6 +24,7 @@ Revision History:
 #include "ast/datatype_decl_plugin2.h"
 #include "ast/array_decl_plugin.h"
 #include "ast/ast_smt2_pp.h"
+#include "ast/ast_translation.h"
 
 
 namespace datatype {
@@ -53,6 +54,9 @@ namespace datatype {
 
     def const& accessor::get_def() const { return m_constructor->get_def(); }
     util& accessor::u() const { return m_constructor->u(); }
+    accessor* accessor::translate(ast_translation& tr) {
+        return alloc(accessor, tr.to(), name(), to_sort(tr(m_range.get())));
+    }
 
     constructor::~constructor() {
         for (accessor* a : m_accessors) dealloc(a);
@@ -76,6 +80,15 @@ namespace datatype {
         return instantiate(sorts);
     }
 
+    constructor* constructor::translate(ast_translation& tr) {
+        constructor* result = alloc(constructor, m_name, m_recognizer);
+        for (accessor* a : *this) {
+            result->add(a->translate(tr));
+        }
+        return result;
+    }
+
+
     sort_ref def::instantiate(sort_ref_vector const& sorts) const {
         sort_ref s(m);
         TRACE("datatype", tout << "instantiate " << m_name << "\n";);
@@ -89,6 +102,19 @@ namespace datatype {
             return m_sort;
         }
         return sort_ref(m.substitute(m_sort, sorts.size(), m_params.c_ptr(), sorts.c_ptr()), m);
+    }
+
+    def* def::translate(ast_translation& tr, util& u) {
+        sort_ref_vector ps(tr.to());
+        for (sort* p : m_params) {
+            ps.push_back(to_sort(tr(p)));
+        }
+        def* result = alloc(def, tr.to(), u, m_name, m_class_id, ps.size(), ps.c_ptr());
+        for (constructor* c : *this) {
+            add(c->translate(tr));
+        }
+        if (m_sort) result->m_sort = to_sort(tr(m_sort.get()));
+        return result;               
     }
 
     enum status {
@@ -144,6 +170,27 @@ namespace datatype {
             }
             return *(m_util.get());
         }
+
+        static unsigned stack_depth = 0;
+
+        void plugin::inherit(decl_plugin* other_p, ast_translation& tr) {
+            ++stack_depth;
+            SASSERT(stack_depth < 10);
+            plugin* p = dynamic_cast<plugin*>(other_p);
+            svector<symbol> names;
+            SASSERT(p);
+            for (auto& kv : p->m_defs) {
+                def* d = kv.m_value;
+                if (!m_defs.contains(kv.m_key)) {
+                    names.push_back(kv.m_key);
+                    m_defs.insert(kv.m_key, d->translate(tr, u()));
+                }
+            }
+            m_class_id = m_defs.size();
+            u().compute_datatype_size_functions(names);
+            --stack_depth;
+        }
+
 
         struct invalid_datatype {};
 

@@ -75,6 +75,7 @@ namespace datatype {
         constructor const& get_constructor() const { return *m_constructor; }
         def const& get_def() const;
         util& u() const;
+        accessor* translate(ast_translation& tr);
     };
 
     class constructor {
@@ -98,6 +99,7 @@ namespace datatype {
         void attach(def* d) { m_def = d; }
         def const& get_def() const { return *m_def; }
         util& u() const;
+        constructor* translate(ast_translation& tr);
     };
 
     namespace param_size {
@@ -228,6 +230,7 @@ namespace datatype {
         util& u() const { return m_util; }
         param_size::size* sort_size() { return m_sort_size; }
         void set_sort_size(param_size::size* p) { m_sort_size = p; p->inc_ref(); m_sort = 0; }
+        def* translate(ast_translation& tr, util& u);
     };
 
     namespace decl {
@@ -238,6 +241,9 @@ namespace datatype {
             svector<symbol>          m_def_block;
             unsigned                 m_class_id;
             util & u() const;
+
+            virtual void inherit(decl_plugin* other_p, ast_translation& tr);
+
         public:
             plugin(): m_class_id(0) {}
             virtual ~plugin();

@@ -895,6 +895,8 @@ struct ast_eq_proc {
     }
 };
 
+class ast_translation;
+
 class ast_table : public chashtable<ast*, obj_ptr_hash<ast>, ast_eq_proc> {
 public:
     void erase(ast * n);
@@ -929,6 +931,8 @@ protected:
         m_manager   = m;
         m_family_id = id;
     }
+
+    virtual void inherit(decl_plugin* other_p, ast_translation& ) { }
 
     friend class ast_manager;
 
