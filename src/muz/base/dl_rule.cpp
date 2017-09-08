@@ -438,11 +438,7 @@ namespace datalog {
                 e = e2;
             }
         }
-        if (is_quantifier(e)) {
-            q = to_quantifier(e);
-            return q->is_forall();
-        }
-        return false;
+        return ::is_forall(e);
     }
 
 

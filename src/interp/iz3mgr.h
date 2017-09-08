@@ -198,6 +198,7 @@ class iz3mgr  {
         Numeral,
         Forall,
         Exists,
+        Lambda,
         Variable,
         Uninterpreted,
         Other

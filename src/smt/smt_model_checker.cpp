@@ -316,8 +316,6 @@ namespace smt {
         expr* fn = to_app(q->get_pattern(0))->get_arg(0);
         SASSERT(is_app(fn));
         func_decl* f = to_app(fn)->get_decl();
-        enode_vector::const_iterator it  = m_context->begin_enodes_of(f);
-        enode_vector::const_iterator end = m_context->end_enodes_of(f);
 
         bool is_undef = false;
         expr_ref_vector args(m);
@@ -325,9 +323,9 @@ namespace smt {
         args.resize(num_decls, 0);
         var_subst sub(m);
         expr_ref tmp(m), result(m);
-        for (; it != end; ++it) {
-            if (m_context->is_relevant(*it)) {
-                app* e = (*it)->get_owner();
+        for (enode* n : m_context->enodes()) {
+            if (m_context->is_relevant(n)) {
+                app* e = n->get_owner();
                 SASSERT(e->get_num_args() == num_decls);
                 for (unsigned i = 0; i < num_decls; ++i) {
                     args[i] = e->get_arg(i);

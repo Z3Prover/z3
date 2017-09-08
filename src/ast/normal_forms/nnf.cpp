@@ -17,16 +17,16 @@ Notes:
     Major revision on 2011-10-06
 
 --*/
+
+#include "util/warning.h"
+#include "util/cooperate.h"
 #include "ast/normal_forms/nnf.h"
 #include "ast/normal_forms/nnf_params.hpp"
-#include "util/warning.h"
 #include "ast/used_vars.h"
 #include "ast/well_sorted.h"
-#include "ast/rewriter/var_subst.h"
-
-#include "ast/normal_forms/name_exprs.h"
 #include "ast/act_cache.h"
-#include "util/cooperate.h"
+#include "ast/rewriter/var_subst.h"
+#include "ast/normal_forms/name_exprs.h"
 
 #include "ast/ast_smt2_pp.h"
 
@@ -145,7 +145,7 @@ class skolemizer {
         s(body, substitution.size(), substitution.c_ptr(), r);
         p = 0;
         if (m.proofs_enabled()) {
-            if (q->is_forall()) 
+            if (q->get_kind() == forall_k) 
                 p = m.mk_skolemization(m.mk_not(q), m.mk_not(r));
             else
                 p = m.mk_skolemization(q, r);
@@ -760,13 +760,28 @@ struct nnf::imp {
             }
             else {
                 m_skolemizer(q, r, pr);
-                if (!visit(r, !q->is_forall(), fr.m_in_q))
+                if (!visit(r, !is_forall(q), fr.m_in_q))
                     return false;
             }
         }
 
         if (is_lambda(q)) {
-            NOT_IMPLEMENTED_YET();
+            expr * new_expr = m_result_stack.back();
+            quantifier * new_q = m.update_quantifier(q, new_expr);
+            proof * new_q_pr   = 0;
+            if (proofs_enabled()) {
+                proof * new_expr_pr = m_result_pr_stack.back();
+                new_q_pr = m.mk_rewrite(q, new_q);  // TBD use new_expr_pr
+            }
+                                                      
+            m_result_stack.pop_back();
+            m_result_stack.push_back(new_q);
+            if (proofs_enabled()) {
+                m_result_pr_stack.pop_back();
+                m_result_pr_stack.push_back(new_q_pr);
+                SASSERT(m_result_stack.size() == m_result_pr_stack.size());
+            }
+            return true;
         }
         else if (is_forall(q) == fr.m_pol || !m_skolemize) {
             expr * new_expr     = m_result_stack.back();
@@ -796,7 +811,7 @@ struct nnf::imp {
                     new_q_pr = m.mk_nnf_pos(q, new_q, 1, &new_expr_pr);
             }
             else {
-                quantifier_kind k = q->is_forall()? exists_k : forall_k;
+                quantifier_kind k = is_forall(q)? exists_k : forall_k;
                 new_q = m.update_quantifier(q, k, new_patterns.size(), new_patterns.c_ptr(), new_expr);
                 if (proofs_enabled())
                     new_q_pr = m.mk_nnf_neg(q, new_q, 1, &new_expr_pr);

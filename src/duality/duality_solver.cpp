@@ -909,13 +909,12 @@ namespace Duality {
                 return;
             TopoSort[node] = INT_MAX;  // just to break cycles
             Edge *edge = node->Outgoing; // note, this is just *one* outgoing edge
-            if(edge){
-                std::vector<Node *> &chs = edge->Children;
-                for(unsigned i = 0; i < chs.size(); i++)
-                    DoTopoSortRec(chs[i]);
+            if (edge){
+                for (Node* ch : edge->Children)
+                    DoTopoSortRec(ch);
             }
             TopoSort[node] = TopoSortCounter++;
-            SortedEdges.push_back(edge);
+            SortedEdges.push_back(edge); // NB. edge could be nullptr. 
         }
 
         void DoTopoSort(){

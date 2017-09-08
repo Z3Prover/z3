@@ -187,7 +187,8 @@ private:
             }
             else if (is_quantifier(curr.first)) {
                 quantifier *q = to_quantifier(curr.first);
-                if (q->is_forall()) {
+                switch (q->get_kind()) {
+                case forall_k:
                     if (q->has_patterns()) {
                         ptr_vector<func_decl> next_consts;
                         if (quantifier_matches(q, consts, next_consts)) {
@@ -208,9 +209,13 @@ private:
                     else {
                         stack.push_back(work_item(q->get_expr(), curr.second));
                     }
-                }
-                else if (q->is_exists()) {
+                    break;
+                case exists_k:
                     stack.push_back(work_item(q->get_expr(), curr.second));
+                    break;
+                default:
+                    SASSERT(is_lambda(q));
+                    break;
                 }
             }
         }
@@ -224,10 +229,10 @@ private:
             visiting = to_visit.back();
             to_visit.pop_back();
             visited.insert(visiting);
-            for (obj_hashtable<func_decl>::iterator constit = exp2const[visiting].begin(), constend = exp2const[visiting].end(); constit != constend; constit++) {
-                for (obj_hashtable<expr>::iterator exprit = const2exp[*constit].begin(), exprend = const2exp[*constit].end(); exprit != exprend; exprit++) {
-                    if (!visited.contains(*exprit)) {
-                        to_visit.push_back(*exprit);
+            for (func_decl * f : exp2const[visiting]) {
+                for (expr* e : const2exp[f]) {
+                    if (!visited.contains(e)) {
+                        to_visit.push_back(e);
                     }
                 }
             }

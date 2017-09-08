@@ -607,7 +607,7 @@ namespace Duality {
 	}
 
         bool is_quantifier_forall() const {
-            return to_quantifier(raw())->is_forall();
+            return is_forall(raw());
 	}
 
 	sort get_quantifier_bound_sort(unsigned n) const {

@@ -18,12 +18,14 @@ Revision History:
 --*/
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
-#include "ast/rewriter/var_subst.h"
 #include "ast/well_sorted.h"
 #include "ast/used_symbols.h"
+#include "ast/for_each_expr.h"
+#include "ast/rewriter/var_subst.h"
 #include "model/model_params.hpp"
 #include "model/model_v2_pp.h"
 #include "smt/proto_model/proto_model.h"
+
 
 proto_model::proto_model(ast_manager & m, params_ref const & p):
     model_core(m),
@@ -391,3 +393,4 @@ model * proto_model::mk_model() {
 
     return m;
 }
+

@@ -26,10 +26,26 @@ Revision History:
 class model : public model_core {
 protected:
     typedef obj_map<sort, ptr_vector<expr>*> sort2universe;
-    
+    typedef obj_hashtable<func_decl> func_decl_set;
+
     ptr_vector<sort>              m_usorts;
     sort2universe                 m_usort2universe;
+    bool                          m_cleaned;
     struct value_proc;
+
+    void collect_deps(obj_map<func_decl, func_decl_set*>& deps);
+    func_decl_set* collect_deps(expr * e);
+    func_decl_set* collect_deps(func_interp* fi);
+    struct deps_collector;
+    
+    struct top_sort;
+    void topological_sort(top_sort& st);
+    void traverse(top_sort& st, func_decl* f);
+    bool is_singleton_partition(top_sort& st, func_decl* f) const;
+    
+    void cleanup_interp(top_sort&_st, func_decl * f);
+    expr_ref cleanup_expr(top_sort& st, expr* e, unsigned current_partition);
+    void remove_decls(ptr_vector<func_decl> & decls, func_decl_set const & s);
 
 public:
     model(ast_manager & m);
@@ -58,6 +74,8 @@ public:
     // Model translation
     //
     model * translate(ast_translation & translator) const;
+
+    void cleanup();
 };
 
 typedef ref<model> model_ref;

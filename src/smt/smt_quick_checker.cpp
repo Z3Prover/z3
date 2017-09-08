@@ -51,10 +51,7 @@ namespace smt {
     bool quick_checker::collector::check_arg(enode * n, func_decl * f, unsigned i) {
         if (!f || !m_conservative)
             return true;
-        enode_vector::const_iterator it  = m_context.begin_enodes_of(f);
-        enode_vector::const_iterator end = m_context.end_enodes_of(f);
-        for (; it != end; ++it) {
-            enode * curr = *it;
+        for (enode * curr : m_context.enodes_of(f)) {
             if (m_context.is_relevant(curr) && curr->is_cgr() && i < curr->get_num_args() && curr->get_arg(i)->get_root() == n->get_root())
                 return true;
         }
@@ -76,10 +73,7 @@ namespace smt {
                     if (s.empty())
                         continue;
                     ns.reset();
-                    enode_vector::const_iterator it  = m_context.begin_enodes_of(f);
-                    enode_vector::const_iterator end = m_context.end_enodes_of(f);
-                    for (; it != end; ++it) {
-                        enode * curr = *it;
+                    for (enode * curr : m_context.enodes_of(f)) {
                         if (m_context.is_relevant(curr) && curr->is_cgr() && check_arg(curr, p, i) && j < curr->get_num_args()) {
                             enode * arg = curr->get_arg(j)->get_root();
                             // intersection
@@ -93,10 +87,7 @@ namespace smt {
                 else {
                     m_already_found[idx] = true;
                     enode_set & s  = m_candidates[idx];
-                    enode_vector::const_iterator it  = m_context.begin_enodes_of(f);
-                    enode_vector::const_iterator end = m_context.end_enodes_of(f);
-                    for (; it != end; ++it) {
-                        enode * curr = *it;
+                    for (enode * curr : m_context.enodes_of(f)) {
                         if (m_context.is_relevant(curr) && curr->is_cgr() && check_arg(curr, p, i) && j < curr->get_num_args()) {
                             enode * arg = curr->get_arg(j)->get_root();
                             s.insert(arg);
@@ -133,10 +124,7 @@ namespace smt {
             enode_vector & v        = candidates[i];
             v.reset();
             enode_set & s           = m_candidates[i];
-            enode_set::iterator it  = s.begin();
-            enode_set::iterator end = s.end();
-            for (; it != end; ++it) {
-                enode * curr = *it;
+            for (enode * curr : s) {
                 v.push_back(curr);
             }
         }
@@ -145,10 +133,8 @@ namespace smt {
               for (unsigned i = 0; i < m_num_vars; i++) {
                   tout << "var " << i << ":";
                   enode_vector & v           = candidates[i];
-                  enode_vector::iterator it  = v.begin();
-                  enode_vector::iterator end = v.end();
-                  for (; it != end; ++it)
-                      tout << " #" << (*it)->get_owner_id();
+                  for (enode * n : v) 
+                      tout << " #" << n->get_owner_id();
                   tout << "\n";
               });
     }
@@ -226,10 +212,8 @@ namespace smt {
               tout << "candidates:\n";
               for (unsigned i = 0; i < m_num_bindings; i++) {
                   enode_vector & v           = m_candidate_vectors[i];
-                  enode_vector::iterator it  = v.begin();
-                  enode_vector::iterator end = v.end();
-                  for (; it != end; ++it)
-                      tout << "#" << (*it)->get_owner_id() << " ";
+                  for (enode * n : v) 
+                      tout << "#" << n->get_owner_id() << " ";
                   tout << "\n";
               });
         bool result = false;

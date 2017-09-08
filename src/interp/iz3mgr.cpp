@@ -430,7 +430,12 @@ iz3mgr::opr iz3mgr::op(const ast &t){
 
 
     case AST_QUANTIFIER:
-        return to_quantifier(t.raw())->is_forall() ? Forall : Exists;
+        switch (to_quantifier(t.raw())->get_kind()) {
+        case forall_k: return Forall;
+        case exists_k: return Exists;
+        case lambda_k: return Lambda;
+        default: UNREACHABLE();
+        }
     case AST_VAR:
         return Variable;
     default:;

@@ -334,7 +334,7 @@ bool macro_util::is_pseudo_head(expr * n, unsigned num_decls, app_ref & head, ap
    where t is a ground term, (f X) is the head.
 */
 bool macro_util::is_pseudo_predicate_macro(expr * n, app_ref & head, app_ref & t, expr_ref & def) {
-    if (!is_quantifier(n) || !to_quantifier(n)->is_forall())
+    if (!is_forall(n)) 
         return false;
     TRACE("macro_util", tout << "processing: " << mk_pp(n, m_manager) << "\n";);
     expr * body        = to_quantifier(n)->get_expr();

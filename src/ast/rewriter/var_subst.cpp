@@ -47,13 +47,14 @@ unused_vars_eliminator::unused_vars_eliminator(ast_manager & m, params_ref const
 
 void unused_vars_eliminator::operator()(quantifier* q, expr_ref & result) {
     SASSERT(is_well_sorted(m, q));
+    TRACE("elim_unused_vars", tout << expr_ref(q, m) << "\n";);
+    if (q->get_kind() == lambda_k) {
+        result = q;
+        return;
+    }
     if (m_ignore_patterns_on_ground_qbody && is_ground(q->get_expr())) {
         // Ignore patterns if the body is a ground formula.
         result = q->get_expr();
-        return;
-    }
-    if (q->get_kind() == lambda_k) {
-        result = q;
         return;
     }
     if (!q->may_have_unused_vars()) {
@@ -159,6 +160,7 @@ void unused_vars_eliminator::operator()(quantifier* q, expr_ref & result) {
 void elim_unused_vars(ast_manager & m, quantifier * q, params_ref const & params, expr_ref & result) {
     unused_vars_eliminator el(m, params);
     el(q, result);
+    TRACE("elim_unused_vars", tout << expr_ref(q, m) << " -> " << result << "\n";);
 }
 
 void instantiate(ast_manager & m, quantifier * q, expr * const * exprs, expr_ref & result) {

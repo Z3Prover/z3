@@ -988,9 +988,10 @@ namespace qe {
                     break;
                 }
                 case AST_QUANTIFIER: {
+                    SASSERT(!is_lambda(e));
                     app_ref_vector vars(m);
                     quantifier* q = to_quantifier(e);
-                    bool is_fa = q->is_forall();
+                    bool is_fa = q->get_kind() == forall_k;
                     tmp = q->get_expr();
                     extract_vars(q, tmp, vars);
                     TRACE("qe", tout << vars << " " << mk_pp(q, m) << " " << tmp << "\n";);

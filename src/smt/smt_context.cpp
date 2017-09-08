@@ -2934,7 +2934,7 @@ namespace smt {
     void context::assert_expr_core(expr * e, proof * pr) {
         if (get_cancel_flag()) return;
         SASSERT(is_well_sorted(m_manager, e));
-        TRACE("begin_assert_expr", tout << mk_pp(e, m_manager) << "\n";);
+        TRACE("begin_assert_expr", tout << this << " " << mk_pp(e, m_manager) << "\n";);
         TRACE("begin_assert_expr_ll", tout << mk_ll_pp(e, m_manager) << "\n";);
         pop_to_base_lvl();
         if (pr == 0)
@@ -3561,10 +3561,10 @@ namespace smt {
                 pop_scope(m_scope_lvl - curr_lvl);
                 SASSERT(at_search_level());
             }
-            ptr_vector<theory>::iterator it  = m_theory_set.begin();
-            ptr_vector<theory>::iterator end = m_theory_set.end();
-            for (; it != end && !inconsistent(); ++it)
-                (*it)->restart_eh();
+            for (theory* th : m_theory_set) {
+                if (inconsistent()) break;
+                th->restart_eh();
+            }
             TRACE("mbqi_bug_detail", tout << "before instantiating quantifiers...\n";);
             if (!inconsistent()) {
                 m_qmanager->restart_eh();
@@ -4367,9 +4367,9 @@ namespace smt {
         for (unsigned i = 0; i < m_asserted_formulas.get_num_formulas(); ++i) {
             expr* e = m_asserted_formulas.get_formula(i);
             if (is_quantifier(e)) {
-                TRACE("context", tout << mk_pp(e, m) << "\n";);
                 quantifier* q = to_quantifier(e);
                 if (!m.is_rec_fun_def(q)) continue;
+                TRACE("context", tout << mk_pp(e, m) << "\n";);
                 SASSERT(q->get_num_patterns() == 2);
                 expr* fn = to_app(q->get_pattern(0))->get_arg(0);
                 expr* body = to_app(q->get_pattern(1))->get_arg(0);

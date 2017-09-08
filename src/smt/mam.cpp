@@ -16,15 +16,16 @@ Author:
 Revision History:
 
 --*/
-#include "smt/mam.h"
-#include "smt/smt_context.h"
+#include <algorithm>
+
 #include "util/pool.h"
-#include "ast/ast_pp.h"
-#include "ast/ast_ll_pp.h"
 #include "util/trail.h"
 #include "util/stopwatch.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
 #include "ast/ast_smt2_pp.h"
-#include<algorithm>
+#include "smt/mam.h"
+#include "smt/smt_context.h"
 
 // #define _PROFILE_MAM
 
@@ -569,10 +570,8 @@ namespace smt {
             if (m_context) {
                 ast_manager & m = m_context->get_manager();
                 out << "patterns:\n";
-                ptr_vector<app>::const_iterator it  = m_patterns.begin();
-                ptr_vector<app>::const_iterator end = m_patterns.end();
-                for (; it != end; ++it)
-                    out << mk_pp(*it, m) << "\n";
+                for (app* a : m_patterns) 
+                    out << mk_pp(a, m) << "\n";
             }
 #endif
             out << "function: " << m_root_lbl->get_name();
@@ -831,10 +830,8 @@ namespace smt {
         void init(code_tree * t, quantifier * qa, app * mp, unsigned first_idx) {
             SASSERT(m_ast_manager.is_pattern(mp));
 #ifdef Z3DEBUG
-            svector<check_mark>::iterator it  = m_mark.begin();
-            svector<check_mark>::iterator end = m_mark.end();
-            for (; it != end; ++it) {
-                SASSERT(*it == NOT_CHECKED);
+            for (check_mark const& cm : m_mark) {
+                SASSERT(cm == NOT_CHECKED);
             }
 #endif
             m_tree        = t;
@@ -928,10 +925,7 @@ namespace smt {
             unsigned      first_app_sz;
             unsigned      first_app_num_unbound_vars;
             // generate first the non-BIND operations
-            unsigned_vector::iterator it  = m_todo.begin();
-            unsigned_vector::iterator end = m_todo.end();
-            for (; it != end; ++it) {
-                unsigned reg = *it;
+            for (unsigned reg : m_todo) {
                 expr *  p    = m_registers[reg];
                 SASSERT(!is_quantifier(p));
                 if (is_var(p)) {
@@ -1249,10 +1243,7 @@ namespace smt {
             SASSERT(head->m_next == 0);
             m_seq.push_back(m_ct_manager.mk_yield(m_qa, m_mp, m_qa->get_num_decls(), reinterpret_cast<unsigned*>(m_vars.begin())));
 
-            ptr_vector<instruction>::iterator it  = m_seq.begin();
-            ptr_vector<instruction>::iterator end = m_seq.end();
-            for (; it != end; ++it) {
-                instruction * curr = *it;
+            for (instruction * curr : m_seq) {
                 head->m_next = curr;
                 head = curr;
             }
@@ -1495,10 +1486,8 @@ namespace smt {
             }
             if (num_instr > SIMPLE_SEQ_THRESHOLD || (curr != 0 && curr->m_opcode == CHOOSE))
                 simple = false;
-            unsigned_vector::iterator it  = m_to_reset.begin();
-            unsigned_vector::iterator end = m_to_reset.end();
-            for (; it != end; ++it)
-                m_registers[*it] = 0;
+            for (unsigned r : m_to_reset) 
+                m_registers[r] = 0;
             return weight;
         }
 
@@ -1716,23 +1705,19 @@ namespace smt {
                     m_num_choices++;
                     // set: head -> c1 -> c2 -> c3 -> new_child_head1
                     curr = head;
-                    ptr_vector<instruction>::iterator it1  = m_compatible.begin();
-                    ptr_vector<instruction>::iterator end1 = m_compatible.end();
-                    for (; it1 != end1; ++it1) {
-                        set_next(curr, *it1);
-                        curr = *it1;
+                    for (instruction* i : m_compatible) {
+                        set_next(curr, i);
+                        curr = i;
                     }
                     set_next(curr, new_child_head1);
                     // set: new_child_head1:CHOOSE(new_child_head2) -> i1 -> i2 -> first_child_head
                     curr = new_child_head1;
-                    ptr_vector<instruction>::iterator it2  = m_incompatible.begin();
-                    ptr_vector<instruction>::iterator end2 = m_incompatible.end();
-                    for (; it2 != end2; ++it2) {
+                    for (instruction * i : m_incompatible) {
                         if (curr == new_child_head1)
-                            curr->m_next = *it2; // new_child_head1 is a new node, I don't need to save trail
+                            curr->m_next = i; // new_child_head1 is a new node, I don't need to save trail
                         else
-                            set_next(curr, *it2);
-                        curr = *it2;
+                            set_next(curr, i);
+                        curr = i;
                     }
                     set_next(curr, first_child_head);
                     // build new_child_head2:NOOP -> linearise()
@@ -2020,26 +2005,20 @@ namespace smt {
         void execute(code_tree * t) {
             TRACE("trigger_bug", tout << "execute for code tree:\n"; t->display(tout););
             init(t);
-            enode_vector::const_iterator it  = t->get_candidates().begin();
-            enode_vector::const_iterator end = t->get_candidates().end();
             if (t->filter_candidates()) {
-                for (; it != end; ++it) {
-                    enode * app = *it;
+                for (enode* app : t->get_candidates()) {
                     if (!app->is_marked() && app->is_cgr()) {
                         execute_core(t, app);
                         app->set_mark();
                     }
                 }
-                it  = t->get_candidates().begin();
-                for (; it != end; ++it) {
-                    enode * app = *it;
+                for (enode* app : t->get_candidates()) {
                     if (app->is_marked())
                         app->unset_mark();
                 }
             }
             else {
-                for (; it != end; ++it) {
-                    enode * app = *it;
+                for (enode* app : t->get_candidates()) {
                     TRACE("trigger_bug", tout << "candidate\n" << mk_ismt2_pp(app->get_owner(), m_ast_manager) << "\n";);
                     if (app->is_cgr()) {
                         TRACE("trigger_bug", tout << "is_cgr\n";);
@@ -2825,11 +2804,8 @@ namespace smt {
     } // end of execute_core
 
     void display_trees(std::ostream & out, const ptr_vector<code_tree> & trees) {
-        ptr_vector<code_tree>::const_iterator it  = trees.begin();
-        ptr_vector<code_tree>::const_iterator end = trees.end();
         unsigned lbl = 0;
-        for (; it != end; ++it, ++lbl) {
-            code_tree * tree = *it;
+        for (code_tree * tree : trees) {
             if (tree) {
                 out << "tree for f" << lbl << "\n";
                 out << *tree;
@@ -3174,10 +3150,7 @@ namespace smt {
             m_trail_stack.push(set_bitvector_trail<mam_impl>(m_is_clbl, lbl_id));
             SASSERT(m_is_clbl[lbl_id]);
             unsigned h = m_lbl_hasher(lbl);
-            enode_vector::const_iterator it  = m_context.begin_enodes_of(lbl);
-            enode_vector::const_iterator end = m_context.end_enodes_of(lbl);
-            for (; it != end; ++it) {
-                enode * app     = *it;
+            for (enode* app : m_context.enodes_of(lbl)) {
                 if (m_context.is_relevant(app)) {
                     update_lbls(app, h);
                     TRACE("mam_bug", tout << "updating labels of: #" << app->get_owner_id() << "\n";
@@ -3219,10 +3192,7 @@ namespace smt {
             SASSERT(m_is_plbl[lbl_id]);
             SASSERT(is_plbl(lbl));
             unsigned h = m_lbl_hasher(lbl);
-            enode_vector::const_iterator it  = m_context.begin_enodes_of(lbl);
-            enode_vector::const_iterator end = m_context.end_enodes_of(lbl);
-            for (; it != end; ++it) {
-                enode * app = *it;
+            for (enode * app : m_context.enodes_of(lbl)) {
                 if (m_context.is_relevant(app))
                     update_children_plbls(app, h);
             }
@@ -3379,10 +3349,7 @@ namespace smt {
         void update_vars(unsigned short var_id, path * p, quantifier * qa, app * mp) {
             paths & var_paths = m_var_paths[var_id];
             bool found = false;
-            paths::iterator it  = var_paths.begin();
-            paths::iterator end = var_paths.end();
-            for (; it != end; ++it) {
-                path * curr_path = *it;
+            for (path * curr_path : var_paths) {
                 if (is_equal(p, curr_path))
                     found = true;
                 func_decl * lbl1 = curr_path->m_label;
@@ -3673,18 +3640,12 @@ namespace smt {
             TRACE("incremental_matcher", tout << "pp: plbls1: " << plbls1 << ", plbls2: " << plbls2 << "\n";);
             TRACE("mam_info", tout << "pp: " << plbls1.size() * plbls2.size() << "\n";);
             if (!plbls1.empty() && !plbls2.empty()) {
-                approx_set::iterator it1  = plbls1.begin();
-                approx_set::iterator end1 = plbls1.end();
-                for (; it1 != end1; ++it1) {
+                for (unsigned plbl1 : plbls1) {
                     if (m_context.get_cancel_flag()) {
                         break;
                     }
-                    unsigned plbl1 = *it1;
                     SASSERT(plbls1.may_contain(plbl1));
-                    approx_set::iterator it2  = plbls2.begin();
-                    approx_set::iterator end2 = plbls2.end();
-                    for (; it2 != end2; ++it2) {
-                        unsigned plbl2 = *it2;
+                    for (unsigned plbl2 : plbls2) {
                         SASSERT(plbls2.may_contain(plbl2));
                         unsigned n_plbl1 = plbl1;
                         unsigned n_plbl2 = plbl2;
@@ -3717,18 +3678,12 @@ namespace smt {
             approx_set & plbls = r1->get_plbls();
             approx_set & clbls = r2->get_lbls();
             if (!plbls.empty() && !clbls.empty()) {
-                approx_set::iterator it1  = plbls.begin();
-                approx_set::iterator end1 = plbls.end();
-                for (; it1 != end1; ++it1) {
+                for (unsigned plbl1 : plbls) {
                     if (m_context.get_cancel_flag()) {
                         break;
                     }
-                    unsigned plbl1 = *it1;
                     SASSERT(plbls.may_contain(plbl1));
-                    approx_set::iterator it2  = clbls.begin();
-                    approx_set::iterator end2 = clbls.end();
-                    for (; it2 != end2; ++it2) {
-                        unsigned lbl2 = *it2;
+                    for (unsigned lbl2 : clbls) {
                         SASSERT(clbls.may_contain(lbl2));
                         collect_parents(r1, m_pc[plbl1][lbl2]);
                     }
@@ -3739,14 +3694,12 @@ namespace smt {
         void match_new_patterns() {
             TRACE("mam_new_pat", tout << "matching new patterns:\n";);
             m_tmp_trees_to_delete.reset();
-            svector<qp_pair>::iterator it1  = m_new_patterns.begin();
-            svector<qp_pair>::iterator end1 = m_new_patterns.end();
-            for (; it1 != end1; ++it1) {
+            for (auto const& kv : m_new_patterns) {
                 if (m_context.get_cancel_flag()) {
                     break;
                 }
-                quantifier * qa    = it1->first;
-                app *        mp    = it1->second;
+                quantifier * qa    = kv.first;
+                app *        mp    = kv.second;
                 SASSERT(m_ast_manager.is_pattern(mp));
                 app *        p     = to_app(mp->get_arg(0));
                 func_decl *  lbl   = p->get_decl();
@@ -3763,19 +3716,13 @@ namespace smt {
                 }
             }
 
-            ptr_vector<func_decl>::iterator it2  = m_tmp_trees_to_delete.begin();
-            ptr_vector<func_decl>::iterator end2 = m_tmp_trees_to_delete.end();
-            for (; it2 != end2; ++it2) {
-                func_decl * lbl      = *it2;
+            for (func_decl * lbl : m_tmp_trees_to_delete) {
                 unsigned    lbl_id   = lbl->get_decl_id();
                 code_tree * tmp_tree = m_tmp_trees[lbl_id];
                 SASSERT(tmp_tree != 0);
                 SASSERT(m_context.get_num_enodes_of(lbl) > 0);
                 m_interpreter.init(tmp_tree);
-                enode_vector::const_iterator it3  = m_context.begin_enodes_of(lbl);
-                enode_vector::const_iterator end3 = m_context.end_enodes_of(lbl);
-                for (; it3 != end3; ++it3) {
-                    enode * app = *it3;
+                for (enode * app : m_context.enodes_of(lbl)) {
                     if (m_context.is_relevant(app))
                         m_interpreter.execute_core(tmp_tree, app);
                 }
@@ -3864,10 +3811,7 @@ namespace smt {
 
         virtual void pop_scope(unsigned num_scopes) {
             if (!m_to_match.empty()) {
-                ptr_vector<code_tree>::iterator it  = m_to_match.begin();
-                ptr_vector<code_tree>::iterator end = m_to_match.end();
-                for (; it != end; ++it) {
-                    code_tree * t = *it;
+                for (code_tree* t : m_to_match) {
                     t->reset_candidates();
                 }
                 m_to_match.reset();
@@ -3900,10 +3844,7 @@ namespace smt {
 
         virtual void match() {
             TRACE("trigger_bug", tout << "match\n"; display(tout););
-            ptr_vector<code_tree>::iterator it  = m_to_match.begin();
-            ptr_vector<code_tree>::iterator end = m_to_match.end();
-            for (; it != end; ++it) {
-                code_tree * t = *it;
+            for (code_tree* t : m_to_match) {
                 SASSERT(t->has_candidates());
                 m_interpreter.execute(t);
                 t->reset_candidates();
@@ -3924,10 +3865,7 @@ namespace smt {
                 if (t) {
                     m_interpreter.init(t);
                     func_decl * lbl = t->get_root_lbl();
-                    enode_vector::const_iterator it2  = m_context.begin_enodes_of(lbl);
-                    enode_vector::const_iterator end2 = m_context.end_enodes_of(lbl);
-                    for (; it2 != end2; ++it2) {
-                        enode * curr = *it2;
+                    for (enode * curr : m_context.enodes_of(lbl)) {
                         if (use_irrelevant || m_context.is_relevant(curr))
                             m_interpreter.execute_core(t, curr);
                     }

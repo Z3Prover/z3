@@ -433,8 +433,8 @@ namespace eq {
 
         void flatten_args(quantifier* q, unsigned& num_args, expr*const*& args) {
             expr * e = q->get_expr();
-            if ((q->is_forall() && m.is_or(e)) ||
-                (q->is_exists() && m.is_and(e))) {
+            if ((is_forall(q) && m.is_or(e)) ||
+                (is_exists(q) && m.is_and(e))) {
                 num_args = to_app(e)->get_num_args();
                 args     = to_app(e)->get_args();
             }
@@ -500,12 +500,17 @@ namespace eq {
             set_is_variable_proc(is_v);
             unsigned num_args = 1;
             expr* const* args = &e;
+            if (is_lambda(q)) {
+                r = q;
+                pr = 0;
+                return;
+            }
             flatten_args(q, num_args, args);
 
             unsigned def_count = 0;
             unsigned largest_vinx = 0;
 
-            find_definitions(num_args, args, q->is_exists(), def_count, largest_vinx);
+            find_definitions(num_args, args, is_exists(q), def_count, largest_vinx);
 
             if (def_count > 0) {
                 get_elimination_order();

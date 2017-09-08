@@ -2339,11 +2339,11 @@ namespace qe {
             case AST_QUANTIFIER: {
                 app_ref_vector vars(m);
                 quantifier* q = to_quantifier(e);
-                if (q->is_lambda()) {
+                if (is_lambda(q)) {
                     tmp = e;
                 }
                 else {
-                    bool is_fa = q->is_forall();
+                    bool is_fa = is_forall(q);
                     tmp = q->get_expr();
                     extract_vars(q, tmp, vars);
                     elim(tmp);
@@ -2599,6 +2599,9 @@ namespace qe {
             ) 
         {
             
+            if (is_lambda(old_q)) {
+                return false;
+            }
             // bool is_forall = old_q->is_forall();
             app_ref_vector vars(m);
             TRACE("qe", tout << "simplifying" << mk_pp(new_body, m) << "\n";);
@@ -2606,11 +2609,11 @@ namespace qe {
             extract_vars(old_q, result, vars);
             TRACE("qe", tout << "variables extracted" << mk_pp(result, m) << "\n";);
 
-            if (old_q->is_forall()) {
+            if (is_forall(old_q)) {
                 result = mk_not(m, result);
             }
             m_ctx.solve(result, vars);
-            if (old_q->is_forall()) {
+            if (is_forall(old_q)) {
                 expr* e = 0;
                 result = m.is_not(result, e)?e:mk_not(m, result);
             }       

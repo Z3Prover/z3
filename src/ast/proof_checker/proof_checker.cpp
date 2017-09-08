@@ -346,7 +346,7 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
             to_quantifier(t1.get())->get_expr() == s1.get() &&
             to_quantifier(t2.get())->get_expr() == s2.get() &&
             to_quantifier(t1.get())->get_num_decls() == to_quantifier(t2.get())->get_num_decls() &&
-            to_quantifier(t1.get())->is_forall() == to_quantifier(t2.get())->is_forall()) {
+            to_quantifier(t1.get())->get_kind() == to_quantifier(t2.get())->get_kind()) {
             quantifier* q1 = to_quantifier(t1.get());
             quantifier* q2 = to_quantifier(t2.get());
             for (unsigned i = 0; i < q1->get_num_decls(); ++i) {
@@ -748,9 +748,10 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
                 is_forall = true;
             }
             if (is_quantifier(e)) {
+                SASSERT(!is_lambda(e));
                 q = to_quantifier(e);                
                 // TBD check that quantifier is properly instantiated
-                return is_forall == q->is_forall();                
+                return is_forall == ::is_forall(q);                
             }
         }
         UNREACHABLE();
@@ -1001,7 +1002,7 @@ bool proof_checker::match_app(expr* e, func_decl_ref& d, expr_ref_vector& terms)
 bool proof_checker::match_quantifier(expr* e, bool& is_univ, sort_ref_vector& sorts, expr_ref& body) {
     if (is_quantifier(e)) {
         quantifier* q = to_quantifier(e);
-        is_univ = q->is_forall();
+        is_univ = is_forall(q);
         body = q->get_expr();
         for (unsigned i = 0; i < q->get_num_decls(); ++i) {
             sorts.push_back(q->get_decl_sort(i));

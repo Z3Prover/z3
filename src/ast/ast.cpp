@@ -1251,7 +1251,6 @@ func_decl * model_value_decl_plugin::mk_func_decl(decl_kind k, unsigned num_para
                                                   unsigned arity, sort * const * domain, sort * range) {
     SASSERT(k == OP_MODEL_VALUE);
     if (arity != 0 || num_parameters != 2 || !parameters[0].is_int() || !parameters[1].is_ast() || !is_sort(parameters[1].get_ast())) {
-        UNREACHABLE();
         m_manager->raise_exception("invalid model value");
         return 0;
     }
@@ -2424,7 +2423,6 @@ quantifier * ast_manager::mk_lambda(unsigned num_decls, sort * const * decl_sort
     sort* s = autil.mk_array_sort(num_decls, decl_sorts, ::get_sort(body));
     quantifier * new_node = new (mem) quantifier(num_decls, decl_sorts, decl_names, body, s);
     quantifier * r = register_node(new_node);
-    std::cout << sort_ref(s, *this) << "\n";
     return r;
 }
 
@@ -2518,7 +2516,7 @@ quantifier * ast_manager::update_quantifier_weight(quantifier * q, int w) {
                          q->get_no_patterns());
 }
 
-quantifier * ast_manager::update_quantifier(quantifier * q, quantifier_kind k, expr * body) {
+quantifier * ast_manager::update_quantifier(quantifier * q, quantifier_kind k, expr * body) {    
     if (q->get_expr() == body && q->get_kind() == k)
         return q;
     return mk_quantifier(k,

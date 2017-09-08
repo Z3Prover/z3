@@ -16,6 +16,7 @@ Author:
 Notes:
 
 --*/
+#include "util/cooperate.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/rewriter/rewriter_params.hpp"
 #include "ast/rewriter/bool_rewriter.h"
@@ -28,10 +29,9 @@ Notes:
 #include "ast/rewriter/pb_rewriter.h"
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/rewriter/rewriter_def.h"
+#include "ast/rewriter/var_subst.h"
 #include "ast/expr_substitution.h"
 #include "ast/ast_smt2_pp.h"
-#include "util/cooperate.h"
-#include "ast/rewriter/var_subst.h"
 #include "ast/ast_util.h"
 #include "ast/well_sorted.h"
 
@@ -607,6 +607,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         proof * p1 = 0;
         if (is_quantifier(new_body) &&
             to_quantifier(new_body)->get_kind() == old_q->get_kind() &&
+            to_quantifier(new_body)->get_kind() != lambda_k && 
             !old_q->has_patterns() &&
             !to_quantifier(new_body)->has_patterns()) {
 
@@ -653,17 +654,19 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
             SASSERT(is_well_sorted(m(), q1));
         }
 
+        SASSERT(m().get_sort(old_q) == m().get_sort(q1));
         elim_unused_vars(m(), q1, params_ref(), result);
 
-        TRACE("reduce_quantifier", tout << "after elim_unused_vars:\n" << mk_ismt2_pp(result, m()) << "\n";);
+        TRACE("reduce_quantifier", tout << "after elim_unused_vars:\n" << result << "\n";);
 
         result_pr = 0;
         if (m().proofs_enabled()) {
             proof * p2 = 0;
-            if (q1.get() != result.get())
+            if (q1.get() != result.get() && q1->get_kind() != lambda_k) 
                 p2 = m().mk_elim_unused_vars(q1, result);
             result_pr = m().mk_transitivity(p1, p2);
         }
+        SASSERT(m().get_sort(old_q) == m().get_sort(result));
         return true;
     }
 

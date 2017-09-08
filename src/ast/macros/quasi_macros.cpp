@@ -155,7 +155,7 @@ bool quasi_macros::is_quasi_macro(expr * e, app_ref & a, expr_ref & t) const {
     // f[X] contains all universally quantified variables, and f does not occur in T[X].
     TRACE("quasi_macros", tout << "Checking for quasi macro: " << mk_pp(e, m_manager) << std::endl;);
 
-    if (is_quantifier(e) && to_quantifier(e)->is_forall()) {
+    if (is_forall(e)) {
         quantifier * q = to_quantifier(e);
         expr * qe = q->get_expr();
         if ((m_manager.is_eq(qe) || m_manager.is_iff(qe))) {

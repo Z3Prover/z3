@@ -52,7 +52,7 @@ ufbv_rewriter::~ufbv_rewriter() {
 bool ufbv_rewriter::is_demodulator(expr * e, expr_ref & large, expr_ref & small) const {
     if (e->get_kind() == AST_QUANTIFIER) {
         quantifier * q = to_quantifier(e);
-        if (q->is_forall()) {
+        if (is_forall(q)) {
             expr * qe = q->get_expr();
             if ((m_manager.is_eq(qe) || m_manager.is_iff(qe))) {
                 app * eq = to_app(q->get_expr());

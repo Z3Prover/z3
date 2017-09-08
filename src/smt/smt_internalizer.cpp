@@ -513,7 +513,7 @@ namespace smt {
         CTRACE("internalize_quantifier_zero", q->get_weight() == 0, tout << mk_pp(q, m_manager) << "\n";);
         SASSERT(gate_ctx); // limitation of the current implementation
         SASSERT(!b_internalized(q));
-        SASSERT(q->is_forall());
+        SASSERT(is_forall(q));
         SASSERT(check_patterns(q));
         bool_var v             = mk_bool_var(q);
         unsigned generation    = m_generation;

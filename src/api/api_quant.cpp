@@ -292,7 +292,7 @@ extern "C" {
         RESET_ERROR_CODE();
         ast * _a = to_ast(a);
         if (_a->get_kind() == AST_QUANTIFIER) {
-            return to_quantifier(_a)->is_forall();
+            return ::is_forall(to_quantifier(_a));
         }
         else {
             SET_ERROR_CODE(Z3_SORT_ERROR);
@@ -483,3 +483,4 @@ extern "C" {
     }
 
 };
+

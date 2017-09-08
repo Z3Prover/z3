@@ -289,10 +289,10 @@ expr * func_interp::get_interp_core() const {
         return 0;
     expr * r = m_else;
     ptr_buffer<expr> vars;
-    ptr_vector<func_entry>::const_iterator it  = m_entries.begin();
-    ptr_vector<func_entry>::const_iterator end = m_entries.end();
-    for (; it != end; ++it) {
-        func_entry * curr = *it;
+    for (func_entry * curr : m_entries) {
+        if (r == curr->get_result()) {
+            continue;
+        }
         if (vars.empty()) {
             for (unsigned i = 0; i < m_arity; i++) {
                 vars.push_back(m_manager.mk_var(i, m_manager.get_sort(curr->get_arg(i))));

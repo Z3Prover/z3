@@ -31,7 +31,7 @@ class distribute_forall_tactic : public tactic {
                                expr_ref & result,
                                proof_ref & result_pr) {
 
-            if (!old_q->is_forall()) {
+            if (!is_forall(old_q)) {
                 return false;
             }
 

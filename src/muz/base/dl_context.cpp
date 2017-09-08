@@ -1280,13 +1280,10 @@ namespace datalog {
         obj_map<sort, unsigned> max_vars;
         for (unsigned i = 0; i < rules.size(); ++i) {
             expr* r = rules[i].get();
-            if (!is_quantifier(r)) {
+            if (!is_forall(r)) {
                 continue;
             }
             quantifier* q = to_quantifier(r);
-            if (!q->is_forall()) {
-                continue;
-            }            
             if (has_quantifiers(q->get_expr())) {
                 continue;
             }

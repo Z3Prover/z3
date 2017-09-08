@@ -165,7 +165,7 @@ void defined_names::impl::bound_vars(sort_ref_buffer const & sorts, buffer<symbo
                                 1, patterns);
         TRACE("mk_definition_bug", tout << "before elim_unused_vars:\n" << mk_ismt2_pp(q, m) << "\n";);
         elim_unused_vars(m, q, params_ref(), result);
-        TRACE("mk_definition_bug", tout << "after elim_unused_vars:\n" << mk_ismt2_pp(result, m) << "\n";);
+        TRACE("mk_definition_bug", tout << "after elim_unused_vars:\n" << result << "\n";);
     }
 }
 
@@ -195,18 +195,26 @@ void defined_names::impl::mk_definition(expr * e, app * n, sort_ref_buffer & var
         bound_vars(var_sorts, var_names, MK_OR(to_app(e)->get_arg(0),         MK_EQ(n, to_app(e)->get_arg(2))), n, defs);
     }
     else if (is_lambda(e)) {
+        //    n(y) = \x . M[x,y]
+        // => 
+        //    n(y)[x] = M
         quantifier* q = to_quantifier(e);
         q->get_num_decls();
         q->get_decl_sorts();
         q->get_decl_names();
         expr_ref_vector args(m);
-        args.push_back(n);
+        expr_ref n2(m);
+        var_shifter vs(m);
+        vs(n, q->get_num_decls(), n2);        
+        args.push_back(n2);
         var_sorts.append(q->get_num_decls(), q->get_decl_sorts());
         var_names.append(q->get_num_decls(), q->get_decl_names());
+        for (unsigned i = 0; i < q->get_num_decls(); ++i) {
+            args.push_back(m.mk_var(q->get_num_decls() - i - 1, q->get_decl_sort(i)));
+        }
         array_util autil(m);
-        expr_ref n2(autil.mk_select(args.size(), args.c_ptr()), m);
-        expr_ref e2(e, m); // TBD 
-        bound_vars(var_sorts, var_names, MK_EQ(e2, n2), n, defs);
+        expr_ref n3(autil.mk_select(args.size(), args.c_ptr()), m);
+        bound_vars(var_sorts, var_names, MK_EQ(q->get_expr(), n3), to_app(n3), defs);
     }
     else {
         bound_vars(var_sorts, var_names, MK_EQ(e, n), n, defs);

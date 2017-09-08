@@ -51,6 +51,7 @@ sort * array_decl_plugin::mk_sort(decl_kind k, unsigned num_parameters, paramete
     }
     SASSERT(k == ARRAY_SORT);
     if (num_parameters < 2) {
+        UNREACHABLE();
         m_manager->raise_exception("invalid array sort definition, invalid number of parameters");
         return 0;
     }
@@ -316,8 +317,8 @@ func_decl * array_decl_plugin::mk_array_ext(unsigned arity, sort * const * domai
         return 0;
     }
     sort * r = to_sort(s->get_parameter(i).get_ast());
-    parameter param(s);
-    return m_manager->mk_func_decl(m_array_ext_sym, arity, domain, r, func_decl_info(m_family_id, OP_ARRAY_EXT, 1, &param));
+    parameter params[2] = { parameter(s), parameter(i) };
+    return m_manager->mk_func_decl(m_array_ext_sym, arity, domain, r, func_decl_info(m_family_id, OP_ARRAY_EXT, 2, params));
 }
 
 
@@ -478,11 +479,11 @@ func_decl * array_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
         if (num_parameters == 0) {
             return mk_array_ext(arity, domain, 0);
         }
-        if (num_parameters != 1 || !parameters[0].is_int()) {
+        if (num_parameters != 2 || !parameters[1].is_int()) {
             UNREACHABLE();
             return 0;
         }
-        return mk_array_ext(arity, domain, parameters[0].get_int());
+        return mk_array_ext(arity, domain, parameters[1].get_int());
     case OP_ARRAY_DEFAULT:
         return mk_default(arity, domain);
     case OP_SET_UNION:

@@ -393,6 +393,7 @@ namespace smt {
             ast_manager &             m;
             arith_util                m_arith;
             bv_util                   m_bv;
+            array_util                m_array;
             ptr_vector<node>          m_nodes;
             unsigned                  m_next_node_id;
             key2node                  m_uvars;
@@ -427,16 +428,16 @@ namespace smt {
                 m_eval_cache_range.reset();
             }
 
-            node * mk_node(key2node & m, ast * n, unsigned i, sort * s) {
+            node * mk_node(key2node & map, ast * n, unsigned i, sort * s) {
                 node * r = 0;
                 ast_idx_pair k(n, i);
-                if (m.find(k, r)) {
+                if (map.find(k, r)) {
                     SASSERT(r->get_sort() == s);
                     return r;
                 }
                 r = alloc(node, m_next_node_id, s);
                 m_next_node_id++;
-                m.insert(k, r);
+                map.insert(k, r);
                 m_nodes.push_back(r);
                 return r;
             }
@@ -467,6 +468,7 @@ namespace smt {
             auf_solver(ast_manager & m):
                 m(m),
                 m_arith(m),
+                m_array(m),
                 m_bv(m),
                 m_next_node_id(0),
                 m_context(0),
@@ -860,7 +862,6 @@ namespace smt {
                 bool is_signed = n->is_signed_proj();
                 unsigned sz = values.size();
                 SASSERT(sz > 0);
-                func_decl * p = m.mk_fresh_func_decl(1, &s, s);
                 expr * pi     = values[sz - 1];
                 expr_ref var(m);
                 var = m.mk_var(0, s);
@@ -876,8 +877,10 @@ namespace smt {
                 }
                 func_interp * rpi = alloc(func_interp, m, 1);
                 rpi->set_else(pi);
+                func_decl * p = m.mk_fresh_func_decl(1, &s, s);
                 m_model->register_aux_decl(p, rpi);
                 n->set_proj(p);
+                TRACE("model_finder", tout << expr_ref(pi, m) << "\n";);
             }
 
             void mk_simple_proj(node * n) {
@@ -1176,10 +1179,7 @@ namespace smt {
 
             virtual void populate_inst_sets(quantifier * q, auf_solver & s, context * ctx) {
                 node * A_f_i = s.get_A_f_i(m_f, m_arg_i);
-                enode_vector::const_iterator it  = ctx->begin_enodes_of(m_f);
-                enode_vector::const_iterator end = ctx->end_enodes_of(m_f);
-                for (; it != end; it++) {
-                    enode * n = *it;
+                for (enode * n : ctx->enodes_of(m_f)) {
                     if (ctx->is_relevant(n)) {
                         // Remark: it is incorrect to use
                         // n->get_arg(m_arg_i)->get_root()
@@ -1206,10 +1206,7 @@ namespace smt {
                 instantiation_set * s = uvar_inst_sets[m_var_j];
                 SASSERT(s != 0);
 
-                enode_vector::const_iterator it  = ctx->begin_enodes_of(m_f);
-                enode_vector::const_iterator end = ctx->end_enodes_of(m_f);
-                for (; it != end; it++) {
-                    enode * n = *it;
+                for (enode * n : ctx->enodes_of(m_f)) {
                     if (ctx->is_relevant(n)) {
                         enode * e_arg = n->get_arg(m_arg_i);
                         expr * arg    = e_arg->get_owner();
@@ -1258,10 +1255,7 @@ namespace smt {
                     // there is no finite fixpoint... we just copy the i-th arguments of A_f_i - m_offset
                     // hope for the best...
                     node * S_j = s.get_uvar(q, m_var_j);
-                    enode_vector::const_iterator it  = ctx->begin_enodes_of(m_f);
-                    enode_vector::const_iterator end = ctx->end_enodes_of(m_f);
-                    for (; it != end; it++) {
-                        enode * n = *it;
+                    for (enode * n : ctx->enodes_of(m_f)) {
                         if (ctx->is_relevant(n)) {
                             arith_rewriter arith_rw(ctx->get_manager());
                             bv_util bv(ctx->get_manager());
@@ -1577,10 +1571,7 @@ namespace smt {
                     // For uninterpreted sorst, we add all terms in the context.
                     // See Section 4.1 in the paper "Complete Quantifier Instantiation"
                     node * S_q_i = slv.get_uvar(q, m_var_i);
-                    ptr_vector<enode>::const_iterator it  = ctx->begin_enodes();
-                    ptr_vector<enode>::const_iterator end = ctx->end_enodes();
-                    for (; it != end; ++it) {
-                        enode * n = *it;
+                    for (enode * n : ctx->enodes()) {
                         if (ctx->is_relevant(n) && get_sort(n->get_owner()) == s) {
                             S_q_i->insert(n->get_owner(), n->get_generation());
                         }
@@ -1788,13 +1779,7 @@ namespace smt {
                 return !m_cond_macros.empty();
             }
 
-            macro_iterator begin_macros() const {
-                return m_cond_macros.begin();
-            }
-
-            macro_iterator end_macros() const {
-                return m_cond_macros.end();
-            }
+            ptr_vector<cond_macro> const& macros() const { return m_cond_macros; }
 
             void set_the_one(func_decl * m) {
                 m_the_one = m;
@@ -2504,10 +2489,7 @@ namespace smt {
 
             bool process(quantifier * q, ptr_vector<quantifier> const & qs) {
                 quantifier_info * qi = get_qinfo(q);
-                quantifier_info::macro_iterator it  = qi->begin_macros();
-                quantifier_info::macro_iterator end = qi->end_macros();
-                for (; it != end; ++it) {
-                    cond_macro * m = *it;
+                for (cond_macro* m : qi->macros()) {
                     if (!m->satisfy_atom())
                         continue;
                     func_decl * f  = m->get_f();
@@ -2671,10 +2653,7 @@ namespace smt {
 
             bool is_candidate(quantifier * q) const {
                 quantifier_info * qi = get_qinfo(q);
-                quantifier_info::macro_iterator it  = qi->begin_macros();
-                quantifier_info::macro_iterator end = qi->end_macros();
-                for (; it != end; ++it) {
-                    cond_macro * m = *it;
+                for (cond_macro* m : qi->macros()) {
                     if (m->satisfy_atom() && !m_forbidden.contains(m->get_f()))
                         return true;
                 }
@@ -2717,10 +2696,7 @@ namespace smt {
                         if (!m_forbidden.contains(f))
                             insert_q_f(q, f);
                     }
-                    quantifier_info::macro_iterator it3  = qi->begin_macros();
-                    quantifier_info::macro_iterator end3 = qi->end_macros();
-                    for (; it3 != end3; ++it3) {
-                        cond_macro * m = *it3;
+                    for (cond_macro* m : qi->macros()) {
                         if (m->satisfy_atom() && !m_forbidden.contains(m->get_f())) {
                             insert_q_f_def(q, m->get_f(), m->get_def());
                             m_candidates.insert(m->get_f());
@@ -2847,11 +2823,7 @@ namespace smt {
             void get_candidates_from_residue(func_decl_set & candidates) {
                 for (quantifier * q : m_residue) {
                     quantifier_info * qi = get_qinfo(q);
-
-                    quantifier_info::macro_iterator it2  = qi->begin_macros();
-                    quantifier_info::macro_iterator end2 = qi->end_macros();
-                    for (; it2 != end2; ++it2) {
-                        cond_macro * m = *it2;
+                    for (cond_macro * m : qi->macros()) {
                         func_decl * f  = m->get_f();
                         if (m->satisfy_atom() && !m_forbidden.contains(f) && !m_fs.contains(f)) {
                             candidates.insert(f);
@@ -3038,10 +3010,7 @@ namespace smt {
             cond_macro * get_macro_for(func_decl * f, quantifier * q) {
                 cond_macro * r = 0;
                 quantifier_info * qi = get_qinfo(q);
-                quantifier_info::macro_iterator it  = qi->begin_macros();
-                quantifier_info::macro_iterator end = qi->end_macros();
-                for (; it != end; ++it) {
-                    cond_macro * m = *it;
+                for (cond_macro* m : qi->macros()) {
                     if (m->get_f() == f && !m->is_hint() && is_better_macro(m, r))
                         r = m;
                 }
@@ -3053,10 +3022,7 @@ namespace smt {
             void collect_candidates(ptr_vector<quantifier> const & qs, obj_map<func_decl, mq_pair> & full_macros, func_decl_set & cond_macros) {
                 for (quantifier * q : qs) {
                     quantifier_info * qi = get_qinfo(q);
-                    quantifier_info::macro_iterator it2  = qi->begin_macros();
-                    quantifier_info::macro_iterator end2 = qi->end_macros();
-                    for (; it2 != end2; ++it2) {
-                        cond_macro * m = *it2;
+                    for (cond_macro * m : qi->macros()) {
                         if (!m->is_hint()) {
                             func_decl * f = m->get_f();
                             TRACE("non_auf_macro_solver", tout << "considering macro for: " << f->get_name() << "\n";
@@ -3305,11 +3271,8 @@ namespace smt {
        \brief Clean leftovers from previous invocations to fix_model.
     */
     void model_finder::cleanup_quantifier_infos(ptr_vector<quantifier> const & qs) {
-        ptr_vector<quantifier>::const_iterator it  = qs.begin();
-        ptr_vector<quantifier>::const_iterator end = qs.end();
-        for (; it != end; ++it) {
-            quantifier_info * qi = get_quantifier_info(*it);
-            qi->reset_the_one();
+        for (quantifier* q : qs) {
+            get_quantifier_info(q)->reset_the_one();
         }
     }
 
@@ -3360,7 +3323,6 @@ namespace smt {
         quantifier_info * qinfo = get_quantifier_info(q);
         SASSERT(qinfo);
         SASSERT(qinfo->get_the_one() != 0);
-
         return qinfo->get_macro_based_inst_set(i, m_context, *(m_auf_solver.get()));
     }
 
@@ -3410,10 +3372,8 @@ namespace smt {
             if (inv.empty())
                 continue; // nothing to do
             ptr_buffer<expr> eqs;
-            obj_map<expr, expr *>::iterator it  = inv.begin();
-            obj_map<expr, expr *>::iterator end = inv.end();
-            for (; it != end; ++it) {
-                expr * val = (*it).m_key;
+            for (auto const& kv : inv) {
+                expr * val = kv.m_key;
                 eqs.push_back(m_manager.mk_eq(sk, val));
             }
             expr_ref new_cnstr(m_manager);

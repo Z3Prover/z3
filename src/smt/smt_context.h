@@ -116,6 +116,7 @@ namespace smt {
         plugin_manager<theory>      m_theories;     // mapping from theory_id -> theory
         ptr_vector<theory>          m_theory_set;   // set of theories for fast traversal
         vector<enode_vector>        m_decl2enodes;  // decl -> enode (for decls with arity > 0)
+        enode_vector                m_empty_vector;
         cg_table                    m_cg_table;
         dyn_ack_manager             m_dyn_ack_manager;
         struct new_eq {
@@ -446,6 +447,8 @@ namespace smt {
         theory * get_theory(theory_id th_id) const {
             return m_theories.get_plugin(th_id);
         }
+        
+        ptr_vector<theory> const& theories() const { return m_theories.plugins(); }
 
         ptr_vector<theory>::const_iterator begin_theories() const {
             return m_theories.begin();
@@ -507,6 +510,11 @@ namespace smt {
             return id < m_decl2enodes.size() ? m_decl2enodes[id].size() : 0;
         }
 
+        enode_vector const& enodes_of(func_decl const * d) const {
+            unsigned id = d->get_decl_id();
+            return id < m_decl2enodes.size() ? m_decl2enodes[id] : m_empty_vector;
+        }
+
         enode_vector::const_iterator begin_enodes_of(func_decl const * decl) const {
             unsigned id = decl->get_decl_id();
             return id < m_decl2enodes.size() ? m_decl2enodes[id].begin() : 0;
@@ -516,6 +524,8 @@ namespace smt {
             unsigned id = decl->get_decl_id();
             return id < m_decl2enodes.size() ? m_decl2enodes[id].end() : 0;
         }
+
+        ptr_vector<enode> const& enodes() const { return m_enodes; }
 
         ptr_vector<enode>::const_iterator begin_enodes() const {
             return m_enodes.begin();

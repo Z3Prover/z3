@@ -582,7 +582,7 @@ bool pattern_inference_cfg::reduce_quantifier(
     proof_ref & result_pr) {
 
     TRACE("pattern_inference", tout << "processing:\n" << mk_pp(q, m) << "\n";);
-    if (!q->is_forall()) {
+    if (!is_forall(q)) {
         return false;
     }
 
