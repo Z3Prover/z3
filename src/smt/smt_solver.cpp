@@ -264,14 +264,14 @@ namespace smt {
 
         void compute_assrtn_fds(ptr_vector<expr> & core, vector<func_decl_set> & assrtn_fds) {
             assrtn_fds.resize(m_name2assertion.size());            
-            obj_map<expr, expr*>::iterator ait = m_name2assertion.begin();
-            obj_map<expr, expr*>::iterator aend = m_name2assertion.end();
-            for (unsigned i = 0; ait != aend; ait++, i++) {
-                if (core.contains(ait->m_key))
-                    continue;
-                collect_fds_proc p(m, assrtn_fds[i]);
-                expr_fast_mark1 visited;
-                quick_for_each_expr(p, visited, ait->m_value);
+            unsigned i = 0;
+            for (auto & kv : m_name2assertion) {
+                if (!core.contains(kv.m_key)) {
+                    collect_fds_proc p(m, assrtn_fds[i]);
+                    expr_fast_mark1 visited;
+                    quick_for_each_expr(p, visited, kv.m_value);
+                }
+                ++i;
             }
         }
 
@@ -293,9 +293,8 @@ namespace smt {
             for (unsigned d = 0; d < m_core_extend_patterns_max_distance; d++) {
                 new_core_literals.reset();
 
-                unsigned sz = core.size();
-                for (unsigned i = 0; i < sz; i++) {
-                    expr_ref name(core[i], m);
+                for (expr* c : core) {
+                    expr_ref name(c, m);
                     SASSERT(m_name2assertion.contains(name));
                     expr_ref assrtn(m_name2assertion.find(name), m);
                     collect_pattern_fds(assrtn, pattern_fds);
@@ -305,12 +304,12 @@ namespace smt {
                     if (assrtn_fds.empty())
                         compute_assrtn_fds(core, assrtn_fds);
 
-                    obj_map<expr, expr*>::iterator ait = m_name2assertion.begin();
-                    obj_map<expr, expr*>::iterator aend = m_name2assertion.end();
-                    for (unsigned i = 0; ait != aend; ait++, i++) {
+                    unsigned i = 0;
+                    for (auto & kv : m_name2assertion) {
                         if (!core.contains(ait->m_key) &&
                             fds_intersect(pattern_fds, assrtn_fds[i]))
                             new_core_literals.push_back(ait->m_key);
+                        ++i;
                     }
                 }
 
