@@ -306,9 +306,9 @@ namespace smt {
 
                     unsigned i = 0;
                     for (auto & kv : m_name2assertion) {
-                        if (!core.contains(ait->m_key) &&
+                        if (!core.contains(kv.m_key) &&
                             fds_intersect(pattern_fds, assrtn_fds[i]))
-                            new_core_literals.push_back(ait->m_key);
+                            new_core_literals.push_back(kv.m_key);
                         ++i;
                     }
                 }
