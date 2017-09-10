@@ -37,11 +37,9 @@ void ast_translation::cleanup() {
 }
 
 void ast_translation::reset_cache() {
-    obj_map<ast, ast*>::iterator it  = m_cache.begin();
-    obj_map<ast, ast*>::iterator end = m_cache.end();
-    for (; it != end; ++it) {
-        m_from_manager.dec_ref(it->m_key);
-        m_to_manager.dec_ref(it->m_value);
+    for (auto & kv : m_cache) {
+        m_from_manager.dec_ref(kv.m_key);
+        m_to_manager.dec_ref(kv.m_value);
     }
     m_cache.reset();
 }

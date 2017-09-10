@@ -129,6 +129,7 @@ void asserted_formulas::set_eliminate_and(bool flag) {
     p.set_bool("rewrite_patterns", true);
     p.set_bool("eq2ineq", m_params.m_arith_eq2ineq);
     p.set_bool("gcd_rounding", true);
+    p.set_bool("expand_select_store", true);
     m_rewriter.updt_params(p);
     flush_cache();
 }

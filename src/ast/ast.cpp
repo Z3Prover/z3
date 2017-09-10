@@ -1544,12 +1544,15 @@ void ast_manager::raise_exception(char const * msg) {
     throw ast_exception(msg);
 }
 
+#include "ast/ast_translation.h"
+
 void ast_manager::copy_families_plugins(ast_manager const & from) {
     TRACE("copy_families_plugins",
           tout << "target:\n";
           for (family_id fid = 0; m_family_manager.has_family(fid); fid++) {
               tout << "fid: " << fid << " fidname: " << get_family_name(fid) << "\n";
           });
+    ast_translation trans(const_cast<ast_manager&>(from), *this, false);
     for (family_id fid = 0; from.m_family_manager.has_family(fid); fid++) {
       SASSERT(from.is_builtin_family_id(fid) == is_builtin_family_id(fid));
       SASSERT(!from.is_builtin_family_id(fid) || m_family_manager.has_family(fid));
@@ -1569,6 +1572,9 @@ void ast_manager::copy_families_plugins(ast_manager const & from) {
           register_plugin(fid, new_p);
           SASSERT(new_p->get_family_id() == fid);
           SASSERT(has_plugin(fid));
+      }
+      if (from.has_plugin(fid)) {
+          get_plugin(fid)->inherit(from.get_plugin(fid), trans);
       }
       SASSERT(from.m_family_manager.has_family(fid) == m_family_manager.has_family(fid));
       SASSERT(from.get_family_id(fid_name) == get_family_id(fid_name));
