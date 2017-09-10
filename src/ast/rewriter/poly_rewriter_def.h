@@ -686,7 +686,7 @@ br_status poly_rewriter<Config>::mk_sub(unsigned num_args, expr * const * args, 
         return BR_DONE;
     }
     set_curr_sort(m().get_sort(args[0]));
-    expr * minus_one = mk_numeral(numeral(-1));
+    expr_ref minus_one(mk_numeral(numeral(-1)), m());
     ptr_buffer<expr> new_args;
     new_args.push_back(args[0]);
     for (unsigned i = 1; i < num_args; i++) {
