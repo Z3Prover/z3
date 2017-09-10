@@ -55,6 +55,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
     bool                m_push_ite_arith;
     bool                m_push_ite_bv;
     bool                m_ignore_patterns_on_ground_qbody;
+    bool                m_rewrite_patterns;
 
     // substitution support
     expr_dependency_ref m_used_dependencies; // set of dependencies of used substitutions
@@ -72,6 +73,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         m_push_ite_arith = p.push_ite_arith();
         m_push_ite_bv    = p.push_ite_bv();
         m_ignore_patterns_on_ground_qbody = p.ignore_patterns_on_ground_qbody();
+        m_rewrite_patterns = p.rewrite_patterns();
     }
 
     void updt_params(params_ref const & p) {
@@ -99,7 +101,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         return false;
     }
 
-    bool rewrite_patterns() const { return false; }
+    bool rewrite_patterns() const { return m_rewrite_patterns; }
 
     bool cache_all_results() const { return m_cache_all; }
 
@@ -734,6 +736,7 @@ ast_manager & th_rewriter::m() const {
 void th_rewriter::updt_params(params_ref const & p) {
     m_params = p;
     m_imp->cfg().updt_params(p);
+    IF_VERBOSE(10, verbose_stream() << p << "\n";);
 }
 
 void th_rewriter::get_param_descrs(param_descrs & r) {

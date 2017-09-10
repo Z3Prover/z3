@@ -16,7 +16,7 @@ Author:
 Revision History:
 
 --*/
-#include "ast/simplifier/inj_axiom.h"
+#include "ast/rewriter/inj_axiom.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/has_free_vars.h"
@@ -29,18 +29,15 @@ Revision History:
 */
 bool simplify_inj_axiom(ast_manager & m, quantifier * q, expr_ref & result) {
     expr * n = q->get_expr();
-    if (q->is_forall() && m.is_or(n) && to_app(n)->get_num_args() == 2) {
-        expr * arg1 = to_app(n)->get_arg(0);
-        expr * arg2 = to_app(n)->get_arg(1);
+    expr* arg1 = 0, * arg2 = 0, *narg = 0;
+    expr* app1 = 0, * app2 = 0;
+    expr* var1 = 0, * var2 = 0;
+    if (q->is_forall() && m.is_or(n, arg1, arg2)) {
         if (m.is_not(arg2)) 
             std::swap(arg1, arg2);
-        if (m.is_not(arg1) && 
-            m.is_eq(to_app(arg1)->get_arg(0)) && 
-            m.is_eq(arg2)) {
-            expr * app1 = to_app(to_app(arg1)->get_arg(0))->get_arg(0);
-            expr * app2 = to_app(to_app(arg1)->get_arg(0))->get_arg(1);
-            expr * var1 = to_app(arg2)->get_arg(0);
-            expr * var2 = to_app(arg2)->get_arg(1);
+        if (m.is_not(arg1, narg) && 
+            m.is_eq(narg, app1, app2) && 
+            m.is_eq(arg2, var1, var2)) {
             if (is_app(app1) &&
                 is_app(app2) && 
                 to_app(app1)->get_decl() == to_app(app2)->get_decl() &&

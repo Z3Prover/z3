@@ -970,7 +970,7 @@ namespace datalog {
                         _name << pred->get_name() << "_" << q->get_name() << j;
                         symbol name(_name.str().c_str());
                         type_ref tr(idx);
-                        accs.push_back(mk_accessor_decl(name, tr));
+                        accs.push_back(mk_accessor_decl(m, name, tr));
                     }
                     std::stringstream _name;
                     _name << pred->get_name() << "_" << i;
@@ -979,7 +979,7 @@ namespace datalog {
                     symbol is_name(_name.str().c_str());
                     cnstrs.push_back(mk_constructor_decl(name, is_name, accs.size(), accs.c_ptr()));
                 }
-                dts.push_back(mk_datatype_decl(pred->get_name(), cnstrs.size(), cnstrs.c_ptr()));
+                dts.push_back(mk_datatype_decl(dtu, pred->get_name(), 0, nullptr, cnstrs.size(), cnstrs.c_ptr()));
             }
 
 
@@ -1024,10 +1024,10 @@ namespace datalog {
                     _name2 << "get_succ#" << i;
                     ptr_vector<accessor_decl> accs;
                     type_ref tr(0);
-                    accs.push_back(mk_accessor_decl(name, tr));
+                    accs.push_back(mk_accessor_decl(m, name, tr));
                     cnstrs.push_back(mk_constructor_decl(name, is_name, accs.size(), accs.c_ptr()));
                 }
-                dts.push_back(mk_datatype_decl(symbol("Path"), cnstrs.size(), cnstrs.c_ptr()));
+                dts.push_back(mk_datatype_decl(dtu, symbol("Path"), 0, nullptr, cnstrs.size(), cnstrs.c_ptr()));
                 VERIFY (dtp->mk_datatypes(dts.size(), dts.c_ptr(), 0, 0, new_sorts));
                 m_path_sort = new_sorts[0].get();
             }
@@ -1139,7 +1139,7 @@ namespace datalog {
             md->eval(path, path);
             IF_VERBOSE(2, verbose_stream() << mk_pp(trace, m) << "\n";
                        for (unsigned i = 0; i < b.m_solver.size(); ++i) {
-                           verbose_stream() << mk_pp(b.m_solver.get_formulas()[i], m) << "\n";
+                           verbose_stream() << mk_pp(b.m_solver.get_formula(i), m) << "\n";
                        });
             scoped_proof _sp(m);
             proof_ref pr(m);

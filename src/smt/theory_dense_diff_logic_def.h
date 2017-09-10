@@ -127,7 +127,7 @@ namespace smt {
         if (!m_non_diff_logic_exprs) {
             TRACE("non_diff_logic", tout << "found non diff logic expression:\n" << mk_pp(n, get_manager()) << "\n";);
             get_context().push_trail(value_trail<context, bool>(m_non_diff_logic_exprs));
-        IF_VERBOSE(0, verbose_stream() << "(smt.diff_logic: non-diff logic expression " << mk_pp(n, get_manager()) << ")\n";); 
+            IF_VERBOSE(0, verbose_stream() << "(smt.diff_logic: non-diff logic expression " << mk_pp(n, get_manager()) << ")\n";); 
             m_non_diff_logic_exprs = true;
         }
     }
@@ -153,6 +153,9 @@ namespace smt {
         app * s, * t;
         if (m_autil.is_add(lhs) && to_app(lhs)->get_num_args() == 2 && is_times_minus_one(to_app(lhs)->get_arg(1), s)) {
             t = to_app(to_app(lhs)->get_arg(0));
+        }
+        else if (m_autil.is_add(lhs) && to_app(lhs)->get_num_args() == 2 && is_times_minus_one(to_app(lhs)->get_arg(0), s)) {
+            t = to_app(to_app(lhs)->get_arg(1));
         }
         else if (m_autil.is_mul(lhs) && to_app(lhs)->get_num_args() == 2 && m_autil.is_minus_one(to_app(lhs)->get_arg(0))) {
             s = to_app(to_app(lhs)->get_arg(1));

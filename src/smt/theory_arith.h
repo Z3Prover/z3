@@ -34,7 +34,6 @@ Revision History:
 #include "util/obj_pair_hashtable.h"
 #include "smt/old_interval.h"
 #include "math/grobner/grobner.h"
-#include "ast/simplifier/arith_simplifier_plugin.h"
 #include "smt/arith_eq_solver.h"
 #include "smt/theory_opt.h"
 #include "util/uint_set.h"

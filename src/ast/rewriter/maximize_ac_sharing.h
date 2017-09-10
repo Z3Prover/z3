@@ -3,7 +3,7 @@ Copyright (c) 2006 Microsoft Corporation
 
 Module Name:
 
-    maximise_ac_sharing.h
+    maximize_ac_sharing.h
 
 Abstract:
 
@@ -16,17 +16,17 @@ Author:
 Revision History:
 
 --*/
-#ifndef MAXIMISE_AC_SHARING_H_
-#define MAXIMISE_AC_SHARING_H_
+#ifndef MAXIMIZE_AC_SHARING_H_
+#define MAXIMIZE_AC_SHARING_H_
 
-#include "ast/simplifier/simplifier.h"
 #include "util/hashtable.h"
-#include "ast/bv_decl_plugin.h"
 #include "util/region.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/rewriter/rewriter.h"
 
 /**
-   \brief Functor used to maximise the amount of shared terms in an expression.
-   The idea is to rewrite AC terms to maximise sharing.
+   \brief Functor used to maximize the amount of shared terms in an expression.
+   The idea is to rewrite AC terms to maximize sharing.
    Example:
 
    (f (bvadd a (bvadd b c)) (bvadd a (bvadd b d)))
@@ -35,10 +35,10 @@ Revision History:
 
    (f (bvadd (bvadd a b) c) (bvadd (bvadd a b) d))
 
-   \warning This class uses an opportunistic heuristic to maximise sharing.
+   \warning This class uses an opportunistic heuristic to maximize sharing.
    There is no guarantee that the optimal expression will be produced.
 */
-class maximise_ac_sharing {
+class maximize_ac_sharing : public default_rewriter_cfg {
     
     struct entry {
         func_decl * m_decl;
@@ -67,26 +67,16 @@ class maximise_ac_sharing {
     typedef ptr_hashtable<entry, obj_ptr_hash<entry>, deref_eq<entry> > cache;
 
 protected:
-    class ac_plugin : public simplifier_plugin {
-        maximise_ac_sharing & m_owner;
-        svector<decl_kind>    m_kinds; //!< kinds to be processed
-    public:
-        ac_plugin(symbol const & fname, ast_manager & m, maximise_ac_sharing & owner);
-        void register_kind(decl_kind k);
-        virtual ~ac_plugin();
-        virtual bool reduce(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result);
-    };
-
-    friend class ac_plugin;
+    void register_kind(decl_kind k);
 
 private:
-    ast_manager &     m_manager;
-    simplifier        m_simplifier;
+    ast_manager &     m;
     bool              m_init;
     region            m_region;
     cache             m_cache;
     ptr_vector<entry> m_entries;
     unsigned_vector   m_scopes;
+    svector<decl_kind>    m_kinds; //!< kinds to be processed
 
     bool contains(func_decl * f, expr * arg1, expr * arg2);
     void insert(func_decl * f, expr * arg1, expr * arg2);
@@ -100,25 +90,36 @@ private:
 protected:
     virtual void init_core() = 0; 
     virtual bool is_numeral(expr * n) const = 0;
-    void register_plugin(ac_plugin * p) { m_simplifier.register_plugin(p); }
 public:
-    maximise_ac_sharing(ast_manager & m);
-    virtual ~maximise_ac_sharing();
-    void operator()(expr * s, expr_ref & r, proof_ref & p);
+    maximize_ac_sharing(ast_manager & m);
+    virtual ~maximize_ac_sharing();
     void push_scope();
     void pop_scope(unsigned num_scopes);
     void reset();
-    ast_manager & get_manager() { return m_manager; }
+    br_status reduce_app(func_decl* f, unsigned n, expr * const* args, expr_ref& result, proof_ref& result_pr);
+
 };
 
-class maximise_bv_sharing : public maximise_ac_sharing {
+class maximize_bv_sharing : public maximize_ac_sharing {
     bv_util m_util;
 protected:
     virtual void init_core();
     virtual bool is_numeral(expr * n) const;
 public:
-    maximise_bv_sharing(ast_manager & m);
+    maximize_bv_sharing(ast_manager & m);
 };
 
-#endif /* MAXIMISE_AC_SHARING_H_ */
+class maximize_bv_sharing_rw : public rewriter_tpl<maximize_bv_sharing> {
+    maximize_bv_sharing m_cfg;
+public:
+    maximize_bv_sharing_rw(ast_manager& m):
+        rewriter_tpl<maximize_bv_sharing>(m, m.proofs_enabled(), m_cfg),
+        m_cfg(m)
+    {} 
+    void push_scope() { m_cfg.push_scope(); }
+    void pop_scope(unsigned n) { m_cfg.pop_scope(n); }
+    void reset() { m_cfg.reset(); }
+};
+
+#endif /* MAXIMIZE_AC_SHARING_H_ */
 

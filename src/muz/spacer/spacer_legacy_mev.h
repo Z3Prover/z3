@@ -10,7 +10,6 @@ Copyright (c) 2017 Arie Gurfinkel
 #include "ast/ast_pp.h"
 #include "util/obj_hashtable.h"
 #include "util/ref_vector.h"
-#include "ast/simplifier/simplifier.h"
 #include "util/trace.h"
 #include "util/vector.h"
 #include "ast/arith_decl_plugin.h"

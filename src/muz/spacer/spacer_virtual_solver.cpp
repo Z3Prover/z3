@@ -318,7 +318,7 @@ lbool virtual_solver::check_sat_core(unsigned num_assumptions,
             stopwatch sw2;
             smt::kernel kernel(m, p);
             for (unsigned i = 0, sz = m_context.size(); i < sz; ++i)
-            { kernel.assert_expr(m_context.get_formulas()[i]); }
+                { kernel.assert_expr(m_context.get_formula(i)); }
             sw2.start();
             kernel.check(num_assumptions, assumptions);
             sw2.stop();
@@ -450,7 +450,7 @@ void virtual_solver::to_smt2_benchmark(std::ostream &out,
 
 
     for (unsigned i = 0, sz = context.size(); i < sz; ++i) {
-        asserts.push_back(context.get_formulas()[i]);
+        asserts.push_back(context.get_formula(i));
         pp.collect(asserts.back());
     }
     pp.collect(num_assumptions, assumptions);

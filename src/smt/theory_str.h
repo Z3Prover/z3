@@ -17,13 +17,14 @@
 #ifndef _THEORY_STR_H_
 #define _THEORY_STR_H_
 
+#include "util/trail.h"
+#include "ast/ast_pp.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/rewriter/th_rewriter.h"
 #include "smt/smt_theory.h"
 #include "smt/params/theory_str_params.h"
-#include "util/trail.h"
-#include "ast/rewriter/th_rewriter.h"
 #include "smt/proto_model/value_factory.h"
 #include "smt/smt_model_generator.h"
-#include "ast/arith_decl_plugin.h"
 #include<set>
 #include<stack>
 #include<vector>

@@ -48,7 +48,6 @@ Revision History:
 
 #include "ast/ast.h"
 #include "ast/func_decl_dependencies.h"
-#include "ast/simplifier/simplifier.h"
 #include "smt/proto_model/proto_model.h"
 #include "util/cooperate.h"
 #include "tactic/tactic_exception.h"
@@ -107,7 +106,7 @@ namespace smt {
 
 
     public:
-        model_finder(ast_manager & m, simplifier & s);
+        model_finder(ast_manager & m);
         ~model_finder();
         void set_context(context * ctx);
         

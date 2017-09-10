@@ -385,7 +385,6 @@ namespace smt {
     {
         ast_manager & m = get_manager();
         context & ctx = get_context();
-        simplifier & simp = ctx.get_simplifier();
 
         expr_ref res(m), t(m);
         proof_ref t_pr(m);
@@ -394,7 +393,7 @@ namespace smt {
         expr_ref_vector::iterator it = m_converter.m_extra_assertions.begin();
         expr_ref_vector::iterator end = m_converter.m_extra_assertions.end();
         for (; it != end; it++) {
-            simp(*it, t, t_pr);
+            ctx.get_rewriter()(*it, t, t_pr);
             res = m.mk_and(res, t);
         }
         m_converter.m_extra_assertions.reset();

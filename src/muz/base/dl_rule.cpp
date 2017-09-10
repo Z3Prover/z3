@@ -44,6 +44,7 @@ Revision History:
 #include "tactic/filter_model_converter.h"
 #include "ast/scoped_proof.h"
 #include "ast/datatype_decl_plugin.h"
+#include "ast/ast_util.h"
 
 namespace datalog {
 
@@ -757,7 +758,7 @@ namespace datalog {
             );
 
             proof_ref pr(m);
-            qe::expr_quant_elim_star1 simpl(m, m_ctx.get_fparams());
+            qe::simplify_rewriter_star simpl(m);
             simpl(quant_tail, fixed_tail, pr);
         }
         else {

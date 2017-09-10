@@ -16,14 +16,14 @@ Author:
 Revision History:
 
 --*/
-#include "ast/simplifier/pull_ite_tree.h"
+#include "ast/rewriter/pull_ite_tree.h"
 #include "ast/recurse_expr_def.h"
 #include "ast/for_each_expr.h"
 #include "ast/ast_pp.h"
 
-pull_ite_tree::pull_ite_tree(ast_manager & m, simplifier & s):
+pull_ite_tree::pull_ite_tree(ast_manager & m):
     m_manager(m),
-    m_simplifier(s),
+    m_rewriter(m),
     m_cache(m) {
 }
 
@@ -64,7 +64,7 @@ void pull_ite_tree::reduce(expr * n) {
         get_cached(e_old, e, e_pr);
         expr_ref r(m_manager);
         expr * args[3] = {c, t, e};
-        m_simplifier.mk_app(to_app(n)->get_decl(), 3, args, r);
+        r = m_rewriter.mk_app(to_app(n)->get_decl(), 3, args);
         if (!m_manager.proofs_enabled()) {
             // expr * r = m_manager.mk_ite(c, t, e);
             cache_result(n, r, 0);
@@ -117,7 +117,7 @@ void pull_ite_tree::reduce(expr * n) {
     else {
         expr_ref r(m_manager);
         m_args[m_arg_idx] = n;
-        m_simplifier.mk_app(m_p, m_args.size(), m_args.c_ptr(), r);
+        r = m_rewriter.mk_app(m_p, m_args.size(), m_args.c_ptr());
         if (!m_manager.proofs_enabled()) {
             // expr * r = m_manager.mk_app(m_p, m_args.size(), m_args.c_ptr());
             cache_result(n, r, 0);
@@ -179,23 +179,31 @@ void pull_ite_tree::operator()(app * n, app_ref & r, proof_ref & pr) {
     m_todo.reset();
 }
 
-pull_ite_tree_star::pull_ite_tree_star(ast_manager & m, simplifier & s):
-    simplifier(m),
-    m_proc(m, s) {
-    borrow_plugins(s);
+
+
+pull_ite_tree_cfg::pull_ite_tree_cfg(ast_manager & m):
+    m(m),
+    m_trail(m),
+    m_proc(m) {
 }
 
-bool pull_ite_tree_star::get_subst(expr * n, expr_ref & r, proof_ref & p) {
+bool pull_ite_tree_cfg::get_subst(expr * n, expr* & r, proof* & p) {
     if (is_app(n) && is_target(to_app(n))) {
         app_ref tmp(m);
-        m_proc(to_app(n), tmp, p);
-        r = tmp;
-        return true;
+        proof_ref pr(m);
+        m_proc(to_app(n), tmp, pr);
+        if (tmp != n) {
+            r = tmp;
+            p = pr;
+            m_trail.push_back(r);
+            m_trail.push_back(p);
+            return true;
+        }
     }
     return false;
 }
 
-bool pull_cheap_ite_tree_star::is_target(app * n) const {
+bool pull_cheap_ite_tree_cfg::is_target(app * n) const {
     bool r = 
         n->get_num_args() == 2 &&
         n->get_family_id() != null_family_id &&

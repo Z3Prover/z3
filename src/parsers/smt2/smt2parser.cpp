@@ -16,8 +16,6 @@ Author:
 Revision History:
 
 --*/
-#include "parsers/smt2/smt2parser.h"
-#include "parsers/smt2/smt2scanner.h"
 #include "util/stack.h"
 #include "ast/datatype_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"
@@ -25,10 +23,12 @@ Revision History:
 #include "ast/seq_decl_plugin.h"
 #include "ast/ast_pp.h"
 #include "ast/well_sorted.h"
-#include "parsers/util/pattern_validation.h"
 #include "ast/rewriter/rewriter.h"
 #include "ast/has_free_vars.h"
 #include "ast/ast_smt2_pp.h"
+#include "parsers/smt2/smt2parser.h"
+#include "parsers/smt2/smt2scanner.h"
+#include "parsers/util/pattern_validation.h"
 #include "parsers/util/parser_params.hpp"
 #include<sstream>
 
@@ -617,16 +617,8 @@ namespace smt2 {
             SASSERT(curr_is_identifier());
             symbol id = curr_id();
             psort_decl * d = m_ctx.find_psort_decl(id);
-            int idx = 0;
             if (d == 0) {
-                if (m_dt_name2idx.find(id, idx)) {
-                    throw parser_exception("smtlib 2.6 parametric datatype sorts are not supported");
-                    // unsigned num_params = m_dt_name2arity.find(id);
-                    // d = pm().mk_psort_dt_decl(num_params, id);
-                }
-                else {
-                    unknown_sort(id);                
-                }
+                unknown_sort(id);                                
             }
             next();
             void * mem      = m_stack.allocate(sizeof(psort_frame));
@@ -885,6 +877,7 @@ namespace smt2 {
             }
             else if (sz == 1) {
                 check_missing(new_dt_decls[0], line, pos);
+                new_dt_decls[0]->commit(pm());
             }
             else {
                 SASSERT(sz > 1);
@@ -897,22 +890,20 @@ namespace smt2 {
                     err_msg += "'";
                     throw parser_exception(err_msg, line, pos);
                 }
+                dts->commit(pm());
                 m_ctx.insert_aux_pdecl(dts.get());
             }
             for (unsigned i = 0; i < sz; i++) {
                 pdatatype_decl * d = new_dt_decls[i];
-                SASSERT(d != 0);
                 symbol duplicated;
                 check_duplicate(d, line, pos);
-                m_ctx.insert(d);
-                if (d->get_num_params() == 0) {
-                    // if datatype is not parametric... then force instantiation to register accessor, recognizers and constructors...
-                    sort_ref s(m());
-                    s = d->instantiate(pm(), 0, 0);
+                if (!is_smt2_6) {
+                    // datatypes are inserted up front in SMT2.6 mode, so no need to re-insert them.
+                    m_ctx.insert(d);
                 }
-            }
+            }                
             TRACE("declare_datatypes", tout << "i: " << i << " new_dt_decls.size(): " << sz << "\n";
-                  for (unsigned i = 0; i < sz; i++) tout << new_dt_decls[i]->get_name() << "\n";);
+                  for (unsigned j = 0; j < new_dt_decls.size(); ++j) tout << new_dt_decls[j]->get_name() << "\n";);
             m_ctx.print_success();
             next();
         }
@@ -940,12 +931,7 @@ namespace smt2 {
             check_missing(d, line, pos);
             check_duplicate(d, line, pos);
 
-            m_ctx.insert(d);
-            if (d->get_num_params() == 0) {
-                // if datatype is not parametric... then force instantiation to register accessor, recognizers and constructors...
-                sort_ref s(m());
-                s = d->instantiate(pm(), 0, 0);
-            }
+            d->commit(pm());
             check_rparen_next("invalid end of datatype declaration, ')' expected");
             m_ctx.print_success();
         }
@@ -1909,6 +1895,8 @@ namespace smt2 {
                     m_dt_name2idx.insert(dt_name, i);
                     m_dt_name2arity.insert(dt_name, u);
                     m_dt_names.push_back(dt_name);
+                    psort_decl * decl = pm().mk_psort_dt_decl(u, dt_name);
+                    m_ctx.insert(decl);
                     check_rparen("invalid sort declaration, ')' expected");
                 }
                 else {

@@ -150,6 +150,7 @@ public:
                             proof_converter_ref & pc,
                             expr_dependency_ref & core) {
         try {
+            IF_VERBOSE(10, verbose_stream() << "(smt.tactic start)\n";);
             mc = 0; pc = 0; core = 0;
             SASSERT(in->is_well_sorted());
             ast_manager & m = in->m();

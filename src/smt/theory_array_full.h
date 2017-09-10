@@ -20,7 +20,6 @@ Revision History:
 #define THEORY_ARRAY_FULL_H_
 
 #include "smt/theory_array.h"
-#include "ast/simplifier/simplifier.h"
 #include "ast/ast_trail.h"
 
 namespace smt {
@@ -37,7 +36,6 @@ namespace smt {
         ptr_vector<var_data_full> m_var_data_full;
 
         ast2ast_trailmap<sort,app> m_sort2epsilon;
-        simplifier*                m_simp;
         obj_pair_map<expr,expr,bool> m_eqs;
         svector<literal>             m_eqsv;
 
@@ -100,7 +98,6 @@ namespace smt {
             // the parent class is theory_array.
             // theory::init(ctx); 
             theory_array::init(ctx); 
-            m_simp = &ctx->get_simplifier(); 
         }
 
     };

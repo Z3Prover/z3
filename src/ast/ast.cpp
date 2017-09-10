@@ -188,18 +188,14 @@ decl_info::decl_info(decl_info const& other) :
 
 
 void decl_info::init_eh(ast_manager & m) {
-    vector<parameter>::iterator it  = m_parameters.begin();
-    vector<parameter>::iterator end = m_parameters.end();
-    for (; it != end; ++it) {
-        it->init_eh(m);
+    for (parameter & p : m_parameters) {
+        p.init_eh(m);
     }
 }
 
 void decl_info::del_eh(ast_manager & m) {
-    vector<parameter>::iterator it  = m_parameters.begin();
-    vector<parameter>::iterator end = m_parameters.end();
-    for (; it != end; ++it) {
-        it->del_eh(m, m_family_id);
+    for (parameter & p : m_parameters) {
+        p.del_eh(m, m_family_id);
     }
 }
 
@@ -1291,10 +1287,8 @@ decl_kind user_sort_plugin::register_name(symbol s) {
 
 decl_plugin * user_sort_plugin::mk_fresh() {
     user_sort_plugin * p = alloc(user_sort_plugin);
-    svector<symbol>::iterator it  = m_sort_names.begin();
-    svector<symbol>::iterator end = m_sort_names.end();
-    for (; it != end; ++it)
-        p->register_name(*it);
+    for (symbol const& s : m_sort_names) 
+        p->register_name(s);
     return p;
 }
 
@@ -1414,26 +1408,20 @@ ast_manager::~ast_manager() {
     dec_ref(m_true);
     dec_ref(m_false);
     dec_ref(m_undef_proof);
-    ptr_vector<decl_plugin>::iterator it  = m_plugins.begin();
-    ptr_vector<decl_plugin>::iterator end = m_plugins.end();
-    for (; it != end; ++it) {
-        if (*it)
-            (*it)->finalize();
+    for (decl_plugin* p : m_plugins) {
+        if (p)
+            p->finalize();
     }
-    it = m_plugins.begin();
-    for (; it != end; ++it) {
-        if (*it) 
-            dealloc(*it);
+    for (decl_plugin* p : m_plugins) {
+        if (p) 
+            dealloc(p);
     }
     m_plugins.reset();
     while (!m_ast_table.empty()) {
         DEBUG_CODE(std::cout << "ast_manager LEAKED: " << m_ast_table.size() << std::endl;);
         ptr_vector<ast> roots;
         ast_mark mark;
-        ast_table::iterator it_a = m_ast_table.begin();
-        ast_table::iterator end_a = m_ast_table.end();
-        for (; it_a != end_a; ++it_a) {
-            ast* n = (*it_a);
+        for (ast * n : m_ast_table) {
             switch (n->get_kind()) {
             case AST_SORT: {
                 sort_info* info = to_sort(n)->get_info();
@@ -1466,9 +1454,7 @@ ast_manager::~ast_manager() {
                 break;
             }           
         }        
-        it_a = m_ast_table.begin();
-        for (; it_a != end_a; ++it_a) {
-            ast* n = *it_a;
+        for (ast * n : m_ast_table) {
             if (!mark.is_marked(n)) {
                 roots.push_back(n);
             }
@@ -1543,12 +1529,15 @@ void ast_manager::raise_exception(char const * msg) {
     throw ast_exception(msg);
 }
 
+#include "ast/ast_translation.h"
+
 void ast_manager::copy_families_plugins(ast_manager const & from) {
     TRACE("copy_families_plugins",
           tout << "target:\n";
           for (family_id fid = 0; m_family_manager.has_family(fid); fid++) {
               tout << "fid: " << fid << " fidname: " << get_family_name(fid) << "\n";
           });
+    ast_translation trans(const_cast<ast_manager&>(from), *this, false);
     for (family_id fid = 0; from.m_family_manager.has_family(fid); fid++) {
       SASSERT(from.is_builtin_family_id(fid) == is_builtin_family_id(fid));
       SASSERT(!from.is_builtin_family_id(fid) || m_family_manager.has_family(fid));
@@ -1568,6 +1557,9 @@ void ast_manager::copy_families_plugins(ast_manager const & from) {
           register_plugin(fid, new_p);
           SASSERT(new_p->get_family_id() == fid);
           SASSERT(has_plugin(fid));
+      }
+      if (from.has_plugin(fid)) {
+          get_plugin(fid)->inherit(from.get_plugin(fid), trans);
       }
       SASSERT(from.m_family_manager.has_family(fid) == m_family_manager.has_family(fid));
       SASSERT(from.get_family_id(fid_name) == get_family_id(fid_name));
@@ -1663,11 +1655,8 @@ bool ast_manager::is_bool(expr const * n) const {
 
 #ifdef Z3DEBUG
 bool ast_manager::slow_not_contains(ast const * n) {
-    ast_table::iterator it  = m_ast_table.begin();
-    ast_table::iterator end = m_ast_table.end();
     unsigned num = 0;
-    for (; it != end; ++it) {
-        ast * curr = *it;
+    for (ast * curr : m_ast_table) {
         if (compare_nodes(curr, n)) {
             TRACE("nondet_bug",
                   tout << "id1:   " << curr->get_id() << ", id2: " << n->get_id() << "\n";
@@ -1934,6 +1923,35 @@ sort * ast_manager::mk_sort(symbol const & name, sort_info * info) {
     sort * new_node  = new (mem) sort(name, info);
     return register_node(new_node);
 }
+
+sort * ast_manager::substitute(sort* s, unsigned n, sort * const * src, sort * const * dst) {
+    for (unsigned i = 0; i < n; ++i) {
+        if (s == src[i]) return dst[i];
+    }
+
+    vector<parameter> ps;
+    bool change = false;
+    sort_ref_vector sorts(*this);
+    for (unsigned i = 0; i < s->get_num_parameters(); ++i) {
+        parameter const& p = s->get_parameter(i);
+        if (p.is_ast()) {
+            SASSERT(is_sort(p.get_ast()));
+            change = true;
+            sorts.push_back(substitute(to_sort(p.get_ast()), n, src, dst));
+            ps.push_back(parameter(sorts.back()));
+        }
+        else {
+            ps.push_back(p);
+        }
+    }
+    if (!change) {
+        return s;
+    }
+    decl_info dinfo(s->get_family_id(), s->get_decl_kind(), ps.size(), ps.c_ptr(), s->private_parameters());
+    sort_info sinfo(dinfo, s->get_num_elements());
+    return mk_sort(s->get_name(), &sinfo);
+}
+
 
 sort * ast_manager::mk_uninterpreted_sort(symbol const & name, unsigned num_parameters, parameter const * parameters) {
     user_sort_plugin * plugin = get_user_sort_plugin();
@@ -2354,6 +2372,7 @@ quantifier * ast_manager::mk_quantifier(bool forall, unsigned num_decls, sort * 
     SASSERT(num_decls > 0);
     DEBUG_CODE({
             for (unsigned i = 0; i < num_patterns; ++i) {
+                TRACE("ast", tout << i << " " << mk_pp(patterns[i], *this) << "\n";);
                 SASSERT(is_pattern(patterns[i]));
             }});
     unsigned sz               = quantifier::get_obj_size(num_decls, num_patterns, num_no_patterns);
@@ -2579,7 +2598,7 @@ expr * ast_manager::get_some_value(sort * s) {
     return mk_model_value(0, s);
 }
 
-bool ast_manager::is_fully_interp(sort const * s) const {
+bool ast_manager::is_fully_interp(sort * s) const {
     if (is_uninterp(s))
         return false;
     family_id fid = s->get_family_id();

@@ -2205,7 +2205,7 @@ namespace smt {
                 args.push_back(monomial2expr(eq->get_monomial(i), is_int));
         }
         context & ctx   = get_context();
-        simplifier & s  = ctx.get_simplifier();
+        th_rewriter& s = ctx.get_rewriter();
         expr_ref pol(get_manager());
         SASSERT(!args.empty());
         pol = mk_nary_add(args.size(), args.c_ptr());

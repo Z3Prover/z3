@@ -161,8 +161,10 @@ void proto_model::cleanup_func_interp(func_interp * fi, func_decl_set & found_au
                     continue;
                 }
                 func_decl * f = t->get_decl();
-                if (m_aux_decls.contains(f))
+                if (m_aux_decls.contains(f)) {
+                    TRACE("model_bug", tout << f->get_name() << "\n";);
                     found_aux_fs.insert(f);
+                }
                 expr_ref new_t(m_manager);
                 new_t = m_rewrite.mk_app(f, args.size(), args.c_ptr());
                 if (t != new_t.get())
@@ -180,9 +182,7 @@ void proto_model::cleanup_func_interp(func_interp * fi, func_decl_set & found_au
         }
     }
 
-    if (!cache.find(fi_else, a)) {
-        UNREACHABLE();
-    }
+    VERIFY(cache.find(fi_else, a));
 
     fi->set_else(a);
 }
@@ -207,8 +207,10 @@ void proto_model::remove_aux_decls_not_in_set(ptr_vector<func_decl> & decls, fun
    by their interpretations.
 */
 void proto_model::cleanup() {
+    TRACE("model_bug", model_v2_pp(tout, *this););
     func_decl_set found_aux_fs;
     for (auto const& kv : m_finterp) {
+        TRACE("model_bug", tout << kv.m_key->get_name() << "\n";);
         func_interp * fi = kv.m_value;
         cleanup_func_interp(fi, found_aux_fs);
     }
@@ -365,7 +367,7 @@ void proto_model::complete_partial_funcs() {
 }
 
 model * proto_model::mk_model() {
-    TRACE("proto_model", tout << "mk_model\n"; model_v2_pp(tout, *this););
+    TRACE("proto_model", model_v2_pp(tout << "mk_model\n", *this););
     model * m = alloc(model, m_manager);
 
     for (auto const& kv : m_interp) {

@@ -20,9 +20,6 @@ Notes:
 
 #include "ast/array_decl_plugin.h"
 #include "ast/ast_pp.h"
-#include "ast/simplifier/arith_simplifier_plugin.h"
-#include "ast/simplifier/basic_simplifier_plugin.h"
-#include "ast/simplifier/bv_simplifier_plugin.h"
 #include "ast/rewriter/bool_rewriter.h"
 #include "muz/base/dl_util.h"
 #include "ast/for_each_expr.h"

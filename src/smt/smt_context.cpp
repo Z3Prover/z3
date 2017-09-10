@@ -224,20 +224,6 @@ namespace smt {
 
     void context::copy_plugins(context& src, context& dst) {
 
-        // copy missing simplifier_plugins
-        // remark: some simplifier_plugins are automatically created by the asserted_formulas class.
-        simplifier & src_s = src.get_simplifier();
-        simplifier & dst_s = dst.get_simplifier();
-        ptr_vector<simplifier_plugin>::const_iterator it1  = src_s.begin_plugins();
-        ptr_vector<simplifier_plugin>::const_iterator end1 = src_s.end_plugins();
-        for (; it1 != end1; ++it1) {
-            simplifier_plugin * p = *it1;
-            if (dst_s.get_plugin(p->get_family_id()) == 0) {
-                dst.register_plugin(p->mk_fresh());
-            }
-            SASSERT(dst_s.get_plugin(p->get_family_id()) != 0);
-        }
-
         // copy theory plugins
         for (theory* old_th : src.m_theory_set) {
             theory * new_th = old_th->mk_fresh(&dst);
@@ -2845,11 +2831,6 @@ namespace smt {
         return false;
     }
 
-    void context::register_plugin(simplifier_plugin * s) {
-        SASSERT(!already_internalized());
-        SASSERT(m_scope_lvl == 0);
-        m_asserted_formulas.register_simplifier_plugin(s);
-    }
 
 #ifdef Z3DEBUG
     /**

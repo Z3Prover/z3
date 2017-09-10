@@ -23,6 +23,7 @@ Revision History:
 #include "util/obj_hashtable.h"
 #include "util/dictionary.h"
 #include "ast/format.h"
+#include "ast/datatype_decl_plugin.h"
 
 class pdecl_manager;
 
@@ -86,7 +87,7 @@ typedef ptr_hashtable<psort, psort_hash_proc, psort_eq_proc> psort_table;
 
 #define PSORT_DECL_VAR_PARAMS UINT_MAX
 
-typedef enum { PSORT_BASE = 0, PSORT_USER, PSORT_BUILTIN } psort_decl_kind;
+typedef enum { PSORT_BASE = 0, PSORT_USER, PSORT_BUILTIN, PSORT_DT } psort_decl_kind;
 
 class psort_decl : public pdecl {
 protected:
@@ -110,6 +111,7 @@ public:
     virtual void reset_cache(pdecl_manager& m);
     bool is_user_decl() const { return m_psort_kind == PSORT_USER; }
     bool is_builtin_decl() const { return m_psort_kind == PSORT_BUILTIN; }
+    bool is_dt_decl() const { return m_psort_kind == PSORT_DT; }
 };
 
 class psort_user_decl : public psort_decl {
@@ -124,7 +126,7 @@ public:
     virtual sort * instantiate(pdecl_manager & m, unsigned n, sort * const * s);
     virtual void display(std::ostream & out) const;
 };
-
+ 
 class psort_builtin_decl : public psort_decl {
 protected:
     friend class pdecl_manager;
@@ -139,24 +141,17 @@ public:
     virtual void display(std::ostream & out) const;
 };
 
-#if 0
 class psort_dt_decl : public psort_decl {
 protected:
     friend class pdecl_manager;
     psort_dt_decl(unsigned id, unsigned num_params, pdecl_manager & m, symbol const & n);
     virtual size_t obj_size() const { return sizeof(psort_dt_decl); }
-    virtual void finalize(pdecl_manager & m);
     virtual ~psort_dt_decl() {}
 public:
     virtual sort * instantiate(pdecl_manager & m, unsigned n, sort * const * s);
     virtual void display(std::ostream & out) const;
 };
-#endif
 
-class datatype_decl_plugin;
-class datatype_decl;
-class constructor_decl;
-class accessor_decl;
 
 class pdatatypes_decl;
 class pdatatype_decl;
@@ -246,6 +241,7 @@ public:
     virtual void display(std::ostream & out) const;
     bool has_missing_refs(symbol & missing) const;
     bool has_duplicate_accessors(symbol & repeated) const;
+    bool commit(pdecl_manager& m);
 };
 
 /**
@@ -263,6 +259,10 @@ class pdatatypes_decl : public pdecl {
     virtual ~pdatatypes_decl() {}
 public:
     pdatatype_decl const * const * children() const { return m_datatypes.c_ptr(); }
+    pdatatype_decl * const * begin() const { return m_datatypes.begin(); }
+    pdatatype_decl * const * end() const { return m_datatypes.end(); }
+    // commit declaration 
+    bool commit(pdecl_manager& m);
 };
 
 class new_datatype_eh {
@@ -305,7 +305,7 @@ public:
     psort * mk_psort_var(unsigned num_params, unsigned vidx);
     psort * mk_psort_app(unsigned num_params, psort_decl * d, unsigned num_args, psort * const * args);
     psort * mk_psort_app(psort_decl * d);
-    // psort_decl * mk_psort_dt_decl(unsigned num_params, symbol const & n);
+    psort_decl * mk_psort_dt_decl(unsigned num_params, symbol const & n);
     psort_decl * mk_psort_user_decl(unsigned num_params, symbol const & n, psort * def);
     psort_decl * mk_psort_builtin_decl(symbol const & n, family_id fid, decl_kind k);
     paccessor_decl * mk_paccessor_decl(unsigned num_params, symbol const & s, ptype const & p);
@@ -314,6 +314,7 @@ public:
     pdatatypes_decl * mk_pdatatypes_decl(unsigned num_params, unsigned num, pdatatype_decl * const * dts);
     pdatatype_decl * mk_plist_decl() { if (!m_list) init_list(); return m_list; }
     bool fix_missing_refs(pdatatypes_decl * s, symbol & missing) { return s->fix_missing_refs(missing); }
+    sort * instantiate_datatype(psort_decl* p, symbol const& name, unsigned n, sort * const* s);
     sort * instantiate(psort * s, unsigned num, sort * const * args);
 
     void lazy_dec_ref(pdecl * p) { p->dec_ref(); if (p->get_ref_count() == 0) m_to_delete.push_back(p); }

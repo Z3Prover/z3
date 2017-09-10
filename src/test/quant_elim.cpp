@@ -6,12 +6,7 @@ Copyright (c) 2015 Microsoft Corporation
 
 #include "ast/ast.h"
 #include "smt/params/smt_params.h"
-#include "ast/simplifier/simplifier.h"
 #include "qe/qe.h"
-#include "ast/simplifier/basic_simplifier_plugin.h"
-#include "ast/simplifier/arith_simplifier_plugin.h"
-#include "ast/simplifier/array_simplifier_plugin.h"
-#include "ast/simplifier/bv_simplifier_plugin.h"
 #include "ast/ast_pp.h"
 #include "parsers/smt/smtlib.h"
 #include "parsers/smt/smtparser.h"
@@ -38,7 +33,6 @@ static void test_qe(ast_manager& m, lbool expected_outcome, expr* fml, char cons
     // enable_trace("after_search");
     // enable_trace("bv_bit_prop");
 
-    simplifier simp(m);
     smt_params params;
     // params.m_quant_elim = true;
 

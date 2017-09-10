@@ -19,6 +19,7 @@ Revision History:
 #include "smt/smt_context.h"
 #include "smt/theory_array.h"
 #include "ast/ast_ll_pp.h"
+#include "ast/ast_pp.h"
 #include "util/stats.h"
 
 namespace smt {

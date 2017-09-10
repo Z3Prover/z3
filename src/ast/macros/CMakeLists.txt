@@ -5,5 +5,5 @@ z3_add_component(macros
     macro_util.cpp
     quasi_macros.cpp
   COMPONENT_DEPENDENCIES
-    simplifier
+    rewriter
 )

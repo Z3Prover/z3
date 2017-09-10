@@ -28,6 +28,7 @@ Revision History:
 #include "util/optional.h"
 #include "util/lp/lp_params.hpp"
 #include "util/inf_rational.h"
+#include "ast/ast_pp.h"
 #include "smt/smt_theory.h"
 #include "smt/smt_context.h"
 #include "smt/theory_lra.h"

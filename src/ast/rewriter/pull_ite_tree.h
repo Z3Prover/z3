@@ -20,10 +20,11 @@ Revision History:
 #define PULL_ITE_TREE_H_
 
 #include "ast/ast.h"
-#include "ast/simplifier/simplifier.h"
+#include "ast/rewriter/rewriter.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "ast/expr_map.h"
 #include "ast/recurse_expr.h"
 #include "util/obj_hashtable.h"
-#include "ast/expr_map.h"
 
 /**
    \brief Functor for applying the following transformation
@@ -34,7 +35,7 @@ Revision History:
 */
 class pull_ite_tree {
     ast_manager &         m_manager;
-    simplifier &          m_simplifier;
+    th_rewriter           m_rewriter;
     func_decl *           m_p;
     ptr_vector<expr>      m_args;
     unsigned              m_arg_idx; //!< position of the ite argument
@@ -56,7 +57,7 @@ class pull_ite_tree {
         return m_manager.mk_app(m_p, m_args.size(), m_args.c_ptr());
     }
 public:
-    pull_ite_tree(ast_manager & m, simplifier & s);
+    pull_ite_tree(ast_manager & m);
     /**
        \brief Apply the transformation above if n contains an ite-expression.
        Store the result in r. If n does not contain an ite-expression, then
@@ -71,14 +72,16 @@ public:
    \brief Functor for applying the pull_ite_tree on subexpressions n that
    satisfy the is_target virtual predicate.
 */
-class pull_ite_tree_star : public simplifier {
+class pull_ite_tree_cfg : public default_rewriter_cfg {
 protected:
+    ast_manager& m;
+    expr_ref_vector m_trail;
     pull_ite_tree m_proc;
-    virtual bool get_subst(expr * n, expr_ref & r, proof_ref & p);
 public:
-    pull_ite_tree_star(ast_manager & m, simplifier & s);
-    virtual ~pull_ite_tree_star() { release_plugins(); }
+    pull_ite_tree_cfg(ast_manager & m);
+    virtual ~pull_ite_tree_cfg() {}
     virtual bool is_target(app * n) const = 0;
+    bool get_subst(expr * n, expr* & r, proof* & p);
 };
 
 /**
@@ -90,11 +93,20 @@ public:
    - ite is an ite-term expression
    - v is a value
 */
-class pull_cheap_ite_tree_star : public pull_ite_tree_star {
+class pull_cheap_ite_tree_cfg : public pull_ite_tree_cfg {
 public:
-    pull_cheap_ite_tree_star(ast_manager & m, simplifier & s):pull_ite_tree_star(m, s) {}
-    virtual ~pull_cheap_ite_tree_star() {}
+    pull_cheap_ite_tree_cfg(ast_manager & m):pull_ite_tree_cfg(m) {}
+    virtual ~pull_cheap_ite_tree_cfg() {}
     virtual bool is_target(app * n) const;
+};
+
+class pull_cheap_ite_tree_rw  : public rewriter_tpl<pull_cheap_ite_tree_cfg> {
+    pull_cheap_ite_tree_cfg m_cfg;
+public:
+    pull_cheap_ite_tree_rw(ast_manager& m):
+        rewriter_tpl<pull_cheap_ite_tree_cfg>(m, m.proofs_enabled(), m_cfg),
+        m_cfg(m)
+    {}
 };
 
 #endif /* PULL_ITE_TREE_H_ */

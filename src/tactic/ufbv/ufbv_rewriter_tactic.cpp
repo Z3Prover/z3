@@ -17,8 +17,6 @@ Notes:
 
 --*/
 #include "tactic/tactical.h"
-#include "ast/simplifier/simplifier.h"
-#include "ast/simplifier/basic_simplifier_plugin.h"
 #include "tactic/ufbv/ufbv_rewriter.h"
 #include "tactic/ufbv/ufbv_rewriter_tactic.h"
 
@@ -45,9 +43,7 @@ class ufbv_rewriter_tactic : public tactic {
 
             bool produce_proofs = g->proofs_enabled();
             
-            basic_simplifier_plugin bsimp(m_manager);
-            bsimp.set_eliminate_and(true);
-            ufbv_rewriter dem(m_manager, bsimp);
+            ufbv_rewriter dem(m_manager);
             
             expr_ref_vector forms(m_manager), new_forms(m_manager);
             proof_ref_vector proofs(m_manager), new_proofs(m_manager);

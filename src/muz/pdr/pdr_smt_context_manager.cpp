@@ -83,7 +83,7 @@ namespace pdr {
               {
                   ast_smt_pp pp(m);
                   for (unsigned i = 0; i < m_context.size(); ++i) {
-                      pp.add_assumption(m_context.get_formulas()[i]);
+                      pp.add_assumption(m_context.get_formula(i));
                   }
                   for (unsigned i = 0; i < assumptions.size(); ++i) {
                       pp.add_assumption(assumptions[i].get());

@@ -15,21 +15,21 @@ Author:
 Notes:
 
 --*/
-#include "cmd_context/cmd_context.h"
+#include "util/gparams.h"
+#include "util/env_params.h"
 #include "util/version.h"
 #include "ast/ast_smt_pp.h"
 #include "ast/ast_smt2_pp.h"
 #include "ast/ast_pp.h"
-#include "model/model_smt2_pp.h"
 #include "ast/array_decl_plugin.h"
 #include "ast/pp.h"
+#include "ast/well_sorted.h"
+#include "ast/pp_params.hpp"
+#include "model/model_smt2_pp.h"
+#include "cmd_context/cmd_context.h"
 #include "cmd_context/cmd_util.h"
 #include "cmd_context/simplify_cmd.h"
 #include "cmd_context/eval_cmd.h"
-#include "util/gparams.h"
-#include "util/env_params.h"
-#include "ast/well_sorted.h"
-#include "ast/pp_params.hpp"
 
 class help_cmd : public cmd {
     svector<symbol> m_cmds;
@@ -79,19 +79,15 @@ public:
             }
             // named_cmd_lt is not a total order for commands, but this is irrelevant for Linux x Windows behavior
             std::sort(cmds.begin(), cmds.end(), named_cmd_lt());
-            vector<named_cmd>::const_iterator it2  = cmds.begin();
-            vector<named_cmd>::const_iterator end2 = cmds.end();
-            for (; it2 != end2; ++it2) {
-                display_cmd(ctx, it2->first, it2->second);
+            for (named_cmd const& nc : cmds) {
+                display_cmd(ctx, nc.first, nc.second);
             }
         }
         else {
-            svector<symbol>::const_iterator it  = m_cmds.begin();
-            svector<symbol>::const_iterator end = m_cmds.end();
-            for (; it != end; ++it) {
-                cmd * c = ctx.find_cmd(*it);
+            for (symbol const& s : m_cmds) {
+                cmd * c = ctx.find_cmd(s);
                 SASSERT(c);
-                display_cmd(ctx, *it, c);
+                display_cmd(ctx, s, c);
             }
         }
         ctx.regular_stream() << "\"\n";
@@ -136,11 +132,10 @@ ATOMIC_CMD(get_assignment_cmd, "get-assignment", "retrieve assignment", {
     ctx.get_check_sat_result()->get_model(m);
     ctx.regular_stream() << "(";
     dictionary<macro_decls> const & macros = ctx.get_macros();
-    dictionary<macro_decls>::iterator it  = macros.begin();
-    dictionary<macro_decls>::iterator end = macros.end();
-    for (bool first = true; it != end; ++it) {
-        symbol const & name = (*it).m_key;
-        macro_decls const & _m    = (*it).m_value;
+    bool first = true;
+    for (auto const& kv : macros) {
+        symbol const & name = kv.m_key;
+        macro_decls const & _m    = kv.m_value;
         for (auto md : _m) {
             if (md.m_domain.size() == 0 && ctx.m().is_bool(md.m_body)) {
                 expr_ref val(ctx.m());
@@ -211,14 +206,13 @@ static void print_core(cmd_context& ctx) {
     ptr_vector<expr> core;
     ctx.get_check_sat_result()->get_unsat_core(core);
     ctx.regular_stream() << "(";
-    ptr_vector<expr>::const_iterator it  = core.begin();
-    ptr_vector<expr>::const_iterator end = core.end();
-    for (bool first = true; it != end; ++it) {
+    bool first = true;
+    for (expr* e : core) {
     if (first)
         first = false;
     else
         ctx.regular_stream() << " ";
-    ctx.regular_stream() << mk_ismt2_pp(*it, ctx.m());
+    ctx.regular_stream() << mk_ismt2_pp(e, ctx.m());
     }
     ctx.regular_stream() << ")" << std::endl;
 }
