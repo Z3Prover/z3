@@ -1744,6 +1744,34 @@ class QuantifierRef(BoolRef):
         """
         return Z3_is_quantifier_forall(self.ctx_ref(), self.ast)
 
+    def is_exists(self):
+        """Return `True` if `self` is an existential quantifier.
+
+        >>> f = Function('f', IntSort(), IntSort())
+        >>> x = Int('x')
+        >>> q = ForAll(x, f(x) == 0)
+        >>> q.is_exists()
+        False
+        >>> q = Exists(x, f(x) != 0)
+        >>> q.is_exists()
+        True
+        """
+        return Z3_is_quantifier_exists(self.ctx_ref(), self.ast)
+
+    def is_lambda(self):
+        """Return `True` if `self` is a lambda expression.
+
+        >>> f = Function('f', IntSort(), IntSort())
+        >>> x = Int('x')
+        >>> q = Lambda(x, f(x))
+        >>> q.is_lambda()
+        True
+        >>> q = Exists(x, f(x) != 0)
+        >>> q.is_lambda()
+        False
+        """
+        return Z3_is_lambda(self.ctx_ref(), self.ast)
+
     def weight(self):
         """Return the weight annotation of `self`.
 
@@ -1946,6 +1974,26 @@ def Exists(vs, body, weight=1, qid="", skid="", patterns=[], no_patterns=[]):
     False
     """
     return _mk_quantifier(False, vs, body, weight, qid, skid, patterns, no_patterns)
+
+def Lambda(vs, body):
+    """Create a Z3 lambda expression.
+
+    >>> f = Function('f', IntSort(), IntSort(), IntSort())
+    >>> mem0 = Array('mem0', IntSort(), IntSort())
+    >>> lo, hi, e, i = Ints('lo hi e i')
+    >>> mem1 = Lambda([i], If(And(lo <= i, i <= hi), e, mem0[i]))
+    >>> mem1
+    Lambda(i, If(And(lo <= i, i <= hi), e, mem0[i]))
+    """
+    ctx = body.ctx
+    if is_app(vs):
+        vs = [vs]
+    num_vars = len(vs)
+    _vs = (Ast * num_vars)()
+    for i in range(num_vars):
+        ## TODO: Check if is constant
+        _vs[i] = vs[i].as_ast()
+    return QuantifierRef(Z3_mk_lambda_const(ctx.ref(), num_vars, _vs, body.as_ast()), ctx)
 
 #########################################
 #

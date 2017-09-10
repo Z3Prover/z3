@@ -41,7 +41,7 @@ namespace Microsoft.Z3
         /// </summary>
         public bool IsExistential
         {
-            get { return !IsUniversal; }
+            get { return Native.Z3_is_quantifier_exists(Context.nCtx, NativeObject) != 0; }
         }
 
         /// <summary>

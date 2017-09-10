@@ -251,6 +251,7 @@ namespace z3 {
            Example: Given a context \c c, <tt>c.array_sort(c.int_sort(), c.bool_sort())</tt> is an array sort from integer to Boolean.
         */
         sort array_sort(sort d, sort r);
+        sort array_sort(sort_vector const& d, sort r);
         /**
            \brief Return an enumeration sort: enum_names[0], ..., enum_names[n-1].
            \c cs and \c ts are output parameters. The method stores in \c cs the constants corresponding to the enumerated elements,
@@ -667,7 +668,21 @@ namespace z3 {
            \brief Return true if this expression is a quantifier.
         */
         bool is_quantifier() const { return kind() == Z3_QUANTIFIER_AST; }
+
         /**
+           \brief Return true if this expression is a universal quantifier.
+        */
+        bool is_forall() const { return 0 != Z3_is_quantifier_forall(ctx(), m_ast); }
+        /**
+           \brief Return true if this expression is an existential quantifier.
+        */
+        bool is_exists() const { return 0 != Z3_is_quantifier_exists(ctx(), m_ast); }
+        /**
+           \brief Return true if this expression is a lambda expression.
+        */
+        bool is_lambda() const { return 0 != Z3_is_lambda(ctx(), m_ast); }
+        /**
+
            \brief Return true if this expression is a variable.
         */
         bool is_var() const { return kind() == Z3_VAR_AST; }
@@ -1571,6 +1586,31 @@ namespace z3 {
         array<Z3_app> vars(xs);
         Z3_ast r = Z3_mk_exists_const(b.ctx(), 0, vars.size(), vars.ptr(), 0, 0, b); b.check_error(); return expr(b.ctx(), r);
     }
+    inline expr lambda(expr const & x, expr const & b) {
+        check_context(x, b);
+        Z3_app vars[] = {(Z3_app) x};
+        Z3_ast r = Z3_mk_lambda_const(b.ctx(), 1, vars, b); b.check_error(); return expr(b.ctx(), r);
+    }
+    inline expr lambda(expr const & x1, expr const & x2, expr const & b) {
+        check_context(x1, b); check_context(x2, b);
+        Z3_app vars[] = {(Z3_app) x1, (Z3_app) x2};
+        Z3_ast r = Z3_mk_lambda_const(b.ctx(), 2, vars, b); b.check_error(); return expr(b.ctx(), r);
+    }
+    inline expr lambda(expr const & x1, expr const & x2, expr const & x3, expr const & b) {
+        check_context(x1, b); check_context(x2, b); check_context(x3, b);
+        Z3_app vars[] = {(Z3_app) x1, (Z3_app) x2, (Z3_app) x3 };
+        Z3_ast r = Z3_mk_lambda_const(b.ctx(), 3, vars, b); b.check_error(); return expr(b.ctx(), r);
+    }
+    inline expr lambda(expr const & x1, expr const & x2, expr const & x3, expr const & x4, expr const & b) {
+        check_context(x1, b); check_context(x2, b); check_context(x3, b); check_context(x4, b);
+        Z3_app vars[] = {(Z3_app) x1, (Z3_app) x2, (Z3_app) x3, (Z3_app) x4 };
+        Z3_ast r = Z3_mk_lambda_const(b.ctx(), 4, vars, b); b.check_error(); return expr(b.ctx(), r);
+    }
+    inline expr lambda(expr_vector const & xs, expr const & b) {
+        array<Z3_app> vars(xs);
+        Z3_ast r = Z3_mk_lambda_const(b.ctx(), vars.size(), vars.ptr(), b); b.check_error(); return expr(b.ctx(), r);
+    }
+
     inline expr pble(expr_vector const& es, int const* coeffs, int bound) {
         assert(es.size() > 0);
         context& ctx = es[0].ctx();
@@ -2328,6 +2368,10 @@ namespace z3 {
     inline sort context::re_sort(sort& s) { Z3_sort r = Z3_mk_re_sort(m_ctx, s); check_error(); return sort(*this, r); }
 
     inline sort context::array_sort(sort d, sort r) { Z3_sort s = Z3_mk_array_sort(m_ctx, d, r); check_error(); return sort(*this, s); }
+    inline sort context::array_sort(sort_vector const& d, sort r) {
+        array<Z3_sort> dom(d);
+        Z3_sort s = Z3_mk_array_sort_n(m_ctx, dom.size(), dom.ptr(), r); check_error(); return sort(*this, s); 
+    }
     inline sort context::enumeration_sort(char const * name, unsigned n, char const * const * enum_names, func_decl_vector & cs, func_decl_vector & ts) {
         array<Z3_symbol> _enum_names(n);
         for (unsigned i = 0; i < n; i++) { _enum_names[i] = Z3_mk_string_symbol(*this, enum_names[i]); }
@@ -2567,6 +2611,13 @@ namespace z3 {
         a.check_error();
         return expr(a.ctx(), r);
     }
+    inline expr select(expr const & a, expr_vector const & i) {
+        check_context(a, i);
+        array<Z3_ast> idxs(i);
+        Z3_ast r = Z3_mk_select_n(a.ctx(), a, idxs.size(), idxs.ptr());
+        a.check_error();
+        return expr(a.ctx(), r);
+    }
     inline expr select(expr const & a, int i) { return select(a, a.ctx().num_val(i, a.get_sort().array_domain())); }
     inline expr store(expr const & a, expr const & i, expr const & v) {
         check_context(a, i); check_context(a, v);
@@ -2578,6 +2629,13 @@ namespace z3 {
     inline expr store(expr const & a, expr i, int v) { return store(a, i, a.ctx().num_val(v, a.get_sort().array_range())); }
     inline expr store(expr const & a, int i, int v) {
         return store(a, a.ctx().num_val(i, a.get_sort().array_domain()), a.ctx().num_val(v, a.get_sort().array_range()));
+    }
+    inline expr store(expr const & a, expr_vector const & i, expr const & v) {
+        check_context(a, i); check_context(a, v);
+        array<Z3_ast> idxs(i);
+        Z3_ast r = Z3_mk_store_n(a.ctx(), a, idxs.size(), idxs.ptr(), v);
+        a.check_error();
+        return expr(a.ctx(), r);
     }
 
 #define MK_EXPR1(_fn, _arg)                     \

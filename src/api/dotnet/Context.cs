@@ -3207,6 +3207,53 @@ namespace Microsoft.Z3
                 return MkExists(boundConstants, body, weight, patterns, noPatterns, quantifierID, skolemID);
         }
 
+        /// <summary>
+        /// Create a lambda expression.
+        /// </summary>
+        /// <remarks>
+        /// Creates a lambda expression.
+        /// <paramref name="sorts"/> is an array
+        /// with the sorts of the bound variables, <paramref name="names"/> is an array with the
+        /// 'names' of the bound variables, and <paramref name="body"/> is the body of the
+        /// lambda. 
+        /// Note that the bound variables are de-Bruijn indices created using <see cref="MkBound"/>.
+        /// Z3 applies the convention that the last element in <paramref name="names"/> and
+        /// <paramref name="sorts"/> refers to the variable with index 0, the second to last element
+        /// of <paramref name="names"/> and <paramref name="sorts"/> refers to the variable
+        /// with index 1, etc.
+        /// </remarks>
+        /// <param name="sorts">the sorts of the bound variables.</param>
+        /// <param name="names">names of the bound variables</param>
+        /// <param name="body">the body of the quantifier.</param>
+        public Lambda MkLambda(Sort[] sorts, Symbol[] names, Expr body)
+        {
+            Contract.Requires(sorts != null);
+            Contract.Requires(names != null);
+            Contract.Requires(body != null);
+            Contract.Requires(sorts.Length == names.Length);
+            Contract.Requires(Contract.ForAll(sorts, s => s != null));
+            Contract.Requires(Contract.ForAll(names, n => n != null));
+            Contract.Ensures(Contract.Result<Lambda>() != null);
+            return new Lambda(this, sorts, names, body);
+        }
+
+        /// <summary>
+        /// Create a lambda expression.
+        /// </summary>
+        /// <remarks>
+        /// Creates a lambda expression using a list of constants that will
+        /// form the set of bound variables.
+        /// <seealso cref="MkLambda(Sort[], Symbol[], Expr)"/>
+        /// </remarks>
+        public Lambda MkForall(Expr[] boundConstants, Expr body)
+        {
+            Contract.Requires(body != null);
+            Contract.Requires(boundConstants != null && Contract.ForAll(boundConstants, b => b != null));
+            Contract.Ensures(Contract.Result<Lambda>() != null);
+            return new Lambda(this, boundConstants, body);
+        }
+
+
         #endregion
 
         #endregion // Expr

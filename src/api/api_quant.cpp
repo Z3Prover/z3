@@ -142,6 +142,61 @@ extern "C" {
         return Z3_mk_quantifier(c, 0, weight, num_patterns, patterns, num_decls, types, decl_names, body);
     }
 
+    Z3_ast Z3_API Z3_mk_lambda(Z3_context c,
+                               unsigned num_decls, Z3_sort const types[],
+                               Z3_symbol const decl_names[],
+                               Z3_ast body) {
+
+        Z3_TRY;
+        LOG_Z3_mk_lambda(c, num_decls, types, decl_names, body);
+        RESET_ERROR_CODE();
+        expr_ref result(mk_c(c)->m());
+        if (num_decls == 0) {
+            SET_ERROR_CODE(Z3_INVALID_USAGE);
+            RETURN_Z3(0);
+        }
+
+        sort* const* ts = reinterpret_cast<sort * const*>(types);
+        svector<symbol> names;
+        for (unsigned i = 0; i < num_decls; ++i) {
+            names.push_back(to_symbol(decl_names[i]));
+        }
+        result = mk_c(c)->m().mk_lambda(names.size(), ts, names.c_ptr(), to_expr(body));
+        mk_c(c)->save_ast_trail(result.get());
+        return of_ast(result.get());
+        Z3_CATCH_RETURN(0);
+    }
+
+    Z3_ast Z3_API Z3_mk_lambda_const(Z3_context c, 
+                                     unsigned num_decls, Z3_app const vars[],
+                                     Z3_ast body) {
+
+        Z3_TRY;
+        LOG_Z3_mk_lambda_const(c, num_decls, vars, body);
+        RESET_ERROR_CODE();
+        if (num_decls == 0) {
+            SET_ERROR_CODE(Z3_INVALID_USAGE);
+            RETURN_Z3(0);
+        }
+
+        svector<symbol>  _names;
+        ptr_vector<sort> _vars;
+        ptr_vector<expr> _args;
+        for (unsigned i = 0; i < num_decls; ++i) {
+            app* a = to_app(vars[i]);
+            _names.push_back(to_app(a)->get_decl()->get_name());
+            _args.push_back(a);
+            _vars.push_back(mk_c(c)->m().get_sort(a));
+        }
+        expr_ref result(mk_c(c)->m());        
+        expr_abstract(mk_c(c)->m(), 0, num_decls, _args.c_ptr(), to_expr(body), result);
+        
+        result = mk_c(c)->m().mk_lambda(_vars.size(), _vars.c_ptr(), _names.c_ptr(), result);
+        mk_c(c)->save_ast_trail(result.get());
+        return of_ast(result.get());
+        Z3_CATCH_RETURN(0);
+    }
+
 
     Z3_ast Z3_API Z3_mk_quantifier_const_ex(Z3_context c,
                                             Z3_bool is_forall,
@@ -290,16 +345,26 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_is_quantifier_forall(c, a);
         RESET_ERROR_CODE();
-        ast * _a = to_ast(a);
-        if (_a->get_kind() == AST_QUANTIFIER) {
-            return ::is_forall(to_quantifier(_a));
-        }
-        else {
-            SET_ERROR_CODE(Z3_SORT_ERROR);
-            return Z3_FALSE;
-        }
+        return ::is_forall(to_ast(a)) ? Z3_TRUE : Z3_FALSE;
         Z3_CATCH_RETURN(Z3_FALSE);
     }
+
+    Z3_bool Z3_API Z3_is_quantifier_exists(Z3_context c, Z3_ast a) {
+        Z3_TRY;
+        LOG_Z3_is_quantifier_exists(c, a);
+        RESET_ERROR_CODE();
+        return ::is_exists(to_ast(a))  ? Z3_TRUE : Z3_FALSE;
+        Z3_CATCH_RETURN(Z3_FALSE);
+    }
+
+    Z3_bool Z3_API Z3_is_lambda(Z3_context c, Z3_ast a) {
+        Z3_TRY;
+        LOG_Z3_is_lambda(c, a);
+        RESET_ERROR_CODE();
+        return ::is_lambda(to_ast(a))  ? Z3_TRUE : Z3_FALSE;
+        Z3_CATCH_RETURN(Z3_FALSE);
+    }
+
 
     unsigned Z3_API Z3_get_quantifier_weight(Z3_context c, Z3_ast a) {
         Z3_TRY;
