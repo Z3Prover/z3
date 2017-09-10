@@ -355,13 +355,8 @@ psort_dt_decl::psort_dt_decl(unsigned id, unsigned num_params, pdecl_manager & m
 
 
 sort * psort_dt_decl::instantiate(pdecl_manager & m, unsigned n, sort * const * s) {
-#ifndef DATATYPE_V2
-    UNREACHABLE();
-    return 0;
-#else
     SASSERT(n == m_num_params);
     return m.instantiate_datatype(this, m_name, n, s);
-#endif
 }
 
 void psort_dt_decl::display(std::ostream & out) const {
@@ -581,7 +576,6 @@ struct datatype_decl_buffer {
     ~datatype_decl_buffer() { del_datatype_decls(m_buffer.size(), m_buffer.c_ptr()); }
 };
 
-#ifdef DATATYPE_V2
 
 sort * pdatatype_decl::instantiate(pdecl_manager & m, unsigned n, sort * const * s) {
     sort * r = m.instantiate_datatype(this, m_name, n, s);
@@ -615,37 +609,6 @@ sort * pdatatype_decl::instantiate(pdecl_manager & m, unsigned n, sort * const *
     return r;
 }
 
-#else
-sort * pdatatype_decl::instantiate(pdecl_manager & m, unsigned n, sort * const * s) {
-    SASSERT(m_num_params == n);
-    sort * r = find(s);
-    if (r)
-        return r;
-    if (m_parent != 0) {
-        if (m_parent->instantiate(m, s)) {
-            r = find(s);
-            SASSERT(r);
-            return r;
-        }
-    }
-    else {
-        datatype_decl_buffer dts;
-        dts.m_buffer.push_back(instantiate_decl(m, s));
-        datatype_decl * d_ptr = dts.m_buffer[0];
-        sort_ref_vector sorts(m.m());
-        bool is_ok = m.get_dt_plugin()->mk_datatypes(1, &d_ptr, m_num_params, s, sorts);
-        TRACE("pdatatype_decl", tout << "instantiating " << m_name << " is_ok: " << is_ok << "\n";);
-        if (is_ok) {
-            r = sorts.get(0);
-            cache(m, s, r);
-            m.save_info(r, this, n, s);
-            m.notify_new_dt(r, this);
-            return r;
-        }
-    }
-    return 0;
-}
-#endif
 
 void pdatatype_decl::display(std::ostream & out) const {
     out << "(declare-datatype " << m_name;
@@ -666,7 +629,6 @@ void pdatatype_decl::display(std::ostream & out) const {
     out << ")";
 }
 
-#ifdef DATATYPE_V2
 bool pdatatype_decl::commit(pdecl_manager& m) {
     TRACE("datatype", tout << m_name << "\n";);
     sort_ref_vector ps(m.m());
@@ -683,7 +645,6 @@ bool pdatatype_decl::commit(pdecl_manager& m) {
     }
     return is_ok;
 }
-#endif
 
 
 pdatatypes_decl::pdatatypes_decl(unsigned id, unsigned num_params, pdecl_manager & m,
@@ -714,7 +675,6 @@ bool pdatatypes_decl::fix_missing_refs(symbol & missing) {
     return true;
 }
 
-#ifdef DATATYPE_V2
 sort* pdecl_manager::instantiate_datatype(psort_decl* p, symbol const& name, unsigned n, sort * const* s) {
     TRACE("datatype", tout << name << " "; for (unsigned i = 0; i < n; ++i) tout << s[i]->get_name() << " "; tout << "\n";);
     pdecl_manager& m = *this;
@@ -746,28 +706,7 @@ bool pdatatypes_decl::instantiate(pdecl_manager & m, sort * const * s) {
     UNREACHABLE();
     return false;
 }
-#else
-bool pdatatypes_decl::instantiate(pdecl_manager & m, sort * const * s) {
-    datatype_decl_buffer dts;
-    for (auto d : m_datatypes) {
-        dts.m_buffer.push_back(d->instantiate_decl(m, s));
-    }
-    sort_ref_vector sorts(m.m());
-    bool is_ok = m.get_dt_plugin()->mk_datatypes(dts.m_buffer.size(), dts.m_buffer.c_ptr(), m_num_params, s, sorts);
-    if (!is_ok)
-        return false;
-    unsigned i = 0;
-    for (auto d : m_datatypes) {
-        sort * new_dt = sorts.get(i++);
-        d->cache(m, s, new_dt);
-        m.save_info(new_dt, d, m_num_params, s);
-        m.notify_new_dt(new_dt, d);
-    }
-    return true;
-}
-#endif
 
-#ifdef DATATYPE_V2
 bool pdatatypes_decl::commit(pdecl_manager& m) {
     datatype_decl_buffer dts;
     for (pdatatype_decl* d : m_datatypes) {
@@ -789,7 +728,6 @@ bool pdatatypes_decl::commit(pdecl_manager& m) {
     }
     return is_ok;
 }
-#endif
 
 struct pdecl_manager::sort_info {
     psort_decl * m_decl;

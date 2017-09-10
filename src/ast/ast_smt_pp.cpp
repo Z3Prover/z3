@@ -204,19 +204,13 @@ class smt_printer {
     void pp_decl(func_decl* d) {
         symbol sym = m_renaming.get_symbol(d->get_name());
         if (d->get_family_id() == m_dt_fid) {
-#ifdef DATATYPE_V2
-            std::cout << "printing " << sym << "\n";
             datatype_util util(m_manager);
             if (util.is_recognizer(d)) {
-                std::cout << d->get_num_parameters() << "\n";
                 visit_params(false, sym, d->get_num_parameters(), d->get_parameters());
             }
             else {
                 m_out << sym;
             }
-#else
-            m_out << sym;
-#endif
         }
         else if (m_manager.is_ite(d)) {
             m_out << "ite";            
@@ -314,9 +308,6 @@ class smt_printer {
             sym = "Array";
         }
         else if (s->is_sort_of(m_dt_fid, DATATYPE_SORT)) {
-#ifndef DATATYPE_V2
-            m_out << m_renaming.get_symbol(s->get_name());            
-#else
             datatype_util util(m_manager);
             unsigned num_sorts = util.get_datatype_num_parameter_sorts(s);
             if (num_sorts > 0) {
@@ -330,7 +321,6 @@ class smt_printer {
                 }
                 m_out << ")";
             }
-#endif
             return;
         }
         else {
@@ -787,8 +777,6 @@ public:
         datatype_util util(m_manager);
         SASSERT(util.is_datatype(s));
 
-#ifdef DATATYPE_V2
-
         sort_ref_vector ps(m_manager);        
         ptr_vector<datatype::def> defs;
         util.get_defs(s, defs);
@@ -839,65 +827,6 @@ public:
             m_out << ")";
         }
         m_out << "))";     
-#else
-
-        ptr_vector<sort> rec_sorts;
-
-        rec_sorts.push_back(s);
-        mark.mark(s, true);
-
-        // collect siblings and sorts that have not already been printed.
-        for (unsigned h = 0; h < rec_sorts.size(); ++h) {
-            s = rec_sorts[h];
-            ptr_vector<func_decl> const& decls = *util.get_datatype_constructors(s);
-
-            for (unsigned i = 0; i < decls.size(); ++i) {
-                func_decl* f = decls[i];
-                for (unsigned j = 0; j < f->get_arity(); ++j) {
-                    sort* s2 = f->get_domain(j);
-                    if (!mark.is_marked(s2)) {
-                        if (m_manager.is_uninterp(s2)) {
-                            pp_sort_decl(mark, s2);
-                        }
-                        else if (!util.is_datatype(s2)) {
-                            // skip
-                        }
-                        else if (util.are_siblings(s, s2)) {
-                            rec_sorts.push_back(s2);
-                            mark.mark(s2, true);
-                        }
-                        else {
-                            pp_sort_decl(mark, s2);
-                        }
-                    }
-                }
-            }
-        }
-
-        m_out << "(declare-datatypes () (";
-        bool first_sort = true;
-        for (sort * s : rec_sorts) {
-            if (!first_sort) m_out << " "; else first_sort = false;
-            
-            m_out << "(";
-            m_out << m_renaming.get_symbol(s->get_name());
-            m_out << " ";
-            bool first_constr = true;
-            for (func_decl* f : *util.get_datatype_constructors(s)) {
-                if (!first_constr) m_out << " "; else first_constr = false;
-                m_out << "(";                
-                m_out << m_renaming.get_symbol(f->get_name());
-                for (func_decl* a : *util.get_constructor_accessors(f)) {
-                    m_out << " (" << m_renaming.get_symbol(a->get_name()) << " ";
-                    visit_sort(a->get_range());
-                    m_out << ")";
-                }
-                m_out << ")";
-            }
-            m_out << ")";
-        }
-        m_out << "))";     
-#endif   
         newline();
     }
 

@@ -241,9 +241,7 @@ public:
     virtual void display(std::ostream & out) const;
     bool has_missing_refs(symbol & missing) const;
     bool has_duplicate_accessors(symbol & repeated) const;
-#ifdef DATATYPE_V2
     bool commit(pdecl_manager& m);
-#endif
 };
 
 /**
@@ -263,10 +261,8 @@ public:
     pdatatype_decl const * const * children() const { return m_datatypes.c_ptr(); }
     pdatatype_decl * const * begin() const { return m_datatypes.begin(); }
     pdatatype_decl * const * end() const { return m_datatypes.end(); }
-#ifdef DATATYPE_V2
     // commit declaration 
     bool commit(pdecl_manager& m);
-#endif
 };
 
 class new_datatype_eh {

@@ -877,9 +877,7 @@ namespace smt2 {
             }
             else if (sz == 1) {
                 check_missing(new_dt_decls[0], line, pos);
-#ifdef DATATYPE_V2
                 new_dt_decls[0]->commit(pm());
-#endif
             }
             else {
                 SASSERT(sz > 1);
@@ -892,27 +890,9 @@ namespace smt2 {
                     err_msg += "'";
                     throw parser_exception(err_msg, line, pos);
                 }
-#ifndef DATATYPE_V2
-                m_ctx.insert_aux_pdecl(dts.get());
-#else
                 dts->commit(pm());
-				m_ctx.insert_aux_pdecl(dts.get());
-#endif
+                m_ctx.insert_aux_pdecl(dts.get());
             }
-#ifndef DATATYPE_V2
-            for (unsigned i = 0; i < sz; i++) {
-                pdatatype_decl * d = new_dt_decls[i];
-                SASSERT(d != 0);
-                symbol duplicated;
-                check_duplicate(d, line, pos);
-                m_ctx.insert(d);
-                if (d->get_num_params() == 0) {
-                    // if datatype is not parametric... then force instantiation to register accessor, recognizers and constructors...
-                    sort_ref s(m());
-                    s = d->instantiate(pm(), 0, 0);
-                }
-            }
-#else
             for (unsigned i = 0; i < sz; i++) {
                 pdatatype_decl * d = new_dt_decls[i];
                 symbol duplicated;
@@ -922,7 +902,6 @@ namespace smt2 {
                     m_ctx.insert(d);
                 }
             }                
-#endif
             TRACE("declare_datatypes", tout << "i: " << i << " new_dt_decls.size(): " << sz << "\n";
                   for (unsigned j = 0; j < new_dt_decls.size(); ++j) tout << new_dt_decls[j]->get_name() << "\n";);
             m_ctx.print_success();
@@ -952,16 +931,7 @@ namespace smt2 {
             check_missing(d, line, pos);
             check_duplicate(d, line, pos);
 
-#ifndef DATATYPE_V2
-            m_ctx.insert(d);
-            if (d->get_num_params() == 0) {
-                // if datatype is not parametric... then force instantiation to register accessor, recognizers and constructors...
-                sort_ref s(m());
-                s = d->instantiate(pm(), 0, 0);
-            }
-#else
             d->commit(pm());
-#endif
             check_rparen_next("invalid end of datatype declaration, ')' expected");
             m_ctx.print_success();
         }
