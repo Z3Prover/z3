@@ -105,13 +105,14 @@ namespace datatype {
     }
 
     def* def::translate(ast_translation& tr, util& u) {
+        SASSERT(&u.get_manager() == &tr.to());
         sort_ref_vector ps(tr.to());
         for (sort* p : m_params) {
             ps.push_back(to_sort(tr(p)));
         }
         def* result = alloc(def, tr.to(), u, m_name, m_class_id, ps.size(), ps.c_ptr());
         for (constructor* c : *this) {
-            add(c->translate(tr));
+            result->add(c->translate(tr));
         }
         if (m_sort) result->m_sort = to_sort(tr(m_sort.get()));
         return result;               
@@ -171,24 +172,22 @@ namespace datatype {
             return *(m_util.get());
         }
 
-        static unsigned stack_depth = 0;
-
         void plugin::inherit(decl_plugin* other_p, ast_translation& tr) {
-            ++stack_depth;
-            SASSERT(stack_depth < 10);
             plugin* p = dynamic_cast<plugin*>(other_p);
             svector<symbol> names;
+            ptr_vector<def> new_defs;            
             SASSERT(p);
             for (auto& kv : p->m_defs) {
                 def* d = kv.m_value;
                 if (!m_defs.contains(kv.m_key)) {
                     names.push_back(kv.m_key);
-                    m_defs.insert(kv.m_key, d->translate(tr, u()));
+                    new_defs.push_back(d->translate(tr, u()));
                 }
             }
+            for (def* d : new_defs) 
+                m_defs.insert(d->name(), d);
             m_class_id = m_defs.size();
             u().compute_datatype_size_functions(names);
-            --stack_depth;
         }
 
 
@@ -304,7 +303,6 @@ namespace datatype {
             VALIDATE_PARAM(u().is_datatype(domain[0]));
             // blindly trust that parameter is a constructor
             sort* range = m_manager->mk_bool_sort();
-            func_decl* f = to_func_decl(parameters[0].get_ast());
             func_decl_info info(m_family_id, OP_DT_RECOGNISER, num_parameters, parameters);
             info.m_private_parameters = true;
             return m.mk_func_decl(symbol(parameters[1].get_symbol()), arity, domain, range, info);
@@ -317,7 +315,6 @@ namespace datatype {
             VALIDATE_PARAM(u().is_datatype(domain[0]));
             // blindly trust that parameter is a constructor
             sort* range = m_manager->mk_bool_sort();
-            func_decl* f = to_func_decl(parameters[0].get_ast());
             func_decl_info info(m_family_id, OP_DT_IS, num_parameters, parameters);
             info.m_private_parameters = true;
             return m.mk_func_decl(symbol("is"), arity, domain, range, info);

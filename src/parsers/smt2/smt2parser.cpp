@@ -617,7 +617,6 @@ namespace smt2 {
             SASSERT(curr_is_identifier());
             symbol id = curr_id();
             psort_decl * d = m_ctx.find_psort_decl(id);
-            int idx = 0;
             if (d == 0) {
                 unknown_sort(id);                                
             }
