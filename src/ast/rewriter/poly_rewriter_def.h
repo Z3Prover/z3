@@ -1010,7 +1010,6 @@ bool poly_rewriter<Config>::is_var_plus_ground(expr * n, bool & inv, var * & v, 
             stop = true;
         }
         if (is_ground(arg)) {
-            TRACE("model_checker_bug", tout << "pushing:\n" << mk_pp(arg, m()) << "\n";);
             args.push_back(arg);
         }
         else if (is_var(arg)) {
