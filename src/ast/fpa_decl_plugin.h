@@ -168,8 +168,6 @@ class fpa_decl_plugin : public decl_plugin {
                                   unsigned arity, sort * const * domain, sort * range);
     func_decl * mk_internal_bv_wrap(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                     unsigned arity, sort * const * domain, sort * range);
-    func_decl * mk_internal_bv_unwrap(decl_kind k, unsigned num_parameters, parameter const * parameters,
-                                      unsigned arity, sort * const * domain, sort * range);
     func_decl * mk_internal_to_ubv_unspecified(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                                unsigned arity, sort * const * domain, sort * range);
     func_decl * mk_internal_to_sbv_unspecified(decl_kind k, unsigned num_parameters, parameter const * parameters,
