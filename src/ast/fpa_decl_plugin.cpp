@@ -361,10 +361,10 @@ func_decl * fpa_decl_plugin::mk_binary_decl(decl_kind k, unsigned num_parameters
     case OP_FPA_REM: name = "fp.rem"; break;
     case OP_FPA_MIN: name = "fp.min"; break;
     case OP_FPA_MAX: name = "fp.max"; break;
-    case OP_FPA_INTERNAL_MIN_I: name = "fp.min_i"; break;
-    case OP_FPA_INTERNAL_MAX_I: name = "fp.max_i"; break;
-    case OP_FPA_INTERNAL_MIN_UNSPECIFIED: name = "fp.min_unspecified"; break;
-    case OP_FPA_INTERNAL_MAX_UNSPECIFIED: name = "fp.max_unspecified"; break;
+    case OP_FPA_MIN_I: name = "fp.min_i"; break;
+    case OP_FPA_MAX_I: name = "fp.max_i"; break;
+    case OP_FPA_MIN_UNSPECIFIED: name = "fp.min_unspecified"; break;
+    case OP_FPA_MAX_UNSPECIFIED: name = "fp.max_unspecified"; break;
     default:
         UNREACHABLE();
         break;
@@ -676,10 +676,10 @@ func_decl * fpa_decl_plugin::mk_to_ieee_bv(decl_kind k, unsigned num_parameters,
     return m_manager->mk_func_decl(name, 1, domain, bv_srt, func_decl_info(m_family_id, k));
 }
 
-func_decl * fpa_decl_plugin::mk_internal_bv2rm(decl_kind k, unsigned num_parameters, parameter const * parameters,
+func_decl * fpa_decl_plugin::mk_bv2rm(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                             unsigned arity, sort * const * domain, sort * range) {
     if (arity != 1)
-        m_manager->raise_exception("invalid number of arguments to internal_rm");
+        m_manager->raise_exception("invalid number of arguments to bv2rm");
     if (!is_sort_of(domain[0], m_bv_fid, BV_SORT) || domain[0]->get_parameter(0).get_int() != 3)
         m_manager->raise_exception("sort mismatch, expected argument of sort bitvector, size 3");
     if (!is_rm_sort(range))
@@ -690,7 +690,7 @@ func_decl * fpa_decl_plugin::mk_internal_bv2rm(decl_kind k, unsigned num_paramet
     return m_manager->mk_func_decl(symbol("rm"), 1, &bv_srt, range, func_decl_info(m_family_id, k, num_parameters, parameters));
 }
 
-func_decl * fpa_decl_plugin::mk_internal_bv_wrap(decl_kind k, unsigned num_parameters, parameter const * parameters,
+func_decl * fpa_decl_plugin::mk_bv_wrap(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                                  unsigned arity, sort * const * domain, sort * range) {
     if (arity != 1)
         m_manager->raise_exception("invalid number of arguments to bv_wrap");
@@ -711,7 +711,7 @@ func_decl * fpa_decl_plugin::mk_internal_bv_wrap(decl_kind k, unsigned num_param
     }
 }
 
-func_decl * fpa_decl_plugin::mk_internal_to_ubv_unspecified(
+func_decl * fpa_decl_plugin::mk_to_ubv_unspecified(
     decl_kind k, unsigned num_parameters, parameter const * parameters,
     unsigned arity, sort * const * domain, sort * range) {
     if (arity != 0)
@@ -725,7 +725,7 @@ func_decl * fpa_decl_plugin::mk_internal_to_ubv_unspecified(
     return m_manager->mk_func_decl(symbol("fp.to_ubv_unspecified"), 0, domain, bv_srt, func_decl_info(m_family_id, k, num_parameters, parameters));
 }
 
-func_decl * fpa_decl_plugin::mk_internal_to_sbv_unspecified(
+func_decl * fpa_decl_plugin::mk_to_sbv_unspecified(
     decl_kind k, unsigned num_parameters, parameter const * parameters,
     unsigned arity, sort * const * domain, sort * range) {
     if (arity != 0)
@@ -739,7 +739,7 @@ func_decl * fpa_decl_plugin::mk_internal_to_sbv_unspecified(
     return m_manager->mk_func_decl(symbol("fp.to_sbv_unspecified"), 0, domain, bv_srt, func_decl_info(m_family_id, k, num_parameters, parameters));
 }
 
-func_decl * fpa_decl_plugin::mk_internal_to_real_unspecified(
+func_decl * fpa_decl_plugin::mk_to_real_unspecified(
     decl_kind k, unsigned num_parameters, parameter const * parameters,
     unsigned arity, sort * const * domain, sort * range) {
     if (arity != 0)
@@ -754,7 +754,7 @@ func_decl * fpa_decl_plugin::mk_internal_to_real_unspecified(
     return m_manager->mk_func_decl(symbol("fp.to_real_unspecified"), 0, domain, m_real_sort, func_decl_info(m_family_id, k, num_parameters, parameters));
 }
 
-func_decl * fpa_decl_plugin::mk_internal_to_ieee_bv_unspecified(
+func_decl * fpa_decl_plugin::mk_to_ieee_bv_unspecified(
     decl_kind k, unsigned num_parameters, parameter const * parameters,
     unsigned arity, sort * const * domain, sort * range) {
     if (arity != 0)
@@ -835,25 +835,25 @@ func_decl * fpa_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
     case OP_FPA_TO_IEEE_BV:
         return mk_to_ieee_bv(k, num_parameters, parameters, arity, domain, range);
 
-    case OP_FPA_INTERNAL_BVWRAP:
-        return mk_internal_bv_wrap(k, num_parameters, parameters, arity, domain, range);
-    case OP_FPA_INTERNAL_BV2RM:
-        return mk_internal_bv2rm(k, num_parameters, parameters, arity, domain, range);
+    case OP_FPA_BVWRAP:
+        return mk_bv_wrap(k, num_parameters, parameters, arity, domain, range);
+    case OP_FPA_BV2RM:
+        return mk_bv2rm(k, num_parameters, parameters, arity, domain, range);
 
-    case OP_FPA_INTERNAL_MIN_I:
-    case OP_FPA_INTERNAL_MAX_I:
-    case OP_FPA_INTERNAL_MIN_UNSPECIFIED:
-    case OP_FPA_INTERNAL_MAX_UNSPECIFIED:
+    case OP_FPA_MIN_I:
+    case OP_FPA_MAX_I:
+    case OP_FPA_MIN_UNSPECIFIED:
+    case OP_FPA_MAX_UNSPECIFIED:
         return mk_binary_decl(k, num_parameters, parameters, arity, domain, range);
 
-    case OP_FPA_INTERNAL_TO_UBV_UNSPECIFIED:
-        return mk_internal_to_ubv_unspecified(k, num_parameters, parameters, arity, domain, range);
-    case OP_FPA_INTERNAL_TO_SBV_UNSPECIFIED:
-        return mk_internal_to_sbv_unspecified(k, num_parameters, parameters, arity, domain, range);
-    case OP_FPA_INTERNAL_TO_REAL_UNSPECIFIED:
-        return mk_internal_to_real_unspecified(k, num_parameters, parameters, arity, domain, range);
-    case OP_FPA_INTERNAL_TO_IEEE_BV_UNSPECIFIED:
-        return mk_internal_to_ieee_bv_unspecified(k, num_parameters, parameters, arity, domain, range);
+    case OP_FPA_TO_UBV_UNSPECIFIED:
+        return mk_to_ubv_unspecified(k, num_parameters, parameters, arity, domain, range);
+    case OP_FPA_TO_SBV_UNSPECIFIED:
+        return mk_to_sbv_unspecified(k, num_parameters, parameters, arity, domain, range);
+    case OP_FPA_TO_REAL_UNSPECIFIED:
+        return mk_to_real_unspecified(k, num_parameters, parameters, arity, domain, range);
+    case OP_FPA_TO_IEEE_BV_UNSPECIFIED:
+        return mk_to_ieee_bv_unspecified(k, num_parameters, parameters, arity, domain, range);
     default:
         m_manager->raise_exception("unsupported floating point operator");
         return 0;
@@ -1054,28 +1054,28 @@ app * fpa_util::mk_nzero(unsigned ebits, unsigned sbits) {
     return mk_value(v);
 }
 
-app * fpa_util::mk_internal_to_ubv_unspecified(unsigned ebits, unsigned sbits, unsigned width) {
+app * fpa_util::mk_to_ubv_unspecified(unsigned ebits, unsigned sbits, unsigned width) {
     parameter ps[] = { parameter(ebits), parameter(sbits), parameter(width) };
     sort * range = m_bv_util.mk_sort(width);
-    return m().mk_app(get_family_id(), OP_FPA_INTERNAL_TO_UBV_UNSPECIFIED, 3, ps, 0, 0, range);
+    return m().mk_app(get_family_id(), OP_FPA_TO_UBV_UNSPECIFIED, 3, ps, 0, 0, range);
 }
 
-app * fpa_util::mk_internal_to_sbv_unspecified(unsigned ebits, unsigned sbits, unsigned width) {
+app * fpa_util::mk_to_sbv_unspecified(unsigned ebits, unsigned sbits, unsigned width) {
     parameter ps[] = { parameter(ebits), parameter(sbits), parameter(width) };
     sort * range = m_bv_util.mk_sort(width);
-    return m().mk_app(get_family_id(), OP_FPA_INTERNAL_TO_SBV_UNSPECIFIED, 3, ps, 0, 0, range);
+    return m().mk_app(get_family_id(), OP_FPA_TO_SBV_UNSPECIFIED, 3, ps, 0, 0, range);
 }
 
-app * fpa_util::mk_internal_to_ieee_bv_unspecified(unsigned ebits, unsigned sbits) {
+app * fpa_util::mk_to_ieee_bv_unspecified(unsigned ebits, unsigned sbits) {
     parameter ps[] = { parameter(ebits), parameter(sbits) };
     sort * range = m_bv_util.mk_sort(ebits+sbits);
-    return m().mk_app(get_family_id(), OP_FPA_INTERNAL_TO_IEEE_BV_UNSPECIFIED, 2, ps, 0, 0, range);
+    return m().mk_app(get_family_id(), OP_FPA_TO_IEEE_BV_UNSPECIFIED, 2, ps, 0, 0, range);
 }
 
-app * fpa_util::mk_internal_to_real_unspecified(unsigned ebits, unsigned sbits) {
+app * fpa_util::mk_to_real_unspecified(unsigned ebits, unsigned sbits) {
     parameter ps[] = { parameter(ebits), parameter(sbits) };
     sort * range = m_a_util.mk_real();
-    return m().mk_app(get_family_id(), OP_FPA_INTERNAL_TO_REAL_UNSPECIFIED, 2, ps, 0, 0, range);
+    return m().mk_app(get_family_id(), OP_FPA_TO_REAL_UNSPECIFIED, 2, ps, 0, 0, range);
 }
 
 bool fpa_util::contains_floats(ast * a) {

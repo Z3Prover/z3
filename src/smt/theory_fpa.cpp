@@ -237,7 +237,7 @@ namespace smt {
 
         if (m_fpa_util.is_fp(e)) {
             expr * cargs[3] = { to_app(e)->get_arg(0), to_app(e)->get_arg(1), to_app(e)->get_arg(2) };
-            expr_ref tmp(m_bv_util.mk_concat(3, cargs), m);            
+            expr_ref tmp(m_bv_util.mk_concat(3, cargs), m);
             m_th_rw(tmp);
             res = to_app(tmp);
         }
@@ -255,7 +255,7 @@ namespace smt {
             }
 
             func_decl_ref wrap_fd(m);
-            wrap_fd = m.mk_func_decl(get_family_id(), OP_FPA_INTERNAL_BVWRAP, 0, 0, 1, &es, bv_srt);
+            wrap_fd = m.mk_func_decl(get_family_id(), OP_FPA_BVWRAP, 0, 0, 1, &es, bv_srt);
             res = m.mk_app(wrap_fd, e);
         }
 

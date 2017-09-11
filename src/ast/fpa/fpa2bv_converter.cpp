@@ -1231,11 +1231,11 @@ void fpa2bv_converter::mk_min(func_decl * f, unsigned num, expr * const * args, 
 
     expr_ref c(m), v(m);
     c = m.mk_and(both_are_zero, pn_or_np);
-    v = m.mk_app(m_util.get_family_id(), OP_FPA_INTERNAL_MIN_UNSPECIFIED, x, y);
+    v = m.mk_app(m_util.get_family_id(), OP_FPA_MIN_UNSPECIFIED, x, y);
 
     // Note: This requires BR_REWRITE_FULL afterwards.
     expr_ref min_i(m);
-    min_i = m.mk_app(m_util.get_family_id(), OP_FPA_INTERNAL_MIN_I, x, y);
+    min_i = m.mk_app(m_util.get_family_id(), OP_FPA_MIN_I, x, y);
     m_simp.mk_ite(c, v, min_i, result);
 }
 
@@ -1324,11 +1324,11 @@ void fpa2bv_converter::mk_max(func_decl * f, unsigned num, expr * const * args, 
 
     expr_ref c(m), v(m);
     c = m.mk_and(both_are_zero, pn_or_np);
-    v = m.mk_app(m_util.get_family_id(), OP_FPA_INTERNAL_MAX_UNSPECIFIED, x, y);
+    v = m.mk_app(m_util.get_family_id(), OP_FPA_MAX_UNSPECIFIED, x, y);
 
     // Note: This requires BR_REWRITE_FULL afterwards.
     expr_ref max_i(m);
-    max_i = m.mk_app(m_util.get_family_id(), OP_FPA_INTERNAL_MAX_I, x, y);
+    max_i = m.mk_app(m_util.get_family_id(), OP_FPA_MAX_I, x, y);
     m_simp.mk_ite(c, v, max_i, result);
 }
 
@@ -3160,7 +3160,7 @@ void fpa2bv_converter::mk_to_ieee_bv(func_decl * f, unsigned num, expr * const *
                     m_bv_util.mk_numeral(1, 1))));
     else {
         app_ref unspec(m);
-        unspec = m_util.mk_internal_to_ieee_bv_unspecified(ebits, sbits);
+        unspec = m_util.mk_to_ieee_bv_unspecified(ebits, sbits);
         mk_to_ieee_bv_unspecified(unspec->get_decl(), 0, 0, nanv);
     }
 
@@ -3402,7 +3402,7 @@ void fpa2bv_converter::mk_to_ubv_unspecified(func_decl * f, unsigned num, expr *
 expr_ref fpa2bv_converter::mk_to_ubv_unspecified(unsigned ebits, unsigned sbits, unsigned width) {
     expr_ref res(m);
     app_ref u(m);
-    u = m_util.mk_internal_to_ubv_unspecified(ebits, sbits, width);
+    u = m_util.mk_to_ubv_unspecified(ebits, sbits, width);
     mk_to_sbv_unspecified(u->get_decl(), 0, 0, res);
     return res;
 }
@@ -3431,7 +3431,7 @@ void fpa2bv_converter::mk_to_sbv_unspecified(func_decl * f, unsigned num, expr *
 expr_ref fpa2bv_converter::mk_to_sbv_unspecified(unsigned ebits, unsigned sbits, unsigned width) {
     expr_ref res(m);
     app_ref u(m);
-    u = m_util.mk_internal_to_sbv_unspecified(ebits, sbits, width);
+    u = m_util.mk_to_sbv_unspecified(ebits, sbits, width);
     mk_to_sbv_unspecified(u->get_decl(), 0, 0, res);
     return res;
 }
@@ -3454,7 +3454,7 @@ void fpa2bv_converter::mk_to_real_unspecified(func_decl * f, unsigned num, expr 
 expr_ref fpa2bv_converter::mk_to_real_unspecified(unsigned ebits, unsigned sbits) {
     expr_ref res(m);
     app_ref u(m);
-    u = m_util.mk_internal_to_real_unspecified(ebits, sbits);
+    u = m_util.mk_to_real_unspecified(ebits, sbits);
     mk_to_real_unspecified(u->get_decl(), 0, 0, res);
     return res;
 }
