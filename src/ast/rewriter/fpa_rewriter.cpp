@@ -94,8 +94,8 @@ br_status fpa_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case OP_FPA_TO_IEEE_BV: SASSERT(num_args == 1); st = mk_to_ieee_bv(f, args[0], result); break;
     case OP_FPA_TO_REAL:   SASSERT(num_args == 1); st = mk_to_real(args[0], result); break;
 
-    case OP_FPA_INTERNAL_MIN_I:
-    case OP_FPA_INTERNAL_MAX_I:
+    case OP_FPA_INTERNAL_MIN_I:SASSERT(num_args == 2); st = mk_min_i(f, args[0], args[1], result); break;
+    case OP_FPA_INTERNAL_MAX_I: SASSERT(num_args == 2); st = mk_max_i(f, args[0], args[1], result); break;
     case OP_FPA_INTERNAL_MIN_UNSPECIFIED:
     case OP_FPA_INTERNAL_MAX_UNSPECIFIED:
         SASSERT(num_args == 2); st = BR_FAILED; break;
@@ -454,6 +454,18 @@ br_status fpa_rewriter::mk_min(expr * arg1, expr * arg2, expr_ref & result) {
     }
 }
 
+br_status fpa_rewriter::mk_min_i(func_decl * f, expr * arg1, expr * arg2, expr_ref & result) {
+    scoped_mpf v1(m_fm), v2(m_fm);
+    if (m_util.is_numeral(arg1, v1) && m_util.is_numeral(arg2, v2)) {
+        if (m_fm.is_zero(v1) && m_fm.is_zero(v2) && m_fm.sgn(v1) != m_fm.sgn(v2))
+            result = m().mk_app(get_fid(), OP_FPA_INTERNAL_MIN_UNSPECIFIED, arg1, arg2);
+        else
+            result = m_util.mk_min(arg1, arg2);
+        return BR_DONE;
+    }
+    return BR_FAILED;
+}
+
 br_status fpa_rewriter::mk_max(expr * arg1, expr * arg2, expr_ref & result) {
     if (m_util.is_nan(arg1)) {
         result = arg2;
@@ -487,6 +499,18 @@ br_status fpa_rewriter::mk_max(expr * arg1, expr * arg2, expr_ref & result) {
         result = m().mk_ite(c, v, m().mk_app(get_fid(), OP_FPA_INTERNAL_MAX_I, arg1, arg2));
         return BR_REWRITE_FULL;
     }
+}
+
+br_status fpa_rewriter::mk_max_i(func_decl * f, expr * arg1, expr * arg2, expr_ref & result) {
+    scoped_mpf v1(m_fm), v2(m_fm);
+    if (m_util.is_numeral(arg1, v1) && m_util.is_numeral(arg2, v2)) {
+        if (m_fm.is_zero(v1) && m_fm.is_zero(v2) && m_fm.sgn(v1) != m_fm.sgn(v2))
+            result = m().mk_app(get_fid(), OP_FPA_INTERNAL_MIN_UNSPECIFIED, arg1, arg2);
+        else
+            result = m_util.mk_max(arg1, arg2);
+        return BR_DONE;
+    }
+    return BR_FAILED;
 }
 
 br_status fpa_rewriter::mk_fma(expr * arg1, expr * arg2, expr * arg3, expr * arg4, expr_ref & result) {

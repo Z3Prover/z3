@@ -1206,14 +1206,14 @@ extern "C" {
             case OP_FPA_TO_IEEE_BV: return Z3_OP_FPA_TO_IEEE_BV;
             case OP_FPA_INTERNAL_MIN_I: return Z3_OP_FPA_MIN_I;
             case OP_FPA_INTERNAL_MAX_I: return Z3_OP_FPA_MAX_I;
-            case OP_FPA_INTERNAL_BV2RM:
-            case OP_FPA_INTERNAL_BVWRAP:
-            case OP_FPA_INTERNAL_MIN_UNSPECIFIED:
-            case OP_FPA_INTERNAL_MAX_UNSPECIFIED:
-            case OP_FPA_INTERNAL_TO_UBV_UNSPECIFIED:
-            case OP_FPA_INTERNAL_TO_SBV_UNSPECIFIED:
-            case OP_FPA_INTERNAL_TO_REAL_UNSPECIFIED:
-            case OP_FPA_INTERNAL_TO_IEEE_BV_UNSPECIFIED:
+            case OP_FPA_INTERNAL_BVWRAP: return Z3_OP_FPA_BVWRAP;
+            case OP_FPA_INTERNAL_BV2RM: return Z3_OP_FPA_BV2RM;
+            case OP_FPA_INTERNAL_MIN_UNSPECIFIED: return Z3_OP_FPA_MIN_UNSPECIFIED;
+            case OP_FPA_INTERNAL_MAX_UNSPECIFIED: return Z3_OP_FPA_MAX_UNSPECIFIED;
+            case OP_FPA_INTERNAL_TO_UBV_UNSPECIFIED: return Z3_OP_FPA_TO_UBV_UNSPECIFIED;
+            case OP_FPA_INTERNAL_TO_SBV_UNSPECIFIED: return Z3_OP_FPA_TO_SBV_UNSPECIFIED;
+            case OP_FPA_INTERNAL_TO_REAL_UNSPECIFIED: return Z3_OP_FPA_TO_REAL_UNSPECIFIED;
+            case OP_FPA_INTERNAL_TO_IEEE_BV_UNSPECIFIED: return Z3_OP_FPA_TO_IEEE_BV_UNSPECIFIED;
                 return Z3_OP_UNINTERPRETED;
             default:
                 return Z3_OP_INTERNAL;
