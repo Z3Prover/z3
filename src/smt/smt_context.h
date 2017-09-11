@@ -730,6 +730,8 @@ namespace smt {
 
         void internalize_quantifier(quantifier * q, bool gate_ctx);
 
+        void internalize_lambda(quantifier * q);
+
         void internalize_formula_core(app * n, bool gate_ctx);
 
         void set_merge_tf(enode * n, bool_var v, bool is_new_var);

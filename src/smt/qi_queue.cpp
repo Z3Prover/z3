@@ -148,11 +148,8 @@ namespace smt {
     }
 
     void qi_queue::instantiate() {
-        svector<entry>::iterator it               = m_new_entries.begin();
-        svector<entry>::iterator end              = m_new_entries.end();
         unsigned                 since_last_check = 0;
-        for (; it != end; ++it) {
-            entry & curr       = *it;
+        for (entry & curr : m_new_entries) {
             fingerprint * f    = curr.m_qb;
             quantifier * qa    = static_cast<quantifier*>(f->get_data());
 
@@ -415,10 +412,7 @@ namespace smt {
     void qi_queue::display_delayed_instances_stats(std::ostream & out) const {
         obj_map<quantifier, delayed_qa_info> qa2info;
         ptr_vector<quantifier> qas;
-        svector<entry>::const_iterator it  = m_delayed_entries.begin();
-        svector<entry>::const_iterator end = m_delayed_entries.end();
-        for (; it != end; ++it) {
-            entry const & e = *it;
+        for (entry const & e : m_delayed_entries) {
             if (e.m_instantiated)
                 continue;
             quantifier * qa = static_cast<quantifier*>(e.m_qb->get_data());
@@ -436,10 +430,7 @@ namespace smt {
             }
             qa2info.insert(qa, info);
         }
-        ptr_vector<quantifier>::iterator it2  = qas.begin();
-        ptr_vector<quantifier>::iterator end2 = qas.end();
-        for (; it2 != end2; ++it2) {
-            quantifier * qa = *it2;
+        for (quantifier * qa : qas) {
             delayed_qa_info info;
             qa2info.find(qa, info);
             out << qa->get_qid() << ": " << info.m_num << " [" << info.m_min_cost << ", " << info.m_max_cost << "]\n";

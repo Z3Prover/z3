@@ -20,6 +20,7 @@ Revision History:
 #define FINGERPRINTS_H_
 
 #include "smt/smt_enode.h"
+#include "util/util.h"
 
 namespace smt {
 
@@ -39,6 +40,9 @@ namespace smt {
         unsigned get_num_args() const { return m_num_args;  }
         enode * const * get_args() const { return m_args; }
         enode * get_arg(unsigned idx) const { SASSERT(idx < m_num_args); return m_args[idx]; }
+        enode * const * begin() const { return m_args; }
+        enode * const * end() const { return begin() + get_num_args(); }
+        friend std::ostream& operator<<(std::ostream& out, fingerprint const& f);
     };
     
     class fingerprint_set {

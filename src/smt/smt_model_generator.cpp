@@ -24,6 +24,7 @@ Revision History:
 #include "smt/smt_context.h"
 #include "smt/smt_model_generator.h"
 #include "smt/proto_model/proto_model.h"
+#include "model/model_v2_pp.h"
 
 namespace smt {
 
@@ -502,6 +503,7 @@ namespace smt {
         mk_func_interps();
         finalize_theory_models();
         register_macros();
+        TRACE("model", model_v2_pp(tout, *m_model, true););
         return m_model;
     }
     

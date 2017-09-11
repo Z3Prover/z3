@@ -1486,6 +1486,7 @@ protected:
 #endif
     ast_manager *             m_format_manager; // hack for isolating format objects in a different manager.
     symbol                    m_rec_fun;
+    symbol                    m_lambda_def;
 
     void init();
 
@@ -1593,8 +1594,11 @@ public:
     bool contains(ast * a) const { return m_ast_table.contains(a); }
 
     bool is_rec_fun_def(quantifier* q) const { return q->get_qid() == m_rec_fun; }
+    bool is_lambda_def(quantifier* q) const { return q->get_qid() == m_lambda_def; }
     
     symbol const& rec_fun_qid() const { return m_rec_fun; }
+
+    symbol const& lambda_def_qid() const { return m_lambda_def; }
 
     unsigned get_num_asts() const { return m_ast_table.size(); }
 

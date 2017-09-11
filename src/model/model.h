@@ -66,6 +66,8 @@ public:
     virtual sort * get_uninterpreted_sort(unsigned idx) const;
     bool has_uninterpreted_sort(sort * s) const; 
 
+    expr_ref get_inlined_const_interp(func_decl* f);
+
     //
     // Primitives for building models
     //

@@ -15,11 +15,11 @@ Author:
 Revision History:
 
 --*/
-#include "model/func_interp.h"
-#include "ast/rewriter/var_subst.h"
 #include "util/obj_hashtable.h"
+#include "ast/rewriter/var_subst.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_smt2_pp.h"
+#include "model/func_interp.h"
 
 func_entry::func_entry(ast_manager & m, unsigned arity, expr * const * args, expr * result):
     m_args_are_values(true),
@@ -141,9 +141,10 @@ void func_interp::set_else(expr * e) {
 
     reset_interp_cache();
 
+    TRACE("func_interp", tout << "set_else: " << expr_ref(e, m()) << "\n";);
+
     ptr_vector<expr> args;
     while (e && is_fi_entry_expr(e, args)) {
-        TRACE("func_interp", tout << "fi entry expr: " << mk_ismt2_pp(e, m()) << std::endl;);
         insert_entry(args.c_ptr(), to_app(e)->get_arg(1));
         e = to_app(e)->get_arg(2);
     }

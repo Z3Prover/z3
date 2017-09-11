@@ -34,8 +34,8 @@ model::model(ast_manager & m):
 
 model::~model() {
     for (auto & kv : m_usort2universe) {
-        m_manager.dec_ref(kv.m_key);
-        m_manager.dec_array_ref(kv.m_value->size(), kv.m_value->c_ptr());
+        m.dec_ref(kv.m_key);
+        m.dec_array_ref(kv.m_value->size(), kv.m_value->c_ptr());
         dealloc(kv.m_value);
     }
 }
@@ -58,13 +58,13 @@ void model::copy_usort_interps(model const & source) {
 }
 
 model * model::copy() const {
-    model * m = alloc(model, m_manager);
+    model * mdl = alloc(model, m);
 
-    m->copy_const_interps(*this);
-    m->copy_func_interps(*this);
-    m->copy_usort_interps(*this);
+    mdl->copy_const_interps(*this);
+    mdl->copy_func_interps(*this);
+    mdl->copy_usort_interps(*this);
 
-    return m;
+    return mdl;
 }
 
 // Remark: eval is for backward compatibility. We should use model_evaluator.
@@ -97,7 +97,7 @@ struct model::value_proc : public some_value_proc {
 
 expr * model::get_some_value(sort * s) {
     value_proc p(*this);
-    return m_manager.get_some_value(s, &p);
+    return m.get_some_value(s, &p);
 }
 
 ptr_vector<expr> const & model::get_universe(sort * s) const {
@@ -123,11 +123,11 @@ sort * model::get_uninterpreted_sort(unsigned idx) const {
 
 void model::register_usort(sort * s, unsigned usize, expr * const * universe) {
     sort2universe::obj_map_entry * entry = m_usort2universe.insert_if_not_there2(s, 0);
-    m_manager.inc_array_ref(usize, universe);
+    m.inc_array_ref(usize, universe);
     if (entry->get_data().m_value == 0) {
         // new entry
         m_usorts.push_back(s);
-        m_manager.inc_ref(s);
+        m.inc_ref(s);
         ptr_vector<expr> * new_u = alloc(ptr_vector<expr>);
         new_u->append(usize, universe);
         entry->get_data().m_value = new_u;
@@ -136,7 +136,7 @@ void model::register_usort(sort * s, unsigned usize, expr * const * universe) {
         // updating
         ptr_vector<expr> * u = entry->get_data().m_value;
         SASSERT(u);
-        m_manager.dec_array_ref(u->size(), u->c_ptr());
+        m.dec_array_ref(u->size(), u->c_ptr());
         u->append(usize, universe);
     }
 }
@@ -193,7 +193,7 @@ void model::cleanup() {
     // then for each function in order clean-up the interpretations
     // by substituting in auxiliary definitions that can be eliminated.
 
-    top_sort st(m_manager);
+    top_sort st(m);
     collect_deps(st.m_deps);
     topological_sort(st);
     for (func_decl * f : st.m_top_sorted) {
@@ -336,7 +336,7 @@ void model::cleanup_interp(top_sort& st, func_decl* f) {
             e1 = e->get_result();
             e2 = cleanup_expr(st, e1, pid);
             if (e1 != e2) 
-                e->set_result(m_manager, e2); // expose private method?
+                e->set_result(m, e2); // expose private method?
         }
 #endif
     }
@@ -344,17 +344,18 @@ void model::cleanup_interp(top_sort& st, func_decl* f) {
 
 
 expr_ref model::cleanup_expr(top_sort& st, expr* e, unsigned current_partition) {
-    if (!e) return expr_ref(0, m_manager);
+    if (!e) return expr_ref(0, m);
 
-    TRACE("model", tout << "cleaning up:\n" << mk_pp(e, m_manager) << "\n";);
+    TRACE("model", tout << "cleaning up:\n" << mk_pp(e, m) << "\n";);
 
     obj_map<expr, expr*> cache;
-    expr_ref_vector trail(m_manager);
+    expr_ref_vector trail(m);
     ptr_buffer<expr, 128> todo;
     ptr_buffer<expr> args;
     todo.push_back(e);
-    array_util autil(m_manager);
+    array_util autil(m);
     func_interp* fi;
+    unsigned pid = 0;
 
     while (!todo.empty()) {
         expr* a = todo.back();
@@ -363,7 +364,7 @@ expr_ref model::cleanup_expr(top_sort& st, expr* e, unsigned current_partition) 
             app * t = to_app(a);
             func_decl* f = t->get_decl();
             bool visited = true;
-            expr_ref new_t(m_manager);
+            expr_ref new_t(m);
             
             args.reset();
             for (expr* t_arg : *t) {
@@ -387,18 +388,18 @@ expr_ref model::cleanup_expr(top_sort& st, expr* e, unsigned current_partition) 
             
             if (fi && fi->get_interp()) {
                 f = autil.get_as_array_func_decl(a);
-                expr_ref_vector sargs(m_manager);
-                sort_ref_vector vars(m_manager);
+                expr_ref_vector sargs(m);
+                sort_ref_vector vars(m);
                 svector<symbol> var_names;
                 for (unsigned i = 0; i < f->get_arity(); ++i) {
                     var_names.push_back(symbol(i));
                     vars.push_back(f->get_domain(f->get_arity() - i - 1));
                 }
-                new_t = m_manager.mk_lambda(vars.size(), vars.c_ptr(), var_names.c_ptr(), fi->get_interp());
+                new_t = m.mk_lambda(vars.size(), vars.c_ptr(), var_names.c_ptr(), fi->get_interp());
             }
-            else if (f->is_skolem() && (fi = get_func_interp(f)) && fi->get_interp() && st.m_partition_id[f] != current_partition) {
-                var_subst vs(m_manager);
-                // ? args.reverse();
+            else if (f->is_skolem() && (fi = get_func_interp(f)) && fi->get_interp() && (!st.m_partition_id.find(f, pid) || pid != current_partition)) {
+                var_subst vs(m);
+                // ? TBD args.reverse();
                 vs(fi->get_interp(), args.size(), args.c_ptr(), new_t);
             }
             else if (is_uninterp_const(a) && !get_const_interp(f)) {
@@ -422,7 +423,7 @@ expr_ref model::cleanup_expr(top_sort& st, expr* e, unsigned current_partition) 
         }
     }
 
-    return expr_ref(cache[e], m_manager);
+    return expr_ref(cache[e], m);
 }
 
 void model::remove_decls(ptr_vector<func_decl> & decls, func_decl_set const & s) {
@@ -439,3 +440,16 @@ void model::remove_decls(ptr_vector<func_decl> & decls, func_decl_set const & s)
     decls.shrink(j);
 }
 
+
+expr_ref model::get_inlined_const_interp(func_decl* f) {
+    expr* v = get_const_interp(f);
+    if (!v) return expr_ref(0, m);
+    top_sort st(m);
+    expr_ref result1(v, m);
+    expr_ref result2 = cleanup_expr(st, v, UINT_MAX);
+    while (result1 != result2) {
+        result1 = result2;
+        result2 = cleanup_expr(st, result1, UINT_MAX);
+    }
+    return result2;
+}

@@ -182,6 +182,8 @@ public:
         return mk_const_array(s, m_manager.mk_true());
     }
 
+    func_decl * mk_array_ext(sort* domain, unsigned i);
+
     sort * mk_array_sort(sort* dom, sort* range) { return mk_array_sort(1, &dom, range); }
 
     sort * mk_array_sort(unsigned arity, sort* const* domain, sort* range);

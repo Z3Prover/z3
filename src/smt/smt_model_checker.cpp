@@ -21,6 +21,7 @@ Revision History:
 #include "ast/for_each_expr.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/ast_pp.h"
+#include "ast/array_decl_plugin.h"
 #include "ast/ast_smt2_pp.h"
 #include "smt/smt_model_checker.h"
 #include "smt/smt_context.h"
@@ -135,6 +136,7 @@ namespace smt {
             TRACE("model_checker", tout << "no model is available\n";);
             return false;
         }
+        array_util autil(m);
         unsigned num_decls = q->get_num_decls();
         // Remark: sks were created for the flat version of q.
         SASSERT(sks.size() >= num_decls);
@@ -145,15 +147,13 @@ namespace smt {
             expr * sk = sks.get(num_decls - i - 1);
             func_decl * sk_d = to_app(sk)->get_decl();
             expr_ref sk_value(m);
-            sk_value  = cex->get_const_interp(sk_d);
-            if (sk_value == 0) {
-                sk_value = cex->get_some_value(sk_d->get_range());
-                if (sk_value == 0) {
-                    TRACE("model_checker", tout << "Could not get value for " << sk_d->get_name() << "\n";);
-                    return false; // get_some_value failed... giving up
-                }
-                TRACE("model_checker", tout << "Got some value " << sk_value << "\n";);
+            sk_value = cex->get_some_const_interp(sk_d);
+            if (!sk_value) {
+                TRACE("model_checker", tout << "Could not get value for " << sk_d->get_name() << "\n";);
+                return false; // get_some_value failed... giving up
             }
+            TRACE("model_checker", tout << "Got some value " << sk_value << "\n";);
+            
             if (use_inv) {
                 unsigned sk_term_gen;
                 expr * sk_term = m_model_finder.get_inv(q, i, sk_value, sk_term_gen);
@@ -179,14 +179,12 @@ namespace smt {
                 TRACE("model_checker", tout << "value is private to model: " << sk_value << "\n";);
                 return false;
             }
+            // define names in sk_value.
+            
             bindings.set(num_decls - i - 1, sk_value);
         }
 
-        TRACE("model_checker", tout << q->get_qid() << " found (use_inv: " << use_inv << ") new instance: ";
-              for (unsigned i = 0; i < num_decls; i++) {
-                  tout << mk_ismt2_pp(bindings[i].get(), m) << " ";
-              }
-              tout << "\n";);
+        TRACE("model_checker", tout << q->get_qid() << " found (use_inv: " << use_inv << ") new instance: " << bindings << "\n";);
 
         max_generation = std::max(m_qm->get_generation(q), max_generation);
         add_instance(q, bindings, max_generation);
@@ -195,8 +193,7 @@ namespace smt {
 
     void model_checker::add_instance(quantifier* q, expr_ref_vector const& bindings, unsigned max_generation) {
         SASSERT(q->get_num_decls() == bindings.size());
-        for (expr* b : bindings) 
-            m_pinned_exprs.push_back(b);
+        m_pinned_exprs.append(bindings);
         m_pinned_exprs.push_back(q);
 
         void * mem = m_new_instances_region.allocate(instance::get_obj_size(q->get_num_decls()));
@@ -234,11 +231,9 @@ namespace smt {
         for (expr * sk : sks) {
             func_decl * sk_d = to_app(sk)->get_decl();
             expr_ref sk_value(m);
-            sk_value  = cex->get_const_interp(sk_d);
-            if (sk_value == 0) {
-                sk_value = cex->get_some_value(sk_d->get_range());
-                if (sk_value == 0)
-                    return false; // get_some_value failed... aborting add_blocking_clause
+            sk_value  = cex->get_some_const_interp(sk_d);
+            if (!sk_value) {
+                return false; // get_some_value failed... aborting add_blocking_clause
             }
             diseqs.push_back(m.mk_not(m.mk_eq(sk, sk_value)));
         }
@@ -417,7 +412,7 @@ namespace smt {
         ptr_vector<quantifier>::const_iterator end = m_qm->end_quantifiers();
         for (; it != end; ++it) {
             quantifier * q = *it;
-        if(!m_qm->mbqi_enabled(q)) continue;
+            if(!m_qm->mbqi_enabled(q)) continue;
             TRACE("model_checker",
                   tout << "Check: " << mk_pp(q, m) << "\n";
                   tout << m_context->get_assignment(q) << "\n";);
@@ -432,6 +427,9 @@ namespace smt {
                         TRACE("model_checker", tout << "checking recursive function failed\n";);
                         num_failures++;
                     }
+                }
+                else if (m.is_lambda_def(q)) {
+                    // skip model checking definitions of lambda terms.
                 }
                 else if (!check(q)) {
                     if (m_params.m_mbqi_trace || get_verbosity_level() >= 5) {
@@ -483,7 +481,7 @@ namespace smt {
                 for (unsigned i = 0; i < num_decls; i++) {
                     expr * b = inst->m_bindings[i];
                     if (!m_context->e_internalized(b)) {
-                        TRACE("model_checker_bug_detail", tout << "internalizing b:\n" << mk_pp(b, m) << "\n";);
+                        TRACE("model_checker", tout << "internalizing b:\n" << mk_pp(b, m) << "\n";);
                         m_context->internalize(b, false, gen);
                     }
                     bindings.push_back(m_context->get_enode(b));

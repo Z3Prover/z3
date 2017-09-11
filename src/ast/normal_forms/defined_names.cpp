@@ -62,8 +62,8 @@ struct defined_names::impl {
     app * gen_name(expr * e, sort_ref_buffer & var_sorts, buffer<symbol> & var_names);
     void cache_new_name(expr * e, app * name);
     void cache_new_name_intro_proof(expr * e, proof * pr);
-    void bound_vars(sort_ref_buffer const & sorts, buffer<symbol> const & names, expr * def_conjunct, app * name, expr_ref & result);
-    void bound_vars(sort_ref_buffer const & sorts, buffer<symbol> const & names, expr * def_conjunct, app * name, expr_ref_buffer & result);
+    void bound_vars(sort_ref_buffer const & sorts, buffer<symbol> const & names, expr * def_conjunct, app * name, expr_ref & result, symbol const& qid = symbol::null);
+    void bound_vars(sort_ref_buffer const & sorts, buffer<symbol> const & names, expr * def_conjunct, app * name, expr_ref_buffer & result, symbol const& qid = symbol::null);
     virtual void mk_definition(expr * e, app * n, sort_ref_buffer & var_sorts, buffer<symbol> & var_names, expr_ref & new_def);
     bool mk_name(expr * e, expr_ref & new_def, proof_ref & new_def_pr, app_ref & n, proof_ref & pr);
     void push_scope();
@@ -150,7 +150,7 @@ void defined_names::impl::cache_new_name_intro_proof(expr * e, proof * pr) {
    A quantifier is added around \c def_conjunct, if sorts and names are not empty.
    In this case, The application \c name is used as a pattern for the new quantifier.
 */
-void defined_names::impl::bound_vars(sort_ref_buffer const & sorts, buffer<symbol> const & names, expr * def_conjunct, app * name, expr_ref & result) {
+void defined_names::impl::bound_vars(sort_ref_buffer const & sorts, buffer<symbol> const & names, expr * def_conjunct, app * name, expr_ref & result, symbol const& qid) {
     SASSERT(sorts.size() == names.size());
     if (sorts.empty())
         result = def_conjunct;
@@ -161,7 +161,7 @@ void defined_names::impl::bound_vars(sort_ref_buffer const & sorts, buffer<symbo
                                 sorts.c_ptr(),
                                 names.c_ptr(),
                                 def_conjunct,
-                                1, symbol::null, symbol::null,
+                                1, qid, symbol::null,
                                 1, patterns);
         TRACE("mk_definition_bug", tout << "before elim_unused_vars:\n" << mk_ismt2_pp(q, m) << "\n";);
         elim_unused_vars(m, q, params_ref(), result);
@@ -174,9 +174,9 @@ void defined_names::impl::bound_vars(sort_ref_buffer const & sorts, buffer<symbo
    A quantifier is added around \c def_conjunct, if sorts and names are not empty.
    In this case, The application \c name is used as a pattern for the new quantifier.
 */
-void defined_names::impl::bound_vars(sort_ref_buffer const & sorts, buffer<symbol> const & names, expr * def_conjunct, app * name, expr_ref_buffer & result) {
+void defined_names::impl::bound_vars(sort_ref_buffer const & sorts, buffer<symbol> const & names, expr * def_conjunct, app * name, expr_ref_buffer & result, symbol const& qid) {
     expr_ref tmp(m);
-    bound_vars(sorts, names, def_conjunct, name, tmp);
+    bound_vars(sorts, names, def_conjunct, name, tmp, qid);
     result.push_back(tmp);
 }
 
@@ -214,7 +214,7 @@ void defined_names::impl::mk_definition(expr * e, app * n, sort_ref_buffer & var
         }
         array_util autil(m);
         expr_ref n3(autil.mk_select(args.size(), args.c_ptr()), m);
-        bound_vars(var_sorts, var_names, MK_EQ(q->get_expr(), n3), to_app(n3), defs);
+        bound_vars(var_sorts, var_names, MK_EQ(q->get_expr(), n3), to_app(n3), defs, m.lambda_def_qid());
     }
     else {
         bound_vars(var_sorts, var_names, MK_EQ(e, n), n, defs);
