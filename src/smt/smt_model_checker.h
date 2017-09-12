@@ -65,15 +65,12 @@ namespace smt {
         struct instance {
             quantifier * m_q;
             unsigned     m_generation;
-            expr *       m_bindings[0];
-            static unsigned get_obj_size(unsigned num_bindings) { return sizeof(instance) + num_bindings * sizeof(expr*); }
-            instance(quantifier * q, expr * const * bindings, unsigned gen):m_q(q), m_generation(gen) {
-                memcpy(m_bindings, bindings, q->get_num_decls() * sizeof(expr*));
-            }
+            expr *       m_def;
+            unsigned     m_bindings_offset;
+            instance(quantifier * q, unsigned offset, expr* def, unsigned gen):m_q(q), m_generation(gen), m_def(def), m_bindings_offset(offset) {}
         };
 
-        region                                     m_new_instances_region;
-        ptr_vector<instance>                       m_new_instances;
+        svector<instance>                          m_new_instances;
         expr_ref_vector                            m_pinned_exprs;
         bool add_instance(quantifier * q, model * cex, expr_ref_vector & sks, bool use_inv);
         void reset_new_instances();
@@ -84,7 +81,7 @@ namespace smt {
         struct is_model_value {};
         expr_mark m_visited;
         bool contains_model_value(expr * e);
-        void add_instance(quantifier * q, expr_ref_vector const & bindings, unsigned max_generation);
+        void add_instance(quantifier * q, expr_ref_vector const & bindings, unsigned max_generation, expr * def);
 
     public:
         model_checker(ast_manager & m, qi_params const & p, model_finder & mf);

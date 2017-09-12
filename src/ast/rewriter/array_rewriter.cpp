@@ -203,7 +203,7 @@ br_status array_rewriter::mk_select_core(unsigned num_args, expr * const * args,
         quantifier* q = to_quantifier(args[0]);
         SASSERT(q->get_num_decls() == num_args - 1);
         var_subst subst(m());
-        subst(q->get_expr(), num_args - 1, args + 1, result);
+        result = subst(q->get_expr(), num_args - 1, args + 1);
         return BR_REWRITE_FULL;
         
     }

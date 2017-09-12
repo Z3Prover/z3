@@ -23,7 +23,8 @@ Notes:
 #include "ast/well_sorted.h"
 #include "ast/for_each_expr.h"
 
-void var_subst::operator()(expr * n, unsigned num_args, expr * const * args, expr_ref & result) {
+expr_ref var_subst::operator()(expr * n, unsigned num_args, expr * const * args) {
+    expr_ref result(m_reducer.m());
     SASSERT(is_well_sorted(result.m(), n));
     m_reducer.reset();
     if (m_std_order)
@@ -37,6 +38,7 @@ void var_subst::operator()(expr * n, unsigned num_args, expr * const * args, exp
           for (unsigned i = 0; i < num_args; i++) tout << mk_ismt2_pp(args[i], m_reducer.m()) << "\n";
           tout << "\n------>\n";
           tout << mk_ismt2_pp(result, m_reducer.m()) << "\n";);
+    return result;
 }
 
 unused_vars_eliminator::unused_vars_eliminator(ast_manager & m, params_ref const & params) :
@@ -121,7 +123,7 @@ void unused_vars_eliminator::operator()(quantifier* q, expr_ref & result) {
 
     expr_ref  new_expr(m);
 
-    m_subst(q->get_expr(), var_mapping.size(), var_mapping.c_ptr(), new_expr);
+    new_expr = m_subst(q->get_expr(), var_mapping.size(), var_mapping.c_ptr());
 
     if (num_removed == num_decls) {
         result = new_expr;
@@ -133,11 +135,11 @@ void unused_vars_eliminator::operator()(quantifier* q, expr_ref & result) {
     expr_ref_buffer new_no_patterns(m);
 
     for (unsigned i = 0; i < num_patterns; i++) {
-        m_subst(q->get_pattern(i), var_mapping.size(), var_mapping.c_ptr(), tmp);
+        tmp = m_subst(q->get_pattern(i), var_mapping.size(), var_mapping.c_ptr());
         new_patterns.push_back(tmp);
     }
     for (unsigned i = 0; i < num_no_patterns; i++) {
-        m_subst(q->get_no_pattern(i), var_mapping.size(), var_mapping.c_ptr(), tmp);
+        tmp = m_subst(q->get_no_pattern(i), var_mapping.size(), var_mapping.c_ptr());
         new_no_patterns.push_back(tmp);
     }
 
@@ -166,8 +168,8 @@ void elim_unused_vars(ast_manager & m, quantifier * q, params_ref const & params
 void instantiate(ast_manager & m, quantifier * q, expr * const * exprs, expr_ref & result) {
     var_subst subst(m);
     expr_ref new_expr(m);
-    subst(q->get_expr(), q->get_num_decls(), exprs, new_expr);
-    TRACE("var_subst", tout << mk_pp(q, m) << "\n" << mk_pp(new_expr, m) << "\n";);
+    new_expr = subst(q->get_expr(), q->get_num_decls(), exprs);
+    TRACE("var_subst", tout << mk_pp(q, m) << "\n" << new_expr << "\n";);
     inv_var_shifter shift(m);
     shift(new_expr, q->get_num_decls(), result);
     SASSERT(is_well_sorted(m, result));

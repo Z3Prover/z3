@@ -3902,7 +3902,7 @@ namespace smt {
 #endif
             unsigned min_gen, max_gen;
             m_interpreter.get_min_max_top_generation(min_gen, max_gen);
-            m_context.add_instance(qa, pat, num_bindings, bindings, max_generation, min_gen, max_gen, used_enodes);
+            m_context.add_instance(qa, pat, num_bindings, bindings, nullptr, max_generation, min_gen, max_gen, used_enodes);
         }
 
         virtual bool is_shared(enode * n) const {

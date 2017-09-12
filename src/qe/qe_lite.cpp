@@ -423,8 +423,7 @@ namespace eq {
             for (unsigned i = 0; i < m_order.size(); i++) {
                 expr_ref cur(m_map[m_order[i]], m);
                 // do all the previous substitutions before inserting
-                expr_ref r(m);
-                m_subst(cur, m_subst_map.size(), m_subst_map.c_ptr(), r);
+                expr_ref r = m_subst(cur, m_subst_map.size(), m_subst_map.c_ptr());
                 unsigned inx = sz - m_order[i]- 1;
                 SASSERT(m_subst_map[inx]==0);
                 m_subst_map[inx] = r;
@@ -472,21 +471,18 @@ namespace eq {
             default:
                 t = e;
             }
-            expr_ref new_e(m);
-            m_subst(t, m_subst_map.size(), m_subst_map.c_ptr(), new_e);
+            expr_ref new_e = m_subst(t, m_subst_map.size(), m_subst_map.c_ptr());
 
             // don't forget to update the quantifier patterns
             expr_ref_buffer  new_patterns(m);
             expr_ref_buffer  new_no_patterns(m);
             for (unsigned j = 0; j < q->get_num_patterns(); j++) {
-                expr_ref new_pat(m);
-                m_subst(q->get_pattern(j), m_subst_map.size(), m_subst_map.c_ptr(), new_pat);
+                expr_ref new_pat = m_subst(q->get_pattern(j), m_subst_map.size(), m_subst_map.c_ptr());
                 new_patterns.push_back(new_pat);
             }
 
             for (unsigned j = 0; j < q->get_num_no_patterns(); j++) {
-                expr_ref new_nopat(m);
-                m_subst(q->get_no_pattern(j), m_subst_map.size(), m_subst_map.c_ptr(), new_nopat);
+                expr_ref new_nopat = m_subst(q->get_no_pattern(j), m_subst_map.size(), m_subst_map.c_ptr());
                 new_no_patterns.push_back(new_nopat);
             }
 
@@ -736,7 +732,7 @@ namespace eq {
                     expr_ref r(m), new_r(m);
                     r = m.mk_and(conjs.size(), conjs.c_ptr());
                     create_substitution(largest_vinx + 1);
-                    m_subst(r, m_subst_map.size(), m_subst_map.c_ptr(), new_r);
+                    new_r = m_subst(r, m_subst_map.size(), m_subst_map.c_ptr());
                     m_rewriter(new_r);
                     conjs.reset();
                     flatten_and(new_r, conjs);
@@ -2403,7 +2399,7 @@ public:
             tmp = to_quantifier(tmp)->get_expr();
             used.process(tmp);
             var_subst vs(m, true);
-            vs(tmp, vars.size(), (expr*const*)vars.c_ptr(), fml);
+            fml = vs(tmp, vars.size(), (expr*const*)vars.c_ptr());
             // collect set of variables that were used.
             unsigned j = 0;
             for (unsigned i = 0; i < vars.size(); ++i) {

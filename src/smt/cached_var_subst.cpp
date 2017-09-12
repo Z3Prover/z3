@@ -63,7 +63,7 @@ void cached_var_subst::operator()(quantifier * qa, unsigned num_bindings, smt::e
 
     SASSERT(entry->get_data().m_value == 0);
     try {
-        m_proc(qa->get_expr(), new_key->m_num_bindings, new_key->m_bindings, result);
+        result = m_proc(qa->get_expr(), new_key->m_num_bindings, new_key->m_bindings);
     }
     catch (...) {
         // CMW: The var_subst reducer was interrupted and m_instances is

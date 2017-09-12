@@ -36,7 +36,7 @@ expr_ref sym_expr::accept(expr* e) {
     switch (m_ty) {
     case t_pred: {
         var_subst subst(m);
-        subst(m_t, 1, &e, result);
+        result = subst(m_t, 1, &e);
         break;
     }
     case t_char:

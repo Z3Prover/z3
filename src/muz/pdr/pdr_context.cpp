@@ -602,7 +602,7 @@ namespace pdr {
         for (unsigned i = 0; i < tail.size(); ++i) {
             expr_ref tmp(m);
             var_subst vs(m, false);
-            vs(tail[i].get(), var_reprs.size(), (expr*const*)var_reprs.c_ptr(), tmp);
+            tmp = vs(tail[i].get(), var_reprs.size(), (expr*const*)var_reprs.c_ptr());
             conj.push_back(tmp);
             TRACE("pdr", tout << mk_pp(tail[i].get(), m) << "\n" << mk_pp(tmp, m) << "\n";);
             if (!is_ground(tmp)) {
@@ -1383,7 +1383,7 @@ namespace pdr {
 
                     for (unsigned j = 0; j < substs.size(); ++j) {
                         for (unsigned k = 0; k < substs[j].size(); ++k) {
-                            var_subst(m, false)(substs[j][k].get(), sub1.size(), sub1.c_ptr(), tmp);
+                            tmp = var_subst(m, false)(substs[j][k].get(), sub1.size(), sub1.c_ptr());
                             substs[j][k] = tmp;
                         }
                         while (substs[j].size() < sub1.size()) {

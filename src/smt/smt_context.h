@@ -553,8 +553,8 @@ namespace smt {
             return m_asserted_formulas.has_quantifiers();
         }
 
-        fingerprint * add_fingerprint(void * data, unsigned data_hash, unsigned num_args, enode * const * args) {
-            return m_fingerprints.insert(data, data_hash, num_args, args);
+        fingerprint * add_fingerprint(void * data, unsigned data_hash, unsigned num_args, enode * const * args, expr* def = 0) {
+            return m_fingerprints.insert(data, data_hash, num_args, args, def);
         }
 
         theory_id get_var_theory(bool_var v) const {
@@ -952,7 +952,7 @@ namespace smt {
 
         bool contains_instance(quantifier * q, unsigned num_bindings, enode * const * bindings);
 
-        bool add_instance(quantifier * q, app * pat, unsigned num_bindings, enode * const * bindings, unsigned max_generation,
+        bool add_instance(quantifier * q, app * pat, unsigned num_bindings, enode * const * bindings, expr* def, unsigned max_generation,
                           unsigned min_top_generation, unsigned max_top_generation, ptr_vector<enode> & used_enodes);
 
         void set_global_generation(unsigned generation) { m_generation = generation; }

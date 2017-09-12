@@ -85,7 +85,7 @@ namespace datalog {
             s.push_back(m.mk_var(idx, sig[i]));
         }
         get_inner().to_formula(tmp);
-        get_plugin().get_context().get_var_subst()(tmp, sz, s.c_ptr(), fml);
+        fml = get_plugin().get_context().get_var_subst()(tmp, sz, s.c_ptr());
     }
 
 
@@ -584,8 +584,7 @@ namespace datalog {
             }
             subst_vect[subst_ofs-i] = m.mk_var(r.m_sig2inner[i], sig[i]);
         }
-        expr_ref inner_cond(m);
-        get_context().get_var_subst()(condition, subst_vect.size(), subst_vect.c_ptr(), inner_cond);
+        expr_ref inner_cond = get_context().get_var_subst()(condition, subst_vect.size(), subst_vect.c_ptr());
 
         relation_mutator_fn * inner_fun = get_manager().mk_filter_interpreted_fn(r.get_inner(), to_app(inner_cond));
         if(!inner_fun) {

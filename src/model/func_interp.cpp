@@ -225,7 +225,7 @@ bool func_interp::eval_else(expr * const * args, expr_ref & result) const {
         return false;
     var_subst s(m_manager, false);
     SASSERT(!s.std_order()); // (VAR 0) <- args[0], (VAR 1) <- args[1], ...
-    s(m_else, m_arity, args, result);
+    result = s(m_else, m_arity, args);
     return true;
 }
 

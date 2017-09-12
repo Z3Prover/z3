@@ -246,8 +246,8 @@ namespace datalog {
             get_normalizer(t1, t2, norm_subst);
             expr_ref t1n_ref(m);
             expr_ref t2n_ref(m);
-            m_var_subst(t1, norm_subst.size(), norm_subst.c_ptr(), t1n_ref);
-            m_var_subst(t2, norm_subst.size(), norm_subst.c_ptr(), t2n_ref);
+            t1n_ref = m_var_subst(t1, norm_subst.size(), norm_subst.c_ptr());
+            t2n_ref = m_var_subst(t2, norm_subst.size(), norm_subst.c_ptr());
             app * t1n = to_app(t1n_ref);
             app * t2n = to_app(t2n_ref);
             if (t1n->get_id() > t2n->get_id()) {
@@ -531,7 +531,7 @@ namespace datalog {
                     expr_ref_vector denormalizer(m);
                     reverse_renaming(m, normalizer, denormalizer);
                     expr_ref new_transf(m);
-                    m_var_subst(t_new, denormalizer.size(), denormalizer.c_ptr(), new_transf);
+                    new_transf = m_var_subst(t_new, denormalizer.size(), denormalizer.c_ptr());
                     app * new_lit = to_app(new_transf);
 
                     m_pinned.push_back(new_lit);

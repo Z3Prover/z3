@@ -53,7 +53,7 @@ namespace smt {
         m_flushing(false),
         m_progress_callback(0),
         m_next_progress_sample(0),
-        m_fingerprints(m_region),
+        m_fingerprints(m, m_region),
         m_b_internalized_stack(m),
         m_e_internalized_stack(m),
         m_final_check_idx(0),
@@ -1806,9 +1806,9 @@ namespace smt {
         return m_fingerprints.contains(q, q->get_id(), num_bindings, bindings);
     }
 
-    bool context::add_instance(quantifier * q, app * pat, unsigned num_bindings, enode * const * bindings, unsigned max_generation,
+    bool context::add_instance(quantifier * q, app * pat, unsigned num_bindings, enode * const * bindings, expr* def, unsigned max_generation,
                                unsigned min_top_generation, unsigned max_top_generation, ptr_vector<enode> & used_enodes) {
-        return m_qmanager->add_instance(q, pat, num_bindings, bindings, max_generation, min_top_generation, max_top_generation, used_enodes);
+        return m_qmanager->add_instance(q, pat, num_bindings, bindings, def, max_generation, min_top_generation, max_top_generation, used_enodes);
     }
 
     void context::rescale_bool_var_activity() {

@@ -595,8 +595,7 @@ namespace pdr {
             }         
             result = mk_and(conj);
             if (!sub.empty()) {
-                expr_ref tmp = result;
-                var_subst(m, false)(tmp, sub.size(), sub.c_ptr(), result);
+                result = var_subst(m, false)(result, sub.size(), sub.c_ptr());
             }
             expr_free_vars fv;
             fv(result);

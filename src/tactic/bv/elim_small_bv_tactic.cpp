@@ -101,7 +101,7 @@ class elim_small_bv_tactic : public tactic {
                                     });
 
             var_subst vsbst(m);
-            vsbst(e, substitution.size(), substitution.c_ptr(), res);
+            res = vsbst(e, substitution.size(), substitution.c_ptr());
             SASSERT(is_well_sorted(m, res));
 
             proof_ref pr(m);

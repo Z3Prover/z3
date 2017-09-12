@@ -59,9 +59,7 @@ namespace datalog {
         for (unsigned i = 0; i < sig.size(); ++i) {
             vars.push_back(m.mk_const(symbol(i), sig[i]));
         }
-        expr_ref result(m);
-        sub(fml, vars.size(), vars.c_ptr(), result);
-        return result;
+        return sub(fml, vars.size(), vars.c_ptr());
     }
 
     void check_relation::add_fact(const relation_fact & f) {
@@ -292,7 +290,7 @@ namespace datalog {
             }
         }
         var_subst sub(m, false);
-        sub(fml, vars.size(), vars.c_ptr(), fml1);
+        fml1 = sub(fml, vars.size(), vars.c_ptr());
         bound.reverse();        
         fml1 = m.mk_exists(bound.size(), bound.c_ptr(), names.c_ptr(), fml1);
         return fml1;        
@@ -333,7 +331,7 @@ namespace datalog {
         for (unsigned i = 0; i < sig2.size(); ++i) {
             vars.push_back(m.mk_var(i + sig1.size(), sig2[i]));
         }
-        sub(fml2, vars.size(), vars.c_ptr(), fml2);
+        fml2 = sub(fml2, vars.size(), vars.c_ptr());
         fml1 = m.mk_and(fml1, fml2);
         for (unsigned i = 0; i < cols1.size(); ++i) {
             unsigned v1 = cols1[i];
@@ -372,14 +370,14 @@ namespace datalog {
         expr_ref fml1(m), fml2(m);
         src.to_formula(fml1);
         dst.to_formula(fml2);
-        subst(fml1, sub.size(), sub.c_ptr(), fml1);
+        fml1 = subst(fml1, sub.size(), sub.c_ptr());
         expr_ref_vector vars(m);
         for (unsigned i = 0; i < sig2.size(); ++i) {
             vars.push_back(m.mk_const(symbol(i), sig2[i]));            
         }
 
-        subst(fml1, vars.size(), vars.c_ptr(), fml1);
-        subst(fml2, vars.size(), vars.c_ptr(), fml2);
+        fml1 = subst(fml1, vars.size(), vars.c_ptr());
+        fml2 = subst(fml2, vars.size(), vars.c_ptr());
         
         check_equiv("permutation", fml1, fml2);
     }
@@ -405,8 +403,8 @@ namespace datalog {
             strm << "x" << i;
             vars.push_back(m.mk_const(symbol(strm.str().c_str()), sig[i]));            
         }
-        sub(fml1, vars.size(), vars.c_ptr(), fml1);
-        sub(fml2, vars.size(), vars.c_ptr(), fml2);
+        fml1 = sub(fml1, vars.size(), vars.c_ptr());
+        fml2 = sub(fml2, vars.size(), vars.c_ptr());
         check_equiv("filter", fml1, fml2);
     }
 
@@ -453,8 +451,8 @@ namespace datalog {
             strm << "x" << i;
             vars.push_back(m.mk_const(symbol(strm.str().c_str()), sig[i]));            
         }
-        sub(fml1, vars.size(), vars.c_ptr(), fml1);
-        sub(fml2, vars.size(), vars.c_ptr(), fml2);
+        fml1 = sub(fml1, vars.size(), vars.c_ptr());
+        fml2 = sub(fml2, vars.size(), vars.c_ptr());
 
         check_equiv("union", fml1, fml2);
 
@@ -466,13 +464,13 @@ namespace datalog {
             // dst \ dst0 == delta & dst & \ dst0
             expr_ref fml4(m), fml5(m);
             fml4 = m.mk_and(fml2, m.mk_not(dst0));
-            sub(fml4, vars.size(), vars.c_ptr(), fml4);
-            sub(d, vars.size(), vars.c_ptr(), d);
+            fml4 = sub(fml4, vars.size(), vars.c_ptr());
+            d = sub(d, vars.size(), vars.c_ptr());
             check_contains("union_delta low", d, fml4);
             //
             // delta >= delta0 
             //
-            sub(delta0, vars.size(), vars.c_ptr(), d0);
+            d0 = sub(delta0, vars.size(), vars.c_ptr());
             check_contains("union delta0", d, d0);
 
             //
@@ -480,8 +478,8 @@ namespace datalog {
             //
             fml4 = m.mk_or(fml2, delta0);
             fml5 = m.mk_or(d, dst0);
-            sub(fml4, vars.size(), vars.c_ptr(), fml4);
-            sub(fml5, vars.size(), vars.c_ptr(), fml5);
+            fml4 = sub(fml4, vars.size(), vars.c_ptr());
+            fml5 = sub(fml5, vars.size(), vars.c_ptr());
             check_equiv("union no overflow", fml4, fml5);
         }
     }

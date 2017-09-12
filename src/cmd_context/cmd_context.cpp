@@ -1041,7 +1041,7 @@ void cmd_context::mk_app(symbol const & s, unsigned num_args, expr * const * arg
               tout << "body:\n" << mk_ismt2_pp(_t, m()) << "\n";
               tout << "args:\n"; for (unsigned i = 0; i < num_args; i++) tout << mk_ismt2_pp(args[i], m()) << "\n" << mk_pp(m().get_sort(args[i]), m()) << "\n";);
         var_subst subst(m());
-        subst(_t, num_args, args, result);
+        result = subst(_t, num_args, args);
         if (well_sorted_check_enabled() && !is_well_sorted(m(), result))
             throw cmd_exception("invalid macro application, sort mismatch ", s);
         return;

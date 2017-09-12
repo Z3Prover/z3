@@ -96,8 +96,7 @@ bool horn_subsume_model_converter::mk_horn(
 
     // substitute variables directly.
     if (!subst.empty()) {
-        expr_ref tmp(body_expr);
-        vs(tmp, subst.size(), subst.c_ptr(), body_expr);
+        body_expr = vs(body_expr, subst.size(), subst.c_ptr());
     }    
 
     if (fv.empty()) {

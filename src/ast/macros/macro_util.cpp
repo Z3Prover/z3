@@ -486,7 +486,7 @@ void macro_util::normalize_expr(app * head, unsigned num_decls, expr * t, expr_r
                   if (var_mapping[i] != 0)
                       tout << "#" << i << " -> " << mk_ll_pp(var_mapping[i], m_manager);
               });
-        subst(t, var_mapping.size(), var_mapping.c_ptr(), norm_t);
+        norm_t = subst(t, var_mapping.size(), var_mapping.c_ptr());
     }
     else {
         norm_t = t;

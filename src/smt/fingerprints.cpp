@@ -20,9 +20,10 @@ Revision History:
 
 namespace smt {
 
-    fingerprint::fingerprint(region & r, void * d, unsigned d_h, unsigned n, enode * const * args):
+    fingerprint::fingerprint(region & r, void * d, unsigned d_h, expr* def, unsigned n, enode * const * args):
         m_data(d), 
         m_data_hash(d_h),
+        m_def(def),
         m_num_args(n), 
         m_args(0) {
         m_args = new (r) enode*[n];
@@ -61,7 +62,7 @@ namespace smt {
     }
 
     
-    fingerprint * fingerprint_set::insert(void * data, unsigned data_hash, unsigned num_args, enode * const * args) {
+    fingerprint * fingerprint_set::insert(void * data, unsigned data_hash, unsigned num_args, enode * const * args, expr* def) {
         fingerprint * d = mk_dummy(data, data_hash, num_args, args);
         if (m_set.contains(d)) 
             return 0;
@@ -73,8 +74,9 @@ namespace smt {
             return 0;
         }
         TRACE("fingerprint_bug", tout << "2) inserting: " << *d;);
-        fingerprint * f = new (m_region) fingerprint(m_region, data, data_hash, num_args, d->m_args);
+        fingerprint * f = new (m_region) fingerprint(m_region, data, data_hash, def, num_args, d->m_args);
         m_fingerprints.push_back(f);
+        m_defs.push_back(def);
         m_set.insert(f);
         return f;
     }
@@ -93,6 +95,7 @@ namespace smt {
     void fingerprint_set::reset() {
         m_set.reset();
         m_fingerprints.reset();
+        m_defs.reset();
     }
         
     void fingerprint_set::push_scope() {
@@ -108,6 +111,7 @@ namespace smt {
         for (unsigned i = old_size; i < size; i++) 
             m_set.erase(m_fingerprints[i]);
         m_fingerprints.shrink(old_size);
+        m_defs.shrink(old_size);
         m_scopes.shrink(new_lvl);
     }
 
@@ -134,12 +138,7 @@ namespace smt {
                 if (f->get_arg(i)->get_root() != args[i]->get_root())
                     break;
             if (i == num_args) {
-                TRACE("missing_instance_detail", tout << "found instance data: " << data << "=" << f->get_data() << " hash: " << f->get_data_hash();
-                      for (unsigned i = 0; i < num_args; i++) {
-                          tout << " " << f->get_arg(i)->get_owner_id() << ":" << f->get_arg(i)->get_root()->get_owner_id() << "=" 
-                               << args[i]->get_owner_id() << ":" << args[i]->get_root()->get_owner_id();
-                      }
-                      tout << "\n";);
+                TRACE("missing_instance_detail", tout << "found instance data: " << data << "=" << *f;);
                 return true;
             }
         }

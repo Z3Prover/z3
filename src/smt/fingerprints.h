@@ -28,14 +28,16 @@ namespace smt {
     protected:
         void *        m_data;
         unsigned      m_data_hash;
+        expr*         m_def;
         unsigned      m_num_args;
         enode * *     m_args;
 
         friend class fingerprint_set;
         fingerprint() {}
     public:
-        fingerprint(region & r, void * d, unsigned d_hash, unsigned n, enode * const * args);
+        fingerprint(region & r, void * d, unsigned d_hash, expr* def, unsigned n, enode * const * args);
         void * get_data() const { return m_data; }
+        expr * get_def() const { return m_def; }
         unsigned get_data_hash() const { return m_data_hash; }
         unsigned get_num_args() const { return m_num_args;  }
         enode * const * get_args() const { return m_args; }
@@ -64,6 +66,7 @@ namespace smt {
         region &                 m_region;
         set                      m_set;
         ptr_vector<fingerprint>  m_fingerprints;
+        expr_ref_vector          m_defs;
         unsigned_vector          m_scopes;
         ptr_vector<enode>        m_tmp;
         fingerprint              m_dummy;
@@ -71,8 +74,8 @@ namespace smt {
         fingerprint * mk_dummy(void * data, unsigned data_hash, unsigned num_args, enode * const * args);
 
     public:
-        fingerprint_set(region & r):m_region(r) {}
-        fingerprint * insert(void * data, unsigned data_hash, unsigned num_args, enode * const * args);
+        fingerprint_set(ast_manager& m, region & r): m_defs(m), m_region(r) {}
+        fingerprint * insert(void * data, unsigned data_hash, unsigned num_args, enode * const * args, expr* def);
         unsigned size() const { return m_fingerprints.size(); }
         bool contains(void * data, unsigned data_hash, unsigned num_args, enode * const * args);
         void reset();

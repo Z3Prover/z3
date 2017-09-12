@@ -2271,8 +2271,7 @@ namespace qe {
                 bound.push_back(m.mk_fresh_const("bound", fv[i]));
             }
             var_subst subst(m);
-            subst(fml, bound.size(), bound.c_ptr(), tmp);
-            fml = tmp;
+            fml = subst(fml, bound.size(), bound.c_ptr());
         }
     }
 
@@ -2293,7 +2292,7 @@ namespace qe {
         }
         expr* const* exprs = (expr* const*)(vars.c_ptr());
         var_subst subst(m);
-        subst(new_body, vars.size(), exprs, tmp);
+        tmp = subst(new_body, vars.size(), exprs);
         inv_var_shifter shift(m);
         shift(tmp, vars.size(), new_body);        
     }

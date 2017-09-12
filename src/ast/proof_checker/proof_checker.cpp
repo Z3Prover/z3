@@ -812,7 +812,7 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
                     // SASSERT(to_quantifier(premise)->get_num_decls() == sub.size());
                     premise = to_quantifier(premise)->get_expr();
                 }
-                vs(premise, sub.size(), sub.c_ptr(), premise);
+                premise = vs(premise, sub.size(), sub.c_ptr());
             }
             fmls.push_back(premise.get());
             TRACE("proof_checker",                   

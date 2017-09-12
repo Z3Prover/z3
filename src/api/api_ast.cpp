@@ -809,8 +809,7 @@ extern "C" {
         expr * a = to_expr(_a);
         expr * const * to   = to_exprs(_to);
         var_subst subst(m, false);
-        expr_ref new_a(m);
-        subst(a, num_exprs, to, new_a);
+        expr_ref new_a = subst(a, num_exprs, to);
         mk_c(c)->save_ast_trail(new_a);
         RETURN_Z3(of_expr(new_a.get()));
         Z3_CATCH_RETURN(0);

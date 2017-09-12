@@ -1311,8 +1311,7 @@ namespace datalog {
             if(m_rel_cond_columns.empty()) {
                 expr_ref_vector renaming(m_manager);
                 get_renaming_args(r.m_sig2table, r.get_signature(), renaming);
-                expr_ref table_cond(m_manager);
-                m_subst(condition, renaming.size(), renaming.c_ptr(), table_cond);
+                expr_ref table_cond = m_subst(condition, renaming.size(), renaming.c_ptr());
                 m_table_filter = rmgr.mk_filter_interpreted_fn(r.get_table(), to_app(table_cond));
             }
             else {
@@ -1361,9 +1360,7 @@ namespace datalog {
                         continue;
                     }
                     if(!m_rel_filter) {
-                        expr_ref inner_cond(m_manager);
-                        m_subst(m_cond, m_renaming_for_inner_rel.size(), m_renaming_for_inner_rel.c_ptr(), 
-                            inner_cond);
+                        expr_ref inner_cond = m_subst(m_cond, m_renaming_for_inner_rel.size(), m_renaming_for_inner_rel.c_ptr());
                         m_rel_filter = rmgr.mk_filter_interpreted_fn(*inner, to_app(inner_cond));
                     }
                     (*m_rel_filter)(*inner);
@@ -1411,11 +1408,10 @@ namespace datalog {
 
                 //create the condition with table values substituted in and relation values properly renamed
                 expr_ref inner_cond(m_manager);
-                m_subst(m_cond, m_renaming_for_inner_rel.size(), m_renaming_for_inner_rel.c_ptr(), 
-                    inner_cond);
+                inner_cond = m_subst(m_cond, m_renaming_for_inner_rel.size(), m_renaming_for_inner_rel.c_ptr());
 
                 relation_base * new_rel = old_rel.clone();
-
+                
                 scoped_ptr<relation_mutator_fn> filter = rmgr.mk_filter_interpreted_fn(*new_rel, to_app(inner_cond));
                 (*filter)(*new_rel);
  

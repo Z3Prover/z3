@@ -400,7 +400,7 @@ expr_ref model::cleanup_expr(top_sort& st, expr* e, unsigned current_partition) 
             else if (f->is_skolem() && (fi = get_func_interp(f)) && fi->get_interp() && (!st.m_partition_id.find(f, pid) || pid != current_partition)) {
                 var_subst vs(m);
                 // ? TBD args.reverse();
-                vs(fi->get_interp(), args.size(), args.c_ptr(), new_t);
+                new_t = vs(fi->get_interp(), args.size(), args.c_ptr());
             }
             else if (is_uninterp_const(a) && !get_const_interp(f)) {
                 new_t = get_some_value(f->get_range());

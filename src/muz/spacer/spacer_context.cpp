@@ -970,9 +970,7 @@ void pred_transformer::init_rule(
         ground_free_vars (fml, var_reprs, aux_vars, ut_size == 0);
         SASSERT(check_filled(var_reprs));
 
-        expr_ref tmp(m);
-        var_subst (m, false)(fml,
-                             var_reprs.size (), (expr*const*)var_reprs.c_ptr(), tmp);
+        expr_ref tmp = var_subst (m, false)(fml, var_reprs.size (), (expr*const*)var_reprs.c_ptr());
         flatten_and (tmp, conj);
         fml = mk_and(conj);
         conj.reset ();
@@ -1246,7 +1244,7 @@ void lemma::mk_insts(expr_ref_vector &out, expr* e)
          ++i, off += num_decls) {
         inst.reset();
         vs.reset();
-        vs(body, num_decls, (expr**) m_bindings.c_ptr() + off, inst);
+        inst = vs(body, num_decls, (expr**) m_bindings.c_ptr() + off);
         out.push_back(inst);
     }
 }

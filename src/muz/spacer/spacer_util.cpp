@@ -1200,7 +1200,7 @@ void mk_epp::rw(expr *e, expr_ref &out)
              vars [i] = m.mk_const (symbol(str.c_str()), fv [i]);
          }
          var_subst vs(m);
-         vs (e, vars.size (), (expr**) vars.c_ptr (), out);
+         out = vs (e, vars.size (), (expr**) vars.c_ptr ());
     }
 
 

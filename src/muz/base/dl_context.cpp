@@ -1318,7 +1318,7 @@ namespace datalog {
                 subst.push_back(fresh_vars[vars[max_var]].get());
             }
 
-            vsubst(q->get_expr(), subst.size(), subst.c_ptr(), res);
+            res = vsubst(q->get_expr(), subst.size(), subst.c_ptr());
             rules[i] = res.get();
         }
     }

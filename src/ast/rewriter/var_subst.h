@@ -48,7 +48,7 @@ public:
 
        Otherwise, (VAR 0) is stored in the first position, (VAR 1) in the second, and so on.
     */
-    void operator()(expr * n, unsigned num_args, expr * const * args, expr_ref & result);
+    expr_ref operator()(expr * n, unsigned num_args, expr * const * args);
     void reset() { m_reducer.reset(); }
 };
 
