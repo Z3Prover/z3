@@ -1005,18 +1005,6 @@ typedef enum
       - Z3_OP_FPA_MAX_UNSPECIFIED: The same as Z3_OP_FPA_MAX, but the
         arguments are expected to be zeroes with different signs.
 
-      - Z3_OP_FPA_TO_UBV_UNSPECIFIED: A term representing the unspecified
-        results of Z3_OP_FPA_TO_UBV.
-
-      - Z3_OP_FPA_TO_SBV_UNSPECIFIED: A term representing the unspecified
-        results of Z3_OP_FPA_TO_SBV.
-
-      - Z3_OP_FPA_TO_IEEE_BV_UNSPECIFIED: A term representing the unspecified
-        results of Z3_OP_FPA_TO_IEEE_BV.
-
-      - Z3_OP_FPA_TO_REAL_UNSPECIFIED: A term representing the unspecified
-        results of Z3_OP_FPA_TO_IEEE_BV.
-
       - Z3_OP_INTERNAL: internal (often interpreted) symbol, but no additional
         information is exposed. Tools may use the string representation of the
         function declaration to obtain more information.
@@ -1310,10 +1298,6 @@ typedef enum {
     Z3_OP_FPA_BV2RM,
     Z3_OP_FPA_MIN_UNSPECIFIED,
     Z3_OP_FPA_MAX_UNSPECIFIED,
-    Z3_OP_FPA_TO_UBV_UNSPECIFIED,
-    Z3_OP_FPA_TO_SBV_UNSPECIFIED,
-    Z3_OP_FPA_TO_REAL_UNSPECIFIED,
-    Z3_OP_FPA_TO_IEEE_BV_UNSPECIFIED,
 
     Z3_OP_INTERNAL,
 

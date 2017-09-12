@@ -119,6 +119,7 @@ namespace smt {
         SASSERT(m_conversions.empty());
         SASSERT(m_is_added_to_model.empty());
     }
+
     void theory_fpa::init(context * ctx) {
         smt::theory::init(ctx);
         m_is_initialized = true;
@@ -890,14 +891,10 @@ namespace smt {
         if (f->get_family_id() == get_family_id()) {
             bool include =
                 m_fpa_util.is_min_unspecified(f) ||
-                m_fpa_util.is_max_unspecified(f) ||
-                m_fpa_util.is_to_ubv_unspecified(f) ||
-                m_fpa_util.is_to_sbv_unspecified(f) ||
-                m_fpa_util.is_to_ieee_bv_unspecified(f) ||
-                m_fpa_util.is_to_real_unspecified(f);
+                m_fpa_util.is_max_unspecified(f) ;
             if (include && !m_is_added_to_model.contains(f)) {
-                m_is_added_to_model.insert(f);
-                get_manager().inc_ref(f);
+                //m_is_added_to_model.insert(f);
+                //get_manager().inc_ref(f);
                 return true;
             }
             return false;

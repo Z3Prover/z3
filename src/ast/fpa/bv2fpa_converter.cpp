@@ -291,9 +291,11 @@ func_interp * bv2fpa_converter::convert_func_interp(model_core * mc, func_decl *
         app_ref bv_els(m);
         expr_ref ft_els(m);
         bv_els = (app*)bv_fi->get_else();
-        ft_els = rebuild_floats(mc, rng, bv_els);
-        m_th_rw(ft_els);
-        result->set_else(ft_els);
+        if (bv_els != 0) {
+            ft_els = rebuild_floats(mc, rng, bv_els);
+            m_th_rw(ft_els);
+            result->set_else(ft_els);
+        }
     }
 
     return result;
@@ -447,8 +449,22 @@ void bv2fpa_converter::convert_uf2bvuf(model_core * mc, model_core * target_mode
             }
         }
         else {
-            func_interp * fmv = convert_func_interp(mc, f, it->m_value);
-            if (fmv) target_model->register_decl(f, fmv);
+            if (it->get_key().get_family_id() == m_fpa_util.get_fid()) {
+                // it->m_value contains the model for the unspecified cases of it->m_key.
+                continue;
+
+                // Upon request, add this 'recursive' definition?
+                func_interp * fmv = convert_func_interp(mc, f, it->m_value);
+                unsigned n = fmv->get_arity();
+                expr_ref_vector args(m);
+                for (unsigned i = 0; i < n; i++)
+                    args.push_back(m.mk_var(i, f->get_domain()[i]));
+                fmv->set_else(m.mk_app(it->m_key, n, args.c_ptr()));
+            }
+            else {
+                func_interp * fmv = convert_func_interp(mc, f, it->m_value);
+                if (fmv) target_model->register_decl(f, fmv);
+            }
         }
     }
 }

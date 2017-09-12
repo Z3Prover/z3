@@ -93,10 +93,6 @@ enum fpa_op_kind {
     OP_FPA_MAX_I,
     OP_FPA_MIN_UNSPECIFIED,
     OP_FPA_MAX_UNSPECIFIED,
-    OP_FPA_TO_UBV_UNSPECIFIED,
-    OP_FPA_TO_SBV_UNSPECIFIED,
-    OP_FPA_TO_IEEE_BV_UNSPECIFIED,
-    OP_FPA_TO_REAL_UNSPECIFIED,
 
     LAST_FLOAT_OP
 };
@@ -167,34 +163,12 @@ class fpa_decl_plugin : public decl_plugin {
                                   unsigned arity, sort * const * domain, sort * range);
     func_decl * mk_bv_wrap(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                     unsigned arity, sort * const * domain, sort * range);
-    func_decl * mk_to_ubv_unspecified(decl_kind k, unsigned num_parameters, parameter const * parameters,
-                                               unsigned arity, sort * const * domain, sort * range);
-    func_decl * mk_to_sbv_unspecified(decl_kind k, unsigned num_parameters, parameter const * parameters,
-                                               unsigned arity, sort * const * domain, sort * range);
-    func_decl * mk_to_real_unspecified(decl_kind k, unsigned num_parameters, parameter const * parameters,
-                                                unsigned arity, sort * const * domain, sort * range);
-    func_decl * mk_to_ieee_bv_unspecified(decl_kind k, unsigned num_parameters, parameter const * parameters,
-                                                   unsigned arity, sort * const * domain, sort * range);
 
     virtual void set_manager(ast_manager * m, family_id id);
     unsigned mk_id(mpf const & v);
     void recycled_id(unsigned id);
 
-    virtual bool is_considered_uninterpreted(func_decl * f) {
-        if (f->get_family_id() != get_family_id())
-            return false;
-        switch (f->get_decl_kind())
-        {
-        case OP_FPA_TO_UBV_UNSPECIFIED:
-        case OP_FPA_TO_SBV_UNSPECIFIED:
-        case OP_FPA_TO_REAL_UNSPECIFIED:
-        case OP_FPA_TO_IEEE_BV_UNSPECIFIED:
-            return true;
-        default:
-            return false;
-        }
-        return false;
-    }
+    virtual bool is_considered_uninterpreted(func_decl * f) { return false; }
 
 public:
     fpa_decl_plugin();
@@ -374,10 +348,6 @@ public:
         SASSERT(m_bv_util.is_bv(bv3) && m_bv_util.get_bv_size(bv3) == 3);
         return m().mk_app(m_fid, OP_FPA_BV2RM, 0, 0, 1, &bv3, mk_rm_sort());
     }
-    app * mk_to_ubv_unspecified(unsigned ebits, unsigned sbits, unsigned width);
-    app * mk_to_sbv_unspecified(unsigned ebits, unsigned sbits, unsigned width);
-    app * mk_to_ieee_bv_unspecified(unsigned ebits, unsigned sbits);
-    app * mk_to_real_unspecified(unsigned ebits, unsigned sbits);
 
     bool is_bvwrap(expr const * e) const { return is_app_of(e, get_family_id(), OP_FPA_BVWRAP); }
     bool is_bvwrap(func_decl const * f) const { return f->get_family_id() == get_family_id() && f->get_decl_kind() == OP_FPA_BVWRAP; }
@@ -388,19 +358,15 @@ public:
     bool is_min_unspecified(expr const * e) const { return is_app_of(e, get_family_id(), OP_FPA_MIN_UNSPECIFIED); }
     bool is_max_interpreted(expr const * e) const { return is_app_of(e, get_family_id(), OP_FPA_MAX_I); }
     bool is_max_unspecified(expr const * e) const { return is_app_of(e, get_family_id(), OP_FPA_MAX_UNSPECIFIED); }
-    bool is_to_ubv_unspecified(expr const * e) const { return is_app_of(e, get_family_id(), OP_FPA_TO_UBV_UNSPECIFIED); }
-    bool is_to_sbv_unspecified(expr const * e) const { return is_app_of(e, get_family_id(), OP_FPA_TO_SBV_UNSPECIFIED); }
-    bool is_to_ieee_bv_unspecified(expr const * e) const { return is_app_of(e, get_family_id(), OP_FPA_TO_IEEE_BV_UNSPECIFIED); }
-    bool is_to_real_unspecified(expr const * e) const { return is_app_of(e, get_family_id(), OP_FPA_TO_REAL_UNSPECIFIED); }
+    bool is_to_ubv(expr const * e) const { return is_app_of(e, get_family_id(), OP_FPA_TO_UBV); }
+    bool is_to_sbv(expr const * e) const { return is_app_of(e, get_family_id(), OP_FPA_TO_SBV); }
 
     bool is_min_interpreted(func_decl const * f) const { return f->get_family_id() == get_family_id() && f->get_decl_kind() == OP_FPA_MIN_I; }
     bool is_min_unspecified(func_decl const * f) const { return f->get_family_id() == get_family_id() && f->get_decl_kind() == OP_FPA_MIN_UNSPECIFIED; }
     bool is_max_interpreted(func_decl const * f) const { return f->get_family_id() == get_family_id() && f->get_decl_kind() == OP_FPA_MAX_I; }
     bool is_max_unspecified(func_decl const * f) const { return f->get_family_id() == get_family_id() && f->get_decl_kind() == OP_FPA_MAX_UNSPECIFIED; }
-    bool is_to_ubv_unspecified(func_decl const * f) const { return f->get_family_id() == get_family_id() && f->get_decl_kind() == OP_FPA_TO_UBV_UNSPECIFIED; }
-    bool is_to_sbv_unspecified(func_decl const * f) const { return f->get_family_id() == get_family_id() && f->get_decl_kind() == OP_FPA_TO_SBV_UNSPECIFIED; }
-    bool is_to_ieee_bv_unspecified(func_decl const * f) const { return f->get_family_id() == get_family_id() && f->get_decl_kind() == OP_FPA_TO_IEEE_BV_UNSPECIFIED; }
-    bool is_to_real_unspecified(func_decl const * f) const { return f->get_family_id() == get_family_id() && f->get_decl_kind() == OP_FPA_TO_REAL_UNSPECIFIED; }
+    bool is_to_ubv(func_decl const * f) const { return f->get_family_id() == get_family_id() && f->get_decl_kind() == OP_FPA_TO_UBV; }
+    bool is_to_sbv(func_decl const * f) const { return f->get_family_id() == get_family_id() && f->get_decl_kind() == OP_FPA_TO_SBV; }
 
     bool contains_floats(ast * a);
 };

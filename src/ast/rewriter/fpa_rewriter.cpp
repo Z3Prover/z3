@@ -103,55 +103,10 @@ br_status fpa_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case OP_FPA_BVWRAP: SASSERT(num_args == 1); st = mk_bvwrap(args[0], result); break;
     case OP_FPA_BV2RM: SASSERT(num_args == 1); st = mk_bv2rm(args[0], result); break;
 
-    case OP_FPA_TO_UBV_UNSPECIFIED:
-    case OP_FPA_TO_SBV_UNSPECIFIED:
-    case OP_FPA_TO_REAL_UNSPECIFIED:
-    case OP_FPA_TO_IEEE_BV_UNSPECIFIED:
-        st = BR_FAILED;
-        break;
-
     default:
         NOT_IMPLEMENTED_YET();
     }
     return st;
-}
-
-br_status fpa_rewriter::mk_to_ubv_unspecified(unsigned ebits, unsigned sbits, unsigned width, expr_ref & result) {
-    bv_util bu(m());
-    if (m_hi_fp_unspecified) {
-        // The "hardware interpretation" is 0.
-        result = bu.mk_numeral(0, width);
-        return BR_DONE;
-    }
-    else {
-        result = m_util.mk_to_ubv_unspecified(ebits, sbits, width);
-        return BR_REWRITE1;
-    }
-}
-
-br_status fpa_rewriter::mk_to_sbv_unspecified(unsigned ebits, unsigned sbits, unsigned width, expr_ref & result) {
-    bv_util bu(m());
-    if (m_hi_fp_unspecified) {
-        // The "hardware interpretation" is 0.
-        result = bu.mk_numeral(0, width);
-        return BR_DONE;
-    }
-    else {
-        result = m_util.mk_to_sbv_unspecified(ebits, sbits, width);
-        return BR_REWRITE1;
-    }
-}
-
-br_status fpa_rewriter::mk_to_real_unspecified(unsigned ebits, unsigned sbits, expr_ref & result) {
-    if (m_hi_fp_unspecified) {
-        // The "hardware interpretation" is 0.
-        result = m_util.au().mk_numeral(rational(0), false);
-        return BR_DONE;
-    }
-    else {
-        result = m_util.mk_to_real_unspecified(ebits, sbits);
-        return BR_REWRITE1;
-    }
 }
 
 br_status fpa_rewriter::mk_to_fp(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
@@ -808,7 +763,7 @@ br_status fpa_rewriter::mk_to_ubv(func_decl * f, expr * arg1, expr * arg2, expr_
         const mpf & x = v.get();
 
         if (m_fm.is_nan(v) || m_fm.is_inf(v) || m_fm.is_neg(v))
-            return mk_to_ubv_unspecified(x.get_ebits(), x.get_sbits(), bv_sz, result);
+            return BR_FAILED;
 
         bv_util bu(m());
         scoped_mpq q(m_fm.mpq_manager());
@@ -822,9 +777,6 @@ br_status fpa_rewriter::mk_to_ubv(func_decl * f, expr * arg1, expr * arg2, expr_
             result = bu.mk_numeral(r, bv_sz);
             return BR_DONE;
         }
-        else
-            return mk_to_ubv_unspecified(x.get_ebits(), x.get_sbits(), bv_sz, result);
-
     }
 
     return BR_FAILED;
@@ -842,7 +794,7 @@ br_status fpa_rewriter::mk_to_sbv(func_decl * f, expr * arg1, expr * arg2, expr_
         const mpf & x = v.get();
 
         if (m_fm.is_nan(v) || m_fm.is_inf(v))
-            return mk_to_sbv_unspecified(x.get_ebits(), x.get_sbits(), bv_sz, result);
+            return BR_FAILED;
 
         bv_util bu(m());
         scoped_mpq q(m_fm.mpq_manager());
@@ -856,8 +808,6 @@ br_status fpa_rewriter::mk_to_sbv(func_decl * f, expr * arg1, expr * arg2, expr_
             result = bu.mk_numeral(r, bv_sz);
             return BR_DONE;
         }
-        else
-            return mk_to_sbv_unspecified(x.get_ebits(), x.get_sbits(), bv_sz, result);
     }
 
     return BR_FAILED;
@@ -881,7 +831,7 @@ br_status fpa_rewriter::mk_to_ieee_bv(func_decl * f, expr * arg, expr_ref & resu
                 result = bu.mk_concat(4, args);
             }
             else
-                result = m_util.mk_to_ieee_bv_unspecified(x.get_ebits(), x.get_sbits());
+                return BR_FAILED;
 
             return BR_REWRITE1;
         }
@@ -900,16 +850,12 @@ br_status fpa_rewriter::mk_to_real(expr * arg, expr_ref & result) {
     scoped_mpf v(m_fm);
 
     if (m_util.is_numeral(arg, v)) {
-        if (m_fm.is_nan(v) || m_fm.is_inf(v)) {
-            const mpf & x = v.get();
-            result = m_util.mk_to_real_unspecified(x.get_ebits(), x.get_sbits());
-        }
-        else {
+        if (!m_fm.is_nan(v) && !m_fm.is_inf(v)) {
             scoped_mpq r(m_fm.mpq_manager());
             m_fm.to_rational(v, r);
             result = m_util.au().mk_numeral(r.get(), false);
+            return BR_DONE;
         }
-        return BR_DONE;
     }
 
     return BR_FAILED;

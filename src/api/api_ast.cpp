@@ -1210,10 +1210,6 @@ extern "C" {
             case OP_FPA_BV2RM: return Z3_OP_FPA_BV2RM;
             case OP_FPA_MIN_UNSPECIFIED: return Z3_OP_FPA_MIN_UNSPECIFIED;
             case OP_FPA_MAX_UNSPECIFIED: return Z3_OP_FPA_MAX_UNSPECIFIED;
-            case OP_FPA_TO_UBV_UNSPECIFIED: return Z3_OP_FPA_TO_UBV_UNSPECIFIED;
-            case OP_FPA_TO_SBV_UNSPECIFIED: return Z3_OP_FPA_TO_SBV_UNSPECIFIED;
-            case OP_FPA_TO_REAL_UNSPECIFIED: return Z3_OP_FPA_TO_REAL_UNSPECIFIED;
-            case OP_FPA_TO_IEEE_BV_UNSPECIFIED: return Z3_OP_FPA_TO_IEEE_BV_UNSPECIFIED;
                 return Z3_OP_UNINTERPRETED;
             default:
                 return Z3_OP_INTERNAL;
