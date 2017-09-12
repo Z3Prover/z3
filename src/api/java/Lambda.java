@@ -1,4 +1,4 @@
-﻿/*++
+/**
 Copyright (c) 2017 Microsoft Corporation
 
 Module Name:
@@ -15,7 +15,7 @@ Author:
 
 Notes:
 
---*/
+**/
 
 package com.microsoft.z3;
 
@@ -24,7 +24,7 @@ import com.microsoft.z3.enumerations.Z3_ast_kind;
 
 /**
  * Lambda expressions.
-*/public class Lambda : ArrayExpr
+*/public class Lambda extends ArrayExpr
 {
 
     /**
@@ -91,24 +91,23 @@ import com.microsoft.z3.enumerations.Z3_ast_kind;
     }
     
        
-   pulic static Lambda of(Context ctx, Sort[] sorts, Symbol[] names, Expr body)
-       : base(ctx, IntPtr.Zero)
-   {
+    public static Lambda of(Context ctx, Sort[] sorts, Symbol[] names, Expr body) 
+    {
         ctx.checkContextMatch(sorts);
         ctx.checkContextMatch(names);
         ctx.checkContextMatch(body);
-
-        if (sorts.length != names.length) {
-            throw new Z3Exception(
-                    "Number of sorts does not match number of names");
-
-       
-	    NativeObject = Native.mkLambda(ctx.nCtx(), 
-					  AST.arrayLength(sorts), AST.arrayToNative(sorts),
-					  Symbol.arrayToNative(names),
-					   body.getNativeObject());
-       
-   }
+	
+        if (sorts.length != names.length) 
+            throw new Z3Exception("Number of sorts does not match number of names");
+	
+	
+	long nativeObject = Native.mkLambda(ctx.nCtx(), 
+					    AST.arrayLength(sorts), AST.arrayToNative(sorts),
+					    Symbol.arrayToNative(names),
+					    body.getNativeObject());
+	
+        return new Lambda(ctx, nativeObject);
+    }
 
     /**
      * @param ctx Context to create the lambda on.
@@ -116,20 +115,18 @@ import com.microsoft.z3.enumerations.Z3_ast_kind;
      * @param body Body of the lambda expression.
      */
 
-   internal Lambda(Context ctx, Expr[] bound, Expr body)
-       : base(ctx, IntPtr.Zero)      { 
+    public static Lambda of(Context ctx, Expr[] bound, Expr body) {
         ctx.checkContextMatch(body);
 
               
-       NativeObject = Native.mkLambdaConst(ctx.nCtx(),
+       long nativeObject = Native.mkLambdaConst(ctx.nCtx(),
 					   AST.arrayLength(bound), AST.arrayToNative(bound),
 					   body.getNativeObject());
+       return new Lambda(ctx, nativeObject);
    }
 
 
-   internal Lambda(Context ctx, IntPtr obj) : base(ctx, obj) { Contract.Requires(ctx != null); }
-
-    Lambda(Context ctx, long obj)
+    private Lambda(Context ctx, long obj)
     {
         super(ctx, obj);
     }
