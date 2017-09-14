@@ -84,6 +84,7 @@ void ackr_model_converter::convert_constants(model * source, model * destination
     TRACE("ackr_model", tout << "converting constants\n";);
     obj_map<func_decl, func_interp*> interpretations;
     model_evaluator evaluator(*source);
+    evaluator.set_model_completion(true);
     for (unsigned i = 0; i < source->get_num_constants(); i++) {
         func_decl * const c = source->get_constant(i);
         app * const term = info->find_term(c);
@@ -133,6 +134,11 @@ void ackr_model_converter::add_entry(model_evaluator & evaluator,
         args.push_back(arg_value);
     }
     if (fi->get_entry(args.c_ptr()) == 0) {
+        TRACE("ackr_model",
+              tout << mk_ismt2_pp(declaration, m) << " args: " << std::endl;
+                for (unsigned i = 0; i < args.size(); i++)
+                    tout << mk_ismt2_pp(args.get(i), m) << std::endl;
+                tout << " -> " << mk_ismt2_pp(value, m) << "\n"; );
         fi->insert_new_entry(args.c_ptr(), value);
     }
     else {
