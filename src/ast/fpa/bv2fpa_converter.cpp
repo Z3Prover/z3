@@ -451,16 +451,19 @@ void bv2fpa_converter::convert_uf2bvuf(model_core * mc, model_core * target_mode
         else {
             if (it->get_key().get_family_id() == m_fpa_util.get_fid()) {
                 // it->m_value contains the model for the unspecified cases of it->m_key.
-                continue;
 
-                // Upon request, add this 'recursive' definition?
                 func_interp * fmv = convert_func_interp(mc, f, it->m_value);
                 if (fmv) {
+#if 0
+                    // Upon request, add this 'recursive' definition?
                     unsigned n = fmv->get_arity();
                     expr_ref_vector args(m);
                     for (unsigned i = 0; i < n; i++)
                         args.push_back(m.mk_var(i, f->get_domain()[i]));
                     fmv->set_else(m.mk_app(it->m_key, n, args.c_ptr()));
+#else
+                    fmv->set_else(0);
+#endif
                     target_model->register_decl(f, fmv);
                 }
             }

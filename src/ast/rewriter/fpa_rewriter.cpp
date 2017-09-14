@@ -113,7 +113,6 @@ br_status fpa_rewriter::mk_to_fp(func_decl * f, unsigned num_args, expr * const 
     SASSERT(f->get_num_parameters() == 2);
     SASSERT(f->get_parameter(0).is_int());
     SASSERT(f->get_parameter(1).is_int());
-    bv_util bu(m());
     scoped_mpf v(m_fm);
     mpf_rounding_mode rmv;
     rational r1, r2, r3;
@@ -122,7 +121,7 @@ br_status fpa_rewriter::mk_to_fp(func_decl * f, unsigned num_args, expr * const 
     unsigned sbits = f->get_parameter(1).get_int();
 
     if (num_args == 1) {
-        if (bu.is_numeral(args[0], r1, bvs1)) {
+        if (m_util.bv_util().is_numeral(args[0], r1, bvs1)) {
             // BV -> float
             SASSERT(bvs1 == sbits + ebits);
             unsynch_mpz_manager & mpzm = m_fm.mpz_manager();
@@ -163,7 +162,7 @@ br_status fpa_rewriter::mk_to_fp(func_decl * f, unsigned num_args, expr * const 
         if (!m_util.is_rm_numeral(args[0], rmv))
             return BR_FAILED;
 
-        if (m_util.au().is_numeral(args[1], r1)) {
+        if (m_util.arith_util().is_numeral(args[1], r1)) {
             // rm + real -> float
             TRACE("fp_rewriter", tout << "r: " << r1 << std::endl;);
             scoped_mpf v(m_fm);
@@ -181,10 +180,10 @@ br_status fpa_rewriter::mk_to_fp(func_decl * f, unsigned num_args, expr * const 
             // TRACE("fp_rewriter", tout << "result: " << result << std::endl; );
             return BR_DONE;
         }
-        else if (bu.is_numeral(args[1], r1, bvs1)) {
+        else if (m_util.bv_util().is_numeral(args[1], r1, bvs1)) {
             // rm + signed bv -> float
             TRACE("fp_rewriter", tout << "r1: " << r1 << std::endl;);
-            r1 = bu.norm(r1, bvs1, true);
+            r1 = m_util.bv_util().norm(r1, bvs1, true);
             TRACE("fp_rewriter", tout << "r1 norm: " << r1 << std::endl;);
             m_fm.set(v, ebits, sbits, rmv, r1.to_mpq());
             result = m_util.mk_value(v);
@@ -193,12 +192,12 @@ br_status fpa_rewriter::mk_to_fp(func_decl * f, unsigned num_args, expr * const 
     }
     else if (num_args == 3) {
         if (m_util.is_rm_numeral(args[0], rmv) &&
-            m_util.au().is_real(args[1]) &&
-            m_util.au().is_int(args[2])) {
+            m_util.arith_util().is_real(args[1]) &&
+            m_util.arith_util().is_int(args[2])) {
             // rm + real + int -> float
             if (!m_util.is_rm_numeral(args[0], rmv) ||
-                !m_util.au().is_numeral(args[1], r1) ||
-                !m_util.au().is_numeral(args[2], r2))
+                !m_util.arith_util().is_numeral(args[1], r1) ||
+                !m_util.arith_util().is_numeral(args[2], r2))
                 return BR_FAILED;
 
             TRACE("fp_rewriter", tout << "r1: " << r1 << ", r2: " << r2 << "\n";);
@@ -207,12 +206,12 @@ br_status fpa_rewriter::mk_to_fp(func_decl * f, unsigned num_args, expr * const 
             return BR_DONE;
         }
         else if (m_util.is_rm_numeral(args[0], rmv) &&
-                 m_util.au().is_int(args[1]) &&
-                 m_util.au().is_real(args[2])) {
+                 m_util.arith_util().is_int(args[1]) &&
+                 m_util.arith_util().is_real(args[2])) {
             // rm + int + real -> float
             if (!m_util.is_rm_numeral(args[0], rmv) ||
-                !m_util.au().is_numeral(args[1], r1) ||
-                !m_util.au().is_numeral(args[2], r2))
+                !m_util.arith_util().is_numeral(args[1], r1) ||
+                !m_util.arith_util().is_numeral(args[2], r2))
                 return BR_FAILED;
 
             TRACE("fp_rewriter", tout << "r1: " << r1 << ", r2: " << r2 << "\n";);
@@ -220,9 +219,9 @@ br_status fpa_rewriter::mk_to_fp(func_decl * f, unsigned num_args, expr * const 
             result = m_util.mk_value(v);
             return BR_DONE;
         }
-        else if (bu.is_numeral(args[0], r1, bvs1) &&
-                 bu.is_numeral(args[1], r2, bvs2) &&
-                 bu.is_numeral(args[2], r3, bvs3)) {
+        else if (m_util.bv_util().is_numeral(args[0], r1, bvs1) &&
+                 m_util.bv_util().is_numeral(args[1], r2, bvs2) &&
+                 m_util.bv_util().is_numeral(args[2], r3, bvs3)) {
             // 3 BV -> float
             SASSERT(m_fm.mpz_manager().is_one(r2.to_mpq().denominator()));
             SASSERT(m_fm.mpz_manager().is_one(r3.to_mpq().denominator()));
@@ -245,7 +244,6 @@ br_status fpa_rewriter::mk_to_fp_unsigned(func_decl * f, expr * arg1, expr * arg
     SASSERT(f->get_num_parameters() == 2);
     SASSERT(f->get_parameter(0).is_int());
     SASSERT(f->get_parameter(1).is_int());
-    bv_util bu(m());
     unsigned ebits = f->get_parameter(0).get_int();
     unsigned sbits = f->get_parameter(1).get_int();
     mpf_rounding_mode rmv;
@@ -253,7 +251,7 @@ br_status fpa_rewriter::mk_to_fp_unsigned(func_decl * f, expr * arg1, expr * arg
     unsigned bvs;
 
     if (m_util.is_rm_numeral(arg1, rmv) &&
-        bu.is_numeral(arg2, r, bvs)) {
+        m_util.bv_util().is_numeral(arg2, r, bvs)) {
         scoped_mpf v(m_fm);
         m_fm.set(v, ebits, sbits, rmv, r.to_mpq());
         result = m_util.mk_value(v);
@@ -286,6 +284,7 @@ br_status fpa_rewriter::mk_sub(expr * arg1, expr * arg2, expr * arg3, expr_ref &
 
 br_status fpa_rewriter::mk_mul(expr * arg1, expr * arg2, expr * arg3, expr_ref & result) {
     mpf_rounding_mode rm;
+
     if (m_util.is_rm_numeral(arg1, rm)) {
         scoped_mpf v2(m_fm), v3(m_fm);
         if (m_util.is_numeral(arg2, v2) && m_util.is_numeral(arg3, v3)) {
@@ -301,6 +300,7 @@ br_status fpa_rewriter::mk_mul(expr * arg1, expr * arg2, expr * arg3, expr_ref &
 
 br_status fpa_rewriter::mk_div(expr * arg1, expr * arg2, expr * arg3, expr_ref & result) {
     mpf_rounding_mode rm;
+
     if (m_util.is_rm_numeral(arg1, rm)) {
         scoped_mpf v2(m_fm), v3(m_fm);
         if (m_util.is_numeral(arg2, v2) && m_util.is_numeral(arg3, v3)) {
@@ -310,7 +310,6 @@ br_status fpa_rewriter::mk_div(expr * arg1, expr * arg2, expr * arg3, expr_ref &
             return BR_DONE;
         }
     }
-
     return BR_FAILED;
 }
 
@@ -348,6 +347,7 @@ br_status fpa_rewriter::mk_neg(expr * arg1, expr_ref & result) {
 
 br_status fpa_rewriter::mk_rem(expr * arg1, expr * arg2, expr_ref & result) {
     scoped_mpf v1(m_fm), v2(m_fm);
+
     if (m_util.is_numeral(arg1, v1) && m_util.is_numeral(arg2, v2)) {
         scoped_mpf t(m_fm);
         m_fm.rem(v1, v2, t);
@@ -411,6 +411,7 @@ br_status fpa_rewriter::mk_min(expr * arg1, expr * arg2, expr_ref & result) {
 
 br_status fpa_rewriter::mk_min_i(func_decl * f, expr * arg1, expr * arg2, expr_ref & result) {
     scoped_mpf v1(m_fm), v2(m_fm);
+
     if (m_util.is_numeral(arg1, v1) && m_util.is_numeral(arg2, v2)) {
         if (m_fm.is_zero(v1) && m_fm.is_zero(v2) && m_fm.sgn(v1) != m_fm.sgn(v2))
             result = m().mk_app(get_fid(), OP_FPA_MIN_UNSPECIFIED, arg1, arg2);
@@ -418,6 +419,7 @@ br_status fpa_rewriter::mk_min_i(func_decl * f, expr * arg1, expr * arg2, expr_r
             result = m_util.mk_min(arg1, arg2);
         return BR_DONE;
     }
+
     return BR_FAILED;
 }
 
@@ -458,6 +460,7 @@ br_status fpa_rewriter::mk_max(expr * arg1, expr * arg2, expr_ref & result) {
 
 br_status fpa_rewriter::mk_max_i(func_decl * f, expr * arg1, expr * arg2, expr_ref & result) {
     scoped_mpf v1(m_fm), v2(m_fm);
+
     if (m_util.is_numeral(arg1, v1) && m_util.is_numeral(arg2, v2)) {
         if (m_fm.is_zero(v1) && m_fm.is_zero(v2) && m_fm.sgn(v1) != m_fm.sgn(v2))
             result = m().mk_app(get_fid(), OP_FPA_MIN_UNSPECIFIED, arg1, arg2);
@@ -465,11 +468,13 @@ br_status fpa_rewriter::mk_max_i(func_decl * f, expr * arg1, expr * arg2, expr_r
             result = m_util.mk_max(arg1, arg2);
         return BR_DONE;
     }
+
     return BR_FAILED;
 }
 
 br_status fpa_rewriter::mk_fma(expr * arg1, expr * arg2, expr * arg3, expr * arg4, expr_ref & result) {
     mpf_rounding_mode rm;
+
     if (m_util.is_rm_numeral(arg1, rm)) {
         scoped_mpf v2(m_fm), v3(m_fm), v4(m_fm);
         if (m_util.is_numeral(arg2, v2) && m_util.is_numeral(arg3, v3) && m_util.is_numeral(arg4, v4)) {
@@ -485,6 +490,7 @@ br_status fpa_rewriter::mk_fma(expr * arg1, expr * arg2, expr * arg3, expr * arg
 
 br_status fpa_rewriter::mk_sqrt(expr * arg1, expr * arg2, expr_ref & result) {
     mpf_rounding_mode rm;
+
     if (m_util.is_rm_numeral(arg1, rm)) {
         scoped_mpf v2(m_fm);
         if (m_util.is_numeral(arg2, v2)) {
@@ -500,6 +506,7 @@ br_status fpa_rewriter::mk_sqrt(expr * arg1, expr * arg2, expr_ref & result) {
 
 br_status fpa_rewriter::mk_round_to_integral(expr * arg1, expr * arg2, expr_ref & result) {
     mpf_rounding_mode rm;
+
     if (m_util.is_rm_numeral(arg1, rm)) {
         scoped_mpf v2(m_fm);
         if (m_util.is_numeral(arg2, v2)) {
@@ -567,7 +574,6 @@ br_status fpa_rewriter::mk_lt(expr * arg1, expr * arg2, expr_ref & result) {
         return BR_DONE;
     }
 
-    // TODO: more simplifications
     return BR_FAILED;
 }
 
@@ -631,6 +637,7 @@ br_status fpa_rewriter::mk_is_pzero(expr * arg1, expr_ref & result) {
 
 br_status fpa_rewriter::mk_is_nan(expr * arg1, expr_ref & result) {
     scoped_mpf v(m_fm);
+
     if (m_util.is_numeral(arg1, v)) {
         result = (m_fm.is_nan(v)) ? m().mk_true() : m().mk_false();
         return BR_DONE;
@@ -641,6 +648,7 @@ br_status fpa_rewriter::mk_is_nan(expr * arg1, expr_ref & result) {
 
 br_status fpa_rewriter::mk_is_inf(expr * arg1, expr_ref & result) {
     scoped_mpf v(m_fm);
+
     if (m_util.is_numeral(arg1, v)) {
         result = (m_fm.is_inf(v)) ? m().mk_true() : m().mk_false();
         return BR_DONE;
@@ -651,6 +659,7 @@ br_status fpa_rewriter::mk_is_inf(expr * arg1, expr_ref & result) {
 
 br_status fpa_rewriter::mk_is_normal(expr * arg1, expr_ref & result) {
     scoped_mpf v(m_fm);
+
     if (m_util.is_numeral(arg1, v)) {
         result = (m_fm.is_normal(v)) ? m().mk_true() : m().mk_false();
         return BR_DONE;
@@ -661,6 +670,7 @@ br_status fpa_rewriter::mk_is_normal(expr * arg1, expr_ref & result) {
 
 br_status fpa_rewriter::mk_is_subnormal(expr * arg1, expr_ref & result) {
     scoped_mpf v(m_fm);
+
     if (m_util.is_numeral(arg1, v)) {
         result = (m_fm.is_denormal(v)) ? m().mk_true() : m().mk_false();
         return BR_DONE;
@@ -671,6 +681,7 @@ br_status fpa_rewriter::mk_is_subnormal(expr * arg1, expr_ref & result) {
 
 br_status fpa_rewriter::mk_is_negative(expr * arg1, expr_ref & result) {
     scoped_mpf v(m_fm);
+
     if (m_util.is_numeral(arg1, v)) {
         result = (m_fm.is_neg(v)) ? m().mk_true() : m().mk_false();
         return BR_DONE;
@@ -681,6 +692,7 @@ br_status fpa_rewriter::mk_is_negative(expr * arg1, expr_ref & result) {
 
 br_status fpa_rewriter::mk_is_positive(expr * arg1, expr_ref & result) {
     scoped_mpf v(m_fm);
+
     if (m_util.is_numeral(arg1, v)) {
         result = (m_fm.is_neg(v) || m_fm.is_nan(v)) ? m().mk_false() : m().mk_true();
         return BR_DONE;
@@ -693,6 +705,7 @@ br_status fpa_rewriter::mk_is_positive(expr * arg1, expr_ref & result) {
 // This the SMT =
 br_status fpa_rewriter::mk_eq_core(expr * arg1, expr * arg2, expr_ref & result) {
     scoped_mpf v1(m_fm), v2(m_fm);
+
     if (m_util.is_numeral(arg1, v1) && m_util.is_numeral(arg2, v2)) {
         // Note: == is the floats-equality, here we need normal equality.
         result = (m_fm.is_nan(v1) && m_fm.is_nan(v2)) ? m().mk_true() :
@@ -706,10 +719,10 @@ br_status fpa_rewriter::mk_eq_core(expr * arg1, expr * arg2, expr_ref & result) 
 }
 
 br_status fpa_rewriter::mk_bv2rm(expr * arg, expr_ref & result) {
-    bv_util bu(m());
     rational bv_val;
     unsigned sz = 0;
-    if (bu.is_numeral(arg, bv_val, sz)) {
+
+    if (m_util.bv_util().is_numeral(arg, bv_val, sz)) {
         SASSERT(bv_val.is_uint64());
         switch (bv_val.get_uint64()) {
         case BV_RM_TIES_TO_AWAY: result = m_util.mk_round_nearest_ties_to_away(); break;
@@ -728,13 +741,12 @@ br_status fpa_rewriter::mk_bv2rm(expr * arg, expr_ref & result) {
 
 br_status fpa_rewriter::mk_fp(expr * sgn, expr * exp, expr * sig, expr_ref & result) {
     unsynch_mpz_manager & mpzm = m_fm.mpz_manager();
-    bv_util bu(m());
     rational rsgn, rexp, rsig;
     unsigned bvsz_sgn, bvsz_exp, bvsz_sig;
 
-    if (bu.is_numeral(sgn, rsgn, bvsz_sgn) &&
-        bu.is_numeral(sig, rsig, bvsz_sig) &&
-        bu.is_numeral(exp, rexp, bvsz_exp)) {
+    if (m_util.bv_util().is_numeral(sgn, rsgn, bvsz_sgn) &&
+        m_util.bv_util().is_numeral(sig, rsig, bvsz_sig) &&
+        m_util.bv_util().is_numeral(exp, rexp, bvsz_exp)) {
         SASSERT(mpzm.is_one(rexp.to_mpq().denominator()));
         SASSERT(mpzm.is_one(rsig.to_mpq().denominator()));
         scoped_mpf v(m_fm);
@@ -751,38 +763,7 @@ br_status fpa_rewriter::mk_fp(expr * sgn, expr * exp, expr * sig, expr_ref & res
     return BR_FAILED;
 }
 
-br_status fpa_rewriter::mk_to_ubv(func_decl * f, expr * arg1, expr * arg2, expr_ref & result) {
-    SASSERT(f->get_num_parameters() == 1);
-    SASSERT(f->get_parameter(0).is_int());
-    int bv_sz = f->get_parameter(0).get_int();
-    mpf_rounding_mode rmv;
-    scoped_mpf v(m_fm);
-
-    if (m_util.is_rm_numeral(arg1, rmv) &&
-        m_util.is_numeral(arg2, v)) {
-        const mpf & x = v.get();
-
-        if (m_fm.is_nan(v) || m_fm.is_inf(v) || m_fm.is_neg(v))
-            return BR_FAILED;
-
-        bv_util bu(m());
-        scoped_mpq q(m_fm.mpq_manager());
-        m_fm.to_sbv_mpq(rmv, v, q);
-
-        rational r(q);
-        rational ul, ll;
-        ul = m_fm.m_powers2.m1(bv_sz);
-        ll = rational(0);
-        if (r >= ll && r <= ul) {
-            result = bu.mk_numeral(r, bv_sz);
-            return BR_DONE;
-        }
-    }
-
-    return BR_FAILED;
-}
-
-br_status fpa_rewriter::mk_to_sbv(func_decl * f, expr * arg1, expr * arg2, expr_ref & result) {
+br_status fpa_rewriter::mk_to_bv(func_decl * f, expr * arg1, expr * arg2, bool is_signed, expr_ref & result) {
     SASSERT(f->get_num_parameters() == 1);
     SASSERT(f->get_parameter(0).is_int());
     int bv_sz = f->get_parameter(0).get_int();
@@ -794,7 +775,7 @@ br_status fpa_rewriter::mk_to_sbv(func_decl * f, expr * arg1, expr * arg2, expr_
         const mpf & x = v.get();
 
         if (m_fm.is_nan(v) || m_fm.is_inf(v))
-            return BR_FAILED;
+            return mk_to_bv_unspecified(f, result);
 
         bv_util bu(m());
         scoped_mpq q(m_fm.mpq_manager());
@@ -802,15 +783,41 @@ br_status fpa_rewriter::mk_to_sbv(func_decl * f, expr * arg1, expr * arg2, expr_
 
         rational r(q);
         rational ul, ll;
-        ul = m_fm.m_powers2.m1(bv_sz - 1);
-        ll = - m_fm.m_powers2(bv_sz - 1);
+        if (!is_signed) {
+            ul = m_fm.m_powers2.m1(bv_sz);
+            ll = rational(0);
+        }
+        else {
+            ul = m_fm.m_powers2.m1(bv_sz - 1);
+            ll = -m_fm.m_powers2(bv_sz - 1);
+        }
         if (r >= ll && r <= ul) {
             result = bu.mk_numeral(r, bv_sz);
             return BR_DONE;
         }
+        else
+            return mk_to_bv_unspecified(f, result);
     }
 
     return BR_FAILED;
+}
+
+br_status fpa_rewriter::mk_to_bv_unspecified(func_decl * f, expr_ref & result) {
+    if (m_hi_fp_unspecified) {
+        unsigned bv_sz = m_util.bv_util().get_bv_size(f->get_range());
+        result = m_util.bv_util().mk_numeral(0, bv_sz);
+        return BR_DONE;
+    }
+    else
+        return BR_FAILED;
+}
+
+br_status fpa_rewriter::mk_to_ubv(func_decl * f, expr * arg1, expr * arg2, expr_ref & result) {
+    return mk_to_bv(f, arg1, arg2, false, result);
+}
+
+br_status fpa_rewriter::mk_to_sbv(func_decl * f, expr * arg1, expr * arg2, expr_ref & result) {
+    return mk_to_bv(f, arg1, arg2, true, result);
 }
 
 br_status fpa_rewriter::mk_to_ieee_bv(func_decl * f, expr * arg, expr_ref & result) {
@@ -829,11 +836,8 @@ br_status fpa_rewriter::mk_to_ieee_bv(func_decl * f, expr * arg, expr_ref & resu
                                    bu.mk_numeral(0, x.get_sbits() - 2),
                                    bu.mk_numeral(1, 1) };
                 result = bu.mk_concat(4, args);
+                return BR_REWRITE1;
             }
-            else
-                return BR_FAILED;
-
-            return BR_REWRITE1;
         }
         else {
             scoped_mpz rz(m_fm.mpq_manager());
@@ -851,9 +855,17 @@ br_status fpa_rewriter::mk_to_real(expr * arg, expr_ref & result) {
 
     if (m_util.is_numeral(arg, v)) {
         if (!m_fm.is_nan(v) && !m_fm.is_inf(v)) {
+            if (m_hi_fp_unspecified) {
+                result = m_util.arith_util().mk_numeral(rational(0), false);
+                return BR_DONE;
+            }
+            else
+                return BR_FAILED;
+        }
+        else {
             scoped_mpq r(m_fm.mpq_manager());
             m_fm.to_rational(v, r);
-            result = m_util.au().mk_numeral(r.get(), false);
+            result = m_util.arith_util().mk_numeral(r.get(), false);
             return BR_DONE;
         }
     }
