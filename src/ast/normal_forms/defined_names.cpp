@@ -164,7 +164,7 @@ void defined_names::impl::bound_vars(sort_ref_buffer const & sorts, buffer<symbo
                                 1, qid, symbol::null,
                                 1, patterns);
         TRACE("mk_definition_bug", tout << "before elim_unused_vars:\n" << mk_ismt2_pp(q, m) << "\n";);
-        elim_unused_vars(m, q, params_ref(), result);
+        result = elim_unused_vars(m, q, params_ref());
         TRACE("mk_definition_bug", tout << "after elim_unused_vars:\n" << result << "\n";);
     }
 }
@@ -199,11 +199,8 @@ void defined_names::impl::mk_definition(expr * e, app * n, sort_ref_buffer & var
         // => 
         //    n(y)[x] = M
         quantifier* q = to_quantifier(e);
-        q->get_num_decls();
-        q->get_decl_sorts();
-        q->get_decl_names();
         expr_ref_vector args(m);
-        expr_ref n2(m);
+        expr_ref n2(m), n3(m);
         var_shifter vs(m);
         vs(n, q->get_num_decls(), n2);        
         args.push_back(n2);
@@ -213,7 +210,13 @@ void defined_names::impl::mk_definition(expr * e, app * n, sort_ref_buffer & var
             args.push_back(m.mk_var(q->get_num_decls() - i - 1, q->get_decl_sort(i)));
         }
         array_util autil(m);
-        expr_ref n3(autil.mk_select(args.size(), args.c_ptr()), m);
+        func_decl * f = 0;
+        if (autil.is_as_array(n2, f)) {
+            n3 = m.mk_app(f, args.size()-1, args.c_ptr() + 1);
+        }
+        else {
+            n3 = autil.mk_select(args.size(), args.c_ptr());
+        }
         bound_vars(var_sorts, var_names, MK_EQ(q->get_expr(), n3), to_app(n3), defs, m.lambda_def_qid());
     }
     else {
@@ -319,6 +322,15 @@ bool defined_names::mk_name(expr * e, expr_ref & new_def, proof_ref & new_def_pr
 
 bool defined_names::mk_pos_name(expr * e, expr_ref & new_def, proof_ref & new_def_pr, app_ref & n, proof_ref & pr) {
     return m_pos_impl->mk_name(e, new_def, new_def_pr, n, pr);
+}
+
+expr_ref defined_names::mk_definition(expr * e, app * n) {
+    ast_manager& m = m_impl->m;
+    sort_ref_buffer  var_sorts(m);
+    expr_ref new_def(m);
+    buffer<symbol>   var_names;
+    m_impl->mk_definition(e, n, var_sorts, var_names, new_def);
+    return new_def;
 }
 
 void defined_names::push() {

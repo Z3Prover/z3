@@ -1037,7 +1037,7 @@ enum basic_sort_kind {
 enum basic_op_kind {
     OP_TRUE, OP_FALSE, OP_EQ, OP_DISTINCT, OP_ITE, OP_AND, OP_OR, OP_IFF, OP_XOR, OP_NOT, OP_IMPLIES, OP_OEQ, OP_INTERP, LAST_BASIC_OP,
 
-    PR_UNDEF, PR_TRUE, PR_ASSERTED, PR_GOAL, PR_MODUS_PONENS, PR_REFLEXIVITY, PR_SYMMETRY, PR_TRANSITIVITY, PR_TRANSITIVITY_STAR, PR_MONOTONICITY, PR_QUANT_INTRO,
+    PR_UNDEF, PR_TRUE, PR_ASSERTED, PR_GOAL, PR_MODUS_PONENS, PR_REFLEXIVITY, PR_SYMMETRY, PR_TRANSITIVITY, PR_TRANSITIVITY_STAR, PR_MONOTONICITY, PR_QUANT_INTRO, PR_BIND,
     PR_DISTRIBUTIVITY, PR_AND_ELIM, PR_NOT_OR_ELIM, PR_REWRITE, PR_REWRITE_STAR, PR_PULL_QUANT,
     PR_PULL_QUANT_STAR, PR_PUSH_QUANT, PR_ELIM_UNUSED_VARS, PR_DER, PR_QUANT_INST,
 
@@ -2186,8 +2186,9 @@ public:
     proof * mk_rewrite(expr * s, expr * t);
     proof * mk_oeq_rewrite(expr * s, expr * t);
     proof * mk_rewrite_star(expr * s, expr * t, unsigned num_proofs, proof * const * proofs);
-    proof * mk_pull_quant(expr * e, quantifier * q);
-    proof * mk_pull_quant_star(expr * e, quantifier * q);
+    proof * mk_pull_quant(expr * q1, quantifier * q2);
+    proof * mk_pull_quant_star(expr * q1, quantifier * q2);
+    proof * mk_bind_proof(quantifier * q, proof * p);
     proof * mk_push_quant(quantifier * q, expr * e);
     proof * mk_elim_unused_vars(quantifier * q, expr * r);
     proof * mk_der(quantifier * q, expr * r);

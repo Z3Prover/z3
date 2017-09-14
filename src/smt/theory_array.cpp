@@ -53,18 +53,12 @@ namespace smt {
         var_data * d2 = m_var_data[v2];
         if (!d1->m_prop_upward && d2->m_prop_upward)
             set_prop_upward(v1);
-        ptr_vector<enode>::iterator it   = d2->m_stores.begin();
-        ptr_vector<enode>::iterator end  = d2->m_stores.end();
-        for (; it != end; ++it) 
-            add_store(v1, *it);
-        it  = d2->m_parent_stores.begin();
-        end = d2->m_parent_stores.end();
-        for (; it != end; ++it)
-            add_parent_store(v1, *it);
-        it  = d2->m_parent_selects.begin();
-        end = d2->m_parent_selects.end();
-        for (; it != end; ++it)
-            add_parent_select(v1, *it);
+        for (enode* n : d2->m_stores) 
+            add_store(v1, n);
+        for (enode* n : d2->m_parent_stores) 
+            add_parent_store(v1, n);
+        for (enode* n : d2->m_parent_selects) 
+            add_parent_select(v1, n);
         TRACE("array", tout << "after merge\n"; display_var(tout, v1););
     }
 
@@ -103,16 +97,11 @@ namespace smt {
         d->m_parent_selects.push_back(s);
         TRACE("array", tout << mk_pp(s->get_owner(), get_manager()) << " " << mk_pp(get_enode(v)->get_owner(), get_manager()) << "\n";);
         m_trail_stack.push(push_back_trail<theory_array, enode *, false>(d->m_parent_selects));
-        ptr_vector<enode>::iterator it  = d->m_stores.begin();
-        ptr_vector<enode>::iterator end = d->m_stores.end();
-        for (; it != end; ++it) {
-            instantiate_axiom2a(s, *it);
+        for (enode* n : d->m_stores) {
+            instantiate_axiom2a(s, n);
         }
         if (!m_params.m_array_weak && !m_params.m_array_delay_exp_axiom && d->m_prop_upward) {
-            it  = d->m_parent_stores.begin();
-            end = d->m_parent_stores.end();
-            for (; it != end; ++it) {
-                enode * store = *it;
+            for (enode* store : d->m_parent_stores) {
                 SASSERT(is_store(store));
                 if (!m_params.m_array_cg || store->is_cgr()) {
                     instantiate_axiom2b(s, store);
@@ -129,27 +118,19 @@ namespace smt {
         var_data * d     = m_var_data[v];
         d->m_parent_stores.push_back(s);
         m_trail_stack.push(push_back_trail<theory_array, enode *, false>(d->m_parent_stores));
-        if (!m_params.m_array_weak && !m_params.m_array_delay_exp_axiom && d->m_prop_upward) {
-            ptr_vector<enode>::iterator it  = d->m_parent_selects.begin();
-            ptr_vector<enode>::iterator end = d->m_parent_selects.end();
-            for (; it != end; ++it) 
-                if (!m_params.m_array_cg || (*it)->is_cgr())
-                    instantiate_axiom2b(*it, s);
-        }
+        if (!m_params.m_array_weak && !m_params.m_array_delay_exp_axiom && d->m_prop_upward) 
+            for (enode* n : d->m_parent_selects) 
+                if (!m_params.m_array_cg || n->is_cgr())
+                    instantiate_axiom2b(n, s);
     }
 
     bool theory_array::instantiate_axiom2b_for(theory_var v) {
         bool result = false;
         var_data * d = m_var_data[v];
-        ptr_vector<enode>::iterator it  = d->m_parent_stores.begin();
-        ptr_vector<enode>::iterator end = d->m_parent_stores.end();
-        for (; it != end; ++it) {
-            ptr_vector<enode>::iterator it2  = d->m_parent_selects.begin();
-            ptr_vector<enode>::iterator end2 = d->m_parent_selects.end();
-            for (; it2 != end2; ++it2) 
-                if (instantiate_axiom2b(*it2, *it))
+        for (enode* n1 : d->m_parent_stores) 
+            for (enode * n2 : d->m_parent_selects) 
+                if (instantiate_axiom2b(n2, n1))
                     result = true;
-        }
         return result;
     }
 
@@ -167,10 +148,8 @@ namespace smt {
             d->m_prop_upward = true;
             if (!m_params.m_array_delay_exp_axiom)
                 instantiate_axiom2b_for(v);
-            ptr_vector<enode>::iterator it  = d->m_stores.begin();
-            ptr_vector<enode>::iterator end = d->m_stores.end();
-            for (; it != end; ++it)
-                set_prop_upward(*it);
+            for (enode * n : d->m_stores) 
+                set_prop_upward(n);
         }
     }
 
@@ -374,7 +353,7 @@ namespace smt {
     
     final_check_status theory_array::final_check_eh() {
         m_final_check_idx++;
-        final_check_status r;
+        final_check_status r = FC_DONE;
         if (m_params.m_array_lazy_ieq) {
             // Delay the creation of interface equalities...  The
             // motivation is too give other theories and quantifier
@@ -406,7 +385,7 @@ namespace smt {
             }
         }
         TRACE("array", tout << "m_found_unsupported_op: " << m_found_unsupported_op << " " << r << "\n";);
-        if (r == FC_DONE && m_found_unsupported_op) 
+        if (r == FC_DONE && m_found_unsupported_op && !get_context().get_fparams().m_array_fake_support) 
             r = FC_GIVEUP;
         return r;
     }

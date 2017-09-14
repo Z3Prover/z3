@@ -126,8 +126,7 @@ void distribute_forall::reduce1_quantifier(quantifier * q) {
             br.mk_not(arg, not_arg);
             quantifier_ref tmp_q(m_manager);
             tmp_q = m_manager.update_quantifier(q, not_arg);
-            expr_ref new_q(m_manager);
-            elim_unused_vars(m_manager, tmp_q, params_ref(), new_q);
+            expr_ref new_q = elim_unused_vars(m_manager, tmp_q, params_ref());
             new_args.push_back(new_q);
         }
         expr_ref result(m_manager);

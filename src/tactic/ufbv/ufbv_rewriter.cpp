@@ -419,8 +419,7 @@ expr * ufbv_rewriter::rewrite(expr * n) {
                 quantifier_ref q(m_manager);
                 q = m_manager.update_quantifier(to_quantifier(actual), new_body);
                 m_new_exprs.push_back(q);
-                expr_ref new_q(m_manager);
-                elim_unused_vars(m_manager, q, params_ref(), new_q);
+                expr_ref new_q = elim_unused_vars(m_manager, q, params_ref());
                 m_new_exprs.push_back(new_q);
                 rewrite_cache(e, new_q, true);
                 m_rewrite_todo.pop_back();

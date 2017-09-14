@@ -194,7 +194,7 @@ bool elim_bounds_cfg::reduce_quantifier(quantifier * q,
     }
     quantifier_ref new_q(m);
     new_q = m.update_quantifier(q, new_body);
-    elim_unused_vars(m, new_q, params_ref(), result);
+    result = elim_unused_vars(m, new_q, params_ref());
     result_pr = m.mk_rewrite(q, result);
     TRACE("elim_bounds", tout << mk_pp(q, m) << "\n" << result << "\n";);
     return true;

@@ -21,11 +21,11 @@ Revision History:
 #ifndef SMT_MODEL_CHECKER_H_
 #define SMT_MODEL_CHECKER_H_
 
-#include "ast/ast.h"
 #include "util/obj_hashtable.h"
+#include "ast/ast.h"
+#include "ast/normal_forms/defined_names.h"
 #include "smt/params/qi_params.h"
 #include "smt/params/smt_params.h"
-#include "util/region.h"
 
 class proto_model;
 class model;
@@ -54,7 +54,9 @@ namespace smt {
         friend class instantiation_set;
 
         void init_aux_context();
+        void init_value2expr();
         expr * get_term_from_ctx(expr * val);
+        expr_ref replace_value_from_ctx(expr * e);
         void restrict_to_universe(expr * sk, obj_hashtable<expr> const & universe);
         void assert_neg_q_m(quantifier * q, expr_ref_vector & sks);
         bool add_blocking_clause(model * cex, expr_ref_vector & sks);

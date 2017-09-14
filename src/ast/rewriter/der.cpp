@@ -138,7 +138,7 @@ void der::operator()(quantifier * q, expr_ref & r, proof_ref & pr) {
     // Eliminate variables that have become unused
     if (reduced && is_forall(r)) {
         quantifier * q = to_quantifier(r);
-        elim_unused_vars(m_manager, q, params_ref(), r);
+        r = elim_unused_vars(m_manager, q, params_ref());
         if (m_manager.proofs_enabled()) {
             proof * p1 = m_manager.mk_elim_unused_vars(q, r);
             pr = m_manager.mk_transitivity(pr, p1);

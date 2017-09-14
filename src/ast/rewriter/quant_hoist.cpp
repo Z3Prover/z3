@@ -79,7 +79,7 @@ public:
             vars.push_back(a);
         }
         expr * const * exprs = (expr* const*) (vars.c_ptr() + vars.size()- nd);
-        instantiate(m, q, exprs, result);
+        result = instantiate(m, q, exprs);
     }
 
     unsigned pull_quantifier(bool is_forall, expr_ref& fml, ptr_vector<sort>* sorts, svector<symbol>* names, bool use_fresh, bool rewrite_ok) {

@@ -534,7 +534,7 @@ namespace eq {
             if (is_quantifier(r)) {
                 quantifier * q = to_quantifier(r);
 
-                ::elim_unused_vars(m, q, m_params, r);
+                r = ::elim_unused_vars(m, q, m_params);
                 if (m.proofs_enabled()) {
                     proof * p1 = m.mk_elim_unused_vars(q, r);
                     pr = m.mk_transitivity(pr, p1);

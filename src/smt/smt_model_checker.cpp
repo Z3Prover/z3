@@ -25,6 +25,7 @@ Revision History:
 #include "ast/normal_forms/pull_quant.h"
 #include "ast/for_each_expr.h"
 #include "ast/rewriter/var_subst.h"
+#include "ast/rewriter/rewriter_def.h"
 #include "ast/ast_pp.h"
 #include "ast/array_decl_plugin.h"
 #include "ast/ast_smt2_pp.h"
@@ -68,6 +69,13 @@ namespace smt {
        \brief Return a term in the context that evaluates to val.
     */
     expr * model_checker::get_term_from_ctx(expr * val) {
+        init_value2expr();
+        expr * t = 0;
+        m_value2expr.find(val, t);
+        return t;
+    }
+
+    void model_checker::init_value2expr() {
         if (m_value2expr.empty()) {
             // populate m_value2expr
             for (auto const& kv : *m_root2value) {
@@ -77,9 +85,28 @@ namespace smt {
                 m_value2expr.insert(val, n->get_owner());
             }
         }
-        expr * t = 0;
-        m_value2expr.find(val, t);
-        return t;
+    }
+
+    expr_ref model_checker::replace_value_from_ctx(expr * e) {
+        init_value2expr();
+        struct beta_reducer_cfg : default_rewriter_cfg {
+            model_checker& mc;
+            beta_reducer_cfg(model_checker& mc):mc(mc) {}
+            bool get_subst(expr * e, expr* & t, proof *& pr) {
+                t = 0; pr = 0;
+                mc.m_value2expr.find(e, t);
+                return t != 0;
+            }
+        };
+        struct beta_reducer : public rewriter_tpl<beta_reducer_cfg> {
+            beta_reducer_cfg m_cfg;
+            beta_reducer(model_checker& m):
+                rewriter_tpl<beta_reducer_cfg>(m.m, false, m_cfg), m_cfg(m) {}
+        };
+        beta_reducer br(*this);
+        expr_ref result(m);
+        br(e, result);
+        return result;
     }
 
     /**
@@ -142,15 +169,14 @@ namespace smt {
         unsigned num_decls = q->get_num_decls();
         // Remark: sks were created for the flat version of q.
         SASSERT(sks.size() >= num_decls);
-        expr_ref_vector bindings(m);
+        expr_ref_vector bindings(m), defs(m);
         expr_ref def(m);
         bindings.resize(num_decls);
         unsigned max_generation = 0;
         for (unsigned i = 0; i < num_decls; i++) {
             expr * sk = sks.get(num_decls - i - 1);
             func_decl * sk_d = to_app(sk)->get_decl();
-            expr_ref sk_value(m);
-            sk_value = cex->get_some_const_interp(sk_d);
+            expr_ref sk_value(cex->get_some_const_interp(sk_d), m);
             if (!sk_value) {
                 TRACE("model_checker", tout << "Could not get value for " << sk_d->get_name() << "\n";);
                 return false; // get_some_value failed... giving up
@@ -181,13 +207,26 @@ namespace smt {
                 TRACE("model_checker", tout << "value is private to model: " << sk_value << "\n";);
                 return false;
             }
-            // TBD: define names in sk_value, add to 'def'
-            
+            func_decl * f = 0;
+            if (autil.is_as_array(sk_value, f) && cex->get_func_interp(f)) {
+                expr_ref body(cex->get_func_interp(f)->get_interp(), m);
+                ptr_vector<sort> sorts(f->get_arity(), f->get_domain());
+                svector<symbol> names;
+                for (unsigned i = 0; i < f->get_arity(); ++i) {
+                    names.push_back(symbol(i));
+                }
+                defined_names dn(m);
+                body = replace_value_from_ctx(body);
+                body = m.mk_lambda(sorts.size(), sorts.c_ptr(), names.c_ptr(), body);
+                // sk_value = m.mk_fresh_const(0, m.get_sort(sk_value));  // get rid of as-array
+                body = dn.mk_definition(body, to_app(sk_value));
+                defs.push_back(body);
+            }
             bindings.set(num_decls - i - 1, sk_value);
         }
 
-        TRACE("model_checker", tout << q->get_qid() << " found (use_inv: " << use_inv << ") new instance: " << bindings << "\n";);
-
+        TRACE("model_checker", tout << q->get_qid() << " found (use_inv: " << use_inv << ") new instance: " << bindings << "\n" << defs << "\n";);
+        if (!defs.empty()) def = mk_and(defs);
         max_generation = std::max(m_qm->get_generation(q), max_generation);
         add_instance(q, bindings, max_generation, def.get());
         return true;
@@ -231,8 +270,7 @@ namespace smt {
         expr_ref_buffer diseqs(m);
         for (expr * sk : sks) {
             func_decl * sk_d = to_app(sk)->get_decl();
-            expr_ref sk_value(m);
-            sk_value  = cex->get_some_const_interp(sk_d);
+            expr_ref sk_value(cex->get_some_const_interp(sk_d), m);
             if (!sk_value) {
                 return false; // get_some_value failed... aborting add_blocking_clause
             }
@@ -245,37 +283,43 @@ namespace smt {
         return true;
     }
 
+    struct scoped_ctx_push {
+        context* c;
+        scoped_ctx_push(context* c): c(c) { c->push(); }
+        ~scoped_ctx_push() { c->pop(1); }
+    };
+
     /**
        \brief Return true if q is satisfied by m_curr_model.
     */
     bool model_checker::check(quantifier * q) {
         SASSERT(!m_aux_context->relevancy());
-        m_aux_context->push();
+        scoped_ctx_push _push(m_aux_context.get());
 
         quantifier * flat_q = get_flat_quantifier(q);
-        TRACE("model_checker", tout << "model checking:\n" << mk_ismt2_pp(q->get_expr(), m) << "\n" <<
-              mk_ismt2_pp(flat_q->get_expr(), m) << "\n";);
+        TRACE("model_checker", tout << "model checking:\n" << expr_ref(q->get_expr(), m) << "\n" << expr_ref(flat_q->get_expr(), m) << "\n";);
         expr_ref_vector sks(m);
 
         assert_neg_q_m(flat_q, sks);
-        TRACE("model_checker", tout << "skolems:\n" << sks;);
+        TRACE("model_checker", tout << "skolems:\n" << sks << "\n";);
 
+        flet<bool> l(m_aux_context->get_fparams().m_array_fake_support, true);
         lbool r = m_aux_context->check();
         TRACE("model_checker", tout << "[complete] model-checker result: " << to_sat_str(r) << "\n";);
-        if (r != l_true) {
-            m_aux_context->pop(1);
+        if (r != l_true) {            
             return r == l_false; // quantifier is satisfied by m_curr_model
         }
 
         model_ref complete_cex;
         m_aux_context->get_model(complete_cex);
-
+        
         // try to find new instances using instantiation sets.
         m_model_finder.restrict_sks_to_inst_set(m_aux_context.get(), q, sks);
-
+        
         unsigned num_new_instances = 0;
-
+        
         while (true) {
+            flet<bool> l(m_aux_context->get_fparams().m_array_fake_support, true);
             lbool r = m_aux_context->check();
             TRACE("model_checker", tout << "[restricted] model-checker (" << (num_new_instances+1) << ") result: " << to_sat_str(r) << "\n";);
             if (r != l_true)
@@ -299,7 +343,6 @@ namespace smt {
             add_instance(q, complete_cex.get(), sks, false);
         }
 
-        m_aux_context->pop(1);
         return false;
     }
 
@@ -480,18 +523,15 @@ namespace smt {
                     bindings.push_back(m_context->get_enode(b));
                 }
 
-                // TBD add inst->m_def;
+                if (inst.m_def) {
+                    m_context->internalize_assertion(inst.m_def, 0, gen);
+                }
                 
                 TRACE("model_checker_bug_detail", tout << "instantiating... q:\n" << mk_pp(q, m) << "\n";
                       tout << "inconsistent: " << m_context->inconsistent() << "\n";
-                      tout << "bindings:\n";
-                      for (unsigned i = 0; i < num_decls; i++) {
-                          expr * b = m_pinned_exprs.get(offset + i);
-                          tout << mk_pp(b, m) << "\n";
-                      });
+                      tout << "bindings:\n" << expr_ref_vector(m, num_decls, m_pinned_exprs.c_ptr() + offset) << "\n";);
                 TRACE("model_checker_instance",
-                      expr_ref inst_expr(m);
-                      instantiate(m, q, m_pinned_exprs.c_ptr() + offset, inst_expr);
+                      expr_ref inst_expr = instantiate(m, q, m_pinned_exprs.c_ptr() + offset);
                       tout << "(assert " << inst_expr << ")\n";);
                 m_context->add_instance(q, 0, num_decls, bindings.c_ptr(), nullptr, gen, gen, gen, dummy);
                 TRACE("model_checker_bug_detail", tout << "after instantiating, inconsistent: " << m_context->inconsistent() << "\n";);

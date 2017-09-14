@@ -655,7 +655,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         }
 
         SASSERT(m().get_sort(old_q) == m().get_sort(q1));
-        elim_unused_vars(m(), q1, params_ref(), result);
+        result = elim_unused_vars(m(), q1, params_ref());
 
         TRACE("reduce_quantifier", tout << "after elim_unused_vars:\n" << result << "\n";);
 

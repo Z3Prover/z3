@@ -938,6 +938,7 @@ extern "C" {
             case PR_TRANSITIVITY_STAR: return Z3_OP_PR_TRANSITIVITY_STAR;
             case PR_MONOTONICITY: return Z3_OP_PR_MONOTONICITY;
             case PR_QUANT_INTRO: return Z3_OP_PR_QUANT_INTRO;
+            case PR_BIND: return Z3_OP_PR_BIND;
             case PR_DISTRIBUTIVITY: return Z3_OP_PR_DISTRIBUTIVITY;
             case PR_AND_ELIM: return Z3_OP_PR_AND_ELIM;
             case PR_NOT_OR_ELIM: return Z3_OP_PR_NOT_OR_ELIM;

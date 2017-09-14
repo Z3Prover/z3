@@ -174,7 +174,7 @@ class elim_small_bv_tactic : public tactic {
             quantifier_ref new_q(m);
             new_q = m.update_quantifier(q, body);
             unused_vars_eliminator el(m, m_params);
-            el(new_q, result);
+            result = el(new_q);
 
             TRACE("elim_small_bv", tout << "elimination result: " << mk_ismt2_pp(result, m) << std::endl; );
 

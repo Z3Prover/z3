@@ -221,9 +221,7 @@ struct pull_quant::imp {
                 expr_ref_buffer   new_args(m_manager);
                 expr_ref          new_arg(m_manager);
                 ptr_buffer<proof> proofs;
-                unsigned num = to_app(n)->get_num_args();
-                for (unsigned i = 0; i < num; i++) {
-                    expr * arg = to_app(n)->get_arg(i); 
+                for (expr * arg : *to_app(n)) {
                     pull_quant1(arg , new_arg);
                     new_args.push_back(new_arg);
                     if (new_arg != arg)
@@ -245,7 +243,7 @@ struct pull_quant::imp {
                     quantifier * q1 = m_manager.update_quantifier(to_quantifier(n), new_expr);
                     proof * p1 = 0;
                     if (n != q1) {
-                        proof * p0 = m_manager.mk_pull_quant(to_quantifier(n)->get_expr(), to_quantifier(new_expr));
+                        proof * p0 = m_manager.mk_pull_quant(n, to_quantifier(new_expr));
                         p1 = m_manager.mk_quant_intro(to_quantifier(n), q1, p0);
                     }
                     proof * p2 = q1 == r ? 0 : m_manager.mk_pull_quant(q1, to_quantifier(r));

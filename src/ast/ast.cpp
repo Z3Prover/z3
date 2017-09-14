@@ -27,6 +27,8 @@ Revision History:
 #include "ast/ast_util.h"
 #include "ast/ast_smt2_pp.h"
 #include "ast/array_decl_plugin.h"
+#include "ast/ast_translation.h"
+
 
 // -----------------------------------
 //
@@ -705,7 +707,8 @@ bool basic_decl_plugin::check_proof_sorts(basic_op_kind k, unsigned arity, sort 
         for (unsigned i = 0; i < arity - 1; i++)
             if (domain[i] != m_proof_sort)
                 return false;
-        return domain[arity-1] == m_bool_sort || domain[arity-1] == m_proof_sort;
+#define is_array(_x_) true
+        return domain[arity-1] == m_bool_sort || domain[arity-1] == m_proof_sort || is_array(domain[arity-1]);
     }
 }
 
@@ -720,7 +723,8 @@ bool basic_decl_plugin::check_proof_args(basic_op_kind k, unsigned num_args, exp
                 return false;
         return
             m_manager->get_sort(args[num_args - 1]) == m_bool_sort ||
-            m_manager->get_sort(args[num_args - 1]) == m_proof_sort;
+            m_manager->get_sort(args[num_args - 1]) == m_proof_sort || 
+            is_lambda(args[num_args-1]);
     }
 }
 
@@ -835,6 +839,7 @@ func_decl * basic_decl_plugin::mk_proof_decl(basic_op_kind k, unsigned num_paren
     case PR_TRANSITIVITY_STAR:            return mk_proof_decl("trans*", k, num_parents, m_transitivity_star_decls);
     case PR_MONOTONICITY:                 return mk_proof_decl("monotonicity", k, num_parents, m_monotonicity_decls);
     case PR_QUANT_INTRO:                  return mk_proof_decl("quant-intro", k, 1, m_quant_intro_decl);
+    case PR_BIND:                         UNREACHABLE();
     case PR_DISTRIBUTIVITY:               return mk_proof_decl("distributivity", k, num_parents, m_distributivity_decls);
     case PR_AND_ELIM:                     return mk_proof_decl("and-elim", k, 1, m_and_elim_decl);
     case PR_NOT_OR_ELIM:                  return mk_proof_decl("not-or-elim", k, 1, m_not_or_elim_decl);
@@ -1085,6 +1090,10 @@ func_decl * basic_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
         // eq and oeq must have at least two arguments, they can have more since they are chainable
     case OP_EQ:      return arity >= 2 ? mk_eq_decl_core("=", OP_EQ, join(arity, domain), m_eq_decls) : 0;
     case OP_OEQ:     return arity >= 2 ? mk_eq_decl_core("~", OP_OEQ, join(arity, domain), m_oeq_decls) : 0;
+    case PR_BIND: {
+        func_decl_info info(m_family_id, PR_BIND);
+        return m_manager->mk_func_decl(symbol("proof-bind"), arity, domain, m_proof_sort, info);
+    }
     case OP_DISTINCT: {
         func_decl_info info(m_family_id, OP_DISTINCT);
         info.set_pairwise();
@@ -1130,6 +1139,11 @@ func_decl * basic_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
     case OP_OEQ:     return num_args >= 2 ? mk_eq_decl_core("~", OP_OEQ, join(num_args, args), m_oeq_decls) : 0;
     case OP_DISTINCT:
         return decl_plugin::mk_func_decl(k, num_parameters, parameters, num_args, args, range);
+	case PR_BIND: {
+            ptr_buffer<sort> sorts;
+            for (unsigned i = 0; i < num_args; ++i) sorts.push_back(m_manager->get_sort(args[i]));
+            return mk_func_decl(k, num_parameters, parameters, num_args, sorts.c_ptr(), range);
+	}	
     default:
         break;
     }
@@ -1545,7 +1559,6 @@ void ast_manager::raise_exception(char const * msg) {
     throw ast_exception(msg);
 }
 
-#include "ast/ast_translation.h"
 
 void ast_manager::copy_families_plugins(ast_manager const & from) {
     TRACE("copy_families_plugins",
@@ -2875,6 +2888,12 @@ proof * ast_manager::mk_oeq_congruence(app * f1, app * f2, unsigned num_proofs, 
     return mk_monotonicity(mk_func_decl(m_basic_family_id, OP_OEQ, 0, 0, 2, d), f1, f2, num_proofs, proofs);
 }
 
+
+proof * ast_manager::mk_bind_proof(quantifier * q, proof * p) {
+    expr* b = mk_lambda(q->get_num_decls(), q->get_decl_sorts(), q->get_decl_names(), p);
+    return mk_app(m_basic_family_id, PR_BIND, b);
+}
+
 proof * ast_manager::mk_quant_intro(quantifier * q1, quantifier * q2, proof * p) {
     if (m_proof_mode == PGM_DISABLED)
         return m_undef_proof;
@@ -2883,7 +2902,7 @@ proof * ast_manager::mk_quant_intro(quantifier * q1, quantifier * q2, proof * p)
     }
     SASSERT(q1->get_num_decls() == q2->get_num_decls());
     SASSERT(has_fact(p));
-    SASSERT(is_iff(get_fact(p)));
+    SASSERT(is_iff(get_fact(p)) || true);
     return mk_app(m_basic_family_id, PR_QUANT_INTRO, p, mk_iff(q1, q2));
 }
 
@@ -2923,16 +2942,16 @@ proof * ast_manager::mk_rewrite_star(expr * s, expr * t, unsigned num_proofs, pr
     return mk_app(m_basic_family_id, PR_REWRITE_STAR, args.size(), args.c_ptr());
 }
 
-proof * ast_manager::mk_pull_quant(expr * e, quantifier * q) {
+proof * ast_manager::mk_pull_quant(expr * q1, quantifier * q2) {
     if (m_proof_mode == PGM_DISABLED)
         return m_undef_proof;
-    return mk_app(m_basic_family_id, PR_PULL_QUANT, mk_iff(e, q));
+    return mk_app(m_basic_family_id, PR_PULL_QUANT, mk_iff(q1, q2));
 }
 
-proof * ast_manager::mk_pull_quant_star(expr * e, quantifier * q) {
+proof * ast_manager::mk_pull_quant_star(expr * q1, quantifier * q2) {
     if (m_proof_mode == PGM_DISABLED)
         return m_undef_proof;
-    return mk_app(m_basic_family_id, PR_PULL_QUANT_STAR, mk_iff(e, q));
+    return mk_app(m_basic_family_id, PR_PULL_QUANT_STAR, mk_iff(q1, q2));
 }
 
 proof * ast_manager::mk_push_quant(quantifier * q, expr * e) {

@@ -507,7 +507,7 @@ void rewriter_tpl<Config>::process_quantifier(quantifier * q, frame & fr) {
     }
     if (ProofGen) {
         quantifier * new_q = m().update_quantifier(q, q->get_num_patterns(), new_pats, q->get_num_no_patterns(), new_no_pats, new_body);
-        m_pr = q == new_q ? 0 : m().mk_quant_intro(q, new_q, result_pr_stack().get(fr.m_spos));
+        m_pr = q == new_q ? 0 : m().mk_quant_intro(q, new_q, m().mk_bind_proof(q, result_pr_stack().get(fr.m_spos)));
         m_r = new_q;
         proof_ref pr2(m());
         if (m_cfg.reduce_quantifier(new_q, new_body, new_pats, new_no_pats, m_r, pr2)) {

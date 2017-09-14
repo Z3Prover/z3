@@ -257,6 +257,10 @@ namespace smt {
     }
 
     bool theory_array_full::internalize_term(app * n) {
+        context & ctx = get_context();
+        if (ctx.e_internalized(n)) {
+            return true;
+        }
         TRACE("array", tout << mk_pp(n, get_manager()) << "\n";);
 
         if (is_store(n) || is_select(n)) {
@@ -272,7 +276,6 @@ namespace smt {
         if (!internalize_term_core(n)) {
             return true;
         }
-        context & ctx = get_context();
 
         if (is_map(n) || is_array_ext(n)) {
             for (unsigned i = 0; i < n->get_num_args(); ++i) {
@@ -777,8 +780,6 @@ namespace smt {
             assert_axiom(eq);
             r = FC_CONTINUE;
         }
-        if (r == FC_DONE && m_found_unsupported_op)
-            r = FC_GIVEUP;
         return r;
     }
 

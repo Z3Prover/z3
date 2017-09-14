@@ -673,6 +673,7 @@ bool pattern_inference_cfg::reduce_quantifier(
         new_q = m.update_quantifier_weight(new_q, weight);
     if (m.fine_grain_proofs()) {
         proof* new_body_pr = m.mk_reflexivity(new_body);
+        new_body_pr = m.mk_bind_proof(new_q, new_body_pr);
         result_pr = m.mk_quant_intro(q, new_q, new_body_pr);
     }
 
@@ -690,7 +691,7 @@ bool pattern_inference_cfg::reduce_quantifier(
                 }
                 new_q = m.update_quantifier(result2, new_patterns.size(), (expr**) new_patterns.c_ptr(), result2->get_expr());
                 if (m.fine_grain_proofs()) {
-                    result_pr = m.mk_transitivity(new_pr, m.mk_quant_intro(result2, new_q, m.mk_reflexivity(new_q->get_expr())));
+                    result_pr = m.mk_transitivity(new_pr, m.mk_quant_intro(result2, new_q, m.mk_bind_proof(new_q, m.mk_reflexivity(new_q->get_expr()))));
                 }
                 TRACE("pattern_inference", tout << "pulled quantifier:\n" << mk_pp(new_q, m) << "\n";);
             }

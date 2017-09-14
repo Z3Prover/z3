@@ -982,9 +982,8 @@ namespace smt {
                     }
                 }
                 expr_ref_vector trail(m);
-                for (unsigned i = 0; i < need_fresh.size(); ++i) {
+                for (node * n : need_fresh) {
                     expr * e;
-                    node* n = need_fresh[i];
                     sort* s = n->get_sort();
                     if (!sort2elems.find(s, e)) {
                         e = m.mk_fresh_const("elem", s);

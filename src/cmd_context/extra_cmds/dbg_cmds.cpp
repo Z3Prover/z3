@@ -271,8 +271,7 @@ UNARY_CMD(elim_unused_vars_cmd, "dbg-elim-unused-vars", "<expr>", "eliminate unu
         ctx.display(ctx.regular_stream(), arg);
         return;
     }
-    expr_ref r(ctx.m());
-    elim_unused_vars(ctx.m(), to_quantifier(arg), gparams::get(), r);
+    expr_ref r = elim_unused_vars(ctx.m(), to_quantifier(arg), gparams::get());
     SASSERT(!is_quantifier(r) || !to_quantifier(r)->may_have_unused_vars());
     ctx.display(ctx.regular_stream(), r);
     ctx.regular_stream() << std::endl;
@@ -317,8 +316,7 @@ public:
     }
 
     virtual void execute(cmd_context & ctx) {
-        expr_ref r(ctx.m());
-        instantiate(ctx.m(), m_q, m_args.c_ptr(), r);
+        expr_ref r = instantiate(ctx.m(), m_q, m_args.c_ptr());
         ctx.display(ctx.regular_stream(), r);
         ctx.regular_stream() << std::endl;
     }

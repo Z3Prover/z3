@@ -807,14 +807,18 @@ struct nnf::imp {
             proof * new_q_pr   = 0;
             if (fr.m_pol) {
                 new_q = m.update_quantifier(q, new_patterns.size(), new_patterns.c_ptr(), new_expr);
-                if (proofs_enabled())
+                if (proofs_enabled()) {
+                    new_expr_pr = m.mk_bind_proof(q, new_expr_pr);
                     new_q_pr = m.mk_nnf_pos(q, new_q, 1, &new_expr_pr);
+                }
             }
             else {
                 quantifier_kind k = is_forall(q)? exists_k : forall_k;
                 new_q = m.update_quantifier(q, k, new_patterns.size(), new_patterns.c_ptr(), new_expr);
-                if (proofs_enabled())
+                if (proofs_enabled()) {
+                    new_expr_pr = m.mk_bind_proof(q, new_expr_pr);
                     new_q_pr = m.mk_nnf_neg(q, new_q, 1, &new_expr_pr);
+                }
             }
             
             m_result_stack.pop_back();

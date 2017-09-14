@@ -492,6 +492,10 @@ typedef enum
        T1: (~ p q)
        [quant-intro T1]: (~ (forall (x) p) (forall (x) q))
 
+   - Z3_OP_PR_BIND: Given a proof p, produces a proof of lambda x . p, where x are free variables in p.
+       T1: f
+       [proof-bind T1] forall (x) f
+
    - Z3_OP_PR_DISTRIBUTIVITY: Distributivity proof object.
           Given that f (= or) distributes over g (= and), produces a proof for
 
@@ -1118,6 +1122,7 @@ typedef enum {
     Z3_OP_PR_TRANSITIVITY_STAR,
     Z3_OP_PR_MONOTONICITY,
     Z3_OP_PR_QUANT_INTRO,
+    Z3_OP_PR_BIND,
     Z3_OP_PR_DISTRIBUTIVITY,
     Z3_OP_PR_AND_ELIM,
     Z3_OP_PR_NOT_OR_ELIM,
