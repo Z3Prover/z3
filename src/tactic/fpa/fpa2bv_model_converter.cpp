@@ -38,7 +38,7 @@ void fpa2bv_model_converter::convert(model_core * mc, model * float_mdl) {
     m_bv2fp->convert_rm_consts(mc, float_mdl, seen);
     m_bv2fp->convert_min_max_specials(mc, float_mdl, seen);
     m_bv2fp->convert_uf2bvuf(mc, float_mdl, seen);
-    
+
     // Keep all the non-float constants.
     unsigned sz = mc->get_num_constants();
     for (unsigned i = 0; i < sz; i++) {
@@ -46,7 +46,7 @@ void fpa2bv_model_converter::convert(model_core * mc, model * float_mdl) {
         if (!seen.contains(c))
             float_mdl->register_decl(c, mc->get_const_interp(c));
     }
-    
+
     // And keep everything else
     sz = mc->get_num_functions();
     for (unsigned i = 0; i < sz; i++) {
@@ -57,7 +57,7 @@ void fpa2bv_model_converter::convert(model_core * mc, model * float_mdl) {
             float_mdl->register_decl(f, val);
         }
     }
-    
+
     sz = mc->get_num_uninterpreted_sorts();
     for (unsigned i = 0; i < sz; i++) {
         sort * s = mc->get_uninterpreted_sort(i);
