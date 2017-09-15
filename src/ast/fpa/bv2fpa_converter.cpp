@@ -558,22 +558,3 @@ bv2fpa_converter * bv2fpa_converter::translate(ast_translation & translator) {
     return res;
 }
 
-void bv2fpa_converter::convert(model_core * mc, model_core * float_mdl) {
-    TRACE("bv2fpa", tout << "BV Model: " << std::endl;
-        for (unsigned i = 0; i < mc->get_num_constants(); i++)
-            tout << mc->get_constant(i)->get_name() << " --> " <<
-                    mk_ismt2_pp(mc->get_const_interp(mc->get_constant(i)), m) << std::endl;
-        for (unsigned i = 0; i < mc->get_num_functions(); i++) {
-            func_decl * f = mc->get_function(i);
-            tout << f->get_name() << "(...) := " << std::endl;
-            func_interp * fi = mc->get_func_interp(f);
-            for (unsigned j = 0; j < fi->num_entries(); j++) {
-                func_entry const * fe = fi->get_entry(j);
-                for (unsigned k = 0; k < f->get_arity(); k++)
-                    tout << mk_ismt2_pp(fe->get_arg(k), m) << " ";
-                tout << "--> " << mk_ismt2_pp(fe->get_result(), m) << std::endl;
-            }
-            tout << "else " << mk_ismt2_pp(fi->get_else(), m) << std::endl;
-        });
-
-}
