@@ -221,8 +221,8 @@ public:
     mpf_manager & fm() const { return m_plugin->fm(); }
     family_id get_fid() const { return m_fid; }
     family_id get_family_id() const { return m_fid; }
-    arith_util & arith_util() { return m_a_util; }
-    bv_util & bv_util() { return m_bv_util; }
+    arith_util & au() { return m_a_util; }
+    bv_util & bu() { return m_bv_util; }
     fpa_decl_plugin & plugin() { return *m_plugin; }
 
     sort * mk_float_sort(unsigned ebits, unsigned sbits);

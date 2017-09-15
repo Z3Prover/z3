@@ -2582,7 +2582,7 @@ void fpa2bv_converter::mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * 
     unsigned ebits = m_util.get_ebits(s);
     unsigned sbits = m_util.get_sbits(s);
 
-    if (m_bv_util.is_numeral(bv_rm) && m_util.arith_util().is_numeral(x)) {
+    if (m_bv_util.is_numeral(bv_rm) && m_util.au().is_numeral(x)) {
         rational tmp_rat; unsigned sz;
         m_bv_util.is_numeral(to_expr(bv_rm), tmp_rat, sz);
         SASSERT(tmp_rat.is_int32());
@@ -2600,7 +2600,7 @@ void fpa2bv_converter::mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * 
 
         rational q;
         bool is_int;
-        m_util.arith_util().is_numeral(x, q, is_int);
+        m_util.au().is_numeral(x, q, is_int);
 
         if (q.is_zero())
             return mk_pzero(f, result);
@@ -2617,12 +2617,12 @@ void fpa2bv_converter::mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * 
             result = m_util.mk_fp(sgn, exp, sig);
         }
     }
-    else if (m_util.arith_util().is_numeral(x)) {
+    else if (m_util.au().is_numeral(x)) {
         rational q;
         bool is_int;
-        m_util.arith_util().is_numeral(x, q, is_int);
+        m_util.au().is_numeral(x, q, is_int);
 
-        if (m_util.arith_util().is_zero(x))
+        if (m_util.au().is_zero(x))
             mk_pzero(f, result);
         else {
             expr_ref rm_nta(m), rm_nte(m), rm_tp(m), rm_tn(m), rm_tz(m);
@@ -3317,7 +3317,7 @@ void fpa2bv_converter::mk_to_bv(func_decl * f, unsigned num, expr * const * args
     last     = m_bv_util.mk_extract(big_sig_sz-(bv_sz+3), big_sig_sz-(bv_sz+3), big_sig_shifted);
     round    = m_bv_util.mk_extract(big_sig_sz-(bv_sz+4), big_sig_sz-(bv_sz+4), big_sig_shifted);
     stickies = m_bv_util.mk_extract(big_sig_sz-(bv_sz+5), 0, big_sig_shifted);
-    sticky = m.mk_app(m_bv_util.get_fid(), OP_BREDOR, stickies);
+    sticky = m.mk_app(m_bv_util.get_fid(), OP_BREDOR, stickies.get());
     dbg_decouple("fpa2bv_to_bv_big_sig_shifted", big_sig_shifted);
     dbg_decouple("fpa2bv_to_bv_int_part", int_part);
     dbg_decouple("fpa2bv_to_bv_last", last);
