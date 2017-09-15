@@ -291,7 +291,7 @@ expr * func_interp::get_interp_core() const {
     expr * r = m_else;
     ptr_buffer<expr> vars;
     for (func_entry * curr : m_entries) {
-        if (r == curr->get_result()) {
+        if (m_else == curr->get_result()) {
             continue;
         }
         if (vars.empty()) {

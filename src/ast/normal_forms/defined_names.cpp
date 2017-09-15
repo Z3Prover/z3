@@ -76,7 +76,7 @@ struct defined_names::impl {
 
 struct defined_names::pos_impl : public defined_names::impl {
     pos_impl(ast_manager & m, char const * fresh_prefix):impl(m, fresh_prefix) {}
-    virtual void mk_definition(expr * e, app * n, sort_ref_buffer & var_sorts, buffer<symbol> const & var_names, expr_ref & new_def);
+    virtual void mk_definition(expr * e, app * n, sort_ref_buffer & var_sorts, buffer<symbol> & var_names, expr_ref & new_def);
 };
 
 
@@ -226,7 +226,7 @@ void defined_names::impl::mk_definition(expr * e, app * n, sort_ref_buffer & var
 }
 
 
-void defined_names::pos_impl::mk_definition(expr * e, app * n, sort_ref_buffer & var_sorts, buffer<symbol> const & var_names, expr_ref & new_def) {
+void defined_names::pos_impl::mk_definition(expr * e, app * n, sort_ref_buffer & var_sorts, buffer<symbol> & var_names, expr_ref & new_def) {
     bound_vars(var_sorts, var_names, MK_OR(MK_NOT(n), e), n, new_def);
 }
 
