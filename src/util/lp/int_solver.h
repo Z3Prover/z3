@@ -8,6 +8,9 @@
 #include "util/lp/iterator_on_row.h"
 #include "util/lp/int_set.h"
 #include "util/lp/lar_term.h"
+#include "util/lp/cut_solver.h"
+#include "util/lp/lar_constraints.h"
+
 namespace lp {
 class lar_solver;
 template <typename T, typename X>
@@ -143,5 +146,12 @@ private:
     lia_move create_branch_on_column(int j, lar_term& t, mpq& k, bool free_column) const;
 public:
     void display_inf_or_int_inf_columns(std::ostream & out) const;
+    template <typename T>
+    void fill_cut_solver(cut_solver<T> & cs);
+    template <typename T>
+    void fill_cut_solver_for_constraint(const lar_base_constraint*, cut_solver<T>& );
+    template <typename T>
+    void get_int_coeffs_from_constraint(const lar_base_constraint* c, vector<std::pair<T, var_index>>& coeff, T & rs);
+
 };
 }

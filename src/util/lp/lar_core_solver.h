@@ -781,7 +781,6 @@ public:
             if (m_column_types()[j] != column_type::boxed)
                 continue;
             update_delta(delta, m_r_low_bounds[j], m_r_upper_bounds[j]);
-
         }
         return delta;
     }
