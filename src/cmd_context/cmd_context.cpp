@@ -1547,6 +1547,7 @@ void cmd_context::reset_assertions() {
 
 void cmd_context::display_model(model_ref& mdl) {
     if (mdl) {
+        mdl->cleanup();
         model_params p;
         if (p.v1() || p.v2()) {
             std::ostringstream buffer;

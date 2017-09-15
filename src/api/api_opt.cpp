@@ -162,6 +162,7 @@ extern "C" {
         to_optimize_ptr(o)->get_model(_m);
         Z3_model_ref * m_ref = alloc(Z3_model_ref, *mk_c(c)); 
         if (_m) {
+            _m->cleanup();
             m_ref->m_model = _m;
         }
         else {

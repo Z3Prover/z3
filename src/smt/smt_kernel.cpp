@@ -130,7 +130,6 @@ namespace smt {
         
         void get_model(model_ref & m) const {
             m_kernel.get_model(m);
-            if (m) m->cleanup();
         }
 
         proof * get_proof() {

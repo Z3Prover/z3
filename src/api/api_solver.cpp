@@ -336,6 +336,9 @@ extern "C" {
             SET_ERROR_CODE(Z3_INVALID_USAGE);
             RETURN_Z3(0);
         }
+        if (_m) {
+            _m->cleanup();
+        }
         Z3_model_ref * m_ref = alloc(Z3_model_ref, *mk_c(c)); 
         m_ref->m_model = _m;
         mk_c(c)->save_object(m_ref);
