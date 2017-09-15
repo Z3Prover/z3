@@ -3088,25 +3088,31 @@ void test_rationals() {
 void test_disjoint_intervals() {
     disjoint_intervals d;
     d.print(std::cout);
-	d.intersect_with_interval(-100, 100);
-	d.print(std::cout);
-    std::cout << "d has pos_inf = " << d.has_pos_inf() << std::endl;
+    d.intersect_with_interval(-100, 100);
+    d.print(std::cout);
+    d.add_interval_x_pos_inf(30);
+    d.print(std::cout);
+    d.add_interval_neg_inf_x(29);
+    d.print(std::cout);
+    std::cout << "insert lower -5\n";
     d.intersect_with_lower_bound(-5);
-	std::cout << "insert lower -5\n";
+    d.print(std::cout);
+    std::cout << "insert upper 5\n";
+    d.intersect_with_upper_bound(5);
+    d.print(std::cout);
+	d.add_interval_x_pos_inf(7);
 	d.print(std::cout);
-	std::cout << "insert upper 5\n";
-	d.intersect_with_upper_bound(5);
-	d.print(std::cout);
-	std::cout << "insert lower bound -4\n";
-	d.intersect_with_lower_bound(-4);
+	d.add_interval_x_pos_inf(6);
+    std::cout << "insert lower bound -4\n";
+    d.intersect_with_lower_bound(-4);
 
     d.print(std::cout);
-	std::cout << "insert upper bound 3\n";
+    std::cout << "insert upper bound 3\n";
 
-	d.intersect_with_upper_bound(3);
-	d.print(std::cout);
-	d.intersect_with_lower_bound(7);
-	d.print(std::cout);
+    d.intersect_with_upper_bound(3);
+    d.print(std::cout);
+    d.intersect_with_lower_bound(7);
+    d.print(std::cout);
 
     std::cout << "d has neg_inf = " << d.has_neg_inf() << std::endl;
     std::cout << "d has pos_inf = " << d.has_pos_inf() << std::endl;
