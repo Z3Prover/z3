@@ -74,7 +74,7 @@ namespace smt {
         fingerprint * mk_dummy(void * data, unsigned data_hash, unsigned num_args, enode * const * args);
 
     public:
-        fingerprint_set(ast_manager& m, region & r): m_defs(m), m_region(r) {}
+        fingerprint_set(ast_manager& m, region & r): m_region(r), m_defs(m) {}
         fingerprint * insert(void * data, unsigned data_hash, unsigned num_args, enode * const * args, expr* def);
         unsigned size() const { return m_fingerprints.size(); }
         bool contains(void * data, unsigned data_hash, unsigned num_args, enode * const * args);

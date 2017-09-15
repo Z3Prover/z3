@@ -770,7 +770,7 @@ struct nnf::imp {
             quantifier * new_q = m.update_quantifier(q, new_expr);
             proof * new_q_pr   = 0;
             if (proofs_enabled()) {
-                proof * new_expr_pr = m_result_pr_stack.back();
+                // proof * new_expr_pr = m_result_pr_stack.back();
                 new_q_pr = m.mk_rewrite(q, new_q);  // TBD use new_expr_pr
             }
                                                       
