@@ -1686,7 +1686,8 @@ namespace smt2 {
             SASSERT(expr_stack().size() >= fr->m_expr_spos);
             unsigned num_decls  = sort_stack().size() - fr->m_sort_spos;
             if (expr_stack().size() - fr->m_expr_spos != num_decls /* variables */ + 1 /* result */)
-                throw parser_exception("invalid quantified expression, syntax error: (forall|exists|lambda ((<symbol> <sort>)*) <expr>) expected");
+                //throw parser_exception("invalid quantified expression, syntax error: (forall|exists|lambda ((<symbol> <sort>)*) <expr>) expected");
+                throw parser_exception("invalid quantified expression, syntax error: (forall|exists ((<symbol> <sort>)*) <expr>) expected");
             unsigned begin_pats = fr->m_pat_spos;
             unsigned end_pats   = pattern_stack().size();
             unsigned j = begin_pats;
