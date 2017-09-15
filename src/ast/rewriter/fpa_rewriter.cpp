@@ -854,13 +854,11 @@ br_status fpa_rewriter::mk_to_real(expr * arg, expr_ref & result) {
     scoped_mpf v(m_fm);
 
     if (m_util.is_numeral(arg, v)) {
-        if (!m_fm.is_nan(v) && !m_fm.is_inf(v)) {
+        if (m_fm.is_nan(v) || m_fm.is_inf(v)) {
             if (m_hi_fp_unspecified) {
                 result = m_util.arith_util().mk_numeral(rational(0), false);
                 return BR_DONE;
             }
-            else
-                return BR_FAILED;
         }
         else {
             scoped_mpq r(m_fm.mpq_manager());

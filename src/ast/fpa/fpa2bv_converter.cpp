@@ -3312,11 +3312,11 @@ void fpa2bv_converter::mk_to_bv(func_decl * f, unsigned num, expr * const * args
     expr_ref big_sig_shifted(m), int_part(m), last(m), round(m), stickies(m), sticky(m);
     big_sig_shifted = m.mk_ite(is_neg_shift, m_bv_util.mk_bv_lshr(big_sig, shift),
                                              m_bv_util.mk_bv_shl(big_sig, shift));
-    int_part = m_bv_util.mk_extract(big_sig_sz-1, big_sig_sz-bv_sz-3, big_sig_shifted);
+    int_part = m_bv_util.mk_extract(big_sig_sz-1, big_sig_sz-(bv_sz+3), big_sig_shifted);
     SASSERT(m_bv_util.get_bv_size(int_part) == bv_sz+3);
-    last     = m_bv_util.mk_extract(big_sig_sz-bv_sz-4, big_sig_sz-bv_sz-4, big_sig_shifted);
-    round    = m_bv_util.mk_extract(big_sig_sz-bv_sz-5, big_sig_sz-bv_sz-5, big_sig_shifted);
-    stickies = m_bv_util.mk_extract(big_sig_sz-bv_sz-6, 0, big_sig_shifted);
+    last     = m_bv_util.mk_extract(big_sig_sz-(bv_sz+3), big_sig_sz-(bv_sz+3), big_sig_shifted);
+    round    = m_bv_util.mk_extract(big_sig_sz-(bv_sz+4), big_sig_sz-(bv_sz+4), big_sig_shifted);
+    stickies = m_bv_util.mk_extract(big_sig_sz-(bv_sz+5), 0, big_sig_shifted);
     sticky = m.mk_app(m_bv_util.get_fid(), OP_BREDOR, stickies);
     dbg_decouple("fpa2bv_to_bv_big_sig_shifted", big_sig_shifted);
     dbg_decouple("fpa2bv_to_bv_int_part", int_part);
@@ -3335,25 +3335,25 @@ void fpa2bv_converter::mk_to_bv(func_decl * f, unsigned num, expr * const * args
     dbg_decouple("fpa2bv_to_bv_inc", inc);
     dbg_decouple("fpa2bv_to_bv_pre_rounded", pre_rounded);
 
-    expr_ref out_of_range(m);
+    expr_ref in_range(m);
     if (!is_signed) {
         expr_ref ul(m);
-        ul = m_bv_util.mk_zero_extend(3, m_bv_util.mk_concat(bv1, m_bv_util.mk_numeral(0, bv_sz-1)));
-        out_of_range = m_bv_util.mk_ule(ul, pre_rounded);
+        ul = m_bv_util.mk_zero_extend(3, m_bv_util.mk_numeral(-1, bv_sz));
+        in_range = m_bv_util.mk_ule(pre_rounded, ul);
     }
     else {
         expr_ref ll(m), ul(m);
         ll = m_bv_util.mk_sign_extend(3, m_bv_util.mk_concat(bv1, m_bv_util.mk_numeral(0, bv_sz-1)));
         ul = m_bv_util.mk_zero_extend(4, m_bv_util.mk_numeral(-1, bv_sz-1));
-        out_of_range = m.mk_not(m.mk_and(m_bv_util.mk_sle(ll, pre_rounded), m_bv_util.mk_sle(pre_rounded, ul)));
+        in_range = m.mk_and(m_bv_util.mk_sle(ll, pre_rounded), m_bv_util.mk_sle(pre_rounded, ul));
     }
-    dbg_decouple("fpa2bv_to_bv_out_of_range", out_of_range);
+    dbg_decouple("fpa2bv_to_bv_in_range", in_range);
 
     expr_ref rounded(m);
     rounded = m_bv_util.mk_extract(bv_sz-1, 0, pre_rounded);
     dbg_decouple("fpa2bv_to_bv_rounded", rounded);
 
-    result = m.mk_ite(out_of_range, unspec_v, rounded);
+    result = m.mk_ite(m.mk_not(in_range), unspec_v, rounded);
     result = m.mk_ite(c2, v2, result);
     result = m.mk_ite(c1, v1, result);
 

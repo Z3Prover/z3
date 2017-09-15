@@ -285,7 +285,21 @@ func_interp * bv2fpa_converter::convert_func_interp(model_core * mc, func_decl *
             bv_fres = bv_fe->get_result();
             ft_fres = rebuild_floats(mc, rng, to_app(bv_fres));
             m_th_rw(ft_fres);
-            result->insert_new_entry(new_args.c_ptr(), ft_fres);
+            TRACE("bv2fpa",
+                  for (unsigned i = 0; i < new_args.size(); i++)
+                      tout << mk_ismt2_pp(bv_args[i], m) << " == " <<
+                        mk_ismt2_pp(new_args[i], m) << std::endl;
+                  tout << mk_ismt2_pp(bv_fres, m) << " == " << mk_ismt2_pp(ft_fres, m) << std::endl;);
+            func_entry * fe = result->get_entry(new_args.c_ptr());
+            if (fe == 0)
+                result->insert_new_entry(new_args.c_ptr(), ft_fres);
+            else {
+                // The BV model may have multiple equivalent entries using different
+                // representations of NaN. We can only keep one and we check that
+                // the results for all those entries are the same.
+                if (ft_fres != fe->get_result())
+                    throw default_exception("BUG: UF function entries disagree with each other");
+            }
         }
 
         app_ref bv_els(m);
@@ -462,6 +476,7 @@ void bv2fpa_converter::convert_uf2bvuf(model_core * mc, model_core * target_mode
                         args.push_back(m.mk_var(i, f->get_domain()[i]));
                     fmv->set_else(m.mk_app(it->m_key, n, args.c_ptr()));
 #else
+
                     fmv->set_else(0);
 #endif
                     target_model->register_decl(f, fmv);
@@ -476,7 +491,6 @@ void bv2fpa_converter::convert_uf2bvuf(model_core * mc, model_core * target_mode
 }
 
 void bv2fpa_converter::display(std::ostream & out) {
-    out << "(fpa2bv-model-converter";
     for (obj_map<func_decl, expr*>::iterator it = m_const2bv.begin();
         it != m_const2bv.end();
         it++) {
@@ -510,7 +524,6 @@ void bv2fpa_converter::display(std::ostream & out) {
         out << mk_ismt2_pp(it->m_value.first, m, indent) << "; " <<
             mk_ismt2_pp(it->m_value.second, m, indent) << ")";
     }
-    out << ")";
 }
 
 bv2fpa_converter * bv2fpa_converter::translate(ast_translation & translator) {
