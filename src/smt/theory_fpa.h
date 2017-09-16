@@ -82,7 +82,7 @@ namespace smt {
                 m_th(*th) {}
             virtual ~fpa2bv_converter_wrapped() {}
             virtual void mk_const(func_decl * f, expr_ref & result);
-            virtual void mk_rm_const(func_decl * f, expr_ref & result);            
+            virtual void mk_rm_const(func_decl * f, expr_ref & result);
         };
 
         class fpa_value_proc : public model_value_proc {
@@ -108,7 +108,7 @@ namespace smt {
                 result.append(m_deps);
             }
 
-            virtual app * mk_value(model_generator & mg, ptr_vector<expr> & values);            
+            virtual app * mk_value(model_generator & mg, ptr_vector<expr> & values);
         };
 
         class fpa_rm_value_proc : public model_value_proc {
@@ -179,7 +179,6 @@ namespace smt {
         expr_ref convert_atom(expr * e);
         expr_ref convert_term(expr * e);
         expr_ref convert_conversion_term(expr * e);
-        expr_ref convert_unwrap(expr * e);
 
         void add_trail(ast * a);
 

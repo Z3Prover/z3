@@ -1665,6 +1665,16 @@ void cmd_context::complete_model() {
         }
     }
 
+    for (unsigned i = 0; i < md->get_num_functions(); i++) {
+        func_decl * f = md->get_function(i);
+        func_interp * fi = md->get_func_interp(f);
+        IF_VERBOSE(12, verbose_stream() << "(model.completion " << f->get_name() << ")\n"; );
+        if (fi->is_partial()) {
+            sort * range = f->get_range();
+            fi->set_else(m().get_some_value(range));
+        }
+    }
+
     for (auto kd : m_func_decls) {
         symbol const & k = kd.m_key;
         func_decls & v = kd.m_value;
@@ -1948,13 +1958,13 @@ void cmd_context::dt_eh::operator()(sort * dt, pdecl* pd) {
     TRACE("new_dt_eh", tout << "new datatype: "; m_owner.pm().display(tout, dt); tout << "\n";);
     for (func_decl * c : *m_dt_util.get_datatype_constructors(dt)) {
         TRACE("new_dt_eh", tout << "new constructor: " << c->get_name() << "\n";);
-        m_owner.insert(c);        
+        m_owner.insert(c);
         func_decl * r = m_dt_util.get_constructor_recognizer(c);
         m_owner.insert(r);
         TRACE("new_dt_eh", tout << "new recognizer: " << r->get_name() << "\n";);
         for (func_decl * a : *m_dt_util.get_constructor_accessors(c)) {
             TRACE("new_dt_eh", tout << "new accessor: " << a->get_name() << "\n";);
-            m_owner.insert(a);            
+            m_owner.insert(a);
         }
     }
     if (m_owner.m_scopes.size() > 0) {
