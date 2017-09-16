@@ -54,6 +54,7 @@ namespace smt {
         // setup_<logic>(static_features & st) can only be used if the logical context will perform a single 
         // check.
         // 
+        void setup_QF_DT();
         void setup_QF_UF();
         void setup_QF_UF(static_features const & st);
         void setup_QF_RDL();
