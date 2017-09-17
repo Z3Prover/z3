@@ -49,8 +49,8 @@ public:
             && m_upper_bound_witness == p.m_upper_bound_witness &&
             m_i == p.m_i;
     }
-	// empty constructor
-	ul_pair() :
+    // empty constructor
+    ul_pair() :
         m_low_bound_witness(static_cast<constraint_index>(-1)),
         m_upper_bound_witness(static_cast<constraint_index>(-1)),
         m_i(static_cast<row_index>(-1))

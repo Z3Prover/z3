@@ -18,7 +18,7 @@ bool try_get_val(const std::unordered_map<A,B> & map, const A& key, B & val) {
 
 template <typename A, typename B>
 bool contains(const std::unordered_map<A, B> & map, const A& key) {
-	return map.find(key) != map.end();
+    return map.find(key) != map.end();
 }
 
 #ifdef lp_for_z3

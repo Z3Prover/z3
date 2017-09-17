@@ -33,7 +33,7 @@ template class dl_graph<diff_logic_ext>;
 typedef dl_graph<diff_logic_ext> dlg;
 
 struct tst_dl_functor {
-	smt::literal_vector m_literals;
+    smt::literal_vector m_literals;
     void operator()(smt::literal l) {
         m_literals.push_back(l);
     }

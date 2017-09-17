@@ -380,8 +380,8 @@ public:
 
 
     bool term_is_used_as_row(unsigned term) const {
-		lean_assert(is_term(term));
-		return contains(m_ext_vars_to_columns, term);
+        lean_assert(is_term(term));
+        return contains(m_ext_vars_to_columns, term);
     }
 
     void propagate_bounds_on_terms(lp_bound_propagator & bp) {
@@ -484,16 +484,16 @@ public:
 
     void pop(unsigned k) {
         int n_was = static_cast<int>(m_ext_vars_to_columns.size());
-		m_status.pop(k);
-		m_infeasible_column_index.pop(k);
+        m_status.pop(k);
+        m_infeasible_column_index.pop(k);
         unsigned n = m_vars_to_ul_pairs.peek_size(k);
-		for (unsigned j = n_was; j-- > n;)
-			m_ext_vars_to_columns.erase(m_columns_to_ext_vars_or_term_indices[j]);
-		m_columns_to_ext_vars_or_term_indices.resize(n);
-		if (m_settings.use_tableau()) {
+        for (unsigned j = n_was; j-- > n;)
+            m_ext_vars_to_columns.erase(m_columns_to_ext_vars_or_term_indices[j]);
+        m_columns_to_ext_vars_or_term_indices.resize(n);
+        if (m_settings.use_tableau()) {
             pop_tableau();
         }
-		m_vars_to_ul_pairs.pop(k);
+        m_vars_to_ul_pairs.pop(k);
 
         m_mpq_lar_core_solver.pop(k);
         clean_large_elements_after_pop(n, m_columns_with_changed_bound);
@@ -501,7 +501,7 @@ public:
         clean_large_elements_after_pop(m, m_rows_with_changed_bounds);
         clean_inf_set_of_r_solver_after_pop();
         lean_assert(m_settings.simplex_strategy() == simplex_strategy_enum::undecided ||
-			(!use_tableau()) || m_mpq_lar_core_solver.m_r_solver.reduced_costs_are_correct_tableau());
+            (!use_tableau()) || m_mpq_lar_core_solver.m_r_solver.reduced_costs_are_correct_tableau());
 
 
         lean_assert(ax_is_correct());
@@ -518,9 +518,9 @@ public:
         }
         m_terms.resize(m_term_count);
         m_orig_terms.resize(m_term_count);
-		m_simplex_strategy.pop(k);
-		m_settings.simplex_strategy() = m_simplex_strategy;
-		lean_assert(sizes_are_correct());
+        m_simplex_strategy.pop(k);
+        m_settings.simplex_strategy() = m_simplex_strategy;
+        lean_assert(sizes_are_correct());
         lean_assert((!m_settings.use_tableau()) || m_mpq_lar_core_solver.m_r_solver.reduced_costs_are_correct_tableau());
     }
 
@@ -967,8 +967,8 @@ public:
 
     template <typename U, typename V>
     void copy_from_mpq_matrix(static_matrix<U, V> & matr) {
-		matr.m_rows.resize(A_r().row_count());
-		matr.m_columns.resize(A_r().column_count());
+        matr.m_rows.resize(A_r().row_count());
+        matr.m_columns.resize(A_r().column_count());
         for (unsigned i = 0; i < matr.row_count(); i++) {
             for (auto & it : A_r().m_rows[i]) {
                 matr.set(i, it.m_j,  convert_struct<U, mpq>::convert(it.get_val()));

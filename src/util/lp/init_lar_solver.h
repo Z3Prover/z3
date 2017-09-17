@@ -123,7 +123,7 @@ void add_row_for_term(const lar_term * term, unsigned term_ext_index) {
 void add_row_from_term_no_constraint(const lar_term * term, unsigned term_ext_index) {
     register_new_ext_var_index(term_ext_index);
     // j will be a new variable
-	unsigned j = A_r().column_count();
+    unsigned j = A_r().column_count();
     ul_pair ul(j);
     m_vars_to_ul_pairs.push_back(ul);
     add_basic_var_to_core_fields();
@@ -152,7 +152,7 @@ void add_basic_var_to_core_fields() {
 }
 
 constraint_index add_var_bound(var_index j, lconstraint_kind kind, const mpq & right_side)  {
-	constraint_index ci = m_constraints.size();
+    constraint_index ci = m_constraints.size();
     if (!is_term(j)) { // j is a var
         auto vc = new lar_var_constraint(j, kind, right_side);
         m_constraints.push_back(vc);
@@ -212,8 +212,8 @@ void add_constraint_from_term_and_create_new_column_row(unsigned term_j, const l
 }
 
 void decide_on_strategy_and_adjust_initial_state() {
-	lean_assert(strategy_is_undecided());
-	if (m_vars_to_ul_pairs.size() > m_settings.column_number_threshold_for_using_lu_in_lar_solver) {
+    lean_assert(strategy_is_undecided());
+    if (m_vars_to_ul_pairs.size() > m_settings.column_number_threshold_for_using_lu_in_lar_solver) {
         m_settings.simplex_strategy() = simplex_strategy_enum::lu;
     } else {
         m_settings.simplex_strategy() = simplex_strategy_enum::tableau_rows; // todo: when to switch to tableau_costs?
@@ -239,14 +239,14 @@ void adjust_initial_state() {
 
 void adjust_initial_state_for_lu() {
     copy_from_mpq_matrix(A_d());
-	unsigned n = A_d().column_count();
-	m_mpq_lar_core_solver.m_d_x.resize(n);
-	m_mpq_lar_core_solver.m_d_low_bounds.resize(n);
-	m_mpq_lar_core_solver.m_d_upper_bounds.resize(n);
-	m_mpq_lar_core_solver.m_d_heading = m_mpq_lar_core_solver.m_r_heading;
-	m_mpq_lar_core_solver.m_d_basis = m_mpq_lar_core_solver.m_r_basis;
+    unsigned n = A_d().column_count();
+    m_mpq_lar_core_solver.m_d_x.resize(n);
+    m_mpq_lar_core_solver.m_d_low_bounds.resize(n);
+    m_mpq_lar_core_solver.m_d_upper_bounds.resize(n);
+    m_mpq_lar_core_solver.m_d_heading = m_mpq_lar_core_solver.m_r_heading;
+    m_mpq_lar_core_solver.m_d_basis = m_mpq_lar_core_solver.m_r_basis;
 
-	/*
+    /*
     unsigned j = A_d().column_count();
     A_d().add_column();
     lean_assert(m_mpq_lar_core_solver.m_d_x.size() == j);

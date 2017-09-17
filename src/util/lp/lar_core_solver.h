@@ -550,7 +550,7 @@ public:
             lean_assert(m_r_solver.m_basis_heading[leaving] >= 0);
             m_r_solver.change_basis_unconditionally(entering, leaving);
             if(!m_r_solver.pivot_column_tableau(entering, m_r_solver.m_basis_heading[entering])) {
-				// unroll the last step
+                // unroll the last step
                 m_r_solver.change_basis_unconditionally(leaving, entering);
 #ifdef LEAN_DEBUG
                 bool t =

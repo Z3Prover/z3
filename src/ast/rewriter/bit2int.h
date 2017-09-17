@@ -75,7 +75,7 @@ protected:
     bool mk_mul(expr* a, expr* b, expr_ref& result);
     bool mk_comp(eq_type ty, expr* e1, expr* e2, expr_ref& result);
     bool mk_add(expr* e1, expr* e2, expr_ref& result);
-	
+
     expr * get_cached(expr * n) const;
     bool is_cached(expr * n) const {  return get_cached(n) != 0; }
     void cache_result(expr * n, expr * r);

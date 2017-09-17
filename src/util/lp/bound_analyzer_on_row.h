@@ -114,22 +114,22 @@ public :
         }
         return a * lb(j).x;
     }
-	mpq monoid_max(const mpq & a, unsigned j, bool & strict) const {
-		if (is_pos(a)) {
-			strict = !is_zero(ub(j).y);
-			return a * ub(j).x;
-		}
-		strict = !is_zero(lb(j).y);
-		return a * lb(j).x;
-	}
-	const mpq & monoid_min_no_mult(bool a_is_pos, unsigned j, bool & strict) const {
-		if (!a_is_pos) {
-			strict = !is_zero(ub(j).y);
-			return ub(j).x;
-		}
-		strict = !is_zero(lb(j).y);
-		return lb(j).x;
-	}
+    mpq monoid_max(const mpq & a, unsigned j, bool & strict) const {
+        if (is_pos(a)) {
+            strict = !is_zero(ub(j).y);
+            return a * ub(j).x;
+        }
+        strict = !is_zero(lb(j).y);
+        return a * lb(j).x;
+    }
+    const mpq & monoid_min_no_mult(bool a_is_pos, unsigned j, bool & strict) const {
+        if (!a_is_pos) {
+            strict = !is_zero(ub(j).y);
+            return ub(j).x;
+        }
+        strict = !is_zero(lb(j).y);
+        return lb(j).x;
+    }
 
     mpq monoid_min(const mpq & a, unsigned j, bool& strict) const {
         if (is_neg(a)) {
@@ -166,7 +166,7 @@ public :
         m_it.reset();
         while (m_it.next(a, j)) {
             bool str;
-			bool a_is_pos = is_pos(a);
+            bool a_is_pos = is_pos(a);
             mpq bound = total / a + monoid_min_no_mult(a_is_pos, j, str);
             if (a_is_pos) {
                 limit_j(j, bound, true, false, strict - static_cast<int>(str) > 0);
@@ -192,8 +192,8 @@ public :
         m_it.reset();
         while (m_it.next(a, j)) {
             bool str;
-			bool a_is_pos = is_pos(a);
-			mpq bound = total / a + monoid_max_no_mult(a_is_pos, j, str);
+            bool a_is_pos = is_pos(a);
+            mpq bound = total / a + monoid_max_no_mult(a_is_pos, j, str);
             bool astrict = strict - static_cast<int>(str) > 0;
             if (a_is_pos) {
                 limit_j(j, bound, true, true, astrict);

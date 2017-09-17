@@ -27,36 +27,36 @@ static void tst1() {
     unsigned n = rand()%10000;
     for (unsigned i = 0; i < n; i++) {
         int op = rand()%6;
-	if (op <= 1) {
-	    bool val = (rand()%2) != 0;
-	    v1.push_back(val);
-	    v2.push_back(val);
-	    ENSURE(v1.size() == v2.size());
-	}
-	else if (op <= 3) {
-	    ENSURE(v1.size() == v2.size());
-	    if (v1.size() > 0) {
-		bool val = (rand()%2) != 0;
-		unsigned idx = rand()%v1.size();
-		ENSURE(v1.get(idx) == v2[idx]);
-		v1.set(idx, val);
-		v2[idx] = val;
-		ENSURE(v1.get(idx) == v2[idx]);
-	    }
-	}
-	else if (op <= 4) {
-	    ENSURE(v1.size() == v2.size());
-	    if (v1.size() > 0) {
-		unsigned idx = rand()%v1.size();
-		VERIFY(v1.get(idx) == v2[idx]);
-	    }
-	}
-	else if (op <= 5) {
-	    ENSURE(v1.size() == v2.size());
-	    for (unsigned j = 0; j < v1.size(); j++) {
-		ENSURE(v1.get(j) == v2[j]);
-	    }
-	}
+    if (op <= 1) {
+        bool val = (rand()%2) != 0;
+        v1.push_back(val);
+        v2.push_back(val);
+        ENSURE(v1.size() == v2.size());
+    }
+    else if (op <= 3) {
+        ENSURE(v1.size() == v2.size());
+        if (v1.size() > 0) {
+        bool val = (rand()%2) != 0;
+        unsigned idx = rand()%v1.size();
+        ENSURE(v1.get(idx) == v2[idx]);
+        v1.set(idx, val);
+        v2[idx] = val;
+        ENSURE(v1.get(idx) == v2[idx]);
+        }
+    }
+    else if (op <= 4) {
+        ENSURE(v1.size() == v2.size());
+        if (v1.size() > 0) {
+        unsigned idx = rand()%v1.size();
+        VERIFY(v1.get(idx) == v2[idx]);
+        }
+    }
+    else if (op <= 5) {
+        ENSURE(v1.size() == v2.size());
+        for (unsigned j = 0; j < v1.size(); j++) {
+        ENSURE(v1.get(j) == v2[j]);
+        }
+    }
     }
 }
 
@@ -309,6 +309,6 @@ void tst_bit_vector() {
     tst2();
     for (unsigned i = 0; i < 20; i++) {
         std::cerr << i << std::endl;
-	tst1();
+    tst1();
     }
 }

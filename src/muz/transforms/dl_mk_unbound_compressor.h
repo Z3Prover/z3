@@ -50,7 +50,7 @@ namespace datalog {
         typedef hashtable<c_info, c_info_hash, default_eq<c_info> > in_progress_table;
         typedef svector<c_info> todo_stack;
 
-        context &	    m_context;
+        context &           m_context;
         ast_manager &       m;
         rule_manager &      rm;
         rule_ref_vector     m_rules;

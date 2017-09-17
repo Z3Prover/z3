@@ -51,10 +51,10 @@ public:
 
 private:
     void emplace_replace(unsigned i,const B & b) {
-		if (m_vector[i] != b) {
-			m_changes.push_back(std::make_pair(i, m_vector[i]));
-			m_vector[i] = b;
-		}
+        if (m_vector[i] != b) {
+            m_changes.push_back(std::make_pair(i, m_vector[i]));
+            m_vector[i] = b;
+        }
     }
 public:
 
@@ -87,14 +87,14 @@ public:
     }
 
     template <typename T>  
-	void pop_tail(vector<T> & v, unsigned k) {
-		lean_assert(v.size() >= k);
-		v.resize(v.size() - k);
-	}
+    void pop_tail(vector<T> & v, unsigned k) {
+        lean_assert(v.size() >= k);
+        v.resize(v.size() - k);
+    }
 
     template <typename T>  
     void resize(vector<T> & v, unsigned new_size) {
-		v.resize(new_size);
+        v.resize(new_size);
     }
     
     void pop(unsigned k) {
@@ -156,10 +156,10 @@ public:
         m_vector.resize(m_vector.size() + 1);
     }
 
-	unsigned peek_size(unsigned k) const {
-		lean_assert(k > 0 && k <= m_stack_of_vector_sizes.size());
-		return m_stack_of_vector_sizes[m_stack_of_vector_sizes.size() - k];
-	}
+    unsigned peek_size(unsigned k) const {
+        lean_assert(k > 0 && k <= m_stack_of_vector_sizes.size());
+        return m_stack_of_vector_sizes[m_stack_of_vector_sizes.size() - k];
+    }
 
     const vector<B>& operator()() const { return m_vector; }
 };

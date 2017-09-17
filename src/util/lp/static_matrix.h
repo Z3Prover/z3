@@ -47,7 +47,7 @@ class static_matrix
         dim(unsigned m, unsigned n) :m_m(m), m_n(n) {}
     };
     std::stack<dim> m_stack;
-	vector<unsigned> m_became_zeros; // the row indices that became zeroes during the pivoting
+    vector<unsigned> m_became_zeros; // the row indices that became zeroes during the pivoting
 public:
     typedef vector<row_cell<T>> row_strip;
     typedef vector<column_cell> column_strip;

@@ -278,13 +278,13 @@ public:
         return m_simplex_strategy;
     }
 
-	bool use_lu() const {
-		return m_simplex_strategy == simplex_strategy_enum::lu;
-	}
+    bool use_lu() const {
+        return m_simplex_strategy == simplex_strategy_enum::lu;
+    }
 
     bool use_tableau() const {
-		return m_simplex_strategy == simplex_strategy_enum::tableau_rows ||
-			m_simplex_strategy == simplex_strategy_enum::tableau_costs;
+        return m_simplex_strategy == simplex_strategy_enum::tableau_rows ||
+            m_simplex_strategy == simplex_strategy_enum::tableau_costs;
     }
 
     bool use_tableau_rows() const {
