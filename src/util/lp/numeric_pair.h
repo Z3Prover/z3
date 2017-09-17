@@ -1,33 +1,38 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-  The idea is that it is only one different file in Lean and z3 source inside of LP
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 #pragma once
-#define lp_for_z3
+
 #include <string>
 #include <cmath>
 #include <algorithm>
-#ifdef lp_for_z3
 #include "../rational.h"
 #include "../sstream.h"
 #include "../z3_exception.h"
 
-#else
- // include "util/numerics/mpq.h"
- // include "util/numerics/numeric_traits.h"
-#endif
-namespace lean {
-#ifdef lp_for_z3 // rename rationals
-    typedef rational mpq;
-#else
-    typedef lean::mpq mpq;
-#endif
+namespace lp {
+    typedef rational mpq; // rename rationals
 
 
 template <typename T>
 std::string T_to_string(const T & t); // forward definition
-#ifdef lp_for_z3
+
 template <typename T> class numeric_traits {};
 
 template <>  class numeric_traits<unsigned> {
@@ -67,14 +72,13 @@ template <>  class numeric_traits<double> {
         static bool is_pos(const rational & d) {return d.is_pos();}
         static bool is_neg(const rational & d) {return d.is_neg();}
     };
-#endif
 
 template <typename X, typename Y>
 struct convert_struct {
     static X convert(const Y & y){ return X(y);}
     static bool is_epsilon_small(const X & x,  const double & y) { return std::abs(numeric_traits<X>::get_double(x)) < y; }
-    static bool below_bound_numeric(const X &, const X &, const Y &) { /*lean_unreachable();*/ return false;}
-    static bool above_bound_numeric(const X &, const X &, const Y &) { /*lean_unreachable();*/ return false; }
+    static bool below_bound_numeric(const X &, const X &, const Y &) { /*SASSERT(false);*/ return false;}
+    static bool above_bound_numeric(const X &, const X &, const Y &) { /*SASSERT(false);*/ return false; }
 };
 
 
@@ -104,9 +108,9 @@ struct numeric_pair {
     template <typename X>
     numeric_pair(const X & n) : x(n), y(0) {
     }
-    
+
     numeric_pair(const numeric_pair<T> & n) : x(n.x), y(n.y) {}
-    
+
     template <typename X, typename Y>
     numeric_pair(X xp, Y yp) : x(convert_struct<T, X>::convert(xp)), y(convert_struct<T, Y>::convert(yp)) {}
 
@@ -144,16 +148,16 @@ struct numeric_pair {
     }
 
     numeric_pair operator/(const numeric_pair &) const {
-        // lean_unreachable();
+        // SASSERT(false);
     }
-    
-    
+
+
     numeric_pair operator+(const numeric_pair & a) const  {
         return numeric_pair(a.x + x, a.y + y);
     }
 
     numeric_pair operator*(const numeric_pair & /*a*/) const  {
-        // lean_unreachable();
+        // SASSERT(false);
     }
 
     numeric_pair&  operator+=(const numeric_pair & a) {
@@ -188,14 +192,14 @@ struct numeric_pair {
         return numeric_pair(-x, -y);
     }
 
-    static bool precize() { return lean::numeric_traits<T>::precize();}
+    static bool precize() { return lp::numeric_traits<T>::precize();}
 
     bool is_zero() const { return x.is_zero() && y.is_zero(); }
 
     bool is_pos() const { return x.is_pos() || (x.is_zero() && y.is_pos());}
 
     bool is_neg() const { return x.is_neg() || (x.is_zero() && y.is_neg());}
-    
+
     std::string to_string() const {
         return std::string("(") + T_to_string(x) + ", "  + T_to_string(y) + ")";
     }
@@ -225,15 +229,15 @@ numeric_pair<T> operator/(const numeric_pair<T> & r, const X & a) {
 }
 
 // template <numeric_pair, typename T>  bool precise() { return numeric_traits<T>::precise();}
-template <typename T> double get_double(const lean::numeric_pair<T> & ) { /* lean_unreachable(); */ return 0;}
+template <typename T> double get_double(const lp::numeric_pair<T> & ) { /* SASSERT(false); */ return 0;}
 template <typename T>
-class numeric_traits<lean::numeric_pair<T>> {
+class numeric_traits<lp::numeric_pair<T>> {
   public:
     static bool precise() { return numeric_traits<T>::precise();}
-    static lean::numeric_pair<T> zero() { return lean::numeric_pair<T>(numeric_traits<T>::zero(), numeric_traits<T>::zero()); }
-    static bool is_zero(const lean::numeric_pair<T> & v) { return numeric_traits<T>::is_zero(v.x) && numeric_traits<T>::is_zero(v.y); }
-    static double get_double(const lean::numeric_pair<T> & v){ return numeric_traits<T>::get_double(v.x); } // just return the double of the first coordinate
-    static double one() { /*lean_unreachable();*/ return 0;}
+    static lp::numeric_pair<T> zero() { return lp::numeric_pair<T>(numeric_traits<T>::zero(), numeric_traits<T>::zero()); }
+    static bool is_zero(const lp::numeric_pair<T> & v) { return numeric_traits<T>::is_zero(v.x) && numeric_traits<T>::is_zero(v.y); }
+    static double get_double(const lp::numeric_pair<T> & v){ return numeric_traits<T>::get_double(v.x); } // just return the double of the first coordinate
+    static double one() { /*SASSERT(false);*/ return 0;}
     static bool is_pos(const numeric_pair<T> &p) {
         return numeric_traits<T>::is_pos(p.x) ||
             (numeric_traits<T>::is_zero(p.x) && numeric_traits<T>::is_pos(p.y));
@@ -242,7 +246,7 @@ class numeric_traits<lean::numeric_pair<T>> {
         return numeric_traits<T>::is_neg(p.x) ||
             (numeric_traits<T>::is_zero(p.x) && numeric_traits<T>::is_neg(p.y));
     }
-            
+
 };
 
 template <>
@@ -263,11 +267,11 @@ struct convert_struct<numeric_pair<T>, double> {
         return convert_struct<T, double>::is_epsilon_small(p.x, eps) && convert_struct<T, double>::is_epsilon_small(p.y, eps);
     }
     static bool below_bound_numeric(const numeric_pair<T> &, const numeric_pair<T> &, const double &) {
-        // lean_unreachable();
+        // SASSERT(false);
         return false;
     }
     static bool above_bound_numeric(const numeric_pair<T> &, const numeric_pair<T> &, const double &) {
-        // lean_unreachable();
+        // SASSERT(false);
         return false;
     }
 };

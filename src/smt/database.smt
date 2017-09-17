@@ -11,7 +11,7 @@
    :formula (forall (a Int) (i Int) (e Int)  
                     (= (?select (?store a i e) i) e)
                     :pats { (?store a i e) }
-		    :weight { 0 })
+                    :weight { 0 })
 
    :formula (forall (a Int) (i Int) (j Int) (e Int)  
                     (or (= i j) (= (?select (?store a i e) j) (?select a j)))

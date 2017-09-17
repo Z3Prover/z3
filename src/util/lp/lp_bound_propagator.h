@@ -1,10 +1,25 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 #pragma once
 #include "util/lp/lp_settings.h"
-namespace lean {
+namespace lp {
 class lar_solver;
 class lp_bound_propagator {
     std::unordered_map<unsigned, unsigned> m_improved_low_bounds; // these maps map a column index to the corresponding index in ibounds
@@ -19,7 +34,7 @@ public:
     const impq & get_upper_bound(unsigned) const;
     void try_add_bound(const mpq & v, unsigned j, bool is_low, bool coeff_before_j_is_pos, unsigned row_or_term_index, bool strict);
     virtual bool bound_is_interesting(unsigned vi,
-                                      lean::lconstraint_kind kind,
+                                      lp::lconstraint_kind kind,
                                       const rational & bval) {return true;}
     unsigned number_of_found_bounds() const { return m_ibounds.size(); }
     virtual void consume(mpq const& v, unsigned j) { std::cout << "doh\n"; }

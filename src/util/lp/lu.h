@@ -1,7 +1,22 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 
 #pragma once
 
@@ -18,8 +33,8 @@
 #include "util/lp/row_eta_matrix.h"
 #include "util/lp/square_dense_submatrix.h"
 #include "util/lp/dense_matrix.h"
-namespace lean {
-#ifdef LEAN_DEBUG
+namespace lp {
+#ifdef Z3DEBUG
 template <typename T, typename X> // print the nr x nc submatrix at the top left corner
 void print_submatrix(sparse_matrix<T, X> & m, unsigned mr, unsigned nc);
 
@@ -32,7 +47,7 @@ void print_matrix(sparse_matrix<T, X>& m, std::ostream & out);
 
 template <typename T, typename X>
 X dot_product(const vector<T> & a, const vector<X> & b) {
-    lean_assert(a.size() == b.size());
+    SASSERT(a.size() == b.size());
     auto r = zero_of_type<X>();
     for (unsigned i = 0; i < a.size(); i++) {
         r += a[i] * b[i];
@@ -47,7 +62,7 @@ class one_elem_on_diag: public tail_matrix<T, X> {
     T m_val;
 public:
     one_elem_on_diag(unsigned i, T val) : m_i(i), m_val(val) {
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
         m_one_over_val = numeric_traits<T>::one() / m_val;
 #endif
     }
@@ -56,7 +71,7 @@ public:
 
     one_elem_on_diag(const one_elem_on_diag & o);
 
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     unsigned m_m;
     unsigned m_n;
     virtual void set_number_of_rows(unsigned m) { m_m = m; m_n = m; }
@@ -91,15 +106,15 @@ public:
 
     void conjugate_by_permutation(permutation_matrix<T, X> & p) {
         // this = p * this * p(-1)
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
         // auto rev = p.get_reverse();
         // auto deb = ((*this) * rev);
         // deb = p * deb;
 #endif
         m_i = p.apply_reverse(m_i);
 
-#ifdef LEAN_DEBUG
-        // lean_assert(*this == deb);
+#ifdef Z3DEBUG
+        // SASSERT(*this == deb);
 #endif
     }
 }; // end of one_elem_on_diag
@@ -212,7 +227,7 @@ public:
     // see page 407 of Chvatal
     unsigned transform_U_to_V_by_replacing_column(indexed_vector<T> & w, unsigned leaving_column_of_U);
 
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     void check_vector_w(unsigned entering);
 
     void check_apply_matrix_to_vector(matrix<T, X> *lp, T *w);
@@ -248,7 +263,7 @@ public:
     bool is_correct(const vector<unsigned>& basis);
 
 
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     dense_matrix<T, X> tail_product();
     dense_matrix<T, X>  get_left_side(const vector<unsigned>& basis);
 
@@ -291,7 +306,7 @@ public:
     bool need_to_refactor() { return m_refactor_counter >= 200; }
     
     void adjust_dimension_with_matrix_A() {
-        lean_assert(m_A.row_count() >= m_dim);
+        SASSERT(m_A.row_count() >= m_dim);
         m_dim = m_A.row_count();
         m_U.resize(m_dim);
         m_Q.resize(m_dim);
@@ -305,7 +320,7 @@ public:
         unsigned m = m_A.row_count();
         unsigned m_prev = m_U.dimension();
 
-        lean_assert(m_A.column_count() == heading.size());
+        SASSERT(m_A.column_count() == heading.size());
 
         for (unsigned i = m_prev; i < m; i++) {
             for (const row_cell<T> & c : m_A.m_rows[i]) {
@@ -321,14 +336,14 @@ public:
     
     void add_last_rows_to_B(const vector<int> & heading, const std::unordered_set<unsigned> & columns_to_replace) {
         unsigned m = m_A.row_count();
-        lean_assert(m_A.column_count() == heading.size());
+        SASSERT(m_A.column_count() == heading.size());
         adjust_dimension_with_matrix_A();
         m_w_for_extension.resize(m);
         // At this moment the LU is correct      
         // for B extended by only by ones at the diagonal in the lower right corner
 
         for (unsigned j :columns_to_replace) {
-            lean_assert(heading[j] >= 0);
+            SASSERT(heading[j] >= 0);
             replace_column_with_only_change_at_last_rows(j, heading[j]);
             if (get_status() == LU_status::Degenerated)
                 break;
@@ -352,7 +367,7 @@ public:
 template <typename T, typename X>
 void init_factorization(lu<T, X>* & factorization, static_matrix<T, X> & m_A, vector<unsigned> & m_basis, lp_settings &m_settings);
 
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
 template <typename T, typename X>
 dense_matrix<T, X>  get_B(lu<T, X>& f, const vector<unsigned>& basis);
 #endif

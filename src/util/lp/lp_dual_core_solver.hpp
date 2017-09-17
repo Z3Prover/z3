@@ -1,13 +1,28 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 #include <algorithm>
 #include <string>
 #include "util/vector.h"
 #include "util/lp/lp_dual_core_solver.h"
 
-namespace lean {
+namespace lp {
 
 template <typename T, typename X> void lp_dual_core_solver<T, X>::init_a_wave_by_zeros() {
     unsigned j = this->m_m();
@@ -23,7 +38,7 @@ template <typename T, typename X> void lp_dual_core_solver<T, X>::restore_non_ba
     while (j--) {
         if (this->m_basis_heading[j] >= 0 ) continue;
         if (m_can_enter_basis[j]) {
-            lean_assert(std::find(nb.begin(), nb.end(), j) == nb.end());
+            SASSERT(std::find(nb.begin(), nb.end(), j) == nb.end());
             nb.push_back(j);
             this->m_basis_heading[j] = - static_cast<int>(nb.size());
         }
@@ -93,14 +108,14 @@ template <typename T, typename X> bool lp_dual_core_solver<T, X>::done() {
 }
 
 template <typename T, typename X> T lp_dual_core_solver<T, X>::get_edge_steepness_for_low_bound(unsigned p) {
-    lean_assert(this->m_basis_heading[p] >= 0 && static_cast<unsigned>(this->m_basis_heading[p]) < this->m_m());
+    SASSERT(this->m_basis_heading[p] >= 0 && static_cast<unsigned>(this->m_basis_heading[p]) < this->m_m());
     T del = this->m_x[p] - this->m_low_bounds[p];
     del *= del;
     return del / this->m_betas[this->m_basis_heading[p]];
 }
 
 template <typename T, typename X> T lp_dual_core_solver<T, X>::get_edge_steepness_for_upper_bound(unsigned p) {
-    lean_assert(this->m_basis_heading[p] >= 0 && static_cast<unsigned>(this->m_basis_heading[p]) < this->m_m());
+    SASSERT(this->m_basis_heading[p] >= 0 && static_cast<unsigned>(this->m_basis_heading[p]) < this->m_m());
     T del = this->m_x[p] - this->m_upper_bounds[p];
     del *= del;
     return del / this->m_betas[this->m_basis_heading[p]];
@@ -135,12 +150,12 @@ template <typename T, typename X> T lp_dual_core_solver<T, X>::pricing_for_row(u
         return numeric_traits<T>::zero();
         break;
     case column_type::free_column:
-        lean_assert(numeric_traits<T>::is_zero(this->m_d[p]));
+        SASSERT(numeric_traits<T>::is_zero(this->m_d[p]));
         return numeric_traits<T>::zero();
     default:
-        lean_unreachable();
+        SASSERT(false);
     }
-    lean_unreachable();
+    SASSERT(false);
     return numeric_traits<T>::zero();
 }
 
@@ -209,9 +224,9 @@ template <typename T, typename X> bool lp_dual_core_solver<T, X>::advance_on_kno
     int pivot_compare_result = this->pivots_in_column_and_row_are_different(m_q, m_p);
     if (!pivot_compare_result){;}
     else if (pivot_compare_result == 2) { // the sign is changed, cannot continue
-        lean_unreachable(); // not implemented yet
+        SASSERT(false); // not implemented yet
     } else {
-        lean_assert(pivot_compare_result == 1);
+        SASSERT(pivot_compare_result == 1);
         this->init_lu();
     }
     DSE_FTran();
@@ -228,21 +243,21 @@ template <typename T, typename X> int lp_dual_core_solver<T, X>::define_sign_of_
         if (this->x_above_upper_bound(m_p)) {
             return 1;
         }
-        lean_unreachable();
+        SASSERT(false);
     case column_type::low_bound:
         if (this->x_below_low_bound(m_p)) {
             return -1;
         }
-        lean_unreachable();
+        SASSERT(false);
     case column_type::upper_bound:
         if (this->x_above_upper_bound(m_p)) {
             return 1;
         }
-        lean_unreachable();
+        SASSERT(false);
     default:
-        lean_unreachable();
+        SASSERT(false);
     }
-    lean_unreachable();
+    SASSERT(false);
     return 0;
 }
 
@@ -250,10 +265,10 @@ template <typename T, typename X> bool lp_dual_core_solver<T, X>::can_be_breakpo
     if (this->pivot_row_element_is_too_small_for_ratio_test(j)) return false;
     switch (this->m_column_types[j]) {
     case column_type::low_bound:
-        lean_assert(this->m_settings.abs_val_is_smaller_than_harris_tolerance(this->m_x[j] - this->m_low_bounds[j]));
+        SASSERT(this->m_settings.abs_val_is_smaller_than_harris_tolerance(this->m_x[j] - this->m_low_bounds[j]));
         return m_sign_of_alpha_r * this->m_pivot_row[j]  > 0;
     case column_type::upper_bound:
-        lean_assert(this->m_settings.abs_val_is_smaller_than_harris_tolerance(this->m_x[j] - this->m_upper_bounds[j]));
+        SASSERT(this->m_settings.abs_val_is_smaller_than_harris_tolerance(this->m_x[j] - this->m_upper_bounds[j]));
         return m_sign_of_alpha_r * this->m_pivot_row[j] < 0;
     case column_type::boxed:
         {
@@ -292,23 +307,23 @@ template <typename T, typename X> T lp_dual_core_solver<T, X>::get_delta() {
         if (this->x_above_upper_bound(m_p)) {
             return this->m_x[m_p] - this->m_upper_bounds[m_p];
         }
-        lean_unreachable();
+        SASSERT(false);
     case column_type::low_bound:
         if (this->x_below_low_bound(m_p)) {
             return this->m_x[m_p] - this->m_low_bounds[m_p];
         }
-        lean_unreachable();
+        SASSERT(false);
     case column_type::upper_bound:
         if (this->x_above_upper_bound(m_p)) {
             return get_edge_steepness_for_upper_bound(m_p);
         }
-        lean_unreachable();
+        SASSERT(false);
     case column_type::fixed:
         return this->m_x[m_p] - this->m_upper_bounds[m_p];
     default:
-        lean_unreachable();
+        SASSERT(false);
     }
-    lean_unreachable();
+    SASSERT(false);
     return zero_of_type<T>();
 }
 
@@ -355,7 +370,7 @@ template <typename T, typename X> void lp_dual_core_solver<T, X>::update_betas()
 
 template <typename T, typename X> void lp_dual_core_solver<T, X>::apply_flips() {
     for (unsigned j : m_flipped_boxed) {
-        lean_assert(this->x_is_at_bound(j));
+        SASSERT(this->x_is_at_bound(j));
         if (this->x_is_at_low_bound(j)) {
             this->m_x[j] = this->m_upper_bounds[j];
         } else {
@@ -385,7 +400,7 @@ template <typename T, typename X> void lp_dual_core_solver<T, X>::snap_xN_column
     case column_type::free_column:
         break;
     default:
-        lean_unreachable();
+        SASSERT(false);
     }
 }
 
@@ -441,7 +456,7 @@ template <typename T, typename X> bool lp_dual_core_solver<T, X>::basis_change_a
         return false;
     }
 
-    lean_assert(d_is_correct());
+    SASSERT(d_is_correct());
     return true;
 }
 
@@ -457,7 +472,7 @@ template <typename T, typename X> void lp_dual_core_solver<T, X>::recover_leavin
     case free_of_bounds:
         this->m_x[m_q] = zero_of_type<X>();
     default:
-        lean_unreachable();
+        SASSERT(false);
     }
 }
 
@@ -584,7 +599,7 @@ template <typename T, typename X> bool lp_dual_core_solver<T, X>::tight_breakpoi
 template <typename T, typename X> T lp_dual_core_solver<T, X>::calculate_harris_delta_on_breakpoint_set() {
     bool first_time = true;
     T ret = zero_of_type<T>();
-    lean_assert(m_breakpoint_set.size() > 0);
+    SASSERT(m_breakpoint_set.size() > 0);
     for (auto j : m_breakpoint_set) {
         T t;
         if (this->x_is_at_low_bound(j)) {
@@ -633,7 +648,7 @@ template <typename T, typename X> void lp_dual_core_solver<T, X>::find_q_on_tigh
         }
     }
     m_tight_set.erase(m_q);
-    lean_assert(m_q != -1);
+    SASSERT(m_q != -1);
 }
 
 template <typename T, typename X> void lp_dual_core_solver<T, X>::find_q_and_tight_set() {
@@ -722,13 +737,13 @@ template <typename T, typename X> void lp_dual_core_solver<T, X>::one_iteration(
         this->set_status(FEASIBLE);
     }
     pricing_loop(number_of_rows_to_try, offset_in_rows);
-    lean_assert(problem_is_dual_feasible());
+    SASSERT(problem_is_dual_feasible());
 }
 
 template <typename T, typename X> void lp_dual_core_solver<T, X>::solve() { // see the page 35
-    lean_assert(d_is_correct());
-    lean_assert(problem_is_dual_feasible());
-    lean_assert(this->basis_heading_is_correct());
+    SASSERT(d_is_correct());
+    SASSERT(problem_is_dual_feasible());
+    SASSERT(this->basis_heading_is_correct());
     this->set_total_iterations(0);
     this->iters_with_no_cost_growing() = 0;
     do {

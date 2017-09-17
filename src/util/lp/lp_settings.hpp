@@ -1,12 +1,27 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 #include <cmath>
 #include <string>
 #include "util/vector.h"
 #include "util/lp/lp_settings.h"
-namespace lean {
+namespace lp {
 std::string column_type_to_string(column_type t) {
     switch (t) {
     case column_type::fixed:       return "fixed";
@@ -14,7 +29,7 @@ std::string column_type_to_string(column_type t) {
     case column_type::low_bound:   return "low_bound";
     case column_type::upper_bound: return "upper_bound";
     case column_type::free_column: return "free_column";
-    default:  lean_unreachable();
+    default:  SASSERT(false);
     }
     return "unknown"; // it is unreachable
 }
@@ -34,7 +49,7 @@ const char* lp_status_to_string(lp_status status) {
     case EMPTY: return "EMPTY";
     case UNSTABLE: return "UNSTABLE";
     default:
-        lean_unreachable();
+        SASSERT(false);
     }
     return "UNKNOWN";  // it is unreachable
 }
@@ -49,7 +64,7 @@ lp_status lp_status_from_string(std::string status) {
     if (status == "TIME_EXHAUSTED") return lp_status::TIME_EXHAUSTED;
     if (status == "ITERATIONS_EXHAUSTED") return lp_status::ITERATIONS_EXHAUSTED;
     if (status == "EMPTY") return lp_status::EMPTY;
-    lean_unreachable();
+    SASSERT(false);
     return lp_status::UNKNOWN; // it is unreachable
 }
 
@@ -104,7 +119,7 @@ bool vectors_are_equal(const vector<T> & a, const vector<T>  &b) {
     }
     return true;
 }
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
 unsigned lp_settings::ddd = 0;
 #endif
 }

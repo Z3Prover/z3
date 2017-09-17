@@ -1,10 +1,25 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 #pragma once
 #include "util/lp/iterator_on_indexed_vector.h"
-namespace lean {
+namespace lp {
 template <typename T>
 struct iterator_on_pivot_row:linear_combination_iterator<T> {
     bool m_basis_returned;

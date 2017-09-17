@@ -1209,7 +1209,7 @@ namespace qe {
 
         void operator()(model& mdl, app_ref_vector& vars, expr_ref& fml) {
           expr_map map (m);
-        	operator()(mdl, vars, fml, map);
+            operator()(mdl, vars, fml, map);
         }
 
         void operator()(model& mdl, app_ref_vector& vars, expr_ref& fml, expr_map& map) {

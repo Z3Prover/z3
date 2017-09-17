@@ -30,7 +30,7 @@ struct iz3pp_bad_tree: public iz3_exception {
 };
 
 void iz3pp(ast_manager &m,
-	   const ptr_vector<expr> &cnsts_vec,
-	   expr *tree,
-	   std::ostream& out);
+           const ptr_vector<expr> &cnsts_vec,
+           expr *tree,
+           std::ostream& out);
 #endif

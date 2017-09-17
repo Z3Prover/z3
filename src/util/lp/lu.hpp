@@ -1,7 +1,22 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 #include <string>
 #include <algorithm>
 #include <set>
@@ -9,8 +24,8 @@
 #include <utility>
 #include "util/debug.h"
 #include "util/lp/lu.h"
-namespace lean {
-#ifdef LEAN_DEBUG
+namespace lp {
+#ifdef Z3DEBUG
 template <typename T, typename X> // print the nr x nc submatrix at the top left corner
 void print_submatrix(sparse_matrix<T, X> & m, unsigned mr, unsigned nc, std::ostream & out) {
     vector<vector<std::string>> A;
@@ -72,13 +87,13 @@ template <typename T, typename X>
 one_elem_on_diag<T, X>::one_elem_on_diag(const one_elem_on_diag & o) {
     m_i = o.m_i;
     m_val = o.m_val;
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     m_m = m_n = o.m_m;
     m_one_over_val = numeric_traits<T>::one() / o.m_val;
 #endif
 }
 
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
 template <typename T, typename X>
 T one_elem_on_diag<T, X>::get_elem(unsigned i, unsigned j) const {
     if (i == j){
@@ -122,29 +137,29 @@ lu<T, X>::lu(static_matrix<T, X> const & A,
     m_failure(false),
     m_row_eta_work_vector(A.row_count()),
     m_refactor_counter(0) {
-    lean_assert(!(numeric_traits<T>::precise() && settings.use_tableau()));
-#ifdef LEAN_DEBUG
+    SASSERT(!(numeric_traits<T>::precise() && settings.use_tableau()));
+#ifdef Z3DEBUG
     debug_test_of_basis(A, basis);
 #endif
     ++m_settings.st().m_num_factorizations;
     create_initial_factorization();
-#ifdef LEAN_DEBUG
-    // lean_assert(check_correctness());
+#ifdef Z3DEBUG
+    // SASSERT(check_correctness());
 #endif
 }
 template <typename T, typename X>
 void lu<T, X>::debug_test_of_basis(static_matrix<T, X> const & A, vector<unsigned> & basis) {
     std::set<unsigned> set;
     for (unsigned i = 0; i < A.row_count(); i++) {
-        lean_assert(basis[i]< A.column_count());
+        SASSERT(basis[i]< A.column_count());
         set.insert(basis[i]);
     }
-    lean_assert(set.size() == A.row_count());
+    SASSERT(set.size() == A.row_count());
 }
 
  template <typename T, typename X>
  void lu<T, X>::solve_By(indexed_vector<X> & y) {
-     lean_assert(false); // not implemented
+     SASSERT(false); // not implemented
      // init_vector_y(y);
      // solve_By_when_y_is_ready(y);
  }
@@ -268,7 +283,7 @@ void lu<T, X>::solve_yB(vector<T>& y) {
     m_U.solve_y_U(y); // got y*U=cb*R(-1)
     m_Q.apply_reverse_from_right_to_T(y); //
     for (auto e = m_tail.rbegin(); e != m_tail.rend(); ++e) {
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
         (*e)->set_number_of_columns(m_dim);
 #endif
         (*e)->apply_from_right(y);
@@ -277,20 +292,20 @@ void lu<T, X>::solve_yB(vector<T>& y) {
 
 template <typename T, typename X>
 void lu<T, X>::solve_yB_indexed(indexed_vector<T>& y) {
-    lean_assert(y.is_OK());
+    SASSERT(y.is_OK());
     // first solve yU = cb*R(-1)
     m_R.apply_reverse_from_right_to_T(y); // got y = cb*R(-1)
-    lean_assert(y.is_OK());
+    SASSERT(y.is_OK());
     m_U.solve_y_U_indexed(y, m_settings); // got y*U=cb*R(-1)
-    lean_assert(y.is_OK());
+    SASSERT(y.is_OK());
     m_Q.apply_reverse_from_right_to_T(y);
-    lean_assert(y.is_OK());
+    SASSERT(y.is_OK());
     for (auto e = m_tail.rbegin(); e != m_tail.rend(); ++e) {
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
         (*e)->set_number_of_columns(m_dim);
 #endif
         (*e)->apply_from_right(y);
-        lean_assert(y.is_OK());
+        SASSERT(y.is_OK());
     }
 }
 
@@ -304,8 +319,8 @@ void lu<T, X>::add_delta_to_solution(const vector<T>& yc, vector<T>& y){
 template <typename T, typename X>
 void lu<T, X>::add_delta_to_solution_indexed(indexed_vector<T>& y) {
     // the delta sits in m_y_copy, put result into y
-    lean_assert(y.is_OK());
-    lean_assert(m_y_copy.is_OK());
+    SASSERT(y.is_OK());
+    SASSERT(m_y_copy.is_OK());
     m_ii.clear();
     m_ii.resize(y.data_size());
     for (unsigned i : y.m_index)
@@ -315,7 +330,7 @@ void lu<T, X>::add_delta_to_solution_indexed(indexed_vector<T>& y) {
         if (m_ii[i] == 0)
             m_ii.set_value(1, i);
     }
-    lean_assert(m_ii.is_OK());
+    SASSERT(m_ii.is_OK());
     y.m_index.clear();
 
     for (unsigned i : m_ii.m_index) {
@@ -326,7 +341,7 @@ void lu<T, X>::add_delta_to_solution_indexed(indexed_vector<T>& y) {
             v = zero_of_type<T>();
     }
         
-    lean_assert(y.is_OK());
+    SASSERT(y.is_OK());
 }
 
 template <typename T, typename X>
@@ -343,7 +358,7 @@ void lu<T, X>::find_error_of_yB_indexed(const indexed_vector<T>& y, const vector
     // it is a non efficient version
     indexed_vector<T> yc = m_y_copy;
     yc.m_index.clear();
-    lean_assert(!numeric_traits<T>::precise());
+    SASSERT(!numeric_traits<T>::precise());
     {
 
         vector<unsigned> d_basis(y.m_data.size());
@@ -364,10 +379,10 @@ void lu<T, X>::find_error_of_yB_indexed(const indexed_vector<T>& y, const vector
         }
     }
 #endif
-    lean_assert(m_ii.is_OK());
+    SASSERT(m_ii.is_OK());
     m_ii.clear();
     m_ii.resize(y.data_size());
-    lean_assert(m_y_copy.is_OK());
+    SASSERT(m_y_copy.is_OK());
     // put the error into m_y_copy
     for (auto k : y.m_index) {
         auto & row = m_A.m_rows[k];
@@ -399,7 +414,7 @@ void lu<T, X>::find_error_of_yB_indexed(const indexed_vector<T>& y, const vector
             m_y_copy.set_value(v, k);
         }
     }
-    lean_assert(m_y_copy.is_OK());
+    SASSERT(m_y_copy.is_OK());
 
 }
 
@@ -419,12 +434,12 @@ void lu<T, X>::solve_yB_with_error_check_indexed(indexed_vector<T> & y, const ve
         }
         return;
     }
-    lean_assert(m_y_copy.is_OK());
-    lean_assert(y.is_OK());
+    SASSERT(m_y_copy.is_OK());
+    SASSERT(y.is_OK());
     if (y.m_index.size() * ratio_of_index_size_to_all_size<T>() < m_A.column_count()) {
         m_y_copy = y;
         solve_yB_indexed(y);
-        lean_assert(y.is_OK());
+        SASSERT(y.is_OK());
         if (y.m_index.size() * ratio_of_index_size_to_all_size<T>() >= m_A.column_count()) {
             find_error_of_yB(m_y_copy.m_data, y.m_data, basis);
             solve_yB(m_y_copy.m_data);
@@ -436,7 +451,7 @@ void lu<T, X>::solve_yB_with_error_check_indexed(indexed_vector<T> & y, const ve
             solve_yB_indexed(m_y_copy);
             add_delta_to_solution_indexed(y);
         }
-        lean_assert(m_y_copy.is_OK());
+        SASSERT(m_y_copy.is_OK());
     } else {
         solve_yB_with_error_check(y.m_data, basis);
         y.restore_index_and_clean_from_data();
@@ -489,7 +504,7 @@ template <typename T, typename X>
 void lu<T, X>::perform_transformations_on_w(indexed_vector<T>& w) {
     apply_lp_list_to_w(w);
     m_Q.apply_reverse_from_left(w);
-    // TBD does not compile: lean_assert(numeric_traits<T>::precise() || check_vector_for_small_values(w, m_settings));
+    // TBD does not compile: SASSERT(numeric_traits<T>::precise() || check_vector_for_small_values(w, m_settings));
 }
 
 // see Chvatal 24.3
@@ -503,7 +518,7 @@ template <typename T, typename X>
 void lu<T, X>::apply_lp_list_to_w(indexed_vector<T> & w) {
     for (unsigned i = 0; i < m_tail.size(); i++) {
         m_tail[i]->apply_from_left_to_T(w, m_settings);
-        // TBD does not compile: lean_assert(check_vector_for_small_values(w, m_settings));
+        // TBD does not compile: SASSERT(check_vector_for_small_values(w, m_settings));
     }
 }
 template <typename T, typename X>
@@ -570,7 +585,7 @@ unsigned lu<T, X>::transform_U_to_V_by_replacing_column(indexed_vector<T> & w,
     return column_to_replace;
 }
 
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
 template <typename T, typename X>
 void lu<T, X>::check_vector_w(unsigned entering) {
     T * w = new T[m_dim];
@@ -595,7 +610,7 @@ void lu<T, X>::check_apply_lp_lists_to_w(T * w) {
     permutation_matrix<T, X> qr = m_Q.get_reverse();
     apply_to_vector(qr, w);
     for (int i = m_dim - 1; i >= 0; i--) {
-        lean_assert(abs(w[i] - w[i]) < 0.0000001);
+        SASSERT(abs(w[i] - w[i]) < 0.0000001);
     }
 }
 
@@ -624,7 +639,7 @@ void lu<T, X>::process_column(int j) {
 }
 template <typename T, typename X>
 bool lu<T, X>::is_correct(const vector<unsigned>& basis) {
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     if (get_status() != LU_status::OK) {
         return false;
     }
@@ -637,10 +652,10 @@ bool lu<T, X>::is_correct(const vector<unsigned>& basis) {
 }
 
 
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
 template <typename T, typename X>
 dense_matrix<T, X> lu<T, X>::tail_product() {
-    lean_assert(tail_size() > 0);
+    SASSERT(tail_size() > 0);
     dense_matrix<T, X> left_side = permutation_matrix<T, X>(m_dim);
     for (unsigned i = 0; i < tail_size(); i++) {
         matrix<T, X>* lp =  get_lp_matrix(i);
@@ -690,8 +705,8 @@ template <typename T, typename X>
 bool lu<T, X>::all_columns_and_rows_are_active() {
     unsigned i = m_dim;
     while (i--) {
-        lean_assert(m_U.col_is_active(i));
-        lean_assert(m_U.row_is_active(i));
+        SASSERT(m_U.col_is_active(i));
+        SASSERT(m_U.row_is_active(i));
     }
     return true;
 }
@@ -733,9 +748,9 @@ void lu<T, X>::create_initial_factorization(){
         }
     }
     if (j == m_dim) {
-        // TBD does not compile: lean_assert(m_U.is_upper_triangular_and_maximums_are_set_correctly_in_rows(m_settings));
-        //        lean_assert(is_correct());
-        // lean_assert(m_U.is_upper_triangular_and_maximums_are_set_correctly_in_rows(m_settings));
+        // TBD does not compile: SASSERT(m_U.is_upper_triangular_and_maximums_are_set_correctly_in_rows(m_settings));
+        //        SASSERT(is_correct());
+        // SASSERT(m_U.is_upper_triangular_and_maximums_are_set_correctly_in_rows(m_settings));
         return;
     }
     j++;
@@ -748,12 +763,12 @@ void lu<T, X>::create_initial_factorization(){
         }
     }
     m_dense_LU->update_parent_matrix(m_settings);
-    lean_assert(m_dense_LU->is_L_matrix());
+    SASSERT(m_dense_LU->is_L_matrix());
     m_dense_LU->conjugate_by_permutation(m_Q);
     push_matrix_to_tail(m_dense_LU);
     m_refactor_counter = 0;
-    // lean_assert(is_correct());
-    // lean_assert(m_U.is_upper_triangular_and_maximums_are_set_correctly_in_rows(m_settings));
+    // SASSERT(is_correct());
+    // SASSERT(m_U.is_upper_triangular_and_maximums_are_set_correctly_in_rows(m_settings));
 }
 
 template <typename T, typename X>
@@ -780,7 +795,7 @@ void lu<T, X>::scan_last_row_to_work_vector(unsigned lowest_row_of_the_bump) {
     vector<indexed_value<T>> & last_row_vec = m_U.get_row_values(m_U.adjust_row(lowest_row_of_the_bump));
     for (auto & iv : last_row_vec) {
         if (is_zero(iv.m_value)) continue;
-        lean_assert(!m_settings.abs_val_is_smaller_than_drop_tolerance(iv.m_value));
+        SASSERT(!m_settings.abs_val_is_smaller_than_drop_tolerance(iv.m_value));
         unsigned adjusted_col = m_U.adjust_column_inverse(iv.m_index);
         if (adjusted_col < lowest_row_of_the_bump) {
             m_row_eta_work_vector.set_value(-iv.m_value, adjusted_col);
@@ -801,14 +816,14 @@ void lu<T, X>::pivot_and_solve_the_system(unsigned replaced_column, unsigned low
         vector<indexed_value<T>> & row = m_U.get_row_values(aj);
         for (auto & iv : row) {
             unsigned col = m_U.adjust_column_inverse(iv.m_index);
-            lean_assert(col >= j || numeric_traits<T>::is_zero(iv.m_value));
+            SASSERT(col >= j || numeric_traits<T>::is_zero(iv.m_value));
             if (col == j) continue;
             if (numeric_traits<T>::is_zero(iv.m_value)) {
                 continue;
             }
             // the -v is for solving the system ( to zero the last row), and +v is for pivoting
             T delta = col < lowest_row_of_the_bump? -v * iv.m_value: v * iv.m_value;
-            lean_assert(numeric_traits<T>::is_zero(delta) == false);
+            SASSERT(numeric_traits<T>::is_zero(delta) == false);
 
 
             
@@ -845,7 +860,7 @@ row_eta_matrix<T, X> *lu<T, X>::get_row_eta_matrix_and_set_row_vector(unsigned r
             return nullptr;
         }
     }
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     auto ret = new row_eta_matrix<T, X>(replaced_column, lowest_row_of_the_bump, m_dim);
 #else
     auto ret = new row_eta_matrix<T, X>(replaced_column, lowest_row_of_the_bump);
@@ -885,15 +900,15 @@ void lu<T, X>::replace_column(T pivot_elem_for_checking, indexed_vector<T> & w, 
         push_matrix_to_tail(row_eta);
     }
     calculate_Lwave_Pwave_for_bump(replaced_column, lowest_row_of_the_bump);
-    // lean_assert(m_U.is_upper_triangular_and_maximums_are_set_correctly_in_rows(m_settings));
-    // lean_assert(w.is_OK() && m_row_eta_work_vector.is_OK());
+    // SASSERT(m_U.is_upper_triangular_and_maximums_are_set_correctly_in_rows(m_settings));
+    // SASSERT(w.is_OK() && m_row_eta_work_vector.is_OK());
 }
 template <typename T, typename X>
 void lu<T, X>::calculate_Lwave_Pwave_for_bump(unsigned replaced_column, unsigned lowest_row_of_the_bump){
     T diagonal_elem;
     if (replaced_column < lowest_row_of_the_bump) {
         diagonal_elem = m_row_eta_work_vector[lowest_row_of_the_bump];
-        //          lean_assert(m_row_eta_work_vector.is_OK());
+        //          SASSERT(m_row_eta_work_vector.is_OK());
         m_U.set_row_from_work_vector_and_clean_work_vector_not_adjusted(m_U.adjust_row(lowest_row_of_the_bump), m_row_eta_work_vector, m_settings);
     } else {
         diagonal_elem = m_U(lowest_row_of_the_bump, lowest_row_of_the_bump); // todo - get it more efficiently
@@ -904,13 +919,13 @@ void lu<T, X>::calculate_Lwave_Pwave_for_bump(unsigned replaced_column, unsigned
     }
 
     calculate_Lwave_Pwave_for_last_row(lowest_row_of_the_bump, diagonal_elem);
-    //         lean_assert(m_U.is_upper_triangular_and_maximums_are_set_correctly_in_rows(m_settings));
+    //         SASSERT(m_U.is_upper_triangular_and_maximums_are_set_correctly_in_rows(m_settings));
 }
 
 template <typename T, typename X>
 void lu<T, X>::calculate_Lwave_Pwave_for_last_row(unsigned lowest_row_of_the_bump, T diagonal_element) {
     auto l = new one_elem_on_diag<T, X>(lowest_row_of_the_bump, diagonal_element);
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     l->set_number_of_columns(m_dim);
 #endif
     push_matrix_to_tail(l);
@@ -927,11 +942,11 @@ void init_factorization(lu<T, X>* & factorization, static_matrix<T, X> & m_A, ve
     //     LP_OUT(m_settings, "failing in init_factorization" << std::endl);
 }
 
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
 template <typename T, typename X>
 dense_matrix<T, X>  get_B(lu<T, X>& f, const vector<unsigned>& basis) {
-    lean_assert(basis.size() == f.dimension());
-    lean_assert(basis.size() == f.m_U.dimension());
+    SASSERT(basis.size() == f.dimension());
+    SASSERT(basis.size() == f.m_U.dimension());
     dense_matrix<T, X>  B(f.dimension(), f.dimension());
     for (unsigned i = 0; i < f.dimension(); i++)
         for (unsigned j = 0; j < f.dimension(); j++)

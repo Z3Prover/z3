@@ -1,7 +1,22 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 #include "util/lp/scaler.hpp"
-template bool lean::scaler<double, double>::scale();
-template bool lean::scaler<lean::mpq, lean::mpq>::scale();
+template bool lp::scaler<double, double>::scale();
+template bool lp::scaler<lp::mpq, lp::mpq>::scale();

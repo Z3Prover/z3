@@ -1,9 +1,24 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 #include "util/lp/lar_solver.h"
-namespace lean {
+namespace lp {
     lp_bound_propagator::lp_bound_propagator(lar_solver & ls):
     m_lar_solver(ls) {}
 column_type lp_bound_propagator::get_column_type(unsigned j) const {
@@ -17,11 +32,11 @@ const impq & lp_bound_propagator::get_upper_bound(unsigned j) const {
 }
 void lp_bound_propagator::try_add_bound(const mpq & v, unsigned j, bool is_low, bool coeff_before_j_is_pos, unsigned row_or_term_index, bool strict) {
     unsigned term_j = m_lar_solver.adjust_column_index_to_term_index(j);
-	mpq w = v;
-	if (term_j != j) {
-		j = term_j;
-		w += m_lar_solver.get_term(term_j).m_v; // when terms are turned into the columns they "lose" the right side, at this moment they aquire it back
-	}
+    mpq w = v;
+    if (term_j != j) {
+        j = term_j;
+        w += m_lar_solver.get_term(term_j).m_v; // when terms are turned into the columns they "lose" the right side, at this moment they aquire it back
+    }
     lconstraint_kind kind = is_low? GE : LE;
     if (strict)
         kind = static_cast<lconstraint_kind>(kind / 2);

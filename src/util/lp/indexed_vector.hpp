@@ -1,11 +1,26 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 #include "util/vector.h"
 #include "util/lp/indexed_vector.h"
 #include "util/lp/lp_settings.h"
-namespace lean {
+namespace lp {
 
 template <typename T>
 void print_vector(const vector<T> & t, std::ostream & out) {
@@ -41,13 +56,13 @@ template <typename T>
 void indexed_vector<T>::resize(unsigned data_size) {
     clear();
     m_data.resize(data_size, numeric_traits<T>::zero());
-    lean_assert(is_OK());
+    SASSERT(is_OK());
 }
 
 template <typename T>
 void indexed_vector<T>::set_value(const T& value, unsigned index) {
     m_data[index] = value;
-    lean_assert(std::find(m_index.begin(), m_index.end(), index) == m_index.end());
+    SASSERT(std::find(m_index.begin(), m_index.end(), index) == m_index.end());
     m_index.push_back(index);
 }
 
@@ -70,7 +85,7 @@ void indexed_vector<T>::erase_from_index(unsigned j) {
         m_index.erase(it);
 }
 
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
 template <typename T>
 bool indexed_vector<T>::is_OK() const {
     return true;

@@ -32,7 +32,7 @@ namespace datalog {
         QBMC_ENGINE,
         TAB_ENGINE,
         CLP_ENGINE,
-	DUALITY_ENGINE,
+        DUALITY_ENGINE,
         DDNF_ENGINE,
         LAST_ENGINE
     };

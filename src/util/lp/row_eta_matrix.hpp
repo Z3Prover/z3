@@ -1,13 +1,28 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 #include "util/vector.h"
 #include "util/lp/row_eta_matrix.h"
-namespace lean {
+namespace lp {
 template <typename T, typename X>
 void row_eta_matrix<T, X>::apply_from_left(vector<X> & w, lp_settings &) {
-    // #ifdef LEAN_DEBUG
+    // #ifdef Z3DEBUG
     //         dense_matrix<T> deb(*this);
     //         auto clone_w = clone_vector<T>(w, m_dimension);
     //         deb.apply_from_left(clone_w, settings);
@@ -18,8 +33,8 @@ void row_eta_matrix<T, X>::apply_from_left(vector<X> & w, lp_settings &) {
         w_at_row += w[it.first] * it.second;
     }
     // w[m_row] = w_at_row;
-    // #ifdef LEAN_DEBUG
-    //         lean_assert(vectors_are_equal<T>(clone_w, w, m_dimension));
+    // #ifdef Z3DEBUG
+    //         SASSERT(vectors_are_equal<T>(clone_w, w, m_dimension));
     //         delete [] clone_w;
     // #endif
 }
@@ -43,7 +58,7 @@ void row_eta_matrix<T, X>::apply_from_left_local_to_T(indexed_vector<T> & w, lp_
         auto it = std::find(w.m_index.begin(), w.m_index.end(), m_row);
         w.m_index.erase(it);
     }
-    // TBD: lean_assert(check_vector_for_small_values(w, settings));
+    // TBD: SASSERT(check_vector_for_small_values(w, settings));
 }
 
 template <typename T, typename X>
@@ -65,14 +80,14 @@ void row_eta_matrix<T, X>::apply_from_left_local_to_X(indexed_vector<X> & w, lp_
         auto it = std::find(w.m_index.begin(), w.m_index.end(), m_row);
         w.m_index.erase(it);
     }
-    // TBD: does not compile lean_assert(check_vector_for_small_values(w, settings));
+    // TBD: does not compile SASSERT(check_vector_for_small_values(w, settings));
 }
 
 template <typename T, typename X>
 void row_eta_matrix<T, X>::apply_from_right(vector<T> & w) {
     const T & w_row = w[m_row];
     if (numeric_traits<T>::is_zero(w_row)) return;
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     // dense_matrix<T> deb(*this);
     // auto clone_w = clone_vector<T>(w, m_dimension);
     // deb.apply_from_right(clone_w);
@@ -80,18 +95,18 @@ void row_eta_matrix<T, X>::apply_from_right(vector<T> & w) {
     for (auto & it : m_row_vector.m_data) {
         w[it.first] += w_row * it.second;
     }
-#ifdef LEAN_DEBUG
-    // lean_assert(vectors_are_equal<T>(clone_w, w, m_dimension));
+#ifdef Z3DEBUG
+    // SASSERT(vectors_are_equal<T>(clone_w, w, m_dimension));
     // delete clone_w;
 #endif
 }
 
 template <typename T, typename X>
 void row_eta_matrix<T, X>::apply_from_right(indexed_vector<T> & w) {
-    lean_assert(w.is_OK());
+    SASSERT(w.is_OK());
     const T & w_row = w[m_row];
     if (numeric_traits<T>::is_zero(w_row)) return;
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     // vector<T> wcopy(w.m_data);
     // apply_from_right(wcopy);
 #endif
@@ -129,8 +144,8 @@ void row_eta_matrix<T, X>::apply_from_right(indexed_vector<T> & w) {
             }
         }
     }
-#ifdef LEAN_DEBUG
-    // lean_assert(vectors_are_equal(wcopy, w.m_data));
+#ifdef Z3DEBUG
+    // SASSERT(vectors_are_equal(wcopy, w.m_data));
 
 #endif
 }
@@ -138,7 +153,7 @@ void row_eta_matrix<T, X>::apply_from_right(indexed_vector<T> & w) {
 template <typename T, typename X>
 void row_eta_matrix<T, X>::conjugate_by_permutation(permutation_matrix<T, X> & p) {
     // this = p * this * p(-1)
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     // auto rev = p.get_reverse();
     // auto deb = ((*this) * rev);
     // deb = p * deb;
@@ -150,11 +165,11 @@ void row_eta_matrix<T, X>::conjugate_by_permutation(permutation_matrix<T, X> & p
         columns.push_back(it.first);
     for (unsigned i = static_cast<unsigned>(columns.size()); i-- > 0;)
         m_row_vector.m_data[i].first = p.get_rev(columns[i]);
-#ifdef LEAN_DEBUG
-    // lean_assert(deb == *this);
+#ifdef Z3DEBUG
+    // SASSERT(deb == *this);
 #endif
 }
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
 template <typename T, typename X>
 T row_eta_matrix<T, X>::get_elem(unsigned row, unsigned col) const {
     if (row == m_row){

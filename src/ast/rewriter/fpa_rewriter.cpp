@@ -772,7 +772,6 @@ br_status fpa_rewriter::mk_to_bv(func_decl * f, expr * arg1, expr * arg2, bool i
 
     if (m_util.is_rm_numeral(arg1, rmv) &&
         m_util.is_numeral(arg2, v)) {
-        const mpf & x = v.get();
 
         if (m_fm.is_nan(v) || m_fm.is_inf(v))
             return mk_to_bv_unspecified(f, result);

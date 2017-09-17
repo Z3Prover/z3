@@ -1,7 +1,22 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 #pragma once
 #include "util/vector.h"
 #include <unordered_map>
@@ -12,7 +27,7 @@
 #include "util/lp/lp_primal_core_solver.h"
 #include "util/lp/lp_solver.h"
 #include "util/lp/iterator_on_row.h"
-namespace lean {
+namespace lp {
 template <typename T, typename X>
 class lp_primal_simplex: public lp_solver<T, X> {
     lp_primal_core_solver<T, X> * m_core_solver;

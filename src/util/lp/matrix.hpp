@@ -1,13 +1,28 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 
 #ifdef Z3DEBUG
 #include <cmath>
 #include <string>
 #include "util/lp/matrix.h"
-namespace lean {
+namespace lp {
 template <typename T, typename X>
 bool matrix<T, X>::is_equal(const matrix<T, X>& other) {
     if (other.row_count() != row_count() || other.column_count() != column_count())

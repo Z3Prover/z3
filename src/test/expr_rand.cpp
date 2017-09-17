@@ -98,8 +98,8 @@ void tst_expr_rand(char** argv, int argc, int& i) {
         i += 1;
         if (i + 1 < argc && 0 == strncmp(argv[i+1],"/rs:",3)) {
             rand_seed = atol(argv[i+1]+4);
-			std::cout << "random seed:" << rand_seed << "\n";
-			i += 1;
+            std::cout << "random seed:" << rand_seed << "\n";
+            i += 1;
         }
 
         if (i + 1 < argc && 0 == strcmp(argv[i+1],"/arith")) {
