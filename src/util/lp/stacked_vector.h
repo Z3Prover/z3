@@ -1,7 +1,23 @@
-/*
+/*++
 Copyright (c) 2017 Microsoft Corporation
-Author: Lev Nachmanson
-*/
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
+
 #pragma once
 #include <unordered_map>
 #include <set>
