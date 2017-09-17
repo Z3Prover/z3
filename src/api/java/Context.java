@@ -2070,7 +2070,7 @@ public class Context implements AutoCloseable {
      */
     public ReExpr mkComplement(ReExpr re)
     {
-        checkContextMatchb(re);
+        checkContextMatch(re);
         return (ReExpr) Expr.create(this, Native.mkReComplement(nCtx(), re.getNativeObject()));            
     }    
 
