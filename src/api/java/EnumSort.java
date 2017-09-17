@@ -65,7 +65,7 @@ public class EnumSort extends Sort
      **/
     public Expr getConst(int inx)
     {        
-    	return getContext().mkApp(getConstDecl(inx));
+        return getContext().mkApp(getConstDecl(inx));
     }
 
     /**

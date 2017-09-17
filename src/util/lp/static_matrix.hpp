@@ -48,9 +48,9 @@ template <typename T, typename X> bool static_matrix<T, X>::pivot_row_to_row_giv
     SASSERT(i < row_count() && ii < column_count());
     SASSERT(i != ii);
     
-	m_became_zeros.reset();
+    m_became_zeros.reset();
     T alpha = -get_val(c);
-	SASSERT(!is_zero(alpha));
+    SASSERT(!is_zero(alpha));
     auto & ii_row_vals = m_rows[ii];
     remove_element(ii_row_vals, ii_row_vals[c.m_offset]);
     scan_row_ii_to_offset_vector(ii);
@@ -61,7 +61,7 @@ template <typename T, typename X> bool static_matrix<T, X>::pivot_row_to_row_giv
         unsigned j = iv.m_j;
         if (j == pivot_col) continue;
         T alv = alpha * iv.m_value;
-		SASSERT(!is_zero(iv.m_value));
+        SASSERT(!is_zero(iv.m_value));
         int j_offs = m_vector_of_row_offsets[j];
         if (j_offs == -1) { // it is a new element
             add_new_element(ii, j, alv);

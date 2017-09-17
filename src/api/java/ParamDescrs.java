@@ -49,7 +49,7 @@ public class ParamDescrs extends Z3Object {
 
      public String getDocumentation(Symbol name)
      {
-	 return Native.paramDescrsGetDocumentation(getContext().nCtx(), getNativeObject(), name.getNativeObject());
+         return Native.paramDescrsGetDocumentation(getContext().nCtx(), getNativeObject(), name.getNativeObject());
      }
 
     /**

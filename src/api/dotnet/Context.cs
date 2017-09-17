@@ -126,7 +126,7 @@ namespace Microsoft.Z3
         private BoolSort m_boolSort = null;
         private IntSort m_intSort = null;
         private RealSort m_realSort = null;
-	private SeqSort m_stringSort = null;
+        private SeqSort m_stringSort = null;
 
         /// <summary>
         /// Retrieves the Boolean sort of the context.
@@ -2426,7 +2426,7 @@ namespace Microsoft.Z3
         public SeqExpr IntToString(Expr e) 
         {
             Contract.Requires(e != null);
-	    Contract.Requires(e is ArithExpr);
+            Contract.Requires(e is ArithExpr);
             Contract.Ensures(Contract.Result<SeqExpr>() != null);
             return new SeqExpr(this, Native.Z3_mk_int_to_str(nCtx, e.NativeObject));
         }
@@ -2690,7 +2690,7 @@ namespace Microsoft.Z3
         /// <summary>
         /// Create a range expression.
         /// </summary>
-	public ReExpr MkRange(SeqExpr lo, SeqExpr hi) 
+        public ReExpr MkRange(SeqExpr lo, SeqExpr hi) 
         {
             Contract.Requires(lo != null);
             Contract.Requires(hi != null);

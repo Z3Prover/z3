@@ -98,8 +98,8 @@ pivot_for_tableau_on_basis() {
 // i is the pivot row, and j is the pivot column
 template <typename T, typename X> void lp_core_solver_base<T, X>::
 pivot_to_reduced_costs_tableau(unsigned i, unsigned j) {
-	if (j >= m_d.size())
-		return;
+    if (j >= m_d.size())
+        return;
     T &a = m_d[j];
     if (is_zero(a))
         return;

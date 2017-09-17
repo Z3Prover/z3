@@ -123,7 +123,7 @@ namespace Microsoft.Z3
 
             /// <summary>
             /// Retrieve a lower bound for the objective handle.
-            /// </summary>        	   	
+            /// </summary>                   
             public ArithExpr Lower
             {
                 get { return opt.GetLower(handle); }
@@ -131,7 +131,7 @@ namespace Microsoft.Z3
 
             /// <summary>
             /// Retrieve an upper bound for the objective handle.
-            /// </summary>        	   	
+            /// </summary>                   
             public ArithExpr Upper
             {
                 get { return opt.GetUpper(handle); }
@@ -139,7 +139,7 @@ namespace Microsoft.Z3
 
             /// <summary>
             /// Retrieve the value of an objective.
-            /// </summary>        	   	
+            /// </summary>                   
             public ArithExpr Value
             {
                 get { return Lower; }
@@ -147,7 +147,7 @@ namespace Microsoft.Z3
 
             /// <summary>
             /// Retrieve a lower bound for the objective handle.
-            /// </summary>        	   	
+            /// </summary>                   
             public ArithExpr[] LowerAsVector
             {
                 get { return opt.GetLowerAsVector(handle); }
@@ -155,7 +155,7 @@ namespace Microsoft.Z3
 
             /// <summary>
             /// Retrieve an upper bound for the objective handle.
-            /// </summary>        	   	
+            /// </summary>                   
             public ArithExpr[] UpperAsVector
             {
                 get { return opt.GetUpperAsVector(handle); }
@@ -240,7 +240,7 @@ namespace Microsoft.Z3
         /// Declare an arithmetical maximization objective.
         /// Return a handle to the objective. The handle is used as
         /// to retrieve the values of objectives after calling Check.
-        /// </summary>        	
+        /// </summary>            
         public Handle MkMaximize(ArithExpr e)
         {
             return new Handle(this, Native.Z3_optimize_maximize(Context.nCtx, NativeObject, e.NativeObject));
@@ -249,7 +249,7 @@ namespace Microsoft.Z3
         /// <summary>
         /// Declare an arithmetical minimization objective. 
         /// Similar to MkMaximize.
-        /// </summary>        	
+        /// </summary>            
         public Handle MkMinimize(ArithExpr e)
         {
             return new Handle(this, Native.Z3_optimize_minimize(Context.nCtx, NativeObject, e.NativeObject));
@@ -257,7 +257,7 @@ namespace Microsoft.Z3
 
         /// <summary>
         /// Retrieve a lower bound for the objective handle.
-        /// </summary>        	
+        /// </summary>            
         private ArithExpr GetLower(uint index)
         {
             return (ArithExpr)Expr.Create(Context, Native.Z3_optimize_get_lower(Context.nCtx, NativeObject, index));
@@ -266,7 +266,7 @@ namespace Microsoft.Z3
 
         /// <summary>
         /// Retrieve an upper bound for the objective handle.
-        /// </summary>        	
+        /// </summary>            
         private ArithExpr GetUpper(uint index)
         {
             return (ArithExpr)Expr.Create(Context, Native.Z3_optimize_get_upper(Context.nCtx, NativeObject, index));
@@ -274,7 +274,7 @@ namespace Microsoft.Z3
 
         /// <summary>
         /// Retrieve a lower bound for the objective handle.
-        /// </summary>        	
+        /// </summary>            
         private ArithExpr[] GetLowerAsVector(uint index)
         {
             ASTVector v = new ASTVector(Context, Native.Z3_optimize_get_lower_as_vector(Context.nCtx, NativeObject, index));
@@ -284,29 +284,29 @@ namespace Microsoft.Z3
 
         /// <summary>
         /// Retrieve an upper bound for the objective handle.
-        /// </summary>        	
+        /// </summary>            
         private ArithExpr[] GetUpperAsVector(uint index)
         {
             ASTVector v = new ASTVector(Context, Native.Z3_optimize_get_upper_as_vector(Context.nCtx, NativeObject, index));
             return v.ToArithExprArray();
         }
 
-	/// <summary>
-	/// Return a string the describes why the last to check returned unknown
-	/// </summary>	
-    	public String ReasonUnknown
-    	{
+    /// <summary>
+    /// Return a string the describes why the last to check returned unknown
+    /// </summary>    
+        public String ReasonUnknown
+        {
             get 
             {
                 Contract.Ensures(Contract.Result<string>() != null);
                 return Native.Z3_optimize_get_reason_unknown(Context.nCtx, NativeObject);
             }
-    	}
+        }
 
 
         /// <summary>
         /// Print the context to a string (SMT-LIB parseable benchmark).
-        /// </summary>        	
+        /// </summary>            
         public override string ToString()
         {
             return Native.Z3_optimize_to_string(Context.nCtx, NativeObject);
