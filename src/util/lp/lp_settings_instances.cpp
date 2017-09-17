@@ -1,10 +1,25 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 #include <memory>
 #include "util/vector.h"
 #include "util/lp/lp_settings.hpp"
-template bool lean::vectors_are_equal<double>(vector<double> const&, vector<double> const&);
-template bool lean::vectors_are_equal<lean::mpq>(vector<lean::mpq > const&, vector<lean::mpq> const&);
+template bool lp::vectors_are_equal<double>(vector<double> const&, vector<double> const&);
+template bool lp::vectors_are_equal<lp::mpq>(vector<lp::mpq > const&, vector<lp::mpq> const&);
 

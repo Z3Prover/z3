@@ -1,16 +1,46 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 #include <string>
 #include "util/vector.h"
 #include "util/lp/lar_core_solver.h"
 #include "util/lp/lar_solution_signature.h"
-namespace lean {
+namespace lp {
 lar_core_solver::lar_core_solver(
                                  lp_settings & settings,
                                  const column_namer & column_names
@@ -42,9 +72,9 @@ lar_core_solver::lar_core_solver(
                     column_names){}
 
 void lar_core_solver::init_costs(bool first_time) {
-    lean_assert(false); // should not be called
-    // lean_assert(this->m_x.size() >= this->m_n());
-    // lean_assert(this->m_column_types.size() >= this->m_n());
+    SASSERT(false); // should not be called
+    // SASSERT(this->m_x.size() >= this->m_n());
+    // SASSERT(this->m_column_types.size() >= this->m_n());
     // if (first_time)
     //     this->m_costs.resize(this->m_n());
     // X inf = this->m_infeasibility;
@@ -54,7 +84,7 @@ void lar_core_solver::init_costs(bool first_time) {
     // if (!(first_time || inf >= this->m_infeasibility)) {
     //     LP_OUT(this->m_settings, "iter = " << this->total_iterations() << std::endl);
     //     LP_OUT(this->m_settings, "inf was " << T_to_string(inf) << " and now " << T_to_string(this->m_infeasibility) << std::endl);
-    //     lean_assert(false);
+    //     SASSERT(false);
     // }
     // if (inf == this->m_infeasibility)
     //     this->m_iters_with_no_cost_growing++;
@@ -105,7 +135,7 @@ void lar_core_solver::init_cost_for_column(unsigned j) {
         this->m_costs[j] = numeric_traits<T>::zero();
         break;
     default:
-        lean_assert(false);
+        SASSERT(false);
         break;
         }*/
 }
@@ -138,15 +168,15 @@ int lar_core_solver::column_is_out_of_bounds(unsigned j) {
         return 0;
         break;
         }*/
-    lean_assert(false);
+    SASSERT(false);
     return true;
 }
 
 
 
 void lar_core_solver::calculate_pivot_row(unsigned i) {
-    lean_assert(!m_r_solver.use_tableau());
-    lean_assert(m_r_solver.m_pivot_row.is_OK());
+    SASSERT(!m_r_solver.use_tableau());
+    SASSERT(m_r_solver.m_pivot_row.is_OK());
     m_r_solver.m_pivot_row_of_B_1.clear();
     m_r_solver.m_pivot_row_of_B_1.resize(m_r_solver.m_m());
     m_r_solver.m_pivot_row.clear();
@@ -208,7 +238,7 @@ void lar_core_solver::calculate_pivot_row(unsigned i) {
 }
 
 void lar_core_solver::fill_not_improvable_zero_sum_from_inf_row() {
-    lean_assert(m_r_solver.A_mult_x_is_off() == false);
+    SASSERT(m_r_solver.A_mult_x_is_off() == false);
     unsigned bj = m_r_basis[m_r_solver.m_inf_row_index_for_tableau];
     m_infeasible_sum_sign =  m_r_solver.inf_sign_of_column(bj);
     m_infeasible_linear_combination.clear();
@@ -243,15 +273,15 @@ void lar_core_solver::fill_not_improvable_zero_sum() {
 
 
 void lar_core_solver::solve() {
-    lean_assert(m_r_solver.non_basic_columns_are_set_correctly());
-    lean_assert(m_r_solver.inf_set_is_correct());
+    SASSERT(m_r_solver.non_basic_columns_are_set_correctly());
+    SASSERT(m_r_solver.inf_set_is_correct());
     if (m_r_solver.current_x_is_feasible() && m_r_solver.m_look_for_feasible_solution_only) {
         m_r_solver.set_status(OPTIMAL);
         return;
     }
     ++settings().st().m_need_to_solve_inf;
-    lean_assert(!m_r_solver.A_mult_x_is_off());
-    lean_assert((!settings().use_tableau()) || r_basis_is_OK());
+    SASSERT(!m_r_solver.A_mult_x_is_off());
+    SASSERT((!settings().use_tableau()) || r_basis_is_OK());
     if (need_to_presolve_with_double_solver()) {
         prefix_d();
         lar_solution_signature solution_signature;
@@ -264,11 +294,11 @@ void lar_core_solver::solve() {
             solve_on_signature_tableau(solution_signature, changes_of_basis);
         else 
             solve_on_signature(solution_signature, changes_of_basis);
-        lean_assert(!settings().use_tableau() || r_basis_is_OK());
+        SASSERT(!settings().use_tableau() || r_basis_is_OK());
     } else {
         if (!settings().use_tableau()) {
             bool snapped = m_r_solver.snap_non_basic_x_to_bound();   
-            lean_assert(m_r_solver.non_basic_columns_are_set_correctly());
+            SASSERT(m_r_solver.non_basic_columns_are_set_correctly());
             if (snapped)
                 m_r_solver.solve_Ax_eq_b();
         }
@@ -276,16 +306,16 @@ void lar_core_solver::solve() {
             m_r_solver.find_feasible_solution();
         else
             m_r_solver.solve();
-        lean_assert(!settings().use_tableau() || r_basis_is_OK());
+        SASSERT(!settings().use_tableau() || r_basis_is_OK());
     }
     if (m_r_solver.get_status() == INFEASIBLE) {
         fill_not_improvable_zero_sum();
     } else if (m_r_solver.get_status() != UNBOUNDED) {
         m_r_solver.set_status(OPTIMAL);
     }
-    lean_assert(r_basis_is_OK());
-    lean_assert(m_r_solver.non_basic_columns_are_set_correctly());
-    lean_assert(m_r_solver.inf_set_is_correct());
+    SASSERT(r_basis_is_OK());
+    SASSERT(m_r_solver.non_basic_columns_are_set_correctly());
+    SASSERT(m_r_solver.inf_set_is_correct());
 }
 
 

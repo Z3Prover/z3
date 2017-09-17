@@ -1,13 +1,28 @@
 
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 #pragma once
 #include "util/vector.h"
 #include "util/debug.h"
 #include "util/lp/lp_utils.h"
-namespace lean {
+namespace lp {
 // the elements with the smallest priority are dequeued first
 template <typename T>
 class binary_heap_priority_queue {
@@ -22,7 +37,7 @@ class binary_heap_priority_queue {
     void put_at(unsigned i, unsigned h);
     void decrease_priority(unsigned o, T newPriority);
 public:
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     bool is_consistent() const;
 #endif
 public:
@@ -60,10 +75,10 @@ public:
     /// return the first element of the queue and removes it from the queue
     unsigned dequeue();
     unsigned peek() const {
-        lean_assert(m_heap_size > 0);
+        SASSERT(m_heap_size > 0);
         return m_heap[1];
     }
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     void print(std::ostream & out);
 #endif
 };

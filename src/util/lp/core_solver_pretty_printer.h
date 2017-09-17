@@ -1,7 +1,22 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 #pragma once
 #include <limits>
 #include <string>
@@ -10,7 +25,7 @@
 #include <ostream>
 #include "util/lp/lp_settings.h"
 #include "util/lp/indexed_vector.h"
-namespace lean {
+namespace lp {
 template <typename T, typename X> class lp_core_solver_base; // forward definition
 
 template <typename T, typename X>

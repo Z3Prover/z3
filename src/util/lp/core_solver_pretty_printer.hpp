@@ -1,7 +1,22 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 #include <limits>
 #include <string>
 #include <algorithm>
@@ -9,7 +24,7 @@
 #include "util/lp/lp_core_solver_base.h"
 #include "util/lp/core_solver_pretty_printer.h"
 #include "util/lp/numeric_pair.h"
-namespace lean {
+namespace lp {
 
 
 template <typename T, typename X>
@@ -148,7 +163,7 @@ template <typename T, typename X> void core_solver_pretty_printer<T, X>::adjust_
     case column_type::free_column:
         break;
     default:
-        lean_assert(false);
+        SASSERT(false);
         break;
     }
 }
@@ -357,7 +372,7 @@ template <typename T, typename X> void core_solver_pretty_printer<T, X>::print_g
         unsigned width = m_column_widths[col];
         string s = row[col];
         int number_of_blanks = width - static_cast<unsigned>(s.size());
-        lean_assert(number_of_blanks >= 0);
+        SASSERT(number_of_blanks >= 0);
         print_blanks(number_of_blanks, m_out);
         m_out << s << ' ';
         if (col < row.size() - 1) {
@@ -368,7 +383,7 @@ template <typename T, typename X> void core_solver_pretty_printer<T, X>::print_g
 
     string rs = T_to_string(rst);
     int nb = m_rs_width - static_cast<int>(rs.size());
-    lean_assert(nb >= 0);
+    SASSERT(nb >= 0);
     print_blanks(nb + 1, m_out);
     m_out << rs << std::endl;
 }

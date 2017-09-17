@@ -1,10 +1,25 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 #pragma once
 #include "util/lp/indexed_vector.h"
-namespace lean {
+namespace lp {
 struct lar_term {
     // the term evaluates to sum of m_coeffs + m_v
     std::unordered_map<unsigned, mpq> m_coeffs;

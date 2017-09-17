@@ -1,10 +1,25 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 #pragma once
 
-namespace lean {
+namespace lp {
 template <typename T>
 class indexed_value {
 public:
@@ -41,7 +56,7 @@ public:
         m_value = val;
     }
 };
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
 template <typename X>
 bool check_vector_for_small_values(indexed_vector<X> & w, lp_settings & settings) {
     for (unsigned i : w.m_index) {

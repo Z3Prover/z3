@@ -4,7 +4,7 @@
   Author: Lev Nachmanson
 */
 #pragma once
-namespace lean {
+namespace lp {
 template <typename V>
 struct conversion_helper {
     static V get_low_bound(const column_info<mpq> & ci) {

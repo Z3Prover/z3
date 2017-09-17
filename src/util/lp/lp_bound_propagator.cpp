@@ -1,9 +1,24 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 #include "util/lp/lar_solver.h"
-namespace lean {
+namespace lp {
     lp_bound_propagator::lp_bound_propagator(lar_solver & ls):
     m_lar_solver(ls) {}
 column_type lp_bound_propagator::get_column_type(unsigned j) const {

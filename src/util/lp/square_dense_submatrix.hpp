@@ -1,10 +1,25 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 #include "util/vector.h"
 #include "util/lp/square_dense_submatrix.h"
-namespace lean {
+namespace lp {
 template <typename T, typename X>
 square_dense_submatrix<T, X>::square_dense_submatrix (sparse_matrix<T, X> *parent_matrix, unsigned index_start) :
     m_index_start(index_start),
@@ -18,7 +33,7 @@ square_dense_submatrix<T, X>::square_dense_submatrix (sparse_matrix<T, X> *paren
         unsigned row = parent_matrix->adjust_row(i);
         for (auto & iv : parent_matrix->get_row_values(row)) {
             unsigned j = parent_matrix->adjust_column_inverse(iv.m_index);
-            lean_assert(j>= m_index_start);
+            SASSERT(j>= m_index_start);
             m_v[row_offset + j] = iv.m_value;
         }
         row_offset += m_dim;
@@ -43,7 +58,7 @@ template <typename T, typename X> void square_dense_submatrix<T, X>::init(sparse
 template <typename T, typename X>    int square_dense_submatrix<T, X>::find_pivot_column_in_row(unsigned i) const {
     int j = -1;
     T max = zero_of_type<T>();
-    lean_assert(i >= m_index_start);
+    SASSERT(i >= m_index_start);
     unsigned row_start = (i - m_index_start) * m_dim;
     for (unsigned k = i; k < m_parent->dimension(); k++) {
         unsigned col = adjust_column(k); // this is where the column is in the row
@@ -64,14 +79,14 @@ template <typename T, typename X>    void square_dense_submatrix<T, X>::pivot(un
 }
 
 template <typename T, typename X>    void square_dense_submatrix<T, X>::pivot_row_to_row(unsigned i, unsigned row, lp_settings & settings) {
-    lean_assert(i < row);
+    SASSERT(i < row);
     unsigned pj = adjust_column(i); // the pivot column
     unsigned pjd = pj - m_index_start;
     unsigned pivot_row_offset = (i-m_index_start)*m_dim;
     T pivot = m_v[pivot_row_offset + pjd];
     unsigned row_offset= (row-m_index_start)*m_dim;
     T m = m_v[row_offset + pjd];
-    lean_assert(!is_zero(pivot));
+    SASSERT(!is_zero(pivot));
     m_v[row_offset + pjd] = -m * pivot; // creating L matrix
     for (unsigned j = m_index_start; j < m_parent->dimension(); j++) {
         if (j == pj) {
@@ -94,7 +109,7 @@ template <typename T, typename X>    void square_dense_submatrix<T, X>::divide_r
     unsigned pj = adjust_column(i); // the pivot column
     unsigned irow_offset = (i - m_index_start) * m_dim;
     T pivot = m_v[irow_offset + pj - m_index_start];
-    lean_assert(!is_zero(pivot));
+    SASSERT(!is_zero(pivot));
     for (unsigned k = m_index_start; k < m_parent->dimension(); k++) {
         if (k == pj){
             m_v[irow_offset++] = one_of_type<T>() / pivot; // creating the L matrix diagonal
@@ -158,7 +173,7 @@ template <typename T, typename X>    void square_dense_submatrix<T, X>::push_new
 template <typename T, typename X>
 template <typename L>
 L square_dense_submatrix<T, X>::row_by_vector_product(unsigned i, const vector<L> & v) {
-    lean_assert(i >= m_index_start);
+    SASSERT(i >= m_index_start);
 
     unsigned row_in_subm = i - m_index_start;
     unsigned row_offset = row_in_subm * m_dim;
@@ -171,7 +186,7 @@ L square_dense_submatrix<T, X>::row_by_vector_product(unsigned i, const vector<L
 template <typename T, typename X>
 template <typename L>
 L square_dense_submatrix<T, X>::column_by_vector_product(unsigned j, const vector<L> & v) {
-    lean_assert(j >= m_index_start);
+    SASSERT(j >= m_index_start);
 
     unsigned offset = j - m_index_start;
     L r = zero_of_type<L>();
@@ -182,7 +197,7 @@ L square_dense_submatrix<T, X>::column_by_vector_product(unsigned j, const vecto
 template <typename T, typename X>
 template <typename L>
 L square_dense_submatrix<T, X>::row_by_indexed_vector_product(unsigned i, const indexed_vector<L> & v) {
-    lean_assert(i >= m_index_start);
+    SASSERT(i >= m_index_start);
 
     unsigned row_in_subm = i - m_index_start;
     unsigned row_offset = row_in_subm * m_dim;
@@ -194,7 +209,7 @@ L square_dense_submatrix<T, X>::row_by_indexed_vector_product(unsigned i, const 
 template <typename T, typename X>
 template <typename L>
 void square_dense_submatrix<T, X>::apply_from_left_local(indexed_vector<L> & w, lp_settings & settings) {
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     // dense_matrix<T, X> deb(*this);
     // vector<L>  deb_w(w.m_data.size());
     // for (unsigned i = 0; i < w.m_data.size(); i++)
@@ -246,11 +261,11 @@ void square_dense_submatrix<T, X>::apply_from_left_local(indexed_vector<L> & w, 
         w.m_data[i] = v;
     }
 #endif
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     // cout << "w final" << endl;
     // print_vector(w.m_data);
-    //        lean_assert(vectors_are_equal<T>(deb_w, w.m_data));
-    // lean_assert(w.is_OK());
+    //        SASSERT(vectors_are_equal<T>(deb_w, w.m_data));
+    // SASSERT(w.is_OK());
 #endif
 }
 
@@ -277,19 +292,19 @@ void square_dense_submatrix<T, X>::apply_from_left_to_vector(vector<L> & w) {
     for (unsigned i = 0; i < m_parent->dimension(); i++) {
         w[i] = t[i];
     }
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     // cout << "w final" << endl;
     // print_vector(w.m_data);
-    //  lean_assert(vectors_are_equal<L>(deb_w, w));
+    //  SASSERT(vectors_are_equal<L>(deb_w, w));
 #endif
 }
 
 template <typename T, typename X>    bool square_dense_submatrix<T, X>::is_L_matrix() const {
-#ifdef LEAN_DEBUG
-    lean_assert(m_row_permutation.is_identity());
+#ifdef Z3DEBUG
+    SASSERT(m_row_permutation.is_identity());
     for (unsigned i = 0; i < m_parent->dimension(); i++) {
         if (i < m_index_start) {
-            lean_assert(m_column_permutation[i] == i);
+            SASSERT(m_column_permutation[i] == i);
             continue;
         }
         unsigned row_offs = (i-m_index_start)*m_dim;
@@ -297,9 +312,9 @@ template <typename T, typename X>    bool square_dense_submatrix<T, X>::is_L_mat
             unsigned j = m_index_start + k;
             unsigned jex = adjust_column_inverse(j);
             if (jex > i) {
-                lean_assert(is_zero(m_v[row_offs + k]));
+                SASSERT(is_zero(m_v[row_offs + k]));
             } else if (jex == i) {
-                lean_assert(!is_zero(m_v[row_offs + k]));
+                SASSERT(!is_zero(m_v[row_offs + k]));
             }
         }
     }
@@ -308,7 +323,7 @@ template <typename T, typename X>    bool square_dense_submatrix<T, X>::is_L_mat
 }
 
 template <typename T, typename X> void square_dense_submatrix<T, X>::apply_from_right(vector<T> & w) {
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     // dense_matrix<T, X> deb(*this);
     // vector<T>  deb_w(w);
     // deb.apply_from_right(deb_w);
@@ -326,15 +341,15 @@ template <typename T, typename X> void square_dense_submatrix<T, X>::apply_from_
         t[adjust_column_inverse(j)] = column_by_vector_product(j, w);
     }
     w = t;
-#ifdef LEAN_DEBUG
-    //  lean_assert(vector_are_equal<T>(deb_w, w));
+#ifdef Z3DEBUG
+    //  SASSERT(vector_are_equal<T>(deb_w, w));
 #endif
 }
 
 
 
 
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
 
 template <typename T, typename X>    T square_dense_submatrix<T, X>::get_elem (unsigned i, unsigned j) const {
     i = adjust_row(i);

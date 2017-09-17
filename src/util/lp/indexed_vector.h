@@ -1,7 +1,22 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 
 #pragma once
 #include "util/vector.h"
@@ -11,7 +26,7 @@
 #include "util/lp/lp_utils.h"
 #include "util/lp/lp_settings.h"
 #include <unordered_set>
-namespace lean {
+namespace lp {
 
 template <typename T> void print_vector(const vector<T> & t, std::ostream & out);
 template <typename T> void print_vector(const buffer<T> & t, std::ostream & out);
@@ -76,7 +91,7 @@ public:
 
     void set_value(const T& value, unsigned index);
     void set_value_as_in_dictionary(unsigned index) {
-        lean_assert(index < m_data.size());
+        SASSERT(index < m_data.size());
         T & loc = m_data[index];
         if (is_zero(loc)) {
             m_index.push_back(index);
@@ -161,7 +176,7 @@ public:
         }
     }
     
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     bool is_OK() const;
     void print(std::ostream & out);
 #endif
