@@ -1,9 +1,23 @@
-/*
-Copyright (c) 2013 Microsoft Corporation. All rights reserved.
-Released under Apache 2.0 license as described in the file LICENSE.
+/*++
+Copyright (c) 2017 Microsoft Corporation
 
-Author: Lev Nachmanson
-*/
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
+
 #pragma once
 
 // reads a text file
@@ -15,7 +29,7 @@ Author: Lev Nachmanson
 #include "util/lp/lp_utils.h"
 #include "util/lp/lp_solver.h"
 
-namespace lean {
+namespace lp {
 
 template <typename T>
 struct test_result {
