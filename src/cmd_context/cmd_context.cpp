@@ -1609,12 +1609,16 @@ void cmd_context::set_diagnostic_stream(char const * name) {
     }
 }
 
-struct contains_array_op_proc {
+struct contains_underspecified_op_proc {
     struct found {};
     family_id m_array_fid;
-    contains_array_op_proc(ast_manager & m):m_array_fid(m.mk_family_id("array")) {}
+    datatype_util m_dt;
+    
+    contains_underspecified_op_proc(ast_manager & m):m_array_fid(m.mk_family_id("array")), m_dt(m) {}
     void operator()(var * n)        {}
     void operator()(app * n)        {
+        if (m_dt.is_accessor(n->get_decl())) 
+            throw found();
         if (n->get_family_id() != m_array_fid)
             return;
         decl_kind k = n->get_decl_kind();
@@ -1713,7 +1717,7 @@ void cmd_context::validate_model() {
     p.set_bool("completion", true);
     model_evaluator evaluator(*(md.get()), p);
     evaluator.set_expand_array_equalities(false);
-    contains_array_op_proc contains_array(m());
+    contains_underspecified_op_proc contains_underspecified(m());
     {
         scoped_rlimit _rlimit(m().limit(), 0);
         cancel_eh<reslimit> eh(m().limit());
@@ -1739,9 +1743,9 @@ void cmd_context::validate_model() {
                     continue;
                 }
                 try {
-                    for_each_expr(contains_array, r);
+                    for_each_expr(contains_underspecified, r);
                 }
-                catch (contains_array_op_proc::found) {
+                catch (contains_underspecified_op_proc::found) {
                     continue;
                 }
                 TRACE("model_validate", model_smt2_pp(tout, *this, *(md.get()), 0););
