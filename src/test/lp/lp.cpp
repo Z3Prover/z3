@@ -3090,9 +3090,9 @@ void test_disjoint_intervals() {
     d.print(std::cout);
     d.intersect_with_interval(-100, 100);
     d.print(std::cout);
-    d.add_interval_x_pos_inf(30);
+    d.unite_with_interval_x_pos_inf(30);
     d.print(std::cout);
-    d.add_interval_neg_inf_x(29);
+    d.unite_with_interval_neg_inf_x(29);
     d.print(std::cout);
     std::cout << "insert lower -5\n";
     d.intersect_with_lower_bound(-5);
@@ -3100,9 +3100,12 @@ void test_disjoint_intervals() {
     std::cout << "insert upper 5\n";
     d.intersect_with_upper_bound(5);
     d.print(std::cout);
-	d.add_interval_x_pos_inf(7);
+	d.unite_with_interval_x_pos_inf(8);
 	d.print(std::cout);
-	d.add_interval_x_pos_inf(6);
+	d.unite_with_interval_x_pos_inf(7);
+	d.print(std::cout);
+	d.unite_with_interval_x_pos_inf(6);
+	d.print(std::cout);
     std::cout << "insert lower bound -4\n";
     d.intersect_with_lower_bound(-4);
 

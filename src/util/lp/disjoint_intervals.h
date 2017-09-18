@@ -81,7 +81,7 @@ struct disjoint_intervals {
         while (m_endpoints.begin() != m_endpoints.end() && m_endpoints.begin()->first < x)
             m_endpoints.erase(m_endpoints.begin());
     }
-    // we intersect the existing set with the half open interval
+    // we intersect the existing set with the half open to the right interval
     void intersect_with_lower_bound(int x) {
         if (m_empty)
             return;
@@ -185,7 +185,7 @@ struct disjoint_intervals {
     }
 
     // add an intervar [x, inf]
-    void add_interval_x_pos_inf(int x) {
+    void unite_with_interval_x_pos_inf(int x) {
         if (m_empty) {
             set_start(x);
             m_empty = false;
@@ -217,7 +217,7 @@ struct disjoint_intervals {
     }
 
     // add an interval [-inf, x]
-    void add_interval_neg_inf_x(int x) {
+    void unite_with_interval_neg_inf_x(int x) {
         if (m_empty) {
             set_end(x);
             m_empty = false;
@@ -248,7 +248,7 @@ struct disjoint_intervals {
         lp_assert(is_correct());
     }
 
-    void add_interval(int x, int y) {
+    void unite_with_interval(int x, int y) {
         lp_assert(false); // not implemented
     }
 
