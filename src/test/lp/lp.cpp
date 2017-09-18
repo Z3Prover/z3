@@ -48,6 +48,7 @@ Revision History:
 #include "util/lp/int_set.h"
 #include "util/stopwatch.h"
 #include "util/lp/disjoint_intervals.h"
+#include "util/lp/stacked_map.h"
 namespace lp {
 unsigned seed = 1;
 
@@ -3086,7 +3087,7 @@ void test_rationals() {
 }
 
 void test_disjoint_intervals() {
-    disjoint_intervals d;
+    disjoint_intervals<int> d;
     d.print(std::cout);
     d.intersect_with_interval(-100, 100);
     d.print(std::cout);
@@ -3103,6 +3104,15 @@ void test_disjoint_intervals() {
 	d.unite_with_interval_x_pos_inf(8);
 	d.print(std::cout);
 	d.unite_with_interval_x_pos_inf(7);
+	d.print(std::cout);
+	std::cout << "intersect with (-oo, 9]\n";
+	d.intersect_with_upper_bound(9);
+	d.print(std::cout);
+
+	std::cout << "unite with [12, oo)\n";
+	d.unite_with_interval_x_pos_inf(12);
+	d.print(std::cout);
+	d.intersect_with_upper_bound(12);
 	d.print(std::cout);
 	d.unite_with_interval_x_pos_inf(6);
 	d.print(std::cout);

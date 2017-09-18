@@ -34,7 +34,6 @@ Revision History:
 #include "util/lp/lp_primal_core_solver.h"
 #include "util/lp/random_updater.h"
 #include <stack>
-#include "util/lp/stacked_map.h"
 #include "util/lp/stacked_value.h"
 #include "util/lp/stacked_vector.h"
 #include "util/lp/stacked_unordered_set.h"
