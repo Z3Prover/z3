@@ -451,7 +451,15 @@ typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_produ
         }
     }
     if (mvs1.empty()) {
-        return alloc(automaton_t, m);
+        if (a.is_final_state(a.init()) && b.is_final_state(b.init())) {
+            // special case: automaton has no moves, but the initial state is final on both sides
+            // this results in the automaton which accepts the empty sequence and nothing else
+            final.clear();
+            final.push_back(0);
+            return alloc(automaton_t, m, 0, final, mvs1);
+        } else {
+            return alloc(automaton_t, m);
+        }
     }
     else {
         return alloc(automaton_t, m, 0, final, mvs1);
