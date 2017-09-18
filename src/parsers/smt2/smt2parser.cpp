@@ -108,6 +108,7 @@ namespace smt2 {
         symbol               m_check_sat_assuming;
         symbol               m_define_fun_rec;
         symbol               m_define_funs_rec;
+        symbol               m_match;
         symbol               m_underscore;
 
         typedef std::pair<symbol, expr*> named_expr;
@@ -135,7 +136,7 @@ namespace smt2 {
 
         typedef psort_frame sort_frame;
 
-        enum expr_frame_kind { EF_APP, EF_LET, EF_LET_DECL, EF_QUANT, EF_ATTR_EXPR, EF_PATTERN };
+        enum expr_frame_kind { EF_APP, EF_LET, EF_LET_DECL, EF_QUANT, EF_MATCH, EF_ATTR_EXPR, EF_PATTERN };
 
         struct expr_frame {
             expr_frame_kind m_kind;
@@ -170,6 +171,12 @@ namespace smt2 {
                 m_pat_spos(pat_spos), m_nopat_spos(nopat_spos),
                 m_sym_spos(sym_spos), m_sort_spos(sort_spos),
                 m_expr_spos(expr_spos) {}
+        };
+
+        struct match_frame : public expr_frame {
+            match_frame():
+                expr_frame(EF_MATCH)
+            {}
         };
 
         struct let_frame : public expr_frame {
@@ -389,6 +396,7 @@ namespace smt2 {
 
         bool curr_id_is_underscore() const { SASSERT(curr_is_identifier()); return curr_id() == m_underscore; }
         bool curr_id_is_as() const { SASSERT(curr_is_identifier()); return curr_id() == m_as; }
+        bool curr_id_is_match() const { SASSERT(curr_is_identifier()); return curr_id() == m_match; }
         bool curr_id_is_forall() const { SASSERT(curr_is_identifier()); return curr_id() == m_forall; }
         bool curr_id_is_exists() const { SASSERT(curr_is_identifier()); return curr_id() == m_exists; }
         bool curr_id_is_bang() const { SASSERT(curr_is_identifier()); return curr_id() == m_bang; }
@@ -1273,6 +1281,47 @@ namespace smt2 {
                 throw parser_exception("invalid quantifier, list of sorted variables is empty");
         }
 
+        /**
+         * SMT-LIB 2.6 pattern matches are of the form
+         * (match t ((p1 t1) ··· (pm+1 tm+1)))         
+         */
+        void push_match_frame() {
+            next();
+#if 0
+            // just use the stack for parsing these for now.
+            void * mem      = m_stack.allocate(sizeof(match_frame));
+            new (mem) match_frame();
+            m_num_expr_frames++;
+#endif
+            parse_expr();
+            expr_ref t(expr_stack().back(), m());
+            expr_stack().pop_back();
+            expr_ref_vector patterns(m()), cases(m());
+
+            check_lparen_next("pattern bindings should be enclosed in a parenthesis");
+            while (!curr_is_rparen()) {
+                check_lparen_next("invalid pattern binding, '(' expected");
+                parse_expr();  // TBD need to parse a pattern here. The sort of 't' provides context for how to interpret _.
+                patterns.push_back(expr_stack().back());
+                expr_stack().pop_back();
+                parse_expr();
+                cases.push_back(expr_stack().back());
+                expr_stack().pop_back();
+                check_rparen_next("invalid pattern binding, ')' expected");
+            }
+            next();
+            expr_stack().push_back(compile_patterns(t, patterns, cases));
+        }
+
+        expr_ref compile_patterns(expr* t, expr_ref_vector const& patterns, expr_ref_vector const& cases) {
+            NOT_IMPLEMENTED_YET();
+            return expr_ref(m());
+        }
+
+        void pop_match_frame(match_frame * fr) {
+
+        }
+
         symbol parse_indexed_identifier_core() {
             check_underscore_next("invalid indexed identifier, '_' expected");
             check_identifier("invalid indexed identifier, symbol expected");
@@ -1599,6 +1648,9 @@ namespace smt2 {
                 else if (curr_id_is_root_obj()) {
                     parse_root_obj();
                 }
+                else if (curr_id_is_match()) {
+                    push_match_frame();
+                }
                 else {
                     push_app_frame();
                 }
@@ -1775,6 +1827,9 @@ namespace smt2 {
                 break;
             case EF_QUANT:
                 pop_quant_frame(static_cast<quant_frame*>(fr));
+                break;
+            case EF_MATCH:
+                pop_match_frame(static_cast<match_frame*>(fr));
                 break;
             case EF_ATTR_EXPR:
                 pop_attr_expr_frame(static_cast<attr_expr_frame*>(fr));
@@ -2730,6 +2785,7 @@ namespace smt2 {
             m_check_sat_assuming("check-sat-assuming"),
             m_define_fun_rec("define-fun-rec"),
             m_define_funs_rec("define-funs-rec"),
+            m_match("match"),
             m_underscore("_"),
             m_num_open_paren(0),
             m_current_file(filename) {
