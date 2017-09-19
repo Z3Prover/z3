@@ -16,18 +16,18 @@ Revision History:
 
 --*/
 #include<iostream>
-#include"z3.h"
-#include"api_log_macros.h"
-#include"api_stats.h"
-#include"api_context.h"
-#include"api_util.h"
-#include"api_model.h"
-#include"opt_context.h"
-#include"opt_cmds.h"
-#include"cancel_eh.h"
-#include"scoped_timer.h"
-#include"smt2parser.h"
-#include"api_ast_vector.h"
+#include "api/z3.h"
+#include "api/api_log_macros.h"
+#include "api/api_stats.h"
+#include "api/api_context.h"
+#include "api/api_util.h"
+#include "api/api_model.h"
+#include "opt/opt_context.h"
+#include "opt/opt_cmds.h"
+#include "util/cancel_eh.h"
+#include "util/scoped_timer.h"
+#include "parsers/smt2/smt2parser.h"
+#include "api/api_ast_vector.h"
 
 extern "C" {
 

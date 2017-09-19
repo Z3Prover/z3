@@ -22,7 +22,7 @@ Revision History:
 #ifndef EXPR_SAFE_REPLACE_H_
 #define EXPR_SAFE_REPLACE_H_
 
-#include "ast.h"
+#include "ast/ast.h"
 
 class expr_safe_replace {
     ast_manager& m;

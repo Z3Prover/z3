@@ -18,9 +18,9 @@
  --*/
 #ifndef BV_TRAILING_H_
 #define BV_TRAILING_H_
-#include"ast.h"
-#include"rewriter_types.h"
-#include"mk_extract_proc.h"
+#include "ast/ast.h"
+#include "ast/rewriter/rewriter_types.h"
+#include "ast/rewriter/mk_extract_proc.h"
 class bv_trailing {
     public:
         bv_trailing(mk_extract_proc& ep);

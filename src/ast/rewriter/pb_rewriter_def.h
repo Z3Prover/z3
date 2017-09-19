@@ -19,7 +19,7 @@ Notes:
 #ifndef PB_REWRITER_DEF_H_
 #define PB_REWRITER_DEF_H_
 
-#include"pb_rewriter.h"
+#include "ast/rewriter/pb_rewriter.h"
 
 
 template<typename PBU>

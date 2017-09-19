@@ -166,7 +166,6 @@ namespace nra {
             polynomial::polynomial* ps[1] = { p };
             bool is_even[1] = { false };
             nlsat::literal lit;
-
             nlsat::assumption a = this + idx;
             switch (k) {
             case lp::lconstraint_kind::LE:
@@ -261,6 +260,5 @@ namespace nra {
     nlsat::anum_manager& solver::am() {
         return m_imp->am();
     }
-
 
 }

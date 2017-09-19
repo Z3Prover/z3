@@ -4,15 +4,16 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
-#include "ast.h"
-#include "nlarith_util.h"
-#include "arith_decl_plugin.h"
-#include "ast_pp.h"
-#include "qe.h"
-#include "expr_replacer.h"
-#include "arith_rewriter.h"
-#include "arith_simplifier_plugin.h"
-#include "expr_functors.h"
+#include "ast/ast.h"
+#include "qe/nlarith_util.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/ast_pp.h"
+#include "qe/qe.h"
+#include "ast/rewriter/expr_replacer.h"
+#include "ast/rewriter/arith_rewriter.h"
+#include "ast/rewriter/bool_rewriter.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "ast/expr_functors.h"
 
 namespace nlarith {
 
@@ -79,9 +80,8 @@ namespace nlarith {
         app_ref m_zero;
         app_ref m_one;
         smt_params m_params;
-        basic_simplifier_plugin m_bs;
-        arith_simplifier_plugin m_rw;
-        arith_rewriter m_rw1;
+        bool_rewriter  m_bs;
+        arith_rewriter m_rw;
         expr_ref_vector m_trail;
 
         ast_manager& m() const { return m_manager; }
@@ -105,8 +105,7 @@ namespace nlarith {
             m_enable_linear(false),
             m_zero(num(0),m), m_one(num(1),m), 
             m_bs(m),
-            m_rw(m, m_bs, m_params),
-            m_rw1(m), m_trail(m) {
+            m_rw(m), m_trail(m) {
         }
         
         //

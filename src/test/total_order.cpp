@@ -17,8 +17,8 @@ Revision History:
 
 --*/
 
-#include"total_order.h"
-#include"timeit.h"
+#include "util/total_order.h"
+#include "util/timeit.h"
 
 static void tst1() {
     uint_total_order to;

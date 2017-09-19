@@ -17,12 +17,13 @@ Revision History:
 
 --*/
 
-#include "smt_context.h"
-#include "theory_array_full.h"
-#include "ast_ll_pp.h"
-#include "ast_pp.h"
-#include "ast_smt2_pp.h"
-#include "stats.h"
+#include "smt/smt_context.h"
+#include "smt/theory_array_full.h"
+#include "ast/ast_ll_pp.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_util.h"
+#include "ast/ast_smt2_pp.h"
+#include "util/stats.h"
 
 namespace smt {
 
@@ -515,7 +516,8 @@ namespace smt {
 
         expr_ref sel1(m), sel2(m);
         sel1 = mk_select(args1.size(), args1.c_ptr());
-        m_simp->mk_app(f, args2.size(), args2.c_ptr(), sel2);
+        sel2 = m.mk_app(f, args2.size(), args2.c_ptr());
+        ctx.get_rewriter()(sel2);
         ctx.internalize(sel1, false);
         ctx.internalize(sel2, false);
         
@@ -536,6 +538,7 @@ namespace smt {
         SASSERT(is_map(mp));
                 
         app* map = mp->get_owner();
+        ast_manager& m = get_manager();
         context& ctx = get_context();
         if (!ctx.add_fingerprint(this, 0, 1, &mp)) {
             return false;
@@ -551,9 +554,9 @@ namespace smt {
             args2.push_back(mk_default(map->get_arg(i)));
         }
 
+        expr_ref def2(m.mk_app(f, args2.size(), args2.c_ptr()), m);
+        ctx.get_rewriter()(def2);
         expr* def1 = mk_default(map);
-        expr_ref def2(get_manager());
-        m_simp->mk_app(f, args2.size(), args2.c_ptr(), def2);
         ctx.internalize(def1, false);
         ctx.internalize(def2, false);
         return try_assign_eq(def1, def2);
@@ -722,9 +725,7 @@ namespace smt {
             }
             
             expr_ref eq(m);
-            simplifier_plugin* p = m_simp->get_plugin(m.get_basic_family_id());
-            basic_simplifier_plugin* bp = static_cast<basic_simplifier_plugin*>(p);
-            bp->mk_and(eqs.size(), eqs.c_ptr(), eq);
+            eq = mk_and(eqs);
             expr* defA = mk_default(store_app->get_arg(0));
             def2 = m.mk_ite(eq, store_app->get_arg(num_args-1), defA); 
 #if 0

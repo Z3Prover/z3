@@ -1,7 +1,22 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 
 #pragma once
 
@@ -160,9 +175,9 @@ class mps_reader {
             if (m_line[i] == ' ')
                 break;
         }
-        lp_assert(m_line.size() >= offset);
-        lp_assert(m_line.size() >> i);
-        lp_assert(i >= offset);
+        SASSERT(m_line.size() >= offset);
+        SASSERT(m_line.size() >> i);
+        SASSERT(i >= offset);
         return m_line.substr(offset, i - offset);
     }
 
@@ -497,7 +512,7 @@ class mps_reader {
 
     void create_or_update_bound() {
         const unsigned name_offset = 14;
-        lp_assert(m_line.size() >= 14);
+        SASSERT(m_line.size() >= 14);
         vector<std::string> bound_string = split_and_trim(m_line.substr(name_offset, m_line.size()));
 
         if (bound_string.size() == 0) {
@@ -603,7 +618,7 @@ class mps_reader {
         }
 
         for (auto s : row_with_range->m_row_columns) {
-            lp_assert(m_columns.find(s.first) != m_columns.end());
+            SASSERT(m_columns.find(s.first) != m_columns.end());
             other_bound_range_row->m_row_columns[s.first] = s.second;
         }
     }
@@ -679,7 +694,7 @@ class mps_reader {
         if (row->m_name != m_cost_row_name) {
             solver->add_constraint(get_relation_from_row(row->m_type), row->m_right_side, row->m_index);
             for (auto s : row->m_row_columns) {
-                lp_assert(m_columns.find(s.first) != m_columns.end());
+                SASSERT(m_columns.find(s.first) != m_columns.end());
                 solver->set_row_column_coefficient(row->m_index, m_columns[s.first]->m_index, s.second);
             }
         } else {
@@ -714,7 +729,7 @@ class mps_reader {
     void set_solver_cost(row * row, lp_solver<T, X> *solver) {
         for (auto s : row->m_row_columns) {
             std::string name = s.first;
-            lp_assert(m_columns.find(name) != m_columns.end());
+            SASSERT(m_columns.find(name) != m_columns.end());
             mps_reader::column * col = m_columns[name];
             solver->set_cost_for_column(col->m_index, s.second);
         }
@@ -723,7 +738,7 @@ class mps_reader {
 public:
 
     void set_message_stream(std::ostream * o) {
-        lp_assert(o != nullptr);
+        SASSERT(o != nullptr);
         m_message_stream = o;
     }
     vector<std::string> column_names() {
@@ -810,7 +825,7 @@ public:
             auto kind = get_lar_relation_from_row(row->m_type);
             vector<std::pair<mpq, var_index>> ls;
             for (auto s : row->m_row_columns) {
-                var_index i = solver->add_var(get_var_index(s.first), false);
+                var_index i = solver->add_var(get_var_index(s.first));
                 ls.push_back(std::make_pair(s.second, i));
             }
             solver->add_constraint(ls, kind, row->m_right_side);
@@ -828,20 +843,20 @@ public:
 
     void create_low_constraint_for_var(column* col, bound * b, lar_solver *solver) {
         vector<std::pair<mpq, var_index>> ls;
-        var_index i = solver->add_var(col->m_index, false);
+        var_index i = solver->add_var(col->m_index);
         ls.push_back(std::make_pair(numeric_traits<T>::one(), i));
         solver->add_constraint(ls, GE, b->m_low);
     }
 
     void create_upper_constraint_for_var(column* col, bound * b, lar_solver *solver) {
-        var_index i = solver->add_var(col->m_index, false);
+        var_index i = solver->add_var(col->m_index);
         vector<std::pair<mpq, var_index>> ls;
         ls.push_back(std::make_pair(numeric_traits<T>::one(), i));
         solver->add_constraint(ls, LE, b->m_upper);
     }
 
     void create_equality_contraint_for_var(column* col, bound * b, lar_solver *solver) {
-        var_index i = solver->add_var(col->m_index, false);
+        var_index i = solver->add_var(col->m_index);
         vector<std::pair<mpq, var_index>> ls;
         ls.push_back(std::make_pair(numeric_traits<T>::one(), i));
         solver->add_constraint(ls, EQ, b->m_fixed_value);
@@ -850,7 +865,7 @@ public:
     void fill_lar_solver_on_columns(lar_solver * solver) {
         for (auto s : m_columns) {
             mps_reader::column * col = s.second;
-            solver->add_var(col->m_index, false);
+            solver->add_var(col->m_index);
             auto b = col->m_bound;
             if (b == nullptr) return;
 

@@ -16,10 +16,10 @@ Author:
 Revision History:
 
 --*/
-#include"smt_context.h"
-#include"ast_pp.h"
-#include"ast_ll_pp.h"
-#include"ast_smt2_pp.h"
+#include "smt/smt_context.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
+#include "ast/ast_smt2_pp.h"
 
 namespace smt {
 

@@ -20,7 +20,7 @@ Revision History:
 #ifndef SAT_CONFIG_H_
 #define SAT_CONFIG_H_
 
-#include"params.h"
+#include "util/params.h"
 
 namespace sat {
 

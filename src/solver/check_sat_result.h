@@ -19,9 +19,10 @@ Notes:
 #ifndef CHECK_SAT_RESULT_H_
 #define CHECK_SAT_RESULT_H_
 
-#include"model.h"
-#include"lbool.h"
-#include"statistics.h"
+#include "model/model.h"
+#include "util/lbool.h"
+#include "util/statistics.h"
+#include "util/event_handler.h"
 
 /**
    \brief Abstract interface for the result of a (check-sat) like command.
@@ -57,6 +58,7 @@ public:
     virtual proof * get_proof() = 0;
     virtual std::string reason_unknown() const = 0;
     virtual void set_reason_unknown(char const* msg) = 0;
+    void set_reason_unknown(event_handler& eh);
     virtual void get_labels(svector<symbol> & r) = 0;
     virtual ast_manager& get_manager() const = 0;
 

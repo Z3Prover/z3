@@ -17,11 +17,11 @@ Revision History:
 
 --*/
 
-#include "expr_context_simplifier.h"
-#include "ast_pp.h"
-#include "obj_hashtable.h"
-#include "smt_kernel.h"
-#include "for_each_expr.h"
+#include "smt/expr_context_simplifier.h"
+#include "ast/ast_pp.h"
+#include "util/obj_hashtable.h"
+#include "smt/smt_kernel.h"
+#include "ast/for_each_expr.h"
 
 // table lookup before/after simplification.
 

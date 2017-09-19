@@ -16,9 +16,9 @@ Author:
 Revision History:
 
 --*/
-#include"mpq.h"
-#include"warning.h"
-#include"z3_exception.h"
+#include "util/mpq.h"
+#include "util/warning.h"
+#include "util/z3_exception.h"
 
 template<bool SYNCH>
 mpq_manager<SYNCH>::mpq_manager() {

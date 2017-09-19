@@ -20,12 +20,12 @@ Revision History:
 #define MPF_H_
 
 #include<string>
-#include"mpz.h"
-#include"mpq.h"
-#include"map.h"
-#include"scoped_numeral.h"
-#include"scoped_numeral_vector.h"
-#include"hash.h"
+#include "util/mpz.h"
+#include "util/mpq.h"
+#include "util/map.h"
+#include "util/scoped_numeral.h"
+#include "util/scoped_numeral_vector.h"
+#include "util/hash.h"
 
 typedef enum {
     MPF_ROUND_NEAREST_TEVEN,
@@ -285,8 +285,9 @@ protected:
     };
 
     std::string to_string_raw(mpf const & a);
-    std::string to_string_hexfloat(mpf const & a);    
+    std::string to_string_hexfloat(mpf const & a);
     std::string to_string_hexfloat(bool sgn, mpf_exp_t exp, scoped_mpz const & sig, unsigned ebits, unsigned sbits, unsigned rbits);
+    std::string to_string_binary(mpf const & x, unsigned upper_extra, unsigned lower_extra);
 public:
     powers2 m_powers2;
 };
@@ -299,6 +300,19 @@ class scoped_mpf : public _scoped_numeral<mpf_manager> {
     mpf_exp_t exponent() const { return get().exponent; }
     unsigned sbits() const { return get().sbits; }
     void set(unsigned ebits, unsigned sbits) { get().set(ebits, sbits); }
+    void set(unsigned ebits, unsigned sbits, bool sign, mpf_exp_t exp, mpz & significand) {
+        get().set(ebits, sbits);
+        get().exponent = exp;
+        get().sign = sign;
+        if (&get().significand != &significand)
+            m().mpz_manager().set(get().significand, significand);
+    }
+    void set(unsigned ebits, unsigned sbits, bool sign, mpf_exp_t exp) {
+        get().set(ebits, sbits);
+        get().exponent = exp;
+        get().sign = sign;
+        m().mpz_manager().set(get().significand, 0);
+    }
 public:
     scoped_mpf(mpf_manager & m):_scoped_numeral<mpf_manager>(m) {}
     scoped_mpf(scoped_mpf const & n):_scoped_numeral<mpf_manager>(n) {}

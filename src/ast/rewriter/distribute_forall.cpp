@@ -18,11 +18,11 @@ Revision History:
     Christoph Wintersteiger 2010-04-06: Added implementation.
 
 --*/
-#include"var_subst.h"
-#include"ast_ll_pp.h"
-#include"ast_util.h"
-#include"distribute_forall.h"
-#include"bool_rewriter.h"
+#include "ast/rewriter/var_subst.h"
+#include "ast/ast_ll_pp.h"
+#include "ast/ast_util.h"
+#include "ast/rewriter/distribute_forall.h"
+#include "ast/rewriter/bool_rewriter.h"
 
 distribute_forall::distribute_forall(ast_manager & m) :
     m_manager(m),

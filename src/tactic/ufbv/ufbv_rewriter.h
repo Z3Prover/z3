@@ -21,12 +21,12 @@ Revision History:
 #ifndef UFBV_REWRITER_H_
 #define UFBV_REWRITER_H_
 
-#include"ast.h"
-#include"substitution.h"
-#include"obj_hashtable.h"
-#include"obj_pair_hashtable.h"
-#include"array_map.h"
-#include"basic_simplifier_plugin.h"
+#include "ast/ast.h"
+#include "ast/substitution/substitution.h"
+#include "ast/rewriter/bool_rewriter.h"
+#include "util/obj_hashtable.h"
+#include "util/obj_pair_hashtable.h"
+#include "util/array_map.h"
 
 /**
    \brief Apply demodulators as a preprocessing technique.
@@ -159,7 +159,7 @@ class ufbv_rewriter {
 
     ast_manager &       m_manager;
     match_subst         m_match_subst;
-    basic_simplifier_plugin & m_bsimp;
+    bool_rewriter       m_bsimp;
     fwd_idx_map         m_fwd_idx;
     back_idx_map        m_back_idx;
     demodulator2lhs_rhs m_demodulator2lhs_rhs;
@@ -194,7 +194,7 @@ protected:
     virtual int is_subset(expr * e1, expr * e2) const; 
 
 public:
-    ufbv_rewriter(ast_manager & m, basic_simplifier_plugin & p);
+    ufbv_rewriter(ast_manager & m);
     virtual ~ufbv_rewriter();
     
     void operator()(unsigned n, expr * const * exprs, proof * const * prs, expr_ref_vector & new_exprs, proof_ref_vector & new_prs);

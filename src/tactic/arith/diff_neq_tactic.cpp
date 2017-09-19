@@ -20,10 +20,10 @@ Author:
 Revision History:
 
 --*/
-#include"tactical.h"
-#include"arith_decl_plugin.h"
-#include"ast_smt2_pp.h"
-#include"model.h"
+#include "tactic/tactical.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/ast_smt2_pp.h"
+#include "model/model.h"
 
 class diff_neq_tactic : public tactic {
     struct imp {

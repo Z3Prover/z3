@@ -20,10 +20,10 @@ Revision History:
 #define INF_EPS_RATIONAL_H_
 #include<stdlib.h>
 #include<string>
-#include"debug.h"
-#include"vector.h"
-#include"rational.h"
-#include"inf_rational.h"
+#include "util/debug.h"
+#include "util/vector.h"
+#include "util/rational.h"
+#include "util/inf_rational.h"
 
 template<typename Numeral>
 class inf_eps_rational {

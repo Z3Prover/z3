@@ -14,13 +14,13 @@
 
  Revision History:
 --*/
-#include"lackr_model_constructor.h"
-#include"model_evaluator.h"
-#include"ast_smt2_pp.h"
-#include"ackr_info.h"
-#include"for_each_expr.h"
-#include"bv_rewriter.h"
-#include"bool_rewriter.h"
+#include "ackermannization/lackr_model_constructor.h"
+#include "model/model_evaluator.h"
+#include "ast/ast_smt2_pp.h"
+#include "ackermannization/ackr_info.h"
+#include "ast/for_each_expr.h"
+#include "ast/rewriter/bv_rewriter.h"
+#include "ast/rewriter/bool_rewriter.h"
 
 struct lackr_model_constructor::imp {
     public:

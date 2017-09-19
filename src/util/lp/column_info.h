@@ -1,7 +1,22 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 
 #pragma once
 #include "util/vector.h"
@@ -100,11 +115,11 @@ public:
     }
 
     T get_low_bound() const {
-        lp_assert(m_low_bound_is_set);
+        SASSERT(m_low_bound_is_set);
         return m_low_bound;
     }
     T get_upper_bound() const {
-        lp_assert(m_upper_bound_is_set);
+        SASSERT(m_upper_bound_is_set);
         return m_upper_bound;
     }
 
@@ -156,7 +171,7 @@ public:
     }
 
     T get_fixed_value() const {
-        lp_assert(m_is_fixed);
+        SASSERT(m_is_fixed);
         return m_fixed_value;
     }
 

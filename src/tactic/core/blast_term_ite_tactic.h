@@ -23,7 +23,7 @@ Notes:
 #ifndef BLAST_TERM_ITE_TACTIC_H_
 #define BLAST_TERM_ITE_TACTIC_H_
 
-#include"params.h"
+#include "util/params.h"
 class ast_manager;
 class tactic;
 

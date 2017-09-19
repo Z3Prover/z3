@@ -13,12 +13,12 @@ Mikolas Janota
 
 Revision History:
 --*/
-#include"ackermannize_bv_tactic.h"
-#include"tactical.h"
-#include"lackr.h"
-#include"model_smt2_pp.h"
-#include"ackermannize_bv_tactic_params.hpp"
-#include"ackermannize_bv_model_converter.h"
+#include "ackermannization/ackermannize_bv_tactic.h"
+#include "tactic/tactical.h"
+#include "ackermannization/lackr.h"
+#include "model/model_smt2_pp.h"
+#include "ackermannization/ackermannize_bv_tactic_params.hpp"
+#include "ackermannization/ackermannize_bv_model_converter.h"
 
 
 class ackermannize_bv_tactic : public tactic {

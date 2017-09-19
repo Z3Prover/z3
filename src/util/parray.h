@@ -19,8 +19,8 @@ Revision History:
 #ifndef PARRAY_H_
 #define PARRAY_H_
 
-#include"vector.h"
-#include"trace.h"
+#include "util/vector.h"
+#include "util/trace.h"
 
 template<typename C>
 class parray_manager {

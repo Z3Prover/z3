@@ -19,17 +19,17 @@ Notes:
 #ifndef FPA2BV_CONVERTER_H_
 #define FPA2BV_CONVERTER_H_
 
-#include"ast.h"
-#include"obj_hashtable.h"
-#include"ref_util.h"
-#include"fpa_decl_plugin.h"
-#include"bv_decl_plugin.h"
-#include"array_decl_plugin.h"
-#include"datatype_decl_plugin.h"
-#include"dl_decl_plugin.h"
-#include"pb_decl_plugin.h"
-#include"seq_decl_plugin.h"
-#include"basic_simplifier_plugin.h"
+#include "ast/ast.h"
+#include "util/obj_hashtable.h"
+#include "util/ref_util.h"
+#include "ast/fpa_decl_plugin.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/array_decl_plugin.h"
+#include "ast/datatype_decl_plugin.h"
+#include "ast/dl_decl_plugin.h"
+#include "ast/pb_decl_plugin.h"
+#include "ast/seq_decl_plugin.h"
+#include "ast/rewriter/bool_rewriter.h"
 
 class fpa2bv_converter {
 public:
@@ -39,7 +39,7 @@ public:
 
 protected:
     ast_manager              & m;
-    basic_simplifier_plugin    m_simp;
+    bool_rewriter              m_simp;
     fpa_util                   m_util;
     bv_util                    m_bv_util;
     arith_util                 m_arith_util;

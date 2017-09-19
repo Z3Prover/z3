@@ -1,12 +1,27 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 #include <memory>
 #include "util/vector.h"
 #include "util/lp/numeric_pair.h"
 #include "util/lp/eta_matrix.hpp"
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
 template double lp::eta_matrix<double, double>::get_elem(unsigned int, unsigned int) const;
 template lp::mpq lp::eta_matrix<lp::mpq, lp::mpq>::get_elem(unsigned int, unsigned int) const;
 template lp::mpq lp::eta_matrix<lp::mpq, lp::numeric_pair<lp::mpq> >::get_elem(unsigned int, unsigned int) const;

@@ -19,8 +19,8 @@ Revision History:
 #ifndef WATCH_LIST_H_
 #define WATCH_LIST_H_
 
-#include"smt_clause.h"
-#include"memory_manager.h"
+#include "smt/smt_clause.h"
+#include "util/memory_manager.h"
 
 namespace smt {
 

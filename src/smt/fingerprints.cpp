@@ -16,7 +16,7 @@ Author:
 Revision History:
 
 --*/
-#include"fingerprints.h"
+#include "smt/fingerprints.h"
 
 namespace smt {
 

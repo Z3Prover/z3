@@ -20,7 +20,7 @@ Notes:
 #ifndef ELIM_TERM_ITE_TACTIC_H_
 #define ELIM_TERM_ITE_TACTIC_H_
 
-#include"params.h"
+#include "util/params.h"
 class ast_manager;
 class tactic;
 

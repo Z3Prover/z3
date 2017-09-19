@@ -18,8 +18,8 @@ Revision History:
 --*/
 
 #include <sstream>
-#include"ast_pp.h"
-#include"dl_sieve_relation.h"
+#include "ast/ast_pp.h"
+#include "muz/rel/dl_sieve_relation.h"
 
 namespace datalog {
 

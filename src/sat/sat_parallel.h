@@ -19,10 +19,10 @@ Revision History:
 #ifndef SAT_PARALLEL_H_
 #define SAT_PARALLEL_H_
 
-#include"sat_types.h"
-#include"hashtable.h"
-#include"map.h"
-#include"rlimit.h"
+#include "sat/sat_types.h"
+#include "util/hashtable.h"
+#include "util/map.h"
+#include "util/rlimit.h"
 
 namespace sat {
 

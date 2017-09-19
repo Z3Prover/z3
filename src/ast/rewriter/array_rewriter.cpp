@@ -16,10 +16,10 @@ Author:
 Notes:
 
 --*/
-#include"array_rewriter.h"
-#include"array_rewriter_params.hpp"
-#include"ast_lt.h"
-#include"ast_pp.h"
+#include "ast/rewriter/array_rewriter.h"
+#include "ast/rewriter/array_rewriter_params.hpp"
+#include "ast/ast_lt.h"
+#include "ast/ast_pp.h"
 
 void array_rewriter::updt_params(params_ref const & _p) {
     array_rewriter_params p(_p);

@@ -14,7 +14,7 @@ Author:
     Nikolaj Bjorner (nbjorner) 2012-02-25
     
 --*/
-#include"arith_eq_solver.h"
+#include "smt/arith_eq_solver.h"
 
 
 arith_eq_solver::~arith_eq_solver() {

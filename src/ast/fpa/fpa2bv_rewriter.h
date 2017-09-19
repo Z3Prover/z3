@@ -20,9 +20,9 @@ Notes:
 #ifndef FPA2BV_REWRITER_H_
 #define FPA2BV_REWRITER_H_
 
-#include"rewriter.h"
-#include"bv_decl_plugin.h"
-#include"fpa2bv_converter.h"
+#include "ast/rewriter/rewriter.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/fpa/fpa2bv_converter.h"
 
 struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
     ast_manager              & m_manager;

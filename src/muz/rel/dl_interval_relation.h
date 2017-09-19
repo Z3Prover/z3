@@ -20,13 +20,12 @@ Revision History:
 #define DL_INTERVAL_RELATION_H_
 
 
-#include "dl_context.h"
-#include "dl_relation_manager.h"
-#include "dl_base.h"
-#include "old_interval.h"
-#include "dl_vector_relation.h"
-#include "arith_decl_plugin.h"
-#include "basic_simplifier_plugin.h"
+#include "ast/arith_decl_plugin.h"
+#include "smt/old_interval.h"
+#include "muz/base/dl_context.h"
+#include "muz/rel/dl_relation_manager.h"
+#include "muz/rel/dl_base.h"
+#include "muz/rel/dl_vector_relation.h"
 
 namespace datalog {
 

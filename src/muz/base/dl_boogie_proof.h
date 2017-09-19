@@ -48,8 +48,8 @@ define-fun) when Boogie supports this.
 
 */
 
-#include "ast.h"
-#include "model.h"
+#include "ast/ast.h"
+#include "model/model.h"
 
 namespace datalog {
     class boogie_proof {

@@ -16,10 +16,10 @@ Author:
 Revision History:
 
 --*/
-#include"debug.h"
-#include"trace.h"
-#include"buffer.h"
-#include"mpn.h"
+#include "util/debug.h"
+#include "util/trace.h"
+#include "util/buffer.h"
+#include "util/mpn.h"
 
 #define max(a,b)    (((a) > (b)) ? (a) : (b))
 

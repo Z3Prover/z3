@@ -14,9 +14,9 @@ Author:
     Leonardo de Moura (leonardo) 2012-02-18.
 
 --*/
-#include"tactical.h"
-#include"rewriter_def.h"
-#include"var_subst.h"
+#include "tactic/tactical.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "ast/rewriter/var_subst.h"
 
 class distribute_forall_tactic : public tactic {
 

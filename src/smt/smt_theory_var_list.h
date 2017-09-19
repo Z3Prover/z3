@@ -19,7 +19,7 @@ Revision History:
 #ifndef SMT_THEORY_VAR_LIST_H_
 #define SMT_THEORY_VAR_LIST_H_
 
-#include"smt_types.h"
+#include "smt/smt_types.h"
 
 namespace smt {
 

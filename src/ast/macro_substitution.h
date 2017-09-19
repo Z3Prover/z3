@@ -21,7 +21,7 @@ Notes:
 #ifndef MACRO_SUBSTITUTION_H_
 #define MACRO_SUBSTITUTION_H_
 
-#include"ast.h"
+#include "ast/ast.h"
 
 class macro_substitution {
     ast_manager &                                      m_manager;

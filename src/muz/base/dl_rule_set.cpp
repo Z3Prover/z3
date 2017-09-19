@@ -19,9 +19,9 @@ Revision History:
 
 #include<algorithm>
 #include<functional>
-#include"dl_context.h"
-#include"dl_rule_set.h"
-#include"ast_pp.h"
+#include "muz/base/dl_context.h"
+#include "muz/base/dl_rule_set.h"
+#include "ast/ast_pp.h"
 
 namespace datalog {
 

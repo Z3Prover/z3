@@ -29,8 +29,8 @@ Author:
 Revision History:
 
 --*/
-#include"sat_iff3_finder.h"
-#include"sat_solver.h"
+#include "sat/sat_iff3_finder.h"
+#include "sat/sat_solver.h"
 
 namespace sat {
 

@@ -19,7 +19,7 @@ Revision History:
 #ifndef THEORY_DUMMY_H_
 #define THEORY_DUMMY_H_
 
-#include"smt_theory.h"
+#include "smt/smt_theory.h"
 
 namespace smt {
 

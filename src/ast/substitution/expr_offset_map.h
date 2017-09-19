@@ -19,8 +19,8 @@ Revision History:
 #ifndef EXPR_OFFSET_MAP_H_
 #define EXPR_OFFSET_MAP_H_
 
-#include"expr_offset.h"
-#include"vector.h"
+#include "ast/substitution/expr_offset.h"
+#include "util/vector.h"
 
 /**
    \brief A mapping from expr_offset to some value of type T.

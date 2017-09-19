@@ -16,7 +16,7 @@ Author:
 Revision History:
 
 --*/
-#include"ptr_scoped_buffer.h"
+#include "util/ptr_scoped_buffer.h"
 
 typedef std::pair<int, int> point;
 

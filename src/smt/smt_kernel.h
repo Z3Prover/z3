@@ -27,12 +27,12 @@ Revision History:
 #ifndef SMT_KERNEL_H_
 #define SMT_KERNEL_H_
 
-#include"ast.h"
-#include"params.h"
-#include"model.h"
-#include"lbool.h"
-#include"statistics.h"
-#include"smt_failure.h"
+#include "ast/ast.h"
+#include "util/params.h"
+#include "model/model.h"
+#include "util/lbool.h"
+#include "util/statistics.h"
+#include "smt/smt_failure.h"
 
 struct smt_params;
 class progress_callback;
@@ -85,7 +85,12 @@ namespace smt {
         /**
            \brief Return the array of asserted formulas.
         */
-        expr * const * get_formulas() const;
+        void get_formulas(ptr_vector<expr>& r) const;
+
+        /**
+           \brief return the formula at index idx.
+        */
+        expr* get_formula(unsigned idx) const;
         
         /**
            \brief Create a backtracking point (aka scope level).

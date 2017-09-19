@@ -27,9 +27,9 @@ Revision History:
 #ifndef MPBQ_H_
 #define MPBQ_H_
 
-#include"mpq.h"
-#include"rational.h"
-#include"vector.h"
+#include "util/mpq.h"
+#include "util/rational.h"
+#include "util/vector.h"
 
 class mpbq {
     mpz      m_num;

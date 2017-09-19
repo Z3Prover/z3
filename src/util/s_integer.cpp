@@ -17,7 +17,7 @@ Revision History:
 
 --*/
 
-#include"s_integer.h"
+#include "util/s_integer.h"
 
 s_integer s_integer::m_zero(0);
 s_integer s_integer::m_one(1);

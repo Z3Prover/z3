@@ -18,7 +18,7 @@ Author:
 Revision History:
 
 --*/
-#include"linear_equation.h"
+#include "tactic/arith/linear_equation.h"
 
 /**
    \brief Return the position of variable x_i in the linear equation.

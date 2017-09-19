@@ -16,7 +16,25 @@ Author:
 Notes:
 
 --*/
-#include"check_sat_result.h"
+#include "solver/check_sat_result.h"
+
+void check_sat_result::set_reason_unknown(event_handler& eh) {
+    switch (eh.caller_id()) {
+    case UNSET_EH_CALLER: break;
+    case CTRL_C_EH_CALLER:
+        set_reason_unknown("interrupted from keyboard");
+        break;
+    case TIMEOUT_EH_CALLER:
+        set_reason_unknown("timeout");
+        break;
+    case RESLIMIT_EH_CALLER:
+        set_reason_unknown("max. resource limit exceeded");
+        break;
+    case API_INTERRUPT_EH_CALLER:
+        set_reason_unknown("interrupted");
+        break;
+    }
+}
 
 simple_check_sat_result::simple_check_sat_result(ast_manager & m):
     m_core(m),

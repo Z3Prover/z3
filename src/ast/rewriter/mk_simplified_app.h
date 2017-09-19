@@ -19,9 +19,9 @@ Notes:
 #ifndef MK_SIMPLIFIED_APP_H_
 #define MK_SIMPLIFIED_APP_H_
 
-#include"ast.h"
-#include"params.h"
-#include"rewriter_types.h"
+#include "ast/ast.h"
+#include "util/params.h"
+#include "ast/rewriter/rewriter_types.h"
 
 class mk_simplified_app {
     struct imp;

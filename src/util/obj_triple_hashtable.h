@@ -19,7 +19,7 @@ Revision History:
 #ifndef OBJ_TRIPLE_HASHTABLE_H_
 #define OBJ_TRIPLE_HASHTABLE_H_
 
-#include"hashtable.h"
+#include "util/hashtable.h"
 
 /**
    \brief Special entry for a hashtable of pairs of obj pointers (i.e.,

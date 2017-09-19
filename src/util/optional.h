@@ -21,26 +21,27 @@ Revision History:
 #ifndef OPTIONAL_H_
 #define OPTIONAL_H_
 
-template<typename T>
+template<class T>
 class optional {
-    char m_obj[sizeof(T)];
+    T* m_obj;
     char m_initialized;
 
     void construct(const T & val) {
         m_initialized = 1;
-        new (reinterpret_cast<void *>(m_obj)) T(val);
+        m_obj = alloc(T, val);
     }
 
     void destroy() {
         if (m_initialized == 1) {
-            reinterpret_cast<T *>(m_obj)->~T();
+            dealloc(m_obj);
+            m_obj = 0;
         }
         m_initialized = 0;
     }
 
 public:
     optional():
-        m_initialized(0) {}
+        m_obj(0), m_initialized(0) {}
 
     explicit optional(const T & val) {
         construct(val);
@@ -65,7 +66,7 @@ public:
     
     T * get() const { 
         if (m_initialized == 1) {
-            return reinterpret_cast<T *>(m_obj);
+            return m_obj;
         }
         else {
             return 0;
@@ -80,22 +81,22 @@ public:
 
     T * operator->() {
         SASSERT(m_initialized==1);
-        return reinterpret_cast<T *>(m_obj);
+        return m_obj;
     }
 
     T const * operator->() const {
         SASSERT(m_initialized==1);
-        return reinterpret_cast<T const *>(m_obj);
+        return m_obj;
     }
 
     const T & operator*() const {
         SASSERT(m_initialized==1);
-        return *reinterpret_cast<T const*>(m_obj);
+        return *m_obj;
     }
     
     T & operator*() {
         SASSERT(m_initialized==1);
-        return *reinterpret_cast<T *>(m_obj);
+        return *m_obj;
     }
 
     optional & operator=(const T & val) {

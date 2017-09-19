@@ -19,12 +19,12 @@ Revision History:
 #ifndef GROBNER_H_
 #define GROBNER_H_
 
-#include"ast.h"
-#include"arith_decl_plugin.h"
-#include"heap.h"
-#include"obj_hashtable.h"
-#include"region.h"
-#include"dependency.h"
+#include "ast/ast.h"
+#include "ast/arith_decl_plugin.h"
+#include "util/heap.h"
+#include "util/obj_hashtable.h"
+#include "util/region.h"
+#include "util/dependency.h"
 
 
 struct grobner_stats {

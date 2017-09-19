@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#include"model_converter.h"
-#include"model_v2_pp.h"
+#include "tactic/model_converter.h"
+#include "model/model_v2_pp.h"
 
 class concat_model_converter : public concat_converter<model_converter> {
 public:

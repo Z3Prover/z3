@@ -19,8 +19,8 @@ Revision History:
 
 #include<utility>
 #include<sstream>
-#include"ast_pp.h"
-#include"dl_mk_magic_sets.h"
+#include "ast/ast_pp.h"
+#include "muz/transforms/dl_mk_magic_sets.h"
 
 namespace datalog {
 

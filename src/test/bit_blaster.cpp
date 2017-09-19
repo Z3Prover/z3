@@ -17,9 +17,9 @@ Revision History:
 
 --*/
 
-#include"bit_blaster.h"
-#include"ast_pp.h"
-#include"ast_ll_pp.h"
+#include "ast/rewriter/bit_blaster/bit_blaster.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
 
 void mk_bits(ast_manager & m, char const * prefix, unsigned sz, expr_ref_vector & r) {
     sort_ref b(m);

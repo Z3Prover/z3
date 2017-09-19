@@ -23,17 +23,17 @@ Revision History:
 #include<list>
 #include<utility>
 
-#include "ast.h"
-#include "bit_vector.h"
-#include "buffer.h"
-#include "hashtable.h"
-#include "map.h"
-#include "ref_vector.h"
-#include "vector.h"
-#include "union_find.h"
-#include "dl_base.h"
-#include "dl_util.h"
-#include "bit_vector.h"
+#include "ast/ast.h"
+#include "util/bit_vector.h"
+#include "util/buffer.h"
+#include "util/hashtable.h"
+#include "util/map.h"
+#include "util/ref_vector.h"
+#include "util/vector.h"
+#include "util/union_find.h"
+#include "muz/rel/dl_base.h"
+#include "muz/base/dl_util.h"
+#include "util/bit_vector.h"
 
 
 namespace datalog {

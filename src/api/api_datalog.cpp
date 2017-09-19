@@ -15,24 +15,24 @@ Author:
 Revision History:
 
 --*/
-#include"api_datalog.h"
-#include"api_context.h"
-#include"api_util.h"
-#include"ast_pp.h"
-#include"api_ast_vector.h"
-#include"api_log_macros.h"
-#include"api_stats.h"
-#include"datalog_parser.h"
-#include"cancel_eh.h"
-#include"scoped_timer.h"
-#include"dl_cmds.h"
-#include"cmd_context.h"
-#include"smt2parser.h"
-#include"dl_context.h"
-#include"dl_register_engine.h"
-#include"dl_external_relation.h"
-#include"dl_decl_plugin.h"
-#include"rel_context.h"
+#include "api/api_datalog.h"
+#include "api/api_context.h"
+#include "api/api_util.h"
+#include "ast/ast_pp.h"
+#include "api/api_ast_vector.h"
+#include "api/api_log_macros.h"
+#include "api/api_stats.h"
+#include "muz/fp/datalog_parser.h"
+#include "util/cancel_eh.h"
+#include "util/scoped_timer.h"
+#include "muz/fp/dl_cmds.h"
+#include "cmd_context/cmd_context.h"
+#include "parsers/smt2/smt2parser.h"
+#include "muz/base/dl_context.h"
+#include "muz/fp/dl_register_engine.h"
+#include "muz/rel/dl_external_relation.h"
+#include "ast/dl_decl_plugin.h"
+#include "muz/rel/rel_context.h"
 
 namespace api {
 
@@ -605,5 +605,6 @@ extern "C" {
 
     }
     
+#include "api_datalog_spacer.inc"
 
 };

@@ -21,17 +21,17 @@ Author:
 Notes:
 
 --*/
-#include"goal2nlsat.h"
-#include"goal.h"
-#include"goal_util.h"
-#include"nlsat_solver.h"
-#include"expr2polynomial.h"
-#include"expr2var.h"
-#include"arith_decl_plugin.h"
-#include"tactic.h"
-#include"ast_pp.h"
-#include"polynomial.h"
-#include"algebraic_numbers.h"
+#include "nlsat/tactic/goal2nlsat.h"
+#include "tactic/goal.h"
+#include "tactic/goal_util.h"
+#include "nlsat/nlsat_solver.h"
+#include "ast/expr2polynomial.h"
+#include "ast/expr2var.h"
+#include "ast/arith_decl_plugin.h"
+#include "tactic/tactic.h"
+#include "ast/ast_pp.h"
+#include "math/polynomial/polynomial.h"
+#include "math/polynomial/algebraic_numbers.h"
 
 struct goal2nlsat::imp {
     struct nlsat_expr2polynomial : public expr2polynomial {

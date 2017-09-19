@@ -19,7 +19,7 @@ Revision History:
 #ifndef SMT_BOOL_VAR_DATA_H_
 #define SMT_BOOL_VAR_DATA_H_
 
-#include"smt_b_justification.h"
+#include "smt/smt_b_justification.h"
 
 namespace smt {
 

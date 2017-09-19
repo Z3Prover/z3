@@ -14,6 +14,7 @@ set(Z3_API_HEADER_FILES_TO_SCAN
   z3_optimization.h
   z3_interp.h
   z3_fpa.h
+  z3_spacer.h
 )
 set(Z3_FULL_PATH_API_HEADER_FILES_TO_SCAN "")
 foreach (header_file ${Z3_API_HEADER_FILES_TO_SCAN})
@@ -67,9 +68,6 @@ add_subdirectory(cmd_context)
 add_subdirectory(cmd_context/extra_cmds)
 add_subdirectory(parsers/smt2)
 add_subdirectory(ast/proof_checker)
-## Simplifier module will be deleted in the future.
-## It has been replaced with rewriter component.
-add_subdirectory(ast/simplifier)
 add_subdirectory(ast/fpa)
 add_subdirectory(ast/macros)
 add_subdirectory(ast/pattern)
@@ -92,6 +90,7 @@ add_subdirectory(muz/tab)
 add_subdirectory(muz/bmc)
 add_subdirectory(muz/ddnf)
 add_subdirectory(muz/duality)
+add_subdirectory(muz/spacer)
 add_subdirectory(muz/fp)
 add_subdirectory(tactic/nlsat_smt)
 add_subdirectory(tactic/ufbv)
@@ -168,6 +167,7 @@ set (libz3_public_headers
   z3_polynomial.h
   z3_rcf.h
   z3_v1.h
+  z3_spacer.h
 )
 foreach (header ${libz3_public_headers})
   set_property(TARGET libz3 APPEND PROPERTY

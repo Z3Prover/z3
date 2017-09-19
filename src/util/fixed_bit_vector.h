@@ -22,8 +22,8 @@ Revision History:
 #define FIXED_BIT_VECTOR_H_
 
 #include<string.h>
-#include"debug.h"
-#include"small_object_allocator.h"
+#include "util/debug.h"
+#include "util/small_object_allocator.h"
 
 class fixed_bit_vector {
     friend class fixed_bit_vector_manager;

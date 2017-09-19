@@ -16,14 +16,14 @@ Author:
 Notes:
 
 --*/
-#include"tactical.h"
-#include"cooperate.h"
-#include"ast_smt2_pp.h"
-#include"has_free_vars.h"
-#include"map.h"
-#include"rewriter_def.h"
-#include"extension_model_converter.h"
-#include"filter_model_converter.h"
+#include "tactic/tactical.h"
+#include "util/cooperate.h"
+#include "ast/ast_smt2_pp.h"
+#include "ast/has_free_vars.h"
+#include "util/map.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "tactic/extension_model_converter.h"
+#include "tactic/filter_model_converter.h"
 
 /**
    \brief Reduce the number of arguments in function applications.
@@ -502,9 +502,8 @@ void reduce_args_tactic::operator()(goal_ref const & g,
 }
 
 void reduce_args_tactic::cleanup() {
-    ast_manager & m   = m_imp->m();    
-    imp * d = alloc(imp, m);
-    std::swap(d, m_imp);    
-    dealloc(d);
+    ast_manager & m   = m_imp->m();
+    m_imp->~imp();
+    m_imp = new (m_imp) imp(m);
 }
 

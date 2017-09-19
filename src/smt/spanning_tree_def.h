@@ -19,7 +19,7 @@ Notes:
 #ifndef SPANNING_TREE_DEF_H_
 #define SPANNING_TREE_DEF_H_
 
-#include "spanning_tree.h"
+#include "smt/spanning_tree.h"
 
 namespace smt {
 

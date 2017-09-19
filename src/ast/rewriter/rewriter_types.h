@@ -19,8 +19,8 @@ Notes:
 #ifndef REWRITER_TYPES_H_
 #define REWRITER_TYPES_H_
 
-#include"z3_exception.h"
-#include"common_msgs.h"
+#include "util/z3_exception.h"
+#include "util/common_msgs.h"
 
 /**
    \brief Builtin rewrite result status

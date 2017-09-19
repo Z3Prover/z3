@@ -1,7 +1,22 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 #include "util/vector.h"
 #include "util/lp/indexed_vector.hpp"
 namespace lp {
@@ -17,7 +32,7 @@ template void indexed_vector<mpq>::resize(unsigned int);
 template void indexed_vector<unsigned>::resize(unsigned int);
 template void indexed_vector<mpq>::set_value(const mpq&, unsigned int);
 template void indexed_vector<unsigned>::set_value(const unsigned&, unsigned int);
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
 template bool indexed_vector<double>::is_OK() const;
 template bool indexed_vector<mpq>::is_OK() const;
 template bool indexed_vector<lp::numeric_pair<mpq> >::is_OK() const;

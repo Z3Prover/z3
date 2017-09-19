@@ -322,7 +322,7 @@ def mk_py_wrappers():
         display_args(num)
         core_py.write("):\n")
         core_py.write("  _lib = lib()\n")
-        core_py.write("  if _lib.%s is None:\n" % name)
+        core_py.write("  if _lib is None or _lib.%s is None:\n" % name)
         core_py.write("     return\n")
         if result != VOID:
             core_py.write("  r = _lib.%s(" % name)
@@ -768,12 +768,12 @@ def mk_log_macro(file, name, params):
                 cap = param_array_capacity_pos(p)
                 if cap not in auxs:
                     auxs.add(cap)
-                    file.write("unsigned _Z3_UNUSED Z3ARG%s; " % cap)
+                    file.write("unsigned _Z3_UNUSED Z3ARG%s = 0; " % cap)
                 sz  = param_array_size_pos(p)
                 if sz not in auxs:
                     auxs.add(sz)
-                    file.write("unsigned * _Z3_UNUSED Z3ARG%s; " % sz)
-            file.write("%s _Z3_UNUSED Z3ARG%s; " % (param2str(p), i))
+                    file.write("unsigned * _Z3_UNUSED Z3ARG%s = 0; " % sz)
+            file.write("%s _Z3_UNUSED Z3ARG%s = 0; " % (param2str(p), i))
         i = i + 1
     file.write("if (_LOG_CTX.enabled()) { log_%s(" % name)
     i = 0
@@ -1573,7 +1573,7 @@ def def_APIs(api_files):
 
 def write_log_h_preamble(log_h):
   log_h.write('// Automatically generated file\n')
-  log_h.write('#include\"z3.h\"\n')
+  log_h.write('#include\"api/z3.h\"\n')
   log_h.write('#ifdef __GNUC__\n')
   log_h.write('#define _Z3_UNUSED __attribute__((unused))\n')
   log_h.write('#else\n')
@@ -1592,14 +1592,14 @@ def write_log_h_preamble(log_h):
 def write_log_c_preamble(log_c):
   log_c.write('// Automatically generated file\n')
   log_c.write('#include<iostream>\n')
-  log_c.write('#include\"z3.h\"\n')
-  log_c.write('#include\"api_log_macros.h\"\n')
-  log_c.write('#include\"z3_logger.h\"\n')
+  log_c.write('#include\"api/z3.h\"\n')
+  log_c.write('#include\"api/api_log_macros.h\"\n')
+  log_c.write('#include\"api/z3_logger.h\"\n')
 
 def write_exe_c_preamble(exe_c):
   exe_c.write('// Automatically generated file\n')
-  exe_c.write('#include\"z3.h\"\n')
-  exe_c.write('#include\"z3_replayer.h\"\n')
+  exe_c.write('#include\"api/z3.h\"\n')
+  exe_c.write('#include\"api/z3_replayer.h\"\n')
   #
   exe_c.write('void Z3_replayer_error_handler(Z3_context ctx, Z3_error_code c) { printf("[REPLAYER ERROR HANDLER]: %s\\n", Z3_get_error_msg(ctx, c)); }\n')
 

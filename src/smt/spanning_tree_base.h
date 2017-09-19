@@ -20,8 +20,8 @@ Notes:
 #ifndef SPANNING_TREE_BASE_H_
 #define SPANNING_TREE_BASE_H_
 
-#include "util.h"
-#include "vector.h"
+#include "util/util.h"
+#include "util/vector.h"
 
 namespace smt {
     template<typename TV>

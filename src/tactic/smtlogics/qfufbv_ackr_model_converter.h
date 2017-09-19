@@ -17,8 +17,8 @@
 #ifndef QFUFBV_ACKR_MODEL_CONVERTER_H_
 #define QFUFBV_ACKR_MODEL_CONVERTER_H_
 
-#include"model_converter.h"
-#include"ackr_info.h"
+#include "tactic/model_converter.h"
+#include "ackermannization/ackr_info.h"
 
 model_converter * mk_qfufbv_ackr_model_converter(ast_manager & m, const ackr_info_ref& info, model_ref& abstr_model);
 

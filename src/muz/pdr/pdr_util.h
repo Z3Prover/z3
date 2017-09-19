@@ -20,16 +20,16 @@ Revision History:
 #ifndef PDR_UTIL_H_
 #define PDR_UTIL_H_
 
-#include "ast.h"
-#include "ast_pp.h"
-#include "obj_hashtable.h"
-#include "ref_vector.h"
-#include "simplifier.h"
-#include "trace.h"
-#include "vector.h"
-#include "arith_decl_plugin.h"
-#include "array_decl_plugin.h"
-#include "bv_decl_plugin.h"
+#include "ast/ast.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_util.h"
+#include "util/obj_hashtable.h"
+#include "util/ref_vector.h"
+#include "util/trace.h"
+#include "util/vector.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/array_decl_plugin.h"
+#include "ast/bv_decl_plugin.h"
 
 
 class model;

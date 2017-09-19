@@ -587,6 +587,14 @@ def mk_def_file_internal(defname, dll_name, export_header_files):
 ###############################################################################
 # Functions for generating ``gparams_register_modules.cpp``
 ###############################################################################
+
+def path_after_src(h_file):
+    h_file = h_file.replace("\\","/")
+    idx = h_file.rfind("src/")
+    if idx == -1:
+        return h_file
+    return h_file[idx + 4:]
+            
 def mk_gparams_register_modules_internal(h_files_full_path, path):
     """
         Generate a ``gparams_register_modules.cpp`` file in the directory ``path``.
@@ -608,7 +616,7 @@ def mk_gparams_register_modules_internal(h_files_full_path, path):
     fullname = os.path.join(path, 'gparams_register_modules.cpp')
     fout  = open(fullname, 'w')
     fout.write('// Automatically generated file.\n')
-    fout.write('#include"gparams.h"\n')
+    fout.write('#include "util/gparams.h"\n')
     reg_pat = re.compile('[ \t]*REG_PARAMS\(\'([^\']*)\'\)')
     reg_mod_pat = re.compile('[ \t]*REG_MODULE_PARAMS\(\'([^\']*)\', *\'([^\']*)\'\)')
     reg_mod_descr_pat = re.compile('[ \t]*REG_MODULE_DESCRIPTION\(\'([^\']*)\', *\'([^\']*)\'\)')
@@ -620,13 +628,13 @@ def mk_gparams_register_modules_internal(h_files_full_path, path):
                 if m:
                     if not added_include:
                         added_include = True
-                        fout.write('#include"%s"\n' % os.path.basename(h_file))
+                        fout.write('#include "%s"\n' % path_after_src(h_file))
                     cmds.append((m.group(1)))
                 m = reg_mod_pat.match(line)
                 if m:
                     if not added_include:
                         added_include = True
-                        fout.write('#include"%s"\n' % os.path.basename(h_file))
+                        fout.write('#include "%s"\n' % path_after_src(h_file))
                     mod_cmds.append((m.group(1), m.group(2)))
                 m = reg_mod_descr_pat.match(line)
                 if m:
@@ -680,9 +688,9 @@ def mk_install_tactic_cpp_internal(h_files_full_path, path):
     fullname = os.path.join(path, 'install_tactic.cpp')
     fout  = open(fullname, 'w')
     fout.write('// Automatically generated file.\n')
-    fout.write('#include"tactic.h"\n')
-    fout.write('#include"tactic_cmds.h"\n')
-    fout.write('#include"cmd_context.h"\n')
+    fout.write('#include "tactic/tactic.h"\n')
+    fout.write('#include "cmd_context/tactic_cmds.h"\n')
+    fout.write('#include "cmd_context/cmd_context.h"\n')
     tactic_pat   = re.compile('[ \t]*ADD_TACTIC\(.*\)')
     probe_pat    = re.compile('[ \t]*ADD_PROBE\(.*\)')
     for h_file in sorted_headers_by_component(h_files_full_path):
@@ -691,8 +699,8 @@ def mk_install_tactic_cpp_internal(h_files_full_path, path):
             for line in fin:
                 if tactic_pat.match(line):
                     if not added_include:
-                        added_include = True
-                        fout.write('#include"%s"\n' % os.path.basename(h_file))
+                        added_include = True                        
+                        fout.write('#include "%s"\n' % path_after_src(h_file))
                     try:
                         eval(line.strip('\n '), eval_globals, None)
                     except Exception as e:
@@ -702,7 +710,7 @@ def mk_install_tactic_cpp_internal(h_files_full_path, path):
                 if probe_pat.match(line):
                     if not added_include:
                         added_include = True
-                        fout.write('#include"%s"\n' % os.path.basename(h_file))
+                        fout.write('#include "%s"\n' % path_after_src(h_file))
                     try:
                         eval(line.strip('\n '), eval_globals, None)
                     except Exception as e:
@@ -764,19 +772,19 @@ def mk_mem_initializer_cpp_internal(h_files_full_path, path):
                 if m:
                     if not added_include:
                         added_include = True
-                        fout.write('#include"%s"\n' % os.path.basename(h_file))
+                        fout.write('#include "%s"\n' % path_after_src(h_file))
                     initializer_cmds.append((m.group(1), 0))
                 m = initializer_prio_pat.match(line)
                 if m:
                     if not added_include:
                         added_include = True
-                        fout.write('#include"%s"\n' % os.path.basename(h_file))
+                        fout.write('#include "%s"\n' % path_after_src(h_file))
                     initializer_cmds.append((m.group(1), int(m.group(2))))
                 m = finalizer_pat.match(line)
                 if m:
                     if not added_include:
                         added_include = True
-                        fout.write('#include"%s"\n' % os.path.basename(h_file))
+                        fout.write('#include "%s"\n' % path_after_src(h_file))
                     finalizer_cmds.append(m.group(1))
     initializer_cmds.sort(key=lambda tup: tup[1])
     fout.write('void mem_initialize() {\n')
@@ -881,9 +889,9 @@ def mk_hpp_from_pyg(pyg_file, output_dir):
         out.write('// Automatically generated file\n')
         out.write('#ifndef __%s_HPP_\n' % class_name.upper())
         out.write('#define __%s_HPP_\n' % class_name.upper())
-        out.write('#include"params.h"\n')
+        out.write('#include "util/params.h"\n')
         if export:
-            out.write('#include"gparams.h"\n')
+            out.write('#include "util/gparams.h"\n')
         out.write('struct %s {\n' % class_name)
         out.write('  params_ref const & p;\n')
         if export:

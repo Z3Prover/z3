@@ -19,8 +19,8 @@ Revision History:
 #ifndef MPQ_H_
 #define MPQ_H_
 
-#include"mpz.h"
-#include"trace.h"
+#include "util/mpz.h"
+#include "util/trace.h"
 
 class mpq {
     mpz m_num;

@@ -19,8 +19,8 @@ Revision History:
 #ifndef HEAP_H_
 #define HEAP_H_
 
-#include"vector.h"
-#include"debug.h"
+#include "util/vector.h"
+#include "util/debug.h"
 
 template<typename LT>
 class heap : private LT {

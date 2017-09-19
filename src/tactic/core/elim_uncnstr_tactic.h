@@ -19,7 +19,7 @@ Notes:
 #ifndef ELIM_UNCNSTR_TACTIC_H_
 #define ELIM_UNCNSTR_TACTIC_H_
 
-#include"params.h"
+#include "util/params.h"
 
 class tactic;
 class ast_manager;

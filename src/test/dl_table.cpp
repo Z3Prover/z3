@@ -3,10 +3,10 @@ Copyright (c) 2015 Microsoft Corporation
 --*/
 #if defined(_WINDOWS) || defined(_CYGWIN)
 
-#include "dl_context.h"
-#include "dl_table.h"
-#include "dl_register_engine.h"
-#include "dl_relation_manager.h"
+#include "muz/base/dl_context.h"
+#include "muz/rel/dl_table.h"
+#include "muz/fp/dl_register_engine.h"
+#include "muz/rel/dl_relation_manager.h"
 
 typedef datalog::table_base* (*mk_table_fn)(datalog::relation_manager& m, datalog::table_signature& sig);
 

@@ -17,10 +17,10 @@ Revision History:
 
 --*/
 #include<sstream>
-#include"array_decl_plugin.h"
-#include"warning.h"
-#include"ast_pp.h"
-#include"ast_ll_pp.h"
+#include "ast/array_decl_plugin.h"
+#include "util/warning.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
 
 array_decl_plugin::array_decl_plugin():
     m_store_sym("store"),
@@ -546,7 +546,7 @@ expr * array_decl_plugin::get_some_value(sort * s) {
     return m_manager->mk_app(m_family_id, OP_CONST_ARRAY, 1, &p, 1, &v);
 }
 
-bool array_decl_plugin::is_fully_interp(sort const * s) const {
+bool array_decl_plugin::is_fully_interp(sort * s) const {
     SASSERT(s->is_sort_of(m_family_id, ARRAY_SORT));
     unsigned sz = get_array_arity(s);
     for (unsigned i = 0; i < sz; i++) {
@@ -556,9 +556,9 @@ bool array_decl_plugin::is_fully_interp(sort const * s) const {
     return m_manager->is_fully_interp(get_array_range(s));
 }
 
-func_decl * array_recognizers::get_as_array_func_decl(app * n) const { 
+func_decl * array_recognizers::get_as_array_func_decl(expr * n) const { 
     SASSERT(is_as_array(n)); 
-    return to_func_decl(n->get_decl()->get_parameter(0).get_ast()); 
+    return to_func_decl(to_app(n)->get_decl()->get_parameter(0).get_ast()); 
 }
 
 array_util::array_util(ast_manager& m): 

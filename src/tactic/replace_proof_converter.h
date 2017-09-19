@@ -23,7 +23,7 @@ Revision History:
 #ifndef REPLACE_PROOF_CONVERTER_H_
 #define REPLACE_PROOF_CONVERTER_H_
 
-#include "proof_converter.h"
+#include "tactic/proof_converter.h"
 
 class replace_proof_converter : public proof_converter {
     ast_manager&    m;

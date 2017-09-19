@@ -16,9 +16,9 @@ Author:
 Revision History:
 
 --*/
-#include"bit_util.h"
-#include"util.h"
-#include"debug.h"
+#include "util/bit_util.h"
+#include "util/util.h"
+#include "util/debug.h"
 #include <cstring>
 
 /**

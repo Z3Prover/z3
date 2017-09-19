@@ -17,9 +17,9 @@
 #ifndef BV_BOUND_CHK_TACTIC_H_
 #define BV_BOUND_CHK_TACTIC_H_
 
-#include"tactical.h"
-#include"params.h"
-#include"ast.h"
+#include "tactic/tactical.h"
+#include "util/params.h"
+#include "ast/ast.h"
 
 tactic* mk_bv_bound_chk_tactic(ast_manager & m, params_ref const & p = params_ref());
 

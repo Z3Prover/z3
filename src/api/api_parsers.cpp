@@ -16,15 +16,15 @@ Revision History:
 
 --*/
 #include<iostream>
-#include"z3.h"
-#include"api_log_macros.h"
-#include"api_context.h"
-#include"api_util.h"
-#include"cmd_context.h"
-#include"smt2parser.h"
-#include"smtparser.h"
-#include"solver_na2as.h"
-#include"api_ast_vector.h"
+#include "api/z3.h"
+#include "api/api_log_macros.h"
+#include "api/api_context.h"
+#include "api/api_util.h"
+#include "api/api_ast_vector.h"
+#include "cmd_context/cmd_context.h"
+#include "parsers/smt2/smt2parser.h"
+#include "parsers/smt/smtparser.h"
+#include "solver/solver_na2as.h"
 
 extern "C" {
 

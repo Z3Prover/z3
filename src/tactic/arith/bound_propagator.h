@@ -20,12 +20,12 @@ Revision History:
 #ifndef BOUND_PROPAGATOR_H_
 #define BOUND_PROPAGATOR_H_
 
-#include"mpq.h"
-#include"vector.h"
-#include"params.h"
-#include"statistics.h"
-#include"numeral_buffer.h"
-#include"linear_equation.h"
+#include "util/mpq.h"
+#include "util/vector.h"
+#include "util/params.h"
+#include "util/statistics.h"
+#include "util/numeral_buffer.h"
+#include "tactic/arith/linear_equation.h"
 
 class bound_propagator {
 public:

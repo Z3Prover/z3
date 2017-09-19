@@ -7,6 +7,8 @@ def_module_params(module_name='smt',
                           ('random_seed', UINT, 0, 'random seed for the smt solver'),
                           ('relevancy', UINT, 2, 'relevancy propagation heuristic: 0 - disabled, 1 - relevancy is tracked by only affects quantifier instantiation, 2 - relevancy is tracked, and an atom is only asserted if it is relevant'),
                           ('macro_finder', BOOL, False, 'try to find universally quantified formulas that can be viewed as macros'),
+                          ('quasi_macros', BOOL, False, 'try to find universally quantified formulas that are quasi-macros'),
+                          ('restricted_quasi_macros', BOOL, False, 'try to find universally quantified formulas that are restricted quasi-macros'),
                           ('ematching', BOOL, True, 'E-Matching based quantifier instantiation'),
                           ('phase_selection', UINT, 3, 'phase selection heuristic: 0 - always false, 1 - always true, 2 - phase caching, 3 - phase caching conservative, 4 - phase caching conservative 2, 5 - random, 6 - number of occurrences'),
                           ('restart_strategy', UINT, 1, '0 - geometric, 1 - inner-outer-geometric, 2 - luby, 3 - fixed, 4 - arithmetic'),
@@ -80,5 +82,6 @@ def_module_params(module_name='smt',
                           ('core.minimize', BOOL, False, 'minimize unsat core produced by SMT context'),
                           ('core.extend_patterns', BOOL, False, 'extend unsat core with literals that trigger (potential) quantifier instances'),
                           ('core.extend_patterns.max_distance', UINT, UINT_MAX, 'limits the distance of a pattern-extended unsat core'),
-                          ('core.extend_nonlocal_patterns', BOOL, False, 'extend unsat cores with literals that have quantifiers with patterns that contain symbols which are not in the quantifier\'s body')
+                          ('core.extend_nonlocal_patterns', BOOL, False, 'extend unsat cores with literals that have quantifiers with patterns that contain symbols which are not in the quantifier\'s body'),
+                          ('lemma_gc_strategy', UINT, 0, 'lemma garbage collection strategy: 0 - fixed, 1 - geometric, 2 - at restart, 3 - none')
                           ))

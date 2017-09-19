@@ -19,7 +19,7 @@ Revision History:
 #ifndef QE_TACTIC_H_
 #define QE_TACTIC_H_
 
-#include"params.h"
+#include "util/params.h"
 class ast_manager;
 class tactic;
 

@@ -1,7 +1,22 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 #pragma once
 #include "util/vector.h"
 #include "util/lp/indexed_vector.h"
@@ -20,7 +35,7 @@ public:
         return m_data[j] >= 0;
     }
     void insert(unsigned j) {
-        lp_assert(j < m_data.size());
+        SASSERT(j < m_data.size());
         if (contains(j)) return;
         m_data[j] = m_index.size();
         m_index.push_back(j);

@@ -2443,26 +2443,26 @@ def mk_config():
             SO_EXT         = '.dylib'
             SLIBFLAGS      = '-dynamiclib'
         elif sysname == 'Linux':
-            CXXFLAGS       = '%s -fno-strict-aliasing -D_LINUX_' % CXXFLAGS
+            CXXFLAGS       = '%s -D_LINUX_' % CXXFLAGS
             OS_DEFINES     = '-D_LINUX_'
             SO_EXT         = '.so'
             LDFLAGS        = '%s -lrt' % LDFLAGS
             SLIBFLAGS      = '-shared'
             SLIBEXTRAFLAGS = '%s -lrt' % SLIBEXTRAFLAGS
         elif sysname == 'FreeBSD':
-            CXXFLAGS       = '%s -fno-strict-aliasing -D_FREEBSD_' % CXXFLAGS
+            CXXFLAGS       = '%s -D_FREEBSD_' % CXXFLAGS
             OS_DEFINES     = '-D_FREEBSD_'
             SO_EXT         = '.so'
             LDFLAGS        = '%s -lrt' % LDFLAGS
             SLIBFLAGS      = '-shared'
             SLIBEXTRAFLAGS = '%s -lrt' % SLIBEXTRAFLAGS
         elif sysname == 'OpenBSD':
-            CXXFLAGS       = '%s -fno-strict-aliasing -D_OPENBSD_' % CXXFLAGS
+            CXXFLAGS       = '%s -D_OPENBSD_' % CXXFLAGS
             OS_DEFINES     = '-D_OPENBSD_'
             SO_EXT         = '.so'
             SLIBFLAGS      = '-shared'
         elif sysname[:6] ==  'CYGWIN':
-            CXXFLAGS    = '%s -D_CYGWIN -fno-strict-aliasing' % CXXFLAGS
+            CXXFLAGS    = '%s -D_CYGWIN' % CXXFLAGS
             OS_DEFINES     = '-D_CYGWIN'
             SO_EXT      = '.dll'
             SLIBFLAGS   = '-shared'
@@ -3046,6 +3046,7 @@ def mk_vs_proj_cl_compile(f, name, components, debug):
         else:
             f.write(';')
         f.write(get_component(dep).to_src_dir)
+    f.write(';%s\n' % os.path.join(REV_BUILD_DIR, SRC_DIR))
     f.write('</AdditionalIncludeDirectories>\n')
     f.write('    </ClCompile>\n')
 

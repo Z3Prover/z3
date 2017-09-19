@@ -17,16 +17,16 @@ Notes:
 
 --*/
 
-#include"rewriter.h"
-#include"rewriter_def.h"
-#include"statistics.h"
-#include"pb2bv_rewriter.h"
-#include"sorting_network.h"
-#include"ast_util.h"
-#include"ast_pp.h"
-#include"lbool.h"
-#include"uint_set.h"
-#include"gparams.h"
+#include "ast/rewriter/rewriter.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "util/statistics.h"
+#include "ast/rewriter/pb2bv_rewriter.h"
+#include "util/sorting_network.h"
+#include "ast/ast_util.h"
+#include "ast/ast_pp.h"
+#include "util/lbool.h"
+#include "util/uint_set.h"
+#include "util/gparams.h"
 
 const unsigned g_primes[7] = { 2, 3, 5, 7, 11, 13, 17};
 

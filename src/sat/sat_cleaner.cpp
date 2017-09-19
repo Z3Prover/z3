@@ -16,10 +16,10 @@ Author:
 Revision History:
 
 --*/
-#include"sat_cleaner.h"
-#include"sat_solver.h"
-#include"trace.h"
-#include"stopwatch.h"
+#include "sat/sat_cleaner.h"
+#include "sat/sat_solver.h"
+#include "util/trace.h"
+#include "util/stopwatch.h"
 
 namespace sat {
 

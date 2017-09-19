@@ -6551,6 +6551,22 @@ class Fixedpoint(Z3PPObject):
             r = Z3_fixedpoint_query(self.ctx.ref(), self.fixedpoint, query.as_ast())
         return CheckSatResult(r)
 
+    def query_from_lvl (self, lvl, *query):
+        """Query the fixedpoint engine whether formula is derivable starting at the given query level.
+        """
+        query = _get_args(query)
+        sz = len(query)
+        if sz >= 1 and isinstance(query[0], FuncDecl):
+            _z3_assert (False, "unsupported")
+        else:
+            if sz == 1:
+                query = query[0]
+            else:
+                query = And(query)
+            query = self.abstract(query, False)
+            r = Z3_fixedpoint_query_from_lvl (self.ctx.ref(), self.fixedpoint, query.as_ast(), lvl)
+        return CheckSatResult(r)
+
     def push(self):
         """create a backtracking point for added rules, facts and assertions"""
         Z3_fixedpoint_push(self.ctx.ref(), self.fixedpoint)
@@ -6572,6 +6588,23 @@ class Fixedpoint(Z3PPObject):
         """Retrieve answer from last query call."""
         r = Z3_fixedpoint_get_answer(self.ctx.ref(), self.fixedpoint)
         return _to_expr_ref(r, self.ctx)
+
+    def get_ground_sat_answer(self):
+        """Retrieve a ground cex from last query call."""
+        r = Z3_fixedpoint_get_ground_sat_answer(self.ctx.ref(), self.fixedpoint)
+        return _to_expr_ref(r, self.ctx)
+
+    def get_rules_along_trace(self):
+        """retrieve rules along the counterexample trace"""
+        return AstVector(Z3_fixedpoint_get_rules_along_trace(self.ctx.ref(), self.fixedpoint), self.ctx)
+
+    def get_rule_names_along_trace(self):
+        """retrieve rule names along the counterexample trace"""
+        # this is a hack as I don't know how to return a list of symbols from C++;
+        # obtain names as a single string separated by semicolons
+        names = _symbol2py (self.ctx, Z3_fixedpoint_get_rule_names_along_trace(self.ctx.ref(), self.fixedpoint))
+        # split into individual names
+        return names.split (';')
 
     def get_num_levels(self, predicate):
         """Retrieve number of levels used for predicate in PDR engine"""
@@ -8167,9 +8200,9 @@ def sequence_interpolant(v,p=None,ctx=None):
     If parameters p are supplied, these are used in creating the
     solver that determines satisfiability.
 
-    >>> x = Int('x')
-    >>> y = Int('y')
-    >>> print(sequence_interpolant([x < 0, y == x , y > 2]))
+    x = Int('x')
+    y = Int('y')
+    print(sequence_interpolant([x < 0, y == x , y > 2]))
     [Not(x >= 0), Not(y >= 0)]
     """
     f = v[0]

@@ -15,13 +15,13 @@
  Revision History:
 --*/
 
-#include"lackr.h"
-#include"ackermannization_params.hpp"
-#include"tactic.h"
-#include"lackr_model_constructor.h"
-#include"ackr_info.h"
-#include"for_each_expr.h"
-#include"model_smt2_pp.h"
+#include "ackermannization/lackr.h"
+#include "ackermannization/ackermannization_params.hpp"
+#include "tactic/tactic.h"
+#include "ackermannization/lackr_model_constructor.h"
+#include "ackermannization/ackr_info.h"
+#include "ast/for_each_expr.h"
+#include "model/model_smt2_pp.h"
 
 lackr::lackr(ast_manager& m, params_ref p, lackr_stats& st, expr_ref_vector& formulas,
     solver * uffree_solver)

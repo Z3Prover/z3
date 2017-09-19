@@ -20,16 +20,16 @@ Notes:
    
 --*/
 
-#include "solver_na2as.h"
-#include "tactic.h"
-#include "bv_decl_plugin.h"
-#include "datatype_decl_plugin.h"
-#include "enum2bv_rewriter.h"
-#include "extension_model_converter.h"
-#include "filter_model_converter.h"
-#include "ast_pp.h"
-#include "model_smt2_pp.h"
-#include "enum2bv_solver.h"
+#include "solver/solver_na2as.h"
+#include "tactic/tactic.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/datatype_decl_plugin.h"
+#include "ast/rewriter/enum2bv_rewriter.h"
+#include "tactic/extension_model_converter.h"
+#include "tactic/filter_model_converter.h"
+#include "ast/ast_pp.h"
+#include "model/model_smt2_pp.h"
+#include "tactic/portfolio/enum2bv_solver.h"
 
 class enum2bv_solver : public solver_na2as {
     ast_manager&   m;

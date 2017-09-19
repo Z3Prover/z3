@@ -48,7 +48,7 @@ Revision History:
 #ifndef PURIFY_ARITH_TACTIC_H_
 #define PURIFY_ARITH_TACTIC_H_
 
-#include"params.h"
+#include "util/params.h"
 class ast_manager;
 class tactic;
 

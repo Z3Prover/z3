@@ -16,10 +16,10 @@ Author:
 Notes:
 
 --*/
-#include"atom2bool_var.h"
-#include"ast_smt2_pp.h"
-#include"ref_util.h"
-#include"goal.h"
+#include "sat/tactic/atom2bool_var.h"
+#include "ast/ast_smt2_pp.h"
+#include "util/ref_util.h"
+#include "tactic/goal.h"
 
 void atom2bool_var::mk_inv(expr_ref_vector & lit2expr) const {
     obj_map<expr, var>::iterator it  = m_mapping.begin();

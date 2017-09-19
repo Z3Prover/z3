@@ -4,5 +4,4 @@ z3_add_component(bit_blaster
     bit_blaster_rewriter.cpp
   COMPONENT_DEPENDENCIES
     rewriter
-    simplifier
 )

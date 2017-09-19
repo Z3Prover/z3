@@ -20,7 +20,7 @@
 
 #pragma once
 
-#include "duality_wrapper.h"
+#include "duality/duality_wrapper.h"
 #include <list>
 #include <map>
 

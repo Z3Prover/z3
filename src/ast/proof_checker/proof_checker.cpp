@@ -4,14 +4,14 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
-#include "proof_checker.h"
-#include "ast_ll_pp.h"
-#include "ast_pp.h"
+#include "ast/proof_checker/proof_checker.h"
+#include "ast/ast_ll_pp.h"
+#include "ast/ast_pp.h"
 // include "spc_decl_plugin.h"
-#include "ast_smt_pp.h"
-#include "arith_decl_plugin.h"
-#include "th_rewriter.h"
-#include "var_subst.h"
+#include "ast/ast_smt_pp.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "ast/rewriter/var_subst.h"
 
 #define IS_EQUIV(_e_) (m.is_eq(_e_) || m.is_iff(_e_))
 
@@ -1299,7 +1299,7 @@ bool proof_checker::check_arith_literal(bool is_pos, app* lit0, rational const& 
         is_pos = !is_pos;
     }
     if (!a.is_le(lit) && !a.is_lt(lit) && !a.is_ge(lit) && !a.is_gt(lit) && !m.is_eq(lit)) {
-        IF_VERBOSE(0, verbose_stream() << mk_pp(lit, m) << "\n";);
+        IF_VERBOSE(2, verbose_stream() << "Not arith literal: " << mk_pp(lit, m) << "\n";);
         return false;
     }
     SASSERT(lit->get_num_args() == 2);
@@ -1363,7 +1363,7 @@ bool proof_checker::check_arith_literal(bool is_pos, app* lit0, rational const& 
         rw(sum);
     }
 
-    IF_VERBOSE(0, verbose_stream() << coeff << "\n" << mk_pp(lit0, m) << "\n" << mk_pp(sum, m) << "\n";);
+    IF_VERBOSE(2, verbose_stream() << "coeff,lit,sum " << coeff << "\n" << mk_pp(lit0, m) << "\n" << mk_pp(sum, m) << "\n";);
 #endif
 
     return true;

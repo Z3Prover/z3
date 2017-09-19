@@ -17,14 +17,14 @@ Revision History:
 
 --*/
 
-#include"ast_pp.h"
-#include"stopwatch.h"
-#include"dl_context.h"
-#include"dl_util.h"
-#include"dl_instruction.h"
-#include"rel_context.h"
-#include"debug.h"
-#include"warning.h"
+#include "ast/ast_pp.h"
+#include "util/stopwatch.h"
+#include "muz/base/dl_context.h"
+#include "muz/base/dl_util.h"
+#include "muz/rel/dl_instruction.h"
+#include "muz/rel/rel_context.h"
+#include "util/debug.h"
+#include "util/warning.h"
 
 namespace datalog {
 

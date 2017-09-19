@@ -1,7 +1,22 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 
 #pragma once
 // this class implements an unordered_set with some stack functionality
@@ -81,7 +96,7 @@ public:
             for (auto & t : d.m_erased) {
                 m_set.insert(t);
             }
-            lp_assert(d.m_deb_copy == m_set);
+            SASSERT(d.m_deb_copy == m_set);
             m_stack.pop();
         }
     }

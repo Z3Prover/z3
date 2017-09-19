@@ -2357,6 +2357,7 @@ namespace sat {
     // ----------------------------------
     // lp based relaxation 
 
+#if 0
     void ba_solver::lp_add_var(int coeff, lp::var_index v, lhs_t& lhs, rational& rhs) {
         if (coeff < 0) {
             rhs += rational(coeff);
@@ -2464,6 +2465,7 @@ namespace sat {
             }
         }
     }
+#endif
 
     // -------------------------------
     // set literals equivalent

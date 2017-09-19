@@ -18,7 +18,6 @@ z3_add_component(qe
     qe_sat_tactic.cpp
     qe_tactic.cpp
     qsat.cpp
-    vsubst_tactic.cpp
   COMPONENT_DEPENDENCIES
     nlsat_tactic
     nlsat
@@ -31,5 +30,4 @@ z3_add_component(qe
     qe_sat_tactic.h
     qe_tactic.h
     qsat.h
-    vsubst_tactic.h
 )

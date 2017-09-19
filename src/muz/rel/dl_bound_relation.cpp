@@ -17,9 +17,9 @@ Revision History:
 
 --*/
 
-#include "dl_bound_relation.h"
-#include "debug.h"
-#include "ast_pp.h"
+#include "muz/rel/dl_bound_relation.h"
+#include "util/debug.h"
+#include "ast/ast_pp.h"
 
 namespace datalog {
 
@@ -653,7 +653,7 @@ namespace datalog {
     void bound_relation::to_formula(expr_ref& fml) const {
         ast_manager& m = get_plugin().get_ast_manager();
         arith_util& arith = get_plugin().m_arith;
-        basic_simplifier_plugin& bsimp = get_plugin().m_bsimp;
+        bool_rewriter& bsimp = get_plugin().m_bsimp;
         expr_ref_vector conjs(m);
         relation_signature const& sig = get_signature();
         for (unsigned i = 0; i < sig.size(); ++i) {

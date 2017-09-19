@@ -18,9 +18,9 @@ Revision History:
 
 --*/
 
-#include "tbv.h"
-#include "hashtable.h"
-#include "ast_util.h"
+#include "muz/rel/tbv.h"
+#include "util/hashtable.h"
+#include "ast/ast_util.h"
 
 
 static bool s_debug_alloc = false;

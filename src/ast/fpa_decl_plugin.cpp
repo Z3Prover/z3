@@ -16,9 +16,9 @@ Author:
 Revision History:
 
 --*/
-#include"fpa_decl_plugin.h"
-#include"arith_decl_plugin.h"
-#include"bv_decl_plugin.h"
+#include "ast/fpa_decl_plugin.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/bv_decl_plugin.h"
 
 fpa_decl_plugin::fpa_decl_plugin():
     m_values(m_fm),

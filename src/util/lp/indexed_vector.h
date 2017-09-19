@@ -1,7 +1,22 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 
 #pragma once
 #include "util/vector.h"
@@ -75,7 +90,16 @@ public:
     }
 
     void set_value(const T& value, unsigned index);
+    void set_value_as_in_dictionary(unsigned index) {
+        SASSERT(index < m_data.size());
+        T & loc = m_data[index];
+        if (is_zero(loc)) {
+            m_index.push_back(index);
+            loc = one_of_type<T>(); // use as a characteristic function
+        } 
+    }
     
+
     void clear();
     void clear_all();
     const T& operator[] (unsigned i) const {
@@ -152,7 +176,7 @@ public:
         }
     }
     
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     bool is_OK() const;
     void print(std::ostream & out);
 #endif

@@ -17,7 +17,7 @@ Author:
 #ifndef REACHABILITY_H_
 #define REACHABILITY_H_
 
-#include "dataflow.h"
+#include "muz/dataflow/dataflow.h"
 
 namespace datalog {
     class reachability_info {

@@ -21,9 +21,9 @@ Revision History:
 #ifndef QE_QSAT_H__
 #define QE_QSAT_H__
 
-#include "tactic.h"
-#include "filter_model_converter.h"
-#include "qe_mbp.h"
+#include "tactic/tactic.h"
+#include "tactic/filter_model_converter.h"
+#include "qe/qe_mbp.h"
 
 namespace qe {
 

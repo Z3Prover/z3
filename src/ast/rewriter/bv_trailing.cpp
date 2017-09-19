@@ -14,9 +14,9 @@
 
  Revision History:
 --*/
-#include"bv_trailing.h"
-#include"bv_decl_plugin.h"
-#include"ast_smt2_pp.h"
+#include "ast/rewriter/bv_trailing.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/ast_smt2_pp.h"
 
 // The analyzer gives up analysis after going TRAILING_DEPTH deep.
 // This number shouldn't be too big.

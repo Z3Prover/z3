@@ -19,9 +19,9 @@ Revision History:
 #ifndef THEORY_ARRAY_H_
 #define THEORY_ARRAY_H_
 
-#include"theory_array_base.h"
-#include"theory_array_params.h"
-#include"union_find.h"
+#include "smt/theory_array_base.h"
+#include "smt/params/theory_array_params.h"
+#include "util/union_find.h"
 
 namespace smt {
 

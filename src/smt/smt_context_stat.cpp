@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#include"smt_context.h"
-#include"ast_pp.h"
+#include "smt/smt_context.h"
+#include "ast/ast_pp.h"
 
 namespace smt {
 

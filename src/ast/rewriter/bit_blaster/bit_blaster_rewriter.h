@@ -19,9 +19,9 @@ Notes:
 #ifndef BIT_BLASTER_REWRITER_H_
 #define BIT_BLASTER_REWRITER_H_
 
-#include"ast.h"
-#include"obj_hashtable.h"
-#include"params.h"
+#include "ast/ast.h"
+#include "util/obj_hashtable.h"
+#include "util/params.h"
 
 class bit_blaster_rewriter {
     struct imp;

@@ -17,11 +17,11 @@ Revision History:
 
 --*/
 #include<iostream>
-#include"vector.h"
-#include"rational.h"
-#include"trace.h"
-#include"ext_gcd.h"
-#include"timeit.h"
+#include "util/vector.h"
+#include "util/rational.h"
+#include "util/trace.h"
+#include "util/ext_gcd.h"
+#include "util/timeit.h"
 
 static void tst1() {
     rational r1(1);

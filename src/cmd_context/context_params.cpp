@@ -17,11 +17,11 @@ Author:
 Notes:
 
 --*/
-#include"context_params.h"
-#include"gparams.h"
-#include"params.h"
-#include"ast.h"
-#include"solver.h"
+#include "cmd_context/context_params.h"
+#include "util/gparams.h"
+#include "util/params.h"
+#include "ast/ast.h"
+#include "solver/solver.h"
 
 context_params::context_params() {
     m_unsat_core     = false;

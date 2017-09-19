@@ -22,8 +22,8 @@
 
 #include <set>
 
-#include "iz3base.h"
-#include "iz3secondary.h"
+#include "interp/iz3base.h"
+#include "interp/iz3secondary.h"
 
 // #define CHECK_PROOFS
 

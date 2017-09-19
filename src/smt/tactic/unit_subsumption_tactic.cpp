@@ -15,8 +15,8 @@ Author:
 
 --*/
 
-#include "unit_subsumption_tactic.h"
-#include "smt_context.h"
+#include "smt/tactic/unit_subsumption_tactic.h"
+#include "smt/smt_context.h"
 
 struct unit_subsumption_tactic : public tactic {
     ast_manager&    m;

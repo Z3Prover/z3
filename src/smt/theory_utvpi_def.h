@@ -49,10 +49,10 @@ Revision History:
 
 #ifndef THEORY_UTVPI_DEF_H_
 #define THEORY_UTVPI_DEF_H_
-#include "theory_utvpi.h"
-#include "heap.h"
-#include "ast_pp.h"
-#include "smt_context.h"
+#include "smt/theory_utvpi.h"
+#include "util/heap.h"
+#include "ast/ast_pp.h"
+#include "smt/smt_context.h"
 
 namespace smt {
 

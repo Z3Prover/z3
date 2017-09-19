@@ -19,8 +19,8 @@ Revision History:
 #ifndef PP_H_
 #define PP_H_
 
-#include"format.h"
-#include"params.h"
+#include "ast/format.h"
+#include "util/params.h"
 
 void pp(std::ostream & out, format_ns::format * f, ast_manager & m, params_ref const & p = params_ref());
 

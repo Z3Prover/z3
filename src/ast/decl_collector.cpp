@@ -17,7 +17,7 @@ Author:
 Revision History:
 
 --*/
-#include"decl_collector.h"
+#include "ast/decl_collector.h"
 
 void decl_collector::visit_sort(sort * n) {
     family_id fid = n->get_family_id();

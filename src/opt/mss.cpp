@@ -18,10 +18,10 @@ Notes:
 
 --*/
 
-#include "solver.h"
-#include "mss.h"
-#include "ast_pp.h"
-#include "model_smt2_pp.h"
+#include "solver/solver.h"
+#include "opt/mss.h"
+#include "ast/ast_pp.h"
+#include "model/model_smt2_pp.h"
 
 namespace opt {
 

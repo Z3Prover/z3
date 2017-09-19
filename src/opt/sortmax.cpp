@@ -16,15 +16,15 @@ Author:
 Notes:
 
 --*/
-#include "maxsmt.h"
-#include "uint_set.h"
-#include "ast_pp.h"
-#include "model_smt2_pp.h"
-#include "smt_theory.h"
-#include "smt_context.h"
-#include "opt_context.h"
-#include "sorting_network.h"
-#include "filter_model_converter.h"
+#include "opt/maxsmt.h"
+#include "util/uint_set.h"
+#include "ast/ast_pp.h"
+#include "model/model_smt2_pp.h"
+#include "smt/smt_theory.h"
+#include "smt/smt_context.h"
+#include "opt/opt_context.h"
+#include "util/sorting_network.h"
+#include "tactic/filter_model_converter.h"
 
 namespace opt {
 

@@ -19,8 +19,8 @@ Revision History:
 #ifndef DATATYPE_FACTORY_H_
 #define DATATYPE_FACTORY_H_
 
-#include"struct_factory.h"
-#include"datatype_decl_plugin.h"
+#include "smt/proto_model/struct_factory.h"
+#include "ast/datatype_decl_plugin.h"
 
 class datatype_factory : public struct_factory {
     datatype_util         m_util;

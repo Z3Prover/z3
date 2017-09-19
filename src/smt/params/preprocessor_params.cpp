@@ -16,20 +16,20 @@ Author:
 Revision History:
 
 --*/
-#include"preprocessor_params.h"
-#include"smt_params_helper.hpp"
+#include "smt/params/preprocessor_params.h"
+#include "smt/params/smt_params_helper.hpp"
 
 void preprocessor_params::updt_local_params(params_ref const & _p) {
     smt_params_helper p(_p);
     m_macro_finder            = p.macro_finder();
+    m_quasi_macros            = p.quasi_macros();
+    m_restricted_quasi_macros = p.restricted_quasi_macros();
     m_pull_nested_quantifiers = p.pull_nested_quantifiers();
     m_refine_inj_axiom        = p.refine_inj_axioms();
 }
 
 void preprocessor_params::updt_params(params_ref const & p) {
     pattern_inference_params::updt_params(p);
-    bv_simplifier_params::updt_params(p);
-    arith_simplifier_params::updt_params(p);
     updt_local_params(p);
 }
 
@@ -38,15 +38,12 @@ void preprocessor_params::updt_params(params_ref const & p) {
 void preprocessor_params::display(std::ostream & out) const {
     pattern_inference_params::display(out);
     bit_blaster_params::display(out);
-    bv_simplifier_params::display(out);
-    arith_simplifier_params::display(out);
 
     DISPLAY_PARAM(m_lift_ite);
     DISPLAY_PARAM(m_ng_lift_ite);
     DISPLAY_PARAM(m_pull_cheap_ite_trees);
     DISPLAY_PARAM(m_pull_nested_quantifiers);
     DISPLAY_PARAM(m_eliminate_term_ite);
-    DISPLAY_PARAM(m_eliminate_and);
     DISPLAY_PARAM(m_macro_finder);
     DISPLAY_PARAM(m_propagate_values);
     DISPLAY_PARAM(m_propagate_booleans);

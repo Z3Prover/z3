@@ -4,16 +4,16 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
-#include "trace.h"
-#include "vector.h"
-#include "ast.h"
-#include "ast_pp.h"
-#include "reg_decl_plugins.h"
-#include "sorting_network.h"
-#include "smt_kernel.h"
-#include "model_smt2_pp.h"
-#include "smt_params.h"
-#include "ast_util.h"
+#include "util/trace.h"
+#include "util/vector.h"
+#include "ast/ast.h"
+#include "ast/ast_pp.h"
+#include "ast/reg_decl_plugins.h"
+#include "util/sorting_network.h"
+#include "smt/smt_kernel.h"
+#include "model/model_smt2_pp.h"
+#include "smt/params/smt_params.h"
+#include "ast/ast_util.h"
 
 
 
@@ -220,7 +220,7 @@ static void test_sorting_eq(unsigned n, unsigned k) {
         TRACE("pb",
               unsigned sz = solver.size();
               for (unsigned i = 0; i < sz; ++i) {
-                  tout << mk_pp(solver.get_formulas()[i], m) << "\n";
+                  tout << mk_pp(solver.get_formula(i), m) << "\n";
               });
         model_ref model;
         solver.get_model(model);
@@ -266,7 +266,7 @@ static void test_sorting_le(unsigned n, unsigned k) {
         TRACE("pb",
               unsigned sz = solver.size();
               for (unsigned i = 0; i < sz; ++i) {
-                  tout << mk_pp(solver.get_formulas()[i], m) << "\n";
+                  tout << mk_pp(solver.get_formula(i), m) << "\n";
               });
         model_ref model;
         solver.get_model(model);
@@ -314,7 +314,7 @@ void test_sorting_ge(unsigned n, unsigned k) {
         TRACE("pb",
               unsigned sz = solver.size();
               for (unsigned i = 0; i < sz; ++i) {
-                  tout << mk_pp(solver.get_formulas()[i], m) << "\n";
+                  tout << mk_pp(solver.get_formula(i), m) << "\n";
               });
         model_ref model;
         solver.get_model(model);

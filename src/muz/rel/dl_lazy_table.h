@@ -21,8 +21,8 @@ Revision History:
 #ifndef DL_LAZY_TABLE_H_
 #define DL_LAZY_TABLE_H_
 
-#include "dl_base.h"
-#include "ref.h"
+#include "muz/rel/dl_base.h"
+#include "util/ref.h"
 
 namespace datalog {
     

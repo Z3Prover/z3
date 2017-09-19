@@ -19,9 +19,9 @@ Revision History:
 #ifndef THEORY_ARITH_PP_H_
 #define THEORY_ARITH_PP_H_
 
-#include"theory_arith.h"
-#include"ast_smt_pp.h"
-#include"stats.h"
+#include "smt/theory_arith.h"
+#include "ast/ast_smt_pp.h"
+#include "util/stats.h"
 
 namespace smt {
     template<typename Ext>

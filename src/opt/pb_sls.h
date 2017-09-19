@@ -19,11 +19,11 @@ Notes:
 #ifndef PB_SLS_H_
 #define PB_SLS_H_
 
-#include "pb_decl_plugin.h"
-#include "model.h"
-#include "lbool.h"
-#include "params.h"
-#include "statistics.h"
+#include "ast/pb_decl_plugin.h"
+#include "model/model.h"
+#include "util/lbool.h"
+#include "util/params.h"
+#include "util/statistics.h"
 
 namespace smt {
 

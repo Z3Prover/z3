@@ -19,8 +19,8 @@ Revision History:
 #ifndef AST_UTIL_H_
 #define AST_UTIL_H_
 
-#include"ast.h"
-#include"obj_hashtable.h"
+#include "ast/ast.h"
+#include "util/obj_hashtable.h"
 
 template<typename C>
 void remove_duplicates(C & v) {

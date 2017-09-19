@@ -4,7 +4,7 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
-#include "dl_util.h"
+#include "muz/base/dl_util.h"
 
 using namespace datalog;
 

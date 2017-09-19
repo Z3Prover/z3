@@ -17,10 +17,10 @@ Notes:
 
 --*/
 
-#include "ast.h"
-#include "goal.h"
-#include "hashtable.h"
-#include "collect_occs.h"
+#include "ast/ast.h"
+#include "tactic/goal.h"
+#include "util/hashtable.h"
+#include "tactic/core/collect_occs.h"
 
 bool collect_occs::visit(expr * t) {
     if (m_visited.is_marked(t)) {

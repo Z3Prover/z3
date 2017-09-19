@@ -22,11 +22,11 @@ Revision History:
 #include<iostream>
 #include<string>
 #include<utility>
-#include "ast.h"
-#include "vector.h"
-#include "dl_base.h"
-#include "dl_costs.h"
-#include "dl_context.h"
+#include "ast/ast.h"
+#include "util/vector.h"
+#include "muz/rel/dl_base.h"
+#include "muz/base/dl_costs.h"
+#include "muz/base/dl_context.h"
 
 namespace datalog {
 

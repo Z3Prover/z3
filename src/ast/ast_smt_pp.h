@@ -19,9 +19,9 @@ Revision History:
 #ifndef AST_SMT_PP_H_
 #define AST_SMT_PP_H_
 
-#include"ast.h"
+#include "ast/ast.h"
 #include<string>
-#include"map.h"
+#include "util/map.h"
 
 class smt_renaming {
     typedef map<symbol, symbol, symbol_hash_proc, symbol_eq_proc> symbol2symbol;

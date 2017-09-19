@@ -20,8 +20,8 @@ Revision History:
 --*/
 #include<cstdlib>
 #include<iostream>
-#include"fixed_bit_vector.h"
-#include"vector.h"
+#include "util/fixed_bit_vector.h"
+#include "util/vector.h"
 
 
 static void tst1() {

@@ -19,9 +19,9 @@ Notes:
 #ifndef FPA2BV_MODEL_CONVERTER_H_
 #define FPA2BV_MODEL_CONVERTER_H_
 
-#include"fpa2bv_converter.h"
-#include"model_converter.h"
-#include"bv2fpa_converter.h"
+#include "ast/fpa/fpa2bv_converter.h"
+#include "tactic/model_converter.h"
+#include "ast/fpa/bv2fpa_converter.h"
 
 class fpa2bv_model_converter : public model_converter {
     ast_manager & m;

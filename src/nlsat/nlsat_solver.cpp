@@ -18,20 +18,20 @@ Author:
 Revision History:
 
 --*/
-#include"nlsat_solver.h"
-#include"nlsat_clause.h"
-#include"nlsat_assignment.h"
-#include"nlsat_justification.h"
-#include"nlsat_evaluator.h"
-#include"nlsat_explain.h"
-#include"algebraic_numbers.h"
-#include"z3_exception.h"
-#include"chashtable.h"
-#include"id_gen.h"
-#include"dependency.h"
-#include"polynomial_cache.h"
-#include"permutation.h"
-#include"nlsat_params.hpp"
+#include "nlsat/nlsat_solver.h"
+#include "nlsat/nlsat_clause.h"
+#include "nlsat/nlsat_assignment.h"
+#include "nlsat/nlsat_justification.h"
+#include "nlsat/nlsat_evaluator.h"
+#include "nlsat/nlsat_explain.h"
+#include "math/polynomial/algebraic_numbers.h"
+#include "util/z3_exception.h"
+#include "util/chashtable.h"
+#include "util/id_gen.h"
+#include "util/dependency.h"
+#include "math/polynomial/polynomial_cache.h"
+#include "util/permutation.h"
+#include "nlsat/nlsat_params.hpp"
 
 #define NLSAT_EXTRA_VERBOSE
 

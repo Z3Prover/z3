@@ -19,8 +19,8 @@ Revision History:
 #ifndef FUNC_DECL_DEPENDENCIES_H_
 #define FUNC_DECL_DEPENDENCIES_H_
 
-#include"ast.h"
-#include"obj_hashtable.h"
+#include "ast/ast.h"
+#include "util/obj_hashtable.h"
 
 // Set of dependencies
 typedef obj_hashtable<func_decl> func_decl_set;

@@ -18,10 +18,10 @@
 #ifndef LACKR_MODEL_CONSTRUCTOR_H_
 #define LACKR_MODEL_CONSTRUCTOR_H_
 
-#include"ast.h"
-#include"ackr_info.h"
-#include"ackr_helper.h"
-#include"model.h"
+#include "ast/ast.h"
+#include "ackermannization/ackr_info.h"
+#include "ackermannization/ackr_helper.h"
+#include "model/model.h"
 
 class lackr_model_constructor {
     public:

@@ -1,7 +1,22 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 #include <string>
 #include <algorithm>
 #include "util/vector.h"
@@ -32,7 +47,7 @@ template <typename T, typename X> T lp_solver<T, X>::get_column_cost_value(unsig
     return ci->get_cost() * get_column_value(j);
 }
 template <typename T, typename X> void lp_solver<T, X>::add_constraint(lp_relation relation, T  right_side, unsigned row_index) {
-    lp_assert(m_constraints.find(row_index) == m_constraints.end());
+    SASSERT(m_constraints.find(row_index) == m_constraints.end());
     lp_constraint<T, X> cs(right_side, relation);
     m_constraints[row_index] = cs;
 }
@@ -158,10 +173,10 @@ template <typename T, typename X> void lp_solver<T, X>::pin_vars_on_row_with_sig
         column_info<T> * ci = m_map_from_var_index_to_column_info[j];
         T a = t.second;
         if (a * sign > numeric_traits<T>::zero()) {
-            lp_assert(ci->upper_bound_is_set());
+            SASSERT(ci->upper_bound_is_set());
             ci->set_fixed_value(ci->get_upper_bound());
         } else {
-            lp_assert(ci->low_bound_is_set());
+            SASSERT(ci->low_bound_is_set());
             ci->set_fixed_value(ci->get_low_bound());
         }
     }
@@ -223,7 +238,7 @@ template <typename T, typename X>    bool lp_solver<T, X>::row_e_is_obsolete(std
     T rs = m_constraints[row_index].m_rs;
     if (row_is_zero(row)) {
         if (!is_zero(rs))
-            m_status = lp_status::INFEASIBLE;
+            m_status = INFEASIBLE;
         return true;
     }
 
@@ -233,7 +248,7 @@ template <typename T, typename X>    bool lp_solver<T, X>::row_e_is_obsolete(std
         T diff = low_bound - rs;
         if (!val_is_smaller_than_eps(diff, m_settings.refactor_tolerance)){
             // low_bound > rs + m_settings.refactor_epsilon
-            m_status = lp_status::INFEASIBLE;
+            m_status = INFEASIBLE;
             return true;
         }
         if (val_is_smaller_than_eps(-diff, m_settings.refactor_tolerance)){
@@ -248,7 +263,7 @@ template <typename T, typename X>    bool lp_solver<T, X>::row_e_is_obsolete(std
         T diff = rs - upper_bound;
         if (!val_is_smaller_than_eps(diff,  m_settings.refactor_tolerance)) {
             // upper_bound < rs - m_settings.refactor_tolerance
-            m_status = lp_status::INFEASIBLE;
+            m_status = INFEASIBLE;
             return true;
         }
         if (val_is_smaller_than_eps(-diff, m_settings.refactor_tolerance)){
@@ -264,7 +279,7 @@ template <typename T, typename X>  bool lp_solver<T, X>::row_ge_is_obsolete(std:
     T rs = m_constraints[row_index].m_rs;
     if (row_is_zero(row)) {
         if (rs > zero_of_type<X>())
-            m_status = lp_status::INFEASIBLE;
+            m_status = INFEASIBLE;
         return true;
     }
 
@@ -273,7 +288,7 @@ template <typename T, typename X>  bool lp_solver<T, X>::row_ge_is_obsolete(std:
         T diff = rs - upper_bound;
         if (!val_is_smaller_than_eps(diff, m_settings.refactor_tolerance)) {
             // upper_bound < rs - m_settings.refactor_tolerance
-            m_status = lp_status::INFEASIBLE;
+            m_status = INFEASIBLE;
             return true;
         }
         if (val_is_smaller_than_eps(-diff, m_settings.refactor_tolerance)){
@@ -290,7 +305,7 @@ template <typename T, typename X> bool lp_solver<T, X>::row_le_is_obsolete(std::
     T rs = m_constraints[row_index].m_rs;
     if (row_is_zero(row)) {
         if (rs < zero_of_type<X>())
-            m_status = lp_status::INFEASIBLE;
+            m_status = INFEASIBLE;
         return true;
     }
 
@@ -328,7 +343,7 @@ template <typename T, typename X>    bool lp_solver<T, X>::row_is_obsolete(std::
     case lp_relation::Less_or_equal:
         return row_le_is_obsolete(row, row_index);
     }
-    lp_unreachable();
+    SASSERT(false);
     return false; // it is unreachable
 }
 
@@ -343,7 +358,7 @@ template <typename T, typename X> void lp_solver<T, X>::remove_fixed_or_zero_col
     vector<unsigned> removed;
     for (auto & col : row) {
         unsigned j = col.first;
-        lp_assert(m_map_from_var_index_to_column_info.find(j) != m_map_from_var_index_to_column_info.end());
+        SASSERT(m_map_from_var_index_to_column_info.find(j) != m_map_from_var_index_to_column_info.end());
         column_info<T> * ci = m_map_from_var_index_to_column_info[j];
         if (ci->is_fixed()) {
             removed.push_back(j);
@@ -412,7 +427,7 @@ template <typename T, typename X> void lp_solver<T, X>::map_external_columns_to_
             }
             unsigned j = col.first;
             auto column_info_it = m_map_from_var_index_to_column_info.find(j);
-            lp_assert(column_info_it != m_map_from_var_index_to_column_info.end());
+            SASSERT(column_info_it != m_map_from_var_index_to_column_info.end());
 
             auto j_column = column_info_it->second->get_column_index();
             if (!is_valid(j_column)) { // j is a newcomer
@@ -435,14 +450,14 @@ template <typename T, typename X> void lp_solver<T, X>::fill_A_from_A_values() {
     m_A = new static_matrix<T, X>(static_cast<unsigned>(m_A_values.size()), number_of_core_structurals());
     for (auto & t : m_A_values) {
         auto row_it = m_external_rows_to_core_solver_rows.find(t.first);
-        lp_assert(row_it != m_external_rows_to_core_solver_rows.end());
+        SASSERT(row_it != m_external_rows_to_core_solver_rows.end());
         unsigned row =  row_it->second;
         for (auto k : t.second) {
             auto column_info_it = m_map_from_var_index_to_column_info.find(k.first);
-            lp_assert(column_info_it != m_map_from_var_index_to_column_info.end());
+            SASSERT(column_info_it != m_map_from_var_index_to_column_info.end());
             column_info<T> *ci = column_info_it->second;
             unsigned col = ci->get_column_index();
-            lp_assert(is_valid(col));
+            SASSERT(is_valid(col));
             bool col_is_flipped = m_map_from_var_index_to_column_info[k.first]->is_flipped();
             if (!col_is_flipped) {
                 (*m_A)(row, col) = k.second;
@@ -456,7 +471,7 @@ template <typename T, typename X> void lp_solver<T, X>::fill_A_from_A_values() {
 template <typename T, typename X> void lp_solver<T, X>::fill_matrix_A_and_init_right_side() {
     map_external_rows_to_core_solver_rows();
     map_external_columns_to_core_solver_columns();
-    lp_assert(m_A == nullptr);
+    SASSERT(m_A == nullptr);
     fill_A_from_A_values();
     m_b.resize(m_A->row_count());
 }
@@ -468,7 +483,7 @@ template <typename T, typename X> void lp_solver<T, X>::count_slacks_and_artific
 }
 
 template <typename T, typename X> void lp_solver<T, X>::count_slacks_and_artificials_for_row(unsigned i) {
-    lp_assert(this->m_constraints.find(this->m_core_solver_rows_to_external_rows[i]) != this->m_constraints.end());
+    SASSERT(this->m_constraints.find(this->m_core_solver_rows_to_external_rows[i]) != this->m_constraints.end());
     auto & constraint = this->m_constraints[this->m_core_solver_rows_to_external_rows[i]];
     switch (constraint.m_relation) {
     case Equal:
@@ -504,7 +519,7 @@ template <typename T, typename X>    T lp_solver<T, X>::low_bound_shift_for_row(
 
 template <typename T, typename X> void lp_solver<T, X>::fill_m_b() {
     for (int i = this->row_count() - 1; i >= 0; i--) {
-        lp_assert(this->m_constraints.find(this->m_core_solver_rows_to_external_rows[i]) != this->m_constraints.end());
+        SASSERT(this->m_constraints.find(this->m_core_solver_rows_to_external_rows[i]) != this->m_constraints.end());
         unsigned external_i = this->m_core_solver_rows_to_external_rows[i];
         auto & constraint = this->m_constraints[external_i];
         this->m_b[i] = constraint.m_rs - low_bound_shift_for_row(external_i);
@@ -542,13 +557,13 @@ template <typename T, typename X> T lp_solver<T, X>::get_column_value_with_core_
 
 template <typename T, typename X> void lp_solver<T, X>::set_scaled_cost(unsigned j) {
     // grab original costs but modify it with the column scales
-    lp_assert(j < this->m_column_scale.size());
+    SASSERT(j < this->m_column_scale.size());
     column_info<T> * ci = this->m_map_from_var_index_to_column_info[this->m_core_solver_columns_to_external_columns[j]];
     T cost = ci->get_cost();
     if (ci->is_flipped()){
         cost *= -1;
     }
-    lp_assert(ci->is_fixed() == false);
+    SASSERT(ci->is_fixed() == false);
     this->m_costs[j] = cost * this->m_column_scale[j];
 }
 }

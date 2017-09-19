@@ -5,13 +5,13 @@ Copyright (c) 2015 Microsoft Corporation
 --*/
 
 #ifdef _WINDOWS
-#include "dl_context.h"
-#include "dl_register_engine.h"
-#include "dl_relation_manager.h"
-#include "dl_interval_relation.h"
-#include "dl_bound_relation.h"
-#include "dl_product_relation.h"
-#include "util.h"
+#include "muz/base/dl_context.h"
+#include "muz/fp/dl_register_engine.h"
+#include "muz/rel/dl_relation_manager.h"
+#include "muz/rel/dl_interval_relation.h"
+#include "muz/rel/dl_bound_relation.h"
+#include "muz/rel/dl_product_relation.h"
+#include "util/util.h"
 
 namespace datalog {
 

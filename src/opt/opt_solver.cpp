@@ -19,20 +19,20 @@ Notes:
    
 --*/
 #include <typeinfo>
-#include "reg_decl_plugins.h"
-#include "opt_solver.h"
-#include "smt_context.h"
-#include "theory_arith.h"
-#include "theory_diff_logic.h"
-#include "theory_dense_diff_logic.h"
-#include "theory_pb.h"
-#include "theory_lra.h"
-#include "ast_pp.h"
-#include "ast_smt_pp.h"
-#include "pp_params.hpp"
-#include "opt_params.hpp"
-#include "model_smt2_pp.h"
-#include "stopwatch.h"
+#include "ast/reg_decl_plugins.h"
+#include "opt/opt_solver.h"
+#include "smt/smt_context.h"
+#include "smt/theory_arith.h"
+#include "smt/theory_diff_logic.h"
+#include "smt/theory_dense_diff_logic.h"
+#include "smt/theory_pb.h"
+#include "smt/theory_lra.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_smt_pp.h"
+#include "ast/pp_params.hpp"
+#include "opt/opt_params.hpp"
+#include "model/model_smt2_pp.h"
+#include "util/stopwatch.h"
 
 namespace opt {
 
@@ -161,7 +161,7 @@ namespace opt {
         TRACE("opt_verbose", {
             tout << "context size: " << m_context.size() << "\n";            
             for (unsigned i = 0; i < m_context.size(); ++i) {
-                tout << mk_pp(m_context.get_formulas()[i], m_context.m()) << "\n";
+                tout << mk_pp(m_context.get_formula(i), m_context.m()) << "\n";
             }
         });
         stopwatch w;
@@ -330,7 +330,7 @@ namespace opt {
     
     expr * opt_solver::get_assertion(unsigned idx) const {
         SASSERT(idx < get_num_assertions());
-        return m_context.get_formulas()[idx];
+        return m_context.get_formula(idx);
     }
         
     smt::theory_var opt_solver::add_objective(app* term) {

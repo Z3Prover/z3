@@ -19,17 +19,17 @@ Revision History:
 #ifndef SMT_CONFLICT_RESOLUTION_H_
 #define SMT_CONFLICT_RESOLUTION_H_
 
-#include"smt_literal.h"
-#include"smt_bool_var_data.h"
-#include"smt_justification.h"
-#include"smt_enode.h"
-#include"dyn_ack.h"
-#include"obj_pair_hashtable.h"
-#include"smt_params.h"
-#include"obj_pair_hashtable.h"
-#include"map.h"
-#include"watch_list.h"
-#include"obj_pair_set.h"
+#include "smt/smt_literal.h"
+#include "smt/smt_bool_var_data.h"
+#include "smt/smt_justification.h"
+#include "smt/smt_enode.h"
+#include "smt/dyn_ack.h"
+#include "util/obj_pair_hashtable.h"
+#include "smt/params/smt_params.h"
+#include "util/obj_pair_hashtable.h"
+#include "util/map.h"
+#include "smt/watch_list.h"
+#include "util/obj_pair_set.h"
 
 typedef approx_set_tpl<unsigned, u2u, unsigned> level_approx_set;
 

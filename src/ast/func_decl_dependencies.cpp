@@ -16,9 +16,9 @@ Author:
 Revision History:
 
 --*/
-#include"func_decl_dependencies.h"
-#include"for_each_expr.h"
-#include"ast_util.h"
+#include "ast/func_decl_dependencies.h"
+#include "ast/for_each_expr.h"
+#include "ast/ast_util.h"
 
 struct collect_dependencies_proc {
     ast_manager &     m_manager;

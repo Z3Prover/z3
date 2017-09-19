@@ -8,7 +8,7 @@ Module Name:
 Abstract:
     Ultra-light command context.
     It provides a generic command pluging infrastructure.
-    A command context also provides names (aka symbols) to Z3 objects. 
+    A command context also provides names (aka symbols) to Z3 objects.
     These names are used to reference Z3 objects in commands.
 
 Author:
@@ -23,31 +23,33 @@ Notes:
 
 #include<sstream>
 #include<vector>
-#include"ast.h"
-#include"ast_printer.h"
-#include"pdecl.h"
-#include"dictionary.h"
-#include"solver.h"
-#include"datatype_decl_plugin.h"
-#include"stopwatch.h"
-#include"cmd_context_types.h"
-#include"event_handler.h"
-#include"sexpr.h"
-#include"tactic_manager.h"
-#include"check_logic.h"
-#include"progress_callback.h"
-#include"scoped_ptr_vector.h"
-#include"context_params.h"
+#include "ast/ast.h"
+#include "ast/ast_printer.h"
+#include "cmd_context/pdecl.h"
+#include "util/dictionary.h"
+#include "solver/solver.h"
+#include "ast/datatype_decl_plugin.h"
+#include "util/stopwatch.h"
+#include "util/cmd_context_types.h"
+#include "util/event_handler.h"
+#include "util/sexpr.h"
+#include "cmd_context/tactic_manager.h"
+#include "cmd_context/check_logic.h"
+#include "solver/progress_callback.h"
+#include "util/scoped_ptr_vector.h"
+#include "cmd_context/context_params.h"
 
 
 class func_decls {
     func_decl * m_decls;
     bool signatures_collide(func_decl* f, func_decl* g) const;
+    bool signatures_collide(unsigned n, sort*const* domain, sort* range, func_decl* g) const;
 public:
     func_decls():m_decls(0) {}
     func_decls(ast_manager & m, func_decl * f);
     void finalize(ast_manager & m);
     bool contains(func_decl * f) const;
+    bool contains(unsigned n, sort* const* domain, sort* range) const;
     bool insert(ast_manager & m, func_decl * f);
     void erase(ast_manager & m, func_decl * f);
     bool more_than_one() const;
@@ -56,6 +58,31 @@ public:
     func_decl * first() const;
     func_decl * find(unsigned arity, sort * const * domain, sort * range) const;
     func_decl * find(ast_manager & m, unsigned num_args, expr * const * args, sort * range) const;
+    unsigned get_num_entries() const;
+    func_decl * get_entry(unsigned inx);
+};
+
+struct macro_decl {
+    ptr_vector<sort> m_domain;
+    expr*            m_body;
+
+    macro_decl(unsigned arity, sort *const* domain, expr* body):
+        m_domain(arity, domain), m_body(body) {}
+
+    void dec_ref(ast_manager& m) { m.dec_ref(m_body); }
+
+};
+
+class macro_decls {
+    vector<macro_decl>* m_decls;
+public:
+    macro_decls() { m_decls = 0; }
+    void finalize(ast_manager& m);
+    bool insert(ast_manager& m, unsigned arity, sort *const* domain, expr* body);
+    expr* find(unsigned arity, sort *const* domain) const;
+    void erase_last(ast_manager& m);
+    vector<macro_decl>::iterator begin() const { return m_decls->begin(); }
+    vector<macro_decl>::iterator end() const { return m_decls->end(); }
 };
 
 /**
@@ -133,11 +160,11 @@ public:
     enum status {
         UNSAT, SAT, UNKNOWN
     };
-    
+
     enum check_sat_state {
         css_unsat, css_sat, css_unknown, css_clear
     };
-    
+
     typedef std::pair<unsigned, expr*> macro;
 
     struct scoped_watch {
@@ -163,7 +190,7 @@ protected:
     bool                         m_ignore_check;      // used by the API to disable check-sat() commands when parsing SMT 2.0 files.
     bool                         m_processing_pareto; // used when re-entering check-sat for pareto front.
     bool                         m_exit_on_error;
-    
+
     static std::ostringstream    g_error_stream;
 
     ast_manager *                m_manager;
@@ -175,7 +202,7 @@ protected:
     check_logic                  m_check_logic;
     stream_ref                   m_regular;
     stream_ref                   m_diagnostic;
-    dictionary<cmd*>             m_cmds;    
+    dictionary<cmd*>             m_cmds;
     dictionary<builtin_decl>     m_builtin_decls;
     scoped_ptr_vector<builtin_decl> m_extra_builtin_decls; // make sure that dynamically allocated builtin_decls are deleted
     dictionary<object_ref*>      m_object_refs; // anything that can be named.
@@ -184,7 +211,7 @@ protected:
     dictionary<func_decls>       m_func_decls;
     obj_map<func_decl, symbol>   m_func_decl2alias;
     dictionary<psort_decl*>      m_psort_decls;
-    dictionary<macro>            m_macros;
+    dictionary<macro_decls>      m_macros;
     // the following fields m_func_decls_stack, m_psort_decls_stack and m_exprs_stack are used when m_global_decls == false
     typedef std::pair<symbol, func_decl *> sf_pair;
     svector<sf_pair>             m_func_decls_stack;
@@ -192,7 +219,7 @@ protected:
     svector<symbol>              m_macros_stack;
     ptr_vector<pdecl>            m_psort_inst_stack;
 
-    // 
+    //
     ptr_vector<pdecl>            m_aux_pdecls;
     ptr_vector<expr>             m_assertions;
     std::vector<std::string>     m_assertion_strings;
@@ -211,7 +238,7 @@ protected:
     svector<scope>               m_scopes;
     scoped_ptr<solver_factory>   m_solver_factory;
     scoped_ptr<solver_factory>   m_interpolating_solver_factory;
-    ref<solver>                  m_solver;    
+    ref<solver>                  m_solver;
     ref<check_sat_result>        m_check_sat_result;
     ref<opt_wrapper>             m_opt;
 
@@ -253,7 +280,6 @@ protected:
 
     void erase_func_decl_core(symbol const & s, func_decl * f);
     void erase_psort_decl_core(symbol const & s);
-    void erase_macro_core(symbol const & s);
 
     bool logic_has_arith() const;
     bool logic_has_bv() const;
@@ -268,9 +294,19 @@ protected:
 
     void mk_solver();
 
+    bool contains_func_decl(symbol const& s, unsigned n, sort* const* domain, sort* range) const;
+
+    bool contains_macro(symbol const& s) const;
+    bool contains_macro(symbol const& s, func_decl* f) const;
+    bool contains_macro(symbol const& s, unsigned arity, sort *const* domain) const;
+    void insert_macro(symbol const& s, unsigned arity, sort*const* domain, expr* t);
+    void erase_macro(symbol const& s);
+    bool macros_find(symbol const& s, unsigned n, expr*const* args, expr*& t) const;
+
+
 public:
     cmd_context(bool main_ctx = true, ast_manager * m = 0, symbol const & l = symbol::null);
-    ~cmd_context(); 
+    ~cmd_context();
     void set_cancel(bool f);
     context_params  & params() { return m_params; }
     solver_factory &get_solver_factory() { return *m_solver_factory; }
@@ -320,47 +356,46 @@ public:
     virtual ast_manager & get_ast_manager() { return m(); }
     pdecl_manager & pm() const { if (!m_pmanager) const_cast<cmd_context*>(this)->init_manager(); return *m_pmanager; }
     sexpr_manager & sm() const { if (!m_sexpr_manager) const_cast<cmd_context*>(this)->m_sexpr_manager = alloc(sexpr_manager); return *m_sexpr_manager; }
- 
+
     void set_solver_factory(solver_factory * s);
     void set_interpolating_solver_factory(solver_factory * s);
     void set_check_sat_result(check_sat_result * r) { m_check_sat_result = r; }
     check_sat_result * get_check_sat_result() const { return m_check_sat_result.get(); }
     check_sat_state cs_state() const;
+    void complete_model();
     void validate_model();
     void display_model(model_ref& mdl);
 
-    void register_plugin(symbol const & name, decl_plugin * p, bool install_names);    
+    void register_plugin(symbol const & name, decl_plugin * p, bool install_names);
     bool is_func_decl(symbol const & s) const;
     bool is_sort_decl(symbol const& s) const { return m_psort_decls.contains(s); }
     void insert(cmd * c);
-    void insert(symbol const & s, func_decl * f); 
+    void insert(symbol const & s, func_decl * f);
     void insert(func_decl * f) { insert(f->get_name(), f); }
     void insert(symbol const & s, psort_decl * p);
     void insert(psort_decl * p) { insert(p->get_name(), p); }
-    void insert(symbol const & s, unsigned arity, expr * t);
+    void insert(symbol const & s, unsigned arity, sort *const* domain, expr * t);
     void insert(symbol const & s, object_ref *);
     void insert(tactic_cmd * c) { tactic_manager::insert(c); }
-    void insert(probe_info * p) { tactic_manager::insert(p); } 
-    void insert_user_tactic(symbol const & s, sexpr * d); 
+    void insert(probe_info * p) { tactic_manager::insert(p); }
+    void insert_user_tactic(symbol const & s, sexpr * d);
     void insert_aux_pdecl(pdecl * p);
     void insert_rec_fun(func_decl* f, expr_ref_vector const& binding, svector<symbol> const& ids, expr* e);
     func_decl * find_func_decl(symbol const & s) const;
-    func_decl * find_func_decl(symbol const & s, unsigned num_indices, unsigned const * indices, 
+    func_decl * find_func_decl(symbol const & s, unsigned num_indices, unsigned const * indices,
                                unsigned arity, sort * const * domain, sort * range) const;
     psort_decl * find_psort_decl(symbol const & s) const;
-    macro find_macro(symbol const & s) const;
     cmd * find_cmd(symbol const & s) const;
     sexpr * find_user_tactic(symbol const & s) const;
     object_ref * find_object_ref(symbol const & s) const;
     void mk_const(symbol const & s, expr_ref & result) const;
-    void mk_app(symbol const & s, unsigned num_args, expr * const * args, unsigned num_indices, parameter const * indices, sort * range, 
+    void mk_app(symbol const & s, unsigned num_args, expr * const * args, unsigned num_indices, parameter const * indices, sort * range,
                 expr_ref & r) const;
     void erase_cmd(symbol const & s);
     void erase_func_decl(symbol const & s);
     void erase_func_decl(symbol const & s, func_decl * f);
     void erase_func_decl(func_decl * f) { erase_func_decl(f->get_name(), f); }
     void erase_psort_decl(symbol const & s);
-    void erase_macro(symbol const & s);
     void erase_object_ref(symbol const & s);
     void erase_user_tactic(symbol const & s);
     void reset_func_decls();
@@ -369,7 +404,7 @@ public:
     void reset_object_refs();
     void reset_user_tactics();
     void set_regular_stream(char const * name) { m_regular.set(name); }
-    void set_diagnostic_stream(char const * name); 
+    void set_diagnostic_stream(char const * name);
     virtual std::ostream & regular_stream() { return *m_regular; }
     virtual std::ostream & diagnostic_stream() { return *m_diagnostic; }
     char const * get_regular_stream_name() const { return m_regular.name(); }
@@ -397,10 +432,10 @@ public:
     // display the result produced by a check-sat or check-sat-using commands in the regular stream
     void display_sat_result(lbool r);
     // check if result produced by check-sat or check-sat-using matches the known status
-    void validate_check_sat_result(lbool r); 
+    void validate_check_sat_result(lbool r);
     unsigned num_scopes() const { return m_scopes.size(); }
 
-    dictionary<macro> const & get_macros() const { return m_macros; }
+    dictionary<macro_decls> const & get_macros() const { return m_macros; }
 
     bool is_model_available() const;
 

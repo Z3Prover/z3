@@ -19,9 +19,9 @@ Revision History:
 #ifndef IM_FLOAT_CONFIG_H_
 #define IM_FLOAT_CONFIG_H_
 
-#include"f2n.h"
-#include"mpf.h"
-#include"hwf.h"
+#include "util/f2n.h"
+#include "util/mpf.h"
+#include "util/hwf.h"
 
 template<typename f_manager>
 class im_float_config {

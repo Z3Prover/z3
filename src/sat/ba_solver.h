@@ -21,11 +21,11 @@ Revision History:
 #ifndef BA_SOLVER_H_
 #define BA_SOLVER_H_
 
-#include"sat_extension.h"
-#include"sat_solver.h"
-#include"sat_lookahead.h"
-#include"scoped_ptr_vector.h"
-#include"util/lp/lar_solver.h"
+#include "sat/sat_extension.h"
+#include "sat/sat_solver.h"
+#include "sat/sat_lookahead.h"
+#include "util/scoped_ptr_vector.h"
+#include "util/lp/lar_solver.h"
 
 
 namespace sat {

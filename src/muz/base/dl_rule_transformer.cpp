@@ -20,9 +20,9 @@ Revision History:
 #include <algorithm>
 #include<typeinfo>
 
-#include"dl_context.h"
-#include"dl_rule_transformer.h"
-#include"stopwatch.h"
+#include "muz/base/dl_context.h"
+#include "muz/base/dl_rule_transformer.h"
+#include "util/stopwatch.h"
 
 namespace datalog {
 

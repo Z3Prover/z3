@@ -24,26 +24,27 @@ Revision History:
 #include<algorithm>
 #include<sstream>
 
-#include"ast_pp.h"
-#include"dl_context.h"
-#include"map.h"
-#include"recurse_expr_def.h"
-#include"dl_rule.h"
-#include"qe.h"
-#include"for_each_expr.h"
-#include"used_vars.h"
-#include"var_subst.h"
-#include"rewriter_def.h"
-#include"th_rewriter.h"
-#include"ast_smt2_pp.h"
-#include"used_symbols.h"
-#include"quant_hoist.h"
-#include"expr_replacer.h"
-#include"bool_rewriter.h"
-#include"expr_safe_replace.h"
-#include"filter_model_converter.h"
-#include"scoped_proof.h"
-#include"datatype_decl_plugin.h"
+#include "ast/ast_pp.h"
+#include "muz/base/dl_context.h"
+#include "util/map.h"
+#include "ast/recurse_expr_def.h"
+#include "muz/base/dl_rule.h"
+#include "qe/qe.h"
+#include "ast/for_each_expr.h"
+#include "ast/used_vars.h"
+#include "ast/rewriter/var_subst.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "ast/ast_smt2_pp.h"
+#include "ast/used_symbols.h"
+#include "ast/rewriter/quant_hoist.h"
+#include "ast/rewriter/expr_replacer.h"
+#include "ast/rewriter/bool_rewriter.h"
+#include "ast/rewriter/expr_safe_replace.h"
+#include "tactic/filter_model_converter.h"
+#include "ast/scoped_proof.h"
+#include "ast/datatype_decl_plugin.h"
+#include "ast/ast_util.h"
 
 namespace datalog {
 
@@ -54,7 +55,7 @@ namespace datalog {
           m_head(m),
           m_args(m),
           m_hnf(m),
-          m_qe(m, params_ref()),
+          m_qe(m, params_ref(), false),
           m_rwr(m),
           m_ufproc(m) {}
 
@@ -639,7 +640,7 @@ namespace datalog {
                 tail.push_back(ensure_app(conjs[i].get()));
             }
             tail_neg.resize(tail.size(), false);
-            r = mk(r->get_head(), tail.size(), tail.c_ptr(), tail_neg.c_ptr());
+            r = mk(r->get_head(), tail.size(), tail.c_ptr(), tail_neg.c_ptr(), r->name());
             TRACE("dl", r->display(m_ctx, tout << "reduced rule\n"););
         }
     }
@@ -757,7 +758,7 @@ namespace datalog {
             );
 
             proof_ref pr(m);
-            qe::expr_quant_elim_star1 simpl(m, m_ctx.get_fparams());
+            qe::simplify_rewriter_star simpl(m);
             simpl(quant_tail, fixed_tail, pr);
         }
         else {

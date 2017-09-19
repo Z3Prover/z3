@@ -19,9 +19,9 @@ Revision History:
 #ifndef SUBPAVING_HWF_H_
 #define SUBPAVING_HWF_H_
 
-#include"subpaving_t.h"
-#include"f2n.h"
-#include"hwf.h"
+#include "math/subpaving/subpaving_t.h"
+#include "util/f2n.h"
+#include "util/hwf.h"
 
 namespace subpaving {
 

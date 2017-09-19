@@ -16,15 +16,15 @@ Author:
 Notes:
 
 --*/
-#include"tactical.h"
-#include"simplify_tactic.h"
-#include"propagate_values_tactic.h"
-#include"solve_eqs_tactic.h"
-#include"elim_uncnstr_tactic.h"
-#include"smt_tactic.h"
-#include"recover_01_tactic.h"
-#include"ctx_simplify_tactic.h"
-#include"probe_arith.h"
+#include "tactic/tactical.h"
+#include "tactic/core/simplify_tactic.h"
+#include "tactic/core/propagate_values_tactic.h"
+#include "tactic/core/solve_eqs_tactic.h"
+#include "tactic/core/elim_uncnstr_tactic.h"
+#include "smt/tactic/smt_tactic.h"
+#include "tactic/arith/recover_01_tactic.h"
+#include "tactic/core/ctx_simplify_tactic.h"
+#include "tactic/arith/probe_arith.h"
 
 tactic * mk_qflra_tactic(ast_manager & m, params_ref const & p) {
     params_ref pivot_p;

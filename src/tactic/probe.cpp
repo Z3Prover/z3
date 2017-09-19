@@ -19,11 +19,11 @@ Author:
 Revision History:
 
 --*/
-#include"probe.h"
-#include"arith_decl_plugin.h"
-#include"bv_decl_plugin.h"
-#include"goal_util.h"
-#include"bv_rewriter.h"
+#include "tactic/probe.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/bv_decl_plugin.h"
+#include "tactic/goal_util.h"
+#include "ast/rewriter/bv_rewriter.h"
 
 class memory_probe : public probe {
 public:

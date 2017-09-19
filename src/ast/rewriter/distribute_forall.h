@@ -21,8 +21,8 @@ Revision History:
 #ifndef DISTRIBUTE_FORALL_H_
 #define DISTRIBUTE_FORALL_H_
 
-#include"ast.h"
-#include"act_cache.h"
+#include "ast/ast.h"
+#include "ast/act_cache.h"
 
 /**
    \brief Apply the following transformation

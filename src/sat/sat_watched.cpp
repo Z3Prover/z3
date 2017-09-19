@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#include"sat_watched.h"
-#include"sat_clause.h"
+#include "sat/sat_watched.h"
+#include "sat/sat_clause.h"
 
 namespace sat {
 

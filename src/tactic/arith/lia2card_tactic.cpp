@@ -34,15 +34,15 @@ Author:
 Notes:
 
 --*/
-#include"tactical.h"
-#include"cooperate.h"
-#include"bound_manager.h"
-#include"ast_pp.h"
-#include"pb_decl_plugin.h"
-#include"arith_decl_plugin.h"
-#include"rewriter_def.h"
-#include"ast_util.h"
-#include"ast_pp_util.h"
+#include "tactic/tactical.h"
+#include "util/cooperate.h"
+#include "tactic/arith/bound_manager.h"
+#include "ast/ast_pp.h"
+#include "ast/pb_decl_plugin.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "ast/ast_util.h"
+#include "ast/ast_pp_util.h"
 
 class lia2card_tactic : public tactic {
     struct lia_rewriter_cfg : public default_rewriter_cfg {

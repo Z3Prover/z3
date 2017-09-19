@@ -17,14 +17,14 @@ Revision History:
 
 --*/
 #include<sstream>
-#include"mpz.h"
-#include"buffer.h"
-#include"trace.h"
-#include"hash.h"
-#include"bit_util.h"
+#include "util/mpz.h"
+#include "util/buffer.h"
+#include "util/trace.h"
+#include "util/hash.h"
+#include "util/bit_util.h"
 
 #if defined(_MP_INTERNAL)
-#include"mpn.h"
+#include "util/mpn.h"
 #elif defined(_MP_GMP)
 #include<gmp.h>
 #else

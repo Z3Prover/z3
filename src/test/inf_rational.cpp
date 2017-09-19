@@ -18,7 +18,7 @@ Revision History:
 
 --*/
 
-#include"inf_rational.h"
+#include "util/inf_rational.h"
 
 static void tst0() {
     inf_rational n(rational(0), false);

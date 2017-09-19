@@ -19,8 +19,8 @@ Revision History:
 #ifndef SIMPLE_PARSER_H_
 #define SIMPLE_PARSER_H_
 
-#include"ast.h"
-#include"map.h"
+#include "ast/ast.h"
+#include "util/map.h"
 
 class scanner;
 

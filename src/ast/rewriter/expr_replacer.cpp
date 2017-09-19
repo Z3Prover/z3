@@ -16,10 +16,10 @@ Author:
 Notes:
 
 --*/
-#include"expr_replacer.h"
-#include"rewriter_def.h"
-#include"th_rewriter.h"
-#include"cooperate.h"
+#include "ast/rewriter/expr_replacer.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "util/cooperate.h"
 
 void expr_replacer::operator()(expr * t, expr_ref & result, proof_ref & result_pr) {
     expr_dependency_ref result_dep(m());

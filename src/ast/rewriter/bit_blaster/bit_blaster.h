@@ -19,11 +19,11 @@ Revision History:
 #ifndef BIT_BLASTER_H_
 #define BIT_BLASTER_H_
 
-#include"bool_rewriter.h"
-#include"bit_blaster_params.h"
-#include"bit_blaster_tpl.h"
-#include"bv_decl_plugin.h"
-#include"rational.h"
+#include "ast/rewriter/bool_rewriter.h"
+#include "ast/rewriter/bit_blaster/bit_blaster_params.h"
+#include "ast/rewriter/bit_blaster/bit_blaster_tpl.h"
+#include "ast/bv_decl_plugin.h"
+#include "util/rational.h"
 
 class bit_blaster_cfg {
 public:

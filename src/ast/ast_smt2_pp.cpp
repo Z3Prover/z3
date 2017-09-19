@@ -18,13 +18,13 @@ Author:
 Revision History:
 
 --*/
-#include"ast_smt2_pp.h"
-#include"shared_occs.h"
-#include"pp.h"
-#include"ast_ll_pp.h"
-#include"ast_pp.h"
-#include"algebraic_numbers.h"
-#include"pp_params.hpp"
+#include "ast/ast_smt2_pp.h"
+#include "ast/shared_occs.h"
+#include "ast/pp.h"
+#include "ast/ast_ll_pp.h"
+#include "ast/ast_pp.h"
+#include "math/polynomial/algebraic_numbers.h"
+#include "ast/pp_params.hpp"
 using namespace format_ns;
 
 #define ALIAS_PREFIX "a"
@@ -42,6 +42,9 @@ format * smt2_pp_environment::pp_fdecl_name(symbol const & s, unsigned & len) co
         std::string str = s.str();
         len = static_cast<unsigned>(str.length());
         return mk_string(m, str.c_str());
+    }
+    else if (!s.bare_str()) {
+        return mk_string(m, "null");
     }
     else {
         len = static_cast<unsigned>(strlen(s.bare_str()));
@@ -431,16 +434,16 @@ format_ns::format * smt2_pp_environment::pp_sort(sort * s) {
         fs.push_back(pp_sort(to_sort(s->get_parameter(0).get_ast())));
         return mk_seq1(m, fs.begin(), fs.end(), f2f(), get_sutil().is_seq(s)?"Seq":"RegEx");
     }
-#if 0
     if (get_dtutil().is_datatype(s)) {
-        ptr_buffer<format> fs;
         unsigned sz = get_dtutil().get_datatype_num_parameter_sorts(s);
-        for (unsigned i = 0; i < sz; i++) {
-            fs.push_back(pp_sort(get_dtutil().get_datatype_parameter_sort(s, i)));
+        if (sz > 0) {
+            ptr_buffer<format> fs;            
+            for (unsigned i = 0; i < sz; i++) {
+                fs.push_back(pp_sort(get_dtutil().get_datatype_parameter_sort(s, i)));
+            }
+            return mk_seq1(m, fs.begin(), fs.end(), f2f(), s->get_name().str().c_str());        
         }
-        return mk_seq1(m, fs.begin(), fs.end(), f2f(), s->get_name().str().c_str());        
     }
-#endif
     return format_ns::mk_string(get_manager(), s->get_name().str().c_str());
 }
 
@@ -1222,14 +1225,14 @@ mk_ismt2_pp::mk_ismt2_pp(ast * t, ast_manager & m, unsigned indent, unsigned num
 
 std::ostream& operator<<(std::ostream& out, mk_ismt2_pp const & p) {
     smt2_pp_environment_dbg env(p.m_manager);    
-    if (is_expr(p.m_ast)) {
+    if (p.m_ast == 0) {
+        out << "null";
+    }
+    else if (is_expr(p.m_ast)) {
         ast_smt2_pp(out, to_expr(p.m_ast), env, p.m_params, p.m_indent, p.m_num_vars, p.m_var_prefix);
     }
     else if (is_sort(p.m_ast)) {
         ast_smt2_pp(out, to_sort(p.m_ast), env, p.m_params, p.m_indent);
-    }
-    else if (p.m_ast == 0) {
-        out << "null";
     }
     else {
         SASSERT(is_func_decl(p.m_ast));

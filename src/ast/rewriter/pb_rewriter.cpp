@@ -17,11 +17,11 @@ Notes:
 
 --*/
 
-#include "pb_rewriter.h"
-#include "pb_rewriter_def.h"
-#include "ast_pp.h"
-#include "ast_util.h"
-#include "ast_smt_pp.h"
+#include "ast/rewriter/pb_rewriter.h"
+#include "ast/rewriter/pb_rewriter_def.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_util.h"
+#include "ast/ast_smt_pp.h"
 
 
 class pb_ast_rewriter_util {

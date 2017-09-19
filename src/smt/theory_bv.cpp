@@ -16,19 +16,18 @@ Author:
 Revision History:
 
 --*/
-#include"smt_context.h"
-#include"theory_bv.h"
-#include"ast_ll_pp.h"
-#include"ast_pp.h"
-#include"smt_model_generator.h"
-#include"stats.h"
+#include "smt/smt_context.h"
+#include "smt/theory_bv.h"
+#include "ast/ast_ll_pp.h"
+#include "ast/ast_pp.h"
+#include "smt/smt_model_generator.h"
+#include "util/stats.h"
 
 
 namespace smt {
 
     void theory_bv::init(context * ctx) {
         theory::init(ctx);
-        m_simplifier    = &(ctx->get_simplifier());
     }
 
     theory_var theory_bv::mk_var(enode * n) {
@@ -300,7 +299,7 @@ namespace smt {
     void theory_bv::simplify_bit(expr * s, expr_ref & r) {
         // proof_ref p(get_manager());
         // if (get_context().at_base_level())
-        //    m_simplifier->operator()(s, r, p);
+        //    ctx.get_rewriter()(s, r, p);
         // else
         r = s;
     }
@@ -605,8 +604,9 @@ namespace smt {
             args.push_back(m.mk_ite(b, n, zero));
             num *= numeral(2);
         }
-        expr_ref sum(m);
-        arith_simp().mk_add(sz, args.c_ptr(), sum);
+        expr_ref sum(m_autil.mk_add(sz, args.c_ptr()), m);
+        arith_rewriter arw(m);
+        ctx.get_rewriter()(sum);
         literal l(mk_eq(n, sum, false));
         TRACE("bv", 
               tout << mk_pp(n, m) << "\n";
@@ -1366,7 +1366,6 @@ namespace smt {
         m_params(params),
         m_util(m),
         m_autil(m),
-        m_simplifier(0),
         m_bb(m, bb_params),
         m_trail_stack(*this),
         m_find(*this),

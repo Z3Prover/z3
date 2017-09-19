@@ -18,8 +18,8 @@ Revision History:
 --*/
 #include<cstdlib>
 #include<iostream>
-#include"bit_vector.h"
-#include"vector.h"
+#include "util/bit_vector.h"
+#include "util/vector.h"
 
 static void tst1() {
     bit_vector     v1;

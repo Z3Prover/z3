@@ -19,7 +19,7 @@ Revision History:
 #ifndef ELIM_SMALL_BV_H_
 #define ELIM_SMALL_BV_H_
 
-#include"params.h"
+#include "util/params.h"
 class ast_manager;
 class tactic;
 

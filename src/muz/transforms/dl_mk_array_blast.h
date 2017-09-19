@@ -19,13 +19,13 @@ Revision History:
 #ifndef DL_MK_ARRAY_BLAST_H_
 #define DL_MK_ARRAY_BLAST_H_
 
-#include"dl_context.h"
-#include"dl_rule_set.h"
-#include"dl_rule_transformer.h"
-#include"dl_mk_interp_tail_simplifier.h"
-#include "equiv_proof_converter.h"
-#include "array_decl_plugin.h"
-#include "expr_safe_replace.h"
+#include "muz/base/dl_context.h"
+#include "muz/base/dl_rule_set.h"
+#include "muz/base/dl_rule_transformer.h"
+#include "muz/transforms/dl_mk_interp_tail_simplifier.h"
+#include "tactic/equiv_proof_converter.h"
+#include "ast/array_decl_plugin.h"
+#include "ast/rewriter/expr_safe_replace.h"
 
 namespace datalog {
 

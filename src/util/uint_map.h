@@ -19,7 +19,7 @@ Revision History:
 #ifndef UINT_MAP_H_
 #define UINT_MAP_H_
 
-#include"vector.h"
+#include "util/vector.h"
 
 /**
    \brief Implement a map from unsigned to T * using vectors

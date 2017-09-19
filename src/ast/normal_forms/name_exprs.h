@@ -19,8 +19,8 @@ Notes:
 #ifndef NAME_EXPRS_H_
 #define NAME_EXPRS_H_
 
-#include"ast.h"
-#include"defined_names.h"
+#include "ast/ast.h"
+#include "ast/normal_forms/defined_names.h"
 
 class expr_predicate {
 public:

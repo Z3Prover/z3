@@ -16,10 +16,11 @@ Author:
 Notes:
 
 --*/
-#include"bv_rewriter.h"
-#include"bv_rewriter_params.hpp"
-#include"poly_rewriter_def.h"
-#include"ast_smt2_pp.h"
+#include "ast/rewriter/bv_rewriter.h"
+#include "ast/rewriter/bv_rewriter_params.hpp"
+#include "ast/rewriter/poly_rewriter_def.h"
+#include "ast/ast_smt2_pp.h"
+#include "ast/ast_lt.h"
 
 
 void bv_rewriter::updt_local_params(params_ref const & _p) {
@@ -1365,11 +1366,86 @@ br_status bv_rewriter::mk_bv2int(expr * arg, expr_ref & result) {
         result = m_autil.mk_numeral(v, true);
         return BR_DONE;
     }
-
-    // TODO: add other simplifications
+    if (m_util.is_concat(arg)) {
+        if (to_app(arg)->get_num_args() == 0) {
+            result = m_autil.mk_int(0);
+            return BR_DONE;
+        }
+        expr_ref_vector args(m());        
+        
+        unsigned num_args = to_app(arg)->get_num_args();
+        for (expr* x : *to_app(arg)) {
+            args.push_back(m_util.mk_bv2int(x));
+        }
+        unsigned sz = get_bv_size(to_app(arg)->get_arg(num_args-1));
+        for (unsigned i = num_args - 1; i > 0; ) {
+            expr_ref tmp(m());
+            --i;
+            tmp = args[i].get();
+            tmp = m_autil.mk_mul(m_autil.mk_numeral(power(numeral(2), sz), true), tmp);
+            args[i] = tmp;
+            sz += get_bv_size(to_app(arg)->get_arg(i));
+        }
+        result = m_autil.mk_add(args.size(), args.c_ptr());
+        return BR_REWRITE2;
+    }
+    if (is_mul_no_overflow(arg)) {
+        expr_ref_vector args(m());
+        for (expr* x : *to_app(arg)) args.push_back(m_util.mk_bv2int(x));
+        result = m_autil.mk_mul(args.size(), args.c_ptr());
+        return BR_REWRITE2;
+    }
+    if (is_add_no_overflow(arg)) {
+        expr_ref_vector args(m());
+        for (expr* x : *to_app(arg)) args.push_back(m_util.mk_bv2int(x));
+        result = m_autil.mk_add(args.size(), args.c_ptr());
+        return BR_REWRITE2;
+    }
 
     return BR_FAILED;
 }
+
+
+bool bv_rewriter::is_mul_no_overflow(expr* e) {
+    if (!m_util.is_bv_mul(e)) return false;
+    unsigned sz = get_bv_size(e);
+    unsigned sum = 0;
+    for (expr* x : *to_app(e)) sum += sz-num_leading_zero_bits(x);
+    return sum < sz;
+}
+
+bool bv_rewriter::is_add_no_overflow(expr* e) {
+    if (!is_add(e)) return false;
+    for (expr* x : *to_app(e)) {
+        if (0 == num_leading_zero_bits(x)) return false;
+    }
+    return true;
+}
+
+unsigned bv_rewriter::num_leading_zero_bits(expr* e) {
+    numeral v;
+    unsigned sz = get_bv_size(e);
+    if (m_util.is_numeral(e, v)) {
+        while (v.is_pos()) {
+            SASSERT(sz > 0);
+            --sz;
+            v = div(v, numeral(2));
+        }
+        return sz;
+    }
+    else if (m_util.is_concat(e)) {
+        app* a = to_app(e);
+        unsigned sz1 = get_bv_size(a->get_arg(0));
+        unsigned nb1 = num_leading_zero_bits(a->get_arg(0));
+        if (sz1 == nb1) {
+            nb1 += num_leading_zero_bits(a->get_arg(1));
+        }
+        return nb1;
+    }
+    return 0;
+}
+
+
 
 
 br_status bv_rewriter::mk_concat(unsigned num_args, expr * const * args, expr_ref & result) {
@@ -2314,7 +2390,7 @@ void bv_rewriter::mk_t1_add_t2_eq_c(expr * t1, expr * t2, expr * c, expr_ref & r
         result = m().mk_eq(t1, m_util.mk_bv_sub(c, t2));
 }
 
-#include "ast_pp.h"
+#include "ast/ast_pp.h"
 
 bool bv_rewriter::isolate_term(expr* lhs, expr* rhs, expr_ref& result) {
     if (!m_util.is_numeral(lhs) || !is_add(rhs)) {

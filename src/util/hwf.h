@@ -20,9 +20,9 @@ Revision History:
 #define HWF_H_
 
 #include<string>
-#include"mpz.h"
-#include"mpq.h"
-#include"mpf.h" // we use the same rounding modes as mpf's
+#include "util/mpz.h"
+#include "util/mpq.h"
+#include "util/mpf.h"
 
 class hwf {
     friend class hwf_manager;

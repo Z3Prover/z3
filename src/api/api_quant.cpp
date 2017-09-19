@@ -15,12 +15,12 @@ Author:
 Revision History:
 
 --*/
-#include"z3.h"
-#include"api_log_macros.h"
-#include"api_context.h"
-#include"api_util.h"
-#include"pattern_validation.h"
-#include"expr_abstract.h"
+#include "api/z3.h"
+#include "api/api_log_macros.h"
+#include "api/api_context.h"
+#include "api/api_util.h"
+#include "parsers/util/pattern_validation.h"
+#include "ast/expr_abstract.h"
 
 extern "C" {
 

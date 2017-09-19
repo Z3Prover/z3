@@ -18,10 +18,10 @@ Notes:
 --*/
 
 
-#include"rewriter_def.h"
-#include"fpa2bv_rewriter.h"
-#include"cooperate.h"
-#include"fpa2bv_rewriter_params.hpp"
+#include "ast/rewriter/rewriter_def.h"
+#include "ast/fpa/fpa2bv_rewriter.h"
+#include "util/cooperate.h"
+#include "ast/fpa/fpa2bv_rewriter_params.hpp"
 
 
 fpa2bv_rewriter_cfg::fpa2bv_rewriter_cfg(ast_manager & m, fpa2bv_converter & c, params_ref const & p) :

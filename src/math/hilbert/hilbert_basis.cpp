@@ -17,11 +17,11 @@ Revision History:
 
 --*/
 
-#include "hilbert_basis.h"
-#include "heap.h"
-#include "map.h"
-#include "heap_trie.h"
-#include "stopwatch.h"
+#include "math/hilbert/hilbert_basis.h"
+#include "util/heap.h"
+#include "util/map.h"
+#include "math/hilbert/heap_trie.h"
+#include "util/stopwatch.h"
 
 
 typedef int_hashtable<int_hash, default_eq<int> > int_table;

@@ -51,11 +51,11 @@ Example from Boogie:
 ")
 */
 
-#include "dl_boogie_proof.h"
-#include "model_pp.h"
-#include "proof_utils.h"
-#include "ast_pp.h"
-#include "ast_util.h"
+#include "muz/base/dl_boogie_proof.h"
+#include "model/model_pp.h"
+#include "muz/base/proof_utils.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_util.h"
 
 namespace datalog {
     

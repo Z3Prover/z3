@@ -16,10 +16,10 @@ Revision History:
 
 --*/
 #include<fstream>
-#include"z3.h"
-#include"api_log_macros.h"
-#include"util.h"
-#include"version.h"
+#include "api/z3.h"
+#include "api/api_log_macros.h"
+#include "util/util.h"
+#include "util/version.h"
 
 std::ostream * g_z3_log = 0;
 bool g_z3_log_enabled   = false;

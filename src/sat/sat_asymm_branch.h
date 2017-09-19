@@ -19,9 +19,9 @@ Revision History:
 #ifndef SAT_ASYMM_BRANCH_H_
 #define SAT_ASYMM_BRANCH_H_
 
-#include"sat_types.h"
-#include"statistics.h"
-#include"params.h"
+#include "sat/sat_types.h"
+#include "util/statistics.h"
+#include "util/params.h"
 
 namespace sat {
     class solver;

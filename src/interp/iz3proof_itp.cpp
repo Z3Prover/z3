@@ -24,7 +24,7 @@
 #pragma warning(disable:4101)
 #endif
 
-#include "iz3proof_itp.h"
+#include "interp/iz3proof_itp.h"
 
 using namespace stl_ext;
 

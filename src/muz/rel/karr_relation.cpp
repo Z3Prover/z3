@@ -4,9 +4,9 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
-#include "karr_relation.h"
-#include "bool_rewriter.h"
-#include "ast_util.h"
+#include "muz/rel/karr_relation.h"
+#include "ast/rewriter/bool_rewriter.h"
+#include "ast/ast_util.h"
 
 namespace datalog {
     class karr_relation : public relation_base {              

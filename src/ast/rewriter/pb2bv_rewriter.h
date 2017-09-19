@@ -19,9 +19,9 @@ Notes:
 #ifndef PB2BV_REWRITER_H_
 #define PB2BV_REWRITER_H_
 
-#include"pb_decl_plugin.h"
-#include"rewriter_types.h"
-#include"expr_functors.h"
+#include "ast/pb_decl_plugin.h"
+#include "ast/rewriter/rewriter_types.h"
+#include "ast/expr_functors.h"
 
 class pb2bv_rewriter {
     struct imp;

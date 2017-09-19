@@ -19,10 +19,10 @@ Notes:
 #ifndef BV2REAL_REWRITER_H_
 #define BV2REAL_REWRITER_H_
 
-#include"ast.h"
-#include"rewriter.h"
-#include"bv_decl_plugin.h"
-#include"arith_decl_plugin.h"
+#include "ast/ast.h"
+#include "ast/rewriter/rewriter.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/arith_decl_plugin.h"
 
 //
 // bv2real[d,r](n,m) has interpretation: 

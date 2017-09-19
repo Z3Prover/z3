@@ -17,10 +17,10 @@ Revision History:
 
 --*/
 
-#include"dl_mk_filter_rules.h"
-#include"dl_context.h"
-#include"for_each_expr.h"
-#include"ast_pp.h"
+#include "muz/transforms/dl_mk_filter_rules.h"
+#include "muz/base/dl_context.h"
+#include "ast/for_each_expr.h"
+#include "ast/ast_pp.h"
 
 namespace datalog {
 

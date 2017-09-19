@@ -19,7 +19,7 @@ Revision History:
 #ifndef RLIMIT_H_
 #define RLIMIT_H_
 
-#include "vector.h"
+#include "util/vector.h"
 
 class reslimit {
     volatile unsigned   m_cancel;

@@ -20,11 +20,11 @@ Notes:
 #ifndef OPT_SLS_SOLVER_H_
 #define OPT_SLS_SOLVER_H_
 
-#include "solver_na2as.h"
-#include "card2bv_tactic.h"
-#include "nnf_tactic.h"
-#include "pb_sls.h"
-#include "bvsls_opt_engine.h"
+#include "solver/solver_na2as.h"
+#include "tactic/arith/card2bv_tactic.h"
+#include "tactic/core/nnf_tactic.h"
+#include "opt/pb_sls.h"
+#include "tactic/sls/bvsls_opt_engine.h"
 
 
 namespace opt {

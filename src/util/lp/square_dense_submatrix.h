@@ -1,7 +1,22 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 
 #pragma once
 #include "util/vector.h"
@@ -30,11 +45,11 @@ class square_dense_submatrix : public tail_matrix<T, X> {
         ref(unsigned i, square_dense_submatrix & s) :
             m_i_offset((i - s.m_index_start) * s.m_dim), m_s(s){}
         T & operator[] (unsigned j) {
-            lp_assert(j >= m_s.m_index_start);
+            SASSERT(j >= m_s.m_index_start);
             return m_s.m_v[m_i_offset + m_s.adjust_column(j) - m_s.m_index_start];
         }
         const T & operator[] (unsigned j) const {
-            lp_assert(j >= m_s.m_index_start);
+            SASSERT(j >= m_s.m_index_start);
             return m_s.m_v[m_i_offset + m_s.adjust_column(j) - m_s.m_index_start];
         }
     };
@@ -58,8 +73,8 @@ public:
     bool is_dense() const { return true; }
     
     ref operator[] (unsigned i) {
-        lp_assert(i >= m_index_start);
-        lp_assert(i < m_parent->dimension());
+        SASSERT(i >= m_index_start);
+        SASSERT(i < m_parent->dimension());
         return ref(i, *this);
     }
 
@@ -148,7 +163,7 @@ public:
                 }
             }
         }
-        lp_assert(wcopy.is_OK());
+        SASSERT(wcopy.is_OK());
         apply_from_right(w.m_data);
         w.m_index.clear();
         if (numeric_traits<T>::precise()) {
@@ -167,11 +182,11 @@ public:
             }
         }
 #else
-        lp_assert(w.is_OK());
-        lp_assert(m_work_vector.is_OK());
+        SASSERT(w.is_OK());
+        SASSERT(m_work_vector.is_OK());
         m_work_vector.resize(w.data_size());
         m_work_vector.clear();
-        lp_assert(m_work_vector.is_OK());
+        SASSERT(m_work_vector.is_OK());
         unsigned end = m_index_start + m_dim;
         for (unsigned k : w.m_index) {
             // find j such that k = adjust_row_inverse(j)
@@ -188,7 +203,7 @@ public:
             }
         }
         m_work_vector.clean_up();
-        lp_assert(m_work_vector.is_OK());
+        SASSERT(m_work_vector.is_OK());
         w = m_work_vector;
 #endif
     }
@@ -198,7 +213,7 @@ public:
 
     void apply_from_right(vector<T> & w);
 
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     T get_elem (unsigned i, unsigned j) const;
     unsigned row_count() const { return m_parent->row_count();}
     unsigned column_count() const { return row_count();}

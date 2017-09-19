@@ -19,8 +19,8 @@ Revision History:
 #ifndef FOR_EACH_EXPR_H_
 #define FOR_EACH_EXPR_H_
 
-#include"ast.h"
-#include"trace.h"
+#include "ast/ast.h"
+#include "util/trace.h"
 
 template<typename ForEachProc, typename ExprMark, bool MarkAll, bool IgnorePatterns>
 void for_each_expr_core(ForEachProc & proc, ExprMark & visited, expr * n) {

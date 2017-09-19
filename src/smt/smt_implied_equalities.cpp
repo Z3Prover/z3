@@ -19,16 +19,16 @@ Revision History:
 
 --*/
 
-#include "smt_implied_equalities.h"
-#include "union_find.h"
-#include "ast_pp.h"
-#include "array_decl_plugin.h"
-#include "uint_set.h"
-#include "smt_value_sort.h"
-#include "model_smt2_pp.h"
-#include "stopwatch.h"
-#include "model.h"
-#include "solver.h"
+#include "smt/smt_implied_equalities.h"
+#include "util/union_find.h"
+#include "ast/ast_pp.h"
+#include "ast/array_decl_plugin.h"
+#include "util/uint_set.h"
+#include "smt/smt_value_sort.h"
+#include "model/model_smt2_pp.h"
+#include "util/stopwatch.h"
+#include "model/model.h"
+#include "solver/solver.h"
 
 namespace smt {
 

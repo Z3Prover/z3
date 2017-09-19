@@ -9,5 +9,6 @@ def_module_params('rewriter',
                           ("pull_cheap_ite", BOOL, False, "pull if-then-else terms when cheap."),
                           ("bv_ineq_consistency_test_max", UINT, 0, "max size of conjunctions on which to perform consistency test based on inequalities on bitvectors."),
                           ("cache_all", BOOL, False, "cache all intermediate results."),
+                          ("rewrite_patterns", BOOL, False, "rewrite patterns."),
                           ("ignore_patterns_on_ground_qbody", BOOL, True, "ignores patterns on quantifiers that don't mention their bound variables.")))
 

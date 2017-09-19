@@ -20,9 +20,9 @@ Notes:
 #ifndef BVARRAY2UF_REWRITER_H_
 #define BVARRAY2UF_REWRITER_H_
 
-#include"rewriter.h"
-#include"extension_model_converter.h"
-#include"filter_model_converter.h"
+#include "ast/rewriter/rewriter.h"
+#include "tactic/extension_model_converter.h"
+#include "tactic/filter_model_converter.h"
 
 class bvarray2uf_rewriter_cfg : public default_rewriter_cfg {
     ast_manager       & m_manager;

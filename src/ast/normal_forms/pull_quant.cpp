@@ -16,10 +16,10 @@ Author:
 Notes:
 
 --*/
-#include"pull_quant.h"
-#include"var_subst.h"
-#include"rewriter_def.h"
-#include"ast_pp.h"
+#include "ast/normal_forms/pull_quant.h"
+#include "ast/rewriter/var_subst.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "ast/ast_pp.h"
 
 struct pull_quant::imp {
     

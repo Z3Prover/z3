@@ -16,8 +16,8 @@ Notes:
 
 --*/
 #include<sstream>
-#include"cmd_context.h"
-#include"parametric_cmd.h"
+#include "cmd_context/cmd_context.h"
+#include "cmd_context/parametric_cmd.h"
 
 char const * parametric_cmd::get_descr(cmd_context & ctx) const { 
     if (m_descr == 0) {

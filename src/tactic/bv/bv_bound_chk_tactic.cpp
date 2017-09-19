@@ -14,14 +14,14 @@
 
  Revision History:
 --*/
-#include"bv_bound_chk_tactic.h"
-#include"ast.h"
-#include"rewriter.h"
-#include"rewriter_def.h"
-#include"bv_bounds.h"
-#include"rewriter_params.hpp"
-#include"bool_rewriter.h"
-#include"cooperate.h"
+#include "tactic/bv/bv_bound_chk_tactic.h"
+#include "ast/ast.h"
+#include "ast/rewriter/rewriter.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "ast/rewriter/bv_bounds.h"
+#include "ast/rewriter/rewriter_params.hpp"
+#include "ast/rewriter/bool_rewriter.h"
+#include "util/cooperate.h"
 
 struct bv_bound_chk_stats {
     unsigned            m_unsats;

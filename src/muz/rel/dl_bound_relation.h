@@ -19,14 +19,14 @@ Revision History:
 #ifndef DL_BOUND_RELATION_H_
 #define DL_BOUND_RELATION_H_
 
-#include "dl_context.h"
-#include "dl_relation_manager.h"
-#include "dl_base.h"
-#include "uint_set.h"
-#include "dl_vector_relation.h"
-#include "dl_interval_relation.h"
-#include "arith_decl_plugin.h"
-#include "basic_simplifier_plugin.h"
+#include "muz/base/dl_context.h"
+#include "muz/rel/dl_relation_manager.h"
+#include "muz/rel/dl_base.h"
+#include "util/uint_set.h"
+#include "muz/rel/dl_vector_relation.h"
+#include "muz/rel/dl_interval_relation.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/rewriter/bool_rewriter.h"
 
 namespace datalog {
 
@@ -44,7 +44,7 @@ namespace datalog {
         class filter_interpreted_fn;
         class filter_intersection_fn;
         arith_util m_arith;
-        basic_simplifier_plugin m_bsimp;
+        bool_rewriter m_bsimp;
     public:
         bound_relation_plugin(relation_manager& m);
         virtual bool can_handle_signature(const relation_signature & s);

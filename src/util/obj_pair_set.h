@@ -19,7 +19,7 @@ Revision History:
 #ifndef OBJ_PAIR_SET_H_
 #define OBJ_PAIR_SET_H_
 
-#include"chashtable.h"
+#include "util/chashtable.h"
 
 template<typename T1, typename T2>
 class obj_pair_set {

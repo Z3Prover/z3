@@ -19,8 +19,8 @@ Notes:
 #ifndef LABEL_REWRITER_H_
 #define LABEL_REWRITER_H_
 
-#include"ast.h"
-#include"rewriter_types.h"
+#include "ast/ast.h"
+#include "ast/rewriter/rewriter_types.h"
 
 
 class label_rewriter : public default_rewriter_cfg {

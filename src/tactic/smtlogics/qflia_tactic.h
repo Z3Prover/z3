@@ -19,7 +19,7 @@ Notes:
 #ifndef QFLIA_TACTIC_H_
 #define QFLIA_TACTIC_H_
 
-#include"params.h"
+#include "util/params.h"
 class ast_manager;
 class tactic;
 

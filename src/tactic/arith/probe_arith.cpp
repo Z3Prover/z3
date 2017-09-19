@@ -16,11 +16,11 @@ Author:
 Revision History:
 
 --*/
-#include"probe.h"
-#include"expr2polynomial.h"
-#include"for_each_expr.h"
-#include"arith_decl_plugin.h"
-#include"goal_util.h"
+#include "tactic/probe.h"
+#include "ast/expr2polynomial.h"
+#include "ast/for_each_expr.h"
+#include "ast/arith_decl_plugin.h"
+#include "tactic/goal_util.h"
 
 class arith_degree_probe : public probe {
     struct proc {

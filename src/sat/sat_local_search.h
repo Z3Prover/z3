@@ -19,9 +19,9 @@
 #ifndef _SAT_LOCAL_SEARCH_H_
 #define _SAT_LOCAL_SEARCH_H_
 
-#include "vector.h"
-#include "sat_types.h"
-#include "rlimit.h"
+#include "util/vector.h"
+#include "sat/sat_types.h"
+#include "util/rlimit.h"
 
 namespace sat {
 

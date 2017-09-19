@@ -20,14 +20,14 @@ Revision History:
 #ifndef PDR_FARKAS_LEARNER_H_
 #define PDR_FARKAS_LEARNER_H_
 
-#include "arith_decl_plugin.h"
-#include "ast_translation.h"
-#include "bv_decl_plugin.h"
-#include "smt_kernel.h"
-#include "bool_rewriter.h"
-#include "pdr_util.h"
-#include "smt_params.h"
-#include "tactic.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/ast_translation.h"
+#include "ast/bv_decl_plugin.h"
+#include "smt/smt_kernel.h"
+#include "ast/rewriter/bool_rewriter.h"
+#include "muz/pdr/pdr_util.h"
+#include "smt/params/smt_params.h"
+#include "tactic/tactic.h"
 
 namespace pdr {
 

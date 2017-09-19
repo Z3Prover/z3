@@ -19,8 +19,8 @@ Revision History:
 #ifndef MATCHER_H_
 #define MATCHER_H_
 
-#include"substitution.h"
-#include"hashtable.h"
+#include "ast/substitution/substitution.h"
+#include "util/hashtable.h"
 
 /**
    \brief Functor for matching expressions.

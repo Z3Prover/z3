@@ -19,12 +19,12 @@ Revision History:
 #ifndef THEORY_ARITH_CORE_H_
 #define THEORY_ARITH_CORE_H_
 
-#include"smt_context.h"
-#include"theory_arith.h"
-#include"ast_pp.h"
-#include"ast_ll_pp.h" 
-#include"smt_model_generator.h"
-#include"ast_smt2_pp.h"
+#include "smt/smt_context.h"
+#include "smt/theory_arith.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
+#include "smt/smt_model_generator.h"
+#include "ast/ast_smt2_pp.h"
 
 namespace smt {
     
@@ -395,7 +395,8 @@ namespace smt {
 
     template<typename Ext>
     theory_var theory_arith<Ext>::internalize_div(app * n) {
-        if (!m_util.is_numeral(n->get_arg(1))) found_underspecified_op(n);
+        rational r(1);
+        if (!m_util.is_numeral(n->get_arg(1), r) || r.is_zero()) found_underspecified_op(n);
         found_underspecified_op(n);
         theory_var s      = mk_binary_op(n);
         context & ctx     = get_context();
@@ -406,7 +407,8 @@ namespace smt {
 
     template<typename Ext>
     theory_var theory_arith<Ext>::internalize_idiv(app * n) {
-        found_underspecified_op(n);
+        rational r;
+        if (!m_util.is_numeral(n->get_arg(1), r) || r.is_zero()) found_underspecified_op(n);
         theory_var s      = mk_binary_op(n);
         context & ctx     = get_context();
         app * mod         = m_util.mk_mod(n->get_arg(0), n->get_arg(1));
@@ -419,7 +421,8 @@ namespace smt {
     template<typename Ext>
     theory_var theory_arith<Ext>::internalize_mod(app * n) {
         TRACE("arith_mod", tout << "internalizing...\n" << mk_pp(n, get_manager()) << "\n";);
-        if (!m_util.is_numeral(n->get_arg(1))) found_underspecified_op(n);
+        rational r(1);
+        if (!m_util.is_numeral(n->get_arg(1), r) || r.is_zero()) found_underspecified_op(n);
         theory_var s      = mk_binary_op(n);
         context & ctx     = get_context();
         if (!ctx.relevancy())
@@ -429,7 +432,8 @@ namespace smt {
 
     template<typename Ext>
     theory_var theory_arith<Ext>::internalize_rem(app * n) {
-        if (!m_util.is_numeral(n->get_arg(1))) found_underspecified_op(n);
+        rational r(1);
+        if (!m_util.is_numeral(n->get_arg(1), r) || r.is_zero()) found_underspecified_op(n);
         theory_var s  = mk_binary_op(n);
         context & ctx = get_context();
         if (!ctx.relevancy()) {
@@ -442,20 +446,21 @@ namespace smt {
     void theory_arith<Ext>::mk_axiom(expr * ante, expr * conseq) {
         ast_manager & m = get_manager();
         context & ctx   = get_context();
-        simplifier & s  = ctx.get_simplifier();
+        th_rewriter & s  = ctx.get_rewriter();
         expr_ref s_ante(m), s_conseq(m);
         expr* s_conseq_n, * s_ante_n;
         bool negated;
-        proof_ref pr(m);
 
-        s(ante, s_ante, pr);
+        s(ante, s_ante);
+        if (ctx.get_cancel_flag()) return;
         negated = m.is_not(s_ante, s_ante_n);
         if (negated) s_ante = s_ante_n;
         ctx.internalize(s_ante, false);
         literal l_ante = ctx.get_literal(s_ante);
         if (negated) l_ante.neg();
 
-        s(conseq, s_conseq, pr);
+        s(conseq, s_conseq);
+        if (ctx.get_cancel_flag()) return;
         negated = m.is_not(s_conseq, s_conseq_n);
         if (negated) s_conseq = s_conseq_n;
         ctx.internalize(s_conseq, false);
@@ -732,11 +737,6 @@ namespace smt {
             return internalize_div(n);
         else if (m_util.is_idiv(n))
             return internalize_idiv(n);
-        else if (is_app_of(n, get_id(), OP_IDIV_0) || is_app_of(n, get_id(), OP_DIV_0)) {
-            ctx.internalize(n->get_arg(0), false);
-            enode * e = mk_enode(n);
-            return mk_var(e);
-        }
         else if (m_util.is_mod(n)) 
             return internalize_mod(n);
         else if (m_util.is_rem(n)) 
@@ -1224,7 +1224,10 @@ namespace smt {
         app * rhs      = to_app(n->get_arg(1));
         expr * rhs2;
         if (m_util.is_to_real(rhs, rhs2) && is_app(rhs2)) { rhs = to_app(rhs2); }
-        SASSERT(m_util.is_numeral(rhs));
+        if (!m_util.is_numeral(rhs)) {        
+            UNREACHABLE();
+            throw default_exception("malformed atomic constraint");
+        }
         theory_var v   = internalize_term_core(lhs);
         if (v == null_theory_var) {
             TRACE("arith_internalize", tout << "failed to internalize: #" << n->get_id() << "\n";);
@@ -1411,6 +1414,12 @@ namespace smt {
         final_check_status result = FC_DONE;
         final_check_status ok;
         do {
+            if (get_context().get_cancel_flag()) {
+                return FC_GIVEUP;
+            }
+
+            SASSERT(m_to_patch.empty());
+
             TRACE("arith", tout << "m_final_check_idx: " << m_final_check_idx << ", result: " << result << "\n";);
             switch (m_final_check_idx) {
             case 0:
@@ -2305,7 +2314,7 @@ namespace smt {
                 return false;
             }
             TRACE("arith_make_feasible_detail", display(tout););
-            if (get_context().get_cancel_flag()) {
+            if (get_context().get_cancel_flag()) {                
                 return true;
             }
         }

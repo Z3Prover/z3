@@ -19,10 +19,10 @@ Notes:
 #ifndef SMT_TACTIC_H_
 #define SMT_TACTIC_H_
 
-#include"params.h"
-#include"ast.h"
-#include"obj_hashtable.h"
-#include"goal.h"
+#include "util/params.h"
+#include "ast/ast.h"
+#include "util/obj_hashtable.h"
+#include "tactic/goal.h"
 
 class tactic;
 class filter_model_converter;

@@ -21,15 +21,14 @@ Revision History:
 #ifndef QE_H_
 #define QE_H_
 
-#include "ast.h"
-#include "smt_params.h"
-#include "statistics.h"
-#include "lbool.h"
-#include "expr_functors.h"
-#include "simplifier.h"
-#include "rewriter.h"
-#include "model.h"
-#include "params.h"
+#include "ast/ast.h"
+#include "smt/params/smt_params.h"
+#include "util/statistics.h"
+#include "util/lbool.h"
+#include "ast/expr_functors.h"
+#include "ast/rewriter/rewriter.h"
+#include "model/model.h"
+#include "util/params.h"
 
 namespace qe {
 
@@ -106,6 +105,9 @@ namespace qe {
         i_expr_pred& get_is_relevant() { return m_is_relevant; }
         
         i_nnf_atom& get_mk_atom() { return m_mk_atom; }
+
+        void collect_statistics(statistics & st) const;
+
     };
 
     class conj_enum {
@@ -322,30 +324,6 @@ namespace qe {
         void init_qe();
     };
 
-    class expr_quant_elim_star1 : public simplifier {
-    protected:
-        expr_quant_elim m_quant_elim;
-        expr*       m_assumption;
-        virtual bool visit_quantifier(quantifier * q);
-        virtual void reduce1_quantifier(quantifier * q);
-        virtual bool is_target(quantifier * q) const { return q->get_num_patterns() == 0 && q->get_num_no_patterns() == 0; }
-    public:
-        expr_quant_elim_star1(ast_manager & m, smt_params const& p);
-        virtual ~expr_quant_elim_star1() {}
-
-        void collect_statistics(statistics & st) const {
-            m_quant_elim.collect_statistics(st);
-        }
-
-        void reduce_with_assumption(expr* ctx, expr* fml, expr_ref& result);
-
-        lbool first_elim(unsigned num_vars, app* const* vars, expr_ref& fml, def_vector& defs) {
-            return m_quant_elim.first_elim(num_vars, vars, fml, defs);
-        }
-
-
-    };
-
     void hoist_exists(expr_ref& fml, app_ref_vector& vars);
 
     void mk_exists(unsigned num_vars, app* const* vars, expr_ref& fml);
@@ -372,6 +350,7 @@ namespace qe {
 
         void updt_params(params_ref const& p);
 
+        void collect_statistics(statistics & st) const;
     };
     
     class simplify_rewriter_star : public rewriter_tpl<simplify_rewriter_cfg> {
@@ -382,6 +361,11 @@ namespace qe {
             m_cfg(m) {}
          
         void updt_params(params_ref const& p) { m_cfg.updt_params(p); }
+
+        void collect_statistics(statistics & st) const {
+            m_cfg.collect_statistics(st);
+        }
+
     };
 
 };

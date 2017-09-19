@@ -17,8 +17,8 @@ Revision History:
 
 --*/
 
-#include"rational.h"
-#include"object_allocator.h"
+#include "util/rational.h"
+#include "util/object_allocator.h"
 
 struct cell {
     rational m_coeff;

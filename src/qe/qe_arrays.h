@@ -21,8 +21,8 @@ Revision History:
 #ifndef __QE_ARRAYS_H_
 #define __QE_ARRAYS_H_
 
-#include "array_decl_plugin.h"
-#include "qe_mbp.h"
+#include "ast/array_decl_plugin.h"
+#include "qe/qe_mbp.h"
 
 namespace qe {
 

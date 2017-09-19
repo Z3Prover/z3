@@ -17,11 +17,11 @@ Notes:
 
 --*/
 
-#include "sat_local_search.h"
-#include "sat_solver.h"
-#include "ba_solver.h"
-#include "sat_params.hpp"
-#include "timer.h"
+#include "sat/sat_local_search.h"
+#include "sat/sat_solver.h"
+#include "sat/ba_solver.h"
+#include "sat/sat_params.hpp"
+#include "util/timer.h"
 
 namespace sat {
 

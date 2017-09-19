@@ -18,8 +18,8 @@ Revision History:
 #ifndef API_GOAL_H_
 #define API_GOAL_H_
 
-#include"api_util.h"
-#include"goal.h"
+#include "api/api_util.h"
+#include "tactic/goal.h"
 
 struct Z3_goal_ref : public api::object {
     goal_ref m_goal;

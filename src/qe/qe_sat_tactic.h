@@ -22,7 +22,7 @@ Revision History:
 #ifndef QE_SAT_H_
 #define QE_SAT_H_
 
-#include"tactic.h"
+#include "tactic/tactic.h"
 
 namespace qe {
         

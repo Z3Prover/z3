@@ -19,8 +19,8 @@ Revision History:
 #ifndef UINT_SET_H_
 #define UINT_SET_H_
 
-#include"util.h"
-#include"vector.h"
+#include "util/util.h"
+#include "util/vector.h"
 
 COMPILE_TIME_ASSERT(sizeof(unsigned) == 4);
 

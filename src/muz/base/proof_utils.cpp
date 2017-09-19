@@ -4,20 +4,27 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
-#include "dl_util.h"
-#include "proof_utils.h"
-#include "ast_smt2_pp.h"
-#include "var_subst.h"
+#include "muz/base/dl_util.h"
+#include "muz/base/proof_utils.h"
+#include "ast/ast_smt2_pp.h"
+#include "ast/rewriter/var_subst.h"
 
 class reduce_hypotheses {
     typedef obj_hashtable<expr> expr_set;
     ast_manager&          m;
+    // reference for any expression created by the tranformation
     expr_ref_vector       m_refs;
+    // currently computed result
     obj_map<proof,proof*> m_cache;
+    // map conclusions to closed proofs that derive them
     obj_map<expr, proof*> m_units;
+    // currently active units
     ptr_vector<expr>      m_units_trail;
+    // size of m_units_trail at the last push
     unsigned_vector       m_limits;
+    // map from proofs to active hypotheses
     obj_map<proof, expr_set*> m_hypmap;
+    // refernce train for hypotheses sets
     ptr_vector<expr_set>  m_hyprefs;
     ptr_vector<expr>      m_literals;
     
@@ -151,19 +158,33 @@ public:
             p = result;
             return;
         }
+        //SASSERT (p.get () == result);
         switch(p->get_decl_kind()) {
         case PR_HYPOTHESIS:
+            // replace result by m_units[m.get_fact (p)] if defined
+            // AG: This is the main step. Replace a hypothesis by a derivation of its consequence
             if (!m_units.find(m.get_fact(p), result)) {
+                // restore ther result back to p
                 result = p.get();
             }
+            // compute hypothesis of the result
+            // not clear what 'result' is at this point.
+            // probably the proof at the top of the call
+            // XXX not clear why this is re-computed each time
+            // XXX moreover, m_units are guaranteed to be closed!
+            // XXX so no hypotheses are needed for them
             add_hypotheses(result);
             break;
         case PR_LEMMA: {
             SASSERT(m.get_num_parents(p) == 1);
             tmp = m.get_parent(p, 0);
+            // eliminate hypothesis recursively in the proof of the lemma
             elim(tmp);
             expr_set* hyps = m_hypmap.find(tmp);
             expr_set* new_hyps = 0;
+            // XXX if the proof is correct, the hypotheses of the tmp
+            // XXX should be exactly those of the consequence of the lemma
+            // XXX but if this code actually eliminates hypotheses, the set might be a subset
             if (hyps) {
                 new_hyps = alloc(expr_set, *hyps);
             }
@@ -178,13 +199,19 @@ public:
                 get_literals(fact);
             }
 
+            // go over all the literals in the consequence of the lemma
             for (unsigned i = 0; i < m_literals.size(); ++i) {
                 expr* e = m_literals[i];
+                // if the literal is not in hypothesis, skip it
                 if (!in_hypotheses(e, hyps)) {
                     m_literals[i] = m_literals.back();
                     m_literals.pop_back();
                     --i;
                 }
+                // if the literal is in hypothesis remove it because
+                // it is not in hypothesis set of the lemma
+                // XXX but we assume that lemmas have empty hypothesis set.
+                // XXX eventually every element of new_hyps must be removed!
                 else {
                     SASSERT(new_hyps);
                     expr_ref not_e = complement_lit(e);
@@ -192,10 +219,13 @@ public:
                     new_hyps->remove(not_e);
                 }
             }
+            // killed all hypotheses, so can stop at the lemma since
+            // we have a closed pf of false
             if (m_literals.empty()) {
                 result = tmp;
             }
             else {
+                // create a new lemma, but might be re-creating existing one
                 expr_ref clause(m);
                 if (m_literals.size() == 1) {
                     clause = m_literals[0];
@@ -212,6 +242,7 @@ public:
                 new_hyps = 0;
             }
             m_hypmap.insert(result, new_hyps);
+            // might push 0 into m_hyprefs. No reason for that
             m_hyprefs.push_back(new_hyps);
             TRACE("proof_utils",            
                     tout << "New lemma: " << mk_pp(m.get_fact(p), m) 
@@ -229,19 +260,27 @@ public:
         }
         case PR_UNIT_RESOLUTION: {
             proof_ref_vector parents(m);
+            // get the clause being resolved with
             parents.push_back(m.get_parent(p, 0));
+            // save state
             push();
             bool found_false = false;
+            // for every derivation of a unit literal
             for (unsigned i = 1; i < m.get_num_parents(p); ++i) {
+                // see if it derives false
                 tmp = m.get_parent(p, i);
                 elim(tmp);
                 if (m.is_false(m.get_fact(tmp))) {
+                    // if derived false, the whole pf is false and we can bail out
                     result = tmp;
                     found_false = true;
                     break;
                 }
+                // -- otherwise, the fact has not changed. nothing to simplify
                 SASSERT(m.get_fact(tmp) == m.get_fact(m.get_parent(p, i)));
                 parents.push_back(tmp);          
+                // remember that we have this derivation while we have not poped the trail
+                // but only if the proof is closed (i.e., a real unit)
                 if (is_closed(tmp) && !m_units.contains(m.get_fact(tmp))) {
                     m_units.insert(m.get_fact(tmp), tmp);
                     m_units_trail.push_back(m.get_fact(tmp));
@@ -251,10 +290,15 @@ public:
                 pop();
                 break;
             }
+            // look at the clause being resolved with
             tmp = m.get_parent(p, 0);
+            // remember its fact
             expr* old_clause = m.get_fact(tmp);
+            // attempt to reduce its fact
             elim(tmp);
+            // update parents
             parents[0] = tmp;
+            // if the new fact is false, bail out
             expr* clause = m.get_fact(tmp);
             if (m.is_false(clause)) {
                 m_refs.push_back(tmp);
@@ -264,8 +308,10 @@ public:
             }
             //
             // case where clause is a literal in the old clause.
+            // i.e., reduce multi-literal clause to a unit
             //
             if (is_literal_in_clause(clause, old_clause)) {
+                // if the resulting literal was resolved, get a pf of false and bail out
                 bool found = false;
                 for (unsigned i = 1; !found && i < parents.size(); ++i) {
                     if (m.is_complement(clause, m.get_fact(parents[i].get()))) {
@@ -277,6 +323,7 @@ public:
                         found = true;
                     }                    
                 }
+                // else if the resulting literal is not resolved, it is the new consequence  
                 if (!found) {
                     result = parents[0].get();
                 }
@@ -508,6 +555,11 @@ static void permute_unit_resolution(expr_ref_vector& refs, obj_map<proof,proof*>
         SASSERT(params[0].is_symbol());
         family_id tid = m.mk_family_id(params[0].get_symbol());
         SASSERT(tid != null_family_id);
+        // AG: This can break a theory lemma. In particular, for Farkas lemmas the coefficients
+        // AG: for the literals propagated from the unit resolution are missing.
+        // AG: Why is this a good thing to do?
+        // AG: This can lead to merging of the units with other terms in interpolation,
+        // AG: but without farkas coefficients this does not make sense
         prNew = m.mk_th_lemma(tid, m.get_fact(pr), 
                               premises.size(), premises.c_ptr(), num_params-1, params+1);
     }

@@ -19,9 +19,9 @@ Notes:
 #ifndef REWRITER_H_
 #define REWRITER_H_
 
-#include"ast.h"
-#include"rewriter_types.h"
-#include"act_cache.h"
+#include "ast/ast.h"
+#include "ast/rewriter/rewriter_types.h"
+#include "ast/act_cache.h"
 
 /**
    \brief Common infrastructure for AST rewriters.

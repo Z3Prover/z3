@@ -4,8 +4,8 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
-#include "sat_solver.h"
-#include "util.h"
+#include "sat/sat_solver.h"
+#include "util/util.h"
 
 typedef sat::literal_vector clause_t;
 typedef vector<clause_t> clauses_t;

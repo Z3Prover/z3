@@ -21,9 +21,9 @@ Revision History:
 #ifndef __MODEL_BASED_OPT_H__
 #define __MODEL_BASED_OPT_H__
 
-#include "util.h"
-#include "rational.h"
-#include"inf_eps_rational.h"
+#include "util/util.h"
+#include "util/rational.h"
+#include "util/inf_eps_rational.h"
 
 namespace opt {
    

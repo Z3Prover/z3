@@ -20,10 +20,10 @@ Notes:
 #ifndef SLS_EVALUATOR_H_
 #define SLS_EVALUATOR_H_
 
-#include"model_evaluator.h"
+#include "model/model_evaluator.h"
 
-#include"sls_powers.h"
-#include"sls_tracker.h"
+#include "tactic/sls/sls_powers.h"
+#include "tactic/sls/sls_tracker.h"
 
 class sls_evaluator {
     ast_manager         & m_manager;

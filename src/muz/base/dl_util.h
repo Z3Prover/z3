@@ -20,17 +20,17 @@ Revision History:
 #define DL_UTIL_H_
 
 #include<vector>
-#include"ast.h"
-#include"hashtable.h"
-#include"obj_hashtable.h"
-#include"uint_set.h"
-#include"horn_subsume_model_converter.h"
-#include"replace_proof_converter.h"
-#include"substitution.h"
-#include"ast_counter.h"
-#include"statistics.h"
-#include"stopwatch.h"
-#include"lbool.h"
+#include "ast/ast.h"
+#include "util/hashtable.h"
+#include "util/obj_hashtable.h"
+#include "util/uint_set.h"
+#include "tactic/horn_subsume_model_converter.h"
+#include "tactic/replace_proof_converter.h"
+#include "ast/substitution/substitution.h"
+#include "ast/rewriter/ast_counter.h"
+#include "util/statistics.h"
+#include "util/stopwatch.h"
+#include "util/lbool.h"
 
 namespace datalog {
 
@@ -52,6 +52,7 @@ namespace datalog {
         ~verbose_action();
     };
 
+    typedef ref_vector<rule, rule_manager> rule_ref_vector;
     enum PDR_CACHE_MODE {
         NO_CACHE,
         HASH_CACHE,

@@ -22,7 +22,7 @@ Revision History:
 
 #include<iosfwd>
 
-#include "ast.h"
+#include "ast/ast.h"
 
 class stopwatch;
 

@@ -19,10 +19,10 @@ Revision History:
 #ifndef NLSAT_EXPLAIN_H_
 #define NLSAT_EXPLAIN_H_
 
-#include"nlsat_solver.h"
-#include"nlsat_scoped_literal_vector.h"
-#include"polynomial_cache.h"
-#include"algebraic_numbers.h"
+#include "nlsat/nlsat_solver.h"
+#include "nlsat/nlsat_scoped_literal_vector.h"
+#include "math/polynomial/polynomial_cache.h"
+#include "math/polynomial/algebraic_numbers.h"
 
 namespace nlsat {
     class evaluator;

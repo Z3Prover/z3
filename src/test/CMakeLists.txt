@@ -1,5 +1,4 @@
 add_subdirectory(fuzzing)
-add_subdirectory(lp)
 ################################################################################
 # z3-test executable
 ################################################################################
@@ -21,7 +20,6 @@ add_executable(test-z3
   bits.cpp
   bit_vector.cpp
   buffer.cpp
-  bv_simplifier_plugin.cpp
   chashtable.cpp
   check_assumptions.cpp
   cnf_backbones.cpp
@@ -120,7 +118,6 @@ add_executable(test-z3
   upolynomial.cpp
   var_subst.cpp
   vector.cpp
-  lp/lp.cpp
   ${z3_test_extra_object_files}
 )
 z3_add_install_tactic_rule(${z3_test_deps})

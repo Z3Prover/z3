@@ -19,9 +19,9 @@ Notes:
 #ifndef ENUM_REWRITER_H_
 #define ENUM_REWRITER_H_
 
-#include"datatype_decl_plugin.h"
-#include"rewriter_types.h"
-#include"expr_functors.h"
+#include "ast/datatype_decl_plugin.h"
+#include "ast/rewriter/rewriter_types.h"
+#include "ast/expr_functors.h"
 
 class enum2bv_rewriter {
     struct imp;

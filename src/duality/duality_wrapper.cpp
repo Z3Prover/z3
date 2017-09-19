@@ -25,15 +25,15 @@
 #pragma warning(disable:4101)
 #endif
 
-#include "duality_wrapper.h"
+#include "duality/duality_wrapper.h"
 #include <iostream>
-#include "smt_solver.h"
-#include "iz3interp.h"
-#include "statistics.h"
-#include "expr_abstract.h"
-#include "stopwatch.h"
-#include "model_smt2_pp.h"
-#include "qe_lite.h"
+#include "smt/smt_solver.h"
+#include "interp/iz3interp.h"
+#include "util/statistics.h"
+#include "ast/expr_abstract.h"
+#include "util/stopwatch.h"
+#include "model/model_smt2_pp.h"
+#include "qe/qe_lite.h"
 
 namespace Duality {
 

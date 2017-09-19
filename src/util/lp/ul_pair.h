@@ -1,7 +1,22 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 
 #pragma once
 #include "util/vector.h"
@@ -49,8 +64,8 @@ public:
             && m_upper_bound_witness == p.m_upper_bound_witness &&
             m_i == p.m_i;
     }
-	// empty constructor
-	ul_pair() :
+    // empty constructor
+    ul_pair() :
         m_low_bound_witness(static_cast<constraint_index>(-1)),
         m_upper_bound_witness(static_cast<constraint_index>(-1)),
         m_i(static_cast<row_index>(-1))

@@ -16,12 +16,12 @@ Author:
 Revision History:
 
 --*/
-#include"ast_smt2_pp.h"
-#include"smt_context.h"
-#include"theory_fpa.h"
-#include"theory_bv.h"
-#include"smt_model_generator.h"
-#include"bv2fpa_converter.h"
+#include "ast/ast_smt2_pp.h"
+#include "smt/smt_context.h"
+#include "smt/theory_fpa.h"
+#include "smt/theory_bv.h"
+#include "smt/smt_model_generator.h"
+#include "ast/fpa/bv2fpa_converter.h"
 
 namespace smt {
 
@@ -237,8 +237,9 @@ namespace smt {
 
         if (m_fpa_util.is_fp(e)) {
             expr * cargs[3] = { to_app(e)->get_arg(0), to_app(e)->get_arg(1), to_app(e)->get_arg(2) };
-            res = m_bv_util.mk_concat(3, cargs);
-            m_th_rw((expr_ref&)res);
+            expr_ref tmp(m_bv_util.mk_concat(3, cargs), m);            
+            m_th_rw(tmp);
+            res = to_app(tmp);
         }
         else {
             sort * es = m.get_sort(e);
@@ -384,7 +385,6 @@ namespace smt {
     {
         ast_manager & m = get_manager();
         context & ctx = get_context();
-        simplifier & simp = ctx.get_simplifier();
 
         expr_ref res(m), t(m);
         proof_ref t_pr(m);
@@ -393,7 +393,7 @@ namespace smt {
         expr_ref_vector::iterator it = m_converter.m_extra_assertions.begin();
         expr_ref_vector::iterator end = m_converter.m_extra_assertions.end();
         for (; it != end; it++) {
-            simp(*it, t, t_pr);
+            ctx.get_rewriter()(*it, t, t_pr);
             res = m.mk_and(res, t);
         }
         m_converter.m_extra_assertions.reset();

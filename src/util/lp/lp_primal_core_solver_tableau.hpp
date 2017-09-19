@@ -97,8 +97,9 @@ unsigned lp_primal_core_solver<T, X>::solve_with_tableau() {
         if (this->print_statistics_with_iterations_and_nonzeroes_and_cost_and_check_that_the_time_is_over((this->m_using_infeas_costs? "inf t" : "feas t"), * this->m_settings.get_message_ostream())) {
             return this->total_iterations();
         }
-        if (this->m_settings.use_tableau_rows())
+        if (this->m_settings.use_tableau_rows()) {
             one_iteration_tableau_rows();
+        }
         else 
             one_iteration_tableau();
         switch (this->get_status()) {
@@ -184,7 +185,7 @@ unsigned lp_primal_core_solver<T, X>::solve_with_tableau() {
 
 }
 template <typename T, typename X>void lp_primal_core_solver<T, X>::advance_on_entering_and_leaving_tableau(int entering, int leaving, X & t) {
-    lp_assert(this->A_mult_x_is_off() == false);
+    CASSERT("A_off", this->A_mult_x_is_off() == false);
     lp_assert(leaving >= 0 && entering >= 0);
     lp_assert((this->m_settings.simplex_strategy() ==
                 simplex_strategy_enum::tableau_rows) ||
@@ -201,7 +202,7 @@ template <typename T, typename X>void lp_primal_core_solver<T, X>::advance_on_en
                 t = -t;
         }
         this->update_basis_and_x_tableau(entering, leaving, t);
-        lp_assert(this->A_mult_x_is_off() == false);
+        CASSERT("A_off", this->A_mult_x_is_off() == false);
         this->iters_with_no_cost_growing() = 0;
     } else {
         this->pivot_column_tableau(entering, this->m_basis_heading[leaving]);
@@ -225,7 +226,7 @@ template <typename T, typename X>void lp_primal_core_solver<T, X>::advance_on_en
 
 template <typename T, typename X>
 void lp_primal_core_solver<T, X>::advance_on_entering_equal_leaving_tableau(int entering, X & t) {
-    lp_assert(!this->A_mult_x_is_off() );
+    CASSERT("A_off", !this->A_mult_x_is_off() );
     this->update_x_tableau(entering, t * m_sign_of_entering_delta); 
     if (this->m_look_for_feasible_solution_only && this->current_x_is_feasible())
         return;
@@ -298,7 +299,7 @@ template <typename T, typename X> int lp_primal_core_solver<T, X>::find_leaving_
 }
 template <typename T, typename X> void lp_primal_core_solver<T, X>::init_run_tableau() {
         //        print_matrix(&(this->m_A), std::cout);
-        lp_assert(this->A_mult_x_is_off() == false);
+    CASSERT("A_off", this->A_mult_x_is_off() == false);
         lp_assert(basis_columns_are_set_correctly());
         this->m_basis_sort_counter = 0; // to initiate the sort of the basis
         this->set_total_iterations(0);
@@ -331,22 +332,20 @@ update_basis_and_x_tableau(int entering, int leaving, X const & tt) {
 }
 template <typename T, typename X> void lp_primal_core_solver<T, X>::
 update_x_tableau(unsigned entering, const X& delta) {
+    this->add_delta_to_x_and_call_tracker(entering, delta);
     if (!this->m_using_infeas_costs) {
-        this->m_x[entering] += delta;
         for (const auto & c : this->m_A.m_columns[entering]) {
             unsigned i = c.m_i;
-            this->m_x[this->m_basis[i]] -= delta * this->m_A.get_val(c);
-            this->update_column_in_inf_set(this->m_basis[i]);
+            this->update_x_with_delta_and_track_feasibility(this->m_basis[i], -  delta * this->m_A.get_val(c));
         }
     } else { // m_using_infeas_costs == true
-        this->m_x[entering] += delta;
         lp_assert(this->column_is_feasible(entering));
         lp_assert(this->m_costs[entering] == zero_of_type<T>());
         // m_d[entering] can change because of the cost change for basic columns.
         for (const auto & c : this->m_A.m_columns[entering]) {
             unsigned i = c.m_i;
             unsigned j = this->m_basis[i];
-            this->m_x[j] -= delta * this->m_A.get_val(c);
+            this->add_delta_to_x_and_call_tracker(j, -delta * this->m_A.get_val(c));
             update_inf_cost_for_column_tableau(j);
             if (is_zero(this->m_costs[j]))
                 this->remove_column_from_inf_set(j);
@@ -354,7 +353,7 @@ update_x_tableau(unsigned entering, const X& delta) {
                 this->insert_column_into_inf_set(j);
         }
     }
-    lp_assert(this->A_mult_x_is_off() == false);
+    CASSERT("A_off", this->A_mult_x_is_off() == false);
 }
 
 template <typename T, typename X> void lp_primal_core_solver<T, X>::

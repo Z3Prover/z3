@@ -16,7 +16,7 @@ Author:
 Revision History:
 
 --*/
-#include"cached_var_subst.h"
+#include "smt/cached_var_subst.h"
 
 bool cached_var_subst::key_eq_proc::operator()(cached_var_subst::key * k1, cached_var_subst::key * k2) const {
     if (k1->m_qa != k2->m_qa)

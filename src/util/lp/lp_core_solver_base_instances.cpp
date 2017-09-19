@@ -1,7 +1,22 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 #include <utility>
 #include <memory>
 #include <string>
@@ -129,4 +144,3 @@ template bool lp::lp_core_solver_base<lp::mpq, lp::mpq>::inf_set_is_correct() co
 template bool lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::infeasibility_costs_are_correct() const;
 template bool lp::lp_core_solver_base<lp::mpq, lp::mpq >::infeasibility_costs_are_correct() const;
 template bool lp::lp_core_solver_base<double, double >::infeasibility_costs_are_correct() const;
-template void lp::lp_core_solver_base<lp::mpq, lp::numeric_pair<lp::mpq> >::calculate_pivot_row(unsigned int);

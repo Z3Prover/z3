@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#include"static_features.h"
-#include"ast_pp.h"
+#include "ast/static_features.h"
+#include "ast/ast_pp.h"
 
 static_features::static_features(ast_manager & m):
     m_manager(m),
@@ -145,18 +145,19 @@ bool static_features::is_diff_atom(expr const * e) const {
         return true;    
     if (!is_numeral(rhs)) 
         return false;    
-    // lhs can be 'x' or '(+ x (* -1 y))'
+    // lhs can be 'x' or '(+ x (* -1 y))' or '(+ (* -1 x) y)'
     if (!is_arith_expr(lhs))
         return true;
     expr* arg1, *arg2;
     if (!m_autil.is_add(lhs, arg1, arg2)) 
         return false;    
-    // x
-    if (is_arith_expr(arg1))
-        return false;
-    // arg2: (* -1 y)
     expr* m1, *m2;
-    return m_autil.is_mul(arg2, m1, m2) &&  is_minus_one(m1) && !is_arith_expr(m2);
+    if (!is_arith_expr(arg1) && m_autil.is_mul(arg2, m1, m2) &&  is_minus_one(m1) && !is_arith_expr(m2))
+        return true;
+    if (!is_arith_expr(arg2) && m_autil.is_mul(arg1, m1, m2) &&  is_minus_one(m1) && !is_arith_expr(m2))
+        return true;
+    return false;
+    
 }
 
 bool static_features::is_gate(expr const * e) const {

@@ -16,13 +16,14 @@ Author:
 Notes:
 
 --*/
-#include"datatype_rewriter.h"
+#include "ast/rewriter/datatype_rewriter.h"
 
 br_status datatype_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
     SASSERT(f->get_family_id() == get_fid());
     switch(f->get_decl_kind()) {
     case OP_DT_CONSTRUCTOR: return BR_FAILED;
     case OP_DT_RECOGNISER:
+    case OP_DT_IS:
         //
         // simplify is_cons(cons(x,y)) -> true
         // simplify is_cons(nil) -> false
@@ -47,11 +48,11 @@ br_status datatype_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr 
         func_decl * c_decl = a->get_decl();
         if (c_decl != m_util.get_accessor_constructor(f))
             return BR_FAILED;
-        ptr_vector<func_decl> const * acc = m_util.get_constructor_accessors(c_decl);
-        SASSERT(acc && acc->size() == a->get_num_args());
-        unsigned num = acc->size();
+        ptr_vector<func_decl> const & acc = *m_util.get_constructor_accessors(c_decl);
+        SASSERT(acc.size() == a->get_num_args());
+        unsigned num = acc.size();
         for (unsigned i = 0; i < num; ++i) {
-            if (f == (*acc)[i]) {
+            if (f == acc[i]) {
                 // found it.
                 result = a->get_arg(i);
                 return BR_DONE;
@@ -70,13 +71,13 @@ br_status datatype_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr 
             result = a;
             return BR_DONE;
         }
-        ptr_vector<func_decl> const * acc = m_util.get_constructor_accessors(c_decl);
-        SASSERT(acc && acc->size() == a->get_num_args());
-        unsigned num = acc->size();
+        ptr_vector<func_decl> const & acc = *m_util.get_constructor_accessors(c_decl);
+        SASSERT(acc.size() == a->get_num_args());
+        unsigned num = acc.size();
         ptr_buffer<expr> new_args;
         for (unsigned i = 0; i < num; ++i) {
             
-            if (f == (*acc)[i]) {
+            if (f == acc[i]) {
                 new_args.push_back(args[1]);
             }
             else {

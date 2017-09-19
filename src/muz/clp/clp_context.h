@@ -19,10 +19,10 @@ Revision History:
 #ifndef CLP_CONTEXT_H_
 #define CLP_CONTEXT_H_
 
-#include "ast.h"
-#include "lbool.h"
-#include "statistics.h"
-#include "dl_engine_base.h"
+#include "ast/ast.h"
+#include "util/lbool.h"
+#include "util/statistics.h"
+#include "muz/base/dl_engine_base.h"
 
 namespace datalog {
     class context;

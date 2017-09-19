@@ -19,7 +19,7 @@ Revision History:
 #ifndef APPROX_SET_H_
 #define APPROX_SET_H_
 #include<iostream>
-#include"debug.h"
+#include "util/debug.h"
 
 template<typename T> class approx_set_traits;
 

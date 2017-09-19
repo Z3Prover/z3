@@ -22,8 +22,8 @@ Revision History:
 #ifndef EXPR_FUNCTORS_H_
 #define EXPR_FUNCTORS_H_
 
-#include "ast.h"
-#include "expr_map.h"
+#include "ast/ast.h"
+#include "ast/expr_map.h"
 
 class i_expr_pred {
 public:

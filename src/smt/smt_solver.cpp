@@ -16,16 +16,16 @@ Author:
 Notes:
 
 --*/
-#include"solver_na2as.h"
-#include"smt_kernel.h"
-#include"reg_decl_plugins.h"
-#include"smt_params.h"
-#include"smt_params_helper.hpp"
-#include"mus.h"
-#include"for_each_expr.h"
-#include"ast_smt2_pp.h"
-#include"func_decl_dependencies.h"
-#include"dec_ref_util.h"
+#include "solver/solver_na2as.h"
+#include "smt/smt_kernel.h"
+#include "ast/reg_decl_plugins.h"
+#include "smt/params/smt_params.h"
+#include "smt/params/smt_params_helper.hpp"
+#include "solver/mus.h"
+#include "ast/for_each_expr.h"
+#include "ast/ast_smt2_pp.h"
+#include "ast/func_decl_dependencies.h"
+#include "util/dec_ref_util.h"
 
 namespace smt {
 
@@ -61,15 +61,14 @@ namespace smt {
         }
 
         virtual solver * translate(ast_manager & m, params_ref const & p) {
+            ast_translation translator(get_manager(), m);
+
             solver * result = alloc(solver, m, p, m_logic);
             smt::kernel::copy(m_context, result->m_context);
 
-            ast_translation translator(get_manager(), m);
-            obj_map<expr, expr*>::iterator it = m_name2assertion.begin();
-            obj_map<expr, expr*>::iterator end = m_name2assertion.end();
-            for (; it != end; it++)
-                result->m_name2assertion.insert(translator(it->m_key),
-                                                translator(it->m_value));
+            for (auto & kv : m_name2assertion) 
+                result->m_name2assertion.insert(translator(kv.m_key),
+                                                translator(kv.m_value));
 
             return result;
         }
@@ -220,7 +219,7 @@ namespace smt {
 
         virtual expr * get_assertion(unsigned idx) const {
             SASSERT(idx < get_num_assertions());
-            return m_context.get_formulas()[idx];
+            return m_context.get_formula(idx);
         }
 
         virtual expr_ref lookahead(expr_ref_vector const& assumptions, expr_ref_vector const& candidates) { 
@@ -273,23 +272,20 @@ namespace smt {
         }
 
         void compute_assrtn_fds(ptr_vector<expr> & core, vector<func_decl_set> & assrtn_fds) {
-            assrtn_fds.resize(m_name2assertion.size());
-            obj_map<expr, expr*>::iterator ait = m_name2assertion.begin();
-            obj_map<expr, expr*>::iterator aend = m_name2assertion.end();
-            for (unsigned i = 0; ait != aend; ait++, i++) {
-                if (core.contains(ait->m_key))
-                    continue;
-                collect_fds_proc p(m, assrtn_fds[i]);
-                expr_fast_mark1 visited;
-                quick_for_each_expr(p, visited, ait->m_value);
+            assrtn_fds.resize(m_name2assertion.size());            
+            unsigned i = 0;
+            for (auto & kv : m_name2assertion) {
+                if (!core.contains(kv.m_key)) {
+                    collect_fds_proc p(m, assrtn_fds[i]);
+                    expr_fast_mark1 visited;
+                    quick_for_each_expr(p, visited, kv.m_value);
+                }
+                ++i;
             }
         }
 
         bool fds_intersect(func_decl_set & pattern_fds, func_decl_set & assrtn_fds) {
-            func_decl_set::iterator it = pattern_fds.begin();
-            func_decl_set::iterator end = pattern_fds.end();
-            for (; it != end; it++) {
-                func_decl * fd = *it;
+            for (func_decl * fd : pattern_fds) {
                 if (assrtn_fds.contains(fd))
                     return true;
             }
@@ -306,9 +302,8 @@ namespace smt {
             for (unsigned d = 0; d < m_core_extend_patterns_max_distance; d++) {
                 new_core_literals.reset();
 
-                unsigned sz = core.size();
-                for (unsigned i = 0; i < sz; i++) {
-                    expr_ref name(core[i], m);
+                for (expr* c : core) {
+                    expr_ref name(c, m);
                     SASSERT(m_name2assertion.contains(name));
                     expr_ref assrtn(m_name2assertion.find(name), m);
                     collect_pattern_fds(assrtn, pattern_fds);
@@ -318,12 +313,12 @@ namespace smt {
                     if (assrtn_fds.empty())
                         compute_assrtn_fds(core, assrtn_fds);
 
-                    obj_map<expr, expr*>::iterator ait = m_name2assertion.begin();
-                    obj_map<expr, expr*>::iterator aend = m_name2assertion.end();
-                    for (unsigned i = 0; ait != aend; ait++, i++) {
-                        if (!core.contains(ait->m_key) &&
+                    unsigned i = 0;
+                    for (auto & kv : m_name2assertion) {
+                        if (!core.contains(kv.m_key) &&
                             fds_intersect(pattern_fds, assrtn_fds[i]))
-                            new_core_literals.push_back(ait->m_key);
+                            new_core_literals.push_back(kv.m_key);
+                        ++i;
                     }
                 }
 

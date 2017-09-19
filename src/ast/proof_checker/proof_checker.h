@@ -19,8 +19,8 @@ Revision History:
 #ifndef PROOF_CHECKER_H_
 #define PROOF_CHECKER_H_
 
-#include "ast.h"
-#include "map.h"
+#include "ast/ast.h"
+#include "util/map.h"
 
 class proof_checker {
     ast_manager&     m;

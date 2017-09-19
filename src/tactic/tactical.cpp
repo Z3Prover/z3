@@ -16,12 +16,12 @@ Author:
 Notes:
 
 --*/
-#include"tactical.h"
-#include"scoped_timer.h"
-#include"cancel_eh.h"
-#include"cooperate.h"
-#include"scoped_ptr_vector.h"
-#include"z3_omp.h"
+#include "tactic/tactical.h"
+#include "util/scoped_timer.h"
+#include "util/cancel_eh.h"
+#include "util/cooperate.h"
+#include "util/scoped_ptr_vector.h"
+#include "util/z3_omp.h"
 
 class binary_tactical : public tactic {
 protected:

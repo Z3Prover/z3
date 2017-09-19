@@ -16,17 +16,17 @@ Author:
 Notes:
 
 --*/
-#include"algebraic_numbers.h"
-#include"upolynomial.h"
-#include"mpbq.h"
-#include"basic_interval.h"
-#include"cooperate.h"
-#include"sexpr2upolynomial.h"
-#include"scoped_ptr_vector.h"
-#include"mpbqi.h"
-#include"timeit.h"
-#include"algebraic_params.hpp"
-#include"common_msgs.h"
+#include "math/polynomial/algebraic_numbers.h"
+#include "math/polynomial/upolynomial.h"
+#include "util/mpbq.h"
+#include "util/basic_interval.h"
+#include "util/cooperate.h"
+#include "math/polynomial/sexpr2upolynomial.h"
+#include "util/scoped_ptr_vector.h"
+#include "util/mpbqi.h"
+#include "util/timeit.h"
+#include "math/polynomial/algebraic_params.hpp"
+#include "util/common_msgs.h"
 
 namespace algebraic_numbers {
 

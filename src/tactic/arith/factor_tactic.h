@@ -19,7 +19,7 @@ Revision History:
 #ifndef FACTOR_TACTIC_H_
 #define FACTOR_TACTIC_H_
 
-#include"params.h"
+#include "util/params.h"
 class ast_manager;
 class tactic;
 

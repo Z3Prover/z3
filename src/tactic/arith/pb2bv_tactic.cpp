@@ -16,20 +16,20 @@ Author:
 Notes:
 
 --*/
-#include"tactical.h"
-#include"cooperate.h"
-#include"bound_manager.h"
-#include"bool_rewriter.h"
-#include"rewriter_def.h"
-#include"ref_util.h"
-#include"arith_decl_plugin.h"
-#include"trace.h"
-#include"ast_smt2_pp.h"
-#include"expr_substitution.h"
-#include"filter_model_converter.h"
-#include"pb2bv_model_converter.h"
-#include"pb2bv_tactic.h"
-#include"ast_pp.h"
+#include "tactic/tactical.h"
+#include "util/cooperate.h"
+#include "tactic/arith/bound_manager.h"
+#include "ast/rewriter/bool_rewriter.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "util/ref_util.h"
+#include "ast/arith_decl_plugin.h"
+#include "util/trace.h"
+#include "ast/ast_smt2_pp.h"
+#include "ast/expr_substitution.h"
+#include "tactic/filter_model_converter.h"
+#include "tactic/arith/pb2bv_model_converter.h"
+#include "tactic/arith/pb2bv_tactic.h"
+#include "ast/ast_pp.h"
 
 class pb2bv_tactic : public tactic {
 public:

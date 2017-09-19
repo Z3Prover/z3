@@ -23,7 +23,7 @@
 
 #include <vector>
 #include <limits.h>
-#include "iz3hash.h"
+#include "interp/iz3hash.h"
 
 class scopes {
 

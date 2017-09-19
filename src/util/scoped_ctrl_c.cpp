@@ -18,13 +18,13 @@ Revision History:
 --*/
 #include<signal.h>
 #include<iostream>
-#include"scoped_ctrl_c.h"
+#include "util/scoped_ctrl_c.h"
 
 scoped_ctrl_c * scoped_ctrl_c::g_obj = 0;
 
 void scoped_ctrl_c::on_ctrl_c(int) {
     if (g_obj->m_first) {
-        g_obj->m_cancel_eh();
+        g_obj->m_cancel_eh(CTRL_C_EH_CALLER);
         if (g_obj->m_once) {
             g_obj->m_first = false;
             signal(SIGINT, on_ctrl_c); // re-install the handler

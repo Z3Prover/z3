@@ -46,12 +46,11 @@ Revision History:
 #ifndef SMT_MODEL_FINDER_H_
 #define SMT_MODEL_FINDER_H_
 
-#include"ast.h"
-#include"func_decl_dependencies.h"
-#include"simplifier.h"
-#include"proto_model.h"
-#include"cooperate.h"
-#include"tactic_exception.h"
+#include "ast/ast.h"
+#include "ast/func_decl_dependencies.h"
+#include "smt/proto_model/proto_model.h"
+#include "util/cooperate.h"
+#include "tactic/tactic_exception.h"
 
 namespace smt {
     class context;
@@ -107,7 +106,7 @@ namespace smt {
 
 
     public:
-        model_finder(ast_manager & m, simplifier & s);
+        model_finder(ast_manager & m);
         ~model_finder();
         void set_context(context * ctx);
         

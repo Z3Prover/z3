@@ -17,42 +17,24 @@ Author:
 Revision History:
 
 --*/
-#include"macro_util.h"
-#include"occurs.h"
-#include"ast_util.h"
-#include"arith_simplifier_plugin.h"
-#include"bv_simplifier_plugin.h"
-#include"var_subst.h"
-#include"ast_pp.h"
-#include"ast_ll_pp.h"
-#include"for_each_expr.h"
-#include"well_sorted.h"
-#include"bool_rewriter.h"
+#include "ast/macros/macro_util.h"
+#include "ast/occurs.h"
+#include "ast/ast_util.h"
+#include "ast/rewriter/var_subst.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
+#include "ast/for_each_expr.h"
+#include "ast/well_sorted.h"
+#include "ast/rewriter/bool_rewriter.h"
 
-macro_util::macro_util(ast_manager & m, simplifier & s):
+macro_util::macro_util(ast_manager & m):
     m_manager(m),
     m_bv(m),
-    m_simplifier(s),
-    m_arith_simp(0),
-    m_bv_simp(0),
+    m_arith(m),
+    m_arith_rw(m),
+    m_bv_rw(m),
     m_forbidden_set(0),
     m_curr_clause(0) {
-}
-
-arith_simplifier_plugin * macro_util::get_arith_simp() const {
-    if (m_arith_simp == 0) {
-        const_cast<macro_util*>(this)->m_arith_simp = static_cast<arith_simplifier_plugin*>(m_simplifier.get_plugin(m_manager.mk_family_id("arith")));
-    }
-    SASSERT(m_arith_simp != 0);
-    return m_arith_simp;
-}
-
-bv_simplifier_plugin * macro_util::get_bv_simp() const {
-    if (m_bv_simp == 0) {
-        const_cast<macro_util*>(this)->m_bv_simp = static_cast<bv_simplifier_plugin*>(m_simplifier.get_plugin(m_manager.mk_family_id("bv")));
-    }
-    SASSERT(m_bv_simp != 0);
-    return m_bv_simp;
 }
 
 
@@ -65,60 +47,83 @@ bool macro_util::is_bv_sort(sort * s) const {
 }
 
 bool macro_util::is_add(expr * n) const {
-    return get_arith_simp()->is_add(n) || m_bv.is_bv_add(n);
+    return m_arith.is_add(n) || m_bv.is_bv_add(n);
 }
 
 bool macro_util::is_times_minus_one(expr * n, expr * & arg) const {
-    return get_arith_simp()->is_times_minus_one(n, arg) || get_bv_simp()->is_times_minus_one(n, arg);
+    return m_arith_rw.is_times_minus_one(n, arg) || m_bv_rw.is_times_minus_one(n, arg);
 }
 
 bool macro_util::is_le(expr * n) const {
-    return get_arith_simp()->is_le(n) || m_bv.is_bv_ule(n) || m_bv.is_bv_sle(n);
+    return m_arith.is_le(n) || m_bv.is_bv_ule(n) || m_bv.is_bv_sle(n);
 }
 
 bool macro_util::is_le_ge(expr * n) const {
-    return get_arith_simp()->is_le_ge(n) || m_bv.is_bv_ule(n) || m_bv.is_bv_sle(n);
+    return m_arith.is_ge(n) || m_arith.is_le(n) || m_bv.is_bv_ule(n) || m_bv.is_bv_sle(n);
 }
 
-poly_simplifier_plugin * macro_util::get_poly_simp_for(sort * s) const {
-    if (is_bv_sort(s))
-        return get_bv_simp();
-    else
-        return get_arith_simp();
+bool macro_util::is_var_plus_ground(expr * n, bool & inv, var * & v, expr_ref & t) {
+    return m_arith_rw.is_var_plus_ground(n, inv, v, t) || m_bv_rw.is_var_plus_ground(n, inv, v, t);
+}
+
+bool macro_util::is_zero_safe(expr * n) const {
+    if (m_bv_rw.is_bv(n)) {
+        return m_bv.is_zero(n);
+    }
+    else {
+        return m_arith_rw.is_zero(n);
+    }
 }
 
 app * macro_util::mk_zero(sort * s) const {
-    poly_simplifier_plugin * ps = get_poly_simp_for(s);
-    ps->set_curr_sort(s);
-    return ps->mk_zero();
+    if (m_bv.is_bv_sort(s)) {
+        return m_bv.mk_numeral(rational(0), s);
+    }
+    else {
+        return m_arith.mk_numeral(rational(0), s);
+    }
 }
 
 void macro_util::mk_sub(expr * t1, expr * t2, expr_ref & r) const {
     if (is_bv(t1)) {
-        r = m_bv.mk_bv_sub(t1, t2);
+        m_bv_rw.mk_sub(t1, t2, r);
     }
     else {
-        get_arith_simp()->mk_sub(t1, t2, r);
+        m_arith_rw.mk_sub(t1, t2, r);
     }
 }
 
 void macro_util::mk_add(expr * t1, expr * t2, expr_ref & r) const {
     if (is_bv(t1)) {
-        r = m_bv.mk_bv_add(t1, t2);
+        m_bv_rw.mk_add(t1, t2, r);
     }
     else {
-        get_arith_simp()->mk_add(t1, t2, r);
+        m_arith_rw.mk_add(t1, t2, r);
     }
 }
 
 void macro_util::mk_add(unsigned num_args, expr * const * args, sort * s, expr_ref & r) const {
-    if (num_args == 0) {
+    switch (num_args) {
+    case 0: 
         r = mk_zero(s);
-        return;
+        break;
+    case 1:
+        r = args[0];
+        break;
+    default:
+        if (m_bv.is_bv_sort(s)) {
+            r = args[0];
+            while (num_args >= 2) {
+                --num_args;
+                ++args;
+                r = m_bv.mk_bv_add(r, args[0]);
+            }
+        }
+        else {
+            r = m_arith.mk_add(num_args, args);
+        }
+        break;
     }
-    poly_simplifier_plugin * ps = get_poly_simp_for(s);
-    ps->set_curr_sort(s);
-    ps->mk_add(num_args, args, r);
 }
 
 /**
@@ -241,13 +246,12 @@ bool macro_util::poly_contains_head(expr * n, func_decl * f, expr * exception) c
 
 bool macro_util::is_arith_macro(expr * n, unsigned num_decls, app_ref & head, expr_ref & def, bool & inv) const {
     // TODO: obsolete... we should move to collect_arith_macro_candidates
-    arith_simplifier_plugin * as = get_arith_simp();
-    if (!m_manager.is_eq(n) && !as->is_le(n) && !as->is_ge(n))
+    if (!m_manager.is_eq(n) && !m_arith.is_le(n) && !m_arith.is_ge(n))
         return false;
     expr * lhs = to_app(n)->get_arg(0);
     expr * rhs = to_app(n)->get_arg(1);
 
-    if (!as->is_numeral(rhs))
+    if (!m_arith.is_numeral(rhs))
         return false;
 
     inv = false;
@@ -272,7 +276,7 @@ bool macro_util::is_arith_macro(expr * n, unsigned num_decls, app_ref & head, ex
             !poly_contains_head(lhs, to_app(arg)->get_decl(), arg)) {
             h = arg;
         }
-        else if (h == 0 && as->is_times_minus_one(arg, neg_arg) &&
+        else if (h == 0 && m_arith_rw.is_times_minus_one(arg, neg_arg) &&
                  is_macro_head(neg_arg, num_decls) &&
                  !is_forbidden(to_app(neg_arg)->get_decl()) &&
                  !poly_contains_head(lhs, to_app(neg_arg)->get_decl(), arg)) {
@@ -287,11 +291,12 @@ bool macro_util::is_arith_macro(expr * n, unsigned num_decls, app_ref & head, ex
         return false;
     head = to_app(h);
     expr_ref tmp(m_manager);
-    as->mk_add(args.size(), args.c_ptr(), tmp);
+    tmp = m_arith.mk_add(args.size(), args.c_ptr());
     if (inv)
-        as->mk_sub(tmp, rhs, def);
+        mk_sub(tmp, rhs, def);
     else
-        as->mk_sub(rhs, tmp, def);
+        mk_sub(rhs, tmp, def);
+    TRACE("macro_util", tout << def << "\n";);
     return true;
 }
 

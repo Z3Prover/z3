@@ -21,9 +21,9 @@ Revision History:
 #define INF_INT_RATIONAL_H_
 #include<stdlib.h>
 #include<string>
-#include"debug.h"
-#include"vector.h"
-#include"rational.h"
+#include "util/debug.h"
+#include "util/vector.h"
+#include "util/rational.h"
 
 
 class inf_int_rational {

@@ -19,7 +19,7 @@ Revision History:
 #ifndef LBOOL_H_
 #define LBOOL_H_
 
-#include"util.h"
+#include "util/util.h"
 
 typedef enum { l_false = -1, l_undef, l_true } lbool;
 

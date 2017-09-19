@@ -1,7 +1,22 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 #include <memory>
 #include "util/vector.h"
 #include "util/lp/square_dense_submatrix.hpp"
@@ -18,7 +33,7 @@ template bool lp::square_dense_submatrix<lp::mpq, lp::numeric_pair<lp::mpq> >::i
 template void lp::square_dense_submatrix<lp::mpq, lp::numeric_pair<lp::mpq> >::conjugate_by_permutation(lp::permutation_matrix<lp::mpq, lp::numeric_pair<lp::mpq> >&);
 template int lp::square_dense_submatrix<lp::mpq, lp::numeric_pair<lp::mpq> >::find_pivot_column_in_row(unsigned int) const;
 template void lp::square_dense_submatrix<lp::mpq, lp::numeric_pair<lp::mpq> >::pivot(unsigned int, lp::lp_settings&);
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
 template double lp::square_dense_submatrix<double, double>::get_elem(unsigned int, unsigned int) const;
 #endif
 template void lp::square_dense_submatrix<double, double>::apply_from_right(vector<double>&);

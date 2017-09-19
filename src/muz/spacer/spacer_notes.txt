@@ -1,0 +1,231 @@
+a queue contains a model_node
+
+let n = leaves.pop_top ()
+
+if (!n.has_derivation ())
+
+   if n.pt ().must_reach (n.post ())
+     add parent of n to the leaves
+     return
+
+   check abstract reachability of n
+   
+   if must reachable then
+      create new reachability fact for n.pt ()
+      add parent of n to the leaves
+   else if may reachable then 
+       create derivation d for n
+       create model_node kid for the top of d
+       add kid to the leaves
+
+   else /* unreachable */
+       create a lemma for n.pt ()
+       p = parent of n
+       p.reset_derivation()
+       add p to the leaves
+       
+else if (n.has_derivation ())
+ 
+   create next model_node kid for n.get_derivation ()
+   
+   if (kid != NULL) 
+      add kid to leaves
+   else /* done with the derivation, no more kids */
+      // the derivation is reachable, otherwise it was reset in another branch
+      p = parent of n
+      p.reset_derivation ()
+      add p to the leaves
+
+     
+=================================================================================
+create derivation for the top of d
+input: 
+       model M, 
+       transition relation formula trans with auxiliary variables quantified out
+       sequence of pedicates P_i, 
+       may and must summaries of P_i
+=================================================================================
+
+create first derivation child:
+       input: model 
+       
+       
+create next derivation child:
+       create new model
+       update trans by computing pre-image over new reachability facts
+       call create next derivation child
+
+private:
+create next derivation child using a given model, and starting index
+
+=========================================================
+
+create a next model for a derivation 
+
+
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+// an obligation
+model_node
+  // NULL means root
+  model_node_ref parent
+  model_node_ref_vector kids
+  
+  pred_transformer &predicate
+  expr* condition
+  unsigned level 
+  unsigned depth  
+  // monotonically increasing
+  unsigned id    
+  
+  bool open;
+  
+
+model_node::close ()
+  open = false
+  for k : kids do k.close ()
+
+model_search
+  
+  model_node_ref root;
+  
+  // proof obligations
+  priority_queue m_obligations;
+  model_node_ref m_last_reachable;
+  
+  
+bool model_node::operator< (model_node& other)
+   lexicographic order based on 
+   level<, depth<, id>
+  
+  
+
+assert (!m_last_reachable);
+while (!m_obligations.empty ())
+{
+   // propagate reachability as much as possible
+   while (m_last_reachable)
+   {
+     obl = m_last_reachable
+     m_last_reachable.reset ();
+     if (is_root (obl)) return true;
+     if (discharge_obligation (obl.get_parent ()) == l_true)
+        m_last_reachable = obl.get_parent ();
+   }
+   
+   // at least one obligation is not closed, ow root was reachable        
+   while (m_obligations.top ().is_closed ()) m_obligations.pop ();
+   assert (!m_obligations.empty ());                            
+          
+   // process an obligation
+   assert (!m_last_reachable)
+   obl = m_obligations.top ();
+   switch (discharge_obligation (obl))
+   { 
+     case l_true: 
+        // if reachable, schedule a reachability round
+        m_last_reachable = m_obligations.top ();
+        m_obligations.pop ();
+        break;
+     case l_false:
+        // if unreachable removed from the queue
+        m_obligations.pop ();
+        /// bump level 
+        obl.inc_level ();
+        /// optionally insert back into the queue
+        if (is_active (obl)) m_obligations.push (obl);
+        break;
+     default:
+        assert (m_obligations.top () != obl);
+   }
+}
+return false
+
+/// with priority queue
+bool is_active (model_node obl) { return level <= m_search.max_level (); }
+/// with out priority queue. Discharged obligations are dropped
+bool is_active (model_node obl) { return false; }
+
+discharge_obligation (model_node obl)
+{
+  assert (!obl.is_closed ());
+  switch (check_reachability (obl))
+  {
+    case l_true:
+       obl.close ()
+       update reachability facts
+       return l_true;
+    case l_false:
+       update lemmas 
+       return l_false
+    case l_unknown:
+      create children
+      populate m_obligations queue
+      return l_unknown
+  }
+}
+
+
+=============================================================
+
+a node keeps a derivation object
+
+if a node is sat, a new node is constructed and inherits the derivation object
+if a node is sat and the derivation is done, this is reported to the parent
+
+expand_node(n):
+  process node ignoring derivation
+  if sat:
+      if concrete:
+         if has derivation and has next child
+            close current node and push new node
+            return l_undef
+         else
+             return l_true
+      else
+         create_child (creates a new node and optionally sets derivation)
+  else if unsat
+      generate lemmas
+      derivation remains unchanged to be used at a higher level
+      return
+======================================================================
+1. open disjunction for transition relation
+   - a fresh literal to open the disjunction of the transition relation
+   - expr* expand_init (expr *e) -- add e to initial state and return
+     new disj var
+   - close the disjunction by passing the negation of the literal
+     during various calls
+   - store the literal negated to have access to both positive and
+     negative versions
+   - with this, can do an optional check whether the lemmas alone are
+     strong enough to discharge the counterexample. Easiest is to
+     implement it as a separate pre-check.
+     
+2. auxiliary variables in lemmas and reach-facts. 
+   - store and expect auxiliary variables
+   - quantify them out when necessary
+
+3. initial rules as reach-facts
+   - add initial rules of a predicate to its reach-facts. Propagate them to uses.
+   - this way, the checks at level 0 will include initial rules of
+     immediate predecessors
+======================================================================
+
+reach_fact_ref_vector m_reach_facts
+app_ref_vector m_reach_case_vars
+
+bool is_must_reachable (expr *state, model_ref *model)
+reach_fact* get_used_reach_fact (model_evaluator &mev)
+app* mk_fresh_reach_case_var ()
+expr* get_reach ()
+expr* get_last_reach_case_var ()
+app* get_reach_case_var (unsigned idx)
+
+get_used_origin_reach_fact():
+    
+
+======================================================================
+4. track relationship between an obligation and lemmas. Attempt to
+   generalize an obligation into the exact lemma that worked
+   before. Perhaps pick one lemma with highest level? Implement as
+   core-generalizer. Will require reworking how legacy_frames is implemented.

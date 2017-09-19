@@ -23,7 +23,7 @@ Revision History:
 
 #ifdef Z3DEBUG
 
-#include"vector.h"
+#include "util/vector.h"
 
 class region {
     ptr_vector<char> m_chuncks;

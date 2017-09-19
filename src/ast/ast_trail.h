@@ -22,8 +22,8 @@ Revision History:
 #ifndef AST_TRAIL_H_
 #define AST_TRAIL_H_
 
-#include"ast.h"
-#include"trail.h"
+#include "ast/ast.h"
+#include "util/trail.h"
 
 
 template<typename S, typename T>

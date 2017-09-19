@@ -1,9 +1,23 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 #include <memory>
-#include "util/vector.h"
 #include <set>
 #include <utility>
 #include "util/vector.h"
@@ -17,7 +31,7 @@
 namespace lp {
 template void static_matrix<double, double>::add_columns_at_the_end(unsigned int);
 template void static_matrix<double, double>::clear();
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
 template bool static_matrix<double, double>::is_correct() const;
 #endif
 template void static_matrix<double, double>::copy_column_to_indexed_vector(unsigned int, indexed_vector<double>&) const;
@@ -52,7 +66,7 @@ template static_matrix<mpq, mpq>::ref& static_matrix<mpq, mpq>::ref::operator=(m
 template void static_matrix<mpq, mpq>::set(unsigned int, unsigned int, mpq const&);
 
 template static_matrix<mpq, mpq>::static_matrix(unsigned int, unsigned int);
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
 template bool static_matrix<mpq, numeric_pair<mpq> >::is_correct() const;
 #endif
 template void static_matrix<mpq, numeric_pair<mpq> >::copy_column_to_indexed_vector(unsigned int, indexed_vector<mpq>&) const;

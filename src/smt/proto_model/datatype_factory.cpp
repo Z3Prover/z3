@@ -16,11 +16,10 @@ Author:
 Revision History:
 
 --*/
-#include"datatype_factory.h"
-#include"proto_model.h"
-#include"ast_pp.h"
-#include"ast_ll_pp.h"
-#include"expr_functors.h"
+#include "smt/proto_model/datatype_factory.h"
+#include "smt/proto_model/proto_model.h"
+#include "ast/ast_pp.h"
+#include "ast/expr_functors.h"
 
 datatype_factory::datatype_factory(ast_manager & m, proto_model & md):
     struct_factory(m, m.mk_family_id("datatype"), md),
@@ -89,11 +88,8 @@ expr * datatype_factory::get_almost_fresh_value(sort * s) {
     // Traverse constructors, and try to invoke get_fresh_value of one of the arguments (if the argument is not a sibling datatype of s).
     // If the argumet is a sibling datatype of s, then
     // use get_last_fresh_value.
-    ptr_vector<func_decl> const * constructors = m_util.get_datatype_constructors(s);
-    ptr_vector<func_decl>::const_iterator it   = constructors->begin();
-    ptr_vector<func_decl>::const_iterator end  = constructors->end();
-    for (; it != end; ++it) {
-        func_decl * constructor = *it;
+    ptr_vector<func_decl> const & constructors = *m_util.get_datatype_constructors(s);
+    for (func_decl * constructor : constructors) {
         expr_ref_vector args(m_manager);
         bool found_fresh_arg = false;
         bool recursive       = false;
@@ -155,11 +151,8 @@ expr * datatype_factory::get_fresh_value(sort * s) {
     // Traverse constructors, and try to invoke get_fresh_value of one of the 
     // arguments (if the argument is not a sibling datatype of s).
     // Two datatypes are siblings if they were defined together in the same mutually recursive definition.
-    ptr_vector<func_decl> const * constructors = m_util.get_datatype_constructors(s);
-    ptr_vector<func_decl>::const_iterator it   = constructors->begin();
-    ptr_vector<func_decl>::const_iterator end  = constructors->end();
-    for (; it != end; ++it) {
-        func_decl * constructor = *it;
+    ptr_vector<func_decl> const & constructors = *m_util.get_datatype_constructors(s);
+    for (func_decl * constructor : constructors) {
         expr_ref_vector args(m_manager);
         bool found_fresh_arg = false;
         unsigned num            = constructor->get_arity();
@@ -196,11 +189,8 @@ expr * datatype_factory::get_fresh_value(sort * s) {
         while(true) {
             ++num_iterations;
             TRACE("datatype_factory", tout << mk_pp(get_last_fresh_value(s), m_manager) << "\n";);
-            ptr_vector<func_decl> const * constructors = m_util.get_datatype_constructors(s);
-            ptr_vector<func_decl>::const_iterator it   = constructors->begin();
-            ptr_vector<func_decl>::const_iterator end  = constructors->end();
-            for (; it != end; ++it) {
-                func_decl * constructor = *it;
+            ptr_vector<func_decl> const & constructors = *m_util.get_datatype_constructors(s);
+            for (func_decl * constructor : constructors) {
                 expr_ref_vector args(m_manager);
                 bool found_sibling   = false;
                 unsigned num         = constructor->get_arity();

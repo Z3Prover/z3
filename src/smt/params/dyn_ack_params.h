@@ -19,7 +19,7 @@ Revision History:
 #ifndef DYN_ACK_PARAMS_H_
 #define DYN_ACK_PARAMS_H_
 
-#include"params.h"
+#include "util/params.h"
 
 enum dyn_ack_strategy {
     DACK_DISABLED,

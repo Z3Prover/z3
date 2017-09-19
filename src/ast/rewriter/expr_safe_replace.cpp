@@ -18,9 +18,9 @@ Revision History:
 
 --*/
 
-#include "expr_safe_replace.h"
-#include "rewriter.h"
-#include "ast_pp.h"
+#include "ast/rewriter/expr_safe_replace.h"
+#include "ast/rewriter/rewriter.h"
+#include "ast/ast_pp.h"
 
 
 void expr_safe_replace::insert(expr* src, expr* dst) {

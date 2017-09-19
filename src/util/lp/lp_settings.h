@@ -1,7 +1,22 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 
 #pragma once
 #include "util/vector.h"
@@ -16,17 +31,13 @@ namespace lp {
 typedef unsigned var_index;
 typedef unsigned constraint_index;
 typedef unsigned row_index;
-
-
-typedef vector<std::pair<mpq, constraint_index>> explanation_t;
-
 enum class column_type  {
     free_column = 0,
-    low_bound = 1,
-    upper_bound = 2,
-    boxed = 3,
-    fixed = 4
-};
+        low_bound = 1,
+        upper_bound = 2,
+        boxed = 3,
+        fixed = 4
+        };
 
 enum class simplex_strategy_enum {
     undecided = 3,
@@ -37,7 +48,7 @@ enum class simplex_strategy_enum {
 
 std::string column_type_to_string(column_type t);
 
-enum class lp_status {
+enum lp_status {
     UNKNOWN,
     INFEASIBLE,
     TENTATIVE_UNBOUNDED,
@@ -79,14 +90,11 @@ public:
 };
 
 struct stats {
-    unsigned m_make_feasible;
     unsigned m_total_iterations;
     unsigned m_iters_with_no_cost_growing;
     unsigned m_num_factorizations;
     unsigned m_num_of_implied_bounds;
     unsigned m_need_to_solve_inf;
-    unsigned m_max_cols;
-    unsigned m_max_rows;
     stats() { reset(); }
     void reset() { memset(this, 0, sizeof(*this)); }
 };
@@ -205,8 +213,7 @@ public:
                     use_breakpoints_in_feasibility_search(false),
                     max_row_length_for_bound_propagation(300),
                     backup_costs(true),
-                    column_number_threshold_for_using_lu_in_lar_solver(4000),
-                    m_int_branch_cut_threshold(100)
+                    column_number_threshold_for_using_lu_in_lar_solver(4000)
     {}
 
     void set_resource_limit(lp_resource_limit& lim) { m_resource_limit = &lim; }
@@ -304,7 +311,7 @@ public:
     unsigned column_norms_update_frequency;
     bool scale_with_ratio;
     double density_threshold; // need to tune it up, todo
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     static unsigned ddd; // used for debugging    
 #endif
     bool use_breakpoints_in_feasibility_search;
@@ -313,7 +320,6 @@ public:
     unsigned max_row_length_for_bound_propagation;
     bool backup_costs;
     unsigned column_number_threshold_for_using_lu_in_lar_solver;
-    unsigned m_int_branch_cut_threshold;
 }; // end of lp_settings class
 
 
@@ -375,7 +381,7 @@ inline void print_blanks(int n, std::ostream & out) {
 // after a push of the last element we ensure that the vector increases
 // we also suppose that before the last push the vector was increasing
 inline void ensure_increasing(vector<unsigned> & v) {
-    lp_assert(v.size() > 0);
+    SASSERT(v.size() > 0);
     unsigned j = v.size() - 1;
     for (; j > 0; j-- )
         if (v[j] <= v[j - 1]) {
@@ -390,7 +396,7 @@ inline void ensure_increasing(vector<unsigned> & v) {
 
 
 
-#if LEAN_DEBUG
+#if Z3DEBUG
 bool D();
 #endif
 }

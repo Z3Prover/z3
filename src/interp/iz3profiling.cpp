@@ -24,14 +24,14 @@
 #pragma warning(disable:4101)
 #endif
 
-#include "iz3profiling.h"
+#include "interp/iz3profiling.h"
 
 #include <map>
 #include <iostream>
 #include <string>
 #include <string.h>
 #include <stdlib.h>
-#include "stopwatch.h"
+#include "util/stopwatch.h"
 
 
 // FIXME fill in these stubs

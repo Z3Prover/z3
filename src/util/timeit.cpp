@@ -17,9 +17,9 @@ Revision History:
 
 --*/
 #include<iostream>
-#include"timeit.h"
-#include"memory_manager.h"
-#include"stopwatch.h"
+#include "util/timeit.h"
+#include "util/memory_manager.h"
+#include "util/stopwatch.h"
 #include<iomanip>
 
 struct timeit::imp {

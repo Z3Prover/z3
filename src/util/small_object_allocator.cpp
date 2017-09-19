@@ -18,11 +18,11 @@ Revision History:
     Rewrote/Simplified the allocator
 
 --*/
-#include"memory_manager.h"
-#include"small_object_allocator.h"
-#include"debug.h"
-#include"util.h"
-#include"vector.h"
+#include "util/memory_manager.h"
+#include "util/small_object_allocator.h"
+#include "util/debug.h"
+#include "util/util.h"
+#include "util/vector.h"
 #include<iomanip>
 
 small_object_allocator::small_object_allocator(char const * id) {

@@ -17,6 +17,7 @@ Notes:
 
 --*/
 
+/*
 #include "solver.h"
 #include "tactical.h"
 #include "sat_solver.h"
@@ -36,8 +37,27 @@ Notes:
 #include "ast_translation.h"
 #include "ast_util.h"
 #include "propagate_values_tactic.h"
-#include "sat_params.hpp"
+*/
 
+#include "solver/solver.h"
+#include "tactic/tactical.h"
+#include "sat/sat_solver.h"
+#include "solver/tactic2solver.h"
+#include "tactic/aig/aig_tactic.h"
+#include "tactic/core/propagate_values_tactic.h"
+#include "tactic/bv/max_bv_sharing_tactic.h"
+#include "tactic/arith/card2bv_tactic.h"
+#include "tactic/bv/bit_blaster_tactic.h"
+#include "tactic/core/simplify_tactic.h"
+#include "sat/tactic/goal2sat.h"
+#include "ast/ast_pp.h"
+#include "model/model_smt2_pp.h"
+#include "tactic/filter_model_converter.h"
+#include "tactic/bv/bit_blaster_model_converter.h"
+#include "ast/ast_translation.h"
+#include "ast/ast_util.h"
+#include "tactic/core/propagate_values_tactic.h"
+#include "sat/sat_params.hpp"
 
 // incremental SAT solver.
 class inc_sat_solver : public solver {
@@ -530,6 +550,9 @@ private:
         m_subgoals.reset();
         init_preprocess();
         SASSERT(g->models_enabled());
+        if (g->proofs_enabled()) {
+            throw default_exception("generation of proof objects is not supported in this mode");
+        }
         SASSERT(!g->proofs_enabled());
         TRACE("sat", g->display(tout););
         try {

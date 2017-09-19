@@ -1,10 +1,25 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 #include "util/lp/lp_settings.h"
 #include "util/lp/dense_matrix.hpp"
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
 #include "util/vector.h"
 template lp::dense_matrix<double, double> lp::operator*<double, double>(lp::matrix<double, double>&, lp::matrix<double, double>&);
 template void lp::dense_matrix<double, double>::apply_from_left(vector<double> &);

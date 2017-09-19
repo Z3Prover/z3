@@ -4,10 +4,10 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
-#include "qe_cmd.h"
-#include "qe.h"
-#include "cmd_context.h"
-#include "parametric_cmd.h"
+#include "qe/qe_cmd.h"
+#include "qe/qe.h"
+#include "cmd_context/cmd_context.h"
+#include "cmd_context/parametric_cmd.h"
 
 class qe_cmd : public parametric_cmd {
     expr *                   m_target;
@@ -44,9 +44,8 @@ public:
     }
     
     virtual void execute(cmd_context & ctx) {
-        smt_params par;
         proof_ref pr(ctx.m());
-        qe::expr_quant_elim_star1 qe(ctx.m(), par);
+        qe::simplify_rewriter_star qe(ctx.m());
         expr_ref result(ctx.m());
 
         qe(m_target, result, pr);            

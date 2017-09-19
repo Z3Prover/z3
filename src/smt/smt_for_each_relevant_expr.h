@@ -19,9 +19,9 @@ Revision History:
 #ifndef SMT_FOR_EACH_RELEVANT_EXPR_H_
 #define SMT_FOR_EACH_RELEVANT_EXPR_H_
 
-#include"ast.h"
-#include"obj_hashtable.h"
-#include"vector.h"
+#include "ast/ast.h"
+#include "util/obj_hashtable.h"
+#include "util/vector.h"
 
 namespace smt {
 

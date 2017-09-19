@@ -57,6 +57,7 @@ z3_add_component(api
     api_parsers.cpp
     api_pb.cpp
     api_polynomial.cpp
+    api_qe.cpp
     api_quant.cpp
     api_rcf.cpp
     api_seq.cpp

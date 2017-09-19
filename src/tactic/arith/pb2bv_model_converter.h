@@ -19,8 +19,8 @@ Notes:
 #ifndef PB2BV_MODEL_CONVERTER_H_
 #define PB2BV_MODEL_CONVERTER_H_
 
-#include"model_converter.h"
-#include"bound_manager.h"
+#include "tactic/model_converter.h"
+#include "tactic/arith/bound_manager.h"
 
 class pb2bv_model_converter : public model_converter {
     typedef std::pair<func_decl *, func_decl *> func_decl_pair;

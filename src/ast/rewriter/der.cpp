@@ -18,13 +18,13 @@ Revision History:
     Christoph Wintersteiger, 2010-03-30: Added Destr. Multi-Equality Resolution
 
 --*/
-#include"der.h"
-#include"occurs.h"
-#include"for_each_expr.h"
-#include"rewriter_def.h"
-#include"ast_pp.h"
-#include"ast_ll_pp.h"
-#include"ast_smt2_pp.h"
+#include "ast/rewriter/der.h"
+#include "ast/occurs.h"
+#include "ast/for_each_expr.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
+#include "ast/ast_smt2_pp.h"
 
 static bool is_var(expr * e, unsigned num_decls) {
     return is_var(e) && to_var(e)->get_idx() < num_decls;

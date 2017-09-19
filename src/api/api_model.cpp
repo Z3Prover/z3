@@ -16,19 +16,30 @@ Revision History:
 
 --*/
 #include<iostream>
-#include"z3.h"
-#include"api_log_macros.h"
-#include"api_context.h"
-#include"api_model.h"
-#include"api_ast_vector.h"
-#include"array_decl_plugin.h"
-#include"model.h"
-#include"model_v2_pp.h"
-#include"model_smt2_pp.h"
-#include"model_params.hpp"
-#include"model_evaluator_params.hpp"
+#include "api/z3.h"
+#include "api/api_log_macros.h"
+#include "api/api_context.h"
+#include "api/api_model.h"
+#include "api/api_ast_vector.h"
+#include "ast/array_decl_plugin.h"
+#include "model/model.h"
+#include "model/model_v2_pp.h"
+#include "model/model_smt2_pp.h"
+#include "model/model_params.hpp"
+#include "model/model_evaluator_params.hpp"
 
 extern "C" {
+
+    Z3_model Z3_API Z3_mk_model(Z3_context c) {
+        Z3_TRY;
+        LOG_Z3_mk_model(c);
+        RESET_ERROR_CODE();
+        Z3_model_ref * m_ref = alloc(Z3_model_ref, *mk_c(c)); 
+        m_ref->m_model = alloc(model, mk_c(c)->m());
+        mk_c(c)->save_object(m_ref);
+        RETURN_Z3(of_model(m_ref));
+        Z3_CATCH_RETURN(0);
+    }
 
     void Z3_API Z3_model_inc_ref(Z3_context c, Z3_model m) {
         Z3_TRY;
@@ -224,6 +235,31 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
 
+    Z3_func_interp Z3_API Z3_add_func_interp(Z3_context c, Z3_model m, Z3_func_decl f, Z3_ast else_val) {
+        Z3_TRY;
+        LOG_Z3_add_func_interp(c, m, f, else_val);
+        RESET_ERROR_CODE();
+        func_decl* d = to_func_decl(f);
+        model* mdl = to_model_ref(m);
+        Z3_func_interp_ref * f_ref = alloc(Z3_func_interp_ref, *mk_c(c), mdl); 
+        f_ref->m_func_interp = alloc(func_interp, mk_c(c)->m(), d->get_arity());
+        mk_c(c)->save_object(f_ref);
+        mdl->register_decl(d, f_ref->m_func_interp);
+        f_ref->m_func_interp->set_else(to_expr(else_val));
+        RETURN_Z3(of_func_interp(f_ref));
+        Z3_CATCH_RETURN(0);        
+    }
+
+    void Z3_API Z3_add_const_interp(Z3_context c, Z3_model m, Z3_func_decl f, Z3_ast a) {
+        Z3_TRY;
+        LOG_Z3_add_const_interp(c, m, f, a);
+        RESET_ERROR_CODE();
+        func_decl* d = to_func_decl(f);
+        model* mdl = to_model_ref(m);
+        mdl->register_decl(d, to_expr(a));
+        Z3_CATCH;
+    }
+
     void Z3_API Z3_func_interp_inc_ref(Z3_context c, Z3_func_interp f) {
         Z3_TRY;
         LOG_Z3_func_interp_inc_ref(c, f);
@@ -283,6 +319,15 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
 
+    void Z3_API Z3_func_interp_set_else(Z3_context c, Z3_func_interp f, Z3_ast else_value) {
+        Z3_TRY;
+        LOG_Z3_func_interp_set_else(c, f, else_value);
+        RESET_ERROR_CODE();
+        // CHECK_NON_NULL(f, 0);
+        to_func_interp_ref(f)->set_else(to_expr(else_value));
+        Z3_CATCH;
+    }
+
     unsigned Z3_API Z3_func_interp_get_arity(Z3_context c, Z3_func_interp f) {
         Z3_TRY;
         LOG_Z3_func_interp_get_arity(c, f);
@@ -290,6 +335,24 @@ extern "C" {
         CHECK_NON_NULL(f, 0);
         return to_func_interp_ref(f)->get_arity();
         Z3_CATCH_RETURN(0);
+    }
+
+    void Z3_API Z3_func_interp_add_entry(Z3_context c, Z3_func_interp fi, Z3_ast_vector args, Z3_ast value) {
+        Z3_TRY;
+        LOG_Z3_func_interp_add_entry(c, fi, args, value);
+        //CHECK_NON_NULL(fi, void);
+        //CHECK_NON_NULL(args, void);
+        //CHECK_NON_NULL(value, void);
+        func_interp* _fi = to_func_interp_ref(fi);
+        expr* _value = to_expr(value);
+        if (to_ast_vector_ref(args).size() != _fi->get_arity()) {
+            SET_ERROR_CODE(Z3_IOB);
+            return;
+        }
+        // check sorts of value
+        expr* const* _args = (expr* const*) to_ast_vector_ref(args).c_ptr();
+        _fi->insert_entry(_args, _value);
+        Z3_CATCH;
     }
 
     void Z3_API Z3_func_entry_inc_ref(Z3_context c, Z3_func_entry e) {

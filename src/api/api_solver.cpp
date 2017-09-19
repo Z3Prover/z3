@@ -17,22 +17,22 @@ Revision History:
 
 --*/
 #include<iostream>
-#include"z3.h"
-#include"api_log_macros.h"
-#include"api_context.h"
-#include"api_tactic.h"
-#include"api_solver.h"
-#include"api_model.h"
-#include"api_stats.h"
-#include"api_ast_vector.h"
-#include"tactic2solver.h"
-#include"scoped_ctrl_c.h"
-#include"cancel_eh.h"
-#include"scoped_timer.h"
-#include"smt_strategic_solver.h"
-#include"smt_solver.h"
-#include"smt_implied_equalities.h"
-#include"smt_logics.h"
+#include "api/z3.h"
+#include "api/api_log_macros.h"
+#include "api/api_context.h"
+#include "api/api_tactic.h"
+#include "api/api_solver.h"
+#include "api/api_model.h"
+#include "api/api_stats.h"
+#include "api/api_ast_vector.h"
+#include "solver/tactic2solver.h"
+#include "util/scoped_ctrl_c.h"
+#include "util/cancel_eh.h"
+#include "util/scoped_timer.h"
+#include "tactic/portfolio/smt_strategic_solver.h"
+#include "smt/smt_solver.h"
+#include "smt/smt_implied_equalities.h"
+#include "solver/smt_logics.h"
 
 extern "C" {
 
@@ -306,9 +306,13 @@ extern "C" {
                 result = to_solver_ref(s)->check_sat(num_assumptions, _assumptions);
             }
             catch (z3_exception & ex) {
+                to_solver_ref(s)->set_reason_unknown(eh);
                 mk_c(c)->handle_exception(ex);
                 return Z3_L_UNDEF;
             }
+        }
+        if (result == l_undef) {
+            to_solver_ref(s)->set_reason_unknown(eh);
         }
         return static_cast<Z3_lbool>(result);
     }
@@ -476,9 +480,13 @@ extern "C" {
                 result = to_solver_ref(s)->get_consequences(_assumptions, _variables, _consequences);
             }
             catch (z3_exception & ex) {
+                to_solver_ref(s)->set_reason_unknown(eh);
                 mk_c(c)->handle_exception(ex);
                 return Z3_L_UNDEF;
             }
+        }
+        if (result == l_undef) {
+            to_solver_ref(s)->set_reason_unknown(eh);
         }
         for (unsigned i = 0; i < _consequences.size(); ++i) {
             to_ast_vector_ref(consequences).push_back(_consequences[i].get());

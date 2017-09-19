@@ -20,17 +20,17 @@ Author:
 Revision History:
 
 --*/
-#include"tactical.h"
-#include"rewriter_def.h"
-#include"arith_decl_plugin.h"
-#include"algebraic_numbers.h"
-#include"nnf_tactic.h"
-#include"simplify_tactic.h"
-#include"th_rewriter.h"
-#include"filter_model_converter.h"
-#include"extension_model_converter.h"
-#include"ast_smt2_pp.h"
-#include"expr_replacer.h"
+#include "tactic/tactical.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "ast/arith_decl_plugin.h"
+#include "math/polynomial/algebraic_numbers.h"
+#include "tactic/core/nnf_tactic.h"
+#include "tactic/core/simplify_tactic.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "tactic/filter_model_converter.h"
+#include "tactic/extension_model_converter.h"
+#include "ast/ast_smt2_pp.h"
+#include "ast/rewriter/expr_replacer.h"
 
 /*
 ----
@@ -297,11 +297,11 @@ struct purify_arith_proc {
             push_cnstr(OR(EQ(y, mk_real_zero()),
                           EQ(u().mk_mul(y, k), x)));
             push_cnstr_pr(result_pr);
-
-            if (complete()) {
+            rational r;
+            if (complete() && (!u().is_numeral(y, r) || r.is_zero())) {
                 // y != 0 \/ k = div-0(x)
                 push_cnstr(OR(NOT(EQ(y, mk_real_zero())),
-                              EQ(k, u().mk_div0(x))));
+                              EQ(k, u().mk_div(x, mk_real_zero()))));
                 push_cnstr_pr(result_pr);
             }
         }
@@ -348,11 +348,12 @@ struct purify_arith_proc {
             push_cnstr(OR(u().mk_ge(y, zero), u().mk_lt(k2, u().mk_mul(u().mk_numeral(rational(-1), true), y))));
             push_cnstr_pr(mod_pr);
 
-            if (complete()) {
-                push_cnstr(OR(NOT(EQ(y, zero)), EQ(k1, u().mk_idiv0(x))));
+            rational r;
+            if (complete() && (!u().is_numeral(y, r) || r.is_zero())) {
+                push_cnstr(OR(NOT(EQ(y, zero)), EQ(k1, u().mk_idiv(x, zero))));
                 push_cnstr_pr(result_pr);
 
-                push_cnstr(OR(NOT(EQ(y, zero)), EQ(k2, u().mk_mod0(x))));
+                push_cnstr(OR(NOT(EQ(y, zero)), EQ(k2, u().mk_mod(x, zero))));
                 push_cnstr_pr(mod_pr);
             }
         }
@@ -414,7 +415,7 @@ struct purify_arith_proc {
                 // (^ x 0) --> k  |  x != 0 implies k = 1,   x = 0 implies k = 0^0 
                 push_cnstr(OR(EQ(x, zero), EQ(k, one)));
                 push_cnstr_pr(result_pr);
-                push_cnstr(OR(NOT(EQ(x, zero)), EQ(k, is_int ? u().mk_0_pw_0_int() : u().mk_0_pw_0_real())));
+                push_cnstr(OR(NOT(EQ(x, zero)), EQ(k, u().mk_power(zero, zero))));
                 push_cnstr_pr(result_pr);
             }
             else if (!is_int) {

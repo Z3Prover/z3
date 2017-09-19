@@ -16,10 +16,10 @@ Author:
 Revision History:
 
 --*/
-#include"util.h"
-#include"memory_manager.h"
-#include"stopwatch.h"
-#include"timer.h"
+#include "util/util.h"
+#include "util/memory_manager.h"
+#include "util/stopwatch.h"
+#include "util/timer.h"
 
 timer::timer(){
     m_watch = alloc(stopwatch);

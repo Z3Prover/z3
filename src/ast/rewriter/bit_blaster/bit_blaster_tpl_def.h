@@ -16,12 +16,12 @@ Author:
 Revision History:
 
 --*/
-#include"bit_blaster_tpl.h"
-#include"rational.h"
-#include"ast_pp.h"
-#include"cooperate.h"
-#include"common_msgs.h"
-#include"rewriter_types.h"
+#include "ast/rewriter/bit_blaster/bit_blaster_tpl.h"
+#include "util/rational.h"
+#include "ast/ast_pp.h"
+#include "util/cooperate.h"
+#include "util/common_msgs.h"
+#include "ast/rewriter/rewriter_types.h"
 
 
 template<typename Cfg>

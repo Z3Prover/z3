@@ -21,9 +21,9 @@ Revision History:
 #ifndef QE_LITE_H_
 #define QE_LITE_H_
 
-#include "ast.h"
-#include "uint_set.h"
-#include "params.h"
+#include "ast/ast.h"
+#include "util/uint_set.h"
+#include "util/params.h"
 
 class tactic;
 
@@ -31,7 +31,10 @@ class qe_lite {
     class impl;
     impl * m_impl;
 public:
-    qe_lite(ast_manager & m, params_ref const & p);
+    /** 
+        use_array_der controls whether equalities over array reads are simplified
+     */
+    qe_lite(ast_manager& m, params_ref const & p, bool use_array_der = true);
 
     ~qe_lite();
 

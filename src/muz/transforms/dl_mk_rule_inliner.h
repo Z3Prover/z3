@@ -20,12 +20,12 @@ Revision History:
 #ifndef DL_MK_RULE_INLINER_H_
 #define DL_MK_RULE_INLINER_H_
 
-#include "dl_context.h"
-#include "dl_rule_transformer.h"
-#include "dl_mk_interp_tail_simplifier.h"
-#include "unifier.h"
-#include "substitution.h"
-#include "substitution_tree.h"
+#include "muz/base/dl_context.h"
+#include "muz/base/dl_rule_transformer.h"
+#include "muz/transforms/dl_mk_interp_tail_simplifier.h"
+#include "ast/substitution/unifier.h"
+#include "ast/substitution/substitution.h"
+#include "ast/substitution/substitution_tree.h"
 
 namespace datalog {
 

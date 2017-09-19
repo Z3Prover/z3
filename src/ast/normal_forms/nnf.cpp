@@ -17,18 +17,18 @@ Notes:
     Major revision on 2011-10-06
 
 --*/
-#include"nnf.h"
-#include"nnf_params.hpp"
-#include"warning.h"
-#include"used_vars.h"
-#include"well_sorted.h"
-#include"var_subst.h"
+#include "ast/normal_forms/nnf.h"
+#include "ast/normal_forms/nnf_params.hpp"
+#include "util/warning.h"
+#include "ast/used_vars.h"
+#include "ast/well_sorted.h"
+#include "ast/rewriter/var_subst.h"
 
-#include"name_exprs.h"
-#include"act_cache.h"
-#include"cooperate.h"
+#include "ast/normal_forms/name_exprs.h"
+#include "ast/act_cache.h"
+#include "util/cooperate.h"
 
-#include"ast_smt2_pp.h"
+#include "ast/ast_smt2_pp.h"
 
 /**
    \brief NNF translation mode.  The cheapest mode is NNF_SKOLEM, and

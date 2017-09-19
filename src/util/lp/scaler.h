@@ -1,7 +1,22 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 
 #pragma once
 #include "util/vector.h"
@@ -31,7 +46,7 @@ public:
         m_scaling_maximum(scaling_maximum),
         m_column_scale(column_scale),
         m_settings(settings) {
-        lp_assert(m_column_scale.size() == 0);
+        SASSERT(m_column_scale.size() == 0);
         m_column_scale.resize(m_A.column_count(), numeric_traits<T>::one());
     }
 

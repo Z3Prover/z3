@@ -19,7 +19,7 @@ Revision History:
 #ifndef AST_PP_UTIL_H_
 #define AST_PP_UTIL_H_
 
-#include "decl_collector.h"
+#include "ast/decl_collector.h"
 
 class ast_pp_util {
     ast_manager&        m;

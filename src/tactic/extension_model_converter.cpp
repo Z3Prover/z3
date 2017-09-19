@@ -16,11 +16,11 @@ Author:
 Notes:
 
 --*/
-#include"extension_model_converter.h"
-#include"model_evaluator.h"
-#include"ast_smt2_pp.h"
-#include"model_v2_pp.h"
-#include"ast_pp.h"
+#include "tactic/extension_model_converter.h"
+#include "model/model_evaluator.h"
+#include "ast/ast_smt2_pp.h"
+#include "model/model_v2_pp.h"
+#include "ast/ast_pp.h"
 
 extension_model_converter::~extension_model_converter() {
 }

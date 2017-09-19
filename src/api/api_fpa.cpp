@@ -17,10 +17,10 @@ Notes:
 
 --*/
 #include<iostream>
-#include"z3.h"
-#include"api_log_macros.h"
-#include"api_context.h"
-#include"fpa_decl_plugin.h"
+#include "api/z3.h"
+#include "api/api_log_macros.h"
+#include "api/api_context.h"
+#include "ast/fpa_decl_plugin.h"
 
 bool is_fp_sort(Z3_context c, Z3_sort s) {
     return mk_c(c)->fpautil().is_float(to_sort(s));

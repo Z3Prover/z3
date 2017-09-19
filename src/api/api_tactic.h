@@ -18,8 +18,8 @@ Revision History:
 #ifndef API_TACTIC_H_
 #define API_TACTIC_H_
 
-#include"api_goal.h"
-#include"tactical.h"
+#include "api/api_goal.h"
+#include "tactic/tactical.h"
 
 namespace api {
     class context;

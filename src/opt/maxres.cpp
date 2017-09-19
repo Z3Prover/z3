@@ -52,18 +52,18 @@ Notes:
 
 --*/
 
-#include "solver.h"
-#include "maxsmt.h"
-#include "maxres.h"
-#include "ast_pp.h"
-#include "mus.h"
-#include "mss.h"
-#include "inc_sat_solver.h"
-#include "opt_context.h"
-#include "pb_decl_plugin.h"
-#include "opt_params.hpp"
-#include "ast_util.h"
-#include "smt_solver.h"
+#include "solver/solver.h"
+#include "opt/maxsmt.h"
+#include "opt/maxres.h"
+#include "ast/ast_pp.h"
+#include "solver/mus.h"
+#include "opt/mss.h"
+#include "sat/sat_solver/inc_sat_solver.h"
+#include "opt/opt_context.h"
+#include "ast/pb_decl_plugin.h"
+#include "opt/opt_params.hpp"
+#include "ast/ast_util.h"
+#include "smt/smt_solver.h"
 
 using namespace opt;
 

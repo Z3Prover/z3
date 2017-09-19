@@ -19,17 +19,17 @@ Revision History:
 
 --*/
 
-#include "qe_arith.h"
-#include "qe_mbp.h"
-#include "ast_util.h"
-#include "arith_decl_plugin.h"
-#include "ast_pp.h"
-#include "model_v2_pp.h"
-#include "th_rewriter.h"
-#include "expr_functors.h"
-#include "expr_safe_replace.h"
-#include "model_based_opt.h"
-#include "model_evaluator.h"
+#include "qe/qe_arith.h"
+#include "qe/qe_mbp.h"
+#include "ast/ast_util.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/ast_pp.h"
+#include "model/model_v2_pp.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "ast/expr_functors.h"
+#include "ast/rewriter/expr_safe_replace.h"
+#include "math/simplex/model_based_opt.h"
+#include "model/model_evaluator.h"
 
 namespace qe {
     

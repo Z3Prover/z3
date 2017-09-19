@@ -25,10 +25,10 @@ Revision History:
 #ifndef SUBPAVING_H_
 #define SUBPAVING_H_
 
-#include"mpq.h"
-#include"subpaving_types.h"
-#include"params.h"
-#include"statistics.h"
+#include "util/mpq.h"
+#include "math/subpaving/subpaving_types.h"
+#include "util/params.h"
+#include "util/statistics.h"
 
 template<typename fmanager> class f2n;
 class mpf_manager;

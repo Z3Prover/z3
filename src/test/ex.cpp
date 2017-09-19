@@ -17,7 +17,7 @@ Revision History:
 
 --*/
 #include<iostream>
-#include"z3_exception.h"
+#include "util/z3_exception.h"
 
 class ex {
 public:

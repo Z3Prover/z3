@@ -27,15 +27,15 @@
 #pragma warning(disable:4800)
 #endif
 
-#include "iz3mgr.h"
+#include "interp/iz3mgr.h"
 
 #include <stdio.h>
 #include <fstream>
 #include <iostream>
 #include <ostream>
 
-#include "expr_abstract.h"
-#include "params.h"
+#include "ast/expr_abstract.h"
+#include "util/params.h"
 
 
 using namespace stl_ext;

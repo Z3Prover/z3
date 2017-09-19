@@ -1825,6 +1825,116 @@ sig
   val mk_numeral : context -> string -> int -> Expr.expr
 end
 
+(** Sequences, Strings and Regular Expressions **)
+module Seq : 
+sig
+  (* create a sequence sort *)
+  val mk_seq_sort : context -> Sort.sort -> Sort.sort
+
+  (* test if sort is a sequence sort *)
+  val is_seq_sort : context -> Sort.sort -> bool
+
+  (* create regular expression sorts over sequences of the argument sort *)   
+  val mk_re_sort : context -> Sort.sort -> Sort.sort
+
+  (* test if sort is a regular expression sort *)
+  val is_re_sort : context -> Sort.sort -> bool
+
+  (* create string sort *)
+  val mk_string_sort : context -> Sort.sort
+
+  (* test if sort is a string sort (a sequence of 8-bit bit-vectors) *)
+  val is_string_sort : context -> Sort.sort -> bool 
+
+  (* create a string literal *)
+  val mk_string : context -> string -> Expr.expr
+
+  (* test if expression is a string *)
+  val is_string : context -> Expr.expr -> bool 
+
+  (* retrieve string from string Expr.expr *)
+  val get_string : context -> Expr.expr -> string 
+
+  (* the empty sequence over base sort *)
+  val mk_seq_empty : context -> Sort.sort -> Expr.expr 
+
+  (* a unit sequence *)
+  val mk_seq_unit : context -> Expr.expr -> Expr.expr 
+
+  (* sequence concatenation *)
+  val mk_seq_concat : context -> Expr.expr list -> Expr.expr 
+
+  (* predicate if the first argument is a prefix of the second *)
+  val mk_seq_prefix : context -> Expr.expr -> Expr.expr -> Expr.expr  
+
+  (* predicate if the first argument is a suffix of the second *)
+  val mk_seq_suffix : context -> Expr.expr -> Expr.expr -> Expr.expr  
+
+  (* predicate if the first argument contains the second *)
+  val mk_seq_contains : context -> Expr.expr -> Expr.expr -> Expr.expr  
+
+  (* extract sub-sequence starting at index given by second argument and of length provided by third argument *)
+  val mk_seq_extract : context -> Expr.expr -> Expr.expr -> Expr.expr -> Expr.expr  
+
+  (* replace first occurrence of second argument by third *)
+  val mk_seq_replace : context -> Expr.expr -> Expr.expr -> Expr.expr -> Expr.expr  
+
+  (* a unit sequence at index provided by second argument *)
+  val mk_seq_at : context -> Expr.expr -> Expr.expr -> Expr.expr 
+
+  (* length of a sequence *)
+  val mk_seq_length : context -> Expr.expr -> Expr.expr  
+
+  (* index of the first occurrence of the second argument in the first *)
+  val mk_seq_index : context -> Expr.expr -> Expr.expr -> Expr.expr -> Expr.expr 
+
+  (* retrieve integer expression encoded in string *)
+  val mk_str_to_int : context -> Expr.expr -> Expr.expr
+
+  (* convert an integer expression to a string *)
+  val mk_int_to_str : context -> Expr.expr -> Expr.expr 
+
+  (* create regular expression that accepts the argument sequence *)
+  val mk_seq_to_re : context -> Expr.expr -> Expr.expr 
+
+  (* regular expression membership predicate *)
+  val mk_seq_in_re : context -> Expr.expr -> Expr.expr -> Expr.expr 
+
+  (* regular expression plus *)
+  val mk_re_plus : context -> Expr.expr -> Expr.expr 
+
+  (* regular expression star *)
+  val mk_re_star : context -> Expr.expr -> Expr.expr 
+
+  (* optional regular expression *)
+  val mk_re_option : context -> Expr.expr -> Expr.expr 
+
+  (* union of regular expressions *)
+  val mk_re_union : context -> Expr.expr list -> Expr.expr 
+
+  (* concatenation of regular expressions *)
+  val mk_re_concat : context -> Expr.expr list -> Expr.expr 
+  
+  (* regular expression for the range between two characters *)
+  val mk_re_range : context -> Expr.expr -> Expr.expr -> Expr.expr 
+
+  (* bounded loop regular expression *)
+  val mk_re_loop : context -> Expr.expr -> int -> int -> Expr.expr 
+  
+  (* intersection of regular expressions *)
+  val mk_re_intersect : context -> int -> Expr.expr list -> Expr.expr
+
+  (* the regular expression complement *)
+  val mk_re_complement : context -> Expr.expr -> Expr.expr 
+
+  (* the regular expression that accepts no sequences *)
+  val mk_re_empty : context -> Sort.sort -> Expr.expr 
+
+  (* the regular expression that accepts all sequences *)
+  val mk_re_full : context -> Sort.sort -> Expr.expr 
+
+end
+
 (** Floating-Point Arithmetic *)
 module FloatingPoint :
 sig

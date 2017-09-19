@@ -16,10 +16,10 @@ Author:
 Revision History:
 
 --*/
-#include"smt_context.h"
-#include"smt_conflict_resolution.h"
-#include"ast_pp.h"
-#include"ast_ll_pp.h"
+#include "smt/smt_context.h"
+#include "smt/smt_conflict_resolution.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
 
 namespace smt {
 
@@ -348,10 +348,8 @@ namespace smt {
         literal_vector & antecedents = m_tmp_literal_vector;
         antecedents.reset();
         justification2literals_core(js, antecedents);
-        literal_vector::iterator it  = antecedents.begin();
-        literal_vector::iterator end = antecedents.end();
-        for(; it != end; ++it)
-            process_antecedent(*it, num_marks);
+        for (literal l : antecedents)
+            process_antecedent(l, num_marks);
     }
 
     /**
@@ -517,11 +515,13 @@ namespace smt {
             }
 
             TRACE("conflict", tout << "processing consequent: "; m_ctx.display_literal_verbose(tout, consequent); tout << "\n";
-                  tout << "num_marks: " << num_marks << ", js kind: " << js.get_kind() << "\n";);
+                  tout << "num_marks: " << num_marks << ", js kind: " << js.get_kind() << " level: " << m_ctx.get_assign_level(consequent) << "\n";
+                  );
             SASSERT(js != null_b_justification);
             switch (js.get_kind()) {
             case b_justification::CLAUSE: {
                 clause * cls = js.get_clause();
+                TRACE("conflict", m_ctx.display_clause_detail(tout, cls););
                 if (cls->is_lemma())
                     cls->inc_clause_activity();
                 unsigned num_lits = cls->get_num_literals();
@@ -566,7 +566,7 @@ namespace smt {
                 if (m_ctx.is_marked(l.var()))
                     break;
                 CTRACE("conflict", m_ctx.get_assign_level(l) != m_conflict_lvl && m_ctx.get_assign_level(l) != m_ctx.get_base_level(),
-                       tout << "assign_level(l): " << m_ctx.get_assign_level(l) << ", conflict_lvl: " << m_conflict_lvl << ", l: "; m_ctx.display_literal(tout, l);
+                       tout << "assign_level(l): " << m_ctx.get_assign_level(l) << ", conflict_lvl: " << m_conflict_lvl << ", l: "; m_ctx.display_literal_verbose(tout, l);
                        tout << "\n";);
                 SASSERT(m_ctx.get_assign_level(l) == m_conflict_lvl ||
                         // it may also be an (out-of-order) asserted literal

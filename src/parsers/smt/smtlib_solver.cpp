@@ -17,19 +17,19 @@ Revision History:
 
 --*/
 
-#include"smtparser.h"
-#include"smtlib_solver.h"
-#include"warning.h"
-#include"ast_pp.h"
-#include"ast_ll_pp.h"
-#include"well_sorted.h"
-#include"model.h"
-#include"model_v2_pp.h"
-#include"solver.h"
-#include"smt_strategic_solver.h"
-#include"cmd_context.h"
-#include"model_params.hpp"
-#include"parser_params.hpp"
+#include "parsers/smt/smtparser.h"
+#include "parsers/smt/smtlib_solver.h"
+#include "util/warning.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
+#include "ast/well_sorted.h"
+#include "model/model.h"
+#include "model/model_v2_pp.h"
+#include "solver/solver.h"
+#include "tactic/portfolio/smt_strategic_solver.h"
+#include "cmd_context/cmd_context.h"
+#include "model/model_params.hpp"
+#include "parsers/util/parser_params.hpp"
 
 namespace smtlib {
 

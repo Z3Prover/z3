@@ -19,7 +19,7 @@ Notes:
 #ifndef EXPR_SUBSTITUTION_H_
 #define EXPR_SUBSTITUTION_H_
 
-#include"ast.h"
+#include "ast/ast.h"
 
 class expr_substitution {
     ast_manager &                                m_manager;
@@ -50,6 +50,40 @@ public:
     bool contains(expr * s);
     void reset();
     void cleanup();
+};
+
+class scoped_expr_substitution {
+    expr_substitution& m_subst;
+    expr_ref_vector    m_trail;
+    unsigned_vector    m_trail_lim;
+public:
+
+    scoped_expr_substitution(expr_substitution& s): m_subst(s), m_trail(s.m()) {}
+    ~scoped_expr_substitution() {}
+
+    void insert(expr * s, expr * def, proof * def_pr = 0, expr_dependency * def_dep = 0) { 
+        if (!m_subst.contains(s)) {
+            m_subst.insert(s, def, def_pr, def_dep); 
+            m_trail.push_back(s);
+        }
+    }
+    void reset() { m_subst.reset(); m_trail.reset(); m_trail_lim.reset(); }
+    void push() { m_trail_lim.push_back(m_trail.size()); }
+    void pop(unsigned n) { 
+        if (n > 0) {
+            unsigned new_sz = m_trail_lim.size() - n;
+            unsigned old_sz = m_trail_lim[new_sz];
+            for (unsigned i = old_sz; i < m_trail.size(); ++i) m_subst.erase(m_trail[i].get());  
+            m_trail.resize(old_sz); 
+            m_trail_lim.resize(new_sz); 
+        }
+    }
+    bool empty() const { return m_subst.empty(); }
+    expr* find(expr * e) { proof* pr; expr* d = 0; if (find(e, d, pr)) return d; else return e; }
+    bool find(expr * s, expr * & def, proof * & def_pr) { return m_subst.find(s, def, def_pr); }
+    bool find(expr * s, expr * & def, proof * & def_pr, expr_dependency * & def_dep) { return m_subst.find(s, def, def_pr, def_dep); }
+    bool contains(expr * s) { return m_subst.contains(s); }
+    void cleanup() { m_subst.cleanup(); }
 };
 
 #endif

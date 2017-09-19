@@ -16,21 +16,17 @@ Author:
 Revision History:
 
 --*/
-#include"model_core.h"
+#include "model/model_core.h"
 
 model_core::~model_core() {
-    decl2expr::iterator it1  = m_interp.begin();
-    decl2expr::iterator end1 = m_interp.end();
-    for (; it1 != end1; ++it1) {
-        m_manager.dec_ref(it1->m_key);
-        m_manager.dec_ref(it1->m_value);
+    for (auto & kv : m_interp) {
+        m_manager.dec_ref(kv.m_key);
+        m_manager.dec_ref(kv.m_value);
     }
 
-    decl2finterp::iterator it2  = m_finterp.begin();
-    decl2finterp::iterator end2 = m_finterp.end();
-    for (; it2 != end2; ++it2) {
-        m_manager.dec_ref(it2->m_key);
-        dealloc(it2->m_value);
+    for (auto & kv : m_finterp) {
+        m_manager.dec_ref(kv.m_key);
+        dealloc(kv.m_value);
     }
 }
 
@@ -90,11 +86,11 @@ void model_core::register_decl(func_decl * d, func_interp * fi) {
 void model_core::unregister_decl(func_decl * d) {
     decl2expr::obj_map_entry * ec = m_interp.find_core(d);
     if (ec && ec->get_data().m_value != 0) {
-        m_manager.dec_ref(ec->get_data().m_key);
-        m_manager.dec_ref(ec->get_data().m_value);
+		m_manager.dec_ref(ec->get_data().m_key);
+		m_manager.dec_ref(ec->get_data().m_value);
         m_interp.remove(d);
         m_const_decls.erase(d);
-            return;
+        return;
     }
     
     decl2finterp::obj_map_entry * ef = m_finterp.find_core(d);

@@ -16,7 +16,7 @@ Author:
 Notes:
 
 --*/
-#include"common_msgs.h"
+#include "util/common_msgs.h"
 
 char const * common_msgs::g_canceled_msg   = "canceled";
 char const * common_msgs::g_max_memory_msg = "max. memory exceeded";

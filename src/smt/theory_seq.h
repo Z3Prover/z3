@@ -19,16 +19,16 @@ Revision History:
 #ifndef THEORY_SEQ_H_
 #define THEORY_SEQ_H_
 
-#include "smt_theory.h"
-#include "seq_decl_plugin.h"
-#include "theory_seq_empty.h"
-#include "th_rewriter.h"
-#include "ast_trail.h"
-#include "scoped_vector.h"
-#include "scoped_ptr_vector.h"
-#include "automaton.h"
-#include "seq_rewriter.h"
-#include "union_find.h"
+#include "smt/smt_theory.h"
+#include "ast/seq_decl_plugin.h"
+#include "smt/theory_seq_empty.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "ast/ast_trail.h"
+#include "util/scoped_vector.h"
+#include "util/scoped_ptr_vector.h"
+#include "math/automata/automaton.h"
+#include "ast/rewriter/seq_rewriter.h"
+#include "util/union_find.h"
 
 namespace smt {
 
@@ -328,6 +328,7 @@ namespace smt {
         // maintain automata with regular expressions.
         scoped_ptr_vector<eautomaton>  m_automata;
         obj_map<expr, eautomaton*>     m_re2aut;
+        expr_ref_vector                m_res;
 
         // queue of asserted atoms
         ptr_vector<expr>               m_atoms;
@@ -361,6 +362,7 @@ namespace smt {
         virtual void collect_statistics(::statistics & st) const;
         virtual model_value_proc * mk_value(enode * n, model_generator & mg);
         virtual void init_model(model_generator & mg);
+        virtual void init_search_eh();
 
         void init_model(expr_ref_vector const& es);
         // final check 

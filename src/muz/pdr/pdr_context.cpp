@@ -25,31 +25,31 @@ Notes:
 
 
 #include <sstream>
-#include "dl_util.h"
-#include "rewriter.h"
-#include "rewriter_def.h"
-#include "var_subst.h"
-#include "util.h"
-#include "pdr_prop_solver.h"
-#include "pdr_context.h"
-#include "pdr_generalizers.h"
-#include "for_each_expr.h"
-#include "dl_rule_set.h"
-#include "unit_subsumption_tactic.h"
-#include "model_smt2_pp.h"
-#include "dl_mk_rule_inliner.h"
-#include "ast_smt2_pp.h"
-#include "qe_lite.h"
-#include "ast_ll_pp.h"
-#include "proof_checker.h"
-#include "smt_value_sort.h"
-#include "proof_utils.h"
-#include "dl_boogie_proof.h"
-#include "scoped_proof.h"
-#include "blast_term_ite_tactic.h"
-#include "model_implicant.h"
-#include "expr_safe_replace.h"
-#include "ast_util.h"
+#include "muz/base/dl_util.h"
+#include "ast/rewriter/rewriter.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "ast/rewriter/var_subst.h"
+#include "util/util.h"
+#include "muz/pdr/pdr_prop_solver.h"
+#include "muz/pdr/pdr_context.h"
+#include "muz/pdr/pdr_generalizers.h"
+#include "ast/for_each_expr.h"
+#include "muz/base/dl_rule_set.h"
+#include "smt/tactic/unit_subsumption_tactic.h"
+#include "model/model_smt2_pp.h"
+#include "muz/transforms/dl_mk_rule_inliner.h"
+#include "ast/ast_smt2_pp.h"
+#include "qe/qe_lite.h"
+#include "ast/ast_ll_pp.h"
+#include "ast/proof_checker/proof_checker.h"
+#include "smt/smt_value_sort.h"
+#include "muz/base/proof_utils.h"
+#include "muz/base/dl_boogie_proof.h"
+#include "ast/scoped_proof.h"
+#include "tactic/core/blast_term_ite_tactic.h"
+#include "model/model_implicant.h"
+#include "ast/rewriter/expr_safe_replace.h"
+#include "ast/ast_util.h"
 
 namespace pdr {
 
@@ -1835,16 +1835,16 @@ namespace pdr {
                 !m_params.pdr_use_convex_interior_generalizer()) {
                 if (classify.is_dl()) {
                     m_fparams.m_arith_mode = AS_DIFF_LOGIC;
-                    m_fparams.m_arith_expand_eqs = true;
+                    m_fparams.m_arith_eq2ineq = true;
                 }
                 else if (classify.is_utvpi()) {
                     IF_VERBOSE(1, verbose_stream() << "UTVPI\n";);
                     m_fparams.m_arith_mode = AS_UTVPI;
-                    m_fparams.m_arith_expand_eqs = true;
+                    m_fparams.m_arith_eq2ineq = true;
                 }
                 else {
                     m_fparams.m_arith_mode = AS_ARITH;
-                    m_fparams.m_arith_expand_eqs = false;
+                    m_fparams.m_arith_eq2ineq = false;
                 }
             }
         }

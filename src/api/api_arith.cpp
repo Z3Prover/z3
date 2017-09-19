@@ -15,12 +15,12 @@ Author:
 Revision History:
 
 --*/
-#include"z3.h"
-#include"api_log_macros.h"
-#include"api_context.h"
-#include"api_util.h"
-#include"arith_decl_plugin.h"
-#include"algebraic_numbers.h"
+#include "api/z3.h"
+#include "api/api_log_macros.h"
+#include "api/api_context.h"
+#include "api/api_util.h"
+#include "ast/arith_decl_plugin.h"
+#include "math/polynomial/algebraic_numbers.h"
 
 #define MK_ARITH_OP(NAME, OP) MK_NARY(NAME, mk_c(c)->get_arith_fid(), OP, SKIP)
 #define MK_BINARY_ARITH_OP(NAME, OP) MK_BINARY(NAME, mk_c(c)->get_arith_fid(), OP, SKIP)

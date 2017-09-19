@@ -17,12 +17,12 @@ Revision History:
 
 --*/
 
-#include "pdr_smt_context_manager.h"
-#include "has_free_vars.h"
-#include "ast_pp.h"
-#include "ast_smt_pp.h"
+#include "muz/pdr/pdr_smt_context_manager.h"
+#include "ast/has_free_vars.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_smt_pp.h"
 #include <sstream>
-#include "smt_params.h"
+#include "smt/params/smt_params.h"
 
 namespace pdr {
 
@@ -83,7 +83,7 @@ namespace pdr {
               {
                   ast_smt_pp pp(m);
                   for (unsigned i = 0; i < m_context.size(); ++i) {
-                      pp.add_assumption(m_context.get_formulas()[i]);
+                      pp.add_assumption(m_context.get_formula(i));
                   }
                   for (unsigned i = 0; i < assumptions.size(); ++i) {
                       pp.add_assumption(assumptions[i].get());

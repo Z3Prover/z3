@@ -17,7 +17,7 @@ Notes:
     
 --*/
 #include<iostream>
-#include"symbol.h"
+#include "util/symbol.h"
 struct ll_escaped { char const * m_str; ll_escaped(char const * str):m_str(str) {} };
 static std::ostream & operator<<(std::ostream & out, ll_escaped const & d);
 

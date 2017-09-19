@@ -29,15 +29,15 @@ Notes:
 --*/
 
 #include <typeinfo>
-#include "optsmt.h"
-#include "opt_solver.h"
-#include "arith_decl_plugin.h"
-#include "theory_arith.h"
-#include "ast_pp.h"
-#include "ast_util.h"
-#include "model_pp.h"
-#include "th_rewriter.h"
-#include "opt_params.hpp"
+#include "opt/optsmt.h"
+#include "opt/opt_solver.h"
+#include "ast/arith_decl_plugin.h"
+#include "smt/theory_arith.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_util.h"
+#include "model/model_pp.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "opt/opt_params.hpp"
 
 namespace opt {
 

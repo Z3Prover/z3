@@ -1,7 +1,22 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 #include <utility>
 #include <memory>
 #include <string>
@@ -9,7 +24,7 @@
 #include <functional>
 #include "util/lp/lar_solver.h"
 #include "util/lp/lp_primal_core_solver.hpp"
-#include "util/lp/lp_primal_core_solver_tableau.hpp"
+#include "util/lp/lp_primal_core_solver_tableau.h"
 namespace lp {
 
 template void lp_primal_core_solver<double, double>::find_feasible_solution();

@@ -19,8 +19,8 @@ Revision History:
 #ifndef SMT_EQ_JUSTIFICATION_H_
 #define SMT_EQ_JUSTIFICATION_H_
 
-#include"smt_literal.h"
-#include"tptr.h"
+#include "smt/smt_literal.h"
+#include "util/tptr.h"
 
 namespace smt {
 

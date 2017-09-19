@@ -20,7 +20,7 @@ Notes:
 #ifndef HS_INC_SAT_SOLVER_H_
 #define HS_INC_SAT_SOLVER_H_
 
-#include "solver.h"
+#include "solver/solver.h"
 
 solver* mk_inc_sat_solver(ast_manager& m, params_ref const& p);
 

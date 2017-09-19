@@ -4,12 +4,12 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
-#include "datalog_parser.h"
-#include "ast_pp.h"
-#include "arith_decl_plugin.h"
-#include "dl_context.h"
-#include "smt_params.h"
-#include "dl_register_engine.h"
+#include "muz/fp/datalog_parser.h"
+#include "ast/ast_pp.h"
+#include "ast/arith_decl_plugin.h"
+#include "muz/base/dl_context.h"
+#include "smt/params/smt_params.h"
+#include "muz/fp/dl_register_engine.h"
 
 using namespace datalog;
 

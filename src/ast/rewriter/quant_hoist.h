@@ -22,7 +22,7 @@ Revision History:
 #ifndef QUANTIFIER_HOISTER_H_
 #define QUANTIFIER_HOISTER_H_
 
-#include "ast.h"
+#include "ast/ast.h"
 
 class quantifier_hoister {
     class impl;
@@ -43,14 +43,14 @@ public:
        or, and, implies, ite (then and else branch only).
     */
 
-    void operator()(expr* fml, app_ref_vector& vars, bool& is_fa, expr_ref& result);
+    void operator()(expr* fml, app_ref_vector& vars, bool& is_fa, expr_ref& result, bool use_fresh = true, bool rewrite_ok = true);
 
     /**
        \brief Pull top-most existential quantifier up.
 
        The list of variables is empty if there are no top-level existential quantifier.
     */
-    void pull_exists(expr* fml, app_ref_vector& vars, expr_ref& result);
+    void pull_exists(expr* fml, app_ref_vector& vars, expr_ref& result, bool use_fresh = true, bool rewrite_ok = true);
 
 
     /**
@@ -58,7 +58,7 @@ public:
 
        The list of variables is empty if there are no top-level universal/existential quantifier.
     */
-    void pull_quantifier(bool is_forall, expr_ref& fml, app_ref_vector& vars);
+    void pull_quantifier(bool is_forall, expr_ref& fml, app_ref_vector& vars, bool use_fresh = true, bool rewrite_ok = true);
 
     /**
        \brief Pull top-most universal (is_forall true) or existential (is_forall=false) quantifier up.
@@ -66,7 +66,7 @@ public:
        Return index of maximal variable.
     */
 
-    unsigned pull_quantifier(bool is_forall, expr_ref& fml, ptr_vector<sort>* sorts, svector<symbol>* names);
+    unsigned pull_quantifier(bool is_forall, expr_ref& fml, ptr_vector<sort>* sorts, svector<symbol>* names, bool use_fresh = true, bool rewrite_ok = true);
 
 };
 

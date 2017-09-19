@@ -16,9 +16,9 @@ Author:
 Revision History:
 
 --*/
-#include"nnf.h"
-#include"tactical.h"
-#include"filter_model_converter.h"
+#include "ast/normal_forms/nnf.h"
+#include "tactic/tactical.h"
+#include "tactic/filter_model_converter.h"
 
 class nnf_tactic : public tactic {
     params_ref    m_params;

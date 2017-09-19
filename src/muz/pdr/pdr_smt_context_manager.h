@@ -20,9 +20,9 @@ Revision History:
 #ifndef PDR_SMT_CONTEXT_MANAGER_H_
 #define PDR_SMT_CONTEXT_MANAGER_H_
 
-#include "smt_kernel.h"
-#include "func_decl_dependencies.h"
-#include "dl_util.h"
+#include "smt/smt_kernel.h"
+#include "ast/func_decl_dependencies.h"
+#include "muz/base/dl_util.h"
 
 namespace pdr {
     

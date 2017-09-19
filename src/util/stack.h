@@ -18,8 +18,8 @@ Notes:
 #ifndef STACK_H_
 #define STACK_H_
 
-#include"page.h"
-#include"debug.h"
+#include "util/page.h"
+#include "util/debug.h"
 
 class stack {
     char *   m_curr_page;

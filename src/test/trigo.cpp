@@ -17,13 +17,13 @@ Revision History:
 
 --*/
 #include<cstdlib>
-#include"interval_def.h"
-#include"dependency.h"
-#include"mpq.h"
-#include"ast.h"
-#include"debug.h"
-#include"im_float_config.h"
-#include"rlimit.h"
+#include "math/interval/interval_def.h"
+#include "util/dependency.h"
+#include "util/mpq.h"
+#include "ast/ast.h"
+#include "util/debug.h"
+#include "test/im_float_config.h"
+#include "util/rlimit.h"
 
 #define PREC 100000
 

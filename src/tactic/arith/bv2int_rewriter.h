@@ -19,12 +19,12 @@ Notes:
 #ifndef BV2INT_REWRITER_H_
 #define BV2INT_REWRITER_H_
 
-#include"ast.h"
-#include"rewriter.h"
-#include"bv_decl_plugin.h"
-#include"arith_decl_plugin.h"
-#include"params.h"
-#include"goal.h"
+#include "ast/ast.h"
+#include "ast/rewriter/rewriter.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/arith_decl_plugin.h"
+#include "util/params.h"
+#include "tactic/goal.h"
 
 class bv2int_rewriter_ctx {
     unsigned                 m_max_size;

@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#include"theory_pb_params.h"
-#include"smt_params_helper.hpp"
+#include "smt/params/theory_pb_params.h"
+#include "smt/params/smt_params_helper.hpp"
 
 void theory_pb_params::updt_params(params_ref const & _p) {
     smt_params_helper p(_p);

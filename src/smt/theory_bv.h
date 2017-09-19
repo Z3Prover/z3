@@ -19,16 +19,13 @@ Revision History:
 #ifndef THEORY_BV_H_
 #define THEORY_BV_H_
 
-#include"smt_theory.h"
-#include"theory_bv_params.h"
-#include"bit_blaster.h"
-#include"trail.h"
-#include"union_find.h"
-#include"simplifier.h"
-#include"bv_simplifier_plugin.h"
-#include"arith_decl_plugin.h"
-#include"arith_simplifier_plugin.h"
-#include"numeral_factory.h"
+#include "smt/smt_theory.h"
+#include "smt/params/theory_bv_params.h"
+#include "ast/rewriter/bit_blaster/bit_blaster.h"
+#include "util/trail.h"
+#include "util/union_find.h"
+#include "ast/arith_decl_plugin.h"
+#include "smt/proto_model/numeral_factory.h"
 
 namespace smt {
     
@@ -112,7 +109,6 @@ namespace smt {
         theory_bv_params const & m_params;
         bv_util                  m_util;
         arith_util               m_autil;
-        simplifier *             m_simplifier;
         bit_blaster              m_bb;
         th_trail_stack           m_trail_stack;
         th_union_find            m_find;
@@ -218,12 +214,6 @@ namespace smt {
         void assign_bit(literal consequent, theory_var v1, theory_var v2, unsigned idx, literal antecedent, bool propagate_eqc);
         void assert_int2bv_axiom(app* n);
         void assert_bv2int_axiom(app* n);
-        arith_simplifier_plugin & arith_simp() const {
-            SASSERT(m_simplifier != 0);
-            arith_simplifier_plugin * as = static_cast<arith_simplifier_plugin*>(m_simplifier->get_plugin(m_autil.get_family_id()));
-            SASSERT(as != 0);
-            return *as;
-        }
 
     protected:
         virtual void init(context * ctx);

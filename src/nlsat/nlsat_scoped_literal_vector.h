@@ -20,7 +20,7 @@ Revision History:
 #ifndef NLSAT_SCOPED_LITERAL_VECTOR_H_
 #define NLSAT_SCOPED_LITERAL_VECTOR_H_
 
-#include"nlsat_solver.h"
+#include "nlsat/nlsat_solver.h"
 
 namespace nlsat {
 

@@ -3,13 +3,11 @@ z3_add_component(lp
     lp_utils.cpp
     binary_heap_priority_queue_instances.cpp
     binary_heap_upair_queue_instances.cpp
-    bound_propagator.cpp
+    lp_bound_propagator.cpp
     core_solver_pretty_printer_instances.cpp
     dense_matrix_instances.cpp
     eta_matrix_instances.cpp
     indexed_vector_instances.cpp
-    int_solver.cpp
-    lar_solver_instances.cpp
     lar_core_solver_instances.cpp
     lp_core_solver_base_instances.cpp
     lp_dual_core_solver_instances.cpp
@@ -20,7 +18,6 @@ z3_add_component(lp
     lp_solver_instances.cpp
     lu_instances.cpp
     matrix_instances.cpp
-    nra_solver.cpp
     permutation_matrix_instances.cpp
     quick_xplain.cpp
     row_eta_matrix_instances.cpp
@@ -31,8 +28,6 @@ z3_add_component(lp
     random_updater_instances.cpp      
   COMPONENT_DEPENDENCIES
     util
-    polynomial
-    nlsat
   PYG_FILES
     lp_params.pyg
 )

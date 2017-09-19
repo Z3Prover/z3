@@ -19,32 +19,32 @@ Revision History:
 #ifndef AST_H_
 #define AST_H_
 
-#include"vector.h"
-#include"hashtable.h"
-#include"buffer.h"
-#include"symbol.h"
-#include"rational.h"
-#include"hash.h"
-#include"optional.h"
-#include"trace.h"
-#include"bit_vector.h"
-#include"symbol_table.h"
-#include"tptr.h"
-#include"memory_manager.h"
-#include"small_object_allocator.h"
-#include"obj_ref.h"
-#include"ref_vector.h"
-#include"ref_buffer.h"
-#include"obj_mark.h"
-#include"obj_hashtable.h"
-#include"id_gen.h"
-#include"map.h"
-#include"parray.h"
-#include"dictionary.h"
-#include"chashtable.h"
-#include"z3_exception.h"
-#include"dependency.h"
-#include"rlimit.h"
+#include "util/vector.h"
+#include "util/hashtable.h"
+#include "util/buffer.h"
+#include "util/symbol.h"
+#include "util/rational.h"
+#include "util/hash.h"
+#include "util/optional.h"
+#include "util/trace.h"
+#include "util/bit_vector.h"
+#include "util/symbol_table.h"
+#include "util/tptr.h"
+#include "util/memory_manager.h"
+#include "util/small_object_allocator.h"
+#include "util/obj_ref.h"
+#include "util/ref_vector.h"
+#include "util/ref_buffer.h"
+#include "util/obj_mark.h"
+#include "util/obj_hashtable.h"
+#include "util/id_gen.h"
+#include "util/map.h"
+#include "util/parray.h"
+#include "util/dictionary.h"
+#include "util/chashtable.h"
+#include "util/z3_exception.h"
+#include "util/dependency.h"
+#include "util/rlimit.h"
 
 #define RECYCLE_FREE_AST_INDICES
 
@@ -102,8 +102,8 @@ private:
     union {
         int          m_int;     // for PARAM_INT
         ast*         m_ast;     // for PARAM_AST
-        char         m_symbol[sizeof(symbol)];      // for PARAM_SYMBOL
-        char         m_rational[sizeof(rational)];  // for PARAM_RATIONAL
+        void const*  m_symbol;  // for PARAM_SYMBOL
+        rational*    m_rational; // for PARAM_RATIONAL
         double       m_dval;   // for PARAM_DOUBLE (remark: this is not used in float_decl_plugin)
         unsigned     m_ext_id; // for PARAM_EXTERNAL
     };
@@ -114,12 +114,10 @@ public:
     explicit parameter(int val): m_kind(PARAM_INT), m_int(val) {}
     explicit parameter(unsigned val): m_kind(PARAM_INT), m_int(val) {}
     explicit parameter(ast * p): m_kind(PARAM_AST), m_ast(p) {}
-    explicit parameter(symbol const & s): m_kind(PARAM_SYMBOL) { new (m_symbol) symbol(s); }
-    explicit parameter(rational const & r): m_kind(PARAM_RATIONAL) { new (m_rational) rational(r); }
+    explicit parameter(symbol const & s): m_kind(PARAM_SYMBOL), m_symbol(s.c_ptr()) {}
+    explicit parameter(rational const & r): m_kind(PARAM_RATIONAL), m_rational(alloc(rational, r)) {}
     explicit parameter(double d):m_kind(PARAM_DOUBLE), m_dval(d) {}
-    explicit parameter(const char *s):m_kind(PARAM_SYMBOL) {
-        new (m_symbol) symbol(s);
-    }
+    explicit parameter(const char *s):m_kind(PARAM_SYMBOL), m_symbol(symbol(s).c_ptr()) {}
     explicit parameter(unsigned ext_id, bool):m_kind(PARAM_EXTERNAL), m_ext_id(ext_id) {}
     parameter(parameter const&);
 
@@ -156,8 +154,8 @@ public:
 
     int get_int() const { SASSERT(is_int()); return m_int; }
     ast * get_ast() const { SASSERT(is_ast()); return m_ast; }
-    symbol const & get_symbol() const { SASSERT(is_symbol()); return *(reinterpret_cast<const symbol *>(m_symbol)); }
-    rational const & get_rational() const { SASSERT(is_rational()); return *(reinterpret_cast<const rational *>(m_rational)); }
+    symbol get_symbol() const { SASSERT(is_symbol()); return symbol::mk_symbol_from_c_ptr(m_symbol); }
+    rational const & get_rational() const { SASSERT(is_rational()); return *m_rational; }
     double get_double() const { SASSERT(is_double()); return m_dval; }
     unsigned get_ext_id() const { SASSERT(is_external()); return m_ext_id; }
 
@@ -337,13 +335,17 @@ public:
               unsigned num_parameters = 0, parameter const * parameters = 0, bool private_parameters = false):
         decl_info(family_id, k, num_parameters, parameters, private_parameters), m_num_elements(num_elements) {
     }
-    sort_info(sort_info const& other) : decl_info(other), m_num_elements(other.m_num_elements) {
+    sort_info(sort_info const& other) : decl_info(other), m_num_elements(other.m_num_elements) {            
     }
+    sort_info(decl_info const& di, sort_size const& num_elements) : 
+        decl_info(di), m_num_elements(num_elements) {}
+
     ~sort_info() {}
 
     bool is_infinite() const { return m_num_elements.is_infinite(); }
     bool is_very_big() const { return m_num_elements.is_very_big(); }
     sort_size const & get_num_elements() const { return m_num_elements; }
+    void set_num_elements(sort_size const& s) { m_num_elements = s; }
 };
 
 std::ostream & operator<<(std::ostream & out, sort_info const & info);
@@ -569,6 +571,7 @@ public:
     bool is_very_big() const { return get_info() == 0 || get_info()->is_very_big(); }
     bool is_sort_of(family_id fid, decl_kind k) const { return get_family_id() == fid && get_decl_kind() == k; }
     sort_size const & get_num_elements() const { return get_info()->get_num_elements(); }
+    void set_num_elements(sort_size const& s) { get_info()->set_num_elements(s); }
     unsigned get_size() const { return get_obj_size(); }
 };
 
@@ -892,6 +895,8 @@ struct ast_eq_proc {
     }
 };
 
+class ast_translation;
+
 class ast_table : public chashtable<ast*, obj_ptr_hash<ast>, ast_eq_proc> {
 public:
     void erase(ast * n);
@@ -926,6 +931,8 @@ protected:
         m_manager   = m;
         m_family_id = id;
     }
+
+    virtual void inherit(decl_plugin* other_p, ast_translation& ) { }
 
     friend class ast_manager;
 
@@ -990,7 +997,7 @@ public:
 
     // Return true if the interpreted sort s does not depend on uninterpreted sorts.
     // This may be the case, for example, for array and datatype sorts.
-    virtual bool is_fully_interp(sort const * s) const { return true; }
+    virtual bool is_fully_interp(sort * s) const { return true; }
 
     // Event handlers for deleting/translating PARAM_EXTERNAL
     virtual void del(parameter const & p) {}
@@ -1657,6 +1664,8 @@ public:
 
     sort * mk_sort(family_id fid, decl_kind k, unsigned num_parameters = 0, parameter const * parameters = 0);
 
+    sort * substitute(sort* s, unsigned n, sort * const * src, sort * const * dst);
+
     sort * mk_bool_sort() const { return m_bool_sort; }
 
     sort * mk_proof_sort() const { return m_proof_sort; }
@@ -1669,7 +1678,7 @@ public:
        \brief A sort is "fully" interpreted if it is interpreted,
        and doesn't depend on other uninterpreted sorts.
     */
-    bool is_fully_interp(sort const * s) const;
+    bool is_fully_interp(sort * s) const;
 
     func_decl * mk_func_decl(family_id fid, decl_kind k, unsigned num_parameters, parameter const * parameters,
                              unsigned arity, sort * const * domain, sort * range = 0);
@@ -2021,8 +2030,8 @@ public:
     app * mk_not(expr * n) { return mk_app(m_basic_family_id, OP_NOT, n); }
     app * mk_distinct(unsigned num_args, expr * const * args);
     app * mk_distinct_expanded(unsigned num_args, expr * const * args);
-    app * mk_true() { return m_true; }
-    app * mk_false() { return m_false; }
+    app * mk_true() const { return m_true; }
+    app * mk_false() const { return m_false; }
     app * mk_bool_val(bool b) { return b?m_true:m_false; }
     app * mk_interp(expr * arg) { return mk_app(m_basic_family_id, OP_INTERP, arg); }
 
@@ -2471,6 +2480,7 @@ public:
     inc_ref_proc(ast_manager & m):m_manager(m) {}
     void operator()(AST * n) { m_manager.inc_ref(n); }
 };
+
 
 #endif /* AST_H_ */
 

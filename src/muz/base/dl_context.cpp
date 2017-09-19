@@ -19,16 +19,16 @@ Revision History:
 
 #include<sstream>
 #include<limits>
-#include"arith_decl_plugin.h"
-#include"bv_decl_plugin.h"
-#include"dl_context.h"
-#include"for_each_expr.h"
-#include"ast_smt_pp.h"
-#include"ast_smt2_pp.h"
-#include"datatype_decl_plugin.h"
-#include"scoped_proof.h"
-#include"fixedpoint_params.hpp"
-#include"ast_pp_util.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/bv_decl_plugin.h"
+#include "muz/base/dl_context.h"
+#include "ast/for_each_expr.h"
+#include "ast/ast_smt_pp.h"
+#include "ast/ast_smt2_pp.h"
+#include "ast/datatype_decl_plugin.h"
+#include "ast/scoped_proof.h"
+#include "muz/base/fixedpoint_params.hpp"
+#include "ast/ast_pp_util.h"
 
 
 namespace datalog {
@@ -229,6 +229,7 @@ namespace datalog {
         m_enable_bind_variables(true),
         m_last_status(OK),
         m_last_answer(m),
+        m_last_ground_answer(m),
         m_engine_type(LAST_ENGINE) {
         re.set_context(this);
         updt_params(pa);
@@ -306,6 +307,8 @@ namespace datalog {
     bool context::compress_unbound() const { return m_params->xform_compress_unbound(); }
     bool context::quantify_arrays() const { return m_params->xform_quantify_arrays(); }
     bool context::instantiate_quantifiers() const { return m_params->xform_instantiate_quantifiers(); }
+    bool context::array_blast() const { return m_params->xform_array_blast(); }
+    bool context::array_blast_full() const { return m_params->xform_array_blast_full(); }
 
 
     void context::register_finite_sort(sort * s, sort_kind k) {
@@ -546,9 +549,19 @@ namespace datalog {
         return m_engine->get_cover_delta(level, pred);
     }
 
+    expr_ref context::get_reachable(func_decl *pred) {
+        ensure_engine();
+        return m_engine->get_reachable(pred);
+    }
     void context::add_cover(int level, func_decl* pred, expr* property) {
         ensure_engine();
         m_engine->add_cover(level, pred, property);
+    }
+  
+    void context::add_invariant(func_decl* pred, expr *property)
+    {
+        ensure_engine();
+        m_engine->add_invariant(pred, property);
     }
 
     void context::check_rules(rule_set& r) {
@@ -561,6 +574,7 @@ namespace datalog {
             m_rule_properties.check_nested_free(); 
             m_rule_properties.check_infinite_sorts();
             break;
+        case SPACER_ENGINE:
         case PDR_ENGINE:
             m_rule_properties.collect(r);
             m_rule_properties.check_existential_tail();
@@ -792,6 +806,9 @@ namespace datalog {
         if (e == symbol("datalog")) {
             m_engine_type = DATALOG_ENGINE;
         }
+        else if (e == symbol("spacer")) {
+            m_engine_type = SPACER_ENGINE;
+        }
         else if (e == symbol("pdr")) {
             m_engine_type = PDR_ENGINE;
         }
@@ -844,8 +861,10 @@ namespace datalog {
         m_mc = mk_skip_model_converter();
         m_last_status = OK;
         m_last_answer = 0;
+        m_last_ground_answer = 0;
         switch (get_engine()) {
         case DATALOG_ENGINE:
+        case SPACER_ENGINE:
         case PDR_ENGINE:
         case QPDR_ENGINE:
         case BMC_ENGINE:
@@ -867,6 +886,28 @@ namespace datalog {
         return m_engine->query(query);
     }
 
+    lbool context::query_from_lvl (expr* query, unsigned lvl) {
+        m_mc = mk_skip_model_converter();
+        m_last_status = OK;
+        m_last_answer = 0;
+        m_last_ground_answer = 0;
+        switch (get_engine()) {
+        case DATALOG_ENGINE:
+        case SPACER_ENGINE:
+        case PDR_ENGINE:
+        case QPDR_ENGINE:
+        case BMC_ENGINE:
+        case QBMC_ENGINE:
+        case TAB_ENGINE:
+        case CLP_ENGINE:
+            flush_add_rules();
+            break;
+        default:
+            UNREACHABLE();
+        }
+        ensure_engine();
+        return m_engine->query_from_lvl (query, lvl);
+    }
     model_ref context::get_model() {
         ensure_engine();
         return m_engine->get_model();
@@ -903,6 +944,42 @@ namespace datalog {
         ensure_engine();
         m_last_answer = m_engine->get_answer();
         return m_last_answer.get();
+    }
+
+    expr* context::get_ground_sat_answer () {
+        if (m_last_ground_answer) {
+            return m_last_ground_answer;
+        }
+        ensure_engine ();
+        m_last_ground_answer = m_engine->get_ground_sat_answer ();
+        return m_last_ground_answer;
+    }
+
+    void context::get_rules_along_trace (rule_ref_vector& rules) {
+        ensure_engine ();
+        m_engine->get_rules_along_trace (rules);
+    }
+
+    void context::get_rules_along_trace_as_formulas (expr_ref_vector& rules, svector<symbol>& names) {
+        rule_manager& rm = get_rule_manager ();
+        rule_ref_vector rv (rm);
+        get_rules_along_trace (rv);
+        expr_ref fml (m);
+        rule_ref_vector::iterator it = rv.begin (), end = rv.end ();
+        for (; it != end; it++) {
+            m_rule_manager.to_formula (**it, fml);
+            rules.push_back (fml);
+            // The concatenated names are already stored last-first, so do not need to be reversed here
+            const symbol& rule_name = (*it)->name();
+            names.push_back (rule_name);
+
+            TRACE ("dl",
+                   if (rule_name == symbol::null) {
+                       tout << "Encountered unnamed rule: ";
+                       (*it)->display(*this, tout);
+                       tout << "\n";
+                   });
+        }
     }
 
     void context::display_certificate(std::ostream& out) {

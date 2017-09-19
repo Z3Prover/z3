@@ -17,9 +17,9 @@ Revision History:
 
 --*/
 #include<memory.h>
-#include"sat_clause.h"
-#include"z3_exception.h"
-#include"trace.h"
+#include "sat/sat_clause.h"
+#include "util/z3_exception.h"
+#include "util/trace.h"
 
 namespace sat {
 

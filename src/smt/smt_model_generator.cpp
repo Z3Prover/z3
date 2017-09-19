@@ -17,14 +17,13 @@ Revision History:
 
 --*/
 
-#include"smt_context.h"
-#include"smt_model_generator.h"
-#include"proto_model.h"
-#include"ref_util.h"
-#include"for_each_expr.h"
-#include"ast_ll_pp.h"
-#include"ast_pp.h"
-#include"ast_smt2_pp.h"
+#include "util/ref_util.h"
+#include "ast/for_each_expr.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_smt2_pp.h"
+#include "smt/smt_context.h"
+#include "smt/smt_model_generator.h"
+#include "smt/proto_model/proto_model.h"
 
 namespace smt {
 

@@ -14,8 +14,8 @@ Revision History:
     The implementaton is derived from theory_diff_logic.
 
 --*/
-#include "theory_utvpi.h"
-#include "theory_utvpi_def.h"
+#include "smt/theory_utvpi.h"
+#include "smt/theory_utvpi_def.h"
 
 namespace smt {
 

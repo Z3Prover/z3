@@ -18,17 +18,17 @@ Notes:
 #ifndef OPT_CONTEXT_H_
 #define OPT_CONTEXT_H_
 
-#include "ast.h"
-#include "opt_solver.h"
-#include "opt_pareto.h"
-#include "optsmt.h"
-#include "maxsmt.h"
-#include "model_converter.h"
-#include "tactic.h"
-#include "arith_decl_plugin.h"
-#include "bv_decl_plugin.h"
-#include "cmd_context.h"
-#include "qsat.h"
+#include "ast/ast.h"
+#include "opt/opt_solver.h"
+#include "opt/opt_pareto.h"
+#include "opt/optsmt.h"
+#include "opt/maxsmt.h"
+#include "tactic/model_converter.h"
+#include "tactic/tactic.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/bv_decl_plugin.h"
+#include "cmd_context/cmd_context.h"
+#include "qe/qsat.h"
 
 namespace opt {
 

@@ -19,8 +19,8 @@ Revision History:
 #ifndef SMT_ALMOST_CG_TABLE_H_
 #define SMT_ALMOST_CG_TABLE_H_
 
-#include"smt_enode.h"
-#include"map.h"
+#include "smt/smt_enode.h"
+#include "util/map.h"
 
 namespace smt {
     

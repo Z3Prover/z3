@@ -16,9 +16,10 @@ Author:
 Revision History:
 
 --*/
-#include"trace.h"
-#include"debug.h"
-#include"optional.h"
+#include "util/trace.h"
+#include "util/debug.h"
+#include "util/memory_manager.h"
+#include "util/optional.h"
 
 static void tst1() {
     optional<int> v;

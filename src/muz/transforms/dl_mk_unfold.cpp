@@ -16,7 +16,7 @@ Author:
 Revision History:
 
 --*/
-#include "dl_mk_unfold.h"
+#include "muz/transforms/dl_mk_unfold.h"
 
 namespace datalog {
 

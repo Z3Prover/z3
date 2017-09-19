@@ -19,12 +19,12 @@ Revision History:
 
 
 #include <sstream>
-#include"ast_pp.h"
-#include"ast_smt_pp.h"
-#include"dl_finite_product_relation.h"
-#include"dl_product_relation.h"
-#include"dl_sieve_relation.h"
-#include"dl_mk_explanations.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_smt_pp.h"
+#include "muz/rel/dl_finite_product_relation.h"
+#include "muz/rel/dl_product_relation.h"
+#include "muz/rel/dl_sieve_relation.h"
+#include "muz/rel/dl_mk_explanations.h"
 
 namespace datalog {
 

@@ -16,7 +16,7 @@ Author:
 Revision History:
 
 --*/
-#include"mpq_inf.h"
+#include "util/mpq_inf.h"
 
 template<bool SYNCH>
 std::string mpq_inf_manager<SYNCH>::to_string(mpq_inf const & a) {

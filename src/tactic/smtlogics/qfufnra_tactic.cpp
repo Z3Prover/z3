@@ -16,18 +16,18 @@ Author:
 Notes:
 
 --*/
-#include"tactical.h"
-#include"simplify_tactic.h"
-#include"propagate_values_tactic.h"
-#include"nl_purify_tactic.h"
-#include"qfufnra_tactic.h"
-#include"purify_arith_tactic.h"
-#include"solve_eqs_tactic.h"
-#include"elim_term_ite_tactic.h"
-#include"elim_uncnstr_tactic.h"
-#include"simplify_tactic.h"
-#include"nnf_tactic.h"
-#include"tseitin_cnf_tactic.h"
+#include "tactic/tactical.h"
+#include "tactic/core/simplify_tactic.h"
+#include "tactic/core/propagate_values_tactic.h"
+#include "tactic/nlsat_smt/nl_purify_tactic.h"
+#include "tactic/smtlogics/qfufnra_tactic.h"
+#include "tactic/arith/purify_arith_tactic.h"
+#include "tactic/core/solve_eqs_tactic.h"
+#include "tactic/core/elim_term_ite_tactic.h"
+#include "tactic/core/elim_uncnstr_tactic.h"
+#include "tactic/core/simplify_tactic.h"
+#include "tactic/core/nnf_tactic.h"
+#include "tactic/core/tseitin_cnf_tactic.h"
 
 tactic * mk_qfufnra_tactic(ast_manager & m, params_ref const& p) {
     params_ref main_p = p;

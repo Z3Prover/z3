@@ -22,8 +22,8 @@ Revision History:
 #ifndef CHECK_RELATION_H_
 #define CHECK_RELATION_H_
 
-#include "doc.h"
-#include "dl_base.h"
+#include "muz/rel/doc.h"
+#include "muz/rel/dl_base.h"
 
 namespace datalog {
     class check_relation_plugin;

@@ -19,7 +19,7 @@ Revision History:
 #ifndef SCANNER_H_
 #define SCANNER_H_
 
-#include"ast.h"
+#include "ast/ast.h"
 
 class scanner {
 public:

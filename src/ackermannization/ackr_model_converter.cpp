@@ -13,10 +13,10 @@ Mikolas Janota
 
 Revision History:
 --*/
-#include"ackr_model_converter.h"
-#include"model_evaluator.h"
-#include"ast_smt2_pp.h"
-#include"ackr_info.h"
+#include "ackermannization/ackr_model_converter.h"
+#include "model/model_evaluator.h"
+#include "ast/ast_smt2_pp.h"
+#include "ackermannization/ackr_info.h"
 
 
 class ackr_model_converter : public model_converter {

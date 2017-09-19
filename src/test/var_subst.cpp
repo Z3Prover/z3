@@ -16,13 +16,13 @@ Author:
 Revision History:
 
 --*/
-#include"var_subst.h"
-#include"ast_pp.h"
-#include"arith_decl_plugin.h"
-#include"bv_decl_plugin.h"
-#include"array_decl_plugin.h"
-#include"for_each_expr.h"
-#include"reg_decl_plugins.h"
+#include "ast/rewriter/var_subst.h"
+#include "ast/ast_pp.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/array_decl_plugin.h"
+#include "ast/for_each_expr.h"
+#include "ast/reg_decl_plugins.h"
 
 namespace find_q {
     struct proc {

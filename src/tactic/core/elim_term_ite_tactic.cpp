@@ -17,11 +17,11 @@ Author:
 Notes:
 
 --*/
-#include"tactical.h"
-#include"defined_names.h"
-#include"rewriter_def.h"
-#include"filter_model_converter.h"
-#include"cooperate.h"
+#include "tactic/tactical.h"
+#include "ast/normal_forms/defined_names.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "tactic/filter_model_converter.h"
+#include "util/cooperate.h"
 
 class elim_term_ite_tactic : public tactic {
 
@@ -171,9 +171,8 @@ public:
     
     virtual void cleanup() {
         ast_manager & m = m_imp->m;
-        imp * d = alloc(imp, m, m_params);
-        std::swap(d, m_imp);        
-        dealloc(d);
+        m_imp->~imp();
+        m_imp = new (m_imp) imp(m, m_params);
     }
 
 };

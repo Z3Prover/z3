@@ -19,7 +19,7 @@ Notes:
 #ifndef REDUCE_ARGS_TACTIC_H_
 #define REDUCE_ARGS_TACTIC_H_
 
-#include"params.h"
+#include "util/params.h"
 class ast_manager;
 class tactic;
 

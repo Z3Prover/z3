@@ -5,11 +5,11 @@ Copyright (c) 2015 Microsoft Corporation
 --*/
 
 #ifdef _WINDOWS
-#include "dl_context.h"
-#include "dl_register_engine.h"
-#include "dl_finite_product_relation.h"
-#include "dl_sparse_table.h"
-#include "rel_context.h"
+#include "muz/base/dl_context.h"
+#include "muz/fp/dl_register_engine.h"
+#include "muz/rel/dl_finite_product_relation.h"
+#include "muz/rel/dl_sparse_table.h"
+#include "muz/rel/rel_context.h"
 
 namespace datalog {
 

@@ -19,10 +19,8 @@ Revision History:
 #ifndef PREPROCESSOR_PARAMS_H_
 #define PREPROCESSOR_PARAMS_H_
 
-#include"pattern_inference_params.h"
-#include"bit_blaster_params.h"
-#include"bv_simplifier_params.h"
-#include"arith_simplifier_params.h"
+#include "ast/pattern/pattern_inference_params.h"
+#include "ast/rewriter/bit_blaster/bit_blaster_params.h"
 
 enum lift_ite_kind {
     LI_NONE,
@@ -31,15 +29,12 @@ enum lift_ite_kind {
 };
 
 struct preprocessor_params : public pattern_inference_params, 
-                             public bit_blaster_params, 
-                             public bv_simplifier_params, 
-                             public arith_simplifier_params {
+                             public bit_blaster_params {
     lift_ite_kind   m_lift_ite;
     lift_ite_kind   m_ng_lift_ite;  // lift ite for non ground terms
     bool            m_pull_cheap_ite_trees;
     bool            m_pull_nested_quantifiers;
     bool            m_eliminate_term_ite;
-    bool            m_eliminate_and; // represent (and a b) as (not (or (not a) (not b)))
     bool            m_macro_finder;
     bool            m_propagate_values;
     bool            m_propagate_booleans;
@@ -62,7 +57,6 @@ public:
         m_pull_cheap_ite_trees(false),
         m_pull_nested_quantifiers(false),
         m_eliminate_term_ite(false),
-        m_eliminate_and(true),
         m_macro_finder(false),
         m_propagate_values(true),
         m_propagate_booleans(false), // TODO << check peformance

@@ -20,8 +20,8 @@ Author:
 #ifndef DL_MK_COI_FILTER_H_
 #define DL_MK_COI_FILTER_H_
 
-#include "dl_rule_transformer.h"
-#include "dl_context.h"
+#include "muz/base/dl_rule_transformer.h"
+#include "muz/base/dl_context.h"
 
 namespace datalog {
 

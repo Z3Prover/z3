@@ -16,13 +16,13 @@ Revision History:
 
 --*/
 #include<iostream>
-#include"z3.h"
-#include"api_log_macros.h"
-#include"api_context.h"
-#include"api_ast_map.h"
-#include"api_ast_vector.h"
-#include"ast_smt2_pp.h"
-#include"dec_ref_util.h"
+#include "api/z3.h"
+#include "api/api_log_macros.h"
+#include "api/api_context.h"
+#include "api/api_ast_map.h"
+#include "api/api_ast_vector.h"
+#include "ast/ast_smt2_pp.h"
+#include "util/dec_ref_util.h"
 
 Z3_ast_map_ref::~Z3_ast_map_ref() {
     dec_ref_key_values(m, m_map);

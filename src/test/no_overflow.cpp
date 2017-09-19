@@ -18,9 +18,9 @@ Revision History:
 --*/
 #ifdef _WINDOWS
 
-#include "z3.h"
-#include "trace.h"
-#include "rational.h"
+#include "api/z3.h"
+#include "util/trace.h"
+#include "util/rational.h"
 
 #define TEST(TEST_NAME, TEST_OUTCOME, NEG_TEST_OUTCOME) \
     do { \

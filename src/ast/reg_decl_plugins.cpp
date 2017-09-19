@@ -17,15 +17,15 @@ Author:
 Revision History:
 
 --*/
-#include"ast.h"
-#include"arith_decl_plugin.h"
-#include"array_decl_plugin.h"
-#include"bv_decl_plugin.h"
-#include"datatype_decl_plugin.h"
-#include"dl_decl_plugin.h"
-#include"seq_decl_plugin.h"
-#include"pb_decl_plugin.h"
-#include"fpa_decl_plugin.h"
+#include "ast/ast.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/array_decl_plugin.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/datatype_decl_plugin.h"
+#include "ast/dl_decl_plugin.h"
+#include "ast/seq_decl_plugin.h"
+#include "ast/pb_decl_plugin.h"
+#include "ast/fpa_decl_plugin.h"
 
 void reg_decl_plugins(ast_manager & m) {
     if (!m.get_plugin(m.mk_family_id(symbol("arith")))) {

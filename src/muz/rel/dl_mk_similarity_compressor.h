@@ -21,12 +21,12 @@ Revision History:
 
 #include<utility>
 
-#include"map.h"
-#include"obj_pair_hashtable.h"
+#include "util/map.h"
+#include "util/obj_pair_hashtable.h"
 
-#include"dl_context.h"
-#include"dl_rule_set.h"
-#include"dl_rule_transformer.h"
+#include "muz/base/dl_context.h"
+#include "muz/base/dl_rule_set.h"
+#include "muz/base/dl_rule_transformer.h"
 
 namespace datalog {
 

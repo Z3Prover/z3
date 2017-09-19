@@ -1,8 +1,23 @@
-/*
-  Copyright (c) 2013 Microsoft Corporation. All rights reserved.
+/*++
+Copyright (c) 2017 Microsoft Corporation
 
-  Author: Lev Nachmanson
-*/
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
+
 #pragma once
 namespace lp {
 template <typename V>

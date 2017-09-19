@@ -19,7 +19,7 @@ Notes:
 #ifndef _SAT_CCC_H_
 #define _SAT_CCC_H_
 
-#include "queue.h"
+#include "util/queue.h"
 
 namespace sat {
 

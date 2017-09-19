@@ -4,12 +4,12 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
-#include "th_rewriter.h"
-#include "smt2parser.h"
-#include "arith_decl_plugin.h"
-#include "reg_decl_plugins.h"
-#include "arith_rewriter.h"
-#include "ast_pp.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "parsers/smt2/smt2parser.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/reg_decl_plugins.h"
+#include "ast/rewriter/arith_rewriter.h"
+#include "ast/ast_pp.h"
 
 
 static expr_ref parse_fml(ast_manager& m, char const* str) {

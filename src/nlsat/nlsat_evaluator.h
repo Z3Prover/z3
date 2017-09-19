@@ -20,9 +20,9 @@ Revision History:
 #ifndef NLSAT_EVALUATOR_H_
 #define NLSAT_EVALUATOR_H_
 
-#include"nlsat_types.h"
-#include"nlsat_assignment.h"
-#include"nlsat_interval_set.h"
+#include "nlsat/nlsat_types.h"
+#include "nlsat/nlsat_assignment.h"
+#include "nlsat/nlsat_interval_set.h"
 
 namespace nlsat {
 

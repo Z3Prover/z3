@@ -19,10 +19,10 @@ Author:
 Notes:
 
 --*/
-#include"solver_na2as.h"
-#include"tactic.h"
-#include"ast_translation.h"
-#include"mus.h"
+#include "solver/solver_na2as.h"
+#include "tactic/tactic.h"
+#include "ast/ast_translation.h"
+#include "solver/mus.h"
 
 /**
    \brief Simulates the incremental solver interface using a tactic.

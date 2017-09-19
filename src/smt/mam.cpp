@@ -16,14 +16,14 @@ Author:
 Revision History:
 
 --*/
-#include"mam.h"
-#include"smt_context.h"
-#include"pool.h"
-#include"ast_pp.h"
-#include"ast_ll_pp.h"
-#include"trail.h"
-#include"stopwatch.h"
-#include"ast_smt2_pp.h"
+#include "smt/mam.h"
+#include "smt/smt_context.h"
+#include "util/pool.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
+#include "util/trail.h"
+#include "util/stopwatch.h"
+#include "ast/ast_smt2_pp.h"
 #include<algorithm>
 
 // #define _PROFILE_MAM
@@ -34,7 +34,7 @@ Revision History:
 // send profiling information to stdout
 #define _PROFILE_MAM_TO_STDOUT
 // threshold in secs for being considered expensive
-#define _PROFILE_MAM_THRESHOLD 30.0 
+#define _PROFILE_MAM_THRESHOLD 30.0
 // dump expensive (> _PROFILE_MAM_THRESHOLD) code trees whenever execute_core is executed.
 #define _PROFILE_MAM_EXPENSIVE
 //
@@ -60,7 +60,7 @@ namespace smt {
     // ------------------------------------
 
     class mam_impl;
-    
+
     typedef trail_stack<mam_impl> mam_trail_stack;
 
     typedef trail<mam_impl> mam_trail;
@@ -70,8 +70,8 @@ namespace smt {
     public:
         mam_value_trail(T & value):value_trail<mam_impl, T>(value) {}
     };
-    
-    
+
+
     // ------------------------------------
     //
     // Auxiliary
@@ -79,7 +79,7 @@ namespace smt {
     // ------------------------------------
     class label_hasher {
         svector<char>               m_lbl2hash;        // cache: lbl_id -> hash
-        
+
         void mk_lbl_hash(unsigned lbl_id) {
             unsigned a = 17;
             unsigned b = 3;
@@ -124,19 +124,19 @@ namespace smt {
     typedef enum {
         INIT1=0, INIT2,  INIT3,  INIT4,  INIT5,  INIT6,  INITN,
         BIND1,   BIND2,  BIND3,  BIND4,  BIND5,  BIND6,  BINDN,
-        YIELD1,  YIELD2, YIELD3, YIELD4, YIELD5, YIELD6, YIELDN, 
+        YIELD1,  YIELD2, YIELD3, YIELD4, YIELD5, YIELD6, YIELDN,
         COMPARE, CHECK, FILTER, CFILTER, PFILTER, CHOOSE, NOOP, CONTINUE,
-        GET_ENODE, 
+        GET_ENODE,
         GET_CGR1, GET_CGR2, GET_CGR3, GET_CGR4, GET_CGR5, GET_CGR6, GET_CGRN,
         IS_CGR
     } opcode;
-    
+
     struct instruction {
         opcode         m_opcode;
         instruction *  m_next;
 #ifdef _PROFILE_MAM
         unsigned       m_counter; // how often it was executed
-#endif 
+#endif
         bool is_init() const {
             return m_opcode >= INIT1 && m_opcode <= INITN;
         }
@@ -147,7 +147,7 @@ namespace smt {
         // operators (e.g., + and *) are represented using n-ary
         // applications.
         // We do not need the extra field for INIT1, ..., INIT6.
-        unsigned       m_num_args; 
+        unsigned       m_num_args;
     };
 
     struct compare : public instruction {
@@ -162,7 +162,7 @@ namespace smt {
 
     struct filter : public instruction {
         unsigned       m_reg;
-        approx_set     m_lbl_set; 
+        approx_set     m_lbl_set;
     };
 
     struct pcheck : public instruction {
@@ -211,15 +211,15 @@ namespace smt {
         approx_set      m_lbl_set; // singleton set containing m_label
         /*
           The following field is an array of tagged pointers.
-          Each positon contains: 
+          Each positon contains:
           1- null (no joint), NULL_TAG
           2- a boxed integer (i.e., register that contains the variable bind) VAR_TAG
           3- an enode pointer (ground term)  GROUND_TERM_TAG
           4- or, a joint2 pointer.    NESTED_VAR_TAG
-     
+
           The size of the array is m_num_args.
         */
-        enode *         m_joints[0]; 
+        enode *         m_joints[0];
     };
 
     struct bind : public instruction {
@@ -294,7 +294,7 @@ namespace smt {
 
     void display_joints(std::ostream & out, unsigned num_joints, enode * const * joints) {
         for (unsigned i = 0; i < num_joints; i++) {
-            if (i > 0) 
+            if (i > 0)
                 out << " ";
             enode * bare = joints[i];
             switch (GET_TAG(bare)) {
@@ -307,7 +307,7 @@ namespace smt {
     }
 
     void display_continue(std::ostream & out, const cont & c) {
-        out << "(CONTINUE " << c.m_label->get_name() << " " << c.m_num_args << " " << c.m_oreg << " " 
+        out << "(CONTINUE " << c.m_label->get_name() << " " << c.m_num_args << " " << c.m_oreg << " "
             << c.m_lbl_set << " (";
         display_joints(out, c.m_num_args, c.m_joints);
         out << "))";
@@ -317,38 +317,38 @@ namespace smt {
         out << "(" << op << " " << instr.m_reg
             << " " << instr.m_lbl_set << ")";
     }
-    
+
     std::ostream & operator<<(std::ostream & out, const instruction & instr) {
         switch (instr.m_opcode) {
-        case INIT1: case INIT2: case INIT3: case INIT4: case INIT5: case INIT6: case INITN: 
+        case INIT1: case INIT2: case INIT3: case INIT4: case INIT5: case INIT6: case INITN:
             out << "(INIT";
-            if (instr.m_opcode <= INIT6) 
+            if (instr.m_opcode <= INIT6)
                 out << (instr.m_opcode - INIT1 + 1);
             else
                 out << "N";
             out << ")";
             break;
-        case BIND1: case BIND2: case BIND3: case BIND4: case BIND5: case BIND6: case BINDN: 
-            display_bind(out, static_cast<const bind &>(instr)); 
+        case BIND1: case BIND2: case BIND3: case BIND4: case BIND5: case BIND6: case BINDN:
+            display_bind(out, static_cast<const bind &>(instr));
             break;
         case GET_CGR1: case GET_CGR2: case GET_CGR3: case GET_CGR4: case GET_CGR5: case GET_CGR6: case GET_CGRN:
-            display_get_cgr(out, static_cast<const get_cgr &>(instr)); 
+            display_get_cgr(out, static_cast<const get_cgr &>(instr));
             break;
         case IS_CGR:
             display_is_cgr(out, static_cast<const is_cgr &>(instr));
             break;
-        case YIELD1: case YIELD2: case YIELD3: case YIELD4: case YIELD5: case YIELD6: case YIELDN: 
-            display_yield(out, static_cast<const yield &>(instr)); 
+        case YIELD1: case YIELD2: case YIELD3: case YIELD4: case YIELD5: case YIELD6: case YIELDN:
+            display_yield(out, static_cast<const yield &>(instr));
             break;
         case CONTINUE:
             display_continue(out, static_cast<const cont &>(instr));
             break;
-        case COMPARE: 
-            out << "(COMPARE " << static_cast<const compare &>(instr).m_reg1 << " " 
+        case COMPARE:
+            out << "(COMPARE " << static_cast<const compare &>(instr).m_reg1 << " "
                 << static_cast<const compare &>(instr).m_reg2 << ")";
             break;
         case CHECK:
-            out << "(CHECK " << static_cast<const check &>(instr).m_reg 
+            out << "(CHECK " << static_cast<const check &>(instr).m_reg
                 << " #" << static_cast<const check &>(instr).m_enode->get_owner_id() << ")";
             break;
         case FILTER:
@@ -361,14 +361,14 @@ namespace smt {
             display_filter(out, "PFILTER", static_cast<const filter &>(instr));
             break;
         case GET_ENODE:
-            out << "(GET_ENODE " << static_cast<const get_enode_instr &>(instr).m_oreg << " #" << 
+            out << "(GET_ENODE " << static_cast<const get_enode_instr &>(instr).m_oreg << " #" <<
                 static_cast<const get_enode_instr &>(instr).m_enode->get_owner_id() << ")";
             break;
-        case CHOOSE: 
+        case CHOOSE:
             out << "(CHOOSE)";
             break;
-        case NOOP: 
-            out << "(NOOP)"; 
+        case NOOP:
+            out << "(NOOP)";
             break;
         }
 #ifdef _PROFILE_MAM
@@ -379,7 +379,7 @@ namespace smt {
 
     // ------------------------------------
     //
-    // Code Tree 
+    // Code Tree
     //
     // ------------------------------------
 
@@ -404,11 +404,11 @@ namespace smt {
         unsigned                   m_num_regs;
         unsigned                   m_num_choices;
         instruction *              m_root;
-        enode_vector               m_candidates; 
+        enode_vector               m_candidates;
 #ifdef Z3DEBUG
         context *                  m_context;
         ptr_vector<app>            m_patterns;
-#endif        
+#endif
 #ifdef _PROFILE_MAM
         stopwatch                  m_watch;
         unsigned                   m_counter;
@@ -476,7 +476,7 @@ namespace smt {
             }
         }
 #endif
-            
+
     public:
         code_tree(label_hasher & h, func_decl * lbl, unsigned short num_args, bool filter_candidates):
             m_lbl_hasher(h),
@@ -500,8 +500,8 @@ namespace smt {
 #endif
         }
 
-        stopwatch & get_watch() { 
-            return m_watch; 
+        stopwatch & get_watch() {
+            return m_watch;
         }
 
         void inc_counter() {
@@ -512,7 +512,7 @@ namespace smt {
             return m_counter;
         }
 #endif
-        
+
         unsigned expected_num_args() const {
             return m_num_args;
         }
@@ -532,7 +532,7 @@ namespace smt {
         bool filter_candidates() const {
             return m_filter_candidates != 0;
         }
-        
+
         const instruction * get_root() const {
             return m_root;
         }
@@ -558,7 +558,7 @@ namespace smt {
             SASSERT(m_context == 0);
             m_context = ctx;
         }
-        
+
         ptr_vector<app> & get_patterns() {
             return m_patterns;
         }
@@ -614,7 +614,7 @@ namespace smt {
             return r;
         }
 
-        instruction * mk_init(unsigned n) { 
+        instruction * mk_init(unsigned n) {
             SASSERT(n >= 1);
             opcode op = n <= 6 ? static_cast<opcode>(INIT1 + n - 1) : INITN;
             if (op == INITN) {
@@ -637,7 +637,7 @@ namespace smt {
             m_trail_stack(s),
             m_region(s.get_region()) {
         }
-        
+
         code_tree * mk_code_tree(func_decl * lbl, unsigned short num_args, bool filter_candidates) {
             code_tree * r = alloc(code_tree,m_lbl_hasher, lbl, num_args, filter_candidates);
             r->m_root     = mk_init(num_args);
@@ -648,22 +648,22 @@ namespace smt {
             return new (m_region) joint2(f, pos, reg);
         }
 
-        compare * mk_compare(unsigned reg1, unsigned reg2) { 
-            compare * r = mk_instr<compare>(COMPARE, sizeof(compare)); 
+        compare * mk_compare(unsigned reg1, unsigned reg2) {
+            compare * r = mk_instr<compare>(COMPARE, sizeof(compare));
             r->m_reg1 = reg1;
             r->m_reg2 = reg2;
             return r;
         }
-    
-        check * mk_check(unsigned reg, enode * n) { 
-            check * r = mk_instr<check>(CHECK, sizeof(check)); 
+
+        check * mk_check(unsigned reg, enode * n) {
+            check * r = mk_instr<check>(CHECK, sizeof(check));
             r->m_reg   = reg;
             r->m_enode = n;
             return r;
         }
 
         filter * mk_filter_core(opcode op, unsigned reg, approx_set s) {
-            filter * r = mk_instr<filter>(op, sizeof(filter)); 
+            filter * r = mk_instr<filter>(op, sizeof(filter));
             r->m_reg      = reg;
             r->m_lbl_set  = s;
             return r;
@@ -744,7 +744,7 @@ namespace smt {
             return y;
         }
 
-        cont * mk_cont(func_decl * lbl, unsigned short num_args, unsigned oreg, 
+        cont * mk_cont(func_decl * lbl, unsigned short num_args, unsigned oreg,
                        approx_set const & s, enode * const * joints) {
             SASSERT(num_args >= 1);
             cont * r        = mk_instr<cont>(CONTINUE, sizeof(cont) + num_args * sizeof(enode*));
@@ -764,11 +764,11 @@ namespace smt {
         void save_num_regs(code_tree * tree) {
             m_trail_stack.push(mam_value_trail<unsigned>(tree->m_num_regs));
         }
-    
+
         void save_num_choices(code_tree * tree) {
             m_trail_stack.push(mam_value_trail<unsigned>(tree->m_num_choices));
         }
-    
+
         void insert_new_lbl_hash(filter * instr, unsigned h) {
             m_trail_stack.push(mam_value_trail<approx_set>(instr->m_lbl_set));
             instr->m_lbl_set.insert(h);
@@ -795,18 +795,18 @@ namespace smt {
         app *                   m_mp;
         code_tree *             m_tree;
         unsigned                m_num_choices;
-        bool                    m_is_tmp_tree; 
+        bool                    m_is_tmp_tree;
         svector<bool>           m_mp_already_processed;
         obj_map<expr, unsigned> m_matched_exprs;
-        
+
         struct pcheck_checked {
             func_decl * m_label;
             enode *     m_enode;
         };
-        
 
-        typedef enum { NOT_CHECKED, 
-                       CHECK_SET, 
+
+        typedef enum { NOT_CHECKED,
+                       CHECK_SET,
                        CHECK_SINGLETON } check_mark;
 
         svector<check_mark>     m_mark;
@@ -827,7 +827,7 @@ namespace smt {
         void set_check_mark(unsigned reg, check_mark m) {
             m_mark.setx(reg, m, NOT_CHECKED);
         }
-        
+
         void init(code_tree * t, quantifier * qa, app * mp, unsigned first_idx) {
             SASSERT(m_ast_manager.is_pattern(mp));
 #ifdef Z3DEBUG
@@ -843,7 +843,7 @@ namespace smt {
             m_num_choices = 0;
             m_todo.reset();
             m_registers.fill(0);
-            
+
             app * p = to_app(mp->get_arg(first_idx));
             SASSERT(t->get_root_lbl() == p->get_decl());
             unsigned num_args = p->get_num_args();
@@ -861,7 +861,7 @@ namespace smt {
         }
 
         /**
-           \brief Return true if all arguments of n are bound variables. 
+           \brief Return true if all arguments of n are bound variables.
            That is, during execution time, the variables will be already bound
          */
         bool all_args_are_bound_vars(app * n) {
@@ -877,7 +877,7 @@ namespace smt {
         }
 
         /**
-           \see get_stats 
+           \see get_stats
         */
         void get_stats_core(app * n, unsigned & sz, unsigned & num_unbound_vars) {
             sz++;
@@ -912,7 +912,7 @@ namespace smt {
         /**
            \brief Process registers in m_todo. The registers in m_todo
            that produce non-BIND operations are processed first. Then,
-           a single BIND operation b is produced.  
+           a single BIND operation b is produced.
 
            After executing this method m_todo will contain the
            registers in m_todo that produce BIND operations and were
@@ -942,7 +942,7 @@ namespace smt {
                         m_vars[var_id] = reg;
                     continue;
                 }
-             
+
                 SASSERT(is_app(p));
 
                 if (to_app(p)->is_ground()) {
@@ -988,7 +988,7 @@ namespace smt {
                             // change the first_app
                             m_aux.push_back(first_app_reg);
                             first_app     = to_app(p);
-                            first_app_reg = reg; 
+                            first_app_reg = reg;
                             first_app_sz  = sz;
                             first_app_num_unbound_vars = num_unbound_vars;
                         }
@@ -1000,7 +1000,7 @@ namespace smt {
                 }
                 else {
                     first_app     = to_app(p);
-                    first_app_reg = reg; 
+                    first_app_reg = reg;
                     get_stats(first_app, first_app_sz, first_app_num_unbound_vars);
                 }
             }
@@ -1069,7 +1069,7 @@ namespace smt {
             has_unbound_vars = false;
             return get_num_bound_vars_core(n, has_unbound_vars);
         }
-        
+
         /**
            \brief Compile a pattern where all free variables are already bound.
            Return the register where the enode congruent to f will be stored.
@@ -1141,7 +1141,7 @@ namespace smt {
                 approx_set s;
                 if (m_use_filters)
                     s.insert(m_lbl_hasher(lbl));
-                
+
                 if (found_bounded_mp) {
                     gen_mp_filter(p);
                 }
@@ -1156,17 +1156,17 @@ namespace smt {
                         SASSERT(!is_quantifier(curr));
                         set_register(oreg + j, curr);
                         m_todo.push_back(oreg + j);
-                        
+
                         if ((is_var(curr) && m_vars[to_var(curr)->get_idx()] >= 0)
                             ||
                             (is_app(curr) && (to_app(curr)->is_ground())))
                             has_depth1_joint = true;
                     }
-                    
+
                     if (has_depth1_joint) {
                         for (unsigned j = 0; j < num_args; j++) {
                             expr * curr = p->get_arg(j);
-                            
+
                             if (is_var(curr)) {
                                 unsigned var_id = to_var(curr)->get_idx();
                                 if (m_vars[var_id] >= 0)
@@ -1175,15 +1175,15 @@ namespace smt {
                                     joints.push_back(NULL_TAG);
                                 continue;
                             }
-                            
+
                             SASSERT(is_app(curr));
-                            
+
                             if (to_app(curr)->is_ground()) {
                                 enode * e = mk_enode(m_context, m_qa, to_app(curr));
                                 joints.push_back(TAG(enode *, e, GROUND_TERM_TAG));
                                 continue;
                             }
-                            
+
                             joints.push_back(0);
                         }
                     }
@@ -1236,7 +1236,7 @@ namespace smt {
                 m_mp_already_processed[first_idx] = true;
                 linearise_multi_pattern(first_idx);
             }
-            
+
 #ifdef Z3DEBUG
             for (unsigned i = 0; i < m_qa->get_num_decls(); i++) {
                 CTRACE("mam_new_bug", m_vars[i] < 0, tout << mk_ismt2_pp(m_qa, m_ast_manager) << "\ni: " << i << " m_vars[i]: " << m_vars[i] << "\n";
@@ -1248,7 +1248,7 @@ namespace smt {
 #endif
             SASSERT(head->m_next == 0);
             m_seq.push_back(m_ct_manager.mk_yield(m_qa, m_mp, m_qa->get_num_decls(), reinterpret_cast<unsigned*>(m_vars.begin())));
-        
+
             ptr_vector<instruction>::iterator it  = m_seq.begin();
             ptr_vector<instruction>::iterator end = m_seq.end();
             for (; it != end; ++it) {
@@ -1268,7 +1268,7 @@ namespace smt {
         /*
           The nodes in the bottom of the code-tree can have a lot of children in big examples.
           Example:
-            parent-node: 
+            parent-node:
               (CHOOSE) (CHECK #1 10) (YIELD ...)
               (CHOOSE) (CHECK #2 10) (YIELD ...)
               (CHOOSE) (CHECK #3 10) (YIELD ...)
@@ -1277,9 +1277,9 @@ namespace smt {
               (CHOOSE) (CHECK #6 10) (YIELD ...)
               (CHOOSE) (CHECK #7 10) (YIELD ...)
               (CHOOSE) (CHECK #8 10) (YIELD ...)
-              ... 
+              ...
           The method find_best_child will traverse this big list, and usually will not find
-          a compatible child. So, I limit the number of simple code sequences that can be 
+          a compatible child. So, I limit the number of simple code sequences that can be
           traversed.
         */
 #define FIND_BEST_CHILD_THRESHOLD 64
@@ -1305,11 +1305,11 @@ namespace smt {
             }
             return best_child;
         }
-    
+
         bool is_compatible(bind * instr) const {
             unsigned ireg = instr->m_ireg;
             expr * n      = m_registers[ireg];
-            return 
+            return
                 n != 0 &&
                 is_app(n) &&
                 // It is wasteful to use a bind of a ground term.
@@ -1318,15 +1318,15 @@ namespace smt {
                 to_app(n)->get_decl() == instr->m_label &&
                 to_app(n)->get_num_args() == instr->m_num_args;
         }
-    
+
         bool is_compatible(compare * instr) const {
             unsigned reg1 = instr->m_reg1;
             unsigned reg2 = instr->m_reg2;
-            return 
+            return
                 m_registers[reg1] != 0 &&
                 m_registers[reg1] == m_registers[reg2];
         }
-    
+
         bool is_compatible(check * instr) const {
             unsigned reg  = instr->m_reg;
             enode *  n    = instr->m_enode;
@@ -1366,25 +1366,25 @@ namespace smt {
         }
 
         /**
-           \brief We say a check operation is semi compatible if 
+           \brief We say a check operation is semi compatible if
            it access a register that was not yet processed,
            and given reg = instr->m_reg
              1- is_ground(m_registers[reg])
              2- get_pat_lbl_hash(reg) == m_enode->get_lbl_hash()
-           
+
            If that is the case, then a CFILTER is created
         */
         bool is_semi_compatible(check * instr) const {
             unsigned reg  = instr->m_reg;
-            return 
+            return
                 m_registers[reg] != 0 &&
                 // if the register was already checked by another filter, then it doesn't make sense
                 // to check it again.
-                get_check_mark(reg) == NOT_CHECKED && 
-                is_ground(m_registers[reg]) && 
+                get_check_mark(reg) == NOT_CHECKED &&
+                is_ground(m_registers[reg]) &&
                 get_pat_lbl_hash(reg) == instr->m_enode->get_lbl_hash();
         }
-   
+
         /**
            \brief FILTER is not compatible with ground terms anymore.
            See CFILTER is the filter used for ground terms.
@@ -1411,20 +1411,20 @@ namespace smt {
             }
             return false;
         }
-    
+
         /**
            \brief See comments at is_semi_compatible(check * instr) and is_compatible(filter * instr).
            Remark: FILTER is not compatible with ground terms anymore
         */
         bool is_semi_compatible(filter * instr) const {
             unsigned reg = instr->m_reg;
-            return 
+            return
                 m_registers[reg] != 0 &&
                 get_check_mark(reg) == NOT_CHECKED &&
                 is_app(m_registers[reg]) &&
                 !is_ground(m_registers[reg]);
         }
-        
+
         bool is_compatible(cont * instr) const {
             unsigned oreg = instr->m_oreg;
             for (unsigned i = 0; i < instr->m_num_args; i++)
@@ -1441,7 +1441,7 @@ namespace smt {
            many operations in the branch starting at child are compatible
            with the patterns in the registers stored in m_todo.
 
-           Set simple to true, if the tree starting at child is too simple 
+           Set simple to true, if the tree starting at child is too simple
            (no branching and less than SIMPLE_SEQ_THRESHOLD instructions)
         */
         unsigned get_compatibility_measure(choose * child, bool & simple) {
@@ -1453,7 +1453,7 @@ namespace smt {
             while (curr != 0 && curr->m_opcode != CHOOSE && curr->m_opcode != NOOP) {
                 num_instr++;
                 switch (curr->m_opcode) {
-                case BIND1: case BIND2: case BIND3: case BIND4: case BIND5: case BIND6: case BINDN: 
+                case BIND1: case BIND2: case BIND3: case BIND4: case BIND5: case BIND6: case BINDN:
                     if (is_compatible(static_cast<bind*>(curr))) {
                         weight += 4; // the weight of BIND is bigger than COMPARE and CHECK
                         unsigned ireg     = static_cast<bind*>(curr)->m_ireg;
@@ -1512,7 +1512,7 @@ namespace smt {
                 while (curr != 0 && curr->m_opcode != CHOOSE && curr->m_opcode != NOOP) {
                     TRACE("mam_compiler_detail", tout << "processing instr: " << *curr << "\n";);
                     switch (curr->m_opcode) {
-                    case BIND1: case BIND2: case BIND3: case BIND4: case BIND5: case BIND6: case BINDN: 
+                    case BIND1: case BIND2: case BIND3: case BIND4: case BIND5: case BIND6: case BINDN:
                         if (is_compatible(static_cast<bind*>(curr))) {
                             TRACE("mam_compiler_detail", tout << "compatible\n";);
                             unsigned ireg     = static_cast<bind*>(curr)->m_ireg;
@@ -1613,7 +1613,7 @@ namespace smt {
                             TRACE("mam_compiler_detail", tout << "compatible\n";);
                             unsigned reg = static_cast<filter*>(curr)->m_reg;
                             CTRACE("mam_compiler_bug", !m_todo.contains(reg), {
-                                for (unsigned i = 0; i < m_todo.size(); i++) { tout << m_todo[i] << " "; } 
+                                for (unsigned i = 0; i < m_todo.size(); i++) { tout << m_todo[i] << " "; }
                                 tout << "\nregisters:\n";
                                 for (unsigned i = 0; i < m_registers.size(); i++) { if (m_registers[i]) { tout << i << ":\n" << mk_pp(m_registers[i], m_ast_manager) << "\n"; } }
                                 tout << "quantifier:\n" << mk_pp(m_qa, m_ast_manager) << "\n";
@@ -1630,7 +1630,7 @@ namespace smt {
                             TRACE("mam_compiler_detail", tout << "semi compatible\n";);
                             unsigned reg = static_cast<filter*>(curr)->m_reg;
                             CTRACE("mam_compiler_bug", !m_todo.contains(reg), {
-                                for (unsigned i = 0; i < m_todo.size(); i++) { tout << m_todo[i] << " "; } 
+                                for (unsigned i = 0; i < m_todo.size(); i++) { tout << m_todo[i] << " "; }
                                 tout << "\nregisters:\n";
                                 for (unsigned i = 0; i < m_registers.size(); i++) { if (m_registers[i]) { tout << i << ":\n" << mk_pp(m_registers[i], m_ast_manager) << "\n"; } }
                                 tout << "quantifier:\n" << mk_pp(m_qa, m_ast_manager) << "\n";
@@ -1638,7 +1638,7 @@ namespace smt {
                             });
                             SASSERT(m_todo.contains(reg));
                             unsigned  h  = get_pat_lbl_hash(reg);
-                            TRACE("mam_lbl_bug", 
+                            TRACE("mam_lbl_bug",
                                   tout << "curr_set: " << static_cast<filter*>(curr)->m_lbl_set << "\n";
                                   tout << "new hash: " << h << "\n";);
                             set_check_mark(reg, CHECK_SET);
@@ -1650,7 +1650,7 @@ namespace smt {
                             else {
                                 SASSERT(s.size() == 1);
                                 approx_set new_s(s);
-                                new_s.insert(h); 
+                                new_s.insert(h);
                                 filter * new_instr = m_ct_manager.mk_filter(reg, new_s);
                                 m_compatible.push_back(new_instr);
                                 m_incompatible.push_back(curr);
@@ -1669,11 +1669,11 @@ namespace smt {
                     last = curr;
                     curr = curr->m_next;
                 }
-            
+
                 TRACE("mam_compiler", tout << *head << " " << head << "\n";
                       tout << "m_compatible.size(): " << m_compatible.size() << "\n";
                       tout << "m_incompatible.size(): " << m_incompatible.size() << "\n";);
-            
+
                 if (m_incompatible.empty()) {
                     // sequence starting at head is fully compatible
                     SASSERT(curr != 0);
@@ -1756,19 +1756,19 @@ namespace smt {
         context & get_context() {
             return m_context;
         }
-        
+
         /**
            \brief Create a new code tree for the given quantifier.
 
            - mp: is a pattern of qa that will be used to create the code tree
-           
+
            - first_idx: index of mp that will be the "head" (first to be processed) of the multi-pattern.
         */
         code_tree * mk_tree(quantifier * qa, app * mp, unsigned first_idx, bool filter_candidates) {
             SASSERT(m_ast_manager.is_pattern(mp));
             app * p = to_app(mp->get_arg(first_idx));
             unsigned num_args = p->get_num_args();
-            code_tree * r     = m_ct_manager.mk_code_tree(p->get_decl(), num_args, filter_candidates);            
+            code_tree * r     = m_ct_manager.mk_code_tree(p->get_decl(), num_args, filter_candidates);
             init(r, qa, mp, first_idx);
             linearise(r->m_root, first_idx);
             r->m_num_choices  = m_num_choices;
@@ -1795,12 +1795,12 @@ namespace smt {
             if (!is_tmp_tree)
                 m_ct_manager.save_num_regs(tree);
             init(tree, qa, mp, first_idx);
-            m_num_choices = tree->m_num_choices; 
+            m_num_choices = tree->m_num_choices;
             insert(tree->m_root, first_idx);
             TRACE("mam_bug",
                   tout << "m_num_choices: " << m_num_choices << "\n";);
             if (m_num_choices > tree->m_num_choices) {
-                if (!is_tmp_tree) 
+                if (!is_tmp_tree)
                     m_ct_manager.save_num_choices(tree);
                 tree->m_num_choices = m_num_choices;
             }
@@ -1848,7 +1848,7 @@ namespace smt {
     };
 
     typedef svector<backtrack_point> backtrack_stack;
-    
+
     class interpreter {
         context &           m_context;
         ast_manager &       m_ast_manager;
@@ -1893,7 +1893,7 @@ namespace smt {
             if (m_ast_manager.has_trace_stream())
                 m_used_enodes.push_back(n);
         }
-        
+
         // We have to provide the number of expected arguments because we have flat-assoc applications such as +.
         // Flat-assoc applications may have arbitrary number of arguments.
         enode * get_first_f_app(func_decl * lbl, unsigned num_expected_args, enode * curr) {
@@ -1950,7 +1950,7 @@ namespace smt {
                 SASSERT(n != 0);
                 do {
                     if (n->get_decl() == f &&
-                        n->get_arg(0)->get_root() == m_args[0] && 
+                        n->get_arg(0)->get_root() == m_args[0] &&
                         n->get_arg(1)->get_root() == m_args[1]) {
                         update_max_generation(n);
                         return true;
@@ -2001,7 +2001,7 @@ namespace smt {
         interpreter(context & ctx, mam & m, bool use_filters):
             m_context(ctx),
             m_ast_manager(ctx.get_manager()),
-            m_mam(m), 
+            m_mam(m),
             m_use_filters(use_filters) {
             m_args.resize(INIT_ARGS_SIZE, 0);
         }
@@ -2016,7 +2016,7 @@ namespace smt {
             if (m_backtrack_stack.size() < t->get_num_choices())
                 m_backtrack_stack.resize(t->get_num_choices());
         }
-        
+
         void execute(code_tree * t) {
             TRACE("trigger_bug", tout << "execute for code tree:\n"; t->display(tout););
             init(t);
@@ -2048,7 +2048,7 @@ namespace smt {
                 }
             }
         }
-        
+
         // init(t) must be invoked before execute_core
         void execute_core(code_tree * t, enode * n);
 
@@ -2086,8 +2086,9 @@ namespace smt {
         for (; it != end; ++it) {
             enode * p = *it;
             if (p->get_decl() == f  && 
+                i < p->get_num_args() && 
                 m_context.is_relevant(p)  &&
-                p->is_cgr() && 
+                p->is_cgr() &&
                 p->get_arg(i)->get_root() == n) {
                 v->push_back(p);
             }
@@ -2104,6 +2105,7 @@ namespace smt {
         enode * n = m_registers[j2->m_reg]->get_root();
         if (n->get_num_parents() == 0)
             return 0;
+        unsigned num_args = n->get_num_args();
         enode_vector * v  = mk_enode_vector();
         enode_vector::const_iterator it1  = n->begin_parents();
         enode_vector::const_iterator end1 = n->end_parents();
@@ -2111,7 +2113,7 @@ namespace smt {
             enode * p = *it1;
             if (p->get_decl() == j2->m_decl &&
                 m_context.is_relevant(p) &&
-                p->is_cgr() && 
+                p->is_cgr() &&
                 p->get_arg(j2->m_arg_pos)->get_root() == n) {
                 // p is in joint2
                 p = p->get_root();
@@ -2120,8 +2122,9 @@ namespace smt {
                 for (; it2 != end2; ++it2) {
                     enode * p2 = *it2;
                     if (p2->get_decl() == f &&
+                        num_args == n->get_num_args() && 
                         m_context.is_relevant(p2) &&
-                        p2->is_cgr() && 
+                        p2->is_cgr() &&
                         p2->get_arg(i)->get_root() == p) {
                         v->push_back(p2);
                     }
@@ -2153,14 +2156,14 @@ namespace smt {
                 goto non_depth1;
             }
             r = n->get_root();
-            if (m_use_filters && r->get_plbls().empty_intersection(c->m_lbl_set)) 
+            if (m_use_filters && r->get_plbls().empty_intersection(c->m_lbl_set))
                 return 0;
             if (r->get_num_parents() == 0)
                 return 0;
         non_depth1:
             ;
         }
-        // traverse each joint and select the best one. 
+        // traverse each joint and select the best one.
         enode_vector * best_v   = 0;
         for (unsigned i = 0; i < num_args; i++) {
             enode * bare          = c->m_joints[i];
@@ -2238,16 +2241,16 @@ namespace smt {
             out << mk_pp(n->get_owner(), m_ast_manager) << "\n";
         }
     }
-    
+
     void interpreter::display_instr_input_reg(std::ostream & out, const instruction * instr) {
         switch (instr->m_opcode) {
-        case INIT1: case INIT2: case INIT3: case INIT4: case INIT5: case INIT6: case INITN: 
-            display_reg(out, 0); 
+        case INIT1: case INIT2: case INIT3: case INIT4: case INIT5: case INIT6: case INITN:
+            display_reg(out, 0);
             break;
-        case BIND1: case BIND2: case BIND3: case BIND4: case BIND5: case BIND6: case BINDN: 
+        case BIND1: case BIND2: case BIND3: case BIND4: case BIND5: case BIND6: case BINDN:
             display_reg(out, static_cast<const bind *>(instr)->m_ireg);
             break;
-        case COMPARE: 
+        case COMPARE:
             display_reg(out, static_cast<const compare *>(instr)->m_reg1);
             display_reg(out, static_cast<const compare *>(instr)->m_reg2);
             break;
@@ -2257,7 +2260,7 @@ namespace smt {
         case FILTER:
             display_reg(out, static_cast<const filter *>(instr)->m_reg);
             break;
-        case YIELD1: case YIELD2: case YIELD3: case YIELD4: case YIELD5: case YIELD6: case YIELDN: 
+        case YIELD1: case YIELD2: case YIELD3: case YIELD4: case YIELD5: case YIELD6: case YIELDN:
             for (unsigned i = 0; i < static_cast<const yield *>(instr)->m_num_bindings; i++) {
                 display_reg(out, static_cast<const yield *>(instr)->m_bindings[i]);
             }
@@ -2308,7 +2311,7 @@ namespace smt {
         m_registers[0]   = n;
         m_top            = 0;
 
-        
+
     main_loop:
 
         TRACE("mam_int", display_pc_info(tout););
@@ -2323,7 +2326,7 @@ namespace smt {
             m_registers[1] = m_app->get_arg(0);
             m_pc = m_pc->m_next;
             goto main_loop;
-            
+
         case INIT2:
             m_app          = m_registers[0];
             if (m_app->get_num_args() != 2)
@@ -2332,7 +2335,7 @@ namespace smt {
             m_registers[2] = m_app->get_arg(1);
             m_pc = m_pc->m_next;
             goto main_loop;
-            
+
         case INIT3:
             m_app          = m_registers[0];
             if (m_app->get_num_args() != 3)
@@ -2342,7 +2345,7 @@ namespace smt {
             m_registers[3] = m_app->get_arg(2);
             m_pc = m_pc->m_next;
             goto main_loop;
-            
+
         case INIT4:
             m_app          = m_registers[0];
             if (m_app->get_num_args() != 4)
@@ -2353,9 +2356,9 @@ namespace smt {
             m_registers[4] = m_app->get_arg(3);
             m_pc = m_pc->m_next;
             goto main_loop;
-            
+
         case INIT5:
-            m_app          = m_registers[0]; 
+            m_app          = m_registers[0];
             if (m_app->get_num_args() != 5)
                 goto backtrack;
             m_registers[1] = m_app->get_arg(0);
@@ -2365,8 +2368,8 @@ namespace smt {
             m_registers[5] = m_app->get_arg(4);
             m_pc = m_pc->m_next;
             goto main_loop;
-            
-        case INIT6: 
+
+        case INIT6:
             m_app          = m_registers[0];
             if (m_app->get_num_args() != 6)
                 goto backtrack;
@@ -2378,7 +2381,7 @@ namespace smt {
             m_registers[6] = m_app->get_arg(5);
             m_pc = m_pc->m_next;
             goto main_loop;
-            
+
         case INITN:
             m_app      = m_registers[0];
             m_num_args = m_app->get_num_args();
@@ -2388,7 +2391,7 @@ namespace smt {
                 m_registers[i+1] = m_app->get_arg(i);
             m_pc = m_pc->m_next;
             goto main_loop;
-            
+
         case COMPARE:
             m_n1 = m_registers[static_cast<const compare *>(m_pc)->m_reg1];
             m_n2 = m_registers[static_cast<const compare *>(m_pc)->m_reg2];
@@ -2398,7 +2401,7 @@ namespace smt {
                 goto backtrack;
             m_pc = m_pc->m_next;
             goto main_loop;
-            
+
         case CHECK:
             m_n1 = m_registers[static_cast<const check *>(m_pc)->m_reg];
             m_n2 = static_cast<const check *>(m_pc)->m_enode;
@@ -2413,21 +2416,21 @@ namespace smt {
                The compiler will never merge two CFILTERs with different m_lbl_set fields.
                Essentially, CFILTER is used to combine CHECK statements, and FILTER for BIND
             */
-        case CFILTER: 
+        case CFILTER:
         case FILTER:
             m_n1 = m_registers[static_cast<const filter *>(m_pc)->m_reg]->get_root();
-            if (static_cast<const filter *>(m_pc)->m_lbl_set.empty_intersection(m_n1->get_lbls())) 
+            if (static_cast<const filter *>(m_pc)->m_lbl_set.empty_intersection(m_n1->get_lbls()))
                 goto backtrack;
             m_pc = m_pc->m_next;
             goto main_loop;
 
         case PFILTER:
             m_n1 = m_registers[static_cast<const filter *>(m_pc)->m_reg]->get_root();
-            if (static_cast<const filter *>(m_pc)->m_lbl_set.empty_intersection(m_n1->get_plbls())) 
+            if (static_cast<const filter *>(m_pc)->m_lbl_set.empty_intersection(m_n1->get_plbls()))
                 goto backtrack;
             m_pc = m_pc->m_next;
             goto main_loop;
-            
+
         case CHOOSE:
             m_backtrack_stack[m_top].m_instr                = m_pc;
             m_backtrack_stack[m_top].m_old_max_generation   = m_max_generation;
@@ -2439,7 +2442,7 @@ namespace smt {
             SASSERT(static_cast<const choose *>(m_pc)->m_alt == 0);
             m_pc = m_pc->m_next;
             goto main_loop;
-            
+
         case BIND1:
 #define BIND_COMMON()                                                                                                   \
                  m_n1   = m_registers[static_cast<const bind *>(m_pc)->m_ireg];                                         \
@@ -2456,19 +2459,19 @@ namespace smt {
                  m_backtrack_stack[m_top].m_old_used_enodes_size = m_curr_used_enodes_size;                             \
                  m_backtrack_stack[m_top].m_curr               = m_app;                                                 \
                  m_top++;
-            
+
             BIND_COMMON();
             m_registers[m_oreg] = m_app->get_arg(0);
             m_pc = m_pc->m_next;
             goto main_loop;
-            
+
         case BIND2:
             BIND_COMMON();
             m_registers[m_oreg]   = m_app->get_arg(0);
             m_registers[m_oreg+1] = m_app->get_arg(1);
             m_pc = m_pc->m_next;
             goto main_loop;
-            
+
         case BIND3:
             BIND_COMMON();
             m_registers[m_oreg]   = m_app->get_arg(0);
@@ -2476,7 +2479,7 @@ namespace smt {
             m_registers[m_oreg+2] = m_app->get_arg(2);
             m_pc = m_pc->m_next;
             goto main_loop;
-            
+
         case BIND4:
             BIND_COMMON();
             m_registers[m_oreg]   = m_app->get_arg(0);
@@ -2485,7 +2488,7 @@ namespace smt {
             m_registers[m_oreg+3] = m_app->get_arg(3);
             m_pc = m_pc->m_next;
             goto main_loop;
-            
+
         case BIND5:
             BIND_COMMON();
             m_registers[m_oreg]   = m_app->get_arg(0);
@@ -2495,7 +2498,7 @@ namespace smt {
             m_registers[m_oreg+4] = m_app->get_arg(4);
             m_pc = m_pc->m_next;
             goto main_loop;
-            
+
         case BIND6:
             BIND_COMMON();
             m_registers[m_oreg]   = m_app->get_arg(0);
@@ -2506,7 +2509,7 @@ namespace smt {
             m_registers[m_oreg+5] = m_app->get_arg(5);
             m_pc = m_pc->m_next;
             goto main_loop;
-            
+
         case BINDN:
             BIND_COMMON();
             m_num_args = static_cast<const bind *>(m_pc)->m_num_args;
@@ -2529,20 +2532,20 @@ namespace smt {
                            m_max_generation, m_used_enodes)
             ON_MATCH(1);
             goto backtrack;
-            
+
         case YIELD2:
             m_bindings[0] = m_registers[static_cast<const yield *>(m_pc)->m_bindings[1]];
             m_bindings[1] = m_registers[static_cast<const yield *>(m_pc)->m_bindings[0]];
             ON_MATCH(2);
             goto backtrack;
-            
+
         case YIELD3:
             m_bindings[0] = m_registers[static_cast<const yield *>(m_pc)->m_bindings[2]];
             m_bindings[1] = m_registers[static_cast<const yield *>(m_pc)->m_bindings[1]];
             m_bindings[2] = m_registers[static_cast<const yield *>(m_pc)->m_bindings[0]];
             ON_MATCH(3);
             goto backtrack;
-            
+
         case YIELD4:
             m_bindings[0] = m_registers[static_cast<const yield *>(m_pc)->m_bindings[3]];
             m_bindings[1] = m_registers[static_cast<const yield *>(m_pc)->m_bindings[2]];
@@ -2550,7 +2553,7 @@ namespace smt {
             m_bindings[3] = m_registers[static_cast<const yield *>(m_pc)->m_bindings[0]];
             ON_MATCH(4);
             goto backtrack;
-            
+
         case YIELD5:
             m_bindings[0] = m_registers[static_cast<const yield *>(m_pc)->m_bindings[4]];
             m_bindings[1] = m_registers[static_cast<const yield *>(m_pc)->m_bindings[3]];
@@ -2559,7 +2562,7 @@ namespace smt {
             m_bindings[4] = m_registers[static_cast<const yield *>(m_pc)->m_bindings[0]];
             ON_MATCH(5);
             goto backtrack;
-            
+
         case YIELD6:
             m_bindings[0] = m_registers[static_cast<const yield *>(m_pc)->m_bindings[5]];
             m_bindings[1] = m_registers[static_cast<const yield *>(m_pc)->m_bindings[4]];
@@ -2569,10 +2572,10 @@ namespace smt {
             m_bindings[5] = m_registers[static_cast<const yield *>(m_pc)->m_bindings[0]];
             ON_MATCH(6);
             goto backtrack;
-            
+
         case YIELDN:
             m_num_args = static_cast<const yield *>(m_pc)->m_num_bindings;
-            for (unsigned i = 0; i < m_num_args; i++) 
+            for (unsigned i = 0; i < m_num_args; i++)
                 m_bindings[i] = m_registers[static_cast<const yield *>(m_pc)->m_bindings[m_num_args - i - 1]];
             ON_MATCH(m_num_args);
             goto backtrack;
@@ -2590,7 +2593,7 @@ namespace smt {
             m_registers[static_cast<const get_cgr *>(m_pc)->m_oreg] = m_n1;                                                                                             \
             m_pc = m_pc->m_next;                                                                                                                                        \
             goto main_loop;
-            
+
 #define SET_VAR(IDX)                                                    \
             m_args[IDX] = m_registers[static_cast<const get_cgr *>(m_pc)->m_iregs[IDX]]; \
             if (m_use_filters && static_cast<const get_cgr *>(m_pc)->m_lbl_set.empty_intersection(m_args[IDX]->get_root()->get_plbls())) { \
@@ -2599,7 +2602,7 @@ namespace smt {
                       tout << "node set: "; m_args[IDX]->get_root()->get_plbls().display(tout); tout << "\n";); \
                 goto backtrack;                                         \
             }
-            
+
             SET_VAR(0);
             GET_CGR_COMMON();
 
@@ -2644,11 +2647,11 @@ namespace smt {
             for (unsigned i = 0; i < m_num_args; i++)
                 m_args[i] = m_registers[static_cast<const get_cgr *>(m_pc)->m_iregs[i]];
             GET_CGR_COMMON();
-            
+
         case IS_CGR:
-            if (!exec_is_cgr(static_cast<const is_cgr *>(m_pc))) 
-                goto backtrack;                             
-            m_pc = m_pc->m_next;                            
+            if (!exec_is_cgr(static_cast<const is_cgr *>(m_pc)))
+                goto backtrack;
+            m_pc = m_pc->m_next;
             goto main_loop;
 
         case CONTINUE:
@@ -2659,13 +2662,13 @@ namespace smt {
                 goto backtrack;
             m_pattern_instances.push_back(m_app);
             TRACE("mam_int", tout << "continue candidate:\n" << mk_ll_pp(m_app->get_owner(), m_ast_manager););
-            for (unsigned i = 0; i < m_num_args; i++) 
+            for (unsigned i = 0; i < m_num_args; i++)
                 m_registers[m_oreg+i] = m_app->get_arg(i);
             m_pc = m_pc->m_next;
             goto main_loop;
 
         }
-        
+
     backtrack:
         TRACE("mam_int", tout << "backtracking.\n";);
         if (m_top == 0) {
@@ -2723,19 +2726,19 @@ namespace smt {
                        bp.m_curr = m_app;                                                                                       \
                        TRACE("mam_int", tout << "bind next candidate:\n" << mk_ll_pp(m_app->get_owner(), m_ast_manager););      \
                        m_oreg    = m_b->m_oreg
-            
+
             BBIND_COMMON();
             m_registers[m_oreg] = m_app->get_arg(0);
             m_pc = m_b->m_next;
             goto main_loop;
-            
+
         case BIND2:
             BBIND_COMMON();
             m_registers[m_oreg]   = m_app->get_arg(0);
             m_registers[m_oreg+1] = m_app->get_arg(1);
             m_pc = m_b->m_next;
                 goto main_loop;
-                
+
         case BIND3:
             BBIND_COMMON();
             m_registers[m_oreg]   = m_app->get_arg(0);
@@ -2743,7 +2746,7 @@ namespace smt {
             m_registers[m_oreg+2] = m_app->get_arg(2);
             m_pc = m_b->m_next;
             goto main_loop;
-            
+
         case BIND4:
             BBIND_COMMON();
             m_registers[m_oreg]   = m_app->get_arg(0);
@@ -2752,7 +2755,7 @@ namespace smt {
             m_registers[m_oreg+3] = m_app->get_arg(3);
             m_pc = m_b->m_next;
             goto main_loop;
-            
+
         case BIND5:
             BBIND_COMMON();
             m_registers[m_oreg]   = m_app->get_arg(0);
@@ -2762,7 +2765,7 @@ namespace smt {
             m_registers[m_oreg+4] = m_app->get_arg(4);
             m_pc = m_b->m_next;
             goto main_loop;
-            
+
         case BIND6:
             BBIND_COMMON();
             m_registers[m_oreg]   = m_app->get_arg(0);
@@ -2773,7 +2776,7 @@ namespace smt {
             m_registers[m_oreg+5] = m_app->get_arg(5);
             m_pc = m_b->m_next;
             goto main_loop;
-            
+
         case BINDN:
             BBIND_COMMON();
             m_num_args = m_b->m_num_args;
@@ -2781,7 +2784,7 @@ namespace smt {
                 m_registers[m_oreg+i] = m_app->get_arg(i);
             m_pc = m_b->m_next;
             goto main_loop;
-            
+
         case CONTINUE:
             ++bp.m_it;
             for (; bp.m_it != bp.m_end; ++bp.m_it) {
@@ -2815,7 +2818,7 @@ namespace smt {
                 recycle_enode_vector(bp.m_to_recycle);
             m_top--;
             goto backtrack;
-            
+
         default:
             UNREACHABLE();
         }
@@ -2835,8 +2838,8 @@ namespace smt {
     }
 
     // ------------------------------------
-    // 
-    // A mapping from func_label -> code tree.                
+    //
+    // A mapping from func_label -> code tree.
     //
     // ------------------------------------
     class code_tree_map {
@@ -2858,7 +2861,7 @@ namespace smt {
                 m_trees[m_lbl_id] = 0;
             }
         };
-        
+
     public:
         code_tree_map(ast_manager & m, compiler & c, mam_trail_stack & s):
             m_ast_manager(m),
@@ -2876,9 +2879,9 @@ namespace smt {
 
         /**
            \brief Add a pattern to the code tree map.
-           
+
            - mp: is used a pattern for qa.
-           
+
            - first_idx: index to be used as head of the multi-pattern mp
         */
         void add_pattern(quantifier * qa, app * mp, unsigned first_idx) {
@@ -2933,11 +2936,11 @@ namespace smt {
     };
 
     // ------------------------------------
-    // 
+    //
     // Path trees AKA inverted path index
     //
     // ------------------------------------
-    
+
     /**
        \brief Temporary object used to encode a path of the form:
 
@@ -2948,7 +2951,7 @@ namespace smt {
        parents p_0 of n that are f-applications, and n is the second argument,
        then for each such p_0, I want to follow the parents p_1 of p_0 that
        are g-applications, and p_0 is the third argument. Finally, I want to
-       follow the p_2 parents of p_1 that are h-applications and p_1 is the 
+       follow the p_2 parents of p_1 that are h-applications and p_1 is the
        first argument of p_2.
 
        To improve the filtering power of the inverse path index, I'm also
@@ -2961,11 +2964,11 @@ namespace smt {
        The idea is that I want only the f-parents s.t. the third argument is equal to t.
     */
     struct path {
-        func_decl *    m_label;     
+        func_decl *    m_label;
         unsigned short m_arg_idx;
         unsigned short m_ground_arg_idx;
         enode *        m_ground_arg;
-        unsigned       m_pattern_idx; 
+        unsigned       m_pattern_idx;
         path *         m_child;
         path (func_decl * lbl, unsigned short arg_idx, unsigned short ground_arg_idx, enode * ground_arg, unsigned pat_idx, path * child):
             m_label(lbl),
@@ -2977,7 +2980,7 @@ namespace smt {
             SASSERT(ground_arg != 0 || ground_arg_idx == 0);
         }
     };
-    
+
     bool is_equal(path const * p1, path const * p2) {
         for (;;) {
             if (p1->m_label        != p2->m_label ||
@@ -2986,15 +2989,15 @@ namespace smt {
                 (p1->m_child == 0) != (p2->m_child == 0)) {
                 return false;
             }
-            
+
             if (p1->m_child == 0 && p2->m_child == 0)
                 return true;
-            
+
             p1 = p1->m_child;
             p2 = p2->m_child;
         }
     }
-    
+
     typedef ptr_vector<path> paths;
 
     /**
@@ -3009,7 +3012,7 @@ namespace smt {
         approx_set     m_filter;
         path_tree *    m_sibling;
         path_tree *    m_first_child;
-        enode_vector * m_todo; // temporary field used to collect candidates 
+        enode_vector * m_todo; // temporary field used to collect candidates
 #ifdef _PROFILE_PATH_TREE
         stopwatch      m_watch;
         unsigned       m_counter;
@@ -3017,7 +3020,7 @@ namespace smt {
         unsigned       m_num_neq_visited;
         bool           m_already_displayed; //!< true if the path_tree was already displayed after reaching _PROFILE_PATH_TREE_THRESHOLD
 #endif
-        
+
         path_tree(path * p, label_hasher & h):
             m_label(p->m_label),
             m_arg_idx(p->m_arg_idx),
@@ -3047,7 +3050,7 @@ namespace smt {
 #ifdef _PROFILE_PATH_TREE
                 out << ", counter: " << m_counter << ", num_eq_visited: " << m_num_eq_visited << ", num_neq_visited: " << m_num_neq_visited
                     << ", avg. : " << static_cast<double>(m_num_neq_visited)/static_cast<double>(m_num_neq_visited+m_num_eq_visited);
-#endif                
+#endif
                 out << "\n";
                 curr->m_first_child->display(out, indent+1);
                 curr = curr->m_sibling;
@@ -3058,7 +3061,7 @@ namespace smt {
     typedef std::pair<path_tree *, path_tree *> path_tree_pair;
 
     // ------------------------------------
-    // 
+    //
     // Matching Abstract Machine Implementation
     //
     // ------------------------------------
@@ -3071,8 +3074,8 @@ namespace smt {
         code_tree_manager           m_ct_manager;
         compiler                    m_compiler;
         interpreter                 m_interpreter;
-        code_tree_map               m_trees;      
-        
+        code_tree_map               m_trees;
+
         ptr_vector<code_tree>       m_tmp_trees;
         ptr_vector<func_decl>       m_tmp_trees_to_delete;
         ptr_vector<code_tree>       m_to_match;
@@ -3088,11 +3091,11 @@ namespace smt {
 
         // auxiliary field used to update data-structures...
         typedef ptr_vector<func_decl> func_decls;
-        vector<func_decls>          m_var_parent_labels; 
+        vector<func_decls>          m_var_parent_labels;
 
         region &                    m_region;
         region                      m_tmp_region;
-        path_tree_pair              m_pp[APPROX_SET_CAPACITY][APPROX_SET_CAPACITY]; 
+        path_tree_pair              m_pp[APPROX_SET_CAPACITY][APPROX_SET_CAPACITY];
         path_tree *                 m_pc[APPROX_SET_CAPACITY][APPROX_SET_CAPACITY];
         pool<enode_vector>          m_pool;
 
@@ -3105,7 +3108,7 @@ namespace smt {
 
         enode *                     m_r1; // temp field
         enode *                     m_r2; // temp field
-        
+
         class add_shared_enode_trail;
         friend class add_shared_enode_trail;
 
@@ -3125,7 +3128,7 @@ namespace smt {
             r->reset();
             return r;
         }
-        
+
         void recycle(enode_vector * v) {
             m_pool.recycle(v);
         }
@@ -3133,12 +3136,12 @@ namespace smt {
         void add_candidate(code_tree * t, enode * app) {
             if (t != 0) {
                 TRACE("mam_candidate", tout << "adding candidate:\n" << mk_ll_pp(app->get_owner(), m_ast_manager););
-                if (!t->has_candidates()) 
+                if (!t->has_candidates())
                     m_to_match.push_back(t);
                 t->add_candidate(app);
             }
         }
-        
+
         void add_candidate(enode * app) {
             func_decl * lbl = app->get_decl();
             add_candidate(m_trees.get_code_tree_for(lbl), app);
@@ -3152,7 +3155,7 @@ namespace smt {
             unsigned lbl_id = lbl->get_decl_id();
             return lbl_id < m_is_clbl.size() && m_is_clbl[lbl_id];
         }
-        
+
         void update_lbls(enode * n, unsigned elem) {
             approx_set & r_lbls = n->get_root()->get_lbls();
             if (!r_lbls.may_contain(elem)) {
@@ -3203,14 +3206,14 @@ namespace smt {
                 }
             }
         }
-    
+
         void update_plbls(func_decl * lbl) {
             unsigned lbl_id = lbl->get_decl_id();
             m_is_plbl.reserve(lbl_id+1, false);
             TRACE("trigger_bug", tout << "update_plbls: " << lbl->get_name() << " is already plbl: " << m_is_plbl[lbl_id] << ", lbl_id: " << lbl_id << "\n";
                   tout << "mam: " << this << "\n";);
             TRACE("mam_bug", tout << "update_plbls: " << lbl->get_name() << " is already plbl: " << m_is_plbl[lbl_id] << "\n";);
-            if (m_is_plbl[lbl_id]) 
+            if (m_is_plbl[lbl_id])
                 return;
             m_trail_stack.push(set_bitvector_trail<mam_impl>(m_is_plbl, lbl_id));
             SASSERT(m_is_plbl[lbl_id]);
@@ -3220,7 +3223,7 @@ namespace smt {
             enode_vector::const_iterator end = m_context.end_enodes_of(lbl);
             for (; it != end; ++it) {
                 enode * app = *it;
-                if (m_context.is_relevant(app)) 
+                if (m_context.is_relevant(app))
                     update_children_plbls(app, h);
             }
         }
@@ -3234,12 +3237,12 @@ namespace smt {
                 }
             }
         }
-        
+
         code_tree * mk_code(quantifier * qa, app * mp, unsigned pat_idx) {
             SASSERT(m_ast_manager.is_pattern(mp));
-            return m_compiler.mk_tree(qa, mp, pat_idx, true); 
+            return m_compiler.mk_tree(qa, mp, pat_idx, true);
         }
-        
+
         void insert_code(path_tree * t, quantifier * qa, app * mp, unsigned pat_idx) {
             SASSERT(m_ast_manager.is_pattern(mp));
             m_compiler.insert(t->m_code, qa, mp, pat_idx, false);
@@ -3254,7 +3257,7 @@ namespace smt {
             path_tree * prev = 0;
             while (p != 0) {
                 curr = new (m_region) path_tree(p, m_lbl_hasher);
-                if (prev) 
+                if (prev)
                     prev->m_first_child = curr;
                 if (!head)
                     head = curr;
@@ -3274,7 +3277,7 @@ namespace smt {
             while (t != 0) {
                 if (t->m_label == p->m_label) {
                     found_label = true;
-                    if (t->m_arg_idx == p->m_arg_idx && 
+                    if (t->m_arg_idx == p->m_arg_idx &&
                         t->m_ground_arg == p->m_ground_arg &&
                         t->m_ground_arg_idx == p->m_ground_arg_idx
                         ) {
@@ -3326,7 +3329,7 @@ namespace smt {
                 m_trail_stack.push(set_ptr_trail<mam_impl, path_tree>(m_pc[h1][h2]));
                 m_pc[h1][h2] = mk_path_tree(p, qa, mp);
             }
-            TRACE("mam_path_tree_updt", 
+            TRACE("mam_path_tree_updt",
                   tout << "updated path tree:\n";
                   m_pc[h1][h2]->display(tout, 2););
         }
@@ -3343,7 +3346,7 @@ namespace smt {
                     m_trail_stack.push(set_ptr_trail<mam_impl, path_tree>(m_pp[h1][h2].first));
                     m_pp[h1][h2].first = mk_path_tree(p1, qa, mp);
                     insert(m_pp[h1][h2].first, p2, qa, mp);
-                }    
+                }
             }
             else {
                 if (h1 > h2) {
@@ -3364,7 +3367,7 @@ namespace smt {
                     m_pp[h1][h2].second = mk_path_tree(p2, qa, mp);
                 }
             }
-            TRACE("mam_path_tree_updt", 
+            TRACE("mam_path_tree_updt",
                   tout << "updated path tree:\n";
                   SASSERT(h1 <= h2);
                   m_pp[h1][h2].first->display(tout, 2);
@@ -3418,28 +3421,28 @@ namespace smt {
             for (unsigned short i = 0; i < num_args; i++) {
                 expr * child = pat->get_arg(i);
                 path * new_path = new (m_tmp_region) path(plbl, i, ground_arg_pos, ground_arg, pat_idx, p);
-                
+
                 if (is_var(child)) {
                     update_vars(to_var(child)->get_idx(), new_path, qa, mp);
                     continue;
                 }
 
                 SASSERT(is_app(child));
-                
+
                 if (to_app(child)->is_ground()) {
                     enode * n = mk_enode(m_context, qa, to_app(child));
                     update_plbls(plbl);
                     if (!n->has_lbl_hash())
                         n->set_lbl_hash(m_context);
-                    TRACE("mam_bug", 
-                          tout << "updating pc labels " << plbl->get_name() << " " << 
+                    TRACE("mam_bug",
+                          tout << "updating pc labels " << plbl->get_name() << " " <<
                           static_cast<unsigned>(n->get_lbl_hash()) << "\n";
                           tout << "#" << n->get_owner_id() << " " << n->get_root()->get_lbls() << "\n";
                           tout << "relevant: " << m_context.is_relevant(n) << "\n";);
                     update_pc(m_lbl_hasher(plbl), n->get_lbl_hash(), new_path, qa, mp);
                     continue;
                 }
-                
+
                 func_decl * clbl = to_app(child)->get_decl();
                 TRACE("mam_bug", tout << "updating pc labels " << plbl->get_name() << " " << clbl->get_name() << "\n";);
                 update_plbls(plbl);
@@ -3468,7 +3471,7 @@ namespace smt {
             //  (p_n, p_2, ..., p_1)
             unsigned num_patterns = mp->get_num_args();
             for (unsigned i = 0; i < num_patterns; i++) {
-                app * pat = to_app(mp->get_arg(i)); 
+                app * pat = to_app(mp->get_arg(i));
                 update_filters(pat, 0, qa, mp, i);
             }
         }
@@ -3495,7 +3498,7 @@ namespace smt {
            \brief Check equality modulo the equality m_r1 = m_r2
         */
         bool is_eq(enode * n1, enode * n2) {
-            return 
+            return
                 n1->get_root() == n2->get_root() ||
                 (n1->get_root() == m_r1 && n2->get_root() == m_r2) ||
                 (n2->get_root() == m_r1 && n1->get_root() == m_r2);
@@ -3524,7 +3527,7 @@ namespace smt {
 #ifdef _PROFILE_PATH_TREE
                 t->m_counter++;
 #endif
-                TRACE("mam_path_tree", 
+                TRACE("mam_path_tree",
                       tout << "processing:\n";
                       t->display(tout, 2););
                 enode_vector * v    = t->m_todo;
@@ -3552,13 +3555,13 @@ namespace smt {
                     //
                     // In a previous version of Z3, the "enode mark field" was used to mark both cases. This is incorrect,
                     // and Z3 may fail to find potential new matches.
-                    // 
+                    //
                     // The file regression\acu.sx exposed this problem.
                     enode * curr_child = (*it1)->get_root();
-                    
+
                     if (m_use_filters && curr_child->get_plbls().empty_intersection(filter))
                         continue;
-                    
+
 #ifdef _PROFILE_PATH_TREE
                     static unsigned counter2  = 0;
                     static unsigned total_sz2 = 0;
@@ -3571,7 +3574,7 @@ namespace smt {
                         std::cout << "Avg2. " << static_cast<double>(total_sz2)/static_cast<double>(counter2) << ", Max2. " << max_sz2 << "\n";
 #endif
 
-                    TRACE("mam_path_tree", tout << "processing: #" << curr_child->get_owner_id() << "\n";); 
+                    TRACE("mam_path_tree", tout << "processing: #" << curr_child->get_owner_id() << "\n";);
                     enode_vector::const_iterator it2  = curr_child->begin_parents();
                     enode_vector::const_iterator end2 = curr_child->end_parents();
                     for (; it2 != end2; ++it2) {
@@ -3594,7 +3597,7 @@ namespace smt {
                         if (filter.may_contain(m_lbl_hasher(lbl)) &&
                             !curr_parent->is_marked() &&
                             (curr_parent_cg == curr_parent || !is_eq(curr_parent_cg, curr_parent_root)) &&
-                            m_context.is_relevant(curr_parent) 
+                            m_context.is_relevant(curr_parent)
                             ) {
                             path_tree * curr_tree = t;
                             while (curr_tree) {
@@ -3693,14 +3696,14 @@ namespace smt {
                         }
                         if (n_plbl1 == n_plbl2) {
                             SASSERT(m_pp[n_plbl1][n_plbl2].second == 0);
-                            if (n_r1->get_num_parents() <= n_r2->get_num_parents()) 
+                            if (n_r1->get_num_parents() <= n_r2->get_num_parents())
                                 collect_parents(n_r1, m_pp[n_plbl1][n_plbl2].first);
                             else
                                 collect_parents(n_r2, m_pp[n_plbl1][n_plbl2].first);
                         }
                         else {
                             SASSERT(n_plbl1 < n_plbl2);
-                            if (n_r1->get_num_parents() <= n_r2->get_num_parents()) 
+                            if (n_r1->get_num_parents() <= n_r2->get_num_parents())
                                 collect_parents(n_r1, m_pp[n_plbl1][n_plbl2].first);
                             else
                                 collect_parents(n_r2, m_pp[n_plbl1][n_plbl2].second);
@@ -3773,7 +3776,7 @@ namespace smt {
                 enode_vector::const_iterator end3 = m_context.end_enodes_of(lbl);
                 for (; it3 != end3; ++it3) {
                     enode * app = *it3;
-                    if (m_context.is_relevant(app)) 
+                    if (m_context.is_relevant(app))
                         m_interpreter.execute_core(tmp_tree, app);
                 }
                 m_tmp_trees[lbl_id] = 0;
@@ -3786,7 +3789,7 @@ namespace smt {
             ptr_buffer<app> todo;
             unsigned num_patterns = mp->get_num_args();
             for (unsigned i = 0; i < num_patterns; i++) {
-                app * pat = to_app(mp->get_arg(i)); 
+                app * pat = to_app(mp->get_arg(i));
                 TRACE("mam_pat", tout << mk_ismt2_pp(qa, m_ast_manager) << "\npat:\n" << mk_ismt2_pp(pat, m_ast_manager) << "\n";);
                 SASSERT(!pat->is_ground());
                 todo.push_back(pat);
@@ -3812,7 +3815,7 @@ namespace smt {
 
     public:
         mam_impl(context & ctx, bool use_filters):
-            mam(ctx), 
+            mam(ctx),
             m_ast_manager(ctx.get_manager()),
             m_use_filters(use_filters),
             m_trail_stack(*this),
@@ -3827,7 +3830,7 @@ namespace smt {
             DEBUG_CODE(m_check_missing_instances = false;);
             reset_pp_pc();
         }
-        
+
         virtual ~mam_impl() {
             m_trail_stack.reset();
         }
@@ -3854,11 +3857,11 @@ namespace smt {
             for (unsigned i = 0; i < num_patterns; i++)
                 m_trees.add_pattern(qa, mp, i);
         }
-        
+
         virtual void push_scope() {
             m_trail_stack.push_scope();
         }
-        
+
         virtual void pop_scope(unsigned num_scopes) {
             if (!m_to_match.empty()) {
                 ptr_vector<code_tree>::iterator it  = m_to_match.begin();
@@ -3894,8 +3897,8 @@ namespace smt {
                     (*it)->display(out);
             }
         }
-        
-        virtual void match() { 
+
+        virtual void match() {
             TRACE("trigger_bug", tout << "match\n"; display(tout););
             ptr_vector<code_tree>::iterator it  = m_to_match.begin();
             ptr_vector<code_tree>::iterator end = m_to_match.end();
@@ -3925,7 +3928,7 @@ namespace smt {
                     enode_vector::const_iterator end2 = m_context.end_enodes_of(lbl);
                     for (; it2 != end2; ++it2) {
                         enode * curr = *it2;
-                        if (use_irrelevant || m_context.is_relevant(curr)) 
+                        if (use_irrelevant || m_context.is_relevant(curr))
                             m_interpreter.execute_core(t, curr);
                     }
                 }
@@ -3940,13 +3943,13 @@ namespace smt {
             return true;
         }
 #endif
-        
+
         virtual void on_match(quantifier * qa, app * pat, unsigned num_bindings, enode * const * bindings, unsigned max_generation, ptr_vector<enode> & used_enodes) {
             TRACE("trigger_bug", tout << "found match " << mk_pp(qa, m_ast_manager) << "\n";);
 #ifdef Z3DEBUG
             if (m_check_missing_instances) {
                 if (!m_context.slow_contains_instance(qa, num_bindings, bindings)) {
-                    TRACE("missing_instance", 
+                    TRACE("missing_instance",
                           tout << "qa:\n" << mk_ll_pp(qa, m_ast_manager) << "\npat:\n" << mk_ll_pp(pat, m_ast_manager);
                           for (unsigned i = 0; i < num_bindings; i++)
                               tout << "#" << bindings[i]->get_owner_id() << "\n" << mk_ll_pp(bindings[i]->get_owner(), m_ast_manager) << "\n";
@@ -3967,23 +3970,23 @@ namespace smt {
         virtual bool is_shared(enode * n) const {
             return !m_shared_enodes.empty() && m_shared_enodes.contains(n);
         }
-        
+
         // This method is invoked when n becomes relevant.
         // If lazy == true, then n is not added to the list of candidate enodes for matching. That is, the method just updates the lbls.
         virtual void relevant_eh(enode * n, bool lazy) {
             TRACE("trigger_bug", tout << "relevant_eh:\n" << mk_ismt2_pp(n->get_owner(), m_ast_manager) << "\n";
                   tout << "mam: " << this << "\n";);
             TRACE("mam", tout << "relevant_eh: #" << n->get_owner_id() << "\n";);
-            if (n->has_lbl_hash()) 
+            if (n->has_lbl_hash())
                 update_lbls(n, n->get_lbl_hash());
-            
+
             if (n->get_num_args() > 0) {
                 func_decl * lbl = n->get_decl();
                 unsigned h      = m_lbl_hasher(lbl);
-                TRACE("trigger_bug", tout << "lbl: " << lbl->get_name() << " is_clbl(lbl): " << is_clbl(lbl) 
+                TRACE("trigger_bug", tout << "lbl: " << lbl->get_name() << " is_clbl(lbl): " << is_clbl(lbl)
                       << ", is_plbl(lbl): " << is_plbl(lbl) << ", h: " << h << "\n";
                       tout << "lbl_id: " << lbl->get_decl_id() << "\n";);
-                if (is_clbl(lbl)) 
+                if (is_clbl(lbl))
                     update_lbls(n, h);
                 if (is_plbl(lbl))
                     update_children_plbls(n, h);
@@ -4002,28 +4005,28 @@ namespace smt {
             flet<enode *> l2(m_r2, r2);
 
             TRACE("mam", tout << "add_eq_eh: #" << r1->get_owner_id() << " #" << r2->get_owner_id() << "\n";);
-            TRACE("mam_inc_bug_detail", m_context.display(tout);); 
-            TRACE("mam_inc_bug", 
+            TRACE("mam_inc_bug_detail", m_context.display(tout););
+            TRACE("mam_inc_bug",
                   tout << "before:\n#" << r1->get_owner_id() << " #" << r2->get_owner_id() << "\n";
                   tout << "r1.lbls:  " << r1->get_lbls() << "\n";
                   tout << "r2.lbls:  " << r2->get_lbls() << "\n";
                   tout << "r1.plbls: " << r1->get_plbls() << "\n";
                   tout << "r2.plbls: " << r2->get_plbls() << "\n";);
-            
+
             process_pc(r1, r2);
             process_pc(r2, r1);
             process_pp(r1, r2);
-            
+
             approx_set   r1_plbls = r1->get_plbls();
             approx_set & r2_plbls = r2->get_plbls();
             approx_set   r1_lbls  = r1->get_lbls();
             approx_set & r2_lbls  = r2->get_lbls();
-            
+
             m_trail_stack.push(mam_value_trail<approx_set>(r2_lbls));
             m_trail_stack.push(mam_value_trail<approx_set>(r2_plbls));
             r2_lbls  |= r1_lbls;
-            r2_plbls |= r1_plbls; 
-            TRACE("mam_inc_bug", 
+            r2_plbls |= r1_plbls;
+            TRACE("mam_inc_bug",
                   tout << "after:\n";
                   tout << "r1.lbls:  " << r1->get_lbls() << "\n";
                   tout << "r2.lbls:  " << r2->get_lbls() << "\n";

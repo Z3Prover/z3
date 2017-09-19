@@ -20,8 +20,8 @@ Revision History:
 #ifndef MODEL_SMT2_PP_H_
 #define MODEL_SMT2_PP_H_
 
-#include"ast_printer.h"
-#include"model_core.h"
+#include "ast/ast_printer.h"
+#include "model/model_core.h"
 
 void model_smt2_pp(std::ostream & out, ast_printer_context & ctx, model_core const & m, unsigned indent);
 void model_smt2_pp(std::ostream & out, ast_manager & m, model_core const & md, unsigned indent);

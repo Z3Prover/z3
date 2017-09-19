@@ -19,8 +19,8 @@ Revision History:
 #ifndef OBJ_HASHTABLE_H_
 #define OBJ_HASHTABLE_H_
 
-#include"hash.h"
-#include"hashtable.h"
+#include "util/hash.h"
+#include "util/hashtable.h"
 
 
 /**
@@ -134,7 +134,7 @@ public:
         return m_table.end();
     }
     
-    void insert(Key * k, Value const & v) {
+    void insert(Key * const k, Value const & v) {
         m_table.insert(key_data(k, v));
     }
     
@@ -150,7 +150,7 @@ public:
         return m_table.find_core(key_data(k));
     }
 
-    bool find(Key * k, Value & v) const {
+    bool find(Key * const k, Value & v) const {
         obj_map_entry * e = find_core(k);
         if (e) {
             v = e->get_data().m_value;

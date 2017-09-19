@@ -19,7 +19,7 @@ Revision History:
 #ifndef THEORY_ARITH_NL_H_
 #define THEORY_ARITH_NL_H_
 
-#include"ast_smt2_pp.h"
+#include "ast/ast_smt2_pp.h"
 
 namespace smt {
 
@@ -681,8 +681,7 @@ namespace smt {
         SASSERT(is_pure_monomial(var2expr(v)));
         expr * m      = var2expr(v);
         rational val(1), v_val;
-        for (unsigned i = 0; i < to_app(m)->get_num_args(); i++) {
-            expr * arg = to_app(m)->get_arg(i);
+        for (expr* arg : *to_app(m)) {
             theory_var curr = expr2var(arg);
             SASSERT(curr != null_theory_var);
             v_val = get_value(curr, computed_epsilon);
@@ -742,7 +741,6 @@ namespace smt {
                 continue;
             bool computed_epsilon = false;
             bool r = check_monomial_assignment(v, computed_epsilon);
-            SASSERT(!computed_epsilon); // integer variables do not use epsilon
             if (!r) {
                 expr * m = get_enode(v)->get_owner();
                 SASSERT(is_pure_monomial(m));
@@ -1249,11 +1247,9 @@ namespace smt {
         }
 
         // Update the number of occurrences in the result vector.
-        typename var2num_occs::iterator it2  = m_var2num_occs.begin();
-        typename var2num_occs::iterator end2 = m_var2num_occs.end();
-        for (; it2 != end2; ++it2) {
-            if ((*it2).m_value > 1)
-                varinfo.push_back(var_num_occs((*it2).m_key, (*it2).m_value));
+        for (auto const& vn : m_var2num_occs) {
+            if (vn.m_value > 1)
+                varinfo.push_back(var_num_occs(vn.m_key, vn.m_value));
         }
     }
 
@@ -1265,18 +1261,16 @@ namespace smt {
         SASSERT(!p.empty());
         TRACE("p2expr_bug", display_coeff_exprs(tout, p););
         ptr_buffer<expr> args;
-        sbuffer<coeff_expr>::const_iterator it  = p.begin();
-        sbuffer<coeff_expr>::const_iterator end = p.end();
-        for (; it != end; ++it) {
-            rational const & c = it->first;
-            expr * var         = it->second;
+        for (coeff_expr const& ce : p) {
+            rational const & c = ce.first;
+            expr * var         = ce.second;
             if (!c.is_one()) {
                 rational c2;
                 expr * m = 0;
                 if (m_util.is_numeral(var, c2))
-                    m = m_util.mk_numeral(c*c2, m_util.is_int(var));
+                    m = m_util.mk_numeral(c*c2, m_util.is_int(var) && c.is_int() && c2.is_int());
                 else
-                    m = m_util.mk_mul(m_util.mk_numeral(c, m_util.is_int(var)), var);
+                    m = m_util.mk_mul(m_util.mk_numeral(c, c.is_int() && m_util.is_int(var)), var);
                 m_nl_new_exprs.push_back(m);
                 args.push_back(m);
             }
@@ -1453,8 +1447,7 @@ namespace smt {
         SASSERT(is_pure_monomial(m));
         unsigned idx = 0;
         ptr_buffer<expr> new_args;
-        for (unsigned i = 0; i < to_app(m)->get_num_args(); i++) {
-            expr * arg = to_app(m)->get_arg(i);
+        for (expr * arg : *to_app(m)) {
             if (arg == var) {
                 if (idx < d)
                     idx++;
@@ -1487,17 +1480,15 @@ namespace smt {
               tout << "min_degree: " << d << "\n";);
         sbuffer<coeff_expr> e; // monomials/x^d where var occurs with degree d
         sbuffer<coeff_expr> r; // rest
-        sbuffer<coeff_expr>::const_iterator it  = p.begin();
-        sbuffer<coeff_expr>::const_iterator end = p.end();
-        for (; it != end; ++it) {
-            expr * m = it->second;
+        for (auto const& kv : p) {
+            expr * m = kv.second;
             expr * f = factor(m, var, d);
             if (get_degree_of(m, var) == d) {
-                e.push_back(coeff_expr(it->first, f));
+                e.push_back(coeff_expr(kv.first, f));
             }
             else {
                 SASSERT(get_degree_of(m, var) > d);
-                r.push_back(coeff_expr(it->first, f));
+                r.push_back(coeff_expr(kv.first, f));
             }
         }
         expr * s = cross_nested(e, 0);
@@ -1623,16 +1614,12 @@ namespace smt {
             return true;
         std::stable_sort(varinfo.begin(), varinfo.end(), var_num_occs_lt());
         TRACE("cross_nested", tout << "var num occs:\n";
-              sbuffer<var_num_occs>::const_iterator it  = varinfo.begin();
-              sbuffer<var_num_occs>::const_iterator end = varinfo.end();
-              for (; it != end ; ++it) {
-                  tout << mk_bounded_pp(it->first, get_manager()) << " -> " << it->second << "\n";
+              for (auto const& kv : varinfo) {
+                  tout << mk_bounded_pp(kv.first, get_manager()) << " -> " << kv.second << "\n";
               });
-        sbuffer<var_num_occs>::const_iterator it  = varinfo.begin();
-        sbuffer<var_num_occs>::const_iterator end = varinfo.end();
-        for (; it != end; ++it) {
+        for (auto const& kv : varinfo) {
             m_nl_new_exprs.reset();
-            expr * var  = it->first;
+            expr * var  = kv.first;
             expr * cn   = cross_nested(p, var);
             // Remark: cn may not be well-sorted because, since a row may contain mixed integer/real monomials.
             // This is not really a problem, since evaluate_as_interval will work even if cn is not well-sorted.
@@ -1731,10 +1718,7 @@ namespace smt {
     */
     template<typename Ext>
     bool theory_arith<Ext>::is_cross_nested_consistent(svector<theory_var> const & nl_cluster) {
-        svector<theory_var>::const_iterator it  = nl_cluster.begin();
-        svector<theory_var>::const_iterator end = nl_cluster.end();
-        for (; it != end; ++it) {
-            theory_var v = *it;
+        for (theory_var v : nl_cluster) {
             if (!is_base(v))
                 continue;
             m_stats.m_nl_cross_nested++;
@@ -1765,10 +1749,7 @@ namespace smt {
     template<typename Ext>
     void theory_arith<Ext>::init_grobner_var_order(svector<theory_var> const & nl_cluster, grobner & gb) {
         // Initialize variable order
-        svector<theory_var>::const_iterator it  = nl_cluster.begin();
-        svector<theory_var>::const_iterator end = nl_cluster.end();
-        for (; it != end; ++it) {
-            theory_var v = *it;
+        for (theory_var v : nl_cluster) {
             expr * var = var2expr(v);
 
             if (is_fixed(v)) {
@@ -1905,10 +1886,7 @@ namespace smt {
     template<typename Ext>
     void theory_arith<Ext>::init_grobner(svector<theory_var> const & nl_cluster, grobner & gb) {
         init_grobner_var_order(nl_cluster, gb);
-        svector<theory_var>::const_iterator it  = nl_cluster.begin();
-        svector<theory_var>::const_iterator end = nl_cluster.end();
-        for (; it != end; ++it) {
-            theory_var v = *it;
+        for (theory_var v : nl_cluster) {
             if (is_base(v)) {
                 row const & r = m_rows[get_var_row(v)];
                 add_row_to_gb(r, gb);
@@ -2227,7 +2205,7 @@ namespace smt {
                 args.push_back(monomial2expr(eq->get_monomial(i), is_int));
         }
         context & ctx   = get_context();
-        simplifier & s  = ctx.get_simplifier();
+        th_rewriter& s = ctx.get_rewriter();
         expr_ref pol(get_manager());
         SASSERT(!args.empty());
         pol = mk_nary_add(args.size(), args.c_ptr());
@@ -2296,10 +2274,7 @@ namespace smt {
             eqs.reset();
             gb.get_equations(eqs);
             TRACE("grobner_bug", tout << "after gb\n";);
-            ptr_vector<grobner::equation>::const_iterator it  = eqs.begin();
-            ptr_vector<grobner::equation>::const_iterator end = eqs.end();
-            for (; it != end; ++it) {
-                grobner::equation * eq = *it;
+            for (grobner::equation* eq : eqs) {
                 TRACE("grobner_bug", gb.display_equation(tout, *eq););
                 if (is_inconsistent(eq, gb))
                     return GB_PROGRESS;
@@ -2310,9 +2285,7 @@ namespace smt {
             // then assert bounds for x, and continue
             gb_result result = GB_FAIL;
             if (m_params.m_nl_arith_gb_eqs) {
-                it  = eqs.begin();
-                for (; it != end; ++it) {
-                    grobner::equation * eq = *it;
+                for (grobner::equation* eq : eqs) {
                     if (!eq->is_linear_combination()) {
                         TRACE("non_linear", tout << "processing new equality:\n"; gb.display_equation(tout, *eq););
                         TRACE("non_linear_bug", tout << "processing new equality:\n"; gb.display_equation(tout, *eq););
@@ -2331,9 +2304,8 @@ namespace smt {
             // I only consider linear equations... (HACK)
             // Moreover, I do not change the weight of a variable more than once in this loop.
             bool modified = false;
-            it = eqs.begin();
-            for (; it != end; ++it) {
-                grobner::equation const * eq = *it;
+
+            for (grobner::equation const* eq : eqs) {
                 unsigned num_monomials = eq->get_num_monomials();
                 CTRACE("grobner_bug", num_monomials <= 0, gb.display_equation(tout, *eq););
                 if (num_monomials == 0)
@@ -2370,13 +2342,11 @@ namespace smt {
     bool theory_arith<Ext>::max_min_nl_vars() {
         var_set             already_found;
         svector<theory_var> vars;
-        for (unsigned j = 0; j < m_nl_monomials.size(); ++j) {
-            theory_var v = m_nl_monomials[j];
+        for (theory_var v : m_nl_monomials) {
             mark_var(v, vars, already_found);
             expr * n     = var2expr(v);
             SASSERT(is_pure_monomial(n));
-            for (unsigned i = 0; i < to_app(n)->get_num_args(); i++) {
-                expr * curr  = to_app(n)->get_arg(i);
+            for (expr * curr : *to_app(n)) {
                 theory_var v = expr2var(curr);
                 SASSERT(v != null_theory_var);
                 mark_var(v, vars, already_found);

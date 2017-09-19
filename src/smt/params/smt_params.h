@@ -19,19 +19,19 @@ Revision History:
 #ifndef SMT_PARAMS_H_
 #define SMT_PARAMS_H_
 
-#include"ast.h"
-#include"dyn_ack_params.h"
-#include"qi_params.h"
-#include"theory_arith_params.h"
-#include"theory_array_params.h"
-#include"theory_bv_params.h"
-#include"theory_str_params.h"
-#include"theory_pb_params.h"
-#include"theory_datatype_params.h"
-#include"preprocessor_params.h"
-#include"context_params.h"
+#include "ast/ast.h"
+#include "smt/params/dyn_ack_params.h"
+#include "smt/params/qi_params.h"
+#include "smt/params/theory_arith_params.h"
+#include "smt/params/theory_array_params.h"
+#include "smt/params/theory_bv_params.h"
+#include "smt/params/theory_str_params.h"
+#include "smt/params/theory_pb_params.h"
+#include "smt/params/theory_datatype_params.h"
+#include "smt/params/preprocessor_params.h"
+#include "cmd_context/context_params.h"
 
-enum phase_selection { 
+enum phase_selection {
     PS_ALWAYS_FALSE,
     PS_ALWAYS_TRUE,
     PS_CACHING,
@@ -52,7 +52,8 @@ enum restart_strategy {
 enum lemma_gc_strategy {
     LGC_FIXED,
     LGC_GEOMETRIC,
-    LGC_AT_RESTART
+    LGC_AT_RESTART,
+    LGC_NONE
 };
 
 enum initial_activity {
@@ -71,11 +72,11 @@ enum case_split_strategy {
     CS_ACTIVITY_THEORY_AWARE_BRANCHING // activity-based case split, but theory solvers can manipulate activity
 };
 
-struct smt_params : public preprocessor_params, 
-                    public dyn_ack_params, 
-                    public qi_params, 
-                    public theory_arith_params, 
-                    public theory_array_params, 
+struct smt_params : public preprocessor_params,
+                    public dyn_ack_params,
+                    public qi_params,
+                    public theory_arith_params,
+                    public theory_array_params,
                     public theory_bv_params,
                     public theory_str_params,
                     public theory_pb_params,
@@ -153,12 +154,12 @@ struct smt_params : public preprocessor_params,
     unsigned          m_lemma_gc_initial;
     double            m_lemma_gc_factor;
     unsigned          m_new_old_ratio;     //!< the ratio of new and old clauses.
-    unsigned          m_new_clause_activity;  
+    unsigned          m_new_clause_activity;
     unsigned          m_old_clause_activity;
     unsigned          m_new_clause_relevancy; //!< Max. number of unassigned literals to be considered relevant.
     unsigned          m_old_clause_relevancy; //!< Max. number of unassigned literals to be considered relevant.
     double            m_inv_clause_decay;     //!< clause activity decay
-    
+
     // -----------------------------------
     //
     // SMT-LIB (debug) pretty printer
@@ -166,7 +167,7 @@ struct smt_params : public preprocessor_params,
     // -----------------------------------
     bool              m_smtlib_dump_lemmas;
     symbol            m_logic;
-    
+
     // -----------------------------------
     //
     // Statistics for Profiling
@@ -179,10 +180,10 @@ struct smt_params : public preprocessor_params,
 
     // -----------------------------------
     //
-    // Model generation 
+    // Model generation
     //
     // -----------------------------------
-    bool             m_model; 
+    bool             m_model;
     bool             m_model_compact;
     bool             m_model_on_timeout;
     bool             m_model_on_final_check;
@@ -213,9 +214,18 @@ struct smt_params : public preprocessor_params,
     unsigned            m_timeout;
     unsigned            m_rlimit;
     bool                m_at_labels_cex; // only use labels which contains the @ symbol when building multiple counterexamples.
-    bool                m_check_at_labels; // check that @ labels are inserted to generate unique counter-examples.    
+    bool                m_check_at_labels; // check that @ labels are inserted to generate unique counter-examples.
     bool                m_dump_goal_as_smt;
     bool                m_auto_config;
+
+    // -----------------------------------
+    //
+    // Spacer hacking
+    //
+    // -----------------------------------
+    bool                m_dump_benchmarks;
+    double              m_dump_min_time;
+    bool                m_dump_recheck;
 
     // -----------------------------------
     //
@@ -228,7 +238,7 @@ struct smt_params : public preprocessor_params,
         m_display_proof(false),
         m_display_dot_proof(false),
         m_display_unsat_core(false),
-        m_check_proof(false), 
+        m_check_proof(false),
         m_eq_propagation(true),
         m_binary_clause_opt(true),
         m_relevancy_lvl(2),
@@ -270,7 +280,7 @@ struct smt_params : public preprocessor_params,
         m_new_old_ratio(16),
         m_new_clause_activity(10),
         m_old_clause_activity(500),
-        m_new_clause_relevancy(45), 
+        m_new_clause_relevancy(45),
         m_old_clause_relevancy(6),
         m_inv_clause_decay(1),
         m_smtlib_dump_lemmas(false),

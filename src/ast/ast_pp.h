@@ -21,7 +21,7 @@ Revision History:
 #ifndef AST_PP_H_
 #define AST_PP_H_
 
-#include"ast_smt2_pp.h"
+#include "ast/ast_smt2_pp.h"
 
 struct mk_pp : public mk_ismt2_pp {
     mk_pp(ast * t, ast_manager & m, params_ref const & p, unsigned indent = 0, unsigned num_vars = 0, char const * var_prefix = 0):
