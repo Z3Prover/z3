@@ -1260,6 +1260,22 @@ namespace smt2 {
             return num;
         }
 
+        void push_let_frame() {
+            next();
+            check_lparen_next("invalid let declaration, '(' expected");
+            void * mem = m_stack.allocate(sizeof(let_frame));
+            new (mem) let_frame(symbol_stack().size(), expr_stack().size());
+            m_num_expr_frames++;
+        }
+
+        void push_bang_frame(expr_frame * curr) {
+            TRACE("consume_attributes", tout << "begin bang, expr_stack.size(): " << expr_stack().size() << "\n";);
+            next();
+            void * mem = m_stack.allocate(sizeof(attr_expr_frame));
+            new (mem) attr_expr_frame(curr, symbol_stack().size(), expr_stack().size());
+            m_num_expr_frames++;
+        }
+
         void push_quant_frame(quantifier_kind k) {
             SASSERT(curr_is_identifier());
             SASSERT(curr_id_is_forall() || curr_id_is_exists() || curr_id_is_lambda());
@@ -1576,11 +1592,7 @@ namespace smt2 {
             if (curr_is_identifier()) {
                 TRACE("push_expr_frame", tout << "push_expr_frame(), curr_id(): " << curr_id() << "\n";);
                 if (curr_id_is_let()) {
-                    next();
-                    check_lparen_next("invalid let declaration, '(' expected");
-                    void * mem = m_stack.allocate(sizeof(let_frame));
-                    new (mem) let_frame(symbol_stack().size(), expr_stack().size());
-                    m_num_expr_frames++;
+                    push_let_frame();
                 }
                 else if (curr_id_is_forall()) {
                     push_quant_frame(forall_k);
@@ -1592,11 +1604,7 @@ namespace smt2 {
                     push_quant_frame(lambda_k);
                 }
                 else if (curr_id_is_bang()) {
-                    TRACE("consume_attributes", tout << "begin bang, expr_stack.size(): " << expr_stack().size() << "\n";);
-                    next();
-                    void * mem = m_stack.allocate(sizeof(attr_expr_frame));
-                    new (mem) attr_expr_frame(curr, symbol_stack().size(), expr_stack().size());
-                    m_num_expr_frames++;
+                    push_bang_frame(curr);
                 }
                 else if (curr_id_is_as() || curr_id_is_underscore()) {
                     TRACE("push_expr_frame", tout << "push_expr_frame(): parse_qualified_name\n";);

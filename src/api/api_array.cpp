@@ -296,7 +296,8 @@ extern "C" {
         CHECK_VALID_AST(t, 0);
         if (to_sort(t)->get_family_id() == mk_c(c)->get_array_fid() &&
             to_sort(t)->get_decl_kind() == ARRAY_SORT) {
-            Z3_sort r = reinterpret_cast<Z3_sort>(to_sort(t)->get_parameter(1).get_ast());
+            unsigned n = to_sort(t)->get_num_parameters();
+            Z3_sort r = reinterpret_cast<Z3_sort>(to_sort(t)->get_parameter(n-1).get_ast());
             RETURN_Z3(r);
         }
         SET_ERROR_CODE(Z3_INVALID_ARG);

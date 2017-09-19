@@ -188,11 +188,9 @@ namespace smt {
         }
         d->m_stores.push_back(s);
         m_trail_stack.push(push_back_trail<theory_array, enode *, false>(d->m_stores));
-        ptr_vector<enode>::iterator it  = d->m_parent_selects.begin();
-        ptr_vector<enode>::iterator end = d->m_parent_selects.end();
-        for (; it != end; ++it) {
-            SASSERT(is_select(*it));
-            instantiate_axiom2a(*it, s);
+        for (enode * n : d->m_parent_selects) {
+            SASSERT(is_select(n));
+            instantiate_axiom2a(n, s);
         }
         if (m_params.m_array_always_prop_upward || lambda_equiv_class_size >= 1) 
             set_prop_upward(s);

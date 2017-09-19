@@ -3920,7 +3920,8 @@ extern "C" {
     Z3_bool_opt Z3_API Z3_get_finite_domain_sort_size(Z3_context c, Z3_sort s, __uint64* r);
 
     /**
-       \brief Return the domain of the given array sort.
+       \brief Return the domain of the given array sort. 
+       In the case of a multi-dimensional array, this function returns the sort of the first dimension.
 
        \pre Z3_get_sort_kind(c, t) == Z3_ARRAY_SORT
 

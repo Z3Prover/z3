@@ -445,6 +445,17 @@ namespace smt {
         return num_failures == 0;
     }
 
+    // 
+    // (repeated from defined_names.cpp)
+    // NB. The pattern for lambdas is incomplete.
+    // consider store(a, i, v) == \lambda j . if i = j then v else a[j]
+    // the instantiation rules for store(a, i, v) are:
+    //     sotre(a, i, v)[j] = if i = j then v else a[j] with patterns {a[j], store(a, i, v)} { store(a, i, v)[j] }
+    // The first pattern is not included.
+    // TBD use a model-based scheme for exracting instantiations instead of
+    // using multi-patterns.
+    // 
+
     void model_checker::check_quantifiers(bool strict_rec_fun, bool& found_relevant, unsigned& num_failures) {
         for (quantifier * q : *m_qm) {
             if (!(m_qm->mbqi_enabled(q) &&

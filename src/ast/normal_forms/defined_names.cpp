@@ -197,7 +197,17 @@ void defined_names::impl::mk_definition(expr * e, app * n, sort_ref_buffer & var
     else if (is_lambda(e)) {
         //    n(y) = \x . M[x,y]
         // => 
-        //    n(y)[x] = M
+        //    n(y)[x] = M,  forall x y
+        // 
+        // NB. The pattern is incomplete.
+        // consider store(a, i, v) == \lambda j . if i = j then v else a[j]
+        // the instantiation rules for store(a, i, v) are:
+        //     sotre(a, i, v)[j] = if i = j then v else a[j] with patterns {a[j], store(a, i, v)} { store(a, i, v)[j] }
+        // The first pattern is not included.
+        // TBD use a model-based scheme for exracting instantiations instead of
+        // using multi-patterns.
+        // 
+
         quantifier* q = to_quantifier(e);
         expr_ref_vector args(m);
         expr_ref n2(m), n3(m);
@@ -218,6 +228,7 @@ void defined_names::impl::mk_definition(expr * e, app * n, sort_ref_buffer & var
             n3 = autil.mk_select(args.size(), args.c_ptr());
         }
         bound_vars(var_sorts, var_names, MK_EQ(q->get_expr(), n3), to_app(n3), defs, m.lambda_def_qid());
+        
     }
     else {
         bound_vars(var_sorts, var_names, MK_EQ(e, n), n, defs);
