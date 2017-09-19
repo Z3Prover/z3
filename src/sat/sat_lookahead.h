@@ -66,6 +66,12 @@ namespace sat {
         friend class ccc;
         friend class ba_solver;
 
+        enum reward_t {
+            ternary_reward,
+            unit_literal_reward,
+            heule_schur_reward
+        };
+
         struct config {
             double   m_dl_success;
             double   m_alpha;
@@ -76,7 +82,7 @@ namespace sat {
             double   m_delta_rho;
             unsigned m_dl_max_iterations;
             unsigned m_tc1_limit;
-            bool     m_use_ternary_reward;
+            reward_t m_reward_type;
 
             config() {
                 m_max_hlevel = 50;
@@ -87,7 +93,7 @@ namespace sat {
                 m_delta_rho = (double)0.9995;
                 m_dl_max_iterations = 32;
                 m_tc1_limit = 10000000;
-                m_use_ternary_reward = true;
+                m_reward_type = ternary_reward;
             }
         };
 
@@ -389,7 +395,7 @@ namespace sat {
         bool push_lookahead2(literal lit, unsigned level);
         void push_lookahead1(literal lit, unsigned level);
         void pop_lookahead1(literal lit);
-        double mix_diff(double l, double r) const { return l + r + (1 << 10) * l * r; }
+        double mix_diff(double l, double r) const;
         clause const& get_clause(watch_list::iterator it) const;
         bool is_nary_propagation(clause const& c, literal l) const;
         void propagate_clauses(literal l);
