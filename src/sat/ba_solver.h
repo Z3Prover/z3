@@ -7,7 +7,9 @@ Module Name:
 
 Abstract:
 
-    Cardinality extensions.
+    Cardinality extensions, 
+    Pseudo Booleans, 
+    Xors
 
 Author:
 
