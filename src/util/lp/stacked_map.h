@@ -24,26 +24,24 @@ Revision History:
 #include <set>
 #include <stack>
 namespace lp {
-
-
-template <typename A, typename B,
-          typename Hash = std::hash<A>,
-          typename KeyEqual = std::equal_to<A>,
-          typename Allocator = std::allocator< std::pair<const A, B> > >
+template<class A,
+		class B,
+		class _Pr = std::less<A>,
+		class _Alloc = std::allocator<std::pair<const A, B> > >
 class stacked_map {
     struct delta {
-        std::unordered_set<A, Hash, KeyEqual> m_new;
-        std::unordered_map<A, B, Hash, KeyEqual, Allocator> m_original_changed;
+        std::unordered_set<A> m_new;
+        std::unordered_map<A, B> m_original_changed;
         //        std::unordered_map<A,B, Hash, KeyEqual, Allocator > m_deb_copy;
     };
-    std::unordered_map<A,B,Hash, KeyEqual, Allocator> m_map;
+    std::map<A,B,_Pr, _Alloc> m_map;
     std::stack<delta> m_stack;
 public:
     class ref {
-        stacked_map<A,B,Hash, KeyEqual, Allocator> & m_map;
+        stacked_map<A,B,_Pr, _Alloc> & m_map;
         const A & m_key;
     public:
-        ref(stacked_map<A,B,Hash, KeyEqual, Allocator> & m, const A & key) :m_map(m), m_key(key) {}
+        ref(stacked_map<A,B,_Pr, _Alloc> & m, const A & key) :m_map(m), m_key(key) {}
         ref & operator=(const B & b) {
             m_map.emplace_replace(m_key, b);
             return *this;
@@ -55,8 +53,44 @@ public:
             return it->second;
         }
     };
+	typename std::map < A, B, _Pr, _Alloc>::iterator upper_bound(const A& k) {
+		return m_map.upper_bound(k);
+	}
+	typename std::map < A, B, _Pr, _Alloc>::const_iterator upper_bound(const A& k) const {
+		return m_map.upper_bound(k);
+	}
+	typename std::map < A, B, _Pr, _Alloc>::iterator lower_bound(const A& k) {
+		return m_map.lower_bound(k);
+	}
+	typename std::map < A, B, _Pr, _Alloc>::const_iterator lower_bound(const A& k) const {
+		return m_map.lower_bound(k);
+	}
+	typename std::map < A, B, _Pr, _Alloc>::iterator end() {
+		return m_map.end();
+	}
+	typename std::map < A, B, _Pr, _Alloc>::const_iterator end() const {
+		return m_map.end();
+	}
+	typename std::map < A, B, _Pr, _Alloc>::reverse_iterator rend() {
+		return m_map.rend();
+	}
+	typename std::map < A, B, _Pr, _Alloc>::const_reverse_iterator rend() const {
+		return m_map.rend();
+	}
+	typename std::map < A, B, _Pr, _Alloc>::iterator begin() {
+		return m_map.begin();
+	}
+	typename std::map < A, B, _Pr, _Alloc>::const_iterator begin() const {
+		return m_map.begin();
+	}
+	typename std::map < A, B, _Pr, _Alloc>::reverse_iterator rbegin() {
+		return m_map.rbegin();
+	}
+	typename std::map < A, B, _Pr, _Alloc>::const_reverse_iterator rbegin() const {
+		return m_map.rbegin();
+	}
 private:
-    void emplace_replace(const A & a, const B & b)  {
+	void emplace_replace(const A & a, const B & b)  {
         if (!m_stack.empty()) {
             delta & d = m_stack.top();
             auto it = m_map.find(a);
@@ -147,7 +181,9 @@ public:
             m_stack.pop();
         }
     }
-
+	void erase(typename std::map < A, B, _Pr, _Alloc>::const_iterator & it) {
+		erase(it->first);
+	}
     void erase(const A & key) {
         if (m_stack.empty()) {
             m_map.erase(key);
@@ -189,6 +225,8 @@ public:
         m_map.clear();
     }
 
-    const std::unordered_map<A, B,Hash, KeyEqual, Allocator>& operator()() const { return m_map;}
+	bool empty() const { return m_map.empty(); }
+
+    const std::map<A, B, _Pr, _Alloc>& operator()() const { return m_map;}
 };
 }

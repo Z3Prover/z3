@@ -4,12 +4,14 @@
 */
 #pragma once
 #include <map>
+#include "util/lp/stacked_value.h"
+#include "util/lp/stacked_map.h"
 namespace lp {
 // represents the set of disjoint intervals of integer number
 template <typename T>
 struct disjoint_intervals {
-    std::map<T, byte> m_endpoints; // 0 means start, 1 means end, 2 means both - for a point interval
-    bool m_empty;
+    stacked_map<T, byte> m_endpoints; // 0 means start, 1 means end, 2 means both - for a point interval
+    stacked_value<bool> m_empty;
     // constructors create an interval containing all integer numbers or an empty interval
     disjoint_intervals() : m_empty(false) {}
     disjoint_intervals(bool is_empty) : m_empty(is_empty) {}
@@ -84,6 +86,8 @@ struct disjoint_intervals {
     }
     // we intersect the existing set with the half open to the right interval
     void intersect_with_lower_bound(T x) {
+        std::cout << "intersect_with_lower_bound(" << x << ")\n";
+
         if (m_empty)
             return;
         if (m_endpoints.empty()) {
@@ -120,6 +124,7 @@ struct disjoint_intervals {
 
     // we intersect the existing set with the half open interval
     void intersect_with_upper_bound(T x) {
+        std::cout << "intersect_with_upper_bound(" << x << ")\n";
         if (m_empty)
             return;
         if (m_endpoints.empty()) {
@@ -178,6 +183,7 @@ struct disjoint_intervals {
 
     // we are intersecting
     void intersect_with_interval(T x, T y) {
+        std::cout << "intersect_with_interval(" << x << ", " << y <<")\n";
         if (m_empty)
             return;
         lp_assert(x <= y);
@@ -187,6 +193,7 @@ struct disjoint_intervals {
 
     // add an intervar [x, inf]
     void unite_with_interval_x_pos_inf(T x) {
+        std::cout << "unite_with_interval_x_pos_inf(" << x << ")\n";
         if (m_empty) {
             set_start(x);
             m_empty = false;
@@ -219,6 +226,7 @@ struct disjoint_intervals {
 
     // add an interval [-inf, x]
     void unite_with_interval_neg_inf_x(T x) {
+        std::cout << "unite_with_interval_neg_inf_x(" << x << ")\n";
         if (m_empty) {
             set_end(x);
             m_empty = false;
@@ -249,7 +257,44 @@ struct disjoint_intervals {
         lp_assert(is_correct());
     }
 
+    void set_start_end_or_one_point(T x, T y) {
+			if (x == y) {
+				set_one_point_segment(x);
+			}
+			else {
+				set_start(x);
+				set_end(y);
+			}
+    }
+    
     void unite_with_interval(T x, T y) {
+        std::cout << "unite_with_interval(" << x << ", " << y << ")\n";
+		lp_assert(x <= y);
+		if (m_empty) {
+            set_start_end_or_one_point(x, y);
+			m_empty = false;
+			return;
+		}
+
+        if (m_endpoints.empty()) {
+            // it is the [-inf, inf] case
+            return;
+        }
+        auto lbx = m_endpoints.lower_bound(x);
+        if (lbx == m_endpoints.end()) {
+            if (!has_pos_inf()) {
+                T lastx = pos(m_endpoints.rbegin());
+                if (lastx + 1 < x) 
+                    set_start_end_or_one_point(x, y);
+                else {
+                    m_endpoints.erase(lastx);
+                    set_end(y);
+                }
+            }
+            
+            return;
+        }
+
         lp_assert(false); // not implemented
     }
 
@@ -264,7 +309,7 @@ struct disjoint_intervals {
         bool expect_end;
         bool prev = false;
         T prev_x;
-        for (auto t : m_endpoints) {
+        for (auto t : m_endpoints()) {
             if (prev && ((expect_end && !is_end(t.second)) || (!expect_end && !is_start(t.second)))) {
                 std::cout << "x = " << t.first << "\n";
                 if (expect_end) {
@@ -306,7 +351,7 @@ struct disjoint_intervals {
             return;
         }
         bool first = true;
-        for (auto t : m_endpoints) {
+        for (auto t : m_endpoints()) {
             if (first) {
                 if (t.second == 1) {
                     out << "[-oo," << t.first << "]";
