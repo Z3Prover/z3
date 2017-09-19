@@ -31,8 +31,20 @@ namespace sat {
 
     class literal_occs_fun {
     public:
-        virtual double operator()(literal l) = 0;
-        
+        virtual double operator()(literal l) = 0;        
+    };
+
+
+    typedef svector<ext_constraint_idx> ext_constraint_list;
+
+    class ext_use_list {
+        vector<ext_constraint_list> m_use_list;
+    public:
+        void init(unsigned num_vars) { m_use_list.reset(); m_use_list.resize(num_vars*2); }
+        void insert(literal l, ext_constraint_idx idx) { get(l).push_back(idx); }
+        ext_constraint_list & get(literal l) { return m_use_list[l.index()]; }
+        ext_constraint_list const & get(literal l) const { return m_use_list[l.index()]; }
+        void finalize() { m_use_list.finalize(); }
     };
 
     class extension {
@@ -63,6 +75,8 @@ namespace sat {
         virtual void gc() = 0;
         virtual void pop_reinit() = 0;
         virtual bool validate() = 0;
+        virtual void init_use_list(ext_use_list& ul) = 0;
+        virtual bool is_blocked(literal l, ext_constraint_idx) = 0;
     };
 
 };
