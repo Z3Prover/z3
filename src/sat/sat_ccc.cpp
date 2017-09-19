@@ -36,39 +36,48 @@ using namespace sat;
 // ------------
 // cuber
 
-ccc::cuber::cuber(ccc& c): m_ccc(c), lh(c.m_s), m_branch_id(0) {}
+ccc::cuber::cuber(ccc& c): m_ccc(c), m_lh(alloc(lookahead, c.m_s)), m_branch_id(0) {}
 
 lbool ccc::cuber::search() {
-    m_branch_id = 0;
-    m_last_closure_level = 1000;
-
-    lh.init_search();
-    lh.m_model.reset();
-
-    lookahead::scoped_level _sl(lh, lh.c_fixed_truth);
-    lh.m_search_mode = lookahead_mode::searching;
-    lbool r = research();
-    if (r == l_true) {
-        m_ccc.m_model = lh.get_model();
+    while (true) {
+        m_branch_id = 0;
+        m_last_closure_level = 1000;
+        
+        m_lh->init_search();
+        m_lh->m_model.reset();
+        
+        lookahead::scoped_level _sl(*m_lh.get(), m_lh->c_fixed_truth);
+        m_lh->m_search_mode = lookahead_mode::searching;
+        lbool r = research();
+        if (r == l_true) {
+            m_ccc.m_model = m_lh->get_model();
+        }
+        if (false && r == l_undef) {
+            continue;
+        }
+        m_lh->collect_statistics(m_ccc.m_lh_stats);
+        return r;
     }
-    lh.collect_statistics(m_ccc.m_lh_stats);
-    return r;
 }
 
 lbool ccc::cuber::research() {
     m_ccc.m_s.checkpoint();
     
-    if (lh.inconsistent()) {
+    if (m_lh->inconsistent()) {
         return l_false;
+    }
+
+    if (pop_lookahead()) {
+        return l_undef;
     }
 
     if (get_solved()) {
         return l_false;
     }
 
-    lh.inc_istamp(); 
-    literal l = lh.choose();
-    if (lh.inconsistent()) {
+    m_lh->inc_istamp(); 
+    literal l = m_lh->choose();
+    if (m_lh->inconsistent()) {
         return l_false;
     }
 
@@ -76,34 +85,35 @@ lbool ccc::cuber::research() {
         return l_true;
     }
 
-    if (!decisions.empty()) {
-        m_ccc.put_decision(decisions.back());
+    if (!m_decisions.empty()) {
+        m_ccc.put_decision(m_decisions.back());
     }
 
-    // update trail and decisions
+
+    // update trail and m_decisions
     
-    ++lh.m_stats.m_decisions;
-    unsigned parent_id = decisions.empty() ? 0 : decisions.back().m_id;
+    ++m_lh->m_stats.m_decisions;
+    unsigned parent_id = m_decisions.empty() ? 0 : m_decisions.back().m_id;
     unsigned spawn_id = spawn_conquer();
     unsigned branch1 = m_branch_id++;
     unsigned branch2 = m_branch_id++;
-    decision d(branch1, decisions.size() + 1, l, parent_id, spawn_id);
-    decisions.push_back(d);
+    decision d(branch1, m_decisions.size() + 1, l, parent_id, spawn_id);
+    m_decisions.push_back(d);
     
-    IF_VERBOSE(1, d.pp(verbose_stream() << "select " << m_last_closure_level << " ") << "\n";);
-    IF_VERBOSE(1, verbose_stream() << "select " << pp_prefix(lh.m_prefix, lh.m_trail_lim.size()) << ": " << l << " " << lh.m_trail.size() << "\n";);
-    IF_VERBOSE(2, pp(verbose_stream(), decisions) << "\n"; );
+    IF_VERBOSE(2, d.pp(verbose_stream() << "select " << m_last_closure_level << " ") << "\n";);
+    IF_VERBOSE(2, verbose_stream() << "select " << pp_prefix(m_lh->m_prefix, m_lh->m_trail_lim.size()) << ": " << l << " " << m_lh->m_trail.size() << "\n";);
+    IF_VERBOSE(3, pp(verbose_stream(), m_decisions) << "\n"; );
     
     TRACE("sat", tout << "choose: " << l << "\n";);
-    lh.push(l, lh.c_fixed_truth);
+    m_lh->push(l, m_lh->c_fixed_truth);
     lbool r = research();
     if (r == l_false) {
-        lh.pop();
-        if (decisions.back().is_closed()) {
+        m_lh->pop();
+        if (m_decisions.back().is_closed()) {
             // branch was solved by a spawned conquer process
-            IF_VERBOSE(1, decisions.back().pp(verbose_stream() << "closed ") << "\n";);            
+            IF_VERBOSE(1, m_decisions.back().pp(verbose_stream() << "closed ") << "\n";);            
             r = l_false;
-            decisions.pop_back();
+            m_decisions.pop_back();
         }
         else {
             if (spawn_id > 0) {
@@ -111,20 +121,39 @@ lbool ccc::cuber::research() {
                 m_last_closure_level *= 3;
                 m_last_closure_level /= 4;
             }
-            lh.inc_istamp(); 
-            lh.flip_prefix();
-            lh.push(~l, lh.c_fixed_truth);
-            decisions.back().negate();
-            decisions.back().m_id = branch2;
-            decisions.back().m_spawn_id = 0;
+            m_lh->inc_istamp(); 
+            m_lh->flip_prefix();
+            m_lh->push(~l, m_lh->c_fixed_truth);
+            m_decisions.back().negate();
+            m_decisions.back().m_id = branch2;
+            m_decisions.back().m_spawn_id = 0;
             r = research();
             if (r == l_false) {
-                lh.pop();
-                decisions.pop_back();
+                m_lh->pop();
+                m_decisions.pop_back();
             }
         }
     }
     return r;
+}
+
+bool ccc::cuber::pop_lookahead() {
+    return false;
+
+    scoped_ptr<lookahead> new_lh;
+    bool result = false;
+    #pragma omp critical (ccc_new_lh)
+    {
+       if (m_ccc.m_new_lh) {
+           new_lh = m_ccc.m_new_lh.detach();
+           result = true;
+       }
+    }
+    if (new_lh) {
+        m_lh->collect_statistics(m_ccc.m_lh_stats);
+        m_lh = new_lh.detach();        
+    }
+    return result;
 }
 
 void ccc::cuber::update_closure_level(decision const& d, int offset) {
@@ -140,13 +169,13 @@ unsigned ccc::cuber::spawn_conquer() {
     // decisions must have been solved at a higher level by a conquer thread
     // 
     if (!m_free_threads.empty()) {
-        if (m_last_closure_level <= decisions.size()) {
+        if (m_last_closure_level <= m_decisions.size()) {
             result = m_free_threads.back();
             ++m_ccc.m_ccc_stats.m_spawn_opened;
             m_free_threads.pop_back();
         }
         else {
-            IF_VERBOSE(1, verbose_stream() << m_last_closure_level << " " << decisions.size() << "\n";);
+            IF_VERBOSE(1, verbose_stream() << m_last_closure_level << " " << m_decisions.size() << "\n";);
         }
     }
     return result;
@@ -181,13 +210,13 @@ bool ccc::cuber::get_solved() {
         unsigned branch_id = sol.m_branch_id;
         unsigned thread_id = sol.m_thread_id;
         bool found = false;
-        for (unsigned i = decisions.size(); i > 0; ) {
+        for (unsigned i = m_decisions.size(); i > 0; ) {
             --i;
-            decision& d = decisions[i];
+            decision& d = m_decisions[i];
             if (branch_id == d.m_id) {
                 if (d.m_spawn_id == thread_id && thread_id != 0) {
                     SASSERT(d.m_spawn_id > 0);
-                    IF_VERBOSE(1, d.pp(verbose_stream() << thread_id << ": spawn close ") << "\n";);
+                    IF_VERBOSE(2, d.pp(verbose_stream() << thread_id << ": spawn close ") << "\n";);
                     ++m_ccc.m_ccc_stats.m_spawn_closed;
                     d.close();
                     free_conquer(thread_id);
@@ -195,7 +224,7 @@ bool ccc::cuber::get_solved() {
                     break;
                 }
                 else {
-                    IF_VERBOSE(1, d.pp(verbose_stream() << thread_id << ": conquer ") << "\n";);
+                    IF_VERBOSE(2, d.pp(verbose_stream() << thread_id << ": conquer ") << "\n";);
                     ++m_ccc.m_ccc_stats.m_cdcl_closed;
                     update_closure_level(d, 1);
                     return true;
@@ -236,6 +265,7 @@ lbool ccc::conquer::search() {
             s.simplify_problem();
             if (s.check_inconsistent()) return l_false;
             s.gc();     
+            push_lookahead();
         }
     }
     catch (solver::abort_solver) {
@@ -245,16 +275,16 @@ lbool ccc::conquer::search() {
 
 void ccc::conquer::replay_decisions() {
     s.propagate(true);
-    for (unsigned i = s.scope_lvl(); !s.inconsistent() && i < decisions.size(); ++i) {
-        decision const& d = decisions[i];
+    for (unsigned i = s.scope_lvl(); !s.inconsistent() && i < m_decisions.size(); ++i) {
+        decision const& d = m_decisions[i];
         IF_VERBOSE(2, verbose_stream() << thread_id << ": replay " << d.get_literal(thread_id) << " " << s.value(d.get_literal(thread_id)) << "\n";);
         
         if (!push_decision(d)) {
             // negation of decision is implied.
             IF_VERBOSE(1, d.pp(verbose_stream() << thread_id << ": backjump to level " << i << " ") << "\n";);
-            while (decisions.size() > i) {
-                pop_decision(decisions.back());
-                decisions.pop_back();
+            while (m_decisions.size() > i) {
+                pop_decision(m_decisions.back());
+                m_decisions.pop_back();
             }
             break;
         }
@@ -277,6 +307,19 @@ void ccc::conquer::pop_decision(decision const& d) {
     #pragma omp critical (ccc_solved)
     {
         m_ccc.m_solved.push(solution(tid, d.m_id));
+    }
+}
+
+void ccc::conquer::push_lookahead() {
+    return;
+
+    #pragma omp critical (ccc_new_lh)
+    {
+        if (!m_ccc.m_new_lh && m_ccc.m_num_clauses > s.num_clauses()) {
+            std::cout << "push " << s.num_clauses() << "\n";
+            m_ccc.m_new_lh = alloc(lookahead, s);
+            m_ccc.m_num_clauses = s.num_clauses();
+        }
     }
 }
 
@@ -313,7 +356,7 @@ bool ccc::conquer::cube_decision() {
 
         if (d.is_spawned(thread_id)) IF_VERBOSE(1, d.pp(verbose_stream() << thread_id << " ") << "\n";);
     
-        if (!decisions.empty() && decisions.back().m_depth + 1 < d.m_depth) {
+        if (!m_decisions.empty() && m_decisions.back().m_depth + 1 < d.m_depth) {
             if (d.is_spawned(thread_id)) {
                 pop_decision(d);
             }           
@@ -322,43 +365,43 @@ bool ccc::conquer::cube_decision() {
             break;
         }
     }    
-    SASSERT(decisions.empty() || decisions.back().m_depth + 1 >= d.m_depth);
+    SASSERT(m_decisions.empty() || m_decisions.back().m_depth + 1 >= d.m_depth);
 
-    if (!decisions.empty() && decisions.back().is_spawned(thread_id) && decisions.back().m_depth == d.m_depth) {
+    if (!m_decisions.empty() && m_decisions.back().is_spawned(thread_id) && m_decisions.back().m_depth == d.m_depth) {
         SASSERT(d.m_spawn_id == 0);
-        SASSERT(decisions.back().is_left());
+        SASSERT(m_decisions.back().is_left());
         SASSERT(!d.is_left());
         IF_VERBOSE(1, verbose_stream() << thread_id << " inherit spawn\n";);
-        decisions.back().m_spawn_id = 0;
+        m_decisions.back().m_spawn_id = 0;
         m_spawned = false;
     }
-    SASSERT(decisions.empty() || decisions.back().m_depth + 1 >= d.m_depth);
+    SASSERT(m_decisions.empty() || m_decisions.back().m_depth + 1 >= d.m_depth);
 
-    while (!decisions.empty() && decisions.back().m_depth >= d.m_depth) {
-        // check_non_model("cube decision", decisions);
-        if (decisions.back().is_spawned(thread_id)) {
-            pop_decision(decisions.back());
+    while (!m_decisions.empty() && m_decisions.back().m_depth >= d.m_depth) {
+        // check_non_model("cube decision", m_decisions);
+        if (m_decisions.back().is_spawned(thread_id)) {
+            pop_decision(m_decisions.back());
         }
-        decisions.pop_back();
+        m_decisions.pop_back();
     }
 
-    SASSERT(decisions.empty() || decisions.back().m_depth + 1 == d.m_depth);
-    SASSERT(decisions.empty() || decisions.back().m_id == d.m_parent);
+    SASSERT(m_decisions.empty() || m_decisions.back().m_depth + 1 == d.m_depth);
+    SASSERT(m_decisions.empty() || m_decisions.back().m_id == d.m_parent);
     if (m_spawned) {
-        decisions.push_back(d);
+        m_decisions.push_back(d);
         return true;
     }
 
-    s.pop_reinit(s.scope_lvl() - decisions.size());
+    s.pop_reinit(s.scope_lvl() - m_decisions.size());
     SASSERT(s.m_qhead == s.m_trail.size());
-    SASSERT(s.scope_lvl() == decisions.size());
+    SASSERT(s.scope_lvl() == m_decisions.size());
     literal lit = d.get_literal(thread_id);
-    IF_VERBOSE(1, d.pp(verbose_stream() << thread_id << ": cube ") << "\n";);
-    IF_VERBOSE(2, pp(verbose_stream() << thread_id << ": push ", decisions) << " @ " << s.scope_lvl() << " " << s.value(lit) << "\n";
+    IF_VERBOSE(2, d.pp(verbose_stream() << thread_id << ": cube ") << "\n";);
+    IF_VERBOSE(3, pp(verbose_stream() << thread_id << ": push ", m_decisions) << " @ " << s.scope_lvl() << " " << s.value(lit) << "\n";
                if (s.value(lit) == l_false) verbose_stream() << "level: " << s.lvl(lit) << "\n";);
     
     if (push_decision(d)) {
-        decisions.push_back(d);
+        m_decisions.push_back(d);
     }    
     else {
         pop_decision(d);

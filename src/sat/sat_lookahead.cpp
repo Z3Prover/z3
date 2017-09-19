@@ -863,7 +863,7 @@ namespace sat {
         copy_clauses(m_s.m_clauses);
         copy_clauses(m_s.m_learned);
 
-        m_config.m_use_ternary_reward &= !m_s.m_ext;
+        // m_config.m_use_ternary_reward &= !m_s.m_ext;
 
         // copy units
         unsigned trail_sz = m_s.init_trail_size();
@@ -898,7 +898,7 @@ namespace sat {
             if (c.was_removed()) continue;
             // enable when there is a non-ternary reward system.
             if (c.size() > 3) {
-                m_config.m_use_ternary_reward = false;
+                // m_config.m_use_ternary_reward = false;
             }            
             bool was_eliminated = false;
             for (unsigned i = 0; !was_eliminated && i < c.size(); ++i) {
@@ -1256,7 +1256,12 @@ namespace sat {
     double lookahead::literal_occs(literal l) {
         double result = m_binary[l.index()].size();
         for (clause const* c : m_full_watches[l.index()]) {
-            if (!is_true((*c)[0]) && !is_true((*c)[1])) {
+            bool has_true = false;
+            for (literal l : *c) {
+                has_true = is_true(l);
+                if (has_true) break;
+            }
+            if (!has_true) {
                 result += 1.0 / c->size();
             }
         }

@@ -1812,14 +1812,18 @@ namespace sat {
             }
         }
         else {
-            unsigned coeff = 0;
-            for (unsigned j = 0; j < p.num_watch(); ++j) {
+            unsigned coeff = 0, j = 0;
+            for (; j < p.size(); ++j) {
                 if (p[j].second == l) {
                     coeff = p[j].first;
                     break;
                 }
             }
             
+            ++j;
+            if (j < p.num_watch()) {
+                j = p.num_watch();
+            }
             CTRACE("sat", coeff == 0, display(tout << l << " coeff: " << coeff << "\n", p, true);); 
             
             if (_debug_conflict) {
@@ -1829,9 +1833,9 @@ namespace sat {
             SASSERT(coeff > 0);
             unsigned slack = p.slack() - coeff;
             
-            for (unsigned i = p.num_watch(); i < p.size(); ++i) {
-                literal lit = p[i].second;
-                unsigned w = p[i].first;
+            for (; j < p.size(); ++j) {
+                literal lit = p[j].second;
+                unsigned w = p[j].first;
                 SASSERT(l_false == value(lit));
                 if (slack + w < k) {
                     slack += w;
@@ -3094,7 +3098,7 @@ namespace sat {
         }
         for (wliteral l : p1) {
             SASSERT(m_weights[l.second.index()] == 0);
-            m_weights[l.second.index()] = l.first;
+            m_weights.setx(l.second.index(), l.first, 0);
             mark_visited(l.second);  
         }
         for (unsigned i = 0; i < p1.num_watch(); ++i) {

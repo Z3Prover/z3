@@ -74,7 +74,7 @@ namespace sat {
            reslimit          m_limit;
            ccc&              m_ccc;
            solver            s;
-           svector<decision> decisions;
+           svector<decision> m_decisions;
            unsigned          thread_id;
            bool              m_spawned;
            conquer(ccc& super, params_ref const& p, unsigned tid): m_ccc(super), s(p, m_limit), thread_id(tid), m_spawned(false) {}
@@ -84,16 +84,17 @@ namespace sat {
            lbool bounded_search();
            bool  push_decision(decision const& d);
            void  pop_decision(decision const& d);
+           void  push_lookahead();
            void  replay_decisions();
        };
 
         struct cuber {
-            ccc&              m_ccc;
-            lookahead         lh;
-            unsigned          m_branch_id;
-            unsigned          m_last_closure_level;
-            unsigned_vector   m_free_threads;
-            svector<decision> decisions;
+            ccc&                  m_ccc;
+            scoped_ptr<lookahead> m_lh;
+            unsigned              m_branch_id;
+            unsigned              m_last_closure_level;
+            unsigned_vector       m_free_threads;
+            svector<decision>     m_decisions;
 
             cuber(ccc& c);
             lbool search();
@@ -102,11 +103,14 @@ namespace sat {
             void update_closure_level(decision const& d, int offset);            
             unsigned spawn_conquer();
             void     free_conquer(unsigned thread_id);
+            bool pop_lookahead();
         };
 
         solver&         m_s;    
         queue<solution> m_solved;
         vector<queue<decision> > m_decisions;
+        scoped_ptr<lookahead>    m_new_lh;
+        unsigned        m_num_clauses;
         unsigned        m_num_conquer;
         model           m_model;
         volatile bool   m_cancel;
@@ -127,7 +131,7 @@ namespace sat {
 
     public:
 
-        ccc(solver& s): m_s(s) {}
+        ccc(solver& s): m_s(s), m_num_clauses(s.num_clauses()) {}
 
         lbool search();
 
