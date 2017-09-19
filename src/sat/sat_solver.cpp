@@ -913,6 +913,13 @@ namespace sat {
                 if (check_inconsistent()) return l_false;
                 gc();
 
+#if 0
+                if (m_clauses.size() < 65000) {
+                    return do_ccc();
+                    return lookahead_search();                
+                }
+#endif
+
                 if (m_config.m_restart_max <= m_restarts) {
                     m_reason_unknown = "sat.max.restarts";
                     IF_VERBOSE(SAT_VB_LVL, verbose_stream() << "(sat \"abort: max-restarts\")\n";);

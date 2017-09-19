@@ -33,10 +33,11 @@ namespace sat {
 
     struct frame {
         unsigned  m_lidx;
+        unsigned  m_succ_idx;
         bool      m_first;
         watched * m_it;
         watched * m_end;
-        frame(unsigned lidx, watched * it, watched * end):m_lidx(lidx), m_first(true), m_it(it), m_end(end) {}
+        frame(unsigned lidx, watched * it, watched * end, unsigned sidx = 0):m_lidx(lidx), m_succ_idx(sidx), m_first(true), m_it(it), m_end(end) {}
     };
     typedef svector<frame> frames;
 
@@ -75,7 +76,7 @@ namespace sat {
         index.resize(num_lits, UINT_MAX);
         lowlink.resize(num_lits, UINT_MAX);
         in_s.resize(num_lits, false);
-        literal_vector roots;
+        literal_vector roots, lits;
         roots.resize(m_solver.num_vars(), null_literal);
         unsigned next_index = 0;
         svector<frame>   frames;
@@ -106,6 +107,7 @@ namespace sat {
                 frame & fr = frames.back();
                 unsigned l_idx = fr.m_lidx;
                 if (!fr.m_first) {
+                    SASSERT(fr.m_it->is_binary_clause());
                     // after visiting child
                     literal l2 = fr.m_it->get_literal();
                     unsigned l2_idx = l2.index();

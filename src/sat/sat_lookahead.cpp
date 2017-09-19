@@ -503,6 +503,7 @@ namespace sat {
     // arcs are added in the opposite direction of implications.
     // So for implications l => u we add arcs u -> l
     void lookahead::init_arcs(literal l) {
+        literal_vector lits;
         literal_vector const& succ = m_binary[l.index()];
         for (unsigned i = 0; i < succ.size(); ++i) {
             literal u = succ[i];
@@ -510,6 +511,16 @@ namespace sat {
             if (u.index() > l.index() && is_stamped(u)) {
                 add_arc(~l, ~u);
                 add_arc( u,  l);
+            }
+        }
+        for (auto w : m_watches[l.index()]) {
+            if (w.is_ext_constraint() && m_s.m_ext->is_extended_binary(w.get_ext_constraint_idx(), lits)) {
+                for (literal u : lits) {
+                    if (u.index() > l.index() && is_stamped(u)) {
+                        add_arc(~l, ~u);
+                        add_arc( u,  l);
+                    }
+                }
             }
         }
     }
@@ -852,7 +863,7 @@ namespace sat {
         copy_clauses(m_s.m_clauses);
         copy_clauses(m_s.m_learned);
 
-        m_config.m_use_ternary_reward &= !m_s.m_ext;
+        // m_config.m_use_ternary_reward &= !m_s.m_ext;
 
         // copy units
         unsigned trail_sz = m_s.init_trail_size();
@@ -887,7 +898,7 @@ namespace sat {
             if (c.was_removed()) continue;
             // enable when there is a non-ternary reward system.
             if (c.size() > 3) {
-                m_config.m_use_ternary_reward = false;
+                // m_config.m_use_ternary_reward = false;
             }            
             bool was_eliminated = false;
             for (unsigned i = 0; !was_eliminated && i < c.size(); ++i) {
@@ -1245,7 +1256,12 @@ namespace sat {
     double lookahead::literal_occs(literal l) {
         double result = m_binary[l.index()].size();
         for (clause const* c : m_full_watches[l.index()]) {
-            if (!is_true((*c)[0]) && !is_true((*c)[1])) {
+            bool has_true = false;
+            for (literal l : *c) {
+                has_true = is_true(l);
+                if (has_true) break;
+            }
+            if (!has_true) {
                 result += 1.0 / c->size();
             }
         }

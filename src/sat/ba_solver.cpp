@@ -1820,6 +1820,10 @@ namespace sat {
                 }
             }
             
+            ++j;
+            if (j < p.num_watch()) {
+                j = p.num_watch();
+            }
             CTRACE("sat", coeff == 0, display(tout << l << " coeff: " << coeff << "\n", p, true);); 
             
             if (_debug_conflict) {
@@ -1843,6 +1847,25 @@ namespace sat {
             }
         }
         SASSERT(validate_unit_propagation(p, r, l));
+    }
+
+    bool ba_solver::is_extended_binary(ext_justification_idx idx, literal_vector & r) {
+        constraint const& c = index2constraint(idx);
+        switch (c.tag()) {
+        case card_t: {
+            card const& ca = c.to_card();
+            if (ca.size() == ca.k() + 1 && ca.lit() == null_literal) {
+                r.reset();
+                for (literal l : ca) r.push_back(l);
+                return true;
+            }
+            else {
+                return false;
+            }
+        }
+        default:
+            return false;
+        }
     }
 
     void ba_solver::simplify(xor& x) {
@@ -2110,18 +2133,40 @@ namespace sat {
     /**
        \brief Lex on (glue, size)
     */
-    struct constraint_glue_lt {
+    struct constraint_glue_psm_lt {
         bool operator()(ba_solver::constraint const * c1, ba_solver::constraint const * c2) const {
             return 
                 (c1->glue()  < c2->glue()) ||
-                (c1->glue() == c2->glue() && c1->size() < c2->size());
+                (c1->glue() == c2->glue() && 
+                 (c1->psm() < c2->psm() || 
+                  (c1->psm() == c2->psm() && c1->size() < c2->size())));
         }
     };
 
+    void ba_solver::update_psm(constraint& c) const {
+        unsigned r = 0;
+        switch (c.tag()) {            
+        case card_t: 
+            for (literal l : c.to_card()) {                
+                if (s().m_phase[l.var()] == (l.sign() ? NEG_PHASE : POS_PHASE)) ++r;
+            }
+            break;
+        case pb_t:
+            for (wliteral l : c.to_pb()) {                
+                if (s().m_phase[l.second.var()] == (l.second.sign() ? NEG_PHASE : POS_PHASE)) ++r;
+            }
+            break;
+        default:
+            break;
+        }
+        c.set_psm(r);
+    }
+
     void ba_solver::gc() {
         if (m_learned.size() >= 2 * m_constraints.size()) {
-            std::stable_sort(m_learned.begin(), m_learned.end(), constraint_glue_lt());
-            gc_half("glue");
+            for (auto & c : m_learned) update_psm(*c);
+            std::stable_sort(m_learned.begin(), m_learned.end(), constraint_glue_psm_lt());
+            gc_half("glue-psm");
             cleanup_constraints(m_learned, true);
         }
     }
@@ -3056,7 +3101,7 @@ namespace sat {
         }
         for (wliteral l : p1) {
             SASSERT(m_weights[l.second.index()] == 0);
-            m_weights[l.second.index()] = l.first;
+            m_weights.setx(l.second.index(), l.first, 0);
             mark_visited(l.second);  
         }
         for (unsigned i = 0; i < p1.num_watch(); ++i) {

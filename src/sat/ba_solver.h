@@ -64,12 +64,13 @@ namespace sat {
             bool           m_removed;
             literal        m_lit;
             unsigned       m_glue;
+            unsigned       m_psm;
             unsigned       m_size;
             size_t         m_obj_size;
             bool           m_learned;
             unsigned       m_id;
         public:
-            constraint(tag_t t, unsigned id, literal l, unsigned sz, size_t osz): m_tag(t), m_removed(false), m_lit(l), m_glue(0), m_size(sz), m_obj_size(osz), m_learned(false), m_id(id) {}
+            constraint(tag_t t, unsigned id, literal l, unsigned sz, size_t osz): m_tag(t), m_removed(false), m_lit(l), m_glue(0), m_psm(0), m_size(sz), m_obj_size(osz), m_learned(false), m_id(id) {}
             ext_constraint_idx index() const { return reinterpret_cast<ext_constraint_idx>(this); }
             unsigned id() const { return m_id; }
             tag_t tag() const { return m_tag; }
@@ -81,7 +82,9 @@ namespace sat {
             void remove() { m_removed = true; }
             void nullify_literal() { m_lit = null_literal; }
             unsigned glue() const { return m_glue; }
-            void set_glue(unsigned g) { m_glue = g; }            
+            void set_glue(unsigned g) { m_glue = g; }          
+            unsigned psm() const { return m_psm; }
+            void set_psm(unsigned p) { m_psm = p; }
             void set_learned(bool f) { m_learned = f; }
             bool learned() const { return m_learned; }            
 
@@ -269,6 +272,7 @@ namespace sat {
         void subsumption(constraint& c1);
         void subsumption(card& c1);
         void gc_half(char const* _method);
+        void update_psm(constraint& c) const;
         void mutex_reduction();
 
         typedef vector<std::pair<rational, lp::var_index>> lhs_t;
@@ -446,6 +450,7 @@ namespace sat {
         virtual void pop_reinit();
         virtual void gc(); 
         virtual double get_reward(literal l, ext_justification_idx idx, literal_occs_fun& occs) const;
+        virtual bool is_extended_binary(ext_justification_idx idx, literal_vector & r);
         virtual void init_use_list(ext_use_list& ul);
         virtual bool is_blocked(literal l, ext_constraint_idx idx);
 
