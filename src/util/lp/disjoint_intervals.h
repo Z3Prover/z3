@@ -320,21 +320,22 @@ struct disjoint_intervals {
                 return false;
             }
 
-            if (t.second == 2) {
-                expect_end = false; // swallow a point interval
-            } else {
-                if (prev)
-                    expect_end = !expect_end;
-                else
-                    expect_end = is_start(t.second);
-            }
             if (prev) {
-                if (t.first - prev_x <= 1) {
+                if (t.first - prev_x <= 1 && !expect_end) {
                     std::cout << "the sequence is not increasing or the gap is too small: " << prev_x << ", " << t.first << std::endl;
                     return false;
                 }
             } 
-            prev = true;
+			if (t.second == 2) {
+				expect_end = false; // swallow a point interval
+			}
+			else {
+				if (prev)
+					expect_end = !expect_end;
+				else
+					expect_end = is_start(t.second);
+			}
+			prev = true;
             prev_x = t.first;
         }
             
