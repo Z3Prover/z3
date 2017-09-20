@@ -140,7 +140,6 @@ void func_interp::set_else(expr * e) {
         return;
 
     reset_interp_cache();
-
     ptr_vector<expr> args;
     while (e && is_fi_entry_expr(e, args)) {
         TRACE("func_interp", tout << "fi entry expr: " << mk_ismt2_pp(e, m()) << std::endl;);

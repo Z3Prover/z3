@@ -4374,9 +4374,17 @@ namespace smt {
                 expr* fn = to_app(q->get_pattern(0))->get_arg(0);
                 expr* body = to_app(q->get_pattern(1))->get_arg(0);
                 SASSERT(is_app(fn));
+                // reverse argument order so that variable 0 starts at the beginning.
+                expr_ref_vector subst(m);
+                for (expr* arg : *to_app(fn)) {
+                    subst.push_back(arg);
+                }
+                expr_ref bodyr(m);
+                var_subst sub(m, false);
+                sub(body, subst.size(), subst.c_ptr(), bodyr);
                 func_decl* f = to_app(fn)->get_decl();
                 func_interp* fi = alloc(func_interp, m, f->get_arity());
-                fi->set_else(body);
+                fi->set_else(bodyr);
                 m_model->register_decl(f, fi);
             }
         }

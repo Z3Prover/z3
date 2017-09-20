@@ -202,7 +202,7 @@ func_decl * func_decls::find(unsigned arity, sort * const * domain, sort * range
         if (f->get_arity() != arity)
             continue;
         unsigned i = 0;
-        for (i = 0; i < arity; i++) {
+        for (i = 0; domain && i < arity; i++) {
             if (f->get_domain(i) != domain[i])
                 break;
         }
@@ -937,7 +937,7 @@ static builtin_decl const & peek_builtin_decl(builtin_decl const & first, family
 func_decl * cmd_context::find_func_decl(symbol const & s, unsigned num_indices, unsigned const * indices,
                                         unsigned arity, sort * const * domain, sort * range) const {
     builtin_decl d;
-    if (m_builtin_decls.find(s, d)) {
+    if (domain && m_builtin_decls.find(s, d)) {
         family_id fid = d.m_fid;
         decl_kind k   = d.m_decl;
         // Hack: if d.m_next != 0, we use domain[0] (if available) to decide which plugin we use.
@@ -961,7 +961,7 @@ func_decl * cmd_context::find_func_decl(symbol const & s, unsigned num_indices, 
         return f;
     }
 
-    if (contains_macro(s, arity, domain))
+    if (domain && contains_macro(s, arity, domain))
         throw cmd_exception("invalid function declaration reference, named expressions (aka macros) cannot be referenced ", s);
 
     if (num_indices > 0)

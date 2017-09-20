@@ -584,6 +584,8 @@ class smt2_printer {
             string_buffer<> buf;
             buf.append("(:var ");
             buf.append(v->get_idx());
+            buf.append(" ");
+            buf.append(v->get_sort()->get_name().str().c_str());
             buf.append(")");
             f = mk_string(m(), buf.c_str());
         }
