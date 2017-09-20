@@ -1351,6 +1351,7 @@ namespace smt2 {
             expr_ref result(m());
             var_subst sub(m(), false);
             TRACE("parse_expr", tout << "term\n" << expr_ref(t, m()) << "\npatterns\n" << patterns << "\ncases\n" << cases << "\n";);
+            check_patterns(patterns, m().get_sort(t));
             for (unsigned i = patterns.size(); i > 0; ) {
                 --i;
                 expr_ref_vector subst(m());
@@ -1374,6 +1375,21 @@ namespace smt2 {
             }
             TRACE("parse_expr", tout << result << "\n";);
             return result;
+        }
+
+        void check_patterns(expr_ref_vector const& patterns, sort* s) {
+            if (!dtutil().is_datatype(s)) 
+                throw parser_exception("pattern matching is only supported for algebraic datatypes");
+            ptr_vector<func_decl> const& cons = *dtutil().get_datatype_constructors(s);
+            for (expr * arg : patterns) if (is_var(arg)) return;
+            if (patterns.size() < cons.size()) 
+                throw parser_exception("non-exhaustive pattern match");
+            ast_fast_mark1 marked;
+            for (expr * arg : patterns) 
+                marked.mark(to_app(arg)->get_decl(), true);
+            for (func_decl * f : cons) 
+                if (!marked.is_marked(f)) 
+                    throw parser_exception("a constructor is missing from pattern match");        
         }
 
         // compute match condition and substitution

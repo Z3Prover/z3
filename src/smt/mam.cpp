@@ -1753,10 +1753,6 @@ namespace smt {
             m_use_filters(use_filters) {
         }
 
-        context & get_context() {
-            return m_context;
-        }
-
         /**
            \brief Create a new code tree for the given quantifier.
 
