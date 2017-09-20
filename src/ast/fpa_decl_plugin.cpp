@@ -361,10 +361,6 @@ func_decl * fpa_decl_plugin::mk_binary_decl(decl_kind k, unsigned num_parameters
     case OP_FPA_REM: name = "fp.rem"; break;
     case OP_FPA_MIN: name = "fp.min"; break;
     case OP_FPA_MAX: name = "fp.max"; break;
-    case OP_FPA_MIN_I: name = "fp.min_i"; break;
-    case OP_FPA_MAX_I: name = "fp.max_i"; break;
-    case OP_FPA_MIN_UNSPECIFIED: name = "fp.min_unspecified"; break;
-    case OP_FPA_MAX_UNSPECIFIED: name = "fp.max_unspecified"; break;
     default:
         UNREACHABLE();
         break;
@@ -780,12 +776,6 @@ func_decl * fpa_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
         return mk_bv_wrap(k, num_parameters, parameters, arity, domain, range);
     case OP_FPA_BV2RM:
         return mk_bv2rm(k, num_parameters, parameters, arity, domain, range);
-
-    case OP_FPA_MIN_I:
-    case OP_FPA_MAX_I:
-    case OP_FPA_MIN_UNSPECIFIED:
-    case OP_FPA_MAX_UNSPECIFIED:
-        return mk_binary_decl(k, num_parameters, parameters, arity, domain, range);
 
     default:
         m_manager->raise_exception("unsupported floating point operator");

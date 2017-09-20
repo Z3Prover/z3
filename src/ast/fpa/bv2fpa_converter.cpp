@@ -62,8 +62,8 @@ bv2fpa_converter::bv2fpa_converter(ast_manager & m, fpa2bv_converter & conv) :
         m.inc_ref(it->m_key);
         m.inc_ref(it->m_value);
     }
-    for (obj_map<func_decl, std::pair<app*, app*> >::iterator it = conv.m_min_max_specials.begin();
-        it != conv.m_min_max_specials.end();
+    for (obj_map<func_decl, std::pair<app*, app*> >::iterator it = conv.m_min_max_ufs.begin();
+        it != conv.m_min_max_ufs.end();
         it++) {
         m_specials.insert(it->m_key, it->m_value);
         m.inc_ref(it->m_key);

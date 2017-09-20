@@ -884,22 +884,4 @@ namespace smt {
             out << r->get_id() << " --> " << mk_ismt2_pp(n, m) << std::endl;
         }
     }
-
-    bool theory_fpa::include_func_interp(func_decl * f) {
-        TRACE("t_fpa", tout << "f = " << mk_ismt2_pp(f, get_manager()) << std::endl;);
-
-        if (f->get_family_id() == get_family_id()) {
-            bool include =
-                m_fpa_util.is_min_unspecified(f) ||
-                m_fpa_util.is_max_unspecified(f) ;
-            if (include && !m_is_added_to_model.contains(f)) {
-                //m_is_added_to_model.insert(f);
-                //get_manager().inc_ref(f);
-                return true;
-            }
-            return false;
-        }
-        else
-            return true;
-    }
 };
