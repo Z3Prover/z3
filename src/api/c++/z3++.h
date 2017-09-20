@@ -354,7 +354,7 @@ namespace z3 {
         Z3_error_code check_error() const { return m_ctx->check_error(); }
         friend void check_context(object const & a, object const & b);
     };
-    inline void check_context(object const & a, object const & b) { assert(a.m_ctx == b.m_ctx); }
+    inline void check_context(object const & a, object const & b) { (void)a; (void)b; assert(a.m_ctx == b.m_ctx); }
 
     class symbol : public object {
         Z3_symbol m_sym;
