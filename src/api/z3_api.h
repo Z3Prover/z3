@@ -993,18 +993,6 @@ typedef enum
             3 = 011 = Z3_OP_FPA_RM_TOWARD_NEGATIVE,
             4 = 100 = Z3_OP_FPA_RM_TOWARD_ZERO.
 
-      - Z3_OP_FPA_MIN_I: The same as Z3_OP_FPA_MIN, but the arguments are
-        expected not to be zeroes with different signs.
-
-      - Z3_OP_FPA_MAX_I: The same as Z3_OP_FPA_MAX, but the arguments are
-        expected not to be zeroes with different signs.
-
-      - Z3_OP_FPA_MIN_UNSPECIFIED: The same as Z3_OP_FPA_MIN, but the
-        arguments are expected to be zeroes with different signs.
-
-      - Z3_OP_FPA_MAX_UNSPECIFIED: The same as Z3_OP_FPA_MAX, but the
-        arguments are expected to be zeroes with different signs.
-
       - Z3_OP_INTERNAL: internal (often interpreted) symbol, but no additional
         information is exposed. Tools may use the string representation of the
         function declaration to obtain more information.
@@ -1291,13 +1279,8 @@ typedef enum {
 
     Z3_OP_FPA_TO_IEEE_BV,
 
-    Z3_OP_FPA_MIN_I,
-    Z3_OP_FPA_MAX_I,
-
     Z3_OP_FPA_BVWRAP,
     Z3_OP_FPA_BV2RM,
-    Z3_OP_FPA_MIN_UNSPECIFIED,
-    Z3_OP_FPA_MAX_UNSPECIFIED,
 
     Z3_OP_INTERNAL,
 
