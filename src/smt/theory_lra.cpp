@@ -2335,7 +2335,12 @@ namespace smt {
             lp::var_index vi = m_theory_var2var_index.get(v, UINT_MAX);
             vector<std::pair<rational, lp::var_index> > coeffs;
             rational coeff;
-            if (m_solver->is_term(vi)) {
+            if (vi == UINT_MAX) {
+                has_shared = false;
+                blocker = m.mk_false();
+                return inf_eps(rational::one(), inf_rational());
+            }
+            else if (m_solver->is_term(vi)) {
                 const lp::lar_term& term = m_solver->get_term(vi);
                 for (auto & ti : term.m_coeffs) {
                     coeffs.push_back(std::make_pair(ti.second, ti.first));
