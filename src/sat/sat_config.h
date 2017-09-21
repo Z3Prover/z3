@@ -74,6 +74,7 @@ namespace sat {
         bool               m_core_minimize;
         bool               m_core_minimize_partial;
 
+        bool               m_dimacs_display;
 
         symbol             m_always_true;
         symbol             m_always_false;

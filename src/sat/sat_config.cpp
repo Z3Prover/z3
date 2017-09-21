@@ -35,7 +35,7 @@ namespace sat {
         m_glue("glue"),
         m_glue_psm("glue_psm"),
         m_psm_glue("psm_glue") {
-        m_num_parallel = 1;
+        m_num_parallel = 1;        
         updt_params(p); 
     }
 
@@ -114,6 +114,7 @@ namespace sat {
         m_core_minimize   = p.core_minimize();
         m_core_minimize_partial   = p.core_minimize_partial();
         m_dyn_sub_res     = p.dyn_sub_res();
+        m_dimacs_display  = p.dimacs_display();
     }
 
     void config::collect_param_descrs(param_descrs & r) {

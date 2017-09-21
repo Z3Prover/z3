@@ -105,7 +105,6 @@ public:
 
     virtual void set_progress_callback(progress_callback * callback) {}
 
-
     void display_weighted(std::ostream& out, unsigned sz, expr * const * assumptions, unsigned const* weights) {
         if (weights != 0) {
             for (unsigned i = 0; i < sz; ++i) m_weights.push_back(weights[i]);

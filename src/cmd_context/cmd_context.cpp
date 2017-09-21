@@ -1545,6 +1545,20 @@ void cmd_context::reset_assertions() {
 }
 
 
+void cmd_context::display_dimacs() {
+    if (m_solver) {
+        try {
+            gparams::set("sat.dimacs.display", "true");
+            m_solver->check_sat(0, nullptr);
+        }
+        catch (...) {
+            gparams::set("sat.dimacs.display", "false");        
+            throw;
+        }
+        gparams::set("sat.dimacs.display", "false");        
+    }
+}
+
 void cmd_context::display_model(model_ref& mdl) {
     if (mdl) {
         model_params p;

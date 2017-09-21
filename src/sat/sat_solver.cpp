@@ -724,6 +724,13 @@ namespace sat {
         pop_to_base_level();
         IF_VERBOSE(2, verbose_stream() << "(sat.sat-solver)\n";);
         SASSERT(scope_lvl() == 0);
+        if (m_config.m_dimacs_display) {
+            display_dimacs(std::cout);
+            for (unsigned i = 0; i < num_lits; ++lits) {
+                std::cout << dimacs_lit(lits[i]) << " 0\n";
+            }
+            return l_undef;
+        }
         if (m_config.m_num_parallel > 1 && !m_par) {
             return check_par(num_lits, lits);
         }
