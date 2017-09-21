@@ -10,6 +10,8 @@ namespace lp {
 // represents the set of disjoint intervals of integer number
 template <typename T>
 struct disjoint_intervals {
+    typedef typename std::map<T, byte>::iterator iter;
+    typedef typename std::map<T, byte>::reverse_iterator riter;
     stacked_map<T, byte> m_endpoints; // 0 means start, 1 means end, 2 means both - for a point interval
     stacked_value<bool> m_empty;
     // constructors create an interval containing all integer numbers or an empty interval
@@ -17,73 +19,94 @@ struct disjoint_intervals {
     disjoint_intervals(bool is_empty) : m_empty(is_empty) {}
 
     bool is_start(byte x) const { return x == 0 || x == 2; }
-    bool is_start(typename const std::map<T,byte>::iterator & it) const {
+    bool is_start(iter & it) const {
         return is_start(it->second);
     }
-    bool is_start(typename const std::map<T, byte>::reverse_iterator & it) const {
+    bool is_start(riter & it) const {
         return is_start(it->second);
     }
     bool is_end(byte x) const { return x == 1 || x == 2; }
-    bool is_end(typename const std::map<T, byte>::iterator & it) const {
+    bool is_end(iter & it) const {
         return is_end(it->second);
     }
-    bool is_end(typename const std::map<T, byte>::reverse_iterator & it) const {
+    bool is_end(riter & it) const {
         return is_end(it->second);
     }
 
-    T pos(typename const std::map<T, byte>::iterator & it) const {
+    T pos(iter & it) const {
         return it->first;
     }
-    T pos(typename const std::map<T, byte>::reverse_iterator & it) const {
+    T pos(riter & it) const {
         return it->first;
     }
 
-    T bound_kind(typename const std::map<T, byte>::iterator & it) const {
+    T bound_kind(iter & it) const {
         return it->second;
     }
 
-    T bound_kind(typename const std::map<T, byte>::reverse_iterator & it) const {
+    T bound_kind(riter & it) const {
         return it->second;
     }
 
     bool is_proper_start(byte x) const { return x == 0; }
+    bool is_proper_start(riter &x) const { return is_proper_start(x->second);}
+    bool is_proper_start(iter &x) const { return is_proper_start(x->second);}
+        
     bool is_proper_end(byte x) const { return x == 1; }
-    bool is_proper_end(typename const std::map<T, byte>::iterator & it) const {
+    bool is_proper_end(iter & it) const {
         return is_proper_end(it->second);
     }
-    bool is_proper_end(typename const std::map<T, byte>::reverse_iterator & it) const {
+    bool is_proper_end(riter & it) const {
         return is_proper_end(it->second);
     }
 
     bool is_one_point_interval(byte x) const { return x == 2; }
-    bool is_one_point_interval(typename const std::map<T, byte>::iterator & it) const {
+    bool is_one_point_interval(iter & it) const {
         return is_one_point_interval(it->second);
     }
-    bool is_one_point_interval(typename const std::map<T, byte>::reverse_iterator & it) const {
+    bool is_one_point_interval(riter & it) const {
         return is_one_point_interval(it->second);
     }
+    
+    void erase(iter it) {
+        m_endpoints.erase(it);
+    }
 
+    void erase(riter it) {
+        m_endpoints.erase(it);
+    }
 
-    void erase(T x) {
+    void erase(const T& x) {
         m_endpoints.erase(x);
     }
     
-    void set_one_point_segment(T x) {
+    void set_one_point_interval(const T& x) {
         m_endpoints[x] = 2;
     }
 
-    void set_start(T x) {
+    void set_start(const T& x) {
         m_endpoints[x] = 0;
+    }
+
+    void set_start(iter &t ) {
+        t->second = 0;
+    }
+
+    void set_start(riter &t ) {
+        t->second = 0;
     }
 
     void set_end(T x) {
         m_endpoints[x] = 1;
     }
-
-    void remove_all_endpoints_below(T x) {
-        while (m_endpoints.begin() != m_endpoints.end() && m_endpoints.begin()->first < x)
-            m_endpoints.erase(m_endpoints.begin());
+    void set_end(iter& t) {
+        t->second = 1;
     }
+
+    void set_end(riter& t) {
+        t->second = 1;
+    }
+    
     // we intersect the existing set with the half open to the right interval
     void intersect_with_lower_bound(T x) {
         std::cout << "intersect_with_lower_bound(" << x << ")\n";
@@ -111,7 +134,7 @@ struct disjoint_intervals {
         lp_assert(pos(it) >= x);
         if (pos(it) == x) {
             if (is_proper_end(it))
-                set_one_point_segment(x);			
+                set_one_point_interval(x);			
         }
         else { // x(it) > x
             if (is_proper_end(it)) {
@@ -150,7 +173,7 @@ struct disjoint_intervals {
             if (is_one_point_interval(it)) {} 
             else if (is_proper_end(it)) {}
             else {// is_proper_start(it->second)
-                set_one_point_segment(x);
+                set_one_point_interval(x);
             }
         }
         else { // pos(it) < x} 
@@ -257,45 +280,308 @@ struct disjoint_intervals {
         lp_assert(is_correct());
     }
 
-    void set_start_end_or_one_point(T x, T y) {
-			if (x == y) {
-				set_one_point_segment(x);
-			}
-			else {
-				set_start(x);
-				set_end(y);
-			}
+    void set_start_end(T x, T y) {
+        set_start(x);
+        set_end(y);
     }
-    
-    void unite_with_interval(T x, T y) {
-        std::cout << "unite_with_interval(" << x << ", " << y << ")\n";
-		lp_assert(x <= y);
-		if (m_empty) {
-            set_start_end_or_one_point(x, y);
-			m_empty = false;
-			return;
-		}
 
-        if (m_endpoints.empty()) {
-            // it is the [-inf, inf] case
+    void unite_with_one_point_interval(const T &x) {
+        std::cout << "unite_with_one_point_interval(" << x << ")\n";
+        if (m_empty) {
+            m_empty = false;
+            set_one_point_interval(x);
             return;
         }
+        bool has_left_neig, has_right_neig;
+        bool neg_inf, pos_inf;
+        iter l, r;
+        has_left_neig = get_left_point(x, neg_inf, l);
+        has_right_neig = get_right_point(x, pos_inf, r);
+        if (!has_left_neig) {
+            if (!has_right_neig) {
+                set_one_point_interval(x);
+                return;
+            }
+            lp_assert(!neg_inf);
+            // if (pos(r) == x ) nothing happens
+            if (pos(r) == x + 1) {
+                if (is_one_point_interval(r)) {
+                    set_start(x);
+                    set_end(x + 1);
+                } else {
+                    lp_assert(is_proper_start(r));
+                    erase(r);
+                    set_start(x);
+                }
+            } else {
+                lp_assert(pos(r) < x);
+                set_one_point_interval(x);
+            }
+            return;
+        }
+
+        // has_left_neig
+        if (!has_right_neig) {
+            if (pos_inf)
+                return;
+            // if (pos(l) == x nothing happens
+            if (pos(l) == x - 1) {
+                if (is_proper_end(l)) {
+                    erase(l);
+                    set_end(x);
+                } else {
+                    lp_assert(is_one_point_interval(l));
+                    set_start(l);
+                    set_end(x);
+                }
+            } else {
+                lp_assert(pos(l) < x - 1);
+                set_one_point_interval(x);
+            }
+            return;
+        }
+        // has both neighbors
+        if (neg_inf || pos_inf)
+            return;
+        if (pos(l) == x || pos(r) == x)
+            return;
+
+        // now the cases pos(l) == pos(r) or  pos(l) + 1 == pos(r) are impossible
+        if (is_start(l)) {
+            lp_assert(is_end(r));
+            return;
+        }
+            
+        if (pos(l) + 2 < pos(r)) { // we can glue only to one neighbor
+            if (pos(l) + 1 == x) {
+                erase(l);
+                set_end(x);
+            } else if (x + 1  == pos(r)) {
+                erase(r);
+                set_start(x);
+            }
+        } else {
+            lp_assert(pos(l) + 2 == pos(r));
+            lp_assert(pos(l) + 1 == x); // x is just in between l and r
+            if (is_proper_end(l)) {
+                erase(l);
+            } else {
+                lp_assert(is_one_point_interval(l));
+                set_start(l);
+            }
+            if (is_proper_start(r)) {
+                erase(r);
+            } else {
+                lp_assert(is_one_point_interval(r));
+                set_end(r);
+            }
+        }
+
+    }
+    // return false if there are no points y in m_endpoints with pos(y) <= x
+    // and negative infiniti is not true
+	bool get_left_point(const T& x, bool &neg_inf, iter & l) {
+		if (m_empty) {
+			neg_inf = false;
+			return false;
+		}
+
+		if (m_endpoints.empty()) {
+			neg_inf = true;
+			return true;
+		}
+
+		l = m_endpoints.lower_bound(x);
+		if (l == m_endpoints.end()) {
+			l--;
+			neg_inf = false;
+			return true;
+		}
+		if (pos(l) == x) {
+			neg_inf = false;
+			return true;
+		}
+		if (l == m_endpoints.begin())
+			return neg_inf = has_neg_inf();
+		l--;
+		neg_inf = false;
+		return true;
+	}
+    
+    // return false iff there are no points y in m_endpoints with pos(y) >= x, and positive infinity is not true
+    bool get_right_point(const T& x, bool &pos_inf, iter & r) {
+        if (m_empty) {
+            pos_inf = false;
+            return false;
+        }
+            
+        if (m_endpoints.empty()) {
+            pos_inf = true;
+            return true;
+        }
+        
+        r = m_endpoints.lower_bound(x);
+        if (r == m_endpoints.end()) {
+            return pos_inf = has_pos_inf();;
+        }
+        
+        pos_inf = false;
+        return true;
+    }
+    
+
+
+    // Given x find an interval containing it
+    // it can be an outer interval - one from the complement of the regular intervals
+    bool get_containing_interval(const T& x, bool &neg_inf, iter & l, bool & plus_inf, iter& r) const {
+    }
+    
+    // inserts x, if needed and return a pointer to the leftmost point that is a candidate to removal
+    /*
+    iter insert_start_for_unite_with_interval(const T& x) {
         auto lbx = m_endpoints.lower_bound(x);
         if (lbx == m_endpoints.end()) {
             if (!has_pos_inf()) {
                 T lastx = pos(m_endpoints.rbegin());
                 if (lastx + 1 < x) 
-                    set_start_end_or_one_point(x, y);
+                    set_start_end(x, y);
                 else {
                     m_endpoints.erase(lastx);
                     set_end(y);
                 }
             }
-            
+            return;
+        }
+        if (pos(lbx) == x) {
+            if(is_proper_end(lbx)) {
+                m_endpoints.erase(x);
+            } else { set_start(x);}
+        }
+        if (pos(lbx) > x) {
+            if (pos(lbx) > y + 1) {
+                if (is_end(lbx))
+                    return;
+                set_start_end(x, y);
+                return;
+            }
+            if (pos(lpx) == y + 1) {
+                if (is_end(lbx))
+            }
+                
+        }
+        
+        lp_assert(false); // not implemented
+    }
+    */
+
+    void remove_from_the_left(const T & y ) {
+        while (!m_endpoints.empty() && pos(m_endpoints.begin()) < y) {
+            m_endpoints.erase(m_endpoints.begin());
+        }
+    }
+
+    void remove_from_the_left(const T & y, iter& l ) {
+        while (!m_endpoints.empty() && pos(l) < y) {
+            l++;
+            erase(std::prev(l));
+        }
+    }
+
+    
+    void remove_from_the_right(const T & x) {
+        while (!m_endpoints.empty() && pos(m_endpoints.rbegin()) > x) {
+            m_endpoints.erase(m_endpoints.rbegin());
+        }
+    }
+
+    void remove_from_the_right(const T & x, riter & r) {
+        while (!m_endpoints.empty() && pos(r) > x) {
+            r--;
+            m_endpoints.erase(std::next(r));
+        }
+    }
+    
+    void unite_with_interval(const T& x, const T& y) {
+        std::cout << "unite_with_interval(" << x << ", " << y << ")\n";
+		lp_assert(x <= y);
+        if (x == y) {
+            unite_with_one_point_interval(x);
             return;
         }
 
-        lp_assert(false); // not implemented
+        iter l, r;
+        bool neg_inf, pos_inf;
+        bool found_left_point = get_left_point(x, neg_inf, l);
+        bool found_right_point = get_right_point(y, pos_inf, r);
+        m_empty = false;
+
+        if (!found_left_point) {
+            if (!found_right_point) {
+                m_endpoints.clear();
+                set_start(x);
+                set_end(x);
+                return;
+            }
+
+            // found_right_point is true
+            remove_from_the_left(y);
+            if (pos(m_endpoints.begin()) == y) {
+                if (is_start(m_endpoints.begin()))
+                    m_endpoints.erase(y);
+                set_start(x);
+            } else {
+                lp_assert(pos(m_endpoints.begin()) > y);
+                if (is_start(m_endpoints.begin()))
+                    set_end(y);
+                set_start(x);
+            }
+            return;
+        }
+
+        lp_assert(found_left_point);
+        if (!found_right_point) {
+            remove_from_the_right(x);
+            if (pos(m_endpoints.rbegin()) == x){
+                if (is_proper_end(m_endpoints.rbegin()))
+                    m_endpoints.erase(m_endpoints.rbegin());
+                else {
+                    set_end(y);
+                }
+            } else {
+                if (is_end(m_endpoints.rbegin())) {
+                    set_start(x);
+                    set_end(y);
+                }
+            }
+            return;
+        }
+
+        // found_right_point
+        if (pos(l) == x) {
+            if (is_proper_end(l)) {
+                m_endpoints.erase(l);
+            } else {
+                set_start(x);
+            }
+        } else {
+            if (is_end(l)) {
+            } else {
+                set_start(x);
+            }
+        }
+        l++;
+        remove_from_the_left(y, l);
+        if (pos(l) == y) {
+            if (is_start(y))
+                erase(l);
+            else
+                set_end(y);
+        } else {
+            lp_assert(pos(l) > y);
+            if(!is_proper_end(l))
+                set_end(y);
+        }
+        lp_assert(is_correct());
     }
 
     bool is_correct() const {
