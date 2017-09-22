@@ -10229,8 +10229,29 @@ namespace smt {
     expr * theory_str::gen_len_val_options_for_free_var(expr * freeVar, expr * lenTesterInCbEq, zstring lenTesterValue) {
 
         ast_manager & m = get_manager();
+        context & ctx = get_context();
 
         TRACE("str", tout << "gen for free var " << mk_ismt2_pp(freeVar, m) << std::endl;);
+
+        // special case: if we would be length testing for the first time,
+        // but already know a value for length from the integer solver,
+        // don't give any other options
+        {
+            rational freeVar_len;
+            if (lenTesterInCbEq == NULL && get_len_value(freeVar, freeVar_len)) {
+                TRACE("str", tout << "length of free var " << mk_pp(freeVar, m) << " already given to be " << freeVar_len << std::endl;);
+                expr * newTester = mk_internal_lenTest_var(freeVar, 0);
+                expr * concreteLength_lhs = ctx.mk_eq_atom(newTester, mk_string(freeVar_len.to_string().c_str()));
+                expr * concreteLength_rhs = ctx.mk_eq_atom(mk_strlen(freeVar), m_autil.mk_numeral(freeVar_len, true));
+                expr * concreteLength_assert = ctx.mk_eq_atom(concreteLength_lhs, concreteLength_rhs);
+                m_trail.push_back(concreteLength_assert);
+                TRACE("str", tout << mk_pp(concreteLength_assert, m) << std::endl;);
+                expr * valueAssert = gen_free_var_options(freeVar, newTester, zstring(freeVar_len.to_string().c_str()), NULL, zstring(""));
+                m_trail.push_back(valueAssert);
+                TRACE("str", tout << mk_pp(valueAssert, m) << std::endl;);
+                return m.mk_and(concreteLength_assert, valueAssert);
+            }
+        }
 
         if (m_params.m_UseBinarySearch) {
             TRACE("str", tout << "using binary search heuristic" << std::endl;);
