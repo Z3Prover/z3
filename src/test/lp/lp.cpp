@@ -3088,15 +3088,8 @@ void test_rationals() {
 
 void test_disjoint_intervals() {
     disjoint_intervals<int> d;
-    bool neg_inf;
-    disjoint_intervals<int>::iter i;
-    std::cout << d.get_right_point(0, neg_inf, i);
     d.print(std::cout);
     d.intersect_with_interval(-100, 100);
-    std::cout << d.get_right_point(0, neg_inf, i);
-    std::cout << d.get_right_point(100, neg_inf, i);
-    std::cout << d.get_right_point(50, neg_inf, i);
-    std::cout << d.get_right_point(-100, neg_inf, i);
     d.print(std::cout);
     d.unite_with_interval_x_pos_inf(30);
     d.print(std::cout);
@@ -3110,10 +3103,6 @@ void test_disjoint_intervals() {
 	d.print(std::cout);
 	d.unite_with_interval_x_pos_inf(8);
 	d.print(std::cout);
-    std::cout << d.get_right_point(0, neg_inf, i);
-    std::cout << d.get_right_point(6, neg_inf, i);
-    std::cout << d.get_right_point(8, neg_inf, i);
-    std::cout << d.get_right_point(100, neg_inf, i);
 	d.intersect_with_upper_bound(9);
 	d.print(std::cout);
 
