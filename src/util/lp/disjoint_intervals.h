@@ -576,7 +576,13 @@ struct disjoint_intervals {
 			}
 		}
 		else if (pos(l) + 1 == x) {
-			lp_assert(false);
+			if (is_proper_end(l)) {
+				l++;
+				erase(std::prev(l));
+			}
+			else if (is_one_point_interval(l)) {
+				set_start(l);
+			}
 		}
 		else {
 			if (!is_proper_start(l)) {
@@ -594,11 +600,17 @@ struct disjoint_intervals {
 			else
 				set_end(y);
 		}
-		else {
-			lp_assert(pos(r) > y);
-			if (!is_proper_end(r))
-				set_end(y);
+		else if (pos(r) == y + 1) {
+			if (is_proper_start(r)) {
+				erase(r);
+			}
+			else {
+				set_end(r);
+			}
 		}
+		else if (!is_proper_end(r))
+				set_end(y);
+		
 		lp_assert(is_correct());
 	}
 

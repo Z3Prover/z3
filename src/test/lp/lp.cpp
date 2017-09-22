@@ -3108,11 +3108,11 @@ void test_disjoint_intervals() {
     d.print(std::cout);
 	d.unite_with_interval_x_pos_inf(8);
 	d.print(std::cout);
-	d.unite_with_interval_x_pos_inf(7);
+	d.unite_with_interval_x_pos_inf(8);
 	d.print(std::cout);
     std::cout << d.get_right_point(0, neg_inf, i);
     std::cout << d.get_right_point(6, neg_inf, i);
-    std::cout << d.get_right_point(7, neg_inf, i);
+    std::cout << d.get_right_point(8, neg_inf, i);
     std::cout << d.get_right_point(100, neg_inf, i);
 	d.intersect_with_upper_bound(9);
 	d.print(std::cout);
@@ -3129,6 +3129,8 @@ void test_disjoint_intervals() {
 	d.print(std::cout);
 	d.intersect_with_upper_bound(12);
 	d.print(std::cout);
+	d.unite_with_interval(6, 7);
+	d.print(std::cout);
 	d.unite_with_interval_x_pos_inf(6);
 	d.print(std::cout);
     d.intersect_with_lower_bound(-4);
@@ -3137,7 +3139,7 @@ void test_disjoint_intervals() {
 
     d.intersect_with_upper_bound(3);
     d.print(std::cout);
-    d.intersect_with_lower_bound(7);
+    d.intersect_with_lower_bound(8);
     d.print(std::cout);
 
     std::cout << "d has neg_inf = " << d.has_neg_inf() << std::endl;
