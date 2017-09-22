@@ -509,88 +509,98 @@ struct disjoint_intervals {
         }
     }
     
-    void unite_with_interval(const T& x, const T& y) {
-        std::cout << "unite_with_interval(" << x << ", " << y << ")\n";
+	void unite_with_interval(const T& x, const T& y) {
+		std::cout << "unite_with_interval(" << x << ", " << y << ")\n";
 		lp_assert(x <= y);
-        if (x == y) {
-            unite_with_one_point_interval(x);
-            return;
-        }
+		if (x == y) {
+			unite_with_one_point_interval(x);
+			return;
+		}
 
-        iter l, r;
-        bool neg_inf, pos_inf;
-        bool found_left_point = get_left_point(x, neg_inf, l);
-        bool found_right_point = get_right_point(y, pos_inf, r);
-        m_empty = false;
+		iter l, r;
+		bool neg_inf, pos_inf;
+		bool found_left_point = get_left_point(x, neg_inf, l);
+		bool found_right_point = get_right_point(y, pos_inf, r);
+		m_empty = false;
 
-        if (!found_left_point) {
-            if (!found_right_point) {
-                m_endpoints.clear();
-                set_start(x);
-                set_end(x);
-                return;
-            }
+		if (!found_left_point) {
+			if (!found_right_point) {
+				m_endpoints.clear();
+				set_start(x);
+				set_end(x);
+				return;
+			}
 
-            // found_right_point is true
-            remove_from_the_left(y);
-            if (pos(m_endpoints.begin()) == y) {
-                if (is_start(m_endpoints.begin()))
-                    m_endpoints.erase(y);
-                set_start(x);
-            } else {
-                lp_assert(pos(m_endpoints.begin()) > y);
-                if (is_start(m_endpoints.begin()))
-                    set_end(y);
-                set_start(x);
-            }
-            return;
-        }
+			// found_right_point is true
+			remove_from_the_left(y);
+			if (pos(m_endpoints.begin()) == y) {
+				if (is_start(m_endpoints.begin()))
+					m_endpoints.erase(y);
+				set_start(x);
+			}
+			else {
+				lp_assert(pos(m_endpoints.begin()) > y);
+				if (is_start(m_endpoints.begin()))
+					set_end(y);
+				set_start(x);
+			}
+			return;
+		}
 
-        lp_assert(found_left_point);
-        if (!found_right_point) {
-            remove_from_the_right(x);
-            if (pos(m_endpoints.rbegin()) == x){
-                if (is_proper_end(m_endpoints.rbegin()))
-                    m_endpoints.erase(m_endpoints.rbegin());
-                else {
-                    set_end(y);
-                }
-            } else {
-                if (is_end(m_endpoints.rbegin())) {
-                    set_start(x);
-                    set_end(y);
-                }
-            }
-            return;
-        }
+		lp_assert(found_left_point);
+		if (!found_right_point) {
+			remove_from_the_right(x);
+			if (pos(m_endpoints.rbegin()) == x) {
+				if (is_proper_end(m_endpoints.rbegin()))
+					m_endpoints.erase(m_endpoints.rbegin());
+				else {
+					set_end(y);
+				}
+			}
+			else {
+				if (is_end(m_endpoints.rbegin())) {
+					set_start(x);
+					set_end(y);
+				}
+			}
+			return;
+		}
 
-        // found_right_point
-        if (pos(l) == x) {
-            if (is_proper_end(l)) {
-                m_endpoints.erase(l);
-            } else {
-                set_start(x);
-            }
-        } else {
-            if (is_end(l)) {
-            } else {
-                set_start(x);
-            }
-        }
-        l++;
-        remove_from_the_left(y, l);
-        if (pos(l) == y) {
-            if (is_start(y))
-                erase(l);
-            else
-                set_end(y);
-        } else {
-            lp_assert(pos(l) > y);
-            if(!is_proper_end(l))
-                set_end(y);
-        }
-        lp_assert(is_correct());
-    }
+		// found_right_point
+		if (pos(l) == x) {
+			if (is_proper_end(l)) {
+				m_endpoints.erase(l);
+			}
+			else {
+				set_start(x);
+			}
+		}
+		else if (pos(l) + 1 == x) {
+			lp_assert(false);
+		}
+		else {
+			if (!is_proper_start(l)) {
+				set_start(x);
+			}
+		}
+
+		while (pos(l) <= x)
+			l++;
+		lp_assert(l != m_endpoints.end());
+		remove_from_the_left(y, l);
+		if (pos(r) == y) {
+			if (is_start(r))
+				erase(r);
+			else
+				set_end(y);
+		}
+		else {
+			lp_assert(pos(r) > y);
+			if (!is_proper_end(r))
+				set_end(y);
+		}
+		lp_assert(is_correct());
+	}
 
     bool is_correct() const {
         if (m_empty) {

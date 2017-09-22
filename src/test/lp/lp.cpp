@@ -3117,9 +3117,11 @@ void test_disjoint_intervals() {
 	d.intersect_with_upper_bound(9);
 	d.print(std::cout);
 
-    d.unite_with_interval(13, 15);
+    d.unite_with_interval(14, 15);
     d.print(std::cout);
     d.unite_with_interval(14, 14);
+    d.print(std::cout);
+    d.unite_with_interval(11,12);
     d.print(std::cout);
 	d.unite_with_interval(11, 11);
 	d.print(std::cout);
