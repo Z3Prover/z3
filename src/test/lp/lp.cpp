@@ -3086,54 +3086,77 @@ void test_rationals() {
     std::cout << T_to_string(r) << std::endl;
 }
 
+void get_random_interval(bool& neg_inf, bool& pos_inf, int& x, int &y) {
+    int i = my_random() % 10;
+    if (i == 0) {
+        neg_inf = true;
+    } else {
+        neg_inf = false;
+        x = my_random() % 100;
+    }
+    i = my_random() % 10;
+    if (i == 0) {
+        pos_inf = true;
+    } else {
+        pos_inf = false;
+		if (!neg_inf) {
+			y = x + my_random() % (101 - x);
+			lp_assert(y >= x);
+		}
+		else {
+			y = my_random() % 100;
+		}
+    }
+    lp_assert((neg_inf || (0 <= x && x <= 100)) && (pos_inf || (0 <= y && y <= 100)));
+}
+
+void test_disjoint_intervals_intersection(disjoint_intervals<int> & d) {
+    int x, y; bool neg_inf, pos_inf;
+    get_random_interval(neg_inf, pos_inf, x, y);
+    if (neg_inf) {
+        if (!pos_inf) {
+            d.intersect_with_upper_bound(y);
+        }
+    }
+    else if (pos_inf)
+        d.intersect_with_lower_bound(x);
+    else 
+        d.intersect_with_interval(x, y);
+}
+
+void test_disjoint_intervals_union(disjoint_intervals<int> & d) {
+    int x, y; bool neg_inf, pos_inf;
+    get_random_interval(neg_inf, pos_inf, x, y);
+    if (neg_inf) {
+        if (!pos_inf) {
+            d.unite_with_interval_neg_inf_x(y);
+        }
+        else
+            d.init_to_contain_all();
+    }
+    else if (pos_inf)
+        d.unite_with_interval_x_pos_inf(x);
+    else 
+        d.unite_with_interval(x, y);
+
+    lp_assert(d.is_correct());
+}
+
+
+void test_disjoint_intervals_randomly(disjoint_intervals<int> & d) {
+    int i = my_random() % 10;
+    if (i == 0)
+        test_disjoint_intervals_intersection(d);
+    else
+        test_disjoint_intervals_union(d);
+}
+
 void test_disjoint_intervals() {
     disjoint_intervals<int> d;
-    d.print(std::cout);
-    d.intersect_with_interval(-100, 100);
-    d.print(std::cout);
-    d.unite_with_interval_x_pos_inf(30);
-    d.print(std::cout);
-    d.unite_with_interval_neg_inf_x(29);
-    d.print(std::cout);
-    d.intersect_with_lower_bound(-5);
-    d.print(std::cout);
-    d.intersect_with_upper_bound(5);
-    d.print(std::cout);
-	d.unite_with_interval_x_pos_inf(8);
-	d.print(std::cout);
-	d.unite_with_interval_x_pos_inf(8);
-	d.print(std::cout);
-	d.intersect_with_upper_bound(9);
-	d.print(std::cout);
-
-    d.unite_with_interval(14, 15);
-    d.print(std::cout);
-    d.unite_with_interval(14, 14);
-    d.print(std::cout);
-    d.unite_with_interval(11,12);
-    d.print(std::cout);
-	d.unite_with_interval(11, 11);
-	d.print(std::cout);
-	d.unite_with_interval_x_pos_inf(12);
-	d.print(std::cout);
-	d.intersect_with_upper_bound(12);
-	d.print(std::cout);
-	d.unite_with_interval(6, 7);
-	d.print(std::cout);
-	d.unite_with_interval_x_pos_inf(6);
-	d.print(std::cout);
-    d.intersect_with_lower_bound(-4);
-
-    d.print(std::cout);
-
-    d.intersect_with_upper_bound(3);
-    d.print(std::cout);
-    d.intersect_with_lower_bound(8);
-    d.print(std::cout);
-
-    std::cout << "d has neg_inf = " << d.has_neg_inf() << std::endl;
-    std::cout << "d has pos_inf = " << d.has_pos_inf() << std::endl;
-    lp_assert(d.is_correct());
+	for (int i = 0; i < 200; i++) {
+		test_disjoint_intervals_randomly(d);
+		d.print(std::cout);
+	}
 }
 
 void test_lp_local(int argn, char**argv) {

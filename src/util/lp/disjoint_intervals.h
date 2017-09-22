@@ -11,19 +11,44 @@ namespace lp {
 // represents the set of disjoint intervals of integer number
 template <typename T>
 class disjoint_intervals {
-    
+    #ifdef Z3DEBUG
+    std::set<int> m_domain;
+    #endif 
     typedef typename std::map<T, byte>::iterator iter;
+    typedef typename std::map<T, byte>::const_iterator const_iter;
     typedef typename std::map<T, byte>::reverse_iterator riter;
     stacked_map<T, byte> m_endpoints; // 0 means start, 1 means end, 2 means both - for a point interval
     stacked_value<bool> m_empty;
     // constructors create an interval containing all integer numbers or an empty interval
 public:
-    disjoint_intervals() : m_empty(false) {}
-    disjoint_intervals(bool is_empty) : m_empty(is_empty) {}
-    bool is_inside(const T & x) const {
+    disjoint_intervals() : disjoint_intervals(false) {}
+    disjoint_intervals(bool is_empty) : m_empty(is_empty) {
+#if Z3DEBUG
+        if (!is_empty) {
+            for (int i = 0; i <= 100; i++)
+                m_domain.insert(i);
+        }
+#endif
+    }
+    void init_to_contain_all() {
+        m_empty = false;
+        m_endpoints.clear();
+#if Z3DEBUG
+        for (int i = 0; i <= 100; i++)
+            m_domain.insert(i);
+#endif
+    }
+
+	bool contains_all() const {
+		return !m_empty  && m_endpoints.empty();
+	}
+
+    bool contains(const T & x) const {
+		if (contains_all())
+			return true;
         bool neg_inf;
         iter l;
-        bool found_left_point = get_left_point(neg_inf, l);
+        bool found_left_point = get_left_point(x, neg_inf, l);
         if (!found_left_point)
             return has_neg_inf();
         if (neg_inf)
@@ -32,65 +57,27 @@ public:
             return true;
         return is_proper_start(l);
     }
-
-	void unite_with_interval(const T& x, const T& y) {
-        TRACE("disj_intervals", tout << "unite_with_interval(" << x << ", " << y << ")\n";);
-		lp_assert(x <= y);
-		if (x == y) {
-			unite_with_one_point_interval(x);
-			return;
+	void handle_right_point_in_union(iter &r, const T &y) {
+		if (pos(r) == y) {
+			if (is_start(r))
+				erase(r);
+			else
+				set_end(y);
 		}
-
-		iter l, r;
-		bool neg_inf, pos_inf;
-		bool found_left_point = get_left_point(x, neg_inf, l);
-		bool found_right_point = get_right_point(y, pos_inf, r);
-		m_empty = false;
-
-		if (!found_left_point) {
-			if (!found_right_point) {
-				m_endpoints.clear();
-				set_start(x);
-				set_end(x);
-				return;
-			}
-
-			// found_right_point is true
-			remove_from_the_left(y);
-			if (pos(m_endpoints.begin()) == y) {
-				if (is_start(m_endpoints.begin()))
-					m_endpoints.erase(y);
-				set_start(x);
+		else if (pos(r) == y + 1) {
+			if (is_proper_start(r)) {
+				erase(r);
 			}
 			else {
-				lp_assert(pos(m_endpoints.begin()) > y);
-				if (is_start(m_endpoints.begin()))
-					set_end(y);
-				set_start(x);
+				set_end(r);
 			}
-			return;
 		}
+		else if (!is_proper_end(r))
+			set_end(y);
 
-		lp_assert(found_left_point);
-		if (!found_right_point) {
-			remove_from_the_right(x);
-			if (pos(m_endpoints.rbegin()) == x) {
-				if (is_proper_end(m_endpoints.rbegin()))
-					m_endpoints.erase(m_endpoints.rbegin());
-				else {
-					set_end(y);
-				}
-			}
-			else {
-				if (is_end(m_endpoints.rbegin())) {
-					set_start(x);
-					set_end(y);
-				}
-			}
-			return;
-		}
-
-		// found_right_point
+		lp_assert(is_correct());
+	}
+	void handle_left_point_in_union(iter& l, const T &x, const T & y) {
 		if (pos(l) == x) {
 			if (is_proper_end(l)) {
 				m_endpoints.erase(l);
@@ -114,28 +101,94 @@ public:
 			}
 		}
 
-		while (pos(l) <= x)
+		while (l!= m_endpoints.end() && pos(l) <= x)
 			l++;
-		lp_assert(l != m_endpoints.end());
 		remove_from_the_left(y, l);
-		if (pos(r) == y) {
-			if (is_start(r))
-				erase(r);
-			else
-				set_end(y);
+	}
+
+	void unite_with_interval(const T& x, const T& y) {
+        TRACE("disj_intervals", tout << "unite_with_interval(" << x << ", " << y << ")\n";);
+#if Z3DEBUG
+		for (int i = std::max(x, 0); i <= std::min(100, y); i++)
+			m_domain.insert(i);
+#endif
+
+		lp_assert(x <= y);
+		if (x == y) {
+			unite_with_one_point_interval(x);
+			return;
 		}
-		else if (pos(r) == y + 1) {
-			if (is_proper_start(r)) {
-				erase(r);
+
+		iter l, r;
+		bool neg_inf, pos_inf;
+		bool found_left_point = get_left_point(x, neg_inf, l);
+		bool found_right_point = get_right_point(y, pos_inf, r);
+		m_empty = false;
+
+		if (!found_left_point) {
+			if (!found_right_point) {
+				m_endpoints.clear();
+				set_start(x);
+				set_end(y);
+				return;
+			}
+
+			// found_right_point is true
+			remove_from_the_left(y);
+			if (pos(m_endpoints.begin()) == y) {
+				if (is_start(m_endpoints.begin()))
+					m_endpoints.erase(y);
+				set_start(x);
 			}
 			else {
-				set_end(r);
+				lp_assert(pos(m_endpoints.begin()) > y);
+				if (is_start(m_endpoints.begin()))
+					set_end(y);
+				set_start(x);
 			}
+			return;
 		}
-		else if (!is_proper_end(r))
-				set_end(y);
-		
-		lp_assert(is_correct());
+
+		lp_assert(found_left_point);
+		if (!found_right_point) {
+			bool neg_inf = has_neg_inf();
+			remove_from_the_right(x);
+			if (m_endpoints.empty()) {
+				if (!neg_inf)
+					set_start_end(x, y);
+				else
+					set_end(y);
+				return;
+			}
+			if (pos(m_endpoints.rbegin()) == x) {
+				if (is_proper_end(m_endpoints.rbegin()))
+					m_endpoints.erase(m_endpoints.rbegin());
+				else {
+					set_end(y);
+				}
+			}
+			else {
+				if (is_end(m_endpoints.rbegin())) {
+					set_start(x);
+					set_end(y);
+				}
+				else {
+					set_end(y);
+				}
+			}
+			return;
+		}
+
+		// found_right_point and found_left_point
+		if (!neg_inf)
+			handle_left_point_in_union(l, x, y);
+		else {
+			remove_from_the_left(y);
+		}
+		if (!pos_inf)
+			handle_right_point_in_union(r, y);
+		else
+			remove_from_the_right(x);
 	}
 
     bool has_pos_inf() const {
@@ -199,7 +252,14 @@ public:
 			prev = true;
             prev_x = t.first;
         }
-            
+#if Z3DEBUG
+        for (int i = 0; i <= 100; i++ ) {
+            if ( (m_domain.find(i) != m_domain.end()) != contains(i)) {
+                TRACE("disj_intervals", tout << "incorrect value of contains(" << i << ") is = " << contains(i) << std::endl;);
+                return false;
+            }
+        }
+        #endif
         return true;
     }
 public:
@@ -242,6 +302,10 @@ public:
     
     // we intersect the existing set with the half open to the right interval
     void intersect_with_lower_bound(const T& x) {
+#ifdef Z3DEBUG
+        for (int i = 0; i < x; i++)
+            m_domain.erase(i);
+#endif
         TRACE("disj_intervals", tout << "intersect_with_lower_bound(" << x << ")\n";);
 
         if (m_empty)
@@ -274,12 +338,14 @@ public:
                 set_start(x);
             }
         }
-
-        lp_assert(is_correct());
     }
 
     // we intersect the existing set with the half open interval
     void intersect_with_upper_bound(const T& x) {
+#ifdef Z3DEBUG
+        for (int i = 100; i > x; i--)
+            m_domain.erase(i);
+#endif
         TRACE("disj_intervals", tout << "intersect_with_upper_bound(" << x << ")\n";);
         if (m_empty)
             return;
@@ -317,6 +383,12 @@ public:
     }
 public:
     void intersect_with_interval(const T& x, const T & y) {
+#ifdef Z3DEBUG
+        for (int i = 0; i <= 100; i++)
+            if (i < x || i > y)
+                m_domain.erase(i);
+#endif
+
         TRACE("disj_intervals", tout << "intersect_with_interval(" << x << ", " << y <<")\n";);
         if (m_empty)
             return;
@@ -327,15 +399,23 @@ public:
 
     // add an intervar [x, inf]
     void unite_with_interval_x_pos_inf(const T& x) {
+		if (contains_all())
+			return;
+#if Z3DEBUG
+        for (int i = x; i <= 100; i++)
+            m_domain.insert(i);
+#endif
         TRACE("disj_intervals", tout << "unite_with_interval_x_pos_inf(" << x << ")\n";);
         if (m_empty) {
             set_start(x);
             m_empty = false;
             return;
         }
+		bool neg_inf = has_neg_inf();
 		remove_from_the_right(x);
-        if (m_endpoints.empty()) {
-            set_start(x);
+		if (m_endpoints.empty()) {
+			if (!neg_inf)
+				set_start(x);
             return;
         }
         auto it = m_endpoints.rbegin();
@@ -365,6 +445,10 @@ public:
 
     // add an interval [-inf, x]
     void unite_with_interval_neg_inf_x(const T& x) {
+#if Z3DEBUG
+        for (int i = 0; i <= x; i++)
+            m_domain.insert(i);
+#endif
         TRACE("disj_intervals", tout << "unite_with_interval_neg_inf_x(" << x << ")\n";);
         if (m_empty) {
             set_end(x);
@@ -413,6 +497,9 @@ private:
     }
 
     T pos(iter & it) const {
+        return it->first;
+    }
+    T pos(const_iter & it) const {
         return it->first;
     }
     T pos(riter & it) const {
@@ -592,7 +679,7 @@ private:
     }
     // return false if there are no points y in m_endpoints with pos(y) <= x
     // and negative infiniti is not true
-	bool get_left_point(const T& x, bool &neg_inf, iter & l) {
+	bool get_left_point(const T& x, bool &neg_inf, const_iter & l) const {
 		if (m_empty) {
 			neg_inf = false;
 			return false;
@@ -621,7 +708,7 @@ private:
 	}
     
     // return false iff there are no points y in m_endpoints with pos(y) >= x, and positive infinity is not true
-    bool get_right_point(const T& x, bool &pos_inf, iter & r) {
+    bool get_right_point(const T& x, bool &pos_inf, const_iter & r) const {
         if (m_empty) {
             pos_inf = false;
             return false;
@@ -693,7 +780,7 @@ private:
     }
 
     void remove_from_the_left(const T & y, iter& l ) {
-        while (!m_endpoints.empty() && pos(l) < y) {
+        while (l!= m_endpoints.end() && pos(l) < y) {
             l++;
             erase(std::prev(l));
         }
