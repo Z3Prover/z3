@@ -222,11 +222,7 @@ struct disjoint_intervals {
             m_empty = false;
             return;
         }
-
-        while (!m_endpoints.empty() && pos(m_endpoints.rbegin()) > x) {
-            m_endpoints.erase(std::prev(m_endpoints.end()));
-        }
-        
+		remove_from_the_right(x);
         if (m_endpoints.empty()) {
             set_start(x);
             return;
@@ -240,7 +236,16 @@ struct disjoint_intervals {
                 set_start(x);
             }
         } else if (pos(it) == x - 1 && is_end(it)) {
-            m_endpoints.erase(x - 1); // closing the gap
+			if (is_proper_start(it)) {
+				// do nothing
+			}
+			else if (is_proper_end(it)) {
+				m_endpoints.erase(it);
+			}
+			else {
+				lp_assert(is_one_point_interval(it));
+				set_start(it);
+			}
         } else {
             if (!has_pos_inf())
                 set_start(x);
@@ -359,7 +364,10 @@ struct disjoint_intervals {
             } else if (x + 1  == pos(r)) {
                 erase(r);
                 set_start(x);
-            }
+			}
+			else {
+				set_one_point_interval(x);
+			}
         } else {
             lp_assert(pos(l) + 2 == pos(r));
             lp_assert(pos(l) + 1 == x); // x is just in between l and r
