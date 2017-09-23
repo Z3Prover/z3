@@ -1306,7 +1306,7 @@ namespace smt2 {
 
         /**
          * SMT-LIB 2.6 pattern matches are of the form
-         * (match t ((p1 t1) ··· (pm+1 tm+1)))         
+         * (match t ((p1 t1) ... (pm+1 tm+1)))         
          */
         void push_match_frame() {
             SASSERT(curr_is_identifier());
