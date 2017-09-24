@@ -135,13 +135,13 @@ public:
 
 			// found_right_point is true
 			remove_from_the_left(y);
-			if (pos(m_endpoints.begin()) == y) {
+			if (pos(m_endpoints.begin()) == y || pos(m_endpoints.begin()) == y + 1) {
 				if (is_start(m_endpoints.begin()))
-					m_endpoints.erase(y);
+					m_endpoints.erase(m_endpoints.begin());
 				set_start(x);
 			}
 			else {
-				lp_assert(pos(m_endpoints.begin()) > y);
+				lp_assert(pos(m_endpoints.begin()) > y + 1);
 				if (is_start(m_endpoints.begin()))
 					set_end(y);
 				set_start(x);

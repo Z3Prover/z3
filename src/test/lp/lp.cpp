@@ -3137,7 +3137,7 @@ void test_disjoint_intervals_union(disjoint_intervals<int> & d) {
     else if (pos_inf)
         d.unite_with_interval_x_pos_inf(x);
     else 
-        d.unite_with_interval(x, y);
+	        d.unite_with_interval(x, y);
 
     lp_assert(d.is_correct());
 }
