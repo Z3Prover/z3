@@ -47,9 +47,9 @@ class iz3translation : public iz3base {
 
  protected:
  iz3translation(iz3mgr &mgr,
-		const std::vector<std::vector<ast> > &_cnsts,
-		const std::vector<int> &_parents,
-		const std::vector<ast> &_theory)
+                const std::vector<std::vector<ast> > &_cnsts,
+                const std::vector<int> &_parents,
+                const std::vector<ast> &_theory)
      : iz3base(mgr,_cnsts,_parents,_theory)  {}
 };
 

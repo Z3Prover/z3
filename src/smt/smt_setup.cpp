@@ -125,6 +125,8 @@ namespace smt {
             setup_QF_FPBV();
         else if (m_logic == "QF_S")
             setup_QF_S();
+        else if (m_logic == "QF_DT")
+            setup_QF_DT();
         else
             setup_unknown();
     }
@@ -190,6 +192,8 @@ namespace smt {
                 setup_AUFLIRA();
             else if (m_logic == "UFNIA")
                 setup_UFNIA();
+            else if (m_logic == "QF_DT")
+                setup_QF_DT();
             else if (m_logic == "LRA")
                 setup_LRA();
             else 
@@ -208,6 +212,10 @@ namespace smt {
         m_params.m_restart_strategy        = RS_LUBY;
         m_params.m_phase_selection         = PS_CACHING_CONSERVATIVE2;
         m_params.m_random_initial_activity = IA_RANDOM;
+    }
+
+    void setup::setup_QF_DT() {
+        setup_QF_UF();
     }
 
     void setup::setup_QF_BVRE() {

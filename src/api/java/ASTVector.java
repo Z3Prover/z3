@@ -131,7 +131,7 @@ public class ASTVector extends Z3Object {
         Expr[] res = new Expr[n];
         for (int i = 0; i < n; i++)
             res[i] = Expr.create(getContext(), get(i).getNativeObject());
-        return res;	
+        return res;    
     }
 
     /**

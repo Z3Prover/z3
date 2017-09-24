@@ -63,8 +63,8 @@ namespace polynomial {
     public:
         void set_degree(var x, unsigned d) { m_var2degree.setx(x, d, 0); }
         unsigned degree(var x) const { return m_var2degree.get(x, 0); }
-		void display(std::ostream & out) const;
-		friend std::ostream & operator<<(std::ostream & out, var2degree const & ideal) { ideal.display(out); return out; }
+        void display(std::ostream & out) const;
+        friend std::ostream & operator<<(std::ostream & out, var2degree const & ideal) { ideal.display(out); return out; }
     };
 
     template<typename ValManager, typename Value = typename ValManager::numeral>

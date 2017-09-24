@@ -40,10 +40,10 @@ namespace smt {
 
     /** \ brief Use sparse maps in SMT solver.
 
-	Define this to use hash maps rather than vectors over ast
-	nodes. This is useful in the case there are many solvers, each
-	referencing few nodes from a large ast manager. There is some
-	unknown performance penalty for this. */
+    Define this to use hash maps rather than vectors over ast
+    nodes. This is useful in the case there are many solvers, each
+    referencing few nodes from a large ast manager. There is some
+    unknown performance penalty for this. */
 
     // #define SPARSE_MAP
 

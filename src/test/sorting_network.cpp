@@ -15,8 +15,6 @@ Copyright (c) 2015 Microsoft Corporation
 #include "smt/smt_kernel.h"
 #include "smt/params/smt_params.h"
 
-
-
 struct ast_ext {
     ast_manager& m;
     ast_ext(ast_manager& m):m(m) {}

@@ -200,7 +200,7 @@ public class Model extends Z3Object {
      * Remarks:  This function may fail if {@code t} contains
      * quantifiers, is partial (MODEL_PARTIAL enabled), or if {@code t} is not well-sorted. In this case a
      * {@code ModelEvaluationFailedException} is thrown.  
-	 * @param t the expression to evaluate
+     * @param t the expression to evaluate
      * @param completion An expression {@code completion} When this flag
      * is enabled, a model value will be assigned to any constant or function
      * that does not have an interpretation in the model.

@@ -809,55 +809,55 @@ namespace Microsoft.Z3
         /// Check whether expression is a concatentation.
         /// </summary>
         /// <returns>a Boolean</returns>
-	public bool IsConcat { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SEQ_CONCAT; } }
+        public bool IsConcat { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SEQ_CONCAT; } }
 
         /// <summary>
         /// Check whether expression is a prefix.
         /// </summary>
         /// <returns>a Boolean</returns>
-	public bool IsPrefix { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SEQ_PREFIX; } }
+        public bool IsPrefix { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SEQ_PREFIX; } }
 
         /// <summary>
         /// Check whether expression is a suffix.
         /// </summary>
         /// <returns>a Boolean</returns>
-	public bool IsSuffix { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SEQ_SUFFIX; } }
+        public bool IsSuffix { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SEQ_SUFFIX; } }
 
         /// <summary>
         /// Check whether expression is a contains.
         /// </summary>
         /// <returns>a Boolean</returns>
-	public bool IsContains { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SEQ_CONTAINS; } }
+        public bool IsContains { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SEQ_CONTAINS; } }
 
         /// <summary>
         /// Check whether expression is an extract.
         /// </summary>
         /// <returns>a Boolean</returns>
-	public bool IsExtract { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SEQ_EXTRACT; } }
+        public bool IsExtract { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SEQ_EXTRACT; } }
 
         /// <summary>
         /// Check whether expression is a replace.
         /// </summary>
         /// <returns>a Boolean</returns>
-	public bool IsReplace { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SEQ_REPLACE; } }
+        public bool IsReplace { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SEQ_REPLACE; } }
 
         /// <summary>
         /// Check whether expression is an at.
         /// </summary>
         /// <returns>a Boolean</returns>
-	public bool IsAt { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SEQ_AT; } }
+        public bool IsAt { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SEQ_AT; } }
 
         /// <summary>
         /// Check whether expression is a sequence length.
         /// </summary>
         /// <returns>a Boolean</returns>
-	public bool IsLength { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SEQ_LENGTH; } }
+        public bool IsLength { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SEQ_LENGTH; } }
 
         /// <summary>
         /// Check whether expression is a sequence index.
         /// </summary>
         /// <returns>a Boolean</returns>
-	public bool IsIndex { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SEQ_INDEX; } }
+        public bool IsIndex { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SEQ_INDEX; } }
 
 
         #endregion

@@ -149,7 +149,7 @@ namespace smt {
         /**
            \brief Is "model based" instantiate allowed to instantiate this quantifier?
          */
-    	virtual bool mbqi_enabled(quantifier *q) const {return true;}
+        virtual bool mbqi_enabled(quantifier *q) const {return true;}
 
         /**
            \brief Give a change to the plugin to adjust the interpretation of unintepreted functions.

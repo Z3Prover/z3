@@ -202,7 +202,7 @@ func_decl * func_decls::find(unsigned arity, sort * const * domain, sort * range
         if (f->get_arity() != arity)
             continue;
         unsigned i = 0;
-        for (i = 0; i < arity; i++) {
+        for (i = 0; domain && i < arity; i++) {
             if (f->get_domain(i) != domain[i])
                 break;
         }
@@ -937,7 +937,7 @@ static builtin_decl const & peek_builtin_decl(builtin_decl const & first, family
 func_decl * cmd_context::find_func_decl(symbol const & s, unsigned num_indices, unsigned const * indices,
                                         unsigned arity, sort * const * domain, sort * range) const {
     builtin_decl d;
-    if (m_builtin_decls.find(s, d)) {
+    if (domain && m_builtin_decls.find(s, d)) {
         family_id fid = d.m_fid;
         decl_kind k   = d.m_decl;
         // Hack: if d.m_next != 0, we use domain[0] (if available) to decide which plugin we use.
@@ -961,7 +961,7 @@ func_decl * cmd_context::find_func_decl(symbol const & s, unsigned num_indices, 
         return f;
     }
 
-    if (contains_macro(s, arity, domain))
+    if (domain && contains_macro(s, arity, domain))
         throw cmd_exception("invalid function declaration reference, named expressions (aka macros) cannot be referenced ", s);
 
     if (num_indices > 0)
@@ -1545,6 +1545,26 @@ void cmd_context::reset_assertions() {
 }
 
 
+void cmd_context::display_dimacs() {
+    if (m_solver) {
+        try {
+            gparams::set("sat.dimacs.display", "true");
+            params_ref p;
+            m_solver->updt_params(p);
+            m_solver->check_sat(0, nullptr);
+        }
+        catch (...) {
+            gparams::set("sat.dimacs.display", "false");        
+            params_ref p;
+            m_solver->updt_params(p);
+            throw;
+        }
+        gparams::set("sat.dimacs.display", "false");        
+        params_ref p;
+        m_solver->updt_params(p);
+    }
+}
+
 void cmd_context::display_model(model_ref& mdl) {
     if (mdl) {
         model_params p;
@@ -1609,12 +1629,16 @@ void cmd_context::set_diagnostic_stream(char const * name) {
     }
 }
 
-struct contains_array_op_proc {
+struct contains_underspecified_op_proc {
     struct found {};
     family_id m_array_fid;
-    contains_array_op_proc(ast_manager & m):m_array_fid(m.mk_family_id("array")) {}
+    datatype_util m_dt;
+    
+    contains_underspecified_op_proc(ast_manager & m):m_array_fid(m.mk_family_id("array")), m_dt(m) {}
     void operator()(var * n)        {}
     void operator()(app * n)        {
+        if (m_dt.is_accessor(n->get_decl())) 
+            throw found();
         if (n->get_family_id() != m_array_fid)
             return;
         decl_kind k = n->get_decl_kind();
@@ -1665,6 +1689,16 @@ void cmd_context::complete_model() {
         }
     }
 
+    for (unsigned i = 0; i < md->get_num_functions(); i++) {
+        func_decl * f = md->get_function(i);
+        func_interp * fi = md->get_func_interp(f);
+        IF_VERBOSE(12, verbose_stream() << "(model.completion " << f->get_name() << ")\n"; );
+        if (fi->is_partial()) {
+            sort * range = f->get_range();
+            fi->set_else(m().get_some_value(range));
+        }
+    }
+
     for (auto kd : m_func_decls) {
         symbol const & k = kd.m_key;
         func_decls & v = kd.m_value;
@@ -1703,7 +1737,7 @@ void cmd_context::validate_model() {
     p.set_bool("completion", true);
     model_evaluator evaluator(*(md.get()), p);
     evaluator.set_expand_array_equalities(false);
-    contains_array_op_proc contains_array(m());
+    contains_underspecified_op_proc contains_underspecified(m());
     {
         scoped_rlimit _rlimit(m().limit(), 0);
         cancel_eh<reslimit> eh(m().limit());
@@ -1729,9 +1763,9 @@ void cmd_context::validate_model() {
                     continue;
                 }
                 try {
-                    for_each_expr(contains_array, r);
+                    for_each_expr(contains_underspecified, r);
                 }
-                catch (contains_array_op_proc::found) {
+                catch (contains_underspecified_op_proc::found) {
                     continue;
                 }
                 TRACE("model_validate", model_smt2_pp(tout, *this, *(md.get()), 0););
@@ -1948,13 +1982,13 @@ void cmd_context::dt_eh::operator()(sort * dt, pdecl* pd) {
     TRACE("new_dt_eh", tout << "new datatype: "; m_owner.pm().display(tout, dt); tout << "\n";);
     for (func_decl * c : *m_dt_util.get_datatype_constructors(dt)) {
         TRACE("new_dt_eh", tout << "new constructor: " << c->get_name() << "\n";);
-        m_owner.insert(c);        
+        m_owner.insert(c);
         func_decl * r = m_dt_util.get_constructor_recognizer(c);
         m_owner.insert(r);
         TRACE("new_dt_eh", tout << "new recognizer: " << r->get_name() << "\n";);
         for (func_decl * a : *m_dt_util.get_constructor_accessors(c)) {
             TRACE("new_dt_eh", tout << "new accessor: " << a->get_name() << "\n";);
-            m_owner.insert(a);            
+            m_owner.insert(a);
         }
     }
     if (m_owner.m_scopes.size() > 0) {

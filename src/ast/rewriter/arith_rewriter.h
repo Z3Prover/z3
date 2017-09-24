@@ -56,7 +56,6 @@ class arith_rewriter : public poly_rewriter<arith_rewriter_core> {
     bool m_anum_simp;
     bool m_elim_rem;
     bool m_eq2ineq;
-    bool m_process_all_eqs;
     unsigned m_max_degree;
 
     void get_coeffs_gcd(expr * t, numeral & g, bool & first, unsigned & num_consts);

@@ -1710,6 +1710,47 @@ namespace sat {
         return true;
     }
 
+    void lookahead::cube() {
+        m_model.reset();
+        scoped_level _sl(*this, c_fixed_truth);
+        literal_vector trail;
+        m_search_mode = lookahead_mode::searching;
+        double freevars_threshold = 0;
+        while (true) {
+            TRACE("sat", display(tout););
+            inc_istamp();
+            checkpoint();
+            literal l = choose();
+            if (inconsistent()) {
+                freevars_threshold = m_freevars.size();                
+                if (!backtrack(trail)) return;
+                continue;
+            }
+            unsigned depth = m_trail_lim.size();
+            if (l == null_literal ||
+                (m_config.m_cube_cutoff != 0 && depth == m_config.m_cube_cutoff) ||
+                (m_config.m_cube_cutoff == 0 && m_freevars.size() < freevars_threshold)) {
+                display_cube(std::cout);
+                set_conflict();
+                if (!backtrack(trail)) return;
+                freevars_threshold *= (1.0 - pow(m_config.m_cube_fraction, depth));
+                continue;
+            }
+            TRACE("sat", tout << "choose: " << l << " " << trail << "\n";);
+            ++m_stats.m_decisions;
+            IF_VERBOSE(1, printf("\r"); 
+                       std::stringstream strm;
+                       strm << pp_prefix(m_prefix, m_trail_lim.size());
+                       for (unsigned i = 0; i < 50; ++i) strm << " ";
+                       printf(strm.str().c_str());
+                       fflush(stdout);
+                       );
+            push(l, c_fixed_truth);
+            trail.push_back(l);
+            SASSERT(inconsistent() || !is_unsat());
+        }
+    }
+
     lbool lookahead::search() {
         m_model.reset();
         scoped_level _sl(*this, c_fixed_truth);
@@ -1719,10 +1760,6 @@ namespace sat {
             TRACE("sat", display(tout););
             inc_istamp();
             checkpoint();
-            if (inconsistent()) {
-                if (!backtrack(trail)) return l_false;
-                continue;
-            }
             literal l = choose();
             if (inconsistent()) {
                 if (!backtrack(trail)) return l_false;
@@ -1762,6 +1799,14 @@ namespace sat {
             }
             m_model.push_back(val);
         }
+    }
+
+    std::ostream& lookahead::display_cube(std::ostream& out) const {
+        out << "c";
+        for (literal l : m_assumptions) {
+            out << " " << ~l;
+        }
+        return out << "\n";
     }
 
     std::ostream& lookahead::display_binary(std::ostream& out) const {
@@ -1818,7 +1863,7 @@ namespace sat {
 
     literal lookahead::choose() {
         literal l = null_literal;
-        while (l == null_literal) {
+        while (l == null_literal && !inconsistent()) {
             pre_select();
             if (m_lookahead.empty()) {
                 break;
@@ -2013,6 +2058,8 @@ namespace sat {
         else { 
             warning_msg("Reward type not recognized");
         }
+        m_config.m_cube_cutoff = m_s.m_config.m_lookahead_cube_cutoff;
+        m_config.m_cube_fraction = m_s.m_config.m_lookahead_cube_fraction;
     }
 
     void lookahead::collect_statistics(statistics& st) const {

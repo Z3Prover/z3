@@ -62,8 +62,8 @@ bv2fpa_converter::bv2fpa_converter(ast_manager & m, fpa2bv_converter & conv) :
         m.inc_ref(it->m_key);
         m.inc_ref(it->m_value);
     }
-    for (obj_map<func_decl, std::pair<app*, app*> >::iterator it = conv.m_min_max_specials.begin();
-        it != conv.m_min_max_specials.end();
+    for (obj_map<func_decl, std::pair<app*, app*> >::iterator it = conv.m_min_max_ufs.begin();
+        it != conv.m_min_max_ufs.end();
         it++) {
         m_specials.insert(it->m_key, it->m_value);
         m.inc_ref(it->m_key);
@@ -120,9 +120,9 @@ expr_ref bv2fpa_converter::convert_bv2fp(sort * s, expr * sgn, expr * exp, expr 
     res = m_fpa_util.mk_value(fp_val);
 
     TRACE("bv2fpa", tout << "[" << mk_ismt2_pp(sgn, m) <<
-        " " << mk_ismt2_pp(exp, m) <<
-        " " << mk_ismt2_pp(sig, m) << "] == " <<
-        mk_ismt2_pp(res, m) << std::endl;);
+                            " " << mk_ismt2_pp(exp, m) <<
+                            " " << mk_ismt2_pp(sig, m) << "] == " <<
+                            mk_ismt2_pp(res, m) << std::endl;);
     m_fpa_util.fm().del(fp_val);
 
     return res;
@@ -263,7 +263,7 @@ func_interp * bv2fpa_converter::convert_func_interp(model_core * mc, func_decl *
     unsigned arity = bv_f->get_arity();
     func_interp * bv_fi = mc->get_func_interp(bv_f);
 
-    if (bv_fi != 0) {
+    if (bv_fi) {
         fpa_rewriter rw(m);
         expr_ref ai(m);
         result = alloc(func_interp, m, arity);
@@ -285,15 +285,31 @@ func_interp * bv2fpa_converter::convert_func_interp(model_core * mc, func_decl *
             bv_fres = bv_fe->get_result();
             ft_fres = rebuild_floats(mc, rng, to_app(bv_fres));
             m_th_rw(ft_fres);
-            result->insert_new_entry(new_args.c_ptr(), ft_fres);
+            TRACE("bv2fpa",
+                  for (unsigned i = 0; i < new_args.size(); i++)
+                      tout << mk_ismt2_pp(bv_args[i], m) << " == " <<
+                        mk_ismt2_pp(new_args[i], m) << std::endl;
+                  tout << mk_ismt2_pp(bv_fres, m) << " == " << mk_ismt2_pp(ft_fres, m) << std::endl;);
+            func_entry * fe = result->get_entry(new_args.c_ptr());
+            if (fe == 0)
+                result->insert_new_entry(new_args.c_ptr(), ft_fres);
+            else {
+                // The BV model may have multiple equivalent entries using different
+                // representations of NaN. We can only keep one and we check that
+                // the results for all those entries are the same.
+                if (ft_fres != fe->get_result())
+                    throw default_exception("BUG: UF function entries disagree with each other");
+            }
         }
 
         app_ref bv_els(m);
         expr_ref ft_els(m);
         bv_els = (app*)bv_fi->get_else();
-        ft_els = rebuild_floats(mc, rng, bv_els);
-        m_th_rw(ft_els);
-        result->set_else(ft_els);
+        if (bv_els != 0) {
+            ft_els = rebuild_floats(mc, rng, bv_els);
+            m_th_rw(ft_els);
+            result->set_else(ft_els);
+        }
     }
 
     return result;
@@ -382,7 +398,7 @@ void bv2fpa_converter::convert_rm_consts(model_core * mc, model_core * target_mo
         expr * bvval = to_app(val)->get_arg(0);
         expr_ref fv(m);
         fv = convert_bv2rm(mc, to_app(bvval));
-        TRACE("bv2fpa", tout << var->get_name() << " == " << mk_ismt2_pp(fv, m) << ")" << std::endl;);
+        TRACE("bv2fpa", tout << var->get_name() << " == " << mk_ismt2_pp(fv, m) << std::endl;);
         target_model->register_decl(var, fv);
         seen.insert(to_app(bvval)->get_decl());
     }
@@ -447,14 +463,34 @@ void bv2fpa_converter::convert_uf2bvuf(model_core * mc, model_core * target_mode
             }
         }
         else {
-            func_interp * fmv = convert_func_interp(mc, f, it->m_value);
-            if (fmv) target_model->register_decl(f, fmv);
+            if (it->get_key().get_family_id() == m_fpa_util.get_fid()) {
+                // it->m_value contains the model for the unspecified cases of it->m_key.
+
+                func_interp * fmv = convert_func_interp(mc, f, it->m_value);
+                if (fmv) {
+#if 0
+                    // Upon request, add this 'recursive' definition?
+                    unsigned n = fmv->get_arity();
+                    expr_ref_vector args(m);
+                    for (unsigned i = 0; i < n; i++)
+                        args.push_back(m.mk_var(i, f->get_domain()[i]));
+                    fmv->set_else(m.mk_app(it->m_key, n, args.c_ptr()));
+#else
+
+                    fmv->set_else(0);
+#endif
+                    target_model->register_decl(f, fmv);
+                }
+            }
+            else {
+                func_interp * fmv = convert_func_interp(mc, f, it->m_value);
+                if (fmv) target_model->register_decl(f, fmv);
+            }
         }
     }
 }
 
 void bv2fpa_converter::display(std::ostream & out) {
-    out << "(fpa2bv-model-converter";
     for (obj_map<func_decl, expr*>::iterator it = m_const2bv.begin();
         it != m_const2bv.end();
         it++) {
@@ -488,7 +524,6 @@ void bv2fpa_converter::display(std::ostream & out) {
         out << mk_ismt2_pp(it->m_value.first, m, indent) << "; " <<
             mk_ismt2_pp(it->m_value.second, m, indent) << ")";
     }
-    out << ")";
 }
 
 bv2fpa_converter * bv2fpa_converter::translate(ast_translation & translator) {
@@ -536,23 +571,3 @@ bv2fpa_converter * bv2fpa_converter::translate(ast_translation & translator) {
     return res;
 }
 
-void bv2fpa_converter::convert(model_core * mc, model_core * float_mdl) {
-    TRACE("bv2fpa", tout << "BV Model: " << std::endl;
-    for (unsigned i = 0; i < mc->get_num_constants(); i++)
-        tout << mc->get_constant(i)->get_name() << " --> " <<
-        mk_ismt2_pp(mc->get_const_interp(mc->get_constant(i)), m) << std::endl;
-    for (unsigned i = 0; i < mc->get_num_functions(); i++) {
-        func_decl * f = mc->get_function(i);
-        tout << f->get_name() << "(...) := " << std::endl;
-        func_interp * fi = mc->get_func_interp(f);
-        for (unsigned j = 0; j < fi->num_entries(); j++) {
-            func_entry const * fe = fi->get_entry(j);
-            for (unsigned k = 0; k < f->get_arity(); k++) {
-                tout << mk_ismt2_pp(fe->get_arg(k), m) << " ";
-            }
-            tout << "--> " << mk_ismt2_pp(fe->get_result(), m) << std::endl;
-        }
-        tout << "else " << mk_ismt2_pp(fi->get_else(), m) << std::endl;
-    });
-
-}

@@ -20,7 +20,6 @@ Revision History:
 #include "sat/sat_solver.h"
 #include "sat/sat_integrity_checker.h"
 #include "sat/sat_lookahead.h"
-#include "sat/sat_ccc.h"
 #include "util/luby.h"
 #include "util/trace.h"
 #include "util/max_cliques.h"
@@ -847,16 +846,25 @@ namespace sat {
         pop_to_base_level();
         IF_VERBOSE(2, verbose_stream() << "(sat.sat-solver)\n";);
         SASSERT(at_base_lvl());
+        if (m_config.m_dimacs_display) {
+            display_dimacs(std::cout);
+            for (unsigned i = 0; i < num_lits; ++lits) {
+                std::cout << dimacs_lit(lits[i]) << " 0\n";
+            }
+            return l_undef;
+        }
         if (m_config.m_lookahead_search && num_lits == 0) {
             return lookahead_search();
+        }
+        if (m_config.m_lookahead_cube && num_lits == 0) {
+            lookahead_cube();
+            return l_undef;
         }
         if (m_config.m_local_search) {
             return do_local_search(num_lits, lits);
         }
-        if (m_config.m_ccc && num_lits == 0) {
-            return do_ccc();
-        }
         if ((m_config.m_num_threads > 1 || m_config.m_local_search_threads > 0) && !m_par) {
+            SASSERT(scope_lvl() == 0);
             return check_par(num_lits, lits);
         }
         flet<bool> _searching(m_searching, true);
@@ -913,13 +921,6 @@ namespace sat {
                 if (check_inconsistent()) return l_false;
                 gc();
 
-#if 0
-                if (m_clauses.size() < 65000) {
-                    return do_ccc();
-                    return lookahead_search();                
-                }
-#endif
-
                 if (m_config.m_restart_max <= m_restarts) {
                     m_reason_unknown = "sat.max.restarts";
                     IF_VERBOSE(SAT_VB_LVL, verbose_stream() << "(sat \"abort: max-restarts\")\n";);
@@ -951,12 +952,16 @@ namespace sat {
         return r;
     }
 
-    lbool solver::do_ccc() {
-        ccc c(*this);
-        lbool r = c.search();
-        m_model = c.get_model();
-        c.collect_statistics(m_aux_stats);
-        return r;
+    void solver::lookahead_cube() {
+        lookahead lh(*this);
+        try {
+            lh.cube();
+        }
+        catch (z3_exception&) {
+            lh.collect_statistics(m_aux_stats);
+            throw;
+        }
+        lh.collect_statistics(m_aux_stats);
     }
 
     lbool solver::lookahead_search() {
@@ -1497,10 +1502,7 @@ namespace sat {
     }
 
     void solver::sort_watch_lits() {
-        vector<watch_list>::iterator it  = m_watches.begin();
-        vector<watch_list>::iterator end = m_watches.end();
-        for (; it != end; ++it) {
-            watch_list & wlist = *it;
+        for (watch_list & wlist : m_watches) {
             std::stable_sort(wlist.begin(), wlist.end(), watched_lt());
         }
     }

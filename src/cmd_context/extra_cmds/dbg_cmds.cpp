@@ -31,7 +31,6 @@ Notes:
 #include "ast/rewriter/var_subst.h"
 #include "util/gparams.h"
 
-#ifndef _EXTERNAL_RELEASE
 
 BINARY_SYM_CMD(get_quantifier_body_cmd,
                "dbg-get-qbody",
@@ -343,10 +342,19 @@ public:
     }
 };
 
-#endif
+class print_dimacs_cmd : public cmd {
+public:
+    print_dimacs_cmd():cmd("display-dimacs") {}
+    virtual char const * get_usage() const { return ""; }
+    virtual char const * get_descr(cmd_context & ctx) const { return "print benchmark in DIMACS format"; }
+    virtual unsigned get_arity() const { return 0; }
+    virtual void prepare(cmd_context & ctx) {}
+    virtual void execute(cmd_context & ctx) { ctx.display_dimacs(); }
+};
+
 
 void install_dbg_cmds(cmd_context & ctx) {
-#ifndef _EXTERNAL_RELEASE
+    ctx.insert(alloc(print_dimacs_cmd));
     ctx.insert(alloc(get_quantifier_body_cmd));
     ctx.insert(alloc(set_cmd));
     ctx.insert(alloc(pp_var_cmd));
@@ -369,5 +377,4 @@ void install_dbg_cmds(cmd_context & ctx) {
     ctx.insert(alloc(instantiate_cmd));
     ctx.insert(alloc(instantiate_nested_cmd));
     ctx.insert(alloc(set_next_id));
-#endif
 }

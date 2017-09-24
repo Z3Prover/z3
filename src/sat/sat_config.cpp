@@ -39,7 +39,6 @@ namespace sat {
         m_local_search = 0;
         m_lookahead_search = false;
         m_lookahead_simplify = false;
-        m_ccc = false;
         updt_params(p); 
     }
 
@@ -86,9 +85,11 @@ namespace sat {
         m_local_search    = p.local_search();
         m_local_search_threads = p.local_search_threads();
         m_lookahead_simplify = p.lookahead_simplify();
+        m_lookahead_cube = p.lookahead_cube();
         m_lookahead_search = p.lookahead_search();
         m_lookahead_reward = p.lookahead_reward();
-        m_ccc = p.ccc();
+        m_lookahead_cube_fraction = p.lookahead_cube_fraction();
+        m_lookahead_cube_cutoff = p.lookahead_cube_cutoff();
 
         // These parameters are not exposed
         m_simplify_mult1  = _p.get_uint("simplify_mult1", 300);
@@ -166,6 +167,7 @@ namespace sat {
         else {
             throw sat_param_exception("invalid PB solver: solver, totalizer, circuit, sorting");
         }
+        m_dimacs_display  = p.dimacs_display();
     }
 
     void config::collect_param_descrs(param_descrs & r) {

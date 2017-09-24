@@ -35,12 +35,8 @@ public class Sort extends AST
         if (!(o instanceof Sort)) return false;
         Sort other = (Sort) o;
 
-	return  (getContext().nCtx() == other.getContext().nCtx()) &&
-	    (Native.isEqSort(
-            getContext().nCtx(),
-            getNativeObject(),
-            other.getNativeObject()
-        ));
+        return (getContext().nCtx() == other.getContext().nCtx()) &&
+            (Native.isEqSort(getContext().nCtx(), getNativeObject(), other.getNativeObject()));
     }
 
     /**

@@ -148,11 +148,8 @@ namespace smt {
     }
 
     void qi_queue::instantiate() {
-        svector<entry>::iterator it               = m_new_entries.begin();
-        svector<entry>::iterator end              = m_new_entries.end();
         unsigned                 since_last_check = 0;
-        for (; it != end; ++it) {
-            entry & curr       = *it;
+        for (entry & curr : m_new_entries) {
             fingerprint * f    = curr.m_qb;
             quantifier * qa    = static_cast<quantifier*>(f->get_data());
 

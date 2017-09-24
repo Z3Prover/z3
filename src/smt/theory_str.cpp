@@ -4748,11 +4748,11 @@ namespace smt {
         context& ctx = get_context();
         ast_manager & m = get_manager();
 
-	// safety
-	if (!ctx.e_internalized(e)) {
+    // safety
+    if (!ctx.e_internalized(e)) {
             return false;
-	}
-	
+    }
+    
         // if an integer constant exists in the eqc, it should be the root
         enode * en_e = ctx.get_enode(e);
         enode * root_e = en_e->get_root();
@@ -7028,7 +7028,7 @@ namespace smt {
         ast_manager & m = get_manager();
         if (lenTester_fvar_map.contains(lenTester)) {
             expr * fVar = lenTester_fvar_map[lenTester];
-			expr_ref toAssert(gen_len_val_options_for_free_var(fVar, lenTester, lenTesterValue), m);
+            expr_ref toAssert(gen_len_val_options_for_free_var(fVar, lenTester, lenTesterValue), m);
             TRACE("str", tout << "asserting more length tests for free variable " << mk_ismt2_pp(fVar, m) << std::endl;);
             if (toAssert) {
                 assert_axiom(toAssert);

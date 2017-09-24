@@ -34,8 +34,11 @@ def_module_params('sat',
                           ('atmost1_encoding', SYMBOL, 'grouped', 'encoding used for at-most-1 constraints grouped, bimander, ordered'),
                           ('local_search_threads', UINT, 0, 'number of local search threads to find satisfiable solution'),
                           ('local_search', BOOL, False, 'use local search instead of CDCL'),
+                          ('lookahead_cube', BOOL, False, 'use lookahead solver to create cubes'),
+                          ('lookahead.cube.fraction', DOUBLE, 0.4, 'adaptive fraction to create lookahead cubes. Used when lookahead_cube is true'),
+                          ('lookahead.cube.cutoff', UINT, 0, 'cut-off depth to create cubes. Only enabled when non-zero. Used when lookahead_cube is true.'),
                           ('lookahead_search', BOOL, False, 'use lookahead solver'),
                           ('lookahead_simplify', BOOL, False, 'use lookahead solver during simplification'),
                           ('lookahead.reward', SYMBOL, 'heuleu', 'select lookahead heuristic: ternary, hs (Heule Schur), heuleu (Heule Unit), or unit'),
-                          ('ccc', BOOL, False, 'use Concurrent Cube and Conquer solver')
-                       ))
+                          ('dimacs.display', BOOL, False, 'display SAT instance in DIMACS format and return unknown instead of solving')))
+

@@ -302,7 +302,7 @@ public class Solver extends Z3Object {
      */
     public Solver translate(Context ctx) 
     {
-	return new Solver(ctx, Native.solverTranslate(getContext().nCtx(), getNativeObject(), ctx.nCtx()));
+        return new Solver(ctx, Native.solverTranslate(getContext().nCtx(), getNativeObject(), ctx.nCtx()));
     }
 
     /**

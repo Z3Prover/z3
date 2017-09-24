@@ -84,6 +84,8 @@ namespace sat {
             unsigned m_dl_max_iterations;
             unsigned m_tc1_limit;
             reward_t m_reward_type;
+            unsigned m_cube_cutoff;
+            double   m_cube_fraction;
 
             config() {
                 m_max_hlevel = 50;
@@ -95,6 +97,8 @@ namespace sat {
                 m_dl_max_iterations = 32;
                 m_tc1_limit = 10000000;
                 m_reward_type = ternary_reward;
+                m_cube_cutoff = 0;
+                m_cube_fraction = 0.4;
             }
         };
 
@@ -446,6 +450,8 @@ namespace sat {
         std::ostream& display_clauses(std::ostream& out) const;
         std::ostream& display_values(std::ostream& out) const;
         std::ostream& display_lookahead(std::ostream& out) const;
+        std::ostream& display_cube(std::ostream& out) const;
+
         void init_search();
         void checkpoint();
 
@@ -473,6 +479,14 @@ namespace sat {
             init_search();
             return search();
         }
+
+        /**
+           \brief create cubes to std-out in DIMACS form.
+           The cubes are controlled using cut-depth and cut-fraction parameters.
+           If cut-depth != 0, then it is used to control the depth of cuts.
+           Otherwise, cut-fraction gives an adaptive threshold for creating cuts.
+        */
+        void cube();
 
         literal select_lookahead(literal_vector const& assumptions, bool_var_vector const& vars);
         /**

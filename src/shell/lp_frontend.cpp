@@ -1,7 +1,7 @@
 /*++
 Copyright (c) 2016 Microsoft Corporation
 
-Author: 
+Author:
 
     Lev Nachmanson 2016-10-27
 
@@ -54,7 +54,7 @@ struct front_end_resource_limit : public lp::lp_resource_limit {
 
 void run_solver(lp_params & params, char const * mps_file_name) {
 
-    reslimit rlim;    
+    reslimit rlim;
     unsigned timeout = gparams::get().get_uint("timeout", 0);
     unsigned rlimit  = gparams::get().get_uint("rlimit", 0);
     front_end_resource_limit lp_limit(rlim);
@@ -80,19 +80,20 @@ void run_solver(lp_params & params, char const * mps_file_name) {
     solver->settings().set_message_ostream(&std::cout);
     solver->settings().report_frequency = params.rep_freq();
     solver->settings().print_statistics = params.print_stats();
-    solver->settings().simplex_strategy() = lp::simplex_strategy_enum::lu;
+    solver->settings().simplex_strategy() = lp:: simplex_strategy_enum::lu;
+
     solver->find_maximal_solution();
 
     *(solver->settings().get_message_ostream()) << "status is " << lp_status_to_string(solver->get_status()) << std::endl;
-    if (solver->get_status() == lp::lp_status::OPTIMAL) {
+    if (solver->get_status() == lp::OPTIMAL) {
         if (params.min()) {
             solver->flip_costs();
         }
         solver->print_model(std::cout);
     }
-    
+
 //    #pragma omp critical (g_display_stats)
-    {    
+    {
         display_statistics();
         register_on_timeout_proc(0);
         g_solver = 0;

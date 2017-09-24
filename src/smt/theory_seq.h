@@ -45,7 +45,7 @@ namespace smt {
         typedef trail_stack<theory_seq> th_trail_stack;
         typedef std::pair<expr*, dependency*> expr_dep;
         typedef obj_map<expr, expr_dep> eqdep_map_t; 
-	typedef union_find<theory_seq> th_union_find;
+        typedef union_find<theory_seq> th_union_find;
 
         class seq_value_proc;
 
@@ -298,8 +298,8 @@ namespace smt {
         scoped_vector<eq>          m_eqs;        // set of current equations.
         scoped_vector<ne>          m_nqs;        // set of current disequalities.
         scoped_vector<nc>          m_ncs;        // set of non-contains constraints.
-        unsigned                   m_eq_id;	
-	th_union_find              m_find;
+        unsigned                   m_eq_id;
+        th_union_find              m_find;
 
         seq_factory*               m_factory;    // value factory
         exclusion_table            m_exclude;    // set of asserted disequalities.
@@ -584,7 +584,7 @@ namespace smt {
         // model building
         app* mk_value(app* a);
 
-	th_trail_stack& get_trail_stack() { return m_trail_stack; }
+        th_trail_stack& get_trail_stack() { return m_trail_stack; }
         void merge_eh(theory_var, theory_var, theory_var v1, theory_var v2) {}
         void after_merge_eh(theory_var r1, theory_var r2, theory_var v1, theory_var v2) { }
         void unmerge_eh(theory_var v1, theory_var v2) {}

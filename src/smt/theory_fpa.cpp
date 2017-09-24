@@ -119,6 +119,7 @@ namespace smt {
         SASSERT(m_conversions.empty());
         SASSERT(m_is_added_to_model.empty());
     }
+
     void theory_fpa::init(context * ctx) {
         smt::theory::init(ctx);
         m_is_initialized = true;
@@ -237,7 +238,7 @@ namespace smt {
 
         if (m_fpa_util.is_fp(e)) {
             expr * cargs[3] = { to_app(e)->get_arg(0), to_app(e)->get_arg(1), to_app(e)->get_arg(2) };
-            expr_ref tmp(m_bv_util.mk_concat(3, cargs), m);            
+            expr_ref tmp(m_bv_util.mk_concat(3, cargs), m);
             m_th_rw(tmp);
             res = to_app(tmp);
         }
@@ -255,7 +256,7 @@ namespace smt {
             }
 
             func_decl_ref wrap_fd(m);
-            wrap_fd = m.mk_func_decl(get_family_id(), OP_FPA_INTERNAL_BVWRAP, 0, 0, 1, &es, bv_srt);
+            wrap_fd = m.mk_func_decl(get_family_id(), OP_FPA_BVWRAP, 0, 0, 1, &es, bv_srt);
             res = m.mk_app(wrap_fd, e);
         }
 
@@ -882,27 +883,5 @@ namespace smt {
             expr * r = (*it)->get_root()->get_owner();
             out << r->get_id() << " --> " << mk_ismt2_pp(n, m) << std::endl;
         }
-    }
-
-    bool theory_fpa::include_func_interp(func_decl * f) {
-        TRACE("t_fpa", tout << "f = " << mk_ismt2_pp(f, get_manager()) << std::endl;);
-
-        if (f->get_family_id() == get_family_id()) {
-            bool include =
-                m_fpa_util.is_min_unspecified(f) ||
-                m_fpa_util.is_max_unspecified(f) ||
-                m_fpa_util.is_to_ubv_unspecified(f) ||
-                m_fpa_util.is_to_sbv_unspecified(f) ||
-                m_fpa_util.is_to_ieee_bv_unspecified(f) ||
-                m_fpa_util.is_to_real_unspecified(f);
-            if (include && !m_is_added_to_model.contains(f)) {
-                m_is_added_to_model.insert(f);
-                get_manager().inc_ref(f);
-                return true;
-            }
-            return false;
-        }
-        else
-            return true;
     }
 };
