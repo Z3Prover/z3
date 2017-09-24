@@ -1396,7 +1396,7 @@ namespace smt {
             th(th),
             pb(m) {}
 
-        literal fresh() {
+        literal fresh(char const* ) {
             app_ref y(m);
             y = pb.mk_fresh_bool();
             return literal(ctx.mk_bool_var(y));
@@ -1441,7 +1441,8 @@ namespace smt {
         theory_pb_params p;
         theory_pb th(ctx.get_manager(), p);
         psort_expr ps(ctx, th);
-        psort_nw<psort_expr> sort(ps);
+        sorting_network_config cfg;
+        psort_nw<psort_expr> sort(ps, cfg);
         return sort.ge(false, k, n, xs);
     }
 
@@ -1577,7 +1578,8 @@ namespace smt {
 
 
         psort_expr ps(ctx, *this);
-        psort_nw<psort_expr> sortnw(ps);
+        sorting_network_config cfg;
+        psort_nw<psort_expr> sortnw(ps, cfg);
         sortnw.m_stats.reset();
 
         if (ctx.get_assignment(thl) == l_true  && 

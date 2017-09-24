@@ -1,8 +1,8 @@
-#include "sat_solver.h"
-#include "sat_watched.h"
-#include "statistics.h"
-#include "sat_lookahead.h"
-#include "dimacs.h"
+#include "sat/sat_solver.h"
+#include "sat/sat_watched.h"
+#include "util/statistics.h"
+#include "sat/sat_lookahead.h"
+#include "sat/dimacs.h"
 
 static void display_model(sat::model const & m) {
     for (unsigned i = 1; i < m.size(); i++) {

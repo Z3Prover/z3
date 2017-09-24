@@ -69,7 +69,8 @@ namespace sat {
         enum reward_t {
             ternary_reward,
             unit_literal_reward,
-            heule_schur_reward
+            heule_schur_reward,
+            heule_unit_reward
         };
 
         struct config {
@@ -277,6 +278,10 @@ namespace sat {
         void init_pre_selection(unsigned level);
         void ensure_H(unsigned level);
         void h_scores(svector<double>& h, svector<double>& hp);
+        void heule_schur_scores();
+        double heule_schur_score(literal l);
+        void heule_unit_scores();
+        double heule_unit_score(literal l);
         double l_score(literal l, svector<double> const& h, double factor, double sqfactor, double afactor);
 
         // ------------------------------------       
@@ -393,8 +398,8 @@ namespace sat {
         void push(literal lit, unsigned level);
         void pop();
         bool push_lookahead2(literal lit, unsigned level);
-        void push_lookahead1(literal lit, unsigned level);
-        void pop_lookahead1(literal lit);
+        unsigned push_lookahead1(literal lit, unsigned level);
+        void pop_lookahead1(literal lit, unsigned num_units);
         double mix_diff(double l, double r) const;
         clause const& get_clause(watch_list::iterator it) const;
         bool is_nary_propagation(clause const& c, literal l) const;
@@ -444,6 +449,8 @@ namespace sat {
         void init_search();
         void checkpoint();
 
+        void init_config();
+
     public:
         lookahead(solver& s) : 
             m_s(s),
@@ -453,6 +460,7 @@ namespace sat {
             m_level(2),
             m_prefix(0) {
             m_s.rlimit().push_child(&m_rlimit);
+            init_config();
         }
 
         ~lookahead() {
@@ -488,6 +496,7 @@ namespace sat {
         void scc();
 
         std::ostream& display(std::ostream& out) const;
+        std::ostream& display_summary(std::ostream& out) const;
         model const& get_model();
 
         void collect_statistics(statistics& st) const;

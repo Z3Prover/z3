@@ -87,6 +87,7 @@ namespace sat {
         m_local_search_threads = p.local_search_threads();
         m_lookahead_simplify = p.lookahead_simplify();
         m_lookahead_search = p.lookahead_search();
+        m_lookahead_reward = p.lookahead_reward();
         m_ccc = p.ccc();
 
         // These parameters are not exposed
@@ -163,7 +164,7 @@ namespace sat {
             m_pb_solver = PB_SOLVER;
         }
         else {
-            throw sat_param_exception("invalid PB solver");
+            throw sat_param_exception("invalid PB solver: solver, totalizer, circuit, sorting");
         }
     }
 

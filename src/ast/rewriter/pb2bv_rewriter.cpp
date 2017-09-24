@@ -43,6 +43,7 @@ struct pb2bv_rewriter::imp {
     struct card2bv_rewriter {               
         typedef expr* literal;
         typedef ptr_vector<expr> literal_vector;
+        sorting_network_config m_cfg;
         psort_nw<card2bv_rewriter> m_sort;
         ast_manager& m;
         imp&         m_imp;
@@ -570,8 +571,8 @@ struct pb2bv_rewriter::imp {
 
     public:
 
-        card2bv_rewriter(imp& i, ast_manager& m):
-            m_sort(*this),
+        card2bv_rewriter(imp& i, ast_manager& m):            
+            m_sort(*this, m_cfg),
             m(m),
             m_imp(i),
             au(m),
@@ -760,8 +761,8 @@ struct pb2bv_rewriter::imp {
             m_trail.push_back(l);
             return l;
         }
-        literal fresh() {
-            expr_ref fr(m.mk_fresh_const("sn", m.mk_bool_sort()), m);
+        literal fresh(char const* n) {
+            expr_ref fr(m.mk_fresh_const(n, m.mk_bool_sort()), m);
             m_imp.m_fresh.push_back(to_app(fr)->get_decl());
             return trail(fr);
         }
@@ -785,6 +786,8 @@ struct pb2bv_rewriter::imp {
         void pb_totalizer(bool f) {
             m_pb_totalizer = f;
         }
+        void set_at_most1(sorting_network_encoding enc) { m_cfg.m_encoding = enc; }
+
     };
 
     struct card2bv_rewriter_cfg : public default_rewriter_cfg {
@@ -800,6 +803,8 @@ struct pb2bv_rewriter::imp {
         void keep_pb_constraints(bool f) { m_r.keep_pb_constraints(f); }
         void pb_num_system(bool f) { m_r.pb_num_system(f); }
         void pb_totalizer(bool f) { m_r.pb_totalizer(f); }
+        void set_at_most1(sorting_network_encoding enc) { m_r.set_at_most1(enc); }
+
     };
     
     class card_pb_rewriter : public rewriter_tpl<card2bv_rewriter_cfg> {
@@ -812,6 +817,7 @@ struct pb2bv_rewriter::imp {
         void keep_pb_constraints(bool f) { m_cfg.keep_pb_constraints(f); }
         void pb_num_system(bool f) { m_cfg.pb_num_system(f); }
         void pb_totalizer(bool f) { m_cfg.pb_totalizer(f); }
+        void set_at_most1(sorting_network_encoding e) { m_cfg.set_at_most1(e); }
     };
 
     card_pb_rewriter m_rw;
@@ -844,15 +850,25 @@ struct pb2bv_rewriter::imp {
             gparams::get_module("sat").get_sym("pb.solver", symbol()) == symbol("totalizer");
     }
 
+
+    sorting_network_encoding atmost1_encoding() const {
+        symbol enc = m_params.get_sym("atmost1_encoding", enc);
+        if (enc == symbol()) {
+            enc = gparams::get_module("sat").get_sym("atmost1_encoding", symbol());
+        }
+        if (enc == symbol("grouped")) return sorting_network_encoding::grouped_at_most_1;
+        if (enc == symbol("bimander")) return sorting_network_encoding::bimander_at_most_1;
+        if (enc == symbol("ordered")) return sorting_network_encoding::ordered_at_most_1;
+        return grouped_at_most_1;
+    }
+    
+
     imp(ast_manager& m, params_ref const& p): 
         m(m), m_params(p), m_lemmas(m),
         m_fresh(m),
         m_num_translated(0), 
         m_rw(*this, m) {
-        m_rw.keep_cardinality_constraints(keep_cardinality());
-        m_rw.keep_pb_constraints(keep_pb());
-        m_rw.pb_num_system(pb_num_system());
-        m_rw.pb_totalizer(pb_totalizer());
+        updt_params(p);
     }
 
     void updt_params(params_ref const & p) {
@@ -860,7 +876,8 @@ struct pb2bv_rewriter::imp {
         m_rw.keep_cardinality_constraints(keep_cardinality());
         m_rw.keep_pb_constraints(keep_pb());
         m_rw.pb_num_system(pb_num_system());
-        m_rw.pb_totalizer(pb_totalizer());
+        m_rw.pb_totalizer(pb_totalizer());        
+        m_rw.set_at_most1(atmost1_encoding());
     }
     void collect_param_descrs(param_descrs& r) const {
         r.insert("keep_cardinality_constraints", CPK_BOOL, "(default: true) retain cardinality constraints (don't bit-blast them) and use built-in cardinality solver");

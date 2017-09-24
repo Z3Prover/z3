@@ -6,14 +6,14 @@ Copyright (c) 2015 Microsoft Corporation
 
 #include "util/trace.h"
 #include "util/vector.h"
+#include "util/sorting_network.h"
 #include "ast/ast.h"
 #include "ast/ast_pp.h"
 #include "ast/reg_decl_plugins.h"
-#include "util/sorting_network.h"
-#include "smt/smt_kernel.h"
-#include "model/model_smt2_pp.h"
-#include "smt/params/smt_params.h"
 #include "ast/ast_util.h"
+#include "model/model_smt2_pp.h"
+#include "smt/smt_kernel.h"
+#include "smt/params/smt_params.h"
 
 
 
@@ -174,16 +174,61 @@ struct ast_ext2 {
     std::ostream& pp(std::ostream& out, literal lit) {
         return out << mk_pp(lit, m);
     }
-    literal fresh() {
-        return trail(m.mk_fresh_const("x", m.mk_bool_sort()));
+    literal fresh(char const* n) {
+        return trail(m.mk_fresh_const(n, m.mk_bool_sort()));
     }
     void mk_clause(unsigned n, literal const* lits) {
         m_clauses.push_back(mk_or(m, n, lits));
     }
 };
 
+static void test_eq1(unsigned n, sorting_network_encoding enc) {
+    //std::cout << "test eq1 " << n << " for encoding: " << enc << "\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    ast_ext2 ext(m);
+    expr_ref_vector in(m), out(m);
+    for (unsigned i = 0; i < n; ++i) {
+        in.push_back(m.mk_fresh_const("a",m.mk_bool_sort()));
+    }
+    smt_params fp;
+    smt::kernel solver(m, fp);
+    sorting_network_config cfg;
+    cfg.m_encoding = enc;
+    psort_nw<ast_ext2> sn(ext, cfg);
+    expr_ref result1(m), result2(m);
 
-static void test_sorting_eq(unsigned n, unsigned k) {
+    // equality:
+    solver.push();
+    result1 = sn.eq(true, 1, in.size(), in.c_ptr());
+    for (expr* cl : ext.m_clauses) {
+        solver.assert_expr(cl);
+    }
+    expr_ref_vector ors(m);
+    for (unsigned i = 0; i < n; ++i) {
+        expr_ref_vector ands(m);
+        for (unsigned j = 0; j < n; ++j) {
+            ands.push_back(j == i ? in[j].get() : m.mk_not(in[j].get()));
+        }
+        ors.push_back(mk_and(ands));
+    }
+    result2 = mk_or(ors);
+    solver.assert_expr(m.mk_not(m.mk_eq(result1, result2)));
+    //std::cout << ext.m_clauses << "\n";
+    //std::cout << result1 << "\n";
+    //std::cout << result2 << "\n";
+    lbool res = solver.check();
+    if (res == l_true) {
+        model_ref model;
+        solver.get_model(model);
+        model_smt2_pp(std::cout, m, *model, 0);
+        TRACE("pb", model_smt2_pp(tout, m, *model, 0););
+    }
+    ENSURE(l_false == res);
+    ext.m_clauses.reset();
+}
+
+static void test_sorting_eq(unsigned n, unsigned k, sorting_network_encoding enc) {
     ENSURE(k < n);
     ast_manager m;
     reg_decl_plugins(m);
@@ -194,16 +239,19 @@ static void test_sorting_eq(unsigned n, unsigned k) {
     }
     smt_params fp;
     smt::kernel solver(m, fp);
-    psort_nw<ast_ext2> sn(ext);
+    sorting_network_config cfg;
+    cfg.m_encoding = enc;
+    psort_nw<ast_ext2> sn(ext, cfg);
     expr_ref result(m);
 
     // equality:
-    std::cout << "eq " << k << "\n";
+    std::cout << "eq " << k << " out of " << n << " for encoding " << enc << "\n";
     solver.push();
-    result = sn.eq(true, k, in.size(), in.c_ptr());
+    result = sn.eq(false, k, in.size(), in.c_ptr());
+    std::cout << result << "\n" << ext.m_clauses << "\n";
     solver.assert_expr(result);
-    for (unsigned i = 0; i < ext.m_clauses.size(); ++i) {
-        solver.assert_expr(ext.m_clauses[i].get());
+    for (expr* cl : ext.m_clauses) {
+        solver.assert_expr(cl);
     }
     lbool res = solver.check();
     ENSURE(res == l_true);
@@ -232,7 +280,7 @@ static void test_sorting_eq(unsigned n, unsigned k) {
     ext.m_clauses.reset();
 }
 
-static void test_sorting_le(unsigned n, unsigned k) {
+static void test_sorting_le(unsigned n, unsigned k, sorting_network_encoding enc) {
     ast_manager m;
     reg_decl_plugins(m);
     ast_ext2 ext(m);
@@ -242,7 +290,9 @@ static void test_sorting_le(unsigned n, unsigned k) {
     }
     smt_params fp;
     smt::kernel solver(m, fp);
-    psort_nw<ast_ext2> sn(ext);
+    sorting_network_config cfg;
+    cfg.m_encoding = enc;
+    psort_nw<ast_ext2> sn(ext, cfg);
     expr_ref result(m);
     // B <= k
     std::cout << "le " << k << "\n";
@@ -279,7 +329,7 @@ static void test_sorting_le(unsigned n, unsigned k) {
 }
 
 
-void test_sorting_ge(unsigned n, unsigned k) {
+void test_sorting_ge(unsigned n, unsigned k, sorting_network_encoding enc) {
     ast_manager m;
     reg_decl_plugins(m);
     ast_ext2 ext(m);
@@ -289,7 +339,9 @@ void test_sorting_ge(unsigned n, unsigned k) {
     }
     smt_params fp;
     smt::kernel solver(m, fp);
-    psort_nw<ast_ext2> sn(ext);
+    sorting_network_config cfg;
+    cfg.m_encoding = enc;
+    psort_nw<ast_ext2> sn(ext, cfg);
     expr_ref result(m);
     // k <= B
     std::cout << "ge " << k << "\n";
@@ -325,11 +377,11 @@ void test_sorting_ge(unsigned n, unsigned k) {
     solver.pop(1);
 }
 
-void test_sorting5(unsigned n, unsigned k) {
+void test_sorting5(unsigned n, unsigned k, sorting_network_encoding enc) {
     std::cout << "n: " << n << " k: " << k << "\n";
-    test_sorting_le(n, k);
-    test_sorting_eq(n, k);
-    test_sorting_ge(n, k);
+    test_sorting_le(n, k, enc);
+    test_sorting_eq(n, k, enc);
+    test_sorting_ge(n, k, enc);
 }
 
 expr_ref naive_at_most1(expr_ref_vector const& xs) {
@@ -343,7 +395,7 @@ expr_ref naive_at_most1(expr_ref_vector const& xs) {
     return mk_and(clauses);
 }
 
-void test_at_most_1(unsigned n, bool full) {
+void test_at_most_1(unsigned n, bool full, sorting_network_encoding enc) {
     ast_manager m;
     reg_decl_plugins(m);
     expr_ref_vector in(m), out(m);
@@ -352,12 +404,17 @@ void test_at_most_1(unsigned n, bool full) {
     }
 
     ast_ext2 ext(m);
-    psort_nw<ast_ext2> sn(ext);
+    sorting_network_config cfg;
+    cfg.m_encoding = enc;
+    psort_nw<ast_ext2> sn(ext, cfg);
     expr_ref result1(m), result2(m);
     result1 = sn.le(full, 1, in.size(), in.c_ptr());
     result2 = naive_at_most1(in);
 
+
     std::cout << "clauses: " << ext.m_clauses << "\n-----\n";
+    std::cout << "encoded: " << result1 << "\n";
+    std::cout << "naive: " << result2 << "\n";
 
     smt_params fp;
     smt::kernel solver(m, fp);
@@ -369,15 +426,27 @@ void test_at_most_1(unsigned n, bool full) {
         solver.assert_expr(m.mk_not(m.mk_eq(result1, result2)));
 
         std::cout << result1 << "\n";
+        lbool res = solver.check();
+        if (res == l_true) {
+            model_ref model;
+            solver.get_model(model);
+            model_smt2_pp(std::cout, m, *model, 0);            
+        }
 
-        VERIFY(l_false == solver.check());
+        VERIFY(l_false == res);
 
         solver.pop(1);
     }
 
     if (n >= 9) return;
+    if (n <= 1) return;
     for (unsigned i = 0; i < static_cast<unsigned>(1 << n); ++i) {
-        std::cout << "checking: " << n << ": " << i << "\n";
+        std::cout << "checking n: " << n << " bits: ";
+        for (unsigned j = 0; j < n; ++j) {
+            bool is_true = (i & (1 << j)) != 0;
+            std::cout << (is_true?"1":"0");
+        }
+        std::cout << "\n";
         solver.push();
         unsigned k = 0;
         for (unsigned j = 0; j < n; ++j) {
@@ -388,7 +457,6 @@ void test_at_most_1(unsigned n, bool full) {
             std::cout << atom << "\n";
             if (is_true) ++k;
         }
-        VERIFY(l_false == solver.check());
         if (k > 1) {
             solver.assert_expr(result1);
         }
@@ -405,7 +473,7 @@ void test_at_most_1(unsigned n, bool full) {
 }
 
 
-static void test_at_most1() {
+static void test_at_most1(sorting_network_encoding enc) {
     ast_manager m;
     reg_decl_plugins(m);
     expr_ref_vector in(m), out(m);
@@ -415,28 +483,45 @@ static void test_at_most1() {
     in[4] = in[3].get();
 
     ast_ext2 ext(m);
-    psort_nw<ast_ext2> sn(ext);
+    sorting_network_config cfg;
+    cfg.m_encoding = enc;
+    psort_nw<ast_ext2> sn(ext, cfg);
     expr_ref result(m);
     result = sn.le(true, 1, in.size(), in.c_ptr());
     std::cout << result << "\n";
     std::cout << ext.m_clauses << "\n";
 }
 
-void tst_sorting_network() {
-    for (unsigned i = 1; i < 17; ++i) {
-        test_at_most_1(i, true);
-        test_at_most_1(i, false);
-    }
-    test_at_most1();
-
-    test_sorting_eq(11,7);
+static void test_sorting5(sorting_network_encoding enc) {
+    test_sorting_eq(11,7, enc);
     for (unsigned n = 3; n < 20; n += 2) {
         for (unsigned k = 1; k < n; ++k) {
-            test_sorting5(n, k);
+            test_sorting5(n, k, enc);
         }
     }
+}
+
+static void tst_sorting_network(sorting_network_encoding enc) {
+    for (unsigned i = 1; i < 17; ++i) {
+        test_at_most_1(i, true, enc);
+        test_at_most_1(i, false, enc);
+    }
+    for (unsigned n = 2; n < 20; ++n) {
+        std::cout << "verify eq-1 out of " << n << "\n";
+        test_sorting_eq(n, 1, enc);
+        test_eq1(n, enc);
+    }
+    test_at_most1(enc);
+    test_sorting5(enc);
+}
+
+void tst_sorting_network() {
+    tst_sorting_network(sorting_network_encoding::ordered_at_most_1);
+    tst_sorting_network(sorting_network_encoding::grouped_at_most_1);
+    tst_sorting_network(sorting_network_encoding::bimander_at_most_1);
     test_sorting1();
     test_sorting2();
     test_sorting3();
     test_sorting4();
 }
+

@@ -75,6 +75,7 @@ namespace sat {
         bool               m_local_search;
         bool               m_lookahead_search;
         bool               m_lookahead_simplify;
+        symbol             m_lookahead_reward;
         bool               m_ccc;
 
         unsigned           m_simplify_mult1;

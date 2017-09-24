@@ -1,8 +1,8 @@
-#include "sat_local_search.h"
-#include "sat_solver.h"
-#include "cancel_eh.h"
-#include "scoped_ctrl_c.h"
-#include "scoped_timer.h"
+#include "sat/sat_local_search.h"
+#include "sat/sat_solver.h"
+#include "util/cancel_eh.h"
+#include "util/scoped_ctrl_c.h"
+#include "util/scoped_timer.h"
 
 static bool build_instance(char const * filename, sat::solver& s, sat::local_search& local_search)
 {
