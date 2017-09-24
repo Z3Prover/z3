@@ -1549,13 +1549,19 @@ void cmd_context::display_dimacs() {
     if (m_solver) {
         try {
             gparams::set("sat.dimacs.display", "true");
+            params_ref p;
+            m_solver->updt_params(p);
             m_solver->check_sat(0, nullptr);
         }
         catch (...) {
             gparams::set("sat.dimacs.display", "false");        
+            params_ref p;
+            m_solver->updt_params(p);
             throw;
         }
         gparams::set("sat.dimacs.display", "false");        
+        params_ref p;
+        m_solver->updt_params(p);
     }
 }
 

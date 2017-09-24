@@ -733,7 +733,6 @@ theory_var theory_diff_logic<Ext>::mk_term(app* n) {
         source = mk_var(a);
         for (unsigned i = 0; i < n->get_num_args(); ++i) {
             expr* arg = n->get_arg(i);
-            std::cout << "internalize: " << mk_pp(arg, get_manager()) << " " << ctx.e_internalized(arg) << "\n";
             if (!ctx.e_internalized(arg)) {
                 ctx.internalize(arg, false);
             }

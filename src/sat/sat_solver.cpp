@@ -724,6 +724,8 @@ namespace sat {
         pop_to_base_level();
         IF_VERBOSE(2, verbose_stream() << "(sat.sat-solver)\n";);
         SASSERT(scope_lvl() == 0);
+        SASSERT(m_config.m_dimacs_display);
+        std::cout << "display dimacs: " << m_config.m_dimacs_display << "\n";
         if (m_config.m_dimacs_display) {
             display_dimacs(std::cout);
             for (unsigned i = 0; i < num_lits; ++lits) {
@@ -1249,10 +1251,7 @@ namespace sat {
     }
 
     void solver::sort_watch_lits() {
-        vector<watch_list>::iterator it  = m_watches.begin();
-        vector<watch_list>::iterator end = m_watches.end();
-        for (; it != end; ++it) {
-            watch_list & wlist = *it;
+        for (watch_list & wlist : m_watches) {
             std::stable_sort(wlist.begin(), wlist.end(), watched_lt());
         }
     }
