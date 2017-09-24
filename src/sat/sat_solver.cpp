@@ -857,8 +857,7 @@ namespace sat {
             return lookahead_search();
         }
         if (m_config.m_lookahead_cube && num_lits == 0) {
-            lookahead_cube();
-            return l_undef;
+            return lookahead_cube();
         }
         if (m_config.m_local_search) {
             return do_local_search(num_lits, lits);
@@ -952,16 +951,18 @@ namespace sat {
         return r;
     }
 
-    void solver::lookahead_cube() {
+    lbool solver::lookahead_cube() {
         lookahead lh(*this);
+        lbool r = l_undef;
         try {
-            lh.cube();
+            r = lh.cube();
         }
         catch (z3_exception&) {
             lh.collect_statistics(m_aux_stats);
             throw;
         }
         lh.collect_statistics(m_aux_stats);
+        return r;
     }
 
     lbool solver::lookahead_search() {

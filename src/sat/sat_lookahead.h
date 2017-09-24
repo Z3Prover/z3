@@ -444,13 +444,15 @@ namespace sat {
         void assign(literal l);
         void propagated(literal l);
         bool backtrack(literal_vector& trail);
+        bool backtrack(literal_vector& trail, svector<bool> & is_decision);
         lbool search();
         void init_model();
         std::ostream& display_binary(std::ostream& out) const;
         std::ostream& display_clauses(std::ostream& out) const;
         std::ostream& display_values(std::ostream& out) const;
         std::ostream& display_lookahead(std::ostream& out) const;
-        std::ostream& display_cube(std::ostream& out) const;
+        std::ostream& display_cube(std::ostream& out, literal_vector const& cube) const;
+        void display_search_string();
 
         void init_search();
         void checkpoint();
@@ -486,7 +488,7 @@ namespace sat {
            If cut-depth != 0, then it is used to control the depth of cuts.
            Otherwise, cut-fraction gives an adaptive threshold for creating cuts.
         */
-        void cube();
+        lbool cube();
 
         literal select_lookahead(literal_vector const& assumptions, bool_var_vector const& vars);
         /**

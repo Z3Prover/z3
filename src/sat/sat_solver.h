@@ -403,7 +403,7 @@ namespace sat {
         void exchange_par();
         lbool check_par(unsigned num_lits, literal const* lits);
         lbool lookahead_search();
-        void  lookahead_cube();
+        lbool  lookahead_cube();
         lbool do_local_search(unsigned num_lits, literal const* lits);
         lbool do_ccc();
 
