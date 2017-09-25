@@ -181,12 +181,15 @@ public:
             m_stack.pop();
         }
     }
-	void erase(typename std::map < A, B, _Pr, _Alloc>::const_iterator & it) {
-		erase(it->first);
-	}
-	void erase(typename std::map < A, B, _Pr, _Alloc>::reverse_iterator & it) {
-		erase(it->first);
-	}
+    void erase(const typename std::map < A, B, _Pr, _Alloc>::iterator & it) {
+        erase(it->first);
+    }
+    void erase(const typename std::map < A, B, _Pr, _Alloc>::const_iterator & it) {
+        erase(it->first);
+    }
+    void erase(const typename std::map < A, B, _Pr, _Alloc>::reverse_iterator & it) {
+        erase(it->first);
+    }
     void erase(const A & key) {
         if (m_stack.empty()) {
             m_map.erase(key);

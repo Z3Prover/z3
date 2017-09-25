@@ -14,10 +14,10 @@ class disjoint_intervals {
     #ifdef Z3DEBUG
     std::set<int> m_domain;
     #endif 
-    typedef typename std::map<T, byte>::iterator iter;
-    typedef typename std::map<T, byte>::const_iterator const_iter;
-    typedef typename std::map<T, byte>::reverse_iterator riter;
-    stacked_map<T, byte> m_endpoints; // 0 means start, 1 means end, 2 means both - for a point interval
+    typedef typename std::map<T, char>::iterator iter;
+    typedef typename std::map<T, char>::const_iterator const_iter;
+    typedef typename std::map<T, char>::reverse_iterator riter;
+    stacked_map<T, char> m_endpoints; // 0 means start, 1 means end, 2 means both - for a point interval
     stacked_value<bool> m_empty;
     // constructors create an interval containing all integer numbers or an empty interval
 public:
@@ -47,7 +47,7 @@ public:
 		if (contains_all())
 			return true;
         bool neg_inf;
-        iter l;
+        const_iter l;
         bool found_left_point = get_left_point(x, neg_inf, l);
         if (!found_left_point)
             return has_neg_inf();
@@ -57,7 +57,7 @@ public:
             return true;
         return is_proper_start(l);
     }
-	void handle_right_point_in_union(iter &r, const T &y) {
+	void handle_right_point_in_union(const_iter &r, const T &y) {
 		if (pos(r) == y) {
 			if (is_start(r))
 				erase(r);
@@ -69,7 +69,7 @@ public:
 				erase(r);
 			}
 			else {
-				set_end(r);
+                            set_end(r->first);
 			}
 		}
 		else if (!is_proper_end(r))
@@ -77,25 +77,25 @@ public:
 
 		lp_assert(is_correct());
 	}
-	void handle_left_point_in_union(iter& l, const T &x, const T & y) {
-		if (pos(l) == x || pos(l) + 1 == x) {
-			if (is_proper_end(l)) {
-				l++;
-				erase(std::prev(l));
-			}
-			else {
-				set_start(x);
-			}
-		}
-		else {
-			if (!is_proper_start(l)) {
-				set_start(x);
-			}
-		}
-
-		while (l!= m_endpoints.end() && pos(l) <= x)
-			l++;
-		remove_from_the_left(y, l);
+	void handle_left_point_in_union(const_iter& l, const T &x, const T & y) {
+            if (pos(l) == x || pos(l) + 1 == x) {
+                if (is_proper_end(l)) {
+                    l++;
+                    erase(std::prev(l));
+                }
+                else {
+                    set_start(x);
+                }
+            }
+            else {
+                if (!is_proper_start(l)) {
+                    set_start(x);
+                }
+            }
+            
+            while (l!= m_endpoints.end() && pos(l) <= x)
+                l++;
+            remove_from_the_left(y, l);
 	}
 
 	void unite_with_interval(const T& x, const T& y) {
@@ -111,7 +111,7 @@ public:
 			return;
 		}
 
-		iter l, r;
+		const_iter l, r;
 		bool neg_inf, pos_inf;
 		bool found_left_point = get_left_point(x, neg_inf, l);
 		bool found_right_point = get_right_point(y, pos_inf, r);
@@ -473,28 +473,30 @@ public:
     }
 
 private:
-    bool is_start(byte x) const { return x == 0 || x == 2; }
-    bool is_start(iter & it) const {
+    bool is_start(char x) const { return x == 0 || x == 2; }
+    bool is_start(const iter & it) const { return is_start(it->second);  }
+    bool is_start(const const_iter & it) const { return is_start(it->second);  }
+    bool is_start(const riter & it) const {
         return is_start(it->second);
     }
-    bool is_start(riter & it) const {
-        return is_start(it->second);
-    }
-    bool is_end(byte x) const { return x == 1 || x == 2; }
-    bool is_end(iter & it) const {
+    bool is_end(char x) const { return x == 1 || x == 2; }
+    bool is_end(const iter & it) const {
         return is_end(it->second);
     }
-    bool is_end(riter & it) const {
+    bool is_end(const const_iter & it) const {
+        return is_end(it->second);
+    }
+    bool is_end(const riter & it) const {
         return is_end(it->second);
     }
 
-    T pos(iter & it) const {
+    T pos(const iter & it) const {
         return it->first;
     }
-    T pos(const_iter & it) const {
+    T pos(const const_iter & it) const {
         return it->first;
     }
-    T pos(riter & it) const {
+    T pos(const riter & it) const {
         return it->first;
     }
 
@@ -506,31 +508,37 @@ private:
         return it->second;
     }
 
-    bool is_proper_start(byte x) const { return x == 0; }
-    bool is_proper_start(riter &x) const { return is_proper_start(x->second);}
-    bool is_proper_start(iter &x) const { return is_proper_start(x->second);}
+    bool is_proper_start(char x) const { return x == 0; }
+    bool is_proper_start(const riter &x) const { return is_proper_start(x->second);}
+    bool is_proper_start(const iter &x) const { return is_proper_start(x->second);}
+    bool is_proper_start(const const_iter &x) const { return is_proper_start(x->second);}
         
-    bool is_proper_end(byte x) const { return x == 1; }
-    bool is_proper_end(iter & it) const {
-        return is_proper_end(it->second);
-    }
-    bool is_proper_end(riter & it) const {
+    bool is_proper_end(char x) const { return x == 1; }
+    bool is_proper_end(const iter & it) const { return is_proper_end(it->second); }
+    bool is_proper_end(const const_iter & it) const { return is_proper_end(it->second); }
+    bool is_proper_end(const riter & it) const {
         return is_proper_end(it->second);
     }
 
-    bool is_one_point_interval(byte x) const { return x == 2; }
-    bool is_one_point_interval(iter & it) const {
+    bool is_one_point_interval(char x) const { return x == 2; }
+    bool is_one_point_interval(const iter & it) const {
         return is_one_point_interval(it->second);
     }
-    bool is_one_point_interval(riter & it) const {
+    bool is_one_point_interval(const const_iter & it) const {
+        return is_one_point_interval(it->second);
+    }
+    bool is_one_point_interval(const riter & it) const {
         return is_one_point_interval(it->second);
     }
     
-    void erase(iter it) {
+    void erase(const iter& it) {
+        m_endpoints.erase(it);
+    }
+    void erase(const const_iter& it) {
         m_endpoints.erase(it);
     }
 
-    void erase(riter it) {
+    void erase(const riter& it) {
         m_endpoints.erase(it);
     }
 
@@ -546,9 +554,10 @@ private:
         m_endpoints[x] = 0;
     }
 
-    void set_start(iter &t ) {
+    void set_start(const iter &t ) {
         t->second = 0;
     }
+
 
     void set_start(riter &t ) {
         t->second = 0;
@@ -557,7 +566,7 @@ private:
     void set_end(const T& x) {
         m_endpoints[x] = 1;
     }
-    void set_end(iter& t) {
+    void set_end(const iter& t) {
         t->second = 1;
     }
 
@@ -582,7 +591,7 @@ private:
         }
         bool has_left_neig, has_right_neig;
         bool neg_inf, pos_inf;
-        iter l, r;
+        const_iter l, r;
         has_left_neig = get_left_point(x, neg_inf, l);
         has_right_neig = get_right_point(x, pos_inf, r);
         if (!has_left_neig) {
@@ -619,7 +628,7 @@ private:
                     set_end(x);
                 } else {
                     lp_assert(is_one_point_interval(l));
-                    set_start(l);
+                    set_start(l->first);
                     set_end(x);
                 }
             } else {
@@ -658,13 +667,13 @@ private:
                 erase(l);
             } else {
                 lp_assert(is_one_point_interval(l));
-                set_start(l);
+                set_start(l->first);
             }
             if (is_proper_start(r)) {
                 erase(r);
             } else {
                 lp_assert(is_one_point_interval(r));
-                set_end(r);
+                set_end(r->first);
             }
         }
 
@@ -722,11 +731,6 @@ private:
     
 
 
-    // Given x find an interval containing it
-    // it can be an outer interval - one from the complement of the regular intervals
-    bool get_containing_interval(const T& x, bool &neg_inf, iter & l, bool & plus_inf, iter& r) const {
-    }
-    
     // inserts x, if needed and return a pointer to the leftmost point that is a candidate to removal
     /*
     iter insert_start_for_unite_with_interval(const T& x) {
@@ -771,7 +775,7 @@ private:
         }
     }
 
-    void remove_from_the_left(const T & y, iter& l ) {
+    void remove_from_the_left(const T & y, const_iter& l ) {
         while (l!= m_endpoints.end() && pos(l) < y) {
             l++;
             erase(std::prev(l));

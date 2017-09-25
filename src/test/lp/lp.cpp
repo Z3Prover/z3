@@ -3099,13 +3099,13 @@ void get_random_interval(bool& neg_inf, bool& pos_inf, int& x, int &y) {
         pos_inf = true;
     } else {
         pos_inf = false;
-		if (!neg_inf) {
-			y = x + my_random() % (101 - x);
-			lp_assert(y >= x);
-		}
-		else {
-			y = my_random() % 100;
-		}
+        if (!neg_inf) {
+            y = x + my_random() % (101 - x);
+            lp_assert(y >= x);
+        }
+        else {
+            y = my_random() % 100;
+        }
     }
     lp_assert((neg_inf || (0 <= x && x <= 100)) && (pos_inf || (0 <= y && y <= 100)));
 }
@@ -3137,7 +3137,7 @@ void test_disjoint_intervals_union(disjoint_intervals<int> & d) {
     else if (pos_inf)
         d.unite_with_interval_x_pos_inf(x);
     else 
-	        d.unite_with_interval(x, y);
+        d.unite_with_interval(x, y);
 
     lp_assert(d.is_correct());
 }
@@ -3153,10 +3153,10 @@ void test_disjoint_intervals_randomly(disjoint_intervals<int> & d) {
 
 void test_disjoint_intervals() {
     disjoint_intervals<int> d;
-	for (int i = 0; i < 200; i++) {
-		test_disjoint_intervals_randomly(d);
-		d.print(std::cout);
-	}
+    for (int i = 0; i < 1000; i++) {
+        test_disjoint_intervals_randomly(d);
+        d.print(std::cout);
+    }
 }
 
 void test_lp_local(int argn, char**argv) {
