@@ -84,7 +84,9 @@ public:
                     erase(std::prev(l));
                 }
                 else {
-                    set_start(x);
+                    if (is_one_point_interval(l)) {
+                        set_start(pos(l));
+                    }
                 }
             }
             else {
@@ -124,9 +126,14 @@ public:
 				set_end(y);
 				return;
 			}
-
 			// found_right_point is true
+                        if (pos_inf) {
+                            m_endpoints.clear();
+                            set_start(x);
+                            return;
+                        }
 			remove_from_the_left(y);
+                        
 			if (pos(m_endpoints.begin()) == y || pos(m_endpoints.begin()) == y + 1) {
 				if (is_start(m_endpoints.begin()))
 					m_endpoints.erase(m_endpoints.begin());
@@ -449,23 +456,28 @@ public:
             m_empty = false;
             return;
         }
-        auto it = m_endpoints.upper_bound(x);
-        
-        if (it == m_endpoints.end()) {
-            bool pos_inf = has_pos_inf();
+        bool pos_inf;
+        const_iter r;
+        bool found_right_point = get_right_point(x, pos_inf, r);
+        if (!found_right_point) {
             m_endpoints.clear();
-            // it could be the case where x is inside of the last infinite interval with pos inf
-            if (!pos_inf)
-                set_end(x);
+            set_end(x);
             return;
         }
-        lp_assert(pos(it) > x);
-        if (is_one_point_interval(pos(it))) {
-            set_end(it->second);
+        if (pos_inf) {
+            m_endpoints.clear();
+            return;
+        }
+        lp_assert(pos(r) >= x);
+        if (pos(r) == x || pos(r) == x + 1) {
+            if (is_proper_start(r))
+                erase(r);
+            else if (is_one_point_interval(r)) {
+                set_end(pos(r));
+            } // do nothing for the proper end
         } else {
-            if (is_start(it->second)) {
+            if (!is_proper_end(r))
                 set_end(x);
-            }
         }
         
         while (!m_endpoints.empty() && m_endpoints.begin()->first < x) {
@@ -613,7 +625,7 @@ private:
                     set_start(x);
                 }
             } else {
-                lp_assert(pos(r) < x);
+                lp_assert(pos(r) > x);
                 set_one_point_interval(x);
             }
             return;
