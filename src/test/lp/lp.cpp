@@ -3153,7 +3153,7 @@ void test_disjoint_intervals_randomly(disjoint_intervals<int> & d) {
 
 void test_disjoint_intervals() {
     disjoint_intervals<int> d;
-    for (int i = 0; i < 10000; i++) {
+    for (int i = 0; i < 100000; i++) {
         test_disjoint_intervals_randomly(d);
         d.print(std::cout);
     }

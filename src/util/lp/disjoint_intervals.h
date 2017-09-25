@@ -59,7 +59,7 @@ public:
     }
 	void handle_right_point_in_union(const_iter &r, const T &y) {
 		if (pos(r) == y) {
-			if (is_start(r))
+			if (is_proper_start(r))
 				erase(r);
 			else
 				set_end(y);
@@ -135,8 +135,10 @@ public:
 			remove_from_the_left(y);
                         
 			if (pos(m_endpoints.begin()) == y || pos(m_endpoints.begin()) == y + 1) {
-				if (is_start(m_endpoints.begin()))
+				if (is_proper_start(m_endpoints.begin()))
 					m_endpoints.erase(m_endpoints.begin());
+				else 
+					set_end(pos(m_endpoints.begin()));
 				set_start(x);
 			}
 			else {
@@ -377,7 +379,7 @@ public:
             }
         }
         else { // pos(it) < x} 
-            if (is_start(it))
+            if (is_proper_start(it))
                 set_end(x);
         }
         lp_assert(is_correct());
@@ -422,7 +424,7 @@ public:
         auto it = m_endpoints.rbegin();
         lp_assert(pos(it) <= x);
         if (pos(it) == x) {
-            if (is_end(it)) {
+            if (is_proper_end(it)) {
                 m_endpoints.erase(x);
             } else {
                 set_start(x);
@@ -658,8 +660,8 @@ private:
             return;
 
         // now the cases pos(l) == pos(r) or  pos(l) + 1 == pos(r) are impossible
-        if (is_start(l)) {
-            lp_assert(is_end(r));
+        if (is_proper_start(l)) {
+            lp_assert(is_proper_end(r));
             return;
         }
             
@@ -667,8 +669,14 @@ private:
             if (pos(l) + 1 == x) {
                 erase(l);
                 set_end(x);
-            } else if (x + 1  == pos(r)) {
-                erase(r);
+			}
+			else if (x + 1 == pos(r)) {
+				if (is_proper_start(r)) {
+					erase(r);
+				}
+				else if (is_one_point_interval(r)) {
+					set_end(pos(r));
+				} 
                 set_start(x);
 			}
 			else {
