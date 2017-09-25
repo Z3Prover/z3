@@ -78,21 +78,13 @@ public:
 		lp_assert(is_correct());
 	}
 	void handle_left_point_in_union(iter& l, const T &x, const T & y) {
-		if (pos(l) == x) {
-			if (is_proper_end(l)) {
-				m_endpoints.erase(l);
-			}
-			else {
-				set_start(x);
-			}
-		}
-		else if (pos(l) + 1 == x) {
+		if (pos(l) == x || pos(l) + 1 == x) {
 			if (is_proper_end(l)) {
 				l++;
 				erase(std::prev(l));
 			}
-			else if (is_one_point_interval(l)) {
-				set_start(l);
+			else {
+				set_start(x);
 			}
 		}
 		else {
