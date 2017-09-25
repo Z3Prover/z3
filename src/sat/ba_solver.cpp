@@ -1619,11 +1619,14 @@ namespace sat {
 
     double ba_solver::get_reward(card const& c, literal_occs_fun& literal_occs) const {
         unsigned k = c.k(), slack = 0;
-        double to_add = 0;
+        bool do_add = get_config().m_lookahead_reward == heule_schur_reward;
+        double to_add = do_add ? 0: 1;
         for (literal l : c) {
             switch (value(l)) {
-            case l_true:  --k; if (k == 0) return 0; break;
-            case l_undef: to_add += literal_occs(l); ++slack; break;
+            case l_true:  --k; if (k == 0) return 0; 
+            case l_undef: 
+                if (do_add) to_add += literal_occs(l); 
+                ++slack; break;
             case l_false: break;
             }
         }
@@ -1633,14 +1636,19 @@ namespace sat {
 
     double ba_solver::get_reward(pb const& c, literal_occs_fun& occs) const {
         unsigned k = c.k(), slack = 0;
-        double to_add = 0;
+        bool do_add = get_config().m_lookahead_reward == heule_schur_reward;
+        double to_add = do_add ? 0 : 1;
         double undefs = 0;
         for (wliteral wl : c) {
             literal l = wl.second;
             unsigned w = wl.first;
             switch (value(l)) {
-            case l_true:  if (k <= w) return 0; k -= w; break;
-            case l_undef: to_add += occs(l); ++undefs; slack += w; break; // TBD multiplier factor on this
+            case l_true:  if (k <= w) return 0; 
+            case l_undef: 
+                if (do_add) to_add += occs(l);
+                ++undefs; 
+                slack += w; 
+                break; // TBD multiplier factor on this
             case l_false: break;
             }
         }

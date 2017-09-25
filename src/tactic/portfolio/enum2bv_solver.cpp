@@ -85,6 +85,7 @@ public:
     }
 
     virtual lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions) {
+        m_solver->updt_params(m_params);
         return m_solver->check_sat(num_assumptions, assumptions);
     }
 

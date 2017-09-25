@@ -191,9 +191,9 @@ static void test_eq1(unsigned n, sorting_network_encoding enc) {
     }
     smt_params fp;
     smt::kernel solver(m, fp);
-    sorting_network_config cfg;
-    cfg.m_encoding = enc;
-    psort_nw<ast_ext2> sn(ext, cfg);
+    psort_nw<ast_ext2> sn(ext);
+    sn.cfg().m_encoding = enc;
+
     expr_ref result1(m), result2(m);
 
     // equality:
@@ -237,9 +237,8 @@ static void test_sorting_eq(unsigned n, unsigned k, sorting_network_encoding enc
     }
     smt_params fp;
     smt::kernel solver(m, fp);
-    sorting_network_config cfg;
-    cfg.m_encoding = enc;
-    psort_nw<ast_ext2> sn(ext, cfg);
+    psort_nw<ast_ext2> sn(ext);
+    sn.cfg().m_encoding = enc;
     expr_ref result(m);
 
     // equality:
@@ -288,9 +287,8 @@ static void test_sorting_le(unsigned n, unsigned k, sorting_network_encoding enc
     }
     smt_params fp;
     smt::kernel solver(m, fp);
-    sorting_network_config cfg;
-    cfg.m_encoding = enc;
-    psort_nw<ast_ext2> sn(ext, cfg);
+    psort_nw<ast_ext2> sn(ext);
+    sn.cfg().m_encoding = enc;
     expr_ref result(m);
     // B <= k
     std::cout << "le " << k << "\n";
@@ -337,9 +335,8 @@ void test_sorting_ge(unsigned n, unsigned k, sorting_network_encoding enc) {
     }
     smt_params fp;
     smt::kernel solver(m, fp);
-    sorting_network_config cfg;
-    cfg.m_encoding = enc;
-    psort_nw<ast_ext2> sn(ext, cfg);
+    psort_nw<ast_ext2> sn(ext);
+    sn.cfg().m_encoding = enc;
     expr_ref result(m);
     // k <= B
     std::cout << "ge " << k << "\n";
@@ -402,9 +399,8 @@ void test_at_most_1(unsigned n, bool full, sorting_network_encoding enc) {
     }
 
     ast_ext2 ext(m);
-    sorting_network_config cfg;
-    cfg.m_encoding = enc;
-    psort_nw<ast_ext2> sn(ext, cfg);
+    psort_nw<ast_ext2> sn(ext);
+    sn.cfg().m_encoding = enc;
     expr_ref result1(m), result2(m);
     result1 = sn.le(full, 1, in.size(), in.c_ptr());
     result2 = naive_at_most1(in);
@@ -481,9 +477,8 @@ static void test_at_most1(sorting_network_encoding enc) {
     in[4] = in[3].get();
 
     ast_ext2 ext(m);
-    sorting_network_config cfg;
-    cfg.m_encoding = enc;
-    psort_nw<ast_ext2> sn(ext, cfg);
+    psort_nw<ast_ext2> sn(ext);
+    sn.cfg().m_encoding = enc;
     expr_ref result(m);
     result = sn.le(true, 1, in.size(), in.c_ptr());
     std::cout << result << "\n";

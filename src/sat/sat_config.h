@@ -57,6 +57,13 @@ namespace sat {
         PB_TOTALIZER
     };
 
+    enum reward_t {
+        ternary_reward,
+        unit_literal_reward,
+        heule_schur_reward,
+        heule_unit_reward
+    };
+
     struct config {
         unsigned long long m_max_memory;
         phase_selection    m_phase;
@@ -78,7 +85,7 @@ namespace sat {
         bool               m_lookahead_cube;
         unsigned           m_lookahead_cube_cutoff;
         double             m_lookahead_cube_fraction;
-        symbol             m_lookahead_reward;
+        reward_t           m_lookahead_reward;
 
         unsigned           m_simplify_mult1;
         double             m_simplify_mult2;

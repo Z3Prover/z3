@@ -43,7 +43,6 @@ struct pb2bv_rewriter::imp {
     struct card2bv_rewriter {               
         typedef expr* literal;
         typedef ptr_vector<expr> literal_vector;
-        sorting_network_config m_cfg;
         psort_nw<card2bv_rewriter> m_sort;
         ast_manager& m;
         imp&         m_imp;
@@ -572,7 +571,7 @@ struct pb2bv_rewriter::imp {
     public:
 
         card2bv_rewriter(imp& i, ast_manager& m):            
-            m_sort(*this, m_cfg),
+            m_sort(*this),
             m(m),
             m_imp(i),
             au(m),
@@ -786,7 +785,7 @@ struct pb2bv_rewriter::imp {
         void pb_totalizer(bool f) {
             m_pb_totalizer = f;
         }
-        void set_at_most1(sorting_network_encoding enc) { m_cfg.m_encoding = enc; }
+        void set_at_most1(sorting_network_encoding enc) { m_sort.cfg().m_encoding = enc; }
 
     };
 
@@ -852,7 +851,7 @@ struct pb2bv_rewriter::imp {
 
 
     sorting_network_encoding atmost1_encoding() const {
-        symbol enc = m_params.get_sym("atmost1_encoding", enc);
+        symbol enc = m_params.get_sym("atmost1_encoding", symbol());
         if (enc == symbol()) {
             enc = gparams::get_module("sat").get_sym("atmost1_encoding", symbol());
         }

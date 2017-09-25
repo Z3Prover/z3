@@ -1299,7 +1299,7 @@ namespace sat {
             case watched::EXT_CONSTRAINT: {
                 SASSERT(m_s.m_ext);
                 bool keep = m_s.m_ext->propagate(l, it->get_ext_constraint_idx());
-                if (m_search_mode == lookahead_mode::lookahead1) {
+                if (m_search_mode == lookahead_mode::lookahead1 && !m_inconsistent) {
                     lookahead_literal_occs_fun literal_occs_fn(*this);
                     m_lookahead_reward += m_s.m_ext->get_reward(l, it->get_ext_constraint_idx(), literal_occs_fn);
                 }
@@ -2065,21 +2065,7 @@ namespace sat {
     }
 
     void lookahead::init_config() {
-        if (m_s.m_config.m_lookahead_reward == symbol("hs")) {
-            m_config.m_reward_type = heule_schur_reward;
-        }
-        else if (m_s.m_config.m_lookahead_reward == symbol("heuleu")) {
-            m_config.m_reward_type = heule_unit_reward;
-        }
-        else if (m_s.m_config.m_lookahead_reward == symbol("ternary")) {
-            m_config.m_reward_type = ternary_reward;
-        }
-        else if (m_s.m_config.m_lookahead_reward == symbol("unit")) {
-            m_config.m_reward_type = unit_literal_reward;
-        }
-        else { 
-            warning_msg("Reward type not recognized");
-        }
+        m_config.m_reward_type = m_s.m_config.m_lookahead_reward;
         m_config.m_cube_cutoff = m_s.m_config.m_lookahead_cube_cutoff;
         m_config.m_cube_fraction = m_s.m_config.m_lookahead_cube_fraction;
     }

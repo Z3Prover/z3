@@ -208,7 +208,9 @@ Notes:
             }
         };
 
-        psort_nw(psort_expr& c, sorting_network_config const& cfg): ctx(c), m_cfg(cfg) {}
+        psort_nw(psort_expr& c): ctx(c) {}
+
+        sorting_network_config& cfg() { return m_cfg; }
 
         literal ge(bool full, unsigned k, unsigned n, literal const* xs) {
             if (k > n) {

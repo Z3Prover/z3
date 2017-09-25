@@ -66,13 +66,6 @@ namespace sat {
         friend class ccc;
         friend class ba_solver;
 
-        enum reward_t {
-            ternary_reward,
-            unit_literal_reward,
-            heule_schur_reward,
-            heule_unit_reward
-        };
-
         struct config {
             double   m_dl_success;
             double   m_alpha;

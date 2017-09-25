@@ -1441,8 +1441,7 @@ namespace smt {
         theory_pb_params p;
         theory_pb th(ctx.get_manager(), p);
         psort_expr ps(ctx, th);
-        sorting_network_config cfg;
-        psort_nw<psort_expr> sort(ps, cfg);
+        psort_nw<psort_expr> sort(ps);
         return sort.ge(false, k, n, xs);
     }
 
@@ -1578,8 +1577,7 @@ namespace smt {
 
 
         psort_expr ps(ctx, *this);
-        sorting_network_config cfg;
-        psort_nw<psort_expr> sortnw(ps, cfg);
+        psort_nw<psort_expr> sortnw(ps);
         sortnw.m_stats.reset();
 
         if (ctx.get_assignment(thl) == l_true  && 

@@ -87,7 +87,22 @@ namespace sat {
         m_lookahead_simplify = p.lookahead_simplify();
         m_lookahead_cube = p.lookahead_cube();
         m_lookahead_search = p.lookahead_search();
-        m_lookahead_reward = p.lookahead_reward();
+        if (p.lookahead_reward() == symbol("hs")) {
+            m_lookahead_reward = heule_schur_reward;
+        }
+        else if (p.lookahead_reward() == symbol("heuleu")) {
+            m_lookahead_reward = heule_unit_reward;
+        }
+        else if (p.lookahead_reward() == symbol("ternary")) {
+            m_lookahead_reward = ternary_reward;
+        }
+        else if (p.lookahead_reward() == symbol("unit")) {
+            m_lookahead_reward = unit_literal_reward;
+        }
+        else { 
+            throw sat_param_exception("invalid reward type supplied: accepted heuristics are 'ternary', 'heuleu', 'unit' or 'heule_schur'");
+        }
+
         m_lookahead_cube_fraction = p.lookahead_cube_fraction();
         m_lookahead_cube_cutoff = p.lookahead_cube_cutoff();
 

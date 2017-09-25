@@ -32,13 +32,12 @@ namespace opt {
     public:
         typedef expr* literal;
         typedef ptr_vector<expr> literal_vector;
-        sorting_network_config m_cfg;
         psort_nw<sortmax> m_sort;
         expr_ref_vector   m_trail;
         func_decl_ref_vector m_fresh;
         ref<filter_model_converter> m_filter;
         sortmax(maxsat_context& c, weights_t& ws, expr_ref_vector const& soft): 
-            maxsmt_solver_base(c, ws, soft), m_sort(*this, m_cfg), m_trail(m), m_fresh(m) {}
+            maxsmt_solver_base(c, ws, soft), m_sort(*this), m_trail(m), m_fresh(m) {}
 
         virtual ~sortmax() {}
 

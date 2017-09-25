@@ -1060,10 +1060,12 @@ namespace sat {
                 it.next();
             }
 
-            ext_constraint_list const& ext_list = s.m_ext_use_list.get(~l);
-            for (ext_constraint_idx idx : ext_list) {
-                if (!s.s.m_ext->is_blocked(l, idx)) {
-                    return false;
+            if (s.s.m_ext) {
+                ext_constraint_list const& ext_list = s.m_ext_use_list.get(~l);
+                for (ext_constraint_idx idx : ext_list) {
+                    if (!s.s.m_ext->is_blocked(l, idx)) {
+                        return false;
+                    }
                 }
             }
             return true;
