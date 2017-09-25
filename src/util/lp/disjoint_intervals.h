@@ -152,12 +152,14 @@ public:
 					set_end(y);
 				return;
 			}
-			if (pos(m_endpoints.rbegin()) == x) {
-				if (is_proper_end(m_endpoints.rbegin()))
+			if (pos(m_endpoints.rbegin()) == x || pos(m_endpoints.rbegin()) == x - 1) {
+				if (is_proper_end(m_endpoints.rbegin())) {
 					m_endpoints.erase(m_endpoints.rbegin());
-				else {
-					set_end(y);
 				}
+				else if (is_one_point_interval(m_endpoints.rbegin())) {
+					set_start(pos(m_endpoints.rbegin()));
+				}
+				set_end(y);
 			}
 			else {
 				if (is_end(m_endpoints.rbegin())) {
