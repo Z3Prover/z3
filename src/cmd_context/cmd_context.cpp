@@ -1763,7 +1763,7 @@ void cmd_context::validate_model() {
                     continue;
                 }
                 try {
-                    for_each_expr(contains_underspecified, r);
+                    for_each_expr(contains_underspecified, a);
                 }
                 catch (contains_underspecified_op_proc::found) {
                     continue;
