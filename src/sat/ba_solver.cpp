@@ -1534,8 +1534,8 @@ namespace sat {
         }
         else {
             s().set_external(lit.var());
-            get_wlist(lit).push_back(c->index());
-            get_wlist(~lit).push_back(c->index());
+            get_wlist(lit).push_back(watched(c->index()));
+            get_wlist(~lit).push_back(watched(c->index()));
         }        
         SASSERT(c->well_formed());
     }
@@ -2636,8 +2636,8 @@ namespace sat {
             root = m_roots[c.lit().index()];
             nullify_tracking_literal(c);
             c.update_literal(root);
-            get_wlist(root).push_back(c.index());
-            get_wlist(~root).push_back(c.index());
+            get_wlist(root).push_back(watched(c.index()));
+            get_wlist(~root).push_back(watched(c.index()));
         }
 
         bool found_dup = false;

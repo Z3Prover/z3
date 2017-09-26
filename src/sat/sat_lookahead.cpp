@@ -312,6 +312,39 @@ namespace sat {
     }
 
     bool lookahead::is_unsat() const {
+#ifdef NEW_CLAUSE
+        bool all_false = true;
+        bool first = true;
+        // check if there is a clause whose literals are false.
+        // every clause is terminated by a null-literal.
+        for (unsigned l_idx : m_clause_literals) {
+            literal l = to_literal(l_idx);
+            if (first) {
+                // skip the first entry, the length indicator.
+                first = false;
+            }
+            else if (l == null_literal) {
+                // when reaching the end of a clause check if all entries are false
+                if (all_false) return true;
+                all_false = true;
+                first = true;
+            }
+            else {
+                all_false &= is_false(l);
+            }
+        }
+        // check if there is a ternary whose literals are false.
+        for (unsigned idx = 0; idx < m_ternary.size(); ++idx) {
+            literal lit = to_literal(idx);
+            if (is_false(lit)) {
+                for (binary const& b : m_ternary[lit.index()]) {
+                    if (is_false(b.m_u) && is_false(b.m_v)) 
+                        return true;
+                }
+            }
+        }
+        
+#else
         for (unsigned i = 0; i < m_clauses.size(); ++i) {
             clause& c = *m_clauses[i];
             unsigned j = 0;
@@ -322,6 +355,7 @@ namespace sat {
                 return true;
             }
         }
+#endif
         return false;
     }
 
@@ -344,6 +378,37 @@ namespace sat {
                 }
             }
         }
+#ifdef NEW_CLAUSE
+        bool no_true = true;
+        bool first = true;
+        // check if there is a clause whose literals are false.
+        // every clause is terminated by a null-literal.
+        for (unsigned l_idx : m_clause_literals) {
+            literal l = to_literal(l_idx);
+            if (first) {
+                // skip the first entry, the length indicator.
+                first = false;
+            }
+            else if (l == null_literal) {
+                if (no_true) return false;
+                no_true = true;
+                first = true;
+            }
+            else {
+                no_true &= !is_true(l);
+            }
+        }
+        // check if there is a ternary whose literals are false.
+        for (unsigned idx = 0; idx < m_ternary.size(); ++idx) {
+            literal lit = to_literal(idx);
+            if (!is_true(lit)) {
+                for (binary const& b : m_ternary[lit.index()]) {
+                    if (!is_true(b.m_u) && !is_true(b.m_v)) 
+                        return false;
+                }
+            }
+        }        
+#else
         for (unsigned i = 0; i < m_clauses.size(); ++i) {
             clause& c = *m_clauses[i];
             unsigned j = 0;
@@ -352,6 +417,7 @@ namespace sat {
                 return false;
             }
         }
+#endif
         return true;
     }
 
@@ -867,6 +933,7 @@ namespace sat {
     // ------------------------------------
     // clause management
 
+#ifndef NEW_CLAUSE
     void lookahead::attach_clause(clause& c) {
         if (c.size() == 3) { 
             attach_ternary(c[0], c[1], c[2]);
@@ -913,6 +980,7 @@ namespace sat {
         m_watches[(~l2).index()].push_back(watched(l1, l3));
         m_watches[(~l3).index()].push_back(watched(l1, l2));            
     }
+#endif
 
     // ------------------------------------
     // initialization
@@ -992,6 +1060,26 @@ namespace sat {
 
     void lookahead::copy_clauses(clause_vector const& clauses) {
         // copy clauses
+#ifdef NEW_CLAUSE
+        for (clause* cp : clauses) {
+            clause& c = *cp;
+            if (c.was_removed()) continue;
+            // enable when there is a non-ternary reward system.
+            bool was_eliminated = false;
+            for (unsigned i = 0; !was_eliminated && i < c.size(); ++i) {
+                was_eliminated = m_s.was_eliminated(c[i].var());
+            }
+            if (was_eliminated) continue;
+
+            switch (c.size()) {
+            case 1: assign(c[0]); break;
+            case 2: add_binary(c[0],c[1]); break;
+            case 3: add_ternary(c[0],c[1],c[2]); break;
+            default: add_clause(c); break;
+            }
+            if (m_s.m_config.m_drat) m_drat.add(c, false);
+        }
+#else
         for (clause* cp : clauses) {
             clause& c = *cp;
             if (c.was_removed()) continue;
@@ -1011,6 +1099,7 @@ namespace sat {
             }
             if (m_s.m_config.m_drat) m_drat.add(c, false);
         }
+#endif
     }
 
     // ------------------------------------
@@ -1022,8 +1111,10 @@ namespace sat {
         m_binary_trail_lim.push_back(m_binary_trail.size());
         m_trail_lim.push_back(m_trail.size());
         m_num_tc1_lim.push_back(m_num_tc1);
+#ifndef NEW_CLAUSE
         m_retired_clause_lim.push_back(m_retired_clauses.size());
         m_retired_ternary_lim.push_back(m_retired_ternary.size());
+#endif
         m_qhead_lim.push_back(m_qhead);
         scoped_level _sl(*this, level);
         m_assumptions.push_back(~lit);
@@ -1053,6 +1144,7 @@ namespace sat {
         m_num_tc1 = m_num_tc1_lim.back();
         m_num_tc1_lim.pop_back();
 
+#ifndef NEW_CLAUSE
         // unretire clauses
         old_sz = m_retired_clause_lim.back();
         for (unsigned i = old_sz; i < m_retired_clauses.size(); ++i) {
@@ -1067,7 +1159,14 @@ namespace sat {
         }
         m_retired_ternary.shrink(old_sz);
         m_retired_ternary_lim.pop_back();
-            
+#else
+        for (unsigned i = m_qhead; i > m_qhead_lim.back(); ) {
+            --i;
+            restore_ternary(m_trail[i]);
+            restore_clauses(m_trail[i]);
+        }
+#endif            
+
         // remove local binary clauses
         old_sz = m_binary_trail_lim.back();            
         for (unsigned i = m_binary_trail.size(); i > old_sz; ) {
@@ -1176,9 +1275,9 @@ namespace sat {
         m_ternary[u.index()].push_back(binary(v, w));
         m_ternary[v.index()].push_back(binary(w, u));
         m_ternary[w.index()].push_back(binary(u, v));
-        m_ternary_size[u.index()]++;
-        m_ternary_size[v.index()]++;
-        m_ternary_size[w.index()]++;
+        m_ternary_count[u.index()]++;
+        m_ternary_count[v.index()]++;
+        m_ternary_count[w.index()]++;
     }
 
     lbool lookahead::propagate_ternary(literal l1, literal l2) {
@@ -1211,7 +1310,7 @@ namespace sat {
     }
 
     void lookahead::propagate_ternary(literal l) {
-        unsigned sz = m_ternary_size[(~l).index()];
+        unsigned sz = m_ternary_count[(~l).index()];
         svector<binary> const& negs = m_ternary[(~l).index()];
 
         switch (m_search_mode) {
@@ -1235,7 +1334,7 @@ namespace sat {
                 remove_ternary(l1, l2, l);
                 remove_ternary(l2, l, l1);
             }    
-            sz = m_ternary_size[l.index()];
+            sz = m_ternary_count[l.index()];
             svector<binary> const& poss = m_ternary[l.index()];
         
             // ternary clauses where l is positive are tautologies
@@ -1273,7 +1372,7 @@ namespace sat {
 
     void lookahead::remove_ternary(literal l, literal u, literal v) {
         unsigned idx = l.index();
-        unsigned sz = m_ternary_size[idx]--;
+        unsigned sz = m_ternary_count[idx]--;
         auto& tv = m_ternary[idx];
         for (unsigned i = sz; i > 0; ) {
             --i;
@@ -1288,26 +1387,67 @@ namespace sat {
 
     void lookahead::restore_ternary(literal l) {
         for (binary const& b : m_ternary[(~l).index()]) {
-            m_ternary_size[b.m_u.index()]++;
-            m_ternary_size[b.m_v.index()]++;
+            m_ternary_count[b.m_u.index()]++;
+            m_ternary_count[b.m_v.index()]++;
         }
         for (binary const& b : m_ternary[l.index()]) {
-            m_ternary_size[b.m_u.index()]++;
-            m_ternary_size[b.m_v.index()]++;
+            m_ternary_count[b.m_u.index()]++;
+            m_ternary_count[b.m_v.index()]++;
         }
     }
 
+    void lookahead::propagate_external(literal l) {
+        SASSERT(is_true(l));
+        if (!m_s.m_ext || inconsistent()) return;
+        watch_list& wlist = m_watches[l.index()];
+        watch_list::iterator it = wlist.begin(), it2 = it, end = wlist.end();
+        for (; it != end && !inconsistent(); ++it) {
+            SASSERT(it->get_kind() == watched::EXT_CONSTRAINT);
+            bool keep = m_s.m_ext->propagate(l, it->get_ext_constraint_idx());
+            if (m_search_mode == lookahead_mode::lookahead1 && !m_inconsistent) {
+                lookahead_literal_occs_fun literal_occs_fn(*this);
+                m_lookahead_reward += m_s.m_ext->get_reward(l, it->get_ext_constraint_idx(), literal_occs_fn);
+            }
+            if (m_inconsistent) {
+                if (!keep) ++it;
+            }
+            else if (keep) {
+                *it2 = *it;
+                it2++;
+            }
+        }
+        for (; it != end; ++it, ++it2) {
+            *it2 = *it;                         
+        }
+        wlist.set_end(it2);        
+    }
+
+    
     // new n-ary clause managment
-    void lookahead::propagate_clauses2_searching(literal l) {
+
+    void lookahead::add_clause(clause const& c) {
+        unsigned sz = c.size();        
+        SASSERT(sz > 3);
+        unsigned idx = m_clause_literals.size();
+        m_clause_literals.push_back(sz);
+        for (literal l : c) {
+            m_clause_literals.push_back(l.index());
+            m_clause_count[l.index()]++;
+            m_clauses[l.index()].push_back(idx);
+        }
+        m_clause_literals.push_back(null_literal.index());        
+    }
+
+    void lookahead::propagate_clauses_searching(literal l) {
         // clauses where l is negative
-        unsigned_vector const& nclauses = m_clauses2[(~l).index()];
+        unsigned_vector const& nclauses = m_clauses[(~l).index()];
         unsigned sz = m_clause_count[(~l).index()];
         literal lit;
         SASSERT(m_search_mode == lookahead_mode::searching);
 
         for (unsigned i = 0; i < sz; ++i) {
             unsigned idx = nclauses[i];
-            unsigned len = --m_clause_len[idx];
+            unsigned len = --m_clause_literals[idx];
             if (len <= 1) continue; // already processed
             // find the two unassigned literals, if any
             if (len == 2) {
@@ -1315,7 +1455,7 @@ namespace sat {
                 literal l2 = null_literal;
                 unsigned j = idx;
                 bool found_true = false;
-                while ((lit = m_clause_literals[j++]) != null_literal) {
+                while ((lit = to_literal(m_clause_literals[++j])) != null_literal) {
                     if (!is_fixed(lit)) {
                         if (l1 == null_literal) {
                             l1 = lit;
@@ -1327,7 +1467,7 @@ namespace sat {
                         }
                     }
                     else if (is_true(lit)) {
-                        std::swap(m_clause_literals[j], m_clause_literals[idx]);
+                        // can't swap with idx. std::swap(m_clause_literals[j], m_clause_literals[idx]);
                         found_true = true;
                         break;
                     }
@@ -1338,7 +1478,7 @@ namespace sat {
                 else if (l1 == null_literal) {
                     set_conflict();
                     for (++i; i < sz; ++i) {
-                        --m_clause_len[nclauses[i]];
+                        --m_clause_literals[nclauses[i]];
                     }
                 }
                 else if (l2 == null_literal) {
@@ -1357,16 +1497,16 @@ namespace sat {
             }
         }
         // clauses where l is positive:
-        unsigned_vector const& pclauses = m_clauses2[l.index()];
+        unsigned_vector const& pclauses = m_clauses[l.index()];
         sz = m_clause_count[l.index()];
         for (unsigned i = 0; i < sz; ++i) {
             remove_clause_at(l, pclauses[i]);
         }
     }
 
-    void lookahead::propagate_clauses2_lookahead(literal l) {
+    void lookahead::propagate_clauses_lookahead(literal l) {
         // clauses where l is negative
-        unsigned_vector const& nclauses = m_clauses2[(~l).index()];
+        unsigned_vector const& nclauses = m_clauses[(~l).index()];
         unsigned sz = m_clause_count[(~l).index()];
         literal lit;
         SASSERT(m_search_mode == lookahead_mode::lookahead1 ||
@@ -1379,7 +1519,7 @@ namespace sat {
             unsigned j = idx;
             bool found_true = false;
             unsigned nonfixed = 0;
-            while ((lit = m_clause_literals[j++]) != null_literal) {
+            while ((lit = to_literal(m_clause_literals[++j])) != null_literal) {
                 if (!is_fixed(lit)) {
                     ++nonfixed;
                     if (l1 == null_literal) {
@@ -1413,7 +1553,7 @@ namespace sat {
                 case heule_schur_reward: {
                     j = idx;
                     double to_add = 0;
-                    while ((lit = m_clause_literals[j++]) != null_literal) {
+                    while ((lit = to_literal(m_clause_literals[++j])) != null_literal) {
                         if (!is_fixed(lit)) {
                             to_add += literal_occs(lit);
                         }
@@ -1443,7 +1583,7 @@ namespace sat {
     void lookahead::remove_clause_at(literal l, unsigned clause_idx) {
         unsigned j = clause_idx;
         literal lit;
-        while ((lit = m_clause_literals[j++]) != null_literal) {
+        while ((lit = to_literal(m_clause_literals[++j])) != null_literal) {
             if (lit != l) {
                 remove_clause(lit, clause_idx);
             }
@@ -1451,7 +1591,7 @@ namespace sat {
     }
 
     void lookahead::remove_clause(literal l, unsigned clause_idx) {
-        unsigned_vector& pclauses = m_clauses2[l.index()];
+        unsigned_vector& pclauses = m_clauses[l.index()];
         unsigned sz = m_clause_count[l.index()]--;
         for (unsigned i = sz; i > 0; ) {
             --i;
@@ -1463,24 +1603,24 @@ namespace sat {
         UNREACHABLE();
     }
 
-    void lookahead::restore_clauses2(literal l) {
+    void lookahead::restore_clauses(literal l) {
         SASSERT(m_search_mode == lookahead_mode::searching);
 
         // increase the length of clauses where l is negative
-        unsigned_vector const& nclauses = m_clauses2[(~l).index()];
+        unsigned_vector const& nclauses = m_clauses[(~l).index()];
         unsigned sz = m_clause_count[(~l).index()];
         for (unsigned i = 0; i < sz; ++i) {
-            ++m_clause_len[nclauses[i]]; 
+            ++m_clause_literals[nclauses[i]]; 
         }
 
         // add idx back to clause list where l is positive
-        unsigned_vector const& pclauses = m_clauses2[l.index()];
+        unsigned_vector const& pclauses = m_clauses[l.index()];
         sz = m_clause_count[l.index()];
         for (unsigned i = 0; i < sz; ++i) {
             unsigned idx = pclauses[i];
             unsigned j = idx;
             literal lit;
-            while ((lit = m_clause_literals[j++]) != null_literal) {
+            while ((lit = to_literal(m_clause_literals[++j])) != null_literal) {
                 if (lit != l) {
                     m_clause_count[lit.index()]++;
                 }
@@ -1488,24 +1628,21 @@ namespace sat {
         }
     }
 
-    // TBD: this should not be necessary
-    void lookahead::restore_clauses2() {
-        // restore clauses that were reduced to binary.
-        unsigned old_sz = m_removed_clauses_lim.back();
-        for (unsigned i = m_removed_clauses.size(); i > old_sz; ) {
-            --i;
-            std::pair<literal, unsigned> const& p = m_removed_clauses[i];
-            literal l = p.first, lit;
-            unsigned j = p.second;
-            while ((lit = m_clause_literals[j++]) != null_literal) {
-                if (lit != l) {
-                    m_clause_count[lit.index()]++;
-                }
-            }
+    void lookahead::propagate_clauses(literal l) {
+        propagate_ternary(l);
+        switch (m_search_mode) {
+        case lookahead_mode::searching:
+            propagate_clauses_searching(l);
+            break;
+        default:
+            propagate_clauses_lookahead(l);
+            break;
         }
+        propagate_external(l);
     }
+    
 
-#endif
+#else 
     void lookahead::propagate_clauses(literal l) {
         SASSERT(is_true(l));
         if (inconsistent()) return;
@@ -1660,6 +1797,7 @@ namespace sat {
         }
         wlist.set_end(it2);        
     }
+#endif
 
     void lookahead::update_binary_clause_reward(literal l1, literal l2) {
         SASSERT(!is_false(l1));
@@ -1715,6 +1853,11 @@ namespace sat {
     // Sum_{ clause C that contains ~l } 1 
     double lookahead::literal_occs(literal l) {
         double result = m_binary[l.index()].size();
+#ifdef NEW_CLAUSE
+        unsigned_vector const& nclauses = m_clauses[(~l).index()];
+        result += m_clause_count[(~l).index()];
+        result += m_ternary_count[(~l).index()];
+#else
         for (clause const* c : m_full_watches[l.index()]) {
             bool has_true = false;
             for (literal l : *c) {
@@ -1725,6 +1868,7 @@ namespace sat {
                 result += 1.0;
             }
         }
+#endif
         return result;
     }
 
@@ -1747,11 +1891,10 @@ namespace sat {
                 TRACE("sat", tout << "propagate " << l << " @ " << m_level << "\n";);
                 propagate_binary(l);
             }
-            i = m_qhead;
-            for (; i < sz && !inconsistent(); ++i) {            
-                propagate_clauses(m_trail[i]);
+            while (m_qhead < sz && !inconsistent()) {
+                propagate_clauses(m_trail[m_qhead++]);
             }
-            m_qhead = sz;
+            SASSERT(m_qhead == sz || (inconsistent() && m_qhead < sz));
         }
 
         TRACE("sat_verbose", display(tout << scope_lvl() << " " << (inconsistent()?"unsat":"sat") << "\n"););
@@ -2179,9 +2322,37 @@ namespace sat {
     }
 
     std::ostream& lookahead::display_clauses(std::ostream& out) const {
+#ifdef NEW_CLAUSE
+        bool first = true;
+        for (unsigned l_idx : m_clause_literals) {
+            literal l = to_literal(l_idx);
+            if (first) {
+                // skip the first entry, the length indicator.
+                first = false;
+            }
+            else if (l == null_literal) {
+                first = true;
+                out << "\n";
+            }
+            else {
+                out << l << " ";
+            }
+        }
+
+        for (unsigned idx = 0; idx < m_ternary.size(); ++idx) {
+            literal lit = to_literal(idx);
+            for (binary const& b : m_ternary[idx]) {
+                if (idx < b.m_u.index() && idx << b.m_v.index()) {
+                    out << lit << " " << b.m_u << " " << b.m_v << "\n";
+                }
+            }
+        }
+
+#else
         for (unsigned i = 0; i < m_clauses.size(); ++i) {
             out << *m_clauses[i] << "\n";
         }
+#endif
         return out;
     }
 
@@ -2409,7 +2580,11 @@ namespace sat {
 
     void lookahead::collect_statistics(statistics& st) const {
         st.update("lh bool var", m_vprefix.size());
+#ifndef NEW_CLAUSE
         st.update("lh clauses",  m_clauses.size());
+#else
+        // TBD: keep count of ternary and >3-ary clauses.
+#endif
         st.update("lh add binary", m_stats.m_add_binary);
         st.update("lh del binary", m_stats.m_del_binary);
         st.update("lh add ternary", m_stats.m_add_ternary);

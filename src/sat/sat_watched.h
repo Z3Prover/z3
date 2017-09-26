@@ -72,7 +72,7 @@ namespace sat {
             SASSERT(get_clause_offset() == cls_off);
         }
 
-        watched(ext_constraint_idx cnstr_idx):
+        explicit watched(ext_constraint_idx cnstr_idx):
             m_val1(cnstr_idx),
             m_val2(static_cast<unsigned>(EXT_CONSTRAINT)) {
             SASSERT(is_ext_constraint());

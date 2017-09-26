@@ -20,7 +20,7 @@ Notes:
 #ifndef _SAT_LOOKAHEAD_H_
 #define _SAT_LOOKAHEAD_H_
 
-#define NEW_CLAUSE
+// #define NEW_CLAUSE
 
 #include "sat_elim_eqs.h"
 
@@ -153,25 +153,26 @@ namespace sat {
         // specialized clause managemet uses ternary clauses and dedicated clause data-structure.
         // this will replace m_clauses below
         vector<svector<binary>> m_ternary;        // lit |-> vector of ternary clauses
-        unsigned_vector         m_ternary_size;   // lit |-> current number of active ternary clauses for lit
+        unsigned_vector         m_ternary_count;   // lit |-> current number of active ternary clauses for lit
         unsigned_vector         m_ternary_trail_lim; // limit for ternary vectors.
 
-        vector<unsigned_vector> m_clauses2;     // lit |-> vector of clause_id
-        unsigned_vector         m_clause_count; // lit |-> number of valid clause_id in m_clauses2[lit]
-        unsigned_vector         m_clause_len;   // clause_id |-> current clause length, clauses are terminated using null_literal
-        literal_vector          m_clause_literals; // the actual literals, clauses are separated by a null_literal
-        svector<std::pair<literal, unsigned> >     m_removed_clauses;
-        unsigned_vector         m_removed_clauses_lim;
-        // TBD trail.. for clause updates?
+        vector<unsigned_vector> m_clauses;         // lit |-> vector of clause_id
+        unsigned_vector         m_clause_count;    // lit |-> number of valid clause_id in m_clauses2[lit]
+        unsigned_vector         m_clause_literals; // the actual literals, clauses start at offset clause_id, 
+                                                   // the first entry is the current length, clauses are separated by a null_literal
+
+        
 #endif
 
         unsigned               m_num_tc1;
         unsigned_vector        m_num_tc1_lim;
         unsigned               m_qhead;         // propagation queue head
         unsigned_vector        m_qhead_lim;
+#ifndef NEW_CLAUSE
         clause_vector          m_clauses;       // non-binary clauses
         clause_vector          m_retired_clauses; // clauses that were removed during search
         unsigned_vector        m_retired_clause_lim; 
+#endif
         svector<ternary>       m_retired_ternary;  // ternary removed during search
         unsigned_vector        m_retired_ternary_lim; 
         clause_allocator       m_cls_allocator;        
@@ -399,12 +400,14 @@ namespace sat {
         // ------------------------------------
         // clause management
 
+#ifndef NEW_CLAUSE
         void attach_clause(clause& c);
         void detach_clause(clause& c);
         void del_clauses();
         void detach_ternary(literal l1, literal l2, literal l3);
         void attach_ternary(ternary const& t);
         void attach_ternary(literal l1, literal l2, literal l3);
+#endif
         watch_list& get_wlist(literal l) { return m_watches[l.index()]; }
         watch_list const& get_wlist(literal l) const { return m_watches[l.index()]; }
 
@@ -416,11 +419,11 @@ namespace sat {
         void remove_ternary(literal l, literal u, literal v);
         void restore_ternary(literal l);
 
-        void propagate_clauses2(literal l);
-        void propagate_clauses2_searching(literal l);
-        void propagate_clauses2_lookahead(literal l);
-        void restore_clauses2(literal l);
-        void restore_clauses2();
+        void propagate_external(literal l);
+        void add_clause(clause const& c);
+        void propagate_clauses_searching(literal l);
+        void propagate_clauses_lookahead(literal l);
+        void restore_clauses(literal l);
         void remove_clause(literal l, unsigned clause_idx);
         void remove_clause_at(literal l, unsigned clause_idx);
 #endif
@@ -507,7 +510,9 @@ namespace sat {
         }
 
         ~lookahead() {
+#ifndef NEW_CLAUSE
             del_clauses();
+#endif
             m_s.rlimit().pop_child();
         }
         
