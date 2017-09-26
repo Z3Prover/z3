@@ -288,8 +288,21 @@ try:
         # Put z3py at the beginning of the search path to try to avoid picking up
         # an installed copy of Z3py.
         sys.path.insert(0, os.path.dirname(Z3PY_PACKAGE_PATH))
-        pydoc.writedoc('z3')
-        shutil.move('z3.html', os.path.join(OUTPUT_DIRECTORY, 'html', 'z3.html'))
+        for modulename in (
+                'z3',
+                'z3.z3consts',
+                'z3.z3core',
+                'z3.z3num',
+                'z3.z3poly',
+                'z3.z3printer',
+                'z3.z3rcf',
+                'z3.z3types',
+                'z3.z3util',
+                ):
+            pydoc.writedoc(modulename)
+            doc = modulename + '.html'
+            shutil.move(doc, os.path.join(OUTPUT_DIRECTORY, 'html', doc))
+
         print("Generated pydoc Z3Py documentation.")
 
     if ML_ENABLED:
