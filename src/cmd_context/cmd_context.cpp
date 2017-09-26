@@ -1764,6 +1764,7 @@ void cmd_context::validate_model() {
                 }
                 try {
                     for_each_expr(contains_underspecified, a);
+                    for_each_expr(contains_underspecified, r);
                 }
                 catch (contains_underspecified_op_proc::found) {
                     continue;
