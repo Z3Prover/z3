@@ -337,7 +337,9 @@ namespace sat {
         for (unsigned idx = 0; idx < m_ternary.size(); ++idx) {
             literal lit = to_literal(idx);
             if (is_false(lit)) {
+                unsigned sz = m_ternary_count[lit.index()];
                 for (binary const& b : m_ternary[lit.index()]) {
+                    if (sz-- == 0) break;
                     if (is_false(b.m_u) && is_false(b.m_v)) 
                         return true;
                 }
@@ -402,7 +404,9 @@ namespace sat {
         for (unsigned idx = 0; idx < m_ternary.size(); ++idx) {
             literal lit = to_literal(idx);
             if (!is_true(lit)) {
+                unsigned sz = m_ternary_count[lit.index()];
                 for (binary const& b : m_ternary[lit.index()]) {
+                    if (sz-- == 0) break;
                     if (!is_true(b.m_u) && !is_true(b.m_v)) 
                         return false;
                 }
@@ -474,6 +478,27 @@ namespace sat {
         for (literal lit : m_binary[l.index()]) {
             if (is_undef(lit)) sum += literal_occs(lit) / 4.0;
         }
+#ifdef NEW_CLAUSE
+        unsigned sz = m_ternary_count[(~l).index()];
+        for (binary const& b : m_ternary[(~l).index()]) {
+            if (sz-- == 0) break;
+            sum += (literal_occs(b.m_u) + literal_occs(b.m_v)) / 8.0;            
+        }
+        sz = m_clause_count[(~l).index()];
+        for (unsigned idx : m_clauses[(~l).index()]) {
+            if (sz-- == 0) break;
+            literal lit;
+            unsigned j = idx;
+            double to_add = 0;
+            while ((lit = to_literal(m_clause_literals[++j])) != null_literal) {
+                if (!is_fixed(lit) && lit != ~l) {
+                    to_add += literal_occs(lit);
+                }
+            }
+            unsigned len = m_clause_literals[idx];
+            sum += pow(0.5, len) * to_add / len;            
+        }
+#else
         watch_list& wlist = m_watches[l.index()];
         for (auto & w : wlist) {
             switch (w.get_kind()) {
@@ -506,6 +531,7 @@ namespace sat {
                 break;
             }
         }
+#endif
         return sum;
     } 
 
@@ -521,8 +547,16 @@ namespace sat {
     double lookahead::heule_unit_score(literal l) {
         double sum = 0;
         for (literal lit : m_binary[l.index()]) {
-            if (is_undef(lit)) sum += 0.25;
+            if (is_undef(lit)) sum += 0.5;
         }
+#ifdef NEW_CLAUSE
+        sum += 0.25 * m_ternary_count[(~l).index()];
+        unsigned sz = m_clause_count[(~l).index()];
+        for (unsigned cls_idx : m_clauses[(~l).index()]) {
+            if (sz-- == 0) break;
+            sum += pow(0.5, m_clause_literals[cls_idx]);
+        }
+#else
         watch_list& wlist = m_watches[l.index()];
         for (auto & w : wlist) {
             switch (w.get_kind()) {
@@ -553,6 +587,7 @@ namespace sat {
                 break;
             }
         }
+#endif
         return sum;
     } 
 
@@ -590,6 +625,13 @@ namespace sat {
             if (is_undef(lit)) sum += h[lit.index()]; 
             // if (m_freevars.contains(lit.var())) sum += h[lit.index()]; 
         }
+#ifdef NEW_CLAUSE
+        unsigned sz = m_ternary_count[(~l).index()];
+        for (binary const& b : m_ternary[(~l).index()]) {
+            if (sz-- == 0) break;
+            tsum += h[b.m_u.index()] * h[b.m_v.index()];
+        }
+#else
         watch_list& wlist = m_watches[l.index()];
         for (auto & w : wlist) {
             switch (w.get_kind()) {
@@ -621,6 +663,7 @@ namespace sat {
             }
             // std::cout << "tsum: " << tsum << "\n";
         }
+#endif
         // std::cout << "sum: " << sum << " afactor " << afactor << " sqfactor " << sqfactor << " tsum " << tsum << "\n";
         sum = (double)(0.1 + afactor*sum + sqfactor*tsum);
         // std::cout << "sum: " << sum << " max score " << m_config.m_max_score << "\n";
@@ -990,8 +1033,10 @@ namespace sat {
         m_binary.push_back(literal_vector());
         m_watches.push_back(watch_list());
         m_watches.push_back(watch_list());
+#ifndef NEW_CLAUSE
         m_full_watches.push_back(clause_vector());
         m_full_watches.push_back(clause_vector());
+#endif
         m_bstamp.push_back(0);
         m_bstamp.push_back(0);
         m_stamp.push_back(0);
@@ -1238,6 +1283,7 @@ namespace sat {
         m_wstack.reset();
     }
 
+#ifndef NEW_CLAUSE
     clause const& lookahead::get_clause(watch_list::iterator it) const {
         clause_offset cls_off = it->get_clause_offset();
         return *(m_cls_allocator.get_clause(cls_off));
@@ -1248,7 +1294,7 @@ namespace sat {
         DEBUG_CODE(if (r) for (unsigned j = 2; j < c.size(); ++j) SASSERT(is_false(c[j])););
         return r;
     }
-
+#endif
 
     // 
     // The current version is modeled after CDCL SAT solving data-structures.
@@ -1386,11 +1432,15 @@ namespace sat {
     }
 
     void lookahead::restore_ternary(literal l) {
+        unsigned sz = m_ternary_count[(~l).index()];
         for (binary const& b : m_ternary[(~l).index()]) {
+            if (sz-- == 0) break;
             m_ternary_count[b.m_u.index()]++;
             m_ternary_count[b.m_v.index()]++;
         }
+        sz = m_ternary_count[l.index()];
         for (binary const& b : m_ternary[l.index()]) {
+            if (sz-- == 0) break;
             m_ternary_count[b.m_u.index()]++;
             m_ternary_count[b.m_v.index()]++;
         }
@@ -2020,6 +2070,7 @@ namespace sat {
 
     bool lookahead::check_autarky(literal l, unsigned level) {
         return false;
+#if 0
         // no propagations are allowed to reduce clauses.
         for (clause * cp : m_full_watches[l.index()]) {
             clause& c = *cp;
@@ -2049,6 +2100,7 @@ namespace sat {
         }
 
         return true;
+#endif
     }
 
 
@@ -2061,9 +2113,11 @@ namespace sat {
                 ++m_stats.m_autarky_propagations;
                 IF_VERBOSE(1, verbose_stream() << "(sat.lookahead autarky " << l << ")\n";);
                     
+#ifdef NEW_CLAUSE
                 TRACE("sat", tout << "autarky: " << l << " @ " << m_stamp[l.var()] 
                       << " " 
-                      << (!m_binary[l.index()].empty() || !m_full_watches[l.index()].empty()) << "\n";);
+                      << (!m_binary[l.index()].empty() || m_clause_count[l.index()] != 0) << "\n";);
+#endif
                 reset_lookahead_reward();
                 assign(l);
                 propagate();                    
@@ -2341,7 +2395,9 @@ namespace sat {
 
         for (unsigned idx = 0; idx < m_ternary.size(); ++idx) {
             literal lit = to_literal(idx);
+            unsigned sz = m_ternary_count[idx];
             for (binary const& b : m_ternary[idx]) {
+                if (sz-- == 0) break;
                 if (idx < b.m_u.index() && idx << b.m_v.index()) {
                     out << lit << " " << b.m_u << " " << b.m_v << "\n";
                 }
@@ -2555,10 +2611,11 @@ namespace sat {
         out << "free vars: ";
         for (bool_var b : m_freevars) out << b << " ";
         out << "\n";
+        clause_allocator dummy_allocator;
         for (unsigned i = 0; i < m_watches.size(); ++i) {
             watch_list const& wl = m_watches[i];
             if (!wl.empty()) {
-                sat::display_watch_list(out << to_literal(i) << " -> ", m_cls_allocator, wl);
+                sat::display_watch_list(out << to_literal(i) << " -> ", dummy_allocator, wl);
                 out << "\n";
             }
         }
