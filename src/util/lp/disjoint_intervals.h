@@ -667,8 +667,15 @@ private:
             
         if (pos(l) + 2 < pos(r)) { // we can glue only to one neighbor
             if (pos(l) + 1 == x) {
-                erase(l);
-                set_end(x);
+				if (is_proper_end(l)) {
+					erase(l);
+					set_end(x);
+				}
+				else {
+					lp_assert(!is_proper_start(l));
+					set_start(pos(l));
+					set_end(x);
+				}
 			}
 			else if (x + 1 == pos(r)) {
 				if (is_proper_start(r)) {
