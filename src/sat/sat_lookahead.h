@@ -417,6 +417,8 @@ namespace sat {
         void restore_ternary(literal l);
 
         void propagate_clauses2(literal l);
+        void propagate_clauses2_searching(literal l);
+        void propagate_clauses2_lookahead(literal l);
         void restore_clauses2(literal l);
         void restore_clauses2();
         void remove_clause(literal l, unsigned clause_idx);

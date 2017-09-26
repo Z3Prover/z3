@@ -1298,37 +1298,17 @@ namespace sat {
     }
 
     // new n-ary clause managment
-    void lookahead::propagate_clauses2(literal l) {
+    void lookahead::propagate_clauses2_searching(literal l) {
         // clauses where l is negative
         unsigned_vector const& nclauses = m_clauses2[(~l).index()];
         unsigned sz = m_clause_count[(~l).index()];
         literal lit;
+        SASSERT(m_search_mode == lookahead_mode::searching);
+
         for (unsigned i = 0; i < sz; ++i) {
             unsigned idx = nclauses[i];
-            unsigned len = --m_clause_len[idx];  // TBD: only safe to decrement for search_mode == searching
-            SASSERT(len >= 2);
-#if 0
-            if (len == 1) {
-                while ((lit = m_clause_literals[idx++]) != null_literal) {
-                    if (is_fixed(lit)) {
-                        if (is_true(lit)) {
-                            break;
-                        }
-                    }
-                    else {
-                        propagated(lit);
-                        break;
-                    }
-                }
-                if (lit == null_literal) {
-                    // it is a conflict
-                    set_conflict();
-                    for (++i; i < sz; ++i) {
-                        --m_clause_len[nclauses[i]];
-                    }
-                }
-            }
-#endif
+            unsigned len = --m_clause_len[idx];
+            if (len <= 1) continue; // already processed
             // find the two unassigned literals, if any
             if (len == 2) {
                 literal l1 = null_literal;
@@ -1347,6 +1327,7 @@ namespace sat {
                         }
                     }
                     else if (is_true(lit)) {
+                        std::swap(m_clause_literals[j], m_clause_literals[idx]);
                         found_true = true;
                         break;
                     }
@@ -1361,36 +1342,19 @@ namespace sat {
                     }
                 }
                 else if (l2 == null_literal) {
-                    // clause gets revisited during propagation, when l2 is true in this clause.
-                    // prevent removing the clause at that point by removing it already now.
-                    m_removed_clauses.push_back(std::make_pair(l, idx)); 
-                    remove_clause_at(l, idx); 
+                    // clause may get revisited during propagation, when l2 is true in this clause.
+                    // m_removed_clauses.push_back(std::make_pair(~l, idx)); 
+                    // remove_clause_at(~l, idx); 
                     propagated(l1);
                 }
                 else {
-                    // extract binary clause. 
-                    // we should never get a unary or empty clause after this.
-                    m_removed_clauses.push_back(std::make_pair(l, idx)); // need to restore this clause.
-                    remove_clause_at(l, idx); 
+                    // extract binary clause. A unary or empty clause may get revisited, 
+                    // but we skip it then because it is already handled as a binary clause.
+                    //                    m_removed_clauses.push_back(std::make_pair(~l, idx)); // need to restore this clause.
+                    //                    remove_clause_at(~l, idx); 
                     try_add_binary(l1, l2);
-                }
-
-#if 0
-                switch (m_search_mode) {
-                case lookahead_mode::searching:
-                    detach_clause(c);
-                    try_add_binary(c[0], c[1]);
-                    break;
-                case lookahead_mode::lookahead1:
-                    update_binary_clause_reward(c[0], c[1]);
-                    // update_nary_clause_reward...
-                    break;
-                case lookahead_mode::lookahead2:
-                    break;
-                }
-#endif
+                }                
             }
-
         }
         // clauses where l is positive:
         unsigned_vector const& pclauses = m_clauses2[l.index()];
@@ -1399,6 +1363,82 @@ namespace sat {
             remove_clause_at(l, pclauses[i]);
         }
     }
+
+    void lookahead::propagate_clauses2_lookahead(literal l) {
+        // clauses where l is negative
+        unsigned_vector const& nclauses = m_clauses2[(~l).index()];
+        unsigned sz = m_clause_count[(~l).index()];
+        literal lit;
+        SASSERT(m_search_mode == lookahead_mode::lookahead1 ||
+                m_search_mode == lookahead_mode::lookahead2);
+
+        for (unsigned i = 0; i < sz; ++i) {
+            unsigned idx = nclauses[i];
+            literal l1 = null_literal;
+            literal l2 = null_literal;
+            unsigned j = idx;
+            bool found_true = false;
+            unsigned nonfixed = 0;
+            while ((lit = m_clause_literals[j++]) != null_literal) {
+                if (!is_fixed(lit)) {
+                    ++nonfixed;
+                    if (l1 == null_literal) {
+                        l1 = lit;
+                    } 
+                    else if (l2 == null_literal) {
+                        l2 = lit;
+                    }
+                }
+                else if (is_true(lit)) {
+                    found_true = true;
+                    break;
+                }
+            }
+            if (found_true) {
+                // skip, the clause will be removed when propagating on 'lit'
+            }
+            else if (l1 == null_literal) {
+                set_conflict();
+                return;
+            }
+            else if (l2 == null_literal) {
+                propagated(l1);
+            }
+            else if (m_search_mode == lookahead_mode::lookahead2) {
+                continue;
+            }
+            else {
+                SASSERT (m_search_mode == lookahead_mode::lookahead1);
+                switch (m_config.m_reward_type) {
+                case heule_schur_reward: {
+                    j = idx;
+                    double to_add = 0;
+                    while ((lit = m_clause_literals[j++]) != null_literal) {
+                        if (!is_fixed(lit)) {
+                            to_add += literal_occs(lit);
+                        }
+                    }
+                    m_lookahead_reward += pow(0.5, nonfixed) * to_add / nonfixed;                    
+                    break;
+                }
+                case heule_unit_reward:
+                    m_lookahead_reward += pow(0.5, nonfixed);
+                    break;
+                case ternary_reward:
+                    if (nonfixed == 2) {
+                        m_lookahead_reward += (*m_heur)[l1.index()] * (*m_heur)[l2.index()];
+                    }
+                    else {
+                        m_lookahead_reward += (double)0.001;            
+                    }
+                    break;
+                case unit_literal_reward:
+                    break;
+                }
+            }
+        }
+    }
+
 
     void lookahead::remove_clause_at(literal l, unsigned clause_idx) {
         unsigned j = clause_idx;
@@ -1448,6 +1488,7 @@ namespace sat {
         }
     }
 
+    // TBD: this should not be necessary
     void lookahead::restore_clauses2() {
         // restore clauses that were reduced to binary.
         unsigned old_sz = m_removed_clauses_lim.back();
