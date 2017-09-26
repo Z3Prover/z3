@@ -158,9 +158,10 @@ namespace sat {
 
         vector<unsigned_vector> m_clauses2;     // lit |-> vector of clause_id
         unsigned_vector         m_clause_count; // lit |-> number of valid clause_id in m_clauses2[lit]
-        unsigned_vector         m_clause_len;   // clause_id |-> current clause length
-        unsigned_vector         m_clause_size;  // clause_id |-> size of clause >= m_clause_len[clause_id]
-        literal_vector          m_clause_literals; // the actual literals
+        unsigned_vector         m_clause_len;   // clause_id |-> current clause length, clauses are terminated using null_literal
+        literal_vector          m_clause_literals; // the actual literals, clauses are separated by a null_literal
+        svector<std::pair<literal, unsigned> >     m_removed_clauses;
+        unsigned_vector         m_removed_clauses_lim;
         // TBD trail.. for clause updates?
 #endif
 
@@ -417,7 +418,9 @@ namespace sat {
 
         void propagate_clauses2(literal l);
         void restore_clauses2(literal l);
+        void restore_clauses2();
         void remove_clause(literal l, unsigned clause_idx);
+        void remove_clause_at(literal l, unsigned clause_idx);
 #endif
         // ------------------------------------
         // initialization

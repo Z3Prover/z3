@@ -1227,15 +1227,13 @@ namespace sat {
                 switch (propagate_ternary(l1, l2)) {
                 case l_undef:
                     try_add_binary(l1, l2);
-                    remove_ternary(l1, l2, l);
-                    remove_ternary(l2, l, l1);
                     break;
                 default:
-                    break;
-                    // propagated or
-                    // is tautology, someone else will remove it.
+                    // propagated or tautology.
                     break;
                 }
+                remove_ternary(l1, l2, l);
+                remove_ternary(l2, l, l1);
             }    
             sz = m_ternary_size[l.index()];
             svector<binary> const& poss = m_ternary[l.index()];
@@ -1304,20 +1302,79 @@ namespace sat {
         // clauses where l is negative
         unsigned_vector const& nclauses = m_clauses2[(~l).index()];
         unsigned sz = m_clause_count[(~l).index()];
+        literal lit;
         for (unsigned i = 0; i < sz; ++i) {
             unsigned idx = nclauses[i];
-            unsigned len = --m_clause_len[idx];  // TBD: only decrement for search_mode == searching
-            if (len <= 1) {
-                // propagate or detect conflict.
-                unsigned end = idx + m_clause_size[idx];
-                for (unsigned j = idx; j < end; ++j) {
-                    literal lit = m_clause_literals[j];
-                    NOT_IMPLEMENTED_YET();
-                    // TBD
+            unsigned len = --m_clause_len[idx];  // TBD: only safe to decrement for search_mode == searching
+            SASSERT(len >= 2);
+#if 0
+            if (len == 1) {
+                while ((lit = m_clause_literals[idx++]) != null_literal) {
+                    if (is_fixed(lit)) {
+                        if (is_true(lit)) {
+                            break;
+                        }
+                    }
+                    else {
+                        propagated(lit);
+                        break;
+                    }
+                }
+                if (lit == null_literal) {
+                    // it is a conflict
+                    set_conflict();
+                    for (++i; i < sz; ++i) {
+                        --m_clause_len[nclauses[i]];
+                    }
                 }
             }
-            // TBD for binary case
+#endif
+            // find the two unassigned literals, if any
             if (len == 2) {
+                literal l1 = null_literal;
+                literal l2 = null_literal;
+                unsigned j = idx;
+                bool found_true = false;
+                while ((lit = m_clause_literals[j++]) != null_literal) {
+                    if (!is_fixed(lit)) {
+                        if (l1 == null_literal) {
+                            l1 = lit;
+                        } 
+                        else {
+                            SASSERT(l2 == null_literal);
+                            l2 = lit;
+                            break;
+                        }
+                    }
+                    else if (is_true(lit)) {
+                        found_true = true;
+                        break;
+                    }
+                }
+                if (found_true) {
+                    // skip, the clause will be removed when propagating on 'lit'
+                }
+                else if (l1 == null_literal) {
+                    set_conflict();
+                    for (++i; i < sz; ++i) {
+                        --m_clause_len[nclauses[i]];
+                    }
+                }
+                else if (l2 == null_literal) {
+                    // clause gets revisited during propagation, when l2 is true in this clause.
+                    // prevent removing the clause at that point by removing it already now.
+                    m_removed_clauses.push_back(std::make_pair(l, idx)); 
+                    remove_clause_at(l, idx); 
+                    propagated(l1);
+                }
+                else {
+                    // extract binary clause. 
+                    // we should never get a unary or empty clause after this.
+                    m_removed_clauses.push_back(std::make_pair(l, idx)); // need to restore this clause.
+                    remove_clause_at(l, idx); 
+                    try_add_binary(l1, l2);
+                }
+
 #if 0
                 switch (m_search_mode) {
                 case lookahead_mode::searching:
@@ -1339,13 +1396,16 @@ namespace sat {
         unsigned_vector const& pclauses = m_clauses2[l.index()];
         sz = m_clause_count[l.index()];
         for (unsigned i = 0; i < sz; ++i) {
-            unsigned idx = pclauses[i];
-            unsigned end = idx + m_clause_size[idx];
-            for (unsigned j = idx; j < end; ++j) {
-                literal lit = m_clause_literals[j];
-                if (lit != l) {
-                    remove_clause(lit, idx);
-                }
+            remove_clause_at(l, pclauses[i]);
+        }
+    }
+
+    void lookahead::remove_clause_at(literal l, unsigned clause_idx) {
+        unsigned j = clause_idx;
+        literal lit;
+        while ((lit = m_clause_literals[j++]) != null_literal) {
+            if (lit != l) {
+                remove_clause(lit, clause_idx);
             }
         }
     }
@@ -1357,18 +1417,46 @@ namespace sat {
             --i;
             if (clause_idx == pclauses[i]) {
                 std::swap(pclauses[i], pclauses[sz-1]);
+                return;
+            }
+        }
+        UNREACHABLE();
+    }
+
+    void lookahead::restore_clauses2(literal l) {
+        SASSERT(m_search_mode == lookahead_mode::searching);
+
+        // increase the length of clauses where l is negative
+        unsigned_vector const& nclauses = m_clauses2[(~l).index()];
+        unsigned sz = m_clause_count[(~l).index()];
+        for (unsigned i = 0; i < sz; ++i) {
+            ++m_clause_len[nclauses[i]]; 
+        }
+
+        // add idx back to clause list where l is positive
+        unsigned_vector const& pclauses = m_clauses2[l.index()];
+        sz = m_clause_count[l.index()];
+        for (unsigned i = 0; i < sz; ++i) {
+            unsigned idx = pclauses[i];
+            unsigned j = idx;
+            literal lit;
+            while ((lit = m_clause_literals[j++]) != null_literal) {
+                if (lit != l) {
+                    m_clause_count[lit.index()]++;
+                }
             }
         }
     }
 
-    void lookahead::restore_clauses2(literal l) {
-        unsigned_vector const& pclauses = m_clauses2[l.index()];
-        unsigned sz = m_clause_count[l.index()];
-        for (unsigned i = 0; i < sz; ++i) {
-            unsigned idx = pclauses[i];
-            unsigned end = idx + m_clause_size[idx];
-            for (unsigned j = idx; j < end; ++j) {
-                literal lit = m_clause_literals[j];
+    void lookahead::restore_clauses2() {
+        // restore clauses that were reduced to binary.
+        unsigned old_sz = m_removed_clauses_lim.back();
+        for (unsigned i = m_removed_clauses.size(); i > old_sz; ) {
+            --i;
+            std::pair<literal, unsigned> const& p = m_removed_clauses[i];
+            literal l = p.first, lit;
+            unsigned j = p.second;
+            while ((lit = m_clause_literals[j++]) != null_literal) {
                 if (lit != l) {
                     m_clause_count[lit.index()]++;
                 }
