@@ -1168,7 +1168,215 @@ namespace sat {
         double operator()(literal l) { return lh.literal_occs(l); }
     };
 
+#ifdef NEW_CLAUSE
+    // Ternary clause managagement:
 
+    void lookahead::add_ternary(literal u, literal v, literal w) {
+        SASSERT(u != w && u != v && v != w && ~u != w && ~u != v && ~w != v);
+        m_ternary[u.index()].push_back(binary(v, w));
+        m_ternary[v.index()].push_back(binary(w, u));
+        m_ternary[w.index()].push_back(binary(u, v));
+        m_ternary_size[u.index()]++;
+        m_ternary_size[v.index()]++;
+        m_ternary_size[w.index()]++;
+    }
+
+    lbool lookahead::propagate_ternary(literal l1, literal l2) {
+        if (is_fixed(l1)) {
+            if (is_false(l1)) {
+                if (is_undef(l2)) {
+                    propagated(l2);
+                }
+                else if (is_false(l2)) {
+                    TRACE("sat", tout << l1 << " " << l2 << " " << "\n";);
+                    set_conflict();
+                }
+                return l_false;
+            }
+            else {
+                return l_true;
+            }
+        }
+
+        if (is_fixed(l2)) {
+            if (is_false(l2)) {
+                propagated(l1);
+                return l_false;
+            }
+            else {                            
+                return l_true;
+            }
+        }
+        return l_undef;
+    }
+
+    void lookahead::propagate_ternary(literal l) {
+        unsigned sz = m_ternary_size[(~l).index()];
+        svector<binary> const& negs = m_ternary[(~l).index()];
+
+        switch (m_search_mode) {
+        case lookahead_mode::searching: {
+
+            // ternary clauses where l is negative become binary
+            
+            for (unsigned i = 0; i < sz; ++i) {
+                binary const& b = negs[i];
+                // this could create a conflict from propagation, but we complete the transaction.
+                literal l1 = b.m_u;
+                literal l2 = b.m_v;
+                switch (propagate_ternary(l1, l2)) {
+                case l_undef:
+                    try_add_binary(l1, l2);
+                    remove_ternary(l1, l2, l);
+                    remove_ternary(l2, l, l1);
+                    break;
+                default:
+                    break;
+                    // propagated or
+                    // is tautology, someone else will remove it.
+                    break;
+                }
+            }    
+            sz = m_ternary_size[l.index()];
+            svector<binary> const& poss = m_ternary[l.index()];
+        
+            // ternary clauses where l is positive are tautologies
+            for (unsigned i = 0; i < sz; ++i) {
+                binary const& b = poss[i];
+                remove_ternary(b.m_u, b.m_v, l);
+                remove_ternary(b.m_v, l, b.m_u);
+            }
+            break;
+        }
+        case lookahead_mode::lookahead1:
+            // this could create a conflict from propagation, but we complete the loop.
+            for (unsigned i = 0; i < sz; ++i) {
+                binary const& b = negs[i];
+                literal l1 = b.m_u;
+                literal l2 = b.m_v;
+                switch (propagate_ternary(l1, l2)) {
+                case l_undef:
+                    update_binary_clause_reward(l1, l2);
+                    break;
+                default:
+                    break;
+                }
+            }
+            break;
+        case lookahead2:
+            // this could create a conflict from propagation, but we complete the loop.
+            for (unsigned i = 0; i < sz; ++i) {
+                binary const& b = negs[i];
+                propagate_ternary(b.m_u, b.m_v);
+            }
+            break;
+        }
+    }
+
+    void lookahead::remove_ternary(literal l, literal u, literal v) {
+        unsigned idx = l.index();
+        unsigned sz = m_ternary_size[idx]--;
+        auto& tv = m_ternary[idx];
+        for (unsigned i = sz; i > 0; ) {
+            --i;
+            binary const& b = tv[i];
+            if (b.m_u == u && b.m_v == v) {
+                std::swap(tv[i], tv[sz-1]);
+                return;
+            }
+        }
+        UNREACHABLE();
+    }
+
+    void lookahead::restore_ternary(literal l) {
+        for (binary const& b : m_ternary[(~l).index()]) {
+            m_ternary_size[b.m_u.index()]++;
+            m_ternary_size[b.m_v.index()]++;
+        }
+        for (binary const& b : m_ternary[l.index()]) {
+            m_ternary_size[b.m_u.index()]++;
+            m_ternary_size[b.m_v.index()]++;
+        }
+    }
+
+    // new n-ary clause managment
+    void lookahead::propagate_clauses2(literal l) {
+        // clauses where l is negative
+        unsigned_vector const& nclauses = m_clauses2[(~l).index()];
+        unsigned sz = m_clause_count[(~l).index()];
+        for (unsigned i = 0; i < sz; ++i) {
+            unsigned idx = nclauses[i];
+            unsigned len = --m_clause_len[idx];  // TBD: only decrement for search_mode == searching
+            if (len <= 1) {
+                // propagate or detect conflict.
+                unsigned end = idx + m_clause_size[idx];
+                for (unsigned j = idx; j < end; ++j) {
+                    literal lit = m_clause_literals[j];
+                    NOT_IMPLEMENTED_YET();
+                    // TBD
+                }
+            }
+            // TBD for binary case
+            if (len == 2) {
+#if 0
+                switch (m_search_mode) {
+                case lookahead_mode::searching:
+                    detach_clause(c);
+                    try_add_binary(c[0], c[1]);
+                    break;
+                case lookahead_mode::lookahead1:
+                    update_binary_clause_reward(c[0], c[1]);
+                    // update_nary_clause_reward...
+                    break;
+                case lookahead_mode::lookahead2:
+                    break;
+                }
+#endif
+            }
+
+        }
+        // clauses where l is positive:
+        unsigned_vector const& pclauses = m_clauses2[l.index()];
+        sz = m_clause_count[l.index()];
+        for (unsigned i = 0; i < sz; ++i) {
+            unsigned idx = pclauses[i];
+            unsigned end = idx + m_clause_size[idx];
+            for (unsigned j = idx; j < end; ++j) {
+                literal lit = m_clause_literals[j];
+                if (lit != l) {
+                    remove_clause(lit, idx);
+                }
+            }
+        }
+    }
+
+    void lookahead::remove_clause(literal l, unsigned clause_idx) {
+        unsigned_vector& pclauses = m_clauses2[l.index()];
+        unsigned sz = m_clause_count[l.index()]--;
+        for (unsigned i = sz; i > 0; ) {
+            --i;
+            if (clause_idx == pclauses[i]) {
+                std::swap(pclauses[i], pclauses[sz-1]);
+            }
+        }
+    }
+
+    void lookahead::restore_clauses2(literal l) {
+        unsigned_vector const& pclauses = m_clauses2[l.index()];
+        unsigned sz = m_clause_count[l.index()];
+        for (unsigned i = 0; i < sz; ++i) {
+            unsigned idx = pclauses[i];
+            unsigned end = idx + m_clause_size[idx];
+            for (unsigned j = idx; j < end; ++j) {
+                literal lit = m_clause_literals[j];
+                if (lit != l) {
+                    m_clause_count[lit.index()]++;
+                }
+            }
+        }
+    }
+
+#endif
     void lookahead::propagate_clauses(literal l) {
         SASSERT(is_true(l));
         if (inconsistent()) return;

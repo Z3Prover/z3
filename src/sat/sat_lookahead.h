@@ -20,6 +20,8 @@ Notes:
 #ifndef _SAT_LOOKAHEAD_H_
 #define _SAT_LOOKAHEAD_H_
 
+#define NEW_CLAUSE
+
 #include "sat_elim_eqs.h"
 
 namespace sat {
@@ -128,6 +130,13 @@ namespace sat {
             literal m_u, m_v, m_w;
         };
 
+#ifdef NEW_CLAUSE
+        struct binary {
+            binary(literal u, literal v): m_u(u), m_v(v) {}
+            literal m_u, m_v;
+        };
+#endif
+
         config                 m_config;
         double                 m_delta_trigger; 
 
@@ -139,6 +148,22 @@ namespace sat {
         vector<literal_vector> m_binary;        // literal: binary clauses
         unsigned_vector        m_binary_trail;  // trail of added binary clauses
         unsigned_vector        m_binary_trail_lim; 
+
+#ifdef NEW_CLAUSE       
+        // specialized clause managemet uses ternary clauses and dedicated clause data-structure.
+        // this will replace m_clauses below
+        vector<svector<binary>> m_ternary;        // lit |-> vector of ternary clauses
+        unsigned_vector         m_ternary_size;   // lit |-> current number of active ternary clauses for lit
+        unsigned_vector         m_ternary_trail_lim; // limit for ternary vectors.
+
+        vector<unsigned_vector> m_clauses2;     // lit |-> vector of clause_id
+        unsigned_vector         m_clause_count; // lit |-> number of valid clause_id in m_clauses2[lit]
+        unsigned_vector         m_clause_len;   // clause_id |-> current clause length
+        unsigned_vector         m_clause_size;  // clause_id |-> size of clause >= m_clause_len[clause_id]
+        literal_vector          m_clause_literals; // the actual literals
+        // TBD trail.. for clause updates?
+#endif
+
         unsigned               m_num_tc1;
         unsigned_vector        m_num_tc1_lim;
         unsigned               m_qhead;         // propagation queue head
@@ -382,6 +407,18 @@ namespace sat {
         watch_list& get_wlist(literal l) { return m_watches[l.index()]; }
         watch_list const& get_wlist(literal l) const { return m_watches[l.index()]; }
 
+#ifdef NEW_CLAUSE
+        // new clause managment:
+        void add_ternary(literal u, literal v, literal w);
+        void propagate_ternary(literal l);
+        lbool propagate_ternary(literal l1, literal l2);
+        void remove_ternary(literal l, literal u, literal v);
+        void restore_ternary(literal l);
+
+        void propagate_clauses2(literal l);
+        void restore_clauses2(literal l);
+        void remove_clause(literal l, unsigned clause_idx);
+#endif
         // ------------------------------------
         // initialization
         
