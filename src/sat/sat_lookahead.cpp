@@ -1086,8 +1086,8 @@ namespace sat {
             }
         }
 
-        copy_clauses(m_s.m_clauses);
-        copy_clauses(m_s.m_learned);
+        copy_clauses(m_s.m_clauses, false);
+        copy_clauses(m_s.m_learned, true);
 
         // copy units
         unsigned trail_sz = m_s.init_trail_size();
@@ -1113,7 +1113,7 @@ namespace sat {
         TRACE("sat", m_s.display(tout); display(tout););
     }
 
-    void lookahead::copy_clauses(clause_vector const& clauses) {
+    void lookahead::copy_clauses(clause_vector const& clauses, bool learned) {
         // copy clauses
 #ifdef NEW_CLAUSE
         for (clause* cp : clauses) {
@@ -1130,7 +1130,7 @@ namespace sat {
             case 1: assign(c[0]); break;
             case 2: add_binary(c[0],c[1]); break;
             case 3: add_ternary(c[0],c[1],c[2]); break;
-            default: add_clause(c); break;
+            default: if (!learned) add_clause(c); break;
             }
             if (m_s.m_config.m_drat) m_drat.add(c, false);
         }
@@ -1496,6 +1496,39 @@ namespace sat {
         }
         m_nary_literals.push_back(null_literal.index());        
     }
+
+#if 0
+    // split large clauses into smaller ones to avoid overhead during propagation.
+
+    void lookahead::add_clause(unsigned sz, literal const * lits) {
+        if (sz > 6) {
+            bool_var v = m_s.mk_var(false);
+            ++m_num_vars;
+            init_var(v);
+            literal lit(v, false);
+            unsigned mid = sz / 2;
+            literal_vector lits1(mid, lits);
+            lits1.push_back(lit);
+            add_clause(lits1.size(), lits1.c_ptr());
+            lit.neg();
+            literal_vector lits2(sz - mid, lits + mid);
+            lits2.push_back(lit);
+            add_clause(lits2.size(), lits2.c_ptr());
+        }
+        else {
+            unsigned idx = m_nary_literals.size();
+            m_nary_literals.push_back(sz);
+            for (unsigned i = 0; i < sz; ++i) {
+                literal l = lits[i];
+                m_nary_literals.push_back(l.index());
+                m_nary_count[l.index()]++;
+                m_nary[l.index()].push_back(idx);
+                SASSERT(m_nary_count[l.index()] == m_nary[l.index()].size());
+            }
+            m_nary_literals.push_back(null_literal.index());        
+        }
+    }
+#endif
 
     void lookahead::propagate_clauses_searching(literal l) {
         // clauses where l is negative

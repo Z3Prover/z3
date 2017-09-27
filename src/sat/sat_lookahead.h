@@ -435,7 +435,7 @@ namespace sat {
         
         void init_var(bool_var v);
         void init();
-        void copy_clauses(clause_vector const& clauses);
+        void copy_clauses(clause_vector const& clauses, bool learned);
 
         // ------------------------------------
         // search
