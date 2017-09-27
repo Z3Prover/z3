@@ -188,7 +188,7 @@ try:
 
     if Z3PY_ENABLED:
         print("Z3Py documentation enabled")
-        doxygen_config_substitutions['PYTHON_API_FILES'] = 'z3.py'
+        doxygen_config_substitutions['PYTHON_API_FILES'] = 'z3*.py'
     else:
         print("Z3Py documentation disabled")
         doxygen_config_substitutions['PYTHON_API_FILES'] = ''
