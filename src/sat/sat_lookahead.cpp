@@ -1117,6 +1117,7 @@ namespace sat {
             if (was_eliminated) continue;
 
             switch (c.size()) {
+            case 0: set_conflict(); break;
             case 1: assign(c[0]); break;
             case 2: add_binary(c[0],c[1]); break;
             case 3: add_ternary(c[0],c[1],c[2]); break;
