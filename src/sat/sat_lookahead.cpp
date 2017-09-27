@@ -1987,9 +1987,9 @@ namespace sat {
     void lookahead::propagate_binary(literal l) {
         literal_vector const& lits = m_binary[l.index()];
         TRACE("sat", tout << l << " => " << lits << "\n";);
-        unsigned sz = lits.size();
-        for (unsigned i = 0; !inconsistent() && i < sz; ++i) {
-            assign(lits[i]);
+        for (literal l : lits) {
+            if (inconsistent()) break;
+            assign(l);
         }
     }
 
