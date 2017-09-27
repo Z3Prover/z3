@@ -153,15 +153,14 @@ namespace sat {
 
 #ifdef NEW_CLAUSE       
         // specialized clause managemet uses ternary clauses and dedicated clause data-structure.
-        // this will replace m_clauses below
+        // this replaces m_clauses below
         vector<svector<binary>> m_ternary;        // lit |-> vector of ternary clauses
-        unsigned_vector         m_ternary_count;   // lit |-> current number of active ternary clauses for lit
-        unsigned_vector         m_ternary_trail_lim; // limit for ternary vectors.
+        unsigned_vector         m_ternary_count;  // lit |-> current number of active ternary clauses for lit
 
-        vector<unsigned_vector> m_clauses;         // lit |-> vector of clause_id
-        unsigned_vector         m_clause_count;    // lit |-> number of valid clause_id in m_clauses2[lit]
-        unsigned_vector         m_clause_literals; // the actual literals, clauses start at offset clause_id, 
-                                                   // the first entry is the current length, clauses are separated by a null_literal
+        vector<unsigned_vector> m_nary;           // lit |-> vector of clause_id
+        unsigned_vector         m_nary_count;     // lit |-> number of valid clause_id in m_clauses2[lit]
+        unsigned_vector         m_nary_literals;  // the actual literals, clauses start at offset clause_id, 
+                                                  // the first entry is the current length, clauses are separated by a null_literal
 
         
 #endif
