@@ -87,7 +87,7 @@ namespace sat {
         m_lookahead_simplify = p.lookahead_simplify();
         m_lookahead_cube = p.lookahead_cube();
         m_lookahead_search = p.lookahead_search();
-        if (p.lookahead_reward() == symbol("hs")) {
+        if (p.lookahead_reward() == symbol("heule_schur")) {
             m_lookahead_reward = heule_schur_reward;
         }
         else if (p.lookahead_reward() == symbol("heuleu")) {

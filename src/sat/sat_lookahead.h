@@ -20,7 +20,7 @@ Notes:
 #ifndef _SAT_LOOKAHEAD_H_
 #define _SAT_LOOKAHEAD_H_
 
-// #define NEW_CLAUSE
+#define NEW_CLAUSE
 
 #include "sat_elim_eqs.h"
 

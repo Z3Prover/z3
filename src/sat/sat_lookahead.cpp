@@ -930,12 +930,25 @@ namespace sat {
         return out;
     }
 
+    static unsigned last_prefix_length = 0;
+
     void lookahead::display_search_string() {
         printf("\r"); 
-        std::stringstream strm;
-        strm << pp_prefix(m_prefix, m_trail_lim.size());
-        for (unsigned i = 0; i < 50; ++i) strm << " ";
-        printf(strm.str().c_str());
+        uint64 q = m_prefix;
+        unsigned depth = m_trail_lim.size();
+        unsigned d = std::min(63u, depth);
+        unsigned new_prefix_length = d;
+        for (unsigned i = 0; i <= d; ++i) {
+            printf((0 != (q & (1ull << i)))? "1" : "0");
+        }
+        if (d < depth) {
+            printf(" d: %d", depth);
+            new_prefix_length += 10;
+        }
+        for (unsigned i = new_prefix_length; i < last_prefix_length; ++i) {
+            printf(" ");
+        }
+        last_prefix_length = new_prefix_length;
         fflush(stdout);       
     }
     
@@ -1038,8 +1051,8 @@ namespace sat {
         m_full_watches.push_back(clause_vector());
         m_full_watches.push_back(clause_vector());
 #else
-        m_ternary.push_back(svector<binary()>);
-        m_ternary.push_back(svector<binary()>);
+        m_ternary.push_back(svector<binary>());
+        m_ternary.push_back(svector<binary>());
         m_ternary_count.push_back(0);
         m_ternary_count.push_back(0);
         m_nary.push_back(unsigned_vector());
@@ -1100,8 +1113,8 @@ namespace sat {
         }
         
         // copy externals:
-        for (unsigned idx = 0; idx < m_watches.size(); ++idx) {
-            watch_list const& wl = m_watches[idx];
+        for (unsigned idx = 0; idx < m_s.m_watches.size(); ++idx) {
+            watch_list const& wl = m_s.m_watches[idx];
             for (watched const& w : wl) {
                 if (w.is_ext_constraint()) {
                     m_watches[idx].push_back(w);
@@ -1199,6 +1212,9 @@ namespace sat {
         m_num_tc1_lim.pop_back();
 
 #ifndef NEW_CLAUSE
+        m_trail.shrink(old_sz); // reset assignment.
+        m_trail_lim.pop_back();
+
         // unretire clauses
         old_sz = m_retired_clause_lim.back();
         for (unsigned i = old_sz; i < m_retired_clauses.size(); ++i) {
@@ -1219,10 +1235,12 @@ namespace sat {
             restore_ternary(m_trail[i]);
             restore_clauses(m_trail[i]);
         }
-#endif            
 
         m_trail.shrink(old_sz); // reset assignment.
         m_trail_lim.pop_back();
+
+#endif            
+
 
         // remove local binary clauses
         old_sz = m_binary_trail_lim.back();            
@@ -1377,6 +1395,7 @@ namespace sat {
             for (binary const& b : m_ternary[(~l).index()]) {
                 if (sz-- == 0) break;
                 // this could create a conflict from propagation, but we complete the transaction.
+                TRACE("sat", display(tout););
                 literal l1 = b.m_u;
                 literal l2 = b.m_v;
                 switch (propagate_ternary(l1, l2)) {
@@ -1387,8 +1406,8 @@ namespace sat {
                     // propagated or tautology or conflict
                     break;
                 }
-                remove_ternary(l1, l2, l);
-                remove_ternary(l2, l, l1);
+                remove_ternary(l1, l2, ~l);
+                remove_ternary(l2, ~l, l1);
             }    
 
             sz = m_ternary_count[l.index()];        
@@ -1540,6 +1559,7 @@ namespace sat {
         for (unsigned idx : m_nary[(~l).index()]) {
             if (sz-- == 0) break;
             unsigned len = --m_nary_literals[idx];
+            if (m_inconsistent) continue;
             if (len <= 1) continue; // already processed
             // find the two unassigned literals, if any
             if (len == 2) {
@@ -1569,9 +1589,6 @@ namespace sat {
                 }
                 else if (l1 == null_literal) {
                     set_conflict();
-                    for (++i; i < sz; ++i) {
-                        --m_nary_literals[nclauses[i]];
-                    }
                 }
                 else if (l2 == null_literal) {
                     // clause may get revisited during propagation, when l2 is true in this clause.
@@ -1590,7 +1607,7 @@ namespace sat {
         }
         // clauses where l is positive:
         sz = m_nary_count[l.index()];
-        for (unsigned idx : m_nary[l.index())) {
+        for (unsigned idx : m_nary[l.index()]) {
             if (sz-- == 0) break;
             remove_clause_at(l, idx);
         }
@@ -1716,7 +1733,7 @@ namespace sat {
             literal lit;
             while ((lit = to_literal(m_nary_literals[++j])) != null_literal) {
                 if (lit != l) {
-                    SASSERT(m_nary[lit.index()] == pclauses[i]);
+                    // SASSERT(m_nary[lit.index()] == pclauses[i]);
                     m_nary_count[lit.index()]++;
                 }
             }

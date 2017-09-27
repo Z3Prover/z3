@@ -65,7 +65,7 @@ namespace sat {
     }
 
     solver::~solver() {
-		m_ext = 0;
+        m_ext = 0;
         SASSERT(check_invariant());
         TRACE("sat", tout << "Delete clauses\n";);
         del_clauses(m_clauses.begin(), m_clauses.end());
