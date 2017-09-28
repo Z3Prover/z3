@@ -345,6 +345,14 @@ public:
         return result;
     }
     virtual expr_ref cube() {
+        if (!m_internalized) {
+            dep2asm_t dep2asm;
+            m_model = 0;
+            lbool r = internalize_formulas();
+            if (r != l_true) return expr_ref(m.mk_true(), m);
+            m_internalized = true;
+        }
+        convert_internalized();
         sat::literal_vector lits;
         lbool result = m_solver.cube(lits);
         if (result == l_false || lits.empty()) {

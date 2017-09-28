@@ -18,4 +18,5 @@ z3_add_component(portfolio
     ufbv_tactic
   TACTIC_HEADERS
     default_tactic.h
+    fd_solver.h
 )

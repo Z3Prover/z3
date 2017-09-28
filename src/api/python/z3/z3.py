@@ -6294,10 +6294,33 @@ class Solver(Z3PPObject):
             candidates = _cs
         return _to_expr_ref(Z3_solver_lookahead(self.ctx.ref(), self.solver, candidates), self.ctx)        
 
+    def cube(self):
+        """Get set of cubes"""
+        rounds = 0
+        while True:
+            r = _to_expr_ref(Z3_solver_cube(self.ctx.ref(), self.solver), self.ctx)
+            if (is_false(r)):
+                if (rounds == 0):
+                    yield r
+                return
+            if (is_true(r)):
+                yield r
+                return
+            rounds += 1
+            yield r
+
     def proof(self):
         """Return a proof for the last `check()`. Proof construction must be enabled."""
         return _to_expr_ref(Z3_solver_get_proof(self.ctx.ref(), self.solver), self.ctx)
 
+    def from_file(self, filename):
+        """Parse assertions from a file"""
+        self.add([f for f in parse_smt2_file(filename)])
+
+    def from_string(self, s):
+        """Parse assertions from a string"""
+        self.add([f for f in parse_smt2_string(s)])
+        
     def assertions(self):
         """Return an AST vector containing all added constraints.
 

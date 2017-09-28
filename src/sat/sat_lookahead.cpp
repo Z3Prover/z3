@@ -657,7 +657,6 @@ namespace sat {
             }
             // case watched::EXTERNAL:
             }
-            // std::cout << "tsum: " << tsum << "\n";
         }
 #endif
         // std::cout << "sum: " << sum << " afactor " << afactor << " sqfactor " << sqfactor << " tsum " << tsum << "\n";
@@ -2221,7 +2220,7 @@ namespace sat {
         SASSERT(dl_no_overflow(base));
         unsigned dl_truth = base + 2 * m_lookahead.size() * (m_config.m_dl_max_iterations + 1);            
         scoped_level _sl(*this, dl_truth);
-        IF_VERBOSE(2, verbose_stream() << "double: " << l << "\n";);
+        IF_VERBOSE(2, verbose_stream() << "double: " << l << " depth: " << m_trail_lim.size() << "\n";);
         init_lookahead_reward();
         assign(l);
         propagate();
@@ -2353,63 +2352,24 @@ namespace sat {
     }
 
     lbool lookahead::cube() {
-#if 0
         literal_vector lits;
         while (true) {
             lbool result = cube(lits);
             if (lits.empty() || result != l_undef) {
                 return result;
             }
-            display_cube(std::cout, cube);
+            display_cube(std::cout, lits);
         }
-#endif
-        lbool result = l_false;
-        init_search();
-        m_model.reset();
-        scoped_level _sl(*this, c_fixed_truth);
-        literal_vector cube;
-        svector<bool> is_decision;
-        m_search_mode = lookahead_mode::searching;
-        double freevars_threshold = 0;
-        while (true) {
-            TRACE("sat", display(tout););
-            inc_istamp();
-            checkpoint();
-            literal l = choose();
-            if (inconsistent()) {
-                TRACE("sat", tout << "inconsistent: " << cube << "\n";);
-                freevars_threshold = m_freevars.size();                
-                if (!backtrack(cube, is_decision)) return result;
-                continue;
-            }
-            if (l == null_literal) {
-                return l_true;
-            }
-            unsigned depth = cube.size();
-            if ((m_config.m_cube_cutoff != 0 && depth == m_config.m_cube_cutoff) ||
-                (m_config.m_cube_cutoff == 0 && m_freevars.size() < freevars_threshold)) {
-                display_cube(std::cout, cube);
-                freevars_threshold *= (1.0 - pow(m_config.m_cube_fraction, depth));
-                result = l_undef;
-                set_conflict();
-                if (!backtrack(cube, is_decision)) return result;
-                continue;
-            }
-            TRACE("sat", tout << "choose: " << l << " cube: " << cube << "\n";);
-            ++m_stats.m_decisions;
-            push(l, c_fixed_truth);
-            cube.push_back(l);
-            is_decision.push_back(true);
-            SASSERT(inconsistent() || !is_unsat());
-        }
+        return l_undef;
     }
 
     lbool lookahead::cube(literal_vector& lits) {
         lits.reset();
-        bool is_first = (m_cube_state.m_lit == null_literal);
+        bool is_first = m_cube_state.m_first;
         if (is_first) {
             init_search();
             m_model.reset();
+            m_cube_state.m_first = false;
         }        
         scoped_level _sl(*this, c_fixed_truth);
         m_search_mode = lookahead_mode::searching;
@@ -2421,39 +2381,43 @@ namespace sat {
 
         while (true) {
             TRACE("sat", display(tout););
-            inc_istamp();
             checkpoint();
-            m_cube_state.m_lit = choose();
+            inc_istamp();
             if (inconsistent()) {
-                TRACE("sat", tout << "inconsistent: " << cube << "\n";);
+                TRACE("sat", tout << "inconsistent: " << m_cube_state.m_cube << "\n";);
                 m_cube_state.m_freevars_threshold = m_freevars.size();                
-                if (!backtrack(m_cube_state.m_cube, m_cube_state.m_is_decision)) return m_cube_state.m_result;
+                if (!backtrack(m_cube_state.m_cube, m_cube_state.m_is_decision)) return l_false;
                 continue;
             }
-            if (m_cube_state.m_lit == null_literal) {
-                return l_true;
-            }
+        pick_up_work:
             depth = m_cube_state.m_cube.size();
             if ((m_config.m_cube_cutoff != 0 && depth == m_config.m_cube_cutoff) ||
                 (m_config.m_cube_cutoff == 0 && m_freevars.size() < m_cube_state.m_freevars_threshold)) {
                 m_cube_state.m_freevars_threshold *= (1.0 - pow(m_config.m_cube_fraction, depth));
-                m_cube_state.m_result = l_undef;
                 set_conflict();
-                if (!backtrack(m_cube_state.m_cube, m_cube_state.m_is_decision)) return m_cube_state.m_result;
                 lits.append(m_cube_state.m_cube);
+                backtrack(m_cube_state.m_cube, m_cube_state.m_is_decision);
                 return l_undef;
             }
-        pick_up_work:
-            TRACE("sat", tout << "choose: " << m_cube_state.m_lit << " cube: " << m_cube_state.m_cube << "\n";);
+            literal lit = choose();
+            if (inconsistent()) {
+                TRACE("sat", tout << "inconsistent: " << m_cube_state.m_cube << "\n";);
+                m_cube_state.m_freevars_threshold = m_freevars.size();                
+                if (!backtrack(m_cube_state.m_cube, m_cube_state.m_is_decision)) return l_false;
+                continue;
+            }
+            if (lit == null_literal) {
+                return l_true;
+            }
+            TRACE("sat", tout << "choose: " << lit << " cube: " << m_cube_state.m_cube << "\n";);
             ++m_stats.m_decisions;
-            push(m_cube_state.m_lit, c_fixed_truth);
-            m_cube_state.m_cube.push_back(m_cube_state.m_lit);
+            push(lit, c_fixed_truth);
+            m_cube_state.m_cube.push_back(lit);
             m_cube_state.m_is_decision.push_back(true);
             SASSERT(inconsistent() || !is_unsat());
         }
-        lbool result = m_cube_state.m_result;
         m_cube_state.reset();
-        return result;
+        return l_undef;
     }
 
     void lookahead::init_model() {

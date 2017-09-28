@@ -40,7 +40,7 @@ def_module_params('sat',
                           ('lookahead.cube.cutoff', UINT, 0, 'cut-off depth to create cubes. Only enabled when non-zero. Used when lookahead_cube is true.'),
                           ('lookahead_search', BOOL, False, 'use lookahead solver'),
                           ('lookahead_simplify', BOOL, False, 'use lookahead solver during simplification'),
-                          ('lookahead.reward', SYMBOL, 'heuleu', 'select lookahead heuristic: ternary, hs (Heule Schur), heuleu (Heule Unit), or unit'),
+                          ('lookahead.reward', SYMBOL, 'heuleu', 'select lookahead heuristic: ternary, heule_schur (Heule Schur), heuleu (Heule Unit), or unit'),
                           ('dimacs.display', BOOL, False, 'display SAT instance in DIMACS format and return unknown instead of solving'),
                           ('dimacs.inprocess.display', BOOL, False, 'display SAT instance in DIMACS format if unsolved after inprocess.max inprocessing passes')))
 

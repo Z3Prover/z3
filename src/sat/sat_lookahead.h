@@ -140,17 +140,15 @@ namespace sat {
 #endif
 
         struct cube_state {
+            bool           m_first;
             svector<bool>  m_is_decision;
             literal_vector m_cube;
-            literal        m_lit;
-            lbool          m_result;
             double         m_freevars_threshold;
             cube_state() { reset(); }
             void reset() { 
+                m_first = true;
                 m_is_decision.reset(); 
                 m_cube.reset(); 
-                m_lit = null_literal; 
-                m_result = l_false; 
                 m_freevars_threshold = 0; 
             }
         };

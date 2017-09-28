@@ -2735,6 +2735,7 @@ def get_header_files_for_components(component_src_dirs):
 def mk_install_tactic_cpp(cnames, path):
     component_src_dirs = []
     for cname in cnames:
+        print("Component %s" % cname)
         c = get_component(cname)
         component_src_dirs.append(c.src_dir)
     h_files_full_path = get_header_files_for_components(component_src_dirs)
