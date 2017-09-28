@@ -463,10 +463,8 @@ namespace sat {
         }
     }
 
-    static unsigned counter = 0;
     void lookahead::heule_schur_scores() {
-        if (counter % 10 != 0) return;
-        ++counter;
+        if (m_rating_throttle++ % 10 != 0) return;
         for (bool_var x : m_freevars) {
             literal l(x, false);
             m_rating[l.var()] = heule_schur_score(l) * heule_schur_score(~l);
@@ -536,8 +534,7 @@ namespace sat {
     } 
 
     void lookahead::heule_unit_scores() {
-        if (counter % 10 != 0) return;
-        ++counter;
+        if (m_rating_throttle++ % 10 != 0) return;
         for (bool_var x : m_freevars) {
             literal l(x, false);
             m_rating[l.var()] = heule_unit_score(l) * heule_unit_score(~l);
@@ -614,7 +611,6 @@ namespace sat {
             double neg = l_score(~l, h, factor, sqfactor, afactor);
             hp[l.index()] = pos;
             hp[(~l).index()] = neg;
-            // std::cout << "h_scores: " << pos << " " << neg << "\n";
             m_rating[l.var()] = pos * neg;
         }
     }
@@ -930,8 +926,6 @@ namespace sat {
         return out;
     }
 
-    static unsigned last_prefix_length = 0;
-
     void lookahead::display_search_string() {
         printf("\r"); 
         uint64 q = m_prefix;
@@ -945,10 +939,10 @@ namespace sat {
             printf(" d: %d", depth);
             new_prefix_length += 10;
         }
-        for (unsigned i = new_prefix_length; i < last_prefix_length; ++i) {
+        for (unsigned i = new_prefix_length; i < m_last_prefix_length; ++i) {
             printf(" ");
         }
-        last_prefix_length = new_prefix_length;
+        m_last_prefix_length = new_prefix_length;
         fflush(stdout);       
     }
     
@@ -2105,7 +2099,6 @@ namespace sat {
                 l = diff1 < diff2 ? lit : ~lit;
             }
         }
-        //            if (count > 1) std::cout << count << "\n";
         TRACE("sat", tout << "selected: " << l << "\n";);
         return l;
     }
@@ -2276,8 +2269,8 @@ namespace sat {
             if (m_search_mode == lookahead_mode::searching) {
                 m_stats.m_propagations++;
                 TRACE("sat", tout << "removing free var v" << l.var() << "\n";);
-                if (l.var() > m_freevars.max_var()) std::cout << "bigger than max-var: " << l << " " << " " << m_freevars.max_var() << "\n";
-                if (!m_freevars.contains(l.var())) std::cout << "does not contain: " << l << " eliminated: " << m_s.was_eliminated(l.var()) << "\n";
+                if (l.var() > m_freevars.max_var()) IF_VERBOSE(0, verbose_stream() << "bigger than max-var: " << l << " " << " " << m_freevars.max_var() << "\n";);
+                if (!m_freevars.contains(l.var())) IF_VERBOSE(0, verbose_stream() << "does not contain: " << l << " eliminated: " << m_s.was_eliminated(l.var()) << "\n";);
                 if (m_freevars.contains(l.var())) { m_freevars.remove(l.var()); }
                 validate_assign(l);
             }

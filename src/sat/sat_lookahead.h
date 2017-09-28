@@ -194,8 +194,10 @@ namespace sat {
 #endif
         double                 m_lookahead_reward; // metric associated with current lookahead1 literal.
         literal_vector         m_wstack;        // windofall stack that is populated in lookahead1 mode
+        unsigned               m_last_prefix_length;
         uint64                 m_prefix;        // where we are in search tree
         svector<prefix>        m_vprefix;       // var:     prefix where variable participates in propagation
+        unsigned               m_rating_throttle; // throttle to recompute rating
         indexed_uint_set       m_freevars;
         lookahead_mode         m_search_mode;   // mode of search
         stats                  m_stats;
@@ -507,7 +509,9 @@ namespace sat {
             m_drat(s),
             m_num_tc1(0),
             m_level(2),
-            m_prefix(0) {
+            m_last_prefix_length(0),
+            m_prefix(0),
+            m_rating_throttle(0) {
             m_s.rlimit().push_child(&m_rlimit);
             init_config();
         }

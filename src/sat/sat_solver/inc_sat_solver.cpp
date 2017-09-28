@@ -17,27 +17,6 @@ Notes:
 
 --*/
 
-/*
-#include "solver.h"
-#include "tactical.h"
-#include "sat_solver.h"
-#include "ba_solver.h"
-#include "tactic2solver.h"
-#include "aig_tactic.h"
-#include "propagate_values_tactic.h"
-#include "max_bv_sharing_tactic.h"
-#include "card2bv_tactic.h"
-#include "bit_blaster_tactic.h"
-#include "simplify_tactic.h"
-#include "goal2sat.h"
-#include "ast_pp.h"
-#include "model_smt2_pp.h"
-#include "filter_model_converter.h"
-#include "bit_blaster_model_converter.h"
-#include "ast_translation.h"
-#include "ast_util.h"
-#include "propagate_values_tactic.h"
-*/
 
 #include "solver/solver.h"
 #include "tactic/tactical.h"
@@ -133,17 +112,6 @@ public:
         if (m_mc0.get()) result->m_mc0 = m_mc0->translate(tr);
         result->m_internalized = m_internalized;
         result->m_internalized_converted = m_internalized_converted;
-#if 0
-        static unsigned file_no = 0;
-        #pragma omp critical (print_sat)
-        {
-            ++file_no;
-            std::ostringstream ostrm;
-            ostrm << "s" << file_no << ".txt";
-            std::ofstream ous(ostrm.str());
-            result->m_solver.display(ous);
-        }
-#endif
         return result;
     }
 
@@ -660,9 +628,9 @@ private:
         }
         sat::literal_vector value;
         sat::literal_set premises;
-        for (unsigned i = 0; i < bvars.size(); ++i) {
+        for (sat::bool_var bv : bvars) {
             unsigned index;
-            if (bool_var2conseq.find(bvars[i], index)) {
+            if (bool_var2conseq.find(bv, index)) {
                 value.push_back(lconseq[index][0]);
                 for (unsigned j = 1; j < lconseq[index].size(); ++j) {
                     premises.insert(lconseq[index][j]);
@@ -754,10 +722,8 @@ private:
     }
 
     void extract_asm2dep(dep2asm_t const& dep2asm, u_map<expr*>& asm2dep) {
-        dep2asm_t::iterator it = dep2asm.begin(), end = dep2asm.end();
-        for (; it != end; ++it) {
-            expr* e = it->m_key;
-            asm2dep.insert(it->m_value.index(), e);
+        for (auto const& kv : dep2asm) {
+            asm2dep.insert(kv.m_value.index(), kv.m_key);
         }
     }
 
@@ -777,9 +743,9 @@ private:
               );
 
         m_core.reset();
-        for (unsigned i = 0; i < core.size(); ++i) {
+        for (sat::literal c : core) {
             expr* e = 0;
-            VERIFY(asm2dep.find(core[i].index(), e));
+            VERIFY(asm2dep.find(c.index(), e));
             if (asm2fml.contains(e)) {
                 e = asm2fml.find(e);
             }
@@ -789,11 +755,10 @@ private:
 
     void check_assumptions(dep2asm_t& dep2asm) {
         sat::model const & ll_m = m_solver.get_model();
-        dep2asm_t::iterator it = dep2asm.begin(), end = dep2asm.end();
-        for (; it != end; ++it) {
-            sat::literal lit = it->m_value;
+        for (auto const& kv : dep2asm) {
+            sat::literal lit = kv.m_value;
             if (sat::value_at(lit, ll_m) != l_true) {
-                IF_VERBOSE(0, verbose_stream() << mk_pp(it->m_key, m) << " does not evaluate to true\n";
+                IF_VERBOSE(0, verbose_stream() << mk_pp(kv.m_key, m) << " does not evaluate to true\n";
                            verbose_stream() << m_asms << "\n";
                            m_solver.display_assignment(verbose_stream());
                            m_solver.display(verbose_stream()););

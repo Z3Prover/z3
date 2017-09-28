@@ -597,6 +597,7 @@ namespace sat {
         clause * const * begin_learned() const { return m_learned.begin(); }
         clause * const * end_learned() const { return m_learned.end(); }
         clause_vector const& learned() const { return m_learned; }
+        clause_vector const& clauses() const { return m_clauses; }
         void collect_bin_clauses(svector<bin_clause> & r, bool learned, bool learned_only = false) const;
 
         // -----------------------
