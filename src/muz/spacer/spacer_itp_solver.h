@@ -119,6 +119,8 @@ public:
     {NOT_IMPLEMENTED_YET();}
     virtual void assert_lemma(expr* e) { NOT_IMPLEMENTED_YET(); }
     virtual expr_ref lookahead(const expr_ref_vector &,const expr_ref_vector &) { return expr_ref(m.mk_true(), m); }
+    virtual expr_ref cube() { return expr_ref(m.mk_true(), m); }
+
 
     virtual void push();
     virtual void pop(unsigned n);

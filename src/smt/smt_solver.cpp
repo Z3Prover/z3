@@ -229,6 +229,11 @@ namespace smt {
             return expr_ref(m.mk_true(), m);
         }
 
+        virtual expr_ref cube() {
+            ast_manager& m = get_manager();
+            return expr_ref(m.mk_true(), m);
+        }
+
         struct collect_fds_proc {
             ast_manager & m;
             func_decl_set & m_fds;

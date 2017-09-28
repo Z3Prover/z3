@@ -2353,6 +2353,16 @@ namespace sat {
     }
 
     lbool lookahead::cube() {
+#if 0
+        literal_vector lits;
+        while (true) {
+            lbool result = cube(lits);
+            if (lits.empty() || result != l_undef) {
+                return result;
+            }
+            display_cube(std::cout, cube);
+        }
+#endif
         lbool result = l_false;
         init_search();
         m_model.reset();
@@ -2392,6 +2402,58 @@ namespace sat {
             is_decision.push_back(true);
             SASSERT(inconsistent() || !is_unsat());
         }
+    }
+
+    lbool lookahead::cube(literal_vector& lits) {
+        lits.reset();
+        bool is_first = (m_cube_state.m_lit == null_literal);
+        if (is_first) {
+            init_search();
+            m_model.reset();
+        }        
+        scoped_level _sl(*this, c_fixed_truth);
+        m_search_mode = lookahead_mode::searching;
+        unsigned depth = 0;
+        
+        if (!is_first) {
+            goto pick_up_work;
+        }
+
+        while (true) {
+            TRACE("sat", display(tout););
+            inc_istamp();
+            checkpoint();
+            m_cube_state.m_lit = choose();
+            if (inconsistent()) {
+                TRACE("sat", tout << "inconsistent: " << cube << "\n";);
+                m_cube_state.m_freevars_threshold = m_freevars.size();                
+                if (!backtrack(m_cube_state.m_cube, m_cube_state.m_is_decision)) return m_cube_state.m_result;
+                continue;
+            }
+            if (m_cube_state.m_lit == null_literal) {
+                return l_true;
+            }
+            depth = m_cube_state.m_cube.size();
+            if ((m_config.m_cube_cutoff != 0 && depth == m_config.m_cube_cutoff) ||
+                (m_config.m_cube_cutoff == 0 && m_freevars.size() < m_cube_state.m_freevars_threshold)) {
+                m_cube_state.m_freevars_threshold *= (1.0 - pow(m_config.m_cube_fraction, depth));
+                m_cube_state.m_result = l_undef;
+                set_conflict();
+                if (!backtrack(m_cube_state.m_cube, m_cube_state.m_is_decision)) return m_cube_state.m_result;
+                lits.append(m_cube_state.m_cube);
+                return l_undef;
+            }
+        pick_up_work:
+            TRACE("sat", tout << "choose: " << m_cube_state.m_lit << " cube: " << m_cube_state.m_cube << "\n";);
+            ++m_stats.m_decisions;
+            push(m_cube_state.m_lit, c_fixed_truth);
+            m_cube_state.m_cube.push_back(m_cube_state.m_lit);
+            m_cube_state.m_is_decision.push_back(true);
+            SASSERT(inconsistent() || !is_unsat());
+        }
+        lbool result = m_cube_state.m_result;
+        m_cube_state.reset();
+        return result;
     }
 
     void lookahead::init_model() {

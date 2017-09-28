@@ -109,6 +109,7 @@ namespace opt {
         virtual lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes);
         virtual lbool preferred_sat(expr_ref_vector const& asms, vector<expr_ref_vector>& cores);
         virtual expr_ref lookahead(expr_ref_vector const& assumptions, expr_ref_vector const& candidates) { return expr_ref(m.mk_true(), m); }
+        virtual expr_ref cube() { return expr_ref(m.mk_true(), m); }
         void set_logic(symbol const& logic);
 
         smt::theory_var add_objective(app* term);

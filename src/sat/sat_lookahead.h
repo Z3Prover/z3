@@ -139,6 +139,22 @@ namespace sat {
         };
 #endif
 
+        struct cube_state {
+            svector<bool>  m_is_decision;
+            literal_vector m_cube;
+            literal        m_lit;
+            lbool          m_result;
+            double         m_freevars_threshold;
+            cube_state() { reset(); }
+            void reset() { 
+                m_is_decision.reset(); 
+                m_cube.reset(); 
+                m_lit = null_literal; 
+                m_result = l_false; 
+                m_freevars_threshold = 0; 
+            }
+        };
+
         config                 m_config;
         double                 m_delta_trigger; 
 
@@ -202,6 +218,7 @@ namespace sat {
         lookahead_mode         m_search_mode;   // mode of search
         stats                  m_stats;
         model                  m_model; 
+        cube_state             m_cube_state;
  
         // ---------------------------------------
         // truth values
@@ -536,6 +553,8 @@ namespace sat {
            Otherwise, cut-fraction gives an adaptive threshold for creating cuts.
         */
         lbool cube();
+
+        lbool cube(literal_vector& lits);
 
         literal select_lookahead(literal_vector const& assumptions, bool_var_vector const& vars);
         /**

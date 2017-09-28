@@ -63,6 +63,7 @@ namespace sat {
         m_next_simplify           = 0;
         m_num_checkpoints         = 0;
         m_simplifications         = 0;
+        m_cuber                   = nullptr;
     }
 
     solver::~solver() {
@@ -835,6 +836,19 @@ namespace sat {
         lookahead lh(*this);
         return lh.select_lookahead(assumptions, vars);
     }
+
+    lbool  solver::cube(literal_vector& lits) {
+        if (!m_cuber) {
+            m_cuber = alloc(lookahead, *this);
+        }
+        lbool result = m_cuber->cube(lits);
+        if (result == l_false) {
+            dealloc(m_cuber);
+            m_cuber = nullptr;
+        }
+        return result;
+    }
+
 
     // -----------------------
     //

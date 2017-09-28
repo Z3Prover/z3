@@ -284,6 +284,10 @@ public:
         return m_solver1->lookahead(assumptions, candidates); 
     }
 
+    virtual expr_ref cube() {
+        return m_solver1->cube();
+    }
+
     virtual expr * get_assumption(unsigned idx) const {
         unsigned c1 = m_solver1->get_num_assumptions();
         if (idx < c1) return m_solver1->get_assumption(idx);

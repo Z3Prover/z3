@@ -495,6 +495,33 @@ extern "C" {
         Z3_CATCH_RETURN(Z3_L_UNDEF);        
     }
 
+    Z3_ast Z3_API Z3_solver_cube(Z3_context c, Z3_solver s) {
+        Z3_TRY;
+        LOG_Z3_solver_cube(c, s);
+        ast_manager& m = mk_c(c)->m();
+        expr_ref result(m);
+        unsigned timeout     = to_solver(s)->m_params.get_uint("timeout", mk_c(c)->get_timeout());
+        unsigned rlimit      = to_solver(s)->m_params.get_uint("rlimit", mk_c(c)->get_rlimit());
+        bool     use_ctrl_c  = to_solver(s)->m_params.get_bool("ctrl_c", false);
+        cancel_eh<reslimit> eh(mk_c(c)->m().limit());
+        api::context::set_interruptable si(*(mk_c(c)), eh);
+        {
+            scoped_ctrl_c ctrlc(eh, false, use_ctrl_c);
+            scoped_timer timer(timeout, &eh);
+            scoped_rlimit _rlimit(mk_c(c)->m().limit(), rlimit);
+            try {
+                result = to_solver_ref(s)->cube();
+            }
+            catch (z3_exception & ex) {
+                mk_c(c)->handle_exception(ex);
+                return 0;
+            }
+        }
+        mk_c(c)->save_ast_trail(result);
+        RETURN_Z3(of_ast(result));
+        Z3_CATCH_RETURN(0);        
+    }
+
     Z3_ast Z3_API Z3_solver_lookahead(Z3_context c,
                                       Z3_solver s,
                                       Z3_ast_vector assumptions,

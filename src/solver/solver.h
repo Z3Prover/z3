@@ -185,6 +185,12 @@ public:
     virtual expr_ref lookahead(expr_ref_vector const& assumptions, expr_ref_vector const& candidates) = 0;
 
     /**
+       \brief extract a lookahead candidates for branching.
+    */
+
+    virtual expr_ref cube() = 0;
+
+    /**
        \brief extract learned lemmas.
     */
     virtual void get_lemmas(expr_ref_vector& lemmas) {}

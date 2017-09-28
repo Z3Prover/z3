@@ -344,6 +344,25 @@ public:
         expr_ref result(lit2expr[l.index()].get(), m);
         return result;
     }
+    virtual expr_ref cube() {
+        sat::literal_vector lits;
+        lbool result = m_solver.cube(lits);
+        if (result == l_false || lits.empty()) {
+            return expr_ref(m.mk_false(), m);
+        }
+        if (result == l_true) {
+            return expr_ref(m.mk_true(), m);
+        }
+        expr_ref_vector fmls(m);
+        expr_ref_vector lit2expr(m);
+        lit2expr.resize(m_solver.num_vars() * 2);
+        m_map.mk_inv(lit2expr);
+        for (sat::literal l : lits) {
+            fmls.push_back(lit2expr[l.index()].get());
+        }
+        return mk_and(fmls);
+    }
+
     virtual void get_lemmas(expr_ref_vector & lemmas) { 
         if (!m_internalized) return;
         sat2goal s2g;

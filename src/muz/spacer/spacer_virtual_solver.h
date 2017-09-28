@@ -93,10 +93,10 @@ public:
     virtual smt_params &fparams();
     virtual void reset();
 
-    virtual void set_progress_callback(progress_callback *callback)
-    {UNREACHABLE();}
+    virtual void set_progress_callback(progress_callback *callback) {UNREACHABLE();}
     virtual void assert_lemma(expr* e) { NOT_IMPLEMENTED_YET(); }
     virtual expr_ref lookahead(const expr_ref_vector &,const expr_ref_vector &) { return expr_ref(m.mk_true(), m); }
+    virtual expr_ref cube() { return expr_ref(m.mk_true(), m); }
 
     virtual solver *translate(ast_manager &m, params_ref const &p);
 

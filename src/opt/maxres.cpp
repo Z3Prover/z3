@@ -368,6 +368,7 @@ public:
                 m_lower = m_upper;
                 return l_true;
             }
+            split_core(core);
             cores.push_back(core);
             if (core.size() >= m_max_core_size) {
                 break;
@@ -493,7 +494,7 @@ public:
         expr_ref fml(m);
         remove_core(core);
         SASSERT(!core.empty());
-        rational w = split_core(core);
+        rational w = core_weight(core);
         TRACE("opt", display_vec(tout << "minimized core: ", core););
         IF_VERBOSE(10, display_vec(verbose_stream() << "core: ", core););
         max_resolve(core, w);
@@ -558,19 +559,24 @@ public:
         return m_asm2weight.find(e);
     }
 
-    rational split_core(exprs const& core) {
+    rational core_weight(exprs const& core) {
         if (core.empty()) return rational(0);
         // find the minimal weight:
         rational w = get_weight(core[0]);
         for (unsigned i = 1; i < core.size(); ++i) {
             w = std::min(w, get_weight(core[i]));
         }
+        return w;
+    }
+
+    rational split_core(exprs const& core) {
+        rational w = core_weight(core);
         // add fresh soft clauses for weights that are above w.
-        for (unsigned i = 0; i < core.size(); ++i) {
-            rational w2 = get_weight(core[i]);
+        for (expr* e : core) {
+            rational w2 = get_weight(e);
             if (w2 > w) {
                 rational w3 = w2 - w;
-                new_assumption(core[i], w3);
+                new_assumption(e, w3);
             }
         }        
         return w;

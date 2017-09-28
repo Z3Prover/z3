@@ -6183,6 +6183,16 @@ extern "C" {
 
     Z3_ast Z3_API Z3_solver_lookahead(Z3_context c, Z3_solver s, Z3_ast_vector assumptions, Z3_ast_vector candidates);
 
+    /**
+       \brief extract a next cube for a solver. The last cube is the constant \c true or \c false.
+       The number of (non-constant) cubes is by default 1. For the sat solver cubing is controlled
+       using parameters sat.lookahead.cube.cutoff and sat.lookahead.cube.fraction.
+       
+       def_API('Z3_solver_cube', AST, (_in(CONTEXT), _in(SOLVER)))
+    */
+
+    Z3_ast Z3_API Z3_solver_cube(Z3_context c, Z3_solver s);
+
 
     /**
        \brief retrieve lemmas from solver state. Lemmas are auxiliary unit literals, 

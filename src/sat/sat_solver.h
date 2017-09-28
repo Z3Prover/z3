@@ -156,6 +156,8 @@ namespace sat {
         unsigned                m_par_num_vars;
         bool                    m_par_syncing_clauses;
 
+        class lookahead*        m_cuber;
+
         statistics              m_aux_stats;
 
         void del_clauses(clause * const * begin, clause * const * end);
@@ -362,6 +364,7 @@ namespace sat {
         char const* get_reason_unknown() const { return m_reason_unknown.c_str(); }
 
         literal select_lookahead(literal_vector const& assumptions, bool_var_vector const& vars);
+        lbool  cube(literal_vector& lits);
 
     protected:
         unsigned m_conflicts_since_init;
@@ -404,7 +407,7 @@ namespace sat {
         void exchange_par();
         lbool check_par(unsigned num_lits, literal const* lits);
         lbool lookahead_search();
-        lbool  lookahead_cube();
+        lbool lookahead_cube();
         lbool do_local_search(unsigned num_lits, literal const* lits);
         lbool do_ccc();
 
