@@ -73,6 +73,7 @@ namespace sat {
         unsigned           m_restart_initial;
         double             m_restart_factor; // for geometric case
         unsigned           m_restart_max;
+        unsigned           m_inprocess_max;
         double             m_random_freq;
         unsigned           m_random_seed;
         unsigned           m_burst_search;
@@ -106,6 +107,7 @@ namespace sat {
         bool               m_drat_check;
 
         bool               m_dimacs_display;
+        bool               m_dimacs_inprocess_display;
 
         symbol             m_always_true;
         symbol             m_always_false;

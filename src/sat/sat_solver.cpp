@@ -62,6 +62,7 @@ namespace sat {
         m_conflicts_since_init    = 0;
         m_next_simplify           = 0;
         m_num_checkpoints         = 0;
+        m_simplifications         = 0;
     }
 
     solver::~solver() {
@@ -797,7 +798,6 @@ namespace sat {
                     keep = m_ext->propagate(l, it->get_ext_constraint_idx());
                     if (m_inconsistent) {
                         if (!keep) {
-                            std::cout << "CONFLICT - but throw away current watch literal\n";
                             ++it;
                         }
                         CONFLICT_CLEANUP();
@@ -923,6 +923,17 @@ namespace sat {
                 if (m_config.m_restart_max <= m_restarts) {
                     m_reason_unknown = "sat.max.restarts";
                     IF_VERBOSE(SAT_VB_LVL, verbose_stream() << "(sat \"abort: max-restarts\")\n";);
+                    return l_undef;
+                }
+                if (m_config.m_inprocess_max <= m_simplifications) {
+                    m_reason_unknown = "sat.max.inprocess";
+                    IF_VERBOSE(SAT_VB_LVL, verbose_stream() << "(sat \"abort: max-inprocess\")\n";);
+                    if (m_config.m_dimacs_inprocess_display) {
+                        display_dimacs(std::cout);
+                        for (unsigned i = 0; i < num_lits; ++lits) {
+                            std::cout << dimacs_lit(lits[i]) << " 0\n";
+                        }
+                    }
                     return l_undef;
                 }
 
@@ -1411,7 +1422,8 @@ namespace sat {
         if (m_conflicts_since_init < m_next_simplify) {
             return;
         }
-        IF_VERBOSE(2, verbose_stream() << "(sat.simplify)\n";);
+        m_simplifications++;
+        IF_VERBOSE(2, verbose_stream() << "(sat.simplify :simplifications " << m_simplifications << ")\n";);
 
         TRACE("sat", tout << "simplify\n";);
 
@@ -1424,11 +1436,11 @@ namespace sat {
 
         m_scc();
         CASSERT("sat_simplify_bug", check_invariant());
-
+        
         m_simplifier(false);
         CASSERT("sat_simplify_bug", check_invariant());
         CASSERT("sat_missed_prop", check_missed_propagation());
-
+        
         if (!m_learned.empty()) {
             m_simplifier(true);
             CASSERT("sat_missed_prop", check_missed_propagation());
