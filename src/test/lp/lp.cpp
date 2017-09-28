@@ -3153,8 +3153,25 @@ void test_disjoint_intervals_randomly(disjoint_intervals<int> & d) {
 
 void test_disjoint_intervals() {
     disjoint_intervals<int> d;
-    for (int i = 0; i < 200000; i++) {
+    vector<disjoint_intervals<int>> stack;
+    for (int i = 0; i < 10000; i++) {
         test_disjoint_intervals_randomly(d);
+        stack.push_back(d);
+        d.push();
+        if (i > 0 && i%100 == 0) {
+            if (stack.size() == 0) continue;
+            unsigned k = my_random() % stack.size();
+            if (k == 0)
+                k = 1;
+            d.pop(k);
+            d.restore_domain();
+            for (unsigned j = 0; j + 1 < k; j++) {
+                stack.pop_back();
+            }
+            std::cout<<"comparing i = " << i << std::endl;
+            lp_assert(d ==  *stack.rbegin());
+            stack.pop_back();
+        }
         //d.print(std::cout);
     }
 }
