@@ -1,7 +1,22 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 #pragma once
 #include "util/vector.h"
 #include "util/lp/linear_combination_iterator.h"
@@ -13,7 +28,7 @@
 // We try to pin a var by pushing the total by using the variable bounds
 // In a loop we drive the partial sum down, denoting the variables of this process by _u.
 // In the same loop trying to pin variables by pushing the partial sum up, denoting the variable related to it by _l
-namespace lean {
+namespace lp {
 
 class bound_analyzer_on_row {
 
@@ -91,11 +106,11 @@ public :
     }
 
     const impq & ub(unsigned j) const {
-        lean_assert(upper_bound_is_available(j));
+        SASSERT(upper_bound_is_available(j));
         return m_bp.get_upper_bound(j);
     }
     const impq & lb(unsigned j) const {
-        lean_assert(low_bound_is_available(j));
+        SASSERT(low_bound_is_available(j));
         return m_bp.get_low_bound(j);
     }
 
@@ -114,22 +129,22 @@ public :
         }
         return a * lb(j).x;
     }
-	mpq monoid_max(const mpq & a, unsigned j, bool & strict) const {
-		if (is_pos(a)) {
-			strict = !is_zero(ub(j).y);
-			return a * ub(j).x;
-		}
-		strict = !is_zero(lb(j).y);
-		return a * lb(j).x;
-	}
-	const mpq & monoid_min_no_mult(bool a_is_pos, unsigned j, bool & strict) const {
-		if (!a_is_pos) {
-			strict = !is_zero(ub(j).y);
-			return ub(j).x;
-		}
-		strict = !is_zero(lb(j).y);
-		return lb(j).x;
-	}
+    mpq monoid_max(const mpq & a, unsigned j, bool & strict) const {
+        if (is_pos(a)) {
+            strict = !is_zero(ub(j).y);
+            return a * ub(j).x;
+        }
+        strict = !is_zero(lb(j).y);
+        return a * lb(j).x;
+    }
+    const mpq & monoid_min_no_mult(bool a_is_pos, unsigned j, bool & strict) const {
+        if (!a_is_pos) {
+            strict = !is_zero(ub(j).y);
+            return ub(j).x;
+        }
+        strict = !is_zero(lb(j).y);
+        return lb(j).x;
+    }
 
     mpq monoid_min(const mpq & a, unsigned j, bool& strict) const {
         if (is_neg(a)) {
@@ -153,7 +168,7 @@ public :
     void limit_all_monoids_from_above() {
         int strict = 0;
         mpq total;
-        lean_assert(is_zero(total));
+        SASSERT(is_zero(total));
         m_it.reset();
         mpq a; unsigned j;
         while (m_it.next(a, j)) {
@@ -166,7 +181,7 @@ public :
         m_it.reset();
         while (m_it.next(a, j)) {
             bool str;
-			bool a_is_pos = is_pos(a);
+            bool a_is_pos = is_pos(a);
             mpq bound = total / a + monoid_min_no_mult(a_is_pos, j, str);
             if (a_is_pos) {
                 limit_j(j, bound, true, false, strict - static_cast<int>(str) > 0);
@@ -180,7 +195,7 @@ public :
     void limit_all_monoids_from_below() {
         int strict = 0;
         mpq total;
-        lean_assert(is_zero(total));
+        SASSERT(is_zero(total));
         m_it.reset();
         mpq a; unsigned j;
         while (m_it.next(a, j)) {
@@ -192,8 +207,8 @@ public :
         m_it.reset();
         while (m_it.next(a, j)) {
             bool str;
-			bool a_is_pos = is_pos(a);
-			mpq bound = total / a + monoid_max_no_mult(a_is_pos, j, str);
+            bool a_is_pos = is_pos(a);
+            mpq bound = total / a + monoid_max_no_mult(a_is_pos, j, str);
             bool astrict = strict - static_cast<int>(str) > 0;
             if (a_is_pos) {
                 limit_j(j, bound, true, true, astrict);
@@ -272,7 +287,7 @@ public :
     //     mpq a; unsigned j;
     //     while (it->next(a, j)) {
     //         if (be.m_j == j) continue;
-    //         lean_assert(bound_is_available(j, is_neg(a) ? low_bound : !low_bound));
+    //         SASSERT(bound_is_available(j, is_neg(a) ? low_bound : !low_bound));
     //         be.m_vector_of_bound_signatures.emplace_back(a, j, numeric_traits<impq>::
     //                                                      is_neg(a)? low_bound: !low_bound);
     //     }

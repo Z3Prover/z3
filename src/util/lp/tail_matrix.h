@@ -1,7 +1,22 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 
 #pragma once
 #include "util/vector.h"
@@ -10,10 +25,10 @@
 #include "util/lp/lp_settings.h"
 // These matrices appear at the end of the list
 
-namespace lean {
+namespace lp {
 template <typename T, typename X>
 class tail_matrix
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     : public matrix<T, X>
 #endif
 {

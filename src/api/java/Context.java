@@ -1956,8 +1956,8 @@ public class Context implements AutoCloseable {
     */
     public SeqExpr mkEmptySeq(Sort s) 
     {
-	checkContextMatch(s);
-	return (SeqExpr) Expr.create(this, Native.mkSeqEmpty(nCtx(), s.getNativeObject()));
+        checkContextMatch(s);
+        return (SeqExpr) Expr.create(this, Native.mkSeqEmpty(nCtx(), s.getNativeObject()));
     }
 
     /**
@@ -1965,8 +1965,8 @@ public class Context implements AutoCloseable {
      */
     public SeqExpr mkUnit(Expr elem) 
     {
-	checkContextMatch(elem);
-	return (SeqExpr) Expr.create(this, Native.mkSeqUnit(nCtx(), elem.getNativeObject()));
+        checkContextMatch(elem);
+        return (SeqExpr) Expr.create(this, Native.mkSeqUnit(nCtx(), elem.getNativeObject()));
     }
     
     /**
@@ -1974,7 +1974,7 @@ public class Context implements AutoCloseable {
      */
     public SeqExpr mkString(String s) 
     {
-	return (SeqExpr) Expr.create(this, Native.mkString(nCtx(), s));
+        return (SeqExpr) Expr.create(this, Native.mkString(nCtx(), s));
     }
     
     /**
@@ -1982,8 +1982,8 @@ public class Context implements AutoCloseable {
      */
     public SeqExpr mkConcat(SeqExpr... t)
     {
-	checkContextMatch(t);
-	return (SeqExpr) Expr.create(this, Native.mkSeqConcat(nCtx(), t.length, AST.arrayToNative(t)));
+        checkContextMatch(t);
+        return (SeqExpr) Expr.create(this, Native.mkSeqConcat(nCtx(), t.length, AST.arrayToNative(t)));
     }
     
     
@@ -1992,8 +1992,8 @@ public class Context implements AutoCloseable {
      */
     public IntExpr mkLength(SeqExpr s)
     {
-	checkContextMatch(s);
-	return (IntExpr) Expr.create(this, Native.mkSeqLength(nCtx(), s.getNativeObject()));
+        checkContextMatch(s);
+        return (IntExpr) Expr.create(this, Native.mkSeqLength(nCtx(), s.getNativeObject()));
     }
     
     /**
@@ -2001,8 +2001,8 @@ public class Context implements AutoCloseable {
      */
     public BoolExpr mkPrefixOf(SeqExpr s1, SeqExpr s2) 
     {
-	checkContextMatch(s1, s2);
-	return (BoolExpr) Expr.create(this, Native.mkSeqPrefix(nCtx(), s1.getNativeObject(), s2.getNativeObject()));
+        checkContextMatch(s1, s2);
+        return (BoolExpr) Expr.create(this, Native.mkSeqPrefix(nCtx(), s1.getNativeObject(), s2.getNativeObject()));
     }
     
     /**
@@ -2010,8 +2010,8 @@ public class Context implements AutoCloseable {
      */
     public BoolExpr mkSuffixOf(SeqExpr s1, SeqExpr s2) 
     {
-	checkContextMatch(s1, s2);
-	return (BoolExpr)Expr.create(this, Native.mkSeqSuffix(nCtx(), s1.getNativeObject(), s2.getNativeObject()));
+        checkContextMatch(s1, s2);
+        return (BoolExpr)Expr.create(this, Native.mkSeqSuffix(nCtx(), s1.getNativeObject(), s2.getNativeObject()));
     }
     
     /**
@@ -2019,8 +2019,8 @@ public class Context implements AutoCloseable {
      */
     public BoolExpr mkContains(SeqExpr s1, SeqExpr s2) 
     {
-	checkContextMatch(s1, s2);
-	return (BoolExpr) Expr.create(this, Native.mkSeqContains(nCtx(), s1.getNativeObject(), s2.getNativeObject()));
+        checkContextMatch(s1, s2);
+        return (BoolExpr) Expr.create(this, Native.mkSeqContains(nCtx(), s1.getNativeObject(), s2.getNativeObject()));
     }
     
     /**
@@ -2028,8 +2028,8 @@ public class Context implements AutoCloseable {
      */
     public SeqExpr mkAt(SeqExpr s, IntExpr index)
     {
-	checkContextMatch(s, index);
-	return (SeqExpr) Expr.create(this, Native.mkSeqAt(nCtx(), s.getNativeObject(), index.getNativeObject()));
+        checkContextMatch(s, index);
+        return (SeqExpr) Expr.create(this, Native.mkSeqAt(nCtx(), s.getNativeObject(), index.getNativeObject()));
     }
     
     /**
@@ -2037,8 +2037,8 @@ public class Context implements AutoCloseable {
      */
     public SeqExpr mkExtract(SeqExpr s, IntExpr offset, IntExpr length)
     {
-	checkContextMatch(s, offset, length);
-	return (SeqExpr) Expr.create(this, Native.mkSeqExtract(nCtx(), s.getNativeObject(), offset.getNativeObject(), length.getNativeObject()));
+        checkContextMatch(s, offset, length);
+        return (SeqExpr) Expr.create(this, Native.mkSeqExtract(nCtx(), s.getNativeObject(), offset.getNativeObject(), length.getNativeObject()));
     }
     
     /**
@@ -2046,8 +2046,8 @@ public class Context implements AutoCloseable {
      */
     public IntExpr mkIndexOf(SeqExpr s, SeqExpr substr, ArithExpr offset)
     {
-	checkContextMatch(s, substr, offset);
-	return (IntExpr)Expr.create(this, Native.mkSeqIndex(nCtx(), s.getNativeObject(), substr.getNativeObject(), offset.getNativeObject()));
+        checkContextMatch(s, substr, offset);
+        return (IntExpr)Expr.create(this, Native.mkSeqIndex(nCtx(), s.getNativeObject(), substr.getNativeObject(), offset.getNativeObject()));
     }
     
     /**
@@ -2055,8 +2055,8 @@ public class Context implements AutoCloseable {
      */
     public SeqExpr mkReplace(SeqExpr s, SeqExpr src, SeqExpr dst)
     {
-	checkContextMatch(s, src, dst);
-	return (SeqExpr) Expr.create(this, Native.mkSeqReplace(nCtx(), s.getNativeObject(), src.getNativeObject(), dst.getNativeObject()));
+        checkContextMatch(s, src, dst);
+        return (SeqExpr) Expr.create(this, Native.mkSeqReplace(nCtx(), s.getNativeObject(), src.getNativeObject(), dst.getNativeObject()));
     }
     
     /**
@@ -2064,8 +2064,8 @@ public class Context implements AutoCloseable {
      */
     public ReExpr mkToRe(SeqExpr s) 
     {
-	checkContextMatch(s);
-	return (ReExpr) Expr.create(this, Native.mkSeqToRe(nCtx(), s.getNativeObject()));            
+        checkContextMatch(s);
+        return (ReExpr) Expr.create(this, Native.mkSeqToRe(nCtx(), s.getNativeObject()));            
     }
     
     
@@ -2074,8 +2074,8 @@ public class Context implements AutoCloseable {
      */
     public BoolExpr mkInRe(SeqExpr s, ReExpr re)
     {
-	checkContextMatch(s, re);
-	return (BoolExpr) Expr.create(this, Native.mkSeqInRe(nCtx(), s.getNativeObject(), re.getNativeObject()));            
+        checkContextMatch(s, re);
+        return (BoolExpr) Expr.create(this, Native.mkSeqInRe(nCtx(), s.getNativeObject(), re.getNativeObject()));            
     }
     
     /**
@@ -2083,8 +2083,8 @@ public class Context implements AutoCloseable {
      */
     public ReExpr mkStar(ReExpr re)
     {
-	checkContextMatch(re);
-	return (ReExpr) Expr.create(this, Native.mkReStar(nCtx(), re.getNativeObject()));            
+        checkContextMatch(re);
+        return (ReExpr) Expr.create(this, Native.mkReStar(nCtx(), re.getNativeObject()));            
     }
 
     /**
@@ -2092,7 +2092,7 @@ public class Context implements AutoCloseable {
      */
     public ReExpr mkLoop(ReExpr re, int lo, int hi)
     {
-	return (ReExpr) Expr.create(this, Native.mkReLoop(nCtx(), re.getNativeObject(), lo, hi));            
+        return (ReExpr) Expr.create(this, Native.mkReLoop(nCtx(), re.getNativeObject(), lo, hi));            
     }
 
     /**
@@ -2100,7 +2100,7 @@ public class Context implements AutoCloseable {
      */
     public ReExpr mkLoop(ReExpr re, int lo)
     {
-	return (ReExpr) Expr.create(this, Native.mkReLoop(nCtx(), re.getNativeObject(), lo, 0));            
+        return (ReExpr) Expr.create(this, Native.mkReLoop(nCtx(), re.getNativeObject(), lo, 0));            
     }
 
     
@@ -2109,8 +2109,8 @@ public class Context implements AutoCloseable {
      */
     public ReExpr mkPlus(ReExpr re)
     {
-	checkContextMatch(re);
-	return (ReExpr) Expr.create(this, Native.mkRePlus(nCtx(), re.getNativeObject()));            
+        checkContextMatch(re);
+        return (ReExpr) Expr.create(this, Native.mkRePlus(nCtx(), re.getNativeObject()));            
     }
     
     /**
@@ -2118,8 +2118,8 @@ public class Context implements AutoCloseable {
      */
     public ReExpr mkOption(ReExpr re)
     {
-	checkContextMatch(re);
-	return (ReExpr) Expr.create(this, Native.mkReOption(nCtx(), re.getNativeObject()));            
+        checkContextMatch(re);
+        return (ReExpr) Expr.create(this, Native.mkReOption(nCtx(), re.getNativeObject()));            
     }
 
     
@@ -2128,8 +2128,8 @@ public class Context implements AutoCloseable {
      */
     public ReExpr mkComplement(ReExpr re)
     {
-	checkContextMatch(re);
-	return (ReExpr) Expr.create(this, Native.mkReComplement(nCtx(), re.getNativeObject()));            
+        checkContextMatch(re);
+        return (ReExpr) Expr.create(this, Native.mkReComplement(nCtx(), re.getNativeObject()));            
     }    
 
     /**
@@ -2137,8 +2137,8 @@ public class Context implements AutoCloseable {
      */
     public ReExpr mkConcat(ReExpr... t)
     {
-	checkContextMatch(t);
-	return (ReExpr) Expr.create(this, Native.mkReConcat(nCtx(), t.length, AST.arrayToNative(t)));
+        checkContextMatch(t);
+        return (ReExpr) Expr.create(this, Native.mkReConcat(nCtx(), t.length, AST.arrayToNative(t)));
     }
     
     /**
@@ -2146,8 +2146,8 @@ public class Context implements AutoCloseable {
      */
     public ReExpr mkUnion(ReExpr... t)
     {
-	checkContextMatch(t);
-	return (ReExpr) Expr.create(this, Native.mkReUnion(nCtx(), t.length, AST.arrayToNative(t)));
+        checkContextMatch(t);
+        return (ReExpr) Expr.create(this, Native.mkReUnion(nCtx(), t.length, AST.arrayToNative(t)));
     }
 
     /**
@@ -2155,8 +2155,8 @@ public class Context implements AutoCloseable {
      */
     public ReExpr mkIntersect(ReExpr... t)
     {
-	checkContextMatch(t);
-	return (ReExpr) Expr.create(this, Native.mkReIntersect(nCtx(), t.length, AST.arrayToNative(t)));
+        checkContextMatch(t);
+        return (ReExpr) Expr.create(this, Native.mkReIntersect(nCtx(), t.length, AST.arrayToNative(t)));
     }    
     
     /**
@@ -2164,8 +2164,8 @@ public class Context implements AutoCloseable {
      */
     public ReExpr mkRange(SeqExpr lo, SeqExpr hi) 
     {
-	checkContextMatch(lo, hi);
-	return (ReExpr) Expr.create(this, Native.mkReRange(nCtx(), lo.getNativeObject(), hi.getNativeObject()));
+        checkContextMatch(lo, hi);
+        return (ReExpr) Expr.create(this, Native.mkReRange(nCtx(), lo.getNativeObject(), hi.getNativeObject()));
     }
 
 
@@ -2174,8 +2174,8 @@ public class Context implements AutoCloseable {
      */
     public BoolExpr mkAtMost(BoolExpr[] args, int k)
     {
-	checkContextMatch(args);
-	return (BoolExpr) Expr.create(this, Native.mkAtmost(nCtx(), args.length, AST.arrayToNative(args), k));
+        checkContextMatch(args);
+        return (BoolExpr) Expr.create(this, Native.mkAtmost(nCtx(), args.length, AST.arrayToNative(args), k));
     }
 
     /**
@@ -2183,8 +2183,8 @@ public class Context implements AutoCloseable {
      */
     public BoolExpr mkAtLeast(BoolExpr[] args, int k)
     {
-	checkContextMatch(args);
-	return (BoolExpr) Expr.create(this, Native.mkAtleast(nCtx(), args.length, AST.arrayToNative(args), k));
+        checkContextMatch(args);
+        return (BoolExpr) Expr.create(this, Native.mkAtleast(nCtx(), args.length, AST.arrayToNative(args), k));
     }
 
     /**
@@ -2192,8 +2192,8 @@ public class Context implements AutoCloseable {
      */
     public BoolExpr mkPBLe(int[] coeffs, BoolExpr[] args, int k)
     {
-	checkContextMatch(args);
-	return (BoolExpr) Expr.create(this, Native.mkPble(nCtx(), args.length, AST.arrayToNative(args), coeffs, k));
+        checkContextMatch(args);
+        return (BoolExpr) Expr.create(this, Native.mkPble(nCtx(), args.length, AST.arrayToNative(args), coeffs, k));
     }
 
     /**
@@ -2201,8 +2201,8 @@ public class Context implements AutoCloseable {
      */
     public BoolExpr mkPBGe(int[] coeffs, BoolExpr[] args, int k)
     {
-	checkContextMatch(args);
-	return (BoolExpr) Expr.create(this, Native.mkPbge(nCtx(), args.length, AST.arrayToNative(args), coeffs, k));
+        checkContextMatch(args);
+        return (BoolExpr) Expr.create(this, Native.mkPbge(nCtx(), args.length, AST.arrayToNative(args), coeffs, k));
     }
 
     /**
@@ -2210,8 +2210,8 @@ public class Context implements AutoCloseable {
      */
     public BoolExpr mkPBEq(int[] coeffs, BoolExpr[] args, int k)
     {
-	checkContextMatch(args);
-	return (BoolExpr) Expr.create(this, Native.mkPbeq(nCtx(), args.length, AST.arrayToNative(args), coeffs, k));
+        checkContextMatch(args);
+        return (BoolExpr) Expr.create(this, Native.mkPbeq(nCtx(), args.length, AST.arrayToNative(args), coeffs, k));
     }
 
 
@@ -4046,15 +4046,15 @@ public class Context implements AutoCloseable {
 
     void checkContextMatch(Z3Object other1, Z3Object other2)
     {
-	checkContextMatch(other1);
-	checkContextMatch(other2);
+        checkContextMatch(other1);
+        checkContextMatch(other2);
     }
 
     void checkContextMatch(Z3Object other1, Z3Object other2, Z3Object other3)
     {
-	checkContextMatch(other1);
-	checkContextMatch(other2);
-	checkContextMatch(other3);
+        checkContextMatch(other1);
+        checkContextMatch(other2);
+        checkContextMatch(other3);
     }
 
     void checkContextMatch(Z3Object[] arr)

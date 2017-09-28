@@ -42,6 +42,10 @@ void rewriter_tpl<Config>::process_var(var * v) {
             unsigned index = m_bindings.size() - idx - 1;
             var * r = (var*)(m_bindings[index]);
             if (r != 0) {
+                CTRACE("rewriter", v->get_sort() != m().get_sort(r),
+                       tout << expr_ref(v, m()) << ":" << sort_ref(v->get_sort(), m()) << " != " << expr_ref(r, m()) << ":" << sort_ref(m().get_sort(r), m());
+                       tout << "index " << index << " bindings " << m_bindings.size() << "\n";
+                       display_bindings(tout););
                 SASSERT(v->get_sort() == m().get_sort(r));
                 if (!is_ground(r) && m_shifts[index] != m_bindings.size()) {
 

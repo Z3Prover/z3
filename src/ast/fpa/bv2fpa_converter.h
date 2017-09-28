@@ -50,7 +50,6 @@ public:
     expr_ref convert_bv2rm(expr * eval_v);
     expr_ref convert_bv2rm(model_core * mc, app * val);
 
-    void convert(model_core * mc, model_core * float_mdl);
     void convert_consts(model_core * mc, model_core * target_model, obj_hashtable<func_decl> & seen);
     void convert_rm_consts(model_core * mc, model_core * target_model, obj_hashtable<func_decl> & seen);
     void convert_min_max_specials(model_core * mc, model_core * target_model, obj_hashtable<func_decl> & seen);

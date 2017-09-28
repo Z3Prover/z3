@@ -213,7 +213,7 @@ public class Optimize extends Z3Object {
      *  Declare an arithmetical maximization objective.
      *  Return a handle to the objective. The handle is used as
      *  to retrieve the values of objectives after calling Check.
-     **/        	
+     **/            
     public Handle MkMaximize(ArithExpr e)
     {
         return new Handle(this, Native.optimizeMaximize(getContext().nCtx(), getNativeObject(), e.getNativeObject()));
@@ -285,8 +285,7 @@ public class Optimize extends Z3Object {
      **/
     public String getReasonUnknown()
     {
-        return Native.optimizeGetReasonUnknown(getContext().nCtx(),
-                getNativeObject());	
+        return Native.optimizeGetReasonUnknown(getContext().nCtx(), getNativeObject());
     }
 
     /**
@@ -304,7 +303,7 @@ public class Optimize extends Z3Object {
      */
     public void fromFile(String file)
     {
-	Native.optimizeFromFile(getContext().nCtx(), getNativeObject(), file);
+        Native.optimizeFromFile(getContext().nCtx(), getNativeObject(), file);
     }
 
     /**
@@ -312,7 +311,7 @@ public class Optimize extends Z3Object {
      */
     public void fromString(String s)
     {
-	Native.optimizeFromString(getContext().nCtx(), getNativeObject(), s);
+        Native.optimizeFromString(getContext().nCtx(), getNativeObject(), s);
     }
 
 

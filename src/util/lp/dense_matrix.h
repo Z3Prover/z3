@@ -1,12 +1,27 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 #pragma once
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
 #include "util/vector.h"
 #include "util/lp/matrix.h"
-namespace lean {
+namespace lp {
 // used for debugging purposes only
 template <typename T, typename X>
 class dense_matrix: public matrix<T, X> {
@@ -31,7 +46,7 @@ public:
     dense_matrix(unsigned m, unsigned n);
 
     dense_matrix operator*=(matrix<T, X> const & a) {
-        lean_assert(column_count() == a.row_count());
+        SASSERT(column_count() == a.row_count());
         dense_matrix c(row_count(), a.column_count());
         for (unsigned i = 0; i < row_count(); i++) {
             for (unsigned j = 0; j < a.column_count(); j++) {

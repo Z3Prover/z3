@@ -66,35 +66,35 @@ class iz3base : public iz3mgr, public scopes {
 
     /** Constructor */
 
- iz3base(ast_manager &_m_manager,
-	 const std::vector<ast> &_cnsts,
-	 const std::vector<int> &_parents,
-	 const std::vector<ast> &_theory)
-     : iz3mgr(_m_manager), scopes(_parents)  {
+    iz3base(ast_manager &_m_manager,
+            const std::vector<ast> &_cnsts,
+            const std::vector<int> &_parents,
+            const std::vector<ast> &_theory)
+        : iz3mgr(_m_manager), scopes(_parents)  {
         initialize(_cnsts,_parents,_theory);
         weak = false;
     }
 
- iz3base(const iz3mgr& other,
-	 const std::vector<ast> &_cnsts,
-	 const std::vector<int> &_parents,
-	 const std::vector<ast> &_theory)
-     : iz3mgr(other), scopes(_parents)  {
+    iz3base(const iz3mgr& other,
+            const std::vector<ast> &_cnsts,
+            const std::vector<int> &_parents,
+            const std::vector<ast> &_theory)
+        : iz3mgr(other), scopes(_parents)  {
         initialize(_cnsts,_parents,_theory);
         weak = false;
     }
 
- iz3base(const iz3mgr& other,
-         const std::vector<std::vector<ast> > &_cnsts,
-	 const std::vector<int> &_parents,
-	 const std::vector<ast> &_theory)
-     : iz3mgr(other), scopes(_parents)  {
+    iz3base(const iz3mgr& other,
+            const std::vector<std::vector<ast> > &_cnsts,
+            const std::vector<int> &_parents,
+            const std::vector<ast> &_theory)
+        : iz3mgr(other), scopes(_parents)  {
         initialize(_cnsts,_parents,_theory);
         weak = false;
     }
 
- iz3base(const iz3mgr& other)
-     : iz3mgr(other), scopes()  {
+    iz3base(const iz3mgr& other)
+        : iz3mgr(other), scopes()  {
         weak = false;
     }
 

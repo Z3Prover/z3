@@ -1738,10 +1738,6 @@ namespace smt {
             m_use_filters(use_filters) {
         }
 
-        context & get_context() {
-            return m_context;
-        }
-
         /**
            \brief Create a new code tree for the given quantifier.
 
@@ -2810,6 +2806,7 @@ namespace smt {
                 out << "tree for f" << lbl << "\n";
                 out << *tree;
             }
+            ++lbl;
         }
     }
 

@@ -19,7 +19,7 @@ z3_add_component(lp
     lu_instances.cpp
     matrix_instances.cpp
     permutation_matrix_instances.cpp
-	quick_xplain.cpp
+    quick_xplain.cpp
     row_eta_matrix_instances.cpp
     scaler_instances.cpp
     sparse_matrix_instances.cpp

@@ -1,7 +1,22 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 #pragma once
 #include "util/vector.h"
 #include <algorithm>
@@ -12,8 +27,8 @@
 #include "util/lp/lp_settings.h"
 #include "util/lp/matrix.h"
 #include "util/lp/tail_matrix.h"
-namespace lean {
-#ifdef LEAN_DEBUG
+namespace lp {
+#ifdef Z3DEBUG
     inline bool is_even(int k) {  return (k/2)*2 == k; }
 #endif
 
@@ -50,7 +65,7 @@ class permutation_matrix : public tail_matrix<T, X> {
         void init(unsigned length);
         unsigned get_rev(unsigned i) { return m_rev[i]; }
         bool is_dense() const { return false; }
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
         permutation_matrix get_inverse() const {
             return permutation_matrix(size(), m_rev);
         }
@@ -86,14 +101,14 @@ class permutation_matrix : public tail_matrix<T, X> {
         void apply_reverse_from_right_to_X(vector<X> & w);
 
         void set_val(unsigned i, unsigned pi) {
-            lean_assert(i < size() && pi < size());  m_permutation[i] = pi;  m_rev[pi] = i;  }
+            SASSERT(i < size() && pi < size());  m_permutation[i] = pi;  m_rev[pi] = i;  }
 
         void transpose_from_left(unsigned i, unsigned j);
 
         unsigned apply_reverse(unsigned i) const { return m_rev[i];  }
 
         void transpose_from_right(unsigned i, unsigned j);
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
         T get_elem(unsigned i, unsigned j) const{
             return m_permutation[i] == j? numeric_traits<T>::one() : numeric_traits<T>::zero();
         }

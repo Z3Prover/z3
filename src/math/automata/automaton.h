@@ -478,7 +478,7 @@ public:
     unsigned out_degree(unsigned state) const { return m_delta[state].size(); }
     move const& get_move_from(unsigned state) const { SASSERT(m_delta[state].size() == 1); return m_delta[state][0]; }
     move const& get_move_to(unsigned state) const { SASSERT(m_delta_inv[state].size() == 1); return m_delta_inv[state][0]; }
-    moves const& get_moves_from(unsigned state) const { return m_delta[state]; }	
+    moves const& get_moves_from(unsigned state) const { return m_delta[state]; }
     moves const& get_moves_to(unsigned state) const { return m_delta_inv[state]; }
     bool initial_state_is_source() const { return m_delta_inv[m_init].empty(); }
     bool is_final_state(unsigned s) const { return m_final_set.contains(s); }

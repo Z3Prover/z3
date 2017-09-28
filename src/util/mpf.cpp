@@ -1217,12 +1217,18 @@ void mpf_manager::to_sbv_mpq(mpf_rounding_mode rm, const mpf & x, scoped_mpq & o
         default: UNREACHABLE();
         }
         if (inc) m_mpz_manager.inc(z);
+        TRACE("mpf_dbg_sbv",
+              tout << "SBV: (" << to_string(x) << ") == " << m_mpq_manager.to_string(z) << std::endl;
+              tout << "sign=" << t.sign() << " last=" << last << " round=" << round <<
+                  " sticky=" << sticky << " inc=" << inc << std::endl; );
     }
     else
         m_mpz_manager.mul2k(z, (unsigned) e);
 
     m_mpq_manager.set(o, z);
     if (x.sign) m_mpq_manager.neg(o);
+
+    TRACE("mpf_dbg", tout << "SBV = " << m_mpq_manager.to_string(o) << std::endl;);
 }
 
 void mpf_manager::to_ieee_bv_mpz(const mpf & x, scoped_mpz & o) {
@@ -1248,6 +1254,8 @@ void mpf_manager::to_ieee_bv_mpz(const mpf & x, scoped_mpz & o) {
         m_mpz_manager.mul2k(o, sbits - 1);
         m_mpz_manager.add(o, sig(x), o);
     }
+
+    TRACE("mpf_dbg", tout << "IEEE_BV = " << m_mpz_manager.to_string(o) << std::endl;);
 }
 
 void mpf_manager::renormalize(unsigned ebits, unsigned sbits, mpf_exp_t & exp, mpz & sig) {

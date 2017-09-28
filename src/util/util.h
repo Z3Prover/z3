@@ -153,13 +153,13 @@ template<class T, size_t N> char (*ArraySizer(T (&)[N]))[N];
 template<typename IT>
 void display(std::ostream & out, const IT & begin, const IT & end, const char * sep, bool & first) {
     for(IT it = begin; it != end; ++it) {
-	if (first) {
-	    first = false;
-	}
-	else {
-	    out << sep;
-	}
-	out << *it;
+    if (first) {
+        first = false;
+    }
+    else {
+        out << sep;
+    }
+    out << *it;
     }
 }
 
@@ -172,9 +172,9 @@ void display(std::ostream & out, const IT & begin, const IT & end, const char * 
 template<typename T>
 struct delete_proc {
     void operator()(T * ptr) { 
-	if (ptr) {
-	    dealloc(ptr);
-	}
+    if (ptr) {
+        dealloc(ptr);
+    }
     }
 };
 

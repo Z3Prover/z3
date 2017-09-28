@@ -1,7 +1,22 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 
 #pragma once
 #include <unordered_set>
@@ -15,7 +30,7 @@
 
 typedef std::pair<unsigned, unsigned> upair;
 
-namespace lean {
+namespace lp {
 template <typename  T>
 class binary_heap_upair_queue {
     binary_heap_priority_queue<T> m_q;
@@ -38,7 +53,7 @@ public:
     void enqueue(unsigned i, unsigned j, const T & priority);
     void dequeue(unsigned & i, unsigned &j);
     T get_priority(unsigned i, unsigned j) const;
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     bool pair_to_index_is_a_bijection() const;
     bool available_spots_are_correct() const;
     bool is_correct() const {

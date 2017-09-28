@@ -1,7 +1,22 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 
 #pragma once
 #include "util/vector.h"
@@ -10,26 +25,26 @@
 #include "util/lp/sparse_vector.h"
 #include "util/lp/indexed_vector.h"
 #include "util/lp/permutation_matrix.h"
-namespace lean {
+namespace lp {
     // This is the sum of a unit matrix and a lower triangular matrix
     // with non-zero elements only in one row
 template <typename T, typename X>
 class row_eta_matrix
         : public tail_matrix<T, X> {
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     unsigned m_dimension;
 #endif
     unsigned m_row_start;
     unsigned m_row;
     sparse_vector<T> m_row_vector;
 public:
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     row_eta_matrix(unsigned row_start, unsigned row, unsigned dim):
 #else
     row_eta_matrix(unsigned row_start, unsigned row):
 #endif
 
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     m_dimension(dim),
 #endif
     m_row_start(row_start), m_row(row) {
@@ -55,7 +70,7 @@ public:
     }
 
     void push_back(unsigned row_index, T val ) {
-        lean_assert(row_index != m_row);
+        SASSERT(row_index != m_row);
         m_row_vector.push_back(row_index, val);
     }
 
@@ -63,7 +78,7 @@ public:
     void apply_from_right(indexed_vector<T> & w);
 
     void conjugate_by_permutation(permutation_matrix<T, X> & p);
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     T get_elem(unsigned row, unsigned col) const;
     unsigned row_count() const { return m_dimension; }
     unsigned column_count() const { return m_dimension; }

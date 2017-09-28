@@ -96,6 +96,9 @@ public:
     }
 
     virtual void execute(cmd_context & ctx) {
+        if (!m_formula) {
+            throw cmd_exception("assert-soft requires a formulas as argument.");
+        }
         symbol w("weight");
         rational weight = ps().get_rat(symbol("weight"), rational::one());
         symbol id = ps().get_sym(symbol("id"), symbol::null);        

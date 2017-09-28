@@ -1,12 +1,27 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 #pragma once
 #include "util/lp/linear_combination_iterator.h"
 #include "util/lp/numeric_pair.h"
 #include "util/lp/lar_term.h"
-namespace lean {
+namespace lp {
 struct iterator_on_term_with_basis_var:linear_combination_iterator<mpq> {
     const lar_term & m_term;
     std::unordered_map<unsigned, mpq>::const_iterator m_i; // the offset in term coeffs

@@ -1,11 +1,26 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 #include <algorithm>
 #include "util/lp/scaler.h"
 #include "util/lp/numeric_pair.h"
-namespace lean {
+namespace lp {
 // for scaling an LP
 template <typename T, typename X> T scaler<T, X>::right_side_balance() {
     T ret = zero_of_type<T>();
@@ -41,7 +56,7 @@ template <typename T, typename X>    T scaler<T, X>::A_max() const {
 template <typename T, typename X>    T scaler<T, X>::get_A_ratio() const {
     T min = A_min();
     T max = A_max();
-    lean_assert(!m_settings.abs_val_is_smaller_than_zero_tolerance(min));
+    SASSERT(!m_settings.abs_val_is_smaller_than_zero_tolerance(min));
     T ratio = max / min;
     return ratio;
 }
@@ -51,7 +66,7 @@ template <typename T, typename X>    T scaler<T, X>::get_max_ratio_on_rows() con
     unsigned i = m_A.row_count();
     while (i--) {
         T den = m_A.get_min_abs_in_row(i);
-        lean_assert(!m_settings.abs_val_is_smaller_than_zero_tolerance(den));
+        SASSERT(!m_settings.abs_val_is_smaller_than_zero_tolerance(den));
         T t = m_A.get_max_abs_in_row(i)/ den;
         if (t > ret)
             ret = t;
@@ -78,7 +93,7 @@ template <typename T, typename X>    void scaler<T, X>::scale_rows_with_geometri
     while (i--) {
         T max = m_A.get_max_abs_in_row(i);
         T min = m_A.get_min_abs_in_row(i);
-        lean_assert(max > zero_of_type<T>() && min > zero_of_type<T>());
+        SASSERT(max > zero_of_type<T>() && min > zero_of_type<T>());
         if (is_zero(max) || is_zero(min))
             continue;
         T gm = T(sqrt(numeric_traits<T>::get_double(max*min)));

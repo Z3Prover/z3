@@ -110,7 +110,7 @@ public:
             mach_timespec_t _stop;
             clock_get_time(m_host_clock, &_stop);
             m_time += (_stop.tv_sec - m_start.tv_sec) * 1000000000ull;
-	    m_time += (_stop.tv_nsec - m_start.tv_nsec);
+            m_time += (_stop.tv_nsec - m_start.tv_nsec);
             m_running = false;
         }
     }
@@ -163,8 +163,8 @@ public:
             struct timespec _stop;
             clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &_stop);
             m_time += (_stop.tv_sec - m_start.tv_sec) * 1000000000ull;
-	    if (m_time != 0 || _stop.tv_nsec >= m_start.tv_nsec)
-	      m_time += (_stop.tv_nsec - m_start.tv_nsec);
+            if (m_time != 0 || _stop.tv_nsec >= m_start.tv_nsec)
+                m_time += (_stop.tv_nsec - m_start.tv_nsec);
             m_running = false;
         }
     }

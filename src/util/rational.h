@@ -422,7 +422,7 @@ inline bool operator>(rational const & r1, rational const & r2) {
 }
 
 inline bool operator<(rational const & r1, int r2) {
-	return r1 < rational(r2);
+    return r1 < rational(r2);
 }
 
 inline bool operator<=(rational const & r1, rational const & r2) { 
@@ -450,11 +450,11 @@ inline rational operator+(rational const & r1, rational const & r2) {
 }
 
 inline rational operator+(int r1, rational const & r2) {
-	return rational(r1) + r2;
+    return rational(r1) + r2;
 }
 
 inline rational operator+(rational const & r1, int r2) {
-	return r1 + rational(r2);
+    return r1 + rational(r2);
 }
 
 
@@ -463,11 +463,11 @@ inline rational operator-(rational const & r1, rational const & r2) {
 }
 
 inline rational operator-(rational const & r1, int r2) {
-	return r1 - rational(r2);
+    return r1 - rational(r2);
 }
 
 inline rational operator-(int r1, rational const & r2) {
-	return rational(r1) - r2;
+    return rational(r1) - r2;
 }
 
 inline rational operator-(rational const & r) { 
@@ -492,11 +492,11 @@ inline rational operator/(rational const & r1, rational const & r2) {
 }
 
 inline rational operator/(rational const & r1, int r2) {
-	return r1 / rational(r2);
+    return r1 / rational(r2);
 }
 
-inline rational operator/(int r1, rational const &	r2) {
-	return rational(r1) / r2;
+inline rational operator/(int r1, rational const &    r2) {
+    return rational(r1) / r2;
 }
 
 inline rational power(rational const & r, unsigned p) {

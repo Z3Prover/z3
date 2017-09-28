@@ -662,6 +662,12 @@ class iz3mgr  {
 
     ast apply_quant(opr quantifier, ast var, ast e);
 
+    // Universally quantify all the free variables in a formula.
+    // Makes up names for the quntifiers.
+
+    ast close_universally (ast e);
+
+    unsigned num_free_variables(const ast &e);
 
     /** For debugging */
     void show(ast);

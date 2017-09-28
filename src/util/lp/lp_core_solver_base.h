@@ -1,7 +1,22 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 #pragma once
 #include <set>
 #include "util/vector.h"
@@ -13,7 +28,7 @@
 #include "util/lp/lu.h"
 #include "util/lp/permutation_matrix.h"
 #include "util/lp/column_namer.h"
-namespace lean {
+namespace lp {
 
 template <typename T, typename X> // X represents the type of the x variable and the bounds
 class lp_core_solver_base {    
@@ -182,11 +197,11 @@ public:
 
 
     bool need_to_pivot_to_basis_tableau() const {
-        lean_assert(m_A.is_correct());
+        SASSERT(m_A.is_correct());
         unsigned m = m_A.row_count();
         for (unsigned i = 0; i < m; i++) {
             unsigned bj = m_basis[i];
-            lean_assert(m_A.m_columns[bj].size() > 0);
+            SASSERT(m_A.m_columns[bj].size() > 0);
             if (m_A.m_columns[bj].size() > 1 || m_A.get_val(m_A.m_columns[bj][0]) != one_of_type<mpq>()) return true;
         }
         return false;
@@ -195,7 +210,7 @@ public:
     bool reduced_costs_are_correct_tableau() const {
         if (m_settings.simplex_strategy() == simplex_strategy_enum::tableau_rows)
             return true;
-        lean_assert(m_A.is_correct());
+        SASSERT(m_A.is_correct());
         if (m_using_infeas_costs) {
             if (infeasibility_costs_are_correct() == false) {
                 std::cout << "infeasibility_costs_are_correct() does not hold" << std::endl;
@@ -370,11 +385,11 @@ public:
     }
 
     bool make_column_feasible(unsigned j, numeric_pair<mpq> & delta) {
-        lean_assert(m_basis_heading[j] < 0);
+        SASSERT(m_basis_heading[j] < 0);
         auto & x = m_x[j];
         switch (m_column_types[j]) {
         case column_type::fixed:
-            lean_assert(m_low_bounds[j] == m_upper_bounds[j]);
+            SASSERT(m_low_bounds[j] == m_upper_bounds[j]);
             if (x != m_low_bounds[j]) {
                 delta = m_low_bounds[j] - x;
                 x = m_low_bounds[j];
@@ -410,7 +425,7 @@ public:
         case column_type::free_column:
             break;
         default:
-            lean_assert(false);
+            SASSERT(false);
             break;
         }
         return false;
@@ -458,7 +473,7 @@ public:
     }
 
     void change_basis_unconditionally(unsigned entering, unsigned leaving) {
-        lean_assert(m_basis_heading[entering] < 0);
+        SASSERT(m_basis_heading[entering] < 0);
         int place_in_non_basis = -1 - m_basis_heading[entering];
         if (static_cast<unsigned>(place_in_non_basis) >= m_nbasis.size()) {
               // entering variable in not in m_nbasis, we need to put it back;
@@ -477,7 +492,7 @@ public:
     }
     
     void change_basis(unsigned entering, unsigned leaving) {
-        lean_assert(m_basis_heading[entering] < 0);
+        SASSERT(m_basis_heading[entering] < 0);
         
         int place_in_basis =  m_basis_heading[leaving];
         int place_in_non_basis = - m_basis_heading[entering] - 1;
@@ -518,7 +533,7 @@ public:
         case column_type::free_column:
             break;
         default:
-            lean_assert(false);
+            SASSERT(false);
             break;
         }
         return true;
@@ -566,7 +581,7 @@ public:
         case column_type::free_column:
             break;
         default:
-            lean_assert(false);
+            SASSERT(false);
         }
         std::cout << "basis heading = " << m_basis_heading[j] << std::endl;
         std::cout << "x = " << m_x[j] << std::endl;
@@ -665,17 +680,17 @@ public:
     }
     void insert_column_into_inf_set(unsigned j) {
         m_inf_set.insert(j);
-        lean_assert(!column_is_feasible(j));
+        SASSERT(!column_is_feasible(j));
     }
     void remove_column_from_inf_set(unsigned j) {
         m_inf_set.erase(j);
-        lean_assert(column_is_feasible(j));
+        SASSERT(column_is_feasible(j));
     }
     bool costs_on_nbasis_are_zeros() const {
-        lean_assert(this->basis_heading_is_correct());
+        SASSERT(this->basis_heading_is_correct());
         for (unsigned j = 0; j < this->m_n(); j++) {
             if (this->m_basis_heading[j] < 0)
-                lean_assert(is_zero(this->m_costs[j]));
+                SASSERT(is_zero(this->m_costs[j]));
         }
         return true;
     }

@@ -1,7 +1,22 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 
 #pragma once
 #include "util/vector.h"
@@ -12,7 +27,7 @@
 #include "util/lp/lp_utils.h"
 #include "util/stopwatch.h"
 
-namespace lean {
+namespace lp {
 typedef unsigned var_index;
 typedef unsigned constraint_index;
 typedef unsigned row_index;
@@ -278,13 +293,13 @@ public:
         return m_simplex_strategy;
     }
 
-	bool use_lu() const {
-		return m_simplex_strategy == simplex_strategy_enum::lu;
-	}
+    bool use_lu() const {
+        return m_simplex_strategy == simplex_strategy_enum::lu;
+    }
 
     bool use_tableau() const {
-		return m_simplex_strategy == simplex_strategy_enum::tableau_rows ||
-			m_simplex_strategy == simplex_strategy_enum::tableau_costs;
+        return m_simplex_strategy == simplex_strategy_enum::tableau_rows ||
+            m_simplex_strategy == simplex_strategy_enum::tableau_costs;
     }
 
     bool use_tableau_rows() const {
@@ -296,7 +311,7 @@ public:
     unsigned column_norms_update_frequency;
     bool scale_with_ratio;
     double density_threshold; // need to tune it up, todo
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     static unsigned ddd; // used for debugging    
 #endif
     bool use_breakpoints_in_feasibility_search;
@@ -366,7 +381,7 @@ inline void print_blanks(int n, std::ostream & out) {
 // after a push of the last element we ensure that the vector increases
 // we also suppose that before the last push the vector was increasing
 inline void ensure_increasing(vector<unsigned> & v) {
-    lean_assert(v.size() > 0);
+    SASSERT(v.size() > 0);
     unsigned j = v.size() - 1;
     for (; j > 0; j-- )
         if (v[j] <= v[j - 1]) {
@@ -381,7 +396,7 @@ inline void ensure_increasing(vector<unsigned> & v) {
 
 
 
-#if LEAN_DEBUG
+#if Z3DEBUG
 bool D();
 #endif
 }

@@ -1,7 +1,22 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 
 #pragma once
 #include "util/vector.h"
@@ -13,7 +28,7 @@
 #include "util/lp/permutation_matrix.h"
 #include "util/lp/linear_combination_iterator.h"
 #include <stack>
-namespace lean {
+namespace lp {
 
 struct column_cell {
     unsigned m_i; // points to the row
@@ -37,7 +52,7 @@ struct row_cell {
 // each assignment for this matrix should be issued only once!!!
 template <typename T, typename X>
 class static_matrix
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     : public matrix<T, X>
 #endif
 {
@@ -47,7 +62,7 @@ class static_matrix
         dim(unsigned m, unsigned n) :m_m(m), m_n(n) {}
     };
     std::stack<dim> m_stack;
-	vector<unsigned> m_became_zeros; // the row indices that became zeroes during the pivoting
+    vector<unsigned> m_became_zeros; // the row indices that became zeroes during the pivoting
 public:
     typedef vector<row_cell<T>> row_strip;
     typedef vector<column_cell> column_strip;
@@ -130,7 +145,7 @@ public:
     }
     
 
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     void regen_domain();
 #endif
 
@@ -163,7 +178,7 @@ public:
 
     T get_min_abs_in_column(unsigned column) const;
 
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     void check_consistency();
 #endif
 
@@ -196,14 +211,14 @@ public:
     void clean_row_work_vector(unsigned i);
 
 
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     unsigned get_number_of_rows() const { return row_count(); }
     unsigned get_number_of_columns() const { return column_count(); }
     virtual void set_number_of_rows(unsigned /*m*/) { }
     virtual void set_number_of_columns(unsigned /*n*/) { }
 #endif
 
-    T get_max_val_in_row(unsigned /* i */) const { lean_unreachable();   }
+    T get_max_val_in_row(unsigned /* i */) const { SASSERT(false);   }
 
     T get_balance() const;
 
@@ -219,7 +234,7 @@ public:
         for (auto & c : row) {
             unsigned j = c.m_j;
             auto & col = m_columns[j];
-            lean_assert(col[col.size() - 1].m_i == m_rows.size() -1 ); // todo : start here!!!!
+            SASSERT(col[col.size() - 1].m_i == m_rows.size() -1 ); // todo : start here!!!!
             col.pop_back();
         }
     }
@@ -227,7 +242,7 @@ public:
     
     
     void pop(unsigned k) {
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
         std::set<std::pair<unsigned, unsigned>> pairs_to_remove_from_domain;
 #endif
         
@@ -246,7 +261,7 @@ public:
                 m_columns.pop_back(); // delete the last column
             m_stack.pop();
         }
-        lean_assert(is_correct());
+        SASSERT(is_correct());
     }
 
     void multiply_row(unsigned row, T const & alpha) {
@@ -262,7 +277,7 @@ public:
     }
     
     T dot_product_with_column(const vector<T> & y, unsigned j) const {
-        lean_assert(j < column_count());
+        SASSERT(j < column_count());
         T ret = numeric_traits<T>::zero();
         for (auto & it : m_columns[j]) {
             ret += y[it.m_i] * get_val(it); // get_value_of_column_cell(it);
@@ -281,20 +296,20 @@ public:
         // now fix the columns
         for (auto & rc : m_rows[i]) {
             column_cell & cc = m_columns[rc.m_j][rc.m_offset];
-            lean_assert(cc.m_i == ii);
+            SASSERT(cc.m_i == ii);
             cc.m_i = i;
         }
         for (auto & rc : m_rows[ii]) {
             column_cell & cc = m_columns[rc.m_j][rc.m_offset];
-            lean_assert(cc.m_i == i);
+            SASSERT(cc.m_i == i);
             cc.m_i = ii;
         }
     
     }
 
     void fill_last_row_with_pivoting(linear_combination_iterator<T> & it, const vector<int> & basis_heading) {
-        lean_assert(numeric_traits<T>::precise());
-        lean_assert(row_count() > 0);
+        SASSERT(numeric_traits<T>::precise());
+        SASSERT(row_count() > 0);
         m_work_vector.resize(column_count());
         T a;
         unsigned j;
@@ -332,13 +347,13 @@ public:
             alpha = zero_of_type<T>();
             m_work_vector.erase_from_index(j);
         }
-        lean_assert(m_work_vector.is_OK());
+        SASSERT(m_work_vector.is_OK());
         unsigned last_row = row_count() - 1;
     
         for (unsigned j : m_work_vector.m_index) {
             set (last_row, j, m_work_vector.m_data[j]);
         }
-        lean_assert(column_count() > 0);
+        SASSERT(column_count() > 0);
         set(last_row, column_count() - 1, one_of_type<T>());
     }
 
@@ -354,7 +369,7 @@ public:
     template <typename L>
     L dot_product_with_row(unsigned row, const vector<L> & w) const {
         L ret = zero_of_type<L>();
-        lean_assert(row < m_rows.size());
+        SASSERT(row < m_rows.size());
         for (auto & it : m_rows[row]) {
             ret += w[it.m_j] * it.get_val();
         }

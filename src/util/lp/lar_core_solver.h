@@ -1,7 +1,22 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 #pragma once
 #include "util/vector.h"
 #include <string>
@@ -18,7 +33,7 @@
 #include "util/lp/iterator_on_column.h"
 #include "util/lp/iterator_on_indexed_vector.h"
 #include "util/lp/stacked_value.h"
-namespace lean {
+namespace lp {
 
 class lar_core_solver  {
     // m_sign_of_entering is set to 1 if the entering variable needs
@@ -168,9 +183,9 @@ public:
     }
 
     void push() {
-        lean_assert(m_r_solver.basis_heading_is_correct());
-        lean_assert(!need_to_presolve_with_double_solver() || m_d_solver.basis_heading_is_correct());
-        lean_assert(m_column_types.size() == m_r_A.column_count());
+        SASSERT(m_r_solver.basis_heading_is_correct());
+        SASSERT(!need_to_presolve_with_double_solver() || m_d_solver.basis_heading_is_correct());
+        SASSERT(m_column_types.size() == m_r_A.column_count());
         m_stacked_simplex_strategy = settings().simplex_strategy();
         m_stacked_simplex_strategy.push();
         m_column_types.push();
@@ -192,7 +207,7 @@ public:
 
     template <typename K> 
     void push_vector(stacked_vector<K> & pushed_vector, const vector<K> & vector) {
-        lean_assert(pushed_vector.size() <= vector.size());
+        SASSERT(pushed_vector.size() <= vector.size());
         for (unsigned i = 0; i < vector.size();i++) {
             if (i == pushed_vector.size()) {
                 pushed_vector.push_back(vector[i]);
@@ -242,8 +257,8 @@ public:
         pop_basis(k);
         m_stacked_simplex_strategy.pop(k);
         settings().simplex_strategy() = m_stacked_simplex_strategy;
-        lean_assert(m_r_solver.basis_heading_is_correct());
-        lean_assert(!need_to_presolve_with_double_solver() || m_d_solver.basis_heading_is_correct());
+        SASSERT(m_r_solver.basis_heading_is_correct());
+        SASSERT(!need_to_presolve_with_double_solver() || m_d_solver.basis_heading_is_correct());
     }
 
     bool need_to_presolve_with_double_solver() const {
@@ -304,11 +319,11 @@ public:
                 break;
 
             default:
-                lean_assert(false);
+                SASSERT(false);
             }
             break;
         default:
-            lean_unreachable();
+            SASSERT(false);
         }
         m_r_solver.remove_column_from_inf_set(j);
         return true;
@@ -317,7 +332,7 @@ public:
     
     
     void prepare_solver_x_with_signature_tableau(const lar_solution_signature & signature) {
-        lean_assert(m_r_solver.inf_set_is_correct());
+        SASSERT(m_r_solver.inf_set_is_correct());
         for (auto &t : signature) {
             unsigned j = t.first;
             if (m_r_heading[j] >= 0)
@@ -332,9 +347,9 @@ public:
                 m_r_solver.m_x[jb] -= delta * m_r_solver.m_A.get_val(cc);
                 m_r_solver.update_column_in_inf_set(jb);
             }
-            lean_assert(m_r_solver.A_mult_x_is_off() == false);
+            SASSERT(m_r_solver.A_mult_x_is_off() == false);
         }
-        lean_assert(m_r_solver.inf_set_is_correct());
+        SASSERT(m_r_solver.inf_set_is_correct());
     }
 
     
@@ -342,7 +357,7 @@ public:
     void prepare_solver_x_with_signature(const lar_solution_signature & signature, lp_primal_core_solver<L,K> & s) {
         for (auto &t : signature) {
             unsigned j = t.first;
-            lean_assert(m_r_heading[j] < 0);
+            SASSERT(m_r_heading[j] < 0);
             auto pos_type = t.second;
             switch (pos_type) {
             case at_low_bound:
@@ -359,7 +374,7 @@ public:
             case not_at_bound:
                   switch (m_column_types[j]) {
                   case column_type::free_column:
-                      lean_assert(false); // unreachable
+                      SASSERT(false); // unreachable
                   case column_type::upper_bound:
                       s.m_x[j] = s.m_upper_bounds[j];
                       break;
@@ -377,15 +392,15 @@ public:
                       s.m_x[j] = s.m_low_bounds[j];
                       break;
                   default:
-                      lean_assert(false);
+                      SASSERT(false);
                   }
                   break;
             default:
-                lean_unreachable();
+                SASSERT(false);
             }
         }
 
-        lean_assert(is_zero_vector(s.m_b));
+        SASSERT(is_zero_vector(s.m_b));
         s.solve_Ax_eq_b();
     }
 
@@ -418,7 +433,7 @@ public:
             // the queues of delayed indices
             std::queue<unsigned> entr_q, leav_q;
             auto * l = cs.m_factorization;
-            lean_assert(l->get_status() == LU_status::OK);
+            SASSERT(l->get_status() == LU_status::OK);
             for (unsigned i = 0; i < trace_of_basis_change.size(); i+= 2) {
                 unsigned entering = trace_of_basis_change[i];
                 unsigned leaving = trace_of_basis_change[i+1];
@@ -446,8 +461,8 @@ public:
                         continue;
                     }
                 }
-                lean_assert(cs.m_basis_heading[entering] < 0);
-                lean_assert(cs.m_basis_heading[leaving] >= 0);
+                SASSERT(cs.m_basis_heading[entering] < 0);
+                SASSERT(cs.m_basis_heading[leaving] >= 0);
                 if (l->get_status() == LU_status::OK) {
                     l->prepare_entering(entering, w); // to init vector w
                     l->replace_column(zero_of_type<L>(), w, cs.m_basis_heading[leaving]);
@@ -471,7 +486,7 @@ public:
 
     void solve_on_signature_tableau(const lar_solution_signature & signature, const vector<unsigned> & changes_of_basis) {
         r_basis_is_OK();
-        lean_assert(settings().use_tableau());
+        SASSERT(settings().use_tableau());
         bool r = catch_up_in_lu_tableau(changes_of_basis, m_d_solver.m_basis_heading);
 
         if (!r) { // it is the case where m_d_solver gives a degenerated basis
@@ -490,10 +505,10 @@ public:
                 return;
             m_r_solver.stop_tracing_basis_changes();
             // and now catch up in the double solver
-            lean_assert(m_r_solver.total_iterations() >= m_r_solver.m_trace_of_basis_change_vector.size() /2);
+            SASSERT(m_r_solver.total_iterations() >= m_r_solver.m_trace_of_basis_change_vector.size() /2);
             catch_up_in_lu(m_r_solver.m_trace_of_basis_change_vector, m_r_solver.m_basis_heading, m_d_solver);
         }
-        lean_assert(r_basis_is_OK());
+        SASSERT(r_basis_is_OK());
     }
 
     bool adjust_x_of_column(unsigned j) {
@@ -507,16 +522,16 @@ public:
         }
 
         m_r_solver.snap_column_to_bound_tableau(j);
-        lean_assert(m_r_solver.column_is_feasible(j));
+        SASSERT(m_r_solver.column_is_feasible(j));
         m_r_solver.m_inf_set.erase(j);
         */
-        lean_assert(false);
+        SASSERT(false);
         return true;
     }
 
     
     bool catch_up_in_lu_tableau(const vector<unsigned> & trace_of_basis_change, const vector<int> & basis_heading) {
-        lean_assert(r_basis_is_OK());
+        SASSERT(r_basis_is_OK());
         // the queues of delayed indices
         std::queue<unsigned> entr_q, leav_q;
         for (unsigned i = 0; i < trace_of_basis_change.size(); i+= 2) {
@@ -546,47 +561,47 @@ public:
                     continue;
                 }
             }
-            lean_assert(m_r_solver.m_basis_heading[entering] < 0);
-            lean_assert(m_r_solver.m_basis_heading[leaving] >= 0);
+            SASSERT(m_r_solver.m_basis_heading[entering] < 0);
+            SASSERT(m_r_solver.m_basis_heading[leaving] >= 0);
             m_r_solver.change_basis_unconditionally(entering, leaving);
             if(!m_r_solver.pivot_column_tableau(entering, m_r_solver.m_basis_heading[entering])) {
-				// unroll the last step
+                // unroll the last step
                 m_r_solver.change_basis_unconditionally(leaving, entering);
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
                 bool t =
 #endif
                     m_r_solver.pivot_column_tableau(leaving, m_r_solver.m_basis_heading[leaving]);
-#ifdef LEAN_DEBUG
-                lean_assert(t);
+#ifdef Z3DEBUG
+                SASSERT(t);
 #endif 
                 return false;
             }
         }
-        lean_assert(r_basis_is_OK());
+        SASSERT(r_basis_is_OK());
         return true;
     }
 
 
     bool r_basis_is_OK() const {
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
         if (!m_r_solver.m_settings.use_tableau())
             return true;
         for (unsigned j : m_r_solver.m_basis) {
-            lean_assert(m_r_solver.m_A.m_columns[j].size() == 1);
-            lean_assert(m_r_solver.m_A.get_val(m_r_solver.m_A.m_columns[j][0]) == one_of_type<mpq>());
+            SASSERT(m_r_solver.m_A.m_columns[j].size() == 1);
+            SASSERT(m_r_solver.m_A.get_val(m_r_solver.m_A.m_columns[j][0]) == one_of_type<mpq>());
         }
         for (unsigned j =0; j < m_r_solver.m_basis_heading.size(); j++) {
             if (m_r_solver.m_basis_heading[j] >= 0) continue;
             if (m_r_solver.m_column_types[j] == column_type::fixed) continue;
-            lean_assert(static_cast<unsigned>(- m_r_solver.m_basis_heading[j] - 1) < m_r_solver.m_column_types.size());
-            lean_assert( m_r_solver.m_basis_heading[j] <= -1);
+            SASSERT(static_cast<unsigned>(- m_r_solver.m_basis_heading[j] - 1) < m_r_solver.m_column_types.size());
+            SASSERT( m_r_solver.m_basis_heading[j] <= -1);
         }
 #endif
         return true;
     }
     
     void solve_on_signature(const lar_solution_signature & signature, const vector<unsigned> & changes_of_basis) {
-        lean_assert(!settings().use_tableau());
+        SASSERT(!settings().use_tableau());
         if (m_r_solver.m_factorization == nullptr) {
             for (unsigned j = 0; j < changes_of_basis.size(); j+=2) {
                 unsigned entering = changes_of_basis[j];
@@ -615,7 +630,7 @@ public:
                 return;
             m_r_solver.stop_tracing_basis_changes();
             // and now catch up in the double solver
-            lean_assert(m_r_solver.total_iterations() >= m_r_solver.m_trace_of_basis_change_vector.size() /2);
+            SASSERT(m_r_solver.total_iterations() >= m_r_solver.m_trace_of_basis_change_vector.size() /2);
             catch_up_in_lu(m_r_solver.m_trace_of_basis_change_vector, m_r_solver.m_basis_heading, m_d_solver);
         }
     }
@@ -641,7 +656,7 @@ public:
     template <typename L, typename K>
     void extract_signature_from_lp_core_solver(const lp_primal_core_solver<L, K> & solver, lar_solution_signature & signature) {
         signature.clear();
-        lean_assert(signature.size() == 0);
+        SASSERT(signature.size() == 0);
         for (unsigned j = 0; j < solver.m_basis_heading.size(); j++) {
             if (solver.m_basis_heading[j] < 0) {
                 signature[j] = solver.get_non_basic_column_value_position(j);
@@ -664,7 +679,7 @@ public:
             if (upper_bound_is_set(j)) {
                 const auto & ub = m_r_solver.m_upper_bounds[j];
                 m_d_upper_bounds[j] = ub.x.get_double() + delta * ub.y.get_double();
-                lean_assert(!low_bound_is_set(j) || (m_d_upper_bounds[j] >= m_d_low_bounds[j]));
+                SASSERT(!low_bound_is_set(j) || (m_d_upper_bounds[j] >= m_d_low_bounds[j]));
             }
         }
     }
@@ -729,7 +744,7 @@ public:
         case column_type::fixed:
             return true;
         default:
-            lean_assert(false);
+            SASSERT(false);
         }
         return false;
     }
@@ -744,20 +759,20 @@ public:
         case column_type::fixed:
             return true;
         default:
-            lean_assert(false);
+            SASSERT(false);
         }
         return false;
     }
 
     void update_delta(mpq& delta, numeric_pair<mpq> const& l, numeric_pair<mpq> const& u) const {
-        lean_assert(l <= u);
+        SASSERT(l <= u);
         if (l.x < u.x && l.y > u.y) {
             mpq delta1 = (u.x - l.x) / (l.y - u.y);
             if (delta1 < delta) {
                 delta = delta1;
             }
         }
-        lean_assert(l.x + delta * l.y <= u.x + delta * u.y);
+        SASSERT(l.x + delta * l.y <= u.x + delta * u.y);
     }
 
 

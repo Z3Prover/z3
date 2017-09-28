@@ -1,13 +1,28 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 
 #include "util/vector.h"
 #include "util/lp/sparse_matrix.h"
 #include <set>
 #include <queue>
-namespace lean {
+namespace lp {
 template <typename T, typename X>
 void sparse_matrix<T, X>::copy_column_from_static_matrix(unsigned col, static_matrix<T, X> const &A, unsigned col_index_in_the_new_matrix) {
     vector<column_cell> const & A_col_vector = A.m_columns[col];
@@ -82,12 +97,12 @@ void sparse_matrix<T, X>::set_with_no_adjusting(unsigned row, unsigned col, T va
 
 template <typename T, typename X>
 void sparse_matrix<T, X>::set(unsigned row, unsigned col, T val) { // should not be used in efficient code
-    lean_assert(row < dimension() && col < dimension());
+    SASSERT(row < dimension() && col < dimension());
     //            m_dense.set_elem(row, col, val);
     row = adjust_row(row);
     col = adjust_column(col);
     set_with_no_adjusting(row, col, val);
-    //            lean_assert(*this == m_dense);
+    //            SASSERT(*this == m_dense);
 }
 
 template <typename T, typename X>
@@ -243,7 +258,7 @@ void sparse_matrix<T, X>::scan_row_to_work_vector_and_remove_pivot_column(unsign
     }
 }
 
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
 template <typename T, typename X>
 vector<T> sparse_matrix<T, X>::get_full_row(unsigned i) const {
     vector<T> r;
@@ -261,8 +276,8 @@ vector<T> sparse_matrix<T, X>::get_full_row(unsigned i) const {
 // Returns false if the resulting row is all zeroes, and true otherwise
 template <typename T, typename X>
 bool sparse_matrix<T, X>::pivot_row_to_row(unsigned i, const T& alpha, unsigned i0, lp_settings & settings ) {
-    lean_assert(i < dimension() && i0 < dimension());
-    lean_assert(i != i0);
+    SASSERT(i < dimension() && i0 < dimension());
+    SASSERT(i != i0);
     unsigned pivot_col = adjust_column(i);
     i = adjust_row(i);
     i0 = adjust_row(i0);
@@ -327,7 +342,7 @@ bool sparse_matrix<T, X>::set_row_from_work_vector_and_clean_work_vector_not_adj
         if (numeric_traits<T>::is_zero(work_vec[j])) {
             continue;
         }
-        lean_assert(!settings.abs_val_is_smaller_than_drop_tolerance(work_vec[j]));
+        SASSERT(!settings.abs_val_is_smaller_than_drop_tolerance(work_vec[j]));
         add_new_element(i0, adjust_column(j), work_vec[j]);
         work_vec[j] = numeric_traits<T>::zero();
     }
@@ -372,7 +387,7 @@ void sparse_matrix<T, X>::remove_zero_elements_and_set_data_on_existing_elements
         T val = work_vec[rj];
         if (settings.abs_val_is_smaller_than_drop_tolerance(val)) {
             remove_element(row_vals, row_el_iv);
-            lean_assert(numeric_traits<T>::is_zero(val));
+            SASSERT(numeric_traits<T>::is_zero(val));
         } else {
             m_columns[j].m_values[row_el_iv.m_other].set_value(row_el_iv.m_value = val);
             work_vec[rj] = numeric_traits<T>::zero();
@@ -393,7 +408,7 @@ void sparse_matrix<T, X>::add_columns_at_the_end(unsigned delta) {
 
 template <typename T, typename X>
 void sparse_matrix<T, X>::delete_column(int i) {
-    lean_assert(i < dimension());
+    SASSERT(i < dimension());
     for (auto cell = m_columns[i].m_head; cell != nullptr;) {
         auto next_cell = cell->m_down;
         kill_cell(cell);
@@ -403,7 +418,7 @@ void sparse_matrix<T, X>::delete_column(int i) {
 
 template <typename T, typename X>
 void sparse_matrix<T, X>::divide_row_by_constant(unsigned i, const T & t, lp_settings & settings) {
-    lean_assert(!settings.abs_val_is_smaller_than_zero_tolerance(t));
+    SASSERT(!settings.abs_val_is_smaller_than_zero_tolerance(t));
     i = adjust_row(i);
     for (auto & iv : m_rows[i]) {
         T &v = iv.m_value;
@@ -420,7 +435,7 @@ void sparse_matrix<T, X>::divide_row_by_constant(unsigned i, const T & t, lp_set
 // the matrix here has to be upper triangular
 template <typename T, typename X>
 void sparse_matrix<T, X>::solve_y_U(vector<T> & y) const { // works by rows
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     // T * rs = clone_vector<T>(y, dimension());
 #endif
     unsigned end = dimension();
@@ -436,11 +451,11 @@ void sparse_matrix<T, X>::solve_y_U(vector<T> & y) const { // works by rows
             }
         }
     }
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     // dense_matrix<T> deb(*this);
     // T * clone_y = clone_vector<T>(y, dimension());
     // deb.apply_from_right(clone_y);
-    // lean_assert(vectors_are_equal(rs, clone_y, dimension()));
+    // SASSERT(vectors_are_equal(rs, clone_y, dimension()));
     // delete [] clone_y;
     // delete [] rs;
 #endif
@@ -450,7 +465,7 @@ void sparse_matrix<T, X>::solve_y_U(vector<T> & y) const { // works by rows
 // the matrix here has to be upper triangular
 template <typename T, typename X>
 void sparse_matrix<T, X>::solve_y_U_indexed(indexed_vector<T> & y, const lp_settings & settings) {
-#if 0 && LEAN_DEBUG
+#if 0 && Z3DEBUG
     vector<T> ycopy(y.m_data);
     if (numeric_traits<T>::precise() == false)
         solve_y_U(ycopy);
@@ -474,10 +489,10 @@ void sparse_matrix<T, X>::solve_y_U_indexed(indexed_vector<T> & y, const lp_sett
             y.m_data[j] = zero_of_type<T>();
     }
 
-    lean_assert(y.is_OK());
-#if 0 && LEAN_DEBUG
+    SASSERT(y.is_OK());
+#if 0 && Z3DEBUG
     if (numeric_traits<T>::precise() == false)
-        lean_assert(vectors_are_equal(ycopy, y.m_data));
+        SASSERT(vectors_are_equal(ycopy, y.m_data));
 #endif
 }
 
@@ -537,8 +552,8 @@ void sparse_matrix<T, X>::add_delta_to_solution(const vector<L>& del, vector<L> 
 template <typename T, typename X>
 template <typename L>
 void sparse_matrix<T, X>::add_delta_to_solution(const indexed_vector<L>& del, indexed_vector<L> & y) {
-//    lean_assert(del.is_OK());
- //   lean_assert(y.is_OK());
+//    SASSERT(del.is_OK());
+ //   SASSERT(y.is_OK());
     for (auto i : del.m_index) {
         y.add_value_at_index(i, del[i]);
     }
@@ -546,11 +561,11 @@ void sparse_matrix<T, X>::add_delta_to_solution(const indexed_vector<L>& del, in
 template <typename T, typename X>
 template <typename L>
 void sparse_matrix<T, X>::double_solve_U_y(indexed_vector<L>& y, const lp_settings & settings){
-    lean_assert(y.is_OK());
+    SASSERT(y.is_OK());
     indexed_vector<L> y_orig(y); // copy y aside
     vector<unsigned> active_rows;
     solve_U_y_indexed_only(y, settings, active_rows);
-    lean_assert(y.is_OK());
+    SASSERT(y.is_OK());
     find_error_in_solution_U_y_indexed(y_orig, y, active_rows);
     // y_orig contains the error now
     if (y_orig.m_index.size() * ratio_of_index_size_to_all_size<T>() < 32 * dimension()) {
@@ -563,7 +578,7 @@ void sparse_matrix<T, X>::double_solve_U_y(indexed_vector<L>& y, const lp_settin
         add_delta_to_solution(y_orig.m_data, y.m_data);
         y.restore_index_and_clean_from_data();
     }
-    lean_assert(y.is_OK());
+    SASSERT(y.is_OK());
 }
 template <typename T, typename X>
 template <typename L>
@@ -581,7 +596,7 @@ void sparse_matrix<T, X>::double_solve_U_y(vector<L>& y){
 template <typename T, typename X>
 template <typename L>
 void sparse_matrix<T, X>::solve_U_y(vector<L> & y) { // it is a column wise version
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     // T * rs = clone_vector<T>(y, dimension());
 #endif
 
@@ -595,16 +610,16 @@ void sparse_matrix<T, X>::solve_U_y(vector<L> & y) { // it is a column wise vers
             }
         }
     }
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     // dense_matrix<T> deb(*this);
     // T * clone_y = clone_vector<T>(y, dimension());
     // deb.apply_from_left(clone_y);
-    // lean_assert(vectors_are_equal(rs, clone_y, dimension()));
+    // SASSERT(vectors_are_equal(rs, clone_y, dimension()));
 #endif
 }
 template <typename T, typename X>
 void sparse_matrix<T, X>::process_index_recursively_for_y_U(unsigned j, vector<unsigned> & sorted_active_rows) {
-    lean_assert(m_processed[j] == false);
+    SASSERT(m_processed[j] == false);
     m_processed[j]=true;
     auto & row = m_rows[adjust_row(j)];
     for (auto & c : row) {
@@ -619,7 +634,7 @@ void sparse_matrix<T, X>::process_index_recursively_for_y_U(unsigned j, vector<u
 
 template <typename T, typename X>
 void sparse_matrix<T, X>::process_column_recursively(unsigned j, vector<unsigned> & sorted_active_rows) {
-    lean_assert(m_processed[j] == false);
+    SASSERT(m_processed[j] == false);
     auto & mc = m_columns[adjust_column(j)].m_values;
     for (auto & iv : mc) {
         unsigned i = adjust_row_inverse(iv.m_index);
@@ -684,12 +699,12 @@ void sparse_matrix<T, X>::solve_U_y_indexed_only(indexed_vector<L> & y, const lp
             y[j] = zero_of_type<L>();
     }
 
-    lean_assert(y.is_OK());
-#ifdef LEAN_DEBUG
+    SASSERT(y.is_OK());
+#ifdef Z3DEBUG
      // dense_matrix<T,X> deb(this);
      // vector<T> clone_y(y.m_data);
      // deb.apply_from_left(clone_y);
-     // lean_assert(vectors_are_equal(rs, clone_y));
+     // SASSERT(vectors_are_equal(rs, clone_y));
 #endif
 }
 
@@ -802,7 +817,7 @@ void sparse_matrix<T, X>::add_new_elements_of_w_and_clear_w(unsigned column_to_r
             unsigned ai = adjust_row(i);
             add_new_element(ai, column_to_replace, w_at_i);
             auto & row_chunk = m_rows[ai];
-            lean_assert(row_chunk.size() > 0);
+            SASSERT(row_chunk.size() > 0);
             if (abs(w_at_i) > abs(row_chunk[0].m_value))
                 put_max_index_to_0(row_chunk, static_cast<unsigned>(row_chunk.size()) - 1);
         }
@@ -833,7 +848,7 @@ unsigned sparse_matrix<T, X>::pivot_score(unsigned i, unsigned j) {
 
 template <typename T, typename X>
 void sparse_matrix<T, X>::enqueue_domain_into_pivot_queue() {
-    lean_assert(m_pivot_queue.size() == 0);
+    SASSERT(m_pivot_queue.size() == 0);
     for (unsigned i = 0; i < dimension(); i++) {
         auto & rh = m_rows[i];
         unsigned rnz = static_cast<unsigned>(rh.size());
@@ -919,7 +934,7 @@ void sparse_matrix<T, X>::update_active_pivots(unsigned row) {
     for (const auto & iv : m_rows[arow]) {
         col_header & ch = m_columns[iv.m_index];
         int cols = static_cast<int>(ch.m_values.size()) - ch.m_shortened_markovitz - 1;
-        lean_assert(cols >= 0);
+        SASSERT(cols >= 0);
         for (const auto &ivc : ch.m_values) {
             unsigned i = ivc.m_index;
             if (adjust_row_inverse(i) <= row) continue; // the i is not an active row
@@ -945,7 +960,7 @@ bool sparse_matrix<T, X>::shorten_active_matrix(unsigned row, eta_matrix<T, X> *
         for (auto & iv : row_values) {
             const col_header& ch = m_columns[iv.m_index];
             int cnz = static_cast<int>(ch.m_values.size()) - ch.m_shortened_markovitz - 1;
-            lean_assert(cnz >= 0);
+            SASSERT(cnz >= 0);
             m_pivot_queue.enqueue(row, iv.m_index, rnz * cnz);
         }
     }
@@ -961,25 +976,25 @@ unsigned sparse_matrix<T, X>::pivot_score_without_shortened_counters(unsigned i,
         if (adjust_row_inverse(iv.m_index) < k)
             cnz--;
     }
-    lean_assert(cnz > 0);
+    SASSERT(cnz > 0);
     return m_rows[i].m_values.size() * (cnz - 1);
 }
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
 template <typename T, typename X>
 bool sparse_matrix<T, X>::can_improve_score_for_row(unsigned row, unsigned score, T const & c_partial_pivoting, unsigned k) {
     unsigned arow = adjust_row(row);
     auto & row_vals = m_rows[arow].m_values;
     auto & begin_iv = row_vals[0];
     T row_max = abs(begin_iv.m_value);
-    lean_assert(adjust_column_inverse(begin_iv.m_index) >= k);
+    SASSERT(adjust_column_inverse(begin_iv.m_index) >= k);
     if (pivot_score_without_shortened_counters(arow, begin_iv.m_index, k) < score) {
         print_active_matrix(k);
         return true;
     }
     for (unsigned jj = 1; jj < row_vals.size(); jj++) {
         auto & iv = row_vals[jj];
-        lean_assert(adjust_column_inverse(iv.m_index) >= k);
-        lean_assert(abs(iv.m_value) <= row_max);
+        SASSERT(adjust_column_inverse(iv.m_index) >= k);
+        SASSERT(abs(iv.m_value) <= row_max);
         if (c_partial_pivoting * abs(iv.m_value) < row_max) continue;
         if (pivot_score_without_shortened_counters(arow, iv.m_index, k) < score) {
             print_active_matrix(k);
@@ -993,7 +1008,7 @@ template <typename T, typename X>
 bool sparse_matrix<T, X>::really_best_pivot(unsigned i, unsigned j, T const & c_partial_pivoting, unsigned k) {
     unsigned queue_pivot_score = pivot_score_without_shortened_counters(i, j, k);
     for (unsigned ii = k; ii < dimension(); ii++) {
-        lean_assert(!can_improve_score_for_row(ii, queue_pivot_score, c_partial_pivoting, k));
+        SASSERT(!can_improve_score_for_row(ii, queue_pivot_score, c_partial_pivoting, k));
     }
     return true;
 }
@@ -1026,7 +1041,7 @@ template <typename T, typename X>
 bool sparse_matrix<T, X>::pivot_queue_is_correct_for_row(unsigned i, unsigned k) {
     unsigned arow = adjust_row(i);
     for (auto & iv : m_rows[arow].m_values) {
-        lean_assert(pivot_score_without_shortened_counters(arow, iv.m_index, k + 1) ==
+        SASSERT(pivot_score_without_shortened_counters(arow, iv.m_index, k + 1) ==
                     m_pivot_queue.get_priority(arow, iv.m_index));
     }
     return true;
@@ -1035,8 +1050,8 @@ bool sparse_matrix<T, X>::pivot_queue_is_correct_for_row(unsigned i, unsigned k)
 template <typename T, typename X>
 bool sparse_matrix<T, X>::pivot_queue_is_correct_after_pivoting(int k) {
     for (unsigned i = k + 1; i < dimension(); i++ )
-        lean_assert(pivot_queue_is_correct_for_row(i, k));
-    lean_assert(m_pivot_queue.is_correct());
+        SASSERT(pivot_queue_is_correct_for_row(i, k));
+    SASSERT(m_pivot_queue.is_correct());
     return true;
 }
 #endif
@@ -1052,10 +1067,10 @@ bool sparse_matrix<T, X>::get_pivot_for_column(unsigned &i, unsigned &j, int c_p
         if (j_inv < k) continue;
         int _small = elem_is_too_small(i, j, c_partial_pivoting);
         if (!_small) {
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
             // if (!really_best_pivot(i, j, c_partial_pivoting, k)) {
             //     print_active_matrix(k);
-            //     lean_assert(false);
+            //     SASSERT(false);
             //  }
 #endif
             recover_pivot_queue(pivots_candidates_that_are_too_small);
@@ -1088,7 +1103,7 @@ bool sparse_matrix<T, X>::shorten_columns_by_pivot_row(unsigned i, unsigned pivo
     for (indexed_value<T> & iv : row_chunk) {
         unsigned j = iv.m_index;
         if (j == pivot_column) {
-            lean_assert(!col_is_active(j));
+            SASSERT(!col_is_active(j));
             continue;
         }
         m_columns[j].shorten_markovich_by_one();
@@ -1121,7 +1136,7 @@ bool sparse_matrix<T, X>::fill_eta_matrix(unsigned j, eta_matrix<T, X> ** eta) {
         return true;
     }
 
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     *eta = new eta_matrix<T, X>(j, dimension());
 #else
     *eta = new eta_matrix<T, X>(j);
@@ -1146,16 +1161,16 @@ bool sparse_matrix<T, X>::fill_eta_matrix(unsigned j, eta_matrix<T, X> ** eta) {
     (*eta)->divide_by_diagonal_element();
     return true;
 }
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
 template <typename T, typename X>
 bool sparse_matrix<T, X>::is_upper_triangular_and_maximums_are_set_correctly_in_rows(lp_settings & settings) const {
     for (unsigned i = 0; i < dimension(); i++) {
         vector<indexed_value<T>> const & row_chunk = get_row_values(i);
-        lean_assert(row_chunk.size());
+        SASSERT(row_chunk.size());
         T const & max = abs(row_chunk[0].m_value);
         unsigned ai = adjust_row_inverse(i);
         for (auto & iv : row_chunk) {
-            lean_assert(abs(iv.m_value) <= max);
+            SASSERT(abs(iv.m_value) <= max);
             unsigned aj = adjust_column_inverse(iv.m_index);
             if (!(ai <= aj || numeric_traits<T>::is_zero(iv.m_value)))
                 return false;
@@ -1193,18 +1208,18 @@ void sparse_matrix<T, X>::check_column_vs_rows(unsigned col) {
         indexed_value<T> & row_iv = column_iv_other(column_iv);
         if (row_iv.m_index != col) {
             //            std::cout << "m_other in row does not belong to column " << col << ", but to column  " << row_iv.m_index << std::endl;
-            lean_assert(false);
+            SASSERT(false);
         }
 
         if (& row_iv_other(row_iv) != &column_iv) {
             // std::cout << "row and col do not point to each other" << std::endl;
-            lean_assert(false);
+            SASSERT(false);
         }
 
         if (row_iv.m_value != column_iv.m_value) {
             // std::cout << "the data from col " << col << " for row " << column_iv.m_index << " is different in the column " << std::endl;
             // std::cout << "in the col it is " << column_iv.m_value << ", but in the row it is " << row_iv.m_value << std::endl;
-            lean_assert(false);
+            SASSERT(false);
         }
     }
 }
@@ -1217,18 +1232,18 @@ void sparse_matrix<T, X>::check_row_vs_columns(unsigned row) {
 
         if (column_iv.m_index != row) {
             // std::cout << "col_iv does not point to correct row " << row << " but to " << column_iv.m_index << std::endl;
-            lean_assert(false);
+            SASSERT(false);
         }
 
         if (& row_iv != & column_iv_other(column_iv)) {
             // std::cout << "row and col do not point to each other" << std::endl;
-            lean_assert(false);
+            SASSERT(false);
         }
 
         if (row_iv.m_value != column_iv.m_value) {
             // std::cout << "the data from col " << column_iv.m_index << " for row " << row << " is different in the column " << std::endl;
             // std::cout << "in the col it is " << column_iv.m_value << ", but in the row it is " << row_iv.m_value << std::endl;
-            lean_assert(false);
+            SASSERT(false);
         }
     }
 }

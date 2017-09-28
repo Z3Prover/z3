@@ -1,7 +1,22 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 
 #pragma once
 #include "util/vector.h"
@@ -12,7 +27,7 @@
 #include "util/lp/lp_utils.h"
 #include "util/lp/ul_pair.h"
 #include "util/lp/lar_term.h"
-namespace lean {
+namespace lp {
 inline lconstraint_kind flip_kind(lconstraint_kind t) {
     return static_cast<lconstraint_kind>( - static_cast<int>(t));
 }
@@ -25,7 +40,7 @@ inline std::string lconstraint_kind_string(lconstraint_kind t) {
     case GT: return std::string(">");
     case EQ: return std::string("=");
     }
-    lean_unreachable();
+    SASSERT(false);
     return std::string(); // it is unreachable
 }
 
@@ -74,7 +89,7 @@ public:
         :  lar_base_constraint(kind, right_side), m_coeffs(left_side) {}
     
     lar_constraint(const lar_base_constraint & c) {
-        lean_assert(false); // should not be called : todo!
+        SASSERT(false); // should not be called : todo!
     }
 
     unsigned size() const {

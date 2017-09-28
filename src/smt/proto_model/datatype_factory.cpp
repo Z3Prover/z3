@@ -38,7 +38,7 @@ expr * datatype_factory::get_some_value(sort * s) {
     }
     expr * r = m_manager.mk_app(c, args.size(), args.c_ptr());
     register_value(r);
-    TRACE("datatype_factory", tout << mk_pp(r, m_util.get_manager()) << "\n";);
+    TRACE("datatype", tout << mk_pp(r, m_util.get_manager()) << "\n";);
     return r;
 }
 
@@ -48,7 +48,7 @@ expr * datatype_factory::get_some_value(sort * s) {
 expr * datatype_factory::get_last_fresh_value(sort * s) {
     expr * val = 0;
     if (m_last_fresh_value.find(s, val)) {
-        TRACE("datatype_factory", tout << "cached fresh value: " << mk_pp(val, m_manager) << "\n";);
+        TRACE("datatype", tout << "cached fresh value: " << mk_pp(val, m_manager) << "\n";);
         return val;
     }
     value_set * set = get_value_set(s);
@@ -68,7 +68,7 @@ bool datatype_factory::is_subterm_of_last_value(app* e) {
     }
     contains_app contains(m_manager, e);
     bool result = contains(last);
-    TRACE("datatype_factory", tout << mk_pp(e, m_manager) << " in " << mk_pp(last, m_manager) << " " << result << "\n";);
+    TRACE("datatype", tout << mk_pp(e, m_manager) << " in " << mk_pp(last, m_manager) << " " << result << "\n";);
     return result;
 }
 
@@ -126,7 +126,7 @@ expr * datatype_factory::get_almost_fresh_value(sort * s) {
                     m_last_fresh_value.insert(s, new_value);
                 }
             }
-            TRACE("datatype_factory", tout << "almost fresh: " << mk_pp(new_value, m_manager) << "\n";);
+            TRACE("datatype", tout << "almost fresh: " << mk_pp(new_value, m_manager) << "\n";);
             return new_value;
         }
     }
@@ -136,7 +136,7 @@ expr * datatype_factory::get_almost_fresh_value(sort * s) {
 
 
 expr * datatype_factory::get_fresh_value(sort * s) {
-    TRACE("datatype_factory", tout << "generating fresh value for: " << s->get_name() << "\n";);
+    TRACE("datatype", tout << "generating fresh value for: " << s->get_name() << "\n";);
     value_set * set = get_value_set(s);
     // Approach 0) 
     // if no value for s was generated so far, then used get_some_value
@@ -144,7 +144,7 @@ expr * datatype_factory::get_fresh_value(sort * s) {
         expr * val = get_some_value(s);
         if (m_util.is_recursive(s))
             m_last_fresh_value.insert(s, val);
-        TRACE("datatype_factory", tout << "0. result: " << mk_pp(val, m_manager) << "\n";);
+        TRACE("datatype", tout << "0. result: " << mk_pp(val, m_manager) << "\n";);
         return val;
     }
     // Approach 1)
@@ -171,13 +171,13 @@ expr * datatype_factory::get_fresh_value(sort * s) {
         }
         expr_ref new_value(m_manager);
         new_value = m_manager.mk_app(constructor, args.size(), args.c_ptr());
-        CTRACE("datatype_factory", found_fresh_arg && set->contains(new_value), tout << mk_pp(new_value, m_manager) << "\n";);
+        CTRACE("datatype", found_fresh_arg && set->contains(new_value), tout << mk_pp(new_value, m_manager) << "\n";);
         SASSERT(!found_fresh_arg || !set->contains(new_value));
         if (!set->contains(new_value)) {
             register_value(new_value);
             if (m_util.is_recursive(s))
                 m_last_fresh_value.insert(s, new_value);
-            TRACE("datatype_factory", tout << "1. result: " << mk_pp(new_value, m_manager) << "\n";);
+            TRACE("datatype", tout << "1. result: " << mk_pp(new_value, m_manager) << "\n";);
             return new_value;
         }
     }
@@ -188,16 +188,16 @@ expr * datatype_factory::get_fresh_value(sort * s) {
     if (m_util.is_recursive(s)) {
         while(true) {
             ++num_iterations;
-            TRACE("datatype_factory", tout << mk_pp(get_last_fresh_value(s), m_manager) << "\n";);
+            TRACE("datatype", tout << mk_pp(get_last_fresh_value(s), m_manager) << "\n";);
             ptr_vector<func_decl> const & constructors = *m_util.get_datatype_constructors(s);
             for (func_decl * constructor : constructors) {
                 expr_ref_vector args(m_manager);
                 bool found_sibling   = false;
                 unsigned num         = constructor->get_arity();
-                TRACE("datatype_factory", tout << "checking constructor: " << constructor->get_name() << "\n";);
+                TRACE("datatype", tout << "checking constructor: " << constructor->get_name() << "\n";);
                 for (unsigned i = 0; i < num; i++) {
                     sort * s_arg        = constructor->get_domain(i);
-                    TRACE("datatype_factory", tout << mk_pp(s, m_manager) << " " 
+                    TRACE("datatype", tout << mk_pp(s, m_manager) << " " 
                           << mk_pp(s_arg, m_manager) << " are_siblings " 
                           << m_util.are_siblings(s, s_arg) << "  is_datatype " 
                           << m_util.is_datatype(s_arg) << " found_sibling " 
@@ -212,7 +212,7 @@ expr * datatype_factory::get_fresh_value(sort * s) {
                             maybe_new_arg = get_fresh_value(s_arg);
                         }
                         if (!maybe_new_arg) {
-                            TRACE("datatype_factory", 
+                            TRACE("datatype", 
                                   tout << "no argument found for " << mk_pp(s_arg, m_manager) << "\n";);
                             maybe_new_arg = m_model.get_some_value(s_arg);
                             found_sibling = false;
@@ -229,11 +229,11 @@ expr * datatype_factory::get_fresh_value(sort * s) {
                 if (found_sibling) {
                     expr_ref new_value(m_manager);
                     new_value = m_manager.mk_app(constructor, args.size(), args.c_ptr());
-                    TRACE("datatype_factory", tout << "potential new value: " << mk_pp(new_value, m_manager) << "\n";);
+                    TRACE("datatype", tout << "potential new value: " << mk_pp(new_value, m_manager) << "\n";);
                     m_last_fresh_value.insert(s, new_value);
                     if (!set->contains(new_value)) {
                         register_value(new_value);
-                        TRACE("datatype_factory", tout << "2. result: " << mk_pp(new_value, m_manager) << "\n";);
+                        TRACE("datatype", tout << "2. result: " << mk_pp(new_value, m_manager) << "\n";);
                         return new_value;
                     }
                 }

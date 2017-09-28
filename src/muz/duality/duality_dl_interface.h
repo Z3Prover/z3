@@ -37,7 +37,7 @@ namespace Duality {
 
     class dl_interface : public datalog::engine_base {
         duality_data *_d;
-	datalog::context &m_ctx;
+        datalog::context &m_ctx;
 
     public:
         dl_interface(datalog::context& ctx); 
@@ -69,7 +69,7 @@ namespace Duality {
 
         proof_ref get_proof();
         
-	duality_data *dd(){return _d;}
+        duality_data *dd(){return _d;}
 
     private:
         void display_certificate_non_const(std::ostream& out);

@@ -192,7 +192,7 @@ namespace smt {
         virtual lbool validate_unsat_core(expr_ref_vector & unsat_core) {
             return l_false;
         }
-	
+
         /**
            \brief This method is invoked before the search starts.
         */

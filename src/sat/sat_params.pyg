@@ -23,4 +23,5 @@ def_module_params('sat',
                           ('core.minimize', BOOL, False, 'minimize computed core'),
                           ('core.minimize_partial', BOOL, False, 'apply partial (cheap) core minimization'),
                           ('parallel_threads', UINT, 1, 'number of parallel threads to use'),
-                          ('dimacs.core', BOOL, False, 'extract core from DIMACS benchmarks')))
+                          ('dimacs.core', BOOL, False, 'extract core from DIMACS benchmarks'),
+                          ('dimacs.display', BOOL, False, 'display SAT instance in DIMACS format and return unknown instead of solving')))

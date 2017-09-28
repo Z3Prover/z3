@@ -1,7 +1,22 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 
 #pragma once
 #include "util/vector.h"
@@ -21,11 +36,11 @@
 #include "util/lp/binary_heap_upair_queue.h"
 #include "util/lp/numeric_pair.h"
 #include "util/lp/int_set.h"
-namespace lean {
+namespace lp {
 // it is a square matrix
 template <typename T, typename X>
 class sparse_matrix
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     : public matrix<T, X>
 #endif
 {
@@ -57,7 +72,7 @@ public:
     vector<bool>                      m_processed;
     unsigned get_n_of_active_elems() const { return m_n_of_active_elems; }
 
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     // dense_matrix<T> m_dense;
 #endif
     /*
@@ -146,7 +161,7 @@ public:
 
     unsigned dimension() const {return static_cast<unsigned>(m_row_permutation.size());}
 
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     unsigned row_count() const {return dimension();}
     unsigned column_count() const {return dimension();}
 #endif
@@ -206,19 +221,19 @@ public:
     void multiply_from_right(permutation_matrix<T, X>& p) {
         //            m_dense = m_dense * p;
         m_column_permutation.multiply_by_permutation_from_right(p);
-        //            lean_assert(*this == m_dense);
+        //            SASSERT(*this == m_dense);
     }
 
     void multiply_from_left(permutation_matrix<T, X>& p) {
         //            m_dense = p * m_dense;
         m_row_permutation.multiply_by_permutation_from_left(p);
-        //            lean_assert(*this == m_dense);
+        //            SASSERT(*this == m_dense);
     }
 
     void multiply_from_left_with_reverse(permutation_matrix<T, X>& p) {
         //            m_dense = p * m_dense;
         m_row_permutation.multiply_by_permutation_reverse_from_left(p);
-        //            lean_assert(*this == m_dense);
+        //            SASSERT(*this == m_dense);
     }
 
     // adding delta columns at the end of the matrix
@@ -231,13 +246,13 @@ public:
         // dense_matrix<T, X> d(*this);
         m_column_permutation.transpose_from_left(a, b);
         // d.swap_columns(a, b);
-        // lean_assert(*this == d);
+        // SASSERT(*this == d);
     }
 
     void swap_rows(unsigned a, unsigned b) {
         m_row_permutation.transpose_from_right(a, b);
         //            m_dense.swap_rows(a, b);
-        //            lean_assert(*this == m_dense);
+        //            SASSERT(*this == m_dense);
     }
 
     void divide_row_by_constant(unsigned i, const T & t, lp_settings & settings);
@@ -286,7 +301,7 @@ public:
     template <typename L>
     void solve_U_y_indexed_only(indexed_vector<L> & y, const lp_settings&, vector<unsigned> & sorted_active_rows );
 
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     T get_elem(unsigned i, unsigned j) const { return get(i, j); }
     unsigned get_number_of_rows() const { return dimension(); }
     unsigned get_number_of_columns() const { return dimension(); }
@@ -341,7 +356,7 @@ public:
     bool shorten_active_matrix(unsigned row, eta_matrix<T, X> *eta_matrix);
 
     unsigned pivot_score_without_shortened_counters(unsigned i, unsigned j, unsigned k);
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     bool can_improve_score_for_row(unsigned row, unsigned score, T const & c_partial_pivoting, unsigned k);
     bool really_best_pivot(unsigned i, unsigned j, T const & c_partial_pivoting, unsigned k);
     void print_active_matrix(unsigned k, std::ostream & out);
@@ -373,7 +388,7 @@ public:
     }
 
     bool fill_eta_matrix(unsigned j, eta_matrix<T, X> ** eta);
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     bool is_upper_triangular_and_maximums_are_set_correctly_in_rows(lp_settings & settings) const;
 
     bool is_upper_triangular_until(unsigned k) const;
@@ -393,7 +408,7 @@ public:
     void process_index_recursively_for_y_U(unsigned j, vector<unsigned>  & sorted_rows);
     void resize(unsigned new_dim) {
         unsigned old_dim = dimension();
-        lean_assert(new_dim >= old_dim);
+        SASSERT(new_dim >= old_dim);
         for (unsigned j = old_dim; j < new_dim; j++) {
             m_rows.push_back(vector<indexed_value<T>>());
             m_columns.push_back(col_header());
@@ -407,7 +422,7 @@ public:
             add_new_element(j, j, numeric_traits<T>::one());
         }
     }
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
 vector<T> get_full_row(unsigned i) const;
 #endif
     unsigned pivot_queue_size() const { return m_pivot_queue.size(); }

@@ -53,7 +53,7 @@ namespace datalog {
     */
     class mk_similarity_compressor : public rule_transformer::plugin {
 
-        context &			m_context;
+        context &           m_context;
         ast_manager &       m_manager;
         /** number of similar rules necessary for a group to be introduced */
         unsigned            m_threshold_count;
