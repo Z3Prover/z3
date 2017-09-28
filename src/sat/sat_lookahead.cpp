@@ -312,7 +312,6 @@ namespace sat {
     }
 
     bool lookahead::is_unsat() const {
-#ifdef NEW_CLAUSE
         bool all_false = true;
         bool first = true;
         // check if there is a clause whose literals are false.
@@ -344,20 +343,7 @@ namespace sat {
                         return true;
                 }
             }
-        }
-        
-#else
-        for (unsigned i = 0; i < m_clauses.size(); ++i) {
-            clause& c = *m_clauses[i];
-            unsigned j = 0;
-            for (; j < c.size() && is_false(c[j]); ++j) {}
-            if (j == c.size()) {
-                TRACE("sat", tout << c << "\n";);
-                TRACE("sat", display(tout););
-                return true;
-            }
-        }
-#endif
+        }        
         return false;
     }
 
@@ -380,7 +366,6 @@ namespace sat {
                 }
             }
         }
-#ifdef NEW_CLAUSE
         bool no_true = true;
         bool first = true;
         // check if there is a clause whose literals are false.
@@ -412,16 +397,6 @@ namespace sat {
                 }
             }
         }        
-#else
-        for (unsigned i = 0; i < m_clauses.size(); ++i) {
-            clause& c = *m_clauses[i];
-            unsigned j = 0;
-            for (; j < c.size() && !is_true(c[j]); ++j) {}
-            if (j == c.size()) {
-                return false;
-            }
-        }
-#endif
         return true;
     }
 
@@ -476,7 +451,6 @@ namespace sat {
         for (literal lit : m_binary[l.index()]) {
             if (is_undef(lit)) sum += literal_occs(lit) / 4.0;
         }
-#ifdef NEW_CLAUSE
         unsigned sz = m_ternary_count[(~l).index()];
         for (binary const& b : m_ternary[(~l).index()]) {
             if (sz-- == 0) break;
@@ -496,40 +470,6 @@ namespace sat {
             unsigned len = m_nary_literals[idx];
             sum += pow(0.5, len) * to_add / len;            
         }
-#else
-        watch_list& wlist = m_watches[l.index()];
-        for (auto & w : wlist) {
-            switch (w.get_kind()) {
-            case watched::BINARY: 
-                UNREACHABLE(); 
-                break;
-            case watched::TERNARY: {
-                literal l1 = w.get_literal1();
-                literal l2 = w.get_literal2();
-                if (is_undef(l1) && is_undef(l2)) {
-                    sum += (literal_occs(l1) + literal_occs(l2)) / 8.0;
-                }
-                break;
-            }
-            case watched::CLAUSE: {
-                clause_offset cls_off = w.get_clause_offset();
-                clause & c = *(m_cls_allocator.get_clause(cls_off));
-                unsigned sz = 0;
-                double to_add = 0;
-                for (literal lit : c) {
-                    if (is_undef(lit) && lit != ~l) {
-                        to_add += literal_occs(lit);
-                        ++sz;
-                    }
-                }
-                sum += pow(0.5, sz) * to_add / sz;
-                break;
-            }
-            default:
-                break;
-            }
-        }
-#endif
         return sum;
     } 
 
@@ -546,45 +486,12 @@ namespace sat {
         for (literal lit : m_binary[l.index()]) {
             if (is_undef(lit)) sum += 0.5;
         }
-#ifdef NEW_CLAUSE
         sum += 0.25 * m_ternary_count[(~l).index()];
         unsigned sz = m_nary_count[(~l).index()];
         for (unsigned cls_idx : m_nary[(~l).index()]) {
             if (sz-- == 0) break;
             sum += pow(0.5, m_nary_literals[cls_idx]);
         }
-#else
-        watch_list& wlist = m_watches[l.index()];
-        for (auto & w : wlist) {
-            switch (w.get_kind()) {
-            case watched::BINARY: 
-                UNREACHABLE(); 
-                break;
-            case watched::TERNARY: {
-                literal l1 = w.get_literal1();
-                literal l2 = w.get_literal2();
-                if (is_undef(l1) && is_undef(l2)) {
-                    sum += 0.25;
-                }
-                break;
-            }
-            case watched::CLAUSE: {
-                clause_offset cls_off = w.get_clause_offset();
-                clause & c = *(m_cls_allocator.get_clause(cls_off));
-                unsigned sz = 0;
-                for (literal lit : c) {
-                    if (is_undef(lit) && lit != ~l) {
-                        ++sz;
-                    }
-                }
-                sum += pow(0.5, sz);
-                break;
-            }
-            default:
-                break;
-            }
-        }
-#endif
         return sum;
     } 
 
@@ -621,44 +528,11 @@ namespace sat {
             if (is_undef(lit)) sum += h[lit.index()]; 
             // if (m_freevars.contains(lit.var())) sum += h[lit.index()]; 
         }
-#ifdef NEW_CLAUSE
         unsigned sz = m_ternary_count[(~l).index()];
         for (binary const& b : m_ternary[(~l).index()]) {
             if (sz-- == 0) break;
             tsum += h[b.m_u.index()] * h[b.m_v.index()];
         }
-#else
-        watch_list& wlist = m_watches[l.index()];
-        for (auto & w : wlist) {
-            switch (w.get_kind()) {
-            case watched::BINARY: 
-                UNREACHABLE(); 
-                break;
-            case watched::TERNARY: {
-                literal l1 = w.get_literal1();
-                literal l2 = w.get_literal2();
-                // if (is_undef(l1) && is_undef(l2)) 
-                tsum += h[l1.index()] * h[l2.index()]; 
-                break;
-            }
-            case watched::CLAUSE: {
-                clause_offset cls_off = w.get_clause_offset();
-                clause & c = *(m_cls_allocator.get_clause(cls_off));
-                // approximation compared to ternary clause case: 
-                // we pick two other literals from the clause.
-                if (c[0] == ~l) {
-                    tsum += h[c[1].index()] * h[c[2].index()];
-                }
-                else {
-                    SASSERT(c[1] == ~l);
-                    tsum += h[c[0].index()] * h[c[2].index()];
-                }
-                break;
-            }
-            // case watched::EXTERNAL:
-            }
-        }
-#endif
         // std::cout << "sum: " << sum << " afactor " << afactor << " sqfactor " << sqfactor << " tsum " << tsum << "\n";
         sum = (double)(0.1 + afactor*sum + sqfactor*tsum);
         // std::cout << "sum: " << sum << " max score " << m_config.m_max_score << "\n";
@@ -979,58 +853,6 @@ namespace sat {
     }
 
 
-#ifndef NEW_CLAUSE
-
-    // ------------------------------------
-    // clause management
-
-    void lookahead::attach_clause(clause& c) {
-        if (c.size() == 3) { 
-            attach_ternary(c[0], c[1], c[2]);
-        }
-        else {
-            literal block_lit = c[c.size() >> 2];
-            clause_offset cls_off = m_cls_allocator.get_offset(&c);
-            m_watches[(~c[0]).index()].push_back(watched(block_lit, cls_off));
-            m_watches[(~c[1]).index()].push_back(watched(block_lit, cls_off));
-            SASSERT(is_undef(c[0]));
-            SASSERT(is_undef(c[1]));
-        }
-    }
-
-    void lookahead::detach_clause(clause& c) {
-        clause_offset cls_off = m_cls_allocator.get_offset(&c);
-        m_retired_clauses.push_back(&c);
-        erase_clause_watch(get_wlist(~c[0]), cls_off);
-        erase_clause_watch(get_wlist(~c[1]), cls_off);
-    }
-
-    void lookahead::del_clauses() {
-        for (clause * c : m_clauses) {
-            m_cls_allocator.del_clause(c);
-        }
-    }
-
-    void lookahead::detach_ternary(literal l1, literal l2, literal l3) {
-        ++m_stats.m_del_ternary;
-        m_retired_ternary.push_back(ternary(l1, l2, l3));
-        // implicitly erased: erase_ternary_watch(get_wlist(~l1), l2, l3);
-        erase_ternary_watch(get_wlist(~l2), l1, l3);
-        erase_ternary_watch(get_wlist(~l3), l1, l2);
-    }
-
-    void lookahead::attach_ternary(ternary const& t) {
-        attach_ternary(t.m_u, t.m_v, t.m_w);
-    }
-
-    void lookahead::attach_ternary(literal l1, literal l2, literal l3) {
-        ++m_stats.m_add_ternary;
-        TRACE("sat", tout << l1 << " " << l2 << " " << l3 << "\n";);
-        m_watches[(~l1).index()].push_back(watched(l2, l3));
-        m_watches[(~l2).index()].push_back(watched(l1, l3));
-        m_watches[(~l3).index()].push_back(watched(l1, l2));            
-    }
-#endif
 
     // ------------------------------------
     // initialization
@@ -1040,10 +862,6 @@ namespace sat {
         m_binary.push_back(literal_vector());
         m_watches.push_back(watch_list());
         m_watches.push_back(watch_list());
-#ifndef NEW_CLAUSE
-        m_full_watches.push_back(clause_vector());
-        m_full_watches.push_back(clause_vector());
-#else
         m_ternary.push_back(svector<binary>());
         m_ternary.push_back(svector<binary>());
         m_ternary_count.push_back(0);
@@ -1052,7 +870,6 @@ namespace sat {
         m_nary.push_back(unsigned_vector());
         m_nary_count.push_back(0);
         m_nary_count.push_back(0);
-#endif
         m_bstamp.push_back(0);
         m_bstamp.push_back(0);
         m_stamp.push_back(0);
@@ -1121,7 +938,6 @@ namespace sat {
 
     void lookahead::copy_clauses(clause_vector const& clauses, bool learned) {
         // copy clauses
-#ifdef NEW_CLAUSE
         for (clause* cp : clauses) {
             clause& c = *cp;
             if (c.was_removed()) continue;
@@ -1141,27 +957,6 @@ namespace sat {
             }
             if (m_s.m_config.m_drat) m_drat.add(c, false);
         }
-#else
-        for (clause* cp : clauses) {
-            clause& c = *cp;
-            if (c.was_removed()) continue;
-            // enable when there is a non-ternary reward system.
-            bool was_eliminated = false;
-            for (unsigned i = 0; !was_eliminated && i < c.size(); ++i) {
-                was_eliminated = m_s.was_eliminated(c[i].var());
-            }
-            if (was_eliminated) continue;
-
-            clause* c1 = m_cls_allocator.mk_clause(c.size(), c.begin(), false);
-            m_clauses.push_back(c1);
-            attach_clause(*c1);
-            for (unsigned i = 0; i < c.size(); ++i) {
-                m_full_watches[(~c[i]).index()].push_back(c1);
-                SASSERT(!m_s.was_eliminated(c[i].var()));
-            }
-            if (m_s.m_config.m_drat) m_drat.add(c, false);
-        }
-#endif
     }
 
     // ------------------------------------
@@ -1173,10 +968,6 @@ namespace sat {
         m_binary_trail_lim.push_back(m_binary_trail.size());
         m_trail_lim.push_back(m_trail.size());
         m_num_tc1_lim.push_back(m_num_tc1);
-#ifndef NEW_CLAUSE
-        m_retired_clause_lim.push_back(m_retired_clauses.size());
-        m_retired_ternary_lim.push_back(m_retired_ternary.size());
-#endif
         m_qhead_lim.push_back(m_qhead);
         scoped_level _sl(*this, level);
         m_assumptions.push_back(~lit);
@@ -1204,25 +995,6 @@ namespace sat {
         m_num_tc1 = m_num_tc1_lim.back();
         m_num_tc1_lim.pop_back();
 
-#ifndef NEW_CLAUSE
-        m_trail.shrink(old_sz); // reset assignment.
-        m_trail_lim.pop_back();
-
-        // unretire clauses
-        old_sz = m_retired_clause_lim.back();
-        for (unsigned i = old_sz; i < m_retired_clauses.size(); ++i) {
-            attach_clause(*m_retired_clauses[i]);
-        }
-        m_retired_clauses.resize(old_sz);
-        m_retired_clause_lim.pop_back();
-
-        old_sz = m_retired_ternary_lim.back();
-        for (unsigned i = old_sz; i < m_retired_ternary.size(); ++i) {
-            attach_ternary(m_retired_ternary[i]);
-        }
-        m_retired_ternary.shrink(old_sz);
-        m_retired_ternary_lim.pop_back();
-#else
         for (unsigned i = m_qhead; i > m_qhead_lim.back(); ) {
             --i;
             restore_ternary(m_trail[i]);
@@ -1231,8 +1003,6 @@ namespace sat {
 
         m_trail.shrink(old_sz); // reset assignment.
         m_trail_lim.pop_back();
-
-#endif            
 
 
         // remove local binary clauses
@@ -1306,18 +1076,6 @@ namespace sat {
         m_wstack.reset();
     }
 
-#ifndef NEW_CLAUSE
-    clause const& lookahead::get_clause(watch_list::iterator it) const {
-        clause_offset cls_off = it->get_clause_offset();
-        return *(m_cls_allocator.get_clause(cls_off));
-    }
-
-    bool lookahead::is_nary_propagation(clause const& c, literal l) const {
-        bool r = c.size() > 2 && ((c[0] == l && is_false(c[1])) || (c[1] == l && is_false(c[0])));
-        DEBUG_CODE(if (r) for (unsigned j = 2; j < c.size(); ++j) SASSERT(is_false(c[j])););
-        return r;
-    }
-#endif
 
     // 
     // The current version is modeled after CDCL SAT solving data-structures.
@@ -1336,7 +1094,6 @@ namespace sat {
         double operator()(literal l) { return lh.literal_occs(l); }
     };
 
-#ifdef NEW_CLAUSE
     // Ternary clause managagement:
 
     void lookahead::add_ternary(literal u, literal v, literal w) {
@@ -1510,38 +1267,6 @@ namespace sat {
         m_nary_literals.push_back(null_literal.index());        
     }
 
-#if 0
-    // split large clauses into smaller ones to avoid overhead during propagation.
-
-    void lookahead::add_clause(unsigned sz, literal const * lits) {
-        if (sz > 6) {
-            bool_var v = m_s.mk_var(false);
-            ++m_num_vars;
-            init_var(v);
-            literal lit(v, false);
-            unsigned mid = sz / 2;
-            literal_vector lits1(mid, lits);
-            lits1.push_back(lit);
-            add_clause(lits1.size(), lits1.c_ptr());
-            lit.neg();
-            literal_vector lits2(sz - mid, lits + mid);
-            lits2.push_back(lit);
-            add_clause(lits2.size(), lits2.c_ptr());
-        }
-        else {
-            unsigned idx = m_nary_literals.size();
-            m_nary_literals.push_back(sz);
-            for (unsigned i = 0; i < sz; ++i) {
-                literal l = lits[i];
-                m_nary_literals.push_back(l.index());
-                m_nary_count[l.index()]++;
-                m_nary[l.index()].push_back(idx);
-                SASSERT(m_nary_count[l.index()] == m_nary[l.index()].size());
-            }
-            m_nary_literals.push_back(null_literal.index());        
-        }
-    }
-#endif
 
     void lookahead::propagate_clauses_searching(literal l) {
         // clauses where l is negative
@@ -1747,162 +1472,6 @@ namespace sat {
     }
     
 
-#else 
-    void lookahead::propagate_clauses(literal l) {
-        SASSERT(is_true(l));
-        if (inconsistent()) return;
-        watch_list& wlist = m_watches[l.index()];
-        watch_list::iterator it = wlist.begin(), it2 = it, end = wlist.end();
-        for (; it != end && !inconsistent(); ++it) {
-            switch (it->get_kind()) {
-            case watched::BINARY:
-                UNREACHABLE();
-                break;
-            case watched::TERNARY: {
-                literal l1 = it->get_literal1();
-                literal l2 = it->get_literal2();
-                bool skip = false;
-                if (is_fixed(l1)) {
-                    if (is_false(l1)) {
-                        if (is_undef(l2)) {
-                            propagated(l2);
-                        }
-                        else if (is_false(l2)) {
-                            TRACE("sat", tout << l1 << " " << l2 << " " << l << "\n";);
-                            set_conflict();
-                        }
-                    }
-                    else {
-                        // retire this clause
-                    }
-                }
-                else if (is_fixed(l2)) {
-                    if (is_false(l2)) {
-                        propagated(l1);
-                    }
-                    else {                            
-                        // retire this clause
-                    }
-                }
-                else {
-                    switch (m_search_mode) {
-                    case lookahead_mode::searching:
-                        detach_ternary(~l, l1, l2);
-                        try_add_binary(l1, l2);
-                        skip = true;
-                        break;
-                    case lookahead_mode::lookahead1:
-                        update_binary_clause_reward(l1, l2);
-                        break;
-                    case lookahead2:
-                        break;
-                    }
-                }
-                if (!skip) {
-                    *it2 = *it;
-                    it2++;
-                }
-                break;
-            }
-            case watched::CLAUSE: {
-                if (is_true(it->get_blocked_literal())) {
-                    *it2 = *it;
-                    ++it2;
-                    break;
-                }
-                clause_offset cls_off = it->get_clause_offset();
-                clause & c = *(m_cls_allocator.get_clause(cls_off));
-                if (c[0] == ~l)
-                    std::swap(c[0], c[1]);
-                if (is_true(c[0])) {
-                    it->set_blocked_literal(c[0]);
-                    *it2 = *it;
-                    it2++;
-                    break;
-                }
-                literal * l_it  = c.begin() + 2;
-                literal * l_end = c.end();
-                bool found = false;
-                for (; l_it != l_end && !found; ++l_it) {
-                    if (!is_false(*l_it)) {
-                        found = true;
-                        c[1]  = *l_it;
-                        *l_it = ~l;
-                        m_watches[(~c[1]).index()].push_back(watched(c[0], cls_off));
-                        TRACE("sat_verbose", tout << "move watch from " << l << " to " << c[1] << " for clause " << c << "\n";);
-                    }
-                }
-                if (found) {
-                    found = false;
-                    for (; l_it != l_end && !found; ++l_it) {
-                        found = !is_false(*l_it);
-                    }
-                    // normal clause was converted to a binary clause.
-                    if (!found && is_undef(c[1]) && is_undef(c[0])) {
-                        TRACE("sat", tout << "got binary " << l << ": " << c << "\n";);
-                        switch (m_search_mode) {
-                        case lookahead_mode::searching:
-                            detach_clause(c);
-                            try_add_binary(c[0], c[1]);
-                            break;
-                        case lookahead_mode::lookahead1:
-                            update_binary_clause_reward(c[0], c[1]);
-                            break;
-                        case lookahead_mode::lookahead2:
-                            break;
-                        }
-                    }
-                    else if (found && m_search_mode == lookahead_mode::lookahead1) {
-                        update_nary_clause_reward(c);
-                    }
-                    break; 
-                }
-                if (is_false(c[0])) {
-                    TRACE("sat", tout << "conflict " << l << ": " << c << "\n";);
-                    set_conflict();
-                    *it2 = *it;
-                    ++it2;
-                }
-                else {
-                    TRACE("sat", tout << "propagating " << l << ": " << c << "\n";);
-                    SASSERT(is_undef(c[0]));
-                    DEBUG_CODE(for (unsigned i = 2; i < c.size(); ++i) {
-                            SASSERT(is_false(c[i]));
-                        });
-                    *it2 = *it;
-                    it2++;
-                    propagated(c[0]);
-                }
-                break;
-            }
-            case watched::EXT_CONSTRAINT: {
-                SASSERT(m_s.m_ext);
-                bool keep = m_s.m_ext->propagate(l, it->get_ext_constraint_idx());
-                if (m_search_mode == lookahead_mode::lookahead1 && !m_inconsistent) {
-                    lookahead_literal_occs_fun literal_occs_fn(*this);
-                    m_lookahead_reward += m_s.m_ext->get_reward(l, it->get_ext_constraint_idx(), literal_occs_fn);
-                }
-                if (m_inconsistent) {
-                    if (!keep) ++it;
-                    set_conflict();                        
-                }
-                else if (keep) {
-                    *it2 = *it;
-                    it2++;
-                }
-                break;
-            }
-            default:
-                UNREACHABLE();
-                break;
-            }
-        }
-        for (; it != end; ++it, ++it2) {
-            *it2 = *it;                         
-        }
-        wlist.set_end(it2);        
-    }
-#endif
 
     void lookahead::update_binary_clause_reward(literal l1, literal l2) {
         SASSERT(!is_false(l1));
@@ -1958,22 +1527,9 @@ namespace sat {
     // Sum_{ clause C that contains ~l } 1 
     double lookahead::literal_occs(literal l) {
         double result = m_binary[l.index()].size();
-#ifdef NEW_CLAUSE
         unsigned_vector const& nclauses = m_nary[(~l).index()];
         result += m_nary_count[(~l).index()];
         result += m_ternary_count[(~l).index()];
-#else
-        for (clause const* c : m_full_watches[l.index()]) {
-            bool has_true = false;
-            for (literal l : *c) {
-                has_true = is_true(l);
-                if (has_true) break;
-            }
-            if (!has_true) {
-                result += 1.0;
-            }
-        }
-#endif
         return result;
     }
 
@@ -2167,11 +1723,9 @@ namespace sat {
                 ++m_stats.m_autarky_propagations;
                 IF_VERBOSE(1, verbose_stream() << "(sat.lookahead autarky " << l << ")\n";);
                     
-#ifdef NEW_CLAUSE
                 TRACE("sat", tout << "autarky: " << l << " @ " << m_stamp[l.var()] 
                       << " " 
                       << (!m_binary[l.index()].empty() || m_nary_count[l.index()] != 0) << "\n";);
-#endif
                 reset_lookahead_reward();
                 assign(l);
                 propagate();                    
@@ -2457,7 +2011,6 @@ namespace sat {
     }
 
     std::ostream& lookahead::display_clauses(std::ostream& out) const {
-#ifdef NEW_CLAUSE
         bool first = true;
 
         for (unsigned idx = 0; idx < m_ternary.size(); ++idx) {
@@ -2487,11 +2040,6 @@ namespace sat {
             }
         }
 
-#else
-        for (unsigned i = 0; i < m_clauses.size(); ++i) {
-            out << *m_clauses[i] << "\n";
-        }
-#endif
         return out;
     }
 
@@ -2719,11 +2267,7 @@ namespace sat {
 
     void lookahead::collect_statistics(statistics& st) const {
         st.update("lh bool var", m_vprefix.size());
-#ifndef NEW_CLAUSE
-        st.update("lh clauses",  m_clauses.size());
-#else
         // TBD: keep count of ternary and >3-ary clauses.
-#endif
         st.update("lh add binary", m_stats.m_add_binary);
         st.update("lh del binary", m_stats.m_del_binary);
         st.update("lh add ternary", m_stats.m_add_ternary);

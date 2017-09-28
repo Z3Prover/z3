@@ -20,7 +20,6 @@ Notes:
 #ifndef _SAT_LOOKAHEAD_H_
 #define _SAT_LOOKAHEAD_H_
 
-#define NEW_CLAUSE
 
 #include "sat_elim_eqs.h"
 
@@ -125,19 +124,10 @@ namespace sat {
             void reset() { memset(this, 0, sizeof(*this)); }
         };
 
-#ifndef NEW_CLAUSE
-        struct ternary {
-            ternary(literal u, literal v, literal w): m_u(u), m_v(v), m_w(w) {}
-            literal m_u, m_v, m_w;
-        };
-#endif
-
-#ifdef NEW_CLAUSE
         struct binary {
             binary(literal u, literal v): m_u(u), m_v(v) {}
             literal m_u, m_v;
         };
-#endif
 
         struct cube_state {
             bool           m_first;
@@ -165,7 +155,6 @@ namespace sat {
         unsigned_vector        m_binary_trail;  // trail of added binary clauses
         unsigned_vector        m_binary_trail_lim; 
 
-#ifdef NEW_CLAUSE       
         // specialized clause managemet uses ternary clauses and dedicated clause data-structure.
         // this replaces m_clauses below
         vector<svector<binary>> m_ternary;        // lit |-> vector of ternary clauses
@@ -176,21 +165,10 @@ namespace sat {
         unsigned_vector         m_nary_literals;  // the actual literals, clauses start at offset clause_id, 
                                                   // the first entry is the current length, clauses are separated by a null_literal
 
-        
-#endif
-
         unsigned               m_num_tc1;
         unsigned_vector        m_num_tc1_lim;
         unsigned               m_qhead;         // propagation queue head
         unsigned_vector        m_qhead_lim;
-#ifndef NEW_CLAUSE
-        clause_vector          m_clauses;       // non-binary clauses
-        clause_vector          m_retired_clauses; // clauses that were removed during search
-        unsigned_vector        m_retired_clause_lim; 
-        svector<ternary>       m_retired_ternary;  // ternary removed during search
-        unsigned_vector        m_retired_ternary_lim; 
-        clause_allocator       m_cls_allocator;       
-#endif 
         bool                   m_inconsistent;
         unsigned_vector        m_bstamp;        // literal: timestamp for binary implication
         vector<svector<double> >  m_H;           // literal: fitness score
@@ -203,9 +181,6 @@ namespace sat {
         const unsigned         c_fixed_truth = UINT_MAX - 1;
         vector<watch_list>     m_watches;       // literal: watch structure
         svector<lit_info>      m_lits;          // literal: attributes.
-#ifndef NEW_CLAUSE
-        vector<clause_vector>  m_full_watches;  // literal: full watch list, used to ensure that autarky reduction is sound
-#endif
         double                 m_lookahead_reward; // metric associated with current lookahead1 literal.
         literal_vector         m_wstack;        // windofall stack that is populated in lookahead1 mode
         unsigned               m_last_prefix_length;
@@ -420,18 +395,9 @@ namespace sat {
         // ------------------------------------
         // clause management
 
-#ifndef NEW_CLAUSE
-        void attach_clause(clause& c);
-        void detach_clause(clause& c);
-        void del_clauses();
-        void detach_ternary(literal l1, literal l2, literal l3);
-        void attach_ternary(ternary const& t);
-        void attach_ternary(literal l1, literal l2, literal l3);
-#endif
         watch_list& get_wlist(literal l) { return m_watches[l.index()]; }
         watch_list const& get_wlist(literal l) const { return m_watches[l.index()]; }
 
-#ifdef NEW_CLAUSE
         // new clause managment:
         void add_ternary(literal u, literal v, literal w);
         void propagate_ternary(literal l);
@@ -446,7 +412,7 @@ namespace sat {
         void restore_clauses(literal l);
         void remove_clause(literal l, unsigned clause_idx);
         void remove_clause_at(literal l, unsigned clause_idx);
-#endif
+
         // ------------------------------------
         // initialization
         
@@ -532,9 +498,6 @@ namespace sat {
         }
 
         ~lookahead() {
-#ifndef NEW_CLAUSE
-            del_clauses();
-#endif
             m_s.rlimit().pop_child();
         }
         
