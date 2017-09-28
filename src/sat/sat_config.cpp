@@ -72,6 +72,7 @@ namespace sat {
         m_restart_initial = p.restart_initial();
         m_restart_factor  = p.restart_factor();
         m_restart_max     = p.restart_max();
+        m_inprocess_max   = p.inprocess_max();
 
         m_random_freq     = p.random_freq();
         m_random_seed     = p.random_seed();
@@ -183,6 +184,7 @@ namespace sat {
             throw sat_param_exception("invalid PB solver: solver, totalizer, circuit, sorting");
         }
         m_dimacs_display  = p.dimacs_display();
+        m_dimacs_inprocess_display  = p.dimacs_inprocess_display();
     }
 
     void config::collect_param_descrs(param_descrs & r) {
