@@ -49,6 +49,7 @@ Revision History:
 #include "util/stopwatch.h"
 #include "util/lp/disjoint_intervals.h"
 #include "util/lp/stacked_map.h"
+#include <cstdlib>
 namespace lp {
 unsigned seed = 1;
 
@@ -1883,6 +1884,7 @@ void test_replace_column() {
 
 void setup_args_parser(argument_parser & parser) {
     parser.add_option_with_help_string("-dji", "test disjoint_intervals");
+    parser.add_option_with_help_string("-cs", "test cut_solver");
     parser.add_option_with_help_string("-xyz_sample", "run a small interactive scenario");
     parser.add_option_with_after_string_with_help("--density", "the percentage of non-zeroes in the matrix below which it is not dense");
     parser.add_option_with_after_string_with_help("--harris_toler", "harris tolerance");
@@ -3176,6 +3178,42 @@ void test_disjoint_intervals() {
     }
 }
 
+void test_cut_solver() {
+    cut_solver<int> cs([](unsigned i)
+                       {
+                           if (i == 0) return std::string("x");
+                           if (i == 1) return  std::string("y");
+                           return std::to_string(i);
+                       });
+    vector<std::pair<int, unsigned>> term;
+    unsigned x = 0;
+    unsigned y = 1;
+    term.push_back(std::make_pair(2, x));
+    term.push_back(std::make_pair(-3, y));
+    unsigned ineq_index = cs.add_ineq(term, mpq(3));
+
+
+    cs.print_ineq(ineq_index, std::cout);
+    
+    mpq l;
+    auto ineq = cs.m_ineqs[ineq_index];
+    cs.add_lower_bound_for_user_var(x, 1);
+    cs.add_lower_bound_for_user_var(y, 1);
+    bool has_lower = cs.lower(ineq.m_poly, l);
+    if (has_lower) {
+        std::cout << "lower = " << l << std::endl;
+    } else {
+        std::cout << "no lower" << std::endl;
+    }
+    cs.add_upper_bound_for_user_var(y, 1);
+    has_lower = cs.lower(ineq.m_poly, l);
+    if (has_lower) {
+        std::cout << "lower = " << l << std::endl;
+    } else {
+        std::cout << "no lower" << std::endl;
+    }
+}
+
 void test_lp_local(int argn, char**argv) {
     
     // initialize_util_module();
@@ -3194,6 +3232,10 @@ void test_lp_local(int argn, char**argv) {
 
     if (args_parser.option_is_used("-dji")) {
         test_disjoint_intervals();
+        return finalize(0);
+    }
+    if (args_parser.option_is_used("-cs")) {
+        test_cut_solver();
         return finalize(0);
     }
     if (args_parser.option_is_used("--test_mpq")) {

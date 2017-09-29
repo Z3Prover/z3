@@ -23,7 +23,7 @@ Revision History:
 #include "util/debug.h"
 #include <unordered_map>
 template <typename A, typename B>
-bool try_get_val(const std::unordered_map<A,B> & map, const A& key, B & val) {
+bool try_get_value(const std::unordered_map<A,B> & map, const A& key, B & val) {
     const auto it = map.find(key);
     if (it == map.end()) return false;
     val = it->second;

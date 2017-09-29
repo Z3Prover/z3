@@ -6,14 +6,26 @@
 #include "util/vector.h"
 #include "util/trace.h"
 #include "util/lp/lp_settings.h"
+#include "util/lp/column_namer.h"
+#include <functional>
 namespace lp {
 template <typename T>
-class cut_solver {
-
-    struct ineq { // we only have less or equal, which is enough for integral variables
-        mpq m_bound;
+class cut_solver : public column_namer {
+public: // for debugging
+    struct polynomial {
+        // the polynom evaluates to m_term + m_a
         vector<std::pair<T, var_index>> m_term;
-        ineq(vector<std::pair<T, var_index>>& term, mpq bound):m_bound(bound),m_term(term) {
+        mpq m_a; // the free coefficient
+        polynomial(vector<std::pair<T, var_index>>& p, const mpq & a) : m_term(p), m_a(a) {
+        }
+        polynomial(vector<std::pair<T, var_index>>& p) : polynomial(p, 0) {
+        }
+        
+    };
+    
+    struct ineq { // we only have less or equal, which is enough for integral variables
+        polynomial m_poly;
+        ineq(vector<std::pair<T, var_index>>& term, const mpq& a): m_poly(term, a) {
         }
     };
 
@@ -30,7 +42,7 @@ class cut_solver {
         INEQ,
         BOUND
     };
-    
+
     struct literal {
         literal_type m_tag;
         bool m_sign; // true means the pointed inequality is negated, or bound is negated, or boolean value is negated
@@ -43,22 +55,39 @@ class cut_solver {
             m_bool_val(val){
         } 
         literal(bool sign, unsigned index_of_ineq) : m_tag(literal_type::INEQ), m_index_of_ineq(index_of_ineq) {}
+    };    
+
+    struct var_info {
+        unsigned m_user_var_index;
+        var_info(unsigned user_var_index) : m_user_var_index(user_var_index) {}
+        vector<literal> m_literals;
     };
 
-    bool lhs_is_int(const vector<std::pair<mpq, var_index>> & lhs) const {
-        for (auto & p : lhs)
-            if (p.first.is_int() == false) return false;
+    vector<var_info> m_var_infos;
+    
+    bool lhs_is_int(const vector<std::pair<T, var_index>> & lhs) const {
+        for (auto & p : lhs) {
+            if (numeric_traits<T>::is_int(p.first) == false) return false;
+        }
         return true;
     }
     
     public:
-    void add_ineq(vector<std::pair<mpq, var_index>> & lhs, mpq rhs) {
+    std::string get_column_name(unsigned j) const {
+        return m_var_name_function(m_var_infos[j].m_user_var_index);
+    }
+
+    unsigned add_ineq(vector<std::pair<T, var_index>> & lhs, const mpq& free_coeff) {
         lp_assert(lhs_is_int(lhs));
-        lp_assert(rhs.is_int());
-        m_ineqs.push_back(ineq(lhs, rhs));
+        lp_assert(free_coeff.is_int());
+        vector<std::pair<T, var_index>>  local_lhs;
+        for (auto & p : lhs)
+            local_lhs.push_back(std::make_pair(p.first, add_var(p.second)));
+        m_ineqs.push_back(ineq(local_lhs, free_coeff));
+        return m_ineqs.size() - 1;
     }
         
-        
+    std::function<std::string (unsigned)> m_var_name_function;
     bool m_inconsistent;   // tracks if state is consistent
     unsigned m_scope_lvl;  // tracks the number of case splits
 
@@ -71,7 +100,39 @@ class cut_solver {
     };
 
     svector<scope>          m_scopes;
+    std::unordered_map<unsigned, unsigned> m_user_vars_to_cut_solver_vars;
+    unsigned add_var(unsigned user_var_index) {
+        unsigned ret;
+        if (try_get_value(m_user_vars_to_cut_solver_vars, user_var_index, ret))
+            return ret;
+        unsigned j = m_var_infos.size();
+        m_var_infos.push_back(var_info(user_var_index));
+        return m_user_vars_to_cut_solver_vars[user_var_index] = j;      
+    }
 
+    void add_lower_bound_for_user_var(unsigned user_var_index, const T& bound) {
+        unsigned j = m_user_vars_to_cut_solver_vars[user_var_index];
+        auto & vi = m_var_infos[j];
+        if (!vi.m_has_lower) {
+            vi.m_has_lower = true;
+            vi.m_lower = bound;
+        } else {
+            vi.m_lower = std::max(vi.m_lower, bound);
+        }
+    }
+
+    void add_upper_bound_for_user_var(unsigned user_var_index, const T& bound) {
+        unsigned j = m_user_vars_to_cut_solver_vars[user_var_index];
+        auto & vi = m_var_infos[j];
+        if (!vi.m_has_upper) {
+            vi.m_has_upper = true;
+            vi.m_upper = bound;
+        } else {
+            vi.m_upper = std::min(vi.m_upper, bound);
+        }
+    }
+
+    
     bool  at_base_lvl() const { return m_scope_lvl == 0; }
 
     lbool check() {
@@ -89,7 +150,7 @@ class cut_solver {
         }
     }
 
-    cut_solver() {
+    cut_solver(std::function<std::string (unsigned)> var_name_function) : m_var_name_function(var_name_function) {
     }
     
     void init_search() {
@@ -196,6 +257,72 @@ class cut_solver {
     }
 
     bool inconsistent() const { return m_inconsistent; }
+
+    bool get_var_low_bound(var_index i, T & bound) const {
+        const var_info & v = m_var_infos[i];
+        if (!v.m_has_lower)
+            return false;
+        bound = v.m_lower;
+        return true;
+    }
+
+    bool get_var_upper_bound(var_index i, T & bound) const {
+        const var_info & v = m_var_infos[i];
+        if (!v.m_has_upper)
+            return false;
+        bound = v.m_upper;
+        return true;
+    }
+
     
+    // finds the lower bound of the monomial,
+    // otherwise returns false
+    bool lower_monomial(const std::pair<T, var_index> & p, mpq & lb) const {
+        lp_assert(p.first != 0);
+        T var_bound;
+        if (p.first > 0) {
+            if (!get_var_low_bound(p.second, var_bound))
+                return false;
+            lb = p.first * var_bound;
+        }
+        else {
+            if (!get_var_upper_bound(p.second, var_bound))
+                return false;
+            lb = p.first * var_bound;
+        }
+        return true;
+    }
+    
+    // returns false if not limited from below
+    // otherwise the answer is put into lp
+    bool lower(const polynomial & f, mpq & lb) const {
+        lb = 0;
+        mpq lm;
+        for (const auto & p : f.m_term) {
+            if (lower_monomial(p, lm)) {
+                lb += lm;
+            } else {
+                return false;
+            }
+        }
+        lb += f.m_a;
+        return true;
+    }
+
+    void print_ineq(unsigned i, std::ostream & out) {
+        print_polynomial(m_ineqs[i].m_poly, out);
+        out << " <= 0" << std::endl;
+    }
+
+    void print_polynomial(const polynomial & p, std::ostream & out) {
+        this->print_linear_combination_of_column_indices(p.m_term, out);
+        if (!is_zero(p.m_a)) {
+            if (p.m_a < 0) {
+                out << " - " << -p.m_a;
+            } else {
+                out << " + " << p.m_a;
+            }
+        }
+    }
 };
 }

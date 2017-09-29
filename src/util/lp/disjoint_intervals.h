@@ -19,9 +19,13 @@ class disjoint_intervals {
     typedef typename std::map<T, char>::reverse_iterator riter;
     stacked_map<T, char> m_endpoints; // 0 means start, 1 means end, 2 means both - for a point interval
     stacked_value<bool> m_empty;
-    // constructors create an interval containing all integer numbers or an empty interval
 public:
+    // the default constructor creates a set containing all integer numbers
     disjoint_intervals() : disjoint_intervals(false) {}
+
+
+    // if is_empty = false then the constructor creates a set containing all integer numbers,
+    // otherwise it creates an empty set
     disjoint_intervals(bool is_empty) : m_empty(is_empty) {
 #if Z3DEBUG
         if (!is_empty) {
@@ -30,6 +34,7 @@ public:
         }
 #endif
     }
+    
     void init_to_contain_all() {
         m_empty = false;
         m_endpoints.clear();

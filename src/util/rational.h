@@ -54,7 +54,6 @@ public:
     rational(mpz const & z) { m().set(m_val, z); }
 
     rational(double  z) { UNREACHABLE(); }
-
     
     explicit rational(char const * v) { m().set(m_val, v); }
 
