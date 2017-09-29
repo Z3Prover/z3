@@ -405,7 +405,7 @@ public:
 
     bool is_invariant(unsigned level, expr* lem,
                       unsigned& solver_level, expr_ref_vector* core = nullptr)
-        { UNREACHABLE();}
+        { UNREACHABLE(); return false; }
 
     bool check_inductive(unsigned level, expr_ref_vector& state,
                          unsigned& assumes_level, unsigned weakness = UINT_MAX);
