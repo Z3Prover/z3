@@ -623,6 +623,11 @@ struct pb2bv_rewriter::imp {
             }
         }
 
+        bool mk_app(expr* e, expr_ref& r) {
+            app* a;
+            return (is_app(e) && (a = to_app(e), mk_app(false, a->get_decl(), a->get_num_args(), a->get_args(), r)));
+        }
+
         bool is_pb(expr* x, expr* y) {
             m_args.reset();
             m_coeffs.reset();
@@ -817,6 +822,14 @@ struct pb2bv_rewriter::imp {
         void pb_num_system(bool f) { m_cfg.pb_num_system(f); }
         void pb_totalizer(bool f) { m_cfg.pb_totalizer(f); }
         void set_at_most1(sorting_network_encoding e) { m_cfg.set_at_most1(e); }
+        void rewrite(expr* e, expr_ref& r, proof_ref& p) {
+            expr_ref ee(e, m());
+            if (m_cfg.m_r.mk_app(e, r)) {
+                ee = r;
+                // mp proof?
+            }
+            (*this)(ee, r, p);
+        }
     };
 
     card_pb_rewriter m_rw;
@@ -888,7 +901,8 @@ struct pb2bv_rewriter::imp {
     unsigned get_num_steps() const { return m_rw.get_num_steps(); }
     void cleanup() { m_rw.cleanup(); }
     void operator()(expr * e, expr_ref & result, proof_ref & result_proof) {
-        m_rw(e, result, result_proof);
+        // m_rw(e, result, result_proof);
+        m_rw.rewrite(e, result, result_proof);
     }
     void push() {
         m_fresh_lim.push_back(m_fresh.size());
