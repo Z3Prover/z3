@@ -1293,7 +1293,7 @@ bool lemma::has_binding(app_ref_vector const &binding) {
     expr *lem = get_expr();
     unsigned num_decls = to_quantifier(lem)->get_num_decls();
 
-    SASSERT(bindings.size() == num_decls);
+    SASSERT(binding.size() == num_decls);
 
     for (unsigned off = 0, sz = m_bindings.size(); off < sz; off += num_decls) {
         unsigned i = 0;
