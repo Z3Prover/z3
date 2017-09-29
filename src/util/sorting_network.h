@@ -328,15 +328,15 @@ Notes:
         }
 
         void add_implies_and(literal l, literal_vector const& xs) {
-            for (unsigned j = 0; j < xs.size(); ++j) {
-                add_clause(ctx.mk_not(l), xs[j]);
+            for (literal const& x : xs) {
+                add_clause(ctx.mk_not(l), x);
             }
         }
 
         void add_and_implies(literal l, literal_vector const& xs) {
             literal_vector lits;
-            for (unsigned j = 0; j < xs.size(); ++j) {
-                lits.push_back(ctx.mk_not(xs[j]));
+            for (literal const& x : xs) {
+                lits.push_back(ctx.mk_not(x));
             }
             lits.push_back(l);
             add_clause(lits);
@@ -513,8 +513,9 @@ Notes:
                 add_clause(ctx.mk_not(r), ctx.mk_not(ys[i]), ctx.mk_not(xs[i + 1]));
             }
 
-            add_clause(ctx.mk_not(r), ys[n-2], xs[n-1]);
-            add_clause(ctx.mk_not(r), ctx.mk_not(ys[n-2]), ctx.mk_not(xs[n-1]));
+            if (is_eq) {
+                add_clause(ctx.mk_not(r), ys[n-2], xs[n-1]);
+            }
             for (unsigned i = 1; i < n - 1; ++i) {
                 add_clause(ctx.mk_not(ys[i]), xs[i], ys[i-1]);
             }
@@ -583,7 +584,7 @@ Notes:
         }
 
         std::ostream& pp(std::ostream& out, literal_vector const& lits) {
-            for (unsigned i = 0; i < lits.size(); ++i) ctx.pp(out, lits[i]) << " ";
+            for (literal const& l : lits) ctx.pp(out, l) << " ";
             return out;
         }
 
