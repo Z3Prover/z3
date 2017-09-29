@@ -10,7 +10,7 @@
 namespace lp {
 // represents the set of disjoint intervals of integer number
 template <typename T>
-class disjoint_intervals {
+class integer_domain {
 #ifdef Z3DEBUG
     std::set<int> m_domain;
 #endif 
@@ -21,12 +21,12 @@ class disjoint_intervals {
     stacked_value<bool> m_empty;
 public:
     // the default constructor creates a set containing all integer numbers
-    disjoint_intervals() : disjoint_intervals(false) {}
+    integer_domain() : integer_domain(false) {}
 
 
     // if is_empty = false then the constructor creates a set containing all integer numbers,
     // otherwise it creates an empty set
-    disjoint_intervals(bool is_empty) : m_empty(is_empty) {
+    integer_domain(bool is_empty) : m_empty(is_empty) {
 #if Z3DEBUG
         if (!is_empty) {
             for (int i = 0; i <= 100; i++)
@@ -44,10 +44,14 @@ public:
 #endif
     }
 
-    // copy constructor needed for debugging
-    disjoint_intervals(const disjoint_intervals<T> & t) :
+    // copy constructor 
+    integer_domain(const integer_domain<T> & t) :
+#if Z3DEBUG
+        m_domain(t.m_domain),
+#endif
         m_endpoints(t.m_endpoints),
-        m_empty(t.m_empty) {
+        m_empty(t.m_empty)
+    {
     }
 
     // needed for debug only
@@ -61,7 +65,7 @@ public:
 #endif
     }
     
-    bool operator==(const disjoint_intervals<T> & t) {
+    bool operator==(const integer_domain<T> & t) {
         return m_empty == t.m_empty && m_endpoints() == t.m_endpoints();
     }
     bool contains_all() const {
@@ -850,6 +854,23 @@ private:
             m_endpoints.erase(std::next(r));
         }
     }
-    
+public:
+    bool get_lower_bound(T& b) const {
+        if (m_empty)
+            return false;
+        if (has_neg_inf())
+            return false;
+        b = pos(m_endpoints.begin());
+        return true;
+    }
+
+    bool get_upper_bound(T& b) const {
+        if (m_empty)
+            return false;
+        if (has_pos_inf())
+            return false;
+        b = m_endpoints.rbegin()->first;
+        return true;
+    }
 };
 }

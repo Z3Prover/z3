@@ -7,6 +7,7 @@
 #include "util/trace.h"
 #include "util/lp/lp_settings.h"
 #include "util/lp/column_namer.h"
+#include "util/lp/integer_domain.h"
 #include <functional>
 namespace lp {
 template <typename T>
@@ -46,7 +47,7 @@ public: // for debugging
     struct literal {
         literal_type m_tag;
         bool m_sign; // true means the pointed inequality is negated, or bound is negated, or boolean value is negated
-
+        bool m_is_lower;
         unsigned m_id;
         unsigned m_index_of_ineq; // index into m_ineqs
         bool m_bool_val; // used if m_tag is equal to BOOL
@@ -60,7 +61,8 @@ public: // for debugging
     struct var_info {
         unsigned m_user_var_index;
         var_info(unsigned user_var_index) : m_user_var_index(user_var_index) {}
-        vector<literal> m_literals;
+        vector<unsigned> m_literals; // point to m_trail
+        integer_domain<T> m_domain;
     };
 
     vector<var_info> m_var_infos;
@@ -110,26 +112,61 @@ public: // for debugging
         return m_user_vars_to_cut_solver_vars[user_var_index] = j;      
     }
 
+
+    bool is_lower_bound(literal & l) const {
+        if (l.m_tag != literal_type::BOUND || l.m_is_lower)
+            return false;
+        l = l.m_bound;
+        return true;
+    }
+    
+    bool lower_for_var(unsigned j, T & lower) const {
+        bool ret = false;
+        for (unsigned i : m_var_infos[j].m_literals)
+            if (is_lower_bound(m_trail[i])) {
+                if (ret == false) {
+                    ret = true;
+                    lower = get_bound(m_trail[i]);
+                } else {
+                    lower = std::max(lower, get_bound(m_trail[i]));
+                }
+            }
+        return ret;
+    }
+
+    bool is_upper_bound(literal & l) const {
+        if (l.m_tag != literal_type::BOUND || l.m_is_upper)
+            return false;
+        l = l.m_bound;
+        return true;
+    }
+    
+    bool upper_for_var(unsigned j, T & upper) const {
+        bool ret = false;
+        for (unsigned i : m_var_infos[j].m_literals)
+            if (is_upper_bound(m_trail[i])) {
+                if (ret == false) {
+                    ret = true;
+                    upper = get_bound(m_trail[i]);
+                } else {
+                    upper = std::min(upper, get_bound(m_trail[i]));
+                }
+            }
+        return ret;
+    }
+
+    // used for testing only
     void add_lower_bound_for_user_var(unsigned user_var_index, const T& bound) {
         unsigned j = m_user_vars_to_cut_solver_vars[user_var_index];
         auto & vi = m_var_infos[j];
-        if (!vi.m_has_lower) {
-            vi.m_has_lower = true;
-            vi.m_lower = bound;
-        } else {
-            vi.m_lower = std::max(vi.m_lower, bound);
-        }
+        vi.m_domain.intersect_with_lower_bound(bound);
     }
 
+    // used for testing only
     void add_upper_bound_for_user_var(unsigned user_var_index, const T& bound) {
         unsigned j = m_user_vars_to_cut_solver_vars[user_var_index];
         auto & vi = m_var_infos[j];
-        if (!vi.m_has_upper) {
-            vi.m_has_upper = true;
-            vi.m_upper = bound;
-        } else {
-            vi.m_upper = std::min(vi.m_upper, bound);
-        }
+        vi.m_domain.intersect_with_upper_bound(bound);
     }
 
     
@@ -260,18 +297,12 @@ public: // for debugging
 
     bool get_var_low_bound(var_index i, T & bound) const {
         const var_info & v = m_var_infos[i];
-        if (!v.m_has_lower)
-            return false;
-        bound = v.m_lower;
-        return true;
+        return v.m_domain.get_lower_bound(bound);
     }
 
     bool get_var_upper_bound(var_index i, T & bound) const {
         const var_info & v = m_var_infos[i];
-        if (!v.m_has_upper)
-            return false;
-        bound = v.m_upper;
-        return true;
+        return v.m_domain.get_upper_bound(bound);
     }
 
     

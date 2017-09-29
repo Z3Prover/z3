@@ -47,7 +47,7 @@ Revision History:
 #include "util/lp/stacked_unordered_set.h"
 #include "util/lp/int_set.h"
 #include "util/stopwatch.h"
-#include "util/lp/disjoint_intervals.h"
+#include "util/lp/integer_domain.h"
 #include "util/lp/stacked_map.h"
 #include <cstdlib>
 namespace lp {
@@ -1883,7 +1883,7 @@ void test_replace_column() {
 
 
 void setup_args_parser(argument_parser & parser) {
-    parser.add_option_with_help_string("-dji", "test disjoint_intervals");
+    parser.add_option_with_help_string("-dji", "test integer_domain");
     parser.add_option_with_help_string("-cs", "test cut_solver");
     parser.add_option_with_help_string("-xyz_sample", "run a small interactive scenario");
     parser.add_option_with_after_string_with_help("--density", "the percentage of non-zeroes in the matrix below which it is not dense");
@@ -3112,7 +3112,7 @@ void get_random_interval(bool& neg_inf, bool& pos_inf, int& x, int &y) {
     lp_assert((neg_inf || (0 <= x && x <= 100)) && (pos_inf || (0 <= y && y <= 100)));
 }
 
-void test_disjoint_intervals_intersection(disjoint_intervals<int> & d) {
+void test_integer_domain_intersection(integer_domain<int> & d) {
     int x, y; bool neg_inf, pos_inf;
     get_random_interval(neg_inf, pos_inf, x, y);
     if (neg_inf) {
@@ -3126,7 +3126,7 @@ void test_disjoint_intervals_intersection(disjoint_intervals<int> & d) {
         d.intersect_with_interval(x, y);
 }
 
-void test_disjoint_intervals_union(disjoint_intervals<int> & d) {
+void test_integer_domain_union(integer_domain<int> & d) {
     int x, y; bool neg_inf, pos_inf;
     get_random_interval(neg_inf, pos_inf, x, y);
     if (neg_inf) {
@@ -3145,19 +3145,19 @@ void test_disjoint_intervals_union(disjoint_intervals<int> & d) {
 }
 
 
-void test_disjoint_intervals_randomly(disjoint_intervals<int> & d) {
+void test_integer_domain_randomly(integer_domain<int> & d) {
     int i = my_random() % 10;
     if (i == 0)
-        test_disjoint_intervals_intersection(d);
+        test_integer_domain_intersection(d);
     else
-        test_disjoint_intervals_union(d);
+        test_integer_domain_union(d);
 }
 
-void test_disjoint_intervals() {
-    disjoint_intervals<int> d;
-    vector<disjoint_intervals<int>> stack;
+void test_integer_domain() {
+    integer_domain<int> d;
+    vector<integer_domain<int>> stack;
     for (int i = 0; i < 10000; i++) {
-        test_disjoint_intervals_randomly(d);
+        test_integer_domain_randomly(d);
         stack.push_back(d);
         d.push();
         if (i > 0 && i%100 == 0) {
@@ -3231,7 +3231,7 @@ void test_lp_local(int argn, char**argv) {
     args_parser.print();
 
     if (args_parser.option_is_used("-dji")) {
-        test_disjoint_intervals();
+        test_integer_domain();
         return finalize(0);
     }
     if (args_parser.option_is_used("-cs")) {
