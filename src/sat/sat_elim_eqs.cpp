@@ -182,10 +182,7 @@ namespace sat {
 
     void elim_eqs::save_elim(literal_vector const & roots, bool_var_vector const & to_elim) {
         model_converter & mc = m_solver.m_mc;
-        bool_var_vector::const_iterator it  = to_elim.begin();
-        bool_var_vector::const_iterator end = to_elim.end();
-        for (; it != end; ++it) {
-            bool_var v = *it;
+        for (bool_var v : to_elim) {
             literal  l(v, false);
             literal r  = roots[v];
             SASSERT(v != r.var());

@@ -349,6 +349,11 @@ namespace sat {
         unsigned true_val = 0, slack = 0, num_false = 0;
         for (unsigned i = 0; i < p.size(); ++i) {
             literal l = p.get_lit(i);
+            if (s().was_eliminated(l.var())) {
+                SASSERT(p.learned());
+                remove_constraint(p);
+                return;
+            }
             switch (value(l)) {
             case l_true: true_val += p.get_coeff(i); break;
             case l_false: ++num_false; break;
@@ -779,13 +784,13 @@ namespace sat {
 
         if (k == 1 && p.lit() == null_literal) {
             literal_vector lits(p.literals());
-            s().mk_clause(lits.size(), lits.c_ptr(), p.learned());
+            s().mk_clause(sz, lits.c_ptr(), p.learned());
             remove_constraint(p);
             return;
         }
 
         if (all_units) {
-            literal_vector lits(p.literals());
+            literal_vector lits(sz, p.literals().c_ptr());
             add_at_least(p.lit(), lits, k, p.learned());
             remove_constraint(p);
             return;
@@ -1006,14 +1011,15 @@ namespace sat {
         else if (coeff0 < 0 && inc > 0) {
             inc_bound(coeff0 - std::min(0LL, coeff1));
         }
+        int64 lbound = static_cast<int64>(m_bound);
 
         // reduce coefficient to be no larger than bound.
-        if (coeff1 > static_cast<int64>(m_bound)) {
-            m_coeffs[v] = m_bound;
+        if (coeff1 > lbound) {
+            m_coeffs[v] = lbound;
         }
-        else if (coeff1 < 0 && -coeff1 > static_cast<int64>(m_bound)) {
-            m_coeffs[v] = m_bound;
-        }
+        else if (coeff1 < 0 && -coeff1 > lbound) {
+            m_coeffs[v] = -lbound;
+        }        
     }
 
     int64 ba_solver::get_coeff(bool_var v) const {
@@ -1105,7 +1111,7 @@ namespace sat {
             }
 
             TRACE("sat_verbose", display(tout, m_A););
-            TRACE("sat", tout << "process consequent: " << consequent << ":\n"; s().display_justification(tout, js) << "\n";);
+            TRACE("sat", tout << "process consequent: " << consequent << " : "; s().display_justification(tout, js) << "\n";);
             SASSERT(offset > 0);
 
             // DEBUG_CODE(justification2pb(js, consequent, offset, m_B););
@@ -1206,7 +1212,7 @@ namespace sat {
                 //SASSERT(validate_resolvent());
                 m_A = m_C;);
 
-            TRACE("sat", display(tout << "conflict:\n", m_A););
+            TRACE("sat", display(tout << "conflict: ", m_A););
 
             cut();
 
@@ -1230,7 +1236,7 @@ namespace sat {
             SASSERT(lvl(v) == m_conflict_lvl);
             s().reset_mark(v);
             --idx;
-            TRACE("sat", tout << "Unmark: v" << v << "\n";);
+            TRACE("sat_verbose", tout << "Unmark: v" << v << "\n";);
             --m_num_marks;
             js = s().m_justification[v];
             offset = get_abs_coeff(v);
@@ -1297,9 +1303,9 @@ namespace sat {
                            active2pb(m_A);
                            uint64 c = 0;
                            for (uint64 c1 : m_A.m_coeffs) c += c1;
-                           std::cout << "sum of coefficients: " << c << "\n";
-                           display(std::cout, m_A, true);
-                           std::cout << "conflicting literal: " << s().m_not_l << "\n";);
+                           verbose_stream() << "sum of coefficients: " << c << "\n";
+                           display(verbose_stream(), m_A, true);
+                           verbose_stream() << "conflicting literal: " << s().m_not_l << "\n";);
 
                 for (literal l : lits) {
                     if (s().is_marked(l.var())) {
@@ -1458,7 +1464,7 @@ namespace sat {
 
         if (level > 0 && !s().is_marked(v) && level == m_conflict_lvl) {
             s().mark(v);
-            TRACE("sat", tout << "Mark: v" << v << "\n";);
+            TRACE("sat_verbose", tout << "Mark: v" << v << "\n";);
             ++m_num_marks;
             if (_debug_conflict && _debug_consequent != null_literal && _debug_var2position[_debug_consequent.var()] < _debug_var2position[l.var()]) {
                 std::cout << "antecedent " << l << " is above consequent in stack\n";
@@ -1516,6 +1522,7 @@ namespace sat {
     }
 
     void ba_solver::add_constraint(constraint* c) {
+        literal_vector lits(c->literals());
         if (c->learned()) {
             m_learned.push_back(c);
         }
@@ -2628,7 +2635,8 @@ namespace sat {
         
         // this could create duplicate literals
         for (unsigned i = 0; i < c.size(); ++i) {
-            c.set_lit(i, m_roots[c.get_lit(i).index()]);            
+            literal lit = m_roots[c.get_lit(i).index()];
+            c.set_lit(i, lit);
         }
 
         literal root = c.lit();
@@ -2782,9 +2790,7 @@ namespace sat {
                     remove_constraint(c);                    
                     break;
                 }
-                if (!s().is_external(v)) {
-                    s().set_external(v);
-                }
+                s().set_external(v);                
             }
         }
         IF_VERBOSE(10, verbose_stream() << "non-external variables converted: " << ext << "\n";);
@@ -2867,6 +2873,14 @@ namespace sat {
         m_constraint_removed = false;
     }
 
+    void ba_solver::ensure_external(constraint const& c) {
+        literal_vector lits(c.literals());
+        for (literal l : lits) {
+            s().set_external(l.var());
+        }
+    }
+
+
     void ba_solver::cleanup_constraints(ptr_vector<constraint>& cs, bool learned) {
         ptr_vector<constraint>::iterator it = cs.begin();
         ptr_vector<constraint>::iterator it2 = it;
@@ -2877,6 +2891,7 @@ namespace sat {
                 m_allocator.deallocate(c.obj_size(), &c);
             }
             else if (learned && !c.learned()) {
+                ensure_external(c);
                 m_constraints.push_back(&c);
             }
             else {
@@ -3598,7 +3613,9 @@ namespace sat {
 
         // produce asserting cardinality constraint
         literal_vector lits;
-        for (wliteral wl : m_wlits) lits.push_back(wl.second);        
+        for (wliteral wl : m_wlits) { 
+            lits.push_back(wl.second);
+        }       
         constraint* c = add_at_least(null_literal, lits, k, true);      
 
         if (c) {

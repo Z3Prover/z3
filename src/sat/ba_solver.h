@@ -285,6 +285,7 @@ namespace sat {
         void cleanup_clauses();
         void cleanup_constraints();
         void cleanup_constraints(ptr_vector<constraint>& cs, bool learned);
+        void ensure_external(constraint const& c);
         void remove_constraint(constraint& c);
 
         // constraints

@@ -202,12 +202,12 @@ namespace sat {
     }
 
     void solver::set_non_external(bool_var v) {
-        m_external[v] = false;
+        m_external[v] = 0;
     }
 
     void solver::set_external(bool_var v) {
-        if (m_external[v]) return;
-        m_external[v] = true;
+        if (m_external[v] != 0) return;
+        m_external[v] = 1;
 
         if (!m_ext) return;
         
