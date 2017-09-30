@@ -634,8 +634,9 @@ namespace sat {
             exit(0);
             return l_undef;
         }
-
-        SASSERT(validate_watch(p));
+        
+        validate_watch(p);
+        // SASSERT(validate_watch(p));
         
         SASSERT(index < num_watch);
         unsigned index1 = index + 1;
@@ -709,6 +710,8 @@ namespace sat {
                 }
             }
         }
+
+        validate_watch(p);
 
         TRACE("sat", display(tout << "assign: " << alit << "\n", p, true););
 
@@ -3428,7 +3431,9 @@ namespace sat {
     }
 
     bool ba_solver::validate_unit_propagation(pb const& p, literal alit) const { 
-        if (p.lit() != null_literal && value(p.lit()) != l_true) return false;
+        if (p.lit() != null_literal && value(p.lit()) != l_true) {
+            return false;
+        }
 
         unsigned sum = 0;
         TRACE("sat", display(tout << "validate: " << alit << "\n", p, true););
@@ -3446,11 +3451,14 @@ namespace sat {
         unsigned sum = 0;
         // all elements of r are true, 
         for (literal l : r) {
-            if (value(l) != l_true) return false;
+            if (value(l) != l_true) {
+                return false;
+            }
         }
         // the sum of elements not in r or alit add up to less than k.
         for (wliteral wl : p) {
-            if (wl.second != alit && !r.contains(~wl.second)) {
+            literal lit = wl.second;
+            if (lit != alit && value(lit) != l_false && !r.contains(~lit)) {
                 sum += wl.first;
             }
         }

@@ -1910,7 +1910,7 @@ namespace sat {
         while (true) {
             lbool result = cube(lits);
             if (lits.empty() || result != l_undef) {
-                return result;
+                return l_undef;
             }
             display_cube(std::cout, lits);
         }
