@@ -234,6 +234,11 @@ public:
                 }
             }
 
+            // if(!range_is_empty(rng)){
+            //     if (num_free_variables(con) > 0)
+            //         rng = range_empty();
+            // }
+
             if(res == INT_MAX){
                 if(range_is_empty(rng))
                     res = -1;
