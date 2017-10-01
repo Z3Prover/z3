@@ -21,6 +21,7 @@ Revision History:
 
 reslimit::reslimit():
     m_cancel(0),
+    m_suspend(false),
     m_count(0),
     m_limit(0) {
 }
@@ -31,12 +32,12 @@ uint64 reslimit::count() const {
 
 bool reslimit::inc() {
     ++m_count;
-    return m_cancel == 0 && (m_limit == 0 || m_count <= m_limit);
+    return (m_cancel == 0 && (m_limit == 0 || m_count <= m_limit)) || m_suspend;
 }
 
 bool reslimit::inc(unsigned offset) {
     m_count += offset;
-    return m_cancel == 0 && (m_limit == 0 || m_count <= m_limit);
+    return (m_cancel == 0 && (m_limit == 0 || m_count <= m_limit)) || m_suspend;
 }
 
 void reslimit::push(unsigned delta_limit) {
