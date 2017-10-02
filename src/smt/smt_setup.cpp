@@ -216,6 +216,7 @@ namespace smt {
 
     void setup::setup_QF_DT() {
         setup_QF_UF();
+        setup_datatypes();
     }
 
     void setup::setup_QF_BVRE() {
