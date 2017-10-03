@@ -11074,8 +11074,8 @@ namespace smt {
                 ctx.force_phase(lit);
             }
 
-			zstring aStr = gen_val_string(len, options[static_cast<int>(i) - static_cast<int>(l)]);
-			expr * strAst;
+            zstring aStr = gen_val_string(len, options[i - l]);
+            expr * strAst;
             if (m_params.m_UseFastValueTesterCache) {
                 if (!valueTesterCache.find(aStr, strAst)) {
                     strAst = mk_string(aStr);

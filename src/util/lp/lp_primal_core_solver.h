@@ -40,7 +40,7 @@ Revision History:
 #include "util/lp/iterator_on_row.h"
 namespace lp {
 
-// This core solver solves (Ax=b, low_bound_values \leq x \leq upper_bound_values, maximize costs*x )
+// This core solver solves (Ax=b, lower_bound_values \leq x \leq upper_bound_values, maximize costs*x )
 // The right side b is given implicitly by x and the basis
 template <typename T, typename X>
 class lp_primal_core_solver:public lp_core_solver_base<T, X> {
@@ -118,17 +118,17 @@ public:
         switch (this->m_column_types[j]) {
         case column_type::free_column: return true;
         case column_type::fixed: return false;
-        case column_type::low_bound:
+        case column_type::lower_bound:
             if (sign < 0)
                 return true;
-            return !this->x_is_at_low_bound(j);
+            return !this->x_is_at_lower_bound(j);
         case column_type::upper_bound:
             if (sign > 0)
                 return true;
             return !this->x_is_at_upper_bound(j);
         case column_type::boxed:
             if (sign < 0)
-                return !this->x_is_at_low_bound(j);
+                return !this->x_is_at_lower_bound(j);
             return !this->x_is_at_upper_bound(j);
         }
 
@@ -143,7 +143,7 @@ public:
         case column_type::free_column:
             return false;
         case column_type::fixed: 
-        case column_type::low_bound:
+        case column_type::lower_bound:
         case column_type::boxed:
             return this-> x_below_low_bound(bj);
         default:
@@ -158,7 +158,7 @@ public:
         switch(this->m_column_types[bj]) {
         case column_type::free_column:
             return 0;
-        case column_type::low_bound:
+        case column_type::lower_bound:
             return 1;
         case column_type::fixed: 
         case column_type::boxed:            
@@ -180,9 +180,9 @@ public:
             return true;
         case column_type::fixed:
             return false;
-        case column_type::low_bound:
+        case column_type::lower_bound:
             if (is_pos(rc.get_val())) {
-                return this->x_above_low_bound(j);
+                return this->x_above_lower_bound(j);
             }
 
             return true;
@@ -194,7 +194,7 @@ public:
             return this->x_below_upper_bound(j);
         case column_type::boxed:
             if (is_pos(rc.get_val())) {
-                return this->x_above_low_bound(j);
+                return this->x_above_lower_bound(j);
             }
 
             return this->x_below_upper_bound(j);
@@ -213,9 +213,9 @@ public:
             return true;
         case column_type::fixed:
             return false;
-        case column_type::low_bound:
+        case column_type::lower_bound:
             if (is_neg(rc.get_val())) {
-                return this->x_above_low_bound(j);
+                return this->x_above_lower_bound(j);
             }
 
             return true;
@@ -227,7 +227,7 @@ public:
             return this->x_below_upper_bound(j);
         case column_type::boxed:
             if (is_neg(rc.get_val())) {
-                return this->x_above_low_bound(j);
+                return this->x_above_lower_bound(j);
             }
 
             return this->x_below_upper_bound(j);
@@ -349,15 +349,15 @@ public:
     }
 
 
-    void limit_theta_on_basis_column_for_inf_case_m_neg_low_bound(unsigned j, const T & m, X & theta, bool & unlimited) {
-        lp_assert(m < 0 && this->m_column_types[j] == column_type::low_bound);
-        limit_inf_on_bound_m_neg(m, this->m_x[j], this->m_low_bounds[j], theta, unlimited);
+    void limit_theta_on_basis_column_for_inf_case_m_neg_lower_bound(unsigned j, const T & m, X & theta, bool & unlimited) {
+        lp_assert(m < 0 && this->m_column_types[j] == column_type::lower_bound);
+        limit_inf_on_bound_m_neg(m, this->m_x[j], this->m_lower_bounds[j], theta, unlimited);
     }
 
 
-    void limit_theta_on_basis_column_for_inf_case_m_pos_low_bound(unsigned j, const T & m, X & theta, bool & unlimited) {
-        lp_assert(m > 0 && this->m_column_types[j] == column_type::low_bound);
-        limit_inf_on_low_bound_m_pos(m, this->m_x[j], this->m_low_bounds[j], theta, unlimited);
+    void limit_theta_on_basis_column_for_inf_case_m_pos_lower_bound(unsigned j, const T & m, X & theta, bool & unlimited) {
+        lp_assert(m > 0 && this->m_column_types[j] == column_type::lower_bound);
+        limit_inf_on_lower_bound_m_pos(m, this->m_x[j], this->m_lower_bounds[j], theta, unlimited);
     }
 
     void limit_theta_on_basis_column_for_inf_case_m_pos_upper_bound(unsigned j, const T & m, X & theta, bool & unlimited) {
@@ -370,7 +370,7 @@ public:
 
     void get_bound_on_variable_and_update_leaving_precisely(unsigned j, vector<unsigned> & leavings, T m, X & t, T & abs_of_d_of_leaving);
 
-    vector<T> m_low_bounds_dummy; // needed for the base class only
+    vector<T> m_lower_bounds_dummy; // needed for the base class only
 
     X get_max_bound(vector<X> & b);
 
@@ -464,14 +464,14 @@ public:
         case column_type::upper_bound:
             new_val_for_leaving = this->m_upper_bounds[j];
             break;
-        case column_type::low_bound:
-            new_val_for_leaving = this->m_low_bounds[j];
+        case column_type::lower_bound:
+            new_val_for_leaving = this->m_lower_bounds[j];
             break;
         case column_type::boxed:
             if (this->x_above_upper_bound(j))
                 new_val_for_leaving = this->m_upper_bounds[j];
             else
-                new_val_for_leaving = this->m_low_bounds[j];
+                new_val_for_leaving = this->m_lower_bounds[j];
             break;
         default:
             lp_assert(false);
@@ -528,18 +528,18 @@ public:
 
     // void limit_theta_on_basis_column_for_feas_case_m_neg(unsigned j, const T & m, X & theta) {
     //     lp_assert(m < 0);
-    //     lp_assert(this->m_column_type[j] == low_bound || this->m_column_type[j] == boxed);
-    //     const X & eps = harris_eps_for_bound(this->m_low_bounds[j]);
-    //     if (this->above_bound(this->m_x[j], this->m_low_bounds[j])) {
-    //         theta = std::min((this->m_low_bounds[j] -this->m_x[j] - eps) / m, theta);
+    //     lp_assert(this->m_column_type[j] == lower_bound || this->m_column_type[j] == boxed);
+    //     const X & eps = harris_eps_for_bound(this->m_lower_bounds[j]);
+    //     if (this->above_bound(this->m_x[j], this->m_lower_bounds[j])) {
+    //         theta = std::min((this->m_lower_bounds[j] -this->m_x[j] - eps) / m, theta);
     //         if (theta < zero_of_type<X>()) theta = zero_of_type<X>();
     //     }
     // }
 
     void limit_theta_on_basis_column_for_feas_case_m_neg_no_check(unsigned j, const T & m, X & theta, bool & unlimited) {
         lp_assert(m < 0);
-        const X& eps = harris_eps_for_bound(this->m_low_bounds[j]);
-        limit_theta((this->m_low_bounds[j] - this->m_x[j] - eps) / m, theta, unlimited);
+        const X& eps = harris_eps_for_bound(this->m_lower_bounds[j]);
+        limit_theta((this->m_lower_bounds[j] - this->m_x[j] - eps) / m, theta, unlimited);
         if (theta < zero_of_type<X>()) theta = zero_of_type<X>();
     }
 
@@ -591,7 +591,7 @@ public:
         return true;
     }
 
-    void limit_inf_on_low_bound_m_pos(const T & m, const X & x, const X & bound, X & theta, bool & unlimited) {
+    void limit_inf_on_lower_bound_m_pos(const T & m, const X & x, const X & bound, X & theta, bool & unlimited) {
         if (numeric_traits<T>::precise()) {
             // x gets larger
             lp_assert(m > 0);
@@ -621,7 +621,7 @@ public:
     void limit_theta_on_basis_column_for_inf_case_m_pos_boxed(unsigned j, const T & m, X & theta, bool & unlimited) {
         //        lp_assert(m > 0 && this->m_column_type[j] == column_type::boxed);
         const X & x = this->m_x[j];
-        const X & lbound = this->m_low_bounds[j];
+        const X & lbound = this->m_lower_bounds[j];
 
         if (this->below_bound(x, lbound)) {
             const X& eps = harris_eps_for_bound(this->m_upper_bounds[j]);
@@ -646,7 +646,7 @@ public:
             const X& eps = harris_eps_for_bound(ubound);
             limit_theta((ubound - x - eps) / m, theta, unlimited);
         } else {
-            const X & lbound = this->m_low_bounds[j];
+            const X & lbound = this->m_lower_bounds[j];
             if (this->above_bound(x, lbound)){
                 const X& eps = harris_eps_for_bound(lbound);
                 limit_theta((lbound - x - eps) / m, theta, unlimited);
@@ -679,7 +679,7 @@ public:
 
     // j is a basic column or the entering, in any case x[j] has to stay feasible.
     // m is the multiplier. updating t in a way that holds the following
-    // x[j] + t * m >=  this->m_low_bounds[j]- harris_feasibility_tolerance ( if m < 0 )
+    // x[j] + t * m >=  this->m_lower_bounds[j]- harris_feasibility_tolerance ( if m < 0 )
     // or
     // x[j] + t * m <= this->m_upper_bounds[j] + harris_feasibility_tolerance ( if m > 0)
     void limit_theta_on_basis_column(unsigned j, T m, X & theta, bool & unlimited) {
@@ -696,15 +696,15 @@ public:
                     limit_theta_on_basis_column_for_inf_case_m_neg_upper_bound(j, m, theta, unlimited);
             }
             break;
-        case column_type::low_bound:
+        case column_type::lower_bound:
             if (this->current_x_is_feasible()) {
                 if (m < 0)
                     limit_theta_on_basis_column_for_feas_case_m_neg_no_check(j, m, theta, unlimited);
             } else {
                 if (m < 0)
-                    limit_theta_on_basis_column_for_inf_case_m_neg_low_bound(j, m, theta, unlimited);
+                    limit_theta_on_basis_column_for_inf_case_m_neg_lower_bound(j, m, theta, unlimited);
                 else
-                    limit_theta_on_basis_column_for_inf_case_m_pos_low_bound(j, m, theta, unlimited);
+                    limit_theta_on_basis_column_for_inf_case_m_pos_lower_bound(j, m, theta, unlimited);
             }
             break;
             // case fixed:
@@ -770,7 +770,7 @@ public:
 
     void init_reduced_costs();
 
-    bool low_bounds_are_set() const override { return true; }
+    bool lower_bounds_are_set() const override { return true; }
 
     int advance_on_sorted_breakpoints(unsigned entering, X & t);
     
@@ -807,7 +807,7 @@ public:
             if (this->x_above_upper_bound(j))
                 return 1;
             break;
-        case column_type::low_bound:
+        case column_type::lower_bound:
             if (this->x_below_low_bound(j))
                 return -1;
             break;
@@ -842,11 +842,11 @@ public:
         case column_type::fixed:
             return 0;
         case column_type::boxed:
-            if (this->x_is_at_low_bound(j))
+            if (this->x_is_at_lower_bound(j))
                 return 1;
             return -1;
             break;
-        case column_type::low_bound:
+        case column_type::lower_bound:
             return 1;
             break;
         case column_type::upper_bound:
@@ -906,7 +906,7 @@ public:
                           vector<int> & heading,
                           vector<T> & costs,
                           const vector<column_type> & column_type_array,
-                          const vector<X> & low_bound_values,
+                          const vector<X> & lower_bound_values,
                           const vector<X> & upper_bound_values,
                           lp_settings & settings,
                           const column_namer& column_names):
@@ -919,7 +919,7 @@ public:
                                   settings,
                                   column_names,
                                   column_type_array,
-                                  low_bound_values,
+                                  lower_bound_values,
                                   upper_bound_values),
         m_beta(A.row_count()),
         m_epsilon_of_reduced_cost(T(1)/T(10000000)),
@@ -954,12 +954,12 @@ public:
                                   settings,
                                   column_names,
                                   column_type_array,
-                                  m_low_bounds_dummy,
+                                  m_lower_bounds_dummy,
                                   upper_bound_values),
         m_beta(A.row_count()),
         m_converted_harris_eps(convert_struct<T, double>::convert(this->m_settings.harris_feasibility_tolerance)) {
         lp_assert(initial_x_is_correct());
-        m_low_bounds_dummy.resize(A.column_count(), zero_of_type<T>());
+        m_lower_bounds_dummy.resize(A.column_count(), zero_of_type<T>());
         m_enter_price_eps = numeric_traits<T>::precise() ? numeric_traits<T>::zero() : T(1e-5);
 #ifdef Z3DEBUG
         // check_correctness();
@@ -972,7 +972,7 @@ public:
             basis_set.insert(this->m_basis[i]);
         }
         for (unsigned j = 0; j < this->m_n(); j++) {
-            if (this->column_has_low_bound(j) && this->m_x[j] < numeric_traits<T>::zero()) {
+            if (this->column_has_lower_bound(j) && this->m_x[j] < numeric_traits<T>::zero()) {
                 LP_OUT(this->m_settings, "low bound for variable " << j << " does not hold: this->m_x[" << j << "] = " << this->m_x[j] << " is negative " << std::endl);
                 return false;
             }
@@ -983,7 +983,7 @@ public:
             }
 
             if (basis_set.find(j) != basis_set.end()) continue;
-            if (this->m_column_types[j] == column_type::low_bound)  {
+            if (this->m_column_types[j] == column_type::lower_bound)  {
                 if (numeric_traits<T>::zero() != this->m_x[j]) {
                     LP_OUT(this->m_settings, "only low bound is set for " << j << " but low bound value " << numeric_traits<T>::zero() << " is not equal to " << this->m_x[j] << std::endl);
                     return false;

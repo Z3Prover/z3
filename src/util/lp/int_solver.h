@@ -16,17 +16,22 @@ class lar_solver;
 template <typename T, typename X>
 struct lp_constraint;
 enum class lia_move {
-        ok,
+    ok,
         branch,
         cut,
         conflict,
-        give_up
-};
+        continue_with_check,
+        give_up,
+        unsat
+        };
 
 struct explanation {
     vector<std::pair<mpq, constraint_index>> m_explanation;
     void push_justification(constraint_index j, const mpq& v) {
         m_explanation.push_back(std::make_pair(v, j));
+    }
+    void push_justification(constraint_index j) {
+        m_explanation.push_back(std::make_pair(one_of_type<mpq>(), j));
     }
 };
 
@@ -37,15 +42,15 @@ public:
     int_set m_old_values_set;
     vector<impq> m_old_values_data;
     unsigned m_branch_cut_counter;
-    
+    cut_solver m_cut_solver;
     // methods
     int_solver(lar_solver* lp);
     int_set& inf_int_set();
     const int_set& inf_int_set() const;
-    // main function to check that solution provided by lar_solver is valid for integral values,
+    // main function to check that the solution provided by lar_solver is valid for integral values,
     // or provide a way of how it can be adjusted.
     lia_move check(lar_term& t, mpq& k, explanation& ex);
-	bool move_non_basic_column_to_bounds(unsigned j);
+    bool move_non_basic_column_to_bounds(unsigned j);
     lia_move check_wrapper(lar_term& t, mpq& k, explanation& ex);
 private:
 
@@ -78,11 +83,11 @@ private:
                       explanation & ex);
     void fill_explanation_from_fixed_columns(iterator_on_row<mpq> & it, explanation &);
     void add_to_explanation_from_fixed_or_boxed_column(unsigned j, explanation &);
-	void patch_int_infeasible_non_basic_column(unsigned j);
-	void patch_int_infeasible_nbasic_columns();
+    void patch_int_infeasible_non_basic_column(unsigned j);
+    void patch_int_infeasible_nbasic_columns();
     bool get_freedom_interval_for_column(unsigned j, bool & inf_l, impq & l, bool & inf_u, impq & u, mpq & m);
     linear_combination_iterator<mpq> * get_column_iterator(unsigned j);
-    const impq & low_bound(unsigned j) const;
+    const impq & lower_bound(unsigned j) const;
     const impq & upper_bound(unsigned j) const;
     bool is_int(unsigned j) const;
     bool is_real(unsigned j) const;
@@ -110,7 +115,7 @@ private:
     lia_move mk_gomory_cut(lar_term& t, mpq& k,explanation & ex, unsigned inf_col, linear_combination_iterator<mpq>& iter);
     lia_move report_conflict_from_gomory_cut(mpq & k);
     void adjust_term_and_k_for_some_ints_case_gomory(lar_term& t, mpq& k, mpq& lcm_den);
-	void init_check_data();
+    void init_check_data();
     bool constrain_free_vars(linear_combination_iterator<mpq> *  r);
     lia_move proceed_with_gomory_cut(lar_term& t, mpq& k, explanation& ex, unsigned j);
     int find_free_var_in_gomory_row(linear_combination_iterator<mpq>& iter);
@@ -133,7 +138,7 @@ private:
     void real_case_in_gomory_cut(const mpq & a, unsigned x_j, mpq & k, lar_term& t, explanation & ex, unsigned inf_column);
     void int_case_in_gomory_cut(const mpq & a, unsigned x_j, mpq & k, lar_term& t, explanation& ex, mpq & lcm_den, unsigned inf_column);
     constraint_index column_upper_bound_constraint(unsigned j) const;
-    constraint_index column_low_bound_constraint(unsigned j) const;
+    constraint_index column_lower_bound_constraint(unsigned j) const;
     void display_row_info(std::ostream & out, unsigned row_index) const;
     void gomory_cut_adjust_t_and_k(vector<std::pair<mpq, unsigned>> & pol, lar_term & t, mpq &k, bool num_ints, mpq &lcm_den);
     bool current_solution_is_inf_on_cut(const lar_term& t, const mpq& k) const;
@@ -146,11 +151,15 @@ private:
 public:
     void display_inf_or_int_inf_columns(std::ostream & out) const;
     template <typename T>
-    void fill_cut_solver(cut_solver<T> & cs);
+    void fill_cut_solver_vars();
     template <typename T>
-    void fill_cut_solver_for_constraint(const lar_base_constraint*, cut_solver<T>& );
-    template <typename T>
-    void get_int_coeffs_from_constraint(const lar_base_constraint* c, vector<std::pair<T, var_index>>& coeff, T & rs);
-
+    void get_int_coeffs_from_constraint(const lar_base_constraint* c, vector<cut_solver::monomial>& coeff, T & rs);
+    bool is_term(unsigned j) const;
+    void notify_on_last_added_constraint();
+    void add_constraint_to_cut_solver(unsigned,const lar_base_constraint*);
+    void copy_explanations_from_cut_solver(explanation &);
+    void pop(unsigned);
+    void push();
+    void copy_values_from_cut_solver();
 };
 }

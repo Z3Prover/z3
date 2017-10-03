@@ -68,7 +68,31 @@ public:
             out << "v" << it.second;
         }
     }
+
     
+    template <typename T>
+    void print_linear_combination_of_column_indices_std(const vector<std::pair<T, unsigned>> & coeffs, std::ostream & out) const {
+        bool first = true;
+        for (const auto & it : coeffs) {
+            auto val = it.first;
+            if (first) {
+                first = false;
+            } else {
+                if (numeric_traits<T>::is_pos(val)) {
+                    out << " + ";
+                } else {
+                    out << " - ";
+                    val = -val;
+                }
+            }
+            if (val == -numeric_traits<T>::one())
+                out << " - ";
+            else if (val != numeric_traits<T>::one())
+                out << val;
+        
+            out << get_column_name(it.second);
+        }
+    }
     template <typename T>
     void print_linear_combination_of_column_indices(const vector<std::pair<T, unsigned>> & coeffs, std::ostream & out) const {
         bool first = true;

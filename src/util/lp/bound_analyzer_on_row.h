@@ -20,10 +20,9 @@ Revision History:
 #pragma once
 #include "util/vector.h"
 #include "util/lp/linear_combination_iterator.h"
-#include "util/lp/implied_bound.h"
-#include "util/lp/test_bound_analyzer.h"
-#include <functional>
-#include "util/lp/lp_bound_propagator.h"
+#include "implied_bound.h"
+#include "test_bound_analyzer.h"
+#include "util/lp/bound_propagator.h"
 // We have an equality : sum by j of row[j]*x[j] = rs
 // We try to pin a var by pushing the total by using the variable bounds
 // In a loop we drive the partial sum down, denoting the variables of this process by _u.
@@ -31,22 +30,22 @@ Revision History:
 namespace lp {
 
 class bound_analyzer_on_row {
-
+    
     linear_combination_iterator<mpq> & m_it;
-    lp_bound_propagator &                 m_bp;
+    bound_propagator &                 m_bp;
     unsigned           m_row_or_term_index;
     int                m_column_of_u; // index of an unlimited from above monoid
-                               // -1 means that such a value is not found, -2 means that at least two of such monoids were found
+    // -1 means that such a value is not found, -2 means that at least two of such monoids were found
     int                m_column_of_l; // index of an unlimited from below monoid
     impq               m_rs;
 
 public :
     // constructor
     bound_analyzer_on_row(
-                          linear_combination_iterator<mpq> &it,
-                          const numeric_pair<mpq>& rs,
-                          unsigned row_or_term_index,
-                          lp_bound_propagator & bp
+        linear_combination_iterator<mpq> &it,
+        const numeric_pair<mpq>& rs,
+        unsigned row_or_term_index,
+        bound_propagator & bp
                           )
         :
         m_it(it),
@@ -60,7 +59,7 @@ public :
 
     unsigned j;
     void analyze() {
-
+        
         mpq a; unsigned j;
         while (((m_column_of_l != -2) || (m_column_of_u != -2)) && m_it.next(a, j))
             analyze_bound_on_var_on_coeff(j, a);
@@ -76,33 +75,33 @@ public :
             limit_all_monoids_from_above();
     }
 
-    bool bound_is_available(unsigned j, bool low_bound) {
-        return (low_bound && low_bound_is_available(j)) ||
-            (!low_bound && upper_bound_is_available(j));
+    bool bound_is_available(unsigned j, bool lower_bound) {
+        return (lower_bound && lower_bound_is_available(j)) ||
+            (!lower_bound && upper_bound_is_available(j));
     }
 
     bool upper_bound_is_available(unsigned j) const {
         switch (m_bp.get_column_type(j))
-        {
-        case column_type::fixed:
-        case column_type::boxed:
-        case column_type::upper_bound:
-            return true;
-        default:
-            return false;
-        }
+            {
+            case column_type::fixed:
+            case column_type::boxed:
+            case column_type::upper_bound:
+                return true;
+            default:
+                return false;
+            }
     }
 
-    bool low_bound_is_available(unsigned j) const {
+    bool lower_bound_is_available(unsigned j) const {
         switch (m_bp.get_column_type(j))
-        {
-        case column_type::fixed:
-        case column_type::boxed:
-        case column_type::low_bound:
-            return true;
-        default:
-            return false;
-        }
+            {
+            case column_type::fixed:
+            case column_type::boxed:
+            case column_type::lower_bound:
+                return true;
+            default:
+                return false;
+            }
     }
 
     const impq & ub(unsigned j) const {
@@ -110,8 +109,8 @@ public :
         return m_bp.get_upper_bound(j);
     }
     const impq & lb(unsigned j) const {
-        lp_assert(low_bound_is_available(j));
-        return m_bp.get_low_bound(j);
+        lp_assert(lower_bound_is_available(j));
+        return m_bp.get_lower_bound(j);
     }
 
 
@@ -151,7 +150,7 @@ public :
             strict = !is_zero(ub(j).y);
             return a * ub(j).x;
         }
-
+        
         strict = !is_zero(lb(j).y);
         return a * lb(j).x;
     }
@@ -160,10 +159,10 @@ public :
         if (is_neg(a)) {
             return a * ub(j).x;
         }
-
+        
         return a * lb(j).x;
     }
-
+    
 
     void limit_all_monoids_from_above() {
         int strict = 0;
@@ -209,7 +208,7 @@ public :
             bool str;
             bool a_is_pos = is_pos(a);
             mpq bound = total / a + monoid_max_no_mult(a_is_pos, j, str);
-            bool astrict = strict - static_cast<int>(str) > 0;
+            bool astrict = strict - static_cast<int>(str) > 0; 
             if (a_is_pos) {
                 limit_j(j, bound, true, true, astrict);
             }
@@ -219,7 +218,7 @@ public :
         }
     }
 
-
+    
     void limit_monoid_u_from_below() {
         // we are going to limit from below the monoid m_column_of_u,
         // every other monoid is impossible to limit from below
@@ -240,7 +239,7 @@ public :
         }
 
         bound /= u_coeff;
-
+        
         if (numeric_traits<impq>::is_pos(u_coeff)) {
             limit_j(m_column_of_u, bound, true, true, strict);
         } else {
@@ -275,51 +274,51 @@ public :
             limit_j(m_column_of_l, bound, false, true, strict);
         }
     }
-
+    
     // // it is the coefficent before the bounded column
     // void provide_evidence(bool coeff_is_pos) {
     //     /*
     //     auto & be = m_ibounds.back();
-    //     bool low_bound = be.m_low_bound;
+    //     bool lower_bound = be.m_lower_bound;
     //     if (!coeff_is_pos)
-    //         low_bound = !low_bound;
+    //         lower_bound = !lower_bound;
     //     auto it = m_it.clone();
     //     mpq a; unsigned j;
     //     while (it->next(a, j)) {
     //         if (be.m_j == j) continue;
-    //         lp_assert(bound_is_available(j, is_neg(a) ? low_bound : !low_bound));
+    //         lp_assert(bound_is_available(j, is_neg(a) ? lower_bound : !lower_bound));
     //         be.m_vector_of_bound_signatures.emplace_back(a, j, numeric_traits<impq>::
-    //                                                      is_neg(a)? low_bound: !low_bound);
+    //                                                      is_neg(a)? lower_bound: !lower_bound);
     //     }
     //     delete it;
     //     */
     // }
 
-    void limit_j(unsigned j, const mpq& u, bool coeff_before_j_is_pos, bool is_low_bound, bool strict){
-        m_bp.try_add_bound(u, j, is_low_bound, coeff_before_j_is_pos, m_row_or_term_index, strict);
+    void limit_j(unsigned j, const mpq& u, bool coeff_before_j_is_pos, bool is_lower_bound, bool strict){
+        m_bp.try_add_bound(u, j, is_lower_bound, coeff_before_j_is_pos, m_row_or_term_index, strict);
     }
 
-
+    
     void advance_u(unsigned j) {
         if (m_column_of_u == -1)
             m_column_of_u = j;
         else
             m_column_of_u = -2;
     }
-
+    
     void advance_l(unsigned j) {
         if (m_column_of_l == -1)
             m_column_of_l = j;
         else
             m_column_of_l = -2;
     }
-
+    
     void analyze_bound_on_var_on_coeff(int j, const mpq &a) {
         switch (m_bp.get_column_type(j)) {
-        case column_type::low_bound:
+        case column_type::lower_bound:
             if (numeric_traits<mpq>::is_pos(a))
                 advance_u(j);
-            else
+            else 
                 advance_l(j);
             break;
         case column_type::upper_bound:
@@ -340,7 +339,7 @@ public :
     static void analyze_row(linear_combination_iterator<mpq> &it,
                             const numeric_pair<mpq>& rs,
                             unsigned row_or_term_index,
-                            lp_bound_propagator & bp
+                            bound_propagator & bp
                             ) {
         bound_analyzer_on_row a(it, rs, row_or_term_index, bp);
         a.analyze();

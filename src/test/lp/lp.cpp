@@ -35,10 +35,10 @@ Revision History:
 #include "util/lp/lp_utils.h"
 #include "util/lp/lp_primal_simplex.h"
 #include "util/lp/mps_reader.h"
-#include "test/smt_reader.h"
+#include "test/lp/smt_reader.h"
 #include "util/lp/binary_heap_priority_queue.h"
-#include "test/argument_parser.h"
-#include "test/test_file_reader.h"
+#include "test/lp/argument_parser.h"
+#include "test/lp/test_file_reader.h"
 #include "util/lp/indexed_value.h"
 #include "util/lp/lar_solver.h"
 #include "util/lp/numeric_pair.h"
@@ -550,7 +550,7 @@ void test_lp_0() {
     costs[5] = 0;
     costs[6] = 0;
     
-    vector<column_type> column_types(7, column_type::low_bound);
+    vector<column_type> column_types(7, column_type::lower_bound);
     vector<double>  upper_bound_values;
     lp_settings settings;
     simple_column_namer cn;
@@ -596,7 +596,7 @@ void test_lp_1() {
 
 
 
-    vector<column_type> column_types(7, column_type::low_bound);
+    vector<column_type> column_types(7, column_type::lower_bound);
     vector<double>  upper_bound_values;
 
     std::cout << "calling lp\n";
@@ -1750,7 +1750,7 @@ void solve_rational() {
 
     int bounds[] = {8, 6, 4, 15, 2, 10, 10, 3};
     for (unsigned i = 0; i < 8; i++) {
-        solver.set_low_bound(i, lp::mpq(0));
+        solver.set_lower_bound(i, lp::mpq(0));
         solver.set_upper_bound(i, lp::mpq(bounds[i]));
     }
 
@@ -1883,8 +1883,7 @@ void test_replace_column() {
 
 
 void setup_args_parser(argument_parser & parser) {
-    parser.add_option_with_help_string("-dji", "test integer_domain");
-    parser.add_option_with_help_string("-cs", "test cut_solver");
+    parser.add_option_with_help_string("-intd", "test integer_domain");
     parser.add_option_with_help_string("-xyz_sample", "run a small interactive scenario");
     parser.add_option_with_after_string_with_help("--density", "the percentage of non-zeroes in the matrix below which it is not dense");
     parser.add_option_with_after_string_with_help("--harris_toler", "harris tolerance");
@@ -2782,7 +2781,7 @@ void test_bound_propagation_one_small_sample1() {
       got to get a <= c
     */
     std::function<bool (unsigned, bool, bool, const mpq & )> bound_is_relevant =
-        [&](unsigned j, bool is_low_bound, bool strict, const rational& bound_val) {
+        [&](unsigned j, bool is_lower_bound, bool strict, const rational& bound_val) {
         return true; 
     };   
     lar_solver ls;
@@ -2807,7 +2806,7 @@ void test_bound_propagation_one_small_sample1() {
     vector<implied_bound> ev;
     ls.add_var_bound(a, LE, mpq(1));
     ls.solve();
-    lp_bound_propagator bp(ls);
+    bound_propagator bp(ls);
     ls.propagate_bounds_for_touched_rows(bp);
     std::cout << " bound ev from test_bound_propagation_one_small_sample1" << std::endl;
     for (auto & be : bp.m_ibounds)  {
@@ -2860,7 +2859,7 @@ void test_bound_propagation_one_row() {
     vector<implied_bound> ev;
     ls.add_var_bound(x0, LE, mpq(1));
     ls.solve();
-    lp_bound_propagator bp(ls);
+    bound_propagator bp(ls);
     ls.propagate_bounds_for_touched_rows(bp);
 } 
 void test_bound_propagation_one_row_with_bounded_vars() {
@@ -2876,7 +2875,7 @@ void test_bound_propagation_one_row_with_bounded_vars() {
     ls.add_var_bound(x0, LE, mpq(3));
     ls.add_var_bound(x0, LE, mpq(1));
     ls.solve();
-    lp_bound_propagator bp(ls);
+    bound_propagator bp(ls);
     ls.propagate_bounds_for_touched_rows(bp);
 }
 void test_bound_propagation_one_row_mixed() {
@@ -2890,7 +2889,7 @@ void test_bound_propagation_one_row_mixed() {
     vector<implied_bound> ev;
     ls.add_var_bound(x1, LE, mpq(1));
     ls.solve();
-    lp_bound_propagator bp(ls);
+    bound_propagator bp(ls);
     ls.propagate_bounds_for_touched_rows(bp);
 } 
 
@@ -2913,7 +2912,7 @@ void test_bound_propagation_two_rows() {
     vector<implied_bound> ev;
     ls.add_var_bound(y, LE, mpq(1));
     ls.solve();
-    lp_bound_propagator bp(ls);
+    bound_propagator bp(ls);
     ls.propagate_bounds_for_touched_rows(bp);
 } 
 
@@ -2933,7 +2932,7 @@ void test_total_case_u() {
     vector<implied_bound> ev;
     ls.add_var_bound(z, GE, zero_of_type<mpq>());
     ls.solve();
-    lp_bound_propagator bp(ls);
+    bound_propagator bp(ls);
     ls.propagate_bounds_for_touched_rows(bp);
 }
 bool contains_j_kind(unsigned j, lconstraint_kind kind, const mpq & rs, const vector<implied_bound> & ev) {
@@ -2960,7 +2959,7 @@ void test_total_case_l(){
     vector<implied_bound> ev;
     ls.add_var_bound(z, LE, zero_of_type<mpq>());
     ls.solve();
-    lp_bound_propagator bp(ls);
+    bound_propagator bp(ls);
     ls.propagate_bounds_for_touched_rows(bp);
     lp_assert(ev.size() == 4);
     lp_assert(contains_j_kind(x, GE, - one_of_type<mpq>(), ev));
@@ -3113,17 +3112,17 @@ void get_random_interval(bool& neg_inf, bool& pos_inf, int& x, int &y) {
 }
 
 void test_integer_domain_intersection(integer_domain<int> & d) {
-    int x, y; bool neg_inf, pos_inf;
-    get_random_interval(neg_inf, pos_inf, x, y);
-    if (neg_inf) {
-        if (!pos_inf) {
-            d.intersect_with_upper_bound(y);
-        }
-    }
-    else if (pos_inf)
-        d.intersect_with_lower_bound(x);
-    else 
-        d.intersect_with_interval(x, y);
+    // int x, y; bool neg_inf, pos_inf;
+    // get_random_interval(neg_inf, pos_inf, x, y);
+    // if (neg_inf) {
+    //     if (!pos_inf) {
+    //         d.intersect_with_upper_bound(y);
+    //     }
+    // }
+    // else if (pos_inf)
+    //     d.intersect_with_lower_bound(x);
+    // else 
+    //     d.intersect_with_interval(x, y);
 }
 
 void test_integer_domain_union(integer_domain<int> & d) {
@@ -3154,65 +3153,107 @@ void test_integer_domain_randomly(integer_domain<int> & d) {
 }
 
 void test_integer_domain() {
-    integer_domain<int> d;
-    vector<integer_domain<int>> stack;
-    for (int i = 0; i < 10000; i++) {
-        test_integer_domain_randomly(d);
-        stack.push_back(d);
-        d.push();
-        if (i > 0 && i%100 == 0) {
-            if (stack.size() == 0) continue;
-            unsigned k = my_random() % stack.size();
-            if (k == 0)
-                k = 1;
-            d.pop(k);
-            d.restore_domain();
-            for (unsigned j = 0; j + 1 < k; j++) {
-                stack.pop_back();
-            }
-            std::cout<<"comparing i = " << i << std::endl;
-            lp_assert(d ==  *stack.rbegin());
-            stack.pop_back();
-        }
-        //d.print(std::cout);
-    }
+    std::cout << "test_integer_domain\n";
+    unsigned e0 = 0;
+    unsigned e1 = 1;
+    unsigned e2 = 2;
+    unsigned e3 = 3; // these are explanations
+    unsigned e4 = 4;
+    unsigned e5 = 5;
+    integer_domain<unsigned> d;
+    unsigned l0 = 0, l1 = 1, l2 = 3;
+    unsigned u0 = 10, u1 = 9, u2 = 8;
+    d.push();
+    d.intersect_with_lower_bound(l0, e0);
+    unsigned b;
+    unsigned e;
+    bool r = d.get_lower_bound_with_expl(b, e);
+    lp_assert(r && b == l0 && e == e0);
+    d.push();
+    d.intersect_with_upper_bound(u0, e1);
+    r = d.get_upper_bound_with_expl(b, e);
+    lp_assert(r && b == u0 && e == e1);
+    r = d.get_lower_bound_with_expl(b, e);
+    lp_assert(r && b == l0 && e == e0);
+    d.pop();
+    r = d.get_upper_bound_with_expl(b, e);
+    lp_assert(!r);
+    d.intersect_with_upper_bound(u0, e1);
+    d.push();
+    d.intersect_with_lower_bound(l1, e2);
+    d.intersect_with_upper_bound(u1, e3);
+    d.push();
+    d.intersect_with_lower_bound(l2, e4);
+    d.intersect_with_upper_bound(u2, e5);
+    lp_assert(d.is_empty() == false);
+    d.print(std::cout);
+    d.pop();
+    r = d.get_lower_bound_with_expl(b, e);
+    lp_assert(r && b == l1 && e == e2);
+    d.print(std::cout);
+    d.pop(2);
+    d.print(std::cout);
+    lp_assert(d.has_neg_inf() && d.has_pos_inf());
+    // integer_domain<int> d;
+    // std::vector<integer_domain<int>> stack;
+    // for (int i = 0; i < 10000; i++) {
+    //     test_integer_domain_randomly(d);
+    //     stack.push_back(d);
+    //     d.push();
+    //     if (i > 0 && i%100 == 0) {
+    //         if (stack.size() == 0) continue;
+    //         unsigned k = my_random() % stack.size();
+    //         if (k == 0)
+    //             k = 1;
+    //         d.pop(k);
+    //         d.restore_domain();
+    //         for (unsigned j = 0; j + 1 < k; j++) {
+    //             stack.pop_back();
+    //         }
+    //         std::cout<<"comparing i = " << i << std::endl;
+    //         lp_assert(d ==  *stack.rbegin());
+    //         stack.pop_back();
+    //     }
+    //     //d.print(std::cout);
+    // }
 }
 
-void test_cut_solver() {
-    cut_solver<int> cs([](unsigned i)
-                       {
-                           if (i == 0) return std::string("x");
-                           if (i == 1) return  std::string("y");
-                           return std::to_string(i);
-                       });
-    vector<std::pair<int, unsigned>> term;
-    unsigned x = 0;
-    unsigned y = 1;
-    term.push_back(std::make_pair(2, x));
-    term.push_back(std::make_pair(-3, y));
-    unsigned ineq_index = cs.add_ineq(term, mpq(3));
 
 
-    cs.print_ineq(ineq_index, std::cout);
+void test_resolve_with_tight_constraint(cut_solver& cs,
+                                        lp::cut_solver::polynomial&i ,
+                                        unsigned int j,
+                                        cut_solver::polynomial& ti) {
     
-    mpq l;
-    auto ineq = cs.m_ineqs[ineq_index];
-    cs.add_lower_bound_for_user_var(x, 1);
-    cs.add_lower_bound_for_user_var(y, 1);
-    bool has_lower = cs.lower(ineq.m_poly, l);
-    if (has_lower) {
-        std::cout << "lower = " << l << std::endl;
-    } else {
-        std::cout << "no lower" << std::endl;
-    }
-    cs.add_upper_bound_for_user_var(y, 1);
-    has_lower = cs.lower(ineq.m_poly, l);
-    if (has_lower) {
-        std::cout << "lower = " << l << std::endl;
-    } else {
-        std::cout << "no lower" << std::endl;
-    }
+    // std::cout << "resolve constraint ";
+    // cs.print_polynomial(std::cout, i);
+    // std::cout << " for " << cs.get_column_name(j) << " by using poly ";
+    // cs.print_polynomial(std::cout, ti);
+    // std::cout << std::endl;
+    // bool j_coeff_is_one = ti.coeff(j) == 1;
+    // cut_solver::polynomial result;
+    // cs.resolve(i, j,  j_coeff_is_one, ti);
+    // std::cout << "resolve result is ";
+    // cs.print_polynomial(std::cout, i);
+    // std::cout << std::endl;
 }
+
+typedef cut_solver::monomial mono;
+
+void test_resolve(cut_solver& cs, unsigned constraint_index, unsigned i0)  {
+    var_index x = 0;
+    var_index y = 1;
+    var_index z = 2;
+    std::cout << "test_resolve\n";
+    
+    cut_solver::polynomial i; i += mono(2, x);i += mono(-3,y);
+    i+= mono(4, z);
+    i.m_a = 5;
+    cut_solver::polynomial ti; ti += mono(1, x); ti+= mono(1,y);ti.m_a = 3;
+    test_resolve_with_tight_constraint(cs, i, x, ti);
+    test_resolve_with_tight_constraint(cs, i, y ,ti);
+ }
+
 
 void test_lp_local(int argn, char**argv) {
     
@@ -3230,14 +3271,11 @@ void test_lp_local(int argn, char**argv) {
 
     args_parser.print();
 
-    if (args_parser.option_is_used("-dji")) {
+    if (args_parser.option_is_used("-intd")) {
         test_integer_domain();
         return finalize(0);
     }
-    if (args_parser.option_is_used("-cs")) {
-        test_cut_solver();
-        return finalize(0);
-    }
+
     if (args_parser.option_is_used("--test_mpq")) {
         test_rationals();
         return finalize(0);

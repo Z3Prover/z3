@@ -979,7 +979,7 @@ namespace smt {
         if (st.num_theories() == 2 && st.has_uf() && is_arith(st)) {
             if (!st.m_has_real)
                 setup_QF_UFLIA(st);
-            else if (!st.m_has_int && st.m_num_non_linear == 0)
+            else if (!st.m_has_int)
                 setup_QF_UFLRA();
             else
                 setup_unknown();

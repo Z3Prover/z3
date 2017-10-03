@@ -183,7 +183,7 @@ class mps_reader {
 
     void set_boundary_for_column(unsigned col, bound * b, lp_solver<T, X> * solver){
         if (b == nullptr) {
-            solver->set_low_bound(col, numeric_traits<T>::zero());
+            solver->set_lower_bound(col, numeric_traits<T>::zero());
             return;
         }
 
@@ -191,7 +191,7 @@ class mps_reader {
             return;
         }
         if (b->m_low_is_set) {
-            solver->set_low_bound(col, b->m_low);
+            solver->set_lower_bound(col, b->m_low);
         }
         if (b->m_upper_is_set) {
             solver->set_upper_bound(col, b->m_upper);

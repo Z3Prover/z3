@@ -42,20 +42,25 @@ bool contains(const std::unordered_map<A, B> & map, const A& key) {
 #endif
 
 namespace lp {
-    inline void throw_exception(const std::string & str) {
-        throw default_exception(str);
-    }
-    typedef z3_exception exception;
+inline void throw_exception(const std::string & str) {
+    throw default_exception(str);
+}
+typedef z3_exception exception;
 
 #define lp_assert(_x_) { SASSERT(_x_); }
-    inline void lp_unreachable() { lp_assert(false); }
-    template <typename X> inline X zero_of_type() { return numeric_traits<X>::zero(); }
-    template <typename X> inline X one_of_type() { return numeric_traits<X>::one(); }
-    template <typename X> inline bool is_zero(const X & v) { return numeric_traits<X>::is_zero(v); }
-    template <typename X> inline bool is_pos(const X & v) { return numeric_traits<X>::is_pos(v); }
-    template <typename X> inline bool is_neg(const X & v) { return numeric_traits<X>::is_neg(v); }
+inline void lp_unreachable() { lp_assert(false); }
+template <typename X> inline X zero_of_type() { return numeric_traits<X>::zero(); }
+template <typename X> inline X one_of_type() { return numeric_traits<X>::one(); }
+template <typename X> inline bool is_zero(const X & v) { return numeric_traits<X>::is_zero(v); }
+template <typename X> inline bool is_pos(const X & v) { return numeric_traits<X>::is_pos(v); }
+template <typename X> inline bool is_neg(const X & v) { return numeric_traits<X>::is_neg(v); }
+template <typename X> inline bool is_int(const X & v) { return numeric_traits<X>::is_int(v); }
 
-    template <typename X> inline bool precise() { return numeric_traits<X>::precise(); }
+template <typename X> inline X ceil_ratio(const X & a, const X & b) { return numeric_traits<X>::ceil_ratio(a, b); }
+template <typename X> inline X floor_ratio(const X & a, const X & b) { return numeric_traits<X>::floor_ratio(a, b); }
+
+
+template <typename X> inline bool precise() { return numeric_traits<X>::precise(); }
 }
 namespace std {
 template<>
@@ -115,6 +120,12 @@ namespace lp {
 template <typename X> inline bool  precise() { return numeric_traits<X>::precise();}
 template <typename X> inline X one_of_type() { return numeric_traits<X>::one(); }
 template <typename X> inline bool is_zero(const X & v) { return numeric_traits<X>::is_zero(v); }
+template <typename X> inline bool is_pos(const X & v) { return numeric_traits<X>::is_pos(v); }
+template <typename X> inline bool is_int(const X & v) { return numeric_traits<X>::is_int(v); }
+template <typename X> inline X ceil_ratio(const X & a, const X & b) { return numeric_traits<X>::ceil_ratio(a, b); }
+template <typename X> inline X floor_ratio(const X & a, const X & b) { return numeric_traits<X>::floor_ratio(v); }
+
+
 template <typename X> inline double  get_double(const X & v) { return numeric_traits<X>::get_double(v); }
 template <typename T> inline T zero_of_type() {return numeric_traits<T>::zero();}
 inline void throw_exception(std::string str) { throw exception(str); }

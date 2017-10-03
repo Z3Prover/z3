@@ -36,7 +36,7 @@ typedef vector<std::pair<mpq, constraint_index>> explanation_t;
 
 enum class column_type  {
     free_column = 0,
-    low_bound = 1,
+    lower_bound = 1,
     upper_bound = 2,
     boxed = 3,
     fixed = 4
@@ -84,7 +84,7 @@ inline std::ostream& operator<<(std::ostream& out, lp_status status) {
 
 lp_status lp_status_from_string(std::string status);
 
-enum non_basic_column_value_position { at_low_bound, at_upper_bound, at_fixed, free_of_bounds, not_at_bound };
+enum non_basic_column_value_position { at_lower_bound, at_upper_bound, at_fixed, free_of_bounds, not_at_bound };
 
 template <typename X> bool is_epsilon_small(const X & v, const double& eps);    // forward definition
 
@@ -102,6 +102,10 @@ struct stats {
     unsigned m_need_to_solve_inf;
     unsigned m_max_cols;
     unsigned m_max_rows;
+    unsigned m_cut_solver_calls;
+    unsigned m_cut_solver_true;
+    unsigned m_cut_solver_false;
+    unsigned m_cut_solver_undef;
     stats() { reset(); }
     void reset() { memset(this, 0, sizeof(*this)); }
 };
@@ -222,7 +226,10 @@ public:
                     backup_costs(true),
                     column_number_threshold_for_using_lu_in_lar_solver(4000),
                     m_int_branch_cut_gomory_threshold(4),
-                    m_run_gcd_test(true)
+                    m_int_branch_cut_solver(4),
+                    m_run_gcd_test(true),
+                    m_cut_solver_bound_propagation_factor(5),
+                    m_cut_solver_cycle_on_var(10)
     {}
 
     void set_resource_limit(lp_resource_limit& lim) { m_resource_limit = &lim; }
@@ -330,7 +337,10 @@ public:
     bool backup_costs;
     unsigned column_number_threshold_for_using_lu_in_lar_solver;
     unsigned m_int_branch_cut_gomory_threshold;
+    unsigned m_int_branch_cut_solver;
     bool m_run_gcd_test;
+    unsigned m_cut_solver_bound_propagation_factor;
+    unsigned m_cut_solver_cycle_on_var;
 }; // end of lp_settings class
 
 

@@ -77,7 +77,7 @@ public:
     vector<T>             m_d; // the vector of reduced costs
     indexed_vector<T>     m_ed; // the solution of B*m_ed = a
     const vector<column_type> & m_column_types;
-    const vector<X> &     m_low_bounds;
+    const vector<X> &     m_lower_bounds;
     const vector<X> &     m_upper_bounds;
     vector<T>             m_column_norms; // the approximate squares of column norms that help choosing a profitable column
     vector<X>             m_copy_of_xB;
@@ -127,7 +127,7 @@ public:
                         lp_settings & settings,
                         const column_namer& column_names,
                         const vector<column_type> & column_types,
-                        const vector<X> & low_bound_values,
+                        const vector<X> & lower_bound_values,
                         const vector<X> & upper_bound_values);
 
     void allocate_basis_heading();
@@ -272,14 +272,14 @@ public:
     }
 
     bool x_below_low_bound(unsigned p) const {
-        return below_bound(m_x[p], m_low_bounds[p]);
+        return below_bound(m_x[p], m_lower_bounds[p]);
     }
 
     bool infeasibility_costs_are_correct() const;
     bool infeasibility_cost_is_correct_for_column(unsigned j) const;
     
-    bool x_above_low_bound(unsigned p) const {
-        return above_bound(m_x[p], m_low_bounds[p]);
+    bool x_above_lower_bound(unsigned p) const {
+        return above_bound(m_x[p], m_lower_bounds[p]);
     }
 
     bool x_below_upper_bound(unsigned p) const {
@@ -290,15 +290,15 @@ public:
     bool x_above_upper_bound(unsigned p) const {
         return above_bound(m_x[p], m_upper_bounds[p]);
     }
-    bool x_is_at_low_bound(unsigned j) const {
-        return at_bound(m_x[j], m_low_bounds[j]);
+    bool x_is_at_lower_bound(unsigned j) const {
+        return at_bound(m_x[j], m_lower_bounds[j]);
     }
     bool x_is_at_upper_bound(unsigned j) const {
         return at_bound(m_x[j], m_upper_bounds[j]);
     }
 
     bool x_is_at_bound(unsigned j) const {
-        return x_is_at_low_bound(j) || x_is_at_upper_bound(j);
+        return x_is_at_lower_bound(j) || x_is_at_upper_bound(j);
     }
     bool column_is_feasible(unsigned j) const;
 
@@ -337,8 +337,8 @@ public:
     void fill_reduced_costs_from_m_y_by_rows();
 
     void copy_rs_to_xB(vector<X> & rs);
-    virtual bool low_bounds_are_set() const { return false; }
-    X low_bound_value(unsigned j) const { return m_low_bounds[j]; }
+    virtual bool lower_bounds_are_set() const { return false; }
+    X lower_bound_value(unsigned j) const { return m_lower_bounds[j]; }
     X upper_bound_value(unsigned j) const { return m_upper_bounds[j]; }
 
     column_type get_column_type(unsigned j) const {return m_column_types[j]; }
@@ -348,7 +348,7 @@ public:
     }
 
     X bound_span(unsigned j) const {
-        return m_upper_bounds[j] - m_low_bounds[j];
+        return m_upper_bounds[j] - m_lower_bounds[j];
     }
 
     std::string column_name(unsigned column) const;
@@ -376,21 +376,21 @@ public:
         case column_type::fixed:
             if (x_is_at_bound(j))
                 break;
-            m_x[j] = m_low_bounds[j];
+            m_x[j] = m_lower_bounds[j];
             return true;
         case column_type::boxed:
             if (x_is_at_bound(j))
                 break; // we should preserve x if possible
             // snap randomly
             if (m_settings.random_next() % 2 == 1) 
-                m_x[j] = m_low_bounds[j];
+                m_x[j] = m_lower_bounds[j];
             else
                 m_x[j] = m_upper_bounds[j];
             return true;
-        case column_type::low_bound:
-            if (x_is_at_low_bound(j))
+        case column_type::lower_bound:
+            if (x_is_at_lower_bound(j))
                 break;
-            m_x[j] = m_low_bounds[j];
+            m_x[j] = m_lower_bounds[j];
             return true;
         case column_type::upper_bound:
             if (x_is_at_upper_bound(j))
@@ -409,15 +409,15 @@ public:
         auto & x = m_x[j];
         switch (m_column_types[j]) {
         case column_type::fixed:
-            lp_assert(m_low_bounds[j] == m_upper_bounds[j]);
-            if (x != m_low_bounds[j]) {
-                delta = m_low_bounds[j] - x;
+            lp_assert(m_lower_bounds[j] == m_upper_bounds[j]);
+            if (x != m_lower_bounds[j]) {
+                delta = m_lower_bounds[j] - x;
                 ret = true;;
             }
             break;
         case column_type::boxed:
-            if (x < m_low_bounds[j]) {
-                delta = m_low_bounds[j] - x;
+            if (x < m_lower_bounds[j]) {
+                delta = m_lower_bounds[j] - x;
                 ret = true;;
             }
             if (x > m_upper_bounds[j]) {
@@ -425,9 +425,9 @@ public:
                 ret = true;
             }
             break;
-        case column_type::low_bound:
-            if (x < m_low_bounds[j]) {
-                delta = m_low_bounds[j] - x;
+        case column_type::lower_bound:
+            if (x < m_lower_bounds[j]) {
+                delta = m_lower_bounds[j] - x;
                 ret = true;
             }
             break;
@@ -540,8 +540,8 @@ public:
             if (!this->x_is_at_bound(j))
                 return false;
             break;
-        case column_type::low_bound:
-            if (!this->x_is_at_low_bound(j))
+        case column_type::lower_bound:
+            if (!this->x_is_at_lower_bound(j))
                 return false;
             break;
         case column_type::upper_bound:
@@ -570,10 +570,10 @@ public:
         switch (m_column_types[j]) {
         case column_type::fixed:
         case column_type::boxed:
-            out << "(" << m_low_bounds[j] << ", " << m_upper_bounds[j] << ")" << std::endl;
+            out << "(" << m_lower_bounds[j] << ", " << m_upper_bounds[j] << ")" << std::endl;
             break;
-        case column_type::low_bound:
-            out << m_low_bounds[j] << std::endl;
+        case column_type::lower_bound:
+            out << m_lower_bounds[j] << std::endl;
             break;
         case column_type::upper_bound:
             out << m_upper_bounds[j] << std::endl;
@@ -588,10 +588,10 @@ public:
         switch (m_column_types[j]) {
         case column_type::fixed:
         case column_type::boxed:
-            out << " [" << m_low_bounds[j] << ", " << m_upper_bounds[j] << "]";
+            out << " [" << m_lower_bounds[j] << ", " << m_upper_bounds[j] << "]";
             break;
-        case column_type::low_bound:
-            out << " [" << m_low_bounds[j] << "," << "oo" << "]";
+        case column_type::lower_bound:
+            out << " [" << m_lower_bounds[j] << "," << "oo" << "]";
             break;
         case column_type::upper_bound:
             out << " [-oo, " << m_upper_bounds[j] << ']';
@@ -619,7 +619,7 @@ public:
     bool column_has_upper_bound(unsigned j) {
         switch(m_column_types[j]) {
         case column_type::free_column:
-        case column_type::low_bound:
+        case column_type::lower_bound:
             return false;
         default:
             return true;
@@ -629,13 +629,13 @@ public:
     bool bounds_for_boxed_are_set_correctly() const {
         for (unsigned j = 0; j < m_column_types.size(); j++) {
             if (m_column_types[j] != column_type::boxed) continue;
-            if (m_low_bounds[j] > m_upper_bounds[j])
+            if (m_lower_bounds[j] > m_upper_bounds[j])
                 return false;
         }
         return true;
     }
     
-    bool column_has_low_bound(unsigned j) {
+    bool column_has_lower_bound(unsigned j) {
         switch(m_column_types[j]) {
         case column_type::free_column:
         case column_type::upper_bound:

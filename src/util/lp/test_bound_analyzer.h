@@ -35,7 +35,7 @@ namespace lp {
 
 class test_bound_analyzer {
     linear_combination_iterator<mpq> & m_it;
-    std::function<impq (unsigned)>& m_low_bounds;
+    std::function<impq (unsigned)>& m_lower_bounds;
     std::function<impq (unsigned)>& m_upper_bounds;
     std::function<column_type (unsigned)> m_column_types;
     vector<implied_bound> & m_implied_bounds;
@@ -47,14 +47,14 @@ class test_bound_analyzer {
 public :
     // constructor
     test_bound_analyzer(linear_combination_iterator<mpq> &it,
-                            std::function<impq (unsigned) > &   low_bounds,
+                            std::function<impq (unsigned) > &   lower_bounds,
                             std::function<impq (unsigned)>  & upper_bounds,
                             std::function<column_type (unsigned)> column_types,
                         vector<implied_bound> & evidence_vector,
                         unsigned row_or_term_index,
                         std::function<bool (unsigned, bool, mpq &, bool & strict)> & try_get_found_bound) :
     m_it(it),
-    m_low_bounds(low_bounds),
+    m_lower_bounds(lower_bounds),
     m_upper_bounds(upper_bounds),
     m_column_types(column_types),
     m_implied_bounds(evidence_vector),
@@ -121,16 +121,16 @@ public :
     }
 
 
-    bool low_bound_of_monoid(unsigned k, mpq & lb, bool &strict) const {
+    bool lower_bound_of_monoid(unsigned k, mpq & lb, bool &strict) const {
         int s = - m_coeff_sign * sign(m_coeffs[k]);
         unsigned j = m_index[k];
         if (s > 0) {
             switch(m_column_types(j)) {
             case column_type::fixed:
             case column_type::boxed:
-            case column_type::low_bound:
-                lb = -m_coeffs[k] * m_low_bounds(j).x;
-                strict = !is_zero(m_low_bounds(j).y);
+            case column_type::lower_bound:
+                lb = -m_coeffs[k] * m_lower_bounds(j).x;
+                strict = !is_zero(m_lower_bounds(j).y);
                 return true;
             default:
                 return false;
@@ -169,9 +169,9 @@ public :
         switch(m_column_types(j)) {
         case column_type::fixed:
         case column_type::boxed:
-        case column_type::low_bound:
-                lb = -m_coeffs[k] * m_low_bounds(j).x;
-                strict = !is_zero(m_low_bounds(j).y);
+        case column_type::lower_bound:
+                lb = -m_coeffs[k] * m_lower_bounds(j).x;
+                strict = !is_zero(m_lower_bounds(j).y);
                 return true;
             default:
                 return false;
@@ -187,7 +187,7 @@ public :
                 continue;
             mpq lb;
             bool str;
-            if (!low_bound_of_monoid(k, lb, str)) {
+            if (!lower_bound_of_monoid(k, lb, str)) {
                 return;
             }
             if (str)
@@ -199,9 +199,9 @@ public :
         switch(m_column_types(j)) {
         case column_type::fixed:
         case column_type::boxed:
-        case column_type::low_bound:
+        case column_type::lower_bound:
             {
-                const auto & lb = m_low_bounds(j);
+                const auto & lb = m_lower_bounds(j);
                 if (l < lb.x || (l == lb.x && !(is_zero(lb.y) && strict))) {
                     break; // no improvement on the existing upper bound
                 }
@@ -212,11 +212,11 @@ public :
         }
     }
 
-    bool low_bound_is_available(unsigned j) const {
+    bool lower_bound_is_available(unsigned j) const {
         switch(m_column_types(j)) {
         case column_type::fixed:
         case column_type::boxed:
-        case column_type::low_bound:
+        case column_type::lower_bound:
             return true;
         default:
             return false;
@@ -239,15 +239,15 @@ public :
             return true;
         }
         if (is_lower_bound) {
-            if (low_bound_is_available(j)) {
-                best_bound = m_low_bounds(j).x;
-                strict_of_best_bound = !is_zero(m_low_bounds(j).y);
+            if (lower_bound_is_available(j)) {
+                best_bound = m_lower_bounds(j).x;
+                strict_of_best_bound = !is_zero(m_lower_bounds(j).y);
                 return true;
             }
         } else {
             if (upper_bound_is_available(j)) {
                 best_bound = m_upper_bounds(j).x;
-                strict_of_best_bound = !is_zero(m_low_bounds(j).y);
+                strict_of_best_bound = !is_zero(m_lower_bounds(j).y);
                 return true;
             }
         }

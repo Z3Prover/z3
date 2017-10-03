@@ -18,10 +18,11 @@ Revision History:
 
 --*/
 #pragma once
-
+#define lp_for_z3
 #include <string>
 #include <cmath>
 #include <algorithm>
+#ifdef lp_for_z3
 #include "../rational.h"
 #include "../sstream.h"
 #include "../z3_exception.h"
@@ -39,7 +40,7 @@ namespace lp {
 
 template <typename T>
 std::string T_to_string(const T & t); // forward definition
-
+#ifdef lp_for_z3
 template <typename T> class numeric_traits {};
 
 template <>  class numeric_traits<unsigned> {
@@ -50,6 +51,7 @@ public:
     static bool is_zero(unsigned v) { return v == 0; }
     static double get_double(unsigned const & d) { return d; }
     static bool is_int(unsigned) {return true;}
+    static bool is_pos(unsigned) {return true;}
 };
 
 template <>  class numeric_traits<int> {
@@ -61,6 +63,9 @@ public:
     static double const get_double(int const & d) { return d; }
     static bool is_int(int) {return true;}
     static bool is_pos(int j) {return j > 0;}
+    static bool is_neg(int j) {return j < 0;}
+    static int ceil_ratio(int a, int b) { return static_cast<int>(ceil(mpq(a, b)).get_int32());}
+    static int floor_ratio(int a, int b) { return static_cast<int>(floor(mpq(a, b)).get_int32());}
 };
 
 
@@ -92,7 +97,15 @@ template <>  class numeric_traits<double> {
         static bool is_pos(const rational & d) {return d.is_pos();}
         static bool is_neg(const rational & d) {return d.is_neg();}
         static bool is_int(const rational & d) {return d.is_int();}
+        static mpq ceil_ratio(const mpq & a, const mpq & b) {
+            return ceil(a / b);
+        }
+        static mpq floor_ratio(const mpq & a, const mpq & b) {
+            return floor(a / b);
+        }
+
     };
+#endif
 
 template <typename X, typename Y>
 struct convert_struct {

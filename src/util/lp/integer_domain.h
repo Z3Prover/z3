@@ -8,17 +8,51 @@
 #include "util/lp/stacked_value.h"
 #include "util/lp/stacked_map.h"
 namespace lp {
+enum class endpoint_kind { START, END, STEND }; 
 // represents the set of disjoint intervals of integer number
 template <typename T>
 class integer_domain {
 #ifdef Z3DEBUG
-    std::set<int> m_domain;
-#endif 
-    typedef typename std::map<T, char>::iterator iter;
-    typedef typename std::map<T, char>::const_iterator const_iter;
-    typedef typename std::map<T, char>::reverse_iterator riter;
-    stacked_map<T, char> m_endpoints; // 0 means start, 1 means end, 2 means both - for a point interval
-    stacked_value<bool> m_empty;
+    //    std::set<int> m_domain;
+#endif
+    struct endpoint { int m_start_expl; int m_end_expl;
+        endpoint() : m_start_expl(-1), m_end_expl(-1) {}
+        endpoint(int s, int e) : m_start_expl(s), m_end_expl(e) {}
+        endpoint_kind kind() const {
+            lp_assert(m_start_expl != -1 || m_end_expl != -1);
+            if (m_end_expl == -1) {
+                return endpoint_kind::START;
+            }
+            if (m_start_expl == -1) {
+                return endpoint_kind::END;
+            }
+            
+            return endpoint_kind::STEND;
+        }
+        bool operator==(const endpoint& e) const {
+            return m_start_expl == e.m_start_expl && m_end_expl == e.m_end_expl;
+        }
+        bool operator!=(const endpoint & e) const { return !(*this == e); }
+
+        void print(std::ostream & out) const {
+            if (m_start_expl != -1 && m_end_expl != -1)
+                out << "(" <<  m_start_expl << ", " << m_end_expl << ")";
+            else {
+                if (m_start_expl != -1) {
+                    out << "(" << m_start_expl << ")";
+                }
+                else if (m_end_expl != -1) {
+                    out << "(" << m_end_expl << ")";
+                }
+            }
+        }
+    };
+    stacked_map<T, endpoint>                 m_endpoints;
+    stacked_value<bool>                      m_empty;
+    typedef typename std::map<T, endpoint>::iterator iter;
+    typedef typename std::map<T, endpoint>::const_iterator const_iter;
+    typedef typename std::map<T, endpoint>::reverse_iterator riter;
+    
 public:
     // the default constructor creates a set containing all integer numbers
     integer_domain() : integer_domain(false) {}
@@ -28,10 +62,10 @@ public:
     // otherwise it creates an empty set
     integer_domain(bool is_empty) : m_empty(is_empty) {
 #if Z3DEBUG
-        if (!is_empty) {
-            for (int i = 0; i <= 100; i++)
-                m_domain.insert(i);
-        }
+        // if (!is_empty) {
+        //     for (int i = 0; i <= 100; i++)
+        //         m_domain.insert(i);
+        // }
 #endif
     }
     
@@ -39,15 +73,15 @@ public:
         m_empty = false;
         m_endpoints.clear();
 #if Z3DEBUG
-        for (int i = 0; i <= 100; i++)
-            m_domain.insert(i);
+        // for (int i = 0; i <= 100; i++)
+        //     m_domain.insert(i);
 #endif
     }
 
     // copy constructor 
     integer_domain(const integer_domain<T> & t) :
 #if Z3DEBUG
-        m_domain(t.m_domain),
+        //        m_domain(t.m_domain),
 #endif
         m_endpoints(t.m_endpoints),
         m_empty(t.m_empty)
@@ -57,11 +91,11 @@ public:
     // needed for debug only
     void restore_domain() {
 #if Z3DEBUG
-        for (int i = 0; i <= 100; i++)
-            if (contains(i))
-                m_domain.insert(i);
-            else
-                m_domain.erase(i);
+        // for (int i = 0; i <= 100; i++)
+        //     if (contains(i))
+        //         m_domain.insert(i);
+        //     else
+        //         m_domain.erase(i);
 #endif
     }
     
@@ -86,6 +120,7 @@ public:
             return true;
         return is_proper_start(l);
     }
+
     void handle_right_point_in_union(const_iter &r, const T &y) {
         if (pos(r) == y) {
             if (is_proper_start(r))
@@ -130,97 +165,98 @@ public:
     }
 
     void unite_with_interval(const T& x, const T& y) {
-        TRACE("disj_intervals", tout << "unite_with_interval(" << x << ", " << y << ")\n";);
-#if Z3DEBUG
-        for (int i = std::max(x, 0); i <= std::min(100, y); i++)
-            m_domain.insert(i);
-#endif
+        lp_assert(false);
+        //         TRACE("disj_intervals", tout << "unite_with_interval(" << x << ", " << y << ")\n";);
+        // #if Z3DEBUG
+        //         // for (int i = std::max(x, 0); i <= std::min(100, y); i++)
+        //         //     m_domain.insert(i);
+        // #endif
 
-        lp_assert(x <= y);
-        if (x == y) {
-            unite_with_one_point_interval(x);
-            return;
-        }
+        //         lp_assert(x <= y);
+        //         if (x == y) {
+        //             unite_with_one_point_interval(x);
+        //             return;
+        //         }
 
-        const_iter l, r;
-        bool neg_inf, pos_inf;
-        bool found_left_point = get_left_point(x, neg_inf, l);
-        bool found_right_point = get_right_point(y, pos_inf, r);
-        m_empty = false;
+        //         const_iter l, r;
+        //         bool neg_inf, pos_inf;
+        //         bool found_left_point = get_left_point(x, neg_inf, l);
+        //         bool found_right_point = get_right_point(y, pos_inf, r);
+        //         m_empty = false;
 
-        if (!found_left_point) {
-            if (!found_right_point) {
-                m_endpoints.clear();
-                set_start(x);
-                set_end(y);
-                return;
-            }
-            // found_right_point is true
-            if (pos_inf) {
-                m_endpoints.clear();
-                set_start(x);
-                return;
-            }
-            remove_from_the_left(y);
+        //         if (!found_left_point) {
+        //             if (!found_right_point) {
+        //                 m_endpoints.clear();
+        //                 set_start(x);
+        //                 set_end(y);
+        //                 return;
+        //             }
+        //             // found_right_point is true
+        //             if (pos_inf) {
+        //                 m_endpoints.clear();
+        //                 set_start(x);
+        //                 return;
+        //             }
+        //             remove_from_the_left(y);
                         
-            if (pos(m_endpoints.begin()) == y || pos(m_endpoints.begin()) == y + 1) {
-                if (is_proper_start(m_endpoints.begin()))
-                    m_endpoints.erase(m_endpoints.begin());
-                else 
-                    set_end(pos(m_endpoints.begin()));
-                set_start(x);
-            }
-            else {
-                lp_assert(pos(m_endpoints.begin()) > y + 1);
-                if (is_start(m_endpoints.begin()))
-                    set_end(y);
-                set_start(x);
-            }
-            return;
-        }
+        //             if (pos(m_endpoints.begin()) == y || pos(m_endpoints.begin()) == y + 1) {
+        //                 if (is_proper_start(m_endpoints.begin()))
+        //                     m_endpoints.erase(m_endpoints.begin());
+        //                 else 
+        //                     set_end(pos(m_endpoints.begin()));
+        //                 set_start(x);
+        //             }
+        //             else {
+        //                 lp_assert(pos(m_endpoints.begin()) > y + 1);
+        //                 if (is_start(m_endpoints.begin()))
+        //                     set_end(y);
+        //                 set_start(x);
+        //             }
+        //             return;
+        //         }
 
-        lp_assert(found_left_point);
-        if (!found_right_point) {
-            bool neg_inf = has_neg_inf();
-            remove_from_the_right(x);
-            if (m_endpoints.empty()) {
-                if (!neg_inf)
-                    set_start_end(x, y);
-                else
-                    set_end(y);
-                return;
-            }
-            if (pos(m_endpoints.rbegin()) == x || pos(m_endpoints.rbegin()) == x - 1) {
-                if (is_proper_end(m_endpoints.rbegin())) {
-                    m_endpoints.erase(m_endpoints.rbegin());
-                }
-                else if (is_one_point_interval(m_endpoints.rbegin())) {
-                    set_start(pos(m_endpoints.rbegin()));
-                }
-                set_end(y);
-            }
-            else {
-                if (is_end(m_endpoints.rbegin())) {
-                    set_start(x);
-                    set_end(y);
-                }
-                else {
-                    set_end(y);
-                }
-            }
-            return;
-        }
+        //         lp_assert(found_left_point);
+        //         if (!found_right_point) {
+        //             bool neg_inf = has_neg_inf();
+        //             remove_from_the_right(x);
+        //             if (m_endpoints.empty()) {
+        //                 if (!neg_inf)
+        //                     set_start_end(x, y);
+        //                 else
+        //                     set_end(y);
+        //                 return;
+        //             }
+        //             if (pos(m_endpoints.rbegin()) == x || pos(m_endpoints.rbegin()) == x - 1) {
+        //                 if (is_proper_end(m_endpoints.rbegin())) {
+        //                     m_endpoints.erase(m_endpoints.rbegin());
+        //                 }
+        //                 else if (is_one_point_interval(m_endpoints.rbegin())) {
+        //                     set_start(pos(m_endpoints.rbegin()));
+        //                 }
+        //                 set_end(y);
+        //             }
+        //             else {
+        //                 if (is_end(m_endpoints.rbegin())) {
+        //                     set_start(x);
+        //                     set_end(y);
+        //                 }
+        //                 else {
+        //                     set_end(y);
+        //                 }
+        //             }
+        //             return;
+        //         }
 
-        // found_right_point and found_left_point
-        if (!neg_inf)
-            handle_left_point_in_union(l, x, y);
-        else {
-            remove_from_the_left(y);
-        }
-        if (!pos_inf)
-            handle_right_point_in_union(r, y);
-        else
-            remove_from_the_right(x);
+        //         // found_right_point and found_left_point
+        //         if (!neg_inf)
+        //             handle_left_point_in_union(l, x, y);
+        //         else {
+        //             remove_from_the_left(y);
+        //         }
+        //         if (!pos_inf)
+        //             handle_right_point_in_union(r, y);
+        //         else
+        //             remove_from_the_right(x);
     }
 
     bool has_pos_inf() const {
@@ -231,7 +267,7 @@ public:
             return true;
         
         lp_assert(m_endpoints.rbegin() != m_endpoints.rend());
-        return m_endpoints.rbegin()->second == 0;
+        return m_endpoints.rbegin()->second.kind() == endpoint_kind::START;
     }
 
     bool has_neg_inf() const {
@@ -241,7 +277,7 @@ public:
         if (m_endpoints.empty())
             return true;
         auto it = m_endpoints.begin();
-        return is_proper_end(it->second);//m_endpoints.begin());
+        return is_proper_end(it->second.kind());//m_endpoints.begin());
     }
     
     bool is_correct() const {
@@ -272,7 +308,7 @@ public:
                     return false;
                 }
             } 
-            if (t.second == 2) {
+            if (t.second.kind() == endpoint_kind::STEND) {
                 expect_end = false; // swallow a point interval
             }
             else {
@@ -285,12 +321,12 @@ public:
             prev_x = t.first;
         }
 #if Z3DEBUG
-        for (int i = 0; i <= 100; i++ ) {
-            if ( (m_domain.find(i) != m_domain.end()) != contains(i)) {
-                TRACE("disj_intervals", tout << "incorrect value of contains(" << i << ") is = " << contains(i) << std::endl;);
-                return false;
-            }
-        }
+        // for (int i = 0; i <= 100; i++ ) {
+        //     if ( (m_domain.find(i) != m_domain.end()) != contains(i)) {
+        //         TRACE("disj_intervals", tout << "incorrect value of contains(" << i << ") is = " << contains(i) << std::endl;);
+        //         return false;
+        //     }
+        // }
 #endif
         return true;
     }
@@ -307,45 +343,54 @@ public:
         bool first = true;
         for (auto t : m_endpoints()) {
             if (first) {
-                if (t.second == 1) {
-                    out << "[-oo," << t.first << "]";
+                if (t.second.kind() == endpoint_kind::END) {
+                    out << "[-oo," << t.first; t.second.print(out); out << "]";
                 }
-                else if (t.second == 0)
-                    out << "[" << t.first << ",";
-                else if (t.second == 2)
-                    out << "[" << t.first << "]";
+                else if (t.second.kind() == endpoint_kind::START) {
+                    out << "[" << t.first; t.second.print(out); out << ",";
+                } else if (t.second.kind() == endpoint_kind::STEND) {
+                    out << "[" << t.first; t.second.print(out); out << "]";
+                }
                 first = false;
             } else {
-                if (t.second==0)
-                    out << "[" << t.first << ",";
-                else if (t.second == 1)
-                    out << t.first << "]";
-                else if (t.second == 2)
-                    out << "[" << t.first << "]";
+                if (t.second.kind() == endpoint_kind::START) {
+                    out << "[" << t.first; t.second.print(out); out << ",";
+                }
+                else if (t.second.kind() == endpoint_kind::END) {
+                    out << t.first; t.second.print(out); out << "]";
+                }
+                else if (t.second.kind() == endpoint_kind::STEND) {
+                    out << "[" << t.first; t.second.print(out); out << "]";;
+                }
             }
         }
         if (has_pos_inf())
             out << "oo]";
+        
         out << "\n";
     }
     
     void push() { m_endpoints.push(); m_empty.push(); }
     void pop() { m_endpoints.pop(); m_empty.pop(); }
     void pop(unsigned k) { while(k--) pop(); }
-    
+
+    bool intersect_with_bound(const T & x, bool is_lower, unsigned explanation) {
+        return is_lower? intersect_with_lower_bound(x, explanation) : intersect_with_upper_bound(x, explanation);
+    }
     // we intersect the existing set with the half open to the right interval
-    void intersect_with_lower_bound(const T& x) {
+    // returns true if the domain changes
+    bool intersect_with_lower_bound(const T& x, unsigned explanation) {
 #ifdef Z3DEBUG
-        for (int i = 0; i < x; i++)
-            m_domain.erase(i);
+        // for (int i = 0; i < x; i++)
+        //     m_domain.erase(i);
 #endif
         TRACE("disj_intervals", tout << "intersect_with_lower_bound(" << x << ")\n";);
 
         if (m_empty)
-            return;
+            return false;
         if (m_endpoints.empty()) {
-            set_start(x);
-            return;
+            set_start(x, explanation);
+            return true;
         }
         bool pos_inf = has_pos_inf();
         auto it = m_endpoints.begin();
@@ -356,70 +401,104 @@ public:
         if (m_endpoints.empty()) {
             if (!pos_inf) {
                 m_empty = true;
-                return;
+                return true;
             } 
-            set_start(x);
-            return;
+            set_start(x, explanation);
+            return true;
         }
         lp_assert(pos(it) >= x);
         if (pos(it) == x) {
-            if (is_proper_end(it))
-                set_one_point_interval(x);			
+            if (is_proper_end(it)) {
+                set_start(x, explanation);
+                return true;
+            }
         }
         else { // x(it) > x
             if (is_proper_end(it)) {
-                set_start(x);
+                set_start(x, explanation);
+                return true;
             }
         }
+        return false;
+    }
+public:
+    bool intersection_with_upper_bound_is_empty(const T& x) const {
+        if (has_neg_inf())
+            return false;
+        if (m_empty)
+            return true;
+        T b;
+        lp_assert(get_lower_bound(b));
+        get_lower_bound(b);
+        return x < b;
+    }
+
+    bool intersection_with_lower_bound_is_empty(const T& x) const {
+        if (has_pos_inf())
+            return false;
+        if (m_empty)
+            return true;
+        T b;
+        lp_assert(get_upper_bound(b));
+        get_upper_bound(b);
+        return x > b;
     }
 
     // we intersect the existing set with the half open interval
-    void intersect_with_upper_bound(const T& x) {
+    // returns true if there is a change
+    bool intersect_with_upper_bound(const T& x, unsigned explanation) {
 #ifdef Z3DEBUG
-        for (int i = 100; i > x; i--)
-            m_domain.erase(i);
+        // for (int i = 100; i > x; i--)
+        //     m_domain.erase(i);
 #endif
         TRACE("disj_intervals", tout << "intersect_with_upper_bound(" << x << ")\n";);
         if (m_empty)
-            return;
+            return false;
         if (m_endpoints.empty()) {
-            set_end(x);
-            return;
+            set_end(x, explanation);
+            return true;
         }
         bool neg_inf = has_neg_inf();
         auto it = m_endpoints.rbegin();
 
+        bool change = false;
         while (!m_endpoints.empty() && pos(it) > x) {
             m_endpoints.erase(std::prev(m_endpoints.end()));
             it = m_endpoints.rbegin();
+            change = true;
         }
         if (m_endpoints.empty()) {
             if (!neg_inf) {
                 m_empty = true;
-                return;
+                return true;
             }
-            set_end(x);
+            set_end(x, explanation);
+            change = true;
         }
         lp_assert(pos(it) <= x);
         if (pos(it) == x) {
             if (is_one_point_interval(it)) {} 
             else if (is_proper_end(it)) {}
             else {// is_proper_start(it->second)
-                set_one_point_interval(x);
+                set_end(x, explanation);
+                change = true;
             }
         }
         else { // pos(it) < x} 
-            if (is_proper_start(it))
-                set_end(x);
+            if (is_proper_start(it)) {
+                set_end(x, explanation);
+                change = true;
+            }
         }
         lp_assert(is_correct());
+        return change;
     }
 public:
     void intersect_with_interval(const T& x, const T & y) {
 #ifdef Z3DEBUG
-        for (int i = 0; i <= 100; i++)
-            if (i < x || i > y)
-                m_domain.erase(i);
+        // for (int i = 0; i <= 100; i++)
+        //     if (i < x || i > y)
+        //         m_domain.erase(i);
 #endif
 
         TRACE("disj_intervals", tout << "intersect_with_interval(" << x << ", " << y <<")\n";);
@@ -432,110 +511,108 @@ public:
 
     // add an intervar [x, inf]
     void unite_with_interval_x_pos_inf(const T& x) {
-        if (contains_all())
-            return;
-#if Z3DEBUG
-        for (int i = x; i <= 100; i++)
-            m_domain.insert(i);
-#endif
-        TRACE("disj_intervals", tout << "unite_with_interval_x_pos_inf(" << x << ")\n";);
-        if (m_empty) {
-            set_start(x);
-            m_empty = false;
-            return;
-        }
-        bool neg_inf = has_neg_inf();
-        remove_from_the_right(x);
-        if (m_endpoints.empty()) {
-            if (!neg_inf)
-                set_start(x);
-            return;
-        }
-        auto it = m_endpoints.rbegin();
-        lp_assert(pos(it) <= x);
-        if (pos(it) == x) {
-            if (is_proper_end(it)) {
-                m_endpoints.erase(x);
-            } else {
-                set_start(x);
-            }
-        } else if (pos(it) == x - 1 && is_end(it)) {
-            if (is_proper_start(it)) {
-                // do nothing
-            }
-            else if (is_proper_end(it)) {
-                m_endpoints.erase(it);
-            }
-            else {
-                lp_assert(is_one_point_interval(it));
-                set_start(it);
-            }
-        } else {
-            if (!has_pos_inf())
-                set_start(x);
-        }
+        lp_assert(false);
+        //         if (contains_all())
+        //             return;
+        // #if Z3DEBUG
+        //         // for (int i = x; i <= 100; i++)
+        //         //     m_domain.insert(i);
+        // #endif
+        //         TRACE("disj_intervals", tout << "unite_with_interval_x_pos_inf(" << x << ")\n";);
+        //         if (m_empty) {
+        //             set_start(x);
+        //             m_empty = false;
+        //             return;
+        //         }
+        //         bool neg_inf = has_neg_inf();
+        //         remove_from_the_right(x);
+        //         if (m_endpoints.empty()) {
+        //             if (!neg_inf)
+        //                 set_start(x);
+        //             return;
+        //         }
+        //         auto it = m_endpoints.rbegin();
+        //         lp_assert(pos(it) <= x);
+        //         if (pos(it) == x) {
+        //             if (is_proper_end(it)) {
+        //                 m_endpoints.erase(x);
+        //             } else {
+        //                 set_start(x);
+        //             }
+        //         } else if (pos(it) == x - 1 && is_end(it)) {
+        //             if (is_proper_start(it)) {
+        //                 // do nothing
+        //             }
+        //             else if (is_proper_end(it)) {
+        //                 m_endpoints.erase(it);
+        //             }
+        //             else {
+        //                 lp_assert(is_one_point_interval(it));
+        //                 set_start(it);
+        //             }
+        //         } else {
+        //             if (!has_pos_inf())
+        //                 set_start(x);
+        //         }
     }
 
     // add an interval [-inf, x]
     void unite_with_interval_neg_inf_x(const T& x) {
-#if Z3DEBUG
-        for (int i = 0; i <= x; i++)
-            m_domain.insert(i);
-#endif
-        TRACE("disj_intervals", tout << "unite_with_interval_neg_inf_x(" << x << ")\n";);
-        if (m_empty) {
-            set_end(x);
-            m_empty = false;
-            return;
-        }
-        bool pos_inf;
-        const_iter r;
-        bool found_right_point = get_right_point(x, pos_inf, r);
-        if (!found_right_point) {
-            m_endpoints.clear();
-            set_end(x);
-            return;
-        }
-        if (pos_inf) {
-            m_endpoints.clear();
-            return;
-        }
-        lp_assert(pos(r) >= x);
-        if (pos(r) == x || pos(r) == x + 1) {
-            if (is_proper_start(r))
-                erase(r);
-            else if (is_one_point_interval(r)) {
-                set_end(pos(r));
-            } // do nothing for the proper end
-        } else {
-            if (!is_proper_end(r))
-                set_end(x);
-        }
+        lp_assert(false); // not implemented
+        // #if Z3DEBUG
+        //         // for (int i = 0; i <= x; i++)
+        //         //     m_domain.insert(i);
+        // #endif
+        //         TRACE("disj_intervals", tout << "unite_with_interval_neg_inf_x(" << x << ")\n";);
+        //         if (m_empty) {
+        //             set_end(x);
+        //             m_empty = false;
+        //             return;
+        //         }
+        //         bool pos_inf;
+        //         const_iter r;
+        //         bool found_right_point = get_right_point(x, pos_inf, r);
+        //         if (!found_right_point) {
+        //             m_endpoints.clear();
+        //             set_end(x);
+        //             return;
+        //         }
+        //         if (pos_inf) {
+        //             m_endpoints.clear();
+        //             return;
+        //         }
+        //         lp_assert(pos(r) >= x);
+        //         if (pos(r) == x || pos(r) == x + 1) {
+        //             if (is_proper_start(r))
+        //                 erase(r);
+        //             else if (is_one_point_interval(r)) {
+        //                 set_end(pos(r));
+        //             } // do nothing for the proper end
+        //         } else {
+        //             if (!is_proper_end(r))
+        //                 set_end(x);
+        //         }
         
-        while (!m_endpoints.empty() && m_endpoints.begin()->first < x) {
-            m_endpoints.erase(m_endpoints.begin());
-        }
-        lp_assert(is_correct());
+        //         while (!m_endpoints.empty() && m_endpoints.begin()->first < x) {
+        //             m_endpoints.erase(m_endpoints.begin());
+        //         }
+        //         lp_assert(is_correct());
     }
 
 private:
-    bool is_start(char x) const { return x == 0 || x == 2; }
+    bool is_start(endpoint_kind x) const { return x == endpoint_kind::START || x == endpoint_kind::STEND; }
     bool is_start(const iter & it) const { return is_start(it->second);  }
     bool is_start(const const_iter & it) const { return is_start(it->second);  }
-    bool is_start(const riter & it) const {
-        return is_start(it->second);
-    }
-    bool is_end(char x) const { return x == 1 || x == 2; }
-    bool is_end(const iter & it) const {
-        return is_end(it->second);
-    }
-    bool is_end(const const_iter & it) const {
-        return is_end(it->second);
-    }
-    bool is_end(const riter & it) const {
-        return is_end(it->second);
-    }
+    bool is_start(const riter & it) const { return is_start(it->second);  }
+    bool is_start(const endpoint & e) const { return is_start(e.kind());  }
+   
+    bool is_end(endpoint_kind x) const { return x == endpoint_kind::END || x == endpoint_kind::STEND; }
+    bool is_end(const iter & it) const { return is_end(it->second);  }
+    bool is_end(const const_iter & it) const { return is_end(it->second); }
+    bool is_end(const riter & it) const {  return is_end(it->second); }
+    bool is_end(const endpoint& e) const {  return is_end(e.kind()); }
 
+    
     T pos(const iter & it) const {
         return it->first;
     }
@@ -554,22 +631,21 @@ private:
         return it->second;
     }
 
-    bool is_proper_start(char x) const { return x == 0; }
+    bool is_proper_start(endpoint_kind x) const { return x == endpoint_kind::START; }
     bool is_proper_start(const riter &x) const { return is_proper_start(x->second);}
     bool is_proper_start(const iter &x) const { return is_proper_start(x->second);}
     bool is_proper_start(const const_iter &x) const { return is_proper_start(x->second);}
+    bool is_proper_start(const endpoint &x) const { return is_proper_start(x.kind());}
         
-    bool is_proper_end(char x) const { return x == 1; }
-    bool is_proper_end(const iter & it) const { return is_proper_end(it->second); }
+    bool is_proper_end(endpoint_kind x) const { return x == endpoint_kind::END; }
+    bool is_proper_end(const iter & it) const { return is_proper_end(it->second.kind()); }
     bool is_proper_end(const const_iter & it) const { return is_proper_end(it->second); }
-    bool is_proper_end(const riter & it) const {
-        return is_proper_end(it->second);
-    }
+    bool is_proper_end(const riter & it) const { return is_proper_end(it->second); }
+    bool is_proper_end(const endpoint & x) const { return is_proper_end(x.kind()); }
 
-    bool is_one_point_interval(char x) const { return x == 2; }
-    bool is_one_point_interval(const iter & it) const {
-        return is_one_point_interval(it->second);
-    }
+    bool is_one_point_interval(const endpoint & x) const { return is_one_point_interval(x.kind()); }
+    bool is_one_point_interval(endpoint_kind x) const { return x == endpoint_kind::STEND; }
+    bool is_one_point_interval(const iter & it) const { return is_one_point_interval(it->second); }
     bool is_one_point_interval(const const_iter & it) const {
         return is_one_point_interval(it->second);
     }
@@ -592,41 +668,54 @@ private:
         m_endpoints.erase(x);
     }
     
-    void set_one_point_interval(const T& x) {
-        m_endpoints[x] = 2;
+    /*    void set_one_point_interval(const T& x, unsigned explanation) {
+          auto it = m_endpoints().find(x);
+          set_one_point_interval(it, explanation);
+          }*/
+
+    void set_start(const_iter &t, unsigned explanation) {
+        lp_assert(t != m_endpoints.end());
+        endpoint e = t->second;
+        e.m_start_expl = explanation;
+        m_endpoints[t->first] = e;
     }
 
-    void set_start(const T& x) {
-        m_endpoints[x] = 0;
+    void set_start(const T& x, unsigned explanation) {
+        endpoint e = get_endpoint(x);
+        e.m_start_expl = explanation;
+        m_endpoints[x] = e;
     }
 
-    void set_start(const iter &t ) {
-        t->second = 0;
+    endpoint get_endpoint(const T& x) const {
+        auto it = m_endpoints().find(x);
+        if (it == m_endpoints().end())
+            return endpoint();
+        return it->second;
+    }
+    
+    void set_end(const T& x, unsigned expl) {
+        endpoint e = get_endpoint(x);
+        e.m_end_expl = expl;
+        m_endpoints[x] = e;
     }
 
-
-    void set_start(riter &t ) {
-        t->second = 0;
+    void set_end(const_iter& t, unsigned expl) {
+        endpoint e = t->second;
+        e.m_end_expl = expl;
+        m_endpoints[t->first] =  e;
     }
 
-    void set_end(const T& x) {
-        m_endpoints[x] = 1;
+    void set_end(riter& t, unsigned explanation) {
+        endpoint e = t->second;
+        e.m_end_expl = expl;
+        m_endpoints[t->first] =  e;
     }
-    void set_end(const iter& t) {
-        t->second = 1;
-    }
-
-    void set_end(riter& t) {
-        t->second = 1;
-    }
-
-
 
 private:
-    void set_start_end(const T& x, const T & y) {
-        set_start(x);
-        set_end(y);
-    }
+    /*    void set_start_end(const T& x, const T & y, unsigned expl) {
+          set_start(x, expl);
+          set_end(y, expl);
+          }*/
 
     void unite_with_one_point_interval(const T &x) {
         TRACE("disj_intervals", tout << "unite_with_one_point_interval(" << x << ")\n";);
@@ -855,12 +944,63 @@ private:
         }
     }
 public:
+    bool get_lower_bound_with_expl(T& b, unsigned & expl) const {
+        if (m_empty)
+            return false;
+        if (has_neg_inf())
+            return false;
+        expl = m_endpoints.begin()->second.m_start_expl;
+        if (expl == static_cast<unsigned>(-1))
+            return false;
+        b = pos(m_endpoints.begin());
+        return true;
+    }
+
     bool get_lower_bound(T& b) const {
         if (m_empty)
             return false;
         if (has_neg_inf())
             return false;
         b = pos(m_endpoints.begin());
+        return true;
+    }
+
+    int get_lower_bound_expl() const {
+        if (m_empty)
+            return -1;
+        if (has_neg_inf())
+            return -1;
+        return m_endpoints.begin()->second.m_start_expl;
+    }
+
+    int get_upper_bound_expl() const {
+        if (m_empty)
+            return -1;
+        if (has_pos_inf())
+            return -1;
+        return m_endpoints.rbegin()->second.m_end_expl;
+    }
+    
+    bool get_upper_bound_with_expl(T& b, unsigned & expl) const {
+        if (m_empty)
+            return false;
+        if (has_pos_inf())
+            return false;
+        expl = m_endpoints.rbegin()->second.m_end_expl;
+        if (expl == static_cast<unsigned>(-1))
+            return false;
+        b = m_endpoints.rbegin()->first;
+        return true;
+    }
+
+    bool get_upper_bound_and_kind_with_expl(T& b, endpoint_kind & kind, unsigned & expl) const {
+        if (m_empty)
+            return false;
+        if (has_pos_inf())
+            return false;
+        b = m_endpoints.rbegin()->first;
+        kind = m_endpoints.rbegin()->second.kind();
+        expl = m_endpoints.rbegin()->second.m_explanation;
         return true;
     }
 
@@ -871,6 +1011,40 @@ public:
             return false;
         b = m_endpoints.rbegin()->first;
         return true;
+    }
+
+    bool is_empty() const { return m_empty; }
+
+    bool is_fixed() const {
+        if (has_pos_inf() || has_neg_inf())
+            return false;
+        T l;
+        get_lower_bound(l);
+        T u;
+        get_upper_bound(u);
+        return l==u;
+    }
+
+
+    bool improves_with_lower_bound(const T & v) const {
+        T b;
+        bool lower_bound_exists = get_lower_bound(b);
+        return (!lower_bound_exists || v > b) &&
+            !intersection_with_lower_bound_is_empty(v);
+    }
+
+    bool improves_with_upper_bound(const T & v) const {
+        T b;
+        bool upper_bound_exists = get_upper_bound(b);
+        return (!upper_bound_exists || v < b) &&
+            !intersection_with_upper_bound_is_empty(v);
+    }
+    
+    // returns true if adding the bound b narrows the domain, but does not make it empty
+    bool improves(const T & v, bool is_lower_bound) const {
+        if (is_lower_bound)
+            return improves_with_lower_bound(v);
+        return improves_with_upper_bound(v);
     }
 };
 }

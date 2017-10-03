@@ -421,6 +421,10 @@ inline bool operator>(rational const & r1, rational const & r2) {
     return operator<(r2, r1); 
 }
 
+inline bool operator<(int r1, rational const & r2) {
+    return rational(r1) < r2;
+}
+
 inline bool operator<(rational const & r1, int r2) {
     return r1 < rational(r2);
 }
@@ -429,6 +433,11 @@ inline bool operator<=(rational const & r1, rational const & r2) {
     return !operator>(r1, r2); 
 }
 
+inline bool operator<=(rational const & r1, int r2) { 
+    return r1 <= rational(r2);
+}
+
+
 inline bool operator>=(rational const & r1, rational const & r2) { 
     return !operator<(r1, r2); 
 }
@@ -436,6 +445,11 @@ inline bool operator>=(rational const & r1, rational const & r2) {
 inline bool operator>(rational const & a, int b) {
     return a > rational(b);
 }
+
+inline bool operator>(int a, rational const & b) {
+    return rational(a) > b;
+}
+
 
 inline bool operator!=(rational const & a, int b) {
     return !(a == rational(b));
