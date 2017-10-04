@@ -190,10 +190,10 @@ unsigned lp_primal_core_solver<T, X>::solve_with_tableau() {
 		&&
 		!(this->current_x_is_feasible() && this->m_look_for_feasible_solution_only)
 		&&
-		m_settings.get_cancel_flag() == false);
+		this->m_settings.get_cancel_flag() == false);
 	
-	if (m_settings.get_cancel_flag()) {
-        this->set_status(CANCELLED);
+	if (this->m_settings.get_cancel_flag()) {
+            this->set_status(CANCELLED);
 	}
 
 	SASSERT(
