@@ -9,7 +9,6 @@ export DOTNET_BINDINGS="${DOTNET_BINDINGS:-1}"
 export JAVA_BINDINGS="${JAVA_BINDINGS:-1}"
 export NO_SUPPRESS_OUTPUT="${NO_SUPPRESS_OUTPUT:-0}"
 export PYTHON_BINDINGS="${PYTHON_BINDINGS:-1}"
-export PYTHON_EXECUTABLE="${PYTHON_EXECUTABLE:-$(which python)}"
 export RUN_SYSTEM_TESTS="${RUN_SYSTEM_TESTS:-1}"
 export RUN_UNIT_TESTS="${RUN_UNIT_TESTS:-1}"
 export TARGET_ARCH="${TARGET_ARCH:-x86_64}"
@@ -49,6 +48,7 @@ unset PLATFORM
 
 # NOTE: The following variables are not set here because
 # they are specific to the CI implementation
+# PYTHON_EXECUTABLE
 # Z3_SRC_DIR
 # Z3_BUILD_DIR
 # Z3_SYSTEM_TEST_DIR
