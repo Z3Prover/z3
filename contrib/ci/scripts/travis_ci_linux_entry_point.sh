@@ -21,8 +21,11 @@ fi
 source "${SCRIPT_DIR}/ci_defaults.sh"
 
 BUILD_OPTS=()
-# Override options if they have been provided.
-# Otherwise the defaults in the Docker file will be used
+# Pass Docker build arguments
+if [ -n "${Z3_BUILD_TYPE}" ]; then
+  BUILD_OPTS+=("--build-arg" "Z3_BUILD_TYPE=${Z3_BUILD_TYPE}")
+fi
+
 if [ -n "${Z3_CMAKE_GENERATOR}" ]; then
   BUILD_OPTS+=("--build-arg" "Z3_CMAKE_GENERATOR=${Z3_CMAKE_GENERATOR}")
 fi
