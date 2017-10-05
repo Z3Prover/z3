@@ -417,6 +417,8 @@ public:
 
         for (unsigned i : m_rows_with_changed_bounds.m_index) {
             calculate_implied_bounds_for_row(i, bp);
+            if (settings().get_cancel_flag())
+                return;
         }
         m_rows_with_changed_bounds.clear();
         if (!use_tableau()) {
