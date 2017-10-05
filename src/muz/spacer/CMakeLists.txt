@@ -23,6 +23,7 @@ z3_add_component(spacer
   spacer_term_graph.cpp
   spacer_sem_matcher.cpp
   spacer_quant_generalizer.cpp
+  spacer_callback.cpp
   COMPONENT_DEPENDENCIES
   arith_tactics
   core_tactics

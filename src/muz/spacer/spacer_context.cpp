@@ -1178,7 +1178,7 @@ lemma::lemma (ast_manager &manager, expr * body, unsigned lvl) :
     m_ref_count(0), m(manager),
     m_body(body, m), m_cube(m),
     m_zks(m), m_bindings(m), m_lvl(lvl),
-    m_pob(nullptr) {
+    m_pob(nullptr), m_external(false) {
     SASSERT(m_body);
     normalize(m_body, m_body);
 }
@@ -1187,7 +1187,7 @@ lemma::lemma(pob_ref const &p) :
     m_ref_count(0), m(p->get_ast_manager()),
     m_body(m), m_cube(m),
     m_zks(m), m_bindings(m), m_lvl(p->level()),
-    m_pob(p) {
+    m_pob(p), m_external(false) {
     SASSERT(m_pob);
     m_pob->get_skolems(m_zks);
     add_binding(m_pob->get_binding());
@@ -1198,7 +1198,7 @@ lemma::lemma(pob_ref const &p, expr_ref_vector &cube, unsigned lvl) :
     m(p->get_ast_manager()),
     m_body(m), m_cube(m),
     m_zks(m), m_bindings(m), m_lvl(p->level()),
-    m_pob(p)
+    m_pob(p), m_external(false)
 {
     if (m_pob) {
         m_pob->get_skolems(m_zks);
@@ -1408,6 +1408,10 @@ bool pred_transformer::frames::add_lemma(lemma *lem)
     m_lemmas.push_back(lem);
     m_sorted = false;
     m_pt.add_lemma_core(lem);
+
+    if (!lem->external()) {
+        m_pt.get_context().new_lemma_eh(m_pt, lem);
+    }
     return true;
 }
 
@@ -2726,6 +2730,11 @@ lbool context::solve_core (unsigned from_lvl)
         if (lvl > 0 && !get_params ().spacer_skip_propagate ())
             if (propagate(m_expanded_lvl, lvl, UINT_MAX)) { return l_false; }
 
+        for (unsigned i = 0; i < m_callbacks.size(); i++){
+            if (m_callbacks[i]->unfold())
+                m_callbacks[i]->unfold_eh();
+        }
+
         m_pob_queue.inc_level ();
         lvl = m_pob_queue.max_level ();
         m_stats.m_max_depth = std::max(m_stats.m_max_depth, lvl);
@@ -3007,6 +3016,11 @@ lbool context::expand_node(pob& n)
     if (n.pt().is_qblocked(n)) {
         STRACE("spacer.expand-add",
                tout << "This pob can be blocked by instantiation\n";);
+    }
+
+    for (unsigned i = 0; i < m_callbacks.size(); i++){
+        if(m_callbacks[i]->predecessor())
+            m_callbacks[i]->predecessor_eh();
     }
 
     lbool res = n.pt ().is_reachable (n, &cube, &model, uses_level, is_concrete, r,
@@ -3480,6 +3494,9 @@ void context::collect_statistics(statistics& st) const
     // -- time in creating new predecessors
     st.update ("time.spacer.solve.reach.children",
                m_create_children_watch.get_seconds ());
+    st.update("spacer.random_seed", m_params.spacer_random_seed());
+    st.update("spacer.lemmas_imported", m_stats.m_num_lemmas_imported);
+    st.update("spacer.lemmas_discarded", m_stats.m_num_lemmas_discarded);
     m_pm.collect_statistics(st);
 
     for (unsigned i = 0; i < m_lemma_generalizers.size(); ++i) {
@@ -3588,8 +3605,38 @@ void context::add_constraints (unsigned level, const expr_ref& c)
         if (m.is_implies(c, e1, e2)) {
             SASSERT (is_app (e1));
             pred_transformer *r = nullptr;
-            if (m_rels.find (to_app (e1)->get_decl (), r))
-            { r->add_lemma(e2, level); }
+            if (m_rels.find (to_app (e1)->get_decl (), r)){
+                lemma_ref lem = alloc(lemma, m, e2, level);
+                lem.get()->set_external(true);
+                if (r->add_lemma(lem.get())) {
+                    this->m_stats.m_num_lemmas_imported++;
+                }
+                else{
+                    this->m_stats.m_num_lemmas_discarded++;
+                }
+            }
+        }
+    }
+}
+
+void context::new_lemma_eh(pred_transformer &pt, lemma *lem) {
+    bool handle=false;
+    for (unsigned i = 0; i < m_callbacks.size(); i++) {
+        handle|=m_callbacks[i]->new_lemma();
+    }
+    if (!handle)
+        return;
+    if ((is_infty_level(lem->level()) && m_params.spacer_share_invariants()) ||
+        (!is_infty_level(lem->level()) && m_params.spacer_share_lemmas())) {
+        expr_ref_vector args(m);
+        for (unsigned i = 0; i < pt.sig_size(); ++i) {
+            args.push_back(m.mk_const(pt.get_manager().o2n(pt.sig(i), 0)));
+        }
+        expr *app = m.mk_app(pt.head(), pt.sig_size(), args.c_ptr());
+        expr *lemma = m.mk_implies(app, lem->get_expr());
+        for (unsigned i = 0; i < m_callbacks.size(); i++) {
+            if (m_callbacks[i]->new_lemma())
+                m_callbacks[i]->new_lemma_eh(lemma, lem->level());
         }
     }
 }

@@ -36,6 +36,10 @@ namespace datalog {
         LAST_ENGINE
     };
 
+    typedef void (*t_new_lemma_eh)(void *state, expr *lemma, unsigned level);
+    typedef void (*t_predecessor_eh)(void *state);
+    typedef void (*t_unfold_eh)(void *state);
+
     class engine_base {
         ast_manager& m;
         std::string m_name;
@@ -101,6 +105,12 @@ namespace datalog {
         }
         virtual proof_ref get_proof() {
             return proof_ref(m.mk_asserted(m.mk_true()), m);
+        }
+        virtual void add_callback(void *state,
+                                  const t_new_lemma_eh new_lemma_eh,
+                                  const t_predecessor_eh predecessor_eh,
+                                  const t_unfold_eh unfold_eh) {
+            throw default_exception(std::string("add_lemma_exchange_callbacks is not supported for ") + m_name);
         }
         virtual void updt_params() {}
         virtual void cancel() {}

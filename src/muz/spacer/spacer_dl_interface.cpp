@@ -34,6 +34,7 @@ Revision History:
 #include "model/model_smt2_pp.h"
 #include "ast/scoped_proof.h"
 #include "muz/transforms/dl_transforms.h"
+#include "muz/spacer/spacer_callback.h"
 
 using namespace spacer;
 
@@ -351,4 +352,11 @@ model_ref dl_interface::get_model()
 proof_ref dl_interface::get_proof()
 {
     return m_context->get_proof();
+}
+
+void dl_interface::add_callback(void *state,
+                                const datalog::t_new_lemma_eh new_lemma_eh,
+                                const datalog::t_predecessor_eh predecessor_eh,
+                                const datalog::t_unfold_eh unfold_eh){
+    m_context->callbacks().push_back(alloc(user_callback, *m_context, state, new_lemma_eh, predecessor_eh, unfold_eh));
 }

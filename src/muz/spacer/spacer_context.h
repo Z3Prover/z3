@@ -28,7 +28,7 @@ Notes:
 #undef max
 #endif
 #include <queue>
-
+#include "util/scoped_ptr_vector.h"
 #include "muz/spacer/spacer_manager.h"
 #include "muz/spacer/spacer_prop_solver.h"
 
@@ -114,6 +114,7 @@ class lemma {
     app_ref_vector m_bindings;
     unsigned m_lvl;
     pob_ref m_pob;
+    bool m_external;
 
     void mk_expr_core();
     void mk_cube_core();
@@ -134,6 +135,9 @@ public:
     inline unsigned weakness();
 
     void add_skolem(app *zk, app* b);
+
+    inline void set_external(bool ext){m_external = ext;}
+    inline bool external() { return m_external;}
 
     unsigned level () const {return m_lvl;}
     void set_level (unsigned lvl) {m_lvl = lvl;}
@@ -685,6 +689,32 @@ public:
 };
 
 
+class spacer_callback {
+protected:
+    context &m_context;
+
+public:
+    spacer_callback(context &context) : m_context(context) {}
+
+    virtual ~spacer_callback() = default;
+
+    context &get_context() { return m_context; }
+
+    virtual inline bool new_lemma() { return false; }
+
+    virtual void new_lemma_eh(expr *lemma, unsigned level) {}
+
+    virtual inline bool predecessor() { return false; }
+
+    virtual void predecessor_eh() {}
+
+    virtual inline bool unfold() { return false; }
+
+    virtual void unfold_eh() {}
+
+};
+
+
 class context {
 
     struct stats {
@@ -697,6 +727,8 @@ class context {
         unsigned m_expand_node_undef;
         unsigned m_num_lemmas;
         unsigned m_num_restarts;
+        unsigned m_num_lemmas_imported;
+        unsigned m_num_lemmas_discarded;
         stats() { reset(); }
         void reset() { memset(this, 0, sizeof(*this)); }
     };
@@ -731,6 +763,7 @@ class context {
     bool                 m_weak_abs;
     bool                 m_use_restarts;
     unsigned             m_restart_initial_threshold;
+    scoped_ptr_vector<spacer_callback> m_callbacks;
 
     // Functions used by search.
     lbool solve_core (unsigned from_lvl = 0);
@@ -850,6 +883,10 @@ public:
 
     expr_ref get_constraints (unsigned lvl);
     void add_constraints (unsigned lvl, const expr_ref& c);
+
+    void new_lemma_eh(pred_transformer &pt, lemma *lem);
+
+    scoped_ptr_vector<spacer_callback> &callbacks() {return m_callbacks;}
 };
 
 inline bool pred_transformer::use_native_mbp () {return ctx.use_native_mbp ();}

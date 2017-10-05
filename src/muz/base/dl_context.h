@@ -588,6 +588,14 @@ namespace datalog {
 
         rel_context_base* get_rel_context() { ensure_engine(); return m_rel; }
 
+        void add_callback(void *state,
+                          const datalog::t_new_lemma_eh new_lemma_eh,
+                          const datalog::t_predecessor_eh predecessor_eh,
+                          const datalog::t_unfold_eh unfold_eh) {
+            ensure_engine();
+            m_engine->add_callback(state, new_lemma_eh, predecessor_eh, unfold_eh);
+        }
+
     private:
 
         /**

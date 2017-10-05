@@ -367,6 +367,16 @@ extern "C" {
     void Z3_API Z3_fixedpoint_set_reduce_app_callback(
         Z3_context c, Z3_fixedpoint d, Z3_fixedpoint_reduce_app_callback_fptr cb);
 
+    typedef void (*Z3_fixedpoint_new_lemma_eh)(void *state, Z3_ast *lemma, unsigned level);
+    typedef void (*Z3_fixedpoint_predecessor_eh)(void *state);
+    typedef void (*Z3_fixedpoint_unfold_eh)(void *state);
+
+    /** \brief set export callback for lemmas */
+    void Z3_API Z3_fixedpoint_add_callback(Z3_context ctx, Z3_fixedpoint f, void *state,
+                                            Z3_fixedpoint_new_lemma_eh new_lemma_eh,
+                                            Z3_fixedpoint_predecessor_eh predecessor_eh,
+                                            Z3_fixedpoint_unfold_eh unfold_eh);
+
     /*@}*/
     /*@}*/
 
