@@ -225,9 +225,8 @@ expr_ref dom_simplify_tactic::simplify(expr * e0) {
     }
     else {
         expr_dominators::tree_t const& t = m_dominators.get_tree();
-        if (t.contains(e)) {
-            ptr_vector<expr> const& children = t[e];
-            for (expr * child : children) {
+        if (auto children = t.find_core(e)) {
+            for (expr * child : children->get_data().m_value) {
                 simplify(child);
             }
         }
