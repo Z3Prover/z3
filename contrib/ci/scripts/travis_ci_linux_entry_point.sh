@@ -11,12 +11,14 @@ DOCKER_FILE_DIR="$(cd ${SCRIPT_DIR}/../Dockerfiles; echo $PWD)"
 : ${LINUX_BASE?"LINUX_BASE must be specified"}
 
 
-
 # Sanity check. Current working directory should be repo root
 if [ ! -f "./README.md" ]; then
   echo "Current working directory should be repo root"
   exit 1
 fi
+
+# Get defaults
+source "${SCRIPT_DIR}/ci_defaults.sh"
 
 BUILD_OPTS=()
 # Override options if they have been provided.
