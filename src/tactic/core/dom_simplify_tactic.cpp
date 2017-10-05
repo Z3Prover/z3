@@ -95,13 +95,16 @@ void expr_dominators::compute_dominators() {
             expr * child = m_post2expr[i];
             ptr_vector<expr> const& p = m_parents[child];
             SASSERT(!p.empty());
-            expr * new_idom = p[0], * idom2 = 0;
-            for (unsigned j = 1; j < p.size(); ++j) {
-                if (m_doms.find(p[j], idom2)) {
+            expr * new_idom = 0, *idom2 = 0;
+            for (unsigned j = 0; j < p.size(); ++j) {
+                if (!new_idom) {
+                    m_doms.find(p[j], new_idom);
+                }
+                else if (m_doms.find(p[j], idom2)) {
                     new_idom = intersect(new_idom, idom2);
                 }
             }
-            if (!m_doms.find(child, idom2) || idom2 != new_idom) {
+            if (new_idom && (!m_doms.find(child, idom2) || idom2 != new_idom)) {
                 m_doms.insert(child, new_idom);
                 change = true;
             }
@@ -113,7 +116,7 @@ void expr_dominators::extract_tree() {
     for (auto const& kv : m_doms) {
         add_edge(m_tree, kv.m_value, kv.m_key);
     }
-}    
+}
 
 void expr_dominators::compile(expr * e) {
     reset();
@@ -147,9 +150,9 @@ tactic * dom_simplify_tactic::translate(ast_manager & m) {
 }
 
 void dom_simplify_tactic::operator()(
-    goal_ref const & in, 
-    goal_ref_buffer & result, 
-    model_converter_ref & mc, 
+    goal_ref const & in,
+    goal_ref_buffer & result,
+    model_converter_ref & mc,
     proof_converter_ref & pc,
     expr_dependency_ref & core) {
     mc = 0; pc = 0; core = 0;
@@ -162,33 +165,41 @@ void dom_simplify_tactic::operator()(
 }
 
 void dom_simplify_tactic::cleanup() {
-    m_trail.reset(); 
-    m_args.reset(); 
-    m_args2.reset(); 
-    m_result.reset(); 
-    m_dominators.reset(); 
+    m_trail.reset();
+    m_args.reset();
+    m_args2.reset();
+    m_result.reset();
+    m_dominators.reset();
 }
 
 expr_ref dom_simplify_tactic::simplify_ite(app * ite) {
     expr_ref r(m);
-    expr * c = 0, * t = 0, * e = 0;
+    expr * c = 0, *t = 0, *e = 0;
     VERIFY(m.is_ite(ite, c, t, e));
     unsigned old_lvl = scope_level();
     expr_ref new_c = simplify(c);
     if (m.is_true(new_c)) {
         r = simplify(t);
-    }
-    else if (m.is_false(new_c) || !assert_expr(new_c, false)) {
+    } else if (m.is_false(new_c) || !assert_expr(new_c, false)) {
         r = simplify(e);
-    }
-    else {
-        expr_ref new_t = simplify(t);
+    } else {
+        for (expr * child : tree(ite)) {
+            if (is_subexpr(child, t) && !is_subexpr(child, e)) {
+                simplify(child);
+            }
+        }
         pop(scope_level() - old_lvl);
+        expr_ref new_t = simplify(t);
         if (!assert_expr(new_c, true)) {
             return new_t;
         }
-        expr_ref new_e = simplify(e);
+        for (expr * child : tree(ite)) {
+            if (is_subexpr(child, e) && !is_subexpr(child, t)) {
+                simplify(child);
+            }
+        }
         pop(scope_level() - old_lvl);
+        expr_ref new_e = simplify(e);
         if (c == new_c && t == new_t && e == new_e) {
             r = ite;
         }
@@ -197,7 +208,7 @@ expr_ref dom_simplify_tactic::simplify_ite(app * ite) {
         }
         else {
             TRACE("tactic", tout << new_c << "\n" << new_t << "\n" << new_e << "\n";);
-            r = m.mk_ite(new_c, new_t, new_c);
+            r = m.mk_ite(new_c, new_t, new_e);
         }        
     }    
     return r;
@@ -224,11 +235,8 @@ expr_ref dom_simplify_tactic::simplify(expr * e0) {
         r = simplify_or(to_app(e));
     }
     else {
-        expr_dominators::tree_t const& t = m_dominators.get_tree();
-        if (auto children = t.find_core(e)) {
-            for (expr * child : children->get_data().m_value) {
-                simplify(child);
-            }
+        for (expr * child : tree(e)) {
+            simplify(child);
         }
         if (is_app(e)) {
             m_args.reset();
@@ -251,27 +259,33 @@ expr_ref dom_simplify_tactic::simplify(expr * e0) {
 expr_ref dom_simplify_tactic::simplify_and_or(bool is_and, app * e) {
     expr_ref r(m);
     unsigned old_lvl = scope_level();
-    m_args.reset();
+
+    auto is_subexpr_arg = [&](expr * child, expr * except) {
+        if (!is_subexpr(child, except))
+            return false;
+        for (expr * arg : *e) {
+            if (arg != except && is_subexpr(child, arg))
+                return false;
+        }
+        return true;
+    };
+
+    expr_ref_vector args(m);
     for (expr * arg : *e) {
-        r = simplify(arg);
-        if (!assert_expr(r, !is_and)) {
-            r = is_and ? m.mk_false() : m.mk_true();
+        for (expr * child : tree(arg)) {
+            if (is_subexpr_arg(child, arg)) {
+                simplify(child);
+            }
         }
-        m_args.push_back(r);
+        r = simplify(arg);
+        args.push_back(r);
+        if (!assert_expr(simplify(arg), !is_and)) {
+            r = is_and ? m.mk_false() : m.mk_true();
+            return r;
+        }
     }
     pop(scope_level() - old_lvl);
-    m_args.reverse();
-    m_args2.reset();
-    for (expr * arg : m_args) {
-        r = simplify(arg);
-        if (!assert_expr(r, !is_and)) {
-            r = is_and ? m.mk_false() : m.mk_true();
-        }
-        m_args2.push_back(r);
-    }
-    pop(scope_level() - old_lvl);
-    m_args2.reverse();
-    r = is_and ? mk_and(m_args2) : mk_or(m_args2);
+    r = is_and ? mk_and(args) : mk_or(args);
     return r;
 }
 
@@ -332,11 +346,36 @@ void dom_simplify_tactic::simplify_goal(goal& g) {
     SASSERT(scope_level() == 0);
 }
 
+bool dom_simplify_tactic::is_subexpr(expr * a, expr * b) {
+    if (a == b)
+        return true;
+
+    bool r;
+    if (m_subexpr_cache.find(a, b, r))
+        return r;
+
+    for (expr * e : tree(b)) {
+        if (is_subexpr(a, e)) {
+            m_subexpr_cache.insert(a, b, true);
+            return true;
+        }
+    }
+    m_subexpr_cache.insert(a, b, false);
+    return false;
+}
+
+ptr_vector<expr> const & dom_simplify_tactic::tree(expr * e) {
+    if (auto p = m_dominators.get_tree().find_core(e))
+        return p->get_data().get_value();
+    return m_empty;
+}
+
 
 // ----------------------
 // expr_substitution_simplifier
 
 bool expr_substitution_simplifier::assert_expr(expr * t, bool sign) {
+    m_scoped_substitution.push();
     expr* tt;    
     if (!sign) {
         update_substitution(t, 0);
@@ -438,4 +477,8 @@ void expr_substitution_simplifier::compute_depth(expr* e) {
         todo.pop_back();
         m_expr2depth.insert(e, d + 1);
     }
+}
+
+tactic * mk_dom_simplify_tactic(ast_manager & m, params_ref const & p) {
+    return clean(alloc(dom_simplify_tactic, m, alloc(expr_substitution_simplifier, m), p));
 }

@@ -23,6 +23,8 @@ Notes:
 #include "ast/ast.h"
 #include "ast/expr_substitution.h"
 #include "tactic/tactic.h"
+#include "tactic/tactical.h"
+#include "util/obj_pair_hashtable.h"
 
 
 class expr_dominators {
@@ -89,6 +91,8 @@ private:
     unsigned             m_scope_level;
     unsigned             m_depth;
     unsigned             m_max_depth;
+    ptr_vector<expr>     m_empty;
+    obj_pair_map<expr, expr, bool> m_subexpr_cache;
 
     expr_ref simplify(expr* t);
     expr_ref simplify_ite(app * ite);
@@ -97,8 +101,12 @@ private:
     expr_ref simplify_and_or(bool is_and, app * ite);
     void simplify_goal(goal& g);
 
-    expr_ref get_cached(expr* t) { expr* r = 0; if (!m_result.find(r, r)) r = t; return expr_ref(r, m); }
+    bool is_subexpr(expr * a, expr * b);
+
+    expr_ref get_cached(expr* t) { expr* r = 0; if (!m_result.find(t, r)) r = t; return expr_ref(r, m); }
     void cache(expr *t, expr* r) { m_result.insert(t, r); m_trail.push_back(r); }
+
+    ptr_vector<expr> const & tree(expr * e);
 
     unsigned scope_level() { return m_scope_level; }
     void pop(unsigned n) { SASSERT(n <= m_scope_level); m_scope_level -= n; m_simplifier->pop(n); }
@@ -156,8 +164,13 @@ public:
         SASSERT(m_subst.empty());
         return alloc(expr_substitution_simplifier, m);
     }
-
-    
 };
+
+
+tactic * mk_dom_simplify_tactic(ast_manager & m, params_ref const & p = params_ref());
+
+/*
+ADD_TACTIC("dom-simplify", "apply dominator simplification rules.", "mk_dom_simplify_tactic(m, p)")
+*/
 
 #endif
