@@ -188,6 +188,7 @@ expr_ref dom_simplify_tactic::simplify_ite(app * ite) {
                 simplify(child);
             }
         }
+
         pop(scope_level() - old_lvl);
         expr_ref new_t = simplify(t);
         if (!assert_expr(new_c, true)) {

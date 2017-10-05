@@ -58,32 +58,35 @@ public:
     
 };
 
+class dom_simplifier {
+ public:
+    dom_simplifier() {}
+    
+    virtual ~dom_simplifier() {}
+    /**
+       \brief assert_expr performs an implicit push
+    */
+    virtual bool assert_expr(expr * t, bool sign) = 0;
+    
+    /**
+       \brief apply simplification.
+    */
+    virtual void operator()(expr_ref& r) = 0;
+    
+    /**
+       \brief pop scopes accumulated from assertions.
+    */
+    virtual void pop(unsigned num_scopes) = 0;
+    
+    virtual dom_simplifier * translate(ast_manager & m) = 0;
+    
+};
+
 class dom_simplify_tactic : public tactic {
 public:
-    class simplifier {
-    public:
-        virtual ~simplifier() {}
-        /**
-           \brief assert_expr performs an implicit push
-         */
-        virtual bool assert_expr(expr * t, bool sign) = 0;
-
-        /**
-           \brief apply simplification.
-        */
-        virtual void operator()(expr_ref& r) = 0;
-
-        /**
-           \brief pop scopes accumulated from assertions.
-         */
-        virtual void pop(unsigned num_scopes) = 0;
-
-        virtual simplifier * translate(ast_manager & m);
-
-    };
 private:
     ast_manager&         m;
-    simplifier*          m_simplifier;
+    dom_simplifier*      m_simplifier;
     params_ref           m_params;
     expr_ref_vector      m_trail, m_args, m_args2;
     obj_map<expr, expr*> m_result;
@@ -115,7 +118,7 @@ private:
     void init(goal& g);
 
 public:
-    dom_simplify_tactic(ast_manager & m, simplifier* s, params_ref const & p = params_ref()):
+    dom_simplify_tactic(ast_manager & m, dom_simplifier* s, params_ref const & p = params_ref()):
         m(m), m_simplifier(s), m_params(p), 
         m_trail(m), m_args(m), m_args2(m), 
         m_dominators(m), 
@@ -138,7 +141,7 @@ public:
     virtual void cleanup();
 };
 
-class expr_substitution_simplifier : public dom_simplify_tactic::simplifier {
+class expr_substitution_simplifier : public dom_simplifier {
     ast_manager&             m;
     expr_substitution        m_subst;
     scoped_expr_substitution m_scoped_substitution;
@@ -160,7 +163,7 @@ public:
     
     virtual void pop(unsigned num_scopes) { m_scoped_substitution.pop(num_scopes); }
     
-    virtual simplifier * translate(ast_manager & m) {
+    virtual dom_simplifier * translate(ast_manager & m) {
         SASSERT(m_subst.empty());
         return alloc(expr_substitution_simplifier, m);
     }
