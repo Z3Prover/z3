@@ -61,7 +61,8 @@ enum lp_status {
     TIME_EXHAUSTED,
     ITERATIONS_EXHAUSTED,
     EMPTY,
-    UNSTABLE
+    UNSTABLE,
+    CANCELLED
 };
 
 // when the ratio of the vector lenth to domain size to is greater than the return value we switch to solve_By_for_T_indexed_only
