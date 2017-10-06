@@ -17,6 +17,7 @@ if [ "X${RUN_SYSTEM_TESTS}" != "X1" ]; then
 fi
 
 # Sanitizer environment variables
+SCRIPT_DIR="$( cd ${BASH_SOURCE[0]%/*} ; echo $PWD )"
 source ${SCRIPT_DIR}/sanitizer_env.sh
 
 Z3_EXE="${Z3_BUILD_DIR}/z3"
