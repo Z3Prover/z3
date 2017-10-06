@@ -152,6 +152,10 @@ void expr_dominators::reset() {
 // -----------------------
 // dom_simplify_tactic
 
+dom_simplify_tactic::~dom_simplify_tactic() {
+    dealloc(m_simplifier);
+}
+
 tactic * dom_simplify_tactic::translate(ast_manager & m) {
     return alloc(dom_simplify_tactic, m, m_simplifier->translate(m), m_params);
 }

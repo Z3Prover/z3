@@ -83,8 +83,6 @@ class dom_simplifier {
 };
 
 class dom_simplify_tactic : public tactic {
-public:
-private:
     ast_manager&         m;
     dom_simplifier*      m_simplifier;
     params_ref           m_params;
@@ -126,7 +124,7 @@ public:
         m_scope_level(0), m_depth(0), m_max_depth(1024), m_forward(true) {}
 
 
-    virtual ~dom_simplify_tactic() {}
+    virtual ~dom_simplify_tactic();
 
     virtual tactic * translate(ast_manager & m);
     virtual void updt_params(params_ref const & p) {}
