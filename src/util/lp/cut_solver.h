@@ -114,9 +114,8 @@ public: // for debugging
 
 
     bool is_lower_bound(literal & l) const {
-        if (l.m_tag != literal_type::BOUND || l.m_is_lower)
+        if (l.m_tag != literal_type::BOUND || !l.m_is_lower)
             return false;
-        l = l.m_bound;
         return true;
     }
     
@@ -135,9 +134,8 @@ public: // for debugging
     }
 
     bool is_upper_bound(literal & l) const {
-        if (l.m_tag != literal_type::BOUND || l.m_is_upper)
+        if (l.m_tag != literal_type::BOUND || !l.m_is_upper)
             return false;
-        l = l.m_bound;
         return true;
     }
     
