@@ -16,6 +16,9 @@ if [ "X${RUN_SYSTEM_TESTS}" != "X1" ]; then
   exit 0
 fi
 
+# Sanitizer environment variables
+source ${SCRIPT_DIR}/sanitizer_env.sh
+
 Z3_EXE="${Z3_BUILD_DIR}/z3"
 Z3_LIB_DIR="${Z3_BUILD_DIR}"
 

@@ -62,7 +62,8 @@ ENV \
 
 # Build Z3
 RUN mkdir -p "${Z3_SRC_DIR}" && \
-  mkdir -p "${Z3_SRC_DIR}/contrib/ci/scripts"
+  mkdir -p "${Z3_SRC_DIR}/contrib/ci/scripts" && \
+  mkdir -p "${Z3_SRC_DIR}/contrib/ci/suppressions/sanitizers"
 # Deliberately leave out `contrib`
 ADD /cmake ${Z3_SRC_DIR}/cmake/
 ADD /doc ${Z3_SRC_DIR}/doc/
@@ -89,7 +90,13 @@ RUN ${Z3_SRC_DIR}/contrib/ci/scripts/test_z3_docs.sh
 # Test examples
 ADD \
   /contrib/ci/scripts/test_z3_examples_cmake.sh \
+  /contrib/ci/scripts/sanitizer_env.sh \
   ${Z3_SRC_DIR}/contrib/ci/scripts/
+ADD \
+  /contrib/suppressions/sanitizers/asan.txt \
+  /contrib/suppressions/sanitizers/lsan.txt \
+  /contrib/suppressions/sanitizers/ubsan.txt \
+  ${Z3_SRC_DIR}/contrib/suppressions/sanitizers/
 RUN ${Z3_SRC_DIR}/contrib/ci/scripts/test_z3_examples_cmake.sh
 
 # Run unit tests

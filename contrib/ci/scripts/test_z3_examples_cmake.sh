@@ -21,6 +21,9 @@ source ${SCRIPT_DIR}/set_compiler_flags.sh
 # Set CMake generator args
 source ${SCRIPT_DIR}/set_generator_args.sh
 
+# Sanitizer environment variables
+source ${SCRIPT_DIR}/sanitizer_env.sh
+
 cd "${Z3_BUILD_DIR}"
 
 # Build and run C example
