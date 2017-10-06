@@ -10,6 +10,7 @@ set -o pipefail
 : ${PYTHON_BINDINGS?"PYTHON_BINDINGS must be specified"}
 : ${PYTHON_EXECUTABLE?"PYTHON_EXECUTABLE must be specified"}
 : ${Z3_SYSTEM_TEST_DIR?"Z3_SYSTEM_TEST_DIR must be specified"}
+: ${UBSAN_BUILD?"UBSAN_BUILD must be specified"}
 
 if [ "X${RUN_SYSTEM_TESTS}" != "X1" ]; then
   echo "Skipping system tests"
@@ -52,7 +53,13 @@ fi
 
 if [ "X${PYTHON_BINDINGS}" = "X1" ]; then
   # Run python binding tests
-  ${PYTHON_EXECUTABLE} scripts/test_pyscripts.py "${Z3_LIB_DIR}" regressions/python/
+  if [ "X${UBSAN_BUILD}" = "X1" ]; then
+    # FIXME: We need to build libz3 with a shared UBSan runtime for the bindings
+    # to work.
+    echo "FIXME: Skipping python binding tests when building with UBSan"
+  else
+    ${PYTHON_EXECUTABLE} scripts/test_pyscripts.py "${Z3_LIB_DIR}" regressions/python/
+  fi
 fi
 
 # FIXME: Run `scripts/test_cs.py` once it has been modified to support mono
