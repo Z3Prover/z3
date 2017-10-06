@@ -20,6 +20,17 @@ else()
   set(EXTERNAL_C_PROJ_USE_CXX_LINKER_ARG "")
 endif()
 
+if (DEFINED CMAKE_CONFIGURATION_TYPES)
+  message(WARNING
+    "Cannot set built type of external project when building with a "
+    "multi-configuration generator")
+  set(EXTERNAL_PROJECT_CMAKE_BUILD_TYPE_ARG "")
+else()
+  set(EXTERNAL_PROJECT_CMAKE_BUILD_TYPE_ARG
+    "-DCMAKE_BUILD_TYPE:STRING=${CMAKE_BUILD_TYPE}"
+  )
+endif()
+
 ################################################################################
 # Build example project using libz3's C API as an external project
 ################################################################################
@@ -30,6 +41,7 @@ ExternalProject_Add(c_example
   CMAKE_ARGS
     "-DZ3_DIR=${CMAKE_BINARY_DIR}"
     "${EXTERNAL_C_PROJ_USE_CXX_LINKER_ARG}"
+    "${EXTERNAL_PROJECT_CMAKE_BUILD_TYPE_ARG}"
   # Build step
   ${EXTERNAL_PROJECT_BUILD_ALWAYS_ARG}
   BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/c_example_build_dir"
@@ -48,6 +60,7 @@ ExternalProject_Add(c_maxsat_example
   CMAKE_ARGS
     "-DZ3_DIR=${CMAKE_BINARY_DIR}"
     "${EXTERNAL_C_PROJ_USE_CXX_LINKER_ARG}"
+    "${EXTERNAL_PROJECT_CMAKE_BUILD_TYPE_ARG}"
   # Build step
   ${EXTERNAL_PROJECT_BUILD_ALWAYS_ARG}
   BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/c_maxsat_example_build_dir"
@@ -64,7 +77,9 @@ ExternalProject_Add(cpp_example
   DEPENDS libz3
   # Configure step
   SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/c++"
-  CMAKE_ARGS "-DZ3_DIR=${CMAKE_BINARY_DIR}"
+  CMAKE_ARGS
+    "-DZ3_DIR=${CMAKE_BINARY_DIR}"
+    "${EXTERNAL_PROJECT_CMAKE_BUILD_TYPE_ARG}"
   # Build step
   ${EXTERNAL_PROJECT_BUILD_ALWAYS_ARG}
   BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/cpp_example_build_dir"
@@ -80,7 +95,9 @@ ExternalProject_Add(z3_tptp5
   DEPENDS libz3
   # Configure step
   SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/tptp"
-  CMAKE_ARGS "-DZ3_DIR=${CMAKE_BINARY_DIR}"
+  CMAKE_ARGS
+    "-DZ3_DIR=${CMAKE_BINARY_DIR}"
+    "${EXTERNAL_PROJECT_CMAKE_BUILD_TYPE_ARG}"
   # Build step
   ${EXTERNAL_PROJECT_BUILD_ALWAYS_ARG}
   BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/tptp_build_dir"
