@@ -31,7 +31,7 @@ the future.
 * `NO_SUPPRESS_OUTPUT` - Don't suppress output of some commands (`0` or `1`)
 * `PYTHON_BINDINGS` - Build and test Python API bindings (`0` or `1`)
 * `RUN_SYSTEM_TESTS` - Run system tests (`0` or `1`)
-* `RUN_UNIT_TESTS` - Run unit tests (`0` or `1`)
+* `RUN_UNIT_TESTS` - Run unit tests (`BUILD_ONLY` or `BUILD_AND_RUN` or `SKIP`)
 * `TARGET_ARCH` - Target architecture (`x86_64` or `i686`)
 * `TEST_INSTALL` - Test running `install` target (`0` or `1`)
 * `UBSAN_BUILD` - Do [UndefinedBehaviourSanitizer](https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html) build (`0` or `1`)
