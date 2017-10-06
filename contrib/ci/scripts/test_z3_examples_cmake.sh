@@ -14,6 +14,7 @@ set -o pipefail
 : ${PYTHON_EXECUTABLE?"PYTHON_EXECUTABLE must be specified"}
 : ${DOTNET_BINDINGS?"DOTNET_BINDINGS must be specified"}
 : ${JAVA_BINDINGS?"JAVA_BINDINGS must be specified"}
+: ${UBSAN_BUILD?"UBSAN_BUILD must be specified"}
 
 # Set compiler flags
 source ${SCRIPT_DIR}/set_compiler_flags.sh
@@ -44,6 +45,14 @@ cmake --build $(pwd) --target c_maxsat_example "${GENERATOR_ARGS[@]}"
 run_quiet \
   examples/c_maxsat_example_build_dir/c_maxsat_example \
   ${Z3_SRC_DIR}/examples/maxsat/ex.smt
+
+if [ "X${UBSAN_BUILD}" = "X1" ]; then
+  # FIXME: We really need libz3 to link against a shared UBSan runtime.
+  # Right now we link against the static runtime which breaks all the
+  # non-native language bindings.
+  echo "FIXME: Can't run other examples when building with UBSan"
+  exit 0
+fi
 
 
 if [ "X${PYTHON_BINDINGS}" = "X1" ]; then
