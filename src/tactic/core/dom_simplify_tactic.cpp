@@ -291,7 +291,7 @@ expr_ref dom_simplify_tactic::simplify_and_or(bool is_and, app * e) {
             }                                                   \
             r = simplify(arg);                                  \
             args.push_back(r);                                  \
-            if (!assert_expr(simplify(arg), !is_and)) {         \
+            if (!assert_expr(r, !is_and)) {                     \
                 r = is_and ? m.mk_false() : m.mk_true();        \
                 return r;                                       \
             }                                                   
@@ -304,6 +304,7 @@ expr_ref dom_simplify_tactic::simplify_and_or(bool is_and, app * e) {
             expr* arg = e->get_arg(i);
             _SIMP_ARG(arg);
         }
+        args.reverse();
     }
     pop(scope_level() - old_lvl);
     r = is_and ? mk_and(args) : mk_or(args);
@@ -338,6 +339,7 @@ void dom_simplify_tactic::simplify_goal(goal& g) {
             if (i < sz - 1 && !m.is_true(r) && !m.is_false(r) && !g.dep(i) && !g.proofs_enabled() && !assert_expr(r, false)) {
                 r = m.mk_false();
             }
+            CTRACE("simplify", r != g.form(i), tout << r << " " << mk_pp(g.form(i), m) << "\n";);
             change |= r != g.form(i);
             proof* new_pr = 0;
             if (g.proofs_enabled()) {
@@ -358,6 +360,7 @@ void dom_simplify_tactic::simplify_goal(goal& g) {
                 r = m.mk_false();
             }
             change |= r != g.form(i);
+            CTRACE("simplify", r != g.form(i), tout << r << " " << mk_pp(g.form(i), m) << "\n";);
             proof* new_pr = 0;
             if (g.proofs_enabled()) {
                 new_pr = m.mk_modus_ponens(g.pr(i), m.mk_rewrite_star(g.form(i), r, 0, 0)); 
