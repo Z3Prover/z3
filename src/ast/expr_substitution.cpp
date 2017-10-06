@@ -56,6 +56,13 @@ expr_substitution::~expr_substitution() {
     reset();
 }
 
+std::ostream& expr_substitution::display(std::ostream& out) {
+    for (auto & kv : m_subst) {
+        out << expr_ref(kv.m_key, m()) << " |-> " << expr_ref(kv.m_value, m()) << "\n";
+    }
+    return out;
+}
+
 void expr_substitution::insert(expr * c, expr * def, proof * def_pr, expr_dependency * def_dep) {
     obj_map<expr, expr*>::obj_map_entry * entry = m_subst.insert_if_not_there2(c, 0); 
     if (entry->get_data().m_value == 0) {

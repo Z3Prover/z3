@@ -471,6 +471,9 @@ bool compare_nodes(ast const * n1, ast const * n2) {
             compare_arrays(to_quantifier(n1)->get_decl_sorts(),
                            to_quantifier(n2)->get_decl_sorts(),
                            to_quantifier(n1)->get_num_decls()) &&
+            compare_arrays(to_quantifier(n1)->get_decl_names(),
+                           to_quantifier(n2)->get_decl_names(),
+                           to_quantifier(n1)->get_num_decls()) &&
             to_quantifier(n1)->get_expr()            == to_quantifier(n2)->get_expr() &&
             to_quantifier(n1)->get_weight()          == to_quantifier(n2)->get_weight() &&
             to_quantifier(n1)->get_num_patterns() == to_quantifier(n2)->get_num_patterns() &&

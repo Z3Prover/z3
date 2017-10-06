@@ -91,23 +91,42 @@ bool expr_dominators::compute_dominators() {
     unsigned iterations = 1;
     while (change) {
         change = false;
+        TRACE("simplify", 
+              for (auto & kv : m_doms) {
+                  tout << expr_ref(kv.m_key, m) << " |-> " << expr_ref(kv.m_value, m) << "\n";
+              });
+
         SASSERT(m_post2expr.empty() || m_post2expr.back() == e);
         for (unsigned i = 0; i + 1 < m_post2expr.size(); ++i) {
             expr * child = m_post2expr[i];
             ptr_vector<expr> const& p = m_parents[child];
             SASSERT(!p.empty());
-            expr * new_idom = 0, *idom2 = 0;
-            for (unsigned j = 0; j < p.size(); ++j) {
-                if (!new_idom) {
-                    m_doms.find(p[j], new_idom);
-                }
-                else if (m_doms.find(p[j], idom2)) {
-                    new_idom = intersect(new_idom, idom2);
-                }
+            if (p.size() == 1) {
+                if (!m_doms.contains(child)) {
+                    m_doms.insert(child, p[0]);
+                    change = true;
+                }                
             }
-            if (new_idom && (!m_doms.find(child, idom2) || idom2 != new_idom)) {
-                m_doms.insert(child, new_idom);
-                change = true;
+            else {
+                expr * new_idom = 0, *idom2 = 0;
+                for (unsigned j = 0; j < p.size(); ++j) {
+                    if (!new_idom) {
+                        m_doms.find(p[j], new_idom);
+                    }
+                    else if (m_doms.find(p[j], idom2)) {
+                        new_idom = intersect(new_idom, idom2);
+                    }
+                }
+                if (!new_idom) {
+                    m_doms.insert(child, p[0]);
+                    TRACE("simplify", tout << expr_ref(child, m) << " |-> " << expr_ref(p[0], m) << "\n";);
+                    change = true;
+                } 
+                else if (!m_doms.find(child, idom2) || idom2 != new_idom) {
+                    m_doms.insert(child, new_idom);
+                    TRACE("simplify", tout << expr_ref(child, m) << " |-> " << expr_ref(new_idom, m) << "\n";);
+                    change = true;
+                }
             }
         }
         iterations *= 2;        
@@ -130,6 +149,7 @@ bool expr_dominators::compile(expr * e) {
     compute_post_order();
     if (!compute_dominators()) return false;
     extract_tree();
+    TRACE("simplify", display(tout););
     return true;
 }
 
@@ -147,6 +167,22 @@ void expr_dominators::reset() {
     m_root.reset();
 }
 
+std::ostream& expr_dominators::display(std::ostream& out) {
+    return display(out, 0, m_root);
+}
+
+std::ostream& expr_dominators::display(std::ostream& out, unsigned indent, expr* r) {
+    for (unsigned i = 0; i < indent; ++i) out << " ";
+    out << expr_ref(r, m);
+    if (m_tree.contains(r)) {
+        for (expr* child : m_tree[r]) {
+            if (child != r) 
+                display(out, indent + 1, child);
+        }
+    }
+    out << "\n";
+    return out;
+}
 
 
 // -----------------------
@@ -200,7 +236,6 @@ expr_ref dom_simplify_tactic::simplify_ite(app * ite) {
                 simplify(child);
             }
         }
-
         pop(scope_level() - old_lvl);
         expr_ref new_t = simplify(t);
         if (!assert_expr(new_c, true)) {
@@ -230,6 +265,8 @@ expr_ref dom_simplify_tactic::simplify_ite(app * ite) {
 expr_ref dom_simplify_tactic::simplify(expr * e0) {
     expr_ref r(m);
     expr* e = 0;
+
+    TRACE("simplify", tout << "depth: " << m_depth << " " << mk_pp(e0, m) << " -> " << r << "\n";);
     if (!m_result.find(e0, e)) {
         e = e0;
     }
@@ -254,7 +291,9 @@ expr_ref dom_simplify_tactic::simplify(expr * e0) {
         if (is_app(e)) {
             m_args.reset();
             for (expr* arg : *to_app(e)) {
-                m_args.push_back(get_cached(arg)); // TBD is cache really applied to all sub-terms?
+                r = get_cached(arg);
+                (*m_simplifier)(r);
+                m_args.push_back(r); 
             }
             r = m.mk_app(to_app(e)->get_decl(), m_args.size(), m_args.c_ptr());
         }
