@@ -560,7 +560,7 @@ namespace {
         bool is_bound(expr *e, expr*& v, interval& b) const {
             uint64 n;
             expr *lhs = 0, *rhs = 0;
-            unsigned sz;
+            unsigned sz = 0;
 
             if (m_bv.is_bv_ule(e, lhs, rhs)) {
                 if (is_number(lhs, n, sz)) { // C ule x <=> x uge C
@@ -689,25 +689,27 @@ namespace {
             }
 
             interval ctx, intr;
-            bool unchanged = false;
+            bool was_updated = true;
             if (b.is_full() && b.tight) {
                 r = m.mk_true();
             } else if (m_bound.find(t1, ctx)) {
                 if (ctx.implies(b)) {
                     r = m.mk_true();
-                } else if (!b.intersect(ctx, intr)) {
+                } 
+                else if (!b.intersect(ctx, intr)) {
                     r = m.mk_false();
-                } else if (m_propagate_eq && intr.is_singleton()) {
+                } 
+                else if (m_propagate_eq && intr.is_singleton()) {
                     r = m.mk_eq(t1, m_bv.mk_numeral(rational(intr.l, rational::ui64()),
                                                     m.get_sort(t1)));
                 }
             }
             else {
-                unchanged = true;
+                was_updated = false;
             }
 
-            CTRACE("bv", !unchanged, tout << mk_pp(t, m) << " " << b << " (ctx: " << ctx << ") (intr: " << intr << "): " << r << "\n";);
-            if (sign && unchanged)
+            CTRACE("bv", was_updated, tout << mk_pp(t, m) << " " << b << " (ctx: " << ctx << ") (intr: " << intr << "): " << r << "\n";);
+            if (sign && was_updated)
                 r = m.mk_not(r);
         }
 
@@ -773,45 +775,6 @@ namespace {
             return false;
         }
 
-        virtual bool may_simplify(expr* t) {
-            if (m_bv.is_numeral(t))
-                return false;
-
-            while (m.is_not(t, t));
-
-            for (auto & v : m_bound) {
-                if (contains(t, v.m_key)) return true;
-            }
-
-#if 0
-            expr_set* used_exprs = get_expr_vars(t);
-            for (map::iterator I = m_bound.begin(), E = m_bound.end(); I != E; ++I) {
-                if (contains(t, I->m_key)) return true;
-                if (I->m_value.is_singleton() && used_exprs->contains(I->m_key))
-                    return true;
-            }
-#endif
-
-            expr* t1;
-            interval b;
-            // skip common case: single bound constraint without any context for simplification
-            if (is_bound(t, t1, b)) {
-                return b.is_full() || m_bound.contains(t1);
-            }
-
-            if (contains_bound(t)) {
-                return true;
-            }
-#if 0
-            expr_cnt* bounds = get_expr_bounds(t);
-            for (expr_cnt::iterator I = bounds->begin(), E = bounds->end(); I != E; ++I) {
-                if (I->m_value > 1 || m_bound.contains(I->m_key))
-                    return true;
-            }
-#endif
-            return false;
-        }
-
         virtual void pop(unsigned num_scopes) {
             TRACE("bv", tout << "pop: " << num_scopes << "\n";);
             if (m_scopes.empty())
@@ -838,9 +801,6 @@ namespace {
             return alloc(dom_bv_bounds_simplifier, m, m_params);
         }
 
-        virtual unsigned scope_level() const {
-            return m_scopes.size();
-        }
     };
 
 }
