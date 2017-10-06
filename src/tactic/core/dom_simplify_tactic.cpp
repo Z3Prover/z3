@@ -95,17 +95,17 @@ bool expr_dominators::compute_dominators() {
         for (unsigned i = 0; i + 1 < m_post2expr.size(); ++i) {
             expr * child = m_post2expr[i];
             ptr_vector<expr> const& p = m_parents[child];
-            SASSERT(!p.empty());
             expr * new_idom = 0, *idom2 = 0;
-            for (unsigned j = 0; j < p.size(); ++j) {
-                if (!new_idom) {
-                    m_doms.find(p[j], new_idom);
-                }
-                else if (m_doms.find(p[j], idom2)) {
-                    new_idom = intersect(new_idom, idom2);
+            for (auto& pred : p) {
+                if (m_doms.contains(pred)) {
+                    new_idom = !new_idom ? pred : intersect(new_idom, pred);
                 }
             }
-            if (new_idom && (!m_doms.find(child, idom2) || idom2 != new_idom)) {
+            if (!new_idom) {
+                m_doms.insert(child, p[0]);
+                change = true;
+            }
+            else if (!m_doms.find(child, idom2) || idom2 != new_idom) {
                 m_doms.insert(child, new_idom);
                 change = true;
             }
