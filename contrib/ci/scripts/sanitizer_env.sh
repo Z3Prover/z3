@@ -8,7 +8,7 @@
 if [ "X${ASAN_BUILD}" = "X1" ]; then
   # Use suppression files
   export LSAN_OPTIONS="print_suppressions=1,suppressions=${Z3_SRC_DIR}/contrib/suppressions/sanitizers/lsan.txt"
-  export ASAN_OPTIONS="print_suppressions=1,suppressions=${Z3_SRC_DIR}/contrib/suppressions/sanitizers/asan.txt"
+  export ASAN_OPTIONS="malloc_context_size=100,print_suppressions=1,suppressions=${Z3_SRC_DIR}/contrib/suppressions/sanitizers/asan.txt"
   : ${ASAN_SYMBOLIZER_PATH?"ASAN_SYMBOLIZER_PATH must be specified"}
 fi
 
