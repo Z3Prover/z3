@@ -90,8 +90,8 @@ void expr_dominators::compute_dominators() {
     bool change = true;
     while (change) {
         change = false;
-        SASSERT(m_post2expr.back() == e);
-        for (unsigned i = 0; i < m_post2expr.size() - 1; ++i) {
+        SASSERT(m_post2expr.empty() || m_post2expr.back() == e);
+        for (unsigned i = 0; i + 1 < m_post2expr.size(); ++i) {
             expr * child = m_post2expr[i];
             ptr_vector<expr> const& p = m_parents[child];
             SASSERT(!p.empty());
@@ -167,7 +167,6 @@ void dom_simplify_tactic::operator()(
 void dom_simplify_tactic::cleanup() {
     m_trail.reset();
     m_args.reset();
-    m_args2.reset();
     m_result.reset();
     m_dominators.reset();
 }
@@ -180,9 +179,11 @@ expr_ref dom_simplify_tactic::simplify_ite(app * ite) {
     expr_ref new_c = simplify(c);
     if (m.is_true(new_c)) {
         r = simplify(t);
-    } else if (m.is_false(new_c) || !assert_expr(new_c, false)) {
+    } 
+    else if (m.is_false(new_c) || !assert_expr(new_c, false)) {
         r = simplify(e);
-    } else {
+    } 
+    else {
         for (expr * child : tree(ite)) {
             if (is_subexpr(child, t) && !is_subexpr(child, e)) {
                 simplify(child);
@@ -254,6 +255,7 @@ expr_ref dom_simplify_tactic::simplify(expr * e0) {
     cache(e0, r);
     TRACE("simplify", tout << "depth: " << m_depth << " " << mk_pp(e0, m) << " -> " << r << "\n";);
     --m_depth;
+    m_subexpr_cache.reset();
     return r;
 }
 
@@ -361,7 +363,7 @@ bool dom_simplify_tactic::is_subexpr(expr * a, expr * b) {
             return true;
         }
     }
-    m_subexpr_cache.insert(a, b, false);
+    m_subexpr_cache.insert(a, b, false);   
     return false;
 }
 

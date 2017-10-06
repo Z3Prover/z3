@@ -88,7 +88,7 @@ private:
     ast_manager&         m;
     dom_simplifier*      m_simplifier;
     params_ref           m_params;
-    expr_ref_vector      m_trail, m_args, m_args2;
+    expr_ref_vector      m_trail, m_args;
     obj_map<expr, expr*> m_result;
     expr_dominators      m_dominators;
     unsigned             m_scope_level;
@@ -120,7 +120,7 @@ private:
 public:
     dom_simplify_tactic(ast_manager & m, dom_simplifier* s, params_ref const & p = params_ref()):
         m(m), m_simplifier(s), m_params(p), 
-        m_trail(m), m_args(m), m_args2(m), 
+        m_trail(m), m_args(m), 
         m_dominators(m), 
         m_scope_level(0), m_depth(0), m_max_depth(1024) {}
 
