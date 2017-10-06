@@ -411,7 +411,7 @@ void int_solver::fill_cut_solver(cut_solver<T> & cs) {
 
 template <typename T>
 void int_solver::fill_cut_solver_for_constraint(const lar_base_constraint* c, cut_solver<T> & cs) {
-    vector<std::pair<T, var_index>> coeffs;
+    std::vector<std::pair<T, var_index>> coeffs;
     T rs;
     get_int_coeffs_from_constraint(c, coeffs, rs);
     cs.add_ineq(coeffs, rs);
@@ -420,7 +420,7 @@ void int_solver::fill_cut_solver_for_constraint(const lar_base_constraint* c, cu
 
 // it produces an inequality coeff*x <= rs
 template <typename T>
-void int_solver::get_int_coeffs_from_constraint(const lar_base_constraint* c, vector<std::pair<T, var_index>>& coeffs, T & rs) {
+void int_solver::get_int_coeffs_from_constraint(const lar_base_constraint* c, std::vector<std::pair<T, var_index>>& coeffs, T & rs) {
     lp_assert(c->m_kind != EQ); // it is not implemented, we need to create two inequalities in this case
     int sign = ((int)c->m_kind > 0) ? -1 : 1;
     vector<std::pair<T, var_index>> lhs = c->get_left_side_coefficients();

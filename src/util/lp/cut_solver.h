@@ -15,22 +15,22 @@ class cut_solver : public column_namer {
 public: // for debugging
     struct polynomial {
         // the polynom evaluates to m_term + m_a
-        vector<std::pair<T, var_index>> m_term;
+        std::vector<std::pair<T, var_index>> m_term;
         mpq m_a; // the free coefficient
-        polynomial(vector<std::pair<T, var_index>>& p, const mpq & a) : m_term(p), m_a(a) {
+        polynomial(std::vector<std::pair<T, var_index>>& p, const mpq & a) : m_term(p), m_a(a) {
         }
-        polynomial(vector<std::pair<T, var_index>>& p) : polynomial(p, 0) {
+        polynomial(std::vector<std::pair<T, var_index>>& p) : polynomial(p, 0) {
         }
         
     };
     
     struct ineq { // we only have less or equal, which is enough for integral variables
         polynomial m_poly;
-        ineq(vector<std::pair<T, var_index>>& term, const mpq& a): m_poly(term, a) {
+        ineq(std::vector<std::pair<T, var_index>>& term, const mpq& a): m_poly(term, a) {
         }
     };
 
-    vector<ineq> m_ineqs;
+    std::vector<ineq> m_ineqs;
 
     enum class lbool {
         l_false, // false
@@ -61,13 +61,13 @@ public: // for debugging
     struct var_info {
         unsigned m_user_var_index;
         var_info(unsigned user_var_index) : m_user_var_index(user_var_index) {}
-        vector<unsigned> m_literals; // point to m_trail
+        std::vector<unsigned> m_literals; // point to m_trail
         integer_domain<T> m_domain;
     };
 
-    vector<var_info> m_var_infos;
+    std::vector<var_info> m_var_infos;
     
-    bool lhs_is_int(const vector<std::pair<T, var_index>> & lhs) const {
+    bool lhs_is_int(const std::vector<std::pair<T, var_index>> & lhs) const {
         for (auto & p : lhs) {
             if (numeric_traits<T>::is_int(p.first) == false) return false;
         }
@@ -79,10 +79,10 @@ public: // for debugging
         return m_var_name_function(m_var_infos[j].m_user_var_index);
     }
 
-    unsigned add_ineq(vector<std::pair<T, var_index>> & lhs, const mpq& free_coeff) {
+    unsigned add_ineq(std::vector<std::pair<T, var_index>> & lhs, const mpq& free_coeff) {
         lp_assert(lhs_is_int(lhs));
         lp_assert(free_coeff.is_int());
-        vector<std::pair<T, var_index>>  local_lhs;
+        std::vector<std::pair<T, var_index>>  local_lhs;
         for (auto & p : lhs)
             local_lhs.push_back(std::make_pair(p.first, add_var(p.second)));
         m_ineqs.push_back(ineq(local_lhs, free_coeff));
@@ -93,7 +93,7 @@ public: // for debugging
     bool m_inconsistent;   // tracks if state is consistent
     unsigned m_scope_lvl;  // tracks the number of case splits
 
-    svector<literal>          m_trail;
+    std::vector<literal>          m_trail;
     // backtracking state from the SAT solver:
     struct scope {
         unsigned m_trail_lim;               // pointer into assignment stack
@@ -101,7 +101,7 @@ public: // for debugging
         bool     m_inconsistent;            // really needed?
     };
 
-    svector<scope>          m_scopes;
+    std::vector<scope>          m_scopes;
     std::unordered_map<unsigned, unsigned> m_user_vars_to_cut_solver_vars;
     unsigned add_var(unsigned user_var_index) {
         unsigned ret;

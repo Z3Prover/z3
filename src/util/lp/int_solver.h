@@ -151,7 +151,7 @@ public:
     template <typename T>
     void fill_cut_solver_for_constraint(const lar_base_constraint*, cut_solver<T>& );
     template <typename T>
-    void get_int_coeffs_from_constraint(const lar_base_constraint* c, vector<std::pair<T, var_index>>& coeff, T & rs);
+    void get_int_coeffs_from_constraint(const lar_base_constraint* c, std::vector<std::pair<T, var_index>>& coeff, T & rs);
 
 };
 }
