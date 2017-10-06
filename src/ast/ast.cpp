@@ -1359,7 +1359,8 @@ ast_manager::ast_manager(proof_gen_mode m, std::fstream * trace_stream, bool is_
     m_proof_mode(m),
     m_trace_stream(trace_stream),
     m_trace_stream_owner(false),
-    m_rec_fun(":rec-fun") {
+    m_rec_fun(":rec-fun"),
+    m_labmda_def(":lambda-def") {
 
     if (!is_format_manager)
         m_format_manager = alloc(ast_manager, PGM_DISABLED, trace_stream, true);
