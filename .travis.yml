@@ -17,13 +17,11 @@ env:
 ###############################################################################
 # Ubuntu 16.04 LTS
 ###############################################################################
-    # FIXME: We should probably do unoptimized build to avoid the compiler's
-    # optimizer removing bad behaviour. However we can't run the unit tests
-    # if we do a Debug build because they are too slow.
-    # 64-bit UBSan build
-    - LINUX_BASE=ubuntu_16.04 C_COMPILER=/usr/bin/clang-3.9 CXX_COMPILER=/usr/bin/clang++-3.9 TARGET_ARCH=x86_64 Z3_BUILD_TYPE=RelWithDebInfo UBSAN_BUILD=1
-    # 64-bit ASan build
-    - LINUX_BASE=ubuntu_16.04 C_COMPILER=/usr/bin/clang-3.9 CXX_COMPILER=/usr/bin/clang++-3.9 TARGET_ARCH=x86_64 Z3_BUILD_TYPE=RelWithDebInfo ASAN_BUILD=1
+    # FIXME: We should really run the unit tests too under ASan/UBSan but a debug build is too slow.
+    # 64-bit UBSan Debug build
+    - LINUX_BASE=ubuntu_16.04 C_COMPILER=/usr/bin/clang-3.9 CXX_COMPILER=/usr/bin/clang++-3.9 TARGET_ARCH=x86_64 Z3_BUILD_TYPE=Debug UBSAN_BUILD=1 RUN_UNIT_TESTS=SKIP
+    # 64-bit ASan Debug build
+    - LINUX_BASE=ubuntu_16.04 C_COMPILER=/usr/bin/clang-3.9 CXX_COMPILER=/usr/bin/clang++-3.9 TARGET_ARCH=x86_64 Z3_BUILD_TYPE=Debug ASAN_BUILD=1 RUN_UNIT_TESTS=SKIP
 
     # 64-bit GCC 5.4 RelWithDebInfo
     - LINUX_BASE=ubuntu_16.04 C_COMPILER=/usr/bin/gcc-5 CXX_COMPILER=/usr/bin/g++-5 TARGET_ARCH=x86_64 Z3_BUILD_TYPE=RelWithDebInfo
