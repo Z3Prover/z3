@@ -83,11 +83,12 @@ expr* expr_dominators::intersect(expr* x, expr * y) {
     return x;
 }
 
-void expr_dominators::compute_dominators() {
+bool expr_dominators::compute_dominators() {
     expr * e = m_root;
     SASSERT(m_doms.empty());
     m_doms.insert(e, e);
     bool change = true;
+    unsigned iterations = 1;
     while (change) {
         change = false;
         SASSERT(m_post2expr.empty() || m_post2expr.back() == e);
@@ -109,7 +110,12 @@ void expr_dominators::compute_dominators() {
                 change = true;
             }
         }
+        iterations *= 2;        
+        if (change && iterations > m_post2expr.size()) {
+            return false;
+        }
     }
+    return true;
 }
 
 void expr_dominators::extract_tree() {
@@ -118,17 +124,18 @@ void expr_dominators::extract_tree() {
     }
 }
 
-void expr_dominators::compile(expr * e) {
+bool expr_dominators::compile(expr * e) {
     reset();
     m_root = e;
     compute_post_order();
-    compute_dominators();
+    if (!compute_dominators()) return false;
     extract_tree();
+    return true;
 }
 
-void expr_dominators::compile(unsigned sz, expr * const* es) {
+bool expr_dominators::compile(unsigned sz, expr * const* es) {
     expr_ref e(m.mk_and(sz, es), m);
-    compile(e);
+    return compile(e);
 }
 
 void expr_dominators::reset() {
@@ -293,14 +300,14 @@ expr_ref dom_simplify_tactic::simplify_and_or(bool is_and, app * e) {
 }
 
 
-void dom_simplify_tactic::init(goal& g) {
+bool dom_simplify_tactic::init(goal& g) {
     expr_ref_vector args(m);
     unsigned sz = g.size();
     for (unsigned i = 0; i < sz; ++i) args.push_back(g.form(i));
     expr_ref fml = mk_and(args);
     m_result.reset();
     m_trail.reset();
-    m_dominators.compile(fml);
+    return m_dominators.compile(fml);
 }
 
 void dom_simplify_tactic::simplify_goal(goal& g) {
@@ -312,7 +319,7 @@ void dom_simplify_tactic::simplify_goal(goal& g) {
         change = false;
 
         // go forwards
-        init(g);
+        if (!init(g)) return;
         unsigned sz = g.size();
         for (unsigned i = 0; !g.inconsistent() && i < sz; ++i) {
             expr_ref r = simplify(g.form(i));
@@ -329,7 +336,7 @@ void dom_simplify_tactic::simplify_goal(goal& g) {
         pop(scope_level());
         
         // go backwards
-        init(g);
+        if (!init(g)) return;
         sz = g.size();
         for (unsigned i = sz; !g.inconsistent() && i > 0; ) {
             --i;

@@ -45,14 +45,14 @@ private:
 
     void compute_post_order();
     expr* intersect(expr* x, expr * y);
-    void compute_dominators();
+    bool compute_dominators();
     void extract_tree();
 
 public:
     expr_dominators(ast_manager& m): m(m), m_root(m) {}
 
-    void compile(expr * e);
-    void compile(unsigned sz, expr * const* es);
+    bool compile(expr * e);
+    bool compile(unsigned sz, expr * const* es);
     tree_t const& get_tree() { return m_tree; }
     void reset();
     
@@ -115,7 +115,7 @@ private:
     void pop(unsigned n) { SASSERT(n <= m_scope_level); m_scope_level -= n; m_simplifier->pop(n); }
     bool assert_expr(expr* f, bool sign) { m_scope_level++; return m_simplifier->assert_expr(f, sign); }
 
-    void init(goal& g);
+    bool init(goal& g);
 
 public:
     dom_simplify_tactic(ast_manager & m, dom_simplifier* s, params_ref const & p = params_ref()):
