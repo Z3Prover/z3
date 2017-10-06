@@ -689,7 +689,7 @@ namespace smt {
             SASSERT(!ctx().b_internalized(atom));
             bool_var bv = ctx().mk_bool_var(atom);
             ctx().set_var_theory(bv, get_id());
-            expr* n1, *n2;
+            expr* n1 = 0, *n2 = 0;
             rational r;
             lra_lp::bound_kind k;
             theory_var v = null_theory_var;

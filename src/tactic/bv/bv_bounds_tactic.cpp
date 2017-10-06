@@ -70,11 +70,13 @@ struct interval {
         if (is_wrapped()) {
             // l >= b.l >= b.h >= h
             return b.is_wrapped() && h <= b.h && l >= b.l;
-        } else if (b.is_wrapped()) {
+        } 
+        else if (b.is_wrapped()) {
             // b.l > b.h >= h >= l
             // h >= l >= b.l > b.h
             return h <= b.h || l >= b.l;
-        } else {
+        } 
+        else {
             // 
             return l >= b.l && h <= b.h;
         }

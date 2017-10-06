@@ -146,6 +146,7 @@ class expr_substitution_simplifier : public dom_simplifier {
     expr_substitution        m_subst;
     scoped_expr_substitution m_scoped_substitution;
     obj_map<expr, unsigned>  m_expr2depth;
+    expr_ref_vector          m_trail;
 
     // move from asserted_formulas to here..
     void compute_depth(expr* e);
@@ -153,7 +154,7 @@ class expr_substitution_simplifier : public dom_simplifier {
     unsigned depth(expr* e) { return m_expr2depth[e]; }
 
 public:
-    expr_substitution_simplifier(ast_manager& m): m(m), m_subst(m), m_scoped_substitution(m_subst) {}
+    expr_substitution_simplifier(ast_manager& m): m(m), m_subst(m), m_scoped_substitution(m_subst), m_trail(m) {}
     virtual ~expr_substitution_simplifier() {}
     virtual bool assert_expr(expr * t, bool sign);
 

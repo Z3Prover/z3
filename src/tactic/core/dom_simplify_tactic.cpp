@@ -430,6 +430,8 @@ void expr_substitution_simplifier::update_substitution(expr* n, proof* pr) {
     if (is_ground(n) && (m.is_eq(n, lhs, rhs) || m.is_iff(n, lhs, rhs))) {
         compute_depth(lhs);
         compute_depth(rhs);
+        m_trail.push_back(lhs);
+        m_trail.push_back(rhs);
         if (is_gt(lhs, rhs)) {
             TRACE("propagate_values", tout << "insert " << mk_pp(lhs, m) << " -> " << mk_pp(rhs, m) << "\n";);
             m_scoped_substitution.insert(lhs, rhs, pr);
