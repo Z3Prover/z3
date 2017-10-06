@@ -281,17 +281,28 @@ expr_ref dom_simplify_tactic::simplify_and_or(bool is_and, app * e) {
     };
 
     expr_ref_vector args(m);
-    for (expr * arg : *e) {
-        for (expr * child : tree(arg)) {
-            if (is_subexpr_arg(child, arg)) {
-                simplify(child);
-            }
-        }
-        r = simplify(arg);
-        args.push_back(r);
-        if (!assert_expr(simplify(arg), !is_and)) {
-            r = is_and ? m.mk_false() : m.mk_true();
-            return r;
+    if (m_forward) {
+        for (expr * arg : *e) {
+#define _SIMP_ARG(arg)                                          \
+            for (expr * child : tree(arg)) {                    \
+                if (is_subexpr_arg(child, arg)) {               \
+                    simplify(child);                            \
+                }                                               \
+            }                                                   \
+            r = simplify(arg);                                  \
+            args.push_back(r);                                  \
+            if (!assert_expr(simplify(arg), !is_and)) {         \
+                r = is_and ? m.mk_false() : m.mk_true();        \
+                return r;                                       \
+            }                                                   
+            _SIMP_ARG(arg);
+        }                                                                  
+    }
+    else {        
+        for (unsigned i = e->get_num_args(); i > 0; ) {
+            --i;
+            expr* arg = e->get_arg(i);
+            _SIMP_ARG(arg);
         }
     }
     pop(scope_level() - old_lvl);
@@ -319,6 +330,7 @@ void dom_simplify_tactic::simplify_goal(goal& g) {
         change = false;
 
         // go forwards
+        m_forward = true;
         if (!init(g)) return;
         unsigned sz = g.size();
         for (unsigned i = 0; !g.inconsistent() && i < sz; ++i) {
@@ -336,6 +348,7 @@ void dom_simplify_tactic::simplify_goal(goal& g) {
         pop(scope_level());
         
         // go backwards
+        m_forward = false;
         if (!init(g)) return;
         sz = g.size();
         for (unsigned i = sz; !g.inconsistent() && i > 0; ) {

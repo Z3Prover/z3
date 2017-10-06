@@ -96,6 +96,7 @@ private:
     unsigned             m_max_depth;
     ptr_vector<expr>     m_empty;
     obj_pair_map<expr, expr, bool> m_subexpr_cache;
+    bool                 m_forward;
 
     expr_ref simplify(expr* t);
     expr_ref simplify_ite(app * ite);
@@ -122,7 +123,7 @@ public:
         m(m), m_simplifier(s), m_params(p), 
         m_trail(m), m_args(m), 
         m_dominators(m), 
-        m_scope_level(0), m_depth(0), m_max_depth(1024) {}
+        m_scope_level(0), m_depth(0), m_max_depth(1024), m_forward(true) {}
 
 
     virtual ~dom_simplify_tactic() {}
