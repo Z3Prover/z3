@@ -57,6 +57,7 @@ public:
     bool compile(unsigned sz, expr * const* es);
     tree_t const& get_tree() { return m_tree; }
     void reset();
+    expr* idom(expr *e) const { return m_doms[e]; }
 
     std::ostream& display(std::ostream& out);
 };
@@ -113,6 +114,7 @@ class dom_simplify_tactic : public tactic {
     void cache(expr *t, expr* r) { m_result.insert(t, r); m_trail.push_back(r); }
 
     ptr_vector<expr> const & tree(expr * e);
+    expr* idom(expr *e) const { return m_dominators.idom(e); }
 
     unsigned scope_level() { return m_scope_level; }
     void pop(unsigned n) { SASSERT(n <= m_scope_level); m_scope_level -= n; m_simplifier->pop(n); }

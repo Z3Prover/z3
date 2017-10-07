@@ -257,11 +257,14 @@ expr_ref dom_simplify_tactic::simplify_arg(expr * e) {
     return r;
 }
 
+/**
+   \brief simplify e recursively.
+*/
 expr_ref dom_simplify_tactic::simplify_rec(expr * e0) {
     expr_ref r(m);
     expr* e = 0;
 
-    TRACE("simplify", tout << "depth: " << m_depth << " " << mk_pp(e0, m) << " -> " << r << "\n";);
+    TRACE("simplify", tout << "depth: " << m_depth << " " << mk_pp(e0, m) << "\n";);
     if (!m_result.find(e0, e)) {
         e = e0;
     }
@@ -408,6 +411,12 @@ void dom_simplify_tactic::simplify_goal(goal& g) {
     SASSERT(scope_level() == 0);
 }
 
+/**
+   \brief determine if a is dominated by b. 
+   Walk the immediate dominators of a upwards until hitting b or a term that is deeper than b.
+   Save intermediary results in a cache to avoid recomputations.
+*/
+
 bool dom_simplify_tactic::is_subexpr(expr * a, expr * b) {
     if (a == b)
         return true;
@@ -416,14 +425,13 @@ bool dom_simplify_tactic::is_subexpr(expr * a, expr * b) {
     if (m_subexpr_cache.find(a, b, r))
         return r;
 
-    for (expr * e : tree(b)) {
-        if (is_subexpr(a, e)) {
-            m_subexpr_cache.insert(a, b, true);
-            return true;
-        }
+    if (get_depth(a) >= get_depth(b)) {
+        return false;
     }
-    m_subexpr_cache.insert(a, b, false);   
-    return false;
+    SASSERT(a != idom(a) && get_depth(idom(a)) > get_depth(a));
+    r = is_subexpr(idom(a), b);
+    m_subexpr_cache.insert(a, b, r);   
+    return r;
 }
 
 ptr_vector<expr> const & dom_simplify_tactic::tree(expr * e) {
