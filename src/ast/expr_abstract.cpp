@@ -19,6 +19,7 @@ Notes:
 
 #include "ast/expr_abstract.h"
 #include "util/map.h"
+#include "ast/ast_pp.h"
 
 void expr_abstractor::operator()(unsigned base, unsigned num_bound, expr* const* bound, expr* n, expr_ref& result) {
     
@@ -109,6 +110,9 @@ void expr_abstractor::operator()(unsigned base, unsigned num_bound, expr* const*
 void expr_abstract(ast_manager& m, unsigned base, unsigned num_bound, expr* const* bound, expr* n, expr_ref&  result) {
     expr_abstractor abs(m);
     abs(base, num_bound, bound, n, result);
+    TRACE("expr_abstract",
+          tout << expr_ref(n, m) << "\n";
+          tout << result << "\n";);
 }
 
 expr_ref mk_quantifier(bool is_forall, ast_manager& m, unsigned num_bound, app* const* bound, expr* n) {
@@ -123,6 +127,11 @@ expr_ref mk_quantifier(bool is_forall, ast_manager& m, unsigned num_bound, app* 
         }
         result = m.mk_quantifier(is_forall, num_bound, sorts.c_ptr(), names.c_ptr(), result);
     }
+    TRACE("expr_abstract",
+          tout << expr_ref(n, m) << "\n";
+          for (unsigned i = 0; i < num_bound; ++i) tout << expr_ref(bound[i], m) << " ";
+          tout << "\n";
+          tout << result << "\n";);
     return result;
 
 }

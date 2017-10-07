@@ -33,9 +33,11 @@
 #include <fstream>
 #include <iostream>
 #include <ostream>
+#include <sstream>
 
 #include "ast/expr_abstract.h"
 #include "util/params.h"
+#include "ast/used_vars.h"
 
 
 using namespace stl_ext;
@@ -938,3 +940,30 @@ void iz3mgr::get_bound_substitutes(stl_ext::hash_map<ast,bool> &memo, const ast 
  
     }
 #endif
+
+unsigned  iz3mgr::num_free_variables(const ast &e){
+    used_vars uv;
+    uv(to_expr(e.raw()));
+    return uv.get_num_vars();
+}
+
+iz3mgr::ast iz3mgr::close_universally (ast e){
+   used_vars uv;
+   uv(to_expr(e.raw()));
+   std::vector<ast> bvs;
+   stl_ext::hash_map<ast,ast> subst_memo;
+   for (unsigned i = 0; i < uv.get_max_found_var_idx_plus_1(); i++){
+       if (uv.get(i)) {
+           std::ostringstream os;
+           os << "%%" << i;
+           ast c = make_var(os.str(),uv.get(i));
+           ast v = cook(m().mk_var(i,uv.get(i)));
+           subst_memo[v] = c;
+           bvs.push_back(c);
+       }
+   }
+   e = subst(subst_memo,e);
+   for (unsigned i = 0; i < bvs.size(); i++)
+       e = apply_quant(Forall,bvs[i],e);
+   return e;
+}

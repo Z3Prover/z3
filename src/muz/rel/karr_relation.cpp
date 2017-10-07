@@ -111,8 +111,8 @@ namespace datalog {
 
         void filter_interpreted(app* cond) {
             rational one(1), mone(-1);
-            expr* e1, *e2, *en;
-            var* v, *w;
+            expr* e1 = 0, *e2 = 0, *en = 0;
+            var* v = 0, *w = 0;
             rational n1, n2;
             expr_ref_vector conjs(m);
             flatten_and(cond, conjs);

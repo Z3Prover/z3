@@ -1180,8 +1180,6 @@ void fpa2bv_converter::mk_abs(sort * s, expr_ref & x, expr_ref & result) {
 
 void fpa2bv_converter::mk_min(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
     SASSERT(num == 2);
-    unsigned ebits = m_util.get_ebits(f->get_range());
-    unsigned sbits = m_util.get_sbits(f->get_range());
 
     expr * x = args[0], * y = args[1];
 
@@ -1227,8 +1225,6 @@ void fpa2bv_converter::mk_min(func_decl * f, unsigned num, expr * const * args, 
 
 void fpa2bv_converter::mk_max(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
     SASSERT(num == 2);
-    unsigned ebits = m_util.get_ebits(f->get_range());
-    unsigned sbits = m_util.get_sbits(f->get_range());
 
     expr * x = args[0], *y = args[1];
 
@@ -3081,8 +3077,6 @@ void fpa2bv_converter::mk_to_ieee_bv(func_decl * f, unsigned num, expr * const *
     mk_is_nan(x, x_is_nan);
 
     sort * fp_srt = m.get_sort(x);
-    unsigned ebits = m_util.get_ebits(fp_srt);
-    unsigned sbits = m_util.get_sbits(fp_srt);
 
     expr_ref unspec(m);
     mk_to_ieee_bv_unspecified(f, num, args, unspec);
