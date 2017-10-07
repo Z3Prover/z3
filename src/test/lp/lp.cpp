@@ -3155,7 +3155,7 @@ void test_integer_domain_randomly(integer_domain<int> & d) {
 
 void test_integer_domain() {
     integer_domain<int> d;
-    vector<integer_domain<int>> stack;
+    std::vector<integer_domain<int>> stack;
     for (int i = 0; i < 10000; i++) {
         test_integer_domain_randomly(d);
         stack.push_back(d);
@@ -3178,6 +3178,23 @@ void test_integer_domain() {
     }
 }
 
+void test_bound_of_cut_solver(cut_solver<int>& cs, unsigned ineq_index)  {
+    std::cout << "test_bound_of_cut_solver\n";
+    std::vector<int> coeffs;
+    auto q = cs.get_ineq(ineq_index);
+    for (auto t: q.m_poly.m_coeffs)
+        coeffs.push_back(t.second);
+    auto br = cs.bound(ineq_index, coeffs[0]);
+	std::cout << "bound for " << cs.get_column_name(coeffs[0]) << " is ";
+    br.print(std::cout);
+    std::cout << std::endl;
+
+	br = cs.bound(ineq_index, coeffs[1]);
+	std::cout << "bound for " << cs.get_column_name(coeffs[1]) << " is ";
+    br.print(std::cout);
+    std::cout << std::endl;
+}
+
 void test_cut_solver() {
     cut_solver<int> cs([](unsigned i)
                        {
@@ -3185,17 +3202,17 @@ void test_cut_solver() {
                            if (i == 1) return  std::string("y");
                            return std::to_string(i);
                        });
-    vector<std::pair<int, unsigned>> term;
+    std::vector<std::pair<int, unsigned>> term;
     unsigned x = 0;
     unsigned y = 1;
-    term.push_back(std::make_pair(2, x));
+    term.push_back(std::make_pair(8, x));
     term.push_back(std::make_pair(-3, y));
-    unsigned ineq_index = cs.add_ineq(term, mpq(3));
+    unsigned ineq_index = cs.add_ineq(term, 5);
 
 
     cs.print_ineq(ineq_index, std::cout);
     
-    mpq l;
+    int l;
     auto ineq = cs.m_ineqs[ineq_index];
     cs.add_lower_bound_for_user_var(x, 1);
     cs.add_lower_bound_for_user_var(y, 1);
@@ -3212,6 +3229,9 @@ void test_cut_solver() {
     } else {
         std::cout << "no lower" << std::endl;
     }
+
+    test_bound_of_cut_solver(cs, ineq_index);
+    
 }
 
 void test_lp_local(int argn, char**argv) {

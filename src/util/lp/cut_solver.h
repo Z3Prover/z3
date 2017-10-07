@@ -8,16 +8,17 @@
 #include "util/lp/lp_settings.h"
 #include "util/lp/column_namer.h"
 #include "util/lp/integer_domain.h"
+#include "util/lp/lp_utils.h"
 #include <functional>
 namespace lp {
 template <typename T>
 class cut_solver : public column_namer {
 public: // for debugging
     struct polynomial {
-        // the polynom evaluates to m_term + m_a
-        std::vector<std::pair<T, var_index>> m_term;
-        mpq m_a; // the free coefficient
-        polynomial(std::vector<std::pair<T, var_index>>& p, const mpq & a) : m_term(p), m_a(a) {
+        // the polynomial evaluates to m_coeffs + m_a
+        std::vector<std::pair<T, var_index>> m_coeffs;
+        T m_a; // the free coefficient
+        polynomial(std::vector<std::pair<T, var_index>>& p, const T & a) : m_coeffs(p), m_a(a) {
         }
         polynomial(std::vector<std::pair<T, var_index>>& p) : polynomial(p, 0) {
         }
@@ -26,7 +27,7 @@ public: // for debugging
     
     struct ineq { // we only have less or equal, which is enough for integral variables
         polynomial m_poly;
-        ineq(std::vector<std::pair<T, var_index>>& term, const mpq& a): m_poly(term, a) {
+        ineq(std::vector<std::pair<T, var_index>>& term, const T& a): m_poly(term, a) {
         }
     };
 
@@ -44,6 +45,9 @@ public: // for debugging
         BOUND
     };
 
+    enum class bound_type {
+        LOWER, UPPER, UNDEF
+    };
     struct literal {
         literal_type m_tag;
         bool m_sign; // true means the pointed inequality is negated, or bound is negated, or boolean value is negated
@@ -51,13 +55,36 @@ public: // for debugging
         unsigned m_id;
         unsigned m_index_of_ineq; // index into m_ineqs
         bool m_bool_val; // used if m_tag is equal to BOOL
-        mpq m_bound; // used if m_tag is BOUND
+        T m_bound; // used if m_tag is BOUND
         literal(bool sign, bool val):  m_tag(literal_type::BOOL),
             m_bool_val(val){
         } 
         literal(bool sign, unsigned index_of_ineq) : m_tag(literal_type::INEQ), m_index_of_ineq(index_of_ineq) {}
     };    
 
+    
+    struct bound_result {
+        T m_bound;
+        bound_type m_type;
+        
+        bound_result() {}
+        bound_result(const T & b, bound_type bt): m_bound(b), m_type(bt) {}
+        bound_result(bound_type bt) : m_type(bt) {}
+        void print( std::ostream & out) const {
+            if (m_type == bound_type::LOWER) {
+                out << "lower bound = ";
+            }
+            else if (m_type == bound_type::UPPER) {
+                out << "upper bound = ";
+            }
+            else {
+                out << "undef";
+                return;
+            }
+            out << m_bound;
+        }
+    };
+    
     struct var_info {
         unsigned m_user_var_index;
         var_info(unsigned user_var_index) : m_user_var_index(user_var_index) {}
@@ -79,16 +106,24 @@ public: // for debugging
         return m_var_name_function(m_var_infos[j].m_user_var_index);
     }
 
-    unsigned add_ineq(std::vector<std::pair<T, var_index>> & lhs, const mpq& free_coeff) {
+    unsigned add_ineq(std::vector<std::pair<T, var_index>> & lhs, const T& free_coeff) {
         lp_assert(lhs_is_int(lhs));
-        lp_assert(free_coeff.is_int());
+        lp_assert(is_int(free_coeff));
         std::vector<std::pair<T, var_index>>  local_lhs;
         for (auto & p : lhs)
             local_lhs.push_back(std::make_pair(p.first, add_var(p.second)));
         m_ineqs.push_back(ineq(local_lhs, free_coeff));
         return m_ineqs.size() - 1;
     }
-        
+
+    ineq & get_ineq(unsigned i) {
+        return m_ineqs[i];
+    }
+    
+    const ineq & get_ineq(unsigned i) const {
+        return m_ineqs[i];
+    }
+    
     std::function<std::string (unsigned)> m_var_name_function;
     bool m_inconsistent;   // tracks if state is consistent
     unsigned m_scope_lvl;  // tracks the number of case splits
@@ -293,7 +328,12 @@ public: // for debugging
 
     bool inconsistent() const { return m_inconsistent; }
 
-    bool get_var_low_bound(var_index i, T & bound) const {
+    bool var_lower_bound_exists(var_info i) const {
+        const var_info & v = m_var_infos[i];
+        return v.m_domain.lower_bound_exists();
+    }
+    
+    bool get_var_lower_bound(var_index i, T & bound) const {
         const var_info & v = m_var_infos[i];
         return v.m_domain.get_lower_bound(bound);
     }
@@ -303,14 +343,41 @@ public: // for debugging
         return v.m_domain.get_upper_bound(bound);
     }
 
+    bool lower_monomial_exists(const std::pair<T, var_index> & p) const {
+        lp_assert(p.first != 0);
+
+        if (p.first > 0) {
+            if (!m_var_infos[p.second].m_domain.lower_bound_exists())
+                return false;
+        }
+        else {
+            if (!m_var_infos[p.second].m_domain.upper_bound_exists())
+                return false;
+        }
+        return true;
+    }
+
+    bool upper_monomial_exists(const std::pair<T, var_index> & p) const {
+        lp_assert(p.first != 0);
+        if (p.first > 0) {
+            if (!m_var_infos[p.second].m_domain.upper_bound_exists())
+                return false;
+        }
+        else {
+            if (!m_var_infos[p.second].m_domain.lower_bound_exists())
+                return false;
+        }
+        return true;
+    }
+
     
     // finds the lower bound of the monomial,
     // otherwise returns false
-    bool lower_monomial(const std::pair<T, var_index> & p, mpq & lb) const {
+    bool lower_monomial(const std::pair<T, var_index> & p, T & lb) const {
         lp_assert(p.first != 0);
         T var_bound;
         if (p.first > 0) {
-            if (!get_var_low_bound(p.second, var_bound))
+            if (!get_var_lower_bound(p.second, var_bound))
                 return false;
             lb = p.first * var_bound;
         }
@@ -321,30 +388,145 @@ public: // for debugging
         }
         return true;
     }
+
+    bool upper_monomial(const std::pair<T, var_index> & p, T & lb) const {
+        lp_assert(p.first != 0);
+        T var_bound;
+        if (p.first > 0) {
+            if (!get_var_upper_bound(p.second, var_bound))
+                return false;
+        }
+        else {
+            if (!get_var_lower_bound(p.second, var_bound))
+                return false;
+        }
+        lb = p.first * var_bound;
+        return true;
+    }
+
+    
     
     // returns false if not limited from below
     // otherwise the answer is put into lp
-    bool lower(const polynomial & f, mpq & lb) const {
-        lb = 0;
-        mpq lm;
-        for (const auto & p : f.m_term) {
+    bool lower(const polynomial & f, T & lb) const {
+        lb = f.m_a;
+        T lm;
+        for (const auto & p : f.m_coeffs) {
             if (lower_monomial(p, lm)) {
                 lb += lm;
             } else {
                 return false;
             }
         }
-        lb += f.m_a;
         return true;
     }
 
+
+    const T & coeff(const polynomial & p, var_index j) const {
+        for (const auto & t : p.m_coeffs) {
+            if (j == t.second) {
+                return t.first;
+            }
+        }
+        lp_unreachable();
+        return p.m_coeffs[0].first; // does not matter
+    }
+    
+    
+    const T & coeff(const ineq & q, var_index j) const {
+        return coeff(q.m_poly, j);
+    }
+
+    bound_result lower_without(const polynomial & p, var_index j) const {
+        bound_result r;
+        for (const auto & t:  p.m_coeffs) {
+            if (t.second == j)
+                continue;
+            if (!lower_monomial_exists(t)) {
+                r.m_type = bound_type::UNDEF;
+                return r;
+            }
+        }
+        // if we are here then there is a lower bound for p
+        r.m_bound = p.m_a;
+        for (const auto & t:  p.m_coeffs) {
+            if (t.second == j)
+                continue;
+
+            T l;
+            lower_monomial(t, l);
+            r.m_bound += l;
+        }
+        r.m_type = bound_type::LOWER;
+        return r;
+    }
+
+    bound_result upper_without(const polynomial & p, var_index j) const {
+        bound_result r;
+        for (const auto & t:  p.m_coeffs) {
+            if (t.second == j)
+                continue;
+            if (!upper_monomial_exists(t)) {
+                r.m_type = bound_type::UNDEF;
+                return r;
+            }
+        }
+        // if we are here then there is an upper bound for p
+        r.m_bound = p.m_a;
+        for (const auto & t:  p.m_coeffs) {
+            if (t.second == j)
+                continue;
+            T b;
+            upper_monomial(t, b);
+            r.m_bound += b;
+        }
+        r.m_type = bound_type::UPPER;
+        return r;
+    }
+
+    
+    // a is the coefficient before j
+    bound_result bound_on_polynomial(const polynomial & p, const T& a, var_index j) const {
+        lp_assert(!is_zero(a));
+        if (numeric_traits<T>::is_pos(a)) {
+            bound_result r = upper_without(p, j);
+            if (r.m_type == bound_type::UNDEF)
+                return r;
+            lp_assert(is_int(r.m_bound));
+            r.m_bound = - ceil_ratio(r.m_bound , a);
+            r.m_type = bound_type::UPPER;
+            return r;
+        }
+        else {
+            bound_result r = lower_without(p, j);
+            if (r.m_type == bound_type::UNDEF)
+                return r;
+            r.m_bound = -floor_ratio(r.m_bound, a);
+            r.m_type = bound_type::LOWER;
+            return r;
+        }
+    }
+    
+
+    
+    bound_result bound(const ineq & q, var_index j) const {
+        const T& a = coeff(q.m_poly, j);
+        return bound_on_polynomial(q.m_poly, a, j);
+    }
+
+    bound_result bound(unsigned ineq_index, var_index j) const {
+        return bound(m_ineqs[ineq_index], j);
+    }
+
+    
+    
     void print_ineq(unsigned i, std::ostream & out) {
         print_polynomial(m_ineqs[i].m_poly, out);
         out << " <= 0" << std::endl;
     }
 
     void print_polynomial(const polynomial & p, std::ostream & out) {
-        this->print_linear_combination_of_column_indices(p.m_term, out);
+        this->print_linear_combination_of_column_indices_std(p.m_coeffs, out);
         if (!is_zero(p.m_a)) {
             if (p.m_a < 0) {
                 out << " - " << -p.m_a;

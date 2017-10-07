@@ -864,6 +864,23 @@ public:
         return true;
     }
 
+    bool lower_bound_exists() const {
+        if (m_empty)
+            return false;
+        if (has_neg_inf())
+            return false;
+        return true;
+    }
+
+    bool upper_bound_exists() const {
+        if (m_empty)
+            return false;
+        if (has_pos_inf())
+            return false;
+        return true;
+    }
+
+    
     bool get_upper_bound(T& b) const {
         if (m_empty)
             return false;
