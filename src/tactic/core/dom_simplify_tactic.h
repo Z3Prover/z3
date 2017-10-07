@@ -99,7 +99,8 @@ class dom_simplify_tactic : public tactic {
     obj_pair_map<expr, expr, bool> m_subexpr_cache;
     bool                 m_forward;
 
-    expr_ref simplify(expr* t, bool cache);
+    expr_ref simplify_rec(expr* t);
+    expr_ref simplify_arg(expr* t);
     expr_ref simplify_ite(app * ite);
     expr_ref simplify_and(app * ite) { return simplify_and_or(true, ite); }
     expr_ref simplify_or(app * ite) { return simplify_and_or(false, ite); }

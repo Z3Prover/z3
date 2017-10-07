@@ -210,31 +210,31 @@ expr_ref dom_simplify_tactic::simplify_ite(app * ite) {
     expr * c = 0, *t = 0, *e = 0;
     VERIFY(m.is_ite(ite, c, t, e));
     unsigned old_lvl = scope_level();
-    expr_ref new_c = simplify(c, false);
+    expr_ref new_c = simplify_arg(c);
     if (m.is_true(new_c)) {
-        r = simplify(t, false);
+        r = simplify_arg(t);
     } 
     else if (m.is_false(new_c) || !assert_expr(new_c, false)) {
-        r = simplify(e, false);
+        r = simplify_arg(e);
     } 
     else {
         for (expr * child : tree(ite)) {
             if (is_subexpr(child, t) && !is_subexpr(child, e)) {
-                simplify(child, true);
+                simplify_rec(child);
             }
         }
         pop(scope_level() - old_lvl);
-        expr_ref new_t = simplify(t, false);
+        expr_ref new_t = simplify_arg(t);
         if (!assert_expr(new_c, true)) {
             return new_t;
         }
         for (expr * child : tree(ite)) {
             if (is_subexpr(child, e) && !is_subexpr(child, t)) {
-                simplify(child, true);
+                simplify_rec(child);
             }
         }
         pop(scope_level() - old_lvl);
-        expr_ref new_e = simplify(e, false);
+        expr_ref new_e = simplify_arg(e);
         if (c == new_c && t == new_t && e == new_e) {
             r = ite;
         }
@@ -249,7 +249,15 @@ expr_ref dom_simplify_tactic::simplify_ite(app * ite) {
     return r;
 }
 
-expr_ref dom_simplify_tactic::simplify(expr * e0, bool cache_result) {
+expr_ref dom_simplify_tactic::simplify_arg(expr * e) {
+    expr_ref r(m);    
+    r = get_cached(e);
+    (*m_simplifier)(r);
+    TRACE("simplify", tout << "depth: " << m_depth << " " << mk_pp(e, m) << " -> " << r << "\n";);
+    return r;
+}
+
+expr_ref dom_simplify_tactic::simplify_rec(expr * e0) {
     expr_ref r(m);
     expr* e = 0;
 
@@ -273,14 +281,12 @@ expr_ref dom_simplify_tactic::simplify(expr * e0, bool cache_result) {
     }
     else {
         for (expr * child : tree(e)) {
-            simplify(child, true);
+            simplify_rec(child);
         }
         if (is_app(e)) {
             m_args.reset();
             for (expr* arg : *to_app(e)) {
-                r = get_cached(arg);
-                (*m_simplifier)(r);
-                m_args.push_back(r); 
+                m_args.push_back(simplify_arg(arg)); 
             }
             r = m.mk_app(to_app(e)->get_decl(), m_args.size(), m_args.c_ptr());
         }
@@ -289,7 +295,7 @@ expr_ref dom_simplify_tactic::simplify(expr * e0, bool cache_result) {
         }
     }
     (*m_simplifier)(r);
-    if (cache_result) cache(e0, r);
+    cache(e0, r);
     TRACE("simplify", tout << "depth: " << m_depth << " " << mk_pp(e0, m) << " -> " << r << "\n";);
     --m_depth;
     m_subexpr_cache.reset();
@@ -316,10 +322,10 @@ expr_ref dom_simplify_tactic::simplify_and_or(bool is_and, app * e) {
 #define _SIMP_ARG(arg)                                          \
             for (expr * child : tree(arg)) {                    \
                 if (is_subexpr_arg(child, arg)) {               \
-                    simplify(child, true);                      \
+                    simplify_rec(child);                        \
                 }                                               \
             }                                                   \
-            r = simplify(arg, false);                           \
+            r = simplify_arg(arg);                              \
             args.push_back(r);                                  \
             if (!assert_expr(r, !is_and)) {                     \
                 r = is_and ? m.mk_false() : m.mk_true();        \
@@ -365,7 +371,7 @@ void dom_simplify_tactic::simplify_goal(goal& g) {
         if (!init(g)) return;
         unsigned sz = g.size();
         for (unsigned i = 0; !g.inconsistent() && i < sz; ++i) {
-            expr_ref r = simplify(g.form(i), true);
+            expr_ref r = simplify_rec(g.form(i));
             if (i < sz - 1 && !m.is_true(r) && !m.is_false(r) && !g.dep(i) && !g.proofs_enabled() && !assert_expr(r, false)) {
                 r = m.mk_false();
             }
@@ -385,7 +391,7 @@ void dom_simplify_tactic::simplify_goal(goal& g) {
         sz = g.size();
         for (unsigned i = sz; !g.inconsistent() && i > 0; ) {
             --i;
-            expr_ref r = simplify(g.form(i), true);
+            expr_ref r = simplify_rec(g.form(i));
             if (i > 0 && !m.is_true(r) && !m.is_false(r) && !g.dep(i) && !g.proofs_enabled() && !assert_expr(r, false)) {
                 r = m.mk_false();
             }
