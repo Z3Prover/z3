@@ -79,7 +79,7 @@ namespace sat {
             void set_size(unsigned sz) { SASSERT(sz <= m_size); m_size = sz; }
             void update_literal(literal l) { m_lit = l; }
             bool was_removed() const { return m_removed; }
-            void remove() { m_removed = true; }
+            void set_removed() { m_removed = true; }
             void nullify_literal() { m_lit = null_literal; }
             unsigned glue() const { return m_glue; }
             void set_glue(unsigned g) { m_glue = g; }          
@@ -199,7 +199,7 @@ namespace sat {
             svector<uint64> m_coeffs;
             uint64        m_k;
             void reset(uint64 k) { m_lits.reset(); m_coeffs.reset(); m_k = k; }
-            void push(literal l, unsigned c) { m_lits.push_back(l); m_coeffs.push_back(c); }
+            void push(literal l, uint64 c) { m_lits.push_back(l); m_coeffs.push_back(c); }
         };
 
         solver*                m_solver;
@@ -286,7 +286,7 @@ namespace sat {
         void cleanup_constraints();
         void cleanup_constraints(ptr_vector<constraint>& cs, bool learned);
         void ensure_external(constraint const& c);
-        void remove_constraint(constraint& c);
+        void remove_constraint(constraint& c, char const* reason);
 
         // constraints
         constraint& index2constraint(size_t idx) const { return *reinterpret_cast<constraint*>(idx); }        
@@ -304,6 +304,7 @@ namespace sat {
         void nullify_tracking_literal(constraint& c);
         void set_conflict(constraint& c, literal lit);
         void assign(constraint& c, literal lit);
+        bool assigned_above(literal above, literal below);
         void get_antecedents(literal l, constraint const& c, literal_vector & r);
         bool validate_conflict(constraint const& c) const;
         bool validate_unit_propagation(constraint const& c, literal alit) const;
@@ -402,8 +403,13 @@ namespace sat {
         bool validate_watch_literals() const;
         bool validate_watch_literal(literal lit) const;
         bool validate_watched_constraint(constraint const& c) const;
-        bool validate_watch(pb const& p) const;
+        bool validate_watch(pb const& p, literal alit) const;
         bool is_watching(literal lit, constraint const& c) const;
+        literal translate_to_sat(solver& s, u_map<bool_var>& translation, ineq const& pb);
+        literal translate_to_sat(solver& s, u_map<bool_var>& translation, ineq& a, ineq& b);
+        literal translate_to_sat(solver& s, u_map<bool_var>& translation, literal lit);
+        ineq negate(ineq const& a) const;
+        void push_lit(literal_vector& lits, literal lit);
 
         ineq m_A, m_B, m_C;
         void active2pb(ineq& p);
