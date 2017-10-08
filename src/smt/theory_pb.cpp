@@ -474,7 +474,6 @@ namespace smt {
         if (pb.is_aux_bool(atom)) {
             bool_var abv = ctx.mk_bool_var(atom);
             ctx.set_var_theory(abv, get_id());
-            std::cout << "aux bool " << ctx.get_scope_level() << " " << mk_pp(atom, get_manager()) << " " << literal(abv) << "\n";
             return true;
         }
 

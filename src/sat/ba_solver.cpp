@@ -381,7 +381,7 @@ namespace sat {
         }
         else if (slack + true_val < p.k()) {
             if (p.lit() != null_literal) {
-                display(std::cout << "assign false literal ", p, true);
+                IF_VERBOSE(10, display(verbose_stream() << "assign false literal ", p, true););
                 s().assign(~p.lit(), justification());
             }
             else {
@@ -392,7 +392,6 @@ namespace sat {
         }
         else if (slack + true_val == p.k()) {
             literal_vector lits(p.literals());    
-            display(std::cout << "replace", p, true);
             assert_unconstrained(p.lit(), lits);
             remove_constraint(p, "is tight");
         }
@@ -1075,7 +1074,6 @@ namespace sat {
         int64 new_bound = m_bound;
         new_bound += i;
         if (new_bound < 0) {
-            // std::cout << "new negative bound " << new_bound << "\n";
             m_overflow = true;
         }
         else if (new_bound > UINT_MAX) {
@@ -1547,7 +1545,6 @@ namespace sat {
     }
 
     void ba_solver::add_constraint(constraint* c) {
-        // display(std::cout << "add " << c->learned() << " " << c->id() << "\n", *c, true);
         literal_vector lits(c->literals());
         if (c->learned()) {
             m_learned.push_back(c);
@@ -3093,7 +3090,6 @@ namespace sat {
                     remove_constraint(c2, "subsumed");
                     ++m_stats.m_num_pb_subsumes;
                     c1.set_learned(false);
-                    std::cout << c1 << " subsumes " << c2 << "\n";
                 }
                 else {
                     TRACE("ba", tout << "self subsume cardinality\n";);
@@ -3130,7 +3126,6 @@ namespace sat {
                     removed_clauses.push_back(&c2);
                     ++m_stats.m_num_clause_subsumes;
                     c1.set_learned(false);
-                    std::cout << c1 << " subsumes " << c2 << "\n";
                 }
                 else {
                     IF_VERBOSE(0, verbose_stream() << "self-subsume clause is TBD\n";);
@@ -3157,7 +3152,6 @@ namespace sat {
                 // IF_VERBOSE(10, verbose_stream() << c1 << " subsumes (" << lit << " " << w.get_literal() << ")\n";);
                 if (!w.is_binary_non_learned_clause()) {
                     c1.set_learned(false);
-                    std::cout << c1 << " subsumes " << lit << " " << w.get_literal() << "\n";
                 }
             }
             else {
@@ -3216,7 +3210,6 @@ namespace sat {
       \brief lit <=> conjunction of unconstrained lits
      */
     void ba_solver::assert_unconstrained(literal lit, literal_vector const& lits) {
-        std::cout << "assert unconstrained\n";
         if (lit == null_literal) {
             for (literal l : lits) {
                 if (value(l) == l_undef) {
@@ -3519,14 +3512,15 @@ namespace sat {
         // all elements of r are true, 
         for (literal l : r) {
             if (value(l) != l_true) {
-                std::cout << "value of " << l << " is " << value(l) << "\n";
-                display(std::cout, p, true);
+                IF_VERBOSE(0, verbose_stream() << "value of " << l << " is " << value(l) << "\n";
+                           display(verbose_stream(), p, true););
                 return false;
             }
             if (value(alit) == l_true && lvl(l) > lvl(alit)) {
-                std::cout << "level of premise " << l << " is " << lvl(l) << "\n";
-                std::cout << "level of asserting literal " << alit << " is " << lvl(alit) << "\n";
-                display(std::cout, p, true);
+                IF_VERBOSE(0, 
+                           verbose_stream() << "level of premise " << l << " is " << lvl(l) << "\n";
+                           verbose_stream() << "level of asserting literal " << alit << " is " << lvl(alit) << "\n";
+                           display(verbose_stream(), p, true););
                 return false;                
             }
             // if (value(alit) == l_true && lvl(l) == lvl(alit)) {
@@ -3547,14 +3541,15 @@ namespace sat {
             }
         }
         if (sum >= p.k()) {
-            std::cout << "sum is " << sum << " >= " << p.k() << "\n";
-            display(std::cout, p, true);
-            std::cout << "id: " << p.id() << "\n";
-            sum = 0;
-            for (wliteral wl : p) sum += wl.first;
-            std::cout << "overall sum " << sum << "\n";
-            std::cout << "asserting literal: " << alit << "\n";
-            std::cout << "reason: " << r << "\n";
+            IF_VERBOSE(0,             
+                       verbose_stream() << "sum is " << sum << " >= " << p.k() << "\n";
+                       display(verbose_stream(), p, true);
+                       verbose_stream() << "id: " << p.id() << "\n";
+                       sum = 0;
+                       for (wliteral wl : p) sum += wl.first;
+                       verbose_stream() << "overall sum " << sum << "\n";
+                       verbose_stream() << "asserting literal: " << alit << "\n";
+                       verbose_stream() << "reason: " << r << "\n";);
             return false;
         }
         for (wliteral wl : p) {
@@ -3562,7 +3557,7 @@ namespace sat {
                 return true;
             }
         }
-        std::cout << alit << " not found among literals\n";
+        IF_VERBOSE(0, verbose_stream() << alit << " not found among literals\n";);
         return false;
     }
 
@@ -3728,7 +3723,6 @@ namespace sat {
         constraint* c = add_at_least(null_literal, lits, k, true);      
 
         if (c) {
-            std::cout << *c << "\n";
             lits.reset();
             for (wliteral wl : m_wlits) {
                 if (value(wl.second) == l_false) lits.push_back(wl.second);        
