@@ -229,7 +229,6 @@ namespace sat {
         cleanup_clauses(roots, m_solver.m_learned);
         if (m_solver.inconsistent()) return;
         save_elim(roots, to_elim);
-        VERIFY(check_clauses(roots));
         m_solver.propagate(false);
         SASSERT(check_clauses(roots));
     }

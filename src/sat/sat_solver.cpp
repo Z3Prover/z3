@@ -372,9 +372,6 @@ namespace sat {
 
     clause * solver::mk_nary_clause(unsigned num_lits, literal * lits, bool learned) {
         m_stats.m_mk_clause++;
-        for (unsigned i = 0; i + 1 < num_lits; ++i) {
-            VERIFY (lits[i] != ~lits[i + 1]);
-        }
         clause * r = m_cls_allocator.mk_clause(num_lits, lits, learned);
         SASSERT(!learned || r->is_learned());
         bool reinit = attach_nary_clause(*r);

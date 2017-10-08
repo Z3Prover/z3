@@ -1387,7 +1387,6 @@ namespace sat {
             IF_VERBOSE(20, verbose_stream() << "(sat.card slack: " << slack << " skipped: " << num_skipped << ")\n";);
             return false;
         }
-
         
         if (m_lemma[0] == null_literal) {
             if (m_lemma.size() == 1) {
