@@ -558,14 +558,13 @@ void mpz_manager<SYNCH>::big_rem(mpz const & a, mpz const & b, mpz & c) {
 
 template<bool SYNCH>
 void mpz_manager<SYNCH>::gcd(mpz const & a, mpz const & b, mpz & c) {
-    if (is_small(a) && is_small(b)) {
+    COMPILE_TIME_ASSERT(sizeof(a.m_val) == sizeof(int));
+    if (is_small(a) && is_small(b) && a.m_val != INT_MIN && b.m_val != INT_MIN) {
         int _a = a.m_val;
         int _b = b.m_val;
         if (_a < 0) _a = -_a;
         if (_b < 0) _b = -_b;
         unsigned r = u_gcd(_a, _b);
-        // Remark: r is (INT_MAX + 1)
-        // If a == b == INT_MIN
         set(c, r);
     }
     else {
