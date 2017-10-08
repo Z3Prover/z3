@@ -96,7 +96,7 @@ class ast_r : public ast_i {
 
  ast_r(const ast_r &other) : ast_i(other) {
         _m = other._m;
-        _m->inc_ref(_ast);
+        if (_m) _m->inc_ref(_ast);
     }
 
     ast_r &operator=(const ast_r &other) {
@@ -104,7 +104,7 @@ class ast_r : public ast_i {
             _m->dec_ref(_ast);
         _ast = other._ast;
         _m = other._m;
-        _m->inc_ref(_ast);
+        if (_m) _m->inc_ref(_ast);
         return *this;
     }
 

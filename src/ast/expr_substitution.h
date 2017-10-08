@@ -50,6 +50,8 @@ public:
     bool contains(expr * s);
     void reset();
     void cleanup();
+
+    std::ostream& display(std::ostream& out);
 };
 
 class scoped_expr_substitution {
@@ -84,6 +86,7 @@ public:
     bool find(expr * s, expr * & def, proof * & def_pr, expr_dependency * & def_dep) { return m_subst.find(s, def, def_pr, def_dep); }
     bool contains(expr * s) { return m_subst.contains(s); }
     void cleanup() { m_subst.cleanup(); }
+    std::ostream& display(std::ostream& out) { return m_subst.display(out); }
 };
 
 #endif

@@ -33,6 +33,7 @@ template void indexed_vector<unsigned>::resize(unsigned int);
 template void indexed_vector<mpq>::set_value(const mpq&, unsigned int);
 template void indexed_vector<unsigned>::set_value(const unsigned&, unsigned int);
 #ifdef Z3DEBUG
+template bool indexed_vector<unsigned>::is_OK() const;
 template bool indexed_vector<double>::is_OK() const;
 template bool indexed_vector<mpq>::is_OK() const;
 template bool indexed_vector<lp::numeric_pair<mpq> >::is_OK() const;
