@@ -363,8 +363,8 @@ namespace sat {
         }
         if (p.k() == 1 && p.lit() == null_literal) {
             literal_vector lits(p.literals());
-            IF_VERBOSE(10, display(verbose_stream() << "add clause: " << lits << "\n", p, true););
             s().mk_clause(lits.size(), lits.c_ptr(), p.learned());
+            IF_VERBOSE(10, display(verbose_stream() << "add clause: " << lits << "\n", p, true););
             remove_constraint(p, "implies clause");
         }
         else if (true_val == 0 && num_false == 0) {
@@ -415,8 +415,8 @@ namespace sat {
             p.set_k(p.k() - true_val);
 
             if (p.k() == 1 && p.lit() == null_literal) {
-                literal_vector lits(p.literals());
-                s().mk_clause(lits.size(), lits.c_ptr(), p.learned());
+                literal_vector lits(sz, p.literals().c_ptr());
+                s().mk_clause(sz, lits.c_ptr(), p.learned());
                 remove_constraint(p, "is clause");
                 return;
             }
@@ -501,7 +501,7 @@ namespace sat {
 
     // watch a prefix of literals, such that the slack of these is >= k
     bool ba_solver::init_watch(pb& p, bool is_true) {
-        clear_watch(p);
+        clear_watch(p);        
         if (p.lit() != null_literal && p.lit().sign() == is_true) {
             p.negate();
         }
@@ -756,14 +756,13 @@ namespace sat {
         unsigned k = p.k();
         unsigned sz = p.size();
         bool all_units = true;
+        unsigned j = 0;
         for (unsigned i = 0; i < sz && 0 < k; ++i) {
             literal l = p[i].second;
             unsigned w1 = m_weights[l.index()];
             unsigned w2 = m_weights[(~l).index()];
             if (w1 == 0 || w1 < w2) {
-                p.swap(i, sz - 1);
-                --sz;
-                --i;
+                continue;
             }
             else if (k <= w2) {
                 k = 0;
@@ -776,16 +775,16 @@ namespace sat {
                 m_weights[l.index()] = 0;
                 m_weights[(~l).index()] = 0;        
                 if (w1 == 0) {
-                    p.swap(i, sz - 1);
-                    --sz;
-                    --i;
+                    continue;
                 }    
                 else {
-                    p[i] = wliteral(w1, l);            
+                    p[j] = wliteral(w1, l);            
                     all_units &= w1 == 1;
+                    ++j;
                 }
             }
         }
+        sz = j;
         // clear weights
         for (wliteral wl : p) {
             m_weights[wl.second.index()] = 0;
@@ -800,27 +799,28 @@ namespace sat {
             return;
         }
 
-        if (k == 1 && p.lit() == null_literal) {
-            literal_vector lits(p.literals());
+        else if (k == 1 && p.lit() == null_literal) {
+            literal_vector lits(sz, p.literals().c_ptr());
             s().mk_clause(sz, lits.c_ptr(), p.learned());
             remove_constraint(p, "recompiled to clause");
             return;
         }
 
-        if (all_units) {
+        else if (all_units) {
             literal_vector lits(sz, p.literals().c_ptr());
             add_at_least(p.lit(), lits, k, p.learned());
             remove_constraint(p, "recompiled to cardinality");
             return;
         }
 
-        p.set_size(sz);
-        p.set_k(k);
-        SASSERT(p.well_formed());
-
-        // this could become a cardinality constraint by now.
-        if (p.lit() == null_literal || value(p.lit()) == l_true) {
-            init_watch(p, true);
+        else {
+            p.set_size(sz);
+            p.set_k(k);
+            SASSERT(p.well_formed());
+            
+            if (p.lit() == null_literal || value(p.lit()) == l_true) {
+                init_watch(p, true);
+            }
         }
     }
 
@@ -1281,12 +1281,7 @@ namespace sat {
         if (!create_asserting_lemma()) {
             goto bail_out;
         }
-        
         active2card();
-
-        if (m_overflow) {
-            goto bail_out;
-        }
 
         DEBUG_CODE(VERIFY(validate_conflict(m_lemma, m_A)););
         
@@ -1407,7 +1402,7 @@ namespace sat {
             IF_VERBOSE(10, verbose_stream() << "(sat.backjump :new-level " << m_conflict_lvl << " :old-level " << old_level << ")\n";);
             goto adjust_conflict_level;
         }
-        return true;
+        return !m_overflow;
     }
 
     /*
@@ -2564,7 +2559,6 @@ namespace sat {
         if (m_roots.empty()) return;
 
         // validate();
-
         m_visited.resize(s().num_vars()*2, false);
         m_constraint_removed = false;
         for (unsigned sz = m_constraints.size(), i = 0; i < sz; ++i) 
@@ -2572,7 +2566,6 @@ namespace sat {
         for (unsigned sz = m_learned.size(), i = 0; i < sz; ++i) 
             flush_roots(*m_learned[i]);
         cleanup_constraints();
-
         // validate();
     }
 
@@ -2596,6 +2589,7 @@ namespace sat {
     }
 
     void ba_solver::recompile(card& c) {
+        // pre-condition is that the literals, except c.lit(), in c are watched.
         if (c.id() == _bad_id) std::cout << "recompile: " << c << "\n";
         // IF_VERBOSE(0, verbose_stream() << "re: " << c << "\n";);
         m_weights.resize(2*s().num_vars(), 0);
@@ -2606,14 +2600,14 @@ namespace sat {
         bool all_units = true;
         unsigned sz = c.size();
         unsigned_vector coeffs;
+        literal_vector lits;
+        unsigned j = 0;
         for (unsigned i = 0; i < sz && 0 < k; ++i) {
             literal l = c[i];
             unsigned w = m_weights[l.index()];
             unsigned w2 = m_weights[(~l).index()];
             if (w == 0 || w < w2) {
-                c.swap(i, sz - 1);
-                --sz;
-                --i;
+                continue;
             }
             else if (k <= w2) {
                 k = 0;
@@ -2626,36 +2620,37 @@ namespace sat {
                 m_weights[(~l).index()] = 0;        
                 m_weights[l.index()] = 0;        
                 if (w == 0) {
-                    c.swap(i, sz - 1);
-                    --sz;
-                    --i;
+                    continue;
                 }    
                 else {
                     all_units &= (w == 1);
                     coeffs.push_back(w);
+                    c[j++] = l;
                 }
             }
         }
+        sz = j;
+
         // clear weights
         for (literal l : c) {
             m_weights[l.index()] = 0;
             m_weights[(~l).index()] = 0;
         }       
 
-        if (k == 0) {
+        if (k == 0 && c.lit() == null_literal) {
             remove_constraint(c, "recompiled to true");
             return;
         }
 
-        if (k == 1) {
-            literal_vector lits(c.size(), c.begin());
-            s().mk_clause(lits.size(), lits.c_ptr(), c.learned());
+        if (k == 1 && c.lit() == null_literal) {
+            literal_vector lits(sz, c.literals().c_ptr());
+            s().mk_clause(sz, lits.c_ptr(), c.learned());
             remove_constraint(c, "recompiled to clause");
             return;
         }
 
         c.set_size(sz);
-        c.set_k(k);        
+        c.set_k(k);    
 
         if (!all_units) {            
             TRACE("ba", tout << "replacing by pb: " << c << "\n";);
@@ -2671,6 +2666,7 @@ namespace sat {
             if (c.lit() == null_literal || value(c.lit()) == l_true) {
                 init_watch(c, true);
             }
+            SASSERT(c.lit() == null_literal || is_watched(c.lit(), c));
             SASSERT(c.well_formed());
         }        
     }
@@ -2692,7 +2688,6 @@ namespace sat {
             found = m_root_vars[c.get_lit(i).var()];
         }
         if (!found) return;
-        //std::cout << "reroot " << c << "\n";
         clear_watch(c);
         
         // this could create duplicate literals
@@ -2730,7 +2725,6 @@ namespace sat {
             found_root |= l.var() == root.var();
         }
 
-        //std::cout << "reroot " << c << "\n";
         if (found_root) {
             split_root(c);
             c.negate();
@@ -2837,8 +2831,9 @@ namespace sat {
         for (unsigned v = 0; v < s().num_vars(); ++v) {
             literal lit(v, false);
             if (s().is_external(v) && 
-                m_cnstr_use_list[lit.index()].size() == 0 && 
-                m_cnstr_use_list[(~lit).index()].size() == 0 && !s().is_assumption(v)) {
+                m_cnstr_use_list[lit.index()].empty() && 
+                m_cnstr_use_list[(~lit).index()].empty() && 
+                !s().is_assumption(v)) {
                 s().set_non_external(v);
                 ++ext;
             }            
@@ -3723,6 +3718,7 @@ namespace sat {
         constraint* c = add_at_least(null_literal, lits, k, true);      
 
         if (c) {
+            // IF_VERBOSE(0, verbose_stream() << *c << "\n";);
             lits.reset();
             for (wliteral wl : m_wlits) {
                 if (value(wl.second) == l_false) lits.push_back(wl.second);        

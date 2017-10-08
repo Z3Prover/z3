@@ -101,12 +101,13 @@ namespace sat {
                 c[i] = norm(roots, c[i]);
             }
             std::sort(c.begin(), c.end());
+            for (literal l : c) VERIFY(l == norm(roots, l));
             TRACE("sats", tout << "after normalization/sorting: " << c << "\n"; tout.flush(););
             DEBUG_CODE({
-                for (unsigned i = 0; i < sz; i++) {
-                    CTRACE("sats", c[i] != norm(roots, c[i]), tout << c[i] << " " << norm(roots, c[i]) << "\n"; tout.flush(););
-                    SASSERT(c[i] == norm(roots, c[i]));
-                } });
+                    for (literal l : c) {
+                        CTRACE("sat", l != norm(roots, l), tout << l << " " << norm(roots, l) << "\n"; tout.flush(););
+                        SASSERT(l == norm(roots, l));
+                    } });
             // remove duplicates, and check if it is a tautology
             literal l_prev = null_literal;
             unsigned j = 0;
@@ -122,13 +123,11 @@ namespace sat {
                     break; // clause was satisfied
                 if (val == l_false)
                     continue; // skip
-                if (i != j) {
-                    std::swap(c[i], c[j]);
-                }
+                c[j] = l;                
                 j++;
             }
             if (i < sz) {
-                // clause is a tautology or was simplified
+                // clause is a tautology or was simplified to true
                 m_solver.del_clause(c);
                 continue; 
             }
@@ -164,10 +163,7 @@ namespace sat {
                 else
                     c.update_approx();
 
-                DEBUG_CODE({
-                        for (unsigned i = 0; i < j; i++) {
-                            SASSERT(c[i] == norm(roots, c[i]));
-                        } });
+                DEBUG_CODE(for (literal l : c) VERIFY(l == norm(roots, l)););
                 
                 *it2 = *it;
                 it2++;
@@ -187,7 +183,6 @@ namespace sat {
             literal r  = roots[v];
             SASSERT(v != r.var());
             if (m_solver.is_external(v) && !m_solver.set_root(l, r)) {
-                std::cout << "skip: " << l << " == " << r << "\n";
                 // cannot really eliminate v, since we have to notify extension of future assignments
                 m_solver.mk_bin_clause(~l, r, false);
                 m_solver.mk_bin_clause(l, ~r, false);
@@ -199,26 +194,30 @@ namespace sat {
                 mc.insert(e, ~l, r);
                 mc.insert(e,  l, ~r);
             }
-            m_solver.flush_roots();
         }
+        m_solver.flush_roots();
     }
 
-    bool elim_eqs::check_clauses(literal_vector const & roots) const {
-        clause_vector * vs[2] = { &m_solver.m_clauses, &m_solver.m_learned };
-        for (unsigned i = 0; i < 2; i++) {
-            clause_vector & cs  = *(vs[i]);
-            clause_vector::iterator it  = cs.begin();
-            clause_vector::iterator end = cs.end();
-            for (; it != end; ++it) {
-                clause & c  = *(*it);
-                unsigned sz = c.size();
-                for (unsigned i = 0; i < sz; i++) {
-                    CTRACE("elim_eqs_bug", m_solver.was_eliminated(c[i].var()), tout << "lit: " << c[i] << " " << norm(roots, c[i]) << "\n";
-                           tout << c << "\n";);
-                    SASSERT(!m_solver.was_eliminated(c[i].var()));
-                }
+    bool elim_eqs::check_clause(clause const& c, literal_vector const& roots) const {
+        for (literal l : c) {
+            CTRACE("elim_eqs_bug", m_solver.was_eliminated(l.var()), tout << "lit: " << l << " " << norm(roots, l) << "\n";
+                   tout << c << "\n";);
+            if (m_solver.was_eliminated(l.var())) {
+                IF_VERBOSE(0, verbose_stream() << c << " contains eliminated literal " << l << " " << norm(roots, l) << "\n";);
+                UNREACHABLE();
             }
         }
+        return true;
+    }
+
+
+    bool elim_eqs::check_clauses(literal_vector const & roots) const {
+        for (clause * cp : m_solver.m_clauses)
+            if (!check_clause(*cp, roots)) 
+                return false;
+        for (clause * cp : m_solver.m_learned)
+            if (!check_clause(*cp, roots)) 
+                return false;
         return true;
     }
 
@@ -230,6 +229,7 @@ namespace sat {
         cleanup_clauses(roots, m_solver.m_learned);
         if (m_solver.inconsistent()) return;
         save_elim(roots, to_elim);
+        VERIFY(check_clauses(roots));
         m_solver.propagate(false);
         SASSERT(check_clauses(roots));
     }
