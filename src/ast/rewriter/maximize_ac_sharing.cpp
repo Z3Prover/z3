@@ -151,11 +151,7 @@ void maximize_ac_sharing::restore_entries(unsigned old_lim) {
 }
 
 void maximize_ac_sharing::reset() {
-    restore_entries(0);
-    m_entries.reset();
     m_cache.reset();
-    m_region.reset();
-    m_scopes.reset();
 }
 
 void maximize_bv_sharing::init_core() {

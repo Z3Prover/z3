@@ -870,6 +870,12 @@ void cmd_context::insert_rec_fun(func_decl* f, expr_ref_vector const& binding, s
     lhs = m().mk_app(f, binding.size(), binding.c_ptr());
     eq  = m().mk_eq(lhs, e);
     if (!ids.empty()) {
+        if (is_var(e)) {
+            ptr_vector<sort> domain;
+            for (expr* b : binding) domain.push_back(m().get_sort(b));
+            insert_macro(f->get_name(), domain.size(), domain.c_ptr(), e);
+            return;
+        }
         if (!is_app(e)) {
             throw cmd_exception("Z3 only supports recursive definitions that are proper terms (not binders or variables)");
         }
