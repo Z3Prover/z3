@@ -29,7 +29,7 @@ public:
     static const unsigned long long zero = 0ull;
     static const unsigned long long one  = 1ull;
 };
-COMPILE_TIME_ASSERT(sizeof(unsigned long long) == 8);
+static_assert(sizeof(unsigned long long) == 8, "");
 
 template <> class approx_set_traits<unsigned> {
 public:
@@ -37,7 +37,7 @@ public:
     static const unsigned zero = 0;
     static const unsigned one  = 1;
 };
-COMPILE_TIME_ASSERT(sizeof(unsigned) == 4);
+static_assert(sizeof(unsigned) == 4, "unsigned are 4 bytes");
 
 template<typename T, typename T2U_Proc, typename R=unsigned long long>
 class approx_set_tpl : private T2U_Proc {

@@ -33,13 +33,13 @@ Revision History:
 typedef unsigned long long uint64;
 #endif
 
-COMPILE_TIME_ASSERT(sizeof(uint64) == 8);
+static_assert(sizeof(uint64) == 8, "64 bits please");
 
 #ifndef int64
 typedef long long int64;
 #endif
 
-COMPILE_TIME_ASSERT(sizeof(int64) == 8);
+static_assert(sizeof(int64) == 8, "64 bits");
 
 #ifndef INT64_MIN
 #define INT64_MIN static_cast<int64>(0x8000000000000000ull)
@@ -111,7 +111,7 @@ inline unsigned next_power_of_two(unsigned v) {
 unsigned log2(unsigned v);
 unsigned uint64_log2(uint64 v);
 
-COMPILE_TIME_ASSERT(sizeof(unsigned) == 4);
+static_assert(sizeof(unsigned) == 4, "unsigned are 32 bits");
 
 // Return the number of 1 bits in v.
 static inline unsigned get_num_1bits(unsigned v) {

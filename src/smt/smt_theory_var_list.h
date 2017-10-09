@@ -67,9 +67,9 @@ namespace smt {
     };
 
     // 32 bit machine
-    COMPILE_TIME_ASSERT(sizeof(expr*) != 4 || sizeof(theory_var_list) == sizeof(theory_var_list *) + sizeof(int)); 
+    static_assert(sizeof(expr*) != 4 || sizeof(theory_var_list) == sizeof(theory_var_list *) + sizeof(int), "32 bit"); 
     // 64 bit machine
-    COMPILE_TIME_ASSERT(sizeof(expr*) != 8 || sizeof(theory_var_list) == sizeof(theory_var_list *) + sizeof(int) + /* a structure must be aligned */ sizeof(int)); 
+    static_assert(sizeof(expr*) != 8 || sizeof(theory_var_list) == sizeof(theory_var_list *) + sizeof(int) + /* a structure must be aligned */ sizeof(int), "64 bit"); 
 };
 
 #endif /* SMT_THEORY_VAR_LIST_H_ */
