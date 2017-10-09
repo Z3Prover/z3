@@ -63,7 +63,7 @@ ENV \
 # Build Z3
 RUN mkdir -p "${Z3_SRC_DIR}" && \
   mkdir -p "${Z3_SRC_DIR}/contrib/ci/scripts" && \
-  mkdir -p "${Z3_SRC_DIR}/contrib/ci/suppressions/sanitizers"
+  mkdir -p "${Z3_SRC_DIR}/contrib/suppressions/sanitizers"
 # Deliberately leave out `contrib`
 ADD /cmake ${Z3_SRC_DIR}/cmake/
 ADD /doc ${Z3_SRC_DIR}/doc/
