@@ -1,1 +1,5 @@
 # LeakSanitizer suppression file
+
+# FIXME: This looks a bug in Clang/LSan the error reported
+# doesn't make sense. See https://github.com/Z3Prover/z3/issues/1297
+leak:_fini
