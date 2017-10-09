@@ -130,6 +130,7 @@ void asserted_formulas::set_eliminate_and(bool flag) {
     p.set_bool("eq2ineq", m_params.m_arith_eq2ineq);
     p.set_bool("gcd_rounding", true);
     p.set_bool("expand_select_store", true);
+    p.set_bool("bv_sort_ac", true);
     m_rewriter.updt_params(p);
     flush_cache();
 }
@@ -141,8 +142,6 @@ void asserted_formulas::assert_expr(expr * e, proof * _in_pr) {
 
     if (inconsistent())
         return;
-
-    m_has_quantifiers |= ::has_quantifiers(e);
 
     if (m_params.m_preprocess) {
         TRACE("assert_expr_bug", tout << r << "\n";);
@@ -156,6 +155,9 @@ void asserted_formulas::assert_expr(expr * e, proof * _in_pr) {
         }
         TRACE("assert_expr_bug", tout << "after...\n" << r << "\n";);
     }
+
+    m_has_quantifiers |= ::has_quantifiers(e);
+
     push_assertion(r, pr, m_formulas);
     TRACE("asserted_formulas_bug", tout << "after assert_expr\n"; display(tout););
 }
