@@ -221,6 +221,7 @@ namespace sat {
         literal root = c.lit();
         if (root != null_literal && root.sign() == is_true) {
             c.negate();
+			root.neg();
         }
         if (root != null_literal) {
             if (!is_watched(root, c)) watch_literal(root, c);
@@ -1563,10 +1564,6 @@ namespace sat {
             watch_literal(~lit, *c);
         }        
         SASSERT(c->well_formed());
-        if (c->id() == 1344) {
-            std::cout << "is watched: " << lit << " " << is_watched(lit, *c) << "\n";
-            std::cout << "is watched: " << ~lit << " " << is_watched(~lit, *c) << "\n";
-        }
     }
 
 
@@ -1987,17 +1984,10 @@ namespace sat {
     }
     
     void ba_solver::unwatch_literal(literal lit, constraint& c) {
-        if (c.index() == 1344) {
-            std::cout << "unwatch: " << lit << "\n";
-        }
         get_wlist(~lit).erase(watched(c.index()));
     }
 
     void ba_solver::watch_literal(literal lit, constraint& c) {
-        if (c.index() == 1344) {
-            std::cout << "watch: " << lit << "\n";
-        }
-
         get_wlist(~lit).push_back(watched(c.index()));
     }
 
