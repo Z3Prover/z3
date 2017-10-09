@@ -1,4 +1,4 @@
-# This script should is intended to be included by other
+# This script is intended to be included by other
 # scripts and should not be executed directly
 
 : ${Z3_CMAKE_GENERATOR?"Z3_CMAKE_GENERATOR must be specified"}
