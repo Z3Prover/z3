@@ -1623,6 +1623,8 @@ namespace sat {
     }
 
     void lookahead::reset_lookahead_reward() {
+        SASSERT(m_search_mode == lookahead_mode::lookahead1 ||
+                m_search_mode == lookahead_mode::lookahead2);
         m_qhead = m_qhead_lim.back();
         TRACE("sat", tout << "reset_lookahead_reward: " << m_qhead << "\n";);
         unsigned old_sz = m_trail_lim.back();

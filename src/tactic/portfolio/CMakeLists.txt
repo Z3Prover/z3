@@ -1,11 +1,13 @@
 z3_add_component(portfolio
   SOURCES
+    bounded_int2bv_solver.cpp
     default_tactic.cpp
     enum2bv_solver.cpp
-    pb2bv_solver.cpp
-    bounded_int2bv_solver.cpp
     fd_solver.cpp
+    parallel_tactic.cpp
+    pb2bv_solver.cpp
     smt_strategic_solver.cpp
+    solver2lookahead.cpp
   COMPONENT_DEPENDENCIES
     aig_tactic
     fp
