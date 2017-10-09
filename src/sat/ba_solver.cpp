@@ -218,11 +218,16 @@ namespace sat {
 
     bool ba_solver::init_watch(card& c, bool is_true) {
         clear_watch(c);
-        if (c.lit() != null_literal && c.lit().sign() == is_true) {
+        literal root = c.lit();
+        if (root != null_literal && root.sign() == is_true) {
             c.negate();
         }
+        if (root != null_literal) {
+            if (!is_watched(root, c)) watch_literal(root, c);
+            if (!is_watched(~root, c)) watch_literal(~root, c);
+        }
         TRACE("ba", display(tout << "init watch: ", c, true););
-        SASSERT(c.lit() == null_literal || value(c.lit()) == l_true);
+        SASSERT(root == null_literal || value(root) == l_true);
         unsigned j = 0, sz = c.size(), bound = c.k();
         // put the non-false literals into the head.
 
@@ -554,8 +559,7 @@ namespace sat {
             p.set_slack(slack);
             p.set_num_watch(num_watch);
 
-            VERIFY(validate_watch(p, null_literal));
-            // SASSERT(validate_watch(p, null_literal));
+            SASSERT(validate_watch(p, null_literal));
 
             TRACE("ba", display(tout << "init watch: ", p, true););
 
@@ -644,7 +648,7 @@ namespace sat {
             return l_undef;
         }
         
-        VERIFY(validate_watch(p, null_literal));
+        SASSERT(validate_watch(p, null_literal));
         // SASSERT(validate_watch(p, null_literal));
         
         SASSERT(index < num_watch);
@@ -680,7 +684,7 @@ namespace sat {
             slack += val;
             p.set_slack(slack);
             p.set_num_watch(num_watch);
-            VERIFY(validate_watch(p, null_literal));
+            SASSERT(validate_watch(p, null_literal));
             BADLOG(display(verbose_stream() << "conflict: " << alit << " watch: " << p.num_watch() << " size: " << p.size(), p, true));            
             SASSERT(bound <= slack);
             TRACE("ba", tout << "conflict " << alit << "\n";);
@@ -721,7 +725,7 @@ namespace sat {
             }
         }
 
-        VERIFY(validate_watch(p, alit)); // except that alit is still watched.
+        SASSERT(validate_watch(p, alit)); // except that alit is still watched.
 
         TRACE("ba", display(tout << "assign: " << alit << "\n", p, true););
 
@@ -739,11 +743,8 @@ namespace sat {
             unwatch_literal(p[i].second, p);          
         }  
         p.set_num_watch(0);
-        // debug code:
-        DEBUG_CODE(
-            for (wliteral wl : p) {
-                VERIFY(!is_watched(wl.second, p));
-            });
+
+        DEBUG_CODE(for (wliteral wl : p) VERIFY(!is_watched(wl.second, p)););
     }
 
     void ba_solver::recompile(pb& p) {
@@ -1558,10 +1559,14 @@ namespace sat {
         }
         else {
             s().set_external(lit.var());
-            get_wlist(lit).push_back(watched(c->index()));
-            get_wlist(~lit).push_back(watched(c->index()));
+            watch_literal(lit, *c);
+            watch_literal(~lit, *c);
         }        
         SASSERT(c->well_formed());
+        if (c->id() == 1344) {
+            std::cout << "is watched: " << lit << " " << is_watched(lit, *c) << "\n";
+            std::cout << "is watched: " << ~lit << " " << is_watched(~lit, *c) << "\n";
+        }
     }
 
 
@@ -1982,10 +1987,17 @@ namespace sat {
     }
     
     void ba_solver::unwatch_literal(literal lit, constraint& c) {
+        if (c.index() == 1344) {
+            std::cout << "unwatch: " << lit << "\n";
+        }
         get_wlist(~lit).erase(watched(c.index()));
     }
 
     void ba_solver::watch_literal(literal lit, constraint& c) {
+        if (c.index() == 1344) {
+            std::cout << "watch: " << lit << "\n";
+        }
+
         get_wlist(~lit).push_back(watched(c.index()));
     }
 
@@ -2588,7 +2600,9 @@ namespace sat {
     }
 
     void ba_solver::recompile(card& c) {
-        // pre-condition is that the literals, except c.lit(), in c are watched.
+        SASSERT(c.lit() == null_literal || is_watched(c.lit(), c));
+
+        // pre-condition is that the literals, except c.lit(), in c are unwatched.
         if (c.id() == _bad_id) std::cout << "recompile: " << c << "\n";
         // IF_VERBOSE(0, verbose_stream() << "re: " << c << "\n";);
         m_weights.resize(2*s().num_vars(), 0);
@@ -2682,6 +2696,11 @@ namespace sat {
 
 
     void ba_solver::flush_roots(constraint& c) {
+        if (c.lit() != null_literal && !is_watched(c.lit(), c)) {
+            watch_literal(c.lit(), c);
+            watch_literal(~c.lit(), c);
+        }
+        SASSERT(c.lit() == null_literal || is_watched(c.lit(), c));
         bool found = c.lit() != null_literal && m_root_vars[c.lit().var()];
         for (unsigned i = 0; !found && i < c.size(); ++i) {
             found = m_root_vars[c.get_lit(i).var()];
@@ -2696,12 +2715,12 @@ namespace sat {
         }
 
         literal root = c.lit();
-        if (c.lit() != null_literal && m_roots[c.lit().index()] != c.lit()) {
-            root = m_roots[c.lit().index()];
+        if (root != null_literal && m_roots[root.index()] != root) {
+            root = m_roots[root.index()];
             nullify_tracking_literal(c);
             c.update_literal(root);
-            get_wlist(root).push_back(watched(c.index()));
-            get_wlist(~root).push_back(watched(c.index()));
+            watch_literal(root, c);
+            watch_literal(~root, c);
         }
 
         bool found_dup = false;
