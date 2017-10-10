@@ -3232,7 +3232,44 @@ void test_resolve(cut_solver<int>& cs, unsigned ineq_index)  {
     result.clear();
     test_resolve_with_tigth_ineq(cs, te, ineq_index, result);
  }
-   
+
+void test_improves(cut_solver<int>& cs, unsigned ineq_index)  {
+    var_index x = 0;
+    var_index y = 1;
+    std::cout << "test_improves\n";
+    auto q = cs.get_ineq(ineq_index);
+    std::cout << "ineq = "; cs.print_ineq(ineq_index, std::cout); std::cout << std::endl;
+    std::cout << "domain of x = ";
+    cs.m_var_infos[x].m_domain.print(std::cout);
+    std::cout << std::endl;
+    if (cs.improves(x, q)) {
+        std::cout << "improves x\n";
+    } else {
+        std::cout << "does not improve x\n";
+    }
+
+    std::cout << "domain of y = ";
+    cs.m_var_infos[y].m_domain.print(std::cout);
+    std::cout << std::endl;
+
+
+    if (cs.improves(y, q)) {
+        std::cout << "improves y\n";
+    } else {
+        std::cout << "does not improve y\n";
+    }
+
+	q.m_poly.m_a = -10;
+	std::cout << "ineq = "; cs.print_ineq(ineq_index, std::cout); std::cout << std::endl;
+	if (cs.improves(x, q)) {
+		std::cout << "improves x\n";		
+	}
+	else {
+		std::cout << "does not improve x\n";
+	}
+
+}
+
 
 void test_cut_solver() {
     cut_solver<int> cs([](unsigned i)
@@ -3272,6 +3309,7 @@ void test_cut_solver() {
     test_bound_of_cut_solver(cs, ineq_index);
 
     test_resolve(cs, ineq_index);
+    test_improves(cs, ineq_index);
 }
 
 

@@ -597,5 +597,35 @@ public: // for debugging
         result.m_poly.m_a = a * t.m_b + ie.m_poly.m_a;
         return true;
     }
+
+    // returns true iff p imposes a better bound on j
+    bool improves(var_index j, const ineq & p) const {
+        auto a = p.coeff(j);
+        if (is_zero(a))
+            return false;
+        const auto& dom = m_var_infos[j].m_domain;
+        if (dom.is_empty())
+            return false;
+        if (is_pos(a)) {
+            bound_result new_upper = bound(p, j);
+            if (new_upper.m_type == bound_type::UNDEF)
+                return false;
+            T b;
+            bool upper_bound_exists = get_var_upper_bound(j, b);
+            return (!upper_bound_exists || new_upper.m_bound < b) &&
+                dom.intersection_with_upper_bound_is_empty(new_upper.m_bound);
+        }
+
+        lp_assert(is_neg(a));
+        bound_result new_lower = bound(p, j);
+        if (new_lower.m_type == bound_type::UNDEF)
+            return false;
+        T b;
+        bool lower_bound_exists = get_var_lower_bound(j, b);
+        return (!lower_bound_exists || new_lower.m_bound > b) &&
+            dom.intersection_with_lower_bound_is_empty(new_lower.m_bound);
+        
+    }
+    
 };
 }

@@ -373,7 +373,30 @@ public:
         }
     }
 
+    bool intersection_with_upper_bound_is_empty(const T& x) const {
+        if (has_neg_inf())
+            return false;
+        if (m_empty)
+            return true;
+        T b;
+        lp_assert(get_lower_bound(b));
+        get_lower_bound(b);
+        return b <= x;
+    }
+
+    bool intersection_with_lower_bound_is_empty(const T& x) const {
+        if (has_pos_inf())
+            return false;
+        if (m_empty)
+            return true;
+        T b;
+        lp_assert(get_upper_bound(b));
+        get_upper_bound(b);
+        return b >= x;
+    }
+
     // we intersect the existing set with the half open interval
+
     void intersect_with_upper_bound(const T& x) {
 #ifdef Z3DEBUG
         for (int i = 100; i > x; i--)
@@ -889,5 +912,7 @@ public:
         b = m_endpoints.rbegin()->first;
         return true;
     }
+
+    bool is_empty() const { return m_empty; }
 };
 }
