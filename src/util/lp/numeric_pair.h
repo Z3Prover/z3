@@ -62,6 +62,7 @@ public:
     static double const get_double(int const & d) { return d; }
     static bool is_int(int) {return true;}
     static bool is_pos(int j) {return j > 0;}
+    static bool is_neg(int j) {return j < 0;}
     static int ceil_ratio(int a, int b) { return static_cast<int>(ceil(mpq(a, b)).get_int32());}
     static int floor_ratio(int a, int b) { return static_cast<int>(floor(mpq(a, b)).get_int32());}
 };

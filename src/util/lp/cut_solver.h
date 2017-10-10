@@ -14,20 +14,55 @@ namespace lp {
 template <typename T>
 class cut_solver : public column_namer {
 public: // for debugging
+
+    struct tight_ineq {
+        var_index m_j;
+        bool m_le; // less or equal
+        T m_b; // the right size
+        tight_ineq(var_index j, bool le, const T & b) : m_j(j), m_le(le), m_b(b) {}
+        T coeff() const {
+            return m_le? one_of_type<T>() : - one_of_type<T>();
+        }
+
+    };
+    
     struct polynomial {
         // the polynomial evaluates to m_coeffs + m_a
         std::vector<std::pair<T, var_index>> m_coeffs;
         T m_a; // the free coefficient
-        polynomial(std::vector<std::pair<T, var_index>>& p, const T & a) : m_coeffs(p), m_a(a) {
+        polynomial(std::vector<std::pair<T, var_index>>& p, const T & a) : m_coeffs(p), m_a(a) {}
+        polynomial(std::vector<std::pair<T, var_index>>& p) : polynomial(p, 0) {}
+        polynomial(): m_a(zero_of_type<T>()) {}
+        const T & coeff(var_index j) const {
+            for (const auto & t : m_coeffs) {
+                if (j == t.second) {
+                    return t.first;
+                }
+            }
+            return cut_solver::m_local_zero;
         }
-        polynomial(std::vector<std::pair<T, var_index>>& p) : polynomial(p, 0) {
+        std::vector<std::pair<T, var_index>> copy_coeff_but_one(var_index j) const {
+            std::vector<std::pair<T, var_index>> ret;
+            for (const auto & t : m_coeffs)
+                if (t.first != j)
+                    ret.push_back(std::make_pair(t.first, t.second));
+
+            return ret;
         }
-        
+                              
+        bool is_zero() const { return m_coeffs.size() == 0 && numeric_traits<T>::is_zero(m_a); }
     };
     
     struct ineq { // we only have less or equal, which is enough for integral variables
         polynomial m_poly;
         ineq(std::vector<std::pair<T, var_index>>& term, const T& a): m_poly(term, a) {
+        }
+        ineq() {}
+        bool contains(var_index j) const {
+            return m_poly.contains(j);
+        }
+        const T & coeff(var_index j) const {
+            return m_poly.coeff(j);
         }
     };
 
@@ -138,6 +173,8 @@ public: // for debugging
 
     std::vector<scope>          m_scopes;
     std::unordered_map<unsigned, unsigned> m_user_vars_to_cut_solver_vars;
+    static T m_local_zero;
+    
     unsigned add_var(unsigned user_var_index) {
         unsigned ret;
         if (try_get_value(m_user_vars_to_cut_solver_vars, user_var_index, ret))
@@ -422,21 +459,7 @@ public: // for debugging
     }
 
 
-    const T & coeff(const polynomial & p, var_index j) const {
-        for (const auto & t : p.m_coeffs) {
-            if (j == t.second) {
-                return t.first;
-            }
-        }
-        lp_unreachable();
-        return p.m_coeffs[0].first; // does not matter
-    }
-    
-    
-    const T & coeff(const ineq & q, var_index j) const {
-        return coeff(q.m_poly, j);
-    }
-
+ 
     bound_result lower_without(const polynomial & p, var_index j) const {
         bound_result r;
         for (const auto & t:  p.m_coeffs) {
@@ -510,7 +533,7 @@ public: // for debugging
 
     
     bound_result bound(const ineq & q, var_index j) const {
-        const T& a = coeff(q.m_poly, j);
+        const T& a = q.m_poly.coeff(j);
         return bound_on_polynomial(q.m_poly, a, j);
     }
 
@@ -521,10 +544,26 @@ public: // for debugging
     
     
     void print_ineq(unsigned i, std::ostream & out) {
-        print_polynomial(m_ineqs[i].m_poly, out);
-        out << " <= 0" << std::endl;
+        print_ineq(m_ineqs[i], out);
     }
 
+    void print_ineq(const ineq & i, std::ostream & out) {
+        print_polynomial(i.m_poly, out);
+        out << " <= 0";
+    }
+
+
+    void print_tight_ineq(std::ostream & o, const tight_ineq & t) const {
+        o << get_column_name(t.m_j) << " ";
+        if (t.m_le)
+            o << "<= ";
+        else
+            o << "=> ";
+        o << t.m_b;
+    }
+    
+
+    
     void print_polynomial(const polynomial & p, std::ostream & out) {
         this->print_linear_combination_of_column_indices_std(p.m_coeffs, out);
         if (!is_zero(p.m_a)) {
@@ -534,6 +573,27 @@ public: // for debugging
                 out << " + " << p.m_a;
             }
         }
+    }
+
+    
+    //te is an inequality we resove by eliminating varible t.m_j from t
+    bool resolve(const tight_ineq & t, const ineq & ie, ineq & result) const {
+        lp_assert(result.m_poly.is_zero());
+        const T & a = ie.coeff(t.m_j);
+        if (t.m_le) {
+            if (is_neg(a)) {
+                result.m_poly.m_coeffs = ie.m_poly.copy_coeff_but_one(t.m_j);
+                result.m_poly.m_a += a * t.m_b;
+                return true;
+            }
+        } else { // t.m_le == false
+            if (is_pos(a)) {
+                result.m_poly.m_coeffs = ie.m_poly.copy_coeff_but_one(t.m_j);
+                result.m_poly.m_a += a * t.m_b;
+                return true;
+            }
+        }
+        return false;
     }
 };
 }

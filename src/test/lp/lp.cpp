@@ -3189,11 +3189,32 @@ void test_bound_of_cut_solver(cut_solver<int>& cs, unsigned ineq_index)  {
     br.print(std::cout);
     std::cout << std::endl;
 
-	br = cs.bound(ineq_index, coeffs[1]);
-	std::cout << "bound for " << cs.get_column_name(coeffs[1]) << " is ";
+    br = cs.bound(ineq_index, coeffs[1]);
+    std::cout << "bound for " << cs.get_column_name(coeffs[1]) << " is ";
     br.print(std::cout);
     std::cout << std::endl;
 }
+
+void test_resolve(cut_solver<int>& cs, unsigned ineq_index)  {
+    var_index x = 0;
+    std::cout << "test_resolve\n";
+    auto q = cs.get_ineq(ineq_index);
+    cut_solver<int>::tight_ineq te(x, true /* le */, 2);
+    std::cout << "resolve ineq ";
+    cs.print_ineq(ineq_index, std::cout);
+    std::cout << " with tight inequality ";
+    cs.print_tight_ineq(std::cout, te);
+    std::cout << std::endl;
+    cut_solver<int>::ineq result;
+    if (cs.resolve(te, cs.get_ineq(ineq_index), result)) {
+        std::cout << "resolve succeeds, result is ";
+        cs.print_ineq(result, std::cout);
+    } else {
+        std::cout << "resolve did not succeed";
+    }
+    std::cout << std::endl;
+ }
+   
 
 void test_cut_solver() {
     cut_solver<int> cs([](unsigned i)
@@ -3218,21 +3239,24 @@ void test_cut_solver() {
     cs.add_lower_bound_for_user_var(y, 1);
     bool has_lower = cs.lower(ineq.m_poly, l);
     if (has_lower) {
-        std::cout << "lower = " << l << std::endl;
+        std::cout << "\nlower = " << l << std::endl;
     } else {
-        std::cout << "no lower" << std::endl;
+        std::cout << "\nno lower" << std::endl;
     }
     cs.add_upper_bound_for_user_var(y, 1);
     has_lower = cs.lower(ineq.m_poly, l);
     if (has_lower) {
-        std::cout << "lower = " << l << std::endl;
+        std::cout << "\nlower = " << l << std::endl;
     } else {
-        std::cout << "no lower" << std::endl;
+        std::cout << "\nno lower" << std::endl;
     }
 
     test_bound_of_cut_solver(cs, ineq_index);
-    
+
+    test_resolve(cs, ineq_index);
 }
+
+
 
 void test_lp_local(int argn, char**argv) {
     
