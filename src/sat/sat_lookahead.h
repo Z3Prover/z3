@@ -74,6 +74,7 @@ namespace sat {
             double   m_max_score;
             unsigned m_max_hlevel; 
             unsigned m_min_cutoff;
+            bool     m_preselect;
             unsigned m_level_cand;
             double   m_delta_rho;
             unsigned m_dl_max_iterations;
@@ -87,9 +88,10 @@ namespace sat {
                 m_alpha = 3.5;
                 m_max_score = 20.0;
                 m_min_cutoff = 30;
+                m_preselect = false;
                 m_level_cand = 600;
-                m_delta_rho = (double)0.9995;
-                m_dl_max_iterations = 32;
+                m_delta_rho = (double)0.25;
+                m_dl_max_iterations = 2;
                 m_tc1_limit = 10000000;
                 m_reward_type = ternary_reward;
                 m_cube_cutoff = 0;
@@ -175,7 +177,8 @@ namespace sat {
         };
 
         config                 m_config;
-        double                 m_delta_trigger; 
+        double                 m_delta_trigger;
+        double                 m_delta_decrease;
 
         drat                   m_drat;
         literal_vector         m_assumptions;
@@ -327,7 +330,10 @@ namespace sat {
         double get_rating(bool_var v) const { return m_rating[v]; }
         double get_rating(literal l) const { return get_rating(l.var()); }
         bool select(unsigned level);
-        void sift_up(unsigned j);
+        //void sift_up(unsigned j);
+        void heap_sort();
+        void heapify();
+        void sift_down(unsigned j, unsigned sz);
         double init_candidates(unsigned level, bool newbies);
         std::ostream& display_candidates(std::ostream& out) const;
         bool is_unsat() const;
@@ -339,6 +345,8 @@ namespace sat {
         double heule_schur_score(literal l);
         void heule_unit_scores();
         double heule_unit_score(literal l);
+        void march_cu_scores();
+        double march_cu_score(literal l);
         double l_score(literal l, svector<double> const& h, double factor, double sqfactor, double afactor);
 
         // ------------------------------------       
@@ -503,6 +511,7 @@ namespace sat {
         void do_double(literal l, unsigned& base);
         void double_look(literal l, unsigned& base);
         void set_conflict() { TRACE("sat", tout << "conflict\n";); m_inconsistent = true; }
+        //void set_conflict() { TRACE("sat", tout << "conflict\n";); printf("CONFLICT\n"); m_inconsistent = true; }
         bool inconsistent() { return m_inconsistent; }
 
         unsigned scope_lvl() const { return m_trail_lim.size(); }
@@ -593,7 +602,8 @@ namespace sat {
 
         void collect_statistics(statistics& st) const;
 
-       double literal_occs(literal l);
+        double literal_occs(literal l);
+        double literal_big_occs(literal l);
               
     };
 }

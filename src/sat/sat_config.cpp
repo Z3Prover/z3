@@ -100,6 +100,9 @@ namespace sat {
         else if (p.lookahead_reward() == symbol("unit")) {
             m_lookahead_reward = unit_literal_reward;
         }
+        else if (p.lookahead_reward() == symbol("march_cu")) {
+            m_lookahead_reward = march_cu_reward;
+        }
         else { 
             throw sat_param_exception("invalid reward type supplied: accepted heuristics are 'ternary', 'heuleu', 'unit' or 'heule_schur'");
         }

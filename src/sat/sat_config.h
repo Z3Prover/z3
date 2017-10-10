@@ -61,7 +61,8 @@ namespace sat {
         ternary_reward,
         unit_literal_reward,
         heule_schur_reward,
-        heule_unit_reward
+        heule_unit_reward,
+        march_cu_reward
     };
 
     struct config {
