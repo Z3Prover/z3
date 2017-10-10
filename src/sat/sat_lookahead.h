@@ -20,6 +20,7 @@ Notes:
 #ifndef _SAT_LOOKAHEAD_H_
 #define _SAT_LOOKAHEAD_H_
 
+#define OLD_NARY 0
 
 #include "sat_elim_eqs.h"
 
@@ -129,6 +130,36 @@ namespace sat {
             literal m_u, m_v;
         };
 
+        class nary {            
+            unsigned m_size;         // number of non-false literals
+            size_t   m_obj_size;     // object size (counting all literals)
+            literal  m_head;         // head literal
+            literal  m_literals[0];  // list of literals, put any true literal in head.
+            size_t num_lits() const {
+                return (m_obj_size - sizeof(nary)) / sizeof(literal);
+            }
+        public:
+            static size_t get_obj_size(unsigned sz) { return sizeof(nary) + sz * sizeof(literal); }
+            size_t obj_size() const { return m_obj_size; }
+            nary(unsigned sz, literal const* lits):
+                m_size(sz),
+                m_obj_size(get_obj_size(sz)) {
+                for (unsigned i = 0; i < sz; ++i) m_literals[i] = lits[i];
+                m_head = lits[0];
+            }
+            unsigned size() const { return m_size; }
+            unsigned dec_size() { SASSERT(m_size > 0); return --m_size; }
+            void inc_size() { SASSERT(m_size < num_lits()); ++m_size; }
+            literal get_head() const { return m_head; }
+            void set_head(literal l) { m_head = l; }
+
+            literal operator[](unsigned i) { SASSERT(i < num_lits()); return m_literals[i]; }
+            literal const* begin() const { return m_literals; }
+            literal const* end() const { return m_literals + num_lits(); }
+            // swap the true literal to the head.
+            // void swap(unsigned i, unsigned j) { SASSERT(i < num_lits() && j < num_lits()); std::swap(m_literals[i], m_literals[j]); }
+        };
+
         struct cube_state {
             bool           m_first;
             svector<bool>  m_is_decision;
@@ -160,10 +191,17 @@ namespace sat {
         vector<svector<binary>> m_ternary;        // lit |-> vector of ternary clauses
         unsigned_vector         m_ternary_count;  // lit |-> current number of active ternary clauses for lit
 
+#if OLD_NARY
         vector<unsigned_vector> m_nary;           // lit |-> vector of clause_id
-        unsigned_vector         m_nary_count;     // lit |-> number of valid clause_id in m_clauses2[lit]
         unsigned_vector         m_nary_literals;  // the actual literals, clauses start at offset clause_id, 
                                                   // the first entry is the current length, clauses are separated by a null_literal
+
+#else
+        small_object_allocator    m_allocator;
+        vector<ptr_vector<nary>>  m_nary;        // lit |-> vector of nary clauses
+        ptr_vector<nary>          m_nary_clauses; // vector of all nary clauses
+#endif
+        unsigned_vector           m_nary_count;     // lit |-> number of valid clause_id in m_nary[lit]
 
         unsigned               m_num_tc1;
         unsigned_vector        m_num_tc1_lim;
@@ -410,15 +448,20 @@ namespace sat {
         void propagate_clauses_searching(literal l);
         void propagate_clauses_lookahead(literal l);
         void restore_clauses(literal l);
+#if OLD_NARY
         void remove_clause(literal l, unsigned clause_idx);
         void remove_clause_at(literal l, unsigned clause_idx);
-
+#else
+        void remove_clause(literal l, nary& n);
+        void remove_clause_at(literal l, nary& n);
+#endif
         // ------------------------------------
         // initialization
         
         void init_var(bool_var v);
         void init();
         void copy_clauses(clause_vector const& clauses, bool learned);
+        nary * copy_clause(clause const& c);
 
         // ------------------------------------
         // search
@@ -499,6 +542,12 @@ namespace sat {
 
         ~lookahead() {
             m_s.rlimit().pop_child();
+#if OLD_NARY
+#else
+            for (nary* n : m_nary_clauses) { 
+                m_allocator.deallocate(n->obj_size(), n);
+            }
+#endif
         }
         
 
