@@ -63,7 +63,7 @@ public:
     void resize(unsigned sz) {
         if (sz < m_nodes.size())
             dec_range_ref(m_nodes.begin() + sz, m_nodes.end());
-        m_nodes.resize(sz, 0);
+        m_nodes.resize(sz);
     }
 
     void resize(unsigned sz, T * d) {
@@ -80,7 +80,7 @@ public:
     void reserve(unsigned sz) {
         if (sz <= m_nodes.size())
             return;
-        m_nodes.resize(sz, 0);
+        m_nodes.resize(sz);
     }
 
     void shrink(unsigned sz) {

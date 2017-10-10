@@ -806,8 +806,9 @@ namespace smt {
         if (c != 0) {
             if (m_enable_simplex) {
                 row_info const& info = m_ineq_row_info.find(v);
+                unsynch_mpq_manager mgr;
                 scoped_eps_numeral coeff(m_mpq_inf_mgr);
-                coeff = std::make_pair(info.m_bound.to_mpq(), mpq(0));
+                coeff = std::make_pair(mgr.dup(info.m_bound.to_mpq()), mpq(0));
                 unsigned slack = info.m_slack;
                 if (is_true) {
                     update_bound(slack, literal(v), true, coeff);

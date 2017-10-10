@@ -322,7 +322,7 @@ bool compare_arrays(const T * array1, const T * array2, unsigned size) {
 template<typename T>
 void force_ptr_array_size(T & v, unsigned sz) {
     if (sz > v.size()) {
-        v.resize(sz, 0);
+        v.resize(sz);
     }
 }
 

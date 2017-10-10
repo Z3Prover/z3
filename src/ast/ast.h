@@ -121,6 +121,20 @@ public:
     explicit parameter(unsigned ext_id, bool):m_kind(PARAM_EXTERNAL), m_ext_id(ext_id) {}
     parameter(parameter const&);
 
+    parameter(parameter && other) noexcept : m_kind(other.m_kind) {
+        switch (other.m_kind) {
+        case PARAM_INT: m_int = other.get_int(); break;
+        case PARAM_AST: m_ast = other.get_ast(); break;
+        case PARAM_SYMBOL: m_symbol = other.m_symbol; break;
+        case PARAM_RATIONAL: m_rational = 0; std::swap(m_rational, other.m_rational); break;
+        case PARAM_DOUBLE: m_dval = other.m_dval; break;
+        case PARAM_EXTERNAL: m_ext_id = other.m_ext_id; break;
+        default:
+            UNREACHABLE();
+            break;
+        }
+    }
+
     ~parameter();
 
     parameter& operator=(parameter const& other);

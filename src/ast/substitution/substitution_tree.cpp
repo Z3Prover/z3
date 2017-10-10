@@ -256,7 +256,7 @@ void substitution_tree::insert(expr * new_expr) {
         sort * s    = to_var(new_expr)->get_sort();
         unsigned id = s->get_decl_id();
         if (id >= m_vars.size())
-            m_vars.resize(id+1, 0);
+            m_vars.resize(id+1);
         if (m_vars[id] == 0)
             m_vars[id] = alloc(var_ref_vector, m_manager);
         var_ref_vector * v = m_vars[id];
@@ -277,7 +277,7 @@ void substitution_tree::insert(app * new_expr) {
     unsigned id   = d->get_decl_id();
     
     if (id >= m_roots.size()) 
-        m_roots.resize(id+1, 0);
+        m_roots.resize(id+1);
 
     if (!m_roots[id]) {
         // there is no tree for the function symbol heading new_expr

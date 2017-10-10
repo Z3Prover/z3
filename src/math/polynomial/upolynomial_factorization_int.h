@@ -45,7 +45,7 @@ namespace upolynomial {
         for (unsigned i = 0; i < p.size(); ++ i) {
             numeral p_i; // no need to delete, we keep it pushed in zp_p
             zp_nm.set(p_i, p[i]);
-            zp_p.push_back(p_i);
+            zp_p.push_back(std::move(p_i));
         }
         zp_upm.trim(zp_p);
     }

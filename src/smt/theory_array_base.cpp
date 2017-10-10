@@ -617,8 +617,8 @@ namespace smt {
         m_else_values.reset();
         m_parents.reset();
         m_parents.resize(num_vars, -1);
-        m_defaults.resize(num_vars, 0);
-        m_else_values.resize(num_vars, 0);
+        m_defaults.resize(num_vars);
+        m_else_values.resize(num_vars);
     
         if (m_use_unspecified_default)
             return;

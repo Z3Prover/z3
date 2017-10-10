@@ -768,7 +768,7 @@ func_decl * basic_decl_plugin::mk_compressed_proof_decl(char const * name, basic
 
 func_decl * basic_decl_plugin::mk_proof_decl(char const * name, basic_op_kind k, unsigned num_parents, ptr_vector<func_decl> & cache) {
     if (num_parents >= cache.size()) {
-        cache.resize(num_parents+1, 0);
+        cache.resize(num_parents+1);
     }
     if (cache[num_parents] == 0) {
         cache[num_parents] = mk_proof_decl(name, k, num_parents);
