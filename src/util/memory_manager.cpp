@@ -182,6 +182,23 @@ unsigned long long memory::get_max_used_memory() {
     return r;
 }
 
+#if defined(_WINDOWS)
+#include "Windows.h"
+#endif
+
+unsigned long long memory::get_max_memory_size() {
+#if defined(_WINDOWS)    
+    MEMORYSTATUSEX statex;    
+    statex.dwLength = sizeof (statex);    
+    GlobalMemoryStatusEx (&statex);
+    return statex.ullTotalPhys;
+#else
+    NOT_IMPLEMENTED_YET();
+    // two GB
+    return 1 << 31;
+#endif
+}
+
 unsigned long long memory::get_allocation_count() {
     return g_memory_alloc_count;
 }

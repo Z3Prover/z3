@@ -2823,6 +2823,7 @@ namespace sat {
         pop(num_scopes);
         exchange_par();
         reinit_assumptions();
+        m_stats.m_units = init_trail_size();
     }
 
     void solver::pop(unsigned num_scopes) {
@@ -4032,25 +4033,11 @@ namespace sat {
         st.update("minimized lits", m_minimized_lits);
         st.update("dyn subsumption resolution", m_dyn_sub_res);
         st.update("blocked correction sets", m_blocked_corr_sets);
+        st.update("units", m_units);
     }
 
     void stats::reset() {
-        m_mk_var = 0;
-        m_mk_bin_clause = 0;
-        m_mk_ter_clause = 0;
-        m_mk_clause = 0;
-        m_conflict = 0;
-        m_propagate = 0;
-        m_bin_propagate = 0;
-        m_ter_propagate = 0;
-        m_decision = 0;
-        m_restart = 0;
-        m_gc_clause = 0;
-        m_del_clause = 0;
-        m_minimized_lits = 0;
-        m_dyn_sub_res = 0;
-        m_non_learned_generation = 0;
-        m_blocked_corr_sets = 0;
+        memset(this, sizeof(*this), 0);
     }
 
     void mk_stat::display(std::ostream & out) const {

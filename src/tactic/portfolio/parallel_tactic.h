@@ -22,6 +22,6 @@ Notes:
 class solver;
 class tactic;
 
-tactic * mk_parallel_tactic(solver* s);
+tactic * mk_parallel_tactic();
 
 #endif

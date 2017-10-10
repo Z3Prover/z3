@@ -90,7 +90,6 @@ bool is_debug_enabled(const char * tag);
         exit(-1);                                           \
     }
 
-#define COMPILE_TIME_ASSERT(expr) static_assert(expr, "")
 
 void finalize_debug();
 /*
