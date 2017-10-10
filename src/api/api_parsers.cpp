@@ -56,20 +56,20 @@ extern "C" {
                                        Z3_func_decl const decls[]) {
         Z3_TRY;
         LOG_Z3_parse_smtlib_string(c, str, num_sorts, sort_names, sorts, num_decls, decl_names, decls);
-        std::ostringstream outs;
+        std::ostringstream* outs = alloc(std::ostringstream);
         bool ok = false;
 
         RESET_ERROR_CODE();
         init_smtlib_parser(c, num_sorts, sort_names, sorts, num_decls, decl_names, decls);
-        mk_c(c)->m_smtlib_parser->set_error_stream(outs);
+        mk_c(c)->m_smtlib_parser->set_error_stream(*outs);
         try {
             ok = mk_c(c)->m_smtlib_parser->parse_string(str);        
         }
         catch (...) {
             ok = false;
         }
-        mk_c(c)->m_smtlib_error_buffer = outs.str();
-        outs.clear();
+        mk_c(c)->m_smtlib_error_buffer = outs->str();
+        dealloc(outs);
         if (!ok) {
             mk_c(c)->reset_parser();
             SET_ERROR_CODE(Z3_PARSER_ERROR);
@@ -89,17 +89,17 @@ extern "C" {
         LOG_Z3_parse_smtlib_file(c, file_name, num_sorts, sort_names, types, num_decls, decl_names, decls);
         bool ok = false;
         RESET_ERROR_CODE();
-        std::ostringstream outs;
+        std::ostringstream* outs = alloc(std::ostringstream);
         init_smtlib_parser(c, num_sorts, sort_names, types, num_decls, decl_names, decls);
-        mk_c(c)->m_smtlib_parser->set_error_stream(outs);
+        mk_c(c)->m_smtlib_parser->set_error_stream(*outs);
         try {
             ok = mk_c(c)->m_smtlib_parser->parse_file(file_name);
         }
         catch(...) {
             ok = false;
         }
-        mk_c(c)->m_smtlib_error_buffer = outs.str();
-        outs.clear();
+        mk_c(c)->m_smtlib_error_buffer = outs->str();
+        dealloc(outs);
         if (!ok) {
             mk_c(c)->reset_parser();
             SET_ERROR_CODE(Z3_PARSER_ERROR);
