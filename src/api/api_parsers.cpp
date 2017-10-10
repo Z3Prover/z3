@@ -69,6 +69,7 @@ extern "C" {
             ok = false;
         }
         mk_c(c)->m_smtlib_error_buffer = outs.str();
+        outs.clear();
         if (!ok) {
             mk_c(c)->reset_parser();
             SET_ERROR_CODE(Z3_PARSER_ERROR);
@@ -98,6 +99,7 @@ extern "C" {
             ok = false;
         }
         mk_c(c)->m_smtlib_error_buffer = outs.str();
+        outs.clear();
         if (!ok) {
             mk_c(c)->reset_parser();
             SET_ERROR_CODE(Z3_PARSER_ERROR);
