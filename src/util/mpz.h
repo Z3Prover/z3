@@ -95,7 +95,7 @@ public:
     mpz(int v):m_val(v), m_ptr(0) {}
     mpz():m_val(0), m_ptr(0) {}
     mpz(mpz && other) noexcept : m_val(other.m_val), m_ptr(0) {
-        std::swap(m_val, other.m_val);
+        std::swap(m_ptr, other.m_ptr);
     }
     void swap(mpz & other) { 
         std::swap(m_val, other.m_val);
