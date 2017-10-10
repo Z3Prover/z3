@@ -914,6 +914,7 @@ namespace sat {
 
     void lookahead::init() {
         m_delta_trigger = 0.0;
+        m_delta_decrease = 0.0;
         m_config.m_dl_success = 0.8;
         m_inconsistent = false;
         m_qhead = 0;
@@ -1608,6 +1609,7 @@ namespace sat {
     void lookahead::compute_lookahead_reward() {
         init_lookahead_reward();
         TRACE("sat", display_lookahead(tout); );
+        m_delta_decrease = pow(m_config.m_delta_rho, 1.0 / (double)m_lookahead.size());
         unsigned base = 2;
         bool change = true;
         literal last_changed = null_literal;
@@ -1811,7 +1813,8 @@ namespace sat {
                 }
             }
             else {
-                m_delta_trigger *= m_config.m_delta_rho;
+                SASSERT(m_delta_decrease > 0.0);
+                m_delta_trigger *= m_delta_decrease;
             }
         }
     }

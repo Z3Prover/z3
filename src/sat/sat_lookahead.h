@@ -89,7 +89,7 @@ namespace sat {
                 m_min_cutoff = 30;
                 m_preselect = false;
                 m_level_cand = 600;
-                m_delta_rho = (double)0.99995;
+                m_delta_rho = (double)0.25;
                 m_dl_max_iterations = 2;
                 m_tc1_limit = 10000000;
                 m_reward_type = ternary_reward;
@@ -146,7 +146,8 @@ namespace sat {
         };
 
         config                 m_config;
-        double                 m_delta_trigger; 
+        double                 m_delta_trigger;
+        double                 m_delta_decrease;
 
         drat                   m_drat;
         literal_vector         m_assumptions;
