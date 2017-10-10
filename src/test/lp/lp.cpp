@@ -3195,17 +3195,16 @@ void test_bound_of_cut_solver(cut_solver<int>& cs, unsigned ineq_index)  {
     std::cout << std::endl;
 }
 
-void test_resolve(cut_solver<int>& cs, unsigned ineq_index)  {
-    var_index x = 0;
-    std::cout << "test_resolve\n";
-    auto q = cs.get_ineq(ineq_index);
-    cut_solver<int>::tight_ineq te(x, true /* le */, 2);
+
+void test_resolve_with_tigth_ineq(cut_solver<int>& cs,
+                                const cut_solver<int>::tight_ineq te,
+                                var_index ineq_index,
+                                cut_solver<int>::ineq & result) {
     std::cout << "resolve ineq ";
     cs.print_ineq(ineq_index, std::cout);
     std::cout << " with tight inequality ";
     cs.print_tight_ineq(std::cout, te);
     std::cout << std::endl;
-    cut_solver<int>::ineq result;
     if (cs.resolve(te, cs.get_ineq(ineq_index), result)) {
         std::cout << "resolve succeeds, result is ";
         cs.print_ineq(result, std::cout);
@@ -3213,6 +3212,25 @@ void test_resolve(cut_solver<int>& cs, unsigned ineq_index)  {
         std::cout << "resolve did not succeed";
     }
     std::cout << std::endl;
+}
+
+void test_resolve(cut_solver<int>& cs, unsigned ineq_index)  {
+    var_index x = 0;
+    var_index y = 1;
+    std::cout << "test_resolve\n";
+    auto q = cs.get_ineq(ineq_index);
+    cut_solver<int>::tight_ineq te(x, true /* le */, 2);
+    cut_solver<int>::ineq result;
+    test_resolve_with_tigth_ineq(cs, te, ineq_index, result);
+    te.m_le = false;
+    test_resolve_with_tigth_ineq(cs, te, ineq_index, result);
+    te.m_j = y;
+    result.clear();
+    test_resolve_with_tigth_ineq(cs, te, ineq_index, result);
+    te.m_le = true;
+    te.m_b = 3;
+    result.clear();
+    test_resolve_with_tigth_ineq(cs, te, ineq_index, result);
  }
    
 

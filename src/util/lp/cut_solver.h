@@ -44,12 +44,17 @@ public: // for debugging
         std::vector<std::pair<T, var_index>> copy_coeff_but_one(var_index j) const {
             std::vector<std::pair<T, var_index>> ret;
             for (const auto & t : m_coeffs)
-                if (t.first != j)
+                if (t.second != j)
                     ret.push_back(std::make_pair(t.first, t.second));
 
             return ret;
         }
-                              
+
+        void clear() {
+            m_coeffs.clear();
+            m_a = zero_of_type<T>();
+        }
+        
         bool is_zero() const { return m_coeffs.size() == 0 && numeric_traits<T>::is_zero(m_a); }
     };
     
@@ -64,6 +69,7 @@ public: // for debugging
         const T & coeff(var_index j) const {
             return m_poly.coeff(j);
         }
+        void clear() { m_poly.clear(); }
     };
 
     std::vector<ineq> m_ineqs;
@@ -581,19 +587,15 @@ public: // for debugging
         lp_assert(result.m_poly.is_zero());
         const T & a = ie.coeff(t.m_j);
         if (t.m_le) {
-            if (is_neg(a)) {
-                result.m_poly.m_coeffs = ie.m_poly.copy_coeff_but_one(t.m_j);
-                result.m_poly.m_a += a * t.m_b;
-                return true;
-            }
+            if (is_pos(a))
+                return false;
         } else { // t.m_le == false
-            if (is_pos(a)) {
-                result.m_poly.m_coeffs = ie.m_poly.copy_coeff_but_one(t.m_j);
-                result.m_poly.m_a += a * t.m_b;
-                return true;
-            }
+            if (is_neg(a)) 
+                return false;
         }
-        return false;
+        result.m_poly.m_coeffs = ie.m_poly.copy_coeff_but_one(t.m_j);
+        result.m_poly.m_a = a * t.m_b + ie.m_poly.m_a;
+        return true;
     }
 };
 }
