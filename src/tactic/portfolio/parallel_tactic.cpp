@@ -30,19 +30,16 @@ Notes:
 class parallel_tactic : public tactic {
 
     class solver_state {
+        scoped_ptr<ast_manager> m_manager;
         ref<solver>     m_solver;
         expr_ref_vector m_cube;
         unsigned        m_units;
     public:
-        solver_state(solver* s): m_solver(s), m_cube(s->get_manager()), m_units(0) {}
-
-        solver_state& operator=(solver_state& other) {
-            m_solver = other.m_solver;
-            m_cube.reset();
-            m_cube.append(other.m_cube);
-            m_units = other.m_units;
-            return *this;
-        }
+        solver_state(ast_manager* m, solver* s): 
+            m_manager(m), 
+            m_solver(s), 
+            m_cube(s->get_manager()), 
+            m_units(0) {}
 
         void update_units() {
             m_units = 0;
@@ -66,6 +63,21 @@ class parallel_tactic : public tactic {
         solver& get_solver() { return *m_solver; }
 
         solver const& get_solver() const { return *m_solver; }
+
+        solver_state* clone(params_ref& p, expr* cube) {
+            ast_manager& m = m_solver->get_manager();
+            ast_manager* new_m = alloc(ast_manager, m, !m.proof_mode());
+            solver* s = m_solver->translate(*new_m, p);
+            solver_state* st = alloc(solver_state, new_m, s);
+            ast_translation translate(m, *new_m);
+            for (expr* c : m_cube) {
+                st->m_cube.push_back(translate(c));
+            }
+            expr_ref cube1(translate(cube), *new_m);
+            st->m_cube.push_back(cube1);
+            s->assert_expr(cube1);
+            return st;
+        }
     };
 
 public:
@@ -74,7 +86,8 @@ public:
     }
 private:
 
-    ast_manager* m_manager;
+    ast_manager& m_manager;
+    params_ref   m_params;
 
     // parameters
     unsigned m_conflicts_lower_bound;
@@ -84,11 +97,10 @@ private:
     unsigned m_num_threads;
     
     double     m_progress;
-    unsigned   m_max_conflicts;
+    unsigned   m_max_conflicts;    
     statistics m_stats;
 
     vector<solver_state*> m_solvers;
-    scoped_ptr_vector<ast_manager> m_managers;
 
     void init() {
         m_conflicts_lower_bound = 1000;
@@ -114,6 +126,9 @@ private:
 
     void update_progress(bool b) {
         m_progress = 0.9 * m_progress + (b ? 1 : -1);
+        if (b) {
+            m_stats.update("closed", 1u);
+        }
     }
 
     int pick_solvers() {
@@ -157,6 +172,7 @@ private:
 
     lbool simplify(solver& s) {
         params_ref p;
+        p.copy(m_params);
         p.set_uint("sat.max_conflicts", 10);
         p.set_bool("sat.lookahead_simplify", true);
         s.updt_params(p);
@@ -170,11 +186,17 @@ private:
     void cube(solver& s, expr_ref_vector& cubes) {
         ast_manager& m = s.get_manager();
         params_ref p;
+        p.copy(m_params);
         p.set_uint("sat.lookahead.cube.cutoff", 1);
         s.updt_params(p);
         while (true) {
             expr_ref c = s.cube();
             if (m.is_false(c)) {
+                break;
+            }
+            if (m.is_true(c)) {
+                cubes.reset();
+                cubes.push_back(c);
                 break;
             }
             cubes.push_back(c);            
@@ -183,6 +205,7 @@ private:
 
     lbool solve(solver& s) {
         params_ref p;
+        p.copy(m_params);
         p.set_uint("sat.max_conflicts", get_max_conflicts());
         s.updt_params(p);
         return s.check_sat(0, 0);
@@ -199,6 +222,7 @@ private:
                 m_solvers[j - 1] = m_solvers[j];
             }
             m_solvers.shrink(m_solvers.size() - 1);
+            update_progress(true); 
         }
         unsat.reset();
     }
@@ -206,7 +230,7 @@ private:
     void get_model(model_ref& mdl, int sat_index) {
         SASSERT(sat_index != -1);
         m_solvers[sat_index]->get_solver().get_model(mdl);
-        ast_translation translate(m_solvers[sat_index]->get_solver().get_manager(), *m_manager);
+        ast_translation translate(m_solvers[sat_index]->get_solver().get_manager(), m_manager);
         mdl = mdl->translate(translate);
     }
 
@@ -226,9 +250,17 @@ private:
             for (int i = 0; i < sz; ++i) {
                 lbool is_sat = simplify(m_solvers[i]->get_solver());
                 switch (is_sat) {
-                case l_false: unsat.push_back(i); break;
-                case l_true: sat_index = i; break;
-                case l_undef: break; 
+                case l_false: 
+                    #pragma omp critical (parallel_tactic)
+                    {
+                        unsat.push_back(i); 
+                    }
+                    break;
+                case l_true: 
+                    sat_index = i; 
+                    break;
+                case l_undef: 
+                    break; 
                 }
             }
             if (sat_index != -1) {
@@ -245,9 +277,21 @@ private:
             for (int i = 0; i < sz; ++i) {
                 lbool is_sat = solve(m_solvers[i]->get_solver());
                 switch (is_sat) {
-                case l_false: update_progress(true); unsat.push_back(i); break;
-                case l_true: sat_index = i; break;
-                case l_undef: update_progress(false); break; 
+                case l_false: 
+                    #pragma omp critical (parallel_tactic)
+                    {
+                        unsat.push_back(i); 
+                    }
+                    break;
+                case l_true: 
+                    sat_index = i; 
+                    break;
+                case l_undef: 
+                    #pragma omp critical (parallel_tactic)
+                    {
+                        update_progress(false); 
+                    }
+                    break; 
                 }
             }
             if (sat_index != -1) {
@@ -279,16 +323,11 @@ private:
                 }
                 solver& s = m_solvers[i]->get_solver();
                 ast_manager& m = s.get_manager();
+                if (cubes[i].size() == 1 && m.is_true(cubes[i][0].get())) {
+                    continue;
+                }
                 for (unsigned j = 1; j < cubes[i].size(); ++j) {
-                    ast_manager * new_m = alloc(ast_manager, m, !m.proof_mode());
-                    solver* s1 = s.translate(*new_m, params_ref());
-                    ast_translation translate(m, *new_m);
-                    expr_ref cube(translate(cubes[i][j].get()), *new_m);
-                    s1->assert_expr(cube);                    
-                    m_managers.push_back(new_m);  
-                    solver_state* st = alloc(solver_state, s1);
-                    st->add_cube(cube);
-                    m_solvers.push_back(st);
+                    m_solvers.push_back(m_solvers[i]->clone(m_params, cubes[i][j].get()));
                 }
                 expr* cube0 = cubes[i][0].get();
                 m_solvers[i]->add_cube(cube0);
@@ -305,22 +344,22 @@ private:
             out << "solver units" << s->num_units() << "\n";
             out << "cube " << s->cube() << "\n";
         }
+        m_stats.display(out);
         return out;
     }
 
 
 public:
-    parallel_tactic() :
-        m_manager(0) {
+    parallel_tactic(ast_manager& m, params_ref const& p) :
+        m_manager(m),
+        m_params(p) {
         init();
     }
 
     void operator ()(const goal_ref & g,goal_ref_buffer & result,model_converter_ref & mc,proof_converter_ref & pc,expr_dependency_ref & dep) {
         ast_manager& m = g->m();
-        m_manager = &m;
-        params_ref p;
-        solver* s = mk_fd_solver(m, p);
-        m_solvers.push_back(alloc(solver_state, s));
+        solver* s = mk_fd_solver(m, m_params);
+        m_solvers.push_back(alloc(solver_state, 0, s));
         expr_ref_vector clauses(m);
         ptr_vector<expr> assumptions;
         obj_map<expr, expr*> bool2dep;
@@ -359,15 +398,14 @@ public:
         for (solver_state * s : m_solvers) dealloc(s);
         m_solvers.reset();
         init();
-        m_manager = nullptr;
     }
 
     tactic* translate(ast_manager& m) {
-        return alloc(parallel_tactic);
+        return alloc(parallel_tactic, m, m_params);
     }
 
     virtual void updt_params(params_ref const & p) {
-        // TBD
+        m_params.copy(p);
     }
     virtual void collect_param_descrs(param_descrs & r) {
         // TBD
@@ -385,7 +423,7 @@ public:
 
 };
 
-tactic * mk_parallel_tactic() {
-    return alloc(parallel_tactic);
+tactic * mk_parallel_tactic(ast_manager& m, params_ref const& p) {
+    return alloc(parallel_tactic, m, p);
 }
 

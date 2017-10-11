@@ -22,6 +22,10 @@ Notes:
 class solver;
 class tactic;
 
-tactic * mk_parallel_tactic();
+tactic * mk_parallel_tactic(ast_manager& m, params_ref const& p);
+
+/*
+    ADD_TACTIC("qffdp", "builtin strategy for solving QF_FD problems in parallel.", "mk_parallel_tactic(m, p)")
+*/
 
 #endif
