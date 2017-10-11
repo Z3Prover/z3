@@ -5,6 +5,7 @@ FROM ${DOCKER_IMAGE_BASE}
 # Build arguments. This can be changed when invoking
 # `docker build`.
 ARG ASAN_BUILD
+ARG ASAN_DSO
 ARG BUILD_DOCS
 ARG CC
 ARG CXX
@@ -32,6 +33,7 @@ ARG Z3_VERBOSE_BUILD_OUTPUT
 
 ENV \
   ASAN_BUILD=${ASAN_BUILD} \
+  ASAN_DSO=${ASAN_DSO} \
   BUILD_DOCS=${BUILD_DOCS} \
   CC=${CC} \
   CXX=${CXX} \

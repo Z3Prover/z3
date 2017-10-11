@@ -18,9 +18,41 @@ if [ "X${ASAN_BUILD}" = "X1" ]; then
   function run_no_lsan() {
     ASAN_OPTIONS="${ASAN_OPTIONS},detect_leaks=0" "${@}"
   }
+
+  # Check path to ASan DSO
+  : ${ASAN_DSO?"ASAN_DSO must be specified"}
+  if [ ! -e "${ASAN_DSO}" ]; then
+    echo "ASAN_DSO (${ASAN_DSO}) does not exist"
+    exit 1
+  fi
+  # FIXME: We'll need to refactor this when we can do UBSan builds
+  # against a UBSan DSO.
+  function run_non_native_binding() {
+    # We need to preload the ASan DSO that libz3
+    # will have undefined references to.
+    # Don't run leak checking because we get lots reported leaks
+    # in the language runtime (e.g. python).
+    PLATFORM="$(uname -s)"
+    case "${PLATFORM}" in
+      Linux*)
+        LD_PRELOAD="${ASAN_DSO}" run_no_lsan "${@}"
+      ;;
+      Darwin*)
+        DYLD_INSERT_LIBRARIES="${ASAN_DSO}" run_no_lsan "${@}"
+      ;;
+      *)
+        echo "Unknown platform \"${PLATFORM}\""
+        exit 1
+      ;;
+    esac
+    unset PLATFORM
+  }
 else
   # In non-ASan build just run directly
   function run_no_lsan() {
+    "${@}"
+  }
+  function run_non_native_binding() {
     "${@}"
   }
 fi

@@ -64,16 +64,21 @@ if [ "X${PYTHON_BINDINGS}" = "X1" ]; then
   # `all_interval_series.py` produces a lot of output so just throw
   # away output.
   # TODO: This example is slow should we remove it from testing?
-  run_quiet ${PYTHON_EXECUTABLE} python/all_interval_series.py
-  run_quiet ${PYTHON_EXECUTABLE} python/complex.py
-  run_quiet ${PYTHON_EXECUTABLE} python/example.py
+  if [ "X${ASAN_BUILD}" = "X1" -a "X${Z3_BUILD_TYPE}" = "XDebug" ]; then
+    # Too slow when doing ASan Debug build
+    echo "Skipping all_interval_series.py under ASan Debug build"
+  else
+    run_non_native_binding run_quiet ${PYTHON_EXECUTABLE} python/all_interval_series.py
+  fi
+  run_non_native_binding run_quiet ${PYTHON_EXECUTABLE} python/complex.py
+  run_non_native_binding run_quiet ${PYTHON_EXECUTABLE} python/example.py
   # FIXME: `hamiltonian.py` example is disabled because its too slow.
   #${PYTHON_EXECUTABLE} python/hamiltonian.py
-  run_quiet ${PYTHON_EXECUTABLE} python/marco.py
-  run_quiet ${PYTHON_EXECUTABLE} python/mss.py
-  run_quiet ${PYTHON_EXECUTABLE} python/socrates.py
-  run_quiet ${PYTHON_EXECUTABLE} python/visitor.py
-  run_quiet ${PYTHON_EXECUTABLE} python/z3test.py
+  run_non_native_binding run_quiet ${PYTHON_EXECUTABLE} python/marco.py
+  run_non_native_binding run_quiet ${PYTHON_EXECUTABLE} python/mss.py
+  run_non_native_binding run_quiet ${PYTHON_EXECUTABLE} python/socrates.py
+  run_non_native_binding run_quiet ${PYTHON_EXECUTABLE} python/visitor.py
+  run_non_native_binding run_quiet ${PYTHON_EXECUTABLE} python/z3test.py
 fi
 
 if [ "X${DOTNET_BINDINGS}" = "X1" ]; then
@@ -81,7 +86,7 @@ if [ "X${DOTNET_BINDINGS}" = "X1" ]; then
   # FIXME: Move compliation step into CMake target
   mcs ${Z3_SRC_DIR}/examples/dotnet/Program.cs /target:exe /out:dotnet_test.exe /reference:Microsoft.Z3.dll /r:System.Numerics.dll
   # Run .NET example
-  run_quiet mono ./dotnet_test.exe
+  run_non_native_binding run_quiet mono ./dotnet_test.exe
 fi
 
 if [ "X${JAVA_BINDINGS}" = "X1" ]; then
@@ -98,6 +103,14 @@ if [ "X${JAVA_BINDINGS}" = "X1" ]; then
     # Assume Linux for now
     export LD_LIBRARY_PATH=$(pwd):${LD_LIBRARY_PATH}
   fi
-  run_quiet java -cp .:examples/java:com.microsoft.z3.jar JavaExample
+  if [ "X${ASAN_BUILD}" = "X1" ]; then
+    # The JVM seems to crash (SEGV) if we pre-load ASan
+    # so don't run it for now.
+    echo "Skipping JavaExample under ASan build"
+  else
+    run_non_native_binding \
+      run_quiet \
+        java -cp .:examples/java:com.microsoft.z3.jar JavaExample
+  fi
 fi
 

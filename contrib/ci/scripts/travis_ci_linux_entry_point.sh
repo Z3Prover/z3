@@ -84,6 +84,10 @@ if [ -n "${ASAN_BUILD}" ]; then
   BUILD_OPTS+=("--build-arg" "ASAN_BUILD=${ASAN_BUILD}")
 fi
 
+if [ -n "${ASAN_DSO}" ]; then
+  BUILD_OPTS+=("--build-arg" "ASAN_DSO=${ASAN_DSO}")
+fi
+
 if [ -n "${UBSAN_BUILD}" ]; then
   BUILD_OPTS+=("--build-arg" "UBSAN_BUILD=${UBSAN_BUILD}")
 fi
