@@ -87,6 +87,7 @@ class vector {
             m_data  = reinterpret_cast<T *>(mem + 2);
             if (!std::is_trivially_copyable<T>::value) {
                 static_assert(std::is_move_constructible<T>::value, "");
+                mem[1] = old_size;
                 int i = 0;
                 for (auto I = old_data; I != old_data + old_size; ++I) {
                     new (&m_data[i++]) T(std::move(*I));
