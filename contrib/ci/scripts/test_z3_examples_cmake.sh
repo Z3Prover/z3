@@ -42,9 +42,13 @@ run_quiet examples/tptp_build_dir/z3_tptp5 -help
 
 # Build an run c_maxsat_example
 cmake --build $(pwd) --target c_maxsat_example "${GENERATOR_ARGS[@]}"
-run_quiet \
-  examples/c_maxsat_example_build_dir/c_maxsat_example \
-  ${Z3_SRC_DIR}/examples/maxsat/ex.smt
+# FIXME: It is known that the maxsat example leaks memory and the
+# the Z3 developers have stated this is "wontfix".
+# See https://github.com/Z3Prover/z3/issues/1299
+run_no_lsan \
+  run_quiet \
+    examples/c_maxsat_example_build_dir/c_maxsat_example \
+    ${Z3_SRC_DIR}/examples/maxsat/ex.smt
 
 if [ "X${UBSAN_BUILD}" = "X1" ]; then
   # FIXME: We really need libz3 to link against a shared UBSan runtime.
