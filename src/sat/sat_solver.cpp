@@ -1468,11 +1468,14 @@ namespace sat {
                 lh.simplify();
                 lh.collect_statistics(m_aux_stats);
             }
+#if 0
+			// Buggy
             {
                 lookahead lh(*this);
                 lh.scc();
                 lh.collect_statistics(m_aux_stats);
             }
+#endif
         }
 
 
@@ -3049,7 +3052,6 @@ namespace sat {
         m_probing.updt_params(p);
         m_scc.updt_params(p);
         m_rand.set_seed(m_config.m_random_seed);
-
         m_step_size = m_config.m_step_size_init;
     }
 

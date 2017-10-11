@@ -21,4 +21,5 @@ z3_add_component(portfolio
   TACTIC_HEADERS
     default_tactic.h
     fd_solver.h
+    parallel_tactic.h
 )
