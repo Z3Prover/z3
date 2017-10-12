@@ -468,6 +468,7 @@ namespace sat {
         bool push_lookahead2(literal lit, unsigned level);
         unsigned push_lookahead1(literal lit, unsigned level);
         void pop_lookahead1(literal lit, unsigned num_units);
+        void lookahead_backtrack();
         double mix_diff(double l, double r) const;
         clause const& get_clause(watch_list::iterator it) const;
         bool is_nary_propagation(clause const& c, literal l) const;
@@ -476,8 +477,6 @@ namespace sat {
         void propagate();
         literal choose();
         void compute_lookahead_reward();
-        void init_lookahead_reward();
-        void reset_lookahead_reward();
         literal select_literal();
         void update_binary_clause_reward(literal l1, literal l2);
         void update_nary_clause_reward(clause const& c);
@@ -497,8 +496,8 @@ namespace sat {
             return is_fixed(lit) && (!is_false(lit) || m_stamp[lit.var()] >= level);
         }
 
-        void do_double(literal l, unsigned& base);
-        void double_look(literal l, unsigned& base);
+        unsigned do_double(literal l, unsigned& base);
+        unsigned double_look(literal l, unsigned& base);
         void set_conflict() { TRACE("sat", tout << "conflict\n";); m_inconsistent = true; }
         //void set_conflict() { TRACE("sat", tout << "conflict\n";); printf("CONFLICT\n"); m_inconsistent = true; }
         bool inconsistent() { return m_inconsistent; }
