@@ -20,7 +20,7 @@ Notes:
 #ifndef _SAT_LOOKAHEAD_H_
 #define _SAT_LOOKAHEAD_H_
 
-#define OLD_NARY 0
+// #define OLD_NARY 0
 
 #include "sat_elim_eqs.h"
 
@@ -194,16 +194,9 @@ namespace sat {
         vector<svector<binary>> m_ternary;        // lit |-> vector of ternary clauses
         unsigned_vector         m_ternary_count;  // lit |-> current number of active ternary clauses for lit
 
-#if OLD_NARY
-        vector<unsigned_vector> m_nary;           // lit |-> vector of clause_id
-        unsigned_vector         m_nary_literals;  // the actual literals, clauses start at offset clause_id, 
-                                                  // the first entry is the current length, clauses are separated by a null_literal
-
-#else
         small_object_allocator    m_allocator;
         vector<ptr_vector<nary>>  m_nary;        // lit |-> vector of nary clauses
         ptr_vector<nary>          m_nary_clauses; // vector of all nary clauses
-#endif
         unsigned_vector           m_nary_count;     // lit |-> number of valid clause_id in m_nary[lit]
 
         unsigned               m_num_tc1;
@@ -331,10 +324,10 @@ namespace sat {
         double get_rating(bool_var v) const { return m_rating[v]; }
         double get_rating(literal l) const { return get_rating(l.var()); }
         bool select(unsigned level);
-        //void sift_up(unsigned j);
         void heap_sort();
-        void heapify();
+        void heapify();        
         void sift_down(unsigned j, unsigned sz);
+        bool validate_heap_sort();
         double init_candidates(unsigned level, bool newbies);
         std::ostream& display_candidates(std::ostream& out) const;
         bool is_unsat() const;
@@ -457,13 +450,8 @@ namespace sat {
         void propagate_clauses_searching(literal l);
         void propagate_clauses_lookahead(literal l);
         void restore_clauses(literal l);
-#if OLD_NARY
-        void remove_clause(literal l, unsigned clause_idx);
-        void remove_clause_at(literal l, unsigned clause_idx);
-#else
         void remove_clause(literal l, nary& n);
         void remove_clause_at(literal l, nary& n);
-#endif
         // ------------------------------------
         // initialization
         
@@ -552,12 +540,9 @@ namespace sat {
 
         ~lookahead() {
             m_s.rlimit().pop_child();
-#if OLD_NARY
-#else
             for (nary* n : m_nary_clauses) { 
                 m_allocator.deallocate(n->obj_size(), n);
             }
-#endif
         }
         
 
