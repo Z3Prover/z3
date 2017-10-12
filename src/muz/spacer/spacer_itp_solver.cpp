@@ -276,23 +276,27 @@ void itp_solver::get_itp_core (expr_ref_vector &core)
         // new code
         unsat_core_learner learner(m,m_print_farkas_stats);
 
-        if (m_farkas_optimized) {
-            if (true) // TODO: proper options
-            {
-                unsat_core_plugin_farkas_lemma_optimized* plugin_farkas_lemma_optimized = alloc(unsat_core_plugin_farkas_lemma_optimized, learner,m);
-                learner.register_plugin(plugin_farkas_lemma_optimized);
-            }
-            else
-            {
-                unsat_core_plugin_farkas_lemma_bounded* plugin_farkas_lemma_bounded = alloc(unsat_core_plugin_farkas_lemma_bounded, learner,m);
-                learner.register_plugin(plugin_farkas_lemma_bounded);
-            }
-
-        } else {
-            unsat_core_plugin_farkas_lemma* plugin_farkas_lemma = alloc(unsat_core_plugin_farkas_lemma, learner, m_split_literals, m_farkas_a_const);
+        if (m_farkas_plugin == 0 || m_farkas_plugin > 3)
+        {
+            unsat_core_plugin_farkas_lemma* plugin_farkas_lemma = alloc(unsat_core_plugin_farkas_lemma, learner, m_split_literals, false);
             learner.register_plugin(plugin_farkas_lemma);
         }
-
+        else if (m_farkas_plugin == 1)
+        {
+            unsat_core_plugin_farkas_lemma* plugin_farkas_lemma = alloc(unsat_core_plugin_farkas_lemma, learner, m_split_literals, true);
+            learner.register_plugin(plugin_farkas_lemma);
+        }
+        else if (m_farkas_plugin == 2)
+        {
+            unsat_core_plugin_farkas_lemma_optimized* plugin_farkas_lemma_optimized = alloc(unsat_core_plugin_farkas_lemma_optimized, learner,m);
+            learner.register_plugin(plugin_farkas_lemma_optimized);
+        }
+        else if(m_farkas_plugin == 3)
+        {
+            unsat_core_plugin_farkas_lemma_bounded* plugin_farkas_lemma_bounded = alloc(unsat_core_plugin_farkas_lemma_bounded, learner,m);
+            learner.register_plugin(plugin_farkas_lemma_bounded);
+        }
+        
         if (m_minimize_unsat_core) {
             unsat_core_plugin_min_cut* plugin_min_cut = alloc(unsat_core_plugin_min_cut, learner, m);
             learner.register_plugin(plugin_min_cut);
