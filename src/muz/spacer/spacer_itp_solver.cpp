@@ -290,16 +290,16 @@ void itp_solver::get_itp_core (expr_ref_vector &core)
             learner.register_plugin(plugin_farkas_lemma);
         }
         else if (m_iuc_arith == 2)
-            {
-                unsat_core_plugin_farkas_lemma_optimized* plugin_farkas_lemma_optimized = alloc(unsat_core_plugin_farkas_lemma_optimized, learner,m);
-                learner.register_plugin(plugin_farkas_lemma_optimized);
-            }
+        {
+            unsat_core_plugin_farkas_lemma_optimized* plugin_farkas_lemma_optimized = alloc(unsat_core_plugin_farkas_lemma_optimized, learner,m);
+            learner.register_plugin(plugin_farkas_lemma_optimized);
+        }
         else if(m_iuc_arith == 3)
-            {
-                unsat_core_plugin_farkas_lemma_bounded* plugin_farkas_lemma_bounded = alloc(unsat_core_plugin_farkas_lemma_bounded, learner,m);
-                learner.register_plugin(plugin_farkas_lemma_bounded);
-            }
-
+        {
+            unsat_core_plugin_farkas_lemma_bounded* plugin_farkas_lemma_bounded = alloc(unsat_core_plugin_farkas_lemma_bounded, learner,m);
+            learner.register_plugin(plugin_farkas_lemma_bounded);
+        }
+        
         if (m_iuc == 2)
         {
             unsat_core_plugin_min_cut* plugin_min_cut = alloc(unsat_core_plugin_min_cut, learner, m);

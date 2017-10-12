@@ -61,7 +61,6 @@ private:
     unsigned m_iuc;
     unsigned m_iuc_arith;
     bool m_print_farkas_stats;
-    bool m_print_farkas_stats;
 
     bool is_proxy(expr *e, app_ref &def);
     void undo_proxies_in_core(ptr_vector<expr> &v);
