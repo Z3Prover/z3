@@ -1078,8 +1078,7 @@ namespace sat {
                 TRACE("sat", tout << "windfall: " << nlit << " " << l2 << "\n";); 
                 // if we use try_add_binary, then this may produce new assignments
                 // these assignments get put on m_trail, and they are cleared by
-                // reset_lookahead_reward. We would need to distinguish the trail that comes
-                // from lookahead levels and the main search level for this to work.
+                // lookahead_backtrack. 
                 add_binary(nlit, l2);
             }
             m_stats.m_windfall_binaries += m_wstack.size();
@@ -1099,40 +1098,12 @@ namespace sat {
     }
 
     void lookahead::lookahead_backtrack() {
-        //printf("before: m_trail.size() = %d\n", m_trail.size());
         while (!m_trail.empty() && is_undef(m_trail.back())) {
             m_trail.pop_back();
         }
         SASSERT(m_trail_lim.empty() || m_trail.size() >= m_trail_lim.back());
         m_qhead = std::min(m_qhead, m_trail.size());
-        //printf("after: m_trail.size() = %d\n", m_trail.size());
     }
-    /*void lookahead::lookahead_backtrack() {
-        //return;
-        if (m_trail_lim.empty()) return;
-        unsigned old_sz = m_trail_lim.back();
-        unsigned j = m_trail.size();
-        while (j > old_sz) {
-        //while (m_qhead > old_sz) {
-            literal l = m_trail[j - 1];
-            //literal l = m_trail[m_qhead - 1];
-            if (is_fixed(l)) {
-                break;
-            }
-            else {
-                --j;
-                //--m_qhead;
-                SASSERT(is_undef(l));
-                //set_undef(l);
-                //for (unsigned idx : m_nary[(~l).index()]) {
-                //    ++m_nary_len[idx];
-                //}
-            }
-        }
-        //m_trail.shrink(m_qhead);
-        m_trail.shrink(j);
-        m_qhead = std::min(m_qhead, j);
-    }*/
 
     // 
     // The current version is modeled after CDCL SAT solving data-structures.
@@ -1606,13 +1577,11 @@ namespace sat {
         while (!inconsistent() && m_qhead < m_trail.size()) {
             unsigned i = m_qhead;
             unsigned sz = m_trail.size();
-            //for (; i < m_trail.size() && !inconsistent(); ++i) {
             for (; i < sz && !inconsistent(); ++i) {
                 literal l = m_trail[i];
                 TRACE("sat", tout << "propagate " << l << " @ " << m_level << "\n";);
                 propagate_binary(l);
             }
-            //while (m_qhead < m_trail.size() && !inconsistent()) {
             while (m_qhead < sz && !inconsistent()) {
                 propagate_clauses(m_trail[m_qhead++]);
             }
@@ -1621,7 +1590,6 @@ namespace sat {
         TRACE("sat_verbose", display(tout << scope_lvl() << " " << (inconsistent()?"unsat":"sat") << "\n"););
     }
 
-#define CHECK_FAILED_LITERAL 0
 
     void lookahead::compute_lookahead_reward() {
         TRACE("sat", display_lookahead(tout); );
@@ -1629,10 +1597,6 @@ namespace sat {
         unsigned base = 2;
         bool change = true;
         literal last_changed = null_literal;
-#if CHECK_FAILED_LITERAL
-        unsigned_vector assigns;
-        literal_vector assigns_lits;
-#endif
         while (change && !inconsistent()) {
             change = false;
             for (unsigned i = 0; !inconsistent() && i < m_lookahead.size(); ++i) {
@@ -1662,11 +1626,6 @@ namespace sat {
                 pop_lookahead1(lit, num_units); 
                 if (unsat) {
                     TRACE("sat", tout << "backtracking and settting " << ~lit << "\n";);
-                    lookahead_backtrack();
-#if CHECK_FAILED_LITERAL
-                    assigns.push_back(m_trail.size());
-                    assigns_lits.push_back(~lit);
-#endif
                     assign(~lit);
                     propagate();
                     change = true;
@@ -1691,12 +1650,6 @@ namespace sat {
             base += 2 * m_lookahead.size();
         }
         lookahead_backtrack();
-#if CHECK_FAILED_LITERAL
-        for (unsigned i = 0; i < assigns.size(); ++i) {
-            std::cout << "check trail: " << m_trail[assigns[i]] << " " << assigns_lits[i] << "\n";
-            VERIFY(m_trail[assigns[i]] == assigns_lits[i]);
-        }
-#endif
         TRACE("sat", display_lookahead(tout); );
     }
 
@@ -1921,11 +1874,6 @@ namespace sat {
 
     void lookahead::propagated(literal l) {
         assign(l);
-        /*for (unsigned i = m_trail.size() - 1; i < m_trail.size() && !inconsistent(); ++i) {
-            literal l = m_trail[i];
-            TRACE("sat", tout << "propagate " << l << " @ " << m_level << "\n";);
-            propagate_binary(l);
-        }*/
         if (m_search_mode == lookahead_mode::lookahead1) {
             m_wstack.push_back(l);
         }

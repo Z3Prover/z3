@@ -477,8 +477,6 @@ namespace sat {
         void propagate();
         literal choose();
         void compute_lookahead_reward();
-        void init_lookahead_reward();
-        void reset_lookahead_reward();
         literal select_literal();
         void update_binary_clause_reward(literal l1, literal l2);
         void update_nary_clause_reward(clause const& c);
