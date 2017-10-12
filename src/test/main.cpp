@@ -229,7 +229,7 @@ int main(int argc, char ** argv) {
     TST(quant_solve);
     TST(rcf);
     TST(polynorm);
-    // TST(qe_arith);
+    TST(qe_arith);
     TST(expr_substitution);
     TST(sorting_network);
     TST(theory_pb);
