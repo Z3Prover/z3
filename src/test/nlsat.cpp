@@ -698,10 +698,8 @@ static void tst10() {
 void tst_nlsat() {
     tst10();
     std::cout << "------------------\n";
-    exit(0);
     tst9();
     std::cout << "------------------\n";
-    exit(0);
     tst8();
     std::cout << "------------------\n";
     tst7();
