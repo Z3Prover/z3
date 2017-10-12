@@ -222,14 +222,14 @@ int main(int argc, char ** argv) {
     TST(heap_trie);
     TST(karr);
     TST(no_overflow);
-    TST(memory);
+    // TST(memory);
     TST(datalog_parser);
     TST_ARGV(datalog_parser_file);
     TST(dl_query);
     TST(quant_solve);
     TST(rcf);
     TST(polynorm);
-    TST(qe_arith);
+    // TST(qe_arith);
     TST(expr_substitution);
     TST(sorting_network);
     TST(theory_pb);
