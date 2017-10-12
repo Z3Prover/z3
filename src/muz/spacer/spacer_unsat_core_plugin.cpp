@@ -707,6 +707,8 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
      */
     void unsat_core_plugin_min_cut::add_edge(proof* i, proof* j)
     {
+        SASSERT(i != nullptr || j != nullptr);
+        
         unsigned node_i;
         unsigned node_j;
         if (i == nullptr)
@@ -735,7 +737,7 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
                 m_node_to_formula[node_other] = m.get_fact(i);
                 m_node_to_formula[node_i] = m.get_fact(i);
 
-                m_min_cut.add_edge(node_other, node_i);
+                m_min_cut.add_edge(node_other, node_i, 1);
             }
         }
 
@@ -765,12 +767,20 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
                 m_node_to_formula[node_j] = m.get_fact(j);
                 m_node_to_formula[node_other] = m.get_fact(j);
 
-                m_min_cut.add_edge(node_j, node_other);
+                m_min_cut.add_edge(node_j, node_other, 1);
             }
         }
 
-        // finally connect nodes
-        m_min_cut.add_edge(node_i, node_j);
+        // finally connect nodes (if there is not already a connection i -> j (only relevant if i is the supersource))
+        if (!(i == nullptr && m_connected_to_s.is_marked(j)))
+        {
+            m_min_cut.add_edge(node_i, node_j, 1);
+        }
+        
+        if (i == nullptr)
+        {
+            m_connected_to_s.mark(j, true);
+        }
     }
 
     /*

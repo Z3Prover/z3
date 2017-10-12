@@ -108,6 +108,7 @@ private:
         void add_edge(proof* i, proof* j);
 
         vector<expr*> m_node_to_formula; // maps each node to the corresponding formula in the original proof
+        ast_mark m_connected_to_s; // remember which nodes have already been connected to the supersource, in order to avoid multiple edges.
 
         min_cut m_min_cut;
     };
