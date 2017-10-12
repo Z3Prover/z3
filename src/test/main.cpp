@@ -10,27 +10,30 @@
 #include "util/memory_manager.h"
 #include "util/gparams.h"
 
+static void tst_exit_all_tests() {
+    exit(0);
+}
 //
 // Unit tests fail by asserting.
 // If they return, we assume the unit test succeeds
 // and print "PASS" to indicate success.
 // 
 
-#define TST(MODULE) {                \
-    std::string s("test ");            \
-    s += #MODULE;                \
-    void tst_##MODULE();            \
-    if (do_display_usage)                       \
-        std::cout << #MODULE << "\n";           \
-    for (int i = 0; i < argc; i++)         \
-    if (test_all || strcmp(argv[i], #MODULE) == 0) {    \
-            enable_trace(#MODULE);              \
-        enable_debug(#MODULE);        \
-        timeit timeit(true, s.c_str());     \
-        tst_##MODULE();            \
-            std::cout << "PASS" << std::endl;   \
-    }                    \
-}
+#define TST(MODULE) {                                        \
+        std::string s("test ");                              \
+        s += #MODULE;                                        \
+        void tst_##MODULE();                                 \
+        if (do_display_usage)                                \
+            std::cout << #MODULE << "\n";                    \
+        for (int i = 0; i < argc; i++)                       \
+            if (test_all || strcmp(argv[i], #MODULE) == 0) { \
+                enable_trace(#MODULE);                       \
+                enable_debug(#MODULE);                       \
+                timeit timeit(true, s.c_str());              \
+                tst_##MODULE();                              \
+                    std::cout << "PASS" << std::endl;        \
+            }                                                \
+    }
 
 #define TST_ARGV(MODULE) {                              \
     std::string s("test ");                             \
@@ -207,6 +210,7 @@ int main(int argc, char ** argv) {
     TST(prime_generator);
     TST(permutation);
     TST(nlsat);
+    TST(exit_all_tests);
     TST(ext_numeral);
     TST(interval);
     TST(f2n);
