@@ -571,9 +571,10 @@ namespace sat {
            If cut-depth != 0, then it is used to control the depth of cuts.
            Otherwise, cut-fraction gives an adaptive threshold for creating cuts.
         */
+
         lbool cube();
 
-        lbool cube(literal_vector& lits);
+        lbool cube(bool_var_vector const& vars, literal_vector& lits);
 
         literal select_lookahead(literal_vector const& assumptions, bool_var_vector const& vars);
         /**

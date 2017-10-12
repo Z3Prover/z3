@@ -300,6 +300,10 @@ namespace sat {
     void ba_solver::set_conflict(constraint& c, literal lit) {
         m_stats.m_num_conflicts++;
         TRACE("ba", display(tout, c, true); );
+        if (!validate_conflict(c)) {
+            display(std::cout, c, true);
+            UNREACHABLE();
+        }
         SASSERT(validate_conflict(c));
         if (c.is_xor() && value(lit) == l_true) lit.neg();
         SASSERT(value(lit) == l_false);
@@ -645,6 +649,7 @@ namespace sat {
                 display(verbose_stream(), p, true);
                 verbose_stream() << "alit: " << alit << "\n";
                 verbose_stream() << "num watch " << num_watch << "\n");
+            UNREACHABLE();
             exit(0);
             return l_undef;
         }

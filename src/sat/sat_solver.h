@@ -365,7 +365,7 @@ namespace sat {
         char const* get_reason_unknown() const { return m_reason_unknown.c_str(); }
 
         literal select_lookahead(literal_vector const& assumptions, bool_var_vector const& vars);
-        lbool  cube(literal_vector& lits);
+        lbool  cube(bool_var_vector const& vars, literal_vector& lits);
 
     protected:
         unsigned m_conflicts_since_init;

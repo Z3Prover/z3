@@ -92,7 +92,7 @@ namespace sat {
         // TRACE("sat", display(tout << "Delete " << to_literal(idx) << "\n"););
         literal_vector & lits = m_binary[idx];
         SASSERT(!lits.empty());
-        literal l = lits.back();			
+        literal l = lits.back();
         lits.pop_back();            
         SASSERT(!m_binary[(~l).index()].empty());
         IF_VERBOSE(0, if (m_binary[(~l).index()].back() != ~to_literal(idx)) verbose_stream() << "pop bad literal: " << idx << " " << (~l).index() << "\n";);
@@ -641,18 +641,18 @@ namespace sat {
     void lookahead::init_arcs(literal l) {
         literal_vector lits;
         literal_vector const& succ = m_binary[l.index()];
-        for (unsigned i = 0; i < succ.size(); ++i) {
-            literal u = succ[i];
+        for (literal u : succ) {
             SASSERT(u != l);
+            // l => u
             if (u.index() > l.index() && is_stamped(u)) {
                 add_arc(~l, ~u);
                 add_arc( u,  l);
             }
         }
         for (auto w : m_watches[l.index()]) {
-            if (w.is_ext_constraint() && m_s.m_ext->is_extended_binary(w.get_ext_constraint_idx(), lits)) {
+            if (w.is_ext_constraint() && m_s.m_ext->is_extended_binary(w.get_ext_constraint_idx(), lits)) { 
                 for (literal u : lits) {
-                    if (u.index() > l.index() && is_stamped(u)) {
+                    if (u.index() > (~l).index() && is_stamped(u)) {
                         add_arc(~l, ~u);
                         add_arc( u,  l);
                     }
@@ -1298,6 +1298,8 @@ namespace sat {
         watch_list::iterator it = wlist.begin(), it2 = it, end = wlist.end();
         for (; it != end && !inconsistent(); ++it) {
             SASSERT(it->get_kind() == watched::EXT_CONSTRAINT);
+            VERIFY(is_true(l));
+            VERIFY(!is_undef(l));
             bool keep = m_s.m_ext->propagate(l, it->get_ext_constraint_idx());
             if (m_search_mode == lookahead_mode::lookahead1 && !m_inconsistent) {
                 lookahead_literal_occs_fun literal_occs_fn(*this);
@@ -1704,6 +1706,8 @@ namespace sat {
     }
 
     void lookahead::propagate_clauses(literal l) {
+        VERIFY(is_true(l));
+		VERIFY(value(l) == l_true);
         propagate_ternary(l);
         switch (m_search_mode) {
         case lookahead_mode::searching:
@@ -1713,6 +1717,9 @@ namespace sat {
             propagate_clauses_lookahead(l);
             break;
         }
+        VERIFY(!is_undef(l));
+        VERIFY(is_true(l));
+        VERIFY(value(l) == l_true);
         propagate_external(l);
     }
     
@@ -2179,8 +2186,10 @@ namespace sat {
 
     lbool lookahead::cube() {
         literal_vector lits;
+        bool_var_vector vars;
+        for (bool_var v : m_freevars) vars.push_back(v);
         while (true) {
-            lbool result = cube(lits);
+            lbool result = cube(vars, lits);
             if (lits.empty() || result != l_undef) {
                 return l_undef;
             }
@@ -2189,8 +2198,13 @@ namespace sat {
         return l_undef;
     }
 
-    lbool lookahead::cube(literal_vector& lits) {
+    lbool lookahead::cube(bool_var_vector const& vars, literal_vector& lits) {
+        scoped_ext _scoped_ext(*this);
         lits.reset();
+        m_select_lookahead_vars.reset();
+        for (auto v : vars) {
+            m_select_lookahead_vars.insert(v);
+        }
         bool is_first = m_cube_state.m_first;
         if (is_first) {
             init_search();
@@ -2412,6 +2426,7 @@ namespace sat {
        \brief simplify set of clauses by extracting units from a lookahead at base level.
     */
     void lookahead::simplify() {
+		scoped_ext _scoped_ext(*this);
         SASSERT(m_prefix == 0);
         SASSERT(m_watches.empty());
         m_search_mode = lookahead_mode::searching;

@@ -398,7 +398,6 @@ public:
                 mc = concat(fmc.get(), mc.get());
             }
             g->reset();
-            result.push_back(g.get());
             break;
         case l_false:
             SASSERT(!g->proofs_enabled());
@@ -409,9 +408,9 @@ public:
             if (m.canceled()) {
                 throw tactic_exception(Z3_CANCELED_MSG);
             }
-            result.push_back(g.get());
             break;
         }
+        result.push_back(g.get());
     }
 
     void cleanup() {

@@ -94,12 +94,6 @@ struct goal2sat::imp {
         std::string s0 = "operator " + s + " not supported, apply simplifier before invoking translator";
         throw tactic_exception(s0.c_str());
     }
-
-    sat::bool_var mk_var(expr* t, bool ext) {
-        sat::bool_var v = m_solver.mk_var(ext);
-        m_map.insert(t, v);
-        return v;
-    }
     
     void mk_clause(sat::literal l) {
         TRACE("goal2sat", tout << "mk_clause: " << l << "\n";);
@@ -126,7 +120,7 @@ struct goal2sat::imp {
     sat::bool_var mk_true() {
         if (m_true == sat::null_bool_var) {
             // create fake variable to represent true;
-            m_true = mk_var(m.mk_true(), false);
+            m_true = m_solver.mk_var(false);
             mk_clause(sat::literal(m_true, false)); // v is true
         }
         return m_true;
@@ -145,7 +139,8 @@ struct goal2sat::imp {
             }
             else {
                 bool ext = m_default_external || !is_uninterp_const(t) || m_interface_vars.contains(t);
-                sat::bool_var v = mk_var(t, ext);
+                sat::bool_var v = m_solver.mk_var(ext);
+                m_map.insert(t, v);
                 l = sat::literal(v, sign);
                 TRACE("sat", tout << "new_var: " << v << ": " << mk_ismt2_pp(t, m) << "\n";);
                 if (ext && !is_uninterp_const(t)) {
@@ -252,7 +247,7 @@ struct goal2sat::imp {
         }
         else {
             SASSERT(num <= m_result_stack.size());
-            sat::bool_var k = mk_var(t, false);
+            sat::bool_var k = m_solver.mk_var();
             sat::literal  l(k, false);
             m_cache.insert(t, l);
             sat::literal * lits = m_result_stack.end() - num;
@@ -291,7 +286,7 @@ struct goal2sat::imp {
         }
         else {
             SASSERT(num <= m_result_stack.size());
-            sat::bool_var k = mk_var(t, false);
+            sat::bool_var k = m_solver.mk_var();
             sat::literal  l(k, false);
             m_cache.insert(t, l);
             // l => /\ lits
@@ -335,7 +330,7 @@ struct goal2sat::imp {
             m_result_stack.reset();
         }
         else {
-            sat::bool_var k = mk_var(n, false);
+            sat::bool_var k = m_solver.mk_var();
             sat::literal  l(k, false);
             m_cache.insert(n, l);
             mk_clause(~l, ~c, t);
@@ -372,7 +367,7 @@ struct goal2sat::imp {
             m_result_stack.reset();
         }
         else {
-            sat::bool_var k = mk_var(t, false);
+            sat::bool_var k = m_solver.mk_var();
             sat::literal  l(k, false);
             m_cache.insert(t, l);
             mk_clause(~l, l1, ~l2);
@@ -397,7 +392,7 @@ struct goal2sat::imp {
         }
         sat::literal_vector lits;
         convert_pb_args(num, lits);
-        sat::bool_var v = mk_var(t, true);
+        sat::bool_var v = m_solver.mk_var(true);
         ensure_extension();
         if (lits.size() % 2 == 0) lits[0].neg();
         m_ext->add_xor(v, lits);
@@ -456,7 +451,7 @@ struct goal2sat::imp {
             m_ext->add_pb_ge(sat::null_bool_var, wlits, k.get_unsigned());
         }
         else {
-            sat::bool_var v = mk_var(t, true);
+            sat::bool_var v = m_solver.mk_var(true);
             sat::literal lit(v, sign);
             m_ext->add_pb_ge(v, wlits, k.get_unsigned());
             TRACE("goal2sat", tout << "root: " << root << " lit: " << lit << "\n";);
@@ -481,7 +476,7 @@ struct goal2sat::imp {
             m_ext->add_pb_ge(sat::null_bool_var, wlits, k.get_unsigned());
         }
         else {
-            sat::bool_var v = mk_var(t, true);
+            sat::bool_var v = m_solver.mk_var(true);
             sat::literal lit(v, sign);
             m_ext->add_pb_ge(v, wlits, k.get_unsigned());
             TRACE("goal2sat", tout << "root: " << root << " lit: " << lit << "\n";);
@@ -530,7 +525,7 @@ struct goal2sat::imp {
             m_ext->add_at_least(sat::null_bool_var, lits, k.get_unsigned());
         }
         else {
-            sat::bool_var v = mk_var(t, true);
+            sat::bool_var v = m_solver.mk_var(true);
             sat::literal lit(v, sign);
             m_ext->add_at_least(v, lits, k.get_unsigned());
             TRACE("goal2sat", tout << "root: " << root << " lit: " << lit << "\n";);
@@ -552,7 +547,7 @@ struct goal2sat::imp {
             m_ext->add_at_least(sat::null_bool_var, lits, lits.size() - k.get_unsigned());
         }
         else {
-            sat::bool_var v = mk_var(t, true);
+            sat::bool_var v = m_solver.mk_var(true);
             sat::literal lit(v, sign);
             m_ext->add_at_least(v, lits, lits.size() - k.get_unsigned());
             m_result_stack.shrink(sz - t->get_num_args());
