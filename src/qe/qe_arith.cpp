@@ -105,10 +105,10 @@ namespace qe {
                 rational r;
                 app* alit = to_app(lit);
                 vector<std::pair<expr*,rational> > nums;
-                for (unsigned i = 0; i < alit->get_num_args(); ++i) {
-                    val = eval(alit->get_arg(i));
+                for (expr* arg : *alit) {
+                    val = eval(arg);
                     if (!a.is_numeral(val, r)) return false;
-                    nums.push_back(std::make_pair(alit->get_arg(i), r));
+                    nums.push_back(std::make_pair(arg, r));
                 }
                 std::sort(nums.begin(), nums.end(), compare_second());
                 for (unsigned i = 0; i + 1 < nums.size(); ++i) {
@@ -168,8 +168,8 @@ namespace qe {
             }
             else if (a.is_add(t)) {
                 app* ap = to_app(t);
-                for (unsigned i = 0; i < ap->get_num_args(); ++i) {
-                    linearize(mbo, eval, mul, ap->get_arg(i), c, fmls, ts, tids);
+                for (expr* arg : *ap) {
+                    linearize(mbo, eval, mul, arg, c, fmls, ts, tids);
                 }
             }
             else if (a.is_sub(t, t1, t2)) {
@@ -226,16 +226,16 @@ namespace qe {
             else if (a.is_mul(t)) {
                 app* ap = to_app(t);
                 r = rational(1);
-                for (unsigned i = 0; i < ap->get_num_args(); ++i) {
-                    if (!is_numeral(ap->get_arg(i), r1)) return false;
+                for (expr * arg : *ap) {
+                    if (!is_numeral(arg, r1)) return false;
                     r *= r1;
                 }
             }
             else if (a.is_add(t)) {
                 app* ap = to_app(t);
                 r = rational(0);
-                for (unsigned i = 0; i < ap->get_num_args(); ++i) {
-                    if (!is_numeral(ap->get_arg(i), r1)) return false;
+                for (expr * arg : *ap) {
+                    if (!is_numeral(arg, r1)) return false;
                     r += r1;
                 }
             }
@@ -297,6 +297,7 @@ namespace qe {
 
             opt::model_based_opt mbo;
             obj_map<expr, unsigned> tids;
+            expr_ref_vector pinned(m);
             unsigned j = 0;
             for (unsigned i = 0; i < fmls.size(); ++i) {
                 expr* fml = fmls[i].get();
@@ -308,6 +309,7 @@ namespace qe {
                 }
                 else {
                     TRACE("qe", tout << mk_pp(fml, m) << "\n";);
+                    pinned.push_back(fml);
                 }
             }
             fmls.resize(j);
@@ -321,8 +323,7 @@ namespace qe {
             // return those to fmls.
 
             expr_mark var_mark, fmls_mark;
-            for (unsigned i = 0; i < vars.size(); ++i) {
-                app* v = vars[i].get();
+            for (app * v : vars) {
                 var_mark.mark(v);
                 if (is_arith(v) && !tids.contains(v)) {
                     rational r;
@@ -332,17 +333,16 @@ namespace qe {
                     tids.insert(v, mbo.add_var(r, a.is_int(v)));
                 }
             }
-            for (unsigned i = 0; i < fmls.size(); ++i) {
-                fmls_mark.mark(fmls[i].get());
+            for (expr* fml : fmls) {
+                fmls_mark.mark(fml);
             }
-            obj_map<expr, unsigned>::iterator it = tids.begin(), end = tids.end();
             ptr_vector<expr> index2expr;
-            for (; it != end; ++it) {
-                expr* e = it->m_key;
+            for (auto& kv : tids) {
+                expr* e = kv.m_key;
                 if (!var_mark.is_marked(e)) {
                     mark_rec(fmls_mark, e);
                 }
-                index2expr.setx(it->m_value, e, 0);
+                index2expr.setx(kv.m_value, e, 0);
             }
             j = 0;
             unsigned_vector real_vars;
@@ -360,8 +360,7 @@ namespace qe {
             }
             vars.resize(j);
             TRACE("qe", tout << "remaining vars: " << vars << "\n"; 
-                  for (unsigned i = 0; i < real_vars.size(); ++i) {
-                      unsigned v = real_vars[i];
+                  for (unsigned v : real_vars) {
                       tout << "v" << v << " " << mk_pp(index2expr[v], m) << "\n";
                   }
                   mbo.display(tout););
@@ -449,8 +448,8 @@ namespace qe {
 
             // extract linear constraints
             
-            for (unsigned i = 0; i < fmls.size(); ++i) {
-                linearize(mbo, eval, fmls[i].get(), fmls, tids);
+            for (expr * fml : fmls) {
+                linearize(mbo, eval, fml, fmls, tids);
             }
             
             // find optimal value
@@ -459,11 +458,10 @@ namespace qe {
 
             // update model to use new values that satisfy optimality
             ptr_vector<expr> vars;
-            obj_map<expr, unsigned>::iterator it = tids.begin(), end = tids.end();
-            for (; it != end; ++it) {
-                expr* e = it->m_key;
+            for (auto& kv : tids) {
+                expr* e = kv.m_key;
                 if (is_uninterp_const(e)) {
-                    unsigned id = it->m_value;
+                    unsigned id = kv.m_value;
                     func_decl* f = to_app(e)->get_decl();
                     expr_ref val(a.mk_numeral(mbo.get_value(id), false), m);
                     mdl.register_decl(f, val);
@@ -509,10 +507,9 @@ namespace qe {
         void extract_coefficients(opt::model_based_opt& mbo, model_evaluator& eval, obj_map<expr, rational> const& ts, obj_map<expr, unsigned>& tids, vars& coeffs) {
             coeffs.reset();
             eval.set_model_completion(true);
-            obj_map<expr, rational>::iterator it = ts.begin(), end = ts.end();
-            for (; it != end; ++it) {
+            for (auto& kv : ts) {
                 unsigned id;
-                expr* v = it->m_key;
+                expr* v = kv.m_key;
                 if (!tids.find(v, id)) {
                     rational r;
                     expr_ref val = eval(v);
@@ -520,9 +517,9 @@ namespace qe {
                     id = mbo.add_var(r, a.is_int(v));
                     tids.insert(v, id);
                 }
-                CTRACE("qe", it->m_value.is_zero(), tout << mk_pp(v, m) << " has coefficeint 0\n";);
-                if (!it->m_value.is_zero()) {
-                    coeffs.push_back(var(id, it->m_value));                
+                CTRACE("qe", kv.m_value.is_zero(), tout << mk_pp(v, m) << " has coefficeint 0\n";);
+                if (!kv.m_value.is_zero()) {
+                    coeffs.push_back(var(id, kv.m_value));                
                 }
             }
         }
