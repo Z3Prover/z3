@@ -1078,8 +1078,7 @@ namespace sat {
                 TRACE("sat", tout << "windfall: " << nlit << " " << l2 << "\n";); 
                 // if we use try_add_binary, then this may produce new assignments
                 // these assignments get put on m_trail, and they are cleared by
-                // reset_lookahead_reward. We would need to distinguish the trail that comes
-                // from lookahead levels and the main search level for this to work.
+                // lookahead_backtrack. 
                 add_binary(nlit, l2);
             }
             m_stats.m_windfall_binaries += m_wstack.size();
@@ -1578,13 +1577,11 @@ namespace sat {
         while (!inconsistent() && m_qhead < m_trail.size()) {
             unsigned i = m_qhead;
             unsigned sz = m_trail.size();
-            //for (; i < m_trail.size() && !inconsistent(); ++i) {
             for (; i < sz && !inconsistent(); ++i) {
                 literal l = m_trail[i];
                 TRACE("sat", tout << "propagate " << l << " @ " << m_level << "\n";);
                 propagate_binary(l);
             }
-            //while (m_qhead < m_trail.size() && !inconsistent()) {
             while (m_qhead < sz && !inconsistent()) {
                 propagate_clauses(m_trail[m_qhead++]);
             }
@@ -1629,7 +1626,6 @@ namespace sat {
                 pop_lookahead1(lit, num_units); 
                 if (unsat) {
                     TRACE("sat", tout << "backtracking and settting " << ~lit << "\n";);
-                    //reset_lookahead_reward();
                     assign(~lit);
                     propagate();
                     change = true;
