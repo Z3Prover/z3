@@ -863,8 +863,7 @@ app * bv_util::mk_numeral(rational const & val, sort* s) const {
 }
 
 app * bv_util::mk_numeral(rational const & val, unsigned bv_size) const {
-    parameter p1(val);
-    parameter p[2] = { p1, parameter(static_cast<int>(bv_size)) };
+    parameter p[2] = { parameter(val), parameter(static_cast<int>(bv_size)) };
     return m_manager.mk_app(get_fid(), OP_BV_NUM, 2, p, 0, 0);
 }
 
