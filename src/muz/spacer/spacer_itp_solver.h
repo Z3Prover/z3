@@ -58,9 +58,8 @@ private:
 
     expr_substitution m_elim_proxies_sub;
     bool m_split_literals;
-    bool m_new_unsat_core;
-    bool m_minimize_unsat_core;
-    unsigned m_farkas_plugin;
+    unsigned m_iuc;
+    unsigned m_iuc_arith;
     bool m_print_farkas_stats;
 
     bool is_proxy(expr *e, app_ref &def);
@@ -69,7 +68,7 @@ private:
     app* fresh_proxy();
     void elim_proxies(expr_ref_vector &v);
 public:
-    itp_solver(solver &solver, bool new_unsat_core, bool minimize_unsat_core, unsigned farkas_plugin, bool print_farkas_stats, bool split_literals = false) :
+    itp_solver(solver &solver, unsigned iuc, unsigned iuc_arith, bool print_farkas_stats, bool split_literals = false) :
         m(solver.get_manager()),
         m_solver(solver),
         m_proxies(m),
@@ -80,9 +79,8 @@ public:
         m_is_proxied(false),
         m_elim_proxies_sub(m, false, true),
         m_split_literals(split_literals),
-        m_new_unsat_core(new_unsat_core),
-        m_minimize_unsat_core(minimize_unsat_core),
-        m_farkas_plugin(farkas_plugin),
+        m_iuc(iuc),
+        m_iuc_arith(iuc_arith),
         m_print_farkas_stats(print_farkas_stats)
     {}
 

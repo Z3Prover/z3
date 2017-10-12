@@ -264,7 +264,8 @@ void itp_solver::get_itp_core (expr_ref_vector &core)
     proof_ref pr(m);
     pr = get_proof ();
 
-    if (!m_new_unsat_core) {
+    if (m_iuc == 0)
+    {
         // old code
         farkas_learner learner_old;
         learner_old.set_split_literals(m_split_literals);
@@ -272,35 +273,40 @@ void itp_solver::get_itp_core (expr_ref_vector &core)
         learner_old.get_lemmas (pr, B, core);
         elim_proxies (core);
         simplify_bounds (core); // XXX potentially redundant
-    } else {
+    }
+    else
+    {
         // new code
         unsat_core_learner learner(m,m_print_farkas_stats);
 
-        if (m_farkas_plugin == 0 || m_farkas_plugin > 3)
+        if (m_iuc_arith == 0 || m_iuc_arith > 3)
         {
             unsat_core_plugin_farkas_lemma* plugin_farkas_lemma = alloc(unsat_core_plugin_farkas_lemma, learner, m_split_literals, false);
             learner.register_plugin(plugin_farkas_lemma);
         }
-        else if (m_farkas_plugin == 1)
+        else if (m_iuc_arith == 1)
         {
             unsat_core_plugin_farkas_lemma* plugin_farkas_lemma = alloc(unsat_core_plugin_farkas_lemma, learner, m_split_literals, true);
             learner.register_plugin(plugin_farkas_lemma);
         }
-        else if (m_farkas_plugin == 2)
+        else if (m_iuc_arith == 2)
         {
             unsat_core_plugin_farkas_lemma_optimized* plugin_farkas_lemma_optimized = alloc(unsat_core_plugin_farkas_lemma_optimized, learner,m);
             learner.register_plugin(plugin_farkas_lemma_optimized);
         }
-        else if(m_farkas_plugin == 3)
+        else if(m_iuc_arith == 3)
         {
             unsat_core_plugin_farkas_lemma_bounded* plugin_farkas_lemma_bounded = alloc(unsat_core_plugin_farkas_lemma_bounded, learner,m);
             learner.register_plugin(plugin_farkas_lemma_bounded);
         }
         
-        if (m_minimize_unsat_core) {
+        if (m_iuc == 2)
+        {
             unsat_core_plugin_min_cut* plugin_min_cut = alloc(unsat_core_plugin_min_cut, learner, m);
             learner.register_plugin(plugin_min_cut);
-        } else {
+        }
+        else
+        {
             unsat_core_plugin_lemma* plugin_lemma = alloc(unsat_core_plugin_lemma, learner);
             learner.register_plugin(plugin_lemma);
         }
