@@ -112,7 +112,6 @@ namespace sat {
         }
     }
 
-
     void lookahead::inc_bstamp() {
         ++m_bstamp_id;
         if (m_bstamp_id == 0) {
@@ -120,6 +119,7 @@ namespace sat {
             m_bstamp.fill(0);
         }
     }
+
     void lookahead::inc_istamp() {
         ++m_istamp_id;
         if (m_istamp_id == 0) {
@@ -1350,9 +1350,13 @@ namespace sat {
         
         for (nary* n : m_nary[(~l).index()]) {
             if (sz-- == 0) break;
+
+            if (is_true(n->get_head())) {
+                continue;
+            }
             literal l1 = null_literal;
             literal l2 = null_literal;
-            bool found_true = false;
+            bool skip_clause = false;
             unsigned nonfixed = 0;
             for (literal lit : *n) {
                 if (!is_fixed(lit)) {
@@ -1363,14 +1367,19 @@ namespace sat {
                     else if (l2 == null_literal) {
                         l2 = lit;
                     }
+                    else if (m_search_mode == lookahead_mode::lookahead2) {
+                        skip_clause = true;
+                        break;
+                    }
                 }
                 else if (is_true(lit)) {
-                    found_true = true;
+                    n->set_head(lit);
+                    skip_clause = true;
                     break;
                 }
             }
-            if (found_true) {
-                // skip, the clause will be removed when propagating on 'lit'
+            if (skip_clause) {
+                // skip, the clause 
             }
             else if (l1 == null_literal) {
                 set_conflict();
@@ -1378,9 +1387,6 @@ namespace sat {
             }
             else if (l2 == null_literal) {
                 propagated(l1);
-            }
-            else if (m_search_mode == lookahead_mode::lookahead2) {
-                continue;
             }
             else {
                 SASSERT(nonfixed >= 2);
