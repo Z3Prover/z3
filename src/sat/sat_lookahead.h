@@ -89,7 +89,8 @@ namespace sat {
                 m_min_cutoff = 30;
                 m_preselect = false;
                 m_level_cand = 600;
-                m_delta_rho = (double)0.25;
+                //m_delta_rho = (double)0.25;
+                m_delta_rho = (double)0.5;
                 m_dl_max_iterations = 2;
                 m_tc1_limit = 10000000;
                 m_reward_type = ternary_reward;
@@ -436,6 +437,7 @@ namespace sat {
         bool push_lookahead2(literal lit, unsigned level);
         unsigned push_lookahead1(literal lit, unsigned level);
         void pop_lookahead1(literal lit, unsigned num_units);
+        void lookahead_backtrack();
         double mix_diff(double l, double r) const;
         clause const& get_clause(watch_list::iterator it) const;
         bool is_nary_propagation(clause const& c, literal l) const;
@@ -465,8 +467,8 @@ namespace sat {
             return is_fixed(lit) && (!is_false(lit) || m_stamp[lit.var()] >= level);
         }
 
-        void do_double(literal l, unsigned& base);
-        void double_look(literal l, unsigned& base);
+        unsigned do_double(literal l, unsigned& base);
+        unsigned double_look(literal l, unsigned& base);
         void set_conflict() { TRACE("sat", tout << "conflict\n";); m_inconsistent = true; }
         //void set_conflict() { TRACE("sat", tout << "conflict\n";); printf("CONFLICT\n"); m_inconsistent = true; }
         bool inconsistent() { return m_inconsistent; }
