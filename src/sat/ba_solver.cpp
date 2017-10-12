@@ -1564,7 +1564,7 @@ namespace sat {
             init_watch(*c, true);
         }
         else {
-            s().set_external(lit.var());
+            if (m_solver) m_solver->set_external(lit.var());
             watch_literal(lit, *c);
             watch_literal(~lit, *c);
         }        
@@ -3243,6 +3243,18 @@ namespace sat {
     extension* ba_solver::copy(solver* s) {
         ba_solver* result = alloc(ba_solver);
         result->set_solver(s);
+        copy_core(result);
+        return result;
+    }
+
+    extension* ba_solver::copy(lookahead* s) {
+        ba_solver* result = alloc(ba_solver);
+        result->set_lookahead(s);
+        copy_core(result);
+        return result;
+    }
+
+    void ba_solver::copy_core(ba_solver* result) {
         literal_vector lits;
         svector<wliteral> wlits;
         for (constraint* cp : m_constraints) {
@@ -3274,8 +3286,6 @@ namespace sat {
                 UNREACHABLE();
             }                
         }
-
-        return result;
     }
 
     void ba_solver::init_use_list(ext_use_list& ul) {

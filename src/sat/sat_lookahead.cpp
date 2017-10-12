@@ -988,6 +988,7 @@ namespace sat {
             }
         }
         
+#if 0
         // copy externals:
         for (unsigned idx = 0; idx < m_s.m_watches.size(); ++idx) {
             watch_list const& wl = m_s.m_watches[idx];
@@ -997,6 +998,11 @@ namespace sat {
                 }
             }
         }
+#else
+        if (m_s.m_ext) {
+            m_ext = m_s.m_ext->copy(this);
+        }
+#endif
         propagate();
         m_qhead = m_trail.size();
         TRACE("sat", m_s.display(tout); display(tout););

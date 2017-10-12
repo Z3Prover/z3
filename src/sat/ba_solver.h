@@ -369,7 +369,7 @@ namespace sat {
         inline watch_list const& get_wlist(literal l) const { return m_lookahead ? m_lookahead->get_wlist(l) : m_solver->get_wlist(l); }
         inline void assign(literal l, justification j) { if (m_lookahead) m_lookahead->assign(l); else m_solver->assign(l, j); }
         inline void set_conflict(justification j, literal l) { if (m_lookahead) m_lookahead->set_conflict(); else m_solver->set_conflict(j, l); }
-        inline config const& get_config() const { return m_solver->get_config(); }
+        inline config const& get_config() const { return m_lookahead ? m_lookahead->get_config() : m_solver->get_config(); }
         inline void drat_add(literal_vector const& c, svector<drat::premise> const& premises) { m_solver->m_drat.add(c, premises); }
 
 
@@ -428,6 +428,7 @@ namespace sat {
         constraint* add_pb_ge(literal l, svector<wliteral> const& wlits, unsigned k, bool learned);
         constraint* add_xor(literal l, literal_vector const& lits, bool learned);
 
+        void copy_core(ba_solver* result);
     public:
         ba_solver();
         virtual ~ba_solver();
@@ -453,6 +454,7 @@ namespace sat {
         virtual std::ostream& display_justification(std::ostream& out, ext_justification_idx idx) const;
         virtual void collect_statistics(statistics& st) const;
         virtual extension* copy(solver* s);
+        virtual extension* copy(lookahead* s);
         virtual void find_mutexes(literal_vector& lits, vector<literal_vector> & mutexes);
         virtual void pop_reinit();
         virtual void gc(); 

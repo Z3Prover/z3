@@ -233,6 +233,7 @@ namespace sat {
         stats                  m_stats;
         model                  m_model; 
         cube_state             m_cube_state;
+        scoped_ptr<extension>   m_ext;
  
         // ---------------------------------------
         // truth values
@@ -605,6 +606,8 @@ namespace sat {
 
         double literal_occs(literal l);
         double literal_big_occs(literal l);
+
+        sat::config const& get_config() const { return m_s.get_config(); }
               
     };
 }
