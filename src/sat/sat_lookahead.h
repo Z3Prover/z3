@@ -501,7 +501,6 @@ namespace sat {
         unsigned do_double(literal l, unsigned& base);
         unsigned double_look(literal l, unsigned& base);
         void set_conflict() { TRACE("sat", tout << "conflict\n";); m_inconsistent = true; }
-        //void set_conflict() { TRACE("sat", tout << "conflict\n";); printf("CONFLICT\n"); m_inconsistent = true; }
         bool inconsistent() { return m_inconsistent; }
 
         unsigned scope_lvl() const { return m_trail_lim.size(); }

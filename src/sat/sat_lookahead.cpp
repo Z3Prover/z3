@@ -1672,6 +1672,17 @@ namespace sat {
                     change = true;
                     last_changed = lit;
                 }
+                {
+                    // if l was derived from lit and ~lit -> l, then l is a necessary assignment
+                    scoped_level _sl(*this, dl_lvl);
+                    literal_vector const& lits = m_binary[(~l).index()];
+                    for (literal l : lits) {
+                        if (inconsistent()) break;
+                        if (is_true(l) && !is_fixed_at(l, cl_fixed_truth)) {
+                            assign(l);
+                        }
+                    }
+                }
                 SASSERT(inconsistent() || !is_unsat());
             }
             if (c_fixed_truth - 2 * m_lookahead.size() < base) {
