@@ -1576,7 +1576,6 @@ namespace sat {
         TRACE("sat_verbose", display(tout << scope_lvl() << " " << (inconsistent()?"unsat":"sat") << "\n"););
     }
 
-#define CHECK_FAILED_LITERAL 0
 
     void lookahead::compute_lookahead_reward() {
         init_lookahead_reward();
@@ -1585,10 +1584,6 @@ namespace sat {
         unsigned base = 2;
         bool change = true;
         literal last_changed = null_literal;
-#if CHECK_FAILED_LITERAL
-        unsigned_vector assigns;
-        literal_vector assigns_lits;
-#endif
         while (change && !inconsistent()) {
             change = false;
             for (unsigned i = 0; !inconsistent() && i < m_lookahead.size(); ++i) {
@@ -1616,10 +1611,6 @@ namespace sat {
                 if (unsat) {
                     TRACE("sat", tout << "backtracking and settting " << ~lit << "\n";);
                     reset_lookahead_reward();
-#if CHECK_FAILED_LITERAL
-                    assigns.push_back(m_trail.size());
-                    assigns_lits.push_back(~lit);
-#endif
                     assign(~lit);
                     propagate();
                     init_lookahead_reward();
@@ -1639,12 +1630,6 @@ namespace sat {
             base += 2 * m_lookahead.size();
         }
         reset_lookahead_reward();
-#if CHECK_FAILED_LITERAL
-        for (unsigned i = 0; i < assigns.size(); ++i) {
-            std::cout << "check trail: " << m_trail[assigns[i]] << " " << assigns_lits[i] << "\n";
-            VERIFY(m_trail[assigns[i]] == assigns_lits[i]);
-        }
-#endif
         TRACE("sat", display_lookahead(tout); );
     }
 
