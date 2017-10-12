@@ -130,6 +130,52 @@ void unsat_core_learner::compute_unsat_core(proof *root, expr_set& asserted_b, e
 
     // TODO: remove duplicates from unsat core?
 
+    // count both number of all Farkas lemmas and number of Farkas lemmas in the cut
+    if (m_print_farkas_stats)
+    {
+        unsigned farkas_counter = 0;
+        unsigned farkas_counter2 = 0;
+        
+        ProofIteratorPostOrder it3(root, m);
+        while (it3.hasNext())
+        {
+            proof* currentNode = it3.next();
+            
+            // if node is theory lemma
+            if (currentNode->get_decl_kind() == PR_TH_LEMMA)
+            {
+                func_decl* d = currentNode->get_decl();
+                symbol sym;
+                // and theory lemma is Farkas lemma
+                if (d->get_num_parameters() >= 2 && // the Farkas coefficients are saved in the parameters of step
+                    d->get_parameter(0).is_symbol(sym) && sym == "arith" && // the first two parameters are "arith", "farkas",
+                    d->get_parameter(1).is_symbol(sym) && sym == "farkas")
+                {
+                    farkas_counter++;
+                    
+                    // check whether farkas lemma is to be interpolated (could potentially miss farkas lemmas, which are interpolated, because we potentially don't want to use the lowest cut)
+                    bool has_no_mixed_parents = true;
+                    for (int i = 0; i < m.get_num_parents(currentNode); ++i)
+                    {
+                        proof* premise = to_app(currentNode->get_arg(i));
+                        if (is_a_marked(premise) && is_b_marked(premise))
+                        {
+                            has_no_mixed_parents = false;
+                        }
+                    }
+                    if (has_no_mixed_parents && is_a_marked(currentNode) && is_b_marked(currentNode))
+                    {
+                        farkas_counter2++;
+                    }
+                    
+                }
+            }
+        }
+
+        verbose_stream() << "\nThis proof contains " << farkas_counter << " Farkas lemmas. " << farkas_counter2 << " Farkas lemmas participate in the lowest cut\n";
+    }
+
+    
     bool debug_proof = false;
     if(debug_proof)
     {

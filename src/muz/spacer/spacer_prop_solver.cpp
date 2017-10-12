@@ -60,7 +60,7 @@ prop_solver::prop_solver(manager& pm, fixedpoint_params const& p, symbol const& 
     m_solvers[1] = pm.mk_fresh2();
     m_fparams[1] = &pm.fparams2();
 
-    m_contexts[0] = alloc(spacer::itp_solver, *(m_solvers[0]), p.spacer_new_unsat_core(), p.spacer_minimize_unsat_core(), p.spacer_farkas_optimized(), p.spacer_farkas_a_const(), p.spacer_split_farkas_literals());
+    m_contexts[0] = alloc(spacer::itp_solver, *(m_solvers[0]), p.spacer_new_unsat_core(), p.spacer_minimize_unsat_core(), p.spacer_farkas_optimized(), p.spacer_farkas_a_const(), p.spacer_print_farkas_stats(), p.spacer_split_farkas_literals());
     m_contexts[1] = alloc(spacer::itp_solver, *(m_solvers[1]), p.spacer_new_unsat_core(), p.spacer_minimize_unsat_core(), p.spacer_farkas_optimized(), p.spacer_farkas_a_const(), p.spacer_split_farkas_literals());
 
     for (unsigned i = 0; i < 2; ++i)

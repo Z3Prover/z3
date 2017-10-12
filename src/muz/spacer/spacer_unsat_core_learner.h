@@ -31,7 +31,7 @@ namespace spacer {
         typedef obj_hashtable<expr> expr_set;
 
     public:
-        unsat_core_learner(ast_manager& m) : m(m), m_unsat_core(m) {};
+        unsat_core_learner(ast_manager& m, bool print_farkas_stats = false) : m(m), m_unsat_core(m), m_print_farkas_stats(print_farkas_stats) {};
         virtual ~unsat_core_learner();
 
         ast_manager& m;
@@ -100,6 +100,8 @@ namespace spacer {
          * finalize computation of unsat-core
          */
         void finalize();
+        
+        bool m_print_farkas_stats;
     };
 
 }

@@ -274,7 +274,7 @@ void itp_solver::get_itp_core (expr_ref_vector &core)
         simplify_bounds (core); // XXX potentially redundant
     } else {
         // new code
-        unsat_core_learner learner(m);
+        unsat_core_learner learner(m,m_print_farkas_stats);
 
         if (m_farkas_optimized) {
             if (true) // TODO: proper options

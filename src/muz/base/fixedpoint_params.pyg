@@ -187,6 +187,7 @@ def_module_params('fixedpoint',
                           ('spacer.farkas_a_const', BOOL, True, 'if the unoptimized farkas plugin is used, use the constants from A while constructing unsat_cores'),     
                           ('spacer.lemma_sanity_check', BOOL, False, 'check during generalization whether lemma is actually correct'),
                           ('spacer.reuse_pobs', BOOL, True, 'reuse POBs'),
+                          ('spacer.print_farkas_stats', BOOL, False, 'prints for each proof how many Farkas lemmas it contains and how many of these participate in the cut'),
                           ('spacer.simplify_pob', BOOL, False, 'simplify POBs by removing redundant constraints')
                           ))
 
