@@ -155,7 +155,7 @@ void unsat_core_learner::compute_unsat_core(proof *root, expr_set& asserted_b, e
                     
                     // check whether farkas lemma is to be interpolated (could potentially miss farkas lemmas, which are interpolated, because we potentially don't want to use the lowest cut)
                     bool has_no_mixed_parents = true;
-                    for (int i = 0; i < m.get_num_parents(currentNode); ++i)
+                    for (unsigned i = 0; i < m.get_num_parents(currentNode); ++i)
                     {
                         proof* premise = to_app(currentNode->get_arg(i));
                         if (is_a_marked(premise) && is_b_marked(premise))
@@ -267,11 +267,11 @@ void unsat_core_learner::compute_unsat_core(proof *root, expr_set& asserted_b, e
                     verbose_stream() << "step";
                 }
                 verbose_stream() << " from ";
-                for (int i = m.get_num_parents(currentNode) - 1; i >= 0  ; --i)
+                for (unsigned i = m.get_num_parents(currentNode); i > 0  ; --i)
                 {
                     proof* premise = to_app(currentNode->get_arg(i));
                     unsigned premise_small_id = id_to_small_id[premise->get_id()];
-                    if (i > 0)
+                    if (i > 1)
                     {
                         verbose_stream() << premise_small_id << ", ";
                     }
