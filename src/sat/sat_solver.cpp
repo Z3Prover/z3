@@ -162,6 +162,7 @@ namespace sat {
         m_user_scope_literals.append(src.m_user_scope_literals);
 
         m_mc = src.m_mc;
+        m_stats.m_units = init_trail_size();
     }
 
     // -----------------------
@@ -837,11 +838,11 @@ namespace sat {
         return lh.select_lookahead(assumptions, vars);
     }
 
-    lbool  solver::cube(literal_vector& lits) {
+    lbool  solver::cube(bool_var_vector const& vars, literal_vector& lits) {
         if (!m_cuber) {
             m_cuber = alloc(lookahead, *this);
         }
-        lbool result = m_cuber->cube(lits);
+        lbool result = m_cuber->cube(vars, lits);
         if (result == l_false) {
             dealloc(m_cuber);
             m_cuber = nullptr;
@@ -858,6 +859,7 @@ namespace sat {
     lbool solver::check(unsigned num_lits, literal const* lits) {
         init_reason_unknown();
         pop_to_base_level();
+        m_stats.m_units = init_trail_size();
         IF_VERBOSE(2, verbose_stream() << "(sat.sat-solver)\n";);
         SASSERT(at_base_lvl());
         if (m_config.m_dimacs_display) {
@@ -1468,11 +1470,14 @@ namespace sat {
                 lh.simplify();
                 lh.collect_statistics(m_aux_stats);
             }
+#if 0
+			// Buggy
             {
                 lookahead lh(*this);
                 lh.scc();
                 lh.collect_statistics(m_aux_stats);
             }
+#endif
         }
 
 
@@ -2823,6 +2828,7 @@ namespace sat {
         pop(num_scopes);
         exchange_par();
         reinit_assumptions();
+        m_stats.m_units = init_trail_size();
     }
 
     void solver::pop(unsigned num_scopes) {
@@ -3048,7 +3054,6 @@ namespace sat {
         m_probing.updt_params(p);
         m_scc.updt_params(p);
         m_rand.set_seed(m_config.m_random_seed);
-
         m_step_size = m_config.m_step_size_init;
     }
 
@@ -4032,25 +4037,11 @@ namespace sat {
         st.update("minimized lits", m_minimized_lits);
         st.update("dyn subsumption resolution", m_dyn_sub_res);
         st.update("blocked correction sets", m_blocked_corr_sets);
+        st.update("units", m_units);
     }
 
     void stats::reset() {
-        m_mk_var = 0;
-        m_mk_bin_clause = 0;
-        m_mk_ter_clause = 0;
-        m_mk_clause = 0;
-        m_conflict = 0;
-        m_propagate = 0;
-        m_bin_propagate = 0;
-        m_ter_propagate = 0;
-        m_decision = 0;
-        m_restart = 0;
-        m_gc_clause = 0;
-        m_del_clause = 0;
-        m_minimized_lits = 0;
-        m_dyn_sub_res = 0;
-        m_non_learned_generation = 0;
-        m_blocked_corr_sets = 0;
+        memset(this, 0, sizeof(*this));
     }
 
     void mk_stat::display(std::ostream & out) const {

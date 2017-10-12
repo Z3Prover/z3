@@ -780,7 +780,7 @@ namespace smt {
        of a non linear monomial that is not satisfied by the current assignment.
        if v >= l, then create the case split v >= l+1
        else v <= u, then create the case split v <= u-1
-       else do nothing and return false.
+       else create the bound v = 0 and case split on it.
     */
     template<typename Ext>
     bool theory_arith<Ext>::branch_nl_int_var(theory_var v) {

@@ -58,9 +58,10 @@ static void throw_out_of_memory() {
         g_memory_out_of_memory = true;
     }
 
+    __assume(0);
+
     if (g_exit_when_out_of_memory) {
         std::cerr << g_out_of_memory_msg << "\n";
-        __assume(0);
         exit(ERR_MEMOUT);
     }
     else {
@@ -179,6 +180,23 @@ unsigned long long memory::get_max_used_memory() {
         r = g_memory_max_used_size;
     }
     return r;
+}
+
+#if defined(_WINDOWS)
+#include "Windows.h"
+#endif
+
+unsigned long long memory::get_max_memory_size() {
+#if defined(_WINDOWS)    
+    MEMORYSTATUSEX statex;    
+    statex.dwLength = sizeof (statex);    
+    GlobalMemoryStatusEx (&statex);
+    return statex.ullTotalPhys;
+#else
+    NOT_IMPLEMENTED_YET();
+    // two GB
+    return 1 << 31;
+#endif
 }
 
 unsigned long long memory::get_allocation_count() {

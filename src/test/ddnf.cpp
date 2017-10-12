@@ -214,6 +214,10 @@ void tst_ddnf1() {
     ddnf.insert(*tX1);
     ddnf.insert(*t1X); 
     ddnf.display(std::cout);
+    tbvm.deallocate(tXX);
+    tbvm.deallocate(t1X);
+    tbvm.deallocate(tX1);
+    tbvm.deallocate(t11);
 }
 
 

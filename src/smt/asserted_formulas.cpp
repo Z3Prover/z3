@@ -170,7 +170,7 @@ void asserted_formulas::get_assertions(ptr_vector<expr> & result) const {
 
 void asserted_formulas::push_scope() {
     SASSERT(inconsistent() || m_qhead == m_formulas.size() || m.canceled());
-    TRACE("asserted_formulas_scopes", tout << "push:\n"; display(tout););    
+    TRACE("asserted_formulas_scopes", tout << "before push: " << m_scopes.size() << "\n";);
     m_scoped_substitution.push();
     m_scopes.push_back(scope());
     scope & s = m_scopes.back();
@@ -181,10 +181,11 @@ void asserted_formulas::push_scope() {
     m_bv_sharing.push_scope();
     m_macro_manager.push_scope();
     commit();
+    TRACE("asserted_formulas_scopes", tout << "after push: " << m_scopes.size() << "\n";);
 }
  
 void asserted_formulas::pop_scope(unsigned num_scopes) {
-    TRACE("asserted_formulas_scopes", tout << "before pop " << num_scopes << "\n"; display(tout););
+    TRACE("asserted_formulas_scopes", tout << "before pop " << num_scopes << " of " << m_scopes.size() << "\n";);
     m_bv_sharing.pop_scope(num_scopes);
     m_macro_manager.pop_scope(num_scopes);
     unsigned new_lvl    = m_scopes.size() - num_scopes;
@@ -196,7 +197,7 @@ void asserted_formulas::pop_scope(unsigned num_scopes) {
     m_qhead    = s.m_formulas_lim;
     m_scopes.shrink(new_lvl);
     flush_cache();
-    TRACE("asserted_formulas_scopes", tout << "after pop " << num_scopes << "\n"; display(tout););
+    TRACE("asserted_formulas_scopes", tout << "after pop " << num_scopes << "\n";);
 }
 
 void asserted_formulas::reset() {

@@ -20,6 +20,7 @@ Notes:
 #ifndef _SAT_LOOKAHEAD_H_
 #define _SAT_LOOKAHEAD_H_
 
+// #define OLD_NARY 0
 
 #include "sat_elim_eqs.h"
 
@@ -89,8 +90,7 @@ namespace sat {
                 m_min_cutoff = 30;
                 m_preselect = false;
                 m_level_cand = 600;
-                //m_delta_rho = (double)0.25;
-                m_delta_rho = (double)0.5;
+                m_delta_rho = (double)0.25;
                 m_dl_max_iterations = 2;
                 m_tc1_limit = 10000000;
                 m_reward_type = ternary_reward;
@@ -132,6 +132,36 @@ namespace sat {
             literal m_u, m_v;
         };
 
+        class nary {            
+            unsigned m_size;         // number of non-false literals
+            size_t   m_obj_size;     // object size (counting all literals)
+            literal  m_head;         // head literal
+            literal  m_literals[0];  // list of literals, put any true literal in head.
+            size_t num_lits() const {
+                return (m_obj_size - sizeof(nary)) / sizeof(literal);
+            }
+        public:
+            static size_t get_obj_size(unsigned sz) { return sizeof(nary) + sz * sizeof(literal); }
+            size_t obj_size() const { return m_obj_size; }
+            nary(unsigned sz, literal const* lits):
+                m_size(sz),
+                m_obj_size(get_obj_size(sz)) {
+                for (unsigned i = 0; i < sz; ++i) m_literals[i] = lits[i];
+                m_head = lits[0];
+            }
+            unsigned size() const { return m_size; }
+            unsigned dec_size() { SASSERT(m_size > 0); return --m_size; }
+            void inc_size() { SASSERT(m_size < num_lits()); ++m_size; }
+            literal get_head() const { return m_head; }
+            void set_head(literal l) { m_head = l; }
+
+            literal operator[](unsigned i) { SASSERT(i < num_lits()); return m_literals[i]; }
+            literal const* begin() const { return m_literals; }
+            literal const* end() const { return m_literals + num_lits(); }
+            // swap the true literal to the head.
+            // void swap(unsigned i, unsigned j) { SASSERT(i < num_lits() && j < num_lits()); std::swap(m_literals[i], m_literals[j]); }
+        };
+
         struct cube_state {
             bool           m_first;
             svector<bool>  m_is_decision;
@@ -164,10 +194,10 @@ namespace sat {
         vector<svector<binary>> m_ternary;        // lit |-> vector of ternary clauses
         unsigned_vector         m_ternary_count;  // lit |-> current number of active ternary clauses for lit
 
-        vector<unsigned_vector> m_nary;           // lit |-> vector of clause_id
-        unsigned_vector         m_nary_count;     // lit |-> number of valid clause_id in m_clauses2[lit]
-        unsigned_vector         m_nary_literals;  // the actual literals, clauses start at offset clause_id, 
-                                                  // the first entry is the current length, clauses are separated by a null_literal
+        small_object_allocator    m_allocator;
+        vector<ptr_vector<nary>>  m_nary;        // lit |-> vector of nary clauses
+        ptr_vector<nary>          m_nary_clauses; // vector of all nary clauses
+        unsigned_vector           m_nary_count;     // lit |-> number of valid clause_id in m_nary[lit]
 
         unsigned               m_num_tc1;
         unsigned_vector        m_num_tc1_lim;
@@ -196,6 +226,7 @@ namespace sat {
         stats                  m_stats;
         model                  m_model; 
         cube_state             m_cube_state;
+        scoped_ptr<extension>   m_ext;
  
         // ---------------------------------------
         // truth values
@@ -293,10 +324,10 @@ namespace sat {
         double get_rating(bool_var v) const { return m_rating[v]; }
         double get_rating(literal l) const { return get_rating(l.var()); }
         bool select(unsigned level);
-        //void sift_up(unsigned j);
         void heap_sort();
-        void heapify();
+        void heapify();        
         void sift_down(unsigned j, unsigned sz);
+        bool validate_heap_sort();
         double init_candidates(unsigned level, bool newbies);
         std::ostream& display_candidates(std::ostream& out) const;
         bool is_unsat() const;
@@ -419,15 +450,15 @@ namespace sat {
         void propagate_clauses_searching(literal l);
         void propagate_clauses_lookahead(literal l);
         void restore_clauses(literal l);
-        void remove_clause(literal l, unsigned clause_idx);
-        void remove_clause_at(literal l, unsigned clause_idx);
-
+        void remove_clause(literal l, nary& n);
+        void remove_clause_at(literal l, nary& n);
         // ------------------------------------
         // initialization
         
         void init_var(bool_var v);
         void init();
         void copy_clauses(clause_vector const& clauses, bool learned);
+        nary * copy_clause(clause const& c);
 
         // ------------------------------------
         // search
@@ -510,6 +541,9 @@ namespace sat {
 
         ~lookahead() {
             m_s.rlimit().pop_child();
+            for (nary* n : m_nary_clauses) { 
+                m_allocator.deallocate(n->obj_size(), n);
+            }
         }
         
 
@@ -524,9 +558,10 @@ namespace sat {
            If cut-depth != 0, then it is used to control the depth of cuts.
            Otherwise, cut-fraction gives an adaptive threshold for creating cuts.
         */
+
         lbool cube();
 
-        lbool cube(literal_vector& lits);
+        lbool cube(bool_var_vector const& vars, literal_vector& lits);
 
         literal select_lookahead(literal_vector const& assumptions, bool_var_vector const& vars);
         /**
@@ -557,6 +592,8 @@ namespace sat {
 
         double literal_occs(literal l);
         double literal_big_occs(literal l);
+
+        sat::config const& get_config() const { return m_s.get_config(); }
               
     };
 }

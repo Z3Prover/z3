@@ -353,8 +353,12 @@ public:
             m_internalized = true;
         }
         convert_internalized();
+        sat::bool_var_vector vars;
+        for (auto& kv : m_map) {
+            vars.push_back(kv.m_value);
+        }
         sat::literal_vector lits;
-        lbool result = m_solver.cube(lits);
+        lbool result = m_solver.cube(vars, lits);
         if (result == l_false || lits.empty()) {
             return expr_ref(m.mk_false(), m);
         }

@@ -284,7 +284,7 @@ namespace smt {
         }
 
         lbool reduce_cond(model_ref& model, expr* e) {
-            expr* e1, *e2;
+            expr* e1 = 0, *e2 = 0;
             if (m.is_eq(e, e1, e2) && m_array_util.is_as_array(e1) && m_array_util.is_as_array(e2)) {
                 if (e1 == e2) {
                     return l_true;

@@ -272,7 +272,8 @@ namespace sat {
     void drat::verify(unsigned n, literal const* c) {
         if (!is_drup(n, c) && !is_drat(n, c)) {
             std::cout << "Verification failed\n";
-            display(std::cout);
+            UNREACHABLE();
+            //display(std::cout);
             TRACE("sat", 
                   tout << literal_vector(n, c) << "\n";
                   display(tout); 

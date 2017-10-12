@@ -1913,7 +1913,11 @@ class MLComponent(Component):
             src_dir = self.to_src_dir
             mk_dir(os.path.join(BUILD_DIR, self.sub_dir))
             api_src = get_component(API_COMPONENT).to_src_dir
-            out.write('CXXFLAGS_OCAML=$(CXXFLAGS:/GL=)\n') # remove /GL; the ocaml tools don't like it.
+            # remove /GL and -std=c++11; the ocaml tools don't like them.
+            if IS_WINDOWS:                
+                out.write('CXXFLAGS_OCAML=$(CXXFLAGS:/GL=)\n')
+            else:
+                out.write('CXXFLAGS_OCAML=$(subst -std=c++11,,$(CXXFLAGS))\n')
 
             if IS_WINDOWS:
                 prefix_lib = '-L' + os.path.abspath(BUILD_DIR).replace('\\', '\\\\')

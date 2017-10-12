@@ -120,7 +120,7 @@ struct goal2sat::imp {
     sat::bool_var mk_true() {
         if (m_true == sat::null_bool_var) {
             // create fake variable to represent true;
-            m_true = m_solver.mk_var();
+            m_true = m_solver.mk_var(false);
             mk_clause(sat::literal(m_true, false)); // v is true
         }
         return m_true;

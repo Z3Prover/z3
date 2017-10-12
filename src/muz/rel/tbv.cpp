@@ -74,8 +74,7 @@ tbv* tbv_manager::allocate(tbv const& bv) {
 }
 tbv* tbv_manager::allocate(uint64 val) {
     tbv* v = allocate0();
-    for (unsigned bit = num_tbits(); bit > 0;) {
-        --bit;
+    for (unsigned bit = std::min(64u, num_tbits()); bit-- > 0;) {
         if (val & (1ULL << bit)) {                        
             set(*v, bit, BIT_1);
         } else {

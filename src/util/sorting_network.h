@@ -469,13 +469,17 @@ Notes:
         }
 
         literal mk_ordered_1(bool full, bool is_eq, unsigned n, literal const* xs) {
-            if (n <= 1 && !is_eq) return ctx.mk_true();
+            if (n <= 1 && !is_eq) {
+                return ctx.mk_true();
+            }
             if (n == 0) {
                 return ctx.mk_false();
             }
             if (n == 1) {
                 return xs[0];
             }
+
+            SASSERT(n > 1);
 
             // y0 -> y1
             // x0 -> y0

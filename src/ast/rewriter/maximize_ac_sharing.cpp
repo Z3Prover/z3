@@ -54,13 +54,13 @@ br_status maximize_ac_sharing::reduce_app(func_decl * f, unsigned num_args, expr
     TRACE("ac_sharing_detail", tout << "args: "; for (unsigned i = 0; i < num_args; i++) tout << mk_pp(_args[i], m) << "\n";);
     try_to_reuse:
     if (num_args > 1 && num_args < MAX_NUM_ARGS_FOR_OPT) {
-        for (unsigned i = 0; i < num_args - 1; i++) {
+        for (unsigned i = 0; i + 1 < num_args; i++) {
             for (unsigned j = i + 1; j < num_args; j++) {
                 if (contains(f, _args[i], _args[j])) {
                     TRACE("ac_sharing_detail", tout << "reusing args: " << i << " " << j << "\n";);
                     _args[i] = m.mk_app(f, _args[i], _args[j]);
                     SASSERT(num_args > 1);
-                    for (unsigned w = j; w < num_args - 1; w++) {
+                    for (unsigned w = j; w + 1 < num_args; w++) {
                         _args[w] = _args[w+1];
                     }
                     num_args--;
@@ -144,6 +144,7 @@ void maximize_ac_sharing::restore_entries(unsigned old_lim) {
     while (i != old_lim) {
         --i;
         entry * e = m_entries[i];
+        m_cache.remove(e);
         m.dec_ref(e->m_arg1);
         m.dec_ref(e->m_arg2);
     }
@@ -151,11 +152,7 @@ void maximize_ac_sharing::restore_entries(unsigned old_lim) {
 }
 
 void maximize_ac_sharing::reset() {
-    restore_entries(0);
-    m_entries.reset();
     m_cache.reset();
-    m_region.reset();
-    m_scopes.reset();
 }
 
 void maximize_bv_sharing::init_core() {

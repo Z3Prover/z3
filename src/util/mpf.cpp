@@ -73,7 +73,7 @@ mpf_manager::~mpf_manager() {
 }
 
 void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, int value) {
-    COMPILE_TIME_ASSERT(sizeof(int) == 4);
+    static_assert(sizeof(int) == 4, "assume integers are 4 bytes");
 
     o.sign = false;
     o.ebits = ebits;
@@ -119,7 +119,7 @@ void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, mpf_rounding_mode
 
 void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, double value) {
     // double === mpf(11, 53)
-    COMPILE_TIME_ASSERT(sizeof(double) == 8);
+    static_assert(sizeof(double) == 8, "doubles are 8 bytes");
 
     uint64 raw;
     memcpy(&raw, &value, sizeof(double));
@@ -155,7 +155,7 @@ void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, double value) {
 
 void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, float value) {
     // single === mpf(8, 24)
-    COMPILE_TIME_ASSERT(sizeof(float) == 4);
+    static_assert(sizeof(float) == 4, "floats are 4 bytes");
 
     unsigned int raw;
     memcpy(&raw, &value, sizeof(float));

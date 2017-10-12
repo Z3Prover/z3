@@ -30,6 +30,7 @@ namespace sat {
         void cleanup_clauses(literal_vector const & roots, clause_vector & cs);
         void cleanup_bin_watches(literal_vector const & roots);
         bool check_clauses(literal_vector const & roots) const;
+        bool check_clause(clause const& c, literal_vector const& roots) const;
     public:
         elim_eqs(solver & s);
         void operator()(literal_vector const & roots, bool_var_vector const & to_elim);
