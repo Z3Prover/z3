@@ -10216,6 +10216,16 @@ namespace smt {
             }
             refresh_theory_var(firstTester);
 
+            {
+                rational freeVar_len_value;
+                if (get_len_value(freeVar, freeVar_len_value)) {
+                    TRACE("str", tout << "special case: length of freeVar is known to be " << freeVar_len_value << std::endl;);
+                    midPoint = freeVar_len_value;
+                    upperBound = midPoint * 2;
+                    windowSize = upperBound;
+                }
+            }
+
             binary_search_len_tester_stack[freeVar].push_back(firstTester);
             m_trail_stack.push(binary_search_trail<theory_str>(binary_search_len_tester_stack, freeVar));
             binary_search_info new_info(lowerBound, midPoint, upperBound, windowSize);
@@ -10244,7 +10254,6 @@ namespace smt {
     expr * theory_str::gen_len_val_options_for_free_var(expr * freeVar, expr * lenTesterInCbEq, zstring lenTesterValue) {
 
         ast_manager & m = get_manager();
-        context & ctx = get_context();
 
         TRACE("str", tout << "gen for free var " << mk_ismt2_pp(freeVar, m) << std::endl;);
 
