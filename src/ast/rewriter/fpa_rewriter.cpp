@@ -125,11 +125,10 @@ br_status fpa_rewriter::mk_to_fp(func_decl * f, unsigned num_args, expr * const 
             const mpz & sm1 = m_fm.m_powers2(sbits - 1);
             const mpz & em1 = m_fm.m_powers2(ebits);
 
-            scoped_mpq q(mpqm);
-            mpqm.set(q, r1.to_mpq());
-            SASSERT(mpzm.is_one(q.get().denominator()));
+            const mpq & q = r1.to_mpq();
+            SASSERT(mpzm.is_one(q.denominator()));
             scoped_mpz z(mpzm);
-            z = q.get().numerator();
+            z = q.numerator();
 
             mpzm.rem(z, sm1, sig);
             mpzm.div(z, sm1, z);
