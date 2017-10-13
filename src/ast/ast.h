@@ -121,7 +121,7 @@ public:
     explicit parameter(unsigned ext_id, bool):m_kind(PARAM_EXTERNAL), m_ext_id(ext_id) {}
     parameter(parameter const&);
 
-    parameter(parameter && other) noexcept : m_kind(other.m_kind) {
+    parameter(parameter && other) : m_kind(other.m_kind) {
         switch (other.m_kind) {
         case PARAM_INT: m_int = other.get_int(); break;
         case PARAM_AST: m_ast = other.get_ast(); break;
