@@ -1574,19 +1574,16 @@ namespace sat {
     }
 
     void lookahead::propagate() {
-        while (!inconsistent() && m_qhead < m_trail.size()) {
-            unsigned i = m_qhead;
-            unsigned sz = m_trail.size();
-            for (; i < sz && !inconsistent(); ++i) {
-                literal l = m_trail[i];
-                TRACE("sat", tout << "propagate " << l << " @ " << m_level << "\n";);
-                propagate_binary(l);
-            }
-            while (m_qhead < sz && !inconsistent()) {
-                propagate_clauses(m_trail[m_qhead++]);
-            }
-            SASSERT(m_qhead == m_trail.size() || (inconsistent() && m_qhead < m_trail.size()));
+        unsigned i = m_qhead;
+        for (; i < m_trail.size() && !inconsistent(); ++i) {
+            literal l = m_trail[i];
+            TRACE("sat", tout << "propagate " << l << " @ " << m_level << "\n";);
+            propagate_binary(l);
         }
+        while (m_qhead < m_trail.size() && !inconsistent()) {
+            propagate_clauses(m_trail[m_qhead++]);
+        }
+        SASSERT(m_qhead == m_trail.size() || (inconsistent() && m_qhead < m_trail.size()));
         TRACE("sat_verbose", display(tout << scope_lvl() << " " << (inconsistent()?"unsat":"sat") << "\n"););
     }
 
@@ -1605,25 +1602,28 @@ namespace sat {
                 if (lit == last_changed) {
                     break;
                 }
-                if (is_fixed_at(lit, c_fixed_truth)) continue;
-                unsigned level = base + m_lookahead[i].m_offset;
-                if (m_stamp[lit.var()] >= level) {
-                    continue;
-                }
                 if (scope_lvl() == 1) {
                     IF_VERBOSE(30, verbose_stream() << scope_lvl() << " " << lit << " binary: " << m_binary_trail.size() << " trail: " << m_trail_lim.back() << "\n";);
                 }
-                TRACE("sat", tout << "lookahead: " << lit << " @ " << m_lookahead[i].m_offset << "\n";);
-                reset_lookahead_reward(lit);
-                unsigned num_units = push_lookahead1(lit, level);
-                update_lookahead_reward(lit, level);
+                unsigned level = base + m_lookahead[i].m_offset;
                 unsigned dl_lvl = level;
-                num_units += do_double(lit, dl_lvl);
-                if (dl_lvl > level) {
-                    base = dl_lvl;
+                if (is_fixed_at(lit, c_fixed_truth) || is_true_at(lit, level)) continue;
+                bool unsat = false;
+                if (is_false_at(lit, level)) {
+                    unsat = true;
                 }
-                bool unsat = inconsistent();
-                pop_lookahead1(lit, num_units); 
+                else {
+                    TRACE("sat", tout << "lookahead: " << lit << " @ " << m_lookahead[i].m_offset << "\n";);
+                    reset_lookahead_reward(lit);
+                    unsigned num_units = push_lookahead1(lit, level);
+                    update_lookahead_reward(lit, level);
+                    num_units += do_double(lit, dl_lvl);
+                    if (dl_lvl > level) {
+                        base = dl_lvl;
+                    }
+                    unsat = inconsistent();
+                    pop_lookahead1(lit, num_units);
+                }
                 if (unsat) {
                     TRACE("sat", tout << "backtracking and settting " << ~lit << "\n";);
                     lookahead_backtrack();
@@ -1631,6 +1631,24 @@ namespace sat {
                     propagate();
                     change = true;
                     last_changed = lit;
+                    continue;
+                }
+                // if l was derived from lit and ~lit -> l, then l is a necessary assignment
+                literal_vector necessary_lits;
+                for (literal l : m_binary[(~lit).index()]) {
+                    if (is_true_at(l, dl_lvl) && !is_fixed_at(l, c_fixed_truth)) {
+                        necessary_lits.push_back(l);
+                    }
+                }
+                if (!necessary_lits.empty()) {
+                    change = true;
+                    last_changed = lit;
+                    lookahead_backtrack();
+                    for (literal l : necessary_lits) {
+                        if (inconsistent()) break;
+                        assign(l);
+                        propagate();
+                    }
                 }
                 SASSERT(inconsistent() || !is_unsat());
             }
@@ -1807,12 +1825,20 @@ namespace sat {
                     SASSERT(change == false);
                     break;
                 }
-                if (is_fixed_at(lit, dl_truth)) continue;
-                if (base + m_lookahead.size() + m_lookahead[i].m_offset >= dl_truth) {
+                unsigned level = base + m_lookahead[i].m_offset;
+                if (level + m_lookahead.size() >= dl_truth) {
                     change = false;
                     break;
                 }
-                if (push_lookahead2(lit, base + m_lookahead[i].m_offset)) {
+                bool unsat = false;
+                if (is_false_at(lit, level) && !is_fixed_at(lit, dl_truth)) {
+                    unsat = true;
+                }
+                else {
+                    if (is_fixed_at(lit, level)) continue;
+                    unsat = push_lookahead2(lit, level);
+                }
+                if (unsat) {
                     TRACE("sat", tout << "unit: " << ~lit << "\n";);
                     ++m_stats.m_double_lookahead_propagations;
                     SASSERT(m_level == dl_truth);
@@ -1864,6 +1890,11 @@ namespace sat {
 
     void lookahead::propagated(literal l) {
         assign(l);
+        for (unsigned i = m_trail.size()-1; i < m_trail.size() && !inconsistent(); ++i) {
+            literal l = m_trail[i];
+            TRACE("sat", tout << "propagate " << l << " @ " << m_level << "\n";);
+            propagate_binary(l);
+        }
         if (m_search_mode == lookahead_mode::lookahead1) {
             m_wstack.push_back(l);
         }
