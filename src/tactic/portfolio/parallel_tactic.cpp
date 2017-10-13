@@ -63,11 +63,15 @@ class parallel_tactic : public tactic {
 
         unsigned num_units() const { return m_units; }
 
+        unsigned cube_size() const { return m_cube.size(); }
+
         solver& get_solver() { return *m_solver; }
 
         solver const& get_solver() const { return *m_solver; }
 
         params_ref const& params() const { return m_params; }
+
+        params_ref& params() { return m_params; }
 
         solver_state* clone(params_ref const& p, expr* cube) {
             ast_manager& m = m_solver->get_manager();
@@ -114,7 +118,7 @@ private:
         m_conflicts_decay_rate = 75;
         m_max_conflicts = m_conflicts_lower_bound;
         m_progress = 0;
-        m_num_threads = omp_get_num_procs();  // TBD adjust by possible threads used inside each solver.
+        m_num_threads = 2 * omp_get_num_procs();  // TBD adjust by possible threads used inside each solver.
     }
 
     unsigned get_max_conflicts() { 
@@ -175,16 +179,14 @@ private:
         }
     }
 
-    lbool simplify(solver& s) {
-        params_ref p;
-        p.copy(m_params);
-        p.set_uint("max_conflicts", 10);
-        p.set_bool("lookahead_simplify", true);
-        s.updt_params(p);
-        lbool is_sat = s.check_sat(0,0);
-        p.set_uint("max_conflicts", get_max_conflicts());
-        p.set_bool("lookahead_simplify", false);
-        s.updt_params(p);
+    lbool simplify(solver_state& s) {
+        s.params().set_uint("max_conflicts", 10);
+        s.params().set_bool("lookahead_simplify", true);
+        s.get_solver().updt_params(s.params());
+        lbool is_sat = s.get_solver().check_sat(0,0);
+        s.params().set_uint("max_conflicts", get_max_conflicts());
+        s.params().set_bool("lookahead_simplify", false);
+        s.get_solver().updt_params(s.params());
         return is_sat;
     }
 
@@ -228,12 +230,10 @@ private:
         return l_undef;
     }
 
-    lbool solve(solver& s) {
-        params_ref p;
-        p.copy(m_params);
-        p.set_uint("max_conflicts", get_max_conflicts());
-        s.updt_params(p);
-        return s.check_sat(0, 0);
+    lbool solve(solver_state& s) {
+        s.params().set_uint("max_conflicts", get_max_conflicts());
+        s.get_solver().updt_params(s.params());
+        return s.get_solver().check_sat(0, 0);
     }
 
     void remove_unsat(svector<int>& unsat) {
@@ -260,6 +260,25 @@ private:
     }
 
     lbool solve(model_ref& mdl) {        
+
+        {
+            solver_state& st = *m_solvers[0];
+            st.params().set_uint("restart.max", 200);
+            st.get_solver().updt_params(st.params());
+            lbool is_sat = st.get_solver().check_sat(0, 0);
+            st.params().set_uint("restart.max", UINT_MAX);
+            st.get_solver().updt_params(st.params());
+            switch (is_sat) {
+            case l_true: 
+                get_model(mdl, 0);
+                return l_true;
+            case l_false:
+                return l_false;
+            default:
+                break;
+            }
+        }
+            
         while (true) {
             int sz = pick_solvers();
 
@@ -276,7 +295,7 @@ private:
 
             #pragma omp parallel for
             for (int i = 0; i < sz; ++i) {
-                lbool is_sat = simplify(m_solvers[i]->get_solver());
+                lbool is_sat = simplify(*m_solvers[i]);
                 switch (is_sat) {
                 case l_false: 
                     #pragma omp critical (parallel_tactic)
@@ -305,7 +324,7 @@ private:
 
             #pragma omp parallel for
             for (int i = 0; i < sz; ++i) {
-                lbool is_sat = solve(m_solvers[i]->get_solver());
+                lbool is_sat = solve(*m_solvers[i]);
                 switch (is_sat) {
                 case l_false: 
                     #pragma omp critical (parallel_tactic)
@@ -328,6 +347,7 @@ private:
             remove_unsat(unsat);
 
             sz = std::min(max_num_splits(), sz);
+            sz = std::min(static_cast<int>(m_num_threads/2), sz);
             if (sz == 0) continue;
             
 
@@ -360,9 +380,9 @@ private:
     }
 
     std::ostream& display(std::ostream& out) {
+        out << "branches: " << m_solvers.size() << "\n";
         for (solver_state* s : m_solvers) {
-            out << "solver units " << s->num_units() << "\n";
-            out << "cube " << s->cube() << "\n";
+            out << "cube " << s->cube_size() << " units " << s->num_units() << "\n";
         }
         m_stats.display(out);
         return out;
