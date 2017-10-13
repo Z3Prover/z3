@@ -1626,6 +1626,7 @@ namespace sat {
                 pop_lookahead1(lit, num_units); 
                 if (unsat) {
                     TRACE("sat", tout << "backtracking and settting " << ~lit << "\n";);
+                    lookahead_backtrack();
                     assign(~lit);
                     propagate();
                     change = true;
