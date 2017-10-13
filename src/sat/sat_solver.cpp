@@ -726,7 +726,7 @@ namespace sat {
         SASSERT(scope_lvl() == 0);
         if (m_config.m_dimacs_display) {
             display_dimacs(std::cout);
-            for (unsigned i = 0; i < num_lits; ++lits) {
+            for (unsigned i = 0; i < num_lits; ++i) {
                 std::cout << dimacs_lit(lits[i]) << " 0\n";
             }
             return l_undef;
