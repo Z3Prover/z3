@@ -143,14 +143,14 @@ namespace z3 {
         void init(config & c) {
             m_ctx = Z3_mk_context_rc(c);
             m_enable_exceptions = true;
-            Z3_set_error_handler(m_ctx, nullptr);
+            Z3_set_error_handler(m_ctx, 0);
             Z3_set_ast_print_mode(m_ctx, Z3_PRINT_SMTLIB2_COMPLIANT);
         }
 
         void init_interp(config & c) {
             m_ctx = Z3_mk_interpolation_context(c);
             m_enable_exceptions = true;
-            Z3_set_error_handler(m_ctx, nullptr);
+            Z3_set_error_handler(m_ctx, 0);
             Z3_set_ast_print_mode(m_ctx, Z3_PRINT_SMTLIB2_COMPLIANT);
         }
 
