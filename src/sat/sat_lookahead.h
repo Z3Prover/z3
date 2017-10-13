@@ -231,11 +231,19 @@ namespace sat {
         // ---------------------------------------
         // truth values
 
-        inline bool is_fixed(literal l) const { return m_stamp[l.var()] >= m_level; }
+
+        inline bool is_fixed_at(literal l, unsigned level) const { return m_stamp[l.var()] >= level; }
+        inline bool is_fixed(literal l) const { return is_fixed_at(l, m_level); }
         inline bool is_undef(literal l) const { return !is_fixed(l); }
         inline bool is_undef(bool_var v) const { return m_stamp[v] < m_level; }
-        inline bool is_false(literal l)  const { return is_fixed(l) && (bool)((m_stamp[l.var()] & 0x1) ^ l.sign()); } // even iff l.sign()
-        inline bool is_true(literal l)   const { return is_fixed(l) && !(bool)((m_stamp[l.var()] & 0x1) ^ l.sign()); }
+        inline bool is_false_at(literal l, unsigned level) const {
+            return is_fixed_at(l, level) && (bool)((m_stamp[l.var()] & 0x1) ^ l.sign());
+        } // even iff l.sign()
+        inline bool is_false(literal l)  const { return is_false_at(l, m_level); }
+        inline bool is_true_at(literal l, unsigned level) const {
+            return is_fixed_at(l, level) && !(bool)((m_stamp[l.var()] & 0x1) ^ l.sign());
+        }
+        inline bool is_true(literal l) const { return is_true_at(l, m_level); }
         inline void set_true(literal l) { m_stamp[l.var()] = m_level + l.sign(); }
         inline void set_undef(literal l) { m_stamp[l.var()] = 0; }
         void set_level(literal d, literal s) { m_stamp[d.var()] = (m_stamp[s.var()] & ~0x1) + d.sign(); }
@@ -491,10 +499,6 @@ namespace sat {
         bool dl_enabled(literal l) const { return m_lits[l.index()].m_double_lookahead != m_istamp_id; }
         void dl_disable(literal l) { m_lits[l.index()].m_double_lookahead = m_istamp_id; }
         bool dl_no_overflow(unsigned base) const { return base + 2 * m_lookahead.size() * static_cast<uint64>(m_config.m_dl_max_iterations + 1) < c_fixed_truth; }
-
-        bool is_fixed_at(literal lit, unsigned level) const {
-            return is_fixed(lit) && (!is_false(lit) || m_stamp[lit.var()] >= level);
-        }
 
         unsigned do_double(literal l, unsigned& base);
         unsigned double_look(literal l, unsigned& base);
