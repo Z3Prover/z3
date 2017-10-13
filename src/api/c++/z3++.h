@@ -140,18 +140,17 @@ namespace z3 {
     class context {
         bool       m_enable_exceptions;
         Z3_context m_ctx;
-        static void Z3_API error_handler(Z3_context /*c*/, Z3_error_code /*e*/) { /* do nothing */ }
         void init(config & c) {
             m_ctx = Z3_mk_context_rc(c);
             m_enable_exceptions = true;
-            Z3_set_error_handler(m_ctx, error_handler);
+            Z3_set_error_handler(m_ctx, nullptr);
             Z3_set_ast_print_mode(m_ctx, Z3_PRINT_SMTLIB2_COMPLIANT);
         }
 
         void init_interp(config & c) {
             m_ctx = Z3_mk_interpolation_context(c);
             m_enable_exceptions = true;
-            Z3_set_error_handler(m_ctx, error_handler);
+            Z3_set_error_handler(m_ctx, nullptr);
             Z3_set_ast_print_mode(m_ctx, Z3_PRINT_SMTLIB2_COMPLIANT);
         }
 
