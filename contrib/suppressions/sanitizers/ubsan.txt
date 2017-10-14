@@ -1,20 +1,7 @@
 # UndefinedBehavior sanitizer suppression file
 # FIXME: UBSan doesn't usually have false positives so we need to fix all of these!
 
-# Occurs when running C API example (`interpolation_example`)
-# See https://github.com/Z3Prover/z3/issues/1286
-null:iz3mgr.h
-
-# Occurs when running C++ API example
-# See https://github.com/Z3Prover/z3/issues/1287
-function:api_context.cpp
-
 # Occurs when running tptp example
 # See https://github.com/Z3Prover/z3/issues/964
 null:rational.h
 null:mpq.h
-
-# Occurs when running `test-z3 /a`
-# See https://github.com/Z3Prover/z3/issues/1288
-shift-exponent:tbv.cpp
-signed-integer-overflow:mpz.cpp
