@@ -33,9 +33,34 @@ namespace sat {
         SASSERT(!(v0 && v1) == (!v0 || !v1));
         SASSERT(!(v0 || v1) == (!v0 && !v1));
     }
+
+    static void test3() {
+        bdd_manager m(20, 1000);
+        bdd v0 = m.mk_var(0);
+        bdd v1 = m.mk_var(1);
+        bdd v2 = m.mk_var(2);
+        bdd c1 = (v0 && v1) || v2;
+        bdd c2 = m.mk_exists(0, c1);
+        std::cout << c1 << "\n";
+        std::cout << c2 << "\n";
+        SASSERT(c2 == (v1 || v2));
+        c2 = m.mk_exists(1, c1);
+        SASSERT(c2 == (v0 || v2));
+        c2 = m.mk_exists(2, c1);
+        SASSERT(c2.is_true());
+        SASSERT(m.mk_exists(3, c1) == c1);
+        c1 = (v0 && v1) || (v1 && v2) || (!v0 && !v2);
+        c2 = m.mk_exists(0, c1);
+        SASSERT(c2 == (v1 || (v1 && v2) || !v2));
+        c2 = m.mk_exists(1, c1);
+        SASSERT(c2 == (v0 || v2 || (!v0 && !v2)));
+        c2 = m.mk_exists(2, c1);
+        SASSERT(c2 == ((v0 && v1) || v1 || !v0));
+    }
 }
 
 void tst_bdd() {
     sat::test1();
     sat::test2();
+    sat::test3();
 }

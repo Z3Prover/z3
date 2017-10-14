@@ -29,9 +29,9 @@ namespace sat {
 
     class bdd {
         friend class bdd_manager;
-        int          root;
+        unsigned     root;
         bdd_manager* m;
-        bdd(int root, bdd_manager* m);
+        bdd(unsigned root, bdd_manager* m);
     public:
         bdd(bdd & other);
         bdd& operator=(bdd const& other);
@@ -57,7 +57,7 @@ namespace sat {
     class bdd_manager {
         friend bdd;
 
-        typedef int BDD;
+        typedef unsigned BDD;
 
         enum bdd_op {
             bdd_and_op = 2,
@@ -70,7 +70,7 @@ namespace sat {
         };
 
         struct bdd_node {
-            bdd_node(unsigned level, int lo, int hi):
+            bdd_node(unsigned level, BDD lo, BDD hi):
                 m_refcount(0),
                 m_level(level),
                 m_lo(lo),
@@ -80,8 +80,8 @@ namespace sat {
             bdd_node(): m_level(0), m_lo(0), m_hi(0), m_index(0) {}
             unsigned m_refcount : 10;
             unsigned m_level : 22;
-            int      m_lo;
-            int      m_hi;
+            BDD      m_lo;
+            BDD      m_hi;
             unsigned m_index;
             unsigned hash() const { return mk_mix(m_level, m_lo, m_hi); }
         };
@@ -176,7 +176,7 @@ namespace sat {
 
         inline bool is_true(BDD b) const { return b == true_bdd; }
         inline bool is_false(BDD b) const { return b == false_bdd; }
-        inline bool is_const(BDD b) const { return 0 <= b && b <= 1; }
+        inline bool is_const(BDD b) const { return b <= 1; }
         inline unsigned level(BDD b) const { return m_nodes[b].m_level; }
         inline unsigned var(BDD b) const { return m_level2var[level(b)]; }
         inline BDD lo(BDD b) const { return m_nodes[b].m_lo; }

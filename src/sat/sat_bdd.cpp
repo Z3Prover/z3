@@ -94,8 +94,8 @@ namespace sat {
 
     bool bdd_manager::check_result(op_entry*& e1, op_entry const* e2, BDD a, BDD b, BDD c) {
         if (e1 != e2) {
+            push_entry(e1);
             if (e2->m_bdd1 == a && e2->m_bdd2 == b && e2->m_op == c) {
-                push_entry(e1);
                 return true;
             }
             e1 = const_cast<op_entry*>(e2);
@@ -343,12 +343,15 @@ namespace sat {
 
     bdd_manager::BDD bdd_manager::mk_quant_rec(unsigned l, BDD b, bdd_op op) {
         unsigned lvl = level(b);
-        
-        if (lvl == l) {
-            return apply(lo(b), hi(b), op);
+        BDD r;
+        if (is_const(b)) {
+            r = b;
+        }
+        else if (lvl == l) {
+            r = apply(lo(b), hi(b), op);
         }
         else if (lvl < l) {
-            return b;
+            r = b;
         }
         else {
             BDD a = level2bdd(l);
@@ -356,14 +359,16 @@ namespace sat {
             op_entry * e1 = pop_entry(a, b, q_op);
             op_entry const* e2 = m_op_cache.insert_if_not_there(e1);
             if (check_result(e1, e2, a, b, q_op)) 
-                return e2->m_result;
-            push(mk_quant_rec(l, lo(b), op));
-            push(mk_quant_rec(l, hi(b), op));
-            BDD r = make_node(lvl, read(2), read(1));
-            pop(2);
-            e1->m_result = r;
-            return r;
+                r = e2->m_result;
+            else {
+                push(mk_quant_rec(l, lo(b), op));
+                push(mk_quant_rec(l, hi(b), op));
+                r = make_node(lvl, read(2), read(1));
+                pop(2);
+                e1->m_result = r;
+            }
         }
+        return r;
     }
 
     double bdd_manager::count(bdd const& b, unsigned z) {
@@ -495,7 +500,7 @@ namespace sat {
         return out;
     }
 
-    bdd::bdd(int root, bdd_manager* m): root(root), m(m) { m->inc_ref(root); }
+    bdd::bdd(unsigned root, bdd_manager* m): root(root), m(m) { m->inc_ref(root); }
     bdd::bdd(bdd & other): root(other.root), m(other.m) { m->inc_ref(root); }
     bdd::~bdd() { m->dec_ref(root); }
     bdd bdd::lo() const { return bdd(m->lo(root), m); }
@@ -506,7 +511,7 @@ namespace sat {
     bdd bdd::operator!() { return m->mk_not(*this); }
     bdd bdd::operator&&(bdd const& other) { return m->mk_and(*this, other); }
     bdd bdd::operator||(bdd const& other) { return m->mk_or(*this, other); }
-    bdd& bdd::operator=(bdd const& other) { int r1 = root; root = other.root; m->inc_ref(root); m->dec_ref(r1); return *this; }
+    bdd& bdd::operator=(bdd const& other) { unsigned r1 = root; root = other.root; m->inc_ref(root); m->dec_ref(r1); return *this; }
     std::ostream& bdd::display(std::ostream& out) const { return m->display(out, *this); }
     std::ostream& operator<<(std::ostream& out, bdd const& b) { return b.display(out); }
 
