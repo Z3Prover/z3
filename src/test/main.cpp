@@ -10,10 +10,6 @@
 #include "util/memory_manager.h"
 #include "util/gparams.h"
 
-static void tst_exit_all_tests() {
-    exit(0);
-}
-//
 // Unit tests fail by asserting.
 // If they return, we assume the unit test succeeds
 // and print "PASS" to indicate success.
@@ -210,7 +206,8 @@ int main(int argc, char ** argv) {
     TST(prime_generator);
     TST(permutation);
     TST(nlsat);
-    TST(exit_all_tests);
+    // FIXME: Run other tests
+    return 0;
     TST(ext_numeral);
     TST(interval);
     TST(f2n);
