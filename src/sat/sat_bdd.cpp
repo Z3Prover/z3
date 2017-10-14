@@ -24,15 +24,16 @@ namespace sat {
     bdd_manager::bdd_manager(unsigned num_vars, unsigned cache_size) {
         for (BDD a = 0; a < 2; ++a) {
             for (BDD b = 0; b < 2; ++b) {
-                for (unsigned op = bdd_and_op; op < bdd_no_op; ++op) {                
+                for (unsigned op = bdd_and_op; op < bdd_not_op; ++op) {                
                     unsigned index = a + 2*b + 4*op;
                     m_apply_const.reserve(index+1);
                     m_apply_const[index] = apply_const(a, b, static_cast<bdd_op>(op));
                 }
             }
         }
-        // add two dummy nodes for true_bdd and false_bdd
-        for (unsigned i = 0; i <= bdd_no_op; ++i) {
+
+        // add dummy nodes for operations, and true, false bdds.
+        for (unsigned i = 0; i <= bdd_no_op + 2; ++i) {
             m_nodes.push_back(bdd_node(0,0,0));
             m_nodes.back().m_refcount = max_rc;
             m_nodes.back().m_index = m_nodes.size()-1;
@@ -41,7 +42,7 @@ namespace sat {
         m_spare_entry = nullptr;
         m_max_num_bdd_nodes = 1 << 24; // up to 16M nodes
         m_mark_level = 0;
-        alloc_free_nodes(1024);
+        alloc_free_nodes(1024 + num_vars);
         
         // add variables
         for (unsigned i = 0; i < num_vars; ++i) {
@@ -91,6 +92,20 @@ namespace sat {
         }
     }
 
+    bool bdd_manager::check_result(op_entry*& e1, op_entry const* e2, BDD a, BDD b, BDD c) {
+        if (e1 != e2) {
+            if (e2->m_bdd1 == a && e2->m_bdd2 == b && e2->m_op == c) {
+                push_entry(e1);
+                return true;
+            }
+            e1 = const_cast<op_entry*>(e2);
+        }
+        e1->m_bdd1 = a;
+        e1->m_bdd2 = b;
+        e1->m_op = c;
+        return false;        
+    }
+
     bdd_manager::BDD bdd_manager::apply_rec(BDD a, BDD b, bdd_op op) {
         switch (op) {
         case bdd_and_op:
@@ -119,15 +134,8 @@ namespace sat {
         }
         op_entry * e1 = pop_entry(a, b, op);
         op_entry const* e2 = m_op_cache.insert_if_not_there(e1);
-        if (e2 != e1) {
-            if (e2->m_bdd1 == a && e2->m_bdd2 == b && e2->m_op == op) {
-                push_entry(e1);
-                return e2->m_result;
-            }
-            e1 = const_cast<op_entry*>(e2);
-            e1->m_bdd1 = a;
-            e1->m_bdd2 = b;
-            e1->m_op = op;
+        if (check_result(e1, e2, a, b, op)) {
+            return e2->m_result;
         }
         BDD r;
         if (level(a) == level(b)) {
@@ -221,7 +229,7 @@ namespace sat {
     }
 
     bdd bdd_manager::mk_var(unsigned i) {
-        return bdd(m_var2bdd[2*i+1], this);        
+        return bdd(m_var2bdd[2*i], this);        
     }
 
     bdd bdd_manager::mk_nvar(unsigned i) {
@@ -247,16 +255,8 @@ namespace sat {
         if (is_false(b)) return true_bdd;
         op_entry* e1 = pop_entry(b, b, bdd_not_op);
         op_entry const* e2 = m_op_cache.insert_if_not_there(e1);
-        if (e2 != e1) {
-            if (e2->m_bdd1 == b && e2->m_bdd2 == b && e2->m_op == bdd_not_op) {
-                push_entry(e1);
-                return e2->m_result;
-            }
-            e1 = const_cast<op_entry*>(e2);
-            e1->m_bdd1 = b;
-            e1->m_bdd2 = b;
-            e1->m_op = bdd_not_op;
-        }
+        if (check_result(e1, e2, b, b, bdd_not_op)) 
+            return e2->m_result;
         push(mk_not_rec(lo(b)));
         push(mk_not_rec(hi(b)));
         BDD r = make_node(level(b), read(2), read(1));
@@ -264,8 +264,8 @@ namespace sat {
         e1->m_result = r;
         return r;
     }
-
-    bdd bdd_manager::mk_ite(bdd const& c, bdd const& t, bdd const& e) { 
+    
+    bdd bdd_manager::mk_ite(bdd const& c, bdd const& t, bdd const& e) {         
         bool first = true;
         while (true) {
             try {
@@ -290,16 +290,8 @@ namespace sat {
         SASSERT(!is_const(a) && !is_const(b) && !is_const(c));
         op_entry * e1 = pop_entry(a, b, c);
         op_entry const* e2 = m_op_cache.insert_if_not_there(e1);
-        if (e2 != e1) {
-            if (e2->m_bdd1 == a && e2->m_bdd2 == b && e2->m_op == c) {
-                push_entry(e1);
-                return e2->m_result;
-            }
-            e1 = const_cast<op_entry*>(e2);
-            e1->m_bdd1 = a;
-            e1->m_bdd2 = b;
-            e1->m_op = c;
-        }
+        if (check_result(e1, e2, a, b, c)) 
+            return e2->m_result;
         unsigned la = level(a), lb = level(b), lc = level(c);
         BDD r;
         BDD a1, b1, c1, a2, b2, c2;
@@ -363,16 +355,8 @@ namespace sat {
             bdd_op q_op = op == bdd_and_op ? bdd_and_proj_op : bdd_or_proj_op;
             op_entry * e1 = pop_entry(a, b, q_op);
             op_entry const* e2 = m_op_cache.insert_if_not_there(e1);
-            if (e1 != e2) {
-                if (e2->m_bdd1 == a && e2->m_bdd2 == b && e2->m_op == q_op) {
-                    push_entry(e1);
-                    return e2->m_result;
-                }
-                e1 = const_cast<op_entry*>(e2);
-                e1->m_bdd1 = a;
-                e1->m_bdd2 = b;
-                e1->m_op = q_op;
-            }
+            if (check_result(e1, e2, a, b, q_op)) 
+                return e2->m_result;
             push(mk_quant_rec(l, lo(b), op));
             push(mk_quant_rec(l, hi(b), op));
             BDD r = make_node(lvl, read(2), read(1));
@@ -382,11 +366,11 @@ namespace sat {
         }
     }
 
-    double bdd_manager::path_count(bdd const& b) {
+    double bdd_manager::count(bdd const& b, unsigned z) {
         init_mark();
-        m_path_count.resize(m_nodes.size());
-        m_path_count[0] = 0;
-        m_path_count[1] = 1;
+        m_count.resize(m_nodes.size());
+        m_count[0] = z;
+        m_count[1] = 1-z;
         set_mark(0);
         set_mark(1);
         m_todo.push_back(b.root);
@@ -402,13 +386,12 @@ namespace sat {
                 m_todo.push_back(hi(r));
             }
             else {
-                m_path_count[r] = m_path_count[lo(r)] + m_path_count[hi(r)];
+                m_count[r] = m_count[lo(r)] + m_count[hi(r)];
                 set_mark(r);
                 m_todo.pop_back();
             }
         }
-        return m_path_count[b.root];
-
+        return m_count[b.root];
     }
 
     void bdd_manager::alloc_free_nodes(unsigned n) {
@@ -472,6 +455,7 @@ namespace sat {
         ++m_mark_level;
         if (m_mark_level == 0) {
             m_mark.fill(0);
+            ++m_mark_level;
         }
     }
 
@@ -514,15 +498,15 @@ namespace sat {
     bdd::bdd(int root, bdd_manager* m): root(root), m(m) { m->inc_ref(root); }
     bdd::bdd(bdd & other): root(other.root), m(other.m) { m->inc_ref(root); }
     bdd::~bdd() { m->dec_ref(root); }
+    bdd bdd::lo() const { return bdd(m->lo(root), m); }
+    bdd bdd::hi() const { return bdd(m->hi(root), m); }
+    unsigned bdd::var() const { return m->var(root); }
+    bool bdd::is_true() const { return root == bdd_manager::true_bdd; }
+    bool bdd::is_false() const { return root == bdd_manager::false_bdd; }
     bdd bdd::operator!() { return m->mk_not(*this); }
     bdd bdd::operator&&(bdd const& other) { return m->mk_and(*this, other); }
     bdd bdd::operator||(bdd const& other) { return m->mk_or(*this, other); }
-    std::ostream& bdd::display(std::ostream& out) const {  return m->display(out, *this);  }
-
-    std::ostream& operator<<(std::ostream& out, bdd const& b) {
-        return b.display(out);
-    }
-
-
+    std::ostream& bdd::display(std::ostream& out) const { return m->display(out, *this); }
+    std::ostream& operator<<(std::ostream& out, bdd const& b) { return b.display(out); }
 
 }

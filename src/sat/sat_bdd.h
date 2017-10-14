@@ -25,13 +25,6 @@ Revision History:
 
 namespace sat {
 
-    struct bdd_pair {
-        int*      m_bdd;
-        int       m_last;
-        int       m_id;
-        bdd_pair* m_next;
-    };
-
     class bdd_manager;
 
     class bdd {
@@ -42,6 +35,12 @@ namespace sat {
     public:
         bdd(bdd & other);
         ~bdd();        
+        bdd lo() const;
+        bdd hi() const;
+        unsigned var() const;
+        bool is_true() const;
+        bool is_false() const;
+        
         bdd operator!();
         bdd operator&&(bdd const& other);
         bdd operator||(bdd const& other);
@@ -123,22 +122,21 @@ namespace sat {
 
         typedef ptr_hashtable<op_entry, hash_entry, eq_entry> op_table;
 
-        svector<bdd_node>  m_nodes;
-        op_table           m_op_cache;
-        node_table         m_node_table;
-        unsigned_vector    m_apply_const;
-        svector<BDD>       m_bdd_stack;
-        op_entry*          m_spare_entry;
-        svector<BDD>       m_var2bdd;
-        unsigned_vector    m_var2level, m_level2var;
-        unsigned_vector    m_free_nodes;
-        small_object_allocator m_alloc;
+        svector<bdd_node>          m_nodes;
+        op_table                   m_op_cache;
+        node_table                 m_node_table;
+        unsigned_vector            m_apply_const;
+        svector<BDD>               m_bdd_stack;
+        op_entry*                  m_spare_entry;
+        svector<BDD>               m_var2bdd;
+        unsigned_vector            m_var2level, m_level2var;
+        unsigned_vector            m_free_nodes;
+        small_object_allocator     m_alloc;
         mutable svector<unsigned>  m_mark;
         mutable unsigned           m_mark_level;
-        mutable svector<double>    m_path_count;
+        mutable svector<double>    m_count;
         mutable svector<BDD>       m_todo;
-
-        unsigned           m_max_num_bdd_nodes;
+        unsigned                   m_max_num_bdd_nodes;
 
         BDD make_node(unsigned level, BDD l, BDD r);
 
@@ -157,7 +155,10 @@ namespace sat {
 
         op_entry* pop_entry(BDD l, BDD r, BDD op);
         void push_entry(op_entry* e);
+        bool check_result(op_entry*& e1, op_entry const* e2, BDD a, BDD b, BDD c);
         
+        double count(bdd const& b, unsigned z);
+
         void gc();
         void alloc_free_nodes(unsigned n);
         void init_mark();
@@ -197,7 +198,8 @@ namespace sat {
         bdd mk_iff(bdd const& a, bdd const& b) { return bdd(apply(a.root, b.root, bdd_iff_op), this); }
         bdd mk_ite(bdd const& c, bdd const& t, bdd const& e);
 
-        double path_count(bdd const& b);
+        double dnf_size(bdd const& b) { return count(b, 0); }
+        double cnf_size(bdd const& b) { return count(b, 1); }
 
         std::ostream& display(std::ostream& out, bdd const& b);
         std::ostream& display(std::ostream& out);

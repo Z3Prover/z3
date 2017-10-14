@@ -10,12 +10,13 @@ namespace sat {
         bdd c2 = v2 && v0 && v1;
         std::cout << c1 << "\n";
         SASSERT(c1 == c2);
+        std::cout << "cnf size: " << m.cnf_size(c1) << "\n";
 
         c1 = v0 || v1 || v2;
         c2 = v2 || v1 || v0;
         std::cout << c1 << "\n";
-        std::cout << c2 << "\n";
         SASSERT(c1 == c2);
+        std::cout << "cnf size: " << m.cnf_size(c1) << "\n";
     }
 
     static void test2() {
