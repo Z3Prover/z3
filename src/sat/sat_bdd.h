@@ -42,8 +42,15 @@ namespace sat {
     public:
         bdd(bdd & other);
         ~bdd();        
-        // bdd operator!() { return m->mk_not(*this); }
+        bdd operator!();
+        bdd operator&&(bdd const& other);
+        bdd operator||(bdd const& other);
+        std::ostream& display(std::ostream& out) const;
+        bool operator==(bdd const& other) const { return root == other.root; }
+        bool operator!=(bdd const& other) const { return root != other.root; }
     };
+
+    std::ostream& operator<<(std::ostream& out, bdd const& b);
 
     class bdd_manager {
         friend bdd;
@@ -51,11 +58,13 @@ namespace sat {
         typedef int BDD;
 
         enum bdd_op {
-            bdd_and_op = 0,
-            bdd_or_op,
-            bdd_iff_op,
-            bdd_not_op,
-            bdd_no_op
+            bdd_and_op = 2,
+            bdd_or_op = 3,
+            bdd_iff_op = 4,
+            bdd_not_op = 5,
+            bdd_and_proj_op = 6,
+            bdd_or_proj_op = 7,
+            bdd_no_op = 8,
         };
 
         struct bdd_node {
@@ -63,71 +72,99 @@ namespace sat {
                 m_refcount(0),
                 m_level(level),
                 m_lo(lo),
-                m_hi(hi)
+                m_hi(hi),
+                m_index(0)
             {}
+            bdd_node(): m_level(0), m_lo(0), m_hi(0), m_index(0) {}
             unsigned m_refcount : 10;
             unsigned m_level : 22;
             int      m_lo;
             int      m_hi;
-            //unsigned m_hash;
-            //unsigned m_next;
+            unsigned m_index;
+            unsigned hash() const { return mk_mix(m_level, m_lo, m_hi); }
+        };
+
+        struct hash_node {
+            unsigned operator()(bdd_node const& n) const { return n.hash(); }
+        };
+
+        struct eq_node {
+            bool operator()(bdd_node const& a, bdd_node const& b) const {
+                return a.m_lo == b.m_lo && a.m_hi == b.m_hi && a.m_level == b.m_level;
+            }
         };
         
-        struct cache_entry {
-            cache_entry(unsigned hash):
-                m_bdd1(0),
-                m_bdd2(0),
-                m_op(bdd_no_op),
-                m_result(0),
-                m_hash(hash)
+        typedef hashtable<bdd_node, hash_node, eq_node> node_table;
+
+        struct op_entry {
+            op_entry(BDD l, BDD r, BDD op):
+                m_bdd1(l),
+                m_bdd2(r),
+                m_op(op),
+                m_result(0)
             {}
 
             BDD      m_bdd1;
             BDD      m_bdd2;
-            bdd_op   m_op;
+            BDD      m_op;
             BDD      m_result;
-            unsigned m_hash;
+            unsigned hash() const { return mk_mix(m_bdd1, m_bdd2, m_op); }
         };
 
         struct hash_entry {
-            unsigned operator()(cache_entry* e) const { return e->m_hash; }
+            unsigned operator()(op_entry* e) const { return e->hash(); }
         };
 
         struct eq_entry {
-            bool operator()(cache_entry * a, cache_entry * b) const { 
-                return a->m_hash == b->m_hash; 
+            bool operator()(op_entry * a, op_entry * b) const { 
+                return a->hash() == b->hash(); 
             }
         };
 
-        svector<bdd_node> m_nodes;
-        ptr_hashtable<cache_entry, hash_entry, eq_entry> m_cache;
+        typedef ptr_hashtable<op_entry, hash_entry, eq_entry> op_table;
+
+        svector<bdd_node>  m_nodes;
+        op_table           m_op_cache;
+        node_table         m_node_table;
         unsigned_vector    m_apply_const;
         svector<BDD>       m_bdd_stack;
-        cache_entry*       m_spare_entry;
+        op_entry*          m_spare_entry;
         svector<BDD>       m_var2bdd;
         unsigned_vector    m_var2level, m_level2var;
+        unsigned_vector    m_free_nodes;
         small_object_allocator m_alloc;
+        mutable svector<unsigned>  m_mark;
+        mutable unsigned           m_mark_level;
+        mutable svector<double>    m_path_count;
+        mutable svector<BDD>       m_todo;
+
+        unsigned           m_max_num_bdd_nodes;
 
         BDD make_node(unsigned level, BDD l, BDD r);
 
         BDD apply_const(BDD a, BDD b, bdd_op op);
         BDD apply(BDD arg1, BDD arg2, bdd_op op);
+        BDD mk_quant(unsigned n, unsigned const* vars, BDD b, bdd_op op);
+
         BDD apply_rec(BDD arg1, BDD arg2, bdd_op op);
+        BDD mk_not_rec(BDD b);
+        BDD mk_ite_rec(BDD a, BDD b, BDD c);
+        BDD mk_quant_rec(unsigned lvl, BDD b, bdd_op op);
 
         void push(BDD b);
         void pop(unsigned num_scopes);
         BDD read(unsigned index);
 
-        cache_entry* pop_entry(unsigned hash);
-        void push_entry(cache_entry* e);
+        op_entry* pop_entry(BDD l, BDD r, BDD op);
+        void push_entry(op_entry* e);
         
-        // void bdd_reorder(int);
+        void gc();
+        void alloc_free_nodes(unsigned n);
+        void init_mark();
+        void set_mark(unsigned i) { m_mark[i] = m_mark_level; }
+        bool is_marked(unsigned i) { return m_mark[i] == m_mark_level; }
 
-        BDD mk_not_rec(BDD b);
-
-        unsigned hash1(BDD b, bdd_op op) const { return hash2(b, b, op); }
-        unsigned hash2(BDD a, BDD b, bdd_op op) const;
-        unsigned hash3(BDD a, BDD b, BDD c, bdd_op op) const;
+        void try_reorder();
 
         static const BDD false_bdd = 0;
         static const BDD true_bdd = 1;
@@ -136,33 +173,33 @@ namespace sat {
         inline bool is_true(BDD b) const { return b == true_bdd; }
         inline bool is_false(BDD b) const { return b == false_bdd; }
         inline bool is_const(BDD b) const { return 0 <= b && b <= 1; }
+        inline unsigned level(BDD b) const { return m_nodes[b].m_level; }
+        inline unsigned var(BDD b) const { return m_level2var[level(b)]; }
+        inline BDD lo(BDD b) const { return m_nodes[b].m_lo; }
+        inline BDD hi(BDD b) const { return m_nodes[b].m_hi; }
+        inline void inc_ref(BDD b) { if (m_nodes[b].m_refcount != max_rc) m_nodes[b].m_refcount++; }
+        inline void dec_ref(BDD b) { if (m_nodes[b].m_refcount != max_rc) m_nodes[b].m_refcount--; }
+        inline BDD level2bdd(unsigned l) const { return m_var2bdd[m_level2var[l]]; }
 
-        unsigned level(BDD b) const { return m_nodes[b].m_level; }
-        BDD lo(BDD b) const { return m_nodes[b].m_lo; }
-        BDD hi(BDD b) const { return m_nodes[b].m_hi; }
-        void inc_ref(BDD b) { if (m_nodes[b].m_refcount != max_rc) m_nodes[b].m_refcount++; }
-        void dec_ref(BDD b) { if (m_nodes[b].m_refcount != max_rc && m_nodes[b].m_refcount > 0) m_nodes[b].m_refcount--; }
-
-        BDD mk_true() { return 1; }
-        BDD mk_false() { return 0; }
-
+        struct bdd_exception {};
     public:
         bdd_manager(unsigned nodes, unsigned cache_size);
+        ~bdd_manager();
         
         bdd mk_var(unsigned i);
         bdd mk_nvar(unsigned i);
 
         bdd mk_not(bdd b);
-        bdd mk_exist(bdd vars, bdd b);
-        bdd mk_forall(bdd vars, bdd b);
-        bdd mk_and(bdd a, bdd b) { return bdd(apply(a.root, b.root, bdd_and_op), this); }
-        bdd mk_or(bdd a, bdd b) { return bdd(apply(a.root, b.root, bdd_or_op), this); }
-        bdd mk_iff(bdd a, bdd b) { return bdd(apply(a.root, b.root, bdd_iff_op), this); }
-        bdd mk_ite(bdd c, bdd t, bdd e);
+        bdd mk_exists(unsigned n, unsigned const* vars, bdd const & b);
+        bdd mk_forall(unsigned n, unsigned const* vars, bdd const & b);
+        bdd mk_and(bdd const& a, bdd const& b) { return bdd(apply(a.root, b.root, bdd_and_op), this); }
+        bdd mk_or(bdd const& a, bdd const& b) { return bdd(apply(a.root, b.root, bdd_or_op), this); }
+        bdd mk_iff(bdd const& a, bdd const& b) { return bdd(apply(a.root, b.root, bdd_iff_op), this); }
+        bdd mk_ite(bdd const& c, bdd const& t, bdd const& e);
 
-        double path_count(bdd b);
+        double path_count(bdd const& b);
 
-        std::ostream& display(std::ostream& out, bdd b);
+        std::ostream& display(std::ostream& out, bdd const& b);
         std::ostream& display(std::ostream& out);
     };
 }
