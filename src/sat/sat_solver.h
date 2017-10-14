@@ -179,6 +179,7 @@ namespace sat {
         friend class local_search;
         friend struct mk_stat;
         friend class ccc;
+        friend class elim_vars;
     public:
         solver(params_ref const & p, reslimit& l);
         ~solver();

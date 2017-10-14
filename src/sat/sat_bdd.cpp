@@ -506,6 +506,7 @@ namespace sat {
     bdd bdd::operator!() { return m->mk_not(*this); }
     bdd bdd::operator&&(bdd const& other) { return m->mk_and(*this, other); }
     bdd bdd::operator||(bdd const& other) { return m->mk_or(*this, other); }
+    bdd& bdd::operator=(bdd const& other) { int r1 = root; root = other.root; m->inc_ref(root); m->dec_ref(r1); return *this; }
     std::ostream& bdd::display(std::ostream& out) const { return m->display(out, *this); }
     std::ostream& operator<<(std::ostream& out, bdd const& b) { return b.display(out); }
 

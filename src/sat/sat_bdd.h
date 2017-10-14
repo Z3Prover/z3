@@ -34,6 +34,7 @@ namespace sat {
         bdd(int root, bdd_manager* m);
     public:
         bdd(bdd & other);
+        bdd& operator=(bdd const& other);
         ~bdd();        
         bdd lo() const;
         bdd hi() const;
@@ -44,6 +45,8 @@ namespace sat {
         bdd operator!();
         bdd operator&&(bdd const& other);
         bdd operator||(bdd const& other);
+        bdd operator|=(bdd const& other) { return *this = *this || other; }
+        bdd operator&=(bdd const& other) { return *this = *this && other; }
         std::ostream& display(std::ostream& out) const;
         bool operator==(bdd const& other) const { return root == other.root; }
         bool operator!=(bdd const& other) const { return root != other.root; }
@@ -190,9 +193,13 @@ namespace sat {
         bdd mk_var(unsigned i);
         bdd mk_nvar(unsigned i);
 
+        bdd mk_true() { return bdd(true_bdd, this); }
+        bdd mk_false() { return bdd(false_bdd, this); }
         bdd mk_not(bdd b);
         bdd mk_exists(unsigned n, unsigned const* vars, bdd const & b);
         bdd mk_forall(unsigned n, unsigned const* vars, bdd const & b);
+        bdd mk_exists(unsigned v, bdd const& b) { return mk_exists(1, &v, b); }
+        bdd mk_forall(unsigned v, bdd const& b) { return mk_forall(1, &v, b); }
         bdd mk_and(bdd const& a, bdd const& b) { return bdd(apply(a.root, b.root, bdd_and_op), this); }
         bdd mk_or(bdd const& a, bdd const& b) { return bdd(apply(a.root, b.root, bdd_or_op), this); }
         bdd mk_iff(bdd const& a, bdd const& b) { return bdd(apply(a.root, b.root, bdd_iff_op), this); }

@@ -21,6 +21,7 @@ Revision History:
 #include "sat/sat_simplifier.h"
 #include "sat/sat_simplifier_params.hpp"
 #include "sat/sat_solver.h"
+#include "sat/sat_elim_vars.h"
 #include "util/stopwatch.h"
 #include "util/trace.h"
 
@@ -1308,7 +1309,6 @@ namespace sat {
         clause_use_list & neg_occs = m_use_list.get(neg_l);
         unsigned num_pos = pos_occs.size() + num_bin_pos;
         unsigned num_neg = neg_occs.size() + num_bin_neg;
-        m_elim_counter -= num_pos + num_neg;
 
         TRACE("resolution", tout << v << " num_pos: " << num_pos << " neg_pos: " << num_neg << "\n";);
 
@@ -1349,7 +1349,6 @@ namespace sat {
         collect_clauses(pos_l, m_pos_cls);
         collect_clauses(neg_l, m_neg_cls);
 
-        m_elim_counter -= num_pos * num_neg + before_lits;
 
         TRACE("resolution_detail", tout << "collecting number of after_clauses\n";);
         unsigned before_clauses = num_pos + num_neg;
@@ -1370,6 +1369,8 @@ namespace sat {
         }
         TRACE("resolution", tout << "found var to eliminate, before: " << before_clauses << " after: " << after_clauses << "\n";);
 
+
+        m_elim_counter -= num_pos * num_neg + before_lits;
 
         // eliminate variable
         model_converter::entry & mc_entry = s.m_mc.mk(model_converter::ELIM_VAR, v);
@@ -1454,14 +1455,21 @@ namespace sat {
         elim_var_report rpt(*this);
         bool_var_vector vars;
         order_vars_for_elim(vars);
+        // sat::elim_vars elim_bdd(*this);
 
+        std::cout << "vars to elim: " << vars.size() << "\n";
         for (bool_var v : vars) {
             checkpoint();
-            if (m_elim_counter < 0)
+            if (m_elim_counter < 0) 
                 break;
             if (try_eliminate(v)) {
                 m_num_elim_vars++;
             }
+#if 0
+            else if (elim_bdd(v)) {
+                m_num_elim_vars++;
+            }
+#endif
         }
 
         m_pos_cls.finalize();

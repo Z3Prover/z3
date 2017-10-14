@@ -49,6 +49,7 @@ namespace sat {
 
     class simplifier {
         friend class ba_solver;
+        friend class elim_vars;
         solver &               s;
         unsigned               m_num_calls;
         use_list               m_use_list;
