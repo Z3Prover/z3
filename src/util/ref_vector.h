@@ -45,6 +45,10 @@ public:
     typedef T * data;
 
     ref_vector_core(Ref const & r = Ref()):Ref(r) {}
+
+    ref_vector_core(ref_vector_core && other) :
+        Ref(std::move(other)),
+        m_nodes(std::move(other.m_nodes)) {}
     
     ~ref_vector_core() {
         dec_range_ref(m_nodes.begin(), m_nodes.end());
@@ -206,6 +210,8 @@ public:
         super(ref_manager_wrapper<T, TManager>(other.m_manager)) {
         this->append(other);
     }
+
+    ref_vector(ref_vector && other) : super(std::move(other)) {}
 
     ref_vector(TManager & m, unsigned sz, T * const * data):
         super(ref_manager_wrapper<T, TManager>(m)) {
