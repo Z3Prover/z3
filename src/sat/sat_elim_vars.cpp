@@ -25,7 +25,7 @@ namespace sat{
 
     elim_vars::elim_vars(simplifier& s) : simp(s), s(s.s), m(20,10000) {
         m_mark_lim = 0;
-        m_max_literals = 11; // p.resolution_occ_cutoff();
+        m_max_literals = 13; // p.resolution_occ_cutoff();
     }
 
     bool elim_vars::operator()(bool_var v) {
@@ -41,6 +41,9 @@ namespace sat{
         clause_use_list & pos_occs = simp.m_use_list.get(pos_l);
         clause_use_list & neg_occs = simp.m_use_list.get(neg_l);
         unsigned clause_size = num_bin_pos + num_bin_neg + pos_occs.size() + neg_occs.size();
+        if (clause_size == 0) {
+            return false;
+        }
         reset_mark();
         mark_var(v);
         if (!mark_literals(pos_occs)) return false;
@@ -49,16 +52,72 @@ namespace sat{
         if (!mark_literals(neg_l)) return false;
         
         // associate index with each variable.
+        sort_marked();
+        bdd b1 = elim_var(v);
+        double sz1 = m.cnf_size(b1);
+        if (sz1 > 2*clause_size) {
+            return false;
+        }
+        if (sz1 <= clause_size) {
+            return elim_var(v, b1);
+        }
+        m_vars.reverse();
+        bdd b2 = elim_var(v);
+        double sz2 = m.cnf_size(b2);
+        if (sz2 <= clause_size) {
+            return elim_var(v, b2);
+        }
+        shuffle_vars();
+        bdd b3 = elim_var(v);
+        double sz3 = m.cnf_size(b3);
+        if (sz3 <= clause_size) {
+            return elim_var(v, b3);
+        }
+        return false;
+    }
+
+    bool elim_vars::elim_var(bool_var v, bdd const& b) {
+        literal pos_l(v, false);
+        literal neg_l(v, true);
+        clause_use_list & pos_occs = simp.m_use_list.get(pos_l);
+        clause_use_list & neg_occs = simp.m_use_list.get(neg_l);
+
+        // eliminate variable
+        simp.m_pos_cls.reset();
+        simp.m_neg_cls.reset();
+        simp.collect_clauses(pos_l, simp.m_pos_cls);
+        simp.collect_clauses(neg_l, simp.m_neg_cls);
+        model_converter::entry & mc_entry = s.m_mc.mk(model_converter::ELIM_VAR, v);
+        simp.save_clauses(mc_entry, simp.m_pos_cls);
+        simp.save_clauses(mc_entry, simp.m_neg_cls);
+        s.m_eliminated[v] = true;
+        simp.remove_bin_clauses(pos_l);
+        simp.remove_bin_clauses(neg_l);
+        simp.remove_clauses(pos_occs, pos_l);
+        simp.remove_clauses(neg_occs, neg_l);
+        pos_occs.reset();
+        neg_occs.reset();
+        literal_vector lits;
+        add_clauses(b, lits);        
+        return true;
+    }
+
+    bdd elim_vars::elim_var(bool_var v) {
         unsigned index = 0;
         for (bool_var w : m_vars) {
             m_var2index[w] = index++;
         }
+        literal pos_l(v, false);
+        literal neg_l(v, true);
+        clause_use_list & pos_occs = simp.m_use_list.get(pos_l);
+        clause_use_list & neg_occs = simp.m_use_list.get(neg_l);
+
         bdd b1 = make_clauses(pos_l);
         bdd b2 = make_clauses(neg_l);
         bdd b3 = make_clauses(pos_occs);
         bdd b4 = make_clauses(neg_occs);
         bdd b0 = b1 && b2 && b3 && b4;
-        bdd b = m.mk_exists(m_var2index[v], b0);
+        bdd b =  m.mk_exists(m_var2index[v], b0);       
         TRACE("elim_vars",
               tout << "eliminate " << v << "\n";
               tout << "clauses : " << clause_size << "\n";
@@ -92,12 +151,8 @@ namespace sat{
               tout << b << "\n";
               tout << m.cnf_size(b) << "\n";
               );
-        std::cout << "num clauses: " << clause_size << " cnf size: " << m.cnf_size(b) << "\n";
-        if (clause_size < m.cnf_size(b))
-            return false;
 
-
-        literal_vector lits;
+#if 0
         TRACE("elim_vars",
               clause_vector clauses;
               literal_vector units;
@@ -122,26 +177,9 @@ namespace sat{
               SASSERT(lits.empty());
               clauses.reset();
               );
+#endif
 
-        return false;
-
-        // eliminate variable
-        simp.m_pos_cls.reset();
-        simp.m_neg_cls.reset();
-        simp.collect_clauses(pos_l, simp.m_pos_cls);
-        simp.collect_clauses(neg_l, simp.m_neg_cls);
-        model_converter::entry & mc_entry = s.m_mc.mk(model_converter::ELIM_VAR, v);
-        simp.save_clauses(mc_entry, simp.m_pos_cls);
-        simp.save_clauses(mc_entry, simp.m_neg_cls);
-        s.m_eliminated[v] = true;
-        simp.remove_bin_clauses(pos_l);
-        simp.remove_bin_clauses(neg_l);
-        simp.remove_clauses(pos_occs, pos_l);
-        simp.remove_clauses(neg_occs, neg_l);
-        pos_occs.reset();
-        neg_occs.reset();
-        add_clauses(b, lits);        
-        return true;
+        return b;
     }
 
     void elim_vars::add_clauses(bdd const& b, literal_vector& lits) {
@@ -150,12 +188,9 @@ namespace sat{
         }
         else if (b.is_false()) {
             SASSERT(lits.size() > 0);
-            std::cout << lits << "\n";
             literal_vector c(lits);
             if (simp.cleanup_clause(c)) 
                 return;
-
-            std::cout << c << "\n";
             
             switch (c.size()) {
             case 0:
@@ -165,12 +200,22 @@ namespace sat{
                 simp.propagate_unit(c[0]);
                 break;
             case 2:
+                s.m_stats.m_mk_bin_clause++;
                 simp.add_non_learned_binary_clause(c[0],c[1]);
+                simp.back_subsumption1(c[0],c[1], false);
                 break;
             default: {
+                if (c.size() == 3)
+                    s.m_stats.m_mk_ter_clause++;
+                else
+                    s.m_stats.m_mk_clause++;
                 clause* cp = s.m_cls_allocator.mk_clause(c.size(), c.c_ptr(), false);
                 s.m_clauses.push_back(cp);
                 simp.m_use_list.insert(*cp);
+                if (simp.m_sub_counter > 0)
+                    simp.back_subsumption1(*cp);
+                else
+                    simp.back_subsumption0(*cp);
                 break;
             }
             }
@@ -218,6 +263,7 @@ namespace sat{
         m_vars.reset();
         m_mark.resize(s.num_vars());
         m_var2index.resize(s.num_vars());
+        m_occ.resize(s.num_vars());
         ++m_mark_lim;
         if (m_mark_lim == 0) {
             ++m_mark_lim;
@@ -225,10 +271,37 @@ namespace sat{
         }
     }
 
+    class elim_vars::compare_occ {
+        elim_vars& ev;
+    public:
+        compare_occ(elim_vars& ev):ev(ev) {}
+
+        bool operator()(bool_var v1, bool_var v2) const {
+            return ev.m_occ[v1] < ev.m_occ[v2];
+        }
+    };
+
+    void elim_vars::sort_marked() {
+        std::sort(m_vars.begin(), m_vars.end(), compare_occ(*this));
+    }
+
+    void elim_vars::shuffle_vars() {
+        unsigned sz = m_vars.size();
+        for (unsigned i = 0; i < sz; ++i) {
+            unsigned x = m_rand(sz);
+            unsigned y = m_rand(sz);
+            std::swap(m_vars[x], m_vars[y]);
+        }
+    }
+
     void elim_vars::mark_var(bool_var v) {
         if (m_mark[v] != m_mark_lim) {
             m_mark[v] = m_mark_lim;
             m_vars.push_back(v);
+            m_occ[v] = 1;
+        }
+        else {
+            ++m_occ[v];
         }
     }
 

@@ -28,21 +28,27 @@ namespace sat {
 
     class elim_vars {
         friend class simplifier;
+        class compare_occ;
 
         simplifier& simp;
         solver&     s;
         bdd_manager m;
+        random_gen  m_rand;
+
 
         svector<bool_var> m_vars;
         unsigned_vector   m_mark;
         unsigned          m_mark_lim;
         unsigned_vector   m_var2index;
+        unsigned_vector   m_occ;
 
         unsigned m_max_literals;
 
         unsigned num_vars() const { return m_vars.size(); }
         void reset_mark();
         void mark_var(bool_var v);
+        void sort_marked();
+        void shuffle_vars();
         bool mark_literals(clause_use_list & occs);
         bool mark_literals(literal lit);
         bdd make_clauses(clause_use_list & occs);
@@ -50,6 +56,8 @@ namespace sat {
         bdd mk_literal(literal l);
         void get_clauses(bdd const& b, literal_vector& lits, clause_vector& clauses, literal_vector& units);
         void add_clauses(bdd const& b, literal_vector& lits);
+        bool elim_var(bool_var v, bdd const& b);
+        bdd  elim_var(bool_var v);
 
     public:
         elim_vars(simplifier& s);

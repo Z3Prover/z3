@@ -191,6 +191,12 @@ namespace sat {
 
         // scoped_finalize _scoped_finalize(*this);
 
+        for (bool_var v = 0; v < s.num_vars(); ++v) {
+            if (!s.m_eliminated[v] && !is_external(v)) {
+                insert_elim_todo(v);
+            }
+        }
+
         do {
             if (m_subsumption)
                 subsume();
@@ -1455,7 +1461,7 @@ namespace sat {
         elim_var_report rpt(*this);
         bool_var_vector vars;
         order_vars_for_elim(vars);
-        // sat::elim_vars elim_bdd(*this);
+        sat::elim_vars elim_bdd(*this);
 
         std::cout << "vars to elim: " << vars.size() << "\n";
         for (bool_var v : vars) {
@@ -1465,7 +1471,7 @@ namespace sat {
             if (try_eliminate(v)) {
                 m_num_elim_vars++;
             }
-#if 0
+#if 1
             else if (elim_bdd(v)) {
                 m_num_elim_vars++;
             }
