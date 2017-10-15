@@ -28,7 +28,7 @@ Z3_LIB_DIR="${Z3_BUILD_DIR}"
 Z3_SYSTEM_TEST_GIT_URL="${Z3_GIT_URL:-https://github.com/Z3Prover/z3test.git}"
 
 # Clone repo to destination
-mkdir -p "${Z3_SYSTEM_TEST_GIT_URL}"
+mkdir -p "${Z3_SYSTEM_TEST_DIR}"
 git clone "${Z3_SYSTEM_TEST_GIT_URL}" "${Z3_SYSTEM_TEST_DIR}"
 cd "${Z3_SYSTEM_TEST_DIR}"
 
