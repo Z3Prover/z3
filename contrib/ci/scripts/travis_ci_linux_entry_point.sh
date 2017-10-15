@@ -88,6 +88,10 @@ if [ -n "${ASAN_DSO}" ]; then
   BUILD_OPTS+=("--build-arg" "ASAN_DSO=${ASAN_DSO}")
 fi
 
+if [ -n "${SANITIZER_PRINT_SUPPRESSIONS}" ]; then
+  BUILD_OPTS+=("--build-arg" "SANITIZER_PRINT_SUPPRESSIONS=${SANITIZER_PRINT_SUPPRESSIONS}")
+fi
+
 if [ -n "${UBSAN_BUILD}" ]; then
   BUILD_OPTS+=("--build-arg" "UBSAN_BUILD=${UBSAN_BUILD}")
 fi

@@ -11,6 +11,10 @@ export NO_SUPPRESS_OUTPUT="${NO_SUPPRESS_OUTPUT:-0}"
 export PYTHON_BINDINGS="${PYTHON_BINDINGS:-1}"
 export RUN_SYSTEM_TESTS="${RUN_SYSTEM_TESTS:-1}"
 export RUN_UNIT_TESTS="${RUN_UNIT_TESTS:-BUILD_AND_RUN}"
+# Don't print suppressions by default because that breaks the Z3
+# regression tests because they don't expect them to appear in Z3's
+# output.
+export SANITIZER_PRINT_SUPPRESSIONS="${SANITIZER_PRINT_SUPPRESSIONS:-0}"
 export TARGET_ARCH="${TARGET_ARCH:-x86_64}"
 export TEST_INSTALL="${TEST_INSTALL:-1}"
 export UBSAN_BUILD="${UBSAN_BUILD:-0}"
