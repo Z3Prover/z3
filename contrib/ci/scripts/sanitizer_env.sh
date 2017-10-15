@@ -17,6 +17,9 @@ if [ "X${ASAN_BUILD}" = "X1" ]; then
   if [ "X${SANITIZER_PRINT_SUPPRESSIONS}" = "X1" ]; then
     export LSAN_OPTIONS="${LSAN_OPTIONS},print_suppressions=1"
     export ASAN_OPTIONS="${ASAN_OPTIONS},print_suppressions=1"
+  else
+    export LSAN_OPTIONS="${LSAN_OPTIONS},print_suppressions=0"
+    export ASAN_OPTIONS="${ASAN_OPTIONS},print_suppressions=0"
   fi
 
   : ${ASAN_SYMBOLIZER_PATH?"ASAN_SYMBOLIZER_PATH must be specified"}
@@ -73,5 +76,7 @@ if [ "X${UBSAN_BUILD}" = "X1" ]; then
   : ${SANITIZER_PRINT_SUPPRESSIONS?"SANITIZER_PRINT_SUPPRESSIONS must be specified"}
   if [ "X${SANITIZER_PRINT_SUPPRESSIONS}" = "X1" ]; then
     export UBSAN_OPTIONS="${UBSAN_OPTIONS},print_suppressions=1"
+  else
+    export UBSAN_OPTIONS="${UBSAN_OPTIONS},print_suppressions=0"
   fi
 fi
