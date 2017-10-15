@@ -76,25 +76,26 @@ class vector {
                 throw default_exception("Overflow encountered when expanding vector");
             }
             SZ *mem, *old_mem = reinterpret_cast<SZ*>(m_data) - 2;
+#if defined(__GNUC__) && !defined(__clang__) && __GNUC__ < 5
+            if (__has_trivial_copy(T)) {
+#else
             if (std::is_trivially_copyable<T>::value) {
+#endif
                 mem = (SZ*)memory::reallocate(old_mem, new_capacity_T);
+                m_data = reinterpret_cast<T *>(mem + 2);
             } else {
                 mem = (SZ*)memory::allocate(new_capacity_T);
-            }
-            auto old_data = m_data;
-            auto old_size = size();
-            *mem    = new_capacity;
-            m_data  = reinterpret_cast<T *>(mem + 2);
-            if (!std::is_trivially_copyable<T>::value) {
-                static_assert(std::is_move_constructible<T>::value, "");
+                auto old_data = m_data;
+                auto old_size = size();
                 mem[1] = old_size;
-                int i = 0;
-                for (auto I = old_data; I != old_data + old_size; ++I) {
-                    new (&m_data[i++]) T(std::move(*I));
-                    I->~T();
+                m_data  = reinterpret_cast<T *>(mem + 2);
+                for (unsigned i = 0; i < old_size; ++i) {
+                    new (&m_data[i]) T(std::move(old_data[i]));
+                    old_data[i].~T();
                 }
                 memory::deallocate(old_mem);
             }
+            *mem = new_capacity;
         }
     }
 
