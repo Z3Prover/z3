@@ -1311,7 +1311,6 @@ namespace sat {
         clause_use_list & neg_occs = m_use_list.get(neg_l);
         unsigned num_pos = pos_occs.size() + num_bin_pos;
         unsigned num_neg = neg_occs.size() + num_bin_neg;
-        m_elim_counter -= num_pos + num_neg;
 
         TRACE("resolution", tout << v << " num_pos: " << num_pos << " neg_pos: " << num_neg << "\n";);
 
@@ -1352,8 +1351,6 @@ namespace sat {
         collect_clauses(pos_l, m_pos_cls);
         collect_clauses(neg_l, m_neg_cls);
 
-        m_elim_counter -= num_pos * num_neg + before_lits;
-
         TRACE("resolution_detail", tout << "collecting number of after_clauses\n";);
         unsigned before_clauses = num_pos + num_neg;
         unsigned after_clauses  = 0;
@@ -1376,7 +1373,7 @@ namespace sat {
             }
         }
         TRACE("resolution", tout << "found var to eliminate, before: " << before_clauses << " after: " << after_clauses << "\n";);
-
+        m_elim_counter -= num_pos * num_neg + before_lits;
 
         // eliminate variable
         model_converter::entry & mc_entry = s.m_mc.mk(model_converter::ELIM_VAR, v);
