@@ -27,7 +27,6 @@ namespace sat {
     class simplifier;
 
     class elim_vars {
-        friend class simplifier;
         class compare_occ;
 
         simplifier& simp;

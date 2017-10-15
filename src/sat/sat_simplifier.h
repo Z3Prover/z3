@@ -90,6 +90,7 @@ namespace sat {
 
         // stats
         unsigned               m_num_blocked_clauses;
+        unsigned               m_num_covered_clauses;
         unsigned               m_num_subsumed;
         unsigned               m_num_elim_vars;
         unsigned               m_num_sub_res;

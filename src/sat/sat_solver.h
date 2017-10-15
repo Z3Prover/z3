@@ -67,6 +67,8 @@ namespace sat {
         unsigned m_dyn_sub_res;
         unsigned m_non_learned_generation;
         unsigned m_blocked_corr_sets;
+        unsigned m_elim_var_res;
+        unsigned m_elim_var_bdd;
         unsigned m_units;
         stats() { reset(); }
         void reset();

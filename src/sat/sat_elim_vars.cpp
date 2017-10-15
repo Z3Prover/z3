@@ -23,9 +23,9 @@ Revision History:
 
 namespace sat{
 
-    elim_vars::elim_vars(simplifier& s) : simp(s), s(s.s), m(20,10000) {
+    elim_vars::elim_vars(simplifier& s) : simp(s), s(s.s), m(20) {
         m_mark_lim = 0;
-        m_max_literals = 13; // p.resolution_occ_cutoff();
+        m_max_literals = 11; 
     }
 
     bool elim_vars::operator()(bool_var v) {
@@ -54,7 +54,7 @@ namespace sat{
         // associate index with each variable.
         sort_marked();
         bdd b1 = elim_var(v);
-        double sz1 = m.cnf_size(b1);
+        double sz1 = b1.cnf_size();
         if (sz1 > 2*clause_size) {
             return false;
         }
@@ -63,13 +63,13 @@ namespace sat{
         }
         m_vars.reverse();
         bdd b2 = elim_var(v);
-        double sz2 = m.cnf_size(b2);
+        double sz2 = b2.cnf_size();
         if (sz2 <= clause_size) {
             return elim_var(v, b2);
         }
         shuffle_vars();
         bdd b3 = elim_var(v);
-        double sz3 = m.cnf_size(b3);
+        double sz3 = b3.cnf_size();
         if (sz3 <= clause_size) {
             return elim_var(v, b3);
         }
@@ -91,6 +91,7 @@ namespace sat{
         simp.save_clauses(mc_entry, simp.m_pos_cls);
         simp.save_clauses(mc_entry, simp.m_neg_cls);
         s.m_eliminated[v] = true;
+        ++s.m_stats.m_elim_var_bdd;
         simp.remove_bin_clauses(pos_l);
         simp.remove_bin_clauses(neg_l);
         simp.remove_clauses(pos_occs, pos_l);
@@ -152,33 +153,6 @@ namespace sat{
               tout << m.cnf_size(b) << "\n";
               );
 
-#if 0
-        TRACE("elim_vars",
-              clause_vector clauses;
-              literal_vector units;
-              get_clauses(b0, lits, clauses, units);
-              for (clause* c : clauses) 
-                  tout << *c << "\n";
-              for (literal l : units) 
-                  tout << l << "\n";              
-              for (clause* c : clauses) 
-                  s.m_cls_allocator.del_clause(c);
-              SASSERT(lits.empty());
-              clauses.reset();
-              units.reset();
-              tout << "after elim:\n";
-              get_clauses(b, lits, clauses, units);
-              for (clause* c : clauses) 
-                  tout << *c << "\n";
-              for (literal l : units) 
-                  tout << l << "\n";              
-              for (clause* c : clauses) 
-                  s.m_cls_allocator.del_clause(c);
-              SASSERT(lits.empty());
-              clauses.reset();
-              );
-#endif
-
         return b;
     }
 
@@ -194,15 +168,15 @@ namespace sat{
             
             switch (c.size()) {
             case 0:
-                UNREACHABLE();
+                s.set_conflict(justification());
                 break;
             case 1: 
                 simp.propagate_unit(c[0]);
                 break;
             case 2:
                 s.m_stats.m_mk_bin_clause++;
-                simp.add_non_learned_binary_clause(c[0],c[1]);
-                simp.back_subsumption1(c[0],c[1], false);
+                simp.add_non_learned_binary_clause(c[0], c[1]);
+                simp.back_subsumption1(c[0], c[1], false);
                 break;
             default: {
                 if (c.size() == 3)

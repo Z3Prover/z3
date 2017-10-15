@@ -21,7 +21,7 @@ Revision History:
 
 namespace sat {
 
-    bdd_manager::bdd_manager(unsigned num_vars, unsigned cache_size) {
+    bdd_manager::bdd_manager(unsigned num_vars) {
         for (BDD a = 0; a < 2; ++a) {
             for (BDD b = 0; b < 2; ++b) {
                 for (unsigned op = bdd_and_op; op < bdd_not_op; ++op) {                
@@ -84,13 +84,23 @@ namespace sat {
             try {
                 return apply_rec(arg1, arg2, op);
             }
-            catch (bdd_exception) {
+            catch (mem_out) {
                 try_reorder();
                 if (!first) throw;
                 first = false;
             }
         }
     }
+
+
+    bdd bdd_manager::mk_true() { return bdd(true_bdd, this); }
+    bdd bdd_manager::mk_false() { return bdd(false_bdd, this); }
+    bdd bdd_manager::mk_and(bdd const& a, bdd const& b) { return bdd(apply(a.root, b.root, bdd_and_op), this); }
+    bdd bdd_manager::mk_or(bdd const& a, bdd const& b) { return bdd(apply(a.root, b.root, bdd_or_op), this); }
+    bdd bdd_manager::mk_iff(bdd const& a, bdd const& b) { return bdd(apply(a.root, b.root, bdd_iff_op), this); }
+    bdd bdd_manager::mk_exists(unsigned v, bdd const& b) { return mk_exists(1, &v, b); }
+    bdd bdd_manager::mk_forall(unsigned v, bdd const& b) { return mk_forall(1, &v, b); }
+
 
     bool bdd_manager::check_result(op_entry*& e1, op_entry const* e2, BDD a, BDD b, BDD c) {
         if (e1 != e2) {
@@ -203,14 +213,15 @@ namespace sat {
             return e->get_data().m_index;
         }
         e->get_data().m_refcount = 0;
-        if (m_free_nodes.empty()) {
+        bool do_gc = m_free_nodes.empty();
+        if (do_gc) {
             gc();
             e = m_node_table.insert_if_not_there2(n);
             e->get_data().m_refcount = 0;
         }
-        if (m_free_nodes.empty()) {
+        if (do_gc && m_free_nodes.size()*3 < m_nodes.size()) {
             if (m_nodes.size() > m_max_num_bdd_nodes) {
-                throw bdd_exception();
+                throw mem_out();
             }
             e->get_data().m_index = m_nodes.size();
             m_nodes.push_back(e->get_data());
@@ -228,6 +239,11 @@ namespace sat {
         // TBD
     }
 
+    void bdd_manager::sift_up(unsigned level) {
+        // exchange level and level + 1.
+        
+    }
+
     bdd bdd_manager::mk_var(unsigned i) {
         return bdd(m_var2bdd[2*i], this);        
     }
@@ -242,7 +258,7 @@ namespace sat {
             try {
                 return bdd(mk_not_rec(b.root), this);
             }
-            catch (bdd_exception) {
+            catch (mem_out) {
                 try_reorder();
                 if (!first) throw;
                 first = false;
@@ -271,7 +287,7 @@ namespace sat {
             try {
                 return bdd(mk_ite_rec(c.root, t.root, e.root), this); 
             }
-            catch (bdd_exception) {
+            catch (mem_out) {
                 try_reorder();
                 if (!first) throw;
                 first = false;
@@ -409,7 +425,7 @@ namespace sat {
     }
 
     void bdd_manager::gc() {
-        IF_VERBOSE(1, verbose_stream() << "(bdd :gc " << m_nodes.size() << ")\n";);
+        IF_VERBOSE(3, verbose_stream() << "(bdd :gc " << m_nodes.size() << ")\n";);
         SASSERT(m_free_nodes.empty());
         svector<bool> reachable(m_nodes.size(), false);
         for (unsigned i = m_bdd_stack.size(); i-- > 0; ) {
@@ -502,6 +518,7 @@ namespace sat {
 
     bdd::bdd(unsigned root, bdd_manager* m): root(root), m(m) { m->inc_ref(root); }
     bdd::bdd(bdd & other): root(other.root), m(other.m) { m->inc_ref(root); }
+    bdd::bdd(bdd && other): root(0), m(other.m) { std::swap(root, other.root); }
     bdd::~bdd() { m->dec_ref(root); }
     bdd bdd::lo() const { return bdd(m->lo(root), m); }
     bdd bdd::hi() const { return bdd(m->hi(root), m); }
@@ -514,5 +531,7 @@ namespace sat {
     bdd& bdd::operator=(bdd const& other) { unsigned r1 = root; root = other.root; m->inc_ref(root); m->dec_ref(r1); return *this; }
     std::ostream& bdd::display(std::ostream& out) const { return m->display(out, *this); }
     std::ostream& operator<<(std::ostream& out, bdd const& b) { return b.display(out); }
+    double bdd::cnf_size() const { return m->cnf_size(*this); }
+    double bdd::dnf_size() const { return m->dnf_size(*this); }
 
 }

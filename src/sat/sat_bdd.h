@@ -25,34 +25,7 @@ Revision History:
 
 namespace sat {
 
-    class bdd_manager;
-
-    class bdd {
-        friend class bdd_manager;
-        unsigned     root;
-        bdd_manager* m;
-        bdd(unsigned root, bdd_manager* m);
-    public:
-        bdd(bdd & other);
-        bdd& operator=(bdd const& other);
-        ~bdd();        
-        bdd lo() const;
-        bdd hi() const;
-        unsigned var() const;
-        bool is_true() const;
-        bool is_false() const;
-        
-        bdd operator!();
-        bdd operator&&(bdd const& other);
-        bdd operator||(bdd const& other);
-        bdd operator|=(bdd const& other) { return *this = *this || other; }
-        bdd operator&=(bdd const& other) { return *this = *this && other; }
-        std::ostream& display(std::ostream& out) const;
-        bool operator==(bdd const& other) const { return root == other.root; }
-        bool operator!=(bdd const& other) const { return root != other.root; }
-    };
-
-    std::ostream& operator<<(std::ostream& out, bdd const& b);
+    class bdd;
 
     class bdd_manager {
         friend bdd;
@@ -169,6 +142,7 @@ namespace sat {
         bool is_marked(unsigned i) { return m_mark[i] == m_mark_level; }
 
         void try_reorder();
+        void sift_up(unsigned level);
 
         static const BDD false_bdd = 0;
         static const BDD true_bdd = 1;
@@ -185,32 +159,70 @@ namespace sat {
         inline void dec_ref(BDD b) { if (m_nodes[b].m_refcount != max_rc) m_nodes[b].m_refcount--; }
         inline BDD level2bdd(unsigned l) const { return m_var2bdd[m_level2var[l]]; }
 
-        struct bdd_exception {};
-    public:
-        bdd_manager(unsigned nodes, unsigned cache_size);
-        ~bdd_manager();
-        
-        bdd mk_var(unsigned i);
-        bdd mk_nvar(unsigned i);
-
-        bdd mk_true() { return bdd(true_bdd, this); }
-        bdd mk_false() { return bdd(false_bdd, this); }
-        bdd mk_not(bdd b);
-        bdd mk_exists(unsigned n, unsigned const* vars, bdd const & b);
-        bdd mk_forall(unsigned n, unsigned const* vars, bdd const & b);
-        bdd mk_exists(unsigned v, bdd const& b) { return mk_exists(1, &v, b); }
-        bdd mk_forall(unsigned v, bdd const& b) { return mk_forall(1, &v, b); }
-        bdd mk_and(bdd const& a, bdd const& b) { return bdd(apply(a.root, b.root, bdd_and_op), this); }
-        bdd mk_or(bdd const& a, bdd const& b) { return bdd(apply(a.root, b.root, bdd_or_op), this); }
-        bdd mk_iff(bdd const& a, bdd const& b) { return bdd(apply(a.root, b.root, bdd_iff_op), this); }
-        bdd mk_ite(bdd const& c, bdd const& t, bdd const& e);
-
         double dnf_size(bdd const& b) { return count(b, 0); }
         double cnf_size(bdd const& b) { return count(b, 1); }
 
+        bdd mk_not(bdd b);
+        bdd mk_and(bdd const& a, bdd const& b);
+        bdd mk_or(bdd const& a, bdd const& b);
+
         std::ostream& display(std::ostream& out, bdd const& b);
+
+    public:
+        struct mem_out {};
+
+        bdd_manager(unsigned nodes);
+        ~bdd_manager();
+
+        void set_max_num_nodes(unsigned n) { m_max_num_bdd_nodes = n; }
+
+        bdd mk_var(unsigned i);
+        bdd mk_nvar(unsigned i);
+
+        bdd mk_true();
+        bdd mk_false();
+
+        bdd mk_exists(unsigned n, unsigned const* vars, bdd const & b);
+        bdd mk_forall(unsigned n, unsigned const* vars, bdd const & b);
+        bdd mk_exists(unsigned v, bdd const& b);
+        bdd mk_forall(unsigned v, bdd const& b);
+        bdd mk_iff(bdd const& a, bdd const& b);
+        bdd mk_ite(bdd const& c, bdd const& t, bdd const& e);
+
         std::ostream& display(std::ostream& out);
     };
+
+    class bdd {
+        friend class bdd_manager;
+        unsigned     root;
+        bdd_manager* m;
+        bdd(unsigned root, bdd_manager* m);
+    public:
+        bdd(bdd & other);
+        bdd(bdd && other);
+        bdd& operator=(bdd const& other);
+        ~bdd();        
+        bdd lo() const;
+        bdd hi() const;
+        unsigned var() const;
+        bool is_true() const;
+        bool is_false() const;
+        
+        bdd operator!();
+        bdd operator&&(bdd const& other);
+        bdd operator||(bdd const& other);
+        bdd operator|=(bdd const& other) { return *this = *this || other; }
+        bdd operator&=(bdd const& other) { return *this = *this && other; }
+        std::ostream& display(std::ostream& out) const;
+        bool operator==(bdd const& other) const { return root == other.root; }
+        bool operator!=(bdd const& other) const { return root != other.root; }
+        double cnf_size() const;
+        double dnf_size() const;
+    };
+
+    std::ostream& operator<<(std::ostream& out, bdd const& b);
+
 }
+
 
 #endif

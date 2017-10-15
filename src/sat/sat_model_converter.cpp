@@ -226,13 +226,8 @@ namespace sat {
 
     unsigned model_converter::max_var(unsigned min) const {
         unsigned result = min;
-        vector<entry>::const_iterator it = m_entries.begin();
-        vector<entry>::const_iterator end = m_entries.end();
-        for (; it != end; ++it) {
-            literal_vector::const_iterator lvit = it->m_clauses.begin();
-            literal_vector::const_iterator lvend = it->m_clauses.end();
-            for (; lvit != lvend; ++lvit) {
-                literal l = *lvit;
+        for (entry const& e : m_entries) {
+            for (literal l : e.m_clauses) {
                 if (l != null_literal) {
                     if (l.var() > result)
                         result = l.var();
