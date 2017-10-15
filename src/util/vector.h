@@ -91,6 +91,7 @@ class vector {
                 int i = 0;
                 for (auto I = old_data; I != old_data + old_size; ++I) {
                     new (&m_data[i++]) T(std::move(*I));
+                    I->~T();
                 }
                 memory::deallocate(old_mem);
             }
