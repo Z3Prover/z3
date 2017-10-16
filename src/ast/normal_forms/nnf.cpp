@@ -216,6 +216,8 @@ struct nnf::imp {
             m_cache_result(cache_res),
             m_spos(spos) {
         }
+        //frame():m_curr(*(ast_manager*)(nullptr)) {
+        //}
     };
 
     // There are four caches:

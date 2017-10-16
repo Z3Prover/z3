@@ -54,6 +54,7 @@ static_assert(sizeof(int64) == 8, "64 bits");
 #ifdef _WINDOWS
 #define SSCANF sscanf_s
 #define SPRINTF sprintf_s
+#define _Exit exit
 #else
 #define SSCANF sscanf
 #define SPRINTF sprintf
