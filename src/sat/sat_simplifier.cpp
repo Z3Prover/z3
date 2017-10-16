@@ -971,16 +971,16 @@ namespace sat {
         // Resolve intersection
         // Find literals that are in the intersection of all resolvents with l.
         //
-        void ri(literal l, literal_vector& inter) {
-            if (!process_var(l.var())) return;
+        bool ri(literal l, literal_vector& inter) {
+            if (!process_var(l.var())) return false;
             bool first = true;
-            for (watched & w : s.get_wlist(~l)) {
+            for (watched & w : s.get_wlist(l)) {
                 if (w.is_binary_non_learned_clause()) {
                     literal lit = w.get_literal();
-                    if (s.is_marked(~lit)) continue;
+                    if (s.is_marked(~lit) && lit != ~l) continue;
                     if (!first) {
                         inter.reset();
-                        return;
+                        return false;
                     }
                     first = false;
                     inter.push_back(lit);
@@ -992,7 +992,7 @@ namespace sat {
                 bool tautology = false;
                 clause & c = it.curr();
                 for (literal lit : c) {
-                    if (s.is_marked(~lit)) {
+                    if (s.is_marked(~lit) && lit != ~l) {
                         tautology = true;
                         break;
                     }
@@ -1017,56 +1017,58 @@ namespace sat {
                             }
                         }
                         inter.shrink(j);
-                        if (j == 0) return;
+                        if (j == 0) return false;
                     }
                 }
                 it.next();
             }
+            return first;
+        }
+
+        literal_vector m_added;
+        literal_vector m_intersection;
+
+        bool cla(literal lit) {
+            bool is_tautology = false;
+            for (literal l : m_added) s.mark_visited(l);
+            unsigned num_iterations = 0, sz;
+            do {
+                ++num_iterations;
+                sz = m_added.size();
+                for (unsigned i = 0; i < m_added.size(); ++i) {
+                    if (ri(m_added[i], m_intersection) && m_added[i] == lit) {
+                        is_tautology = true;
+                        break;
+                    }
+                    for (literal l : m_intersection) {
+                        if (!s.is_marked(l)) {
+                            s.mark_visited(l);
+                            m_added.push_back(l);
+                        }
+                    }
+                    m_intersection.reset();
+                }
+            }
+            while (m_added.size() > sz && !is_tautology);
+            for (literal l : m_added) s.unmark_visited(l);
+            m_intersection.reset();
+            m_added.reset();
+            if (is_tautology) std::cout << "taut: " << num_iterations << "\n";
+            return is_tautology;
         }
 
         // perform covered clause elimination.
         // first extract the covered literal addition (CLA).
         // then check whether the CLA is blocked.
         bool cce(clause& c, literal lit) {
-            for (literal l : c) s.mark_visited(l);
-            literal_vector added, lits;
-            for (literal l : c) added.push_back(l);
-            for (unsigned i = 0; i < added.size(); ++i) {
-                ri(added[i], lits);
-                for (literal l : lits) {
-                    if (!s.is_marked(l)) {
-                        s.mark_visited(l);
-                        added.push_back(l);
-                    }
-                }
-                lits.reset();
-            }
-            s.unmark_visited(lit);
-            bool is_tautology = (added.size() > c.size()) && all_tautology(lit);
-            for (literal l : added) s.unmark_visited(l);
-            return is_tautology;
+            for (literal l : c) m_added.push_back(l);
+            return cla(lit);
         }
 
         bool cce(literal lit, literal l2) {
-            literal_vector added, lits;
-            s.mark_visited(lit);
-            s.mark_visited(l2);
-            added.push_back(lit);
-            added.push_back(l2);
-            for (unsigned i = 0; i < added.size(); ++i) {
-                ri(added[i], lits);
-                for (literal l : lits) {
-                    if (!s.is_marked(l)) {
-                        s.mark_visited(l);
-                        added.push_back(l);
-                    }
-                }
-                lits.reset();
-            }
-            s.unmark_visited(lit);
-            bool is_tautology = added.size() > 2 && all_tautology(lit);
-            for (literal l : added) s.unmark_visited(l);
-            return is_tautology;
+            m_added.push_back(lit);
+            m_added.push_back(l2);
+            return cla(lit);            
         }
 
         void process(literal l) {
@@ -1086,9 +1088,9 @@ namespace sat {
                     SASSERT(c.contains(l));
                     s.mark_all_but(c, l);
                     if (all_tautology(l)) {
+                        s.unmark_all(c);
                         block_clause(c, l, new_entry);
                         s.m_num_blocked_clauses++;
-                        s.unmark_all(c);
                     }
                     else if (cce(c, l)) {
                         block_clause(c, l, new_entry);
