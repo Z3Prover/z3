@@ -225,8 +225,6 @@ struct nnf::imp {
             m_cache_result(other.m_cache_result),
             m_spos(other.m_spos) {            
         }
-        //frame():m_curr(*(ast_manager*)(nullptr)) {
-        //}
     };
 
     // There are four caches:
@@ -335,7 +333,8 @@ struct nnf::imp {
     }
 
     void push_frame(expr * t, bool pol, bool in_q, bool cache_res) {
-        m_frame_stack.push_back(frame(expr_ref(t, m()), pol, in_q, cache_res, m_result_stack.size()));
+        expr_ref tt(t, m());
+        m_frame_stack.push_back(frame(tt, pol, in_q, cache_res, m_result_stack.size()));
     }
 
     static unsigned get_cache_idx(bool pol, bool in_q) {
