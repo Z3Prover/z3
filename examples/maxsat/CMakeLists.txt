@@ -25,6 +25,16 @@ add_executable(c_maxsat_example maxsat.c)
 target_include_directories(c_maxsat_example PRIVATE ${Z3_C_INCLUDE_DIRS})
 target_link_libraries(c_maxsat_example PRIVATE ${Z3_LIBRARIES})
 
+option(FORCE_CXX_LINKER "Force linker with C++ linker" OFF)
+if (FORCE_CXX_LINKER)
+  # This is a hack for avoiding UBSan linking errors
+  message(STATUS "Forcing use of C++ linker")
+  set_target_properties(c_maxsat_example
+    PROPERTIES
+    LINKER_LANGUAGE CXX
+  )
+endif()
+
 if ("${CMAKE_SYSTEM_NAME}" MATCHES "[Ww]indows")
   # On Windows we need to copy the Z3 libraries
   # into the same directory as the executable

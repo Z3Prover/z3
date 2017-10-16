@@ -1608,7 +1608,9 @@ void cmd_context::validate_check_sat_result(lbool r) {
             throw cmd_exception("check annotation that says unsat");
 #else
             diagnostic_stream() << "BUG: incompleteness" << std::endl;
-            exit(ERR_INCOMPLETENESS);
+            // WORKAROUND: `exit()` causes LSan to be invoked and produce
+            // many false positives.
+            _Exit(ERR_INCOMPLETENESS);
 #endif
         }
         break;
@@ -1618,7 +1620,9 @@ void cmd_context::validate_check_sat_result(lbool r) {
             throw cmd_exception("check annotation that says sat");
 #else
             diagnostic_stream() << "BUG: unsoundness" << std::endl;
-            exit(ERR_UNSOUNDNESS);
+            // WORKAROUND: `exit()` causes LSan to be invoked and produce
+            // many false positives.
+            _Exit(ERR_UNSOUNDNESS);
 #endif
         }
         break;

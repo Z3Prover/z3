@@ -444,7 +444,10 @@ namespace smt2 {
                 m_ctx.regular_stream()<< "line " << line << " column " << pos << ": " << escaped(msg, true) << "\")" << std::endl;
             }
             if (m_ctx.exit_on_error()) {
-                exit(1);
+                // WORKAROUND: ASan's LeakSanitizer reports many false positives when
+                // calling `exit()` so call `_Exit()` instead which avoids invoking leak
+                // checking.
+                _Exit(1);
             }
         }
 
