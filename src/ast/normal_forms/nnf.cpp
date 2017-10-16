@@ -207,8 +207,8 @@ struct nnf::imp {
         unsigned  m_new_child:1;
         unsigned  m_cache_result:1;
         unsigned  m_spos;   // top of the result stack, when the frame was created.
-        frame(expr_ref & n, bool pol, bool in_q, bool cache_res, unsigned spos):
-            m_curr(n),
+        frame(expr_ref && n, bool pol, bool in_q, bool cache_res, unsigned spos):
+            m_curr(std::move(n)),
             m_i(0),
             m_pol(pol),
             m_in_q(in_q),
@@ -216,17 +216,8 @@ struct nnf::imp {
             m_cache_result(cache_res),
             m_spos(spos) {
         }
-        frame(frame & other):
-            m_curr(other.m_curr),
-            m_i(other.m_i),
-            m_pol(other.m_pol),
-            m_in_q(other.m_in_q),
-            m_new_child(other.m_new_child),
-            m_cache_result(other.m_cache_result),
-            m_spos(other.m_spos) {            
-        }
         frame(frame && other):
-            m_curr(other.m_curr),
+            m_curr(std::move(other.m_curr)),
             m_i(other.m_i),
             m_pol(other.m_pol),
             m_in_q(other.m_in_q),
@@ -343,8 +334,7 @@ struct nnf::imp {
     }
 
     void push_frame(expr * t, bool pol, bool in_q, bool cache_res) {
-        expr_ref tt(t, m());
-        m_frame_stack.push_back(frame(tt, pol, in_q, cache_res, m_result_stack.size()));
+        m_frame_stack.push_back(frame(expr_ref(t, m()), pol, in_q, cache_res, m_result_stack.size()));
     }
 
     static unsigned get_cache_idx(bool pol, bool in_q) {
