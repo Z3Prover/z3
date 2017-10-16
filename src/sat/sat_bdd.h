@@ -166,8 +166,6 @@ namespace sat {
         bdd mk_and(bdd const& a, bdd const& b);
         bdd mk_or(bdd const& a, bdd const& b);
 
-        std::ostream& display(std::ostream& out, bdd const& b);
-
     public:
         struct mem_out {};
 
@@ -190,6 +188,7 @@ namespace sat {
         bdd mk_ite(bdd const& c, bdd const& t, bdd const& e);
 
         std::ostream& display(std::ostream& out);
+        std::ostream& display(std::ostream& out, bdd const& b);
     };
 
     class bdd {

@@ -121,7 +121,6 @@ namespace sat{
         bdd b =  m.mk_exists(m_var2index[v], b0);       
         TRACE("elim_vars",
               tout << "eliminate " << v << "\n";
-              tout << "clauses : " << clause_size << "\n";
               for (watched const& w : simp.get_wlist(~pos_l)) {
                   if (w.is_binary_non_learned_clause()) {
                       tout << pos_l << " " << w.get_literal() << "\n";
@@ -150,7 +149,7 @@ namespace sat{
               m.display(tout, b4);
               tout << "eliminated:\n";
               tout << b << "\n";
-              tout << m.cnf_size(b) << "\n";
+              tout << b.cnf_size() << "\n";
               );
 
         return b;

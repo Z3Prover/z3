@@ -1150,8 +1150,8 @@ namespace sat {
         void block_binary(watch_list::iterator it, literal l, model_converter::entry *& new_entry) {
             if (new_entry == 0)
                 new_entry = &(mc.mk(model_converter::BLOCK_LIT, l.var()));
-            TRACE("blocked_clause", tout << "new blocked clause: " << l2 << " " << l << "\n";);
             literal l2 = it->get_literal();
+            TRACE("blocked_clause", tout << "new blocked clause: " << l2 << " " << l << "\n";);
             s.remove_bin_clause_half(l2, l, it->is_learned());
             m_queue.decreased(~l2);
             mc.insert(*new_entry, l, l2);
