@@ -55,6 +55,10 @@ class sls_tracker {
             this->~value_score();
             new (this) value_score(std::move(other));
         }
+        value_score& operator=(value_score& other) {
+            UNREACHABLE();
+            return *this;
+        }
         unsynch_mpz_manager * m;
         mpz value;
         double score;
