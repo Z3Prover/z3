@@ -9,6 +9,7 @@ export DOTNET_BINDINGS="${DOTNET_BINDINGS:-1}"
 export JAVA_BINDINGS="${JAVA_BINDINGS:-1}"
 export NO_SUPPRESS_OUTPUT="${NO_SUPPRESS_OUTPUT:-0}"
 export PYTHON_BINDINGS="${PYTHON_BINDINGS:-1}"
+export RUN_API_EXAMPLES="${RUN_API_EXAMPLES:-1}"
 export RUN_SYSTEM_TESTS="${RUN_SYSTEM_TESTS:-1}"
 export RUN_UNIT_TESTS="${RUN_UNIT_TESTS:-BUILD_AND_RUN}"
 # Don't print suppressions by default because that breaks the Z3

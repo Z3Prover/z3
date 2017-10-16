@@ -100,6 +100,10 @@ if [ -n "${TEST_INSTALL}" ]; then
   BUILD_OPTS+=("--build-arg" "TEST_INSTALL=${TEST_INSTALL}")
 fi
 
+if [ -n "${RUN_API_EXAMPLES}" ]; then
+  BUILD_OPTS+=("--build-arg" "RUN_API_EXAMPLES=${RUN_API_EXAMPLES}")
+fi
+
 if [ -n "${RUN_SYSTEM_TESTS}" ]; then
   BUILD_OPTS+=("--build-arg" "RUN_SYSTEM_TESTS=${RUN_SYSTEM_TESTS}")
 fi

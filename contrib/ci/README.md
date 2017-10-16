@@ -30,6 +30,7 @@ the future.
 * `JAVA_BINDINGS` - Build and test Java API bindings (`0` or `1`)
 * `NO_SUPPRESS_OUTPUT` - Don't suppress output of some commands (`0` or `1`)
 * `PYTHON_BINDINGS` - Build and test Python API bindings (`0` or `1`)
+* `RUN_API_EXAMPLES` - Build and run API examples (`0` or `1`)
 * `RUN_SYSTEM_TESTS` - Run system tests (`0` or `1`)
 * `RUN_UNIT_TESTS` - Run unit tests (`BUILD_ONLY` or `BUILD_AND_RUN` or `SKIP`)
 * `SANITIZER_PRINT_SUPPRESSIONS` - Show ASan/UBSan suppressions (`0` or `1`)

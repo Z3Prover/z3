@@ -15,6 +15,12 @@ set -o pipefail
 : ${DOTNET_BINDINGS?"DOTNET_BINDINGS must be specified"}
 : ${JAVA_BINDINGS?"JAVA_BINDINGS must be specified"}
 : ${UBSAN_BUILD?"UBSAN_BUILD must be specified"}
+: ${RUN_API_EXAMPLES?"RUN_API_EXAMPLES must be specified"}
+
+if [ "X${RUN_API_EXAMPLES}" = "X0" ]; then
+  echo "Skipping run of API examples"
+  exit 0
+fi
 
 # Set compiler flags
 source ${SCRIPT_DIR}/set_compiler_flags.sh
