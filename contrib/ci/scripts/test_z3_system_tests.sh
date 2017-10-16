@@ -57,6 +57,11 @@ if [ "X${PYTHON_BINDINGS}" = "X1" ]; then
     # FIXME: We need to build libz3 with a shared UBSan runtime for the bindings
     # to work.
     echo "FIXME: Skipping python binding tests when building with UBSan"
+  elif [ "X${ASAN_BUILD}" = "X1" ]; then
+    # FIXME: The `test_pyscripts.py` doesn't propagate LD_PRELOAD
+    # so under ASan the tests fail to run
+    # to work.
+    echo "FIXME: Skipping python binding tests when building with ASan"
   else
     run_non_native_binding ${PYTHON_EXECUTABLE} scripts/test_pyscripts.py "${Z3_LIB_DIR}" regressions/python/
   fi
