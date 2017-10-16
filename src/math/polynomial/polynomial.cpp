@@ -4822,10 +4822,9 @@ namespace polynomial {
 
         polynomial * mk_x_minus_y(var x, var y) {
             numeral zero(0);
-            numeral one(1);
             numeral minus_one; // It is not safe to initialize with -1 when numeral_manager is GF_2
             m_manager.set(minus_one, -1);
-            numeral as[2] = { one, minus_one };
+            numeral as[2] = { numeral(1), std::move(minus_one) };
             var     xs[2] = { x, y };
             return mk_linear(2, as, xs, zero);
         }
@@ -4845,8 +4844,7 @@ namespace polynomial {
 
         polynomial * mk_x_plus_y(var x, var y) {
             numeral zero(0);
-            numeral one(1);
-            numeral as[2] = { one, one };
+            numeral as[2] = { numeral(1), numeral(1) };
             var     xs[2] = { x, y };
             return mk_linear(2, as, xs, zero);
         }

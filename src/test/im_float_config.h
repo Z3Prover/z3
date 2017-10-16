@@ -63,10 +63,4 @@ public:
     numeral_manager & m() const { return const_cast<numeral_manager&>(m_manager); }
 };
 
-template<typename fmanager>
-inline void del_f_interval(im_float_config<fmanager> & cfg, typename im_float_config<fmanager>::interval & a) {
-    cfg.m().del(a.m_lower);
-    cfg.m().del(a.m_upper);
-}
-
 #endif

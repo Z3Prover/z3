@@ -162,7 +162,7 @@ private:
     void checkpoint();
 
 public:    
-    interval_manager(reslimit& lim, C const & c);
+    interval_manager(reslimit& lim, C && c);
     ~interval_manager();
 
     numeral_manager & m() const { return m_c.m(); }    

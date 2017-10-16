@@ -94,6 +94,9 @@ class mpz {
 public:
     mpz(int v):m_val(v), m_ptr(0) {}
     mpz():m_val(0), m_ptr(0) {}
+    mpz(mpz && other) : m_val(other.m_val), m_ptr(0) {
+        std::swap(m_ptr, other.m_ptr);
+    }
     void swap(mpz & other) { 
         std::swap(m_val, other.m_val);
         std::swap(m_ptr, other.m_ptr);
@@ -668,6 +671,12 @@ public:
         }
     }
 
+    void set(mpz & target, mpz && source) {
+        del(target);
+        target.m_val = source.m_val;
+        std::swap(target.m_ptr, source.m_ptr);
+    }
+
     void set(mpz & a, int val) {
         del(a);
         a.m_val = val;
@@ -699,6 +708,12 @@ public:
     }
 
     void set(mpz & target, unsigned sz, digit_t const * digits);
+
+    mpz dup(const mpz & source) {
+        mpz temp;
+        set(temp, source);
+        return temp;
+    }
 
     void reset(mpz & a) {
         del(a);
