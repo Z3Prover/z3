@@ -98,7 +98,7 @@ template<typename fmanager>
 static void tst_float_sine(std::ostream & out, unsigned N, unsigned k) {
     reslimit rl;
     fmanager                                     fm;
-    interval_manager<im_float_config<fmanager> > im(rl, { fm, EBITS, SBITS });
+    interval_manager<im_float_config<fmanager> > im(rl, im_float_config<fmanager>(fm, EBITS, SBITS));
     _scoped_numeral<fmanager> a(fm);
     fm.set(a, EBITS, SBITS, static_cast<int>(0));
     tst_float_sine_core(out, fm, im, a, 1);
