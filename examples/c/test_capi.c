@@ -66,6 +66,15 @@ void throw_z3_error(Z3_context c, Z3_error_code e)
 }
 
 /**
+   \brief Error handling that depends on checking an error code on the context.
+
+*/
+
+void nothrow_z3_error(Z3_context c, Z3_error_code e) {
+    // no-op
+}
+
+/**
    \brief Create a logical context.
 
    Enable model construction. Other configuration parameters can be passed in the cfg variable.
@@ -1592,18 +1601,16 @@ void error_code_example1()
 void error_code_example2() {
     Z3_config cfg;
     Z3_context ctx = NULL;
-    int r;
+    Z3_error_code e;
 
     printf("\nerror_code_example2\n");
     LOG_MSG("error_code_example2");
 
-    /* low tech try&catch */
-    r = setjmp(g_catch_buffer);
-    if (r == 0) {
+    if (1) {
         Z3_ast x, y, app;
 
         cfg = Z3_mk_config();
-        ctx = mk_context_custom(cfg, throw_z3_error);
+        ctx = mk_context_custom(cfg, nothrow_z3_error);
         Z3_del_config(cfg);
 
         x   = mk_int_var(ctx, "x");
@@ -1611,11 +1618,14 @@ void error_code_example2() {
         printf("before Z3_mk_iff\n");
         /* the next call will produce an error */
         app = Z3_mk_iff(ctx, x, y);
+        e = Z3_get_error_code(ctx);
+        if (e != Z3_OK) goto err;
         unreachable();
         Z3_del_context(ctx);
     }
     else {
-      printf("Z3 error: %s.\n", Z3_get_error_msg(ctx, (Z3_error_code)r));
+    err:
+        printf("Z3 error: %s.\n", Z3_get_error_msg(ctx, e));
         if (ctx != NULL) {
             Z3_del_context(ctx);
         }
@@ -1781,15 +1791,14 @@ void parser_example5() {
     Z3_config  cfg;
     Z3_context ctx = NULL;
     Z3_solver s = NULL;
-    int r;
+    Z3_error_code e;
 
     printf("\nparser_example5\n");
     LOG_MSG("parser_example5");
 
-    r = setjmp(g_catch_buffer);
-    if (r == 0) {
+    if (1) {
         cfg = Z3_mk_config();
-        ctx = mk_context_custom(cfg, throw_z3_error);
+        ctx = mk_context_custom(cfg, nothrow_z3_error);
         s   = mk_solver(ctx);
         Z3_del_config(cfg);
 
@@ -1798,12 +1807,15 @@ void parser_example5() {
                                "(benchmark tst :extrafuns ((x Int (y Int)) :formula (> x y) :formula (> x 0))",
                                0, 0, 0,
                                0, 0, 0);
+        e = Z3_get_error_code(ctx);
+        if (e != Z3_OK) goto err;
         unreachable();
 	del_solver(ctx, s);
         Z3_del_context(ctx);
     }
     else {
-      printf("Z3 error: %s.\n", Z3_get_error_msg(ctx, (Z3_error_code)r));
+    err:
+        printf("Z3 error: %s.\n", Z3_get_error_msg(ctx, e));
         if (ctx != NULL) {
             printf("Error message: '%s'.\n",Z3_get_smtlib_error(ctx));
 	    del_solver(ctx, s);
@@ -2639,6 +2651,7 @@ void smt2parser_example() {
     ctx = mk_context();
     fs  = Z3_parse_smtlib2_string(ctx, "(declare-fun a () (_ BitVec 8)) (assert (bvuge a #x10)) (assert (bvule a #xf0))", 0, 0, 0, 0, 0, 0);
     printf("formulas: %s\n", Z3_ast_to_string(ctx, fs));
+
     Z3_del_context(ctx);
 }
 

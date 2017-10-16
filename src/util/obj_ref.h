@@ -53,6 +53,10 @@ public:
         inc_ref();
     }
 
+    obj_ref(obj_ref && other) : m_obj(0), m_manager(other.m_manager) {
+        std::swap(m_obj, other.m_obj);
+    }
+
     ~obj_ref() { dec_ref(); }
 
     TManager & get_manager() const { return m_manager; }

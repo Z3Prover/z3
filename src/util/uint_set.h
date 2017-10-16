@@ -22,7 +22,6 @@ Revision History:
 #include "util/util.h"
 #include "util/vector.h"
 
-COMPILE_TIME_ASSERT(sizeof(unsigned) == 4);
 
 class uint_set : unsigned_vector {
 

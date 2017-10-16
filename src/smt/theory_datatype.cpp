@@ -620,7 +620,7 @@ namespace smt {
         sort * s     = recognizer->get_decl()->get_domain(0);
         if (d->m_recognizers.empty()) {
             SASSERT(m_util.is_datatype(s));
-            d->m_recognizers.resize(m_util.get_datatype_num_constructors(s), 0);
+            d->m_recognizers.resize(m_util.get_datatype_num_constructors(s));
         }
         SASSERT(d->m_recognizers.size() == m_util.get_datatype_num_constructors(s));
         unsigned c_idx = m_util.get_recognizer_constructor_idx(recognizer->get_decl());

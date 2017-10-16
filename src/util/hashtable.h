@@ -54,7 +54,7 @@ public:
     bool is_used() const { return m_state == HT_USED; }
     T & get_data()             { return m_data; }
     const T & get_data() const { return m_data; }
-    void set_data(const T & d) { m_data = d; m_state = HT_USED; }
+    void set_data(T && d) { m_data = std::move(d); m_state = HT_USED; }
     void set_hash(unsigned h)  { m_hash = h; }
     void mark_as_deleted() { m_state = HT_DELETED; }
     void mark_as_free() { m_state = HT_FREE; }
@@ -187,10 +187,42 @@ protected:
         } 
     }
 
+    static void move_table(entry * source, unsigned source_capacity, entry * target, unsigned target_capacity) {
+        SASSERT(target_capacity >= source_capacity);
+        unsigned target_mask = target_capacity - 1;
+        entry *  source_end = source + source_capacity;
+        entry *  target_end = target + target_capacity;
+        for (entry * source_curr = source; source_curr != source_end; ++source_curr) {
+            if (source_curr->is_used()) {
+                unsigned hash = source_curr->get_hash();
+                unsigned idx = hash & target_mask;
+                entry * target_begin = target + idx;
+                entry * target_curr = target_begin;
+                for (; target_curr != target_end; ++target_curr) {
+                    SASSERT(!target_curr->is_deleted());
+                    if (target_curr->is_free()) {
+                        *target_curr = std::move(*source_curr);
+                        goto end;
+                    }
+                }
+                for (target_curr = target; target_curr != target_begin; ++target_curr) {
+                    SASSERT(!target_curr->is_deleted());
+                    if (target_curr->is_free()) {
+                        *target_curr = std::move(*source_curr);
+                        goto end;
+                    }
+                }
+                UNREACHABLE();
+            end:
+                ;
+            }
+        }
+    }
+
     void expand_table() {
         unsigned new_capacity = m_capacity << 1;
         entry *  new_table    = alloc_table(new_capacity);
-        copy_table(m_table, m_capacity, new_table, new_capacity);
+        move_table(m_table, m_capacity, new_table, new_capacity);
         delete_table();
         m_table       = new_table;
         m_capacity    = new_capacity;
@@ -202,7 +234,7 @@ protected:
         if (memory::is_out_of_memory())
             return;
         entry * new_table = alloc_table(m_capacity);
-        copy_table(m_table, m_capacity, new_table, m_capacity);
+        move_table(m_table, m_capacity, new_table, m_capacity);
         delete_table();
         m_table       = new_table;
         m_num_deleted = 0;
@@ -321,7 +353,7 @@ public:
 #define INSERT_LOOP_BODY() {                                                            \
         if (curr->is_used()) {                                                          \
             if (curr->get_hash() == hash && equals(curr->get_data(), e)) {              \
-                curr->set_data(e);                                                      \
+                curr->set_data(std::move(e));                                           \
                 return;                                                                 \
             }                                                                           \
             HS_CODE(m_st_collision++;);                                                 \
@@ -330,7 +362,7 @@ public:
             entry * new_entry;                                                          \
             if (del_entry) { new_entry = del_entry; m_num_deleted--; }                  \
             else { new_entry = curr; }                                                  \
-            new_entry->set_data(e);                                                     \
+            new_entry->set_data(std::move(e));                                          \
             new_entry->set_hash(hash);                                                  \
             m_size++;                                                                   \
             return;                                                                     \
@@ -342,7 +374,7 @@ public:
         }                                                                               \
     } ((void) 0)
 
-    void insert(data const & e) {
+    void insert(data && e) {
         if ((m_size + m_num_deleted) << 2 > (m_capacity * 3)) {
             // if ((m_size + m_num_deleted) * 2 > (m_capacity)) {
             expand_table();
@@ -363,6 +395,11 @@ public:
         UNREACHABLE();
     }
 
+    void insert(const data & e) {
+        data tmp(e);
+        insert(std::move(tmp));
+    }
+
 #define INSERT_LOOP_CORE_BODY() {                                               \
         if (curr->is_used()) {                                                  \
             if (curr->get_hash() == hash && equals(curr->get_data(), e)) {      \
@@ -375,7 +412,7 @@ public:
             entry * new_entry;                                                  \
             if (del_entry) { new_entry = del_entry; m_num_deleted--; }          \
             else { new_entry = curr; }                                          \
-            new_entry->set_data(e);                                             \
+            new_entry->set_data(std::move(e));                                  \
             new_entry->set_hash(hash);                                          \
             m_size++;                                                           \
             et = new_entry;                                                     \
@@ -393,7 +430,7 @@ public:
        Return true if it is a new element, and false otherwise.
        Store the entry/slot of the table in et.
     */
-    bool insert_if_not_there_core(data const & e, entry * & et) {
+    bool insert_if_not_there_core(data && e, entry * & et) {
         if ((m_size + m_num_deleted) << 2 > (m_capacity * 3)) {
             // if ((m_size + m_num_deleted) * 2 > (m_capacity)) {
             expand_table();
@@ -413,6 +450,11 @@ public:
         }
         UNREACHABLE();
         return 0;
+    }
+
+    bool insert_if_not_there_core(const data & e, entry * & et) {
+        data temp(e);
+        return insert_if_not_there_core(std::move(temp), et);
     }
 
     /**

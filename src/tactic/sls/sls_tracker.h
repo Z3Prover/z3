@@ -41,7 +41,24 @@ class sls_tracker {
         
     struct value_score { 
     value_score() : m(0), value(unsynch_mpz_manager::mk_z(0)), score(0.0), score_prune(0.0), has_pos_occ(0), has_neg_occ(0), distance(0), touched(1) {};
+        value_score(value_score && other) :
+            m(other.m),
+            value(std::move(other.value)),
+            score(other.score),
+            score_prune(other.score_prune),
+            has_pos_occ(other.has_pos_occ),
+            has_neg_occ(other.has_neg_occ),
+            distance(other.distance),
+            touched(other.touched) {}
         ~value_score() { if (m) m->del(value); }
+        void operator=(value_score && other) {
+            this->~value_score();
+            new (this) value_score(std::move(other));
+        }
+        value_score& operator=(value_score& other) {
+            UNREACHABLE();
+            return *this;
+        }
         unsynch_mpz_manager * m;
         mpz value;
         double score;
@@ -50,15 +67,6 @@ class sls_tracker {
         unsigned has_neg_occ;
         unsigned distance; // max distance from any root
         unsigned touched;
-        value_score & operator=(const value_score & other) {
-            SASSERT(m == 0 || m == other.m);
-            if (m) m->set(value, 0); else m = other.m;
-            m->set(value, other.value);
-            score = other.score;
-            distance = other.distance;
-            touched = other.touched;
-            return *this;
-        }
     };
 
 public:
@@ -294,7 +302,7 @@ public:
         if (!m_scores.contains(n)) {
             value_score vs;
             vs.m = & m_mpz_manager;
-            m_scores.insert(n, vs);
+            m_scores.insert(n, std::move(vs));
         }
 
         // Update uplinks
@@ -539,7 +547,7 @@ public:
                     rational r_val;
                     unsigned bv_sz;
                     m_bv_util.is_numeral(val, r_val, bv_sz);
-                    mpq q = r_val.to_mpq();
+                    const mpq& q = r_val.to_mpq();
                     SASSERT(m_mpz_manager.is_one(q.denominator()));
                     set_value(fd, q.numerator());
                 }
@@ -630,7 +638,7 @@ public:
         if (m_bv_util.is_bv_sort(s))
             return get_random_bv(s);
         else if (m_manager.is_bool(s))
-            return get_random_bool();
+            return m_mpz_manager.dup(get_random_bool());
         else
             NOT_IMPLEMENTED_YET(); // This only works for bit-vectors for now.
     }    
@@ -653,9 +661,7 @@ public:
         TRACE("sls", tout << "Abandoned model:" << std::endl; show_model(tout); );
 
         for (entry_point_type::iterator it = m_entry_points.begin(); it != m_entry_points.end(); it++) {
-            mpz temp = m_zero;
-            set_value(it->m_value, temp);
-            m_mpz_manager.del(temp);
+            set_value(it->m_value, m_zero);
         }
     }              
 
@@ -931,7 +937,7 @@ public:
             rational q;
             if (!m_bv_util.is_numeral(n, q, bv_sz))
                 NOT_IMPLEMENTED_YET();
-            mpq temp = q.to_mpq();
+            const mpq& temp = q.to_mpq();
             SASSERT(m_mpz_manager.is_one(temp.denominator()));
             m_mpz_manager.set(result, temp.numerator());
         }
@@ -1039,7 +1045,6 @@ public:
         unsigned pos = -1;
         if (m_ucb)
         {
-            value_score vscore;
             double max = -1.0;
             // Andreas: Commented things here might be used for track_unsat data structures as done in SLS for SAT. But seems to have no benefit.
             /* for (unsigned i = 0; i < m_where_false.size(); i++) {
@@ -1048,7 +1053,7 @@ public:
                 expr * e = as[i];
                 if (m_mpz_manager.neq(get_value(e), m_one))
                 {
-                    vscore = m_scores.find(e);
+                    value_score & vscore = m_scores.find(e);
                     // Andreas: Select the assertion with the greatest ucb score. Potentially add some noise.
                     // double q = vscore.score + m_ucb_constant * sqrt(log((double)m_touched) / vscore.touched);
                     double q = vscore.score + m_ucb_constant * sqrt(log((double)m_touched) / vscore.touched) + m_ucb_noise * get_random_uint(8); 

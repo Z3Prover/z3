@@ -1272,7 +1272,7 @@ namespace qe {
         family_id fid = p->get_family_id();
         SASSERT(fid != null_family_id);
         if (static_cast<int>(m_plugins.size()) <= fid) {
-            m_plugins.resize(fid+1,0);
+            m_plugins.resize(fid+1);
         }
         SASSERT(!m_plugins[fid]);
         m_plugins[fid] = p;

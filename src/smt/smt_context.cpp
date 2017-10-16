@@ -1286,7 +1286,7 @@ namespace smt {
         else {
             if (depth >= m_almost_cg_tables.size()) {
                 unsigned old_sz = m_almost_cg_tables.size();
-                m_almost_cg_tables.resize(depth+1, 0);
+                m_almost_cg_tables.resize(depth+1);
                 for (unsigned i = old_sz; i < depth + 1; i++)
                     m_almost_cg_tables[i] = alloc(almost_cg_table);
             }

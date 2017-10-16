@@ -50,7 +50,12 @@ class mpf {
 public:
     mpf();
     mpf(unsigned ebits, unsigned sbits);
-    mpf(mpf const & other);
+    mpf(mpf && other) :
+        ebits(other.ebits),
+        sbits(other.sbits),
+        sign(other.sign),
+        significand(std::move(other.significand)),
+        exponent(other.exponent) {}
     ~mpf();
     unsigned get_ebits() const { return ebits; }
     unsigned get_sbits() const { return sbits; }

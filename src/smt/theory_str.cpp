@@ -315,6 +315,7 @@ namespace smt {
         m_trail.push_back(node);
         if (!cut_var_map.contains(baseNode)) {
             T_cut * varInfo = alloc(T_cut);
+            m_cut_allocs.push_back(varInfo);
             varInfo->level = slevel;
             varInfo->vars[node] = 1;
             cut_var_map.insert(baseNode, std::stack<T_cut*>());
@@ -323,6 +324,7 @@ namespace smt {
         } else {
             if (cut_var_map[baseNode].empty()) {
                 T_cut * varInfo = alloc(T_cut);
+                m_cut_allocs.push_back(varInfo);
                 varInfo->level = slevel;
                 varInfo->vars[node] = 1;
                 cut_var_map[baseNode].push(varInfo);
@@ -330,6 +332,7 @@ namespace smt {
             } else {
                 if (cut_var_map[baseNode].top()->level < slevel) {
                     T_cut * varInfo = alloc(T_cut);
+                    m_cut_allocs.push_back(varInfo);
                     varInfo->level = slevel;
                     cut_vars_map_copy(varInfo->vars, cut_var_map[baseNode].top()->vars);
                     varInfo->vars[node] = 1;
@@ -359,6 +362,7 @@ namespace smt {
 
         if (!cut_var_map.contains(destNode)) {
             T_cut * varInfo = alloc(T_cut);
+            m_cut_allocs.push_back(varInfo);
             varInfo->level = slevel;
             cut_vars_map_copy(varInfo->vars, cut_var_map[srcNode].top()->vars);
             cut_var_map.insert(destNode, std::stack<T_cut*>());
@@ -367,6 +371,7 @@ namespace smt {
         } else {
             if (cut_var_map[destNode].empty() || cut_var_map[destNode].top()->level < slevel) {
                 T_cut * varInfo = alloc(T_cut);
+                m_cut_allocs.push_back(varInfo);
                 varInfo->level = slevel;
                 cut_vars_map_copy(varInfo->vars, cut_var_map[destNode].top()->vars);
                 cut_vars_map_copy(varInfo->vars, cut_var_map[srcNode].top()->vars);

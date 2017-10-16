@@ -1999,7 +1999,7 @@ namespace smt {
             m_ast_manager(ctx.get_manager()),
             m_mam(m),
             m_use_filters(use_filters) {
-            m_args.resize(INIT_ARGS_SIZE, 0);
+            m_args.resize(INIT_ARGS_SIZE);
         }
 
         ~interpreter() {

@@ -24,6 +24,7 @@ Revision History:
 
 #include "math/automata/symbolic_automata.h"
 #include "util/hashtable.h"
+#include "util/vector.h"
 
 
 
@@ -311,7 +312,7 @@ symbolic_automata<T, M>::mk_determinstic_param(automaton_t& a, bool flip_accepta
     s2id.insert(set, p_state_id++);               // the index to the initial state is 0
     id2s.push_back(set);
     
-    svector<uint_set> todo; //States to visit
+    ::vector<uint_set> todo; //States to visit
     todo.push_back(set);
     
     uint_set state;
