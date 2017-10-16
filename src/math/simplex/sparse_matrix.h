@@ -35,7 +35,7 @@ namespace simplex {
         struct row_entry {
             numeral         m_coeff;
             var_t           m_var;
-            row_entry(numeral const& c, var_t v): m_coeff(c), m_var(v) {}
+            row_entry(numeral && c, var_t v) : m_coeff(std::move(c)), m_var(v) {}
         };
 
     private:
@@ -61,7 +61,7 @@ namespace simplex {
                 int     m_col_idx;
                 int     m_next_free_row_entry_idx;
             };            
-            _row_entry(numeral const & c, var_t v): row_entry(c, v), m_col_idx(0) {}
+            _row_entry(numeral && c, var_t v) : row_entry(std::move(c), v), m_col_idx(0) {}
             _row_entry() : row_entry(numeral(), dead_id), m_col_idx(0) {}
             bool is_dead() const { return row_entry::m_var == dead_id; }
         };

@@ -40,12 +40,6 @@ mpf::mpf(unsigned _ebits, unsigned _sbits):
     set(ebits, sbits);
 }
 
-mpf::mpf(mpf const & other) {
-    // It is safe if the mpz numbers are small.
-    // I need it for resize method in vector.
-    // UNREACHABLE();
-}
-
 mpf::~mpf() {
 }
 

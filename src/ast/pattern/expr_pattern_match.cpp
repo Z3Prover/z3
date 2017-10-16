@@ -179,11 +179,11 @@ expr_pattern_match::compile(expr* q)
     }
 
     if (m_regs.size() <= max_reg) {
-        m_regs.resize(max_reg+1, 0);
+        m_regs.resize(max_reg+1);
     }
     if (m_bound_dom.size() <= num_bound) {
-        m_bound_dom.resize(num_bound+1, 0);
-        m_bound_rng.resize(num_bound+1, 0);
+        m_bound_dom.resize(num_bound+1);
+        m_bound_rng.resize(num_bound+1);
     }
     
     instr.m_kind = YIELD;

@@ -128,7 +128,7 @@ namespace datalog {
         void set_reg(reg_idx i, reg_type val) {
             if (i >= m_registers.size()) {
                 check_overflow(i);
-                m_registers.resize(i+1,0);
+                m_registers.resize(i+1);
             }
             if (m_registers[i]) {
                 m_registers[i]->deallocate();

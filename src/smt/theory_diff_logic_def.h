@@ -1107,6 +1107,8 @@ unsigned theory_diff_logic<Ext>::simplex2edge(unsigned e) {
 
 template<typename Ext> 
 void theory_diff_logic<Ext>::update_simplex(Simplex& S) {
+    unsynch_mpq_manager mgr;
+    unsynch_mpq_inf_manager inf_mgr;
     unsigned num_nodes = m_graph.get_num_nodes();
     vector<dl_edge<GExt> > const& es = m_graph.get_all_edges();
     S.ensure_var(num_simplex_vars());
@@ -1114,13 +1116,13 @@ void theory_diff_logic<Ext>::update_simplex(Simplex& S) {
         numeral const& a = m_graph.get_assignment(i);
         rational fin = a.get_rational().to_rational();
         rational inf = a.get_infinitesimal().to_rational();
-        mpq_inf q(fin.to_mpq(), inf.to_mpq());
+        mpq_inf q(mgr.dup(fin.to_mpq()), mgr.dup(inf.to_mpq()));
         S.set_value(node2simplex(i), q);
+        inf_mgr.del(q);
     }
     S.set_lower(node2simplex(get_zero()), mpq_inf(mpq(0), mpq(0)));
     S.set_upper(node2simplex(get_zero()), mpq_inf(mpq(0), mpq(0)));
     svector<unsigned> vars;
-    unsynch_mpq_manager mgr;
     scoped_mpq_vector coeffs(mgr);
     coeffs.push_back(mpq(1));
     coeffs.push_back(mpq(-1));
@@ -1145,8 +1147,9 @@ void theory_diff_logic<Ext>::update_simplex(Simplex& S) {
             numeral const& w = e.get_weight();
             rational fin = w.get_rational().to_rational();
             rational inf = w.get_infinitesimal().to_rational();
-            mpq_inf q(fin.to_mpq(),inf.to_mpq());
+            mpq_inf q(mgr.dup(fin.to_mpq()), mgr.dup(inf.to_mpq()));
             S.set_upper(base_var, q);
+            inf_mgr.del(q);
         }
         else {
             S.unset_upper(base_var);

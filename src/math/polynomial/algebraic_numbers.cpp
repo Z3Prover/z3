@@ -2632,10 +2632,14 @@ namespace algebraic_numbers {
                 scoped_mpz neg_n(qm());
                 qm().set(neg_n, v.numerator());
                 qm().neg(neg_n);
-                mpz const coeffs[2] = { neg_n.get(), v.denominator() };
+                unsynch_mpz_manager zmgr;
+                // FIXME: remove these copies
+                mpz coeffs[2] = { zmgr.dup(neg_n.get()), zmgr.dup(v.denominator()) };
                 out << "(";
                 upm().display(out, 2, coeffs, "#");
                 out << ", 1)"; // first root of the polynomial d*# - n
+                zmgr.del(coeffs[0]);
+                zmgr.del(coeffs[1]);
             }
             else {
                 algebraic_cell * c = a.to_algebraic();
@@ -2678,10 +2682,14 @@ namespace algebraic_numbers {
                 scoped_mpz neg_n(qm());
                 qm().set(neg_n, v.numerator());
                 qm().neg(neg_n);
-                mpz const coeffs[2] = { neg_n.get(), v.denominator() };
+                unsynch_mpz_manager zmgr;
+                // FIXME: remove these copies
+                mpz coeffs[2] = { zmgr.dup(neg_n.get()), zmgr.dup(v.denominator()) };
                 out << "(root-obj ";
                 upm().display_smt2(out, 2, coeffs, "x");
                 out << " 1)"; // first root of the polynomial d*# - n
+                zmgr.del(coeffs[0]);
+                zmgr.del(coeffs[1]);
             }
             else {
                 algebraic_cell * c = a.to_algebraic();
