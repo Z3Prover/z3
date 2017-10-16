@@ -207,8 +207,8 @@ struct nnf::imp {
         unsigned  m_new_child:1;
         unsigned  m_cache_result:1;
         unsigned  m_spos;   // top of the result stack, when the frame was created.
-        frame(expr_ref&& n, bool pol, bool in_q, bool cache_res, unsigned spos):
-            m_curr(std::move(n)),
+        frame(expr_ref & n, bool pol, bool in_q, bool cache_res, unsigned spos):
+            m_curr(n),
             m_i(0),
             m_pol(pol),
             m_in_q(in_q),
@@ -324,7 +324,7 @@ struct nnf::imp {
     }
 
     void push_frame(expr * t, bool pol, bool in_q, bool cache_res) {
-        m_frame_stack.push_back(frame({ t, m() }, pol, in_q, cache_res, m_result_stack.size()));
+        m_frame_stack.push_back(frame(expr_ref(t, m()), pol, in_q, cache_res, m_result_stack.size()));
     }
 
     static unsigned get_cache_idx(bool pol, bool in_q) {
