@@ -58,7 +58,7 @@ if [ "X${PYTHON_BINDINGS}" = "X1" ]; then
     # to work.
     echo "FIXME: Skipping python binding tests when building with UBSan"
   else
-    ${PYTHON_EXECUTABLE} scripts/test_pyscripts.py "${Z3_LIB_DIR}" regressions/python/
+    run_non_native_binding ${PYTHON_EXECUTABLE} scripts/test_pyscripts.py "${Z3_LIB_DIR}" regressions/python/
   fi
 fi
 
