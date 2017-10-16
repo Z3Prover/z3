@@ -34,8 +34,8 @@ function run_quiet() {
     fi
     # Clean up
     rm "${STDOUT}" "${STDERR}"
-    [ $( echo "${OLD_SETTINGS}" | grep -c 'e') -ne 0 ] && set -e
-    [ $( echo "${OLD_SETTINGS}" | grep -c 'x') -ne 0 ] && set -x
+    [ "$( echo "${OLD_SETTINGS}" | grep -c 'e')" != "0" ] && set -e
+    [ "$( echo "${OLD_SETTINGS}" | grep -c 'x')" != "0" ] && set -x
     return ${EXIT_STATUS}
   fi
 }
