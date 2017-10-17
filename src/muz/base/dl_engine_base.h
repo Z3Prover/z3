@@ -112,6 +112,9 @@ namespace datalog {
                                   const t_unfold_eh unfold_eh) {
             throw default_exception(std::string("add_lemma_exchange_callbacks is not supported for ") + m_name);
         }
+        virtual void add_constraint (expr *c, unsigned lvl){
+            throw default_exception(std::string("add_constraint is not supported for ") + m_name);
+        }
         virtual void updt_params() {}
         virtual void cancel() {}
         virtual void cleanup() {}

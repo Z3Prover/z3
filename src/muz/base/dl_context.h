@@ -596,6 +596,11 @@ namespace datalog {
             m_engine->add_callback(state, new_lemma_eh, predecessor_eh, unfold_eh);
         }
 
+        void add_constraint (expr *c, unsigned lvl){
+            ensure_engine();
+            m_engine->add_constraint(c, lvl);
+        }
+
     private:
 
         /**

@@ -1229,21 +1229,21 @@ void lemma::mk_expr_core() {
     normalize(m_body, m_body);
 
     if (!m_zks.empty() && has_zk_const(m_body)) {
-        app_ref_vector zks(m);
+            app_ref_vector zks(m);
         zks.append(m_zks);
-        zks.reverse();
-        expr_abstract(m, 0,
-                      zks.size(), (expr* const*)zks.c_ptr(), m_body,
-                      m_body);
-        ptr_buffer<sort> sorts;
-        svector<symbol> names;
-        for (unsigned i=0, sz=zks.size(); i < sz; ++i) {
-            sorts.push_back(get_sort(zks.get(i)));
-            names.push_back(zks.get(i)->get_decl()->get_name());
-        }
-        m_body = m.mk_quantifier(true, zks.size(),
-                                 sorts.c_ptr(),
-                                 names.c_ptr(),
+            zks.reverse();
+            expr_abstract(m, 0,
+                          zks.size(), (expr* const*)zks.c_ptr(), m_body,
+                          m_body);
+            ptr_buffer<sort> sorts;
+            svector<symbol> names;
+            for (unsigned i=0, sz=zks.size(); i < sz; ++i) {
+                sorts.push_back(get_sort(zks.get(i)));
+                names.push_back(zks.get(i)->get_decl()->get_name());
+            }
+            m_body = m.mk_quantifier(true, zks.size(),
+                                     sorts.c_ptr(),
+                                     names.c_ptr(),
                                  m_body, 15, symbol(m_body->get_id()));
     }
     SASSERT(m_body);
@@ -3590,17 +3590,11 @@ expr_ref context::get_constraints (unsigned level)
     return m_pm.mk_and (constraints);
 }
 
-void context::add_constraints (unsigned level, const expr_ref& c)
+void context::add_constraint (unsigned level, const expr_ref& c)
 {
     if (!c.get()) { return; }
     if (m.is_true(c)) { return; }
 
-    expr_ref_vector constraints (m);
-    constraints.push_back (c);
-    flatten_and (constraints);
-
-    for (unsigned i = 0, sz = constraints.size(); i < sz; ++i) {
-        expr *c = constraints.get (i);
         expr *e1, *e2;
         if (m.is_implies(c, e1, e2)) {
             SASSERT (is_app (e1));
@@ -3613,7 +3607,6 @@ void context::add_constraints (unsigned level, const expr_ref& c)
                 }
                 else{
                     this->m_stats.m_num_lemmas_discarded++;
-                }
             }
         }
     }

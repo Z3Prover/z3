@@ -619,6 +619,10 @@ extern "C" {
         Z3_CATCH;
     }
 
+    void Z3_API Z3_fixedpoint_add_constraint (Z3_context c, Z3_fixedpoint d, Z3_ast e, unsigned lvl){
+        to_fixedpoint_ref(d)->ctx().add_constraint(to_expr(e), lvl);
+    }
+
 #include "api_datalog_spacer.inc"
 
 };

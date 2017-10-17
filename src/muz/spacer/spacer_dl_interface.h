@@ -84,6 +84,8 @@ public:
                       const datalog::t_predecessor_eh predecessor_eh,
                       const datalog::t_unfold_eh unfold_eh);
 
+    void add_constraint (expr *c, unsigned lvl);
+
 };
 }
 

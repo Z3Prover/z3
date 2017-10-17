@@ -45,15 +45,15 @@ namespace spacer {
                 m_predecessor_eh(predecessor_eh),
                 m_unfold_eh(unfold_eh) {}
 
-        inline bool new_lemma() override { return true; }
+        inline bool new_lemma() override { return m_new_lemma_eh != nullptr; }
 
         void new_lemma_eh(expr *lemma, unsigned level) override;
 
-        inline bool predecessor() override { return true; }
+        inline bool predecessor() override { return m_predecessor_eh != nullptr; }
 
         void predecessor_eh() override;
 
-        inline bool unfold() override { return true; }
+        inline bool unfold() override { return m_unfold_eh != nullptr; }
 
         void unfold_eh() override;
 

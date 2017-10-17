@@ -360,3 +360,7 @@ void dl_interface::add_callback(void *state,
                                 const datalog::t_unfold_eh unfold_eh){
     m_context->callbacks().push_back(alloc(user_callback, *m_context, state, new_lemma_eh, predecessor_eh, unfold_eh));
 }
+
+void dl_interface::add_constraint (expr *c, unsigned lvl){
+    m_context->add_constraint(c,lvl);
+}
