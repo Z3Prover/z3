@@ -152,6 +152,9 @@ namespace sat {
         void try_reorder();
         void init_reorder();
         void sift_up(unsigned level);
+        void sift_var(unsigned v);
+        double current_cost();
+        bool is_bad_cost(double new_cost, double best_cost) const;
 
         static const BDD false_bdd = 0;
         static const BDD true_bdd = 1;

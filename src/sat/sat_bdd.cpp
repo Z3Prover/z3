@@ -238,10 +238,82 @@ namespace sat {
     }
 
     void bdd_manager::try_reorder() {
-        // TBD
+        init_reorder();
+        for (unsigned i = 0; i < m_var2level.size(); ++i) {
+            sift_var(i);
+        }
+    }
+
+    double bdd_manager::current_cost() {
+#if 0
+        
+#endif
+        return m_nodes.size() - m_free_nodes.size();
+    }
+
+    bool bdd_manager::is_bad_cost(double current_cost, double best_cost) const {
+        return current_cost > 1.1 * best_cost;
+    }
+
+    void bdd_manager::sift_var(unsigned v) {
+        unsigned lvl = m_var2level[v];
+        unsigned start = lvl;
+        double best_cost = current_cost();
+        bool first = true;
+        unsigned max_lvl = m_level2nodes.size()-1;
+        if (lvl*2 < max_lvl) {
+            goto go_down;
+        }
+    go_up:
+        while (lvl < max_lvl) {
+            sift_up(lvl);
+            ++lvl;
+            double cost = current_cost();
+            if (is_bad_cost(cost, best_cost)) break;
+            best_cost = std::min(cost, best_cost);
+        }
+        if (first) {
+            first = false;
+            while (lvl != start) {
+                sift_up(lvl-1);
+                --lvl;
+            }
+            goto go_down;
+        }
+        else {
+            while (current_cost() != best_cost) {
+                sift_up(lvl-1);
+                --lvl;
+            }
+            return;
+        }
+    go_down:
+        while (lvl > 0) {
+            sift_up(lvl-1);
+            --lvl;
+            double cost = current_cost();
+            if (is_bad_cost(cost, best_cost)) break;
+            best_cost = std::min(cost, best_cost);
+        }
+        if (first) {
+            first = false;
+            while (lvl != start) {
+                sift_up(lvl);
+                ++lvl;
+            }
+            goto go_up;
+        }
+        else {
+            while (current_cost() != best_cost) {
+                sift_up(lvl);
+                ++lvl;
+            }
+            return;
+        }
     }
 
     void bdd_manager::sift_up(unsigned lvl) {
+        if (m_level2nodes[lvl].empty()) return;
         // exchange level and level + 1.
         m_S.reset();
         m_T.reset();
@@ -326,16 +398,15 @@ namespace sat {
         m_level2nodes.reset();
         unsigned sz = m_nodes.size();
         m_max_parent.fill(sz, 0);
-        for (unsigned i = 0; i < m_level2var.size(); ++i) {
-            m_level2nodes.push_back(unsigned_vector());
-        }
         for (unsigned i = 0; i < sz; ++i) {
             bdd_node const& n = m_nodes[i];
             if (n.is_internal()) continue;
+            unsigned lvl = n.m_level;
             SASSERT(i == m_nodes[i].m_index);
-            m_level2nodes[n.m_level].push_back(i);
-            m_max_parent[n.m_lo] = std::max(m_max_parent[n.m_lo], n.m_level);
-            m_max_parent[n.m_hi] = std::max(m_max_parent[n.m_hi], n.m_level);
+            while (m_level2nodes.size() <= lvl) m_level2nodes.push_back(unsigned_vector());
+            m_level2nodes[lvl].push_back(i);
+            m_max_parent[n.m_lo] = std::max(m_max_parent[n.m_lo], lvl);
+            m_max_parent[n.m_hi] = std::max(m_max_parent[n.m_hi], lvl);
         }
     }
 

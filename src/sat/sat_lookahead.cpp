@@ -1445,35 +1445,7 @@ namespace sat {
                     m_lookahead_reward += 3.3 * pow(0.5, nonfixed - 2);
                     break;
                 case ternary_reward:
-                    if (nonfixed == 2) {
-                        literal l1 = null_literal;
-                        literal l2 = null_literal;
-                        for (literal lit : *n) {
-                            if (!is_fixed(lit)) {
-                                if (l1 == null_literal) {
-                                    l1 = lit;
-                                }
-                                else {
-                                    SASSERT(l2 != null_literal);
-                                    l2 = lit;
-                                    break;
-                                }
-                            }
-                        }
-                        if (l1 == null_literal) {
-                            set_conflict();
-                            continue;
-                        }
-                        else if (l2 == null_literal) {
-                            propagated(l1);
-                        }
-                        else {
-                            m_lookahead_reward += (*m_heur)[l1.index()] * (*m_heur)[l2.index()];
-                        }
-                    }
-                    else {
-                        m_lookahead_reward += (double)0.001;            
-                    }
+                    UNREACHABLE();
                     break;
                 case unit_literal_reward:
                     break;
