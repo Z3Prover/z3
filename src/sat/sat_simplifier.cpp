@@ -1025,34 +1025,39 @@ namespace sat {
             return first;
         }
 
-        literal_vector m_added;
+        literal_vector m_covered_clause;
         literal_vector m_intersection;
+        literal_vector m_elim_stack;
 
         bool cla(literal lit) {
             bool is_tautology = false;
-            for (literal l : m_added) s.mark_visited(l);
+            for (literal l : m_covered_clause) s.mark_visited(l);
             unsigned num_iterations = 0, sz;
+            m_elim_stack.reset();
             do {
                 ++num_iterations;
-                sz = m_added.size();
-                for (unsigned i = 0; i < m_added.size(); ++i) {
-                    if (ri(m_added[i], m_intersection) && m_added[i] == lit) {
+                sz = m_covered_clause.size();
+                for (unsigned i = 0; i < m_covered_clause.size(); ++i) {
+                    m_intersection.reset();
+                    if (ri(m_covered_clause[i], m_intersection) && m_covered_clause[i] == lit) {
                         is_tautology = true;
                         break;
                     }
                     for (literal l : m_intersection) {
                         if (!s.is_marked(l)) {
                             s.mark_visited(l);
-                            m_added.push_back(l);
+                            m_covered_clause.push_back(l);
                         }
                     }
-                    m_intersection.reset();
+                    if (!m_intersection.empty()) {
+                        m_elim_stack.append(m_covered_clause);           // the current clause
+                        m_elim_stack.push_back(m_covered_clause[i]);     // the pivot literal
+                        m_elim_stack.push_back(null_literal);   // null demarcation
+                    }
                 }
             }
-            while (m_added.size() > sz && !is_tautology);
-            for (literal l : m_added) s.unmark_visited(l);
-            m_intersection.reset();
-            m_added.reset();
+            while (m_covered_clause.size() > sz && !is_tautology);
+            for (literal l : m_covered_clause) s.unmark_visited(l);
             if (is_tautology) std::cout << "taut: " << num_iterations << "\n";
             return is_tautology;
         }
@@ -1061,13 +1066,15 @@ namespace sat {
         // first extract the covered literal addition (CLA).
         // then check whether the CLA is blocked.
         bool cce(clause& c, literal lit) {
-            for (literal l : c) m_added.push_back(l);
+            m_covered_clause.reset();
+            for (literal l : c) m_covered_clause.push_back(l);
             return cla(lit);
         }
 
         bool cce(literal lit, literal l2) {
-            m_added.push_back(lit);
-            m_added.push_back(l2);
+            m_covered_clause.reset();
+            m_covered_clause.push_back(lit);
+            m_covered_clause.push_back(l2);
             return cla(lit);            
         }
 
@@ -1093,7 +1100,7 @@ namespace sat {
                         s.m_num_blocked_clauses++;
                     }
                     else if (cce(c, l)) {
-                        block_clause(c, l, new_entry);
+                        block_covered_clause(c, l, new_entry);
                         s.m_num_covered_clauses++;                        
                     }
                     it.next();
@@ -1121,7 +1128,7 @@ namespace sat {
                         s.m_num_blocked_clauses++;
                     }
                     else if (cce(l, l2)) {
-                        block_binary(it, l, new_entry);
+                        block_covered_binary(it, l, new_entry);
                         s.m_num_covered_clauses++;
                     }
                     else {
@@ -1134,12 +1141,11 @@ namespace sat {
             }
         }
 
-        void block_clause(clause& c, literal l, model_converter::entry *& new_entry) {
+        void prepare_block_clause(clause& c, literal l, model_converter::entry*& new_entry) {
             TRACE("blocked_clause", tout << "new blocked clause: " << c << "\n";);
             if (new_entry == 0)
                 new_entry = &(mc.mk(model_converter::BLOCK_LIT, l.var()));
             m_to_remove.push_back(&c);
-            mc.insert(*new_entry, c);
             for (literal lit : c) {
                 if (lit != l && process_var(lit.var())) {
                     m_queue.decreased(~lit);
@@ -1147,14 +1153,33 @@ namespace sat {
             }
         }
 
-        void block_binary(watch_list::iterator it, literal l, model_converter::entry *& new_entry) {
+        void block_clause(clause& c, literal l, model_converter::entry *& new_entry) {
+            prepare_block_clause(c, l, new_entry);
+            mc.insert(*new_entry, c);
+        }
+
+        void block_covered_clause(clause& c, literal l, model_converter::entry *& new_entry) {
+            prepare_block_clause(c, l, new_entry);
+            mc.insert(*new_entry, m_covered_clause, m_elim_stack);
+        }
+        
+        void prepare_block_binary(watch_list::iterator it, literal l, model_converter::entry *& new_entry) {
             if (new_entry == 0)
                 new_entry = &(mc.mk(model_converter::BLOCK_LIT, l.var()));
             literal l2 = it->get_literal();
             TRACE("blocked_clause", tout << "new blocked clause: " << l2 << " " << l << "\n";);
             s.remove_bin_clause_half(l2, l, it->is_learned());
             m_queue.decreased(~l2);
-            mc.insert(*new_entry, l, l2);
+        }
+
+        void block_binary(watch_list::iterator it, literal l, model_converter::entry *& new_entry) {
+            prepare_block_binary(it, l, new_entry);
+            mc.insert(*new_entry, l, it->get_literal());
+        }
+
+        void block_covered_binary(watch_list::iterator it, literal l, model_converter::entry *& new_entry) {
+            prepare_block_binary(it, l, new_entry);
+            mc.insert(*new_entry, m_covered_clause, m_elim_stack);
         }
 
         bool all_tautology(literal l) {

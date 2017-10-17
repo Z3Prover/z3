@@ -38,6 +38,22 @@ namespace sat {
         return *this;
     }
 
+    void model_converter::process_stack(model & m, literal_vector const& stack) const {
+        SASSERT(!stack.empty());
+        unsigned sz = stack.size();
+        SASSERT(stack[sz - 1] == null_literal);
+        for (unsigned i = sz - 1; i-- > 0; ) {
+            literal lit = stack[i]; // this is the literal that is pivoted on. It is repeated
+            bool sat = false;
+            for (; i > 0 && stack[--i] != null_literal;) {
+                if (sat) continue;
+                sat = value_at(stack[i], m) == l_true;
+            }
+            if (!sat) {
+                m[lit.var()] = lit.sign() ? l_false : l_true;
+            }
+        }
+    }
     
     void model_converter::operator()(model & m) const {
         vector<entry>::const_iterator begin = m_entries.begin();
@@ -50,34 +66,20 @@ namespace sat {
             bool sat = false;
             bool var_sign = false;
             unsigned index = 0;
-            literal prev = null_literal;
             for (literal l : it->m_clauses) {
                 if (l == null_literal) {
                     // end of clause
-                    if (!sat && it->m_elim_sequence[index]) {
-                        SASSERT(prev != null_literal);
-                        m[prev.var()] = prev.sign() ? l_false : l_true;
-                        elim_sequence* s = it->m_elim_sequence[index];
-#if 0
-                        while (!sat) {
-                            SASSERT(s);
-                            for (literal l2 : s->clause()) {
-                                sat = value_at(l2, m) == l_true;
-                            }
-                            s->clause();
-                        }
-#endif
-                        NOT_IMPLEMENTED_YET();
-                    }
                     if (!sat) {
                         m[it->var()] = var_sign ? l_false : l_true;
-                        break;
+                    }
+                    elim_stack* s = it->m_elim_stack[index];
+                    if (s) {
+                        process_stack(m, s->stack());
                     }
                     sat = false;
                     ++index;
-                    continue;
+                    continue;                    
                 }
-                prev = l;
 
                 if (sat)
                     continue;
@@ -155,16 +157,15 @@ namespace sat {
         return e;
     }
 
-    void model_converter::insert(entry & e, clause const & c, elim_sequence* s) {
+    void model_converter::insert(entry & e, clause const & c) {
         SASSERT(c.contains(e.var()));
         SASSERT(m_entries.begin() <= &e);
         SASSERT(&e < m_entries.end());
         for (literal l : c) e.m_clauses.push_back(l);
         e.m_clauses.push_back(null_literal);
-        e.m_elim_sequence.push_back(s);
+        e.m_elim_stack.push_back(nullptr);
         TRACE("sat_mc_bug", tout << "adding: " << c << "\n";);
     }
-
 
     void model_converter::insert(entry & e, literal l1, literal l2) {
         SASSERT(l1.var() == e.var() || l2.var() == e.var());
@@ -173,7 +174,7 @@ namespace sat {
         e.m_clauses.push_back(l1);
         e.m_clauses.push_back(l2);
         e.m_clauses.push_back(null_literal);
-        e.m_elim_sequence.push_back(nullptr);
+        e.m_elim_stack.push_back(nullptr);
         TRACE("sat_mc_bug", tout << "adding (binary): " << l1 << " " << l2 << "\n";);
     }
 
@@ -185,9 +186,20 @@ namespace sat {
         for (unsigned i = 0; i < sz; ++i) 
             e.m_clauses.push_back(c[i]);
         e.m_clauses.push_back(null_literal);
-        e.m_elim_sequence.push_back(nullptr);
+        e.m_elim_stack.push_back(nullptr);
         // TRACE("sat_mc_bug", tout << "adding (wrapper): "; for (literal l : c) tout << l << " "; tout << "\n";);
     }
+
+    void model_converter::insert(entry & e, literal_vector const& c, literal_vector const& elims) {
+        SASSERT(c.contains(literal(e.var(), false)) || c.contains(literal(e.var(), true)));
+        SASSERT(m_entries.begin() <= &e);
+        SASSERT(&e < m_entries.end());
+        for (literal l : c) e.m_clauses.push_back(l);
+        e.m_clauses.push_back(null_literal);
+        e.m_elim_stack.push_back(alloc(elim_stack, elims));
+        TRACE("sat_mc_bug", tout << "adding: " << c << "\n";);
+    }
+
 
     bool model_converter::check_invariant(unsigned num_vars) const {
         // After a variable v occurs in an entry n and the entry has kind ELIM_VAR,

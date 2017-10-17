@@ -239,9 +239,53 @@ namespace sat {
         // TBD
     }
 
-    void bdd_manager::sift_up(unsigned level) {
+    void bdd_manager::sift_up(unsigned lvl) {
         // exchange level and level + 1.
-        
+#if 0
+        m_relevel.reset(); // nodes to be re-leveled.
+
+        for (unsigned n : m_level2nodes[lvl + 1]) {
+            BDD l = lo(n);
+            BDD h = hi(n);
+            if (l == 0 && h == 0) continue;
+            BDD a, b, c, d;
+            if (level(l) == lvl) {
+                a = lo(l);
+                b = hi(l);
+            }
+            else {
+                a = b = l;
+            }
+            if (level(h) == lvl) {
+                c = lo(h);
+                d = hi(h);
+            }
+            else {
+                c = d = h;
+            }
+
+            push(make_node(lvl, a, c));
+            push(make_node(lvl, b, d));
+            m_node_table.remove(m_nodes[n]);
+            m_nodes[n].m_lo = read(2);
+            m_nodes[n].m_hi = read(1);
+            m_relevel.push_back(l);
+            m_relevel.push_back(r);
+            // TBD: read(2); read(1); should be inserted into m_level2nodes[lvl];
+            pop(2);
+            m_node_table.insert(m_nodes[n]);
+        }
+        unsigned v = m_level2var[lvl];
+        unsigned w = m_level2var[lvl+1];
+        std::swap(m_level2var[lvl], m_level2var[lvl+1]);
+        std::swap(m_var2level[v], m_var2level[w]);
+        for (unsigned n : m_relevel) {
+            if (level(n) == lvl) {
+                // whoever points to n uses it as if it is level lvl + 1.
+                m_level2nodes[m_node2levelpos[n]];
+            }
+        }
+#endif
     }
 
     bdd bdd_manager::mk_var(unsigned i) {
@@ -454,9 +498,14 @@ namespace sat {
         }
         for (unsigned i = m_nodes.size(); i-- > 2; ) {
             if (!reachable[i]) {
+                m_nodes[i].m_lo = m_nodes[i].m_hi = 0;
                 m_free_nodes.push_back(i);                
             }
         }
+        // sort free nodes so that adjacent nodes are picked in order of use
+        std::sort(m_free_nodes.begin(), m_free_nodes.end());
+        m_free_nodes.reverse();
+
         for (auto* e : m_op_cache) {
             m_alloc.deallocate(sizeof(*e), e);
         }
