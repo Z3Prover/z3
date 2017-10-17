@@ -57,6 +57,8 @@ namespace sat {
             BDD      m_hi;
             unsigned m_index;
             unsigned hash() const { return mk_mix(m_level, m_lo, m_hi); }
+            bool is_internal() const { return m_lo == 0 && m_hi == 0; }
+            void set_internal() { m_lo = m_hi = 0; }
         };
 
         struct hash_node {
@@ -112,9 +114,15 @@ namespace sat {
         mutable unsigned           m_mark_level;
         mutable svector<double>    m_count;
         mutable svector<BDD>       m_todo;
+        bool                       m_disable_gc;
+        bool                       m_is_new_node;
         unsigned                   m_max_num_bdd_nodes;
+        unsigned_vector            m_S, m_T;  // used for reordering
+        vector<unsigned_vector>    m_level2nodes;
+        unsigned_vector            m_max_parent;
 
         BDD make_node(unsigned level, BDD l, BDD r);
+        bool is_new_node() const { return m_is_new_node; }
 
         BDD apply_const(BDD a, BDD b, bdd_op op);
         BDD apply(BDD arg1, BDD arg2, bdd_op op);
@@ -142,6 +150,7 @@ namespace sat {
         bool is_marked(unsigned i) { return m_mark[i] == m_mark_level; }
 
         void try_reorder();
+        void init_reorder();
         void sift_up(unsigned level);
 
         static const BDD false_bdd = 0;

@@ -43,6 +43,8 @@ namespace sat {
         m_max_num_bdd_nodes = 1 << 24; // up to 16M nodes
         m_mark_level = 0;
         alloc_free_nodes(1024 + num_vars);
+        m_disable_gc = false;
+        m_is_new_node = false;
         
         // add variables
         for (unsigned i = 0; i < num_vars; ++i) {
@@ -203,6 +205,7 @@ namespace sat {
     }
 
     bdd_manager::BDD bdd_manager::make_node(unsigned level, BDD l, BDD r) {
+        m_is_new_node = false;
         if (l == r) {
             return l;
         }
@@ -214,7 +217,7 @@ namespace sat {
         }
         e->get_data().m_refcount = 0;
         bool do_gc = m_free_nodes.empty();
-        if (do_gc) {
+        if (do_gc && !m_disable_gc) {
             gc();
             e = m_node_table.insert_if_not_there2(n);
             e->get_data().m_refcount = 0;
@@ -223,15 +226,14 @@ namespace sat {
             if (m_nodes.size() > m_max_num_bdd_nodes) {
                 throw mem_out();
             }
-            e->get_data().m_index = m_nodes.size();
-            m_nodes.push_back(e->get_data());
             alloc_free_nodes(m_nodes.size()/2);
         }
-        else {
-            e->get_data().m_index = m_free_nodes.back();
-            m_nodes[e->get_data().m_index] = e->get_data();
-            m_free_nodes.pop_back();
-        }
+
+        SASSERT(!m_free_nodes.empty());
+        e->get_data().m_index = m_free_nodes.back();
+        m_nodes[e->get_data().m_index] = e->get_data();
+        m_free_nodes.pop_back();        
+        m_is_new_node = true;
         return e->get_data().m_index;
     }
 
@@ -241,10 +243,45 @@ namespace sat {
 
     void bdd_manager::sift_up(unsigned lvl) {
         // exchange level and level + 1.
-#if 0
-        m_relevel.reset(); // nodes to be re-leveled.
+        m_S.reset();
+        m_T.reset();
+        m_disable_gc = true;
 
         for (unsigned n : m_level2nodes[lvl + 1]) {
+            BDD l = lo(n);
+            BDD h = hi(n);
+            if (l == 0 && h == 0) continue;
+            if ((is_const(l) || level(l) != lvl) &&
+                (is_const(h) || level(h) != lvl)) {
+                m_S.push_back(n);
+            }
+            else {
+                m_T.push_back(n);
+            }
+            m_node_table.remove(m_nodes[n]);
+        }
+
+        for (unsigned n : m_level2nodes[lvl]) {
+            bdd_node& node = m_nodes[n];
+            m_node_table.remove(node);
+            if (m_max_parent[n] == lvl + 1 && node.m_refcount == 0) {
+                node.set_internal();
+                m_free_nodes.push_back(n);
+            }
+            else {
+                node.m_level = lvl + 1;
+                m_node_table.insert(node);
+            }
+        }
+
+        for (unsigned n : m_S) {
+            m_nodes[n].m_level = lvl;
+            m_node_table.insert(m_nodes[n]);
+        }
+
+        std::swap(m_level2nodes[lvl], m_level2nodes[lvl + 1]);
+
+        for (unsigned n : m_T) {
             BDD l = lo(n);
             BDD h = hi(n);
             if (l == 0 && h == 0) continue;
@@ -264,28 +301,42 @@ namespace sat {
                 c = d = h;
             }
 
-            push(make_node(lvl, a, c));
-            push(make_node(lvl, b, d));
-            m_node_table.remove(m_nodes[n]);
-            m_nodes[n].m_lo = read(2);
-            m_nodes[n].m_hi = read(1);
-            m_relevel.push_back(l);
-            m_relevel.push_back(r);
-            // TBD: read(2); read(1); should be inserted into m_level2nodes[lvl];
-            pop(2);
+            unsigned ac = make_node(lvl, a, c);
+            if (is_new_node()) {
+                m_level2nodes[lvl].push_back(ac);
+                m_max_parent.setx(ac, lvl + 1, 0);
+            }
+            unsigned bd = make_node(lvl, b, d);
+            if (is_new_node()) {
+                m_level2nodes[lvl].push_back(bd);
+                m_max_parent.setx(bd, lvl + 1, 0);
+            }
+            m_nodes[n].m_lo = ac;
+            m_nodes[n].m_hi = bd;
             m_node_table.insert(m_nodes[n]);
         }
         unsigned v = m_level2var[lvl];
         unsigned w = m_level2var[lvl+1];
         std::swap(m_level2var[lvl], m_level2var[lvl+1]);
         std::swap(m_var2level[v], m_var2level[w]);
-        for (unsigned n : m_relevel) {
-            if (level(n) == lvl) {
-                // whoever points to n uses it as if it is level lvl + 1.
-                m_level2nodes[m_node2levelpos[n]];
-            }
+        m_disable_gc = false;
+    }
+
+    void bdd_manager::init_reorder() {
+        m_level2nodes.reset();
+        unsigned sz = m_nodes.size();
+        m_max_parent.fill(sz, 0);
+        for (unsigned i = 0; i < m_level2var.size(); ++i) {
+            m_level2nodes.push_back(unsigned_vector());
         }
-#endif
+        for (unsigned i = 0; i < sz; ++i) {
+            bdd_node const& n = m_nodes[i];
+            if (n.is_internal()) continue;
+            SASSERT(i == m_nodes[i].m_index);
+            m_level2nodes[n.m_level].push_back(i);
+            m_max_parent[n.m_lo] = std::max(m_max_parent[n.m_lo], n.m_level);
+            m_max_parent[n.m_hi] = std::max(m_max_parent[n.m_hi], n.m_level);
+        }
     }
 
     bdd bdd_manager::mk_var(unsigned i) {
@@ -498,7 +549,7 @@ namespace sat {
         }
         for (unsigned i = m_nodes.size(); i-- > 2; ) {
             if (!reachable[i]) {
-                m_nodes[i].m_lo = m_nodes[i].m_hi = 0;
+                m_nodes[i].set_internal();
                 m_free_nodes.push_back(i);                
             }
         }
@@ -559,7 +610,7 @@ namespace sat {
     std::ostream& bdd_manager::display(std::ostream& out) {
         for (unsigned i = 0; i < m_nodes.size(); ++i) {
             bdd_node const& n = m_nodes[i];
-            if (n.m_lo == 0 && n.m_hi == 0) continue;
+            if (n.is_internal()) continue;
             out << i << " : " << m_level2var[n.m_level] << " " << n.m_lo << " " << n.m_hi << "\n";
         }
         return out;

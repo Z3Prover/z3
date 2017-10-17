@@ -410,7 +410,7 @@ public:
 
     void fill(unsigned sz, T const & elem) {
         resize(sz);
-        fill(sz, elem);
+        fill(elem);
     }
 
     bool contains(T const & elem) const {
