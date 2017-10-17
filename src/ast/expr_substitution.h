@@ -80,6 +80,7 @@ public:
             m_trail_lim.resize(new_sz); 
         }
     }
+    unsigned scope_level() const { return m_trail_lim.size(); }
     bool empty() const { return m_subst.empty(); }
     expr* find(expr * e) { proof* pr; expr* d = 0; if (find(e, d, pr)) return d; else return e; }
     bool find(expr * s, expr * & def, proof * & def_pr) { return m_subst.find(s, def, def_pr); }

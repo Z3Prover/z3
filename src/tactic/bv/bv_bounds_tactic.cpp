@@ -11,7 +11,9 @@ Abstract:
 
 Author:
 
-    Nikolaj Bjorner (nbjorner) 2016-2-12
+    Nuno Lopes (nlopes) 2016-2-12
+
+    Nikolaj Bjorner (nbjorner) 
 
 
 --*/
@@ -650,11 +652,11 @@ namespace {
                         return false;
                     if (old == intr)
                         return true;
-                    m_scopes.insert(undo_bound(t1, old, false));
+                    m_scopes.push_back(undo_bound(t1, old, false));
                     old = intr;
                 } else {
                     m_bound.insert(t1, b);
-                    m_scopes.insert(undo_bound(t1, interval(), true));
+                    m_scopes.push_back(undo_bound(t1, interval(), true));
                 }
             }
             return true;
@@ -799,6 +801,10 @@ namespace {
 
         virtual dom_simplifier * translate(ast_manager & m) {
             return alloc(dom_bv_bounds_simplifier, m, m_params);
+        }
+
+        virtual unsigned scope_level() const {
+            return m_scopes.size();
         }
 
     };

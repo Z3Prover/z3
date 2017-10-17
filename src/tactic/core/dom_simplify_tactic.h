@@ -83,6 +83,8 @@ class dom_simplifier {
     virtual void pop(unsigned num_scopes) = 0;
     
     virtual dom_simplifier * translate(ast_manager & m) = 0;
+
+    virtual unsigned scope_level() const = 0;
     
 };
 
@@ -116,9 +118,9 @@ class dom_simplify_tactic : public tactic {
     ptr_vector<expr> const & tree(expr * e);
     expr* idom(expr *e) const { return m_dominators.idom(e); }
 
-    unsigned scope_level() { return m_scope_level; }
-    void pop(unsigned n) { SASSERT(n <= m_scope_level); m_scope_level -= n; m_simplifier->pop(n); }
-    bool assert_expr(expr* f, bool sign) { m_scope_level++; return m_simplifier->assert_expr(f, sign); }
+    unsigned scope_level() { return m_simplifier->scope_level(); }
+    void pop(unsigned n) { SASSERT(n <= m_simplifier->scope_level()); m_simplifier->pop(n); }
+    bool assert_expr(expr* f, bool sign) { return m_simplifier->assert_expr(f, sign); }
 
     bool init(goal& g);
 
@@ -169,6 +171,8 @@ public:
     
     virtual void pop(unsigned num_scopes) { m_scoped_substitution.pop(num_scopes); }
     
+    virtual unsigned scope_level() const { return m_scoped_substitution.scope_level(); }
+
     virtual dom_simplifier * translate(ast_manager & m) {
         SASSERT(m_subst.empty());
         return alloc(expr_substitution_simplifier, m);
