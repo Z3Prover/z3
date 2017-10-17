@@ -246,6 +246,7 @@ namespace sat {
         inline bool is_true(literal l) const { return is_true_at(l, m_level); }
         inline void set_true(literal l) { m_stamp[l.var()] = m_level + l.sign(); }
         inline void set_undef(literal l) { m_stamp[l.var()] = 0; }
+        inline unsigned get_level(literal l) { return m_stamp[l.var()] & UINT_MAX - 1; }
         void set_level(literal d, literal s) { m_stamp[d.var()] = (m_stamp[s.var()] & ~0x1) + d.sign(); }
         lbool value(literal l) const { return is_undef(l) ? l_undef : is_true(l) ? l_true : l_false; }
         
@@ -479,6 +480,7 @@ namespace sat {
         unsigned push_lookahead1(literal lit, unsigned level);
         void pop_lookahead1(literal lit, unsigned num_units);
         void lookahead_backtrack();
+        void promote(unsigned base);
         double mix_diff(double l, double r) const;
         clause const& get_clause(watch_list::iterator it) const;
         bool is_nary_propagation(clause const& c, literal l) const;

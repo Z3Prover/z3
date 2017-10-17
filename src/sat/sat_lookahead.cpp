@@ -1144,6 +1144,18 @@ namespace sat {
         SASSERT(m_trail_lim.empty() || m_trail.size() >= m_trail_lim.back());
     }
 
+    void lookahead::promote(unsigned base) {
+        if (m_trail.empty()) return;
+        unsigned last_lvl = get_level(m_trail.back());
+        base -= last_lvl;
+        for (unsigned i = m_trail.size(); i > 0; ) {
+            literal lit = m_trail[--i];
+            if (is_fixed_at(lit, c_fixed_truth)) break;
+            SASSERT(is_fixed_at(lit, last_lvl));
+            m_stamp[lit.var()] += base;
+        }
+    }
+
     // 
     // The current version is modeled after CDCL SAT solving data-structures.
     // It borrows from the watch list data-structure. The cost tradeoffs are somewhat
@@ -1680,6 +1692,8 @@ namespace sat {
                     num_units += do_double(lit, dl_lvl);
                     if (dl_lvl > level) {
                         base = dl_lvl;
+                        promote(base + m_lookahead[i].m_offset);
+                        SASSERT(get_level(m_trail.back()) == base + m_lookahead[i].m_offset);
                     }
                     unsat = inconsistent();
                     pop_lookahead1(lit, num_units);
@@ -1867,11 +1881,14 @@ namespace sat {
         SASSERT(dl_no_overflow(base));
         base += m_lookahead.size();
         unsigned dl_truth = base + m_lookahead.size() * m_config.m_dl_max_iterations;
+        promote(dl_truth);
         scoped_level _sl(*this, dl_truth);
+        SASSERT(get_level(m_trail.back()) == dl_truth);
+        SASSERT(is_fixed(l));
         IF_VERBOSE(2, verbose_stream() << "double: " << l << " depth: " << m_trail_lim.size() << "\n";);
-        lookahead_backtrack();
-        assign(l);
-        propagate();
+        //lookahead_backtrack();
+        //assign(l);
+        //propagate();
         //SASSERT(!inconsistent());
         unsigned old_sz = m_trail.size();
         bool change = true;
@@ -1914,6 +1931,8 @@ namespace sat {
             base += 2 * m_lookahead.size();
             SASSERT(dl_truth >= base);
         }
+        lookahead_backtrack();
+        SASSERT(get_level(m_trail.back()) == dl_truth);
         SASSERT(m_level == dl_truth);
         base = dl_truth;
         return m_trail.size() - old_sz;
@@ -1932,6 +1951,7 @@ namespace sat {
         if (is_undef(l)) {
             TRACE("sat", tout << "assign: " << l << " @ " << m_level << " " << m_trail_lim.size() << " " << m_search_mode << "\n";);
             set_true(l);
+            SASSERT(m_trail.empty() || get_level(m_trail.back()) >= get_level(l));
             m_trail.push_back(l);
             if (m_search_mode == lookahead_mode::searching) {
                 m_stats.m_propagations++;
