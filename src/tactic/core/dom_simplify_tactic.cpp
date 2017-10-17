@@ -242,7 +242,7 @@ expr_ref dom_simplify_tactic::simplify_ite(app * ite) {
             r = new_t;
         }
         else {
-            TRACE("tactic", tout << new_c << "\n" << new_t << "\n" << new_e << "\n";);
+            TRACE("simplify", tout << new_c << "\n" << new_t << "\n" << new_e << "\n";);
             r = m.mk_ite(new_c, new_t, new_e);
         }        
     }    

@@ -694,7 +694,8 @@ namespace {
             bool was_updated = true;
             if (b.is_full() && b.tight) {
                 r = m.mk_true();
-            } else if (m_bound.find(t1, ctx)) {
+            } 
+            else if (m_bound.find(t1, ctx)) {
                 if (ctx.implies(b)) {
                     r = m.mk_true();
                 } 
@@ -705,12 +706,15 @@ namespace {
                     r = m.mk_eq(t1, m_bv.mk_numeral(rational(intr.l, rational::ui64()),
                                                     m.get_sort(t1)));
                 }
+                else {
+                    was_updated = false;
+                }
             }
             else {
                 was_updated = false;
             }
 
-            CTRACE("bv", was_updated, tout << mk_pp(t, m) << " " << b << " (ctx: " << ctx << ") (intr: " << intr << "): " << r << "\n";);
+            TRACE("bv", tout << mk_pp(t, m) << " " << b << " (ctx: " << ctx << ") (intr: " << intr << "): " << r << "\n";);
             if (sign && was_updated)
                 r = m.mk_not(r);
         }
