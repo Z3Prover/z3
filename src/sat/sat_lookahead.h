@@ -90,7 +90,7 @@ namespace sat {
                 m_min_cutoff = 30;
                 m_preselect = false;
                 m_level_cand = 600;
-                m_delta_rho = (double)0.25;
+                m_delta_rho = (double)0.85;
                 m_dl_max_iterations = 2;
                 m_tc1_limit = 10000000;
                 m_reward_type = ternary_reward;
@@ -340,6 +340,8 @@ namespace sat {
         std::ostream& display_candidates(std::ostream& out) const;
         bool is_unsat() const;
         bool is_sat() const;
+        bool missed_propagation() const;
+        bool missed_conflict() const;
         void init_pre_selection(unsigned level);
         void ensure_H(unsigned level);
         void h_scores(svector<double>& h, svector<double>& hp);
@@ -503,7 +505,7 @@ namespace sat {
         unsigned do_double(literal l, unsigned& base);
         unsigned double_look(literal l, unsigned& base);
         void set_conflict() { TRACE("sat", tout << "conflict\n";); m_inconsistent = true; }
-        bool inconsistent() { return m_inconsistent; }
+        bool inconsistent() const { return m_inconsistent; }
 
         unsigned scope_lvl() const { return m_trail_lim.size(); }
 
