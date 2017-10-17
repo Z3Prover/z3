@@ -49,16 +49,35 @@ namespace sat {
             // and the following procedure flips its value.
             bool sat = false;
             bool var_sign = false;
+            unsigned index = 0;
+            literal prev = null_literal;
             for (literal l : it->m_clauses) {
                 if (l == null_literal) {
                     // end of clause
+                    if (!sat && it->m_elim_sequence[index]) {
+                        SASSERT(prev != null_literal);
+                        m[prev.var()] = prev.sign() ? l_false : l_true;
+                        elim_sequence* s = it->m_elim_sequence[index];
+#if 0
+                        while (!sat) {
+                            SASSERT(s);
+                            for (literal l2 : s->clause()) {
+                                sat = value_at(l2, m) == l_true;
+                            }
+                            s->clause();
+                        }
+#endif
+                        NOT_IMPLEMENTED_YET();
+                    }
                     if (!sat) {
                         m[it->var()] = var_sign ? l_false : l_true;
                         break;
                     }
                     sat = false;
+                    ++index;
                     continue;
                 }
+                prev = l;
 
                 if (sat)
                     continue;
@@ -136,14 +155,16 @@ namespace sat {
         return e;
     }
 
-    void model_converter::insert(entry & e, clause const & c) {
+    void model_converter::insert(entry & e, clause const & c, elim_sequence* s) {
         SASSERT(c.contains(e.var()));
         SASSERT(m_entries.begin() <= &e);
         SASSERT(&e < m_entries.end());
         for (literal l : c) e.m_clauses.push_back(l);
         e.m_clauses.push_back(null_literal);
+        e.m_elim_sequence.push_back(s);
         TRACE("sat_mc_bug", tout << "adding: " << c << "\n";);
     }
+
 
     void model_converter::insert(entry & e, literal l1, literal l2) {
         SASSERT(l1.var() == e.var() || l2.var() == e.var());
@@ -152,6 +173,7 @@ namespace sat {
         e.m_clauses.push_back(l1);
         e.m_clauses.push_back(l2);
         e.m_clauses.push_back(null_literal);
+        e.m_elim_sequence.push_back(nullptr);
         TRACE("sat_mc_bug", tout << "adding (binary): " << l1 << " " << l2 << "\n";);
     }
 
@@ -163,6 +185,7 @@ namespace sat {
         for (unsigned i = 0; i < sz; ++i) 
             e.m_clauses.push_back(c[i]);
         e.m_clauses.push_back(null_literal);
+        e.m_elim_sequence.push_back(nullptr);
         // TRACE("sat_mc_bug", tout << "adding (wrapper): "; for (literal l : c) tout << l << " "; tout << "\n";);
     }
 
