@@ -35,7 +35,7 @@ namespace sat {
         enum bdd_op {
             bdd_and_op = 2,
             bdd_or_op = 3,
-            bdd_iff_op = 4,
+            bdd_xor_op = 4,
             bdd_not_op = 5,
             bdd_and_proj_op = 6,
             bdd_or_proj_op = 7,
@@ -149,7 +149,6 @@ namespace sat {
         void set_mark(unsigned i) { m_mark[i] = m_mark_level; }
         bool is_marked(unsigned i) { return m_mark[i] == m_mark_level; }
 
-        void try_reorder();
         void init_reorder();
         void sift_up(unsigned level);
         void sift_var(unsigned v);
@@ -173,10 +172,15 @@ namespace sat {
 
         double dnf_size(bdd const& b) { return count(b, 0); }
         double cnf_size(bdd const& b) { return count(b, 1); }
+        unsigned bdd_size(bdd const& b);
 
         bdd mk_not(bdd b);
         bdd mk_and(bdd const& a, bdd const& b);
         bdd mk_or(bdd const& a, bdd const& b);
+        bdd mk_xor(bdd const& a, bdd const& b);
+
+        void reserve_var(unsigned v);
+        void well_formed();
 
     public:
         struct mem_out {};
@@ -196,39 +200,43 @@ namespace sat {
         bdd mk_forall(unsigned n, unsigned const* vars, bdd const & b);
         bdd mk_exists(unsigned v, bdd const& b);
         bdd mk_forall(unsigned v, bdd const& b);
-        bdd mk_iff(bdd const& a, bdd const& b);
         bdd mk_ite(bdd const& c, bdd const& t, bdd const& e);
 
         std::ostream& display(std::ostream& out);
         std::ostream& display(std::ostream& out, bdd const& b);
+
+        void try_reorder();
     };
 
     class bdd {
         friend class bdd_manager;
         unsigned     root;
         bdd_manager* m;
-        bdd(unsigned root, bdd_manager* m);
+        bdd(unsigned root, bdd_manager* m): root(root), m(m) { m->inc_ref(root); }
     public:
-        bdd(bdd & other);
-        bdd(bdd && other);
+        bdd(bdd & other): root(other.root), m(other.m) { m->inc_ref(root); }
+        bdd(bdd && other): root(0), m(other.m) { std::swap(root, other.root); }
         bdd& operator=(bdd const& other);
-        ~bdd();        
-        bdd lo() const;
-        bdd hi() const;
-        unsigned var() const;
-        bool is_true() const;
-        bool is_false() const;
-        
-        bdd operator!();
-        bdd operator&&(bdd const& other);
-        bdd operator||(bdd const& other);
+        ~bdd() { m->dec_ref(root); }
+        bdd lo() const { return bdd(m->lo(root), m); }
+        bdd hi() const { return bdd(m->hi(root), m); }
+        unsigned var() const { return m->var(root); }
+
+        bool is_true() const { return root == bdd_manager::true_bdd; }
+        bool is_false() const { return root == bdd_manager::false_bdd; }        
+
+        bdd operator!() { return m->mk_not(*this); }
+        bdd operator&&(bdd const& other) { return m->mk_and(*this, other); }
+        bdd operator||(bdd const& other) { return m->mk_or(*this, other); }
+        bdd operator^(bdd const& other) { return m->mk_xor(*this, other); }
         bdd operator|=(bdd const& other) { return *this = *this || other; }
         bdd operator&=(bdd const& other) { return *this = *this && other; }
-        std::ostream& display(std::ostream& out) const;
+        std::ostream& display(std::ostream& out) const { return m->display(out, *this); }
         bool operator==(bdd const& other) const { return root == other.root; }
         bool operator!=(bdd const& other) const { return root != other.root; }
-        double cnf_size() const;
-        double dnf_size() const;
+        double cnf_size() const { return m->cnf_size(*this); }
+        double dnf_size() const { return m->dnf_size(*this); }
+        unsigned bdd_size() const { return m->bdd_size(*this); }
     };
 
     std::ostream& operator<<(std::ostream& out, bdd const& b);
