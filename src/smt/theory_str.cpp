@@ -8888,15 +8888,34 @@ namespace smt {
                 if (concat_lhs_haseqc && concat_rhs_haseqc && !var_haseqc) {
                     TRACE("str", tout << "backpropagate into " << mk_pp(var, m) << " = " << mk_pp(concat, m) << std::endl
                           << "LHS ~= " << mk_pp(concat_lhs_str, m) << " RHS ~= " << mk_pp(concat_rhs_str, m) << std::endl;);
+
+                    TRACE("str_enode_bug", tout << "backpropagate into " << mk_pp(var, m) << " = " << mk_pp(concat, m) << std::endl
+                                              << "LHS ~= " << mk_pp(concat_lhs_str, m) << " RHS ~= " << mk_pp(concat_rhs_str, m) << std::endl;);
                     zstring lhsString, rhsString;
                     u.str.is_string(concat_lhs_str, lhsString);
                     u.str.is_string(concat_rhs_str, rhsString);
                     zstring concatString = lhsString + rhsString;
-                    expr_ref lhs1(ctx.mk_eq_atom(concat_lhs, concat_lhs_str), m);
-                    expr_ref lhs2(ctx.mk_eq_atom(concat_rhs, concat_rhs_str), m);
-                    expr_ref lhs(m.mk_and(lhs1, lhs2), m);
-                    expr_ref rhs(ctx.mk_eq_atom(concat, mk_string(concatString)), m);
-                    assert_implication(lhs, rhs);
+
+                    // special handling: don't assert that string constants are equal to themselves
+                    expr_ref_vector lhs_terms(m);
+                    if (!u.str.is_string(concat_lhs)) {
+                        lhs_terms.push_back(ctx.mk_eq_atom(concat_lhs, concat_lhs_str));
+                    }
+                    if (!u.str.is_string(concat_rhs)) {
+                        lhs_terms.push_back(ctx.mk_eq_atom(concat_rhs, concat_rhs_str));
+                    }
+
+                    if (lhs_terms.empty()) {
+                        // no assumptions on LHS
+                        expr_ref rhs(ctx.mk_eq_atom(concat, mk_string(concatString)), m);
+                        assert_axiom(rhs);
+                    } else {
+                        expr_ref lhs(mk_and(lhs_terms), m);
+                        expr_ref rhs(ctx.mk_eq_atom(concat, mk_string(concatString)), m);
+                        TRACE("str_enode_bug", tout << "axiom LHS: " << mk_pp(lhs, m) << std::endl;);
+                        TRACE("str_enode_bug", tout << "axiom RHS: " << mk_pp(rhs, m) << std::endl;);
+                        assert_implication(lhs, rhs);
+                    }
                     backpropagation_occurred = true;
                 }
             }
