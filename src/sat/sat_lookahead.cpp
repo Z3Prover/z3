@@ -408,6 +408,7 @@ namespace sat {
     }
 
     bool lookahead::missed_propagation() const {
+        if (inconsistent()) return false;
         for (literal l1 : m_trail) {
             SASSERT(is_true(l1));
             for (literal l2 : m_binary[l1.index()]) {
@@ -1614,7 +1615,7 @@ namespace sat {
         }
         SASSERT(m_qhead == m_trail.size() || (inconsistent() && m_qhead < m_trail.size()));
         //SASSERT(!missed_conflict());
-        //SASSERT(inconsistent() || !missed_propagation());
+        VERIFY(!missed_propagation());
         TRACE("sat_verbose", display(tout << scope_lvl() << " " << (inconsistent()?"unsat":"sat") << "\n"););
     }
 
@@ -1656,6 +1657,7 @@ namespace sat {
                     unsat = inconsistent();
                     pop_lookahead1(lit, num_units);
                 }
+                // VERIFY(!missed_propagation());
                 if (unsat) {
                     TRACE("sat", tout << "backtracking and settting " << ~lit << "\n";);
                     lookahead_backtrack();

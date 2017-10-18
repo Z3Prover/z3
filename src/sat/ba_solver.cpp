@@ -1556,7 +1556,7 @@ namespace sat {
             m_learned.push_back(c);
         }
         else {
-            SASSERT(s().at_base_lvl());
+            SASSERT(!m_solver || s().at_base_lvl());
             m_constraints.push_back(c);
         }
         literal lit = c->lit();
