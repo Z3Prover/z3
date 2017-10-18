@@ -103,11 +103,20 @@ std::ostream& pred_transformer::display(std::ostream& out) const
 void pred_transformer::collect_statistics(statistics& st) const
 {
     m_solver.collect_statistics(st);
-    st.update("SPACER num propagations", m_stats.m_num_propagations);
-    st.update("SPACER num properties", m_frames.lemma_size ());
-    st.update("SPACER num invariants", m_stats.m_num_invariants);
 
+    // -- number of times a lemma has been propagated to a higher level
+    // -- during push
+    st.update("SPACER num propagations", m_stats.m_num_propagations);
+    // -- number of lemmas in all current frames
+    st.update("SPACER num active lemmas", m_frames.lemma_size ());
+    // -- number of lemmas that are inductive invariants
+    st.update("SPACER num invariants", m_stats.m_num_invariants);
+    // -- number of proof obligations (0 if pobs are not reused)
+    st.update("SPACER num pobs", m_pobs.size());
+
+    // -- time in rule initialization
     st.update ("time.spacer.init_rules.pt.init", m_initialize_watch.get_seconds ());
+    // -- time is must_reachable()
     st.update ("time.spacer.solve.pt.must_reachable",
                m_must_reachable_watch.get_seconds ());
 }
@@ -1429,6 +1438,7 @@ bool pred_transformer::frames::propagate_to_next_level (unsigned level)
             for (unsigned j = i; (j+1) < sz && m_lt (m_lemmas[j+1], m_lemmas[j]); ++j) {
                 m_lemmas.swap(j, j + 1);
             }
+            ++m_pt.m_stats.m_num_propagations;
         } else {
             all = false;
             ++i;
@@ -3412,22 +3422,40 @@ void context::collect_statistics(statistics& st) const
     for (it = m_rels.begin(); it != end; ++it) {
         it->m_value->collect_statistics(st);
     }
+
+    // -- number of times a pob for some predicate transformer has
+    // -- been created
     st.update("SPACER num queries", m_stats.m_num_queries);
+    // -- number of reach facts created
     st.update("SPACER num reach queries", m_stats.m_num_reach_queries);
+    // -- number of times a reach fact was true in some model
     st.update("SPACER num reuse reach facts", m_stats.m_num_reuse_reach);
+    // -- maximum level at which any query was asked
     st.update("SPACER max query lvl", m_stats.m_max_query_lvl);
+    // -- maximum depth
     st.update("SPACER max depth", m_stats.m_max_depth);
+    // -- level at which safe inductive invariant was found
     st.update("SPACER inductive level", m_inductive_lvl);
+    // -- length of the counterexample
     st.update("SPACER cex depth", m_stats.m_cex_depth);
+    // -- number of times expand_node resulted in undef
     st.update("SPACER expand node undef", m_stats.m_expand_node_undef);
+    // -- number of distinct lemmas constructed
     st.update("SPACER num lemmas", m_stats.m_num_lemmas);
+    // -- number of restarts taken
     st.update("SPACER restarts", m_stats.m_num_restarts);
 
+    // -- time to initialize the rules
     st.update ("time.spacer.init_rules", m_init_rules_watch.get_seconds ());
+    // -- time in the main solve loop
     st.update ("time.spacer.solve", m_solve_watch.get_seconds ());
+    // -- time in lemma propagation (i.e., pushing)
     st.update ("time.spacer.solve.propagate", m_propagate_watch.get_seconds ());
+    // -- time in reachability (i.e., blocking)
     st.update ("time.spacer.solve.reach", m_reach_watch.get_seconds ());
+    // -- time in deciding whether a pob is must-reachable
     st.update ("time.spacer.solve.reach.is-reach", m_is_reach_watch.get_seconds ());
+    // -- time in creating new predecessors
     st.update ("time.spacer.solve.reach.children",
                m_create_children_watch.get_seconds ());
     m_pm.collect_statistics(st);
@@ -3439,6 +3467,7 @@ void context::collect_statistics(statistics& st) const
     // brunch out
     verbose_stream () << "BRUNCH_STAT max_query_lvl " << m_stats.m_max_query_lvl << "\n";
     verbose_stream () << "BRUNCH_STAT num_queries " << m_stats.m_num_queries << "\n";
+    verbose_stream () << "BRUNCH_STAT num_lemmas " << m_stats.m_num_lemmas << "\n";
     verbose_stream () << "BRUNCH_STAT num_reach_queries " << m_stats.m_num_reach_queries << "\n";
     verbose_stream () << "BRUNCH_STAT num_reach_reuse " << m_stats.m_num_reuse_reach << "\n";
     verbose_stream () << "BRUNCH_STAT inductive_lvl " << m_inductive_lvl << "\n";

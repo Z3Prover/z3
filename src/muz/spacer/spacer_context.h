@@ -253,6 +253,7 @@ class pred_transformer {
             app_ref_vector b(m_pt.get_ast_manager());
             return mk_pob (parent, level, depth, post, b);
         }
+        unsigned size() const {return m_pinned.size();}
 
     };
 
