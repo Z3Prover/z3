@@ -57,10 +57,26 @@ namespace sat {
         c2 = m.mk_exists(2, c1);
         SASSERT(c2 == ((v0 && v1) || v1 || !v0));
     }
+
+    void test4() {
+        bdd_manager m(3);
+        bdd v0 = m.mk_var(0);
+        bdd v1 = m.mk_var(1);
+        bdd v2 = m.mk_var(2);
+        bdd c1 = (v0 && v2) || v1;
+        std::cout << "before reorder:\n";
+        std::cout << c1 << "\n";
+        std::cout << c1.bdd_size() << "\n";
+        m.try_reorder();
+        std::cout << "after reorder:\n";
+        std::cout << c1 << "\n";
+        std::cout << c1.bdd_size() << "\n";
+    }
 }
 
 void tst_bdd() {
     sat::test1();
     sat::test2();
     sat::test3();
+    sat::test4();
 }

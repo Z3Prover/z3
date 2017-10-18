@@ -38,16 +38,15 @@ namespace sat {
         return *this;
     }
 
-    void model_converter::process_stack(model & m, literal_vector const& stack) const {
+    void model_converter::process_stack(model & m, literal_vector const& c, elim_stackv const& stack) const {
         SASSERT(!stack.empty());
         unsigned sz = stack.size();
-        SASSERT(stack[sz - 1] == null_literal);
-        for (unsigned i = sz - 1; i-- > 0; ) {
-            literal lit = stack[i]; // this is the literal that is pivoted on. It is repeated
+        for (unsigned i = sz; i-- > 0; ) {
+            unsigned csz = stack[i].first;
+            literal lit = stack[i].second;
             bool sat = false;
-            for (; i > 0 && stack[--i] != null_literal;) {
-                if (sat) continue;
-                sat = value_at(stack[i], m) == l_true;
+            for (unsigned j = 0; !sat && j < csz; ++j) {
+                sat = value_at(c[j], m) == l_true;
             }
             if (!sat) {
                 m[lit.var()] = lit.sign() ? l_false : l_true;
@@ -66,6 +65,7 @@ namespace sat {
             bool sat = false;
             bool var_sign = false;
             unsigned index = 0;
+            literal_vector clause;
             for (literal l : it->m_clauses) {
                 if (l == null_literal) {
                     // end of clause
@@ -74,13 +74,15 @@ namespace sat {
                     }
                     elim_stack* s = it->m_elim_stack[index];
                     if (s) {
-                        process_stack(m, s->stack());
+                        process_stack(m, clause, s->stack());
                     }
                     sat = false;
                     ++index;
+                    clause.reset();
                     continue;                    
                 }
 
+                clause.push_back(l);
                 if (sat)
                     continue;
                 bool sign  = l.sign();
@@ -190,13 +192,13 @@ namespace sat {
         // TRACE("sat_mc_bug", tout << "adding (wrapper): "; for (literal l : c) tout << l << " "; tout << "\n";);
     }
 
-    void model_converter::insert(entry & e, literal_vector const& c, literal_vector const& elims) {
+    void model_converter::insert(entry & e, literal_vector const& c, elim_stackv const& elims) {
         SASSERT(c.contains(literal(e.var(), false)) || c.contains(literal(e.var(), true)));
         SASSERT(m_entries.begin() <= &e);
         SASSERT(&e < m_entries.end());
         for (literal l : c) e.m_clauses.push_back(l);
         e.m_clauses.push_back(null_literal);
-        e.m_elim_stack.push_back(alloc(elim_stack, elims));
+        e.m_elim_stack.push_back(elims.empty() ? nullptr : alloc(elim_stack, elims));
         TRACE("sat_mc_bug", tout << "adding: " << c << "\n";);
     }
 

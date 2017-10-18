@@ -39,18 +39,20 @@ namespace sat {
     class model_converter {
         
     public:
+        typedef svector<std::pair<unsigned, literal>> elim_stackv;
+
         class elim_stack {
             unsigned       m_refcount;
-            literal_vector m_stack;
+            elim_stackv     m_stack;
         public:
-            elim_stack(literal_vector const& stack): 
+            elim_stack(elim_stackv const& stack): 
                 m_refcount(0), 
                 m_stack(stack) {
             }
             ~elim_stack() { }
             void inc_ref() { ++m_refcount; }
             void dec_ref() { if (0 == --m_refcount) dealloc(this); }
-            literal_vector const& stack() const { return m_stack; }
+            elim_stackv const& stack() const { return m_stack; }
         };
 
         enum kind { ELIM_VAR = 0, BLOCK_LIT };
@@ -74,7 +76,7 @@ namespace sat {
     private:
         vector<entry>          m_entries;
 
-        void process_stack(model & m, literal_vector const& stack) const;
+        void process_stack(model & m, literal_vector const& clause, elim_stackv const& stack) const;
 
     public:
         model_converter();
@@ -86,7 +88,7 @@ namespace sat {
         void insert(entry & e, clause const & c);
         void insert(entry & e, literal l1, literal l2);
         void insert(entry & e, clause_wrapper const & c);
-        void insert(entry & c, literal_vector const& covered_clause, literal_vector const& elim_stack);
+        void insert(entry & c, literal_vector const& covered_clause, elim_stackv const& elim_stack);
 
         bool empty() const { return m_entries.empty(); }
 
