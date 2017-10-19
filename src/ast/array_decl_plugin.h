@@ -191,8 +191,7 @@ public:
 
     app * mk_as_array(func_decl * f) {
         parameter param(f);
-        sort * s = f->get_range();
-        return m_manager.mk_app(m_fid, OP_AS_ARRAY, 1, &param, 0, 0, s);
+        return m_manager.mk_app(m_fid, OP_AS_ARRAY, 1, &param, 0, 0, 0);
     }
 };
 
