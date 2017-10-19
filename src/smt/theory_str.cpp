@@ -8889,8 +8889,6 @@ namespace smt {
                     TRACE("str", tout << "backpropagate into " << mk_pp(var, m) << " = " << mk_pp(concat, m) << std::endl
                           << "LHS ~= " << mk_pp(concat_lhs_str, m) << " RHS ~= " << mk_pp(concat_rhs_str, m) << std::endl;);
 
-                    TRACE("str_enode_bug", tout << "backpropagate into " << mk_pp(var, m) << " = " << mk_pp(concat, m) << std::endl
-                                              << "LHS ~= " << mk_pp(concat_lhs_str, m) << " RHS ~= " << mk_pp(concat_rhs_str, m) << std::endl;);
                     zstring lhsString, rhsString;
                     u.str.is_string(concat_lhs_str, lhsString);
                     u.str.is_string(concat_rhs_str, rhsString);
@@ -8912,8 +8910,6 @@ namespace smt {
                     } else {
                         expr_ref lhs(mk_and(lhs_terms), m);
                         expr_ref rhs(ctx.mk_eq_atom(concat, mk_string(concatString)), m);
-                        TRACE("str_enode_bug", tout << "axiom LHS: " << mk_pp(lhs, m) << std::endl;);
-                        TRACE("str_enode_bug", tout << "axiom RHS: " << mk_pp(rhs, m) << std::endl;);
                         assert_implication(lhs, rhs);
                     }
                     backpropagation_occurred = true;
