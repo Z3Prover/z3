@@ -50,7 +50,7 @@ namespace sat {
                 m_hi(hi),
                 m_index(0)
             {}
-            bdd_node(): m_level(0), m_lo(0), m_hi(0), m_index(0) {}
+            bdd_node(): m_refcount(0), m_level(0), m_lo(0), m_hi(0), m_index(0) {}
             unsigned m_refcount : 10;
             unsigned m_level : 22;
             BDD      m_lo;
@@ -58,7 +58,13 @@ namespace sat {
             unsigned m_index;
             unsigned hash() const { return mk_mix(m_level, m_lo, m_hi); }
             bool is_internal() const { return m_lo == 0 && m_hi == 0; }
-            void set_internal() { m_lo = m_hi = 0; }
+            void set_internal() { m_lo = 0; m_hi = 0; }
+        };
+
+        enum cost_metric {
+            cnf_cost,
+            dnf_cost,
+            bdd_cost
         };
 
         struct hash_node {
@@ -94,7 +100,7 @@ namespace sat {
 
         struct eq_entry {
             bool operator()(op_entry * a, op_entry * b) const { 
-                return a->hash() == b->hash(); 
+                return a->m_bdd1 == b->m_bdd2 && a->m_bdd2 == b->m_bdd2 && a->m_op == b->m_op;
             }
         };
 
@@ -117,9 +123,11 @@ namespace sat {
         bool                       m_disable_gc;
         bool                       m_is_new_node;
         unsigned                   m_max_num_bdd_nodes;
-        unsigned_vector            m_S, m_T;  // used for reordering
+        unsigned_vector            m_S, m_T, m_to_free;  // used for reordering
         vector<unsigned_vector>    m_level2nodes;
-        unsigned_vector            m_max_parent;
+        unsigned_vector            m_reorder_rc;
+        cost_metric                m_cost_metric;
+        BDD                        m_cost_bdd;
 
         BDD make_node(unsigned level, BDD l, BDD r);
         bool is_new_node() const { return m_is_new_node; }
@@ -141,15 +149,16 @@ namespace sat {
         void push_entry(op_entry* e);
         bool check_result(op_entry*& e1, op_entry const* e2, BDD a, BDD b, BDD c);
         
-        double count(bdd const& b, unsigned z);
+        double count(BDD b, unsigned z);
 
-        void gc();
         void alloc_free_nodes(unsigned n);
         void init_mark();
         void set_mark(unsigned i) { m_mark[i] = m_mark_level; }
         bool is_marked(unsigned i) { return m_mark[i] == m_mark_level; }
 
         void init_reorder();
+        void reorder_incref(unsigned n);
+        void reorder_decref(unsigned n);
         void sift_up(unsigned level);
         void sift_var(unsigned v);
         double current_cost();
@@ -166,12 +175,12 @@ namespace sat {
         inline unsigned var(BDD b) const { return m_level2var[level(b)]; }
         inline BDD lo(BDD b) const { return m_nodes[b].m_lo; }
         inline BDD hi(BDD b) const { return m_nodes[b].m_hi; }
-        inline void inc_ref(BDD b) { if (m_nodes[b].m_refcount != max_rc) m_nodes[b].m_refcount++; }
-        inline void dec_ref(BDD b) { if (m_nodes[b].m_refcount != max_rc) m_nodes[b].m_refcount--; }
+        inline void inc_ref(BDD b) { if (m_nodes[b].m_refcount != max_rc) m_nodes[b].m_refcount++; VERIFY(!m_free_nodes.contains(b)); }
+        inline void dec_ref(BDD b) { if (m_nodes[b].m_refcount != max_rc) m_nodes[b].m_refcount--; VERIFY(!m_free_nodes.contains(b)); }
         inline BDD level2bdd(unsigned l) const { return m_var2bdd[m_level2var[l]]; }
 
-        double dnf_size(bdd const& b) { return count(b, 0); }
-        double cnf_size(bdd const& b) { return count(b, 1); }
+        double dnf_size(BDD b) { return count(b, 0); }
+        double cnf_size(BDD b) { return count(b, 1); }
         unsigned bdd_size(bdd const& b);
 
         bdd mk_not(bdd b);
@@ -180,7 +189,7 @@ namespace sat {
         bdd mk_xor(bdd const& a, bdd const& b);
 
         void reserve_var(unsigned v);
-        void well_formed();
+        bool well_formed();
 
     public:
         struct mem_out {};
@@ -205,7 +214,9 @@ namespace sat {
         std::ostream& display(std::ostream& out);
         std::ostream& display(std::ostream& out, bdd const& b);
 
+        void gc();
         void try_reorder();
+        void try_cnf_reorder(bdd const& b);
     };
 
     class bdd {
@@ -234,8 +245,8 @@ namespace sat {
         std::ostream& display(std::ostream& out) const { return m->display(out, *this); }
         bool operator==(bdd const& other) const { return root == other.root; }
         bool operator!=(bdd const& other) const { return root != other.root; }
-        double cnf_size() const { return m->cnf_size(*this); }
-        double dnf_size() const { return m->dnf_size(*this); }
+        double cnf_size() const { return m->cnf_size(root); }
+        double dnf_size() const { return m->dnf_size(root); }
         unsigned bdd_size() const { return m->bdd_size(*this); }
     };
 

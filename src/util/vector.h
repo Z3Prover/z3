@@ -472,6 +472,11 @@ typedef svector<char> char_vector;
 typedef svector<signed char> signed_char_vector;
 typedef svector<double> double_vector;
 
+inline std::ostream& operator<<(std::ostream& out, unsigned_vector const& v) {
+    for (unsigned u : v) out << u << " ";
+    return out;
+}
+
 template<typename Hash, typename Vec>
 struct vector_hash_tpl {
     Hash m_hash;

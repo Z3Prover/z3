@@ -40,6 +40,7 @@ namespace sat {
         unsigned          m_mark_lim;
         unsigned_vector   m_var2index;
         unsigned_vector   m_occ;
+        unsigned          m_miss;
 
         unsigned m_max_literals;
 
@@ -61,6 +62,7 @@ namespace sat {
     public:
         elim_vars(simplifier& s);
         bool operator()(bool_var v);
+        unsigned miss() const { return m_miss; }
     };
 
 };

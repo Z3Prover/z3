@@ -67,6 +67,7 @@ namespace sat {
         std::cout << "before reorder:\n";
         std::cout << c1 << "\n";
         std::cout << c1.bdd_size() << "\n";
+        m.gc();
         m.try_reorder();
         std::cout << "after reorder:\n";
         std::cout << c1 << "\n";

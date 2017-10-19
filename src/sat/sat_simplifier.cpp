@@ -1657,6 +1657,7 @@ namespace sat {
         bool_var_vector vars;
         order_vars_for_elim(vars);
         sat::elim_vars elim_bdd(*this);
+        unsigned bdd_vars = 0;
 
         for (bool_var v : vars) {
             checkpoint();
@@ -1665,10 +1666,13 @@ namespace sat {
             if (try_eliminate(v)) {
                 m_num_elim_vars++;
             }
-            else if (elim_bdd(v)) {
+            else if (false && elim_bdd(v)) {
                 m_num_elim_vars++;
+                ++bdd_vars;
             }
         }
+        std::cout << "bdd elim: " << bdd_vars << "\n";
+        std::cout << "bdd miss: " << elim_bdd.miss() << "\n";
 
         m_pos_cls.finalize();
         m_neg_cls.finalize();

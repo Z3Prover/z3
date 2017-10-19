@@ -23,6 +23,8 @@ Revision History:
 namespace sat {
 
     bdd_manager::bdd_manager(unsigned num_vars) {
+        m_cost_metric = bdd_cost;
+        m_cost_bdd = 0;
         for (BDD a = 0; a < 2; ++a) {
             for (BDD b = 0; b < 2; ++b) {
                 for (unsigned op = bdd_and_op; op < bdd_not_op; ++op) {                
@@ -58,6 +60,7 @@ namespace sat {
             m_alloc.deallocate(sizeof(*m_spare_entry), m_spare_entry);
         }
         for (auto* e : m_op_cache) {
+            VERIFY(e != m_spare_entry);
             m_alloc.deallocate(sizeof(*e), e);
         }
     }
@@ -78,16 +81,21 @@ namespace sat {
 
     bdd_manager::BDD bdd_manager::apply(BDD arg1, BDD arg2, bdd_op op) {
         bool first = true;
+        SASSERT(well_formed());
         while (true) {
             try {
                 return apply_rec(arg1, arg2, op);
             }
             catch (mem_out) {
+                throw;
+#if 0
                 try_reorder();
                 if (!first) throw;
                 first = false;
+#endif
             }
         }
+        SASSERT(well_formed());
     }
 
 
@@ -101,17 +109,20 @@ namespace sat {
 
 
     bool bdd_manager::check_result(op_entry*& e1, op_entry const* e2, BDD a, BDD b, BDD c) {
+        // std::cout << a << " " << b << " " << c << " " << e1 << " " << e2 << "\n";
         if (e1 != e2) {
+            VERIFY(e2->m_result != -1);
             push_entry(e1);
-            if (e2->m_bdd1 == a && e2->m_bdd2 == b && e2->m_op == c) {
-                return true;
-            }
-            e1 = const_cast<op_entry*>(e2);
+            e1 = nullptr;
+            return true;            
         }
-        e1->m_bdd1 = a;
-        e1->m_bdd2 = b;
-        e1->m_op = c;
-        return false;        
+        else {
+            e1->m_bdd1 = a;
+            e1->m_bdd2 = b;
+            e1->m_op = c;
+            VERIFY(e1->m_result == -1);
+            return false;        
+        }
     }
 
     bdd_manager::BDD bdd_manager::apply_rec(BDD a, BDD b, bdd_op op) {
@@ -143,8 +154,10 @@ namespace sat {
         op_entry * e1 = pop_entry(a, b, op);
         op_entry const* e2 = m_op_cache.insert_if_not_there(e1);
         if (check_result(e1, e2, a, b, op)) {
+            SASSERT(!m_free_nodes.contains(e2->m_result));
             return e2->m_result;
         }
+        // VERIFY(well_formed());
         BDD r;
         if (level(a) == level(b)) {
             push(apply_rec(lo(a), lo(b), op));
@@ -163,6 +176,8 @@ namespace sat {
         }
         pop(2);
         e1->m_result = r;
+        // VERIFY(well_formed());
+        SASSERT(!m_free_nodes.contains(r));
         return r;
     }
 
@@ -190,6 +205,7 @@ namespace sat {
         else {
             void * mem = m_alloc.allocate(sizeof(op_entry));
             result = new (mem) op_entry(l, r, op);
+            // std::cout << "alloc: " << result << "\n";
         }
         result->m_result = -1;
         return result;
@@ -200,16 +216,22 @@ namespace sat {
         m_spare_entry = e;
     }
 
-    bdd_manager::BDD bdd_manager::make_node(unsigned level, BDD l, BDD r) {
+    bdd_manager::BDD bdd_manager::make_node(unsigned lvl, BDD l, BDD h) {
         m_is_new_node = false;
-        if (l == r) {
+        if (l == h) {
             return l;
         }
+        if (!is_const(l) && level(l) >= lvl) {
+            display(std::cout << l << " level: " << level(l) << " lvl: " << lvl << "\n");
+        }
+        VERIFY(is_const(l) || level(l) < lvl);
+        VERIFY(is_const(h) || level(h) < lvl);
 
-        bdd_node n(level, l, r);
+        bdd_node n(lvl, l, h);
         node_table::entry* e = m_node_table.insert_if_not_there2(n);
         if (e->get_data().m_index != 0) {
-            return e->get_data().m_index;
+            unsigned result = e->get_data().m_index;
+            return result;
         }
         e->get_data().m_refcount = 0;
         bool do_gc = m_free_nodes.empty();
@@ -226,25 +248,50 @@ namespace sat {
         }
 
         SASSERT(!m_free_nodes.empty());
-        e->get_data().m_index = m_free_nodes.back();
-        m_nodes[e->get_data().m_index] = e->get_data();
-        m_free_nodes.pop_back();        
-        m_is_new_node = true;
-        return e->get_data().m_index;
+        unsigned result = m_free_nodes.back();
+        m_free_nodes.pop_back();
+        e->get_data().m_index = result;
+        m_nodes[result] = e->get_data();
+        m_is_new_node = true;        
+        SASSERT(!m_free_nodes.contains(result));
+        SASSERT(m_nodes[result].m_index == result); 
+        return result;
     }
 
+    void bdd_manager::try_cnf_reorder(bdd const& b) {
+        m_cost_bdd = b.root;
+        m_cost_metric = cnf_cost;
+        try_reorder();
+        m_cost_metric = bdd_cost;
+        m_cost_bdd = 0;
+    }    
+
     void bdd_manager::try_reorder() {
+        gc();        
+        for (auto* e : m_op_cache) {
+            m_alloc.deallocate(sizeof(*e), e);
+        }
+        m_op_cache.reset();
         init_reorder();
         for (unsigned i = 0; i < m_var2level.size(); ++i) {
             sift_var(i);
         }
+        SASSERT(m_op_cache.empty());
+        SASSERT(well_formed());
     }
 
     double bdd_manager::current_cost() {
-#if 0
-        
-#endif
-        return m_nodes.size() - m_free_nodes.size();
+        switch (m_cost_metric) {
+        case bdd_cost: 
+            return m_nodes.size() - m_free_nodes.size();
+        case cnf_cost:
+            return cnf_size(m_cost_bdd);
+        case dnf_cost:
+            return dnf_size(m_cost_bdd);
+        default:
+            UNREACHABLE();
+            return 0;
+        }
     }
 
     bool bdd_manager::is_bad_cost(double current_cost, double best_cost) const {
@@ -306,9 +353,11 @@ namespace sat {
 
     void bdd_manager::sift_up(unsigned lvl) {
         if (m_level2nodes[lvl].empty()) return;
+        // VERIFY(well_formed());
         // exchange level and level + 1.
         m_S.reset();
         m_T.reset();
+        m_to_free.reset();
         m_disable_gc = true;
 
         for (unsigned n : m_level2nodes[lvl + 1]) {
@@ -320,6 +369,8 @@ namespace sat {
                 m_S.push_back(n);
             }
             else {
+                reorder_decref(l);            
+                reorder_decref(h);            
                 m_T.push_back(n);
             }
             TRACE("bdd", tout << "remove " << n << "\n";);
@@ -331,14 +382,12 @@ namespace sat {
         for (unsigned n : m_level2nodes[lvl]) {
             bdd_node& node = m_nodes[n];
             m_node_table.remove(node);
-            if (m_max_parent[n] == lvl + 1 && node.m_refcount == 0) {
-                TRACE("bdd", tout << "free " << n << "\n";);
-                node.set_internal();
-                m_free_nodes.push_back(n);
+            node.m_level = lvl + 1;
+            if (m_reorder_rc[n] == 0) {
+                m_to_free.push_back(n);
             }
             else {
                 TRACE("bdd", tout << "set level " << n << " to " << lvl + 1 << "\n";);
-                node.m_level = lvl + 1;
                 m_node_table.insert(node);
                 m_level2nodes[lvl + 1].push_back(n);
             }
@@ -352,19 +401,18 @@ namespace sat {
         }
 
         for (unsigned n : m_T) {
-            TRACE("bdd", tout << "transform " << n << "\n";);
             BDD l = lo(n);
             BDD h = hi(n);
             if (l == 0 && h == 0) continue;
             BDD a, b, c, d;
-            if (level(l) == lvl) {
+            if (level(l) == lvl + 1) { 
                 a = lo(l);
                 b = hi(l);
             }
             else {
                 a = b = l;
             }
-            if (level(h) == lvl) {
+            if (level(h) == lvl + 1) { 
                 c = lo(h);
                 d = hi(h);
             }
@@ -375,15 +423,22 @@ namespace sat {
             unsigned ac = make_node(lvl, a, c);
             if (is_new_node()) {
                 m_level2nodes[lvl].push_back(ac);
-                m_max_parent.setx(ac, lvl + 1, 0);
+                m_reorder_rc.reserve(ac+1);
+                reorder_incref(a);
+                reorder_incref(c);
             }
             unsigned bd = make_node(lvl, b, d);
             if (is_new_node()) {
                 m_level2nodes[lvl].push_back(bd);
-                m_max_parent.setx(bd, lvl + 1, 0);
+                m_reorder_rc.reserve(bd+1);
+                reorder_incref(b);
+                reorder_incref(d);
             }
             m_nodes[n].m_lo = ac;
             m_nodes[n].m_hi = bd;
+            reorder_incref(ac);
+            reorder_incref(bd);
+            TRACE("bdd", tout << "transform " << n << " " << " " << a << " " << b << " " << c << " " << d << " " << ac << " " << bd << "\n";);
             m_node_table.insert(m_nodes[n]);
         }
         unsigned v = m_level2var[lvl];
@@ -391,6 +446,30 @@ namespace sat {
         std::swap(m_level2var[lvl], m_level2var[lvl+1]);
         std::swap(m_var2level[v], m_var2level[w]);
         m_disable_gc = false;
+
+        // add orphaned nodes to free-list
+        for (unsigned i = 0; i < m_to_free.size(); ++i) {
+            unsigned n = m_to_free[i];
+            bdd_node& node = m_nodes[n];
+            if (!node.is_internal()) {
+                VERIFY(!m_free_nodes.contains(n));
+                VERIFY(node.m_refcount == 0);
+                m_free_nodes.push_back(n);
+                m_node_table.remove(node);
+                BDD l = lo(n);
+                BDD h = hi(n);
+                node.set_internal();
+
+                reorder_decref(l);
+                if (!m_nodes[l].is_internal() && m_reorder_rc[l] == 0) {
+                    m_to_free.push_back(l);
+                }
+                reorder_decref(h);
+                if (!m_nodes[h].is_internal() && m_reorder_rc[h] == 0) {
+                    m_to_free.push_back(h);
+                }
+            }
+        }
         TRACE("bdd", tout << "sift " << lvl << "\n"; display(tout); );
         DEBUG_CODE(
             for (unsigned i = 0; i < m_level2nodes.size(); ++i) {
@@ -399,12 +478,24 @@ namespace sat {
                     SASSERT(node.m_level == i);
                 }
             });
+        
+        TRACE("bdd", 
+              for (unsigned i = 0; i < m_nodes.size(); ++i) {
+                if (m_reorder_rc[i] != 0) {
+                    tout << i << " " << m_reorder_rc[i] << "\n";
+                }});
+        
+        // VERIFY(well_formed());
     }
 
     void bdd_manager::init_reorder() {
         m_level2nodes.reset();
         unsigned sz = m_nodes.size();
-        m_max_parent.fill(sz, 0);
+        m_reorder_rc.fill(sz, 0);
+        for (unsigned i = 0; i < sz; ++i) {
+            if (m_nodes[i].m_refcount > 0) 
+                m_reorder_rc[i] = UINT_MAX;
+        }
         for (unsigned i = 0; i < sz; ++i) {
             bdd_node const& n = m_nodes[i];
             if (n.is_internal()) continue;
@@ -412,8 +503,8 @@ namespace sat {
             SASSERT(i == m_nodes[i].m_index);
             m_level2nodes.reserve(lvl + 1);
             m_level2nodes[lvl].push_back(i);
-            m_max_parent[n.m_lo] = std::max(m_max_parent[n.m_lo], lvl);
-            m_max_parent[n.m_hi] = std::max(m_max_parent[n.m_hi], lvl);
+            reorder_incref(n.m_lo);
+            reorder_incref(n.m_hi);
         }
         TRACE("bdd",
               display(tout);
@@ -421,9 +512,17 @@ namespace sat {
                   bdd_node const& n = m_nodes[i];
                   if (n.is_internal()) continue;
                   unsigned lvl = n.m_level;
-                  tout << "lvl: " << lvl << " parent: " << m_max_parent[i] << " lo " << n.m_lo << " hi " << n.m_hi << "\n";
+                  tout << i << " lvl: " << lvl << " rc: " << m_reorder_rc[i] << " lo " << n.m_lo << " hi " << n.m_hi << "\n";
               }
               );
+    }
+
+    void bdd_manager::reorder_incref(unsigned n) {
+        if (m_reorder_rc[n] != UINT_MAX) m_reorder_rc[n]++;
+    }
+
+    void bdd_manager::reorder_decref(unsigned n) {
+        if (m_reorder_rc[n] != UINT_MAX) m_reorder_rc[n]--;
     }
 
     void bdd_manager::reserve_var(unsigned i) {
@@ -455,9 +554,12 @@ namespace sat {
                 return bdd(mk_not_rec(b.root), this);
             }
             catch (mem_out) {
+                throw;
+#if 0
                 try_reorder();
                 if (!first) throw;
                 first = false;
+#endif
             }
         }
     }
@@ -532,12 +634,13 @@ namespace sat {
         push(mk_ite_rec(a1, b1, c1));
         push(mk_ite_rec(a2, b2, c2));
         r = make_node(lvl, read(2), read(1));
-        pop(2);                   
+        pop(2);          
         e1->m_result = r;
         return r;
     }
 
     bdd bdd_manager::mk_exists(unsigned n, unsigned const* vars, bdd const& b) {
+        // VERIFY(well_formed());
         return bdd(mk_quant(n, vars, b.root, bdd_or_op), this);
     }
 
@@ -570,9 +673,11 @@ namespace sat {
             bdd_op q_op = op == bdd_and_op ? bdd_and_proj_op : bdd_or_proj_op;
             op_entry * e1 = pop_entry(a, b, q_op);
             op_entry const* e2 = m_op_cache.insert_if_not_there(e1);
-            if (check_result(e1, e2, a, b, q_op)) 
+            if (check_result(e1, e2, a, b, q_op)) {
                 r = e2->m_result;
+            }
             else {
+                VERIFY(e1->m_result == -1);
                 push(mk_quant_rec(l, lo(b), op));
                 push(mk_quant_rec(l, hi(b), op));
                 r = make_node(lvl, read(2), read(1));
@@ -580,26 +685,29 @@ namespace sat {
                 e1->m_result = r;
             }
         }
+        VERIFY(r != UINT_MAX);
         return r;
     }
 
-    double bdd_manager::count(bdd const& b, unsigned z) {
+    double bdd_manager::count(BDD b, unsigned z) {
         init_mark();
         m_count.resize(m_nodes.size());
         m_count[0] = z;
         m_count[1] = 1-z;
         set_mark(0);
         set_mark(1);
-        m_todo.push_back(b.root);
+        m_todo.push_back(b);
         while (!m_todo.empty()) {
             BDD r = m_todo.back();
             if (is_marked(r)) {
                 m_todo.pop_back();
             }
             else if (!is_marked(lo(r))) {
+                VERIFY (is_const(r) || r != lo(r));
                 m_todo.push_back(lo(r));
             }
             else if (!is_marked(hi(r))) {
+                VERIFY (is_const(r) || r != hi(r));
                 m_todo.push_back(hi(r));
             }
             else {
@@ -608,7 +716,7 @@ namespace sat {
                 m_todo.pop_back();
             }
         }
-        return m_count[b.root];
+        return m_count[b];
     }
 
     unsigned bdd_manager::bdd_size(bdd const& b) {
@@ -644,8 +752,8 @@ namespace sat {
     }
 
     void bdd_manager::gc() {
+        m_free_nodes.reset();
         IF_VERBOSE(3, verbose_stream() << "(bdd :gc " << m_nodes.size() << ")\n";);
-        SASSERT(m_free_nodes.empty());
         svector<bool> reachable(m_nodes.size(), false);
         for (unsigned i = m_bdd_stack.size(); i-- > 0; ) {
             reachable[m_bdd_stack[i]] = true;
@@ -674,6 +782,7 @@ namespace sat {
         for (unsigned i = m_nodes.size(); i-- > 2; ) {
             if (!reachable[i]) {
                 m_nodes[i].set_internal();
+                VERIFY(m_nodes[i].m_refcount == 0);
                 m_free_nodes.push_back(i);                
             }
         }
@@ -681,10 +790,25 @@ namespace sat {
         std::sort(m_free_nodes.begin(), m_free_nodes.end());
         m_free_nodes.reverse();
 
-        for (auto* e : m_op_cache) {
-            m_alloc.deallocate(sizeof(*e), e);
+        ptr_vector<op_entry> to_delete, to_keep;
+        for (auto* e : m_op_cache) {            
+            // std::cout << "check: " << e << "\n";
+            if (!reachable[e->m_bdd1] || !reachable[e->m_bdd2] || !reachable[e->m_op] || (e->m_result != -1 && !reachable[e->m_result])) {
+                to_delete.push_back(e);
+            }
+            else {
+                to_keep.push_back(e);
+            }
         }
         m_op_cache.reset();
+        for (op_entry* e : to_delete) {
+            // std::cout << "erase: " << e << "\n";
+            m_alloc.deallocate(sizeof(*e), e);
+        }
+        for (op_entry* e : to_keep) {
+            m_op_cache.insert(e);
+        }
+
         m_node_table.reset();
         // re-populate node cache
         for (unsigned i = m_nodes.size(); i-- > 2; ) {
@@ -693,6 +817,7 @@ namespace sat {
                 m_node_table.insert(m_nodes[i]);
             }
         }
+        SASSERT(well_formed());
     }
 
     void bdd_manager::init_mark() {
@@ -707,6 +832,7 @@ namespace sat {
     std::ostream& bdd_manager::display(std::ostream& out, bdd const& b) {
         init_mark();
         m_todo.push_back(b.root);
+        m_reorder_rc.reserve(m_nodes.size());
         while (!m_todo.empty()) {
             BDD r = m_todo.back();
             if (is_marked(r)) {
@@ -723,7 +849,7 @@ namespace sat {
                 m_todo.push_back(hi(r));
             }
             else {
-                out << r << " : " << var(r) << " " << lo(r) << " " << hi(r) << "\n";
+                out << r << " : " << var(r) << " @ " << level(r) << " " << lo(r) << " " << hi(r) << " " << m_reorder_rc[r] << "\n";
                 set_mark(r);
                 m_todo.pop_back();
             }
@@ -731,30 +857,52 @@ namespace sat {
         return out;
     }
 
-    void bdd_manager::well_formed() {
+    bool bdd_manager::well_formed() {
         for (unsigned n : m_free_nodes) {
-            VERIFY(lo(n) == 0 && hi(n) == 0 && m_nodes[n].m_refcount == 0);
+            if (!(lo(n) == 0 && hi(n) == 0 && m_nodes[n].m_refcount == 0)) {
+                std::cout << "free node is not internal " << n << " " << lo(n) << " " << hi(n) << " " << m_nodes[n].m_refcount << "\n";
+                display(std::cout);
+                UNREACHABLE();
+            }
         }
         for (bdd_node const& n : m_nodes) {
             if (n.is_internal()) continue;
             unsigned lvl = n.m_level;
             BDD lo = n.m_lo;
             BDD hi = n.m_hi;
+            if (!is_const(lo) && level(lo) >= lvl) {
+                std::cout << n.m_index << " lo: " << lo << "\n";
+                display(std::cout);
+            }
             VERIFY(is_const(lo) || level(lo) < lvl);
+            if (!is_const(hi) && level(hi) >= lvl) {
+                std::cout << n.m_index << " hi: " << hi << "\n";
+                display(std::cout);
+            }
             VERIFY(is_const(hi) || level(hi) < lvl);
+            if (!is_const(lo) && m_nodes[lo].is_internal()) {
+                std::cout << n.m_index << " lo: " << lo << "\n";
+                display(std::cout);
+            }
+            if (!is_const(hi) && m_nodes[hi].is_internal()) {
+                std::cout << n.m_index << " hi: " << hi << "\n";
+                display(std::cout);
+            }
+            VERIFY(is_const(lo) || !m_nodes[lo].is_internal());
+            VERIFY(is_const(hi) || !m_nodes[hi].is_internal());
         }
+        return true;
     }
 
     std::ostream& bdd_manager::display(std::ostream& out) {
+        m_reorder_rc.reserve(m_nodes.size());
         for (unsigned i = 0; i < m_nodes.size(); ++i) {
             bdd_node const& n = m_nodes[i];
             if (n.is_internal()) continue;
-            out << i << " : " << m_level2var[n.m_level] << " " << n.m_lo << " " << n.m_hi << "\n";
+            out << i << " : v" << m_level2var[n.m_level] << " " << n.m_lo << " " << n.m_hi << " rc " << m_reorder_rc[i] << "\n";
         }
         for (unsigned i = 0; i < m_level2nodes.size(); ++i) {
-            out << i << " : ";
-            for (unsigned l : m_level2nodes[i]) out << l << " ";
-            out << "\n";
+            out << "level: " << i << " : " << m_level2nodes[i] << "\n";
         }
         return out;
     }

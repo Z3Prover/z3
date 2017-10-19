@@ -26,6 +26,7 @@ namespace sat{
     elim_vars::elim_vars(simplifier& s) : simp(s), s(s.s), m(20) {
         m_mark_lim = 0;
         m_max_literals = 11; 
+        m_miss = 0;
     }
 
     bool elim_vars::operator()(bool_var v) {
@@ -57,10 +58,11 @@ namespace sat{
         double sz1 = b1.cnf_size();
         if (sz1 > 2*clause_size) {
             return false;
-        }
+        }        
         if (sz1 <= clause_size) {
             return elim_var(v, b1);
         }
+        
         m_vars.reverse();
         bdd b2 = elim_var(v);
         double sz2 = b2.cnf_size();
@@ -73,6 +75,11 @@ namespace sat{
         if (sz3 <= clause_size) {
             return elim_var(v, b3);
         }
+#if 0
+        m.try_cnf_reorder(b3);
+        sz3 = b3.cnf_size();
+        if (sz3 <= clause_size) ++m_miss;
+#endif
         return false;
     }
 
