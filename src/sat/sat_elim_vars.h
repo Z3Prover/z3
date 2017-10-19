@@ -41,6 +41,8 @@ namespace sat {
         unsigned_vector   m_var2index;
         unsigned_vector   m_occ;
         unsigned          m_miss;
+        unsigned          m_hit1;
+        unsigned          m_hit2;
 
         unsigned m_max_literals;
 
@@ -62,7 +64,9 @@ namespace sat {
     public:
         elim_vars(simplifier& s);
         bool operator()(bool_var v);
-        unsigned miss() const { return m_miss; }
+        unsigned hit2() const { return m_hit1; } // first round bdd construction is minimal
+        unsigned hit1() const { return m_hit2; } // minimal after reshufling
+        unsigned miss() const { return m_miss; } // not-minimal
     };
 
 };

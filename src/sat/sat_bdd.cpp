@@ -19,6 +19,7 @@ Revision History:
 
 #include "sat/sat_bdd.h"
 #include "util/trace.h"
+#include "util/stopwatch.h"
 
 namespace sat {
 
@@ -60,7 +61,7 @@ namespace sat {
             m_alloc.deallocate(sizeof(*m_spare_entry), m_spare_entry);
         }
         for (auto* e : m_op_cache) {
-            VERIFY(e != m_spare_entry);
+            SASSERT(e != m_spare_entry);
             m_alloc.deallocate(sizeof(*e), e);
         }
     }
@@ -87,12 +88,9 @@ namespace sat {
                 return apply_rec(arg1, arg2, op);
             }
             catch (mem_out) {
-                throw;
-#if 0
                 try_reorder();
                 if (!first) throw;
                 first = false;
-#endif
             }
         }
         SASSERT(well_formed());
@@ -109,9 +107,8 @@ namespace sat {
 
 
     bool bdd_manager::check_result(op_entry*& e1, op_entry const* e2, BDD a, BDD b, BDD c) {
-        // std::cout << a << " " << b << " " << c << " " << e1 << " " << e2 << "\n";
         if (e1 != e2) {
-            VERIFY(e2->m_result != -1);
+            SASSERT(e2->m_result != -1);
             push_entry(e1);
             e1 = nullptr;
             return true;            
@@ -120,7 +117,7 @@ namespace sat {
             e1->m_bdd1 = a;
             e1->m_bdd2 = b;
             e1->m_op = c;
-            VERIFY(e1->m_result == -1);
+            SASSERT(e1->m_result == -1);
             return false;        
         }
     }
@@ -157,7 +154,7 @@ namespace sat {
             SASSERT(!m_free_nodes.contains(e2->m_result));
             return e2->m_result;
         }
-        // VERIFY(well_formed());
+        // SASSERT(well_formed());
         BDD r;
         if (level(a) == level(b)) {
             push(apply_rec(lo(a), lo(b), op));
@@ -176,7 +173,7 @@ namespace sat {
         }
         pop(2);
         e1->m_result = r;
-        // VERIFY(well_formed());
+        // SASSERT(well_formed());
         SASSERT(!m_free_nodes.contains(r));
         return r;
     }
@@ -205,7 +202,6 @@ namespace sat {
         else {
             void * mem = m_alloc.allocate(sizeof(op_entry));
             result = new (mem) op_entry(l, r, op);
-            // std::cout << "alloc: " << result << "\n";
         }
         result->m_result = -1;
         return result;
@@ -221,11 +217,8 @@ namespace sat {
         if (l == h) {
             return l;
         }
-        if (!is_const(l) && level(l) >= lvl) {
-            display(std::cout << l << " level: " << level(l) << " lvl: " << lvl << "\n");
-        }
-        VERIFY(is_const(l) || level(l) < lvl);
-        VERIFY(is_const(h) || level(h) < lvl);
+        SASSERT(is_const(l) || level(l) < lvl);
+        SASSERT(is_const(h) || level(h) < lvl);
 
         bdd_node n(lvl, l, h);
         node_table::entry* e = m_node_table.insert_if_not_there2(n);
@@ -353,7 +346,7 @@ namespace sat {
 
     void bdd_manager::sift_up(unsigned lvl) {
         if (m_level2nodes[lvl].empty()) return;
-        // VERIFY(well_formed());
+        // SASSERT(well_formed());
         // exchange level and level + 1.
         m_S.reset();
         m_T.reset();
@@ -452,8 +445,8 @@ namespace sat {
             unsigned n = m_to_free[i];
             bdd_node& node = m_nodes[n];
             if (!node.is_internal()) {
-                VERIFY(!m_free_nodes.contains(n));
-                VERIFY(node.m_refcount == 0);
+                SASSERT(!m_free_nodes.contains(n));
+                SASSERT(node.m_refcount == 0);
                 m_free_nodes.push_back(n);
                 m_node_table.remove(node);
                 BDD l = lo(n);
@@ -485,7 +478,7 @@ namespace sat {
                     tout << i << " " << m_reorder_rc[i] << "\n";
                 }});
         
-        // VERIFY(well_formed());
+        // SASSERT(well_formed());
     }
 
     void bdd_manager::init_reorder() {
@@ -554,12 +547,9 @@ namespace sat {
                 return bdd(mk_not_rec(b.root), this);
             }
             catch (mem_out) {
-                throw;
-#if 0
                 try_reorder();
                 if (!first) throw;
                 first = false;
-#endif
             }
         }
     }
@@ -640,7 +630,7 @@ namespace sat {
     }
 
     bdd bdd_manager::mk_exists(unsigned n, unsigned const* vars, bdd const& b) {
-        // VERIFY(well_formed());
+        // SASSERT(well_formed());
         return bdd(mk_quant(n, vars, b.root, bdd_or_op), this);
     }
 
@@ -677,7 +667,7 @@ namespace sat {
                 r = e2->m_result;
             }
             else {
-                VERIFY(e1->m_result == -1);
+                SASSERT(e1->m_result == -1);
                 push(mk_quant_rec(l, lo(b), op));
                 push(mk_quant_rec(l, hi(b), op));
                 r = make_node(lvl, read(2), read(1));
@@ -685,7 +675,7 @@ namespace sat {
                 e1->m_result = r;
             }
         }
-        VERIFY(r != UINT_MAX);
+        SASSERT(r != UINT_MAX);
         return r;
     }
 
@@ -703,11 +693,11 @@ namespace sat {
                 m_todo.pop_back();
             }
             else if (!is_marked(lo(r))) {
-                VERIFY (is_const(r) || r != lo(r));
+                SASSERT (is_const(r) || r != lo(r));
                 m_todo.push_back(lo(r));
             }
             else if (!is_marked(hi(r))) {
-                VERIFY (is_const(r) || r != hi(r));
+                SASSERT (is_const(r) || r != hi(r));
                 m_todo.push_back(hi(r));
             }
             else {
@@ -782,7 +772,7 @@ namespace sat {
         for (unsigned i = m_nodes.size(); i-- > 2; ) {
             if (!reachable[i]) {
                 m_nodes[i].set_internal();
-                VERIFY(m_nodes[i].m_refcount == 0);
+                SASSERT(m_nodes[i].m_refcount == 0);
                 m_free_nodes.push_back(i);                
             }
         }
@@ -792,8 +782,7 @@ namespace sat {
 
         ptr_vector<op_entry> to_delete, to_keep;
         for (auto* e : m_op_cache) {            
-            // std::cout << "check: " << e << "\n";
-            if (!reachable[e->m_bdd1] || !reachable[e->m_bdd2] || !reachable[e->m_op] || (e->m_result != -1 && !reachable[e->m_result])) {
+            if (e->m_result != -1) {
                 to_delete.push_back(e);
             }
             else {
@@ -802,7 +791,6 @@ namespace sat {
         }
         m_op_cache.reset();
         for (op_entry* e : to_delete) {
-            // std::cout << "erase: " << e << "\n";
             m_alloc.deallocate(sizeof(*e), e);
         }
         for (op_entry* e : to_keep) {
@@ -858,11 +846,15 @@ namespace sat {
     }
 
     bool bdd_manager::well_formed() {
+        bool ok = true;
         for (unsigned n : m_free_nodes) {
-            if (!(lo(n) == 0 && hi(n) == 0 && m_nodes[n].m_refcount == 0)) {
-                std::cout << "free node is not internal " << n << " " << lo(n) << " " << hi(n) << " " << m_nodes[n].m_refcount << "\n";
-                display(std::cout);
+            ok &= (lo(n) == 0 && hi(n) == 0 && m_nodes[n].m_refcount == 0);
+            if (!ok) {
+                IF_VERBOSE(0, 
+                           verbose_stream() << "free node is not internal " << n << " " << lo(n) << " " << hi(n) << " " << m_nodes[n].m_refcount << "\n";
+                           display(verbose_stream()););
                 UNREACHABLE();
+                return false;
             }
         }
         for (bdd_node const& n : m_nodes) {
@@ -870,28 +862,17 @@ namespace sat {
             unsigned lvl = n.m_level;
             BDD lo = n.m_lo;
             BDD hi = n.m_hi;
-            if (!is_const(lo) && level(lo) >= lvl) {
-                std::cout << n.m_index << " lo: " << lo << "\n";
-                display(std::cout);
+            ok &= is_const(lo) || level(lo) < lvl;
+            ok &= is_const(hi) || level(hi) < lvl;
+            ok &= is_const(lo) || !m_nodes[lo].is_internal();
+            ok &= is_const(hi) || !m_nodes[hi].is_internal();
+            if (!ok) {
+                IF_VERBOSE(0, display(verbose_stream() << n.m_index << " lo " << lo << " hi " << hi << "\n"););
+                UNREACHABLE();
+                return false;
             }
-            VERIFY(is_const(lo) || level(lo) < lvl);
-            if (!is_const(hi) && level(hi) >= lvl) {
-                std::cout << n.m_index << " hi: " << hi << "\n";
-                display(std::cout);
-            }
-            VERIFY(is_const(hi) || level(hi) < lvl);
-            if (!is_const(lo) && m_nodes[lo].is_internal()) {
-                std::cout << n.m_index << " lo: " << lo << "\n";
-                display(std::cout);
-            }
-            if (!is_const(hi) && m_nodes[hi].is_internal()) {
-                std::cout << n.m_index << " hi: " << hi << "\n";
-                display(std::cout);
-            }
-            VERIFY(is_const(lo) || !m_nodes[lo].is_internal());
-            VERIFY(is_const(hi) || !m_nodes[hi].is_internal());
         }
-        return true;
+        return ok;
     }
 
     std::ostream& bdd_manager::display(std::ostream& out) {
