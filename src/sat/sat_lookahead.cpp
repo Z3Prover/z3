@@ -1622,7 +1622,7 @@ namespace sat {
         }
         SASSERT(m_qhead == m_trail.size() || (inconsistent() && m_qhead < m_trail.size()));
         //SASSERT(!missed_conflict());
-        VERIFY(!missed_propagation());
+        //VERIFY(!missed_propagation());
         TRACE("sat_verbose", display(tout << scope_lvl() << " " << (inconsistent()?"unsat":"sat") << "\n"););
     }
 
