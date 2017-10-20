@@ -340,6 +340,13 @@ namespace sat {
     }
 
     bool lookahead::is_unsat() const {
+        for (unsigned idx = 0; idx < m_binary.size(); ++idx) {
+            literal l = to_literal(idx);
+            for (literal lit : m_binary[idx]) {
+                if (is_true(l) && is_false(lit))
+                    return true;
+            }
+        }
         // check if there is a clause whose literals are false.
         // every clause is terminated by a null-literal.
         for (nary* n : m_nary_clauses) {
@@ -432,8 +439,21 @@ namespace sat {
 
     bool lookahead::missed_conflict() const {
         if (inconsistent()) return false;
+        for (literal l1 : m_trail) {
+            for (literal l2 : m_binary[l1.index()]) {
+                if (is_false(l2))
+                    return true;
+            }
+            unsigned sz = m_ternary_count[(~l1).index()];
+            for (binary b : m_ternary[(~l1).index()]) {
+                if (sz-- == 0) break;
+                if ((is_false(b.m_u) && is_false(b.m_v)))
+                    return true;
+            }
+        }
         for (nary * n : m_nary_clauses) {
-            if (n->size() == 0) return true;
+            if (n->size() == 0)
+                return true;
         }
         return false;
     }
@@ -1144,18 +1164,6 @@ namespace sat {
         SASSERT(m_trail_lim.empty() || m_trail.size() >= m_trail_lim.back());
     }
 
-    void lookahead::promote(unsigned base) {
-        if (m_trail.empty()) return;
-        unsigned last_lvl = get_level(m_trail.back());
-        base -= last_lvl;
-        for (unsigned i = m_trail.size(); i > 0; ) {
-            literal lit = m_trail[--i];
-            if (is_fixed_at(lit, c_fixed_truth)) break;
-            SASSERT(is_fixed_at(lit, last_lvl));
-            m_stamp[lit.var()] += base;
-        }
-    }
-
     // 
     // The current version is modeled after CDCL SAT solving data-structures.
     // It borrows from the watch list data-structure. The cost tradeoffs are somewhat
@@ -1496,7 +1504,7 @@ namespace sat {
         sz = m_nary_count[l.index()];
         for (nary* n : m_nary[l.index()]) {
             if (sz-- == 0) break;
-            if (m_stamp[l.var()] > m_stamp[n->get_head().var()]) {
+            if (get_level(l) > get_level(n->get_head())) {
                 n->set_head(l);
             }
         }
@@ -1692,7 +1700,6 @@ namespace sat {
                     num_units += do_double(lit, dl_lvl);
                     if (dl_lvl > level) {
                         base = dl_lvl;
-                        promote(base + m_lookahead[i].m_offset);
                         SASSERT(get_level(m_trail.back()) == base + m_lookahead[i].m_offset);
                     }
                     unsat = inconsistent();
@@ -1881,15 +1888,13 @@ namespace sat {
         SASSERT(dl_no_overflow(base));
         base += m_lookahead.size();
         unsigned dl_truth = base + m_lookahead.size() * m_config.m_dl_max_iterations;
-        promote(dl_truth);
         scoped_level _sl(*this, dl_truth);
         SASSERT(get_level(m_trail.back()) == dl_truth);
         SASSERT(is_fixed(l));
         IF_VERBOSE(2, verbose_stream() << "double: " << l << " depth: " << m_trail_lim.size() << "\n";);
-        //lookahead_backtrack();
-        //assign(l);
-        //propagate();
-        //SASSERT(!inconsistent());
+        lookahead_backtrack();
+        assign(l);
+        propagate();
         unsigned old_sz = m_trail.size();
         bool change = true;
         literal last_changed = null_literal;
