@@ -248,7 +248,6 @@ namespace sat {
         inline void set_undef(literal l) { m_stamp[l.var()] = 0; }
         inline unsigned get_level(literal l) const { return m_stamp[l.var()] & UINT_MAX - 1; }
         void set_level(literal d, literal s) { m_stamp[d.var()] = (m_stamp[s.var()] & ~0x1) + d.sign(); }
-        unsigned get_level(literal d) const { return m_stamp[d.var()]; }
         lbool value(literal l) const { return is_undef(l) ? l_undef : is_true(l) ? l_true : l_false; }
         
         // set the level within a scope of the search.
