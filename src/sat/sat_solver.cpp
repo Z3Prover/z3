@@ -117,7 +117,7 @@ namespace sat {
             assign(src.m_trail[i], justification());
         }
 
-        // copy binary clauses
+        // copy binary clauses that are unblocked.
         {
             unsigned sz = src.m_watches.size();
             for (unsigned l_idx = 0; l_idx < sz; ++l_idx) {
@@ -125,7 +125,7 @@ namespace sat {
                 if (src.was_eliminated(l.var())) continue;
                 watch_list const & wlist = src.m_watches[l_idx];
                 for (auto & wi : wlist) {
-                    if (!wi.is_binary_non_learned_clause())
+                    if (!wi.is_binary_unblocked_clause())
                         continue;
                     literal l2 = wi.get_literal();
                     if (l.index() > l2.index() ||
@@ -142,7 +142,10 @@ namespace sat {
             for (clause* c : src.m_clauses) {
                 buffer.reset();
                 for (literal l : *c) buffer.push_back(l);
-                mk_clause_core(buffer);
+                clause* c1 = mk_clause_core(buffer);
+                if (c1 && c->is_blocked()) {
+                    c1->block();
+                }
             }
             // copy high quality lemmas
             for (clause* c : src.m_learned) {
@@ -1558,8 +1561,8 @@ namespace sat {
         m_mc(m_model);
         TRACE("sat", for (bool_var v = 0; v < num; v++) tout << v << ": " << m_model[v] << "\n";);
 
-#ifndef _EXTERNAL_RELEASE
-        IF_VERBOSE(SAT_VB_LVL, verbose_stream() << "\"checking model\"\n";);
+// #ifndef _EXTERNAL_RELEASE
+        IF_VERBOSE(1, verbose_stream() << "\"checking model\"\n";);
         if (!check_model(m_model))
             throw solver_exception("check model failed");
 
@@ -1568,7 +1571,7 @@ namespace sat {
             if (!m_clone->check_model(m_model))
                 throw solver_exception("check model failed (for cloned solver)");
         }
-#endif
+// #endif
     }
 
     bool solver::check_model(model const & m) const {
@@ -3124,17 +3127,14 @@ namespace sat {
         for (unsigned l_idx = 0; l_idx < sz; l_idx++) {
             literal l = to_literal(l_idx);
             l.neg();
-            watch_list const & wlist = m_watches[l_idx];
-            watch_list::const_iterator it  = wlist.begin();
-            watch_list::const_iterator end = wlist.end();
-            for (; it != end; ++it) {
-                if (!it->is_binary_clause())
+            for (watched const& w : m_watches[l_idx]) {
+                if (!w.is_binary_clause())
                     continue;
-                if (!learned && it->is_learned())
+                if (!learned && w.is_learned())
                     continue;
-                else if (learned && learned_only && !it->is_learned()) 
+                else if (learned && learned_only && !w.is_learned()) 
                     continue;
-                literal l2 = it->get_literal();
+                literal l2 = w.get_literal();
                 if (l.index() > l2.index())
                     continue;
                 TRACE("cleanup_bug", tout << "collected: " << l << " " << l2 << "\n";);
@@ -3168,13 +3168,10 @@ namespace sat {
         for (unsigned l_idx = 0; l_idx < sz; l_idx++) {
             literal l = to_literal(l_idx);
             l.neg();
-            watch_list const & wlist = m_watches[l_idx];
-            watch_list::const_iterator it  = wlist.begin();
-            watch_list::const_iterator end = wlist.end();
-            for (; it != end; ++it) {
-                if (!it->is_binary_clause())
+            for (watched const& w : m_watches[l_idx]) {
+                if (!w.is_binary_clause())
                     continue;
-                literal l2 = it->get_literal();
+                literal l2 = w.get_literal();
                 if (l.index() > l2.index())
                     continue;
                 out << "(" << l << " " << l2 << ")\n";

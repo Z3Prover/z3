@@ -40,6 +40,8 @@ namespace sat {
     public:
         void init(unsigned num_vars);
         void insert(clause & c);
+        void block(clause & c);
+        void unblock(clause & c);
         void erase(clause & c);
         void erase(clause & c, literal l);
         clause_use_list & get(literal l) { return m_use_list[l.index()]; }
@@ -69,6 +71,7 @@ namespace sat {
         int                    m_elim_counter;
 
         // config
+        bool                   m_elim_covered_clauses;
         bool                   m_elim_blocked_clauses;
         unsigned               m_elim_blocked_clauses_at;
         unsigned               m_blocked_clause_limit;
@@ -87,6 +90,7 @@ namespace sat {
         bool                   m_subsumption;
         unsigned               m_subsumption_limit;
         bool                   m_elim_vars;
+        bool                   m_elim_vars_bdd;
 
         // stats
         unsigned               m_num_blocked_clauses;
@@ -119,6 +123,8 @@ namespace sat {
         void remove_clause_core(clause & c);
         void remove_clause(clause & c);
         void remove_clause(clause & c, literal l);
+        void block_clause(clause & c);
+        void unblock_clause(clause & c);
         void remove_bin_clause_half(literal l1, literal l2, bool learned);
 
         bool_var get_min_occ_var(clause const & c) const;
@@ -157,10 +163,10 @@ namespace sat {
         struct blocked_clause_elim;
         void elim_blocked_clauses();
 
-        unsigned get_num_non_learned_bin(literal l) const;
+        unsigned get_num_unblocked_bin(literal l) const;
         unsigned get_to_elim_cost(bool_var v) const;
         void order_vars_for_elim(bool_var_vector & r);
-        void collect_clauses(literal l, clause_wrapper_vector & r);
+        void collect_clauses(literal l, clause_wrapper_vector & r, bool include_blocked);
         clause_wrapper_vector m_pos_cls;
         clause_wrapper_vector m_neg_cls;
         literal_vector m_new_cls;

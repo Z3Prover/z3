@@ -50,7 +50,7 @@ namespace sat {
             SASSERT(is_binary_clause());
             SASSERT(get_literal() == l);
             SASSERT(is_learned() == learned);
-            SASSERT(learned || is_binary_non_learned_clause());
+            SASSERT(learned || is_binary_unblocked_clause());
         }
 
         watched(literal l1, literal l2) {
@@ -85,8 +85,15 @@ namespace sat {
         literal get_literal() const { SASSERT(is_binary_clause()); return to_literal(static_cast<unsigned>(m_val1)); }
         void set_literal(literal l) { SASSERT(is_binary_clause()); m_val1 = l.to_uint(); }
         bool is_learned() const { SASSERT(is_binary_clause()); return (m_val2 >> 2) == 1; }
-        bool is_binary_non_learned_clause() const { return m_val2 == 0; }
+
+        bool is_binary_unblocked_clause() const { return m_val2 == 0; }
+        bool is_binary_learned_clause() const { return is_binary_clause() && is_learned(); }
+        bool is_binary_non_learned_clause2() const { return is_binary_clause() && !is_learned(); }
+
         void mark_not_learned() { SASSERT(is_learned()); m_val2 = static_cast<unsigned>(BINARY); SASSERT(!is_learned()); }
+        void set_blocked() { SASSERT(is_binary_clause()); SASSERT(!is_learned()); m_val2 |= (1 << 3); }
+        bool is_blocked() const { SASSERT(is_binary_clause()); return 0 != (m_val2 & (1 << 3)); }
+        void set_unblocked() { SASSERT(is_binary_clause()); SASSERT(is_blocked()); m_val2 &= ~(1u << 3u); }
         
         bool is_ternary_clause() const { return get_kind() == TERNARY; }
         literal get_literal1() const { SASSERT(is_ternary_clause()); return to_literal(static_cast<unsigned>(m_val1)); }

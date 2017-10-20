@@ -2761,8 +2761,8 @@ namespace sat {
         }
     }
 
-    unsigned ba_solver::get_num_non_learned_bin(literal l) {
-        return s().m_simplifier.get_num_non_learned_bin(l);
+    unsigned ba_solver::get_num_unblocked_bin(literal l) {
+        return s().m_simplifier.get_num_unblocked_bin(l);
     }
 
     /*
@@ -2831,8 +2831,8 @@ namespace sat {
                     value(lit) == l_undef && 
                     use_count(lit) == 1 &&
                     use_count(~lit) == 1 &&
-                    get_num_non_learned_bin(lit) == 0 && 
-                    get_num_non_learned_bin(~lit) == 0) {
+                    get_num_unblocked_bin(lit) == 0 && 
+                    get_num_unblocked_bin(~lit) == 0) {
                     remove_constraint(c, "unused def");
                 }
                 break;
@@ -2876,7 +2876,7 @@ namespace sat {
 
     bool ba_solver::elim_pure(literal lit) {
         if (value(lit) == l_undef && !m_cnstr_use_list[lit.index()].empty() && 
-            use_count(~lit) == 0 && get_num_non_learned_bin(~lit) == 0) {
+            use_count(~lit) == 0 && get_num_unblocked_bin(~lit) == 0) {
             IF_VERBOSE(10, verbose_stream() << "pure literal: " << lit << "\n";);
             s().assign(lit, justification());
             return true;
@@ -3163,8 +3163,11 @@ namespace sat {
             if (w.is_binary_clause() && is_marked(w.get_literal())) {
                 ++m_stats.m_num_bin_subsumes;
                 // IF_VERBOSE(10, verbose_stream() << c1 << " subsumes (" << lit << " " << w.get_literal() << ")\n";);
-                if (!w.is_binary_non_learned_clause()) {
+                if (w.is_learned()) {
                     c1.set_learned(false);
+                }
+                else if (w.is_blocked()) {
+                    w.set_unblocked();
                 }
             }
             else {

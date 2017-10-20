@@ -965,7 +965,7 @@ namespace sat {
             if (m_s.was_eliminated(l.var())) continue;
             watch_list const & wlist = m_s.m_watches[l_idx];
             for (auto& w : wlist) {
-                if (!w.is_binary_non_learned_clause())
+                if (!w.is_binary_clause())
                     continue;
                 literal l2 = w.get_literal();                    
                 if (l.index() < l2.index() && !m_s.was_eliminated(l2.var()))

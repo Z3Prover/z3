@@ -29,6 +29,7 @@ namespace sat {
         m_capacity(sz),
         m_removed(false),
         m_learned(learned),
+        m_blocked(false),
         m_used(false),
         m_frozen(false),
         m_reinit_stack(false),

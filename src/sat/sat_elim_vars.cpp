@@ -37,13 +37,13 @@ namespace sat{
 
         literal pos_l(v, false);
         literal neg_l(v, true);
-        unsigned num_bin_pos = simp.get_num_non_learned_bin(pos_l);
+        unsigned num_bin_pos = simp.get_num_unblocked_bin(pos_l);
         if (num_bin_pos > m_max_literals) return false;
-        unsigned num_bin_neg = simp.get_num_non_learned_bin(neg_l);
+        unsigned num_bin_neg = simp.get_num_unblocked_bin(neg_l);
         if (num_bin_neg > m_max_literals) return false;
         clause_use_list & pos_occs = simp.m_use_list.get(pos_l);
         clause_use_list & neg_occs = simp.m_use_list.get(neg_l);
-        unsigned clause_size = num_bin_pos + num_bin_neg + pos_occs.size() + neg_occs.size();
+        unsigned clause_size = num_bin_pos + num_bin_neg + pos_occs.non_blocked_size() + neg_occs.non_blocked_size();
         if (clause_size == 0) {
             return false;
         }
@@ -85,8 +85,8 @@ namespace sat{
         // eliminate variable
         simp.m_pos_cls.reset();
         simp.m_neg_cls.reset();
-        simp.collect_clauses(pos_l, simp.m_pos_cls);
-        simp.collect_clauses(neg_l, simp.m_neg_cls);
+        simp.collect_clauses(pos_l, simp.m_pos_cls, false);
+        simp.collect_clauses(neg_l, simp.m_neg_cls, false);
         model_converter::entry & mc_entry = s.m_mc.mk(model_converter::ELIM_VAR, v);
         simp.save_clauses(mc_entry, simp.m_pos_cls);
         simp.save_clauses(mc_entry, simp.m_neg_cls);
@@ -122,13 +122,13 @@ namespace sat{
         TRACE("elim_vars",
               tout << "eliminate " << v << "\n";
               for (watched const& w : simp.get_wlist(~pos_l)) {
-                  if (w.is_binary_non_learned_clause()) {
+                  if (w.is_binary_unblocked_clause()) {
                       tout << pos_l << " " << w.get_literal() << "\n";
                   }
               }
               m.display(tout, b1);
               for (watched const& w : simp.get_wlist(~neg_l)) {
-                  if (w.is_binary_non_learned_clause()) {
+                  if (w.is_binary_unblocked_clause()) {
                       tout << neg_l << " " << w.get_literal() << "\n";
                   }
               }
@@ -294,7 +294,7 @@ namespace sat{
     bool elim_vars::mark_literals(literal lit) {
         watch_list& wl = simp.get_wlist(lit);
         for (watched const& w : wl) {
-            if (w.is_binary_non_learned_clause()) {
+            if (w.is_binary_unblocked_clause()) {
                 mark_var(w.get_literal().var());
             }
         }
@@ -306,6 +306,7 @@ namespace sat{
         clause_use_list::iterator it = occs.mk_iterator();
         while (!it.at_end()) {
             clause const& c = it.curr();
+            if (c.is_blocked()) continue;
             bdd cl = m.mk_false();
             for (literal l : c) {
                 cl |= mk_literal(l);
@@ -320,7 +321,7 @@ namespace sat{
         bdd result = m.mk_true();
         watch_list& wl = simp.get_wlist(~lit);
         for (watched const& w : wl) {
-            if (w.is_binary_non_learned_clause()) {
+            if (w.is_binary_unblocked_clause()) {
                 result &= (mk_literal(lit) || mk_literal(w.get_literal()));
             }
         }        

@@ -34,26 +34,29 @@ namespace sat {
     }
 
     void use_list::insert(clause & c) {
-        unsigned sz = c.size();
-        for (unsigned i = 0; i < sz; i++) {
-            m_use_list[c[i].index()].insert(c);
-        }
+        for (literal l : c) 
+            m_use_list[l.index()].insert(c);
     }
 
     void use_list::erase(clause & c) {
-        unsigned sz = c.size();
-        for (unsigned i = 0; i < sz; i++) {
-            m_use_list[c[i].index()].erase(c);
-        }
+        for (literal l : c) 
+            m_use_list[l.index()].erase(c);
     }
 
     void use_list::erase(clause & c, literal l) {
-        unsigned sz = c.size();
-        for (unsigned i = 0; i < sz; i++) {
-            literal l2 = c[i];
+        for (literal l2 : c) 
             if (l2 != l)
                 m_use_list[l2.index()].erase(c);
-        }
+    }
+
+    void use_list::block(clause& c) {
+        for (literal l : c) 
+            m_use_list[l.index()].block(c);
+    }
+
+    void use_list::unblock(clause& c) {
+        for (literal l : c) 
+            m_use_list[l.index()].unblock(c);
     }
 
     simplifier::simplifier(solver & _s, params_ref const & p):
@@ -99,9 +102,8 @@ namespace sat {
     }
 
     inline void simplifier::remove_clause_core(clause & c) {
-        unsigned sz = c.size();
-        for (unsigned i = 0; i < sz; i++)
-            insert_elim_todo(c[i].var());
+        for (literal l : c) 
+            insert_elim_todo(l.var());
         m_sub_todo.erase(c);
         c.set_removed(true);
         TRACE("resolution_bug", tout << "del_clause: " << c << "\n";);
@@ -116,6 +118,20 @@ namespace sat {
     inline void simplifier::remove_clause(clause & c, literal l) {
         remove_clause_core(c);
         m_use_list.erase(c, l);
+    }
+
+    inline void simplifier::block_clause(clause & c) {
+#if 1
+        remove_clause(c);
+#else
+        c.block();
+        m_use_list.block(c);
+#endif
+    }
+
+    inline void simplifier::unblock_clause(clause & c) {
+        c.unblock();
+        m_use_list.unblock(c);
     }
 
     inline void simplifier::remove_bin_clause_half(literal l1, literal l2, bool learned) {
@@ -238,10 +254,7 @@ namespace sat {
        \brief Eliminate all ternary and clause watches.
     */
     void simplifier::cleanup_watches() {
-        vector<watch_list>::iterator it  = s.m_watches.begin();
-        vector<watch_list>::iterator end = s.m_watches.end();
-        for (; it != end; ++it) {
-            watch_list & wlist = *it;
+        for (watch_list& wlist : s.m_watches) {
             watch_list::iterator it2    = wlist.begin();
             watch_list::iterator itprev = it2;
             watch_list::iterator end2   = wlist.end();
@@ -345,11 +358,9 @@ namespace sat {
        \brief Return the variable in c with the minimal number positive+negative occurrences.
     */
     bool_var simplifier::get_min_occ_var(clause const & c) const {
-        literal l_best = c[0];
-        unsigned best  = m_use_list.get(l_best).size() + m_use_list.get(~l_best).size();
-        unsigned sz = c.size();
-        for (unsigned i = 1; i < sz; i++) {
-            literal l = c[i];
+        literal l_best = null_literal;
+        unsigned best = UINT_MAX;
+        for (literal l : c) {
             unsigned num = m_use_list.get(l).size() + m_use_list.get(~l).size();
             if (num < best) {
                 l_best = l;
@@ -394,6 +405,7 @@ namespace sat {
     */
     void simplifier::collect_subsumed1_core(clause const & c1, clause_vector & out, literal_vector & out_lits,
                                             literal target) {
+        if (c1.is_blocked()) return;
         clause_use_list const & cs = m_use_list.get(target);
         clause_use_list::iterator it = cs.mk_iterator();
         while (!it.at_end()) {
@@ -424,7 +436,7 @@ namespace sat {
     }
 
     /**
-       \brief Perform backward subsumption and self-subsumption resolution using c.
+       \brief Perform backward subsumption and self-subsumption resolution using c1.
     */
     void simplifier::back_subsumption1(clause & c1) {
         m_bs_cs.reset();
@@ -440,11 +452,13 @@ namespace sat {
                 // c2 was subsumed
                 if (c1.is_learned() && !c2.is_learned())
                     c1.unset_learned();
+                else if (c1.is_blocked() && !c2.is_learned() && !c2.is_blocked()) 
+                    unblock_clause(c1);
                 TRACE("subsumption", tout << c1 << " subsumed " << c2 << "\n";);
                 remove_clause(c2);
                 m_num_subsumed++;
             }
-            else if (!c2.was_removed()) {
+            else if (!c2.was_removed() && !c1.is_blocked()) {
                 // subsumption resolution
                 TRACE("subsumption_resolution", tout << c1 << " sub-ref(" << *l_it << ") " << c2 << "\n";);
                 elim_lit(c2, *l_it);
@@ -466,11 +480,9 @@ namespace sat {
        \brief Return the literal in c with the minimal number of occurrences.
     */
     literal simplifier::get_min_occ_var0(clause const & c) const {
-        literal l_best = c[0];
-        unsigned best  = m_use_list.get(l_best).size();
-        unsigned sz = c.size();
-        for (unsigned i = 1; i < sz; i++) {
-            literal l = c[i];
+        literal l_best = null_literal;
+        unsigned best = UINT_MAX;
+        for (literal l : c) {
             unsigned num = m_use_list.get(l).size();
             if (num < best) {
                 l_best = l;
@@ -485,21 +497,19 @@ namespace sat {
        Otherwise return false
     */
     bool simplifier::subsumes0(clause const & c1, clause const & c2) {
-        unsigned sz2 = c2.size();
-        for (unsigned i = 0; i < sz2; i++)
-            mark_visited(c2[i]);
+        for (literal l : c2) 
+            mark_visited(l);
 
         bool r = true;
-        unsigned sz1 = c1.size();
-        for (unsigned i = 0; i < sz1; i++) {
-            if (!is_marked(c1[i])) {
+        for (literal l : c1) {
+            if (!is_marked(l)) {
                 r = false;
                 break;
             }
         }
 
-        for (unsigned i = 0; i < sz2; i++)
-            unmark_visited(c2[i]);
+        for (literal l : c2)
+            unmark_visited(l);
 
         return r;
     }
@@ -508,6 +518,7 @@ namespace sat {
        \brief Collect the clauses subsumed by c1 (using the occurrence list of target).
     */
     void simplifier::collect_subsumed0_core(clause const & c1, clause_vector & out, literal target) {
+        if (c1.is_blocked()) return;
         clause_use_list const & cs = m_use_list.get(target);
         clause_use_list::iterator it = cs.mk_iterator();
         while (!it.at_end()) {
@@ -540,10 +551,8 @@ namespace sat {
     void simplifier::back_subsumption0(clause & c1) {
         m_bs_cs.reset();
         collect_subsumed0(c1, m_bs_cs);
-        clause_vector::iterator it    = m_bs_cs.begin();
-        clause_vector::iterator end   = m_bs_cs.end();
-        for (; it != end; ++it) {
-            clause & c2 = *(*it);
+        for (clause* cp : m_bs_cs) {
+            clause & c2 = *cp;
             // c2 was subsumed
             if (c1.is_learned() && !c2.is_learned())
                 c1.unset_learned();
@@ -951,13 +960,17 @@ namespace sat {
             return !s.s.is_assumption(v) &&  !s.was_eliminated(v) && !s.is_external(v);
         }
 
-        void operator()(unsigned num_vars) {
+        void insert_queue(unsigned num_vars) {
             for (bool_var v = 0; v < num_vars; v++) {
                 if (process_var(v)) {
                     insert(literal(v, false));
                     insert(literal(v, true));
                 }
             }
+        }
+
+        void block_clauses(unsigned num_vars) {
+            insert_queue(num_vars);
             while (!m_queue.empty()) {
                 s.checkpoint();
                 if (m_counter < 0)
@@ -965,7 +978,73 @@ namespace sat {
                 literal l = m_queue.next();
                 process(l);
             }
-            cce();
+        }
+
+        void operator()(unsigned num_vars) {
+            block_clauses(num_vars);
+            if (s.m_elim_covered_clauses) 
+                cce();
+        }
+
+        void process(literal l) {
+            TRACE("blocked_clause", tout << "processing: " << l << "\n";);
+            model_converter::entry * new_entry = 0;
+            if (!process_var(l.var())) {
+                return;
+            }
+
+            literal blocked = null_literal;
+            m_to_remove.reset();
+            {
+                clause_use_list & occs = s.m_use_list.get(l);
+                clause_use_list::iterator it = occs.mk_iterator();
+                while (!it.at_end()) {
+                    clause & c = it.curr();
+                    if (c.is_blocked()) continue;
+                    m_counter -= c.size();
+                    SASSERT(c.contains(l));
+                    s.mark_all_but(c, l);
+                    if (all_tautology(l)) {
+                        block_clause(c, l, new_entry);
+                        s.m_num_blocked_clauses++;
+                    }
+                    s.unmark_all(c);
+                    it.next();
+                }
+            }
+            for (clause* c : m_to_remove) 
+                s.block_clause(*c);
+
+            {
+                watch_list & wlist = s.get_wlist(~l);
+                m_counter -= wlist.size();
+                watch_list::iterator it  = wlist.begin();
+                watch_list::iterator it2 = it;
+                watch_list::iterator end = wlist.end();
+                for (; it != end; ++it) {
+                    if (!it->is_binary_clause() || it->is_blocked()) {
+                        *it2 = *it;
+                        it2++;
+                        continue;
+                    }
+                    literal l2 = it->get_literal();
+                    s.mark_visited(l2);
+                    if (all_tautology(l)) {
+                        block_binary(it, l, new_entry);
+                        s.m_num_blocked_clauses++;
+                    }
+                    else if (s.m_elim_covered_clauses && cce(l, l2, blocked)) {
+                        block_covered_binary(it, l, blocked);
+                        s.m_num_covered_clauses++;
+                    }
+                    else {
+                        *it2 = *it;
+                        it2++;
+                    }
+                    s.unmark_visited(l2);
+                }
+                wlist.set_end(it2);
+            }
         }
 
         //
@@ -976,7 +1055,7 @@ namespace sat {
             if (!process_var(l.var())) return false;
             bool first = true;
             for (watched & w : s.get_wlist(l)) {
-                if (w.is_binary_non_learned_clause()) {
+                if (w.is_binary_unblocked_clause()) {
                     literal lit = w.get_literal();
                     if (s.is_marked(~lit) && lit != ~l) continue;
                     if (!first) {
@@ -992,6 +1071,7 @@ namespace sat {
             while (!it.at_end()) {
                 bool tautology = false;
                 clause & c = it.curr();
+                if (c.is_blocked()) continue;
                 for (literal lit : c) {
                     if (s.is_marked(~lit) && lit != ~l) {
                         tautology = true;
@@ -1007,16 +1087,9 @@ namespace sat {
                     }
                     else {
                         unsigned j = 0;
-                        unsigned sz = inter.size();
-                        for (unsigned i = 0; i < sz; ++i) {
-                            literal lit1 = inter[i];
-                            for (literal lit2 : c) {
-                                if (lit1 == lit2) {
-                                    inter[j++] = lit1;
-                                    break;
-                                }
-                            }
-                        }
+                        for (literal lit : inter) 
+                            if (c.contains(lit)) 
+                                inter[j++] = lit;
                         inter.shrink(j);
                         if (j == 0) return false;
                     }
@@ -1052,6 +1125,14 @@ namespace sat {
             }
         }
 
+
+        /*
+         *  C \/ l    ~l \/ lit \/ D_i   for i = 1...N all the clauses that have ~l
+         *  -------------------------
+         *      C \/ l \/ lit
+         *
+         *
+         */
         bool add_cla(literal& blocked) {
             for (unsigned i = 0; i < m_covered_clause.size(); ++i) {
                 m_intersection.reset();
@@ -1059,14 +1140,14 @@ namespace sat {
                     blocked = m_covered_clause[i];
                     return true;
                 }
+                if (!m_intersection.empty()) {
+                    m_elim_stack.push_back(std::make_pair(m_covered_clause.size(), m_covered_clause[i]));
+                }
                 for (literal l : m_intersection) {
                     if (!s.is_marked(l)) {
                         s.mark_visited(l);
                         m_covered_clause.push_back(l);
                     }
-                }
-                if (!m_intersection.empty()) {
-                    m_elim_stack.push_back(std::make_pair(m_covered_clause.size(), m_covered_clause[i]));
                 }
             }
             return false;
@@ -1085,14 +1166,18 @@ namespace sat {
                     is_tautology = add_cla(blocked);
                 }
                 while (m_covered_clause.size() > sz && !is_tautology);
+#if 1
                 break;
-                //if (is_tautology) break;
-                //sz = m_covered_clause.size();
-                // unsound? add_ala();
+#else
+                // check for soundness?
+                if (is_tautology) break;
+                sz = m_covered_clause.size();
+                add_ala();
+#endif
             }
             while (m_covered_clause.size() > sz);
             for (literal l : m_covered_clause) s.unmark_visited(l);
-            // if (is_tautology) std::cout << "taut: " << num_iterations << " " << m_covered_clause.size() << " " << m_elim_stack.size() << "\n";
+            if (is_tautology) std::cout << "taut: " << num_iterations << " " << m_covered_clause.size() << " " << m_elim_stack.size() << "\n";
             return is_tautology;
         }
 
@@ -1105,9 +1190,9 @@ namespace sat {
             return cla(blocked);
         }
 
-        bool cce(literal lit, literal l2, literal& blocked) {
+        bool cce(literal l1, literal l2, literal& blocked) {
             m_covered_clause.reset();
-            m_covered_clause.push_back(lit);
+            m_covered_clause.push_back(l1);
             m_covered_clause.push_back(l2);
             return cla(blocked);            
         }
@@ -1117,79 +1202,17 @@ namespace sat {
             literal blocked;
             for (clause* cp : s.s.m_clauses) {
                 clause& c = *cp;
-                if (c.was_removed()) continue;
-                if (cce(c, blocked)) {
-                    model_converter::entry * new_entry = 0;
-                    block_covered_clause(c, blocked, new_entry);
+                if (!c.was_removed() && !c.is_blocked() && cce(c, blocked)) {
+                    block_covered_clause(c, blocked);
                     s.m_num_covered_clauses++;                    
                 }
             }
             for (clause* c : m_to_remove) {
-                s.remove_clause(*c);
+                s.block_clause(*c);
             }
             m_to_remove.reset();
         }
 
-        void process(literal l) {
-            TRACE("blocked_clause", tout << "processing: " << l << "\n";);
-            model_converter::entry * new_entry = 0;
-            if (!process_var(l.var())) {
-                return;
-            }
-
-            literal blocked = null_literal;
-            m_to_remove.reset();
-            {
-                clause_use_list & occs = s.m_use_list.get(l);
-                clause_use_list::iterator it = occs.mk_iterator();
-                while (!it.at_end()) {
-                    clause & c = it.curr();
-                    m_counter -= c.size();
-                    SASSERT(c.contains(l));
-                    s.mark_all_but(c, l);
-                    if (all_tautology(l)) {
-                        block_clause(c, l, new_entry);
-                        s.m_num_blocked_clauses++;
-                    }
-                    s.unmark_all(c);
-                    it.next();
-                }
-            }
-            for (clause* c : m_to_remove) {
-                s.remove_clause(*c);
-            }
-            {
-                watch_list & wlist = s.get_wlist(~l);
-                m_counter -= wlist.size();
-                watch_list::iterator it  = wlist.begin();
-                watch_list::iterator it2 = it;
-                watch_list::iterator end = wlist.end();
-                for (; it != end; ++it) {
-                    if (!it->is_binary_clause()) {
-                        *it2 = *it;
-                        it2++;
-                        continue;
-                    }
-                    literal l2 = it->get_literal();
-                    s.mark_visited(l2);
-                    if (all_tautology(l)) {
-                        block_binary(it, l, new_entry);
-                        s.m_num_blocked_clauses++;
-                    }
-                    else if (cce(l, l2, blocked)) {
-                        model_converter::entry * blocked_entry = 0;
-                        block_covered_binary(it, l, blocked, blocked_entry);
-                        s.m_num_covered_clauses++;
-                    }
-                    else {
-                        *it2 = *it;
-                        it2++;
-                    }
-                    s.unmark_visited(l2);
-                }
-                wlist.set_end(it2);
-            }
-        }
 
         void prepare_block_clause(clause& c, literal l, model_converter::entry*& new_entry) {
             TRACE("blocked_clause", tout << "new blocked clause: " << c << "\n";);
@@ -1208,7 +1231,8 @@ namespace sat {
             mc.insert(*new_entry, c);
         }
 
-        void block_covered_clause(clause& c, literal l, model_converter::entry *& new_entry) {
+        void block_covered_clause(clause& c, literal l) {
+            model_converter::entry * new_entry = 0;
             prepare_block_clause(c, l, new_entry);
             mc.insert(*new_entry, m_covered_clause, m_elim_stack);
         }
@@ -1227,7 +1251,8 @@ namespace sat {
             mc.insert(*new_entry, l, it->get_literal());
         }
 
-        void block_covered_binary(watch_list::iterator it, literal l, literal blocked, model_converter::entry *& new_entry) {
+        void block_covered_binary(watch_list::iterator it, literal l, literal blocked) {
+            model_converter::entry * new_entry = 0;
             prepare_block_binary(it, l, blocked, new_entry);
             mc.insert(*new_entry, m_covered_clause, m_elim_stack);
         }
@@ -1236,7 +1261,7 @@ namespace sat {
             watch_list & wlist = s.get_wlist(l);
             m_counter -= wlist.size();
             for (auto const& w : wlist) {
-                if (w.is_binary_non_learned_clause() && 
+                if (w.is_binary_unblocked_clause() && 
                     !s.is_marked(~w.get_literal()))
                     return false;
             }
@@ -1245,6 +1270,7 @@ namespace sat {
             clause_use_list::iterator it = neg_occs.mk_iterator();
             while (!it.at_end()) {
                 clause & c = it.curr();
+                if (c.is_blocked()) continue;
                 m_counter -= c.size();
                 unsigned sz = c.size();
                 unsigned i;
@@ -1300,11 +1326,11 @@ namespace sat {
         elim(s.num_vars());
     }
 
-    unsigned simplifier::get_num_non_learned_bin(literal l) const {
+    unsigned simplifier::get_num_unblocked_bin(literal l) const {
         unsigned r = 0;
         watch_list const & wlist = get_wlist(~l);
         for (auto & w : wlist) {
-            if (w.is_binary_non_learned_clause())
+            if (w.is_binary_unblocked_clause())
                 r++;
         }
         return r;
@@ -1315,8 +1341,8 @@ namespace sat {
         literal neg_l(v, true);
         unsigned num_pos = m_use_list.get(pos_l).size();
         unsigned num_neg = m_use_list.get(neg_l).size();
-        unsigned num_bin_pos = get_num_non_learned_bin(pos_l);
-        unsigned num_bin_neg = get_num_non_learned_bin(neg_l);
+        unsigned num_bin_pos = get_num_unblocked_bin(pos_l);
+        unsigned num_bin_neg = get_num_unblocked_bin(neg_l);
         unsigned cost = 2 * num_pos * num_neg + num_pos * num_bin_neg + num_neg * num_bin_pos;
         CTRACE("elim_vars_detail", cost == 0, tout << v << " num_pos: " << num_pos << " num_neg: " << num_neg << " num_bin_pos: " << num_bin_pos
                << " num_bin_neg: " << num_bin_neg << " cost: " << cost << "\n";);
@@ -1353,20 +1379,32 @@ namespace sat {
     /**
        \brief Collect clauses and binary clauses containing l.
     */
-    void simplifier::collect_clauses(literal l, clause_wrapper_vector & r) {
+    void simplifier::collect_clauses(literal l, clause_wrapper_vector & r, bool include_blocked) {
         clause_use_list const & cs = m_use_list.get(l);
         clause_use_list::iterator it = cs.mk_iterator();
         while (!it.at_end()) {
-            r.push_back(clause_wrapper(it.curr()));
-            SASSERT(r.back().size() == it.curr().size());
+            if (!it.curr().is_blocked() || include_blocked) {
+                r.push_back(clause_wrapper(it.curr()));
+                SASSERT(r.back().size() == it.curr().size());
+            }
             it.next();
         }
 
         watch_list & wlist = get_wlist(~l);
-        for (auto & w : wlist) {
-            if (w.is_binary_non_learned_clause()) {
-                r.push_back(clause_wrapper(l, w.get_literal()));
-                SASSERT(r.back().size() == 2);
+        if (include_blocked) {
+            for (auto & w : wlist) {
+                if (w.is_binary_non_learned_clause2()) {
+                    r.push_back(clause_wrapper(l, w.get_literal()));
+                    SASSERT(r.back().size() == 2);
+                }
+            }
+        }
+        else {
+            for (auto & w : wlist) {
+                if (w.is_binary_unblocked_clause()) {
+                    r.push_back(clause_wrapper(l, w.get_literal()));
+                    SASSERT(r.back().size() == 2);
+                }
             }
         }
     }
@@ -1503,12 +1541,12 @@ namespace sat {
 
         literal pos_l(v, false);
         literal neg_l(v, true);
-        unsigned num_bin_pos = get_num_non_learned_bin(pos_l);
-        unsigned num_bin_neg = get_num_non_learned_bin(neg_l);
+        unsigned num_bin_pos = get_num_unblocked_bin(pos_l);
+        unsigned num_bin_neg = get_num_unblocked_bin(neg_l);
         clause_use_list & pos_occs = m_use_list.get(pos_l);
         clause_use_list & neg_occs = m_use_list.get(neg_l);
-        unsigned num_pos = pos_occs.size() + num_bin_pos;
-        unsigned num_neg = neg_occs.size() + num_bin_neg;
+        unsigned num_pos = pos_occs.non_blocked_size() + num_bin_pos;
+        unsigned num_neg = neg_occs.non_blocked_size() + num_bin_neg;
 
         TRACE("resolution", tout << v << " num_pos: " << num_pos << " neg_pos: " << num_neg << "\n";);
 
@@ -1520,7 +1558,8 @@ namespace sat {
         {
             clause_use_list::iterator it = pos_occs.mk_iterator();
             while (!it.at_end()) {
-                before_lits += it.curr().size();
+                if (!it.curr().is_blocked())
+                    before_lits += it.curr().size();
                 it.next();
             }
         }
@@ -1528,7 +1567,8 @@ namespace sat {
         {
             clause_use_list::iterator it2 = neg_occs.mk_iterator();
             while (!it2.at_end()) {
-                before_lits += it2.curr().size();
+                if (!it2.curr().is_blocked())
+                    before_lits += it2.curr().size();
                 it2.next();
             }
         }
@@ -1546,8 +1586,8 @@ namespace sat {
 
         m_pos_cls.reset();
         m_neg_cls.reset();
-        collect_clauses(pos_l, m_pos_cls);
-        collect_clauses(neg_l, m_neg_cls);
+        collect_clauses(pos_l, m_pos_cls, false);
+        collect_clauses(neg_l, m_neg_cls, false);
 
 
         TRACE("resolution_detail", tout << "collecting number of after_clauses\n";);
@@ -1676,6 +1716,7 @@ namespace sat {
 
     void simplifier::updt_params(params_ref const & _p) {
         sat_simplifier_params p(_p);
+        m_elim_covered_clauses    = p.elim_covered_clauses();
         m_elim_blocked_clauses    = p.elim_blocked_clauses();
         m_elim_blocked_clauses_at = p.elim_blocked_clauses_at();
         m_blocked_clause_limit    = p.blocked_clause_limit();
@@ -1693,6 +1734,7 @@ namespace sat {
         m_subsumption             = p.subsumption();
         m_subsumption_limit       = p.subsumption_limit();
         m_elim_vars               = p.elim_vars();
+        m_elim_vars_bdd           = p.elim_vars_bdd();
     }
 
     void simplifier::collect_param_descrs(param_descrs & r) {

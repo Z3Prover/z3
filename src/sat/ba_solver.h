@@ -262,7 +262,7 @@ namespace sat {
         void mark_visited(literal l) { m_visited[l.index()] = true; }
         void unmark_visited(literal l) { m_visited[l.index()] = false; }
         bool is_marked(literal l) const { return m_visited[l.index()] != 0; }
-        unsigned get_num_non_learned_bin(literal l);
+        unsigned get_num_unblocked_bin(literal l);
         literal get_min_occurrence_literal(card const& c);
         void init_use_lists();
         void remove_unused_defs();

@@ -220,8 +220,8 @@ namespace sat {
     protected:
         void del_clause(clause & c);
         clause * mk_clause_core(unsigned num_lits, literal * lits, bool learned);
-        void mk_clause_core(literal_vector const& lits) { mk_clause_core(lits.size(), lits.c_ptr()); }
-        void mk_clause_core(unsigned num_lits, literal * lits) { mk_clause_core(num_lits, lits, false); }
+        clause * mk_clause_core(literal_vector const& lits) { return mk_clause_core(lits.size(), lits.c_ptr()); }
+        clause * mk_clause_core(unsigned num_lits, literal * lits) { return mk_clause_core(num_lits, lits, false); }
         void mk_clause_core(literal l1, literal l2) { literal lits[2] = { l1, l2 }; mk_clause_core(2, lits); }
         void mk_bin_clause(literal l1, literal l2, bool learned);
         bool propagate_bin_clause(literal l1, literal l2);

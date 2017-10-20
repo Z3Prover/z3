@@ -304,7 +304,7 @@ namespace sat {
                 watch_list::const_iterator it  = wlist.begin();
                 watch_list::const_iterator end = wlist.end();
                 for (; it != end; ++it) {
-                    if (!it->is_binary_non_learned_clause())
+                    if (!it->is_binary_unblocked_clause())
                         continue;
                     literal l2 = it->get_literal();
                     if (l1.index() > l2.index()) 
