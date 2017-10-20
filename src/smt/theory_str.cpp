@@ -9907,6 +9907,21 @@ namespace smt {
         expr_ref freeVarLen(mk_strlen(freeVar), m);
         SASSERT(freeVarLen);
 
+        {
+            rational freeVar_len_value;
+            if (get_len_value(freeVar, freeVar_len_value)) {
+                TRACE("str", tout << "special case: length of freeVar is known to be " << freeVar_len_value << std::endl;);
+                expr_ref concreteOption(ctx.mk_eq_atom(indicator, mk_string(freeVar_len_value.to_string().c_str()) ), m);
+                expr_ref concreteValue(ctx.mk_eq_atom(
+                        ctx.mk_eq_atom(indicator, mk_string(freeVar_len_value.to_string().c_str()) ),
+                        ctx.mk_eq_atom(freeVarLen, m_autil.mk_numeral(freeVar_len_value, true))), m);
+                expr_ref finalAxiom(m.mk_and(concreteOption, concreteValue), m);
+                SASSERT(finalAxiom);
+                m_trail.push_back(finalAxiom);
+                return finalAxiom;
+            }
+        }
+
         expr_ref_vector orList(m);
         expr_ref_vector andList(m);
 
@@ -10220,6 +10235,16 @@ namespace smt {
                 binary_search_starting_len_tester.insert(freeVar, firstTester);
             }
             refresh_theory_var(firstTester);
+
+            {
+                rational freeVar_len_value;
+                if (get_len_value(freeVar, freeVar_len_value)) {
+                    TRACE("str", tout << "special case: length of freeVar is known to be " << freeVar_len_value << std::endl;);
+                    midPoint = freeVar_len_value;
+                    upperBound = midPoint * 2;
+                    windowSize = upperBound;
+                }
+            }
 
             binary_search_len_tester_stack[freeVar].push_back(firstTester);
             m_trail_stack.push(binary_search_trail<theory_str>(binary_search_len_tester_stack, freeVar));
