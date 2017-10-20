@@ -1288,7 +1288,6 @@ namespace sat {
         if (!create_asserting_lemma()) {
             goto bail_out;
         }
-        active2card();
 
         DEBUG_CODE(VERIFY(validate_conflict(m_lemma, m_A)););
         
@@ -1347,6 +1346,7 @@ namespace sat {
     }
 
     bool ba_solver::create_asserting_lemma() {
+        bool adjusted = false;
 
     adjust_conflict_level:
         int64 bound64 = m_bound;
@@ -1354,7 +1354,6 @@ namespace sat {
         for (bool_var v : m_active_vars) {
             slack += get_abs_coeff(v);
         }
-
         m_lemma.reset();        
         m_lemma.push_back(null_literal);
         unsigned num_skipped = 0;
@@ -1389,26 +1388,32 @@ namespace sat {
                 }
             }
         }
-
         if (slack >= 0) {
             IF_VERBOSE(20, verbose_stream() << "(sat.card slack: " << slack << " skipped: " << num_skipped << ")\n";);
             return false;
         }
-        
+        if (m_overflow) {
+            return false;
+        }        
         if (m_lemma[0] == null_literal) {
             if (m_lemma.size() == 1) {
                 s().set_conflict(justification());
                 return false;
             }
+            return false;
             unsigned old_level = m_conflict_lvl;
             m_conflict_lvl = 0;
             for (unsigned i = 1; i < m_lemma.size(); ++i) {
                 m_conflict_lvl = std::max(m_conflict_lvl, lvl(m_lemma[i]));
             }
-            IF_VERBOSE(10, verbose_stream() << "(sat.backjump :new-level " << m_conflict_lvl << " :old-level " << old_level << ")\n";);
+            IF_VERBOSE(1, verbose_stream() << "(sat.backjump :new-level " << m_conflict_lvl << " :old-level " << old_level << ")\n";);
+            adjusted = true;
             goto adjust_conflict_level;
         }
-        return !m_overflow;
+        if (!adjusted) {
+            active2card();
+        }
+        return true;
     }
 
     /*
@@ -1551,7 +1556,7 @@ namespace sat {
             m_learned.push_back(c);
         }
         else {
-            SASSERT(s().at_base_lvl());
+            SASSERT(!m_solver || s().at_base_lvl());
             m_constraints.push_back(c);
         }
         literal lit = c->lit();

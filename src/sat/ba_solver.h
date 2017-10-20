@@ -362,8 +362,8 @@ namespace sat {
         // access solver
         inline lbool value(bool_var v) const { return value(literal(v, false)); }
         inline lbool value(literal lit) const { return m_lookahead ? m_lookahead->value(lit) : m_solver->value(lit); }
-        inline unsigned lvl(literal lit) const { return m_solver->lvl(lit); }
-        inline unsigned lvl(bool_var v) const { return m_solver->lvl(v); }
+        inline unsigned lvl(literal lit) const { return m_lookahead ? 0 : m_solver->lvl(lit); }
+        inline unsigned lvl(bool_var v) const { return m_lookahead ? 0 : m_solver->lvl(v); }
         inline bool inconsistent() const { return m_lookahead ? m_lookahead->inconsistent() : m_solver->inconsistent(); }
         inline watch_list& get_wlist(literal l) { return m_lookahead ? m_lookahead->get_wlist(l) : m_solver->get_wlist(l); }
         inline watch_list const& get_wlist(literal l) const { return m_lookahead ? m_lookahead->get_wlist(l) : m_solver->get_wlist(l); }

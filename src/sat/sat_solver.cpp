@@ -4038,6 +4038,8 @@ namespace sat {
         st.update("dyn subsumption resolution", m_dyn_sub_res);
         st.update("blocked correction sets", m_blocked_corr_sets);
         st.update("units", m_units);
+        st.update("elim bool vars", m_elim_var_res);
+        st.update("elim bool vars bdd", m_elim_var_bdd);
     }
 
     void stats::reset() {

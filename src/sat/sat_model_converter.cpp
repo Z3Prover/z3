@@ -38,6 +38,21 @@ namespace sat {
         return *this;
     }
 
+    void model_converter::process_stack(model & m, literal_vector const& c, elim_stackv const& stack) const {
+        SASSERT(!stack.empty());
+        unsigned sz = stack.size();
+        for (unsigned i = sz; i-- > 0; ) {
+            unsigned csz = stack[i].first;
+            literal lit = stack[i].second;
+            bool sat = false;
+            for (unsigned j = 0; !sat && j < csz; ++j) {
+                sat = value_at(c[j], m) == l_true;
+            }
+            if (!sat) {
+                m[lit.var()] = lit.sign() ? l_false : l_true;
+            }
+        }
+    }
     
     void model_converter::operator()(model & m) const {
         vector<entry>::const_iterator begin = m_entries.begin();
@@ -49,17 +64,25 @@ namespace sat {
             // and the following procedure flips its value.
             bool sat = false;
             bool var_sign = false;
+            unsigned index = 0;
+            literal_vector clause;
             for (literal l : it->m_clauses) {
                 if (l == null_literal) {
                     // end of clause
                     if (!sat) {
                         m[it->var()] = var_sign ? l_false : l_true;
-                        break;
+                    }
+                    elim_stack* s = it->m_elim_stack[index];
+                    if (s) {
+                        process_stack(m, clause, s->stack());
                     }
                     sat = false;
-                    continue;
+                    ++index;
+                    clause.reset();
+                    continue;                    
                 }
 
+                clause.push_back(l);
                 if (sat)
                     continue;
                 bool sign  = l.sign();
@@ -142,6 +165,7 @@ namespace sat {
         SASSERT(&e < m_entries.end());
         for (literal l : c) e.m_clauses.push_back(l);
         e.m_clauses.push_back(null_literal);
+        e.m_elim_stack.push_back(nullptr);
         TRACE("sat_mc_bug", tout << "adding: " << c << "\n";);
     }
 
@@ -152,6 +176,7 @@ namespace sat {
         e.m_clauses.push_back(l1);
         e.m_clauses.push_back(l2);
         e.m_clauses.push_back(null_literal);
+        e.m_elim_stack.push_back(nullptr);
         TRACE("sat_mc_bug", tout << "adding (binary): " << l1 << " " << l2 << "\n";);
     }
 
@@ -163,8 +188,20 @@ namespace sat {
         for (unsigned i = 0; i < sz; ++i) 
             e.m_clauses.push_back(c[i]);
         e.m_clauses.push_back(null_literal);
+        e.m_elim_stack.push_back(nullptr);
         // TRACE("sat_mc_bug", tout << "adding (wrapper): "; for (literal l : c) tout << l << " "; tout << "\n";);
     }
+
+    void model_converter::insert(entry & e, literal_vector const& c, elim_stackv const& elims) {
+        SASSERT(c.contains(literal(e.var(), false)) || c.contains(literal(e.var(), true)));
+        SASSERT(m_entries.begin() <= &e);
+        SASSERT(&e < m_entries.end());
+        for (literal l : c) e.m_clauses.push_back(l);
+        e.m_clauses.push_back(null_literal);
+        e.m_elim_stack.push_back(elims.empty() ? nullptr : alloc(elim_stack, elims));
+        TRACE("sat_mc_bug", tout << "adding: " << c << "\n";);
+    }
+
 
     bool model_converter::check_invariant(unsigned num_vars) const {
         // After a variable v occurs in an entry n and the entry has kind ELIM_VAR,
@@ -226,13 +263,8 @@ namespace sat {
 
     unsigned model_converter::max_var(unsigned min) const {
         unsigned result = min;
-        vector<entry>::const_iterator it = m_entries.begin();
-        vector<entry>::const_iterator end = m_entries.end();
-        for (; it != end; ++it) {
-            literal_vector::const_iterator lvit = it->m_clauses.begin();
-            literal_vector::const_iterator lvend = it->m_clauses.end();
-            for (; lvit != lvend; ++lvit) {
-                literal l = *lvit;
+        for (entry const& e : m_entries) {
+            for (literal l : e.m_clauses) {
                 if (l != null_literal) {
                     if (l.var() > result)
                         result = l.var();

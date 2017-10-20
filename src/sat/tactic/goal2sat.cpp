@@ -1153,6 +1153,8 @@ struct sat2goal::imp {
                 }
             }
         }
+        //s.display(std::cout);
+        //r.display(std::cout);
     }
 
     void add_clause(sat::literal_vector const& lits, expr_ref_vector& lemmas) {

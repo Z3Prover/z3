@@ -415,14 +415,21 @@ namespace sat {
     }
 
     bool lookahead::missed_propagation() const {
+        if (inconsistent()) return false;
         for (literal l1 : m_trail) {
             SASSERT(is_true(l1));
             for (literal l2 : m_binary[l1.index()]) {
+                VERIFY(is_true(l2));
                 if (is_undef(l2)) return true;
             }
             unsigned sz = m_ternary_count[(~l1).index()];
             for (binary b : m_ternary[(~l1).index()]) {
                 if (sz-- == 0) break;
+                if (!(is_true(b.m_u) || is_true(b.m_v) || (is_undef(b.m_v) && is_undef(b.m_u)))) {
+                    std::cout << b.m_u << " " << b.m_v << "\n";
+                    std::cout << get_level(b.m_u) << " " << get_level(b.m_v) << " level: " << m_level << "\n"; 
+                    UNREACHABLE();
+                }
                 if ((is_false(b.m_u) && is_undef(b.m_v)) || (is_false(b.m_v) && is_undef(b.m_u)))
                     return true;
             }
@@ -430,6 +437,7 @@ namespace sat {
         for (nary * n : m_nary_clauses) {
             if (n->size() == 1 && !is_true(n->get_head())) {
                 for (literal lit : *n) {
+                    VERIFY(!is_undef(lit));
                     if (is_undef(lit)) return true;
                 }
             }
@@ -1465,35 +1473,7 @@ namespace sat {
                     m_lookahead_reward += 3.3 * pow(0.5, nonfixed - 2);
                     break;
                 case ternary_reward:
-                    if (nonfixed == 2) {
-                        literal l1 = null_literal;
-                        literal l2 = null_literal;
-                        for (literal lit : *n) {
-                            if (!is_fixed(lit)) {
-                                if (l1 == null_literal) {
-                                    l1 = lit;
-                                }
-                                else {
-                                    SASSERT(l2 != null_literal);
-                                    l2 = lit;
-                                    break;
-                                }
-                            }
-                        }
-                        if (l1 == null_literal) {
-                            set_conflict();
-                            continue;
-                        }
-                        else if (l2 == null_literal) {
-                            propagated(l1);
-                        }
-                        else {
-                            m_lookahead_reward += (*m_heur)[l1.index()] * (*m_heur)[l2.index()];
-                        }
-                    }
-                    else {
-                        m_lookahead_reward += (double)0.001;            
-                    }
+                    UNREACHABLE();
                     break;
                 case unit_literal_reward:
                     break;
@@ -1662,7 +1642,7 @@ namespace sat {
         }
         SASSERT(m_qhead == m_trail.size() || (inconsistent() && m_qhead < m_trail.size()));
         //SASSERT(!missed_conflict());
-        //SASSERT(inconsistent() || !missed_propagation());
+        //VERIFY(!missed_propagation());
         TRACE("sat_verbose", display(tout << scope_lvl() << " " << (inconsistent()?"unsat":"sat") << "\n"););
     }
 
@@ -1705,6 +1685,7 @@ namespace sat {
                     unsat = inconsistent();
                     pop_lookahead1(lit, num_units);
                 }
+                // VERIFY(!missed_propagation());
                 if (unsat) {
                     TRACE("sat", tout << "backtracking and settting " << ~lit << "\n";);
                     lookahead_backtrack();
@@ -1790,74 +1771,10 @@ namespace sat {
 
     bool lookahead::check_autarky(literal l, unsigned level) {
         return false;
-#if 0
-        // no propagations are allowed to reduce clauses.
-        for (nary * cp : m_nary[(~l).index()]) {
-            clause& c = *cp;
-            unsigned sz = c.size();
-            bool found = false;                
-            for (unsigned i = 0; !found && i < sz; ++i) {
-                found = is_true(c[i]);
-                if (found) {
-                    TRACE("sat", tout << c[i] << " is true in " << c << "\n";);
-                }
-            }
-            IF_VERBOSE(2, verbose_stream() << "skip autarky " << l << "\n";);
-            if (!found) return false;
-        }
-        //
-        // bail out if there is a pending binary propagation.
-        // In general, we would have to check, recursively that 
-        // a binary propagation does not create reduced clauses.
-        // 
-        literal_vector const& lits = m_binary[l.index()];
-        TRACE("sat", tout << l << ": " << lits << "\n";);
-        for (unsigned i = 0; i < lits.size(); ++i) {
-            literal l2 = lits[i];
-            if (is_true(l2)) continue;
-            SASSERT(!is_false(l2));
-            return false;
-        }
-
-        return true;
-#endif
     }
 
-
-    void lookahead::update_lookahead_reward(literal l, unsigned level) {
-        if (m_lookahead_reward == 0) {
-            if (!check_autarky(l, level)) {
-                // skip
-            }
-            else if (get_lookahead_reward(l) == 0) {
-                ++m_stats.m_autarky_propagations;
-                IF_VERBOSE(1, verbose_stream() << "(sat.lookahead autarky " << l << ")\n";);
-                    
-                TRACE("sat", tout << "autarky: " << l << " @ " << m_stamp[l.var()] 
-                      << " " 
-                      << (!m_binary[l.index()].empty() || m_nary_count[l.index()] != 0) << "\n";);
-                lookahead_backtrack();
-                assign(l);
-                propagate();
-            }
-            else {
-                ++m_stats.m_autarky_equivalences;
-                // l => p is known, but p => l is possibly not. 
-                // add p => l.
-                // justification: any consequence of l
-                // that is not a consequence of p does not
-                // reduce the clauses.
-                literal p = get_parent(l);
-                SASSERT(p != null_literal);
-                if (m_stamp[p.var()] > m_stamp[l.var()]) {
-                    TRACE("sat", tout << "equivalence " << l << " == " << p << "\n"; display(tout););
-                    IF_VERBOSE(1, verbose_stream() << "(sat.lookahead equivalence " << l << " == " << p << ")\n";);
-                    add_binary(~l, p);
-                    set_level(l, p);
-                }
-            }
-        }
-        else {            
+    void lookahead::update_lookahead_reward(literal l, unsigned level) {        
+        if (m_lookahead_reward != 0) {
             inc_lookahead_reward(l, m_lookahead_reward);
         }
     }
@@ -1900,7 +1817,6 @@ namespace sat {
         literal last_changed = null_literal;
         unsigned num_iterations = 0;
         while (change && num_iterations < m_config.m_dl_max_iterations && !inconsistent()) {
-            change = false;
             num_iterations++;
             for (unsigned i = 0; !inconsistent() && i < m_lookahead.size(); ++i) {
                 literal lit = m_lookahead[i].m_lit;
