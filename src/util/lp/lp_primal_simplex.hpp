@@ -83,7 +83,7 @@ template <typename T, typename X> void lp_primal_simplex<T, X>::fill_costs_and_x
     T artificial_cost =  - numeric_traits<T>::one();
     switch (constraint.m_relation) {
     case Equal: // no slack variable here
-        this->m_column_types[artificial] = column_type::low_bound;
+        this->m_column_types[artificial] = column_type::lower_bound;
         this->m_costs[artificial] = artificial_cost; // we are maximizing, so the artificial, which is non-negatiive, will be pushed to zero
         this->m_basis[row] = artificial;
         if (rs >= 0) {
@@ -97,13 +97,13 @@ template <typename T, typename X> void lp_primal_simplex<T, X>::fill_costs_and_x
         break;
 
     case Greater_or_equal:
-        this->m_column_types[slack_var] = column_type::low_bound;
+        this->m_column_types[slack_var] = column_type::lower_bound;
         (*this->m_A)(row, slack_var) = - numeric_traits<T>::one();
 
         if (rs > 0) {
             lp_assert(numeric_traits<T>::is_zero(this->m_x[slack_var]));
             // adding one artificial
-            this->m_column_types[artificial] = column_type::low_bound;
+            this->m_column_types[artificial] = column_type::lower_bound;
             (*this->m_A)(row, artificial) = numeric_traits<T>::one();
             this->m_costs[artificial] = artificial_cost;
             this->m_basis[row] = artificial;
@@ -118,13 +118,13 @@ template <typename T, typename X> void lp_primal_simplex<T, X>::fill_costs_and_x
         break;
     case Less_or_equal:
         // introduce a non-negative slack variable
-        this->m_column_types[slack_var] = column_type::low_bound;
+        this->m_column_types[slack_var] = column_type::lower_bound;
         (*this->m_A)(row, slack_var) = numeric_traits<T>::one();
 
         if (rs < 0) {
             // adding one artificial
             lp_assert(numeric_traits<T>::is_zero(this->m_x[slack_var]));
-            this->m_column_types[artificial] = column_type::low_bound;
+            this->m_column_types[artificial] = column_type::lower_bound;
             (*this->m_A)(row, artificial) = - numeric_traits<T>::one();
             this->m_costs[artificial] = artificial_cost;
             this->m_x[artificial] = - rs;
@@ -208,20 +208,20 @@ template <typename T, typename X> void lp_primal_simplex<T, X>::fill_A_x_and_bas
         this->m_x[j] = this->m_b[row];
         (*this->m_A)(row, j) = numeric_traits<T>::one();
         this->m_column_types[j] = column_type::fixed;
-        this->m_upper_bounds[j] = m_low_bounds[j] = zero_of_type<X>();
+        this->m_upper_bounds[j] = m_lower_bounds[j] = zero_of_type<X>();
         break;
 
     case Greater_or_equal:
         this->m_x[j] = - this->m_b[row];
         (*this->m_A)(row, j) = - numeric_traits<T>::one();
-        this->m_column_types[j] = column_type::low_bound;
+        this->m_column_types[j] = column_type::lower_bound;
         this->m_upper_bounds[j] = zero_of_type<X>();
         break;
     case Less_or_equal:
         this->m_x[j] = this->m_b[row];
         (*this->m_A)(row, j) = numeric_traits<T>::one();
-        this->m_column_types[j] = column_type::low_bound;
-        this->m_upper_bounds[j] = m_low_bounds[j] = zero_of_type<X>();
+        this->m_column_types[j] = column_type::lower_bound;
+        this->m_upper_bounds[j] = m_lower_bounds[j] = zero_of_type<X>();
         break;
     default:
         lp_unreachable();
@@ -234,8 +234,8 @@ template <typename T, typename X> void lp_primal_simplex<T, X>::solve_with_total
         this->m_status = lp_status::OPTIMAL;
         return;
     }
-    m_low_bounds.clear();
-    m_low_bounds.resize(total_vars, zero_of_type<X>());  // low bounds are shifted ot zero
+    m_lower_bounds.clear();
+    m_lower_bounds.resize(total_vars, zero_of_type<X>());  // low bounds are shifted ot zero
     this->m_x.resize(total_vars, numeric_traits<T>::zero());
     this->m_basis.resize(this->row_count());
     this->m_costs.clear();
@@ -253,7 +253,7 @@ template <typename T, typename X> void lp_primal_simplex<T, X>::solve_with_total
                                                     this->m_heading,
                                                     this->m_costs,
                                                     this->m_column_types,
-                                                    m_low_bounds,
+                                                    m_lower_bounds,
                                                     this->m_upper_bounds,
                                                     this->m_settings, *this);
     m_core_solver->solve();

@@ -50,7 +50,7 @@ public:
     stacked_vector<column_type> m_column_types;
     // r - solver fields, for rational numbers
     vector<numeric_pair<mpq>> m_r_x; // the solution
-    stacked_vector<numeric_pair<mpq>> m_r_low_bounds;
+    stacked_vector<numeric_pair<mpq>> m_r_lower_bounds;
     stacked_vector<numeric_pair<mpq>> m_r_upper_bounds;
     static_matrix<mpq, numeric_pair<mpq>> m_r_A;
     stacked_vector<unsigned> m_r_pushed_basis;
@@ -62,7 +62,7 @@ public:
     
     // d - solver fields, for doubles
     vector<double> m_d_x; // the solution in doubles
-    vector<double> m_d_low_bounds;
+    vector<double> m_d_lower_bounds;
     vector<double> m_d_upper_bounds;
     static_matrix<double, double> m_d_A;
     stacked_vector<unsigned> m_d_pushed_basis;
@@ -159,7 +159,7 @@ public:
 
     void solve();
 
-    bool low_bounds_are_set() const { return true; }
+    bool lower_bounds_are_set() const { return true; }
 
     const indexed_vector<mpq> & get_pivot_row() const {
         return m_r_solver.m_pivot_row;
@@ -192,7 +192,7 @@ public:
         // rational
         if (!settings().use_tableau()) 
             m_r_A.push();
-        m_r_low_bounds.push();
+        m_r_lower_bounds.push();
         m_r_upper_bounds.push();
         if (!settings().use_tableau()) {
             push_vector(m_r_pushed_basis, m_r_basis);
@@ -234,7 +234,7 @@ public:
         // rationals
         if (!settings().use_tableau()) 
             m_r_A.pop(k);
-        m_r_low_bounds.pop(k);
+        m_r_lower_bounds.pop(k);
         m_r_upper_bounds.pop(k);
         m_column_types.pop(k);
         
@@ -276,11 +276,11 @@ public:
     bool update_xj_and_get_delta(unsigned j, non_basic_column_value_position pos_type, numeric_pair<mpq> & delta) {
         auto & x = m_r_x[j];
         switch (pos_type) {
-        case at_low_bound:
-            if (x == m_r_solver.m_low_bounds[j])
+        case at_lower_bound:
+            if (x == m_r_solver.m_lower_bounds[j])
                 return false;
-            delta = m_r_solver.m_low_bounds[j] - x;
-            m_r_solver.m_x[j] = m_r_solver.m_low_bounds[j];
+            delta = m_r_solver.m_lower_bounds[j] - x;
+            m_r_solver.m_x[j] = m_r_solver.m_lower_bounds[j];
             break;
         case at_fixed:
         case at_upper_bound:
@@ -300,22 +300,22 @@ public:
                 delta = m_r_solver.m_upper_bounds[j] - x;
                 x = m_r_solver.m_upper_bounds[j];
                 break;
-            case column_type::low_bound:
-                delta = m_r_solver.m_low_bounds[j] - x;
-                x = m_r_solver.m_low_bounds[j];
+            case column_type::lower_bound:
+                delta = m_r_solver.m_lower_bounds[j] - x;
+                x = m_r_solver.m_lower_bounds[j];
                 break;
             case column_type::boxed:
                 if (x > m_r_solver.m_upper_bounds[j]) {
                     delta = m_r_solver.m_upper_bounds[j] - x;
                     x += m_r_solver.m_upper_bounds[j];
                 } else {
-                    delta = m_r_solver.m_low_bounds[j] - x;
-                    x = m_r_solver.m_low_bounds[j];
+                    delta = m_r_solver.m_lower_bounds[j] - x;
+                    x = m_r_solver.m_lower_bounds[j];
                 }
                 break;
             case column_type::fixed:
-                delta = m_r_solver.m_low_bounds[j] - x;
-                x = m_r_solver.m_low_bounds[j];
+                delta = m_r_solver.m_lower_bounds[j] - x;
+                x = m_r_solver.m_lower_bounds[j];
                 break;
 
             default:
@@ -359,8 +359,8 @@ public:
             lp_assert(m_r_heading[j] < 0);
             auto pos_type = t.second;
             switch (pos_type) {
-            case at_low_bound:
-                s.m_x[j] = s.m_low_bounds[j];
+            case at_lower_bound:
+                s.m_x[j] = s.m_lower_bounds[j];
                 break;
             case at_fixed:
             case at_upper_bound:
@@ -377,18 +377,18 @@ public:
                   case column_type::upper_bound:
                       s.m_x[j] = s.m_upper_bounds[j];
                       break;
-                  case column_type::low_bound:
-                      s.m_x[j] = s.m_low_bounds[j];
+                  case column_type::lower_bound:
+                      s.m_x[j] = s.m_lower_bounds[j];
                       break;
                   case column_type::boxed:
                       if (settings().random_next() % 2) {
-                          s.m_x[j] = s.m_low_bounds[j];
+                          s.m_x[j] = s.m_lower_bounds[j];
                       } else {
                           s.m_x[j] = s.m_upper_bounds[j];
                       }
                       break;
                   case column_type::fixed:
-                      s.m_x[j] = s.m_low_bounds[j];
+                      s.m_x[j] = s.m_lower_bounds[j];
                       break;
                   default:
                       lp_assert(false);
@@ -665,27 +665,27 @@ public:
 
     void get_bounds_for_double_solver() {
         unsigned n = m_n();
-        m_d_low_bounds.resize(n);
+        m_d_lower_bounds.resize(n);
         m_d_upper_bounds.resize(n);
         double delta = find_delta_for_strict_boxed_bounds().get_double();
         if (delta > 0.000001)
             delta = 0.000001;
         for (unsigned j = 0; j < n; j++) {
-            if (low_bound_is_set(j)) {
-                const auto & lb = m_r_solver.m_low_bounds[j];
-                m_d_low_bounds[j] = lb.x.get_double() + delta * lb.y.get_double();
+            if (lower_bound_is_set(j)) {
+                const auto & lb = m_r_solver.m_lower_bounds[j];
+                m_d_lower_bounds[j] = lb.x.get_double() + delta * lb.y.get_double();
             }
             if (upper_bound_is_set(j)) {
                 const auto & ub = m_r_solver.m_upper_bounds[j];
                 m_d_upper_bounds[j] = ub.x.get_double() + delta * ub.y.get_double();
-                lp_assert(!low_bound_is_set(j) || (m_d_upper_bounds[j] >= m_d_low_bounds[j]));
+                lp_assert(!lower_bound_is_set(j) || (m_d_upper_bounds[j] >= m_d_lower_bounds[j]));
             }
         }
     }
 
     void scale_problem_for_doubles(
                         static_matrix<double, double>& A,        
-                        vector<double> & low_bounds,
+                        vector<double> & lower_bounds,
                         vector<double> & upper_bounds) {
         vector<double> column_scale_vector;
         vector<double> right_side_vector(A.column_count());
@@ -705,8 +705,8 @@ public:
                 if (m_r_solver.column_has_upper_bound(j)) {
                     upper_bounds[j] /= column_scale_vector[j];
                 }
-                if (m_r_solver.column_has_low_bound(j)) {
-                    low_bounds[j] /= column_scale_vector[j];
+                if (m_r_solver.column_has_lower_bound(j)) {
+                    lower_bounds[j] /= column_scale_vector[j];
                 }
             }
         }
@@ -733,12 +733,12 @@ public:
     }
 
 
-    bool low_bound_is_set(unsigned j) const {
+    bool lower_bound_is_set(unsigned j) const {
         switch (m_column_types[j]) {
         case column_type::free_column:
         case column_type::upper_bound:
             return false;
-        case column_type::low_bound:
+        case column_type::lower_bound:
         case column_type::boxed:
         case column_type::fixed:
             return true;
@@ -751,7 +751,7 @@ public:
     bool upper_bound_is_set(unsigned j) const {
         switch (m_column_types[j]) {
         case column_type::free_column:
-        case column_type::low_bound:
+        case column_type::lower_bound:
             return false;
         case column_type::upper_bound:
         case column_type::boxed:
@@ -780,7 +780,7 @@ public:
         for (unsigned j = 0; j < m_r_A.column_count(); j++ ) {
             if (m_column_types()[j] != column_type::boxed)
                 continue;
-            update_delta(delta, m_r_low_bounds[j], m_r_upper_bounds[j]);
+            update_delta(delta, m_r_lower_bounds[j], m_r_upper_bounds[j]);
         }
         return delta;
     }
@@ -789,8 +789,8 @@ public:
     mpq find_delta_for_strict_bounds(const mpq & initial_delta) const{
         mpq delta = initial_delta;
         for (unsigned j = 0; j < m_r_A.column_count(); j++ ) {
-            if (low_bound_is_set(j))
-                update_delta(delta, m_r_low_bounds[j], m_r_x[j]);
+            if (lower_bound_is_set(j))
+                update_delta(delta, m_r_lower_bounds[j], m_r_x[j]);
             if (upper_bound_is_set(j))
                 update_delta(delta, m_r_x[j], m_r_upper_bounds[j]);
         }
@@ -813,14 +813,14 @@ public:
     bool column_is_fixed(unsigned j) const {
         return m_column_types()[j] == column_type::fixed ||
             ( m_column_types()[j] == column_type::boxed &&
-              m_r_solver.m_low_bounds[j] == m_r_solver.m_upper_bounds[j]);
+              m_r_solver.m_lower_bounds[j] == m_r_solver.m_upper_bounds[j]);
     }
 
-    const impq & low_bound(unsigned j) const {
+    const impq & lower_bound(unsigned j) const {
         lp_assert(m_column_types()[j] == column_type::fixed ||
                     m_column_types()[j] == column_type::boxed ||
-                    m_column_types()[j] == column_type::low_bound);
-        return m_r_low_bounds[j];
+                    m_column_types()[j] == column_type::lower_bound);
+        return m_r_lower_bounds[j];
     }
 
     const impq & upper_bound(unsigned j) const {

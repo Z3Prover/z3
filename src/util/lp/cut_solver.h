@@ -14,12 +14,15 @@ namespace lp {
 template <typename T>
 class cut_solver : public column_namer {
 public: // for debugging
-
-    struct tight_ineq {
+    enum class model_bound_type {
+        implied, decided
+    };
+    struct model_bound {
+        
         var_index m_j;
         bool m_le; // less or equal
         T m_b; // the right size
-        tight_ineq(var_index j, bool le, const T & b) : m_j(j), m_le(le), m_b(b) {}
+        model_bound(var_index j, bool le, const T & b) : m_j(j), m_le(le), m_b(b) {}
         T coeff() const {
             return m_le? one_of_type<T>() : - one_of_type<T>();
         }
@@ -559,7 +562,7 @@ public: // for debugging
     }
 
 
-    void print_tight_ineq(std::ostream & o, const tight_ineq & t) const {
+    void print_model_bound(std::ostream & o, const model_bound & t) const {
         o << get_column_name(t.m_j) << " ";
         if (t.m_le)
             o << "<= ";
@@ -583,7 +586,7 @@ public: // for debugging
 
     
     //te is an inequality we resove by eliminating varible t.m_j from t
-    bool resolve(const tight_ineq & t, const ineq & ie, ineq & result) const {
+    bool resolve(const model_bound & t, const ineq & ie, ineq & result) const {
         lp_assert(result.m_poly.is_zero());
         const T & a = ie.coeff(t.m_j);
         if (t.m_le) {

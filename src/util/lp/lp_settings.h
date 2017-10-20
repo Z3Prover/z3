@@ -36,7 +36,7 @@ typedef vector<std::pair<mpq, constraint_index>> explanation_t;
 
 enum class column_type  {
     free_column = 0,
-    low_bound = 1,
+    lower_bound = 1,
     upper_bound = 2,
     boxed = 3,
     fixed = 4
@@ -84,7 +84,7 @@ inline std::ostream& operator<<(std::ostream& out, lp_status status) {
 
 lp_status lp_status_from_string(std::string status);
 
-enum non_basic_column_value_position { at_low_bound, at_upper_bound, at_fixed, free_of_bounds, not_at_bound };
+enum non_basic_column_value_position { at_lower_bound, at_upper_bound, at_fixed, free_of_bounds, not_at_bound };
 
 template <typename X> bool is_epsilon_small(const X & v, const double& eps);    // forward definition
 

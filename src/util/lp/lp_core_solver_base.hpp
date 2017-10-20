@@ -35,7 +35,7 @@ lp_core_solver_base(static_matrix<T, X> & A,
                     lp_settings & settings,
                     const column_namer& column_names,
                     const vector<column_type> & column_types,
-                    const vector<X> & low_bound_values,
+                    const vector<X> & lower_bound_values,
                     const vector<X> & upper_bound_values):
     m_total_iterations(0),
     m_iters_with_no_cost_growing(0),
@@ -59,7 +59,7 @@ lp_core_solver_base(static_matrix<T, X> & A,
     m_d(m_n()),
     m_ed(m_m()),
     m_column_types(column_types),
-    m_low_bounds(low_bound_values),
+    m_lower_bounds(lower_bound_values),
     m_upper_bounds(upper_bound_values),
     m_column_norms(m_n()),
     m_copy_of_xB(m_m()),
@@ -392,10 +392,10 @@ set_non_basic_x_to_correct_bounds() {
     for (unsigned j : non_basis()) {
         switch (m_column_types[j]) {
         case column_type::boxed:
-            m_x[j] = m_d[j] < 0? m_upper_bounds[j]: m_low_bounds[j];
+            m_x[j] = m_d[j] < 0? m_upper_bounds[j]: m_lower_bounds[j];
             break;
-        case column_type::low_bound:
-            m_x[j] = m_low_bounds[j];
+        case column_type::lower_bound:
+            m_x[j] = m_lower_bounds[j];
             lp_assert(column_is_dual_feasible(j));
             break;
         case column_type::upper_bound:
@@ -412,12 +412,12 @@ column_is_dual_feasible(unsigned j) const {
     switch (m_column_types[j]) {
     case column_type::fixed:
     case column_type::boxed:
-        return (x_is_at_low_bound(j) && d_is_not_negative(j)) ||
+        return (x_is_at_lower_bound(j) && d_is_not_negative(j)) ||
             (x_is_at_upper_bound(j) && d_is_not_positive(j));
-    case column_type::low_bound:
-        return x_is_at_low_bound(j) && d_is_not_negative(j);
+    case column_type::lower_bound:
+        return x_is_at_lower_bound(j) && d_is_not_negative(j);
     case column_type::upper_bound:
-        LP_OUT(m_settings,  "upper_bound type should be switched to low_bound" << std::endl);
+        LP_OUT(m_settings,  "upper_bound type should be switched to lower_bound" << std::endl);
         lp_assert(false); // impossible case
     case column_type::free_column:
         return numeric_traits<X>::is_zero(m_d[j]);
@@ -485,14 +485,14 @@ template <typename T, typename X> bool lp_core_solver_base<T, X>::column_is_feas
     case column_type::boxed:
         if (this->above_bound(x, this->m_upper_bounds[j])) {
             return false;
-        } else if (this->below_bound(x, this->m_low_bounds[j])) {
+        } else if (this->below_bound(x, this->m_lower_bounds[j])) {
             return false;
         } else {
             return true;
         }
         break;
-    case column_type::low_bound:
-        if (this->below_bound(x, this->m_low_bounds[j])) {
+    case column_type::lower_bound:
+        if (this->below_bound(x, this->m_lower_bounds[j])) {
             return false;
         } else {
             return true;
@@ -861,8 +861,8 @@ snap_non_basic_x_to_bound_and_free_to_zeroes() {
         switch (m_column_types[j]) {
         case column_type::fixed:
         case column_type::boxed:
-        case column_type::low_bound:
-            m_x[j] = m_low_bounds[j];
+        case column_type::lower_bound:
+            m_x[j] = m_lower_bounds[j];
             break;
         case column_type::upper_bound:
             m_x[j] = m_upper_bounds[j];
@@ -895,23 +895,23 @@ template <typename T, typename X> non_basic_column_value_position lp_core_solver
 get_non_basic_column_value_position(unsigned j) const {
     switch (m_column_types[j]) {
     case column_type::fixed:
-        return x_is_at_low_bound(j)? at_fixed : not_at_bound;
+        return x_is_at_lower_bound(j)? at_fixed : not_at_bound;
     case column_type::free_column:
         return free_of_bounds;
     case column_type::boxed:
-        return x_is_at_low_bound(j)? at_low_bound :(
+        return x_is_at_lower_bound(j)? at_lower_bound :(
                                                     x_is_at_upper_bound(j)? at_upper_bound:
                                                     not_at_bound
                                                     );
-    case column_type::low_bound:
-        return x_is_at_low_bound(j)? at_low_bound : not_at_bound;
+    case column_type::lower_bound:
+        return x_is_at_lower_bound(j)? at_lower_bound : not_at_bound;
     case column_type::upper_bound:
         return x_is_at_upper_bound(j)? at_upper_bound : not_at_bound;
     default:
         lp_unreachable();
     }
     lp_unreachable();
-    return at_low_bound;
+    return at_lower_bound;
 }
 
 template <typename T, typename X> void lp_core_solver_base<T, X>::init_lu() {
@@ -1026,7 +1026,7 @@ lp_core_solver_base<T, X>::infeasibility_cost_is_correct_for_column(unsigned j) 
         }
         return is_zero(this->m_costs[j]);
 
-    case column_type::low_bound:
+    case column_type::lower_bound:
         if (this->x_below_low_bound(j)) {
             return this->m_costs[j] == -r;
         }

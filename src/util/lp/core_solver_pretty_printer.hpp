@@ -38,7 +38,7 @@ core_solver_pretty_printer<T, X>::core_solver_pretty_printer(lp_core_solver_base
     m_rs(ncols(), zero_of_type<X>()),
     m_w_buff(core_solver.m_w),
     m_ed_buff(core_solver.m_ed) {
-    m_low_bounds_title = "low";
+    m_lower_bounds_title = "low";
     m_upp_bounds_title = "upp";
     m_exact_norm_title = "exact cn";
     m_approx_norm_title = "approx cn";
@@ -139,9 +139,9 @@ template <typename T, typename X> void core_solver_pretty_printer<T, X>::init_co
     }
 }
 
-template <typename T, typename X> void core_solver_pretty_printer<T, X>::adjust_width_with_low_bound(unsigned column, unsigned & w) {
-    if (!m_core_solver.low_bounds_are_set()) return;
-    w = std::max(w, (unsigned)T_to_string(m_core_solver.low_bound_value(column)).size());
+template <typename T, typename X> void core_solver_pretty_printer<T, X>::adjust_width_with_lower_bound(unsigned column, unsigned & w) {
+    if (!m_core_solver.lower_bounds_are_set()) return;
+    w = std::max(w, (unsigned)T_to_string(m_core_solver.lower_bound_value(column)).size());
 }
 template <typename T, typename X> void core_solver_pretty_printer<T, X>::adjust_width_with_upper_bound(unsigned column, unsigned & w) {
     w = std::max(w, (unsigned)T_to_string(m_core_solver.upper_bound_value(column)).size());
@@ -151,11 +151,11 @@ template <typename T, typename X> void core_solver_pretty_printer<T, X>::adjust_
     switch (m_core_solver.get_column_type(column)) {
     case column_type::fixed:
     case column_type::boxed:
-        adjust_width_with_low_bound(column, w);
+        adjust_width_with_lower_bound(column, w);
         adjust_width_with_upper_bound(column, w);
         break;
-    case column_type::low_bound:
-        adjust_width_with_low_bound(column, w);
+    case column_type::lower_bound:
+        adjust_width_with_lower_bound(column, w);
         break;
     case column_type::upper_bound:
         adjust_width_with_upper_bound(column, w);
@@ -236,13 +236,13 @@ template <typename T, typename X> void core_solver_pretty_printer<T, X>::print_x
     m_out << std::endl;
 }
 
-template <typename T, typename X> std::string core_solver_pretty_printer<T, X>::get_low_bound_string(unsigned j) {
+template <typename T, typename X> std::string core_solver_pretty_printer<T, X>::get_lower_bound_string(unsigned j) {
     switch (m_core_solver.get_column_type(j)){
     case column_type::boxed:
-    case column_type::low_bound:
+    case column_type::lower_bound:
     case column_type::fixed:
-        if (m_core_solver.low_bounds_are_set())
-            return T_to_string(m_core_solver.low_bound_value(j));
+        if (m_core_solver.lower_bounds_are_set())
+            return T_to_string(m_core_solver.lower_bound_value(j));
         else
             return std::string("0");
         break;
@@ -268,12 +268,12 @@ template <typename T, typename X> void core_solver_pretty_printer<T, X>::print_l
     if (ncols() == 0) {
         return;
     }
-    int blanks = m_title_width + 1 - static_cast<unsigned>(m_low_bounds_title.size());
-    m_out << m_low_bounds_title;
+    int blanks = m_title_width + 1 - static_cast<unsigned>(m_lower_bounds_title.size());
+    m_out << m_lower_bounds_title;
     print_blanks(blanks, m_out);
 
     for (unsigned i = 0; i < ncols(); i++) {
-        string s = get_low_bound_string(i);
+        string s = get_lower_bound_string(i);
         int blanks = m_column_widths[i] - static_cast<unsigned>(s.size());
         print_blanks(blanks, m_out);
         m_out << s << "   "; // the column interval

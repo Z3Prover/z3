@@ -48,13 +48,13 @@ template <typename T, typename X> void lp_dual_simplex<T, X>::decide_on_status_a
 template <typename T, typename X> void lp_dual_simplex<T, X>::fix_logical_for_stage2(unsigned j) {
     lp_assert(j >= this->number_of_core_structurals());
     switch (m_column_types_of_logicals[j - this->number_of_core_structurals()]) {
-    case column_type::low_bound:
-        m_low_bounds[j] = numeric_traits<T>::zero();
-        m_column_types_of_core_solver[j] = column_type::low_bound;
+    case column_type::lower_bound:
+        m_lower_bounds[j] = numeric_traits<T>::zero();
+        m_column_types_of_core_solver[j] = column_type::lower_bound;
         m_can_enter_basis[j] = true;
         break;
     case column_type::fixed:
-        this->m_upper_bounds[j] = m_low_bounds[j] = numeric_traits<T>::zero();
+        this->m_upper_bounds[j] = m_lower_bounds[j] = numeric_traits<T>::zero();
         m_column_types_of_core_solver[j] = column_type::fixed;
         m_can_enter_basis[j] = false;
         break;
@@ -66,9 +66,9 @@ template <typename T, typename X> void lp_dual_simplex<T, X>::fix_logical_for_st
 template <typename T, typename X> void lp_dual_simplex<T, X>::fix_structural_for_stage2(unsigned j) {
     column_info<T> * ci = this->m_map_from_var_index_to_column_info[this->m_core_solver_columns_to_external_columns[j]];
     switch (ci->get_column_type()) {
-    case column_type::low_bound:
-        m_low_bounds[j] = numeric_traits<T>::zero();
-        m_column_types_of_core_solver[j] = column_type::low_bound;
+    case column_type::lower_bound:
+        m_lower_bounds[j] = numeric_traits<T>::zero();
+        m_column_types_of_core_solver[j] = column_type::lower_bound;
         m_can_enter_basis[j] = true;
         break;
     case column_type::fixed:
@@ -76,7 +76,7 @@ template <typename T, typename X> void lp_dual_simplex<T, X>::fix_structural_for
         lp_unreachable();
     case column_type::boxed:
         this->m_upper_bounds[j] = ci->get_adjusted_upper_bound() / this->m_column_scale[j];
-        m_low_bounds[j] = numeric_traits<T>::zero();
+        m_lower_bounds[j] = numeric_traits<T>::zero();
         m_column_types_of_core_solver[j] = column_type::boxed;
         m_can_enter_basis[j] = true;
         break;
@@ -158,7 +158,7 @@ template <typename T, typename X> void lp_dual_simplex<T, X>::stage1() {
                                                   this->m_heading,
                                                   this->m_costs,
                                                   this->m_column_types_of_core_solver,
-                                                  this->m_low_bounds,
+                                                  this->m_lower_bounds,
                                                   this->m_upper_bounds,
                                                   this->m_settings,
                                                   *this);
@@ -216,10 +216,10 @@ template <typename T, typename X> void lp_dual_simplex<T, X>::fill_costs_bounds_
         throw_exception(s.str());
         break;
     }
-    case column_type::low_bound: {
+    case column_type::lower_bound: {
         m_can_enter_basis[j] = true;
         this->set_scaled_cost(j);
-        this->m_low_bounds[j] = numeric_traits<T>::zero();
+        this->m_lower_bounds[j] = numeric_traits<T>::zero();
         this->m_upper_bounds[j] =numeric_traits<T>::one();
         break;
     }
@@ -227,13 +227,13 @@ template <typename T, typename X> void lp_dual_simplex<T, X>::fill_costs_bounds_
         m_can_enter_basis[j] = true;
         this->set_scaled_cost(j);
         this->m_upper_bounds[j] = free_bound;
-        this->m_low_bounds[j] =  -free_bound;
+        this->m_lower_bounds[j] =  -free_bound;
         break;
     }
     case column_type::boxed:
         m_can_enter_basis[j] = false;
         this->m_costs[j] = numeric_traits<T>::zero();
-        this->m_upper_bounds[j] = this->m_low_bounds[j] =  numeric_traits<T>::zero(); // is it needed?
+        this->m_upper_bounds[j] = this->m_lower_bounds[j] =  numeric_traits<T>::zero(); // is it needed?
         break;
     default:
         lp_unreachable();
@@ -244,13 +244,13 @@ template <typename T, typename X> void lp_dual_simplex<T, X>::fill_costs_bounds_
 template <typename T, typename X> void lp_dual_simplex<T, X>::fill_costs_bounds_types_and_can_enter_basis_for_the_first_stage_solver_logical_column(unsigned j) {
     this->m_costs[j] = 0;
     lp_assert(get_column_type(j) != column_type::upper_bound);
-    if ((m_can_enter_basis[j] = (get_column_type(j) == column_type::low_bound))) {
+    if ((m_can_enter_basis[j] = (get_column_type(j) == column_type::lower_bound))) {
         m_column_types_of_core_solver[j] = column_type::boxed;
-        this->m_low_bounds[j] = numeric_traits<T>::zero();
+        this->m_lower_bounds[j] = numeric_traits<T>::zero();
         this->m_upper_bounds[j] = numeric_traits<T>::one();
     } else {
         m_column_types_of_core_solver[j] = column_type::fixed;
-        this->m_low_bounds[j] = numeric_traits<T>::zero();
+        this->m_lower_bounds[j] = numeric_traits<T>::zero();
         this->m_upper_bounds[j] = numeric_traits<T>::zero();
     }
 }
@@ -283,7 +283,7 @@ template <typename T, typename X> void lp_dual_simplex<T, X>::fill_first_stage_s
         break;
 
     case Greater_or_equal:
-        set_type_for_logical(slack_var, column_type::low_bound);
+        set_type_for_logical(slack_var, column_type::lower_bound);
         (*this->m_A)(row, slack_var) = - numeric_traits<T>::one();
         if (rs > 0) {
             // adding one artificial
@@ -301,7 +301,7 @@ template <typename T, typename X> void lp_dual_simplex<T, X>::fill_first_stage_s
         break;
     case Less_or_equal:
         // introduce a non-negative slack variable
-        set_type_for_logical(slack_var, column_type::low_bound);
+        set_type_for_logical(slack_var, column_type::lower_bound);
         (*this->m_A)(row, slack_var) = numeric_traits<T>::one();
         if (rs < 0) {
             // adding one artificial
@@ -328,7 +328,7 @@ template <typename T, typename X> void lp_dual_simplex<T, X>::augment_matrix_A_a
     m_column_types_of_logicals.resize(this->m_slacks + this->m_artificials);
     this->m_costs.resize(n);
     this->m_upper_bounds.resize(n);
-    this->m_low_bounds.resize(n);
+    this->m_lower_bounds.resize(n);
     m_can_enter_basis.resize(n);
     this->m_basis.resize(this->m_A->row_count());
 }

@@ -26,7 +26,7 @@ std::string column_type_to_string(column_type t) {
     switch (t) {
     case column_type::fixed:       return "fixed";
     case column_type::boxed:       return "boxed";
-    case column_type::low_bound:   return "low_bound";
+    case column_type::lower_bound:   return "lower_bound";
     case column_type::upper_bound: return "upper_bound";
     case column_type::free_column: return "free_column";
     default:  lp_unreachable();

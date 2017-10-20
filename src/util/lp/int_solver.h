@@ -83,7 +83,7 @@ private:
 	void patch_int_infeasible_nbasic_columns();
     bool get_freedom_interval_for_column(unsigned j, bool & inf_l, impq & l, bool & inf_u, impq & u, mpq & m);
     linear_combination_iterator<mpq> * get_column_iterator(unsigned j);
-    const impq & low_bound(unsigned j) const;
+    const impq & lower_bound(unsigned j) const;
     const impq & upper_bound(unsigned j) const;
     bool is_int(unsigned j) const;
     bool is_real(unsigned j) const;
@@ -134,7 +134,7 @@ private:
     void real_case_in_gomory_cut(const mpq & a, unsigned x_j, mpq & k, lar_term& t, explanation & ex, unsigned inf_column);
     void int_case_in_gomory_cut(const mpq & a, unsigned x_j, mpq & k, lar_term& t, explanation& ex, mpq & lcm_den, unsigned inf_column);
     constraint_index column_upper_bound_constraint(unsigned j) const;
-    constraint_index column_low_bound_constraint(unsigned j) const;
+    constraint_index column_lower_bound_constraint(unsigned j) const;
     void display_row_info(std::ostream & out, unsigned row_index) const;
     void gomory_cut_adjust_t_and_k(vector<std::pair<mpq, unsigned>> & pol, lar_term & t, mpq &k, bool num_ints, mpq &lcm_den);
     bool current_solution_is_inf_on_cut(const lar_term& t, const mpq& k) const;

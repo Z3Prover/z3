@@ -176,26 +176,26 @@ template <typename T, typename X> void lp_solver<T, X>::pin_vars_on_row_with_sig
             lp_assert(ci->upper_bound_is_set());
             ci->set_fixed_value(ci->get_upper_bound());
         } else {
-            lp_assert(ci->low_bound_is_set());
-            ci->set_fixed_value(ci->get_low_bound());
+            lp_assert(ci->lower_bound_is_set());
+            ci->set_fixed_value(ci->get_lower_bound());
         }
     }
 }
 
-template <typename T, typename X>    bool lp_solver<T, X>::get_minimal_row_value(std::unordered_map<unsigned, T> & row, T & low_bound) {
-    low_bound = numeric_traits<T>::zero();
+template <typename T, typename X>    bool lp_solver<T, X>::get_minimal_row_value(std::unordered_map<unsigned, T> & row, T & lower_bound) {
+    lower_bound = numeric_traits<T>::zero();
     for (auto & t : row) {
         T a = t.second;
         column_info<T> * ci = m_map_from_var_index_to_column_info[t.first];
         if (a > numeric_traits<T>::zero()) {
-            if (ci->low_bound_is_set()) {
-                low_bound += ci->get_low_bound() * a;
+            if (ci->lower_bound_is_set()) {
+                lower_bound += ci->get_lower_bound() * a;
             } else {
                 return false;
             }
         } else {
             if (ci->upper_bound_is_set()) {
-                low_bound += ci->get_upper_bound() * a;
+                lower_bound += ci->get_upper_bound() * a;
             } else {
                 return false;
             }
@@ -204,20 +204,20 @@ template <typename T, typename X>    bool lp_solver<T, X>::get_minimal_row_value
     return true;
 }
 
-template <typename T, typename X>    bool lp_solver<T, X>::get_maximal_row_value(std::unordered_map<unsigned, T> & row, T & low_bound) {
-    low_bound = numeric_traits<T>::zero();
+template <typename T, typename X>    bool lp_solver<T, X>::get_maximal_row_value(std::unordered_map<unsigned, T> & row, T & lower_bound) {
+    lower_bound = numeric_traits<T>::zero();
     for (auto & t : row) {
         T a = t.second;
         column_info<T> * ci = m_map_from_var_index_to_column_info[t.first];
         if (a < numeric_traits<T>::zero()) {
-            if (ci->low_bound_is_set()) {
-                low_bound += ci->get_low_bound() * a;
+            if (ci->lower_bound_is_set()) {
+                lower_bound += ci->get_lower_bound() * a;
             } else {
                 return false;
             }
         } else {
             if (ci->upper_bound_is_set()) {
-                low_bound += ci->get_upper_bound() * a;
+                lower_bound += ci->get_upper_bound() * a;
             } else {
                 return false;
             }
@@ -242,12 +242,12 @@ template <typename T, typename X>    bool lp_solver<T, X>::row_e_is_obsolete(std
         return true;
     }
 
-    T low_bound;
-    bool lb = get_minimal_row_value(row, low_bound);
+    T lower_bound;
+    bool lb = get_minimal_row_value(row, lower_bound);
     if (lb) {
-        T diff = low_bound - rs;
+        T diff = lower_bound - rs;
         if (!val_is_smaller_than_eps(diff, m_settings.refactor_tolerance)){
-            // low_bound > rs + m_settings.refactor_epsilon
+            // lower_bound > rs + m_settings.refactor_epsilon
             m_status = lp_status::INFEASIBLE;
             return true;
         }
@@ -301,7 +301,7 @@ template <typename T, typename X>  bool lp_solver<T, X>::row_ge_is_obsolete(std:
 }
 
 template <typename T, typename X> bool lp_solver<T, X>::row_le_is_obsolete(std::unordered_map<unsigned, T> & row, unsigned row_index) {
-    T low_bound;
+    T lower_bound;
     T rs = m_constraints[row_index].m_rs;
     if (row_is_zero(row)) {
         if (rs < zero_of_type<X>())
@@ -309,10 +309,10 @@ template <typename T, typename X> bool lp_solver<T, X>::row_le_is_obsolete(std::
         return true;
     }
 
-    if (get_minimal_row_value(row, low_bound)) {
-        T diff = low_bound - rs;
+    if (get_minimal_row_value(row, lower_bound)) {
+        T diff = lower_bound - rs;
         if (!val_is_smaller_than_eps(diff, m_settings.refactor_tolerance)){
-            // low_bound > rs + m_settings.refactor_tolerance
+            // lower_bound > rs + m_settings.refactor_tolerance
             m_status = lp_status::INFEASIBLE;
             return true;
         }
@@ -504,7 +504,7 @@ template <typename T, typename X> void lp_solver<T, X>::count_slacks_and_artific
     }
 }
 
-template <typename T, typename X>    T lp_solver<T, X>::low_bound_shift_for_row(unsigned i) {
+template <typename T, typename X>    T lp_solver<T, X>::lower_bound_shift_for_row(unsigned i) {
     T ret = numeric_traits<T>::zero();
 
     auto row = this->m_A_values.find(i);
@@ -522,7 +522,7 @@ template <typename T, typename X> void lp_solver<T, X>::fill_m_b() {
         lp_assert(this->m_constraints.find(this->m_core_solver_rows_to_external_rows[i]) != this->m_constraints.end());
         unsigned external_i = this->m_core_solver_rows_to_external_rows[i];
         auto & constraint = this->m_constraints[external_i];
-        this->m_b[i] = constraint.m_rs - low_bound_shift_for_row(external_i);
+        this->m_b[i] = constraint.m_rs - lower_bound_shift_for_row(external_i);
     }
 }
 
@@ -545,7 +545,7 @@ template <typename T, typename X> T lp_solver<T, X>::get_column_value_with_core_
             return v;
         }
         if (!ci->is_flipped()) {
-            return v + ci->get_low_bound();
+            return v + ci->get_lower_bound();
         }
 
         // the flipped case when there is only upper bound

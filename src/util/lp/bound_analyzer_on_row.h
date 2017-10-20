@@ -76,9 +76,9 @@ public :
             limit_all_monoids_from_above();
     }
 
-    bool bound_is_available(unsigned j, bool low_bound) {
-        return (low_bound && low_bound_is_available(j)) ||
-            (!low_bound && upper_bound_is_available(j));
+    bool bound_is_available(unsigned j, bool lower_bound) {
+        return (lower_bound && lower_bound_is_available(j)) ||
+            (!lower_bound && upper_bound_is_available(j));
     }
 
     bool upper_bound_is_available(unsigned j) const {
@@ -93,12 +93,12 @@ public :
         }
     }
 
-    bool low_bound_is_available(unsigned j) const {
+    bool lower_bound_is_available(unsigned j) const {
         switch (m_bp.get_column_type(j))
         {
         case column_type::fixed:
         case column_type::boxed:
-        case column_type::low_bound:
+        case column_type::lower_bound:
             return true;
         default:
             return false;
@@ -110,8 +110,8 @@ public :
         return m_bp.get_upper_bound(j);
     }
     const impq & lb(unsigned j) const {
-        lp_assert(low_bound_is_available(j));
-        return m_bp.get_low_bound(j);
+        lp_assert(lower_bound_is_available(j));
+        return m_bp.get_lower_bound(j);
     }
 
 
@@ -280,23 +280,23 @@ public :
     // void provide_evidence(bool coeff_is_pos) {
     //     /*
     //     auto & be = m_ibounds.back();
-    //     bool low_bound = be.m_low_bound;
+    //     bool lower_bound = be.m_lower_bound;
     //     if (!coeff_is_pos)
-    //         low_bound = !low_bound;
+    //         lower_bound = !lower_bound;
     //     auto it = m_it.clone();
     //     mpq a; unsigned j;
     //     while (it->next(a, j)) {
     //         if (be.m_j == j) continue;
-    //         lp_assert(bound_is_available(j, is_neg(a) ? low_bound : !low_bound));
+    //         lp_assert(bound_is_available(j, is_neg(a) ? lower_bound : !lower_bound));
     //         be.m_vector_of_bound_signatures.emplace_back(a, j, numeric_traits<impq>::
-    //                                                      is_neg(a)? low_bound: !low_bound);
+    //                                                      is_neg(a)? lower_bound: !lower_bound);
     //     }
     //     delete it;
     //     */
     // }
 
-    void limit_j(unsigned j, const mpq& u, bool coeff_before_j_is_pos, bool is_low_bound, bool strict){
-        m_bp.try_add_bound(u, j, is_low_bound, coeff_before_j_is_pos, m_row_or_term_index, strict);
+    void limit_j(unsigned j, const mpq& u, bool coeff_before_j_is_pos, bool is_lower_bound, bool strict){
+        m_bp.try_add_bound(u, j, is_lower_bound, coeff_before_j_is_pos, m_row_or_term_index, strict);
     }
 
 
@@ -316,7 +316,7 @@ public :
 
     void analyze_bound_on_var_on_coeff(int j, const mpq &a) {
         switch (m_bp.get_column_type(j)) {
-        case column_type::low_bound:
+        case column_type::lower_bound:
             if (numeric_traits<mpq>::is_pos(a))
                 advance_u(j);
             else

@@ -54,7 +54,7 @@ lar_core_solver::lar_core_solver(
                     m_r_heading,
                     m_costs_dummy,
                     m_column_types(),
-                    m_r_low_bounds(),
+                    m_r_lower_bounds(),
                     m_r_upper_bounds(),
                     settings,
                column_names),
@@ -66,7 +66,7 @@ lar_core_solver::lar_core_solver(
                     m_d_heading,
                     m_d_costs_dummy,
                     m_column_types(),
-                    m_d_low_bounds,
+                    m_d_lower_bounds,
                     m_d_upper_bounds,
                     settings,
                     column_names){}
@@ -108,17 +108,17 @@ void lar_core_solver::init_cost_for_column(unsigned j) {
         if (x > this->m_upper_bounds[j]) {
             this->m_costs[j] = 1;
             this->m_infeasibility += x - this->m_upper_bounds[j];
-        } else if (x < this->m_low_bounds[j]) {
-            this->m_infeasibility += this->m_low_bounds[j] - x;
+        } else if (x < this->m_lower_bounds[j]) {
+            this->m_infeasibility += this->m_lower_bounds[j] - x;
             this->m_costs[j] = -1;
         } else {
             this->m_costs[j] = numeric_traits<T>::zero();
         }
         break;
-    case low_bound:
-        if (x < this->m_low_bounds[j]) {
+    case lower_bound:
+        if (x < this->m_lower_bounds[j]) {
             this->m_costs[j] = -1;
-            this->m_infeasibility += this->m_low_bounds[j] - x;
+            this->m_infeasibility += this->m_lower_bounds[j] - x;
         } else {
             this->m_costs[j] = numeric_traits<T>::zero();
         }
@@ -154,7 +154,7 @@ int lar_core_solver::column_is_out_of_bounds(unsigned j) {
             return 1;
         }
         return 0;
-    case low_bound:
+    case lower_bound:
         if (this->x_below_low_bound(j)) {
             return -1;
         }

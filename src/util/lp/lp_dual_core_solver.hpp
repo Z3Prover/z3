@@ -107,9 +107,9 @@ template <typename T, typename X> bool lp_dual_core_solver<T, X>::done() {
     return false; // todo, need to be more cases
 }
 
-template <typename T, typename X> T lp_dual_core_solver<T, X>::get_edge_steepness_for_low_bound(unsigned p) {
+template <typename T, typename X> T lp_dual_core_solver<T, X>::get_edge_steepness_for_lower_bound(unsigned p) {
     lp_assert(this->m_basis_heading[p] >= 0 && static_cast<unsigned>(this->m_basis_heading[p]) < this->m_m());
-    T del = this->m_x[p] - this->m_low_bounds[p];
+    T del = this->m_x[p] - this->m_lower_bounds[p];
     del *= del;
     return del / this->m_betas[this->m_basis_heading[p]];
 }
@@ -127,7 +127,7 @@ template <typename T, typename X> T lp_dual_core_solver<T, X>::pricing_for_row(u
     case column_type::fixed:
     case column_type::boxed:
         if (this->x_below_low_bound(p)) {
-            T del =  get_edge_steepness_for_low_bound(p);
+            T del =  get_edge_steepness_for_lower_bound(p);
             return del;
         }
         if (this->x_above_upper_bound(p)) {
@@ -135,9 +135,9 @@ template <typename T, typename X> T lp_dual_core_solver<T, X>::pricing_for_row(u
             return del;
         }
         return numeric_traits<T>::zero();
-    case column_type::low_bound:
+    case column_type::lower_bound:
         if (this->x_below_low_bound(p)) {
-            T del =  get_edge_steepness_for_low_bound(p);
+            T del =  get_edge_steepness_for_lower_bound(p);
             return del;
         }
         return numeric_traits<T>::zero();
@@ -244,7 +244,7 @@ template <typename T, typename X> int lp_dual_core_solver<T, X>::define_sign_of_
             return 1;
         }
         lp_unreachable();
-    case column_type::low_bound:
+    case column_type::lower_bound:
         if (this->x_below_low_bound(m_p)) {
             return -1;
         }
@@ -264,17 +264,17 @@ template <typename T, typename X> int lp_dual_core_solver<T, X>::define_sign_of_
 template <typename T, typename X> bool lp_dual_core_solver<T, X>::can_be_breakpoint(unsigned j) {
     if (this->pivot_row_element_is_too_small_for_ratio_test(j)) return false;
     switch (this->m_column_types[j]) {
-    case column_type::low_bound:
-        lp_assert(this->m_settings.abs_val_is_smaller_than_harris_tolerance(this->m_x[j] - this->m_low_bounds[j]));
+    case column_type::lower_bound:
+        lp_assert(this->m_settings.abs_val_is_smaller_than_harris_tolerance(this->m_x[j] - this->m_lower_bounds[j]));
         return m_sign_of_alpha_r * this->m_pivot_row[j]  > 0;
     case column_type::upper_bound:
         lp_assert(this->m_settings.abs_val_is_smaller_than_harris_tolerance(this->m_x[j] - this->m_upper_bounds[j]));
         return m_sign_of_alpha_r * this->m_pivot_row[j] < 0;
     case column_type::boxed:
         {
-            bool low_bound = this->x_is_at_low_bound(j);
+            bool lower_bound = this->x_is_at_lower_bound(j);
             bool grawing = m_sign_of_alpha_r * this->m_pivot_row[j] > 0;
-            return low_bound == grawing;
+            return lower_bound == grawing;
         }
     case column_type::fixed: // is always dual feasible so we ingore it
         return false;
@@ -302,15 +302,15 @@ template <typename T, typename X> T lp_dual_core_solver<T, X>::get_delta() {
     switch (this->m_column_types[m_p]) {
     case column_type::boxed:
         if (this->x_below_low_bound(m_p)) {
-            return this->m_x[m_p] - this->m_low_bounds[m_p];
+            return this->m_x[m_p] - this->m_lower_bounds[m_p];
         }
         if (this->x_above_upper_bound(m_p)) {
             return this->m_x[m_p] - this->m_upper_bounds[m_p];
         }
         lp_unreachable();
-    case column_type::low_bound:
+    case column_type::lower_bound:
         if (this->x_below_low_bound(m_p)) {
-            return this->m_x[m_p] - this->m_low_bounds[m_p];
+            return this->m_x[m_p] - this->m_lower_bounds[m_p];
         }
         lp_unreachable();
     case column_type::upper_bound:
@@ -371,10 +371,10 @@ template <typename T, typename X> void lp_dual_core_solver<T, X>::update_betas()
 template <typename T, typename X> void lp_dual_core_solver<T, X>::apply_flips() {
     for (unsigned j : m_flipped_boxed) {
         lp_assert(this->x_is_at_bound(j));
-        if (this->x_is_at_low_bound(j)) {
+        if (this->x_is_at_lower_bound(j)) {
             this->m_x[j] = this->m_upper_bounds[j];
         } else {
-            this->m_x[j] = this->m_low_bounds[j];
+            this->m_x[j] = this->m_lower_bounds[j];
         }
     }
 }
@@ -382,17 +382,17 @@ template <typename T, typename X> void lp_dual_core_solver<T, X>::apply_flips() 
 template <typename T, typename X> void lp_dual_core_solver<T, X>::snap_xN_column_to_bounds(unsigned j) {
     switch (this->m_column_type[j]) {
     case column_type::fixed:
-        this->m_x[j] = this->m_low_bounds[j];
+        this->m_x[j] = this->m_lower_bounds[j];
         break;
     case column_type::boxed:
-        if (this->x_is_at_low_bound(j)) {
-            this->m_x[j] = this->m_low_bounds[j];
+        if (this->x_is_at_lower_bound(j)) {
+            this->m_x[j] = this->m_lower_bounds[j];
         } else {
             this->m_x[j] = this->m_upper_bounds[j];
         }
         break;
-    case column_type::low_bound:
-        this->m_x[j] = this->m_low_bounds[j];
+    case column_type::lower_bound:
+        this->m_x[j] = this->m_lower_bounds[j];
         break;
     case column_type::upper_bound:
         this->m_x[j] = this->m_upper_bounds[j];
@@ -462,9 +462,9 @@ template <typename T, typename X> bool lp_dual_core_solver<T, X>::basis_change_a
 
 template <typename T, typename X> void lp_dual_core_solver<T, X>::recover_leaving() {
     switch (m_entering_boundary_position) {
-    case at_low_bound:
+    case at_lower_bound:
     case at_fixed:
-        this->m_x[m_q] = this->m_low_bounds[m_q];
+        this->m_x[m_q] = this->m_lower_bounds[m_q];
         break;
     case at_upper_bound:
         this->m_x[m_q] = this->m_upper_bounds[m_q];
@@ -497,23 +497,23 @@ template <typename T, typename X> void lp_dual_core_solver<T, X>::revert_to_prev
 template <typename T, typename X> bool lp_dual_core_solver<T, X>::snap_runaway_nonbasic_column(unsigned j) {
     switch (this->m_column_types[j]) {
     case column_type::fixed:
-    case column_type::low_bound:
-        if (!this->x_is_at_low_bound(j)) {
-            this->m_x[j] = this->m_low_bounds[j];
+    case column_type::lower_bound:
+        if (!this->x_is_at_lower_bound(j)) {
+            this->m_x[j] = this->m_lower_bounds[j];
             return true;
         }
         break;
     case column_type::boxed:
         {
-            bool closer_to_low_bound = abs(this->m_low_bounds[j] - this->m_x[j]) < abs(this->m_upper_bounds[j] - this->m_x[j]);
-            if (closer_to_low_bound) {
-                if (!this->x_is_at_low_bound(j)) {
-                    this->m_x[j] = this->m_low_bounds[j];
+            bool closer_to_lower_bound = abs(this->m_lower_bounds[j] - this->m_x[j]) < abs(this->m_upper_bounds[j] - this->m_x[j]);
+            if (closer_to_lower_bound) {
+                if (!this->x_is_at_lower_bound(j)) {
+                    this->m_x[j] = this->m_lower_bounds[j];
                     return true;
                 }
             } else {
                 if (!this->x_is_at_upper_bound(j)) {
-                    this->m_x[j] = this->m_low_bounds[j];
+                    this->m_x[j] = this->m_lower_bounds[j];
                     return true;
                 }
             }
@@ -539,7 +539,7 @@ template <typename T, typename X> bool lp_dual_core_solver<T, X>::problem_is_dua
             // std::cout << "m_d[" << j << "] = " << this->m_d[j] << std::endl;
             // std::cout << "x[" << j << "] = " << this->m_x[j] << std::endl;
             // std::cout << "type = " << column_type_to_string(this->m_column_type[j]) << std::endl;
-            // std::cout << "bounds = " << this->m_low_bounds[j] << "," << this->m_upper_bounds[j] << std::endl;
+            // std::cout << "bounds = " << this->m_lower_bounds[j] << "," << this->m_upper_bounds[j] << std::endl;
             // std::cout << "total_iterations = " << this->total_iterations() << std::endl;
             return false;
         }
@@ -602,7 +602,7 @@ template <typename T, typename X> T lp_dual_core_solver<T, X>::calculate_harris_
     lp_assert(m_breakpoint_set.size() > 0);
     for (auto j : m_breakpoint_set) {
         T t;
-        if (this->x_is_at_low_bound(j)) {
+        if (this->x_is_at_lower_bound(j)) {
             t = abs((std::max(this->m_d[j], numeric_traits<T>::zero()) + m_harris_tolerance) / this->m_pivot_row[j]);
         } else {
             t = abs((std::min(this->m_d[j], numeric_traits<T>::zero()) - m_harris_tolerance) / this->m_pivot_row[j]);
@@ -620,7 +620,7 @@ template <typename T, typename X> T lp_dual_core_solver<T, X>::calculate_harris_
 template <typename T, typename X> void lp_dual_core_solver<T, X>::fill_tight_set_on_harris_delta(const T & harris_delta ){
     m_tight_set.clear();
     for (auto j : m_breakpoint_set) {
-        if (this->x_is_at_low_bound(j)) {
+        if (this->x_is_at_lower_bound(j)) {
             if (abs(std::max(this->m_d[j], numeric_traits<T>::zero()) / this->m_pivot_row[j]) <= harris_delta){
                 m_tight_set.insert(j);
             }

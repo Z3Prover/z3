@@ -550,7 +550,7 @@ void test_lp_0() {
     costs[5] = 0;
     costs[6] = 0;
     
-    vector<column_type> column_types(7, column_type::low_bound);
+    vector<column_type> column_types(7, column_type::lower_bound);
     vector<double>  upper_bound_values;
     lp_settings settings;
     simple_column_namer cn;
@@ -596,7 +596,7 @@ void test_lp_1() {
 
 
 
-    vector<column_type> column_types(7, column_type::low_bound);
+    vector<column_type> column_types(7, column_type::lower_bound);
     vector<double>  upper_bound_values;
 
     std::cout << "calling lp\n";
@@ -1750,7 +1750,7 @@ void solve_rational() {
 
     int bounds[] = {8, 6, 4, 15, 2, 10, 10, 3};
     for (unsigned i = 0; i < 8; i++) {
-        solver.set_low_bound(i, lp::mpq(0));
+        solver.set_lower_bound(i, lp::mpq(0));
         solver.set_upper_bound(i, lp::mpq(bounds[i]));
     }
 
@@ -2782,7 +2782,7 @@ void test_bound_propagation_one_small_sample1() {
       got to get a <= c
     */
     std::function<bool (unsigned, bool, bool, const mpq & )> bound_is_relevant =
-        [&](unsigned j, bool is_low_bound, bool strict, const rational& bound_val) {
+        [&](unsigned j, bool is_lower_bound, bool strict, const rational& bound_val) {
         return true; 
     };   
     lar_solver ls;
@@ -3197,13 +3197,13 @@ void test_bound_of_cut_solver(cut_solver<int>& cs, unsigned ineq_index)  {
 
 
 void test_resolve_with_tigth_ineq(cut_solver<int>& cs,
-                                const cut_solver<int>::tight_ineq te,
+                                const cut_solver<int>::model_bound te,
                                 var_index ineq_index,
                                 cut_solver<int>::ineq & result) {
     std::cout << "resolve ineq ";
     cs.print_ineq(ineq_index, std::cout);
     std::cout << " with tight inequality ";
-    cs.print_tight_ineq(std::cout, te);
+    cs.print_model_bound(std::cout, te);
     std::cout << std::endl;
     if (cs.resolve(te, cs.get_ineq(ineq_index), result)) {
         std::cout << "resolve succeeds, result is ";
@@ -3219,7 +3219,7 @@ void test_resolve(cut_solver<int>& cs, unsigned ineq_index)  {
     var_index y = 1;
     std::cout << "test_resolve\n";
     auto q = cs.get_ineq(ineq_index);
-    cut_solver<int>::tight_ineq te(x, true /* le */, 2);
+    cut_solver<int>::model_bound te(x, true /* le */, 2);
     cut_solver<int>::ineq result;
     test_resolve_with_tigth_ineq(cs, te, ineq_index, result);
     te.m_le = false;

@@ -9,8 +9,8 @@ bound_propagator::bound_propagator(lar_solver & ls):
 column_type bound_propagator::get_column_type(unsigned j) const {
     return m_lar_solver.m_mpq_lar_core_solver.m_column_types()[j];
 }
-const impq & bound_propagator::get_low_bound(unsigned j) const {
-    return m_lar_solver.m_mpq_lar_core_solver.m_r_low_bounds()[j];
+const impq & bound_propagator::get_lower_bound(unsigned j) const {
+    return m_lar_solver.m_mpq_lar_core_solver.m_r_lower_bounds()[j];
 }
 const impq & bound_propagator::get_upper_bound(unsigned j) const {
     return m_lar_solver.m_mpq_lar_core_solver.m_r_upper_bounds()[j];
@@ -30,14 +30,14 @@ void bound_propagator::try_add_bound(mpq  v, unsigned j, bool is_low, bool coeff
         return;
      unsigned k; // index to ibounds
      if (is_low) {
-         if (try_get_value(m_improved_low_bounds, j, k)) {
+         if (try_get_value(m_improved_lower_bounds, j, k)) {
              auto & found_bound = m_ibounds[k];
              if (v > found_bound.m_bound || (v == found_bound.m_bound && found_bound.m_strict == false && strict)) {
                  found_bound = implied_bound(v, j, is_low, coeff_before_j_is_pos, row_or_term_index, strict);
                  TRACE("try_add_bound", m_lar_solver.print_implied_bound(found_bound, tout););
              }
          } else {
-             m_improved_low_bounds[j] = m_ibounds.size();
+             m_improved_lower_bounds[j] = m_ibounds.size();
              m_ibounds.push_back(implied_bound(v, j, is_low, coeff_before_j_is_pos, row_or_term_index, strict));
              TRACE("try_add_bound", m_lar_solver.print_implied_bound(m_ibounds.back(), tout););
          }

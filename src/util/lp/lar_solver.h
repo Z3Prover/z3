@@ -151,7 +151,28 @@ public:
 
     void decide_on_strategy_and_adjust_initial_state();
 
-    bool use_lu() const { return m_settings.simplex_strategy() == simplex_strategy_enum::lu; }
+
+    void adjust_initial_state();
+
+    void adjust_initial_state_for_lu();
+
+    void adjust_initial_state_for_tableau_rows();
+
+    // this fills the last row of A_d and sets the basis column: -1 in the last column of the row
+    void fill_last_row_of_A_d(static_matrix<double, double> & A, const lar_term* ls);
+
+    void update_free_column_type_and_bound(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index constr_ind);
+
+    void update_upper_bound_column_type_and_bound(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index ci);
+    
+    void update_boxed_column_type_and_bound(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index ci);
+    void update_lower_bound_column_type_and_bound(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index ci);
+
+    void update_fixed_column_type_and_bound(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index ci);
+    //end of init region
+    lp_settings & settings();
+
+    lp_settings const & settings() const;
 
     void clear();
     lar_solver();
@@ -567,7 +588,7 @@ public:
 
     void set_upper_bound_witness(var_index j, constraint_index ci);
 
-    void set_low_bound_witness(var_index j, constraint_index ci);
+    void set_lower_bound_witness(var_index j, constraint_index ci);
 
 
     void substitute_terms_in_linear_expression( const vector<std::pair<mpq, var_index>>& left_side_with_terms,
@@ -1174,32 +1195,8 @@ public:
 	
     bool model_is_int_feasible() const;
 
-
-    void remove_last_row_and_column_from_tableau(unsigned j) {
-        SASSERT(A_r().column_count() == m_mpq_lar_core_solver.m_r_solver.m_costs.size());
-        auto & slv = m_mpq_lar_core_solver.m_r_solver;
-        unsigned i = A_r().row_count() - 1; //last row index
-        make_sure_that_the_bottom_right_elem_not_zero_in_tableau(i, j);
-        if (slv.m_basis_heading[j] < 0) {
-            slv.pivot_column_tableau(j, i);
-        }
-
-        auto & last_row = A_r().m_rows[i];
-        mpq &cost_j = m_mpq_lar_core_solver.m_r_solver.m_costs[j];
-        bool cost_is_nz = !is_zero(cost_j);
-        for (unsigned k = last_row.size(); k-- > 0;) {
-            auto &rc = last_row[k];
-            if (cost_is_nz) {
-                m_mpq_lar_core_solver.m_r_solver.m_d[rc.m_j] += cost_j*rc.get_val();
-            }
-
-            A_r().remove_element(last_row, rc);
-        }
-        SASSERT(last_row.size() == 0);
-        SASSERT(A_r().m_columns[j].size() == 0);
-        A_r().m_rows.pop_back();
-        A_r().m_columns.pop_back();
-        slv.m_b.pop_back();
+    const impq & column_lower_bound(unsigned j) const {
+        return m_mpq_lar_core_solver.lower_bound(j);
     }
 
     void remove_last_column_from_tableau(unsigned j) {
@@ -1260,7 +1257,7 @@ public:
 
     void get_bound_constraint_witnesses_for_column(unsigned j, constraint_index & lc, constraint_index & uc) const {
         const ul_pair & ul = m_columns_to_ul_pairs[j];
-        lc = ul.low_bound_witness();
+        lc = ul.lower_bound_witness();
         uc = ul.upper_bound_witness();
     }
 
@@ -1328,8 +1325,8 @@ public:
         return m_columns_to_ul_pairs()[j].upper_bound_witness();
     }
 
-    constraint_index get_column_low_bound_witness(unsigned j) const {
-        return m_columns_to_ul_pairs()[j].low_bound_witness();
+    constraint_index get_column_lower_bound_witness(unsigned j) const {
+        return m_columns_to_ul_pairs()[j].lower_bound_witness();
     }
 
     void subs_term_columns(lar_term& t) {
