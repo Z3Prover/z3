@@ -11,14 +11,16 @@
 #include "util/lp/lp_utils.h"
 #include <functional>
 namespace lp {
+enum
+class lbool { l_false, l_true, l_undef };
 template <typename T>
 class cut_solver : public column_namer {
 public: // for debugging
     enum class model_bound_type {
         implied, decided
     };
+    
     struct model_bound {
-        
         var_index m_j;
         bool m_le; // less or equal
         T m_b; // the right size
@@ -36,6 +38,8 @@ public: // for debugging
         polynomial(std::vector<std::pair<T, var_index>>& p, const T & a) : m_coeffs(p), m_a(a) {}
         polynomial(std::vector<std::pair<T, var_index>>& p) : polynomial(p, 0) {}
         polynomial(): m_a(zero_of_type<T>()) {}
+        polynomial(const polynomial & p) : m_coeffs(p.m_coeffs), m_a(p.m_a) {} 
+            
         const T & coeff(var_index j) const {
             for (const auto & t : m_coeffs) {
                 if (j == t.second) {
@@ -44,6 +48,7 @@ public: // for debugging
             }
             return cut_solver::m_local_zero;
         }
+
         std::vector<std::pair<T, var_index>> copy_coeff_but_one(var_index j) const {
             std::vector<std::pair<T, var_index>> ret;
             for (const auto & t : m_coeffs)
@@ -72,21 +77,29 @@ public: // for debugging
         const T & coeff(var_index j) const {
             return m_poly.coeff(j);
         }
+        
         void clear() { m_poly.clear(); }
+
+        bool is_simple() const {
+            return m_poly.m_coeffs.size() == 1 &&
+                (m_poly.m_coeffs[0].first == one_of_type<T>()
+                 || m_poly.m_coeffs[0].first == -one_of_type<T>());
+        }
     };
 
-    std::vector<ineq> m_ineqs;
-
-    enum class lbool {
-        l_false, // false
-        l_true, // true
-        l_undef  // undef
+    struct div_constraint {
+        // m_d divides m_poly
+        polynomial m_poly;
+        T m_d; 
+        div_constraint(const polynomial & p, const T& d): m_poly(p), m_d(d) {
+        }
     };
     
+    std::vector<ineq> m_ineqs;
+    std::vector<div_constraint> m_div_constraints;
+    
     enum class literal_type {
-        BOOL,
-        INEQ,
-        BOUND
+        BOOL,INEQ, BOUND, DIV            
     };
 
     enum class bound_type {
@@ -100,6 +113,7 @@ public: // for debugging
         unsigned m_index_of_ineq; // index into m_ineqs
         bool m_bool_val; // used if m_tag is equal to BOOL
         T m_bound; // used if m_tag is BOUND
+        unsigned m_index_of_div_constraint;
         literal(bool sign, bool val):  m_tag(literal_type::BOOL),
             m_bool_val(val){
         } 
@@ -134,6 +148,7 @@ public: // for debugging
         var_info(unsigned user_var_index) : m_user_var_index(user_var_index) {}
         std::vector<unsigned> m_literals; // point to m_trail
         integer_domain<T> m_domain;
+        bool is_fixed() const { return m_domain.is_fixed();}
     };
 
     std::vector<var_info> m_var_infos;
@@ -361,8 +376,25 @@ public: // for debugging
         return true;
     }
 
+
+    bool propagate_simple_ineq(const ineq & t) const {
+        lp_assert(false); // not implemented
+        return false;
+    }
+    
+        
+    bool propagate_simple() {
+        for (const auto & t :  m_ineqs) {
+            if (t.is_simple() && propagate_simple_ineq(t)){
+                return true;
+            }
+        }
+        return false;
+    }
+    
     void propagate() {
-        // this is where the main action is.
+        if (propagate_simple())
+            return;
     }
 
     bool decide() {
@@ -627,7 +659,6 @@ public: // for debugging
         bool lower_bound_exists = get_var_lower_bound(j, b);
         return (!lower_bound_exists || new_lower.m_bound > b) &&
             dom.intersection_with_lower_bound_is_empty(new_lower.m_bound);
-        
     }
     
 };

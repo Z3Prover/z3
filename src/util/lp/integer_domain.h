@@ -914,5 +914,11 @@ public:
     }
 
     bool is_empty() const { return m_empty; }
+
+    bool is_fixed() const {
+        return
+            lower_bound_exists() && upper_bound_exists()
+            && get_lower_bound() == get_upper_bound();
+    }
 };
 }

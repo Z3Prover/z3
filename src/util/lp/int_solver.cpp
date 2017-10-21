@@ -478,21 +478,24 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
     if (++m_branch_cut_counter > 0) { // testing cut_solver
         cut_solver<mpq> cs([this](unsigned j) {return m_lar_solver->get_column_name(j);});
         fill_cut_solver(cs);
-    } else 
-        if ((++m_branch_cut_counter) % settings().m_int_branch_cut_gomory_threshold == 0) {
-            if (move_non_basic_columns_to_bounds()) {
-                lp_status st = m_lar_solver->find_feasible_solution();
-                lp_assert(non_basic_columns_are_at_bounds());
-                if (st != lp_status::FEASIBLE && st != lp_status::OPTIMAL) {
-                    TRACE("arith_int", tout << "give_up\n";);
-                    return lia_move::give_up;
-                }
+        auto check_res = cs.check();
+        return (check_res == lbool::l_true)? lia_move::ok :
+            (check_res == lbool::l_false? lia_move::unsat: lia_move::give_up);
+    } 
+    if ((++m_branch_cut_counter) % settings().m_int_branch_cut_gomory_threshold == 0) {
+        if (move_non_basic_columns_to_bounds()) {
+            lp_status st = m_lar_solver->find_feasible_solution();
+            lp_assert(non_basic_columns_are_at_bounds());
+            if (st != lp_status::FEASIBLE && st != lp_status::OPTIMAL) {
+                TRACE("arith_int", tout << "give_up\n";);
+                return lia_move::give_up;
             }
-            int j = find_inf_int_base_column();
-            if (j == -1) return lia_move::ok;
-            TRACE("arith_int", tout << "j = " << j << " does not have an integer assignment: " << get_value(j) << "\n";);
-            return proceed_with_gomory_cut(t, k, ex, j);
         }
+        int j = find_inf_int_base_column();
+        if (j == -1) return lia_move::ok;
+        TRACE("arith_int", tout << "j = " << j << " does not have an integer assignment: " << get_value(j) << "\n";);
+        return proceed_with_gomory_cut(t, k, ex, j);
+    }
     return create_branch_on_column(find_inf_int_base_column(), t, k, false);
 }
 

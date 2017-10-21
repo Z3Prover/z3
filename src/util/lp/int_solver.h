@@ -21,7 +21,8 @@ enum class lia_move {
         cut,
         conflict,
         continue_with_check,
-        give_up
+        give_up,
+            unsat
 };
 
 struct explanation {
