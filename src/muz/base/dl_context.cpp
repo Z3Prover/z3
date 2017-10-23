@@ -453,7 +453,8 @@ namespace datalog {
         return new_pred;
     }
 
-  void context::add_rule(expr* rl, symbol const& name, unsigned bound) {
+    void context::add_rule(expr* rl, symbol const& name, unsigned bound) {
+        SASSERT(rl);
         m_rule_fmls.push_back(rl);
         m_rule_names.push_back(name);
         m_rule_bounds.push_back(bound);
