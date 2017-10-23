@@ -85,6 +85,10 @@ namespace smt {
         watch_list():
             m_data(0) {
         }
+
+        watch_list(watch_list && other) : m_data(0) {
+            std::swap(m_data, other.m_data);
+        }
         
         ~watch_list() {
             destroy();

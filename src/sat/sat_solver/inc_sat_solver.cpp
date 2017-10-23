@@ -105,7 +105,6 @@ public:
 
     virtual void set_progress_callback(progress_callback * callback) {}
 
-
     void display_weighted(std::ostream& out, unsigned sz, expr * const * assumptions, unsigned const* weights) {
         if (weights != 0) {
             for (unsigned i = 0; i < sz; ++i) m_weights.push_back(weights[i]);
@@ -163,6 +162,11 @@ public:
         if (r != l_true) return r;
 
         r = m_solver.check(m_asms.size(), m_asms.c_ptr());
+        if (r == l_undef && m_solver.get_config().m_dimacs_display) {
+            for (auto const& kv : m_map) {
+                std::cout << "c " << kv.m_value << " " << mk_pp(kv.m_key, m) << "\n";
+            }
+        }
 
         switch (r) {
         case l_true:
@@ -644,14 +648,12 @@ private:
         }
         sat::model const & ll_m = m_solver.get_model();
         model_ref md = alloc(model, m);
-        atom2bool_var::iterator it  = m_map.begin();
-        atom2bool_var::iterator end = m_map.end();
-        for (; it != end; ++it) {
-            expr * n   = it->m_key;
+        for (auto const& kv : m_map) {
+            expr * n   = kv.m_key;
             if (is_app(n) && to_app(n)->get_num_args() > 0) {
                 continue;
             }
-            sat::bool_var v = it->m_value;
+            sat::bool_var v = kv.m_value;
             switch (sat::value_at(v, ll_m)) {
             case l_true:
                 md->register_decl(to_app(n)->get_decl(), m.mk_true());

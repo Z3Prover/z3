@@ -283,15 +283,16 @@ extern "C" {
         Z3_optimize opt,
         std::istream& s) {
         ast_manager& m = mk_c(c)->m();
-        cmd_context ctx(false, &m);
-        install_opt_cmds(ctx, to_optimize_ptr(opt));
-        ctx.set_ignore_check(true);
-        if (!parse_smt2_commands(ctx, s)) {
+        scoped_ptr<cmd_context> ctx = alloc(cmd_context, false, &m);
+        install_opt_cmds(*ctx.get(), to_optimize_ptr(opt));
+        ctx->set_ignore_check(true);
+        if (!parse_smt2_commands(*ctx.get(), s)) {
+            ctx = nullptr;
             SET_ERROR_CODE(Z3_PARSER_ERROR);
             return;
         }        
-        ptr_vector<expr>::const_iterator it  = ctx.begin_assertions();
-        ptr_vector<expr>::const_iterator end = ctx.end_assertions();
+        ptr_vector<expr>::const_iterator it  = ctx->begin_assertions();
+        ptr_vector<expr>::const_iterator end = ctx->end_assertions();
         for (; it != end; ++it) {
             to_optimize_ptr(opt)->add_hard_constraint(*it);
         }
@@ -320,9 +321,6 @@ extern "C" {
             std::ostringstream strm;
             strm << "Could not open file " << s;
             throw default_exception(strm.str());
-
-            SET_ERROR_CODE(Z3_PARSER_ERROR);
-            return;
         }
         Z3_optimize_from_stream(c, d, is);
         Z3_CATCH;

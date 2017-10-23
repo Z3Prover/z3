@@ -158,7 +158,6 @@ namespace smt {
         virtual char const * get_name() const { return "fpa"; }
 
         virtual model_value_proc * mk_value(enode * n, model_generator & mg);
-        virtual bool include_func_interp(func_decl * f);
 
         void assign_eh(bool_var v, bool is_true);
         virtual void relevant_eh(app * n);
@@ -179,8 +178,6 @@ namespace smt {
         expr_ref convert_atom(expr * e);
         expr_ref convert_term(expr * e);
         expr_ref convert_conversion_term(expr * e);
-
-        void add_trail(ast * a);
 
         void attach_new_th_var(enode * n);
         void assert_cnstr(expr * e);

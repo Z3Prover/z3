@@ -27,8 +27,8 @@ Revision History:
 #include "util/bit_util.h"
 #include "util/trace.h"
 
-COMPILE_TIME_ASSERT(sizeof(mpn_digit) == sizeof(unsigned));
-COMPILE_TIME_ASSERT(sizeof(unsigned)  == 4);
+static_assert(sizeof(mpn_digit) == sizeof(unsigned), "");
+static_assert(sizeof(unsigned)  == 4, "unsigned haven't changed size for a while");
 
 // MIN_MSW is an shorthand for 0x8000..00, i.e., the minimal most significand word.
 #define MIN_MSW (1u << (sizeof(unsigned) * 8 - 1))

@@ -30,8 +30,10 @@ the future.
 * `JAVA_BINDINGS` - Build and test Java API bindings (`0` or `1`)
 * `NO_SUPPRESS_OUTPUT` - Don't suppress output of some commands (`0` or `1`)
 * `PYTHON_BINDINGS` - Build and test Python API bindings (`0` or `1`)
+* `RUN_API_EXAMPLES` - Build and run API examples (`0` or `1`)
 * `RUN_SYSTEM_TESTS` - Run system tests (`0` or `1`)
-* `RUN_UNIT_TESTS` - Run unit tests (`0` or `1`)
+* `RUN_UNIT_TESTS` - Run unit tests (`BUILD_ONLY` or `BUILD_AND_RUN` or `SKIP`)
+* `SANITIZER_PRINT_SUPPRESSIONS` - Show ASan/UBSan suppressions (`0` or `1`)
 * `TARGET_ARCH` - Target architecture (`x86_64` or `i686`)
 * `TEST_INSTALL` - Test running `install` target (`0` or `1`)
 * `UBSAN_BUILD` - Do [UndefinedBehaviourSanitizer](https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html) build (`0` or `1`)
@@ -58,8 +60,9 @@ The `scripts/travis_ci_linux_entry_point.sh` script
    variables (if set) into the build using the `--build-arg` argument of the `docker run`
    command.
 
-If an environemnt variable is not set a defaults value is used which can be
-found in `Dockerfiles/z3_build.Dockerfile`.
+The default values of the configuration environment variables
+can be found in
+[`scripts/ci_defaults.sh`](scripts/ci_defaults.sh).
 
 #### Linux specific configuration variables
 
@@ -67,8 +70,9 @@ found in `Dockerfiles/z3_build.Dockerfile`.
 
 #### Reproducing a build locally
 
-A build can be reproduced locally by using the `scripts/travis_ci_linux_entry_point.sh`
-script and setting the appropriate environment variable.
+A build can be reproduced locally by using the
+`scripts/travis_ci_linux_entry_point.sh` script and setting the appropriate
+environment variable.
 
 For example lets say we wanted to reproduce the build below.
 
@@ -104,11 +108,43 @@ feature might be removed in the future.
 
 It may be better to just build the base image once (outside of TravisCI), upload
 it to [DockerHub](https://hub.docker.com/) and have the build pull down the pre-built
-image everytime.
+image every time.
 
 An [organization](https://hub.docker.com/u/z3prover/) has been created on
 DockerHub for this.
 
 ### macOS
 
-Not yet implemented.
+For macOS we execute directly on TravisCI's macOS environment.  The entry point
+for the TravisCI builds is the
+[`scripts/travis_ci_osx_entry_point.sh`](scripts/travis_ci_osx_entry_point.sh)
+scripts.
+
+#### macOS specific configuration variables
+
+* `MACOS_SKIP_DEPS_UPDATE` - If set to `1` installing the necessary build dependencies
+  is skipped. This is useful for local testing if the dependencies are already installed.
+* `MACOS_UPDATE_CMAKE` - If set to `1` the installed version of CMake will be upgraded.
+
+#### Reproducing a build locally
+
+To reproduce a build (e.g. like the one shown below)
+
+```yaml
+- os: osx
+  osx_image: xcode8.3
+  # Note: Apple Clang does not support OpenMP
+  env: Z3_BUILD_TYPE=RelWithDebInfo USE_OPENMP=0
+```
+
+Run the following:
+
+```bash
+TRAVIS_BUILD_DIR=$(pwd) \
+Z3_BUILD_TYPE=RelWithDebInfo \
+USE_OPEN_MP=0 \
+contrib/ci/scripts/travis_ci_osx_entry_point.sh
+```
+
+Note this assumes that the current working directory is the root of the Z3
+git repository.

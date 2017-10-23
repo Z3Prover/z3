@@ -993,18 +993,6 @@ typedef enum
             3 = 011 = Z3_OP_FPA_RM_TOWARD_NEGATIVE,
             4 = 100 = Z3_OP_FPA_RM_TOWARD_ZERO.
 
-      - Z3_OP_FPA_MIN_I: The same as Z3_OP_FPA_MIN, but the arguments are
-        expected not to be zeroes with different signs.
-
-      - Z3_OP_FPA_MAX_I: The same as Z3_OP_FPA_MAX, but the arguments are
-        expected not to be zeroes with different signs.
-
-      - Z3_OP_FPA_MIN_UNSPECIFIED: The same as Z3_OP_FPA_MIN, but the
-        arguments are expected to be zeroes with different signs.
-
-      - Z3_OP_FPA_MAX_UNSPECIFIED: The same as Z3_OP_FPA_MAX, but the
-        arguments are expected to be zeroes with different signs.
-
       - Z3_OP_INTERNAL: internal (often interpreted) symbol, but no additional
         information is exposed. Tools may use the string representation of the
         function declaration to obtain more information.
@@ -1291,13 +1279,8 @@ typedef enum {
 
     Z3_OP_FPA_TO_IEEE_BV,
 
-    Z3_OP_FPA_MIN_I,
-    Z3_OP_FPA_MAX_I,
-
     Z3_OP_FPA_BVWRAP,
     Z3_OP_FPA_BV2RM,
-    Z3_OP_FPA_MIN_UNSPECIFIED,
-    Z3_OP_FPA_MAX_UNSPECIFIED,
 
     Z3_OP_INTERNAL,
 
@@ -1897,6 +1880,17 @@ extern "C" {
        def_API('Z3_mk_array_sort', SORT, (_in(CONTEXT), _in(SORT), _in(SORT)))
     */
     Z3_sort Z3_API Z3_mk_array_sort(Z3_context c, Z3_sort domain, Z3_sort range);
+
+    /**
+       \brief Create an array type with N arguments
+
+       \sa Z3_mk_select_n
+       \sa Z3_mk_store_n
+
+       def_API('Z3_mk_array_sort_n', SORT, (_in(CONTEXT), _in(UINT), _in_array(1, SORT), _in(SORT)))
+    */
+    Z3_sort Z3_API Z3_mk_array_sort_n(Z3_context c, unsigned n, Z3_sort const * domain, Z3_sort range);
+
 
     /**
        \brief Create a tuple type.
@@ -2991,6 +2985,15 @@ extern "C" {
     Z3_ast Z3_API Z3_mk_select(Z3_context c, Z3_ast a, Z3_ast i);
 
     /**
+       \brief n-ary Array read.
+       The argument \c a is the array and \c idxs are the indices of the array that gets read.
+
+       def_API('Z3_mk_select_n', AST, (_in(CONTEXT), _in(AST), _in(UINT), _in_array(2, AST)))
+
+    */
+    Z3_ast Z3_API Z3_mk_select_n(Z3_context c, Z3_ast a, unsigned n, Z3_ast const* idxs);
+
+    /**
        \brief Array update.
 
        The node \c a must have an array sort \ccode{[domain -> range]}, \c i must have sort \c domain,
@@ -3007,6 +3010,14 @@ extern "C" {
        def_API('Z3_mk_store', AST, (_in(CONTEXT), _in(AST), _in(AST), _in(AST)))
     */
     Z3_ast Z3_API Z3_mk_store(Z3_context c, Z3_ast a, Z3_ast i, Z3_ast v);
+
+    /**
+       \brief n-ary Array update.
+
+       def_API('Z3_mk_store_n', AST, (_in(CONTEXT), _in(AST), _in(UINT), _in_array(2, AST), _in(AST)))
+
+    */
+    Z3_ast Z3_API Z3_mk_store_n(Z3_context c, Z3_ast a, unsigned n, Z3_ast const* idxs, Z3_ast v);
 
     /**
         \brief Create the constant array.
@@ -3048,6 +3059,15 @@ extern "C" {
         def_API('Z3_mk_array_default', AST, (_in(CONTEXT), _in(AST)))
     */
     Z3_ast Z3_API Z3_mk_array_default(Z3_context c, Z3_ast array);
+
+    /**
+       \brief Create array with the same interpretation as a function.
+       The array satisfies the property (f x) = (select (_ as-array f) x) 
+       for every argument x.
+
+       def_API('Z3_mk_as_array', AST, (_in(CONTEXT), _in(FUNC_DECL)))
+     */
+    Z3_ast Z3_API Z3_mk_as_array(Z3_context c, Z3_func_decl f);
     /*@}*/
 
     /** @name Sets */
@@ -3871,6 +3891,7 @@ extern "C" {
 
     /**
        \brief Return the domain of the given array sort.
+       In the case of a multi-dimensional array, this function returns the sort of the first dimension.
 
        \pre Z3_get_sort_kind(c, t) == Z3_ARRAY_SORT
 

@@ -10,27 +10,28 @@
 #include "util/memory_manager.h"
 #include "util/gparams.h"
 
+
 //
 // Unit tests fail by asserting.
 // If they return, we assume the unit test succeeds
 // and print "PASS" to indicate success.
 // 
 
-#define TST(MODULE) {                \
-    std::string s("test ");            \
-    s += #MODULE;                \
-    void tst_##MODULE();            \
-    if (do_display_usage)                       \
-        std::cout << #MODULE << "\n";           \
-    for (int i = 0; i < argc; i++)         \
-    if (test_all || strcmp(argv[i], #MODULE) == 0) {    \
-            enable_trace(#MODULE);              \
-        enable_debug(#MODULE);        \
-        timeit timeit(true, s.c_str());     \
-        tst_##MODULE();            \
-            std::cout << "PASS" << std::endl;   \
-    }                    \
-}
+#define TST(MODULE) {                                        \
+        std::string s("test ");                              \
+        s += #MODULE;                                        \
+        void tst_##MODULE();                                 \
+        if (do_display_usage)                                \
+            std::cout << #MODULE << "\n";                    \
+        for (int i = 0; i < argc; i++)                       \
+            if (test_all || strcmp(argv[i], #MODULE) == 0) { \
+                enable_trace(#MODULE);                       \
+                enable_debug(#MODULE);                       \
+                timeit timeit(true, s.c_str());              \
+                tst_##MODULE();                              \
+                    std::cout << "PASS" << std::endl;        \
+            }                                                \
+    }
 
 #define TST_ARGV(MODULE) {                              \
     std::string s("test ");                             \
@@ -207,6 +208,7 @@ int main(int argc, char ** argv) {
     TST(prime_generator);
     TST(permutation);
     TST(nlsat);
+    if (test_all) return 0;
     TST(ext_numeral);
     TST(interval);
     TST(f2n);
@@ -222,7 +224,7 @@ int main(int argc, char ** argv) {
     TST(heap_trie);
     TST(karr);
     TST(no_overflow);
-    TST(memory);
+    // TST(memory);
     TST(datalog_parser);
     TST_ARGV(datalog_parser_file);
     TST(dl_query);
@@ -237,6 +239,7 @@ int main(int argc, char ** argv) {
     TST(sat_user_scope);
     TST(pdr);
     TST_ARGV(ddnf);
+    TST(ddnf1);
     TST(model_evaluator);
     TST_ARGV(lp);
     TST(get_consequences);

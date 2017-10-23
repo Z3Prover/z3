@@ -109,8 +109,10 @@ namespace smt {
         }
 
         virtual void assert_expr(expr * t, expr * a) {
+            if (m_name2assertion.contains(a)) {
+                throw default_exception("named assertion defined twice");
+            }
             solver_na2as::assert_expr(t, a);
-            SASSERT(!m_name2assertion.contains(a));
             get_manager().inc_ref(t);
             m_name2assertion.insert(a, t);
         }

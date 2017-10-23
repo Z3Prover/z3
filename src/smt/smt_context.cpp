@@ -487,6 +487,7 @@ namespace smt {
     */
     void context::add_eq(enode * n1, enode * n2, eq_justification js) {
         unsigned old_trail_size = m_trail_stack.size();
+        scoped_suspend_rlimit _suspend_cancel(m_manager.limit());
 
         try {
             TRACE("add_eq", tout << "assigning: #" << n1->get_owner_id() << " = #" << n2->get_owner_id() << "\n";);
@@ -541,10 +542,14 @@ namespace smt {
                 mark_as_relevant(r1);
             }
 
+            TRACE("add_eq", tout << "to trail\n";);
+
             push_trail(add_eq_trail(r1, n1, r2->get_num_parents()));
 
+            TRACE("add_eq", tout << "qmanager add_eq\n";);
             m_qmanager->add_eq_eh(r1, r2);
 
+            TRACE("add_eq", tout << "merge theory_vars\n";);
             merge_theory_vars(n2, n1, js);
 
             // 'Proof' tree
@@ -577,6 +582,7 @@ namespace smt {
 #endif
 
 
+            TRACE("add_eq", tout << "remove_parents_from_cg_table\n";);
             remove_parents_from_cg_table(r1);
 
             enode * curr = r1;
@@ -588,8 +594,10 @@ namespace smt {
 
             SASSERT(r1->get_root() == r2);
 
+            TRACE("add_eq", tout << "reinsert_parents_into_cg_table\n";);
             reinsert_parents_into_cg_table(r1, r2, n1, n2, js);
 
+            TRACE("add_eq", tout << "propagate_bool_enode_assignment\n";);
             if (n2->is_bool())
                 propagate_bool_enode_assignment(r1, r2, n1, n2);
 
@@ -604,6 +612,7 @@ namespace smt {
         catch (...) {
             // Restore trail size since procedure was interrupted in the middle.
             // If the add_eq_trail remains on the trail stack, then Z3 may crash when the destructor is invoked.
+            TRACE("add_eq", tout << "add_eq interrupted. This is unsafe " << m_manager.limit().get_cancel_flag() << "\n";);
             m_trail_stack.shrink(old_trail_size);
             throw;
         }
@@ -972,7 +981,7 @@ namespace smt {
             enode * parent = *it;
             if (parent->is_cgc_enabled()) {
                 TRACE("add_eq_parents", tout << "removing: #" << parent->get_owner_id() << "\n";);
-                CTRACE("add_eq", !parent->is_cgr(),
+                CTRACE("add_eq", !parent->is_cgr() || !m_cg_table.contains_ptr(parent),
                        tout << "old num_parents: " << r2_num_parents << ", num_parents: " << r2->m_parents.size() << ", parent: #" <<
                        parent->get_owner_id() << ", parents: \n";
                        for (unsigned i = 0; i < r2->m_parents.size(); i++) {
@@ -1277,7 +1286,7 @@ namespace smt {
         else {
             if (depth >= m_almost_cg_tables.size()) {
                 unsigned old_sz = m_almost_cg_tables.size();
-                m_almost_cg_tables.resize(depth+1, 0);
+                m_almost_cg_tables.resize(depth+1);
                 for (unsigned i = old_sz; i < depth + 1; i++)
                     m_almost_cg_tables[i] = alloc(almost_cg_table);
             }
@@ -4374,9 +4383,17 @@ namespace smt {
                 expr* fn = to_app(q->get_pattern(0))->get_arg(0);
                 expr* body = to_app(q->get_pattern(1))->get_arg(0);
                 SASSERT(is_app(fn));
+                // reverse argument order so that variable 0 starts at the beginning.
+                expr_ref_vector subst(m);
+                for (expr* arg : *to_app(fn)) {
+                    subst.push_back(arg);
+                }
+                expr_ref bodyr(m);
+                var_subst sub(m, false);
+                sub(body, subst.size(), subst.c_ptr(), bodyr);
                 func_decl* f = to_app(fn)->get_decl();
                 func_interp* fi = alloc(func_interp, m, f->get_arity());
-                fi->set_else(body);
+                fi->set_else(bodyr);
                 m_model->register_decl(f, fi);
             }
         }

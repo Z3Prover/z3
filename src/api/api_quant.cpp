@@ -63,9 +63,11 @@ extern "C" {
         RESET_ERROR_CODE();
         if (!mk_c(c)->m().is_bool(to_expr(body))) {
             SET_ERROR_CODE(Z3_SORT_ERROR);
+            return nullptr;
         }
         if (num_patterns > 0 && num_no_patterns > 0) {
             SET_ERROR_CODE(Z3_INVALID_USAGE);
+            return nullptr;
         }
         expr * const* ps = reinterpret_cast<expr * const*>(patterns);
         expr * const* no_ps = reinterpret_cast<expr * const*>(no_patterns);
@@ -76,7 +78,7 @@ extern "C" {
             for (unsigned i = 0; i < num_patterns; i++) {
                 if (!v(num_decls, ps[i], 0, 0)) {
                     SET_ERROR_CODE(Z3_INVALID_PATTERN);
-                    return 0;
+                    return nullptr;
                 }
             }
         }

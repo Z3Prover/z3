@@ -242,7 +242,9 @@ func_decl* array_decl_plugin::mk_select(unsigned arity, sort * const * domain) {
     parameter const* parameters = s->get_parameters();
  
     if (num_parameters != arity) {
-        m_manager->raise_exception("select requires as many arguments as the size of the domain");
+        std::stringstream strm;
+        strm << "select requires " << num_parameters << " arguments, but was provided with " << arity << " arguments";
+        m_manager->raise_exception(strm.str().c_str());
         return 0;
     }
     ptr_buffer<sort> new_domain; // we need this because of coercions.
@@ -314,7 +316,7 @@ func_decl * array_decl_plugin::mk_array_ext(unsigned arity, sort * const * domai
         return 0;
     }
     sort * r = to_sort(s->get_parameter(i).get_ast());
-    parameter param(s);
+    parameter param(i);
     return m_manager->mk_func_decl(m_array_ext_sym, arity, domain, r, func_decl_info(m_family_id, OP_ARRAY_EXT, 1, &param));
 }
 
@@ -591,4 +593,10 @@ sort * array_util::mk_array_sort(unsigned arity, sort* const* domain, sort* rang
     }
     params.push_back(parameter(range));
     return m_manager.mk_sort(m_fid, ARRAY_SORT, params.size(), params.c_ptr());
+}
+
+func_decl* array_util::mk_array_ext(sort *domain, unsigned i) {    
+    sort * domains[2] = { domain, domain };
+    parameter p(i);
+    return m_manager.mk_func_decl(m_fid, OP_ARRAY_EXT, 1, &p, 2, domains);
 }

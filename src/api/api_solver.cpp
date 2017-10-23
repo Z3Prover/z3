@@ -442,6 +442,7 @@ extern "C" {
         unsigned sz = __assumptions.size();
         for (unsigned i = 0; i < sz; ++i) {
             if (!is_expr(__assumptions[i])) {
+                _assumptions.finalize(); _consequences.finalize(); _variables.finalize();
                 SET_ERROR_CODE(Z3_INVALID_USAGE);
                 return Z3_L_UNDEF;
             }
@@ -451,6 +452,7 @@ extern "C" {
         sz = __variables.size();
         for (unsigned i = 0; i < sz; ++i) {
             if (!is_expr(__variables[i])) {
+                _assumptions.finalize(); _consequences.finalize(); _variables.finalize();
                 SET_ERROR_CODE(Z3_INVALID_USAGE);
                 return Z3_L_UNDEF;
             }
@@ -471,6 +473,7 @@ extern "C" {
             }
             catch (z3_exception & ex) {
                 to_solver_ref(s)->set_reason_unknown(eh);
+                _assumptions.finalize(); _consequences.finalize(); _variables.finalize();
                 mk_c(c)->handle_exception(ex);
                 return Z3_L_UNDEF;
             }

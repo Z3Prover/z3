@@ -89,11 +89,6 @@ enum fpa_op_kind {
     OP_FPA_BVWRAP,
     OP_FPA_BV2RM,
 
-    OP_FPA_MIN_I,
-    OP_FPA_MAX_I,
-    OP_FPA_MIN_UNSPECIFIED,
-    OP_FPA_MAX_UNSPECIFIED,
-
     LAST_FLOAT_OP
 };
 
@@ -351,21 +346,12 @@ public:
     }
 
     bool is_bvwrap(expr const * e) const { return is_app_of(e, get_family_id(), OP_FPA_BVWRAP); }
-    bool is_bvwrap(func_decl const * f) const { return f->get_family_id() == get_family_id() && f->get_decl_kind() == OP_FPA_BVWRAP; }
     bool is_bv2rm(expr const * e) const { return is_app_of(e, get_family_id(), OP_FPA_BV2RM); }
-    bool is_bv2rm(func_decl const * f) const { return f->get_family_id() == get_family_id() && f->get_decl_kind() == OP_FPA_BV2RM; }
-
-    bool is_min_interpreted(expr const * e) const { return is_app_of(e, get_family_id(), OP_FPA_MIN_I); }
-    bool is_min_unspecified(expr const * e) const { return is_app_of(e, get_family_id(), OP_FPA_MIN_UNSPECIFIED); }
-    bool is_max_interpreted(expr const * e) const { return is_app_of(e, get_family_id(), OP_FPA_MAX_I); }
-    bool is_max_unspecified(expr const * e) const { return is_app_of(e, get_family_id(), OP_FPA_MAX_UNSPECIFIED); }
     bool is_to_ubv(expr const * e) const { return is_app_of(e, get_family_id(), OP_FPA_TO_UBV); }
     bool is_to_sbv(expr const * e) const { return is_app_of(e, get_family_id(), OP_FPA_TO_SBV); }
 
-    bool is_min_interpreted(func_decl const * f) const { return f->get_family_id() == get_family_id() && f->get_decl_kind() == OP_FPA_MIN_I; }
-    bool is_min_unspecified(func_decl const * f) const { return f->get_family_id() == get_family_id() && f->get_decl_kind() == OP_FPA_MIN_UNSPECIFIED; }
-    bool is_max_interpreted(func_decl const * f) const { return f->get_family_id() == get_family_id() && f->get_decl_kind() == OP_FPA_MAX_I; }
-    bool is_max_unspecified(func_decl const * f) const { return f->get_family_id() == get_family_id() && f->get_decl_kind() == OP_FPA_MAX_UNSPECIFIED; }
+    bool is_bvwrap(func_decl const * f) const { return f->get_family_id() == get_family_id() && f->get_decl_kind() == OP_FPA_BVWRAP; }
+    bool is_bv2rm(func_decl const * f) const { return f->get_family_id() == get_family_id() && f->get_decl_kind() == OP_FPA_BV2RM; }
     bool is_to_ubv(func_decl const * f) const { return f->get_family_id() == get_family_id() && f->get_decl_kind() == OP_FPA_TO_UBV; }
     bool is_to_sbv(func_decl const * f) const { return f->get_family_id() == get_family_id() && f->get_decl_kind() == OP_FPA_TO_SBV; }
 

@@ -1753,10 +1753,6 @@ namespace smt {
             m_use_filters(use_filters) {
         }
 
-        context & get_context() {
-            return m_context;
-        }
-
         /**
            \brief Create a new code tree for the given quantifier.
 
@@ -2003,7 +1999,7 @@ namespace smt {
             m_ast_manager(ctx.get_manager()),
             m_mam(m),
             m_use_filters(use_filters) {
-            m_args.resize(INIT_ARGS_SIZE, 0);
+            m_args.resize(INIT_ARGS_SIZE);
         }
 
         ~interpreter() {
@@ -2020,26 +2016,20 @@ namespace smt {
         void execute(code_tree * t) {
             TRACE("trigger_bug", tout << "execute for code tree:\n"; t->display(tout););
             init(t);
-            enode_vector::const_iterator it  = t->get_candidates().begin();
-            enode_vector::const_iterator end = t->get_candidates().end();
             if (t->filter_candidates()) {
-                for (; it != end; ++it) {
-                    enode * app = *it;
+                for (enode * app : t->get_candidates()) {
                     if (!app->is_marked() && app->is_cgr()) {
                         execute_core(t, app);
                         app->set_mark();
                     }
                 }
-                it  = t->get_candidates().begin();
-                for (; it != end; ++it) {
-                    enode * app = *it;
+                for (enode * app : t->get_candidates()) {
                     if (app->is_marked())
                         app->unset_mark();
                 }
             }
             else {
-                for (; it != end; ++it) {
-                    enode * app = *it;
+                for (enode * app : t->get_candidates()) {
                     TRACE("trigger_bug", tout << "candidate\n" << mk_ismt2_pp(app->get_owner(), m_ast_manager) << "\n";);
                     if (app->is_cgr()) {
                         TRACE("trigger_bug", tout << "is_cgr\n";);
@@ -2825,15 +2815,13 @@ namespace smt {
     } // end of execute_core
 
     void display_trees(std::ostream & out, const ptr_vector<code_tree> & trees) {
-        ptr_vector<code_tree>::const_iterator it  = trees.begin();
-        ptr_vector<code_tree>::const_iterator end = trees.end();
         unsigned lbl = 0;
-        for (; it != end; ++it, ++lbl) {
-            code_tree * tree = *it;
+        for (code_tree* tree : trees) {
             if (tree) {
                 out << "tree for f" << lbl << "\n";
                 out << *tree;
             }
+            ++lbl;
         }
     }
 

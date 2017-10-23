@@ -2968,9 +2968,9 @@ class iz3proof_itp_impl : public iz3proof_itp {
     ast interpolate(const node &pf){
         // proof of false must be a formula, with quantified symbols
 #ifndef BOGUS_QUANTS
-        return add_quants(z3_simplify(pf));
+        return close_universally(add_quants(z3_simplify(pf)));
 #else
-        return z3_simplify(pf);
+        return close_universally(z3_simplify(pf));
 #endif
     }
 

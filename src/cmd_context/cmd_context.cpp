@@ -202,7 +202,7 @@ func_decl * func_decls::find(unsigned arity, sort * const * domain, sort * range
         if (f->get_arity() != arity)
             continue;
         unsigned i = 0;
-        for (i = 0; i < arity; i++) {
+        for (i = 0; domain && i < arity; i++) {
             if (f->get_domain(i) != domain[i])
                 break;
         }
@@ -774,7 +774,6 @@ bool cmd_context::is_func_decl(symbol const & s) const {
 }
 
 void cmd_context::insert(symbol const & s, func_decl * f) {
-    m_check_sat_result = 0;
     if (!m_check_logic(f)) {
         throw cmd_exception(m_check_logic.get_last_error());
     }
@@ -805,7 +804,6 @@ void cmd_context::insert(symbol const & s, func_decl * f) {
 }
 
 void cmd_context::insert(symbol const & s, psort_decl * p) {
-    m_check_sat_result = 0;
     if (m_psort_decls.contains(s)) {
         throw cmd_exception("sort already defined ", s);
     }
@@ -819,7 +817,6 @@ void cmd_context::insert(symbol const & s, psort_decl * p) {
 
 void cmd_context::insert(symbol const & s, unsigned arity, sort *const* domain, expr * t) {
     expr_ref _t(t, m());
-    m_check_sat_result = 0;
     if (m_builtin_decls.contains(s)) {
         throw cmd_exception("invalid macro/named expression, builtin symbol ", s);
     }
@@ -870,6 +867,12 @@ void cmd_context::insert_rec_fun(func_decl* f, expr_ref_vector const& binding, s
     lhs = m().mk_app(f, binding.size(), binding.c_ptr());
     eq  = m().mk_eq(lhs, e);
     if (!ids.empty()) {
+        if (is_var(e)) {
+            ptr_vector<sort> domain;
+            for (expr* b : binding) domain.push_back(m().get_sort(b));
+            insert_macro(f->get_name(), domain.size(), domain.c_ptr(), e);
+            return;
+        }
         if (!is_app(e)) {
             throw cmd_exception("Z3 only supports recursive definitions that are proper terms (not binders or variables)");
         }
@@ -937,7 +940,7 @@ static builtin_decl const & peek_builtin_decl(builtin_decl const & first, family
 func_decl * cmd_context::find_func_decl(symbol const & s, unsigned num_indices, unsigned const * indices,
                                         unsigned arity, sort * const * domain, sort * range) const {
     builtin_decl d;
-    if (m_builtin_decls.find(s, d)) {
+    if (domain && m_builtin_decls.find(s, d)) {
         family_id fid = d.m_fid;
         decl_kind k   = d.m_decl;
         // Hack: if d.m_next != 0, we use domain[0] (if available) to decide which plugin we use.
@@ -961,7 +964,7 @@ func_decl * cmd_context::find_func_decl(symbol const & s, unsigned num_indices, 
         return f;
     }
 
-    if (contains_macro(s, arity, domain))
+    if (domain && contains_macro(s, arity, domain))
         throw cmd_exception("invalid function declaration reference, named expressions (aka macros) cannot be referenced ", s);
 
     if (num_indices > 0)
@@ -1545,6 +1548,26 @@ void cmd_context::reset_assertions() {
 }
 
 
+void cmd_context::display_dimacs() {
+    if (m_solver) {
+        try {
+            gparams::set("sat.dimacs.display", "true");
+            params_ref p;
+            m_solver->updt_params(p);
+            m_solver->check_sat(0, nullptr);
+        }
+        catch (...) {
+            gparams::set("sat.dimacs.display", "false");        
+            params_ref p;
+            m_solver->updt_params(p);
+            throw;
+        }
+        gparams::set("sat.dimacs.display", "false");        
+        params_ref p;
+        m_solver->updt_params(p);
+    }
+}
+
 void cmd_context::display_model(model_ref& mdl) {
     if (mdl) {
         model_params p;
@@ -1582,7 +1605,9 @@ void cmd_context::validate_check_sat_result(lbool r) {
             throw cmd_exception("check annotation that says unsat");
 #else
             diagnostic_stream() << "BUG: incompleteness" << std::endl;
-            exit(ERR_INCOMPLETENESS);
+            // WORKAROUND: `exit()` causes LSan to be invoked and produce
+            // many false positives.
+            _Exit(ERR_INCOMPLETENESS);
 #endif
         }
         break;
@@ -1592,7 +1617,9 @@ void cmd_context::validate_check_sat_result(lbool r) {
             throw cmd_exception("check annotation that says sat");
 #else
             diagnostic_stream() << "BUG: unsoundness" << std::endl;
-            exit(ERR_UNSOUNDNESS);
+            // WORKAROUND: `exit()` causes LSan to be invoked and produce
+            // many false positives.
+            _Exit(ERR_UNSOUNDNESS);
 #endif
         }
         break;
@@ -1743,6 +1770,7 @@ void cmd_context::validate_model() {
                     continue;
                 }
                 try {
+                    for_each_expr(contains_underspecified, a);
                     for_each_expr(contains_underspecified, r);
                 }
                 catch (contains_underspecified_op_proc::found) {

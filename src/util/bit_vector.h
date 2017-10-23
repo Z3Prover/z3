@@ -24,7 +24,7 @@ Revision History:
 #include "util/vector.h"
 #include "util/memory_manager.h"
 
-COMPILE_TIME_ASSERT(sizeof(unsigned) == 4);
+static_assert(sizeof(unsigned) == 4, "unsigned are 4 bytes");
 #define BV_DEFAULT_CAPACITY 2
 
 class bit_vector {

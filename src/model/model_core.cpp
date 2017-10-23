@@ -86,18 +86,22 @@ void model_core::register_decl(func_decl * d, func_interp * fi) {
 void model_core::unregister_decl(func_decl * d) {
     decl2expr::obj_map_entry * ec = m_interp.find_core(d);
     if (ec && ec->get_data().m_value != 0) {
-        m_manager.dec_ref(ec->get_data().m_key);
-        m_manager.dec_ref(ec->get_data().m_value);
+        auto k = ec->get_data().m_key;
+        auto v = ec->get_data().m_value;
         m_interp.remove(d);
         m_const_decls.erase(d);
+        m_manager.dec_ref(k);
+        m_manager.dec_ref(v);
         return;
     }
 
     decl2finterp::obj_map_entry * ef = m_finterp.find_core(d);
     if (ef && ef->get_data().m_value != 0) {
-        m_manager.dec_ref(ef->get_data().m_key);
-        dealloc(ef->get_data().m_value);
+        auto k = ef->get_data().m_key;
+        auto v = ef->get_data().m_value;
         m_finterp.remove(d);
         m_func_decls.erase(d);
+        m_manager.dec_ref(k);
+        dealloc(v);
     }
 }

@@ -96,7 +96,7 @@ class ast_r : public ast_i {
 
  ast_r(const ast_r &other) : ast_i(other) {
         _m = other._m;
-        _m->inc_ref(_ast);
+        if (_m) _m->inc_ref(_ast);
     }
 
     ast_r &operator=(const ast_r &other) {
@@ -104,7 +104,7 @@ class ast_r : public ast_i {
             _m->dec_ref(_ast);
         _ast = other._ast;
         _m = other._m;
-        _m->inc_ref(_ast);
+        if (_m) _m->inc_ref(_ast);
         return *this;
     }
 
@@ -661,6 +661,12 @@ class iz3mgr  {
 
     ast apply_quant(opr quantifier, ast var, ast e);
 
+    // Universally quantify all the free variables in a formula.
+    // Makes up names for the quntifiers.
+
+    ast close_universally (ast e);
+
+    unsigned num_free_variables(const ast &e);
 
     /** For debugging */
     void show(ast);

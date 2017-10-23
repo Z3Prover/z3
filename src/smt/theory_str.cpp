@@ -315,6 +315,7 @@ namespace smt {
         m_trail.push_back(node);
         if (!cut_var_map.contains(baseNode)) {
             T_cut * varInfo = alloc(T_cut);
+            m_cut_allocs.push_back(varInfo);
             varInfo->level = slevel;
             varInfo->vars[node] = 1;
             cut_var_map.insert(baseNode, std::stack<T_cut*>());
@@ -323,6 +324,7 @@ namespace smt {
         } else {
             if (cut_var_map[baseNode].empty()) {
                 T_cut * varInfo = alloc(T_cut);
+                m_cut_allocs.push_back(varInfo);
                 varInfo->level = slevel;
                 varInfo->vars[node] = 1;
                 cut_var_map[baseNode].push(varInfo);
@@ -330,6 +332,7 @@ namespace smt {
             } else {
                 if (cut_var_map[baseNode].top()->level < slevel) {
                     T_cut * varInfo = alloc(T_cut);
+                    m_cut_allocs.push_back(varInfo);
                     varInfo->level = slevel;
                     cut_vars_map_copy(varInfo->vars, cut_var_map[baseNode].top()->vars);
                     varInfo->vars[node] = 1;
@@ -359,6 +362,7 @@ namespace smt {
 
         if (!cut_var_map.contains(destNode)) {
             T_cut * varInfo = alloc(T_cut);
+            m_cut_allocs.push_back(varInfo);
             varInfo->level = slevel;
             cut_vars_map_copy(varInfo->vars, cut_var_map[srcNode].top()->vars);
             cut_var_map.insert(destNode, std::stack<T_cut*>());
@@ -367,6 +371,7 @@ namespace smt {
         } else {
             if (cut_var_map[destNode].empty() || cut_var_map[destNode].top()->level < slevel) {
                 T_cut * varInfo = alloc(T_cut);
+                m_cut_allocs.push_back(varInfo);
                 varInfo->level = slevel;
                 cut_vars_map_copy(varInfo->vars, cut_var_map[destNode].top()->vars);
                 cut_vars_map_copy(varInfo->vars, cut_var_map[srcNode].top()->vars);
@@ -8883,15 +8888,30 @@ namespace smt {
                 if (concat_lhs_haseqc && concat_rhs_haseqc && !var_haseqc) {
                     TRACE("str", tout << "backpropagate into " << mk_pp(var, m) << " = " << mk_pp(concat, m) << std::endl
                           << "LHS ~= " << mk_pp(concat_lhs_str, m) << " RHS ~= " << mk_pp(concat_rhs_str, m) << std::endl;);
+
                     zstring lhsString, rhsString;
                     u.str.is_string(concat_lhs_str, lhsString);
                     u.str.is_string(concat_rhs_str, rhsString);
                     zstring concatString = lhsString + rhsString;
-                    expr_ref lhs1(ctx.mk_eq_atom(concat_lhs, concat_lhs_str), m);
-                    expr_ref lhs2(ctx.mk_eq_atom(concat_rhs, concat_rhs_str), m);
-                    expr_ref lhs(m.mk_and(lhs1, lhs2), m);
-                    expr_ref rhs(ctx.mk_eq_atom(concat, mk_string(concatString)), m);
-                    assert_implication(lhs, rhs);
+
+                    // special handling: don't assert that string constants are equal to themselves
+                    expr_ref_vector lhs_terms(m);
+                    if (!u.str.is_string(concat_lhs)) {
+                        lhs_terms.push_back(ctx.mk_eq_atom(concat_lhs, concat_lhs_str));
+                    }
+                    if (!u.str.is_string(concat_rhs)) {
+                        lhs_terms.push_back(ctx.mk_eq_atom(concat_rhs, concat_rhs_str));
+                    }
+
+                    if (lhs_terms.empty()) {
+                        // no assumptions on LHS
+                        expr_ref rhs(ctx.mk_eq_atom(concat, mk_string(concatString)), m);
+                        assert_axiom(rhs);
+                    } else {
+                        expr_ref lhs(mk_and(lhs_terms), m);
+                        expr_ref rhs(ctx.mk_eq_atom(concat, mk_string(concatString)), m);
+                        assert_implication(lhs, rhs);
+                    }
                     backpropagation_occurred = true;
                 }
             }

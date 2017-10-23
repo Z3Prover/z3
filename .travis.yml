@@ -17,15 +17,31 @@ env:
 ###############################################################################
 # Ubuntu 16.04 LTS
 ###############################################################################
+    # 64-bit UBSan Debug build
+    - LINUX_BASE=ubuntu_16.04 C_COMPILER=/usr/bin/clang-3.9 CXX_COMPILER=/usr/bin/clang++-3.9 TARGET_ARCH=x86_64 Z3_BUILD_TYPE=Debug UBSAN_BUILD=1 RUN_UNIT_TESTS=SKIP
+    # 64-bit ASan Debug build
+    - LINUX_BASE=ubuntu_16.04 C_COMPILER=/usr/bin/clang-3.9 CXX_COMPILER=/usr/bin/clang++-3.9 TARGET_ARCH=x86_64 Z3_BUILD_TYPE=Debug ASAN_BUILD=1 RUN_UNIT_TESTS=SKIP ASAN_DSO=/usr/lib/clang/3.9/lib/linux/libclang_rt.asan-x86_64.so
+    # Build for running unit tests under ASan/UBSan
+    # FIXME: We should really be doing a debug build but the unit tests run too
+    # slowly when we do that.
+    - LINUX_BASE=ubuntu_16.04 C_COMPILER=/usr/bin/clang-3.9 CXX_COMPILER=/usr/bin/clang++-3.9 TARGET_ARCH=x86_64 Z3_BUILD_TYPE=RelWithDebInfo ASAN_BUILD=1 RUN_UNIT_TESTS=BUILD_AND_RUN ASAN_DSO=/usr/lib/clang/3.9/lib/linux/libclang_rt.asan-x86_64.so UBSAN_BUILD=1 RUN_API_EXAMPLES=0 RUN_SYSTEM_TESTS=0 DOTNET_BINDINGS=0 JAVA_BINDINGS=0 PYTHON_BINDINGS=0
+
     # 64-bit GCC 5.4 RelWithDebInfo
     - LINUX_BASE=ubuntu_16.04 C_COMPILER=/usr/bin/gcc-5 CXX_COMPILER=/usr/bin/g++-5 TARGET_ARCH=x86_64 Z3_BUILD_TYPE=RelWithDebInfo
     # 64-bit Clang 3.9 RelWithDebInfo
     - LINUX_BASE=ubuntu_16.04 C_COMPILER=/usr/bin/clang-3.9 CXX_COMPILER=/usr/bin/clang++-3.9 TARGET_ARCH=x86_64 Z3_BUILD_TYPE=RelWithDebInfo
 
+    # Debug builds
+    #
+    # Note the unit tests for the debug builds are compiled but **not**
+    # executed. This is because the debug build of unit tests takes a large
+    # amount of time to execute compared to the optimized builds. The hope is
+    # that just running the optimized unit tests is sufficient.
+    #
     # 64-bit GCC 5.4 Debug
-    - LINUX_BASE=ubuntu_16.04 C_COMPILER=/usr/bin/gcc-5 CXX_COMPILER=/usr/bin/g++-5 TARGET_ARCH=x86_64 Z3_BUILD_TYPE=Debug
+    - LINUX_BASE=ubuntu_16.04 C_COMPILER=/usr/bin/gcc-5 CXX_COMPILER=/usr/bin/g++-5 TARGET_ARCH=x86_64 Z3_BUILD_TYPE=Debug RUN_UNIT_TESTS=BUILD_ONLY
     # 64-bit Clang Debug
-    - LINUX_BASE=ubuntu_16.04 C_COMPILER=/usr/bin/clang-3.9 CXX_COMPILER=/usr/bin/clang++-3.9 TARGET_ARCH=x86_64 Z3_BUILD_TYPE=Debug
+    - LINUX_BASE=ubuntu_16.04 C_COMPILER=/usr/bin/clang-3.9 CXX_COMPILER=/usr/bin/clang++-3.9 TARGET_ARCH=x86_64 Z3_BUILD_TYPE=Debug RUN_UNIT_TESTS=BUILD_ONLY
 
     # 32-bit GCC 5.4 RelWithDebInfo
     - LINUX_BASE=ubuntu32_16.04 C_COMPILER=/usr/bin/gcc-5 CXX_COMPILER=/usr/bin/g++-5 TARGET_ARCH=i686 Z3_BUILD_TYPE=RelWithDebInfo
@@ -57,7 +73,7 @@ env:
     # 64-bit GCC 4.8 RelWithDebInfo
     - LINUX_BASE=ubuntu_14.04 C_COMPILER=/usr/bin/gcc-4.8 CXX_COMPILER=/usr/bin/g++-4.8 TARGET_ARCH=x86_64 Z3_BUILD_TYPE=RelWithDebInfo
     # 64-bit GCC 4.8 Debug
-    - LINUX_BASE=ubuntu_14.04 C_COMPILER=/usr/bin/gcc-4.8 CXX_COMPILER=/usr/bin/g++-4.8 TARGET_ARCH=x86_64 Z3_BUILD_TYPE=Debug
+    - LINUX_BASE=ubuntu_14.04 C_COMPILER=/usr/bin/gcc-4.8 CXX_COMPILER=/usr/bin/g++-4.8 TARGET_ARCH=x86_64 Z3_BUILD_TYPE=Debug RUN_UNIT_TESTS=BUILD_ONLY
 
 # macOS (a.k.a OSX) support
 matrix:

@@ -56,19 +56,20 @@ extern "C" {
                                        Z3_func_decl const decls[]) {
         Z3_TRY;
         LOG_Z3_parse_smtlib_string(c, str, num_sorts, sort_names, sorts, num_decls, decl_names, decls);
-        std::ostringstream outs;
+        scoped_ptr<std::ostringstream> outs = alloc(std::ostringstream);
         bool ok = false;
 
         RESET_ERROR_CODE();
         init_smtlib_parser(c, num_sorts, sort_names, sorts, num_decls, decl_names, decls);
-        mk_c(c)->m_smtlib_parser->set_error_stream(outs);
+        mk_c(c)->m_smtlib_parser->set_error_stream(*outs);
         try {
             ok = mk_c(c)->m_smtlib_parser->parse_string(str);        
         }
         catch (...) {
             ok = false;
         }
-        mk_c(c)->m_smtlib_error_buffer = outs.str();
+        mk_c(c)->m_smtlib_error_buffer = outs->str();
+        outs = nullptr;
         if (!ok) {
             mk_c(c)->reset_parser();
             SET_ERROR_CODE(Z3_PARSER_ERROR);
@@ -88,16 +89,17 @@ extern "C" {
         LOG_Z3_parse_smtlib_file(c, file_name, num_sorts, sort_names, types, num_decls, decl_names, decls);
         bool ok = false;
         RESET_ERROR_CODE();
-        std::ostringstream outs;
+        scoped_ptr<std::ostringstream> outs = alloc(std::ostringstream);
         init_smtlib_parser(c, num_sorts, sort_names, types, num_decls, decl_names, decls);
-        mk_c(c)->m_smtlib_parser->set_error_stream(outs);
+        mk_c(c)->m_smtlib_parser->set_error_stream(*outs);
         try {
             ok = mk_c(c)->m_smtlib_parser->parse_file(file_name);
         }
         catch(...) {
             ok = false;
         }
-        mk_c(c)->m_smtlib_error_buffer = outs.str();
+        mk_c(c)->m_smtlib_error_buffer = outs->str();
+        outs = nullptr;
         if (!ok) {
             mk_c(c)->reset_parser();
             SET_ERROR_CODE(Z3_PARSER_ERROR);
@@ -260,21 +262,22 @@ extern "C" {
                                 Z3_symbol const decl_names[],
                                 Z3_func_decl const decls[]) {
         Z3_TRY;
-        cmd_context ctx(false, &(mk_c(c)->m()));
-        ctx.set_ignore_check(true);
+        scoped_ptr<cmd_context> ctx = alloc(cmd_context, false, &(mk_c(c)->m()));
+        ctx->set_ignore_check(true);
         for (unsigned i = 0; i < num_decls; ++i) {
-           ctx.insert(to_symbol(decl_names[i]), to_func_decl(decls[i]));
+            ctx->insert(to_symbol(decl_names[i]), to_func_decl(decls[i]));
         }
         for (unsigned i = 0; i < num_sorts; ++i) {
-            psort* ps = ctx.pm().mk_psort_cnst(to_sort(sorts[i]));
-            ctx.insert(ctx.pm().mk_psort_user_decl(0, to_symbol(sort_names[i]), ps));
+            psort* ps = ctx->pm().mk_psort_cnst(to_sort(sorts[i]));
+            ctx->insert(ctx->pm().mk_psort_user_decl(0, to_symbol(sort_names[i]), ps));
         }
-        if (!parse_smt2_commands(ctx, is)) {
+        if (!parse_smt2_commands(*ctx.get(), is)) {
+            ctx = nullptr;
             SET_ERROR_CODE(Z3_PARSER_ERROR);
             return of_ast(mk_c(c)->m().mk_true());
         }
-        ptr_vector<expr>::const_iterator it  = ctx.begin_assertions();
-        ptr_vector<expr>::const_iterator end = ctx.end_assertions();
+        ptr_vector<expr>::const_iterator it  = ctx->begin_assertions();
+        ptr_vector<expr>::const_iterator end = ctx->end_assertions();
         unsigned size = static_cast<unsigned>(end - it);
         return of_ast(mk_c(c)->mk_and(size, it));
         Z3_CATCH_RETURN(0);

@@ -62,8 +62,8 @@ bv2fpa_converter::bv2fpa_converter(ast_manager & m, fpa2bv_converter & conv) :
         m.inc_ref(it->m_key);
         m.inc_ref(it->m_value);
     }
-    for (obj_map<func_decl, std::pair<app*, app*> >::iterator it = conv.m_min_max_specials.begin();
-        it != conv.m_min_max_specials.end();
+    for (obj_map<func_decl, std::pair<app*, app*> >::iterator it = conv.m_min_max_ufs.begin();
+        it != conv.m_min_max_ufs.end();
         it++) {
         m_specials.insert(it->m_key, it->m_value);
         m.inc_ref(it->m_key);
@@ -250,7 +250,7 @@ bv2fpa_converter::array_model bv2fpa_converter::convert_array_func_interp(model_
     am.new_float_fd = m.mk_fresh_func_decl(arity, array_domain.c_ptr(), rng);
     am.new_float_fi = convert_func_interp(mc, am.new_float_fd, bv_f);
     am.bv_fd = bv_f;
-    am.result = arr_util.mk_as_array(f->get_range(), am.new_float_fd);
+    am.result = arr_util.mk_as_array(am.new_float_fd);
     return am;
 }
 

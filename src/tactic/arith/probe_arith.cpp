@@ -392,24 +392,27 @@ struct is_non_nira_functor {
 
     is_non_nira_functor(ast_manager & _m, bool _int, bool _real, bool _quant, bool linear):m(_m), u(m), m_int(_int), m_real(_real), m_quant(_quant), m_linear(linear) {}
 
-    void throw_found() {
+    void throw_found(expr* e) {
+        TRACE("probe", tout << expr_ref(e, m) << ": " << sort_ref(m.get_sort(e), m) << "\n";);
         throw found();
     }
 
     void operator()(var * x) {
         if (!m_quant)
-            throw_found();
+            throw_found(x);
         sort * s = x->get_sort();
         if (m_int && u.is_int(s))
             return;
         if (m_real && u.is_real(s))
             return;
-        throw_found();
+        if (m.is_bool(s))
+            return;
+        throw_found(x);
     }
     
-    void operator()(quantifier *) { 
+    void operator()(quantifier * q) { 
         if (!m_quant)
-            throw_found(); 
+            throw_found(q); 
     }
     
     bool compatible_sort(app * n) const {
@@ -424,7 +427,7 @@ struct is_non_nira_functor {
 
     void operator()(app * n) {
         if (!compatible_sort(n))
-            throw_found();
+            throw_found(n);
         family_id fid = n->get_family_id();
         if (fid == m.get_basic_family_id())
             return; 
@@ -437,39 +440,39 @@ struct is_non_nira_functor {
             case OP_MUL:
                 if (m_linear) {
                     if (n->get_num_args() != 2)
-                        throw_found();
+                        throw_found(n);
                     if (!u.is_numeral(n->get_arg(0)))
-                        throw_found();
+                        throw_found(n);
                 }
                 return;
             case OP_IDIV: case OP_DIV: case OP_REM: case OP_MOD:
                 if (m_linear && !u.is_numeral(n->get_arg(1)))
-                    throw_found();
+                    throw_found(n);
                 return;
             case OP_IS_INT:
                 if (m_real)
-                    throw_found();
+                    throw_found(n);
                 return;
             case OP_TO_INT:
             case OP_TO_REAL:
                 return;
             case OP_POWER:
                 if (m_linear)
-                    throw_found();
+                    throw_found(n);
                 return;
             case OP_IRRATIONAL_ALGEBRAIC_NUM:
                 if (m_linear || !m_real)
-                    throw_found();
+                    throw_found(n);
                 return;
             default:
-                throw_found();
+                throw_found(n);
             }
             return;
         }
 
         if (is_uninterp_const(n))
             return;
-        throw_found();
+        throw_found(n);
     }
 };
 

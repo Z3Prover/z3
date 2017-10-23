@@ -83,49 +83,66 @@ expr* expr_dominators::intersect(expr* x, expr * y) {
     return x;
 }
 
-void expr_dominators::compute_dominators() {
+bool expr_dominators::compute_dominators() {
     expr * e = m_root;
     SASSERT(m_doms.empty());
     m_doms.insert(e, e);
     bool change = true;
+    unsigned iterations = 1;
     while (change) {
         change = false;
-        SASSERT(m_post2expr.back() == e);
-        for (unsigned i = 0; i < m_post2expr.size() - 1; ++i) {
+        TRACE("simplify", 
+              for (auto & kv : m_doms) {
+                  tout << expr_ref(kv.m_key, m) << " |-> " << expr_ref(kv.m_value, m) << "\n";
+              });
+
+        SASSERT(m_post2expr.empty() || m_post2expr.back() == e);
+        for (unsigned i = 0; i + 1 < m_post2expr.size(); ++i) {
             expr * child = m_post2expr[i];
             ptr_vector<expr> const& p = m_parents[child];
-            SASSERT(!p.empty());
-            expr * new_idom = p[0], * idom2 = 0;
-            for (unsigned j = 1; j < p.size(); ++j) {
-                if (m_doms.find(p[j], idom2)) {
-                    new_idom = intersect(new_idom, idom2);
+            expr * new_idom = 0, *idom2 = 0;
+
+            for (expr * pred : p) {
+                if (m_doms.contains(pred)) {
+                    new_idom = !new_idom ? pred : intersect(new_idom, pred);
                 }
             }
-            if (!m_doms.find(child, idom2) || idom2 != new_idom) {
+            if (!new_idom) {
+                m_doms.insert(child, p[0]);
+                change = true;
+            }
+            else if (!m_doms.find(child, idom2) || idom2 != new_idom) {
                 m_doms.insert(child, new_idom);
                 change = true;
             }
         }
+        iterations *= 2;        
+        if (change && iterations > m_post2expr.size()) {
+            return false;
+        }
     }
+    return true;
 }
 
 void expr_dominators::extract_tree() {
     for (auto const& kv : m_doms) {
         add_edge(m_tree, kv.m_value, kv.m_key);
     }
-}    
+}
 
-void expr_dominators::compile(expr * e) {
+bool expr_dominators::compile(expr * e) {
     reset();
     m_root = e;
     compute_post_order();
-    compute_dominators();
+    if (!compute_dominators()) return false;
     extract_tree();
+    TRACE("simplify", display(tout););
+    return true;
 }
 
-void expr_dominators::compile(unsigned sz, expr * const* es) {
+bool expr_dominators::compile(unsigned sz, expr * const* es) {
     expr_ref e(m.mk_and(sz, es), m);
-    compile(e);
+    return compile(e);
 }
 
 void expr_dominators::reset() {
@@ -137,19 +154,39 @@ void expr_dominators::reset() {
     m_root.reset();
 }
 
+std::ostream& expr_dominators::display(std::ostream& out) {
+    return display(out, 0, m_root);
+}
+
+std::ostream& expr_dominators::display(std::ostream& out, unsigned indent, expr* r) {
+    for (unsigned i = 0; i < indent; ++i) out << " ";
+    out << expr_ref(r, m);
+    if (m_tree.contains(r)) {
+        for (expr* child : m_tree[r]) {
+            if (child != r) 
+                display(out, indent + 1, child);
+        }
+    }
+    out << "\n";
+    return out;
+}
 
 
 // -----------------------
 // dom_simplify_tactic
+
+dom_simplify_tactic::~dom_simplify_tactic() {
+    dealloc(m_simplifier);
+}
 
 tactic * dom_simplify_tactic::translate(ast_manager & m) {
     return alloc(dom_simplify_tactic, m, m_simplifier->translate(m), m_params);
 }
 
 void dom_simplify_tactic::operator()(
-    goal_ref const & in, 
-    goal_ref_buffer & result, 
-    model_converter_ref & mc, 
+    goal_ref const & in,
+    goal_ref_buffer & result,
+    model_converter_ref & mc,
     proof_converter_ref & pc,
     expr_dependency_ref & core) {
     mc = 0; pc = 0; core = 0;
@@ -162,33 +199,42 @@ void dom_simplify_tactic::operator()(
 }
 
 void dom_simplify_tactic::cleanup() {
-    m_trail.reset(); 
-    m_args.reset(); 
-    m_args2.reset(); 
-    m_result.reset(); 
-    m_dominators.reset(); 
+    m_trail.reset();
+    m_args.reset();
+    m_result.reset();
+    m_dominators.reset();
 }
 
 expr_ref dom_simplify_tactic::simplify_ite(app * ite) {
     expr_ref r(m);
-    expr * c = 0, * t = 0, * e = 0;
+    expr * c = 0, *t = 0, *e = 0;
     VERIFY(m.is_ite(ite, c, t, e));
     unsigned old_lvl = scope_level();
-    expr_ref new_c = simplify(c);
+    expr_ref new_c = simplify_arg(c);
     if (m.is_true(new_c)) {
-        r = simplify(t);
-    }
+        r = simplify_arg(t);
+    } 
     else if (m.is_false(new_c) || !assert_expr(new_c, false)) {
-        r = simplify(e);
-    }
+        r = simplify_arg(e);
+    } 
     else {
-        expr_ref new_t = simplify(t);
+        for (expr * child : tree(ite)) {
+            if (is_subexpr(child, t) && !is_subexpr(child, e)) {
+                simplify_rec(child);
+            }
+        }
         pop(scope_level() - old_lvl);
+        expr_ref new_t = simplify_arg(t);
         if (!assert_expr(new_c, true)) {
             return new_t;
         }
-        expr_ref new_e = simplify(e);
+        for (expr * child : tree(ite)) {
+            if (is_subexpr(child, e) && !is_subexpr(child, t)) {
+                simplify_rec(child);
+            }
+        }
         pop(scope_level() - old_lvl);
+        expr_ref new_e = simplify_arg(e);
         if (c == new_c && t == new_t && e == new_e) {
             r = ite;
         }
@@ -196,16 +242,29 @@ expr_ref dom_simplify_tactic::simplify_ite(app * ite) {
             r = new_t;
         }
         else {
-            TRACE("tactic", tout << new_c << "\n" << new_t << "\n" << new_e << "\n";);
-            r = m.mk_ite(new_c, new_t, new_c);
+            TRACE("simplify", tout << new_c << "\n" << new_t << "\n" << new_e << "\n";);
+            r = m.mk_ite(new_c, new_t, new_e);
         }        
     }    
     return r;
 }
 
-expr_ref dom_simplify_tactic::simplify(expr * e0) {
+expr_ref dom_simplify_tactic::simplify_arg(expr * e) {
+    expr_ref r(m);    
+    r = get_cached(e);
+    (*m_simplifier)(r);
+    TRACE("simplify", tout << "depth: " << m_depth << " " << mk_pp(e, m) << " -> " << r << "\n";);
+    return r;
+}
+
+/**
+   \brief simplify e recursively.
+*/
+expr_ref dom_simplify_tactic::simplify_rec(expr * e0) {
     expr_ref r(m);
     expr* e = 0;
+
+    TRACE("simplify", tout << "depth: " << m_depth << " " << mk_pp(e0, m) << "\n";);
     if (!m_result.find(e0, e)) {
         e = e0;
     }
@@ -224,17 +283,13 @@ expr_ref dom_simplify_tactic::simplify(expr * e0) {
         r = simplify_or(to_app(e));
     }
     else {
-        expr_dominators::tree_t const& t = m_dominators.get_tree();
-        if (t.contains(e)) {
-            ptr_vector<expr> const& children = t[e];
-            for (expr * child : children) {
-                simplify(child);
-            }
+        for (expr * child : tree(e)) {
+            simplify_rec(child);
         }
         if (is_app(e)) {
             m_args.reset();
             for (expr* arg : *to_app(e)) {
-                m_args.push_back(get_cached(arg)); // TBD is cache really applied to all sub-terms?
+                m_args.push_back(simplify_arg(arg)); 
             }
             r = m.mk_app(to_app(e)->get_decl(), m_args.size(), m_args.c_ptr());
         }
@@ -246,45 +301,64 @@ expr_ref dom_simplify_tactic::simplify(expr * e0) {
     cache(e0, r);
     TRACE("simplify", tout << "depth: " << m_depth << " " << mk_pp(e0, m) << " -> " << r << "\n";);
     --m_depth;
+    m_subexpr_cache.reset();
     return r;
 }
 
 expr_ref dom_simplify_tactic::simplify_and_or(bool is_and, app * e) {
     expr_ref r(m);
     unsigned old_lvl = scope_level();
-    m_args.reset();
-    for (expr * arg : *e) {
-        r = simplify(arg);
-        if (!assert_expr(r, !is_and)) {
-            r = is_and ? m.mk_false() : m.mk_true();
+
+    auto is_subexpr_arg = [&](expr * child, expr * except) {
+        if (!is_subexpr(child, except))
+            return false;
+        for (expr * arg : *e) {
+            if (arg != except && is_subexpr(child, arg))
+                return false;
         }
-        m_args.push_back(r);
+        return true;
+    };
+
+    expr_ref_vector args(m);
+    if (m_forward) {
+        for (expr * arg : *e) {
+#define _SIMP_ARG(arg)                                          \
+            for (expr * child : tree(arg)) {                    \
+                if (is_subexpr_arg(child, arg)) {               \
+                    simplify_rec(child);                        \
+                }                                               \
+            }                                                   \
+            r = simplify_arg(arg);                              \
+            args.push_back(r);                                  \
+            if (!assert_expr(r, !is_and)) {                     \
+                r = is_and ? m.mk_false() : m.mk_true();        \
+                return r;                                       \
+            }                                                   
+            _SIMP_ARG(arg);
+        }                                                                  
+    }
+    else {        
+        for (unsigned i = e->get_num_args(); i > 0; ) {
+            --i;
+            expr* arg = e->get_arg(i);
+            _SIMP_ARG(arg);
+        }
+        args.reverse();
     }
     pop(scope_level() - old_lvl);
-    m_args.reverse();
-    m_args2.reset();
-    for (expr * arg : m_args) {
-        r = simplify(arg);
-        if (!assert_expr(r, !is_and)) {
-            r = is_and ? m.mk_false() : m.mk_true();
-        }
-        m_args2.push_back(r);
-    }
-    pop(scope_level() - old_lvl);
-    m_args2.reverse();
-    r = is_and ? mk_and(m_args2) : mk_or(m_args2);
+    r = is_and ? mk_and(args) : mk_or(args);
     return r;
 }
 
 
-void dom_simplify_tactic::init(goal& g) {
+bool dom_simplify_tactic::init(goal& g) {
     expr_ref_vector args(m);
     unsigned sz = g.size();
     for (unsigned i = 0; i < sz; ++i) args.push_back(g.form(i));
     expr_ref fml = mk_and(args);
     m_result.reset();
     m_trail.reset();
-    m_dominators.compile(fml);
+    return m_dominators.compile(fml);
 }
 
 void dom_simplify_tactic::simplify_goal(goal& g) {
@@ -296,13 +370,15 @@ void dom_simplify_tactic::simplify_goal(goal& g) {
         change = false;
 
         // go forwards
-        init(g);
+        m_forward = true;
+        if (!init(g)) return;
         unsigned sz = g.size();
         for (unsigned i = 0; !g.inconsistent() && i < sz; ++i) {
-            expr_ref r = simplify(g.form(i));
+            expr_ref r = simplify_rec(g.form(i));
             if (i < sz - 1 && !m.is_true(r) && !m.is_false(r) && !g.dep(i) && !g.proofs_enabled() && !assert_expr(r, false)) {
                 r = m.mk_false();
             }
+            CTRACE("simplify", r != g.form(i), tout << r << " " << mk_pp(g.form(i), m) << "\n";);
             change |= r != g.form(i);
             proof* new_pr = 0;
             if (g.proofs_enabled()) {
@@ -313,15 +389,17 @@ void dom_simplify_tactic::simplify_goal(goal& g) {
         pop(scope_level());
         
         // go backwards
-        init(g);
+        m_forward = false;
+        if (!init(g)) return;
         sz = g.size();
         for (unsigned i = sz; !g.inconsistent() && i > 0; ) {
             --i;
-            expr_ref r = simplify(g.form(i));
+            expr_ref r = simplify_rec(g.form(i));
             if (i > 0 && !m.is_true(r) && !m.is_false(r) && !g.dep(i) && !g.proofs_enabled() && !assert_expr(r, false)) {
                 r = m.mk_false();
             }
             change |= r != g.form(i);
+            CTRACE("simplify", r != g.form(i), tout << r << " " << mk_pp(g.form(i), m) << "\n";);
             proof* new_pr = 0;
             if (g.proofs_enabled()) {
                 new_pr = m.mk_modus_ponens(g.pr(i), m.mk_rewrite_star(g.form(i), r, 0, 0)); 
@@ -333,11 +411,41 @@ void dom_simplify_tactic::simplify_goal(goal& g) {
     SASSERT(scope_level() == 0);
 }
 
+/**
+   \brief determine if a is dominated by b. 
+   Walk the immediate dominators of a upwards until hitting b or a term that is deeper than b.
+   Save intermediary results in a cache to avoid recomputations.
+*/
+
+bool dom_simplify_tactic::is_subexpr(expr * a, expr * b) {
+    if (a == b)
+        return true;
+
+    bool r;
+    if (m_subexpr_cache.find(a, b, r))
+        return r;
+
+    if (get_depth(a) >= get_depth(b)) {
+        return false;
+    }
+    SASSERT(a != idom(a) && get_depth(idom(a)) > get_depth(a));
+    r = is_subexpr(idom(a), b);
+    m_subexpr_cache.insert(a, b, r);   
+    return r;
+}
+
+ptr_vector<expr> const & dom_simplify_tactic::tree(expr * e) {
+    if (auto p = m_dominators.get_tree().find_core(e))
+        return p->get_data().get_value();
+    return m_empty;
+}
+
 
 // ----------------------
 // expr_substitution_simplifier
 
 bool expr_substitution_simplifier::assert_expr(expr * t, bool sign) {
+    m_scoped_substitution.push();
     expr* tt;    
     if (!sign) {
         update_substitution(t, 0);
@@ -389,6 +497,8 @@ void expr_substitution_simplifier::update_substitution(expr* n, proof* pr) {
     if (is_ground(n) && (m.is_eq(n, lhs, rhs) || m.is_iff(n, lhs, rhs))) {
         compute_depth(lhs);
         compute_depth(rhs);
+        m_trail.push_back(lhs);
+        m_trail.push_back(rhs);
         if (is_gt(lhs, rhs)) {
             TRACE("propagate_values", tout << "insert " << mk_pp(lhs, m) << " -> " << mk_pp(rhs, m) << "\n";);
             m_scoped_substitution.insert(lhs, rhs, pr);
@@ -439,4 +549,8 @@ void expr_substitution_simplifier::compute_depth(expr* e) {
         todo.pop_back();
         m_expr2depth.insert(e, d + 1);
     }
+}
+
+tactic * mk_dom_simplify_tactic(ast_manager & m, params_ref const & p) {
+    return clean(alloc(dom_simplify_tactic, m, alloc(expr_substitution_simplifier, m), p));
 }

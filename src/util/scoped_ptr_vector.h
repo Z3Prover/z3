@@ -42,7 +42,7 @@ public:
     bool empty() const { return m_vector.empty(); }
     void resize(unsigned sz) { 
         if (sz < m_vector.size()) {
-            for (unsigned i = m_vector.size(); i < sz; i++)
+            for (unsigned i = m_vector.size(); i-- > sz; )
                 dealloc(m_vector[i]);
             m_vector.shrink(sz); 
         }

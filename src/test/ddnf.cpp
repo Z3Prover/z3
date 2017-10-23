@@ -200,6 +200,24 @@ void tst_ddnf(char ** argv, int argc, int& i) {
     dealloc(ddnf);
 }
 
-
+void tst_ddnf1() {
+    enable_trace("ddnf");
+    unsigned W = 2;
+    datalog::ddnf_core ddnf(W);
+    tbv_manager& tbvm = ddnf.get_tbv_manager();
+    tbv* tXX = tbvm.allocate("xx");
+    tbv* t1X = tbvm.allocate("1x");
+    tbv* tX1 = tbvm.allocate("x1");
+    tbv* t11 = tbvm.allocate("11");
+    ddnf.insert(*tXX);
+    ddnf.insert(*t11);
+    ddnf.insert(*tX1);
+    ddnf.insert(*t1X); 
+    ddnf.display(std::cout);
+    tbvm.deallocate(tXX);
+    tbvm.deallocate(t1X);
+    tbvm.deallocate(tX1);
+    tbvm.deallocate(t11);
+}
 
 
