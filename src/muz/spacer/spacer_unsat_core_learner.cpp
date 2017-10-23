@@ -174,13 +174,11 @@ void unsat_core_learner::compute_unsat_core(proof *root, expr_set& asserted_b, e
 
         verbose_stream() << "\nThis proof contains " << farkas_counter << " Farkas lemmas. " << farkas_counter2 << " Farkas lemmas participate in the lowest cut\n";
     }
-
     
-    bool debug_proof = false;
-    if(debug_proof)
+    if(m_iuc_debug_proof)
     {
         // print proof for debugging
-        verbose_stream() << "\n\nProof:\n";
+        verbose_stream() << "Proof:\n";
         std::unordered_map<unsigned, unsigned> id_to_small_id;
         unsigned counter = 0;
 
@@ -223,8 +221,23 @@ void unsat_core_learner::compute_unsat_core(proof *root, expr_set& asserted_b, e
                         verbose_stream() << "hypothesis";
                         break;
                     default:
-                        verbose_stream() << "unknown axiom-type";
-                        break;
+                        if (currentNode->get_decl_kind() == PR_TH_LEMMA)
+                        {
+                            verbose_stream() << "th_axiom";
+                            func_decl* d = currentNode->get_decl();
+                            symbol sym;
+                            if (d->get_num_parameters() >= 2 && // the Farkas coefficients are saved in the parameters of step
+                                d->get_parameter(0).is_symbol(sym) && sym == "arith" && // the first two parameters are "arith", "farkas",
+                                d->get_parameter(1).is_symbol(sym) && sym == "farkas")
+                            {
+                                verbose_stream() << "(farkas)";
+                            }
+                        }
+                        else
+                        {
+                            verbose_stream() << "unknown axiom-type";
+                            break;
+                        }
                 }
             }
             else
@@ -269,17 +282,21 @@ void unsat_core_learner::compute_unsat_core(proof *root, expr_set& asserted_b, e
 
                 }
             }
-            if (currentNode->get_decl_kind() == PR_TH_LEMMA || (is_a_marked(currentNode) && is_b_marked(currentNode)) || is_h_marked(currentNode) || (!is_a_marked(currentNode) && !is_b_marked(currentNode)))
+//            if (currentNode->get_decl_kind() == PR_TH_LEMMA || (is_a_marked(currentNode) && is_b_marked(currentNode)) || is_h_marked(currentNode) || (!is_a_marked(currentNode) && !is_b_marked(currentNode)))
+            if (false)
             {
-                verbose_stream() << std::endl;
+                verbose_stream() << "\n";
             }
             else
             {
-                verbose_stream() << ": " << mk_pp(m.get_fact(currentNode), m) << std::endl;
+                verbose_stream() << ": " << mk_pp(m.get_fact(currentNode), m) << "\n";
             }
             ++counter;
         }
     }
+    
+    verbose_stream() << std::endl;
+
     // move all lemmas into vector
     for (expr* const* it = m_unsat_core.begin(); it != m_unsat_core.end(); ++it)
     {

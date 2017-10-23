@@ -31,7 +31,7 @@ namespace spacer {
         typedef obj_hashtable<expr> expr_set;
 
     public:
-        unsat_core_learner(ast_manager& m, bool print_farkas_stats = false) : m(m), m_unsat_core(m), m_print_farkas_stats(print_farkas_stats) {};
+        unsat_core_learner(ast_manager& m, bool print_farkas_stats = false, bool iuc_debug_proof = false) : m(m), m_unsat_core(m), m_print_farkas_stats(print_farkas_stats), m_iuc_debug_proof(iuc_debug_proof) {};
         virtual ~unsat_core_learner();
 
         ast_manager& m;
@@ -102,6 +102,7 @@ namespace spacer {
         void finalize();
         
         bool m_print_farkas_stats;
+        bool m_iuc_debug_proof;
     };
 
 }

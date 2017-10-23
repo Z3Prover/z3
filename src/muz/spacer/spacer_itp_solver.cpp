@@ -277,7 +277,7 @@ void itp_solver::get_itp_core (expr_ref_vector &core)
     else
     {
         // new code
-        unsat_core_learner learner(m,m_print_farkas_stats);
+        unsat_core_learner learner(m, m_print_farkas_stats, m_iuc_debug_proof);
 
         if (m_iuc_arith == 0 || m_iuc_arith > 3)
         {
