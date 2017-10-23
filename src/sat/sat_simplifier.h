@@ -71,9 +71,12 @@ namespace sat {
         int                    m_elim_counter;
 
         // config
-        bool                   m_elim_covered_clauses;
+        bool                   m_cce;  // covered clause elimination
+        bool                   m_acce; // cce with asymetric literal addition
+        bool                   m_bca;  // blocked (binary) clause addition. 
         bool                   m_elim_blocked_clauses;
         unsigned               m_elim_blocked_clauses_at;
+        bool                   m_retain_blocked_clauses;
         unsigned               m_blocked_clause_limit;
         bool                   m_resolution;
         unsigned               m_res_limit;
@@ -91,6 +94,7 @@ namespace sat {
         unsigned               m_subsumption_limit;
         bool                   m_elim_vars;
         bool                   m_elim_vars_bdd;
+        unsigned               m_elim_vars_bdd_delay;
 
         // stats
         unsigned               m_num_blocked_clauses;
@@ -99,6 +103,7 @@ namespace sat {
         unsigned               m_num_elim_vars;
         unsigned               m_num_sub_res;
         unsigned               m_num_elim_lits;
+        unsigned               m_num_bca;
 
         bool                   m_learned_in_use_lists;
         unsigned               m_old_num_elim_vars;
@@ -124,6 +129,7 @@ namespace sat {
         void remove_clause(clause & c);
         void remove_clause(clause & c, literal l);
         void block_clause(clause & c);
+        void block_bin_clause_half(literal l1, literal l2);
         void unblock_clause(clause & c);
         void remove_bin_clause_half(literal l1, literal l2, bool learned);
 
@@ -162,6 +168,13 @@ namespace sat {
 
         struct blocked_clause_elim;
         void elim_blocked_clauses();
+
+        bool bce_enabled() const { return m_elim_blocked_clauses || m_elim_blocked_clauses_at == m_num_calls || cce_enabled(); }
+        bool acce_enabled() const { return m_acce; }
+        bool cce_enabled() const { return m_cce || acce_enabled(); }
+        bool bca_enabled() const { return m_bca; }
+        bool elim_vars_bdd_enabled() const { return m_elim_vars_bdd && m_num_calls >= m_elim_vars_bdd_delay; }
+        bool elim_vars_enabled() const { return m_elim_vars; }
 
         unsigned get_num_unblocked_bin(literal l) const;
         unsigned get_to_elim_cost(bool_var v) const;

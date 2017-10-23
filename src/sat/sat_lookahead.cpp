@@ -204,7 +204,7 @@ namespace sat {
     
 
     void lookahead::pre_select() {
-        IF_VERBOSE(10, verbose_stream() << "freevars: " << m_freevars.size() << "\n";);
+        IF_VERBOSE(10, verbose_stream() << "(sat-lookahead :freevars " << m_freevars.size() << ")\n";);
         m_lookahead.reset();
         for (bool_var x : m_freevars) { // tree lookahead leaves literals fixed in lower truth levels
             literal l(x, false);
@@ -1808,7 +1808,7 @@ namespace sat {
         scoped_level _sl(*this, dl_truth);
         SASSERT(get_level(m_trail.back()) == dl_truth);
         SASSERT(is_fixed(l));
-        IF_VERBOSE(2, verbose_stream() << "double: " << l << " depth: " << m_trail_lim.size() << "\n";);
+        IF_VERBOSE(2, verbose_stream() << "(sat-lookahead :double " << l << " :depth " << m_trail_lim.size() << ")\n";);
         lookahead_backtrack();
         assign(l);
         propagate();
@@ -2211,71 +2211,65 @@ namespace sat {
             m_s.propagate_core(false);
             m_s.m_simplifier(false);
         }
+
+        if (select(0)) {
+            get_scc();
+            if (!inconsistent()) {
+                normalize_parents();
+                literal_vector roots;
+                bool_var_vector to_elim;
+                for (unsigned i = 0; i < m_num_vars; ++i) {
+                    roots.push_back(literal(i, false));
+                }
+                for (auto const& c : m_candidates) {
+                    bool_var v = c.m_var;
+                    literal q(v, false);
+                    literal p = get_parent(q);
+                    if (p != null_literal && p.var() != v && !m_s.is_external(v) && 
+                        !m_s.was_eliminated(v) && !m_s.was_eliminated(p.var())) {
+                        to_elim.push_back(v);
+                        roots[v] = p;
+                        VERIFY(get_parent(p) == p);
+                        VERIFY(get_parent(~p) == ~p);
+                    }
+                }
+                IF_VERBOSE(1, verbose_stream() << "(sat-lookahead :equivalences " << to_elim.size() << ")\n";);
+                elim_eqs elim(m_s);
+                elim(roots, to_elim);
+            }
+        }   
         m_lookahead.reset();
         
     }
 
-    //
-    // there can be two sets of equivalence classes.
-    // example:
-    // a -> !b
-    // b -> !a
-    // c -> !a
-    // we pick as root the Boolean variable with the largest value.
-    // 
-    literal lookahead::get_root(bool_var v) {
-        literal lit(v, false);
-        literal r1 = get_parent(lit);
-        literal r2 = get_parent(literal(r1.var(), false));
-        CTRACE("sat", r1 != get_parent(literal(r2.var(), false)), 
-               tout << r1 << " " << r2 << "\n";);
-        SASSERT(r1.var() == get_parent(literal(r2.var(), false)).var());
-        if (r1.var() >= r2.var()) {
-            return r1;
+    void lookahead::normalize_parents() {
+        literal_vector roots;
+        for (unsigned i = 0; i < m_num_vars; ++i) {
+            literal lit(i, false);
+            roots.push_back(lit);
+            roots.push_back(~lit);
+            SASSERT(roots[lit.index()] == lit);
         }
-        else {
-            return r1.sign() ? ~r2 : r2;
-        }
-    }
-
-    /**
-       \brief extract equivalence classes of variables and simplify clauses using these.
-    */
-    void lookahead::scc() {
-        SASSERT(m_prefix == 0);
-        SASSERT(m_watches.empty());
-        m_search_mode = lookahead_mode::searching;
-        scoped_level _sl(*this, c_fixed_truth);
-        init();                
-        if (inconsistent()) return;
-        inc_istamp();
-        m_lookahead.reset();
-        if (select(0)) {
-            // extract equivalences
-            get_scc();
-            if (inconsistent()) return;
-            literal_vector roots;
-            bool_var_vector to_elim;
-            for (unsigned i = 0; i < m_num_vars; ++i) {
-                roots.push_back(literal(i, false));
-            }
-            for (unsigned i = 0; i < m_candidates.size(); ++i) {
-                bool_var v = m_candidates[i].m_var;
-                literal p = get_root(v);
-                if (p != null_literal && p.var() != v && !m_s.is_external(v) && 
-                    !m_s.was_eliminated(v) && !m_s.was_eliminated(p.var())) {
-                    to_elim.push_back(v);
-                    roots[v] = p;
-                    SASSERT(get_parent(p) == p);
-                    set_parent(~p, ~p);
-                    SASSERT(get_parent(~p) == ~p);
+        for (auto const& c : m_candidates) {
+            bool_var v = c.m_var;
+            literal p(v, false);
+            literal q = get_parent(p);
+            literal r = ~get_parent(~p);
+            if (q != r) {
+                if (q.var() < r.var()) {
+                    roots[q.index()] = r;
+                }
+                else {
+                    roots[r.index()] = q;
                 }
             }
-            IF_VERBOSE(1, verbose_stream() << "(sat-lookahead :equivalences " << to_elim.size() << ")\n";);
-            elim_eqs elim(m_s);
-            elim(roots, to_elim);
         }
-        m_lookahead.reset();
+        for (auto const& c : m_candidates) {
+            literal p(c.m_var, false);
+            literal q = roots[get_parent(p).index()];
+            set_parent(p, q);
+            set_parent(~p, ~q);
+        }
     }
 
     std::ostream& lookahead::display_summary(std::ostream& out) const {

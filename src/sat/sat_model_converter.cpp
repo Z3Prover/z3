@@ -50,6 +50,7 @@ namespace sat {
             }
             if (!sat) {
                 m[lit.var()] = lit.sign() ? l_false : l_true;
+                // if (lit.var() == 258007) std::cout << "flip " << lit << " " << m[lit.var()] << " @ " << i << " of " << c << " from overall size " << sz << "\n";
             }
         }
     }
@@ -69,10 +70,10 @@ namespace sat {
             for (literal l : it->m_clauses) {
                 if (l == null_literal) {
                     // end of clause
-                    if (!sat) {
+                    elim_stack* s = it->m_elim_stack[index];
+                    if (!sat) {                        
                         m[it->var()] = var_sign ? l_false : l_true;
                     }
-                    elim_stack* s = it->m_elim_stack[index];
                     if (s) {
                         process_stack(m, clause, s->stack());
                     }
@@ -94,6 +95,7 @@ namespace sat {
                 else if (!sat && v != it->var() && m[v] == l_undef) {
                     // clause can be satisfied by assigning v.
                     m[v] = sign ? l_false : l_true;
+                    // if (v == 258007) std::cout << "set undef " << v << " to " << m[v] << " in " << clause << "\n";
                     sat = true;
                 }
             }

@@ -529,6 +529,8 @@ namespace sat {
 
         void init_config();
 
+        void normalize_parents();
+
     public:
         lookahead(solver& s) : 
             m_s(s),
@@ -572,21 +574,6 @@ namespace sat {
            \brief simplify set of clauses by extracting units from a lookahead at base level.
          */
         void simplify();
-
-        //
-        // there can be two sets of equivalence classes.
-        // example:
-        // a -> !b
-        // b -> !a
-        // c -> !a
-        // we pick as root the Boolean variable with the largest value.
-        // 
-        literal get_root(bool_var v);
- 
-        /**
-           \brief extract equivalence classes of variables and simplify clauses using these.
-        */
-        void scc();
 
         std::ostream& display(std::ostream& out) const;
         std::ostream& display_summary(std::ostream& out) const;

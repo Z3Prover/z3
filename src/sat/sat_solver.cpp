@@ -1468,19 +1468,9 @@ namespace sat {
 
 
         if (m_config.m_lookahead_simplify) {
-            {
-                lookahead lh(*this);
-                lh.simplify();
-                lh.collect_statistics(m_aux_stats);
-            }
-#if 0
-			// Buggy
-            {
-                lookahead lh(*this);
-                lh.scc();
-                lh.collect_statistics(m_aux_stats);
-            }
-#endif
+            lookahead lh(*this);
+            lh.simplify();
+            lh.collect_statistics(m_aux_stats);
         }
 
 
@@ -1562,7 +1552,7 @@ namespace sat {
         TRACE("sat", for (bool_var v = 0; v < num; v++) tout << v << ": " << m_model[v] << "\n";);
 
 // #ifndef _EXTERNAL_RELEASE
-        IF_VERBOSE(1, verbose_stream() << "\"checking model\"\n";);
+        IF_VERBOSE(10, verbose_stream() << "\"checking model\"\n";);
         if (!check_model(m_model))
             throw solver_exception("check model failed");
 
@@ -1576,48 +1566,40 @@ namespace sat {
 
     bool solver::check_model(model const & m) const {
         bool ok = true;
-        clause_vector const * vs[2] = { &m_clauses, &m_learned };
-        for (unsigned i = 0; i < 2; i++) {
-            clause_vector const & cs = *(vs[i]);
-            clause_vector::const_iterator it  = cs.begin();
-            clause_vector::const_iterator end = cs.end();
-            for (; it != end; ++it) {
-                clause const & c = *(*it);
-                if (!c.satisfied_by(m)) {
-                    TRACE("sat", tout << "failed: " << c << "\n";
-                          tout << "assumptions: " << m_assumptions << "\n";
-                          tout << "trail: " << m_trail << "\n";
-                          tout << "model: " << m << "\n";
-                          m_mc.display(tout);
-                          );
-                    ok = false;
-                }
+        for (clause const* cp : m_clauses) {
+            clause const & c = *cp;
+            if (!c.satisfied_by(m) && !c.is_blocked()) {
+                IF_VERBOSE(0, verbose_stream() << "model check failed: " << c << "\n";);
+                TRACE("sat", tout << "failed: " << c << "\n";
+                      tout << "assumptions: " << m_assumptions << "\n";
+                      tout << "trail: " << m_trail << "\n";
+                      tout << "model: " << m << "\n";
+                      m_mc.display(tout);
+                      );
+                ok = false;
             }
         }
-        vector<watch_list>::const_iterator it  = m_watches.begin();
-        vector<watch_list>::const_iterator end = m_watches.end();
-        for (unsigned l_idx = 0; it != end; ++it, ++l_idx) {
+        unsigned l_idx = 0;
+        for (watch_list const& wlist : m_watches) {
             literal l = ~to_literal(l_idx);
             if (value_at(l, m) != l_true) {
-                watch_list const & wlist = *it;
-                watch_list::const_iterator it2  = wlist.begin();
-                watch_list::const_iterator end2 = wlist.end();
-                for (; it2 != end2; ++it2) {
-                    if (!it2->is_binary_clause())
+                for (watched const& w : wlist) {
+                    if (!w.is_binary_unblocked_clause())
                         continue;
-                    literal l2 = it2->get_literal();
+                    literal l2 = w.get_literal();
                     if (value_at(l2, m) != l_true) {
-                        TRACE("sat", tout << "failed binary: " << l << " " << l2 << " learned: " << it2->is_learned() << "\n";
-                          m_mc.display(tout););
+                        IF_VERBOSE(0, verbose_stream() << "failed binary: " << l << " " << l2 << " "  << "\n";);
+                        TRACE("sat", m_mc.display(tout << "failed binary: " << l << " " << l2 << "\n"););
                         ok = false;
                     }
                 }
             }
+            ++l_idx;
         }
-        for (unsigned i = 0; i < m_assumptions.size(); ++i) {
-            if (value_at(m_assumptions[i], m) != l_true) {
+        for (literal l : m_assumptions) {
+            if (value_at(l, m) != l_true) {
                 TRACE("sat",
-                      tout << m_assumptions[i] << " does not model check\n";
+                      tout << l << " does not model check\n";
                       tout << "trail: " << m_trail << "\n";
                       tout << "model: " << m << "\n";
                       m_mc.display(tout);
