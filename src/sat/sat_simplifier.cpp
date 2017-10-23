@@ -974,9 +974,9 @@ namespace sat {
         void operator()() {
             if (s.bce_enabled())
                 block_clauses();
-            if (s.m_cce) 
+            if (s.cce_enabled()) 
                 cce();
-            if (s.m_bca)
+            if (s.bca_enabled())
                 bca();
     }
 
@@ -1176,7 +1176,7 @@ namespace sat {
                     is_tautology = add_cla(blocked);
                 }
                 while (m_covered_clause.size() > sz && !is_tautology);
-                if (s.m_acce && !is_tautology) {
+                if (s.acce_enabled() && !is_tautology) {
                     sz = m_covered_clause.size();
                     add_ala();
                 }
@@ -1338,11 +1338,9 @@ namespace sat {
                 }                
                 if (!found) {
                     IF_VERBOSE(100, verbose_stream() << "bca " << l << " " << l2 << "\n";);
-                    watched w(l2, false);
-                    w.set_blocked();
+                    watched w(l2, true);
                     s.get_wlist(~l).push_back(w);
-                    w = watched(l, false);
-                    w.set_blocked();
+                    w = watched(l, true);
                     s.get_wlist(~l2).push_back(w);
                     ++s.m_num_bca;
                 }
