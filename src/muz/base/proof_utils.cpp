@@ -9,7 +9,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "ast/ast_smt2_pp.h"
 #include "ast/rewriter/var_subst.h"
 
-class reduce_hypotheses {
+class reduce_hypotheses0 {
     typedef obj_hashtable<expr> expr_set;
     ast_manager&          m;
     // reference for any expression created by the tranformation
@@ -137,7 +137,7 @@ class reduce_hypotheses {
     }    
     
 public:
-    reduce_hypotheses(ast_manager& m): m(m), m_refs(m) {}
+    reduce_hypotheses0(ast_manager& m): m(m), m_refs(m) {}
     
     void operator()(proof_ref& pr) {
         proof_ref tmp(m);
@@ -416,7 +416,7 @@ public:
 
 void proof_utils::reduce_hypotheses(proof_ref& pr) {
     ast_manager& m = pr.get_manager();
-    class reduce_hypotheses reduce(m);
+    class reduce_hypotheses0 reduce(m);
     reduce(pr);
     CTRACE("proof_utils", !is_closed(m, pr), tout << mk_pp(pr, m) << "\n";);
 }
