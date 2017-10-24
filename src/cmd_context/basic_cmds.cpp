@@ -217,8 +217,9 @@ ATOMIC_CMD(get_proof_graph_cmd, "get-proof-graph", "retrieve proof and print it 
         throw cmd_exception("proof is not well sorted");
     }
 
-    // TODO: specify file into which the proof should be printed
-    std::ofstream out("proof.dot");
+    context_params& params = ctx.params();
+    const std::string& file = params.m_dot_proof_file;
+    std::ofstream out(file);
     out << ast_pp_dot(pr) << std::endl;
 });
 
