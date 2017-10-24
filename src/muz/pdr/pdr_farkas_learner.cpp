@@ -31,7 +31,7 @@ Revision History:
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/ast_ll_pp.h"
 #include "tactic/arith/arith_bounds_tactic.h"
-#include "muz/base/proof_utils.h"
+#include "ast/proofs/proof_utils.h"
 #include "ast/reg_decl_plugins.h"
 
 
@@ -733,8 +733,8 @@ namespace pdr {
                     }
                     else {
                         expr_set* hyps3 = alloc(expr_set);
-                        datalog::set_union(*hyps3, *hyps);
-                        datalog::set_union(*hyps3, *hyps2);
+                        set_union(*hyps3, *hyps);
+                        set_union(*hyps3, *hyps2);
                         hyps = hyps3;
                         hyprefs.push_back(hyps);
                     }
@@ -795,7 +795,7 @@ namespace pdr {
             case PR_LEMMA: {
                 expr_set* hyps2 = alloc(expr_set);
                 hyprefs.push_back(hyps2);
-                datalog::set_union(*hyps2, *hyps); 
+                set_union(*hyps2, *hyps); 
                 hyps = hyps2;
                 expr* fml = m.get_fact(p);
                 hyps->remove(fml);

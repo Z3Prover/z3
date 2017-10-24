@@ -43,7 +43,6 @@ Notes:
 #include "ast/ast_ll_pp.h"
 #include "ast/proofs/proof_checker.h"
 #include "smt/smt_value_sort.h"
-#include "muz/base/proof_utils.h"
 #include "muz/base/dl_boogie_proof.h"
 #include "ast/scoped_proof.h"
 #include "tactic/core/blast_term_ite_tactic.h"

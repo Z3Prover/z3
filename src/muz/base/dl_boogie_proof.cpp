@@ -53,7 +53,7 @@ Example from Boogie:
 
 #include "muz/base/dl_boogie_proof.h"
 #include "model/model_pp.h"
-#include "muz/base/proof_utils.h"
+#include "ast/proofs/proof_utils.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_util.h"
 
