@@ -20,7 +20,9 @@ Revision History:
 #ifndef PROOF_UTILS_H_
 #define PROOF_UTILS_H_
 #include "ast/ast.h"
+#include "ast/ast_pp.h"
 #include "ast/rewriter/bool_rewriter.h"
+#include "ast/proofs/proof_checker.h"
 
 /*
  * iterator, which traverses the proof in depth-first post-order.

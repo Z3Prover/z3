@@ -1053,6 +1053,7 @@ void cmd_context::mk_app(symbol const & s, unsigned num_args, expr * const * arg
     func_decls fs;
     if (!m_func_decls.find(s, fs)) {
         if (num_args == 0) {
+            //UNREACHABLE();
             throw cmd_exception("unknown constant ", s);
         }
         else
@@ -1063,16 +1064,20 @@ void cmd_context::mk_app(symbol const & s, unsigned num_args, expr * const * arg
         if (fs.more_than_one())
             throw cmd_exception("ambiguous constant reference, more than one constant with the same sort, use a qualified expression (as <symbol> <sort>) to disumbiguate ", s);
         func_decl * f = fs.first();
-        if (f == 0)
+        if (f == 0) {
+            //UNREACHABLE();
             throw cmd_exception("unknown constant ", s);
+        }
         if (f->get_arity() != 0)
             throw cmd_exception("invalid function application, missing arguments ", s);
         result = m().mk_const(f);
     }
     else {
         func_decl * f = fs.find(m(), num_args, args, range);
-        if (f == 0)
+        if (f == 0) {
+            //UNREACHABLE();
             throw cmd_exception("unknown constant ", s);
+        }
         if (well_sorted_check_enabled())
             m().check_sort(f, num_args, args);
         result = m().mk_app(f, num_args, args);
