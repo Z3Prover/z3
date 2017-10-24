@@ -43,7 +43,7 @@ def init_project_def():
     add_lib('cmd_context', ['solver', 'rewriter', 'interp'])
     add_lib('extra_cmds', ['cmd_context', 'subpaving_tactic', 'arith_tactics'], 'cmd_context/extra_cmds')
     add_lib('smt2parser', ['cmd_context', 'parser_util'], 'parsers/smt2')
-    add_lib('proofs', ['rewriter'], 'ast/proofs')
+    add_lib('proofs', ['rewriter', 'util'], 'ast/proofs')
     add_lib('fpa', ['ast', 'util', 'rewriter', 'model'], 'ast/fpa')
     add_lib('pattern', ['normal_forms', 'smt2parser', 'rewriter'], 'ast/pattern')
     add_lib('bit_blaster', ['rewriter', 'rewriter'], 'ast/rewriter/bit_blaster')
