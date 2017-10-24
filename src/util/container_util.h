@@ -19,7 +19,7 @@ Revision History:
 
 --*/
 
-#ifndef CONTAINUR_UTIL_H_
+#ifndef CONTAINER_UTIL_H_
 #define CONTAINER_UTIL_H_
 
 // -----------------------------------
