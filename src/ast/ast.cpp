@@ -2683,14 +2683,10 @@ proof * ast_manager::mk_modus_ponens(proof * p1, proof * p2) {
 }
 
 proof * ast_manager::mk_reflexivity(expr * e) {
-    if (proofs_disabled())
-        return m_undef_proof;
     return mk_app(m_basic_family_id, PR_REFLEXIVITY, mk_eq(e, e));
 }
 
 proof * ast_manager::mk_oeq_reflexivity(expr * e) {
-    if (proofs_disabled())
-        return m_undef_proof;
     return mk_app(m_basic_family_id, PR_REFLEXIVITY, mk_oeq(e, e));
 }
 
@@ -2705,6 +2701,8 @@ proof * ast_manager::mk_commutativity(app * f) {
 */
 proof * ast_manager::mk_iff_true(proof * pr) {
     if (!pr) return pr;
+    if (proofs_disabled())
+        return m_undef_proof;
     SASSERT(has_fact(pr));
     SASSERT(is_bool(get_fact(pr)));
     return mk_app(m_basic_family_id, PR_IFF_TRUE, pr, mk_iff(get_fact(pr), mk_true()));
@@ -2779,8 +2777,6 @@ proof * ast_manager::mk_transitivity(proof * p1, proof * p2, proof * p3, proof *
 }
 
 proof * ast_manager::mk_transitivity(unsigned num_proofs, proof * const * proofs) {
-    if (proofs_disabled())
-        return m_undef_proof;
     SASSERT(num_proofs > 0);
     proof * r = proofs[0];
     for (unsigned i = 1; i < num_proofs; i++)
@@ -2789,11 +2785,8 @@ proof * ast_manager::mk_transitivity(unsigned num_proofs, proof * const * proofs
 }
 
 proof * ast_manager::mk_transitivity(unsigned num_proofs, proof * const * proofs, expr * n1, expr * n2) {
-    if (proofs_disabled())
-        return m_undef_proof;
-    if (proofs_enabled())
-        return mk_transitivity(num_proofs, proofs);
-    SASSERT(num_proofs > 0);
+    if (num_proofs == 0) 
+        return nullptr;
     if (num_proofs == 1)
         return proofs[0];
     DEBUG_CODE({
@@ -2809,8 +2802,6 @@ proof * ast_manager::mk_transitivity(unsigned num_proofs, proof * const * proofs
 }
 
 proof * ast_manager::mk_monotonicity(func_decl * R, app * f1, app * f2, unsigned num_proofs, proof * const * proofs) {
-    if (proofs_disabled())
-        return m_undef_proof;
     SASSERT(f1->get_num_args() == f2->get_num_args());
     SASSERT(f1->get_decl() == f2->get_decl());
     ptr_buffer<expr> args;
@@ -2820,8 +2811,6 @@ proof * ast_manager::mk_monotonicity(func_decl * R, app * f1, app * f2, unsigned
 }
 
 proof * ast_manager::mk_congruence(app * f1, app * f2, unsigned num_proofs, proof * const * proofs) {
-    if (proofs_disabled())
-        return m_undef_proof;
     SASSERT(get_sort(f1) == get_sort(f2));
     sort * s    = get_sort(f1);
     sort * d[2] = { s, s };
@@ -2829,8 +2818,6 @@ proof * ast_manager::mk_congruence(app * f1, app * f2, unsigned num_proofs, proo
 }
 
 proof * ast_manager::mk_oeq_congruence(app * f1, app * f2, unsigned num_proofs, proof * const * proofs) {
-    if (proofs_disabled())
-        return m_undef_proof;
     SASSERT(get_sort(f1) == get_sort(f2));
     sort * s    = get_sort(f1);
     sort * d[2] = { s, s };
@@ -2838,11 +2825,7 @@ proof * ast_manager::mk_oeq_congruence(app * f1, app * f2, unsigned num_proofs, 
 }
 
 proof * ast_manager::mk_quant_intro(quantifier * q1, quantifier * q2, proof * p) {
-    if (proofs_disabled())
-        return m_undef_proof;
-    if (!p) {
-        return 0;
-    }
+    if (!p) return nullptr;
     SASSERT(q1->get_num_decls() == q2->get_num_decls());
     SASSERT(has_fact(p));
     SASSERT(is_iff(get_fact(p)));
@@ -2850,8 +2833,7 @@ proof * ast_manager::mk_quant_intro(quantifier * q1, quantifier * q2, proof * p)
 }
 
 proof * ast_manager::mk_oeq_quant_intro(quantifier * q1, quantifier * q2, proof * p) {
-    if (proofs_disabled())
-        return m_undef_proof;
+    if (!p) return nullptr;
     SASSERT(q1->get_num_decls() == q2->get_num_decls());
     SASSERT(has_fact(p));
     SASSERT(is_oeq(get_fact(p)));
@@ -2859,8 +2841,6 @@ proof * ast_manager::mk_oeq_quant_intro(quantifier * q1, quantifier * q2, proof 
 }
 
 proof * ast_manager::mk_distributivity(expr * s, expr * r) {
-    if (proofs_disabled())
-        return m_undef_proof;
     return mk_app(m_basic_family_id, PR_DISTRIBUTIVITY, mk_eq(s, r));
 }
 
