@@ -850,11 +850,6 @@ private:
 
 
 solver* mk_inc_sat_solver(ast_manager& m, params_ref const& _p) {
-    sat_params p(_p);
-    if (p.disable_incremental()) {
-        tactic_ref t = mk_sat_tactic(m, _p);
-        return mk_tactic2solver(m, t.get(), _p);
-    }
     return alloc(inc_sat_solver, m, _p);
 }
 
