@@ -255,8 +255,13 @@ extern "C" {
         LOG_Z3_add_const_interp(c, m, f, a);
         RESET_ERROR_CODE();
         func_decl* d = to_func_decl(f);
-        model* mdl = to_model_ref(m);
-        mdl->register_decl(d, to_expr(a));
+        if (d->get_arity() != 0) {
+            SET_ERROR_CODE(Z3_INVALID_ARG);
+        }
+        else {
+            model* mdl = to_model_ref(m);
+            mdl->register_decl(d, to_expr(a));
+        }
         Z3_CATCH;
     }
 
