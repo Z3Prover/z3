@@ -23,7 +23,7 @@
 #include "ast/ast_smt2_pp.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/ast_util.h"
-#include "ast/proof_checker/proof_checker.h"
+#include "ast/proofs/proof_checker.h"
 #include "smt/smt_value_sort.h"
 #include "muz/base/proof_utils.h"
 #include "ast/scoped_proof.h"

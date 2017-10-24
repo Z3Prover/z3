@@ -41,7 +41,7 @@ Notes:
 #include "ast/ast_smt2_pp.h"
 #include "qe/qe_lite.h"
 #include "ast/ast_ll_pp.h"
-#include "ast/proof_checker/proof_checker.h"
+#include "ast/proofs/proof_checker.h"
 #include "smt/smt_value_sort.h"
 #include "muz/base/proof_utils.h"
 #include "muz/base/dl_boogie_proof.h"

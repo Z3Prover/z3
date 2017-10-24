@@ -4,10 +4,9 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
-#include "ast/proof_checker/proof_checker.h"
+#include "ast/proofs/proof_checker.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/ast_pp.h"
-// include "spc_decl_plugin.h"
 #include "ast/ast_smt_pp.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/rewriter/th_rewriter.h"

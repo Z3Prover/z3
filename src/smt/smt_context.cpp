@@ -23,7 +23,7 @@ Revision History:
 #include "ast/ast_ll_pp.h"
 #include "util/warning.h"
 #include "smt/smt_quick_checker.h"
-#include "ast/proof_checker/proof_checker.h"
+#include "ast/proofs/proof_checker.h"
 #include "ast/ast_util.h"
 #include "smt/uses_theory.h"
 #include "model/model.h"

@@ -3,7 +3,7 @@ Copyright (c) 2017 Arie Gurfinkel
 
 Module Name:
 
-    spacer_proof_utils.cpp
+    proof_utils.cpp
 
 Abstract:
     Utilities to traverse and manipulate proofs
@@ -16,24 +16,23 @@ Revision History:
 
 --*/
 
-#include "muz/spacer/spacer_proof_utils.h"
 #include "ast/ast_util.h"
 #include "ast/ast_pp.h"
+#include "ast/proofs/proof_utils.h"
+#include "ast/proofs/proof_checker.h"
 
-#include "ast/proof_checker/proof_checker.h"
 
-namespace spacer {
 
-ProofIteratorPostOrder::ProofIteratorPostOrder(proof* root, ast_manager& manager) : m(manager)
+proof_post_order::proof_post_order(proof* root, ast_manager& manager) : m(manager)
 {m_todo.push_back(root);}
 
-bool ProofIteratorPostOrder::hasNext()
+bool proof_post_order::hasNext()
 {return !m_todo.empty();}
 
 /*
  * iterative post-order depth-first search (DFS) through the proof DAG
  */
-proof* ProofIteratorPostOrder::next()
+proof* proof_post_order::next()
 {
     while (!m_todo.empty()) {
         proof* currentNode = m_todo.back();
@@ -42,7 +41,8 @@ proof* ProofIteratorPostOrder::next()
         if (!m_visited.is_marked(currentNode)) {
             bool existsUnvisitedParent = false;
 
-            // add unprocessed premises to stack for DFS. If there is at least one unprocessed premise, don't compute the result
+            // add unprocessed premises to stack for DFS. 
+            // If there is at least one unprocessed premise, don't compute the result
             // for currentProof now, but wait until those unprocessed premises are processed.
             for (unsigned i = 0; i < m.get_num_parents(currentNode); ++i) {
                 SASSERT(m.is_proof(currentNode->get_arg(i)));
@@ -67,7 +67,7 @@ proof* ProofIteratorPostOrder::next()
         }
     }
     // we have already iterated through all inferences
-    return NULL;
+    return nullptr;
 }
 
 
@@ -117,20 +117,21 @@ class reduce_hypotheses {
         return hyp_mark;
     }
 
-    void compute_marks(proof* pr)
-    {
+    void compute_marks(proof* pr)  {
         proof *p;
-        ProofIteratorPostOrder pit(pr, m);
+        proof_post_order pit(pr, m);
         while (pit.hasNext()) {
             p = pit.next();
             if (m.is_hypothesis(p)) {
                 m_hypmark.mark(p, true);
                 m_hyps.insert(m.get_fact(p));
-            } else {
+            } 
+            else {
                 bool hyp_mark = compute_mark1(p);
                 // collect units that are hyp-free and are used as hypotheses somewhere
-                if (!hyp_mark && m.has_fact(p) && m_hyps.contains(m.get_fact(p)))
-                { m_units.insert(m.get_fact(p), p); }
+                if (!hyp_mark && m.has_fact(p) && m_hyps.contains(m.get_fact(p))) { 
+                    m_units.insert(m.get_fact(p), p); 
+                }
             }
         }
     }
@@ -220,6 +221,7 @@ class reduce_hypotheses {
 
         return m_units.contains(e);
     }
+
     proof *mk_lemma_core(proof *pf, expr *fact)
     {
         ptr_buffer<expr> args;
@@ -319,8 +321,8 @@ public:
         reset();
     }
 };
-void reduce_hypotheses(proof_ref &pr)
-{
+
+void reduce_hypotheses(proof_ref &pr) {
     ast_manager &m = pr.get_manager();
     class reduce_hypotheses hypred(m);
     hypred(pr);
@@ -328,5 +330,4 @@ void reduce_hypotheses(proof_ref &pr)
                expr_ref_vector side(m);
                SASSERT(pc.check(pr, side));
               );
-}
 }

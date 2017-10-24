@@ -23,7 +23,7 @@ Notes:
 #include "muz/spacer/spacer_util.h"
 #include "ast/rewriter/bool_rewriter.h"
 
-#include "ast/proof_checker/proof_checker.h"
+#include "ast/proofs/proof_checker.h"
 
 #include "ast/scoped_proof.h"
 

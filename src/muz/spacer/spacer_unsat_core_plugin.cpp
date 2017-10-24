@@ -20,13 +20,13 @@ Revision History:
 
 #include "ast/rewriter/bool_rewriter.h"
 #include "ast/arith_decl_plugin.h"
+#include "ast/proofs/proof_utils.h"
 
 #include "solver/solver.h"
 
 #include "smt/smt_farkas_util.h"
 #include "smt/smt_solver.h"
 
-#include "muz/spacer/spacer_proof_utils.h"
 #include "muz/spacer/spacer_matrix.h"
 #include "muz/spacer/spacer_unsat_core_plugin.h"
 #include "muz/spacer/spacer_unsat_core_learner.h"
