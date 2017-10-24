@@ -30,6 +30,7 @@ class context_params {
 public:
     bool        m_auto_config;
     bool        m_proof;
+    std::string m_dot_proof_file;
     bool        m_interpolants;
     bool        m_debug_ref_count;
     bool        m_trace;
