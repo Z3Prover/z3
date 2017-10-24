@@ -942,6 +942,7 @@ namespace sat {
             }
             literal next() { SASSERT(!empty()); return to_literal(m_queue.erase_min()); }
             bool empty() const { return m_queue.empty(); }
+            void reset() { m_queue.reset(); }
         };
 
         simplifier &      s;
@@ -1042,7 +1043,7 @@ namespace sat {
             m_to_remove.reset();
             clause_use_list & occs = s.m_use_list.get(l);
             clause_use_list::iterator it = occs.mk_iterator();
-            while (!it.at_end()) {
+            for (; !it.at_end(); it.next()) {
                 clause & c = it.curr();
                 if (c.is_blocked()) continue;
                 m_counter -= c.size();
@@ -1052,8 +1053,7 @@ namespace sat {
                     block_clause(c, l, new_entry);
                     s.m_num_blocked_clauses++;
                 }
-                s.unmark_all(c);
-                it.next();
+                s.unmark_all(c);                
             }
             for (clause* c : m_to_remove) 
                 s.block_clause(*c);
@@ -1083,7 +1083,7 @@ namespace sat {
             }
             clause_use_list & neg_occs = s.m_use_list.get(~l);
             clause_use_list::iterator it = neg_occs.mk_iterator();
-            while (!it.at_end()) {
+            for (; !it.at_end(); it.next()) {
                 bool tautology = false;
                 clause & c = it.curr();
                 if (c.is_blocked()) continue;
@@ -1110,7 +1110,6 @@ namespace sat {
                         if (j == 0) return false;
                     }
                 }
-                it.next();
             }
             return first;
         }
@@ -1204,12 +1203,12 @@ namespace sat {
         }
         
         void cce() {
+            insert_queue();
             cce_clauses();
             cce_binary();
         }
 
         void cce_binary() {
-            insert_queue();
             while (!m_queue.empty() && m_counter >= 0) {
                 s.checkpoint();
                 process_cce_binary(m_queue.next());
@@ -1309,6 +1308,7 @@ namespace sat {
         }
 
         void bca() {
+            m_queue.reset();
             insert_queue();
             while (!m_queue.empty() && m_counter >= 0) {
                 s.checkpoint();
@@ -1360,7 +1360,7 @@ namespace sat {
 
             clause_use_list & neg_occs = s.m_use_list.get(~l);
             clause_use_list::iterator it = neg_occs.mk_iterator();
-            while (!it.at_end()) {
+            for  (; !it.at_end(); it.next()) {
                 clause & c = it.curr();
                 if (c.is_blocked()) continue;
                 m_counter -= c.size();
@@ -1372,7 +1372,6 @@ namespace sat {
                 }
                 if (i == sz)
                     return false;
-                it.next();
             }
 
             if (s.s.m_ext) {

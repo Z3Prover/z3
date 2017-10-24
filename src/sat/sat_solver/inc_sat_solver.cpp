@@ -69,10 +69,11 @@ class inc_sat_solver : public solver {
     bool                m_internalized;           // are formulas internalized?
     bool                m_internalized_converted; // have internalized formulas been converted back
     expr_ref_vector     m_internalized_fmls;      // formulas in internalized format
+    bool                m_incremental_mode;
 
     typedef obj_map<expr, sat::literal> dep2asm_t;
 public:
-    inc_sat_solver(ast_manager& m, params_ref const& p):
+    inc_sat_solver(ast_manager& m, params_ref const& p, bool incremental_mode):
         m(m), 
         m_solver(p, m.limit()),
         m_params(p), 
@@ -86,7 +87,8 @@ public:
         m_unknown("no reason given"),
         m_internalized(false), 
         m_internalized_converted(false), 
-        m_internalized_fmls(m) {
+        m_internalized_fmls(m),
+        m_incremental_mode(incremental_mode) {
         updt_params(p);
         init_preprocess();
     }
@@ -99,7 +101,7 @@ public:
         }
         ast_translation tr(m, dst_m);
         m_solver.pop_to_base_level();
-        inc_sat_solver* result = alloc(inc_sat_solver, dst_m, p);
+        inc_sat_solver* result = alloc(inc_sat_solver, dst_m, p, m_incremental_mode);
         result->m_solver.copy(m_solver);
         result->m_fmls_head = m_fmls_head;
         for (expr* f : m_fmls) result->m_fmls.push_back(tr(f));
@@ -271,7 +273,10 @@ public:
     virtual void updt_params(params_ref const & p) {
         m_params.append(p);
         sat_params p1(p);
-        m_params.set_bool("elim_vars", false);
+        if (m_incremental_mode) {
+            m_params.set_bool("elim_vars", false);
+            m_params.set_uint("elim_blocked_clauses_at", UINT_MAX);
+        }
         m_params.set_bool("keep_cardinality_constraints", p1.cardinality_solver());
         m_params.set_bool("keep_pb_constraints", m_solver.get_config().m_pb_solver == sat::PB_SOLVER);
         m_params.set_bool("pb_num_system", m_solver.get_config().m_pb_solver == sat::PB_SORTING);
@@ -848,8 +853,8 @@ private:
 };
 
 
-solver* mk_inc_sat_solver(ast_manager& m, params_ref const& p) {
-    return alloc(inc_sat_solver, m, p);
+solver* mk_inc_sat_solver(ast_manager& m, params_ref const& p, bool incremental_mode) {
+    return alloc(inc_sat_solver, m, p, incremental_mode);
 }
 
 

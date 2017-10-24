@@ -25,7 +25,7 @@ Notes:
 class solver;
 class tactic;
 
-solver * mk_fd_solver(ast_manager & m, params_ref const & p);
+solver * mk_fd_solver(ast_manager & m, params_ref const & p, bool incremental_mode = true);
 tactic * mk_fd_tactic(ast_manager & m, params_ref const & p);
 
 /*
