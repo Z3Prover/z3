@@ -6,7 +6,7 @@ Abstract: Pretty-printer for proofs in Graphviz format
 
 #include "util/util.h"
 #include "util/map.h"
-#include "ast_pp_dot.h"
+#include "ast/ast_pp_dot.h"
 
 // string escaping for DOT
 std::string escape_dot(std::string const & s) {
@@ -23,28 +23,27 @@ std::string escape_dot(std::string const & s) {
 
 // map from proofs to unique IDs
 typedef obj_map<const expr, unsigned> expr2id;
-typedef obj_map<const expr, bool> set_expr;
 
 // temporary structure for traversing the proof and printing it
 struct ast_pp_dot_st {
-    const ast_pp_dot *      m_pp;
-    set_expr                m_printed;
-    expr2id                 m_id_map;
-    svector<const expr *>   m_to_print;
-    std::ostream &          m_out;
-    unsigned                m_next_id;
-    bool                    m_first;
     ast_manager &           m_manager;
+    std::ostream &          m_out;
+    const ast_pp_dot *      m_pp;
+    unsigned                m_next_id;
+    expr2id                 m_id_map;
+    obj_hashtable<const expr>     m_printed;
+    svector<const expr *>   m_to_print;
+    bool                    m_first;
 
     ast_pp_dot_st(const ast_pp_dot * pp, std::ostream & out) :
-        m_pp(pp),
+        m_manager(pp->get_manager()),
         m_out(out),
+        m_pp(pp),
         m_next_id(0),
         m_id_map(),
         m_to_print(),
         m_printed(),
-        m_first(true),
-        m_manager(pp->get_manager()) {}
+        m_first(true) {}
 
     ~ast_pp_dot_st() = default;
     
@@ -56,7 +55,7 @@ struct ast_pp_dot_st {
             const expr * a = m_to_print.back();
             m_to_print.pop_back();
             if (!m_printed.contains(a)) {
-                m_printed.insert(a, true);
+                m_printed.insert(a);
                 if (m().is_proof(a))
                     pp_step(to_app(a));
                 else
@@ -83,7 +82,7 @@ private:
     }
     
     void pp_step(const proof * p) {
-        TRACE("pp_ast_dot_step", tout << " :kind " << p->get_kind() << " :num-args " << num_args);
+        TRACE("pp_ast_dot_step", tout << " :kind " << p->get_kind() << " :num-args " << p->get_num_args() << "\n";);
         if (m().has_fact(p)) {
             // print result
             expr* p_res = m().get_fact(p); // result of proof step
