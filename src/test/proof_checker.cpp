@@ -8,7 +8,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "ast/ast_ll_pp.h"
 
 void tst_checker1() {
-    ast_manager m(PGM_FINE);
+    ast_manager m(PGM_ENABLED);
     expr_ref a(m);
     proof_ref p1(m), p2(m), p3(m), p4(m);
     expr_ref_vector side_conditions(m);

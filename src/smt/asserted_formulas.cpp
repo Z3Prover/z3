@@ -101,14 +101,14 @@ void asserted_formulas::push_assertion(expr * e, proof * pr, vector<justified_ex
     else if (m.is_and(e)) {
         for (unsigned i = 0; i < to_app(e)->get_num_args(); ++i) {
             expr* arg = to_app(e)->get_arg(i);
-            proof_ref _pr(m.mk_and_elim(pr, i), m);
+            proof_ref _pr(m.proofs_enabled() ? m.mk_and_elim(pr, i) : 0, m);
             push_assertion(arg, _pr, result);
         }
     }
     else if (m.is_not(e, e1) && m.is_or(e1)) {
         for (unsigned i = 0; i < to_app(e1)->get_num_args(); ++i) {
             expr* arg = to_app(e1)->get_arg(i);
-            proof_ref _pr(m.mk_not_or_elim(pr, i), m);
+            proof_ref _pr(m.proofs_enabled() ? m.mk_not_or_elim(pr, i) : 0, m);
             expr_ref  narg(mk_not(m, arg), m);
             push_assertion(narg, _pr, result);
         }

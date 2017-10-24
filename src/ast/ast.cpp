@@ -805,7 +805,6 @@ func_decl * basic_decl_plugin::mk_proof_decl(char const* name, basic_op_kind k, 
 }
 
 func_decl * basic_decl_plugin::mk_proof_decl(basic_op_kind k, unsigned num_parents) {
-    SASSERT(k == PR_UNDEF || m_manager->proofs_enabled());
     switch (static_cast<basic_op_kind>(k)) {
         //
         // A description of the semantics of the proof
@@ -2701,8 +2700,6 @@ proof * ast_manager::mk_commutativity(app * f) {
 */
 proof * ast_manager::mk_iff_true(proof * pr) {
     if (!pr) return pr;
-    if (proofs_disabled())
-        return m_undef_proof;
     SASSERT(has_fact(pr));
     SASSERT(is_bool(get_fact(pr)));
     return mk_app(m_basic_family_id, PR_IFF_TRUE, pr, mk_iff(get_fact(pr), mk_true()));
@@ -2845,18 +2842,21 @@ proof * ast_manager::mk_distributivity(expr * s, expr * r) {
 }
 
 proof * ast_manager::mk_rewrite(expr * s, expr * t) {
+    SASSERT(proofs_enabled());
     if (proofs_disabled())
         return m_undef_proof;
     return mk_app(m_basic_family_id, PR_REWRITE, mk_eq(s, t));
 }
 
 proof * ast_manager::mk_oeq_rewrite(expr * s, expr * t) {
+    SASSERT(proofs_enabled());
     if (proofs_disabled())
         return m_undef_proof;
     return mk_app(m_basic_family_id, PR_REWRITE, mk_oeq(s, t));
 }
 
 proof * ast_manager::mk_rewrite_star(expr * s, expr * t, unsigned num_proofs, proof * const * proofs) {
+    SASSERT(proofs_enabled());
     if (proofs_disabled())
         return m_undef_proof;
     ptr_buffer<expr> args;
@@ -2866,36 +2866,42 @@ proof * ast_manager::mk_rewrite_star(expr * s, expr * t, unsigned num_proofs, pr
 }
 
 proof * ast_manager::mk_pull_quant(expr * e, quantifier * q) {
+    SASSERT(proofs_enabled());
     if (proofs_disabled())
         return m_undef_proof;
     return mk_app(m_basic_family_id, PR_PULL_QUANT, mk_iff(e, q));
 }
 
 proof * ast_manager::mk_pull_quant_star(expr * e, quantifier * q) {
+    SASSERT(proofs_enabled());
     if (proofs_disabled())
         return m_undef_proof;
     return mk_app(m_basic_family_id, PR_PULL_QUANT_STAR, mk_iff(e, q));
 }
 
 proof * ast_manager::mk_push_quant(quantifier * q, expr * e) {
+    SASSERT(proofs_enabled());
     if (proofs_disabled())
         return m_undef_proof;
     return mk_app(m_basic_family_id, PR_PUSH_QUANT, mk_iff(q, e));
 }
 
 proof * ast_manager::mk_elim_unused_vars(quantifier * q, expr * e) {
+    SASSERT(proofs_enabled());
     if (proofs_disabled())
         return m_undef_proof;
     return mk_app(m_basic_family_id, PR_ELIM_UNUSED_VARS, mk_iff(q, e));
 }
 
 proof * ast_manager::mk_der(quantifier * q, expr * e) {
+    SASSERT(proofs_enabled());
     if (proofs_disabled())
         return m_undef_proof;
     return mk_app(m_basic_family_id, PR_DER, mk_iff(q, e));
 }
 
 proof * ast_manager::mk_quant_inst(expr * not_q_or_i, unsigned num_bind, expr* const* binding) {
+    SASSERT(proofs_enabled());
     if (proofs_disabled())
         return m_undef_proof;
     vector<parameter> params;
@@ -2931,6 +2937,7 @@ bool ast_manager::is_rewrite(expr const* e, expr*& r1, expr*& r2) const {
 }
 
 proof * ast_manager::mk_def_axiom(expr * ax) {
+    SASSERT(proofs_enabled());
     if (proofs_disabled())
         return m_undef_proof;
     return mk_app(m_basic_family_id, PR_DEF_AXIOM, ax);
