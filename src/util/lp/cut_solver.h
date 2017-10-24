@@ -16,21 +16,6 @@ class lbool { l_false, l_true, l_undef };
 template <typename T>
 class cut_solver : public column_namer {
 public: // for debugging
-    enum class model_bound_type {
-        implied, decided
-    };
-    
-    struct model_bound {
-        var_index m_j;
-        bool m_le; // less or equal
-        T m_b; // the right size
-        model_bound(var_index j, bool le, const T & b) : m_j(j), m_le(le), m_b(b) {}
-        T coeff() const {
-            return m_le? one_of_type<T>() : - one_of_type<T>();
-        }
-
-    };
-    
     struct polynomial {
         // the polynomial evaluates to m_coeffs + m_a
         std::vector<std::pair<T, var_index>> m_coeffs;
@@ -58,12 +43,43 @@ public: // for debugging
             return ret;
         }
 
+        void add_polynomial(const polynomial & p) {
+            m_a += p.m_a;
+            for (const auto & t: p.m_coeffs)
+                add_monomial(t.first, t.second);
+        }
+
         void clear() {
             m_coeffs.clear();
             m_a = zero_of_type<T>();
         }
         
         bool is_zero() const { return m_coeffs.size() == 0 && numeric_traits<T>::is_zero(m_a); }
+
+        void add_monomial(const T & t, var_index j) {
+            for (unsigned k = 0; k < m_coeffs.size(); k++) {
+                auto & l = m_coeffs[k];
+                if (j == l.second) {
+                    l.first += t;
+                    if (l.first == 0)
+                        m_coeffs.erase(m_coeffs.begin() + k);
+                    return;
+                }
+            }
+            m_coeffs.push_back(std::make_pair(t, j));
+            lp_assert(is_correct());
+        }
+
+        bool is_correct() const {
+            std::unordered_set<var_index> s;
+            for (auto & l : m_coeffs) {
+                if (l.first == 0)
+                    return false;
+                s.insert(l.second);
+            }
+            return m_coeffs.size() == s.size();
+        }
+        
     };
     
     struct ineq { // we only have less or equal, which is enough for integral variables
@@ -85,6 +101,14 @@ public: // for debugging
                 (m_poly.m_coeffs[0].first == one_of_type<T>()
                  || m_poly.m_coeffs[0].first == -one_of_type<T>());
         }
+
+        bool is_tight(unsigned j) const {
+            const T & a = m_poly.coeff(j);
+            return a == 1 || a == -1;
+        }
+        void add_monomial(const T & t, var_index j) {
+            m_poly.add_monomial(t, j);
+        }
     };
 
     struct div_constraint {
@@ -102,25 +126,44 @@ public: // for debugging
         BOOL,INEQ, BOUND, DIV            
     };
 
-    enum class bound_type {
-        LOWER, UPPER, UNDEF
-    };
     struct literal {
         literal_type m_tag;
         bool m_sign; // true means the pointed inequality is negated, or bound is negated, or boolean value is negated
+// these fields are used is m_tag is BOUND        
+        unsigned m_var_index;
         bool m_is_lower;
+        T m_bound;
+//=================
         unsigned m_id;
-        unsigned m_index_of_ineq; // index into m_ineqs
+        int m_ineq_index; // index into m_ineqs, if m_index_of_ineq < 0 then the literal is decided
         bool m_bool_val; // used if m_tag is equal to BOOL
-        T m_bound; // used if m_tag is BOUND
         unsigned m_index_of_div_constraint;
+        literal(unsigned var_index, bool is_lower, const T & bound, int ineq_index):
+            m_tag(literal_type::BOUND),
+            m_var_index(var_index),
+            m_is_lower(is_lower),
+            m_bound(bound),
+            m_ineq_index(ineq_index)
+        {
+        }
+        
+        literal(unsigned var_id, bool is_lower, const T & bound):
+            literal(var_id, is_lower, bound, -1) {
+        }
+        literal(literal_type tag) : m_tag(tag) {}
         literal(bool sign, bool val):  m_tag(literal_type::BOOL),
             m_bool_val(val){
         } 
-        literal(bool sign, unsigned index_of_ineq) : m_tag(literal_type::INEQ), m_index_of_ineq(index_of_ineq) {}
+        literal(bool sign, unsigned ineq_index) : m_tag(literal_type::INEQ), m_ineq_index(ineq_index) {}
+        bool decided() const {
+            return m_ineq_index < 0;
+        }
+
     };    
 
-    
+    enum class bound_type {
+        LOWER, UPPER, UNDEF
+    };
     struct bound_result {
         T m_bound;
         bound_type m_type;
@@ -584,28 +627,40 @@ public: // for debugging
 
     
     
-    void print_ineq(unsigned i, std::ostream & out) {
-        print_ineq(m_ineqs[i], out);
+    void print_ineq(std::ostream & out, unsigned i)  const {
+        print_ineq(out, m_ineqs[i]);
     }
 
-    void print_ineq(const ineq & i, std::ostream & out) {
-        print_polynomial(i.m_poly, out);
+    void print_ineq(std::ostream & out, const ineq & i ) const {
+        print_polynomial(out, i.m_poly);
         out << " <= 0";
     }
 
-
-    void print_model_bound(std::ostream & o, const model_bound & t) const {
-        o << get_column_name(t.m_j) << " ";
-        if (t.m_le)
-            o << "<= ";
+    void print_literal_bound(std::ostream & o, const literal & t) const {
+        o << "literal type is BOUND\n";
+        o << get_column_name(t.m_var_index) << " ";
+        if (t.m_is_lower)
+            o << ">= ";
         else
-            o << "=> ";
-        o << t.m_b;
+            o << "<= ";
+        o << t.m_bound;
+        if (t.m_ineq_index >= 0) {
+            o << " tight ineq ";
+            print_ineq(o, t.m_ineq_index);
+        }
+    }
+
+    void print_literal(std::ostream & o, const literal & t) const {
+        if (t.m_tag == literal_type::BOUND)
+            print_literal_bound(o, t);
+        else {
+            lp_assert(false);
+        }
     }
     
 
     
-    void print_polynomial(const polynomial & p, std::ostream & out) {
+    void print_polynomial(std::ostream & out, const polynomial & p) const {
         this->print_linear_combination_of_column_indices_std(p.m_coeffs, out);
         if (!is_zero(p.m_a)) {
             if (p.m_a < 0) {
@@ -616,20 +671,45 @@ public: // for debugging
         }
     }
 
-    
-    //te is an inequality we resove by eliminating varible t.m_j from t
-    bool resolve(const model_bound & t, const ineq & ie, ineq & result) const {
-        lp_assert(result.m_poly.is_zero());
-        const T & a = ie.coeff(t.m_j);
-        if (t.m_le) {
-            if (is_pos(a))
+    // trying to improve inequality ie by using literal t, and eliminate the literal variable.
+    // the literal has to be a BOUND and has to point out to a tight inequality for the bounded variable
+    bool resolve(const literal & t, const ineq & ie, ineq & result) const {
+        lp_assert(literal_is_correct(t));
+        lp_assert(t.m_tag == literal_type::BOUND);
+        lp_assert(t.m_ineq_index >= 0); // ! t.decided()
+        var_index j = t.m_var_index;
+        const ineq & tight_i = m_ineqs[t.m_ineq_index];
+        lp_assert(tight_i.is_tight(j));
+        result.clear();
+        auto coeffs = ie.m_poly.m_coeffs;
+        int k = -1; // the position of t.m_var_index in coeffs
+        T a;
+        for (unsigned i = 0; i < coeffs.size(); i++) {
+            if (coeffs[i].second == j) {
+                k = i;
+                a = coeffs[i].first;
+            } else {
+                result.m_poly.m_coeffs.push_back(coeffs[i]);
+            }
+        }
+        
+        if (k == -1)
+            return false;
+
+        a = coeffs[k].first;
+        if (t.m_is_lower) {
+            if (is_neg(a))
                 return false;
-        } else { // t.m_le == false
-            if (is_neg(a)) 
+        } else { // t.m_lower == false
+            if (is_pos(a)) 
                 return false;
         }
-        result.m_poly.m_coeffs = ie.m_poly.copy_coeff_but_one(t.m_j);
-        result.m_poly.m_a = a * t.m_b + ie.m_poly.m_a;
+
+        for (auto & c : tight_i.m_poly.m_coeffs) {
+            if (c.second != j)
+                result.add_monomial( a * c.first, c.second);
+        }
+        result.m_poly.m_a = ie.m_poly.m_a + a * tight_i.m_poly.m_a;
         return true;
     }
 
@@ -660,6 +740,18 @@ public: // for debugging
         return (!lower_bound_exists || new_lower.m_bound > b) &&
             dom.intersection_with_lower_bound_is_empty(new_lower.m_bound);
     }
-    
+
+    bool literal_is_correct(const literal &t ) const {
+        if (t.m_tag == literal_type::BOUND) {
+            if (t.decided())
+                return true;
+            auto & i = m_ineqs[t.m_ineq_index];
+            int sign_should_be = t.m_is_lower? -1: 1;
+            const T &a = i.coeff(t.m_var_index);
+            int sign = a > 0? 1: -1;
+            return sign == sign_should_be;
+        }
+        return true;
+    }
 };
 }

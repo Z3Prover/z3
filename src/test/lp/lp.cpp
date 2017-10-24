@@ -3196,49 +3196,58 @@ void test_bound_of_cut_solver(cut_solver<int>& cs, unsigned ineq_index)  {
 }
 
 
-void test_resolve_with_tigth_ineq(cut_solver<int>& cs,
-                                const cut_solver<int>::model_bound te,
+void test_resolve_with_tight_ineq(cut_solver<int>& cs,
+                                const cut_solver<int>::literal te,
                                 var_index ineq_index,
                                 cut_solver<int>::ineq & result) {
     std::cout << "resolve ineq ";
-    cs.print_ineq(ineq_index, std::cout);
-    std::cout << " with tight inequality ";
-    cs.print_model_bound(std::cout, te);
+    cs.print_ineq(std::cout, ineq_index);
+    std::cout << " with literal\n";
+    cs.print_literal(std::cout, te);
     std::cout << std::endl;
     if (cs.resolve(te, cs.get_ineq(ineq_index), result)) {
         std::cout << "resolve succeeds, result is ";
-        cs.print_ineq(result, std::cout);
+        cs.print_ineq(std::cout, result);
     } else {
         std::cout << "resolve did not succeed";
     }
     std::cout << std::endl;
 }
 
-void test_resolve(cut_solver<int>& cs, unsigned ineq_index)  {
+void test_resolve(cut_solver<int>& cs, unsigned ineq_index, unsigned i0)  {
     var_index x = 0;
     var_index y = 1;
+    //    var_index z = 2;
     std::cout << "test_resolve\n";
     auto q = cs.get_ineq(ineq_index);
-    cut_solver<int>::model_bound te(x, true /* le */, 2);
+    cut_solver<int>::literal bound(x, false /* is_lower */, 2);
+    bound.m_ineq_index = i0;
     cut_solver<int>::ineq result;
-    test_resolve_with_tigth_ineq(cs, te, ineq_index, result);
-    te.m_le = false;
-    test_resolve_with_tigth_ineq(cs, te, ineq_index, result);
-    te.m_j = y;
+    test_resolve_with_tight_ineq(cs, bound, ineq_index, result);
+    cs.m_ineqs[ineq_index].add_monomial(-10, x);
+    test_resolve_with_tight_ineq(cs, bound, ineq_index, result);
+    bound.m_var_index = y;
+    bound.m_is_lower = true;
+    test_resolve_with_tight_ineq(cs, bound, ineq_index, result);
+    cs.m_ineqs[ineq_index].add_monomial(6, y);
+    test_resolve_with_tight_ineq(cs, bound, ineq_index, result);
+    bound.m_is_lower = true;
+    bound.m_bound = 3;
     result.clear();
-    test_resolve_with_tigth_ineq(cs, te, ineq_index, result);
-    te.m_le = true;
-    te.m_b = 3;
-    result.clear();
-    test_resolve_with_tigth_ineq(cs, te, ineq_index, result);
+    test_resolve_with_tight_ineq(cs, bound, ineq_index, result);
+    auto& coeffs = cs.m_ineqs[ineq_index].m_poly.m_coeffs;
+    unsigned size = coeffs.size();
+    int a = cs.m_ineqs[ineq_index].m_poly.coeff(x);
+    cs.m_ineqs[ineq_index].add_monomial(-a, x);
+    lp_assert(coeffs.size() == size - 1);
  }
 
-void test_improves(cut_solver<int>& cs, unsigned ineq_index)  {
+void test_improves(cut_solver<int>& cs, unsigned ineq_index, unsigned i0) {
     var_index x = 0;
     var_index y = 1;
     std::cout << "test_improves\n";
     auto q = cs.get_ineq(ineq_index);
-    std::cout << "ineq = "; cs.print_ineq(ineq_index, std::cout); std::cout << std::endl;
+    std::cout << "ineq = "; cs.print_ineq(std::cout, q); std::cout << std::endl;
     std::cout << "domain of x = ";
     cs.m_var_infos[x].m_domain.print(std::cout);
     std::cout << std::endl;
@@ -3260,7 +3269,7 @@ void test_improves(cut_solver<int>& cs, unsigned ineq_index)  {
     }
 
 	q.m_poly.m_a = -10;
-	std::cout << "ineq = "; cs.print_ineq(ineq_index, std::cout); std::cout << std::endl;
+	std::cout << "ineq = "; cs.print_ineq(std::cout, ineq_index); std::cout << std::endl;
 	if (cs.improves(x, q)) {
 		std::cout << "improves x\n";		
 	}
@@ -3276,18 +3285,39 @@ void test_cut_solver() {
                        {
                            if (i == 0) return std::string("x");
                            if (i == 1) return  std::string("y");
+                           if (i == 2) return std::string("z");
                            return std::to_string(i);
                        });
     std::vector<std::pair<int, unsigned>> term;
     unsigned x = 0;
     unsigned y = 1;
+    unsigned z = 2;
     term.push_back(std::make_pair(8, x));
     term.push_back(std::make_pair(-3, y));
+    term.push_back(std::make_pair(-2, z));
     unsigned ineq_index = cs.add_ineq(term, 5);
 
-
-    cs.print_ineq(ineq_index, std::cout);
+    cs.print_ineq(std::cout, ineq_index);
+    std::cout << std::endl;
     
+    term.clear();
+    term.push_back(std::make_pair(1,x));
+    term.push_back(std::make_pair(-2,y));
+    unsigned ineq_index0 = cs.add_ineq(term, 2);
+    cs.print_ineq(std::cout, ineq_index0);
+    std::cout <<std::endl;
+    
+    auto & i = cs.m_ineqs[ineq_index0];
+    std::cout << "add monomial y" << std::endl;
+    i.m_poly.add_monomial(1, y);
+    cs.print_ineq(std::cout, ineq_index0);
+    std::cout << std::endl;
+    std::cout << "add monomial y" << std::endl;
+    i.m_poly.add_monomial(1, y);
+    cs.print_ineq(std::cout, ineq_index0);
+    std::cout << "\nadd monomial -y" << std::endl;
+    i.m_poly.add_monomial(-1, y);
+    cs.print_ineq(std::cout, ineq_index0);
     int l;
     auto ineq = cs.m_ineqs[ineq_index];
     cs.add_lower_bound_for_user_var(x, 1);
@@ -3308,8 +3338,8 @@ void test_cut_solver() {
 
     test_bound_of_cut_solver(cs, ineq_index);
 
-    test_resolve(cs, ineq_index);
-    test_improves(cs, ineq_index);
+    test_resolve(cs, ineq_index, ineq_index0);
+    test_improves(cs, ineq_index, ineq_index0);
 }
 
 
