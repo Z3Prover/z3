@@ -16,7 +16,7 @@ class ast_pp_dot {
   public:
     ast_pp_dot(proof *pr, ast_manager &m) : m_manager(m), m_pr(pr) {}
     ast_pp_dot(proof_ref &e) : m_manager(e.m()), m_pr(e.get()) {}
-
+    
     std::ostream & pp(std::ostream & out) const;
     ast_manager & get_manager() const { return m_manager; }
 };

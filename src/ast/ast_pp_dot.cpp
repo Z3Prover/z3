@@ -11,6 +11,7 @@ Abstract: Pretty-printer for proofs in Graphviz format
 // string escaping for DOT
 std::string escape_dot(std::string const & s) {
     std::string res;
+    res.reserve(s.size()); // preallocate
     for (auto c : s) {
         if (c == '\n')
             res.append("\\l");
@@ -21,8 +22,8 @@ std::string escape_dot(std::string const & s) {
 }
 
 // map from proofs to unique IDs
-typedef map<const expr*, unsigned, obj_ptr_hash<const expr>, default_eq<const expr*> > expr2id;
-typedef map<const expr*, bool, obj_ptr_hash<const expr>, default_eq<const expr*> > set_expr;
+typedef obj_map<const expr, unsigned> expr2id;
+typedef obj_map<const expr, bool> set_expr;
 
 // temporary structure for traversing the proof and printing it
 struct ast_pp_dot_st {
@@ -33,6 +34,7 @@ struct ast_pp_dot_st {
     std::ostream &          m_out;
     unsigned                m_next_id;
     bool                    m_first;
+    ast_manager &           m_manager;
 
     ast_pp_dot_st(const ast_pp_dot * pp, std::ostream & out) :
         m_pp(pp),
@@ -41,19 +43,21 @@ struct ast_pp_dot_st {
         m_id_map(),
         m_to_print(),
         m_printed(),
-        m_first(true) {}
+        m_first(true),
+        m_manager(pp->get_manager()) {}
+
+    ~ast_pp_dot_st() = default;
     
     void push_term(const expr * a) { m_to_print.push_back(a); }        
 
     void pp_loop() {
         // DFS traversal
-        auto& m = get_manager();
         while (!m_to_print.empty()) {
             const expr * a = m_to_print.back();
             m_to_print.pop_back();
             if (!m_printed.contains(a)) {
                 m_printed.insert(a, true);
-                if (m.is_proof(a))
+                if (m().is_proof(a))
                     pp_step(to_app(a));
                 else
                     pp_atomic_step(a);
@@ -63,11 +67,11 @@ struct ast_pp_dot_st {
 
 private:
 
-    ast_manager & get_manager() const { return m_pp->get_manager(); }
+    inline ast_manager & m() const { return m_manager; }
 
     // label for an expression
     std::string label_of_expr(const expr * e) const {
-        expr_ref er((expr*)e, get_manager());
+        expr_ref er((expr*)e, m());
         std::ostringstream out;
         out << er << std::flush;
         return escape_dot(out.str());
@@ -79,22 +83,21 @@ private:
     }
     
     void pp_step(const proof * p) {
-        auto m = get_manager();
-        unsigned num_args = p->get_num_args();
         TRACE("pp_ast_dot_step", tout << " :kind " << p->get_kind() << " :num-args " << num_args);
-        if (num_args > 0) {
+        if (m().has_fact(p)) {
             // print result
-            expr* p_res = p->get_args()[num_args-1]; // result
+            expr* p_res = m().get_fact(p); // result of proof step
             unsigned id = get_id(p);
+            unsigned num_parents = m().get_num_parents(p);
             const char* color =
-                m_first ? (m_first=false,"color=\"red\"") : num_args==1 ? "color=\"yellow\"": "";
+                m_first ? (m_first=false,"color=\"red\"") : num_parents==0 ? "color=\"yellow\"": "";
             m_out << "node_" << id <<
                 " [shape=box,style=\"filled\",label=\"" << label_of_expr(p_res) << "\""
                 << color << "]" << std::endl;
             // now print edges to parents (except last one, which is the result)
             std::string label = p->get_decl()->get_name().str();
-            for (unsigned i = 0 ; i+1 < num_args; ++i) {
-                expr* parent = p->get_args()[i];
+            for (unsigned i = 0 ; i < num_parents; ++i) {
+                expr* parent = m().get_parent(p, i);
                 // explore parent, also print a link to it
                 push_term(to_app(parent));
                 m_out << "node_" << id << " -> " << "node_" << get_id((expr*)parent)
@@ -107,13 +110,12 @@ private:
 
     // find a unique ID for this proof
     unsigned get_id(const expr * e) {
-        if (m_id_map.contains(e)) {
-            return m_id_map[e];
-        } else {
-            auto id = m_next_id ++;
-            m_id_map.insert(e, id);
-            return id;
+        unsigned id = 0;
+        if (!m_id_map.find(e, id)) {
+             id = m_next_id++;
+             m_id_map.insert(e, id);
         }
+        return id;
     }
 
 };
