@@ -20,6 +20,7 @@ Revision History:
 #ifndef PROOF_UTILS_H_
 #define PROOF_UTILS_H_
 #include "ast/ast.h"
+#include "ast/rewriter/bool_rewriter.h"
 
 /*
  * iterator, which traverses the proof in depth-first post-order.
@@ -66,7 +67,6 @@ public:
 
 };
 
-#include "ast/rewriter/bool_rewriter.h"
 class elim_aux_assertions {
 
     static bool matches_fact(expr_ref_vector &args, expr* &match) {

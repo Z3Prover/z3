@@ -244,7 +244,6 @@ void virtual_solver::refresh()
     m_head = 0;
 }
 
-#ifdef NOT_USED_ANYWHERE
 void virtual_solver::reset()
 {
     SASSERT(!m_pushed);
@@ -252,7 +251,6 @@ void virtual_solver::reset()
     m_assertions.reset();
     m_factory.refresh();
 }
-#endif
 
 void virtual_solver::get_labels(svector<symbol> &r)
 {

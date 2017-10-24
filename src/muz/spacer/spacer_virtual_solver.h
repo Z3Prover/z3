@@ -91,9 +91,7 @@ public:
     virtual void set_produce_models(bool f);
     virtual bool get_produce_models();
     virtual smt_params &fparams();
-#ifdef NOT_USED_ANYWHERE
     virtual void reset();
-#endif
     virtual void set_progress_callback(progress_callback *callback)
     {UNREACHABLE();}
 
@@ -135,6 +133,9 @@ private:
 
 
     void refresh();
+
+    smt_params &fparams() { return m_fparams; }
+
 public:
     virtual_solver_factory(ast_manager &mgr, smt_params &fparams);
     virtual ~virtual_solver_factory();
@@ -145,7 +146,6 @@ public:
     void collect_param_descrs(param_descrs &r) { /* empty */ }
     void set_produce_models(bool f) { m_fparams.m_model = f; }
     bool get_produce_models() { return m_fparams.m_model; }
-    smt_params &fparams() { return m_fparams; }
 };
 
 }

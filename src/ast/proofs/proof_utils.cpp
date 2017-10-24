@@ -20,8 +20,8 @@ Revision History:
 #include "ast/ast_pp.h"
 #include "ast/proofs/proof_utils.h"
 #include "ast/proofs/proof_checker.h"
+#include "ast/rewriter/var_subst.h"
 #include "util/container_util.h"
-
 
 
 proof_post_order::proof_post_order(proof* root, ast_manager& manager) : m(manager)
@@ -336,7 +336,6 @@ void reduce_hypotheses(proof_ref &pr) {
 
 
 #include "ast/ast_smt2_pp.h"
-#include "ast/rewriter/var_subst.h"
 
 class reduce_hypotheses0 {
     typedef obj_hashtable<expr> expr_set;
