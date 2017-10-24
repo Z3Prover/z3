@@ -19,7 +19,7 @@ Revision History:
 
 --*/
 
-#ifndef CONTAINUR_UTIL_H
+#ifndef CONTAINUR_UTIL_H_
 #define CONTAINER_UTIL_H_
 
 // -----------------------------------
@@ -102,7 +102,8 @@ void print_map(const T & cont, std::ostream & out) {
 
 template<class It, class V> 
 unsigned find_index(const It & begin, const It & end, const V & val) {
-    for (unsigned idx = 0, It it = begin; it != end; it++, idx++) {
+    It it = begin;
+    for (unsigned idx = 0; it != end; it++, idx++) {
         if (*it == val) {
             return idx;
         }
