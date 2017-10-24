@@ -29,6 +29,7 @@ Notes:
 #include "tactic/bv/bit_blaster_tactic.h"
 #include "tactic/core/simplify_tactic.h"
 #include "sat/tactic/goal2sat.h"
+#include "sat/tactic/sat_tactic.h"
 #include "ast/ast_pp.h"
 #include "model/model_smt2_pp.h"
 #include "tactic/filter_model_converter.h"
@@ -848,8 +849,13 @@ private:
 };
 
 
-solver* mk_inc_sat_solver(ast_manager& m, params_ref const& p) {
-    return alloc(inc_sat_solver, m, p);
+solver* mk_inc_sat_solver(ast_manager& m, params_ref const& _p) {
+    sat_params p(_p);
+    if (p.disable_incremental()) {
+        tactic_ref t = mk_sat_tactic(m, _p);
+        return mk_tactic2solver(m, t.get(), _p);
+    }
+    return alloc(inc_sat_solver, m, _p);
 }
 
 

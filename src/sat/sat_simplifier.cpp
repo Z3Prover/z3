@@ -1044,6 +1044,7 @@ namespace sat {
             clause_use_list::iterator it = occs.mk_iterator();
             while (!it.at_end()) {
                 clause & c = it.curr();
+                it.next();
                 if (c.is_blocked()) continue;
                 m_counter -= c.size();
                 SASSERT(c.contains(l));
@@ -1053,7 +1054,6 @@ namespace sat {
                     s.m_num_blocked_clauses++;
                 }
                 s.unmark_all(c);
-                it.next();
             }
             for (clause* c : m_to_remove) 
                 s.block_clause(*c);
@@ -1086,6 +1086,7 @@ namespace sat {
             while (!it.at_end()) {
                 bool tautology = false;
                 clause & c = it.curr();
+                it.next();
                 if (c.is_blocked()) continue;
                 for (literal lit : c) {
                     if (s.is_marked(~lit) && lit != ~l) {
@@ -1110,7 +1111,6 @@ namespace sat {
                         if (j == 0) return false;
                     }
                 }
-                it.next();
             }
             return first;
         }
@@ -1360,6 +1360,7 @@ namespace sat {
             clause_use_list::iterator it = neg_occs.mk_iterator();
             while (!it.at_end()) {
                 clause & c = it.curr();
+                it.next();
                 if (c.is_blocked()) continue;
                 m_counter -= c.size();
                 unsigned sz = c.size();
@@ -1370,7 +1371,6 @@ namespace sat {
                 }
                 if (i == sz)
                     return false;
-                it.next();
             }
 
             if (s.s.m_ext) {
