@@ -149,8 +149,6 @@ namespace spacer {
         expr_ref val(m), tmp(m);
         proof_ref pr(m);
         pr = m.mk_asserted(m.mk_true());
-        obj_map<expr, unsigned>::iterator it  = diseqs.begin();
-        obj_map<expr, unsigned>::iterator end = diseqs.end();
         for (auto const& kv : diseqs) {
             if (kv.m_value >= threshold) {
                 model.eval(kv.m_key, val);

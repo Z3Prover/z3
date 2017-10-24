@@ -91,8 +91,9 @@ public:
     virtual void set_produce_models(bool f);
     virtual bool get_produce_models();
     virtual smt_params &fparams();
+#ifdef NOT_USED_ANYWHERE
     virtual void reset();
-
+#endif
     virtual void set_progress_callback(progress_callback *callback)
     {UNREACHABLE();}
 

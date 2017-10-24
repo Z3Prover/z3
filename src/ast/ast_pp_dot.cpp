@@ -41,8 +41,8 @@ struct ast_pp_dot_st {
         m_pp(pp),
         m_next_id(0),
         m_id_map(),
-        m_to_print(),
         m_printed(),
+        m_to_print(),
         m_first(true) {}
 
     ~ast_pp_dot_st() = default;

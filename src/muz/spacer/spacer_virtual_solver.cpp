@@ -81,6 +81,8 @@ static bool matches_fact(expr_ref_vector &args, expr* &match)
 }
 
 
+// TBD: move to ast/proofs/elim_aux_assertions
+
 class elim_aux_assertions {
     app_ref m_aux;
 public:
@@ -404,6 +406,7 @@ void virtual_solver::refresh()
     m_head = 0;
 }
 
+#ifdef NOT_USED_ANYWHERE
 void virtual_solver::reset()
 {
     SASSERT(!m_pushed);
@@ -411,6 +414,7 @@ void virtual_solver::reset()
     m_assertions.reset();
     m_factory.refresh();
 }
+#endif
 
 void virtual_solver::get_labels(svector<symbol> &r)
 {
