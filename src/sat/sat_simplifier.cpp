@@ -974,9 +974,9 @@ namespace sat {
         void operator()() {
             if (s.bce_enabled())
                 block_clauses();
-            if (s.m_cce) 
+            if (s.cce_enabled()) 
                 cce();
-            if (s.m_bca)
+            if (s.bca_enabled())
                 bca();
     }
 
@@ -1176,7 +1176,7 @@ namespace sat {
                     is_tautology = add_cla(blocked);
                 }
                 while (m_covered_clause.size() > sz && !is_tautology);
-                if (s.m_acce && !is_tautology) {
+                if (s.acce_enabled() && !is_tautology) {
                     sz = m_covered_clause.size();
                     add_ala();
                 }
