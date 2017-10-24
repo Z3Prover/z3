@@ -45,7 +45,7 @@ struct ast_pp_dot_st {
         m_to_print(),
         m_first(true) {}
 
-    ~ast_pp_dot_st() = default;
+    ~ast_pp_dot_st() {};
     
     void push_term(const expr * a) { m_to_print.push_back(a); }        
 
