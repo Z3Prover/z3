@@ -32,6 +32,7 @@ struct ast_pp_dot_st {
     svector<const expr *>   m_to_print;
     std::ostream &          m_out;
     unsigned                m_next_id;
+    bool                    m_first;
 
     ast_pp_dot_st(const ast_pp_dot * pp, std::ostream & out) :
         m_pp(pp),
@@ -39,7 +40,8 @@ struct ast_pp_dot_st {
         m_next_id(0),
         m_id_map(),
         m_to_print(),
-        m_printed() {}
+        m_printed(),
+        m_first(true) {}
     
     void push_term(const expr * a) { m_to_print.push_back(a); }        
 
@@ -73,7 +75,7 @@ private:
 
     void pp_atomic_step(const expr * e) {
         unsigned id = get_id(e);
-        m_out << "node_" << id << " [shape=box,label=\"" << label_of_expr(e) << "\"] ;" << std::endl;
+        m_out << "node_" << id << " [shape=box,color=\"yellow\",style=\"filled\",label=\"" << label_of_expr(e) << "\"] ;" << std::endl;
     }
     
     void pp_step(const proof * p) {
@@ -84,7 +86,11 @@ private:
             // print result
             expr* p_res = p->get_args()[num_args-1]; // result
             unsigned id = get_id(p);
-            m_out << "node_" << id << " [shape=box,label=\"" << label_of_expr(p_res) << "\"]" << std::endl;
+            const char* color =
+                m_first ? (m_first=false,"color=\"red\"") : num_args==1 ? "color=\"yellow\"": "";
+            m_out << "node_" << id <<
+                " [shape=box,style=\"filled\",label=\"" << label_of_expr(p_res) << "\""
+                << color << "]" << std::endl;
             // now print edges to parents (except last one, which is the result)
             std::string label = p->get_decl()->get_name().str();
             for (unsigned i = 0 ; i+1 < num_args; ++i) {
