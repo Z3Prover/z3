@@ -1044,16 +1044,17 @@ namespace sat {
             clause_use_list::iterator it = occs.mk_iterator();
             while (!it.at_end()) {
                 clause & c = it.curr();
-                it.next();
-                if (c.is_blocked()) continue;
-                m_counter -= c.size();
-                SASSERT(c.contains(l));
-                s.mark_all_but(c, l);
-                if (all_tautology(l)) {
-                    block_clause(c, l, new_entry);
-                    s.m_num_blocked_clauses++;
+                if (!c.is_blocked()) {
+                    m_counter -= c.size();
+                    SASSERT(c.contains(l));
+                    s.mark_all_but(c, l);
+                    if (all_tautology(l)) {
+                        block_clause(c, l, new_entry);
+                        s.m_num_blocked_clauses++;
+                    }
+                    s.unmark_all(c);
                 }
-                s.unmark_all(c);
+                it.next();
             }
             for (clause* c : m_to_remove) 
                 s.block_clause(*c);
@@ -1086,31 +1087,32 @@ namespace sat {
             while (!it.at_end()) {
                 bool tautology = false;
                 clause & c = it.curr();
-                it.next();
-                if (c.is_blocked()) continue;
-                for (literal lit : c) {
-                    if (s.is_marked(~lit) && lit != ~l) {
-                        tautology = true;
-                        break;
-                    }
-                }
-                if (!tautology) {
-                    if (first) {
-                        for (literal lit : c) {
-                            if (lit != ~l && !s.is_marked(lit)) inter.push_back(lit);
+                if (!c.is_blocked()) {
+                    for (literal lit : c) {
+                        if (s.is_marked(~lit) && lit != ~l) {
+                            tautology = true;
+                            break;
                         }
-                        first = false;
-                        if (inter.empty()) return false;
                     }
-                    else {
-                        unsigned j = 0;
-                        for (literal lit : inter) 
-                            if (c.contains(lit)) 
-                                inter[j++] = lit;
-                        inter.shrink(j);
-                        if (j == 0) return false;
+                    if (!tautology) {
+                        if (first) {
+                            for (literal lit : c) {
+                                if (lit != ~l && !s.is_marked(lit)) inter.push_back(lit);
+                            }
+                            first = false;
+                            if (inter.empty()) return false;
+                        }
+                        else {
+                            unsigned j = 0;
+                            for (literal lit : inter)
+                                if (c.contains(lit))
+                                    inter[j++] = lit;
+                            inter.shrink(j);
+                            if (j == 0) return false;
+                        }
                     }
                 }
+                it.next();
             }
             return first;
         }
@@ -1360,17 +1362,18 @@ namespace sat {
             clause_use_list::iterator it = neg_occs.mk_iterator();
             while (!it.at_end()) {
                 clause & c = it.curr();
-                it.next();
-                if (c.is_blocked()) continue;
-                m_counter -= c.size();
-                unsigned sz = c.size();
-                unsigned i;
-                for (i = 0; i < sz; i++) {
-                    if (s.is_marked(~c[i]))
-                        break;
+                if (!c.is_blocked()) {
+                    m_counter -= c.size();
+                    unsigned sz = c.size();
+                    unsigned i;
+                    for (i = 0; i < sz; i++) {
+                        if (s.is_marked(~c[i]))
+                            break;
+                    }
+                    if (i == sz)
+                        return false;
                 }
-                if (i == sz)
-                    return false;
+                it.next();
             }
 
             if (s.s.m_ext) {
