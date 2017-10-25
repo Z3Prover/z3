@@ -138,8 +138,29 @@ foreach (csfile_path ${Z3_DOTNET_ASSEMBLY_SOURCES})
   list(APPEND Z3_DOTNET_ASSEMBLY_SOURCES_NATIVE_PATH "${csfile_path_native}")
 endforeach()
 
+set(DOTNET_BINDINGS_SNK
+  "${CMAKE_CURRENT_SOURCE_DIR}/Microsoft.Z3.snk"
+  CACHE
+  FILEPATH
+  "Path to SN key file. Empty value causes signing to be skipped"
+)
+
 set(CSC_FLAGS "")
+
+if (NOT EXISTS "${DOTNET_BINDINGS_SNK}")
+  message(FATAL_ERROR "DOTNET_BINDINGS_SNK (\"${DOTNET_BINDINGS_SNK}\") does not exist")
+endif()
+file(TO_NATIVE_PATH "${DOTNET_BINDINGS_SNK}" DOTNET_BINDINGS_SNK_NATIVE)
+# On Mono platforms we need to give the assembly a strong name so that it
+# can installed into the GAC.
+list(APPEND CSC_FLAGS
+  "/keyfile:${DOTNET_BINDINGS_SNK_NATIVE}"
+)
+message(STATUS "Using SN key \"${DOTNET_BINDINGS_SNK_NATIVE}\" for .NET bindings")
+
+
 if (DOTNET_TOOLCHAIN_IS_WINDOWS)
+  message(STATUS "Adding csc flags for .NET toolchain on Windows")
   # FIXME: Why use these flags?
   # Note these flags have been copied from the Python build system.
   list(APPEND CSC_FLAGS
@@ -153,11 +174,7 @@ if (DOTNET_TOOLCHAIN_IS_WINDOWS)
   # just don't set the flag for now.
   #list(APPEND CSC_FLAGS "/linkresource:$<TARGET_FILE_NAME:libz3>")
 elseif (DOTNET_TOOLCHAIN_IS_MONO)
-  # We need to give the assembly a strong name so that it can be installed
-  # into the GAC.
-  list(APPEND CSC_FLAGS
-    "/keyfile:${CMAKE_CURRENT_SOURCE_DIR}/Microsoft.Z3.snk"
-  )
+  message(STATUS "Adding csc flags for mono .NET toolchain")
 else()
   message(FATAL_ERROR "Unknown .NET toolchain")
 endif()

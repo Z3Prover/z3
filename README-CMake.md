@@ -253,6 +253,7 @@ The following useful options can be passed to CMake whilst configuring.
 * ``INSTALL_DOTNET_BINDINGS`` - BOOL. If set to ``TRUE`` and ``BUILD_DOTNET_BINDINGS`` is ``TRUE`` then running the ``install`` target will install Z3's .NET bindings.
 * ``DOTNET_CSC_EXECUTABLE`` - STRING. The path to the C# compiler to use. Only relevant if ``BUILD_DOTNET_BINDINGS`` is set to ``TRUE``.
 * ``DOTNET_GACUTIL_EXECUTABLE`` - STRING. The path to the gacutil program to use. Only relevant if ``BUILD_DOTNET_BINDINGS`` is set to ``TRUE``.
+* ``DOTNET_BINDINGS_SNK`` - STRING. The path to the SN (strong name) key file used to sign the .NET bindings. Only relevant if ``BUILD_DOTNET_BINDINGS`` is set to ``TRUE``.
 * ``BUILD_JAVA_BINDINGS`` - BOOL. If set to ``TRUE`` then Z3's Java bindings will be built.
 * ``INSTALL_JAVA_BINDINGS`` - BOOL. If set to ``TRUE`` and ``BUILD_JAVA_BINDINGS`` is ``TRUE`` then running the ``install`` target will install Z3's Java bindings.
 * ``Z3_JAVA_JAR_INSTALLDIR`` - STRING. The path to directory to install the Z3 Java ``.jar`` file. This path should be relative to ``CMAKE_INSTALL_PREFIX``.
