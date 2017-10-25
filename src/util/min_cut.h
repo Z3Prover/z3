@@ -27,12 +27,20 @@ class min_cut {
 public:
     min_cut();
 
-    unsigned new_node();
     /*
-      \brief add an edge (with unit capacity)
+      \brief create a node
     */
-    void add_edge(unsigned i, unsigned j);
+    unsigned new_node();
 
+    /*
+      \brief add an i -> j edge with (unit) capacity 
+    */
+    void add_edge(unsigned i, unsigned j, unsigned capacity = 1);
+
+    /*
+      \brief produce a min cut between source node = 0 and target node = 1.
+      NB. the function changes capacities on edges.
+    */
     void compute_min_cut(unsigned_vector& cut_nodes);
     
 private:
