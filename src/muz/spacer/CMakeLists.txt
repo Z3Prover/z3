@@ -17,7 +17,6 @@ z3_add_component(spacer
   spacer_unsat_core_learner.cpp
   spacer_unsat_core_plugin.cpp
   spacer_matrix.cpp
-  spacer_min_cut.cpp
   spacer_antiunify.cpp
   spacer_mev_array.cpp
   spacer_qe_project.cpp

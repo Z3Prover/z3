@@ -735,7 +735,7 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
                 m_node_to_formula[node_other] = m.get_fact(i);
                 m_node_to_formula[node_i] = m.get_fact(i);
 
-                m_min_cut.add_edge(node_other, node_i, 1);
+                m_min_cut.add_edge(node_other, node_i);
             }
         }
 
@@ -765,12 +765,12 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
                 m_node_to_formula[node_j] = m.get_fact(j);
                 m_node_to_formula[node_other] = m.get_fact(j);
 
-                m_min_cut.add_edge(node_j, node_other, 1);
+                m_min_cut.add_edge(node_j, node_other);
             }
         }
 
         // finally connect nodes
-        m_min_cut.add_edge(node_i, node_j, 1);
+        m_min_cut.add_edge(node_i, node_j);
     }
 
     /*
@@ -779,7 +779,7 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
      */
     void unsat_core_plugin_min_cut::finalize()
     {
-        vector<unsigned int> cut_nodes;
+        unsigned_vector cut_nodes;
         m_min_cut.compute_min_cut(cut_nodes);
 
         for (unsigned cut_node : cut_nodes)
