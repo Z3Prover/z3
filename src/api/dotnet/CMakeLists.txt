@@ -172,7 +172,14 @@ if (DOTNET_TOOLCHAIN_IS_WINDOWS)
   # the directory containing the ``libz3`` target. I can't get this to work
   # correctly with multi-configuration generators (i.e. Visual Studio) so
   # just don't set the flag for now.
-  #list(APPEND CSC_FLAGS "/linkresource:$<TARGET_FILE_NAME:libz3>")
+  if (DEFINED CMAKE_CONFIGURATION_TYPES)
+    # Multi-configuration build
+    message(WARNING "Passing \"/linkresource:\" flag is not supported"
+      " when doing multi-configuration builds. The .NET bindings will
+      not have z3.dll as a linked resource")
+  else()
+    list(APPEND CSC_FLAGS "/linkresource:$<TARGET_FILE_NAME:libz3>")
+  endif()
 elseif (DOTNET_TOOLCHAIN_IS_MONO)
   message(STATUS "Adding csc flags for mono .NET toolchain")
 else()
