@@ -22,7 +22,7 @@ enum class lia_move {
         conflict,
         continue_with_check,
         give_up,
-            unsat
+        unsat
 };
 
 struct explanation {
@@ -47,7 +47,7 @@ public:
     // main function to check that solution provided by lar_solver is valid for integral values,
     // or provide a way of how it can be adjusted.
     lia_move check(lar_term& t, mpq& k, explanation& ex);
-	bool move_non_basic_column_to_bounds(unsigned j);
+    bool move_non_basic_column_to_bounds(unsigned j);
     lia_move check_wrapper(lar_term& t, mpq& k, explanation& ex);
 private:
 
@@ -153,6 +153,6 @@ public:
     void fill_cut_solver_for_constraint(const lar_base_constraint*, cut_solver<T>& );
     template <typename T>
     void get_int_coeffs_from_constraint(const lar_base_constraint* c, std::vector<std::pair<T, var_index>>& coeff, T & rs);
-
+    bool is_term(unsigned j) const;
 };
 }

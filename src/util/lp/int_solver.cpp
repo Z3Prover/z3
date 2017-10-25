@@ -407,6 +407,10 @@ template <typename T>
 void int_solver::fill_cut_solver(cut_solver<T> & cs) {
     for (lar_base_constraint * c : m_lar_solver->constraints())
         fill_cut_solver_for_constraint(c, cs);
+    for (unsigned j = 0; j < m_lar_solver->m_mpq_lar_core_solver.m_r_x.size(); j++) {
+        if (is_int(j) && !is_term(j))
+            cs.m_v.push_back(T(static_cast<int>(ceil(m_lar_solver->m_mpq_lar_core_solver.m_r_x[j].x).get_int64())));
+    }
     TRACE("cut_solver_state", cs.print_state(tout););
 }
 
@@ -427,6 +431,8 @@ void int_solver::get_int_coeffs_from_constraint(const lar_base_constraint* c, st
     vector<std::pair<T, var_index>> lhs = c->get_left_side_coefficients();
     T den = denominator(c->m_right_side);
     for (auto & kv : lhs) {
+        lp_assert(!is_term(kv.second));
+        lp_assert(is_int(kv.second)); // not implemented for real vars!
         den = lcm(den, denominator(kv.first));
     }
     lp_assert(den > 0);
@@ -1155,5 +1161,8 @@ void int_solver::display_inf_or_int_inf_columns(std::ostream & out) const {
     for (unsigned j : m_lar_solver->m_mpq_lar_core_solver.m_r_solver.m_inf_set.m_index) {
         display_column(out, j);
     }
+}
+bool int_solver::is_term(unsigned j) const {
+    return m_lar_solver->column_corresponds_to_term(j);
 }
 }

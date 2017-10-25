@@ -1377,6 +1377,6 @@ public:
     }
 
     lar_core_solver & get_core_solver() { return m_mpq_lar_core_solver; }
-    
+    bool column_corresponds_to_term(unsigned) const;
 };
 }

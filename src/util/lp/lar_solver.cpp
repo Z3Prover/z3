@@ -2085,6 +2085,10 @@ void lar_solver::update_fixed_column_type_and_bound(var_index j, lconstraint_kin
     }
 }
 
+bool lar_solver::column_corresponds_to_term(unsigned j) const {
+    return m_columns_to_ext_vars_or_term_indices[j] >= m_terms_start_index;
+}
+
 
 } // namespace lp
 

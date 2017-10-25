@@ -225,7 +225,8 @@ public: // for debugging
     const ineq & get_ineq(unsigned i) const {
         return m_ineqs[i];
     }
-    
+
+    std::vector<T> m_v; // the values of the variables
     std::function<std::string (unsigned)> m_var_name_function;
     bool m_inconsistent;   // tracks if state is consistent
     unsigned m_scope_lvl;  // tracks the number of case splits
@@ -664,7 +665,12 @@ public: // for debugging
             print_ineq(out, i);
             out << "\n";
         }
-        out << "end of ineqs";
+        out << "end of ineqs\n";
+        out << "var values\n";
+        for (unsigned j = 0; j < m_v.size(); j++) {
+            out << get_column_name(j) << " = " << m_v[j] << "\n";
+        }
+        out << "end of var values\n";
         out << std::endl;
     }
     
