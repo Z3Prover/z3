@@ -2840,6 +2840,176 @@ void fpa_example() {
     Z3_del_context(ctx);
 }
 
+/**
+   \brief Demonstrates some basic features of model construction
+*/
+
+void mk_model_example() {
+    printf("\nmk_model_example\n");
+    LOG_MSG("mk_model_example");
+    Z3_context ctx = mk_context();
+    // Construct empty model
+    Z3_model m = Z3_mk_model(ctx);
+    Z3_model_inc_ref(ctx, m);
+
+    // Create constants "a" and "b"
+    Z3_sort intSort = Z3_mk_int_sort(ctx);
+    Z3_symbol aSymbol = Z3_mk_string_symbol(ctx, "a");
+    Z3_func_decl aFuncDecl = Z3_mk_func_decl(ctx, aSymbol,
+                                             /*domain_size=*/0,
+                                             /*domain=*/NULL,
+                                             /*range=*/intSort);
+    Z3_ast aApp = Z3_mk_app(ctx, aFuncDecl,
+                            /*num_args=*/0,
+                            /*args=*/NULL);
+    Z3_symbol bSymbol = Z3_mk_string_symbol(ctx, "b");
+    Z3_func_decl bFuncDecl = Z3_mk_func_decl(ctx, bSymbol,
+                                             /*domain_size=*/0,
+                                             /*domain=*/NULL,
+                                             /*range=*/intSort);
+    Z3_ast bApp = Z3_mk_app(ctx, bFuncDecl,
+                            /*num_args=*/0,
+                            /*args=*/NULL);
+
+    // Create array "c" that maps int to int.
+    Z3_symbol cSymbol = Z3_mk_string_symbol(ctx, "c");
+    Z3_sort int2intArraySort = Z3_mk_array_sort(ctx,
+                                                /*domain=*/intSort,
+                                                /*range=*/intSort);
+    Z3_func_decl cFuncDecl = Z3_mk_func_decl(ctx, cSymbol,
+                                             /*domain_size=*/0,
+                                             /*domain=*/NULL,
+                                             /*range=*/int2intArraySort);
+    Z3_ast cApp = Z3_mk_app(ctx, cFuncDecl,
+                            /*num_args=*/0,
+                            /*args=*/NULL);
+
+    // Create numerals to be used in model
+    Z3_ast zeroNumeral = Z3_mk_int(ctx, 0, intSort);
+    Z3_ast oneNumeral = Z3_mk_int(ctx, 1, intSort);
+    Z3_ast twoNumeral = Z3_mk_int(ctx, 2, intSort);
+    Z3_ast threeNumeral = Z3_mk_int(ctx, 3, intSort);
+    Z3_ast fourNumeral = Z3_mk_int(ctx, 4, intSort);
+
+    // Add assignments to model
+    // a == 1
+    Z3_add_const_interp(ctx, m, aFuncDecl, oneNumeral);
+    // b == 2
+    Z3_add_const_interp(ctx, m, bFuncDecl, twoNumeral);
+
+    // Create a fresh function that represents
+    // reading from array.
+    Z3_sort arrayDomain[] = {intSort};
+    Z3_func_decl cAsFuncDecl = Z3_mk_fresh_func_decl(ctx,
+                                                     /*prefix=*/"",
+                                                     /*domain_size*/ 1,
+                                                     /*domain=*/arrayDomain,
+                                                     /*sort=*/intSort);
+    // Create function interpretation with default
+    // value of "0".
+    Z3_func_interp cAsFuncInterp =
+        Z3_add_func_interp(ctx, m, cAsFuncDecl,
+                           /*default_value=*/zeroNumeral);
+    Z3_func_interp_inc_ref(ctx, cAsFuncInterp);
+    // Add [0] = 3
+    Z3_ast_vector zeroArgs = Z3_mk_ast_vector(ctx);
+    Z3_ast_vector_inc_ref(ctx, zeroArgs);
+    Z3_ast_vector_push(ctx, zeroArgs, zeroNumeral);
+    Z3_func_interp_add_entry(ctx, cAsFuncInterp, zeroArgs, threeNumeral);
+    // Add [1] = 4
+    Z3_ast_vector oneArgs = Z3_mk_ast_vector(ctx);
+    Z3_ast_vector_inc_ref(ctx, oneArgs);
+    Z3_ast_vector_push(ctx, oneArgs, oneNumeral);
+    Z3_func_interp_add_entry(ctx, cAsFuncInterp, oneArgs, fourNumeral);
+
+    // Now use the `(_ as_array)` to associate
+    // the `cAsFuncInterp` with the `cFuncDecl`
+    // in the model
+    Z3_ast cFuncDeclAsArray = Z3_mk_as_array(ctx, cAsFuncDecl);
+    Z3_add_const_interp(ctx, m, cFuncDecl, cFuncDeclAsArray);
+
+    // Print the model
+    Z3_string modelAsString = Z3_model_to_string(ctx, m);
+    printf("Model:\n%s\n", modelAsString);
+
+    // Check the interpretations we expect to be present
+    // are.
+    Z3_func_decl expectedInterpretations[] = {aFuncDecl, bFuncDecl, cFuncDecl};
+    for (int index = 0;
+         index < sizeof(expectedInterpretations) / sizeof(Z3_func_decl);
+         ++index) {
+        Z3_func_decl d = expectedInterpretations[index];
+        if (Z3_model_has_interp(ctx, m, d)) {
+            printf("Found interpretation for \"%s\"\n",
+                   Z3_ast_to_string(ctx, Z3_func_decl_to_ast(ctx, d)));
+        } else {
+            printf("Missing interpretation");
+            exit(1);
+        }
+    }
+
+    // Evaluate a + b under model
+    Z3_ast addArgs[] = {aApp, bApp};
+    Z3_ast aPlusB = Z3_mk_add(ctx,
+                              /*num_args=*/2,
+                              /*args=*/addArgs);
+    Z3_ast aPlusBEval = NULL;
+    Z3_bool aPlusBEvalSuccess =
+        Z3_model_eval(ctx, m, aPlusB,
+                      /*model_completion=*/Z3_FALSE, &aPlusBEval);
+    if (aPlusBEvalSuccess != Z3_TRUE) {
+        printf("Failed to evaluate model\n");
+        exit(1);
+    }
+    int aPlusBValue = 0;
+    Z3_bool getAPlusBValueSuccess =
+        Z3_get_numeral_int(ctx, aPlusBEval, &aPlusBValue);
+    if (getAPlusBValueSuccess != Z3_TRUE) {
+        printf("Failed to get integer value for a+b\n");
+        exit(1);
+    }
+    printf("Evaluated a + b = %d\n", aPlusBValue);
+    if (aPlusBValue != 3) {
+        printf("a+b did not evaluate to expected value\n");
+        exit(1);
+    }
+
+    // Evaluate c[0] + c[1] + c[2] under model
+    Z3_ast c0 = Z3_mk_select(ctx, cApp, zeroNumeral);
+    Z3_ast c1 = Z3_mk_select(ctx, cApp, oneNumeral);
+    Z3_ast c2 = Z3_mk_select(ctx, cApp, twoNumeral);
+    Z3_ast arrayAddArgs[] = {c0, c1, c2};
+    Z3_ast arrayAdd = Z3_mk_add(ctx,
+                                /*num_args=*/3,
+                                /*args=*/arrayAddArgs);
+    Z3_ast arrayAddEval = NULL;
+    Z3_bool arrayAddEvalSuccess =
+        Z3_model_eval(ctx, m, arrayAdd,
+                      /*model_completion=*/Z3_FALSE, &arrayAddEval);
+    if (arrayAddEvalSuccess != Z3_TRUE) {
+        printf("Failed to evaluate model\n");
+        exit(1);
+    }
+    int arrayAddValue = 0;
+    Z3_bool getArrayAddValueSuccess =
+        Z3_get_numeral_int(ctx, arrayAddEval, &arrayAddValue);
+    if (getArrayAddValueSuccess != Z3_TRUE) {
+        printf("Failed to get integer value for c[0] + c[1] + c[2]\n");
+        exit(1);
+    }
+    printf("Evaluated c[0] + c[1] + c[2] = %d\n", arrayAddValue);
+    if (arrayAddValue != 7) {
+        printf("c[0] + c[1] + c[2] did not evaluate to expected value\n");
+        exit(1);
+    }
+
+    Z3_ast_vector_dec_ref(ctx, oneArgs);
+    Z3_ast_vector_dec_ref(ctx, zeroArgs);
+    Z3_func_interp_dec_ref(ctx, cAsFuncInterp);
+    Z3_model_dec_ref(ctx, m);
+    Z3_del_context(ctx);
+}
+
 /*@}*/
 /*@}*/
 
@@ -2888,5 +3058,6 @@ int main() {
     substitute_example();
     substitute_vars_example();
     fpa_example();
+    mk_model_example();
     return 0;
 }
