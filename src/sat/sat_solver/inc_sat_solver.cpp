@@ -510,7 +510,6 @@ public:
         }
         m_internalized_fmls.reset();
         g.get_formulas(m_internalized_fmls);
-        // g.display(std::cout);
         m_internalized_converted = true;
         // if (mc) mc->display(std::cout << "mc");
         // if (m_mc) m_mc->display(std::cout << "m_mc\n");

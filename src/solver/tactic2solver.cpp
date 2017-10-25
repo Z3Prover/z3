@@ -173,6 +173,10 @@ lbool tactic2solver::check_sat_core(unsigned num_assumptions, expr * const * ass
             m_result->set_status(l_undef);
             if (reason_unknown != "")
                 m_result->m_unknown = reason_unknown;
+            if (num_assumptions == 0) {
+                m_assertions.reset();
+                g->get_formulas(m_assertions);
+            }
             break;
         }
     }

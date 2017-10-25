@@ -19,6 +19,8 @@ Revision History:
 #include "sat/sat_config.h"
 #include "sat/sat_types.h"
 #include "sat/sat_params.hpp"
+#include "sat/sat_simplifier_params.hpp"
+
 
 namespace sat {
 
@@ -39,6 +41,7 @@ namespace sat {
         m_local_search = 0;
         m_lookahead_search = false;
         m_lookahead_simplify = false;
+        m_elim_vars = false;
         updt_params(p); 
     }
 
@@ -188,6 +191,9 @@ namespace sat {
         }
         m_dimacs_display  = p.dimacs_display();
         m_dimacs_inprocess_display  = p.dimacs_inprocess_display();
+
+        sat_simplifier_params sp(_p);
+        m_elim_vars = sp.elim_vars();
     }
 
     void config::collect_param_descrs(param_descrs & r) {

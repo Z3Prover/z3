@@ -133,6 +133,10 @@ namespace sat {
         double             m_step_size_min;
         double             m_reward_multiplier;
         double             m_reward_offset;
+
+        // simplifier configurations used outside of sat_simplifier
+        bool               m_elim_vars;
+
         config(params_ref const & p);
         void updt_params(params_ref const & p);
         static void collect_param_descrs(param_descrs & d);

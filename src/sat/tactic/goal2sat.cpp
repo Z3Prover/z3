@@ -1063,7 +1063,7 @@ struct sat2goal::imp {
         for (sat::literal l : c) {
             lits.push_back(lit2expr(l));
         }
-        expr_ref fml(pb.mk_at_most_k(c.size(), lits.c_ptr(), c.k()), m);
+        expr_ref fml(pb.mk_at_least_k(c.size(), lits.c_ptr(), c.k()), m);
         
         if (c.lit() != sat::null_literal) {
             fml = m.mk_eq(lit2expr(c.lit()), fml);            
@@ -1110,6 +1110,7 @@ struct sat2goal::imp {
             r.assert_expr(m.mk_false());
             return;
         }
+        IF_VERBOSE(1, verbose_stream() << "solver2goal " << s.num_vars() << " " << s.clauses().size() << "\n";);
         init_lit2expr(s, map, mc, r.models_enabled());
         // collect units
         unsigned num_vars = s.num_vars();
@@ -1135,7 +1136,6 @@ struct sat2goal::imp {
         }
         // collect clauses
         assert_clauses(s, s.clauses(), r, true);
-        assert_clauses(s, s.learned(), r, false);
 
         sat::ba_solver* ext = get_ba_solver(s);
         if (ext) {
