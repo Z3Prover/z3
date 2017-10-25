@@ -1070,7 +1070,7 @@ namespace sat {
             for (; !it.at_end(); it.next()) {
                 bool tautology = false;
                 clause & c = it.curr();
-                if (c.is_blocked()) continue;
+                if (c.is_blocked() && !adding) continue;
                 for (literal lit : c) {
                     if (s.is_marked(~lit) && lit != ~l) {
                         tautology = true;
@@ -1322,8 +1322,12 @@ namespace sat {
                 }                
                 if (!found) {
                     IF_VERBOSE(100, verbose_stream() << "bca " << l << " " << l2 << "\n";);
-                    s.get_wlist(~l).push_back(watched(l2, true));
-                    s.get_wlist(~l2).push_back(watched(l, true));
+                    watched w1(l2, false);
+                    w1.set_blocked();
+                    watched w2(l, false);
+                    w2.set_blocked();
+                    s.get_wlist(~l).push_back(w1);
+                    s.get_wlist(~l2).push_back(w2);
                     ++s.m_num_bca;
                 }
             }
