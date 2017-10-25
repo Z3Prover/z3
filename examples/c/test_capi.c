@@ -2844,9 +2844,9 @@ void fpa_example() {
    \brief Demonstrates some basic features of model construction
 */
 
+#if 0
 void mk_model_example() {
     printf("\nmk_model_example\n");
-    LOG_MSG("mk_model_example");
     Z3_context ctx = mk_context();
     // Construct empty model
     Z3_model m = Z3_mk_model(ctx);
@@ -2973,7 +2973,7 @@ void mk_model_example() {
         printf("a+b did not evaluate to expected value\n");
         exit(1);
     }
-
+    
     // Evaluate c[0] + c[1] + c[2] under model
     Z3_ast c0 = Z3_mk_select(ctx, cApp, zeroNumeral);
     Z3_ast c1 = Z3_mk_select(ctx, cApp, oneNumeral);
@@ -3009,6 +3009,7 @@ void mk_model_example() {
     Z3_model_dec_ref(ctx, m);
     Z3_del_context(ctx);
 }
+#endif
 
 /*@}*/
 /*@}*/
@@ -3058,6 +3059,6 @@ int main() {
     substitute_example();
     substitute_vars_example();
     fpa_example();
-    mk_model_example();
+//    mk_model_example();
     return 0;
 }
