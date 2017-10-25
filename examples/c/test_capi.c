@@ -2950,8 +2950,9 @@ void mk_model_example() {
     // Check the interpretations we expect to be present
     // are.
     {
-        Z3_func_decl expectedInterpretations[] = {aFuncDecl, bFuncDecl, cFuncDecl};
-        for (int index = 0;
+        Z3_func_decl expectedInterpretations[3] = {aFuncDecl, bFuncDecl, cFuncDecl};
+        int index;
+        for (index = 0;
              index < sizeof(expectedInterpretations) / sizeof(Z3_func_decl);
              ++index) {
             Z3_func_decl d = expectedInterpretations[index];
@@ -2980,17 +2981,19 @@ void mk_model_example() {
             exit(1);
         }
 
-        int aPlusBValue = 0;
-        Z3_bool getAPlusBValueSuccess =
-            Z3_get_numeral_int(ctx, aPlusBEval, &aPlusBValue);
-        if (getAPlusBValueSuccess != Z3_TRUE) {
-            printf("Failed to get integer value for a+b\n");
-            exit(1);
-        }
-        printf("Evaluated a + b = %d\n", aPlusBValue);
-        if (aPlusBValue != 3) {
-            printf("a+b did not evaluate to expected value\n");
-            exit(1);
+        {
+            int aPlusBValue = 0;
+            Z3_bool getAPlusBValueSuccess =
+                Z3_get_numeral_int(ctx, aPlusBEval, &aPlusBValue);
+            if (getAPlusBValueSuccess != Z3_TRUE) {
+                printf("Failed to get integer value for a+b\n");
+                exit(1);
+            }
+            printf("Evaluated a + b = %d\n", aPlusBValue);
+            if (aPlusBValue != 3) {
+                printf("a+b did not evaluate to expected value\n");
+                exit(1);
+            }
         }
     }
 
@@ -3011,17 +3014,19 @@ void mk_model_example() {
             printf("Failed to evaluate model\n");
             exit(1);
         }
-        int arrayAddValue = 0;
-        Z3_bool getArrayAddValueSuccess =
-            Z3_get_numeral_int(ctx, arrayAddEval, &arrayAddValue);
-        if (getArrayAddValueSuccess != Z3_TRUE) {
-            printf("Failed to get integer value for c[0] + c[1] + c[2]\n");
-            exit(1);
-        }
-        printf("Evaluated c[0] + c[1] + c[2] = %d\n", arrayAddValue);
-        if (arrayAddValue != 7) {
-            printf("c[0] + c[1] + c[2] did not evaluate to expected value\n");
-            exit(1);
+        {
+            int arrayAddValue = 0;
+            Z3_bool getArrayAddValueSuccess =
+                Z3_get_numeral_int(ctx, arrayAddEval, &arrayAddValue);
+            if (getArrayAddValueSuccess != Z3_TRUE) {
+                printf("Failed to get integer value for c[0] + c[1] + c[2]\n");
+                exit(1);
+            }
+            printf("Evaluated c[0] + c[1] + c[2] = %d\n", arrayAddValue);
+            if (arrayAddValue != 7) {
+                printf("c[0] + c[1] + c[2] did not evaluate to expected value\n");
+                exit(1);
+            }
         }
     }
 
