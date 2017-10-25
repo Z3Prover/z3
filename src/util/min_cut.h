@@ -19,7 +19,6 @@ Revision History:
 #ifndef MIN_CUT_H_
 #define MIN_CUT_H_
 
-#include "ast/ast.h"
 #include "util/vector.h"
 
 

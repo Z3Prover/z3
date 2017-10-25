@@ -16,6 +16,7 @@ Revision History:
 
 --*/
 #include "util/min_cut.h"
+#include "util/trace.h"
 
 min_cut::min_cut() {    
     // push back two empty vectors for source and sink
@@ -74,7 +75,8 @@ void min_cut::compute_min_cut(unsigned_vector& cut_nodes) {
     bool_vector reachable(m_edges.size());
     compute_reachable_nodes(reachable);
     
-    // find all edges between reachable and unreachable nodes and for each such edge, add corresponding lemma to unsat-core
+    // find all edges between reachable and unreachable nodes and 
+    // for each such edge, add corresponding lemma to unsat-core
     compute_cut_and_add_lemmas(reachable, cut_nodes);
 }
 
@@ -91,7 +93,8 @@ void min_cut::compute_initial_distances() {
         if (!visited[current]) {
             bool exists_unvisited_parent = false;
             
-            // add unprocessed parents to stack for DFS. If there is at least one unprocessed parent, don't compute the result
+            // add unprocessed parents to stack for DFS. If there is at least 
+            // one unprocessed parent, don't compute the result
             // for current now, but wait until those unprocessed parents are processed
             for (auto const& edge : m_edges[current]) {
                 unsigned parent = edge.node;
