@@ -418,8 +418,7 @@ namespace sat {
                                             literal target) {
         if (c1.is_blocked()) return;
         clause_use_list const & cs = m_use_list.get(target);
-        clause_use_list::iterator it = cs.mk_iterator();
-        while (!it.at_end()) {
+        for (auto it = cs.mk_iterator(); !it.at_end(); it.next()) {
             clause & c2 = it.curr();
             CTRACE("resolution_bug", c2.was_removed(), tout << "clause has been removed:\n" << c2 << "\n";);
             SASSERT(!c2.was_removed());
@@ -433,7 +432,6 @@ namespace sat {
                     out_lits.push_back(l);
                 }
             }
-            it.next();
         }
     }
 
@@ -532,7 +530,7 @@ namespace sat {
         if (c1.is_blocked()) return;
         clause_use_list const & cs = m_use_list.get(target);
         clause_use_list::iterator it = cs.mk_iterator();
-        while (!it.at_end()) {
+        for (; !it.at_end(); it.next()) {
             clause & c2 = it.curr();
             SASSERT(!c2.was_removed());
             if (&c2 != &c1 &&
@@ -543,7 +541,6 @@ namespace sat {
                     out.push_back(&c2);
                 }
             }
-            it.next();
         }
     }
 
@@ -652,29 +649,16 @@ namespace sat {
         unsigned new_trail_sz = s.m_trail.size();
         for (unsigned i = old_trail_sz; i < new_trail_sz; i++) {
             literal l = s.m_trail[i];
-            {
-                // put clauses with literals assigned to false back into todo-list
-                clause_use_list & cs = m_use_list.get(~l);
-                clause_use_list::iterator it = cs.mk_iterator();
-                while (!it.at_end()) {
-                    clause & c = it.curr();
-                    it.next();
-                    m_sub_todo.insert(c);
-                }
+            // put clauses with literals assigned to false back into todo-list
+            for (auto it = m_use_list.get(~l).mk_iterator(); !it.at_end(); it.next()) {
+                m_sub_todo.insert(it.curr());
             }
-            {
-                // erase satisfied clauses
-                clause_use_list & cs = m_use_list.get(l);
-                {
-                    clause_use_list::iterator it = cs.mk_iterator();
-                    while (!it.at_end()) {
-                        clause & c = it.curr();
-                        it.next();
-                        remove_clause(c, l);
-                    }
-                }
-                cs.reset();
+            clause_use_list& cs = m_use_list.get(l);
+            for (auto it = cs.mk_iterator(); !it.at_end(); it.next()) {
+                clause & c = it.curr();
+                remove_clause(c, l);
             }
+            cs.reset();            
         }
     }
 
@@ -1338,12 +1322,8 @@ namespace sat {
                 }                
                 if (!found) {
                     IF_VERBOSE(100, verbose_stream() << "bca " << l << " " << l2 << "\n";);
-                    watched w(l2, false);
-                    w.set_blocked();
-                    s.get_wlist(~l).push_back(w);
-                    w = watched(l, false);
-                    w.set_blocked();
-                    s.get_wlist(~l2).push_back(w);
+                    s.get_wlist(~l).push_back(watched(l2, true));
+                    s.get_wlist(~l2).push_back(watched(l, true));
                     ++s.m_num_bca;
                 }
             }
@@ -1473,29 +1453,18 @@ namespace sat {
     void simplifier::collect_clauses(literal l, clause_wrapper_vector & r, bool include_blocked) {
         clause_use_list const & cs = m_use_list.get(l);
         clause_use_list::iterator it = cs.mk_iterator();
-        while (!it.at_end()) {
+        for (; !it.at_end(); it.next()) {
             if (!it.curr().is_blocked() || include_blocked) {
                 r.push_back(clause_wrapper(it.curr()));
                 SASSERT(r.back().size() == it.curr().size());
             }
-            it.next();
         }
 
         watch_list & wlist = get_wlist(~l);
-        if (include_blocked) {
-            for (auto & w : wlist) {
-                if (w.is_binary_non_learned_clause2()) {
-                    r.push_back(clause_wrapper(l, w.get_literal()));
-                    SASSERT(r.back().size() == 2);
-                }
-            }
-        }
-        else {
-            for (auto & w : wlist) {
-                if (w.is_binary_unblocked_clause()) {
-                    r.push_back(clause_wrapper(l, w.get_literal()));
-                    SASSERT(r.back().size() == 2);
-                }
+        for (auto & w : wlist) {
+            if (include_blocked ? w.is_binary_non_learned_clause() : w.is_binary_unblocked_clause()) {
+                r.push_back(clause_wrapper(l, w.get_literal()));
+                SASSERT(r.back().size() == 2);
             }
         }
     }
@@ -1607,8 +1576,7 @@ namespace sat {
        \brief Eliminate the clauses where the variable being eliminated occur.
     */
     void simplifier::remove_clauses(clause_use_list const & cs, literal l) {
-        clause_use_list::iterator it  = cs.mk_iterator();
-        while (!it.at_end()) {
+        for (auto it = cs.mk_iterator(); !it.at_end(); ) {
             clause & c = it.curr();
             it.next();
             SASSERT(c.contains(l));
@@ -1641,22 +1609,14 @@ namespace sat {
 
         unsigned before_lits = num_bin_pos*2 + num_bin_neg*2;
 
-        {
-            clause_use_list::iterator it = pos_occs.mk_iterator();
-            while (!it.at_end()) {
-                if (!it.curr().is_blocked())
-                    before_lits += it.curr().size();
-                it.next();
-            }
+        for (auto it = pos_occs.mk_iterator(); !it.at_end(); it.next()) {
+            if (!it.curr().is_blocked())
+                before_lits += it.curr().size();
         }
 
-        {
-            clause_use_list::iterator it2 = neg_occs.mk_iterator();
-            while (!it2.at_end()) {
-                if (!it2.curr().is_blocked())
-                    before_lits += it2.curr().size();
-                it2.next();
-            }
+        for (auto it = neg_occs.mk_iterator(); !it.at_end(); it.next()) {
+            if (!it.curr().is_blocked())
+                before_lits += it.curr().size();
         }
 
         TRACE("resolution", tout << v << " num_pos: " << num_pos << " neg_pos: " << num_neg << " before_lits: " << before_lits << "\n";);

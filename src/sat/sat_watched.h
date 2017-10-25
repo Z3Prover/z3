@@ -88,7 +88,7 @@ namespace sat {
 
         bool is_binary_unblocked_clause() const { return m_val2 == 0; }
         bool is_binary_learned_clause() const { return is_binary_clause() && is_learned(); }
-        bool is_binary_non_learned_clause2() const { return is_binary_clause() && !is_learned(); }
+        bool is_binary_non_learned_clause() const { return is_binary_clause() && !is_learned(); }
 
         void mark_not_learned() { SASSERT(is_learned()); m_val2 = static_cast<unsigned>(BINARY); SASSERT(!is_learned()); }
         void set_blocked() { SASSERT(is_binary_clause()); SASSERT(!is_learned()); m_val2 |= (1 << 3); }

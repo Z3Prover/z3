@@ -1110,7 +1110,6 @@ struct sat2goal::imp {
             r.assert_expr(m.mk_false());
             return;
         }
-        IF_VERBOSE(1, verbose_stream() << "solver2goal " << s.num_vars() << " " << s.clauses().size() << "\n";);
         init_lit2expr(s, map, mc, r.models_enabled());
         // collect units
         unsigned num_vars = s.num_vars();

@@ -2254,9 +2254,10 @@ func_decl * ast_manager::mk_fresh_func_decl(symbol const & prefix, symbol const 
     }
     else {
         string_buffer<64> buffer;
-        buffer << prefix;
         if (prefix == symbol::null)
             buffer << "sk";
+        else
+            buffer << prefix;
         buffer << "!";
         if (suffix != symbol::null)
             buffer << suffix << "!";
