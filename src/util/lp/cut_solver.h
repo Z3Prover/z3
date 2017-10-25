@@ -419,16 +419,48 @@ public: // for debugging
         return true;
     }
 
+    void restrict_var_domain_with_bound_result(var_index j, const bound_result & br) {
+        if (br.m_type == bound_type::UPPER) {
+            m_var_infos[j].m_domain.intersect_with_upper_bound(br.m_bound);
+        } else {
+            m_var_infos[j].m_domain.intersect_with_lower_bound(br.m_bound);
+        }
+    }
 
-    bool propagate_simple_ineq(const ineq & t) const {
-        lp_assert(false); // not implemented
+    bool propagate_simple_ineq(unsigned ineq_index) {
+        TRACE("cut_solver_state", tout << "propagate_simple_ineq()\n";);
+        const ineq & t = m_ineqs[ineq_index];
+        TRACE("cut_solver_state",   print_ineq(tout, t); tout << std::endl;);
+        var_index j = t.m_poly.m_coeffs[0].second;
+        
+        bound_result br = bound(t, j);
+        TRACE("cut_solver_state", tout << "bound result=\n"; br.print(tout);
+              tout << " domain = "; m_var_infos[j].m_domain.print(tout);
+              tout << "\n";
+              );
+        
+        if (improves(j, br)) {
+            literal l(j, br.m_type == bound_type::LOWER, br.m_bound, ineq_index);
+            
+            m_trail.push_back(l);
+            restrict_var_domain_with_bound_result(j, br);
+            TRACE("cut_solver_state", tout <<"improved domain = ";
+                  m_var_infos[j].m_domain.print(tout);
+                  tout<<"\n";
+                  tout << "literal = "; print_literal(tout, l);
+                  tout <<"\n";
+                  );
+                  
+                  
+            return true;
+        }
         return false;
     }
     
         
     bool propagate_simple() {
-        for (const auto & t :  m_ineqs) {
-            if (t.is_simple() && propagate_simple_ineq(t)){
+        for (unsigned i = 0; i < m_ineqs.size(); i++) {
+            if (m_ineqs[i].is_simple() && propagate_simple_ineq(i)){
                 return true;
             }
         }
@@ -625,7 +657,16 @@ public: // for debugging
         return bound(m_ineqs[ineq_index], j);
     }
 
-    
+
+    void print_state(std::ostream & out) const {
+        out << "ineqs:\n";
+        for (const auto & i: m_ineqs) {
+            print_ineq(out, i);
+            out << "\n";
+        }
+        out << "end of ineqs";
+        out << std::endl;
+    }
     
     void print_ineq(std::ostream & out, unsigned i)  const {
         print_ineq(out, m_ineqs[i]);
@@ -741,6 +782,31 @@ public: // for debugging
             dom.intersection_with_lower_bound_is_empty(new_lower.m_bound);
     }
 
+
+       // returns true iff br imposes a better bound on j
+    bool improves(var_index j, const bound_result & br) const {
+        if (br.m_type == bound_type::UNDEF)
+            return false;
+        const auto& dom = m_var_infos[j].m_domain;
+        if (dom.is_empty())
+            return false;
+        if (br.m_type == bound_type::UPPER) {
+            T b;
+            bool j_has_upper_bound = get_var_upper_bound(j, b);
+            return (!j_has_upper_bound || br.m_bound < b) &&
+               !dom.intersection_with_upper_bound_is_empty(br.m_bound);
+        }
+
+        if (br.m_type == bound_type::UNDEF)
+            return false;
+        T b;
+        bool lower_bound_exists = get_var_lower_bound(j, b);
+        return (!lower_bound_exists || br.m_bound > b) &&
+            !dom.intersection_with_lower_bound_is_empty(br.m_bound);
+    }
+
+
+    
     bool literal_is_correct(const literal &t ) const {
         if (t.m_tag == literal_type::BOUND) {
             if (t.decided())

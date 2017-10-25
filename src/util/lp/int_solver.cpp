@@ -407,6 +407,7 @@ template <typename T>
 void int_solver::fill_cut_solver(cut_solver<T> & cs) {
     for (lar_base_constraint * c : m_lar_solver->constraints())
         fill_cut_solver_for_constraint(c, cs);
+    TRACE("cut_solver_state", cs.print_state(tout););
 }
 
 template <typename T>
@@ -414,7 +415,7 @@ void int_solver::fill_cut_solver_for_constraint(const lar_base_constraint* c, cu
     std::vector<std::pair<T, var_index>> coeffs;
     T rs;
     get_int_coeffs_from_constraint(c, coeffs, rs);
-    cs.add_ineq(coeffs, rs);
+    cs.add_ineq(coeffs, -rs);
 }
 
 
