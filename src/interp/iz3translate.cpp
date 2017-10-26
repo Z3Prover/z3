@@ -29,6 +29,7 @@
 #include "interp/iz3profiling.h"
 #include "interp/iz3interp.h"
 #include "interp/iz3proof_itp.h"
+#include "ast/ast_pp.h"
 
 #include <assert.h>
 #include <algorithm>
@@ -1851,6 +1852,21 @@ public:
                 }
                 break;
             }
+            case PR_TRANSITIVITY_STAR: {
+                // assume the premises are x = y, y = z, z = u, u = v, ..
+                
+                ast x = arg(conc(prem(proof,0)),0);
+                ast y = arg(conc(prem(proof,0)),1);
+                ast z = arg(conc(prem(proof,1)),1);
+                res = iproof->make_transitivity(x,y,z,args[0],args[1]);
+
+                for (unsigned i = 2; i < nprems; ++i) {
+                    y = z;
+                    z = arg(conc(prem(proof,i)),1);
+                    res = iproof->make_transitivity(x,y,z,res,args[i]);
+                }
+                break;
+            }
             case PR_QUANT_INTRO:
             case PR_MONOTONICITY:
                 {
@@ -2029,6 +2045,7 @@ public:
                 break;
             }
             default:
+                IF_VERBOSE(0, verbose_stream() << "Unsupported proof rule: " << expr_ref((expr*)proof.raw(), *proof.mgr()) << "\n";);
                 //                pfgoto(proof);                
                 // SASSERT(0 && "translate_main: unsupported proof rule");
                 throw unsupported();
