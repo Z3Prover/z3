@@ -1553,8 +1553,10 @@ namespace sat {
 
 // #ifndef _EXTERNAL_RELEASE
         IF_VERBOSE(10, verbose_stream() << "\"checking model\"\n";);
-        if (!check_model(m_model))
+        if (!check_model(m_model)) {
+            UNREACHABLE();
             throw solver_exception("check model failed");
+        }
 
         if (m_clone) {
             IF_VERBOSE(SAT_VB_LVL, verbose_stream() << "\"checking model (on original set of clauses)\"\n";);
@@ -1576,6 +1578,9 @@ namespace sat {
                       tout << "model: " << m << "\n";
                       m_mc.display(tout);
                       );
+                for (literal l : c) {
+                    if (was_eliminated(l.var())) IF_VERBOSE(0, verbose_stream() << "eliminated: " << l << "\n";);
+                }
                 ok = false;
             }
         }
@@ -1588,7 +1593,7 @@ namespace sat {
                         continue;
                     literal l2 = w.get_literal();
                     if (value_at(l2, m) != l_true) {
-                        IF_VERBOSE(0, verbose_stream() << "failed binary: " << l << " " << l2 << " "  << "\n";);
+                        IF_VERBOSE(0, verbose_stream() << "failed binary: " << l << " " << l2 << "\n";);
                         TRACE("sat", m_mc.display(tout << "failed binary: " << l << " " << l2 << "\n"););
                         ok = false;
                     }

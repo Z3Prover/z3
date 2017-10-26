@@ -302,17 +302,16 @@ namespace sat{
     }
 
     bdd elim_vars::make_clauses(clause_use_list & occs) {
-        bdd result = m.mk_true();
-        clause_use_list::iterator it = occs.mk_iterator();
-        while (!it.at_end()) {
+        bdd result = m.mk_true();       
+        for (auto it = occs.mk_iterator(); !it.at_end(); it.next()) {
             clause const& c = it.curr();
-            if (c.is_blocked()) continue;
-            bdd cl = m.mk_false();
-            for (literal l : c) {
-                cl |= mk_literal(l);
+            if (!c.is_blocked()) {
+                bdd cl = m.mk_false();
+                for (literal l : c) {
+                    cl |= mk_literal(l);
+                }           
+                result &= cl;
             }
-            it.next();
-            result &= cl;
         }
         return result;
     }
