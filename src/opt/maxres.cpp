@@ -229,7 +229,6 @@ public:
     }
 
     lbool primal_dual_solver() {
-        std::cout << "pd\n";
         if (!init()) return l_undef;
         lbool is_sat = init_local();
         trace();
