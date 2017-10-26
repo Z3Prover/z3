@@ -942,6 +942,7 @@ namespace sat {
             }
             literal next() { SASSERT(!empty()); return to_literal(m_queue.erase_min()); }
             bool empty() const { return m_queue.empty(); }
+            void reset() { m_queue.reset(); }
         };
 
         simplifier &      s;
@@ -1042,19 +1043,17 @@ namespace sat {
             m_to_remove.reset();
             clause_use_list & occs = s.m_use_list.get(l);
             clause_use_list::iterator it = occs.mk_iterator();
-            while (!it.at_end()) {
+            for (; !it.at_end(); it.next()) {
                 clause & c = it.curr();
-                if (!c.is_blocked()) {
-                    m_counter -= c.size();
-                    SASSERT(c.contains(l));
-                    s.mark_all_but(c, l);
-                    if (all_tautology(l)) {
-                        block_clause(c, l, new_entry);
-                        s.m_num_blocked_clauses++;
-                    }
-                    s.unmark_all(c);
+                if (c.is_blocked()) continue;
+                m_counter -= c.size();
+                SASSERT(c.contains(l));
+                s.mark_all_but(c, l);
+                if (all_tautology(l)) {
+                    block_clause(c, l, new_entry);
+                    s.m_num_blocked_clauses++;
                 }
-                it.next();
+                s.unmark_all(c);
             }
             for (clause* c : m_to_remove) 
                 s.block_clause(*c);
@@ -1084,35 +1083,33 @@ namespace sat {
             }
             clause_use_list & neg_occs = s.m_use_list.get(~l);
             clause_use_list::iterator it = neg_occs.mk_iterator();
-            while (!it.at_end()) {
+            for (; !it.at_end(); it.next()) {
                 bool tautology = false;
                 clause & c = it.curr();
-                if (!c.is_blocked()) {
-                    for (literal lit : c) {
-                        if (s.is_marked(~lit) && lit != ~l) {
-                            tautology = true;
-                            break;
-                        }
-                    }
-                    if (!tautology) {
-                        if (first) {
-                            for (literal lit : c) {
-                                if (lit != ~l && !s.is_marked(lit)) inter.push_back(lit);
-                            }
-                            first = false;
-                            if (inter.empty()) return false;
-                        }
-                        else {
-                            unsigned j = 0;
-                            for (literal lit : inter)
-                                if (c.contains(lit))
-                                    inter[j++] = lit;
-                            inter.shrink(j);
-                            if (j == 0) return false;
-                        }
+                if (c.is_blocked()) continue;
+                for (literal lit : c) {
+                    if (s.is_marked(~lit) && lit != ~l) {
+                        tautology = true;
+                        break;
                     }
                 }
-                it.next();
+                if (!tautology) {
+                    if (first) {
+                        for (literal lit : c) {
+                            if (lit != ~l && !s.is_marked(lit)) inter.push_back(lit);
+                        }
+                        first = false;
+                        if (inter.empty()) return false;
+                    }
+                    else {
+                        unsigned j = 0;
+                        for (literal lit : inter)
+                            if (c.contains(lit))
+                                inter[j++] = lit;
+                        inter.shrink(j);
+                        if (j == 0) return false;
+                    }
+                }
             }
             return first;
         }
@@ -1206,12 +1203,12 @@ namespace sat {
         }
         
         void cce() {
+            insert_queue();
             cce_clauses();
             cce_binary();
         }
 
         void cce_binary() {
-            insert_queue();
             while (!m_queue.empty() && m_counter >= 0) {
                 s.checkpoint();
                 process_cce_binary(m_queue.next());
@@ -1311,6 +1308,7 @@ namespace sat {
         }
 
         void bca() {
+            m_queue.reset();
             insert_queue();
             while (!m_queue.empty() && m_counter >= 0) {
                 s.checkpoint();
@@ -1360,20 +1358,18 @@ namespace sat {
 
             clause_use_list & neg_occs = s.m_use_list.get(~l);
             clause_use_list::iterator it = neg_occs.mk_iterator();
-            while (!it.at_end()) {
+            for (; !it.at_end(); it.next()) {
                 clause & c = it.curr();
-                if (!c.is_blocked()) {
-                    m_counter -= c.size();
-                    unsigned sz = c.size();
-                    unsigned i;
-                    for (i = 0; i < sz; i++) {
-                        if (s.is_marked(~c[i]))
-                            break;
-                    }
-                    if (i == sz)
-                        return false;
+                if (c.is_blocked()) continue;
+                m_counter -= c.size();
+                unsigned sz = c.size();
+                unsigned i;
+                for (i = 0; i < sz; i++) {
+                    if (s.is_marked(~c[i]))
+                        break;
                 }
-                it.next();
+                if (i == sz)
+                    return false;
             }
 
             if (s.s.m_ext) {
