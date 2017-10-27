@@ -6315,11 +6315,11 @@ class Solver(Z3PPObject):
 
     def from_file(self, filename):
         """Parse assertions from a file"""
-        self.add([f for f in parse_smt2_file(filename)])
+        self.add([f for f in parse_smt2_file(filename, ctx=self.ctx)])
 
     def from_string(self, s):
         """Parse assertions from a string"""
-        self.add([f for f in parse_smt2_string(s)])
+        self.add([f for f in parse_smt2_string(s, ctx=self.ctx)])
         
     def assertions(self):
         """Return an AST vector containing all added constraints.

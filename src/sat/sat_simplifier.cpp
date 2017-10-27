@@ -1040,7 +1040,7 @@ namespace sat {
                     block_clause(c, l, new_entry);
                     s.m_num_blocked_clauses++;
                 }
-                s.unmark_all(c);                
+                s.unmark_all(c);
             }
             for (clause* c : m_to_remove) 
                 s.block_clause(*c);
@@ -1091,8 +1091,8 @@ namespace sat {
                     }
                     else {
                         unsigned j = 0;
-                        for (literal lit : inter) 
-                            if (c.contains(lit)) 
+                        for (literal lit : inter)
+                            if (c.contains(lit))
                                 inter[j++] = lit;
                         inter.shrink(j);
                         if (j == 0) return false;
@@ -1416,7 +1416,7 @@ namespace sat {
 
             clause_use_list & neg_occs = s.m_use_list.get(~l);
             clause_use_list::iterator it = neg_occs.mk_iterator();
-            for  (; !it.at_end(); it.next()) {
+            for (; !it.at_end(); it.next()) {
                 clause & c = it.curr();
                 if (c.is_blocked()) continue;
                 m_counter -= c.size();

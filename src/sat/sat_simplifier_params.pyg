@@ -22,6 +22,6 @@ def_module_params(module_name='sat',
                           ('resolution.cls_cutoff2', UINT, 700000000, 'limit2 - total number of problems clauses for the second cutoff of Boolean variable elimination'),
                           ('elim_vars', BOOL, True, 'enable variable elimination using resolution during simplification'),
                           ('elim_vars_bdd', BOOL, True, 'enable variable elimination using BDD recompilation during simplification'),
-	                  ('elim_vars_bdd_delay', UINT, 3, 'delay elimination of variables using BDDs until after simplification round'),
+                          ('elim_vars_bdd_delay', UINT, 3, 'delay elimination of variables using BDDs until after simplification round'),
                           ('subsumption', BOOL, True, 'eliminate subsumed clauses'),
                           ('subsumption.limit', UINT, 100000000, 'approx. maximum number of literals visited during subsumption (and subsumption resolution)')))
