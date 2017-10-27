@@ -896,6 +896,7 @@ struct sat2goal::imp {
     public:
         sat_model_converter(ast_manager & m, sat::solver const & s):m_var2expr(m) {
             m_mc.copy(s.get_model_converter());
+            m_mc.set_solver(&s);
             m_fmc = alloc(filter_model_converter, m);
         }
         

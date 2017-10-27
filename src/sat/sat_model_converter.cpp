@@ -18,11 +18,12 @@ Revision History:
 --*/
 #include "sat/sat_model_converter.h"
 #include "sat/sat_clause.h"
+#include "sat/sat_solver.h"
 #include "util/trace.h"
 
 namespace sat {
 
-    model_converter::model_converter() {
+    model_converter::model_converter(): m_solver(nullptr) {
     }
 
     model_converter::~model_converter() {
@@ -50,7 +51,6 @@ namespace sat {
             }
             if (!sat) {
                 m[lit.var()] = lit.sign() ? l_false : l_true;
-                // if (lit.var() == 258007) std::cout << "flip " << lit << " " << m[lit.var()] << " @ " << i << " of " << c << " from overall size " << sz << "\n";
             }
         }
     }
@@ -58,6 +58,8 @@ namespace sat {
     void model_converter::operator()(model & m) const {
         vector<entry>::const_iterator begin = m_entries.begin();
         vector<entry>::const_iterator it    = m_entries.end();
+        bool first = true;
+        VERIFY(!m_solver || m_solver->check_clauses(m));
         while (it != begin) {
             --it;
             SASSERT(it->get_kind() != ELIM_VAR || m[it->var()] == l_undef);
@@ -70,14 +72,18 @@ namespace sat {
             for (literal l : it->m_clauses) {
                 if (l == null_literal) {
                     // end of clause
-                    elim_stack* s = it->m_elim_stack[index];
+                    elim_stack* st = it->m_elim_stack[index];
                     if (!sat) {                        
                         m[it->var()] = var_sign ? l_false : l_true;
                     }
-                    if (s) {
-                        process_stack(m, clause, s->stack());
+                    if (st) {
+                        process_stack(m, clause, st->stack());
                     }
                     sat = false;
+                    if (first && m_solver && !m_solver->check_clauses(m)) {
+                        display(std::cout, *it) << "\n";
+                        first = false;
+                    }
                     ++index;
                     clause.reset();
                     continue;                    
@@ -95,8 +101,12 @@ namespace sat {
                 else if (!sat && v != it->var() && m[v] == l_undef) {
                     // clause can be satisfied by assigning v.
                     m[v] = sign ? l_false : l_true;
-                    // if (v == 258007) std::cout << "set undef " << v << " to " << m[v] << " in " << clause << "\n";
+                    // if (first) std::cout << "set: " << l << "\n";
                     sat = true;
+                    if (first && m_solver && !m_solver->check_clauses(m)) {
+                        display(std::cout, *it)  << "\n";;
+                        first = false;
+                    }
                 }
             }
             DEBUG_CODE({
@@ -217,10 +227,12 @@ namespace sat {
                 it2++;
                 for (; it2 != end; ++it2) {
                     SASSERT(it2->var() != it->var());
+                    if (it2->var() == it->var()) return false;
                     for (literal l : it2->m_clauses) {
                         CTRACE("sat_model_converter", l.var() == it->var(), tout << "var: " << it->var() << "\n"; display(tout););
                         SASSERT(l.var() != it->var());
                         SASSERT(l == null_literal || l.var() < num_vars);
+                        if (it2->var() == it->var()) return false;
                     }
                 }
             }
@@ -229,29 +241,103 @@ namespace sat {
     }
 
     void model_converter::display(std::ostream & out) const {
-        out << "(sat::model-converter";
+        out << "(sat::model-converter\n";
+        bool first = true;
         for (auto & entry : m_entries) {
-            out << "\n  (" << (entry.get_kind() == ELIM_VAR ? "elim" : "blocked") << " " << entry.var();
-            bool start = true;
-            for (literal l : entry.m_clauses) {
-                if (start) {
-                    out << "\n    (";
-                    start = false;
-                }
-                else {
-                    if (l != null_literal)
-                        out << " ";
-                }
-                if (l == null_literal) {
-                    out << ")";
-                    start = true;
-                    continue;
-                }
-                out << l;
-            }
-            out << ")";
+            if (first) first = false; else out << "\n";
+            display(out, entry);
         }
         out << ")\n";
+    }
+
+    std::ostream& model_converter::display(std::ostream& out, entry const& entry) const {
+        out << "  (";
+        switch (entry.get_kind()) {
+        case ELIM_VAR: out << "elim"; break;
+        case BLOCK_LIT: out << "blocked"; break;
+        case CCE: out << "cce"; break;
+        case ACCE: out << "acce"; break;
+        }
+        out << " " << entry.var();
+        bool start = true;
+        unsigned index = 0;
+        for (literal l : entry.m_clauses) {
+            if (start) {
+                out << "\n    (";
+                start = false;
+            }
+            else {
+                if (l != null_literal)
+                    out << " ";
+            }
+            if (l == null_literal) {
+                out << ")";
+                start = true;
+                elim_stack* st = entry.m_elim_stack[index];
+                if (st) {
+                    elim_stackv const& stack = st->stack();
+                    unsigned sz = stack.size();
+                    for (unsigned i = sz; i-- > 0; ) {
+                        out << "\n   " << stack[i].first << " " << stack[i].second;
+                    }
+                }
+                ++index;
+                continue;
+            }
+            out << l;
+        }
+        out << ")";
+        for (literal l : entry.m_clauses) {
+            if (l != null_literal) {
+                if (m_solver && m_solver->was_eliminated(l.var())) out << "\neliminated: " << l;
+            }
+        }
+        return out;
+    }
+
+    void model_converter::validate_is_blocked(entry const& e, clause const& c) {
+        if (c.is_blocked() || c.is_learned()) return;
+        unsigned index = 0;
+        literal lit = null_literal;
+        bool_var v = e.var();
+        for (literal l : c) {
+            if (l.var() == v) {
+                lit = l;
+                break;
+            }
+        }
+        if (lit == null_literal) return;
+
+        bool sat = false;
+        for (literal l : e.m_clauses) {
+            if (l == null_literal) {
+                if (!sat) {
+                    display(std::cout << "clause is not blocked\n", e) << "\n";
+                    std::cout << c << "\n";
+                }
+                sat = false;
+                elim_stack* st = e.m_elim_stack[index];
+                if (st) {
+                    elim_stackv const& stack = st->stack();
+                    unsigned sz = stack.size();
+                    for (unsigned i = sz; i-- > 0; ) {
+                        // verify ...
+                    }
+
+                }
+                ++index;
+                continue;
+            }
+            if (sat) {
+                continue;
+            }
+            if (l.var() == v) {
+                sat = l == lit;
+            }
+            else {
+                sat = c.contains(~l);
+            }
+        }
     }
 
     void model_converter::copy(model_converter const & src) {

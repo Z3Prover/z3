@@ -27,7 +27,10 @@ namespace sat {
     drat::drat(solver& s):
         s(s),
         m_out(0),
-        m_inconsistent(false)
+        m_inconsistent(false),
+        m_check_unsat(false),
+        m_check_sat(false),
+        m_check(false)
     {
         if (s.m_config.m_drat && s.m_config.m_drat_file != symbol()) {
             m_out = alloc(std::ofstream, s.m_config.m_drat_file.str().c_str());
@@ -42,6 +45,12 @@ namespace sat {
                 s.m_cls_allocator.del_clause(c);
             }
         }
+    }
+
+    void drat::updt_config() {
+        m_check_unsat = s.m_config.m_drat_check_unsat;
+        m_check_sat = s.m_config.m_drat_check_sat;
+        m_check = m_check_unsat || m_check_sat;
     }
 
     std::ostream& operator<<(std::ostream& out, drat::status st) {
@@ -88,7 +97,7 @@ namespace sat {
     }
 
     void drat::append(literal l, status st) {
-        IF_VERBOSE(10, trace(verbose_stream(), 1, &l, st););
+        IF_VERBOSE(20, trace(verbose_stream(), 1, &l, st););
         if (st == status::learned) {
             verify(1, &l);
         }
@@ -100,7 +109,7 @@ namespace sat {
 
     void drat::append(literal l1, literal l2, status st) {
         literal lits[2] = { l1, l2 };
-        IF_VERBOSE(10, trace(verbose_stream(), 2, lits, st););
+        IF_VERBOSE(20, trace(verbose_stream(), 2, lits, st););
         if (st == status::deleted) {
             // noop
             // don't record binary as deleted.
@@ -131,7 +140,7 @@ namespace sat {
 
     void drat::append(clause& c, status st) {
         unsigned n = c.size();
-        IF_VERBOSE(10, trace(verbose_stream(), n, c.begin(), st););
+        IF_VERBOSE(20, trace(verbose_stream(), n, c.begin(), st););
 
         if (st == status::learned) {
             verify(n, c.begin());
@@ -270,7 +279,7 @@ namespace sat {
     }
 
     void drat::verify(unsigned n, literal const* c) {
-        if (!is_drup(n, c) && !is_drat(n, c)) {
+        if (m_check_unsat && !is_drup(n, c) && !is_drat(n, c)) {
             std::cout << "Verification failed\n";
             UNREACHABLE();
             //display(std::cout);
@@ -412,7 +421,7 @@ namespace sat {
 
     void drat::add() {
         if (m_out) (*m_out) << "0\n";
-        if (s.m_config.m_drat_check) {
+        if (m_check_unsat) {
             SASSERT(m_inconsistent);
         }
     }
@@ -420,7 +429,7 @@ namespace sat {
         declare(l);
         status st = get_status(learned);
         if (m_out) dump(1, &l, st);
-        if (s.m_config.m_drat_check) append(l, st);
+        if (m_check) append(l, st);
     }
     void drat::add(literal l1, literal l2, bool learned) {
         declare(l1);
@@ -428,17 +437,17 @@ namespace sat {
         literal ls[2] = {l1, l2};
         status st = get_status(learned);
         if (m_out) dump(2, ls, st);
-        if (s.m_config.m_drat_check) append(l1, l2, st);
+        if (m_check) append(l1, l2, st);
     }
     void drat::add(clause& c, bool learned) {
         TRACE("sat", tout << "add: " << c << "\n";);
         for (unsigned i = 0; i < c.size(); ++i) declare(c[i]);
         status st = get_status(learned);
         if (m_out) dump(c.size(), c.begin(), st);
-        if (s.m_config.m_drat_check) append(c, get_status(learned));
+        if (m_check_unsat) append(c, get_status(learned));
     }
     void drat::add(literal_vector const& lits, svector<premise> const& premises) {
-        if (s.m_config.m_drat_check) {
+        if (m_check) {
             switch (lits.size()) {
             case 0: add(); break;
             case 1: append(lits[0], status::external); break;
@@ -453,7 +462,7 @@ namespace sat {
     void drat::add(literal_vector const& c) {
         for (unsigned i = 0; i < c.size(); ++i) declare(c[i]);
         if (m_out) dump(c.size(), c.begin(), status::learned);
-        if (s.m_config.m_drat_check) {
+        if (m_check) {
             switch (c.size()) {
             case 0: add(); break;
             case 1: append(c[0], status::learned); break;
@@ -469,20 +478,25 @@ namespace sat {
 
     void drat::del(literal l) {
         if (m_out) dump(1, &l, status::deleted);
-        if (s.m_config.m_drat_check) append(l, status::deleted);
+        if (m_check_unsat) append(l, status::deleted);
     }
     void drat::del(literal l1, literal l2) {
         literal ls[2] = {l1, l2};
         if (m_out) dump(2, ls, status::deleted);
-        if (s.m_config.m_drat_check) 
+        if (m_check) 
             append(l1, l2, status::deleted);
     }
     void drat::del(clause& c) {
         TRACE("sat", tout << "del: " << c << "\n";);
         if (m_out) dump(c.size(), c.begin(), status::deleted);
-        if (s.m_config.m_drat_check) {
+        if (m_check) {
             clause* c1 = s.m_cls_allocator.mk_clause(c.size(), c.begin(), c.is_learned()); 
             append(*c1, status::deleted);
         }
     }
+    
+    void drat::check_model(model const& m) {
+        std::cout << "check model on " << m_proof.size() << "\n";
+    }
+
 }

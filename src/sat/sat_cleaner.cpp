@@ -137,7 +137,8 @@ namespace sat {
                     SASSERT(s.value(c[0]) == l_undef && s.value(c[1]) == l_undef);
                     if (new_sz == 2) {
                         TRACE("cleanup_bug", tout << "clause became binary: " << c[0] << " " << c[1] << "\n";);
-                        s.mk_bin_clause(c[0], c[1], c.is_learned());
+                        if (!c.is_blocked()) 
+                            s.mk_bin_clause(c[0], c[1], c.is_learned());
                         s.del_clause(c);
                     }
                     else {

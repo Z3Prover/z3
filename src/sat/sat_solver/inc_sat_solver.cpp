@@ -180,7 +180,13 @@ public:
         m_internalized_converted = false;
 
         init_reason_unknown();
-        r = m_solver.check(m_asms.size(), m_asms.c_ptr());
+        try {
+            r = m_solver.check(m_asms.size(), m_asms.c_ptr());
+        }
+        catch (z3_exception& ex) {
+            IF_VERBOSE(10, verbose_stream() << "exception: " << ex.msg() << "\n";);
+            r = l_undef;            
+        }
         if (r == l_undef && m_solver.get_config().m_dimacs_display) {
             for (auto const& kv : m_map) {
                 std::cout << "c " << kv.m_value << " " << mk_pp(kv.m_key, m) << "\n";

@@ -105,7 +105,8 @@ namespace sat {
         bool               m_core_minimize_partial;
         bool               m_drat;
         symbol             m_drat_file;
-        bool               m_drat_check;
+        bool               m_drat_check_unsat;
+        bool               m_drat_check_sat;
 
         bool               m_dimacs_display;
         bool               m_dimacs_inprocess_display;

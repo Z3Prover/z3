@@ -36,6 +36,9 @@ namespace sat {
        This is a low-level model_converter. Given a mapping from bool_var to expr,
        it can be converted into a general Z3 model_converter
     */
+
+    class solver;
+
     class model_converter {
         
     public:
@@ -55,11 +58,11 @@ namespace sat {
             elim_stackv const& stack() const { return m_stack; }
         };
 
-        enum kind { ELIM_VAR = 0, BLOCK_LIT };
+        enum kind { ELIM_VAR = 0, BLOCK_LIT, CCE, ACCE };
         class entry {
             friend class model_converter;
-            unsigned           m_var:31;
-            unsigned           m_kind:1;
+            unsigned           m_var:30;
+            unsigned           m_kind:2;
             literal_vector     m_clauses; // the different clauses are separated by null_literal
             sref_vector<elim_stack>  m_elim_stack;
             entry(kind k, bool_var v):m_var(v), m_kind(k) {}
@@ -75,12 +78,18 @@ namespace sat {
         };
     private:
         vector<entry>          m_entries;
+        solver const*          m_solver;
 
         void process_stack(model & m, literal_vector const& clause, elim_stackv const& stack) const;
+
+        std::ostream& display(std::ostream & out, entry const& entry) const;
+
+        void validate_is_blocked(entry const& e, clause const& c);
 
     public:
         model_converter();
         ~model_converter();
+        void set_solver(solver const* s) { m_solver = s; }
         void operator()(model & m) const;
         model_converter& operator=(model_converter const& other);
 

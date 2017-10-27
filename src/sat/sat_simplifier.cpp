@@ -201,18 +201,19 @@ namespace sat {
         CASSERT("sat_solver", s.check_invariant());
         m_need_cleanup = false;
         m_use_list.init(s.num_vars());
-        m_learned_in_use_lists = false;
+        m_learned_in_use_lists = learned;
         if (learned) {
             register_clauses(s.m_learned);
-            m_learned_in_use_lists = true;
         }
         register_clauses(s.m_clauses);
 
-        if (!learned && (bce_enabled() || bca_enabled()))
+        if (bce_enabled() || abce_enabled() || bca_enabled()) {
             elim_blocked_clauses();
+        }
 
-        if (!learned)
+        if (!learned) {
             m_num_calls++;
+        }
 
         m_sub_counter  = m_subsumption_limit;
         m_elim_counter = m_res_limit;
@@ -457,7 +458,7 @@ namespace sat {
         literal_vector::iterator l_it = m_bs_ls.begin();
         for (; it != end; ++it, ++l_it) {
             clause & c2 = *(*it);
-            if (!c2.was_removed() && *l_it == null_literal) {
+            if (!c2.was_removed() && !c1.is_blocked() && *l_it == null_literal) {
                 // c2 was subsumed
                 if (c1.is_learned() && !c2.is_learned())
                     c1.unset_learned();
@@ -713,7 +714,7 @@ namespace sat {
             // should not traverse wlist using iterators, since back_subsumption1 may add new binary clauses there
             for (unsigned j = 0; j < wlist.size(); j++) {
                 watched w  = wlist[j];
-                if (w.is_binary_clause()) {
+                if (w.is_binary_unblocked_clause()) {
                     literal l2 = w.get_literal();
                     if (l.index() < l2.index()) {
                         m_dummy.set(l, l2, w.is_learned());
@@ -959,8 +960,10 @@ namespace sat {
         void operator()() {
             if (s.bce_enabled())
                 block_clauses();
+            if (s.abce_enabled())
+                cce<false>();
             if (s.cce_enabled()) 
-                cce();
+                cce<true>();
             if (s.bca_enabled())
                 bca();
     }
@@ -1053,21 +1056,22 @@ namespace sat {
             for (watched & w : s.get_wlist(l)) {
                 // when adding a blocked clause, then all non-learned clauses have to be considered for the
                 // resolution intersection.
-                bool process_bin = adding ? (w.is_binary_clause() && !w.is_learned()) : w.is_binary_unblocked_clause();
+                bool process_bin = adding ? w.is_binary_clause() : w.is_binary_unblocked_clause();
                 if (process_bin) {
                     literal lit = w.get_literal();
-                    if (s.is_marked(~lit) && lit != ~l) continue;
+                    if (s.is_marked(~lit) && lit != ~l) {
+                        continue; // tautology
+                    }
                     if (!first || s.is_marked(lit)) {
                         inter.reset();
-                        return false;
+                        return false; // intersection is empty or does not add anything new.
                     }
                     first = false;
                     inter.push_back(lit);
                 }
             }
             clause_use_list & neg_occs = s.m_use_list.get(~l);
-            clause_use_list::iterator it = neg_occs.mk_iterator();
-            for (; !it.at_end(); it.next()) {
+            for (auto it = neg_occs.mk_iterator(); !it.at_end(); it.next()) {
                 bool tautology = false;
                 clause & c = it.curr();
                 if (c.is_blocked() && !adding) continue;
@@ -1096,6 +1100,30 @@ namespace sat {
                 }
             }
             return first;
+        }
+
+        bool check_abce_tautology(literal l) {
+            if (!process_var(l.var())) return false;
+            for (watched & w : s.get_wlist(l)) {
+                if (w.is_binary_unblocked_clause()) {
+                    literal lit = w.get_literal();
+                    if (!s.is_marked(~lit) || lit == ~l) return false;
+                }
+            }
+            clause_use_list & neg_occs = s.m_use_list.get(~l);
+            for (auto it = neg_occs.mk_iterator(); !it.at_end(); it.next()) {
+                clause & c = it.curr();
+                if (c.is_blocked()) continue;
+                bool tautology = false;
+                for (literal lit : c) {
+                    if (s.is_marked(~lit) && lit != ~l) {
+                        tautology = true;
+                        break;
+                    }
+                }
+                if (!tautology) return false;
+            }
+            return true;
         }
 
         /*
@@ -1146,59 +1174,101 @@ namespace sat {
             return false;
         }
 
-        bool cla(literal& blocked) {
+        bool above_threshold(unsigned sz0) const {
+            return sz0 * 10 < m_covered_clause.size();
+        }
+
+        template<bool use_ri>
+        bool cla(literal& blocked, model_converter::kind& k) {
             bool is_tautology = false;
             for (literal l : m_covered_clause) s.mark_visited(l);
             unsigned num_iterations = 0, sz;
             m_elim_stack.reset();
             m_ala_qhead = 0;
+            k = model_converter::CCE;
+            unsigned sz0 = m_covered_clause.size();
+
+            /*
+             * For blocked clause elimination with asymmetric literal addition (ABCE) 
+             * it suffices to check if one of the original
+             * literals in the clause is blocked modulo the additional literals added to the clause.
+             * So we record sz0, the original set of literals in the clause, mark additional literals, 
+             * and then check if any of the first sz0 literals are blocked.
+             */
+            if (s.abce_enabled() && !use_ri) {
+                add_ala();               
+                for (unsigned i = 0; i < sz0; ++i) {
+                    if (check_abce_tautology(m_covered_clause[i])) {
+                        blocked = m_covered_clause[i];
+                        is_tautology = true;
+                        break;
+                    }
+                }
+                k = model_converter::BLOCK_LIT; // actually ABCE
+                for (literal l : m_covered_clause) s.unmark_visited(l);
+                m_covered_clause.shrink(sz0);
+                return is_tautology;
+            }
+
+            /*
+             * For CCE we add the resolution intersection while checking if the clause becomes a tautology.
+             * For ACCE, in addition, we add literals.
+             */
             do {
                 do {
+                    if (above_threshold(sz0)) break;
                     ++num_iterations;
                     sz = m_covered_clause.size();
                     is_tautology = add_cla(blocked);
                 }
                 while (m_covered_clause.size() > sz && !is_tautology);
+                if (above_threshold(sz0)) break;
                 if (s.acce_enabled() && !is_tautology) {
                     sz = m_covered_clause.size();
                     add_ala();
+                    k = model_converter::ACCE;
                 }
             }
             while (m_covered_clause.size() > sz && !is_tautology);
+            // if (is_tautology) std::cout << num_iterations << " " << m_covered_clause.size() << " " << sz0 << " " << is_tautology << " " << m_elim_stack.size() << "\n";
             for (literal l : m_covered_clause) s.unmark_visited(l);
-            // if (is_tautology) std::cout << "taut: " << num_iterations << " " << m_covered_clause.size() << " " << m_elim_stack.size() << "\n";
-            return is_tautology;
+            return is_tautology && !above_threshold(sz0);
         }
 
         // perform covered clause elimination.
         // first extract the covered literal addition (CLA).
         // then check whether the CLA is blocked.
-        bool cce(clause& c, literal& blocked) {
+        template<bool use_ri>
+        bool cce(clause& c, literal& blocked, model_converter::kind& k) {
             m_covered_clause.reset();
             for (literal l : c) m_covered_clause.push_back(l);
-            return cla(blocked);
+            return cla<use_ri>(blocked, k);
         }
 
-        bool cce(literal l1, literal l2, literal& blocked) {
+        template<bool use_ri>
+        bool cce(literal l1, literal l2, literal& blocked, model_converter::kind& k) {
             m_covered_clause.reset();
             m_covered_clause.push_back(l1);
             m_covered_clause.push_back(l2);
-            return cla(blocked);            
+            return cla<use_ri>(blocked, k);            
         }
         
+        template<bool use_ri>
         void cce() {
             insert_queue();
-            cce_clauses();
-            cce_binary();
+            cce_clauses<use_ri>();
+            cce_binary<use_ri>();
         }
 
+        template<bool use_ri>
         void cce_binary() {
             while (!m_queue.empty() && m_counter >= 0) {
                 s.checkpoint();
-                process_cce_binary(m_queue.next());
+                process_cce_binary<use_ri>(m_queue.next());
             }
         }
 
+        template<bool use_ri>
         void process_cce_binary(literal l) {
             literal blocked = null_literal;
             watch_list & wlist = s.get_wlist(~l);
@@ -1206,15 +1276,15 @@ namespace sat {
             watch_list::iterator it  = wlist.begin();
             watch_list::iterator it2 = it;
             watch_list::iterator end = wlist.end();
-
+            model_converter::kind k;
             for (; it != end; ++it) {
                 if (!it->is_binary_clause() || it->is_blocked()) {
                     INC();
                     continue;
                 }
                 literal l2 = it->get_literal();
-                if (cce(l, l2, blocked)) {
-                    block_covered_binary(it, l, blocked);
+                if (cce<use_ri>(l, l2, blocked, k)) {
+                    block_covered_binary(it, l, blocked, k);
                     s.m_num_covered_clauses++;
                 }
                 else {
@@ -1225,13 +1295,15 @@ namespace sat {
         }
 
 
+        template<bool use_ri>
         void cce_clauses() {
             m_to_remove.reset();
             literal blocked;
+            model_converter::kind k;
             for (clause* cp : s.s.m_clauses) {
                 clause& c = *cp;
-                if (!c.was_removed() && !c.is_blocked() && cce(c, blocked)) {
-                    block_covered_clause(c, blocked);
+                if (!c.was_removed() && !c.is_blocked() && cce<use_ri>(c, blocked, k)) {
+                    block_covered_clause(c, blocked, k);
                     s.m_num_covered_clauses++;                    
                 }
             }
@@ -1242,10 +1314,10 @@ namespace sat {
         }
 
 
-        void prepare_block_clause(clause& c, literal l, model_converter::entry*& new_entry) {
+        void prepare_block_clause(clause& c, literal l, model_converter::entry*& new_entry, model_converter::kind k) {
             TRACE("blocked_clause", tout << "new blocked clause: " << c << "\n";);
             if (new_entry == 0)
-                new_entry = &(mc.mk(model_converter::BLOCK_LIT, l.var()));
+                new_entry = &(mc.mk(k, l.var()));
             m_to_remove.push_back(&c);
             for (literal lit : c) {
                 if (lit != l && process_var(lit.var())) {
@@ -1255,19 +1327,19 @@ namespace sat {
         }
 
         void block_clause(clause& c, literal l, model_converter::entry *& new_entry) {
-            prepare_block_clause(c, l, new_entry);
+            prepare_block_clause(c, l, new_entry, model_converter::BLOCK_LIT);
             mc.insert(*new_entry, c);
         }
 
-        void block_covered_clause(clause& c, literal l) {
+        void block_covered_clause(clause& c, literal l, model_converter::kind k) {
             model_converter::entry * new_entry = 0;
-            prepare_block_clause(c, l, new_entry);
+            prepare_block_clause(c, l, new_entry, k);
             mc.insert(*new_entry, m_covered_clause, m_elim_stack);
         }
         
-        void prepare_block_binary(watch_list::iterator it, literal l1, literal blocked, model_converter::entry*& new_entry) {
+        void prepare_block_binary(watch_list::iterator it, literal l1, literal blocked, model_converter::entry*& new_entry, model_converter::kind k) {
             if (new_entry == 0) 
-                new_entry = &(mc.mk(model_converter::BLOCK_LIT, blocked.var()));
+                new_entry = &(mc.mk(k, blocked.var()));
             literal l2 = it->get_literal();
             TRACE("blocked_clause", tout << "new blocked clause: " << l2 << " " << l1 << "\n";);
             if (s.m_retain_blocked_clauses && !it->is_learned()) {
@@ -1281,13 +1353,13 @@ namespace sat {
         }
         
         void block_binary(watch_list::iterator it, literal l, model_converter::entry *& new_entry) {
-            prepare_block_binary(it, l, l, new_entry);
+            prepare_block_binary(it, l, l, new_entry, model_converter::BLOCK_LIT);
             mc.insert(*new_entry, l, it->get_literal());
         }
 
-        void block_covered_binary(watch_list::iterator it, literal l, literal blocked) {
+        void block_covered_binary(watch_list::iterator it, literal l, literal blocked, model_converter::kind k) {
             model_converter::entry * new_entry = 0;
-            prepare_block_binary(it, l, blocked, new_entry);
+            prepare_block_binary(it, l, blocked, new_entry, k);
             mc.insert(*new_entry, m_covered_clause, m_elim_stack);
         }
 
@@ -1375,10 +1447,12 @@ namespace sat {
         stopwatch    m_watch;
         unsigned     m_num_blocked_clauses;
         unsigned     m_num_covered_clauses;
+        unsigned     m_num_added_clauses;
         blocked_cls_report(simplifier & s):
             m_simplifier(s),
             m_num_blocked_clauses(s.m_num_blocked_clauses),
-            m_num_covered_clauses(s.m_num_covered_clauses) {
+            m_num_covered_clauses(s.m_num_covered_clauses),
+            m_num_added_clauses(s.m_num_bca) {
             m_watch.start();
         }
 
@@ -1389,6 +1463,8 @@ namespace sat {
                        << (m_simplifier.m_num_blocked_clauses - m_num_blocked_clauses)
                        << " :elim-covered-clauses " 
                        << (m_simplifier.m_num_covered_clauses - m_num_covered_clauses)
+                       << " :added-clauses "
+                       << (m_simplifier.m_num_bca - m_num_added_clauses)
                        << mem_stat()
                        << " :time " << std::fixed << std::setprecision(2) << m_watch.get_seconds() << ")\n";);
         }
@@ -1456,8 +1532,7 @@ namespace sat {
     */
     void simplifier::collect_clauses(literal l, clause_wrapper_vector & r, bool include_blocked) {
         clause_use_list const & cs = m_use_list.get(l);
-        clause_use_list::iterator it = cs.mk_iterator();
-        for (; !it.at_end(); it.next()) {
+        for (auto it = cs.mk_iterator(); !it.at_end(); it.next()) {
             if (!it.curr().is_blocked() || include_blocked) {
                 r.push_back(clause_wrapper(it.curr()));
                 SASSERT(r.back().size() == it.curr().size());
@@ -1703,6 +1778,7 @@ namespace sat {
                     else
                         s.m_stats.m_mk_clause++;
                     clause * new_c = s.m_cls_allocator.mk_clause(m_new_cls.size(), m_new_cls.c_ptr(), false);
+
                     if (s.m_config.m_drat) s.m_drat.add(*new_c, true);
                     s.m_clauses.push_back(new_c);
                     m_use_list.insert(*new_c);
@@ -1769,6 +1845,7 @@ namespace sat {
         m_cce                     = p.cce();
         m_acce                    = p.acce();
         m_bca                     = p.bca();
+        m_bce_delay               = p.bce_delay();
         m_elim_blocked_clauses    = p.elim_blocked_clauses();
         m_elim_blocked_clauses_at = p.elim_blocked_clauses_at();
         m_retain_blocked_clauses  = p.retain_blocked_clauses();

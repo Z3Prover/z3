@@ -33,6 +33,10 @@ namespace sat {
 
     class clause_allocator;
 
+    class clause;
+
+    std::ostream & operator<<(std::ostream & out, clause const & c);
+
     class clause {
         friend class clause_allocator;
         friend class tmp_clause;
@@ -61,8 +65,8 @@ namespace sat {
         literal & operator[](unsigned idx) { SASSERT(idx < m_size); return m_lits[idx]; }
         literal const & operator[](unsigned idx) const { SASSERT(idx < m_size); return m_lits[idx]; }
         bool is_learned() const { return m_learned; }
-        void unset_learned() { SASSERT(is_learned()); m_learned = false; }
-        void shrink(unsigned num_lits) { SASSERT(num_lits <= m_size); if (num_lits < m_size) { m_size = num_lits; mark_strengthened(); } }
+        void unset_learned() { if (id() == 642277) std::cout << "unlearn " << *this << "\n"; SASSERT(is_learned()); m_learned = false; }
+        void shrink(unsigned num_lits) { SASSERT(num_lits <= m_size); if (num_lits < m_size) { m_size = num_lits; mark_strengthened(); if (id() == 642277) std::cout << "shrink " << *this << "\n"; } }
         bool strengthened() const { return m_strengthened; }
         void mark_strengthened() { m_strengthened = true; update_approx(); }
         void unmark_strengthened() { m_strengthened = false; }
@@ -101,7 +105,6 @@ namespace sat {
         void set_reinit_stack(bool f) { m_reinit_stack = f; }
     };
 
-    std::ostream & operator<<(std::ostream & out, clause const & c);
     std::ostream & operator<<(std::ostream & out, clause_vector const & cs);
 
     class bin_clause {
@@ -180,6 +183,7 @@ namespace sat {
         bool contains(literal l) const;
         bool contains(bool_var v) const;
         clause * get_clause() const { SASSERT(!is_binary()); return m_cls; }
+        bool was_removed() const { return !is_binary() && get_clause()->was_removed(); }
     };
 
     typedef svector<clause_wrapper> clause_wrapper_vector;
