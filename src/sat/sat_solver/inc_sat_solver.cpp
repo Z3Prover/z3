@@ -29,7 +29,6 @@ Notes:
 #include "tactic/bv/bit_blaster_tactic.h"
 #include "tactic/core/simplify_tactic.h"
 #include "sat/tactic/goal2sat.h"
-#include "sat/tactic/sat_tactic.h"
 #include "ast/ast_pp.h"
 #include "model/model_smt2_pp.h"
 #include "tactic/filter_model_converter.h"
