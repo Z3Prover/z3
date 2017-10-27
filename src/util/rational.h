@@ -433,6 +433,11 @@ inline bool operator<=(rational const & r1, rational const & r2) {
     return !operator>(r1, r2); 
 }
 
+inline bool operator<=(rational const & r1, int r2) { 
+    return r1 <= rational(r2);
+}
+
+
 inline bool operator>=(rational const & r1, rational const & r2) { 
     return !operator<(r1, r2); 
 }

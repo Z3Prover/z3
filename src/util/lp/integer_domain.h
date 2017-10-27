@@ -12,13 +12,14 @@ namespace lp {
 template <typename T>
 class integer_domain {
 #ifdef Z3DEBUG
-    std::set<int> m_domain;
+    //    std::set<int> m_domain;
 #endif 
     typedef typename std::map<T, char>::iterator iter;
     typedef typename std::map<T, char>::const_iterator const_iter;
     typedef typename std::map<T, char>::reverse_iterator riter;
     stacked_map<T, char> m_endpoints; // 0 means start, 1 means end, 2 means both - for a point interval
     stacked_value<bool> m_empty;
+    
 public:
     // the default constructor creates a set containing all integer numbers
     integer_domain() : integer_domain(false) {}
@@ -28,10 +29,10 @@ public:
     // otherwise it creates an empty set
     integer_domain(bool is_empty) : m_empty(is_empty) {
 #if Z3DEBUG
-        if (!is_empty) {
-            for (int i = 0; i <= 100; i++)
-                m_domain.insert(i);
-        }
+        // if (!is_empty) {
+        //     for (int i = 0; i <= 100; i++)
+        //         m_domain.insert(i);
+        // }
 #endif
     }
     
@@ -39,15 +40,15 @@ public:
         m_empty = false;
         m_endpoints.clear();
 #if Z3DEBUG
-        for (int i = 0; i <= 100; i++)
-            m_domain.insert(i);
+        // for (int i = 0; i <= 100; i++)
+        //     m_domain.insert(i);
 #endif
     }
 
     // copy constructor 
     integer_domain(const integer_domain<T> & t) :
 #if Z3DEBUG
-        m_domain(t.m_domain),
+        //        m_domain(t.m_domain),
 #endif
         m_endpoints(t.m_endpoints),
         m_empty(t.m_empty)
@@ -57,11 +58,11 @@ public:
     // needed for debug only
     void restore_domain() {
 #if Z3DEBUG
-        for (int i = 0; i <= 100; i++)
-            if (contains(i))
-                m_domain.insert(i);
-            else
-                m_domain.erase(i);
+        // for (int i = 0; i <= 100; i++)
+        //     if (contains(i))
+        //         m_domain.insert(i);
+        //     else
+        //         m_domain.erase(i);
 #endif
     }
     
@@ -132,8 +133,8 @@ public:
     void unite_with_interval(const T& x, const T& y) {
         TRACE("disj_intervals", tout << "unite_with_interval(" << x << ", " << y << ")\n";);
 #if Z3DEBUG
-        for (int i = std::max(x, 0); i <= std::min(100, y); i++)
-            m_domain.insert(i);
+        // for (int i = std::max(x, 0); i <= std::min(100, y); i++)
+        //     m_domain.insert(i);
 #endif
 
         lp_assert(x <= y);
@@ -285,12 +286,12 @@ public:
             prev_x = t.first;
         }
 #if Z3DEBUG
-        for (int i = 0; i <= 100; i++ ) {
-            if ( (m_domain.find(i) != m_domain.end()) != contains(i)) {
-                TRACE("disj_intervals", tout << "incorrect value of contains(" << i << ") is = " << contains(i) << std::endl;);
-                return false;
-            }
-        }
+        // for (int i = 0; i <= 100; i++ ) {
+        //     if ( (m_domain.find(i) != m_domain.end()) != contains(i)) {
+        //         TRACE("disj_intervals", tout << "incorrect value of contains(" << i << ") is = " << contains(i) << std::endl;);
+        //         return false;
+        //     }
+        // }
 #endif
         return true;
     }
@@ -336,8 +337,8 @@ public:
     // we intersect the existing set with the half open to the right interval
     void intersect_with_lower_bound(const T& x) {
 #ifdef Z3DEBUG
-        for (int i = 0; i < x; i++)
-            m_domain.erase(i);
+        // for (int i = 0; i < x; i++)
+        //     m_domain.erase(i);
 #endif
         TRACE("disj_intervals", tout << "intersect_with_lower_bound(" << x << ")\n";);
 
@@ -381,7 +382,7 @@ public:
         T b;
         lp_assert(get_lower_bound(b));
         get_lower_bound(b);
-        return b <= x;
+        return x < b;
     }
 
     bool intersection_with_lower_bound_is_empty(const T& x) const {
@@ -392,15 +393,15 @@ public:
         T b;
         lp_assert(get_upper_bound(b));
         get_upper_bound(b);
-        return b >= x;
+        return x > b;
     }
 
     // we intersect the existing set with the half open interval
 
     void intersect_with_upper_bound(const T& x) {
 #ifdef Z3DEBUG
-        for (int i = 100; i > x; i--)
-            m_domain.erase(i);
+        // for (int i = 100; i > x; i--)
+        //     m_domain.erase(i);
 #endif
         TRACE("disj_intervals", tout << "intersect_with_upper_bound(" << x << ")\n";);
         if (m_empty)
@@ -440,9 +441,9 @@ public:
 public:
     void intersect_with_interval(const T& x, const T & y) {
 #ifdef Z3DEBUG
-        for (int i = 0; i <= 100; i++)
-            if (i < x || i > y)
-                m_domain.erase(i);
+        // for (int i = 0; i <= 100; i++)
+        //     if (i < x || i > y)
+        //         m_domain.erase(i);
 #endif
 
         TRACE("disj_intervals", tout << "intersect_with_interval(" << x << ", " << y <<")\n";);
@@ -458,8 +459,8 @@ public:
         if (contains_all())
             return;
 #if Z3DEBUG
-        for (int i = x; i <= 100; i++)
-            m_domain.insert(i);
+        // for (int i = x; i <= 100; i++)
+        //     m_domain.insert(i);
 #endif
         TRACE("disj_intervals", tout << "unite_with_interval_x_pos_inf(" << x << ")\n";);
         if (m_empty) {
@@ -502,8 +503,8 @@ public:
     // add an interval [-inf, x]
     void unite_with_interval_neg_inf_x(const T& x) {
 #if Z3DEBUG
-        for (int i = 0; i <= x; i++)
-            m_domain.insert(i);
+        // for (int i = 0; i <= x; i++)
+        //     m_domain.insert(i);
 #endif
         TRACE("disj_intervals", tout << "unite_with_interval_neg_inf_x(" << x << ")\n";);
         if (m_empty) {
