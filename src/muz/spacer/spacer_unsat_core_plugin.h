@@ -19,7 +19,7 @@ Revision History:
 #define _SPACER_UNSAT_CORE_PLUGIN_H_
 
 #include "ast/ast.h"
-#include "muz/spacer/spacer_min_cut.h"
+#include "util/min_cut.h"
 
 namespace spacer {
 
@@ -109,7 +109,7 @@ private:
 
         vector<expr*> m_node_to_formula; // maps each node to the corresponding formula in the original proof
 
-        spacer_min_cut m_min_cut;
+        min_cut m_min_cut;
     };
 }
 #endif

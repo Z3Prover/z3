@@ -3076,8 +3076,6 @@ void fpa2bv_converter::mk_to_ieee_bv(func_decl * f, unsigned num, expr * const *
     split_fp(x, sgn, e, s);
     mk_is_nan(x, x_is_nan);
 
-    sort * fp_srt = m.get_sort(x);
-
     expr_ref unspec(m);
     mk_to_ieee_bv_unspecified(f, num, args, unspec);
 

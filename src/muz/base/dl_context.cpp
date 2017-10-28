@@ -453,7 +453,8 @@ namespace datalog {
         return new_pred;
     }
 
-  void context::add_rule(expr* rl, symbol const& name, unsigned bound) {
+    void context::add_rule(expr* rl, symbol const& name, unsigned bound) {
+        SASSERT(rl);
         m_rule_fmls.push_back(rl);
         m_rule_names.push_back(name);
         m_rule_bounds.push_back(bound);
@@ -461,7 +462,7 @@ namespace datalog {
 
     void context::flush_add_rules() {
         datalog::rule_manager& rm = get_rule_manager();
-        scoped_proof_mode _scp(m, generate_proof_trace()?PGM_FINE:PGM_DISABLED);
+        scoped_proof_mode _scp(m, generate_proof_trace()?PGM_ENABLED:PGM_DISABLED);
         while (m_rule_fmls_head < m_rule_fmls.size()) {
             expr* fml = m_rule_fmls[m_rule_fmls_head].get();
             proof* p = generate_proof_trace()?m.mk_asserted(fml):0;

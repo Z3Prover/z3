@@ -441,7 +441,7 @@ ptr_vector<expr> const & dom_simplify_tactic::tree(expr * e) {
 }
 
 
-// ----------------------
+// ---------------------
 // expr_substitution_simplifier
 
 bool expr_substitution_simplifier::assert_expr(expr * t, bool sign) {

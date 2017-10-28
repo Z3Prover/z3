@@ -111,6 +111,9 @@ void context_params::set(char const * param, char const * value) {
     else if (p == "trace_file_name") {
         m_trace_file_name = value;
     }
+    else if (p == "dot_proof_file") {
+        m_dot_proof_file = value;  
+    }
     else if (p == "unsat_core") {
         set_bool(m_unsat_core, param, value);
     }
@@ -146,6 +149,7 @@ void context_params::updt_params(params_ref const & p) {
     m_dump_models       = p.get_bool("dump_models", m_dump_models);
     m_trace             = p.get_bool("trace", m_trace);
     m_trace_file_name   = p.get_str("trace_file_name", "z3.log");
+    m_dot_proof_file    = p.get_str("dot_proof_file", "proof.dot");
     m_unsat_core        = p.get_bool("unsat_core", m_unsat_core);
     m_debug_ref_count   = p.get_bool("debug_ref_count", m_debug_ref_count);
     m_smtlib2_compliant = p.get_bool("smtlib2_compliant", m_smtlib2_compliant);
@@ -161,6 +165,7 @@ void context_params::collect_param_descrs(param_descrs & d) {
     d.insert("dump_models", CPK_BOOL, "dump models whenever check-sat returns sat", "false");
     d.insert("trace", CPK_BOOL, "trace generation for VCC", "false");
     d.insert("trace_file_name", CPK_STRING, "trace out file name (see option 'trace')", "z3.log");
+    d.insert("dot_proof_file", CPK_STRING, "file in which to output graphical proofs", "proof.dot");
     d.insert("debug_ref_count", CPK_BOOL, "debug support for AST reference counting", "false");
     d.insert("smtlib2_compliant", CPK_BOOL, "enable/disable SMT-LIB 2.0 compliance", "false");
     collect_solver_param_descrs(d);
@@ -192,7 +197,7 @@ void context_params::get_solver_params(ast_manager const & m, params_ref & p, bo
 
 ast_manager * context_params::mk_ast_manager() {
     ast_manager * r = alloc(ast_manager,
-                            m_proof ? PGM_FINE : PGM_DISABLED,
+                            m_proof ? PGM_ENABLED : PGM_DISABLED,
                             m_trace ? m_trace_file_name.c_str() : 0);
     if (m_smtlib2_compliant)
         r->enable_int_real_coercions(false);

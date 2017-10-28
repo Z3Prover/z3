@@ -20,6 +20,7 @@ Notes:
 #include "util/version.h"
 #include "ast/ast_smt_pp.h"
 #include "ast/ast_smt2_pp.h"
+#include "ast/ast_pp_dot.h"
 #include "ast/ast_pp.h"
 #include "ast/array_decl_plugin.h"
 #include "ast/pp.h"
@@ -200,6 +201,26 @@ ATOMIC_CMD(get_proof_cmd, "get-proof", "retrieve proof", {
         pp.display_smt2(ctx.regular_stream(), pr);
         ctx.regular_stream() << std::endl;
     }
+});
+
+ATOMIC_CMD(get_proof_graph_cmd, "get-proof-graph", "retrieve proof and print it in graphviz", {
+    if (!ctx.produce_proofs())
+        throw cmd_exception("proof construction is not enabled, use command (set-option :produce-proofs true)");
+    if (!ctx.has_manager() ||
+        ctx.cs_state() != cmd_context::css_unsat)
+        throw cmd_exception("proof is not available");
+    proof_ref pr(ctx.m());
+    pr = ctx.get_check_sat_result()->get_proof();
+    if (pr == 0)
+        throw cmd_exception("proof is not available");
+    if (ctx.well_sorted_check_enabled() && !is_well_sorted(ctx.m(), pr)) {
+        throw cmd_exception("proof is not well sorted");
+    }
+
+    context_params& params = ctx.params();
+    const std::string& file = params.m_dot_proof_file;
+    std::ofstream out(file);
+    out << ast_pp_dot(pr) << std::endl;
 });
 
 static void print_core(cmd_context& ctx) {
@@ -840,6 +861,7 @@ void install_basic_cmds(cmd_context & ctx) {
     ctx.insert(alloc(get_assignment_cmd));
     ctx.insert(alloc(get_assertions_cmd));
     ctx.insert(alloc(get_proof_cmd));
+    ctx.insert(alloc(get_proof_graph_cmd));
     ctx.insert(alloc(get_unsat_core_cmd));
     ctx.insert(alloc(set_option_cmd));
     ctx.insert(alloc(get_option_cmd));

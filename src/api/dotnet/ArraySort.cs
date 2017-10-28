@@ -63,6 +63,13 @@ namespace Microsoft.Z3
             Contract.Requires(domain != null);
             Contract.Requires(range != null);
         }
+        internal ArraySort(Context ctx, Sort[] domain, Sort range)
+            : base(ctx, Native.Z3_mk_array_sort_n(ctx.nCtx, (uint)domain.Length, AST.ArrayToNative(domain), range.NativeObject))
+        {
+            Contract.Requires(ctx != null);
+            Contract.Requires(domain != null);
+            Contract.Requires(range != null);
+        }
         #endregion
     };
 
