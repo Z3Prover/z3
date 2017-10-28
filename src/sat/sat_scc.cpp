@@ -107,7 +107,7 @@ namespace sat {
                 frame & fr = frames.back();
                 unsigned l_idx = fr.m_lidx;
                 if (!fr.m_first) {
-                    SASSERT(fr.m_it->is_binary_unblocked_clause());
+                    SASSERT(fr.m_it->is_binary_clause());
                     // after visiting child
                     literal l2 = fr.m_it->get_literal();
                     unsigned l2_idx = l2.index();
@@ -118,7 +118,7 @@ namespace sat {
                 }
                 fr.m_first = false;
                 while (fr.m_it != fr.m_end) {
-                    if (!fr.m_it->is_binary_unblocked_clause()) {
+                    if (!fr.m_it->is_binary_clause()) {
                         fr.m_it++;
                         continue;
                     }

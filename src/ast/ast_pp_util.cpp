@@ -55,17 +55,17 @@ void ast_pp_util::display_decls(std::ostream& out) {
 void ast_pp_util::display_asserts(std::ostream& out, expr_ref_vector const& fmls, bool neat) {
     if (neat) {
         smt2_pp_environment_dbg env(m);
-        for (unsigned i = 0; i < fmls.size(); ++i) {
+        for (expr* f : fmls) {
             out << "(assert ";
-            ast_smt2_pp(out, fmls[i], env);
+            ast_smt2_pp(out, f, env);
             out << ")\n";
         }
     }
     else {
         ast_smt_pp ll_smt2_pp(m);
-        for (unsigned i = 0; i < fmls.size(); ++i) {
+        for (expr* f : fmls) {
             out << "(assert ";
-            ll_smt2_pp.display_expr_smt2(out, fmls[i]);
+            ll_smt2_pp.display_expr_smt2(out, f);
             out << ")\n";
         }
     }
