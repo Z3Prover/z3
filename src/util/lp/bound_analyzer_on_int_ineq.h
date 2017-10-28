@@ -38,16 +38,30 @@ public :
         m_column_of_u(-1),
         m_column_of_l(-1),
         m_rs(rs)
-    {}
+    {
+        TRACE("ba_int", bp.print_ineq(tout, ineq_index); tout << "\n";
+              unsigned j;
+              m_it.reset();
+              while (m_it.next(j)) {
+                  tout << "dom of " << bp.var_name(j) << " = ";
+                  bp.print_var_domain(tout,j);
+              }
+              );
+        
+    }
 
 
     unsigned j;
     void analyze() {
         
         T a; unsigned j;
+        m_it.reset();
         while (((m_column_of_l != -2) || (m_column_of_u != -2)) && m_it.next(a, j))
             analyze_bound_on_var_on_coeff(j, a);
 
+        TRACE("ba_int", tout << "m_column_of_u = " << m_column_of_u << ", m_column_of_l = " <<
+              m_column_of_l << '\n';);
+        
         if (m_column_of_u >= 0)
             limit_monoid_u_from_below();
         else if (m_column_of_u == -1)
@@ -133,30 +147,32 @@ public :
     
 
     void limit_all_monoids_from_above() {
-        T total;
-        lp_assert(is_zero(total));
+        TRACE("ba_int",);
+        T total = m_rs;
         m_it.reset();
         T a; unsigned j;
         while (m_it.next(a, j)) {
             total -= monoid_min(a, j);
         }
+        TRACE("ba_int", tout << "total = " << total << '\n';);
 
         m_it.reset();
         while (m_it.next(a, j)) {
             bool a_is_pos = is_pos(a);
             T bound = total / a + monoid_min_no_mult(a_is_pos, j);
             if (a_is_pos) {
-                limit_j(j, bound, true, false);
+                limit_j(j, bound, false);
             }
             else {
-                limit_j(j, bound, false, true);
+                limit_j(j, bound, true);
             }
         }
     }
 
     void limit_all_monoids_from_below() {
-        T total;
-        lp_assert(is_zero(total));
+        TRACE("ba_int",);
+
+        T total = m_rs;
         m_it.reset();
         T a; unsigned j;
         while (m_it.next(a, j)) {
@@ -167,10 +183,10 @@ public :
             bool a_is_pos = is_pos(a);
             T bound = total / a + monoid_max_no_mult(a_is_pos, j);
             if (a_is_pos) {
-                limit_j(j, bound, true, true);
+                limit_j(j, bound, true);
             }
             else {
-                limit_j(j, bound, false, false);
+                limit_j(j, bound, false);
             }
         }
     }
@@ -194,9 +210,9 @@ public :
         bound /= u_coeff;
         
         if (numeric_traits<T>::is_pos(u_coeff)) {
-            limit_j(m_column_of_u, bound, true, true);
+            limit_j(m_column_of_u, bound, true);
         } else {
-            limit_j(m_column_of_u, bound, false, false);
+            limit_j(m_column_of_u, bound, false);
         }
     }
 
@@ -206,7 +222,7 @@ public :
         // every other monoid is impossible to limit from above
         T l_coeff, a;
         unsigned j;
-        T bound = -m_rs;
+        T bound = m_rs;
         m_it.reset();
         while (m_it.next(a, j)) {
             if (j == static_cast<unsigned>(m_column_of_l)) {
@@ -217,9 +233,9 @@ public :
         }
         bound /= l_coeff;
         if (is_pos(l_coeff)) {
-            limit_j(m_column_of_l, bound, true, false);
+            limit_j(m_column_of_l, bound, false);
         } else {
-            limit_j(m_column_of_l, bound, false, true);
+            limit_j(m_column_of_l, bound, true);
         }
     }
     
@@ -242,8 +258,13 @@ public :
     //     */
     // }
 
-    void limit_j(unsigned j, const T& u, bool coeff_before_j_is_pos, bool is_lower_bound){
-        m_bp.add_bound(u, j, is_lower_bound, coeff_before_j_is_pos, m_inequality_index);
+    void limit_j(unsigned j, const T& u, bool is_lower_bound){
+        TRACE("ba_int", tout<<  "j="<< m_bp.var_name(j) << ", u= "<< u << ", is_lower_bound = " << is_lower_bound<<"\n";);
+
+        if (is_lower_bound)
+            m_bp.add_bound(ceil(u), j, is_lower_bound, m_inequality_index);
+        else
+            m_bp.add_bound(floor(u), j, is_lower_bound, m_inequality_index);
     }
 
     
@@ -281,6 +302,7 @@ public :
                         unsigned ineq_index,
                         bound_propagator_int<T> & bp
                         ) {
+        TRACE("ba_int", tout << "ddd = " << ++lp_settings::ddd << std::endl;);
         bound_analyzer_on_int_ineq a(it, rs, ineq_index, bp);
         a.analyze();
     }

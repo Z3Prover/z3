@@ -335,7 +335,8 @@ public:
     void pop(unsigned k) { while(k--) pop(); }
     
     // we intersect the existing set with the half open to the right interval
-    void intersect_with_lower_bound(const T& x) {
+    // returns true if the domain changes
+    bool intersect_with_lower_bound(const T& x) {
 #ifdef Z3DEBUG
         // for (int i = 0; i < x; i++)
         //     m_domain.erase(i);
@@ -343,10 +344,10 @@ public:
         TRACE("disj_intervals", tout << "intersect_with_lower_bound(" << x << ")\n";);
 
         if (m_empty)
-            return;
+            return false;
         if (m_endpoints.empty()) {
             set_start(x);
-            return;
+            return true;
         }
         bool pos_inf = has_pos_inf();
         auto it = m_endpoints.begin();
@@ -357,21 +358,25 @@ public:
         if (m_endpoints.empty()) {
             if (!pos_inf) {
                 m_empty = true;
-                return;
+                return true;
             } 
             set_start(x);
-            return;
+            return true;
         }
         lp_assert(pos(it) >= x);
         if (pos(it) == x) {
-            if (is_proper_end(it))
-                set_one_point_interval(x);			
+            if (is_proper_end(it)) {
+                set_one_point_interval(x);
+                return true;
+            }
         }
         else { // x(it) > x
             if (is_proper_end(it)) {
                 set_start(x);
+                return true;
             }
         }
+        return false;
     }
 
     bool intersection_with_upper_bound_is_empty(const T& x) const {
@@ -397,32 +402,35 @@ public:
     }
 
     // we intersect the existing set with the half open interval
-
-    void intersect_with_upper_bound(const T& x) {
+    // returns true if there is a change
+    bool intersect_with_upper_bound(const T& x) {
 #ifdef Z3DEBUG
         // for (int i = 100; i > x; i--)
         //     m_domain.erase(i);
 #endif
         TRACE("disj_intervals", tout << "intersect_with_upper_bound(" << x << ")\n";);
         if (m_empty)
-            return;
+            return false;
         if (m_endpoints.empty()) {
             set_end(x);
-            return;
+            return true;
         }
         bool neg_inf = has_neg_inf();
         auto it = m_endpoints.rbegin();
 
+        bool change = false;
         while (!m_endpoints.empty() && pos(it) > x) {
             m_endpoints.erase(std::prev(m_endpoints.end()));
             it = m_endpoints.rbegin();
+            change = true;
         }
         if (m_endpoints.empty()) {
             if (!neg_inf) {
                 m_empty = true;
-                return;
+                return true;
             }
             set_end(x);
+            change = true;
         }
         lp_assert(pos(it) <= x);
         if (pos(it) == x) {
@@ -430,13 +438,17 @@ public:
             else if (is_proper_end(it)) {}
             else {// is_proper_start(it->second)
                 set_one_point_interval(x);
+                change = true;
             }
         }
         else { // pos(it) < x} 
-            if (is_proper_start(it))
+            if (is_proper_start(it)) {
                 set_end(x);
+                change = true;
+            }
         }
         lp_assert(is_correct());
+        return change;
     }
 public:
     void intersect_with_interval(const T& x, const T & y) {

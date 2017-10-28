@@ -87,8 +87,8 @@ public: // for debugging
             return m_coeffs.size() == s.size();
         }
 
-        linear_combination_iterator_on_std_vector<T> get_iterator() {
-            return linear_combination_iterator_on_std_vector<T>(m_coeffs);
+        linear_combination_iterator_on_std_vector_with_additional_element<T> get_iterator() {
+            return linear_combination_iterator_on_std_vector_with_additional_element<T>(m_coeffs);
         }
         
     };
@@ -495,10 +495,20 @@ public: // for debugging
         return ret;
     }
 
+    unsigned find_large_enough_j(unsigned i) {
+        unsigned r = 0;
+        for (const auto & p : m_ineqs[i].m_poly.m_coeffs) {
+            r = std::max(r, p.second + 1);
+        }
+        return r;
+    }
+    
     void propagate_inequality(unsigned i) {
-        bound_propagator_int<T> bp(*this);
         ineq& ie = m_ineqs[i];
-        linear_combination_iterator_on_std_vector<T> it(ie.m_poly.m_coeffs);
+        unsigned slack_var_for_ineq = find_large_enough_j(i);
+        bound_propagator_int<T> bp(*this, slack_var_for_ineq);
+        
+        linear_combination_iterator_on_std_vector_with_additional_element<T> it(ie.m_poly.m_coeffs, slack_var_for_ineq);
         
         bound_analyzer_on_int_ineq<T>::analyze(
             it,
@@ -513,8 +523,11 @@ public: // for debugging
     }
     
     void propagate_ineqs_for_changed_var() {
+        TRACE("cut_solver_state", tout << "changed vars size = " << m_changed_vars.size() << "\n";);
         while (!m_changed_vars.is_empty()) {
-            propagate_on_ineqs_of_var(m_changed_vars.m_index.back());
+            unsigned j = m_changed_vars.m_index.back();
+            propagate_on_ineqs_of_var(j);
+            m_changed_vars.erase(j);
         }
     }
     
