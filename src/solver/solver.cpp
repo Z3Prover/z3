@@ -34,11 +34,12 @@ expr * solver::get_assertion(unsigned idx) const {
     return 0;
 }
 
-std::ostream& solver::display(std::ostream & out) const {
+std::ostream& solver::display(std::ostream & out, unsigned n, expr* const* assumptions) const {
     expr_ref_vector fmls(get_manager());
     get_assertions(fmls);
     ast_pp_util visitor(get_manager());
     visitor.collect(fmls);
+    visitor.collect(n, assumptions);
     visitor.display_decls(out);
     visitor.display_asserts(out, fmls, true);
     return out;

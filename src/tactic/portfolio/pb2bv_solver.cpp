@@ -26,7 +26,6 @@ Notes:
 
 class pb2bv_solver : public solver_na2as {
     ast_manager&     m;
-    params_ref       m_params;
     mutable expr_ref_vector  m_assertions;
     mutable ref<solver>      m_solver;
     mutable pb2bv_rewriter   m_rewriter;
@@ -36,11 +35,11 @@ public:
     pb2bv_solver(ast_manager& m, params_ref const& p, solver* s):
         solver_na2as(m),
         m(m),
-        m_params(p),
         m_assertions(m),
         m_solver(s),
         m_rewriter(m, p)
     {
+        solver::updt_params(p);
     }
 
     virtual ~pb2bv_solver() {}
@@ -70,7 +69,7 @@ public:
         return m_solver->check_sat(num_assumptions, assumptions);
     }
 
-    virtual void updt_params(params_ref const & p) { m_solver->updt_params(p);  }
+    virtual void updt_params(params_ref const & p) { solver::updt_params(p); m_solver->updt_params(p);  }
     virtual void collect_param_descrs(param_descrs & r) { m_solver->collect_param_descrs(r); }    
     virtual void set_produce_models(bool f) { m_solver->set_produce_models(f); }
     virtual void set_progress_callback(progress_callback * callback) { m_solver->set_progress_callback(callback);  }

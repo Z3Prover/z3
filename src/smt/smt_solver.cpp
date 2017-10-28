@@ -31,7 +31,6 @@ namespace smt {
 
     class solver : public solver_na2as {
         smt_params           m_smt_params;
-        params_ref           m_params;
         smt::kernel          m_context;
         progress_callback  * m_callback;
         symbol               m_logic;
@@ -45,19 +44,15 @@ namespace smt {
         solver(ast_manager & m, params_ref const & p, symbol const & l) :
             solver_na2as(m),
             m_smt_params(p),
-            m_params(p),
             m_context(m, m_smt_params),
             m_minimizing_core(false),
             m_core_extend_patterns(false),
             m_core_extend_patterns_max_distance(UINT_MAX),
-            m_core_extend_nonlocal_patterns(false) {
+            m_core_extend_nonlocal_patterns(false) {            
             m_logic = l;
             if (m_logic != symbol::null)
                 m_context.set_logic(m_logic);
-            smt_params_helper smth(p);
-            m_core_extend_patterns = smth.core_extend_patterns();
-            m_core_extend_patterns_max_distance = smth.core_extend_patterns_max_distance();
-            m_core_extend_nonlocal_patterns = smth.core_extend_nonlocal_patterns();
+            updt_params(p);
         }
 
         virtual solver * translate(ast_manager & m, params_ref const & p) {
@@ -78,8 +73,8 @@ namespace smt {
         }
 
         virtual void updt_params(params_ref const & p) {
+            solver::updt_params(p);
             m_smt_params.updt_params(p);
-            m_params.copy(p);
             m_context.updt_params(p);
             smt_params_helper smth(p);
             m_core_extend_patterns = smth.core_extend_patterns();
@@ -165,7 +160,7 @@ namespace smt {
                 r.push_back(m_context.get_unsat_core_expr(i));
             }
 
-            if (m_minimizing_core && smt_params_helper(m_params).core_minimize()) {
+            if (m_minimizing_core && smt_params_helper(get_params()).core_minimize()) {
                 scoped_minimize_core scm(*this);
                 mus mus(*this);
                 mus.add_soft(r.size(), r.c_ptr());
