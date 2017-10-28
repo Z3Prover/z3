@@ -31,10 +31,12 @@ Revision History:
 #include "ast/dl_decl_plugin.h"
 #include "ast/seq_decl_plugin.h"
 #include "ast/datatype_decl_plugin.h"
+#include "ast/ast_smt_pp.h"
 #include "util/smt2_util.h"
 
 class smt2_pp_environment {
 protected:
+    mutable smt_renaming m_renaming;
     format_ns::format * mk_neg(format_ns::format * f) const;
     format_ns::format * mk_float(rational const & val) const;
     bool is_indexed_fdecl(func_decl * f) const;
@@ -61,7 +63,7 @@ public:
     virtual format_ns::format * pp_string_literal(app * t);
     virtual format_ns::format * pp_sort(sort * s);
     virtual format_ns::format * pp_fdecl_ref(func_decl * f);
-    format_ns::format * pp_fdecl_name(symbol const & fname, unsigned & len) const;
+    format_ns::format * pp_fdecl_name(symbol const & fname, unsigned & len, bool is_skolem) const;
     format_ns::format * pp_fdecl_name(func_decl * f, unsigned & len) const;
 };
 

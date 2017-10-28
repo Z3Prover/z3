@@ -31,25 +31,11 @@ using namespace format_ns;
 #define MAX_INDENT   16
 #define SMALL_INDENT 2
 
-format * smt2_pp_environment::pp_fdecl_name(symbol const & s, unsigned & len) const {
+format * smt2_pp_environment::pp_fdecl_name(symbol const & s0, unsigned & len, bool is_skolem) const {
     ast_manager & m = get_manager();
-    if (is_smt2_quoted_symbol(s)) {
-        std::string str = mk_smt2_quoted_symbol(s);
-        len = static_cast<unsigned>(str.length());
-        return mk_string(m, str.c_str());
-    }
-    else if (s.is_numerical()) {
-        std::string str = s.str();
-        len = static_cast<unsigned>(str.length());
-        return mk_string(m, str.c_str());
-    }
-    else if (!s.bare_str()) {
-        return mk_string(m, "null");
-    }
-    else {
-        len = static_cast<unsigned>(strlen(s.bare_str()));
-        return mk_string(m, s.bare_str());
-    }
+    symbol s = m_renaming.get_symbol(s0, is_skolem);
+    len = static_cast<unsigned>(strlen(s.bare_str()));
+    return mk_string(m, s.bare_str());    
 }
 
 format * smt2_pp_environment::pp_fdecl_name(func_decl * f, unsigned & len) const {
@@ -68,7 +54,7 @@ format * smt2_pp_environment::pp_fdecl_name(func_decl * f, unsigned & len) const
     }
     else {
         symbol s = f->get_name();
-        return pp_fdecl_name(s, len);
+        return pp_fdecl_name(s, len, f->is_skolem());
     }
 }
 

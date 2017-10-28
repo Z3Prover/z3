@@ -70,7 +70,10 @@ symbol smt_renaming::fix_symbol(symbol s, int k) {
         return symbol(buffer.str().c_str());
     }
 
-    if (is_smt2_quoted_symbol(s)) {
+    if (!s.bare_str()) {
+        buffer << "null";
+    }
+    else if (is_smt2_quoted_symbol(s)) {
         buffer << mk_smt2_quoted_symbol(s);
     }
     else {
@@ -129,14 +132,21 @@ smt_renaming::smt_renaming() {
     }
 }
 
-
+// Ensure that symbols that are used both with skolems and non-skolems are named apart.
 symbol smt_renaming::get_symbol(symbol s0, bool is_skolem) {
     sym_b sb;
     symbol s;
     if (m_translate.find(s0, sb)) {
         if (is_skolem == sb.is_skolem)
             return sb.name;
-        NOT_IMPLEMENTED_YET();
+        int k = 0;
+        symbol s1;
+        do {
+            s = fix_symbol(s0, k++);
+        }
+        while (s == s0 || (m_rev_translate.find(s, s1) && s1 != s0));
+        m_rev_translate.insert(s, s0);
+        return s;
     }
 
     int k = 0;

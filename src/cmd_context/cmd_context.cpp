@@ -389,7 +389,7 @@ protected:
     datalog::dl_decl_util m_dlutil;
 
     format_ns::format * pp_fdecl_name(symbol const & s, func_decls const & fs, func_decl * f, unsigned & len) {
-        format_ns::format * f_name = smt2_pp_environment::pp_fdecl_name(s, len);
+        format_ns::format * f_name = smt2_pp_environment::pp_fdecl_name(s, len, f->is_skolem());
         if (!fs.more_than_one())
             return f_name;
         if (!fs.clash(f))
@@ -399,7 +399,7 @@ protected:
 
     format_ns::format * pp_fdecl_ref_core(symbol const & s, func_decls const & fs, func_decl * f) {
         unsigned len;
-        format_ns::format * f_name = smt2_pp_environment::pp_fdecl_name(s, len);
+        format_ns::format * f_name = smt2_pp_environment::pp_fdecl_name(s, len, f->is_skolem());
         if (!fs.more_than_one())
             return f_name;
         return pp_signature(f_name, f);
