@@ -280,10 +280,6 @@ public:
         return m_solver1->get_num_assumptions() + m_solver2->get_num_assumptions();
     }
 
-    virtual expr_ref lookahead(expr_ref_vector const& assumptions, expr_ref_vector const& candidates) { 
-        return m_solver1->lookahead(assumptions, candidates); 
-    }
-
     virtual expr_ref cube() {
         return m_solver1->cube();
     }

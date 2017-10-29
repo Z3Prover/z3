@@ -310,51 +310,6 @@ public:
         return 0;
     }
 
-    virtual expr_ref lookahead(expr_ref_vector const& assumptions, expr_ref_vector const& candidates) { 
-        IF_VERBOSE(1, verbose_stream() << "(sat-lookahead " << candidates.size() << ")\n";);
-        sat::bool_var_vector vars;
-        sat::literal_vector lits;
-        expr_ref_vector lit2expr(m);
-        lit2expr.resize(m_solver.num_vars() * 2);
-        m_map.mk_inv(lit2expr);
-        for (auto c : candidates) {
-            sat::bool_var v = m_map.to_bool_var(c);
-            if (v != sat::null_bool_var) {
-                vars.push_back(v);
-            }
-        }
-        for (auto c : assumptions) {
-            SASSERT(is_literal(c));
-            sat::bool_var v = sat::null_bool_var;
-            bool sign = false;
-            expr* e = c;
-            while (m.is_not(e, e)) {
-                sign = !sign;
-            }
-            if (is_uninterp_const(e)) {
-                v = m_map.to_bool_var(e);
-            }
-            if (v != sat::null_bool_var) {
-                lits.push_back(sat::literal(v, sign));
-            }
-            else {
-                IF_VERBOSE(0, verbose_stream() << "WARNING: could not handle " << mk_pp(c, m) << "\n";);
-        }
-        }
-        if (vars.empty()) {
-            return expr_ref(m.mk_true(), m);
-        }
-        sat::literal l = m_solver.select_lookahead(lits, vars);
-        if (m_solver.inconsistent()) {
-            IF_VERBOSE(1, verbose_stream() << "(sat-lookahead inconsistent)\n";);
-            return expr_ref(m.mk_false(), m);
-        }
-        if (l == sat::null_literal) {
-            return expr_ref(m.mk_true(), m);
-        }
-        expr_ref result(lit2expr[l.index()].get(), m);
-        return result;
-    }
     virtual expr_ref cube() {
         if (!m_internalized) {
             dep2asm_t dep2asm;
@@ -385,16 +340,6 @@ public:
         }
         return mk_and(fmls);
     }
-
-    virtual void get_lemmas(expr_ref_vector & lemmas) { 
-        if (!m_internalized) return;
-        sat2goal s2g;
-        goal g(m, false, false, false);
-        s2g.get_learned(m_solver, m_map, m_params, lemmas);
-        IF_VERBOSE(1, verbose_stream() << "(sat :lemmas " << lemmas.size() << ")\n";);
-        // TBD: handle externals properly.
-    }
-
 
     virtual lbool get_consequences_core(expr_ref_vector const& assumptions, expr_ref_vector const& vars, expr_ref_vector& conseq) {
         init_preprocess();

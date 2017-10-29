@@ -90,6 +90,8 @@ namespace sat {
 
     inline void simplifier::checkpoint() { s.checkpoint(); }
 
+    bool simplifier::single_threaded() const { return s.m_config.m_num_threads == 1; }
+
     void simplifier::register_clauses(clause_vector & cs) {
         std::stable_sort(cs.begin(), cs.end(), size_lt());
         for (clause* c : cs) {
@@ -230,7 +232,7 @@ namespace sat {
                 subsume();
             if (s.inconsistent())
                 return;
-            if (!learned && elim_vars_enabled() && s.m_config.m_num_threads == 1)
+            if (!learned && elim_vars_enabled())
                 elim_vars();
             if (s.inconsistent())
                 return;

@@ -182,18 +182,21 @@ public:
        \brief extract a lookahead candidates for branching.
     */
 
-    virtual expr_ref lookahead(expr_ref_vector const& assumptions, expr_ref_vector const& candidates) = 0;
+    virtual expr_ref cube() = 0;
 
+#if 0
     /**
        \brief extract a lookahead candidates for branching.
     */
 
-    virtual expr_ref cube() = 0;
+    virtual expr_ref lookahead(expr_ref_vector const& assumptions, expr_ref_vector const& candidates) = 0;
+
 
     /**
        \brief extract learned lemmas.
     */
     virtual void get_lemmas(expr_ref_vector& lemmas) {}
+#endif
 
     /**
        \brief Display the content of this solver.
@@ -216,5 +219,7 @@ protected:
     bool is_literal(ast_manager& m, expr* e);
 
 };
+
+typedef ref<solver> solver_ref;
 
 #endif

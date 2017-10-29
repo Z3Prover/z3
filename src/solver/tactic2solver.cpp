@@ -77,10 +77,6 @@ public:
 
     virtual ast_manager& get_manager() const; 
 
-    virtual expr_ref lookahead(expr_ref_vector const& assumptions, expr_ref_vector const& candidates) {
-        ast_manager& m = get_manager();
-        return expr_ref(m.mk_true(), m);
-    }
     virtual expr_ref cube() {
         ast_manager& m = get_manager();
         return expr_ref(m.mk_true(), m);

@@ -275,31 +275,6 @@ namespace Microsoft.Z3
             return lboolToStatus(r);
         }
 
-	/// <summary>
-	/// Select a lookahead literal from the set of supplied candidates.
-	/// </summary>
-	public BoolExpr Lookahead(IEnumerable<BoolExpr> assumptions, IEnumerable<BoolExpr> candidates) 
-	{
-             ASTVector cands = new ASTVector(Context);
-             foreach (var c in candidates) cands.Push(c);
-             ASTVector assums = new ASTVector(Context);
-             foreach (var c in assumptions) assums.Push(c);
-	     return (BoolExpr)Expr.Create(Context, Native.Z3_solver_lookahead(Context.nCtx, NativeObject, assums.NativeObject, cands.NativeObject));
-        }
-
-	/// <summary>
-	/// Retrieve set of lemmas that have been inferred by solver.
-	/// </summary>
-	public BoolExpr[] Lemmas
-        {
-	    get 
-	    {
-	        var r = Native.Z3_solver_get_lemmas(Context.nCtx, NativeObject);
-	        var v = new ASTVector(Context, r);
-                return v.ToBoolExprArray();
-            }
-        }
-
         /// <summary>
         /// The model of the last <c>Check</c>.
         /// </summary>
@@ -369,6 +344,28 @@ namespace Microsoft.Z3
                 return Native.Z3_solver_get_reason_unknown(Context.nCtx, NativeObject);
             }
         }
+
+	/// <summary>
+	/// Return a set of cubes.
+	/// </summary>
+	public IEnumerable<BoolExpr> Cube()
+	{
+             int rounds = 0;
+	     while (true) {
+		BoolExpr r = (BoolExpr)Expr.Create(Context, Native.Z3_solver_cube(Context.nCtx, NativeObject));
+                if (r.IsFalse) {
+	           if (rounds == 0)
+                      yield return r;
+                   break;
+                }
+	        if (r.IsTrue) {
+                     yield return r;
+                     break;
+                }
+                ++rounds;
+                yield return r;
+	     }
+	}
 
         /// <summary>
         /// Create a clone of the current solver with respect to <c>ctx</c>.

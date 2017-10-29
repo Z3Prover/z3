@@ -108,9 +108,7 @@ public:
     virtual void get_labels(svector<symbol> & r) { m_solver->get_labels(r); }
     virtual ast_manager& get_manager() const { return m;  }
     virtual lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) { return m_solver->find_mutexes(vars, mutexes); }
-    virtual expr_ref lookahead(expr_ref_vector const& assumptions, expr_ref_vector const& candidates) { return m_solver->lookahead(assumptions, candidates); }
     virtual expr_ref cube() { return m_solver->cube(); }
-    virtual void get_lemmas(expr_ref_vector & lemmas) { m_solver->get_lemmas(lemmas); }
     
     virtual lbool get_consequences_core(expr_ref_vector const& asms, expr_ref_vector const& vars, expr_ref_vector& consequences) {
         datatype_util dt(m);

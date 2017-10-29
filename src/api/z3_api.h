@@ -6174,14 +6174,6 @@ extern "C" {
                                                Z3_ast_vector variables,
                                                Z3_ast_vector consequences);
 
-    /**
-       \brief select a literal from the list of candidate propositional variables to split on.
-       If the candidate list is empty, then the solver chooses a formula based on its internal state.
-       
-       def_API('Z3_solver_lookahead', AST, (_in(CONTEXT), _in(SOLVER), _in(AST_VECTOR), _in(AST_VECTOR)))
-    */
-
-    Z3_ast Z3_API Z3_solver_lookahead(Z3_context c, Z3_solver s, Z3_ast_vector assumptions, Z3_ast_vector candidates);
 
     /**
        \brief extract a next cube for a solver. The last cube is the constant \c true or \c false.
@@ -6192,18 +6184,6 @@ extern "C" {
     */
 
     Z3_ast Z3_API Z3_solver_cube(Z3_context c, Z3_solver s);
-
-
-    /**
-       \brief retrieve lemmas from solver state. Lemmas are auxiliary unit literals, 
-       binary clauses and other learned clauses that are below a minimal glue level.
-       Lemmas that have been retrieved in a previous call may be suppressed from subsequent
-       calls.
-
-       def_API('Z3_solver_get_lemmas', AST_VECTOR, (_in(CONTEXT), _in(SOLVER)))
-    */
-
-    Z3_ast_vector Z3_API Z3_solver_get_lemmas(Z3_context c, Z3_solver s);
 
     /**
        \brief Retrieve the model for the last #Z3_solver_check or #Z3_solver_check_assumptions
