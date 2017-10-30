@@ -647,6 +647,13 @@ public: // for debugging
     
     // returns false if not limited from below
     // otherwise the answer is put into lb
+    bool lower(unsigned ineq_index, T & lb) const {
+        return lower(m_ineqs[ineq_index].m_poly, lb);
+    }
+
+        
+    // returns false if not limited from below
+    // otherwise the answer is put into lb
     bool lower(const polynomial & f, T & lb) const {
         lb = f.m_a;
         T lm;

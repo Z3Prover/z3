@@ -333,7 +333,10 @@ public:
     void push() { m_endpoints.push(); m_empty.push(); }
     void pop() { m_endpoints.pop(); m_empty.pop(); }
     void pop(unsigned k) { while(k--) pop(); }
-    
+
+    bool intersect_with_bound(const T & x, bool is_lower) {
+        return is_lower? intersect_with_lower_bound(x) : intersect_with_upper_bound(x);
+    }
     // we intersect the existing set with the half open to the right interval
     // returns true if the domain changes
     bool intersect_with_lower_bound(const T& x) {
