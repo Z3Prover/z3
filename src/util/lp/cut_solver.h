@@ -14,7 +14,6 @@
 #include "util/lp/linear_combination_iterator_on_std_vector.h"
 #include "util/lp/bound_propagator_int.h"
 #include "util/lp/bound_analyzer_on_int_ineq.h"
-#include "util/lp/bound_explanation_int.h"
 #include "util/lp/stacked_vector.h"
 
 namespace lp {
@@ -144,6 +143,7 @@ public: // for debugging
         unsigned m_var_index;
         bool m_is_lower;
         T m_bound;
+        int m_tight_explanation_ineq_index; // points to m_ineqs
 //=================
         unsigned m_id;
         int m_ineq_index; // index into m_ineqs, if m_index_of_ineq < 0 then the literal is decided
@@ -154,6 +154,7 @@ public: // for debugging
             m_var_index(var_index),
             m_is_lower(is_lower),
             m_bound(bound),
+            m_tight_explanation_ineq_index(-1),
             m_ineq_index(ineq_index)
         {
         }
@@ -207,7 +208,6 @@ public: // for debugging
         void add_dependent_ineq(unsigned i) {
             m_dependent_ineqs.insert(i);
         }
-        stacked_vector<bound_explanation_int> m_explanations;
     };
 
     std::vector<var_info> m_var_infos;
@@ -467,6 +467,7 @@ public: // for debugging
         
         if (improves(j, br)) {
             literal l(j, br.m_type == bound_type::LOWER, br.m_bound, ineq_index);
+            l.m_tight_explanation_ineq_index = ineq_index;
             
             m_trail.push_back(l);
             restrict_var_domain_with_bound_result(j, br);
@@ -519,7 +520,7 @@ public: // for debugging
     
     void propagate_on_ineqs_of_var(var_index j) {
         for (unsigned i : m_var_infos[j].m_dependent_ineqs)
-            propagate_inequality(i);
+            propagate_inequality(i); 
     }
     
     void propagate_ineqs_for_changed_var() {
@@ -781,7 +782,13 @@ public: // for debugging
             out << get_column_name(j) << " = " << m_v[j] << "\n";
         }
         out << "end of var values\n";
-        out << std::endl;
+        out << "trail\n";
+        for (const auto & l : m_trail) {
+            print_literal(out, l);
+            out << "\n";
+        }
+        out << "end of trail\n";
+        out << "end of state dump" << std::endl;
     }
     
     void print_ineq(std::ostream & out, unsigned i)  const {
@@ -794,15 +801,19 @@ public: // for debugging
     }
 
     void print_literal_bound(std::ostream & o, const literal & t) const {
-        o << "type is BOUND\n";
+        o << "BOUND: ";
         o << get_column_name(t.m_var_index) << " ";
         if (t.m_is_lower)
             o << ">= ";
         else
             o << "<= ";
         o << t.m_bound;
+        if (t.m_tight_explanation_ineq_index >= 0) {
+            o << "  tight ineq ";
+            print_ineq(o, t.m_tight_explanation_ineq_index);
+        }
         if (t.m_ineq_index >= 0) {
-            o << " tight ineq ";
+            o << "  ineq ";
             print_ineq(o, t.m_ineq_index);
         }
     }
@@ -922,6 +933,14 @@ public: // for debugging
     }
 
 
+    void add_bound(T v, unsigned j, bool is_lower, unsigned ineq_index) {
+        literal l(j, is_lower, v);
+        if (m_ineqs[ineq_index].is_tight(j))
+            l.m_tight_explanation_ineq_index = ineq_index;
+        else
+            l.m_ineq_index = ineq_index;
+        m_trail.push_back(l);
+    }
     
     bool literal_is_correct(const literal &t ) const {
         if (t.m_tag == literal_type::BOUND) {

@@ -405,8 +405,9 @@ unsigned int_solver::row_of_basic_column(unsigned j) const {
 
 template <typename T>
 void int_solver::fill_cut_solver(cut_solver<T> & cs) {
-    for (lar_base_constraint * c : m_lar_solver->constraints())
+    for (lar_base_constraint * c : m_lar_solver->constraints()) {
         fill_cut_solver_for_constraint(c, cs);
+    }
     for (unsigned j = 0; j < m_lar_solver->m_mpq_lar_core_solver.m_r_x.size(); j++) {
         if (is_int(j) && !is_term(j))
             cs.m_v.push_back(T(static_cast<int>(ceil(m_lar_solver->m_mpq_lar_core_solver.m_r_x[j].x).get_int64())));
