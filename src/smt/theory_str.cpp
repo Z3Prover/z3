@@ -10484,6 +10484,9 @@ namespace smt {
             // iterate parents
             if (standAlone) {
                 // I hope this works!
+                if (!ctx.e_internalized(freeVar)) {
+                    ctx.internalize(freeVar, false);
+                }
                 enode * e_freeVar = ctx.get_enode(freeVar);
                 enode_vector::iterator it = e_freeVar->begin_parents();
                 for (; it != e_freeVar->end_parents(); ++it) {
