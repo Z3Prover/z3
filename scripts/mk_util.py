@@ -606,6 +606,8 @@ elif os.name == 'posix':
         IS_CYGWIN=True
         if (CC != None and "mingw" in CC):
             IS_CYGWIN_MINGW=True
+    elif os.uname()[0][:7] == 'MSYS_NT':
+        IS_CYGWIN_MINGW=True
 
 def display_help(exit_code):
     print("mk_make.py: Z3 Makefile generator\n")
