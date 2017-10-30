@@ -28,6 +28,7 @@ z3_add_component(util
     lbool.cpp
     luby.cpp
     memory_manager.cpp
+    min_cut.cpp
     mpbq.cpp
     mpf.cpp
     mpff.cpp

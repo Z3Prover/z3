@@ -218,7 +218,6 @@ namespace smt {
             ast_manager & m = get_manager();
             ext_skolems = alloc(func_decl_ref_vector, m);
             for (unsigned i = 0; i < dimension; ++i) {
-                sort * ext_sk_domain[2] = { s_array, s_array };
                 func_decl * ext_sk_decl = util.mk_array_ext(s_array, i);
                 ext_skolems->push_back(ext_sk_decl);
             }

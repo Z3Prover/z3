@@ -75,7 +75,7 @@ z3_add_component(smt
     normal_forms
     parser_util
     pattern
-    proof_checker
+    proofs
     proto_model
     simplex
     substitution

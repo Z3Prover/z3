@@ -23,7 +23,8 @@ Notes:
 #include "muz/spacer/spacer_util.h"
 #include "ast/rewriter/bool_rewriter.h"
 
-#include "ast/proof_checker/proof_checker.h"
+#include "ast/proofs/proof_checker.h"
+#include "ast/proofs/proof_utils.h"
 
 #include "ast/scoped_proof.h"
 
@@ -64,172 +65,11 @@ virtual_solver::~virtual_solver()
 }
 
 namespace {
-static bool matches_fact(expr_ref_vector &args, expr* &match)
-{
-    ast_manager &m = args.get_manager();
-    expr *fact = args.back();
-    for (unsigned i = 0, sz = args.size() - 1; i < sz; ++i) {
-        expr *arg = args.get(i);
-        if (m.is_proof(arg) &&
-                m.has_fact(to_app(arg)) &&
-                m.get_fact(to_app(arg)) == fact) {
-            match = arg;
-            return true;
-        }
-    }
-    return false;
-}
 
 
-class elim_aux_assertions {
-    app_ref m_aux;
-public:
-    elim_aux_assertions(app_ref aux) : m_aux(aux) {}
+// TBD: move to ast/proofs/elim_aux_assertions
 
-    void mk_or_core(expr_ref_vector &args, expr_ref &res)
-    {
-        ast_manager &m = args.get_manager();
-        unsigned j = 0;
-        for (unsigned i = 0, sz = args.size(); i < sz; ++i) {
-            if (m.is_false(args.get(i))) { continue; }
-            if (i != j) { args [j] = args.get(i); }
-            ++j;
-        }
-        SASSERT(j >= 1);
-        res = j > 1 ? m.mk_or(j, args.c_ptr()) : args.get(0);
-    }
 
-    void mk_app(func_decl *decl, expr_ref_vector &args, expr_ref &res)
-    {
-        ast_manager &m = args.get_manager();
-        bool_rewriter brwr(m);
-
-        if (m.is_or(decl))
-        { mk_or_core(args, res); }
-        else if (m.is_iff(decl) && args.size() == 2)
-            // avoiding simplifying equalities. In particular,
-            // we don't want (= (not a) (not b)) to be reduced to (= a b)
-        { res = m.mk_iff(args.get(0), args.get(1)); }
-        else
-        { brwr.mk_app(decl, args.size(), args.c_ptr(), res); }
-    }
-
-    void operator()(ast_manager &m, proof *pr, proof_ref &res)
-    {
-        DEBUG_CODE(proof_checker pc(m);
-                   expr_ref_vector side(m);
-                   SASSERT(pc.check(pr, side));
-                  );
-        obj_map<app, app*> cache;
-        bool_rewriter brwr(m);
-
-        // for reference counting of new proofs
-        app_ref_vector pinned(m);
-
-        ptr_vector<app> todo;
-        todo.push_back(pr);
-
-        expr_ref not_aux(m);
-        not_aux = m.mk_not(m_aux);
-
-        expr_ref_vector args(m);
-
-        while (!todo.empty()) {
-            app *p, *r;
-            expr *a;
-
-            p = todo.back();
-            if (cache.find(pr, r)) {
-                todo.pop_back();
-                continue;
-            }
-
-            SASSERT(!todo.empty() || pr == p);
-            bool dirty = false;
-            unsigned todo_sz = todo.size();
-            args.reset();
-            for (unsigned i = 0, sz = p->get_num_args(); i < sz; ++i) {
-                expr* arg = p->get_arg(i);
-                if (arg == m_aux.get()) {
-                    dirty = true;
-                    args.push_back(m.mk_true());
-                } else if (arg == not_aux.get()) {
-                    dirty = true;
-                    args.push_back(m.mk_false());
-                }
-                // skip (asserted m_aux)
-                else if (m.is_asserted(arg, a) && a == m_aux.get()) {
-                    dirty = true;
-                }
-                // skip (hypothesis m_aux)
-                else if (m.is_hypothesis(arg, a) && a == m_aux.get()) {
-                    dirty = true;
-                } else if (is_app(arg) && cache.find(to_app(arg), r)) {
-                    dirty |= (arg != r);
-                    args.push_back(r);
-                } else if (is_app(arg))
-                { todo.push_back(to_app(arg)); }
-                else
-                    // -- not an app
-                { args.push_back(arg); }
-
-            }
-            if (todo_sz < todo.size()) {
-                // -- process parents
-                args.reset();
-                continue;
-            }
-
-            // ready to re-create
-            app_ref newp(m);
-            if (!dirty) { newp = p; }
-            else if (m.is_unit_resolution(p)) {
-                if (args.size() == 2)
-                    // unit resolution with m_aux that got collapsed to nothing
-                { newp = to_app(args.get(0)); }
-                else {
-                    ptr_vector<proof> parents;
-                    for (unsigned i = 0, sz = args.size() - 1; i < sz; ++i)
-                    { parents.push_back(to_app(args.get(i))); }
-                    SASSERT(parents.size() == args.size() - 1);
-                    newp = m.mk_unit_resolution(parents.size(), parents.c_ptr());
-                    // XXX the old and new facts should be
-                    // equivalent. The test here is much
-                    // stronger. It might need to be relaxed.
-                    SASSERT(m.get_fact(newp) == args.back());
-                    pinned.push_back(newp);
-                }
-            } else if (matches_fact(args, a)) {
-                newp = to_app(a);
-            } else {
-                expr_ref papp(m);
-                mk_app(p->get_decl(), args, papp);
-                newp = to_app(papp.get());
-                pinned.push_back(newp);
-            }
-            cache.insert(p, newp);
-            todo.pop_back();
-            CTRACE("virtual",
-                   p->get_decl_kind() == PR_TH_LEMMA &&
-                   p->get_decl()->get_parameter(0).get_symbol() == "arith" &&
-                   p->get_decl()->get_num_parameters() > 1 &&
-                   p->get_decl()->get_parameter(1).get_symbol() == "farkas",
-                   tout << "Old pf: " << mk_pp(p, m) << "\n"
-                   << "New pf: " << mk_pp(newp, m) << "\n";);
-        }
-
-        proof *r;
-        VERIFY(cache.find(pr, r));
-
-        DEBUG_CODE(
-            proof_checker pc(m);
-            expr_ref_vector side(m);
-            SASSERT(pc.check(r, side));
-        );
-
-        res = r ;
-    }
-};
 }
 
 proof *virtual_solver::get_proof()
@@ -349,15 +189,16 @@ void virtual_solver::push_core()
         m_context.push();
     }
 }
-void virtual_solver::pop_core(unsigned n)
-{
+void virtual_solver::pop_core(unsigned n) {
     SASSERT(!m_pushed || get_scope_level() > 0);
     if (m_pushed) {
         SASSERT(!m_in_delay_scope);
         m_context.pop(n);
         m_pushed = get_scope_level() - n > 0;
-    } else
-    { m_in_delay_scope = get_scope_level() - n > 0; }
+    } 
+    else {
+        m_in_delay_scope = get_scope_level() - n > 0; 
+    }
 }
 
 void virtual_solver::get_unsat_core(ptr_vector<expr> &r)

@@ -20,7 +20,7 @@ Revision History:
 
 #include "ast/ast.h"
 #include "muz/spacer/spacer_util.h"
-#include "muz/spacer/spacer_proof_utils.h"
+#include "ast/proofs/proof_utils.h"
 
 namespace spacer {
 

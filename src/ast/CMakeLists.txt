@@ -10,6 +10,7 @@ z3_add_component(ast
     ast_printer.cpp
     ast_smt2_pp.cpp
     ast_smt_pp.cpp
+    ast_pp_dot.cpp
     ast_translation.cpp
     ast_util.cpp
     bv_decl_plugin.cpp

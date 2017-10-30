@@ -6,6 +6,7 @@ z3_add_component(solver
     smt_logics.cpp
     solver.cpp
     solver_na2as.cpp
+    solver_pool.cpp
     solver2tactic.cpp
     tactic2solver.cpp
   COMPONENT_DEPENDENCIES

@@ -119,7 +119,6 @@ br_status fpa_rewriter::mk_to_fp(func_decl * f, unsigned num_args, expr * const 
             // BV -> float
             SASSERT(bvs1 == sbits + ebits);
             unsynch_mpz_manager & mpzm = m_fm.mpz_manager();
-            unsynch_mpq_manager & mpqm = m_fm.mpq_manager();
             scoped_mpz sig(mpzm), exp(mpzm);
 
             const mpz & sm1 = m_fm.m_powers2(sbits - 1);

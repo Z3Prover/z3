@@ -1396,8 +1396,7 @@ public:
 
 enum proof_gen_mode {
     PGM_DISABLED,
-    PGM_COARSE,
-    PGM_FINE
+    PGM_ENABLED
 };
 
 // -----------------------------------
@@ -2088,15 +2087,14 @@ protected:
     proof * mk_proof(family_id fid, decl_kind k, expr * arg1, expr * arg2);
     proof * mk_proof(family_id fid, decl_kind k, expr * arg1, expr * arg2, expr * arg3);
 
+    proof * mk_undef_proof() const { return m_undef_proof; }
+
 public:
     bool proofs_enabled() const { return m_proof_mode != PGM_DISABLED; }
     bool proofs_disabled() const { return m_proof_mode == PGM_DISABLED; }
-    bool coarse_grain_proofs() const { return m_proof_mode == PGM_COARSE; }
-    bool fine_grain_proofs() const { return m_proof_mode == PGM_FINE; }
     proof_gen_mode proof_mode() const { return m_proof_mode; }
     void toggle_proof_mode(proof_gen_mode m) { m_proof_mode = m; } // APIs for creating proof objects return [undef]
 
-    proof * mk_undef_proof() const { return m_undef_proof; }
 
     bool is_proof(expr const * n) const { return is_app(n) && to_app(n)->get_decl()->get_range() == m_proof_sort; }
 

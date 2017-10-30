@@ -41,9 +41,8 @@ Notes:
 #include "ast/ast_smt2_pp.h"
 #include "qe/qe_lite.h"
 #include "ast/ast_ll_pp.h"
-#include "ast/proof_checker/proof_checker.h"
+#include "ast/proofs/proof_checker.h"
 #include "smt/smt_value_sort.h"
-#include "muz/base/proof_utils.h"
 #include "muz/base/dl_boogie_proof.h"
 #include "ast/scoped_proof.h"
 #include "tactic/core/blast_term_ite_tactic.h"
@@ -1825,7 +1824,7 @@ namespace pdr {
             m_core_generalizers.push_back(alloc(core_multi_generalizer, *this, 0));
         }
         if (!classify.is_bool()) {
-            m.toggle_proof_mode(PGM_FINE);
+            m.toggle_proof_mode(PGM_ENABLED);
             m_fparams.m_arith_bound_prop = BP_NONE;
             m_fparams.m_arith_auto_config_simplex = true;
             m_fparams.m_arith_propagate_eqs = false;

@@ -1063,16 +1063,31 @@ void cmd_context::mk_app(symbol const & s, unsigned num_args, expr * const * arg
         if (fs.more_than_one())
             throw cmd_exception("ambiguous constant reference, more than one constant with the same sort, use a qualified expression (as <symbol> <sort>) to disumbiguate ", s);
         func_decl * f = fs.first();
-        if (f == 0)
+        if (f == 0) {
             throw cmd_exception("unknown constant ", s);
+        }
         if (f->get_arity() != 0)
             throw cmd_exception("invalid function application, missing arguments ", s);
         result = m().mk_const(f);
     }
     else {
         func_decl * f = fs.find(m(), num_args, args, range);
-        if (f == 0)
-            throw cmd_exception("unknown constant ", s);
+        if (f == 0) {
+            std::ostringstream buffer;
+            buffer << "unknown constant " << s << " ";
+            buffer << " (";
+            bool first = true;
+            for (unsigned i = 0; i < num_args; ++i, first = false) {
+                if (!first) buffer << " ";
+                buffer << mk_pp(m().get_sort(args[i]), m());
+            }            
+            buffer << ") ";
+            if (range) buffer << mk_pp(range, m()) << " ";
+            for (unsigned i = 0; i < fs.get_num_entries(); ++i) {
+                buffer << "\ndeclared: " << mk_pp(fs.get_entry(i), m()) << " ";
+            }
+            throw cmd_exception(buffer.str().c_str());
+        }
         if (well_sorted_check_enabled())
             m().check_sort(f, num_args, args);
         result = m().mk_app(f, num_args, args);
