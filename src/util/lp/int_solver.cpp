@@ -405,8 +405,8 @@ unsigned int_solver::row_of_basic_column(unsigned j) const {
 
 template <typename T>
 void int_solver::fill_cut_solver(cut_solver<T> & cs) {
-    for (lar_base_constraint * c : m_lar_solver->constraints()) {
-        fill_cut_solver_for_constraint(c, cs);
+    for (unsigned i = 0; i < m_lar_solver->constraints().size(); i++) {
+        fill_cut_solver_for_constraint(i, cs);
     }
     for (unsigned j = 0; j < m_lar_solver->m_mpq_lar_core_solver.m_r_x.size(); j++) {
         if (is_int(j) && !is_term(j))
@@ -416,11 +416,14 @@ void int_solver::fill_cut_solver(cut_solver<T> & cs) {
 }
 
 template <typename T>
-void int_solver::fill_cut_solver_for_constraint(const lar_base_constraint* c, cut_solver<T> & cs) {
+void int_solver::fill_cut_solver_for_constraint(constraint_index ci, cut_solver<T> & cs) {
+    const lar_base_constraint* c = m_lar_solver->constraints()[ci];
+    vector<constraint_index> explanation;
+    explanation.push_back(ci);
     std::vector<std::pair<T, var_index>> coeffs;
     T rs;
     get_int_coeffs_from_constraint(c, coeffs, rs);
-    cs.add_ineq(coeffs, -rs);
+    cs.add_ineq(coeffs, -rs, explanation);
 }
 
 

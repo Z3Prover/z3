@@ -94,7 +94,11 @@ public: // for debugging
     
     struct ineq { // we only have less or equal, which is enough for integral variables
         polynomial m_poly;
-        ineq(std::vector<std::pair<T, var_index>>& term, const T& a): m_poly(term, a) {
+        vector<constraint_index> m_explanation; 
+        ineq(std::vector<std::pair<T, var_index>>& term,
+             const T& a,
+             vector<constraint_index> explanation):
+            m_poly(term, a), m_explanation(explanation) {
         }
         ineq() {}
         bool contains(var_index j) const {
@@ -224,7 +228,9 @@ public: // for debugging
         return m_var_name_function(m_var_infos[j].m_user_var_index);
     }
 
-    unsigned add_ineq(std::vector<std::pair<T, var_index>> & lhs, const T& free_coeff) {
+    unsigned add_ineq(std::vector<std::pair<T, var_index>> & lhs,
+                      const T& free_coeff,
+                      vector<constraint_index> explanation) {
         lp_assert(lhs_is_int(lhs));
         lp_assert(is_int(free_coeff));
         std::vector<std::pair<T, var_index>>  local_lhs;
@@ -232,7 +238,7 @@ public: // for debugging
         for (auto & p : lhs)
             local_lhs.push_back(std::make_pair(p.first, add_var(p.second)));
         
-        m_ineqs.push_back(ineq(local_lhs, free_coeff));
+        m_ineqs.push_back(ineq(local_lhs, free_coeff, explanation));
 
         for (auto & p : local_lhs)
             m_var_infos[p.second].add_dependent_ineq(ineq_index);
@@ -263,7 +269,7 @@ public: // for debugging
     std::vector<scope>          m_scopes;
     std::unordered_map<unsigned, unsigned> m_user_vars_to_cut_solver_vars;
     static T m_local_zero;
-    
+    vector<constraint_index> m_explanation; // if this vector has some elements we have a conflict 
     unsigned add_var(unsigned user_var_index) {
         unsigned ret;
         if (try_get_value(m_user_vars_to_cut_solver_vars, user_var_index, ret))

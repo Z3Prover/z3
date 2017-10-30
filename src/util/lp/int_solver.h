@@ -150,7 +150,7 @@ public:
     template <typename T>
     void fill_cut_solver(cut_solver<T> & cs);
     template <typename T>
-    void fill_cut_solver_for_constraint(const lar_base_constraint*, cut_solver<T>& );
+    void fill_cut_solver_for_constraint(constraint_index ci, cut_solver<T>& );
     template <typename T>
     void get_int_coeffs_from_constraint(const lar_base_constraint* c, std::vector<std::pair<T, var_index>>& coeff, T & rs);
     bool is_term(unsigned j) const;

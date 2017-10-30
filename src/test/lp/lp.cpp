@@ -3295,7 +3295,8 @@ void test_cut_solver() {
     term.push_back(std::make_pair(8, x));
     term.push_back(std::make_pair(-3, y));
     term.push_back(std::make_pair(-2, z));
-    unsigned ineq_index = cs.add_ineq(term, 5);
+    vector<unsigned> expl;
+    unsigned ineq_index = cs.add_ineq(term, 5, expl);
 
     cs.print_ineq(std::cout, ineq_index);
     std::cout << std::endl;
@@ -3303,7 +3304,7 @@ void test_cut_solver() {
     term.clear();
     term.push_back(std::make_pair(1,x));
     term.push_back(std::make_pair(-2,y));
-    unsigned ineq_index0 = cs.add_ineq(term, 2);
+    unsigned ineq_index0 = cs.add_ineq(term, 2, expl);
     cs.print_ineq(std::cout, ineq_index0);
     std::cout <<std::endl;
     
