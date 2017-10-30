@@ -18,18 +18,18 @@ Revision History:
 
 --*/
 
-#include "qe_mbp.h"
-#include "qe_arith.h"
-#include "qe_arrays.h"
-#include "qe_datatypes.h"
-#include "expr_safe_replace.h"
-#include "ast_pp.h"
-#include "ast_util.h"
-#include "th_rewriter.h"
-#include "model_v2_pp.h"
-#include "expr_functors.h"
-#include "for_each_expr.h"
-#include "model_evaluator.h"
+#include "qe/qe_mbp.h"
+#include "qe/qe_arith.h"
+#include "qe/qe_arrays.h"
+#include "qe/qe_datatypes.h"
+#include "ast/rewriter/expr_safe_replace.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_util.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "model/model_v2_pp.h"
+#include "ast/expr_functors.h"
+#include "ast/for_each_expr.h"
+#include "model/model_evaluator.h"
 
 
 using namespace qe;

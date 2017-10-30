@@ -19,7 +19,7 @@ Notes:
 #ifndef API_POLYNOMIAL_H_
 #define API_POLYNOMIAL_H_
 
-#include"polynomial.h"
+#include "math/polynomial/polynomial.h"
 
 namespace api {
     

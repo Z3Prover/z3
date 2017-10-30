@@ -1,6 +1,6 @@
-#include "model_based_opt.h"
-#include "util.h"
-#include "uint_set.h"
+#include "math/simplex/model_based_opt.h"
+#include "util/util.h"
+#include "util/uint_set.h"
 
 typedef opt::model_based_opt::var var;
 
@@ -54,7 +54,7 @@ static void add_random_ineq(opt::model_based_opt& mbo,
             continue;
         }
         unsigned sign = r(2);
-		coeff = sign == 0 ? coeff : -coeff;
+        coeff = sign == 0 ? coeff : -coeff;
         vars.push_back(var(x, rational(coeff)));
         value += coeff*values[x];
     }

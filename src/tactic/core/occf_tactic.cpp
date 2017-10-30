@@ -21,10 +21,10 @@ Author:
 Revision History:
 
 --*/
-#include"tactical.h"
-#include"occf_tactic.h"
-#include"filter_model_converter.h"
-#include"cooperate.h"
+#include "tactic/tactical.h"
+#include "tactic/core/occf_tactic.h"
+#include "tactic/filter_model_converter.h"
+#include "util/cooperate.h"
 
 class occf_tactic : public tactic {
     struct     imp {

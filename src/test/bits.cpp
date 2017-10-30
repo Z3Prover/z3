@@ -5,11 +5,11 @@ Copyright (c) 2015 Microsoft Corporation
 --*/
 
 // Test some bit hacks
-#include"util.h"
-#include"debug.h"
-#include"vector.h"
-#include"mpz.h"
-#include"bit_util.h"
+#include "util/util.h"
+#include "util/debug.h"
+#include "util/vector.h"
+#include "util/mpz.h"
+#include "util/bit_util.h"
 
 static void tst_shl(unsigned src_sz, unsigned const * src, unsigned k, 
                     unsigned dst_sz, unsigned const * dst, bool trace = true) {
@@ -27,11 +27,11 @@ static void tst_shl(unsigned src_sz, unsigned const * src, unsigned k,
         if (trace)
             std::cout << "  for sz = " << sz << std::endl;
         shl(src_sz, src, k, sz, actual_dst.c_ptr());
-        SASSERT(!has_one_at_first_k_bits(sz, actual_dst.c_ptr(), k));
+        ENSURE(!has_one_at_first_k_bits(sz, actual_dst.c_ptr(), k));
         for (unsigned i = 0; i < sz; i++) {
             if (trace && dst[i] != actual_dst[i])
                 std::cout << "UNEXPECTED RESULT at [" << i << "]: " << actual_dst[i] << ", expected: " << dst[i] << "\n";
-            SASSERT(dst[i] == actual_dst[i]);
+            ENSURE(dst[i] == actual_dst[i]);
         }
         if (sz == src_sz) {
             unsigned nz1 = nlz(sz, src);
@@ -52,7 +52,7 @@ static void tst_shl(unsigned src_sz, unsigned const * src, unsigned k,
                 if (trace && src[i] != new_src[i]) {
                     std::cout << "shr BUG, inverting shl, at bit[" << i << "], " << new_src[i] << ", expected: " << src[i] << std::endl;
                 }
-                SASSERT(src[i] == new_src[i]);
+                ENSURE(src[i] == new_src[i]);
             }
         }
     }
@@ -65,7 +65,7 @@ static void tst_shl(unsigned src_sz, unsigned const * src, unsigned k,
     for (unsigned i = 0; i < dst_sz; i++) {
         if (trace && dst[i] != actual_dst[i])
             std::cout << "UNEXPECTED RESULT at [" << i << "]: " << actual_dst[i] << ", expected: " << dst[i] << "\n";
-        SASSERT(dst[i] == actual_dst[i]);
+        ENSURE(dst[i] == actual_dst[i]);
     }
     if (src_sz <= dst_sz) {
         if (trace)
@@ -74,7 +74,7 @@ static void tst_shl(unsigned src_sz, unsigned const * src, unsigned k,
         for (unsigned i = 0; i < src_sz; i++) {
             if (trace && src[i] != dst[i])
                 std::cout << "UNEXPECTED RESULT at [" << i << "]: " << src[i] << ", expected: " << dst[i] << "\n";
-            SASSERT(src[i] == actual_dst[i]);
+            ENSURE(src[i] == actual_dst[i]);
         }
     }
 }
@@ -134,7 +134,7 @@ static void tst_shr(unsigned src_sz, unsigned const * src, unsigned k,
     for (unsigned i = 0; i < src_sz; i++) {
         if (trace && dst[i] != actual_dst[i])
             std::cout << "UNEXPECTED RESULT at [" << i << "]: " << actual_dst[i] << ", expected: " << dst[i] << "\n";
-        SASSERT(dst[i] == actual_dst[i]);
+        ENSURE(dst[i] == actual_dst[i]);
     }
 }
 
@@ -172,7 +172,7 @@ static void tst_shl_rand(unsynch_mpz_manager & m, unsigned sz, unsigned k, bool 
     m.mul2k(max, 32);
     while (!m.is_zero(_dst)) {
         m.mod(_dst, max, tmp);
-        SASSERT(m.is_uint64(tmp) && m.get_uint64(tmp) < UINT_MAX);
+        ENSURE(m.is_uint64(tmp) && m.get_uint64(tmp) < UINT_MAX);
         dst.push_back(static_cast<unsigned>(m.get_uint64(tmp)));
         m.div(_dst, max, _dst);
     }

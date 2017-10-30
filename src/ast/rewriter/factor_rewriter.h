@@ -20,9 +20,9 @@ Notes:
 #ifndef FACTOR_REWRITER_H_
 #define FACTOR_REWRITER_H_
 
-#include"ast.h"
-#include"rewriter.h"
-#include"arith_decl_plugin.h"
+#include "ast/ast.h"
+#include "ast/rewriter/rewriter.h"
+#include "ast/arith_decl_plugin.h"
 
 class factor_rewriter {
     typedef obj_map<expr,unsigned> powers_t;

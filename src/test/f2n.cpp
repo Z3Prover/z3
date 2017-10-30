@@ -15,9 +15,9 @@ Author:
 Revision History:
 
 --*/
-#include"f2n.h"
-#include"hwf.h"
-#include"mpf.h"
+#include "util/f2n.h"
+#include "util/hwf.h"
+#include "util/mpf.h"
 
 static void tst1() {
     hwf_manager      hm;

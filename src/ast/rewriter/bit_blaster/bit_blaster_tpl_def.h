@@ -16,12 +16,12 @@ Author:
 Revision History:
 
 --*/
-#include"bit_blaster_tpl.h"
-#include"rational.h"
-#include"ast_pp.h"
-#include"cooperate.h"
-#include"common_msgs.h"
-#include"rewriter_types.h"
+#include "ast/rewriter/bit_blaster/bit_blaster_tpl.h"
+#include "util/rational.h"
+#include "ast/ast_pp.h"
+#include "util/cooperate.h"
+#include "util/common_msgs.h"
+#include "ast/rewriter/rewriter_types.h"
 
 
 template<typename Cfg>
@@ -272,7 +272,7 @@ void bit_blaster_tpl<Cfg>::mk_multiplier(unsigned sz, expr * const * a_bits, exp
         zero = m().mk_false();
 
         vector< expr_ref_vector > pps;
-        pps.resize(sz, m());
+        pps.resize(sz, expr_ref_vector(m()));
                
         for (unsigned i = 0; i < sz; i++) {
             checkpoint();

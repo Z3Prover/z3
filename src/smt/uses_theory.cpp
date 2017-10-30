@@ -17,8 +17,8 @@ Revision History:
 
 --*/
 
-#include"uses_theory.h"
-#include"for_each_expr.h"
+#include "smt/uses_theory.h"
+#include "ast/for_each_expr.h"
 
 bool uses_theory(expr * n, family_id fid) {
     expr_mark visited;

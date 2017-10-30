@@ -16,13 +16,13 @@ Author:
 Revision History:
 
 --*/
-#include"smt_context.h"
-#include"expr_stat.h"
-#include"ast_pp.h"
-#include"ast_ll_pp.h"
-#include"ast_smt2_pp.h"
-#include"smt_model_finder.h"
-#include"for_each_expr.h"
+#include "smt/smt_context.h"
+#include "ast/expr_stat.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
+#include "ast/ast_smt2_pp.h"
+#include "smt/smt_model_finder.h"
+#include "ast/for_each_expr.h"
 
 namespace smt {
 
@@ -198,19 +198,19 @@ namespace smt {
         if (get_depth(n) > DEEP_EXPR_THRESHOLD) {
             // if the expression is deep, then execute topological sort to avoid
             // stack overflow.
+            // a caveat is that theory internalizers do rely on recursive descent so
+            // internalization over these follows top-down
             TRACE("deep_internalize", tout << "expression is deep: #" << n->get_id() << "\n" << mk_ll_pp(n, m_manager););
             svector<expr_bool_pair> sorted_exprs;
             top_sort_expr(n, sorted_exprs);
-            TRACE("deep_internalize", 
-                  svector<expr_bool_pair>::const_iterator it  = sorted_exprs.begin();
-                  svector<expr_bool_pair>::const_iterator end = sorted_exprs.end();
-                  for (; it != end; ++it) {
-                      tout << "#" << it->first->get_id() << " " << it->second << "\n";
-                  });
-            svector<expr_bool_pair>::const_iterator it  = sorted_exprs.begin();
-            svector<expr_bool_pair>::const_iterator end = sorted_exprs.end();
-            for (; it != end; ++it)
-                internalize(it->first, it->second);
+            TRACE("deep_internalize", for (auto & kv : sorted_exprs) tout << "#" << kv.first->get_id() << " " << kv.second << "\n"; );
+            for (auto & kv : sorted_exprs) {
+                expr* e = kv.first;
+                if (!is_app(e) || 
+                    to_app(e)->get_family_id() == null_family_id || 
+                    to_app(e)->get_family_id() == m_manager.get_basic_family_id()) 
+                    internalize(e, kv.second);
+            }
         }
         SASSERT(m_manager.is_bool(n));
         if (is_gate(m_manager, n)) {

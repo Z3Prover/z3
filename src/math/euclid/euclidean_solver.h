@@ -19,8 +19,8 @@ Revision History:
 #ifndef EUCLIDEAN_SOLVER_H_
 #define EUCLIDEAN_SOLVER_H_
 
-#include"mpq.h"
-#include"vector.h"
+#include "util/mpq.h"
+#include "util/vector.h"
 
 class euclidean_solver {
     struct imp;

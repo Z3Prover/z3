@@ -22,7 +22,7 @@ Revision History:
 #ifndef DEGREE_SHIFT_TACTIC_H_
 #define DEGREE_SHIFT_TACTIC_H_
 
-#include"params.h"
+#include "util/params.h"
 class ast_manager;
 class tactic;
 

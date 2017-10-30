@@ -20,7 +20,7 @@ Revision History:
 --*/
 #pragma once
 
-#include "theory_opt.h"
+#include "smt/theory_opt.h"
 
 namespace smt {
     class theory_lra : public theory, public theory_opt {

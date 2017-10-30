@@ -19,9 +19,9 @@ Revision History:
 #ifndef DL_VECTOR_RELATION_H_
 #define DL_VECTOR_RELATION_H_
 
-#include "ast_pp.h"
-#include "dl_context.h"
-#include "union_find.h"
+#include "ast/ast_pp.h"
+#include "muz/base/dl_context.h"
+#include "util/union_find.h"
 
 namespace datalog {
    

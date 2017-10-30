@@ -8,9 +8,9 @@ Copyright (c) 2015 Microsoft Corporation
 #ifndef QE_ARITH_H_
 #define QE_ARITH_H_
 
-#include "model.h"
-#include "arith_decl_plugin.h"
-#include "qe_mbp.h"
+#include "model/model.h"
+#include "ast/arith_decl_plugin.h"
+#include "qe/qe_mbp.h"
 
 namespace qe {
 

@@ -19,7 +19,7 @@ Revision History:
 #ifndef RATIONAL_H_
 #define RATIONAL_H_
 
-#include"mpq.h"
+#include "util/mpq.h"
 
 class rational {
     mpq   m_val;
@@ -41,6 +41,7 @@ public:
     rational() {}
     
     rational(rational const & r) { m().set(m_val, r.m_val); }
+    rational(rational && r) : m_val(std::move(r.m_val)) {}
 
     explicit rational(int n) { m().set(m_val, n); }
 
@@ -422,7 +423,7 @@ inline bool operator>(rational const & r1, rational const & r2) {
 }
 
 inline bool operator<(rational const & r1, int r2) {
-	return r1 < rational(r2);
+    return r1 < rational(r2);
 }
 
 inline bool operator<=(rational const & r1, rational const & r2) { 
@@ -450,11 +451,11 @@ inline rational operator+(rational const & r1, rational const & r2) {
 }
 
 inline rational operator+(int r1, rational const & r2) {
-	return rational(r1) + r2;
+    return rational(r1) + r2;
 }
 
 inline rational operator+(rational const & r1, int r2) {
-	return r1 + rational(r2);
+    return r1 + rational(r2);
 }
 
 
@@ -463,11 +464,11 @@ inline rational operator-(rational const & r1, rational const & r2) {
 }
 
 inline rational operator-(rational const & r1, int r2) {
-	return r1 - rational(r2);
+    return r1 - rational(r2);
 }
 
 inline rational operator-(int r1, rational const & r2) {
-	return rational(r1) - r2;
+    return rational(r1) - r2;
 }
 
 inline rational operator-(rational const & r) { 
@@ -492,11 +493,11 @@ inline rational operator/(rational const & r1, rational const & r2) {
 }
 
 inline rational operator/(rational const & r1, int r2) {
-	return r1 / rational(r2);
+    return r1 / rational(r2);
 }
 
-inline rational operator/(int r1, rational const &	r2) {
-	return rational(r1) / r2;
+inline rational operator/(int r1, rational const &    r2) {
+    return rational(r1) / r2;
 }
 
 inline rational power(rational const & r, unsigned p) {

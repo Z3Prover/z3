@@ -16,11 +16,11 @@ Author:
 Revision History:
 
 --*/
-#include"z3.h"
-#include"api_log_macros.h"
-#include"api_context.h"
-#include"api_util.h"
-#include"ast_pp.h"
+#include "api/z3.h"
+#include "api/api_log_macros.h"
+#include "api/api_context.h"
+#include "api/api_util.h"
+#include "ast/ast_pp.h"
 
 extern "C" {
 

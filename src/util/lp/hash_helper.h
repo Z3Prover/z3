@@ -1,7 +1,22 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 #pragma once
 #include <utility>
 #include <functional>
@@ -12,8 +27,8 @@
 #endif
 namespace std {
 template<>
-struct hash<lean::mpq> {
-    inline size_t operator()(const lean::mpq & v) const {
+struct hash<lp::mpq> {
+    inline size_t operator()(const lp::mpq & v) const {
         return v.hash();
     }
 };

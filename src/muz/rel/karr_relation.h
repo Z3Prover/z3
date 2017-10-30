@@ -19,8 +19,8 @@ Revision History:
 #ifndef KARR_RELATION_H_
 #define KARR_RELATION_H_
 
-#include"dl_mk_karr_invariants.h"
-#include"dl_relation_manager.h"
+#include "muz/transforms/dl_mk_karr_invariants.h"
+#include "muz/rel/dl_relation_manager.h"
 
 namespace datalog {
 

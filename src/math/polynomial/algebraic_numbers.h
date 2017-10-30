@@ -19,16 +19,16 @@ Notes:
 #ifndef ALGEBRAIC_NUMBERS_H_
 #define ALGEBRAIC_NUMBERS_H_
 
-#include"rational.h"
-#include"mpq.h"
-#include"polynomial.h"
-#include"z3_exception.h"
-#include"scoped_numeral.h"
-#include"scoped_numeral_vector.h"
-#include"tptr.h"
-#include"statistics.h"
-#include"params.h"
-#include"rlimit.h"
+#include "util/rational.h"
+#include "util/mpq.h"
+#include "math/polynomial/polynomial.h"
+#include "util/z3_exception.h"
+#include "util/scoped_numeral.h"
+#include "util/scoped_numeral_vector.h"
+#include "util/tptr.h"
+#include "util/statistics.h"
+#include "util/params.h"
+#include "util/rlimit.h"
 
 class small_object_allocator;
 class mpbq_manager;

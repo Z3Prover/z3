@@ -19,18 +19,20 @@ Revision History:
 #ifndef DL_ENGINE_BASE_H_
 #define DL_ENGINE_BASE_H_
 
-#include "model.h"
+#include "model/model.h"
+#include "muz/base/dl_util.h"
 
 namespace datalog {
     enum DL_ENGINE {
         DATALOG_ENGINE,
         PDR_ENGINE,
+        SPACER_ENGINE,
         QPDR_ENGINE,
         BMC_ENGINE,
         QBMC_ENGINE,
         TAB_ENGINE,
         CLP_ENGINE,
-	DUALITY_ENGINE,
+        DUALITY_ENGINE,
         DDNF_ENGINE,
         LAST_ENGINE
     };
@@ -43,6 +45,9 @@ namespace datalog {
         virtual ~engine_base() {}
 
         virtual expr_ref get_answer() = 0;
+        virtual expr_ref get_ground_sat_answer () {
+            throw default_exception(std::string("operation is not supported for ") + m_name);
+        }
         virtual lbool query(expr* q) = 0;
         virtual lbool query(unsigned num_rels, func_decl*const* rels) { 
             if (num_rels != 1) return l_undef;
@@ -64,6 +69,9 @@ namespace datalog {
             }
             return query(q);
         }
+        virtual lbool query_from_lvl (expr* q, unsigned lvl) {
+            throw default_exception(std::string("operation is not supported for ") + m_name);
+        }
 
         virtual void reset_statistics() {}
         virtual void display_profile(std::ostream& out) {}
@@ -71,10 +79,16 @@ namespace datalog {
         virtual unsigned get_num_levels(func_decl* pred) {
             throw default_exception(std::string("get_num_levels is not supported for ") + m_name);
         }
+        virtual expr_ref get_reachable(func_decl* pred) {
+              throw default_exception(std::string("operation is not supported for ") + m_name);
+        }
         virtual expr_ref get_cover_delta(int level, func_decl* pred) {
             throw default_exception(std::string("operation is not supported for ") + m_name);
         }
         virtual void add_cover(int level, func_decl* pred, expr* property) {
+            throw default_exception(std::string("operation is not supported for ") + m_name);
+        }
+        virtual void add_invariant (func_decl *pred, expr *property) {
             throw default_exception(std::string("operation is not supported for ") + m_name);
         }
         virtual void display_certificate(std::ostream& out) const {
@@ -82,6 +96,9 @@ namespace datalog {
         }
         virtual model_ref get_model() {
             return model_ref(alloc(model, m));
+        }
+        virtual void get_rules_along_trace (rule_ref_vector& rules) {
+            throw default_exception(std::string("get_rules_along_trace is not supported for ") + m_name);
         }
         virtual proof_ref get_proof() {
             return proof_ref(m.mk_asserted(m.mk_true()), m);

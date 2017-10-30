@@ -19,9 +19,9 @@ Revision History:
 
 
 #include<string>
-#include"dl_context.h"
-#include"dl_relation_manager.h"
-#include"dl_table_relation.h"
+#include "muz/base/dl_context.h"
+#include "muz/rel/dl_relation_manager.h"
+#include "muz/rel/dl_table_relation.h"
 
 
 namespace datalog {

@@ -4,15 +4,15 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
-#include "hilbert_basis.h"
-#include "ast_pp.h"
-#include "reg_decl_plugins.h"
-#include "arith_decl_plugin.h"
-#include "quant_tactics.h"
-#include "tactic.h"
-#include "tactic2solver.h"
-#include "solver.h"
-#include "rlimit.h"
+#include "math/hilbert/hilbert_basis.h"
+#include "ast/ast_pp.h"
+#include "ast/reg_decl_plugins.h"
+#include "ast/arith_decl_plugin.h"
+#include "tactic/smtlogics/quant_tactics.h"
+#include "tactic/tactic.h"
+#include "solver/tactic2solver.h"
+#include "solver/solver.h"
+#include "util/rlimit.h"
 #include <signal.h>
 #include <time.h>
 #include <sstream>
@@ -286,8 +286,8 @@ static void gorrila_test(unsigned seed, unsigned n, unsigned k, unsigned bound, 
     random_gen rand(seed);
     reslimit rl;
     hilbert_basis hb(rl);
-    SASSERT(0 < bound);
-    SASSERT(k <= n);
+    ENSURE(0 < bound);
+    ENSURE(k <= n);
     int ibound = static_cast<int>(bound);
     for (unsigned i = 0; i < num_ineqs; ++i) {
         vector<rational> nv;

@@ -18,33 +18,33 @@ Revision History:
 
 --*/
 
-#include "qe.h"
-#include "smt_theory.h"
-#include "bv_decl_plugin.h"
-#include "smt_context.h"
-#include "theory_bv.h"
-#include "ast_ll_pp.h"
-#include "ast_pp.h"
-#include "ast_smt_pp.h"
-#include "expr_abstract.h"
-#include "var_subst.h"
-#include "for_each_expr.h"
-#include "dl_decl_plugin.h"
-#include "nlarith_util.h"
-#include "expr_replacer.h"
-#include "factor_rewriter.h"
-#include "expr_functors.h"
-#include "quant_hoist.h"
-#include "bool_rewriter.h"
-#include "th_rewriter.h"
-#include "smt_kernel.h"
-#include "model_evaluator.h"
-#include "has_free_vars.h"
-#include "rewriter_def.h"
-#include "cooperate.h"
-#include "tactical.h"
-#include "model_v2_pp.h"
-#include "obj_hashtable.h"
+#include "qe/qe.h"
+#include "smt/smt_theory.h"
+#include "ast/bv_decl_plugin.h"
+#include "smt/smt_context.h"
+#include "smt/theory_bv.h"
+#include "ast/ast_ll_pp.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_smt_pp.h"
+#include "ast/expr_abstract.h"
+#include "ast/rewriter/var_subst.h"
+#include "ast/for_each_expr.h"
+#include "ast/dl_decl_plugin.h"
+#include "qe/nlarith_util.h"
+#include "ast/rewriter/expr_replacer.h"
+#include "ast/rewriter/factor_rewriter.h"
+#include "ast/expr_functors.h"
+#include "ast/rewriter/quant_hoist.h"
+#include "ast/rewriter/bool_rewriter.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "smt/smt_kernel.h"
+#include "model/model_evaluator.h"
+#include "ast/has_free_vars.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "util/cooperate.h"
+#include "tactic/tactical.h"
+#include "model/model_v2_pp.h"
+#include "util/obj_hashtable.h"
 
 
 namespace qe {
@@ -1272,7 +1272,7 @@ namespace qe {
         family_id fid = p->get_family_id();
         SASSERT(fid != null_family_id);
         if (static_cast<int>(m_plugins.size()) <= fid) {
-            m_plugins.resize(fid+1,0);
+            m_plugins.resize(fid+1);
         }
         SASSERT(!m_plugins[fid]);
         m_plugins[fid] = p;
@@ -1309,6 +1309,10 @@ namespace qe {
     void i_solver_context::mk_atom_fn::operator()(expr* e, bool p, expr_ref& result) {
         m_s.mk_atom(e, p, result);
     }    
+
+    void i_solver_context::collect_statistics(statistics& st) const {
+       // tbd
+    }
 
     typedef ref_vector_ptr_hash<expr, ast_manager> expr_ref_vector_hash;
     typedef ref_vector_ptr_eq<expr, ast_manager>   expr_ref_vector_eq;
@@ -2393,6 +2397,7 @@ namespace qe {
 
 
 
+#if 0
     // ------------------------------------------------
     // expr_quant_elim_star1
 
@@ -2433,13 +2438,7 @@ namespace qe {
         simplifier(m), m_quant_elim(m, p), m_assumption(m.mk_true())
     {
     }
-
-    void expr_quant_elim_star1::reduce_with_assumption(expr* ctx, expr* fml, expr_ref& result) {
-        proof_ref pr(m);
-        m_assumption = ctx;
-        (*this)(fml, result, pr);
-        m_assumption = m.mk_true();
-    }
+#endif
 
 
     void hoist_exists(expr_ref& fml, app_ref_vector& vars) {
@@ -2488,6 +2487,7 @@ namespace qe {
 
         virtual ~simplify_solver_context() { reset(); }    
         
+
         void solve(expr_ref& fml, app_ref_vector& vars) {
             init(fml, vars);
             bool solved  = true;
@@ -2580,6 +2580,10 @@ namespace qe {
             m_ctx.updt_params(p);
         }
 
+        void collect_statistics(statistics & st) const {
+            m_ctx.collect_statistics(st);
+        }
+
         bool reduce_quantifier(
             quantifier * old_q, 
             expr * new_body, 
@@ -2645,6 +2649,10 @@ namespace qe {
 
     void simplify_rewriter_cfg::updt_params(params_ref const& p) {
         imp->updt_params(p);
+    }
+
+    void simplify_rewriter_cfg::collect_statistics(statistics & st) const {
+        imp->collect_statistics(st);
     }
 
     bool simplify_rewriter_cfg::pre_visit(expr* e) {

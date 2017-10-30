@@ -19,11 +19,12 @@ Notes:
 #ifndef FLOAT_REWRITER_H_
 #define FLOAT_REWRITER_H_
 
-#include"ast.h"
-#include"rewriter.h"
-#include"params.h"
-#include"fpa_decl_plugin.h"
-#include"mpf.h"
+#include "ast/ast.h"
+#include "ast/rewriter/rewriter.h"
+#include "ast/fpa_decl_plugin.h"
+#include "ast/expr_map.h"
+#include "util/params.h"
+#include "util/mpf.h"
 
 class fpa_rewriter {
     fpa_util      m_util;
@@ -32,6 +33,9 @@ class fpa_rewriter {
 
     app * mk_eq_nan(expr * arg);
     app * mk_neq_nan(expr * arg);
+
+    br_status mk_to_bv(func_decl * f, expr * arg1, expr * arg2, bool is_signed, expr_ref & result);
+    br_status mk_to_bv_unspecified(func_decl * f, expr_ref & result);
 
 public:
     fpa_rewriter(ast_manager & m, params_ref const & p = params_ref());
@@ -73,22 +77,17 @@ public:
     br_status mk_is_negative(expr * arg1, expr_ref & result);
     br_status mk_is_positive(expr * arg1, expr_ref & result);
 
-    br_status mk_to_ieee_bv(expr * arg1, expr_ref & result);
-
     br_status mk_to_fp(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result);
     br_status mk_to_fp_unsigned(func_decl * f, expr * arg1, expr * arg2, expr_ref & result);
 
     br_status mk_bv2rm(expr * arg, expr_ref & result);
     br_status mk_fp(expr * sgn, expr * exp, expr * sig, expr_ref & result);
-    br_status mk_to_fp_unsigned(expr * arg1, expr * arg2, expr_ref & result);
     br_status mk_to_ubv(func_decl * f, expr * arg1, expr * arg2, expr_ref & result);
     br_status mk_to_sbv(func_decl * f, expr * arg1, expr * arg2, expr_ref & result);
     br_status mk_to_ieee_bv(func_decl * f, expr * arg, expr_ref & result);
     br_status mk_to_real(expr * arg, expr_ref & result);
-
-    br_status mk_to_ubv_unspecified(unsigned ebits, unsigned sbits, unsigned with, expr_ref & result);
-    br_status mk_to_sbv_unspecified(unsigned ebits, unsigned sbits, unsigned with, expr_ref & result);
-    br_status mk_to_real_unspecified(unsigned ebits, unsigned sbits, expr_ref & result);
+    br_status mk_min_i(func_decl * f, expr * arg1, expr * arg2, expr_ref & result);
+    br_status mk_max_i(func_decl * f, expr * arg1, expr * arg2, expr_ref & result);
 
     br_status mk_bvwrap(expr * arg, expr_ref & result);
 };

@@ -19,8 +19,8 @@ Notes:
 #ifndef ARITH_REWRITER_H_
 #define ARITH_REWRITER_H_
 
-#include"poly_rewriter.h"
-#include"arith_decl_plugin.h"
+#include "ast/rewriter/poly_rewriter.h"
+#include "ast/arith_decl_plugin.h"
 
 class arith_rewriter_core {
 protected:
@@ -35,7 +35,6 @@ protected:
     
     bool is_numeral(expr * n) const { return m_util.is_numeral(n); }
     bool is_numeral(expr * n, numeral & r) const { return m_util.is_numeral(n, r); }
-    bool is_zero(expr * n) const { return m_util.is_zero(n); }
     bool is_minus_one(expr * n) const { return m_util.is_minus_one(n); }
     void normalize(numeral & c, sort * s) {}
     app * mk_numeral(numeral const & r, sort * s) { return m_util.mk_numeral(r, s); }
@@ -45,16 +44,18 @@ protected:
     decl_kind power_decl_kind() const { return OP_POWER; }
 public:
     arith_rewriter_core(ast_manager & m):m_util(m) {}
+    bool is_zero(expr * n) const { return m_util.is_zero(n); }
 };
 
 class arith_rewriter : public poly_rewriter<arith_rewriter_core> {
     bool m_arith_lhs;
+    bool m_arith_ineq_lhs;
     bool m_gcd_rounding;
-    bool m_eq2ineq;
     bool m_elim_to_real;
     bool m_push_to_real;
     bool m_anum_simp;
     bool m_elim_rem;
+    bool m_eq2ineq;
     unsigned m_max_degree;
 
     void get_coeffs_gcd(expr * t, numeral & g, bool & first, unsigned & num_consts);
@@ -82,12 +83,16 @@ class arith_rewriter : public poly_rewriter<arith_rewriter_core> {
     expr * reduce_power(expr * arg, bool is_eq);
     br_status reduce_power(expr * arg1, expr * arg2, op_kind kind, expr_ref & result);
 
+    bool is_arith_term(expr * n) const;
+
     bool is_pi_multiple(expr * t, rational & k);
     bool is_pi_offset(expr * t, rational & k, expr * & m);
     bool is_2_pi_integer(expr * t);
     bool is_2_pi_integer_offset(expr * t, expr * & m);
     bool is_pi_integer(expr * t);
     bool is_pi_integer_offset(expr * t, expr * & m);
+    bool is_neg_poly(expr* e, expr_ref& neg) const;
+    expr_ref neg_monomial(expr * e) const;
     expr * mk_sin_value(rational const & k);
     app * mk_sqrt(rational const & k);
 

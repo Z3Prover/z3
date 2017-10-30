@@ -25,7 +25,7 @@ Revision History:
 
 --*/
 #include<sstream>
-#include"mpbq.h"
+#include "util/mpbq.h"
 
 #ifdef Z3DEBUG
 #define MPBQ_DEBUG

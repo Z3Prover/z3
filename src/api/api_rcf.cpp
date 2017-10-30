@@ -20,10 +20,10 @@ Notes:
     
 --*/
 #include<iostream>
-#include"z3.h"
-#include"api_log_macros.h"
-#include"api_context.h"
-#include"realclosure.h"
+#include "api/z3.h"
+#include "api/api_log_macros.h"
+#include "api/api_context.h"
+#include "math/realclosure/realclosure.h"
 
 static rcmanager & rcfm(Z3_context c) {
     return mk_c(c)->rcfm();

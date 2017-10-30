@@ -18,10 +18,10 @@ Notes:
 --*/
 
 #include <typeinfo>
-#include "smt_context.h"
-#include "ast_pp.h"
-#include "theory_wmaxsat.h"
-#include "smt_justification.h"
+#include "smt/smt_context.h"
+#include "ast/ast_pp.h"
+#include "smt/theory_wmaxsat.h"
+#include "smt/smt_justification.h"
 
 namespace smt {
 

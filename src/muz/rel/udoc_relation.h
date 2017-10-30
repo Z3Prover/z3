@@ -22,8 +22,8 @@ Revision History:
 #ifndef UDOC_RELATION_H_
 #define UDOC_RELATION_H_
 
-#include "doc.h"
-#include "dl_base.h"
+#include "muz/rel/doc.h"
+#include "muz/rel/dl_base.h"
 
 namespace datalog {
     class udoc_plugin;

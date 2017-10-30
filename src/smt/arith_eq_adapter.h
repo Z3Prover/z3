@@ -19,11 +19,10 @@ Revision History:
 #ifndef ARITH_EQ_ADAPTER_H_
 #define ARITH_EQ_ADAPTER_H_
 
-#include"smt_theory.h"
-#include"obj_pair_hashtable.h"
-#include"arith_decl_plugin.h"
-#include"statistics.h"
-#include"arith_simplifier_plugin.h"
+#include "smt/smt_theory.h"
+#include "util/obj_pair_hashtable.h"
+#include "ast/arith_decl_plugin.h"
+#include "util/statistics.h"
 
 namespace smt {
 

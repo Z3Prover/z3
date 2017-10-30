@@ -18,9 +18,9 @@ Notes:
 
 --*/
 
-#include "inf_rational.h"
-#include "inf_eps_rational.h"
-#include "arith_decl_plugin.h"
+#include "util/inf_rational.h"
+#include "util/inf_eps_rational.h"
+#include "ast/arith_decl_plugin.h"
 
 #ifndef THEORY_OPT_H_
 #define THEORY_OPT_H_

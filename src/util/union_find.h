@@ -19,8 +19,8 @@ Revision History:
 #ifndef UNION_FIND_H_
 #define UNION_FIND_H_
 
-#include "trail.h"
-#include "trace.h"
+#include "util/trail.h"
+#include "util/trace.h"
 
 class union_find_default_ctx {
 public:

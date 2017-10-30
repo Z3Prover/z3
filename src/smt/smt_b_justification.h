@@ -19,8 +19,8 @@ Revision History:
 #ifndef SMT_B_JUSTIFICATION_H_
 #define SMT_B_JUSTIFICATION_H_
 
-#include"smt_literal.h"
-#include"smt_clause.h"
+#include "smt/smt_literal.h"
+#include "smt/smt_clause.h"
 
 namespace smt {
 

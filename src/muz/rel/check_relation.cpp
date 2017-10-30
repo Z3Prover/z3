@@ -4,10 +4,10 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
-#include "check_relation.h"
-#include "dl_relation_manager.h"
-#include "ast_util.h"
-#include "smt_kernel.h"
+#include "muz/rel/check_relation.h"
+#include "muz/rel/dl_relation_manager.h"
+#include "ast/ast_util.h"
+#include "smt/smt_kernel.h"
 #include <typeinfo>
 
 

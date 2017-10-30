@@ -19,7 +19,7 @@ Notes:
 #ifndef UFBV_REWRITER_TACTIC_H_
 #define UFBV_REWRITER_TACTIC_H_
 
-#include"params.h"
+#include "util/params.h"
 class ast_manager;
 class tactic;
 

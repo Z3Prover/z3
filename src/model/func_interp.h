@@ -30,8 +30,8 @@ Revision History:
 #ifndef FUNC_INTERP_H_
 #define FUNC_INTERP_H_
 
-#include"ast.h"
-#include"ast_translation.h"
+#include "ast/ast.h"
+#include "ast/ast_translation.h"
 
 class func_interp;
 

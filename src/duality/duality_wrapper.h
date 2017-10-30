@@ -27,31 +27,31 @@
 #include<vector>
 #include<list>
 #include <set>
-#include"version.h"
+#include "util/version.h"
 #include<limits.h>
 
-#include "iz3hash.h"
-#include "model.h"
-#include "solver.h"
+#include "interp/iz3hash.h"
+#include "model/model.h"
+#include "solver/solver.h"
 
-#include"well_sorted.h"
-#include"arith_decl_plugin.h"
-#include"bv_decl_plugin.h"
-#include"datatype_decl_plugin.h"
-#include"array_decl_plugin.h"
-#include"ast_translation.h"
-#include"ast_pp.h"
-#include"ast_ll_pp.h"
-#include"ast_smt_pp.h"
-#include"ast_smt2_pp.h"
-#include"th_rewriter.h"
-#include"var_subst.h"
-#include"expr_substitution.h"
-#include"pp.h"
-#include"scoped_ctrl_c.h"
-#include"cancel_eh.h"
-#include"scoped_timer.h"
-#include"scoped_proof.h"
+#include "ast/well_sorted.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/datatype_decl_plugin.h"
+#include "ast/array_decl_plugin.h"
+#include "ast/ast_translation.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
+#include "ast/ast_smt_pp.h"
+#include "ast/ast_smt2_pp.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "ast/rewriter/var_subst.h"
+#include "ast/expr_substitution.h"
+#include "ast/pp.h"
+#include "util/scoped_ctrl_c.h"
+#include "util/cancel_eh.h"
+#include "util/scoped_timer.h"
+#include "ast/scoped_proof.h"
 
 namespace Duality {
 
@@ -176,7 +176,7 @@ namespace Duality {
             m_datalog_fid = m().mk_family_id("datalog_relation");
         }
         ~context() { }
-      
+
         ast_manager &m() const {return *(ast_manager *)&mgr;}
 
         void set(char const * param, char const * value) { m_config.set(param,value); }
@@ -186,13 +186,13 @@ namespace Duality {
 
         symbol str_symbol(char const * s);
         symbol int_symbol(int n);
-      
+
         sort bool_sort();
         sort int_sort();
         sort real_sort();
         sort bv_sort(unsigned sz);
         sort array_sort(sort d, sort r);
-      
+
         func_decl function(symbol const & name, unsigned arity, sort const * domain, sort const & range);
         func_decl function(char const * name, unsigned arity, sort const * domain, sort const & range);
         func_decl function(char const * name, sort const & domain, sort const & range);
@@ -210,22 +210,22 @@ namespace Duality {
         expr int_const(char const * name);
         expr real_const(char const * name);
         expr bv_const(char const * name, unsigned sz);
-      
+
         expr bool_val(bool b);
-      
+
         expr int_val(int n);
         expr int_val(unsigned n);
         expr int_val(char const * n);
-      
+
         expr real_val(int n, int d);
         expr real_val(int n);
         expr real_val(unsigned n);
         expr real_val(char const * n);
-      
+
         expr bv_val(int n, unsigned sz);
         expr bv_val(unsigned n, unsigned sz);
         expr bv_val(char const * n, unsigned sz);
-      
+
         expr num_val(int n, sort const & s);
 
         expr mki(family_id fid, ::decl_kind dk, int n, ::expr **args);
@@ -281,17 +281,17 @@ namespace Duality {
     object(object const & s):m_ctx(s.m_ctx) {}
         context & ctx() const { return *m_ctx; }
         friend void check_context(object const & a, object const & b) { assert(a.m_ctx == b.m_ctx); }
-	ast_manager &m() const {return m_ctx->m();}
+        ast_manager &m() const {return m_ctx->m();}
     };
 
     class symbol : public object {
         ::symbol m_sym;
     public:
-    symbol(context & c, ::symbol s):object(c), m_sym(s) {}
-    symbol(symbol const & s):object(s), m_sym(s.m_sym) {}
+        symbol(context & c, ::symbol s):object(c), m_sym(s) {}
+        symbol(symbol const & s):object(s), m_sym(s.m_sym) {}
         symbol & operator=(symbol const & s) { m_ctx = s.m_ctx; m_sym = s.m_sym; return *this; }
-	operator ::symbol() const {return m_sym;} 
-	std::string str() const {
+        operator ::symbol() const {return m_sym;}
+        std::string str() const {
             if (m_sym.is_numerical()) {
                 std::ostringstream buffer;
                 buffer << m_sym.get_num();
@@ -300,13 +300,13 @@ namespace Duality {
             else {
                 return m_sym.bare_str();
             }
-	}
-        friend std::ostream & operator<<(std::ostream & out, symbol const & s){
+        }
+        friend std::ostream & operator<<(std::ostream & out, symbol const & s) {
             return out << s.str();
-	}
-	friend bool operator==(const symbol &x, const symbol &y){
+        }
+        friend bool operator==(const symbol &x, const symbol &y) {
             return x.m_sym == y.m_sym;
-	}
+        }
     };
 
     class params : public config {};
@@ -318,7 +318,7 @@ namespace Duality {
     public:
         ::ast * const &raw() const {return _ast;}
     ast_i(context & c, ::ast *a = 0) : object(c) {_ast = a;}
-      
+
         ast_i(){_ast = 0;}
         bool eq(const ast_i &other) const {
             return _ast == other._ast;
@@ -345,19 +345,19 @@ namespace Duality {
         operator ::ast*() const { return raw(); }
         friend bool eq(ast const & a, ast const & b) { return a.raw() == b.raw(); }
 
-      
+
     ast(context &c, ::ast *a = 0) : ast_i(c,a) {
             if(_ast)
                 m().inc_ref(a);
         }
-      
+
         ast() {}
-      
+
     ast(const ast &other) : ast_i(other) {
             if(_ast)
                 m().inc_ref(_ast);
         }
-      
+
         ast &operator=(const ast &other) {
             if(_ast)
                 m().dec_ref(_ast);
@@ -367,7 +367,7 @@ namespace Duality {
                 m().inc_ref(_ast);
             return *this;
         }
-      
+
         ~ast(){
             if(_ast)
                 m().dec_ref(_ast);
@@ -386,15 +386,15 @@ namespace Duality {
         sort & operator=(sort const & s) { return static_cast<sort&>(ast::operator=(s)); }
 
         bool is_bool() const { return m().is_bool(*this); }
-        bool is_int() const { return ctx().get_sort_kind(*this) == IntSort; } 
-        bool is_real() const { return ctx().get_sort_kind(*this) == RealSort; } 
+        bool is_int() const { return ctx().get_sort_kind(*this) == IntSort; }
+        bool is_real() const { return ctx().get_sort_kind(*this) == RealSort; }
         bool is_arith() const;
-        bool is_array() const { return ctx().get_sort_kind(*this) == ArraySort; } 
-        bool is_datatype() const; 
-        bool is_relation() const; 
-        bool is_finite_domain() const; 
+        bool is_array() const { return ctx().get_sort_kind(*this) == ArraySort; }
+        bool is_datatype() const;
+        bool is_relation() const;
+        bool is_finite_domain() const;
 
-      
+
         sort array_domain() const;
         sort array_range() const;
 
@@ -404,7 +404,7 @@ namespace Duality {
         }
     };
 
-    
+
     class func_decl : public ast {
     public:
     func_decl() : ast() {}
@@ -413,7 +413,7 @@ namespace Duality {
     func_decl(func_decl const & s):ast(s) {}
         operator ::func_decl*() const { return to_func_decl(*this); }
         func_decl & operator=(func_decl const & s) { return static_cast<func_decl&>(ast::operator=(s)); }
-        
+
         unsigned arity() const;
         sort domain(unsigned i) const;
         sort range() const;
@@ -434,9 +434,9 @@ namespace Duality {
         expr operator()(expr const & a1, expr const & a2, expr const & a3, expr const & a4) const;
         expr operator()(expr const & a1, expr const & a2, expr const & a3, expr const & a4, expr const & a5) const;
 
-	func_decl get_func_decl_parameter(unsigned idx){
+        func_decl get_func_decl_parameter(unsigned idx){
             return func_decl(ctx(),to_func_decl(to_func_decl(raw())->get_parameters()[idx].get_ast()));
-	}
+        }
 
     };
 
@@ -447,8 +447,8 @@ namespace Duality {
     expr(context & c, ::ast *n):ast(c, n) {}
     expr(expr const & n):ast(n) {}
         expr & operator=(expr const & n) { return static_cast<expr&>(ast::operator=(n)); }
-	operator ::expr*() const { return to_expr(raw()); }
-	unsigned get_id() const {return to_expr(raw())->get_id();}
+        operator ::expr*() const { return to_expr(raw()); }
+        unsigned get_id() const {return to_expr(raw())->get_id();}
 
         sort get_sort() const { return sort(ctx(),m().get_sort(to_expr(raw()))); }
 
@@ -460,27 +460,27 @@ namespace Duality {
         bool is_datatype() const { return get_sort().is_datatype(); }
         bool is_relation() const { return get_sort().is_relation(); }
         bool is_finite_domain() const { return get_sort().is_finite_domain(); }
-	bool is_true() const {return is_app() && decl().get_decl_kind() == True; }
+        bool is_true() const {return is_app() && decl().get_decl_kind() == True; }
 
         bool is_numeral() const {
             return is_app() && decl().get_decl_kind() == OtherArith && m().is_unique_value(to_expr(raw()));
-	}
-	bool is_app() const {return raw()->get_kind() == AST_APP;}
+        }
+        bool is_app() const {return raw()->get_kind() == AST_APP;}
         bool is_quantifier() const {return raw()->get_kind() == AST_QUANTIFIER;}
         bool is_var() const {return raw()->get_kind() == AST_VAR;}
-	bool is_label (bool &pos,std::vector<symbol> &names) const ;
-	bool is_ground() const {return to_app(raw())->is_ground();}
-	bool has_quantifiers() const {return to_app(raw())->has_quantifiers();}
-	bool has_free(int idx) const {
+        bool is_label (bool &pos,std::vector<symbol> &names) const ;
+        bool is_ground() const {return to_app(raw())->is_ground();}
+        bool has_quantifiers() const {return to_app(raw())->has_quantifiers();}
+        bool has_free(int idx) const {
             used_vars proc;
             proc.process(to_expr(raw()));
             return proc.contains(idx);
-	}
-	unsigned get_max_var_idx_plus_1() const {
+        }
+        unsigned get_max_var_idx_plus_1() const {
             used_vars proc;
             proc.process(to_expr(raw()));
             return proc.get_max_found_var_idx_plus_1();
-	}
+        }
 
         // operator Z3_app() const { assert(is_app()); return reinterpret_cast<Z3_app>(m_ast); }
         func_decl decl() const {return func_decl(ctx(),to_app(raw())->get_decl());}
@@ -493,11 +493,11 @@ namespace Duality {
                 return 1;
             case AST_VAR:
                 return 0;
-            default:;    
+            default:;
             }
             SASSERT(0);
             return 0;
-	}
+        }
         expr arg(unsigned i) const {
             ast_kind dk = raw()->get_kind();
             switch(dk){
@@ -509,25 +509,25 @@ namespace Duality {
             }
             assert(0);
             return expr();
-	}
+        }
 
         expr body() const {
             return ctx().cook(to_quantifier(raw())->get_expr());
-	}
+        }
 
         friend expr operator!(expr const & a) {
             // ::expr *e = a;
             return expr(a.ctx(),a.m().mk_app(a.m().get_basic_family_id(),OP_NOT,a));
-	}
+        }
 
         friend expr operator&&(expr const & a, expr const & b) {
             return expr(a.ctx(),a.m().mk_app(a.m().get_basic_family_id(),OP_AND,a,b));
-	}
+        }
 
         friend expr operator||(expr const & a, expr const & b) {
             return expr(a.ctx(),a.m().mk_app(a.m().get_basic_family_id(),OP_OR,a,b));
         }
-        
+
         friend expr implies(expr const & a, expr const & b) {
             return expr(a.ctx(),a.m().mk_app(a.m().get_basic_family_id(),OP_IMPLIES,a,b));
         }
@@ -546,12 +546,12 @@ namespace Duality {
 
         friend expr operator*(expr const & a, expr const & b) {
             return a.ctx().make(Times,a,b); // expr(a.ctx(),a.m().mk_app(a.m().get_basic_family_id(),OP_MUL,a,b));
-	}
+        }
 
         friend expr operator/(expr const & a, expr const & b) {
             return a.ctx().make(Div,a,b); //  expr(a.ctx(),a.m().mk_app(a.m().get_basic_family_id(),OP_DIV,a,b));
         }
-	
+
         friend expr operator-(expr const & a) {
             return a.ctx().make(Uminus,a); // expr(a.ctx(),a.m().mk_app(a.m().get_basic_family_id(),OP_UMINUS,a));
         }
@@ -562,71 +562,71 @@ namespace Duality {
 
         friend expr operator<=(expr const & a, expr const & b) {
             return a.ctx().make(Leq,a,b); // expr(a.ctx(),a.m().mk_app(a.m().get_basic_family_id(),OP_LE,a,b));
-	}
+        }
 
         friend expr operator>=(expr const & a, expr const & b) {
             return a.ctx().make(Geq,a,b); //expr(a.ctx(),a.m().mk_app(a.m().get_basic_family_id(),OP_GE,a,b));
         }
-	
+
         friend expr operator<(expr const & a, expr const & b) {
             return a.ctx().make(Lt,a,b); expr(a.ctx(),a.m().mk_app(a.m().get_basic_family_id(),OP_LT,a,b));
         }
-        
+
         friend expr operator>(expr const & a, expr const & b) {
             return a.ctx().make(Gt,a,b); expr(a.ctx(),a.m().mk_app(a.m().get_basic_family_id(),OP_GT,a,b));
-	}
+        }
 
         expr simplify() const;
 
         expr simplify(params const & p) const;
-	
+
         expr qe_lite() const;
 
-	expr qe_lite(const std::set<int> &idxs, bool index_of_bound) const;
+        expr qe_lite(const std::set<int> &idxs, bool index_of_bound) const;
 
-	friend expr clone_quantifier(const expr &, const expr &);
+        friend expr clone_quantifier(const expr &, const expr &);
 
         friend expr clone_quantifier(const expr &q, const expr &b, const std::vector<expr> &patterns);
 
-	friend expr clone_quantifier(decl_kind, const expr &, const expr &);
+        friend expr clone_quantifier(decl_kind, const expr &, const expr &);
 
         friend std::ostream & operator<<(std::ostream & out, expr const & m){
             m.ctx().print_expr(out,m);
             return out;
-	}
+        }
 
-	void get_patterns(std::vector<expr> &pats) const ;
+        void get_patterns(std::vector<expr> &pats) const ;
 
-	unsigned get_quantifier_num_bound() const {
+        unsigned get_quantifier_num_bound() const {
             return to_quantifier(raw())->get_num_decls();
-	}
+        }
 
-	unsigned get_index_value() const {
+        unsigned get_index_value() const {
             var* va = to_var(raw());
             return va->get_idx();
-	}
+        }
 
         bool is_quantifier_forall() const {
             return to_quantifier(raw())->is_forall();
-	}
+        }
 
-	sort get_quantifier_bound_sort(unsigned n) const {
+        sort get_quantifier_bound_sort(unsigned n) const {
             return sort(ctx(),to_quantifier(raw())->get_decl_sort(n));
-	}
+        }
 
-	symbol get_quantifier_bound_name(unsigned n) const {
+        symbol get_quantifier_bound_name(unsigned n) const {
             return symbol(ctx(),to_quantifier(raw())->get_decl_names()[n]);
-	}
+        }
 
-	friend expr forall(const std::vector<expr> &quants, const expr &body);
+        friend expr forall(const std::vector<expr> &quants, const expr &body);
 
-	friend expr exists(const std::vector<expr> &quants, const expr &body);
+        friend expr exists(const std::vector<expr> &quants, const expr &body);
 
     };
-    
+
 
     typedef ::decl_kind pfrule;
-    
+
     class proof : public ast {
     public:
     proof(context & c):ast(c) {}
@@ -643,15 +643,15 @@ namespace Duality {
         unsigned num_prems() const {
             return to_app(raw())->get_num_args() - 1;
         }
-      
+
         expr conc() const {
             return ctx().cook(to_app(raw())->get_arg(num_prems()));
         }
-      
+
         proof prem(unsigned i) const {
             return proof(ctx(),to_app(to_app(raw())->get_arg(i)));
         }
-      
+
         void get_assumptions(std::vector<expr> &assumps);
     };
 
@@ -675,12 +675,12 @@ namespace Duality {
         T back() const { return operator[](size() - 1); }
         void pop_back() { assert(size() > 0); resize(size() - 1); }
         bool empty() const { return size() == 0; }
-        ast_vector_tpl & operator=(ast_vector_tpl const & s) { 
-            Z3_ast_vector_inc_ref(s.ctx(), s.m_vector); 
+        ast_vector_tpl & operator=(ast_vector_tpl const & s) {
+            Z3_ast_vector_inc_ref(s.ctx(), s.m_vector);
             // Z3_ast_vector_dec_ref(ctx(), m_vector);
-            m_ctx = s.m_ctx; 
+            m_ctx = s.m_ctx;
             m_vector = s.m_vector;
-            return *this; 
+            return *this;
         }
         friend std::ostream & operator<<(std::ostream & out, ast_vector_tpl const & v) { out << Z3_ast_vector_to_string(v.ctx(), v); return out; }
     };
@@ -705,9 +705,9 @@ namespace Duality {
         ~func_interp() { }
         operator ::func_interp *() const { return m_interp; }
         func_interp & operator=(func_interp const & s) {
-            m_ctx = s.m_ctx; 
+            m_ctx = s.m_ctx;
             m_interp = s.m_interp;
-            return *this; 
+            return *this;
         }
         unsigned num_entries() const { return m_interp->num_entries(); }
         expr get_arg(unsigned ent, unsigned arg) const {
@@ -729,32 +729,32 @@ namespace Duality {
             m_model = m;
         }
     public:
-    model(context & c, ::model * m = 0):object(c), m_model(m) { }
-    model(model const & s):object(s), m_model(s.m_model) { }
-	~model() { }
+        model(context & c, ::model * m = 0):object(c), m_model(m) { }
+        model(model const & s):object(s), m_model(s.m_model) { }
+        ~model() { }
         operator ::model *() const { return m_model.get(); }
         model & operator=(model const & s) {
             // ::model *_inc_ref(s.ctx(), s.m_model);
             // ::model *_dec_ref(ctx(), m_model);
-            m_ctx = s.m_ctx; 
+            m_ctx = s.m_ctx;
             m_model = s.m_model.get();
-            return *this; 
+            return *this;
         }
         model & operator=(::model *s) {
-  	    m_model = s;
-            return *this; 
+            m_model = s;
+            return *this;
         }
-	bool null() const {return !m_model;}
-        
+        bool null() const {return !m_model;}
+
         expr eval(expr const & n, bool model_completion=true) const {
             ::model * _m = m_model.get();
             expr_ref result(ctx().m());
             _m->eval(n, result, model_completion);
             return expr(ctx(), result);
         }
-        
+
         void show() const;
-	void show_hash() const;
+        void show_hash() const;
 
         unsigned num_consts() const {return m_model.get()->get_num_constants();}
         unsigned num_funcs() const {return m_model.get()->get_num_functions();}
@@ -765,11 +765,11 @@ namespace Duality {
 
         expr get_const_interp(func_decl f) const {
             return ctx().cook(m_model->get_const_interp(to_func_decl(f.raw())));
-	}
+        }
 
         func_interp get_func_interp(func_decl f) const {
             return func_interp(ctx(),m_model->get_func_interp(to_func_decl(f.raw())));
-	} 
+        }
 
 #if 0
         friend std::ostream & operator<<(std::ostream & out, model const & m) { out << Z3_model_to_string(m.ctx(), m); return out; }
@@ -792,9 +792,9 @@ namespace Duality {
         stats & operator=(stats const & s) {
             Z3_stats_inc_ref(s.ctx(), s.m_stats);
             if (m_stats) Z3_stats_dec_ref(ctx(), m_stats);
-            m_ctx = s.m_ctx; 
+            m_ctx = s.m_ctx;
             m_stats = s.m_stats;
-            return *this; 
+            return *this;
         }
         unsigned size() const { return Z3_stats_size(ctx(), m_stats); }
         std::string key(unsigned i) const { Z3_string s = Z3_stats_get_key(ctx(), m_stats, i); check_error(); return s; }
@@ -820,7 +820,7 @@ namespace Duality {
         void assert_cnst(const expr &cnst);
     };
 
-    inline std::ostream & operator<<(std::ostream & out, check_result r) { 
+    inline std::ostream & operator<<(std::ostream & out, check_result r) {
         if (r == unsat) out << "unsat";
         else if (r == sat) out << "sat";
         else out << "unknown";
@@ -837,54 +837,54 @@ namespace Duality {
     protected:
         ::solver *m_solver;
         model the_model;
-	bool canceled;
-	proof_gen_mode m_mode;
-	bool extensional;
+        bool canceled;
+        proof_gen_mode m_mode;
+        bool extensional;
     public:
         solver(context & c, bool extensional = false, bool models = true);
-    solver(context & c, ::solver *s):object(c),the_model(c) { m_solver = s; canceled = false;}
-    solver(solver const & s):object(s), the_model(s.the_model) { m_solver = s.m_solver; canceled = false;}
+        solver(context & c, ::solver *s):object(c),the_model(c) { m_solver = s; canceled = false;}
+        solver(solver const & s):object(s), the_model(s.the_model) { m_solver = s.m_solver; canceled = false;}
         ~solver() {
             if(m_solver)
                 dealloc(m_solver);
-	}
-	operator ::solver*() const { return m_solver; }
-        solver & operator=(solver const & s) {
-            m_ctx = s.m_ctx; 
-            m_solver = s.m_solver;
-	    the_model = s.the_model;
-	    m_mode = s.m_mode;
-            return *this; 
         }
-	struct cancel_exception {};
-	void checkpoint(){
+        operator ::solver*() const { return m_solver; }
+        solver & operator=(solver const & s) {
+            m_ctx = s.m_ctx;
+            m_solver = s.m_solver;
+            the_model = s.the_model;
+            m_mode = s.m_mode;
+            return *this;
+        }
+        struct cancel_exception {};
+        void checkpoint(){
             if(canceled)
                 throw(cancel_exception());
-	}
+        }
         // void set(params const & p) { Z3_solver_set_params(ctx(), m_solver, p); check_error(); }
         void push() { scoped_proof_mode spm(m(),m_mode); m_solver->push(); }
         void pop(unsigned n = 1) { scoped_proof_mode spm(m(),m_mode); m_solver->pop(n); }
         // void reset() { Z3_solver_reset(ctx(), m_solver); check_error(); }
         void add(expr const & e) { scoped_proof_mode spm(m(),m_mode); m_solver->assert_expr(e); }
-        check_result check() { 
-            scoped_proof_mode spm(m(),m_mode); 
+        check_result check() {
+            scoped_proof_mode spm(m(),m_mode);
             checkpoint();
             lbool r = m_solver->check_sat(0,0);
             model_ref m;
             m_solver->get_model(m);
             the_model = m.get();
             return to_check_result(r);
-	}
-        check_result check_keep_model(unsigned n, expr * const assumptions, unsigned *core_size = 0, expr *core = 0) { 
-            scoped_proof_mode spm(m(),m_mode); 
+        }
+        check_result check_keep_model(unsigned n, expr * const assumptions, unsigned *core_size = 0, expr *core = 0) {
+            scoped_proof_mode spm(m(),m_mode);
             model old_model(the_model);
             check_result res = check(n,assumptions,core_size,core);
             if(the_model == 0)
                 the_model = old_model;
             return res;
-	}
+        }
         check_result check(unsigned n, expr * const assumptions, unsigned *core_size = 0, expr *core = 0) {
-            scoped_proof_mode spm(m(),m_mode); 
+            scoped_proof_mode spm(m(),m_mode);
             checkpoint();
             std::vector< ::expr *> _assumptions(n);
             for (unsigned i = 0; i < n; i++) {
@@ -892,7 +892,7 @@ namespace Duality {
             }
             the_model = 0;
             lbool r = m_solver->check_sat(n, VEC2PTR(_assumptions));
-	  
+
             if(core_size && core){
                 ptr_vector< ::expr> _core;
                 m_solver->get_unsat_core(_core);
@@ -905,20 +905,20 @@ namespace Duality {
             m_solver->get_model(m);
             the_model = m.get();
 
-            return to_check_result(r); 
+            return to_check_result(r);
         }
 #if 0
-        check_result check(expr_vector assumptions) { 
-            scoped_proof_mode spm(m(),m_mode); 
+        check_result check(expr_vector assumptions) {
+            scoped_proof_mode spm(m(),m_mode);
             unsigned n = assumptions.size();
             z3array<Z3_ast> _assumptions(n);
             for (unsigned i = 0; i < n; i++) {
                 check_context(*this, assumptions[i]);
                 _assumptions[i] = assumptions[i];
             }
-            Z3_lbool r = Z3_check_assumptions(ctx(), m_solver, n, _assumptions.ptr()); 
-            check_error(); 
-            return to_check_result(r); 
+            Z3_lbool r = Z3_check_assumptions(ctx(), m_solver, n, _assumptions.ptr());
+            check_error();
+            return to_check_result(r);
         }
 #endif
         model get_model() const { return model(ctx(), the_model); }
@@ -930,27 +930,26 @@ namespace Duality {
 #endif
         // expr proof() const { Z3_ast r = Z3_solver_proof(ctx(), m_solver); check_error(); return expr(ctx(), r); }
         // friend std::ostream & operator<<(std::ostream & out, solver const & s) { out << Z3_solver_to_string(s.ctx(), s); return out; }
-	
-	int get_num_decisions(); 
+        int get_num_decisions();
 
-	void cancel(){
-            scoped_proof_mode spm(m(),m_mode); 
+        void cancel(){
+            scoped_proof_mode spm(m(),m_mode);
             canceled = true;
             m().limit().cancel();
-	}
+        }
 
-	unsigned get_scope_level(){ scoped_proof_mode spm(m(),m_mode); return m_solver->get_scope_level();}
+        unsigned get_scope_level(){ scoped_proof_mode spm(m(),m_mode); return m_solver->get_scope_level();}
 
-	void show();
-	void print(const char *filename);
-	void show_assertion_ids();
+        void show();
+        void print(const char *filename);
+        void show_assertion_ids();
 
-	proof get_proof(){
-            scoped_proof_mode spm(m(),m_mode); 
+        proof get_proof(){
+            scoped_proof_mode spm(m(),m_mode);
             return proof(ctx(),m_solver->get_proof());
-	}
+        }
 
-	bool extensional_array_theory() {return extensional;}
+        bool extensional_array_theory() {return extensional;}
     };
 
 #if 0
@@ -969,20 +968,20 @@ namespace Duality {
         goal & operator=(goal const & s) {
             Z3_goal_inc_ref(s.ctx(), s.m_goal);
             Z3_goal_dec_ref(ctx(), m_goal);
-            m_ctx = s.m_ctx; 
+            m_ctx = s.m_ctx;
             m_goal = s.m_goal;
-            return *this; 
+            return *this;
         }
         void add(expr const & f) { check_context(*this, f); Z3_goal_assert(ctx(), m_goal, f); check_error(); }
         unsigned size() const { return Z3_goal_size(ctx(), m_goal); }
         expr operator[](unsigned i) const { Z3_ast r = Z3_goal_formula(ctx(), m_goal, i); check_error(); return expr(ctx(), r); }
         Z3_goal_prec precision() const { return Z3_goal_precision(ctx(), m_goal); }
         bool inconsistent() const { return Z3_goal_inconsistent(ctx(), m_goal) != 0; }
-        unsigned depth() const { return Z3_goal_depth(ctx(), m_goal); } 
+        unsigned depth() const { return Z3_goal_depth(ctx(), m_goal); }
         void reset() { Z3_goal_reset(ctx(), m_goal); }
         unsigned num_exprs() const { Z3_goal_num_exprs(ctx(), m_goal); }
-        bool is_decided_sat() const { return Z3_goal_is_decided_sat(ctx(), m_goal) != 0; }        
-        bool is_decided_unsat() const { return Z3_goal_is_decided_unsat(ctx(), m_goal) != 0; }        
+        bool is_decided_sat() const { return Z3_goal_is_decided_sat(ctx(), m_goal) != 0; }
+        bool is_decided_unsat() const { return Z3_goal_is_decided_unsat(ctx(), m_goal) != 0; }
         friend std::ostream & operator<<(std::ostream & out, goal const & g) { out << Z3_goal_to_string(g.ctx(), g); return out; }
     };
 
@@ -1000,15 +999,15 @@ namespace Duality {
         apply_result & operator=(apply_result const & s) {
             Z3_apply_result_inc_ref(s.ctx(), s.m_apply_result);
             Z3_apply_result_dec_ref(ctx(), m_apply_result);
-            m_ctx = s.m_ctx; 
+            m_ctx = s.m_ctx;
             m_apply_result = s.m_apply_result;
-            return *this; 
+            return *this;
         }
         unsigned size() const { return Z3_apply_result_get_num_subgoals(ctx(), m_apply_result); }
         goal operator[](unsigned i) const { Z3_goal r = Z3_apply_result_get_subgoal(ctx(), m_apply_result, i); check_error(); return goal(ctx(), r); }
         goal operator[](int i) const { assert(i >= 0); return this->operator[](static_cast<unsigned>(i)); }
-        model convert_model(model const & m, unsigned i = 0) const { 
-            check_context(*this, m); 
+        model convert_model(model const & m, unsigned i = 0) const {
+            check_context(*this, m);
             Z3_model new_m = Z3_apply_result_convert_model(ctx(), m_apply_result, i, m);
             check_error();
             return model(ctx(), new_m);
@@ -1031,16 +1030,16 @@ namespace Duality {
         tactic & operator=(tactic const & s) {
             Z3_tactic_inc_ref(s.ctx(), s.m_tactic);
             Z3_tactic_dec_ref(ctx(), m_tactic);
-            m_ctx = s.m_ctx; 
+            m_ctx = s.m_ctx;
             m_tactic = s.m_tactic;
-            return *this; 
+            return *this;
         }
         solver mk_solver() const { Z3_solver r = Z3_mk_solver_from_tactic(ctx(), m_tactic); check_error(); return solver(ctx(), r);  }
-        apply_result apply(goal const & g) const { 
+        apply_result apply(goal const & g) const {
             check_context(*this, g);
-            Z3_apply_result r = Z3_tactic_apply(ctx(), m_tactic, g); 
-            check_error(); 
-            return apply_result(ctx(), r); 
+            Z3_apply_result r = Z3_tactic_apply(ctx(), m_tactic, g);
+            check_error();
+            return apply_result(ctx(), r);
         }
         apply_result operator()(goal const & g) const {
             return apply(g);
@@ -1091,45 +1090,45 @@ namespace Duality {
         probe & operator=(probe const & s) {
             Z3_probe_inc_ref(s.ctx(), s.m_probe);
             Z3_probe_dec_ref(ctx(), m_probe);
-            m_ctx = s.m_ctx; 
+            m_ctx = s.m_ctx;
             m_probe = s.m_probe;
-            return *this; 
+            return *this;
         }
         double apply(goal const & g) const { double r = Z3_probe_apply(ctx(), m_probe, g); check_error(); return r; }
         double operator()(goal const & g) const { return apply(g); }
-        friend probe operator<=(probe const & p1, probe const & p2) { 
-            check_context(p1, p2); Z3_probe r = Z3_probe_le(p1.ctx(), p1, p2); p1.check_error(); return probe(p1.ctx(), r); 
+        friend probe operator<=(probe const & p1, probe const & p2) {
+            check_context(p1, p2); Z3_probe r = Z3_probe_le(p1.ctx(), p1, p2); p1.check_error(); return probe(p1.ctx(), r);
         }
         friend probe operator<=(probe const & p1, double p2) { return p1 <= probe(p1.ctx(), p2); }
         friend probe operator<=(double p1, probe const & p2) { return probe(p2.ctx(), p1) <= p2; }
-        friend probe operator>=(probe const & p1, probe const & p2) { 
-            check_context(p1, p2); Z3_probe r = Z3_probe_ge(p1.ctx(), p1, p2); p1.check_error(); return probe(p1.ctx(), r); 
+        friend probe operator>=(probe const & p1, probe const & p2) {
+            check_context(p1, p2); Z3_probe r = Z3_probe_ge(p1.ctx(), p1, p2); p1.check_error(); return probe(p1.ctx(), r);
         }
         friend probe operator>=(probe const & p1, double p2) { return p1 >= probe(p1.ctx(), p2); }
         friend probe operator>=(double p1, probe const & p2) { return probe(p2.ctx(), p1) >= p2; }
-        friend probe operator<(probe const & p1, probe const & p2) { 
-            check_context(p1, p2); Z3_probe r = Z3_probe_lt(p1.ctx(), p1, p2); p1.check_error(); return probe(p1.ctx(), r); 
+        friend probe operator<(probe const & p1, probe const & p2) {
+            check_context(p1, p2); Z3_probe r = Z3_probe_lt(p1.ctx(), p1, p2); p1.check_error(); return probe(p1.ctx(), r);
         }
         friend probe operator<(probe const & p1, double p2) { return p1 < probe(p1.ctx(), p2); }
         friend probe operator<(double p1, probe const & p2) { return probe(p2.ctx(), p1) < p2; }
-        friend probe operator>(probe const & p1, probe const & p2) { 
-            check_context(p1, p2); Z3_probe r = Z3_probe_gt(p1.ctx(), p1, p2); p1.check_error(); return probe(p1.ctx(), r); 
+        friend probe operator>(probe const & p1, probe const & p2) {
+            check_context(p1, p2); Z3_probe r = Z3_probe_gt(p1.ctx(), p1, p2); p1.check_error(); return probe(p1.ctx(), r);
         }
         friend probe operator>(probe const & p1, double p2) { return p1 > probe(p1.ctx(), p2); }
         friend probe operator>(double p1, probe const & p2) { return probe(p2.ctx(), p1) > p2; }
-        friend probe operator==(probe const & p1, probe const & p2) { 
-            check_context(p1, p2); Z3_probe r = Z3_probe_eq(p1.ctx(), p1, p2); p1.check_error(); return probe(p1.ctx(), r); 
+        friend probe operator==(probe const & p1, probe const & p2) {
+            check_context(p1, p2); Z3_probe r = Z3_probe_eq(p1.ctx(), p1, p2); p1.check_error(); return probe(p1.ctx(), r);
         }
         friend probe operator==(probe const & p1, double p2) { return p1 == probe(p1.ctx(), p2); }
         friend probe operator==(double p1, probe const & p2) { return probe(p2.ctx(), p1) == p2; }
-        friend probe operator&&(probe const & p1, probe const & p2) { 
-            check_context(p1, p2); Z3_probe r = Z3_probe_and(p1.ctx(), p1, p2); p1.check_error(); return probe(p1.ctx(), r); 
+        friend probe operator&&(probe const & p1, probe const & p2) {
+            check_context(p1, p2); Z3_probe r = Z3_probe_and(p1.ctx(), p1, p2); p1.check_error(); return probe(p1.ctx(), r);
         }
-        friend probe operator||(probe const & p1, probe const & p2) { 
-            check_context(p1, p2); Z3_probe r = Z3_probe_or(p1.ctx(), p1, p2); p1.check_error(); return probe(p1.ctx(), r); 
+        friend probe operator||(probe const & p1, probe const & p2) {
+            check_context(p1, p2); Z3_probe r = Z3_probe_or(p1.ctx(), p1, p2); p1.check_error(); return probe(p1.ctx(), r);
         }
         friend probe operator!(probe const & p) {
-            Z3_probe r = Z3_probe_not(p.ctx(), p); p.check_error(); return probe(p.ctx(), r); 
+            Z3_probe r = Z3_probe_not(p.ctx(), p); p.check_error(); return probe(p.ctx(), r);
         }
     };
 
@@ -1159,15 +1158,15 @@ namespace Duality {
     inline symbol context::int_symbol(int n) { ::symbol r = ::symbol(n); return symbol(*this, r); }
 
     inline sort context::bool_sort() {
-        ::sort *s = m().mk_sort(m_basic_fid, BOOL_SORT); 
+        ::sort *s = m().mk_sort(m_basic_fid, BOOL_SORT);
         return sort(*this, s);
     }
     inline sort context::int_sort()  {
-        ::sort *s = m().mk_sort(m_arith_fid, INT_SORT); 
+        ::sort *s = m().mk_sort(m_arith_fid, INT_SORT);
         return sort(*this, s);
     }
     inline sort context::real_sort()  {
-        ::sort *s = m().mk_sort(m_arith_fid, REAL_SORT); 
+        ::sort *s = m().mk_sort(m_arith_fid, REAL_SORT);
         return sort(*this, s);
     }
     inline sort context::array_sort(sort d, sort r) {
@@ -1188,7 +1187,7 @@ namespace Duality {
     inline func_decl context::function(char const * name, unsigned arity, sort const * domain, sort const & range) {
         return function(str_symbol(name), arity, domain, range);
     }
-    
+
     inline func_decl context::function(char const * name, sort const & domain, sort const & range) {
         sort args[1] = { domain };
         return function(name, 1, args, range);
@@ -1196,7 +1195,7 @@ namespace Duality {
 
     inline func_decl context::function(char const * name, sort const & d1, sort const & d2, sort const & range) {
         sort args[2] = { d1, d2 };
-	return function(name, 2, args, range);
+        return function(name, 2, args, range);
     }
 
     inline func_decl context::function(char const * name, sort const & d1, sort const & d2, sort const & d3, sort const & range) {
@@ -1208,7 +1207,7 @@ namespace Duality {
         sort args[4] = { d1, d2, d3, d4 };
         return function(name, 4, args, range);
     }
-    
+
     inline func_decl context::function(char const * name, sort const & d1, sort const & d2, sort const & d3, sort const & d4, sort const & d5, sort const & range) {
         sort args[5] = { d1, d2, d3, d4, d5 };
         return function(name, 5, args, range);
@@ -1217,7 +1216,7 @@ namespace Duality {
 
     inline expr context::constant(symbol const & name, sort const & s) {
         ::expr *r = m().mk_const(m().mk_const_decl(name, s));
-        return expr(*this, r); 
+        return expr(*this, r);
     }
     inline expr context::constant(char const * name, sort const & s) { return constant(str_symbol(name), s); }
     inline expr context::bool_const(char const * name) { return constant(name, bool_sort()); }
@@ -1250,11 +1249,11 @@ namespace Duality {
         expr args[5] = {a1,a2,a3,a4,a5};
         return operator()(5,args);
     }
-    
-    
+
+
     inline expr select(expr const & a, expr const & i) { return a.ctx().make(Select,a,i); }
     inline expr store(expr const & a, expr const & i, expr const & v) { return a.ctx().make(Store,a,i,v); }
-    
+
     inline expr forall(const std::vector<expr> &quants, const expr &body){
         return body.ctx().make_quant(Forall,quants,body);
     }
@@ -1304,7 +1303,7 @@ namespace Duality {
         }
 
         inline void setTerm(expr t){term = t;}
-      
+
         inline void addTerm(expr t){terms.push_back(t);}
 
         inline void setChildren(const std::vector<TermTree *> & _children){
@@ -1326,7 +1325,7 @@ namespace Duality {
         std::vector<TermTree *> children;
         int num;
     };
-    
+
     typedef context interpolating_context;
 
     class interpolating_solver : public solver {
@@ -1336,7 +1335,7 @@ namespace Duality {
             {
                 weak_mode = false;
             }
-      
+
     public:
         lbool interpolate(const std::vector<expr> &assumptions,
                           std::vector<expr> &interpolants,
@@ -1344,41 +1343,41 @@ namespace Duality {
                           literals &lits,
                           bool incremental
                           );
-      
+
         lbool interpolate_tree(TermTree *assumptions,
                                TermTree *&interpolants,
                                model &_model,
                                literals &lits,
                                bool incremental
                                );
-      
+
         bool read_interpolation_problem(const std::string &file_name,
                                         std::vector<expr> &assumptions,
                                         std::vector<expr> &theory,
                                         std::string &error_message
                                         );
-      
+
         void write_interpolation_problem(const std::string &file_name,
                                          const std::vector<expr> &assumptions,
                                          const std::vector<expr> &theory
                                          );
-      
+
         void AssertInterpolationAxiom(const expr &expr);
         void RemoveInterpolationAxiom(const expr &expr);
-      
+
         void SetWeakInterpolants(bool weak);
         void SetPrintToFile(const std::string &file_name);
-      
+
         const std::vector<expr> &GetInterpolationAxioms() {return theory;}
         const char *profile();
-      
+
     private:
         bool weak_mode;
         std::string print_filename;
         std::vector<expr> theory;
     };
-    
-    
+
+
     inline expr context::cook(::expr *a) {return expr(*this,a);}
 
     inline std::vector<expr> context::cook(ptr_vector< ::expr> v) {

@@ -16,24 +16,24 @@ Author:
 Notes:
 
 --*/
-#include"th_rewriter.h"
-#include"rewriter_params.hpp"
-#include"bool_rewriter.h"
-#include"arith_rewriter.h"
-#include"bv_rewriter.h"
-#include"datatype_rewriter.h"
-#include"array_rewriter.h"
-#include"fpa_rewriter.h"
-#include"dl_rewriter.h"
-#include"pb_rewriter.h"
-#include"seq_rewriter.h"
-#include"rewriter_def.h"
-#include"expr_substitution.h"
-#include"ast_smt2_pp.h"
-#include"cooperate.h"
-#include"var_subst.h"
-#include"ast_util.h"
-#include"well_sorted.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "ast/rewriter/rewriter_params.hpp"
+#include "ast/rewriter/bool_rewriter.h"
+#include "ast/rewriter/arith_rewriter.h"
+#include "ast/rewriter/bv_rewriter.h"
+#include "ast/rewriter/datatype_rewriter.h"
+#include "ast/rewriter/array_rewriter.h"
+#include "ast/rewriter/fpa_rewriter.h"
+#include "ast/rewriter/dl_rewriter.h"
+#include "ast/rewriter/pb_rewriter.h"
+#include "ast/rewriter/seq_rewriter.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "ast/expr_substitution.h"
+#include "ast/ast_smt2_pp.h"
+#include "util/cooperate.h"
+#include "ast/rewriter/var_subst.h"
+#include "ast/ast_util.h"
+#include "ast/well_sorted.h"
 
 struct th_rewriter_cfg : public default_rewriter_cfg {
     bool_rewriter       m_b_rw;
@@ -55,6 +55,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
     bool                m_push_ite_arith;
     bool                m_push_ite_bv;
     bool                m_ignore_patterns_on_ground_qbody;
+    bool                m_rewrite_patterns;
 
     // substitution support
     expr_dependency_ref m_used_dependencies; // set of dependencies of used substitutions
@@ -72,6 +73,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         m_push_ite_arith = p.push_ite_arith();
         m_push_ite_bv    = p.push_ite_bv();
         m_ignore_patterns_on_ground_qbody = p.ignore_patterns_on_ground_qbody();
+        m_rewrite_patterns = p.rewrite_patterns();
     }
 
     void updt_params(params_ref const & p) {
@@ -99,7 +101,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         return false;
     }
 
-    bool rewrite_patterns() const { return false; }
+    bool rewrite_patterns() const { return m_rewrite_patterns; }
 
     bool cache_all_results() const { return m_cache_all; }
 

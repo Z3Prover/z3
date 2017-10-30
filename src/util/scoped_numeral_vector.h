@@ -19,7 +19,7 @@ Revision History:
 #ifndef SCOPED_NUMERAL_VECTOR_H_
 #define SCOPED_NUMERAL_VECTOR_H_
 
-#include"vector.h"
+#include "util/vector.h"
 
 template<typename Manager>
 class _scoped_numeral_vector : public svector<typename Manager::numeral> {
@@ -63,8 +63,7 @@ public:
         unsigned old_sz = this->size();
         if (sz <= old_sz)
             shrink(sz);
-        typename Manager::numeral zero(0);
-        svector<typename Manager::numeral>::resize(sz, zero);
+        svector<typename Manager::numeral>::resize(sz, 0);
     }
 };
 

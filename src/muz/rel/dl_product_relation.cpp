@@ -42,11 +42,11 @@ Notes:
 --*/
 
 
-#include "dl_sieve_relation.h"
-#include "dl_table_relation.h"
-#include "dl_product_relation.h"
-#include "bool_rewriter.h"
-#include "ast_pp.h"
+#include "muz/rel/dl_sieve_relation.h"
+#include "muz/rel/dl_table_relation.h"
+#include "muz/rel/dl_product_relation.h"
+#include "ast/rewriter/bool_rewriter.h"
+#include "ast/ast_pp.h"
 
 namespace datalog {
 

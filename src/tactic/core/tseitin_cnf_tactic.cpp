@@ -49,12 +49,12 @@ Author:
 Notes:
 
 --*/
-#include"tactical.h"
-#include"goal_shared_occs.h"
-#include"filter_model_converter.h"
-#include"bool_rewriter.h"
-#include"simplify_tactic.h"
-#include"cooperate.h"
+#include "tactic/tactical.h"
+#include "tactic/goal_shared_occs.h"
+#include "tactic/filter_model_converter.h"
+#include "ast/rewriter/bool_rewriter.h"
+#include "tactic/core/simplify_tactic.h"
+#include "util/cooperate.h"
 
 static void swap_if_gt(expr * & n1, expr * & n2) {
     if (n1->get_id() > n2->get_id())

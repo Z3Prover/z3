@@ -20,20 +20,19 @@ Notes:
    
 --*/
 
-#include "solver_na2as.h"
-#include "tactic.h"
-#include "bv_decl_plugin.h"
-#include "datatype_decl_plugin.h"
-#include "enum2bv_rewriter.h"
-#include "extension_model_converter.h"
-#include "filter_model_converter.h"
-#include "ast_pp.h"
-#include "model_smt2_pp.h"
-#include "enum2bv_solver.h"
+#include "solver/solver_na2as.h"
+#include "tactic/tactic.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/datatype_decl_plugin.h"
+#include "ast/rewriter/enum2bv_rewriter.h"
+#include "tactic/extension_model_converter.h"
+#include "tactic/filter_model_converter.h"
+#include "ast/ast_pp.h"
+#include "model/model_smt2_pp.h"
+#include "tactic/portfolio/enum2bv_solver.h"
 
 class enum2bv_solver : public solver_na2as {
     ast_manager&   m;
-    params_ref     m_params;
     ref<solver>    m_solver;
     enum2bv_rewriter    m_rewriter;
 
@@ -42,10 +41,10 @@ public:
     enum2bv_solver(ast_manager& m, params_ref const& p, solver* s):
         solver_na2as(m),
         m(m),
-        m_params(p),
         m_solver(s),
         m_rewriter(m, p)
     {
+        solver::updt_params(p);
     }
 
     virtual ~enum2bv_solver() {}
@@ -78,7 +77,7 @@ public:
         return m_solver->check_sat(num_assumptions, assumptions);
     }
 
-    virtual void updt_params(params_ref const & p) { m_solver->updt_params(p);  }
+    virtual void updt_params(params_ref const & p) { solver::updt_params(p); m_solver->updt_params(p);  }
     virtual void collect_param_descrs(param_descrs & r) { m_solver->collect_param_descrs(r); }    
     virtual void set_produce_models(bool f) { m_solver->set_produce_models(f); }
     virtual void set_progress_callback(progress_callback * callback) { m_solver->set_progress_callback(callback);  }
@@ -97,7 +96,6 @@ public:
     virtual void get_labels(svector<symbol> & r) { m_solver->get_labels(r); }
     virtual ast_manager& get_manager() const { return m;  }
     virtual lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) { return m_solver->find_mutexes(vars, mutexes); }
-    
     virtual lbool get_consequences_core(expr_ref_vector const& asms, expr_ref_vector const& vars, expr_ref_vector& consequences) {
         datatype_util dt(m);
         bv_util bv(m);

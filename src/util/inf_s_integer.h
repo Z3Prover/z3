@@ -19,8 +19,8 @@ Revision History:
 #ifndef INF_S_INTEGER_H_
 #define INF_S_INTEGER_H_
 
-#include"s_integer.h"
-#include"rational.h"
+#include "util/s_integer.h"
+#include "util/rational.h"
 
 class inf_s_integer {
     static inf_s_integer m_zero;
@@ -67,7 +67,7 @@ class inf_s_integer {
     inf_s_integer & operator=(const inf_s_integer & r) { 
         m_first = r.m_first;
         m_second = r.m_second;
-	return *this;
+        return *this;
     }
     inf_s_integer & operator=(const rational & r) {
         m_first = static_cast<int>(r.get_int64());
@@ -90,20 +90,20 @@ class inf_s_integer {
     inf_s_integer & operator+=(const inf_s_integer & r) { 
         m_first  += r.m_first;
         m_second += r.m_second;
-	return *this; 
+        return *this; 
     }
     inf_s_integer & operator-=(const inf_s_integer & r) { 
         m_first  -= r.m_first;
         m_second -= r.m_second;
-	return *this; 
+        return *this; 
     }
     inf_s_integer & operator+=(const s_integer & r) { 
         m_first  += r.get_int();
-	return *this; 
+        return *this; 
     }
     inf_s_integer & operator-=(const s_integer & r) { 
         m_first  -= r.get_int();
-	return *this; 
+        return *this; 
     }
     inf_s_integer & operator*=(const s_integer & r1) {
         m_first  *= r1.get_int();

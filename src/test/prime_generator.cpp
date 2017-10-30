@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#include"mpz.h"
-#include"prime_generator.h"
+#include "util/mpz.h"
+#include "util/prime_generator.h"
 
 void tst_prime_generator() {
     unsynch_mpz_manager m;
@@ -35,7 +35,7 @@ void tst_prime_generator() {
         m.root(sqrt_p, 2);
         uint64 k = m.get_uint64(sqrt_p);
         for (uint64 i = 2; i <= k; i++) {
-            SASSERT(p % i != 0);
+            ENSURE(p % i != 0);
         }
     }
     std::cout << std::endl;

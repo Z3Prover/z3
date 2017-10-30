@@ -18,13 +18,13 @@ Revision History:
 --*/
 
 
-#include "qe_arrays.h"
-#include "rewriter_def.h"
-#include "expr_functors.h"
-#include "expr_safe_replace.h"
-#include "lbool.h"
-#include "ast_util.h"
-#include "ast_pp.h"
+#include "qe/qe_arrays.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "ast/expr_functors.h"
+#include "ast/rewriter/expr_safe_replace.h"
+#include "util/lbool.h"
+#include "ast/ast_util.h"
+#include "ast/ast_pp.h"
 
 namespace qe {
 

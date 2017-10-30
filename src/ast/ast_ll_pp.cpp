@@ -18,8 +18,8 @@ Revision History:
 --*/
 
 #include<iostream>
-#include"for_each_ast.h"
-#include"arith_decl_plugin.h"
+#include "ast/for_each_ast.h"
+#include "ast/arith_decl_plugin.h"
 
 // #define AST_LL_PP_SHOW_FAMILY_NAME
 

@@ -16,10 +16,10 @@ Author:
 Notes:
 
 --*/
-#include"algebraic_numbers.h"
-#include"polynomial_var2value.h"
-#include"mpbq.h"
-#include"rlimit.h"
+#include "math/polynomial/algebraic_numbers.h"
+#include "math/polynomial/polynomial_var2value.h"
+#include "util/mpbq.h"
+#include "util/rlimit.h"
 
 static void display_anums(std::ostream & out, scoped_anum_vector const & rs) {
     out << "numbers in decimal:\n";
@@ -54,7 +54,7 @@ static void tst1() {
     std::cout << "p: " << p << "\n";
     am.isolate_roots(p, rs1);
     display_anums(std::cout, rs1);
-    SASSERT(rs1.size() == 1);
+    ENSURE(rs1.size() == 1);
     std::cout.flush();
 
     p = (x^2) - 2;
@@ -62,7 +62,7 @@ static void tst1() {
     rs1.reset();
     am.isolate_roots(p, rs1);
     display_anums(std::cout, rs1);
-    SASSERT(rs1.size() == 2);
+    ENSURE(rs1.size() == 2);
 
     scoped_anum sqrt2(am);
     am.set(sqrt2, rs1[1]);
@@ -88,7 +88,7 @@ static void tst1() {
     rs1.reset();
     am.isolate_roots(p, rs1);
     display_anums(std::cout, rs1);
-    SASSERT(rs1.size() == 3);
+    ENSURE(rs1.size() == 3);
 
     scoped_anum gauss(am);
     am.set(gauss, rs1[1]);
@@ -104,7 +104,7 @@ static void tst1() {
     rs1.reset();
     am.isolate_roots(p, rs1);
     display_anums(std::cout, rs1);
-    SASSERT(rs1.size() == 4);
+    ENSURE(rs1.size() == 4);
 
     scoped_anum hidden_sqrt2(am);
     am.set(hidden_sqrt2, rs1[2]);
@@ -116,8 +116,8 @@ static void tst1() {
 
     std::cout << "sqrt(2)^4: " << (sqrt2^4) << "\n";
 
-    SASSERT(is_int(power(sqrt2, 4)));
-    SASSERT(power(sqrt2, 4) == 4);
+    ENSURE(is_int(power(sqrt2, 4)));
+    ENSURE(power(sqrt2, 4) == 4);
 
     scoped_anum sqrt2_gauss(am);
     am.add(sqrt2, gauss, sqrt2_gauss);
@@ -242,9 +242,9 @@ static void tst_wilkinson() {
     std::cout << "p: " << p << "\n";
     am.isolate_roots(p, rs1);
     display_anums(std::cout, rs1);
-    SASSERT(rs1.size() == 20);
+    ENSURE(rs1.size() == 20);
     for (unsigned i = 0; i < rs1.size(); i++) {
-        SASSERT(am.is_int(rs1[i]));
+        ENSURE(am.is_int(rs1[i]));
     }
 }
 
@@ -328,9 +328,9 @@ static void tst_eval_sign(polynomial_ref const & p, anum_manager & am,
     std::cout << "x1 -> "; am.display_root(std::cout, v1); std::cout << "\n";
     std::cout << "x2 -> "; am.display_root(std::cout, v2); std::cout << "\n";
     int s = am.eval_sign_at(p, x2v);
-    SASSERT((s == 0) == (expected == 0));
-    SASSERT((s <  0) == (expected <  0));
-    SASSERT((s >  0) == (expected >  0));
+    ENSURE((s == 0) == (expected == 0));
+    ENSURE((s <  0) == (expected <  0));
+    ENSURE((s >  0) == (expected >  0));
     std::cout << "sign: " << s << "\n";
 }
 
@@ -399,7 +399,7 @@ static void tst_isolate_roots(polynomial_ref const & p, anum_manager & am,
     scoped_anum_vector roots(am);
     svector<int> signs;
     am.isolate_roots(p, x2v, roots, signs);
-    SASSERT(roots.size() + 1 == signs.size());
+    ENSURE(roots.size() + 1 == signs.size());
     std::cout << "roots:\n";
     for (unsigned i = 0; i < roots.size(); i++) {
         am.display_root(std::cout, roots[i]); std::cout << " "; am.display_decimal(std::cout, roots[i]); std::cout << "\n";

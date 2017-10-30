@@ -19,9 +19,9 @@ Notes:
 #ifndef TH_REWRITER_H_
 #define TH_REWRITER_H_
 
-#include"ast.h"
-#include"rewriter_types.h"
-#include"params.h"
+#include "ast/ast.h"
+#include "ast/rewriter/rewriter_types.h"
+#include "util/params.h"
 
 class expr_substitution;
 

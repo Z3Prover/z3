@@ -19,8 +19,8 @@ Revision History:
 #ifndef DEPENDENCY_H_
 #define DEPENDENCY_H_
 
-#include"vector.h"
-#include"region.h"
+#include "util/vector.h"
+#include "util/region.h"
 
 template<typename C>
 class dependency_manager {
@@ -201,7 +201,7 @@ public:
             m_todo.push_back(d);
             unsigned qhead = 0;
             while (qhead < m_todo.size()) {
-	        d = m_todo[qhead];
+                d = m_todo[qhead];
                 qhead++;
                 if (d->is_leaf()) {
                     vs.push_back(to_leaf(d)->m_value);

@@ -7,8 +7,10 @@ z3_add_component(core_tactics
     ctx_simplify_tactic.cpp
     der_tactic.cpp
     distribute_forall_tactic.cpp
+    dom_simplify_tactic.cpp
     elim_term_ite_tactic.cpp
     elim_uncnstr_tactic.cpp
+    injectivity_tactic.cpp
     nnf_tactic.cpp
     occf_tactic.cpp
     pb_preprocess_tactic.cpp
@@ -22,6 +24,7 @@ z3_add_component(core_tactics
     collect_occs.cpp
   COMPONENT_DEPENDENCIES
     normal_forms
+    rewriter
     tactic
   TACTIC_HEADERS
     blast_term_ite_tactic.h
@@ -30,8 +33,10 @@ z3_add_component(core_tactics
     ctx_simplify_tactic.h
     der_tactic.h
     distribute_forall_tactic.h
+    dom_simplify_tactic.h
     elim_term_ite_tactic.h
     elim_uncnstr_tactic.h
+    injectivity_tactic.h
     nnf_tactic.h
     occf_tactic.h
     pb_preprocess_tactic.h

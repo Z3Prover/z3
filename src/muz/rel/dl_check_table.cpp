@@ -19,8 +19,8 @@ Revision History:
 --*/
 
 
-#include "dl_check_table.h"
-#include "dl_table.h"
+#include "muz/rel/dl_check_table.h"
+#include "muz/rel/dl_table.h"
 
 
 namespace datalog {

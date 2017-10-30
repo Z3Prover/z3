@@ -17,10 +17,10 @@ Revision History:
 
 --*/
 
-#include"dl_context.h"
-#include"dl_util.h"
-#include"dl_table.h"
-#include"dl_relation_manager.h"
+#include "muz/base/dl_context.h"
+#include "muz/base/dl_util.h"
+#include "muz/rel/dl_table.h"
+#include "muz/rel/dl_relation_manager.h"
 
 namespace datalog {
 

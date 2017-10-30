@@ -4,14 +4,14 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
-#include "sparse_matrix.h"
-#include "sparse_matrix_def.h"
-#include "simplex.h"
-#include "simplex_def.h"
-#include "mpq_inf.h"
-#include "vector.h"
-#include "rational.h"
-#include "rlimit.h"
+#include "util/lp/sparse_matrix.h"
+#include "math/simplex/sparse_matrix_def.h"
+#include "math/simplex/simplex.h"
+#include "math/simplex/simplex_def.h"
+#include "util/mpq_inf.h"
+#include "util/vector.h"
+#include "util/rational.h"
+#include "util/rlimit.h"
 
 #define R rational
 typedef simplex::simplex<simplex::mpz_ext> Simplex;
@@ -84,7 +84,7 @@ void add_row(Simplex& S, vector<R> const& _v, R const& _b, bool is_eq = false) {
     coeffs.push_back(b.to_mpq().numerator());
     mpq_inf one(mpq(1),mpq(0));
     mpq_inf zero(mpq(0),mpq(0));
-    SASSERT(vars.size() == coeffs.size());
+    ENSURE(vars.size() == coeffs.size());
     S.set_lower(nv, zero);
     if (is_eq) S.set_upper(nv, zero);
     S.set_lower(nv+1, one);

@@ -1,9 +1,22 @@
-/*
-Copyright (c) 2013 Microsoft Corporation. All rights reserved.
-Released under Apache 2.0 license as described in the file LICENSE.
+/*++
+Copyright (c) 2017 Microsoft Corporation
 
-Author: Lev Nachmanson
-*/
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 
 #include <unordered_map>
 #include <vector>
@@ -11,7 +24,7 @@ Author: Lev Nachmanson
 #include <set>
 #include <iostream>
 
-namespace lean {
+namespace lp {
 class argument_parser {
     std::unordered_map<std::string, std::string> m_options;
     std::unordered_map<std::string, std::string> m_options_with_after_string;

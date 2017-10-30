@@ -17,7 +17,7 @@ Revision History:
 
 --*/
 
-#include"inf_s_integer.h"
+#include "util/inf_s_integer.h"
 
 inf_s_integer inf_s_integer::m_zero(0);
 inf_s_integer inf_s_integer::m_one(1);

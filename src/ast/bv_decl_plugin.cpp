@@ -17,11 +17,11 @@ Revision History:
 
 --*/
 #include<sstream>
-#include"bv_decl_plugin.h"
-#include"arith_decl_plugin.h"
-#include"warning.h"
-#include"ast_pp.h"
-#include"ast_smt2_pp.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/arith_decl_plugin.h"
+#include "util/warning.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_smt2_pp.h"
 
 bv_decl_plugin::bv_decl_plugin():
     m_bv_sym("bv"),
@@ -738,6 +738,7 @@ void bv_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol const
         op_names.push_back(builtin_name("ext_rotate_right",OP_EXT_ROTATE_RIGHT));
         op_names.push_back(builtin_name("int2bv",OP_INT2BV));
         op_names.push_back(builtin_name("bv2int",OP_BV2INT));
+        op_names.push_back(builtin_name("bv2nat",OP_BV2INT));
         op_names.push_back(builtin_name("mkbv",OP_MKBV));
     }
 }
@@ -783,6 +784,12 @@ bool bv_recognizers::is_numeral(expr const * n, rational & val, unsigned & bv_si
     bv_size = decl->get_parameter(1).get_int();
     return true;
 }
+
+bool bv_recognizers::is_numeral(expr const * n, rational & val) const {
+    unsigned bv_size = 0;
+    return is_numeral(n, val, bv_size);
+}
+
 
 bool bv_recognizers::is_allone(expr const * e) const {
     rational r;
@@ -847,7 +854,7 @@ bv_util::bv_util(ast_manager & m):
     m_plugin = static_cast<bv_decl_plugin*>(m.get_plugin(m.mk_family_id("bv")));
 }
 
-app * bv_util::mk_numeral(rational const & val, sort* s) {
+app * bv_util::mk_numeral(rational const & val, sort* s) const {
     if (!is_bv_sort(s)) {
         return 0;
     }
@@ -855,9 +862,8 @@ app * bv_util::mk_numeral(rational const & val, sort* s) {
     return mk_numeral(val, bv_size);
 }
 
-app * bv_util::mk_numeral(rational const & val, unsigned bv_size) {
-    parameter p1(val);
-    parameter p[2] = { p1, parameter(static_cast<int>(bv_size)) };
+app * bv_util::mk_numeral(rational const & val, unsigned bv_size) const {
+    parameter p[2] = { parameter(val), parameter(static_cast<int>(bv_size)) };
     return m_manager.mk_app(get_fid(), OP_BV_NUM, 2, p, 0, 0);
 }
 

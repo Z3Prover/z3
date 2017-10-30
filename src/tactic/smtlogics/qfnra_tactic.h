@@ -19,7 +19,7 @@ Notes:
 #ifndef QFNRA_TACTIC_H_
 #define QFNRA_TACTIC_H_
 
-#include"params.h"
+#include "util/params.h"
 class ast_manager;
 class tactic;
 

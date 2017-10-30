@@ -21,12 +21,12 @@ Revision History:
 
 #include<utility>
 
-#include"map.h"
-#include"obj_pair_hashtable.h"
+#include "util/map.h"
+#include "util/obj_pair_hashtable.h"
 
-#include"dl_context.h"
-#include"dl_rule_set.h"
-#include"dl_rule_transformer.h"
+#include "muz/base/dl_context.h"
+#include "muz/base/dl_rule_set.h"
+#include "muz/base/dl_rule_transformer.h"
 
 namespace datalog {
 
@@ -53,7 +53,7 @@ namespace datalog {
     */
     class mk_similarity_compressor : public rule_transformer::plugin {
 
-        context &			m_context;
+        context &           m_context;
         ast_manager &       m_manager;
         /** number of similar rules necessary for a group to be introduced */
         unsigned            m_threshold_count;

@@ -22,16 +22,16 @@ Notes:
 #define Z3_H_
 
 #include<stdio.h>
-#include"z3_macros.h"
-#include"z3_api.h"
-#include"z3_ast_containers.h"
-#include"z3_algebraic.h"
-#include"z3_polynomial.h"
-#include"z3_rcf.h"
-#include"z3_fixedpoint.h"
-#include"z3_optimization.h"
-#include"z3_interp.h"
-#include"z3_fpa.h"
-
+#include "z3_macros.h"
+#include "z3_api.h"
+#include "z3_ast_containers.h"
+#include "z3_algebraic.h"
+#include "z3_polynomial.h"
+#include "z3_rcf.h"
+#include "z3_fixedpoint.h"
+#include "z3_optimization.h"
+#include "z3_interp.h"
+#include "z3_fpa.h"
+#include "z3_spacer.h"
 #endif
 

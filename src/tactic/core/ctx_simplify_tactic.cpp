@@ -16,11 +16,11 @@ Author:
 Notes:
 
 --*/
-#include"ctx_simplify_tactic.h"
-#include"mk_simplified_app.h"
-#include"cooperate.h"
-#include"ast_ll_pp.h"
-#include"ast_pp.h"
+#include "tactic/core/ctx_simplify_tactic.h"
+#include "ast/rewriter/mk_simplified_app.h"
+#include "util/cooperate.h"
+#include "ast/ast_ll_pp.h"
+#include "ast/ast_pp.h"
 
 
 class ctx_propagate_assertions : public ctx_simplify_tactic::simplifier {

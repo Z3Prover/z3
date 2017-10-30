@@ -14,7 +14,7 @@
 
  Revision History:
 --*/
-#include"ackr_helper.h"
+#include "ackermannization/ackr_helper.h"
 
 double ackr_helper::calculate_lemma_bound(ackr_helper::fun2terms_map& occurrences) {
     fun2terms_map::iterator it = occurrences.begin();

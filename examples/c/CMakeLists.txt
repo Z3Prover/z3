@@ -7,6 +7,19 @@
 # the C++ standard library in resulting in a link failure.
 project(Z3_C_EXAMPLE C CXX)
 cmake_minimum_required(VERSION 2.8.12)
+
+# Set C version required to C99
+if ("${CMAKE_VERSION}" VERSION_LESS "3.1")
+  if (("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU") OR
+      ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang"))
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c99 ")
+  endif()
+else()
+  set(CMAKE_C_STANDARD_REQUIRED ON)
+  set(CMAKE_C_STANDARD 99)
+  set(CMAKE_C_EXTENSIONS OFF)
+endif()
+
 find_package(Z3
   REQUIRED
   CONFIG
@@ -22,6 +35,17 @@ message(STATUS "Found Z3 ${Z3_VERSION_STRING}")
 message(STATUS "Z3_DIR: ${Z3_DIR}")
 
 add_executable(c_example test_capi.c)
+
+option(FORCE_CXX_LINKER "Force linker with C++ linker" OFF)
+if (FORCE_CXX_LINKER)
+  # This is a hack for avoiding UBSan linking errors
+  message(STATUS "Forcing use of C++ linker")
+  set_target_properties(c_example
+    PROPERTIES
+    LINKER_LANGUAGE CXX
+  )
+endif()
+
 target_include_directories(c_example PRIVATE ${Z3_C_INCLUDE_DIRS})
 target_link_libraries(c_example PRIVATE ${Z3_LIBRARIES})
 

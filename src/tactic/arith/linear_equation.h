@@ -21,10 +21,10 @@ Revision History:
 #ifndef LINEAR_EQUATION_H_
 #define LINEAR_EQUATION_H_
 
-#include"mpq.h"
-#include"small_object_allocator.h"
-#include"numeral_buffer.h"
-#include"double_manager.h"
+#include "util/mpq.h"
+#include "util/small_object_allocator.h"
+#include "util/numeral_buffer.h"
+#include "util/double_manager.h"
 
 class linear_equation {
 public:

@@ -16,9 +16,9 @@ Author:
 
 Revision History:
 --*/
-#include"shared_occs.h"
-#include"ast_smt2_pp.h"
-#include"ref_util.h"
+#include "ast/shared_occs.h"
+#include "ast/ast_smt2_pp.h"
+#include "util/ref_util.h"
 
 inline void shared_occs::insert(expr * t) {
     obj_hashtable<expr>::entry * dummy;

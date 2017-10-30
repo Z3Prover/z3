@@ -1,23 +1,23 @@
 /*++
 Copyright (c) 2016 Microsoft Corporation
 
-Author: 
+Author:
 
     Lev Nachmanson 2016-10-27
 
 --*/
 
-#include "lp_params.hpp"
+#include "util/lp/lp_params.hpp"
 #include "util/lp/lp_settings.h"
 #include "util/lp/mps_reader.h"
-#include "timeout.h"
-#include "cancel_eh.h"
-#include "scoped_timer.h"
-#include "rlimit.h"
-#include "gparams.h"
+#include "util/timeout.h"
+#include "util/cancel_eh.h"
+#include "util/scoped_timer.h"
+#include "util/rlimit.h"
+#include "util/gparams.h"
 #include <signal.h>
 
-static lean::lp_solver<double, double>* g_solver = 0;
+static lp::lp_solver<double, double>* g_solver = 0;
 
 static void display_statistics() {
     if (g_solver && g_solver->settings().print_statistics) {
@@ -42,7 +42,7 @@ static void on_timeout() {
     }
 }
 
-struct front_end_resource_limit : public lean::lp_resource_limit {
+struct front_end_resource_limit : public lp::lp_resource_limit {
     reslimit& m_reslim;
 
     front_end_resource_limit(reslimit& lim):
@@ -54,7 +54,7 @@ struct front_end_resource_limit : public lean::lp_resource_limit {
 
 void run_solver(lp_params & params, char const * mps_file_name) {
 
-    reslimit rlim;    
+    reslimit rlim;
     unsigned timeout = gparams::get().get_uint("timeout", 0);
     unsigned rlimit  = gparams::get().get_uint("rlimit", 0);
     front_end_resource_limit lp_limit(rlim);
@@ -64,14 +64,14 @@ void run_solver(lp_params & params, char const * mps_file_name) {
     scoped_timer timer(timeout, &eh);
 
     std::string fn(mps_file_name);
-    lean::mps_reader<double, double> reader(fn);
+    lp::mps_reader<double, double> reader(fn);
     reader.set_message_stream(&std::cout); // can be redirected
     reader.read();
     if (!reader.is_ok()) {
         std::cerr << "cannot process " << mps_file_name << std::endl;
         return;
     }
-    lean::lp_solver<double, double> * solver =  reader.create_solver(false);  // false - to create the primal solver
+    lp::lp_solver<double, double> * solver =  reader.create_solver(false);  // false - to create the primal solver
     solver->settings().set_resource_limit(lp_limit);
     g_solver = solver;
     if (params.min()) {
@@ -80,20 +80,20 @@ void run_solver(lp_params & params, char const * mps_file_name) {
     solver->settings().set_message_ostream(&std::cout);
     solver->settings().report_frequency = params.rep_freq();
     solver->settings().print_statistics = params.print_stats();
-    solver->settings().simplex_strategy() = lean:: simplex_strategy_enum::lu;
-    
+    solver->settings().simplex_strategy() = lp:: simplex_strategy_enum::lu;
+
     solver->find_maximal_solution();
 
     *(solver->settings().get_message_ostream()) << "status is " << lp_status_to_string(solver->get_status()) << std::endl;
-    if (solver->get_status() == lean::OPTIMAL) {
+    if (solver->get_status() == lp::OPTIMAL) {
         if (params.min()) {
             solver->flip_costs();
         }
         solver->print_model(std::cout);
     }
-    
+
 //    #pragma omp critical (g_display_stats)
-    {    
+    {
         display_statistics();
         register_on_timeout_proc(0);
         g_solver = 0;

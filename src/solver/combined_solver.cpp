@@ -18,10 +18,10 @@ Author:
 Notes:
 
 --*/
-#include"solver.h"
-#include"scoped_timer.h"
-#include"combined_solver_params.hpp"
-#include"common_msgs.h"
+#include "solver/solver.h"
+#include "util/scoped_timer.h"
+#include "solver/combined_solver_params.hpp"
+#include "util/common_msgs.h"
 #define PS_VB_LVL 15
 
 /**
@@ -89,8 +89,8 @@ private:
                 m_solver->get_manager().limit().dec_cancel();
             }
         }
-        virtual void operator()() {
-            m_canceled = true;
+        virtual void operator()(event_handler_caller_t caller_id) {
+            m_canceled = true;            
             m_solver->get_manager().limit().inc_cancel();
         }
     };
@@ -147,6 +147,7 @@ public:
     }
 
     virtual void updt_params(params_ref const & p) {
+        solver::updt_params(p);
         m_solver1->updt_params(p);
         m_solver2->updt_params(p);
         updt_local_params(p);
@@ -280,8 +281,8 @@ public:
         return m_solver2->get_assumption(idx - c1);
     }
 
-    virtual std::ostream& display(std::ostream & out) const {
-        return m_solver1->display(out);
+    virtual std::ostream& display(std::ostream & out, unsigned n, expr* const* es) const {
+        return m_solver1->display(out, n, es);
     }
 
     virtual void collect_statistics(statistics & st) const {

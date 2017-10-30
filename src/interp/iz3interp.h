@@ -20,9 +20,9 @@
 #ifndef IZ3_INTERP_H
 #define IZ3_INTERP_H
 
-#include "iz3hash.h"
-#include "iz3exception.h"
-#include "solver.h"
+#include "interp/iz3hash.h"
+#include "interp/iz3exception.h"
+#include "solver/solver.h"
 
 class iz3base;
 
@@ -73,22 +73,22 @@ typedef interpolation_options_struct *interpolation_options;
    representation, for compatibility with the old API. */
 
 void iz3interpolate(ast_manager &_m_manager,
-		    ast *proof,
-		    const ptr_vector<ast> &cnsts,
-		    const ::vector<int> &parents,
-		    ptr_vector<ast> &interps,
-		    const ptr_vector<ast> &theory,
-		    interpolation_options_struct * options = 0);
+                    ast *proof,
+                    const ptr_vector<ast> &cnsts,
+                    const ::vector<int> &parents,
+                    ptr_vector<ast> &interps,
+                    const ptr_vector<ast> &theory,
+                    interpolation_options_struct * options = 0);
 
 /* Same as above, but each constraint is a vector of formulas. */
 
 void iz3interpolate(ast_manager &_m_manager,
-		    ast *proof,
-		    const vector<ptr_vector<ast> > &cnsts,
-		    const ::vector<int> &parents,
-		    ptr_vector<ast> &interps,
-		    const ptr_vector<ast> &theory,
-		    interpolation_options_struct * options = 0);
+                    ast *proof,
+                    const vector<ptr_vector<ast> > &cnsts,
+                    const ::vector<int> &parents,
+                    ptr_vector<ast> &interps,
+                    const ptr_vector<ast> &theory,
+                    interpolation_options_struct * options = 0);
 
 /* Compute an interpolant from a proof. This version uses the ast
    representation, for compatibility with the new API. Here, cnsts is
@@ -98,11 +98,11 @@ void iz3interpolate(ast_manager &_m_manager,
    proof, so it can be considered a hint.  */
 
 void iz3interpolate(ast_manager &_m_manager,
-		    ast *proof,
-		    const ptr_vector<ast> &cnsts,
-		    ast *tree,
-		    ptr_vector<ast> &interps,
-		    interpolation_options_struct * options);
+                    ast *proof,
+                    const ptr_vector<ast> &cnsts,
+                    ast *tree,
+                    ptr_vector<ast> &interps,
+                    interpolation_options_struct * options);
 
 
 /* Compute an interpolant from an ast representing an interpolation
@@ -112,12 +112,12 @@ void iz3interpolate(ast_manager &_m_manager,
 */
 
 lbool iz3interpolate(ast_manager &_m_manager,
-		     solver &s,
-		     ast *tree,
-		     ptr_vector<ast> &cnsts,
-		     ptr_vector<ast> &interps,
-		     model_ref &m,
-		     interpolation_options_struct * options);
+                     solver &s,
+                     ast *tree,
+                     ptr_vector<ast> &cnsts,
+                     ptr_vector<ast> &interps,
+                     model_ref &m,
+                     interpolation_options_struct * options);
 
 
 #endif

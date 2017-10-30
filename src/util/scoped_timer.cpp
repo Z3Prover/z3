@@ -21,8 +21,8 @@ Revision History:
 #define _WIN32_WINNT 0x0600
 #endif
 
-#include"z3_exception.h"
-#include"z3_omp.h"
+#include "util/z3_exception.h"
+#include "util/z3_omp.h"
 #if defined(_WINDOWS) || defined(_CYGWIN)
 // Windows
 #include<windows.h>
@@ -44,14 +44,14 @@ Revision History:
 // Other platforms
 #endif 
 
-#include"scoped_timer.h"
+#include "util/scoped_timer.h"
 #ifdef _CYGWIN
 #undef min
 #undef max
 #endif
-#include"util.h"
+#include "util/util.h"
 #include<limits.h>
-#include"z3_omp.h"
+#include "util/z3_omp.h"
 
 struct scoped_timer::imp {
     event_handler *  m_eh;
@@ -85,7 +85,7 @@ struct scoped_timer::imp {
             obj->m_first = false;
         }
         else {
-            obj->m_eh->operator()();
+            obj->m_eh->operator()(TIMEOUT_EH_CALLER);
         }
     }
 #elif defined(__APPLE__) && defined(__MACH__)
@@ -98,7 +98,7 @@ struct scoped_timer::imp {
         int e = pthread_cond_timedwait(&st->m_condition_var, &st->m_mutex, &st->m_end_time);
         if (e != 0 && e != ETIMEDOUT)
             throw default_exception("failed to start timed wait");
-        st->m_eh->operator()();
+        st->m_eh->operator()(TIMEOUT_EH_CALLER);
 
         pthread_mutex_unlock(&st->m_mutex);
 
@@ -133,7 +133,7 @@ struct scoped_timer::imp {
         pthread_mutex_unlock(&st->m_mutex);
 
         if (e == ETIMEDOUT)
-            st->m_eh->operator()();
+            st->m_eh->operator()(TIMEOUT_EH_CALLER);
         return 0;
     }
 #else

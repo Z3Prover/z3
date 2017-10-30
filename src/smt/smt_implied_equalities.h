@@ -23,9 +23,9 @@ Revision History:
 #ifndef SMT_IMPLIED_EQUALITIES_H_
 #define SMT_IMPLIED_EQUALITIES_H_
 
-#include"smt_solver.h"
-#include"lbool.h"
-#include"ast.h"
+#include "smt/smt_solver.h"
+#include "util/lbool.h"
+#include "ast/ast.h"
 
 
 namespace smt {

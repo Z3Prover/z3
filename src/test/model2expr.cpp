@@ -4,11 +4,11 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
-#include "model2expr.h"
-#include "ast_pp.h"
-#include "arith_decl_plugin.h"
-#include "model_smt2_pp.h"
-#include "reg_decl_plugins.h"
+#include "model/model2expr.h"
+#include "ast/ast_pp.h"
+#include "ast/arith_decl_plugin.h"
+#include "model/model_smt2_pp.h"
+#include "ast/reg_decl_plugins.h"
 
 void tst_model2expr() {
     ast_manager m;

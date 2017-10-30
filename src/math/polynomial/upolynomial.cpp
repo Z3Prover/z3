@@ -21,12 +21,12 @@ Author:
 Notes:
 
 --*/
-#include"upolynomial.h"
-#include"upolynomial_factorization.h"
-#include"polynomial_primes.h"
-#include"buffer.h"
-#include"cooperate.h"
-#include"common_msgs.h"
+#include "math/polynomial/upolynomial.h"
+#include "math/polynomial/upolynomial_factorization.h"
+#include "math/polynomial/polynomial_primes.h"
+#include "util/buffer.h"
+#include "util/cooperate.h"
+#include "util/common_msgs.h"
 
 namespace upolynomial {
 

@@ -23,9 +23,11 @@ Revision History:
 
 --*/
 
-#include "dl_mk_quantifier_instantiation.h"
-#include "dl_context.h"
-#include "pattern_inference.h"
+#include "muz/transforms/dl_mk_quantifier_instantiation.h"
+#include "muz/base/dl_context.h"
+#include "ast/pattern/pattern_inference.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "ast/ast_util.h"
 
 
 namespace datalog {
@@ -70,7 +72,7 @@ namespace datalog {
         if (q->get_num_patterns() == 0) {
             proof_ref new_pr(m);
             pattern_inference_params params;
-            pattern_inference infer(m, params);
+            pattern_inference_rw infer(m, params);
             infer(q, qe, new_pr);
             q = to_quantifier(qe);
         }

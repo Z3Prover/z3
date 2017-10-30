@@ -16,10 +16,10 @@ Author:
 Notes:
 
 --*/
-#include"bv2real_rewriter.h"
-#include"rewriter_def.h"
-#include"ast_pp.h"
-#include"for_each_expr.h"
+#include "tactic/arith/bv2real_rewriter.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "ast/ast_pp.h"
+#include "ast/for_each_expr.h"
 
 
 bv2real_util::bv2real_util(ast_manager& m, rational const& default_root, rational const& default_divisor, unsigned max_num_bits) : 

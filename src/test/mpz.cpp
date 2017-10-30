@@ -17,10 +17,10 @@ Revision History:
 
 --*/
 
-#include"mpz.h"
-#include"rational.h"
-#include"timeit.h"
-#include"scoped_numeral.h"
+#include "util/mpz.h"
+#include "util/rational.h"
+#include "util/timeit.h"
+#include "util/scoped_numeral.h"
 
 static void tst1() {
     synch_mpz_manager m;
@@ -33,15 +33,15 @@ static void tst1() {
     std::cout << "*-2 = \n" << m.to_string(v2) << "\n";
     m.add(v, v2, v3);
     m.neg(v3);
-    SASSERT(m.eq(v, v3));
-    SASSERT(m.le(v, v3));
-    SASSERT(m.ge(v, v3));
-    SASSERT(m.lt(v2, v));
-    SASSERT(m.le(v2, v));
-    SASSERT(m.gt(v, v2));
-    SASSERT(m.ge(v, v2));
-    SASSERT(m.neq(v, v2));
-    SASSERT(!m.neq(v, v3));
+    ENSURE(m.eq(v, v3));
+    ENSURE(m.le(v, v3));
+    ENSURE(m.ge(v, v3));
+    ENSURE(m.lt(v2, v));
+    ENSURE(m.le(v2, v));
+    ENSURE(m.gt(v, v2));
+    ENSURE(m.ge(v, v2));
+    ENSURE(m.neq(v, v2));
+    ENSURE(!m.neq(v, v3));
     m.del(v);
     m.del(v2);
     m.del(v3);
@@ -80,7 +80,7 @@ static void tst2b() {
 #if 0
 static void mk_random_num_str(unsigned buffer_sz, char * buffer) {
     unsigned sz = (rand() % (buffer_sz-2)) + 1;
-    SASSERT(sz < buffer_sz);
+    ENSURE(sz < buffer_sz);
     for (unsigned i = 0; i < sz-1; i++) {
         buffer[i] = '0' + (rand() % 10);
     }
@@ -96,7 +96,7 @@ static void bug1() {
     m.set(v1, "1002043949858757875676767675747473");
     mpz v2;
     m.sub(v1, v1, v2);
-    SASSERT(m.is_zero(v2));
+    ENSURE(m.is_zero(v2));
     m.del(v1);
     m.del(v2);
 }
@@ -119,7 +119,7 @@ static void bug3() {
     m.set(v2, INT_MAX);
     m.add(v2, m.mk_z(1), v2);
     m.neg(v1);
-    SASSERT(m.eq(v1, v2));
+    ENSURE(m.eq(v1, v2));
     m.del(v1);
     m.del(v2);
 }
@@ -137,7 +137,7 @@ static void bug4() {
     m.bitwise_or(result2, y, result2);
     
     std::cout << m.to_string(result1) << " " << m.to_string(result2) << "\n";
-    SASSERT(m.eq(result1, result2));
+    ENSURE(m.eq(result1, result2));
     m.del(x); m.del(y); m.del(result1); m.del(result2);
 }
 
@@ -149,7 +149,7 @@ void tst_div2k(synch_mpz_manager & m, mpz const & v, unsigned k) {
     bool is_eq = m.eq(x, y);
     (void)is_eq;
     CTRACE("mpz_2k", !is_eq, tout << "div: " << m.to_string(v) << ", k: " << k << " r: " << m.to_string(x) << ", expected: " << m.to_string(y) << "\n";);
-    SASSERT(is_eq);
+    ENSURE(is_eq);
     m.del(x);
     m.del(y);
     m.del(pw);
@@ -177,7 +177,7 @@ void tst_mul2k(synch_mpz_manager & m, mpz const & v, unsigned k) {
     bool is_eq = m.eq(x, y);
     (void)is_eq;
     CTRACE("mpz_2k", !is_eq, tout << "mul: " << m.to_string(v) << ", k: " << k << " r: " << m.to_string(x) << ", expected: " << m.to_string(y) << "\n";);
-    SASSERT(is_eq);
+    ENSURE(is_eq);
     m.del(x);
     m.del(y);
     m.del(pw);
@@ -286,7 +286,7 @@ void tst_int_min_bug() {
     m.set(expected, "18446744075857035263");
     m.sub(big, intmin, r);
     std::cout << "r: " << m.to_string(r) << "\nexpected: " << m.to_string(expected) << "\n";
-    SASSERT(m.eq(r, expected));
+    ENSURE(m.eq(r, expected));
     m.del(intmin);
     m.del(big);
     m.del(expected);
@@ -396,9 +396,9 @@ void tst_log2(unsynch_mpz_manager & m, mpz const & a) {
     scoped_mpz b(m);
     unsigned k = m.log2(a);
     m.power(mpz(2), k, b);
-    SASSERT(m.is_zero(a) || m.le(b, a));
+    ENSURE(m.is_zero(a) || m.le(b, a));
     m.power(mpz(2), k+1, b);
-    SASSERT(m.le(a, b));
+    ENSURE(m.le(a, b));
 
     scoped_mpz neg_a(m);
     m.set(neg_a, a);
@@ -406,10 +406,10 @@ void tst_log2(unsynch_mpz_manager & m, mpz const & a) {
     k = m.mlog2(neg_a);
     m.power(mpz(2), k, b);
     m.neg(b);
-    SASSERT(m.is_zero(neg_a) || m.le(neg_a, b));
+    ENSURE(m.is_zero(neg_a) || m.le(neg_a, b));
     m.power(mpz(2), k+1, b);
     m.neg(b);
-    SASSERT(m.le(b, neg_a));
+    ENSURE(m.le(b, neg_a));
 }
 
 void tst_log2() {
@@ -432,20 +432,20 @@ void tst_root() {
     m.set(a, 213);
     VERIFY(!m.root(a, 5));
     std::cout << "213^{1/5}: " << a << "\n";
-    SASSERT(m.eq(a, mpz(3)));
+    ENSURE(m.eq(a, mpz(3)));
     m.set(a, -213);
     VERIFY(!m.root(a, 5));
     std::cout << "-213^{1/5}: " << a << "\n";
-    SASSERT(m.eq(a, mpz(-2)));
+    ENSURE(m.eq(a, mpz(-2)));
     m.set(a, 0);
     VERIFY(m.root(a, 3));
-    SASSERT(m.is_zero(a));
+    ENSURE(m.is_zero(a));
     m.set(a, 8);
     VERIFY(m.root(a, 3));
-    SASSERT(m.eq(a, mpz(2)));
+    ENSURE(m.eq(a, mpz(2)));
     m.set(a, -8);
     VERIFY(m.root(a, 3));
-    SASSERT(m.eq(a, mpz(-2)));
+    ENSURE(m.eq(a, mpz(-2)));
 }
 
 void tst_gcd_bug() {

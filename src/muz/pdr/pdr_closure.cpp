@@ -17,10 +17,10 @@ Revision History:
 
 --*/
 
-#include "pdr_closure.h"
-#include "pdr_context.h"
-#include "expr_safe_replace.h"
-#include "ast_util.h"
+#include "muz/pdr/pdr_closure.h"
+#include "muz/pdr/pdr_context.h"
+#include "ast/rewriter/expr_safe_replace.h"
+#include "ast/ast_util.h"
 
 namespace pdr {
 

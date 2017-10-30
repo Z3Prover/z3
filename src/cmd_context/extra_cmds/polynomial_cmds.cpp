@@ -16,20 +16,20 @@ Notes:
 
 --*/
 #include<sstream>
-#include"cmd_context.h"
-#include"cmd_util.h"
-#include"scoped_timer.h"
-#include"scoped_ctrl_c.h"
-#include"cancel_eh.h"
-#include"ast_smt2_pp.h"
-#include"expr2polynomial.h"
-#include"parametric_cmd.h"
-#include"mpq.h"
-#include"algebraic_numbers.h"
-#include"polynomial_var2value.h"
-#include"expr2var.h"
-#include"pp.h"
-#include"pp_params.hpp"
+#include "cmd_context/cmd_context.h"
+#include "cmd_context/cmd_util.h"
+#include "util/scoped_timer.h"
+#include "util/scoped_ctrl_c.h"
+#include "util/cancel_eh.h"
+#include "ast/ast_smt2_pp.h"
+#include "ast/expr2polynomial.h"
+#include "cmd_context/parametric_cmd.h"
+#include "util/mpq.h"
+#include "math/polynomial/algebraic_numbers.h"
+#include "math/polynomial/polynomial_var2value.h"
+#include "ast/expr2var.h"
+#include "ast/pp.h"
+#include "ast/pp_params.hpp"
 
 static void to_poly(cmd_context & ctx, expr * t) {
     polynomial::numeral_manager nm;

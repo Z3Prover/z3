@@ -4,14 +4,14 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
-#include "arith_rewriter.h"
-#include "bv_decl_plugin.h"
-#include "ast_pp.h"
-#include "reg_decl_plugins.h"
-#include "th_rewriter.h"
-#include "model.h"
-#include "pdr_util.h"
-#include "smt2parser.h"
+#include "ast/rewriter/arith_rewriter.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/ast_pp.h"
+#include "ast/reg_decl_plugins.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "model/model.h"
+#include "muz/pdr/pdr_util.h"
+#include "parsers/smt2/smt2parser.h"
 
 
 static expr_ref parse_fml(ast_manager& m, char const* str) {
@@ -27,7 +27,7 @@ static expr_ref parse_fml(ast_manager& m, char const* str) {
            << "(assert " << str << ")\n";
     std::istringstream is(buffer.str());
     VERIFY(parse_smt2_commands(ctx, is));
-    SASSERT(ctx.begin_assertions() != ctx.end_assertions());
+    ENSURE(ctx.begin_assertions() != ctx.end_assertions());
     result = *ctx.begin_assertions();
     return result;
 }

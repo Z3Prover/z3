@@ -16,14 +16,14 @@ Revision History:
 
 --*/
 #include<iostream>
-#include"z3.h"
-#include"api_log_macros.h"
-#include"api_context.h"
-#include"api_tactic.h"
-#include"api_model.h"
-#include"scoped_ctrl_c.h"
-#include"cancel_eh.h"
-#include"scoped_timer.h"
+#include "api/z3.h"
+#include "api/api_log_macros.h"
+#include "api/api_context.h"
+#include "api/api_tactic.h"
+#include "api/api_model.h"
+#include "util/scoped_ctrl_c.h"
+#include "util/cancel_eh.h"
+#include "util/scoped_timer.h"
 
 Z3_apply_result_ref::Z3_apply_result_ref(api::context& c, ast_manager & m): api::object(c), m_core(m) {
 }

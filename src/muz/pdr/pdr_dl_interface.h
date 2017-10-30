@@ -20,12 +20,12 @@ Revision History:
 #ifndef PDR_DL_INTERFACE_H_
 #define PDR_DL_INTERFACE_H_
 
-#include "lbool.h"
-#include "dl_rule.h"
-#include "dl_rule_set.h"
-#include "dl_util.h"
-#include "dl_engine_base.h"
-#include "statistics.h"
+#include "util/lbool.h"
+#include "muz/base/dl_rule.h"
+#include "muz/base/dl_rule_set.h"
+#include "muz/base/dl_util.h"
+#include "muz/base/dl_engine_base.h"
+#include "util/statistics.h"
 
 namespace datalog {
     class context;

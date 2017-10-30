@@ -19,8 +19,8 @@ Revision History:
 #ifndef SAT_WATCHED_H_
 #define SAT_WATCHED_H_
 
-#include"sat_types.h"
-#include"vector.h"
+#include "sat/sat_types.h"
+#include "util/vector.h"
 
 namespace sat {
     /**
@@ -109,10 +109,10 @@ namespace sat {
         bool operator!=(watched const & w) const { return !operator==(w); }
     };
 
-    COMPILE_TIME_ASSERT(0 <= watched::BINARY && watched::BINARY <= 3);
-    COMPILE_TIME_ASSERT(0 <= watched::TERNARY && watched::TERNARY <= 3);
-    COMPILE_TIME_ASSERT(0 <= watched::CLAUSE && watched::CLAUSE <= 3);
-    COMPILE_TIME_ASSERT(0 <= watched::EXT_CONSTRAINT && watched::EXT_CONSTRAINT <= 3);
+    static_assert(0 <= watched::BINARY && watched::BINARY <= 3, "");
+    static_assert(0 <= watched::TERNARY && watched::TERNARY <= 3, "");
+    static_assert(0 <= watched::CLAUSE && watched::CLAUSE <= 3, "");
+    static_assert(0 <= watched::EXT_CONSTRAINT && watched::EXT_CONSTRAINT <= 3, "");
 
     struct watched_lt {
         bool operator()(watched const & w1, watched const & w2) const {

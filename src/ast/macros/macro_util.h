@@ -20,14 +20,10 @@ Revision History:
 #ifndef MACRO_UTIL_H_
 #define MACRO_UTIL_H_
 
-#include"ast.h"
-#include"obj_hashtable.h"
-#include"simplifier.h"
-
-class poly_simplifier_plugin;
-class arith_simplifier_plugin;
-class bv_simplifier_plugin;
-class basic_simplifier_plugin;
+#include "ast/ast.h"
+#include "util/obj_hashtable.h"
+#include "ast/rewriter/arith_rewriter.h"
+#include "ast/rewriter/bv_rewriter.h"
 
 class macro_util {
 public:
@@ -63,9 +59,9 @@ public:
 private:
     ast_manager &               m_manager;
     bv_util                     m_bv;
-    simplifier &                m_simplifier;
-    arith_simplifier_plugin *   m_arith_simp;
-    bv_simplifier_plugin    *   m_bv_simp;
+    arith_util                  m_arith;
+    mutable arith_rewriter      m_arith_rw;
+    mutable bv_rewriter         m_bv_rw;
     obj_hashtable<func_decl> *  m_forbidden_set;
 
     bool is_forbidden(func_decl * f) const { return m_forbidden_set != 0 && m_forbidden_set->contains(f); }
@@ -94,11 +90,9 @@ private:
 
 
 public:
-    macro_util(ast_manager & m, simplifier & s);
+    macro_util(ast_manager & m);
     void set_forbidden_set(obj_hashtable<func_decl> * s) { m_forbidden_set = s; }
 
-    arith_simplifier_plugin * get_arith_simp() const;
-    bv_simplifier_plugin * get_bv_simp() const;
 
     bool is_macro_head(expr * n, unsigned num_decls) const;
     bool is_left_simple_macro(expr * n, unsigned num_decls, app_ref & head, expr_ref & def) const;
@@ -113,6 +107,8 @@ public:
         return is_arith_macro(n, num_decls, head, def, inv);
     }
 
+    bool is_zero_safe(expr * n) const;
+    bool is_var_plus_ground(expr * n, bool & inv, var * & v, expr_ref & t);
     bool is_pseudo_head(expr * n, unsigned num_decls, app_ref & head, app_ref & t);
     bool is_pseudo_predicate_macro(expr * n, app_ref & head, app_ref & t, expr_ref & def);
 
@@ -137,7 +133,6 @@ public:
     void mk_sub(expr * t1, expr * t2, expr_ref & r) const;
     void mk_add(expr * t1, expr * t2, expr_ref & r) const;
     void mk_add(unsigned num_args, expr * const * args, sort * s, expr_ref & r) const;
-    poly_simplifier_plugin * get_poly_simp_for(sort * s) const;
 };
 
 #endif

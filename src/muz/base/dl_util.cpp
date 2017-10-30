@@ -23,14 +23,14 @@ Revision History:
 #ifdef _WINDOWS
 #include <windows.h>
 #endif
-#include"ast_pp.h"
-#include"bool_rewriter.h"
-#include"for_each_expr.h"
-#include"scoped_proof.h"
-#include"dl_context.h"
-#include"dl_rule.h"
-#include"dl_util.h"
-#include"stopwatch.h"
+#include "ast/ast_pp.h"
+#include "ast/rewriter/bool_rewriter.h"
+#include "ast/for_each_expr.h"
+#include "ast/scoped_proof.h"
+#include "muz/base/dl_context.h"
+#include "muz/base/dl_rule.h"
+#include "muz/base/dl_util.h"
+#include "util/stopwatch.h"
 
 namespace datalog {
 

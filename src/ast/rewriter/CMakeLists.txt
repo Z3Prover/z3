@@ -3,22 +3,29 @@ z3_add_component(rewriter
     arith_rewriter.cpp
     array_rewriter.cpp
     ast_counter.cpp
+    bit2int.cpp
     bool_rewriter.cpp
     bv_bounds.cpp
+    bv_elim.cpp
     bv_rewriter.cpp
     datatype_rewriter.cpp
     der.cpp
     distribute_forall.cpp
     dl_rewriter.cpp
+    elim_bounds.cpp
     enum2bv_rewriter.cpp
     expr_replacer.cpp
     expr_safe_replace.cpp
     factor_rewriter.cpp
     fpa_rewriter.cpp
+    inj_axiom.cpp
     label_rewriter.cpp
+    maximize_ac_sharing.cpp
     mk_simplified_app.cpp
     pb_rewriter.cpp
     pb2bv_rewriter.cpp
+    push_app_ite.cpp
+    pull_ite_tree.cpp
     quant_hoist.cpp
     rewriter.cpp
     seq_rewriter.cpp

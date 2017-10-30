@@ -19,11 +19,11 @@ Notes:
 #ifndef BV2FPA_CONVERTER_H_
 #define BV2FPA_CONVERTER_H_
 
-#include"fpa_decl_plugin.h"
-#include"bv_decl_plugin.h"
-#include"th_rewriter.h"
-#include"model_core.h"
-#include"fpa2bv_converter.h"
+#include "ast/fpa_decl_plugin.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "model/model_core.h"
+#include "ast/fpa/fpa2bv_converter.h"
 
 
 class bv2fpa_converter {
@@ -50,7 +50,6 @@ public:
     expr_ref convert_bv2rm(expr * eval_v);
     expr_ref convert_bv2rm(model_core * mc, app * val);
 
-    void convert(model_core * mc, model_core * float_mdl);
     void convert_consts(model_core * mc, model_core * target_model, obj_hashtable<func_decl> & seen);
     void convert_rm_consts(model_core * mc, model_core * target_model, obj_hashtable<func_decl> & seen);
     void convert_min_max_specials(model_core * mc, model_core * target_model, obj_hashtable<func_decl> & seen);

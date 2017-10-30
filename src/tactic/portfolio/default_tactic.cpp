@@ -16,21 +16,21 @@ Author:
 Notes:
 
 --*/
-#include"default_tactic.h"
-#include"simplify_tactic.h"
-#include"qfbv_tactic.h"
-#include"smt_tactic.h"
-#include"qflia_tactic.h"
-#include"qflra_tactic.h"
-#include"qfnia_tactic.h"
-#include"qfnra_tactic.h"
-#include"nra_tactic.h"
-#include"probe_arith.h"
-#include"quant_tactics.h"
-#include"qffp_tactic.h"
-#include"qfaufbv_tactic.h"
-#include"qfauflia_tactic.h"
-#include"qfufnra_tactic.h"
+#include "tactic/portfolio/default_tactic.h"
+#include "tactic/core/simplify_tactic.h"
+#include "tactic/smtlogics/qfbv_tactic.h"
+#include "smt/tactic/smt_tactic.h"
+#include "tactic/smtlogics/qflia_tactic.h"
+#include "tactic/smtlogics/qflra_tactic.h"
+#include "tactic/smtlogics/qfnia_tactic.h"
+#include "tactic/smtlogics/qfnra_tactic.h"
+#include "tactic/smtlogics/nra_tactic.h"
+#include "tactic/arith/probe_arith.h"
+#include "tactic/smtlogics/quant_tactics.h"
+#include "tactic/fpa/qffp_tactic.h"
+#include "tactic/smtlogics/qfaufbv_tactic.h"
+#include "tactic/smtlogics/qfauflia_tactic.h"
+#include "tactic/smtlogics/qfufnra_tactic.h"
 
 tactic * mk_default_tactic(ast_manager & m, params_ref const & p) {
     tactic * st = using_params(and_then(mk_simplify_tactic(m),

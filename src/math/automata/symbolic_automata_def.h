@@ -22,8 +22,9 @@ Revision History:
 #define SYMBOLIC_AUTOMATA_DEF_H_
 
 
-#include "symbolic_automata.h"
-#include "hashtable.h"
+#include "math/automata/symbolic_automata.h"
+#include "util/hashtable.h"
+#include "util/vector.h"
 
 
 
@@ -288,7 +289,7 @@ typename symbolic_automata<T, M>::automaton_t*
 symbolic_automata<T, M>::mk_determinstic_param(automaton_t& a, bool flip_acceptance) {
     vector<std::pair<vector<bool>, ref_t> > min_terms;
     vector<ref_t> predicates;
-    
+
     map<uint_set, unsigned, uint_set::hash, uint_set::eq> s2id; // set of states to unique id
     vector<uint_set> id2s;                           // unique id to set of b-states
     uint_set set;
@@ -296,17 +297,22 @@ symbolic_automata<T, M>::mk_determinstic_param(automaton_t& a, bool flip_accepta
     moves_t new_mvs;                                 // moves in the resulting automaton
     unsigned_vector new_final_states;                // new final states
     unsigned p_state_id = 0;                         // next state identifier
-    
-    // adds non-final states of a to final if flipping and and final otherwise
+
+    TRACE("seq", tout << "mk-deterministic " << flip_acceptance << " " << set << " " << a.is_final_configuration(set) << "\n";);    
+    // adds non-final states of a to final if flipping and final otherwise
+    unsigned_vector init_states;
+    a.get_epsilon_closure(a.init(), init_states);    
+    for (unsigned s : init_states) {
+        set.insert(s);
+    }
     if (a.is_final_configuration(set) != flip_acceptance) {
         new_final_states.push_back(p_state_id);
     }
     
-    set.insert(a.init());                         // Initial state as aset
     s2id.insert(set, p_state_id++);               // the index to the initial state is 0
     id2s.push_back(set);
     
-    svector<uint_set> todo; //States to visit
+    ::vector<uint_set> todo; //States to visit
     todo.push_back(set);
     
     uint_set state;
@@ -342,6 +348,7 @@ symbolic_automata<T, M>::mk_determinstic_param(automaton_t& a, bool flip_accepta
             
             bool is_new = !s2id.contains(set);
             if (is_new) {
+                TRACE("seq", tout << "mk-deterministic " << flip_acceptance << " " << set << " " << a.is_final_configuration(set) << "\n";);    
                 if (a.is_final_configuration(set) != flip_acceptance) {
                     new_final_states.push_back(p_state_id);
                 }
@@ -445,7 +452,15 @@ typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_produ
         }
     }
     if (mvs1.empty()) {
-        return alloc(automaton_t, m);
+        if (a.is_final_state(a.init()) && b.is_final_state(b.init())) {
+            // special case: automaton has no moves, but the initial state is final on both sides
+            // this results in the automaton which accepts the empty sequence and nothing else
+            final.clear();
+            final.push_back(0);
+            return alloc(automaton_t, m, 0, final, mvs1);
+        } else {
+            return alloc(automaton_t, m);
+        }
     }
     else {
         return alloc(automaton_t, m, 0, final, mvs1);

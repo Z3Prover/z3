@@ -1913,7 +1913,11 @@ class MLComponent(Component):
             src_dir = self.to_src_dir
             mk_dir(os.path.join(BUILD_DIR, self.sub_dir))
             api_src = get_component(API_COMPONENT).to_src_dir
-            out.write('CXXFLAGS_OCAML=$(CXXFLAGS:/GL=)\n') # remove /GL; the ocaml tools don't like it.
+            # remove /GL and -std=c++11; the ocaml tools don't like them.
+            if IS_WINDOWS:                
+                out.write('CXXFLAGS_OCAML=$(CXXFLAGS:/GL=)\n')
+            else:
+                out.write('CXXFLAGS_OCAML=$(subst -std=c++11,,$(CXXFLAGS))\n')
 
             if IS_WINDOWS:
                 prefix_lib = '-L' + os.path.abspath(BUILD_DIR).replace('\\', '\\\\')
@@ -2443,26 +2447,26 @@ def mk_config():
             SO_EXT         = '.dylib'
             SLIBFLAGS      = '-dynamiclib'
         elif sysname == 'Linux':
-            CXXFLAGS       = '%s -fno-strict-aliasing -D_LINUX_' % CXXFLAGS
+            CXXFLAGS       = '%s -D_LINUX_' % CXXFLAGS
             OS_DEFINES     = '-D_LINUX_'
             SO_EXT         = '.so'
             LDFLAGS        = '%s -lrt' % LDFLAGS
             SLIBFLAGS      = '-shared'
             SLIBEXTRAFLAGS = '%s -lrt' % SLIBEXTRAFLAGS
         elif sysname == 'FreeBSD':
-            CXXFLAGS       = '%s -fno-strict-aliasing -D_FREEBSD_' % CXXFLAGS
+            CXXFLAGS       = '%s -D_FREEBSD_' % CXXFLAGS
             OS_DEFINES     = '-D_FREEBSD_'
             SO_EXT         = '.so'
             LDFLAGS        = '%s -lrt' % LDFLAGS
             SLIBFLAGS      = '-shared'
             SLIBEXTRAFLAGS = '%s -lrt' % SLIBEXTRAFLAGS
         elif sysname == 'OpenBSD':
-            CXXFLAGS       = '%s -fno-strict-aliasing -D_OPENBSD_' % CXXFLAGS
+            CXXFLAGS       = '%s -D_OPENBSD_' % CXXFLAGS
             OS_DEFINES     = '-D_OPENBSD_'
             SO_EXT         = '.so'
             SLIBFLAGS      = '-shared'
         elif sysname[:6] ==  'CYGWIN':
-            CXXFLAGS    = '%s -D_CYGWIN -fno-strict-aliasing' % CXXFLAGS
+            CXXFLAGS    = '%s -D_CYGWIN' % CXXFLAGS
             OS_DEFINES     = '-D_CYGWIN'
             SO_EXT      = '.dll'
             SLIBFLAGS   = '-shared'
@@ -3046,6 +3050,7 @@ def mk_vs_proj_cl_compile(f, name, components, debug):
         else:
             f.write(';')
         f.write(get_component(dep).to_src_dir)
+    f.write(';%s\n' % os.path.join(REV_BUILD_DIR, SRC_DIR))
     f.write('</AdditionalIncludeDirectories>\n')
     f.write('    </ClCompile>\n')
 

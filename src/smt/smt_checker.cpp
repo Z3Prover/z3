@@ -16,9 +16,9 @@ Author:
 Revision History:
 
 --*/
-#include"smt_context.h"
-#include"smt_checker.h"
-#include"ast_ll_pp.h"
+#include "smt/smt_context.h"
+#include "smt/smt_checker.h"
+#include "ast/ast_ll_pp.h"
 
 namespace smt {
 

@@ -16,10 +16,10 @@ Author:
 Revision History:
 
 --*/
-#include"smt_context.h"
-#include"smt_conflict_resolution.h"
-#include"ast_pp.h"
-#include"ast_ll_pp.h"
+#include "smt/smt_context.h"
+#include "smt/smt_conflict_resolution.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
 
 namespace smt {
 
@@ -129,7 +129,7 @@ namespace smt {
 
         if (m_node1 != m_node1->get_root()) {
             proof * pr = cr.get_proof(m_node1, m_node1->get_root());
-            if (pr && m.fine_grain_proofs())
+            if (pr && m.proofs_enabled())
                 pr = m.mk_symmetry(pr);
             prs.push_back(pr);
             if (!pr) 

@@ -20,20 +20,23 @@ Revision History:
 
 --*/
 
-#include"ast_pp.h"
-#include"ufbv_rewriter.h"
-#include"for_each_expr.h"
-#include"var_subst.h"
-#include"uint_set.h"
+#include "util/uint_set.h"
+#include "ast/ast_pp.h"
+#include "ast/for_each_expr.h"
+#include "ast/rewriter/var_subst.h"
+#include "tactic/ufbv/ufbv_rewriter.h"
 
-ufbv_rewriter::ufbv_rewriter(ast_manager & m, basic_simplifier_plugin & p):
+ufbv_rewriter::ufbv_rewriter(ast_manager & m):
     m_manager(m),
     m_match_subst(m),
-    m_bsimp(p),
+    m_bsimp(m),
     m_todo(m),
     m_rewrite_todo(m),
     m_rewrite_cache(m),
     m_new_exprs(m) {
+    params_ref p;
+    p.set_bool("elim_and", true);
+    m_bsimp.updt_params(p);
 }
 
 ufbv_rewriter::~ufbv_rewriter() {
@@ -396,7 +399,7 @@ expr * ufbv_rewriter::rewrite(expr * n) {
                         if (f->get_family_id() != m_manager.get_basic_family_id())
                             na = m_manager.mk_app(f, m_new_args.size(), m_new_args.c_ptr());
                         else
-                            m_bsimp.reduce(f, m_new_args.size(), m_new_args.c_ptr(), na);
+                            m_bsimp.mk_app(f, m_new_args.size(), m_new_args.c_ptr(), na);
                         TRACE("demodulator_bug", tout << "e:\n" << mk_pp(e, m_manager) << "\nnew_args: \n";
                               for (unsigned i = 0; i < m_new_args.size(); i++) { tout << mk_pp(m_new_args[i], m_manager) << "\n"; }
                               tout << "=====>\n";

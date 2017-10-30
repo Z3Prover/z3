@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#include"subpaving_hwf.h"
-#include"subpaving_t_def.h"
+#include "math/subpaving/subpaving_hwf.h"
+#include "math/subpaving/subpaving_t_def.h"
 
 // force template instantiation
 template class subpaving::context_t<subpaving::config_hwf>;

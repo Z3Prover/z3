@@ -22,8 +22,8 @@ Revision History:
 #define SYMBOLIC_AUTOMATA_H_
 
 
-#include "automaton.h"
-#include "boolean_algebra.h"
+#include "math/automata/automaton.h"
+#include "math/automata/boolean_algebra.h"
 
 
 template<class T, class M = default_value_manager<T> >
@@ -130,13 +130,14 @@ private:
         else {
             //true case
             curr_bv.push_back(true);
-            ref_t new_pred_pos(m_ba.mk_and(curr_pred, constraints[i]), m);			
+            ref_t new_pred_pos(m_ba.mk_and(curr_pred, constraints[i]), m);
             generate_min_terms_rec(constraints, min_terms, i + 1, curr_bv, new_pred_pos);
             curr_bv.pop_back();
             
             //false case
             curr_bv.push_back(false);
-            ref_t new_pred_neg(m_ba.mk_and(curr_pred, m_ba.mk_not(constraints[i])), m);
+            ref_t neg(m_ba.mk_not(constraints[i]), m);
+            ref_t new_pred_neg(m_ba.mk_and(curr_pred, neg), m);
             generate_min_terms_rec(constraints, min_terms, i + 1, curr_bv, new_pred_neg);
             curr_bv.pop_back();
         }

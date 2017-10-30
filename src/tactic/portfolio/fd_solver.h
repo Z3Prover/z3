@@ -19,8 +19,8 @@ Notes:
 #ifndef FD_SOLVER_H_
 #define FD_SOLVER_H_
 
-#include"ast.h"
-#include"params.h"
+#include "ast/ast.h"
+#include "util/params.h"
 
 class solver;
 

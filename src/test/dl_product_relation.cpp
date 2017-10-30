@@ -5,11 +5,11 @@ Copyright (c) 2015 Microsoft Corporation
 --*/
 
 #ifdef _WINDOWS
-#include "dl_context.h"
-#include "dl_register_engine.h"
-#include "dl_finite_product_relation.h"
-#include "dl_sparse_table.h"
-#include "rel_context.h"
+#include "muz/base/dl_context.h"
+#include "muz/fp/dl_register_engine.h"
+#include "muz/rel/dl_finite_product_relation.h"
+#include "muz/rel/dl_sparse_table.h"
+#include "muz/rel/rel_context.h"
 
 namespace datalog {
 
@@ -37,12 +37,12 @@ namespace datalog {
 
         sparse_table_plugin & plugin = 
             static_cast<sparse_table_plugin &>(*rctx.get_rmanager().get_table_plugin(symbol("sparse")));
-        SASSERT(&plugin);
+        ENSURE(&plugin);
         table_signature sig2;
         sig2.push_back(2);
         sig2.push_back(2);
         sig2.set_functional_columns(1);
-        SASSERT(plugin.can_handle_signature(sig2));
+        ENSURE(plugin.can_handle_signature(sig2));
         
         table_fact f00;
         f00.push_back(0);
@@ -56,32 +56,32 @@ namespace datalog {
 
         {
             table_aptr t0 = plugin.mk_empty(sig2);
-            SASSERT(t0->empty());
+            ENSURE(t0->empty());
             t0->add_fact(f00);
-            SASSERT(!t0->empty());
-            SASSERT(t0->get_size_estimate_rows()==1);
+            ENSURE(!t0->empty());
+            ENSURE(t0->get_size_estimate_rows()==1);
             t0->add_fact(f01);
-            SASSERT(t0->get_size_estimate_rows()==1);
+            ENSURE(t0->get_size_estimate_rows()==1);
             t0->add_fact(f11);
-            SASSERT(t0->get_size_estimate_rows()==2);
+            ENSURE(t0->get_size_estimate_rows()==2);
 
             unsigned rem_cols0[]={0};
             scoped_ptr<table_transformer_fn> project0 = rmgr.mk_project_fn(*t0, 1, rem_cols0);
             table_aptr t1 = (*project0)(*t0);
-            SASSERT(t1->get_size_estimate_rows()==2);
-            SASSERT(t1->get_signature().functional_columns()==0); //project on non-functional column cancels functional
+            ENSURE(t1->get_size_estimate_rows()==2);
+            ENSURE(t1->get_signature().functional_columns()==0); //project on non-functional column cancels functional
 
             unsigned rem_cols1[]={1};
             scoped_ptr<table_transformer_fn> project1 = rmgr.mk_project_fn(*t0, 1, rem_cols1);
             table_aptr t2 = (*project1)(*t0);
-            SASSERT(t2->get_size_estimate_rows()==2);
+            ENSURE(t2->get_size_estimate_rows()==2);
 
             idx_set acc;
             collector_of_reduced * reducer = alloc(collector_of_reduced, acc);
             scoped_ptr<table_transformer_fn> rproject = rmgr.mk_project_with_reduce_fn(*t0, 1, rem_cols0, reducer);
             table_aptr rt = (*rproject)(*t0);
-            SASSERT(acc.num_elems()==1);
-            SASSERT(rt->get_size_estimate_rows()==1);
+            ENSURE(acc.num_elems()==1);
+            ENSURE(rt->get_size_estimate_rows()==1);
         }
         {
             table_aptr t0 = plugin.mk_empty(sig2);
@@ -90,44 +90,44 @@ namespace datalog {
             unsigned join_cols[]={1};
             scoped_ptr<table_join_fn> join0 = rmgr.mk_join_fn(*t0, *t0, 1, join_cols, join_cols);
             table_aptr t1 = (*join0)(*t0, *t0);
-            SASSERT(t1->get_signature().size()==4);
-            SASSERT(t1->get_signature().functional_columns()==2);
+            ENSURE(t1->get_signature().size()==4);
+            ENSURE(t1->get_signature().functional_columns()==2);
 
             table_fact f0011;
             f0011.push_back(0);
             f0011.push_back(0);
             f0011.push_back(1);
             f0011.push_back(1);
-            SASSERT(t1->contains_fact(f0011));
+            ENSURE(t1->contains_fact(f0011));
             table_fact f0111 = f0011;
             f0111[1] = 1;
-            SASSERT(!t1->contains_fact(f0111));
+            ENSURE(!t1->contains_fact(f0111));
         }
 
         {
             table_aptr t0 = plugin.mk_empty(sig2);
             t0->display(std::cout<<"0:");
-            SASSERT(t0->get_signature().functional_columns()==1);
+            ENSURE(t0->get_signature().functional_columns()==1);
             
             table_fact aux_fact;
 
             aux_fact = f01;
             TRUSTME( t0->suggest_fact(aux_fact) );
             t0->display(std::cout<<"1:");
-            SASSERT(t0->contains_fact(f01));
-            SASSERT(aux_fact[1]==1);
+            ENSURE(t0->contains_fact(f01));
+            ENSURE(aux_fact[1]==1);
 
             aux_fact = f00;
             TRUSTME( !t0->suggest_fact(aux_fact) );
             t0->display(std::cout<<"2:");
-            SASSERT(t0->contains_fact(f01));
-            SASSERT(!t0->contains_fact(f00));
-            SASSERT(aux_fact[1]==1);
+            ENSURE(t0->contains_fact(f01));
+            ENSURE(!t0->contains_fact(f00));
+            ENSURE(aux_fact[1]==1);
 
             t0->ensure_fact(f00);
             t0->display(std::cout<<"3:");
-            SASSERT(t0->contains_fact(f00));
-            SASSERT(!t0->contains_fact(f01));
+            ENSURE(t0->contains_fact(f00));
+            ENSURE(!t0->contains_fact(f01));
         }
     }
 
@@ -140,7 +140,7 @@ namespace datalog {
         relation_manager & rmgr = ctx.get_rel_context()->get_rmanager();
 
         relation_plugin & rel_plugin = *rmgr.get_relation_plugin(params.get_sym("default_relation", symbol("sparse")));
-        SASSERT(&rel_plugin);
+        ENSURE(&rel_plugin);
         finite_product_relation_plugin plg(rel_plugin, rmgr);
 
         sort_ref byte_srt_ref(dl_util.mk_sort(symbol("BYTE"), 256), m);
@@ -194,9 +194,9 @@ namespace datalog {
         scoped_rel<relation_base> r2 = r1->clone();
         scoped_rel<relation_base> r3 = r2->clone();
 
-        SASSERT(!r1->contains_fact(f77));
+        ENSURE(!r1->contains_fact(f77));
         r1->add_fact(f77);
-        SASSERT(r1->contains_fact(f77));
+        ENSURE(r1->contains_fact(f77));
 
         r2->add_fact(f79);
         r3->add_fact(f99);
@@ -207,34 +207,34 @@ namespace datalog {
         r2->display( std::cout << "r2 1\n");
 
         r4->display( std::cout << "r4 0\n");
-        SASSERT(!r4->contains_fact(f77));
-        SASSERT(r4->contains_fact(f79));
+        ENSURE(!r4->contains_fact(f77));
+        ENSURE(r4->contains_fact(f79));
         r4->add_fact(f77);
         r4->display( std::cout << "r4 1\n");
-        SASSERT(r4->contains_fact(f77));
-        SASSERT(r4->contains_fact(f79));
+        ENSURE(r4->contains_fact(f77));
+        ENSURE(r4->contains_fact(f79));
         r4->add_fact(f99);
         r4->display( std::cout << "r4 2\n");
-        SASSERT(r4->contains_fact(f99));
+        ENSURE(r4->contains_fact(f99));
 
 
         std::cout << "------ testing union ------\n";
         r2->display( std::cout << "r2\n");
         scoped_ptr<relation_union_fn> union_op = rmgr.mk_union_fn(*r1, *r2, r3.get());
-        SASSERT(union_op);
+        ENSURE(union_op);
         (*union_op)(*r1, *r2, r3.get());
 
         r1->display( std::cout << "r1\n");
         r2->display( std::cout << "r2\n");
         r3->display( std::cout << "r3\n");
 
-        SASSERT(r1->contains_fact(f77));
-        SASSERT(r1->contains_fact(f79));
-        SASSERT(!r1->contains_fact(f99));
+        ENSURE(r1->contains_fact(f77));
+        ENSURE(r1->contains_fact(f79));
+        ENSURE(!r1->contains_fact(f99));
 
-        SASSERT(!r3->contains_fact(f77));
-        SASSERT(r3->contains_fact(f79));
-        SASSERT(r3->contains_fact(f99));
+        ENSURE(!r3->contains_fact(f77));
+        ENSURE(r3->contains_fact(f79));
+        ENSURE(r3->contains_fact(f99));
 
         std::cout << "------ testing join ------\n";
 
@@ -264,9 +264,9 @@ namespace datalog {
         jr_rr->display( std::cout << "rr\n");
 
 
-        SASSERT(!jr_tt->contains_fact(f7797));
-        SASSERT(jr_tr->contains_fact(f7797));
-        SASSERT(jr_rr->contains_fact(f7797));
+        ENSURE(!jr_tt->contains_fact(f7797));
+        ENSURE(jr_tr->contains_fact(f7797));
+        ENSURE(jr_rr->contains_fact(f7797));
 
 
         std::cout << "------ testing project ------\n";
@@ -288,17 +288,17 @@ namespace datalog {
         scoped_rel<relation_base> sr_2r = (*proj_2r)(*r31);
         scoped_rel<relation_base> sr_1t = (*proj_1t)(*r31);
 
-        SASSERT(sr_1r->contains_fact(f79));
-        SASSERT(sr_1r->contains_fact(f97));
-        SASSERT(!sr_1r->contains_fact(f77));
+        ENSURE(sr_1r->contains_fact(f79));
+        ENSURE(sr_1r->contains_fact(f97));
+        ENSURE(!sr_1r->contains_fact(f77));
 
-        SASSERT(sr_2r->contains_fact(f7));
-        SASSERT(sr_2r->contains_fact(f9));
+        ENSURE(sr_2r->contains_fact(f7));
+        ENSURE(sr_2r->contains_fact(f9));
 
-        SASSERT(sr_1t->contains_fact(f79));
-        SASSERT(!sr_1t->contains_fact(f97));
-        SASSERT(sr_1t->contains_fact(f77));
-        SASSERT(sr_1t->contains_fact(f99));
+        ENSURE(sr_1t->contains_fact(f79));
+        ENSURE(!sr_1t->contains_fact(f97));
+        ENSURE(sr_1t->contains_fact(f77));
+        ENSURE(sr_1t->contains_fact(f99));
 
         std::cout << "------ testing filter_interpreted ------\n";
 
@@ -314,8 +314,8 @@ namespace datalog {
         scoped_ptr<relation_mutator_fn> i_filter = rmgr.mk_filter_interpreted_fn(*r41, cond);
         (*i_filter)(*r41);
 
-        SASSERT(r41->contains_fact(f7797));
-        SASSERT(!r41->contains_fact(f7997));
+        ENSURE(r41->contains_fact(f7797));
+        ENSURE(!r41->contains_fact(f7997));
 
         std::cout << "------ testing filter_by_negation ------\n";
 
@@ -334,9 +334,9 @@ namespace datalog {
             nf_r31_cols, nf_r1_cols);
         (*neg_filter)(*r31, *r1);
 
-        SASSERT(!r31->contains_fact(f779));
-        SASSERT(r31->contains_fact(f977));
-        SASSERT(r31->contains_fact(f799));
+        ENSURE(!r31->contains_fact(f779));
+        ENSURE(r31->contains_fact(f977));
+        ENSURE(r31->contains_fact(f799));
 
 
     }

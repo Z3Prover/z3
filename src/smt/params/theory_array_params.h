@@ -19,7 +19,7 @@ Revision History:
 #ifndef THEORY_ARRAY_PARAMS_H_
 #define THEORY_ARRAY_PARAMS_H_
 
-#include"array_simplifier_params.h"
+#include "util/params.h"
 
 enum array_solver_id {
     AR_NO_ARRAY,
@@ -28,7 +28,9 @@ enum array_solver_id {
     AR_FULL
 };
 
-struct theory_array_params : public array_simplifier_params {
+struct theory_array_params {
+    bool            m_array_canonize_simplify;
+    bool            m_array_simplify; // temporary hack for disabling array simplifier plugin.
     array_solver_id m_array_mode;
     bool            m_array_weak;
     bool            m_array_extensional;
@@ -40,6 +42,8 @@ struct theory_array_params : public array_simplifier_params {
     unsigned        m_array_lazy_ieq_delay;
 
     theory_array_params():
+        m_array_canonize_simplify(false),
+        m_array_simplify(true),
         m_array_mode(AR_FULL),
         m_array_weak(false),
         m_array_extensional(true),

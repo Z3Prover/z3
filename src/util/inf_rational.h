@@ -21,9 +21,9 @@ Revision History:
 #define INF_RATIONAL_H_
 #include<stdlib.h>
 #include<string>
-#include"debug.h"
-#include"vector.h"
-#include"rational.h"
+#include "util/debug.h"
+#include "util/vector.h"
+#include "util/rational.h"
 
 
 class inf_rational {
@@ -123,12 +123,12 @@ class inf_rational {
     bool is_rational() const { return m_second.is_zero(); }
 
     int64 get_int64() const {
-	SASSERT(is_int64());
+        SASSERT(is_int64());
         return m_first.get_int64();
     }
 
     uint64 get_uint64() const {
-	SASSERT(is_uint64());
+        SASSERT(is_uint64());
         return m_first.get_uint64();
     }
 
@@ -145,7 +145,7 @@ class inf_rational {
     inf_rational & operator=(const inf_rational & r) {
         m_first = r.m_first;
         m_second = r.m_second;
-	return *this;
+        return *this;
     }
 
     inf_rational & operator=(const rational & r) {
@@ -167,23 +167,23 @@ class inf_rational {
     inf_rational & operator+=(const inf_rational & r) { 
         m_first  += r.m_first;
         m_second += r.m_second;
-	return *this; 
+        return *this; 
     }
 
     inf_rational & operator-=(const inf_rational & r) { 
         m_first  -= r.m_first;
         m_second -= r.m_second;
-	return *this; 
+        return *this; 
     }
 
     inf_rational & operator+=(const rational & r) { 
         m_first  += r;
-	return *this; 
+        return *this; 
     }
 
     inf_rational & operator-=(const rational & r) { 
         m_first  -= r;
-	return *this; 
+        return *this; 
     }
 
     inf_rational & operator*=(const rational & r1) {

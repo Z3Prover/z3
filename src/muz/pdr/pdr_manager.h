@@ -23,17 +23,17 @@ Revision History:
 
 #include <utility>
 #include <map>
-#include "bool_rewriter.h"
-#include "expr_replacer.h"
-#include "expr_substitution.h"
-#include "map.h"
-#include "ref_vector.h"
-#include "smt_kernel.h"
-#include "pdr_util.h"
-#include "pdr_sym_mux.h"
-#include "pdr_farkas_learner.h"
-#include "pdr_smt_context_manager.h"
-#include "dl_rule.h"
+#include "ast/rewriter/bool_rewriter.h"
+#include "ast/rewriter/expr_replacer.h"
+#include "ast/expr_substitution.h"
+#include "util/map.h"
+#include "util/ref_vector.h"
+#include "smt/smt_kernel.h"
+#include "muz/pdr/pdr_util.h"
+#include "muz/pdr/pdr_sym_mux.h"
+#include "muz/pdr/pdr_farkas_learner.h"
+#include "muz/pdr/pdr_smt_context_manager.h"
+#include "muz/base/dl_rule.h"
 
 
 namespace smt {

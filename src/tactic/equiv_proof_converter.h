@@ -24,7 +24,7 @@ Revision History:
 #ifndef EQUIV_PROOF_CONVERTER_H_
 #define EQUIV_PROOF_CONVERTER_H_
 
-#include "replace_proof_converter.h"
+#include "tactic/replace_proof_converter.h"
 
 class equiv_proof_converter : public proof_converter {
     ast_manager&            m;

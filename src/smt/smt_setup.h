@@ -19,8 +19,8 @@ Revision History:
 #ifndef SMT_SETUP_H_
 #define SMT_SETUP_H_
 
-#include"ast.h"
-#include"smt_params.h"
+#include "ast/ast.h"
+#include "smt/params/smt_params.h"
 
 struct static_features;
 namespace smt {
@@ -54,6 +54,7 @@ namespace smt {
         // setup_<logic>(static_features & st) can only be used if the logical context will perform a single 
         // check.
         // 
+        void setup_QF_DT();
         void setup_QF_UF();
         void setup_QF_UF(static_features const & st);
         void setup_QF_RDL();

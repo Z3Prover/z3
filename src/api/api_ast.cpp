@@ -16,28 +16,28 @@ Revision History:
 
 --*/
 #include<iostream>
-#include"api_log_macros.h"
-#include"api_context.h"
-#include"api_util.h"
-#include"well_sorted.h"
-#include"arith_decl_plugin.h"
-#include"bv_decl_plugin.h"
-#include"datatype_decl_plugin.h"
-#include"array_decl_plugin.h"
-#include"pb_decl_plugin.h"
-#include"ast_translation.h"
-#include"ast_pp.h"
-#include"ast_ll_pp.h"
-#include"ast_smt_pp.h"
-#include"ast_smt2_pp.h"
-#include"th_rewriter.h"
-#include"var_subst.h"
-#include"expr_safe_replace.h"
-#include"pp.h"
-#include"scoped_ctrl_c.h"
-#include"cancel_eh.h"
-#include"scoped_timer.h"
-#include"pp_params.hpp"
+#include "api/api_log_macros.h"
+#include "api/api_context.h"
+#include "api/api_util.h"
+#include "ast/well_sorted.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/datatype_decl_plugin.h"
+#include "ast/array_decl_plugin.h"
+#include "ast/pb_decl_plugin.h"
+#include "ast/ast_translation.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
+#include "ast/ast_smt_pp.h"
+#include "ast/ast_smt2_pp.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "ast/rewriter/var_subst.h"
+#include "ast/rewriter/expr_safe_replace.h"
+#include "ast/pp.h"
+#include "util/scoped_ctrl_c.h"
+#include "util/cancel_eh.h"
+#include "util/scoped_timer.h"
+#include "ast/pp_params.hpp"
 
 extern bool is_numeral_sort(Z3_context c, Z3_sort ty);
 
@@ -1204,16 +1204,8 @@ extern "C" {
             case OP_FPA_TO_SBV: return Z3_OP_FPA_TO_SBV;
             case OP_FPA_TO_REAL: return Z3_OP_FPA_TO_REAL;
             case OP_FPA_TO_IEEE_BV: return Z3_OP_FPA_TO_IEEE_BV;
-            case OP_FPA_INTERNAL_MIN_I: return Z3_OP_FPA_MIN_I;
-            case OP_FPA_INTERNAL_MAX_I: return Z3_OP_FPA_MAX_I;
-            case OP_FPA_INTERNAL_BV2RM:
-            case OP_FPA_INTERNAL_BVWRAP:
-            case OP_FPA_INTERNAL_MIN_UNSPECIFIED:
-            case OP_FPA_INTERNAL_MAX_UNSPECIFIED:
-            case OP_FPA_INTERNAL_TO_UBV_UNSPECIFIED:
-            case OP_FPA_INTERNAL_TO_SBV_UNSPECIFIED:
-            case OP_FPA_INTERNAL_TO_REAL_UNSPECIFIED:
-            case OP_FPA_INTERNAL_TO_IEEE_BV_UNSPECIFIED:
+            case OP_FPA_BVWRAP: return Z3_OP_FPA_BVWRAP;
+            case OP_FPA_BV2RM: return Z3_OP_FPA_BV2RM;
                 return Z3_OP_UNINTERPRETED;
             default:
                 return Z3_OP_INTERNAL;

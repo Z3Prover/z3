@@ -19,9 +19,9 @@ Revision History:
 #ifndef CACHED_VAR_SUBST_H_
 #define CACHED_VAR_SUBST_H_
 
-#include"var_subst.h"
-#include"map.h"
-#include"smt_enode.h"
+#include "ast/rewriter/var_subst.h"
+#include "util/map.h"
+#include "smt/smt_enode.h"
 
 class cached_var_subst {
     struct key {

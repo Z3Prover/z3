@@ -16,13 +16,13 @@ Author:
 Revision History:
 
 --*/
-#include"var_subst.h"
-#include"ast_pp.h"
-#include"arith_decl_plugin.h"
-#include"bv_decl_plugin.h"
-#include"array_decl_plugin.h"
-#include"for_each_expr.h"
-#include"reg_decl_plugins.h"
+#include "ast/rewriter/var_subst.h"
+#include "ast/ast_pp.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/array_decl_plugin.h"
+#include "ast/for_each_expr.h"
+#include "ast/reg_decl_plugins.h"
 
 namespace find_q {
     struct proc {
@@ -87,7 +87,7 @@ void tst_subst(ast_manager& m) {
     std::cout << mk_pp(e2, m) << "\n";
     std::cout << mk_pp(e3, m) << "\n";
     std::cout << mk_pp(t1, m) << "\n";
-    SASSERT(e3.get() == t1.get());
+    ENSURE(e3.get() == t1.get());
 
     // replace #2 -> #3, #3 -> #2
     e2 = m.mk_forall(2, ss, names, e1);
@@ -95,7 +95,7 @@ void tst_subst(ast_manager& m) {
     std::cout << mk_pp(e2, m) << "\n";
     std::cout << mk_pp(e3, m) << "\n";
     std::cout << mk_pp(t2, m) << "\n";
-    SASSERT(e3.get() == t2.get());
+    ENSURE(e3.get() == t2.get());
 
 }
 

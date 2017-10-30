@@ -3,8 +3,8 @@
 Copyright (c) 2015 Microsoft Corporation
 
 --*/
-#include"rlimit.h"
-#include "hilbert_basis.h"
+#include "util/rlimit.h"
+#include "math/hilbert/hilbert_basis.h"
 
 /*
   Test generation of linear congruences a la Karr.
@@ -131,7 +131,7 @@ namespace karr {
         matrix T;
         // length of rows in Ab are twice as long as
         // length of rows in src.
-        SASSERT(2*src.A[0].size() == Ab.A[0].size());
+        ENSURE(2*src.A[0].size() == Ab.A[0].size());
         vector<rational> zeros;
         for (unsigned i = 0; i < src.A[0].size(); ++i) {
             zeros.push_back(rational(0));

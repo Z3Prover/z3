@@ -17,7 +17,7 @@ Revision History:
 
 --*/
 #include<string.h>
-#include"smt_statistics.h"
+#include "smt/smt_statistics.h"
 
 namespace smt {
 

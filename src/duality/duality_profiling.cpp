@@ -31,8 +31,8 @@
 #pragma warning(disable:4267)
 #endif
 
-#include "duality_wrapper.h"
-#include "iz3profiling.h"
+#include "duality/duality_wrapper.h"
+#include "interp/iz3profiling.h"
 
 namespace Duality {
   

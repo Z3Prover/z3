@@ -16,11 +16,11 @@ Author:
 Revision History:
 
 --*/
-#include"symbol.h"
-#include"str_hashtable.h"
-#include"region.h"
-#include"string_buffer.h"
-#include"z3_omp.h"
+#include "util/symbol.h"
+#include "util/str_hashtable.h"
+#include "util/region.h"
+#include "util/string_buffer.h"
+#include "util/z3_omp.h"
 
 symbol symbol::m_dummy(TAG(void*, static_cast<void*>(0), 2));
 const symbol symbol::null;

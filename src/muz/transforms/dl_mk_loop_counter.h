@@ -19,8 +19,8 @@ Revision History:
 #ifndef DL_MK_LOOP_COUNTER_H_
 #define DL_MK_LOOP_COUNTER_H_
 
-#include"dl_rule_transformer.h"
-#include"arith_decl_plugin.h"
+#include "muz/base/dl_rule_transformer.h"
+#include "ast/arith_decl_plugin.h"
 
 namespace datalog {
 

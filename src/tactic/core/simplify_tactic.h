@@ -19,8 +19,8 @@ Notes:
 #ifndef SIMPLIFY_TACTIC_H_
 #define SIMPLIFY_TACTIC_H_
 
-#include"tactic.h"
-#include"tactical.h"
+#include "tactic/tactic.h"
+#include "tactic/tactical.h"
 
 class simplify_tactic : public tactic {
     struct     imp;

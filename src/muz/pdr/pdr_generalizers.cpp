@@ -18,13 +18,13 @@ Revision History:
 --*/
 
 
-#include "pdr_context.h"
-#include "pdr_farkas_learner.h"
-#include "pdr_generalizers.h"
-#include "expr_abstract.h"
-#include "var_subst.h"
-#include "expr_safe_replace.h"
-#include "model_smt2_pp.h"
+#include "muz/pdr/pdr_context.h"
+#include "muz/pdr/pdr_farkas_learner.h"
+#include "muz/pdr/pdr_generalizers.h"
+#include "ast/expr_abstract.h"
+#include "ast/rewriter/var_subst.h"
+#include "ast/rewriter/expr_safe_replace.h"
+#include "model/model_smt2_pp.h"
 
 
 namespace pdr {
@@ -81,7 +81,7 @@ namespace pdr {
         m_gen(n, core0, uses_level1);
         new_cores.push_back(std::make_pair(core0, uses_level1));
         obj_hashtable<expr> core_exprs, core1_exprs;
-        datalog::set_union(core_exprs, core0);
+        set_union(core_exprs, core0);
         for (unsigned i = 0; i < old_core.size(); ++i) {
             expr* lit = old_core[i].get();             
             if (core_exprs.contains(lit)) {
@@ -94,8 +94,8 @@ namespace pdr {
                 if (core1.size() < old_core.size()) {
                     new_cores.push_back(std::make_pair(core1, uses_level1));
                     core1_exprs.reset();
-                    datalog::set_union(core1_exprs, core1);
-                    datalog::set_intersection(core_exprs, core1_exprs);
+                    set_union(core1_exprs, core1);
+                    set_intersection(core_exprs, core1_exprs);
                 }
             }
         }

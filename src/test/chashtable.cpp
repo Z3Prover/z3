@@ -16,10 +16,10 @@ Author:
 Revision History:
 
 --*/
-#include"chashtable.h"
-#include"hashtable.h"
-#include"hash.h"
-#include"util.h"
+#include "util/chashtable.h"
+#include "util/hashtable.h"
+#include "util/hash.h"
+#include "util/util.h"
 
 typedef chashtable<int, int_hash, default_eq<int> > int_table;
 typedef cmap<int, int, int_hash, default_eq<int> > int_map;
@@ -37,16 +37,16 @@ static void display(T const & beg, T const & end) {
 static void tst1() {
     int_table t;
     t.insert(10);
-    SASSERT(t.contains(10));
+    ENSURE(t.contains(10));
     t.insert(20);
-    SASSERT(t.contains(20));
+    ENSURE(t.contains(20));
     t.insert(30);
-    SASSERT(t.contains(30));
-    SASSERT(t.size() == 3);
+    ENSURE(t.contains(30));
+    ENSURE(t.size() == 3);
     display(t.begin(), t.end());
     t.erase(20);
-    SASSERT(!t.contains(20));
-    SASSERT(t.size() == 2);
+    ENSURE(!t.contains(20));
+    ENSURE(t.size() == 2);
 }
 
 struct dummy_hash {
@@ -61,54 +61,54 @@ static void tst2() {
     dint_table t;
     t.insert(10);
     t.insert(12);
-    SASSERT(t.used_slots() == 1);
+    ENSURE(t.used_slots() == 1);
     display(t.begin(), t.end());
     t.insert(13);
     display(t.begin(), t.end());
-    SASSERT(t.used_slots() == 2);
+    ENSURE(t.used_slots() == 2);
     t.insert(14);
-    SASSERT(t.used_slots() == 2);
-    SASSERT(t.size() == 4);
+    ENSURE(t.used_slots() == 2);
+    ENSURE(t.size() == 4);
     display(t.begin(), t.end());
     t.erase(12);
-    SASSERT(!t.contains(12));
-    SASSERT(t.size() == 3);
-    SASSERT(t.contains(10));
-    SASSERT(!t.contains(12));
-    SASSERT(t.contains(14));
-    SASSERT(t.contains(13));
+    ENSURE(!t.contains(12));
+    ENSURE(t.size() == 3);
+    ENSURE(t.contains(10));
+    ENSURE(!t.contains(12));
+    ENSURE(t.contains(14));
+    ENSURE(t.contains(13));
     t.insert(16);
-    SASSERT(t.size() == 4);
+    ENSURE(t.size() == 4);
     t.insert(18);
-    SASSERT(t.size() == 5);
-    SASSERT(t.used_slots() == 2);
+    ENSURE(t.size() == 5);
+    ENSURE(t.used_slots() == 2);
     display(t.begin(), t.end());
     t.erase(10);
     display(t.begin(), t.end());
-    SASSERT(!t.contains(10));
-    SASSERT(!t.contains(12));
-    SASSERT(t.contains(14));
-    SASSERT(t.contains(13));
-    SASSERT(t.contains(16));
-    SASSERT(t.contains(18));
+    ENSURE(!t.contains(10));
+    ENSURE(!t.contains(12));
+    ENSURE(t.contains(14));
+    ENSURE(t.contains(13));
+    ENSURE(t.contains(16));
+    ENSURE(t.contains(18));
 }
 
 static void tst3() {
     dint_table t;
     t.insert(10);
     t.insert(12);
-    SASSERT(t.used_slots() == 1);
-    SASSERT(t.contains(10));
-    SASSERT(t.contains(12));
+    ENSURE(t.used_slots() == 1);
+    ENSURE(t.contains(10));
+    ENSURE(t.contains(12));
     t.erase(12);
     t.erase(10);
-    SASSERT(t.size() == 0);
-    SASSERT(t.empty());
-    SASSERT(t.used_slots() == 0);
+    ENSURE(t.size() == 0);
+    ENSURE(t.empty());
+    ENSURE(t.used_slots() == 0);
     t.insert(10);
-    SASSERT(t.used_slots() == 1);
-    SASSERT(t.contains(10));
-    SASSERT(t.size() == 1);
+    ENSURE(t.used_slots() == 1);
+    ENSURE(t.contains(10));
+    ENSURE(t.size() == 1);
 }
 
 typedef int_hashtable<int_hash, default_eq<int> > int_set;
@@ -123,29 +123,29 @@ static void tst4(unsigned num, unsigned N) {
             TRACE("chashtable", tout << "erase " << v << "\n";);
             s.erase(v);
             t.erase(v);
-            SASSERT(!t.contains(v));
+            ENSURE(!t.contains(v));
         }
         else {
             TRACE("chashtable", tout << "insert " << v << "\n";);
             s.insert(v);
             t.insert(v);
-            SASSERT(t.contains(v));
+            ENSURE(t.contains(v));
         }
-        SASSERT(s.size() == t.size());
-        SASSERT(s.empty() == t.empty());
+        ENSURE(s.size() == t.size());
+        ENSURE(s.empty() == t.empty());
     }
     std::cout << "size: " << s.size() << " " << t.size() << "\n";
     int_set::iterator it1  = s.begin();
     int_set::iterator end1 = s.end();
     for(; it1 != end1; ++it1) {
-        SASSERT(t.contains(*it1));
+        ENSURE(t.contains(*it1));
     }
 
     typename T::iterator it2  = t.begin();
     typename T::iterator end2 = t.end();
     for(; it2 != end2; ++it2) {
-        SASSERT(s.contains(*it2));
-        SASSERT(t.contains(*it2));
+        ENSURE(s.contains(*it2));
+        ENSURE(t.contains(*it2));
     }
 }
 
@@ -164,10 +164,10 @@ static void tst5() {
 static void tst6() {
     int_map m;
     m.insert(10, 4);
-    SASSERT(m.contains(10));
+    ENSURE(m.contains(10));
     DEBUG_CODE({
         int r;
-        SASSERT(m.find(10, r) && r == 4);
+        ENSURE(m.find(10, r) && r == 4);
     });
 }
 

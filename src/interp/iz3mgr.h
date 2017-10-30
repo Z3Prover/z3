@@ -25,26 +25,26 @@
 #include <vector>
 #include <functional>
 
-#include "iz3hash.h"
-#include "iz3exception.h"
+#include "interp/iz3hash.h"
+#include "interp/iz3exception.h"
 
-#include"well_sorted.h"
-#include"arith_decl_plugin.h"
-#include"bv_decl_plugin.h"
-#include"datatype_decl_plugin.h"
-#include"array_decl_plugin.h"
-#include"ast_translation.h"
-#include"ast_pp.h"
-#include"ast_ll_pp.h"
-#include"ast_smt_pp.h"
-#include"ast_smt2_pp.h"
-#include"th_rewriter.h"
-#include"var_subst.h"
-#include"expr_substitution.h"
-#include"pp.h"
-#include"scoped_ctrl_c.h"
-#include"cancel_eh.h"
-#include"scoped_timer.h"
+#include "ast/well_sorted.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/datatype_decl_plugin.h"
+#include "ast/array_decl_plugin.h"
+#include "ast/ast_translation.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
+#include "ast/ast_smt_pp.h"
+#include "ast/ast_smt2_pp.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "ast/rewriter/var_subst.h"
+#include "ast/expr_substitution.h"
+#include "ast/pp.h"
+#include "util/scoped_ctrl_c.h"
+#include "util/cancel_eh.h"
+#include "util/scoped_timer.h"
 
 /* A wrapper around an ast manager, providing convenience methods. */
 
@@ -57,12 +57,12 @@ typedef ast raw_ast;
 
 /** Wrapper around an ast pointer */
 class ast_i {
- protected:
+protected:
     raw_ast *_ast;
- public:
+public:
     raw_ast * const &raw() const {return _ast;}
     ast_i(raw_ast *a){_ast = a;}
-  
+    
     ast_i(){_ast = 0;}
     bool eq(const ast_i &other) const {
         return _ast == other._ast;
@@ -86,33 +86,33 @@ class ast_i {
 /** Reference counting verison of above */
 class ast_r : public ast_i {
     ast_manager *_m;
- public:
- ast_r(ast_manager *m, raw_ast *a) : ast_i(a) {
+public:
+    ast_r(ast_manager *m, raw_ast *a) : ast_i(a) {
         _m = m;
         m->inc_ref(a);
     }
-  
+    
     ast_r() {_m = 0;}
-
- ast_r(const ast_r &other) : ast_i(other) {
+    
+    ast_r(const ast_r &other) : ast_i(other) {
         _m = other._m;
-        _m->inc_ref(_ast);
+        if (_m) _m->inc_ref(_ast);
     }
-
+    
     ast_r &operator=(const ast_r &other) {
         if(_ast)
             _m->dec_ref(_ast);
         _ast = other._ast;
         _m = other._m;
-        _m->inc_ref(_ast);
+        if (_m) _m->inc_ref(_ast);
         return *this;
     }
-
-    ~ast_r(){
+    
+    ~ast_r() {
         if(_ast)
             _m->dec_ref(_ast);
     }
-  
+    
     ast_manager *mgr() const {return _m;}
 
 };
@@ -661,6 +661,12 @@ class iz3mgr  {
 
     ast apply_quant(opr quantifier, ast var, ast e);
 
+    // Universally quantify all the free variables in a formula.
+    // Makes up names for the quntifiers.
+
+    ast close_universally (ast e);
+
+    unsigned num_free_variables(const ast &e);
 
     /** For debugging */
     void show(ast);

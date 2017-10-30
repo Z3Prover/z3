@@ -1,9 +1,24 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 #include "util/lp/lp_dual_simplex.h"
-namespace lean{
+namespace lp{
 
 template <typename T, typename X> void lp_dual_simplex<T, X>::decide_on_status_after_stage1() {
     switch (m_core_solver->get_status()) {
@@ -15,7 +30,7 @@ template <typename T, typename X> void lp_dual_simplex<T, X>::decide_on_status_a
         }
         break;
     case DUAL_UNBOUNDED:
-        lean_unreachable();
+        SASSERT(false);
     case ITERATIONS_EXHAUSTED:
         this->m_status = ITERATIONS_EXHAUSTED;
         break;
@@ -26,12 +41,12 @@ template <typename T, typename X> void lp_dual_simplex<T, X>::decide_on_status_a
         this->m_status = FLOATING_POINT_ERROR;
         break;
     default:
-        lean_unreachable();
+        SASSERT(false);
     }
 }
 
 template <typename T, typename X> void lp_dual_simplex<T, X>::fix_logical_for_stage2(unsigned j) {
-    lean_assert(j >= this->number_of_core_structurals());
+    SASSERT(j >= this->number_of_core_structurals());
     switch (m_column_types_of_logicals[j - this->number_of_core_structurals()]) {
     case column_type::low_bound:
         m_low_bounds[j] = numeric_traits<T>::zero();
@@ -44,7 +59,7 @@ template <typename T, typename X> void lp_dual_simplex<T, X>::fix_logical_for_st
         m_can_enter_basis[j] = false;
         break;
     default:
-        lean_unreachable();
+        SASSERT(false);
     }
 }
 
@@ -58,7 +73,7 @@ template <typename T, typename X> void lp_dual_simplex<T, X>::fix_structural_for
         break;
     case column_type::fixed:
     case column_type::upper_bound:
-        lean_unreachable();
+        SASSERT(false);
     case column_type::boxed:
         this->m_upper_bounds[j] = ci->get_adjusted_upper_bound() / this->m_column_scale[j];
         m_low_bounds[j] = numeric_traits<T>::zero();
@@ -70,7 +85,7 @@ template <typename T, typename X> void lp_dual_simplex<T, X>::fix_structural_for
         m_column_types_of_core_solver[j] = column_type::free_column;
         break;
     default:
-        lean_unreachable();
+        SASSERT(false);
     }
     //    T cost_was = this->m_costs[j];
     this->set_scaled_cost(j);
@@ -115,7 +130,7 @@ template <typename T, typename X> void lp_dual_simplex<T, X>::solve_for_stage2()
         this->m_status = FLOATING_POINT_ERROR;
         break;
     default:
-        lean_unreachable();
+        SASSERT(false);
     }
     this->m_second_stage_iterations = m_core_solver->total_iterations();
     this->m_total_iterations = (this->m_first_stage_iterations + this->m_second_stage_iterations);
@@ -129,7 +144,7 @@ template <typename T, typename X> void lp_dual_simplex<T, X>::fill_x_with_zeros(
 }
 
 template <typename T, typename X> void lp_dual_simplex<T, X>::stage1() {
-    lean_assert(m_core_solver == nullptr);
+    SASSERT(m_core_solver == nullptr);
     this->m_x.resize(this->m_A->column_count(), numeric_traits<T>::zero());
     if (this->m_settings.get_message_ostream() != nullptr)
         this->print_statistics_on_A(*this->m_settings.get_message_ostream());
@@ -177,7 +192,7 @@ template <typename T, typename X> void lp_dual_simplex<T, X>::fill_first_stage_s
 }
 
 template <typename T, typename X> column_type lp_dual_simplex<T, X>::get_column_type(unsigned j) {
-    lean_assert(j < this->m_A->column_count());
+    SASSERT(j < this->m_A->column_count());
     if (j >= this->number_of_core_structurals()) {
         return m_column_types_of_logicals[j - this->number_of_core_structurals()];
     }
@@ -186,12 +201,12 @@ template <typename T, typename X> column_type lp_dual_simplex<T, X>::get_column_
 
 template <typename T, typename X> void lp_dual_simplex<T, X>::fill_costs_bounds_types_and_can_enter_basis_for_the_first_stage_solver_structural_column(unsigned j) {
     // see 4.7 in the dissertation of Achim Koberstein
-    lean_assert(this->m_core_solver_columns_to_external_columns.find(j) !=
+    SASSERT(this->m_core_solver_columns_to_external_columns.find(j) !=
                 this->m_core_solver_columns_to_external_columns.end());
 
     T free_bound = T(1e4); // see 4.8
     unsigned jj = this->m_core_solver_columns_to_external_columns[j];
-    lean_assert(this->m_map_from_var_index_to_column_info.find(jj) != this->m_map_from_var_index_to_column_info.end());
+    SASSERT(this->m_map_from_var_index_to_column_info.find(jj) != this->m_map_from_var_index_to_column_info.end());
     column_info<T> * ci = this->m_map_from_var_index_to_column_info[jj];
     switch (ci->get_column_type()) {
     case column_type::upper_bound: {
@@ -221,14 +236,14 @@ template <typename T, typename X> void lp_dual_simplex<T, X>::fill_costs_bounds_
         this->m_upper_bounds[j] = this->m_low_bounds[j] =  numeric_traits<T>::zero(); // is it needed?
         break;
     default:
-        lean_unreachable();
+        SASSERT(false);
     }
     m_column_types_of_core_solver[j] = column_type::boxed;
 }
 
 template <typename T, typename X> void lp_dual_simplex<T, X>::fill_costs_bounds_types_and_can_enter_basis_for_the_first_stage_solver_logical_column(unsigned j) {
     this->m_costs[j] = 0;
-    lean_assert(get_column_type(j) != column_type::upper_bound);
+    SASSERT(get_column_type(j) != column_type::upper_bound);
     if ((m_can_enter_basis[j] = (get_column_type(j) == column_type::low_bound))) {
         m_column_types_of_core_solver[j] = column_type::boxed;
         this->m_low_bounds[j] = numeric_traits<T>::zero();
@@ -254,7 +269,7 @@ template <typename T, typename X> void lp_dual_simplex<T, X>::fill_costs_and_bou
 template <typename T, typename X> void lp_dual_simplex<T, X>::fill_first_stage_solver_fields_for_row_slack_and_artificial(unsigned row,
                                                                                                                           unsigned & slack_var,
                                                                                                                           unsigned & artificial) {
-    lean_assert(row < this->row_count());
+    SASSERT(row < this->row_count());
     auto & constraint = this->m_constraints[this->m_core_solver_rows_to_external_rows[row]];
     // we need to bring the program to the form Ax = b
     T rs = this->m_b[row];

@@ -1,11 +1,26 @@
 #pragma once
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 #include <string>
 #include "util/lp/linear_combination_iterator.h"
-namespace lean {
+namespace lp {
 class column_namer {
 public:
     virtual std::string get_column_name(unsigned j) const = 0;
@@ -15,7 +30,7 @@ public:
         T a;
         unsigned i;
         while (it->next(a, i)) {
-            coeff.emplace_back(a, i);
+            coeff.push_back(std::make_pair(a, i));
         }
         print_linear_combination_of_column_indices(coeff, out);
     }

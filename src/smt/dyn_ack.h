@@ -19,12 +19,12 @@ Revision History:
 #ifndef DYN_ACK_H_
 #define DYN_ACK_H_
 
-#include"ast.h"
-#include"dyn_ack_params.h"
-#include"obj_hashtable.h"
-#include"obj_pair_hashtable.h"
-#include"obj_triple_hashtable.h"
-#include"smt_clause.h"
+#include "ast/ast.h"
+#include "smt/params/dyn_ack_params.h"
+#include "util/obj_hashtable.h"
+#include "util/obj_pair_hashtable.h"
+#include "util/obj_triple_hashtable.h"
+#include "smt/smt_clause.h"
 
 namespace smt {
 

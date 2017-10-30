@@ -19,8 +19,8 @@ Notes:
 #ifndef DL_REWRITER_H_
 #define DL_REWRITER_H_
 
-#include"dl_decl_plugin.h"
-#include"rewriter_types.h"
+#include "ast/dl_decl_plugin.h"
+#include "ast/rewriter/rewriter_types.h"
 
 class dl_rewriter {
     datalog::dl_decl_util    m_util;

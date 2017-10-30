@@ -25,10 +25,10 @@ Notes:
 #ifndef UPOLYNOMIAL_FACTORIZATION_H_
 #define UPOLYNOMIAL_FACTORIZATION_H_
 
-#include"upolynomial.h"
-#include"polynomial.h"
-#include"bit_vector.h"
-#include"z3_exception.h"
+#include "math/polynomial/upolynomial.h"
+#include "math/polynomial/polynomial.h"
+#include "util/bit_vector.h"
+#include "util/z3_exception.h"
 
 namespace upolynomial {
     typedef manager::scoped_numeral scoped_numeral;

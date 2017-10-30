@@ -21,6 +21,8 @@ z3_add_component(transforms
     dl_mk_unbound_compressor.cpp
     dl_mk_unfold.cpp
     dl_transforms.cpp
+    dl_mk_array_eq_rewrite.cpp
+    dl_mk_array_instantiation.cpp
   COMPONENT_DEPENDENCIES
     dataflow
     hilbert

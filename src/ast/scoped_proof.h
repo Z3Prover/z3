@@ -19,7 +19,7 @@ Revision History:
 #ifndef SCOPED_PROOF_H_
 #define SCOPED_PROOF_H_
 
-#include "ast.h"
+#include "ast/ast.h"
 
 class scoped_proof_mode {
     ast_manager&   m;
@@ -37,7 +37,7 @@ public:
 
 class scoped_proof : public scoped_proof_mode {
 public:
-    scoped_proof(ast_manager& m): scoped_proof_mode(m, PGM_FINE) {}
+    scoped_proof(ast_manager& m): scoped_proof_mode(m, PGM_ENABLED) {}
 };
 
 class scoped_no_proof : public scoped_proof_mode {

@@ -5,11 +5,11 @@ Copyright (c) 2015 Microsoft Corporation
 --*/
 
 #ifdef _WINDOWS
-#include "z3.h"
-#include "z3_private.h"
+#include "api/z3.h"
+#include "api/z3_private.h"
 #include <iostream>
-#include "util.h"
-#include "trace.h"
+#include "util/util.h"
+#include "util/trace.h"
 
 
 static void ev_const(Z3_context ctx, Z3_ast e) {
@@ -18,7 +18,7 @@ static void ev_const(Z3_context ctx, Z3_ast e) {
           tout << Z3_ast_to_string(ctx, e) << " -> ";
           tout << Z3_ast_to_string(ctx, r) << "\n";);
     Z3_ast_kind k = Z3_get_ast_kind(ctx, r);
-    SASSERT(k == Z3_NUMERAL_AST ||
+    ENSURE(k == Z3_NUMERAL_AST ||
             (k == Z3_APP_AST && 
              (Z3_OP_TRUE  == Z3_get_decl_kind(ctx,Z3_get_app_decl(ctx, Z3_to_app(ctx, r))) ||
               Z3_OP_FALSE == Z3_get_decl_kind(ctx,Z3_get_app_decl(ctx, Z3_to_app(ctx, r))))));
@@ -34,7 +34,7 @@ static void test_bv() {
     Z3_ast bit3_2 = Z3_mk_numeral(ctx, "3", bv2);
 
     Z3_ast e = Z3_mk_eq(ctx, bit3_2, Z3_mk_sign_ext(ctx, 1, bit1_1));
-    SASSERT(Z3_simplify(ctx, e) == Z3_mk_true(ctx));
+    ENSURE(Z3_simplify(ctx, e) == Z3_mk_true(ctx));
     TRACE("simplifier", tout << Z3_ast_to_string(ctx, e) << "\n";);
 
     Z3_ast b12 = Z3_mk_numeral(ctx, "12", bv72);
@@ -97,18 +97,18 @@ static void test_datatypes() {
     nil = Z3_mk_app(ctx, nil_decl, 0, 0);
 
     Z3_ast a = Z3_simplify(ctx, Z3_mk_app(ctx, is_nil_decl, 1, &nil));
-    SASSERT(a == Z3_mk_true(ctx));
+    ENSURE(a == Z3_mk_true(ctx));
 
     a = Z3_simplify(ctx, Z3_mk_app(ctx, is_cons_decl, 1, &nil));
-    SASSERT(a == Z3_mk_false(ctx));
+    ENSURE(a == Z3_mk_false(ctx));
 
     Z3_ast one = Z3_mk_numeral(ctx, "1", int_ty);
     Z3_ast args[2] = { one, nil };
     l1 = Z3_mk_app(ctx, cons_decl, 2, args);
-    SASSERT(nil == Z3_simplify(ctx, Z3_mk_app(ctx, tail_decl, 1, &l1))); 
-    SASSERT(one == Z3_simplify(ctx, Z3_mk_app(ctx, head_decl, 1, &l1))); 
+    ENSURE(nil == Z3_simplify(ctx, Z3_mk_app(ctx, tail_decl, 1, &l1))); 
+    ENSURE(one == Z3_simplify(ctx, Z3_mk_app(ctx, head_decl, 1, &l1))); 
 
-    SASSERT(Z3_mk_false(ctx) == Z3_simplify(ctx, Z3_mk_eq(ctx, nil, l1)));
+    ENSURE(Z3_mk_false(ctx) == Z3_simplify(ctx, Z3_mk_eq(ctx, nil, l1)));
     
     Z3_del_config(cfg);
     Z3_del_context(ctx);
@@ -147,8 +147,8 @@ static void test_bool() {
 
     Z3_ast a = Z3_simplify(ctx, Z3_mk_not(ctx, Z3_mk_eq(ctx, Z3_mk_false(ctx), Z3_mk_true(ctx))));
     Z3_ast b = Z3_simplify(ctx, Z3_mk_not(ctx, Z3_mk_iff(ctx, Z3_mk_false(ctx), Z3_mk_true(ctx))));
-    SASSERT(Z3_mk_true(ctx) == a);
-    SASSERT(Z3_mk_true(ctx) == b);
+    ENSURE(Z3_mk_true(ctx) == a);
+    ENSURE(Z3_mk_true(ctx) == b);
     TRACE("simplifier", tout << Z3_ast_to_string(ctx, a) << "\n";);
     TRACE("simplifier", tout << Z3_ast_to_string(ctx, b) << "\n";);
 
@@ -179,8 +179,8 @@ static void test_array() {
 
     TRACE("simplifier", tout << Z3_ast_to_string(ctx, rxy) << "\n";);
     TRACE("simplifier", tout << Z3_ast_to_string(ctx, Z3_simplify(ctx, Z3_mk_eq(ctx, x2, x3))) << "\n";);
-    // SASSERT(rxy == Z3_mk_true(ctx));
-    // SASSERT(Z3_simplify(ctx, Z3_mk_eq(ctx, x2, x3)) == Z3_mk_false(ctx));
+    // ENSURE(rxy == Z3_mk_true(ctx));
+    // ENSURE(Z3_simplify(ctx, Z3_mk_eq(ctx, x2, x3)) == Z3_mk_false(ctx));
     
     for (unsigned i = 0; i < 4; ++i) {
         for (unsigned j = 0; j < 4; ++j) {

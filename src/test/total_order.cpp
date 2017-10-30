@@ -17,20 +17,20 @@ Revision History:
 
 --*/
 
-#include"total_order.h"
-#include"timeit.h"
+#include "util/total_order.h"
+#include "util/timeit.h"
 
 static void tst1() {
     uint_total_order to;
     to.insert(1);
     to.insert_after(1, 2);
     to.insert_after(1, 3);
-    SASSERT(to.lt(1, 2));
-    SASSERT(to.lt(3, 2));
-    SASSERT(to.lt(1, 3));
-    SASSERT(!to.lt(2, 3));
-    SASSERT(!to.lt(3, 1));
-    SASSERT(!to.lt(2, 2));
+    ENSURE(to.lt(1, 2));
+    ENSURE(to.lt(3, 2));
+    ENSURE(to.lt(1, 3));
+    ENSURE(!to.lt(2, 3));
+    ENSURE(!to.lt(3, 1));
+    ENSURE(!to.lt(2, 2));
     std::cout << to << "\n";
 }
 
@@ -43,8 +43,8 @@ static void tst2() {
         to.move_after(3, 1);
         to.move_after(1, 2);
         to.move_after(2, 3);
-        SASSERT(to.lt(1,2));
-        SASSERT(to.lt(2,3));
+        ENSURE(to.lt(1,2));
+        ENSURE(to.lt(2,3));
     }
 }
 
@@ -75,7 +75,7 @@ void move_after(unsigned_vector & v, unsigned_vector & inv_v, unsigned a, unsign
     // std::cout << "move_after(" << a << ", " << b << ")\n";
     unsigned pos_a = inv_v[a];
     unsigned pos_b = inv_v[b];
-    SASSERT(pos_a != pos_b);
+    ENSURE(pos_a != pos_b);
     if (pos_b < pos_a) {
         for (unsigned i = pos_b; i < pos_a; i++) {
             v[i] = v[i+1];
@@ -83,17 +83,17 @@ void move_after(unsigned_vector & v, unsigned_vector & inv_v, unsigned a, unsign
         }
         v[pos_a] = b;
         inv_v[b] = pos_a;
-        SASSERT(inv_v[b] == inv_v[a] + 1);
+        ENSURE(inv_v[b] == inv_v[a] + 1);
     }
     else {
-        SASSERT(pos_b > pos_a);
+        ENSURE(pos_b > pos_a);
         for (unsigned i = pos_b; i > pos_a + 1; i--) {
             v[i] = v[i-1];
             inv_v[v[i-1]] = i;
         }
         v[pos_a+1] = b;
         inv_v[b]   = pos_a+1;
-        SASSERT(inv_v[b] == inv_v[a] + 1);
+        ENSURE(inv_v[b] == inv_v[a] + 1);
     }
     // display(std::cout, v.begin(), v.end()); std::cout << std::endl;
 }
@@ -118,8 +118,8 @@ static void tst4(unsigned sz, unsigned num_rounds) {
             move_after(v, inv_v, v1, v2);
         }
         for (unsigned k = 0; k < sz - 1; k++) {
-            SASSERT(inv_v[v[k]] == k);
-            SASSERT(to.lt(v[k], v[k+1]));
+            ENSURE(inv_v[v[k]] == k);
+            ENSURE(to.lt(v[k], v[k+1]));
         }
         if (i % 1000 == 0) {
             std::cout << "*";

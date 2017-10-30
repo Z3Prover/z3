@@ -18,14 +18,14 @@ Author:
 Revision History:
 
 --*/
-#include"tactical.h"
-#include"bound_manager.h"
-#include"th_rewriter.h"
-#include"extension_model_converter.h"
-#include"filter_model_converter.h"
-#include"arith_decl_plugin.h"
-#include"expr_substitution.h"
-#include"ast_smt2_pp.h"
+#include "tactic/tactical.h"
+#include "tactic/arith/bound_manager.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "tactic/extension_model_converter.h"
+#include "tactic/filter_model_converter.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/expr_substitution.h"
+#include "ast/ast_smt2_pp.h"
 
 class normalize_bounds_tactic : public tactic {
     struct imp {

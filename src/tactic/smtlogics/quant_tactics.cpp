@@ -16,19 +16,19 @@ Author:
 Revision History:
 
 --*/
-#include"tactical.h"
-#include"simplify_tactic.h"
-#include"propagate_values_tactic.h"
-#include"solve_eqs_tactic.h"
-#include"elim_uncnstr_tactic.h"
-#include"qe_tactic.h"
-#include"qe_lite.h"
-#include"qsat.h"
-#include"nlqsat.h"
-#include"ctx_simplify_tactic.h"
-#include"smt_tactic.h"
-#include"elim_term_ite_tactic.h"
-#include"probe_arith.h"
+#include "tactic/tactical.h"
+#include "tactic/core/simplify_tactic.h"
+#include "tactic/core/propagate_values_tactic.h"
+#include "tactic/core/solve_eqs_tactic.h"
+#include "tactic/core/elim_uncnstr_tactic.h"
+#include "qe/qe_tactic.h"
+#include "qe/qe_lite.h"
+#include "qe/qsat.h"
+#include "qe/nlqsat.h"
+#include "tactic/core/ctx_simplify_tactic.h"
+#include "smt/tactic/smt_tactic.h"
+#include "tactic/core/elim_term_ite_tactic.h"
+#include "tactic/arith/probe_arith.h"
 
 static tactic * mk_quant_preprocessor(ast_manager & m, bool disable_gaussian = false) {
     params_ref pull_ite_p;

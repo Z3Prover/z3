@@ -19,7 +19,7 @@ Notes:
 #ifndef PULL_QUANT_H_
 #define PULL_QUANT_H_
 
-#include"ast.h"
+#include "ast/ast.h"
 
 /**
    \brief Pull nested quantifiers in a formula. 

@@ -189,17 +189,18 @@ namespace smt {
         m_trail.push_back(e);
 
         //TRACE("str", tout << "done asserting " << mk_ismt2_pp(e, get_manager()) << std::endl;);
+
     }
 
     expr * theory_str::rewrite_implication(expr * premise, expr * conclusion) {
         ast_manager & m = get_manager();
-        return m.mk_or(m.mk_not(premise), conclusion);
+        return m.mk_or(mk_not(m, premise), conclusion);
     }
 
     void theory_str::assert_implication(expr * premise, expr * conclusion) {
         ast_manager & m = get_manager();
         TRACE("str", tout << "asserting implication " << mk_ismt2_pp(premise, m) << " -> " << mk_ismt2_pp(conclusion, m) << std::endl;);
-        expr_ref axiom(m.mk_or(m.mk_not(premise), conclusion), m);
+        expr_ref axiom(m.mk_or(mk_not(m, premise), conclusion), m);
         assert_axiom(axiom);
     }
 
@@ -318,6 +319,7 @@ namespace smt {
         m_trail.push_back(node);
         if (!cut_var_map.contains(baseNode)) {
             T_cut * varInfo = alloc(T_cut);
+            m_cut_allocs.push_back(varInfo);
             varInfo->level = slevel;
             varInfo->vars[node] = 1;
             cut_var_map.insert(baseNode, std::stack<T_cut*>());
@@ -326,6 +328,7 @@ namespace smt {
         } else {
             if (cut_var_map[baseNode].empty()) {
                 T_cut * varInfo = alloc(T_cut);
+                m_cut_allocs.push_back(varInfo);
                 varInfo->level = slevel;
                 varInfo->vars[node] = 1;
                 cut_var_map[baseNode].push(varInfo);
@@ -333,6 +336,7 @@ namespace smt {
             } else {
                 if (cut_var_map[baseNode].top()->level < slevel) {
                     T_cut * varInfo = alloc(T_cut);
+                    m_cut_allocs.push_back(varInfo);
                     varInfo->level = slevel;
                     cut_vars_map_copy(varInfo->vars, cut_var_map[baseNode].top()->vars);
                     varInfo->vars[node] = 1;
@@ -362,6 +366,7 @@ namespace smt {
 
         if (!cut_var_map.contains(destNode)) {
             T_cut * varInfo = alloc(T_cut);
+            m_cut_allocs.push_back(varInfo);
             varInfo->level = slevel;
             cut_vars_map_copy(varInfo->vars, cut_var_map[srcNode].top()->vars);
             cut_var_map.insert(destNode, std::stack<T_cut*>());
@@ -370,6 +375,7 @@ namespace smt {
         } else {
             if (cut_var_map[destNode].empty() || cut_var_map[destNode].top()->level < slevel) {
                 T_cut * varInfo = alloc(T_cut);
+                m_cut_allocs.push_back(varInfo);
                 varInfo->level = slevel;
                 cut_vars_map_copy(varInfo->vars, cut_var_map[destNode].top()->vars);
                 cut_vars_map_copy(varInfo->vars, cut_var_map[srcNode].top()->vars);
@@ -543,7 +549,7 @@ namespace smt {
         context & ctx = get_context();
         ast_manager & m = get_manager();
 
-        expr_ref ax1(m.mk_not(ctx.mk_eq_atom(s, mk_string(""))), m);
+        expr_ref ax1(mk_not(m, ctx.mk_eq_atom(s, mk_string(""))), m);
         assert_axiom(ax1);
 
         {
@@ -555,7 +561,7 @@ namespace smt {
             SASSERT(zero);
             // build LHS > RHS and assert
             // we have to build !(LHS <= RHS) instead
-            expr_ref lhs_gt_rhs(m.mk_not(m_autil.mk_le(len_str, zero)), m);
+            expr_ref lhs_gt_rhs(mk_not(m, m_autil.mk_le(len_str, zero)), m);
             SASSERT(lhs_gt_rhs);
             assert_axiom(lhs_gt_rhs);
         }
@@ -590,7 +596,7 @@ namespace smt {
             SASSERT(zero);
             // build LHS > RHS and assert
             // we have to build !(LHS <= RHS) instead
-            expr_ref lhs_gt_rhs(m.mk_not(m_autil.mk_le(len_str, zero)), m);
+            expr_ref lhs_gt_rhs(mk_not(m, m_autil.mk_le(len_str, zero)), m);
             SASSERT(lhs_gt_rhs);
             assert_axiom(lhs_gt_rhs);
         }
@@ -1087,7 +1093,7 @@ namespace smt {
                           m_autil.mk_ge(expr->get_arg(1), mk_int(0)),
                           // REWRITE for arithmetic theory:
                           // m_autil.mk_lt(expr->get_arg(1), mk_strlen(expr->get_arg(0)))
-                          m.mk_not(m_autil.mk_ge(m_autil.mk_add(expr->get_arg(1), m_autil.mk_mul(mk_int(-1), mk_strlen(expr->get_arg(0)))), mk_int(0)))
+                          mk_not(m, m_autil.mk_ge(m_autil.mk_add(expr->get_arg(1), m_autil.mk_mul(mk_int(-1), mk_strlen(expr->get_arg(0)))), mk_int(0)))
                                ), m);
 
         expr_ref_vector and_item(m);
@@ -1128,7 +1134,7 @@ namespace smt {
         expr_ref_vector innerItems(m);
         innerItems.push_back(ctx.mk_eq_atom(expr->get_arg(1), mk_concat(ts0, ts1)));
         innerItems.push_back(ctx.mk_eq_atom(mk_strlen(ts0), mk_strlen(expr->get_arg(0))));
-        innerItems.push_back(m.mk_ite(ctx.mk_eq_atom(ts0, expr->get_arg(0)), expr, m.mk_not(expr)));
+        innerItems.push_back(m.mk_ite(ctx.mk_eq_atom(ts0, expr->get_arg(0)), expr, mk_not(m, expr)));
         expr_ref then1(m.mk_and(innerItems.size(), innerItems.c_ptr()), m);
         SASSERT(then1);
 
@@ -1141,7 +1147,7 @@ namespace smt {
             , m);
         SASSERT(topLevelCond);
 
-        expr_ref finalAxiom(m.mk_ite(topLevelCond, then1, m.mk_not(expr)), m);
+        expr_ref finalAxiom(m.mk_ite(topLevelCond, then1, mk_not(m, expr)), m);
         SASSERT(finalAxiom);
         assert_axiom(finalAxiom);
     }
@@ -1165,7 +1171,7 @@ namespace smt {
         expr_ref_vector innerItems(m);
         innerItems.push_back(ctx.mk_eq_atom(expr->get_arg(1), mk_concat(ts0, ts1)));
         innerItems.push_back(ctx.mk_eq_atom(mk_strlen(ts1), mk_strlen(expr->get_arg(0))));
-        innerItems.push_back(m.mk_ite(ctx.mk_eq_atom(ts1, expr->get_arg(0)), expr, m.mk_not(expr)));
+        innerItems.push_back(m.mk_ite(ctx.mk_eq_atom(ts1, expr->get_arg(0)), expr, mk_not(m, expr)));
         expr_ref then1(m.mk_and(innerItems.size(), innerItems.c_ptr()), m);
         SASSERT(then1);
 
@@ -1178,7 +1184,7 @@ namespace smt {
             , m);
         SASSERT(topLevelCond);
 
-        expr_ref finalAxiom(m.mk_ite(topLevelCond, then1, m.mk_not(expr)), m);
+        expr_ref finalAxiom(m.mk_ite(topLevelCond, then1, mk_not(m, expr)), m);
         SASSERT(finalAxiom);
         assert_axiom(finalAxiom);
     }
@@ -1202,7 +1208,7 @@ namespace smt {
             if (haystackStr.contains(needleStr)) {
                 assert_axiom(ex);
             } else {
-                assert_axiom(m.mk_not(ex));
+                assert_axiom(mk_not(m, ex));
             }
             return;
         }
@@ -1263,7 +1269,7 @@ namespace smt {
         SASSERT(tmpLen);
         thenItems.push_back(ctx.mk_eq_atom(expr->get_arg(0), mk_concat(x3, x4)));
         thenItems.push_back(ctx.mk_eq_atom(mk_strlen(x3), tmpLen));
-        thenItems.push_back(m.mk_not(mk_contains(x3, expr->get_arg(1))));
+        thenItems.push_back(mk_not(m, mk_contains(x3, expr->get_arg(1))));
         expr_ref thenBranch(m.mk_and(thenItems.size(), thenItems.c_ptr()), m);
         SASSERT(thenBranch);
 
@@ -1339,7 +1345,7 @@ namespace smt {
 
         expr_ref ite1(m.mk_ite(
                           //m_autil.mk_lt(expr->get_arg(2), zeroAst),
-                          m.mk_not(m_autil.mk_ge(expr->get_arg(2), zeroAst)),
+                          mk_not(m, m_autil.mk_ge(expr->get_arg(2), zeroAst)),
                           ctx.mk_eq_atom(resAst, mk_indexof(expr->get_arg(0), expr->get_arg(1))),
                           ite2
                                ), m);
@@ -1382,7 +1388,7 @@ namespace smt {
         thenItems.push_back(m_autil.mk_ge(indexAst, mk_int(0)));
         //  args[0] = x1 . args[1] . x2
         //  x1 doesn't contain args[1]
-        thenItems.push_back(m.mk_not(mk_contains(x2, expr->get_arg(1))));
+        thenItems.push_back(mk_not(m, mk_contains(x2, expr->get_arg(1))));
         thenItems.push_back(ctx.mk_eq_atom(indexAst, mk_strlen(x1)));
 
         bool canSkip = false;
@@ -1400,7 +1406,7 @@ namespace smt {
             expr_ref tmpLen(m_autil.mk_add(indexAst, mk_int(1)), m);
             thenItems.push_back(ctx.mk_eq_atom(expr->get_arg(0), mk_concat(x3, x4)));
             thenItems.push_back(ctx.mk_eq_atom(mk_strlen(x3), tmpLen));
-            thenItems.push_back(m.mk_not(mk_contains(x4, expr->get_arg(1))));
+            thenItems.push_back(mk_not(m, mk_contains(x4, expr->get_arg(1))));
         }
         //----------------------------
         // else branch
@@ -1448,9 +1454,10 @@ namespace smt {
         argumentsValid_terms.push_back(m_autil.mk_ge(substrPos, zero));
         // pos < strlen(base)
         // --> pos + -1*strlen(base) < 0
-        argumentsValid_terms.push_back(m.mk_not(m_autil.mk_ge(
+        argumentsValid_terms.push_back(mk_not(m, m_autil.mk_ge(
                                                     m_autil.mk_add(substrPos, m_autil.mk_mul(minusOne, substrLen)),
                                                     zero)));
+
         // len >= 0
         argumentsValid_terms.push_back(m_autil.mk_ge(substrLen, zero));
 
@@ -1480,6 +1487,7 @@ namespace smt {
 
         // Case 3: (pos >= 0 and pos < strlen(base) and len >= 0) and (pos+len) < strlen(base)
         // ==> base = t2.t3.t4 AND len(t2) = pos AND len(t3) = len AND (Substr ...) = t3
+
         expr_ref t2(mk_str_var("t2"), m);
         expr_ref t3(mk_str_var("t3"), m);
         expr_ref t4(mk_str_var("t4"), m);
@@ -1541,7 +1549,7 @@ namespace smt {
         expr_ref tmpLen(m_autil.mk_add(i1, mk_strlen(expr->get_arg(1)), mk_int(-1)), m);
         thenItems.push_back(ctx.mk_eq_atom(expr->get_arg(0), mk_concat(x3, x4)));
         thenItems.push_back(ctx.mk_eq_atom(mk_strlen(x3), tmpLen));
-        thenItems.push_back(m.mk_not(mk_contains(x3, expr->get_arg(1))));
+        thenItems.push_back(mk_not(m, mk_contains(x3, expr->get_arg(1))));
         thenItems.push_back(ctx.mk_eq_atom(result, mk_concat(x1, mk_concat(expr->get_arg(2), x2))));
         // -----------------------
         // false branch
@@ -1599,7 +1607,7 @@ namespace smt {
             expr_ref tl(mk_str_var("tl"), m);
             expr_ref conclusion1(ctx.mk_eq_atom(S, mk_concat(hd, tl)), m);
             expr_ref conclusion2(ctx.mk_eq_atom(mk_strlen(hd), m_autil.mk_numeral(rational::one(), true)), m);
-            expr_ref conclusion3(m.mk_not(ctx.mk_eq_atom(hd, mk_string("0"))), m);
+            expr_ref conclusion3(mk_not(m, ctx.mk_eq_atom(hd, mk_string("0"))), m);
             expr_ref conclusion(m.mk_and(conclusion1, conclusion2, conclusion3), m);
             SASSERT(premise);
             SASSERT(conclusion);
@@ -1623,7 +1631,7 @@ namespace smt {
         // axiom 1: N < 0 <==> (str.from-int N) = ""
         expr * N = ex->get_arg(0);
         {
-            expr_ref axiom1_lhs(m.mk_not(m_autil.mk_ge(N, m_autil.mk_numeral(rational::zero(), true))), m);
+            expr_ref axiom1_lhs(mk_not(m, m_autil.mk_ge(N, m_autil.mk_numeral(rational::zero(), true))), m);
             expr_ref axiom1_rhs(ctx.mk_eq_atom(ex, mk_string("")), m);
             expr_ref axiom1(ctx.mk_eq_atom(axiom1_lhs, axiom1_rhs), m);
             SASSERT(axiom1);
@@ -1686,6 +1694,8 @@ namespace smt {
             u.str.is_string(range1, range1val);
             u.str.is_string(range2, range2val);
             return zstring("[") + range1val + zstring("-") + range2val + zstring("]");
+        } else if (u.re.is_full(a_regex)) {
+            return zstring("(.*)");
         } else {
             TRACE("str", tout << "BUG: unrecognized regex term " << mk_pp(regex, get_manager()) << std::endl;);
             UNREACHABLE(); return zstring("");
@@ -1715,6 +1725,12 @@ namespace smt {
 
         expr_ref str(ex->get_arg(0), m);
         app * regex = to_app(ex->get_arg(1));
+
+        // quick reference for the following code:
+        //  - ex: top-level regex membership term
+        //  - str: string term appearing in ex
+        //  - regex: regex term appearing in ex
+        //  ex ::= (str.in.re str regex)
 
         if (u.re.is_to_re(regex)) {
             expr_ref rxStr(regex->get_arg(0), m);
@@ -1795,6 +1811,9 @@ namespace smt {
             expr_ref finalAxiom(m.mk_iff(ex, rhs), m);
             SASSERT(finalAxiom);
             assert_axiom(finalAxiom);
+        } else if (u.re.is_full(regex)) {
+            // trivially true for any string!
+            assert_axiom(ex);
         } else {
             TRACE("str", tout << "ERROR: unknown regex expression " << mk_pp(regex, m) << "!" << std::endl;);
             NOT_IMPLEMENTED_YET();
@@ -1851,7 +1870,7 @@ namespace smt {
                 // inconsistency check: value
                 if (!can_two_nodes_eq(eqc_nn1, eqc_nn2)) {
                     TRACE("str", tout << "inconsistency detected: " << mk_pp(eqc_nn1, m) << " cannot be equal to " << mk_pp(eqc_nn2, m) << std::endl;);
-                    expr_ref to_assert(m.mk_not(ctx.mk_eq_atom(eqc_nn1, eqc_nn2)), m);
+                    expr_ref to_assert(mk_not(m, ctx.mk_eq_atom(eqc_nn1, eqc_nn2)), m);
                     assert_axiom(to_assert);
                     // this shouldn't use the integer theory at all, so we don't allow the option of quick-return
                     return false;
@@ -2064,7 +2083,7 @@ namespace smt {
                                 expr_ref implyR11(ctx.mk_eq_atom(mk_strlen(arg1), mk_int(makeUpLenArg1)), m);
                                 assert_implication(implyL11, implyR11);
                             } else {
-                                expr_ref neg(m.mk_not(implyL11), m);
+                                expr_ref neg(mk_not(m, implyL11), m);
                                 assert_axiom(neg);
                             }
                         }
@@ -2135,7 +2154,7 @@ namespace smt {
                                 expr_ref implyR11(ctx.mk_eq_atom(mk_strlen(arg0), mk_int(makeUpLenArg0)), m);
                                 assert_implication(implyL11, implyR11);
                             } else {
-                                expr_ref neg(m.mk_not(implyL11), m);
+                                expr_ref neg(mk_not(m, implyL11), m);
                                 assert_axiom(neg);
                             }
                         }
@@ -2666,7 +2685,7 @@ namespace smt {
         }
 
         if (!can_two_nodes_eq(new_nn1, new_nn2)) {
-            expr_ref detected(m.mk_not(ctx.mk_eq_atom(new_nn1, new_nn2)), m);
+            expr_ref detected(mk_not(m, ctx.mk_eq_atom(new_nn1, new_nn2)), m);
             TRACE("str", tout << "inconsistency detected: " << mk_ismt2_pp(detected, m) << std::endl;);
             assert_axiom(detected);
             return;
@@ -4656,12 +4675,10 @@ namespace smt {
     bool theory_str::get_arith_value(expr* e, rational& val) const {
         context& ctx = get_context();
         ast_manager & m = get_manager();
-
-	// safety
-	if (!ctx.e_internalized(e)) {
+        // safety
+        if (!ctx.e_internalized(e)) {
             return false;
-	}
-	
+        }
         // if an integer constant exists in the eqc, it should be the root
         enode * en_e = ctx.get_enode(e);
         enode * root_e = en_e->get_root();
@@ -4670,6 +4687,11 @@ namespace smt {
             return true;
         } else {
             TRACE("str", tout << "root of eqc of " << mk_pp(e, m) << " is not a numeral" << std::endl;);
+            return false;
+            theory_mi_arith* tha = get_th_arith(ctx, m_autil.get_family_id(), e);
+            if (!tha) return false;
+            expr_ref val_e(m);
+            if (tha->get_value(root_e, val_e) && m_autil.is_numeral(val_e, val) && val.is_int()) return true;
             return false;
         }
     }
@@ -4907,7 +4929,7 @@ namespace smt {
                             implyR = boolVar;
                         } else {
                             //implyR = Z3_mk_eq(ctx, boolVar, Z3_mk_false(ctx));
-                            implyR = m.mk_not(boolVar);
+                            implyR = mk_not(m, boolVar);
                         }
                     } else {
                         // ------------------------------------------------------------------------------------------------
@@ -4936,7 +4958,7 @@ namespace smt {
                                         litems.push_back(ctx.mk_eq_atom(substrAst, aConcat));
                                     }
                                     //implyR = Z3_mk_eq(ctx, boolVar, Z3_mk_false(ctx));
-                                    implyR = m.mk_not(boolVar);
+                                    implyR = mk_not(m, boolVar);
                                     break;
                                 }
                             }
@@ -4975,7 +4997,7 @@ namespace smt {
                             implyR = boolVar;
                         } else {
                             // implyR = Z3_mk_eq(ctx, boolVar, Z3_mk_false(ctx));
-                            implyR = m.mk_not(boolVar);
+                            implyR = mk_not(m, boolVar);
                         }
                     }
 
@@ -5045,7 +5067,7 @@ namespace smt {
                                             litems.push_back(ctx.mk_eq_atom(substrAst, aConcat));
                                         }
                                         expr_ref implyLHS(mk_and(litems), m);
-                                        expr_ref implyR(m.mk_not(boolVar), m);
+                                        expr_ref implyR(mk_not(m, boolVar), m);
                                         assert_implication(implyLHS, implyR);
                                         break;
                                     }
@@ -6190,24 +6212,31 @@ namespace smt {
             expr * arg_str = a->get_arg(0);
             zstring str;
             if (u.str.is_string(arg_str, str)) {
-                TRACE("str", tout << "build NFA for '" << str << "'" << "\n";);
-                /*
-                 * For an n-character string, we make (n-1) intermediate states,
-                 * labelled i_(0) through i_(n-2).
-                 * Then we construct the following transitions:
-                 * start --str[0]--> i_(0) --str[1]--> i_(1) --...--> i_(n-2) --str[n-1]--> final
-                 */
-                unsigned last = start;
-                for (int i = 0; i <= ((int)str.length()) - 2; ++i) {
-                    unsigned i_state = next_id();
-                    make_transition(last, str[i], i_state);
-                    TRACE("str", tout << "string transition " << last << "--" << str[i] << "--> " << i_state << "\n";);
-                    last = i_state;
+                if (str.length() == 0) {
+                    // transitioning on the empty string is handled specially
+                    TRACE("str", tout << "empty string epsilon-move " << start << " --> " << end << std::endl;);
+                    make_epsilon_move(start, end);
+                } else {
+                    TRACE("str", tout << "build NFA for '" << str << "'" << "\n";);
+                    /*
+                     * For an n-character string, we make (n-1) intermediate states,
+                     * labelled i_(0) through i_(n-2).
+                     * Then we construct the following transitions:
+                     * start --str[0]--> i_(0) --str[1]--> i_(1) --...--> i_(n-2) --str[n-1]--> final
+                     */
+                    unsigned last = start;
+                    for (int i = 0; i <= ((int)str.length()) - 2; ++i) {
+                        unsigned i_state = next_id();
+                        make_transition(last, str[i], i_state);
+                        TRACE("str", tout << "string transition " << last << "--" << str[i] << "--> " << i_state << "\n";);
+                        last = i_state;
+                    }
+                    make_transition(last, str[(str.length() - 1)], end);
+                    TRACE("str", tout << "string transition " << last << "--" << str[(str.length() - 1)] << "--> " << end << "\n";);
                 }
-                make_transition(last, str[(str.length() - 1)], end);
-                TRACE("str", tout << "string transition " << last << "--" << str[(str.length() - 1)] << "--> " << end << "\n";);
-            } else {
-                TRACE("str", tout << "invalid string constant in Str2Reg" << std::endl;);
+            } else { // ! u.str.is_string(arg_str, str)
+                TRACE("str", tout << "WARNING: invalid string constant in str.to.re! Cancelling." << std::endl;);
+                u.get_manager().raise_exception("invalid term in str.to.re, argument must be a string constant");
                 m_valid = false;
                 return;
             }
@@ -6279,6 +6308,19 @@ namespace smt {
             }
 
             TRACE("str", tout << "range NFA: start = " << start << ", end = " << end << std::endl;);
+        } else if (u.re.is_full(e)) {
+            // effectively the same as .* where . can be any single character
+            // start --e--> tmp
+            // tmp --e--> end
+            // tmp --C--> tmp for every character C
+            unsigned tmp = next_id();
+            make_epsilon_move(start, tmp);
+            make_epsilon_move(tmp, end);
+            for (unsigned int i = 0; i < 256; ++i) {
+                char ch = (char)i;
+                make_transition(tmp, ch, tmp);
+            }
+            TRACE("str", tout << "re.all NFA: start = " << start << ", end = " << end << std::endl;);
         } else {
             TRACE("str", tout << "invalid regular expression" << std::endl;);
             m_valid = false;
@@ -6394,7 +6436,7 @@ namespace smt {
                             if (matchRes) {
                                 assert_implication(implyL, boolVar);
                             } else {
-                                assert_implication(implyL, m.mk_not(boolVar));
+                                assert_implication(implyL, mk_not(m, boolVar));
                             }
                         }
                     }
@@ -6482,7 +6524,7 @@ namespace smt {
                           << arg1_str << "\" + \"" << arg2_str <<
                           "\" != \"" << const_str << "\"" << "\n";);
                     expr_ref equality(ctx.mk_eq_atom(concat, str), m);
-                    expr_ref diseq(m.mk_not(equality), m);
+                    expr_ref diseq(mk_not(m, equality), m);
                     assert_axiom(diseq);
                     return;
                 }
@@ -6500,7 +6542,7 @@ namespace smt {
                           "\" is longer than \"" << const_str << "\","
                           << " so cannot be concatenated with anything to form it" << "\n";);
                     expr_ref equality(ctx.mk_eq_atom(newConcat, str), m);
-                    expr_ref diseq(m.mk_not(equality), m);
+                    expr_ref diseq(mk_not(m, equality), m);
                     assert_axiom(diseq);
                     return;
                 } else {
@@ -6514,7 +6556,7 @@ namespace smt {
                               << "actually \"" << arg2_str << "\""
                               << "\n";);
                         expr_ref equality(ctx.mk_eq_atom(newConcat, str), m);
-                        expr_ref diseq(m.mk_not(equality), m);
+                        expr_ref diseq(mk_not(m, equality), m);
                         assert_axiom(diseq);
                         return;
                     } else {
@@ -6912,7 +6954,7 @@ namespace smt {
         ast_manager & m = get_manager();
         if (lenTester_fvar_map.contains(lenTester)) {
             expr * fVar = lenTester_fvar_map[lenTester];
-			expr_ref toAssert(gen_len_val_options_for_free_var(fVar, lenTester, lenTesterValue), m);
+            expr_ref toAssert(gen_len_val_options_for_free_var(fVar, lenTester, lenTesterValue), m);
             TRACE("str", tout << "asserting more length tests for free variable " << mk_ismt2_pp(fVar, m) << std::endl;);
             if (toAssert) {
                 assert_axiom(toAssert);
@@ -8451,7 +8493,7 @@ namespace smt {
         } else {
             TRACE("str", tout << "integer theory has no assignment for " << mk_pp(a, m) << std::endl;);
             expr_ref is_zero(ctx.mk_eq_atom(a, m_autil.mk_int(0)), m);
-            literal is_zero_l = mk_literal(is_zero);
+            /* literal is_zero_l = */ mk_literal(is_zero);
             axiomAdd = true;
             TRACE("str", ctx.display(tout););
             // NOT_IMPLEMENTED_YET();
@@ -8767,15 +8809,30 @@ namespace smt {
                 if (concat_lhs_haseqc && concat_rhs_haseqc && !var_haseqc) {
                     TRACE("str", tout << "backpropagate into " << mk_pp(var, m) << " = " << mk_pp(concat, m) << std::endl
                           << "LHS ~= " << mk_pp(concat_lhs_str, m) << " RHS ~= " << mk_pp(concat_rhs_str, m) << std::endl;);
+
                     zstring lhsString, rhsString;
                     u.str.is_string(concat_lhs_str, lhsString);
                     u.str.is_string(concat_rhs_str, rhsString);
                     zstring concatString = lhsString + rhsString;
-                    expr_ref lhs1(ctx.mk_eq_atom(concat_lhs, concat_lhs_str), m);
-                    expr_ref lhs2(ctx.mk_eq_atom(concat_rhs, concat_rhs_str), m);
-                    expr_ref lhs(m.mk_and(lhs1, lhs2), m);
-                    expr_ref rhs(ctx.mk_eq_atom(concat, mk_string(concatString)), m);
-                    assert_implication(lhs, rhs);
+
+                    // special handling: don't assert that string constants are equal to themselves
+                    expr_ref_vector lhs_terms(m);
+                    if (!u.str.is_string(concat_lhs)) {
+                        lhs_terms.push_back(ctx.mk_eq_atom(concat_lhs, concat_lhs_str));
+                    }
+                    if (!u.str.is_string(concat_rhs)) {
+                        lhs_terms.push_back(ctx.mk_eq_atom(concat_rhs, concat_rhs_str));
+                    }
+
+                    if (lhs_terms.empty()) {
+                        // no assumptions on LHS
+                        expr_ref rhs(ctx.mk_eq_atom(concat, mk_string(concatString)), m);
+                        assert_axiom(rhs);
+                    } else {
+                        expr_ref lhs(mk_and(lhs_terms), m);
+                        expr_ref rhs(ctx.mk_eq_atom(concat, mk_string(concatString)), m);
+                        assert_implication(lhs, rhs);
+                    }
                     backpropagation_occurred = true;
                 }
             }

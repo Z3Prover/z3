@@ -18,9 +18,9 @@ Revision History:
 --*/
 #ifdef _WINDOWS
 
-#include "z3.h"
-#include "trace.h"
-#include "rational.h"
+#include "api/z3.h"
+#include "util/trace.h"
+#include "util/rational.h"
 
 #define TEST(TEST_NAME, TEST_OUTCOME, NEG_TEST_OUTCOME) \
     do { \
@@ -28,12 +28,12 @@ Revision History:
         { \
             Z3_solver_push(ctx, s);            \
             Z3_solver_assert(ctx, s, TEST_NAME);     \
-            SASSERT(Z3_solver_check(ctx, s) == TEST_OUTCOME);     \
+            ENSURE(Z3_solver_check(ctx, s) == TEST_OUTCOME);     \
             Z3_solver_pop(ctx, s, 1);                              \
             \
             Z3_solver_push(ctx, s);                            \
             Z3_solver_assert(ctx, s, Z3_mk_not(ctx, TEST_NAME)); \
-            SASSERT(Z3_solver_check(ctx, s) == NEG_TEST_OUTCOME);  \
+            ENSURE(Z3_solver_check(ctx, s) == NEG_TEST_OUTCOME);  \
             Z3_solver_pop(ctx, s, 1);                               \
         } \
     } while (0)
@@ -630,7 +630,7 @@ void test_equiv(Equivalence_params params, unsigned bvsize, bool is_signed) {
         equiv = Z3_mk_implies(ctx, cond, equiv);
     }
     Z3_solver_assert(ctx, s, Z3_mk_not(ctx, equiv));
-    SASSERT(Z3_solver_check(ctx, s) == Z3_L_FALSE);
+    ENSURE(Z3_solver_check(ctx, s) == Z3_L_FALSE);
     Z3_solver_pop(ctx, s, 1);
 
     Z3_solver_dec_ref(ctx, s);
@@ -662,7 +662,7 @@ void test_equiv(Equivalence_params params, unsigned bvsize, bool is_signed) {
 //    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t2, Z3_mk_numeral(ctx, "1", bv)));
 //    //TEST_NO_UNDERFLOW;
 //    Z3_solver_assert(ctx, s, test_udfl);
-//    SASSERT(Z3_check(ctx) == Z3_TRUE);
+//    ENSURE(Z3_check(ctx) == Z3_TRUE);
 //    Z3_solver_pop(ctx, s, 1);
 //
 //    Z3_del_config(cfg);

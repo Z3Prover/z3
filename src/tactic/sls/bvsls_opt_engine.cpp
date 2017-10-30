@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#include "nnf.h"
-#include "bvsls_opt_engine.h"
+#include "ast/normal_forms/nnf.h"
+#include "tactic/sls/bvsls_opt_engine.h"
 
 bvsls_opt_engine::bvsls_opt_engine(ast_manager & m, params_ref const & p) :
     sls_engine(m, p),
@@ -238,7 +238,7 @@ bool bvsls_opt_engine::what_if(
 
 mpz bvsls_opt_engine::find_best_move(
     ptr_vector<func_decl> & to_evaluate,
-    mpz score,
+    mpz & score,
     unsigned & best_const,
     mpz & best_value,
     unsigned & new_bit,

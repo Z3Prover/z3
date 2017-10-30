@@ -4,24 +4,24 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
-#include "udoc_relation.h"
-#include "trace.h"
-#include "vector.h"
-#include "ast.h"
-#include "ast_pp.h"
-#include "reg_decl_plugins.h"
-#include "sorting_network.h"
-#include "smt_kernel.h"
-#include "model_smt2_pp.h"
-#include "smt_params.h"
-#include "ast_util.h"
-#include "expr_safe_replace.h"
-#include "th_rewriter.h"
-#include "dl_relation_manager.h"
-#include "dl_register_engine.h"
-#include "rel_context.h"
-#include "bv_decl_plugin.h"
-#include "check_relation.h"
+#include "muz/rel/udoc_relation.h"
+#include "util/trace.h"
+#include "util/vector.h"
+#include "ast/ast.h"
+#include "ast/ast_pp.h"
+#include "ast/reg_decl_plugins.h"
+#include "util/sorting_network.h"
+#include "smt/smt_kernel.h"
+#include "model/model_smt2_pp.h"
+#include "smt/params/smt_params.h"
+#include "ast/ast_util.h"
+#include "ast/rewriter/expr_safe_replace.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "muz/rel/dl_relation_manager.h"
+#include "muz/fp/dl_register_engine.h"
+#include "muz/rel/rel_context.h"
+#include "ast/bv_decl_plugin.h"
+#include "muz/rel/check_relation.h"
 
 
 class udoc_tester {
@@ -85,7 +85,7 @@ class udoc_tester {
         doc_ref result(dm);
         t = mk_rand_tbv(dm);
         result = dm.allocate(*t);
-        SASSERT(dm.tbvm().equals(*t, result->pos()));
+        ENSURE(dm.tbvm().equals(*t, result->pos()));
         for (unsigned i = 0; i < num_diff; ++i) {
             t = mk_rand_tbv(dm, result->pos());
             if (dm.tbvm().equals(*t, result->pos())) {
@@ -97,7 +97,7 @@ class udoc_tester {
             }
             result->neg().push_back(t.detach());            
         }        
-        SASSERT(dm.well_formed(*result));
+        ENSURE(dm.well_formed(*result));
         return result.detach();
     }
 
@@ -121,7 +121,7 @@ public:
     }
 
     udoc_relation* mk_empty(relation_signature const& sig) {
-        SASSERT(p.can_handle_signature(sig));
+        ENSURE(p.can_handle_signature(sig));
         relation_base* empty = p.mk_empty(sig);
         return dynamic_cast<udoc_relation*>(empty);
     }
@@ -210,7 +210,7 @@ public:
             jc1.push_back(1);
             jc2.push_back(1);
             datalog::relation_join_fn* join_fn = p.mk_join_fn(*t1, *t2, jc1.size(), jc1.c_ptr(), jc2.c_ptr());
-            SASSERT(join_fn);
+            ENSURE(join_fn);
             t = (*join_fn)(*t1, *t2);
             cr.verify_join(*t1, *t2, *t, jc1, jc2);
             t->display(std::cout); std::cout << "\n";
@@ -218,13 +218,13 @@ public:
 
             t = (*join_fn)(*t1, *t3);
             cr.verify_join(*t1, *t3, *t, jc1, jc2);
-            SASSERT(t->empty());
+            ENSURE(t->empty());
             t->display(std::cout); std::cout << "\n";
             t->deallocate();
 
             t = (*join_fn)(*t3, *t3);
             cr.verify_join(*t3, *t3, *t, jc1, jc2);
-            SASSERT(t->empty());
+            ENSURE(t->empty());
             t->display(std::cout); std::cout << "\n";
             t->deallocate();
                        
@@ -843,9 +843,9 @@ public:
         rel_union union_fn = p.mk_union_fn(r, r, 0);
         (*union_fn)(r, *full);
         doc_manager& dm = r.get_dm();
-        SASSERT(r.get_udoc().size() == 1);
+        ENSURE(r.get_udoc().size() == 1);
         doc& d0 = r.get_udoc()[0];
-        SASSERT(dm.is_full(d0));            
+        ENSURE(dm.is_full(d0));            
         for (unsigned i = 0; i < num_vals; ++i) {
             unsigned idx = m_rand(num_bits);
             unsigned val = m_rand(2);

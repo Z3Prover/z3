@@ -19,9 +19,9 @@ Notes:
 #ifndef EXPR_REPLACER_H_
 #define EXPR_REPLACER_H_
 
-#include"ast.h"
-#include"expr_substitution.h"
-#include"params.h"
+#include "ast/ast.h"
+#include "ast/expr_substitution.h"
+#include "util/params.h"
 
 /**
    \brief Abstract interface for functors that replace constants with expressions.

@@ -21,12 +21,12 @@ Revision History:
 
 #include<utility>
 
-#include"map.h"
-#include"obj_pair_hashtable.h"
+#include "util/map.h"
+#include "util/obj_pair_hashtable.h"
 
-#include"dl_context.h"
-#include"dl_rule_set.h"
-#include"dl_rule_transformer.h"
+#include "muz/base/dl_context.h"
+#include "muz/base/dl_rule_set.h"
+#include "muz/base/dl_rule_transformer.h"
 
 namespace datalog {
 
@@ -50,7 +50,7 @@ namespace datalog {
         typedef hashtable<c_info, c_info_hash, default_eq<c_info> > in_progress_table;
         typedef svector<c_info> todo_stack;
 
-        context &	    m_context;
+        context &           m_context;
         ast_manager &       m;
         rule_manager &      rm;
         rule_ref_vector     m_rules;

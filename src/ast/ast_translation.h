@@ -21,7 +21,7 @@ Revision History:
 #ifndef AST_TRANSLATION_H_
 #define AST_TRANSLATION_H_
 
-#include"ast.h"
+#include "ast/ast.h"
 
 class ast_translation {
     struct frame {

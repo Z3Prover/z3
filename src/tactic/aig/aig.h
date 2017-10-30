@@ -19,8 +19,8 @@ Notes:
 #ifndef AIG_H_
 #define AIG_H_
 
-#include"ast.h"
-#include"tactic_exception.h"
+#include "ast/ast.h"
+#include "tactic/tactic_exception.h"
 
 class goal;
 class aig_lit;

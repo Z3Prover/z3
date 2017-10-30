@@ -16,14 +16,14 @@ Author:
 Revision History:
 
 --*/
-#include"smt_context.h"
-#include"smt_case_split_queue.h"
-#include"warning.h"
-#include"stopwatch.h"
-#include"for_each_expr.h"
-#include"ast_pp.h"
-#include"map.h"
-#include"hashtable.h"
+#include "smt/smt_context.h"
+#include "smt/smt_case_split_queue.h"
+#include "util/warning.h"
+#include "util/stopwatch.h"
+#include "ast/for_each_expr.h"
+#include "ast/ast_pp.h"
+#include "util/map.h"
+#include "util/hashtable.h"
 
 namespace smt {
 
@@ -51,9 +51,9 @@ namespace smt {
             if (!m_theory_var_priority.find(v2, p_v2)) {
                 p_v2 = 0.0;
             }
-        // add clause activity
-        p_v1 += m_activity[v1];
-        p_v2 += m_activity[v2];
+            // add clause activity
+            p_v1 += m_activity[v1];
+            p_v2 += m_activity[v2];
             return p_v1 > p_v2;
         }
     };
@@ -82,6 +82,7 @@ namespace smt {
 
         virtual void mk_var_eh(bool_var v) {
             m_queue.reserve(v+1);
+            SASSERT(!m_queue.contains(v));
             m_queue.insert(v);
         }
 
@@ -130,10 +131,7 @@ namespace smt {
 
         virtual void display(std::ostream & out) {
             bool first = true;
-            bool_var_act_queue::const_iterator it  = m_queue.begin();
-            bool_var_act_queue::const_iterator end = m_queue.end();
-            for (; it != end ; ++it) {
-                unsigned v = *it;
+            for (unsigned v : m_queue) {
                 if (m_context.get_assignment(v) == l_undef) {
                     if (first) {
                         out << "remaining case-splits:\n";
@@ -143,8 +141,7 @@ namespace smt {
                 }
             }
             if (!first)
-                out << "\n";
-
+                out << "\n";            
         }
 
         virtual ~act_case_split_queue() {};
@@ -166,11 +163,15 @@ namespace smt {
             act_case_split_queue::activity_increased_eh(v);
             if (m_queue.contains(v))
                 m_queue.decreased(v);
+            if (m_delayed_queue.contains(v))
+                m_delayed_queue.decreased(v);
         }
 
         virtual void mk_var_eh(bool_var v) {
             m_queue.reserve(v+1);
             m_delayed_queue.reserve(v+1);
+            SASSERT(!m_delayed_queue.contains(v));
+            SASSERT(!m_queue.contains(v));
             if (m_context.is_searching()) 
                 m_delayed_queue.insert(v);
             else
@@ -1099,8 +1100,6 @@ namespace smt {
 #endif
 
             GOAL_STOP();
-
-            //std::cout << "goal set, time " << m_goal_time.get_seconds() << "\n";
         }
 
         void set_global_generation()

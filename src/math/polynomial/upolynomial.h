@@ -24,12 +24,12 @@ Notes:
 #ifndef UPOLYNOMIAL_H_
 #define UPOLYNOMIAL_H_
 
-#include"mpzzp.h"
-#include"rational.h"
-#include"polynomial.h"
-#include"z3_exception.h"
-#include"mpbq.h"
-#include"rlimit.h"
+#include "util/mpzzp.h"
+#include "util/rational.h"
+#include "math/polynomial/polynomial.h"
+#include "util/z3_exception.h"
+#include "util/mpbq.h"
+#include "util/rlimit.h"
 #define FACTOR_VERBOSE_LVL 1000
 
 namespace upolynomial {
@@ -434,11 +434,11 @@ namespace upolynomial {
                 m().reset(r[i]);
             }
             for (unsigned i = 0; i < sz; i++) {
-				typename polynomial::monomial * mon = pm.get_monomial(p, i);
-				if (pm.size(mon) == 0) {
+                typename polynomial::monomial * mon = pm.get_monomial(p, i);
+                if (pm.size(mon) == 0) {
                     m().set(r[0], pm.coeff(p, i));
-				} else if (pm.size(mon) == 1 && pm.get_var(mon, 0) == x) {
-					unsigned m_deg_x = pm.degree(mon, 0);
+                } else if (pm.size(mon) == 1 && pm.get_var(mon, 0) == x) {
+                    unsigned m_deg_x = pm.degree(mon, 0);
                     m().set(r[m_deg_x], pm.coeff(p, i));
                 }
             }

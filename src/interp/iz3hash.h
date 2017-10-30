@@ -36,7 +36,7 @@
 #include <string>
 #include <vector>
 #include <iterator>
-#include "hash.h"
+#include "util/hash.h"
 
 #define stl_ext hash_space
 
@@ -468,10 +468,10 @@ namespace hash_space {
     : hashtable<std::pair<Key,Value>,Key,HashFun,proj1<Key,Value>,EqFun>(7) {}
 
     Value &operator[](const Key& key) {
-	std::pair<Key,Value> kvp(key,Value());
-	return 
-	hashtable<std::pair<Key,Value>,Key,HashFun,proj1<Key,Value>,EqFun>::
-        lookup(kvp,true)->val.second;
+        std::pair<Key,Value> kvp(key,Value());
+        return 
+            hashtable<std::pair<Key,Value>,Key,HashFun,proj1<Key,Value>,EqFun>::
+            lookup(kvp,true)->val.second;
     }
     };
 

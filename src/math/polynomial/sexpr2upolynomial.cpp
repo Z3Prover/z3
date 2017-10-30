@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#include"sexpr2upolynomial.h"
-#include"sexpr.h"
+#include "math/polynomial/sexpr2upolynomial.h"
+#include "util/sexpr.h"
 
 sexpr2upolynomial_exception::sexpr2upolynomial_exception(char const * msg, sexpr const * s):
     cmd_exception(msg, s->get_line(), s->get_pos()) {

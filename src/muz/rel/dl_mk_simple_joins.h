@@ -19,12 +19,12 @@ Revision History:
 #ifndef DL_MK_SIMPLE_JOINS_H_
 #define DL_MK_SIMPLE_JOINS_H_
 
-#include"map.h"
-#include"obj_pair_hashtable.h"
+#include "util/map.h"
+#include "util/obj_pair_hashtable.h"
 
-#include"dl_context.h"
-#include"dl_rule_set.h"
-#include"dl_rule_transformer.h"
+#include "muz/base/dl_context.h"
+#include "muz/base/dl_rule_set.h"
+#include "muz/base/dl_rule_transformer.h"
 
 namespace datalog {
 
@@ -49,7 +49,7 @@ namespace datalog {
        We say that a rule containing C_i's is a rule with a "big tail".
     */
     class mk_simple_joins : public rule_transformer::plugin {
-        context & 	    m_context;
+        context &           m_context;
         rule_manager &      rm;
     public:
         mk_simple_joins(context & ctx);

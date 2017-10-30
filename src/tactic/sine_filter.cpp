@@ -16,17 +16,17 @@ Author:
 Revision History:
 --*/
 
-#include "sine_filter.h"
-#include "tactical.h"
-#include "filter_model_converter.h"
-#include "datatype_decl_plugin.h"
-#include "rewriter_def.h"
-#include "filter_model_converter.h"
-#include "extension_model_converter.h"
-#include "var_subst.h"
-#include "ast_util.h"
-#include "obj_pair_hashtable.h"
-#include "ast_pp.h"
+#include "tactic/sine_filter.h"
+#include "tactic/tactical.h"
+#include "tactic/filter_model_converter.h"
+#include "ast/datatype_decl_plugin.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "tactic/filter_model_converter.h"
+#include "tactic/extension_model_converter.h"
+#include "ast/rewriter/var_subst.h"
+#include "ast/ast_util.h"
+#include "util/obj_pair_hashtable.h"
+#include "ast/ast_pp.h"
 
 class sine_tactic : public tactic {
 

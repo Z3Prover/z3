@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#include"goal_util.h"
-#include"goal.h"
+#include "tactic/goal_util.h"
+#include "tactic/goal.h"
 
 struct has_term_ite_functor {
     struct found {};

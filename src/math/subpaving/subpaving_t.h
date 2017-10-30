@@ -20,18 +20,18 @@ Revision History:
 #define SUBPAVING_T_H_
 
 #include<iostream>
-#include"tptr.h"
-#include"small_object_allocator.h"
-#include"chashtable.h"
-#include"parray.h"
-#include"interval.h"
-#include"scoped_numeral_vector.h"
-#include"subpaving_types.h"
-#include"params.h"
-#include"statistics.h"
-#include"lbool.h"
-#include"id_gen.h"
-#include"rlimit.h"
+#include "util/tptr.h"
+#include "util/small_object_allocator.h"
+#include "util/chashtable.h"
+#include "util/parray.h"
+#include "math/interval/interval.h"
+#include "util/scoped_numeral_vector.h"
+#include "math/subpaving/subpaving_types.h"
+#include "util/params.h"
+#include "util/statistics.h"
+#include "util/lbool.h"
+#include "util/id_gen.h"
+#include "util/rlimit.h"
 #ifdef _MSC_VER
 #pragma warning(disable : 4200)
 #pragma warning(disable : 4355)

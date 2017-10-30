@@ -18,8 +18,8 @@ Revision History:
 --*/
 #include<cstdlib>
 #include<iostream>
-#include"bit_vector.h"
-#include"vector.h"
+#include "util/bit_vector.h"
+#include "util/vector.h"
 
 static void tst1() {
     bit_vector     v1;
@@ -27,36 +27,36 @@ static void tst1() {
     unsigned n = rand()%10000;
     for (unsigned i = 0; i < n; i++) {
         int op = rand()%6;
-	if (op <= 1) {
-	    bool val = (rand()%2) != 0;
-	    v1.push_back(val);
-	    v2.push_back(val);
-	    SASSERT(v1.size() == v2.size());
-	}
-	else if (op <= 3) {
-	    SASSERT(v1.size() == v2.size());
-	    if (v1.size() > 0) {
-		bool val = (rand()%2) != 0;
-		unsigned idx = rand()%v1.size();
-		SASSERT(v1.get(idx) == v2[idx]);
-		v1.set(idx, val);
-		v2[idx] = val;
-		SASSERT(v1.get(idx) == v2[idx]);
-	    }
-	}
-	else if (op <= 4) {
-	    SASSERT(v1.size() == v2.size());
-	    if (v1.size() > 0) {
-		unsigned idx = rand()%v1.size();
-		VERIFY(v1.get(idx) == v2[idx]);
-	    }
-	}
-	else if (op <= 5) {
-	    SASSERT(v1.size() == v2.size());
-	    for (unsigned j = 0; j < v1.size(); j++) {
-		SASSERT(v1.get(j) == v2[j]);
-	    }
-	}
+    if (op <= 1) {
+        bool val = (rand()%2) != 0;
+        v1.push_back(val);
+        v2.push_back(val);
+        ENSURE(v1.size() == v2.size());
+    }
+    else if (op <= 3) {
+        ENSURE(v1.size() == v2.size());
+        if (v1.size() > 0) {
+        bool val = (rand()%2) != 0;
+        unsigned idx = rand()%v1.size();
+        ENSURE(v1.get(idx) == v2[idx]);
+        v1.set(idx, val);
+        v2[idx] = val;
+        ENSURE(v1.get(idx) == v2[idx]);
+        }
+    }
+    else if (op <= 4) {
+        ENSURE(v1.size() == v2.size());
+        if (v1.size() > 0) {
+        unsigned idx = rand()%v1.size();
+        VERIFY(v1.get(idx) == v2[idx]);
+        }
+    }
+    else if (op <= 5) {
+        ENSURE(v1.size() == v2.size());
+        for (unsigned j = 0; j < v1.size(); j++) {
+        ENSURE(v1.get(j) == v2[j]);
+        }
+    }
     }
 }
 
@@ -66,11 +66,11 @@ static void tst2() {
     b.push_back(false);
     b.push_back(true);
     b.resize(30);
-    SASSERT(b.get(0) == true);
-    SASSERT(b.get(1) == false);
-    SASSERT(b.get(2) == true);
-    SASSERT(b.get(3) == false);
-    SASSERT(b.get(29) == false);
+    ENSURE(b.get(0) == true);
+    ENSURE(b.get(1) == false);
+    ENSURE(b.get(2) == true);
+    ENSURE(b.get(3) == false);
+    ENSURE(b.get(29) == false);
 }
 
 static void tst_shift() {
@@ -116,14 +116,14 @@ static void tst_or() {
         std::cout << b1 << "\n";
         std::cout << b2 << "\n";
         b1 |= b2;
-        SASSERT(b1.size() == 10);
+        ENSURE(b1.size() == 10);
         std::cout << b1 << "\n";
-        SASSERT(b1 != b2);
-        SASSERT(b1 != b2);
+        ENSURE(b1 != b2);
+        ENSURE(b1 != b2);
         b1.unset(4);
-        SASSERT(b1 == b2);
+        ENSURE(b1 == b2);
         b1.unset(3);
-        SASSERT(b1 != b2);
+        ENSURE(b1 != b2);
     }
     {
         bit_vector b1;
@@ -133,9 +133,9 @@ static void tst_or() {
         b1.set(0);
         b2.set(4);
         b1 |= b2;
-        SASSERT(b1 != b2);
+        ENSURE(b1 != b2);
         b2.set(0);
-        SASSERT(b1 == b2);
+        ENSURE(b1 == b2);
         std::cout << "-----\n";
         std::cout << b1 << "\n";
     }
@@ -149,9 +149,9 @@ static void tst_or() {
         b2.set(3);
         b2.resize(5);
         b1 |= b2;
-        SASSERT(!b1.get(8));
-        SASSERT(b1.get(5));
-        SASSERT(b1.get(3));
+        ENSURE(!b1.get(8));
+        ENSURE(b1.get(5));
+        ENSURE(b1.get(3));
     }
     {
         bit_vector b1;
@@ -166,17 +166,17 @@ static void tst_or() {
         b2.set(80);
         b1.set(4);
         b2.set(4);
-        SASSERT(b1!=b2);
+        ENSURE(b1!=b2);
         b2.resize(123);
-        SASSERT(b1!=b2);
+        ENSURE(b1!=b2);
         b1.resize(120);
         b2.resize(120);
-        SASSERT(b1==b2);
+        ENSURE(b1==b2);
         b1.unset(80);
         b1.unset(100);
-        SASSERT(b1!=b2);
+        ENSURE(b1!=b2);
         b1 |= b2;
-        SASSERT(b1 == b2);
+        ENSURE(b1 == b2);
     }
     {
         bit_vector b1;
@@ -188,8 +188,8 @@ static void tst_or() {
         b2.set(1);
         b1.set(0);
         b1 |= b2;
-        SASSERT(b1.size() == 10);
-        SASSERT(b1.get(8) && b1.get(4) && b1.get(1) && b1.get(0) && !b1.get(9));
+        ENSURE(b1.size() == 10);
+        ENSURE(b1.get(8) && b1.get(4) && b1.get(1) && b1.get(0) && !b1.get(9));
     }
     {
         bit_vector b1;
@@ -201,7 +201,7 @@ static void tst_or() {
         b2.set(8);
         b2.set(0);
         b1 |= b2;
-        SASSERT(b1.get(1) && b1.get(5) && b1.get(8) && b1.get(0) && !b1.get(11));
+        ENSURE(b1.get(1) && b1.get(5) && b1.get(8) && b1.get(0) && !b1.get(11));
         std::cout << "b1(size32): " << b1 << "\n";
     }
 }
@@ -218,8 +218,8 @@ static void tst_and() {
         std::cout << "------\nb1: " << b1 << "\n";
         b1 &= b2;
         std::cout << "------\nb1: " << b1 << "\n";
-        SASSERT(!b1.get(4));
-        SASSERT(b1.get(2));
+        ENSURE(!b1.get(4));
+        ENSURE(b1.get(2));
     }
     {
         bit_vector b1;
@@ -234,7 +234,7 @@ static void tst_and() {
         b2.set(127);
         b2.set(5);
         b1 &= b2;
-        SASSERT(!b1.get(240) && !b1.get(232) && !b1.get(128) && b1.get(127) && !b1.get(8) && !b1.get(5));
+        ENSURE(!b1.get(240) && !b1.get(232) && !b1.get(128) && b1.get(127) && !b1.get(8) && !b1.get(5));
     }
 }
 
@@ -243,17 +243,17 @@ static void tst_crash() {
         bit_vector b;
         b.push_back(true);
         b.resize(64);
-        SASSERT(!b.get(63));
-        SASSERT(b.get(0));
-        SASSERT(!b.get(1));
+        ENSURE(!b.get(63));
+        ENSURE(b.get(0));
+        ENSURE(!b.get(1));
     }
     {
         bit_vector b;
         b.push_back(false);
         b.resize(64, true);
-        SASSERT(b.get(63));
-        SASSERT(!b.get(0));
-        SASSERT(b.get(1));
+        ENSURE(b.get(63));
+        ENSURE(!b.get(0));
+        ENSURE(b.get(1));
     }
 }
 
@@ -264,12 +264,12 @@ static void tst_bv_reset() {
         b.reset();
         b.resize(sz, bit);        
         for (unsigned i = 0; i < sz; ++i) {
-            SASSERT(bit == b.get(i));
+            ENSURE(bit == b.get(i));
         }
         for (unsigned sz2 = sz; sz2 < sz+10; ++sz2) {
             b.resize(sz2, !bit);        
             for (unsigned i = sz; i < sz2; ++i) {
-                SASSERT(bit != b.get(i));
+                ENSURE(bit != b.get(i));
             }            
         }
         bit = !bit;
@@ -283,19 +283,19 @@ static void tst_eq() {
     b3.resize(32);
 
     b1.set(3, true);
-    SASSERT(b1 != b2);
-    SASSERT(!(b1 == b2));
-    SASSERT(b2 == b3);
+    ENSURE(b1 != b2);
+    ENSURE(!(b1 == b2));
+    ENSURE(b2 == b3);
 
     b3.set(3, true);
-    SASSERT(b1 == b3);
-    SASSERT(!(b1 != b3));
+    ENSURE(b1 == b3);
+    ENSURE(!(b1 != b3));
     
     b2.set(31, true);
     b3.set(31);
     b3.unset(3);
-    SASSERT(b2 == b3);
-    SASSERT(!(b2 != b3));
+    ENSURE(b2 == b3);
+    ENSURE(!(b2 != b3));
 }
 
 void tst_bit_vector() {
@@ -309,6 +309,6 @@ void tst_bit_vector() {
     tst2();
     for (unsigned i = 0; i < 20; i++) {
         std::cerr << i << std::endl;
-	tst1();
+    tst1();
     }
 }

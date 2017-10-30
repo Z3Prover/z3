@@ -213,7 +213,7 @@ public class Optimize extends Z3Object {
      *  Declare an arithmetical maximization objective.
      *  Return a handle to the objective. The handle is used as
      *  to retrieve the values of objectives after calling Check.
-     **/        	
+     **/            
     public Handle MkMaximize(ArithExpr e)
     {
         return new Handle(this, Native.optimizeMaximize(getContext().nCtx(), getNativeObject(), e.getNativeObject()));
@@ -285,8 +285,7 @@ public class Optimize extends Z3Object {
      **/
     public String getReasonUnknown()
     {
-        return Native.optimizeGetReasonUnknown(getContext().nCtx(),
-                getNativeObject());	
+        return Native.optimizeGetReasonUnknown(getContext().nCtx(), getNativeObject());
     }
 
     /**
@@ -297,6 +296,24 @@ public class Optimize extends Z3Object {
     {
         return Native.optimizeToString(getContext().nCtx(), getNativeObject());
     }
+
+    /**
+     * Parse an SMT-LIB2 file with optimization objectives and constraints.
+     * The parsed constraints and objectives are added to the optimization context.
+     */
+    public void fromFile(String file)
+    {
+        Native.optimizeFromFile(getContext().nCtx(), getNativeObject(), file);
+    }
+
+    /**
+     * Similar to FromFile. Instead it takes as argument a string.
+     */
+    public void fromString(String s)
+    {
+        Native.optimizeFromString(getContext().nCtx(), getNativeObject(), s);
+    }
+
 
     /**
      *  Optimize statistics.

@@ -16,13 +16,13 @@ Author:
 Revision History:
 
 --*/
-#include"tactical.h"
-#include"expr_replacer.h"
-#include"extension_model_converter.h"
-#include"occurs.h"
-#include"cooperate.h"
-#include"goal_shared_occs.h"
-#include"ast_pp.h"
+#include "tactic/tactical.h"
+#include "ast/rewriter/expr_replacer.h"
+#include "tactic/extension_model_converter.h"
+#include "ast/occurs.h"
+#include "util/cooperate.h"
+#include "tactic/goal_shared_occs.h"
+#include "ast/ast_pp.h"
 
 class solve_eqs_tactic : public tactic {
     struct imp {

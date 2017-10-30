@@ -35,8 +35,8 @@ Subsumption transformation (remove Horn clause):
 #ifndef HORN_SUBSUME_MODEL_CONVERTER_H_
 #define HORN_SUBSUME_MODEL_CONVERTER_H_
 
-#include "model_converter.h"
-#include "th_rewriter.h"
+#include "tactic/model_converter.h"
+#include "ast/rewriter/th_rewriter.h"
 
 class horn_subsume_model_converter : public model_converter {
     ast_manager&    m;

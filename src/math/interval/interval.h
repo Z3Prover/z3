@@ -19,9 +19,9 @@ Revision History:
 #ifndef INTERVAL_H_
 #define INTERVAL_H_
 
-#include"mpq.h"
-#include"ext_numeral.h"
-#include"rlimit.h"
+#include "util/mpq.h"
+#include "util/ext_numeral.h"
+#include "util/rlimit.h"
 
 /**
    \brief Default configuration for interval manager.
@@ -162,7 +162,7 @@ private:
     void checkpoint();
 
 public:    
-    interval_manager(reslimit& lim, C const & c);
+    interval_manager(reslimit& lim, C && c);
     ~interval_manager();
 
     numeral_manager & m() const { return m_c.m(); }    

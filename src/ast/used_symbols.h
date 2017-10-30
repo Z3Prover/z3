@@ -19,9 +19,9 @@ Revision History:
 #ifndef USED_SYMBOLS_H_
 #define USED_SYMBOLS_H_
 
-#include"ast.h"
-#include"hashtable.h"
-#include"obj_hashtable.h"
+#include "ast/ast.h"
+#include "util/hashtable.h"
+#include "util/obj_hashtable.h"
 
 struct do_nothing_rename_proc {
     symbol operator()(symbol const & s) const { return s; }

@@ -26,8 +26,8 @@ Revision History:
 #define DL_MK_QUANTIFIER_ABSTRACTION_H_
 
 
-#include"dl_rule_transformer.h"
-#include"array_decl_plugin.h"
+#include "muz/base/dl_rule_transformer.h"
+#include "ast/array_decl_plugin.h"
 
 namespace datalog {
 

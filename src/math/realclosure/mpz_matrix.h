@@ -31,7 +31,7 @@ Notes:
 #ifndef MPZ_MATRIX_H_
 #define MPZ_MATRIX_H_
 
-#include"mpz.h"
+#include "util/mpz.h"
 
 /**
    \brief A mxn matrix. 

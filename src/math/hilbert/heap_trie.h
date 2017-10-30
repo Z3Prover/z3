@@ -37,11 +37,11 @@ Notes:
 #ifndef HEAP_TRIE_H_
 #define HEAP_TRIE_H_
 
-#include "map.h"
-#include "vector.h"
-#include "buffer.h"
-#include "statistics.h"
-#include "small_object_allocator.h"
+#include "util/map.h"
+#include "util/vector.h"
+#include "util/buffer.h"
+#include "util/statistics.h"
+#include "util/small_object_allocator.h"
 
 
 template<typename Key, typename KeyLE, typename KeyHash, typename Value>

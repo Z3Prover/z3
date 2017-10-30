@@ -17,9 +17,9 @@ Revision History:
 
 --*/
 
-#include "dl_mk_array_blast.h"
-#include "ast_util.h"
-#include "scoped_proof.h"
+#include "muz/transforms/dl_mk_array_blast.h"
+#include "ast/ast_util.h"
+#include "ast/scoped_proof.h"
 
 
 namespace datalog {
@@ -319,6 +319,9 @@ namespace datalog {
     
     rule_set * mk_array_blast::operator()(rule_set const & source) {
 
+        if (!m_ctx.array_blast ()) {
+            return 0;
+        }
         rule_set* rules = alloc(rule_set, m_ctx);
         rules->inherit_predicates(source);
         rule_set::iterator it = source.begin(), end = source.end();

@@ -16,9 +16,9 @@ Author:
 Notes:
 
 --*/
-#include"realclosure.h"
-#include"mpz_matrix.h"
-#include"rlimit.h"
+#include "math/realclosure/realclosure.h"
+#include "math/realclosure/mpz_matrix.h"
+#include "util/rlimit.h"
 
 static void tst1() {
     unsynch_mpq_manager qm;
@@ -116,13 +116,13 @@ static void tst_solve(unsigned n, int _A[], int _b[], int _c[], bool solved) {
     svector<int> b;
     b.resize(n, 0);
     if (mm.solve(A, b.c_ptr(), _c)) {
-        SASSERT(solved);
+        ENSURE(solved);
         for (unsigned i = 0; i < n; i++) {
-            SASSERT(b[i] == _b[i]);
+            ENSURE(b[i] == _b[i]);
         }
     }
     else {
-        SASSERT(!solved);
+        ENSURE(!solved);
     }
 }
 
@@ -140,7 +140,7 @@ static void tst_lin_indep(unsigned m, unsigned n, int _A[], unsigned ex_sz, unsi
     scoped_mpz_matrix B(mm);
     mm.linear_independent_rows(A, r.c_ptr(), B);
     for (unsigned i = 0; i < ex_sz; i++) {
-        SASSERT(r[i] == ex_r[i]);
+        ENSURE(r[i] == ex_r[i]);
     }
 }
 

@@ -20,7 +20,7 @@ Notes:
 #ifndef CONTEXT_PARAMS_H_
 #define CONTEXT_PARAMS_H_
 
-#include"params.h"
+#include "util/params.h"
 class ast_manager;
 
 class context_params {
@@ -30,6 +30,7 @@ class context_params {
 public:
     bool        m_auto_config;
     bool        m_proof;
+    std::string m_dot_proof_file;
     bool        m_interpolants;
     bool        m_debug_ref_count;
     bool        m_trace;

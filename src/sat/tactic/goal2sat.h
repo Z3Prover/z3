@@ -29,10 +29,10 @@ Notes:
 #ifndef GOAL2SAT_H_
 #define GOAL2SAT_H_
 
-#include"goal.h"
-#include"sat_solver.h"
-#include"model_converter.h"
-#include"atom2bool_var.h"
+#include "tactic/goal.h"
+#include "sat/sat_solver.h"
+#include "tactic/model_converter.h"
+#include "sat/tactic/atom2bool_var.h"
 
 class goal2sat {
     struct imp;

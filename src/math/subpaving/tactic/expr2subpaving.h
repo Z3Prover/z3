@@ -20,8 +20,8 @@ Notes:
 #ifndef EXPR2SUBPAVING_H_
 #define EXPR2SUBPAVING_H_
 
-#include"ast.h"
-#include"subpaving.h"
+#include "ast/ast.h"
+#include "math/subpaving/subpaving.h"
 
 class expr2var;
 

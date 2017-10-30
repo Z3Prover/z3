@@ -20,9 +20,9 @@ Revision History:
 #ifndef PDR_GENERALIZERS_H_
 #define PDR_GENERALIZERS_H_
 
-#include "pdr_context.h"
-#include "pdr_closure.h"
-#include "arith_decl_plugin.h"
+#include "muz/pdr/pdr_context.h"
+#include "muz/pdr/pdr_closure.h"
+#include "ast/arith_decl_plugin.h"
 
 namespace pdr {
 
@@ -88,7 +88,7 @@ namespace pdr {
         virtual ~core_convex_hull_generalizer() {}
         virtual void operator()(model_node& n, expr_ref_vector const& core, bool uses_level, cores& new_cores);
         virtual void operator()(model_node& n, expr_ref_vector& core, bool& uses_level);
-    };	
+    };
 
     class core_multi_generalizer : public core_generalizer {
         core_bool_inductive_generalizer m_gen;

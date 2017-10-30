@@ -48,11 +48,11 @@ Subsumption transformation (remove rule):
 
 
 #include <sstream>
-#include "ast_pp.h"
-#include "rewriter.h"
-#include "rewriter_def.h"
-#include "dl_mk_rule_inliner.h"
-#include "fixedpoint_params.hpp"
+#include "ast/ast_pp.h"
+#include "ast/rewriter/rewriter.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "muz/transforms/dl_mk_rule_inliner.h"
+#include "muz/base/fixedpoint_params.hpp"
 
 namespace datalog {
 

@@ -7,7 +7,7 @@ Copyright (c) 2015 Microsoft Corporation
 // This is to test the print-parse facilities over the API
 // for SMT-LIB2.
 
-#include "z3.h"
+#include "api/z3.h"
 #include <iostream>
 
 void test_print(Z3_context ctx, Z3_ast a) {

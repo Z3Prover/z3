@@ -16,9 +16,9 @@ Author:
 Revision History:
 
 --*/
-#include"sat_model_converter.h"
-#include"sat_clause.h"
-#include"trace.h"
+#include "sat/sat_model_converter.h"
+#include "sat/sat_clause.h"
+#include "util/trace.h"
 
 namespace sat {
 

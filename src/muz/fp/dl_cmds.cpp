@@ -15,22 +15,22 @@ Author:
 Notes:
 
 --*/
-#include"cmd_context.h"
-#include"dl_cmds.h"
-#include"dl_external_relation.h"
-#include"dl_context.h"
-#include"dl_register_engine.h"
-#include"dl_decl_plugin.h"
-#include"dl_instruction.h"
-#include"dl_compiler.h"
-#include"dl_rule.h"
-#include"ast_pp.h"
-#include"parametric_cmd.h"
-#include"cancel_eh.h"
-#include"scoped_ctrl_c.h"
-#include"scoped_timer.h"
-#include"trail.h"
-#include"fixedpoint_params.hpp"
+#include "cmd_context/cmd_context.h"
+#include "muz/fp/dl_cmds.h"
+#include "muz/rel/dl_external_relation.h"
+#include "muz/base/dl_context.h"
+#include "muz/fp/dl_register_engine.h"
+#include "ast/dl_decl_plugin.h"
+#include "muz/rel/dl_instruction.h"
+#include "muz/rel/dl_compiler.h"
+#include "muz/base/dl_rule.h"
+#include "ast/ast_pp.h"
+#include "cmd_context/parametric_cmd.h"
+#include "util/cancel_eh.h"
+#include "util/scoped_ctrl_c.h"
+#include "util/scoped_timer.h"
+#include "util/trail.h"
+#include "muz/base/fixedpoint_params.hpp"
 #include<iomanip>
 
 
@@ -189,11 +189,12 @@ public:
         m_bound = bound;
         m_arg_idx++;
     }
-    virtual void reset(cmd_context & ctx) { m_dl_ctx->reset(); prepare(ctx); }
+    virtual void reset(cmd_context & ctx) { m_dl_ctx->reset(); prepare(ctx); m_t = nullptr; }
     virtual void prepare(cmd_context& ctx) { m_arg_idx = 0; m_name = symbol::null; m_bound = UINT_MAX; }
     virtual void finalize(cmd_context & ctx) { 
     }
     virtual void execute(cmd_context & ctx) {
+        if (!m_t) throw cmd_exception("invalid rule, expected formula");
         m_dl_ctx->add_rule(m_t, m_name, m_bound);
     }
 };
@@ -374,12 +375,9 @@ class dl_declare_rel_cmd : public cmd {
     unsigned         m_arg_idx;
     mutable unsigned m_query_arg_idx;
     symbol           m_rel_name;
-    scoped_ptr<sort_ref_vector>  m_domain;
+    ptr_vector<sort> m_domain;
     svector<symbol>  m_kinds;
 
-    void ensure_domain(cmd_context& ctx) {
-        if (!m_domain) m_domain = alloc(sort_ref_vector, ctx.m());
-    }
 
 public:
     dl_declare_rel_cmd(dl_context * dl_ctx):
@@ -395,7 +393,7 @@ public:
         ctx.m(); // ensure manager is initialized.
         m_arg_idx = 0; 
         m_query_arg_idx = 0; 
-        m_domain = 0;
+        m_domain.reset();
         m_kinds.reset();
     }
     virtual cmd_arg_kind next_arg_kind(cmd_context & ctx) const { 
@@ -406,8 +404,8 @@ public:
         }
     }
     virtual void set_next_arg(cmd_context & ctx, unsigned num, sort * const * slist) {
-        ensure_domain(ctx);
-        m_domain->append(num, slist);
+        m_domain.reset();
+        m_domain.append(num, slist);
         m_arg_idx++;
     }
     virtual void set_next_arg(cmd_context & ctx, symbol const & s) {
@@ -424,14 +422,12 @@ public:
         if(m_arg_idx<2) {
             throw cmd_exception("at least 2 arguments expected");
         }
-        ensure_domain(ctx);
         ast_manager& m = ctx.m();
 
         func_decl_ref pred(
-            m.mk_func_decl(m_rel_name, m_domain->size(), m_domain->c_ptr(), m.mk_bool_sort()), m);
+            m.mk_func_decl(m_rel_name, m_domain.size(), m_domain.c_ptr(), m.mk_bool_sort()), m);
         ctx.insert(pred);
         m_dl_ctx->register_predicate(pred, m_kinds.size(), m_kinds.c_ptr());
-        m_domain = 0;
     }
 
 };

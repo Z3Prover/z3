@@ -5,13 +5,13 @@ Copyright (c) 2015 Microsoft Corporation
 --*/
 
 #ifdef _WINDOWS
-#include "z3.h"
-#include "z3_private.h"
+#include "api/z3.h"
+#include "api/z3_private.h"
 #include <iostream>
-#include "util.h"
-#include "trace.h"
+#include "util/util.h"
+#include "util/trace.h"
 #include <map>
-#include "trace.h"
+#include "util/trace.h"
 
 void test_apps() {
     Z3_config cfg = Z3_mk_config();
@@ -101,7 +101,7 @@ static void test_mk_distinct() {
     Z3_sort bv32 = Z3_mk_bv_sort(ctx, 32);
     Z3_ast args[] = { Z3_mk_int64(ctx, 0, bv8), Z3_mk_int64(ctx, 0, bv32) };
     Z3_ast d = Z3_mk_distinct(ctx, 2, args);
-    SASSERT(cb_called);
+    ENSURE(cb_called);
     Z3_del_config(cfg);
     Z3_del_context(ctx);    
     

@@ -17,8 +17,8 @@ Notes:
 #ifndef _IZ3EXCEPTION_H_
 #define _IZ3EXCEPTION_H_
 
-#include "z3_exception.h"
-#include "error_codes.h"
+#include "util/z3_exception.h"
+#include "util/error_codes.h"
 
 class iz3_exception: public default_exception {
 public:

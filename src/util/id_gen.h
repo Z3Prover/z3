@@ -19,8 +19,8 @@ Revision History:
 #ifndef ID_GEN_H_
 #define ID_GEN_H_
 
-#include"vector.h"
-#include"util.h"
+#include "util/vector.h"
+#include "util/util.h"
 
 class id_gen {
     unsigned        m_next_id;

@@ -20,7 +20,7 @@ Notes:
 #ifndef COLLECT_STATISTICS_H_
 #define COLLECT_STATISTICS_H_
 
-#include"params.h"
+#include "util/params.h"
 class ast_manager;
 class tactic;
 

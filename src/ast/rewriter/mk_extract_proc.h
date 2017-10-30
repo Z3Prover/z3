@@ -16,8 +16,8 @@
  --*/
 #ifndef MK_EXTRACT_PROC_H_
 #define MK_EXTRACT_PROC_H_
-#include"ast.h"
-#include"bv_decl_plugin.h"
+#include "ast/ast.h"
+#include "ast/bv_decl_plugin.h"
 class mk_extract_proc {
     bv_util &     m_util;
     unsigned      m_high;

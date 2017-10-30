@@ -16,9 +16,9 @@ Author:
 Revision History:
 
 --*/
-#include"ast.h"
-#include"expr_delta_pair.h"
-#include"hashtable.h"
+#include "ast/ast.h"
+#include "ast/expr_delta_pair.h"
+#include "util/hashtable.h"
 
 class contains_vars {
     typedef hashtable<expr_delta_pair, obj_hash<expr_delta_pair>, default_eq<expr_delta_pair> > cache;

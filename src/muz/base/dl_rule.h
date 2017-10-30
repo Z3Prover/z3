@@ -20,19 +20,19 @@ Revision History:
 #ifndef DL_RULE_H_
 #define DL_RULE_H_
 
-#include"ast.h"
-#include"dl_costs.h"
-#include"dl_util.h"
-#include"used_vars.h"
-#include"proof_converter.h"
-#include"model_converter.h"
-#include"ast_counter.h"
-#include"rewriter.h"
-#include"hnf.h"
-#include"qe_lite.h"
-#include"var_subst.h"
-#include"datatype_decl_plugin.h"
-#include"label_rewriter.h"
+#include "ast/ast.h"
+#include "muz/base/dl_costs.h"
+#include "muz/base/dl_util.h"
+#include "ast/used_vars.h"
+#include "tactic/proof_converter.h"
+#include "tactic/model_converter.h"
+#include "ast/rewriter/ast_counter.h"
+#include "ast/rewriter/rewriter.h"
+#include "muz/base/hnf.h"
+#include "qe/qe_lite.h"
+#include "ast/rewriter/var_subst.h"
+#include "ast/datatype_decl_plugin.h"
+#include "ast/rewriter/label_rewriter.h"
 
 namespace datalog {
 

@@ -16,10 +16,10 @@ Author:
 Notes:
 
 --*/
-#include"params.h"
-#include"rational.h"
-#include"symbol.h"
-#include"dictionary.h"
+#include "util/params.h"
+#include "util/rational.h"
+#include "util/symbol.h"
+#include "util/dictionary.h"
 
 params_ref params_ref::g_empty_params_ref;
 

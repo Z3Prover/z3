@@ -19,19 +19,19 @@ Revision History:
 #ifndef INTERVAL_DEF_H_
 #define INTERVAL_DEF_H_
 
-#include"interval.h"
-#include"debug.h"
-#include"trace.h"
-#include"scoped_numeral.h"
-#include"cooperate.h"
-#include"common_msgs.h"
+#include "math/interval/interval.h"
+#include "util/debug.h"
+#include "util/trace.h"
+#include "util/scoped_numeral.h"
+#include "util/cooperate.h"
+#include "util/common_msgs.h"
 
 #define DEFAULT_PI_PRECISION 2
 
 // #define TRACE_NTH_ROOT
 
 template<typename C>
-interval_manager<C>::interval_manager(reslimit& lim, C const & c): m_limit(lim), m_c(c) {
+interval_manager<C>::interval_manager(reslimit& lim, C && c): m_limit(lim), m_c(std::move(c)) {
     m().set(m_minus_one, -1);
     m().set(m_one, 1);
     m_pi_n = 0;

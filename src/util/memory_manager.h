@@ -21,7 +21,7 @@ Revision History:
 
 #include<cstdlib>
 #include<ostream>
-#include"z3_exception.h"
+#include "util/z3_exception.h"
 
 #ifndef __has_builtin
 # define __has_builtin(x) 0

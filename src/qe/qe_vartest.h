@@ -19,8 +19,8 @@ Revision History:
 #ifndef QE_VARTEST_H_
 #define QE_VARTEST_H_
 
-#include "ast.h"
-#include "uint_set.h"
+#include "ast/ast.h"
+#include "util/uint_set.h"
 
 class is_variable_proc {
 public:

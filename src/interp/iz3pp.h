@@ -20,7 +20,7 @@
 #ifndef IZ3_PP_H
 #define IZ3_PP_H
 
-#include "iz3mgr.h"
+#include "interp/iz3mgr.h"
 
 /** Exception thrown in case of mal-formed tree interpoloation
     specification */
@@ -30,7 +30,7 @@ struct iz3pp_bad_tree: public iz3_exception {
 };
 
 void iz3pp(ast_manager &m,
-	   const ptr_vector<expr> &cnsts_vec,
-	   expr *tree,
-	   std::ostream& out);
+           const ptr_vector<expr> &cnsts_vec,
+           expr *tree,
+           std::ostream& out);
 #endif

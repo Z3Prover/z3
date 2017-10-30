@@ -16,19 +16,17 @@ Author:
 Revision History:
 
 --*/
-#include"tactical.h"
-#include"rewriter_def.h"
-#include"filter_model_converter.h"
-#include"cooperate.h"
-#include"bv_decl_plugin.h"
-#include"used_vars.h"
-#include"well_sorted.h"
-#include"var_subst.h"
-#include"simplifier.h"
-#include"basic_simplifier_plugin.h"
-#include"bv_simplifier_plugin.h"
+#include "tactic/tactical.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "tactic/filter_model_converter.h"
+#include "util/cooperate.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/used_vars.h"
+#include "ast/well_sorted.h"
+#include "ast/rewriter/var_subst.h"
+#include "ast/rewriter/th_rewriter.h"
 
-#include"elim_small_bv_tactic.h"
+#include "tactic/bv/elim_small_bv_tactic.h"
 
 class elim_small_bv_tactic : public tactic {
 
@@ -36,7 +34,7 @@ class elim_small_bv_tactic : public tactic {
         ast_manager               & m;
         params_ref                  m_params;
         bv_util                     m_util;
-        simplifier                  m_simp;
+        th_rewriter                 m_simp;
         ref<filter_model_converter> m_mc;
         goal *                      m_goal;
         unsigned                    m_max_bits;
@@ -56,14 +54,6 @@ class elim_small_bv_tactic : public tactic {
             updt_params(p);
             m_goal = 0;
             m_max_steps = UINT_MAX;
-
-            basic_simplifier_plugin * bsimp = alloc(basic_simplifier_plugin, m);
-            // bsimp->set_eliminate_and(true);
-            m_simp.register_plugin(bsimp);
-
-            bv_simplifier_params bv_params;
-            bv_simplifier_plugin * bvsimp = alloc(bv_simplifier_plugin, m, *bsimp, bv_params);
-            m_simp.register_plugin(bvsimp);
         }
 
         bool max_steps_exceeded(unsigned long long num_steps) const {
@@ -307,9 +297,8 @@ public:
 
     virtual void cleanup() {
         ast_manager & m = m_imp->m;
-        imp * d = alloc(imp, m, m_params);
-        std::swap(d, m_imp);
-        dealloc(d);
+        m_imp->~imp();
+        m_imp = new (m_imp) imp(m, m_params);
     }
 
 };

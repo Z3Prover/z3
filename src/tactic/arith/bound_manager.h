@@ -19,8 +19,8 @@ Notes:
 #ifndef BOUND_MANAGER_H_
 #define BOUND_MANAGER_H_
 
-#include"ast.h"
-#include"arith_decl_plugin.h"
+#include "ast/ast.h"
+#include "ast/arith_decl_plugin.h"
 
 class goal;
 

@@ -1,11 +1,26 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 #include "util/lp/lp_utils.h"
-#ifdef lp_for_z3
-namespace lean {
+
+namespace lp {
 double numeric_traits<double>::g_zero = 0.0;
 double numeric_traits<double>::g_one = 1.0;
 }
-#endif
+

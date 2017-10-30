@@ -24,8 +24,8 @@ Notes:
 #ifndef GOAL2NLSAT_H_
 #define GOAL2NLSAT_H_
 
-#include"nlsat_types.h"
-#include"model_converter.h"
+#include "nlsat/nlsat_types.h"
+#include "tactic/model_converter.h"
 
 class goal;
 class expr2var;

@@ -17,12 +17,11 @@ Revision History:
 
 --*/
 
-#include "debug.h"
-#include "optional.h"
-#include "ast_pp.h"
-#include "dl_interval_relation.h"
-#include "dl_relation_manager.h"
-#include "bool_rewriter.h"
+#include "util/debug.h"
+#include "ast/ast_pp.h"
+#include "muz/rel/dl_interval_relation.h"
+#include "muz/rel/dl_relation_manager.h"
+#include "ast/rewriter/bool_rewriter.h"
 
 
 namespace datalog {

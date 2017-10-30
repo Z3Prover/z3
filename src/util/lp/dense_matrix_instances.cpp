@@ -1,25 +1,40 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 #include "util/lp/lp_settings.h"
 #include "util/lp/dense_matrix.hpp"
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
 #include "util/vector.h"
-template lean::dense_matrix<double, double> lean::operator*<double, double>(lean::matrix<double, double>&, lean::matrix<double, double>&);
-template void lean::dense_matrix<double, double>::apply_from_left(vector<double> &);
-template lean::dense_matrix<double, double>::dense_matrix(lean::matrix<double, double> const*);
-template lean::dense_matrix<double, double>::dense_matrix(unsigned int, unsigned int);
-template lean::dense_matrix<double, double>& lean::dense_matrix<double, double>::operator=(lean::dense_matrix<double, double> const&);
-template lean::dense_matrix<lean::mpq, lean::mpq>::dense_matrix(unsigned int, unsigned int);
-template lean::dense_matrix<lean::mpq, lean::numeric_pair<lean::mpq> >::dense_matrix(lean::matrix<lean::mpq, lean::numeric_pair<lean::mpq> > const*);
-template void lean::dense_matrix<lean::mpq, lean::numeric_pair<lean::mpq> >::apply_from_left(vector<lean::mpq>&);
-template lean::dense_matrix<lean::mpq, lean::mpq> lean::operator*<lean::mpq, lean::mpq>(lean::matrix<lean::mpq, lean::mpq>&, lean::matrix<lean::mpq, lean::mpq>&);
-template lean::dense_matrix<lean::mpq, lean::mpq> & lean::dense_matrix<lean::mpq, lean::mpq>::operator=(lean::dense_matrix<lean::mpq, lean::mpq> const&);
-template lean::dense_matrix<lean::mpq, lean::numeric_pair<lean::mpq> >::dense_matrix(unsigned int, unsigned int);
-template lean::dense_matrix<lean::mpq, lean::numeric_pair<lean::mpq> >& lean::dense_matrix<lean::mpq, lean::numeric_pair<lean::mpq> >::operator=(lean::dense_matrix<lean::mpq, lean::numeric_pair<lean::mpq> > const&);
-template lean::dense_matrix<lean::mpq, lean::numeric_pair<lean::mpq> > lean::operator*<lean::mpq, lean::numeric_pair<lean::mpq> >(lean::matrix<lean::mpq, lean::numeric_pair<lean::mpq> >&, lean::matrix<lean::mpq, lean::numeric_pair<lean::mpq> >&);
-template void lean::dense_matrix<lean::mpq, lean::numeric_pair< lean::mpq> >::apply_from_right( vector< lean::mpq> &);
-template void lean::dense_matrix<double,double>::apply_from_right(class vector<double> &);
-template void lean::dense_matrix<lean::mpq, lean::mpq>::apply_from_left(vector<lean::mpq>&);
+template lp::dense_matrix<double, double> lp::operator*<double, double>(lp::matrix<double, double>&, lp::matrix<double, double>&);
+template void lp::dense_matrix<double, double>::apply_from_left(vector<double> &);
+template lp::dense_matrix<double, double>::dense_matrix(lp::matrix<double, double> const*);
+template lp::dense_matrix<double, double>::dense_matrix(unsigned int, unsigned int);
+template lp::dense_matrix<double, double>& lp::dense_matrix<double, double>::operator=(lp::dense_matrix<double, double> const&);
+template lp::dense_matrix<lp::mpq, lp::mpq>::dense_matrix(unsigned int, unsigned int);
+template lp::dense_matrix<lp::mpq, lp::numeric_pair<lp::mpq> >::dense_matrix(lp::matrix<lp::mpq, lp::numeric_pair<lp::mpq> > const*);
+template void lp::dense_matrix<lp::mpq, lp::numeric_pair<lp::mpq> >::apply_from_left(vector<lp::mpq>&);
+template lp::dense_matrix<lp::mpq, lp::mpq> lp::operator*<lp::mpq, lp::mpq>(lp::matrix<lp::mpq, lp::mpq>&, lp::matrix<lp::mpq, lp::mpq>&);
+template lp::dense_matrix<lp::mpq, lp::mpq> & lp::dense_matrix<lp::mpq, lp::mpq>::operator=(lp::dense_matrix<lp::mpq, lp::mpq> const&);
+template lp::dense_matrix<lp::mpq, lp::numeric_pair<lp::mpq> >::dense_matrix(unsigned int, unsigned int);
+template lp::dense_matrix<lp::mpq, lp::numeric_pair<lp::mpq> >& lp::dense_matrix<lp::mpq, lp::numeric_pair<lp::mpq> >::operator=(lp::dense_matrix<lp::mpq, lp::numeric_pair<lp::mpq> > const&);
+template lp::dense_matrix<lp::mpq, lp::numeric_pair<lp::mpq> > lp::operator*<lp::mpq, lp::numeric_pair<lp::mpq> >(lp::matrix<lp::mpq, lp::numeric_pair<lp::mpq> >&, lp::matrix<lp::mpq, lp::numeric_pair<lp::mpq> >&);
+template void lp::dense_matrix<lp::mpq, lp::numeric_pair< lp::mpq> >::apply_from_right( vector< lp::mpq> &);
+template void lp::dense_matrix<double,double>::apply_from_right(class vector<double> &);
+template void lp::dense_matrix<lp::mpq, lp::mpq>::apply_from_left(vector<lp::mpq>&);
 #endif

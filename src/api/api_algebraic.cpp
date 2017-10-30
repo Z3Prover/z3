@@ -17,14 +17,14 @@ Author:
 Notes:
 
 --*/
-#include"z3.h"
-#include"api_log_macros.h"
-#include"api_context.h"
-#include"api_ast_vector.h"
-#include"algebraic_numbers.h"
-#include"expr2polynomial.h"
-#include"cancel_eh.h"
-#include"scoped_timer.h"
+#include "api/z3.h"
+#include "api/api_log_macros.h"
+#include "api/api_context.h"
+#include "api/api_ast_vector.h"
+#include "math/polynomial/algebraic_numbers.h"
+#include "ast/expr2polynomial.h"
+#include "util/cancel_eh.h"
+#include "util/scoped_timer.h"
 
 
 #define CHECK_IS_ALGEBRAIC(ARG, RET) {          \

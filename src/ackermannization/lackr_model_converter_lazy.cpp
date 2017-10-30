@@ -14,11 +14,11 @@
 
  Revision History:
 --*/
-#include"lackr_model_converter_lazy.h"
-#include"model_evaluator.h"
-#include"ast_smt2_pp.h"
-#include"ackr_info.h"
-#include"lackr_model_constructor.h"
+#include "ackermannization/lackr_model_converter_lazy.h"
+#include "model/model_evaluator.h"
+#include "ast/ast_smt2_pp.h"
+#include "ackermannization/ackr_info.h"
+#include "ackermannization/lackr_model_constructor.h"
 
 class lackr_model_converter_lazy : public model_converter {
 public:

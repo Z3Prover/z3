@@ -4,17 +4,17 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
-#include "qe_arith.h"
-#include "qe.h"
-#include "th_rewriter.h"
-#include "smt2parser.h"
-#include "arith_decl_plugin.h"
-#include "reg_decl_plugins.h"
-#include "arith_rewriter.h"
-#include "ast_pp.h"
-#include "smt_context.h"
-#include "expr_abstract.h"
-#include "expr_safe_replace.h"
+#include "qe/qe_arith.h"
+#include "qe/qe.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "parsers/smt2/smt2parser.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/reg_decl_plugins.h"
+#include "ast/rewriter/arith_rewriter.h"
+#include "ast/ast_pp.h"
+#include "smt/smt_context.h"
+#include "ast/expr_abstract.h"
+#include "ast/rewriter/expr_safe_replace.h"
 
 static expr_ref parse_fml(ast_manager& m, char const* str) {
     expr_ref result(m);
@@ -37,7 +37,7 @@ static expr_ref parse_fml(ast_manager& m, char const* str) {
            << "(assert " << str << ")\n";
     std::istringstream is(buffer.str());
     VERIFY(parse_smt2_commands(ctx, is));
-    SASSERT(ctx.begin_assertions() != ctx.end_assertions());
+    ENSURE(ctx.begin_assertions() != ctx.end_assertions());
     result = *ctx.begin_assertions();
     return result;
 }

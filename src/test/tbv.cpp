@@ -4,7 +4,7 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
-#include "tbv.h"
+#include "muz/rel/tbv.h"
 
 static void tst1(unsigned num_bits) {
     tbv_manager m(num_bits);
@@ -17,18 +17,18 @@ static void tst1(unsigned num_bits) {
     m.display(std::cout, *b1) << "\n";
     m.display(std::cout, *bX) << "\n";
     m.display(std::cout, *bN) << "\n";
-    SASSERT(!m.equals(*b1,*b0));
-    SASSERT(!m.equals(*b1,*bX));
-    SASSERT(!m.equals(*b0,*bX));
+    ENSURE(!m.equals(*b1,*b0));
+    ENSURE(!m.equals(*b1,*bX));
+    ENSURE(!m.equals(*b0,*bX));
     m.set_and(*bX,*b0);
-    SASSERT(m.equals(*b0,*bX));
-    SASSERT(!m.equals(*b1,*bX));
+    ENSURE(m.equals(*b0,*bX));
+    ENSURE(!m.equals(*b1,*bX));
     m.copy(*bX,*b1);
-    SASSERT(m.equals(*b1,*bX));
-    SASSERT(!m.equals(*b0,*bX));
+    ENSURE(m.equals(*b1,*bX));
+    ENSURE(!m.equals(*b0,*bX));
     m.fillX(*bX);
     VERIFY(m.intersect(*bX,*b0,*bN));
-    SASSERT(m.equals(*b0, *bN));
+    ENSURE(m.equals(*b0, *bN));
     VERIFY(!m.intersect(*b0,*b1,*bN));
     m.fill1(*b1);
     bit_vector to_delete;
@@ -58,8 +58,8 @@ static void tst0() {
     m.display(std::cout, *t1) << "\n";
     m.display(std::cout, *t2) << "\n";
     m.display(std::cout, *t3) << "\n";
-    SASSERT(m.equals(*t1, *t2));
-    SASSERT(m.equals(*t1, *t3));
+    ENSURE(m.equals(*t1, *t2));
+    ENSURE(m.equals(*t1, *t3));
 }
 
 static void tst2(unsigned num_bits) {
@@ -67,10 +67,10 @@ static void tst2(unsigned num_bits) {
     tbv_ref t(m), t2(m);
     for (unsigned i = 0; i < 55; ++i) {
         t = m.allocate(i);
-        SASSERT(m.is_well_formed(*t));
+        ENSURE(m.is_well_formed(*t));
         t2 = m.allocate(i+1);
         VERIFY(!m.set_and(*t2, *t));
-        SASSERT(!m.is_well_formed(*t2));
+        ENSURE(!m.is_well_formed(*t2));
     }
 }
 

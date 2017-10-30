@@ -16,9 +16,9 @@ Author:
 Revision History:
 
 --*/
-#include"smt_context.h"
-#include"smt_quick_checker.h"
-#include"ast_pp.h"
+#include "smt/smt_context.h"
+#include "smt/smt_quick_checker.h"
+#include "ast/ast_pp.h"
 
 namespace smt {
 
@@ -164,7 +164,6 @@ namespace smt {
     quick_checker::quick_checker(context & c):
         m_context(c),
         m_manager(c.get_manager()),
-        m_simplifier(c.get_simplifier()),
         m_collector(c),
         m_new_exprs(m_manager) {
     }
@@ -411,7 +410,7 @@ namespace smt {
             }
         }
         expr_ref new_expr(m_manager);
-        m_simplifier.mk_app(to_app(n)->get_decl(), num_args, new_args.c_ptr(), new_expr);
+        new_expr = m_context.get_rewriter().mk_app(to_app(n)->get_decl(), num_args, new_args.c_ptr());
         m_new_exprs.push_back(new_expr);
         m_canonize_cache.insert(n, new_expr);
         return new_expr;

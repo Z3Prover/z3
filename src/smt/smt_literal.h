@@ -19,9 +19,9 @@ Revision History:
 #ifndef SMT_LITERAL_H_
 #define SMT_LITERAL_H_
 
-#include"ast.h"
-#include"smt_types.h"
-#include"approx_set.h"
+#include "ast/ast.h"
+#include "smt/smt_types.h"
+#include "util/approx_set.h"
 
 namespace smt {
     /**

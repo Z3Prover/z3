@@ -18,8 +18,8 @@ Revision History:
 #ifndef API_SOLVER_H_
 #define API_SOLVER_H_
 
-#include"api_util.h"
-#include"solver.h"
+#include "api/api_util.h"
+#include "solver/solver.h"
 
 struct Z3_solver_ref : public api::object {
     scoped_ptr<solver_factory> m_solver_factory;

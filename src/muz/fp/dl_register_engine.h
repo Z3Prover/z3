@@ -19,7 +19,7 @@ Revision History:
 #ifndef DL_REGISTER_ENGINE_H_
 #define DL_REGISTER_ENGINE_H_
 
-#include "dl_context.h"
+#include "muz/base/dl_context.h"
 
 namespace datalog {
 

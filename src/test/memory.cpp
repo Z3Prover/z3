@@ -5,11 +5,11 @@ Copyright (c) 2015 Microsoft Corporation
 --*/
 
 #ifdef _WINDOWS
-#include "z3.h"
-#include "z3_private.h"
+#include "api/z3.h"
+#include "api/z3_private.h"
 #include <iostream>
-#include "util.h"
-#include "trace.h"
+#include "util/util.h"
+#include "util/trace.h"
 
 static bool oom = false;
 

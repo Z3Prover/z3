@@ -17,8 +17,8 @@ Author:
 Revision History:
 
 --*/
-#include"nlsat_evaluator.h"
-#include"nlsat_solver.h"
+#include "nlsat/nlsat_evaluator.h"
+#include "nlsat/nlsat_solver.h"
 
 namespace nlsat {
 

@@ -16,15 +16,15 @@ Author:
 Notes:
 
 --*/
-#include"z3.h"
-#include"api_log_macros.h"
-#include"api_context.h"
-#include"api_polynomial.h"
-#include"api_ast_vector.h"
-#include"expr2polynomial.h"
-#include"cancel_eh.h"
-#include"scoped_timer.h"
-#include"expr2var.h"
+#include "api/z3.h"
+#include "api/api_log_macros.h"
+#include "api/api_context.h"
+#include "api/api_polynomial.h"
+#include "api/api_ast_vector.h"
+#include "ast/expr2polynomial.h"
+#include "util/cancel_eh.h"
+#include "util/scoped_timer.h"
+#include "ast/expr2var.h"
 
 namespace api {
 

@@ -18,7 +18,7 @@
 #ifndef ACKR_BOUND_PROBE_H_
 #define ACKR_BOUND_PROBE_H_
 
-#include"probe.h"
+#include "tactic/probe.h"
 
 probe * mk_ackr_bound_probe();
 

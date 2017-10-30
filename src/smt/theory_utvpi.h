@@ -22,7 +22,7 @@ Revision History:
 #ifndef THEORY_UTVPI_H_
 #define THEORY_UTVPI_H_
 
-#include"theory_diff_logic.h"
+#include "smt/theory_diff_logic.h"
 
 namespace smt {
 

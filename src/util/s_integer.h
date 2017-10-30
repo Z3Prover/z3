@@ -19,7 +19,7 @@ Revision History:
 #ifndef S_INTEGER_H_
 #define S_INTEGER_H_
 
-#include"rational.h"
+#include "util/rational.h"
 
 class s_integer {
     int m_val;

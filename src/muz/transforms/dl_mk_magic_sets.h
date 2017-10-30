@@ -21,12 +21,12 @@ Revision History:
 
 #include<utility>
 
-#include"map.h"
-#include"obj_pair_hashtable.h"
+#include "util/map.h"
+#include "util/obj_pair_hashtable.h"
 
-#include"dl_context.h"
-#include"dl_rule_set.h"
-#include"dl_rule_transformer.h"
+#include "muz/base/dl_context.h"
+#include "muz/base/dl_rule_set.h"
+#include "muz/base/dl_rule_transformer.h"
 
 namespace datalog {
 
@@ -93,7 +93,7 @@ namespace datalog {
         typedef obj_map<func_decl, adornment> pred_adornment_map;
         typedef obj_map<func_decl, func_decl *> pred2pred;
 
-        context &	       m_context;
+        context &              m_context;
         ast_manager &          m;
         rule_manager&          rm;
         ast_ref_vector         m_pinned;

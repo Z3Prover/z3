@@ -19,7 +19,7 @@ Revision History:
 #ifndef MAP_H_
 #define MAP_H_
 
-#include"hashtable.h"
+#include "util/hashtable.h"
 
 template<typename Key, typename Value>
 struct _key_data {
@@ -135,7 +135,7 @@ public:
     value const& get(key const& k, value const& default_value) const {
         entry* e = find_core(k);
         if (e) {
-	  return e->get_data().m_value;
+            return e->get_data().m_value;
         }
         else {
             return default_value;

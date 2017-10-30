@@ -22,13 +22,13 @@ Notes:
 #ifndef REALCLOSURE_H_
 #define REALCLOSURE_H_
 
-#include"mpq.h"
-#include"params.h"
-#include"scoped_numeral.h"
-#include"scoped_numeral_vector.h"
-#include"interval.h"
-#include"z3_exception.h"
-#include"rlimit.h"
+#include "util/mpq.h"
+#include "util/params.h"
+#include "util/scoped_numeral.h"
+#include "util/scoped_numeral_vector.h"
+#include "math/interval/interval.h"
+#include "util/z3_exception.h"
+#include "util/rlimit.h"
 
 namespace realclosure {
     class num;

@@ -31,13 +31,13 @@ Notes:
 
 
 --*/
-#include "pb_preprocess_tactic.h"
-#include "tactical.h"
-#include "for_each_expr.h"
-#include "pb_decl_plugin.h"
-#include "th_rewriter.h"
-#include "expr_substitution.h"
-#include "ast_pp.h"
+#include "tactic/core/pb_preprocess_tactic.h"
+#include "tactic/tactical.h"
+#include "ast/for_each_expr.h"
+#include "ast/pb_decl_plugin.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "ast/expr_substitution.h"
+#include "ast/ast_pp.h"
 
 class pb_preproc_model_converter : public model_converter {
     ast_manager& m;

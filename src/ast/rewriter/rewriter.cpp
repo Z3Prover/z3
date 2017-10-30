@@ -16,9 +16,9 @@ Author:
 Notes:
 
 --*/
-#include"rewriter_def.h"
-#include"ast_ll_pp.h"
-#include"ast_smt2_pp.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "ast/ast_ll_pp.h"
+#include "ast/ast_smt2_pp.h"
 
 void rewriter_core::init_cache_stack() {
     SASSERT(m_cache_stack.empty());

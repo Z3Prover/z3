@@ -16,11 +16,12 @@ Author:
 Notes:
 
 --*/
-#include"poly_rewriter.h"
-#include"poly_rewriter_params.hpp"
-#include"ast_lt.h"
-#include"ast_ll_pp.h"
-#include"ast_smt2_pp.h"
+#include "ast/rewriter/poly_rewriter.h"
+#include "ast/rewriter/poly_rewriter_params.hpp"
+#include "ast/rewriter/arith_rewriter_params.hpp"
+#include "ast/ast_lt.h"
+#include "ast/ast_ll_pp.h"
+#include "ast/ast_smt2_pp.h"
 
 
 template<typename Config>
@@ -33,6 +34,8 @@ void poly_rewriter<Config>::updt_params(params_ref const & _p) {
     m_som_blowup = p.som_blowup();
     if (!m_flat) m_som = false;
     if (m_som) m_hoist_mul = false;
+    arith_rewriter_params ap(_p);
+    m_ast_order  = !ap.arith_ineq_lhs();
 }
 
 template<typename Config>
@@ -63,6 +66,13 @@ expr * poly_rewriter<Config>::get_power_body(expr * t, rational & k) {
     k = rational(1);
     return t;
 }
+
+template<typename Config>
+bool poly_rewriter<Config>::is_zero(expr* e) const {
+    rational v;
+    return is_numeral(e, v) && v.is_zero();
+}
+
 
 template<typename Config>
 expr * poly_rewriter<Config>::mk_mul_app(unsigned num_args, expr * const * args) { 
@@ -116,6 +126,9 @@ expr * poly_rewriter<Config>::mk_mul_app(unsigned num_args, expr * const * args)
 template<typename Config>
 expr * poly_rewriter<Config>::mk_mul_app(numeral const & c, expr * arg) {
     if (c.is_one()) {
+        return arg;
+    }
+    else if (is_zero(arg)) {
         return arg;
     }
     else {
@@ -182,20 +195,8 @@ br_status poly_rewriter<Config>::mk_flat_mul_core(unsigned num_args, expr * cons
 
 
 template<typename Config>
-struct poly_rewriter<Config>::mon_pw_lt {
-    poly_rewriter<Config> & m_owner;
-    mon_pw_lt(poly_rewriter<Config> & o):m_owner(o) {}
-    
-    bool operator()(expr * n1, expr * n2) const { 
-        rational k;
-        return lt(m_owner.get_power_body(n1, k), 
-                  m_owner.get_power_body(n2, k));
-    }
-};
-
-
-template<typename Config>
 br_status poly_rewriter<Config>::mk_nflat_mul_core(unsigned num_args, expr * const * args, expr_ref & result) {
+    mon_lt lt(*this);
     SASSERT(num_args >= 2);
     // cheap case
     numeral a;
@@ -310,11 +311,8 @@ br_status poly_rewriter<Config>::mk_nflat_mul_core(unsigned num_args, expr * con
         if (ordered && num_coeffs == 0 && !use_power())
             return BR_FAILED;
         if (!ordered) {
-            if (use_power())
-                std::sort(new_args.begin(), new_args.end(), mon_pw_lt(*this));
-            else
-                std::sort(new_args.begin(), new_args.end(), ast_to_lt());
-            TRACE("poly_rewriter",
+            std::sort(new_args.begin(), new_args.end(), lt);
+        TRACE("poly_rewriter",
                   tout << "after sorting:\n";
                   for (unsigned i = 0; i < new_args.size(); i++) {
                       if (i > 0)
@@ -489,7 +487,44 @@ void poly_rewriter<Config>::hoist_cmul(expr_ref_buffer & args) {
 }
 
 template<typename Config>
+bool poly_rewriter<Config>::mon_lt::operator()(expr* e1, expr * e2) const {
+    if (rw.m_ast_order) 
+        return lt(e1,e2);
+    return ordinal(e1) < ordinal(e2);
+}
+
+inline bool is_essentially_var(expr * n, family_id fid) {
+    SASSERT(is_var(n) || is_app(n));
+    return is_var(n) || to_app(n)->get_family_id() != fid;
+}
+
+template<typename Config>
+int poly_rewriter<Config>::mon_lt::ordinal(expr* e) const {
+    rational k;
+    if (is_essentially_var(e, rw.get_fid())) {
+        return e->get_id();
+    }
+    else if (rw.is_mul(e)) {
+        if (rw.is_numeral(to_app(e)->get_arg(0)))
+            return to_app(e)->get_arg(1)->get_id();
+        else
+            return e->get_id();
+    }
+    else if (rw.is_numeral(e)) {
+        return -1;
+    }
+    else if (rw.use_power() && rw.is_power(e) && rw.is_numeral(to_app(e)->get_arg(1), k) && k > rational(1)) {
+        return to_app(e)->get_arg(0)->get_id();
+    }
+    else {
+        return e->get_id();
+    }
+}
+
+
+template<typename Config>
 br_status poly_rewriter<Config>::mk_nflat_add_core(unsigned num_args, expr * const * args, expr_ref & result) {
+    mon_lt lt(*this);
     SASSERT(num_args >= 2);
     numeral c;
     unsigned num_coeffs = 0;
@@ -498,21 +533,21 @@ br_status poly_rewriter<Config>::mk_nflat_add_core(unsigned num_args, expr * con
     expr_fast_mark2 multiple; // multiple.is_marked(power_product) if power_product occurs more than once
     bool     has_multiple = false;
     expr *   prev = 0;
-    bool     ordered      = true;
+    bool     ordered  = true;
     for (unsigned i = 0; i < num_args; i++) {
         expr * arg = args[i];
+
         if (is_numeral(arg, a)) {
             num_coeffs++;
             c += a;
+            ordered = !m_sort_sums || i == 0;
         }
-        else {
-            // arg is not a numeral
-            if (m_sort_sums && ordered) {
-                if (prev != 0 && lt(arg, prev))
-                    ordered = false;
-                prev = arg;
-            }
+        else if (m_sort_sums && ordered) {
+            if (prev != 0 && lt(arg, prev)) 
+                ordered = false;
+            prev = arg;        
         }
+
 
         arg = get_power_product(arg);
         if (visited.is_marked(arg)) {
@@ -525,8 +560,8 @@ br_status poly_rewriter<Config>::mk_nflat_add_core(unsigned num_args, expr * con
     }
     normalize(c);
     SASSERT(m_sort_sums || ordered);
-    TRACE("sort_sums", 
-          tout << "ordered: " << ordered << "\n";
+    TRACE("rewriter", 
+          tout << "ordered: " << ordered << " sort sums: " << m_sort_sums << "\n";
           for (unsigned i = 0; i < num_args; i++) tout << mk_ismt2_pp(args[i], m()) << "\n";);
 
     if (has_multiple) {
@@ -579,13 +614,14 @@ br_status poly_rewriter<Config>::mk_nflat_add_core(unsigned num_args, expr * con
             hoist_cmul(new_args);
         }
         else if (m_sort_sums) {
-            TRACE("sort_sums_bug", tout << "new_args.size(): " << new_args.size() << "\n";);
+            TRACE("rewriter_bug", tout << "new_args.size(): " << new_args.size() << "\n";);
             if (c.is_zero())
-                std::sort(new_args.c_ptr(), new_args.c_ptr() + new_args.size(), ast_to_lt());
+                std::sort(new_args.c_ptr(), new_args.c_ptr() + new_args.size(), mon_lt(*this));
             else
-                std::sort(new_args.c_ptr() + 1, new_args.c_ptr() + new_args.size(), ast_to_lt());
+                std::sort(new_args.c_ptr() + 1, new_args.c_ptr() + new_args.size(), mon_lt(*this));
         }
         result = mk_add_app(new_args.size(), new_args.c_ptr());
+        TRACE("rewriter", tout << result << "\n";);
         if (hoist_multiplication(result)) {
             return BR_REWRITE_FULL;
         }
@@ -613,10 +649,10 @@ br_status poly_rewriter<Config>::mk_nflat_add_core(unsigned num_args, expr * con
         }
         else if (!ordered) {
             if (c.is_zero())
-                std::sort(new_args.c_ptr(), new_args.c_ptr() + new_args.size(), ast_to_lt());
+                std::sort(new_args.c_ptr(), new_args.c_ptr() + new_args.size(), lt);
             else 
-                std::sort(new_args.c_ptr() + 1, new_args.c_ptr() + new_args.size(), ast_to_lt());
-        }
+                std::sort(new_args.c_ptr() + 1, new_args.c_ptr() + new_args.size(), lt);
+    }
         result = mk_add_app(new_args.size(), new_args.c_ptr());        
         if (hoist_multiplication(result)) {
             return BR_REWRITE_FULL;
@@ -650,10 +686,11 @@ br_status poly_rewriter<Config>::mk_sub(unsigned num_args, expr * const * args, 
         return BR_DONE;
     }
     set_curr_sort(m().get_sort(args[0]));
-    expr * minus_one = mk_numeral(numeral(-1));
+    expr_ref minus_one(mk_numeral(numeral(-1)), m());
     ptr_buffer<expr> new_args;
     new_args.push_back(args[0]);
     for (unsigned i = 1; i < num_args; i++) {
+        if (is_zero(args[i])) continue;
         expr * aux_args[2] = { minus_one, args[i] };
         new_args.push_back(mk_mul_app(2, aux_args));
     }
@@ -669,6 +706,7 @@ br_status poly_rewriter<Config>::mk_sub(unsigned num_args, expr * const * args, 
 template<typename Config>
 br_status poly_rewriter<Config>::cancel_monomials(expr * lhs, expr * rhs, bool move, expr_ref & lhs_result, expr_ref & rhs_result) {
     set_curr_sort(m().get_sort(lhs));
+    mon_lt lt(*this);
     unsigned lhs_sz;
     expr * const * lhs_monomials = get_monomials(lhs, lhs_sz);
     unsigned rhs_sz;
@@ -693,8 +731,10 @@ br_status poly_rewriter<Config>::cancel_monomials(expr * lhs, expr * rhs, bool m
         }
     }
 
-    if (move && num_coeffs == 0 && is_numeral(rhs))
+    if (move && num_coeffs == 0 && is_numeral(rhs)) {
+        TRACE("mk_le_bug", tout << "no coeffs\n";);
         return BR_FAILED;
+    }
 
     for (unsigned i = 0; i < rhs_sz; i++) {
         expr * arg = rhs_monomials[i];
@@ -712,15 +752,17 @@ br_status poly_rewriter<Config>::cancel_monomials(expr * lhs, expr * rhs, bool m
     }
 
     normalize(c);
-    
+
     if (!has_multiple && num_coeffs <= 1) {
         if (move) {
-            if (is_numeral(rhs))
+            if (is_numeral(rhs)) {
                 return BR_FAILED;
+            }
         }
         else {
-            if (num_coeffs == 0 || is_numeral(rhs))
+            if (num_coeffs == 0 || is_numeral(rhs)) {
                 return BR_FAILED;
+            }
         }
     }
     
@@ -811,7 +853,7 @@ br_status poly_rewriter<Config>::cancel_monomials(expr * lhs, expr * rhs, bool m
     if (move) {
         if (m_sort_sums) { 
             // + 1 to skip coefficient
-            std::sort(new_lhs_monomials.begin() + 1, new_lhs_monomials.end(), ast_to_lt());
+            std::sort(new_lhs_monomials.begin() + 1, new_lhs_monomials.end(), lt);
         }
         c_at_rhs = true;
     }
@@ -836,6 +878,7 @@ br_status poly_rewriter<Config>::cancel_monomials(expr * lhs, expr * rhs, bool m
     new_lhs_monomials[0] = insert_c_lhs ? mk_numeral(c) : NULL;
     lhs_result = mk_add_app(new_lhs_monomials.size() - lhs_offset, new_lhs_monomials.c_ptr() + lhs_offset);
     rhs_result = mk_add_app(new_rhs_monomials.size() - rhs_offset, new_rhs_monomials.c_ptr() + rhs_offset);
+    TRACE("mk_le_bug", tout << lhs_result << " " << rhs_result << "\n";);
     return BR_DONE;
 }
 
@@ -930,4 +973,63 @@ expr* poly_rewriter<Config>::merge_muls(expr* x, expr* y) {
     }
     m1[k] = mk_add_app(2, args);
     return mk_mul_app(k+1, m1.c_ptr());
+}
+
+template<typename Config>
+bool poly_rewriter<Config>::is_times_minus_one(expr * n, expr* & r) const {
+    if (is_mul(n) && to_app(n)->get_num_args() == 2 && is_minus_one(to_app(n)->get_arg(0))) {
+        r = to_app(n)->get_arg(1);
+        return true;
+    }
+    return false;
+}
+
+/**
+   \brief Return true if n is can be put into the form (+ v t) or (+ (- v) t)
+   \c inv = true will contain true if (- v) is found, and false otherwise.
+*/
+template<typename Config>
+bool poly_rewriter<Config>::is_var_plus_ground(expr * n, bool & inv, var * & v, expr_ref & t) {
+    if (!is_add(n) || is_ground(n))
+        return false;
+    
+    ptr_buffer<expr> args;
+    v = 0;
+    expr * curr = to_app(n);
+    bool stop = false;
+    inv = false;
+    while (!stop) {
+        expr * arg;
+        expr * neg_arg;
+        if (is_add(curr)) {
+            arg  = to_app(curr)->get_arg(0);
+            curr = to_app(curr)->get_arg(1);
+        }
+        else {
+            arg  = curr;
+            stop = true;
+        }
+        if (is_ground(arg)) {
+            args.push_back(arg);
+        }
+        else if (is_var(arg)) {
+            if (v != 0)
+                return false; // already found variable
+            v = to_var(arg);
+        }
+        else if (is_times_minus_one(arg, neg_arg) && is_var(neg_arg)) {
+            if (v != 0)
+                return false; // already found variable
+            v = to_var(neg_arg);
+            inv = true;
+        }
+        else {
+            return false; // non ground term.
+        }
+    }
+    if (v == 0)
+        return false; // did not find variable
+    SASSERT(!args.empty());
+    mk_add(args.size(), args.c_ptr(), t);
+    return true;
 }

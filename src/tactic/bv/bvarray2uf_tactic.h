@@ -20,7 +20,7 @@ Notes:
 #ifndef BV_ARRAY2UF_TACTIC_H_
 #define BV_ARRAY2UF_TACTIC_H_
 
-#include"params.h"
+#include "util/params.h"
 class ast_manager;
 class tactic;
 

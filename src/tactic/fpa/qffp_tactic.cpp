@@ -16,18 +16,18 @@ Author:
 Notes:
 
 --*/
-#include"tactical.h"
-#include"simplify_tactic.h"
-#include"bit_blaster_tactic.h"
-#include"sat_tactic.h"
-#include"fpa2bv_tactic.h"
-#include"smt_tactic.h"
-#include"propagate_values_tactic.h"
-#include"ackermannize_bv_tactic.h"
-#include"probe_arith.h"
-#include"qfnra_tactic.h"
+#include "tactic/tactical.h"
+#include "tactic/core/simplify_tactic.h"
+#include "tactic/bv/bit_blaster_tactic.h"
+#include "sat/tactic/sat_tactic.h"
+#include "tactic/fpa/fpa2bv_tactic.h"
+#include "smt/tactic/smt_tactic.h"
+#include "tactic/core/propagate_values_tactic.h"
+#include "ackermannization/ackermannize_bv_tactic.h"
+#include "tactic/arith/probe_arith.h"
+#include "tactic/smtlogics/qfnra_tactic.h"
 
-#include"qffp_tactic.h"
+#include "tactic/fpa/qffp_tactic.h"
 
 
 struct is_non_fp_qfnra_predicate {

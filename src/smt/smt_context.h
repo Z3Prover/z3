@@ -19,36 +19,36 @@ Revision History:
 #ifndef SMT_CONTEXT_H_
 #define SMT_CONTEXT_H_
 
-#include"smt_clause.h"
-#include"smt_setup.h"
-#include"smt_enode.h"
-#include"smt_cg_table.h"
-#include"smt_b_justification.h"
-#include"smt_eq_justification.h"
-#include"smt_justification.h"
-#include"smt_bool_var_data.h"
-#include"smt_theory.h"
-#include"smt_quantifier.h"
-#include"smt_quantifier_stat.h"
-#include"smt_statistics.h"
-#include"smt_conflict_resolution.h"
-#include"smt_relevancy.h"
-#include"smt_case_split_queue.h"
-#include"smt_almost_cg_table.h"
-#include"smt_failure.h"
-#include"asserted_formulas.h"
-#include"smt_types.h"
-#include"dyn_ack.h"
-#include"ast_smt_pp.h"
-#include"watch_list.h"
-#include"trail.h"
-#include"fingerprints.h"
-#include"ref.h"
-#include"proto_model.h"
-#include"model.h"
-#include"timer.h"
-#include"statistics.h"
-#include"progress_callback.h"
+#include "smt/smt_clause.h"
+#include "smt/smt_setup.h"
+#include "smt/smt_enode.h"
+#include "smt/smt_cg_table.h"
+#include "smt/smt_b_justification.h"
+#include "smt/smt_eq_justification.h"
+#include "smt/smt_justification.h"
+#include "smt/smt_bool_var_data.h"
+#include "smt/smt_theory.h"
+#include "smt/smt_quantifier.h"
+#include "smt/smt_quantifier_stat.h"
+#include "smt/smt_statistics.h"
+#include "smt/smt_conflict_resolution.h"
+#include "smt/smt_relevancy.h"
+#include "smt/smt_case_split_queue.h"
+#include "smt/smt_almost_cg_table.h"
+#include "smt/smt_failure.h"
+#include "smt/asserted_formulas.h"
+#include "smt/smt_types.h"
+#include "smt/dyn_ack.h"
+#include "ast/ast_smt_pp.h"
+#include "smt/watch_list.h"
+#include "util/trail.h"
+#include "smt/fingerprints.h"
+#include "util/ref.h"
+#include "smt/proto_model/proto_model.h"
+#include "model/model.h"
+#include "util/timer.h"
+#include "util/statistics.h"
+#include "solver/progress_callback.h"
 
 // there is a significant space overhead with allocating 1000+ contexts in
 // the case that each context only references a few expressions.
@@ -209,7 +209,7 @@ namespace smt {
             ~scoped_mk_model() {
                 if (m_ctx.m_proto_model.get() != 0) {
                     m_ctx.m_model = m_ctx.m_proto_model->mk_model();
-                    m_ctx.add_rec_funs_to_model();            
+                    m_ctx.add_rec_funs_to_model();
                     m_ctx.m_proto_model = 0; // proto_model is not needed anymore.
                 }
             }
@@ -245,8 +245,8 @@ namespace smt {
             return m_manager;
         }
 
-        simplifier & get_simplifier() {
-            return m_asserted_formulas.get_simplifier();
+        th_rewriter & get_rewriter() {
+            return m_asserted_formulas.get_rewriter();
         }
 
         smt_params & get_fparams() {
@@ -257,7 +257,7 @@ namespace smt {
             return m_params;
         }
 
-        bool get_cancel_flag() { return !m_manager.limit().inc(); }
+        bool get_cancel_flag();
 
         region & get_region() {
             return m_region;
@@ -1040,6 +1040,7 @@ namespace smt {
             if (act > ACTIVITY_LIMIT)
                 rescale_bool_var_activity();
             m_case_split_queue->activity_increased_eh(v);
+            TRACE("case_split", tout << "v" << v << " " << m_bvar_inc << " -> " << act << "\n";);
         }
 
     protected:
@@ -1466,8 +1467,6 @@ namespace smt {
 
         bool set_logic(symbol const& logic) { return m_setup.set_logic(logic); }
 
-        void register_plugin(simplifier_plugin * s);
-
         void register_plugin(theory * th);
 
         void assert_expr(expr * e);
@@ -1539,9 +1538,9 @@ namespace smt {
 
         proof * get_asserted_formula_proof(unsigned idx) const { return m_asserted_formulas.get_formula_proof(idx); }
 
-        expr * const * get_asserted_formulas() const { return m_asserted_formulas.get_formulas(); }
+        void get_asserted_formulas(ptr_vector<expr>& r) const { m_asserted_formulas.get_assertions(r); }
 
-        proof * const * get_asserted_formula_proofs() const { return m_asserted_formulas.get_formula_proofs(); }
+        //proof * const * get_asserted_formula_proofs() const { return m_asserted_formulas.get_formula_proofs(); }
 
         void get_assumptions_core(ptr_vector<expr> & result);
 
@@ -1567,7 +1566,7 @@ namespace smt {
         func_decl * get_macro_func_decl(unsigned i) const { return m_asserted_formulas.get_macro_func_decl(i); }
         func_decl * get_macro_interpretation(unsigned i, expr_ref & interp) const { return m_asserted_formulas.get_macro_interpretation(i, interp); }
         quantifier * get_macro_quantifier(func_decl * f) const { return m_asserted_formulas.get_macro_quantifier(f); }
-        void insert_macro(func_decl * f, quantifier * m, proof * pr) { m_asserted_formulas.insert_macro(f, m, pr); }
+        void insert_macro(func_decl * f, quantifier * m, proof * pr, expr_dependency * dep) { m_asserted_formulas.insert_macro(f, m, pr, dep); }
     };
 
 };

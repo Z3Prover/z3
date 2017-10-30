@@ -18,6 +18,6 @@ Revision History:
 
 --*/
 
-#include "automaton.h"
+#include "math/automata/automaton.h"
 
 template class automaton<unsigned>;

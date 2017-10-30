@@ -16,7 +16,7 @@ Author:
 Revision History:
 
 --*/
-#include"scanner.h"
+#include "parsers/util/scanner.h"
 
 inline char scanner::read_char() {
     if (m_is_interactive) {

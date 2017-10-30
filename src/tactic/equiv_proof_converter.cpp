@@ -17,9 +17,9 @@ Revision History:
 
 --*/
 
-#include "equiv_proof_converter.h"
-#include "ast_pp.h"
-#include "scoped_proof.h"
+#include "tactic/equiv_proof_converter.h"
+#include "ast/ast_pp.h"
+#include "ast/scoped_proof.h"
 
 void equiv_proof_converter::insert(expr* fml1, expr* fml2) {
     if (fml1 != fml2) {

@@ -19,7 +19,7 @@ Revision History:
 #ifndef BACKTRACKABLE_SET_H_
 #define BACKTRACKABLE_SET_H_
 
-#include"vector.h"
+#include "util/vector.h"
 
 template<typename T>
 struct default_eh {

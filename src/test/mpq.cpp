@@ -17,9 +17,9 @@ Revision History:
 
 --*/
 
-#include"mpq.h"
-#include"rational.h"
-#include"timeit.h"
+#include "util/mpq.h"
+#include "util/rational.h"
+#include "util/timeit.h"
 
 static void tst0() {
     synch_mpq_manager m;
@@ -27,7 +27,7 @@ static void tst0() {
     m.set(a, 2, 3);
     m.set(b, 4, 3);
     m.div(a, b, b);
-    SASSERT(m.eq(b, m.mk_q(1, 2)));
+    ENSURE(m.eq(b, m.mk_q(1, 2)));
 }
 
 static void tst1() {
@@ -41,15 +41,15 @@ static void tst1() {
     std::cout << "*-2 = \n" << m.to_string(v2) << "\n";
     m.add(v, v2, v3);
     m.neg(v3);
-    SASSERT(m.eq(v, v3));
-    SASSERT(m.le(v, v3));
-    SASSERT(m.ge(v, v3));
-    SASSERT(m.lt(v2, v));
-    SASSERT(m.le(v2, v));
-    SASSERT(m.gt(v, v2));
-    SASSERT(m.ge(v, v2));
-    SASSERT(m.neq(v, v2));
-    SASSERT(!m.neq(v, v3));
+    ENSURE(m.eq(v, v3));
+    ENSURE(m.le(v, v3));
+    ENSURE(m.ge(v, v3));
+    ENSURE(m.lt(v2, v));
+    ENSURE(m.le(v2, v));
+    ENSURE(m.gt(v, v2));
+    ENSURE(m.ge(v, v2));
+    ENSURE(m.neq(v, v2));
+    ENSURE(!m.neq(v, v3));
     m.del(v);
     m.del(v2);
     m.del(v3);
@@ -68,7 +68,7 @@ static void mk_random_num_str(unsigned buffer_sz, char * buffer) {
         if (div_pos == 0)
             div_pos++;
     }
-    SASSERT(sz < buffer_sz);
+    ENSURE(sz < buffer_sz);
     for (unsigned i = 0; i < sz-1; i++) {
         if (i == div_pos && i < sz-2) {
             buffer[i] = '/';
@@ -90,7 +90,7 @@ static void bug1() {
     m.set(a, 2);
     m.set(b, 1, 2);
     m.inv(a, a);
-    SASSERT(m.eq(a, b));
+    ENSURE(m.eq(a, b));
 }
 
 static void bug2() {
@@ -100,7 +100,7 @@ static void bug2() {
     m.set(a, -2);
     m.set(b, -1, 2);
     m.inv(a, a);
-    SASSERT(m.eq(a, b));
+    ENSURE(m.eq(a, b));
 }
 
 static void tst2() {
@@ -122,22 +122,22 @@ static void set_str_bug() {
     m.set(a, "1.0");
     std::cout << a << "\n";
     m.set(b, 1);
-    SASSERT(a == b);
+    ENSURE(a == b);
     m.set(a, "1.1");
     std::cout << a << "\n";
     m.set(b, 11, 10);
-    SASSERT(a == b);
+    ENSURE(a == b);
     m.set(a, "1/3");
     m.set(b, 1, 3);
     std::cout << a << "\n";
-    SASSERT(a == b);
+    ENSURE(a == b);
 }
 
 static void tst_prev_power_2(int64 n, uint64 d, unsigned expected) {
     unsynch_mpq_manager m;
     scoped_mpq a(m);
     m.set(a, n, d);
-    SASSERT(m.prev_power_of_two(a) == expected);
+    ENSURE(m.prev_power_of_two(a) == expected);
 }
 
 static void tst_prev_power_2() {

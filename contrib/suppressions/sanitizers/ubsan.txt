@@ -1,0 +1,7 @@
+# UndefinedBehavior sanitizer suppression file
+# FIXME: UBSan doesn't usually have false positives so we need to fix all of these!
+
+# Occurs when running tptp example
+# See https://github.com/Z3Prover/z3/issues/964
+null:rational.h
+null:mpq.h

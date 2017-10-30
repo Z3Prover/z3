@@ -20,7 +20,7 @@ Revision History:
 #define HASH_H_
 
 #include<algorithm>
-#include"util.h"
+#include "util/util.h"
 
 #define mix(a,b,c)              \
 {                               \
@@ -236,7 +236,7 @@ template<typename T>
 struct ptr_hash {
     typedef T * data;
     unsigned operator()(T * ptr) const { 
-	return get_ptr_hash(ptr);
+        return get_ptr_hash(ptr);
     }
 };
 

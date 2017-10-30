@@ -16,24 +16,24 @@ Author:
 Notes:
 
 --*/
-#include"polynomial.h"
-#include"vector.h"
-#include"chashtable.h"
-#include"small_object_allocator.h"
-#include"id_gen.h"
-#include"buffer.h"
-#include"scoped_ptr_vector.h"
-#include"cooperate.h"
-#include"upolynomial_factorization.h"
-#include"polynomial_primes.h"
-#include"permutation.h"
-#include"algebraic_numbers.h"
-#include"mpzzp.h"
-#include"timeit.h"
-#include"linear_eq_solver.h"
-#include"scoped_numeral_buffer.h"
-#include"ref_buffer.h"
-#include"common_msgs.h"
+#include "math/polynomial/polynomial.h"
+#include "util/vector.h"
+#include "util/chashtable.h"
+#include "util/small_object_allocator.h"
+#include "util/id_gen.h"
+#include "util/buffer.h"
+#include "util/scoped_ptr_vector.h"
+#include "util/cooperate.h"
+#include "math/polynomial/upolynomial_factorization.h"
+#include "math/polynomial/polynomial_primes.h"
+#include "util/permutation.h"
+#include "math/polynomial/algebraic_numbers.h"
+#include "util/mpzzp.h"
+#include "util/timeit.h"
+#include "math/polynomial/linear_eq_solver.h"
+#include "util/scoped_numeral_buffer.h"
+#include "util/ref_buffer.h"
+#include "util/common_msgs.h"
 
 namespace polynomial {
 
@@ -3536,10 +3536,11 @@ namespace polynomial {
             iccp(p, max_var(p), i, c, pp);
         }
 
-        void pp(polynomial const * p, var x, polynomial_ref & pp) {
+        polynomial_ref pp(polynomial const * p, var x) {
             scoped_numeral i(m_manager);
-            polynomial_ref c(pm());
-            iccp(p, x, i, c, pp);
+            polynomial_ref c(pm()), result(pm());
+            iccp(p, x, i, c, result);
+            return result;
         }
 
         bool is_primitive(polynomial const * p, var x) {
@@ -3598,7 +3599,7 @@ namespace polynomial {
                 if (is_zero(rem)) {
                     TRACE("polynomial", tout << "rem is zero...\npp_v: " << pp_v << "\n";);
                     flip_sign_if_lm_neg(pp_v);
-                    pp(pp_v, x, r);
+                    r = pp(pp_v, x);
                     r = mul(d_a, d_r, r);
                     return;
                 }
@@ -3849,7 +3850,7 @@ namespace polynomial {
                         TRACE("mgcd", tout << "new combined:\n" << C_star << "\n";);
                     }
                 }
-                pp(C_star, x, candidate);
+                candidate = pp(C_star, x);
                 TRACE("mgcd", tout << "candidate:\n" << candidate << "\n";);
                 scoped_numeral lc_candidate(m());
                 lc_candidate = univ_coeff(candidate, degree(candidate, x));
@@ -4821,10 +4822,9 @@ namespace polynomial {
 
         polynomial * mk_x_minus_y(var x, var y) {
             numeral zero(0);
-            numeral one(1);
             numeral minus_one; // It is not safe to initialize with -1 when numeral_manager is GF_2
             m_manager.set(minus_one, -1);
-            numeral as[2] = { one, minus_one };
+            numeral as[2] = { numeral(1), std::move(minus_one) };
             var     xs[2] = { x, y };
             return mk_linear(2, as, xs, zero);
         }
@@ -4844,8 +4844,7 @@ namespace polynomial {
 
         polynomial * mk_x_plus_y(var x, var y) {
             numeral zero(0);
-            numeral one(1);
-            numeral as[2] = { one, one };
+            numeral as[2] = { numeral(1), numeral(1) };
             var     xs[2] = { x, y };
             return mk_linear(2, as, xs, zero);
         }
@@ -6619,8 +6618,8 @@ namespace polynomial {
                   polynomial_ref cf1(pm()); m_wrapper.content(f1, x, cf1);
                   polynomial_ref cf2(pm()); m_wrapper.content(f2, x, cf2);
                   tout << "content(f1): " << cf1 << "\ncontent(f2): " << cf2 << "\n";);
-            pp(f1, x, f1);
-            pp(f2, x, f2);
+            f1 = pp(f1, x);
+            f2 = pp(f2, x);
             TRACE("factor", tout << "f1: " << f1 << "\nf2: " << f2 << "\n";);
             DEBUG_CODE({
                 polynomial_ref f1f2(pm());
@@ -7150,7 +7149,7 @@ namespace polynomial {
     }
 
     void manager::primitive(polynomial const * p, var x, polynomial_ref & pp) {
-        m_imp->pp(p, x, pp);
+        pp = m_imp->pp(p, x);
     }
 
     void manager::icpp(polynomial const * p, var x, numeral & i, polynomial_ref & c, polynomial_ref & pp) {

@@ -17,8 +17,8 @@ Revision History:
 
 --*/
 #include<sstream>
-#include"util.h"
-#include"rational.h"
+#include "util/util.h"
+#include "util/rational.h"
 #ifdef _WINDOWS
 #include<strsafe.h>
 #endif

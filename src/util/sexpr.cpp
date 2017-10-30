@@ -16,9 +16,9 @@ Author:
 Notes:
 
 --*/
-#include"sexpr.h"
-#include"vector.h"
-#include"buffer.h"
+#include "util/sexpr.h"
+#include "util/vector.h"
+#include "util/buffer.h"
 
 #ifdef _MSC_VER
 #pragma warning(disable : 4200)

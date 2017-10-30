@@ -25,31 +25,34 @@ extern "C" {
 #include <z3native_stubs.h>
 
 #define CAMLlocal6(X1,X2,X3,X4,X5,X6)                                   \
-  CAMLlocal5(X1,X2,X3,X4,X5);                                       	\
+  CAMLlocal5(X1,X2,X3,X4,X5);                                           \
   CAMLlocal1(X6)
-#define CAMLlocal7(X1,X2,X3,X4,X5,X6,X7)				\
-  CAMLlocal5(X1,X2,X3,X4,X5);                                       	\
+#define CAMLlocal7(X1,X2,X3,X4,X5,X6,X7)                                \
+  CAMLlocal5(X1,X2,X3,X4,X5);                                           \
   CAMLlocal2(X6,X7)
-#define CAMLlocal8(X1,X2,X3,X4,X5,X6,X7,X8)				\
-  CAMLlocal5(X1,X2,X3,X4,X5);                                       	\
+#define CAMLlocal8(X1,X2,X3,X4,X5,X6,X7,X8)                             \
+  CAMLlocal5(X1,X2,X3,X4,X5);                                           \
   CAMLlocal3(X6,X7,X8)
 
-#define CAMLparam7(X1,X2,X3,X4,X5,X6,X7)				\
-  CAMLparam5(X1,X2,X3,X4,X5);                                       	\
+#define CAMLparam6(X1,X2,X3,X4,X5,X6)                                   \
+  CAMLparam5(X1,X2,X3,X4,X5);                                           \
+  CAMLxparam1(X6)
+#define CAMLparam7(X1,X2,X3,X4,X5,X6,X7)                                \
+  CAMLparam5(X1,X2,X3,X4,X5);                                           \
   CAMLxparam2(X6,X7)
-#define CAMLparam8(X1,X2,X3,X4,X5,X6,X7,X8)				\
-  CAMLparam5(X1,X2,X3,X4,X5);                                       	\
+#define CAMLparam8(X1,X2,X3,X4,X5,X6,X7,X8)                             \
+  CAMLparam5(X1,X2,X3,X4,X5);                                           \
   CAMLxparam3(X6,X7,X8)
-#define CAMLparam9(X1,X2,X3,X4,X5,X6,X7,X8,X9)				\
-  CAMLparam5(X1,X2,X3,X4,X5);                                       	\
+#define CAMLparam9(X1,X2,X3,X4,X5,X6,X7,X8,X9)                          \
+  CAMLparam5(X1,X2,X3,X4,X5);                                           \
   CAMLxparam4(X6,X7,X8,X9)
-#define CAMLparam12(X1,X2,X3,X4,X5,X6,X7,X8,X9,X10,X11,X12)		\
-  CAMLparam5(X1,X2,X3,X4,X5);                                   	\
-  CAMLxparam5(X6,X7,X8,X9,X10);                                 	\
+#define CAMLparam12(X1,X2,X3,X4,X5,X6,X7,X8,X9,X10,X11,X12)             \
+  CAMLparam5(X1,X2,X3,X4,X5);                                           \
+  CAMLxparam5(X6,X7,X8,X9,X10);                                         \
   CAMLxparam2(X11,X12)
-#define CAMLparam13(X1,X2,X3,X4,X5,X6,X7,X8,X9,X10,X11,X12,X13)		\
-  CAMLparam5(X1,X2,X3,X4,X5);                                   	\
-  CAMLxparam5(X6,X7,X8,X9,X10);                                 	\
+#define CAMLparam13(X1,X2,X3,X4,X5,X6,X7,X8,X9,X10,X11,X12,X13)        \
+  CAMLparam5(X1,X2,X3,X4,X5);                                          \
+  CAMLxparam5(X6,X7,X8,X9,X10);                                        \
   CAMLxparam3(X11,X12,X13)
 
 

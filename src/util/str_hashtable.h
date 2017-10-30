@@ -21,8 +21,8 @@ Revision History:
 
 #include<string.h>
 
-#include"hashtable.h"
-#include"hash.h"
+#include "util/hashtable.h"
+#include "util/hash.h"
 
 struct str_hash_proc { 
     unsigned operator()(char const * s) const { return string_hash(s, static_cast<unsigned>(strlen(s)), 17); } 

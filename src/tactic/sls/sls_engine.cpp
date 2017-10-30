@@ -18,17 +18,17 @@ Notes:
 --*/
 #include<float.h> // Need DBL_MAX
 
-#include"map.h"
-#include"ast_smt2_pp.h"
-#include"ast_pp.h"
-#include"var_subst.h"
-#include"model_pp.h"
-#include"tactic.h"
-#include"cooperate.h"
-#include"luby.h"
+#include "util/map.h"
+#include "ast/ast_smt2_pp.h"
+#include "ast/ast_pp.h"
+#include "ast/rewriter/var_subst.h"
+#include "model/model_pp.h"
+#include "tactic/tactic.h"
+#include "util/cooperate.h"
+#include "util/luby.h"
 
-#include"sls_params.hpp"
-#include"sls_engine.h"
+#include "tactic/sls/sls_params.hpp"
+#include "tactic/sls/sls_engine.h"
 
 
 sls_engine::sls_engine(ast_manager & m, params_ref const & p) :

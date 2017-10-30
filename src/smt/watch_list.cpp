@@ -16,7 +16,7 @@ Author:
 Revision History:
 
 --*/
-#include"watch_list.h"
+#include "smt/watch_list.h"
 
 namespace smt {
 
@@ -36,10 +36,10 @@ namespace smt {
     
     void watch_list::expand() {
         if (m_data == 0) {
-	    unsigned size       = DEFAULT_WATCH_LIST_SIZE + HEADER_SIZE;
+        unsigned size       = DEFAULT_WATCH_LIST_SIZE + HEADER_SIZE;
             unsigned * mem      = reinterpret_cast<unsigned*>(alloc_svect(char, size));
 #ifdef _AMD64_
-	    ++mem;  // make sure data is aligned in 64 bit machines
+        ++mem;  // make sure data is aligned in 64 bit machines
 #endif
             *mem                = 0;
             ++mem;
@@ -62,9 +62,9 @@ namespace smt {
             unsigned * mem          = reinterpret_cast<unsigned*>(alloc_svect(char, new_capacity + HEADER_SIZE));
             unsigned curr_end_cls   = end_cls_core();
 #ifdef _AMD64_
-	    ++mem;  // make sure data is aligned in 64 bit machines
+        ++mem;  // make sure data is aligned in 64 bit machines
 #endif
-	    *mem                    = curr_end_cls;
+        *mem                    = curr_end_cls;
             ++mem;
             SASSERT(bin_bytes <= new_capacity);
             unsigned new_begin_bin  = new_capacity - bin_bytes;

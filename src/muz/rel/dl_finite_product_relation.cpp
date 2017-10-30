@@ -19,11 +19,11 @@ Revision History:
 
 
 #include<string>
-#include"dl_context.h"
-#include"dl_relation_manager.h"
-#include"dl_table_relation.h"
-#include"dl_finite_product_relation.h"
-#include"bool_rewriter.h"
+#include "muz/base/dl_context.h"
+#include "muz/rel/dl_relation_manager.h"
+#include "muz/rel/dl_table_relation.h"
+#include "muz/rel/dl_finite_product_relation.h"
+#include "ast/rewriter/bool_rewriter.h"
 
 namespace datalog {
 

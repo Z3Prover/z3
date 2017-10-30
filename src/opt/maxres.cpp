@@ -52,18 +52,18 @@ Notes:
 
 --*/
 
-#include "solver.h"
-#include "maxsmt.h"
-#include "maxres.h"
-#include "ast_pp.h"
-#include "mus.h"
-#include "mss.h"
-#include "inc_sat_solver.h"
-#include "opt_context.h"
-#include "pb_decl_plugin.h"
-#include "opt_params.hpp"
-#include "ast_util.h"
-#include "smt_solver.h"
+#include "solver/solver.h"
+#include "opt/maxsmt.h"
+#include "opt/maxres.h"
+#include "ast/ast_pp.h"
+#include "solver/mus.h"
+#include "opt/mss.h"
+#include "sat/sat_solver/inc_sat_solver.h"
+#include "opt/opt_context.h"
+#include "ast/pb_decl_plugin.h"
+#include "opt/opt_params.hpp"
+#include "ast/ast_util.h"
+#include "smt/smt_solver.h"
 
 using namespace opt;
 
@@ -315,14 +315,13 @@ public:
 
     void found_optimum() {
         IF_VERBOSE(1, verbose_stream() << "found optimum\n";);
-        rational upper(0);
+        m_lower.reset();
         for (unsigned i = 0; i < m_soft.size(); ++i) {
             m_assignment[i] = is_true(m_soft[i]);
             if (!m_assignment[i]) {
-                upper += m_weights[i];
+                m_lower += m_weights[i];
             }
         }
-        SASSERT(upper == m_lower);
         m_upper = m_lower;
         m_found_feasible_optimum = true;
     }
@@ -397,10 +396,11 @@ public:
     void get_current_correction_set(model* mdl, exprs& cs) {
         cs.reset();
         if (!mdl) return;
-        for (unsigned i = 0; i < m_asms.size(); ++i) {
-            if (is_false(mdl, m_asms[i].get())) {
-                cs.push_back(m_asms[i].get());
+        for (expr* a : m_asms) {
+            if (is_false(mdl, a)) {
+                cs.push_back(a);
             }
+            TRACE("opt", expr_ref tmp(m); mdl->eval(a, tmp, true); tout << mk_pp(a, m) << ": " << tmp << "\n";);
         }
         TRACE("opt", display_vec(tout << "new correction set: ", cs););
     }
@@ -509,6 +509,7 @@ public:
         trace();
         if (m_c.num_objectives() == 1 && m_pivot_on_cs && m_csmodel.get() && m_correction_set_size < core.size()) {
             exprs cs;
+            TRACE("opt", tout << "cs " << m_correction_set_size << " " << core.size() << "\n";);
             get_current_correction_set(m_csmodel.get(), cs);
             m_correction_set_size = cs.size();
             if (m_correction_set_size < core.size()) {

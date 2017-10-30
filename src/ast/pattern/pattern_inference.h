@@ -19,16 +19,16 @@ Revision History:
 #ifndef PATTERN_INFERENCE_H_
 #define PATTERN_INFERENCE_H_
 
-#include"ast.h"
-#include"simplifier.h"
-#include"pattern_inference_params.h"
-#include"vector.h"
-#include"uint_set.h"
-#include"nat_set.h"
-#include"obj_hashtable.h"
-#include"obj_pair_hashtable.h"
-#include"map.h"
-#include"expr_pattern_match.h"
+#include "ast/ast.h"
+#include "ast/rewriter/rewriter.h"
+#include "ast/pattern/pattern_inference_params.h"
+#include "util/vector.h"
+#include "util/uint_set.h"
+#include "util/nat_set.h"
+#include "util/obj_hashtable.h"
+#include "util/obj_pair_hashtable.h"
+#include "util/map.h"
+#include "ast/pattern/expr_pattern_match.h"
 
 /**
    \brief A pattern p_1 is smaller than a pattern p_2 iff 
@@ -60,7 +60,8 @@ public:
     bool operator()(unsigned num_bindings, expr * p1, expr * p2);
 };
 
-class pattern_inference : public simplifier {
+class pattern_inference_cfg :  public default_rewriter_cfg {
+    ast_manager&               m;
     pattern_inference_params & m_params;
     family_id                  m_bfid;
     family_id                  m_afid;
@@ -88,7 +89,7 @@ class pattern_inference : public simplifier {
 
     typedef obj_map<expr, info> expr2info;
 
-    expr2info                  m_candidates_info; // candidate -> set of free vars + size
+    expr2info                 m_candidates_info; // candidate -> set of free vars + size
     app_ref_vector            m_candidates;
 
     ptr_vector<app>           m_tmp1;
@@ -136,7 +137,7 @@ class pattern_inference : public simplifier {
         };
         
         ast_manager &            m;
-        pattern_inference &      m_owner;
+        pattern_inference_cfg &     m_owner;
         family_id                m_afid;
         unsigned                 m_num_bindings;
         typedef map<entry, info *, obj_hash<entry>, default_eq<entry> > cache;
@@ -150,7 +151,7 @@ class pattern_inference : public simplifier {
         void save_candidate(expr * n, unsigned delta);
         void reset();
     public:
-        collect(ast_manager & m, pattern_inference & o):m(m), m_owner(o), m_afid(m.mk_family_id("arith")) {}
+        collect(ast_manager & m, pattern_inference_cfg & o):m(m), m_owner(o), m_afid(m.mk_family_id("arith")) {}
         void operator()(expr * n, unsigned num_bindings);
     };
 
@@ -165,12 +166,12 @@ class pattern_inference : public simplifier {
     void filter_bigger_patterns(ptr_vector<app> const & patterns, ptr_vector<app> & result);
 
     class contains_subpattern {
-        pattern_inference &  m_owner;
+        pattern_inference_cfg & m_owner;
         nat_set              m_already_processed; 
         ptr_vector<expr>     m_todo;
         void save(expr * n);
     public:
-        contains_subpattern(pattern_inference & owner):
+        contains_subpattern(pattern_inference_cfg & owner):
             m_owner(owner) {}
         bool operator()(expr * n);
     };
@@ -214,10 +215,8 @@ class pattern_inference : public simplifier {
                      expr * const * no_patterns,         // IN patterns that should not be used.
                      app_ref_buffer & result);           // OUT result
     
-    virtual void reduce1_quantifier(quantifier * q);
-
 public:
-    pattern_inference(ast_manager & m, pattern_inference_params & params);
+    pattern_inference_cfg(ast_manager & m, pattern_inference_params & params);
     
     void register_forbidden_family(family_id fid) {
         SASSERT(fid != m_bfid);
@@ -232,6 +231,13 @@ public:
         m_preferred.insert(f);
     }
 
+    bool reduce_quantifier(quantifier * old_q, 
+                           expr * new_body, 
+                           expr * const * new_patterns, 
+                           expr * const * new_no_patterns,
+                           expr_ref & result,
+                           proof_ref & result_pr);
+
     void register_preferred(unsigned num, func_decl * const * fs) { for (unsigned i = 0; i < num; i++) register_preferred(fs[i]); }
     
     bool is_forbidden(func_decl const * decl) const {
@@ -242,6 +248,12 @@ public:
     }
 
     bool is_forbidden(app * n) const;
+};
+
+class pattern_inference_rw : public rewriter_tpl<pattern_inference_cfg> {
+    pattern_inference_cfg m_cfg;
+public:
+    pattern_inference_rw(ast_manager& m, pattern_inference_params & params);
 };
 
 #endif /* PATTERN_INFERENCE_H_ */

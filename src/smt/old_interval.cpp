@@ -17,7 +17,7 @@ Revision History:
 
 --*/
 
-#include"old_interval.h"
+#include "smt/old_interval.h"
 
 void ext_numeral::neg() {
     switch (m_kind) {

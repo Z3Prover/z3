@@ -16,18 +16,18 @@ Revision History:
 
 --*/
 #include<iostream>
-#include"z3.h"
-#include"api_log_macros.h"
-#include"api_stats.h"
-#include"api_context.h"
-#include"api_util.h"
-#include"api_model.h"
-#include"opt_context.h"
-#include"opt_cmds.h"
-#include"cancel_eh.h"
-#include"scoped_timer.h"
-#include"smt2parser.h"
-#include"api_ast_vector.h"
+#include "api/z3.h"
+#include "api/api_log_macros.h"
+#include "api/api_stats.h"
+#include "api/api_context.h"
+#include "api/api_util.h"
+#include "api/api_model.h"
+#include "opt/opt_context.h"
+#include "opt/opt_cmds.h"
+#include "util/cancel_eh.h"
+#include "util/scoped_timer.h"
+#include "parsers/smt2/smt2parser.h"
+#include "api/api_ast_vector.h"
 
 extern "C" {
 
@@ -283,15 +283,16 @@ extern "C" {
         Z3_optimize opt,
         std::istream& s) {
         ast_manager& m = mk_c(c)->m();
-        cmd_context ctx(false, &m);
-        install_opt_cmds(ctx, to_optimize_ptr(opt));
-        ctx.set_ignore_check(true);
-        if (!parse_smt2_commands(ctx, s)) {
+        scoped_ptr<cmd_context> ctx = alloc(cmd_context, false, &m);
+        install_opt_cmds(*ctx.get(), to_optimize_ptr(opt));
+        ctx->set_ignore_check(true);
+        if (!parse_smt2_commands(*ctx.get(), s)) {
+            ctx = nullptr;
             SET_ERROR_CODE(Z3_PARSER_ERROR);
             return;
         }        
-        ptr_vector<expr>::const_iterator it  = ctx.begin_assertions();
-        ptr_vector<expr>::const_iterator end = ctx.end_assertions();
+        ptr_vector<expr>::const_iterator it  = ctx->begin_assertions();
+        ptr_vector<expr>::const_iterator end = ctx->end_assertions();
         for (; it != end; ++it) {
             to_optimize_ptr(opt)->add_hard_constraint(*it);
         }
@@ -320,9 +321,6 @@ extern "C" {
             std::ostringstream strm;
             strm << "Could not open file " << s;
             throw default_exception(strm.str());
-
-            SET_ERROR_CODE(Z3_PARSER_ERROR);
-            return;
         }
         Z3_optimize_from_stream(c, d, is);
         Z3_CATCH;

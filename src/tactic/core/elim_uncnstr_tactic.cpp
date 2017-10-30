@@ -16,18 +16,18 @@ Author:
 Notes:
 
 --*/
-#include"tactical.h"
-#include"extension_model_converter.h"
-#include"filter_model_converter.h"
-#include"rewriter_def.h"
-#include"arith_decl_plugin.h"
-#include"bv_decl_plugin.h"
-#include"array_decl_plugin.h"
-#include"datatype_decl_plugin.h"
-#include"collect_occs.h"
-#include"cooperate.h"
-#include"ast_smt2_pp.h"
-#include"ast_ll_pp.h"
+#include "tactic/tactical.h"
+#include "tactic/extension_model_converter.h"
+#include "tactic/filter_model_converter.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/array_decl_plugin.h"
+#include "ast/datatype_decl_plugin.h"
+#include "tactic/core/collect_occs.h"
+#include "util/cooperate.h"
+#include "ast/ast_smt2_pp.h"
+#include "ast/ast_ll_pp.h"
 
 class elim_uncnstr_tactic : public tactic {
 
@@ -174,11 +174,8 @@ class elim_uncnstr_tactic : public tactic {
                 if (fid == m_dt_util.get_family_id()) {
                     // In the current implementation, I only handle the case where
                     // the datatype has a recursive constructor.
-                    ptr_vector<func_decl> const * constructors = m_dt_util.get_datatype_constructors(s);
-                    ptr_vector<func_decl>::const_iterator it   = constructors->begin();
-                    ptr_vector<func_decl>::const_iterator end  = constructors->end();
-                    for (; it != end; ++it) {
-                        func_decl * constructor = *it;
+                    ptr_vector<func_decl> const & constructors = *m_dt_util.get_datatype_constructors(s);
+                    for (func_decl * constructor : constructors) {
                         unsigned num    = constructor->get_arity();
                         unsigned target = UINT_MAX;
                         for (unsigned i = 0; i < num; i++) {
@@ -707,10 +704,10 @@ class elim_uncnstr_tactic : public tactic {
                         app * u;
                         if (!mk_fresh_uncnstr_var_for(f, num, args, u))
                             return u;
-                        ptr_vector<func_decl> const * accs = m_dt_util.get_constructor_accessors(c);
+                        ptr_vector<func_decl> const & accs = *m_dt_util.get_constructor_accessors(c);
                         ptr_buffer<expr> new_args;
-                        for (unsigned i = 0; i < accs->size(); i++) {
-                            if (accs->get(i) == f) 
+                        for (unsigned i = 0; i < accs.size(); i++) {
+                            if (accs[i] == f) 
                                 new_args.push_back(u);
                             else
                                 new_args.push_back(m().get_some_value(c->get_domain(i)));
@@ -726,9 +723,9 @@ class elim_uncnstr_tactic : public tactic {
                             return u;
                         if (!m_mc)
                             return u;
-                        ptr_vector<func_decl> const * accs = m_dt_util.get_constructor_accessors(f);
+                        ptr_vector<func_decl> const & accs = *m_dt_util.get_constructor_accessors(f);
                         for (unsigned i = 0; i < num; i++) {
-                            add_def(args[i], m().mk_app(accs->get(i), u));
+                            add_def(args[i], m().mk_app(accs[i], u));
                         }
                         return u;
                     }

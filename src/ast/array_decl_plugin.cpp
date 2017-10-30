@@ -17,10 +17,10 @@ Revision History:
 
 --*/
 #include<sstream>
-#include"array_decl_plugin.h"
-#include"warning.h"
-#include"ast_pp.h"
-#include"ast_ll_pp.h"
+#include "ast/array_decl_plugin.h"
+#include "util/warning.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
 
 array_decl_plugin::array_decl_plugin():
     m_store_sym("store"),
@@ -242,7 +242,9 @@ func_decl* array_decl_plugin::mk_select(unsigned arity, sort * const * domain) {
     parameter const* parameters = s->get_parameters();
  
     if (num_parameters != arity) {
-        m_manager->raise_exception("select requires as many arguments as the size of the domain");
+        std::stringstream strm;
+        strm << "select requires " << num_parameters << " arguments, but was provided with " << arity << " arguments";
+        m_manager->raise_exception(strm.str().c_str());
         return 0;
     }
     ptr_buffer<sort> new_domain; // we need this because of coercions.
@@ -314,7 +316,7 @@ func_decl * array_decl_plugin::mk_array_ext(unsigned arity, sort * const * domai
         return 0;
     }
     sort * r = to_sort(s->get_parameter(i).get_ast());
-    parameter param(s);
+    parameter param(i);
     return m_manager->mk_func_decl(m_array_ext_sym, arity, domain, r, func_decl_info(m_family_id, OP_ARRAY_EXT, 1, &param));
 }
 
@@ -546,7 +548,7 @@ expr * array_decl_plugin::get_some_value(sort * s) {
     return m_manager->mk_app(m_family_id, OP_CONST_ARRAY, 1, &p, 1, &v);
 }
 
-bool array_decl_plugin::is_fully_interp(sort const * s) const {
+bool array_decl_plugin::is_fully_interp(sort * s) const {
     SASSERT(s->is_sort_of(m_family_id, ARRAY_SORT));
     unsigned sz = get_array_arity(s);
     for (unsigned i = 0; i < sz; i++) {
@@ -556,9 +558,9 @@ bool array_decl_plugin::is_fully_interp(sort const * s) const {
     return m_manager->is_fully_interp(get_array_range(s));
 }
 
-func_decl * array_recognizers::get_as_array_func_decl(app * n) const { 
+func_decl * array_recognizers::get_as_array_func_decl(expr * n) const { 
     SASSERT(is_as_array(n)); 
-    return to_func_decl(n->get_decl()->get_parameter(0).get_ast()); 
+    return to_func_decl(to_app(n)->get_decl()->get_parameter(0).get_ast()); 
 }
 
 array_util::array_util(ast_manager& m): 
@@ -591,4 +593,10 @@ sort * array_util::mk_array_sort(unsigned arity, sort* const* domain, sort* rang
     }
     params.push_back(parameter(range));
     return m_manager.mk_sort(m_fid, ARRAY_SORT, params.size(), params.c_ptr());
+}
+
+func_decl* array_util::mk_array_ext(sort *domain, unsigned i) {    
+    sort * domains[2] = { domain, domain };
+    parameter p(i);
+    return m_manager.mk_func_decl(m_fid, OP_ARRAY_EXT, 1, &p, 2, domains);
 }

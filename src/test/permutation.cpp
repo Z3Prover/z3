@@ -16,9 +16,9 @@ Author:
 Revision History:
 
 --*/
-#include"permutation.h"
-#include"util.h"
-#include"vector.h"
+#include "util/permutation.h"
+#include "util/util.h"
+#include "util/vector.h"
 
 void apply_permutation_copy(unsigned sz, unsigned const * src, unsigned const * p, unsigned * target) {
     for (unsigned i = 0; i < sz; i++) {
@@ -48,7 +48,7 @@ static void tst1(unsigned sz, unsigned num_tries, unsigned max = UINT_MAX) {
         apply_permutation(sz, data.c_ptr(), p.c_ptr());
         // std::cout << "data: "; display(std::cout, data.begin(), data.end()); std::cout << "\n";
         for (unsigned i = 0; i < 0; i++)
-            SASSERT(data[i] == new_data[i]);
+            ENSURE(data[i] == new_data[i]);
     }
 #endif
 }

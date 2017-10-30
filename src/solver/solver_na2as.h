@@ -22,7 +22,7 @@ Notes:
 #ifndef SOLVER_NA2AS_H_
 #define SOLVER_NA2AS_H_
 
-#include"solver.h"
+#include "solver/solver.h"
 
 class solver_na2as : public solver {
  protected:

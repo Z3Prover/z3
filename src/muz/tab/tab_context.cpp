@@ -17,21 +17,21 @@ Revision History:
 
 --*/
 
-#include "tab_context.h"
-#include "trail.h"
-#include "dl_rule_set.h"
-#include "dl_context.h"
-#include "dl_mk_rule_inliner.h"
-#include "smt_kernel.h"
-#include "qe_lite.h"
-#include "bool_rewriter.h"
-#include "th_rewriter.h"
-#include "datatype_decl_plugin.h"
-#include "for_each_expr.h"
-#include "matcher.h"
-#include "scoped_proof.h"
-#include "fixedpoint_params.hpp"
-#include "ast_util.h"
+#include "muz/tab/tab_context.h"
+#include "util/trail.h"
+#include "muz/base/dl_rule_set.h"
+#include "muz/base/dl_context.h"
+#include "muz/transforms/dl_mk_rule_inliner.h"
+#include "smt/smt_kernel.h"
+#include "qe/qe_lite.h"
+#include "ast/rewriter/bool_rewriter.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "ast/datatype_decl_plugin.h"
+#include "ast/for_each_expr.h"
+#include "ast/substitution/matcher.h"
+#include "ast/scoped_proof.h"
+#include "muz/base/fixedpoint_params.hpp"
+#include "ast/ast_util.h"
 
 namespace tb {
 

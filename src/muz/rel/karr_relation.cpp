@@ -4,9 +4,9 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
-#include "karr_relation.h"
-#include "bool_rewriter.h"
-#include "ast_util.h"
+#include "muz/rel/karr_relation.h"
+#include "ast/rewriter/bool_rewriter.h"
+#include "ast/ast_util.h"
 
 namespace datalog {
     class karr_relation : public relation_base {              
@@ -111,8 +111,8 @@ namespace datalog {
 
         void filter_interpreted(app* cond) {
             rational one(1), mone(-1);
-            expr* e1, *e2, *en;
-            var* v, *w;
+            expr* e1 = 0, *e2 = 0, *en = 0;
+            var* v = 0, *w = 0;
             rational n1, n2;
             expr_ref_vector conjs(m);
             flatten_and(cond, conjs);

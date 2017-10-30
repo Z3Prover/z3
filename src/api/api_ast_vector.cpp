@@ -16,12 +16,12 @@ Revision History:
 
 --*/
 #include<iostream>
-#include"z3.h"
-#include"api_log_macros.h"
-#include"api_context.h"
-#include"api_ast_vector.h"
-#include"ast_translation.h"
-#include"ast_smt2_pp.h"
+#include "api/z3.h"
+#include "api/api_log_macros.h"
+#include "api/api_context.h"
+#include "api/api_ast_vector.h"
+#include "ast/ast_translation.h"
+#include "ast/ast_smt2_pp.h"
 
 extern "C" {
 

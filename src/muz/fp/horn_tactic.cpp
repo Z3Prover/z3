@@ -16,20 +16,20 @@ Author:
 Revision History:
 
 --*/
-#include"tactical.h"
-#include"model_converter.h"
-#include"proof_converter.h"
-#include"horn_tactic.h"
-#include"dl_context.h"
-#include"dl_register_engine.h"
-#include"expr_replacer.h"
-#include"dl_rule_transformer.h"
-#include"dl_mk_slice.h"
-#include"filter_model_converter.h"
-#include"dl_transforms.h"
-#include"fixedpoint_params.hpp"
-#include"ast_util.h"
-#include"var_subst.h"
+#include "tactic/tactical.h"
+#include "tactic/model_converter.h"
+#include "tactic/proof_converter.h"
+#include "muz/fp/horn_tactic.h"
+#include "muz/base/dl_context.h"
+#include "muz/fp/dl_register_engine.h"
+#include "ast/rewriter/expr_replacer.h"
+#include "muz/base/dl_rule_transformer.h"
+#include "muz/transforms/dl_mk_slice.h"
+#include "tactic/filter_model_converter.h"
+#include "muz/transforms/dl_transforms.h"
+#include "muz/base/fixedpoint_params.hpp"
+#include "ast/ast_util.h"
+#include "ast/rewriter/var_subst.h"
 
 class horn_tactic : public tactic {
     struct imp {

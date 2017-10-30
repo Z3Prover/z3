@@ -19,7 +19,7 @@ Revision History:
 #ifndef FINGERPRINTS_H_
 #define FINGERPRINTS_H_
 
-#include"smt_enode.h"
+#include "smt/smt_enode.h"
 
 namespace smt {
 

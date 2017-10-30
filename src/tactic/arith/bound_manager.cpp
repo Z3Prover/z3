@@ -16,9 +16,9 @@ Author:
 Notes:
 
 --*/
-#include"bound_manager.h"
-#include"ast_smt2_pp.h"
-#include"goal.h"
+#include "tactic/arith/bound_manager.h"
+#include "ast/ast_smt2_pp.h"
+#include "tactic/goal.h"
 
 bound_manager::bound_manager(ast_manager & m):
     m_util(m) {

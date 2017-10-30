@@ -17,26 +17,26 @@ Revision History:
 
 
 --*/
-#include "qe_lite.h"
-#include "expr_abstract.h"
-#include "used_vars.h"
-#include "occurs.h"
-#include "rewriter_def.h"
-#include "ast_pp.h"
-#include "ast_ll_pp.h"
-#include "ast_smt2_pp.h"
-#include "tactical.h"
-#include "bool_rewriter.h"
-#include "var_subst.h"
-#include "uint_set.h"
-#include "ast_util.h"
-#include "th_rewriter.h"
-#include "for_each_expr.h"
-#include "expr_safe_replace.h"
-#include "cooperate.h"
-#include "datatype_decl_plugin.h"
+#include "qe/qe_lite.h"
+#include "ast/expr_abstract.h"
+#include "ast/used_vars.h"
+#include "ast/occurs.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
+#include "ast/ast_smt2_pp.h"
+#include "tactic/tactical.h"
+#include "ast/rewriter/bool_rewriter.h"
+#include "ast/rewriter/var_subst.h"
+#include "util/uint_set.h"
+#include "ast/ast_util.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "ast/for_each_expr.h"
+#include "ast/rewriter/expr_safe_replace.h"
+#include "util/cooperate.h"
+#include "ast/datatype_decl_plugin.h"
 
-#include "qe_vartest.h"
+#include "qe/qe_vartest.h"
 
 namespace eq {
     class der {
@@ -2342,6 +2342,7 @@ private:
     elim_star    m_elim_star;
     th_rewriter  m_rewriter;
 
+    bool m_use_array_der;
     bool has_unique_non_ground(expr_ref_vector const& fmls, unsigned& index) {
         index = fmls.size();
         if (index <= 1) {
@@ -2359,13 +2360,14 @@ private:
     }
 
 public:
-    impl(ast_manager & m, params_ref const & p):
+    impl(ast_manager & m, params_ref const & p, bool use_array_der):
         m(m),
         m_der(m, p),
         m_fm(m),
         m_array_der(m),
         m_elim_star(*this),
-        m_rewriter(m) {}
+        m_rewriter(m),
+        m_use_array_der(use_array_der) {}
 
     void operator()(app_ref_vector& vars, expr_ref& fml) {
         if (vars.empty()) {
@@ -2445,14 +2447,15 @@ public:
         m_array_der.set_is_variable_proc(is_var);
         m_der(fmls);
         m_fm(fmls);
-        m_array_der(fmls);
+        // AG: disalble m_array_der() since it interferes with other array handling
+        if (m_use_array_der) m_array_der(fmls);
         TRACE("qe_lite", for (unsigned i = 0; i < fmls.size(); ++i) tout << mk_pp(fmls[i].get(), m) << "\n";);
     }
 
 };
 
-qe_lite::qe_lite(ast_manager & m, params_ref const & p) {
-    m_impl = alloc(impl, m, p);
+qe_lite::qe_lite(ast_manager & m, params_ref const & p, bool use_array_der) {
+    m_impl = alloc(impl, m, p, use_array_der);
 }
 
 qe_lite::~qe_lite() {
@@ -2484,7 +2487,7 @@ class qe_lite_tactic : public tactic {
 
         imp(ast_manager& m, params_ref const & p):
             m(m),
-            m_qe(m, p)
+            m_qe(m, p, true)
         {}
 
         void checkpoint() {

@@ -16,10 +16,10 @@ Author:
 Revision History:
 
 --*/
-#include"nlsat_types.h"
-#include"debug.h"
-#include"hash.h"
-#include"polynomial.h"
+#include "nlsat/nlsat_types.h"
+#include "util/debug.h"
+#include "util/hash.h"
+#include "math/polynomial/polynomial.h"
  
 namespace nlsat {
 

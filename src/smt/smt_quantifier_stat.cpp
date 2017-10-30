@@ -16,7 +16,7 @@ Author:
 Revision History:
 
 --*/
-#include"smt_quantifier_stat.h"
+#include "smt/smt_quantifier_stat.h"
 
 namespace smt {
 

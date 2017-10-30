@@ -17,8 +17,8 @@ Notes:
 
 --*/
 #include<sstream>
-#include"mpq.h"
-#include"ext_numeral.h"
+#include "util/mpq.h"
+#include "util/ext_numeral.h"
 
 #define MK_TST_UNARY(NAME)                                              \
 static void tst_ ## NAME(int a, ext_numeral_kind ak, int expected_c, ext_numeral_kind expected_ck) { \
@@ -26,11 +26,11 @@ static void tst_ ## NAME(int a, ext_numeral_kind ak, int expected_c, ext_numeral
     scoped_mpq _a(m);                                                   \
     m.set(_a, a);                                                       \
     NAME(m, _a, ak);                                                    \
-    SASSERT(ak == expected_ck);                                         \
+    ENSURE(ak == expected_ck);                                         \
     if (expected_ck == EN_NUMERAL) {                                    \
         scoped_mpq _expected_c(m);                                      \
         m.set(_expected_c, expected_c);                                 \
-        SASSERT(m.eq(_a, _expected_c));                                 \
+        ENSURE(m.eq(_a, _expected_c));                                 \
     }                                                                   \
 }
 
@@ -43,13 +43,13 @@ static void FUN_NAME(int a, ext_numeral_kind ak, int b, ext_numeral_kind bk, int
     scoped_mpq _a(m), _b(m), _c(m);                                     \
     m.set(_a, a);                                                       \
     m.set(_b, b);                                                       \
-    ext_numeral_kind ck;                                                \
+    ext_numeral_kind ck(EN_NUMERAL);                                    \
     OP_NAME(m, _a, ak, _b, bk, _c, ck);                                 \
-    SASSERT(ck == expected_ck);                                         \
+    ENSURE(ck == expected_ck);                                          \
     if (expected_ck == EN_NUMERAL) {                                    \
         scoped_mpq _expected_c(m);                                      \
         m.set(_expected_c, expected_c);                                 \
-        SASSERT(m.eq(_c, _expected_c));                                 \
+        ENSURE(m.eq(_c, _expected_c));                                  \
     }                                                                   \
 }
 
@@ -340,52 +340,52 @@ static void tst2() {
 static void tst3() {
     unsynch_mpq_manager m; 
     scoped_mpq a(m);      
-    SASSERT(is_zero(m, a, EN_NUMERAL));
-    SASSERT(!is_zero(m, a, EN_PLUS_INFINITY));
-    SASSERT(!is_zero(m, a, EN_MINUS_INFINITY));
-    SASSERT(!is_pos(m, a, EN_NUMERAL));
-    SASSERT(is_pos(m, a, EN_PLUS_INFINITY));
-    SASSERT(!is_pos(m, a, EN_MINUS_INFINITY));
-    SASSERT(!is_infinite(EN_NUMERAL));
-    SASSERT(is_infinite(EN_PLUS_INFINITY));
-    SASSERT(is_infinite(EN_MINUS_INFINITY));
-    SASSERT(!is_neg(m, a, EN_NUMERAL));
-    SASSERT(!is_neg(m, a, EN_PLUS_INFINITY));
-    SASSERT(is_neg(m, a, EN_MINUS_INFINITY));
+    ENSURE(is_zero(m, a, EN_NUMERAL));
+    ENSURE(!is_zero(m, a, EN_PLUS_INFINITY));
+    ENSURE(!is_zero(m, a, EN_MINUS_INFINITY));
+    ENSURE(!is_pos(m, a, EN_NUMERAL));
+    ENSURE(is_pos(m, a, EN_PLUS_INFINITY));
+    ENSURE(!is_pos(m, a, EN_MINUS_INFINITY));
+    ENSURE(!is_infinite(EN_NUMERAL));
+    ENSURE(is_infinite(EN_PLUS_INFINITY));
+    ENSURE(is_infinite(EN_MINUS_INFINITY));
+    ENSURE(!is_neg(m, a, EN_NUMERAL));
+    ENSURE(!is_neg(m, a, EN_PLUS_INFINITY));
+    ENSURE(is_neg(m, a, EN_MINUS_INFINITY));
     m.set(a, 10);
-    SASSERT(!is_zero(m, a, EN_NUMERAL));
-    SASSERT(is_pos(m, a, EN_NUMERAL));
-    SASSERT(!is_neg(m, a, EN_NUMERAL));
-    SASSERT(!is_infinite(EN_NUMERAL));
+    ENSURE(!is_zero(m, a, EN_NUMERAL));
+    ENSURE(is_pos(m, a, EN_NUMERAL));
+    ENSURE(!is_neg(m, a, EN_NUMERAL));
+    ENSURE(!is_infinite(EN_NUMERAL));
     m.set(a, -5);
-    SASSERT(!is_zero(m, a, EN_NUMERAL));
-    SASSERT(!is_pos(m, a, EN_NUMERAL));
-    SASSERT(is_neg(m, a, EN_NUMERAL));
-    SASSERT(!is_infinite(EN_NUMERAL));
+    ENSURE(!is_zero(m, a, EN_NUMERAL));
+    ENSURE(!is_pos(m, a, EN_NUMERAL));
+    ENSURE(is_neg(m, a, EN_NUMERAL));
+    ENSURE(!is_infinite(EN_NUMERAL));
     ext_numeral_kind ak;
     ak = EN_MINUS_INFINITY;
     reset(m, a, ak);
-    SASSERT(is_zero(m, a, EN_NUMERAL));
+    ENSURE(is_zero(m, a, EN_NUMERAL));
     {
         std::ostringstream buffer;        
         display(buffer, m, a, ak); 
-        SASSERT(buffer.str() == "0");
+        ENSURE(buffer.str() == "0");
     }
     {
         std::ostringstream buffer;        
         m.set(a, -10);
         display(buffer, m, a, ak); 
-        SASSERT(buffer.str() == "-10");
+        ENSURE(buffer.str() == "-10");
     }
     {
         std::ostringstream buffer;        
         display(buffer, m, a, EN_PLUS_INFINITY); 
-        SASSERT(buffer.str() == "+oo");
+        ENSURE(buffer.str() == "+oo");
     }
     {
         std::ostringstream buffer;        
         display(buffer, m, a, EN_MINUS_INFINITY); 
-        SASSERT(buffer.str() == "-oo");
+        ENSURE(buffer.str() == "-oo");
     }
 }
 

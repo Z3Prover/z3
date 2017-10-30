@@ -19,7 +19,7 @@ Revision History:
 #ifndef BIT_BLASTER_TPL_H_
 #define BIT_BLASTER_TPL_H_
 
-#include"rational.h"
+#include "util/rational.h"
 
 template<typename Cfg>
 class bit_blaster_tpl : public Cfg {

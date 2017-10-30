@@ -16,9 +16,9 @@ Author:
 Notes:
 
 --*/
-#include"simplify_tactic.h"
-#include"th_rewriter.h"
-#include"ast_pp.h"
+#include "tactic/core/simplify_tactic.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "ast/ast_pp.h"
 
 struct simplify_tactic::imp {
     ast_manager &   m_manager;

@@ -19,7 +19,7 @@ Notes:
 #ifndef EXPR_ABSTRACT_H_
 #define EXPR_ABSTRACT_H_
 
-#include"ast.h"
+#include "ast/ast.h"
 
 class expr_abstractor {
     ast_manager& m;

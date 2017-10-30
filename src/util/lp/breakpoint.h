@@ -1,11 +1,26 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 
 #pragma once
 
-namespace lean {
+namespace lp {
 enum breakpoint_type {
     low_break, upper_break, fixed_break
 };

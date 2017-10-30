@@ -17,7 +17,7 @@ Revision History:
 
 --*/
 
-#include"theory_arith_def.h"
+#include "smt/theory_arith_def.h"
 
 namespace smt {
 

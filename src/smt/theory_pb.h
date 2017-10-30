@@ -20,11 +20,11 @@ Notes:
     sorting circuits if it keeps having to propagate (create new clauses).
 --*/
 
-#include "smt_theory.h"
-#include "pb_decl_plugin.h"
-#include "smt_clause.h"
-#include "theory_pb_params.h"
-#include "simplex.h"
+#include "smt/smt_theory.h"
+#include "ast/pb_decl_plugin.h"
+#include "smt/smt_clause.h"
+#include "smt/params/theory_pb_params.h"
+#include "math/simplex/simplex.h"
 
 namespace smt {
     class theory_pb : public theory {
@@ -279,7 +279,6 @@ namespace smt {
         //
         void compile_ineq(ineq& c);
         void inc_propagations(ineq& c);
-        unsigned get_compilation_threshold(ineq& c);
 
         //
         // Conflict resolution, cutting plane derivation.

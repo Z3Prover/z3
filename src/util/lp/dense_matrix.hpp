@@ -1,13 +1,28 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 #include "util/lp/lp_settings.h"
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
 #include "util/vector.h"
 #include "util/lp/numeric_pair.h"
 #include "util/lp/dense_matrix.h"
-namespace lean {
+namespace lp {
 template <typename T> void print_vector(const vector<T> & t, std::ostream & out);
 template <typename T, typename X> dense_matrix<T, X>::dense_matrix(unsigned m, unsigned n) : m_m(m), m_n(n), m_values(m * n, numeric_traits<T>::zero()) {
 }
@@ -170,7 +185,7 @@ template <typename T, typename X> void dense_matrix<T, X>::multiply_row_by_const
 
 template <typename T, typename X>
 dense_matrix<T, X> operator* (matrix<T, X> & a, matrix<T, X> & b){
-    lean_assert(a.column_count() == b.row_count());
+    SASSERT(a.column_count() == b.row_count());
     dense_matrix<T, X> ret(a.row_count(), b.column_count());
     for (unsigned i = 0; i < ret.m_m; i++)
         for (unsigned j = 0; j< ret.m_n; j++) {

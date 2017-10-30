@@ -20,7 +20,7 @@ Revision History:
 #ifndef DEFINED_NAMES_H_
 #define DEFINED_NAMES_H_
 
-#include"ast.h"
+#include "ast/ast.h"
 
 /**
    \brief Mapping from expressions to skolem functions that are used to name them.

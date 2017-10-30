@@ -15,8 +15,8 @@ Author:
 Revision History:
 
 --*/
-#include"goal_num_occurs.h"
-#include"goal.h"
+#include "tactic/goal_num_occurs.h"
+#include "tactic/goal.h"
 
 void goal_num_occurs::operator()(goal const & g) {
     expr_fast_mark1   visited;

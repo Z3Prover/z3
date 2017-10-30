@@ -19,9 +19,9 @@ Revision History:
 #ifndef IM_FLOAT_CONFIG_H_
 #define IM_FLOAT_CONFIG_H_
 
-#include"f2n.h"
-#include"mpf.h"
-#include"hwf.h"
+#include "util/f2n.h"
+#include "util/mpf.h"
+#include "util/hwf.h"
 
 template<typename f_manager>
 class im_float_config {
@@ -62,11 +62,5 @@ public:
     // Reference to numeral manager
     numeral_manager & m() const { return const_cast<numeral_manager&>(m_manager); }
 };
-
-template<typename fmanager>
-inline void del_f_interval(im_float_config<fmanager> & cfg, typename im_float_config<fmanager>::interval & a) {
-    cfg.m().del(a.m_lower);
-    cfg.m().del(a.m_upper);
-}
 
 #endif

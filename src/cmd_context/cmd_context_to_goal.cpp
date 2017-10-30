@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#include"cmd_context.h"
-#include"goal.h"
+#include "cmd_context/cmd_context.h"
+#include "tactic/goal.h"
 
 /**
    \brief Assert expressions from ctx into t.

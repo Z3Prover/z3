@@ -29,7 +29,7 @@ Revision History:
 #ifndef SAT_IFF3_FINDER_H_
 #define SAT_IFF3_FINDER_H_
 
-#include"sat_types.h"
+#include "sat/sat_types.h"
 
 namespace sat {
     

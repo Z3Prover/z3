@@ -20,7 +20,6 @@ add_executable(test-z3
   bits.cpp
   bit_vector.cpp
   buffer.cpp
-  bv_simplifier_plugin.cpp
   chashtable.cpp
   check_assumptions.cpp
   cnf_backbones.cpp

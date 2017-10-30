@@ -20,9 +20,9 @@ Author:
 Notes:
 
 --*/
-#include"expr2var.h"
-#include"ast_smt2_pp.h"
-#include"ref_util.h"
+#include "ast/expr2var.h"
+#include "ast/ast_smt2_pp.h"
+#include "util/ref_util.h"
 
 void expr2var::insert(expr * n, var v) {
     if (!is_uninterp_const(n)) {

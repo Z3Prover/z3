@@ -19,8 +19,8 @@ Revision History:
 #ifndef UNIFIER_H_
 #define UNIFIER_H_
 
-#include"ast.h"
-#include"substitution.h"
+#include "ast/ast.h"
+#include "ast/substitution/substitution.h"
 
 /**
    \brief Functor for unifying expressions.

@@ -18,10 +18,10 @@ Revision History:
 --*/
 #ifndef SYMBOL_TABLE_H_
 #define SYMBOL_TABLE_H_
-#include"vector.h"
-#include"hashtable.h"
-#include"hash.h"
-#include"symbol.h"
+#include "util/vector.h"
+#include "util/hashtable.h"
+#include "util/hash.h"
+#include "util/symbol.h"
 
 /**
    \brief Quick & Dirty symbol table.
@@ -182,29 +182,20 @@ public:
     }
 
     void append(symbol_table<T> const& other) { 
-        typename sym_table::iterator it = other.m_sym_table.begin();
-        typename sym_table::iterator end = other.m_sym_table.end();
-
-        for (; it != end; ++it) {
-            insert((*it).m_key, (*it).m_data);                
+        for (auto const& kv : other.m_sym_table) {
+            insert(kv.m_key, kv.m_data);                
         }
     }
 
     void get_range(vector<T,false>& range) const {
-        typename sym_table::iterator it = m_sym_table.begin();
-        typename sym_table::iterator end = m_sym_table.end();
-
-        for (; it != end; ++it) {
-            range.push_back((*it).m_data);
+        for (auto kv : m_sym_table) {
+            range.push_back(kv.m_data);
         }
     }
 
     void get_dom(svector<symbol>& dom) const {
-        typename sym_table::iterator it = m_sym_table.begin();
-        typename sym_table::iterator end = m_sym_table.end();
-
-        for (; it != end; ++it) {
-            dom.push_back((*it).m_key);
+        for (auto kv : m_sym_table) {
+            dom.push_back(kv.m_key);
         }
     }
 };

@@ -18,18 +18,18 @@ Revision History:
 --*/
 
 #include <sstream>
-#include "model.h"
-#include "pdr_util.h"
-#include "pdr_prop_solver.h"
-#include "ast_smt2_pp.h"
-#include "dl_util.h"
-#include "model_pp.h"
-#include "smt_params.h"
-#include "datatype_decl_plugin.h"
-#include "bv_decl_plugin.h"
-#include "pdr_farkas_learner.h"
-#include "ast_smt2_pp.h"
-#include "expr_replacer.h"
+#include "model/model.h"
+#include "muz/pdr/pdr_util.h"
+#include "muz/pdr/pdr_prop_solver.h"
+#include "ast/ast_smt2_pp.h"
+#include "muz/base/dl_util.h"
+#include "model/model_pp.h"
+#include "smt/params/smt_params.h"
+#include "ast/datatype_decl_plugin.h"
+#include "ast/bv_decl_plugin.h"
+#include "muz/pdr/pdr_farkas_learner.h"
+#include "ast/ast_smt2_pp.h"
+#include "ast/rewriter/expr_replacer.h"
 
 //
 // Auxiliary structure to introduce propositional names for assumptions that are not

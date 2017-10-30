@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#include "symbol.h"
-#include "smt_logics.h"
+#include "util/symbol.h"
+#include "solver/smt_logics.h"
 
 
 
@@ -141,7 +141,7 @@ bool smt_logics::logic_has_fpa(symbol const & s) {
 }
 
 bool smt_logics::logic_has_uf(symbol const & s) {
-    return s == "QF_UF" || s == "UF";
+    return s == "QF_UF" || s == "UF" || s == "QF_DT";
 }
 
 bool smt_logics::logic_has_horn(symbol const& s) {
@@ -153,5 +153,5 @@ bool smt_logics::logic_has_pb(symbol const& s) {
 }
 
 bool smt_logics::logic_has_datatype(symbol const& s) {
-    return s == "QF_FD" || s == "ALL";
+    return s == "QF_FD" || s == "ALL" || s == "QF_DT";
 }

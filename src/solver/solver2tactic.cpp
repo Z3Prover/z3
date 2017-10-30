@@ -17,11 +17,11 @@ Notes:
    
 --*/
 
-#include "solver.h"
-#include "tactic.h"
-#include"filter_model_converter.h"
-#include "solver2tactic.h"
-#include "ast_util.h"
+#include "solver/solver.h"
+#include "tactic/tactic.h"
+#include "tactic/filter_model_converter.h"
+#include "solver/solver2tactic.h"
+#include "ast/ast_util.h"
 
 typedef obj_map<expr, expr *> expr2expr_map;
 

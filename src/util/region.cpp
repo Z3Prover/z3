@@ -16,7 +16,7 @@ Author:
 Revision History:
 
 --*/
-#include"region.h"
+#include "util/region.h"
 
 #ifdef Z3DEBUG
 
@@ -26,10 +26,10 @@ void region::display_mem_stats(std::ostream & out) const {
 
 #else
 
-#include"tptr.h"
-#include"debug.h"
-#include"memory_manager.h"
-#include"page.h"
+#include "util/tptr.h"
+#include "util/debug.h"
+#include "util/memory_manager.h"
+#include "util/page.h"
 
 inline void region::allocate_page() {
     m_curr_page     = allocate_default_page(m_curr_page, m_free_pages);

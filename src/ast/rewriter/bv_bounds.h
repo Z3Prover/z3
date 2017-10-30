@@ -19,9 +19,9 @@
  --*/
 #ifndef BV_BOUNDS_H_23754
 #define BV_BOUNDS_H_23754
-#include"ast.h"
-#include"bv_decl_plugin.h"
-#include"rewriter_types.h"
+#include "ast/ast.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/rewriter/rewriter_types.h"
 
 /* \brief A class to analyze constraints on bit vectors.
 
@@ -38,7 +38,7 @@ public:
     bv_bounds(ast_manager& m) : m_m(m), m_bv_util(m), m_okay(true) {};
     ~bv_bounds();
 public: // bounds addition methods
-	br_status rewrite(unsigned limit, func_decl * f, unsigned num, expr * const * args, expr_ref& result);
+    br_status rewrite(unsigned limit, func_decl * f, unsigned num, expr * const * args, expr_ref& result);
 
     /** \brief Add a constraint to the system.
 
@@ -82,7 +82,7 @@ protected:
     bv_util                   m_bv_util;
     bool                      m_okay;
     bool                      is_sat(app * v);
-	bool                      is_sat_core(app * v);
+bool                      is_sat_core(app * v);
     inline bool               in_range(app *v, numeral l);
     inline bool               is_constant_add(unsigned bv_sz, expr * e, app*& v, numeral& val);
     void                      record_singleton(app * v,  numeral& singleton_value);
@@ -94,7 +94,7 @@ protected:
 inline bool bv_bounds::is_okay() { return m_okay; }
 
 inline bool bv_bounds::to_bound(const expr * e) const {
-	return is_app(e) && m_bv_util.is_bv(e)
+    return is_app(e) && m_bv_util.is_bv(e)
        && !m_bv_util.is_bv_add(e)
        && !m_bv_util.is_numeral(e);
 }

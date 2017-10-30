@@ -16,12 +16,12 @@ Author:
 Revision History:
 
 --*/
-#include"sat_scc.h"
-#include"sat_solver.h"
-#include"sat_elim_eqs.h"
-#include"stopwatch.h"
-#include"trace.h"
-#include"sat_scc_params.hpp"
+#include "sat/sat_scc.h"
+#include "sat/sat_solver.h"
+#include "sat/sat_elim_eqs.h"
+#include "util/stopwatch.h"
+#include "util/trace.h"
+#include "sat/sat_scc_params.hpp"
 
 namespace sat {
 

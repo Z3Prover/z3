@@ -19,13 +19,13 @@ Notes:
 #ifndef SEQ_REWRITER_H_
 #define SEQ_REWRITER_H_
 
-#include"seq_decl_plugin.h"
-#include"arith_decl_plugin.h"
-#include"rewriter_types.h"
-#include"params.h"
-#include"lbool.h"
-#include"automaton.h"
-#include"symbolic_automata.h"
+#include "ast/seq_decl_plugin.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/rewriter/rewriter_types.h"
+#include "util/params.h"
+#include "util/lbool.h"
+#include "math/automata/automaton.h"
+#include "math/automata/symbolic_automata.h"
 
 class sym_expr {
     enum ty {
@@ -121,6 +121,9 @@ class seq_rewriter {
     br_status mk_re_opt(expr* a, expr_ref& result);
     br_status mk_re_loop(unsigned num_args, expr* const* args, expr_ref& result);
     br_status mk_re_range(expr* lo, expr* hi, expr_ref& result);
+
+    bool cannot_contain_prefix(expr* a, expr* b);
+    bool cannot_contain_suffix(expr* a, expr* b);
 
     bool set_empty(unsigned sz, expr* const* es, bool all, expr_ref_vector& lhs, expr_ref_vector& rhs);
     bool is_subsequence(unsigned n, expr* const* l, unsigned m, expr* const* r, 

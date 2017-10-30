@@ -21,7 +21,7 @@ Notes:
 #ifndef Z3_V1_H_
 #define Z3_V1_H_
 
-#include"z3.h"
+#include "api/z3.h"
 
 // Backwards compatibility
 #define Z3_type_ast            Z3_sort

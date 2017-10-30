@@ -20,7 +20,7 @@ Revision History:
 #ifndef SAT_CONFIG_H_
 #define SAT_CONFIG_H_
 
-#include"params.h"
+#include "util/params.h"
 
 namespace sat {
 
@@ -74,6 +74,7 @@ namespace sat {
         bool               m_core_minimize;
         bool               m_core_minimize_partial;
 
+        bool               m_dimacs_display;
 
         symbol             m_always_true;
         symbol             m_always_false;

@@ -20,11 +20,11 @@ Revision History:
 #ifndef DL_BMC_ENGINE_H_
 #define DL_BMC_ENGINE_H_
 
-#include "params.h"
-#include "statistics.h"
-#include "smt_kernel.h"
-#include "bv_decl_plugin.h"
-#include "smt_params.h"
+#include "util/params.h"
+#include "util/statistics.h"
+#include "smt/smt_kernel.h"
+#include "ast/bv_decl_plugin.h"
+#include "smt/params/smt_params.h"
 
 
 namespace datalog {
@@ -38,6 +38,7 @@ namespace datalog {
         rule_set         m_rules;
         func_decl_ref    m_query_pred;
         expr_ref         m_answer;
+        rule_ref_vector  m_rule_trace;
 
         void checkpoint();
 
@@ -63,6 +64,7 @@ namespace datalog {
         void collect_statistics(statistics& st) const;
 
         void reset_statistics(); 
+        void get_rules_along_trace(datalog::rule_ref_vector& rules);
 
         expr_ref get_answer();
 

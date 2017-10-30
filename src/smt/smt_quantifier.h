@@ -19,10 +19,10 @@ Revision History:
 #ifndef SMT_QUANTIFIER_H_
 #define SMT_QUANTIFIER_H_
 
-#include"ast.h"
-#include"statistics.h"
-#include"params.h"
-#include"smt_types.h"
+#include "ast/ast.h"
+#include "util/statistics.h"
+#include "util/params.h"
+#include "smt/smt_types.h"
 
 class proto_model;
 struct smt_params;
@@ -149,7 +149,7 @@ namespace smt {
         /**
            \brief Is "model based" instantiate allowed to instantiate this quantifier?
          */
-    	virtual bool mbqi_enabled(quantifier *q) const {return true;}
+        virtual bool mbqi_enabled(quantifier *q) const {return true;}
 
         /**
            \brief Give a change to the plugin to adjust the interpretation of unintepreted functions.

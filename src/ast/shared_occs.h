@@ -19,8 +19,8 @@ Revision History:
 #ifndef SHARED_OCCS_H_
 #define SHARED_OCCS_H_
 
-#include"ast.h"
-#include"obj_hashtable.h"
+#include "ast/ast.h"
+#include "util/obj_hashtable.h"
 
 class shared_occs_mark {
     ptr_buffer<ast> m_to_unmark;

@@ -4,7 +4,7 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
-#include "dl_util.h"
+#include "muz/base/dl_util.h"
 
 using namespace datalog;
 
@@ -22,7 +22,7 @@ void dl_util_two_array_sort() {
     datalog::sort_two_arrays(num, a1, a2);
 
     for(unsigned i=0; i<num; i++) {
-        SASSERT(a2[i]==i+3);
+        ENSURE(a2[i]==i+3);
     }
 }
 
@@ -32,10 +32,10 @@ void dl_util_cycle_from_permutation() {
     unsigned_vector cycle;
 
     datalog::cycle_from_permutation(perm, cycle);
-    SASSERT(cycle.size()==2);
-    SASSERT(cycle[0]==2 || cycle[0]==4);
-    SASSERT(cycle[1]==2 || cycle[1]==4);
-    SASSERT((cycle[0]==2) == (cycle[1]==4));
+    ENSURE(cycle.size()==2);
+    ENSURE(cycle[0]==2 || cycle[0]==4);
+    ENSURE(cycle[1]==2 || cycle[1]==4);
+    ENSURE((cycle[0]==2) == (cycle[1]==4));
 
     unsigned permutation_arr2[] = { 1, 2, 3, 4, 5, 6, 7, 0 };
     unsigned len2 = sizeof(permutation_arr2)/sizeof(unsigned);
@@ -44,7 +44,7 @@ void dl_util_cycle_from_permutation() {
     datalog::cycle_from_permutation(perm2, cycle);
 
     for(unsigned i=0; i<len2; i++) {
-        SASSERT( (cycle[i]+1)%len2==cycle[(i+1)%len2] );
+        ENSURE( (cycle[i]+1)%len2==cycle[(i+1)%len2] );
     }
 }
 

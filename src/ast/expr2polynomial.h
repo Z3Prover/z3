@@ -20,8 +20,8 @@ Notes:
 #ifndef EXPR2POLYNOMIAL_H_
 #define EXPR2POLYNOMIAL_H_
 
-#include"ast.h"
-#include"polynomial.h"
+#include "ast/ast.h"
+#include "math/polynomial/polynomial.h"
 
 class expr2var;
 

@@ -17,16 +17,16 @@ Revision History:
 
 --*/
 
-#include "dl_mk_bit_blast.h"
-#include "bit_blaster_rewriter.h"
-#include "rewriter_def.h"
-#include "ast_pp.h"
-#include "expr_safe_replace.h"
-#include "filter_model_converter.h"
-#include "dl_mk_interp_tail_simplifier.h"
-#include "fixedpoint_params.hpp"
-#include "scoped_proof.h"
-#include "model_v2_pp.h"
+#include "muz/transforms/dl_mk_bit_blast.h"
+#include "ast/rewriter/bit_blaster/bit_blaster_rewriter.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "ast/ast_pp.h"
+#include "ast/rewriter/expr_safe_replace.h"
+#include "tactic/filter_model_converter.h"
+#include "muz/transforms/dl_mk_interp_tail_simplifier.h"
+#include "muz/base/fixedpoint_params.hpp"
+#include "ast/scoped_proof.h"
+#include "model/model_v2_pp.h"
 
 namespace datalog {
 

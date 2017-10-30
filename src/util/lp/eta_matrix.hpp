@@ -1,12 +1,27 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 
 #pragma once
 #include "util/vector.h"
 #include "util/lp/eta_matrix.h"
-namespace lean {
+namespace lp {
 
 // This is the sum of a unit matrix and a one-column matrix
 template <typename T, typename X>
@@ -49,7 +64,7 @@ apply_from_left_local(indexed_vector<L> & w, lp_settings & settings) {
 }
 template <typename T, typename X>
 void eta_matrix<T, X>::apply_from_right(vector<T> & w) {
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     // dense_matrix<T, X> deb(*this);
     // auto clone_w = clone_vector<T>(w, get_number_of_rows());
     // deb.apply_from_right(clone_w);
@@ -59,8 +74,8 @@ void eta_matrix<T, X>::apply_from_right(vector<T> & w) {
         t += w[it.first] * it.second;
     }
     w[m_column_index] = t;
-#ifdef LEAN_DEBUG
-    // lean_assert(vectors_are_equal<T>(clone_w, w, get_number_of_rows()));
+#ifdef Z3DEBUG
+    // SASSERT(vectors_are_equal<T>(clone_w, w, get_number_of_rows()));
     // delete clone_w;
 #endif
 }
@@ -68,7 +83,7 @@ template <typename T, typename X>
 void eta_matrix<T, X>::apply_from_right(indexed_vector<T> & w) {
     if (w.m_index.size() == 0)
         return;
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     // vector<T> wcopy(w.m_data);
     // apply_from_right(wcopy);
 #endif
@@ -99,12 +114,12 @@ void eta_matrix<T, X>::apply_from_right(indexed_vector<T> & w) {
         }
     }
     
-#ifdef LEAN_DEBUG
-    // lean_assert(w.is_OK());
-    // lean_assert(vectors_are_equal<T>(wcopy, w.m_data));
+#ifdef Z3DEBUG
+    // SASSERT(w.is_OK());
+    // SASSERT(vectors_are_equal<T>(wcopy, w.m_data));
 #endif
 }
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
 template <typename T, typename X>
 T eta_matrix<T, X>::get_elem(unsigned i, unsigned j) const {
     if (j == m_column_index){
@@ -120,7 +135,7 @@ T eta_matrix<T, X>::get_elem(unsigned i, unsigned j) const {
 template <typename T, typename X>
 void eta_matrix<T, X>::conjugate_by_permutation(permutation_matrix<T, X> & p) {
     // this = p * this * p(-1)
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     // auto rev = p.get_reverse();
     // auto deb = ((*this) * rev);
     // deb = p * deb;
@@ -129,8 +144,8 @@ void eta_matrix<T, X>::conjugate_by_permutation(permutation_matrix<T, X> & p) {
     for (auto & pair : m_column_vector.m_data) {
         pair.first = p.get_rev(pair.first);
     }
-#ifdef LEAN_DEBUG
-    // lean_assert(deb == *this);
+#ifdef Z3DEBUG
+    // SASSERT(deb == *this);
 #endif
 }
 }

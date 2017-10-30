@@ -16,11 +16,11 @@ Author:
 Notes:
 
 --*/
-#include "pb_sls.h"
-#include "smt_literal.h"
-#include "ast_pp.h"
-#include "th_rewriter.h"
-#include "sat_types.h"
+#include "opt/pb_sls.h"
+#include "smt/smt_literal.h"
+#include "ast/ast_pp.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "sat/sat_types.h"
 
 namespace smt {
 

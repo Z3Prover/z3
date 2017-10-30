@@ -20,7 +20,7 @@ Revision History:
 #define BUFFER_H_
 
 #include<string.h>
-#include"memory_manager.h"
+#include "util/memory_manager.h"
 
 template<typename T, bool CallDestructors=true, unsigned INITIAL_SIZE=16>
 class buffer {
@@ -147,6 +147,13 @@ public:
         if (m_pos >= m_capacity)
             expand();
         new (m_buffer + m_pos) T(elem);
+        m_pos++;
+    }
+
+    void push_back(T && elem) {
+        if (m_pos >= m_capacity)
+            expand();
+        new (m_buffer + m_pos) T(std::move(elem));
         m_pos++;
     }
     

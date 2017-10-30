@@ -19,10 +19,10 @@ Notes:
 #ifndef POLY_REWRITER_H_
 #define POLY_REWRITER_H_
 
-#include"ast.h"
-#include"obj_hashtable.h"
-#include"rewriter_types.h"
-#include"params.h"
+#include "ast/ast.h"
+#include "util/obj_hashtable.h"
+#include "ast/rewriter/rewriter_types.h"
+#include "util/params.h"
 
 template<typename Config>
 class poly_rewriter : public Config {
@@ -36,10 +36,10 @@ protected:
     bool                    m_sort_sums;
     bool                    m_hoist_mul;
     bool                    m_hoist_cmul;
+    bool                    m_ast_order;
 
     bool is_numeral(expr * n) const { return Config::is_numeral(n); }
     bool is_numeral(expr * n, numeral & r) const { return Config::is_numeral(n, r); }
-    bool is_zero(expr * n) const { return Config::is_zero(n); }
     bool is_minus_one(expr * n) const { return Config::is_minus_one(n); }
     void normalize(numeral & c) { Config::normalize(c, m_curr_sort); }
     app * mk_numeral(numeral const & r) { return Config::mk_numeral(r, m_curr_sort); }
@@ -49,7 +49,6 @@ protected:
     decl_kind power_decl_kind() const { return Config::power_decl_kind(); }
     bool is_power(expr * t) const { return is_app_of(t, get_fid(), power_decl_kind()); }
     expr * get_power_body(expr * t, rational & k);
-    struct mon_pw_lt; // functor used to sort monomial elements when use_power() == true
 
     expr * mk_mul_app(unsigned num_args, expr * const * args);
     expr * mk_mul_app(numeral const & c, expr * arg);
@@ -86,6 +85,14 @@ protected:
     bool is_mul(expr * t, numeral & c, expr * & pp);
     void hoist_cmul(expr_ref_buffer & args);
 
+    class mon_lt {
+        poly_rewriter& rw;
+        int ordinal(expr* e) const;
+    public:
+        mon_lt(poly_rewriter& rw): rw(rw) {}
+        bool operator()(expr* e1, expr * e2) const;
+    };
+
 public:
     poly_rewriter(ast_manager & m, params_ref const & p = params_ref()):
         Config(m),
@@ -111,6 +118,10 @@ public:
     bool is_mul(expr * n) const { return is_app_of(n, get_fid(), mul_decl_kind()); }
     bool is_add(func_decl * f) const { return is_decl_of(f, get_fid(), add_decl_kind()); }
     bool is_mul(func_decl * f) const { return is_decl_of(f, get_fid(), mul_decl_kind()); }
+    bool is_times_minus_one(expr * n, expr*& r) const;
+    bool is_var_plus_ground(expr * n, bool & inv, var * & v, expr_ref & t);
+    bool is_zero(expr* e) const;
+
 
     br_status mk_mul_core(unsigned num_args, expr * const * args, expr_ref & result) {
         SASSERT(num_args > 0);

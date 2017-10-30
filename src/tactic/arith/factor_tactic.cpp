@@ -16,9 +16,9 @@ Author:
 Revision History:
 
 --*/
-#include"tactical.h"
-#include"expr2polynomial.h"
-#include"rewriter_def.h"
+#include "tactic/tactical.h"
+#include "ast/expr2polynomial.h"
+#include "ast/rewriter/rewriter_def.h"
 
 class factor_tactic : public tactic {
 

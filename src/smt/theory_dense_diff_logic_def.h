@@ -19,12 +19,12 @@ Revision History:
 #ifndef THEORY_DENSE_DIFF_LOGIC_DEF_H_
 #define THEORY_DENSE_DIFF_LOGIC_DEF_H_
 
-#include"smt_context.h"
-#include"theory_dense_diff_logic.h"
-#include"ast_pp.h"
-#include"smt_model_generator.h"
-#include"simplex.h"
-#include"simplex_def.h"
+#include "smt/smt_context.h"
+#include "smt/theory_dense_diff_logic.h"
+#include "ast/ast_pp.h"
+#include "smt/smt_model_generator.h"
+#include "math/simplex/simplex.h"
+#include "math/simplex/simplex_def.h"
 
 namespace smt {
 
@@ -127,7 +127,7 @@ namespace smt {
         if (!m_non_diff_logic_exprs) {
             TRACE("non_diff_logic", tout << "found non diff logic expression:\n" << mk_pp(n, get_manager()) << "\n";);
             get_context().push_trail(value_trail<context, bool>(m_non_diff_logic_exprs));
-        IF_VERBOSE(0, verbose_stream() << "(smt.diff_logic: non-diff logic expression " << mk_pp(n, get_manager()) << ")\n";); 
+            IF_VERBOSE(0, verbose_stream() << "(smt.diff_logic: non-diff logic expression " << mk_pp(n, get_manager()) << ")\n";); 
             m_non_diff_logic_exprs = true;
         }
     }
@@ -151,11 +151,15 @@ namespace smt {
         m_autil.is_numeral(rhs, _k);
         numeral offset(_k);
         app * s, * t;
-        if (m_autil.is_add(lhs) && to_app(lhs)->get_num_args() == 2 && is_times_minus_one(to_app(lhs)->get_arg(1), s)) {
-            t = to_app(to_app(lhs)->get_arg(0));
+        expr *arg1, *arg2;
+        if (m_autil.is_add(lhs, arg1, arg2) && is_times_minus_one(arg2, s)) {
+            t = to_app(arg1);
         }
-        else if (m_autil.is_mul(lhs) && to_app(lhs)->get_num_args() == 2 && m_autil.is_minus_one(to_app(lhs)->get_arg(0))) {
-            s = to_app(to_app(lhs)->get_arg(1));
+        else if (m_autil.is_add(lhs, arg1, arg2) && is_times_minus_one(arg1, s)) {
+            t = to_app(arg2);
+        }
+        else if (m_autil.is_mul(lhs, arg1, arg2) && m_autil.is_minus_one(arg1)) {
+            s = to_app(arg2);
             t = mk_zero_for(s);
         }
         else if (!m_autil.is_arith_expr(lhs)) {
@@ -167,6 +171,7 @@ namespace smt {
             found_non_diff_logic_expr(n);
             return false;
         }
+        TRACE("arith", tout << expr_ref(lhs, get_manager()) << " " << expr_ref(s, get_manager()) << " " << expr_ref(t, get_manager()) << "\n";);
         source = internalize_term_core(s);
         target = internalize_term_core(t);
         if (source == null_theory_var || target == null_theory_var) {
@@ -909,6 +914,8 @@ namespace smt {
                    }
                    verbose_stream() << " + " << m_objective_consts[v] << "\n";);
 
+        unsynch_mpq_manager mgr;
+        unsynch_mpq_inf_manager inf_mgr;
         unsigned num_nodes = get_num_vars();
         unsigned num_edges = m_edges.size();
         S.ensure_var(num_nodes + num_edges + m_objectives.size());
@@ -916,8 +923,9 @@ namespace smt {
             numeral const& a = m_assignment[i];
             rational fin = a.get_rational().to_rational();
             rational inf = a.get_infinitesimal().to_rational();
-            mpq_inf q(fin.to_mpq(), inf.to_mpq());
+            mpq_inf q(mgr.dup(fin.to_mpq()), mgr.dup(inf.to_mpq()));
             S.set_value(i, q);
+            inf_mgr.del(q);
         }
         for (unsigned i = 0; i < num_nodes; ++i) {
             enode * n = get_enode(i);
@@ -928,7 +936,6 @@ namespace smt {
             }
         }
         svector<unsigned> vars;
-        unsynch_mpq_manager mgr;
         scoped_mpq_vector coeffs(mgr);
         coeffs.push_back(mpq(1));
         coeffs.push_back(mpq(-1));
@@ -949,8 +956,9 @@ namespace smt {
             numeral const& w = e.m_offset;
             rational fin = w.get_rational().to_rational();
             rational inf = w.get_infinitesimal().to_rational();
-            mpq_inf q(fin.to_mpq(),inf.to_mpq());
+            mpq_inf q(mgr.dup(fin.to_mpq()), mgr.dup(inf.to_mpq()));
             S.set_upper(base_var, q);            
+            inf_mgr.del(q);
         }
         unsigned w = num_nodes + num_edges + v;
 

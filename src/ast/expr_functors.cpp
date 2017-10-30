@@ -19,7 +19,7 @@ Revision History:
 
 --*/
 
-#include "expr_functors.h"
+#include "ast/expr_functors.h"
 
 // ----------
 // check_pred

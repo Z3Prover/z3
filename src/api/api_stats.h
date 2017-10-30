@@ -18,8 +18,8 @@ Revision History:
 #ifndef API_STATS_H_
 #define API_STATS_H_
 
-#include"api_util.h"
-#include"statistics.h"
+#include "api/api_util.h"
+#include "util/statistics.h"
 
 struct Z3_stats_ref : public api::object {
     statistics m_stats;

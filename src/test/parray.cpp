@@ -16,9 +16,9 @@ Author:
 Revision History:
 
 --*/
-#include"parray.h"
-#include"small_object_allocator.h"
-#include"ast.h"
+#include "util/parray.h"
+#include "util/small_object_allocator.h"
+#include "ast/ast.h"
 
 template<bool PRESERVE_ROOTS>
 struct int_parray_config {
@@ -46,36 +46,36 @@ static void tst1() {
     int_array a3;
 
     m.mk(a1);
-    SASSERT(m.size(a1) == 0);
+    ENSURE(m.size(a1) == 0);
     m.push_back(a1, 10, a2);
     TRACE("parray", 
           m.display_info(tout, a1); tout << "\n";
           m.display_info(tout, a2); tout << "\n";);
-    SASSERT(m.size(a1) == 0);
-    SASSERT(m.size(a2) == 1);
+    ENSURE(m.size(a1) == 0);
+    ENSURE(m.size(a2) == 1);
     m.push_back(a1, 20, a1);
     m.push_back(a1, 30, a1);
     TRACE("parray", 
           m.display_info(tout, a1); tout << "\n";
           m.display_info(tout, a2); tout << "\n";);
-    SASSERT(m.get(a1, 0) == 20);
-    SASSERT(m.get(a1, 1) == 30);
-    SASSERT(m.get(a2, 0) == 10);
-    SASSERT(m.size(a1) == 2);
-    SASSERT(m.size(a2) == 1);
-    SASSERT(m.size(a3) == 0);
+    ENSURE(m.get(a1, 0) == 20);
+    ENSURE(m.get(a1, 1) == 30);
+    ENSURE(m.get(a2, 0) == 10);
+    ENSURE(m.size(a1) == 2);
+    ENSURE(m.size(a2) == 1);
+    ENSURE(m.size(a3) == 0);
     m.push_back(a2, 100, a3);
-    SASSERT(m.size(a3) == 2);
-    SASSERT(m.get(a3, 0) == 10);
-    SASSERT(m.get(a3, 1) == 100);
+    ENSURE(m.size(a3) == 2);
+    ENSURE(m.get(a3, 0) == 10);
+    ENSURE(m.get(a3, 1) == 100);
     TRACE("parray", 
           m.display_info(tout, a1); tout << "\n";
           m.display_info(tout, a2); tout << "\n";
           m.display_info(tout, a3); tout << "\n";);
     m.push_back(a2, 50);
-    SASSERT(m.get(a2, 0) == 10);
-    SASSERT(m.get(a2, 1) == 50);
-    SASSERT(m.size(a2) == 2);
+    ENSURE(m.get(a2, 0) == 10);
+    ENSURE(m.get(a2, 1) == 50);
+    ENSURE(m.size(a2) == 2);
     TRACE("parray", 
           m.display_info(tout, a1); tout << "\n";
           m.display_info(tout, a2); tout << "\n";
@@ -100,22 +100,22 @@ static void tst2() {
  
     for (unsigned i = 0; i < 100; i++) 
         m.push_back(a1, i);
-    SASSERT(m.size(a1) == 100);
+    ENSURE(m.size(a1) == 100);
     m.push_back(a1, 100, a2);
     for (unsigned i = 0; i < 10; i++) 
         m.push_back(a2, i+101);
     TRACE("parray", 
           m.display_info(tout, a1); tout << "\n";
           m.display_info(tout, a2); tout << "\n";);
-    SASSERT(m.get(a1, 0) == 0);
+    ENSURE(m.get(a1, 0) == 0);
     TRACE("parray", 
           m.display_info(tout, a1); tout << "\n";
           m.display_info(tout, a2); tout << "\n";);
     for (unsigned i = 0; i < m.size(a1); i++) {
-        SASSERT(static_cast<unsigned>(m.get(a1, i)) == i);
+        ENSURE(static_cast<unsigned>(m.get(a1, i)) == i);
     }
     for (unsigned i = 0; i < m.size(a2); i++) {
-        SASSERT(static_cast<unsigned>(m.get(a2, i)) == i);
+        ENSURE(static_cast<unsigned>(m.get(a2, i)) == i);
     }
     TRACE("parray", 
           m.display_info(tout, a1); tout << "\n";
@@ -145,7 +145,7 @@ static void tst3() {
  
     for (unsigned i = 0; i < 20; i++) 
         m.push_back(a1, i);
-    SASSERT(m.size(a1) == 20);
+    ENSURE(m.size(a1) == 20);
     m.set(a1, 0, 1, a2);
     for (unsigned i = 1; i < 20; i++) {
         if (i == 6) {
@@ -161,7 +161,7 @@ static void tst3() {
     m.push_back(a4, 30);
     
     for (unsigned i = 0; i < 20; i++) {
-        SASSERT(static_cast<unsigned>(m.get(a2, i)) == i+1);
+        ENSURE(static_cast<unsigned>(m.get(a2, i)) == i+1);
     }
     TRACE("parray", 
           m.display_info(tout, a1); tout << "\n";
@@ -169,7 +169,7 @@ static void tst3() {
           m.display_info(tout, a3); tout << "\n";
           m.display_info(tout, a4); tout << "\n";
           );
-    SASSERT(m.get(a1, 10) == 10);
+    ENSURE(m.get(a1, 10) == 10);
     TRACE("parray", 
           tout << "after rerooting...\n";
           m.display_info(tout, a1); tout << "\n";
@@ -177,19 +177,19 @@ static void tst3() {
           m.display_info(tout, a3); tout << "\n";
           m.display_info(tout, a4); tout << "\n";
           );
-    SASSERT(m.size(a1) == 20);
-    SASSERT(m.size(a2) == 20);
-    SASSERT(m.size(a3) == 19);
-    SASSERT(m.size(a4) == 19);
+    ENSURE(m.size(a1) == 20);
+    ENSURE(m.size(a2) == 20);
+    ENSURE(m.size(a3) == 19);
+    ENSURE(m.size(a4) == 19);
     for (unsigned i = 0; i < 20; i++) {
-        SASSERT(static_cast<unsigned>(m.get(a1, i)) == i);
-        SASSERT(static_cast<unsigned>(m.get(a2, i)) == i+1);
-        SASSERT(i >= 18 || static_cast<unsigned>(m.get(a4, i)) == i+1);
-        SASSERT(i >= 6 ||  static_cast<unsigned>(m.get(a3, i)) == i+1);
-        SASSERT(!(6 <= i && i <= 17) || static_cast<unsigned>(m.get(a3, i)) == i);
+        ENSURE(static_cast<unsigned>(m.get(a1, i)) == i);
+        ENSURE(static_cast<unsigned>(m.get(a2, i)) == i+1);
+        ENSURE(i >= 18 || static_cast<unsigned>(m.get(a4, i)) == i+1);
+        ENSURE(i >= 6 ||  static_cast<unsigned>(m.get(a3, i)) == i+1);
+        ENSURE(!(6 <= i && i <= 17) || static_cast<unsigned>(m.get(a3, i)) == i);
     }
-    SASSERT(m.get(a4, 18) == 30);
-    SASSERT(m.get(a3, 18) == 40);
+    ENSURE(m.get(a4, 18) == 30);
+    ENSURE(m.get(a3, 18) == 40);
     TRACE("parray", 
           tout << "after many gets...\n";
           m.display_info(tout, a1); tout << "\n";

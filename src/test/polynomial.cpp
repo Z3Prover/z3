@@ -17,11 +17,11 @@ Notes:
 
 --*/
 #if !defined(__clang__)
-#include"polynomial.h"
-#include"polynomial_var2value.h"
-#include"polynomial_cache.h"
-#include"linear_eq_solver.h"
-#include"rlimit.h"
+#include "math/polynomial/polynomial.h"
+#include "math/polynomial/polynomial_var2value.h"
+#include "math/polynomial/polynomial_cache.h"
+#include "math/polynomial/linear_eq_solver.h"
+#include "util/rlimit.h"
 
 static void tst1() {
     std::cout << "\n----- Basic testing -------\n";
@@ -39,7 +39,7 @@ static void tst1() {
     p = (x0^3) + x1*x0 + 2;
     std::cout << p << "\n";
     std::cout << "max_var(p): " << max_var(p) << "\n";
-    SASSERT(max_var(p) == 1);
+    ENSURE(max_var(p) == 1);
     std::cout << (2*x2 - x1*x0) << "\n";
     std::cout << (p + (2*x2 - x1*x0)) << "\n";
     std::cout << (p*p + 2*x2) << "\n";
@@ -79,7 +79,7 @@ static void tst_pseudo_div(polynomial_ref const & A, polynomial_ref const & B, p
     std::cout << "l_B^d: " << l_B_d << "\n";
     std::cout << "Q * B + R: " << Q * B + R << "\n";
     std::cout << "l_B_d * A: " << l_B_d * A << "\n";
-    SASSERT(eq((Q * B + R), (l_B_d * A)));
+    ENSURE(eq((Q * B + R), (l_B_d * A)));
 }
 
 static void tst2() {
@@ -329,13 +329,13 @@ static void tst11() {
     polynomial_ref d(m);
     d = exact_div(p, q);
     std::cout << "p: " << p << "\nq: " << q << "\nd: " << d << "\n";
-    SASSERT(eq(q * d, p));
+    ENSURE(eq(q * d, p));
 
     q  = ((x1^3) + x1 + 1)*((x2^2) + x2 + x2 + 1)*((x3^2) + 2);
     p  = (x1 + (x3^2) + x3 + x2 + (x2^2) + 1)*((x1^3) + x1 + 1)*((x2^2) + x2 + x2 + 1)*((x3^2) + 2);
     d = exact_div(p, q);
     std::cout << "p: " << p << "\nq: " << q << "\nd: " << d << "\n";
-    SASSERT(eq(q * d, p));
+    ENSURE(eq(q * d, p));
 }
 
 static void tst_discriminant(polynomial_ref const & p, polynomial::var x, polynomial_ref const & expected) {
@@ -344,7 +344,7 @@ static void tst_discriminant(polynomial_ref const & p, polynomial::var x, polyno
     r = discriminant(p, x);
     std::cout << "r: " << r << "\n";
     std::cout << "expected: " << expected << "\n";
-    SASSERT(eq(r, expected));
+    ENSURE(eq(r, expected));
     m.lex_sort(r);
     std::cout << "r (sorted): " << r << "\n";
 }
@@ -463,7 +463,7 @@ static void tst_resultant(polynomial_ref const & p, polynomial_ref const & q, po
     std::cout << "expected: " << expected << "\n";
     if (degree(p, x) > 0 && degree(q, x) > 0)
         std::cout << "quasi-resultant: " << quasi_resultant(p, q, x) << "\n";
-    SASSERT(eq(r, expected));
+    ENSURE(eq(r, expected));
     m.lex_sort(r);
     std::cout << "r (sorted): " << r << "\n";
 }
@@ -570,8 +570,8 @@ static void tst_compose() {
     p = (x0^3) - x0 + 3;
     std::cout << "p: " << p << "\np(x - y): " << compose_x_minus_y(p, 1)
               << "\np(x + y): " << compose_x_plus_y(p, 1) << "\np(x - x): " << compose_x_minus_y(p, 0) << "\np(x + x): " << compose_x_plus_y(p, 0) << "\n";
-    SASSERT(eq(compose_x_minus_y(p, 1), (x0^3) - 3*(x0^2)*x1 + 3*x0*(x1^2) - (x1^3) - x0 + x1 + 3));
-    SASSERT(eq(compose_x_plus_y(p, 1), (x0^3) + 3*(x0^2)*x1 + 3*x0*(x1^2) + (x1^3) - x0 - x1 + 3));
+    ENSURE(eq(compose_x_minus_y(p, 1), (x0^3) - 3*(x0^2)*x1 + 3*x0*(x1^2) - (x1^3) - x0 + x1 + 3));
+    ENSURE(eq(compose_x_plus_y(p, 1), (x0^3) + 3*(x0^2)*x1 + 3*x0*(x1^2) + (x1^3) - x0 - x1 + 3));
 }
 
 void tst_prem() {
@@ -604,11 +604,11 @@ void tst_sqrt() {
     p = (4*x*y + 3*(x^2)*y + (y^2) + 3)^4;
     polynomial_ref q(m);
     VERIFY(sqrt(p, q));
-    SASSERT(eq(p, q*q));
+    ENSURE(eq(p, q*q));
     std::cout << "p: " << p << "\n";
     std::cout << "q: " << q << "\n";
     p = p - 1;
-    SASSERT(!sqrt(p, q));
+    ENSURE(!sqrt(p, q));
 }
 
 static void tst_content(polynomial_ref const & p, polynomial::var x, polynomial_ref const & expected) {
@@ -616,7 +616,7 @@ static void tst_content(polynomial_ref const & p, polynomial::var x, polynomial_
     std::cout << "p: " << p << std::endl;
     std::cout << "content(p): " << content(p, x) << std::endl;
     std::cout << "expected: " << expected << std::endl;
-    SASSERT(eq(content(p, x), expected));
+    ENSURE(eq(content(p, x), expected));
 }
 
 static void tst_primitive(polynomial_ref const & p, polynomial::var x, polynomial_ref const & expected) {
@@ -624,7 +624,7 @@ static void tst_primitive(polynomial_ref const & p, polynomial::var x, polynomia
     std::cout << "p: " << p << std::endl;
     std::cout << "primitive(p): " << primitive(p, x) << std::endl;
     std::cout << "expected: " << expected << std::endl;
-    SASSERT(eq(primitive(p, x), expected));
+    ENSURE(eq(primitive(p, x), expected));
 }
 
 static void tst_gcd(polynomial_ref const & p, polynomial_ref const & q, polynomial_ref const & expected) {
@@ -635,7 +635,7 @@ static void tst_gcd(polynomial_ref const & p, polynomial_ref const & q, polynomi
     r = gcd(p, q);
     std::cout << "gcd(p, q): " << r << std::endl;
     std::cout << "expected: " << expected << std::endl;
-    SASSERT(eq(r, expected));
+    ENSURE(eq(r, expected));
 }
 
 static void tst_gcd() {
@@ -711,15 +711,15 @@ static void tst_psc(polynomial_ref const & p, polynomial_ref const & q, polynomi
         std::cout << "S_" << i << ": " << polynomial_ref(S.get(i), m) << std::endl;
     }
     if (sz > 0) {
-        SASSERT(m.eq(S.get(0), first) || m.eq(S.get(0), neg(first)));
+        ENSURE(m.eq(S.get(0), first) || m.eq(S.get(0), neg(first)));
     }
     if (sz > 1) {
-        SASSERT(m.eq(S.get(1), second) || m.eq(S.get(1), neg(second)));
+        ENSURE(m.eq(S.get(1), second) || m.eq(S.get(1), neg(second)));
     }
     if (sz > 0) {
         polynomial_ref Res(m);
         Res = resultant(p, q, x);
-        SASSERT(m.eq(Res, S.get(0)) || m.eq(S.get(0), neg(Res)));
+        ENSURE(m.eq(Res, S.get(0)) || m.eq(S.get(0), neg(Res)));
     }
 }
 
@@ -843,11 +843,11 @@ static void tst_vars(polynomial_ref const & p, unsigned sz, polynomial::var * xs
         std::cout << r[i] << " ";
     }
     std::cout << std::endl;
-    SASSERT(r.size() == sz);
+    ENSURE(r.size() == sz);
     std::sort(r.begin(), r.end());
     std::sort(xs, xs + sz);
     for (unsigned i = 0; i < r.size(); i++) {
-        SASSERT(r[i] == xs[i]);
+        ENSURE(r[i] == xs[i]);
     }
 }
 
@@ -886,9 +886,9 @@ static void tst_sqf(polynomial_ref const & p, polynomial_ref const & expected) {
     r = square_free(p);
     std::cout << "sqf(p): " << r << std::endl;
     std::cout << "expected: " << expected << std::endl;
-    SASSERT(is_square_free(r));
-    SASSERT(!eq(r, p) || is_square_free(p));
-    SASSERT(eq(expected, r));
+    ENSURE(is_square_free(r));
+    ENSURE(!eq(r, p) || is_square_free(p));
+    ENSURE(eq(expected, r));
 }
 
 static void tst_sqf() {
@@ -931,7 +931,7 @@ static void tst_substitute(polynomial_ref const & p,
     r = p.m().substitute(p, 2, xs, vs.c_ptr());
     std::cout << "r: " << r << std::endl;
     std::cout << "expected: " << expected << std::endl;
-    SASSERT(eq(r, expected));
+    ENSURE(eq(r, expected));
     p.m().lex_sort(r);
     std::cout << "r (sorted): " << r << std::endl;
 }
@@ -972,7 +972,7 @@ static void tst_qsubstitute(polynomial_ref const & p,
     r = p.m().substitute(p, 2, xs, vs.c_ptr());
     std::cout << "r: " << r << std::endl;
     std::cout << "expected (modulo a constant): " << expected << std::endl;
-    SASSERT(eq(r, normalize(expected)));
+    ENSURE(eq(r, normalize(expected)));
     p.m().lex_sort(r);
     std::cout << "r (sorted): " << r << std::endl;
 }
@@ -1024,10 +1024,10 @@ void tst_mfact(polynomial_ref const & p, unsigned num_distinct_factors) {
     for (unsigned i = 0; i < fs.distinct_factors(); i++) {
         std::cout << "*(" << fs[i] << ")^" << fs.get_degree(i) << std::endl;
     }
-    SASSERT(fs.distinct_factors() == num_distinct_factors);
+    ENSURE(fs.distinct_factors() == num_distinct_factors);
     polynomial_ref p2(p.m());
     fs.multiply(p2);
-    SASSERT(eq(p, p2));
+    ENSURE(eq(p, p2));
 }
 
 static void tst_mfact() {
@@ -1247,7 +1247,7 @@ static void tst_translate(polynomial_ref const & p, polynomial::var x0, int v0, 
     polynomial_ref r(p.m());
     p.m().translate(p, 3, xs, vs, r);
     std::cout << "r: " << r << std::endl;
-    SASSERT(eq(expected, r));
+    ENSURE(eq(expected, r));
 }
 
 static void tst_translate() {
@@ -1326,11 +1326,11 @@ static void tst_mm() {
         std::cout << "p1: " << p1 << "\n";
         p2 = convert(pm1, p1, pm2);
         std::cout << "p2: " << p2 << "\n";
-        SASSERT(pm1.get_monomial(p1, 0) == pm2.get_monomial(p2, 0));
+        ENSURE(pm1.get_monomial(p1, 0) == pm2.get_monomial(p2, 0));
 
         polynomial_ref p3(pm3);
         p3 = convert(pm1, p1, pm3);
-        SASSERT(pm1.get_monomial(p1, 0) != pm3.get_monomial(p3, 0));
+        ENSURE(pm1.get_monomial(p1, 0) != pm3.get_monomial(p3, 0));
     }
     dealloc(pm1_ptr);
     // p2 is still ok
@@ -1351,7 +1351,7 @@ static void tst_eval(polynomial_ref const & p, polynomial::var x0, rational v0, 
     std::cout << "r: " << r << "\nexpected: " << expected << "\n";
     scoped_mpq ex(qm);
     qm.set(ex, expected.to_mpq());
-    SASSERT(qm.eq(r, ex));
+    ENSURE(qm.eq(r, ex));
 }
 
 static void tst_eval() {
@@ -1407,18 +1407,18 @@ static void tst_mk_unique() {
     std::cout << "p: " << p << "\n";
     std::cout << "q: " << q << "\n";
     std::cout << "r: " << r << "\n";
-     SASSERT(m.eq(p, q));
-    SASSERT(!m.eq(p, r));
-    SASSERT(p.get() != q.get());
+     ENSURE(m.eq(p, q));
+    ENSURE(!m.eq(p, r));
+    ENSURE(p.get() != q.get());
     q = uniq.mk_unique(q);
     p = uniq.mk_unique(p);
     r = uniq.mk_unique(r);
     std::cout << "after mk_unique\np: " << p << "\n";
     std::cout << "q: " << q << "\n";
     std::cout << "r: " << r << "\n";
-    SASSERT(m.eq(p, q));
-    SASSERT(!m.eq(r, q));
-    SASSERT(p.get() == q.get());
+    ENSURE(m.eq(p, q));
+    ENSURE(!m.eq(r, q));
+    ENSURE(p.get() == q.get());
 }
 
 struct dummy_del_eh : public polynomial::manager::del_eh {
@@ -1442,24 +1442,24 @@ static void tst_del_eh() {
 
     m.add_del_eh(&eh1);
     x1 = 0;
-    SASSERT(eh1.m_counter == 1);
+    ENSURE(eh1.m_counter == 1);
 
     m.add_del_eh(&eh2);
     x1 = m.mk_polynomial(m.mk_var());
     x1 = 0;
-    SASSERT(eh1.m_counter == 2);
-    SASSERT(eh2.m_counter == 1);
+    ENSURE(eh1.m_counter == 2);
+    ENSURE(eh2.m_counter == 1);
     m.remove_del_eh(&eh1);
     x0 = 0;
     x1 = m.mk_polynomial(m.mk_var());
     x1 = 0;
-    SASSERT(eh1.m_counter == 2);
-    SASSERT(eh2.m_counter == 3);
+    ENSURE(eh1.m_counter == 2);
+    ENSURE(eh2.m_counter == 3);
     m.remove_del_eh(&eh2);
     x1 = m.mk_polynomial(m.mk_var());
     x1 = 0;
-    SASSERT(eh1.m_counter == 2);
-    SASSERT(eh2.m_counter == 3);
+    ENSURE(eh1.m_counter == 2);
+    ENSURE(eh2.m_counter == 3);
 }
 
 static void tst_const_coeff() {
@@ -1475,36 +1475,36 @@ static void tst_const_coeff() {
     polynomial_ref p(m);
 
     p = (x0^2)*x1 + 3*x0 + x1;
-    SASSERT(!m.const_coeff(p, 0, 2, c));
-    SASSERT(m.const_coeff(p, 0, 1, c) && c == 3);
-    SASSERT(!m.const_coeff(p, 0, 0, c));
+    ENSURE(!m.const_coeff(p, 0, 2, c));
+    ENSURE(m.const_coeff(p, 0, 1, c) && c == 3);
+    ENSURE(!m.const_coeff(p, 0, 0, c));
 
     p = (x0^2)*x1 + 3*x0 + x1 + 1;
-    SASSERT(!m.const_coeff(p, 0, 2, c));
-    SASSERT(m.const_coeff(p, 0, 1, c) && c == 3);
-    SASSERT(!m.const_coeff(p, 0, 0, c));
+    ENSURE(!m.const_coeff(p, 0, 2, c));
+    ENSURE(m.const_coeff(p, 0, 1, c) && c == 3);
+    ENSURE(!m.const_coeff(p, 0, 0, c));
 
     p = (x0^2)*x1 + 3*x0 + 1;
-    SASSERT(!m.const_coeff(p, 0, 2, c));
-    SASSERT(m.const_coeff(p, 0, 1, c) && c == 3);
-    SASSERT(m.const_coeff(p, 0, 0, c) && c == 1);
+    ENSURE(!m.const_coeff(p, 0, 2, c));
+    ENSURE(m.const_coeff(p, 0, 1, c) && c == 3);
+    ENSURE(m.const_coeff(p, 0, 0, c) && c == 1);
 
     p = x1 + 3*x0 + 1;
-    SASSERT(m.const_coeff(p, 0, 2, c) && c == 0);
-    SASSERT(m.const_coeff(p, 0, 1, c) && c == 3);
-    SASSERT(!m.const_coeff(p, 0, 0, c));
+    ENSURE(m.const_coeff(p, 0, 2, c) && c == 0);
+    ENSURE(m.const_coeff(p, 0, 1, c) && c == 3);
+    ENSURE(!m.const_coeff(p, 0, 0, c));
 
     p = 5*(x0^2) + 3*x0 + 7;
-    SASSERT(m.const_coeff(p, 0, 5, c) && c == 0);
-    SASSERT(m.const_coeff(p, 0, 2, c) && c == 5);
-    SASSERT(m.const_coeff(p, 0, 1, c) && c == 3);
-    SASSERT(m.const_coeff(p, 0, 0, c) && c == 7);
+    ENSURE(m.const_coeff(p, 0, 5, c) && c == 0);
+    ENSURE(m.const_coeff(p, 0, 2, c) && c == 5);
+    ENSURE(m.const_coeff(p, 0, 1, c) && c == 3);
+    ENSURE(m.const_coeff(p, 0, 0, c) && c == 7);
 
     p = 5*(x0^2) + 3*x0;
-    SASSERT(m.const_coeff(p, 0, 0, c) && c == 0);
+    ENSURE(m.const_coeff(p, 0, 0, c) && c == 0);
 
     p = - x0*x1 - x1 + 1;
-    SASSERT(!m.const_coeff(p, 0, 1, c));
+    ENSURE(!m.const_coeff(p, 0, 1, c));
 }
 
 static void tst_gcd2() {
@@ -1669,7 +1669,7 @@ static void tst_newton_interpolation() {
         m.newton_interpolation(0, 2, ins.c_ptr(), outs, r);
     }
     std::cout << "interpolation result: " << r << "\n";
-    SASSERT(m.eq((x^2)*y + 5*x*y + 41*x - 9*y - 21, r));
+    ENSURE(m.eq((x^2)*y + 5*x*y + 41*x - 9*y - 21, r));
 }
 
 static void tst_slow_mod_gcd() {
@@ -1732,9 +1732,9 @@ void tst_linear_solver() {
     solver.add(2, as.c_ptr(), b);
 
     VERIFY(solver.solve(xs.c_ptr()));
-    SASSERT(qm.eq(xs[0], mpq(2)));
-    SASSERT(qm.eq(xs[1], mpq(3)));
-    SASSERT(qm.eq(xs[2], mpq(-1)));
+    ENSURE(qm.eq(xs[0], mpq(2)));
+    ENSURE(qm.eq(xs[1], mpq(3)));
+    ENSURE(qm.eq(xs[2], mpq(-1)));
 }
 
 static void tst_lex(polynomial_ref const & p1, polynomial_ref const & p2, int lex_expected, polynomial::var min, int lex2_expected) {
@@ -1746,11 +1746,11 @@ static void tst_lex(polynomial_ref const & p1, polynomial_ref const & p2, int le
     std::cout << " "; std::cout.flush();
     int r1 = lex_compare(m.get_monomial(p1, 0), m.get_monomial(p2, 0));
     int r2 = lex_compare2(m.get_monomial(p1, 0), m.get_monomial(p2, 0), min);
-    SASSERT(r1 == lex_expected);
-    SASSERT(r2 == lex2_expected);
+    ENSURE(r1 == lex_expected);
+    ENSURE(r2 == lex2_expected);
     std::cout << r1 << " " << r2 << "\n";
-    SASSERT(lex_compare(m.get_monomial(p2, 0), m.get_monomial(p1, 0)) == -r1);
-    SASSERT(lex_compare2(m.get_monomial(p2, 0), m.get_monomial(p1, 0), min) == -r2);
+    ENSURE(lex_compare(m.get_monomial(p2, 0), m.get_monomial(p1, 0)) == -r1);
+    ENSURE(lex_compare2(m.get_monomial(p2, 0), m.get_monomial(p1, 0), min) == -r2);
 }
 
 static void tst_lex() {

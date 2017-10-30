@@ -14,11 +14,11 @@ Abstract:
 #ifndef AIG_EXPORTER_H_
 #define AIG_EXPORTER_H_
 
-#include "aig.h"
-#include "dl_rule_set.h"
+#include "tactic/aig/aig.h"
+#include "muz/base/dl_rule_set.h"
 #include <map>
 #include <sstream>
-#include "rel_context.h"
+#include "muz/rel/rel_context.h"
 
 namespace datalog {
     class aig_exporter {

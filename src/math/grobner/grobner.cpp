@@ -16,9 +16,9 @@ Author:
 Revision History:
 
 --*/
-#include"grobner.h"
-#include"ast_pp.h"
-#include"ref_util.h"
+#include "math/grobner/grobner.h"
+#include "ast/ast_pp.h"
+#include "util/ref_util.h"
 
 // #define PROFILE_GB
 

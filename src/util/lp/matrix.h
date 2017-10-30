@@ -1,14 +1,29 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 #ifdef Z3DEBUG
 #pragma once
 #include "util/lp/numeric_pair.h"
 #include "util/vector.h"
 #include <string>
 #include "util/lp/lp_settings.h"
-namespace lean {
+namespace lp {
 // used for debugging purposes only
 template <typename T, typename X>
 class matrix {

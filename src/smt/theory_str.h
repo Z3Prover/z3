@@ -17,19 +17,21 @@
 #ifndef _THEORY_STR_H_
 #define _THEORY_STR_H_
 
-#include"smt_theory.h"
-#include"theory_str_params.h"
-#include"trail.h"
-#include"th_rewriter.h"
-#include"value_factory.h"
-#include"smt_model_generator.h"
-#include"arith_decl_plugin.h"
+#include "util/trail.h"
+#include "util/union_find.h"
+#include "util/scoped_ptr_vector.h"
+#include "ast/ast_pp.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "ast/seq_decl_plugin.h"
+#include "smt/smt_theory.h"
+#include "smt/params/theory_str_params.h"
+#include "smt/proto_model/value_factory.h"
+#include "smt/smt_model_generator.h"
 #include<set>
 #include<stack>
 #include<vector>
 #include<map>
-#include"seq_decl_plugin.h"
-#include"union_find.h"
 
 namespace smt {
 
@@ -291,6 +293,7 @@ protected:
     bool avoidLoopCut;
     bool loopDetected;
     obj_map<expr, std::stack<T_cut*> > cut_var_map;
+    scoped_ptr_vector<T_cut> m_cut_allocs;
     expr_ref m_theoryStrOverlapAssumption_term;
 
     obj_hashtable<expr> variable_set;

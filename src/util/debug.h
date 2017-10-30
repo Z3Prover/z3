@@ -35,8 +35,8 @@ bool assertions_enabled();
 # define __has_builtin(x) 0
 #endif
 
-#include"error_codes.h"
-#include"warning.h"
+#include "util/error_codes.h"
+#include "util/warning.h"
 
 #ifdef Z3DEBUG
 #define DEBUG_CODE(CODE) { CODE } ((void) 0)
@@ -79,14 +79,10 @@ bool is_debug_enabled(const char * tag);
 
 #define NOT_IMPLEMENTED_YET() { std::cerr << "NOT IMPLEMENTED YET!\n"; UNREACHABLE(); exit(ERR_NOT_IMPLEMENTED_YET); } ((void) 0)
 
-#ifdef Z3DEBUG
 #define VERIFY(_x_) if (!(_x_)) {                               \
         std::cerr << "Failed to verify: " << #_x_ << "\n";      \
         UNREACHABLE();                                          \
     }                                                           
-#else
-#define VERIFY(_x_) (void)(_x_)
-#endif
 
 #define ENSURE(_x_)                                         \
     if (!(_x_)) {                                           \
@@ -94,14 +90,6 @@ bool is_debug_enabled(const char * tag);
         exit(-1);                                           \
     }
 
-#define MAKE_NAME2(LINE) zofty_ ## LINE 
-#define MAKE_NAME(LINE) MAKE_NAME2(LINE)
-#define DBG_UNIQUE_NAME MAKE_NAME(__LINE__)
-#ifdef __GNUC__
-#define COMPILE_TIME_ASSERT(expr) extern __attribute__((unused)) char DBG_UNIQUE_NAME[expr]
-#else
-#define COMPILE_TIME_ASSERT(expr) extern char DBG_UNIQUE_NAME[expr]
-#endif
 
 void finalize_debug();
 /*

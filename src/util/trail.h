@@ -19,9 +19,10 @@ Revision History:
 #ifndef TRAIL_H_
 #define TRAIL_H_
 
-#include"obj_hashtable.h"
-#include"region.h"
-#include"obj_ref.h"
+#include "util/obj_hashtable.h"
+#include "util/region.h"
+#include "util/obj_ref.h"
+#include "util/vector.h"
 
 template<typename Ctx>
 class trail {
@@ -35,16 +36,16 @@ template<typename Ctx, typename T>
 class value_trail : public trail<Ctx> {
     T & m_value;
     T   m_old_value;
-    
+
 public:
     value_trail(T & value):
         m_value(value),
         m_old_value(value) {
     }
-    
+
     virtual ~value_trail() {
     }
-    
+
     virtual void undo(Ctx & ctx) {
         m_value = m_old_value;
     }
@@ -57,10 +58,10 @@ public:
     reset_flag_trail(bool & value):
         m_value(value) {
     }
-    
+
     virtual ~reset_flag_trail() {
     }
-    
+
     virtual void undo(Ctx & ctx) {
         m_value = false;
     }
@@ -74,7 +75,7 @@ public:
         m_ptr(ptr) {
         SASSERT(m_ptr == 0);
     }
-    
+
     virtual void undo(Ctx & ctx) {
         m_ptr = 0;
     }
@@ -98,8 +99,8 @@ public:
     virtual void undo(Ctx & ctx) {
         m_vector.shrink(m_old_size);
     }
-};    
-        
+};
+
 template<typename Ctx, typename T, bool CallDestructors=true>
 class vector_value_trail : public trail<Ctx> {
     vector<T, CallDestructors> & m_vector;
@@ -111,10 +112,10 @@ public:
         m_idx(idx),
         m_old_value(v[idx]) {
     }
-    
+
     virtual ~vector_value_trail() {
     }
-    
+
     virtual void undo(Ctx & ctx) {
         m_vector[m_idx] = m_old_value;
     }
@@ -150,7 +151,7 @@ public:
     push_back_vector(V & v):
         m_vector(v) {
     }
-    
+
     virtual void undo(Ctx & ctx) {
         m_vector.pop_back();
     }
@@ -165,15 +166,15 @@ public:
         m_vector(v),
         m_idx(idx) {
     }
-    
+
     virtual ~set_vector_idx_trail() {
     }
-    
+
     virtual void undo(Ctx & ctx) {
         m_vector[m_idx] = 0;
     }
 };
-    
+
 template<typename Ctx, typename T, bool CallDestructors=true>
 class pop_back_trail : public trail<Ctx> {
     vector<T, CallDestructors> & m_vector;
@@ -183,7 +184,7 @@ public:
     m_vector(v),
     m_value(m_vector.back()) {
     }
-    
+
     virtual void undo(Ctx & ctx) {
         m_vector.push_back(m_value);
     }
@@ -201,7 +202,7 @@ public:
     m_index(index),
     m_value(m_vector[index].back()) {
     }
-    
+
     virtual void undo(Ctx & ctx) {
         m_vector[m_index].push_back(m_value);
     }
@@ -216,7 +217,7 @@ public:
     push_back_trail(vector<T, CallDestructors> & v):
         m_vector(v) {
     }
-    
+
     virtual void undo(Ctx & ctx) {
         m_vector.pop_back();
     }
@@ -228,11 +229,11 @@ class push_back2_trail : public trail<Ctx> {
     vector_t & m_vector;
     unsigned   m_index;
 public:
-    push_back2_trail(vector_t & v, unsigned index) : 
+    push_back2_trail(vector_t & v, unsigned index) :
     m_vector(v),
     m_index(index) {
     }
-    
+
     virtual void undo(Ctx & ctx) {
         m_vector[m_index].pop_back();
     }
@@ -249,12 +250,12 @@ public:
         SASSERT(m_vector[m_idx] == false);
         m_vector[m_idx] = true;
     }
-    
+
     virtual void undo(Ctx & ctx) {
         m_vector[m_idx] = false;
     }
 };
-    
+
 template<typename Ctx, typename T>
 class new_obj_trail : public trail<Ctx> {
     T * m_obj;
@@ -262,7 +263,7 @@ public:
     new_obj_trail(T * obj):
         m_obj(obj) {
     }
-    
+
     virtual void undo(Ctx & ctx) {
         dealloc(m_obj);
     }
@@ -275,7 +276,7 @@ public:
     obj_ref_trail(obj_ref<T,M>& obj):
         m_obj(obj) {
     }
-    
+
     virtual void undo(Ctx & ctx) {
         m_obj.reset();
     }
@@ -300,7 +301,7 @@ class remove_obj_trail : public trail<Ctx> {
 public:
     remove_obj_trail(obj_hashtable<T>& t, T* o) : m_table(t), m_obj(o) {}
     virtual ~remove_obj_trail() {}
-    virtual void undo(Ctx & ctx) { m_table.insert(m_obj); } 
+    virtual void undo(Ctx & ctx) { m_table.insert(m_obj); }
 };
 
 
@@ -326,13 +327,13 @@ public:
     trail_stack(Ctx & c):m_ctx(c) {}
 
     ~trail_stack() {}
-    
+
     region & get_region() { return m_region; }
-    
-    void reset() { 
-        pop_scope(m_scopes.size()); 
+
+    void reset() {
+        pop_scope(m_scopes.size());
         // Undo trail objects stored at lvl 0 (avoid memory leaks if lvl 0 contains new_obj_trail objects).
-        undo_trail_stack(m_ctx, m_trail_stack, 0); 
+        undo_trail_stack(m_ctx, m_trail_stack, 0);
     }
 
     void push_ptr(trail<Ctx> * t) { m_trail_stack.push_back(t); }
@@ -357,4 +358,3 @@ public:
 };
 
 #endif /* TRAIL_H_ */
-

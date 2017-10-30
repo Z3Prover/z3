@@ -1,11 +1,26 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 #pragma once
 #include "util/lp/lp_settings.h"
 #include "util/lp/lar_constraints.h"
-namespace lean {
+namespace lp {
 struct bound_signature {
     unsigned m_i;
     bool m_at_low;

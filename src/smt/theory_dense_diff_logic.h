@@ -21,11 +21,11 @@ TODO: eager equality propagation
 #ifndef THEORY_DENSE_DIFF_LOGIC_H_
 #define THEORY_DENSE_DIFF_LOGIC_H_
 
-#include"theory_arith.h"
-#include"theory_arith_params.h"
-#include"arith_decl_plugin.h"
-#include"arith_eq_adapter.h"
-#include"theory_opt.h"
+#include "smt/theory_arith.h"
+#include "smt/params/theory_arith_params.h"
+#include "ast/arith_decl_plugin.h"
+#include "smt/arith_eq_adapter.h"
+#include "smt/theory_opt.h"
 
 
 namespace smt {

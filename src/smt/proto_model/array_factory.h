@@ -19,7 +19,7 @@ Revision History:
 #ifndef ARRAY_FACTORY_H_
 #define ARRAY_FACTORY_H_
 
-#include"struct_factory.h"
+#include "smt/proto_model/struct_factory.h"
 
 class func_interp;
 

@@ -1,7 +1,22 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 #include <memory>
 #include <set>
 #include <utility>
@@ -13,18 +28,18 @@
 #include "util/lp/lp_primal_core_solver.h"
 #include "util/lp/scaler.h"
 #include "util/lp/lar_solver.h"
-namespace lean {
+namespace lp {
 template void static_matrix<double, double>::add_columns_at_the_end(unsigned int);
 template void static_matrix<double, double>::clear();
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
 template bool static_matrix<double, double>::is_correct() const;
 #endif
 template void static_matrix<double, double>::copy_column_to_indexed_vector(unsigned int, indexed_vector<double>&) const;
 
 template double static_matrix<double, double>::get_balance() const;
 template std::set<std::pair<unsigned, unsigned>> static_matrix<double, double>::get_domain();
-template std::set<std::pair<unsigned, unsigned>> lean::static_matrix<lean::mpq, lean::mpq>::get_domain();
-template std::set<std::pair<unsigned, unsigned>> lean::static_matrix<lean::mpq, lean::numeric_pair<lean::mpq> >::get_domain();
+template std::set<std::pair<unsigned, unsigned>> lp::static_matrix<lp::mpq, lp::mpq>::get_domain();
+template std::set<std::pair<unsigned, unsigned>> lp::static_matrix<lp::mpq, lp::numeric_pair<lp::mpq> >::get_domain();
 template double static_matrix<double, double>::get_elem(unsigned int, unsigned int) const;
 template double static_matrix<double, double>::get_max_abs_in_column(unsigned int) const;
 template double static_matrix<double, double>::get_min_abs_in_column(unsigned int) const;
@@ -51,7 +66,7 @@ template static_matrix<mpq, mpq>::ref& static_matrix<mpq, mpq>::ref::operator=(m
 template void static_matrix<mpq, mpq>::set(unsigned int, unsigned int, mpq const&);
 
 template static_matrix<mpq, mpq>::static_matrix(unsigned int, unsigned int);
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
 template bool static_matrix<mpq, numeric_pair<mpq> >::is_correct() const;
 #endif
 template void static_matrix<mpq, numeric_pair<mpq> >::copy_column_to_indexed_vector(unsigned int, indexed_vector<mpq>&) const;
@@ -60,10 +75,10 @@ template void static_matrix<mpq, numeric_pair<mpq> >::init_empty_matrix(unsigned
 template void static_matrix<mpq, numeric_pair<mpq> >::set(unsigned int, unsigned int, mpq const&);
 
 
-template bool lean::static_matrix<double, double>::pivot_row_to_row_given_cell(unsigned int, column_cell &, unsigned int);
-template bool lean::static_matrix<lean::mpq, lean::mpq>::pivot_row_to_row_given_cell(unsigned int, column_cell& , unsigned int);
-template bool lean::static_matrix<lean::mpq, lean::numeric_pair<lean::mpq> >::pivot_row_to_row_given_cell(unsigned int, column_cell&, unsigned int);
-template void lean::static_matrix<lean::mpq, lean::numeric_pair<lean::mpq> >::remove_element(vector<lean::row_cell<lean::mpq>, true, unsigned int>&, lean::row_cell<lean::mpq>&);
+template bool lp::static_matrix<double, double>::pivot_row_to_row_given_cell(unsigned int, column_cell &, unsigned int);
+template bool lp::static_matrix<lp::mpq, lp::mpq>::pivot_row_to_row_given_cell(unsigned int, column_cell& , unsigned int);
+template bool lp::static_matrix<lp::mpq, lp::numeric_pair<lp::mpq> >::pivot_row_to_row_given_cell(unsigned int, column_cell&, unsigned int);
+template void lp::static_matrix<lp::mpq, lp::numeric_pair<lp::mpq> >::remove_element(vector<lp::row_cell<lp::mpq>, true, unsigned int>&, lp::row_cell<lp::mpq>&);
 
 }
 

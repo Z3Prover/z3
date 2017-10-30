@@ -16,12 +16,13 @@ Author:
 Revision History:
 
 --*/
-#include "smt_context.h"
-#include "ast_util.h"
-#include "datatype_decl_plugin.h"
-#include "model_pp.h"
-#include "max_cliques.h"
-#include "stopwatch.h"
+#include "util/max_cliques.h"
+#include "util/stopwatch.h"
+#include "ast/ast_util.h"
+#include "ast/ast_pp.h"
+#include "ast/datatype_decl_plugin.h"
+#include "model/model_pp.h"
+#include "smt/smt_context.h"
 
 namespace smt {
 

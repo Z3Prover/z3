@@ -5,13 +5,13 @@ Copyright (c) 2015 Microsoft Corporation
 --*/
 
 #ifdef _WINDOWS
-#include "dl_context.h"
-#include "dl_register_engine.h"
-#include "dl_relation_manager.h"
-#include "dl_interval_relation.h"
-#include "dl_bound_relation.h"
-#include "dl_product_relation.h"
-#include "util.h"
+#include "muz/base/dl_context.h"
+#include "muz/fp/dl_register_engine.h"
+#include "muz/rel/dl_relation_manager.h"
+#include "muz/rel/dl_interval_relation.h"
+#include "muz/rel/dl_bound_relation.h"
+#include "muz/rel/dl_product_relation.h"
+#include "util/util.h"
 
 namespace datalog {
 
@@ -24,7 +24,7 @@ namespace datalog {
         relation_manager & m = ctx.get_rel_context()->get_rmanager();
         m.register_plugin(alloc(interval_relation_plugin, m));
         interval_relation_plugin& ip = dynamic_cast<interval_relation_plugin&>(*m.get_relation_plugin(symbol("interval_relation")));
-        SASSERT(&ip);
+        ENSURE(&ip);
         
         relation_signature sig;
         sort* int_sort = autil.mk_int();
@@ -38,8 +38,8 @@ namespace datalog {
 
         i1.display(std::cout);
         i2.display(std::cout);
-        SASSERT(i1.empty());
-        SASSERT(!i2.empty());
+        ENSURE(i1.empty());
+        ENSURE(!i2.empty());
 
         app_ref cond1(ast_m), cond2(ast_m), cond3(ast_m);
         app_ref cond4(ast_m), cond5(ast_m), cond6(ast_m);
@@ -84,11 +84,11 @@ namespace datalog {
         fact1.push_back(autil.mk_numeral(rational(4), true));
         fact1.push_back(autil.mk_numeral(rational(4), true));
         fact1.push_back(autil.mk_numeral(rational(5), true));
-        SASSERT(i2.contains_fact(fact1));
+        ENSURE(i2.contains_fact(fact1));
         fact1[0] = autil.mk_numeral(rational(-1), true);
-        SASSERT(i2.contains_fact(fact1));
+        ENSURE(i2.contains_fact(fact1));
         fact1[0] = autil.mk_numeral(rational(1), true);
-        SASSERT(!i2.contains_fact(fact1));
+        ENSURE(!i2.contains_fact(fact1));
 
         relation_base* i5 = (*ren1)(i2);
         i2.display(std::cout << "Orig\n");
@@ -97,7 +97,7 @@ namespace datalog {
         (*filterCond1)(i2);
         i2.display(std::cout);
         // empty
-        SASSERT(i2.empty());
+        ENSURE(i2.empty());
 
         relation_base* i4 = (*proj2)(*i3);
         i4->display(std::cout);      
@@ -128,7 +128,7 @@ namespace datalog {
         relation_manager & m = ctx.get_rel_context()->get_rmanager();
         m.register_plugin(alloc(bound_relation_plugin, m));
         bound_relation_plugin& br = dynamic_cast<bound_relation_plugin&>(*m.get_relation_plugin(symbol("bound_relation")));
-        SASSERT(&br);
+        ENSURE(&br);
         
         relation_signature sig;
         sort* int_sort = autil.mk_int();
@@ -142,8 +142,8 @@ namespace datalog {
 
         i1.display(std::cout << "empty:\n");
         i2.display(std::cout << "full:\n");
-        SASSERT(i1.empty());
-        SASSERT(!i2.empty());
+        ENSURE(i1.empty());
+        ENSURE(!i2.empty());
 
         app_ref cond1(ast_m), cond2(ast_m), cond3(ast_m);
         app_ref cond4(ast_m), cond5(ast_m), cond6(ast_m);
@@ -201,7 +201,7 @@ namespace datalog {
         relation_base* i5 = (*ren1)(i2);
         i5->display(std::cout);
 
-        //SASSERT(i2.empty());
+        //ENSURE(i2.empty());
 
         relation_base* i4 = (*proj2)(*i3);
         i4->display(std::cout);      

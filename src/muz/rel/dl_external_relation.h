@@ -19,7 +19,7 @@ Revision History:
 #ifndef DL_EXTERNAL_RELATION_H_
 #define DL_EXTERNAL_RELATION_H_
 
-#include "dl_base.h"
+#include "muz/rel/dl_base.h"
 
 namespace datalog {
 

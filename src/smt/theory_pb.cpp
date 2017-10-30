@@ -19,15 +19,15 @@ Notes:
 --*/
 
 #include <typeinfo>
-#include "theory_pb.h"
-#include "smt_context.h"
-#include "ast_pp.h"
-#include "sorting_network.h"
-#include "uint_set.h"
-#include "smt_model_generator.h"
-#include "pb_rewriter_def.h"
-#include "sparse_matrix_def.h"
-#include "simplex_def.h"
+#include "smt/theory_pb.h"
+#include "smt/smt_context.h"
+#include "ast/ast_pp.h"
+#include "util/sorting_network.h"
+#include "util/uint_set.h"
+#include "smt/smt_model_generator.h"
+#include "ast/rewriter/pb_rewriter_def.h"
+#include "math/simplex/sparse_matrix_def.h"
+#include "math/simplex/simplex_def.h"
 
 
 namespace smt {
@@ -806,8 +806,9 @@ namespace smt {
         if (c != 0) {
             if (m_enable_simplex) {
                 row_info const& info = m_ineq_row_info.find(v);
+                unsynch_mpq_manager mgr;
                 scoped_eps_numeral coeff(m_mpq_inf_mgr);
-                coeff = std::make_pair(info.m_bound.to_mpq(), mpq(0));
+                coeff = std::make_pair(mgr.dup(info.m_bound.to_mpq()), mpq(0));
                 unsigned slack = info.m_slack;
                 if (is_true) {
                     update_bound(slack, literal(v), true, coeff);

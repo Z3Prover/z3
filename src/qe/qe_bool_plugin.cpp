@@ -24,10 +24,10 @@ Notes:
 
 --*/
 
-#include "qe.h"
-#include "expr_safe_replace.h"
-#include "ast_pp.h"
-#include "model_evaluator.h"
+#include "qe/qe.h"
+#include "ast/rewriter/expr_safe_replace.h"
+#include "ast/ast_pp.h"
+#include "model/model_evaluator.h"
 
 
 namespace qe {

@@ -19,12 +19,11 @@ Revision History:
 #ifndef THEORY_ARITH_INT_H_
 #define THEORY_ARITH_INT_H_
 
-#include"ast_ll_pp.h"
-#include"arith_simplifier_plugin.h"
-#include"well_sorted.h"
-#include"euclidean_solver.h"
-#include"numeral_buffer.h"
-#include"ast_smt2_pp.h"
+#include "util/numeral_buffer.h"
+#include "ast/ast_ll_pp.h"
+#include "ast/well_sorted.h"
+#include "ast/ast_smt2_pp.h"
+#include "math/euclid/euclidean_solver.h"
 
 namespace smt {
 
@@ -239,7 +238,7 @@ namespace smt {
         for (; it != end; ++it) {
             theory_var b = it->get_base_var();
             if (b == null_theory_var) {
-                TRACE("theory_arith_int", display_row(tout << "null: ", *it, true); );
+                TRACE("arith_int", display_row(tout << "null: ", *it, true); );
                 continue;
             }
             bool is_tight = false;
@@ -257,7 +256,7 @@ namespace smt {
                 const_coeff = u->get_value().get_rational();
             }
             if (!is_tight) {
-                TRACE("theory_arith_int", 
+                TRACE("arith_int", 
                       display_row(tout << "!tight: ", *it, true); 
                       display_var(tout, b);
                       );
@@ -455,9 +454,8 @@ namespace smt {
         pol = m_util.mk_add(_args.size(), _args.c_ptr());
         result = m_util.mk_ge(pol, m_util.mk_numeral(k, all_int));
         TRACE("arith_mk_polynomial", tout << "before simplification:\n" << result << "\n";);
-        simplifier & s = get_context().get_simplifier();
         proof_ref pr(m);
-        s(result, result, pr);
+        get_context().get_rewriter()(result, result, pr);
         TRACE("arith_mk_polynomial", tout << "after simplification:\n" << result << "\n";);
         SASSERT(is_well_sorted(get_manager(), result));
     }

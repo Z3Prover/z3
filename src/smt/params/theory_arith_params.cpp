@@ -16,8 +16,9 @@ Author:
 Revision History:
 
 --*/
-#include"theory_arith_params.h"
-#include"smt_params_helper.hpp"
+#include "smt/params/theory_arith_params.h"
+#include "smt/params/smt_params_helper.hpp"
+#include "ast/rewriter/arith_rewriter_params.hpp"
 
 void theory_arith_params::updt_params(params_ref const & _p) {
     smt_params_helper p(_p);
@@ -36,12 +37,16 @@ void theory_arith_params::updt_params(params_ref const & _p) {
     m_arith_bound_prop = static_cast<bound_prop_mode>(p.arith_propagation_mode());
     m_arith_dump_lemmas = p.arith_dump_lemmas();
     m_arith_reflect = p.arith_reflect();
+    arith_rewriter_params ap(_p);
+    m_arith_eq2ineq = ap.eq2ineq();
 }
 
 
 #define DISPLAY_PARAM(X) out << #X"=" << X << std::endl;
 
 void theory_arith_params::display(std::ostream & out) const {
+    DISPLAY_PARAM(m_arith_eq2ineq);
+    DISPLAY_PARAM(m_arith_process_all_eqs);
     DISPLAY_PARAM(m_arith_mode);
     DISPLAY_PARAM(m_arith_auto_config_simplex); //!< force simplex solver in auto_config
     DISPLAY_PARAM(m_arith_blands_rule_threshold);

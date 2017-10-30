@@ -18,9 +18,9 @@ Notes:
 
 --*/
 
-#include"factor_rewriter.h"
-#include"ast_pp.h"
-#include"rewriter_def.h"
+#include "ast/rewriter/factor_rewriter.h"
+#include "ast/ast_pp.h"
+#include "ast/rewriter/rewriter_def.h"
 
 factor_rewriter::factor_rewriter(ast_manager & m): m_manager(m), m_arith(m), m_factors(m) {
 }

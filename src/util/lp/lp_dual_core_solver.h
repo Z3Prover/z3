@@ -1,7 +1,22 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 #pragma once
 #include "util/lp/static_matrix.h"
 #include "util/lp/lp_core_solver_base.h"
@@ -11,7 +26,7 @@
 #include <algorithm>
 #include "util/vector.h"
 
-namespace lean {
+namespace lp {
 template <typename T, typename X>
 class lp_dual_core_solver:public lp_core_solver_base<T, X> {
 public:

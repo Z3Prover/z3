@@ -17,11 +17,11 @@ Revision History:
 
 --*/
 #ifdef _WINDOWS
-#include"rational.h"
-#include"diff_logic.h"
-#include"smt_literal.h"
-#include"util.h"
-#include"debug.h"
+#include "util/rational.h"
+#include "smt/diff_logic.h"
+#include "smt/smt_literal.h"
+#include "util/util.h"
+#include "util/debug.h"
 
 struct diff_logic_ext {
     typedef rational numeral;
@@ -33,7 +33,7 @@ template class dl_graph<diff_logic_ext>;
 typedef dl_graph<diff_logic_ext> dlg;
 
 struct tst_dl_functor {
-	smt::literal_vector m_literals;
+    smt::literal_vector m_literals;
     void operator()(smt::literal l) {
         m_literals.push_back(l);
     }
@@ -70,20 +70,20 @@ static void tst2() {
     g.init_var(3);
     g.init_var(4);
     smt::literal d;
-    SASSERT(g.enable_edge(g.add_edge(1, 2, rational(-1), l1)));
-    SASSERT(g.get_edge_weight(1, 2, w, d) && w == rational(-1));
-    SASSERT(!g.get_edge_weight(2, 3, w, d));
-    SASSERT(g.enable_edge(g.add_edge(2, 3, rational(-2), l2)));
-    SASSERT(g.enable_edge(g.add_edge(1, 4, rational(1), l3)));
-    SASSERT(g.get_edge_weight(1, 2, w, d) && w == rational(-1));
-    SASSERT(g.get_edge_weight(1, 4, w, d) && w == rational(1));
-    SASSERT(!g.get_edge_weight(1, 3, w, d));
-    SASSERT(g.enable_edge(g.add_edge(2, 4, rational(10), l6)));
-    SASSERT(g.is_feasible());
+    ENSURE(g.enable_edge(g.add_edge(1, 2, rational(-1), l1)));
+    ENSURE(g.get_edge_weight(1, 2, w, d) && w == rational(-1));
+    ENSURE(!g.get_edge_weight(2, 3, w, d));
+    ENSURE(g.enable_edge(g.add_edge(2, 3, rational(-2), l2)));
+    ENSURE(g.enable_edge(g.add_edge(1, 4, rational(1), l3)));
+    ENSURE(g.get_edge_weight(1, 2, w, d) && w == rational(-1));
+    ENSURE(g.get_edge_weight(1, 4, w, d) && w == rational(1));
+    ENSURE(!g.get_edge_weight(1, 3, w, d));
+    ENSURE(g.enable_edge(g.add_edge(2, 4, rational(10), l6)));
+    ENSURE(g.is_feasible());
     g.push();
-    SASSERT(g.enable_edge(g.add_edge(3, 0, rational(2), l4)));
-    SASSERT(!g.enable_edge(g.add_edge(0, 1, rational(-1), l5)));
-    SASSERT(!g.is_feasible());
+    ENSURE(g.enable_edge(g.add_edge(3, 0, rational(2), l4)));
+    ENSURE(!g.enable_edge(g.add_edge(0, 1, rational(-1), l5)));
+    ENSURE(!g.is_feasible());
     TRACE("diff_logic", g.display(tout););
     struct proc {
         svector<bool> found;
@@ -96,22 +96,22 @@ static void tst2() {
     };
     proc p;
     g.traverse_neg_cycle(true, p);
-    SASSERT(p.found[0] == false);
-    SASSERT(p.found[1] == true);
-    SASSERT(p.found[2] == true);
-    SASSERT(p.found[3] == false);
-    SASSERT(p.found[4] == true);
-    SASSERT(p.found[5] == true);
-    SASSERT(p.found[6] == false);
+    ENSURE(p.found[0] == false);
+    ENSURE(p.found[1] == true);
+    ENSURE(p.found[2] == true);
+    ENSURE(p.found[3] == false);
+    ENSURE(p.found[4] == true);
+    ENSURE(p.found[5] == true);
+    ENSURE(p.found[6] == false);
     g.pop(1);
-    SASSERT(g.is_feasible());
+    ENSURE(g.is_feasible());
     TRACE("diff_logic", g.display(tout););
 }
 
 static int add_edge(dlg& g, dl_var src, dl_var dst, int weight, unsigned lit) {
     int id = g.add_edge(src, dst, rational(weight), smt::literal(lit));
     bool ok = g.enable_edge(id);
-    SASSERT(ok);
+    ENSURE(ok);
     return id;
 }
 
@@ -147,7 +147,7 @@ static void tst3() {
 
     for (unsigned i = 0; i < subsumed.size(); ++i) {
         std::cout << "subsumed: " << subsumed[i] << "\n";
-        SASSERT(e38 == subsumed[i]);
+        ENSURE(e38 == subsumed[i]);
 
         tst_dl_functor tst_fn;
 

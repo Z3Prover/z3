@@ -1,9 +1,22 @@
-/*
-  Copyright (c) 2013 Microsoft Corporation. All rights reserved.
-  Released under Apache 2.0 license as described in the file LICENSE.
+/*++
+Copyright (c) 2017 Microsoft Corporation
 
-  Author: Lev Nachmanson
-*/
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 
 #pragma once
 
@@ -23,7 +36,7 @@
 #include "util/lp/lar_constraints.h"
 #include <sstream>
 #include <cstdlib>
-namespace lean {
+namespace lp {
 
     template<typename T>
     T from_string(const std::string& str) {
@@ -108,13 +121,13 @@ namespace lean {
 
         void fill_simple_elem(lisp_elem & lm) {
             int separator = first_separator();
-            lean_assert(-1 != separator && separator != 0);
+            SASSERT(-1 != separator && separator != 0);
             lm.m_head = m_line.substr(0, separator);
             m_line = m_line.substr(separator);
         }
 
         void fill_nested_elem(lisp_elem & lm) {
-            lean_assert(m_line[0] == '(');
+            SASSERT(m_line[0] == '(');
             m_line = m_line.substr(1);
             int separator = first_separator();
             lm.m_head = m_line.substr(0, separator);
@@ -181,11 +194,11 @@ namespace lean {
         }
 
         void adjust_rigth_side(formula_constraint & /* c*/, lisp_elem & /*el*/) {
-            // lean_assert(el.m_head == "0"); // do nothing for the time being
+            // SASSERT(el.m_head == "0"); // do nothing for the time being
         }
 
         void set_constraint_coeffs(formula_constraint & c, lisp_elem & el) {
-            lean_assert(el.m_elems.size() == 2);
+            SASSERT(el.m_elems.size() == 2);
             set_constraint_coeffs_on_coeff_element(c, el.m_elems[0]);
             adjust_rigth_side(c, el.m_elems[1]);
         }
@@ -201,7 +214,7 @@ namespace lean {
                 add_mult_elem(c, el.m_elems);
             } else if (el.m_head == "~") {
                 lisp_elem & minel = el.m_elems[0];
-                lean_assert(minel.is_simple());
+                SASSERT(minel.is_simple());
                 c.m_right_side += mpq(str_to_int(minel.m_head));
             } else {
                 std::cout << "unexpected input " << el.m_head << std::endl;
@@ -211,14 +224,14 @@ namespace lean {
         }
 
         std::string get_name(lisp_elem & name) {
-            lean_assert(name.is_simple());
-            lean_assert(!is_integer(name.m_head));
+            SASSERT(name.is_simple());
+            SASSERT(!is_integer(name.m_head));
             return name.m_head;
         }
 
 
         void add_mult_elem(formula_constraint & c, std::vector<lisp_elem> & els) {
-            lean_assert(els.size() == 2);
+            SASSERT(els.size() == 2);
             mpq coeff = get_coeff(els[0]);
             std::string col_name = get_name(els[1]);
             c.add_pair(coeff, col_name);
@@ -228,16 +241,16 @@ namespace lean {
             if (le.is_simple()) {
                 return mpq(str_to_int(le.m_head));
             } else {
-                lean_assert(le.m_head == "~");
-                lean_assert(le.size() == 1);
+                SASSERT(le.m_head == "~");
+                SASSERT(le.size() == 1);
                 lisp_elem & el = le.m_elems[0];
-                lean_assert(el.is_simple());
+                SASSERT(el.is_simple());
                 return -mpq(str_to_int(el.m_head));
             }
         }
 
         int str_to_int(std::string & s) {
-            lean_assert(is_integer(s));
+            SASSERT(is_integer(s));
             return atoi(s.c_str());
         }
 
@@ -245,7 +258,7 @@ namespace lean {
             if (el.size()) {
                 add_complex_sum_elem(c, el);
             } else {
-                lean_assert(is_integer(el.m_head));
+                SASSERT(is_integer(el.m_head));
                 int v = atoi(el.m_head.c_str());
                 mpq vr(v);
                 c.m_right_side -= vr;
@@ -263,7 +276,7 @@ namespace lean {
             } else if (el.m_head == "+") {
                 add_sum(c, el.m_elems);
             } else {
-                lean_assert(false); // unexpected input
+                SASSERT(false); // unexpected input
             }
         }
 

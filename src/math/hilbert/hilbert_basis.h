@@ -28,11 +28,11 @@ Revision History:
 #ifndef HILBERT_BASIS_H_
 #define HILBERT_BASIS_H_
 
-#include "rational.h"
-#include "lbool.h"
-#include "statistics.h"
-#include "checked_int64.h"
-#include "rlimit.h"
+#include "util/rational.h"
+#include "util/lbool.h"
+#include "util/statistics.h"
+#include "util/checked_int64.h"
+#include "util/rlimit.h"
 
 typedef vector<rational> rational_vector;
 

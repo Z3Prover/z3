@@ -16,10 +16,10 @@ Author:
 Revision History:
 
 --*/
-#include "seq_decl_plugin.h"
-#include "arith_decl_plugin.h"
-#include "array_decl_plugin.h"
-#include "ast_pp.h"
+#include "ast/seq_decl_plugin.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/array_decl_plugin.h"
+#include "ast/ast_pp.h"
 #include <sstream>
 
 static bool is_hex_digit(char ch, unsigned& d) {

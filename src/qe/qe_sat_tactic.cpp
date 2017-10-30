@@ -20,16 +20,16 @@ Revision History:
 
 --*/
 
-#include "qe_sat_tactic.h"
-#include "quant_hoist.h"
-#include "ast_pp.h"
-#include "smt_kernel.h"
-#include "qe.h"
-#include "cooperate.h"
-#include "model_v2_pp.h"
-#include "expr_replacer.h"
-#include "th_rewriter.h"
-#include "expr_context_simplifier.h"
+#include "qe/qe_sat_tactic.h"
+#include "ast/rewriter/quant_hoist.h"
+#include "ast/ast_pp.h"
+#include "smt/smt_kernel.h"
+#include "qe/qe.h"
+#include "util/cooperate.h"
+#include "model/model_v2_pp.h"
+#include "ast/rewriter/expr_replacer.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "smt/expr_context_simplifier.h"
 
 // plugin registration.
 // solver specific projection operators.

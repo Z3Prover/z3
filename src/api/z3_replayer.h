@@ -20,8 +20,8 @@ Notes:
 #define Z3_REPLAYER_H_
 
 #include<iostream>
-#include"z3.h"
-#include"z3_exception.h"
+#include "api/z3.h"
+#include "util/z3_exception.h"
 
 class z3_replayer;
 

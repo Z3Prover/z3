@@ -19,8 +19,8 @@ Revision History:
 #ifndef VALUE_FACTORY_H_
 #define VALUE_FACTORY_H_
 
-#include"ast.h"
-#include"obj_hashtable.h"
+#include "ast/ast.h"
+#include "util/obj_hashtable.h"
 
 /**
    \brief Auxiliary object used during model construction.

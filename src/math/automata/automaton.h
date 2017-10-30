@@ -22,9 +22,10 @@ Revision History:
 #define AUTOMATON_H_
 
 
-#include "util.h"
-#include "vector.h"
-#include "uint_set.h"
+#include "util/util.h"
+#include "util/vector.h"
+#include "util/uint_set.h"
+#include "util/trace.h"
 
 template<class T>
 class default_value_manager {
@@ -107,11 +108,10 @@ public:
         m_init = init;
         m_delta.push_back(moves());
         m_delta_inv.push_back(moves());
-        for (unsigned i = 0; i < final.size(); ++i) {
-            add_to_final_states(final[i]);
+        for (unsigned f : final) {
+            add_to_final_states(f);
         }
-        for (unsigned i = 0; i < mvs.size(); ++i) {
-            move const& mv = mvs[i];
+        for (move const& mv : mvs) {
             unsigned n = std::max(mv.src(), mv.dst());
             if (n >= m_delta.size()) {
                 m_delta.resize(n+1, moves());
@@ -280,8 +280,8 @@ public:
         }
         else {
             init = a.num_states();
-            for (unsigned i = 0; i < a.m_final_states.size(); ++i) {
-                mvs.push_back(move(m, init, a.m_final_states[i]));
+            for (unsigned st : a.m_final_states) {
+                mvs.push_back(move(m, init, st));
             }
         }
         return alloc(automaton, m, init, final, mvs);        
@@ -299,6 +299,16 @@ public:
             m_final_set.remove(s);
             m_final_states.erase(s);
         }
+    }
+
+    bool is_sink_state(unsigned s) const {
+        if (is_final_state(s)) return false;
+        moves mvs;
+        get_moves_from(s, mvs);
+        for (move const& m : mvs) {
+            if (s != m.dst()) return false;
+        }
+        return true;
     }
 
     void add_init_to_final_states() {
@@ -374,12 +384,12 @@ public:
                     else if (1 == in_degree(dst) && (!is_final_state(dst) || is_final_state(src)) && init() != dst) {
                         moves const& mvs = m_delta[dst];
                         moves mvs1;
-                        for (unsigned k = 0; k < mvs.size(); ++k) {
-                            mvs1.push_back(move(m, src, mvs[k].dst(), mvs[k].t()));
+                        for (move const& mv : mvs) {
+                            mvs1.push_back(move(m, src, mv.dst(), mv.t()));
                         }
-                        for (unsigned k = 0; k < mvs1.size(); ++k) {
-                            remove(dst, mvs1[k].dst(), mvs1[k].t());
-                            add(mvs1[k]);
+                        for (move const& mv : mvs1) {
+                            remove(dst, mv.dst(), mv.t());
+                            add(mv);
                         }
                     }
                     //
@@ -392,13 +402,13 @@ public:
                         unsigned_vector src0s;
                         moves const& mvs = m_delta_inv[dst];
                         moves mvs1;
-                        for (unsigned k = 0; k < mvs.size(); ++k) {
-                            SASSERT(mvs[k].is_epsilon());
-                            mvs1.push_back(move(m, mvs[k].src(), dst1, t));
+                        for (move const& mv1 : mvs) {
+                            SASSERT(mv1.is_epsilon());
+                            mvs1.push_back(move(m, mv1.src(), dst1, t));
                         }
-                        for (unsigned k = 0; k < mvs1.size(); ++k) {
-                            remove(mvs1[k].src(), dst, 0);
-                            add(mvs1[k]);
+                        for (move const& mv1 : mvs1) {
+                            remove(mv1.src(), dst, 0);
+                            add(mv1);
                         }
                         remove(dst, dst1, t);    
                         --j;
@@ -410,12 +420,12 @@ public:
                     else if (1 == out_degree(src) && init() != src && (!is_final_state(src) || is_final_state(dst))) {
                         moves const& mvs = m_delta_inv[src];
                         moves mvs1;
-                        for (unsigned k = 0; k < mvs.size(); ++k) {
-                            mvs1.push_back(move(m, mvs[k].src(), dst, mvs[k].t()));
+                        for (move const& mv : mvs) {
+                            mvs1.push_back(move(m, mv.src(), dst, mv.t()));
                         }
-                        for (unsigned k = 0; k < mvs1.size(); ++k) {
-                            remove(mvs1[k].src(), src, mvs1[k].t());
-                            add(mvs1[k]);
+                        for (move const& mv : mvs1) {
+                            remove(mv.src(), src, mv.t());
+                            add(mv);
                         }
                     }
                     else {
@@ -438,6 +448,7 @@ public:
                 break;
             }
         }
+        sinkify_dead_states();
     }
 
     bool is_sequence(unsigned& length) const {
@@ -467,22 +478,21 @@ public:
     unsigned out_degree(unsigned state) const { return m_delta[state].size(); }
     move const& get_move_from(unsigned state) const { SASSERT(m_delta[state].size() == 1); return m_delta[state][0]; }
     move const& get_move_to(unsigned state) const { SASSERT(m_delta_inv[state].size() == 1); return m_delta_inv[state][0]; }
-    moves const& get_moves_from(unsigned state) const { return m_delta[state]; }	
+    moves const& get_moves_from(unsigned state) const { return m_delta[state]; }
     moves const& get_moves_to(unsigned state) const { return m_delta_inv[state]; }
     bool initial_state_is_source() const { return m_delta_inv[m_init].empty(); }
     bool is_final_state(unsigned s) const { return m_final_set.contains(s); }
-	bool is_final_configuration(uint_set s) const { 
-		for (uint_set::iterator it = s.begin(), end = s.end(); it != end; ++it) {
-			if (is_final_state(*it))
-				return true;
-		}
-		return false; 
-	}
+    bool is_final_configuration(uint_set s) const {
+        for (unsigned i : s) {
+            if (is_final_state(i))
+                return true;
+        }
+        return false; 
+    }
     bool is_epsilon_free() const {
-        for (unsigned i = 0; i < m_delta.size(); ++i) {
-            moves const& mvs = m_delta[i];
-            for (unsigned j = 0; j < mvs.size(); ++j) {
-                if (!mvs[j].t()) return false;
+        for (moves const& mvs : m_delta) {
+            for (move const & m : mvs) {
+                if (!m.t()) return false;
             }
         }
         return true;
@@ -490,8 +500,8 @@ public:
 
     bool all_epsilon_in(unsigned s) {
         moves const& mvs = m_delta_inv[s];
-        for (unsigned j = 0; j < mvs.size(); ++j) {
-            if (mvs[j].t()) return false;
+        for (move const& m : mvs) {
+            if (m.t()) return false;
         }
         return true;
     }
@@ -504,15 +514,15 @@ public:
     bool is_loop_state(unsigned s) const {
         moves mvs;
         get_moves_from(s, mvs);
-        for (unsigned i = 0; i < mvs.size(); ++i) {
-            if (s == mvs[i].dst()) return true;
+        for (move const& m : mvs) {
+            if (s == m.dst()) return true;
         }
         return false;
     }
 
     unsigned move_count() const {
         unsigned result = 0;
-        for (unsigned i = 0; i < m_delta.size(); result += m_delta[i].size(), ++i) {}
+        for (moves const& mvs : m_delta) result += mvs.size();
         return result;
     }
     void get_epsilon_closure(unsigned state, unsigned_vector& states) {
@@ -524,13 +534,13 @@ public:
     void get_moves_from(unsigned state, moves& mvs, bool epsilon_closure = true) const {
         get_moves(state, m_delta, mvs, epsilon_closure);
     }
-	void get_moves_from_states(uint_set states, moves& mvs, bool epsilon_closure = true) const {
-		for (uint_set::iterator it = states.begin(), end = states.end(); it != end; ++it) {
-			moves curr;
-			get_moves(*it, m_delta, curr, epsilon_closure);
-			mvs.append(curr);
-		}
-	}
+    void get_moves_from_states(uint_set states, moves& mvs, bool epsilon_closure = true) const {
+        for (unsigned i : states) {
+            moves curr;
+            get_moves(i, m_delta, curr, epsilon_closure);
+            mvs.append(curr);
+        }
+    }
     void get_moves_to(unsigned state, moves& mvs, bool epsilon_closure = true) {
         get_moves(state, m_delta_inv, mvs, epsilon_closure);
     }
@@ -543,8 +553,7 @@ public:
         out << "\n";
         for (unsigned i = 0; i < m_delta.size(); ++i) {
             moves const& mvs = m_delta[i];
-            for (unsigned j = 0; j < mvs.size(); ++j) {
-                move const& mv = mvs[j];
+            for (move const& mv : mvs) {
                 out << i << " -> " << mv.dst() << " ";
                 if (mv.t()) {
                     out << "if "; 
@@ -556,6 +565,40 @@ public:
         return out;
     }
 private:
+
+    void sinkify_dead_states() {
+        uint_set dead_states;
+        for (unsigned i = 0; i < m_delta.size(); ++i) {
+            if (!m_final_states.contains(i)) {
+                dead_states.insert(i);
+            }
+        }
+        bool change = true;
+        unsigned_vector to_remove;
+        while (change) {
+            change = false;
+            to_remove.reset();
+            for (unsigned s : dead_states) {
+                moves const& mvs = m_delta[s];
+                for (move const& mv : mvs) {
+                    if (!dead_states.contains(mv.dst())) {
+                        to_remove.push_back(s);
+                        break;
+                    }
+                }
+            }
+            change = !to_remove.empty();
+            for (unsigned s : to_remove) {
+                dead_states.remove(s);
+            }
+            to_remove.reset();
+        }
+        TRACE("seq", tout << "remove: " << dead_states << "\n";);
+        for (unsigned s : dead_states) {
+            CTRACE("seq", !m_delta[s].empty(), tout << "live state " << s << "\n";); 
+            m_delta[s].reset();
+        }
+    }
 
     void remove_dead_states() {
         unsigned_vector remap;
@@ -662,8 +705,8 @@ private:
     }
 
     static void append_final(unsigned offset, automaton const& a, unsigned_vector& final) {
-        for (unsigned i = 0; i < a.m_final_states.size(); ++i) {
-            final.push_back(a.m_final_states[i]+offset);
+        for (unsigned s : a.m_final_states) {
+            final.push_back(s+offset);
         }
     }
  

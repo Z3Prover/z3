@@ -16,12 +16,12 @@ Author:
 Notes:
 
 --*/
-#include"tactical.h"
-#include"defined_names.h"
-#include"rewriter_def.h"
-#include"filter_model_converter.h"
-#include"cooperate.h"
-#include"scoped_proof.h"
+#include "tactic/tactical.h"
+#include "ast/normal_forms/defined_names.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "tactic/filter_model_converter.h"
+#include "util/cooperate.h"
+#include "ast/scoped_proof.h"
 
 
 

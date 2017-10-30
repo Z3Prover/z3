@@ -4,19 +4,19 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
-#include "doc.h"
-#include "trace.h"
-#include "vector.h"
-#include "ast.h"
-#include "ast_pp.h"
-#include "reg_decl_plugins.h"
-#include "sorting_network.h"
-#include "smt_kernel.h"
-#include "model_smt2_pp.h"
-#include "smt_params.h"
-#include "ast_util.h"
-#include "expr_safe_replace.h"
-#include "th_rewriter.h"
+#include "muz/rel/doc.h"
+#include "util/trace.h"
+#include "util/vector.h"
+#include "ast/ast.h"
+#include "ast/ast_pp.h"
+#include "ast/reg_decl_plugins.h"
+#include "util/sorting_network.h"
+#include "smt/smt_kernel.h"
+#include "model/model_smt2_pp.h"
+#include "smt/params/smt_params.h"
+#include "ast/ast_util.h"
+#include "ast/rewriter/expr_safe_replace.h"
+#include "ast/rewriter/th_rewriter.h"
 
 
 static void tst_doc1(unsigned n) {
@@ -36,41 +36,41 @@ static void tst_doc1(unsigned n) {
     m.display(std::cout, *d20) << "\n";
     if (n < 64) {
         unsigned hi = 3, lo = 1;
-        SASSERT(hi <= n);
+        ENSURE(hi <= n);
         doc_ref d111X(m, m.allocate(0xFF, hi, lo));
     }
     m.copy(*d, *d10);
-    SASSERT(m.equals(*d, *d10));
+    ENSURE(m.equals(*d, *d10));
     m.reset(*d);
-    SASSERT(!m.equals(*d, *d10));
+    ENSURE(!m.equals(*d, *d10));
     m.fill0(*d10);
-    SASSERT(m.equals(*d, *d10));
+    ENSURE(m.equals(*d, *d10));
     m.fill1(*d);
     d10 = m.allocate(10);
-    SASSERT(!m.equals(*d, *d10));
-    SASSERT(m.equals(*d, *d1));
+    ENSURE(!m.equals(*d, *d10));
+    ENSURE(m.equals(*d, *d1));
     m.fillX(*d);
-    SASSERT(m.equals(*d, *dX));
-    SASSERT(m.is_full(*dX));
-    SASSERT(!m.is_full(*d1));
+    ENSURE(m.equals(*d, *dX));
+    ENSURE(m.is_full(*dX));
+    ENSURE(!m.is_full(*d1));
 
     VERIFY(m.set_and(*dX,*dX));
-    SASSERT(m.equals(*dXc,*dX));
+    ENSURE(m.equals(*dXc,*dX));
     VERIFY(m.set_and(*dX,*d1));
-    SASSERT(!m.equals(*dXc,*dX));
-    SASSERT(m.equals(*dX,*d1));
+    ENSURE(!m.equals(*dXc,*dX));
+    ENSURE(m.equals(*dX,*d1));
     VERIFY(m.fold_neg(*dX));
     ptr_vector<doc> result;
     //    VERIFY(!m.intersect(*d1,*d0, result));    
     //    m.subtract(*d1,*d0, result);
-    SASSERT(result.empty());
+    ENSURE(result.empty());
     dX = m.allocateX();
     m.display(std::cout, *d0) << "\n";
     m.display(std::cout, *dX) << "\n";
-    SASSERT(m.contains(*dX,*d1));
-    SASSERT(m.contains(*dX,*d0));
-    SASSERT(!m.contains(*d0,*d1));
-    SASSERT(!m.contains(*d1,*d0));
+    ENSURE(m.contains(*dX,*d1));
+    ENSURE(m.contains(*dX,*d0));
+    ENSURE(!m.contains(*d0,*d1));
+    ENSURE(!m.contains(*d1,*d0));
 
 
     d1->neg().push_back(m.tbvm().allocate0());
@@ -88,14 +88,14 @@ static void tst_doc1(unsigned n) {
     doc_ref d1_2(m1, m1.allocate1());
     m.display(std::cout, *d1) << " -> ";
     m1.display(std::cout, *d1_1) << "\n";
-    SASSERT(m1.equals(*d1_1,*d1_2));
+    ENSURE(m1.equals(*d1_1,*d1_2));
     m.set(*d1,2,BIT_x);
     m.set(*d1,4,BIT_x);
     d1_1 = m.project(m1, to_delete, *d1);
     m.display(std::cout, *d1) << " -> ";
     m1.display(std::cout, *d1_1) << "\n";
     d1->neg().push_back(m.tbvm().allocate1());
-    SASSERT(m.well_formed(*d1));
+    ENSURE(m.well_formed(*d1));
     d1_1 = m.project(m1, to_delete, *d1);
     m.display(std::cout, *d1) << " -> ";
     m1.display(std::cout, *d1_1) << "\n";    
@@ -146,11 +146,11 @@ class test_doc_cls {
         tbv_ref t(dm.tbvm());
         t = mk_rand_tbv();
         doc* result = dm.allocate(*t);
-        SASSERT(dm.tbvm().equals(*t, result->pos()));
+        ENSURE(dm.tbvm().equals(*t, result->pos()));
         for (unsigned i = 0; i < num_diff; ++i) {
             result->neg().push_back(mk_rand_tbv(result->pos()));            
         }        
-        SASSERT(dm.well_formed(*result));
+        ENSURE(dm.well_formed(*result));
         return result;
     }
 
@@ -181,7 +181,7 @@ class test_doc_cls {
         expr_ref result(m);
         expr_ref_vector conjs(m);
         unsigned n = m2.num_tbits();
-        SASSERT(n <= m_vars.size());
+        ENSURE(n <= m_vars.size());
         for (unsigned i = 0; i < n; ++i) {
             switch (t[i]) {
             case BIT_x:
@@ -347,7 +347,7 @@ class test_doc_cls {
                   tout << mk_pp(fml2, m) << "\n";
                   );
         }
-        SASSERT(res == l_false);
+        ENSURE(res == l_false);
     }
 
 
@@ -464,7 +464,7 @@ public:
                   d2.display(dm, tout) << "\n";);
             d1.intersect(dm, d2);
             TRACE("doc", d1.display(dm, tout) << "\n";);
-            SASSERT(d1.well_formed(dm));
+            ENSURE(d1.well_formed(dm));
             fml3 = to_formula(d1, dm);
             fml1 = m.mk_and(fml1, fml2);
             check_equiv(fml1, fml3);

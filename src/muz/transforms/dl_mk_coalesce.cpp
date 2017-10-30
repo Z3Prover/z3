@@ -26,8 +26,8 @@ Notes:
 
  
 --*/
-#include "dl_mk_coalesce.h"
-#include "bool_rewriter.h"
+#include "muz/transforms/dl_mk_coalesce.h"
+#include "ast/rewriter/bool_rewriter.h"
 
 namespace datalog {
 

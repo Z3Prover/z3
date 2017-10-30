@@ -19,11 +19,11 @@ Revision History:
 #ifndef THEORY_ARITH_AUX_H_
 #define THEORY_ARITH_AUX_H_
 
-#include"inf_eps_rational.h"
-#include"theory_arith.h"
-#include"smt_farkas_util.h"
-#include"th_rewriter.h"
-#include"filter_model_converter.h"
+#include "util/inf_eps_rational.h"
+#include "smt/theory_arith.h"
+#include "smt/smt_farkas_util.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "tactic/filter_model_converter.h"
 
 namespace smt {
 
@@ -2106,6 +2106,7 @@ namespace smt {
     
     template<typename Ext>
     void theory_arith<Ext>::mutate_assignment() {
+        SASSERT(m_to_patch.empty());
         remove_fixed_vars_from_base();
         int num_vars = get_num_vars();
         m_var_value_table.reset();
@@ -2131,12 +2132,9 @@ namespace smt {
         }
         if (candidates.empty())
             return;
-        typename sbuffer<theory_var>::iterator it  = candidates.begin();
-        typename sbuffer<theory_var>::iterator end = candidates.end();
         m_tmp_var_set.reset();
         m_tmp_var_set2.reset();
-        for (; it != end; ++it) {
-            theory_var v = *it;
+        for (theory_var v : candidates) {
             SASSERT(!is_fixed(v));
             if (is_base(v)) {
                 row & r = m_rows[get_var_row(v)];

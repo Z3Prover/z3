@@ -19,11 +19,11 @@ Revision History:
 #ifndef SMT_ENODE_H_
 #define SMT_ENODE_H_
 
-#include"ast.h"
-#include"smt_types.h"
-#include"smt_eq_justification.h"
-#include"smt_theory_var_list.h"
-#include"approx_set.h"
+#include "ast/ast.h"
+#include "smt/smt_types.h"
+#include "smt/smt_eq_justification.h"
+#include "smt/smt_theory_var_list.h"
+#include "util/approx_set.h"
 
 namespace smt {
     /**
@@ -40,10 +40,10 @@ namespace smt {
 
     /** \ brief Use sparse maps in SMT solver.
 
-	Define this to use hash maps rather than vectors over ast
-	nodes. This is useful in the case there are many solvers, each
-	referencing few nodes from a large ast manager. There is some
-	unknown performance penalty for this. */
+    Define this to use hash maps rather than vectors over ast
+    nodes. This is useful in the case there are many solvers, each
+    referencing few nodes from a large ast manager. There is some
+    unknown performance penalty for this. */
 
     // #define SPARSE_MAP
 

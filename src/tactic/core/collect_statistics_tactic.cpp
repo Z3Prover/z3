@@ -20,17 +20,17 @@ Notes:
 #include<string>
 #include<map>
 
-#include"ast.h"
-#include"params.h"
-#include"arith_decl_plugin.h"
-#include"array_decl_plugin.h"
-#include"bv_decl_plugin.h"
-#include"datatype_decl_plugin.h"
-#include"fpa_decl_plugin.h"
-#include"tactical.h"
-#include"stats.h"
+#include "ast/ast.h"
+#include "util/params.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/array_decl_plugin.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/datatype_decl_plugin.h"
+#include "ast/fpa_decl_plugin.h"
+#include "tactic/tactical.h"
+#include "util/stats.h"
 
-#include"collect_statistics_tactic.h"
+#include "tactic/core/collect_statistics_tactic.h"
 
 class collect_statistics_tactic : public tactic {
     ast_manager &        m;

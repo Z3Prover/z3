@@ -19,17 +19,17 @@ Author:
 Notes:
 
 --*/
-#include"realclosure.h"
-#include"rcf_params.hpp"
-#include"array.h"
-#include"mpbq.h"
-#include"mpz_matrix.h"
-#include"interval_def.h"
-#include"obj_ref.h"
-#include"ref_vector.h"
-#include"ref_buffer.h"
-#include"cooperate.h"
-#include"common_msgs.h"
+#include "math/realclosure/realclosure.h"
+#include "math/realclosure/rcf_params.hpp"
+#include "util/array.h"
+#include "util/mpbq.h"
+#include "math/realclosure/mpz_matrix.h"
+#include "math/interval/interval_def.h"
+#include "util/obj_ref.h"
+#include "util/ref_vector.h"
+#include "util/ref_buffer.h"
+#include "util/cooperate.h"
+#include "util/common_msgs.h"
 
 #ifndef REALCLOSURE_INI_BUFFER_SIZE
 #define REALCLOSURE_INI_BUFFER_SIZE 32

@@ -15,21 +15,22 @@ Author:
 Notes:
 
 --*/
-#include"cmd_context.h"
-#include"version.h"
-#include"ast_smt_pp.h"
-#include"ast_smt2_pp.h"
-#include"ast_pp.h"
-#include"model_smt2_pp.h"
-#include"array_decl_plugin.h"
-#include"pp.h"
-#include"cmd_util.h"
-#include"simplify_cmd.h"
-#include"eval_cmd.h"
-#include"gparams.h"
-#include"env_params.h"
-#include"well_sorted.h"
-#include"pp_params.hpp"
+#include "util/gparams.h"
+#include "util/env_params.h"
+#include "util/version.h"
+#include "ast/ast_smt_pp.h"
+#include "ast/ast_smt2_pp.h"
+#include "ast/ast_pp_dot.h"
+#include "ast/ast_pp.h"
+#include "ast/array_decl_plugin.h"
+#include "ast/pp.h"
+#include "ast/well_sorted.h"
+#include "ast/pp_params.hpp"
+#include "model/model_smt2_pp.h"
+#include "cmd_context/cmd_context.h"
+#include "cmd_context/cmd_util.h"
+#include "cmd_context/simplify_cmd.h"
+#include "cmd_context/eval_cmd.h"
 
 class help_cmd : public cmd {
     svector<symbol> m_cmds;
@@ -79,19 +80,15 @@ public:
             }
             // named_cmd_lt is not a total order for commands, but this is irrelevant for Linux x Windows behavior
             std::sort(cmds.begin(), cmds.end(), named_cmd_lt());
-            vector<named_cmd>::const_iterator it2  = cmds.begin();
-            vector<named_cmd>::const_iterator end2 = cmds.end();
-            for (; it2 != end2; ++it2) {
-                display_cmd(ctx, it2->first, it2->second);
+            for (named_cmd const& nc : cmds) {
+                display_cmd(ctx, nc.first, nc.second);
             }
         }
         else {
-            svector<symbol>::const_iterator it  = m_cmds.begin();
-            svector<symbol>::const_iterator end = m_cmds.end();
-            for (; it != end; ++it) {
-                cmd * c = ctx.find_cmd(*it);
+            for (symbol const& s : m_cmds) {
+                cmd * c = ctx.find_cmd(s);
                 SASSERT(c);
-                display_cmd(ctx, *it, c);
+                display_cmd(ctx, s, c);
             }
         }
         ctx.regular_stream() << "\"\n";
@@ -135,28 +132,29 @@ ATOMIC_CMD(get_assignment_cmd, "get-assignment", "retrieve assignment", {
     model_ref m;
     ctx.get_check_sat_result()->get_model(m);
     ctx.regular_stream() << "(";
-    dictionary<cmd_context::macro> const & macros = ctx.get_macros();
-    dictionary<cmd_context::macro>::iterator it  = macros.begin();
-    dictionary<cmd_context::macro>::iterator end = macros.end();
-    for (bool first = true; it != end; ++it) {
-        symbol const & name = (*it).m_key;
-        cmd_context::macro const & _m    = (*it).m_value;
-        if (_m.first == 0 && ctx.m().is_bool(_m.second)) {
-            expr_ref val(ctx.m());
-            m->eval(_m.second, val, true);
-            if (ctx.m().is_true(val) || ctx.m().is_false(val)) {
-                if (first)
-                    first = false;
-                else
-                    ctx.regular_stream() << " ";
-                ctx.regular_stream() << "(";
-                if (is_smt2_quoted_symbol(name)) {
-                    ctx.regular_stream() << mk_smt2_quoted_symbol(name);
+    dictionary<macro_decls> const & macros = ctx.get_macros();
+    bool first = true;
+    for (auto const& kv : macros) {
+        symbol const & name = kv.m_key;
+        macro_decls const & _m    = kv.m_value;
+        for (auto md : _m) {
+            if (md.m_domain.size() == 0 && ctx.m().is_bool(md.m_body)) {
+                expr_ref val(ctx.m());
+                m->eval(md.m_body, val, true);
+                if (ctx.m().is_true(val) || ctx.m().is_false(val)) {
+                    if (first)
+                        first = false;
+                    else
+                        ctx.regular_stream() << " ";
+                    ctx.regular_stream() << "(";
+                    if (is_smt2_quoted_symbol(name)) {
+                        ctx.regular_stream() << mk_smt2_quoted_symbol(name);
+                    }
+                    else {
+                        ctx.regular_stream() << name;
+                    }
+                    ctx.regular_stream() << " " << (ctx.m().is_true(val) ? "true" : "false") << ")";
                 }
-                else {
-                    ctx.regular_stream() << name;
-                }
-                ctx.regular_stream() << " " << (ctx.m().is_true(val) ? "true" : "false") << ")";
             }
         }
     }
@@ -205,18 +203,37 @@ ATOMIC_CMD(get_proof_cmd, "get-proof", "retrieve proof", {
     }
 });
 
+ATOMIC_CMD(get_proof_graph_cmd, "get-proof-graph", "retrieve proof and print it in graphviz", {
+    if (!ctx.produce_proofs())
+        throw cmd_exception("proof construction is not enabled, use command (set-option :produce-proofs true)");
+    if (!ctx.has_manager() ||
+        ctx.cs_state() != cmd_context::css_unsat)
+        throw cmd_exception("proof is not available");
+    proof_ref pr(ctx.m());
+    pr = ctx.get_check_sat_result()->get_proof();
+    if (pr == 0)
+        throw cmd_exception("proof is not available");
+    if (ctx.well_sorted_check_enabled() && !is_well_sorted(ctx.m(), pr)) {
+        throw cmd_exception("proof is not well sorted");
+    }
+
+    context_params& params = ctx.params();
+    const std::string& file = params.m_dot_proof_file;
+    std::ofstream out(file);
+    out << ast_pp_dot(pr) << std::endl;
+});
+
 static void print_core(cmd_context& ctx) {
     ptr_vector<expr> core;
     ctx.get_check_sat_result()->get_unsat_core(core);
     ctx.regular_stream() << "(";
-    ptr_vector<expr>::const_iterator it  = core.begin();
-    ptr_vector<expr>::const_iterator end = core.end();
-    for (bool first = true; it != end; ++it) {
+    bool first = true;
+    for (expr* e : core) {
     if (first)
         first = false;
     else
         ctx.regular_stream() << " ";
-    ctx.regular_stream() << mk_ismt2_pp(*it, ctx.m());
+    ctx.regular_stream() << mk_ismt2_pp(e, ctx.m());
     }
     ctx.regular_stream() << ")" << std::endl;
 }
@@ -844,6 +861,7 @@ void install_basic_cmds(cmd_context & ctx) {
     ctx.insert(alloc(get_assignment_cmd));
     ctx.insert(alloc(get_assertions_cmd));
     ctx.insert(alloc(get_proof_cmd));
+    ctx.insert(alloc(get_proof_graph_cmd));
     ctx.insert(alloc(get_unsat_core_cmd));
     ctx.insert(alloc(set_option_cmd));
     ctx.insert(alloc(get_option_cmd));

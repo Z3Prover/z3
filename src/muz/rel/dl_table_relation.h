@@ -20,8 +20,8 @@ Revision History:
 #define DL_TABLE_RELATION_H_
 
 
-#include "dl_base.h"
-#include "dl_util.h"
+#include "muz/rel/dl_base.h"
+#include "muz/base/dl_util.h"
 
 namespace datalog {
 

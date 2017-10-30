@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#include"struct_factory.h"
-#include"proto_model.h"
+#include "smt/proto_model/struct_factory.h"
+#include "smt/proto_model/proto_model.h"
 
 struct_factory::value_set * struct_factory::get_value_set(sort * s) {
     value_set * set = 0;

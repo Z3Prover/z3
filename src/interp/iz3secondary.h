@@ -23,7 +23,7 @@
 
 /** Interface class for secondary provers. */
 
-#include "iz3base.h"
+#include "interp/iz3base.h"
 #include <vector>
 
 class iz3secondary : public iz3mgr {

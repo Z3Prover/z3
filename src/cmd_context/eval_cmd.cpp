@@ -16,12 +16,12 @@ Author:
 Notes:
 
 --*/
-#include"cmd_context.h"
-#include"model_evaluator.h"
-#include"parametric_cmd.h"
-#include"scoped_timer.h"
-#include"scoped_ctrl_c.h"
-#include"cancel_eh.h"
+#include "cmd_context/cmd_context.h"
+#include "model/model_evaluator.h"
+#include "cmd_context/parametric_cmd.h"
+#include "util/scoped_timer.h"
+#include "util/scoped_ctrl_c.h"
+#include "util/cancel_eh.h"
 
 class eval_cmd : public parametric_cmd {
     expr *                   m_target;
@@ -58,6 +58,8 @@ public:
     virtual void execute(cmd_context & ctx) {
         if (!ctx.is_model_available())
             throw cmd_exception("model is not available");
+        if (!m_target)
+            throw cmd_exception("no arguments passed to eval");
         model_ref md;
         unsigned index = m_params.get_uint("model_index", 0);
         check_sat_result * last_result = ctx.get_check_sat_result();

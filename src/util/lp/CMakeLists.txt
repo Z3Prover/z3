@@ -3,7 +3,7 @@ z3_add_component(lp
     lp_utils.cpp
     binary_heap_priority_queue_instances.cpp
     binary_heap_upair_queue_instances.cpp
-    bound_propagator.cpp
+    lp_bound_propagator.cpp
     core_solver_pretty_printer_instances.cpp
     dense_matrix_instances.cpp
     eta_matrix_instances.cpp
@@ -19,7 +19,7 @@ z3_add_component(lp
     lu_instances.cpp
     matrix_instances.cpp
     permutation_matrix_instances.cpp
-	quick_xplain.cpp
+    quick_xplain.cpp
     row_eta_matrix_instances.cpp
     scaler_instances.cpp
     sparse_matrix_instances.cpp

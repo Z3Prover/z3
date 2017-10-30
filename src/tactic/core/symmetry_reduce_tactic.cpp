@@ -19,12 +19,12 @@ Notes:
     adaption of the algorithms proposed for veriT.
 
 --*/
-#include"tactical.h"
-#include"for_each_expr.h"
-#include"map.h"
-#include"expr_replacer.h"
-#include"rewriter_def.h"
-#include"ast_pp.h"
+#include "tactic/tactical.h"
+#include "ast/for_each_expr.h"
+#include "util/map.h"
+#include "ast/rewriter/expr_replacer.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "ast/ast_pp.h"
 
 class symmetry_reduce_tactic : public tactic {
     class imp;

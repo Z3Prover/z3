@@ -20,10 +20,10 @@ Revision History:
 #define INF_EPS_RATIONAL_H_
 #include<stdlib.h>
 #include<string>
-#include"debug.h"
-#include"vector.h"
-#include"rational.h"
-#include"inf_rational.h"
+#include "util/debug.h"
+#include "util/vector.h"
+#include "util/rational.h"
+#include "util/inf_rational.h"
 
 template<typename Numeral>
 class inf_eps_rational {
@@ -119,12 +119,12 @@ class inf_eps_rational {
     bool is_rational() const { return m_infty.is_zero() && m_r.is_rational(); }
 
     int64 get_int64() const {
-	SASSERT(is_int64());
+        SASSERT(is_int64());
         return m_r.get_int64();
     }
 
     uint64 get_uint64() const {
-	SASSERT(is_uint64());
+        SASSERT(is_uint64());
         return m_r.get_uint64();
     }
 
@@ -168,45 +168,45 @@ class inf_eps_rational {
     inf_eps_rational & operator=(const inf_eps_rational & r) {
         m_infty = r.m_infty;
         m_r = r.m_r;
-	return *this;
+        return *this;
     }
 
     inf_eps_rational & operator=(const Numeral & r) {
         m_infty.reset();
         m_r = r;
-	return *this;
+        return *this;
     }
 
     inf_eps_rational & operator+=(const inf_eps_rational & r) { 
         m_infty  += r.m_infty;
         m_r      += r.m_r;
-	return *this; 
+        return *this; 
     }
 
     inf_eps_rational & operator-=(const inf_eps_rational & r) { 
         m_infty  -= r.m_infty;
         m_r      -= r.m_r;
-	return *this; 
+        return *this; 
     }
 
     inf_eps_rational & operator-=(const inf_rational & r) { 
         m_r      -= r;
-	return *this; 
+        return *this; 
     }
 
     inf_eps_rational & operator+=(const inf_rational & r) { 
         m_r      += r;
-	return *this; 
+        return *this; 
     }
 
     inf_eps_rational & operator+=(const rational & r) { 
         m_r  += r;
-	return *this; 
+        return *this; 
     }
 
     inf_eps_rational & operator-=(const rational & r) { 
         m_r  -= r;
-	return *this; 
+        return *this; 
     }
 
     inf_eps_rational & operator*=(const rational & r1) {

@@ -23,7 +23,7 @@
 
 #include <vector>
 #include <limits.h>
-#include "iz3hash.h"
+#include "interp/iz3hash.h"
 
 class scopes {
 
@@ -105,7 +105,7 @@ class scopes {
 
     void range_add(int i, range &n){
 #if 0
-	if(i < n.lo) n.lo = i;
+        if(i < n.lo) n.lo = i;
         if(i > n.hi) n.hi = i;
 #else
         range rng; rng.lo = i; rng.hi = i;
@@ -119,7 +119,7 @@ class scopes {
         int thing = tree_lca(rng1.lo,rng2.hi);
         if(thing == rng1.lo) frame = rng1.lo;
         else frame = tree_gcd(thing,rng1.hi);
-	return frame;
+        return frame;
     }
 #else
 

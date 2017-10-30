@@ -24,10 +24,10 @@ Revision History:
 #ifndef AST_COUNTER_H_
 #define AST_COUNTER_H_
 
-#include "ast.h"
-#include "map.h"
-#include "uint_set.h"
-#include "var_subst.h"
+#include "ast/ast.h"
+#include "util/map.h"
+#include "util/uint_set.h"
+#include "ast/rewriter/var_subst.h"
 
 class counter {
 protected:

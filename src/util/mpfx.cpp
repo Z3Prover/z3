@@ -18,12 +18,12 @@ Revision History:
 --*/
 #include<sstream>
 #include<iomanip>
-#include"mpfx.h"
-#include"mpn.h"
-#include"mpz.h"
-#include"mpq.h"
-#include"bit_util.h"
-#include"trace.h"
+#include "util/mpfx.h"
+#include "util/mpn.h"
+#include "util/mpz.h"
+#include "util/mpq.h"
+#include "util/bit_util.h"
+#include "util/trace.h"
 
 mpfx_manager::mpfx_manager(unsigned int_sz, unsigned frac_sz, unsigned initial_capacity) {
     SASSERT(initial_capacity > 0);

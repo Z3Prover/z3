@@ -18,8 +18,8 @@ Notes:
 #ifndef TACTIC_MANAGER_H_
 #define TACTIC_MANAGER_H_
 
-#include"tactic_cmds.h"
-#include"dictionary.h"
+#include "cmd_context/tactic_cmds.h"
+#include "util/dictionary.h"
 
 class tactic_manager {
 protected:

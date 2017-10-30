@@ -20,8 +20,8 @@ Revision History:
 --*/
 #include<cstdlib>
 #include<iostream>
-#include"fixed_bit_vector.h"
-#include"vector.h"
+#include "util/fixed_bit_vector.h"
+#include "util/vector.h"
 
 
 static void tst1() {
@@ -31,11 +31,11 @@ static void tst1() {
     m.set(*b, 0, true);
     m.set(*b, 1, false);
     m.set(*b, 2, true);
-    SASSERT(b->get(0) == true);
-    SASSERT(b->get(1) == false);
-    SASSERT(b->get(2) == true);
-    SASSERT(b->get(3) == false);
-    SASSERT(b->get(29) == false);
+    ENSURE(b->get(0) == true);
+    ENSURE(b->get(1) == false);
+    ENSURE(b->get(2) == true);
+    ENSURE(b->get(3) == false);
+    ENSURE(b->get(29) == false);
     m.deallocate(b);
 }
 
@@ -55,11 +55,11 @@ static void tst_or() {
         m.display(std::cout, *b2) << "\n";
         m.set_or(*b1, *b2);
         m.display(std::cout, *b1) << "\n";
-        SASSERT(!m.equals(*b1, *b2));
+        ENSURE(!m.equals(*b1, *b2));
         m.unset(*b1, 4);
-        SASSERT(m.equals(*b1, *b2));
+        ENSURE(m.equals(*b1, *b2));
         m.unset(*b1, 3);
-        SASSERT(!m.equals(*b1, *b2));
+        ENSURE(!m.equals(*b1, *b2));
         m.deallocate(b1);
         m.deallocate(b2);
     }
@@ -78,25 +78,25 @@ static void tst_eq(unsigned num_bits) {
     fixed_bit_vector* b3 = m.allocate0();
 
     m.set(*b1, 3, true);
-    SASSERT(!m.equals(*b1, *b2));
-    SASSERT(m.equals(*b2, *b3));
+    ENSURE(!m.equals(*b1, *b2));
+    ENSURE(m.equals(*b2, *b3));
 
     m.set(*b3, 3, true);
-    SASSERT(m.equals(*b1, *b3));
+    ENSURE(m.equals(*b1, *b3));
     
     m.set(*b2, num_bits-1, true);
     m.set(*b3, num_bits-1);
     m.unset(*b3, 3);
-    SASSERT(m.equals(*b2, *b3));
+    ENSURE(m.equals(*b2, *b3));
     m.fill0(*b1);
     m.set_neg(*b1);
     m.fill1(*b2);
-    SASSERT(m.equals(*b1, *b2));
+    ENSURE(m.equals(*b1, *b2));
     m.fill0(*b1);
     for (unsigned i = 0; i < num_bits; ++i) {
         m.set(*b1, i, true);
     }
-    SASSERT(m.equals(*b1, *b2));
+    ENSURE(m.equals(*b1, *b2));
     m.deallocate(b1);
     m.deallocate(b2);
     m.deallocate(b3);

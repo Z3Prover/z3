@@ -19,8 +19,8 @@ Notes:
 #ifndef TACTIC_EXCEPTION_H_
 #define TACTIC_EXCEPTION_H_
 
-#include"z3_exception.h"
-#include"common_msgs.h"
+#include "util/z3_exception.h"
+#include "util/common_msgs.h"
 
 class tactic_exception : public z3_exception {
 protected:

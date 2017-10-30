@@ -15,16 +15,16 @@ Author:
 Revision History:
 
 --*/
-#include"z3.h"
-#include"api_context.h"
-#include"pp.h"
-#include"api_log_macros.h"
-#include"api_util.h"
-#include"cmd_context.h"
-#include"symbol.h"
-#include"gparams.h"
-#include"env_params.h"
-#include"context_params.h"
+#include "api/z3.h"
+#include "api/api_context.h"
+#include "ast/pp.h"
+#include "api/api_log_macros.h"
+#include "api/api_util.h"
+#include "cmd_context/cmd_context.h"
+#include "util/symbol.h"
+#include "util/gparams.h"
+#include "util/env_params.h"
+#include "cmd_context/context_params.h"
 
 extern "C" {
     void Z3_API Z3_global_param_set(Z3_string param_id, Z3_string param_value) {

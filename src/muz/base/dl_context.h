@@ -23,26 +23,26 @@ Revision History:
 #undef min
 #undef max
 #endif
-#include"arith_decl_plugin.h"
-#include"map.h"
-#include"th_rewriter.h"
-#include"str_hashtable.h"
-#include"var_subst.h"
-#include"dl_costs.h"
-#include"dl_decl_plugin.h"
-#include"dl_rule_set.h"
-#include"lbool.h"
-#include"statistics.h"
-#include"params.h"
-#include"trail.h"
-#include"model_converter.h"
-#include"model2expr.h"
-#include"smt_params.h"
-#include"dl_rule_transformer.h"
-#include"expr_functors.h"
-#include"dl_engine_base.h"
-#include"bind_variables.h"
-#include"rule_properties.h"
+#include "ast/arith_decl_plugin.h"
+#include "util/map.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "util/str_hashtable.h"
+#include "ast/rewriter/var_subst.h"
+#include "muz/base/dl_costs.h"
+#include "ast/dl_decl_plugin.h"
+#include "muz/base/dl_rule_set.h"
+#include "util/lbool.h"
+#include "util/statistics.h"
+#include "util/params.h"
+#include "util/trail.h"
+#include "tactic/model_converter.h"
+#include "model/model2expr.h"
+#include "smt/params/smt_params.h"
+#include "muz/base/dl_rule_transformer.h"
+#include "ast/expr_functors.h"
+#include "muz/base/dl_engine_base.h"
+#include "muz/base/bind_variables.h"
+#include "muz/base/rule_properties.h"
 
 struct fixedpoint_params;
 
@@ -54,7 +54,7 @@ namespace datalog {
         MEMOUT,
         INPUT_ERROR,
         APPROX,
-	BOUNDED,
+        BOUNDED,
         CANCELED
     };
 
@@ -207,6 +207,7 @@ namespace datalog {
         bool               m_enable_bind_variables;
         execution_result   m_last_status;
         expr_ref           m_last_answer;
+        expr_ref           m_last_ground_answer;
         DL_ENGINE          m_engine_type;
 
 
@@ -277,6 +278,8 @@ namespace datalog {
         bool xform_bit_blast() const;        
         bool xform_slice() const;
         bool xform_coi() const;
+        bool array_blast() const;
+        bool array_blast_full() const;
 
         void register_finite_sort(sort * s, sort_kind k);
 
@@ -315,7 +318,7 @@ namespace datalog {
            \brief Retrieve predicates
         */
         func_decl_set const& get_predicates() const { return m_preds; }
-	ast_ref_vector const &get_pinned() const {return m_pinned; }
+        ast_ref_vector const &get_pinned() const {return m_pinned; }
 
         bool is_predicate(func_decl* pred) const { return m_preds.contains(pred); }
         bool is_predicate(expr * e) const { return is_app(e) && is_predicate(to_app(e)->get_decl()); }
@@ -408,6 +411,10 @@ namespace datalog {
         unsigned get_num_levels(func_decl* pred);
 
         /**
+            Retrieve reachable facts of 'pred'.
+         */
+        expr_ref get_reachable(func_decl *pred);
+        /**
            Retrieve the current cover of 'pred' up to 'level' unfoldings.
            Return just the delta that is known at 'level'. To
            obtain the full set of properties of 'pred' one should query
@@ -421,6 +428,11 @@ namespace datalog {
          */
         void add_cover(int level, func_decl* pred, expr* property);
 
+        /**
+          Add an invariant of predicate 'pred'.
+         */
+        void add_invariant (func_decl *pred, expr *property);
+      
         /**
            \brief Check rule subsumption.
         */
@@ -509,6 +521,7 @@ namespace datalog {
 
         lbool query(expr* q);
 
+        lbool query_from_lvl (expr* q, unsigned lvl);
         /**
            \brief retrieve model from inductive invariant that shows query is unsat.
            
@@ -521,7 +534,7 @@ namespace datalog {
            \brief retrieve proof from derivation of the query.
            
            \pre engine == 'pdr'  || engine == 'duality'- this option is only supported
-	   for PDR mode and Duality mode.
+           for PDR mode and Duality mode.
          */
         proof_ref get_proof();
 
@@ -545,6 +558,18 @@ namespace datalog {
            in the query that are derivable.
         */
         expr* get_answer_as_formula();
+        /**
+         * get bottom-up (from query) sequence of ground predicate instances
+         * (for e.g. P(0,1,0,0,3)) that together form a ground derivation to query
+         */
+        expr* get_ground_sat_answer ();
+
+        /**
+         * \brief obtain the sequence of rules along the counterexample trace
+         */
+        void get_rules_along_trace (rule_ref_vector& rules);
+
+        void get_rules_along_trace_as_formulas (expr_ref_vector& rules, svector<symbol>& names);
 
 
         void collect_statistics(statistics& st) const;

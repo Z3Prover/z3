@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#include"smt2scanner.h"
-#include"parser_params.hpp"
+#include "parsers/smt2/smt2scanner.h"
+#include "parsers/util/parser_params.hpp"
 
 namespace smt2 {
 
@@ -124,7 +124,7 @@ namespace smt2 {
         next();
         bool is_float = false;
 
-        while (true) {
+        while (!m_at_eof) {
             char c = curr();
             if ('0' <= c && c <= '9') {
                 m_number = rational(10)*m_number + rational(c - '0');

@@ -17,8 +17,8 @@ Revision History:
 
 --*/
 #include<limits.h>
-#include"bit_vector.h"
-#include"trace.h"
+#include "util/bit_vector.h"
+#include "util/trace.h"
 
 #define DEFAULT_CAPACITY 2
 

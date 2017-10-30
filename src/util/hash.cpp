@@ -17,8 +17,8 @@ Revision History:
 
 --*/
 
-#include"debug.h"
-#include"hash.h"
+#include "util/debug.h"
+#include "util/hash.h"
 #include <string.h>
 
 static unsigned read_unsigned(const char *s) {

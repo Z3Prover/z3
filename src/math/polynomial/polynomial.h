@@ -19,16 +19,16 @@ Notes:
 #ifndef POLYNOMIAL_H_
 #define POLYNOMIAL_H_
 
-#include"mpz.h"
-#include"rational.h"
-#include"obj_ref.h"
-#include"ref_vector.h"
-#include"z3_exception.h"
-#include"scoped_numeral.h"
-#include"scoped_numeral_vector.h"
-#include"params.h"
-#include"mpbqi.h"
-#include"rlimit.h"
+#include "util/mpz.h"
+#include "util/rational.h"
+#include "util/obj_ref.h"
+#include "util/ref_vector.h"
+#include "util/z3_exception.h"
+#include "util/scoped_numeral.h"
+#include "util/scoped_numeral_vector.h"
+#include "util/params.h"
+#include "util/mpbqi.h"
+#include "util/rlimit.h"
 
 class small_object_allocator;
 
@@ -63,8 +63,8 @@ namespace polynomial {
     public:
         void set_degree(var x, unsigned d) { m_var2degree.setx(x, d, 0); }
         unsigned degree(var x) const { return m_var2degree.get(x, 0); }
-		void display(std::ostream & out) const;
-		friend std::ostream & operator<<(std::ostream & out, var2degree const & ideal) { ideal.display(out); return out; }
+        void display(std::ostream & out) const;
+        friend std::ostream & operator<<(std::ostream & out, var2degree const & ideal) { ideal.display(out); return out; }
     };
 
     template<typename ValManager, typename Value = typename ValManager::numeral>

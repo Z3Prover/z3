@@ -16,19 +16,19 @@ Author:
 Notes:
 
 --*/
-#include"tactic.h"
-#include"tactical.h"
-#include"smt_kernel.h"
-#include"smt_params.h"
-#include"smt_params_helper.hpp"
-#include"lp_params.hpp"
-#include"rewriter_types.h"
-#include"filter_model_converter.h"
-#include"ast_util.h"
-#include"solver2tactic.h"
-#include"smt_solver.h"
-#include"solver.h"
-#include"mus.h"
+#include "tactic/tactic.h"
+#include "tactic/tactical.h"
+#include "smt/smt_kernel.h"
+#include "smt/params/smt_params.h"
+#include "smt/params/smt_params_helper.hpp"
+#include "util/lp/lp_params.hpp"
+#include "ast/rewriter/rewriter_types.h"
+#include "tactic/filter_model_converter.h"
+#include "ast/ast_util.h"
+#include "solver/solver2tactic.h"
+#include "smt/smt_solver.h"
+#include "solver/solver.h"
+#include "solver/mus.h"
 
 typedef obj_map<expr, expr *> expr2expr_map;
 
@@ -150,6 +150,7 @@ public:
                             proof_converter_ref & pc,
                             expr_dependency_ref & core) {
         try {
+            IF_VERBOSE(10, verbose_stream() << "(smt.tactic start)\n";);
             mc = 0; pc = 0; core = 0;
             SASSERT(in->is_well_sorted());
             ast_manager & m = in->m();

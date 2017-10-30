@@ -19,16 +19,16 @@ Revision History:
 #ifndef THEORY_SEQ_H_
 #define THEORY_SEQ_H_
 
-#include "smt_theory.h"
-#include "seq_decl_plugin.h"
-#include "theory_seq_empty.h"
-#include "th_rewriter.h"
-#include "ast_trail.h"
-#include "scoped_vector.h"
-#include "scoped_ptr_vector.h"
-#include "automaton.h"
-#include "seq_rewriter.h"
-#include "union_find.h"
+#include "smt/smt_theory.h"
+#include "ast/seq_decl_plugin.h"
+#include "smt/theory_seq_empty.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "ast/ast_trail.h"
+#include "util/scoped_vector.h"
+#include "util/scoped_ptr_vector.h"
+#include "math/automata/automaton.h"
+#include "ast/rewriter/seq_rewriter.h"
+#include "util/union_find.h"
 
 namespace smt {
 
@@ -45,7 +45,7 @@ namespace smt {
         typedef trail_stack<theory_seq> th_trail_stack;
         typedef std::pair<expr*, dependency*> expr_dep;
         typedef obj_map<expr, expr_dep> eqdep_map_t; 
-	typedef union_find<theory_seq> th_union_find;
+        typedef union_find<theory_seq> th_union_find;
 
         class seq_value_proc;
 
@@ -298,8 +298,8 @@ namespace smt {
         scoped_vector<eq>          m_eqs;        // set of current equations.
         scoped_vector<ne>          m_nqs;        // set of current disequalities.
         scoped_vector<nc>          m_ncs;        // set of non-contains constraints.
-        unsigned                   m_eq_id;	
-	th_union_find              m_find;
+        unsigned                   m_eq_id;
+        th_union_find              m_find;
 
         seq_factory*               m_factory;    // value factory
         exclusion_table            m_exclude;    // set of asserted disequalities.
@@ -328,6 +328,7 @@ namespace smt {
         // maintain automata with regular expressions.
         scoped_ptr_vector<eautomaton>  m_automata;
         obj_map<expr, eautomaton*>     m_re2aut;
+        expr_ref_vector                m_res;
 
         // queue of asserted atoms
         ptr_vector<expr>               m_atoms;
@@ -361,6 +362,7 @@ namespace smt {
         virtual void collect_statistics(::statistics & st) const;
         virtual model_value_proc * mk_value(enode * n, model_generator & mg);
         virtual void init_model(model_generator & mg);
+        virtual void init_search_eh();
 
         void init_model(expr_ref_vector const& es);
         // final check 
@@ -582,7 +584,7 @@ namespace smt {
         // model building
         app* mk_value(app* a);
 
-	th_trail_stack& get_trail_stack() { return m_trail_stack; }
+        th_trail_stack& get_trail_stack() { return m_trail_stack; }
         void merge_eh(theory_var, theory_var, theory_var v1, theory_var v2) {}
         void after_merge_eh(theory_var r1, theory_var r2, theory_var v1, theory_var v2) { }
         void unmerge_eh(theory_var v1, theory_var v2) {}

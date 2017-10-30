@@ -19,9 +19,9 @@ Revision History:
 #ifndef SMT_THEORY_H_
 #define SMT_THEORY_H_
 
-#include"smt_enode.h"
-#include"obj_hashtable.h"
-#include"statistics.h"
+#include "smt/smt_enode.h"
+#include "util/obj_hashtable.h"
+#include "util/statistics.h"
 #include<typeinfo>
 
 namespace smt {
@@ -192,7 +192,7 @@ namespace smt {
         virtual lbool validate_unsat_core(expr_ref_vector & unsat_core) {
             return l_false;
         }
-	
+
         /**
            \brief This method is invoked before the search starts.
         */

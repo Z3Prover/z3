@@ -27,7 +27,7 @@ hence:
 #ifndef PB_DECL_PLUGIN_H_
 #define PB_DECL_PLUGIN_H_
 
-#include"ast.h"
+#include "ast/ast.h"
  
 enum pb_op_kind {
     OP_AT_MOST_K,  // at most K Booleans are true.

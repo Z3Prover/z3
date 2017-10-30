@@ -16,7 +16,7 @@ Author:
 Revision History:
 
 --*/
-#include "ast.h"
+#include "ast/ast.h"
 
 static void tst1() {
     ast_manager m;
@@ -29,21 +29,21 @@ static void tst1() {
     expr_ref i1(m.mk_app(fid, OP_AND, a.get(), c.get()), m);
     expr_ref i2(m.mk_app(fid, OP_AND, a.get(), c.get()), m);
     expr_ref i3(m.mk_app(fid, OP_OR, a.get(), c.get()), m);
-    SASSERT(i1.get() == i2.get());
-    SASSERT(i1.get() != i3.get());
+    ENSURE(i1.get() == i2.get());
+    ENSURE(i1.get() != i3.get());
 
     // TODO use smart pointers to track references
 //     ast_manager m;
 //     ast_ref<numeral_ast> n1(m.mk_numeral(rational(2,3)), m);
 //     ast_ref<numeral_ast> n2(m.mk_numeral(rational(2,3)), m);
-//     SASSERT(n1 == n2);
+//     ENSURE(n1 == n2);
 //     ast_ref<numeral_ast> n3(m.mk_numeral(rational(1,2)), m);
-//     SASSERT(n1 != n3);
+//     ENSURE(n1 != n3);
 //     ast_ref<var_ast> v1 (m.mk_var(1), m);
 //     ast_ref<var_ast> v2 (m.mk_var(2), m);
 //     ast_ref<var_ast> v3 (m.mk_var(1), m);
-//     SASSERT(v1 != v2);
-//     SASSERT(v1 == v3);
+//     ENSURE(v1 != v2);
+//     ENSURE(v1 == v3);
 //     TRACE("ast", tout << "reseting v1\n";);
 //     v1.reset();
 //     TRACE("ast", tout << "overwriting v3\n";);
@@ -59,7 +59,7 @@ static void tst1() {
 //     ast_ref<const_ast> foo_x(m.mk_const(foo_decl.get(), x.get()), m);
 //     ast_ref<const_ast> foo_foo_x(m.mk_const(foo_decl.get(), foo_x.get()), m);
 //     ast_ref<const_ast> foo_foo_x2(m.mk_const(foo_decl.get(), m.mk_const(foo_decl.get(), m.mk_const(x_decl.get()))), m);
-//     SASSERT(foo_foo_x2 == foo_foo_x);
+//     ENSURE(foo_foo_x2 == foo_foo_x);
 }
 
 static void tst2() {
@@ -70,13 +70,13 @@ static void tst2() {
 //     m_nodes.push_back(m.mk_numeral(rational(1,2)));
 //     m_nodes.push_back(m.mk_var(2));
 //     m_nodes[1] = m.mk_var(3);
-//     SASSERT(m_nodes[1]->kind() == AST_VAR);
-//     SASSERT(m_nodes.get(1)->kind() == AST_VAR);
+//     ENSURE(m_nodes[1]->kind() == AST_VAR);
+//     ENSURE(m_nodes.get(1)->kind() == AST_VAR);
 //     m_nodes.pop_back();
-//     SASSERT(m_nodes.size() == 2);
-//     SASSERT(!m_nodes.empty());
+//     ENSURE(m_nodes.size() == 2);
+//     ENSURE(!m_nodes.empty());
 //     m_nodes.set(1, m.mk_var(4));
-//     SASSERT(&(m_nodes.get_manager()) == &m);
+//     ENSURE(&(m_nodes.get_manager()) == &m);
 }
 
 static void tst3() {
@@ -95,16 +95,16 @@ static void tst4() {
 // #ifdef Z3DEBUG
 //     int r;
 // #endif
-//     SASSERT(!wm1.find(n1, r));
+//     ENSURE(!wm1.find(n1, r));
 //     wm1.insert(n2, 10);
-//     SASSERT(!wm1.find(n1, r));
-//     SASSERT(wm1.find(n2, r) && r == 10);
+//     ENSURE(!wm1.find(n1, r));
+//     ENSURE(wm1.find(n2, r) && r == 10);
 //     wm1.insert(n2, 20);
-//     SASSERT(!wm1.find(n1, r));
-//     SASSERT(wm1.find(n2, r) && r == 20);
+//     ENSURE(!wm1.find(n1, r));
+//     ENSURE(wm1.find(n2, r) && r == 20);
 //     wm1.insert(n1, 0);
-//     SASSERT(wm1.find(n1, r) && r == 0);
-//     SASSERT(wm1.find(n2, r) && r == 20);
+//     ENSURE(wm1.find(n1, r) && r == 0);
+//     ENSURE(wm1.find(n2, r) && r == 20);
 }
 
 static void tst5() {
@@ -119,13 +119,13 @@ static void tst5() {
     m.push_back(arr1, a2);
     m.pop_back(arr1, arr2);
     m.set(arr2, 0, a2, arr3);
-    SASSERT(m.size(arr1) == 2);
-    SASSERT(m.size(arr2) == 1);
-    SASSERT(m.size(arr3) == 1);
-    SASSERT(m.get(arr1, 0) == a1);
-    SASSERT(m.get(arr1, 1) == a2);
-    SASSERT(m.get(arr2, 0) == a1);
-    SASSERT(m.get(arr3, 0) == a2);
+    ENSURE(m.size(arr1) == 2);
+    ENSURE(m.size(arr2) == 1);
+    ENSURE(m.size(arr3) == 1);
+    ENSURE(m.get(arr1, 0) == a1);
+    ENSURE(m.get(arr1, 1) == a2);
+    ENSURE(m.get(arr2, 0) == a1);
+    ENSURE(m.get(arr3, 0) == a2);
     m.del(arr1);
     m.del(arr2);
     m.del(arr3);

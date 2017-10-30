@@ -16,12 +16,12 @@ Author:
 Revision History:
 
 --*/
-#include"subpaving_t.h"
-#include"interval_def.h"
-#include"buffer.h"
-#include"cooperate.h"
-#include"z3_exception.h"
-#include"common_msgs.h"
+#include "math/subpaving/subpaving_t.h"
+#include "math/interval/interval_def.h"
+#include "util/buffer.h"
+#include "util/cooperate.h"
+#include "util/z3_exception.h"
+#include "util/common_msgs.h"
 
 namespace subpaving {
 
@@ -739,7 +739,7 @@ void context_t<C>::del_sum(polynomial * p) {
 
 template<typename C>
 var context_t<C>::mk_sum(numeral const & c, unsigned sz, numeral const * as, var const * xs) {
-    m_num_buffer.reserve(num_vars(), numeral());
+    m_num_buffer.reserve(num_vars());
     for (unsigned i = 0; i < sz; i++) {
         SASSERT(xs[i] < num_vars());
         nm().set(m_num_buffer[xs[i]], as[i]);

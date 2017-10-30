@@ -16,11 +16,11 @@ Author:
 Revision History:
 
 --*/
-#include"sat_asymm_branch.h"
-#include"sat_asymm_branch_params.hpp"
-#include"sat_solver.h"
-#include"stopwatch.h"
-#include"trace.h"
+#include "sat/sat_asymm_branch.h"
+#include "sat/sat_asymm_branch_params.hpp"
+#include "sat/sat_solver.h"
+#include "util/stopwatch.h"
+#include "util/trace.h"
 
 namespace sat {
 

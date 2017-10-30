@@ -23,7 +23,7 @@ Notes:
 --*/
 #ifndef UNIT_SUBSUMPTION_TACTIC_H_
 #define UNIT_SUBSUMPTION_TACTIC_H_
-#include "tactic.h"
+#include "tactic/tactic.h"
 
 tactic * mk_unit_subsumption_tactic(ast_manager & m, params_ref const & p = params_ref());
 /*

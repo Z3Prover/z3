@@ -26,16 +26,16 @@ Author:
 Notes:
 
 --*/
-#include"goal2sat.h"
-#include"ast_smt2_pp.h"
-#include"ref_util.h"
-#include"cooperate.h"
-#include"filter_model_converter.h"
-#include"model_evaluator.h"
-#include"for_each_expr.h"
-#include"model_v2_pp.h"
-#include"tactic.h"
-#include"ast_pp.h"
+#include "sat/tactic/goal2sat.h"
+#include "ast/ast_smt2_pp.h"
+#include "util/ref_util.h"
+#include "util/cooperate.h"
+#include "tactic/filter_model_converter.h"
+#include "model/model_evaluator.h"
+#include "ast/for_each_expr.h"
+#include "model/model_v2_pp.h"
+#include "tactic/tactic.h"
+#include "ast/ast_pp.h"
 #include<sstream>
 
 struct goal2sat::imp {
@@ -248,6 +248,7 @@ struct goal2sat::imp {
                 for (unsigned i = 0; i < num; ++i) {
                     m_result_stack[i].neg();
                 }                
+                mk_clause(m_result_stack.size(), m_result_stack.c_ptr());
             }
             else {
                 for (unsigned i = 0; i < num; ++i) {
@@ -278,6 +279,7 @@ struct goal2sat::imp {
             if (sign)
                 l.neg();
             m_result_stack.push_back(l);
+            TRACE("goal2sat", tout << m_result_stack << "\n";);
         }
     }
 

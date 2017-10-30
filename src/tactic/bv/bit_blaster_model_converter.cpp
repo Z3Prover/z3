@@ -16,11 +16,11 @@ Author:
 Notes:
 
 --*/
-#include"model.h"
-#include"model_pp.h"
-#include"model_converter.h"
-#include"bv_decl_plugin.h"
-#include"ast_smt2_pp.h"
+#include "model/model.h"
+#include "model/model_pp.h"
+#include "tactic/model_converter.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/ast_smt2_pp.h"
 
 /**
    If TO_BOOL == true, then bit-vectors of size n were blasted into n-tuples of Booleans.

@@ -18,9 +18,9 @@ Revision History:
 #ifndef API_UTIL_H_
 #define API_UTIL_H_
 
-#include"params.h"
-#include"lbool.h"
-#include"ast.h"
+#include "util/params.h"
+#include "util/lbool.h"
+#include "ast/ast.h"
 
 #define Z3_TRY try {
 #define Z3_CATCH_CORE(CODE) } catch (z3_exception & ex) { mk_c(c)->handle_exception(ex); CODE }

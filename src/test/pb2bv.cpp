@@ -3,21 +3,21 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
-#include "trace.h"
-#include "vector.h"
-#include "ast.h"
-#include "ast_pp.h"
-#include "statistics.h"
-#include "reg_decl_plugins.h"
-#include "pb2bv_rewriter.h"
-#include "smt_kernel.h"
-#include "model_smt2_pp.h"
-#include "smt_params.h"
-#include "ast_util.h"
-#include "pb_decl_plugin.h"
-#include "th_rewriter.h"
-#include "fd_solver.h"
-#include "solver.h"
+#include "util/trace.h"
+#include "util/vector.h"
+#include "ast/ast.h"
+#include "ast/ast_pp.h"
+#include "util/statistics.h"
+#include "ast/reg_decl_plugins.h"
+#include "ast/rewriter/pb2bv_rewriter.h"
+#include "smt/smt_kernel.h"
+#include "model/model_smt2_pp.h"
+#include "smt/params/smt_params.h"
+#include "ast/ast_util.h"
+#include "ast/pb_decl_plugin.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "tactic/portfolio/fd_solver.h"
+#include "solver/solver.h"
 
 static void test1() {
     ast_manager m;
@@ -81,7 +81,7 @@ static void test_semantics(ast_manager& m, expr_ref_vector const& vars, vector<r
         }
         std::cout << fml1 << " " << fml2 << "\n";
         th_rw(fml2, result2, proof);
-        SASSERT(m.is_true(result2) || m.is_false(result2));
+        ENSURE(m.is_true(result2) || m.is_false(result2));
         lbool res = solver.check();
         VERIFY(res == l_true);
         solver.assert_expr(m.is_true(result2) ? m.mk_not(result1) : result1.get());
@@ -150,7 +150,7 @@ static void test_solver_semantics(ast_manager& m, expr_ref_vector const& vars, v
         }
         std::cout << fml1 << " " << fml2 << "\n";
         th_rw(fml2, result2, proof);
-        SASSERT(m.is_true(result2) || m.is_false(result2));
+        ENSURE(m.is_true(result2) || m.is_false(result2));
         lbool res = slv->check_sat(0,0);
         VERIFY(res == l_true);
         slv->assert_expr(m.is_true(result2) ? m.mk_not(result1) : result1.get());

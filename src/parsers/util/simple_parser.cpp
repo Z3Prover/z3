@@ -18,9 +18,9 @@ Revision History:
 --*/
 #include<fstream>
 #include<sstream>
-#include"simple_parser.h"
-#include"warning.h"
-#include"scanner.h"
+#include "parsers/util/simple_parser.h"
+#include "util/warning.h"
+#include "parsers/util/scanner.h"
 
 simple_parser::simple_parser(ast_manager & m):
     m_manager(m),
