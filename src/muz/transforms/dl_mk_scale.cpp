@@ -99,6 +99,9 @@ namespace datalog {
             UNREACHABLE();
             return 0;
         }
+
+        virtual void display(std::ostream& out) { out << "(scale-model-converter)\n"; }
+
     };
 
 

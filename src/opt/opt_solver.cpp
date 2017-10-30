@@ -296,7 +296,7 @@ namespace opt {
         }
     }
 
-    void opt_solver::get_model(model_ref & m) {
+    void opt_solver::get_model_core(model_ref & m) {
         m_context.get_model(m);
     }
     

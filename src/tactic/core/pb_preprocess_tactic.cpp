@@ -50,8 +50,8 @@ public:
 
     virtual void operator()(model_ref & mdl, unsigned goal_idx) {
         SASSERT(goal_idx == 0);
-        for (unsigned i = 0; i < m_const.size(); ++i) {
-            mdl->register_decl(m_const[i].first->get_decl(), m_const[i].second);
+        for (auto const& kv : m_const) {
+            mdl->register_decl(kv.first->get_decl(), kv.second);
         }
     }
 
@@ -65,10 +65,16 @@ public:
 
     virtual model_converter * translate(ast_translation & translator) {
         pb_preproc_model_converter* mc = alloc(pb_preproc_model_converter, translator.to());
-        for (unsigned i = 0; i < m_const.size(); ++i) {
-            mc->set_value_p(translator(m_const[i].first), translator(m_const[i].second));
+        for (auto const& kv : m_const) {
+            mc->set_value_p(translator(kv.first), translator(kv.second));
         }
         return mc;
+    }
+
+    virtual void display(std::ostream & out) {
+        for (auto const& kv : m_const) {
+            out << "(model-set " << mk_pp(kv.first, m) << " " << mk_pp(kv.second, m) << ")\n";
+        }
     }
 
 private:

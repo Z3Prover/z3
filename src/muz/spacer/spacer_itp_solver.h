@@ -146,7 +146,7 @@ public:
     virtual void collect_statistics(statistics &st) const ;
     virtual void reset_statistics();
     virtual void get_unsat_core(ptr_vector<expr> &r);
-    virtual void get_model(model_ref &m) {m_solver.get_model(m);}
+    virtual void get_model_core(model_ref &m) {m_solver.get_model(m);}
     virtual proof *get_proof() {return m_solver.get_proof();}
     virtual std::string reason_unknown() const
     {return m_solver.reason_unknown();}

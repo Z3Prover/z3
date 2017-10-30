@@ -22,6 +22,7 @@ Notes:
 #include "ast/ast_pp.h"
 #include "ast/ast_pp_util.h"
 #include "util/common_msgs.h"
+#include "tactic/model_converter.h"
 
 
 unsigned solver::get_num_assertions() const {
@@ -41,6 +42,11 @@ std::ostream& solver::display(std::ostream & out) const {
     visitor.collect(fmls);
     visitor.display_decls(out);
     visitor.display_asserts(out, fmls, true);
+    model_converter_ref mc = get_model_converter();
+    if (mc.get()) {
+        mc->set_pp_env(&visitor.env());
+        mc->display(out);
+    }
     return out;
 }
 

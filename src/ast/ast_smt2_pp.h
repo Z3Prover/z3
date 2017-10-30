@@ -97,12 +97,13 @@ void mk_smt2_format(expr * n, smt2_pp_environment & env, params_ref const & p,
                     unsigned num_vars, char const * var_prefix,
                     format_ns::format_ref & r, sbuffer<symbol> & var_names);
 void mk_smt2_format(sort * s, smt2_pp_environment & env, params_ref const & p, format_ns::format_ref & r);
-void mk_smt2_format(func_decl * f, smt2_pp_environment & env, params_ref const & p, format_ns::format_ref & r);
+void mk_smt2_format(func_decl * f, smt2_pp_environment & env, params_ref const & p, format_ns::format_ref & r, char const* cmd);
 
 std::ostream & ast_smt2_pp(std::ostream & out, expr * n, smt2_pp_environment & env, params_ref const & p = params_ref(), unsigned indent = 0, 
                            unsigned num_vars = 0, char const * var_prefix = 0);
 std::ostream & ast_smt2_pp(std::ostream & out, sort * s, smt2_pp_environment & env, params_ref const & p = params_ref(), unsigned indent = 0);
-std::ostream & ast_smt2_pp(std::ostream & out, func_decl * f, smt2_pp_environment & env, params_ref const & p = params_ref(), unsigned indent = 0);
+std::ostream & ast_smt2_pp(std::ostream & out, func_decl * f, smt2_pp_environment & env, params_ref const & p = params_ref(), unsigned indent = 0, char const* cmd = "declare-fun");
+std::ostream & ast_smt2_pp(std::ostream & out, func_decl * f, expr* e, smt2_pp_environment & env, params_ref const & p = params_ref(), unsigned indent = 0, char const* cmd = "define-fun");
 
 /**
    \brief Internal wrapper (for debugging purposes only)

@@ -63,6 +63,8 @@ namespace datalog {
             return alloc(bit_blast_model_converter, m);
         }
 
+        virtual void display(std::ostream& out) { out << "(bit-blast-model-converter)\n"; }
+
         virtual void operator()(model_ref & model) {
             for (unsigned i = 0; i < m_new_funcs.size(); ++i) {
                 func_decl* p = m_new_funcs[i].get();

@@ -70,6 +70,8 @@ namespace smt {
                 result->m_name2assertion.insert(translator(kv.m_key),
                                                 translator(kv.m_value));
 
+            if (mc0()) 
+                result->set_model_converter(mc0()->translate(translator));
             return result;
         }
 
@@ -186,7 +188,7 @@ namespace smt {
                 add_nonlocal_pattern_literals_to_core(r);
         }
 
-        virtual void get_model(model_ref & m) {
+        virtual void get_model_core(model_ref & m) {
             m_context.get_model(m);
         }
 

@@ -43,6 +43,7 @@ Notes:
 #include "model/model_v2_pp.h"
 #include "model/model_params.hpp"
 #include "tactic/tactic_exception.h"
+#include "tactic/generic_model_converter.h"
 #include "solver/smt_logics.h"
 #include "cmd_context/basic_cmds.h"
 #include "cmd_context/interpolant_cmds.h"
@@ -864,6 +865,17 @@ void cmd_context::insert(symbol const & s, object_ref * r) {
     m_object_refs.insert(s, r);
 }
 
+void cmd_context::model_add(symbol const & s, unsigned arity, sort *const* domain, expr * t) {
+    if (!m_mc0) m_mc0 = alloc(generic_model_converter, m());
+    func_decl_ref fn(m().mk_func_decl(s, arity, domain, m().get_sort(t)), m());
+    m_mc0->add(fn, t);
+}
+
+void cmd_context::model_del(func_decl* f) {
+    if (!m_mc0) m_mc0 = alloc(generic_model_converter, m());
+    m_mc0->hide(f);
+}
+
 void cmd_context::insert_rec_fun(func_decl* f, expr_ref_vector const& binding, svector<symbol> const& ids, expr* e) {
     expr_ref eq(m());
     app_ref lhs(m());
@@ -1573,6 +1585,7 @@ void cmd_context::display_dimacs() {
 
 void cmd_context::display_model(model_ref& mdl) {
     if (mdl) {
+        if (m_mc0) (*m_mc0)(mdl);
         model_params p;
         if (p.v1() || p.v2()) {
             std::ostringstream buffer;
@@ -1895,7 +1908,7 @@ void cmd_context::pp(expr * n, format_ns::format_ref & r) const {
 }
 
 void cmd_context::pp(func_decl * f, format_ns::format_ref & r) const {
-    mk_smt2_format(f, get_pp_env(), params_ref(), r);
+    mk_smt2_format(f, get_pp_env(), params_ref(), r, "declare-fun");
 }
 
 void cmd_context::display(std::ostream & out, sort * s, unsigned indent) const {

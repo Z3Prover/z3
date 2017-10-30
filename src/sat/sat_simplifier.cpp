@@ -1318,7 +1318,7 @@ namespace sat {
 
         void prepare_block_clause(clause& c, literal l, model_converter::entry*& new_entry, model_converter::kind k) {
             TRACE("blocked_clause", tout << "new blocked clause: " << c << "\n";);
-            if (new_entry == 0)
+            if (new_entry == 0 && !s.m_retain_blocked_clauses)
                 new_entry = &(mc.mk(k, l.var()));
             m_to_remove.push_back(&c);
             for (literal lit : c) {
@@ -1330,17 +1330,19 @@ namespace sat {
 
         void block_clause(clause& c, literal l, model_converter::entry *& new_entry) {
             prepare_block_clause(c, l, new_entry, model_converter::BLOCK_LIT);
-            mc.insert(*new_entry, c);
+            if (!s.m_retain_blocked_clauses) 
+                mc.insert(*new_entry, c);
         }
 
         void block_covered_clause(clause& c, literal l, model_converter::kind k) {
             model_converter::entry * new_entry = 0;
             prepare_block_clause(c, l, new_entry, k);
-            mc.insert(*new_entry, m_covered_clause, m_elim_stack);
+            if (!s.m_retain_blocked_clauses) 
+                mc.insert(*new_entry, m_covered_clause, m_elim_stack);
         }
         
         void prepare_block_binary(watch_list::iterator it, literal l1, literal blocked, model_converter::entry*& new_entry, model_converter::kind k) {
-            if (new_entry == 0) 
+            if (new_entry == 0 && !s.m_retain_blocked_clauses) 
                 new_entry = &(mc.mk(k, blocked.var()));
             literal l2 = it->get_literal();
             TRACE("blocked_clause", tout << "new blocked clause: " << l2 << " " << l1 << "\n";);
@@ -1356,13 +1358,15 @@ namespace sat {
         
         void block_binary(watch_list::iterator it, literal l, model_converter::entry *& new_entry) {
             prepare_block_binary(it, l, l, new_entry, model_converter::BLOCK_LIT);
-            mc.insert(*new_entry, l, it->get_literal());
+            if (!s.m_retain_blocked_clauses) 
+                mc.insert(*new_entry, l, it->get_literal());
         }
 
         void block_covered_binary(watch_list::iterator it, literal l, literal blocked, model_converter::kind k) {
             model_converter::entry * new_entry = 0;
             prepare_block_binary(it, l, blocked, new_entry, k);
-            mc.insert(*new_entry, m_covered_clause, m_elim_stack);
+            if (!s.m_retain_blocked_clauses) 
+                mc.insert(*new_entry, m_covered_clause, m_elim_stack);
         }
 
         void bca() {

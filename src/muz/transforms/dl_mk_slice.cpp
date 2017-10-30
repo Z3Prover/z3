@@ -283,6 +283,8 @@ namespace datalog {
             // this would require implementing translation for the dl_context.
             return 0;
         }
+
+        virtual void display(std::ostream& out) { out << "(slice-proof-converter)\n"; }
     };
 
     class mk_slice::slice_model_converter : public model_converter {
@@ -395,6 +397,8 @@ namespace datalog {
             UNREACHABLE();
             return 0;
         }
+
+        virtual void display(std::ostream& out) { out << "(slice-model-converter)\n"; }
 
     };
    

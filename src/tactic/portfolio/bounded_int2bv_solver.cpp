@@ -150,7 +150,7 @@ public:
     virtual void set_progress_callback(progress_callback * callback) { m_solver->set_progress_callback(callback);  }
     virtual void collect_statistics(statistics & st) const { m_solver->collect_statistics(st); }
     virtual void get_unsat_core(ptr_vector<expr> & r) { m_solver->get_unsat_core(r); }
-    virtual void get_model(model_ref & mdl) {
+    virtual void get_model_core(model_ref & mdl) {
         m_solver->get_model(mdl);
         if (mdl) {
             extend_model(mdl);

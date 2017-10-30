@@ -113,6 +113,11 @@ public:
         }
         return mc;
     }
+
+    virtual void display(std::ostream & out) {
+        out << "(elim01-model-converter)\n";
+    }
+
 };
 
 

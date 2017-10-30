@@ -331,7 +331,7 @@ namespace opt {
         }
     }
 
-    void context::get_model(model_ref& mdl) {
+    void context::get_model_core(model_ref& mdl) {
         mdl = m_model;
         fix_model(mdl);
     }

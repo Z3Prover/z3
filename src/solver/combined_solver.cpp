@@ -307,7 +307,7 @@ public:
             m_solver2->get_unsat_core(r);
     }
 
-    virtual void get_model(model_ref & m) {
+    virtual void get_model_core(model_ref & m) {
         if (m_use_solver1_results)
             m_solver1->get_model(m);
         else

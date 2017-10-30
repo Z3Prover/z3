@@ -150,6 +150,8 @@ namespace datalog {
             return mc;
         }
 
+        virtual void display(std::ostream& out) { out << "(add-invariant-model-converter)\n"; }
+
     private:
         void mk_body(matrix const& M, expr_ref& body) {
             expr_ref_vector conj(m);

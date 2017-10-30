@@ -84,8 +84,6 @@ namespace sat {
 
         std::ostream& display(std::ostream & out, entry const& entry) const;
 
-        void validate_is_blocked(entry const& e, clause const& c);
-
     public:
         model_converter();
         ~model_converter();
@@ -109,6 +107,15 @@ namespace sat {
         void copy(model_converter const & src);
         void collect_vars(bool_var_set & s) const;
         unsigned max_var(unsigned min) const;
+        /*
+         * \brief expand entries to a list of clauses, such that
+         *  the first literal in each clause is the literal whose
+         *  truth value is updated as follows:
+         *  
+         *     lit0 := lit0 or (~lit1 & ~lit2 & ... & ~lit_k)
+         *  
+         */
+        void expand(vector<literal_vector>& update_stack);
     };
 
 };

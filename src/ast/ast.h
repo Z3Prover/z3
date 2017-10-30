@@ -1435,6 +1435,8 @@ public:
 
     void show_id_gen();
 
+    void update_fresh_id(ast_manager const& other);
+
 protected:
     reslimit                  m_limit;
     small_object_allocator    m_alloc;

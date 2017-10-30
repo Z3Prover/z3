@@ -78,6 +78,7 @@ public:
 
     ast_manager& get_manager() { return m; }
 
+    virtual void display(std::ostream & out) {}
 };
 
 #endif

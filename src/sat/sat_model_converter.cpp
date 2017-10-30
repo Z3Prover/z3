@@ -295,51 +295,6 @@ namespace sat {
         return out;
     }
 
-    void model_converter::validate_is_blocked(entry const& e, clause const& c) {
-        if (c.is_blocked() || c.is_learned()) return;
-        unsigned index = 0;
-        literal lit = null_literal;
-        bool_var v = e.var();
-        for (literal l : c) {
-            if (l.var() == v) {
-                lit = l;
-                break;
-            }
-        }
-        if (lit == null_literal) return;
-
-        bool sat = false;
-        for (literal l : e.m_clauses) {
-            if (l == null_literal) {
-                if (!sat) {
-                    display(std::cout << "clause is not blocked\n", e) << "\n";
-                    std::cout << c << "\n";
-                }
-                sat = false;
-                elim_stack* st = e.m_elim_stack[index];
-                if (st) {
-                    elim_stackv const& stack = st->stack();
-                    unsigned sz = stack.size();
-                    for (unsigned i = sz; i-- > 0; ) {
-                        // verify ...
-                    }
-
-                }
-                ++index;
-                continue;
-            }
-            if (sat) {
-                continue;
-            }
-            if (l.var() == v) {
-                sat = l == lit;
-            }
-            else {
-                sat = c.contains(~l);
-            }
-        }
-    }
-
     void model_converter::copy(model_converter const & src) {
         reset();
         m_entries.append(src.m_entries);
@@ -360,6 +315,47 @@ namespace sat {
             }
         }
         return result;
+    }
+
+    void model_converter::expand(vector<literal_vector>& update_stack) {
+        literal_vector clause;
+        for (entry const& e : m_entries) {
+            clause.reset();
+            unsigned index = 0;
+            bool var_sign = false;
+            for (literal l : e.m_clauses) {
+                if (l == null_literal) {
+                    elim_stack* st = e.m_elim_stack[index];                    
+                    if (st) {
+                        // clause sizes increase
+                        elim_stackv const& stack = st->stack();
+                        unsigned sz = stack.size();
+                        for (unsigned i = 0; i < sz; ++i) {
+                            unsigned csz = stack[i].first;
+                            literal lit = stack[i].second;
+                            BOOL found = false;
+                            unsigned j = 0;
+                            for (j = 0; j < csz; ++j) {
+                                if (clause[j] == lit) {
+                                    std::swap(clause[j], clause[0]);
+                                    found = true;
+                                    break;
+                                }
+                            }
+                            SASSERT(found);
+                            update_stack.push_back(literal_vector(csz, clause.c_ptr()));
+                        }
+                    }
+                    update_stack.push_back(clause);
+                    clause.reset();
+                    continue;
+                }
+                clause.push_back(l);
+                if (l.var() == e.var()) {
+                    std::swap(clause[0], clause.back());
+                }
+            }
+        }
     }
 
 };

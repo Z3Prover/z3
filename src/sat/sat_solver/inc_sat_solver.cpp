@@ -114,6 +114,7 @@ public:
         if (m_mc0.get()) result->m_mc0 = m_mc0->translate(tr);
         result->m_internalized = m_internalized;
         result->m_internalized_converted = m_internalized_converted;
+        if (mc0()) result->set_model_converter(mc0()->translate(tr));
         return result;
     }
 
@@ -299,7 +300,7 @@ public:
         r.reset();
         r.append(m_core.size(), m_core.c_ptr());
     }
-    virtual void get_model(model_ref & mdl) {
+    virtual void get_model_core(model_ref & mdl) {
         if (!m_model.get()) {
             extract_model();
         }
@@ -440,6 +441,18 @@ public:
     }
     virtual expr * get_assumption(unsigned idx) const {
         return m_asmsf[idx];
+    }
+
+    virtual model_converter_ref get_model_converter() const {
+        if (m_internalized && m_internalized_converted) {
+            NOT_IMPLEMENTED_YET();
+            model_converter_ref mc = concat(m_mc0.get(), mk_bit_blaster_model_converter(m, m_bb_rewriter->const2bits()));
+            mc = concat(solver::get_model_converter().get(), mc.get());
+            return mc;
+        }
+        else {
+            return solver::get_model_converter();
+        }
     }
 
     void convert_internalized() {

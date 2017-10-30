@@ -6279,21 +6279,6 @@ class Solver(Z3PPObject):
         consequences = [ consequences[i] for i in range(sz) ]
         return CheckSatResult(r), consequences
     
-    def lemmas(self):
-        """Extract auxiliary lemmas produced by solver"""
-        return AstVector(Z3_solver_get_lemmas(self.ctx.ref(), self.solver), self.ctx)
-        
-    def lookahead(self, candidates = None):
-        """Get lookahead literal"""
-        if candidates is None:
-            candidates = AstVector(None, self.ctx)
-        elif not isinstance(candidates, AstVector):
-            _cs = AstVector(None, self.ctx)
-            for c in candidates:
-                _asms.push(c)
-            candidates = _cs
-        return _to_expr_ref(Z3_solver_lookahead(self.ctx.ref(), self.solver, candidates), self.ctx)        
-
     def cube(self):
         """Get set of cubes"""
         rounds = 0

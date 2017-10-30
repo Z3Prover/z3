@@ -24,7 +24,7 @@ Notes:
 class filter_model_converter : public model_converter {
     func_decl_ref_vector  m_decls;
 public:
-    filter_model_converter(ast_manager & m):m_decls(m) {}
+    filter_model_converter(ast_manager & m): m_decls(m) {}
     
     virtual ~filter_model_converter();
     

@@ -968,21 +968,31 @@ struct sat2goal::imp {
             return res;
         }
         
-        void display(std::ostream & out) {
-            out << "(sat-model-converter\n";
-            m_mc.display(out);
-            sat::bool_var_set vars;
-            m_mc.collect_vars(vars);
-            out << "(atoms";
-            unsigned sz = m_var2expr.size();
-            for (unsigned i = 0; i < sz; i++) {
-                if (vars.contains(i)) {
-                    out << "\n (" << i << "\n  " << mk_ismt2_pp(m_var2expr.get(i), m(), 2) << ")";
-                }
+        expr_ref lit2expr(sat::literal l) {
+            expr_ref result(m_var2expr.get(l.var()), m());
+            if (l.sign()) {
+                result = m().mk_not(result);
             }
-            out << ")\n";
+            return result;
+        }
+
+        void display(std::ostream & out) {
+            vector<sat::literal_vector> updates;
+            m_mc.expand(updates);
+            for (sat::literal_vector const& clause : updates) {
+                expr_ref_vector tail(m());
+                sat::literal lit0 = clause[0];
+                for (unsigned i = 1; i < clause.size(); ++i) {
+                    tail.push_back(lit2expr(~clause[i]));
+                }
+                expr_ref def(m().mk_or(lit2expr(lit0), mk_and(tail)), m());
+                if (lit0.sign()) {
+                    lit0.neg();
+                    def = m().mk_not(def);
+                }
+                display_add(out, m(), to_app(lit2expr(lit0))->get_decl(), def);
+            }
             m_fmc->display(out);
-            out << ")\n";
         }
     };
 

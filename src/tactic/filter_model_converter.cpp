@@ -55,11 +55,9 @@ void filter_model_converter::operator()(svector<symbol> & labels, unsigned goal_
 }
 
 void filter_model_converter::display(std::ostream & out) {
-    out << "(filter-model-converter";
-    for (unsigned i = 0; i < m_decls.size(); i++) {
-        out << " " << m_decls.get(i)->get_name();
+    for (func_decl* f : m_decls) {
+        display_del(out, f);
     }
-    out << ")" << std::endl;
 }
 
 model_converter * filter_model_converter::translate(ast_translation & translator) {

@@ -38,8 +38,7 @@ public:
 
     virtual void cancel() {}
     
-    // for debugging purposes
-    virtual void display(std::ostream & out) {}
+    virtual void display(std::ostream & out) = 0;
 };
 
 template<typename T>
@@ -68,10 +67,8 @@ public:
     virtual char const * get_name() const = 0;
     
     virtual void display(std::ostream & out) {
-        out << "(" << get_name() << "\n";
         m_c1->display(out);
         m_c2->display(out);
-        out << ")\n";
     }
 };
 
@@ -86,10 +83,9 @@ protected:
     T * translate_core(ast_translation & translator) {
         T * t1 = m_c1 ? m_c1->translate(translator) : 0;
         ptr_buffer<T> t2s;
-        unsigned num = m_c2s.size();
-        for (unsigned i = 0; i < num; i++)
-            t2s.push_back(m_c2s[i] ? m_c2s[i]->translate(translator) : 0);
-        return alloc(T2, t1, num, t2s.c_ptr(), m_szs.c_ptr());
+        for (T* c : m_c2s)
+            t2s.push_back(c ? c->translate(translator) : 0);
+        return alloc(T2, t1, m_c2s.size(), t2s.c_ptr(), m_szs.c_ptr());
     }
 
 public:
@@ -105,36 +101,24 @@ public:
     }
 
     virtual ~concat_star_converter() {
-        unsigned sz = m_c2s.size();
-        for (unsigned i = 0; i < sz; i++) {
-            T * c2 = m_c2s[i];
-            if (c2)
-                c2->dec_ref();
-        }
+        for (T* c : m_c2s)
+            if (c) c->dec_ref();
     }
 
     virtual void cancel() {
         if (m_c1)
             m_c1->cancel();
-        unsigned num = m_c2s.size();
-        for (unsigned i = 0; i < num; i++) {
-            if (m_c2s[i])
-                m_c2s[i]->cancel();
-        }
+        for (T* c : m_c2s)
+            if (c) c->cancel();
     }
 
     virtual char const * get_name() const = 0;
     
     virtual void display(std::ostream & out) {
-        out << "(" << get_name() << "\n";
         if (m_c1)
             m_c1->display(out);
-        out << "(\n";
-        unsigned num = m_c2s.size();
-        for (unsigned i = 0; i < num; i++)
-            if (m_c2s[i])
-                m_c2s[i]->display(out);
-        out << "))\n";
+        for (T* c : m_c2s) 
+            if (c) c->display(out);
     }
 };
 

@@ -79,6 +79,8 @@ class split_clause_tactic : public tactic {
         virtual proof_converter * translate(ast_translation & translator) {
             return alloc(split_pc, translator.to(), translator(m_clause), translator(m_clause_pr));
         }
+
+        virtual void display(std::ostream & out) { out << "(split-clause-pc)\n"; }
     };
 
 public:

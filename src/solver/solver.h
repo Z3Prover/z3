@@ -24,6 +24,7 @@ Notes:
 #include "util/params.h"
 
 class solver;
+class model_converter;
 
 class solver_factory {
 public:
@@ -184,24 +185,16 @@ public:
 
     virtual expr_ref cube() = 0;
 
-#if 0
-    /**
-       \brief extract a lookahead candidates for branching.
-    */
-
-    virtual expr_ref lookahead(expr_ref_vector const& assumptions, expr_ref_vector const& candidates) = 0;
-
-
-    /**
-       \brief extract learned lemmas.
-    */
-    virtual void get_lemmas(expr_ref_vector& lemmas) {}
-#endif
-
     /**
        \brief Display the content of this solver.
     */
     virtual std::ostream& display(std::ostream & out) const;
+
+    /**
+       \brief expose model converter when solver produces partially reduced set of assertions.
+     */
+
+    virtual model_converter_ref get_model_converter() const { return m_mc0; }
 
     class scoped_push {
         solver& s;

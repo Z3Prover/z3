@@ -1356,6 +1356,10 @@ ast_manager::ast_manager(ast_manager const & src, bool disable_proofs):
     copy_families_plugins(src);
 }
 
+void ast_manager::update_fresh_id(ast_manager const& m) {
+    m_fresh_id = std::max(m_fresh_id, m.m_fresh_id);
+}
+
 void ast_manager::init() {
     m_int_real_coercions = true;
     m_debug_ref_count = false;

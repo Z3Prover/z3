@@ -131,10 +131,8 @@ public:
         for (unsigned i = 0; i < size; ++i) {
             quick_for_each_expr(proc, visited, g->form(i));
         }
-        obj_hashtable<sort>::iterator it = m_non_fd_sorts.begin(), end = m_non_fd_sorts.end();
-        for (; it != end; ++it) {
-            m_fd_sorts.remove(*it);
-        }
+        for (sort* s : m_non_fd_sorts) 
+            m_fd_sorts.remove(s);
         if (!m_fd_sorts.empty()) {
             ref<extension_model_converter> ext = alloc(extension_model_converter, m);
             ref<filter_model_converter> filter = alloc(filter_model_converter, m);
@@ -152,21 +150,12 @@ public:
             }
             expr_ref_vector bounds(m);
             rw.flush_side_constraints(bounds);
-            for (unsigned i = 0; i < bounds.size(); ++i) {
-                g->assert_expr(bounds[i].get());
-            }
-            {
-                obj_map<func_decl, func_decl*>::iterator it = rw.enum2bv().begin(), end = rw.enum2bv().end();
-                for (; it != end; ++it) {
-                    filter->insert(it->m_value);
-                }
-            }
-            {
-                obj_map<func_decl, expr*>::iterator it = rw.enum2def().begin(), end = rw.enum2def().end();
-                for (; it != end; ++it) {
-                    ext->insert(it->m_key, it->m_value);
-                }
-            }
+            for (expr* b : bounds) 
+                g->assert_expr(b);
+            for (auto const& kv : rw.enum2bv()) 
+                filter->insert(kv.m_value);
+            for (auto const& kv : rw.enum2def()) 
+                ext->insert(kv.m_key, kv.m_value);
             
             mc = concat(filter.get(), ext.get());
             report_tactic_progress(":fd-num-translated", rw.num_translated());
