@@ -12,9 +12,8 @@
 #include <functional>
 #include "util/lp/int_set.h"
 #include "util/lp/linear_combination_iterator_on_std_vector.h"
-#include "util/lp/bound_propagator_int.h"
-#include "util/lp/bound_analyzer_on_int_ineq.h"
 #include "util/lp/stacked_vector.h"
+#include "util/lp/linear_combination_iterator_on_std_vector.h"
 
 namespace lp {
 enum
@@ -86,10 +85,6 @@ public: // for debugging
             return m_coeffs.size() == s.size();
         }
 
-        linear_combination_iterator_on_std_vector_with_additional_element<T> get_iterator() {
-            return linear_combination_iterator_on_std_vector_with_additional_element<T>(m_coeffs);
-        }
-        
     };
     
     struct ineq { // we only have less or equal, which is enough for integral variables
@@ -509,24 +504,136 @@ public: // for debugging
         }
         return r;
     }
-    
-    void propagate_inequality(unsigned i) {
-        ineq& ie = m_ineqs[i];
-        unsigned slack_var_for_ineq = find_large_enough_j(i);
-        bound_propagator_int<T> bp(*this, slack_var_for_ineq);
-        
-        linear_combination_iterator_on_std_vector_with_additional_element<T> it(ie.m_poly.m_coeffs, slack_var_for_ineq);
-        
-        bound_analyzer_on_int_ineq<T>::analyze(
-            it,
-            -ie.m_poly.m_a,
-            i,
-            bp);
+
+    std::string var_name(unsigned j) const {
+        return get_column_name(j);
+    }
+
+    void trace_print_domain_change(unsigned j, const T& v, const std::pair<T, unsigned> & p, unsigned ineq_index) const {
+        tout << "change in domain of " << var_name(j) << ", v = " << v << ", domain becomes ";
+        print_var_domain(tout, j);
+        T lb;
+        bool r = lower(ineq_index, lb);
+        if (r)
+            tout << "lower_of_ineq = " << lb << "\n";
+        else
+            tout << "no lower bound for ineq\n";
     }
     
+    void propagate_monomial_on_lower(const std::pair<T, unsigned> & p, const T& lower_val, unsigned ineq_index) {
+        unsigned j = p.second;
+        if (is_pos(p.first)) {
+            T m;
+            get_var_lower_bound(p.second, m);
+            T v = floor(- lower_val / p.first) + m;
+            bool change = m_var_infos[j].m_domain.intersect_with_upper_bound(v);
+            if (change) {
+                TRACE("ba_int", trace_print_domain_change(j, v, p, ineq_index););
+                add_bound(v, j, false, ineq_index);
+            }
+        } else {
+            T m;
+            get_var_upper_bound(p.second, m);
+            T v = ceil( - lower_val / p.first) + m;
+            bool change = m_var_infos[j].m_domain.intersect_with_lower_bound(v);
+            if (change) {
+                TRACE("ba_int", trace_print_domain_change(j, v, p, ineq_index););
+                add_bound(v, j, true , ineq_index);
+            }
+        }
+    }
+
+    void propagate_monomial_on_right_side(const std::pair<T, unsigned> & p, const T& rs, unsigned ineq_index) {
+        unsigned j = p.second;
+        if (is_pos(p.first)) {
+            T m;
+            T v = floor(rs / p.first);
+            bool change = m_var_infos[j].m_domain.intersect_with_upper_bound(v);
+            if (change) {
+                TRACE("ba_int", trace_print_domain_change(j, v, p, ineq_index););
+                add_bound(v, j, false, ineq_index);
+            }
+        } else {
+            T v = ceil(rs / p.first);
+            bool change = m_var_infos[j].m_domain.intersect_with_lower_bound(v);
+            if (change) {
+                TRACE("ba_int", trace_print_domain_change(j, v, p, ineq_index););
+                add_bound(v, j, true , ineq_index);
+            }
+        }
+    }
+
+    
+    void print_var_domain(std::ofstream & o, unsigned j) const {
+        m_var_infos[j].m_domain.print(o);
+    }
+    
+    // b is the value of lower
+    void propagate_inequality_on_lower(unsigned i, const T & b) {
+        for (const auto & p: m_ineqs[i].m_poly.m_coeffs) {
+            propagate_monomial_on_lower(p, b, i);
+        }
+    }
+
+    void fill_conflict_explanation(unsigned ineq_index) {
+        lp_assert(false);
+    }
+
+    void trace_print_ineq(unsigned i) {
+        print_ineq(tout, i); tout << "\n";
+        unsigned j;
+        auto it = linear_combination_iterator_on_std_vector<T>(m_ineqs[i].m_poly.m_coeffs);
+        while (it.next(j)) {
+            tout << "domain of " << var_name(j) << " = ";
+            print_var_domain(tout,j);
+        }
+    }
+
+   
+    void propagate_inequality_only_one_unlim(unsigned ineq_index, unsigned the_only_unlim) {
+        const ineq i = m_ineqs[ineq_index];
+        T rs = - i.m_poly.m_a;
+        for (unsigned j = 0; j < i.m_poly.m_coeffs.size(); j++) {
+            if (j == the_only_unlim) continue;
+            T m;
+            lower_monomial(i.m_poly.m_coeffs[j], m);
+            rs -= m;
+        }
+
+        // we cannot get a conflict here because the monomial i.m_poly.m_coeffs[the_only_unlim]
+        // is unlimited from below and we are adding an upper bound for it
+        propagate_monomial_on_right_side(i.m_poly.m_coeffs[the_only_unlim], rs, ineq_index);
+    }
+    
+    void propagate_inequality(unsigned i) {
+        TRACE("ba_int", trace_print_ineq(i););
+        const ineq & in = m_ineqs[i];
+        if (in.is_simple())
+            return;
+        // consider a special case for inequalities with just two variables
+        unsigned the_only_unlim;
+        int r = lower_analize(in, the_only_unlim);
+        if (r == 0) {
+            T b;
+            lower(in.m_poly, b);
+            if (is_pos(b)) {
+                fill_conflict_explanation(i);
+            } else {
+                propagate_inequality_on_lower(i, b);
+            }
+        } else if (r == 1) {
+            propagate_inequality_only_one_unlim(i, the_only_unlim);
+        }
+    }
+
+    bool conflict() const { return m_explanation.size() > 0; }
+    
     void propagate_on_ineqs_of_var(var_index j) {
-        for (unsigned i : m_var_infos[j].m_dependent_ineqs)
-            propagate_inequality(i); 
+        for (unsigned i : m_var_infos[j].m_dependent_ineqs) {
+            propagate_inequality(i);
+            if (conflict())
+                return;
+        }
     }
     
     void propagate_ineqs_for_changed_var() {
@@ -672,6 +779,22 @@ public: // for debugging
             }
         }
         return true;
+    }
+
+
+     // returns the number of lower unlimited monomials - 0, 1, >=2
+    // if there is only one lower unlimited then the index is put into the_only_unlimited
+    int lower_analize(const ineq & f, unsigned & the_only_unlimited) const {
+        int ret = 0;
+        for (unsigned j = 0; j < f.m_poly.m_coeffs.size(); j++) {
+            if (!lower_monomial_exists(f.m_poly.m_coeffs[j])) {
+                if (ret == 1)
+                    return 2;
+                ret ++;
+                the_only_unlimited = j;
+            }
+        }
+        return ret;
     }
 
 

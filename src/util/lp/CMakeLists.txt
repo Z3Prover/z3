@@ -4,7 +4,6 @@ z3_add_component(lp
     binary_heap_priority_queue_instances.cpp
     binary_heap_upair_queue_instances.cpp
     bound_propagator.cpp
-    bound_propagator_int.cpp
     cut_solver.cpp
     core_solver_pretty_printer_instances.cpp
     dense_matrix_instances.cpp
