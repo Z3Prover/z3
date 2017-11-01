@@ -610,7 +610,7 @@ elif os.name == 'posix':
         IS_CYGWIN=True
         if (CC != None and "mingw" in CC):
             IS_CYGWIN_MINGW=True
-    elif os.uname()[0].startswith('MSYS_NT'):
+    elif os.uname()[0].startswith('MSYS_NT') or os.uname()[0].startswith('MINGW'):
         IS_MSYS2=True
         if os.uname()[4] == 'x86_64':
             LINUX_X64=True
@@ -1240,7 +1240,7 @@ def get_so_ext():
     sysname = os.uname()[0]
     if sysname == 'Darwin':
         return 'dylib'
-    elif sysname == 'Linux' or sysname == 'FreeBSD' or sysname == 'OpenBSD' or sysname.startswith('MSYS_NT'):
+    elif sysname == 'Linux' or sysname == 'FreeBSD' or sysname == 'OpenBSD' or sysname.startswith('MSYS_NT') or sysname.startswith('MINGW'):
         return 'so'
     elif sysname == 'CYGWIN':
         return 'dll'
@@ -1888,7 +1888,6 @@ class MLComponent(Component):
     def _init_ocamlfind_paths(self):
         """
             Initialises self.destdir and self.ldconf
-
             Do not call this from the MLComponent constructor because OCAMLFIND
             has not been checked at that point
         """
@@ -2459,7 +2458,7 @@ def mk_config():
         if sysname == 'Darwin':
             SO_EXT         = '.dylib'
             SLIBFLAGS      = '-dynamiclib'
-        elif sysname == 'Linux' or sysname.startswith('MSYS_NT'):
+        elif sysname == 'Linux' or sysname.startswith('MSYS_NT') or sysname.startswith('MINGW'):
             CXXFLAGS       = '%s -D_LINUX_' % CXXFLAGS
             OS_DEFINES     = '-D_LINUX_'
             SO_EXT         = '.so'
@@ -3173,7 +3172,6 @@ class MakeRuleCmd(object):
     """
         These class methods provide a convenient way to emit frequently
         needed commands used in Makefile rules
-
         Note that several of the method are meant for use during ``make
         install`` and ``make uninstall``.  These methods correctly use
         ``$(PREFIX)`` and ``$(DESTDIR)`` and therefore are preferrable
@@ -3349,10 +3347,8 @@ def configure_file(template_file_path, output_file_path, substitutions):
         Read a template file ``template_file_path``, perform substitutions
         found in the ``substitutions`` dictionary and write the result to
         the output file ``output_file_path``.
-
         The template file should contain zero or more template strings of the
         form ``@NAME@``.
-
         The substitutions dictionary maps old strings (without the ``@``
         symbols) to their replacements.
     """
