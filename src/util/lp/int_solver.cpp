@@ -418,11 +418,11 @@ void int_solver::fill_cut_solver(cut_solver<T> & cs) {
 template <typename T>
 void int_solver::fill_cut_solver_for_constraint(constraint_index ci, cut_solver<T> & cs) {
     const lar_base_constraint* c = m_lar_solver->constraints()[ci];
-    vector<constraint_index> explanation;
-    explanation.push_back(ci);
     std::vector<std::pair<T, var_index>> coeffs;
     T rs;
     get_int_coeffs_from_constraint(c, coeffs, rs);
+    vector<constraint_index> explanation;
+    explanation.push_back(ci);
     cs.add_ineq(coeffs, -rs, explanation);
 }
 
@@ -487,7 +487,9 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
     // lp_assert(non_basic_columns_are_at_bounds());
     TRACE("gomory_cut", tout << m_branch_cut_counter+1 << ", " << settings().m_int_branch_cut_gomory_threshold << std::endl;);
     if (++m_branch_cut_counter > 0) { // testing cut_solver
-        cut_solver<mpq> cs([this](unsigned j) {return m_lar_solver->get_column_name(j);});
+        cut_solver<mpq> cs([this](unsigned j) {return m_lar_solver->get_column_name(j);},
+                           [this](unsigned j, std::ostream &o) {m_lar_solver->print_constraint(j, o);});
+        
         fill_cut_solver(cs);
         auto check_res = cs.check();
         return (check_res == lbool::l_true)? lia_move::ok :

@@ -3287,7 +3287,7 @@ void test_cut_solver() {
                            if (i == 1) return  std::string("y");
                            if (i == 2) return std::string("z");
                            return std::to_string(i);
-                       });
+                       }, [](unsigned, std::ostream&){});
     std::vector<std::pair<int, unsigned>> term;
     unsigned x = 0;
     unsigned y = 1;
