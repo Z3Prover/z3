@@ -273,7 +273,7 @@ public: // for debugging
     std::vector<scope>          m_scopes;
     std::unordered_map<unsigned, unsigned> m_user_vars_to_cut_solver_vars;
     static T m_local_zero;
-    vector<constraint_index> m_explanation; // if this vector has some elements we have a conflict 
+    std::unordered_set<constraint_index> m_explanation; // if this collection is not empty we have a conflict 
     unsigned add_var(unsigned user_var_index) {
         unsigned ret;
         if (try_get_value(m_user_vars_to_cut_solver_vars, user_var_index, ret))
@@ -614,21 +614,21 @@ public: // for debugging
         return 0;// to avoid the warning
     }
 
-    void add_inequality_explanations(unsigned ineq_index, std::unordered_set<constraint_index> & explanation)  {
+    void add_inequality_explanations(unsigned ineq_index)  {
         for (constraint_index ci : m_ineqs[ineq_index].m_explanation) 
-            explanation.insert(ci);
+            m_explanation.insert(ci);
     }
     
-    void fill_conflict_explanation(unsigned ineq_index, unsigned upper_end_of_trail, std::unordered_set<constraint_index> & explanations) {
+    void fill_conflict_explanation(unsigned ineq_index, unsigned upper_end_of_trail) {
         // it is a depth first search in the tree of inequalities ( the chidlren of an inequalitiy are those inequalities the provide its lower bound)
-        add_inequality_explanations(ineq_index, explanations);
+        add_inequality_explanations(ineq_index);
         const ineq& in = m_ineqs[ineq_index];
         TRACE("ba_int", print_ineq(tout, in););
         for (const auto & p: in.coeffs()){
             unsigned literal_index = find_lower_bound_literal(is_pos(p.first), p.second, upper_end_of_trail);
             unsigned l_ineq_index = m_trail[literal_index].m_ineq_index;
             if (!m_ineqs[l_ineq_index].is_simple()) 
-                fill_conflict_explanation(l_ineq_index, literal_index, explanations);
+                fill_conflict_explanation(l_ineq_index, literal_index);
         }
     }
 
@@ -672,12 +672,9 @@ public: // for debugging
             if (is_pos(b)) {
                 lp_assert(m_explanation.size() == 0);
                 std::unordered_set<unsigned> expl;
-                fill_conflict_explanation(i, m_trail.size(), expl);
-                for (auto p : expl) {
-                    m_explanation.push_back(p);
-                }
+                fill_conflict_explanation(i, m_trail.size());
                 TRACE("ba_int", tout << "conflict explanation\n";
-                      for (auto p : expl) {
+                      for (auto p : m_explanation) {
                           m_print_constraint_function(p, tout);
                       }
                       );
@@ -982,7 +979,6 @@ public: // for debugging
         out << "ineqs:\n";
         for (const auto & i: m_ineqs) {
             print_ineq(out, i);
-            out << "\n";
         }
         out << "end of ineqs\n";
         out << "var values\n";
@@ -1006,9 +1002,9 @@ public: // for debugging
     void print_ineq(std::ostream & out, const ineq & i ) const {
         print_polynomial(out, i.m_poly);
         out << " <= 0, explanations = \n";
-        for (unsigned j = 0; j < i.m_explanation.size(); j ++) {
-            out << "constraint_index = " << i.m_explanation[j] << ":";
-            m_print_constraint_function(i.m_explanation[j], out);
+        for (unsigned j : i.m_explanation) {
+            out << "constraint_index = " << j << ":";
+            m_print_constraint_function(j, out);
         }
         out << "\n";
        
