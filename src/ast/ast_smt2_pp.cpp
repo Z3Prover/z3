@@ -31,12 +31,13 @@ using namespace format_ns;
 #define MAX_INDENT   16
 #define SMALL_INDENT 2
 
-format * smt2_pp_environment::pp_fdecl_name(symbol const & s0, unsigned & len, bool is_skolem) const {
+format * smt2_pp_environment::pp_fdecl_name(symbol const & s, unsigned & len, bool is_skolem) const {
     ast_manager & m = get_manager();
-    symbol s = m_renaming.get_symbol(s0, is_skolem);
-    len = static_cast<unsigned>(strlen(s.bare_str()));
-    return mk_string(m, s.bare_str());    
 #if 0
+    symbol s1 = m_renaming.get_symbol(s, is_skolem);
+    len = static_cast<unsigned>(strlen(s1.bare_str()));
+    return mk_string(m, s1.bare_str());    
+#else
     if (is_smt2_quoted_symbol(s)) {
         std::string str = mk_smt2_quoted_symbol(s);
         len = static_cast<unsigned>(str.length());

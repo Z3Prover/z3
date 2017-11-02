@@ -69,7 +69,6 @@ model_converter * filter_model_converter::translate(ast_translation & translator
 
 void filter_model_converter::collect(ast_pp_util& visitor) { 
     m_env = &visitor.env(); 
-    std::cout << "collect filter: " << m_decls.size() << "\n";
     for (func_decl* f : m_decls) visitor.coll.visit_func(f);
 }
 
