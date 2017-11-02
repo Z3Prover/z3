@@ -36,7 +36,7 @@ class decl_collector {
 
     void visit_sort(sort* n);
     bool is_bool(sort* s);
-    void visit_func(func_decl* n);
+    ptr_vector<ast>      m_todo;
 
 
 public:
@@ -44,6 +44,7 @@ public:
     decl_collector(ast_manager & m, bool preds=true);
     ast_manager & m() { return m_manager; }
 
+    void visit_func(func_decl* n);
     void visit(ast * n);
     void visit(unsigned n, expr* const* es);
     void visit(expr_ref_vector const& es);

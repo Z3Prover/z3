@@ -83,7 +83,7 @@ public:
         return expr_ref(m.mk_true(), m);
     }
 
-    virtual model_converter* get_model_converter() { return m_mc.get(); }
+    virtual model_converter_ref get_model_converter() const { return m_mc; }
 
 };
 

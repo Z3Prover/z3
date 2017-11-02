@@ -59,7 +59,7 @@ namespace sat {
         vector<entry>::const_iterator begin = m_entries.begin();
         vector<entry>::const_iterator it    = m_entries.end();
         bool first = true;
-        VERIFY(!m_solver || m_solver->check_clauses(m));
+        //VERIFY(!m_solver || m_solver->check_clauses(m));
         while (it != begin) {
             --it;
             SASSERT(it->get_kind() != ELIM_VAR || m[it->var()] == l_undef);
@@ -80,7 +80,7 @@ namespace sat {
                         process_stack(m, clause, st->stack());
                     }
                     sat = false;
-                    if (first && m_solver && !m_solver->check_clauses(m)) {
+                    if (false && first && m_solver && !m_solver->check_clauses(m)) {
                         display(std::cout, *it) << "\n";
                         first = false;
                     }
@@ -94,6 +94,8 @@ namespace sat {
                     continue;
                 bool sign  = l.sign();
                 bool_var v = l.var();
+                if (v >= m.size()) std::cout << v << " model size: " << m.size() << "\n";
+                VERIFY(v < m.size());
                 if (v == it->var())
                     var_sign = sign;
                 if (value_at(l, m) == l_true)
@@ -103,7 +105,7 @@ namespace sat {
                     m[v] = sign ? l_false : l_true;
                     // if (first) std::cout << "set: " << l << "\n";
                     sat = true;
-                    if (first && m_solver && !m_solver->check_clauses(m)) {
+                    if (false && first && m_solver && !m_solver->check_clauses(m)) {
                         display(std::cout, *it)  << "\n";;
                         first = false;
                     }
@@ -289,7 +291,7 @@ namespace sat {
         out << ")";
         for (literal l : entry.m_clauses) {
             if (l != null_literal) {
-                if (m_solver && m_solver->was_eliminated(l.var())) out << "\neliminated: " << l;
+                if (false && m_solver && m_solver->was_eliminated(l.var())) out << "\neliminated: " << l;
             }
         }
         return out;
@@ -317,12 +319,12 @@ namespace sat {
         return result;
     }
 
-    void model_converter::expand(vector<literal_vector>& update_stack) {
-        literal_vector clause;
+    void model_converter::expand(literal_vector& update_stack) {
+        sat::literal_vector clause;
         for (entry const& e : m_entries) {
-            clause.reset();
             unsigned index = 0;
             bool var_sign = false;
+            clause.reset();
             for (literal l : e.m_clauses) {
                 if (l == null_literal) {
                     elim_stack* st = e.m_elim_stack[index];                    
@@ -343,10 +345,12 @@ namespace sat {
                                 }
                             }
                             SASSERT(found);
-                            update_stack.push_back(literal_vector(csz, clause.c_ptr()));
+                            update_stack.append(csz, clause.c_ptr());
+                            update_stack.push_back(null_literal);
                         }
                     }
-                    update_stack.push_back(clause);
+                    update_stack.append(clause);
+                    update_stack.push_back(null_literal);
                     clause.reset();
                     continue;
                 }

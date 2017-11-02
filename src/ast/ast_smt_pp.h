@@ -24,7 +24,7 @@ Revision History:
 #include "util/map.h"
 
 class smt_renaming {
-    struct sym_b { symbol name; bool is_skolem; sym_b(symbol n, bool s): name(n), is_skolem(s) {} sym_b():name(),is_skolem(false) {}};
+    struct sym_b { symbol name; bool is_skolem; symbol name_aux; sym_b(symbol n, bool s): name(n), is_skolem(s) {} sym_b():name(),is_skolem(false) {}};
     typedef map<symbol, symbol, symbol_hash_proc, symbol_eq_proc> symbol2symbol;
     typedef map<symbol, sym_b, symbol_hash_proc, symbol_eq_proc> symbol2sym_b;
     symbol2sym_b   m_translate;

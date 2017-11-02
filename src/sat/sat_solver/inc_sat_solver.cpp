@@ -61,6 +61,7 @@ class inc_sat_solver : public solver {
     proof_converter_ref m_pc;
     model_converter_ref m_mc;
     model_converter_ref m_mc0;
+    model_converter_ref m_sat_mc;
     expr_dependency_ref m_dep_core;
     svector<double>     m_weights;
     std::string         m_unknown;
@@ -444,10 +445,11 @@ public:
     }
 
     virtual model_converter_ref get_model_converter() const {
-        if (m_internalized && m_internalized_converted) {
-            NOT_IMPLEMENTED_YET();
+        const_cast<inc_sat_solver*>(this)->convert_internalized();
+        if (m_internalized && m_internalized_converted) {            
             model_converter_ref mc = concat(m_mc0.get(), mk_bit_blaster_model_converter(m, m_bb_rewriter->const2bits()));
             mc = concat(solver::get_model_converter().get(), mc.get());
+            mc = concat(mc.get(), m_sat_mc.get());
             return mc;
         }
         else {
@@ -456,28 +458,14 @@ public:
     }
 
     void convert_internalized() {
-        if (!m_internalized) return;
+        if (!m_internalized || m_internalized_converted) return;
         sat2goal s2g;
-        model_converter_ref mc;
-        goal g(m, false, false, false);
-        s2g(m_solver, m_map, m_params, g, mc);
-        extract_model();
-        if (!m_model) {
-            m_model = alloc(model, m);
-        }
-        model_ref mdl = m_model;
-        if (m_mc) (*m_mc)(mdl);
-        for (unsigned i = 0; i < mdl->get_num_constants(); ++i) {
-            func_decl* c = mdl->get_constant(i);
-            expr_ref eq(m.mk_eq(m.mk_const(c), mdl->get_const_interp(c)), m);
-            g.assert_expr(eq);
-        }
+        m_sat_mc = nullptr;
+        goal g(m, false, true, false);
+        s2g(m_solver, m_map, m_params, g, m_sat_mc);
         m_internalized_fmls.reset();
         g.get_formulas(m_internalized_fmls);
         m_internalized_converted = true;
-        // if (mc) mc->display(std::cout << "mc");
-        // if (m_mc) m_mc->display(std::cout << "m_mc\n");
-        // if (m_mc0) m_mc0->display(std::cout << "m_mc0\n");
     }
 
     void init_preprocess() {

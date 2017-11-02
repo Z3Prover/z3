@@ -81,7 +81,7 @@ class bit_blaster_tactic : public tactic {
                     new_pr     = m().mk_modus_ponens(pr, new_pr);
                 }
                 if (curr != new_curr) {
-                    change = true;
+                    change = true;                    
                     TRACE("bit_blaster", tout << mk_pp(curr, m()) << " -> " << mk_pp(new_curr, m()) << "\n";);
                     g->update(idx, new_curr, new_pr, g->dep(idx));
                 }

@@ -37,16 +37,26 @@ expr * solver::get_assertion(unsigned idx) const {
 
 std::ostream& solver::display(std::ostream & out) const {
     expr_ref_vector fmls(get_manager());
+    std::cout << "display 1\n";
     get_assertions(fmls);
+    std::cout << "display 2\n";
     ast_pp_util visitor(get_manager());
-    visitor.collect(fmls);
-    visitor.display_decls(out);
-    visitor.display_asserts(out, fmls, true);
     model_converter_ref mc = get_model_converter();
+    std::cout << "display 3\n";
+    if (mc.get()) { 
+        mc->collect(visitor); 
+    }
+    std::cout << "display 4\n";
+    visitor.collect(fmls);
+    std::cout << "display 5\n";
+    visitor.display_decls(out);
+    std::cout << "display 6\n";
+    visitor.display_asserts(out, fmls, true);
+    std::cout << "display 7\n";
     if (mc.get()) {
-        mc->set_pp_env(&visitor.env());
         mc->display(out);
     }
+    std::cout << "display 8\n";
     return out;
 }
 

@@ -24,26 +24,16 @@ Notes:
  * Add or overwrite value in model.
  */
 void model_converter::display_add(std::ostream& out, ast_manager& m, func_decl* f, expr* e) const {
-    // TBD: for arity > 0, requires signature of arguments.
-    if (m_env) {
-        ast_smt2_pp(out, f, e, *m_env, params_ref(), 0, "model-add");        
-    }
-    else {
-        unsigned indent = f->get_name().size() + 4;
-        out << "(model-add " << f->get_name() << " " << mk_ismt2_pp(e, m, indent) << ")\n";
-    }
+    VERIFY(m_env);
+    ast_smt2_pp(out, f, e, *m_env, params_ref(), 0, "model-add") << "\n";
 }
 
 /*
  * A value is removed from the model.
  */
 void model_converter::display_del(std::ostream& out, func_decl* f) const {
-    if (m_env) {
-        ast_smt2_pp(out, f, *m_env, params_ref(), 0, "model-del");
-    }
-    else {
-        out << "(model-del " << f->get_name() << ")\n";
-    }
+    VERIFY(m_env);
+    ast_smt2_pp(out << "(model-del ", f->get_name(), f->is_skolem(), *m_env) << ")\n";    
 }
 
 void model_converter::display_add(std::ostream& out, ast_manager& m) {
@@ -64,7 +54,9 @@ void model_converter::display_add(std::ostream& out, ast_manager& m) {
 
 class concat_model_converter : public concat_converter<model_converter> {
 public:
-    concat_model_converter(model_converter * mc1, model_converter * mc2): concat_converter<model_converter>(mc1, mc2) {}
+    concat_model_converter(model_converter * mc1, model_converter * mc2): concat_converter<model_converter>(mc1, mc2) {
+        VERIFY(m_c1 && m_c2);
+    }
 
     virtual void operator()(model_ref & m) {
         this->m_c2->operator()(m);
@@ -85,6 +77,11 @@ public:
 
     virtual model_converter * translate(ast_translation & translator) {
         return this->translate_core<concat_model_converter>(translator);
+    }
+
+    virtual void collect(ast_pp_util& visitor) { 
+        this->m_c1->collect(visitor);
+        this->m_c2->collect(visitor);
     }
 };
 

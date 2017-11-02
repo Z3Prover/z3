@@ -19,6 +19,7 @@ Notes:
 #ifndef MODEL_CONVERTER_H_
 #define MODEL_CONVERTER_H_
 
+#include "ast/ast_pp_util.h"
 #include "model/model.h"
 #include "tactic/converter.h"
 #include "util/ref.h"
@@ -48,8 +49,8 @@ public:
 
     
     virtual model_converter * translate(ast_translation & translator) = 0;
-
-    void set_pp_env(smt2_pp_environment* env) { m_env = env; }
+    
+    virtual void collect(ast_pp_util& visitor) { m_env = &visitor.env(); }
 };
 
 typedef ref<model_converter> model_converter_ref;

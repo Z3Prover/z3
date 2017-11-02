@@ -45,14 +45,6 @@ symbol smt_renaming::fix_symbol(symbol s, int k) {
     std::ostringstream buffer;
     char const * data = s.is_numerical() ? "" : s.bare_str();
 
-    if (data[0] && !data[1]) {
-        switch (data[0]) {
-        case '/': data = "op_div"; break;
-        case '%': data = "op_mod"; break;
-        default: break;
-        }
-    }
-
     if (k == 0 && *data) {
         if (s.is_numerical()) {
             return s;
@@ -80,7 +72,7 @@ symbol smt_renaming::fix_symbol(symbol s, int k) {
         buffer << s;
     }
     if (k > 0) {
-        buffer << k;
+        buffer << "!" << k;
     }
 
     return symbol(buffer.str().c_str());
@@ -139,6 +131,9 @@ symbol smt_renaming::get_symbol(symbol s0, bool is_skolem) {
     if (m_translate.find(s0, sb)) {
         if (is_skolem == sb.is_skolem)
             return sb.name;
+        if (sb.name_aux != symbol::null) {
+            return sb.name_aux;
+        }
         int k = 0;
         symbol s1;
         do {
@@ -146,6 +141,8 @@ symbol smt_renaming::get_symbol(symbol s0, bool is_skolem) {
         }
         while (s == s0 || (m_rev_translate.find(s, s1) && s1 != s0));
         m_rev_translate.insert(s, s0);
+        sb.name_aux = s;
+        m_translate.insert(s, sb);
         return s;
     }
 

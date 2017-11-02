@@ -304,7 +304,7 @@ protected:
     void erase_macro(symbol const& s);
     bool macros_find(symbol const& s, unsigned n, expr*const* args, expr*& t) const;
 
-    ref<generic_model_converter> m_mc0;
+    generic_model_converter_ref m_mc0;
 
 public:
     cmd_context(bool main_ctx = true, ast_manager * m = 0, symbol const & l = symbol::null);
@@ -324,6 +324,7 @@ public:
     void set_numeral_as_real(bool f) { m_numeral_as_real = f; }
     void set_interactive_mode(bool flag) { m_interactive_mode = flag; }
     void set_ignore_check(bool flag) { m_ignore_check = flag; }
+    bool ignore_check() const { return m_ignore_check; }
     void set_exit_on_error(bool flag) { m_exit_on_error = flag; }
     bool exit_on_error() const { return m_exit_on_error; }
     bool interactive_mode() const { return m_interactive_mode; }

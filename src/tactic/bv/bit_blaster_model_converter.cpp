@@ -34,11 +34,9 @@ struct bit_blaster_model_converter : public model_converter {
     ast_manager & m() const { return m_vars.get_manager(); }
     
     bit_blaster_model_converter(ast_manager & m, obj_map<func_decl, expr*> const & const2bits):m_vars(m), m_bits(m) {
-        obj_map<func_decl, expr*>::iterator it  = const2bits.begin();
-        obj_map<func_decl, expr*>::iterator end = const2bits.end();
-        for (; it != end; ++it) {
-            func_decl * v = it->m_key;
-            expr * bits   = it->m_value;
+        for (auto const& kv : const2bits) {
+            func_decl * v = kv.m_key;
+            expr * bits   = kv.m_value;
             SASSERT(!TO_BOOL || is_app_of(bits, m.get_family_id("bv"), OP_MKBV));
             SASSERT(TO_BOOL  || is_app_of(bits, m.get_family_id("bv"), OP_CONCAT));
             m_vars.push_back(v);
@@ -155,17 +153,11 @@ struct bit_blaster_model_converter : public model_converter {
         unsigned bv_sz = to_app(bs)->get_num_args();
         expr_ref_vector args(m());
         app_ref result(m());
-        for (unsigned j = 0; j < bv_sz; ++j) {
-            expr * bit = to_app(bs)->get_arg(j);
+        for (expr * bit : *to_app(bs)) {
             SASSERT(is_uninterp_const(bit));
             func_decl * bit_decl = to_app(bit)->get_decl();
             expr * bit_val = old_model.get_const_interp(bit_decl);
-            if (bit_val != 0) {
-                args.push_back(bit_val);
-            }
-            else {
-                args.push_back(bit);
-            }
+            args.push_back(bit_val ? bit_val : bit);
         }
 
         if (TO_BOOL) {
@@ -194,14 +186,10 @@ struct bit_blaster_model_converter : public model_converter {
     }
     
     virtual void display(std::ostream & out) {
-        out << "(bit-blaster-model-converter";
         unsigned sz = m_vars.size();
         for (unsigned i = 0; i < sz; i++) {
-            out << "\n  (" << m_vars.get(i)->get_name() << " ";
-            unsigned indent = m_vars.get(i)->get_name().size() + 4;
-            out << mk_ismt2_pp(m_bits.get(i), m(), indent) << ")";
-        }   
-        out << ")" << std::endl;
+            display_add(out, m(), m_vars.get(i), m_bits.get(i));
+        }
     }
 
 protected:
@@ -210,10 +198,10 @@ public:
 
     virtual model_converter * translate(ast_translation & translator) {
         bit_blaster_model_converter * res = alloc(bit_blaster_model_converter, translator.to());
-        for (unsigned i = 0; i < m_vars.size(); i++)
-            res->m_vars.push_back(translator(m_vars[i].get()));
-        for (unsigned i = 0; i < m_bits.size(); i++)
-            res->m_bits.push_back(translator(m_bits[i].get()));
+        for (func_decl * v : m_vars) 
+            res->m_vars.push_back(translator(v));
+        for (expr* b : m_bits)
+            res->m_bits.push_back(translator(b));
         return res;
     }
 };

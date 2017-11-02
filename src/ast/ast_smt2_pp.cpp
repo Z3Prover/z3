@@ -599,9 +599,9 @@ class smt2_printer {
             return f;
         ptr_buffer<format> buf;
         buf.push_back(f);
-        for (unsigned i = 0; i < names.size(); i++) {
-            buf.push_back(pp_simple_attribute(is_pos ? ":lblpos " : ":lblneg ", names[i]));
-        }
+        for (symbol const& n : names) 
+            buf.push_back(pp_simple_attribute(is_pos ? ":lblpos " : ":lblneg ", n));
+
         return mk_seq1(m(), buf.begin(), buf.end(), f2f(), "!");
     }
 
@@ -1244,6 +1244,15 @@ std::ostream & ast_smt2_pp(std::ostream & out, unsigned sz, expr * const* es, sm
     return out;
 }
 
+std::ostream & ast_smt2_pp(std::ostream & out, symbol const& s, bool is_skolem, smt2_pp_environment & env, params_ref const& p) {
+    unsigned len;
+    ast_manager & m = env.get_manager();
+    format_ref r(fm(m));
+    r = env.pp_fdecl_name(s, len, is_skolem);
+    pp(out, r.get(), m, p);
+    return out;
+}
+
 mk_ismt2_pp::mk_ismt2_pp(ast * t, ast_manager & m, params_ref const & p, unsigned indent, unsigned num_vars, char const * var_prefix):
     m_ast(t),
     m_manager(m),
@@ -1261,6 +1270,8 @@ mk_ismt2_pp::mk_ismt2_pp(ast * t, ast_manager & m, unsigned indent, unsigned num
     m_num_vars(num_vars),
     m_var_prefix(var_prefix) {
 }
+
+
 
 std::ostream& operator<<(std::ostream& out, mk_ismt2_pp const & p) {
     smt2_pp_environment_dbg env(p.m_manager);    
@@ -1309,14 +1320,14 @@ std::ostream& operator<<(std::ostream& out, app_ref_vector const&  e) {
 }
 
 std::ostream& operator<<(std::ostream& out, func_decl_ref_vector const&  e) {
-    for (unsigned i = 0; i < e.size(); ++i)
-        out << mk_ismt2_pp(e[i], e.get_manager()) << "\n";
+    for (func_decl* f : e) 
+        out << mk_ismt2_pp(f, e.get_manager()) << "\n";
     return out;
 }
 
 std::ostream& operator<<(std::ostream& out, sort_ref_vector const&  e) {
-    for (unsigned i = 0; i < e.size(); ++i)
-        out << mk_ismt2_pp(e[i], e.get_manager()) << "\n";
+    for (sort* s : e) 
+        out << mk_ismt2_pp(s, e.get_manager()) << "\n";
     return out;
 }
 

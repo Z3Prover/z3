@@ -52,7 +52,7 @@ struct goal2sat::imp {
     };
     ast_manager &               m;
     pb_util                     pb;
-    sat::ba_solver*        m_ext;
+    sat::ba_solver*             m_ext;
     svector<frame>              m_frame_stack;
     svector<sat::literal>       m_result_stack;
     obj_map<app, sat::literal>  m_cache;
@@ -896,18 +896,32 @@ struct sat2goal::imp {
     public:
         sat_model_converter(ast_manager & m, sat::solver const & s):m_var2expr(m) {
             m_mc.copy(s.get_model_converter());
-            m_mc.set_solver(&s);
             m_fmc = alloc(filter_model_converter, m);
         }
         
         ast_manager & m() { return m_var2expr.get_manager(); }
-        
-        void insert(expr * atom, bool aux) {
-            m_var2expr.push_back(atom);
+       
+        void init(unsigned num_vars) {
+            m_var2expr.resize(num_vars);
+        }
+
+        void insert(unsigned v, expr * atom, bool aux) {
+            VERIFY(!m_var2expr.get(v));
+            m_var2expr[v] = atom;
             if (aux) {
                 SASSERT(is_uninterp_const(atom));
                 SASSERT(m().is_bool(atom));
                 m_fmc->insert(to_app(atom)->get_decl());
+            }
+        }
+
+        void finish() {
+            sat::literal_vector updates;
+            m_mc.expand(updates);
+            for (sat::literal l : updates) {
+                if (l != sat::null_literal && !m_var2expr.get(l.var())) {
+                    insert(l.var(), m().mk_fresh_const(0, m().mk_bool_sort()), true);
+                }
             }
         }
         
@@ -929,6 +943,10 @@ struct sat2goal::imp {
             sat::model sat_md;
             expr_ref val(m());
             for (expr * atom : m_var2expr) {
+                if (!atom) {
+                    sat_md.push_back(l_undef);
+                    continue;
+                }
                 ev(atom, val);
                 if (m().is_true(val)) 
                     sat_md.push_back(l_true);
@@ -945,7 +963,7 @@ struct sat2goal::imp {
             unsigned sz = m_var2expr.size();
             for (sat::bool_var v = 0; v < sz; v++) {
                 expr * atom = m_var2expr.get(v);
-                if (is_uninterp_const(atom)) {
+                if (atom && is_uninterp_const(atom)) {
                     func_decl * d = to_app(atom)->get_decl();
                     lbool new_val = sat_md[v];
                     if (new_val == l_true)
@@ -964,11 +982,12 @@ struct sat2goal::imp {
             sat_model_converter * res = alloc(sat_model_converter, translator.to());
             res->m_fmc = static_cast<filter_model_converter*>(m_fmc->translate(translator));
             for (expr* e : m_var2expr) 
-                res->m_var2expr.push_back(translator(e));
+                res->m_var2expr.push_back(e ? translator(e) : nullptr);
             return res;
         }
         
         expr_ref lit2expr(sat::literal l) {
+            VERIFY(m_var2expr.get(l.var()));
             expr_ref result(m_var2expr.get(l.var()), m());
             if (l.sign()) {
                 result = m().mk_not(result);
@@ -977,24 +996,42 @@ struct sat2goal::imp {
         }
 
         void display(std::ostream & out) {
-            vector<sat::literal_vector> updates;
+            sat::literal_vector updates;
             m_mc.expand(updates);
-            for (sat::literal_vector const& clause : updates) {
-                expr_ref_vector tail(m());
-                sat::literal lit0 = clause[0];
-                for (unsigned i = 1; i < clause.size(); ++i) {
-                    tail.push_back(lit2expr(~clause[i]));
+            sat::literal_vector clause;
+            expr_ref_vector tail(m());
+            expr_ref def(m());
+            for (sat::literal l : updates) {
+                if (l == sat::null_literal) {
+                    sat::literal lit0 = clause[0];
+                    for (unsigned i = 1; i < clause.size(); ++i) {
+                        tail.push_back(lit2expr(~clause[i]));
+                    }
+                    def = m().mk_or(lit2expr(lit0), mk_and(tail));            
+                    if (lit0.sign()) {
+                        lit0.neg();
+                        def = m().mk_not(def);
+                    }
+                    display_add(out, m(), to_app(lit2expr(lit0))->get_decl(), def);
+                    clause.reset();
+                    tail.reset();
                 }
-                expr_ref def(m().mk_or(lit2expr(lit0), mk_and(tail)), m());
-                if (lit0.sign()) {
-                    lit0.neg();
-                    def = m().mk_not(def);
+                else {
+                    clause.push_back(l);
                 }
-                display_add(out, m(), to_app(lit2expr(lit0))->get_decl(), def);
             }
             m_fmc->display(out);
         }
+        
+        virtual void collect(ast_pp_util& visitor) { 
+            m_env = &visitor.env();
+            for (expr* e : m_var2expr) if (e) visitor.coll.visit(e);
+            if (m_fmc) m_fmc->collect(visitor);
+        }
+
     };
+
+    typedef ref<sat_model_converter> sat_model_converter_ref;
 
     ast_manager &           m;
     expr_ref_vector         m_lit2expr;
@@ -1019,83 +1056,80 @@ struct sat2goal::imp {
             throw tactic_exception(TACTIC_MAX_MEMORY_MSG);
     }
 
-    void init_lit2expr(sat::solver const & s, atom2bool_var const & map, model_converter_ref & mc, bool produce_models) {
-        ref<sat_model_converter> _mc;
-        if (produce_models)
-            _mc = alloc(sat_model_converter, m, s);
+    void init_lit2expr(sat::solver const & s, atom2bool_var const & map, sat_model_converter_ref & mc) {
         unsigned num_vars = s.num_vars();
         m_lit2expr.resize(num_vars * 2);
         map.mk_inv(m_lit2expr);
-        sort * b = m.mk_bool_sort();
-        for (sat::bool_var v = 0; v < num_vars; v++) {
-            checkpoint();
-            sat::literal l(v, false);
-            if (m_lit2expr.get(l.index()) == 0) {
-                SASSERT(m_lit2expr.get((~l).index()) == 0);
-                app * aux = m.mk_fresh_const(0, b);
-                if (_mc)
-                    _mc->insert(aux, true);
-                m_lit2expr.set(l.index(), aux);
-                m_lit2expr.set((~l).index(), m.mk_not(aux));
-            }
-            else {
-                if (_mc)
-                    _mc->insert(m_lit2expr.get(l.index()), false);
-                SASSERT(m_lit2expr.get((~l).index()) != 0);
+        if (mc) {
+            mc->init(num_vars);
+            for (sat::bool_var v = 0; v < num_vars; v++) {
+                checkpoint();
+                sat::literal l(v, false);
+                if (m_lit2expr.get(l.index())) {
+                    mc->insert(v, m_lit2expr.get(l.index()), false);
+                    SASSERT(m_lit2expr[(~l).index()]);
+                }
             }
         }
-        mc = _mc.get();
     }
 
-    expr * lit2expr(sat::literal l) {
+    expr * lit2expr(sat_model_converter_ref& mc, sat::literal l) {
+        if (!m_lit2expr.get(l.index())) {
+            SASSERT(m_lit2expr.get((~l).index()) == 0);
+            app * aux = m.mk_fresh_const(0, m.mk_bool_sort());
+            if (mc)
+                mc->insert(l.var(), aux, true);
+            m_lit2expr.set(l.index(), aux);
+            m_lit2expr.set((~l).index(), m.mk_not(aux));
+        }        
         return m_lit2expr.get(l.index());
     }
 
-    void assert_pb(goal& r, sat::ba_solver::pb const& p) {
+    void assert_pb(sat_model_converter_ref& mc, goal& r, sat::ba_solver::pb const& p) {
         pb_util pb(m);
         ptr_buffer<expr> lits;
         vector<rational> coeffs;
         for (auto const& wl : p) {
-            lits.push_back(lit2expr(wl.second));
+            lits.push_back(lit2expr(mc, wl.second));
             coeffs.push_back(rational(wl.first));
         }
         rational k(p.k());
         expr_ref fml(pb.mk_ge(p.size(), coeffs.c_ptr(), lits.c_ptr(), k), m);
         
         if (p.lit() != sat::null_literal) {
-            fml = m.mk_eq(lit2expr(p.lit()), fml);            
+            fml = m.mk_eq(lit2expr(mc, p.lit()), fml);            
         }
         r.assert_expr(fml);
     }
 
-    void assert_card(goal& r, sat::ba_solver::card const& c) {
+    void assert_card(sat_model_converter_ref& mc, goal& r, sat::ba_solver::card const& c) {
         pb_util pb(m);
         ptr_buffer<expr> lits;
         for (sat::literal l : c) {
-            lits.push_back(lit2expr(l));
+            lits.push_back(lit2expr(mc, l));
         }
         expr_ref fml(pb.mk_at_least_k(c.size(), lits.c_ptr(), c.k()), m);
         
         if (c.lit() != sat::null_literal) {
-            fml = m.mk_eq(lit2expr(c.lit()), fml);            
+            fml = m.mk_eq(lit2expr(mc, c.lit()), fml);            
         }
         r.assert_expr(fml);
     }
 
-    void assert_xor(goal & r, sat::ba_solver::xor const& x) {
+    void assert_xor(sat_model_converter_ref& mc, goal & r, sat::ba_solver::xor const& x) {
         ptr_buffer<expr> lits;
         for (sat::literal l : x) {
-            lits.push_back(lit2expr(l));
+            lits.push_back(lit2expr(mc, l));
         }
         expr_ref fml(m.mk_xor(x.size(), lits.c_ptr()), m);
         
         if (x.lit() != sat::null_literal) {
-            fml = m.mk_eq(lit2expr(x.lit()), fml);            
+            fml = m.mk_eq(lit2expr(mc, x.lit()), fml);            
         }
         r.assert_expr(fml);
     }
 
-    void assert_clauses(sat::solver const & s, sat::clause_vector const& clauses, goal & r, bool asserted) {
+    void assert_clauses(sat_model_converter_ref& mc, sat::solver const & s, sat::clause_vector const& clauses, goal & r, bool asserted) {
         ptr_buffer<expr> lits;
         for (sat::clause* cp : clauses) {
             checkpoint();
@@ -1104,7 +1138,7 @@ struct sat2goal::imp {
             unsigned sz = c.size();
             if (asserted || m_learned || c.glue() <= s.get_config().m_gc_small_lbd) {
                 for (sat::literal l : c) {
-                    lits.push_back(lit2expr(l));
+                    lits.push_back(lit2expr(mc, l));
                 }
                 r.assert_expr(m.mk_or(lits.size(), lits.c_ptr()));
             }
@@ -1121,17 +1155,22 @@ struct sat2goal::imp {
             r.assert_expr(m.mk_false());
             return;
         }
-        init_lit2expr(s, map, mc, r.models_enabled());
+        ref<sat_model_converter> _mc;
+        if (r.models_enabled()) {
+            _mc = alloc(sat_model_converter, m, s);
+        }
+        mc = _mc.get();
+        init_lit2expr(s, map, _mc);
         // collect units
         unsigned num_vars = s.num_vars();
         for (sat::bool_var v = 0; v < num_vars; v++) {
             checkpoint();
             switch (s.value(v)) {
             case l_true:
-                r.assert_expr(lit2expr(sat::literal(v, false)));
+                r.assert_expr(lit2expr(_mc, sat::literal(v, false)));
                 break;
             case l_false:
-                r.assert_expr(lit2expr(sat::literal(v, true)));
+                r.assert_expr(lit2expr(_mc, sat::literal(v, true)));
                 break;
             case l_undef:
                 break;
@@ -1142,95 +1181,49 @@ struct sat2goal::imp {
         s.collect_bin_clauses(bin_clauses, m_learned);
         for (sat::solver::bin_clause const& bc : bin_clauses) {
             checkpoint();
-            r.assert_expr(m.mk_or(lit2expr(bc.first), lit2expr(bc.second)));
+            r.assert_expr(m.mk_or(lit2expr(_mc, bc.first), lit2expr(_mc, bc.second)));
         }
         // collect clauses
-        assert_clauses(s, s.clauses(), r, true);
+        assert_clauses(_mc, s, s.clauses(), r, true);
 
         sat::ba_solver* ext = get_ba_solver(s);
         if (ext) {
             for (auto* c : ext->constraints()) {
                 switch (c->tag()) {
                 case sat::ba_solver::card_t: 
-                    assert_card(r, c->to_card());
+                    assert_card(_mc, r, c->to_card());
                     break;
                 case sat::ba_solver::pb_t: 
-                    assert_pb(r, c->to_pb());
+                    assert_pb(_mc, r, c->to_pb());
                     break;
                 case sat::ba_solver::xor_t: 
-                    assert_xor(r, c->to_xor());
+                    assert_xor(_mc, r, c->to_xor());
                     break;
                 }
             }
         }
-        //s.display(std::cout);
-        //r.display(std::cout);
+        if (_mc) _mc->finish();
     }
 
-    void add_clause(sat::literal_vector const& lits, expr_ref_vector& lemmas) {
+    void add_clause(sat_model_converter_ref& mc, sat::literal_vector const& lits, expr_ref_vector& lemmas) {
         expr_ref_vector lemma(m);
         for (sat::literal l : lits) {
-            expr* e = m_lit2expr.get(l.index(), 0);
+            expr* e = lit2expr(mc, l);
             if (!e) return;
             lemma.push_back(e);
         }
         lemmas.push_back(mk_or(lemma));
     }
 
-    void add_clause(sat::clause const& c, expr_ref_vector& lemmas) {
+    void add_clause(sat_model_converter_ref& mc, sat::clause const& c, expr_ref_vector& lemmas) {
         expr_ref_vector lemma(m);
         for (sat::literal l : c) {
-            expr* e = m_lit2expr.get(l.index(), 0);
+            expr* e = lit2expr(mc, l);
             if (!e) return;
             lemma.push_back(e);
         }
         lemmas.push_back(mk_or(lemma));
     }
-
-    void get_learned(sat::solver const& s, atom2bool_var const& map, expr_ref_vector& lemmas) {
-        if (s.inconsistent()) {
-            lemmas.push_back(m.mk_false());
-            return;
-        }
-
-        unsigned num_vars = s.num_vars();
-        m_lit2expr.resize(num_vars * 2);
-        map.mk_inv(m_lit2expr);
-
-        sat::literal_vector lits;
-        // collect units
-        for (sat::bool_var v = 0; v < num_vars; v++) {
-            checkpoint();
-            lits.reset();
-            switch (s.value(v)) {
-            case l_true:
-                lits.push_back(sat::literal(v, false));
-                add_clause(lits, lemmas);
-                break;
-            case l_false:
-                lits.push_back(sat::literal(v, false));
-                add_clause(lits, lemmas);
-                break;
-            case l_undef:
-                break;
-            }
-        }
-        // collect learned binary clauses
-        svector<sat::solver::bin_clause> bin_clauses;
-        s.collect_bin_clauses(bin_clauses, true, true);
-        for (sat::solver::bin_clause const& bc : bin_clauses) {
-            checkpoint();
-            lits.reset();
-            lits.push_back(bc.first);
-            lits.push_back(bc.second);
-            add_clause(lits, lemmas);
-        }
-        // collect clauses
-        for (sat::clause const* c : s.learned()) {
-            add_clause(*c, lemmas);
-        }
-    }
-
 
 };
 
@@ -1260,9 +1253,4 @@ void sat2goal::operator()(sat::solver const & t, atom2bool_var const & m, params
     proc(t, m, g, mc);
 }
 
-void sat2goal::get_learned(sat::solver const & t, atom2bool_var const & m, params_ref const& p, expr_ref_vector& lemmas) {
-    imp proc(lemmas.get_manager(), p);
-    scoped_set_imp set(this, &proc);
-    proc.get_learned(t, m, lemmas);
-}
 

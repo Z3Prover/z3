@@ -2222,11 +2222,13 @@ namespace smt2 {
         }
 
         void parse_model_del() {
-            func_decl* f = parse_func_decl_ref();
-            check_rparen("invalid model-del, ')' expected");
-            m_ctx.model_del(f);
-            m_ctx.print_success();
             next();
+            symbol id = curr_id();
+            func_decl * f = m_ctx.find_func_decl(id);
+            m_ctx.model_del(f);
+            next();
+            check_rparen_next("invalid model-del, ')' expected");
+            m_ctx.print_success();
         }
 
         void parse_define_fun_rec() {

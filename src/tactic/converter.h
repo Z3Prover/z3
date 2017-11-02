@@ -29,11 +29,13 @@ public:
     converter():m_ref_count(0) {}
     virtual ~converter() {}
 
-    void inc_ref() { ++m_ref_count; }
+	void inc_ref() { ++m_ref_count; std::cout << "inc_ref " << m_ref_count << " " << this << "\n"; }
     void dec_ref() { 
         --m_ref_count;
-        if (m_ref_count == 0)
-            dealloc(this);
+		if (m_ref_count == 0) {
+			std::cout << "dec_ref " << this << "\n";
+			dealloc(this);
+		}
     }
 
     virtual void cancel() {}

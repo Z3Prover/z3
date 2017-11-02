@@ -200,6 +200,8 @@ public:
         if (!m_tactic) {
             throw cmd_exception("check-sat-using needs a tactic argument");
         }
+        if (ctx.ignore_check())
+            return;
         params_ref p = ctx.params().merge_default_params(ps());
         tactic_ref tref = using_params(sexpr2tactic(ctx, m_tactic), p);
         tref->set_logic(ctx.get_logic());

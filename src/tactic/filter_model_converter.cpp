@@ -62,7 +62,14 @@ void filter_model_converter::display(std::ostream & out) {
 
 model_converter * filter_model_converter::translate(ast_translation & translator) {
     filter_model_converter * res = alloc(filter_model_converter, translator.to());
-    for (unsigned i = 0; i < m_decls.size(); i++)
-        res->m_decls.push_back(translator(m_decls[i].get()));
+    for (func_decl* f : m_decls) 
+        res->m_decls.push_back(translator(f));
     return res;
 }
+
+void filter_model_converter::collect(ast_pp_util& visitor) { 
+    m_env = &visitor.env(); 
+    std::cout << "collect filter: " << m_decls.size() << "\n";
+    for (func_decl* f : m_decls) visitor.coll.visit_func(f);
+}
+

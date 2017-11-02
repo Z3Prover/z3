@@ -61,6 +61,7 @@ namespace sat {
         m_num_checkpoints         = 0;
         m_simplifications         = 0;
         m_cuber                   = nullptr;
+        m_mc.set_solver(nullptr);
     }
 
     solver::~solver() {
@@ -1550,7 +1551,7 @@ namespace sat {
         
         if (m_config.m_drat) m_drat.check_model(m_model);
 
-        // m_mc.set_solver(this);
+        m_mc.set_solver(nullptr);
         m_mc(m_model);
 
         

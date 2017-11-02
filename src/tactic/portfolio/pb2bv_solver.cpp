@@ -93,6 +93,7 @@ public:
             filter_model(mdl);            
         }
     } 
+    virtual model_converter_ref get_model_converter() const { return m_solver->get_model_converter(); }
     virtual proof * get_proof() { return m_solver->get_proof(); }
     virtual std::string reason_unknown() const { return m_solver->reason_unknown(); }
     virtual void set_reason_unknown(char const* msg) { m_solver->set_reason_unknown(msg); }

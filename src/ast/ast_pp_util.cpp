@@ -45,10 +45,10 @@ void ast_pp_util::display_decls(std::ostream& out) {
     for (unsigned i = 0; i < n; ++i) {
         func_decl* f = coll.get_func_decls()[i];
         if (f->get_family_id() == null_family_id) {
-            ast_smt2_pp(out, f, m_env);
-            out << "\n";
+            ast_smt2_pp(out, f, m_env) << "\n";
         }
     }
+    SASSERT(coll.get_num_preds() == 0);
 }
 
 void ast_pp_util::display_asserts(std::ostream& out, expr_ref_vector const& fmls, bool neat) {

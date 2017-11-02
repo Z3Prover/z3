@@ -868,6 +868,9 @@ void cmd_context::insert(symbol const & s, object_ref * r) {
 void cmd_context::model_add(symbol const & s, unsigned arity, sort *const* domain, expr * t) {
     if (!m_mc0) m_mc0 = alloc(generic_model_converter, m());
     func_decl_ref fn(m().mk_func_decl(s, arity, domain, m().get_sort(t)), m());
+    dictionary<func_decls>::entry * e = m_func_decls.insert_if_not_there2(s, func_decls());
+    func_decls & fs = e->get_data().m_value;
+    fs.insert(m(), fn);
     m_mc0->add(fn, t);
 }
 
