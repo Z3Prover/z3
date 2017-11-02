@@ -77,7 +77,6 @@ public:
     inc_sat_solver(ast_manager& m, params_ref const& p, bool incremental_mode):
         m(m), 
         m_solver(p, m.limit()),
-        m_params(p), 
         m_fmls(m),
         m_asmsf(m),
         m_fmls_head(0),

@@ -810,8 +810,6 @@ namespace smt {
             m_new_proofs.push_back(pr);
             return pr;
         }
-        if (m_manager.coarse_grain_proofs())
-            return pr;
         TRACE("norm_eq_proof",
               tout << "#" << n1->get_owner_id() << " = #" << n2->get_owner_id() << "\n";
               tout << mk_ll_pp(pr, m_manager, true, false););
@@ -1217,7 +1215,7 @@ namespace smt {
         mk_proof(rhs, c, prs2);
         while (!prs2.empty()) {
             proof * pr = prs2.back();
-            if (m_manager.fine_grain_proofs()) {
+            if (m_manager.proofs_enabled()) {
                 pr = m_manager.mk_symmetry(pr);
                 m_new_proofs.push_back(pr);
                 prs1.push_back(pr);

@@ -10,7 +10,6 @@ z3_add_component(muz
     dl_rule_transformer.cpp
     dl_util.cpp
     hnf.cpp
-    proof_utils.cpp
     rule_properties.cpp
   COMPONENT_DEPENDENCIES
     aig_tactic

@@ -147,7 +147,7 @@ static void compute_interpolant_and_maybe_check(cmd_context & ctx, expr * t, par
     ast_manager &_m = ctx.m();
     // TODO: the following is a HACK to enable proofs in the old smt solver
     // When we stop using that solver, this hack can be removed
-    scoped_proof_mode spm(_m,PGM_FINE);
+    scoped_proof_mode spm(_m,PGM_ENABLED);
     ctx.params().get_solver_params(_m, p, proofs_enabled, models_enabled, unsat_core_enabled);
     p.set_bool("proof", true);
     scoped_ptr<solver> sp = (ctx.get_interpolating_solver_factory())(_m, p, true, models_enabled, false, ctx.get_logic());

@@ -31,11 +31,10 @@ class mpq {
 public:
     mpq(int v):m_num(v), m_den(1) {}
     mpq():m_den(1) {}
+    mpq(mpq && other) : m_num(std::move(other.m_num)), m_den(std::move(other.m_den)) {}
     void swap(mpq & other) { m_num.swap(other.m_num); m_den.swap(other.m_den); }
     mpz const & numerator() const { return m_num; }
     mpz const & denominator() const { return m_den; }
-
-    double get_double() const;
 };
 
 inline void swap(mpq & m1, mpq & m2) { m1.swap(m2); }
@@ -743,6 +742,12 @@ public:
     void set(mpq & a, unsigned sz, digit_t const * digits) { 
         mpz_manager<SYNCH>::set(a.m_num, sz, digits); 
         reset_denominator(a); 
+    }
+
+    mpq dup(const mpq & source) {
+        mpq temp;
+        set(temp, source);
+        return temp;
     }
 
     void swap(mpz & a, mpz & b) { mpz_manager<SYNCH>::swap(a, b); }

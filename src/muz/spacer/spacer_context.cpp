@@ -40,7 +40,7 @@ Notes:
 #include "ast/ast_smt2_pp.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/ast_util.h"
-#include "ast/proof_checker/proof_checker.h"
+#include "ast/proofs/proof_checker.h"
 #include "smt/smt_value_sort.h"
 #include "ast/scoped_proof.h"
 #include "muz/spacer/spacer_qe_project.h"
@@ -2139,7 +2139,7 @@ void context::reset_lemma_generalizers()
 void context::init_lemma_generalizers(datalog::rule_set& rules)
 {
     reset_lemma_generalizers();
-    m.toggle_proof_mode(PGM_FINE);
+    m.toggle_proof_mode(PGM_ENABLED);
     smt_params &fparams = m_pm.fparams ();
     if (!m_params.spacer_eq_prop ()) {
         fparams.m_arith_bound_prop = BP_NONE;

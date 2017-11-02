@@ -57,12 +57,12 @@ typedef ast raw_ast;
 
 /** Wrapper around an ast pointer */
 class ast_i {
- protected:
+protected:
     raw_ast *_ast;
- public:
+public:
     raw_ast * const &raw() const {return _ast;}
     ast_i(raw_ast *a){_ast = a;}
-  
+    
     ast_i(){_ast = 0;}
     bool eq(const ast_i &other) const {
         return _ast == other._ast;
@@ -86,19 +86,19 @@ class ast_i {
 /** Reference counting verison of above */
 class ast_r : public ast_i {
     ast_manager *_m;
- public:
- ast_r(ast_manager *m, raw_ast *a) : ast_i(a) {
+public:
+    ast_r(ast_manager *m, raw_ast *a) : ast_i(a) {
         _m = m;
         m->inc_ref(a);
     }
-  
+    
     ast_r() {_m = 0;}
-
- ast_r(const ast_r &other) : ast_i(other) {
+    
+    ast_r(const ast_r &other) : ast_i(other) {
         _m = other._m;
         if (_m) _m->inc_ref(_ast);
     }
-
+    
     ast_r &operator=(const ast_r &other) {
         if(_ast)
             _m->dec_ref(_ast);
@@ -107,12 +107,12 @@ class ast_r : public ast_i {
         if (_m) _m->inc_ref(_ast);
         return *this;
     }
-
-    ~ast_r(){
+    
+    ~ast_r() {
         if(_ast)
             _m->dec_ref(_ast);
     }
-  
+    
     ast_manager *mgr() const {return _m;}
 
 };

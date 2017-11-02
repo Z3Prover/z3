@@ -275,6 +275,20 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
+        /// Create a new n-ary array sort.
+        /// </summary>
+        public ArraySort MkArraySort(Sort[] domain, Sort range)
+        {
+            Contract.Requires(domain != null);
+            Contract.Requires(range != null);
+            Contract.Ensures(Contract.Result<ArraySort>() != null);
+
+            CheckContextMatch<Sort>(domain);
+            CheckContextMatch(range);
+            return new ArraySort(this, domain, range);
+        }
+
+        /// <summary>
         /// Create a new tuple sort.
         /// </summary>
         public TupleSort MkTupleSort(Symbol name, Symbol[] fieldNames, Sort[] fieldSorts)
@@ -2113,6 +2127,7 @@ namespace Microsoft.Z3
             return (ArrayExpr)MkConst(MkSymbol(name), MkArraySort(domain, range));
         }
 
+
         /// <summary>
         /// Array read.
         /// </summary>
@@ -2123,8 +2138,8 @@ namespace Microsoft.Z3
         /// The node <c>a</c> must have an array sort <c>[domain -> range]</c>,
         /// and <c>i</c> must have the sort <c>domain</c>.
         /// The sort of the result is <c>range</c>.
-        /// <seealso cref="MkArraySort"/>
-        /// <seealso cref="MkStore"/>
+        /// <seealso cref="MkArraySort(Sort, Sort)"/>
+        /// <seealso cref="MkStore(ArrayExpr, Expr, Expr)"/>
         /// </remarks>
         public Expr MkSelect(ArrayExpr a, Expr i)
         {
@@ -2135,6 +2150,30 @@ namespace Microsoft.Z3
             CheckContextMatch(a);
             CheckContextMatch(i);
             return Expr.Create(this, Native.Z3_mk_select(nCtx, a.NativeObject, i.NativeObject));
+        }
+
+        /// <summary>
+        /// Array read.
+        /// </summary>
+        /// <remarks>
+        /// The argument <c>a</c> is the array and <c>args</c> are the indices
+        /// of the array that gets read.
+        ///
+        /// The node <c>a</c> must have an array sort <c>[domain1,..,domaink -> range]</c>,
+        /// and <c>args</c> must have the sort <c>domain1,..,domaink</c>.
+        /// The sort of the result is <c>range</c>.
+        /// <seealso cref="MkArraySort(Sort, Sort)"/>
+        /// <seealso cref="MkStore(ArrayExpr, Expr, Expr)"/>
+        /// </remarks>
+        public Expr MkSelect(ArrayExpr a, params Expr[] args)
+        {
+            Contract.Requires(a != null);
+            Contract.Requires(args != null && Contract.ForAll(args, n => n != null));
+            Contract.Ensures(Contract.Result<Expr>() != null);
+
+            CheckContextMatch(a);
+            CheckContextMatch<Expr>(args);
+            return Expr.Create(this, Native.Z3_mk_select_n(nCtx, a.NativeObject, AST.ArrayLength(args), AST.ArrayToNative(args)));
         }
 
         /// <summary>
@@ -2151,8 +2190,9 @@ namespace Microsoft.Z3
         /// on all indices except for <c>i</c>, where it maps to <c>v</c>
         /// (and the <c>select</c> of <c>a</c> with
         /// respect to <c>i</c> may be a different value).
-        /// <seealso cref="MkArraySort"/>
-        /// <seealso cref="MkSelect"/>
+        /// <seealso cref="MkArraySort(Sort, Sort)"/>
+        /// <seealso cref="MkSelect(ArrayExpr, Expr)"/>
+        /// <seealso cref="MkSelect(ArrayExpr, Expr[])"/>
         /// </remarks>
         public ArrayExpr MkStore(ArrayExpr a, Expr i, Expr v)
         {
@@ -2168,13 +2208,44 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
+        /// Array update.
+        /// </summary>
+        /// <remarks>
+        /// The node <c>a</c> must have an array sort <c>[domain1,..,domaink -> range]</c>,
+        /// <c>args</c> must have sort <c>domain1,..,domaink</c>,
+        /// <c>v</c> must have sort range. The sort of the result is <c>[domain -> range]</c>.
+        /// The semantics of this function is given by the theory of arrays described in the SMT-LIB
+        /// standard. See http://smtlib.org for more details.
+        /// The result of this function is an array that is equal to <c>a</c>
+        /// (with respect to <c>select</c>)
+        /// on all indices except for <c>args</c>, where it maps to <c>v</c>
+        /// (and the <c>select</c> of <c>a</c> with
+        /// respect to <c>args</c> may be a different value).
+        /// <seealso cref="MkArraySort(Sort, Sort)"/>
+        /// <seealso cref="MkSelect(ArrayExpr, Expr)"/>
+        /// <seealso cref="MkSelect(ArrayExpr, Expr[])"/>
+        /// </remarks>
+        public ArrayExpr MkStore(ArrayExpr a, Expr[] args, Expr v)
+        {
+            Contract.Requires(a != null);
+            Contract.Requires(args != null);
+            Contract.Requires(v != null);
+            Contract.Ensures(Contract.Result<ArrayExpr>() != null);
+
+            CheckContextMatch<Expr>(args);
+            CheckContextMatch(a);
+            CheckContextMatch(v);
+            return new ArrayExpr(this, Native.Z3_mk_store_n(nCtx, a.NativeObject, AST.ArrayLength(args), AST.ArrayToNative(args), v.NativeObject));
+        }
+
+        /// <summary>
         /// Create a constant array.
         /// </summary>
         /// <remarks>
         /// The resulting term is an array, such that a <c>select</c>on an arbitrary index
         /// produces the value <c>v</c>.
-        /// <seealso cref="MkArraySort"/>
-        /// <seealso cref="MkSelect"/>
+        /// <seealso cref="MkArraySort(Sort, Sort)"/>
+        /// <seealso cref="MkSelect(ArrayExpr, Expr)"/>
         /// </remarks>
         public ArrayExpr MkConstArray(Sort domain, Expr v)
         {
@@ -2194,9 +2265,9 @@ namespace Microsoft.Z3
         /// Eeach element of <c>args</c> must be of an array sort <c>[domain_i -> range_i]</c>.
         /// The function declaration <c>f</c> must have type <c> range_1 .. range_n -> range</c>.
         /// <c>v</c> must have sort range. The sort of the result is <c>[domain_i -> range]</c>.
-        /// <seealso cref="MkArraySort"/>
-        /// <seealso cref="MkSelect"/>
-        /// <seealso cref="MkStore"/>
+        /// <seealso cref="MkArraySort(Sort, Sort)"/>
+        /// <seealso cref="MkSelect(ArrayExpr, Expr)"/>
+        /// <seealso cref="MkStore(ArrayExpr, Expr, Expr)"/>
         /// </remarks>
         public ArrayExpr MkMap(FuncDecl f, params ArrayExpr[] args)
         {

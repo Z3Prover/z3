@@ -94,8 +94,6 @@ public:
     virtual void reset();
 
     virtual void set_progress_callback(progress_callback *callback) {UNREACHABLE();}
-    virtual void assert_lemma(expr* e) { NOT_IMPLEMENTED_YET(); }
-    virtual expr_ref lookahead(const expr_ref_vector &,const expr_ref_vector &) { return expr_ref(m.mk_true(), m); }
     virtual expr_ref cube() { return expr_ref(m.mk_true(), m); }
 
     virtual solver *translate(ast_manager &m, params_ref const &p);
@@ -136,6 +134,9 @@ private:
 
 
     void refresh();
+
+    smt_params &fparams() { return m_fparams; }
+
 public:
     virtual_solver_factory(ast_manager &mgr, smt_params &fparams);
     virtual ~virtual_solver_factory();
@@ -146,7 +147,6 @@ public:
     void collect_param_descrs(param_descrs &r) { /* empty */ }
     void set_produce_models(bool f) { m_fparams.m_model = f; }
     bool get_produce_models() { return m_fparams.m_model; }
-    smt_params &fparams() { return m_fparams; }
 };
 
 }

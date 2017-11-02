@@ -36,7 +36,7 @@ class iz3translation : public iz3base {
 
     /** This is thrown when the proof cannot be translated. */
     struct unsupported: public iz3_exception {
-        unsupported(): iz3_exception("unsupported") {}
+    unsupported(): iz3_exception("unsupported") { }
     };
 
     static iz3translation *create(iz3mgr &mgr,

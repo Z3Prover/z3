@@ -39,9 +39,8 @@ static void tst_sine_core(std::ostream & out, unsynch_mpq_manager & nm, interval
 
 static void tst_sine(std::ostream & out, unsigned N, unsigned k) {
     unsynch_mpq_manager                 nm;
-    im_default_config                   imc(nm);
     reslimit rl;
-    interval_manager<im_default_config> im(rl, imc);
+    interval_manager<im_default_config> im(rl, nm);
     scoped_mpq a(nm);
     nm.set(a, 0);
     tst_sine_core(out, nm, im, a, 1);
@@ -67,8 +66,7 @@ static void tst_cosine_core(std::ostream & out, unsynch_mpq_manager & nm, interv
 static void tst_cosine(std::ostream & out, unsigned N, unsigned k) {
     reslimit rl;
     unsynch_mpq_manager                 nm;
-    im_default_config                   imc(nm);
-    interval_manager<im_default_config> im(rl, imc);
+    interval_manager<im_default_config> im(rl, nm);
     scoped_mpq a(nm);
     nm.set(a, 0);
     tst_cosine_core(out, nm, im, a, 1);
@@ -100,8 +98,7 @@ template<typename fmanager>
 static void tst_float_sine(std::ostream & out, unsigned N, unsigned k) {
     reslimit rl;
     fmanager                                     fm;
-    im_float_config<fmanager>                    ifc(fm, EBITS, SBITS);
-    interval_manager<im_float_config<fmanager> > im(rl, ifc);
+    interval_manager<im_float_config<fmanager> > im(rl, im_float_config<fmanager>(fm, EBITS, SBITS));
     _scoped_numeral<fmanager> a(fm);
     fm.set(a, EBITS, SBITS, static_cast<int>(0));
     tst_float_sine_core(out, fm, im, a, 1);
@@ -136,8 +133,7 @@ static void tst_mpf_bug() {
 static void tst_e(std::ostream & out) {
     reslimit rl;
     unsynch_mpq_manager                 nm;
-    im_default_config                   imc(nm);
-    interval_manager<im_default_config> im(rl, imc);
+    interval_manager<im_default_config> im(rl, nm);
     im_default_config::interval         r;
     for (unsigned i = 0; i < 64; i++) {
         im.e(i, r);
@@ -152,8 +148,7 @@ static void tst_e_float(std::ostream & out) {
     reslimit rl;
     unsynch_mpq_manager   qm;
     mpf_manager           fm;
-    im_float_config<mpf_manager>                    ifc(fm);
-    interval_manager<im_float_config<mpf_manager> > im(rl, ifc);
+    interval_manager<im_float_config<mpf_manager> > im(rl, fm);
     scoped_mpq q(qm);
     im_float_config<mpf_manager>::interval r;
     for (unsigned i = 0; i < 64; i++) {
@@ -161,7 +156,7 @@ static void tst_e_float(std::ostream & out) {
         out << fm.to_rational_string(im.lower(r)) << " <= E\n";
         out << "E <= " << fm.to_rational_string(im.upper(r)) << "\n";
     }
-    del_f_interval(ifc, r);
+    im.del(r);
 }
 
 void tst_trigo() {

@@ -465,7 +465,7 @@ namespace datalog {
 
             unsigned sz = r.get_signature().size();
             ptr_vector<expr> subst_arg;
-            subst_arg.resize(sz, 0);
+            subst_arg.resize(sz);
             unsigned ofs = sz-1;
             for (unsigned i=0; i<sz; i++) {
                 SASSERT(!r.is_undefined(i) || !contains_var(m_new_rule, i));

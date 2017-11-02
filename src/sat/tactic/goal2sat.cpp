@@ -1067,7 +1067,7 @@ struct sat2goal::imp {
                 sat::literal l(v, false);
                 if (m_lit2expr.get(l.index())) {
                     mc->insert(v, m_lit2expr.get(l.index()), false);
-                    SASSERT(m_lit2expr[(~l).index()]);
+                    SASSERT(m_lit2expr.get((~l).index()));
                 }
             }
         }

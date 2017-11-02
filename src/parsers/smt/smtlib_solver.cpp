@@ -34,7 +34,7 @@ Revision History:
 namespace smtlib {
 
     solver::solver():
-        m_ast_manager(m_params.m_proof ? PGM_FINE : PGM_DISABLED, 
+        m_ast_manager(m_params.m_proof ? PGM_ENABLED : PGM_DISABLED, 
                       m_params.m_trace ? m_params.m_trace_file_name.c_str() : 0),
         m_ctx(0),
         m_error_code(0) {

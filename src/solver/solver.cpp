@@ -35,28 +35,29 @@ expr * solver::get_assertion(unsigned idx) const {
     return 0;
 }
 
-std::ostream& solver::display(std::ostream & out) const {
+std::ostream& solver::display(std::ostream & out, unsigned n, expr* const* assumptions) const {
     expr_ref_vector fmls(get_manager());
-    std::cout << "display 1\n";
+    //std::cout << "display 1\n";
     get_assertions(fmls);
-    std::cout << "display 2\n";
+    //std::cout << "display 2\n";
     ast_pp_util visitor(get_manager());
     model_converter_ref mc = get_model_converter();
-    std::cout << "display 3\n";
+    //std::cout << "display 3\n";
     if (mc.get()) { 
         mc->collect(visitor); 
     }
-    std::cout << "display 4\n";
+    //std::cout << "display 4\n";
     visitor.collect(fmls);
-    std::cout << "display 5\n";
+    //std::cout << "display 5\n";
+    visitor.collect(n, assumptions);
     visitor.display_decls(out);
-    std::cout << "display 6\n";
+    //std::cout << "display 6\n";
     visitor.display_asserts(out, fmls, true);
-    std::cout << "display 7\n";
+    //std::cout << "display 7\n";
     if (mc.get()) {
         mc->display(out);
     }
-    std::cout << "display 8\n";
+    //std::cout << "display 8\n";
     return out;
 }
 

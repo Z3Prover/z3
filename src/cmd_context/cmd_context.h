@@ -194,6 +194,7 @@ protected:
 
     static std::ostringstream    g_error_stream;
 
+    generic_model_converter_ref  m_mc0;
     ast_manager *                m_manager;
     bool                         m_own_manager;
     bool                         m_manager_initialized;
@@ -304,7 +305,6 @@ protected:
     void erase_macro(symbol const& s);
     bool macros_find(symbol const& s, unsigned n, expr*const* args, expr*& t) const;
 
-    generic_model_converter_ref m_mc0;
 
 public:
     cmd_context(bool main_ctx = true, ast_manager * m = 0, symbol const & l = symbol::null);

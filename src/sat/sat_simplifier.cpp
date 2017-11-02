@@ -1720,7 +1720,6 @@ namespace sat {
         collect_clauses(pos_l, m_pos_cls, false);
         collect_clauses(neg_l, m_neg_cls, false);
 
-
         TRACE("resolution_detail", tout << "collecting number of after_clauses\n";);
         unsigned before_clauses = num_pos + num_neg;
         unsigned after_clauses  = 0;
@@ -1739,7 +1738,7 @@ namespace sat {
             }
         }
         TRACE("resolution", tout << "found var to eliminate, before: " << before_clauses << " after: " << after_clauses << "\n";);
-
+        m_elim_counter -= num_pos * num_neg + before_lits;
 
         m_elim_counter -= num_pos * num_neg + before_lits;
 

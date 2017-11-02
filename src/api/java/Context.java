@@ -224,6 +224,17 @@ public class Context implements AutoCloseable {
         return new ArraySort(this, domain, range);
     }
 
+
+    /**
+     * Create a new array sort.
+     **/
+    public ArraySort mkArraySort(Sort[] domains, Sort range)
+    {
+        checkContextMatch(domains);
+        checkContextMatch(range);
+        return new ArraySort(this, domains, range);
+    }
+
     /**
      * Create a new string sort
      **/
@@ -414,7 +425,7 @@ public class Context implements AutoCloseable {
      * that is passed in as argument is updated with value v,
      * the remaining fields of t are unchanged.
      **/
-    public Expr MkUpdateField(FuncDecl field, Expr t, Expr v) 
+    public Expr mkUpdateField(FuncDecl field, Expr t, Expr v) 
         throws Z3Exception
     {
         return Expr.create (this, 
@@ -706,7 +717,7 @@ public class Context implements AutoCloseable {
     }
 
     /**
-     * Mk an expression representing {@code not(a)}.
+     * Create an expression representing {@code not(a)}.
      **/
     public BoolExpr mkNot(BoolExpr a)
     {
@@ -1680,6 +1691,28 @@ public class Context implements AutoCloseable {
     }
 
     /**
+     * Array read.
+     * Remarks:  The argument {@code a} is the array and
+     * {@code args} are the indices of the array that gets read.
+     * 
+     * The node {@code a} must have an array sort
+     * {@code [domains -> range]}, and {@code args} must have the sorts
+     * {@code domains}. The sort of the result is {@code range}.
+     * 
+     * @see #mkArraySort
+     * @see #mkStore
+
+     **/
+    public Expr mkSelect(ArrayExpr a, Expr[] args)
+    {
+        checkContextMatch(a);
+        checkContextMatch(args);
+        return Expr.create(
+                this,
+                Native.mkSelectN(nCtx(), a.getNativeObject(), args.length, AST.arrayToNative(args)));
+    }
+
+    /**
      * Array update.
      * Remarks:  The node {@code a} must have an array sort
      * {@code [domain -> range]}, {@code i} must have sort
@@ -1702,6 +1735,31 @@ public class Context implements AutoCloseable {
         checkContextMatch(v);
         return new ArrayExpr(this, Native.mkStore(nCtx(), a.getNativeObject(),
                 i.getNativeObject(), v.getNativeObject()));
+    }
+
+    /**
+     * Array update.
+     * Remarks:  The node {@code a} must have an array sort
+     * {@code [domains -> range]}, {@code i} must have sort
+     * {@code domain}, {@code v} must have sort range. The sort of the
+     * result is {@code [domains -> range]}. The semantics of this function
+     * is given by the theory of arrays described in the SMT-LIB standard. See
+     * http://smtlib.org for more details. The result of this function is an
+     * array that is equal to {@code a} (with respect to
+     * {@code select}) on all indices except for {@code args}, where it
+     * maps to {@code v} (and the {@code select} of {@code a}
+     * with respect to {@code args} may be a different value). 
+     * @see #mkArraySort
+     * @see #mkSelect
+
+     **/
+    public ArrayExpr mkStore(ArrayExpr a, Expr[] args, Expr v)
+    {
+        checkContextMatch(a);
+        checkContextMatch(args);
+        checkContextMatch(v);
+        return new ArrayExpr(this, Native.mkStoreN(nCtx(), a.getNativeObject(),
+                             args.length, AST.arrayToNative(args), v.getNativeObject()));
     }
 
     /**
@@ -2104,7 +2162,7 @@ public class Context implements AutoCloseable {
     /**
      * Create a range expression.
      */
-    public ReExpr MkRange(SeqExpr lo, SeqExpr hi) 
+    public ReExpr mkRange(SeqExpr lo, SeqExpr hi) 
     {
         checkContextMatch(lo, hi);
         return (ReExpr) Expr.create(this, Native.mkReRange(nCtx(), lo.getNativeObject(), hi.getNativeObject()));

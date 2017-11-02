@@ -41,6 +41,7 @@ public:
     rational() {}
     
     rational(rational const & r) { m().set(m_val, r.m_val); }
+    rational(rational && r) : m_val(std::move(r.m_val)) {}
 
     explicit rational(int n) { m().set(m_val, n); }
 

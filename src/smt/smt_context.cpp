@@ -23,7 +23,7 @@ Revision History:
 #include "ast/ast_ll_pp.h"
 #include "util/warning.h"
 #include "smt/smt_quick_checker.h"
-#include "ast/proof_checker/proof_checker.h"
+#include "ast/proofs/proof_checker.h"
 #include "ast/ast_util.h"
 #include "smt/uses_theory.h"
 #include "model/model.h"
@@ -1286,7 +1286,7 @@ namespace smt {
         else {
             if (depth >= m_almost_cg_tables.size()) {
                 unsigned old_sz = m_almost_cg_tables.size();
-                m_almost_cg_tables.resize(depth+1, 0);
+                m_almost_cg_tables.resize(depth+1);
                 for (unsigned i = old_sz; i < depth + 1; i++)
                     m_almost_cg_tables[i] = alloc(almost_cg_table);
             }
@@ -4402,7 +4402,8 @@ namespace smt {
                     subst.push_back(arg);
                 }
                 expr_ref bodyr(m);
-                var_subst sub(m, false);
+                var_subst sub(m, true);
+                TRACE("context", tout << expr_ref(q, m) << " " << subst << "\n";);
                 sub(body, subst.size(), subst.c_ptr(), bodyr);
                 func_decl* f = to_app(fn)->get_decl();
                 func_interp* fi = alloc(func_interp, m, f->get_arity());

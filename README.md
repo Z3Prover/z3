@@ -124,7 +124,7 @@ utility is used to install ``Microsoft.Z3.dll`` into the
 [pkg-config](http://www.freedesktop.org/wiki/Software/pkg-config/) file
 (``Microsoft.Z3.Sharp.pc``) is also installed which allows the
 [MonoDevelop](http://www.monodevelop.com/) IDE to find the bindings. Running
-``make uninstall`` will remove the dll from the GAC and the pkg-config file.
+``make uninstall`` will remove the dll from the GAC and the ``pkg-config`` file.
 
 See [``examples/dotnet``](examples/dotnet) for examples.
 
@@ -170,8 +170,8 @@ If you do need to install to a non standard prefix a better approach is to use
 a [Python virtual environment](https://virtualenv.readthedocs.org/en/latest/)
 and install Z3 there. Python packages also work for Python3.
 Under Windows, recall to build inside the Visual C++ native command build environment.
-Note that the buit/python/z3 directory should be accessible from where python is used with Z3 
-and it depends on libz3.dll to be in the path.
+Note that the ``build/python/z3`` directory should be accessible from where python is used with Z3 
+and it depends on ``libz3.dll`` to be in the path.
 
 ```bash
 virtualenv venv

@@ -84,12 +84,24 @@ if [ -n "${ASAN_BUILD}" ]; then
   BUILD_OPTS+=("--build-arg" "ASAN_BUILD=${ASAN_BUILD}")
 fi
 
+if [ -n "${ASAN_DSO}" ]; then
+  BUILD_OPTS+=("--build-arg" "ASAN_DSO=${ASAN_DSO}")
+fi
+
+if [ -n "${SANITIZER_PRINT_SUPPRESSIONS}" ]; then
+  BUILD_OPTS+=("--build-arg" "SANITIZER_PRINT_SUPPRESSIONS=${SANITIZER_PRINT_SUPPRESSIONS}")
+fi
+
 if [ -n "${UBSAN_BUILD}" ]; then
   BUILD_OPTS+=("--build-arg" "UBSAN_BUILD=${UBSAN_BUILD}")
 fi
 
 if [ -n "${TEST_INSTALL}" ]; then
   BUILD_OPTS+=("--build-arg" "TEST_INSTALL=${TEST_INSTALL}")
+fi
+
+if [ -n "${RUN_API_EXAMPLES}" ]; then
+  BUILD_OPTS+=("--build-arg" "RUN_API_EXAMPLES=${RUN_API_EXAMPLES}")
 fi
 
 if [ -n "${RUN_SYSTEM_TESTS}" ]; then

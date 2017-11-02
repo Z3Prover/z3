@@ -63,8 +63,7 @@ public:
         unsigned old_sz = this->size();
         if (sz <= old_sz)
             shrink(sz);
-        typename Manager::numeral zero(0);
-        svector<typename Manager::numeral>::resize(sz, zero);
+        svector<typename Manager::numeral>::resize(sz, 0);
     }
 };
 

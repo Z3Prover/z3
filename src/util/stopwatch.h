@@ -185,4 +185,15 @@ public:
 
 #endif
 
+struct scoped_watch {
+    stopwatch &m_sw;
+    scoped_watch (stopwatch &sw, bool reset=false): m_sw(sw) {
+        if (reset) m_sw.reset(); 
+        m_sw.start();
+    }
+    ~scoped_watch() {
+        m_sw.stop ();
+    }
+};
+
 #endif

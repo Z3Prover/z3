@@ -44,6 +44,7 @@ public:
      - results based on check_sat_result API
 */
 class solver : public check_sat_result {
+    params_ref m_params;
 public:
     virtual ~solver() {}
 
@@ -55,7 +56,12 @@ public:
     /**
        \brief Update the solver internal settings. 
     */
-    virtual void updt_params(params_ref const & p) { }
+    virtual void updt_params(params_ref const & p) { m_params.copy(p); }
+
+    /**
+       \brief Retrieve set of parameters set on solver.
+     */
+    virtual params_ref const& get_params() { return m_params; }
 
     /**
        \brief Store in \c r a description of the configuration
@@ -95,7 +101,7 @@ public:
        \brief Add a lemma to the assertion stack. A lemma is assumed to be a consequence of already
        asserted formulas. The solver is free to ignore lemmas.
     */
-    virtual void assert_lemma(expr * t) = 0;
+    virtual void assert_lemma(expr * t) {}
 
     /**
        \brief Create a backtracking point.
@@ -188,7 +194,7 @@ public:
     /**
        \brief Display the content of this solver.
     */
-    virtual std::ostream& display(std::ostream & out) const;
+    virtual std::ostream& display(std::ostream & out, unsigned n = 0, expr* const* assumptions = nullptr) const;
 
     /**
        \brief expose model converter when solver produces partially reduced set of assertions.

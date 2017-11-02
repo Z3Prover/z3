@@ -36,6 +36,26 @@ format * smt2_pp_environment::pp_fdecl_name(symbol const & s0, unsigned & len, b
     symbol s = m_renaming.get_symbol(s0, is_skolem);
     len = static_cast<unsigned>(strlen(s.bare_str()));
     return mk_string(m, s.bare_str());    
+#if 0
+    if (is_smt2_quoted_symbol(s)) {
+        std::string str = mk_smt2_quoted_symbol(s);
+        len = static_cast<unsigned>(str.length());
+        return mk_string(m, str.c_str());
+    }
+    else if (s.is_numerical()) {
+        std::string str = s.str();
+        len = static_cast<unsigned>(str.length());
+        return mk_string(m, str.c_str());
+    }
+    else if (!s.bare_str()) {
+        len = 4;
+        return mk_string(m, "null");
+    }
+    else {
+        len = static_cast<unsigned>(strlen(s.bare_str()));
+        return mk_string(m, s.bare_str());
+    }
+#endif
 }
 
 format * smt2_pp_environment::pp_fdecl_name(func_decl * f, unsigned & len) const {

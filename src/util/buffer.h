@@ -149,6 +149,13 @@ public:
         new (m_buffer + m_pos) T(elem);
         m_pos++;
     }
+
+    void push_back(T && elem) {
+        if (m_pos >= m_capacity)
+            expand();
+        new (m_buffer + m_pos) T(std::move(elem));
+        m_pos++;
+    }
     
     void pop_back() {
         if (CallDestructors) {

@@ -101,7 +101,7 @@ namespace sat {
 
     void parallel::init_solvers(solver& s, unsigned num_extra_solvers) {
         unsigned num_threads = num_extra_solvers + 1;
-        m_solvers.resize(num_extra_solvers, 0);
+        m_solvers.resize(num_extra_solvers);
         symbol saved_phase = s.m_params.get_sym("phase", symbol("caching"));
         for (unsigned i = 0; i < num_extra_solvers; ++i) {        
             m_limits.push_back(reslimit());
