@@ -6300,7 +6300,7 @@ class Solver(Z3PPObject):
 
     def from_file(self, filename):
         """Parse assertions from a file"""
-        self.add([f for f in parse_smt2_file(filename, ctx=self.ctx)])
+        Z3_solver_from_file(self.ctx.ref(), self.solver)
 
     def from_string(self, s):
         """Parse assertions from a string"""

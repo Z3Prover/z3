@@ -443,6 +443,8 @@ public:
 
     dictionary<macro_decls> const & get_macros() const { return m_macros; }
 
+    model_converter* get_model_converter() { return m_mc0.get(); }
+
     bool is_model_available() const;
 
     double get_seconds() const { return m_watch.get_seconds(); }

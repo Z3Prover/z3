@@ -33,6 +33,9 @@ Revision History:
 #include "smt/smt_solver.h"
 #include "smt/smt_implied_equalities.h"
 #include "solver/smt_logics.h"
+#include "cmd_context/cmd_context.h"
+#include "parsers/smt2/smt2parser.h"
+
 
 extern "C" {
 
@@ -119,6 +122,30 @@ extern "C" {
         Z3_solver r = of_solver(sr);
         RETURN_Z3(r);
         Z3_CATCH_RETURN(0);
+    }
+
+    void Z3_API Z3_solver_from_file(Z3_context c, Z3_solver s, Z3_string file_name) {
+        Z3_TRY;
+        LOG_Z3_solver_from_file(c, s, file_name);
+        scoped_ptr<cmd_context> ctx = alloc(cmd_context, false, &(mk_c(c)->m()));
+        ctx->set_ignore_check(true);
+        std::ifstream is(file_name);
+        if (!is) {
+            SET_ERROR_CODE(Z3_FILE_ACCESS_ERROR);
+            return;
+        }
+        if (!parse_smt2_commands(*ctx.get(), is)) {
+            ctx = nullptr;
+            SET_ERROR_CODE(Z3_PARSER_ERROR);
+            return;
+        }
+        ptr_vector<expr>::const_iterator it  = ctx->begin_assertions();
+        ptr_vector<expr>::const_iterator end = ctx->end_assertions();
+        for (; it != end; ++it) {
+            to_solver_ref(s)->assert_expr(*it);
+        }
+        to_solver_ref(s)->set_model_converter(ctx->get_model_converter());
+        Z3_CATCH;
     }
 
     Z3_string Z3_API Z3_solver_get_help(Z3_context c, Z3_solver s) {

@@ -882,10 +882,6 @@ struct sat2goal::imp {
     // Wrapper for sat::model_converter: converts it into an "AST level" model_converter.
     class sat_model_converter : public model_converter {
         sat::model_converter        m_mc;
-        // TODO: the following mapping is storing a lot of useless information, and may be a performance bottleneck.
-        // We need to save only the expressions associated with variables that occur in m_mc.
-        // This information may be stored as a vector of pairs.
-        // The mapping is only created during the model conversion.
         expr_ref_vector             m_var2expr;
         filter_model_converter_ref  m_fmc; // filter for eliminating fresh variables introduced in the assertion-set --> sat conversion
         

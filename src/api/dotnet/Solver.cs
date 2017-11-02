@@ -181,6 +181,14 @@ namespace Microsoft.Z3
             Native.Z3_solver_assert_and_track(Context.nCtx, NativeObject, constraint.NativeObject, p.NativeObject);
         }
 
+	/// <summary>
+	/// Load solver assertions from a file.
+	/// </summary>
+	public void FromFile(string file) 
+        {
+	     Native.Z3_solver_from_file(Context.nCtx, NativeObject, file);	
+	}
+
         /// <summary>
         /// Assert a lemma (or multiple) into the solver.
         /// </summary>        
