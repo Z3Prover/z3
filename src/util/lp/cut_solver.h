@@ -20,38 +20,59 @@ class lbool { l_false, l_true, l_undef };
 template <typename T>
 class cut_solver : public column_namer {
 public: // for debugging
+    class monomial {
+        T m_coeff; // the coefficient of the monomial
+        var_index m_var; // the variable index
+    public:
+        monomial(const T& coeff, var_index var) : m_coeff(coeff), m_var(var) {}
+        // copy constructor
+        monomial(const monomial& m) : monomial(m.coeff(), m.var()) {}
+        const T & coeff() const { return m_coeff; }
+        T & coeff() { return m_coeff; }
+        var_index var() const { return m_var; }
+        std::pair<T, var_index> to_pair() const { return std::make_pair(coeff(), var());}
+    };
+
+    std::vector<std::pair<T, var_index>> to_pairs(const std::vector<monomial>& ms) const {
+        std::vector<std::pair<T, var_index>> ret;
+        for (const auto p : ms)
+            ret.push_back(p.to_pair());
+        return ret;
+    }
+    
     struct polynomial {
         // the polynomial evaluates to m_coeffs + m_a
-        std::vector<std::pair<T, var_index>> m_coeffs;
+        std::vector<monomial> m_coeffs;
         T m_a; // the free coefficient
-        polynomial(std::vector<std::pair<T, var_index>>& p, const T & a) : m_coeffs(p), m_a(a) {}
-        polynomial(std::vector<std::pair<T, var_index>>& p) : polynomial(p, 0) {}
+        polynomial(std::vector<monomial>& p, const T & a) : m_coeffs(p), m_a(a) {}
+        polynomial(std::vector<monomial>& p) : polynomial(p, 0) {}
         polynomial(): m_a(zero_of_type<T>()) {}
         polynomial(const polynomial & p) : m_coeffs(p.m_coeffs), m_a(p.m_a) {} 
             
         const T & coeff(var_index j) const {
             for (const auto & t : m_coeffs) {
-                if (j == t.second) {
-                    return t.first;
+                if (j == t.var()) {
+                    return t.coeff();
                 }
             }
             return cut_solver::m_local_zero;
         }
 
-        std::vector<std::pair<T, var_index>> copy_coeff_but_one(var_index j) const {
-            std::vector<std::pair<T, var_index>> ret;
+        std::vector<monomial> copy_coeff_but_one(var_index j) const {
+            std::vector<monomial> ret;
             for (const auto & t : m_coeffs)
-                if (t.second != j)
-                    ret.push_back(std::make_pair(t.first, t.second));
+                if (t.var() != j)
+                    ret.push_back(std::make_pair(t.coeff(), t.var()));
 
             return ret;
         }
 
-        void add_polynomial(const polynomial & p) {
+        polynomial &  operator+=(const polynomial & p) {
             m_a += p.m_a;
             for (const auto & t: p.m_coeffs)
                 add_monomial(t.first, t.second);
-        }
+	    return *this;
+	}
 
         void clear() {
             m_coeffs.clear();
@@ -63,23 +84,23 @@ public: // for debugging
         void add_monomial(const T & t, var_index j) {
             for (unsigned k = 0; k < m_coeffs.size(); k++) {
                 auto & l = m_coeffs[k];
-                if (j == l.second) {
-                    l.first += t;
-                    if (l.first == 0)
+                if (j == l.var()) {
+                    l.coeff() += t;
+                    if (l.coeff() == 0)
                         m_coeffs.erase(m_coeffs.begin() + k);
                     return;
                 }
             }
-            m_coeffs.push_back(std::make_pair(t, j));
+            m_coeffs.push_back(monomial(t, j));
             lp_assert(is_correct());
         }
 
         bool is_correct() const {
             std::unordered_set<var_index> s;
             for (auto & l : m_coeffs) {
-                if (l.first == 0)
+                if (l.coeff() == 0)
                     return false;
-                s.insert(l.second);
+                s.insert(l.var());
             }
             return m_coeffs.size() == s.size();
         }
@@ -89,7 +110,7 @@ public: // for debugging
     struct ineq { // we only have less or equal, which is enough for integral variables
         polynomial m_poly;
         vector<constraint_index> m_explanation; 
-        ineq(std::vector<std::pair<T, var_index>>& term,
+        ineq(std::vector<monomial>& term,
              const T& a,
              vector<constraint_index> explanation):
             m_poly(term, a),
@@ -103,14 +124,14 @@ public: // for debugging
             return m_poly.coeff(j);
         }
 
-        const std::vector<std::pair<T, var_index>>& coeffs() const { return m_poly.m_coeffs;}
+        const std::vector<monomial>& coeffs() const { return m_poly.m_coeffs;}
         
         void clear() { m_poly.clear(); }
 
         bool is_simple() const {
             return m_poly.m_coeffs.size() == 1 &&
-                (m_poly.m_coeffs[0].first == one_of_type<T>()
-                 || m_poly.m_coeffs[0].first == -one_of_type<T>());
+                (m_poly.m_coeffs[0].coeff() == one_of_type<T>()
+                 || m_poly.m_coeffs[0].coeff() == -one_of_type<T>());
         }
 
         bool is_tight(unsigned j) const {
@@ -213,9 +234,9 @@ public: // for debugging
 
     std::vector<var_info> m_var_infos;
     
-    bool lhs_is_int(const std::vector<std::pair<T, var_index>> & lhs) const {
+    bool lhs_is_int(const std::vector<monomial> & lhs) const {
         for (auto & p : lhs) {
-            if (numeric_traits<T>::is_int(p.first) == false) return false;
+            if (numeric_traits<T>::is_int(p.coeff()) == false) return false;
         }
         return true;
     }
@@ -225,15 +246,15 @@ public: // for debugging
         return m_var_name_function(m_var_infos[j].m_user_var_index);
     }
 
-    unsigned add_ineq(std::vector<std::pair<T, var_index>> & lhs,
+    unsigned add_ineq(std::vector<monomial> & lhs,
                       const T& free_coeff,
                       vector<constraint_index> explanation) {
         lp_assert(lhs_is_int(lhs));
         lp_assert(is_int(free_coeff));
-        std::vector<std::pair<T, var_index>>  local_lhs;
+        std::vector<monomial>  local_lhs;
         unsigned ineq_index = m_ineqs.size();
         for (auto & p : lhs)
-            local_lhs.push_back(std::make_pair(p.first, add_var(p.second)));
+            local_lhs.push_back(monomial(p.coeff(), add_var(p.var())));
         
         m_ineqs.push_back(ineq(local_lhs, free_coeff, explanation));
         TRACE("ba_int",
@@ -244,7 +265,7 @@ public: // for debugging
               });
 
         for (auto & p : local_lhs)
-            m_var_infos[p.second].add_dependent_ineq(ineq_index);
+            m_var_infos[p.var()].add_dependent_ineq(ineq_index);
         
         return ineq_index;
     }
@@ -480,7 +501,7 @@ public: // for debugging
     bool propagate_simple_ineq(unsigned ineq_index) {
         const ineq & t = m_ineqs[ineq_index];
         TRACE("cut_solver_state",   print_ineq(tout, t); tout << std::endl;);
-        var_index j = t.m_poly.m_coeffs[0].second;
+        var_index j = t.m_poly.m_coeffs[0].var();
         
         bound_result br = bound(t, j);
         TRACE("cut_solver_state", tout << "bound result = {"; br.print(tout); tout << "}\n";
@@ -521,7 +542,7 @@ public: // for debugging
     unsigned find_large_enough_j(unsigned i) {
         unsigned r = 0;
         for (const auto & p : m_ineqs[i].m_poly.m_coeffs) {
-            r = std::max(r, p.second + 1);
+            r = std::max(r, p.var() + 1);
         }
         return r;
     }
@@ -530,7 +551,7 @@ public: // for debugging
         return get_column_name(j);
     }
 
-    void trace_print_domain_change(unsigned j, const T& v, const std::pair<T, unsigned> & p, unsigned ineq_index) const {
+    void trace_print_domain_change(unsigned j, const T& v, const monomial & p, unsigned ineq_index) const {
         tout << "change in domain of " << var_name(j) << ", v = " << v << ", domain becomes ";
         print_var_domain(tout, j);
         T lb;
@@ -541,12 +562,12 @@ public: // for debugging
             tout << "no lower bound for ineq\n";
     }
     
-    void propagate_monomial_on_lower(const std::pair<T, unsigned> & p, const T& lower_val, unsigned ineq_index) {
-        unsigned j = p.second;
-        if (is_pos(p.first)) {
+    void propagate_monomial_on_lower(const monomial & p, const T& lower_val, unsigned ineq_index) {
+        unsigned j = p.var();
+        if (is_pos(p.coeff())) {
             T m;
-            get_var_lower_bound(p.second, m);
-            T v = floor(- lower_val / p.first) + m;
+            get_var_lower_bound(p.var(), m);
+            T v = floor(- lower_val / p.coeff()) + m;
             bool change = m_var_infos[j].m_domain.intersect_with_upper_bound(v);
             if (change) {
                 TRACE("ba_int", trace_print_domain_change(j, v, p, ineq_index););
@@ -554,8 +575,8 @@ public: // for debugging
             }
         } else {
             T m;
-            get_var_upper_bound(p.second, m);
-            T v = ceil( - lower_val / p.first) + m;
+            get_var_upper_bound(p.var(), m);
+            T v = ceil( - lower_val / p.coeff()) + m;
             bool change = m_var_infos[j].m_domain.intersect_with_lower_bound(v);
             if (change) {
                 TRACE("ba_int", trace_print_domain_change(j, v, p, ineq_index););
@@ -564,18 +585,18 @@ public: // for debugging
         }
     }
 
-    void propagate_monomial_on_right_side(const std::pair<T, unsigned> & p, const T& rs, unsigned ineq_index) {
-        unsigned j = p.second;
-        if (is_pos(p.first)) {
+    void propagate_monomial_on_right_side(const monomial & p, const T& rs, unsigned ineq_index) {
+        unsigned j = p.var();
+        if (is_pos(p.coeff())) {
             T m;
-            T v = floor(rs / p.first);
+            T v = floor(rs / p.coeff());
             bool change = m_var_infos[j].m_domain.intersect_with_upper_bound(v);
             if (change) {
                 TRACE("ba_int", trace_print_domain_change(j, v, p, ineq_index););
                 add_bound(v, j, false, ineq_index);
             }
         } else {
-            T v = ceil(rs / p.first);
+            T v = ceil(rs / p.coeff());
             bool change = m_var_infos[j].m_domain.intersect_with_lower_bound(v);
             if (change) {
                 TRACE("ba_int", trace_print_domain_change(j, v, p, ineq_index););
@@ -620,12 +641,12 @@ public: // for debugging
     }
     
     void fill_conflict_explanation(unsigned ineq_index, unsigned upper_end_of_trail) {
-        // it is a depth first search in the tree of inequalities ( the chidlren of an inequalitiy are those inequalities the provide its lower bound)
+        // it is a depth.coeff() search in the tree of inequalities ( the chidlren of an inequalitiy are those inequalities the provide its lower bound)
         add_inequality_explanations(ineq_index);
         const ineq& in = m_ineqs[ineq_index];
         TRACE("ba_int", print_ineq(tout, in););
         for (const auto & p: in.coeffs()){
-            unsigned literal_index = find_lower_bound_literal(is_pos(p.first), p.second, upper_end_of_trail);
+            unsigned literal_index = find_lower_bound_literal(is_pos(p.coeff()), p.var(), upper_end_of_trail);
             unsigned l_ineq_index = m_trail[literal_index].m_ineq_index;
             if (!m_ineqs[l_ineq_index].is_simple()) 
                 fill_conflict_explanation(l_ineq_index, literal_index);
@@ -635,7 +656,8 @@ public: // for debugging
     void trace_print_ineq(unsigned i) {
         print_ineq(tout, i); tout << "\n";
         unsigned j;
-        auto it = linear_combination_iterator_on_std_vector<T>(m_ineqs[i].m_poly.m_coeffs);
+        auto pairs = to_pairs(m_ineqs[i].m_poly.m_coeffs);
+        auto it = linear_combination_iterator_on_std_vector<T>(pairs);
         while (it.next(j)) {
             tout << "domain of " << var_name(j) << " = ";
             print_var_domain(tout,j);
@@ -756,28 +778,28 @@ public: // for debugging
         return v.m_domain.get_upper_bound(bound);
     }
 
-    bool lower_monomial_exists(const std::pair<T, var_index> & p) const {
-        lp_assert(p.first != 0);
+    bool lower_monomial_exists(const monomial & p) const {
+        lp_assert(p.coeff() != 0);
 
-        if (p.first > 0) {
-            if (!m_var_infos[p.second].m_domain.lower_bound_exists())
+        if (p.coeff() > 0) {
+            if (!m_var_infos[p.var()].m_domain.lower_bound_exists())
                 return false;
         }
         else {
-            if (!m_var_infos[p.second].m_domain.upper_bound_exists())
+            if (!m_var_infos[p.var()].m_domain.upper_bound_exists())
                 return false;
         }
         return true;
     }
 
-    bool upper_monomial_exists(const std::pair<T, var_index> & p) const {
-        lp_assert(p.first != 0);
-        if (p.first > 0) {
-            if (!m_var_infos[p.second].m_domain.upper_bound_exists())
+    bool upper_monomial_exists(const monomial & p) const {
+        lp_assert(p.coeff() != 0);
+        if (p.coeff() > 0) {
+            if (!m_var_infos[p.var()].m_domain.upper_bound_exists())
                 return false;
         }
         else {
-            if (!m_var_infos[p.second].m_domain.lower_bound_exists())
+            if (!m_var_infos[p.var()].m_domain.lower_bound_exists())
                 return false;
         }
         return true;
@@ -786,34 +808,34 @@ public: // for debugging
     
     // finds the lower bound of the monomial,
     // otherwise returns false
-    bool lower_monomial(const std::pair<T, var_index> & p, T & lb) const {
-        lp_assert(p.first != 0);
+    bool lower_monomial(const monomial & p, T & lb) const {
+        lp_assert(p.coeff() != 0);
         T var_bound;
-        if (p.first > 0) {
-            if (!get_var_lower_bound(p.second, var_bound))
+        if (p.coeff() > 0) {
+            if (!get_var_lower_bound(p.var(), var_bound))
                 return false;
-            lb = p.first * var_bound;
+            lb = p.coeff() * var_bound;
         }
         else {
-            if (!get_var_upper_bound(p.second, var_bound))
+            if (!get_var_upper_bound(p.var(), var_bound))
                 return false;
-            lb = p.first * var_bound;
+            lb = p.coeff() * var_bound;
         }
         return true;
     }
 
-    bool upper_monomial(const std::pair<T, var_index> & p, T & lb) const {
-        lp_assert(p.first != 0);
+    bool upper_monomial(const monomial & p, T & lb) const {
+        lp_assert(p.coeff() != 0);
         T var_bound;
-        if (p.first > 0) {
-            if (!get_var_upper_bound(p.second, var_bound))
+        if (p.coeff() > 0) {
+            if (!get_var_upper_bound(p.var(), var_bound))
                 return false;
         }
         else {
-            if (!get_var_lower_bound(p.second, var_bound))
+            if (!get_var_lower_bound(p.var(), var_bound))
                 return false;
         }
-        lb = p.first * var_bound;
+        lb = p.coeff() * var_bound;
         return true;
     }
 
@@ -878,7 +900,7 @@ public: // for debugging
     bound_result lower_without(const polynomial & p, var_index j) const {
         bound_result r;
         for (const auto & t:  p.m_coeffs) {
-            if (t.second == j)
+            if (t.var() == j)
                 continue;
             if (!lower_monomial_exists(t)) {
                 r.m_type = bound_type::UNDEF;
@@ -888,7 +910,7 @@ public: // for debugging
         // if we are here then there is a lower bound for p
         r.m_bound = p.m_a;
         for (const auto & t:  p.m_coeffs) {
-            if (t.second == j)
+            if (t.var() == j)
                 continue;
 
             T l;
@@ -902,7 +924,7 @@ public: // for debugging
     bound_result upper_without(const polynomial & p, var_index j) const {
         bound_result r;
         for (const auto & t:  p.m_coeffs) {
-            if (t.second == j)
+            if (t.var() == j)
                 continue;
             if (!upper_monomial_exists(t)) {
                 r.m_type = bound_type::UNDEF;
@@ -912,7 +934,7 @@ public: // for debugging
         // if we are here then there is an upper bound for p
         r.m_bound = p.m_a;
         for (const auto & t:  p.m_coeffs) {
-            if (t.second == j)
+            if (t.var() == j)
                 continue;
             T b;
             upper_monomial(t, b);
@@ -1039,7 +1061,8 @@ public: // for debugging
 
     
     void print_polynomial(std::ostream & out, const polynomial & p) const {
-        this->print_linear_combination_of_column_indices_std(p.m_coeffs, out);
+        std::vector<std::pair<T, unsigned>> pairs = to_pairs(p.m_coeffs);
+        this->print_linear_combination_of_column_indices_std(pairs, out);
         if (!is_zero(p.m_a)) {
             if (p.m_a < 0) {
                 out << " - " << -p.m_a;
@@ -1063,9 +1086,9 @@ public: // for debugging
         int k = -1; // the position of t.m_var_index in coeffs
         T a;
         for (unsigned i = 0; i < coeffs.size(); i++) {
-            if (coeffs[i].second == j) {
+            if (coeffs[i].var() == j) {
                 k = i;
-                a = coeffs[i].first;
+                a = coeffs[i].coeff();
             } else {
                 result.m_poly.m_coeffs.push_back(coeffs[i]);
             }
@@ -1074,7 +1097,7 @@ public: // for debugging
         if (k == -1)
             return false;
 
-        a = coeffs[k].first;
+        a = coeffs[k].coeff();
         if (t.m_is_lower) {
             if (is_neg(a))
                 return false;
@@ -1084,8 +1107,8 @@ public: // for debugging
         }
 
         for (auto & c : tight_i.m_poly.m_coeffs) {
-            if (c.second != j)
-                result.add_monomial( a * c.first, c.second);
+            if (c.var() != j)
+                result.add_monomial( a * c.coeff(), c.var());
         }
         result.m_poly.m_a = ie.m_poly.m_a + a * tight_i.m_poly.m_a;
         return true;
@@ -1168,7 +1191,7 @@ public: // for debugging
     T value(const polynomial & p) const {
         T ret= p.m_a;
         for (const auto & t:p.m_coeffs)
-            ret += t.first * m_v[t.second];
+            ret += t.coeff() * m_v[t.var()];
         return ret;
     }
 };

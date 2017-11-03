@@ -3183,7 +3183,7 @@ void test_bound_of_cut_solver(cut_solver<int>& cs, unsigned ineq_index)  {
     std::vector<int> coeffs;
     auto q = cs.get_ineq(ineq_index);
     for (auto t: q.m_poly.m_coeffs)
-        coeffs.push_back(t.second);
+        coeffs.push_back(t.var());
     auto br = cs.bound(ineq_index, coeffs[0]);
 	std::cout << "bound for " << cs.get_column_name(coeffs[0]) << " is ";
     br.print(std::cout);
@@ -3279,7 +3279,7 @@ void test_improves(cut_solver<int>& cs, unsigned ineq_index, unsigned i0) {
 
 }
 
-
+typedef cut_solver<int>::monomial mono;
 void test_cut_solver() {
     cut_solver<int> cs([](unsigned i)
                        {
@@ -3288,13 +3288,13 @@ void test_cut_solver() {
                            if (i == 2) return std::string("z");
                            return std::to_string(i);
                        }, [](unsigned, std::ostream&){});
-    std::vector<std::pair<int, unsigned>> term;
+    std::vector<mono> term;
     unsigned x = 0;
     unsigned y = 1;
     unsigned z = 2;
-    term.push_back(std::make_pair(8, x));
-    term.push_back(std::make_pair(-3, y));
-    term.push_back(std::make_pair(-2, z));
+    term.push_back(mono(8, x));
+    term.push_back(mono(-3, y));
+    term.push_back(mono(-2, z));
     vector<unsigned> expl;
     unsigned ineq_index = cs.add_ineq(term, 5, expl);
 
@@ -3302,8 +3302,8 @@ void test_cut_solver() {
     std::cout << std::endl;
     
     term.clear();
-    term.push_back(std::make_pair(1,x));
-    term.push_back(std::make_pair(-2,y));
+    term.push_back(mono(1,x));
+    term.push_back(mono(-2,y));
     unsigned ineq_index0 = cs.add_ineq(term, 2, expl);
     cs.print_ineq(std::cout, ineq_index0);
     std::cout <<std::endl;

@@ -150,7 +150,7 @@ public:
     template <typename T>
     void fill_cut_solver_vars();
     template <typename T>
-    void get_int_coeffs_from_constraint(const lar_base_constraint* c, std::vector<std::pair<T, var_index>>& coeff, T & rs);
+    void get_int_coeffs_from_constraint(const lar_base_constraint* c, std::vector<cut_solver<mpq>::monomial>& coeff, T & rs);
     bool is_term(unsigned j) const;
     void notify_on_last_added_constraint();
     void add_constraint_to_cut_solver(unsigned,const lar_base_constraint*);
