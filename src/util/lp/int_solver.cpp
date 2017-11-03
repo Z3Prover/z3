@@ -404,27 +404,25 @@ unsigned int_solver::row_of_basic_column(unsigned j) const {
 }
 
 template <typename T>
-void int_solver::fill_cut_solver(cut_solver<T> & cs) {
-    for (unsigned i = 0; i < m_lar_solver->constraints().size(); i++) {
-        fill_cut_solver_for_constraint(i, cs);
-    }
+void int_solver::fill_cut_solver_vars() {
+    m_cut_solver.m_v.clear();
     for (unsigned j = 0; j < m_lar_solver->m_mpq_lar_core_solver.m_r_x.size(); j++) {
         if (is_int(j) && !is_term(j))
-            cs.m_v.push_back(T(static_cast<int>(ceil(m_lar_solver->m_mpq_lar_core_solver.m_r_x[j].x).get_int64())));
+            m_cut_solver.m_v.push_back(T(static_cast<int>(ceil(m_lar_solver->m_mpq_lar_core_solver.m_r_x[j].x).get_int64())));
     }
-    TRACE("cut_solver_state", cs.print_state(tout););
+    TRACE("cut_solver_state", m_cut_solver.print_state(tout););
 }
 
-template <typename T>
-void int_solver::fill_cut_solver_for_constraint(constraint_index ci, cut_solver<T> & cs) {
-    const lar_base_constraint* c = m_lar_solver->constraints()[ci];
-    std::vector<std::pair<T, var_index>> coeffs;
-    T rs;
-    get_int_coeffs_from_constraint(c, coeffs, rs);
-    vector<constraint_index> explanation;
-    explanation.push_back(ci);
-    cs.add_ineq(coeffs, -rs, explanation);
-}
+// template <typename T>
+// void int_solver::fill_cut_solver_for_constraint(constraint_index ci, cut_solver<T> & cs) {
+//     const lar_base_constraint* c = m_lar_solver->constraints()[ci];
+//     std::vector<std::pair<T, var_index>> coeffs;
+//     T rs;
+//     get_int_coeffs_from_constraint(c, coeffs, rs);
+//     vector<constraint_index> explanation;
+//     explanation.push_back(ci);
+//     cs.add_ineq(coeffs, -rs, explanation);
+// }
 
 
 // it produces an inequality coeff*x <= rs
@@ -487,11 +485,8 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
     // lp_assert(non_basic_columns_are_at_bounds());
     TRACE("gomory_cut", tout << m_branch_cut_counter+1 << ", " << settings().m_int_branch_cut_gomory_threshold << std::endl;);
     if (++m_branch_cut_counter > 0) { // testing cut_solver
-        cut_solver<mpq> cs([this](unsigned j) {return m_lar_solver->get_column_name(j);},
-                           [this](unsigned j, std::ostream &o) {m_lar_solver->print_constraint(j, o);});
-        
-        fill_cut_solver(cs);
-        auto check_res = cs.check();
+        fill_cut_solver_vars<mpq>();
+        auto check_res = m_cut_solver.check();
         return (check_res == lbool::l_true)? lia_move::ok :
             (check_res == lbool::l_false? lia_move::unsat: lia_move::give_up);
     } 
@@ -810,7 +805,9 @@ linear_combination_iterator<mpq> * int_solver::get_column_iterator(unsigned j) {
 
 int_solver::int_solver(lar_solver* lar_slv) :
     m_lar_solver(lar_slv),
-    m_branch_cut_counter(0) {
+    m_branch_cut_counter(0),
+    m_cut_solver([this](unsigned j) {return m_lar_solver->get_column_name(j);},
+                 [this](unsigned j, std::ostream &o) {m_lar_solver->print_constraint(j, o);}) {
     lp_assert(m_old_values_set.size() == 0);
     m_old_values_set.resize(lar_slv->A_r().column_count());
     m_old_values_data.resize(lar_slv->A_r().column_count(), zero_of_type<impq>());
@@ -1170,5 +1167,20 @@ void int_solver::display_inf_or_int_inf_columns(std::ostream & out) const {
 }
 bool int_solver::is_term(unsigned j) const {
     return m_lar_solver->column_corresponds_to_term(j);
+}
+
+void int_solver::add_constraint_to_cut_solver(unsigned ci, const lar_base_constraint * c) {
+    std::vector<std::pair<mpq, var_index>> coeffs;
+    mpq rs;
+    get_int_coeffs_from_constraint<mpq>(c, coeffs, rs);
+    vector<constraint_index> explanation;
+    explanation.push_back(ci);
+    m_cut_solver.add_ineq(coeffs, -rs, explanation);
+}
+
+void int_solver::notify_on_last_added_constraint() {
+    unsigned ci = m_lar_solver->constraints().size() - 1;
+    const lar_base_constraint* c = m_lar_solver->constraints()[ci];
+    add_constraint_to_cut_solver(ci, c);
 }
 }

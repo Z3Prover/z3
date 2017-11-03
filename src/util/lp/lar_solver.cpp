@@ -1486,7 +1486,16 @@ bool lar_solver::strategy_is_undecided() const {
     return m_settings.simplex_strategy() == simplex_strategy_enum::undecided;
 }
 
+void lar_solver::catch_up_in_updating_int_solver() {
+    for (unsigned i = 0; i < constraints().size(); i++) {
+        m_int_solver->add_constraint_to_cut_solver(i, constraints()[i]);
+    }
+}
+
 var_index lar_solver::add_var(unsigned ext_j, bool is_int) {
+    if (is_int && !has_int_var())
+        catch_up_in_updating_int_solver();
+        
     TRACE("add_var", tout << "adding var " << ext_j << (is_int? " int" : " nonint") << std::endl;);
     var_index i;
     lp_assert(ext_j < m_terms_start_index);
@@ -1631,7 +1640,7 @@ void lar_solver::add_basic_var_to_core_fields() {
         add_new_var_to_core_fields_for_doubles(true);
 }
 
-bool lar_solver::bound_is_integer_if_needed(unsigned j, const mpq & right_side) const {
+bool lar_solver::bound_is_integer_for_integer_column(unsigned j, const mpq & right_side) const {
     if (!column_is_int(j))
         return true;
     return right_side.is_int();
@@ -1641,9 +1650,12 @@ constraint_index lar_solver::add_var_bound(var_index j, lconstraint_kind kind, c
     TRACE("lar_solver", tout << "j = " << j << std::endl;);
     constraint_index ci = m_constraints.size();
     if (!is_term(j)) { // j is a var
-        lp_assert(bound_is_integer_if_needed(j, right_side));
+        lp_assert(bound_is_integer_for_integer_column(j, right_side));
         auto vc = new lar_var_constraint(j, kind, right_side);
         m_constraints.push_back(vc);
+        if (has_int_var()) {
+            m_int_solver->notify_on_last_added_constraint();
+        }
         update_column_type_and_bound(j, kind, right_side, ci);
     }
     else {
@@ -1685,6 +1697,8 @@ void lar_solver::add_var_bound_on_constraint_for_term(var_index j, lconstraint_k
         unsigned term_j = it->second.ext_j();
         mpq rs = right_side - m_terms[adjusted_term_index]->m_v;
         m_constraints.push_back(new lar_term_constraint(m_terms[adjusted_term_index], kind, right_side));
+        if (has_int_var())
+            m_int_solver->notify_on_last_added_constraint();
         update_column_type_and_bound(term_j, kind, rs, ci);
     }
     else {
