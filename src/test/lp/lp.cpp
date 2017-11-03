@@ -3310,14 +3310,14 @@ void test_cut_solver() {
     
     auto & i = cs.m_ineqs[ineq_index0];
     std::cout << "add monomial y" << std::endl;
-    i.m_poly.add_monomial(1, y);
+    i.m_poly += mono(1, y);
     cs.print_ineq(std::cout, ineq_index0);
     std::cout << std::endl;
     std::cout << "add monomial y" << std::endl;
-    i.m_poly.add_monomial(1, y);
+    i.m_poly += mono(1, y);
     cs.print_ineq(std::cout, ineq_index0);
     std::cout << "\nadd monomial -y" << std::endl;
-    i.m_poly.add_monomial(-1, y);
+    i.m_poly += mono(-1, y);
     cs.print_ineq(std::cout, ineq_index0);
     int l;
     auto ineq = cs.m_ineqs[ineq_index];

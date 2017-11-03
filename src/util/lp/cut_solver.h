@@ -81,6 +81,21 @@ public: // for debugging
         
         bool is_zero() const { return m_coeffs.size() == 0 && numeric_traits<T>::is_zero(m_a); }
 
+        polynomial & operator+=(const monomial &m ){
+            for (unsigned k = 0; k < m_coeffs.size(); k++) {
+                auto & l = m_coeffs[k];
+                if (m.var() == l.var()) {
+                    l.coeff() += m.coeff();
+                    if (l.coeff() == 0)
+                        m_coeffs.erase(m_coeffs.begin() + k);
+                    return *this;
+                }
+            }
+            m_coeffs.push_back(m);
+            lp_assert(is_correct());
+            return *this;
+        }
+        /*
         void add_monomial(const T & t, var_index j) {
             for (unsigned k = 0; k < m_coeffs.size(); k++) {
                 auto & l = m_coeffs[k];
@@ -94,7 +109,7 @@ public: // for debugging
             m_coeffs.push_back(monomial(t, j));
             lp_assert(is_correct());
         }
-
+        */
         bool is_correct() const {
             std::unordered_set<var_index> s;
             for (auto & l : m_coeffs) {
@@ -139,7 +154,7 @@ public: // for debugging
             return a == 1 || a == -1;
         }
         void add_monomial(const T & t, var_index j) {
-            m_poly.add_monomial(t, j);
+            m_poly += monomial(t, j);
         }
     };
 
@@ -173,26 +188,17 @@ public: // for debugging
         unsigned m_index_of_div_constraint;
         literal(unsigned var_index, bool is_lower, const T & bound, int ineq_index):
             m_tag(literal_type::BOUND),
+            m_sign(true),
             m_var_index(var_index),
             m_is_lower(is_lower),
             m_bound(bound),
             m_tight_explanation_ineq_index(-1),
-            m_ineq_index(ineq_index)
-        {
+            m_ineq_index(ineq_index) {
         }
-        
         literal(unsigned var_id, bool is_lower, const T & bound):
             literal(var_id, is_lower, bound, -1) {
         }
-        literal(literal_type tag) : m_tag(tag) {}
-        literal(bool sign, bool val):  m_tag(literal_type::BOOL),
-            m_bool_val(val){
-        } 
-        literal(bool sign, unsigned ineq_index) : m_tag(literal_type::INEQ), m_ineq_index(ineq_index) {}
-        bool decided() const {
-            return m_ineq_index < 0;
-        }
-
+        bool decided() const { return m_ineq_index < 0; }
     };    
 
     enum class bound_type {
@@ -202,9 +208,9 @@ public: // for debugging
         T m_bound;
         bound_type m_type;
         
-        bound_result() {}
         bound_result(const T & b, bound_type bt): m_bound(b), m_type(bt) {}
-        bound_result(bound_type bt) : m_type(bt) {}
+        bound_result() : m_type(bound_type::UNDEF) {
+        }
         void print( std::ostream & out) const {
             if (m_type == bound_type::LOWER) {
                 out << "lower bound = ";
@@ -898,50 +904,44 @@ public: // for debugging
 
  
     bound_result lower_without(const polynomial & p, var_index j) const {
-        bound_result r;
         for (const auto & t:  p.m_coeffs) {
             if (t.var() == j)
                 continue;
             if (!lower_monomial_exists(t)) {
-                r.m_type = bound_type::UNDEF;
-                return r;
+                return bound_result();
             }
         }
         // if we are here then there is a lower bound for p
-        r.m_bound = p.m_a;
+        T bound = p.m_a;
         for (const auto & t:  p.m_coeffs) {
             if (t.var() == j)
                 continue;
 
             T l;
             lower_monomial(t, l);
-            r.m_bound += l;
+            bound += l;
         }
-        r.m_type = bound_type::LOWER;
-        return r;
+        return bound_result(bound,bound_type::LOWER);
     }
 
     bound_result upper_without(const polynomial & p, var_index j) const {
-        bound_result r;
         for (const auto & t:  p.m_coeffs) {
             if (t.var() == j)
                 continue;
             if (!upper_monomial_exists(t)) {
-                r.m_type = bound_type::UNDEF;
-                return r;
+                return bound_result();
             }
         }
         // if we are here then there is an upper bound for p
-        r.m_bound = p.m_a;
+        T bound = p.m_a;
         for (const auto & t:  p.m_coeffs) {
             if (t.var() == j)
                 continue;
             T b;
             upper_monomial(t, b);
-            r.m_bound += b;
+            bound += b;
         }
-        r.m_type = bound_type::UPPER;
-        return r;
+        return bound_result(bound, bound_type::UPPER);
     }
 
     bool upper(const polynomial & p, T b) const {
@@ -1082,29 +1082,21 @@ public: // for debugging
         const ineq & tight_i = m_ineqs[t.m_ineq_index];
         lp_assert(tight_i.is_tight(j));
         result.clear();
-        auto coeffs = ie.m_poly.m_coeffs;
-        int k = -1; // the position of t.m_var_index in coeffs
+        const auto &coeffs = ie.m_poly.m_coeffs;
+        bool found = false;
         T a;
-        for (unsigned i = 0; i < coeffs.size(); i++) {
-            if (coeffs[i].var() == j) {
-                k = i;
-                a = coeffs[i].coeff();
-            } else {
-                result.m_poly.m_coeffs.push_back(coeffs[i]);
+        for (const auto & c : coeffs) {
+            if (c.var() == j) {
+                a = c.coeff();
+                found = true;
+            }
+            else {
+                result.m_poly.m_coeffs.push_back(c);
             }
         }
         
-        if (k == -1)
+        if ( !found || (t.m_is_lower == is_neg(a)))
             return false;
-
-        a = coeffs[k].coeff();
-        if (t.m_is_lower) {
-            if (is_neg(a))
-                return false;
-        } else { // t.m_lower == false
-            if (is_pos(a)) 
-                return false;
-        }
 
         for (auto & c : tight_i.m_poly.m_coeffs) {
             if (c.var() != j)
