@@ -373,6 +373,8 @@ public: // for debugging
             return lbool::l_true;
         init_search();
         propagate();
+        if (conflict())
+            return lbool::l_false;
         while (true) {
             lbool r = bounded_search();
             if (r != lbool::l_undef)
@@ -724,18 +726,20 @@ public: // for debugging
         }
     }
     
-    void propagate_ineqs_for_changed_var() {
+    void propagate_ineqs_for_changed_vars() {
         TRACE("cut_solver_state", tout << "changed vars size = " << m_changed_vars.size() << "\n";);
         while (!m_changed_vars.is_empty()) {
             unsigned j = m_changed_vars.m_index.back();
             propagate_on_ineqs_of_var(j);
+            if (conflict())
+                return;
             m_changed_vars.erase(j);
         }
     }
     
     void propagate() {
         propagate_simple_ineqs();
-        propagate_ineqs_for_changed_var();
+        propagate_ineqs_for_changed_vars();
     }
 
     bool decide() {
@@ -1185,6 +1189,14 @@ public: // for debugging
         for (const auto & t:p.m_coeffs)
             ret += t.coeff() * m_v[t.var()];
         return ret;
+    }
+
+    void pop(unsigned k) {
+        lp_assert(false);
+    }
+
+    void push() {
+        lp_assert(false);
     }
 };
 }

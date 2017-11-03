@@ -467,6 +467,11 @@ struct pivoted_rows_tracking_control {
     }
 };
 
+void int_solver::copy_explanations_from_cut_solver(explanation &ex) {
+    for (unsigned j : m_cut_solver.m_explanation)
+        ex.push_justification(j);
+}
+
 lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
     init_check_data();
     lp_assert(inf_int_set_is_correct());
@@ -490,9 +495,16 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
     if (++m_branch_cut_counter > 0) { // testing cut_solver
         fill_cut_solver_vars<mpq>();
         auto check_res = m_cut_solver.check();
-        return (check_res == lbool::l_true)? lia_move::ok :
-            (check_res == lbool::l_false? lia_move::unsat: lia_move::give_up);
-    } 
+        switch (check_res) {
+        case lbool::l_false:
+            copy_explanations_from_cut_solver(ex);
+            return lia_move::conflict;
+        case lbool::l_true:
+            return lia_move::ok;
+        default:
+            return lia_move::give_up;
+        }
+    }
     if ((++m_branch_cut_counter) % settings().m_int_branch_cut_gomory_threshold == 0) {
         if (move_non_basic_columns_to_bounds()) {
             lp_status st = m_lar_solver->find_feasible_solution();
@@ -1186,4 +1198,13 @@ void int_solver::notify_on_last_added_constraint() {
     const lar_base_constraint* c = m_lar_solver->constraints()[ci];
     add_constraint_to_cut_solver(ci, c);
 }
+
+void int_solver::pop(unsigned k) {
+    m_cut_solver.pop(k);
+}
+
+void int_solver::push() {
+    m_cut_solver.push();
+}
+
 }

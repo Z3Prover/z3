@@ -349,6 +349,7 @@ void lar_solver::push() {
     m_term_count.push();
     m_constraint_count = m_constraints.size();
     m_constraint_count.push();
+    m_int_solver->push();
 }
 
 void lar_solver::clean_popped_elements(unsigned n, int_set& set) {
@@ -413,7 +414,7 @@ void lar_solver::pop(unsigned k) {
     lp_assert(sizes_are_correct());
     lp_assert((!m_settings.use_tableau()) || m_mpq_lar_core_solver.m_r_solver.reduced_costs_are_correct_tableau());
     m_status = m_mpq_lar_core_solver.m_r_solver.current_x_is_feasible()? lp_status::OPTIMAL: lp_status::UNKNOWN;
-
+    m_int_solver->pop(k);
 }
     
 vector<constraint_index> lar_solver::get_all_constraint_indices() const {

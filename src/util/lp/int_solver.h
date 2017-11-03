@@ -30,6 +30,9 @@ struct explanation {
     void push_justification(constraint_index j, const mpq& v) {
         m_explanation.push_back(std::make_pair(v, j));
     }
+    void push_justification(constraint_index j) {
+        m_explanation.push_back(std::make_pair(one_of_type<mpq>(), j));
+    }
 };
 
 class int_solver {
@@ -154,5 +157,8 @@ public:
     bool is_term(unsigned j) const;
     void notify_on_last_added_constraint();
     void add_constraint_to_cut_solver(unsigned,const lar_base_constraint*);
+    void copy_explanations_from_cut_solver(explanation &);
+    void pop(unsigned);
+    void push();
 };
 }
