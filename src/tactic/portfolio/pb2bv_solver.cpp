@@ -47,9 +47,14 @@ public:
 
     virtual ~pb2bv_solver() {}
 
-    virtual solver* translate(ast_manager& m, params_ref const& p) {
+    virtual solver* translate(ast_manager& dst_m, params_ref const& p) {
         flush_assertions();
-        return alloc(pb2bv_solver, m, p, m_solver->translate(m, p));
+        solver* result = alloc(pb2bv_solver, dst_m, p, m_solver->translate(dst_m, p));
+        if (mc0()) {
+            ast_translation tr(m, dst_m);
+            result->set_model_converter(mc0()->translate(tr));
+        }
+        return result;
     }
     
     virtual void assert_expr(expr * t) {

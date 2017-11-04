@@ -172,13 +172,13 @@ namespace sat {
         void elim_blocked_clauses();
 
         bool single_threaded() const; // { return s.m_config.m_num_threads == 1; }
-        bool bce_enabled() const { return !m_learned_in_use_lists && m_num_calls >= m_bce_delay && (m_elim_blocked_clauses || m_elim_blocked_clauses_at == m_num_calls || cce_enabled()); }
-        bool acce_enabled() const { return !m_learned_in_use_lists && m_num_calls >= m_bce_delay && m_acce; }
-        bool cce_enabled()  const { return !m_learned_in_use_lists && m_num_calls >= m_bce_delay && (m_cce || acce_enabled()); }
-        bool abce_enabled() const { return !m_learned_in_use_lists && m_num_calls >= m_bce_delay && m_abce; }
-        bool bca_enabled()  const { return m_bca && m_learned_in_use_lists && single_threaded(); }
-        bool elim_vars_bdd_enabled() const { return m_elim_vars_bdd && m_num_calls >= m_elim_vars_bdd_delay && single_threaded(); }
-        bool elim_vars_enabled() const { return m_elim_vars && single_threaded(); }
+        bool bce_enabled()  const;
+        bool acce_enabled() const;
+        bool cce_enabled()  const;
+        bool abce_enabled() const;
+        bool bca_enabled()  const;
+        bool elim_vars_bdd_enabled() const;
+        bool elim_vars_enabled() const;
 
         unsigned get_num_unblocked_bin(literal l) const;
         unsigned get_to_elim_cost(bool_var v) const;

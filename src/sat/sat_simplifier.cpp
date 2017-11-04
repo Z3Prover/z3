@@ -92,6 +92,19 @@ namespace sat {
 
     bool simplifier::single_threaded() const { return s.m_config.m_num_threads == 1; }
 
+    bool simplifier::bce_enabled() const { 
+        return !s.tracking_assumptions() && 
+            !m_learned_in_use_lists && 
+            m_num_calls >= m_bce_delay && 
+            (m_elim_blocked_clauses || m_elim_blocked_clauses_at == m_num_calls || cce_enabled()); 
+    }
+    bool simplifier::acce_enabled() const { return !s.tracking_assumptions() && !m_learned_in_use_lists && m_num_calls >= m_bce_delay && m_acce; }
+    bool simplifier::cce_enabled()  const { return !s.tracking_assumptions() && !m_learned_in_use_lists && m_num_calls >= m_bce_delay && (m_cce || acce_enabled()); }
+    bool simplifier::abce_enabled() const { return !m_learned_in_use_lists && m_num_calls >= m_bce_delay && m_abce; }
+    bool simplifier::bca_enabled()  const { return !s.tracking_assumptions() && m_bca && m_learned_in_use_lists && single_threaded(); }
+    bool simplifier::elim_vars_bdd_enabled() const { return !s.tracking_assumptions() && m_elim_vars_bdd && m_num_calls >= m_elim_vars_bdd_delay && single_threaded(); }
+    bool simplifier::elim_vars_enabled() const { return !s.tracking_assumptions() && m_elim_vars && single_threaded(); }    
+
     void simplifier::register_clauses(clause_vector & cs) {
         std::stable_sort(cs.begin(), cs.end(), size_lt());
         for (clause* c : cs) {
