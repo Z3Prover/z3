@@ -1416,6 +1416,7 @@ namespace sat {
         m_luby_idx                = 1;
         m_gc_threshold            = m_config.m_gc_initial;
         m_restarts                = 0;
+        m_simplifications         = 0;
         m_conflicts_since_init    = 0;
         m_min_d_tk                = 1.0;
         m_search_lvl              = 0;
