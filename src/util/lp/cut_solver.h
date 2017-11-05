@@ -95,21 +95,7 @@ public: // for debugging
             lp_assert(is_correct());
             return *this;
         }
-        /*
-        void add_monomial(const T & t, var_index j) {
-            for (unsigned k = 0; k < m_coeffs.size(); k++) {
-                auto & l = m_coeffs[k];
-                if (j == l.var()) {
-                    l.coeff() += t;
-                    if (l.coeff() == 0)
-                        m_coeffs.erase(m_coeffs.begin() + k);
-                    return;
-                }
-            }
-            m_coeffs.push_back(monomial(t, j));
-            lp_assert(is_correct());
-        }
-        */
+
         bool is_correct() const {
             std::unordered_set<var_index> s;
             for (auto & l : m_coeffs) {
@@ -119,7 +105,6 @@ public: // for debugging
             }
             return m_coeffs.size() == s.size();
         }
-
     };
     
     struct ineq { // we only have less or equal, which is enough for integral variables
@@ -127,7 +112,7 @@ public: // for debugging
         vector<constraint_index> m_explanation; 
         ineq(std::vector<monomial>& term,
              const T& a,
-             vector<constraint_index> explanation):
+             const vector<constraint_index> &explanation):
             m_poly(term, a),
             m_explanation(explanation) {
         }
@@ -162,12 +147,9 @@ public: // for debugging
         // m_d divides m_poly
         polynomial m_poly;
         T m_d; 
-        div_constraint(const polynomial & p, const T& d): m_poly(p), m_d(d) {
-        }
+        div_constraint(const polynomial & p, const T& d): m_poly(p), m_d(d) {}
+        vector<unsigned> m_explanation;
     };
-    
-    std::vector<ineq> m_ineqs;
-    std::vector<div_constraint> m_div_constraints;
     
     enum class literal_type {
         BOOL,INEQ, BOUND, DIV            
@@ -284,23 +266,33 @@ public: // for debugging
         return m_ineqs[i];
     }
 
+    std::vector<ineq> m_ineqs;
+    std::vector<div_constraint> m_div_constraints;
+    
     std::vector<T> m_v; // the values of the variables
     std::function<std::string (unsigned)> m_var_name_function;
     std::function<void (unsigned, std::ostream &)> m_print_constraint_function;
     unsigned m_scope_lvl;  // tracks the number of case splits
     int_set m_changed_vars;
     std::vector<literal>          m_trail;
-    // backtracking state from the SAT solver:
+
     struct scope {
-        unsigned m_trail_lim;               // pointer into assignment stack
-        unsigned m_clauses_to_reinit_lim;   // ignore for now
-        bool     m_inconsistent;            // really needed?
+        unsigned m_trail_size;
+        unsigned m_ineqs_size;
+        unsigned m_div_constraints_size;
+        scope() {}
+        scope(unsigned trail_size,
+              unsigned ineqs_size,
+              unsigned div_constraints_size) : m_trail_size(trail_size),
+                                               m_ineqs_size(ineqs_size),
+                                               m_div_constraints_size(div_constraints_size) {}
     };
 
-    std::vector<scope>          m_scopes;
+    stacked_value<scope>          m_scopes;
     std::unordered_map<unsigned, unsigned> m_user_vars_to_cut_solver_vars;
     static T m_local_zero;
     std::unordered_set<constraint_index> m_explanation; // if this collection is not empty we have a conflict 
+
     unsigned add_var(unsigned user_var_index) {
         unsigned ret;
         if (try_get_value(m_user_vars_to_cut_solver_vars, user_var_index, ret))
@@ -309,7 +301,6 @@ public: // for debugging
         m_var_infos.push_back(var_info(user_var_index));
         return m_user_vars_to_cut_solver_vars[user_var_index] = j;      
     }
-
 
     bool is_lower_bound(literal & l) const {
         if (l.m_tag != literal_type::BOUND || !l.m_is_lower)
@@ -649,7 +640,7 @@ public: // for debugging
     }
     
     void fill_conflict_explanation(unsigned ineq_index, unsigned upper_end_of_trail) {
-        // it is a depth.coeff() search in the tree of inequalities ( the chidlren of an inequalitiy are those inequalities the provide its lower bound)
+        // it is a depth search in the DAG of inequalities: the chidlren of an inequalitiy are those inequalities the provide its lower bound
         add_inequality_explanations(ineq_index);
         const ineq& in = m_ineqs[ineq_index];
         TRACE("ba_int", print_ineq(tout, in););
@@ -1083,10 +1074,11 @@ public: // for debugging
         lp_assert(t.m_tag == literal_type::BOUND);
         lp_assert(t.m_ineq_index >= 0); // ! t.decided()
         var_index j = t.m_var_index;
-        const ineq & tight_i = m_ineqs[t.m_ineq_index];
+        const ineq & tight_i = m_ineqs[t.m_tight_explanation_ineq_index];
         lp_assert(tight_i.is_tight(j));
         result.clear();
         const auto &coeffs = ie.m_poly.m_coeffs;
+        // start here !!!!!!!!!!!!!!!!!!!!1
         bool found = false;
         T a;
         for (const auto & c : coeffs) {
@@ -1104,7 +1096,7 @@ public: // for debugging
 
         for (auto & c : tight_i.m_poly.m_coeffs) {
             if (c.var() != j)
-                result.add_monomial( a * c.coeff(), c.var());
+                result.m_poly += monomial(a * c.coeff(), c.var());
         }
         result.m_poly.m_a = ie.m_poly.m_a + a * tight_i.m_poly.m_a;
         return true;
@@ -1192,11 +1184,18 @@ public: // for debugging
     }
 
     void pop(unsigned k) {
-        lp_assert(false);
+        m_scopes.pop();
+        while (m_trail.size() > m_scopes().m_trail_size)
+            m_trail.pop_back();
+        while (m_ineqs.size() > m_scopes().m_ineqs_size)
+            m_ineqs.pop_back();
+        while (m_div_constraints.size() > m_scopes().m_div_constraints_size)
+            m_div_constraints.pop_back();
     }
 
     void push() {
-        lp_assert(false);
+        m_scopes = scope(m_trail.size(), m_ineqs.size(), m_div_constraints.size());
+        m_scopes.push();
     }
 };
 }

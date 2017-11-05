@@ -3214,6 +3214,8 @@ void test_resolve_with_tight_ineq(cut_solver<int>& cs,
     std::cout << std::endl;
 }
 
+typedef cut_solver<int>::monomial mono;
+
 void test_resolve(cut_solver<int>& cs, unsigned ineq_index, unsigned i0)  {
     var_index x = 0;
     var_index y = 1;
@@ -3224,7 +3226,7 @@ void test_resolve(cut_solver<int>& cs, unsigned ineq_index, unsigned i0)  {
     bound.m_ineq_index = i0;
     cut_solver<int>::ineq result;
     test_resolve_with_tight_ineq(cs, bound, ineq_index, result);
-    cs.m_ineqs[ineq_index].add_monomial(-10, x);
+    cs.m_ineqs[ineq_index].m_poly += mono(-10, x);
     test_resolve_with_tight_ineq(cs, bound, ineq_index, result);
     bound.m_var_index = y;
     bound.m_is_lower = true;
@@ -3279,7 +3281,6 @@ void test_improves(cut_solver<int>& cs, unsigned ineq_index, unsigned i0) {
 
 }
 
-typedef cut_solver<int>::monomial mono;
 void test_cut_solver() {
     cut_solver<int> cs([](unsigned i)
                        {

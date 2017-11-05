@@ -470,6 +470,7 @@ struct pivoted_rows_tracking_control {
 void int_solver::copy_explanations_from_cut_solver(explanation &ex) {
     for (unsigned j : m_cut_solver.m_explanation)
         ex.push_justification(j);
+    m_cut_solver.m_explanation.clear();
 }
 
 lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {

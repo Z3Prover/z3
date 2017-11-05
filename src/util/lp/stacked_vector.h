@@ -86,10 +86,10 @@ public:
     }
 
     /*
-    const B & operator[](unsigned a) const {
-        lp_assert(a < m_vector.size());
-        return m_vector[a];
-    }
+      const B & operator[](unsigned a) const {
+      lp_assert(a < m_vector.size());
+      return m_vector[a];
+      }
     */    
     unsigned size() const {
         return m_vector.size();
@@ -106,10 +106,10 @@ public:
     }
 
     template <typename T>  
-	void pop_tail(vector<T> & v, unsigned k) {
-		lp_assert(v.size() >= k);
-		v.resize(v.size() - k);
-	}
+    void pop_tail(vector<T> & v, unsigned k) {
+        lp_assert(v.size() >= k);
+        v.resize(v.size() - k);
+    }
 
     template <typename T>  
     void resize(vector<T> & v, unsigned new_size) {
@@ -132,22 +132,22 @@ public:
         resize(m_changes, first_change);
 
         /*
-        while (k-- > 0) {
+          while (k-- > 0) {
             
-            if (m_stack.empty())
-                return;
+          if (m_stack.empty())
+          return;
             
-            delta & d = m_stack.back();
-            lp_assert(m_vector.size() >= d.m_size);
-            while (m_vector.size() > d.m_size)
-                m_vector.pop_back();
+          delta & d = m_stack.back();
+          lp_assert(m_vector.size() >= d.m_size);
+          while (m_vector.size() > d.m_size)
+          m_vector.pop_back();
             
-            for (auto & t : d.m_original_changed) {
-                lp_assert(t.first < m_vector.size());
-                m_vector[t.first] = t.second;
-            }
-            //            lp_assert(d.m_deb_copy == m_vector);
-            m_stack.pop_back();*/
+          for (auto & t : d.m_original_changed) {
+          lp_assert(t.first < m_vector.size());
+          m_vector[t.first] = t.second;
+          }
+          //            lp_assert(d.m_deb_copy == m_vector);
+          m_stack.pop_back();*/
     }   
 
     
@@ -175,10 +175,10 @@ public:
         m_vector.resize(m_vector.size() + 1);
     }
 
-	unsigned peek_size(unsigned k) const {
-		lp_assert(k > 0 && k <= m_stack_of_vector_sizes.size());
-		return m_stack_of_vector_sizes[m_stack_of_vector_sizes.size() - k];
-	}
+    unsigned peek_size(unsigned k) const {
+        lp_assert(k > 0 && k <= m_stack_of_vector_sizes.size());
+        return m_stack_of_vector_sizes[m_stack_of_vector_sizes.size() - k];
+    }
 
     const vector<B>& operator()() const { return m_vector; }
 };
