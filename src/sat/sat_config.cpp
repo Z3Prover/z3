@@ -89,7 +89,6 @@ namespace sat {
         m_local_search    = p.local_search();
         m_local_search_threads = p.local_search_threads();
         m_lookahead_simplify = p.lookahead_simplify();
-        m_lookahead_cube = p.lookahead_cube();
         m_lookahead_search = p.lookahead_search();
         if (p.lookahead_reward() == symbol("heule_schur")) {
             m_lookahead_reward = heule_schur_reward;

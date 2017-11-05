@@ -871,9 +871,13 @@ namespace sat {
         if (m_config.m_lookahead_search && num_lits == 0) {
             return lookahead_search();
         }
+#if 0
+        // deprecated
         if (m_config.m_lookahead_cube && num_lits == 0) {
             return lookahead_cube();
         }
+#endif
+
         if (m_config.m_local_search) {
             return do_local_search(num_lits, lits);
         }

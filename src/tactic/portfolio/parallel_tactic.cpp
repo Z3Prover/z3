@@ -111,7 +111,6 @@ class parallel_tactic : public tactic {
                 solver_state* st = try_get_task();
                 if (st) return st;
                 inc_wait();
-
                 std::unique_lock<std::mutex> lock(m_mutex);
                 m_cond.wait(lock, [this] { --m_num_waiters; return true; });                
             }
@@ -289,14 +288,11 @@ class parallel_tactic : public tactic {
         }
 
         void set_simplify_params(bool pb_simp, bool retain_blocked) {
-            m_params.set_bool("bca", true);
             m_params.set_bool("cardinality.solver", pb_simp);
-            m_params.set_bool("cce", true);
-//          m_params.set_bool("elim_blocked_clauses", true);
+            m_params.set_sym ("pb.solver", pb_simp ? symbol("solver") : symbol("circuit"));
             if (m_params.get_uint("inprocess.max", UINT_MAX) == UINT_MAX) 
                 m_params.set_uint("inprocess.max", 2);
             m_params.set_bool("lookahead_simplify", true);
-            m_params.set_sym ("pb.solver", pb_simp ? symbol("solver") : symbol("circuit"));
             m_params.set_uint("restart.max", UINT_MAX);
             m_params.set_bool("retain_blocked_clauses", retain_blocked);
             get_solver().updt_params(m_params);
@@ -344,7 +340,7 @@ private:
         IF_VERBOSE(1, verbose_stream() << "(tactic.parallel :progress " << m_progress << "% ";
                    if (status == l_true)  verbose_stream() << ":status sat ";
                    if (status == l_undef) verbose_stream() << ":status unknown ";
-                   verbose_stream() <<o ":unsat " << m_num_unsat << ")\n";);
+                   verbose_stream() << ":unsat " << m_num_unsat << ")\n";);
     }
 
     void report_sat(solver_state& s) {
@@ -387,13 +383,13 @@ private:
     cube:
         SASSERT(s.type() == cube_task);
 
-        s.inc_depth(1);
         // extract up to one cube and add it.
         cube.reset();
         cube.append(s.split_cubes(1));
         SASSERT(cube.size() <= 1);
         if (!s.cubes().empty()) m_queue.add_task(s.clone());
         if (!cube.empty()) s.assert_cube(cube.get(0));
+        s.inc_depth(1);
 
         // simplify
         switch (s.simplify()) {
@@ -401,7 +397,7 @@ private:
         case l_true:  report_sat(s); return;
         case l_false: report_unsat(s); return;                
         }
-        if (s.canceled()) return;
+        if (canceled(s)) return;
         
         // extract cubes.
         cubes.reset();
@@ -419,7 +415,8 @@ private:
             cubes.push_back(c);            
         }
 
-        IF_VERBOSE(1, verbose_stream() << "cubes: " << cubes << "\n";);
+        IF_VERBOSE(1, verbose_stream() << "(parallel_tactic :cubes " << cubes.size() << ")\n";);
+        IF_VERBOSE(10, verbose_stream() << "(parallel_tactic :cubes " << cubes << ")\n";);
 
         if (cubes.empty()) {
             report_unsat(s);
@@ -448,7 +445,7 @@ private:
             case l_true:  report_sat(s); break;
             case l_false: report_unsat(s); break;                
             }
-            if (s.canceled()) return;
+            if (canceled(s)) return;
         }
         IF_VERBOSE(1, verbose_stream() << "(parallel_tactic :cubes " << cubes.size() << " :hard-cubes " << hard_cubes.size() << ")\n";);
         if (hard_cubes.empty()) return;
@@ -456,6 +453,16 @@ private:
         s.set_cubes(hard_cubes);
         s.set_type(cube_task);
         goto cube;        
+    }
+
+    bool canceled(solver_state& s) {
+        if (s.canceled()) {
+            m_has_undef = true;
+            return true;
+        }
+        else {
+            return false;
+        }        
     }
 
     void run_solver() {
@@ -490,10 +497,12 @@ private:
         }
         if (!m_models.empty()) {
             mdl = m_models.back();            
+            m_manager.limit().reset_cancel();
             return l_true;
         }
-        if (m_has_undef || m_manager.canceled()) 
+        if (m_has_undef) 
             return l_undef;
+        m_manager.limit().reset_cancel();
         return l_false;
     }
 
