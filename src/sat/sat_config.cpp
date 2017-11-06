@@ -42,6 +42,7 @@ namespace sat {
         m_lookahead_search = false;
         m_lookahead_simplify = false;
         m_elim_vars = false;
+        m_incremental = false;
         updt_params(p); 
     }
 

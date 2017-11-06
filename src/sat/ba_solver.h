@@ -370,7 +370,7 @@ namespace sat {
         inline void assign(literal l, justification j) { if (m_lookahead) m_lookahead->assign(l); else m_solver->assign(l, j); }
         inline void set_conflict(justification j, literal l) { if (m_lookahead) m_lookahead->set_conflict(); else m_solver->set_conflict(j, l); }
         inline config const& get_config() const { return m_lookahead ? m_lookahead->get_config() : m_solver->get_config(); }
-        inline void drat_add(literal_vector const& c, svector<drat::premise> const& premises) { m_solver->m_drat.add(c, premises); }
+        inline void drat_add(literal_vector const& c, svector<drat::premise> const& premises) { if (m_solver) m_solver->m_drat.add(c, premises); }
 
 
         mutable bool m_overflow;
