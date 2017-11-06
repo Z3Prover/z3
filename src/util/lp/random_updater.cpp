@@ -17,4 +17,5 @@ Revision History:
 
 
 --*/
-#include "util/lp/random_updater.hpp"
+#include "util/lp/random_updater_def.h"
+

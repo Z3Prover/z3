@@ -23,8 +23,8 @@ Revision History:
 #include "util/vector.h"
 #include <functional>
 #include "util/lp/lar_solver.h"
-#include "util/lp/lp_primal_core_solver.hpp"
-#include "util/lp/lp_primal_core_solver_tableau.hpp"
+#include "util/lp/lp_primal_core_solver_def.h"
+#include "util/lp/lp_primal_core_solver_tableau_def.h"
 namespace lp {
 
 template void lp_primal_core_solver<double, double>::find_feasible_solution();

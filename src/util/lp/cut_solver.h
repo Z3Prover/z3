@@ -159,17 +159,17 @@ public: // for debugging
     
     enum class literal_type {
         BOOL,INEQ, BOUND, DIV            
-    };
+            };
 
     struct literal {
         literal_type m_tag;
         bool m_sign; // true means the pointed inequality is negated, or bound is negated, or boolean value is negated
-// these fields are used is m_tag is BOUND        
+        // these fields are used is m_tag is BOUND        
         unsigned m_var_index;
         bool m_is_lower;
         T m_bound;
         int m_tight_explanation_ineq_index; // points to m_ineqs
-//=================
+        //=================
         unsigned m_id;
         int m_ineq_index; // index into m_ineqs, if m_index_of_ineq < 0 then the literal is decided
         bool m_bool_val; // used if m_tag is equal to BOOL
@@ -208,7 +208,7 @@ public: // for debugging
 
     enum class bound_type {
         LOWER, UPPER, UNDEF
-    };
+            };
     struct bound_result {
         T m_bound;
         bound_type m_type;
@@ -241,6 +241,9 @@ public: // for debugging
         void add_dependent_ineq(unsigned i) {
             m_dependent_ineqs.insert(i);
         }
+        void remove_depended_ineq(unsigned i) {
+            m_dependent_ineqs.erase(i);
+        }
     };
 
     std::vector<var_info> m_var_infos;
@@ -252,7 +255,7 @@ public: // for debugging
         return true;
     }
     
-    public:
+public:
     std::string get_column_name(unsigned j) const {
         return m_var_name_function(m_var_infos[j].m_user_var_index);
     }
@@ -295,7 +298,7 @@ public: // for debugging
     std::vector<T> m_v; // the values of the variables
     std::function<std::string (unsigned)> m_var_name_function;
     std::function<void (unsigned, std::ostream &)> m_print_constraint_function;
-    unsigned m_scope_lvl;  // tracks the number of case splits
+    stacked_value<bool> m_decision_has_been_made;  // tracks the number of case splits
     int_set m_changed_vars;
     std::vector<literal>          m_trail;
 
@@ -380,36 +383,14 @@ public: // for debugging
     }
 
     
-    bool  at_base_lvl() const { return m_scope_lvl == 0; }
+    bool  at_base_lvl() const { return !m_decision_has_been_made; }
 
-    lbool check() {
-        if (consistent())
-            return lbool::l_true;
-        init_search();
-        propagate();
-        if (conflict())
-            return lbool::l_false;
-        while (true) {
-            lbool r = bounded_search();
-            if (r != lbool::l_undef)
-                return r;
-            return r; // temporary fix for debugging
-            restart();
-            simplify_problem();
-            if (check_inconsistent()) return lbool::l_false;
-            gc();
-        }
-    }
+    lbool check();
 
     cut_solver(std::function<std::string (unsigned)> var_name_function,
-               std::function<void (unsigned, std::ostream &)> print_constraint_function
-               ) : m_var_name_function(var_name_function), m_print_constraint_function(print_constraint_function) {
-    }
-    
-    void init_search() {
-        // initialize data-structures
-        m_changed_vars.resize(m_v.size());
-    }
+               std::function<void (unsigned, std::ostream &)> print_constraint_function);
+
+    void init_search();
 
     void simplify_problem() {
         // no-op
@@ -428,55 +409,16 @@ public: // for debugging
         return false;
     }
 
-    lbool bounded_search() {
-        while (true) {
-            checkpoint();
-            bool done = false;
-            while (!done) {
-                lbool is_sat = propagate_and_backjump_step(done);
-                if (is_sat == lbool::l_undef) // temporary fix for debugging
-                    return lbool::l_undef;
-                if (is_sat != lbool::l_true) return is_sat;
-            }
+    lbool bounded_search();
 
-            gc();
-
-            if (!decide()) {
-                lbool is_sat = final_check();
-                if (is_sat != lbool::l_undef) {
-                    return is_sat;
-                }
-            }
-        }
-    }
-
-    void checkpoint() {
-        // check for cancelation
-    }
+    void checkpoint();
 
     void cleanup() {
     }
 
-    lbool propagate_and_backjump_step(bool& done) {
-        done = true;
-        propagate();
-        if (!inconsistent())
-            return lbool::l_true;
-        return lbool::l_undef; // temporary fix for debugging
-        if (!resolve_conflict())
-            return lbool::l_false;
-        if (at_base_lvl()) {
-            cleanup(); // cleaner may propagate frozen clauses
-            if (inconsistent()) {
-                TRACE("sat", tout << "conflict at level 0\n";);
-                return lbool::l_false;
-            }
-            gc();
-        }
-        done = false;
-        return lbool::l_true;
-    }
+    lbool propagate_and_backjump_step(bool& done);
 
+    
     lbool final_check() {
         // there are no more case splits, and all clauses are satisfied.
         // prepare the model for external consumption.
@@ -502,10 +444,16 @@ public: // for debugging
     }
 
     void restrict_var_domain_with_bound_result(var_index j, const bound_result & br) {
+        auto & d = m_var_infos[j].m_domain;
         if (br.m_type == bound_type::UPPER) {
-            m_var_infos[j].m_domain.intersect_with_upper_bound(br.m_bound);
+            d.intersect_with_upper_bound(br.m_bound);
         } else {
-            m_var_infos[j].m_domain.intersect_with_lower_bound(br.m_bound);
+            d.intersect_with_lower_bound(br.m_bound);
+        }
+        if (d.is_fixed()) {
+            if (j >= m_v.size())
+                m_v.resize(j + 1);
+            d.get_upper_bound(m_v[j]);
         }
     }
 
@@ -519,47 +467,12 @@ public: // for debugging
             lp_assert(false); // not implemented
         }
     }
+
+    bool propagate_simple_ineq(unsigned ineq_index);
     
-    bool propagate_simple_ineq(unsigned ineq_index) {
-        const ineq & t = m_ineqs[ineq_index];
-        TRACE("cut_solver_state",   print_ineq(tout, t); tout << std::endl;);
-        var_index j = t.m_poly.m_coeffs[0].var();
-        
-        bound_result br = bound(t, j);
-        TRACE("cut_solver_state", tout << "bound result = {"; br.print(tout); tout << "}\n";
-              tout << "domain of " << get_column_name(j) << " = "; m_var_infos[j].m_domain.print(tout);
-              tout << "\n";
-              );
-        
-        if (improves(j, br)) {
-            literal l(j, br.m_type == bound_type::LOWER, br.m_bound, ineq_index);
-            l.m_tight_explanation_ineq_index = ineq_index;
-            push_literal_to_trail(l);
-            restrict_var_domain_with_bound_result(j, br);
-            TRACE("cut_solver_state", tout <<"improved domain = ";
-                  m_var_infos[j].m_domain.print(tout);
-                  tout<<"\n";
-                  tout << "literal = "; print_literal(tout, l);
-                  tout <<"\n";
-                  );
-            m_changed_vars.insert(j);
-            return true;
-        }
-        
-        TRACE("cut_solver_state", tout <<"no improvement\n";);
-        return false;
-    }
     
+    bool propagate_simple_ineqs();
         
-    bool propagate_simple_ineqs() {
-        bool ret = false;
-        for (unsigned i = 0; i < m_ineqs.size(); i++) {
-            if (m_ineqs[i].is_simple() && propagate_simple_ineq(i)){
-               ret = true;
-            }
-        }
-        return ret;
-    }
 
     unsigned find_large_enough_j(unsigned i) {
         unsigned r = 0;
@@ -573,15 +486,16 @@ public: // for debugging
         return get_column_name(j);
     }
 
-    void trace_print_domain_change(unsigned j, const T& v, const monomial & p, unsigned ineq_index) const {
-        tout << "change in domain of " << var_name(j) << ", v = " << v << ", domain becomes ";
-        print_var_domain(tout, j);
+    
+    void trace_print_domain_change(std::ostream& out,unsigned j, const T& v, const monomial & p, unsigned ineq_index) const {
+        out << "change in domain of " << var_name(j) << ", v = " << v << ", domain becomes ";
+        print_var_domain(out, j);
         T lb;
         bool r = lower(ineq_index, lb);
         if (r)
-            tout << "lower_of_ineq = " << lb << "\n";
+            out << "lower_of_ineq = " << lb << "\n";
         else
-            tout << "no lower bound for ineq\n";
+            out << "no lower bound for ineq\n";
     }
     
     void propagate_monomial_on_lower(const monomial & p, const T& lower_val, unsigned ineq_index) {
@@ -592,7 +506,7 @@ public: // for debugging
             T v = floor(- lower_val / p.coeff()) + m;
             bool change = m_var_infos[j].m_domain.intersect_with_upper_bound(v);
             if (change) {
-                TRACE("ba_int", trace_print_domain_change(j, v, p, ineq_index););
+                TRACE("ba_int", trace_print_domain_change(tout, j, v, p, ineq_index););
                 add_bound(v, j, false, ineq_index);
             }
         } else {
@@ -601,7 +515,7 @@ public: // for debugging
             T v = ceil( - lower_val / p.coeff()) + m;
             bool change = m_var_infos[j].m_domain.intersect_with_lower_bound(v);
             if (change) {
-                TRACE("ba_int", trace_print_domain_change(j, v, p, ineq_index););
+                TRACE("ba_int", trace_print_domain_change(tout, j, v, p, ineq_index););
                 add_bound(v, j, true , ineq_index);
             }
         }
@@ -614,24 +528,33 @@ public: // for debugging
             T v = floor(rs / p.coeff());
             bool change = m_var_infos[j].m_domain.intersect_with_upper_bound(v);
             if (change) {
-                TRACE("ba_int", trace_print_domain_change(j, v, p, ineq_index););
+                TRACE("ba_int", trace_print_domain_change(tout, j, v, p, ineq_index););
                 add_bound(v, j, false, ineq_index);
             }
         } else {
             T v = ceil(rs / p.coeff());
             bool change = m_var_infos[j].m_domain.intersect_with_lower_bound(v);
             if (change) {
-                TRACE("ba_int", trace_print_domain_change(j, v, p, ineq_index););
+                TRACE("ba_int", trace_print_domain_change(tout, j, v, p, ineq_index););
                 add_bound(v, j, true , ineq_index);
             }
         }
+    }
+
+    void print_var_info(std::ostream & out, const var_info & vi) const {
+        out << m_var_name_function(vi.m_user_var_index) << " ";
+        print_var_domain(out, vi);
     }
 
     
     void print_var_domain(std::ostream & out, unsigned j) const {
         m_var_infos[j].m_domain.print(out);
     }
-    
+
+    void print_var_domain(std::ostream & out, const var_info & vi) const {
+        vi.m_domain.print(out);
+    }
+
     // b is the value of lower
     void propagate_inequality_on_lower(unsigned i, const T & b) {
         for (const auto & p: m_ineqs[i].coeffs()) {
@@ -663,7 +586,7 @@ public: // for debugging
     }
     
     void fill_conflict_explanation(unsigned ineq_index, unsigned upper_end_of_trail) {
-        // it is a depth search in the DAG of inequalities: the chidlren of an inequalitiy are those inequalities the provide its lower bound
+        // it is a depth search in the DAG of inequalities: the chidlren of an inequalitiy are those inequalities that provide its lower bound
         add_inequality_explanations(ineq_index);
         const ineq& in = m_ineqs[ineq_index];
         TRACE("ba_int", print_ineq(tout, in););
@@ -672,11 +595,13 @@ public: // for debugging
             unsigned l_ineq_index = m_trail[literal_index].m_ineq_index;
             if (!m_ineqs[l_ineq_index].is_simple()) 
                 fill_conflict_explanation(l_ineq_index, literal_index);
+            else
+                add_inequality_explanations(l_ineq_index);
         }
     }
 
     void trace_print_ineq(std::ostream& out, unsigned i) {
-        print_ineq(out, i); tout << "\n";
+        print_ineq(out, i); out << "\n";
         unsigned j;
         auto pairs = to_pairs(m_ineqs[i].m_poly.m_coeffs);
         auto it = linear_combination_iterator_on_std_vector<T>(pairs);
@@ -702,33 +627,7 @@ public: // for debugging
         propagate_monomial_on_right_side(i.m_poly.m_coeffs[the_only_unlim], rs, ineq_index);
     }
     
-    void propagate_inequality(unsigned i) {
-        TRACE("ba_int", trace_print_ineq(tout, i););
-        const ineq & in = m_ineqs[i];
-        if (in.is_simple())
-            return;
-        // consider a special case for inequalities with just two variables
-        unsigned the_only_unlim;
-        int r = lower_analize(in, the_only_unlim);
-        if (r == 0) {
-            T b;
-            lower(in.m_poly, b);
-            if (is_pos(b)) {
-                lp_assert(m_explanation.size() == 0);
-                std::unordered_set<unsigned> expl;
-                fill_conflict_explanation(i, m_trail.size());
-                TRACE("ba_int", tout << "conflict explanation\n";
-                      for (auto p : m_explanation) {
-                          m_print_constraint_function(p, tout);
-                      }
-                      );
-            } else {
-                propagate_inequality_on_lower(i, b);
-            }
-        } else if (r == 1) {
-            propagate_inequality_only_one_unlim(i, the_only_unlim);
-        }
-    }
+    void propagate_inequality(unsigned i);
 
     bool conflict() const { return m_explanation.size() > 0; }
     
@@ -750,11 +649,9 @@ public: // for debugging
             m_changed_vars.erase(j);
         }
     }
-    
-    void propagate() {
-        propagate_simple_ineqs();
-        propagate_ineqs_for_changed_vars();
-    }
+
+    void propagate();
+
 
     bool decide() {
         // this is where the main action is.
@@ -772,21 +669,11 @@ public: // for debugging
             if (!consistent(i))
                 return false;
         }
-
         return true;
     }
-    
-    bool consistent(const ineq & i) const {
-        bool ret = value(i.m_poly) <= zero_of_type<T>();
-        if (!ret) {
-            TRACE("cut_solver_state", 
-                  tout << "inconsistent ineq "; print_ineq(tout,i); tout <<"\n";
-                  tout << "value = " << value(i.m_poly) << '\n';
-                  );
-        }
-        return ret;
-    }
-    
+
+    bool consistent(const ineq & i) const;
+
     bool var_lower_bound_exists(var_info i) const {
         const var_info & v = m_var_infos[i];
         return v.m_domain.lower_bound_exists();
@@ -871,7 +758,7 @@ public: // for debugging
         return lower(m_ineqs[ineq_index].m_poly, lb);
     }
 
-                      // returns false if not limited from below
+    // returns false if not limited from below
     // otherwise the answer is put into lb
     T lower_val(unsigned ineq_index) const {
         return lower_val(m_ineqs[ineq_index]);
@@ -882,7 +769,7 @@ public: // for debugging
 #if Z3DEBUG
         bool r =
 #endif
-        lower(i.m_poly, lb);
+            lower(i.m_poly, lb);
         lp_assert(r);
         return lb;
     }
@@ -904,7 +791,7 @@ public: // for debugging
     }
 
 
-     // returns the number of lower unlimited monomials - 0, 1, >=2
+    // returns the number of lower unlimited monomials - 0, 1, >=2
     // if there is only one lower unlimited then the index is put into the_only_unlimited
     int lower_analize(const ineq & f, unsigned & the_only_unlimited) const {
         int ret = 0;
@@ -1014,26 +901,8 @@ public: // for debugging
         return bound(m_ineqs[ineq_index], j);
     }
 
-
-    void print_state(std::ostream & out) const {
-        out << "ineqs:\n";
-        for (const auto & i: m_ineqs) {
-            print_ineq(out, i);
-        }
-        out << "end of ineqs\n";
-        out << "var values\n";
-        for (unsigned j = 0; j < m_v.size(); j++) {
-            out << get_column_name(j) << " = " << m_v[j] << "\n";
-        }
-        out << "end of var values\n";
-        out << "trail\n";
-        for (const auto & l : m_trail) {
-            print_literal(out, l);
-            out << "\n";
-        }
-        out << "end of trail\n";
-        out << "end of state dump" << std::endl;
-    }
+    void print_state(std::ostream & out) const;
+    
     
     void print_ineq(std::ostream & out, unsigned i)  const {
         print_ineq(out, m_ineqs[i]);
@@ -1046,8 +915,6 @@ public: // for debugging
             out << "constraint_index = " << j << ":";
             m_print_constraint_function(j, out);
         }
-        out << "\n";
-       
     }
 
     void print_literal_bound(std::ostream & o, const literal & t) const {
@@ -1154,7 +1021,7 @@ public: // for debugging
     }
 
 
-       // returns true iff br imposes a better bound on j
+    // returns true iff br imposes a better bound on j
     bool improves(var_index j, const bound_result & br) const {
         if (br.m_type == bound_type::UNDEF)
             return false;
@@ -1165,7 +1032,7 @@ public: // for debugging
             T b;
             bool j_has_upper_bound = get_var_upper_bound(j, b);
             return (!j_has_upper_bound || br.m_bound < b) &&
-               !dom.intersection_with_upper_bound_is_empty(br.m_bound);
+                !dom.intersection_with_upper_bound_is_empty(br.m_bound);
         }
 
         if (br.m_type == bound_type::UNDEF)
@@ -1206,16 +1073,44 @@ public: // for debugging
         return ret;
     }
 
-    void pop(unsigned k) {
-        m_scope.pop(k);
-        m_trail.resize(m_scope().m_trail_size);
-        m_ineqs.resize(m_scope().m_ineqs_size);
-        m_div_constraints.resize(m_scope().m_div_constraints_size);
+    void pop_ineqs() {
+        for (unsigned j = m_ineqs.size(); j-- > m_scope().m_ineqs_size;) {
+            const ineq & i = m_ineqs[j];
+            for (const auto & p: i.m_poly.m_coeffs) {
+                m_var_infos[p.var()].remove_depended_ineq(j);
+            }
+            m_ineqs.pop_back();
+        }
+        lp_assert(m_ineqs.size() == m_scope().m_ineqs_size);
     }
 
-    void push() {
-        m_scope = scope(m_trail.size(), m_ineqs.size(), m_div_constraints.size());
-        m_scope.push();
+    void pop_div_constraints() {
+        for (unsigned j = m_div_constraints.size(); j-- > m_scope().m_div_constraints_size; ) {
+            const div_constraint & i = m_div_constraints[j];
+            for (const auto & p: i.m_poly.m_coeffs) {
+                m_var_infos[p.var()].remove_depended_ineq(j);
+            }
+            m_div_constraints.pop_back();
+        }
+        lp_assert(m_div_constraints.size() == m_scope().m_div_constraints_size);
     }
+
+    void pop_var_domains(unsigned k) {
+        for (auto & v : m_var_infos) {
+            v.m_domain.pop(k);
+        }
+    }
+
+    void pop(unsigned);
+    void push();
+
+    void push_var_domains() {
+        for (auto & v : m_var_infos) {
+            v.m_domain.push();
+        }
+    }
+
+    // returns -1 if every variable is fixed
+    int find_non_fixed_var() const;
 };
 }

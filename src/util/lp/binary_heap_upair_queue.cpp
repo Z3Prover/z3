@@ -17,7 +17,7 @@ Revision History:
 
 
 --*/
-#include "util/lp/binary_heap_upair_queue.hpp"
+#include "util/lp/binary_heap_upair_queue_def.h"
 namespace lp {
 template binary_heap_upair_queue<int>::binary_heap_upair_queue(unsigned int);
 template binary_heap_upair_queue<unsigned int>::binary_heap_upair_queue(unsigned int);

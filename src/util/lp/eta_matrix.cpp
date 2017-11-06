@@ -20,7 +20,7 @@ Revision History:
 #include <memory>
 #include "util/vector.h"
 #include "util/lp/numeric_pair.h"
-#include "util/lp/eta_matrix.hpp"
+#include "util/lp/eta_matrix_def.h"
 #ifdef LEAN_DEBUG
 template double lp::eta_matrix<double, double>::get_elem(unsigned int, unsigned int) const;
 template lp::mpq lp::eta_matrix<lp::mpq, lp::mpq>::get_elem(unsigned int, unsigned int) const;

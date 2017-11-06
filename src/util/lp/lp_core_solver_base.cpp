@@ -22,7 +22,7 @@ Revision History:
 #include <string>
 #include "util/vector.h"
 #include <functional>
-#include "util/lp/lp_core_solver_base.hpp"
+#include "util/lp/lp_core_solver_base_def.h"
 template bool lp::lp_core_solver_base<double, double>::A_mult_x_is_off() const;
 template bool lp::lp_core_solver_base<double, double>::A_mult_x_is_off_on_index(const vector<unsigned> &) const;
 template bool lp::lp_core_solver_base<double, double>::basis_heading_is_correct() const;

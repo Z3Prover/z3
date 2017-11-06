@@ -18,7 +18,7 @@ Revision History:
 
 --*/
 #include "util/lp/numeric_pair.h"
-#include "util/lp/core_solver_pretty_printer.hpp"
+#include "util/lp/core_solver_pretty_printer_def.h"
 template lp::core_solver_pretty_printer<double, double>::core_solver_pretty_printer(lp::lp_core_solver_base<double, double> &, std::ostream & out);
 template void lp::core_solver_pretty_printer<double, double>::print();
 template lp::core_solver_pretty_printer<double, double>::~core_solver_pretty_printer();

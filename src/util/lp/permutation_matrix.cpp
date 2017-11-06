@@ -19,7 +19,7 @@ Revision History:
 --*/
 #include <memory>
 #include "util/vector.h"
-#include "util/lp/permutation_matrix.hpp"
+#include "util/lp/permutation_matrix_def.h"
 #include "util/lp/numeric_pair.h"
 template void lp::permutation_matrix<double, double>::apply_from_right(vector<double>&);
 template void lp::permutation_matrix<double, double>::init(unsigned int);

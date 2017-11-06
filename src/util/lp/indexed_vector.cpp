@@ -18,7 +18,7 @@ Revision History:
 
 --*/
 #include "util/vector.h"
-#include "util/lp/indexed_vector.hpp"
+#include "util/lp/indexed_vector_def.h"
 namespace lp {
 template void indexed_vector<double>::clear();
 template void indexed_vector<double>::clear_all();

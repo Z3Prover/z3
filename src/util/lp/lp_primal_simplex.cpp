@@ -22,7 +22,7 @@ Revision History:
 #include <string>
 #include "util/vector.h"
 #include <functional>
-#include "util/lp/lp_primal_simplex.hpp"
+#include "util/lp/lp_primal_simplex_def.h"
 template bool lp::lp_primal_simplex<double, double>::bounds_hold(std::unordered_map<std::string, double, std::hash<std::string>, std::equal_to<std::string>, std::allocator<std::pair<std::string const, double> > > const&);
 template bool lp::lp_primal_simplex<double, double>::row_constraints_hold(std::unordered_map<std::string, double, std::hash<std::string>, std::equal_to<std::string>, std::allocator<std::pair<std::string const, double> > > const&);
 template double lp::lp_primal_simplex<double, double>::get_current_cost() const;

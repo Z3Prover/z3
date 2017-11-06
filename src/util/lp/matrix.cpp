@@ -19,7 +19,7 @@ Revision History:
 --*/
 #include "util/lp/lp_settings.h"
 #ifdef Z3DEBUG
-#include "util/lp/matrix.hpp"
+#include "util/lp/matrix_def.h"
 #include "util/lp/static_matrix.h"
 #include <string>
 template void lp::print_matrix<double, double>(lp::matrix<double, double> const*, std::ostream & out);

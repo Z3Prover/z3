@@ -403,16 +403,6 @@ unsigned int_solver::row_of_basic_column(unsigned j) const {
     return m_lar_solver->m_mpq_lar_core_solver.m_r_heading[j];
 }
 
-template <typename T>
-void int_solver::fill_cut_solver_vars() {
-    m_cut_solver.m_v.clear();
-    for (unsigned j = 0; j < m_lar_solver->m_mpq_lar_core_solver.m_r_x.size(); j++) {
-        if (is_int(j) && !is_term(j))
-            m_cut_solver.m_v.push_back(T(static_cast<int>(ceil(m_lar_solver->m_mpq_lar_core_solver.m_r_x[j].x).get_int64())));
-    }
-    TRACE("cut_solver_state", m_cut_solver.print_state(tout););
-}
-
 // template <typename T>
 // void int_solver::fill_cut_solver_for_constraint(constraint_index ci, cut_solver<T> & cs) {
 //     const lar_base_constraint* c = m_lar_solver->constraints()[ci];
@@ -494,7 +484,6 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
     // lp_assert(non_basic_columns_are_at_bounds());
     TRACE("gomory_cut", tout << m_branch_cut_counter+1 << ", " << settings().m_int_branch_cut_gomory_threshold << std::endl;);
     if (++m_branch_cut_counter > 0) { // testing cut_solver
-        fill_cut_solver_vars<mpq>();
         auto check_res = m_cut_solver.check();
         switch (check_res) {
         case lbool::l_false:

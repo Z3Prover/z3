@@ -22,7 +22,7 @@ Revision History:
 #include <string>
 #include "util/vector.h"
 #include "util/debug.h"
-#include "util/lp/lu.hpp"
+#include "util/lp/lu_def.h"
 template double lp::dot_product<double, double>(vector<double> const&, vector<double> const&);
 template lp::lu<double, double>::lu(lp::static_matrix<double, double> const&, vector<unsigned int>&, lp::lp_settings&);
 template void lp::lu<double, double>::push_matrix_to_tail(lp::tail_matrix<double, double>*);

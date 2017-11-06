@@ -211,9 +211,12 @@ tactic * mk_qflia_tactic(ast_manager & m, params_ref const & p) {
     
     params_ref no_cut_p;
     no_cut_p.set_uint("arith.branch_cut_ratio", 10000000);
-    
-    
-    tactic * st = using_params(and_then(preamble_st,
+
+
+    //
+        tactic * st = using_params(and_then(preamble_st,
+                                        mk_smt_tactic()),
+#if 0
                                         or_else(mk_ilp_model_finder_tactic(m),
                                                 mk_pb_tactic(m),
                                                 and_then(fail_if_not(mk_is_quasi_pb_probe()), 
@@ -221,7 +224,21 @@ tactic * mk_qflia_tactic(ast_manager & m, params_ref const & p) {
                                                          mk_fail_if_undecided_tactic()),
                                                 mk_bounded_tactic(m),
                                                 mk_smt_tactic())),
+#endif
                                main_p);
+
+    //
+    
+    
+    // tactic * st = using_params(and_then(preamble_st,
+    //                                     or_else(mk_ilp_model_finder_tactic(m),
+    //                                             mk_pb_tactic(m),
+    //                                             and_then(fail_if_not(mk_is_quasi_pb_probe()), 
+    //                                                      using_params(mk_lia2sat_tactic(m), quasi_pb_p),
+    //                                                      mk_fail_if_undecided_tactic()),
+    //                                             mk_bounded_tactic(m),
+    //                                             mk_smt_tactic())),
+    //                            main_p);
     
     st->updt_params(p);
     return st;

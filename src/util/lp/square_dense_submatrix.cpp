@@ -19,7 +19,7 @@ Revision History:
 --*/
 #include <memory>
 #include "util/vector.h"
-#include "util/lp/square_dense_submatrix.hpp"
+#include "util/lp/square_dense_submatrix_def.h"
 template void lp::square_dense_submatrix<double, double>::init(lp::sparse_matrix<double, double>*, unsigned int);
 template lp::square_dense_submatrix<double, double>::square_dense_submatrix(lp::sparse_matrix<double, double>*, unsigned int);
 template void lp::square_dense_submatrix<double, double>::update_parent_matrix(lp::lp_settings&);

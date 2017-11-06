@@ -26,8 +26,7 @@ Revision History:
 #include "util/vector.h"
 #include <set>
 #include <utility>
-#include "util/vector.h"
-#include "util/lp/static_matrix.hpp"
+#include "util/lp/static_matrix_def.h"
 #include "util/lp/lp_core_solver_base.h"
 #include "util/lp/lp_dual_core_solver.h"
 #include "util/lp/lp_dual_simplex.h"

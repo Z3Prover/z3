@@ -21,7 +21,7 @@ Revision History:
 #include "util/vector.h"
 #include "util/lp/lp_settings.h"
 #include "util/lp/lu.h"
-#include "util/lp/sparse_matrix.hpp"
+#include "util/lp/sparse_matrix_def.h"
 #include "util/lp/dense_matrix.h"
 namespace lp {
 template double sparse_matrix<double, double>::dot_product_with_row<double>(unsigned int, vector<double> const&) const;

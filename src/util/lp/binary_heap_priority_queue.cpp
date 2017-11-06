@@ -18,7 +18,7 @@ Revision History:
 
 --*/
 #include "util/lp/numeric_pair.h"
-#include "util/lp/binary_heap_priority_queue.hpp"
+#include "util/lp/binary_heap_priority_queue_def.h"
 namespace lp {
 template binary_heap_priority_queue<int>::binary_heap_priority_queue(unsigned int);
 template unsigned binary_heap_priority_queue<int>::dequeue();
