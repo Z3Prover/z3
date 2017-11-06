@@ -511,11 +511,14 @@ void asserted_formulas::update_substitution(expr* n, proof* pr) {
         }
         TRACE("propagate_values", tout << "incompatible " << mk_pp(n, m) << "\n";);
     }
-    if (m.is_not(n, n1)) {
-        m_scoped_substitution.insert(n1, m.mk_false(), m.proofs_enabled() ? m.mk_iff_false(pr) : nullptr);
+    proof_ref pr1(m);
+    if (m.is_not(n, n1)) {		
+        pr1 = m.proofs_enabled() ? m.mk_iff_false(pr) : nullptr;
+        m_scoped_substitution.insert(n1, m.mk_false(), pr1);
     }
     else {
-        m_scoped_substitution.insert(n, m.mk_true(), m.proofs_enabled() ? m.mk_iff_true(pr) : nullptr);
+        pr1 = m.proofs_enabled() ? m.mk_iff_true(pr) : nullptr;
+        m_scoped_substitution.insert(n, m.mk_true(), pr1);
     }
 }
 
