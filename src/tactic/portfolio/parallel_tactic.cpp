@@ -108,11 +108,17 @@ class parallel_tactic : public tactic {
 
         solver_state* get_task() { 
             while (!m_shutdown) {
-                solver_state* st = try_get_task();
-                if (st) return st;
                 inc_wait();
-                std::unique_lock<std::mutex> lock(m_mutex);
-                m_cond.wait(lock, [this] { --m_num_waiters; return true; });                
+                solver_state* st = try_get_task();
+                if (st) {
+                    dec_wait();
+                    return st;
+                }
+				{
+					std::unique_lock<std::mutex> lock(m_mutex);
+					m_cond.wait(lock);
+				}
+                dec_wait();
             }
             return nullptr;
         }
@@ -128,6 +134,7 @@ class parallel_tactic : public tactic {
 
         void reset() {
             for (auto* t : m_tasks) dealloc(t);
+            for (auto* t : m_active) dealloc(t);
             m_tasks.reset();
             m_active.reset();
         }
@@ -322,6 +329,8 @@ private:
     bool         m_has_undef;
     bool         m_allsat;
     unsigned     m_num_unsat;
+    int          m_exn_code;
+    std::string  m_exn_msg;
 
     void init() {
         m_num_threads = omp_get_num_procs();  // TBD adjust by possible threads used inside each solver.
@@ -329,6 +338,7 @@ private:
         m_has_undef = false;
         m_allsat = false;
         m_num_unsat = 0;
+        m_exn_code = 0;
     }
 
     void close_branch(solver_state& s, lbool status) {
@@ -476,9 +486,17 @@ private:
                 dealloc(st);
             }
         }
-        catch (z3_exception& ex) {
-            std::cout << ex.msg() << "\n";
+        catch (z3_exception& ex) {            
+            IF_VERBOSE(1, verbose_stream() << ex.msg() << "\n";);
             m_queue.shutdown();
+            std::lock_guard<std::mutex> lock(m_mutex);
+            if (ex.has_error_code()) {
+                m_exn_code = ex.error_code();
+            }
+            else {
+                m_exn_msg = ex.msg();
+                m_exn_code = -1;
+            }
         }
     }
 
@@ -489,20 +507,21 @@ private:
 
     lbool solve(model_ref& mdl) {        
         vector<std::thread> threads;
-        for (unsigned i = 0; i < m_num_threads; ++i) {
+        for (unsigned i = 0; i < m_num_threads; ++i) 
             threads.push_back(std::thread([this]() { run_solver(); }));
-        }
-        for (std::thread& t : threads) {
+        for (std::thread& t : threads) 
             t.join();
-        }
+        m_manager.limit().reset_cancel();
+        if (m_exn_code == -1) 
+            throw default_exception(m_exn_msg);
+        if (m_exn_code != 0) 
+            throw z3_error(m_exn_code);            
         if (!m_models.empty()) {
             mdl = m_models.back();            
-            m_manager.limit().reset_cancel();
             return l_true;
         }
         if (m_has_undef) 
             return l_undef;
-        m_manager.limit().reset_cancel();
         return l_false;
     }
 
@@ -583,6 +602,9 @@ public:
 
     virtual void collect_statistics(statistics & st) const {
         st.copy(m_stats);
+        st.update("par unsat", m_num_unsat);
+        st.update("par models", m_models.size());
+        st.update("par progress", m_progress);
     }
     virtual void reset_statistics() {
         m_stats.reset();
