@@ -143,12 +143,18 @@ public: // for debugging
         }
     };
 
+    // copy constructor
     struct div_constraint {
         // m_d divides m_poly
         polynomial m_poly;
         T m_d; 
-        div_constraint(const polynomial & p, const T& d): m_poly(p), m_d(d) {}
         vector<unsigned> m_explanation;
+        div_constraint(const polynomial & p, const T& d): m_poly(p), m_d(d) {}
+        div_constraint() {}
+        div_constraint(const div_constraint& d):
+            m_poly(d.m_poly),
+            m_d(d.m_d),
+            m_explanation(d.m_explanation){}
     };
     
     enum class literal_type {
@@ -168,6 +174,7 @@ public: // for debugging
         int m_ineq_index; // index into m_ineqs, if m_index_of_ineq < 0 then the literal is decided
         bool m_bool_val; // used if m_tag is equal to BOOL
         unsigned m_index_of_div_constraint;
+        // copy constructor
         literal(unsigned var_index, bool is_lower, const T & bound, int ineq_index):
             m_tag(literal_type::BOUND),
             m_sign(true),
@@ -180,6 +187,22 @@ public: // for debugging
         literal(unsigned var_id, bool is_lower, const T & bound):
             literal(var_id, is_lower, bound, -1) {
         }
+        literal() {
+            lp_assert(false); // required by std::vector::resize() but should not be called
+        }
+
+        literal(const literal & l) :
+            m_tag(l.m_tag),
+            m_sign(l.m_sign),
+            m_var_index(l.m_var_index),
+            m_is_lower(l.m_is_lower),
+            m_bound(l.m_bound),
+            m_tight_explanation_ineq_index(l.m_tight_explanation_ineq_index),
+            m_id(l.m_id),
+            m_ineq_index(l.m_ineq_index),
+            m_bool_val(l.m_bool_val),
+            m_index_of_div_constraint(l.m_index_of_div_constraint) { }
+        
         bool decided() const { return m_ineq_index < 0; }
     };    
 
@@ -288,7 +311,7 @@ public: // for debugging
                                                m_div_constraints_size(div_constraints_size) {}
     };
 
-    stacked_value<scope>          m_scopes;
+    stacked_value<scope>          m_scope;
     std::unordered_map<unsigned, unsigned> m_user_vars_to_cut_solver_vars;
     static T m_local_zero;
     std::unordered_set<constraint_index> m_explanation; // if this collection is not empty we have a conflict 
@@ -605,8 +628,8 @@ public: // for debugging
     }
 
     
-    void print_var_domain(std::ostream & o, unsigned j) const {
-        m_var_infos[j].m_domain.print(o);
+    void print_var_domain(std::ostream & out, unsigned j) const {
+        m_var_infos[j].m_domain.print(out);
     }
     
     // b is the value of lower
@@ -652,14 +675,14 @@ public: // for debugging
         }
     }
 
-    void trace_print_ineq(unsigned i) {
-        print_ineq(tout, i); tout << "\n";
+    void trace_print_ineq(std::ostream& out, unsigned i) {
+        print_ineq(out, i); tout << "\n";
         unsigned j;
         auto pairs = to_pairs(m_ineqs[i].m_poly.m_coeffs);
         auto it = linear_combination_iterator_on_std_vector<T>(pairs);
         while (it.next(j)) {
-            tout << "domain of " << var_name(j) << " = ";
-            print_var_domain(tout,j);
+            out << "domain of " << var_name(j) << " = ";
+            print_var_domain(out, j);
         }
     }
 
@@ -680,7 +703,7 @@ public: // for debugging
     }
     
     void propagate_inequality(unsigned i) {
-        TRACE("ba_int", trace_print_ineq(i););
+        TRACE("ba_int", trace_print_ineq(tout, i););
         const ineq & in = m_ineqs[i];
         if (in.is_simple())
             return;
@@ -1184,18 +1207,15 @@ public: // for debugging
     }
 
     void pop(unsigned k) {
-        m_scopes.pop();
-        while (m_trail.size() > m_scopes().m_trail_size)
-            m_trail.pop_back();
-        while (m_ineqs.size() > m_scopes().m_ineqs_size)
-            m_ineqs.pop_back();
-        while (m_div_constraints.size() > m_scopes().m_div_constraints_size)
-            m_div_constraints.pop_back();
+        m_scope.pop(k);
+        m_trail.resize(m_scope().m_trail_size);
+        m_ineqs.resize(m_scope().m_ineqs_size);
+        m_div_constraints.resize(m_scope().m_div_constraints_size);
     }
 
     void push() {
-        m_scopes = scope(m_trail.size(), m_ineqs.size(), m_div_constraints.size());
-        m_scopes.push();
+        m_scope = scope(m_trail.size(), m_ineqs.size(), m_div_constraints.size());
+        m_scope.push();
     }
 };
 }
