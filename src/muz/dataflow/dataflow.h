@@ -184,21 +184,22 @@ namespace datalog {
                 typename fact_db::entry* entry;
                 if (m_facts.insert_if_not_there_core(kv.m_key, entry)) {
                     entry->get_data().m_value = kv.m_value;
-                } else {
+                } 
+                else {
                     entry->get_data().m_value.join(m_context, kv.m_value);
                 }
             }
         }
 
         void intersect(const dataflow_engine<Fact>& oth) {
-            vector<func_decl*> to_delete;
+            ptr_vector<func_decl> to_delete;
             for (auto const& kv : m_facts) {
                 
                 if (typename fact_db::entry *entry = oth.m_facts.find_core(kv.m_key)) {
                     kv.m_value.intersect(m_context, entry->get_data().m_value);
                 } 
                 else {
-                     to_delete.push_back(kvm_key);
+                     to_delete.push_back(kv.m_key);
                 }
             }
             for (func_decl* f : to_delete) {
