@@ -30,6 +30,7 @@ RUN apt-get update && \
         libgomp1 \
         libomp5 \
         libomp-dev \
+        llvm-3.9 \
         make \
         mono-devel \
         ninja-build \
@@ -47,4 +48,4 @@ RUN useradd -m user && \
     echo 'user  ALL=(root) NOPASSWD: ALL' >> /etc/sudoers
 USER user
 WORKDIR /home/user
-
+ENV ASAN_SYMBOLIZER_PATH=/usr/lib/llvm-3.9/bin/llvm-symbolizer

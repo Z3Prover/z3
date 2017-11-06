@@ -62,6 +62,10 @@ public:
         }
     }
 
+    virtual void display(std::ostream & out) {
+        out << "(ackr-model-converter)\n";
+    }
+
 protected:
     ast_manager &             m;
     const ackr_info_ref       info;
@@ -144,6 +148,7 @@ void ackr_model_converter::add_entry(model_evaluator & evaluator,
     else {
         TRACE("ackr_model", tout << "entry already present\n";);
     }
+
 }
 
 model_converter * mk_ackr_model_converter(ast_manager & m, const ackr_info_ref& info) {

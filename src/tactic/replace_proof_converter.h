@@ -45,6 +45,8 @@ public:
     // run the replacements the inverse direction.
     void invert() { m_proofs.reverse(); }
 
+    virtual void display(std::ostream & out) {}
+
 };
 
 #endif

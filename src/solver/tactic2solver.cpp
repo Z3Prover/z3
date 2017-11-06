@@ -36,8 +36,8 @@ class tactic2solver : public solver_na2as {
     unsigned_vector              m_scopes;
     ref<simple_check_sat_result> m_result;
     tactic_ref                   m_tactic;
+    ref<model_converter>         m_mc;
     symbol                       m_logic;
-    params_ref                   m_params;
     bool                         m_produce_models;
     bool                         m_produce_proofs;
     bool                         m_produce_unsat_cores;
@@ -64,7 +64,7 @@ public:
 
     virtual void collect_statistics(statistics & st) const;
     virtual void get_unsat_core(ptr_vector<expr> & r);
-    virtual void get_model(model_ref & m);
+    virtual void get_model_core(model_ref & m);
     virtual proof * get_proof();
     virtual std::string reason_unknown() const;
     virtual void set_reason_unknown(char const* msg);
@@ -77,14 +77,12 @@ public:
 
     virtual ast_manager& get_manager() const; 
 
-    virtual expr_ref lookahead(expr_ref_vector const& assumptions, expr_ref_vector const& candidates) {
-        ast_manager& m = get_manager();
-        return expr_ref(m.mk_true(), m);
-    }
     virtual expr_ref cube() {
         ast_manager& m = get_manager();
         return expr_ref(m.mk_true(), m);
     }
+
+    virtual model_converter_ref get_model_converter() const { return m_mc; }
 
 };
 
@@ -96,7 +94,7 @@ tactic2solver::tactic2solver(ast_manager & m, tactic * t, params_ref const & p, 
 
     m_tactic = t;
     m_logic  = logic;
-    m_params = p;
+    solver::updt_params(p);
     
     m_produce_models      = produce_models;
     m_produce_proofs      = produce_proofs;
@@ -107,7 +105,7 @@ tactic2solver::~tactic2solver() {
 }
 
 void tactic2solver::updt_params(params_ref const & p) {
-    m_params.append(p);
+    solver::updt_params(p);
 }
 
 void tactic2solver::collect_param_descrs(param_descrs & r) {
@@ -143,7 +141,7 @@ lbool tactic2solver::check_sat_core(unsigned num_assumptions, expr * const * ass
     m_result = alloc(simple_check_sat_result, m);
     m_tactic->cleanup();
     m_tactic->set_logic(m_logic);
-    m_tactic->updt_params(m_params); // parameters are allowed to overwrite logic.
+    m_tactic->updt_params(get_params()); // parameters are allowed to overwrite logic.
     goal_ref g = alloc(goal, m, m_produce_proofs, m_produce_models, m_produce_unsat_cores);
 
     unsigned sz = m_assertions.size();
@@ -157,12 +155,12 @@ lbool tactic2solver::check_sat_core(unsigned num_assumptions, expr * const * ass
     }
 
     model_ref           md;
-    proof_ref           pr(m);
+    proof_ref           pr(m);    
     expr_dependency_ref core(m);
     std::string         reason_unknown = "unknown";
     labels_vec labels;
     try {
-        switch (::check_sat(*m_tactic, g, md, labels, pr, core, reason_unknown)) {
+        switch (::check_sat(*m_tactic, g, md, m_mc, labels, pr, core, reason_unknown)) {
         case l_true: 
             m_result->set_status(l_true);
             break;
@@ -230,9 +228,9 @@ void tactic2solver::get_unsat_core(ptr_vector<expr> & r) {
     }
 }
 
-void tactic2solver::get_model(model_ref & m) {
+void tactic2solver::get_model_core(model_ref & m) {
     if (m_result.get())
-        m_result->get_model(m);
+        m_result->get_model_core(m);
 }
 
 proof * tactic2solver::get_proof() {

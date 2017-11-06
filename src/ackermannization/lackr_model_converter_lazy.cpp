@@ -48,6 +48,11 @@ public:
     virtual model_converter * translate(ast_translation & translator) {
         NOT_IMPLEMENTED_YET();
     }
+
+    virtual void display(std::ostream & out) {
+        out << "(lackr-model-converter)\n";
+    }
+
 protected:
     ast_manager&                       m;
     const lackr_model_constructor_ref  model_constructor;

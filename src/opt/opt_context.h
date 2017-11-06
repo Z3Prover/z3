@@ -184,7 +184,7 @@ namespace opt {
         virtual void set_hard_constraints(ptr_vector<expr> & hard);
         virtual lbool optimize();
         virtual void set_model(model_ref& _m) { m_model = _m; }
-        virtual void get_model(model_ref& _m);
+        virtual void get_model_core(model_ref& _m);
         virtual void get_box_model(model_ref& _m, unsigned index);
         virtual void fix_model(model_ref& _m);
         virtual void collect_statistics(statistics& stats) const;

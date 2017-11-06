@@ -7,7 +7,6 @@ z3_add_component(spacer
   spacer_farkas_learner.cpp
   spacer_generalizers.cpp
   spacer_manager.cpp
-  spacer_marshal.cpp
   spacer_prop_solver.cpp
   spacer_smt_context_manager.cpp
   spacer_sym_mux.cpp
@@ -15,11 +14,9 @@ z3_add_component(spacer
   spacer_itp_solver.cpp
   spacer_virtual_solver.cpp
   spacer_legacy_mbp.cpp
-  spacer_proof_utils.cpp
   spacer_unsat_core_learner.cpp
   spacer_unsat_core_plugin.cpp
   spacer_matrix.cpp
-  spacer_min_cut.cpp
   spacer_antiunify.cpp
   spacer_mev_array.cpp
   spacer_qe_project.cpp

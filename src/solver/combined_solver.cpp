@@ -147,6 +147,7 @@ public:
     }
 
     virtual void updt_params(params_ref const & p) {
+        solver::updt_params(p);
         m_solver1->updt_params(p);
         m_solver2->updt_params(p);
         updt_local_params(p);
@@ -280,10 +281,6 @@ public:
         return m_solver1->get_num_assumptions() + m_solver2->get_num_assumptions();
     }
 
-    virtual expr_ref lookahead(expr_ref_vector const& assumptions, expr_ref_vector const& candidates) { 
-        return m_solver1->lookahead(assumptions, candidates); 
-    }
-
     virtual expr_ref cube() {
         return m_solver1->cube();
     }
@@ -294,8 +291,8 @@ public:
         return m_solver2->get_assumption(idx - c1);
     }
 
-    virtual std::ostream& display(std::ostream & out) const {
-        return m_solver1->display(out);
+    virtual std::ostream& display(std::ostream & out, unsigned n, expr* const* es) const {
+        return m_solver1->display(out, n, es);
     }
 
     virtual void collect_statistics(statistics & st) const {
@@ -311,7 +308,7 @@ public:
             m_solver2->get_unsat_core(r);
     }
 
-    virtual void get_model(model_ref & m) {
+    virtual void get_model_core(model_ref & m) {
         if (m_use_solver1_results)
             m_solver1->get_model(m);
         else

@@ -19,14 +19,25 @@ Notes:
 #ifndef MODEL_CONVERTER_H_
 #define MODEL_CONVERTER_H_
 
+#include "ast/ast_pp_util.h"
 #include "model/model.h"
 #include "tactic/converter.h"
 #include "util/ref.h"
 
 class labels_vec : public svector<symbol> {};
+class smt2_pp_environment; 
 
 class model_converter : public converter {
+protected:
+    smt2_pp_environment* m_env;
+    void display_add(std::ostream& out, ast_manager& m, func_decl* f, expr* e) const;
+    void display_del(std::ostream& out, func_decl* f) const;
+    void display_add(std::ostream& out, ast_manager& m);
+    
 public:
+
+    model_converter(): m_env(0) {}
+
     virtual void operator()(model_ref & m) {}  // TODO: delete
 
     virtual void operator()(model_ref & m, unsigned goal_idx) {
@@ -34,10 +45,12 @@ public:
         SASSERT(goal_idx == 0);
         operator()(m);
     }
-
     virtual void operator()(labels_vec & r, unsigned goal_idx) {}
+
     
     virtual model_converter * translate(ast_translation & translator) = 0;
+    
+    virtual void collect(ast_pp_util& visitor) { m_env = &visitor.env(); }
 };
 
 typedef ref<model_converter> model_converter_ref;

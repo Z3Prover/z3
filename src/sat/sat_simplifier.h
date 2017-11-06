@@ -71,9 +71,11 @@ namespace sat {
         int                    m_elim_counter;
 
         // config
+        bool                   m_abce; // block clauses using asymmetric added literals
         bool                   m_cce;  // covered clause elimination
         bool                   m_acce; // cce with asymetric literal addition
         bool                   m_bca;  // blocked (binary) clause addition. 
+        unsigned               m_bce_delay; 
         bool                   m_elim_blocked_clauses;
         unsigned               m_elim_blocked_clauses_at;
         bool                   m_retain_blocked_clauses;
@@ -169,12 +171,14 @@ namespace sat {
         struct blocked_clause_elim;
         void elim_blocked_clauses();
 
-        bool bce_enabled() const { return m_elim_blocked_clauses || m_elim_blocked_clauses_at == m_num_calls || cce_enabled(); }
-        bool acce_enabled() const { return m_acce; }
-        bool cce_enabled() const { return m_cce || acce_enabled(); }
-        bool bca_enabled() const { return m_bca; }
-        bool elim_vars_bdd_enabled() const { return m_elim_vars_bdd && m_num_calls >= m_elim_vars_bdd_delay; }
-        bool elim_vars_enabled() const { return m_elim_vars; }
+        bool single_threaded() const; // { return s.m_config.m_num_threads == 1; }
+        bool bce_enabled()  const;
+        bool acce_enabled() const;
+        bool cce_enabled()  const;
+        bool abce_enabled() const;
+        bool bca_enabled()  const;
+        bool elim_vars_bdd_enabled() const;
+        bool elim_vars_enabled() const;
 
         unsigned get_num_unblocked_bin(literal l) const;
         unsigned get_to_elim_cost(bool_var v) const;

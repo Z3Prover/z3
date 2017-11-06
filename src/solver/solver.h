@@ -24,6 +24,7 @@ Notes:
 #include "util/params.h"
 
 class solver;
+class model_converter;
 
 class solver_factory {
 public:
@@ -43,6 +44,7 @@ public:
      - results based on check_sat_result API
 */
 class solver : public check_sat_result {
+    params_ref m_params;
 public:
     virtual ~solver() {}
 
@@ -54,7 +56,12 @@ public:
     /**
        \brief Update the solver internal settings. 
     */
-    virtual void updt_params(params_ref const & p) { }
+    virtual void updt_params(params_ref const & p) { m_params.copy(p); }
+
+    /**
+       \brief Retrieve set of parameters set on solver.
+     */
+    virtual params_ref const& get_params() { return m_params; }
 
     /**
        \brief Store in \c r a description of the configuration
@@ -94,7 +101,7 @@ public:
        \brief Add a lemma to the assertion stack. A lemma is assumed to be a consequence of already
        asserted formulas. The solver is free to ignore lemmas.
     */
-    virtual void assert_lemma(expr * t) = 0;
+    virtual void assert_lemma(expr * t) {}
 
     /**
        \brief Create a backtracking point.
@@ -182,23 +189,18 @@ public:
        \brief extract a lookahead candidates for branching.
     */
 
-    virtual expr_ref lookahead(expr_ref_vector const& assumptions, expr_ref_vector const& candidates) = 0;
-
-    /**
-       \brief extract a lookahead candidates for branching.
-    */
-
     virtual expr_ref cube() = 0;
-
-    /**
-       \brief extract learned lemmas.
-    */
-    virtual void get_lemmas(expr_ref_vector& lemmas) {}
 
     /**
        \brief Display the content of this solver.
     */
-    virtual std::ostream& display(std::ostream & out) const;
+    virtual std::ostream& display(std::ostream & out, unsigned n = 0, expr* const* assumptions = nullptr) const;
+
+    /**
+       \brief expose model converter when solver produces partially reduced set of assertions.
+     */
+
+    virtual model_converter_ref get_model_converter() const { return m_mc0; }
 
     class scoped_push {
         solver& s;
@@ -216,5 +218,7 @@ protected:
     bool is_literal(ast_manager& m, expr* e);
 
 };
+
+typedef ref<solver> solver_ref;
 
 #endif

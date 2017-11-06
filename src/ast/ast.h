@@ -121,6 +121,20 @@ public:
     explicit parameter(unsigned ext_id, bool):m_kind(PARAM_EXTERNAL), m_ext_id(ext_id) {}
     parameter(parameter const&);
 
+    parameter(parameter && other) : m_kind(other.m_kind) {
+        switch (other.m_kind) {
+        case PARAM_INT: m_int = other.get_int(); break;
+        case PARAM_AST: m_ast = other.get_ast(); break;
+        case PARAM_SYMBOL: m_symbol = other.m_symbol; break;
+        case PARAM_RATIONAL: m_rational = 0; std::swap(m_rational, other.m_rational); break;
+        case PARAM_DOUBLE: m_dval = other.m_dval; break;
+        case PARAM_EXTERNAL: m_ext_id = other.m_ext_id; break;
+        default:
+            UNREACHABLE();
+            break;
+        }
+    }
+
     ~parameter();
 
     parameter& operator=(parameter const& other);
@@ -1382,8 +1396,7 @@ public:
 
 enum proof_gen_mode {
     PGM_DISABLED,
-    PGM_COARSE,
-    PGM_FINE
+    PGM_ENABLED
 };
 
 // -----------------------------------
@@ -1434,6 +1447,8 @@ public:
     typedef expr_dependency_array_manager::ref expr_dependency_array;
 
     void show_id_gen();
+
+    void update_fresh_id(ast_manager const& other);
 
 protected:
     reslimit                  m_limit;
@@ -2074,15 +2089,14 @@ protected:
     proof * mk_proof(family_id fid, decl_kind k, expr * arg1, expr * arg2);
     proof * mk_proof(family_id fid, decl_kind k, expr * arg1, expr * arg2, expr * arg3);
 
+    proof * mk_undef_proof() const { return m_undef_proof; }
+
 public:
     bool proofs_enabled() const { return m_proof_mode != PGM_DISABLED; }
     bool proofs_disabled() const { return m_proof_mode == PGM_DISABLED; }
-    bool coarse_grain_proofs() const { return m_proof_mode == PGM_COARSE; }
-    bool fine_grain_proofs() const { return m_proof_mode == PGM_FINE; }
     proof_gen_mode proof_mode() const { return m_proof_mode; }
     void toggle_proof_mode(proof_gen_mode m) { m_proof_mode = m; } // APIs for creating proof objects return [undef]
 
-    proof * mk_undef_proof() const { return m_undef_proof; }
 
     bool is_proof(expr const * n) const { return is_app(n) && to_app(n)->get_decl()->get_range() == m_proof_sort; }
 

@@ -29,9 +29,8 @@ Notes:
 
 namespace smt {
 
-    class solver : public solver_na2as {
+    class smt_solver : public solver_na2as {
         smt_params           m_smt_params;
-        params_ref           m_params;
         smt::kernel          m_context;
         progress_callback  * m_callback;
         symbol               m_logic;
@@ -42,44 +41,42 @@ namespace smt {
         obj_map<expr, expr*> m_name2assertion;
 
     public:
-        solver(ast_manager & m, params_ref const & p, symbol const & l) :
+        smt_solver(ast_manager & m, params_ref const & p, symbol const & l) :
             solver_na2as(m),
             m_smt_params(p),
-            m_params(p),
             m_context(m, m_smt_params),
             m_minimizing_core(false),
             m_core_extend_patterns(false),
             m_core_extend_patterns_max_distance(UINT_MAX),
-            m_core_extend_nonlocal_patterns(false) {
+            m_core_extend_nonlocal_patterns(false) {            
             m_logic = l;
             if (m_logic != symbol::null)
                 m_context.set_logic(m_logic);
-            smt_params_helper smth(p);
-            m_core_extend_patterns = smth.core_extend_patterns();
-            m_core_extend_patterns_max_distance = smth.core_extend_patterns_max_distance();
-            m_core_extend_nonlocal_patterns = smth.core_extend_nonlocal_patterns();
+            updt_params(p);
         }
 
         virtual solver * translate(ast_manager & m, params_ref const & p) {
             ast_translation translator(get_manager(), m);
 
-            solver * result = alloc(solver, m, p, m_logic);
+            smt_solver * result = alloc(smt_solver, m, p, m_logic);
             smt::kernel::copy(m_context, result->m_context);
 
             for (auto & kv : m_name2assertion) 
                 result->m_name2assertion.insert(translator(kv.m_key),
                                                 translator(kv.m_value));
 
+            if (mc0()) 
+                result->set_model_converter(mc0()->translate(translator));
             return result;
         }
 
-        virtual ~solver() {
+        virtual ~smt_solver() {
             dec_ref_values(get_manager(), m_name2assertion);
         }
 
         virtual void updt_params(params_ref const & p) {
+            solver::updt_params(p);
             m_smt_params.updt_params(p);
-            m_params.copy(p);
             m_context.updt_params(p);
             smt_params_helper smth(p);
             m_core_extend_patterns = smth.core_extend_patterns();
@@ -150,9 +147,9 @@ namespace smt {
         }
 
         struct scoped_minimize_core {
-            solver& s;
+            smt_solver& s;
             expr_ref_vector m_assumptions;
-            scoped_minimize_core(solver& s) : s(s), m_assumptions(s.m_assumptions) {
+            scoped_minimize_core(smt_solver& s) : s(s), m_assumptions(s.m_assumptions) {
                 s.m_minimizing_core = true;
                 s.m_assumptions.reset();
             }
@@ -169,7 +166,7 @@ namespace smt {
                 r.push_back(m_context.get_unsat_core_expr(i));
             }
 
-            if (m_minimizing_core && smt_params_helper(m_params).core_minimize()) {
+            if (m_minimizing_core && smt_params_helper(get_params()).core_minimize()) {
                 scoped_minimize_core scm(*this);
                 mus mus(*this);
                 mus.add_soft(r.size(), r.c_ptr());
@@ -186,7 +183,7 @@ namespace smt {
                 add_nonlocal_pattern_literals_to_core(r);
         }
 
-        virtual void get_model(model_ref & m) {
+        virtual void get_model_core(model_ref & m) {
             m_context.get_model(m);
         }
 
@@ -360,22 +357,16 @@ namespace smt {
 
         void add_nonlocal_pattern_literals_to_core(ptr_vector<expr> & core) {
             ast_manager & m = get_manager();
-
-            obj_map<expr, expr*>::iterator it = m_name2assertion.begin();
-            obj_map<expr, expr*>::iterator end = m_name2assertion.end();
-            for (unsigned i = 0; it != end; it++, i++) {
-                expr_ref name(it->m_key, m);
-                expr_ref assrtn(it->m_value, m);
+            for (auto const& kv : m_name2assertion) {
+                expr_ref name(kv.m_key, m);
+                expr_ref assrtn(kv.m_value, m);
 
                 if (!core.contains(name)) {
                     func_decl_set pattern_fds, body_fds;
                     collect_pattern_fds(assrtn, pattern_fds);
                     collect_body_func_decls(assrtn, body_fds);
 
-                    func_decl_set::iterator pit = pattern_fds.begin();
-                    func_decl_set::iterator pend= pattern_fds.end();
-                    for (; pit != pend; pit++) {
-                        func_decl * fd = *pit;
+                    for (func_decl *fd : pattern_fds) {
                         if (!body_fds.contains(fd)) {
                             core.insert(name);
                             break;
@@ -388,7 +379,7 @@ namespace smt {
 };
 
 solver * mk_smt_solver(ast_manager & m, params_ref const & p, symbol const & logic) {
-    return alloc(smt::solver, m, p, logic);
+    return alloc(smt::smt_solver, m, p, logic);
 }
 
 class smt_solver_factory : public solver_factory {

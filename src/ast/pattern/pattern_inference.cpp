@@ -606,7 +606,7 @@ bool pattern_inference_cfg::reduce_quantifier(
                 result = m.update_quantifier_weight(tmp, new_weight);
                 TRACE("pattern_inference", tout << "found patterns in database, weight: " << new_weight << "\n" << mk_pp(new_q, m) << "\n";);
             }
-            if (m.fine_grain_proofs())
+            if (m.proofs_enabled())
                 result_pr = m.mk_rewrite(q, new_q);
             return true;
         }
@@ -671,7 +671,7 @@ bool pattern_inference_cfg::reduce_quantifier(
     quantifier_ref new_q(m.update_quantifier(q, new_patterns.size(), (expr**) new_patterns.c_ptr(), new_body), m);
     if (weight != q->get_weight())
         new_q = m.update_quantifier_weight(new_q, weight);
-    if (m.fine_grain_proofs()) {
+    if (m.proofs_enabled()) {
         proof* new_body_pr = m.mk_reflexivity(new_body);
         result_pr = m.mk_quant_intro(q, new_q, new_body_pr);
     }
@@ -689,7 +689,7 @@ bool pattern_inference_cfg::reduce_quantifier(
                     warning_msg("pulled nested quantifier to be able to find an useable pattern (quantifier id: %s)", q->get_qid().str().c_str());
                 }
                 new_q = m.update_quantifier(result2, new_patterns.size(), (expr**) new_patterns.c_ptr(), result2->get_expr());
-                if (m.fine_grain_proofs()) {
+                if (m.proofs_enabled()) {
                     result_pr = m.mk_transitivity(new_pr, m.mk_quant_intro(result2, new_q, m.mk_reflexivity(new_q->get_expr())));
                 }
                 TRACE("pattern_inference", tout << "pulled quantifier:\n" << mk_pp(new_q, m) << "\n";);

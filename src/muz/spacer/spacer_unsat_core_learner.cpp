@@ -41,7 +41,7 @@ void unsat_core_learner::compute_unsat_core(proof *root, expr_set& asserted_b, e
     // transform proof in order to get a proof which is better suited for unsat-core-extraction
     proof_ref pr(root, m);
 
-    spacer::reduce_hypotheses(pr);
+    reduce_hypotheses(pr);
     STRACE("spacer.unsat_core_learner",
            verbose_stream() << "Reduced proof:\n" << mk_ismt2_pp(pr, m) << "\n";
     );
@@ -50,7 +50,7 @@ void unsat_core_learner::compute_unsat_core(proof *root, expr_set& asserted_b, e
     collect_symbols_b(asserted_b);
 
     // traverse proof
-    ProofIteratorPostOrder it(root, m);
+    proof_post_order it(root, m);
     while (it.hasNext())
     {
         proof* currentNode = it.next();
@@ -138,7 +138,7 @@ void unsat_core_learner::compute_unsat_core(proof *root, expr_set& asserted_b, e
         std::unordered_map<unsigned, unsigned> id_to_small_id;
         unsigned counter = 0;
 
-        ProofIteratorPostOrder it2(root, m);
+        proof_post_order it2(root, m);
         while (it2.hasNext())
         {
             proof* currentNode = it2.next();

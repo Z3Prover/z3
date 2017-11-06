@@ -138,15 +138,15 @@ public:
     {return m_solver.get_num_assumptions();}
     virtual expr * get_assumption(unsigned idx) const
     {return m_solver.get_assumption(idx);}
-    virtual std::ostream &display(std::ostream &out) const
-    {m_solver.display(out); return out;}
+    virtual std::ostream &display(std::ostream &out, unsigned n, expr* const* es) const
+    { return m_solver.display(out, n, es); }
 
     /* check_sat_result interface */
 
     virtual void collect_statistics(statistics &st) const ;
     virtual void reset_statistics();
     virtual void get_unsat_core(ptr_vector<expr> &r);
-    virtual void get_model(model_ref &m) {m_solver.get_model(m);}
+    virtual void get_model_core(model_ref &m) {m_solver.get_model(m);}
     virtual proof *get_proof() {return m_solver.get_proof();}
     virtual std::string reason_unknown() const
     {return m_solver.reason_unknown();}
@@ -174,7 +174,7 @@ public:
     public:
         scoped_bg(itp_solver &s) : m_s(s), m_bg_sz(m_s.get_num_bg()) {}
         ~scoped_bg()
-        {if(m_s.get_num_bg() > m_bg_sz) { m_s.pop_bg(m_s.get_num_bg() - m_bg_sz); }}
+        {if (m_s.get_num_bg() > m_bg_sz) { m_s.pop_bg(m_s.get_num_bg() - m_bg_sz); }}
     };
 };
 }

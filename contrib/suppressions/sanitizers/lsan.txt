@@ -1,0 +1,5 @@
+# LeakSanitizer suppression file
+
+# Ignore Clang OpenMP leaks.
+# See https://github.com/Z3Prover/z3/issues/1308
+leak:___kmp_allocate

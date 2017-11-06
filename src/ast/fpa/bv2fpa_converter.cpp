@@ -250,7 +250,7 @@ bv2fpa_converter::array_model bv2fpa_converter::convert_array_func_interp(model_
     am.new_float_fd = m.mk_fresh_func_decl(arity, array_domain.c_ptr(), rng);
     am.new_float_fi = convert_func_interp(mc, am.new_float_fd, bv_f);
     am.bv_fd = bv_f;
-    am.result = arr_util.mk_as_array(f->get_range(), am.new_float_fd);
+    am.result = arr_util.mk_as_array(am.new_float_fd);
     return am;
 }
 

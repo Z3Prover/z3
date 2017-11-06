@@ -23,13 +23,10 @@ Revision History:
 #include "util/luby.h"
 #include "util/trace.h"
 #include "util/max_cliques.h"
+#include "util/gparams.h"
 
 // define to update glue during propagation
 #define UPDATE_GLUE
-
-// define to create a copy of the solver before starting the search
-// useful for checking models
-// #define CLONE_BEFORE_SOLVING
 
 namespace sat {
 
@@ -64,6 +61,7 @@ namespace sat {
         m_num_checkpoints         = 0;
         m_simplifications         = 0;
         m_cuber                   = nullptr;
+        m_mc.set_solver(nullptr);
     }
 
     solver::~solver() {
@@ -734,15 +732,13 @@ namespace sat {
                 case watched::CLAUSE: {
                     if (value(it->get_blocked_literal()) == l_true) {
                         TRACE("propagate_clause_bug", tout << "blocked literal " << it->get_blocked_literal() << "\n";
-                              clause_offset cls_off = it->get_clause_offset();
-                              clause & c = *(m_cls_allocator.get_clause(cls_off));
-                              tout << c << "\n";);
+                              tout << get_clause(it) << "\n";);
                         *it2 = *it;
                         it2++;
                         break;
                     }
                     clause_offset cls_off = it->get_clause_offset();
-                    clause & c = *(m_cls_allocator.get_clause(cls_off));
+                    clause & c = get_clause(cls_off);
                     TRACE("propagate_clause_bug", tout << "processing... " << c << "\nwas_removed: " << c.was_removed() << "\n";);
                     if (c[0] == not_l)
                         std::swap(c[0], c[1]);
@@ -867,7 +863,7 @@ namespace sat {
         SASSERT(at_base_lvl());
         if (m_config.m_dimacs_display) {
             display_dimacs(std::cout);
-            for (unsigned i = 0; i < num_lits; ++lits) {
+            for (unsigned i = 0; i < num_lits; ++i) {
                 std::cout << dimacs_lit(lits[i]) << " 0\n";
             }
             return l_undef;
@@ -875,9 +871,13 @@ namespace sat {
         if (m_config.m_lookahead_search && num_lits == 0) {
             return lookahead_search();
         }
+#if 0
+        // deprecated
         if (m_config.m_lookahead_cube && num_lits == 0) {
             return lookahead_cube();
         }
+#endif
+
         if (m_config.m_local_search) {
             return do_local_search(num_lits, lits);
         }
@@ -886,12 +886,10 @@ namespace sat {
             return check_par(num_lits, lits);
         }
         flet<bool> _searching(m_searching, true);
-#ifdef CLONE_BEFORE_SOLVING
-        if (m_mc.empty()) {
-            m_clone = alloc(solver, m_params);
-            SASSERT(m_clone);
+        if (m_mc.empty() && gparams::get().get_bool("model_validate", false)) {
+            m_clone = alloc(solver, m_params, m_rlimit);
+            m_clone->copy(*this);
         }
-#endif
         try {
             init_search();
             if (inconsistent()) return l_false;
@@ -1422,6 +1420,7 @@ namespace sat {
         m_luby_idx                = 1;
         m_gc_threshold            = m_config.m_gc_initial;
         m_restarts                = 0;
+        m_simplifications         = 0;
         m_conflicts_since_init    = 0;
         m_min_d_tk                = 1.0;
         m_search_lvl              = 0;
@@ -1548,30 +1547,40 @@ namespace sat {
                 m_model[v] = value(v);
         }
         TRACE("sat_mc_bug", m_mc.display(tout););
-        m_mc(m_model);
-        TRACE("sat", for (bool_var v = 0; v < num; v++) tout << v << ": " << m_model[v] << "\n";);
 
-// #ifndef _EXTERNAL_RELEASE
         IF_VERBOSE(10, verbose_stream() << "\"checking model\"\n";);
-        if (!check_model(m_model)) {
+        if (!check_clauses(m_model)) {
             UNREACHABLE();
             throw solver_exception("check model failed");
         }
+        
+        if (m_config.m_drat) m_drat.check_model(m_model);
+
+        m_mc.set_solver(nullptr);
+        m_mc(m_model);
+
+        
+        if (!check_clauses(m_model)) {
+            std::cout << "failure checking clauses on transformed model\n";
+            UNREACHABLE();
+            throw solver_exception("check model failed");
+        }
+
+        TRACE("sat", for (bool_var v = 0; v < num; v++) tout << v << ": " << m_model[v] << "\n";);
 
         if (m_clone) {
             IF_VERBOSE(SAT_VB_LVL, verbose_stream() << "\"checking model (on original set of clauses)\"\n";);
             if (!m_clone->check_model(m_model))
                 throw solver_exception("check model failed (for cloned solver)");
         }
-// #endif
     }
 
-    bool solver::check_model(model const & m) const {
+    bool solver::check_clauses(model const& m) const {
         bool ok = true;
         for (clause const* cp : m_clauses) {
             clause const & c = *cp;
             if (!c.satisfied_by(m) && !c.is_blocked()) {
-                IF_VERBOSE(0, verbose_stream() << "model check failed: " << c << "\n";);
+                IF_VERBOSE(0, verbose_stream() << "failed clause " << c.id() << ": " << c << "\n";);
                 TRACE("sat", tout << "failed: " << c << "\n";
                       tout << "assumptions: " << m_assumptions << "\n";
                       tout << "trail: " << m_trail << "\n";
@@ -1612,10 +1621,16 @@ namespace sat {
                 ok = false;
             }
         }
+        return ok;
+    }
+
+    bool solver::check_model(model const & m) const {
+        bool ok = check_clauses(m);
         if (ok && !m_mc.check_model(m)) {
             ok = false;
             TRACE("sat", tout << "model: " << m << "\n"; m_mc.display(tout););
         }
+        IF_VERBOSE(1, verbose_stream() << "model check " << (ok?"OK":"failed") << "\n";);
         return ok;
     }
 
@@ -2034,7 +2049,7 @@ namespace sat {
                 process_antecedent(~(js.get_literal2()), num_marks);
                 break;
             case justification::CLAUSE: {
-                clause & c = *(m_cls_allocator.get_clause(js.get_clause_offset()));
+                clause & c = get_clause(js);
                 unsigned i   = 0;
                 if (consequent != null_literal) {
                     SASSERT(c[0] == consequent || c[1] == consequent);
@@ -2153,7 +2168,7 @@ namespace sat {
             process_antecedent_for_unsat_core(~(js.get_literal2()));
             break;
         case justification::CLAUSE: {
-            clause & c = *(m_cls_allocator.get_clause(js.get_clause_offset()));
+            clause & c = get_clause(js);
             unsigned i = 0;
             if (consequent != null_literal) {
                 SASSERT(c[0] == consequent || c[1] == consequent);
@@ -2497,7 +2512,7 @@ namespace sat {
                 }
                 break;
             case justification::CLAUSE: {
-                clause & c = *(m_cls_allocator.get_clause(js.get_clause_offset()));
+                clause & c = get_clause(js);
                 unsigned i   = 0;
                 if (c[0].var() == var) {
                     i = 1;
@@ -2624,8 +2639,7 @@ namespace sat {
         unsigned sz = m_lemma.size();
         SASSERT(!is_marked(m_lemma[0].var()));
         mark(m_lemma[0].var());
-        for (unsigned i = m_lemma.size(); i > 0; ) {
-            --i;
+        for (unsigned i = m_lemma.size(); i-- > 0; ) {
             justification js = m_justification[m_lemma[i].var()];
             switch (js.get_kind()) {
             case justification::NONE:
@@ -2638,9 +2652,9 @@ namespace sat {
                 update_lrb_reasoned(js.get_literal2());
                 break;
             case justification::CLAUSE: {
-                clause & c = *(m_cls_allocator.get_clause(js.get_clause_offset()));
-                for (unsigned i = 0; i < c.size(); ++i) {
-                    update_lrb_reasoned(c[i]);
+                clause & c = get_clause(js);
+                for (literal l : c) {
+                    update_lrb_reasoned(l);
                 }
                 break;
             }
@@ -3045,6 +3059,7 @@ namespace sat {
         m_scc.updt_params(p);
         m_rand.set_seed(m_config.m_random_seed);
         m_step_size = m_config.m_step_size_init;
+        m_drat.updt_config();
     }
 
     void solver::collect_param_descrs(param_descrs & d) {
@@ -3199,7 +3214,7 @@ namespace sat {
     std::ostream& solver::display_justification(std::ostream & out, justification const& js) const {
         out << js;
         if (js.is_clause()) {
-            out << *(m_cls_allocator.get_clause(js.get_clause_offset()));
+            out << get_clause(js);
         }
         else if (js.is_ext_justification() && m_ext) {
             m_ext->display_justification(out << " ", js.get_ext_justification_idx());
@@ -3845,11 +3860,11 @@ namespace sat {
             s |= m_antecedents.find(js.get_literal2().var());
             break;
         case justification::CLAUSE: {
-            clause & c = *(m_cls_allocator.get_clause(js.get_clause_offset()));
-            for (unsigned i = 0; i < c.size(); ++i) {
-                if (c[i] != lit) {
-                    if (check_domain(lit, ~c[i]) && all_found) {
-                        s |= m_antecedents.find(c[i].var());
+            clause & c = get_clause(js);
+            for (literal l : c) {
+                if (l != lit) {
+                    if (check_domain(lit, ~l) && all_found) {
+                        s |= m_antecedents.find(l.var());
                     }
                     else {
                         all_found = false;

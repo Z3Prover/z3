@@ -7,21 +7,37 @@ Module Name:
 
 Abstract:
 
-    Parallel tactic in the style of Treengeling.
-
-    It assumes a solver that supports good lookaheads.
+    Parallel tactic based on cubing.
     
 
 Author:
 
     Nikolaj Bjorner (nbjorner) 2017-10-9
+    Miguel Neves 
 
 Notes:
-   
+
+ 
+ A task comprises of a non-empty sequence of cubes, a type and parameters
+ 
+ If in the cube state, the solver performs the following:
+  1. Clone the state with the remaining cubes if there is more than one cube. Re-enqueue the remaining cubes.
+  2. Apply simplifications and pre-processing according to configuration.
+  3. Cube using the parameter settings prescribed in m_params.
+  4. Create a conquer state with the produced cubes.
+ If in the conquer state, the solver performs the following
+  1. Pass the cubes as assumptions and solve each sub-cube with a prescribed resource bound.
+  2. Assemble cubes that could not be solved and create a cube state.
+ 
+
 --*/
 
+#include <thread>
+#include <mutex>
+#include <condition_variable>
 #include "util/scoped_ptr_vector.h"
 #include "ast/ast_util.h"
+#include "ast/ast_translation.h"
 #include "solver/solver.h"
 #include "solver/solver2tactic.h"
 #include "tactic/tactic.h"
@@ -29,175 +45,373 @@ Notes:
 
 class parallel_tactic : public tactic {
 
-    class solver_state {
-        params_ref      m_params;
-        scoped_ptr<ast_manager> m_manager;
-        ref<solver>     m_solver;
-        expr_ref_vector m_cube;
-        unsigned        m_units;
-    public:
-        solver_state(ast_manager* m, solver* s, params_ref const& p): 
-            m_params(p),
-            m_manager(m), 
-            m_solver(s), 
-            m_cube(s->get_manager()), 
-            m_units(0) {}
 
-        void update_units() {
-            m_units = 0;
-            statistics st;
-            m_solver->collect_statistics(st);
-            std::string units("units");
-            for (unsigned i = st.size(); i-- > 0; ) {
-                if (st.get_key(i) == units) {
-                    m_units = st.get_uint_value(i);
-                    std::cout << "value for " << i << " is " << m_units << "\n";
-                    break;
+    enum task_type { cube_task, conquer_task };
+
+    class solver_state; 
+
+    class task_queue {
+        std::mutex                   m_mutex;
+        std::condition_variable      m_cond;
+        ptr_vector<solver_state>     m_tasks;
+        ptr_vector<solver_state>     m_active;
+        unsigned                     m_num_waiters;
+        volatile bool                m_shutdown;
+
+        void inc_wait() {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            ++m_num_waiters;
+        }
+
+        void dec_wait() {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            --m_num_waiters;
+        }
+
+        solver_state* try_get_task() {
+            solver_state* st = nullptr;
+            std::lock_guard<std::mutex> lock(m_mutex);
+            if (!m_tasks.empty()) {
+                st = m_tasks.back();
+                m_tasks.pop_back();
+                m_active.push_back(st);
+            }
+            return st;
+        }
+
+    public:
+
+        task_queue(): 
+            m_num_waiters(0), 
+            m_shutdown(false) {}             
+
+        ~task_queue() { reset(); }
+
+        void shutdown() {
+            if (!m_shutdown) {
+                m_shutdown = true;
+                m_cond.notify_all();
+                std::lock_guard<std::mutex> lock(m_mutex);
+                for (solver_state* st : m_active) {
+                    st->m().limit().cancel();
                 }
             }
-        }        
+        }
 
-        expr_ref cube() { return mk_and(m_cube); }
+        void add_task(solver_state* task) {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            m_tasks.push_back(task);
+            if (m_num_waiters > 0) {
+                m_cond.notify_one();
+            }            
+        } 
 
-        void add_cube(expr* c) { m_cube.push_back(c); }
+        solver_state* get_task() { 
+            while (!m_shutdown) {
+                inc_wait();
+                solver_state* st = try_get_task();
+                if (st) {
+                    dec_wait();
+                    return st;
+                }
+				{
+					std::unique_lock<std::mutex> lock(m_mutex);
+					m_cond.wait(lock);
+				}
+                dec_wait();
+            }
+            return nullptr;
+        }
 
-        unsigned num_units() const { return m_units; }
+        void task_done(solver_state* st) {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            m_active.erase(st);
+            if (m_tasks.empty() && m_active.empty()) {
+                m_shutdown = true;
+                m_cond.notify_all();
+            }
+        }
 
-        unsigned cube_size() const { return m_cube.size(); }
+        void reset() {
+            for (auto* t : m_tasks) dealloc(t);
+            for (auto* t : m_active) dealloc(t);
+            m_tasks.reset();
+            m_active.reset();
+        }
+
+        std::ostream& display(std::ostream& out) {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            out << "num_tasks " << m_tasks.size() << " active: " << m_active.size() << "\n";
+            for (solver_state* st : m_tasks) {
+                st->display(out);
+            }
+            return out;
+        }
+
+    };
+
+    class solver_state {
+        task_type       m_type;                   // current work role of the task
+        scoped_ptr<ast_manager> m_manager;        // ownership handle to ast_manager
+        expr_ref_vector m_cubes;                  // set of cubes to process by task
+        expr_ref_vector m_asserted_cubes;         // set of cubes asserted on the current solver
+        params_ref      m_params;                 // configuration parameters
+        ref<solver>     m_solver;                 // solver state
+        unsigned        m_depth;                  // number of nested calls to cubing
+        double          m_width;                  // estimate of fraction of problem handled by state
+        unsigned        m_cube_cutoff;            // saved configuration value
+        double          m_cube_fraction;          // saved configuration value
+        unsigned        m_restart_max;            // saved configuration value
+
+        expr_ref_vector cube_literals(expr* cube) {
+            expr_ref_vector literals(m());
+            if (m().is_and(cube)) {
+                literals.append(to_app(cube)->get_num_args(), to_app(cube)->get_args());
+            }
+            else {
+                literals.push_back(cube);
+            }
+            return literals;
+        }
+
+    public:
+        solver_state(ast_manager* m, solver* s, params_ref const& p, task_type t): 
+            m_type(t),
+            m_manager(m),
+            m_cubes(s->get_manager()),
+            m_asserted_cubes(s->get_manager()),
+            m_params(p),
+            m_solver(s),
+            m_depth(0),
+            m_width(1.0)
+        {
+            m_cube_cutoff   = p.get_uint("sat.lookahead.cube.cutoff", 8);
+            m_cube_fraction = p.get_double("sat.lookahead.cube.fraction", 0.4);
+            m_restart_max   = p.get_uint("sat.restart.max", 10);
+        }
+
+        ast_manager& m() { return m_solver->get_manager(); }
 
         solver& get_solver() { return *m_solver; }
 
         solver const& get_solver() const { return *m_solver; }
 
-        params_ref const& params() const { return m_params; }
-
-        params_ref& params() { return m_params; }
-
-        solver_state* clone(params_ref const& p, expr* cube) {
+        solver_state* clone() {
+            SASSERT(!m_cubes.empty());
             ast_manager& m = m_solver->get_manager();
             ast_manager* new_m = alloc(ast_manager, m, !m.proof_mode());
-            solver* s = m_solver->translate(*new_m, p);
-            solver_state* st = alloc(solver_state, new_m, s, m_params);
-            ast_translation translate(m, *new_m);
-            for (expr* c : m_cube) {
-                st->m_cube.push_back(translate(c));
-            }			
-            expr_ref cube1(translate(cube), *new_m);
-            st->m_cube.push_back(cube1);
-            s->assert_expr(cube1);
+            ast_translation tr(m, *new_m);
+            solver* s = m_solver->translate(*new_m, m_params);
+            solver_state* st = alloc(solver_state, new_m, s, m_params, m_type);
+            for (expr* c : m_cubes) st->m_cubes.push_back(tr(c));
+            for (expr* c : m_asserted_cubes) st->m_asserted_cubes.push_back(tr(c));
+            st->m_depth = m_depth;
+            st->m_width = m_width;
             return st;
         }
-    };
 
-public:
-    bool operator()(solver_state* s1, solver_state* s2) const {
-        return s1->num_units() > s2->num_units();
-    }
+        task_type type() const { return m_type; }
+
+        void set_type(task_type t) { m_type = t; }
+
+        expr_ref_vector const& cubes() const { SASSERT(m_type == conquer); return m_cubes; }
+
+        // remove up to n cubes from list of cubes.
+        expr_ref_vector split_cubes(unsigned n) {
+            expr_ref_vector result(m());
+            while (n-- > 0 && !m_cubes.empty()) {
+                result.push_back(m_cubes.back());
+                m_cubes.pop_back();
+            }
+            return result;
+        }
+
+        void set_cubes(expr_ref_vector const& c) {
+            m_cubes.reset();
+            m_cubes.append(c);
+        }
+
+        void inc_depth(unsigned inc) { m_depth += inc; }
+
+        void inc_width(unsigned w) { m_width *= w;  }
+        
+        double get_width() const { return m_width; }
+
+        unsigned get_depth() const { return m_depth; }
+
+        lbool simplify() {
+            lbool r = l_undef;
+            if (m_depth == 1) {
+                set_simplify_params(true, true);         // retain PB, retain blocked
+                r = get_solver().check_sat(0,0);
+                if (r != l_undef) return r;
+                
+                // copy over the resulting clauses with a configuration that blasts PB constraints
+                set_simplify_params(false, true);
+                expr_ref_vector fmls(m());
+                get_solver().get_assertions(fmls);
+                model_converter_ref mc = get_solver().get_model_converter();
+                m_solver = mk_fd_solver(m(), m_params);
+                m_solver->set_model_converter(mc.get());
+                m_solver->assert_expr(fmls);
+            }
+            set_simplify_params(false, true);         // remove PB, retain blocked
+            r = get_solver().check_sat(0,0);
+            if (r != l_undef) return r;
+            set_simplify_params(false, false);        // remove any PB, remove blocked
+            r = get_solver().check_sat(0,0);
+            return r;            
+        }
+
+        void assert_cube(expr* cube) {
+            get_solver().assert_expr(cube);
+            m_asserted_cubes.append(cube_literals(cube));            
+        }
+
+        lbool solve(expr* cube) {
+            set_conquer_params();
+            expr_ref_vector literals = cube_literals(cube);
+            return get_solver().check_sat(literals);
+        }        
+
+        void set_cube_params() {
+            unsigned cutoff = m_cube_cutoff;
+            double fraction = m_cube_fraction; 
+            if (m_depth == 1 && cutoff > 0) {
+                fraction = 0; // use fixed cubing at depth 1.
+            }
+            else {
+                cutoff = 0;   // use dynamic cubing beyond depth 1
+            }
+            m_params.set_uint ("lookahead.cube.cutoff", cutoff);
+            m_params.set_double("lookahead.cube.fraction", fraction);
+            get_solver().updt_params(m_params);
+        }
+        
+        void set_conquer_params() {            
+            m_params.set_bool("lookahead_simplify", false);
+            m_params.set_uint("restart.max", m_restart_max);
+            get_solver().updt_params(m_params);
+        }
+
+        void set_simplify_params(bool pb_simp, bool retain_blocked) {
+            m_params.set_bool("cardinality.solver", pb_simp);
+            m_params.set_sym ("pb.solver", pb_simp ? symbol("solver") : symbol("circuit"));
+            if (m_params.get_uint("inprocess.max", UINT_MAX) == UINT_MAX) 
+                m_params.set_uint("inprocess.max", 2);
+            m_params.set_bool("lookahead_simplify", true);
+            m_params.set_uint("restart.max", UINT_MAX);
+            m_params.set_bool("retain_blocked_clauses", retain_blocked);
+            get_solver().updt_params(m_params);
+        }
+
+        bool canceled() { 
+            return m().canceled();
+        }
+
+        std::ostream& display(std::ostream& out) {
+            out << ":depth " << m_depth << " :width " << m_width << "\n";
+            out << ":asserted " << m_asserted_cubes.size() << "\n";
+            return out;
+        }
+    };    
+
 private:
 
     ast_manager& m_manager;
     params_ref   m_params;
-
-    // parameters
-    unsigned m_conflicts_lower_bound;
-    unsigned m_conflicts_upper_bound;
-    unsigned m_conflicts_growth_rate;
-    unsigned m_conflicts_decay_rate;
-    unsigned m_num_threads;
-    
-    double     m_progress;
-    unsigned   m_max_conflicts;    
-    statistics m_stats;
-
-    vector<solver_state*> m_solvers;
+    sref_vector<model> m_models;
+    unsigned     m_num_threads;    
+    statistics   m_stats;
+    task_queue   m_queue;
+    std::mutex   m_mutex;
+    double       m_progress;
+    bool         m_has_undef;
+    bool         m_allsat;
+    unsigned     m_num_unsat;
+    int          m_exn_code;
+    std::string  m_exn_msg;
 
     void init() {
-        m_conflicts_lower_bound = 1000;
-        m_conflicts_upper_bound = 10000;
-        m_conflicts_growth_rate = 150;
-        m_conflicts_decay_rate = 75;
-        m_max_conflicts = m_conflicts_lower_bound;
+        m_num_threads = omp_get_num_procs();  // TBD adjust by possible threads used inside each solver.
         m_progress = 0;
-        m_num_threads = 2 * omp_get_num_procs();  // TBD adjust by possible threads used inside each solver.
+        m_has_undef = false;
+        m_allsat = false;
+        m_num_unsat = 0;
+        m_exn_code = 0;
     }
 
-    unsigned get_max_conflicts() { 
-        return m_max_conflicts;
+    void close_branch(solver_state& s, lbool status) {
+        double f = 100.0 / s.get_width();
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            m_progress += f;
+        }
+        IF_VERBOSE(1, verbose_stream() << "(tactic.parallel :progress " << m_progress << "% ";
+                   if (status == l_true)  verbose_stream() << ":status sat ";
+                   if (status == l_undef) verbose_stream() << ":status unknown ";
+                   verbose_stream() << ":unsat " << m_num_unsat << ")\n";);
     }
 
-    void set_max_conflicts(unsigned c) {
-        m_max_conflicts = c;
-    }
-
-    bool should_increase_conflicts() {
-        return m_progress < 0;
-    }
-
-    void update_progress(bool b) {
-        m_progress = 0.9 * m_progress + (b ? 1 : -1);
-        if (b) {
-            m_stats.update("closed", 1u);
+    void report_sat(solver_state& s) {
+        close_branch(s, l_true);
+        model_ref mdl;
+        s.get_solver().get_model(mdl);
+        if (mdl) {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            if (&s.m() != &m_manager) {
+                ast_translation tr(s.m(), m_manager);
+                mdl = mdl->translate(tr);
+            }
+            m_models.push_back(mdl.get());
+        }
+        if (!m_allsat) {
+            m_queue.shutdown();
         }
     }
 
-    int pick_solvers() {
-        // order solvers by number of units in descending order
-        for (solver_state* s : m_solvers) s->update_units();
-        std::sort(m_solvers.c_ptr(), m_solvers.c_ptr() + m_solvers.size(), *this);
-        TRACE("parallel_tactic", display(tout););
-        return std::min(m_num_threads, m_solvers.size());
+    void report_unsat(solver_state& s) {        
+        close_branch(s, l_false);
+        std::lock_guard<std::mutex> lock(m_mutex);
+        ++m_num_unsat;
+    }
+        
+    void report_undef(solver_state& s) {
+        m_has_undef = true;
+        close_branch(s, l_undef);
     }
 
-    int max_num_splits() {
-        if (m_solvers.empty()) {
-            return m_num_threads;
-        }
-        uint64 max_mem = memory::get_max_memory_size();
-        uint64 cur_mem = memory::get_allocation_size();
-        uint64 sol_sz = cur_mem / m_solvers.size();
+    void cube_and_conquer(solver_state& s) {
+        ast_manager& m = s.m();
+        expr_ref_vector cubes(m), cube(m), hard_cubes(m);
 
-        TRACE("parallel_tactic", tout << "max mem: " << max_mem << " cur mem: " << cur_mem << " num solvers: " << m_solvers.size() << "\n";);
-        if (max_mem <= cur_mem) {
-            return 0;
+        switch (s.type()) {
+        case cube_task: goto cube;
+        case conquer_task: goto conquer;
         }
-        if (cur_mem == 0) {
-            return m_num_threads;
-        }
-        uint64 extra_solvers = (max_mem - cur_mem) / (2 * sol_sz);
-        if (extra_solvers > m_num_threads) {
-            return m_num_threads;
-        }
-        return static_cast<int>(extra_solvers);
-    }
 
-    void update_max_conflicts() {
-        if (should_increase_conflicts()) {
-            set_max_conflicts(std::min(m_conflicts_upper_bound, m_conflicts_growth_rate * get_max_conflicts() / 100));
-        }
-        else {
-            set_max_conflicts(std::max(m_conflicts_lower_bound, m_conflicts_decay_rate * get_max_conflicts() / 100));
-        }
-    }
+    cube:
+        SASSERT(s.type() == cube_task);
 
-    lbool simplify(solver_state& s) {
-        s.params().set_uint("max_conflicts", 10);
-        s.params().set_bool("lookahead_simplify", true);
-        s.get_solver().updt_params(s.params());
-        lbool is_sat = s.get_solver().check_sat(0,0);
-        s.params().set_uint("max_conflicts", get_max_conflicts());
-        s.params().set_bool("lookahead_simplify", false);
-        s.get_solver().updt_params(s.params());
-        return is_sat;
-    }
+        // extract up to one cube and add it.
+        cube.reset();
+        cube.append(s.split_cubes(1));
+        SASSERT(cube.size() <= 1);
+        if (!s.cubes().empty()) m_queue.add_task(s.clone());
+        if (!cube.empty()) s.assert_cube(cube.get(0));
+        s.inc_depth(1);
 
-    lbool cube(solver_state& s) {
-        ast_manager& m = s.get_solver().get_manager();
-        expr_ref_vector cubes(m);
-        params_ref p;		
-        p.copy(s.params());
-        p.set_uint("lookahead.cube.cutoff", 1);
-        s.get_solver().updt_params(p);
-        SASSERT(&m == &cubes.get_manager());
+        // simplify
+        switch (s.simplify()) {
+        case l_undef: break;
+        case l_true:  report_sat(s); return;
+        case l_false: report_unsat(s); return;                
+        }
+        if (canceled(s)) return;
+        
+        // extract cubes.
+        cubes.reset();
+        s.set_cube_params();
         while (true) {
             expr_ref c = s.get_solver().cube();
             VERIFY(c);
@@ -205,191 +419,122 @@ private:
                 break;
             }
             if (m.is_true(c)) {
-                cubes.reset();
-                return l_undef;
+                report_undef(s);
+                return;
             }
             cubes.push_back(c);            
         }
 
-        IF_VERBOSE(1, verbose_stream() << "cubes: " << cubes << "\n";);
+        IF_VERBOSE(1, verbose_stream() << "(parallel_tactic :cubes " << cubes.size() << ")\n";);
+        IF_VERBOSE(10, verbose_stream() << "(parallel_tactic :cubes " << cubes << ")\n";);
 
         if (cubes.empty()) {
-            return l_false;
+            report_unsat(s);
+            return;
         }
-        for (unsigned j = 1; j < cubes.size(); ++j) {
-            solver_state* s1 = s.clone(s.params(), cubes[j].get());
-            #pragma omp critical (parallel_tactic)
-            {
-                m_solvers.push_back(s1);
+        else {
+            s.inc_width(cubes.size());
+            s.set_cubes(cubes);
+            s.set_type(conquer_task);            
+            goto conquer;
+        }
+
+    conquer:        
+        SASSERT(s.type() == conquer_task);
+
+        // extract a batch of cubes
+        cubes.reset();
+        cubes.append(s.split_cubes(conquer_batch_size()));
+        if (!s.cubes().empty()) m_queue.add_task(s.clone());
+
+        s.set_conquer_params();
+        hard_cubes.reset();
+        for (expr * c : cubes) {
+            switch (s.solve(c)) {
+            case l_undef: hard_cubes.push_back(c); break;
+            case l_true:  report_sat(s); break;
+            case l_false: report_unsat(s); break;                
+            }
+            if (canceled(s)) return;
+        }
+        IF_VERBOSE(1, verbose_stream() << "(parallel_tactic :cubes " << cubes.size() << " :hard-cubes " << hard_cubes.size() << ")\n";);
+        if (hard_cubes.empty()) return;
+
+        s.set_cubes(hard_cubes);
+        s.set_type(cube_task);
+        goto cube;        
+    }
+
+    bool canceled(solver_state& s) {
+        if (s.canceled()) {
+            m_has_undef = true;
+            return true;
+        }
+        else {
+            return false;
+        }        
+    }
+
+    void run_solver() {
+        try {
+            while (solver_state* st = m_queue.get_task()) {
+                cube_and_conquer(*st);
+                collect_statistics(*st);
+                m_queue.task_done(st);
+                if (st->m().canceled()) m_queue.shutdown();
+                IF_VERBOSE(1, display(verbose_stream()););
+                dealloc(st);
             }
         }
-
-        expr* cube0 = cubes[0].get();
-        s.add_cube(cube0);
-        s.get_solver().assert_expr(cube0);
-        return l_undef;
-    }
-
-    lbool solve(solver_state& s) {
-        s.params().set_uint("max_conflicts", get_max_conflicts());
-        s.get_solver().updt_params(s.params());
-        return s.get_solver().check_sat(0, 0);
-    }
-
-    void remove_unsat(svector<int>& unsat) {
-        std::sort(unsat.begin(), unsat.end());
-        unsat.reverse();
-        DEBUG_CODE(for (unsigned i = 0; i + 1 < unsat.size(); ++i) SASSERT(unsat[i] > unsat[i+1]););
-        for (int i : unsat) {
-            m_solvers[i]->get_solver().collect_statistics(m_stats);
-            dealloc(m_solvers[i]);
-            for (unsigned j = i + 1; j < m_solvers.size(); ++j) {
-                m_solvers[j - 1] = m_solvers[j];
+        catch (z3_exception& ex) {            
+            IF_VERBOSE(1, verbose_stream() << ex.msg() << "\n";);
+            m_queue.shutdown();
+            std::lock_guard<std::mutex> lock(m_mutex);
+            if (ex.has_error_code()) {
+                m_exn_code = ex.error_code();
             }
-            m_solvers.shrink(m_solvers.size() - 1);
-            update_progress(true); 
+            else {
+                m_exn_msg = ex.msg();
+                m_exn_code = -1;
+            }
         }
-        unsat.reset();
     }
 
-    void get_model(model_ref& mdl, int sat_index) {
-        SASSERT(sat_index != -1);
-        m_solvers[sat_index]->get_solver().get_model(mdl);
-        ast_translation translate(m_solvers[sat_index]->get_solver().get_manager(), m_manager);
-        mdl = mdl->translate(translate);
+    void collect_statistics(solver_state& s) {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        s.get_solver().collect_statistics(m_stats);
     }
 
     lbool solve(model_ref& mdl) {        
-
-        {
-            solver_state& st = *m_solvers[0];
-            st.params().set_uint("restart.max", 200);
-            st.get_solver().updt_params(st.params());
-            lbool is_sat = st.get_solver().check_sat(0, 0);
-            st.params().set_uint("restart.max", UINT_MAX);
-            st.get_solver().updt_params(st.params());
-            switch (is_sat) {
-            case l_true: 
-                get_model(mdl, 0);
-                return l_true;
-            case l_false:
-                return l_false;
-            default:
-                break;
-            }
+        vector<std::thread> threads;
+        for (unsigned i = 0; i < m_num_threads; ++i) 
+            threads.push_back(std::thread([this]() { run_solver(); }));
+        for (std::thread& t : threads) 
+            t.join();
+        m_manager.limit().reset_cancel();
+        if (m_exn_code == -1) 
+            throw default_exception(m_exn_msg);
+        if (m_exn_code != 0) 
+            throw z3_error(m_exn_code);            
+        if (!m_models.empty()) {
+            mdl = m_models.back();            
+            return l_true;
         }
-            
-        while (true) {
-            int sz = pick_solvers();
-
-
-            if (sz == 0) {
-                return l_false;
-            }
-            svector<int> unsat;
-            int sat_index = -1;
-
-            // Simplify phase.
-            IF_VERBOSE(1, verbose_stream() << "(solver.parallel :simplify " << sz << ")\n";);
-            IF_VERBOSE(1, display(verbose_stream()); verbose_stream() << "Number of solvers: " << sz << "\n";);
-
-            #pragma omp parallel for
-            for (int i = 0; i < sz; ++i) {
-                lbool is_sat = simplify(*m_solvers[i]);
-                switch (is_sat) {
-                case l_false: 
-                    #pragma omp critical (parallel_tactic)
-                    {
-                        unsat.push_back(i); 
-                    }
-                    break;
-                case l_true: 
-                    sat_index = i; 
-                    break;
-                case l_undef: 
-                    break; 
-                }
-            }
-            if (sat_index != -1) {
-                get_model(mdl, sat_index);
-                return l_true; 
-            }
-            sz -= unsat.size();
-            remove_unsat(unsat);
-            if (sz == 0) continue;
-            
-            // Solve phase.
-            IF_VERBOSE(1, verbose_stream() << "(solver.parallel :solve " << sz << ")\n";);
-            IF_VERBOSE(1, display(verbose_stream()); verbose_stream() << "Number of solvers: " << sz << "\n";);
-
-            #pragma omp parallel for
-            for (int i = 0; i < sz; ++i) {
-                lbool is_sat = solve(*m_solvers[i]);
-                switch (is_sat) {
-                case l_false: 
-                    #pragma omp critical (parallel_tactic)
-                    {
-                        unsat.push_back(i); 
-                    }
-                    break;
-                case l_true: 
-                    sat_index = i; 
-                    break;
-                case l_undef: 
-                    break; 
-                }
-            }
-            if (sat_index != -1) {
-                get_model(mdl, sat_index);
-                return l_true; 
-            }
-            sz -= unsat.size();
-            remove_unsat(unsat);
-
-            sz = std::min(max_num_splits(), sz);
-            sz = std::min(static_cast<int>(m_num_threads/2), sz);
-            if (sz == 0) continue;
-            
-
-            // Split phase.            
-            IF_VERBOSE(1, verbose_stream() << "(solver.parallel :split " << sz << ")\n";);
-            IF_VERBOSE(1, display(verbose_stream()); verbose_stream() << "Number of solvers: " << sz << "\n";);
-
-            #pragma omp parallel for
-            for (int i = 0; i < sz; ++i) {                
-                switch (cube(*m_solvers[i])) {
-                case l_false:
-                    #pragma omp critical (parallel_tactic)
-                    {
-                        unsat.push_back(i); 
-                    }
-                    break;
-                default:
-                    #pragma omp critical (parallel_tactic)
-                    {
-                        update_progress(false); 
-                    }
-                    break;                    
-                }
-            }
-
-            remove_unsat(unsat);
-            update_max_conflicts();
-        }
-        return l_undef;
+        if (m_has_undef) 
+            return l_undef;
+        return l_false;
     }
 
     std::ostream& display(std::ostream& out) {
-        out << "branches: " << m_solvers.size() << "\n";
-        for (solver_state* s : m_solvers) {
-            out << "cube " << s->cube_size() << " units " << s->num_units() << "\n";
-        }
         m_stats.display(out);
+        m_queue.display(out);
+        std::lock_guard<std::mutex> lock(m_mutex);
+        out << "(parallel_tactic :unsat " << m_num_unsat << " :progress " << m_progress << "% :models " << m_models.size() << ")\n";
         return out;
     }
 
-
 public:
+
     parallel_tactic(ast_manager& m, params_ref const& p) :
         m_manager(m),
         m_params(p) {
@@ -399,7 +544,8 @@ public:
     void operator ()(const goal_ref & g,goal_ref_buffer & result,model_converter_ref & mc,proof_converter_ref & pc,expr_dependency_ref & dep) {
         ast_manager& m = g->m();
         solver* s = mk_fd_solver(m, m_params);
-        m_solvers.push_back(alloc(solver_state, 0, s, m_params));
+        solver_state* st = alloc(solver_state, 0, s, m_params, cube_task);
+        m_queue.add_task(st);
         expr_ref_vector clauses(m);
         ptr_vector<expr> assumptions;
         obj_map<expr, expr*> bool2dep;
@@ -434,8 +580,7 @@ public:
     }
 
     void cleanup() {
-        for (solver_state * s : m_solvers) dealloc(s);
-        m_solvers.reset();
+        m_queue.reset();
         init();
     }
 
@@ -446,21 +591,28 @@ public:
     virtual void updt_params(params_ref const & p) {
         m_params.copy(p);
     }
+
     virtual void collect_param_descrs(param_descrs & r) {
-        // TBD
+        r.insert("conquer_batch_size", CPK_UINT, "(default: 1000) batch size of cubes to conquer");
+    }
+
+    unsigned conquer_batch_size() const {
+        return m_params.get_uint("conquer_batch_size", 1000);
     }
 
     virtual void collect_statistics(statistics & st) const {
-        for (solver_state const * s : m_solvers) {
-            s->get_solver().collect_statistics(st);
-        }
         st.copy(m_stats);
+        st.update("par unsat", m_num_unsat);
+        st.update("par models", m_models.size());
+        st.update("par progress", m_progress);
     }
     virtual void reset_statistics() {
         m_stats.reset();
     }
 
 };
+
+
 
 tactic * mk_parallel_tactic(ast_manager& m, params_ref const& p) {
     return alloc(parallel_tactic, m, p);

@@ -60,15 +60,15 @@ namespace sat {
     }
 
     bool clause::contains(literal l) const {
-        for (unsigned i = 0; i < m_size; i++)
-            if (m_lits[i] == l)
+        for (literal l2 : *this) 
+            if (l2 == l) 
                 return true;
         return false;
     }
 
     bool clause::contains(bool_var v) const {
-        for (unsigned i = 0; i < m_size; i++)
-            if (m_lits[i].var() == v)
+        for (literal l : *this) 
+            if (l.var() == v)
                 return true;
         return false;
     }
@@ -87,8 +87,7 @@ namespace sat {
     }
 
     bool clause::satisfied_by(model const & m) const {
-        for (unsigned i = 0; i < m_size; i++) {
-            literal  l = m_lits[i];
+        for (literal l : *this) {
             if (l.sign()) {
                 if (m[l.var()] == l_false)
                     return true;
@@ -197,14 +196,13 @@ namespace sat {
         if (c.was_removed()) out << "x";
         if (c.strengthened()) out << "+";
         if (c.is_learned()) out << "*";
+        if (c.is_blocked()) out << "b";
         return out;
     }
 
     std::ostream & operator<<(std::ostream & out, clause_vector const & cs) {
-        clause_vector::const_iterator it  = cs.begin();
-        clause_vector::const_iterator end = cs.end();
-        for (; it != end; ++it) {
-            out << *(*it) << "\n";
+        for (clause *cp : cs) {
+            out << *cp << "\n";
         }
         return out;
     }
@@ -226,12 +224,12 @@ namespace sat {
     }
 
     std::ostream & operator<<(std::ostream & out, clause_wrapper const & c) {
-        out << "(";
-        for (unsigned i = 0; i < c.size(); i++) {
-            if (i > 0) out << " ";
-            out << c[i];
+        if (c.is_binary()) {
+            out << "(" << c[0] << " " << c[1] << ")";
         }
-        out << ")";
+        else {
+            out << c.get_clause()->id() << ": " << *c.get_clause();
+        }
         return out;
     }
 

@@ -52,6 +52,7 @@ public:
     ast_translation(ast_manager & from, ast_manager & to, bool copy_plugins = true) : m_from_manager(from), m_to_manager(to) {
         if (copy_plugins)
             m_to_manager.copy_families_plugins(m_from_manager);
+        m_to_manager.update_fresh_id(m_from_manager);
     }
 
     ~ast_translation();

@@ -17,7 +17,7 @@ Notes:
 
 --*/
 #include "tactic/tactical.h"
-#include "tactic/extension_model_converter.h"
+#include "tactic/generic_model_converter.h"
 #include "tactic/filter_model_converter.h"
 #include "ast/rewriter/rewriter_def.h"
 #include "ast/arith_decl_plugin.h"
@@ -34,7 +34,7 @@ class elim_uncnstr_tactic : public tactic {
     struct imp {
         // unconstrained vars collector
 
-        typedef extension_model_converter mc;
+        typedef generic_model_converter mc;
 
         struct rw_cfg : public default_rewriter_cfg {
             bool                   m_produce_proofs;
@@ -120,7 +120,7 @@ class elim_uncnstr_tactic : public tactic {
                 SASSERT(uncnstr(v));
                 SASSERT(to_app(v)->get_num_args() == 0);
                 if (m_mc)
-                    m_mc->insert(to_app(v)->get_decl(), def);
+                    m_mc->add(to_app(v)->get_decl(), def);
             }
             
             void add_defs(unsigned num, expr * const * args, expr * u, expr * identity) {

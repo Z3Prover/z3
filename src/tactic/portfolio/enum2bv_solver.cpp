@@ -20,38 +20,42 @@ Notes:
    
 --*/
 
-#include "solver/solver_na2as.h"
-#include "tactic/tactic.h"
 #include "ast/bv_decl_plugin.h"
 #include "ast/datatype_decl_plugin.h"
-#include "ast/rewriter/enum2bv_rewriter.h"
-#include "tactic/extension_model_converter.h"
-#include "tactic/filter_model_converter.h"
 #include "ast/ast_pp.h"
 #include "model/model_smt2_pp.h"
+#include "tactic/tactic.h"
+#include "tactic/extension_model_converter.h"
+#include "tactic/filter_model_converter.h"
 #include "tactic/portfolio/enum2bv_solver.h"
+#include "solver/solver_na2as.h"
+#include "ast/rewriter/enum2bv_rewriter.h"
 
 class enum2bv_solver : public solver_na2as {
-    ast_manager&   m;
-    params_ref     m_params;
-    ref<solver>    m_solver;
-    enum2bv_rewriter    m_rewriter;
+    ast_manager&     m;
+    ref<solver>      m_solver;
+    enum2bv_rewriter m_rewriter;
 
 public:
 
     enum2bv_solver(ast_manager& m, params_ref const& p, solver* s):
         solver_na2as(m),
         m(m),
-        m_params(p),
         m_solver(s),
         m_rewriter(m, p)
     {
+        solver::updt_params(p);
     }
 
     virtual ~enum2bv_solver() {}
 
-    virtual solver* translate(ast_manager& m, params_ref const& p) {        
-        return alloc(enum2bv_solver, m, p, m_solver->translate(m, p));
+    virtual solver* translate(ast_manager& dst_m, params_ref const& p) {   
+        solver* result = alloc(enum2bv_solver, dst_m, p, m_solver->translate(dst_m, p));
+        if (mc0()) {
+            ast_translation tr(m, dst_m);
+            result->set_model_converter(mc0()->translate(tr));
+        }
+        return result;
     }
     
     virtual void assert_expr(expr * t) {
@@ -85,32 +89,31 @@ public:
     }
 
     virtual lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions) {
-        m_solver->updt_params(m_params);
+        m_solver->updt_params(get_params());
         return m_solver->check_sat(num_assumptions, assumptions);
     }
 
-    virtual void updt_params(params_ref const & p) { m_solver->updt_params(p);  }
+    virtual void updt_params(params_ref const & p) { solver::updt_params(p); m_solver->updt_params(p);  }
     virtual void collect_param_descrs(param_descrs & r) { m_solver->collect_param_descrs(r); }    
     virtual void set_produce_models(bool f) { m_solver->set_produce_models(f); }
     virtual void set_progress_callback(progress_callback * callback) { m_solver->set_progress_callback(callback);  }
     virtual void collect_statistics(statistics & st) const { m_solver->collect_statistics(st); }
     virtual void get_unsat_core(ptr_vector<expr> & r) { m_solver->get_unsat_core(r); }
-    virtual void get_model(model_ref & mdl) { 
+    virtual void get_model_core(model_ref & mdl) { 
         m_solver->get_model(mdl);
         if (mdl) {
             extend_model(mdl);
             filter_model(mdl);            
         }
     } 
+    virtual model_converter_ref get_model_converter() const { return m_solver->get_model_converter(); }
     virtual proof * get_proof() { return m_solver->get_proof(); }
     virtual std::string reason_unknown() const { return m_solver->reason_unknown(); }
     virtual void set_reason_unknown(char const* msg) { m_solver->set_reason_unknown(msg); }
     virtual void get_labels(svector<symbol> & r) { m_solver->get_labels(r); }
     virtual ast_manager& get_manager() const { return m;  }
     virtual lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) { return m_solver->find_mutexes(vars, mutexes); }
-    virtual expr_ref lookahead(expr_ref_vector const& assumptions, expr_ref_vector const& candidates) { return m_solver->lookahead(assumptions, candidates); }
     virtual expr_ref cube() { return m_solver->cube(); }
-    virtual void get_lemmas(expr_ref_vector & lemmas) { m_solver->get_lemmas(lemmas); }
     
     virtual lbool get_consequences_core(expr_ref_vector const& asms, expr_ref_vector const& vars, expr_ref_vector& consequences) {
         datatype_util dt(m);
@@ -120,8 +123,8 @@ public:
         // ensure that enumeration variables that 
         // don't occur in the constraints
         // are also internalized.
-        for (unsigned i = 0; i < vars.size(); ++i) {
-            expr_ref tmp(m.mk_eq(vars[i], vars[i]), m);
+        for (expr* v : vars) {
+            expr_ref tmp(m.mk_eq(v, v), m);
             proof_ref proof(m);
             m_rewriter(tmp, tmp, proof);            
         }
@@ -129,13 +132,13 @@ public:
         m_solver->assert_expr(bounds);
 
         // translate enumeration constants to bit-vectors.
-        for (unsigned i = 0; i < vars.size(); ++i) {
+        for (expr* v : vars) {
             func_decl* f = 0;
-            if (is_app(vars[i]) && is_uninterp_const(vars[i]) && m_rewriter.enum2bv().find(to_app(vars[i])->get_decl(), f)) {
+            if (is_app(v) && is_uninterp_const(v) && m_rewriter.enum2bv().find(to_app(v)->get_decl(), f)) {
                 bvars.push_back(m.mk_const(f));
             }
             else {
-                bvars.push_back(vars[i]);
+                bvars.push_back(v);
             }
         }
         lbool r = m_solver->get_consequences(asms, bvars, consequences);
@@ -162,20 +165,16 @@ public:
 
     void filter_model(model_ref& mdl) {
         filter_model_converter filter(m);
-        obj_map<func_decl, func_decl*>::iterator it = m_rewriter.enum2bv().begin(), end = m_rewriter.enum2bv().end();
-        for (; it != end; ++it) {
-            filter.insert(it->m_value);
+        for (auto const& kv : m_rewriter.enum2bv()) {
+            filter.insert(kv.m_value);
         }
         filter(mdl, 0);
     }
 
     void extend_model(model_ref& mdl) {
         extension_model_converter ext(m);
-        obj_map<func_decl, expr*>::iterator it = m_rewriter.enum2def().begin(), end = m_rewriter.enum2def().end();
-        for (; it != end; ++it) {
-            ext.insert(it->m_key, it->m_value);
-            
-        }
+        for (auto const& kv : m_rewriter.enum2def()) 
+            ext.insert(kv.m_key, kv.m_value);            
         ext(mdl, 0);
     }
 

@@ -72,73 +72,67 @@ namespace spacer {
     //
 
     model_evaluator_util::model_evaluator_util(ast_manager& m) :
-        m(m), m_mev(NULL)
-    { reset (NULL); }
+        m(m), m_mev(nullptr) { 
+        reset (nullptr); 
+    }
 
     model_evaluator_util::~model_evaluator_util() {reset (NULL);}
 
 
-void model_evaluator_util::reset(model* model)
-{
+    void model_evaluator_util::reset(model* model) {
         if (m_mev) {
             dealloc(m_mev);
             m_mev = NULL;
         }
         m_model = model;
-    if (!m_model) { return; }
+        if (!m_model) { return; }
         m_mev = alloc(model_evaluator, *m_model);
     }
-
-bool model_evaluator_util::eval(expr *e, expr_ref &result, bool model_completion)
-{
+    
+    bool model_evaluator_util::eval(expr *e, expr_ref &result, bool model_completion) {
         m_mev->set_model_completion (model_completion);
         try {
             m_mev->operator() (e, result);
             return true;
-        } catch (model_evaluator_exception &ex) {
+        } 
+        catch (model_evaluator_exception &ex) {
             (void)ex;
             TRACE("spacer_model_evaluator", tout << ex.msg () << "\n";);
             return false;
         }
     }
-
+    
     bool model_evaluator_util::eval(const expr_ref_vector &v,
-                                expr_ref& res, bool model_completion)
-{
+                                    expr_ref& res, bool model_completion) {
         expr_ref e(m);
         e = mk_and (v);
         return eval(e, res, model_completion);
     }
-
-
-bool model_evaluator_util::is_true(const expr_ref_vector &v)
-{
+    
+    
+    bool model_evaluator_util::is_true(const expr_ref_vector &v) {
         expr_ref res(m);
         return eval (v, res, false) && m.is_true (res);
     }
-
-bool model_evaluator_util::is_false(expr *x)
-{
+    
+    bool model_evaluator_util::is_false(expr *x) {
         expr_ref res(m);
         return eval(x, res, false) && m.is_false (res);
     }
-bool model_evaluator_util::is_true(expr *x)
-{
+
+    bool model_evaluator_util::is_true(expr *x) {
         expr_ref res(m);
         return eval(x, res, false) && m.is_true (res);
     }
-
-
-void reduce_disequalities(model& model, unsigned threshold, expr_ref& fml)
-{
+    
+    void reduce_disequalities(model& model, unsigned threshold, expr_ref& fml) {
         ast_manager& m = fml.get_manager();
         expr_ref_vector conjs(m);
         flatten_and(fml, conjs);
         obj_map<expr, unsigned> diseqs;
         expr* n, *lhs, *rhs;
         for (unsigned i = 0; i < conjs.size(); ++i) {
-            if (m.is_not(conjs[i].get(), n) &&
-                m.is_eq(n, lhs, rhs)) {
+            if (m.is_not(conjs[i].get(), n) && m.is_eq(n, lhs, rhs)) {
                 if (!m.is_value(rhs)) {
                     std::swap(lhs, rhs);
                 }
@@ -155,14 +149,12 @@ void reduce_disequalities(model& model, unsigned threshold, expr_ref& fml)
         expr_ref val(m), tmp(m);
         proof_ref pr(m);
         pr = m.mk_asserted(m.mk_true());
-        obj_map<expr, unsigned>::iterator it  = diseqs.begin();
-        obj_map<expr, unsigned>::iterator end = diseqs.end();
-        for (; it != end; ++it) {
-            if (it->m_value >= threshold) {
-                model.eval(it->m_key, val);
-                sub.insert(it->m_key, val, pr);
-                conjs.push_back(m.mk_eq(it->m_key, val));
-                num_deleted += it->m_value;
+        for (auto const& kv : diseqs) {
+            if (kv.m_value >= threshold) {
+                model.eval(kv.m_key, val);
+                sub.insert(kv.m_key, val, pr);
+                conjs.push_back(m.mk_eq(kv.m_key, val));
+                num_deleted += kv.m_value;
             }
         }
         if (orig_size < conjs.size()) {
@@ -178,14 +170,17 @@ void reduce_disequalities(model& model, unsigned threshold, expr_ref& fml)
                     SASSERT(orig_size <= 1 + conjs.size());
                     if (i + 1 == orig_size) {
                         // no-op.
-                } else if (orig_size <= conjs.size()) {
+                    } 
+                    else if (orig_size <= conjs.size()) {
                         // no-op
-                } else {
+                    } 
+                    else {
                         SASSERT(orig_size == 1 + conjs.size());
                         --orig_size;
                         --i;
                     }
-            } else {
+                } 
+                else {
                     conjs[i] = tmp;
                 }
             }
@@ -202,9 +197,8 @@ void reduce_disequalities(model& model, unsigned threshold, expr_ref& fml)
         ast_manager& m;
     public:
         ite_hoister(ast_manager& m): m(m) {}
-
-    br_status mk_app_core(func_decl* f, unsigned num_args, expr* const* args, expr_ref& result)
-    {
+        
+        br_status mk_app_core(func_decl* f, unsigned num_args, expr* const* args, expr_ref& result) {
             if (m.is_ite(f)) {
                 return BR_FAILED;
             }
@@ -233,13 +227,12 @@ void reduce_disequalities(model& model, unsigned threshold, expr_ref& fml)
     struct ite_hoister_cfg: public default_rewriter_cfg {
         ite_hoister m_r;
         bool rewrite_patterns() const { return false; }
-    br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr)
-    {
+        br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
             return m_r.mk_app_core(f, num, args, result);
         }
         ite_hoister_cfg(ast_manager & m, params_ref const & p):m_r(m) {}
     };
-
+    
     class ite_hoister_star : public rewriter_tpl<ite_hoister_cfg> {
         ite_hoister_cfg m_cfg;
     public:
@@ -247,9 +240,8 @@ void reduce_disequalities(model& model, unsigned threshold, expr_ref& fml)
             rewriter_tpl<ite_hoister_cfg>(m, false, m_cfg),
             m_cfg(m, p) {}
     };
-
-void hoist_non_bool_if(expr_ref& fml)
-{
+    
+    void hoist_non_bool_if(expr_ref& fml) {
         ast_manager& m = fml.get_manager();
         scoped_no_proof _sp(m);
         params_ref p;
@@ -266,8 +258,7 @@ void hoist_non_bool_if(expr_ref& fml)
         bool m_is_dl;
         bool m_test_for_utvpi;
 
-    bool is_numeric(expr* e) const
-    {
+        bool is_numeric(expr* e) const {
             if (a.is_numeral(e)) {
                 return true;
             }
@@ -278,13 +269,11 @@ void hoist_non_bool_if(expr_ref& fml)
             return false;
         }
 
-    bool is_arith_expr(expr *e) const
-    {
+        bool is_arith_expr(expr *e) const {
             return is_app(e) && a.get_family_id() == to_app(e)->get_family_id();
         }
-
-    bool is_offset(expr* e) const
-    {
+        
+        bool is_offset(expr* e) const {
             if (a.is_numeral(e)) {
                 return true;
             }
@@ -315,47 +304,44 @@ void hoist_non_bool_if(expr_ref& fml)
             return !is_arith_expr(e);
         }
 
-    bool is_minus_one(expr const * e) const
-    {
-        rational r;
-        return a.is_numeral(e, r) && r.is_minus_one();
+        bool is_minus_one(expr const * e) const {
+            rational r;
+            return a.is_numeral(e, r) && r.is_minus_one();
         }
 
-    bool test_ineq(expr* e) const
-    {
+        bool test_ineq(expr* e) const {
             SASSERT(a.is_le(e) || a.is_ge(e) || m.is_eq(e));
             SASSERT(to_app(e)->get_num_args() == 2);
             expr * lhs = to_app(e)->get_arg(0);
             expr * rhs = to_app(e)->get_arg(1);
             if (is_offset(lhs) && is_offset(rhs))
-        { return true; }
+                { return true; }
             if (!is_numeric(rhs))
-        { std::swap(lhs, rhs); }
+                { std::swap(lhs, rhs); }
             if (!is_numeric(rhs))
-        { return false; }
+                { return false; }
             // lhs can be 'x' or '(+ x (* -1 y))'
             if (is_offset(lhs))
-        { return true; }
+                { return true; }
             expr* arg1, *arg2;
             if (!a.is_add(lhs, arg1, arg2))
-        { return false; }
+                { return false; }
             // x
             if (m_test_for_utvpi) {
                 return is_offset(arg1) && is_offset(arg2);
             }
             if (is_arith_expr(arg1))
-        { std::swap(arg1, arg2); }
+                { std::swap(arg1, arg2); }
             if (is_arith_expr(arg1))
-        { return false; }
+                { return false; }
             // arg2: (* -1 y)
             expr* m1, *m2;
             if (!a.is_mul(arg2, m1, m2))
-        { return false; }
+                { return false; }
             return is_minus_one(m1) && is_offset(m2);
         }
 
-    bool test_eq(expr* e) const
-    {
+        bool test_eq(expr* e) const {
             expr* lhs, *rhs;
             VERIFY(m.is_eq(e, lhs, rhs));
             if (!a.is_int_real(lhs)) {
@@ -370,9 +356,8 @@ void hoist_non_bool_if(expr_ref& fml)
                 !a.is_mul(lhs) &&
                 !a.is_mul(rhs);
         }
-
-    bool test_term(expr* e) const
-    {
+        
+        bool test_term(expr* e) const {
             if (m.is_bool(e)) {
                 return true;
             }
@@ -490,7 +475,7 @@ bool is_utvpi_logic(ast_manager& m, unsigned num_fmls, expr* const* fmls)
      * eliminate simple equalities using qe_lite
      * then, MBP for Booleans (substitute), reals (based on LW), ints (based on Cooper), and arrays
      */
-    void qe_project (ast_manager& m, app_ref_vector& vars, expr_ref& fml,
+void qe_project (ast_manager& m, app_ref_vector& vars, expr_ref& fml,
                      const model_ref& M, bool reduce_all_selects, bool use_native_mbp,
                 bool dont_sub)
 {

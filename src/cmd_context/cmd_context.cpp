@@ -43,6 +43,7 @@ Notes:
 #include "model/model_v2_pp.h"
 #include "model/model_params.hpp"
 #include "tactic/tactic_exception.h"
+#include "tactic/generic_model_converter.h"
 #include "solver/smt_logics.h"
 #include "cmd_context/basic_cmds.h"
 #include "cmd_context/interpolant_cmds.h"
@@ -389,7 +390,7 @@ protected:
     datalog::dl_decl_util m_dlutil;
 
     format_ns::format * pp_fdecl_name(symbol const & s, func_decls const & fs, func_decl * f, unsigned & len) {
-        format_ns::format * f_name = smt2_pp_environment::pp_fdecl_name(s, len);
+        format_ns::format * f_name = smt2_pp_environment::pp_fdecl_name(s, len, f->is_skolem());
         if (!fs.more_than_one())
             return f_name;
         if (!fs.clash(f))
@@ -399,7 +400,7 @@ protected:
 
     format_ns::format * pp_fdecl_ref_core(symbol const & s, func_decls const & fs, func_decl * f) {
         unsigned len;
-        format_ns::format * f_name = smt2_pp_environment::pp_fdecl_name(s, len);
+        format_ns::format * f_name = smt2_pp_environment::pp_fdecl_name(s, len, f->is_skolem());
         if (!fs.more_than_one())
             return f_name;
         return pp_signature(f_name, f);
@@ -491,6 +492,7 @@ cmd_context::~cmd_context() {
     finalize_tactic_cmds();
     finalize_probes();
     reset(true);
+    m_mc0 = 0;
     m_solver = 0;
     m_check_sat_result = 0;
 }
@@ -774,7 +776,6 @@ bool cmd_context::is_func_decl(symbol const & s) const {
 }
 
 void cmd_context::insert(symbol const & s, func_decl * f) {
-    m_check_sat_result = 0;
     if (!m_check_logic(f)) {
         throw cmd_exception(m_check_logic.get_last_error());
     }
@@ -805,7 +806,6 @@ void cmd_context::insert(symbol const & s, func_decl * f) {
 }
 
 void cmd_context::insert(symbol const & s, psort_decl * p) {
-    m_check_sat_result = 0;
     if (m_psort_decls.contains(s)) {
         throw cmd_exception("sort already defined ", s);
     }
@@ -819,7 +819,6 @@ void cmd_context::insert(symbol const & s, psort_decl * p) {
 
 void cmd_context::insert(symbol const & s, unsigned arity, sort *const* domain, expr * t) {
     expr_ref _t(t, m());
-    m_check_sat_result = 0;
     if (m_builtin_decls.contains(s)) {
         throw cmd_exception("invalid macro/named expression, builtin symbol ", s);
     }
@@ -862,6 +861,20 @@ void cmd_context::insert(symbol const & s, object_ref * r) {
         old_r->dec_ref(*this);
     }
     m_object_refs.insert(s, r);
+}
+
+void cmd_context::model_add(symbol const & s, unsigned arity, sort *const* domain, expr * t) {
+    if (!m_mc0) m_mc0 = alloc(generic_model_converter, m());
+    func_decl_ref fn(m().mk_func_decl(s, arity, domain, m().get_sort(t)), m());
+    dictionary<func_decls>::entry * e = m_func_decls.insert_if_not_there2(s, func_decls());
+    func_decls & fs = e->get_data().m_value;
+    fs.insert(m(), fn);
+    m_mc0->add(fn, t);
+}
+
+void cmd_context::model_del(func_decl* f) {
+    if (!m_mc0) m_mc0 = alloc(generic_model_converter, m());
+    m_mc0->hide(f);
 }
 
 void cmd_context::insert_rec_fun(func_decl* f, expr_ref_vector const& binding, svector<symbol> const& ids, expr* e) {
@@ -1066,16 +1079,31 @@ void cmd_context::mk_app(symbol const & s, unsigned num_args, expr * const * arg
         if (fs.more_than_one())
             throw cmd_exception("ambiguous constant reference, more than one constant with the same sort, use a qualified expression (as <symbol> <sort>) to disumbiguate ", s);
         func_decl * f = fs.first();
-        if (f == 0)
+        if (f == 0) {
             throw cmd_exception("unknown constant ", s);
+        }
         if (f->get_arity() != 0)
             throw cmd_exception("invalid function application, missing arguments ", s);
         result = m().mk_const(f);
     }
     else {
         func_decl * f = fs.find(m(), num_args, args, range);
-        if (f == 0)
-            throw cmd_exception("unknown constant ", s);
+        if (f == 0) {
+            std::ostringstream buffer;
+            buffer << "unknown constant " << s << " ";
+            buffer << " (";
+            bool first = true;
+            for (unsigned i = 0; i < num_args; ++i, first = false) {
+                if (!first) buffer << " ";
+                buffer << mk_pp(m().get_sort(args[i]), m());
+            }            
+            buffer << ") ";
+            if (range) buffer << mk_pp(range, m()) << " ";
+            for (unsigned i = 0; i < fs.get_num_entries(); ++i) {
+                buffer << "\ndeclared: " << mk_pp(fs.get_entry(i), m()) << " ";
+            }
+            throw cmd_exception(buffer.str().c_str());
+        }
         if (well_sorted_check_enabled())
             m().check_sort(f, num_args, args);
         result = m().mk_app(f, num_args, args);
@@ -1235,8 +1263,8 @@ void cmd_context::reset(bool finalize) {
     reset_macros();
     reset_func_decls();
     restore_assertions(0);
-    if (m_solver)
-        m_solver = 0;
+    m_solver = 0;
+    m_mc0 = 0;
     m_scopes.reset();
     m_opt = 0;
     m_pp_env = 0;
@@ -1573,6 +1601,7 @@ void cmd_context::display_dimacs() {
 
 void cmd_context::display_model(model_ref& mdl) {
     if (mdl) {
+        if (m_mc0) (*m_mc0)(mdl);
         model_params p;
         if (p.v1() || p.v2()) {
             std::ostringstream buffer;
@@ -1608,7 +1637,9 @@ void cmd_context::validate_check_sat_result(lbool r) {
             throw cmd_exception("check annotation that says unsat");
 #else
             diagnostic_stream() << "BUG: incompleteness" << std::endl;
-            exit(ERR_INCOMPLETENESS);
+            // WORKAROUND: `exit()` causes LSan to be invoked and produce
+            // many false positives.
+            _Exit(ERR_INCOMPLETENESS);
 #endif
         }
         break;
@@ -1618,7 +1649,9 @@ void cmd_context::validate_check_sat_result(lbool r) {
             throw cmd_exception("check annotation that says sat");
 #else
             diagnostic_stream() << "BUG: unsoundness" << std::endl;
-            exit(ERR_UNSOUNDNESS);
+            // WORKAROUND: `exit()` causes LSan to be invoked and produce
+            // many false positives.
+            _Exit(ERR_UNSOUNDNESS);
 #endif
         }
         break;
@@ -1776,6 +1809,7 @@ void cmd_context::validate_model() {
                     continue;
                 }
                 TRACE("model_validate", model_smt2_pp(tout, *this, *(md.get()), 0););
+                IF_VERBOSE(10, verbose_stream() << "model check failed on: " << mk_pp(a, m()) << "\n";);                
                 invalid_model = true;
             }
         }
@@ -1894,7 +1928,7 @@ void cmd_context::pp(expr * n, format_ns::format_ref & r) const {
 }
 
 void cmd_context::pp(func_decl * f, format_ns::format_ref & r) const {
-    mk_smt2_format(f, get_pp_env(), params_ref(), r);
+    mk_smt2_format(f, get_pp_env(), params_ref(), r, "declare-fun");
 }
 
 void cmd_context::display(std::ostream & out, sort * s, unsigned indent) const {

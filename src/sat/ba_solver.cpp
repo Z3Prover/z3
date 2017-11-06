@@ -1173,7 +1173,7 @@ namespace sat {
                 break;
             case justification::CLAUSE: {
                 inc_bound(offset); 
-                clause & c = *(s().m_cls_allocator.get_clause(js.get_clause_offset()));
+                clause & c = s().get_clause(js);
                 unsigned i = 0;
                 if (consequent != null_literal) {
                     inc_coeff(consequent, offset);
@@ -3780,7 +3780,7 @@ namespace sat {
             break;
         case justification::CLAUSE: {
             ineq.reset(offset);
-            clause & c = *(s().m_cls_allocator.get_clause(js.get_clause_offset()));
+            clause & c = s().get_clause(js);
             for (literal l : c) ineq.push(l, offset);
             break;
         }

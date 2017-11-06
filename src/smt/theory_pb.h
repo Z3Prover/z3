@@ -363,7 +363,6 @@ namespace smt {
         //
         void compile_ineq(ineq& c);
         void inc_propagations(ineq& c);
-        unsigned get_compilation_threshold(ineq& c);
 
         //
         // Conflict resolution, cutting plane derivation.

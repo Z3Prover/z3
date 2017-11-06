@@ -33,6 +33,9 @@ Revision History:
 #include "smt/smt_solver.h"
 #include "smt/smt_implied_equalities.h"
 #include "solver/smt_logics.h"
+#include "cmd_context/cmd_context.h"
+#include "parsers/smt2/smt2parser.h"
+
 
 extern "C" {
 
@@ -119,6 +122,30 @@ extern "C" {
         Z3_solver r = of_solver(sr);
         RETURN_Z3(r);
         Z3_CATCH_RETURN(0);
+    }
+
+    void Z3_API Z3_solver_from_file(Z3_context c, Z3_solver s, Z3_string file_name) {
+        Z3_TRY;
+        LOG_Z3_solver_from_file(c, s, file_name);
+        scoped_ptr<cmd_context> ctx = alloc(cmd_context, false, &(mk_c(c)->m()));
+        ctx->set_ignore_check(true);
+        std::ifstream is(file_name);
+        if (!is) {
+            SET_ERROR_CODE(Z3_FILE_ACCESS_ERROR);
+            return;
+        }
+        if (!parse_smt2_commands(*ctx.get(), is)) {
+            ctx = nullptr;
+            SET_ERROR_CODE(Z3_PARSER_ERROR);
+            return;
+        }
+        ptr_vector<expr>::const_iterator it  = ctx->begin_assertions();
+        ptr_vector<expr>::const_iterator end = ctx->end_assertions();
+        for (; it != end; ++it) {
+            to_solver_ref(s)->assert_expr(*it);
+        }
+        to_solver_ref(s)->set_model_converter(ctx->get_model_converter());
+        Z3_CATCH;
     }
 
     Z3_string Z3_API Z3_solver_get_help(Z3_context c, Z3_solver s) {
@@ -452,6 +479,7 @@ extern "C" {
         unsigned sz = __assumptions.size();
         for (unsigned i = 0; i < sz; ++i) {
             if (!is_expr(__assumptions[i])) {
+                _assumptions.finalize(); _consequences.finalize(); _variables.finalize();
                 SET_ERROR_CODE(Z3_INVALID_USAGE);
                 return Z3_L_UNDEF;
             }
@@ -461,6 +489,7 @@ extern "C" {
         sz = __variables.size();
         for (unsigned i = 0; i < sz; ++i) {
             if (!is_expr(__variables[i])) {
+                _assumptions.finalize(); _consequences.finalize(); _variables.finalize();
                 SET_ERROR_CODE(Z3_INVALID_USAGE);
                 return Z3_L_UNDEF;
             }
@@ -481,6 +510,7 @@ extern "C" {
             }
             catch (z3_exception & ex) {
                 to_solver_ref(s)->set_reason_unknown(eh);
+                _assumptions.finalize(); _consequences.finalize(); _variables.finalize();
                 mk_c(c)->handle_exception(ex);
                 return Z3_L_UNDEF;
             }
@@ -522,69 +552,5 @@ extern "C" {
         Z3_CATCH_RETURN(0);        
     }
 
-    Z3_ast Z3_API Z3_solver_lookahead(Z3_context c,
-                                      Z3_solver s,
-                                      Z3_ast_vector assumptions,
-                                      Z3_ast_vector candidates)  {
-        Z3_TRY;
-        LOG_Z3_solver_lookahead(c, s, assumptions, candidates);
-        ast_manager& m = mk_c(c)->m();
-        expr_ref_vector _candidates(m), _assumptions(m);
-        ast_ref_vector const& __candidates = to_ast_vector_ref(candidates);
-        ast_ref_vector const& __assumptions = to_ast_vector_ref(assumptions);
-        for (auto & e : __candidates) {
-            if (!is_expr(e)) {
-                SET_ERROR_CODE(Z3_INVALID_USAGE);
-                return 0;
-            }
-            _candidates.push_back(to_expr(e));
-        }
-        for (auto & e : __assumptions) {
-            if (!is_expr(e)) {
-                SET_ERROR_CODE(Z3_INVALID_USAGE);
-                return 0;
-            }
-            _assumptions.push_back(to_expr(e));
-        }
-
-        expr_ref result(m);
-        unsigned timeout     = to_solver(s)->m_params.get_uint("timeout", mk_c(c)->get_timeout());
-        unsigned rlimit      = to_solver(s)->m_params.get_uint("rlimit", mk_c(c)->get_rlimit());
-        bool     use_ctrl_c  = to_solver(s)->m_params.get_bool("ctrl_c", false);
-        cancel_eh<reslimit> eh(mk_c(c)->m().limit());
-        api::context::set_interruptable si(*(mk_c(c)), eh);
-        {
-            scoped_ctrl_c ctrlc(eh, false, use_ctrl_c);
-            scoped_timer timer(timeout, &eh);
-            scoped_rlimit _rlimit(mk_c(c)->m().limit(), rlimit);
-            try {
-                result = to_solver_ref(s)->lookahead(_assumptions, _candidates);
-            }
-            catch (z3_exception & ex) {
-                mk_c(c)->handle_exception(ex);
-                return 0;
-            }
-        }
-        mk_c(c)->save_ast_trail(result);
-        RETURN_Z3(of_ast(result));
-        Z3_CATCH_RETURN(0);
-    }
-    
-    Z3_ast_vector Z3_API Z3_solver_get_lemmas(Z3_context c, Z3_solver s)  {
-        Z3_TRY;
-        LOG_Z3_solver_get_lemmas(c, s);
-        RESET_ERROR_CODE();
-        ast_manager& m = mk_c(c)->m();
-        init_solver(c, s);
-        Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, *mk_c(c), mk_c(c)->m());
-        mk_c(c)->save_object(v);
-        expr_ref_vector lemmas(m);
-        to_solver_ref(s)->get_lemmas(lemmas);
-        for (expr* e : lemmas) {
-            v->m_ast_vector.push_back(e);
-        }
-        RETURN_Z3(of_ast_vector(v));                
-        Z3_CATCH_RETURN(0);
-    }
 
 };

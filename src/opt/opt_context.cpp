@@ -331,7 +331,7 @@ namespace opt {
         }
     }
 
-    void context::get_model(model_ref& mdl) {
+    void context::get_model_core(model_ref& mdl) {
         mdl = m_model;
         fix_model(mdl);
     }
@@ -818,7 +818,7 @@ namespace opt {
         bool is_max = is_maximize(fml, term, orig_term, index);
         bool is_min = !is_max && is_minimize(fml, term, orig_term, index);
         if (is_min && get_pb_sum(term, terms, weights, offset)) {
-            TRACE("opt", tout << "try to convert minimization" << mk_pp(term, m) << "\n";);
+            TRACE("opt", tout << "try to convert minimization\n" << mk_pp(term, m) << "\n";);
             // minimize 2*x + 3*y 
             // <=>
             // (assert-soft (not x) 2)

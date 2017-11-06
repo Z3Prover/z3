@@ -55,16 +55,20 @@ void filter_model_converter::operator()(svector<symbol> & labels, unsigned goal_
 }
 
 void filter_model_converter::display(std::ostream & out) {
-    out << "(filter-model-converter";
-    for (unsigned i = 0; i < m_decls.size(); i++) {
-        out << " " << m_decls.get(i)->get_name();
+    for (func_decl* f : m_decls) {
+        display_del(out, f);
     }
-    out << ")" << std::endl;
 }
 
 model_converter * filter_model_converter::translate(ast_translation & translator) {
     filter_model_converter * res = alloc(filter_model_converter, translator.to());
-    for (unsigned i = 0; i < m_decls.size(); i++)
-        res->m_decls.push_back(translator(m_decls[i].get()));
+    for (func_decl* f : m_decls) 
+        res->m_decls.push_back(translator(f));
     return res;
 }
+
+void filter_model_converter::collect(ast_pp_util& visitor) { 
+    m_env = &visitor.env(); 
+    for (func_decl* f : m_decls) visitor.coll.visit_func(f);
+}
+

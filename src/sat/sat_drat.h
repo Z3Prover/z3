@@ -52,6 +52,7 @@ namespace sat {
         vector<watch>           m_watches;
         svector<lbool>          m_assignment;
         bool                    m_inconsistent;
+        bool                    m_check_unsat, m_check_sat, m_check;
 
         void dump(unsigned n, literal const* c, status st);
         void append(literal l, status st);
@@ -78,6 +79,8 @@ namespace sat {
     public:
         drat(solver& s);
         ~drat();  
+
+        void updt_config();
         void add();
         void add(literal l, bool learned);
         void add(literal l1, literal l2, bool learned);
@@ -89,6 +92,8 @@ namespace sat {
         void del(literal l);
         void del(literal l1, literal l2);
         void del(clause& c);
+
+        void check_model(model const& m);
     };
 
 };

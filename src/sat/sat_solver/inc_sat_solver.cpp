@@ -61,6 +61,7 @@ class inc_sat_solver : public solver {
     proof_converter_ref m_pc;
     model_converter_ref m_mc;
     model_converter_ref m_mc0;
+    model_converter_ref m_sat_mc;
     expr_dependency_ref m_dep_core;
     svector<double>     m_weights;
     std::string         m_unknown;
@@ -76,7 +77,6 @@ public:
     inc_sat_solver(ast_manager& m, params_ref const& p, bool incremental_mode):
         m(m), 
         m_solver(p, m.limit()),
-        m_params(p), 
         m_fmls(m),
         m_asmsf(m),
         m_fmls_head(0),
@@ -114,6 +114,7 @@ public:
         if (m_mc0.get()) result->m_mc0 = m_mc0->translate(tr);
         result->m_internalized = m_internalized;
         result->m_internalized_converted = m_internalized_converted;
+        if (mc0()) result->set_model_converter(mc0()->translate(tr));
         return result;
     }
 
@@ -180,7 +181,13 @@ public:
         m_internalized_converted = false;
 
         init_reason_unknown();
-        r = m_solver.check(m_asms.size(), m_asms.c_ptr());
+        try {
+            r = m_solver.check(m_asms.size(), m_asms.c_ptr());
+        }
+        catch (z3_exception& ex) {
+            IF_VERBOSE(10, verbose_stream() << "exception: " << ex.msg() << "\n";);
+            r = l_undef;            
+        }
         if (r == l_undef && m_solver.get_config().m_dimacs_display) {
             for (auto const& kv : m_map) {
                 std::cout << "c " << kv.m_value << " " << mk_pp(kv.m_key, m) << "\n";
@@ -293,7 +300,7 @@ public:
         r.reset();
         r.append(m_core.size(), m_core.c_ptr());
     }
-    virtual void get_model(model_ref & mdl) {
+    virtual void get_model_core(model_ref & mdl) {
         if (!m_model.get()) {
             extract_model();
         }
@@ -304,51 +311,6 @@ public:
         return 0;
     }
 
-    virtual expr_ref lookahead(expr_ref_vector const& assumptions, expr_ref_vector const& candidates) { 
-        IF_VERBOSE(1, verbose_stream() << "(sat-lookahead " << candidates.size() << ")\n";);
-        sat::bool_var_vector vars;
-        sat::literal_vector lits;
-        expr_ref_vector lit2expr(m);
-        lit2expr.resize(m_solver.num_vars() * 2);
-        m_map.mk_inv(lit2expr);
-        for (auto c : candidates) {
-            sat::bool_var v = m_map.to_bool_var(c);
-            if (v != sat::null_bool_var) {
-                vars.push_back(v);
-            }
-        }
-        for (auto c : assumptions) {
-            SASSERT(is_literal(c));
-            sat::bool_var v = sat::null_bool_var;
-            bool sign = false;
-            expr* e = c;
-            while (m.is_not(e, e)) {
-                sign = !sign;
-            }
-            if (is_uninterp_const(e)) {
-                v = m_map.to_bool_var(e);
-            }
-            if (v != sat::null_bool_var) {
-                lits.push_back(sat::literal(v, sign));
-            }
-            else {
-                IF_VERBOSE(0, verbose_stream() << "WARNING: could not handle " << mk_pp(c, m) << "\n";);
-        }
-        }
-        if (vars.empty()) {
-            return expr_ref(m.mk_true(), m);
-        }
-        sat::literal l = m_solver.select_lookahead(lits, vars);
-        if (m_solver.inconsistent()) {
-            IF_VERBOSE(1, verbose_stream() << "(sat-lookahead inconsistent)\n";);
-            return expr_ref(m.mk_false(), m);
-        }
-        if (l == sat::null_literal) {
-            return expr_ref(m.mk_true(), m);
-        }
-        expr_ref result(lit2expr[l.index()].get(), m);
-        return result;
-    }
     virtual expr_ref cube() {
         if (!m_internalized) {
             dep2asm_t dep2asm;
@@ -379,16 +341,6 @@ public:
         }
         return mk_and(fmls);
     }
-
-    virtual void get_lemmas(expr_ref_vector & lemmas) { 
-        if (!m_internalized) return;
-        sat2goal s2g;
-        goal g(m, false, false, false);
-        s2g.get_learned(m_solver, m_map, m_params, lemmas);
-        IF_VERBOSE(1, verbose_stream() << "(sat :lemmas " << lemmas.size() << ")\n";);
-        // TBD: handle externals properly.
-    }
-
 
     virtual lbool get_consequences_core(expr_ref_vector const& assumptions, expr_ref_vector const& vars, expr_ref_vector& conseq) {
         init_preprocess();
@@ -491,29 +443,28 @@ public:
         return m_asmsf[idx];
     }
 
+    virtual model_converter_ref get_model_converter() const {
+        const_cast<inc_sat_solver*>(this)->convert_internalized();
+        if (m_internalized && m_internalized_converted) {            
+            model_converter_ref mc = concat(m_mc0.get(), mk_bit_blaster_model_converter(m, m_bb_rewriter->const2bits()));
+            mc = concat(solver::get_model_converter().get(), mc.get());
+            mc = concat(mc.get(), m_sat_mc.get());
+            return mc;
+        }
+        else {
+            return solver::get_model_converter();
+        }
+    }
+
     void convert_internalized() {
-        if (!m_internalized) return;
+        if (!m_internalized || m_internalized_converted) return;
         sat2goal s2g;
-        model_converter_ref mc;
-        goal g(m, false, false, false);
-        s2g(m_solver, m_map, m_params, g, mc);
-        extract_model();
-        if (!m_model) {
-            m_model = alloc(model, m);
-        }
-        model_ref mdl = m_model;
-        if (m_mc) (*m_mc)(mdl);
-        for (unsigned i = 0; i < mdl->get_num_constants(); ++i) {
-            func_decl* c = mdl->get_constant(i);
-            expr_ref eq(m.mk_eq(m.mk_const(c), mdl->get_const_interp(c)), m);
-            g.assert_expr(eq);
-        }
+        m_sat_mc = nullptr;
+        goal g(m, false, true, false);
+        s2g(m_solver, m_map, m_params, g, m_sat_mc);
         m_internalized_fmls.reset();
         g.get_formulas(m_internalized_fmls);
         m_internalized_converted = true;
-        // if (mc) mc->display(std::cout << "mc");
-        // if (m_mc) m_mc->display(std::cout << "m_mc\n");
-        // if (m_mc0) m_mc0->display(std::cout << "m_mc0\n");
     }
 
     void init_preprocess() {

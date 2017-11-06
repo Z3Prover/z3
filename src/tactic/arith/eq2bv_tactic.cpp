@@ -107,12 +107,18 @@ class eq2bv_tactic : public tactic {
         
         virtual model_converter* translate(ast_translation & translator) {
             bvmc* v = alloc(bvmc);
-            obj_map<func_decl, func_decl*>::iterator it = m_map.begin(), end = m_map.end();
-            for (; it != end; ++it) {
-                v->m_map.insert(translator(it->m_key), translator(it->m_value));
+            for (auto const& kv : m_map) {
+                v->m_map.insert(translator(kv.m_key), translator(kv.m_value));
             }
             return v;
         }
+
+        virtual void display(std::ostream & out) {
+            for (auto const& kv : m_map) {
+                out << "(model-set " << kv.m_key->get_name() << " " << kv.m_value->get_name() << ")\n";
+            }
+        }
+
     };
 
 public:

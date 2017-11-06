@@ -97,7 +97,7 @@ namespace opt {
         virtual void pop_core(unsigned n);
         virtual lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions);        
         virtual void get_unsat_core(ptr_vector<expr> & r);
-        virtual void get_model(model_ref & _m);        
+        virtual void get_model_core(model_ref & _m);        
         virtual proof * get_proof();
         virtual std::string reason_unknown() const;
         virtual void set_reason_unknown(char const* msg);
@@ -108,7 +108,6 @@ namespace opt {
         virtual ast_manager& get_manager() const { return m; } 
         virtual lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes);
         virtual lbool preferred_sat(expr_ref_vector const& asms, vector<expr_ref_vector>& cores);
-        virtual expr_ref lookahead(expr_ref_vector const& assumptions, expr_ref_vector const& candidates) { return expr_ref(m.mk_true(), m); }
         virtual expr_ref cube() { return expr_ref(m.mk_true(), m); }
         void set_logic(symbol const& logic);
 

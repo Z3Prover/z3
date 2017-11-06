@@ -23,12 +23,11 @@ Notes:
 #include "ast/ast.h"
 #include "tactic/model_converter.h"
 
-
 class extension_model_converter : public model_converter {
     func_decl_ref_vector  m_vars;
     expr_ref_vector       m_defs;
 public:
-    extension_model_converter(ast_manager & m):m_vars(m), m_defs(m) {
+    extension_model_converter(ast_manager & m): m_vars(m), m_defs(m) {
     }
 
     virtual ~extension_model_converter();
@@ -44,6 +43,4 @@ public:
 
     virtual model_converter * translate(ast_translation & translator);
 };
-
-
 #endif

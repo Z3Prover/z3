@@ -20,11 +20,12 @@ Notes:
 #define FILTER_MODEL_CONVERTER_H_
 
 #include "tactic/model_converter.h"
+#include "ast/ast_pp_util.h"
 
 class filter_model_converter : public model_converter {
     func_decl_ref_vector  m_decls;
 public:
-    filter_model_converter(ast_manager & m):m_decls(m) {}
+    filter_model_converter(ast_manager & m): m_decls(m) {}
     
     virtual ~filter_model_converter();
     
@@ -37,7 +38,7 @@ public:
     virtual void operator()(model_ref & md) { operator()(md, 0); } // TODO: delete
 
     virtual void cancel() {}
-
+    
     virtual void display(std::ostream & out);
 
     void insert(func_decl * d) {
@@ -45,6 +46,9 @@ public:
     }
 
     virtual model_converter * translate(ast_translation & translator);
+
+    virtual void collect(ast_pp_util& visitor);
+
 };
 
 typedef ref<filter_model_converter> filter_model_converter_ref;

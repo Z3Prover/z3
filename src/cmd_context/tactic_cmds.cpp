@@ -200,6 +200,8 @@ public:
         if (!m_tactic) {
             throw cmd_exception("check-sat-using needs a tactic argument");
         }
+        if (ctx.ignore_check())
+            return;
         params_ref p = ctx.params().merge_default_params(ps());
         tactic_ref tref = using_params(sexpr2tactic(ctx, m_tactic), p);
         tref->set_logic(ctx.get_logic());
@@ -211,6 +213,7 @@ public:
         assert_exprs_from(ctx, *g);
         TRACE("check_sat_using", g->display(tout););
         model_ref           md;
+        model_converter_ref mc;
         proof_ref           pr(m);
         expr_dependency_ref core(m);
         std::string reason_unknown;
@@ -226,7 +229,7 @@ public:
                 cmd_context::scoped_watch sw(ctx);
                 lbool r = l_undef;
                 try {
-                    r = check_sat(t, g, md, result->labels, pr, core, reason_unknown);                    
+                    r = check_sat(t, g, md, mc, result->labels, pr, core, reason_unknown);                    
                     ctx.display_sat_result(r);
                     result->set_status(r);
                     if (r == l_undef) {

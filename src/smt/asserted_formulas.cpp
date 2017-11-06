@@ -38,7 +38,7 @@ asserted_formulas::asserted_formulas(ast_manager & m, smt_params & p):
     m_qhead(0),
     m_macro_manager(m),
     m_bv_sharing(m),
-    m_inconsistent(false), 
+    m_inconsistent(false),
     m_has_quantifiers(false),
     m_reduce_asserted_formulas(*this),
     m_distribute_forall(*this),
@@ -54,8 +54,8 @@ asserted_formulas::asserted_formulas(ast_manager & m, smt_params & p):
     m_lift_ite(*this),
     m_ng_lift_ite(*this),
     m_find_macros(*this),
-    m_propagate_values(*this), 
-    m_nnf_cnf(*this), 
+    m_propagate_values(*this),
+    m_nnf_cnf(*this),
     m_apply_quasi_macros(*this) {
 
     m_macro_finder = alloc(macro_finder, m, m_macro_manager);
@@ -68,7 +68,7 @@ asserted_formulas::asserted_formulas(ast_manager & m, smt_params & p):
 void asserted_formulas::setup() {
     switch (m_params.m_lift_ite) {
     case LI_FULL:
-        m_params.m_ng_lift_ite = LI_NONE; 
+        m_params.m_ng_lift_ite = LI_NONE;
         break;
     case LI_CONSERVATIVE:
         if (m_params.m_ng_lift_ite == LI_CONSERVATIVE)
@@ -77,7 +77,7 @@ void asserted_formulas::setup() {
     default:
         break;
     }
- 
+
     if (m_params.m_relevancy_lvl == 0)
         m_params.m_relevancy_lemma = false;
 }
@@ -93,7 +93,7 @@ void asserted_formulas::push_assertion(expr * e, proof * pr, vector<justified_ex
     expr* e1 = 0;
     if (m.is_false(e)) {
         result.push_back(justified_expr(m, e, pr));
-        m_inconsistent = true;        
+        m_inconsistent = true;
     }
     else if (m.is_true(e)) {
         // skip
@@ -101,17 +101,17 @@ void asserted_formulas::push_assertion(expr * e, proof * pr, vector<justified_ex
     else if (m.is_and(e)) {
         for (unsigned i = 0; i < to_app(e)->get_num_args(); ++i) {
             expr* arg = to_app(e)->get_arg(i);
-            proof_ref _pr(m.mk_and_elim(pr, i), m);
+            proof_ref _pr(m.proofs_enabled() ? m.mk_and_elim(pr, i) : 0, m);
             push_assertion(arg, _pr, result);
         }
     }
     else if (m.is_not(e, e1) && m.is_or(e1)) {
         for (unsigned i = 0; i < to_app(e1)->get_num_args(); ++i) {
             expr* arg = to_app(e1)->get_arg(i);
-            proof_ref _pr(m.mk_not_or_elim(pr, i), m);
+            proof_ref _pr(m.proofs_enabled() ? m.mk_not_or_elim(pr, i) : 0, m);
             expr_ref  narg(mk_not(m, arg), m);
-            push_assertion(narg, _pr, result);            
-        }        
+            push_assertion(narg, _pr, result);
+        }
     }
     else {
         result.push_back(justified_expr(m, e, pr));
@@ -130,6 +130,7 @@ void asserted_formulas::set_eliminate_and(bool flag) {
     p.set_bool("eq2ineq", m_params.m_arith_eq2ineq);
     p.set_bool("gcd_rounding", true);
     p.set_bool("expand_select_store", true);
+    p.set_bool("bv_sort_ac", true);
     m_rewriter.updt_params(p);
     flush_cache();
 }
@@ -139,10 +140,8 @@ void asserted_formulas::assert_expr(expr * e, proof * _in_pr) {
     proof_ref  in_pr(_in_pr, m), pr(_in_pr, m);
     expr_ref   r(e, m);
 
-    if (inconsistent()) 
+    if (inconsistent())
         return;
-
-    m_has_quantifiers |= ::has_quantifiers(e);
 
     if (m_params.m_preprocess) {
         TRACE("assert_expr_bug", tout << r << "\n";);
@@ -156,12 +155,15 @@ void asserted_formulas::assert_expr(expr * e, proof * _in_pr) {
         }
         TRACE("assert_expr_bug", tout << "after...\n" << r << "\n";);
     }
+
+    m_has_quantifiers |= ::has_quantifiers(e);
+
     push_assertion(r, pr, m_formulas);
     TRACE("asserted_formulas_bug", tout << "after assert_expr\n"; display(tout););
 }
 
 void asserted_formulas::assert_expr(expr * e) {
-    assert_expr(e, m.mk_asserted(e));
+    assert_expr(e, m.proofs_enabled() ? m.mk_asserted(e) : nullptr);
 }
 
 void asserted_formulas::get_assertions(ptr_vector<expr> & result) const {
@@ -183,7 +185,7 @@ void asserted_formulas::push_scope() {
     commit();
     TRACE("asserted_formulas_scopes", tout << "after push: " << m_scopes.size() << "\n";);
 }
- 
+
 void asserted_formulas::pop_scope(unsigned num_scopes) {
     TRACE("asserted_formulas_scopes", tout << "before pop " << num_scopes << " of " << m_scopes.size() << "\n";);
     m_bv_sharing.pop_scope(num_scopes);
@@ -212,7 +214,7 @@ void asserted_formulas::reset() {
 
 bool asserted_formulas::check_well_sorted() const {
     for (justified_expr const& je : m_formulas) {
-        if (!is_well_sorted(m, je.get_fml())) return false; 
+        if (!is_well_sorted(m, je.get_fml())) return false;
     }
     return true;
 }
@@ -224,20 +226,20 @@ void asserted_formulas::reduce() {
         return;
     if (m_qhead == m_formulas.size())
         return;
-    if (!m_params.m_preprocess) 
-        return;    
-    if (m_macro_manager.has_macros()) 
+    if (!m_params.m_preprocess)
+        return;
+    if (m_macro_manager.has_macros())
         invoke(m_find_macros);
-    
+
     TRACE("before_reduce", display(tout););
     CASSERT("well_sorted", check_well_sorted());
-          
+
     set_eliminate_and(false); // do not eliminate and before nnf.
     if (!invoke(m_propagate_values)) return;
     if (!invoke(m_find_macros)) return;
     if (!invoke(m_nnf_cnf)) return;
     set_eliminate_and(true);
-    if (!invoke(m_reduce_asserted_formulas)) return; 
+    if (!invoke(m_reduce_asserted_formulas)) return;
     if (!invoke(m_pull_cheap_ite_trees)) return;
     if (!invoke(m_pull_nested_quantifiers)) return;
     if (!invoke(m_lift_ite)) return;
@@ -276,14 +278,14 @@ bool asserted_formulas::invoke(simplify_fmls& s) {
     if (!s.should_apply()) return true;
     IF_VERBOSE(10, verbose_stream() << "(smt." << s.id() << ")\n";);
     s();
-    IF_VERBOSE(10000, verbose_stream() << "total size: " << get_total_size() << "\n";); 
-    TRACE("reduce_step_ll", ast_mark visited; display_ll(tout, visited);); 
-    CASSERT("well_sorted",check_well_sorted());                         
-    if (inconsistent() || canceled()) {                                 
-        TRACE("after_reduce", display(tout););                          
-        TRACE("after_reduce_ll", ast_mark visited; display_ll(tout, visited);); 
+    IF_VERBOSE(10000, verbose_stream() << "total size: " << get_total_size() << "\n";);
+    TRACE("reduce_step_ll", ast_mark visited; display_ll(tout, visited););
+    CASSERT("well_sorted",check_well_sorted());
+    if (inconsistent() || canceled()) {
+        TRACE("after_reduce", display(tout););
+        TRACE("after_reduce_ll", ast_mark visited; display_ll(tout, visited););
         return false;
-    }                
+    }
     else {
         return true;
     }
@@ -301,10 +303,10 @@ void asserted_formulas::display(std::ostream & out) const {
 
 void asserted_formulas::display_ll(std::ostream & out, ast_mark & pp_visited) const {
     if (!m_formulas.empty()) {
-        for (justified_expr const& f : m_formulas) 
+        for (justified_expr const& f : m_formulas)
             ast_def_ll_pp(out, m, f.get_fml(), pp_visited, true, false);
         out << "asserted formulas:\n";
-        for (justified_expr const& f : m_formulas) 
+        for (justified_expr const& f : m_formulas)
             out << "#" << f.get_fml()->get_id() << " ";
         out << "\n";
     }
@@ -333,9 +335,9 @@ void asserted_formulas::find_macros_core() {
 void asserted_formulas::apply_quasi_macros() {
     TRACE("before_quasi_macros", display(tout););
     vector<justified_expr> new_fmls;
-    quasi_macros proc(m, m_macro_manager);    
-    while (proc(m_formulas.size() - m_qhead, 
-                m_formulas.c_ptr() + m_qhead, 
+    quasi_macros proc(m, m_macro_manager);
+    while (proc(m_formulas.size() - m_qhead,
+                m_formulas.c_ptr() + m_qhead,
                 new_fmls)) {
         swap_asserted_formulas(new_fmls);
         new_fmls.reset();
@@ -349,7 +351,7 @@ void asserted_formulas::nnf_cnf() {
     vector<justified_expr> new_fmls;
     expr_ref_vector  push_todo(m);
     proof_ref_vector push_todo_prs(m);
-    
+
     unsigned i  = m_qhead;
     unsigned sz = m_formulas.size();
     TRACE("nnf_bug", tout << "i: " << i << " sz: " << sz << "\n";);
@@ -364,7 +366,7 @@ void asserted_formulas::nnf_cnf() {
         CASSERT("well_sorted", is_well_sorted(m, n));
         apply_nnf(n, push_todo, push_todo_prs, r1, pr1);
         CASSERT("well_sorted",is_well_sorted(m, r1));
-        pr = m.mk_modus_ponens(pr, pr1);
+        pr = m.proofs_enabled() ? m.mk_modus_ponens(pr, pr1) : nullptr;
         push_todo.push_back(r1);
         push_todo_prs.push_back(pr);
 
@@ -379,7 +381,7 @@ void asserted_formulas::nnf_cnf() {
             CASSERT("well_sorted",is_well_sorted(m, r1));
             if (canceled()) {
                 return;
-            }                    
+            }
             if (m.proofs_enabled())
                 pr = m.mk_modus_ponens(push_todo_prs.get(k), pr1);
             push_assertion(r1, pr, new_fmls);
@@ -390,8 +392,8 @@ void asserted_formulas::nnf_cnf() {
 
 void asserted_formulas::simplify_fmls::operator()() {
     vector<justified_expr> new_fmls;
-    unsigned sz = af.m_formulas.size();                                
-    for (unsigned i = af.m_qhead; i < sz; i++) {                                           
+    unsigned sz = af.m_formulas.size();
+    for (unsigned i = af.m_qhead; i < sz; i++) {
         auto& j = af.m_formulas[i];
         expr_ref result(m);
         proof_ref result_pr(m);
@@ -407,8 +409,8 @@ void asserted_formulas::simplify_fmls::operator()() {
             af.push_assertion(result, result_pr, new_fmls);
         }
         if (af.canceled()) return;
-    }    
-    af.swap_asserted_formulas(new_fmls);                    
+    }
+    af.swap_asserted_formulas(new_fmls);
     TRACE("asserted_formulas", af.display(tout););
     post_op();
 }
@@ -474,12 +476,12 @@ void asserted_formulas::propagate_values() {
 
 unsigned asserted_formulas::propagate_values(unsigned i) {
     expr_ref n(m_formulas[i].get_fml(), m);
-    expr_ref new_n(m);                                                  
-    proof_ref new_pr(m);                                                
-    m_rewriter(n, new_n, new_pr);                                       
-    if (m.proofs_enabled()) {                                           
+    expr_ref new_n(m);
+    proof_ref new_pr(m);
+    m_rewriter(n, new_n, new_pr);
+    if (m.proofs_enabled()) {
         proof * pr  = m_formulas[i].get_proof();
-        new_pr = m.mk_modus_ponens(pr, new_pr);                         
+        new_pr = m.mk_modus_ponens(pr, new_pr);
     }
     justified_expr j(m, new_n, new_pr);
     m_formulas[i] = j;
@@ -505,16 +507,16 @@ void asserted_formulas::update_substitution(expr* n, proof* pr) {
         }
         if (is_gt(rhs, lhs)) {
             TRACE("propagate_values", tout << "insert " << mk_pp(rhs, m) << " -> " << mk_pp(lhs, m) << "\n";);
-            m_scoped_substitution.insert(rhs, lhs, m.mk_symmetry(pr));
+            m_scoped_substitution.insert(rhs, lhs, m.proofs_enabled() ? m.mk_symmetry(pr) : nullptr);
             return;
         }
         TRACE("propagate_values", tout << "incompatible " << mk_pp(n, m) << "\n";);
     }
     if (m.is_not(n, n1)) {
-        m_scoped_substitution.insert(n1, m.mk_false(), m.mk_iff_false(pr)); 
+        m_scoped_substitution.insert(n1, m.mk_false(), m.proofs_enabled() ? m.mk_iff_false(pr) : nullptr);
     }
     else {
-        m_scoped_substitution.insert(n, m.mk_true(), m.mk_iff_true(pr)); 
+        m_scoped_substitution.insert(n, m.mk_true(), m.proofs_enabled() ? m.mk_iff_true(pr) : nullptr);
     }
 }
 
@@ -556,13 +558,13 @@ bool asserted_formulas::is_gt(expr* lhs, expr* rhs) {
         }
         UNREACHABLE();
     }
-    
+
     return false;
 }
 
 void asserted_formulas::compute_depth(expr* e) {
     ptr_vector<expr> todo;
-    todo.push_back(e);    
+    todo.push_back(e);
     while (!todo.empty()) {
         e = todo.back();
         unsigned d = 0;
@@ -605,8 +607,7 @@ proof * asserted_formulas::get_inconsistency_proof() const {
     return 0;
 }
 
-
-void asserted_formulas::refine_inj_axiom_fn::simplify(justified_expr const& j, expr_ref& n, proof_ref& p) { 
+void asserted_formulas::refine_inj_axiom_fn::simplify(justified_expr const& j, expr_ref& n, proof_ref& p) {
     expr* f = j.get_fml();
     if (is_quantifier(f) && simplify_inj_axiom(m, to_quantifier(f), n)) {
         TRACE("inj_axiom", tout << "simplifying...\n" << mk_pp(f, m) << "\n" << n << "\n";);

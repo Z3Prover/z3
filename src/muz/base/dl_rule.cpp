@@ -141,7 +141,7 @@ namespace datalog {
 
 
     void rule_manager::mk_rule(expr* fml, proof* p, rule_set& rules, symbol const& name) {
-        scoped_proof_mode _sc(m, m_ctx.generate_proof_trace()?PGM_FINE:PGM_DISABLED);
+        scoped_proof_mode _sc(m, m_ctx.generate_proof_trace()?PGM_ENABLED:PGM_DISABLED);
         proof_ref pr(p, m);
         expr_ref fml1(m);
         bind_variables(fml, true, fml1);
@@ -343,7 +343,7 @@ namespace datalog {
         }
         TRACE("dl", tout << rule_expr << "\n";);
 
-        scoped_proof_mode _sc(m, m_ctx.generate_proof_trace()?PGM_FINE:PGM_DISABLED);
+        scoped_proof_mode _sc(m, m_ctx.generate_proof_trace()?PGM_ENABLED:PGM_DISABLED);
         proof_ref pr(m);
         if (m_ctx.generate_proof_trace()) {
             pr = m.mk_asserted(rule_expr);

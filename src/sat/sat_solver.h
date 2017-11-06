@@ -366,6 +366,7 @@ namespace sat {
         model_converter const & get_model_converter() const { return m_mc; }
         void set_model(model const& mdl);
         char const* get_reason_unknown() const { return m_reason_unknown.c_str(); }
+        bool check_clauses(model const& m) const;
 
         literal select_lookahead(literal_vector const& assumptions, bool_var_vector const& vars);
         lbool  cube(bool_var_vector const& vars, literal_vector& lits);
@@ -441,6 +442,20 @@ namespace sat {
                 return true;
             justification const & jst = m_justification[l0.var()];
             return !jst.is_clause() || m_cls_allocator.get_clause(jst.get_clause_offset()) != &c;
+        }
+
+        clause& get_clause(watch_list::iterator it) const {
+            SASSERT(it->get_kind() == watched::CLAUSE);
+            return get_clause(it->get_clause_offset());
+        }
+
+        clause& get_clause(justification const& j) const {
+            SASSERT(j.is_clause());
+            return get_clause(j.get_clause_offset());
+        }
+
+        clause& get_clause(clause_offset cls_off) const {
+            return *(m_cls_allocator.get_clause(cls_off));
         }
         
         // -----------------------

@@ -7,7 +7,7 @@ Module Name:
 
 Abstract:
 
-    Model converter that introduces eliminated variables in a model.
+Model converter that introduces eliminated variables in a model.
 
 Author:
 
@@ -16,11 +16,11 @@ Author:
 Notes:
 
 --*/
-#include "tactic/extension_model_converter.h"
-#include "model/model_evaluator.h"
-#include "ast/ast_smt2_pp.h"
-#include "model/model_v2_pp.h"
 #include "ast/ast_pp.h"
+#include "ast/ast_smt2_pp.h"
+#include "model/model_evaluator.h"
+#include "model/model_v2_pp.h"
+#include "tactic/extension_model_converter.h"
 
 extension_model_converter::~extension_model_converter() {
 }
@@ -78,20 +78,17 @@ void extension_model_converter::insert(func_decl * v, expr * def) {
 
 
 void extension_model_converter::display(std::ostream & out) {
-    out << "(extension-model-converter";
     for (unsigned i = 0; i < m_vars.size(); i++) {
-        out << "\n  (" << m_vars.get(i)->get_name() << " ";
-        unsigned indent = m_vars.get(i)->get_name().size() + 4;
-        out << mk_ismt2_pp(m_defs.get(i), m(), indent) << ")";
+        display_add(out, m(), m_vars.get(i), m_defs.get(i));
     }
-    out << ")" << std::endl;
 }
 
 model_converter * extension_model_converter::translate(ast_translation & translator) {
     extension_model_converter * res = alloc(extension_model_converter, translator.to());
-    for (unsigned i = 0; i < m_vars.size(); i++)
-        res->m_vars.push_back(translator(m_vars[i].get()));
-    for (unsigned i = 0; i < m_defs.size(); i++)
-        res->m_defs.push_back(translator(m_defs[i].get()));
+    for (func_decl* v : m_vars)
+        res->m_vars.push_back(translator(v));
+    for (expr* d : m_defs) 
+        res->m_defs.push_back(translator(d));
     return res;
 }
+

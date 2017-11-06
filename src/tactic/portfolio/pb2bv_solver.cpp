@@ -27,7 +27,6 @@ Notes:
 
 class pb2bv_solver : public solver_na2as {
     ast_manager&     m;
-    params_ref       m_params;
     mutable expr_ref_vector  m_assertions;
     mutable ref<solver>      m_solver;
     mutable th_rewriter      m_th_rewriter;
@@ -38,19 +37,24 @@ public:
     pb2bv_solver(ast_manager& m, params_ref const& p, solver* s):
         solver_na2as(m),
         m(m),
-        m_params(p),
         m_assertions(m),
         m_solver(s),
         m_th_rewriter(m, p),
         m_rewriter(m, p)
     {
+        solver::updt_params(p);
     }
 
     virtual ~pb2bv_solver() {}
 
-    virtual solver* translate(ast_manager& m, params_ref const& p) {
+    virtual solver* translate(ast_manager& dst_m, params_ref const& p) {
         flush_assertions();
-        return alloc(pb2bv_solver, m, p, m_solver->translate(m, p));
+        solver* result = alloc(pb2bv_solver, dst_m, p, m_solver->translate(dst_m, p));
+        if (mc0()) {
+            ast_translation tr(m, dst_m);
+            result->set_model_converter(mc0()->translate(tr));
+        }
+        return result;
     }
     
     virtual void assert_expr(expr * t) {
@@ -78,8 +82,8 @@ public:
         return m_solver->check_sat(num_assumptions, assumptions);
     }
 
-    virtual void updt_params(params_ref const & p) { m_solver->updt_params(p); m_rewriter.updt_params(p); }
-    virtual void collect_param_descrs(param_descrs & r) { m_solver->collect_param_descrs(r); m_rewriter.collect_param_descrs(r); }    
+    virtual void updt_params(params_ref const & p) { solver::updt_params(p); m_rewriter.updt_params(p); m_solver->updt_params(p);  }
+    virtual void collect_param_descrs(param_descrs & r) { m_solver->collect_param_descrs(r); m_rewriter.collect_param_descrs(r);}    
     virtual void set_produce_models(bool f) { m_solver->set_produce_models(f); }
     virtual void set_progress_callback(progress_callback * callback) { m_solver->set_progress_callback(callback);  }
     virtual void collect_statistics(statistics & st) const { 
@@ -87,20 +91,19 @@ public:
         m_solver->collect_statistics(st); 
     }
     virtual void get_unsat_core(ptr_vector<expr> & r) { m_solver->get_unsat_core(r); }
-    virtual void get_model(model_ref & mdl) { 
+    virtual void get_model_core(model_ref & mdl) { 
         m_solver->get_model(mdl);
         if (mdl) {
             filter_model(mdl);            
         }
     } 
+    virtual model_converter_ref get_model_converter() const { return m_solver->get_model_converter(); }
     virtual proof * get_proof() { return m_solver->get_proof(); }
     virtual std::string reason_unknown() const { return m_solver->reason_unknown(); }
     virtual void set_reason_unknown(char const* msg) { m_solver->set_reason_unknown(msg); }
     virtual void get_labels(svector<symbol> & r) { m_solver->get_labels(r); }
     virtual ast_manager& get_manager() const { return m;  }
-    virtual expr_ref lookahead(expr_ref_vector const& assumptions, expr_ref_vector const& candidates) { flush_assertions(); return m_solver->lookahead(assumptions, candidates); }
     virtual expr_ref cube() { flush_assertions(); return m_solver->cube(); }
-    virtual void get_lemmas(expr_ref_vector & lemmas) { flush_assertions(); m_solver->get_lemmas(lemmas); }
     virtual lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) { return m_solver->find_mutexes(vars, mutexes); }    
     virtual lbool get_consequences_core(expr_ref_vector const& asms, expr_ref_vector const& vars, expr_ref_vector& consequences) {
         flush_assertions(); 

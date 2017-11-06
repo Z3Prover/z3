@@ -58,7 +58,7 @@ void used_vars::process(expr * n, unsigned delta) {
             if (idx >= delta) {
                 idx = idx - delta;
                 if (idx >= m_found_vars.size())
-                    m_found_vars.resize(idx + 1, 0);
+                    m_found_vars.resize(idx + 1);
                 m_found_vars[idx] = to_var(n)->get_sort();
             }
             break;

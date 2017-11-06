@@ -18,10 +18,45 @@ Notes:
 --*/
 #include "tactic/model_converter.h"
 #include "model/model_v2_pp.h"
+#include "ast/ast_smt2_pp.h"
+
+/*
+ * Add or overwrite value in model.
+ */
+void model_converter::display_add(std::ostream& out, ast_manager& m, func_decl* f, expr* e) const {
+    VERIFY(m_env);
+    ast_smt2_pp(out, f, e, *m_env, params_ref(), 0, "model-add") << "\n";
+}
+
+/*
+ * A value is removed from the model.
+ */
+void model_converter::display_del(std::ostream& out, func_decl* f) const {
+    VERIFY(m_env);
+    ast_smt2_pp(out << "(model-del ", f->get_name(), f->is_skolem(), *m_env) << ")\n";    
+}
+
+void model_converter::display_add(std::ostream& out, ast_manager& m) {
+    // default printer for converter that adds entries
+    model_ref mdl = alloc(model, m);
+    (*this)(mdl);
+    for (unsigned i = 0, sz = mdl->get_num_constants(); i < sz; ++i) {
+        func_decl* f = mdl->get_constant(i);
+        display_add(out, m, f, mdl->get_const_interp(f));
+    }
+    for (unsigned i = 0, sz = mdl->get_num_functions(); i < sz; ++i) {
+        func_decl* f = mdl->get_function(i);
+        func_interp* fi = mdl->get_func_interp(f);
+        display_add(out, m, f, fi->get_interp());
+    }
+}
+
 
 class concat_model_converter : public concat_converter<model_converter> {
 public:
-    concat_model_converter(model_converter * mc1, model_converter * mc2):concat_converter<model_converter>(mc1, mc2) {}
+    concat_model_converter(model_converter * mc1, model_converter * mc2): concat_converter<model_converter>(mc1, mc2) {
+        VERIFY(m_c1 && m_c2);
+    }
 
     virtual void operator()(model_ref & m) {
         this->m_c2->operator()(m);
@@ -37,12 +72,16 @@ public:
         this->m_c2->operator()(r, goal_idx);
         this->m_c1->operator()(r, 0);
     }
-
   
     virtual char const * get_name() const { return "concat-model-converter"; }
 
     virtual model_converter * translate(ast_translation & translator) {
         return this->translate_core<concat_model_converter>(translator);
+    }
+
+    virtual void collect(ast_pp_util& visitor) { 
+        this->m_c1->collect(visitor);
+        this->m_c2->collect(visitor);
     }
 };
 
@@ -90,9 +129,9 @@ public:
                 // found the model converter that should be used
                 model_converter * c2 = this->m_c2s[i];
                 if (c2)
-                  c2->operator()(r, goal_idx);
+                    c2->operator()(r, goal_idx);
                 if (m_c1)
-                  this->m_c1->operator()(r, i);
+                    this->m_c1->operator()(r, i);
                 return;
             }
             // invalid goal
@@ -143,10 +182,10 @@ public:
     }
 
     virtual void operator()(labels_vec & r, unsigned goal_idx) {
-      r.append(m_labels.size(), m_labels.c_ptr());
+        r.append(m_labels.size(), m_labels.c_ptr());
     }
 
-  virtual void cancel() {
+    virtual void cancel() {
     }
     
     virtual void display(std::ostream & out) {

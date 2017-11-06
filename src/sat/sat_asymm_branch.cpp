@@ -115,6 +115,7 @@ namespace sat {
     }
 
     bool asymm_branch::process(clause & c) {
+        if (c.is_blocked()) return true;
         TRACE("asymm_branch_detail", tout << "processing: " << c << "\n";);
         SASSERT(s.scope_lvl() == 0);
         SASSERT(s.m_qhead == s.m_trail.size());

@@ -31,7 +31,7 @@ Revision History:
 // #define TRACE_NTH_ROOT
 
 template<typename C>
-interval_manager<C>::interval_manager(reslimit& lim, C const & c): m_limit(lim), m_c(c) {
+interval_manager<C>::interval_manager(reslimit& lim, C && c): m_limit(lim), m_c(std::move(c)) {
     m().set(m_minus_one, -1);
     m().set(m_one, 1);
     m_pi_n = 0;

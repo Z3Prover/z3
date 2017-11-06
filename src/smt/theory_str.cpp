@@ -166,14 +166,18 @@ namespace smt {
         }
     }
 
-    void theory_str::assert_axiom(expr * e) {
+    void theory_str::assert_axiom(expr * _e) {
         if (opt_VerifyFinalCheckProgress) {
             finalCheckProgressIndicator = true;
         }
 
-        if (get_manager().is_true(e)) return;
-        TRACE("str", tout << "asserting " << mk_ismt2_pp(e, get_manager()) << std::endl;);
+        if (get_manager().is_true(_e)) return;
         context & ctx = get_context();
+        ast_manager& m = get_manager();
+        TRACE("str", tout << "asserting " << mk_ismt2_pp(_e, m) << std::endl;);
+        expr_ref e(_e, m);
+        //th_rewriter rw(m);
+        //rw(e);
         if (!ctx.b_internalized(e)) {
             ctx.internalize(e, false);
         }
@@ -190,13 +194,13 @@ namespace smt {
 
     expr * theory_str::rewrite_implication(expr * premise, expr * conclusion) {
         ast_manager & m = get_manager();
-        return m.mk_or(m.mk_not(premise), conclusion);
+        return m.mk_or(mk_not(m, premise), conclusion);
     }
 
     void theory_str::assert_implication(expr * premise, expr * conclusion) {
         ast_manager & m = get_manager();
         TRACE("str", tout << "asserting implication " << mk_ismt2_pp(premise, m) << " -> " << mk_ismt2_pp(conclusion, m) << std::endl;);
-        expr_ref axiom(m.mk_or(m.mk_not(premise), conclusion), m);
+        expr_ref axiom(m.mk_or(mk_not(m, premise), conclusion), m);
         assert_axiom(axiom);
     }
 
@@ -315,6 +319,7 @@ namespace smt {
         m_trail.push_back(node);
         if (!cut_var_map.contains(baseNode)) {
             T_cut * varInfo = alloc(T_cut);
+            m_cut_allocs.push_back(varInfo);
             varInfo->level = slevel;
             varInfo->vars[node] = 1;
             cut_var_map.insert(baseNode, std::stack<T_cut*>());
@@ -323,6 +328,7 @@ namespace smt {
         } else {
             if (cut_var_map[baseNode].empty()) {
                 T_cut * varInfo = alloc(T_cut);
+                m_cut_allocs.push_back(varInfo);
                 varInfo->level = slevel;
                 varInfo->vars[node] = 1;
                 cut_var_map[baseNode].push(varInfo);
@@ -330,6 +336,7 @@ namespace smt {
             } else {
                 if (cut_var_map[baseNode].top()->level < slevel) {
                     T_cut * varInfo = alloc(T_cut);
+                    m_cut_allocs.push_back(varInfo);
                     varInfo->level = slevel;
                     cut_vars_map_copy(varInfo->vars, cut_var_map[baseNode].top()->vars);
                     varInfo->vars[node] = 1;
@@ -359,6 +366,7 @@ namespace smt {
 
         if (!cut_var_map.contains(destNode)) {
             T_cut * varInfo = alloc(T_cut);
+            m_cut_allocs.push_back(varInfo);
             varInfo->level = slevel;
             cut_vars_map_copy(varInfo->vars, cut_var_map[srcNode].top()->vars);
             cut_var_map.insert(destNode, std::stack<T_cut*>());
@@ -367,6 +375,7 @@ namespace smt {
         } else {
             if (cut_var_map[destNode].empty() || cut_var_map[destNode].top()->level < slevel) {
                 T_cut * varInfo = alloc(T_cut);
+                m_cut_allocs.push_back(varInfo);
                 varInfo->level = slevel;
                 cut_vars_map_copy(varInfo->vars, cut_var_map[destNode].top()->vars);
                 cut_vars_map_copy(varInfo->vars, cut_var_map[srcNode].top()->vars);
@@ -540,7 +549,7 @@ namespace smt {
         context & ctx = get_context();
         ast_manager & m = get_manager();
 
-        expr_ref ax1(m.mk_not(ctx.mk_eq_atom(s, mk_string(""))), m);
+        expr_ref ax1(mk_not(m, ctx.mk_eq_atom(s, mk_string(""))), m);
         assert_axiom(ax1);
 
         {
@@ -552,7 +561,7 @@ namespace smt {
             SASSERT(zero);
             // build LHS > RHS and assert
             // we have to build !(LHS <= RHS) instead
-            expr_ref lhs_gt_rhs(m.mk_not(m_autil.mk_le(len_str, zero)), m);
+            expr_ref lhs_gt_rhs(mk_not(m, m_autil.mk_le(len_str, zero)), m);
             SASSERT(lhs_gt_rhs);
             assert_axiom(lhs_gt_rhs);
         }
@@ -587,7 +596,7 @@ namespace smt {
             SASSERT(zero);
             // build LHS > RHS and assert
             // we have to build !(LHS <= RHS) instead
-            expr_ref lhs_gt_rhs(m.mk_not(m_autil.mk_le(len_str, zero)), m);
+            expr_ref lhs_gt_rhs(mk_not(m, m_autil.mk_le(len_str, zero)), m);
             SASSERT(lhs_gt_rhs);
             assert_axiom(lhs_gt_rhs);
         }
@@ -1084,7 +1093,7 @@ namespace smt {
                           m_autil.mk_ge(expr->get_arg(1), mk_int(0)),
                           // REWRITE for arithmetic theory:
                           // m_autil.mk_lt(expr->get_arg(1), mk_strlen(expr->get_arg(0)))
-                          m.mk_not(m_autil.mk_ge(m_autil.mk_add(expr->get_arg(1), m_autil.mk_mul(mk_int(-1), mk_strlen(expr->get_arg(0)))), mk_int(0)))
+                          mk_not(m, m_autil.mk_ge(m_autil.mk_add(expr->get_arg(1), m_autil.mk_mul(mk_int(-1), mk_strlen(expr->get_arg(0)))), mk_int(0)))
                                ), m);
 
         expr_ref_vector and_item(m);
@@ -1125,7 +1134,7 @@ namespace smt {
         expr_ref_vector innerItems(m);
         innerItems.push_back(ctx.mk_eq_atom(expr->get_arg(1), mk_concat(ts0, ts1)));
         innerItems.push_back(ctx.mk_eq_atom(mk_strlen(ts0), mk_strlen(expr->get_arg(0))));
-        innerItems.push_back(m.mk_ite(ctx.mk_eq_atom(ts0, expr->get_arg(0)), expr, m.mk_not(expr)));
+        innerItems.push_back(m.mk_ite(ctx.mk_eq_atom(ts0, expr->get_arg(0)), expr, mk_not(m, expr)));
         expr_ref then1(m.mk_and(innerItems.size(), innerItems.c_ptr()), m);
         SASSERT(then1);
 
@@ -1138,7 +1147,7 @@ namespace smt {
             , m);
         SASSERT(topLevelCond);
 
-        expr_ref finalAxiom(m.mk_ite(topLevelCond, then1, m.mk_not(expr)), m);
+        expr_ref finalAxiom(m.mk_ite(topLevelCond, then1, mk_not(m, expr)), m);
         SASSERT(finalAxiom);
         assert_axiom(finalAxiom);
     }
@@ -1162,7 +1171,7 @@ namespace smt {
         expr_ref_vector innerItems(m);
         innerItems.push_back(ctx.mk_eq_atom(expr->get_arg(1), mk_concat(ts0, ts1)));
         innerItems.push_back(ctx.mk_eq_atom(mk_strlen(ts1), mk_strlen(expr->get_arg(0))));
-        innerItems.push_back(m.mk_ite(ctx.mk_eq_atom(ts1, expr->get_arg(0)), expr, m.mk_not(expr)));
+        innerItems.push_back(m.mk_ite(ctx.mk_eq_atom(ts1, expr->get_arg(0)), expr, mk_not(m, expr)));
         expr_ref then1(m.mk_and(innerItems.size(), innerItems.c_ptr()), m);
         SASSERT(then1);
 
@@ -1175,7 +1184,7 @@ namespace smt {
             , m);
         SASSERT(topLevelCond);
 
-        expr_ref finalAxiom(m.mk_ite(topLevelCond, then1, m.mk_not(expr)), m);
+        expr_ref finalAxiom(m.mk_ite(topLevelCond, then1, mk_not(m, expr)), m);
         SASSERT(finalAxiom);
         assert_axiom(finalAxiom);
     }
@@ -1199,7 +1208,7 @@ namespace smt {
             if (haystackStr.contains(needleStr)) {
                 assert_axiom(ex);
             } else {
-                assert_axiom(m.mk_not(ex));
+                assert_axiom(mk_not(m, ex));
             }
             return;
         }
@@ -1260,7 +1269,7 @@ namespace smt {
         SASSERT(tmpLen);
         thenItems.push_back(ctx.mk_eq_atom(expr->get_arg(0), mk_concat(x3, x4)));
         thenItems.push_back(ctx.mk_eq_atom(mk_strlen(x3), tmpLen));
-        thenItems.push_back(m.mk_not(mk_contains(x3, expr->get_arg(1))));
+        thenItems.push_back(mk_not(m, mk_contains(x3, expr->get_arg(1))));
         expr_ref thenBranch(m.mk_and(thenItems.size(), thenItems.c_ptr()), m);
         SASSERT(thenBranch);
 
@@ -1336,7 +1345,7 @@ namespace smt {
 
         expr_ref ite1(m.mk_ite(
                           //m_autil.mk_lt(expr->get_arg(2), zeroAst),
-                          m.mk_not(m_autil.mk_ge(expr->get_arg(2), zeroAst)),
+                          mk_not(m, m_autil.mk_ge(expr->get_arg(2), zeroAst)),
                           ctx.mk_eq_atom(resAst, mk_indexof(expr->get_arg(0), expr->get_arg(1))),
                           ite2
                                ), m);
@@ -1379,7 +1388,7 @@ namespace smt {
         thenItems.push_back(m_autil.mk_ge(indexAst, mk_int(0)));
         //  args[0] = x1 . args[1] . x2
         //  x1 doesn't contain args[1]
-        thenItems.push_back(m.mk_not(mk_contains(x2, expr->get_arg(1))));
+        thenItems.push_back(mk_not(m, mk_contains(x2, expr->get_arg(1))));
         thenItems.push_back(ctx.mk_eq_atom(indexAst, mk_strlen(x1)));
 
         bool canSkip = false;
@@ -1397,7 +1406,7 @@ namespace smt {
             expr_ref tmpLen(m_autil.mk_add(indexAst, mk_int(1)), m);
             thenItems.push_back(ctx.mk_eq_atom(expr->get_arg(0), mk_concat(x3, x4)));
             thenItems.push_back(ctx.mk_eq_atom(mk_strlen(x3), tmpLen));
-            thenItems.push_back(m.mk_not(mk_contains(x4, expr->get_arg(1))));
+            thenItems.push_back(mk_not(m, mk_contains(x4, expr->get_arg(1))));
         }
         //----------------------------
         // else branch
@@ -1417,104 +1426,6 @@ namespace smt {
         assert_axiom(finalAxiom);
     }
 
-    void theory_str::instantiate_axiom_Substr(enode * e) {
-        context & ctx = get_context();
-        ast_manager & m = get_manager();
-
-        app * expr = e->get_owner();
-        if (axiomatized_terms.contains(expr)) {
-            TRACE("str", tout << "already set up Substr axiom for " << mk_pp(expr, m) << std::endl;);
-            return;
-        }
-        axiomatized_terms.insert(expr);
-
-        TRACE("str", tout << "instantiate Substr axiom for " << mk_pp(expr, m) << std::endl;);
-
-        expr_ref substrBase(expr->get_arg(0), m);
-        expr_ref substrPos(expr->get_arg(1), m);
-        expr_ref substrLen(expr->get_arg(2), m);
-        SASSERT(substrBase);
-        SASSERT(substrPos);
-        SASSERT(substrLen);
-
-        expr_ref zero(m_autil.mk_numeral(rational::zero(), true), m);
-        expr_ref minusOne(m_autil.mk_numeral(rational::minus_one(), true), m);
-        SASSERT(zero);
-        SASSERT(minusOne);
-
-        expr_ref_vector argumentsValid_terms(m);
-        // pos >= 0
-        argumentsValid_terms.push_back(m_autil.mk_ge(substrPos, zero));
-        // pos < strlen(base)
-        // --> pos + -1*strlen(base) < 0
-        argumentsValid_terms.push_back(m.mk_not(m_autil.mk_ge(
-                                                    m_autil.mk_add(substrPos, m_autil.mk_mul(minusOne, substrLen)),
-                                                    zero)));
-
-        // len >= 0
-        argumentsValid_terms.push_back(m_autil.mk_ge(substrLen, zero));
-
-        expr_ref argumentsValid(mk_and(argumentsValid_terms), m);
-        SASSERT(argumentsValid);
-        ctx.internalize(argumentsValid, false);
-
-        // (pos+len) >= strlen(base)
-        // --> pos + len + -1*strlen(base) >= 0
-        expr_ref lenOutOfBounds(m_autil.mk_ge(
-                                    m_autil.mk_add(substrPos, substrLen, m_autil.mk_mul(minusOne, mk_strlen(substrBase))),
-                                    zero), m);
-        SASSERT(lenOutOfBounds);
-        ctx.internalize(argumentsValid, false);
-
-        // Case 1: pos < 0 or pos >= strlen(base) or len < 0
-        // ==> (Substr ...) = ""
-        expr_ref case1_premise(m.mk_not(argumentsValid), m);
-        SASSERT(case1_premise);
-        ctx.internalize(case1_premise, false);
-        expr_ref case1_conclusion(ctx.mk_eq_atom(expr, mk_string("")), m);
-        SASSERT(case1_conclusion);
-        ctx.internalize(case1_conclusion, false);
-        expr_ref case1(rewrite_implication(case1_premise, case1_conclusion), m);
-        SASSERT(case1);
-
-        // Case 2: (pos >= 0 and pos < strlen(base) and len >= 0) and (pos+len) >= strlen(base)
-        // ==> base = t0.t1 AND len(t0) = pos AND (Substr ...) = t1
-        expr_ref t0(mk_str_var("t0"), m);
-        expr_ref t1(mk_str_var("t1"), m);
-        expr_ref case2_conclusion(m.mk_and(
-                                      ctx.mk_eq_atom(substrBase, mk_concat(t0,t1)),
-                                      ctx.mk_eq_atom(mk_strlen(t0), substrPos),
-                                      ctx.mk_eq_atom(expr, t1)), m);
-        expr_ref case2(rewrite_implication(m.mk_and(argumentsValid, lenOutOfBounds), case2_conclusion), m);
-        SASSERT(case2);
-
-        // Case 3: (pos >= 0 and pos < strlen(base) and len >= 0) and (pos+len) < strlen(base)
-        // ==> base = t2.t3.t4 AND len(t2) = pos AND len(t3) = len AND (Substr ...) = t3
-
-        expr_ref t2(mk_str_var("t2"), m);
-        expr_ref t3(mk_str_var("t3"), m);
-        expr_ref t4(mk_str_var("t4"), m);
-        expr_ref_vector case3_conclusion_terms(m);
-        case3_conclusion_terms.push_back(ctx.mk_eq_atom(substrBase, mk_concat(t2, mk_concat(t3, t4))));
-        case3_conclusion_terms.push_back(ctx.mk_eq_atom(mk_strlen(t2), substrPos));
-        case3_conclusion_terms.push_back(ctx.mk_eq_atom(mk_strlen(t3), substrLen));
-        case3_conclusion_terms.push_back(ctx.mk_eq_atom(expr, t3));
-        expr_ref case3_conclusion(mk_and(case3_conclusion_terms), m);
-        expr_ref case3(rewrite_implication(m.mk_and(argumentsValid, m.mk_not(lenOutOfBounds)), case3_conclusion), m);
-        SASSERT(case3);
-
-        ctx.internalize(case1, false);
-        ctx.internalize(case2, false);
-        ctx.internalize(case3, false);
-
-        expr_ref finalAxiom(m.mk_and(case1, case2, case3), m);
-        SASSERT(finalAxiom);
-        assert_axiom(finalAxiom);
-    }
-
-#if 0
-    // rewrite
-    // requires to add th_rewriter to assert_axiom to enforce normal form.
     void theory_str::instantiate_axiom_Substr(enode * e) {
         context & ctx = get_context();
         ast_manager & m = get_manager();
@@ -1543,9 +1454,10 @@ namespace smt {
         argumentsValid_terms.push_back(m_autil.mk_ge(substrPos, zero));
         // pos < strlen(base)
         // --> pos + -1*strlen(base) < 0
-        argumentsValid_terms.push_back(m.mk_not(m_autil.mk_ge(
+        argumentsValid_terms.push_back(mk_not(m, m_autil.mk_ge(
                                                     m_autil.mk_add(substrPos, m_autil.mk_mul(minusOne, substrLen)),
                                                     zero)));
+
         // len >= 0
         argumentsValid_terms.push_back(m_autil.mk_ge(substrLen, zero));
 
@@ -1575,6 +1487,7 @@ namespace smt {
 
         // Case 3: (pos >= 0 and pos < strlen(base) and len >= 0) and (pos+len) < strlen(base)
         // ==> base = t2.t3.t4 AND len(t2) = pos AND len(t3) = len AND (Substr ...) = t3
+
         expr_ref t2(mk_str_var("t2"), m);
         expr_ref t3(mk_str_var("t3"), m);
         expr_ref t4(mk_str_var("t4"), m);
@@ -1586,11 +1499,22 @@ namespace smt {
         expr_ref case3_conclusion(mk_and(case3_conclusion_terms), m);
         expr_ref case3(m.mk_implies(m.mk_and(argumentsValid, m.mk_not(lenOutOfBounds)), case3_conclusion), m);
 
-        assert_axiom(case1);
-        assert_axiom(case2);
-        assert_axiom(case3);
+        {
+            th_rewriter rw(m);
+
+            expr_ref case1_rw(case1, m);
+            rw(case1_rw);
+            assert_axiom(case1_rw);
+
+            expr_ref case2_rw(case2, m);
+            rw(case2_rw);
+            assert_axiom(case2_rw);
+
+            expr_ref case3_rw(case3, m);
+            rw(case3_rw);
+            assert_axiom(case3_rw);
+        }
     }
-#endif
 
     void theory_str::instantiate_axiom_Replace(enode * e) {
         context & ctx = get_context();
@@ -1625,19 +1549,23 @@ namespace smt {
         expr_ref tmpLen(m_autil.mk_add(i1, mk_strlen(expr->get_arg(1)), mk_int(-1)), m);
         thenItems.push_back(ctx.mk_eq_atom(expr->get_arg(0), mk_concat(x3, x4)));
         thenItems.push_back(ctx.mk_eq_atom(mk_strlen(x3), tmpLen));
-        thenItems.push_back(m.mk_not(mk_contains(x3, expr->get_arg(1))));
+        thenItems.push_back(mk_not(m, mk_contains(x3, expr->get_arg(1))));
         thenItems.push_back(ctx.mk_eq_atom(result, mk_concat(x1, mk_concat(expr->get_arg(2), x2))));
         // -----------------------
         // false branch
         expr_ref elseBranch(ctx.mk_eq_atom(result, expr->get_arg(0)), m);
 
+        th_rewriter rw(m);
+
         expr_ref breakdownAssert(m.mk_ite(condAst, m.mk_and(thenItems.size(), thenItems.c_ptr()), elseBranch), m);
-        assert_axiom(breakdownAssert);
-        
-        SASSERT(breakdownAssert);
+        expr_ref breakdownAssert_rw(breakdownAssert, m);
+        rw(breakdownAssert_rw);
+        assert_axiom(breakdownAssert_rw);
 
         expr_ref reduceToResult(ctx.mk_eq_atom(expr, result), m);
-        assert_axiom(reduceToResult);
+        expr_ref reduceToResult_rw(reduceToResult, m);
+        rw(reduceToResult_rw);
+        assert_axiom(reduceToResult_rw);
     }
 
     void theory_str::instantiate_axiom_str_to_int(enode * e) {
@@ -1679,7 +1607,7 @@ namespace smt {
             expr_ref tl(mk_str_var("tl"), m);
             expr_ref conclusion1(ctx.mk_eq_atom(S, mk_concat(hd, tl)), m);
             expr_ref conclusion2(ctx.mk_eq_atom(mk_strlen(hd), m_autil.mk_numeral(rational::one(), true)), m);
-            expr_ref conclusion3(m.mk_not(ctx.mk_eq_atom(hd, mk_string("0"))), m);
+            expr_ref conclusion3(mk_not(m, ctx.mk_eq_atom(hd, mk_string("0"))), m);
             expr_ref conclusion(m.mk_and(conclusion1, conclusion2, conclusion3), m);
             SASSERT(premise);
             SASSERT(conclusion);
@@ -1703,7 +1631,7 @@ namespace smt {
         // axiom 1: N < 0 <==> (str.from-int N) = ""
         expr * N = ex->get_arg(0);
         {
-            expr_ref axiom1_lhs(m.mk_not(m_autil.mk_ge(N, m_autil.mk_numeral(rational::zero(), true))), m);
+            expr_ref axiom1_lhs(mk_not(m, m_autil.mk_ge(N, m_autil.mk_numeral(rational::zero(), true))), m);
             expr_ref axiom1_rhs(ctx.mk_eq_atom(ex, mk_string("")), m);
             expr_ref axiom1(ctx.mk_eq_atom(axiom1_lhs, axiom1_rhs), m);
             SASSERT(axiom1);
@@ -1942,7 +1870,7 @@ namespace smt {
                 // inconsistency check: value
                 if (!can_two_nodes_eq(eqc_nn1, eqc_nn2)) {
                     TRACE("str", tout << "inconsistency detected: " << mk_pp(eqc_nn1, m) << " cannot be equal to " << mk_pp(eqc_nn2, m) << std::endl;);
-                    expr_ref to_assert(m.mk_not(ctx.mk_eq_atom(eqc_nn1, eqc_nn2)), m);
+                    expr_ref to_assert(mk_not(m, ctx.mk_eq_atom(eqc_nn1, eqc_nn2)), m);
                     assert_axiom(to_assert);
                     // this shouldn't use the integer theory at all, so we don't allow the option of quick-return
                     return false;
@@ -2155,7 +2083,7 @@ namespace smt {
                                 expr_ref implyR11(ctx.mk_eq_atom(mk_strlen(arg1), mk_int(makeUpLenArg1)), m);
                                 assert_implication(implyL11, implyR11);
                             } else {
-                                expr_ref neg(m.mk_not(implyL11), m);
+                                expr_ref neg(mk_not(m, implyL11), m);
                                 assert_axiom(neg);
                             }
                         }
@@ -2226,7 +2154,7 @@ namespace smt {
                                 expr_ref implyR11(ctx.mk_eq_atom(mk_strlen(arg0), mk_int(makeUpLenArg0)), m);
                                 assert_implication(implyL11, implyR11);
                             } else {
-                                expr_ref neg(m.mk_not(implyL11), m);
+                                expr_ref neg(mk_not(m, implyL11), m);
                                 assert_axiom(neg);
                             }
                         }
@@ -2757,7 +2685,7 @@ namespace smt {
         }
 
         if (!can_two_nodes_eq(new_nn1, new_nn2)) {
-            expr_ref detected(m.mk_not(ctx.mk_eq_atom(new_nn1, new_nn2)), m);
+            expr_ref detected(mk_not(m, ctx.mk_eq_atom(new_nn1, new_nn2)), m);
             TRACE("str", tout << "inconsistency detected: " << mk_ismt2_pp(detected, m) << std::endl;);
             assert_axiom(detected);
             return;
@@ -4747,12 +4675,10 @@ namespace smt {
     bool theory_str::get_arith_value(expr* e, rational& val) const {
         context& ctx = get_context();
         ast_manager & m = get_manager();
-
-    // safety
-    if (!ctx.e_internalized(e)) {
+        // safety
+        if (!ctx.e_internalized(e)) {
             return false;
-    }
-    
+        }
         // if an integer constant exists in the eqc, it should be the root
         enode * en_e = ctx.get_enode(e);
         enode * root_e = en_e->get_root();
@@ -5003,7 +4929,7 @@ namespace smt {
                             implyR = boolVar;
                         } else {
                             //implyR = Z3_mk_eq(ctx, boolVar, Z3_mk_false(ctx));
-                            implyR = m.mk_not(boolVar);
+                            implyR = mk_not(m, boolVar);
                         }
                     } else {
                         // ------------------------------------------------------------------------------------------------
@@ -5032,7 +4958,7 @@ namespace smt {
                                         litems.push_back(ctx.mk_eq_atom(substrAst, aConcat));
                                     }
                                     //implyR = Z3_mk_eq(ctx, boolVar, Z3_mk_false(ctx));
-                                    implyR = m.mk_not(boolVar);
+                                    implyR = mk_not(m, boolVar);
                                     break;
                                 }
                             }
@@ -5071,7 +4997,7 @@ namespace smt {
                             implyR = boolVar;
                         } else {
                             // implyR = Z3_mk_eq(ctx, boolVar, Z3_mk_false(ctx));
-                            implyR = m.mk_not(boolVar);
+                            implyR = mk_not(m, boolVar);
                         }
                     }
 
@@ -5141,7 +5067,7 @@ namespace smt {
                                             litems.push_back(ctx.mk_eq_atom(substrAst, aConcat));
                                         }
                                         expr_ref implyLHS(mk_and(litems), m);
-                                        expr_ref implyR(m.mk_not(boolVar), m);
+                                        expr_ref implyR(mk_not(m, boolVar), m);
                                         assert_implication(implyLHS, implyR);
                                         break;
                                     }
@@ -6510,7 +6436,7 @@ namespace smt {
                             if (matchRes) {
                                 assert_implication(implyL, boolVar);
                             } else {
-                                assert_implication(implyL, m.mk_not(boolVar));
+                                assert_implication(implyL, mk_not(m, boolVar));
                             }
                         }
                     }
@@ -6598,7 +6524,7 @@ namespace smt {
                           << arg1_str << "\" + \"" << arg2_str <<
                           "\" != \"" << const_str << "\"" << "\n";);
                     expr_ref equality(ctx.mk_eq_atom(concat, str), m);
-                    expr_ref diseq(m.mk_not(equality), m);
+                    expr_ref diseq(mk_not(m, equality), m);
                     assert_axiom(diseq);
                     return;
                 }
@@ -6616,7 +6542,7 @@ namespace smt {
                           "\" is longer than \"" << const_str << "\","
                           << " so cannot be concatenated with anything to form it" << "\n";);
                     expr_ref equality(ctx.mk_eq_atom(newConcat, str), m);
-                    expr_ref diseq(m.mk_not(equality), m);
+                    expr_ref diseq(mk_not(m, equality), m);
                     assert_axiom(diseq);
                     return;
                 } else {
@@ -6630,7 +6556,7 @@ namespace smt {
                               << "actually \"" << arg2_str << "\""
                               << "\n";);
                         expr_ref equality(ctx.mk_eq_atom(newConcat, str), m);
-                        expr_ref diseq(m.mk_not(equality), m);
+                        expr_ref diseq(mk_not(m, equality), m);
                         assert_axiom(diseq);
                         return;
                     } else {
@@ -8883,15 +8809,30 @@ namespace smt {
                 if (concat_lhs_haseqc && concat_rhs_haseqc && !var_haseqc) {
                     TRACE("str", tout << "backpropagate into " << mk_pp(var, m) << " = " << mk_pp(concat, m) << std::endl
                           << "LHS ~= " << mk_pp(concat_lhs_str, m) << " RHS ~= " << mk_pp(concat_rhs_str, m) << std::endl;);
+
                     zstring lhsString, rhsString;
                     u.str.is_string(concat_lhs_str, lhsString);
                     u.str.is_string(concat_rhs_str, rhsString);
                     zstring concatString = lhsString + rhsString;
-                    expr_ref lhs1(ctx.mk_eq_atom(concat_lhs, concat_lhs_str), m);
-                    expr_ref lhs2(ctx.mk_eq_atom(concat_rhs, concat_rhs_str), m);
-                    expr_ref lhs(m.mk_and(lhs1, lhs2), m);
-                    expr_ref rhs(ctx.mk_eq_atom(concat, mk_string(concatString)), m);
-                    assert_implication(lhs, rhs);
+
+                    // special handling: don't assert that string constants are equal to themselves
+                    expr_ref_vector lhs_terms(m);
+                    if (!u.str.is_string(concat_lhs)) {
+                        lhs_terms.push_back(ctx.mk_eq_atom(concat_lhs, concat_lhs_str));
+                    }
+                    if (!u.str.is_string(concat_rhs)) {
+                        lhs_terms.push_back(ctx.mk_eq_atom(concat_rhs, concat_rhs_str));
+                    }
+
+                    if (lhs_terms.empty()) {
+                        // no assumptions on LHS
+                        expr_ref rhs(ctx.mk_eq_atom(concat, mk_string(concatString)), m);
+                        assert_axiom(rhs);
+                    } else {
+                        expr_ref lhs(mk_and(lhs_terms), m);
+                        expr_ref rhs(ctx.mk_eq_atom(concat, mk_string(concatString)), m);
+                        assert_implication(lhs, rhs);
+                    }
                     backpropagation_occurred = true;
                 }
             }
@@ -9887,6 +9828,21 @@ namespace smt {
         expr_ref freeVarLen(mk_strlen(freeVar), m);
         SASSERT(freeVarLen);
 
+        {
+            rational freeVar_len_value;
+            if (get_len_value(freeVar, freeVar_len_value)) {
+                TRACE("str", tout << "special case: length of freeVar is known to be " << freeVar_len_value << std::endl;);
+                expr_ref concreteOption(ctx.mk_eq_atom(indicator, mk_string(freeVar_len_value.to_string().c_str()) ), m);
+                expr_ref concreteValue(ctx.mk_eq_atom(
+                        ctx.mk_eq_atom(indicator, mk_string(freeVar_len_value.to_string().c_str()) ),
+                        ctx.mk_eq_atom(freeVarLen, m_autil.mk_numeral(freeVar_len_value, true))), m);
+                expr_ref finalAxiom(m.mk_and(concreteOption, concreteValue), m);
+                SASSERT(finalAxiom);
+                m_trail.push_back(finalAxiom);
+                return finalAxiom;
+            }
+        }
+
         expr_ref_vector orList(m);
         expr_ref_vector andList(m);
 
@@ -10201,6 +10157,16 @@ namespace smt {
             }
             refresh_theory_var(firstTester);
 
+            {
+                rational freeVar_len_value;
+                if (get_len_value(freeVar, freeVar_len_value)) {
+                    TRACE("str", tout << "special case: length of freeVar is known to be " << freeVar_len_value << std::endl;);
+                    midPoint = freeVar_len_value;
+                    upperBound = midPoint * 2;
+                    windowSize = upperBound;
+                }
+            }
+
             binary_search_len_tester_stack[freeVar].push_back(firstTester);
             m_trail_stack.push(binary_search_trail<theory_str>(binary_search_len_tester_stack, freeVar));
             binary_search_info new_info(lowerBound, midPoint, upperBound, windowSize);
@@ -10464,6 +10430,9 @@ namespace smt {
             // iterate parents
             if (standAlone) {
                 // I hope this works!
+                if (!ctx.e_internalized(freeVar)) {
+                    ctx.internalize(freeVar, false);
+                }
                 enode * e_freeVar = ctx.get_enode(freeVar);
                 enode_vector::iterator it = e_freeVar->begin_parents();
                 for (; it != e_freeVar->end_parents(); ++it) {

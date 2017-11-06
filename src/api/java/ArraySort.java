@@ -56,4 +56,10 @@ public class ArraySort extends Sort
         super(ctx, Native.mkArraySort(ctx.nCtx(), domain.getNativeObject(),
                 range.getNativeObject()));
     }
+
+    ArraySort(Context ctx, Sort[] domains, Sort range)
+    {
+        super(ctx, Native.mkArraySortN(ctx.nCtx(), domains.length, AST.arrayToNative(domains),
+                range.getNativeObject()));
+    }
 };

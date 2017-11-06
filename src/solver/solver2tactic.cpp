@@ -122,6 +122,7 @@ public:
                 local_solver->get_model(mdl);
                 mc = model2model_converter(mdl.get());
                 mc = concat(fmc.get(), mc.get());
+                mc = concat(local_solver->mc0(), mc.get());
             }
             in->reset();
             result.push_back(in.get());
@@ -150,14 +151,8 @@ public:
             if (m.canceled()) {
                 throw tactic_exception(Z3_CANCELED_MSG);
             }
-            if (in->models_enabled()) {
-                model_ref mdl;
-                local_solver->get_model(mdl);
-                if (mdl) {
-                    mc = model2model_converter(mdl.get());
-                    mc = concat(fmc.get(), mc.get());
-                }
-            }
+            mc = local_solver->get_model_converter();                
+            mc = concat(fmc.get(), mc.get());            
             in->reset();
             unsigned sz = local_solver->get_num_assertions();
             for (unsigned i = 0; i < sz; ++i) {

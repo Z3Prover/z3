@@ -1882,6 +1882,17 @@ extern "C" {
     Z3_sort Z3_API Z3_mk_array_sort(Z3_context c, Z3_sort domain, Z3_sort range);
 
     /**
+       \brief Create an array type with N arguments
+
+       \sa Z3_mk_select_n
+       \sa Z3_mk_store_n
+
+       def_API('Z3_mk_array_sort_n', SORT, (_in(CONTEXT), _in(UINT), _in_array(1, SORT), _in(SORT)))
+    */
+    Z3_sort Z3_API Z3_mk_array_sort_n(Z3_context c, unsigned n, Z3_sort const * domain, Z3_sort range);
+
+
+    /**
        \brief Create a tuple type.
 
        A tuple with \c n fields has a constructor and \c n projections.
@@ -2974,6 +2985,15 @@ extern "C" {
     Z3_ast Z3_API Z3_mk_select(Z3_context c, Z3_ast a, Z3_ast i);
 
     /**
+       \brief n-ary Array read.
+       The argument \c a is the array and \c idxs are the indices of the array that gets read.
+
+       def_API('Z3_mk_select_n', AST, (_in(CONTEXT), _in(AST), _in(UINT), _in_array(2, AST)))
+
+    */
+    Z3_ast Z3_API Z3_mk_select_n(Z3_context c, Z3_ast a, unsigned n, Z3_ast const* idxs);
+
+    /**
        \brief Array update.
 
        The node \c a must have an array sort \ccode{[domain -> range]}, \c i must have sort \c domain,
@@ -2990,6 +3010,14 @@ extern "C" {
        def_API('Z3_mk_store', AST, (_in(CONTEXT), _in(AST), _in(AST), _in(AST)))
     */
     Z3_ast Z3_API Z3_mk_store(Z3_context c, Z3_ast a, Z3_ast i, Z3_ast v);
+
+    /**
+       \brief n-ary Array update.
+
+       def_API('Z3_mk_store_n', AST, (_in(CONTEXT), _in(AST), _in(UINT), _in_array(2, AST), _in(AST)))
+
+    */
+    Z3_ast Z3_API Z3_mk_store_n(Z3_context c, Z3_ast a, unsigned n, Z3_ast const* idxs, Z3_ast v);
 
     /**
         \brief Create the constant array.
@@ -3031,6 +3059,15 @@ extern "C" {
         def_API('Z3_mk_array_default', AST, (_in(CONTEXT), _in(AST)))
     */
     Z3_ast Z3_API Z3_mk_array_default(Z3_context c, Z3_ast array);
+
+    /**
+       \brief Create array with the same interpretation as a function.
+       The array satisfies the property (f x) = (select (_ as-array f) x) 
+       for every argument x.
+
+       def_API('Z3_mk_as_array', AST, (_in(CONTEXT), _in(FUNC_DECL)))
+     */
+    Z3_ast Z3_API Z3_mk_as_array(Z3_context c, Z3_func_decl f);
     /*@}*/
 
     /** @name Sets */
@@ -3854,6 +3891,7 @@ extern "C" {
 
     /**
        \brief Return the domain of the given array sort.
+       In the case of a multi-dimensional array, this function returns the sort of the first dimension.
 
        \pre Z3_get_sort_kind(c, t) == Z3_ARRAY_SORT
 
@@ -6100,6 +6138,13 @@ extern "C" {
     void Z3_API Z3_solver_assert_lemma(Z3_context c, Z3_solver s, Z3_ast a);
 
     /**
+       \brief load solver assertions from a file.
+
+       def_API('Z3_solver_from_file', VOID, (_in(CONTEXT), _in(SOLVER), _in(STRING)))
+    */
+    void Z3_API Z3_solver_from_file(Z3_context c, Z3_solver s, Z3_string file_name);
+
+    /**
        \brief Return the set of asserted formulas on the solver.
 
        def_API('Z3_solver_get_assertions', AST_VECTOR, (_in(CONTEXT), _in(SOLVER)))
@@ -6174,14 +6219,6 @@ extern "C" {
                                                Z3_ast_vector variables,
                                                Z3_ast_vector consequences);
 
-    /**
-       \brief select a literal from the list of candidate propositional variables to split on.
-       If the candidate list is empty, then the solver chooses a formula based on its internal state.
-       
-       def_API('Z3_solver_lookahead', AST, (_in(CONTEXT), _in(SOLVER), _in(AST_VECTOR), _in(AST_VECTOR)))
-    */
-
-    Z3_ast Z3_API Z3_solver_lookahead(Z3_context c, Z3_solver s, Z3_ast_vector assumptions, Z3_ast_vector candidates);
 
     /**
        \brief extract a next cube for a solver. The last cube is the constant \c true or \c false.
@@ -6192,18 +6229,6 @@ extern "C" {
     */
 
     Z3_ast Z3_API Z3_solver_cube(Z3_context c, Z3_solver s);
-
-
-    /**
-       \brief retrieve lemmas from solver state. Lemmas are auxiliary unit literals, 
-       binary clauses and other learned clauses that are below a minimal glue level.
-       Lemmas that have been retrieved in a previous call may be suppressed from subsequent
-       calls.
-
-       def_API('Z3_solver_get_lemmas', AST_VECTOR, (_in(CONTEXT), _in(SOLVER)))
-    */
-
-    Z3_ast_vector Z3_API Z3_solver_get_lemmas(Z3_context c, Z3_solver s);
 
     /**
        \brief Retrieve the model for the last #Z3_solver_check or #Z3_solver_check_assumptions

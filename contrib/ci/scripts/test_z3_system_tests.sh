@@ -10,11 +10,16 @@ set -o pipefail
 : ${PYTHON_BINDINGS?"PYTHON_BINDINGS must be specified"}
 : ${PYTHON_EXECUTABLE?"PYTHON_EXECUTABLE must be specified"}
 : ${Z3_SYSTEM_TEST_DIR?"Z3_SYSTEM_TEST_DIR must be specified"}
+: ${UBSAN_BUILD?"UBSAN_BUILD must be specified"}
 
 if [ "X${RUN_SYSTEM_TESTS}" != "X1" ]; then
   echo "Skipping system tests"
   exit 0
 fi
+
+# Sanitizer environment variables
+SCRIPT_DIR="$( cd ${BASH_SOURCE[0]%/*} ; echo $PWD )"
+source ${SCRIPT_DIR}/sanitizer_env.sh
 
 Z3_EXE="${Z3_BUILD_DIR}/z3"
 Z3_LIB_DIR="${Z3_BUILD_DIR}"
@@ -23,7 +28,7 @@ Z3_LIB_DIR="${Z3_BUILD_DIR}"
 Z3_SYSTEM_TEST_GIT_URL="${Z3_GIT_URL:-https://github.com/Z3Prover/z3test.git}"
 
 # Clone repo to destination
-mkdir -p "${Z3_SYSTEM_TEST_GIT_URL}"
+mkdir -p "${Z3_SYSTEM_TEST_DIR}"
 git clone "${Z3_SYSTEM_TEST_GIT_URL}" "${Z3_SYSTEM_TEST_DIR}"
 cd "${Z3_SYSTEM_TEST_DIR}"
 
@@ -48,7 +53,18 @@ fi
 
 if [ "X${PYTHON_BINDINGS}" = "X1" ]; then
   # Run python binding tests
-  ${PYTHON_EXECUTABLE} scripts/test_pyscripts.py "${Z3_LIB_DIR}" regressions/python/
+  if [ "X${UBSAN_BUILD}" = "X1" ]; then
+    # FIXME: We need to build libz3 with a shared UBSan runtime for the bindings
+    # to work.
+    echo "FIXME: Skipping python binding tests when building with UBSan"
+  elif [ "X${ASAN_BUILD}" = "X1" ]; then
+    # FIXME: The `test_pyscripts.py` doesn't propagate LD_PRELOAD
+    # so under ASan the tests fail to run
+    # to work.
+    echo "FIXME: Skipping python binding tests when building with ASan"
+  else
+    run_non_native_binding ${PYTHON_EXECUTABLE} scripts/test_pyscripts.py "${Z3_LIB_DIR}" regressions/python/
+  fi
 fi
 
 # FIXME: Run `scripts/test_cs.py` once it has been modified to support mono

@@ -11,7 +11,9 @@ Abstract:
 
 Author:
 
-    Nikolaj Bjorner (nbjorner) 2016-2-12
+    Nuno Lopes (nlopes) 2016-2-12
+
+    Nikolaj Bjorner (nbjorner) 
 
 
 --*/
@@ -650,11 +652,11 @@ namespace {
                         return false;
                     if (old == intr)
                         return true;
-                    m_scopes.insert(undo_bound(t1, old, false));
+                    m_scopes.push_back(undo_bound(t1, old, false));
                     old = intr;
                 } else {
                     m_bound.insert(t1, b);
-                    m_scopes.insert(undo_bound(t1, interval(), true));
+                    m_scopes.push_back(undo_bound(t1, interval(), true));
                 }
             }
             return true;
@@ -692,7 +694,8 @@ namespace {
             bool was_updated = true;
             if (b.is_full() && b.tight) {
                 r = m.mk_true();
-            } else if (m_bound.find(t1, ctx)) {
+            } 
+            else if (m_bound.find(t1, ctx)) {
                 if (ctx.implies(b)) {
                     r = m.mk_true();
                 } 
@@ -703,12 +706,15 @@ namespace {
                     r = m.mk_eq(t1, m_bv.mk_numeral(rational(intr.l, rational::ui64()),
                                                     m.get_sort(t1)));
                 }
+                else {
+                    was_updated = false;
+                }
             }
             else {
                 was_updated = false;
             }
 
-            CTRACE("bv", was_updated, tout << mk_pp(t, m) << " " << b << " (ctx: " << ctx << ") (intr: " << intr << "): " << r << "\n";);
+            TRACE("bv", tout << mk_pp(t, m) << " " << b << " (ctx: " << ctx << ") (intr: " << intr << "): " << r << "\n";);
             if (sign && was_updated)
                 r = m.mk_not(r);
         }
@@ -799,6 +805,10 @@ namespace {
 
         virtual dom_simplifier * translate(ast_manager & m) {
             return alloc(dom_bv_bounds_simplifier, m, m_params);
+        }
+
+        virtual unsigned scope_level() const {
+            return m_scopes.size();
         }
 
     };

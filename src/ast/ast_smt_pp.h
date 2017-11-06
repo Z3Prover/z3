@@ -24,8 +24,10 @@ Revision History:
 #include "util/map.h"
 
 class smt_renaming {
+    struct sym_b { symbol name; bool is_skolem; symbol name_aux; sym_b(symbol n, bool s): name(n), is_skolem(s) {} sym_b():name(),is_skolem(false) {}};
     typedef map<symbol, symbol, symbol_hash_proc, symbol_eq_proc> symbol2symbol;
-    symbol2symbol  m_translate;
+    typedef map<symbol, sym_b, symbol_hash_proc, symbol_eq_proc> symbol2sym_b;
+    symbol2sym_b   m_translate;
     symbol2symbol  m_rev_translate;
 
     symbol fix_symbol(symbol s, int k);
@@ -35,8 +37,8 @@ class smt_renaming {
     bool all_is_legal(char const* s);
 public:
     smt_renaming();
-    symbol get_symbol(symbol s0);
-    symbol operator()(symbol const & s) { return get_symbol(s); }
+    symbol get_symbol(symbol s0, bool is_skolem = false);
+    symbol operator()(symbol const & s, bool is_skolem = false) { return get_symbol(s, is_skolem); }
 };
 
 class ast_smt_pp {

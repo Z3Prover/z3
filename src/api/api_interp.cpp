@@ -249,7 +249,7 @@ extern "C" {
         params_ref _p;
         _p.set_bool("proof", true); // this is currently useless
 
-        scoped_proof_mode spm(mk_c(c)->m(), PGM_FINE);
+        scoped_proof_mode spm(mk_c(c)->m(), PGM_ENABLED);
         scoped_ptr<solver_factory> sf = mk_smt_solver_factory();
         scoped_ptr<solver> m_solver((*sf)(mk_c(c)->m(), _p, true, true, true, ::symbol::null));
         m_solver.get()->updt_params(_p); // why do we have to do this?

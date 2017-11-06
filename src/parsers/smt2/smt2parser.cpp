@@ -96,6 +96,8 @@ namespace smt2 {
         symbol               m_check_sat;
         symbol               m_define_fun;
         symbol               m_define_const;
+        symbol               m_model_add;
+        symbol               m_model_del;
         symbol               m_declare_fun;
         symbol               m_declare_const;
         symbol               m_define_sort;
@@ -444,7 +446,10 @@ namespace smt2 {
                 m_ctx.regular_stream()<< "line " << line << " column " << pos << ": " << escaped(msg, true) << "\")" << std::endl;
             }
             if (m_ctx.exit_on_error()) {
-                exit(1);
+                // WORKAROUND: ASan's LeakSanitizer reports many false positives when
+                // calling `exit()` so call `_Exit()` instead which avoids invoking leak
+                // checking.
+                _Exit(1);
             }
         }
 
@@ -1878,6 +1883,8 @@ namespace smt2 {
                 // the resultant expression is on the top of the stack
                 TRACE("let_frame", tout << "let result expr: " << mk_pp(expr_stack().back(), m()) << "\n";);
                 expr_ref r(m());
+                if (expr_stack().empty())
+                    throw parser_exception("invalid let expression");
                 r = expr_stack().back();
                 expr_stack().pop_back();
                 // remove local declarations from the stack
@@ -2179,9 +2186,9 @@ namespace smt2 {
             next();
         }
 
-        void parse_define_fun() {
+        void parse_define(bool is_fun) {
             SASSERT(curr_is_identifier());
-            SASSERT(curr_id() == m_define_fun);
+            SASSERT(curr_id() == (is_fun ? m_define_fun : m_model_add));
             SASSERT(m_num_bindings == 0);
             next();
             check_identifier("invalid function/constant definition, symbol expected");
@@ -2195,7 +2202,10 @@ namespace smt2 {
             parse_expr();
             if (m().get_sort(expr_stack().back()) != sort_stack().back())
                 throw parser_exception("invalid function/constant definition, sort mismatch");
-            m_ctx.insert(id, num_vars, sort_stack().c_ptr() + sort_spos, expr_stack().back());
+            if (is_fun) 
+                m_ctx.insert(id, num_vars, sort_stack().c_ptr() + sort_spos, expr_stack().back());
+            else 
+                m_ctx.model_add(id, num_vars, sort_stack().c_ptr() + sort_spos, expr_stack().back());
             check_rparen("invalid function/constant definition, ')' expected");
             // restore stacks & env
             symbol_stack().shrink(sym_spos);
@@ -2206,6 +2216,24 @@ namespace smt2 {
             m_num_bindings = 0;
             m_ctx.print_success();
             next();
+        }
+
+        void parse_define_fun() {
+            parse_define(true);
+        }
+
+        void parse_model_add() {
+            parse_define(false);
+        }
+
+        void parse_model_del() {
+            next();
+            symbol id = curr_id();
+            func_decl * f = m_ctx.find_func_decl(id);
+            m_ctx.model_del(f);
+            next();
+            check_rparen_next("invalid model-del, ')' expected");
+            m_ctx.print_success();
         }
 
         void parse_define_fun_rec() {
@@ -2910,6 +2938,14 @@ namespace smt2 {
                 parse_define_funs_rec();
                 return;
             }
+            if (s == m_model_add) {
+                parse_model_add();
+                return;
+            }
+            if (s == m_model_del) {
+                parse_model_del();
+                return;
+            }
             parse_ext_cmd(line, pos);
         }
 
@@ -2941,6 +2977,8 @@ namespace smt2 {
             m_check_sat("check-sat"),
             m_define_fun("define-fun"),
             m_define_const("define-const"),
+            m_model_add("model-add"),
+            m_model_del("model-del"),
             m_declare_fun("declare-fun"),
             m_declare_const("declare-const"),
             m_define_sort("define-sort"),

@@ -89,7 +89,6 @@ namespace sat {
         m_local_search    = p.local_search();
         m_local_search_threads = p.local_search_threads();
         m_lookahead_simplify = p.lookahead_simplify();
-        m_lookahead_cube = p.lookahead_cube();
         m_lookahead_search = p.lookahead_search();
         if (p.lookahead_reward() == symbol("heule_schur")) {
             m_lookahead_reward = heule_schur_reward;
@@ -146,9 +145,10 @@ namespace sat {
         m_minimize_lemmas = p.minimize_lemmas();
         m_core_minimize   = p.core_minimize();
         m_core_minimize_partial   = p.core_minimize_partial();
-        m_drat_check      = p.drat_check();
+        m_drat_check_unsat  = p.drat_check_unsat();
+        m_drat_check_sat  = p.drat_check_sat();
         m_drat_file       = p.drat_file();
-        m_drat            = (m_drat_check || m_drat_file != symbol("")) && p.threads() == 1;
+        m_drat            = (m_drat_check_unsat || m_drat_file != symbol("") || m_drat_check_sat) && p.threads() == 1;
         m_dyn_sub_res     = p.dyn_sub_res();
 
         // Parameters used in Liang, Ganesh, Poupart, Czarnecki AAAI 2016.

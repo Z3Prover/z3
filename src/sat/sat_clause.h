@@ -33,6 +33,10 @@ namespace sat {
 
     class clause_allocator;
 
+    class clause;
+
+    std::ostream & operator<<(std::ostream & out, clause const & c);
+
     class clause {
         friend class clause_allocator;
         friend class tmp_clause;
@@ -101,7 +105,6 @@ namespace sat {
         void set_reinit_stack(bool f) { m_reinit_stack = f; }
     };
 
-    std::ostream & operator<<(std::ostream & out, clause const & c);
     std::ostream & operator<<(std::ostream & out, clause_vector const & cs);
 
     class bin_clause {
@@ -180,6 +183,7 @@ namespace sat {
         bool contains(literal l) const;
         bool contains(bool_var v) const;
         clause * get_clause() const { SASSERT(!is_binary()); return m_cls; }
+        bool was_removed() const { return !is_binary() && get_clause()->was_removed(); }
     };
 
     typedef svector<clause_wrapper> clause_wrapper_vector;

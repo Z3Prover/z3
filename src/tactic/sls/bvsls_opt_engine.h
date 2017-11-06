@@ -61,7 +61,7 @@ protected:
     bool what_if(func_decl * fd, const unsigned & fd_inx, const mpz & temp, 
                  mpz & best_score, unsigned & best_const, mpz & best_value);
 
-    mpz find_best_move(ptr_vector<func_decl> & to_evaluate, mpz score,
+    mpz find_best_move(ptr_vector<func_decl> & to_evaluate, mpz & score,
                        unsigned & best_const, mpz & best_value, unsigned & new_bit, move_type & move,
                        mpz const & max_score, expr * objective);
 

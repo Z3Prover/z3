@@ -84,7 +84,6 @@ namespace sat {
         bool               m_local_search;
         bool               m_lookahead_search;
         bool               m_lookahead_simplify;
-        bool               m_lookahead_cube;
         unsigned           m_lookahead_cube_cutoff;
         double             m_lookahead_cube_fraction;
         reward_t           m_lookahead_reward;
@@ -105,7 +104,8 @@ namespace sat {
         bool               m_core_minimize_partial;
         bool               m_drat;
         symbol             m_drat_file;
-        bool               m_drat_check;
+        bool               m_drat_check_unsat;
+        bool               m_drat_check_sat;
 
         bool               m_dimacs_display;
         bool               m_dimacs_inprocess_display;
