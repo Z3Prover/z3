@@ -315,7 +315,7 @@ extern "C" {
         LOG_Z3_parse_smtlib2_string(c, file_name, num_sorts, sort_names, sorts, num_decls, decl_names, decls);
         std::ifstream is(file_name);
         if (!is) {
-            SET_ERROR_CODE(Z3_PARSER_ERROR);
+            SET_ERROR_CODE(Z3_FILE_ACCESS_ERROR);
             return 0;
         }
         Z3_ast_vector r = parse_smtlib2_stream(false, c, is, num_sorts, sort_names, sorts, num_decls, decl_names, decls);
