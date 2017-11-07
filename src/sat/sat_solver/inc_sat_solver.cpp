@@ -69,7 +69,7 @@ class inc_sat_solver : public solver {
 public:
     inc_sat_solver(ast_manager& m, params_ref const& p):
         m(m), m_solver(p, m.limit(), 0),
-        m_params(p), m_optimize_model(false),
+        m_optimize_model(false),
         m_fmls(m),
         m_asmsf(m),
         m_fmls_head(0),
@@ -79,7 +79,7 @@ public:
         m_dep_core(m),
         m_unknown("no reason given") {
         m_params.set_bool("elim_vars", false);
-        m_solver.updt_params(m_params);
+        updt_params(p);
         init_preprocess();
     }
 
@@ -237,7 +237,7 @@ public:
         sat::solver::collect_param_descrs(r);
     }
     virtual void updt_params(params_ref const & p) {
-        m_params = p;
+        solver::updt_params(p);
         m_params.set_bool("elim_vars", false);
         m_solver.updt_params(m_params);
         m_optimize_model = m_params.get_bool("optimize_model", false);

@@ -3466,6 +3466,8 @@ static bool get_arith_value(context& ctx, theory_id afid, expr* e, expr_ref& v) 
 bool theory_seq::get_num_value(expr* e, rational& val) const {
     context& ctx = get_context();
     expr_ref _val(m);
+	if (!ctx.e_internalized(e))
+		return false;
     enode* next = ctx.get_enode(e), *n = next;
     do { 
         if (get_arith_value(ctx, m_autil.get_family_id(), next->get_owner(), _val) && m_autil.is_numeral(_val, val) && val.is_int()) {

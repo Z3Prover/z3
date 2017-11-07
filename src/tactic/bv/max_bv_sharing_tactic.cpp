@@ -307,9 +307,10 @@ public:
     }
     
     virtual void cleanup() {
-        imp * d = alloc(imp, m_imp->m(), m_params);
-        std::swap(d, m_imp);        
-        dealloc(d);
+        ast_manager & m = m_imp->m();
+        params_ref p = std::move(m_params);
+        m_imp->~imp();
+        new (m_imp) imp(m, p);
     }
 };
 

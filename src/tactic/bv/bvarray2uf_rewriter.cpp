@@ -117,7 +117,7 @@ func_decl_ref bvarray2uf_rewriter_cfg::mk_uf_for_array(expr * e) {
             if (is_uninterp_const(e)) {
                 if (m_emc)
                     m_emc->insert(to_app(e)->get_decl(),
-                                  m_array_util.mk_as_array(m_manager.get_sort(e), bv_f));
+                                  m_array_util.mk_as_array(bv_f));
             }
             else if (m_fmc)
                 m_fmc->insert(bv_f);
@@ -193,7 +193,7 @@ br_status bvarray2uf_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr 
             if (is_uninterp_const(e)) {
                 if (m_emc)
                     m_emc->insert(e->get_decl(),
-                        m_array_util.mk_as_array(m_manager.get_sort(e), bv_f));
+                        m_array_util.mk_as_array(bv_f));
             }
             else if (m_fmc)
                 m_fmc->insert(bv_f);
@@ -207,7 +207,7 @@ br_status bvarray2uf_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr 
         q = m_manager.mk_forall(1, sorts, names, body);
         extra_assertions.push_back(q);
 
-        result = m_array_util.mk_as_array(f->get_range(), bv_f);
+        result = m_array_util.mk_as_array(bv_f);
 
         TRACE("bvarray2uf_rw", tout << "result: " << mk_ismt2_pp(result, m_manager) << ")" << std::endl;);
         res = BR_DONE;
@@ -234,7 +234,7 @@ br_status bvarray2uf_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr 
         if (is_bv_array(t)) {
             // From [1]: For every array term t we create a fresh uninterpreted function f_t.
             f_t = mk_uf_for_array(t);
-            result = m_array_util.mk_as_array(m_manager.get_sort(t), f_t);
+            result = m_array_util.mk_as_array(f_t);
             res = BR_DONE;
         }
         else if (has_bv_arrays) {
@@ -274,7 +274,7 @@ br_status bvarray2uf_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr 
                     expr * v = args[0];
                     func_decl_ref f_t(mk_uf_for_array(t), m_manager);
 
-                    result = m_array_util.mk_as_array(f->get_range(), f_t);
+                    result = m_array_util.mk_as_array(f_t);
                     res = BR_DONE;
 
                     // Add \forall x . f_t(x) = v
@@ -321,7 +321,7 @@ br_status bvarray2uf_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr 
                     expr_ref frllx(m_manager.mk_forall(1, sorts, names, body), m_manager);
                     extra_assertions.push_back(frllx);
 
-                    result = m_array_util.mk_as_array(f->get_range(), f_t);
+                    result = m_array_util.mk_as_array(f_t);
                     res = BR_DONE;
                 }
                 else if (m_array_util.is_store(f)) {
@@ -342,7 +342,7 @@ br_status bvarray2uf_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr 
                         func_decl_ref f_s(mk_uf_for_array(s), m_manager);
                         func_decl_ref f_t(mk_uf_for_array(t), m_manager);
 
-                        result = m_array_util.mk_as_array(f->get_range(), f_t);
+                        result = m_array_util.mk_as_array(f_t);
                         res = BR_DONE;
 
                         sort * sorts[1] = { get_index_sort(f->get_range()) };

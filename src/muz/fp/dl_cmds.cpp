@@ -189,11 +189,12 @@ public:
         m_bound = bound;
         m_arg_idx++;
     }
-    virtual void reset(cmd_context & ctx) { m_dl_ctx->reset(); prepare(ctx); }
+    virtual void reset(cmd_context & ctx) { m_dl_ctx->reset(); prepare(ctx); m_t = nullptr; }
     virtual void prepare(cmd_context& ctx) { m_arg_idx = 0; m_name = symbol::null; m_bound = UINT_MAX; }
     virtual void finalize(cmd_context & ctx) { 
     }
     virtual void execute(cmd_context & ctx) {
+        if (!m_t) throw cmd_exception("invalid rule, expected formula");
         m_dl_ctx->add_rule(m_t, m_name, m_bound);
     }
 };

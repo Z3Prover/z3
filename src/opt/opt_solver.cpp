@@ -47,8 +47,9 @@ namespace opt {
         m_dump_benchmarks(false),
         m_first(true),
         m_was_unknown(false) {
+        solver::updt_params(p);
         m_params.updt_params(p);
-        if (m_params.m_case_split_strategy == CS_ACTIVITY_DELAY_NEW) {
+        if (m_params.m_case_split_strategy == CS_ACTIVITY_DELAY_NEW) {            
             m_params.m_relevancy_lvl = 0;
         }
         // m_params.m_auto_config = false;

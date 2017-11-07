@@ -129,7 +129,7 @@ namespace smt {
 
         if (m_node1 != m_node1->get_root()) {
             proof * pr = cr.get_proof(m_node1, m_node1->get_root());
-            if (pr && m.fine_grain_proofs())
+            if (pr && m.proofs_enabled())
                 pr = m.mk_symmetry(pr);
             prs.push_back(pr);
             if (!pr) 

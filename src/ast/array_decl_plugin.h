@@ -143,6 +143,7 @@ public:
     bool is_const(expr* n) const { return is_app_of(n, m_fid, OP_CONST_ARRAY); }
     bool is_map(expr* n) const { return is_app_of(n, m_fid, OP_ARRAY_MAP); }
     bool is_as_array(expr * n) const { return is_app_of(n, m_fid, OP_AS_ARRAY); }
+    bool is_as_array(expr * n, func_decl*& f) const { return is_as_array(n) && (f = get_as_array_func_decl(n), true); }
     bool is_select(func_decl* f) const { return is_decl_of(f, m_fid, OP_SELECT); }
     bool is_store(func_decl* f) const { return is_decl_of(f, m_fid, OP_STORE); }
     bool is_const(func_decl* f) const { return is_decl_of(f, m_fid, OP_CONST_ARRAY); }
@@ -182,13 +183,15 @@ public:
         return mk_const_array(s, m_manager.mk_true());
     }
 
+    func_decl * mk_array_ext(sort* domain, unsigned i);
+
     sort * mk_array_sort(sort* dom, sort* range) { return mk_array_sort(1, &dom, range); }
 
     sort * mk_array_sort(unsigned arity, sort* const* domain, sort* range);
 
-    app * mk_as_array(sort * s, func_decl * f) {
+    app * mk_as_array(func_decl * f) {
         parameter param(f);
-        return m_manager.mk_app(m_fid, OP_AS_ARRAY, 1, &param, 0, 0, s);
+        return m_manager.mk_app(m_fid, OP_AS_ARRAY, 1, &param, 0, 0, 0);
     }
 };
 

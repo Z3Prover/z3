@@ -351,7 +351,6 @@ void rewriter_tpl<Config>::process_app(app * t, frame & fr) {
             if (is_ground(def)) {
                 m_r = def;
                 if (ProofGen) {
-                    SASSERT(def_pr);
                     m_pr = m().mk_transitivity(m_pr, def_pr);
                 }
             }
@@ -510,7 +509,7 @@ void rewriter_tpl<Config>::process_quantifier(quantifier * q, frame & fr) {
         new_no_pats = q->get_no_patterns();
     }
     if (ProofGen) {
-        quantifier * new_q = m().update_quantifier(q, q->get_num_patterns(), new_pats, q->get_num_no_patterns(), new_no_pats, new_body);
+        quantifier_ref new_q(m().update_quantifier(q, q->get_num_patterns(), new_pats, q->get_num_no_patterns(), new_no_pats, new_body), m());
         m_pr = q == new_q ? 0 : m().mk_quant_intro(q, new_q, result_pr_stack().get(fr.m_spos));
         m_r = new_q;
         proof_ref pr2(m());

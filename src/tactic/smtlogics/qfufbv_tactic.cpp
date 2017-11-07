@@ -70,8 +70,8 @@ public:
         const unsigned sz = g->size();
         for (unsigned i = 0; i < sz; i++) flas.push_back(g->form(i));
         scoped_ptr<solver> uffree_solver = setup_sat();
-        scoped_ptr<lackr> imp = alloc(lackr, m, m_p, m_st, flas, uffree_solver.get());
-        const lbool o = imp->operator()();
+        lackr imp(m, m_p, m_st, flas, uffree_solver.get());
+        const lbool o = imp.operator()();
         flas.reset();
         // report result
         goal_ref resg(alloc(goal, *g, true));
@@ -79,8 +79,8 @@ public:
         if (o != l_undef) result.push_back(resg.get());
         // report model
         if (g->models_enabled() && (o == l_true)) {
-            model_ref abstr_model = imp->get_model();
-            mc = mk_qfufbv_ackr_model_converter(m, imp->get_info(), abstr_model);
+            model_ref abstr_model = imp.get_model();
+            mc = mk_qfufbv_ackr_model_converter(m, imp.get_info(), abstr_model);
         }
     }
 

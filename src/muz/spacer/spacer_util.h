@@ -74,15 +74,6 @@ inline std::ostream& operator<<(std::ostream& out, pp_level const& p)
 }
 
 
-struct scoped_watch {
-    stopwatch &m_sw;
-    scoped_watch (stopwatch &sw, bool reset=false): m_sw(sw)
-        {
-            if(reset) { m_sw.reset(); }
-            m_sw.start ();
-        }
-    ~scoped_watch () {m_sw.stop ();}
-};
 
 
 typedef ptr_vector<app> app_vector;

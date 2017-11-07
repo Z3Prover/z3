@@ -37,7 +37,6 @@ class tactic2solver : public solver_na2as {
     ref<simple_check_sat_result> m_result;
     tactic_ref                   m_tactic;
     symbol                       m_logic;
-    params_ref                   m_params;
     bool                         m_produce_models;
     bool                         m_produce_proofs;
     bool                         m_produce_unsat_cores;
@@ -85,7 +84,7 @@ tactic2solver::tactic2solver(ast_manager & m, tactic * t, params_ref const & p, 
 
     m_tactic = t;
     m_logic  = logic;
-    m_params = p;
+    solver::updt_params(p);
     
     m_produce_models      = produce_models;
     m_produce_proofs      = produce_proofs;
@@ -96,7 +95,7 @@ tactic2solver::~tactic2solver() {
 }
 
 void tactic2solver::updt_params(params_ref const & p) {
-    m_params.append(p);
+    solver::updt_params(p);
 }
 
 void tactic2solver::collect_param_descrs(param_descrs & r) {
@@ -129,7 +128,7 @@ lbool tactic2solver::check_sat_core(unsigned num_assumptions, expr * const * ass
     m_result = alloc(simple_check_sat_result, m);
     m_tactic->cleanup();
     m_tactic->set_logic(m_logic);
-    m_tactic->updt_params(m_params); // parameters are allowed to overwrite logic.
+    m_tactic->updt_params(get_params()); // parameters are allowed to overwrite logic.
     goal_ref g = alloc(goal, m, m_produce_proofs, m_produce_models, m_produce_unsat_cores);
 
     unsigned sz = m_assertions.size();

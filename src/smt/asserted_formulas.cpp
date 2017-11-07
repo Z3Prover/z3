@@ -101,14 +101,14 @@ void asserted_formulas::push_assertion(expr * e, proof * pr, vector<justified_ex
     else if (m.is_and(e)) {
         for (unsigned i = 0; i < to_app(e)->get_num_args(); ++i) {
             expr* arg = to_app(e)->get_arg(i);
-            proof_ref _pr(m.mk_and_elim(pr, i), m);
+            proof_ref _pr(m.proofs_enabled() ? m.mk_and_elim(pr, i) : 0, m);
             push_assertion(arg, _pr, result);
         }
     }
     else if (m.is_not(e, e1) && m.is_or(e1)) {
         for (unsigned i = 0; i < to_app(e1)->get_num_args(); ++i) {
             expr* arg = to_app(e1)->get_arg(i);
-            proof_ref _pr(m.mk_not_or_elim(pr, i), m);
+            proof_ref _pr(m.proofs_enabled() ? m.mk_not_or_elim(pr, i) : 0, m);
             expr_ref  narg(mk_not(m, arg), m);
             push_assertion(narg, _pr, result);
         }
@@ -163,7 +163,7 @@ void asserted_formulas::assert_expr(expr * e, proof * _in_pr) {
 }
 
 void asserted_formulas::assert_expr(expr * e) {
-    assert_expr(e, m.mk_asserted(e));
+    assert_expr(e, m.proofs_enabled() ? m.mk_asserted(e) : nullptr);
 }
 
 void asserted_formulas::get_assertions(ptr_vector<expr> & result) const {
@@ -365,7 +365,7 @@ void asserted_formulas::nnf_cnf() {
         CASSERT("well_sorted", is_well_sorted(m, n));
         apply_nnf(n, push_todo, push_todo_prs, r1, pr1);
         CASSERT("well_sorted",is_well_sorted(m, r1));
-        pr = m.mk_modus_ponens(pr, pr1);
+        pr = m.proofs_enabled() ? m.mk_modus_ponens(pr, pr1) : nullptr;
         push_todo.push_back(r1);
         push_todo_prs.push_back(pr);
 
@@ -506,16 +506,19 @@ void asserted_formulas::update_substitution(expr* n, proof* pr) {
         }
         if (is_gt(rhs, lhs)) {
             TRACE("propagate_values", tout << "insert " << mk_pp(rhs, m) << " -> " << mk_pp(lhs, m) << "\n";);
-            m_scoped_substitution.insert(rhs, lhs, m.mk_symmetry(pr));
+            m_scoped_substitution.insert(rhs, lhs, m.proofs_enabled() ? m.mk_symmetry(pr) : nullptr);
             return;
         }
         TRACE("propagate_values", tout << "incompatible " << mk_pp(n, m) << "\n";);
     }
-    if (m.is_not(n, n1)) {
-        m_scoped_substitution.insert(n1, m.mk_false(), m.mk_iff_false(pr));
+    proof_ref pr1(m);
+    if (m.is_not(n, n1)) {		
+        pr1 = m.proofs_enabled() ? m.mk_iff_false(pr) : nullptr;
+        m_scoped_substitution.insert(n1, m.mk_false(), pr1);
     }
     else {
-        m_scoped_substitution.insert(n, m.mk_true(), m.mk_iff_true(pr));
+        pr1 = m.proofs_enabled() ? m.mk_iff_true(pr) : nullptr;
+        m_scoped_substitution.insert(n, m.mk_true(), pr1);
     }
 }
 

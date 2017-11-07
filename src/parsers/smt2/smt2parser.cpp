@@ -1881,6 +1881,8 @@ namespace smt2 {
                 // the resultant expression is on the top of the stack
                 TRACE("let_frame", tout << "let result expr: " << mk_pp(expr_stack().back(), m()) << "\n";);
                 expr_ref r(m());
+                if (expr_stack().empty())
+                    throw parser_exception("invalid let expression");
                 r = expr_stack().back();
                 expr_stack().pop_back();
                 // remove local declarations from the stack
