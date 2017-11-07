@@ -80,6 +80,7 @@ namespace sat {
         unsigned               m_elim_blocked_clauses_at;
         bool                   m_retain_blocked_clauses;
         unsigned               m_blocked_clause_limit;
+        bool                   m_incremental_mode; 
         bool                   m_resolution;
         unsigned               m_res_limit;
         unsigned               m_res_occ_cutoff;

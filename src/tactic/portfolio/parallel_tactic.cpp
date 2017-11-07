@@ -339,6 +339,7 @@ private:
         m_allsat = false;
         m_num_unsat = 0;
         m_exn_code = 0;
+        m_params.set_bool("override_incremental", true);
     }
 
     void close_branch(solver_state& s, lbool status) {
@@ -538,7 +539,7 @@ public:
     parallel_tactic(ast_manager& m, params_ref const& p) :
         m_manager(m),
         m_params(p) {
-        init();
+        init();        
     }
 
     void operator ()(const goal_ref & g,goal_ref_buffer & result,model_converter_ref & mc,proof_converter_ref & pc,expr_dependency_ref & dep) {

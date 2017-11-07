@@ -322,6 +322,7 @@ namespace sat {
         void set_par(parallel* p, unsigned id);
         bool canceled() { return !m_rlimit.inc(); }
         config const& get_config() const { return m_config; }
+        void set_incremental(bool b) { m_config.m_incremental = b; }
         extension* get_extension() const { return m_ext.get(); }
         void       set_extension(extension* e);
         bool       set_root(literal l, literal r);
