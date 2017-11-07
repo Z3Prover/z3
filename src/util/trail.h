@@ -143,6 +143,17 @@ public:
 };
 
 
+template<typename Ctx, typename M, typename Mgr, typename D>
+class insert_ref_map : public trail<Ctx> {
+    Mgr&          m;
+    M&            m_map;
+    D             m_obj;
+public:
+    insert_ref_map(Mgr& m, M& t, D o) : m(m), m_map(t), m_obj(o) {}
+    virtual ~insert_ref_map() {}
+    virtual void undo(Ctx & ctx) { m_map.remove(m_obj); m.dec_ref(m_obj); }
+};
+
 
 template<typename Ctx, typename V>
 class push_back_vector : public trail<Ctx> {

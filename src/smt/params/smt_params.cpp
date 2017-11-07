@@ -27,6 +27,7 @@ void smt_params::updt_local_params(params_ref const & _p) {
     m_random_seed = p.random_seed();
     m_relevancy_lvl = p.relevancy();
     m_ematching   = p.ematching();
+    m_recfun_max_depth = p.recfun_max_depth();
     m_phase_selection = static_cast<phase_selection>(p.phase_selection());
     m_restart_strategy = static_cast<restart_strategy>(p.restart_strategy());
     m_restart_factor = p.restart_factor();

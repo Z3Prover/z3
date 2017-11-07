@@ -83,3 +83,11 @@ This addition to Z3 would bring many benefits compared to current alternatives (
   recursive functions
 - makes `define-funs-rec` a first-class citizen of the language,  usable to model user-defined theories or to analyze functional
   programs directly
+
+## Optimizations
+
+- maybe `C_f_i` literals should never be decided on
+  (they can always be propagated).
+  Even stronger: they should not be part of conflicts?
+  (i.e. tune conflict resolution to always resolve
+   these literals away, disregarding their level)
