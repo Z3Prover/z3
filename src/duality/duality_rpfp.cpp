@@ -1575,6 +1575,7 @@ namespace Duality {
     */
 
     int RPFP::SubtermTruth(hash_map<ast, int> &memo, const Term &f) {
+        TRACE("duality", tout << f << "\n";);
         if (memo.find(f) != memo.end()) {
             return memo[f];
         }
@@ -1657,83 +1658,6 @@ namespace Duality {
         ands and, or, not. Returns result in memo. 
     */
 
-#if 0
-    int RPFP::GetLabelsRec(hash_map<ast,int> *memo, const Term &f, std::vector<symbol> &labels, bool labpos){
-        if(memo[labpos].find(f) != memo[labpos].end()){
-            return memo[labpos][f];
-        }
-        int res;
-        if(f.is_app()){
-            int nargs = f.num_args();
-            decl_kind k = f.decl().get_decl_kind();
-            if(k == Implies){
-                res = GetLabelsRec(memo,f.arg(1) || !f.arg(0), labels, labpos);
-                goto done;
-            }
-            if(k == And) {
-                res = 1; 
-                for(int i = 0; i < nargs; i++){
-                    int ar = GetLabelsRec(memo,f.arg(i), labels, labpos);
-                    if(ar == 0){
-                        res = 0;
-                        goto done;
-                    }
-                    if(ar == 2)res = 2; 
-                }
-                goto done;
-            }
-            else if(k == Or) {
-                res = 0;
-                for(int i = 0; i < nargs; i++){
-                    int ar = GetLabelsRec(memo,f.arg(i), labels, labpos);
-                    if(ar == 1){
-                        res = 1;
-                        goto done;
-                    }
-                    if(ar == 2)res = 2; 
-                }
-                goto done;
-            }
-            else if(k == Not) {
-                int ar = GetLabelsRec(memo,f.arg(0), labels, !labpos);
-                res = (ar == 0) ? 1 : ((ar == 1) ? 0 : 2);
-                goto done;
-            }
-        }
-        {
-            bool pos; std::vector<symbol> names;
-            if(f.is_label(pos,names)){
-                res = GetLabelsRec(memo,f.arg(0), labels, labpos);
-                if(pos == labpos && res == (pos ? 1 : 0))
-                    for(unsigned i = 0; i < names.size(); i++)
-                        labels.push_back(names[i]);
-                goto done;
-            }
-        }
-        {
-            expr bv = dualModel.eval(f);
-            if(bv.is_app() && bv.decl().get_decl_kind() == Equal && 
-               bv.arg(0).is_array()){
-                bv = EvalArrayEquality(bv);
-            }
-            // Hack!!!! array equalities can occur negatively!
-            if(bv.is_app() && bv.decl().get_decl_kind() == Not && 
-               bv.arg(0).decl().get_decl_kind() == Equal &&
-               bv.arg(0).arg(0).is_array()){
-                bv = dualModel.eval(!EvalArrayEquality(bv.arg(0)));
-            }
-            if(eq(bv,ctx.bool_val(true)))
-                res = 1;
-            else if(eq(bv,ctx.bool_val(false)))
-                res = 0;
-            else
-                res = 2;
-        }
-    done:
-        memo[labpos][f] = res;
-        return res;
-    }
-#endif
 
     void RPFP::GetLabelsRec(hash_map<ast, int> &memo, const Term &f, std::vector<symbol> &labels,
                             hash_set<ast> *done, bool truth) {
@@ -1748,8 +1672,13 @@ namespace Duality {
             }
             if (k == Iff) {
                 int b = SubtermTruth(memo, f.arg(0));
-                if (b == 2)
-                    throw "disaster in GetLabelsRec";
+                if (b == 2) {
+                    goto done;
+                    // bypass error
+                    std::ostringstream os;
+                    os << "disaster in SubtermTruth processing " << f;
+                    throw default_exception(os.str());
+                }
                 GetLabelsRec(memo, f.arg(1), labels, done, truth ? b : !b);
                 goto done;
             }
@@ -1825,8 +1754,11 @@ namespace Duality {
             }
             if (k == Iff) {
                 int b = SubtermTruth(memo, f.arg(0));
-                if (b == 2)
-                    throw "disaster in ImplicantRed";
+                if (b == 2) {
+                    std::ostringstream os;
+                    os << "disaster in SubtermTruth processing " << f;
+                    throw default_exception(os.str());
+                }
                 ImplicantRed(memo, f.arg(1), lits, done, truth ? b : !b, dont_cares);
                 goto done;
             }
