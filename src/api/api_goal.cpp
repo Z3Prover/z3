@@ -178,4 +178,18 @@ extern "C" {
         Z3_CATCH_RETURN("");
     }
 
+    Z3_string Z3_API Z3_goal_to_dimacs_string(Z3_context c, Z3_goal g) {
+        Z3_TRY;
+        LOG_Z3_goal_to_dimacs_string(c, g);
+        RESET_ERROR_CODE();
+        std::ostringstream buffer;
+        to_goal_ref(g)->display_dimacs(buffer);
+        // Hack for removing the trailing '\n'
+        std::string result = buffer.str();
+        SASSERT(result.size() > 0);
+        result.resize(result.size()-1);
+        return mk_c(c)->mk_external_string(result);
+        Z3_CATCH_RETURN("");
+    }
+
 };

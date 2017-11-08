@@ -182,6 +182,7 @@ namespace sat {
         friend struct mk_stat;
         friend class ccc;
         friend class elim_vars;
+        friend class scoped_detach;
     public:
         solver(params_ref const & p, reslimit& l);
         ~solver();
@@ -231,25 +232,6 @@ namespace sat {
         bool attach_nary_clause(clause & c);
         void attach_clause(clause & c, bool & reinit);
         void attach_clause(clause & c) { bool reinit; attach_clause(c, reinit); }
-        class scoped_detach {
-            solver& s;
-            clause& c;
-            bool m_deleted;
-        public:
-            scoped_detach(solver& s, clause& c): s(s), c(c), m_deleted(false) {
-                s.detach_clause(c);
-            }            
-            ~scoped_detach() {
-                if (!m_deleted) s.attach_clause(c);
-            }
-
-            void del_clause() {
-                if (!m_deleted) {
-                    s.del_clause(c);
-                    m_deleted = true;
-                }
-            }
-        };
         class scoped_disable_checkpoint {
             solver& s;
         public:
@@ -652,6 +634,27 @@ namespace sat {
         mk_stat(solver const & s):m_solver(s) {}
         void display(std::ostream & out) const;
     };
+
+    class scoped_detach {
+        solver& s;
+        clause& c;
+        bool m_deleted;
+    public:
+        scoped_detach(solver& s, clause& c): s(s), c(c), m_deleted(false) {
+            s.detach_clause(c);
+        }            
+        ~scoped_detach() {
+            if (!m_deleted) s.attach_clause(c);
+        }
+        
+        void del_clause() {
+            if (!m_deleted) {
+                s.del_clause(c);
+                m_deleted = true;
+            }
+        }
+    };
+
 
     std::ostream & operator<<(std::ostream & out, mk_stat const & stat);
 };

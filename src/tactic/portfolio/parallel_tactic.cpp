@@ -214,7 +214,7 @@ class parallel_tactic : public tactic {
 
         void set_type(task_type t) { m_type = t; }
 
-        expr_ref_vector const& cubes() const { SASSERT(m_type == conquer); return m_cubes; }
+        expr_ref_vector const& cubes() const { SASSERT(m_type == conquer_task); return m_cubes; }
 
         // remove up to n cubes from list of cubes.
         expr_ref_vector split_cubes(unsigned n) {

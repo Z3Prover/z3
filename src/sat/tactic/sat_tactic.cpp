@@ -68,11 +68,6 @@ class sat_tactic : public tactic {
             TRACE("sat_dimacs", m_solver.display_dimacs(tout););
             dep2assumptions(dep2asm, assumptions);
             lbool r = m_solver.check(assumptions.size(), assumptions.c_ptr());
-            if (r == l_undef && m_solver.get_config().m_dimacs_display) {
-                for (auto const& kv : map) {
-                    std::cout << "c " << kv.m_value << " " << mk_pp(kv.m_key, g->m()) << "\n";
-                }
-            }
             if (r == l_false) {
                 expr_dependency * lcore = 0;
                 if (produce_core) {

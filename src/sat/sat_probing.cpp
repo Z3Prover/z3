@@ -62,11 +62,9 @@ namespace sat {
         SASSERT(s.value(l.var()) == l_undef);
         literal_vector * implied_lits = updt_cache ? 0 : cached_implied_lits(l);
         if (implied_lits) {
-            literal_vector::iterator it  = implied_lits->begin();
-            literal_vector::iterator end = implied_lits->end();
-            for (; it != end; ++it) {
-                if (m_assigned.contains(*it)) {
-                    s.assign(*it, justification());
+            for (literal lit : *implied_lits) {
+                if (m_assigned.contains(lit)) {
+                    s.assign(lit, justification());
                     m_num_assigned++;
                 }
             }
@@ -137,10 +135,9 @@ namespace sat {
 
         if (m_probing_binary) {
             watch_list & wlist = s.get_wlist(~l);
-            for (unsigned i = 0; i < wlist.size(); i++) {
-                watched & w = wlist[i];
+            for (watched & w : wlist) {
                 if (!w.is_binary_clause())
-                    break;
+                    continue;
                 literal l2 = w.get_literal();
                 if (l.index() > l2.index())
                     continue;

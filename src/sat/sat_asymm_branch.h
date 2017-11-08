@@ -25,6 +25,7 @@ Revision History:
 
 namespace sat {
     class solver;
+    class scoped_detach;
 
     class asymm_branch {
         struct report;
@@ -34,6 +35,7 @@ namespace sat {
 
         // config
         bool                   m_asymm_branch;
+        bool                   m_asymm_branch_all;
         unsigned               m_asymm_branch_rounds;
         unsigned               m_asymm_branch_limit;
 
@@ -41,6 +43,15 @@ namespace sat {
         unsigned m_elim_literals;
 
         bool process(clause & c);
+        
+        bool process_all(clause & c);
+        
+        bool flip_literal_at(clause const& c, unsigned flip_index, unsigned& new_sz);
+        
+        bool cleanup(scoped_detach& scoped_d, clause& c, unsigned skip_index, unsigned new_sz);
+
+        bool propagate_literal(clause const& c, literal l);
+
     public:
         asymm_branch(solver & s, params_ref const & p);
 

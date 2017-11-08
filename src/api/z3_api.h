@@ -5568,6 +5568,13 @@ extern "C" {
     */
     Z3_string Z3_API Z3_goal_to_string(Z3_context c, Z3_goal g);
 
+    /**
+       \brief Convert a goal into a DIMACS formatted string.
+
+       def_API('Z3_goal_to_dimacs_string', STRING, (_in(CONTEXT), _in(GOAL)))
+    */
+    Z3_string Z3_API Z3_goal_to_dimacs_string(Z3_context c, Z3_goal g);
+
     /*@}*/
 
     /** @name Tactics and Probes */

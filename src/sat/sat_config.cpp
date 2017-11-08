@@ -190,7 +190,6 @@ namespace sat {
         else {
             throw sat_param_exception("invalid PB solver: solver, totalizer, circuit, sorting");
         }
-        m_dimacs_display  = p.dimacs_display();
         m_dimacs_inprocess_display  = p.dimacs_inprocess_display();
 
         sat_simplifier_params sp(_p);

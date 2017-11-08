@@ -42,6 +42,5 @@ def_module_params('sat',
                           ('lookahead.preselect', BOOL, False, 'use pre-selection of subset of variables for branching'),
                           ('lookahead_simplify', BOOL, False, 'use lookahead solver during simplification'),
                           ('lookahead.reward', SYMBOL, 'march_cu', 'select lookahead heuristic: ternary, heule_schur (Heule Schur), heuleu (Heule Unit), unit, or march_cu'),
-                          ('dimacs.display', BOOL, False, 'display SAT instance in DIMACS format and return unknown instead of solving'),
                           ('dimacs.inprocess.display', BOOL, False, 'display SAT instance in DIMACS format if unsolved after inprocess.max inprocessing passes')))
 

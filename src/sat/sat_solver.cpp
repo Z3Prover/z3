@@ -861,13 +861,6 @@ namespace sat {
         m_stats.m_units = init_trail_size();
         IF_VERBOSE(2, verbose_stream() << "(sat.sat-solver)\n";);
         SASSERT(at_base_lvl());
-        if (m_config.m_dimacs_display) {
-            display_dimacs(std::cout);
-            for (unsigned i = 0; i < num_lits; ++i) {
-                std::cout << dimacs_lit(lits[i]) << " 0\n";
-            }
-            return l_undef;
-        }
         if (m_config.m_lookahead_search && num_lits == 0) {
             return lookahead_search();
         }
@@ -1422,6 +1415,7 @@ namespace sat {
         m_restarts                = 0;
         m_simplifications         = 0;
         m_conflicts_since_init    = 0;
+        m_next_simplify           = 0;
         m_min_d_tk                = 1.0;
         m_search_lvl              = 0;
         m_stopwatch.reset();
@@ -3940,14 +3934,6 @@ namespace sat {
                 m_todo_antecedents.pop_back();
             }
         }
-    }
-
-    void solver::asymmetric_branching() {
-        if (!at_base_lvl() || inconsistent())
-            return;
-        m_asymm_branch();
-        if (m_ext)
-            m_ext->clauses_modifed();
     }
 
     // -----------------------

@@ -57,7 +57,7 @@ namespace sat {
     };
     
     void asymm_branch::operator()(bool force) {
-        if (!m_asymm_branch)
+        if (!m_asymm_branch && !m_asymm_branch_all)
             return;
         s.propagate(false); // must propagate, since it uses s.push()
         if (s.m_inconsistent)
@@ -92,7 +92,6 @@ namespace sat {
                 }
                 s.checkpoint();
                 clause & c = *(*it);
-                m_counter -= c.size();
                 if (!process(c))
                     continue; // clause was removed
                 *it2 = *it;
@@ -114,57 +113,52 @@ namespace sat {
         CASSERT("asymm_branch", s.check_invariant());
     }
 
-    bool asymm_branch::process(clause & c) {
-        if (c.is_blocked()) return true;
-        TRACE("asymm_branch_detail", tout << "processing: " << c << "\n";);
-        SASSERT(s.scope_lvl() == 0);
-        SASSERT(s.m_qhead == s.m_trail.size());
-#ifdef Z3DEBUG
-        unsigned trail_sz = s.m_trail.size();
-#endif
-        SASSERT(!s.inconsistent());
+    bool asymm_branch::process_all(clause & c) {
+        // try asymmetric branching on all literals in clause.
+        
+        // clause must not be used for propagation
+        scoped_detach scoped_d(s, c);
         unsigned sz = c.size();
         SASSERT(sz > 0);
-        unsigned i;
-        // check if the clause is already satisfied
-        for (i = 0; i < sz; i++) {
-            if (s.value(c[i]) == l_true) {
-                s.detach_clause(c);
-                s.del_clause(c);
-                return false;
-            }
+        unsigned i = 0, new_sz = sz;
+        bool found = false;
+        for (; i < sz; i++) {
+            found = flip_literal_at(c, i, new_sz);
+            if (found) break;
         }
-        // try asymmetric branching
-        // clause must not be used for propagation
-        solver::scoped_detach scoped_d(s, c);
+        return !found || cleanup(scoped_d, c, i, new_sz);
+    }
+
+    bool asymm_branch::propagate_literal(clause const& c, literal l) {
+        m_counter -= c.size();
+        SASSERT(!s.inconsistent());
+        TRACE("asymm_branch_detail", tout << "assigning: " << l << "\n";);
+        s.assign(l, justification());
+        s.propagate_core(false); // must not use propagate(), since check_missed_propagation may fail for c
+        return s.inconsistent();
+    }
+
+    bool asymm_branch::flip_literal_at(clause const& c, unsigned flip_index, unsigned& new_sz) {
+        bool found_conflict = false;
+        unsigned i = 0, sz = c.size();        
         s.push();
-        for (i = 0; i < sz - 1; i++) {
-            literal l = c[i];
-            SASSERT(!s.inconsistent());
-            TRACE("asymm_branch_detail", tout << "assigning: " << ~l << "\n";);
-            s.assign(~l, justification());
-            s.propagate_core(false); // must not use propagate(), since check_missed_propagation may fail for c
-            if (s.inconsistent())
-                break;
+        for (i = 0; !found_conflict && i < sz; i++) {
+            if (i == flip_index) continue;
+            found_conflict = propagate_literal(c, ~c[i]);
+        }
+        if (!found_conflict) {
+            SASSERT(sz == i);
+            found_conflict = propagate_literal(c, c[flip_index]);
         }
         s.pop(1);
-        SASSERT(!s.inconsistent());
-        SASSERT(s.scope_lvl() == 0);
-        SASSERT(trail_sz == s.m_trail.size());
-        SASSERT(s.m_qhead == s.m_trail.size());
-        if (i == sz - 1) {
-            // clause size can't be reduced.
-            return true;
-        }
-        // clause can be reduced 
-        unsigned new_sz = i+1;
-        SASSERT(new_sz >= 1);
-        SASSERT(new_sz < sz);
-        TRACE("asymm_branch", tout << c << "\nnew_size: " << new_sz << "\n";
-              for (unsigned i = 0; i < c.size(); i++) tout << static_cast<int>(s.value(c[i])) << " "; tout << "\n";);
-        // cleanup reduced clause
+        new_sz = i;
+        return found_conflict;
+    }
+    
+    bool asymm_branch::cleanup(scoped_detach& scoped_d, clause& c, unsigned skip_idx, unsigned new_sz) {
         unsigned j = 0;
-        for (i = 0; i < new_sz; i++) {
+        for (unsigned i = 0; i < new_sz; i++) {            
+            if (skip_idx == i) continue;
             literal l = c[i];
             switch (s.value(l)) {
             case l_undef:
@@ -181,7 +175,7 @@ namespace sat {
             }
         }
         new_sz = j;
-        m_elim_literals += sz - new_sz;
+        m_elim_literals += c.size() - new_sz;
         switch(new_sz) {
         case 0:
             s.set_conflict(justification());
@@ -208,12 +202,65 @@ namespace sat {
             return true;
         }
     }
+
+    bool asymm_branch::process(clause & c) {
+        if (c.is_blocked()) return true;
+        TRACE("asymm_branch_detail", tout << "processing: " << c << "\n";);
+        SASSERT(s.scope_lvl() == 0);
+        SASSERT(s.m_qhead == s.m_trail.size());
+        SASSERT(!s.inconsistent());
+
+#ifdef Z3DEBUG
+        unsigned trail_sz = s.m_trail.size();
+#endif
+        unsigned sz = c.size();
+        SASSERT(sz > 0);
+        unsigned i;
+        // check if the clause is already satisfied
+        for (i = 0; i < sz; i++) {
+            if (s.value(c[i]) == l_true) {
+                s.detach_clause(c);
+                s.del_clause(c);
+                return false;
+            }
+        }
+        if (m_asymm_branch_all) return process_all(c);
+
+        m_counter -= c.size();
+        // try asymmetric branching
+        // clause must not be used for propagation
+        scoped_detach scoped_d(s, c);
+        s.push();
+        bool found_conflict = false;
+        for (i = 0; i < sz - 1 && !found_conflict; i++) {
+            found_conflict = propagate_literal(c, ~c[i]);
+        }
+        s.pop(1);
+        SASSERT(!s.inconsistent());
+        SASSERT(s.scope_lvl() == 0);
+        SASSERT(trail_sz == s.m_trail.size());
+        SASSERT(s.m_qhead == s.m_trail.size());
+        SASSERT(found_conflict == (i != sz - 1));
+        if (!found_conflict) {
+            // clause size can't be reduced.
+            return true;
+        }
+        // clause can be reduced 
+        unsigned new_sz = i+1;
+        SASSERT(new_sz >= 1);
+        SASSERT(new_sz < sz);
+        TRACE("asymm_branch", tout << c << "\nnew_size: " << new_sz << "\n";
+              for (unsigned i = 0; i < c.size(); i++) tout << static_cast<int>(s.value(c[i])) << " "; tout << "\n";);
+        // cleanup and attach reduced clause
+        return cleanup(scoped_d, c, sz, new_sz);
+    }
     
     void asymm_branch::updt_params(params_ref const & _p) {
         sat_asymm_branch_params p(_p);
         m_asymm_branch        = p.asymm_branch();
         m_asymm_branch_rounds = p.asymm_branch_rounds();
         m_asymm_branch_limit  = p.asymm_branch_limit();
+        m_asymm_branch_all    = p.asymm_branch_all();
         if (m_asymm_branch_limit > INT_MAX)
             m_asymm_branch_limit = INT_MAX;
     }

@@ -1989,6 +1989,7 @@ namespace sat {
         scoped_level _sl(*this, c_fixed_truth);
         m_search_mode = lookahead_mode::searching;
         unsigned depth = 0;
+        unsigned init_trail = m_trail.size();
         
         if (!is_first) {
             goto pick_up_work;
@@ -2010,7 +2011,12 @@ namespace sat {
                 (m_config.m_cube_cutoff == 0 && m_freevars.size() < m_cube_state.m_freevars_threshold)) {
                 m_cube_state.m_freevars_threshold *= (1.0 - pow(m_config.m_cube_fraction, depth));
                 set_conflict();
+#if 0
+                // return cube of all literals, not just the ones in the main cube
+                lits.append(m_trail.size() - init_trail, m_trail.c_ptr() + init_trail);
+#else
                 lits.append(m_cube_state.m_cube);
+#endif
                 backtrack(m_cube_state.m_cube, m_cube_state.m_is_decision);
                 return l_undef;
             }

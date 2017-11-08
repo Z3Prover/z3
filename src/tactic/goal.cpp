@@ -488,6 +488,11 @@ void goal::display_dimacs(std::ostream & out) const {
         }
         out << "0\n";
     }
+    for (auto const& kv : expr2var) {
+        expr* key = kv.m_key;
+        if (is_app(key)) 
+            out << "c " << kv.m_value << " " << to_app(key)->get_decl()->get_name() << "\n";
+    }
 }
 
 unsigned goal::num_exprs() const {

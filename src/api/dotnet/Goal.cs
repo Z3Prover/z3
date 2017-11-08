@@ -209,6 +209,15 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
+        /// Goal to DIMACS formatted string conversion.
+        /// </summary>
+        /// <returns>A string representation of the Goal.</returns>
+        public string ToDimacs()
+        {
+            return Native.Z3_goal_to_dimacs_string(Context.nCtx, NativeObject);
+        }
+
+        /// <summary>
         /// Goal to BoolExpr conversion.
         /// </summary>
         /// <returns>A string representation of the Goal.</returns>

@@ -108,7 +108,6 @@ namespace sat {
         bool               m_drat_check_unsat;
         bool               m_drat_check_sat;
 
-        bool               m_dimacs_display;
         bool               m_dimacs_inprocess_display;
 
         symbol             m_always_true;
