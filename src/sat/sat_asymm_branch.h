@@ -31,13 +31,13 @@ namespace sat {
         struct report;
         
         solver & s;
-        int      m_counter;
+        int64      m_counter;
+        random_gen m_rand;
 
         // config
         bool                   m_asymm_branch;
         bool                   m_asymm_branch_all;
-        unsigned               m_asymm_branch_rounds;
-        unsigned               m_asymm_branch_limit;
+        int64                  m_asymm_branch_limit;
 
         // stats
         unsigned m_elim_literals;

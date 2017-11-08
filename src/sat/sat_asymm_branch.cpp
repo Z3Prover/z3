@@ -62,14 +62,16 @@ namespace sat {
         s.propagate(false); // must propagate, since it uses s.push()
         if (s.m_inconsistent)
             return;
-        if (!force && m_counter > 0)
+        if (!force && m_counter > 0) {
+            m_counter /= 100;
             return;
+        }
         CASSERT("asymm_branch", s.check_invariant());
         TRACE("asymm_branch_detail", s.display(tout););
         report rpt(*this);
         svector<char> saved_phase(s.m_phase);
-        m_counter  = 0; // counter is moving down to capture propagate cost.
-        int limit  = -static_cast<int>(m_asymm_branch_limit);
+        m_counter  = 0; 
+        int64 limit = -m_asymm_branch_limit;
         std::stable_sort(s.m_clauses.begin(), s.m_clauses.end(), clause_size_lt());
         m_counter -= s.m_clauses.size();
         SASSERT(s.m_qhead == s.m_trail.size());
@@ -111,19 +113,18 @@ namespace sat {
         m_counter = -m_counter;
         s.m_phase = saved_phase;
         m_asymm_branch_limit *= 2;
-        if (m_asymm_branch_limit > INT_MAX)
-            m_asymm_branch_limit = INT_MAX;
+        if (m_asymm_branch_limit > UINT_MAX)
+            m_asymm_branch_limit = UINT_MAX;
 
         CASSERT("asymm_branch", s.check_invariant());
-
-
     }
 
+    /**
+       \brief try asymmetric branching on all literals in clause.        
+    */
+
     bool asymm_branch::process_all(clause & c) {
-        // try asymmetric branching on all literals in clause.
-        
-        // clause must not be used for propagation
-        scoped_detach scoped_d(s, c);
+        scoped_detach scoped_d(s, c);  // clause must not be used for propagation
         unsigned sz = c.size();
         SASSERT(sz > 0);
         unsigned i = 0, new_sz = sz;
@@ -180,6 +181,7 @@ namespace sat {
         }
         new_sz = j;
         m_elim_literals += c.size() - new_sz;
+        // std::cout << "cleanup: " << c.id() << ": " << literal_vector(new_sz, c.begin()) << " delta: " << (c.size() - new_sz) << " " << skip_idx << " " << new_sz << "\n";
         switch(new_sz) {
         case 0:
             s.set_conflict(justification());
@@ -235,39 +237,30 @@ namespace sat {
         // try asymmetric branching
         // clause must not be used for propagation
         scoped_detach scoped_d(s, c);
-        s.push();
-        bool found_conflict = false;
-        for (i = 0; i < sz - 1 && !found_conflict; i++) {
-            found_conflict = propagate_literal(c, ~c[i]);
-        }
-        s.pop(1);
+        unsigned new_sz = c.size();
+        unsigned flip_position = 2 + m_rand(c.size() - 2); // don't flip on the watch literals.
+        bool found_conflict = flip_literal_at(c, flip_position, new_sz);
         SASSERT(!s.inconsistent());
         SASSERT(s.scope_lvl() == 0);
         SASSERT(trail_sz == s.m_trail.size());
         SASSERT(s.m_qhead == s.m_trail.size());
-        SASSERT(found_conflict == (i != sz - 1));
         if (!found_conflict) {
             // clause size can't be reduced.
             return true;
         }
-        // clause can be reduced 
-        unsigned new_sz = i+1;
-        SASSERT(new_sz >= 1);
-        SASSERT(new_sz < sz);
-        TRACE("asymm_branch", tout << c << "\nnew_size: " << new_sz << "\n";
-              for (unsigned i = 0; i < c.size(); i++) tout << static_cast<int>(s.value(c[i])) << " "; tout << "\n";);
-        // cleanup and attach reduced clause
-        return cleanup(scoped_d, c, sz, new_sz);
+        else {
+            // clause can be reduced 
+            return cleanup(scoped_d, c, flip_position, new_sz);
+        }
     }
     
     void asymm_branch::updt_params(params_ref const & _p) {
         sat_asymm_branch_params p(_p);
         m_asymm_branch        = p.asymm_branch();
-        m_asymm_branch_rounds = p.asymm_branch_rounds();
         m_asymm_branch_limit  = p.asymm_branch_limit();
         m_asymm_branch_all    = p.asymm_branch_all();
-        if (m_asymm_branch_limit > INT_MAX)
-            m_asymm_branch_limit = INT_MAX;
+        if (m_asymm_branch_limit > UINT_MAX)
+            m_asymm_branch_limit = UINT_MAX;
     }
 
     void asymm_branch::collect_param_descrs(param_descrs & d) {
