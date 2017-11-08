@@ -1673,6 +1673,13 @@ for d in _all_dirs:
     pass
 
 if _lib is None:
+  # If all else failed, ask the system to find it.
+  try:
+    _lib = ctypes.CDLL('libz3.%s' % _ext)
+  except:
+    pass
+
+if _lib is None:
   print("Could not find libz3.%s; consider adding the directory containing it to" % _ext)
   print("  - your system's PATH environment variable,")
   print("  - the Z3_LIBRARY_PATH environment variable, or ")
