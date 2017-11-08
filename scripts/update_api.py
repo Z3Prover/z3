@@ -1653,10 +1653,11 @@ else:
   if hasattr(builtins, "Z3_LIB_DIRS"):
     _all_dirs = builtins.Z3_LIB_DIRS
 
-if 'Z3_LIBRARY_PATH' in os.environ:
-  lp = os.environ['Z3_LIBRARY_PATH'];
-  lds = lp.split(';') if sys.platform in ('win32') else lp.split(':')
-  _all_dirs.extend(lds)
+for v in ('Z3_LIBRARY_PATH', 'PATH'):
+  if v in os.environ:
+    lp = os.environ[v];
+    lds = lp.split(';') if sys.platform in ('win32') else lp.split(':')
+    _all_dirs.extend(lds)
 
 _all_dirs.extend(_default_dirs)
 
