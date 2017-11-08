@@ -110,7 +110,13 @@ namespace sat {
         }
         m_counter = -m_counter;
         s.m_phase = saved_phase;
+        m_asymm_branch_limit *= 2;
+        if (m_asymm_branch_limit > INT_MAX)
+            m_asymm_branch_limit = INT_MAX;
+
         CASSERT("asymm_branch", s.check_invariant());
+
+
     }
 
     bool asymm_branch::process_all(clause & c) {
@@ -121,16 +127,14 @@ namespace sat {
         unsigned sz = c.size();
         SASSERT(sz > 0);
         unsigned i = 0, new_sz = sz;
-        bool found = false;
-        for (; i < sz; i++) {
-            found = flip_literal_at(c, i, new_sz);
-            if (found) break;
+        for (i = sz; i-- > 0; ) {
+            if (flip_literal_at(c, i, new_sz))
+                return cleanup(scoped_d, c, i, new_sz);
         }
-        return !found || cleanup(scoped_d, c, i, new_sz);
+        return true;
     }
 
     bool asymm_branch::propagate_literal(clause const& c, literal l) {
-        m_counter -= c.size();
         SASSERT(!s.inconsistent());
         TRACE("asymm_branch_detail", tout << "assigning: " << l << "\n";);
         s.assign(l, justification());
@@ -224,9 +228,10 @@ namespace sat {
                 return false;
             }
         }
+        m_counter -= c.size();
+
         if (m_asymm_branch_all) return process_all(c);
 
-        m_counter -= c.size();
         // try asymmetric branching
         // clause must not be used for propagation
         scoped_detach scoped_d(s, c);
