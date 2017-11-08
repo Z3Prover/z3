@@ -125,11 +125,6 @@ def _get_args(args):
     except:  # len is not necessarily defined when args is not a sequence (use reflection?)
         return args
 
-def z3_error_handler(c, e):
-    # Do nothing error handler, just avoid exit(0)
-    # The wrappers in z3core.py will raise a Z3Exception if an error is detected
-    return
-
 def _to_param_value(val):
     if isinstance(val, bool):
         if val == True:
@@ -138,6 +133,11 @@ def _to_param_value(val):
             return "false"
     else:
         return str(val)
+
+def z3_error_handler(c, e):
+    # Do nothing error handler, just avoid exit(0)
+    # The wrappers in z3core.py will raise a Z3Exception if an error is detected
+    return
 
 class Context:
     """A Context manages all other Z3 objects, global configuration options, etc.
@@ -165,13 +165,14 @@ class Context:
                 Z3_set_param_value(conf, str(prev), _to_param_value(a))
                 prev = None
         self.ctx = Z3_mk_context_rc(conf)
+        self.eh = Z3_set_error_handler(self.ctx, z3_error_handler)
         Z3_set_ast_print_mode(self.ctx, Z3_PRINT_SMTLIB2_COMPLIANT)
-        Z3_set_error_handler(self.ctx, z3_error_handler)
         Z3_del_config(conf)
 
     def __del__(self):
-        Z3_del_context(self.ctx)
+        Z3_del_context(self.ctx)        
         self.ctx = None
+        self.eh = None
 
     def ref(self):
         """Return a reference to the actual C pointer to the Z3 context."""

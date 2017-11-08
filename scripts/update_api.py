@@ -324,14 +324,16 @@ class Elementaries:
     self.OK = Z3_OK
     self.Exception = Z3Exception
 
-  def Check(self, ctx): 
+  def Check(self, ctx):
     err = self.get_error_code(ctx)
     if err != self.OK:
         raise self.Exception(self.get_error_message(ctx, err))
 
 def Z3_set_error_handler(ctx, hndlr, _elems=Elementaries(_lib.Z3_set_error_handler)):
-  _elems.f(ctx, ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_uint)(hndlr))
+  ceh = _error_handler_type(hndlr)
+  _elems.f(ctx, ceh)
   _elems.Check(ctx)
+  return ceh
 
 """)
 
@@ -1637,10 +1639,10 @@ from .z3consts import *
 
 _ext = 'dll' if sys.platform in ('win32', 'cygwin') else 'dylib' if sys.platform == 'darwin' else 'so'
 _lib = None
-_default_dirs = ['.', 
-                 os.path.dirname(os.path.abspath(__file__)), 
-                 pkg_resources.resource_filename('z3', 'lib'), 
-                 os.path.join(sys.prefix, 'lib'),                  
+_default_dirs = ['.',
+                 os.path.dirname(os.path.abspath(__file__)),
+                 pkg_resources.resource_filename('z3', 'lib'),
+                 os.path.join(sys.prefix, 'lib'),
                  None]
 _all_dirs = []
 
@@ -1667,7 +1669,7 @@ for d in _all_dirs:
     if os.path.isdir(d):
       d = os.path.join(d, 'libz3.%s' % _ext)
       if os.path.isfile(d):
-        _lib = ctypes.CDLL(d)              
+        _lib = ctypes.CDLL(d)
         break
   except:
     pass
@@ -1710,8 +1712,10 @@ else:
      else:
         return ""
 
+_error_handler_type  = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_uint)
+
 _lib.Z3_set_error_handler.restype  = None
-_lib.Z3_set_error_handler.argtypes = [ContextObj, ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_uint)]
+_lib.Z3_set_error_handler.argtypes = [ContextObj, _error_handler_type]
 
 """
   )
