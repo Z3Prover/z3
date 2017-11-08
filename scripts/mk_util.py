@@ -2072,7 +2072,6 @@ class ExampleComponent(Component):
     def is_example(self):
         return True
 
-
 class CppExampleComponent(ExampleComponent):
     def __init__(self, name, path):
         ExampleComponent.__init__(self, name, path)
@@ -2118,6 +2117,30 @@ class CExampleComponent(CppExampleComponent):
 
     def src_files(self):
         return get_c_files(self.ex_dir)
+
+    def mk_makefile(self, out):
+        dll_name = get_component(Z3_DLL_COMPONENT).dll_name
+        dll = '%s$(SO_EXT)' % dll_name
+
+        objfiles = ''
+        for cfile in self.src_files():
+            objfile = '%s$(OBJ_EXT)' % (cfile[:cfile.rfind('.')])
+            objfiles = objfiles + ('%s ' % objfile)
+            out.write('%s: %s\n' % (objfile, os.path.join(self.to_ex_dir, cfile)));
+            out.write('\t%s $(CFLAGS) $(OS_DEFINES) $(EXAMP_DEBUG_FLAG) $(C_OUT_FLAG)%s $(LINK_FLAGS)' % (self.compiler(), objfile))
+            out.write(' -I%s' % get_component(API_COMPONENT).to_src_dir)
+            out.write(' %s' % os.path.join(self.to_ex_dir, cfile))
+            out.write('\n')
+
+        exefile = '%s$(EXE_EXT)' % self.name
+        out.write('%s: %s %s\n' % (exefile, dll, objfiles))
+        out.write('\t$(LINK) $(LINK_OUT_FLAG)%s $(LINK_FLAGS) %s ' % (exefile, objfiles))
+        if IS_WINDOWS:
+            out.write('%s.lib' % dll_name)
+        else:
+            out.write(dll)
+        out.write(' $(LINK_EXTRA_FLAGS)\n')
+        out.write('_ex_%s: %s\n\n' % (self.name, exefile))
 
 class DotNetExampleComponent(ExampleComponent):
     def __init__(self, name, path):
@@ -2512,6 +2535,7 @@ def mk_config():
         config.write('CC=%s\n' % CC)
         config.write('CXX=%s\n' % CXX)
         config.write('CXXFLAGS=%s %s\n' % (CPPFLAGS, CXXFLAGS))
+        config.write('CFLAGS=%s %s\n' % (CPPFLAGS, CXXFLAGS.replace('-std=c++11', '')))
         config.write('EXAMP_DEBUG_FLAG=%s\n' % EXAMP_DEBUG_FLAG)
         config.write('CXX_OUT_FLAG=-o \n')
         config.write('OBJ_EXT=.o\n')
