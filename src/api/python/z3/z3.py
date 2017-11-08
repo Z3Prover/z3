@@ -112,8 +112,6 @@ def _symbol2py(ctx, s):
     else:
         return Z3_get_symbol_string(ctx.ref(), s)
 
-_error_handler_fptr = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_uint)
-
 # Hack for having nary functions that can receive one argument that is the
 # list of arguments.
 def _get_args(args):
@@ -127,12 +125,10 @@ def _get_args(args):
     except:  # len is not necessarily defined when args is not a sequence (use reflection?)
         return args
 
-def _Z3python_error_handler_core(c, e):
+def z3_error_handler(c, e):
     # Do nothing error handler, just avoid exit(0)
     # The wrappers in z3core.py will raise a Z3Exception if an error is detected
     return
-
-_Z3Python_error_handler = _error_handler_fptr(_Z3python_error_handler_core)
 
 def _to_param_value(val):
     if isinstance(val, bool):
@@ -168,16 +164,13 @@ class Context:
             else:
                 Z3_set_param_value(conf, str(prev), _to_param_value(a))
                 prev = None
-        self.lib = lib()
         self.ctx = Z3_mk_context_rc(conf)
         Z3_set_ast_print_mode(self.ctx, Z3_PRINT_SMTLIB2_COMPLIANT)
-        lib().Z3_set_error_handler.restype  = None
-        lib().Z3_set_error_handler.argtypes = [ContextObj, _error_handler_fptr]
-        lib().Z3_set_error_handler(self.ctx, _Z3Python_error_handler)
+        Z3_set_error_handler(self.ctx, z3_error_handler)
         Z3_del_config(conf)
 
     def __del__(self):
-        self.lib.Z3_del_context(self.ctx)
+        Z3_del_context(self.ctx)
         self.ctx = None
 
     def ref(self):

@@ -279,8 +279,8 @@ def mk_py_binding(name, result, params):
     global _API2PY
     _API2PY.append((name, result, params))
     if result != VOID:
-        core_py.write("  _lib.%s.restype = %s\n" % (name, type2pystr(result)))
-    core_py.write("  _lib.%s.argtypes = [" % name)
+        core_py.write("_lib.%s.restype = %s\n" % (name, type2pystr(result)))
+    core_py.write("_lib.%s.argtypes = [" % name)
     first = True
     for p in params:
         if first:
@@ -311,8 +311,30 @@ def display_args_to_z3(params):
             core_py.write("a%s" % i)
         i = i + 1
 
+NULLWrapped = [ 'Z3_mk_context', 'Z3_mk_context_rc', 'Z3_mk_interpolation_context' ]
+Unwrapped = [ 'Z3_del_context', 'Z3_get_error_code' ]
+
 def mk_py_wrappers():
-    core_py.write("\n")
+    core_py.write("""
+class Elementaries:
+  def __init__(self, f):
+    self.f = f
+    self.get_error_code = _lib.Z3_get_error_code
+    self.get_error_message = _lib.Z3_get_error_msg
+    self.OK = Z3_OK
+    self.Exception = Z3Exception
+
+  def Check(self, ctx): 
+    err = self.get_error_code(ctx)
+    if err != self.OK:
+        raise self.Exception(self.get_error_message(ctx, err))
+
+def Z3_set_error_handler(ctx, hndlr, _elems=Elementaries(_lib.Z3_set_error_handler)):
+  _elems.f(ctx, ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_uint)(hndlr))
+  _elems.Check(ctx)
+
+""")
+
     for sig in _API2PY:
         name   = sig[0]
         result = sig[1]
@@ -320,25 +342,20 @@ def mk_py_wrappers():
         num    = len(params)
         core_py.write("def %s(" % name)
         display_args(num)
-        core_py.write("):\n")
-        core_py.write("  _lib = lib()\n")
-        core_py.write("  if _lib is None or _lib.%s is None:\n" % name)
-        core_py.write("     return\n")
-        if result != VOID:
-            core_py.write("  r = _lib.%s(" % name)
-        else:
-            core_py.write("  _lib.%s(" % name)
+        comma = ", " if num != 0 else ""
+        core_py.write("%s_elems=Elementaries(_lib.%s)):\n" % (comma, name))
+        lval = "r = " if result != VOID else ""
+        core_py.write("  %s_elems.f(" % lval)
         display_args_to_z3(params)
         core_py.write(")\n")
-        if len(params) > 0 and param_type(params[0]) == CONTEXT:
-            core_py.write("  err = _lib.Z3_get_error_code(a0)\n")
-            core_py.write("  if err != Z3_OK:\n")
-            core_py.write("    raise Z3Exception(_lib.Z3_get_error_msg(a0, err))\n")
+        if len(params) > 0 and param_type(params[0]) == CONTEXT and not name in Unwrapped:
+            core_py.write("  _elems.Check(a0)\n")
         if result == STRING:
             core_py.write("  return _to_pystr(r)\n")
         elif result != VOID:
             core_py.write("  return r\n")
         core_py.write("\n")
+    core_py
 
 
 ## .NET API native interface
@@ -390,10 +407,6 @@ def mk_dotnet(dotnet):
             i = i + 1
         dotnet.write(');\n\n')
     dotnet.write('        }\n')
-
-
-NULLWrapped = [ 'Z3_mk_context', 'Z3_mk_context_rc', 'Z3_mk_interpolation_context' ]
-Unwrapped = [ 'Z3_del_context', 'Z3_get_error_code' ]
 
 def mk_dotnet_wrappers(dotnet):
     global Type2Str
@@ -1605,35 +1618,71 @@ def write_exe_c_preamble(exe_c):
 
 def write_core_py_post(core_py):
   core_py.write("""
-
+# Clean up
+del _lib
+del _default_dirs
+del _all_dirs
+del _ext
 """)
     
 def write_core_py_preamble(core_py):
-  core_py.write('# Automatically generated file\n')
-  core_py.write('import sys, os\n')
-  core_py.write('import ctypes\n')
-  core_py.write('import pkg_resources\n')
-  core_py.write('from .z3types import *\n')
-  core_py.write('from .z3consts import *\n')
   core_py.write(
 """
+# Automatically generated file
+import sys, os
+import ctypes
+import pkg_resources
+from .z3types import *
+from .z3consts import *
+
 _ext = 'dll' if sys.platform in ('win32', 'cygwin') else 'dylib' if sys.platform == 'darwin' else 'so'
-
 _lib = None
+_default_dirs = ['.', 
+                 os.path.dirname(os.path.abspath(__file__)), 
+                 pkg_resources.resource_filename('z3', 'lib'), 
+                 os.path.join(sys.prefix, 'lib'),                  
+                 None]
+_all_dirs = []
 
-def lib():
-  global _lib
-  if _lib is None:
-     _dirs = ['.', os.path.dirname(os.path.abspath(__file__)), pkg_resources.resource_filename('z3', 'lib'), os.path.join(sys.prefix, 'lib'), None]
-     for _dir in _dirs:
-       try:
-          init(_dir)
-          break
-       except:
-          pass
-  if _lib is None:
-    raise Z3Exception("init(Z3_LIBRARY_PATH) must be invoked before using Z3-python")
-  return _lib
+if sys.version < '3':
+  import __builtin__
+  if hasattr(__builtin__, "Z3_LIB_DIRS"):
+    _all_dirs = __builtin__.Z3_LIB_DIRS
+else:
+  import builtins
+  if hasattr(builtins, "Z3_LIB_DIRS"):
+    _all_dirs = builtins.Z3_LIB_DIRS
+
+if 'Z3_LIBRARY_PATH' in os.environ:
+  lp = os.environ['Z3_LIBRARY_PATH'];
+  lds = lp.split(';') if sys.platform in ('win32') else lp.split(':')
+  _all_dirs.extend(lds)
+
+_all_dirs.extend(_default_dirs)
+
+for d in _all_dirs:
+  try:
+    d = os.path.realpath(d)
+    if os.path.isdir(d):
+      d = os.path.join(d, 'libz3.%s' % _ext)
+      if os.path.isfile(d):
+        _lib = ctypes.CDLL(d)              
+        break
+  except:
+    pass
+
+if _lib is None:
+  print("Could not find libz3.%s; consider adding the directory containing it to" % _ext)
+  print("  - your system's PATH environment variable,")
+  print("  - the Z3_LIBRARY_PATH environment variable, or ")
+  print("  - to the custom Z3_LIBRARY_DIRS Python-builtin before importing the z3 module, e.g. via")
+  if sys.version < '3':
+    print("    import __builtin__")
+    print("    __builtin__.Z3_LIB_DIRS = [ '/path/to/libz3.%s' ] " % _ext)
+  else:
+    print("    import builtins")
+    print("    builtins.Z3_LIB_DIRS = [ '/path/to/libz3.%s' ] " % _ext)
+  raise Z3Exception("libz3.%s not found." % _ext)
 
 def _to_ascii(s):
   if isinstance(s, str):
@@ -1653,16 +1702,9 @@ else:
      else:
         return ""
 
-def init(PATH):
-  if PATH:
-    PATH = os.path.realpath(PATH)
-    if os.path.isdir(PATH):
-      PATH = os.path.join(PATH, 'libz3.%s' % _ext)
-  else:
-    PATH = 'libz3.%s' % _ext
+_lib.Z3_set_error_handler.restype  = None
+_lib.Z3_set_error_handler.argtypes = [ContextObj, ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_uint)]
 
-  global _lib
-  _lib = ctypes.CDLL(PATH)
 """
   )
 
