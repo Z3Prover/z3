@@ -2343,6 +2343,7 @@ def mk_config():
             'CC=cl\n'
             'CXX=cl\n'
             'CXX_OUT_FLAG=/Fo\n'
+            'C_OUT_FLAG=/Fo\n'
             'OBJ_EXT=.obj\n'
             'LIB_EXT=.lib\n'
             'AR=lib\n'
@@ -2538,6 +2539,7 @@ def mk_config():
         config.write('CFLAGS=%s %s\n' % (CPPFLAGS, CXXFLAGS.replace('-std=c++11', '')))
         config.write('EXAMP_DEBUG_FLAG=%s\n' % EXAMP_DEBUG_FLAG)
         config.write('CXX_OUT_FLAG=-o \n')
+        config.write('C_OUT_FLAG=-o \n')
         config.write('OBJ_EXT=.o\n')
         config.write('LIB_EXT=.a\n')
         config.write('AR=%s\n' % AR)
