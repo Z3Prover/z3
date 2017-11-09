@@ -354,16 +354,20 @@ namespace Microsoft.Z3
         }
 
 	/// <summary>
+	/// Backtrack level that can be adjusted by conquer process
+	/// </summary>
+        public uint BacktrackLevel { get; set; }
+        
+
+	/// <summary>
 	/// Return a set of cubes.
 	/// </summary>
 	public IEnumerable<BoolExpr> Cube()
 	{
              int rounds = 0;
 	     while (true) {
-		BoolExpr r = (BoolExpr)Expr.Create(Context, Native.Z3_solver_cube(Context.nCtx, NativeObject));
+		BoolExpr r = (BoolExpr)Expr.Create(Context, Native.Z3_solver_cube(Context.nCtx, NativeObject, BacktrackLevel));
                 if (r.IsFalse) {
-	           if (rounds == 0)
-                      yield return r;
                    break;
                 }
 	        if (r.IsTrue) {
@@ -412,6 +416,7 @@ namespace Microsoft.Z3
             : base(ctx, obj)
         {
             Contract.Requires(ctx != null);
+            this.BacktrackLevel = uint.MaxValue;
         }
 
         internal class DecRefQueue : IDecRefQueue

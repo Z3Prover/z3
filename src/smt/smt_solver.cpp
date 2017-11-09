@@ -226,7 +226,7 @@ namespace smt {
             return expr_ref(m.mk_true(), m);
         }
 
-        virtual expr_ref cube() {
+        virtual expr_ref cube(unsigned) {
             ast_manager& m = get_manager();
             return expr_ref(m.mk_true(), m);
         }

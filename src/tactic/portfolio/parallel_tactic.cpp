@@ -414,7 +414,7 @@ private:
         cubes.reset();
         s.set_cube_params();
         while (true) {
-            expr_ref c = s.get_solver().cube();
+            expr_ref c = s.get_solver().cube(UINT_MAX); // TBD tune this
             VERIFY(c);
             if (m.is_false(c)) {                
                 break;
