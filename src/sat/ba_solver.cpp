@@ -349,7 +349,7 @@ namespace sat {
         }
         bool nullify = p.lit() != null_literal && value(p.lit()) == l_true;
         if (nullify) {
-            IF_VERBOSE(10, display(verbose_stream() << "nullify tracking literal\n", p, true););
+            IF_VERBOSE(100, display(verbose_stream() << "nullify tracking literal\n", p, true););
             SASSERT(lvl(p.lit()) == 0);
             nullify_tracking_literal(p);
             init_watch(p, true);
@@ -374,7 +374,7 @@ namespace sat {
         if (p.k() == 1 && p.lit() == null_literal) {
             literal_vector lits(p.literals());
             s().mk_clause(lits.size(), lits.c_ptr(), p.learned());
-            IF_VERBOSE(10, display(verbose_stream() << "add clause: " << lits << "\n", p, true););
+            IF_VERBOSE(100, display(verbose_stream() << "add clause: " << lits << "\n", p, true););
             remove_constraint(p, "implies clause");
         }
         else if (true_val == 0 && num_false == 0) {
@@ -384,14 +384,14 @@ namespace sat {
         }
         else if (true_val >= p.k()) {
             if (p.lit() != null_literal) {
-                IF_VERBOSE(10, display(verbose_stream() << "assign true literal ", p, true););
+                IF_VERBOSE(100, display(verbose_stream() << "assign true literal ", p, true););
                 s().assign(p.lit(), justification());
             }        
             remove_constraint(p, "is true");
         }
         else if (slack + true_val < p.k()) {
             if (p.lit() != null_literal) {
-                IF_VERBOSE(10, display(verbose_stream() << "assign false literal ", p, true););
+                IF_VERBOSE(100, display(verbose_stream() << "assign false literal ", p, true););
                 s().assign(~p.lit(), justification());
             }
             else {
@@ -2877,7 +2877,7 @@ namespace sat {
     bool ba_solver::elim_pure(literal lit) {
         if (value(lit) == l_undef && !m_cnstr_use_list[lit.index()].empty() && 
             use_count(~lit) == 0 && get_num_unblocked_bin(~lit) == 0) {
-            IF_VERBOSE(10, verbose_stream() << "pure literal: " << lit << "\n";);
+            IF_VERBOSE(100, verbose_stream() << "pure literal: " << lit << "\n";);
             s().assign(lit, justification());
             return true;
         }

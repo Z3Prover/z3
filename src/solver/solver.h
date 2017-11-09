@@ -61,7 +61,7 @@ public:
     /**
        \brief Retrieve set of parameters set on solver.
      */
-    virtual params_ref const& get_params() { return m_params; }
+    virtual params_ref const& get_params() const { return m_params; }
 
     /**
        \brief Store in \c r a description of the configuration
