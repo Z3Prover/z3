@@ -147,6 +147,7 @@ public:
     }
 
     virtual void updt_params(params_ref const & p) {
+        solver::updt_params(p);
         m_solver1->updt_params(p);
         m_solver2->updt_params(p);
         updt_local_params(p);
@@ -280,8 +281,8 @@ public:
         return m_solver2->get_assumption(idx - c1);
     }
 
-    virtual std::ostream& display(std::ostream & out) const {
-        return m_solver1->display(out);
+    virtual std::ostream& display(std::ostream & out, unsigned n, expr* const* es) const {
+        return m_solver1->display(out, n, es);
     }
 
     virtual void collect_statistics(statistics & st) const {

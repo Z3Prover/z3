@@ -4389,7 +4389,8 @@ namespace smt {
                     subst.push_back(arg);
                 }
                 expr_ref bodyr(m);
-                var_subst sub(m, false);
+                var_subst sub(m, true);
+                TRACE("context", tout << expr_ref(q, m) << " " << subst << "\n";);
                 sub(body, subst.size(), subst.c_ptr(), bodyr);
                 func_decl* f = to_app(fn)->get_decl();
                 func_interp* fi = alloc(func_interp, m, f->get_arity());

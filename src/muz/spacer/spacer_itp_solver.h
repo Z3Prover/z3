@@ -134,8 +134,8 @@ public:
     {return m_solver.get_num_assumptions();}
     virtual expr * get_assumption(unsigned idx) const
     {return m_solver.get_assumption(idx);}
-    virtual std::ostream &display(std::ostream &out) const
-    { return m_solver.display(out); }
+    virtual std::ostream &display(std::ostream &out, unsigned n, expr* const* es) const
+    { return m_solver.display(out, n, es); }
 
     /* check_sat_result interface */
 

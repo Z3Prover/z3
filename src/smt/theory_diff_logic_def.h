@@ -683,7 +683,9 @@ void theory_diff_logic<Ext>::set_neg_cycle_conflict() {
     vector<parameter> params;
     if (get_manager().proofs_enabled()) {
         params.push_back(parameter(symbol("farkas")));
-        params.resize(lits.size()+1, parameter(rational(1)));
+        for (unsigned i = 0; i <= lits.size(); ++i) {
+            params.push_back(parameter(rational(1)));
+        }
     } 
    
     ctx.set_conflict(

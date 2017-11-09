@@ -72,6 +72,7 @@ IS_FREEBSD=False
 IS_OPENBSD=False
 IS_CYGWIN=False
 IS_CYGWIN_MINGW=False
+IS_MSYS2=False
 VERBOSE=True
 DEBUG_MODE=False
 SHOW_CPPS = True
@@ -152,6 +153,9 @@ def is_cygwin():
 def is_cygwin_mingw():
     return IS_CYGWIN_MINGW
 
+def is_msys2():
+    return IS_MSYS2
+
 def norm_path(p):
     return os.path.expanduser(os.path.normpath(p))
 
@@ -227,7 +231,7 @@ def rmf(fname):
 
 def exec_compiler_cmd(cmd):
     r = exec_cmd(cmd)
-    if is_windows() or is_cygwin_mingw():
+    if is_windows() or is_cygwin_mingw() or is_cygwin() or is_msys2():
         rmf('a.exe')
     else:
         rmf('a.out')
@@ -606,6 +610,13 @@ elif os.name == 'posix':
         IS_CYGWIN=True
         if (CC != None and "mingw" in CC):
             IS_CYGWIN_MINGW=True
+    elif os.uname()[0].startswith('MSYS_NT') or os.uname()[0].startswith('MINGW'):
+        IS_MSYS2=True
+        if os.uname()[4] == 'x86_64':
+            LINUX_X64=True
+        else:
+            LINUX_X64=False
+            
 
 def display_help(exit_code):
     print("mk_make.py: Z3 Makefile generator\n")
@@ -1229,7 +1240,7 @@ def get_so_ext():
     sysname = os.uname()[0]
     if sysname == 'Darwin':
         return 'dylib'
-    elif sysname == 'Linux' or sysname == 'FreeBSD' or sysname == 'OpenBSD':
+    elif sysname == 'Linux' or sysname == 'FreeBSD' or sysname == 'OpenBSD' or sysname.startswith('MSYS_NT') or sysname.startswith('MINGW'):
         return 'so'
     elif sysname == 'CYGWIN':
         return 'dll'
@@ -1783,6 +1794,8 @@ class JavaDLLComponent(Component):
                 t = t.replace('PLATFORM', 'openbsd')
             elif IS_CYGWIN:
                 t = t.replace('PLATFORM', 'cygwin')
+            elif IS_MSYS2:
+                t = t.replace('PLATFORM', 'win32')
             else:
                 t = t.replace('PLATFORM', 'win32')
             out.write(t)
@@ -1875,7 +1888,6 @@ class MLComponent(Component):
     def _init_ocamlfind_paths(self):
         """
             Initialises self.destdir and self.ldconf
-
             Do not call this from the MLComponent constructor because OCAMLFIND
             has not been checked at that point
         """
@@ -2446,7 +2458,7 @@ def mk_config():
         if sysname == 'Darwin':
             SO_EXT         = '.dylib'
             SLIBFLAGS      = '-dynamiclib'
-        elif sysname == 'Linux':
+        elif sysname == 'Linux' or sysname.startswith('MSYS_NT') or sysname.startswith('MINGW'):
             CXXFLAGS       = '%s -D_LINUX_' % CXXFLAGS
             OS_DEFINES     = '-D_LINUX_'
             SO_EXT         = '.so'
@@ -2466,10 +2478,10 @@ def mk_config():
             SO_EXT         = '.so'
             SLIBFLAGS      = '-shared'
         elif sysname[:6] ==  'CYGWIN':
-            CXXFLAGS    = '%s -D_CYGWIN' % CXXFLAGS
+            CXXFLAGS       = '%s -D_CYGWIN' % CXXFLAGS
             OS_DEFINES     = '-D_CYGWIN'
-            SO_EXT      = '.dll'
-            SLIBFLAGS   = '-shared'
+            SO_EXT         = '.dll'
+            SLIBFLAGS      = '-shared'
         else:
             raise MKException('Unsupported platform: %s' % sysname)
         if is64():
@@ -3160,7 +3172,6 @@ class MakeRuleCmd(object):
     """
         These class methods provide a convenient way to emit frequently
         needed commands used in Makefile rules
-
         Note that several of the method are meant for use during ``make
         install`` and ``make uninstall``.  These methods correctly use
         ``$(PREFIX)`` and ``$(DESTDIR)`` and therefore are preferrable
@@ -3336,10 +3347,8 @@ def configure_file(template_file_path, output_file_path, substitutions):
         Read a template file ``template_file_path``, perform substitutions
         found in the ``substitutions`` dictionary and write the result to
         the output file ``output_file_path``.
-
         The template file should contain zero or more template strings of the
         form ``@NAME@``.
-
         The substitutions dictionary maps old strings (without the ``@``
         symbols) to their replacements.
     """

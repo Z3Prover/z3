@@ -44,6 +44,7 @@ format * smt2_pp_environment::pp_fdecl_name(symbol const & s, unsigned & len) co
         return mk_string(m, str.c_str());
     }
     else if (!s.bare_str()) {
+        len = 4;
         return mk_string(m, "null");
     }
     else {

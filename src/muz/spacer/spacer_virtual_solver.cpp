@@ -189,15 +189,16 @@ void virtual_solver::push_core()
         m_context.push();
     }
 }
-void virtual_solver::pop_core(unsigned n)
-{
+void virtual_solver::pop_core(unsigned n) {
     SASSERT(!m_pushed || get_scope_level() > 0);
     if (m_pushed) {
         SASSERT(!m_in_delay_scope);
         m_context.pop(n);
         m_pushed = get_scope_level() - n > 0;
-    } else
-    { m_in_delay_scope = get_scope_level() - n > 0; }
+    } 
+    else {
+        m_in_delay_scope = get_scope_level() - n > 0; 
+    }
 }
 
 void virtual_solver::get_unsat_core(ptr_vector<expr> &r)
