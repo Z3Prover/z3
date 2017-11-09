@@ -2012,8 +2012,8 @@ namespace sat {
                     set_conflict();
                     backtrack(m_cube_state.m_cube, m_cube_state.m_is_decision);
                 }
-                backtrack_level = UINT_MAX;
             }
+            backtrack_level = UINT_MAX;
             depth = m_cube_state.m_cube.size();
             if ((m_config.m_cube_cutoff != 0 && depth == m_config.m_cube_cutoff) ||
                 (m_config.m_cube_cutoff == 0 && m_freevars.size() < m_cube_state.m_freevars_threshold)) {

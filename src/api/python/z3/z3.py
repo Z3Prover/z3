@@ -5988,6 +5988,7 @@ class Solver(Z3PPObject):
     def __init__(self, solver=None, ctx=None):
         assert solver is None or ctx is not None
         self.ctx    = _get_ctx(ctx)
+        self.backtrack_level = 4000000000
         self.solver = None
         if solver is None:
             self.solver = Z3_mk_solver(self.ctx.ref())
@@ -6283,11 +6284,10 @@ class Solver(Z3PPObject):
         consequences = [ consequences[i] for i in range(sz) ]
         return CheckSatResult(r), consequences
     
-    def cube(self, level_ref):
+    def cube(self):
         """Get set of cubes"""
         while True:
-            backtrack_level = level_ref.backtrack_level
-            r = _to_expr_ref(Z3_solver_cube(self.ctx.ref(), self.solver, backtrack_level), self.ctx)
+            r = _to_expr_ref(Z3_solver_cube(self.ctx.ref(), self.solver, self.backtrack_level), self.ctx)
             if (is_false(r)):
                 return
             if (is_true(r)):
