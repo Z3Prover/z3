@@ -6287,7 +6287,9 @@ class Solver(Z3PPObject):
     def cube(self):
         """Get set of cubes"""
         while True:
-            r = _to_expr_ref(Z3_solver_cube(self.ctx.ref(), self.solver, self.backtrack_level), self.ctx)
+            lvl = self.backtrack_level
+            self.backtrack_level = 4000000000
+            r = _to_expr_ref(Z3_solver_cube(self.ctx.ref(), self.solver, lvl), self.ctx)            
             if (is_false(r)):
                 return
             if (is_true(r)):

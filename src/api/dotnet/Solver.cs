@@ -364,9 +364,10 @@ namespace Microsoft.Z3
 	/// </summary>
 	public IEnumerable<BoolExpr> Cube()
 	{
-             int rounds = 0;
 	     while (true) {
-		BoolExpr r = (BoolExpr)Expr.Create(Context, Native.Z3_solver_cube(Context.nCtx, NativeObject, BacktrackLevel));
+                var lvl = BacktrackLevel;
+                BacktrackLevel = uint.MaxValue;
+		BoolExpr r = (BoolExpr)Expr.Create(Context, Native.Z3_solver_cube(Context.nCtx, NativeObject, lvl));
                 if (r.IsFalse) {
                    break;
                 }
@@ -374,7 +375,6 @@ namespace Microsoft.Z3
                      yield return r;
                      break;
                 }
-                ++rounds;
                 yield return r;
 	     }
 	}
