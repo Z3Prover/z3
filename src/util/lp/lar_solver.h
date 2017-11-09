@@ -50,12 +50,12 @@ namespace lp {
 
 class lar_solver : public column_namer {
     class ext_var_info {
-        unsigned m_ext_j; // the external index
+        unsigned m_internal_j; // the internal index
         bool m_is_integer;
     public:
-        ext_var_info(unsigned j): ext_var_info(j, false) {}
-        ext_var_info(unsigned j , bool is_int) : m_ext_j(j), m_is_integer(is_int) {}
-        unsigned ext_j() const { return m_ext_j;}
+        ext_var_info(unsigned j, var_index internal_j): ext_var_info(j, false) {}
+        ext_var_info(unsigned j , bool is_int) : m_internal_j(j), m_is_integer(is_int) {}
+        unsigned internal_j() const { return m_internal_j;}
         bool is_integer() const {return m_is_integer;}
     };
     //////////////////// fields //////////////////////////
@@ -1379,5 +1379,6 @@ public:
     lar_core_solver & get_core_solver() { return m_mpq_lar_core_solver; }
     bool column_corresponds_to_term(unsigned) const;
     void catch_up_in_updating_int_solver();
+    var_index to_var_index(unsigned ext_j) const;
 };
 }

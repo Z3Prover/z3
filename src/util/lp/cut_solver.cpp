@@ -2,26 +2,23 @@
   Copyright (c) 2017 Microsoft Corporation
   Author: Nikolaj Bjorner, Lev Nachmanson
 */
-#include "util/lp/cut_solver_def.h"
+#include "util/lp/cut_solver.h"
 namespace lp {
-template <typename T>
-T cut_solver<T>::m_local_zero = zero_of_type<T>();
-template <> int cut_solver<int>::m_local_zero = 0;
-template <> mpq cut_solver<mpq>::m_local_zero = zero_of_type<mpq>();
-template lbool cut_solver<mpq>::check();
-template void cut_solver<mpq>::print_state(std::ostream&) const;
-template void cut_solver<mpq>::pop(unsigned int);
-template void cut_solver<mpq>::propagate();
-template void cut_solver<mpq>::push();
-template cut_solver<int>::cut_solver(std::function<std::string (unsigned)> var_name_function,
-                          std::function<void (unsigned, std::ostream &)> print_constraint_function);
-template cut_solver<mpq>::cut_solver(std::function<std::string (unsigned)> var_name_function,
-                          std::function<void (unsigned, std::ostream &)> print_constraint_function);
+    mpq polynomial::m_local_zero = zero_of_type<mpq>();
+
+    size_t constraint_hash::operator() (const constraint* c) const { return c->id(); }
     
+    bool constraint_equal::operator() (const constraint* a, const constraint * b) const { return a->id() == b->id(); }
 
-template bool cut_solver<mpq>::consistent(const ineq & i) const;
-template bool cut_solver<int>::consistent(const ineq & i) const;
+    std::ostream& operator<<(std::ostream& out, pp_poly const& p) {
+        p.s.print_polynomial(out, p.p);
+        return out;
+    }
 
+    std::ostream& operator<<(std::ostream& out, pp_constraint const& c) {
+        c.s.print_constraint(out, c.c);
+        return out;
+    }
 
 }
 

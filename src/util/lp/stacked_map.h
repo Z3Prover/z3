@@ -147,7 +147,7 @@ public:
     }
     
     unsigned size() const {
-        return m_map.size();
+        return static_cast<unsigned>(m_map.size());
     }
 
     bool contains(const A & key) const {
@@ -162,6 +162,19 @@ public:
         delta d;
         //        d.m_deb_copy = m_map;
         m_stack.push(d);
+    }
+
+    void revert() {
+        if (m_stack.empty()) return;
+
+        delta & d = m_stack.top();
+        for (auto & t : d.m_new) {
+            m_map.erase(t);
+        }
+        for (auto & t: d.m_original_changed) {
+            m_map[t.first] = t.second;
+        }
+        d.clear();
     }
     
     void pop() {
@@ -232,7 +245,9 @@ public:
         m_map.clear();
     }
 
-	bool empty() const { return m_map.empty(); }
+    unsigned stack_size() const { return m_stack.size(); }
+    
+    bool empty() const { return m_map.empty(); }
 
     const std::map<A, B, _Pr, _Alloc>& operator()() const { return m_map;}
 };

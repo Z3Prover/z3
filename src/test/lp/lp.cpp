@@ -1883,8 +1883,7 @@ void test_replace_column() {
 
 
 void setup_args_parser(argument_parser & parser) {
-    parser.add_option_with_help_string("-dji", "test integer_domain");
-    parser.add_option_with_help_string("-cs", "test cut_solver");
+    parser.add_option_with_help_string("-intd", "test integer_domain");
     parser.add_option_with_help_string("-xyz_sample", "run a small interactive scenario");
     parser.add_option_with_after_string_with_help("--density", "the percentage of non-zeroes in the matrix below which it is not dense");
     parser.add_option_with_after_string_with_help("--harris_toler", "harris tolerance");
@@ -3113,17 +3112,17 @@ void get_random_interval(bool& neg_inf, bool& pos_inf, int& x, int &y) {
 }
 
 void test_integer_domain_intersection(integer_domain<int> & d) {
-    int x, y; bool neg_inf, pos_inf;
-    get_random_interval(neg_inf, pos_inf, x, y);
-    if (neg_inf) {
-        if (!pos_inf) {
-            d.intersect_with_upper_bound(y);
-        }
-    }
-    else if (pos_inf)
-        d.intersect_with_lower_bound(x);
-    else 
-        d.intersect_with_interval(x, y);
+    // int x, y; bool neg_inf, pos_inf;
+    // get_random_interval(neg_inf, pos_inf, x, y);
+    // if (neg_inf) {
+    //     if (!pos_inf) {
+    //         d.intersect_with_upper_bound(y);
+    //     }
+    // }
+    // else if (pos_inf)
+    //     d.intersect_with_lower_bound(x);
+    // else 
+    //     d.intersect_with_interval(x, y);
 }
 
 void test_integer_domain_union(integer_domain<int> & d) {
@@ -3154,196 +3153,106 @@ void test_integer_domain_randomly(integer_domain<int> & d) {
 }
 
 void test_integer_domain() {
-    integer_domain<int> d;
-    std::vector<integer_domain<int>> stack;
-    for (int i = 0; i < 10000; i++) {
-        test_integer_domain_randomly(d);
-        stack.push_back(d);
-        d.push();
-        if (i > 0 && i%100 == 0) {
-            if (stack.size() == 0) continue;
-            unsigned k = my_random() % stack.size();
-            if (k == 0)
-                k = 1;
-            d.pop(k);
-            d.restore_domain();
-            for (unsigned j = 0; j + 1 < k; j++) {
-                stack.pop_back();
-            }
-            std::cout<<"comparing i = " << i << std::endl;
-            lp_assert(d ==  *stack.rbegin());
-            stack.pop_back();
-        }
-        //d.print(std::cout);
-    }
+    std::cout << "test_integer_domain\n";
+    unsigned e0 = 0;
+    unsigned e1 = 1;
+    unsigned e2 = 2;
+    unsigned e3 = 3; // these are explanations
+    unsigned e4 = 4;
+    unsigned e5 = 5;
+    integer_domain<unsigned> d;
+    unsigned l0 = 0, l1 = 1, l2 = 3;
+    unsigned u0 = 10, u1 = 9, u2 = 8;
+    d.push();
+    d.intersect_with_lower_bound(l0, e0);
+    unsigned b;
+    unsigned e;
+    bool r = d.get_lower_bound_with_expl(b, e);
+    lp_assert(r && b == l0 && e == e0);
+    d.push();
+    d.intersect_with_upper_bound(u0, e1);
+    r = d.get_upper_bound_with_expl(b, e);
+    lp_assert(r && b == u0 && e == e1);
+    r = d.get_lower_bound_with_expl(b, e);
+    lp_assert(r && b == l0 && e == e0);
+    d.pop();
+    r = d.get_upper_bound_with_expl(b, e);
+    lp_assert(!r);
+    d.intersect_with_upper_bound(u0, e1);
+    d.push();
+    d.intersect_with_lower_bound(l1, e2);
+    d.intersect_with_upper_bound(u1, e3);
+    d.push();
+    d.intersect_with_lower_bound(l2, e4);
+    d.intersect_with_upper_bound(u2, e5);
+    lp_assert(d.is_empty() == false);
+    d.print(std::cout);
+    d.pop();
+    r = d.get_lower_bound_with_expl(b, e);
+    lp_assert(r && b == l1 && e == e2);
+    d.print(std::cout);
+    d.pop(2);
+    d.print(std::cout);
+    lp_assert(d.has_neg_inf() && d.has_pos_inf());
+    // integer_domain<int> d;
+    // std::vector<integer_domain<int>> stack;
+    // for (int i = 0; i < 10000; i++) {
+    //     test_integer_domain_randomly(d);
+    //     stack.push_back(d);
+    //     d.push();
+    //     if (i > 0 && i%100 == 0) {
+    //         if (stack.size() == 0) continue;
+    //         unsigned k = my_random() % stack.size();
+    //         if (k == 0)
+    //             k = 1;
+    //         d.pop(k);
+    //         d.restore_domain();
+    //         for (unsigned j = 0; j + 1 < k; j++) {
+    //             stack.pop_back();
+    //         }
+    //         std::cout<<"comparing i = " << i << std::endl;
+    //         lp_assert(d ==  *stack.rbegin());
+    //         stack.pop_back();
+    //     }
+    //     //d.print(std::cout);
+    // }
 }
 
-void test_bound_of_cut_solver(cut_solver<int>& cs, unsigned ineq_index)  {
-    std::cout << "test_bound_of_cut_solver\n";
-    std::vector<int> coeffs;
-    auto q = cs.get_ineq(ineq_index);
-    for (auto t: q.m_poly.m_coeffs)
-        coeffs.push_back(t.var());
-    auto br = cs.bound(ineq_index, coeffs[0]);
-	std::cout << "bound for " << cs.get_column_name(coeffs[0]) << " is ";
-    br.print(std::cout);
-    std::cout << std::endl;
 
-    br = cs.bound(ineq_index, coeffs[1]);
-    std::cout << "bound for " << cs.get_column_name(coeffs[1]) << " is ";
-    br.print(std::cout);
-    std::cout << std::endl;
+
+void test_resolve_with_tight_constraint(cut_solver& cs,
+                                        lp::cut_solver::polynomial&i ,
+                                        unsigned int j,
+                                        cut_solver::polynomial& ti) {
+    
+    // std::cout << "resolve constraint ";
+    // cs.print_polynomial(std::cout, i);
+    // std::cout << " for " << cs.get_column_name(j) << " by using poly ";
+    // cs.print_polynomial(std::cout, ti);
+    // std::cout << std::endl;
+    // bool j_coeff_is_one = ti.coeff(j) == 1;
+    // cut_solver::polynomial result;
+    // cs.resolve(i, j,  j_coeff_is_one, ti);
+    // std::cout << "resolve result is ";
+    // cs.print_polynomial(std::cout, i);
+    // std::cout << std::endl;
 }
 
+typedef cut_solver::monomial mono;
 
-void test_resolve_with_tight_ineq(cut_solver<int>& cs,
-                                const cut_solver<int>::literal te,
-                                var_index ineq_index,
-                                cut_solver<int>::ineq & result) {
-    std::cout << "resolve ineq ";
-    cs.print_ineq(std::cout, ineq_index);
-    std::cout << " with literal\n";
-    cs.print_literal(std::cout, te);
-    std::cout << std::endl;
-    if (cs.resolve(te, cs.get_ineq(ineq_index), result)) {
-        std::cout << "resolve succeeds, result is ";
-        cs.print_ineq(std::cout, result);
-    } else {
-        std::cout << "resolve did not succeed";
-    }
-    std::cout << std::endl;
-}
-
-typedef cut_solver<int>::monomial mono;
-
-void test_resolve(cut_solver<int>& cs, unsigned ineq_index, unsigned i0)  {
+void test_resolve(cut_solver& cs, unsigned constraint_index, unsigned i0)  {
     var_index x = 0;
     var_index y = 1;
-    //    var_index z = 2;
+    var_index z = 2;
     std::cout << "test_resolve\n";
-    auto q = cs.get_ineq(ineq_index);
-    cut_solver<int>::literal bound(x, false /* is_lower */, 2);
-    bound.m_ineq_index = i0;
-    cut_solver<int>::ineq result;
-    test_resolve_with_tight_ineq(cs, bound, ineq_index, result);
-    cs.m_ineqs[ineq_index].m_poly += mono(-10, x);
-    test_resolve_with_tight_ineq(cs, bound, ineq_index, result);
-    bound.m_var_index = y;
-    bound.m_is_lower = true;
-    test_resolve_with_tight_ineq(cs, bound, ineq_index, result);
-    cs.m_ineqs[ineq_index].add_monomial(6, y);
-    test_resolve_with_tight_ineq(cs, bound, ineq_index, result);
-    bound.m_is_lower = true;
-    bound.m_bound = 3;
-    result.clear();
-    test_resolve_with_tight_ineq(cs, bound, ineq_index, result);
-    auto& coeffs = cs.m_ineqs[ineq_index].m_poly.m_coeffs;
-    unsigned size = coeffs.size();
-    int a = cs.m_ineqs[ineq_index].m_poly.coeff(x);
-    cs.m_ineqs[ineq_index].add_monomial(-a, x);
-    lp_assert(coeffs.size() == size - 1);
+    
+    cut_solver::polynomial i; i += mono(2, x);i += mono(-3,y);
+    i+= mono(4, z);
+    i.m_a = 5;
+    cut_solver::polynomial ti; ti += mono(1, x); ti+= mono(1,y);ti.m_a = 3;
+    test_resolve_with_tight_constraint(cs, i, x, ti);
+    test_resolve_with_tight_constraint(cs, i, y ,ti);
  }
-
-void test_improves(cut_solver<int>& cs, unsigned ineq_index, unsigned i0) {
-    var_index x = 0;
-    var_index y = 1;
-    std::cout << "test_improves\n";
-    auto q = cs.get_ineq(ineq_index);
-    std::cout << "ineq = "; cs.print_ineq(std::cout, q); std::cout << std::endl;
-    std::cout << "domain of x = ";
-    cs.m_var_infos[x].m_domain.print(std::cout);
-    std::cout << std::endl;
-    if (cs.improves(x, q)) {
-        std::cout << "improves x\n";
-    } else {
-        std::cout << "does not improve x\n";
-    }
-
-    std::cout << "domain of y = ";
-    cs.m_var_infos[y].m_domain.print(std::cout);
-    std::cout << std::endl;
-
-
-    if (cs.improves(y, q)) {
-        std::cout << "improves y\n";
-    } else {
-        std::cout << "does not improve y\n";
-    }
-
-	q.m_poly.m_a = -10;
-	std::cout << "ineq = "; cs.print_ineq(std::cout, ineq_index); std::cout << std::endl;
-	if (cs.improves(x, q)) {
-		std::cout << "improves x\n";		
-	}
-	else {
-		std::cout << "does not improve x\n";
-	}
-
-}
-
-void test_cut_solver() {
-    cut_solver<int> cs([](unsigned i)
-                       {
-                           if (i == 0) return std::string("x");
-                           if (i == 1) return  std::string("y");
-                           if (i == 2) return std::string("z");
-                           return std::to_string(i);
-                       }, [](unsigned, std::ostream&){});
-    std::vector<mono> term;
-    unsigned x = 0;
-    unsigned y = 1;
-    unsigned z = 2;
-    term.push_back(mono(8, x));
-    term.push_back(mono(-3, y));
-    term.push_back(mono(-2, z));
-    vector<unsigned> expl;
-    unsigned ineq_index = cs.add_ineq(term, 5, expl);
-
-    cs.print_ineq(std::cout, ineq_index);
-    std::cout << std::endl;
-    
-    term.clear();
-    term.push_back(mono(1,x));
-    term.push_back(mono(-2,y));
-    unsigned ineq_index0 = cs.add_ineq(term, 2, expl);
-    cs.print_ineq(std::cout, ineq_index0);
-    std::cout <<std::endl;
-    
-    auto & i = cs.m_ineqs[ineq_index0];
-    std::cout << "add monomial y" << std::endl;
-    i.m_poly += mono(1, y);
-    cs.print_ineq(std::cout, ineq_index0);
-    std::cout << std::endl;
-    std::cout << "add monomial y" << std::endl;
-    i.m_poly += mono(1, y);
-    cs.print_ineq(std::cout, ineq_index0);
-    std::cout << "\nadd monomial -y" << std::endl;
-    i.m_poly += mono(-1, y);
-    cs.print_ineq(std::cout, ineq_index0);
-    int l;
-    auto ineq = cs.m_ineqs[ineq_index];
-    cs.add_lower_bound_for_user_var(x, 1);
-    cs.add_lower_bound_for_user_var(y, 1);
-    bool has_lower = cs.lower(ineq.m_poly, l);
-    if (has_lower) {
-        std::cout << "\nlower = " << l << std::endl;
-    } else {
-        std::cout << "\nno lower" << std::endl;
-    }
-    cs.add_upper_bound_for_user_var(y, 1);
-    has_lower = cs.lower(ineq.m_poly, l);
-    if (has_lower) {
-        std::cout << "\nlower = " << l << std::endl;
-    } else {
-        std::cout << "\nno lower" << std::endl;
-    }
-
-    test_bound_of_cut_solver(cs, ineq_index);
-
-    test_resolve(cs, ineq_index, ineq_index0);
-    test_improves(cs, ineq_index, ineq_index0);
-}
-
 
 
 void test_lp_local(int argn, char**argv) {
@@ -3362,14 +3271,11 @@ void test_lp_local(int argn, char**argv) {
 
     args_parser.print();
 
-    if (args_parser.option_is_used("-dji")) {
+    if (args_parser.option_is_used("-intd")) {
         test_integer_domain();
         return finalize(0);
     }
-    if (args_parser.option_is_used("-cs")) {
-        test_cut_solver();
-        return finalize(0);
-    }
+
     if (args_parser.option_is_used("--test_mpq")) {
         test_rationals();
         return finalize(0);

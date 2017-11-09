@@ -100,7 +100,7 @@ public:
     void swap_rows(unsigned a, unsigned b);
 
     void multiply_row_by_constant(unsigned row, T & t);
-
+    
 };
 template <typename T, typename X>
 dense_matrix<T, X> operator* (matrix<T, X> & a, matrix<T, X> & b);

@@ -6,6 +6,7 @@
 #include "util/lp/int_solver.h"
 #include "util/lp/lar_solver.h"
 #include "util/lp/cut_solver.h"
+#include "util/lp/lp_utils.h"
 #include <utility>
 namespace lp {
 
@@ -406,7 +407,7 @@ unsigned int_solver::row_of_basic_column(unsigned j) const {
 // template <typename T>
 // void int_solver::fill_cut_solver_for_constraint(constraint_index ci, cut_solver<T> & cs) {
 //     const lar_base_constraint* c = m_lar_solver->constraints()[ci];
-//     std::vector<std::pair<T, var_index>> coeffs;
+//     vector<std::pair<T, var_index>> coeffs;
 //     T rs;
 //     get_int_coeffs_from_constraint(c, coeffs, rs);
 //     vector<constraint_index> explanation;
@@ -415,12 +416,12 @@ unsigned int_solver::row_of_basic_column(unsigned j) const {
 // }
 
 
-typedef cut_solver<mpq>::monomial mono;
+typedef cut_solver::monomial mono;
 
 // it produces an inequality coeff*x <= rs
 template <typename T>
 void int_solver::get_int_coeffs_from_constraint(const lar_base_constraint* c,
-                                                std::vector<mono>& coeffs, T & rs) {
+                                                vector<mono>& coeffs, T & rs) {
     lp_assert(c->m_kind != EQ); // it is not implemented, we need to create two inequalities in this case
     int sign = ((int)c->m_kind > 0) ? -1 : 1;
     vector<std::pair<T, var_index>> lhs = c->get_left_side_coefficients();
@@ -458,17 +459,33 @@ struct pivoted_rows_tracking_control {
 };
 
 void int_solver::copy_explanations_from_cut_solver(explanation &ex) {
-    for (unsigned j : m_cut_solver.m_explanation)
+    TRACE("propagate_and_backjump_step_int",
+          for (unsigned j: m_cut_solver.m_explanation)
+              m_lar_solver->print_constraint(m_lar_solver->constraints()[j], tout););
+
+    for (unsigned j : m_cut_solver.m_explanation) {
         ex.push_justification(j);
+     }
     m_cut_solver.m_explanation.clear();
+}
+
+void int_solver::copy_values_from_cut_solver() {
+    for (unsigned j = 0; j < m_lar_solver->A_r().column_count() && j < m_cut_solver.number_of_vars(); j++) {
+        if (!is_int(j))
+            std::cout << "column " << j << " is not int\n";
+        if (m_cut_solver.var_is_active(j))
+            m_lar_solver->m_mpq_lar_core_solver.m_r_x[j] = m_cut_solver.var_value(j);
+        if (! m_lar_solver->column_value_is_int(j))
+            std::cout << "val is not int for " << j << std::endl;
+    }
 }
 
 lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
     init_check_data();
     lp_assert(inf_int_set_is_correct());
-    // it is mostly a reimplementation of
+    // it is a reimplementation of 
     // final_check_status theory_arith<Ext>::check_int_feasibility()
-    // from theory_arith_int.h
+    // from theory_arith_int.h with the addition of cut_solver
     if (!has_inf_int()) 
         return lia_move::ok;
     if (settings().m_run_gcd_test)
@@ -481,21 +498,29 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
     if (!has_inf_int())
         return lia_move::ok;
 
-    // lp_assert(non_basic_columns_are_at_bounds());
-    TRACE("gomory_cut", tout << m_branch_cut_counter+1 << ", " << settings().m_int_branch_cut_gomory_threshold << std::endl;);
-    if (++m_branch_cut_counter > 0) { // testing cut_solver
+    if ((++m_branch_cut_counter) % settings().m_int_branch_cut_solver == 0) {
+        TRACE("check_main_int", tout<<"cut_solver";);
         auto check_res = m_cut_solver.check();
+        settings().st().m_cut_solver_calls++;
         switch (check_res) {
         case lbool::l_false:
-            copy_explanations_from_cut_solver(ex);
+            copy_explanations_from_cut_solver(ex); 
+            settings().st().m_cut_solver_false++;
             return lia_move::conflict;
         case lbool::l_true:
+            settings().st().m_cut_solver_true++;
+            copy_values_from_cut_solver();
             return lia_move::ok;
+        case lbool::l_undef:
+            settings().st().m_cut_solver_undef++;
+            settings().m_int_branch_cut_solver *= (settings().m_int_branch_cut_solver); // take a square
+            break;
         default:
             return lia_move::give_up;
         }
     }
-    if ((++m_branch_cut_counter) % settings().m_int_branch_cut_gomory_threshold == 0) {
+    if ((m_branch_cut_counter) % settings().m_int_branch_cut_gomory_threshold == 0) {
+        TRACE("check_main_int", tout << "gomory";);
         if (move_non_basic_columns_to_bounds()) {
             lp_status st = m_lar_solver->find_feasible_solution();
             lp_assert(non_basic_columns_are_at_bounds());
@@ -509,6 +534,7 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
         TRACE("arith_int", tout << "j = " << j << " does not have an integer assignment: " << get_value(j) << "\n";);
         return proceed_with_gomory_cut(t, k, ex, j);
     }
+    TRACE("check_main_int", tout << "branch"; );
     return create_branch_on_column(find_inf_int_base_column(), t, k, false);
 }
 
@@ -812,7 +838,10 @@ int_solver::int_solver(lar_solver* lar_slv) :
     m_lar_solver(lar_slv),
     m_branch_cut_counter(0),
     m_cut_solver([this](unsigned j) {return m_lar_solver->get_column_name(j);},
-                 [this](unsigned j, std::ostream &o) {m_lar_solver->print_constraint(j, o);}) {
+                 [this](unsigned j, std::ostream &o) {m_lar_solver->print_constraint(j, o);},
+                 [this]() {return m_lar_solver->A_r().column_count();},
+                 [this](unsigned j) {return get_value(j);},
+                 settings()) {
     lp_assert(m_old_values_set.size() == 0);
     m_old_values_set.resize(lar_slv->A_r().column_count());
     m_old_values_data.resize(lar_slv->A_r().column_count(), zero_of_type<impq>());
@@ -1175,10 +1204,10 @@ bool int_solver::is_term(unsigned j) const {
 }
 
 void int_solver::add_constraint_to_cut_solver(unsigned ci, const lar_base_constraint * c) {
-    std::vector<cut_solver<mpq>::monomial> coeffs;
+    vector<mono> coeffs;
     mpq rs;
     get_int_coeffs_from_constraint<mpq>(c, coeffs, rs);
-    vector<constraint_index> explanation;
+    svector<constraint_index> explanation;
     explanation.push_back(ci);
     m_cut_solver.add_ineq(coeffs, -rs, explanation);
 }

@@ -42,7 +42,7 @@ public:
     int_set m_old_values_set;
     vector<impq> m_old_values_data;
     unsigned m_branch_cut_counter;
-    cut_solver<mpq> m_cut_solver;
+    cut_solver m_cut_solver;
     // methods
     int_solver(lar_solver* lp);
     int_set& inf_int_set();
@@ -153,12 +153,13 @@ public:
     template <typename T>
     void fill_cut_solver_vars();
     template <typename T>
-    void get_int_coeffs_from_constraint(const lar_base_constraint* c, std::vector<cut_solver<mpq>::monomial>& coeff, T & rs);
+    void get_int_coeffs_from_constraint(const lar_base_constraint* c, vector<cut_solver::monomial>& coeff, T & rs);
     bool is_term(unsigned j) const;
     void notify_on_last_added_constraint();
     void add_constraint_to_cut_solver(unsigned,const lar_base_constraint*);
     void copy_explanations_from_cut_solver(explanation &);
     void pop(unsigned);
     void push();
+    void copy_values_from_cut_solver();
 };
 }

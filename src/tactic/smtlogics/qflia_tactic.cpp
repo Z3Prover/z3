@@ -213,10 +213,11 @@ tactic * mk_qflia_tactic(ast_manager & m, params_ref const & p) {
     no_cut_p.set_uint("arith.branch_cut_ratio", 10000000);
 
 
-    //
-        tactic * st = using_params(and_then(preamble_st,
-                                        mk_smt_tactic()),
+
+    tactic * st = using_params(and_then(preamble_st,
 #if 0
+                                        mk_smt_tactic()),
+#else
                                         or_else(mk_ilp_model_finder_tactic(m),
                                                 mk_pb_tactic(m),
                                                 and_then(fail_if_not(mk_is_quasi_pb_probe()), 

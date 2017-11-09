@@ -225,7 +225,7 @@ void lar_solver::explain_implied_bound(implied_bound & ib, bound_propagator & bp
     if (is_term(m_j)) {
         auto it = m_ext_vars_to_columns.find(m_j);
         lp_assert(it != m_ext_vars_to_columns.end());
-        m_j = it->second.ext_j();
+        m_j = it->second.internal_j();
     }
     for (auto const& r : A_r().m_rows[i]) {
         unsigned j = r.m_j;
@@ -234,7 +234,7 @@ void lar_solver::explain_implied_bound(implied_bound & ib, bound_propagator & bp
         if (is_term(j)) {
             auto it = m_ext_vars_to_columns.find(j);
             lp_assert(it != m_ext_vars_to_columns.end());
-            j = it->second.ext_j();
+            j = it->second.internal_j();
         } 
         int a_sign = is_pos(a)? 1: -1;
         int sign = j_sign * a_sign;
@@ -1505,7 +1505,7 @@ var_index lar_solver::add_var(unsigned ext_j, bool is_int) {
         throw 0; // todo : what is the right way to exit?
     auto it = m_ext_vars_to_columns.find(ext_j);
     if (it != m_ext_vars_to_columns.end()) {
-        return it->second.ext_j();
+        return it->second.internal_j();
     }
     lp_assert(m_columns_to_ul_pairs.size() == A_r().column_count());
     i = A_r().column_count();
@@ -1695,7 +1695,7 @@ void lar_solver::add_var_bound_on_constraint_for_term(var_index j, lconstraint_k
     lp_assert(!term_is_int(m_terms[adjusted_term_index]) || right_side.is_int());
     auto it = m_ext_vars_to_columns.find(j);
     if (it != m_ext_vars_to_columns.end()) {
-        unsigned term_j = it->second.ext_j();
+        unsigned term_j = it->second.internal_j();
         mpq rs = right_side - m_terms[adjusted_term_index]->m_v;
         m_constraints.push_back(new lar_term_constraint(m_terms[adjusted_term_index], kind, right_side));
         if (has_int_var())
@@ -2104,7 +2104,11 @@ bool lar_solver::column_corresponds_to_term(unsigned j) const {
     return m_columns_to_ext_vars_or_term_indices[j] >= m_terms_start_index;
 }
 
-
+var_index lar_solver:: to_var_index(unsigned ext_j) const {
+    auto it = m_ext_vars_to_columns.find(ext_j);
+    lp_assert(it != m_ext_vars_to_columns.end());
+    return it->second.internal_j();
+}
 } // namespace lp
 
 

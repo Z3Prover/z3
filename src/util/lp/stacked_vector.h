@@ -115,6 +115,12 @@ public:
     void resize(vector<T> & v, unsigned new_size) {
         v.resize(new_size);
     }
+
+    void pop_back() {
+        unsigned last = m_vector.size() - 1;
+        m_changes.push_back(std::make_pair(last, m_vector[last]));
+        m_vector.pop_back();
+    }
     
     void pop(unsigned k) {
         lp_assert(m_stack_of_vector_sizes.size() >= k);
