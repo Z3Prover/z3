@@ -288,6 +288,7 @@ try:
         # Put z3py at the beginning of the search path to try to avoid picking up
         # an installed copy of Z3py.
         sys.path.insert(0, os.path.dirname(Z3PY_PACKAGE_PATH))
+        sys.path.insert(0, os.path.dirname(BUILD_DIR))
         for modulename in (
                 'z3',
                 'z3.z3consts',
