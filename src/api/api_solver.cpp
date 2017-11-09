@@ -529,9 +529,9 @@ extern "C" {
         Z3_CATCH_RETURN(Z3_L_UNDEF);        
     }
 
-    Z3_ast Z3_API Z3_solver_cube(Z3_context c, Z3_solver s) {
+    Z3_ast Z3_API Z3_solver_cube(Z3_context c, Z3_solver s, unsigned cutoff) {
         Z3_TRY;
-        LOG_Z3_solver_cube(c, s);
+        LOG_Z3_solver_cube(c, s, cutoff);
         ast_manager& m = mk_c(c)->m();
         expr_ref result(m);
         unsigned timeout     = to_solver(s)->m_params.get_uint("timeout", mk_c(c)->get_timeout());
@@ -544,7 +544,7 @@ extern "C" {
             scoped_timer timer(timeout, &eh);
             scoped_rlimit _rlimit(mk_c(c)->m().limit(), rlimit);
             try {
-                result = to_solver_ref(s)->cube();
+                result = to_solver_ref(s)->cube(cutoff);
             }
             catch (z3_exception & ex) {
                 mk_c(c)->handle_exception(ex);

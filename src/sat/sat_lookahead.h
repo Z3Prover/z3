@@ -567,7 +567,7 @@ namespace sat {
 
         lbool cube();
 
-        lbool cube(bool_var_vector const& vars, literal_vector& lits);
+        lbool cube(bool_var_vector const& vars, literal_vector& lits, unsigned backtrack_level);
 
         literal select_lookahead(literal_vector const& assumptions, bool_var_vector const& vars);
         /**

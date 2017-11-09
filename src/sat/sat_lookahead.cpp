@@ -1964,7 +1964,7 @@ namespace sat {
         bool_var_vector vars;
         for (bool_var v : m_freevars) vars.push_back(v);
         while (true) {
-            lbool result = cube(vars, lits);
+            lbool result = cube(vars, lits, UINT_MAX);
             if (lits.empty() || result != l_undef) {
                 return l_undef;
             }
@@ -1973,7 +1973,7 @@ namespace sat {
         return l_undef;
     }
 
-    lbool lookahead::cube(bool_var_vector const& vars, literal_vector& lits) {
+    lbool lookahead::cube(bool_var_vector const& vars, literal_vector& lits, unsigned backtrack_level) {
         scoped_ext _scoped_ext(*this);
         lits.reset();
         m_select_lookahead_vars.reset();
@@ -2006,6 +2006,14 @@ namespace sat {
                 continue;
             }
         pick_up_work:
+            if (m_cube_state.m_cube.size() >= backtrack_level) {
+                IF_VERBOSE(10, verbose_stream() << "(sat-cube :cube: " << m_cube_state.m_cube.size() << " :backtrack_level " << backtrack_level << ")\n";);
+                while (m_cube_state.m_cube.size() >= backtrack_level) {
+                    set_conflict();
+                    backtrack(m_cube_state.m_cube, m_cube_state.m_is_decision);
+                }
+                backtrack_level = UINT_MAX;
+            }
             depth = m_cube_state.m_cube.size();
             if ((m_config.m_cube_cutoff != 0 && depth == m_config.m_cube_cutoff) ||
                 (m_config.m_cube_cutoff == 0 && m_freevars.size() < m_cube_state.m_freevars_threshold)) {

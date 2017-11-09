@@ -281,8 +281,8 @@ public:
         return m_solver1->get_num_assumptions() + m_solver2->get_num_assumptions();
     }
 
-    virtual expr_ref cube() {
-        return m_solver1->cube();
+    virtual expr_ref cube(unsigned backtrack_level) {
+        return m_solver1->cube(backtrack_level);
     }
 
     virtual expr * get_assumption(unsigned idx) const {

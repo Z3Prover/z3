@@ -837,11 +837,11 @@ namespace sat {
         return lh.select_lookahead(assumptions, vars);
     }
 
-    lbool  solver::cube(bool_var_vector const& vars, literal_vector& lits) {
+    lbool  solver::cube(bool_var_vector const& vars, literal_vector& lits, unsigned backtrack_level) {
         if (!m_cuber) {
             m_cuber = alloc(lookahead, *this);
         }
-        lbool result = m_cuber->cube(vars, lits);
+        lbool result = m_cuber->cube(vars, lits, backtrack_level);
         if (result == l_false) {
             dealloc(m_cuber);
             m_cuber = nullptr;

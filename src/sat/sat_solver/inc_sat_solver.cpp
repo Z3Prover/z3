@@ -301,7 +301,7 @@ public:
         return 0;
     }
 
-    virtual expr_ref cube() {
+    virtual expr_ref cube(unsigned backtrack_level) {
         if (!m_internalized) {
             dep2asm_t dep2asm;
             m_model = 0;
@@ -315,7 +315,7 @@ public:
             vars.push_back(kv.m_value);
         }
         sat::literal_vector lits;
-        lbool result = m_solver.cube(vars, lits);
+        lbool result = m_solver.cube(vars, lits, backtrack_level);
         if (result == l_false || lits.empty()) {
             return expr_ref(m.mk_false(), m);
         }

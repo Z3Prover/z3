@@ -6283,19 +6283,16 @@ class Solver(Z3PPObject):
         consequences = [ consequences[i] for i in range(sz) ]
         return CheckSatResult(r), consequences
     
-    def cube(self):
+    def cube(self, level_ref):
         """Get set of cubes"""
-        rounds = 0
         while True:
-            r = _to_expr_ref(Z3_solver_cube(self.ctx.ref(), self.solver), self.ctx)
+            backtrack_level = level_ref.backtrack_level
+            r = _to_expr_ref(Z3_solver_cube(self.ctx.ref(), self.solver, backtrack_level), self.ctx)
             if (is_false(r)):
-                if (rounds == 0):
-                    yield r
                 return
             if (is_true(r)):
                 yield r
                 return
-            rounds += 1
             yield r
 
     def proof(self):
