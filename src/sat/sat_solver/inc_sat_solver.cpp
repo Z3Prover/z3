@@ -301,12 +301,12 @@ public:
         return 0;
     }
 
-    virtual expr_ref cube(unsigned backtrack_level) {
+    virtual expr_ref_vector cube(unsigned backtrack_level) {
         if (!m_internalized) {
             dep2asm_t dep2asm;
             m_model = 0;
             lbool r = internalize_formulas();
-            if (r != l_true) return expr_ref(m.mk_true(), m);
+            if (r != l_true) return expr_ref_vector(m);
             m_internalized = true;
         }
         convert_internalized();
@@ -317,10 +317,12 @@ public:
         sat::literal_vector lits;
         lbool result = m_solver.cube(vars, lits, backtrack_level);
         if (result == l_false || lits.empty()) {
-            return expr_ref(m.mk_false(), m);
+            expr_ref_vector result(m);
+            result.push_back(m.mk_false());
+            return result;
         }
         if (result == l_true) {
-            return expr_ref(m.mk_true(), m);
+            return expr_ref_vector(m);
         }
         expr_ref_vector fmls(m);
         expr_ref_vector lit2expr(m);
@@ -329,7 +331,7 @@ public:
         for (sat::literal l : lits) {
             fmls.push_back(lit2expr[l.index()].get());
         }
-        return mk_and(fmls);
+        return fmls;
     }
 
     virtual lbool get_consequences_core(expr_ref_vector const& assumptions, expr_ref_vector const& vars, expr_ref_vector& conseq) {

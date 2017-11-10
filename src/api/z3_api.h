@@ -6235,10 +6235,10 @@ extern "C" {
        The last argument is a backtracking level. It instructs the cube process to backtrack below
        the indicated level for the next cube.
        
-       def_API('Z3_solver_cube', AST, (_in(CONTEXT), _in(SOLVER), _in(UINT)))
+       def_API('Z3_solver_cube', AST_VECTOR, (_in(CONTEXT), _in(SOLVER), _in(UINT)))
     */
 
-    Z3_ast Z3_API Z3_solver_cube(Z3_context c, Z3_solver s, unsigned backtrack_level);
+    Z3_ast_vector Z3_API Z3_solver_cube(Z3_context c, Z3_solver s, unsigned backtrack_level);
 
     /**
        \brief Retrieve the model for the last #Z3_solver_check or #Z3_solver_check_assumptions

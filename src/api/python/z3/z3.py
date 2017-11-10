@@ -6289,13 +6289,12 @@ class Solver(Z3PPObject):
         while True:
             lvl = self.backtrack_level
             self.backtrack_level = 4000000000
-            r = _to_expr_ref(Z3_solver_cube(self.ctx.ref(), self.solver, lvl), self.ctx)            
-            if (is_false(r)):
+            r = AstVector(Z3_solver_cube(self.ctx.ref(), self.solver, lvl), self.ctx)            
+            if (len(r) == 1 and is_false(r[0])):
                 return
-            if (is_true(r)):
-                yield r
+            yield r            
+            if (len(r) == 0):                
                 return
-            yield r
 
     def proof(self):
         """Return a proof for the last `check()`. Proof construction must be enabled."""

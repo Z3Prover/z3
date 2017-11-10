@@ -414,16 +414,15 @@ private:
         cubes.reset();
         s.set_cube_params();
         while (true) {
-            expr_ref c = s.get_solver().cube(UINT_MAX); // TBD tune this
-            VERIFY(c);
-            if (m.is_false(c)) {                
-                break;
-            }
-            if (m.is_true(c)) {
+            expr_ref_vector c = s.get_solver().cube(UINT_MAX); // TBD tune this
+            if (c.empty()) {
                 report_undef(s);
                 return;
             }
-            cubes.push_back(c);            
+            if (m.is_false(c.back())) {                
+                break;
+            }
+            cubes.push_back(mk_and(c));            
         }
 
         IF_VERBOSE(1, verbose_stream() << "(parallel_tactic :cubes " << cubes.size() << ")\n";);

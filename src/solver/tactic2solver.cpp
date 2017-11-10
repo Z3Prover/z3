@@ -77,9 +77,8 @@ public:
 
     virtual ast_manager& get_manager() const; 
 
-    virtual expr_ref cube(unsigned ) {
-        ast_manager& m = get_manager();
-        return expr_ref(m.mk_true(), m);
+    virtual expr_ref_vector cube(unsigned ) {
+        return expr_ref_vector(get_manager());
     }
 
     virtual model_converter_ref get_model_converter() const { return m_mc; }

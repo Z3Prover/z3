@@ -281,7 +281,7 @@ public:
         return m_solver1->get_num_assumptions() + m_solver2->get_num_assumptions();
     }
 
-    virtual expr_ref cube(unsigned backtrack_level) {
+    virtual expr_ref_vector cube(unsigned backtrack_level) {
         return m_solver1->cube(backtrack_level);
     }
 

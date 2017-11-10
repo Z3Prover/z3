@@ -362,20 +362,19 @@ namespace Microsoft.Z3
 	/// <summary>
 	/// Return a set of cubes.
 	/// </summary>
-	public IEnumerable<BoolExpr> Cube()
+	public IEnumerable<BoolExpr[]> Cube()
 	{
 	     while (true) {
                 var lvl = BacktrackLevel;
                 BacktrackLevel = uint.MaxValue;
-		BoolExpr r = (BoolExpr)Expr.Create(Context, Native.Z3_solver_cube(Context.nCtx, NativeObject, lvl));
-                if (r.IsFalse) {
+                ASTVector r = new ASTVector(Context, Native.Z3_solver_cube(Context.nCtx, NativeObject, lvl));
+                if (r.Size == 1 && ((Expr)r[0]).IsFalse) {
                    break;
                 }
-	        if (r.IsTrue) {
-                     yield return r;
-                     break;
+                yield return r.ToBoolExprArray();
+	        if (r.Size == 0) {
+                   break;
                 }
-                yield return r;
 	     }
 	}
 

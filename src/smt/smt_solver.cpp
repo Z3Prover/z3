@@ -226,9 +226,8 @@ namespace smt {
             return expr_ref(m.mk_true(), m);
         }
 
-        virtual expr_ref cube(unsigned) {
-            ast_manager& m = get_manager();
-            return expr_ref(m.mk_true(), m);
+        virtual expr_ref_vector cube(unsigned) {
+            return expr_ref_vector(get_manager());
         }
 
         struct collect_fds_proc {
