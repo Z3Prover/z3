@@ -1640,7 +1640,9 @@ from .z3consts import *
 _ext = 'dll' if sys.platform in ('win32', 'cygwin') else 'dylib' if sys.platform == 'darwin' else 'so'
 _lib = None
 _default_dirs = ['.',
-                 os.path.dirname(os.path.abspath(__file__)),
+                 # This path handles the build tree where libz3 resides next to
+                 # the z3 python package directory.
+                 os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                  pkg_resources.resource_filename('z3', 'lib'),
                  os.path.join(sys.prefix, 'lib'),
                  None]
