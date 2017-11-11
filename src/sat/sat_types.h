@@ -109,7 +109,7 @@ namespace sat {
     typedef svector<literal> literal_vector;
     typedef std::pair<literal, literal> literal_pair;
 
-    typedef unsigned clause_offset;
+    typedef size_t clause_offset;
     typedef size_t ext_constraint_idx;
     typedef size_t ext_justification_idx;
 

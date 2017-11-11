@@ -64,6 +64,8 @@ namespace sat {
             SASSERT(get_literal2() == l2);
         }
 
+        unsigned val2() const { return m_val2; }
+
         watched(literal blocked_lit, clause_offset cls_off):
             m_val1(cls_off), 
             m_val2(static_cast<unsigned>(CLAUSE) + (blocked_lit.to_uint() << 2)) {

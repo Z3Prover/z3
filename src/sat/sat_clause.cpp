@@ -129,20 +129,23 @@ namespace sat {
     }
 
     clause * clause_allocator::get_clause(clause_offset cls_off) const {
-#if defined(_AMD64_)
+#if 0
+// defined(_AMD64_)
         if (((cls_off & c_alignment_mask) == c_last_segment)) {
             unsigned id = cls_off >> c_cls_alignment;
             return const_cast<clause*>(m_last_seg_id2cls[id]);
         }
         return reinterpret_cast<clause *>(m_segments[cls_off & c_alignment_mask] + (static_cast<size_t>(cls_off) & ~c_alignment_mask));
 #else
+        VERIFY(cls_off == reinterpret_cast<clause_offset>(reinterpret_cast<clause*>(cls_off)));
         return reinterpret_cast<clause *>(cls_off);
 #endif
     }
 
 
     clause_offset clause_allocator::get_offset(clause const * cls) const {
-#if defined(_AMD64_)
+#if 0
+// defined(_AMD64_)
         size_t ptr = reinterpret_cast<size_t>(cls);
 
         SASSERT((ptr & c_alignment_mask) == 0);
@@ -163,6 +166,7 @@ namespace sat {
             return static_cast<clause_offset>(reinterpret_cast<size_t>(cls)) + i;
         }
 #else
+        VERIFY(cls == reinterpret_cast<clause *>(reinterpret_cast<size_t>(cls)));
         return reinterpret_cast<size_t>(cls);
 #endif
     }
@@ -178,9 +182,13 @@ namespace sat {
 
     void clause_allocator::del_clause(clause * cls) {
         TRACE("sat_clause", tout << "delete: " << cls->id() << " " << *cls << "\n";);
+        if (cls->id() == 62805 && cls->capacity() == 29) {
+            std::cout << "delete 62805\n";
+			for (literal l : *cls) {
+				std::cout << l << "\n";
+			}            
+        }
         m_id_gen.recycle(cls->id());
-#if defined(_AMD64_)
-#endif
         size_t size = clause::get_obj_size(cls->m_capacity);
         cls->~clause();
         m_allocator.deallocate(size, cls);

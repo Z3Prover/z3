@@ -417,6 +417,9 @@ namespace sat {
         }
         unsigned some_idx = c.size() >> 1;
         literal block_lit = c[some_idx];
+        DEBUG_CODE(for (auto const& w : m_watches[(~c[0]).index()]) VERIFY(!w.is_clause() || w.get_clause_offset() != cls_off););
+        DEBUG_CODE(for (auto const& w : m_watches[(~c[1]).index()]) VERIFY(!w.is_clause() || w.get_clause_offset() != cls_off););
+        VERIFY(c[0] != c[1]);
         m_watches[(~c[0]).index()].push_back(watched(block_lit, cls_off));
         m_watches[(~c[1]).index()].push_back(watched(block_lit, cls_off));
         return reinit;
@@ -563,6 +566,9 @@ namespace sat {
 
     void solver::detach_nary_clause(clause & c) {
         clause_offset cls_off = get_offset(c);
+        if (c.id() == 62805 && c.capacity() == 29) {
+            std::cout << "detach: " << c[0] << " " << c[1] << " size: " << c.size() << " cap: " << c.capacity() << " id: " << c.id() << "\n";
+        }
         erase_clause_watch(get_wlist(~c[0]), cls_off);
         erase_clause_watch(get_wlist(~c[1]), cls_off);
     }
@@ -753,18 +759,19 @@ namespace sat {
                         it2++;
                         break;
                     }
-                    SASSERT(c[1] == not_l);
                     if (value(c[0]) == l_true) {
                         it2->set_clause(c[0], cls_off);
                         it2++;
                         break;
                     }
+                    VERIFY(c[1] == not_l);
                     literal * l_it  = c.begin() + 2;
                     literal * l_end = c.end();
                     for (; l_it != l_end; ++l_it) {
                         if (value(*l_it) != l_false) {
                             c[1]  = *l_it;
                             *l_it = not_l;
+                            DEBUG_CODE(for (auto const& w : m_watches[(~c[1]).index()]) VERIFY(!w.is_clause() || w.get_clause_offset() != cls_off););
                             m_watches[(~c[1]).index()].push_back(watched(c[0], cls_off));
                             goto end_clause_case;
                         }
@@ -1555,7 +1562,7 @@ namespace sat {
 
         
         if (!check_clauses(m_model)) {
-            std::cout << "failure checking clauses on transformed model\n";
+            IF_VERBOSE(0, verbose_stream() << "failure checking clauses on transformed model\n";);
             UNREACHABLE();
             throw solver_exception("check model failed");
         }
@@ -3267,29 +3274,24 @@ namespace sat {
         for (unsigned i = 0; i < m_trail.size(); i++) {
             out << max_weight << " " << dimacs_lit(m_trail[i]) << " 0\n";
         }
-        vector<watch_list>::const_iterator it  = m_watches.begin();
-        vector<watch_list>::const_iterator end = m_watches.end();
-        for (unsigned l_idx = 0; it != end; ++it, ++l_idx) {
+        unsigned l_idx = 0;
+        for (watch_list const& wlist : m_watches) {
             literal l = ~to_literal(l_idx);
-            watch_list const & wlist = *it;
-            watch_list::const_iterator it2  = wlist.begin();
-            watch_list::const_iterator end2 = wlist.end();
-            for (; it2 != end2; ++it2) {
-                if (it2->is_binary_clause() && l.index() < it2->get_literal().index())
-                    out << max_weight << " " << dimacs_lit(l) << " " << dimacs_lit(it2->get_literal()) << " 0\n";
+            for (watched const& w : wlist) {
+                if (w.is_binary_clause() && l.index() < w.get_literal().index())
+                    out << max_weight << " " << dimacs_lit(l) << " " << dimacs_lit(w.get_literal()) << " 0\n";
             }
+            ++l_idx;
         }
         clause_vector const * vs[2] = { &m_clauses, &m_learned };
         for (unsigned i = 0; i < 2; i++) {
             clause_vector const & cs = *(vs[i]);
-            clause_vector::const_iterator it  = cs.begin();
-            clause_vector::const_iterator end = cs.end();
-            for (; it != end; ++it) {
-                clause const & c = *(*it);
+            for (clause const* cp : cs) {
+                clause const & c = *cp;
                 unsigned clsz = c.size();
                 out << max_weight << " ";
-                for (unsigned j = 0; j < clsz; j++)
-                    out << dimacs_lit(c[j]) << " ";
+                for (literal l : c)
+                    out << dimacs_lit(l) << " ";
                 out << "0\n";
             }
         }

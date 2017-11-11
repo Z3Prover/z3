@@ -62,6 +62,7 @@ namespace sat {
     public:
         unsigned id() const { return m_id; }
         unsigned size() const { return m_size; }
+        unsigned capacity() const { return m_capacity; }
         literal & operator[](unsigned idx) { SASSERT(idx < m_size); return m_lits[idx]; }
         literal const & operator[](unsigned idx) const { SASSERT(idx < m_size); return m_lits[idx]; }
         bool is_learned() const { return m_learned; }

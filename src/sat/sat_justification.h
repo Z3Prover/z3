@@ -48,7 +48,7 @@ namespace sat {
         literal get_literal2() const { SASSERT(is_ternary_clause()); return to_literal(m_val2 >> 3); }
 
         bool is_clause() const { return m_val2 == CLAUSE; }
-        clause_offset get_clause_offset() const { return val1(); }
+        clause_offset get_clause_offset() const { return m_val1; }
         
         bool is_ext_justification() const { return m_val2 == EXT_JUSTIFICATION; }
         ext_justification_idx get_ext_justification_idx() const { return m_val1; }

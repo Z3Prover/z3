@@ -201,7 +201,6 @@ namespace sat {
             return false;
         default:
             c.shrink(new_sz);
-            s.attach_clause(c);
             if (s.m_config.m_drat) s.m_drat.add(c, true);
             // if (s.m_config.m_drat) s.m_drat.del(c0); // TBD
             SASSERT(s.m_qhead == s.m_trail.size());

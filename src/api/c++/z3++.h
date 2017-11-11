@@ -421,6 +421,7 @@ namespace z3 {
         void set(char const * k, unsigned n) { Z3_params_set_uint(ctx(), m_params, ctx().str_symbol(k), n); }
         void set(char const * k, double n) { Z3_params_set_double(ctx(), m_params, ctx().str_symbol(k), n); }
         void set(char const * k, symbol const & s) { Z3_params_set_symbol(ctx(), m_params, ctx().str_symbol(k), s); }
+        void set(char const * k, char const* s) { Z3_params_set_symbol(ctx(), m_params, ctx().str_symbol(k), ctx().str_symbol(s)); }
         friend std::ostream & operator<<(std::ostream & out, params const & p);
     };
 
@@ -1508,6 +1509,11 @@ namespace z3 {
             m_vector = s.m_vector;
             return *this;
         }
+        bool contains(T const& x) const {
+            for (auto y : *this) if (x == y) return true;
+            return false;
+        }
+
         class iterator {
             ast_vector_tpl const* m_vector;
             unsigned m_index;
@@ -1907,6 +1913,11 @@ namespace z3 {
             return *this;
         }
         void set(params const & p) { Z3_solver_set_params(ctx(), m_solver, p); check_error(); }
+        void set(char const * k, bool v) { params p(ctx()); p.set(k, v); set(p); }
+        void set(char const * k, unsigned v) { params p(ctx()); p.set(k, v); set(p); }
+        void set(char const * k, double v) { params p(ctx()); p.set(k, v); set(p); }
+        void set(char const * k, symbol const & v) { params p(ctx()); p.set(k, v); set(p); }
+        void set(char const * k, char const* v) { params p(ctx()); p.set(k, v); set(p); }
         void push() { Z3_solver_push(ctx(), m_solver); check_error(); }
         void pop(unsigned n = 1) { Z3_solver_pop(ctx(), m_solver, n); check_error(); }
         void reset() { Z3_solver_reset(ctx(), m_solver); check_error(); }
@@ -1919,6 +1930,8 @@ namespace z3 {
         void add(expr const & e, char const * p) {
             add(e, ctx().bool_const(p));
         }
+        void add(expr_vector const& v) { check_context(*this, v); for (expr e : v) add(e); }
+        void from_file(char const* file) { Z3_solver_from_file(ctx(), m_solver, file); check_error(); }
         check_result check() { Z3_lbool r = Z3_solver_check(ctx(), m_solver); check_error(); return to_check_result(r); }
         check_result check(unsigned n, expr * const assumptions) {
             array<Z3_ast> _assumptions(n);
@@ -1976,6 +1989,78 @@ namespace z3 {
 
         param_descrs get_param_descrs() { return param_descrs(ctx(), Z3_solver_get_param_descrs(ctx(), m_solver)); }
 
+
+        expr_vector cube(unsigned cutoff) { Z3_ast_vector r = Z3_solver_cube(ctx(), m_solver, cutoff); check_error(); return expr_vector(ctx(), r); }  
+
+        class cube_iterator {
+            solver&     m_solver;
+            unsigned&   m_cutoff;
+            expr_vector m_cube;
+            bool        m_end;
+
+            bool is_false() const { return m_cube.size() == 1 && Z3_OP_FALSE == m_cube[0].decl().decl_kind(); }
+
+            void check_end() {
+                if (is_false()) {
+                    m_cube = z3::expr_vector(m_solver.ctx());
+                    m_end = true;
+                }
+                else if (m_cube.empty()) {
+                    m_end = true;
+                }
+            }
+
+            void inc() {
+                assert(!m_end);
+                m_cube = m_solver.cube(m_cutoff);
+                m_cutoff = 0xFFFFFFFF;
+                check_end();
+            }
+        public:
+            cube_iterator(solver& s, unsigned& cutoff, bool end):
+                m_solver(s),
+                m_cutoff(cutoff),
+                m_cube(s.ctx()),
+                m_end(end) {
+                if (!m_end) {
+                    inc();
+                }
+            }
+
+            cube_iterator& operator++() {
+                assert(!m_end);
+                inc();
+                return *this;
+            }
+            cube_iterator operator++(int) { assert(false); return *this; }
+            expr_vector const * operator->() const { return &(operator*()); }
+            expr_vector const& operator*() const { return m_cube; }
+            
+            bool operator==(cube_iterator const& other) {
+                return other.m_end == m_end;
+            };
+            bool operator!=(cube_iterator const& other) {
+                return other.m_end != m_end;
+            };
+
+        };
+
+        class cube_generator {
+            solver& m_solver;
+            unsigned m_cutoff;
+        public:
+            cube_generator(solver& s):
+                m_solver(s),
+                m_cutoff(0xFFFFFFFF)
+            {}
+
+            cube_iterator begin() { return cube_iterator(m_solver, m_cutoff, false); }
+            cube_iterator end() { return cube_iterator(m_solver, m_cutoff, true); }
+            void set_cutoff(unsigned c) { m_cutoff = c; }
+        };
+
+        cube_generator cubes() { return cube_generator(*this); }
+
     };
     inline std::ostream & operator<<(std::ostream & out, solver const & s) { out << Z3_solver_to_string(s.ctx(), s); return out; }
 
@@ -1999,7 +2084,7 @@ namespace z3 {
             return *this;
         }
         void add(expr const & f) { check_context(*this, f); Z3_goal_assert(ctx(), m_goal, f); check_error(); }
-        void add(expr_vector const& v) { check_context(*this, v); for (expr e : v) add(v); }
+        void add(expr_vector const& v) { check_context(*this, v); for (expr e : v) add(e); }
         unsigned size() const { return Z3_goal_size(ctx(), m_goal); }
         expr operator[](int i) const { assert(0 <= i); Z3_ast r = Z3_goal_formula(ctx(), m_goal, i); check_error(); return expr(ctx(), r); }
         Z3_goal_prec precision() const { return Z3_goal_precision(ctx(), m_goal); }
