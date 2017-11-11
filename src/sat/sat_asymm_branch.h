@@ -33,7 +33,8 @@ namespace sat {
         solver & s;
         int64      m_counter;
         random_gen m_rand;
-
+        unsigned   m_calls;
+        
         // config
         bool                   m_asymm_branch;
         bool                   m_asymm_branch_all;
@@ -62,6 +63,8 @@ namespace sat {
 
         void collect_statistics(statistics & st) const;
         void reset_statistics();
+
+        void init_search() { m_calls = 0; }
 
         inline void dec(unsigned c) { m_counter -= c; }
     };

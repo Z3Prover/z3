@@ -104,7 +104,7 @@ namespace sat {
         return !m_incremental_mode && !s.tracking_assumptions() && !m_learned_in_use_lists && m_num_calls >= m_bce_delay && (m_cce || acce_enabled()); 
     }
     bool simplifier::abce_enabled() const { 
-        return !m_incremental_mode && !m_learned_in_use_lists && m_num_calls >= m_bce_delay && m_abce; 
+        return !m_incremental_mode && !s.tracking_assumptions() && !m_learned_in_use_lists && m_num_calls >= m_bce_delay && m_abce; 
     }
     bool simplifier::bca_enabled()  const { 
         return !m_incremental_mode && !s.tracking_assumptions() && m_bca && m_learned_in_use_lists && single_threaded(); 
@@ -1868,6 +1868,7 @@ namespace sat {
         m_cce                     = p.cce();
         m_acce                    = p.acce();
         m_bca                     = p.bca();
+        m_abce                    = p.abce();
         m_bce_delay               = p.bce_delay();
         m_elim_blocked_clauses    = p.elim_blocked_clauses();
         m_elim_blocked_clauses_at = p.elim_blocked_clauses_at();

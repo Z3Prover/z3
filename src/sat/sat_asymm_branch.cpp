@@ -29,6 +29,7 @@ namespace sat {
         m_counter(0) {
         updt_params(p);
         reset_statistics();
+        m_calls = 0;
     }
 
     struct clause_size_lt {
@@ -57,6 +58,9 @@ namespace sat {
     };
     
     void asymm_branch::operator()(bool force) {
+        ++m_calls;
+        if (m_calls <= 1)
+            return;
         if (!m_asymm_branch && !m_asymm_branch_all)
             return;
         s.propagate(false); // must propagate, since it uses s.push()

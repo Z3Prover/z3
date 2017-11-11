@@ -1422,6 +1422,7 @@ namespace sat {
         m_next_simplify           = 0;
         m_min_d_tk                = 1.0;
         m_search_lvl              = 0;
+        m_asymm_branch.init_search();
         m_stopwatch.reset();
         m_stopwatch.start();
         m_core.reset();
