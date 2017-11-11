@@ -2510,8 +2510,8 @@ def mk_config():
             SO_EXT         = '.dll'
             SLIBFLAGS      = '-shared'
         elif sysname.startswith('MSYS_NT') or sysname.startswith('MINGW'):
-            CXXFLAGS       = '%s' % CXXFLAGS
-            OS_DEFINES     = ''
+            CXXFLAGS       = '%s -D_MINGW' % CXXFLAGS
+            OS_DEFINES     = '-D_MINGW'
             SO_EXT         = '.dll'
             SLIBFLAGS      = '-shared'
             EXE_EXT        = '.exe'
