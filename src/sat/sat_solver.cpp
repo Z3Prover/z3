@@ -566,9 +566,6 @@ namespace sat {
 
     void solver::detach_nary_clause(clause & c) {
         clause_offset cls_off = get_offset(c);
-        if (c.id() == 62805 && c.capacity() == 29) {
-            std::cout << "detach: " << c[0] << " " << c[1] << " size: " << c.size() << " cap: " << c.capacity() << " id: " << c.id() << "\n";
-        }
         erase_clause_watch(get_wlist(~c[0]), cls_off);
         erase_clause_watch(get_wlist(~c[1]), cls_off);
     }
