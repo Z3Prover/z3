@@ -1240,9 +1240,9 @@ def get_so_ext():
     sysname = os.uname()[0]
     if sysname == 'Darwin':
         return 'dylib'
-    elif sysname == 'Linux' or sysname == 'FreeBSD' or sysname == 'OpenBSD' or sysname.startswith('MSYS_NT') or sysname.startswith('MINGW'):
+    elif sysname == 'Linux' or sysname == 'FreeBSD' or sysname == 'OpenBSD':
         return 'so'
-    elif sysname == 'CYGWIN':
+    elif sysname == 'CYGWIN' or sysname.startswith('MSYS_NT') or sysname.startswith('MINGW'):
         return 'dll'
     else:
         assert(False)
@@ -2442,6 +2442,8 @@ def mk_config():
         CXX = find_cxx_compiler()
         CC  = find_c_compiler()
         SLIBEXTRAFLAGS = ''
+        EXE_EXT = ''
+        LIB_EXT = '.a'
         if GPROF:
             CXXFLAGS = '%s -pg' % CXXFLAGS
             LDFLAGS  = '%s -pg' % LDFLAGS
@@ -2471,18 +2473,19 @@ def mk_config():
         if DEBUG_MODE:
             CXXFLAGS     = '%s -g -Wall' % CXXFLAGS
             EXAMP_DEBUG_FLAG = '-g'
+            CPPFLAGS     = '%s -DZ3DEBUG -D_DEBUG' % CPPFLAGS
         else:
+            CXXFLAGS     = '%s -O3' % CXXFLAGS
             if GPROF:
-                CXXFLAGS     = '%s -O3 -D _EXTERNAL_RELEASE' % CXXFLAGS
-            else:
-                CXXFLAGS     = '%s -O3 -D _EXTERNAL_RELEASE -fomit-frame-pointer' % CXXFLAGS
+                CXXFLAGS     += '-fomit-frame-pointer'
+            CPPFLAGS     = '%s -DNDEBUG -D_EXTERNAL_RELEASE' % CPPFLAGS
         if is_CXX_clangpp():
             CXXFLAGS   = '%s -Wno-unknown-pragmas -Wno-overloaded-virtual -Wno-unused-value' % CXXFLAGS
         sysname, _, _, _, machine = os.uname()
         if sysname == 'Darwin':
             SO_EXT         = '.dylib'
             SLIBFLAGS      = '-dynamiclib'
-        elif sysname == 'Linux' or sysname.startswith('MSYS_NT') or sysname.startswith('MINGW'):
+        elif sysname == 'Linux':
             CXXFLAGS       = '%s -D_LINUX_' % CXXFLAGS
             OS_DEFINES     = '-D_LINUX_'
             SO_EXT         = '.so'
@@ -2501,15 +2504,22 @@ def mk_config():
             OS_DEFINES     = '-D_OPENBSD_'
             SO_EXT         = '.so'
             SLIBFLAGS      = '-shared'
-        elif sysname[:6] ==  'CYGWIN':
+        elif sysname.startswith('CYGWIN'):
             CXXFLAGS       = '%s -D_CYGWIN' % CXXFLAGS
             OS_DEFINES     = '-D_CYGWIN'
             SO_EXT         = '.dll'
             SLIBFLAGS      = '-shared'
+        elif sysname.startswith('MSYS_NT') or sysname.startswith('MINGW'):
+            CXXFLAGS       = '%s' % CXXFLAGS
+            OS_DEFINES     = ''
+            SO_EXT         = '.dll'
+            SLIBFLAGS      = '-shared'
+            EXE_EXT        = '.exe'
+            LIB_EXT        = '.lib'
         else:
             raise MKException('Unsupported platform: %s' % sysname)
         if is64():
-            if sysname[:6] != 'CYGWIN':
+            if not sysname.startswith('CYGWIN') and not sysname.startswith('MSYS') and not sysname.startswith('MINGW'):
                 CXXFLAGS     = '%s -fPIC' % CXXFLAGS
             CPPFLAGS     = '%s -D_AMD64_' % CPPFLAGS
             if sysname == 'Linux':
@@ -2518,10 +2528,6 @@ def mk_config():
             CXXFLAGS     = '%s -m32' % CXXFLAGS
             LDFLAGS      = '%s -m32' % LDFLAGS
             SLIBFLAGS    = '%s -m32' % SLIBFLAGS
-        if DEBUG_MODE:
-            CPPFLAGS     = '%s -DZ3DEBUG -D_DEBUG' % CPPFLAGS
-        else:
-            CPPFLAGS     = '%s -DNDEBUG -D_EXTERNAL_RELEASE' % CPPFLAGS
         if TRACE or DEBUG_MODE:
             CPPFLAGS     = '%s -D_TRACE' % CPPFLAGS
         if is_cygwin_mingw():
@@ -2541,11 +2547,11 @@ def mk_config():
         config.write('CXX_OUT_FLAG=-o \n')
         config.write('C_OUT_FLAG=-o \n')
         config.write('OBJ_EXT=.o\n')
-        config.write('LIB_EXT=.a\n')
+        config.write('LIB_EXT=%s\n' % LIB_EXT)
         config.write('AR=%s\n' % AR)
         config.write('AR_FLAGS=rcs\n')
         config.write('AR_OUTFLAG=\n')
-        config.write('EXE_EXT=\n')
+        config.write('EXE_EXT=%s\n' % EXE_EXT)
         config.write('LINK=%s\n' % CXX)
         config.write('LINK_FLAGS=\n')
         config.write('LINK_OUT_FLAG=-o \n')
