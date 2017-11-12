@@ -826,7 +826,6 @@ namespace z3 {
         */
         friend expr operator!(expr const & a);
 
-
         /**
            \brief Return an expression representing <tt>a and b</tt>.
 
@@ -883,6 +882,16 @@ namespace z3 {
 
         friend expr ite(expr const & c, expr const & t, expr const & e);
 
+        bool is_true() const { return is_app() && Z3_OP_TRUE == decl().decl_kind(); }
+        bool is_false() const { return is_app() && Z3_OP_FALSE == decl().decl_kind(); }
+        bool is_not() const { return is_app() && Z3_OP_NOT == decl().decl_kind(); }
+        bool is_and() const { return is_app() && Z3_OP_AND == decl().decl_kind(); }
+        bool is_or() const  { return is_app() && Z3_OP_OR  == decl().decl_kind(); }
+        bool is_xor() const { return is_app() && Z3_OP_XOR  == decl().decl_kind(); }
+        bool is_implies() const { return is_app() && Z3_OP_IMPLIES  == decl().decl_kind(); }
+        bool is_eq() const { return is_app() && Z3_OP_EQ == decl().decl_kind(); }
+        bool is_ite() const { return is_app() && Z3_OP_ITE == decl().decl_kind(); }
+        
         friend expr distinct(expr_vector const& args);
         friend expr concat(expr const& a, expr const& b);
         friend expr concat(expr_vector const& args);
@@ -1997,31 +2006,27 @@ namespace z3 {
             unsigned&   m_cutoff;
             expr_vector m_cube;
             bool        m_end;
+            bool        m_empty;
 
-            bool is_false() const { return m_cube.size() == 1 && Z3_OP_FALSE == m_cube[0].decl().decl_kind(); }
-
-            void check_end() {
-                if (is_false()) {
+            void inc() {
+                assert(!m_end && !m_empty);
+                m_cube = m_solver.cube(m_cutoff);
+                m_cutoff = 0xFFFFFFFF;
+                if (m_cube.size() == 1 && m_cube[0].is_false()) {
                     m_cube = z3::expr_vector(m_solver.ctx());
                     m_end = true;
                 }
                 else if (m_cube.empty()) {
-                    m_end = true;
+                    m_empty = true;
                 }
-            }
-
-            void inc() {
-                assert(!m_end);
-                m_cube = m_solver.cube(m_cutoff);
-                m_cutoff = 0xFFFFFFFF;
-                check_end();
             }
         public:
             cube_iterator(solver& s, unsigned& cutoff, bool end):
                 m_solver(s),
                 m_cutoff(cutoff),
                 m_cube(s.ctx()),
-                m_end(end) {
+                m_end(end),
+                m_empty(false) {
                 if (!m_end) {
                     inc();
                 }
@@ -2029,7 +2034,12 @@ namespace z3 {
 
             cube_iterator& operator++() {
                 assert(!m_end);
-                inc();
+                if (m_empty) {
+                    m_end = true;
+                }
+                else {
+                    inc();
+                }
                 return *this;
             }
             cube_iterator operator++(int) { assert(false); return *this; }

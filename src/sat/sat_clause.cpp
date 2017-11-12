@@ -123,52 +123,17 @@ namespace sat {
 
     clause_allocator::clause_allocator():
         m_allocator("clause-allocator") {
-#if defined(_AMD64_)
-        m_num_segments = 0;
-#endif
     }
 
     clause * clause_allocator::get_clause(clause_offset cls_off) const {
-#if 0
-// defined(_AMD64_)
-        if (((cls_off & c_alignment_mask) == c_last_segment)) {
-            unsigned id = cls_off >> c_cls_alignment;
-            return const_cast<clause*>(m_last_seg_id2cls[id]);
-        }
-        return reinterpret_cast<clause *>(m_segments[cls_off & c_alignment_mask] + (static_cast<size_t>(cls_off) & ~c_alignment_mask));
-#else
-        VERIFY(cls_off == reinterpret_cast<clause_offset>(reinterpret_cast<clause*>(cls_off)));
+        SASSERT(cls_off == reinterpret_cast<clause_offset>(reinterpret_cast<clause*>(cls_off)));
         return reinterpret_cast<clause *>(cls_off);
-#endif
     }
 
 
     clause_offset clause_allocator::get_offset(clause const * cls) const {
-#if 0
-// defined(_AMD64_)
-        size_t ptr = reinterpret_cast<size_t>(cls);
-
-        SASSERT((ptr & c_alignment_mask) == 0);
-        ptr &= 0xFFFFFFFF00000000ull; // Keep only high part
-        unsigned i = 0;
-        for (i = 0; i < m_num_segments; ++i)
-            if (m_segments[i] == ptr)
-                return static_cast<clause_offset>(reinterpret_cast<size_t>(cls)) + i;
-        SASSERT(i == m_num_segments);
-        SASSERT(i <= c_last_segment);
-        if (i == c_last_segment) {
-            m_last_seg_id2cls.setx(cls->id(), cls, 0);
-            return (cls->id() << c_cls_alignment) | c_last_segment;
-        }
-        else {
-            ++m_num_segments;
-            m_segments[i] = ptr;
-            return static_cast<clause_offset>(reinterpret_cast<size_t>(cls)) + i;
-        }
-#else
-        VERIFY(cls == reinterpret_cast<clause *>(reinterpret_cast<size_t>(cls)));
+        SASSERT(cls == reinterpret_cast<clause *>(reinterpret_cast<size_t>(cls)));
         return reinterpret_cast<size_t>(cls);
-#endif
     }
 
     clause * clause_allocator::mk_clause(unsigned num_lits, literal const * lits, bool learned) {
@@ -182,12 +147,6 @@ namespace sat {
 
     void clause_allocator::del_clause(clause * cls) {
         TRACE("sat_clause", tout << "delete: " << cls->id() << " " << *cls << "\n";);
-        if (cls->id() == 62805 && cls->capacity() == 29) {
-            std::cout << "delete 62805\n";
-			for (literal l : *cls) {
-				std::cout << l << "\n";
-			}            
-        }
         m_id_gen.recycle(cls->id());
         size_t size = clause::get_obj_size(cls->m_capacity);
         cls->~clause();

@@ -139,15 +139,6 @@ namespace sat {
     class clause_allocator {
         small_object_allocator m_allocator;
         id_gen                 m_id_gen;
-#if defined(_AMD64_)
-        static const unsigned  c_cls_alignment = 3;
-        static const unsigned  c_last_segment  = (1ull << c_cls_alignment) - 1ull;
-        static const size_t    c_alignment_mask = (1ull << c_cls_alignment) - 1ull;
-        mutable unsigned               m_num_segments;
-        mutable size_t                 m_segments[c_last_segment];
-        mutable svector<size_t>        m_aux_segments;
-        mutable ptr_vector<clause const> m_last_seg_id2cls;
-#endif
     public:
         clause_allocator();
         clause *      get_clause(clause_offset cls_off) const;
