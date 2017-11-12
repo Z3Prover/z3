@@ -1519,7 +1519,7 @@ namespace z3 {
             return *this;
         }
         bool contains(T const& x) const {
-            for (auto y : *this) if (x == y) return true;
+            for (auto y : *this) if (eq(x, y)) return true;
             return false;
         }
 
