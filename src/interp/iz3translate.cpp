@@ -155,7 +155,7 @@ public:
         return res;
     }
 
-    void scan_skolems(const ast &proof){
+    void scan_skolems(const ast &proof) {
         hash_map<ast,int> memo;
         scan_skolems_rec(memo,proof, INT_MAX);
     }
