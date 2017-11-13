@@ -57,6 +57,48 @@ namespace Microsoft.Z3
             }
         }
 
+	/// <summary>
+	/// Sets parameter on the solver
+	/// </summary>
+	public void Set(string name, bool value) { Parameters = Context.MkParams().Add(name, value); }
+	/// <summary>
+	/// Sets parameter on the solver
+	/// </summary>
+	public void Set(string name, uint value) { Parameters = Context.MkParams().Add(name, value); }
+	/// <summary>
+	/// Sets parameter on the solver
+	/// </summary>
+	public void Set(string name, double value) { Parameters = Context.MkParams().Add(name, value); }
+	/// <summary>
+	/// Sets parameter on the solver
+	/// </summary>
+	public void Set(string name, string value) { Parameters = Context.MkParams().Add(name, value); }
+	/// <summary>
+	/// Sets parameter on the solver
+	/// </summary>
+	public void Set(string name, Symbol value) { Parameters = Context.MkParams().Add(name, value); }
+	/// <summary>
+	/// Sets parameter on the solver
+	/// </summary>
+	public void Set(Symbol name, bool value) { Parameters = Context.MkParams().Add(name, value); }
+	/// <summary>
+	/// Sets parameter on the solver
+	/// </summary>
+	public void Set(Symbol name, uint value) { Parameters = Context.MkParams().Add(name, value); }
+	/// <summary>
+	/// Sets parameter on the solver
+	/// </summary>
+	public void Set(Symbol name, double value) { Parameters = Context.MkParams().Add(name, value); }
+	/// <summary>
+	/// Sets parameter on the solver
+	/// </summary>
+	public void Set(Symbol name, string value) { Parameters = Context.MkParams().Add(name, value); }
+	/// <summary>
+	/// Sets parameter on the solver
+	/// </summary>
+	public void Set(Symbol name, Symbol value) { Parameters = Context.MkParams().Add(name, value); }
+
+
         /// <summary>
         /// Retrieves parameter descriptions for solver.
         /// </summary>
@@ -140,11 +182,11 @@ namespace Microsoft.Z3
         /// using the Boolean constants in ps. 
         /// </summary>
         /// <remarks>
-        /// This API is an alternative to <see cref="Check"/> with assumptions for extracting unsat cores.
+        /// This API is an alternative to <see cref="Check(Expr[])"/> with assumptions for extracting unsat cores.
         /// Both APIs can be used in the same solver. The unsat core will contain a combination
         /// of the Boolean variables provided using <see cref="AssertAndTrack(BoolExpr[],BoolExpr[])"/> 
         /// and the Boolean literals
-        /// provided using <see cref="Check"/> with assumptions.
+        /// provided using <see cref="Check(Expr[])"/> with assumptions.
         /// </remarks>        
         public void AssertAndTrack(BoolExpr[] constraints, BoolExpr[] ps)
         {
@@ -165,11 +207,11 @@ namespace Microsoft.Z3
         /// using the Boolean constant p. 
         /// </summary>
         /// <remarks>
-        /// This API is an alternative to <see cref="Check"/> with assumptions for extracting unsat cores.
+        /// This API is an alternative to <see cref="Check(Expr[])"/> with assumptions for extracting unsat cores.
         /// Both APIs can be used in the same solver. The unsat core will contain a combination
         /// of the Boolean variables provided using <see cref="AssertAndTrack(BoolExpr[],BoolExpr[])"/> 
         /// and the Boolean literals
-        /// provided using <see cref="Check"/> with assumptions.
+        /// provided using <see cref="Check(Expr[])"/> with assumptions.
         /// </remarks>        
         public void AssertAndTrack(BoolExpr constraint, BoolExpr p)
         {
@@ -257,6 +299,25 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
+        /// Checks whether the assertions in the solver are consistent or not.
+        /// </summary>
+        /// <remarks>
+        /// <seealso cref="Model"/>
+        /// <seealso cref="UnsatCore"/>
+        /// <seealso cref="Proof"/>    
+        /// </remarks>    
+        public Status Check(IEnumerable<BoolExpr> assumptions)
+        {
+            Z3_lbool r;
+            BoolExpr[] asms = assumptions.ToArray();
+            if (asms.Length == 0)
+                r = (Z3_lbool)Native.Z3_solver_check(Context.nCtx, NativeObject);
+            else
+                r = (Z3_lbool)Native.Z3_solver_check_assumptions(Context.nCtx, NativeObject, (uint)asms.Length, AST.ArrayToNative(asms));
+            return lboolToStatus(r);
+        }
+
+        /// <summary>
         /// Retrieve fixed assignments to the set of variables in the form of consequences.
         /// Each consequence is an implication of the form 
         ///
@@ -284,10 +345,10 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
-        /// The model of the last <c>Check</c>.
+        /// The model of the last <c>Check(params Expr[] assumptions)</c>.
         /// </summary>
         /// <remarks>
-        /// The result is <c>null</c> if <c>Check</c> was not invoked before,
+        /// The result is <c>null</c> if <c>Check(params Expr[] assumptions)</c> was not invoked before,
         /// if its results was not <c>SATISFIABLE</c>, or if model production is not enabled.
         /// </remarks>
         public Model Model
@@ -303,10 +364,10 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
-        /// The proof of the last <c>Check</c>.
+        /// The proof of the last <c>Check(params Expr[] assumptions)</c>.
         /// </summary>
         /// <remarks>    
-        /// The result is <c>null</c> if <c>Check</c> was not invoked before,
+        /// The result is <c>null</c> if <c>Check(params Expr[] assumptions)</c> was not invoked before,
         /// if its results was not <c>UNSATISFIABLE</c>, or if proof production is disabled.
         /// </remarks>
         public Expr Proof
