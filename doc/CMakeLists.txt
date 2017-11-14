@@ -59,6 +59,7 @@ endif()
 add_custom_target(api_docs ${ALWAYS_BUILD_DOCS_ARG}
   COMMAND
   "${PYTHON_EXECUTABLE}" "${MK_API_DOC_SCRIPT}"
+  --build "${CMAKE_BINARY_DIR}"
   --doxygen-executable "${DOXYGEN_EXECUTABLE}"
   --output-dir "${DOC_DEST_DIR}"
   --temp-dir "${DOC_TEMP_DIR}"
