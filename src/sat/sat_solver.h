@@ -180,7 +180,6 @@ namespace sat {
         friend class lookahead;
         friend class local_search;
         friend struct mk_stat;
-        friend class ccc;
         friend class elim_vars;
         friend class scoped_detach;
     public:
@@ -395,9 +394,7 @@ namespace sat {
         void exchange_par();
         lbool check_par(unsigned num_lits, literal const* lits);
         lbool lookahead_search();
-        lbool lookahead_cube();
         lbool do_local_search(unsigned num_lits, literal const* lits);
-        lbool do_ccc();
 
         // -----------------------
         //

@@ -115,12 +115,8 @@ namespace sat {
             unsigned m_propagations;
             unsigned m_add_binary;
             unsigned m_del_binary;
-            unsigned m_add_ternary;
-            unsigned m_del_ternary;
             unsigned m_decisions;
             unsigned m_windfall_binaries;
-            unsigned m_autarky_propagations;
-            unsigned m_autarky_equivalences;
             unsigned m_double_lookahead_propagations;
             unsigned m_double_lookahead_rounds;
             stats() { reset(); }
@@ -151,9 +147,10 @@ namespace sat {
             }
             unsigned size() const { return m_size; }
             unsigned dec_size() { SASSERT(m_size > 0); return --m_size; }
-            void inc_size() { SASSERT(m_size < num_lits()); ++m_size; }
+            void inc_size() { SASSERT(is_reduced()); ++m_size; }
             literal get_head() const { return m_head; }
             void set_head(literal l) { m_head = l; }
+            bool is_reduced() const { return m_size < num_lits(); }
 
             literal operator[](unsigned i) { SASSERT(i < num_lits()); return m_literals[i]; }
             literal const* begin() const { return m_literals; }
@@ -497,7 +494,6 @@ namespace sat {
         double get_lookahead_reward(literal l) const { return m_lits[l.index()].m_lookahead_reward; }
             
         void reset_lookahead_reward(literal l);
-        bool check_autarky(literal l, unsigned level);
         void update_lookahead_reward(literal l, unsigned level);
         bool dl_enabled(literal l) const { return m_lits[l.index()].m_double_lookahead != m_istamp_id; }
         void dl_disable(literal l) { m_lits[l.index()].m_double_lookahead = m_istamp_id; }
@@ -510,6 +506,8 @@ namespace sat {
 
         unsigned scope_lvl() const { return m_trail_lim.size(); }
 
+        bool in_reduced_clause(literal l);
+        bool in_reduced_clause(bool_var v);
         void validate_assign(literal l);
         void assign(literal l);
         void propagated(literal l);
@@ -564,8 +562,6 @@ namespace sat {
            If cut-depth != 0, then it is used to control the depth of cuts.
            Otherwise, cut-fraction gives an adaptive threshold for creating cuts.
         */
-
-        lbool cube();
 
         lbool cube(bool_var_vector const& vars, literal_vector& lits, unsigned backtrack_level);
 

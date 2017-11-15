@@ -98,7 +98,12 @@ namespace sat {
                 }
                 m_phase[v] = src.m_phase[v];
                 m_prev_phase[v] = src.m_prev_phase[v];
-                // m_activity[v] = src.m_activity[v], but then update case_split_queue ? 
+
+#if 1
+                // inherit activity:
+                m_activity[v] = src.m_activity[v];
+                m_case_split_queue.activity_changed_eh(v, false);
+#endif
             }
         }
 
@@ -115,7 +120,7 @@ namespace sat {
             assign(src.m_trail[i], justification());
         }
 
-        // copy binary clauses that are unblocked.
+        // copy binary clauses 
         {
             unsigned sz = src.m_watches.size();
             for (unsigned l_idx = 0; l_idx < sz; ++l_idx) {
@@ -123,13 +128,21 @@ namespace sat {
                 if (src.was_eliminated(l.var())) continue;
                 watch_list const & wlist = src.m_watches[l_idx];
                 for (auto & wi : wlist) {
-                    if (!wi.is_binary_unblocked_clause())
+                    if (!wi.is_binary_clause())
                         continue;
                     literal l2 = wi.get_literal();
                     if (l.index() > l2.index() ||
                         src.was_eliminated(l2.var()))
                         continue;
-                    mk_clause_core(l, l2);
+                                        
+                    watched w1(l2, wi.is_learned());
+                    watched w2(l, wi.is_learned());
+                    if (wi.is_blocked()) {
+                        w1.set_blocked();
+                        w2.set_blocked();
+                    }
+                    m_watches[(~l).index()].push_back(w1);
+                    m_watches[(~l2).index()].push_back(w2);
                 }
             }
         }
@@ -868,12 +881,6 @@ namespace sat {
         if (m_config.m_lookahead_search && num_lits == 0) {
             return lookahead_search();
         }
-#if 0
-        // deprecated
-        if (m_config.m_lookahead_cube && num_lits == 0) {
-            return lookahead_cube();
-        }
-#endif
 
         if (m_config.m_local_search) {
             return do_local_search(num_lits, lits);
@@ -973,20 +980,6 @@ namespace sat {
         lbool r = srch.check(num_lits, lits, 0);
         m_model = srch.get_model();
         // srch.collect_statistics(m_aux_stats);
-        return r;
-    }
-
-    lbool solver::lookahead_cube() {
-        lookahead lh(*this);
-        lbool r = l_undef;
-        try {
-            r = lh.cube();
-        }
-        catch (z3_exception&) {
-            lh.collect_statistics(m_aux_stats);
-            throw;
-        }
-        lh.collect_statistics(m_aux_stats);
         return r;
     }
 

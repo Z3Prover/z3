@@ -87,6 +87,7 @@ namespace sat {
         unsigned           m_lookahead_cube_cutoff;
         double             m_lookahead_cube_fraction;
         reward_t           m_lookahead_reward;
+        bool               m_lookahead_global_autarky;
 
         bool               m_incremental;
         unsigned           m_simplify_mult1;

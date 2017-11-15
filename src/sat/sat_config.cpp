@@ -112,6 +112,7 @@ namespace sat {
 
         m_lookahead_cube_fraction = p.lookahead_cube_fraction();
         m_lookahead_cube_cutoff = p.lookahead_cube_cutoff();
+        m_lookahead_global_autarky = p.lookahead_global_autarky();
 
         // These parameters are not exposed
         m_simplify_mult1  = _p.get_uint("simplify_mult1", 300);

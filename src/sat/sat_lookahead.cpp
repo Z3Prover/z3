@@ -233,6 +233,7 @@ namespace sat {
             if (is_sat()) {
                 return false;
             }         
+            std::cout << "include newbies\n";
         }
         SASSERT(!m_candidates.empty());
         // cut number of candidates down to max_num_cand.
@@ -314,12 +315,19 @@ namespace sat {
     double lookahead::init_candidates(unsigned level, bool newbies) {
         m_candidates.reset();
         double sum = 0;
+        unsigned skip_candidates = 0;
+        bool autarky = get_config().m_lookahead_global_autarky;
         for (bool_var x : m_freevars) {
             SASSERT(is_undef(x));
             if (!m_select_lookahead_vars.empty()) {
                 if (m_select_lookahead_vars.contains(x)) {
-                    m_candidates.push_back(candidate(x, m_rating[x]));
-                    sum += m_rating[x];
+                    if (!autarky || newbies || in_reduced_clause(x)) {
+                        m_candidates.push_back(candidate(x, m_rating[x]));
+                        sum += m_rating[x];
+                    }
+                    else {
+                        skip_candidates++;
+                    }
                 }                
             }
             else if (newbies || active_prefix(x)) {
@@ -328,6 +336,9 @@ namespace sat {
             }           
         } 
         TRACE("sat", display_candidates(tout << "sum: " << sum << "\n"););
+        if (skip_candidates > 0) {
+            IF_VERBOSE(0, verbose_stream() << "candidates: " << m_candidates.size() << " skip: " << skip_candidates << "\n";);
+        }
         return sum;
     }
 
@@ -1294,8 +1305,7 @@ namespace sat {
         unsigned idx = l.index();
         unsigned sz = m_ternary_count[idx]--;
         auto& tv = m_ternary[idx];
-        for (unsigned i = sz; i > 0; ) {
-            --i;
+        for (unsigned i = sz; i-- > 0; ) {
             binary const& b = tv[i];
             if (b.m_u == u && b.m_v == v) {
                 std::swap(tv[i], tv[sz-1]);
@@ -1769,10 +1779,6 @@ namespace sat {
                                 0 : get_lookahead_reward(p));
     }
 
-    bool lookahead::check_autarky(literal l, unsigned level) {
-        return false;
-    }
-
     void lookahead::update_lookahead_reward(literal l, unsigned level) {        
         if (m_lookahead_reward != 0) {
             inc_lookahead_reward(l, m_lookahead_reward);
@@ -1857,6 +1863,43 @@ namespace sat {
         SASSERT(m_level == dl_truth);
         base = dl_truth;
         return m_trail.size() - old_sz;
+    }
+
+    /**
+       \brief check if literal occurs in a non-tautological reduced clause.
+     */
+    bool lookahead::in_reduced_clause(bool_var v) {
+        return 
+            in_reduced_clause(literal(v, false)) ||
+            in_reduced_clause(literal(v, true));
+    }
+
+    bool lookahead::in_reduced_clause(literal lit) {
+        if (lit == null_literal) return true;
+        if (m_trail_lim.empty()) return true;
+        unsigned sz = m_nary_count[lit.index()];
+        for (nary* n : m_nary[lit.index()]) {
+            if (sz-- == 0) break;
+            if (!n->is_reduced()) continue;
+            bool has_true = false;
+            for (literal l : *n) {
+                if (is_true(l)) {
+                    has_true = true;
+                    break;
+                }
+            }
+            if (!has_true) return true;
+        }
+        
+        auto const& tv = m_ternary[lit.index()];
+        sz = tv.size();
+        unsigned i = m_ternary_count[lit.index()];
+        for (; i < sz; ++i) {
+            binary const& b = tv[i];
+            if (!is_true(b.m_u) && !is_true(b.m_v))
+                return true;
+        }
+        return false;
     }
 
     void lookahead::validate_assign(literal l) {
@@ -1957,20 +2000,6 @@ namespace sat {
             }
         }
         return true;
-    }
-
-    lbool lookahead::cube() {
-        literal_vector lits;
-        bool_var_vector vars;
-        for (bool_var v : m_freevars) vars.push_back(v);
-        while (true) {
-            lbool result = cube(vars, lits, UINT_MAX);
-            if (lits.empty() || result != l_undef) {
-                return l_undef;
-            }
-            display_cube(std::cout, lits);
-        }
-        return l_undef;
     }
 
     lbool lookahead::cube(bool_var_vector const& vars, literal_vector& lits, unsigned backtrack_level) {
@@ -2330,13 +2359,9 @@ namespace sat {
         // TBD: keep count of ternary and >3-ary clauses.
         st.update("lh add binary", m_stats.m_add_binary);
         st.update("lh del binary", m_stats.m_del_binary);
-        st.update("lh add ternary", m_stats.m_add_ternary);
-        st.update("lh del ternary", m_stats.m_del_ternary);
         st.update("lh propagations", m_stats.m_propagations);
         st.update("lh decisions", m_stats.m_decisions);
         st.update("lh windfalls", m_stats.m_windfall_binaries);
-        st.update("lh autarky propagations", m_stats.m_autarky_propagations);
-        st.update("lh autarky equivalences", m_stats.m_autarky_equivalences); 
         st.update("lh double lookahead propagations", m_stats.m_double_lookahead_propagations);
         st.update("lh double lookahead rounds", m_stats.m_double_lookahead_rounds);
     }
