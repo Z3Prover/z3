@@ -26,7 +26,6 @@ Revision History:
 #include "util/string_buffer.h"
 #include "ast/ast_util.h"
 #include "ast/ast_smt2_pp.h"
-#include "ast/bv_decl_plugin.h"
 
 // -----------------------------------
 //

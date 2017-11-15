@@ -391,10 +391,9 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_mk_bv_numeral(c, sz, bits);
         RESET_ERROR_CODE();
-        rational r(0), two(2), one(1);
+        rational r(0);
         for (unsigned i = 0; i < sz; ++i) {
-            r *= two;
-            if (bits[i]) r += one;
+            if (bits[i]) r += rational::power_of_two(i);
         }
         ast * a = mk_c(c)->mk_numeral_core(r, mk_c(c)->bvutil().mk_sort(sz));
         RETURN_Z3(of_ast(a));
