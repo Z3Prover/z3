@@ -301,6 +301,7 @@ namespace z3 {
         expr bv_val(__int64 n, unsigned sz);
         expr bv_val(__uint64 n, unsigned sz);
         expr bv_val(char const * n, unsigned sz);
+        expr bv_val(unsigned n, bool const* bits);
 
         expr string_val(char const* s);
         expr string_val(std::string const& s);
@@ -2455,6 +2456,11 @@ namespace z3 {
     inline expr context::bv_val(__int64 n, unsigned sz) { Z3_ast r = Z3_mk_int64(m_ctx, n, bv_sort(sz)); check_error(); return expr(*this, r); }
     inline expr context::bv_val(__uint64 n, unsigned sz) { Z3_ast r = Z3_mk_unsigned_int64(m_ctx, n, bv_sort(sz)); check_error(); return expr(*this, r); }
     inline expr context::bv_val(char const * n, unsigned sz) { Z3_ast r = Z3_mk_numeral(m_ctx, n, bv_sort(sz)); check_error(); return expr(*this, r); }
+    inline expr context::bv_val(unsigned n, bool const* bits) { 
+        array<Z3_bool> _bits(n);
+        for (unsigned i = 0; i < n; ++i) _bits[i] = bits[i] ? 1 : 0;
+        Z3_ast r = Z3_mk_bv_numeral(m_ctx, n, _bits.ptr()); check_error(); return expr(*this, r); 
+    }
 
     inline expr context::string_val(char const* s) { Z3_ast r = Z3_mk_string(m_ctx, s); check_error(); return expr(*this, r); }
     inline expr context::string_val(std::string const& s) { Z3_ast r = Z3_mk_string(m_ctx, s.c_str()); check_error(); return expr(*this, r); }

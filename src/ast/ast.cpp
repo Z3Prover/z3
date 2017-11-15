@@ -26,6 +26,7 @@ Revision History:
 #include "util/string_buffer.h"
 #include "ast/ast_util.h"
 #include "ast/ast_smt2_pp.h"
+#include "ast/bv_decl_plugin.h"
 
 // -----------------------------------
 //
@@ -1684,22 +1685,9 @@ ast * ast_manager::register_node_core(ast * n) {
     CASSERT("nondet_bug", contains || slow_not_contains(n));
 #endif
     
-#if 0
-    static unsigned counter = 0;
-    counter++;
-    if (counter % 100000 == 0)
-        verbose_stream() << "[ast-table] counter: " << counter << " collisions: " << m_ast_table.collisions() << " capacity: " << m_ast_table.capacity() << " size: " << m_ast_table.size() << "\n";
-#endif
-
     ast * r = m_ast_table.insert_if_not_there(n);
     SASSERT(r->m_hash == h);
     if (r != n) {
-#if 0
-        static unsigned reused = 0;
-        reused++;
-        if (reused % 100000 == 0)
-            verbose_stream() << "[ast-table] reused: " << reused << "\n";
-#endif
         SASSERT(contains);
         SASSERT(m_ast_table.contains(n));
         if (is_func_decl(r) && to_func_decl(r)->get_range() != to_func_decl(n)->get_range()) {
