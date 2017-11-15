@@ -1514,21 +1514,16 @@ void ast_manager::compress_ids() {
     ptr_vector<ast> asts;
     m_expr_id_gen.cleanup();
     m_decl_id_gen.cleanup(c_first_decl_id);
-    ast_table::iterator it  = m_ast_table.begin();
-    ast_table::iterator end = m_ast_table.end();
-    for (; it != end; ++it) {
-        ast * n = *it;
+    for (ast* n : m_ast_table) {
         if (is_decl(n))
             n->m_id = m_decl_id_gen.mk();
         else
             n->m_id = m_expr_id_gen.mk();
         asts.push_back(n);
-    }
+    }    
     m_ast_table.finalize();
-    ptr_vector<ast>::iterator it2  = asts.begin();
-    ptr_vector<ast>::iterator end2 = asts.end();
-    for (; it2 != end2; ++it2)
-        m_ast_table.insert(*it2);
+    for (ast* a : asts) 
+        m_ast_table.insert(a);
 }
 
 void ast_manager::raise_exception(char const * msg) {

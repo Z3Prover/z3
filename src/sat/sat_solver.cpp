@@ -1762,11 +1762,8 @@ namespace sat {
        \brief Compute the psm of all learned clauses.
     */
     void solver::save_psm() {
-        clause_vector::iterator it  = m_learned.begin();
-        clause_vector::iterator end = m_learned.end();
-        for (; it != end; ++it) {
-            clause & c = *(*it);
-            c.set_psm(psm(c));
+        for (clause* cp : m_learned) {
+            cp->set_psm(psm(*cp));
         }
     }
 

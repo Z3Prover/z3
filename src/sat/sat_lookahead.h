@@ -84,9 +84,11 @@ namespace sat {
             double   m_cube_fraction;
 
             config() {
-                m_max_hlevel = 50;
+                memset(this, sizeof(*this), 0);
+                m_dl_success = 0.8;
                 m_alpha = 3.5;
                 m_max_score = 20.0;
+                m_max_hlevel = 50;
                 m_min_cutoff = 30;
                 m_preselect = false;
                 m_level_cand = 600;
