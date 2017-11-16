@@ -1418,11 +1418,18 @@ namespace z3 {
     inline expr udiv(int a, expr const & b) { return udiv(b.ctx().num_val(a, b.get_sort()), b); }
 
     /**
-       \brief signed reminder operator for bitvectors
+       \brief signed remainder operator for bitvectors
     */
     inline expr srem(expr const & a, expr const & b) { return to_expr(a.ctx(), Z3_mk_bvsrem(a.ctx(), a, b)); }
     inline expr srem(expr const & a, int b) { return srem(a, a.ctx().num_val(b, a.get_sort())); }
     inline expr srem(int a, expr const & b) { return srem(b.ctx().num_val(a, b.get_sort()), b); }
+
+    /**
+       \brief signed modulus operator for bitvectors
+    */
+    inline expr smod(expr const & a, expr const & b) { return to_expr(a.ctx(), Z3_mk_bvsmod(a.ctx(), a, b)); }
+    inline expr smod(expr const & a, int b) { return smod(a, a.ctx().num_val(b, a.get_sort())); }
+    inline expr smod(int a, expr const & b) { return smod(b.ctx().num_val(a, b.get_sort()), b); }
     
     /**
        \brief unsigned reminder operator for bitvectors
