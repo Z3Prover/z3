@@ -362,8 +362,8 @@ protected:
     // cache mapping each string S to Length(S)
     obj_map<expr, app*> length_ast_map;
 
-    th_union_find m_find;
     th_trail_stack m_trail_stack;
+    th_union_find m_find;
     theory_var get_var(expr * n) const;
     expr * get_eqc_next(expr * n);
     app * get_ast(theory_var i);

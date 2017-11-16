@@ -102,6 +102,7 @@ public:
 
     unsigned find(unsigned v) const {
         while (true) {
+            SASSERT(v < m_find.size());
             unsigned new_v = m_find[v];
             if (new_v == v)
                 return v;
