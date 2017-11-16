@@ -426,8 +426,8 @@ namespace datalog {
         bool change = true;
         while (change) {
             change = false;
-            for (unsigned i = 0; i < src.get_num_rules(); ++i) {
-                change = prune_rule(*src.get_rule(i)) || change;
+            for (rule* r : src) {
+                change = prune_rule(*r) || change;
             }
         }
     }
@@ -457,18 +457,19 @@ namespace datalog {
 
     void mk_slice::solve_vars(rule& r, uint_set& used_vars, uint_set& parameter_vars) {
         expr_ref_vector conjs = get_tail_conjs(r);
-        for (unsigned j = 0; j < conjs.size(); ++j) {
-            expr* e = conjs[j].get();
+        for (expr * e : conjs) {
             expr_ref r(m);
             unsigned v;
             if (is_eq(e, v, r) && is_output(v) && m_var_is_sliceable[v]) {
                 TRACE("dl", tout << "is_eq: " << mk_pp(e, m) << " " << (m_solved_vars[v].get()?"solved":"new") << "\n";);
                 add_var(v);
                 if (!m_solved_vars[v].get()) { 
+                    TRACE("dl", tout << v << " is solved\n";);
                     add_free_vars(parameter_vars, r);
                     m_solved_vars[v] = r;
                 }
                 else {
+                    TRACE("dl", tout << v << " is used\n";);
                     // variables can only be solved once.
                     add_free_vars(used_vars, e);
                     add_free_vars(used_vars, m_solved_vars[v].get());
@@ -508,10 +509,9 @@ namespace datalog {
         // 
         uint_set used_vars, parameter_vars;
         solve_vars(r, used_vars, parameter_vars);
-        uint_set::iterator it = used_vars.begin(), end = used_vars.end();
-        for (; it != end; ++it) {     
-            if (*it < m_var_is_sliceable.size()) {
-                m_var_is_sliceable[*it] = false;
+        for (unsigned uv : used_vars) {
+            if (uv < m_var_is_sliceable.size()) {
+                m_var_is_sliceable[uv] = false;
             }
         }
         //
@@ -531,6 +531,9 @@ namespace datalog {
             bool is_output = m_output[i];
             if (is_input && is_output) {
                 if (m_solved_vars[i].get()) {
+                    m_var_is_sliceable[i] = false;
+                }
+                if (parameter_vars.contains(i)) {
                     m_var_is_sliceable[i] = false;
                 }
             }
@@ -687,11 +690,9 @@ namespace datalog {
     }
 
     void mk_slice::display(std::ostream& out) {
-        obj_map<func_decl, bit_vector>::iterator it  = m_sliceable.begin();
-        obj_map<func_decl, bit_vector>::iterator end = m_sliceable.end();
-        for (; it != end; ++it) {
-            out << it->m_key->get_name() << " ";
-            bit_vector const& bv = it->m_value;
+        for (auto const& kv : m_sliceable) {
+            out << kv.m_key->get_name() << " ";
+            bit_vector const& bv = kv.m_value;
             for (unsigned i = 0; i < bv.size(); ++i) {
                 out << (bv.get(i)?"1":"0");
             }
