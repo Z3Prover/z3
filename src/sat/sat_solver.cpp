@@ -2559,10 +2559,8 @@ namespace sat {
     */
     void solver::updt_lemma_lvl_set() {
         m_lvl_set.reset();
-        literal_vector::const_iterator it  = m_lemma.begin();
-        literal_vector::const_iterator end = m_lemma.end();
-        for(; it != end; ++it)
-            m_lvl_set.insert(lvl(*it));
+        for (literal l : m_lemma) 
+            m_lvl_set.insert(lvl(l));
     }
 
     /**
@@ -2695,25 +2693,23 @@ namespace sat {
                 continue; // literal was eliminated
             // first use watch lists
             watch_list const & wlist = get_wlist(~l);
-            watch_list::const_iterator it  = wlist.begin();
-            watch_list::const_iterator end = wlist.end();
-            for (; it != end; ++it) {
+            for (watched const& w : wlist) {
                 // In this for-loop, the conditions l0 != ~l2 and l0 != ~l3
                 // are not really needed if the solver does not miss unit propagations.
                 // However, we add them anyway because we don't want to rely on this
                 // property of the propagator.
                 // For example, if this property is relaxed in the future, then the code
                 // without the conditions l0 != ~l2 and l0 != ~l3 may remove the FUIP
-                if (it->is_binary_clause()) {
-                    literal l2 = it->get_literal();
+                if (w.is_binary_clause()) {
+                    literal l2 = w.get_literal();
                     if (is_marked_lit(~l2) && l0 != ~l2) {
                         // eliminate ~l2 from lemma because we have the clause l \/ l2
                         unmark_lit(~l2);
                     }
                 }
-                else if (it->is_ternary_clause()) {
-                    literal l2 = it->get_literal1();
-                    literal l3 = it->get_literal2();
+                else if (w.is_ternary_clause()) {
+                    literal l2 = w.get_literal1();
+                    literal l3 = w.get_literal2();
                     if (is_marked_lit(l2) && is_marked_lit(~l3) && l0 != ~l3) {
                         // eliminate ~l3 from lemma because we have the clause l \/ l2 \/ l3
                         unmark_lit(~l3);
@@ -2956,16 +2952,10 @@ namespace sat {
     }
 
     bool_var solver::max_var(clause_vector& clauses, bool_var v) {
-        for (unsigned i = 0; i < clauses.size(); ++i) {
-            clause & c = *(clauses[i]);
-            literal* it = c.begin();
-            literal * end = c.end();
-            for (; it != end; ++it) {
-                if (it->var() > v) {
-                    v = it->var();
-                }
-            }
-        }
+        for (clause* cp : clauses) 
+            for (literal l : *cp) 
+                if (l.var() > v) 
+                    v = l.var();
         return v;
     }
 
@@ -2976,8 +2966,8 @@ namespace sat {
             w = max_var(true, w);
             w = max_var(false, w);
             v = m_mc.max_var(w);
-            for (unsigned i = 0; i < m_trail.size(); ++i) {
-                if (m_trail[i].var() > w) w = m_trail[i].var();
+            for (literal lit : m_trail) {
+                if (lit.var() > w) w = lit.var();
             }
             v = std::max(v, w + 1);
         }
@@ -3087,10 +3077,8 @@ namespace sat {
 
     void solver::rescale_activity() {
         SASSERT(m_config.m_branching_heuristic == BH_VSIDS);
-        svector<unsigned>::iterator it  = m_activity.begin();
-        svector<unsigned>::iterator end = m_activity.end();
-        for (; it != end; ++it) {
-            *it >>= 14;
+        for (unsigned& act : m_activity) {
+            act >>= 14;
         }
         m_activity_inc >>= 14;
     }
@@ -3171,10 +3159,8 @@ namespace sat {
     }
 
     void solver::display_units(std::ostream & out) const {
-        unsigned end = m_trail.size(); // init_trail_size();
         unsigned level = 0;
-        for (unsigned i = 0; i < end; i++) {
-            literal lit = m_trail[i];
+        for (literal lit : m_trail) {
             if (lvl(lit) > level) {
                 level = lvl(lit);
                 out << level << ": ";
@@ -3185,8 +3171,6 @@ namespace sat {
             out << lit << " ";
             display_justification(out, m_justification[lit.var()]) << "\n";
         }
-        //if (end != 0)
-        //    out << "\n";
     }
 
     void solver::display(std::ostream & out) const {
@@ -3226,8 +3210,8 @@ namespace sat {
 
     void solver::display_dimacs(std::ostream & out) const {
         out << "p cnf " << num_vars() << " " << num_clauses() << "\n";
-        for (unsigned i = 0; i < m_trail.size(); i++) {
-            out << dimacs_lit(m_trail[i]) << " 0\n";
+        for (literal lit : m_trail) {
+            out << dimacs_lit(lit) << " 0\n";
         }
         unsigned l_idx = 0;
         for (auto const& wlist : m_watches) {
@@ -3259,8 +3243,8 @@ namespace sat {
         out << "p wcnf " << num_vars() << " " << num_clauses() + sz << " " << max_weight << "\n";
         out << "c soft " << sz << "\n";
 
-        for (unsigned i = 0; i < m_trail.size(); i++) {
-            out << max_weight << " " << dimacs_lit(m_trail[i]) << " 0\n";
+        for (literal lit : m_trail) {
+            out << max_weight << " " << dimacs_lit(lit) << " 0\n";
         }
         unsigned l_idx = 0;
         for (watch_list const& wlist : m_watches) {
@@ -3276,7 +3260,6 @@ namespace sat {
             clause_vector const & cs = *(vs[i]);
             for (clause const* cp : cs) {
                 clause const & c = *cp;
-                unsigned clsz = c.size();
                 out << max_weight << " ";
                 for (literal l : c)
                     out << dimacs_lit(l) << " ";
@@ -3291,11 +3274,9 @@ namespace sat {
 
 
     void solver::display_watches(std::ostream & out) const {
-        vector<watch_list>::const_iterator it  = m_watches.begin();
-        vector<watch_list>::const_iterator end = m_watches.end();
-        for (unsigned l_idx = 0; it != end; ++it, ++l_idx) {
-            watch_list const & wlist = *it;
-            literal l = to_literal(l_idx);
+        unsigned l_idx = 0;
+        for (watch_list const& wlist : m_watches) {
+            literal l = to_literal(l_idx++);
             out << l << ": ";
             sat::display_watch_list(out, m_cls_allocator, wlist);
             out << "\n";
@@ -3331,24 +3312,20 @@ namespace sat {
        \brief Return true, if all literals in c are assigned to false.
     */
     bool solver::is_empty(clause const & c) const {
-        unsigned sz = c.size();
-        for (unsigned i = 0; i < sz; i++) {
-            if (value(c[i]) != l_false)
+        for (literal lit : c) 
+            if (value(lit) != l_false)
                 return false;
-        }
         return true;
     }
 
     bool solver::check_missed_propagation(clause_vector const & cs) const {
-        clause_vector::const_iterator it  = cs.begin();
-        clause_vector::const_iterator end = cs.end();
-        for (; it != end; ++it) {
-            clause const & c = *(*it);
+        for (clause* cp : cs) {
+            clause const & c = *cp;
             if (c.frozen())
                 continue;
             if (is_empty(c) || is_unit(c)) {
                 TRACE("sat_missed_prop", tout << "missed_propagation: " << c << "\n";
-                      for (unsigned i = 0; i < c.size(); i++) tout << c[i] << ": " << value(c[i]) << "\n";);
+                      for (literal l : c) tout << l << ": " << value(l) << "\n";);
                 UNREACHABLE();
             }
             SASSERT(!is_empty(c));
@@ -3411,9 +3388,9 @@ namespace sat {
         m_binary_clause_graph.reset();
         collect_bin_clauses(m_user_bin_clauses, true);
         hashtable<literal_pair, pair_hash<literal_hash, literal_hash>, default_eq<literal_pair> > seen_bc;
-        for (unsigned i = 0; i < m_user_bin_clauses.size(); ++i) {
-            literal l1 = m_user_bin_clauses[i].first;
-            literal l2 = m_user_bin_clauses[i].second;
+        for (auto const& b : m_user_bin_clauses) {
+            literal l1 = b.first;
+            literal l2 = b.second;
             literal_pair p(l1, l2);
             if (!seen_bc.contains(p)) {
                 seen_bc.insert(p);
@@ -3426,8 +3403,8 @@ namespace sat {
             // m_ext->find_mutexes(_lits, mutexes);
         }
         unsigned_vector ps;
-        for (unsigned i = 0; i < _lits.size(); ++i) {
-            ps.push_back(_lits[i].index());
+        for (literal lit : _lits) {
+            ps.push_back(lit.index());
         }
         mc.cliques(ps, _mutexes);
         for (auto const& mux : _mutexes) {
@@ -3471,10 +3448,9 @@ namespace sat {
     }
 
     static void brute_force_consequences(sat::solver& s, sat::literal_vector const& asms, sat::literal_vector const& gamma, vector<sat::literal_vector>& conseq) {
-        for (unsigned i = 0; i < gamma.size(); ++i) {
-            sat::literal nlit = ~gamma[i];
+        for (literal lit : gamma) {
             sat::literal_vector asms1(asms);
-            asms1.push_back(nlit);
+            asms1.push_back(~lit);
             lbool r = s.check(asms1.size(), asms1.c_ptr());
             if (r == l_false) {
                 conseq.push_back(s.get_core());
@@ -3484,8 +3460,8 @@ namespace sat {
 
     static lbool core_chunking(sat::solver& s, model const& m, sat::bool_var_vector const& vars, sat::literal_vector const& asms, vector<sat::literal_vector>& conseq, unsigned K) {
         sat::literal_vector lambda;
-        for (unsigned i = 0; i < vars.size(); i++) {
-            lambda.push_back(sat::literal(vars[i], m[vars[i]] == l_false));
+        for (bool_var v : vars) {
+            lambda.push_back(sat::literal(v, m[v] == l_false));
         }
         while (!lambda.empty()) {
             IF_VERBOSE(1, verbose_stream() << "(sat-backbone-core " << lambda.size() << " " << conseq.size() << ")\n";);
@@ -3582,9 +3558,8 @@ namespace sat {
             s |= m_antecedents.find(m_core[i].var());
         }
         m_core.reset();
-        index_set::iterator it = s.begin(), end = s.end();
-        for (; it != end; ++it) {
-            m_core.push_back(to_literal(*it));
+        for (unsigned idx : s) {
+            m_core.push_back(to_literal(idx));
         }
         TRACE("sat", tout << m_core << "\n";);
     }
@@ -3690,13 +3665,11 @@ namespace sat {
             propagate(false);
             ++num_iterations;
             checkpoint();
-            literal_set::iterator it = unfixed_lits.begin(), end = unfixed_lits.end();
             unsigned num_resolves = 0;
             unsigned num_fixed = 0;
             unsigned num_assigned = 0;
             lbool is_sat = l_true;
-            for (; it != end; ++it) {
-                literal lit = *it;
+            for (literal lit : unfixed_lits) {
                 if (value(lit) != l_undef) {
                     ++num_fixed;
                     if (lvl(lit) <= 1 && value(lit) == l_true) {
@@ -3765,9 +3738,7 @@ namespace sat {
 
     void solver::delete_unfixed(literal_set& unfixed_lits, bool_var_set& unfixed_vars) {
         literal_set to_keep;
-        literal_set::iterator it = unfixed_lits.begin(), end = unfixed_lits.end();
-        for (; it != end; ++it) {
-            literal lit = *it;
+        for (literal lit : unfixed_lits) {
             if (value(lit) == l_true) {
                 to_keep.insert(lit);
             }
@@ -3780,9 +3751,7 @@ namespace sat {
 
     void solver::update_unfixed_literals(literal_set& unfixed_lits, bool_var_set& unfixed_vars) {
         literal_vector to_delete;
-        literal_set::iterator it = unfixed_lits.begin(), end = unfixed_lits.end();
-        for (; it != end; ++it) {
-            literal lit = *it;
+        for (literal lit : unfixed_lits) {
             if (!unfixed_vars.contains(lit.var())) {
                 to_delete.push_back(lit);
             }
@@ -3803,9 +3772,7 @@ namespace sat {
     }
 
     void solver::extract_fixed_consequences(literal_set const& unfixed_lits, literal_set const& assumptions, bool_var_set& unfixed_vars, vector<literal_vector>& conseq) {
-        literal_set::iterator it = unfixed_lits.begin(), end = unfixed_lits.end();
-        for (; it != end; ++it) {
-            literal lit = *it;
+        for (literal lit: unfixed_lits) {
             TRACE("sat", tout << "extract: " << lit << " " << value(lit) << " " << lvl(lit) << "\n";);
 
             if (lvl(lit) <= 1 && value(lit) == l_true) {
@@ -3878,10 +3845,8 @@ namespace sat {
     }
 
     std::ostream& solver::display_index_set(std::ostream& out, index_set const& s) const {
-        index_set::iterator it  = s.begin();
-        index_set::iterator end = s.end();
-        for (; it != end; ++it) {
-            out << to_literal(*it) << " ";
+        for (unsigned idx : s) {
+            out << to_literal(idx) << " ";
         }
         return out;
     }
@@ -3906,9 +3871,8 @@ namespace sat {
         if (unfixed.contains(lit.var())) {
             literal_vector cons;
             cons.push_back(lit);
-            index_set::iterator it = s.begin(), end = s.end();
-            for (; it != end; ++it) {
-                cons.push_back(to_literal(*it));
+            for (unsigned idx : s) {
+                cons.push_back(to_literal(idx));
             }
             unfixed.remove(lit.var());
             conseq.push_back(cons);
@@ -3936,17 +3900,13 @@ namespace sat {
         unsigned num_bin = 0;
         unsigned num_ext = 0;
         unsigned num_lits = 0;
-        vector<watch_list>::const_iterator it  = m_watches.begin();
-        vector<watch_list>::const_iterator end = m_watches.end();
-        for (unsigned l_idx = 0; it != end; ++it, ++l_idx) {
-            literal l = ~to_literal(l_idx);
-            watch_list const & wlist = *it;
-            watch_list::const_iterator it2  = wlist.begin();
-            watch_list::const_iterator end2 = wlist.end();
-            for (; it2 != end2; ++it2) {
-                switch (it2->get_kind()) {
+        unsigned l_idx = 0;
+        for (watch_list const& wlist : m_watches) {
+            literal l = ~to_literal(l_idx++);
+            for (watched const& w : wlist) {
+                switch (w.get_kind()) {
                 case watched::BINARY:
-                    if (l.index() < it2->get_literal().index()) {
+                    if (l.index() < w.get_literal().index()) {
                         num_lits += 2;
                         num_bin++;
                     }
@@ -3969,10 +3929,8 @@ namespace sat {
         clause_vector const * vs[2] = { &m_clauses, &m_learned };
         for (unsigned i = 0; i < 2; i++) {
             clause_vector const & cs = *(vs[i]);
-            clause_vector::const_iterator it  = cs.begin();
-            clause_vector::const_iterator end = cs.end();
-            for (; it != end; ++it) {
-                clause & c = *(*it);
+            for (clause* cp : cs) {
+                clause & c = *cp;
                 if (c.size() == 3)
                     num_ter++;
                 else

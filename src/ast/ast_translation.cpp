@@ -227,7 +227,7 @@ ast * ast_translation::process(ast const * _n) {
                 while (fr.m_idx <= num) {
                     expr * arg = to_app(n)->get_arg(fr.m_idx - 1);
                     fr.m_idx++;
-                    if (!visit(arg))
+                    if (!visit(arg)) 
                         goto loop;
                 }
                 func_decl * new_f   = to_func_decl(m_result_stack[fr.m_rpos]);
