@@ -240,7 +240,7 @@ def param2javaw(p):
     if k == OUT:
         return "jobject"
     elif k == IN_ARRAY or k == INOUT_ARRAY or k == OUT_ARRAY:
-        if param_type(p) == INT or param_type(p) == UINT:
+        if param_type(p) == INT or param_type(p) == UINT or param_type(p) == BOOL:
             return "jintArray"
         else:
             return "jlongArray"
@@ -258,7 +258,7 @@ def param2pystr(p):
 def param2ml(p):
     k = param_kind(p)
     if k == OUT:
-        if param_type(p) == INT or param_type(p) == UINT or param_type(p) == INT64 or param_type(p) == UINT64:
+        if param_type(p) == INT or param_type(p) == UINT or param_type(p) == BOOL or param_type(p) == INT64 or param_type(p) == UINT64:
             return "int"
         elif param_type(p) == STRING:
             return "string"
@@ -491,7 +491,7 @@ def java_method_name(name):
 
 # Return the type of the java array elements
 def java_array_element_type(p):
-    if param_type(p) == INT or param_type(p) == UINT:
+    if param_type(p) == INT or param_type(p) == UINT or param_type(p) == BOOL:
         return 'jint'
     else:
         return 'jlong'
@@ -653,7 +653,7 @@ def mk_java(java_dir, package_name):
             if k == OUT or k == INOUT:
                 java_wrapper.write('  %s _a%s;\n' % (type2str(param_type(param)), i))
             elif k == IN_ARRAY or k == INOUT_ARRAY:
-                if param_type(param) == INT or param_type(param) == UINT:
+                if param_type(param) == INT or param_type(param) == UINT or param_type(param) == BOOL:
                     java_wrapper.write('  %s * _a%s = (%s*) jenv->GetIntArrayElements(a%s, NULL);\n' % (type2str(param_type(param)), i, type2str(param_type(param)), i))
                 else:
                     java_wrapper.write('  GETLONGAELEMS(%s, a%s, _a%s);\n' % (type2str(param_type(param)), i, i))
@@ -663,7 +663,7 @@ def mk_java(java_dir, package_name):
                                                                                                      type2str(param_type(param)),
                                                                                                      param_array_capacity_pos(param),
                                                                                                      type2str(param_type(param))))
-                if param_type(param) == INT or param_type(param) == UINT:
+                if param_type(param) == INT or param_type(param) == UINT or param_type(param) == BOOL:
                     java_wrapper.write('  jenv->GetIntArrayRegion(a%s, 0, (jsize)a%s, (jint*)_a%s);\n' % (i, param_array_capacity_pos(param), i))
                 else:
                     java_wrapper.write('  GETLONGAREGION(%s, a%s, 0, a%s, _a%s);\n' % (type2str(param_type(param)), i, param_array_capacity_pos(param), i))
@@ -702,19 +702,19 @@ def mk_java(java_dir, package_name):
         for param in params:
             k = param_kind(param)
             if k == OUT_ARRAY:
-                if param_type(param) == INT or param_type(param) == UINT:
+                if param_type(param) == INT or param_type(param) == UINT or param_type(param) == BOOL:
                     java_wrapper.write('  jenv->SetIntArrayRegion(a%s, 0, (jsize)a%s, (jint*)_a%s);\n' % (i, param_array_capacity_pos(param), i))
                 else:
                     java_wrapper.write('  SETLONGAREGION(a%s, 0, a%s, _a%s);\n' % (i, param_array_capacity_pos(param), i))
                 java_wrapper.write('  free(_a%s);\n' % i)
             elif k == IN_ARRAY or k == OUT_ARRAY:
-                if param_type(param) == INT or param_type(param) == UINT:
+                if param_type(param) == INT or param_type(param) == UINT or param_type(param) == BOOL:
                     java_wrapper.write('  jenv->ReleaseIntArrayElements(a%s, (jint*)_a%s, JNI_ABORT);\n' % (i, i))
                 else:
                     java_wrapper.write('  RELEASELONGAELEMS(a%s, _a%s);\n' % (i, i))
 
             elif k == OUT or k == INOUT:
-                if param_type(param) == INT or param_type(param) == UINT:
+                if param_type(param) == INT or param_type(param) == UINT or param_type(param) == BOOL:
                     java_wrapper.write('  {\n')
                     java_wrapper.write('     jclass mc    = jenv->GetObjectClass(a%s);\n' % i)
                     java_wrapper.write('     jfieldID fid = jenv->GetFieldID(mc, "value", "I");\n')
