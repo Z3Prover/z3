@@ -4652,15 +4652,17 @@ namespace smt {
     expr * theory_str::z3str2_get_eqc_value(expr * n , bool & hasEqcValue) {
         theory_var curr = m_find.find(get_var(n));
         theory_var first = curr;
-        do {
-            expr* a = get_ast(curr);
-            if (u.str.is_string(a)) {
-                hasEqcValue = true;
-                return a;
-            }
-            curr = m_find.next(curr);
-        } 
-        while (curr != first && curr != null_theory_var);
+        if (curr != null_theory_var) {
+            do {
+                expr* a = get_ast(curr);
+                if (u.str.is_string(a)) {
+                    hasEqcValue = true;
+                    return a;
+                }
+                curr = m_find.next(curr);
+            } 
+            while (curr != first && curr != null_theory_var);
+        }
         hasEqcValue = false;
         return n;
     }
