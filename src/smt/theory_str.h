@@ -267,6 +267,10 @@ protected:
 
     str_value_factory * m_factory;
 
+    // Unique identifier appended to unused variables to ensure that model construction
+    // does not introduce equalities when they weren't enforced.
+    unsigned m_unused_id;
+
     // terms we couldn't go through set_up_axioms() with because they weren't internalized
     expr_ref_vector m_delayed_axiom_setup_terms;
 

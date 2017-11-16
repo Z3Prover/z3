@@ -47,6 +47,8 @@ namespace smt {
         sLevel(0),
         finalCheckProgressIndicator(false),
         m_trail(m),
+        m_factory(nullptr),
+        m_unused_id(0),
         m_delayed_axiom_setup_terms(m),
         tmpStringVarCount(0),
         tmpXorVarCount(0),
@@ -4648,14 +4650,17 @@ namespace smt {
     // We only check m_find for a string constant.
 
     expr * theory_str::z3str2_get_eqc_value(expr * n , bool & hasEqcValue) {
-        expr * curr = n;
+        theory_var curr = m_find.find(get_var(n));
+        theory_var first = curr;
         do {
-            if (u.str.is_string(curr)) {
+            expr* a = get_ast(curr);
+            if (u.str.is_string(a)) {
                 hasEqcValue = true;
-                return curr;
+                return a;
             }
-            curr = get_eqc_next(curr);
-        } while (curr != n);
+            curr = m_find.next(curr);
+        } 
+        while (curr != first && curr != null_theory_var);
         hasEqcValue = false;
         return n;
     }
@@ -10584,7 +10589,9 @@ namespace smt {
             return alloc(expr_wrapper_proc, val);
         } else {
             TRACE("str", tout << "WARNING: failed to find a concrete value, falling back" << std::endl;);
-            return alloc(expr_wrapper_proc, to_app(mk_string("**UNUSED**")));
+            std::ostringstream unused;
+            unused << "**UNUSED**" << (m_unused_id++);
+            return alloc(expr_wrapper_proc, to_app(mk_string(unused.str().c_str())));
         }
     }
 

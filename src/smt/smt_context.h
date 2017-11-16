@@ -209,7 +209,12 @@ namespace smt {
             ~scoped_mk_model() {
                 if (m_ctx.m_proto_model.get() != 0) {
                     m_ctx.m_model = m_ctx.m_proto_model->mk_model();
-                    m_ctx.add_rec_funs_to_model();
+                    try {
+                        m_ctx.add_rec_funs_to_model();
+                    }
+                    catch (...) {
+                        // no op
+                    }
                     m_ctx.m_proto_model = 0; // proto_model is not needed anymore.
                 }
             }
