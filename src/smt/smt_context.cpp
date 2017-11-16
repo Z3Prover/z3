@@ -4373,7 +4373,7 @@ namespace smt {
     void context::add_rec_funs_to_model() {
         ast_manager& m = m_manager;
         SASSERT(m_model);
-        for (unsigned i = 0; i < m_asserted_formulas.get_num_formulas(); ++i) {
+        for (unsigned i = 0; !get_cancel_flag() && i < m_asserted_formulas.get_num_formulas(); ++i) {
             expr* e = m_asserted_formulas.get_formula(i);
             if (is_quantifier(e)) {
                 TRACE("context", tout << mk_pp(e, m) << "\n";);

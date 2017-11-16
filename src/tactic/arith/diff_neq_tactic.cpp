@@ -95,13 +95,13 @@ class diff_neq_tactic : public tactic {
             if (is_uninterp_const(lhs) && u.is_numeral(rhs, k) && m_max_neg_k <= k && k <= m_max_k) {
                 var x  = mk_var(lhs);
                 int _k = static_cast<int>(k.get_int64());
-                m_upper[x] = _k;
+                m_upper[x] = std::min(m_upper[x], _k);
                 
             }
             else if (is_uninterp_const(rhs) && u.is_numeral(lhs, k) && m_max_neg_k <= k && k <= m_max_k) {
                 var x  = mk_var(rhs);
                 int _k = static_cast<int>(k.get_int64()); 
-                m_lower[x] = _k;
+                m_lower[x] = std::max(m_lower[x], _k);
             }
             else {
                 throw_not_supported();
