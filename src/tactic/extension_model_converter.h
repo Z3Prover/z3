@@ -10,6 +10,8 @@ Abstract:
     Model converter that introduces new interpretations into a model.
     It used to be called elim_var_model_converter
 
+    TBD: special case of generic_model_converter
+
 Author:
 
     Leonardo (leonardo) 2011-10-21

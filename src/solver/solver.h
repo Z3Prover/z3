@@ -80,14 +80,16 @@ public:
     /**
        \brief Add a new formula to the assertion stack.
     */
-    virtual void assert_expr(expr * t) = 0;
+    void assert_expr(expr* f);
+
+    virtual void assert_expr_core(expr * t) = 0;
 
     void assert_expr(expr_ref_vector const& ts) { 
-        for (unsigned i = 0; i < ts.size(); ++i) assert_expr(ts[i]); 
+        for (expr* e : ts) assert_expr(e);
     }
 
     void assert_expr(ptr_vector<expr> const& ts) { 
-        for (unsigned i = 0; i < ts.size(); ++i) assert_expr(ts[i]); 
+        for (expr* e : ts) assert_expr(e);
     }
 
     /**
@@ -95,7 +97,10 @@ public:
        The propositional variable \c a is used to track the use of \c t in a proof
        of unsatisfiability.
     */
-    virtual void assert_expr(expr * t, expr * a) = 0;
+
+    void assert_expr(expr * t, expr* a);
+
+    virtual void assert_expr_core(expr * t, expr * a) = 0;
 
     /**
        \brief Add a lemma to the assertion stack. A lemma is assumed to be a consequence of already
@@ -210,10 +215,12 @@ public:
         ~scoped_push() { if (!m_nopop) s.pop(1); }
         void disable_pop() { m_nopop = true; }
     };
+
  
 protected:
 
     virtual lbool get_consequences_core(expr_ref_vector const& asms, expr_ref_vector const& vars, expr_ref_vector& consequences);
+
 
     bool is_literal(ast_manager& m, expr* e);
 

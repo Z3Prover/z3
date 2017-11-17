@@ -24,7 +24,7 @@ Notes:
 #include "smt/smt_context.h"
 #include "opt/opt_context.h"
 #include "util/sorting_network.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 
 namespace opt {
 
@@ -35,7 +35,7 @@ namespace opt {
         psort_nw<sortmax> m_sort;
         expr_ref_vector   m_trail;
         func_decl_ref_vector m_fresh;
-        ref<filter_model_converter> m_filter;
+        ref<generic_model_converter> m_filter;
         sortmax(maxsat_context& c, weights_t& ws, expr_ref_vector const& soft): 
             maxsmt_solver_base(c, ws, soft), m_sort(*this), m_trail(m), m_fresh(m) {}
 
@@ -50,7 +50,7 @@ namespace opt {
             if (is_sat != l_true) {
                 return is_sat;
             }
-            m_filter = alloc(filter_model_converter, m);
+            m_filter = alloc(generic_model_converter, m);
             rational offset = m_lower;
             m_upper = offset;
             expr_ref_vector in(m);
@@ -142,7 +142,7 @@ namespace opt {
             expr_ref fr(m.mk_fresh_const(n, m.mk_bool_sort()), m);
             func_decl* f = to_app(fr)->get_decl();
             m_fresh.push_back(f);
-            m_filter->insert(f);
+            m_filter->hide(f);
             return trail(fr);
         }
         

@@ -49,7 +49,7 @@ Revision History:
 #include "smt/tactic/smt_tactic.h"
 #include "ast/rewriter/rewriter.h"
 #include "nlsat/tactic/nlsat_tactic.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 #include "util/obj_pair_hashtable.h"
 #include "ast/rewriter/rewriter_def.h"
 #include "ast/ast_pp.h"
@@ -73,7 +73,7 @@ class nl_purify_tactic : public tactic {
     arith_util      m_util;
     params_ref      m_params;
     bool            m_produce_proofs;
-    ref<filter_model_converter> m_fmc;
+    ref<generic_model_converter> m_fmc;
     tactic_ref      m_nl_tac;       // nlsat tactic
     goal_ref        m_nl_g;         // nlsat goal
     ref<solver>     m_solver;       // SMT solver
@@ -133,7 +133,7 @@ public:
             }
             r = m.mk_fresh_const(0, u().mk_real());
             m_new_reals.push_back(to_app(r));
-            m_owner.m_fmc->insert(to_app(r)->get_decl());
+            m_owner.m_fmc->hide(r);
             m_interface_cache.insert(arg, r);
             expr_ref eq(m);
             eq = m.mk_eq(r, arg);
@@ -159,7 +159,7 @@ public:
             result = m.mk_fresh_const(0, m.mk_bool_sort());
             m_polarities.insert(result, pol);
             m_new_preds.push_back(to_app(result));
-            m_owner.m_fmc->insert(to_app(result)->get_decl());
+            m_owner.m_fmc->hide(result);
             if (pol != pol_neg) {
                 m_owner.m_nl_g->assert_expr(m.mk_or(m.mk_not(result), old_pred));
             }
@@ -491,7 +491,7 @@ private:
                     pred = m.mk_fresh_const(0, m.mk_bool_sort());
                     m_eq_preds.push_back(pred);
                     m_eq_values.push_back(l_true);
-                    m_fmc->insert(to_app(pred)->get_decl());
+                    m_fmc->hide(pred);
                     nl_g->assert_expr(m.mk_or(m.mk_not(pred), m.mk_eq(w, v)));
                     nl_g->assert_expr(m.mk_or(pred, m.mk_not(m.mk_eq(w, v))));
                     m_solver->assert_expr(m.mk_iff(pred, m.mk_eq(w, v)));
@@ -761,7 +761,7 @@ public:
         rw r(*this);
         expr_ref_vector clauses(m);
         m_nl_g = alloc(goal, m, true, false);
-        m_fmc = alloc(filter_model_converter, m);                
+        m_fmc = alloc(generic_model_converter, m);                
 
         // first hoist interface variables, 
         // then annotate subformulas by polarities,

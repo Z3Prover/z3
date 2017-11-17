@@ -27,7 +27,7 @@ Revision History:
 #include "tactic/core/nnf_tactic.h"
 #include "tactic/core/simplify_tactic.h"
 #include "ast/rewriter/th_rewriter.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 #include "tactic/extension_model_converter.h"
 #include "ast/ast_smt2_pp.h"
 #include "ast/rewriter/expr_replacer.h"
@@ -764,17 +764,15 @@ struct purify_arith_proc {
             m_goal.assert_expr(r.cfg().m_new_cnstrs.get(i), m_produce_proofs ? r.cfg().m_new_cnstr_prs.get(i) : 0, 0);
         }
         
-        // add filter_model_converter to eliminate auxiliary variables from model
+        // add generic_model_converter to eliminate auxiliary variables from model
         if (produce_models) {
-            filter_model_converter * fmc = alloc(filter_model_converter, m());
+            generic_model_converter * fmc = alloc(generic_model_converter, m());
             mc = fmc;
             obj_map<app, expr*> & f2v = r.cfg().m_app2fresh;
-            obj_map<app, expr*>::iterator it  = f2v.begin();
-            obj_map<app, expr*>::iterator end = f2v.end();
-            for (; it != end; ++it) {
-                app * v = to_app(it->m_value);
+            for (auto const& kv : f2v) {
+                app * v = to_app(kv.m_value);
                 SASSERT(is_uninterp_const(v));
-                fmc->insert(v->get_decl());
+                fmc->hide(v->get_decl());
             }
         }
         if (produce_models && !m_sin_cos.empty()) {

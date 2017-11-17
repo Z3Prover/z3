@@ -23,13 +23,13 @@ Revision History:
 --*/
 #include "tactic/tactical.h"
 #include "tactic/core/occf_tactic.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 #include "util/cooperate.h"
 
 class occf_tactic : public tactic {
     struct     imp {
         ast_manager &            m;
-        filter_model_converter * m_mc;
+        generic_model_converter * m_mc;
         
         imp(ast_manager & _m):
             m(_m) {
@@ -115,7 +115,7 @@ class occf_tactic : public tactic {
             SASSERT(!c2b.contains(cnstr));
             expr * bvar = m.mk_fresh_const(0, m.mk_bool_sort());
             if (produce_models)
-                m_mc->insert(to_app(bvar)->get_decl());
+                m_mc->hide(to_app(bvar)->get_decl());
             c2b.insert(cnstr, bvar_info(bvar, sign));
             if (sign) {
                 g->assert_expr(m.mk_or(bvar, m.mk_not(cnstr)), 0, 0);
@@ -157,7 +157,7 @@ class occf_tactic : public tactic {
                 if (!is_target(cls))
                     continue;
                 if (produce_models && !m_mc) {
-                    m_mc = alloc(filter_model_converter, m);
+                    m_mc = alloc(generic_model_converter, m);
                     mc = m_mc;
                 }
                 expr * keep = 0;

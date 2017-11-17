@@ -18,10 +18,9 @@ Revision History:
 
 #include "tactic/sine_filter.h"
 #include "tactic/tactical.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 #include "ast/datatype_decl_plugin.h"
 #include "ast/rewriter/rewriter_def.h"
-#include "tactic/filter_model_converter.h"
 #include "tactic/extension_model_converter.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/ast_util.h"
@@ -69,7 +68,7 @@ public:
         result.push_back(g.get());
         TRACE("sine", result[0]->display(tout););
         SASSERT(g->is_well_sorted());
-        filter_model_converter * fmc = alloc(filter_model_converter, m);
+        generic_model_converter * fmc = alloc(generic_model_converter, m);
         mc = fmc;
     }
     

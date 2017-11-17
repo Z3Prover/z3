@@ -182,13 +182,26 @@ bool solver::is_literal(ast_manager& m, expr* e) {
     return is_uninterp_const(e) || (m.is_not(e, e) && is_uninterp_const(e));
 }
 
-#if 0
-expr_ref solver::lookahead(expr_ref_vector const& candidates) {
-    std::cout << "lookahead: " << candidates.size() << "\n";
-    INVOKE_DEBUGGER();
-    ast_manager& m = candidates.get_manager();
-    return expr_ref(m.mk_true(), m);
-}
-#endif
 
+void solver::assert_expr(expr* f) {
+    expr_ref fml(f, get_manager());
+    if (mc0()) {
+        (*mc0())(fml);        
+    }
+    assert_expr_core(fml);    
+}
+
+void solver::assert_expr(expr* f, expr* t) {
+    // let mc0 be the model converter associated with the solver
+    // that converts models to their "real state".
+    ast_manager& m = get_manager();
+    expr_ref fml(f, m);
+    expr_ref a(t, m);
+
+    if (mc0()) {
+        (*mc0())(fml);        
+        // (*mc0())(a);        
+    }
+    assert_expr_core(fml, a);    
+}
 

@@ -30,7 +30,7 @@ Notes:
 #include "smt/params/smt_params.h"
 #include "smt/smt_types.h"
 #include "smt/theory_opt.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 
 namespace opt {
 
@@ -70,7 +70,7 @@ namespace opt {
         smt_params          m_params;
         smt::kernel         m_context;
         ast_manager&        m;
-        filter_model_converter& m_fm;
+        generic_model_converter& m_fm;
         progress_callback * m_callback;
         symbol              m_logic;
         svector<smt::theory_var>  m_objective_vars;
@@ -84,14 +84,14 @@ namespace opt {
         bool                m_first;
         bool                m_was_unknown;
     public:
-        opt_solver(ast_manager & m, params_ref const & p, filter_model_converter& fm);
+        opt_solver(ast_manager & m, params_ref const & p, generic_model_converter& fm);
         virtual ~opt_solver();
 
         virtual solver* translate(ast_manager& m, params_ref const& p);
         virtual void updt_params(params_ref const& p);
         virtual void collect_param_descrs(param_descrs & r);
         virtual void collect_statistics(statistics & st) const;
-        virtual void assert_expr(expr * t);
+        virtual void assert_expr_core(expr * t);
         virtual void assert_lemma(expr* t) {}
         virtual void push_core();
         virtual void pop_core(unsigned n);

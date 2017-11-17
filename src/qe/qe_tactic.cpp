@@ -17,7 +17,6 @@ Revision History:
 
 --*/
 #include "tactic/tactical.h"
-#include "tactic/filter_model_converter.h"
 #include "util/cooperate.h"
 #include "qe/qe.h"
 

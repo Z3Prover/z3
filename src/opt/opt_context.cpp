@@ -40,7 +40,7 @@ Notes:
 #include "ast/bv_decl_plugin.h"
 #include "ast/pb_decl_plugin.h"
 #include "ast/ast_smt_pp.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 #include "ast/ast_pp_util.h"
 #include "qe/qsat.h"
 
@@ -1021,7 +1021,7 @@ namespace opt {
     }
 
     void context::purify(app_ref& term) {
-        filter_model_converter_ref fm;
+        generic_model_converter_ref fm;
         if (m_arith.is_add(term)) {
             expr_ref_vector args(m);
             unsigned sz = term->get_num_args();
@@ -1058,13 +1058,13 @@ namespace opt {
             (m_arith.is_mul(e, e2, e1) && m_arith.is_numeral(e1) && is_uninterp_const(e2));
     }
 
-    app* context::purify(filter_model_converter_ref& fm, expr* term) {
+    app* context::purify(generic_model_converter_ref& fm, expr* term) {
        std::ostringstream out;
        out << mk_pp(term, m);
        app* q = m.mk_fresh_const(out.str().c_str(), m.get_sort(term));
-       if (!fm) fm = alloc(filter_model_converter, m);
+       if (!fm) fm = alloc(generic_model_converter, m);
        m_hard_constraints.push_back(m.mk_eq(q, term));
-       fm->insert(q->get_decl());                
+       fm->hide(q);
        return q;
     }
 
@@ -1075,7 +1075,7 @@ namespace opt {
        - filter "obj" from generated model.
      */
     void context::mk_atomic(expr_ref_vector& terms) {
-        filter_model_converter_ref fm;
+        generic_model_converter_ref fm;
         for (unsigned i = 0; i < terms.size(); ++i) {
             expr_ref p(terms[i].get(), m);
             app_ref q(m);

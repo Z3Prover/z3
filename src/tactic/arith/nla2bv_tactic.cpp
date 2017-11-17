@@ -27,7 +27,7 @@ Notes:
 #include "tactic/arith/bv2int_rewriter.h"
 #include "tactic/arith/bv2real_rewriter.h"
 #include "tactic/extension_model_converter.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 #include "tactic/arith/bound_manager.h"
 #include "util/obj_pair_hashtable.h"
 #include "ast/ast_smt2_pp.h"
@@ -60,7 +60,7 @@ class nla2bv_tactic : public tactic {
         expr_ref_vector             m_trail;
         unsigned                    m_num_bits;
         unsigned                    m_default_bv_size;
-        filter_model_converter_ref  m_fmc;
+        generic_model_converter_ref  m_fmc;
         
     public:
         imp(ast_manager & m, params_ref const& p):
@@ -86,7 +86,7 @@ class nla2bv_tactic : public tactic {
             TRACE("nla2bv", g.display(tout);
                   tout << "Muls: " << count_mul(g) << "\n";
                   );
-            m_fmc = alloc(filter_model_converter, m_manager);
+            m_fmc = alloc(generic_model_converter, m_manager);
             m_bounds(g);
             collect_power2(g);
             if(!collect_vars(g)) {
@@ -104,7 +104,7 @@ class nla2bv_tactic : public tactic {
                 evc->insert(m_vars[i].get(), m_defs[i].get());
             }
             for (unsigned i = 0; i < m_bv2real.num_aux_decls(); ++i) {
-                m_fmc->insert(m_bv2real.get_aux_decl(i));
+                m_fmc->hide(m_bv2real.get_aux_decl(i));
             }        
             IF_VERBOSE(TACTIC_VERBOSITY_LVL, verbose_stream() << "(nla->bv :sat-preserving " << m_is_sat_preserving << ")\n";);
             TRACE("nla2bv_verbose", g.display(tout););
@@ -233,7 +233,7 @@ class nla2bv_tactic : public tactic {
             bv_sort = m_bv.mk_sort(num_bits);
             std::string name = n->get_decl()->get_name().str();
             s_bv = m_manager.mk_fresh_const(name.c_str(), bv_sort);
-            m_fmc->insert(to_app(s_bv)->get_decl());
+            m_fmc->hide(s_bv);
             s_bv = m_bv.mk_bv2int(s_bv);
             if (low) {
                 if (!(*low).is_zero()) {
@@ -271,8 +271,8 @@ class nla2bv_tactic : public tactic {
             s = m_manager.mk_fresh_const(name.c_str(), bv_sort);
             name += "_r";
             t = m_manager.mk_fresh_const(name.c_str(), bv_sort);
-            m_fmc->insert(to_app(s)->get_decl());
-            m_fmc->insert(to_app(t)->get_decl());
+            m_fmc->hide(s);
+            m_fmc->hide(t);
             s_bv = m_bv2real.mk_bv2real(s, t);
             m_trail.push_back(s_bv);
             m_subst.insert(n, s_bv);

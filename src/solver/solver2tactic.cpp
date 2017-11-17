@@ -19,13 +19,13 @@ Notes:
 
 #include "solver/solver.h"
 #include "tactic/tactic.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 #include "solver/solver2tactic.h"
 #include "ast/ast_util.h"
 
 typedef obj_map<expr, expr *> expr2expr_map;
 
-void extract_clauses_and_dependencies(goal_ref const& g, expr_ref_vector& clauses, ptr_vector<expr>& assumptions, expr2expr_map& bool2dep, ref<filter_model_converter>& fmc) {
+void extract_clauses_and_dependencies(goal_ref const& g, expr_ref_vector& clauses, ptr_vector<expr>& assumptions, expr2expr_map& bool2dep, ref<generic_model_converter>& fmc) {
     expr2expr_map dep2bool;
     ptr_vector<expr> deps;
     ast_manager& m = g->m();
@@ -65,9 +65,9 @@ void extract_clauses_and_dependencies(goal_ref const& g, expr_ref_vector& clause
                         bool2dep.insert(b, d);
                         assumptions.push_back(b);
                         if (!fmc) {
-                            fmc = alloc(filter_model_converter, m);
+                            fmc = alloc(generic_model_converter, m);
                         }
-                        fmc->insert(to_app(b)->get_decl());
+                        fmc->hide(to_app(b)->get_decl());
                     }
                     clause.push_back(m.mk_not(b));
                 }
@@ -110,7 +110,7 @@ public:
         expr_ref_vector clauses(m);
         expr2expr_map               bool2dep;
         ptr_vector<expr>            assumptions;
-        ref<filter_model_converter> fmc;
+        ref<generic_model_converter> fmc;
         extract_clauses_and_dependencies(in, clauses, assumptions, bool2dep, fmc);
         ref<solver> local_solver = m_solver->translate(m, m_params);
         local_solver->assert_expr(clauses);

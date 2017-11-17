@@ -38,7 +38,7 @@ Notes:
 #include "model/model_evaluator.h"
 #include "model/model_v2_pp.h"
 #include "tactic/tactic.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 #include<sstream>
 
 struct goal2sat::imp {
@@ -883,7 +883,7 @@ struct sat2goal::imp {
     class sat_model_converter : public model_converter {
         sat::model_converter        m_mc;
         expr_ref_vector             m_var2expr;
-        filter_model_converter_ref  m_fmc; // filter for eliminating fresh variables introduced in the assertion-set --> sat conversion
+        generic_model_converter_ref  m_fmc; // filter for eliminating fresh variables introduced in the assertion-set --> sat conversion
         
         sat_model_converter(ast_manager & m):
             m_var2expr(m) {
@@ -892,7 +892,7 @@ struct sat2goal::imp {
     public:
         sat_model_converter(ast_manager & m, sat::solver const & s):m_var2expr(m) {
             m_mc.copy(s.get_model_converter());
-            m_fmc = alloc(filter_model_converter, m);
+            m_fmc = alloc(generic_model_converter, m);
         }
         
         ast_manager & m() { return m_var2expr.get_manager(); }
@@ -907,7 +907,7 @@ struct sat2goal::imp {
             if (aux) {
                 SASSERT(is_uninterp_const(atom));
                 SASSERT(m().is_bool(atom));
-                m_fmc->insert(to_app(atom)->get_decl());
+                m_fmc->hide(to_app(atom)->get_decl());
             }
         }
 
@@ -976,7 +976,7 @@ struct sat2goal::imp {
         
         virtual model_converter * translate(ast_translation & translator) {
             sat_model_converter * res = alloc(sat_model_converter, translator.to());
-            res->m_fmc = static_cast<filter_model_converter*>(m_fmc->translate(translator));
+            res->m_fmc = static_cast<generic_model_converter*>(m_fmc->translate(translator));
             for (expr* e : m_var2expr) 
                 res->m_var2expr.push_back(e ? translator(e) : nullptr);
             return res;

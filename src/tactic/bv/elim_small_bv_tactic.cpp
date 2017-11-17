@@ -18,7 +18,7 @@ Revision History:
 --*/
 #include "tactic/tactical.h"
 #include "ast/rewriter/rewriter_def.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 #include "util/cooperate.h"
 #include "ast/bv_decl_plugin.h"
 #include "ast/used_vars.h"
@@ -35,7 +35,7 @@ class elim_small_bv_tactic : public tactic {
         params_ref                  m_params;
         bv_util                     m_util;
         th_rewriter                 m_simp;
-        ref<filter_model_converter> m_mc;
+        ref<generic_model_converter> m_mc;
         goal *                      m_goal;
         unsigned                    m_max_bits;
         unsigned long long          m_max_steps;

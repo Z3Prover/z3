@@ -164,7 +164,7 @@ public:
         m_solver2->set_produce_models(f);
     }
     
-    virtual void assert_expr(expr * t) {
+    virtual void assert_expr_core(expr * t) {
         if (m_check_sat_executed)
             switch_inc_mode();
         m_solver1->assert_expr(t);
@@ -172,7 +172,7 @@ public:
             m_solver2->assert_expr(t);
     }
 
-    virtual void assert_expr(expr * t, expr * a) {
+    virtual void assert_expr_core(expr * t, expr * a) {
         if (m_check_sat_executed)
             switch_inc_mode();
         m_solver1->assert_expr(t, a);

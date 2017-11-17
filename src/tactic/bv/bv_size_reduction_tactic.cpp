@@ -25,7 +25,7 @@ Notes:
 #include "ast/bv_decl_plugin.h"
 #include "ast/rewriter/expr_replacer.h"
 #include "tactic/extension_model_converter.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 #include "ast/ast_smt2_pp.h"
 
 class bv_size_reduction_tactic : public tactic {
@@ -60,7 +60,7 @@ struct bv_size_reduction_tactic::imp {
     obj_map<app, numeral>     m_unsigned_lowers;
     obj_map<app, numeral>     m_unsigned_uppers;
     ref<bv_size_reduction_mc> m_mc;
-    filter_model_converter_ref m_fmc;
+    generic_model_converter_ref m_fmc;
     scoped_ptr<expr_replacer> m_replacer;
     bool                      m_produce_models;
 
@@ -269,9 +269,9 @@ struct bv_size_reduction_tactic::imp {
                                     m_mc = alloc(bv_size_reduction_mc, m);
                                 m_mc->insert(v->get_decl(), new_def);
                                 if (!m_fmc && new_const) 
-                                    m_fmc = alloc(filter_model_converter, m);
+                                    m_fmc = alloc(generic_model_converter, m);
                                 if (new_const) 
-                                    m_fmc->insert(new_const->get_decl());
+                                    m_fmc->hide(new_const);
                             }
                             num_reduced++;
                         }
@@ -335,9 +335,9 @@ struct bv_size_reduction_tactic::imp {
                                 m_mc = alloc(bv_size_reduction_mc, m);
                             m_mc->insert(v->get_decl(), new_def);
                             if (!m_fmc && new_const) 
-                                m_fmc = alloc(filter_model_converter, m);
+                                m_fmc = alloc(generic_model_converter, m);
                             if (new_const) 
-                                m_fmc->insert(new_const->get_decl());
+                                m_fmc->hide(new_const);
                         }
                         num_reduced++;
                         TRACE("bv_size_reduction", tout << "New definition = " << mk_ismt2_pp(new_def, m) << "\n";);

@@ -45,7 +45,7 @@ namespace opt {
 
     class maxsat_context {
     public:        
-        virtual filter_model_converter& fm() = 0;   // converter that removes fresh names introduced by simplification.
+        virtual generic_model_converter& fm() = 0;   // converter that removes fresh names introduced by simplification.
         virtual bool sat_enabled() const = 0;       // is using th SAT solver core enabled?
         virtual solver& get_solver() = 0;           // retrieve solver object (SAT or SMT solver)
         virtual ast_manager& get_manager() const = 0;      
@@ -155,7 +155,7 @@ namespace opt {
         vector<objective>   m_objectives;
         model_ref           m_model;
         model_converter_ref          m_model_converter;
-        filter_model_converter       m_fm;
+        generic_model_converter       m_fm;
         obj_map<func_decl, unsigned> m_objective_fns;
         obj_map<func_decl, expr*>    m_objective_orig;
         func_decl_ref_vector         m_objective_refs;
@@ -219,7 +219,7 @@ namespace opt {
         virtual expr_ref mk_le(unsigned i, model_ref& model);
 
         virtual smt::context& smt_context() { return m_opt_solver->get_context(); }
-        virtual filter_model_converter& fm() { return m_fm; }
+        virtual generic_model_converter& fm() { return m_fm; }
         virtual bool sat_enabled() const { return 0 != m_sat_solver.get(); }
         virtual solver& get_solver();
         virtual ast_manager& get_manager() const { return this->m; }
@@ -253,7 +253,7 @@ namespace opt {
                        vector<rational>& weights, rational& offset, bool& neg, 
                        symbol& id, expr_ref& orig_term, unsigned& index);
         void  purify(app_ref& term);
-        app* purify(filter_model_converter_ref& fm, expr* e);
+        app* purify(generic_model_converter_ref& fm, expr* e);
         bool is_mul_const(expr* e);
         expr* mk_maximize(unsigned index, app* t);
         expr* mk_minimize(unsigned index, app* t);

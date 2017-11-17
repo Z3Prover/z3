@@ -105,7 +105,7 @@ namespace opt {
 
     app* maxsmt_solver_base::mk_fresh_bool(char const* name) {
         app* result = m.mk_fresh_const(name, m.mk_bool_sort());
-        m_c.fm().insert(result->get_decl());
+        m_c.fm().hide(result);
         return result;
     }
 

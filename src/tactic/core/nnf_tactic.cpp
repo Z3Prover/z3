@@ -18,7 +18,7 @@ Revision History:
 --*/
 #include "ast/normal_forms/nnf.h"
 #include "tactic/tactical.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 
 class nnf_tactic : public tactic {
     params_ref    m_params;
@@ -97,10 +97,10 @@ public:
         result.push_back(g.get());
         unsigned num_extra_names = dnames.get_num_names();
         if (num_extra_names > 0) {
-            filter_model_converter * fmc = alloc(filter_model_converter, m);
+            generic_model_converter * fmc = alloc(generic_model_converter, m);
             mc = fmc;
             for (unsigned i = 0; i < num_extra_names; i++)
-                fmc->insert(dnames.get_name_decl(i));
+                fmc->hide(dnames.get_name_decl(i));
         }
         TRACE("nnf", g->display(tout););
         SASSERT(g->is_well_sorted());

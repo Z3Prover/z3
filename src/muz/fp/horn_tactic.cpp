@@ -25,7 +25,7 @@ Revision History:
 #include "ast/rewriter/expr_replacer.h"
 #include "muz/base/dl_rule_transformer.h"
 #include "muz/transforms/dl_mk_slice.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 #include "muz/transforms/dl_transforms.h"
 #include "muz/base/fixedpoint_params.hpp"
 #include "ast/ast_util.h"
@@ -229,8 +229,8 @@ class horn_tactic : public tactic {
                 }
                 queries.reset();
                 queries.push_back(q);
-                filter_model_converter* mc1 = alloc(filter_model_converter, m);
-                mc1->insert(to_app(q)->get_decl());
+                generic_model_converter* mc1 = alloc(generic_model_converter, m);
+                mc1->hide(q);
                 mc = mc1;
             }
             SASSERT(queries.size() == 1);

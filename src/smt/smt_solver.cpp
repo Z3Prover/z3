@@ -101,11 +101,11 @@ namespace smt {
             return m_context.find_mutexes(vars, mutexes);
         }
 
-        virtual void assert_expr(expr * t) {
+        virtual void assert_expr_core(expr * t) {
             m_context.assert_expr(t);
         }
 
-        virtual void assert_expr(expr * t, expr * a) {
+        virtual void assert_expr_core(expr * t, expr * a) {
             if (m_name2assertion.contains(a)) {
                 throw default_exception("named assertion defined twice");
             }

@@ -33,7 +33,7 @@ Revision History:
 #include "tactic/tactical.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "tactic/extension_model_converter.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/expr_substitution.h"
 #include "util/dec_ref_util.h"
@@ -113,7 +113,7 @@ class recover_01_tactic : public tactic {
         
         // temporary fields used by operator() and process
         extension_model_converter * mc1;
-        filter_model_converter *    mc2;
+        generic_model_converter *    mc2;
         expr_substitution *         subst;
         goal_ref                    new_goal;
         obj_map<expr, expr *>       bool2int;
@@ -205,7 +205,7 @@ class recover_01_tactic : public tactic {
                 expr * bool_def = m.mk_eq(var, m_util.mk_numeral(rational(1), true));
                 subst->insert(atom, bool_def);
                 if (m_produce_models) {
-                    mc2->insert(to_app(var)->get_decl());
+                    mc2->hide(to_app(var)->get_decl());
                     mc1->insert(to_app(atom)->get_decl(), bool_def);
                 }
                 m.inc_ref(atom);
@@ -329,7 +329,7 @@ class recover_01_tactic : public tactic {
             
             if (m_produce_models) {
                 mc1 = alloc(extension_model_converter, m);
-                mc2 = alloc(filter_model_converter, m);
+                mc2 = alloc(generic_model_converter, m);
                 mc  = concat(mc2, mc1);
             }
             

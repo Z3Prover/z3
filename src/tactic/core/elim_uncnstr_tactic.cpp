@@ -18,7 +18,6 @@ Notes:
 --*/
 #include "tactic/tactical.h"
 #include "tactic/generic_model_converter.h"
-#include "tactic/filter_model_converter.h"
 #include "ast/rewriter/rewriter_def.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"
@@ -873,9 +872,9 @@ class elim_uncnstr_tactic : public tactic {
                         app_ref_vector & fresh_vars = m_rw->cfg().m_fresh_vars;
                         m_num_elim_apps = fresh_vars.size();
                         if (produce_models && !fresh_vars.empty()) {
-                            filter_model_converter * fmc = alloc(filter_model_converter, m());
-                            for (unsigned i = 0; i < fresh_vars.size(); i++)
-                                fmc->insert(fresh_vars.get(i)->get_decl());
+                            generic_model_converter * fmc = alloc(generic_model_converter, m());
+                            for (app * f : fresh_vars) 
+                                fmc->hide(f);
                             mc = concat(fmc, m_mc.get());
                         }
                         else {
@@ -910,7 +909,7 @@ class elim_uncnstr_tactic : public tactic {
     imp *      m_imp;
     params_ref m_params;
 public:
-    elim_uncnstr_tactic(ast_manager & m, params_ref const & p):
+   elim_uncnstr_tactic(ast_manager & m, params_ref const & p):
         m_params(p) {
         m_imp = alloc(imp, m, p);
     }

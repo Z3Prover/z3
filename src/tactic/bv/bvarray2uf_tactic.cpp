@@ -21,7 +21,7 @@ Notes:
 #include "ast/bv_decl_plugin.h"
 #include "ast/rewriter/expr_replacer.h"
 #include "tactic/extension_model_converter.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 #include "ast/ast_smt2_pp.h"
 
 #include "tactic/bv/bvarray2uf_tactic.h"
@@ -69,7 +69,7 @@ class bvarray2uf_tactic : public tactic {
 
             if (m_produce_models) {
                 extension_model_converter * emc = alloc(extension_model_converter, m_manager);
-                filter_model_converter * fmc = alloc(filter_model_converter, m_manager);
+                generic_model_converter * fmc = alloc(generic_model_converter, m_manager);
                 mc = concat(emc, fmc);
                 m_rw.set_mcs(emc, fmc);
             }

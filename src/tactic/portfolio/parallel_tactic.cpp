@@ -549,7 +549,7 @@ public:
         expr_ref_vector clauses(m);
         ptr_vector<expr> assumptions;
         obj_map<expr, expr*> bool2dep;
-        ref<filter_model_converter> fmc;
+        ref<generic_model_converter> fmc;
         extract_clauses_and_dependencies(g, clauses, assumptions, bool2dep, fmc);
         for (expr * clause : clauses) {
             s->assert_expr(clause);

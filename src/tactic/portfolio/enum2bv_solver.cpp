@@ -26,7 +26,7 @@ Notes:
 #include "model/model_smt2_pp.h"
 #include "tactic/tactic.h"
 #include "tactic/extension_model_converter.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 #include "tactic/portfolio/enum2bv_solver.h"
 #include "solver/solver_na2as.h"
 #include "ast/rewriter/enum2bv_rewriter.h"
@@ -58,7 +58,7 @@ public:
         return result;
     }
     
-    virtual void assert_expr(expr * t) {
+    virtual void assert_expr_core(expr * t) {
         expr_ref tmp(t, m);
         expr_ref_vector bounds(m);
         proof_ref tmp_proof(m);
@@ -164,9 +164,9 @@ public:
     }
 
     void filter_model(model_ref& mdl) {
-        filter_model_converter filter(m);
+        generic_model_converter filter(m);
         for (auto const& kv : m_rewriter.enum2bv()) {
-            filter.insert(kv.m_value);
+            filter.hide(kv.m_value);
         }
         filter(mdl, 0);
     }

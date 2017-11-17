@@ -26,7 +26,7 @@ Notes:
 #include "util/trace.h"
 #include "ast/ast_smt2_pp.h"
 #include "ast/expr_substitution.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 #include "tactic/arith/pb2bv_model_converter.h"
 #include "tactic/arith/pb2bv_tactic.h"
 #include "ast/ast_pp.h"
@@ -949,15 +949,13 @@ private:
                 g->update(idx, new_exprs[idx].get(), 0, (m_produce_unsat_cores) ? new_deps[idx].get() : g->dep(idx));
 
             if (m_produce_models) {
-                filter_model_converter * mc1 = alloc(filter_model_converter, m);
-                obj_map<func_decl, expr*>::iterator it  = m_const2bit.begin();
-                obj_map<func_decl, expr*>::iterator end = m_const2bit.end();
-                for (; it != end; ++it)
-                    mc1->insert(to_app(it->m_value)->get_decl());
+                generic_model_converter * mc1 = alloc(generic_model_converter, m);
+                for (auto const& kv : m_const2bit) 
+                    mc1->hide(kv.m_value);
                 // store temp int constants in the filter
                 unsigned num_temps = m_temporary_ints.size();
                 for (unsigned i = 0; i < num_temps; i++)
-                    mc1->insert(to_app(m_temporary_ints.get(i))->get_decl());
+                    mc1->hide(m_temporary_ints.get(i));
                 pb2bv_model_converter * mc2 = alloc(pb2bv_model_converter, m, m_const2bit, m_bm);
                 mc = concat(mc1, mc2);                
             }

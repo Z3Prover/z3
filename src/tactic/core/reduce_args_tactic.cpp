@@ -23,7 +23,7 @@ Notes:
 #include "util/map.h"
 #include "ast/rewriter/rewriter_def.h"
 #include "tactic/extension_model_converter.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 
 /**
    \brief Reduce the number of arguments in function applications.
@@ -395,7 +395,7 @@ struct reduce_args_tactic::imp {
         var_ref_vector   new_vars(m_manager);
         ptr_buffer<expr> new_eqs;
         extension_model_converter * e_mc = alloc(extension_model_converter, m_manager);
-        filter_model_converter * f_mc    = alloc(filter_model_converter, m_manager);
+        generic_model_converter * f_mc    = alloc(generic_model_converter, m_manager);
         decl2arg2func_map::iterator it   = decl2arg2funcs.begin();
         decl2arg2func_map::iterator end  = decl2arg2funcs.end();
         for (; it != end; ++it) {
@@ -416,7 +416,7 @@ struct reduce_args_tactic::imp {
             for (; it2 != end2; ++it2) {
                 app * t = it2->m_key;
                 func_decl * new_def = it2->m_value;
-                f_mc->insert(new_def);
+                f_mc->hide(new_def);
                 SASSERT(new_def->get_arity() == new_args.size());
                 app * new_t = m_manager.mk_app(new_def, new_args.size(), new_args.c_ptr());
                 if (def == 0) {

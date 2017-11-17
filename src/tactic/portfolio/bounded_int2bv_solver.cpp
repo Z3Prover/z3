@@ -21,7 +21,7 @@ Notes:
 #include "solver/solver_na2as.h"
 #include "tactic/tactic.h"
 #include "ast/rewriter/pb2bv_rewriter.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 #include "tactic/extension_model_converter.h"
 #include "ast/ast_pp.h"
 #include "model/model_smt2_pp.h"
@@ -86,7 +86,7 @@ public:
         return result;
     }
 
-    virtual void assert_expr(expr * t) {
+    virtual void assert_expr_core(expr * t) {
         unsigned i = m_assertions.size();
         m_assertions.push_back(t);
         while (i < m_assertions.size()) {
@@ -209,10 +209,8 @@ private:
         if (m_bv_fns.empty()) {
             return;
         }
-        filter_model_converter filter(m);
-        for (unsigned i = 0; i < m_bv_fns.size(); ++i) {
-            filter.insert(m_bv_fns[i].get());
-        }
+        generic_model_converter filter(m);
+        for (func_decl* f : m_bv_fns) filter.hide(f);
         filter(mdl, 0);
     }
 

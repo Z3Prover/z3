@@ -85,3 +85,7 @@ void generic_model_converter::collect(ast_pp_util& visitor) {
         if (e.m_def) visitor.coll.visit(e.m_def);
     }
 }
+
+void generic_model_converter::operator()(expr_ref& fml) {
+    NOT_IMPLEMENTED_YET();
+}

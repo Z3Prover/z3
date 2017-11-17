@@ -21,7 +21,7 @@ Revision History:
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/for_each_expr.h"
 #include "tactic/extension_model_converter.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/expr_substitution.h"
 #include "ast/ast_smt2_pp.h"
@@ -225,10 +225,10 @@ class lia2pb_tactic : public tactic {
                 throw tactic_exception("lia2pb failed, number of necessary bits exceeds specified threshold (use option :lia2pb-total-bits to increase threshold)");
             
             extension_model_converter * mc1 = 0;
-            filter_model_converter    * mc2 = 0;
+            generic_model_converter    * mc2 = 0;
             if (m_produce_models) {
                 mc1 = alloc(extension_model_converter, m);
-                mc2 = alloc(filter_model_converter, m);
+                mc2 = alloc(generic_model_converter, m);
                 mc  = concat(mc2, mc1);
             }
             
@@ -259,7 +259,7 @@ class lia2pb_tactic : public tactic {
                         else
                             def_args.push_back(m_util.mk_mul(m_util.mk_numeral(a, true), x_prime));
                         if (m_produce_models)
-                            mc2->insert(x_prime->get_decl());
+                            mc2->hide(x_prime->get_decl());
                         a *= rational(2);
                     }
                     SASSERT(def_args.size() > 1);

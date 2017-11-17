@@ -20,7 +20,6 @@ Revision History:
 
 --*/
 #include "tactic/tactical.h"
-#include "tactic/filter_model_converter.h"
 #include "tactic/generic_model_converter.h"
 #include "util/cooperate.h"
 #include "ast/arith_decl_plugin.h"
@@ -197,12 +196,10 @@ class degree_shift_tactic : public tactic {
 
         void prepare_substitution(model_converter_ref & mc) {
             SASSERT(!m_var2degree.empty());
-            filter_model_converter * fmc = 0;
             generic_model_converter * xmc = 0;
             if (m_produce_models) {
-                fmc = alloc(filter_model_converter, m);
                 xmc = alloc(generic_model_converter, m);
-                mc = concat(fmc, xmc);
+                mc = xmc;
             }
             for (auto const& kv : m_var2degree) {
                 SASSERT(kv.m_value.is_int());
@@ -211,7 +208,7 @@ class degree_shift_tactic : public tactic {
                 m_pinned.push_back(fresh);
                 m_var2var.insert(kv.m_key, fresh);
                 if (m_produce_models) {
-                    fmc->insert(fresh->get_decl());
+                    xmc->hide(fresh->get_decl());
                     xmc->add(kv.m_key->get_decl(), mk_power(fresh, rational(1)/kv.m_value));
                 }
                 if (m_produce_proofs) {

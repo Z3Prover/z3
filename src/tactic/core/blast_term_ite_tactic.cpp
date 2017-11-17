@@ -19,7 +19,6 @@ Notes:
 #include "tactic/tactical.h"
 #include "ast/normal_forms/defined_names.h"
 #include "ast/rewriter/rewriter_def.h"
-#include "tactic/filter_model_converter.h"
 #include "util/cooperate.h"
 #include "ast/scoped_proof.h"
 

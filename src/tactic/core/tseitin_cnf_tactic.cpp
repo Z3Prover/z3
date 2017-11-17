@@ -51,7 +51,7 @@ Notes:
 --*/
 #include "tactic/tactical.h"
 #include "tactic/goal_shared_occs.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 #include "ast/rewriter/bool_rewriter.h"
 #include "tactic/core/simplify_tactic.h"
 #include "util/cooperate.h"
@@ -80,7 +80,7 @@ class tseitin_cnf_tactic : public tactic {
             frame(app * n):m_t(n), m_first(true) {}
         };
         
-        typedef filter_model_converter mc;
+        typedef generic_model_converter mc;
         
         ast_manager &              m;
         svector<frame>             m_frame_stack;
@@ -344,7 +344,7 @@ class tseitin_cnf_tactic : public tactic {
             app * v = m.mk_fresh_const(0, m.mk_bool_sort());
             m_fresh_vars.push_back(v);
             if (m_mc)
-                m_mc->insert(v->get_decl());
+                m_mc->hide(v->get_decl());
             return v;
         }
         
@@ -817,7 +817,7 @@ class tseitin_cnf_tactic : public tactic {
             m_frame_stack.reset();
             m_clauses.reset();
             if (m_produce_models)
-                m_mc = alloc(filter_model_converter, m);
+                m_mc = alloc(generic_model_converter, m);
             else
                 m_mc = 0;
 

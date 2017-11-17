@@ -23,7 +23,7 @@ Notes:
 #include "ast/rewriter/pb2bv_rewriter.h"
 #include "ast/ast_util.h"
 #include "ast/ast_pp.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 
 class card2bv_tactic : public tactic {
     ast_manager &              m;
@@ -89,9 +89,9 @@ public:
         
         func_decl_ref_vector const& fns = rw2.fresh_constants();
         if (!fns.empty()) {
-            filter_model_converter* filter = alloc(filter_model_converter, m);
+            generic_model_converter* filter = alloc(generic_model_converter, m);
             for (unsigned i = 0; i < fns.size(); ++i) {
-                filter->insert(fns[i]);
+                filter->hide(fns[i]);
             }
             mc = filter;
         }

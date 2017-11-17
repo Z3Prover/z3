@@ -38,6 +38,8 @@ public:
     
     virtual ~generic_model_converter() { }
     
+    void hide(expr* e) { SASSERT(is_app(e) && to_app(e)->get_num_args() == 0); hide(to_app(e)->get_decl()); }
+
     void hide(func_decl * f) { m_entries.push_back(entry(f, 0, m, HIDE)); }
 
     void add(func_decl * d, expr* e) { m_entries.push_back(entry(d, e, m, ADD)); }
@@ -55,6 +57,8 @@ public:
     virtual model_converter * translate(ast_translation & translator);
 
     virtual void collect(ast_pp_util& visitor);
+
+    void operator()(expr_ref& fml) override; 
 };
 
 typedef ref<generic_model_converter> generic_model_converter_ref;

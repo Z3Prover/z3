@@ -21,11 +21,11 @@ Revision History:
 
 #include "tactic/bv/dt2bv_tactic.h"
 #include "tactic/tactical.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 #include "ast/datatype_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"
 #include "ast/rewriter/rewriter_def.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 #include "tactic/extension_model_converter.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/ast_util.h"
@@ -135,7 +135,7 @@ public:
             m_fd_sorts.remove(s);
         if (!m_fd_sorts.empty()) {
             ref<extension_model_converter> ext = alloc(extension_model_converter, m);
-            ref<filter_model_converter> filter = alloc(filter_model_converter, m);
+            ref<generic_model_converter> filter = alloc(generic_model_converter, m);
             enum2bv_rewriter rw(m, m_params);
             rw.set_is_fd(&m_is_fd);            
             expr_ref   new_curr(m);
@@ -153,7 +153,7 @@ public:
             for (expr* b : bounds) 
                 g->assert_expr(b);
             for (auto const& kv : rw.enum2bv()) 
-                filter->insert(kv.m_value);
+                filter->hide(kv.m_value);
             for (auto const& kv : rw.enum2def()) 
                 ext->insert(kv.m_key, kv.m_value);
             

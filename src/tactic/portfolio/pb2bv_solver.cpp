@@ -21,7 +21,7 @@ Notes:
 #include "tactic/tactic.h"
 #include "ast/rewriter/pb2bv_rewriter.h"
 #include "ast/rewriter/th_rewriter.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 #include "ast/ast_pp.h"
 #include "model/model_smt2_pp.h"
 
@@ -57,7 +57,7 @@ public:
         return result;
     }
     
-    virtual void assert_expr(expr * t) {
+    virtual void assert_expr_core(expr * t) {
         m_assertions.push_back(t);
     }
 
@@ -113,10 +113,10 @@ public:
         if (m_rewriter.fresh_constants().empty()) {
             return;
         }
-        filter_model_converter filter(m);
+        generic_model_converter filter(m);
         func_decl_ref_vector const& fns = m_rewriter.fresh_constants();
-        for (unsigned i = 0; i < fns.size(); ++i) {
-            filter.insert(fns[i]);
+        for (func_decl* f : fns) {
+            filter.hide(f);
         }
         filter(mdl, 0);
     }
@@ -138,8 +138,8 @@ private:
         proof_ref proof(m);
         expr_ref fml1(m), fml(m);
         expr_ref_vector fmls(m);
-        for (unsigned i = 0; i < m_assertions.size(); ++i) {
-            m_th_rewriter(m_assertions[i].get(), fml1, proof);
+        for (expr* a : m_assertions) {
+            m_th_rewriter(a, fml1, proof);
             m_rewriter(fml1, fml, proof);
             m_solver->assert_expr(fml);
         }

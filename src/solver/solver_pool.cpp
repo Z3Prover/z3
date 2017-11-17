@@ -49,7 +49,7 @@ public:
         m_in_delayed_scope(false),
         m_dump_counter(0) {
         if (is_virtual()) {
-            solver_na2as::assert_expr(m.mk_true(), pred);
+            solver_na2as::assert_expr_core(m.mk_true(), pred);
         }
     }
 
@@ -191,7 +191,7 @@ public:
         }
     }
     
-    virtual void assert_expr(expr * e) {
+    virtual void assert_expr_core(expr * e) {
         SASSERT(!m_pushed || get_scope_level() > 0);
         if (m.is_true(e)) return; 
         if (m_in_delayed_scope) {

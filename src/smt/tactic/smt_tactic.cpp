@@ -23,7 +23,7 @@ Notes:
 #include "smt/params/smt_params_helper.hpp"
 #include "util/lp/lp_params.hpp"
 #include "ast/rewriter/rewriter_types.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 #include "ast/ast_util.h"
 #include "solver/solver2tactic.h"
 #include "smt/smt_solver.h"
@@ -169,7 +169,7 @@ public:
             expr_ref_vector clauses(m);
             expr2expr_map               bool2dep;
             ptr_vector<expr>            assumptions;
-            ref<filter_model_converter> fmc;
+            ref<generic_model_converter> fmc;
             if (in->unsat_core_enabled()) {
                 extract_clauses_and_dependencies(in, clauses, assumptions, bool2dep, fmc);
                 TRACE("mus", in->display_with_dependencies(tout);

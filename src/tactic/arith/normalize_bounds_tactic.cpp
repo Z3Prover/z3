@@ -22,7 +22,7 @@ Revision History:
 #include "tactic/arith/bound_manager.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "tactic/extension_model_converter.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/expr_substitution.h"
 #include "ast/ast_smt2_pp.h"
@@ -99,10 +99,10 @@ class normalize_bounds_tactic : public tactic {
             }
             
             extension_model_converter * mc1 = 0;
-            filter_model_converter   * mc2  = 0;
+            generic_model_converter   * mc2  = 0;
             if (produce_models) {
                 mc1 = alloc(extension_model_converter, m);
-                mc2 = alloc(filter_model_converter, m);
+                mc2 = alloc(generic_model_converter, m);
                 mc  = concat(mc2, mc1);
             }
             
@@ -121,7 +121,7 @@ class normalize_bounds_tactic : public tactic {
                     subst.insert(x, def);
                     if (produce_models) {
                         mc1->insert(to_app(x)->get_decl(), def);
-                        mc2->insert(x_prime->get_decl());
+                        mc2->hide(x_prime->get_decl());
                     }
                 }
             }

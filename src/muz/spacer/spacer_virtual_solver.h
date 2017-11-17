@@ -78,7 +78,7 @@ public:
     }
 
     virtual void get_unsat_core(ptr_vector<expr> &r);
-    virtual void assert_expr(expr *e);
+    virtual void assert_expr_core(expr *e);
     virtual void collect_statistics(statistics &st) const {}
     virtual void get_model_core(model_ref &m) {m_context.get_model(m);}
     virtual proof* get_proof();

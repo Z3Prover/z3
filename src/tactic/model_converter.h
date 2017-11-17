@@ -45,12 +45,19 @@ public:
         SASSERT(goal_idx == 0);
         operator()(m);
     }
-    virtual void operator()(labels_vec & r, unsigned goal_idx) {}
 
+    virtual void operator()(labels_vec & r, unsigned goal_idx) {}
     
     virtual model_converter * translate(ast_translation & translator) = 0;
     
     virtual void collect(ast_pp_util& visitor) { m_env = &visitor.env(); }
+
+    /**
+       \brief we are adding a formula to the context of the model converter.
+       The operator has as side effect of adding definitions as assertions to the
+       formula and removing these definitions from the model converter.
+     */
+    virtual void operator()(expr_ref& formula) { UNREACHABLE(); }
 };
 
 typedef ref<model_converter> model_converter_ref;

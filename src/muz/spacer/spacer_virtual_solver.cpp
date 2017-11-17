@@ -50,7 +50,7 @@ virtual_solver::virtual_solver(virtual_solver_factory &factory,
     // -- change m_context, but will add m_pred to
     // -- the private field solver_na2as::m_assumptions
     if (m_virtual)
-    { solver_na2as::assert_expr(m.mk_true(), m_pred); }
+    { solver_na2as::assert_expr_core(m.mk_true(), m_pred); }
 }
 
 virtual_solver::~virtual_solver()
@@ -210,7 +210,7 @@ void virtual_solver::get_unsat_core(ptr_vector<expr> &r)
     }
 }
 
-void virtual_solver::assert_expr(expr *e)
+void virtual_solver::assert_expr_core(expr *e)
 {
     SASSERT(!m_pushed || get_scope_level() > 0);
     if (m.is_true(e)) { return; }

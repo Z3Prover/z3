@@ -22,7 +22,7 @@ Notes:
 
 #include "ast/rewriter/rewriter.h"
 #include "tactic/extension_model_converter.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 
 class bvarray2uf_rewriter_cfg : public default_rewriter_cfg {
     ast_manager       & m_manager;
@@ -31,7 +31,7 @@ class bvarray2uf_rewriter_cfg : public default_rewriter_cfg {
     bv_util             m_bv_util;
     array_util          m_array_util;
     extension_model_converter * m_emc;
-    filter_model_converter * m_fmc;
+    generic_model_converter * m_fmc;
 
     obj_map<expr, func_decl*> m_arrays_fs;
 
@@ -59,7 +59,7 @@ public:
 
     expr_ref_vector extra_assertions;
 
-    void set_mcs(extension_model_converter * emc, filter_model_converter * fmc) { m_emc = emc; m_fmc = fmc; }
+    void set_mcs(extension_model_converter * emc, generic_model_converter * fmc) { m_emc = emc; m_fmc = fmc; }
 
 protected:
     sort * get_index_sort(expr * e);
@@ -79,7 +79,7 @@ struct bvarray2uf_rewriter : public rewriter_tpl<bvarray2uf_rewriter_cfg> {
         m_cfg(m, p) {
     }
 
-    void set_mcs(extension_model_converter * emc, filter_model_converter * fmc) { m_cfg.set_mcs(emc, fmc); }
+    void set_mcs(extension_model_converter * emc, generic_model_converter * fmc) { m_cfg.set_mcs(emc, fmc); }
 };
 
 #endif

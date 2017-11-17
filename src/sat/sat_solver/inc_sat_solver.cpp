@@ -31,7 +31,6 @@ Notes:
 #include "sat/tactic/goal2sat.h"
 #include "ast/ast_pp.h"
 #include "model/model_smt2_pp.h"
-#include "tactic/filter_model_converter.h"
 #include "tactic/bv/bit_blaster_model_converter.h"
 #include "ast/ast_translation.h"
 #include "ast/ast_util.h"
@@ -241,13 +240,13 @@ public:
     virtual unsigned get_scope_level() const {
         return m_num_scopes;
     }
-    virtual void assert_expr(expr * t, expr * a) {
+    virtual void assert_expr_core(expr * t, expr * a) {
         if (a) {
             m_asmsf.push_back(a);
-            assert_expr(m.mk_implies(a, t));
+            assert_expr_core(m.mk_implies(a, t));
         }
         else {
-            assert_expr(t);
+            assert_expr_core(t);
         }
     }
 
@@ -261,7 +260,7 @@ public:
     }
 
     virtual ast_manager& get_manager() const { return m; }
-    virtual void assert_expr(expr * t) {
+    virtual void assert_expr_core(expr * t) {
         m_internalized = false;
         TRACE("goal2sat", tout << mk_pp(t, m) << "\n";);
         m_fmls.push_back(t);

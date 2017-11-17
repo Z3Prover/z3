@@ -18,7 +18,6 @@ Notes:
 --*/
 #include "ast/ast_pp.h"
 #include "tactic/tactical.h"
-#include "tactic/filter_model_converter.h"
 #include "sat/tactic/goal2sat.h"
 #include "sat/sat_solver.h"
 #include "model/model_v2_pp.h"

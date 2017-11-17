@@ -324,7 +324,7 @@ namespace smt {
         virtual inf_eps maximize(theory_var v, expr_ref& blocker, bool& has_shared);
         virtual inf_eps value(theory_var v);
         virtual theory_var add_objective(app* term);
-        expr_ref mk_ge(filter_model_converter& fm, theory_var v, inf_eps const& val);
+        expr_ref mk_ge(generic_model_converter& fm, theory_var v, inf_eps const& val);
 
         bool internalize_objective(expr * n, rational const& m, rational& r, objective_term & objective);
 

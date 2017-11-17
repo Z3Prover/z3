@@ -271,7 +271,7 @@ namespace smt {
         virtual inf_eps_rational<inf_rational> value(theory_var v);
         virtual theory_var add_objective(app* term);
         virtual expr_ref mk_gt(theory_var v, inf_eps const& val);
-        expr_ref mk_ge(filter_model_converter& fm, theory_var v, inf_eps const& val);
+        expr_ref mk_ge(generic_model_converter& fm, theory_var v, inf_eps const& val);
         
         // -----------------------------------
         //

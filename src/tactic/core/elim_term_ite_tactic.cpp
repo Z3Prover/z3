@@ -20,7 +20,7 @@ Notes:
 #include "tactic/tactical.h"
 #include "ast/normal_forms/defined_names.h"
 #include "ast/rewriter/rewriter_def.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 #include "util/cooperate.h"
 
 class elim_term_ite_tactic : public tactic {
@@ -28,7 +28,7 @@ class elim_term_ite_tactic : public tactic {
     struct rw_cfg : public default_rewriter_cfg {
         ast_manager &               m;
         defined_names               m_defined_names;
-        ref<filter_model_converter> m_mc;
+        ref<generic_model_converter> m_mc;
         goal *                      m_goal;
         unsigned long long          m_max_memory; // in bytes
         bool                        m_produce_models;
@@ -55,8 +55,8 @@ class elim_term_ite_tactic : public tactic {
                 m_num_fresh++;
                 if (m_produce_models) {
                     if (!m_mc)
-                        m_mc = alloc(filter_model_converter, m);
-                    m_mc->insert(_result->get_decl());
+                        m_mc = alloc(generic_model_converter, m);
+                    m_mc->hide(_result->get_decl());
                 }
             }
             result = _result.get();

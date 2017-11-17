@@ -120,7 +120,7 @@ func_decl_ref bvarray2uf_rewriter_cfg::mk_uf_for_array(expr * e) {
                                   m_array_util.mk_as_array(bv_f));
             }
             else if (m_fmc)
-                m_fmc->insert(bv_f);
+                m_fmc->hide(bv_f);
             m_arrays_fs.insert(e, bv_f);
             m_manager.inc_ref(e);
             m_manager.inc_ref(bv_f);
@@ -193,10 +193,10 @@ br_status bvarray2uf_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr 
             if (is_uninterp_const(e)) {
                 if (m_emc)
                     m_emc->insert(e->get_decl(),
-                        m_array_util.mk_as_array(bv_f));
+                                  m_array_util.mk_as_array(bv_f));
             }
             else if (m_fmc)
-                m_fmc->insert(bv_f);
+                m_fmc->hide(bv_f);
             m_arrays_fs.insert(e, bv_f);
             m_manager.inc_ref(e);
             m_manager.inc_ref(bv_f);
