@@ -3248,6 +3248,14 @@ extern "C" {
     */
     Z3_ast Z3_API Z3_mk_unsigned_int64(Z3_context c, __uint64 v, Z3_sort ty);
 
+    /**
+       \brief create a bit-vector numeral from a vector of Booleans.
+       
+       \sa Z3_mk_numeral
+       def_API('Z3_mk_bv_numeral', AST, (_in(CONTEXT), _in(UINT), _in_array(1, BOOL)))
+    */
+    Z3_ast Z3_API Z3_mk_bv_numeral(Z3_context c, unsigned sz, Z3_bool const* bits);
+
     /*@}*/
 
     /** @name Sequences and regular expressions */

@@ -1157,7 +1157,7 @@ public:
 
     bool explanation_is_correct(const vector<std::pair<mpq, unsigned>>& explanation) const {
 #ifdef Z3DEBUG
-        lconstraint_kind kind;
+        lconstraint_kind kind = EQ; // initialize it just to avoid a warning
         SASSERT(the_relations_are_of_same_type(explanation, kind));
         SASSERT(the_left_sides_sum_to_zero(explanation));
         mpq rs = sum_of_right_sides_of_explanation(explanation);

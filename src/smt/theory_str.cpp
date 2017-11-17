@@ -47,6 +47,8 @@ namespace smt {
         sLevel(0),
         finalCheckProgressIndicator(false),
         m_trail(m),
+        m_factory(nullptr),
+        m_unused_id(0),
         m_delayed_axiom_setup_terms(m),
         tmpStringVarCount(0),
         tmpXorVarCount(0),
@@ -61,8 +63,8 @@ namespace smt {
         cacheHitCount(0),
         cacheMissCount(0),
         m_fresh_id(0),
-        m_find(*this),
-        m_trail_stack(*this)
+        m_trail_stack(*this),
+        m_find(*this)
     {
         initialize_charset();
     }
@@ -279,7 +281,7 @@ namespace smt {
         } else {
             theory_var v = theory::mk_var(n);
             m_find.mk_var();
-            TRACE("str", tout << "new theory var v#" << v << std::endl;);
+            TRACE("str", tout << "new theory var v#" << v << " find " << m_find.find(v) << std::endl;);
             get_context().attach_th_var(n, this, v);
             get_context().mark_as_relevant(n);
             return v;
@@ -1903,8 +1905,8 @@ namespace smt {
 
     // support for user_smt_theory-style EQC handling
 
-    app * theory_str::get_ast(theory_var i) {
-        return get_enode(i)->get_owner();
+    app * theory_str::get_ast(theory_var v) {
+        return get_enode(v)->get_owner();
     }
 
     theory_var theory_str::get_var(expr * n) const {
@@ -4648,14 +4650,20 @@ namespace smt {
     // We only check m_find for a string constant.
 
     expr * theory_str::z3str2_get_eqc_value(expr * n , bool & hasEqcValue) {
-        expr * curr = n;
-        do {
-            if (u.str.is_string(curr)) {
-                hasEqcValue = true;
-                return curr;
-            }
-            curr = get_eqc_next(curr);
-        } while (curr != n);
+        theory_var curr = get_var(n);
+        if (curr != null_theory_var) {
+            curr = m_find.find(curr);
+            theory_var first = curr;
+            do {
+                expr* a = get_ast(curr);
+                if (u.str.is_string(a)) {
+                    hasEqcValue = true;
+                    return a;
+                }
+                curr = m_find.next(curr);
+            } 
+            while (curr != first && curr != null_theory_var);
+        }
         hasEqcValue = false;
         return n;
     }
@@ -10584,7 +10592,9 @@ namespace smt {
             return alloc(expr_wrapper_proc, val);
         } else {
             TRACE("str", tout << "WARNING: failed to find a concrete value, falling back" << std::endl;);
-            return alloc(expr_wrapper_proc, to_app(mk_string("**UNUSED**")));
+            std::ostringstream unused;
+            unused << "**UNUSED**" << (m_unused_id++);
+            return alloc(expr_wrapper_proc, to_app(mk_string(unused.str().c_str())));
         }
     }
 
