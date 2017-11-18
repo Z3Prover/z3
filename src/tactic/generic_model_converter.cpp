@@ -87,5 +87,7 @@ void generic_model_converter::collect(ast_pp_util& visitor) {
 }
 
 void generic_model_converter::operator()(expr_ref& fml) {
+    // TODO: traverse expression and retrieve minimum trail index
+    // TODO: add func = expr starting at that index, removing from table if index is the same
     NOT_IMPLEMENTED_YET();
 }

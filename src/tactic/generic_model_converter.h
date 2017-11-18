@@ -32,7 +32,9 @@ class generic_model_converter : public model_converter {
             m_f(f, m), m_def(d, m), m_instruction(i) {}
     };
     ast_manager& m;
-    vector<entry> m_entries;
+    vector<entry> m_add_entries;
+    vector<entry> m_hide_entries;
+    obj_map<func_decl_ref, unsigned> m_first_idx;
 public:
     generic_model_converter(ast_manager & m): m(m) {}
     
@@ -40,9 +42,9 @@ public:
     
     void hide(expr* e) { SASSERT(is_app(e) && to_app(e)->get_num_args() == 0); hide(to_app(e)->get_decl()); }
 
-    void hide(func_decl * f) { m_entries.push_back(entry(f, 0, m, HIDE)); }
+    void hide(func_decl * f) { m_hide_entries.push_back(entry(f, 0, m, HIDE)); }
 
-    void add(func_decl * d, expr* e) { m_entries.push_back(entry(d, e, m, ADD)); }
+    void add(func_decl * d, expr* e) { m_add_entries.push_back(entry(d, e, m, ADD)); }
     
     virtual void operator()(model_ref & md, unsigned goal_idx);
 
