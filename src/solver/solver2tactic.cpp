@@ -104,9 +104,8 @@ public:
     virtual void operator()(/* in */  goal_ref const & in, 
                             /* out */ goal_ref_buffer & result, 
                             /* out */ model_converter_ref & mc, 
-                            /* out */ proof_converter_ref & pc,
                             /* out */ expr_dependency_ref & core) {
-        pc = 0; mc = 0; core = 0;
+        mc = 0; core = 0;
         expr_ref_vector clauses(m);
         expr2expr_map               bool2dep;
         ptr_vector<expr>            assumptions;
@@ -133,7 +132,7 @@ public:
             expr_dependency* lcore = 0;
             if (in->proofs_enabled()) {
                 pr = local_solver->get_proof();
-                pc = proof2proof_converter(m, pr);
+                in->set(proof2proof_converter(m, pr));
             }
             if (in->unsat_core_enabled()) {
                 ptr_vector<expr> core;

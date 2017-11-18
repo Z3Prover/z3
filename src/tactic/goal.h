@@ -35,6 +35,8 @@ Revision History:
 #include "util/ref.h"
 #include "util/ref_vector.h"
 #include "util/ref_buffer.h"
+#include "tactic/model_converter.h"
+#include "tactic/proof_converter.h"
 
 class goal {
 public:
@@ -49,6 +51,8 @@ public:
     
 protected:
     ast_manager &         m_manager;
+    model_converter_ref   m_mc;
+    proof_converter_ref   m_pc;
     unsigned              m_ref_count;
     expr_array            m_forms;
     expr_array            m_proofs;
@@ -141,6 +145,13 @@ public:
     bool is_decided_unsat() const;
     bool is_decided() const;
     bool is_well_sorted() const;
+
+    model_converter* mc() { return m_mc.get(); }
+    proof_converter* pc() { return inconsistent() ? proof2proof_converter(m(), pr(0)) : m_pc.get(); }
+    void add(model_converter* m) { m_mc = concat(m_mc.get(), m); }
+    void add(proof_converter* p) { m_pc = concat(m_pc.get(), p); }
+    void set(model_converter* m) { m_mc = m; }
+    void set(proof_converter* p) { m_pc = p; }
 
     goal * translate(ast_translation & translator) const;
 };

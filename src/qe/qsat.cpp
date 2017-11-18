@@ -1213,13 +1213,12 @@ namespace qe {
         void operator()(/* in */  goal_ref const & in, 
                         /* out */ goal_ref_buffer & result, 
                         /* out */ model_converter_ref & mc, 
-                        /* out */ proof_converter_ref & pc,
                         /* out */ expr_dependency_ref & core) {
             tactic_report report("qsat-tactic", *in);
             ptr_vector<expr> fmls;
             expr_ref_vector defs(m);
             expr_ref fml(m);
-            mc = 0; pc = 0; core = 0;
+            mc = 0; core = 0;
             in->get_formulas(fmls);
 
 

@@ -16,11 +16,11 @@ Author:
 Revision History:
 
 --*/
-#include "tactic/goal.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/ast_smt2_pp.h"
 #include "ast/for_each_expr.h"
 #include "ast/well_sorted.h"
+#include "tactic/goal.h"
 
 goal::precision goal::mk_union(precision p1, precision p2) {
     if (p1 == PRECISE) return p2;
@@ -344,10 +344,7 @@ void goal::display_with_dependencies(ast_printer & prn, std::ostream & out) cons
         out << "\n  |-";
         deps.reset();
         m().linearize(dep(i), deps);
-        ptr_vector<expr>::iterator it  = deps.begin();
-        ptr_vector<expr>::iterator end = deps.end();
-        for (; it != end; ++it) {
-            expr * d = *it;
+        for (expr * d : deps) {
             if (is_uninterp_const(d)) {
                 out << " " << mk_ismt2_pp(d, m());
             }
@@ -361,10 +358,7 @@ void goal::display_with_dependencies(ast_printer & prn, std::ostream & out) cons
     }
     if (!to_pp.empty()) {
         out << "\n  :dependencies-definitions (";
-        obj_hashtable<expr>::iterator it  = to_pp.begin();
-        obj_hashtable<expr>::iterator end = to_pp.end();
-        for (; it != end; ++it) {
-            expr * d = *it;
+        for (expr* d : to_pp) {
             out << "\n  (#" << d->get_id() << "\n  ";
             prn.display(out, d, 2);
             out << ")";
@@ -382,10 +376,7 @@ void goal::display_with_dependencies(std::ostream & out) const {
         out << "\n  |-";
         deps.reset();
         m().linearize(dep(i), deps);
-        ptr_vector<expr>::iterator it  = deps.begin();
-        ptr_vector<expr>::iterator end = deps.end();
-        for (; it != end; ++it) {
-            expr * d = *it;
+        for (expr * d : deps) {
             if (is_uninterp_const(d)) {
                 out << " " << mk_ismt2_pp(d, m());
             }
@@ -510,14 +501,12 @@ void goal::shrink(unsigned j) {
     unsigned sz = size();
     for (unsigned i = j; i < sz; i++)
         m().pop_back(m_forms);
-    if (proofs_enabled()) {
+    if (proofs_enabled()) 
         for (unsigned i = j; i < sz; i++)
             m().pop_back(m_proofs);
-    }
-    if (unsat_core_enabled()) {
+    if (unsat_core_enabled()) 
         for (unsigned i = j; i < sz; i++)
             m().pop_back(m_dependencies);
-    }
 }
 
 /**
@@ -662,6 +651,8 @@ goal * goal::translate(ast_translation & translator) const {
     res->m_inconsistent = m_inconsistent;
     res->m_depth        = m_depth;
     res->m_precision    = m_precision;
+    res->m_pc           = m_pc ? m_pc->translate(translator) : nullptr;
+    res->m_mc           = m_mc ? m_mc->translate(translator) : nullptr;
 
     return res;
 }

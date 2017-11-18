@@ -147,11 +147,10 @@ public:
     virtual void operator()(goal_ref const & in,
                             goal_ref_buffer & result,
                             model_converter_ref & mc,
-                            proof_converter_ref & pc,
                             expr_dependency_ref & core) {
         try {
             IF_VERBOSE(10, verbose_stream() << "(smt.tactic start)\n";);
-            mc = 0; pc = 0; core = 0;
+            mc = 0; core = 0;
             SASSERT(in->is_well_sorted());
             ast_manager & m = in->m();
             TRACE("smt_tactic", tout << this << "\nAUTO_CONFIG: " << fparams().m_auto_config << " HIDIV0: " << fparams().m_hi_div0 << " "

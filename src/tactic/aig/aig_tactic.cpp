@@ -93,10 +93,9 @@ public:
     virtual void operator()(goal_ref const & g, 
                             goal_ref_buffer & result, 
                             model_converter_ref & mc, 
-                            proof_converter_ref & pc,
                             expr_dependency_ref & core) {
         fail_if_proof_generation("aig", g);
-        mc = 0; pc = 0; core = 0;
+        mc = 0; core = 0;
         operator()(g);
         g->inc_depth();
         result.push_back(g.get());

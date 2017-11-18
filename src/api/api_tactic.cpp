@@ -418,7 +418,8 @@ extern "C" {
             scoped_ctrl_c ctrlc(eh, false, use_ctrl_c);
             scoped_timer timer(timeout, &eh);
             try {
-                exec(*to_tactic_ref(t), new_goal, ref->m_subgoals, ref->m_mc, ref->m_pc, ref->m_core);
+                exec(*to_tactic_ref(t), new_goal, ref->m_subgoals, ref->m_mc, ref->m_core);
+                ref->m_pc = new_goal->pc();
                 return of_apply_result(ref);
             }
             catch (z3_exception & ex) {

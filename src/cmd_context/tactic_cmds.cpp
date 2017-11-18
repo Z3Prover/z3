@@ -328,7 +328,6 @@ public:
 
             goal_ref_buffer     result_goals;
             model_converter_ref mc;
-            proof_converter_ref pc;
             expr_dependency_ref core(m);
 
             std::string reason_unknown;
@@ -340,7 +339,7 @@ public:
                 scoped_timer timer(timeout, &eh);
                 cmd_context::scoped_watch sw(ctx);
                 try {
-                    exec(t, g, result_goals, mc, pc, core);
+                    exec(t, g, result_goals, mc, core);
                 }
                 catch (tactic_exception & ex) {
                     ctx.regular_stream() << "(error \"tactic failed: " << ex.msg() << "\")" << std::endl;

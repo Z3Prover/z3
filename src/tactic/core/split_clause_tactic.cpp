@@ -108,12 +108,11 @@ public:
     virtual void operator()(goal_ref const & in, 
                             goal_ref_buffer & result, 
                             model_converter_ref & mc, 
-                            proof_converter_ref & pc,
                             expr_dependency_ref & core) {
         SASSERT(in->is_well_sorted());
         tactic_report report("split-clause", *in);
         TRACE("before_split_clause", in->display(tout););
-        pc = 0; mc = 0; core = 0; 
+        mc = 0; core = 0; 
         ast_manager & m = in->m();
         unsigned cls_pos = select_clause(m, in);
         if (cls_pos == UINT_MAX) {
@@ -123,7 +122,7 @@ public:
         app * cls                 = to_app(in->form(cls_pos));
         expr_dependency * cls_dep = in->dep(cls_pos);
         if (produce_proofs)
-            pc = alloc(split_pc, m, cls, in->pr(cls_pos));
+            in->set(alloc(split_pc, m, cls, in->pr(cls_pos)));
         unsigned cls_sz = cls->get_num_args();
         report_tactic_progress(":num-new-branches", cls_sz);
         for (unsigned i = 0; i < cls_sz; i++) {

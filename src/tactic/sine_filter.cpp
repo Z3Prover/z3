@@ -49,9 +49,8 @@ public:
     virtual void operator()(goal_ref const & g,
                             goal_ref_buffer & result,
                             model_converter_ref & mc,
-                            proof_converter_ref & pc,
                             expr_dependency_ref & core) {
-        mc = 0; pc = 0; core = 0;
+        mc = 0; core = 0;
 
         TRACE("sine", g->display(tout););
         TRACE("sine", tout << g->size(););

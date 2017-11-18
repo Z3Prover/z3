@@ -153,10 +153,9 @@ public:
         goal_ref const & g, 
         goal_ref_buffer & result, 
         model_converter_ref & mc, 
-        proof_converter_ref & pc,
         expr_dependency_ref & core) {
         SASSERT(g->is_well_sorted());
-        mc = 0; pc = 0; core = 0;
+        mc = 0; core = 0;
         m_trail.reset();
         m_fd.reset();
         m_max.reset();

@@ -64,7 +64,7 @@ public:
     virtual void collect_param_descrs(param_descrs & r) {}
 
     virtual void operator()(goal_ref const & g, goal_ref_buffer & result,
-                            model_converter_ref & mc, proof_converter_ref & pc,
+                            model_converter_ref & mc, 
                             expr_dependency_ref & core) {
         mc = 0;
         tactic_report report("collect-statistics", *g);

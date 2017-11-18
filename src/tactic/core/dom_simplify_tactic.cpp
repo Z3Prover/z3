@@ -187,9 +187,8 @@ void dom_simplify_tactic::operator()(
     goal_ref const & in,
     goal_ref_buffer & result,
     model_converter_ref & mc,
-    proof_converter_ref & pc,
     expr_dependency_ref & core) {
-    mc = 0; pc = 0; core = 0;
+    mc = 0; core = 0;
 
     tactic_report report("dom-simplify", *in.get());
     simplify_goal(*(in.get()));

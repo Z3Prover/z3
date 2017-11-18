@@ -235,7 +235,6 @@ namespace qe {
             goal_ref const& goal,  
             goal_ref_buffer& result, 
             model_converter_ref& mc, 
-            proof_converter_ref & pc, 
             expr_dependency_ref& core) 
         {
             try {

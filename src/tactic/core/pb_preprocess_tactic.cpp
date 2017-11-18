@@ -152,10 +152,9 @@ public:
         goal_ref const & g, 
         goal_ref_buffer & result, 
         model_converter_ref & mc, 
-        proof_converter_ref & pc,
         expr_dependency_ref & core) {
         SASSERT(g->is_well_sorted());
-        pc = 0; core = 0;
+        core = 0;
 
         if (g->proofs_enabled()) {
             throw tactic_exception("pb-preprocess does not support proofs");

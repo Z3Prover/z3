@@ -32,7 +32,6 @@ public:
     virtual void operator()(goal_ref const & g,
         goal_ref_buffer & result,
         model_converter_ref & mc,
-        proof_converter_ref & pc,
         expr_dependency_ref & core) {
         mc = 0;
         tactic_report report("ackermannize", *g);
@@ -53,7 +52,6 @@ public:
             result.reset();
             result.push_back(g.get());
             mc = 0;
-            pc = 0;
             core = 0;
             return;
         }
@@ -62,7 +60,7 @@ public:
         if (g->models_enabled()) {
             mc = mk_ackermannize_bv_model_converter(m, lackr.get_info());
         }
-
+        
         resg->inc_depth();
         TRACE("ackermannize", resg->display(tout << "out\n"););
         SASSERT(resg->is_well_sorted());

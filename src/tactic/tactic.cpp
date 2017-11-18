@@ -70,12 +70,10 @@ void report_tactic_progress(char const * id, unsigned val) {
 void skip_tactic::operator()(goal_ref const & in, 
                              goal_ref_buffer & result, 
                              model_converter_ref & mc, 
-                             proof_converter_ref & pc,
                              expr_dependency_ref & core) {
     result.reset();
     result.push_back(in.get());
     mc = 0;
-    pc = 0;
     core = 0;
 }
 
@@ -88,7 +86,6 @@ public:
     virtual void operator()(goal_ref const & in, 
                             goal_ref_buffer & result, 
                             model_converter_ref & mc, 
-                            proof_converter_ref & pc,
                             expr_dependency_ref & core) {
         throw tactic_exception("fail tactic");
     }
@@ -111,10 +108,9 @@ public:
     virtual void operator()(goal_ref const & in, 
                             goal_ref_buffer & result, 
                             model_converter_ref & mc, 
-                            proof_converter_ref & pc,
                             expr_dependency_ref & core) {
         IF_VERBOSE(m_lvl, verbose_stream() << m_msg << "\n";);
-        skip_tactic::operator()(in, result, mc, pc, core);
+        skip_tactic::operator()(in, result, mc, core);
     }
 };
 
@@ -130,11 +126,10 @@ public:
     virtual void operator()(goal_ref const & in, 
                             goal_ref_buffer & result, 
                             model_converter_ref & mc, 
-                            proof_converter_ref & pc,
                             expr_dependency_ref & core) {
         TRACE(m_tag, in->display(tout););
         (void)m_tag;
-        skip_tactic::operator()(in, result, mc, pc, core);
+        skip_tactic::operator()(in, result, mc, core);
     }
 };
 
@@ -149,11 +144,10 @@ public:
     virtual void operator()(goal_ref const & in, 
                             goal_ref_buffer & result, 
                             model_converter_ref & mc, 
-                            proof_converter_ref & pc,
                             expr_dependency_ref & core) {
         if (!in->is_decided()) 
             throw tactic_exception("undecided");
-        skip_tactic::operator()(in, result, mc, pc, core);
+        skip_tactic::operator()(in, result, mc, core);
     }
 };
 
@@ -161,10 +155,10 @@ tactic * mk_fail_if_undecided_tactic() {
     return alloc(fail_if_undecided_tactic);
 }
 
-void exec(tactic & t, goal_ref const & in, goal_ref_buffer & result, model_converter_ref & mc, proof_converter_ref & pc, expr_dependency_ref & core) {
+void exec(tactic & t, goal_ref const & in, goal_ref_buffer & result, model_converter_ref & mc, expr_dependency_ref & core) {
     t.reset_statistics();
     try {
-        t(in, result, mc, pc, core);
+        t(in, result, mc, core);
         t.cleanup();
     }
     catch (tactic_exception & ex) {
@@ -184,9 +178,8 @@ lbool check_sat(tactic & t, goal_ref & g, model_ref & md, model_converter_ref& m
     core = 0;
     ast_manager & m = g->m();
     goal_ref_buffer r;
-    proof_converter_ref pc;
     try {
-        exec(t, g, r, mc, pc, core);
+        exec(t, g, r, mc, core);
     }
     catch (tactic_exception & ex) {
         reason_unknown = ex.msg();

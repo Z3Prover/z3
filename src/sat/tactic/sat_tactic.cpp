@@ -41,9 +41,8 @@ class sat_tactic : public tactic {
         void operator()(goal_ref const & g, 
                         goal_ref_buffer & result, 
                         model_converter_ref & mc, 
-                        proof_converter_ref & pc,
                         expr_dependency_ref & core) {
-            mc = 0; pc = 0; core = 0;
+            mc = 0; core = 0;
             fail_if_proof_generation("sat", g);
             bool produce_models = g->models_enabled();
             bool produce_core = g->unsat_core_enabled();
@@ -177,12 +176,11 @@ public:
     void operator()(goal_ref const & g, 
                     goal_ref_buffer & result, 
                     model_converter_ref & mc, 
-                    proof_converter_ref & pc,
                     expr_dependency_ref & core) {
         imp proc(g->m(), m_params);
         scoped_set_imp set(this, &proc);
         try {
-            proc(g, result, mc, pc, core);
+            proc(g, result, mc, core);
             proc.m_solver.collect_statistics(m_stats);
         }
         catch (sat::solver_exception & ex) {

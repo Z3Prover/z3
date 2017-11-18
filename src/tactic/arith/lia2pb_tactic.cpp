@@ -190,13 +190,12 @@ class lia2pb_tactic : public tactic {
         void operator()(goal_ref const & g, 
                         goal_ref_buffer & result, 
                         model_converter_ref & mc, 
-                        proof_converter_ref & pc,
                         expr_dependency_ref & core) {
             SASSERT(g->is_well_sorted());
             fail_if_proof_generation("lia2pb", g);
             m_produce_models      = g->models_enabled();
             m_produce_unsat_cores = g->unsat_core_enabled();
-            mc = 0; pc = 0; core = 0; result.reset();
+            mc = 0; core = 0; result.reset();
             tactic_report report("lia2pb", *g);
             m_bm.reset(); m_rw.reset(); m_new_deps.reset();
 
@@ -332,10 +331,9 @@ public:
     virtual void operator()(goal_ref const & in, 
                             goal_ref_buffer & result, 
                             model_converter_ref & mc, 
-                            proof_converter_ref & pc,
                             expr_dependency_ref & core) {
         try {
-            (*m_imp)(in, result, mc, pc, core);
+            (*m_imp)(in, result, mc, core);
         }
         catch (rewriter_exception & ex) {
             throw tactic_exception(ex.msg());

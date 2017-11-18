@@ -669,10 +669,9 @@ class solve_eqs_tactic : public tactic {
         void operator()(goal_ref const & g, 
                         goal_ref_buffer & result, 
                         model_converter_ref & mc, 
-                        proof_converter_ref & pc,
                         expr_dependency_ref & core) {
             SASSERT(g->is_well_sorted());
-            mc = 0; pc = 0; core = 0;
+            mc = 0; core = 0;
             tactic_report report("solve_eqs", *g);
             m_produce_models = g->models_enabled();
             m_produce_proofs = g->proofs_enabled();
@@ -736,9 +735,8 @@ public:
     virtual void operator()(goal_ref const & in, 
                             goal_ref_buffer & result, 
                             model_converter_ref & mc, 
-                            proof_converter_ref & pc,
                             expr_dependency_ref & core) {
-        (*m_imp)(in, result, mc, pc, core);
+        (*m_imp)(in, result, mc, core);
         report_tactic_progress(":num-elim-vars", m_imp->get_num_eliminated_vars());
     }
     

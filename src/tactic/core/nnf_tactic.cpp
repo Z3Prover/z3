@@ -56,11 +56,10 @@ public:
     virtual void operator()(goal_ref const & g, 
                             goal_ref_buffer & result, 
                             model_converter_ref & mc, 
-                            proof_converter_ref & pc,
                             expr_dependency_ref & core) {
         TRACE("nnf", tout << "params: " << m_params << "\n"; g->display(tout););
         SASSERT(g->is_well_sorted());
-        mc = 0; pc = 0; core = 0;
+        mc = 0; core = 0;
         tactic_report report("nnf", *g);
         bool produce_proofs = g->proofs_enabled();
 

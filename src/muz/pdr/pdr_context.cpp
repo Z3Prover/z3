@@ -203,10 +203,9 @@ namespace pdr {
         goal_ref g(alloc(goal, m, false, false, false));
         for (unsigned j = 0; j < v.size(); ++j) g->assert_expr(v[j].get());
         model_converter_ref mc;
-        proof_converter_ref pc;
         expr_dependency_ref core(m);
         goal_ref_buffer result;
-        tac(g, result, mc, pc, core);
+        tac(g, result, mc, core);
         SASSERT(result.size() == 1);
         goal* r = result[0];
         v.reset();

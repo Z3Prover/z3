@@ -139,7 +139,6 @@ public:
     void operator()(goal_ref const & g,
         goal_ref_buffer & result,
         model_converter_ref & mc,
-        proof_converter_ref & pc,
         expr_dependency_ref & core);
     virtual tactic * translate(ast_manager & m);
     virtual void updt_params(params_ref const & p);
@@ -200,13 +199,12 @@ bv_bound_chk_tactic::~bv_bound_chk_tactic() {
 void bv_bound_chk_tactic::operator()(goal_ref const & g,
         goal_ref_buffer & result,
         model_converter_ref & mc,
-        proof_converter_ref & pc,
         expr_dependency_ref & core) {
     SASSERT(g->is_well_sorted());
     fail_if_proof_generation("bv-bound-chk", g);
     fail_if_unsat_core_generation("bv-bound-chk", g);
     TRACE("bv-bound-chk", g->display(tout << "before:"); tout << std::endl;);
-    mc = 0; pc = 0; core = 0; result.reset();
+    mc = 0; core = 0; result.reset();
     m_imp->operator()(g);
     g->inc_depth();
     result.push_back(g.get());

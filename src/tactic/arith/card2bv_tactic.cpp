@@ -55,11 +55,10 @@ public:
     virtual void operator()(goal_ref const & g, 
                             goal_ref_buffer & result, 
                             model_converter_ref & mc, 
-                            proof_converter_ref & pc,
                             expr_dependency_ref & core) {
         TRACE("card2bv-before", g->display(tout););
         SASSERT(g->is_well_sorted());
-        mc = 0; pc = 0; core = 0; result.reset();
+        mc = 0; core = 0; result.reset();
         tactic_report report("card2bv", *g);
         th_rewriter rw1(m, m_params);
         pb2bv_rewriter rw2(m, m_params);

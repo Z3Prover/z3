@@ -747,10 +747,9 @@ namespace opt {
         else {
             set_simplify(tac0.get());
         }
-        proof_converter_ref pc;
         expr_dependency_ref core(m);
         goal_ref_buffer result;
-        (*m_simplify)(g, result, m_model_converter, pc, core); 
+        (*m_simplify)(g, result, m_model_converter, core); 
         SASSERT(result.size() == 1);
         goal* r = result[0];
         fmls.reset();

@@ -73,7 +73,7 @@ public:
 
     virtual ~reduce_args_tactic();
     
-    virtual void operator()(goal_ref const & g, goal_ref_buffer & result, model_converter_ref & mc, proof_converter_ref & pc, expr_dependency_ref & core);
+    virtual void operator()(goal_ref const & g, goal_ref_buffer & result, model_converter_ref & mc, expr_dependency_ref & core);
     virtual void cleanup();
 };
 
@@ -485,12 +485,11 @@ reduce_args_tactic::~reduce_args_tactic() {
 void reduce_args_tactic::operator()(goal_ref const & g, 
                                     goal_ref_buffer & result, 
                                     model_converter_ref & mc, 
-                                    proof_converter_ref & pc,
                                     expr_dependency_ref & core) {
     SASSERT(g->is_well_sorted());
     fail_if_proof_generation("reduce-args", g);
     fail_if_unsat_core_generation("reduce-args", g);
-    mc = 0; pc = 0; core = 0; result.reset();
+    mc = 0; core = 0; result.reset();
     m_imp->operator()(*(g.get()), mc);
     g->inc_depth();
     result.push_back(g.get());

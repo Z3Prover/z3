@@ -42,7 +42,6 @@ struct unit_subsumption_tactic : public tactic {
     virtual void operator()(/* in */  goal_ref const & in, 
                             /* out */ goal_ref_buffer & result, 
                             /* out */ model_converter_ref & mc, 
-                            /* out */ proof_converter_ref & pc,
                             /* out */ expr_dependency_ref & core) {        
         reduce_core(in, result);
     }
@@ -109,9 +108,7 @@ struct unit_subsumption_tactic : public tactic {
     }
 
     void insert_result(goal_ref& result) {        
-        for (unsigned i = 0; i < m_deleted.size(); ++i) {
-            result->update(m_deleted[i], m.mk_true()); // TBD proof?
-        }
+        for (auto  d : m_deleted) result->update(d, m.mk_true()); // TBD proof?
     }
 
     void init(goal_ref const& g) {

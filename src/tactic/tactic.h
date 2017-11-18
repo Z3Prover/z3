@@ -78,7 +78,6 @@ public:
     virtual void operator()(/* in */  goal_ref const & in, 
                             /* out */ goal_ref_buffer & result, 
                             /* out */ model_converter_ref & mc, 
-                            /* out */ proof_converter_ref & pc,
                             /* out */ expr_dependency_ref & core) = 0;
 
     virtual void collect_statistics(statistics & st) const {}
@@ -119,7 +118,7 @@ void report_tactic_progress(char const * id, unsigned val);
 
 class skip_tactic : public tactic {
 public:
-    virtual void operator()(goal_ref const & in, goal_ref_buffer & result, model_converter_ref & mc, proof_converter_ref & pc, expr_dependency_ref & core);
+    virtual void operator()(goal_ref const & in, goal_ref_buffer & result, model_converter_ref & mc, expr_dependency_ref & core);
     virtual void cleanup() {}
     virtual tactic * translate(ast_manager & m) { return this; }
 };
@@ -152,7 +151,7 @@ public:                                                                         
 
 #define MK_SIMPLE_TACTIC_FACTORY(NAME, ST)  MK_TACTIC_FACTORY(NAME, return ST;)
 
-void exec(tactic & t, goal_ref const & in, goal_ref_buffer & result, model_converter_ref & mc, proof_converter_ref & pc, expr_dependency_ref & core);
+void exec(tactic & t, goal_ref const & in, goal_ref_buffer & result, model_converter_ref & mc, expr_dependency_ref & core);
 lbool check_sat(tactic & t, goal_ref & g, model_ref & md, model_converter_ref& mc, labels_vec & labels, proof_ref & pr, expr_dependency_ref & core, std::string & reason_unknown);
 
 // Throws an exception if goal \c in requires proof generation.
