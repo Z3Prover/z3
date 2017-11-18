@@ -75,6 +75,7 @@ protected:
     unsigned get_not_idx(expr * f) const;
     void shrink(unsigned j);
     void reset_core();
+
     
 public:
     goal(ast_manager & m, bool models_enabled = true, bool core_enabled = false);
@@ -107,7 +108,7 @@ public:
 
     void copy_to(goal & target) const;
     void copy_from(goal const & src) { src.copy_to(*this); }
-    
+
     void assert_expr(expr * f, proof * pr, expr_dependency * d);
     void assert_expr(expr * f, expr_dependency * d);
     void assert_expr(expr * f, expr * d) { assert_expr(f, m().mk_leaf(d)); }

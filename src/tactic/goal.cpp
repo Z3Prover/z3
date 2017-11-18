@@ -105,6 +105,8 @@ void goal::copy_to(goal & target) const {
     SASSERT(target.m_core_enabled   == m_core_enabled);
     target.m_inconsistent         = m_inconsistent;
     target.m_precision            = mk_union(prec(), target.prec());
+    target.m_mc                   = m_mc.get(); 
+    target.m_pc                   = m_pc.get(); 
 }
 
 void goal::push_back(expr * f, proof * pr, expr_dependency * d) {
