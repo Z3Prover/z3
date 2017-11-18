@@ -881,8 +881,9 @@ struct sat2goal::imp {
 
     // Wrapper for sat::model_converter: converts it into an "AST level" model_converter.
     class sat_model_converter : public model_converter {
-        sat::model_converter        m_mc;
-        expr_ref_vector             m_var2expr;
+        model_converter_ref          m_cached_mc;
+        sat::model_converter         m_mc;
+        expr_ref_vector              m_var2expr;
         generic_model_converter_ref  m_fmc; // filter for eliminating fresh variables introduced in the assertion-set --> sat conversion
         
         sat_model_converter(ast_manager & m):
@@ -1025,6 +1026,9 @@ struct sat2goal::imp {
             if (m_fmc) m_fmc->collect(visitor);
         }
 
+        void operator()(expr_ref& formula) override {
+            NOT_IMPLEMENTED_YET();
+        }
     };
 
     typedef ref<sat_model_converter> sat_model_converter_ref;
@@ -1033,7 +1037,6 @@ struct sat2goal::imp {
     expr_ref_vector         m_lit2expr;
     unsigned long long      m_max_memory;
     bool                    m_learned;
-    unsigned                m_glue;
     
     imp(ast_manager & _m, params_ref const & p):m(_m), m_lit2expr(m) {
         updt_params(p);
@@ -1041,7 +1044,6 @@ struct sat2goal::imp {
 
     void updt_params(params_ref const & p) {
         m_learned        = p.get_bool("learned", false);
-        m_glue           = p.get_uint("glue", UINT_MAX);
         m_max_memory     = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
     }
 
@@ -1131,7 +1133,6 @@ struct sat2goal::imp {
             checkpoint();
             lits.reset();
             sat::clause const & c = *cp;
-            unsigned sz = c.size();
             if (asserted || m_learned || c.glue() <= s.get_config().m_gc_small_lbd) {
                 for (sat::literal l : c) {
                     lits.push_back(lit2expr(mc, l));
@@ -1142,8 +1143,7 @@ struct sat2goal::imp {
     }
 
     sat::ba_solver* get_ba_solver(sat::solver const& s) {
-        sat::extension* ext = s.get_extension();
-        return dynamic_cast<sat::ba_solver*>(ext);
+        return dynamic_cast<sat::ba_solver*>(s.get_extension());
     }
 
     void operator()(sat::solver const & s, atom2bool_var const & map, goal & r, model_converter_ref & mc) {
@@ -1229,7 +1229,6 @@ sat2goal::sat2goal():m_imp(0) {
 void sat2goal::collect_param_descrs(param_descrs & r) {
     insert_max_memory(r);
     r.insert("learned", CPK_BOOL, "(default: false) collect also learned clauses.");
-    r.insert("glue", CPK_UINT, "(default: max-int) collect learned clauses with glue level below parameter.");
 }
 
 struct sat2goal::scoped_set_imp {

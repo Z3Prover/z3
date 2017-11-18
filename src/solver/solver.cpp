@@ -185,21 +185,20 @@ bool solver::is_literal(ast_manager& m, expr* e) {
 
 void solver::assert_expr(expr* f) {
     expr_ref fml(f, get_manager());
-    if (mc0()) {
-        (*mc0())(fml);        
+    model_converter_ref mc = get_model_converter();
+    if (mc) {
+        (*mc)(fml);        
     }
     assert_expr_core(fml);    
 }
 
 void solver::assert_expr(expr* f, expr* t) {
-    // let mc0 be the model converter associated with the solver
-    // that converts models to their "real state".
     ast_manager& m = get_manager();
     expr_ref fml(f, m);
     expr_ref a(t, m);
-
-    if (mc0()) {
-        (*mc0())(fml);        
+    model_converter_ref mc = get_model_converter();
+    if (mc) {
+        (*mc)(fml);        
         // (*mc0())(a);        
     }
     assert_expr_core(fml, a);    
