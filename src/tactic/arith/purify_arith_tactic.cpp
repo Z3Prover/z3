@@ -28,7 +28,6 @@ Revision History:
 #include "tactic/core/simplify_tactic.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "tactic/generic_model_converter.h"
-#include "tactic/extension_model_converter.h"
 #include "ast/ast_smt2_pp.h"
 #include "ast/rewriter/expr_replacer.h"
 
@@ -776,11 +775,11 @@ struct purify_arith_proc {
             }
         }
         if (produce_models && !m_sin_cos.empty()) {
-            extension_model_converter* emc = alloc(extension_model_converter, m());
+            generic_model_converter* emc = alloc(generic_model_converter, m());
             mc = concat(mc.get(), emc);
             obj_map<app, std::pair<expr*,expr*> >::iterator it = m_sin_cos.begin(), end = m_sin_cos.end();
             for (; it != end; ++it) {
-                emc->insert(it->m_key->get_decl(), 
+                emc->add(it->m_key->get_decl(), 
                             m().mk_ite(u().mk_ge(it->m_value.first, mk_real_zero()), u().mk_acos(it->m_value.second), 
                                        u().mk_add(u().mk_acos(u().mk_uminus(it->m_value.second)), u().mk_pi())));
             }

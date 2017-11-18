@@ -26,7 +26,6 @@ Notes:
 #include "util/optional.h"
 #include "tactic/arith/bv2int_rewriter.h"
 #include "tactic/arith/bv2real_rewriter.h"
-#include "tactic/extension_model_converter.h"
 #include "tactic/generic_model_converter.h"
 #include "tactic/arith/bound_manager.h"
 #include "util/obj_pair_hashtable.h"
@@ -98,10 +97,9 @@ class nla2bv_tactic : public tactic {
             reduce_bv2int(g);
             reduce_bv2real(g);
             TRACE("nla2bv", g.display(tout << "after reduce\n"););
-            extension_model_converter * evc = alloc(extension_model_converter, m_manager);
-            mc = concat(m_fmc.get(), evc);
+            mc = m_fmc.get();
             for (unsigned i = 0; i < m_vars.size(); ++i) {
-                evc->insert(m_vars[i].get(), m_defs[i].get());
+                m_fmc->add(m_vars[i].get(), m_defs[i].get());
             }
             for (unsigned i = 0; i < m_bv2real.num_aux_decls(); ++i) {
                 m_fmc->hide(m_bv2real.get_aux_decl(i));

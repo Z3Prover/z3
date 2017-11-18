@@ -22,7 +22,6 @@ Notes:
 #include "ast/has_free_vars.h"
 #include "util/map.h"
 #include "ast/rewriter/rewriter_def.h"
-#include "tactic/extension_model_converter.h"
 #include "tactic/generic_model_converter.h"
 
 /**
@@ -394,13 +393,10 @@ struct reduce_args_tactic::imp {
         ptr_buffer<expr> new_args;
         var_ref_vector   new_vars(m_manager);
         ptr_buffer<expr> new_eqs;
-        extension_model_converter * e_mc = alloc(extension_model_converter, m_manager);
         generic_model_converter * f_mc    = alloc(generic_model_converter, m_manager);
-        decl2arg2func_map::iterator it   = decl2arg2funcs.begin();
-        decl2arg2func_map::iterator end  = decl2arg2funcs.end();
-        for (; it != end; ++it) {
-            func_decl * f  = it->m_key;
-            arg2func * map = it->m_value;
+        for (auto const& kv : decl2arg2funcs) {
+            func_decl * f  = kv.m_key;
+            arg2func * map = kv.m_value;
             expr * def     = 0;
             SASSERT(decl2args.contains(f));
             bit_vector & bv = decl2args.find(f);
@@ -438,9 +434,9 @@ struct reduce_args_tactic::imp {
                 }
             }
             SASSERT(def);
-            e_mc->insert(f, def);
+            f_mc->add(f, def);
         }
-        return concat(f_mc, e_mc);
+        return f_mc;
     }
 
     void operator()(goal & g, model_converter_ref & mc) {

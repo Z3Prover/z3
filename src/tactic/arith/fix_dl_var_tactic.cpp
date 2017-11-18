@@ -23,7 +23,7 @@ Revision History:
 --*/
 #include "tactic/tactical.h"
 #include "ast/rewriter/th_rewriter.h"
-#include "tactic/extension_model_converter.h"
+#include "tactic/generic_model_converter.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/expr_substitution.h"
 #include "ast/ast_smt2_pp.h"
@@ -270,8 +270,8 @@ class fix_dl_var_tactic : public tactic {
                 m_rw.set_substitution(&subst);
             
                 if (m_produce_models) {
-                    extension_model_converter * _mc = alloc(extension_model_converter, m);
-                    _mc->insert(var->get_decl(), zero);
+                    generic_model_converter * _mc = alloc(generic_model_converter, m);
+                    _mc->add(var, zero);
                     mc = _mc;
                 }
                 

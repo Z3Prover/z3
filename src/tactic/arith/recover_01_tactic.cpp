@@ -32,7 +32,6 @@ Revision History:
 --*/
 #include "tactic/tactical.h"
 #include "ast/rewriter/th_rewriter.h"
-#include "tactic/extension_model_converter.h"
 #include "tactic/generic_model_converter.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/expr_substitution.h"
@@ -112,8 +111,7 @@ class recover_01_tactic : public tactic {
         }
         
         // temporary fields used by operator() and process
-        extension_model_converter * mc1;
-        generic_model_converter *    mc2;
+        generic_model_converter *   gmc;
         expr_substitution *         subst;
         goal_ref                    new_goal;
         obj_map<expr, expr *>       bool2int;
@@ -205,8 +203,8 @@ class recover_01_tactic : public tactic {
                 expr * bool_def = m.mk_eq(var, m_util.mk_numeral(rational(1), true));
                 subst->insert(atom, bool_def);
                 if (m_produce_models) {
-                    mc2->hide(to_app(var)->get_decl());
-                    mc1->insert(to_app(atom)->get_decl(), bool_def);
+                    gmc->hide(var);
+                    gmc->add(to_app(atom)->get_decl(), bool_def);
                 }
                 m.inc_ref(atom);
                 m.inc_ref(var);
@@ -288,7 +286,7 @@ class recover_01_tactic : public tactic {
             TRACE("recover_01", tout << x->get_name() << " --> " << mk_ismt2_pp(x_def, m) << "\n";);
             subst->insert(m.mk_const(x), x_def);
             if (m_produce_models) {
-                mc1->insert(x, x_def);
+                gmc->add(x, x_def);
             }
             return true;
         }
@@ -328,9 +326,8 @@ class recover_01_tactic : public tactic {
             }
             
             if (m_produce_models) {
-                mc1 = alloc(extension_model_converter, m);
-                mc2 = alloc(generic_model_converter, m);
-                mc  = concat(mc2, mc1);
+                gmc = alloc(generic_model_converter, m);
+                mc  = gmc;
             }
             
             dec_ref_key_values(m, bool2int);

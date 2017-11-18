@@ -25,7 +25,6 @@ Notes:
 #include "ast/ast_pp.h"
 #include "model/model_smt2_pp.h"
 #include "tactic/tactic.h"
-#include "tactic/extension_model_converter.h"
 #include "tactic/generic_model_converter.h"
 #include "tactic/portfolio/enum2bv_solver.h"
 #include "solver/solver_na2as.h"
@@ -172,9 +171,9 @@ public:
     }
 
     void extend_model(model_ref& mdl) {
-        extension_model_converter ext(m);
+        generic_model_converter ext(m);
         for (auto const& kv : m_rewriter.enum2def()) 
-            ext.insert(kv.m_key, kv.m_value);            
+            ext.add(kv.m_key, kv.m_value);            
         ext(mdl, 0);
     }
 

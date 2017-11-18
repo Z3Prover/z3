@@ -43,6 +43,8 @@ public:
     void hide(func_decl * f) { m_entries.push_back(entry(f, 0, m, HIDE)); }
 
     void add(func_decl * d, expr* e) { m_entries.push_back(entry(d, e, m, ADD)); }
+
+    void add(expr * d, expr* e) { SASSERT(is_app(d) && to_app(d)->get_num_args() == 0); m_entries.push_back(entry(to_app(d)->get_decl(), e, m, ADD)); }
     
     virtual void operator()(model_ref & md, unsigned goal_idx);
 

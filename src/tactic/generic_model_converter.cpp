@@ -27,7 +27,7 @@ void generic_model_converter::operator()(model_ref & md, unsigned goal_idx) {
     std::cout << "model converter\n";
     TRACE("model_converter", tout << "before generic_model_converter\n"; model_v2_pp(tout, *md); display(tout););
     model_evaluator ev(*(md.get()));
-    ev.set_model_completion(false);
+    ev.set_model_completion(true);
     ev.set_expand_array_equalities(false);
     expr_ref val(m);
     unsigned arity;

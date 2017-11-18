@@ -24,7 +24,6 @@ Notes:
 #include "tactic/tactical.h"
 #include "ast/bv_decl_plugin.h"
 #include "ast/rewriter/expr_replacer.h"
-#include "tactic/extension_model_converter.h"
 #include "tactic/generic_model_converter.h"
 #include "ast/ast_smt2_pp.h"
 
@@ -51,7 +50,7 @@ tactic * mk_bv_size_reduction_tactic(ast_manager & m, params_ref const & p) {
 
 struct bv_size_reduction_tactic::imp {
     typedef rational numeral;
-    typedef extension_model_converter bv_size_reduction_mc;
+    typedef generic_model_converter bv_size_reduction_mc;
     
     ast_manager &             m;
     bv_util                   m_util;
@@ -267,7 +266,7 @@ struct bv_size_reduction_tactic::imp {
                             if (m_produce_models) {
                                 if (!m_mc) 
                                     m_mc = alloc(bv_size_reduction_mc, m);
-                                m_mc->insert(v->get_decl(), new_def);
+                                m_mc->add(v, new_def);
                                 if (!m_fmc && new_const) 
                                     m_fmc = alloc(generic_model_converter, m);
                                 if (new_const) 
