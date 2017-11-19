@@ -800,10 +800,9 @@ class tseitin_cnf_tactic : public tactic {
 
         void operator()(goal_ref const & g, 
                         goal_ref_buffer & result, 
-                        model_converter_ref & mc, 
                         expr_dependency_ref & core) {
             SASSERT(g->is_well_sorted());
-            mc = 0; core = 0;
+            core = 0;
             tactic_report report("tseitin-cnf", *g);
             fail_if_proof_generation("tseitin-cnf", g);
             m_produce_models      = g->models_enabled();
@@ -842,9 +841,7 @@ class tseitin_cnf_tactic : public tactic {
                     g->assert_expr(cls);
             }
             if (m_produce_models && !m_fresh_vars.empty()) 
-                mc = m_mc.get();
-            else
-                mc = 0;
+                g->add(m_mc.get());
             g->inc_depth();
             result.push_back(g.get());
             TRACE("tseitin_cnf", g->display(tout););
@@ -884,9 +881,8 @@ public:
     
     virtual void operator()(goal_ref const & in, 
                             goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
                             expr_dependency_ref & core) {
-        (*m_imp)(in, result, mc, core);
+        (*m_imp)(in, result, core);
         report_tactic_progress(":cnf-aux-vars", m_imp->m_num_aux_vars);
     }
     

@@ -2533,10 +2533,9 @@ class qe_lite_tactic : public tactic {
 
         void operator()(goal_ref const & g,
                         goal_ref_buffer & result,
-                        model_converter_ref & mc,
                         expr_dependency_ref & core) {
             SASSERT(g->is_well_sorted());
-            mc = 0; core = 0;
+            core = 0;
             tactic_report report("qe-lite", *g);
             proof_ref new_pr(m);
             expr_ref new_f(m);
@@ -2603,9 +2602,8 @@ public:
 
     virtual void operator()(goal_ref const & in,
                             goal_ref_buffer & result,
-                            model_converter_ref & mc,
                             expr_dependency_ref & core) {
-        (*m_imp)(in, result, mc, core);
+        (*m_imp)(in, result, core);
     }
 
 

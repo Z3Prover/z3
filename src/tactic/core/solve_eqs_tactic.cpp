@@ -668,10 +668,10 @@ class solve_eqs_tactic : public tactic {
         
         void operator()(goal_ref const & g, 
                         goal_ref_buffer & result, 
-                        model_converter_ref & mc, 
                         expr_dependency_ref & core) {
             SASSERT(g->is_well_sorted());
-            mc = 0; core = 0;
+            core = 0;
+            model_converter_ref mc;
             tactic_report report("solve_eqs", *g);
             m_produce_models = g->models_enabled();
             m_produce_proofs = g->proofs_enabled();
@@ -691,7 +691,6 @@ class solve_eqs_tactic : public tactic {
                     normalize();
                     substitute(*(g.get()));
                     if (g->inconsistent()) {
-                        mc   = 0;
                         break;
                     }
                     save_elim_vars(mc);
@@ -699,6 +698,7 @@ class solve_eqs_tactic : public tactic {
                 }
             }
             g->inc_depth();
+            g->add(mc.get());
             result.push_back(g.get());
             TRACE("solve_eqs", g->display(tout););
             SASSERT(g->is_well_sorted());
@@ -734,9 +734,8 @@ public:
     
     virtual void operator()(goal_ref const & in, 
                             goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
                             expr_dependency_ref & core) {
-        (*m_imp)(in, result, mc, core);
+        (*m_imp)(in, result, core);
         report_tactic_progress(":num-elim-vars", m_imp->get_num_eliminated_vars());
     }
     

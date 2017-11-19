@@ -56,13 +56,12 @@ public:
     
     virtual void operator()(goal_ref const & g, 
                             goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
                             expr_dependency_ref & core) {
         SASSERT(g->is_well_sorted());
         fail_if_proof_generation("cofactor-term-ite", g);
         fail_if_unsat_core_generation("cofactor-term-ite", g);
         tactic_report report("cofactor-term-ite", *g);
-        mc = 0; core = 0;
+        core = 0;
         process(*(g.get()));
         g->inc_depth();
         result.push_back(g.get());

@@ -152,10 +152,9 @@ public:
     virtual void operator()(
         goal_ref const & g, 
         goal_ref_buffer & result, 
-        model_converter_ref & mc, 
         expr_dependency_ref & core) {
         SASSERT(g->is_well_sorted());
-        mc = 0; core = 0;
+        core = 0;
         m_trail.reset();
         m_fd.reset();
         m_max.reset();
@@ -211,7 +210,7 @@ public:
             }
         }        
         g->inc_depth();
-        mc = mc1.get();
+        g->add(mc1.get());
         result.push_back(g.get());
         TRACE("pb", g->display(tout););
         SASSERT(g->is_well_sorted());        

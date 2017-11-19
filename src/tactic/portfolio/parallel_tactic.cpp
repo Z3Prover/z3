@@ -541,7 +541,7 @@ public:
         init();        
     }
 
-    void operator ()(const goal_ref & g,goal_ref_buffer & result,model_converter_ref & mc, expr_dependency_ref & dep) {
+    void operator ()(const goal_ref & g,goal_ref_buffer & result, expr_dependency_ref & dep) {
         ast_manager& m = g->m();
         solver* s = mk_fd_solver(m, m_params);
         solver_state* st = alloc(solver_state, 0, s, m_params, cube_task);
@@ -560,8 +560,7 @@ public:
         switch (is_sat) {
         case l_true:
             if (g->models_enabled()) {
-                mc = model2model_converter(mdl.get());
-                mc = concat(fmc.get(), mc.get());
+                g->add(concat(fmc.get(), model2model_converter(mdl.get())));
             }
             g->reset();
             break;

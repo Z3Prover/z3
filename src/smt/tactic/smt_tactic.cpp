@@ -146,11 +146,10 @@ public:
 
     virtual void operator()(goal_ref const & in,
                             goal_ref_buffer & result,
-                            model_converter_ref & mc,
                             expr_dependency_ref & core) {
         try {
             IF_VERBOSE(10, verbose_stream() << "(smt.tactic start)\n";);
-            mc = 0; core = 0;
+            core = 0;
             SASSERT(in->is_well_sorted());
             ast_manager & m = in->m();
             TRACE("smt_tactic", tout << this << "\nAUTO_CONFIG: " << fparams().m_auto_config << " HIDIV0: " << fparams().m_hi_div0 << " "
@@ -220,8 +219,10 @@ public:
                     m_ctx->get_model(md);
                     buffer<symbol> r;
                     m_ctx->get_relevant_labels(0, r);
+                    model_converter_ref mc;
                     mc = model_and_labels2model_converter(md.get(), r);
                     mc = concat(fmc.get(), mc.get());
+                    in->add(mc.get());
                 }
                 return;
             }
@@ -269,7 +270,7 @@ public:
                             m_ctx->get_model(md);
                             buffer<symbol> r;
                             m_ctx->get_relevant_labels(0, r);
-                            mc = model_and_labels2model_converter(md.get(), r);
+                            in->add(model_and_labels2model_converter(md.get(), r));
                         }
                         return;
                     default:

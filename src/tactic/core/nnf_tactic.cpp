@@ -55,11 +55,10 @@ public:
 
     virtual void operator()(goal_ref const & g, 
                             goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
                             expr_dependency_ref & core) {
         TRACE("nnf", tout << "params: " << m_params << "\n"; g->display(tout););
         SASSERT(g->is_well_sorted());
-        mc = 0; core = 0;
+        core = 0;
         tactic_report report("nnf", *g);
         bool produce_proofs = g->proofs_enabled();
 
@@ -97,7 +96,7 @@ public:
         unsigned num_extra_names = dnames.get_num_names();
         if (num_extra_names > 0) {
             generic_model_converter * fmc = alloc(generic_model_converter, m);
-            mc = fmc;
+            g->add(fmc);
             for (unsigned i = 0; i < num_extra_names; i++)
                 fmc->hide(dnames.get_name_decl(i));
         }

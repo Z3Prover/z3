@@ -113,7 +113,7 @@ void inductive_property::to_model(model_ref& md) const
         }
     }
     TRACE("spacer", model_smt2_pp(tout, m, *md, 0););
-    apply(const_cast<model_converter_ref&>(m_mc), md, 0);
+    apply(const_cast<model_converter_ref&>(m_mc), md);
 }
 
 expr_ref inductive_property::to_expr() const

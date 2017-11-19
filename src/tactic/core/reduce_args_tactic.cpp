@@ -73,7 +73,7 @@ public:
 
     virtual ~reduce_args_tactic();
     
-    virtual void operator()(goal_ref const & g, goal_ref_buffer & result, model_converter_ref & mc, expr_dependency_ref & core);
+    virtual void operator()(goal_ref const & g, goal_ref_buffer & result, expr_dependency_ref & core);
     virtual void cleanup();
 };
 
@@ -439,7 +439,7 @@ struct reduce_args_tactic::imp {
         return f_mc;
     }
 
-    void operator()(goal & g, model_converter_ref & mc) {
+    void operator()(goal & g) {
         if (g.inconsistent())
             return;
         TRACE("reduce_args", g.display(tout););
@@ -468,9 +468,9 @@ struct reduce_args_tactic::imp {
         report_tactic_progress(":reduced-funcs", decl2args.size());
 
         if (g.models_enabled())
-            mc = mk_mc(decl2args, ctx.m_decl2arg2funcs);
+            g.add(mk_mc(decl2args, ctx.m_decl2arg2funcs));
 
-        TRACE("reduce_args", g.display(tout); if (mc) mc->display(tout););
+        TRACE("reduce_args", g.display(tout); if (g.mc()) g.mc()->display(tout););
     }
 };
 
@@ -484,13 +484,12 @@ reduce_args_tactic::~reduce_args_tactic() {
 
 void reduce_args_tactic::operator()(goal_ref const & g, 
                                     goal_ref_buffer & result, 
-                                    model_converter_ref & mc, 
                                     expr_dependency_ref & core) {
     SASSERT(g->is_well_sorted());
     fail_if_proof_generation("reduce-args", g);
     fail_if_unsat_core_generation("reduce-args", g);
-    mc = 0; core = 0; result.reset();
-    m_imp->operator()(*(g.get()), mc);
+    core = 0; result.reset();
+    m_imp->operator()(*(g.get()));
     g->inc_depth();
     result.push_back(g.get());
     SASSERT(g->is_well_sorted());

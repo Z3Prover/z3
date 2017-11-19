@@ -94,13 +94,12 @@ void simplify_tactic::get_param_descrs(param_descrs & r) {
 
 void simplify_tactic::operator()(goal_ref const & in, 
                                  goal_ref_buffer & result, 
-                                 model_converter_ref & mc, 
                                  expr_dependency_ref & core) {
     try {
         (*m_imp)(*(in.get()));
         in->inc_depth();
         result.push_back(in.get());
-        mc = 0; core = 0;
+        core = 0;
     }
     catch (rewriter_exception & ex) {
         throw tactic_exception(ex.msg());

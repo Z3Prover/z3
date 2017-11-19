@@ -822,11 +822,10 @@ public:
     
     virtual void operator()(goal_ref const & g, 
                             goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
                             expr_dependency_ref & core) {
         try {
             SASSERT(g->is_well_sorted());
-            mc = 0; core = 0;
+            core = 0;
             tactic_report report("purify-arith", *g);
             TRACE("purify_arith", g->display(tout););
             bool produce_proofs = g->proofs_enabled();
@@ -834,10 +833,10 @@ public:
             bool elim_root_objs = m_params.get_bool("elim_root_objects", true);
             bool elim_inverses  = m_params.get_bool("elim_inverses", true);
             bool complete       = m_params.get_bool("complete", true);
-            purify_arith_proc proc(*(g.get()), m_util, produce_proofs, elim_root_objs, elim_inverses, complete);
-            
+            purify_arith_proc proc(*(g.get()), m_util, produce_proofs, elim_root_objs, elim_inverses, complete);            
+            model_converter_ref mc;
             proc(mc, produce_models);
-            
+            g->add(mc.get());
             g->inc_depth();
             result.push_back(g.get());
             TRACE("purify_arith", g->display(tout););

@@ -41,8 +41,7 @@ public:
         m_refs(m)
     {}
 
-    virtual void operator()(model_ref & old_model, unsigned goal_idx) {
-        SASSERT(goal_idx == 0);
+    virtual void operator()(model_ref & old_model) {
         model * new_model = alloc(model, m);
         unsigned num = old_model->get_num_constants();
         for (unsigned i = 0; i < m_nums_as_int.size(); ++i) {
@@ -154,16 +153,14 @@ public:
     
     virtual void operator()(goal_ref const & g, 
                     goal_ref_buffer & result, 
-                    model_converter_ref & mc, 
                     expr_dependency_ref & core) {
         SASSERT(g->is_well_sorted());
-        mc = 0; core = 0;
+        core = 0;
         
         tactic_report report("elim01", *g);
         
         expr_safe_replace sub(m);
-        bool2int_model_converter* b2i = alloc(bool2int_model_converter, m);
-        mc = b2i;
+        ref<bool2int_model_converter> b2i = alloc(bool2int_model_converter, m);
         bound_manager bounds(m);
         expr_ref_vector axioms(m);
         bounds(*g);
@@ -178,7 +175,7 @@ public:
             if (a.is_int(x) && 
                 bounds.has_lower(x, lo, s1) && !s1 && zero <= lo &&
                 bounds.has_upper(x, hi, s2) && !s2 && hi <= m_max_hi && lo <= hi) {
-                add_variable(b2i, sub, x, lo.get_unsigned(), hi.get_unsigned(), axioms);
+                add_variable(b2i.get(), sub, x, lo.get_unsigned(), hi.get_unsigned(), axioms);
             }
             else if (a.is_int(x)) {
                 TRACE("pb", tout << "Not adding variable " << mk_pp(x, m) << " has lower: " 
@@ -204,9 +201,9 @@ public:
             }
             g->update(i, new_curr, new_pr, g->dep(i));
         }
-        for (unsigned i = 0; i < axioms.size(); ++i) {
-            g->assert_expr(axioms[i].get());
-        }
+        for (expr* a : axioms) 
+            g->assert_expr(a);
+        g->add(b2i.get());
         g->inc_depth();
         result.push_back(g.get());
         TRACE("pb", g->display(tout););

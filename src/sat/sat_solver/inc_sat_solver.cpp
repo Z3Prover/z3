@@ -505,7 +505,7 @@ private:
         SASSERT(!g->proofs_enabled());
         TRACE("sat", g->display(tout););
         try {
-            (*m_preprocess)(g, m_subgoals, m_mc, m_dep_core);
+            (*m_preprocess)(g, m_subgoals, m_dep_core);
         }
         catch (tactic_exception & ex) {
             IF_VERBOSE(0, verbose_stream() << "exception in tactic " << ex.msg() << "\n";);
@@ -521,6 +521,7 @@ private:
         g = m_subgoals[0];
         expr_ref_vector atoms(m);
         m_pc = g->pc();
+        m_mc = g->mc();
         TRACE("sat", g->display_with_dependencies(tout););
         m_goal2sat(*g, m_params, m_solver, m_map, dep2asm, false, is_lemma);
         m_goal2sat.get_interpreted_atoms(atoms);

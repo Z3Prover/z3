@@ -816,10 +816,9 @@ class elim_uncnstr_tactic : public tactic {
         }
 
         void operator()(goal_ref const & g, 
-                                goal_ref_buffer & result, 
-                                model_converter_ref & mc, 
-                                expr_dependency_ref & core) {
-            mc = 0; core = 0;
+                        goal_ref_buffer & result, 
+                        expr_dependency_ref & core) {
+            core = 0;
             bool produce_models = g->models_enabled();
             bool produce_proofs = g->proofs_enabled();
 
@@ -864,8 +863,7 @@ class elim_uncnstr_tactic : public tactic {
                     g->update(idx, new_f, new_pr, g->dep(idx));
                 }
                 if (!modified) {
-                    if (round == 0) {
-                        mc   = 0;
+                    if (round == 0) {                        
                     }
                     else {
                         app_ref_vector & fresh_vars = m_rw->cfg().m_fresh_vars;
@@ -874,15 +872,14 @@ class elim_uncnstr_tactic : public tactic {
                             generic_model_converter * fmc = alloc(generic_model_converter, m());
                             for (app * f : fresh_vars) 
                                 fmc->hide(f);
-                            mc = concat(fmc, m_mc.get());
+                            g->add(concat(fmc, m_mc.get()));
                         }
                         else {
-                            mc = 0;
+                            g->set((model_converter*)nullptr);
                         }
                     }
                     m_mc = 0;
                     m_rw  = 0;                    
-                    TRACE("elim_uncnstr", if (mc) mc->display(tout););
                     result.push_back(g.get());
                     g->inc_depth();
                     return;
@@ -933,9 +930,8 @@ public:
 
     virtual void operator()(goal_ref const & g, 
                             goal_ref_buffer & result, 
-                            model_converter_ref & mc,
                             expr_dependency_ref & core) {
-        (*m_imp)(g, result, mc, core);
+        (*m_imp)(g, result, core);
         report_tactic_progress(":num-elim-apps", get_num_elim_apps());
     }
     

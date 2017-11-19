@@ -380,9 +380,8 @@ class bv1_blaster_tactic : public tactic {
         
         void operator()(goal_ref const & g, 
                         goal_ref_buffer & result, 
-                        model_converter_ref & mc, 
                         expr_dependency_ref & core) {
-            mc = 0; core = 0;
+            core = 0;
             
             if (!is_target(*g))
                 throw tactic_exception("bv1 blaster cannot be applied to goal");
@@ -408,7 +407,7 @@ class bv1_blaster_tactic : public tactic {
             }
             
             if (g->models_enabled())
-                mc = mk_bv1_blaster_model_converter(m(), m_rw.cfg().m_const2bits);
+                g->add(mk_bv1_blaster_model_converter(m(), m_rw.cfg().m_const2bits));
             g->inc_depth();
             result.push_back(g.get());
             m_rw.cfg().cleanup();
@@ -455,9 +454,8 @@ public:
     */
     virtual void operator()(goal_ref const & g, 
                             goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
                             expr_dependency_ref & core) {
-        (*m_imp)(g, result, mc, core);
+        (*m_imp)(g, result, core);
     }
     
     virtual void cleanup() {

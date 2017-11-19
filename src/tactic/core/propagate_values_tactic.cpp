@@ -137,10 +137,9 @@ class propagate_values_tactic : public tactic {
 
         void operator()(goal_ref const & g, 
                         goal_ref_buffer & result, 
-                        model_converter_ref & mc, 
                         expr_dependency_ref & core) {
             SASSERT(g->is_well_sorted());
-            mc = 0; core = 0;
+            core = 0;
             tactic_report report("propagate-values", *g);
             m_goal = g.get();
 
@@ -241,10 +240,9 @@ public:
     
     virtual void operator()(goal_ref const & in, 
                             goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
                             expr_dependency_ref & core) {
         try {
-            (*m_imp)(in, result, mc, core);
+            (*m_imp)(in, result, core);
         }
         catch (rewriter_exception & ex) {
             throw tactic_exception(ex.msg());

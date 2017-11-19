@@ -172,18 +172,13 @@ struct bit_blaster_model_converter : public model_converter {
         return result;
     }
 
-    void operator()(model_ref & md, unsigned goal_idx) override {
-        SASSERT(goal_idx == 0);
+    void operator()(model_ref & md) override {
         model * new_model = alloc(model, m());
         obj_hashtable<func_decl> bits;
         collect_bits(bits);
         copy_non_bits(bits, md.get(), new_model);
         mk_bvs(md.get(), new_model);
         md = new_model;
-    }
-
-    void operator()(model_ref & md) override {
-        operator()(md, 0);
     }
 
     /**

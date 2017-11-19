@@ -40,7 +40,6 @@ public:
     
     virtual void operator()(goal_ref const & g, 
                             goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
                             expr_dependency_ref & core);
     virtual void cleanup();
 };
@@ -635,11 +634,10 @@ symmetry_reduce_tactic::~symmetry_reduce_tactic() {
     
 void symmetry_reduce_tactic::operator()(goal_ref const & g, 
                                         goal_ref_buffer & result, 
-                                        model_converter_ref & mc, 
                                         expr_dependency_ref & core) {
     fail_if_proof_generation("symmetry_reduce", g);
     fail_if_unsat_core_generation("symmetry_reduce", g);
-    mc = 0; core = 0; result.reset();
+    core = 0; result.reset();
     (*m_imp)(*(g.get()));
     g->inc_depth();
     result.push_back(g.get());

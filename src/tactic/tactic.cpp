@@ -69,11 +69,9 @@ void report_tactic_progress(char const * id, unsigned val) {
 
 void skip_tactic::operator()(goal_ref const & in, 
                              goal_ref_buffer & result, 
-                             model_converter_ref & mc, 
                              expr_dependency_ref & core) {
     result.reset();
     result.push_back(in.get());
-    mc = 0;
     core = 0;
 }
 
@@ -85,14 +83,13 @@ class fail_tactic : public tactic {
 public:
     virtual void operator()(goal_ref const & in, 
                             goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
                             expr_dependency_ref & core) {
         throw tactic_exception("fail tactic");
     }
 
-    virtual void cleanup() {}
+    void cleanup() override {}
 
-    virtual tactic * translate(ast_manager & m) { return this; }
+    tactic * translate(ast_manager & m) override { return this; }
 };
 
 tactic * mk_fail_tactic() {
@@ -105,12 +102,11 @@ class report_verbose_tactic : public skip_tactic {
 public:
     report_verbose_tactic(char const * msg, unsigned lvl) : m_msg(msg), m_lvl(lvl) {}
 
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            expr_dependency_ref & core) {
+    void operator()(goal_ref const & in, 
+                    goal_ref_buffer & result, 
+                    expr_dependency_ref & core) override {
         IF_VERBOSE(m_lvl, verbose_stream() << m_msg << "\n";);
-        skip_tactic::operator()(in, result, mc, core);
+        skip_tactic::operator()(in, result, core);
     }
 };
 
@@ -123,13 +119,12 @@ class trace_tactic : public skip_tactic {
 public:
     trace_tactic(char const * tag): m_tag(tag) {}
     
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            expr_dependency_ref & core) {
+    void operator()(goal_ref const & in, 
+                    goal_ref_buffer & result, 
+                    expr_dependency_ref & core) override {
         TRACE(m_tag, in->display(tout););
         (void)m_tag;
-        skip_tactic::operator()(in, result, mc, core);
+        skip_tactic::operator()(in, result, core);
     }
 };
 
@@ -141,13 +136,12 @@ class fail_if_undecided_tactic : public skip_tactic {
 public:
     fail_if_undecided_tactic() {}
 
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            expr_dependency_ref & core) {
+    void operator()(goal_ref const & in, 
+                    goal_ref_buffer & result, 
+                    expr_dependency_ref & core) override {
         if (!in->is_decided()) 
             throw tactic_exception("undecided");
-        skip_tactic::operator()(in, result, mc, core);
+        skip_tactic::operator()(in, result, core);
     }
 };
 
@@ -155,10 +149,10 @@ tactic * mk_fail_if_undecided_tactic() {
     return alloc(fail_if_undecided_tactic);
 }
 
-void exec(tactic & t, goal_ref const & in, goal_ref_buffer & result, model_converter_ref & mc, expr_dependency_ref & core) {
+void exec(tactic & t, goal_ref const & in, goal_ref_buffer & result, expr_dependency_ref & core) {
     t.reset_statistics();
     try {
-        t(in, result, mc, core);
+        t(in, result, core);
         t.cleanup();
     }
     catch (tactic_exception & ex) {
@@ -169,7 +163,7 @@ void exec(tactic & t, goal_ref const & in, goal_ref_buffer & result, model_conve
 }
 
 
-lbool check_sat(tactic & t, goal_ref & g, model_ref & md, model_converter_ref& mc, labels_vec & labels, proof_ref & pr, expr_dependency_ref & core, std::string & reason_unknown) {
+lbool check_sat(tactic & t, goal_ref & g, model_ref & md, labels_vec & labels, proof_ref & pr, expr_dependency_ref & core, std::string & reason_unknown) {
     bool models_enabled = g->models_enabled();
     bool proofs_enabled = g->proofs_enabled();
     bool cores_enabled  = g->unsat_core_enabled();
@@ -179,21 +173,20 @@ lbool check_sat(tactic & t, goal_ref & g, model_ref & md, model_converter_ref& m
     ast_manager & m = g->m();
     goal_ref_buffer r;
     try {
-        exec(t, g, r, mc, core);
+        exec(t, g, r, core);
     }
     catch (tactic_exception & ex) {
         reason_unknown = ex.msg();
         return l_undef;
     }
-    TRACE("tactic_mc", mc->display(tout););
     TRACE("tactic_check_sat",
           tout << "r.size(): " << r.size() << "\n";
           for (unsigned i = 0; i < r.size(); i++) r[i]->display(tout););
 
     if (is_decided_sat(r)) {
-        if (models_enabled) {
-            if (mc)
-                (*mc)(labels, 0);
+        model_converter_ref mc = r[0]->mc();            
+        if (mc.get()) {
+            (*mc)(labels);
             model_converter2model(m, mc.get(), md);
             if (!md) {
                 // create empty model.
@@ -210,10 +203,11 @@ lbool check_sat(tactic & t, goal_ref & g, model_ref & md, model_converter_ref& m
         return l_false;
     }
     else {
-        if (models_enabled) {
+        if (models_enabled && r.size() >= 1) {
+        model_converter_ref mc = r[0]->mc();            
             model_converter2model(m, mc.get(), md);
             if (mc)
-                (*mc)(labels, 0);
+                (*mc)(labels);
         }
         reason_unknown = "incomplete";
         return l_undef;

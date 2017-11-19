@@ -180,7 +180,7 @@ class fm_tactic : public tactic {
             m_clauses.back().swap(c);
         }
 
-        virtual void operator()(model_ref & md, unsigned goal_idx) {
+        virtual void operator()(model_ref & md) {
             TRACE("fm_mc", model_v2_pp(tout, *md); display(tout););
             model_evaluator ev(*(md.get()));
             ev.set_model_completion(true);
@@ -1551,10 +1551,9 @@ class fm_tactic : public tactic {
         
         void operator()(goal_ref const & g, 
                         goal_ref_buffer & result, 
-                        model_converter_ref & mc, 
                         expr_dependency_ref & core) {
             SASSERT(g->is_well_sorted());
-            mc = 0; core = 0;
+            core = 0;
             tactic_report report("fm", *g);
             fail_if_proof_generation("fm", g);
             m_produce_models = g->models_enabled();
@@ -1602,7 +1601,7 @@ class fm_tactic : public tactic {
                 report_tactic_progress(":fm-cost", m_counter);
                 if (!m_inconsistent) {
                     copy_remaining();
-                    mc = m_mc.get();
+                    m_new_goal->add(concat(g->mc(), m_mc.get()));
                 }
             }
             reset_constraints();
@@ -1675,9 +1674,8 @@ public:
 
     virtual void operator()(goal_ref const & in, 
                             goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
                             expr_dependency_ref & core) {
-        (*m_imp)(in, result, mc, core);
+        (*m_imp)(in, result, core);
     }
 };
 

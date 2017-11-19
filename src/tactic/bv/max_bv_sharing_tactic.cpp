@@ -238,10 +238,9 @@ class max_bv_sharing_tactic : public tactic {
                 
         void operator()(goal_ref const & g, 
                         goal_ref_buffer & result, 
-                        model_converter_ref & mc, 
                         expr_dependency_ref & core) {
             SASSERT(g->is_well_sorted());
-            mc = 0; core = 0;
+            core = 0;
             tactic_report report("max-bv-sharing", *g);
             bool produce_proofs = g->proofs_enabled();
             
@@ -299,9 +298,8 @@ public:
     
     virtual void operator()(goal_ref const & in, 
                             goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
                             expr_dependency_ref & core) {
-        (*m_imp)(in, result, mc, core);
+        (*m_imp)(in, result, core);
     }
     
     virtual void cleanup() {

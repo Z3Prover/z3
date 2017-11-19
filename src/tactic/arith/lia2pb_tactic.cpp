@@ -189,13 +189,12 @@ class lia2pb_tactic : public tactic {
 
         void operator()(goal_ref const & g, 
                         goal_ref_buffer & result, 
-                        model_converter_ref & mc, 
                         expr_dependency_ref & core) {
             SASSERT(g->is_well_sorted());
             fail_if_proof_generation("lia2pb", g);
             m_produce_models      = g->models_enabled();
             m_produce_unsat_cores = g->unsat_core_enabled();
-            mc = 0; core = 0; result.reset();
+            core = 0; result.reset();
             tactic_report report("lia2pb", *g);
             m_bm.reset(); m_rw.reset(); m_new_deps.reset();
 
@@ -222,10 +221,9 @@ class lia2pb_tactic : public tactic {
             if (!check_num_bits())
                 throw tactic_exception("lia2pb failed, number of necessary bits exceeds specified threshold (use option :lia2pb-total-bits to increase threshold)");
             
-            generic_model_converter    * gmc = 0;
+            ref<generic_model_converter> gmc;
             if (m_produce_models) {
                 gmc = alloc(generic_model_converter, m);
-                mc  = gmc;
             }
             
             expr_ref zero(m);
@@ -295,6 +293,7 @@ class lia2pb_tactic : public tactic {
                 g->update(idx, new_curr, new_pr, dep);
             }
             g->inc_depth();
+            g->add(gmc.get());
             result.push_back(g.get());
             TRACE("lia2pb", g->display(tout););
             SASSERT(g->is_well_sorted());
@@ -330,10 +329,9 @@ public:
 
     virtual void operator()(goal_ref const & in, 
                             goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
                             expr_dependency_ref & core) {
         try {
-            (*m_imp)(in, result, mc, core);
+            (*m_imp)(in, result, core);
         }
         catch (rewriter_exception & ex) {
             throw tactic_exception(ex.msg());

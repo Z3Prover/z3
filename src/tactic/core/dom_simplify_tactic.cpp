@@ -186,9 +186,8 @@ tactic * dom_simplify_tactic::translate(ast_manager & m) {
 void dom_simplify_tactic::operator()(
     goal_ref const & in,
     goal_ref_buffer & result,
-    model_converter_ref & mc,
     expr_dependency_ref & core) {
-    mc = 0; core = 0;
+    core = 0;
 
     tactic_report report("dom-simplify", *in.get());
     simplify_goal(*(in.get()));

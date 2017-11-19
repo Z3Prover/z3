@@ -145,10 +145,9 @@ class injectivity_tactic : public tactic {
 
         void operator()(goal_ref const & goal,
                         goal_ref_buffer & result,
-                        model_converter_ref & mc,
                         expr_dependency_ref & core) {
             SASSERT(goal->is_well_sorted());
-            mc = 0; core = 0;
+            core = 0;
             tactic_report report("injectivity", *goal);
             fail_if_unsat_core_generation("injectivity", goal); // TODO: Support UNSAT cores
             fail_if_proof_generation("injectivity", goal);
@@ -271,9 +270,8 @@ public:
 
     virtual void operator()(goal_ref const & g,
                             goal_ref_buffer & result,
-                            model_converter_ref & mc,
                             expr_dependency_ref & core) {
-        (*m_finder)(g, result, mc, core);
+        (*m_finder)(g, result, core);
 
         for (unsigned i = 0; i < g->size(); ++i) {
             expr*     curr = g->form(i);

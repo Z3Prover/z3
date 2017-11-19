@@ -33,10 +33,9 @@ class ufbv_rewriter_tactic : public tactic {
                 
         void operator()(goal_ref const & g, 
                         goal_ref_buffer & result, 
-                        model_converter_ref & mc, 
                         expr_dependency_ref & core) {
             SASSERT(g->is_well_sorted());
-            mc = 0; core = 0;
+            core = 0;
             tactic_report report("ufbv-rewriter", *g);
             fail_if_unsat_core_generation("ufbv-rewriter", g);
 
@@ -59,7 +58,8 @@ class ufbv_rewriter_tactic : public tactic {
             for (unsigned i = 0; i < new_forms.size(); i++)
                 g->assert_expr(new_forms.get(i), produce_proofs ? new_proofs.get(i) : 0, 0);
 
-            mc = 0; // CMW: Remark: The demodulator could potentially remove all references to a variable. 
+            // CMW: Remark: The demodulator could potentially 
+            // remove all references to a variable. 
 
             g->inc_depth();
             result.push_back(g.get());
@@ -101,9 +101,8 @@ public:
 
     virtual void operator()(goal_ref const & in,
                             goal_ref_buffer & result,
-                            model_converter_ref & mc,
                             expr_dependency_ref & core) {
-        (*m_imp)(in, result, mc, core);
+        (*m_imp)(in, result, core);
     }
 
     virtual void cleanup() {

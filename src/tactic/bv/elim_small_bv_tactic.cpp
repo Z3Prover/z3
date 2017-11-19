@@ -226,10 +226,9 @@ class elim_small_bv_tactic : public tactic {
 
         void operator()(goal_ref const & g,
             goal_ref_buffer & result,
-            model_converter_ref & mc,
             expr_dependency_ref & core) {
             SASSERT(g->is_well_sorted());
-            mc = 0; core = 0;
+            core = 0;
             tactic_report report("elim-small-bv", *g);
             bool produce_proofs = g->proofs_enabled();
             fail_if_proof_generation("elim-small-bv", g);
@@ -249,7 +248,7 @@ class elim_small_bv_tactic : public tactic {
                 }
                 g->update(idx, new_curr, new_pr, g->dep(idx));
             }
-            mc = m_rw.m_cfg.m_mc.get();
+            g->add(m_rw.m_cfg.m_mc.get());
 
             report_tactic_progress(":elim-small-bv-num-eliminated", m_rw.m_cfg.m_num_eliminated);
             g->inc_depth();
@@ -288,9 +287,8 @@ public:
 
     virtual void operator()(goal_ref const & in,
         goal_ref_buffer & result,
-        model_converter_ref & mc,
         expr_dependency_ref & core) {
-        (*m_imp)(in, result, mc, core);
+        (*m_imp)(in, result, core);
     }
 
     virtual void cleanup() {

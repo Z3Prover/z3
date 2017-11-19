@@ -130,10 +130,9 @@ class nlsat_tactic : public tactic {
 
         void operator()(goal_ref const & g, 
                         goal_ref_buffer & result, 
-                        model_converter_ref & mc, 
                         expr_dependency_ref & core) {
             SASSERT(g->is_well_sorted());
-            mc = 0; core = 0;
+            core = 0;
             tactic_report report("nlsat", *g);
             
             if (g->is_decided()) {
@@ -165,9 +164,11 @@ class nlsat_tactic : public tactic {
                 if (!contains_unsupported(b2a, x2t)) {
                     // If mk_model is false it means that the model produced by nlsat 
                     // assigns noninteger values to integer variables
+                    model_converter_ref mc;
                     if (mk_model(*g.get(), b2a, x2t, mc)) {
                         // result goal is trivially SAT
                         g->reset(); 
+                        g->add(mc.get());
                     }
                 }
             }
@@ -176,8 +177,8 @@ class nlsat_tactic : public tactic {
                 if (g->unsat_core_enabled()) {
                     vector<nlsat::assumption, false> assumptions;
                     m_solver.get_core(assumptions);
-                    for (unsigned i = 0; i < assumptions.size(); ++i) {
-                        expr_dependency* d = static_cast<expr_dependency*>(assumptions[i]);
+                    for (nlsat::assumption a : assumptions) {
+                        expr_dependency* d = static_cast<expr_dependency*>(a);
                         lcore = m.mk_join(lcore, d);
                     }
                 }
@@ -233,12 +234,11 @@ public:
     
     virtual void operator()(goal_ref const & in, 
                             goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
                             expr_dependency_ref & core) {
         try {
             imp local_imp(in->m(), m_params);
             scoped_set_imp setter(*this, local_imp);
-            local_imp(in, result, mc, core);
+            local_imp(in, result, core);
         }
         catch (z3_error & ex) {
             throw ex;

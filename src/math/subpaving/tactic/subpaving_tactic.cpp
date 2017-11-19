@@ -243,14 +243,12 @@ public:
 
     virtual void operator()(goal_ref const & in, 
                             goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
                             expr_dependency_ref & core) {
         try {
             m_imp->process(*in);
             m_imp->collect_statistics(m_stats);
             result.reset();
             result.push_back(in.get());
-            mc   = 0;
             core = 0;
         }
         catch (z3_exception & ex) {

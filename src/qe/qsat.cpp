@@ -1212,13 +1212,12 @@ namespace qe {
         
         void operator()(/* in */  goal_ref const & in, 
                         /* out */ goal_ref_buffer & result, 
-                        /* out */ model_converter_ref & mc, 
                         /* out */ expr_dependency_ref & core) {
             tactic_report report("qsat-tactic", *in);
             ptr_vector<expr> fmls;
             expr_ref_vector defs(m);
             expr_ref fml(m);
-            mc = 0; core = 0;
+            core = 0;
             in->get_formulas(fmls);
 
 
@@ -1271,8 +1270,10 @@ namespace qe {
                 in->inc_depth();
                 result.push_back(in.get());
                 if (in->models_enabled()) {
+                    model_converter_ref mc;
                     mc = model2model_converter(m_model.get());
                     mc = concat(m_pred_abs.fmc(), mc.get());
+                    in->add(mc.get());
                 }
                 break;
             case l_undef:

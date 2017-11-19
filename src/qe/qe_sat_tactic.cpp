@@ -234,7 +234,6 @@ namespace qe {
         virtual void operator()(
             goal_ref const& goal,  
             goal_ref_buffer& result, 
-            model_converter_ref& mc, 
             expr_dependency_ref& core) 
         {
             try {
@@ -259,7 +258,7 @@ namespace qe {
                 else {
                     goal->reset();
                     // equi-satisfiable. What to do with model?
-                    mc = model2model_converter(&*model);
+                    goal->add(model2model_converter(&*model));
                 }
                 result.push_back(goal.get());
             }
@@ -269,16 +268,16 @@ namespace qe {
         }
 
         virtual void collect_statistics(statistics & st) const {
-            for (unsigned i = 0; i < m_solvers.size(); ++i) {
-                m_solvers[i]->collect_statistics(st);
+            for (auto const * s : m_solvers) {
+                s->collect_statistics(st);
             }
             m_solver.collect_statistics(st);
             m_ctx_rewriter.collect_statistics(st);
         }
 
         virtual void reset_statistics() {
-            for (unsigned i = 0; i < m_solvers.size(); ++i) {
-                m_solvers[i]->reset_statistics();
+            for (auto * s : m_solvers) {
+                s->reset_statistics();
             }            
             m_solver.reset_statistics();
             m_ctx_rewriter.reset_statistics();

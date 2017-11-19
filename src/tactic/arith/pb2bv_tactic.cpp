@@ -887,14 +887,13 @@ private:
         
         void operator()(goal_ref const & g, 
                         goal_ref_buffer & result, 
-                        model_converter_ref & mc, 
                         expr_dependency_ref & core) {
             TRACE("pb2bv", g->display(tout););
             SASSERT(g->is_well_sorted());
             fail_if_proof_generation("pb2bv", g);
             m_produce_models      = g->models_enabled();
             m_produce_unsat_cores = g->unsat_core_enabled();
-            mc = 0; core = 0; result.reset();
+            core = 0; result.reset();
             tactic_report report("pb2bv", *g);
             m_bm.reset(); m_rw.reset(); m_new_deps.reset();
 
@@ -948,6 +947,7 @@ private:
                 g->update(idx, new_exprs[idx].get(), 0, (m_produce_unsat_cores) ? new_deps[idx].get() : g->dep(idx));
 
             if (m_produce_models) {
+                model_converter_ref mc;
                 generic_model_converter * mc1 = alloc(generic_model_converter, m);
                 for (auto const& kv : m_const2bit) 
                     mc1->hide(kv.m_value);
@@ -956,7 +956,8 @@ private:
                 for (unsigned i = 0; i < num_temps; i++)
                     mc1->hide(m_temporary_ints.get(i));
                 pb2bv_model_converter * mc2 = alloc(pb2bv_model_converter, m, m_const2bit, m_bm);
-                mc = concat(mc1, mc2);                
+                mc = concat(mc1, mc2); 
+                g->add(mc.get());
             }
 
             g->inc_depth();
@@ -999,9 +1000,8 @@ public:
 
     virtual void operator()(goal_ref const & in, 
                             goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
                             expr_dependency_ref & core) {
-        (*m_imp)(in, result, mc, core);
+        (*m_imp)(in, result, core);
     }
     
     virtual void cleanup() {

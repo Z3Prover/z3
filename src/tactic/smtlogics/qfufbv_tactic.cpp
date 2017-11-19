@@ -55,9 +55,7 @@ public:
 
     virtual void operator()(goal_ref const & g,
         goal_ref_buffer & result,
-        model_converter_ref & mc,
         expr_dependency_ref & core) {
-        mc = 0;
         ast_manager& m(g->m());
         tactic_report report("qfufbv_ackr", *g);
         fail_if_unsat_core_generation("qfufbv_ackr", g);
@@ -79,7 +77,7 @@ public:
         // report model
         if (g->models_enabled() && (o == l_true)) {
             model_ref abstr_model = imp->get_model();
-            mc = mk_qfufbv_ackr_model_converter(m, imp->get_info(), abstr_model);
+            g->add(mk_qfufbv_ackr_model_converter(m, imp->get_info(), abstr_model));
         }
     }
 

@@ -53,8 +53,7 @@ public:
 };
 
 
-void replace_proof_converter::operator()(ast_manager & m, unsigned num_source, 
-                                         proof * const * source, proof_ref & result) {    
+proof_ref replace_proof_converter::operator()(ast_manager & m, unsigned num_source, proof * const * source) {    
     SASSERT(num_source == 1);
     replace_map replace(m);
     proof_ref p(m);
@@ -73,14 +72,12 @@ void replace_proof_converter::operator()(ast_manager & m, unsigned num_source,
     replace.apply(tmp);
     TRACE("proof_converter", tout << mk_pp(source[0], m) << "\n";
                              tout << mk_pp(tmp.get(), m) << "\n";);
-    result = to_app(tmp);
+    return proof_ref(to_app(tmp), m);
 }
 
 proof_converter * replace_proof_converter::translate(ast_translation & translator) {
     replace_proof_converter* rp = alloc(replace_proof_converter, m);
-    for (unsigned i = 0; i < m_proofs.size(); ++i) {
-        rp->insert(translator(m_proofs[i].get()));
-    }
+    for (proof* p : m_proofs) rp->insert(translator(p));
     return rp;
 }
 

@@ -659,9 +659,8 @@ namespace qe {
             goal_ref g = alloc(goal, m);
             g->assert_expr(fml);
             expr_dependency_ref core(m);
-            model_converter_ref mc;
             goal_ref_buffer result;
-            (*m_nftactic)(g, result, mc, core);
+            (*m_nftactic)(g, result, core);
             SASSERT(result.size() == 1);
             TRACE("qe", result[0]->display(tout););
             g2s(*result[0], m_params, m_solver, m_a2b, m_t2x);
@@ -812,14 +811,13 @@ namespace qe {
         
         void operator()(/* in */  goal_ref const & in, 
                         /* out */ goal_ref_buffer & result, 
-                        /* out */ model_converter_ref & mc, 
                         /* out */ expr_dependency_ref & core) {
 
             tactic_report report("nlqsat-tactic", *in);
 
             ptr_vector<expr> fmls;
             expr_ref fml(m);
-            mc = 0; core = 0;
+            core = 0;
             in->get_formulas(fmls);
             fml = mk_and(m, fmls.size(), fmls.c_ptr());
             if (m_mode == elim_t) {
@@ -850,7 +848,9 @@ namespace qe {
                 in->inc_depth();
                 result.push_back(in.get());
                 if (in->models_enabled()) {
+                    model_converter_ref mc;
                     VERIFY(mk_model(mc));
+                    in->add(mc.get());
                 }
                 break;
             case l_undef:

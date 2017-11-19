@@ -54,16 +54,16 @@ class bvarray2uf_tactic : public tactic {
 
         void operator()(goal_ref const & g,
                         goal_ref_buffer & result,
-                        model_converter_ref & mc,
                         expr_dependency_ref & core)
         {
             SASSERT(g->is_well_sorted());
             tactic_report report("bvarray2uf", *g);
-            mc = 0; core = 0; result.reset();
+            core = 0; result.reset();
             fail_if_unsat_core_generation("bvarray2uf", g);
 
             TRACE("bvarray2uf", tout << "Before: " << std::endl; g->display(tout); );
             m_produce_models = g->models_enabled();
+            model_converter_ref mc;
 
             if (m_produce_models) {
                 generic_model_converter * fmc = alloc(generic_model_converter, m_manager);
@@ -92,6 +92,7 @@ class bvarray2uf_tactic : public tactic {
                 g->assert_expr(m_rw.m_cfg.extra_assertions[i].get());
 
             g->inc_depth();
+            g->add(mc.get());
             result.push_back(g.get());
             TRACE("bvarray2uf", tout << "After: " << std::endl; g->display(tout););
             SASSERT(g->is_well_sorted());
@@ -129,9 +130,8 @@ public:
 
     virtual void operator()(goal_ref const & in,
                             goal_ref_buffer & result,
-                            model_converter_ref & mc,
                             expr_dependency_ref & core) {
-        (*m_imp)(in, result, mc, core);
+        (*m_imp)(in, result, core);
     }
 
     virtual void cleanup() {

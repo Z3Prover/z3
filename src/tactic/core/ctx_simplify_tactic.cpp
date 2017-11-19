@@ -622,9 +622,8 @@ void ctx_simplify_tactic::get_param_descrs(param_descrs & r) {
 
 void ctx_simplify_tactic::operator()(goal_ref const & in,
                                      goal_ref_buffer & result,
-                                     model_converter_ref & mc,
                                      expr_dependency_ref & core) {
-    mc = 0; core = 0;
+    core = 0;
     (*m_imp)(*(in.get()));
     in->inc_depth();
     result.push_back(in.get());

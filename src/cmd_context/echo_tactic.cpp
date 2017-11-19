@@ -29,7 +29,6 @@ public:
     
     virtual void operator()(goal_ref const & in, 
                             goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
                             expr_dependency_ref & core) {
         #pragma omp critical (echo_tactic)
         {
@@ -37,7 +36,7 @@ public:
             if (m_newline)
                 m_ctx.regular_stream() << std::endl;
         }
-        skip_tactic::operator()(in, result, mc, core);
+        skip_tactic::operator()(in, result, core);
     }
 };
 
@@ -62,7 +61,6 @@ public:
     
     virtual void operator()(goal_ref const & in, 
                             goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
                             expr_dependency_ref & core) {
         double val = (*m_p)(*(in.get())).get_value();
         #pragma omp critical (probe_value_tactic)
@@ -73,7 +71,7 @@ public:
             if (m_newline)
                 m_ctx.diagnostic_stream() << std::endl;
         }
-        skip_tactic::operator()(in, result, mc, core);
+        skip_tactic::operator()(in, result, core);
     }
 };
 

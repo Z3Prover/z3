@@ -31,9 +31,7 @@ public:
 
     virtual void operator()(goal_ref const & g,
         goal_ref_buffer & result,
-        model_converter_ref & mc,
         expr_dependency_ref & core) {
-        mc = 0;
         tactic_report report("ackermannize", *g);
         fail_if_unsat_core_generation("ackermannize", g);
         fail_if_proof_generation("ackermannize", g);
@@ -51,14 +49,13 @@ public:
             TRACE("ackermannize", tout << "ackermannize not run due to limit" << std::endl;);
             result.reset();
             result.push_back(g.get());
-            mc = 0;
             core = 0;
             return;
         }
         result.push_back(resg.get());
         // report model
         if (g->models_enabled()) {
-            mc = mk_ackermannize_bv_model_converter(m, lackr.get_info());
+            g->add(mk_ackermannize_bv_model_converter(m, lackr.get_info()));
         }
         
         resg->inc_depth();

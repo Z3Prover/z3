@@ -31,10 +31,9 @@ public:
     pb2bv_model_converter(ast_manager & _m);
     pb2bv_model_converter(ast_manager & _m, obj_map<func_decl, expr*> const & c2bit, bound_manager const & bm);
     virtual ~pb2bv_model_converter();
-    virtual void operator()(model_ref & md);
-    virtual void operator()(model_ref & md, unsigned goal_idx);
-    virtual void display(std::ostream & out);
-    virtual model_converter * translate(ast_translation & translator);
+    void operator()(model_ref & md) override;
+    void display(std::ostream & out) override;
+    model_converter * translate(ast_translation & translator) override;
 };
 
 #endif

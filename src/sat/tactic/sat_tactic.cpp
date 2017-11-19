@@ -40,9 +40,8 @@ class sat_tactic : public tactic {
         
         void operator()(goal_ref const & g, 
                         goal_ref_buffer & result, 
-                        model_converter_ref & mc, 
                         expr_dependency_ref & core) {
-            mc = 0; core = 0;
+            core = 0;
             fail_if_proof_generation("sat", g);
             bool produce_models = g->models_enabled();
             bool produce_core = g->unsat_core_enabled();
@@ -102,7 +101,7 @@ class sat_tactic : public tactic {
                         }
                     }
                     TRACE("sat_tactic", model_v2_pp(tout, *md););
-                    mc = model2model_converter(md.get());
+                    g->add(model2model_converter(md.get()));
                 }
             }
             else {
@@ -111,7 +110,9 @@ class sat_tactic : public tactic {
                 IF_VERBOSE(TACTIC_VERBOSITY_LVL, verbose_stream() << "\"formula constains interpreted atoms, recovering formula from sat solver...\"\n";);
 #endif
                 m_solver.pop_to_base_level();
+                model_converter_ref mc;
                 m_sat2goal(m_solver, map, m_params, *(g.get()), mc);
+                g->add(mc.get());
             }
             g->inc_depth();
             result.push_back(g.get());
@@ -175,12 +176,11 @@ public:
     
     void operator()(goal_ref const & g, 
                     goal_ref_buffer & result, 
-                    model_converter_ref & mc, 
                     expr_dependency_ref & core) {
         imp proc(g->m(), m_params);
         scoped_set_imp set(this, &proc);
         try {
-            proc(g, result, mc, core);
+            proc(g, result, core);
             proc.m_solver.collect_statistics(m_stats);
         }
         catch (sat::solver_exception & ex) {

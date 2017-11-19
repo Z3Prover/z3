@@ -520,11 +520,10 @@ namespace pdr {
             g->assert_expr(lemmas[i].get()); 
         }
         expr_ref tmp(m);
-        model_converter_ref mc;
         expr_dependency_ref core(m);
         goal_ref_buffer result;
         tactic_ref simplifier = mk_arith_bounds_tactic(m);
-        (*simplifier)(g, result, mc, core);
+        (*simplifier)(g, result, core);
         lemmas.reset();
         SASSERT(result.size() == 1);
         goal* r = result[0];

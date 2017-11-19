@@ -103,9 +103,8 @@ public:
 
     virtual void operator()(/* in */  goal_ref const & in, 
                             /* out */ goal_ref_buffer & result, 
-                            /* out */ model_converter_ref & mc, 
                             /* out */ expr_dependency_ref & core) {
-        mc = 0; core = 0;
+        core = 0;
         expr_ref_vector clauses(m);
         expr2expr_map               bool2dep;
         ptr_vector<expr>            assumptions;
@@ -119,9 +118,11 @@ public:
             if (in->models_enabled()) {
                 model_ref mdl;
                 local_solver->get_model(mdl);
+                model_converter_ref mc;
                 mc = model2model_converter(mdl.get());
                 mc = concat(fmc.get(), mc.get());
                 mc = concat(local_solver->mc0(), mc.get());
+                in->add(mc.get());
             }
             in->reset();
             result.push_back(in.get());
@@ -150,9 +151,11 @@ public:
             if (m.canceled()) {
                 throw tactic_exception(Z3_CANCELED_MSG);
             }
+            model_converter_ref mc;
             mc = local_solver->get_model_converter();                
             mc = concat(fmc.get(), mc.get());            
             in->reset();
+            in->add(mc.get());
             unsigned sz = local_solver->get_num_assertions();
             for (unsigned i = 0; i < sz; ++i) {
                 in->assert_expr(local_solver->get_assertion(i));

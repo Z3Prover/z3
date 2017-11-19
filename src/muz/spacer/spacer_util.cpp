@@ -929,11 +929,10 @@ void simplify_bounds_old(expr_ref_vector& cube) {
     }
 
     expr_ref tmp(m);
-    model_converter_ref mc;
     expr_dependency_ref core(m);
     goal_ref_buffer result;
     tactic_ref simplifier = mk_arith_bounds_tactic(m);
-    (*simplifier)(g, result, mc, core);
+    (*simplifier)(g, result, core);
     SASSERT(result.size() == 1);
     goal* r = result[0];
 
@@ -954,14 +953,13 @@ void simplify_bounds_new (expr_ref_vector &cube) {
         g->assert_expr(cube.get(i));
     }
 
-    model_converter_ref mc;
     expr_dependency_ref dep(m);
     goal_ref_buffer goals;
     tactic_ref prop_values = mk_propagate_values_tactic(m);
     tactic_ref prop_bounds = mk_propagate_ineqs_tactic(m);
     tactic_ref t = and_then(prop_values.get(), prop_bounds.get());
 
-    (*t)(g, goals, mc, dep);
+    (*t)(g, goals, dep);
     SASSERT(goals.size() == 1);
 
     g = goals[0];

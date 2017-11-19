@@ -68,14 +68,9 @@ public:
         this->m_c2->operator()(fml);
     }
     
-    void operator()(model_ref & m, unsigned goal_idx) override {
-        this->m_c2->operator()(m, goal_idx);
-        this->m_c1->operator()(m, 0);
-    }
-
-    void operator()(labels_vec & r, unsigned goal_idx) override {
-        this->m_c2->operator()(r, goal_idx);
-        this->m_c1->operator()(r, 0);
+    void operator()(labels_vec & r) override {
+        this->m_c2->operator()(r);
+        this->m_c1->operator()(r);
     }
   
     char const * get_name() const override { return "concat-model-converter"; }
@@ -98,75 +93,6 @@ model_converter * concat(model_converter * mc1, model_converter * mc2) {
     return alloc(concat_model_converter, mc1, mc2);
 }
 
-class concat_star_model_converter : public concat_star_converter<model_converter> {
-public:
-    concat_star_model_converter(model_converter * mc1, unsigned num, model_converter * const * mc2s, unsigned * szs):
-        concat_star_converter<model_converter>(mc1, num, mc2s, szs) {
-    }
-
-    void operator()(model_ref & m) override {
-        // TODO: delete method after conversion is complete
-        UNREACHABLE();
-    }
-
-    void operator()(model_ref & m, unsigned goal_idx) override {
-        unsigned num = this->m_c2s.size();
-        for (unsigned i = 0; i < num; i++) {
-            if (goal_idx < this->m_szs[i]) {
-                // found the model converter that should be used
-                model_converter * c2 = this->m_c2s[i];
-                if (c2)
-                    c2->operator()(m, goal_idx);
-                if (m_c1)
-                    this->m_c1->operator()(m, i);
-                return;
-            }
-            // invalid goal
-            goal_idx -= this->m_szs[i];
-        }
-        UNREACHABLE();
-    }
-
-    void operator()(labels_vec & r, unsigned goal_idx) override {
-        unsigned num = this->m_c2s.size();
-        for (unsigned i = 0; i < num; i++) {
-            if (goal_idx < this->m_szs[i]) {
-                // found the model converter that should be used
-                model_converter * c2 = this->m_c2s[i];
-                if (c2)
-                    c2->operator()(r, goal_idx);
-                if (m_c1)
-                    this->m_c1->operator()(r, i);
-                return;
-            }
-            // invalid goal
-            goal_idx -= this->m_szs[i];
-        }
-        UNREACHABLE();
-    }
-    
-    char const * get_name() const override { return "concat-star-model-converter"; }
-
-    model_converter * translate(ast_translation & translator) override {
-        return this->translate_core<concat_star_model_converter>(translator);
-    }
-};
-
-model_converter * concat(model_converter * mc1, unsigned num, model_converter * const * mc2s, unsigned * szs) {
-    SASSERT(num > 0);
-    if (num == 1)
-        return concat(mc1, mc2s[0]);
-    unsigned i;
-    for (i = 0; i < num; i++) {
-        if (mc2s[i] != 0)
-            break;
-    }
-    if (i == num) {
-        // all mc2s are 0
-        return mc1;
-    }
-    return alloc(concat_star_model_converter, mc1, num, mc2s, szs);
-}
 
 class model2mc : public model_converter {
     model_ref m_model;
@@ -182,11 +108,7 @@ public:
         m = m_model;
     }
 
-    void operator()(model_ref & m, unsigned goal_idx) override {
-        m = m_model;
-    }
-
-    void operator()(labels_vec & r, unsigned goal_idx) {
+    void operator()(labels_vec & r) {
         r.append(m_labels.size(), m_labels.c_ptr());
     }
 
@@ -227,13 +149,13 @@ model_converter * model_and_labels2model_converter(model * m, buffer<symbol> & r
 void model_converter2model(ast_manager & mng, model_converter * mc, model_ref & m) {
     if (mc) {
         m = alloc(model, mng);
-        (*mc)(m, 0);
+        (*mc)(m);
     }
 }
 
-void apply(model_converter_ref & mc, model_ref & m, unsigned gidx) {
+void apply(model_converter_ref & mc, model_ref & m) {
     if (mc) {
-        (*mc)(m, gidx);
+        (*mc)(m);
     }
 }
 

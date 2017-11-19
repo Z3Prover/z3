@@ -37,10 +37,9 @@ class quasi_macros_tactic : public tactic {
 
         void operator()(goal_ref const & g,
                         goal_ref_buffer & result,
-                        model_converter_ref & mc,
                         expr_dependency_ref & core) {
             SASSERT(g->is_well_sorted());
-            mc = 0; core = 0;
+            core = 0;
             tactic_report report("quasi-macros", *g);
 
             bool produce_proofs = g->proofs_enabled();
@@ -87,8 +86,7 @@ class quasi_macros_tactic : public tactic {
                 func_decl * f = mm.get_macro_interpretation(i, f_interp);
                 evmc->add(f, f_interp);
             }
-            mc = evmc;
-
+            g->add(evmc);
             g->inc_depth();
             result.push_back(g.get());
             TRACE("quasi-macros", g->display(tout););
@@ -129,9 +127,8 @@ public:
 
     virtual void operator()(goal_ref const & in,
                             goal_ref_buffer & result,
-                            model_converter_ref & mc,
                             expr_dependency_ref & core) {
-        (*m_imp)(in, result, mc, core);
+        (*m_imp)(in, result, core);
     }
 
     virtual void cleanup() {

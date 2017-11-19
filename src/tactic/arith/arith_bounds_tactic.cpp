@@ -25,7 +25,6 @@ struct arith_bounds_tactic : public tactic {
 
     virtual void operator()(/* in */  goal_ref const & in, 
                             /* out */ goal_ref_buffer & result, 
-                            /* out */ model_converter_ref & mc, 
                             /* out */ expr_dependency_ref & core) {        
         bounds_arith_subsumption(in, result);
     }

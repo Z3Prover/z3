@@ -224,14 +224,14 @@ class degree_shift_tactic : public tactic {
 
         void operator()(goal_ref const & g, 
                         goal_ref_buffer & result, 
-                        model_converter_ref & mc, 
                         expr_dependency_ref & core) {
             SASSERT(g->is_well_sorted());
-            mc = 0; core = 0;
+            core = 0;
             m_produce_proofs = g->proofs_enabled();
             m_produce_models = g->models_enabled();
             tactic_report report("degree_shift", *g);
             collect(*g);
+            model_converter_ref mc;
             discard_non_candidates();
             if (!m_var2degree.empty()) {
                 prepare_substitution(mc);
@@ -269,6 +269,7 @@ class degree_shift_tactic : public tactic {
                 }
             }
             g->inc_depth();
+            g->add(mc.get());
             result.push_back(g.get());
             TRACE("degree_shift", g->display(tout); if (mc) mc->display(tout););
             SASSERT(g->is_well_sorted());
@@ -291,9 +292,8 @@ public:
 
     virtual void operator()(goal_ref const & in, 
                             goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
                             expr_dependency_ref & core) {
-        (*m_imp)(in, result, mc, core);
+        (*m_imp)(in, result, core);
     }
     
     virtual void cleanup() {
