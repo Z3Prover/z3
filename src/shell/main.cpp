@@ -33,6 +33,7 @@ Revision History:
 #include "util/timeout.h"
 #include "util/z3_exception.h"
 #include "util/error_codes.h"
+#include "util/file_path.h"
 #include "util/gparams.h"
 #include "util/env_params.h"
 #include "shell/lp_frontend.h"
@@ -289,19 +290,6 @@ void parse_cmd_line_args(int argc, char ** argv) {
     }
 }
 
-char const * get_extension(char const * file_name) {
-    if (file_name == 0)
-        return 0;
-    char const * last_dot = 0;
-    for (;;) {
-        char const * tmp = strchr(file_name, '.');
-        if (tmp == 0) {
-            return last_dot;
-        }
-        last_dot  = tmp + 1;
-        file_name = last_dot;
-    }
-}
 
 int STD_CALL main(int argc, char ** argv) {
     try{
