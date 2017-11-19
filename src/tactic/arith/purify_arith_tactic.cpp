@@ -821,11 +821,9 @@ public:
     }
     
     virtual void operator()(goal_ref const & g, 
-                            goal_ref_buffer & result, 
-                            expr_dependency_ref & core) {
+                            goal_ref_buffer & result) {
         try {
             SASSERT(g->is_well_sorted());
-            core = 0;
             tactic_report report("purify-arith", *g);
             TRACE("purify_arith", g->display(tout););
             bool produce_proofs = g->proofs_enabled();

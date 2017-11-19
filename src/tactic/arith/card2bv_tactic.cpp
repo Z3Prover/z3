@@ -53,11 +53,10 @@ public:
 
     
     virtual void operator()(goal_ref const & g, 
-                            goal_ref_buffer & result, 
-                            expr_dependency_ref & core) {
+                            goal_ref_buffer & result) {
         TRACE("card2bv-before", g->display(tout););
         SASSERT(g->is_well_sorted());
-        core = 0; result.reset();
+        result.reset();
         tactic_report report("card2bv", *g);
         th_rewriter rw1(m, m_params);
         pb2bv_rewriter rw2(m, m_params);

@@ -202,9 +202,8 @@ namespace pdr {
     void pred_transformer::simplify_formulas(tactic& tac, expr_ref_vector& v) {
         goal_ref g(alloc(goal, m, false, false, false));
         for (unsigned j = 0; j < v.size(); ++j) g->assert_expr(v[j].get());
-        expr_dependency_ref core(m);
         goal_ref_buffer result;
-        tac(g, result, core);
+        tac(g, result);
         SASSERT(result.size() == 1);
         goal* r = result[0];
         v.reset();

@@ -224,11 +224,8 @@ class elim_small_bv_tactic : public tactic {
             m_rw.cfg().updt_params(p);
         }
 
-        void operator()(goal_ref const & g,
-            goal_ref_buffer & result,
-            expr_dependency_ref & core) {
+        void operator()(goal_ref const & g, goal_ref_buffer & result) {
             SASSERT(g->is_well_sorted());
-            core = 0;
             tactic_report report("elim-small-bv", *g);
             bool produce_proofs = g->proofs_enabled();
             fail_if_proof_generation("elim-small-bv", g);
@@ -286,9 +283,8 @@ public:
     }
 
     virtual void operator()(goal_ref const & in,
-        goal_ref_buffer & result,
-        expr_dependency_ref & core) {
-        (*m_imp)(in, result, core);
+        goal_ref_buffer & result) {
+        (*m_imp)(in, result);
     }
 
     virtual void cleanup() {

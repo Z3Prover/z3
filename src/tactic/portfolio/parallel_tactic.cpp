@@ -541,7 +541,7 @@ public:
         init();        
     }
 
-    void operator ()(const goal_ref & g,goal_ref_buffer & result, expr_dependency_ref & dep) {
+    void operator ()(const goal_ref & g,goal_ref_buffer & result) {
         ast_manager& m = g->m();
         solver* s = mk_fd_solver(m, m_params);
         solver_state* st = alloc(solver_state, 0, s, m_params, cube_task);

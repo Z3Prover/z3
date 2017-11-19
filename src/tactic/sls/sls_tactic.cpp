@@ -60,10 +60,9 @@ public:
     }
     
     virtual void operator()(goal_ref const & g, 
-                            goal_ref_buffer & result, 
-                            expr_dependency_ref & core) {
+                            goal_ref_buffer & result) {
         SASSERT(g->is_well_sorted());        
-        core = 0; result.reset();
+        result.reset();
         
         TRACE("sls", g->display(tout););
         tactic_report report("sls", *g);

@@ -25,7 +25,7 @@ Revision History:
 #include "util/cancel_eh.h"
 #include "util/scoped_timer.h"
 
-Z3_apply_result_ref::Z3_apply_result_ref(api::context& c, ast_manager & m): api::object(c), m_core(m) {
+Z3_apply_result_ref::Z3_apply_result_ref(api::context& c, ast_manager & m): api::object(c) {
 }
 
 extern "C" {
@@ -418,7 +418,7 @@ extern "C" {
             scoped_ctrl_c ctrlc(eh, false, use_ctrl_c);
             scoped_timer timer(timeout, &eh);
             try {
-                exec(*to_tactic_ref(t), new_goal, ref->m_subgoals, ref->m_core);
+                exec(*to_tactic_ref(t), new_goal, ref->m_subgoals);
                 ref->m_pc = new_goal->pc();
                 ref->m_mc = new_goal->mc();
                 return of_apply_result(ref);

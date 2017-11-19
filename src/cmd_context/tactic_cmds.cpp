@@ -326,7 +326,6 @@ public:
             unsigned rlimit  =   p.get_uint("rlimit", ctx.params().m_rlimit);
 
             goal_ref_buffer     result_goals;
-            expr_dependency_ref core(m);
 
             std::string reason_unknown;
             bool failed = false;
@@ -337,7 +336,7 @@ public:
                 scoped_timer timer(timeout, &eh);
                 cmd_context::scoped_watch sw(ctx);
                 try {
-                    exec(t, g, result_goals, core);
+                    exec(t, g, result_goals);
                 }
                 catch (tactic_exception & ex) {
                     ctx.regular_stream() << "(error \"tactic failed: " << ex.msg() << "\")" << std::endl;

@@ -1,5 +1,6 @@
 z3_add_component(tactic
   SOURCES
+    dependency_converter.cpp
     equiv_proof_converter.cpp
     generic_model_converter.cpp
     goal.cpp

@@ -101,12 +101,10 @@ public:
     }
     
     void operator()(goal_ref const & in, 
-                    goal_ref_buffer & result, 
-                    expr_dependency_ref & core) override {
+                    goal_ref_buffer & result) override {
         SASSERT(in->is_well_sorted());
         tactic_report report("split-clause", *in);
         TRACE("before_split_clause", in->display(tout););
-        core = 0; 
         ast_manager & m = in->m();
         unsigned cls_pos = select_clause(m, in);
         if (cls_pos == UINT_MAX) {
@@ -129,6 +127,7 @@ public:
             result.push_back(subgoal_i);
         }
         in->set(concat(in->pc(), result.size(), result.c_ptr()));
+        in->add(dependency_converter::concat(result.size(), result.c_ptr()));
     }
     
     virtual void cleanup() {

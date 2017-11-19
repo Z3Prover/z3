@@ -159,10 +159,8 @@ public:
     }
     
     virtual void operator()(goal_ref const & g, 
-                    goal_ref_buffer & result, 
-                    expr_dependency_ref & core) {
+                    goal_ref_buffer & result) {
         SASSERT(g->is_well_sorted());
-        core = 0;
         m_01s->reset();
         
         tactic_report report("cardinality-intro", *g);

@@ -379,9 +379,7 @@ class bv1_blaster_tactic : public tactic {
         
         
         void operator()(goal_ref const & g, 
-                        goal_ref_buffer & result, 
-                        expr_dependency_ref & core) {
-            core = 0;
+                        goal_ref_buffer & result) {
             
             if (!is_target(*g))
                 throw tactic_exception("bv1 blaster cannot be applied to goal");
@@ -453,9 +451,8 @@ public:
        Return a model_converter that converts any model for the updated set into a model for the old set.
     */
     virtual void operator()(goal_ref const & g, 
-                            goal_ref_buffer & result, 
-                            expr_dependency_ref & core) {
-        (*m_imp)(g, result, core);
+                            goal_ref_buffer & result) {
+        (*m_imp)(g, result);
     }
     
     virtual void cleanup() {

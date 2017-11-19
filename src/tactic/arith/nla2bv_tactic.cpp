@@ -440,12 +440,11 @@ public:
        \return false if transformation is not possible.
     */
     virtual void operator()(goal_ref const & g,
-                            goal_ref_buffer & result, 
-                            expr_dependency_ref & core) {
+                            goal_ref_buffer & result) {
         SASSERT(g->is_well_sorted());
         fail_if_proof_generation("nla2bv", g);
         fail_if_unsat_core_generation("nla2bv", g);
-        core = 0; result.reset();
+        result.reset();
         
         imp proc(g->m(), m_params);
         scoped_set_imp setter(*this, proc);

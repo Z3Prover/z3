@@ -136,10 +136,8 @@ class propagate_values_tactic : public tactic {
         }
 
         void operator()(goal_ref const & g, 
-                        goal_ref_buffer & result, 
-                        expr_dependency_ref & core) {
+                        goal_ref_buffer & result) {
             SASSERT(g->is_well_sorted());
-            core = 0;
             tactic_report report("propagate-values", *g);
             m_goal = g.get();
 
@@ -238,11 +236,9 @@ public:
         r.insert("max_rounds", CPK_UINT, "(default: 2) maximum number of rounds.");
     }
     
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            expr_dependency_ref & core) {
+    void operator()(goal_ref const & in, goal_ref_buffer & result) override {
         try {
-            (*m_imp)(in, result, core);
+            (*m_imp)(in, result);
         }
         catch (rewriter_exception & ex) {
             throw tactic_exception(ex.msg());

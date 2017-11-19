@@ -79,10 +79,7 @@ class normalize_bounds_tactic : public tactic {
             return false;
         }
         
-        void operator()(goal_ref const & in, 
-                        goal_ref_buffer & result, 
-                        expr_dependency_ref & core) {
-            core = 0;
+        void operator()(goal_ref const & in, goal_ref_buffer & result) {
             bool produce_models = in->models_enabled();
             bool produce_proofs = in->proofs_enabled();
             tactic_report report("normalize-bounds", *in);
@@ -166,10 +163,9 @@ public:
     }
 
     virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            expr_dependency_ref & core) {
+                            goal_ref_buffer & result) {
         try {
-            (*m_imp)(in, result, core);
+            (*m_imp)(in, result);
         }
         catch (rewriter_exception & ex) {
             throw tactic_exception(ex.msg());

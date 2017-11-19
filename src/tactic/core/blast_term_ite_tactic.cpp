@@ -113,11 +113,8 @@ class blast_term_ite_tactic : public tactic {
             m_rw.cfg().updt_params(p);
         }
         
-        void operator()(goal_ref const & g, 
-                        goal_ref_buffer & result, 
-                        expr_dependency_ref & core) {
+        void operator()(goal_ref const & g, goal_ref_buffer & result) {
             SASSERT(g->is_well_sorted());
-            core = 0;
             tactic_report report("blast-term-ite", *g);
             bool produce_proofs = g->proofs_enabled();
 
@@ -170,9 +167,8 @@ public:
     }
     
     virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            expr_dependency_ref & core) {
-        (*m_imp)(in, result, core);
+                            goal_ref_buffer & result) {
+        (*m_imp)(in, result);
     }
     
     virtual void cleanup() {

@@ -816,9 +816,7 @@ class elim_uncnstr_tactic : public tactic {
         }
 
         void operator()(goal_ref const & g, 
-                        goal_ref_buffer & result, 
-                        expr_dependency_ref & core) {
-            core = 0;
+                        goal_ref_buffer & result) {
             bool produce_models = g->models_enabled();
             bool produce_proofs = g->proofs_enabled();
 
@@ -929,9 +927,8 @@ public:
     }
 
     virtual void operator()(goal_ref const & g, 
-                            goal_ref_buffer & result, 
-                            expr_dependency_ref & core) {
-        (*m_imp)(g, result, core);
+                            goal_ref_buffer & result) {
+        (*m_imp)(g, result);
         report_tactic_progress(":num-elim-apps", get_num_elim_apps());
     }
     

@@ -30,19 +30,19 @@ public:
     simplify_tactic(ast_manager & m, params_ref const & ref = params_ref());
     virtual ~simplify_tactic();
 
-    virtual void updt_params(params_ref const & p);
+    void updt_params(params_ref const & p) override;
+
     static void get_param_descrs(param_descrs & r);
-    virtual void collect_param_descrs(param_descrs & r) { get_param_descrs(r); }
     
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            expr_dependency_ref & core);
+    void collect_param_descrs(param_descrs & r) override { get_param_descrs(r); }
     
-    virtual void cleanup();
+    void operator()(goal_ref const & in, goal_ref_buffer & result) override;
+    
+    void cleanup() override;
 
     unsigned get_num_steps() const;
 
-    virtual tactic * translate(ast_manager & m) { return alloc(simplify_tactic, m, m_params); }
+    tactic * translate(ast_manager & m) override { return alloc(simplify_tactic, m, m_params); }
 
 };
 

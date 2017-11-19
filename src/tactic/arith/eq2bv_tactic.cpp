@@ -149,12 +149,8 @@ public:
     void updt_params(params_ref const & p) {
     }
     
-    virtual void operator()(
-        goal_ref const & g, 
-        goal_ref_buffer & result, 
-        expr_dependency_ref & core) {
+    virtual void operator()(goal_ref const & g, goal_ref_buffer & result) {
         SASSERT(g->is_well_sorted());
-        core = 0;
         m_trail.reset();
         m_fd.reset();
         m_max.reset();

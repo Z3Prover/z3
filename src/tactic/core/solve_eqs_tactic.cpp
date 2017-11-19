@@ -666,11 +666,8 @@ class solve_eqs_tactic : public tactic {
             return m_num_eliminated_vars;
         }
         
-        void operator()(goal_ref const & g, 
-                        goal_ref_buffer & result, 
-                        expr_dependency_ref & core) {
+        void operator()(goal_ref const & g, goal_ref_buffer & result) {
             SASSERT(g->is_well_sorted());
-            core = 0;
             model_converter_ref mc;
             tactic_report report("solve_eqs", *g);
             m_produce_models = g->models_enabled();
@@ -732,10 +729,9 @@ public:
         r.insert("ite_solver", CPK_BOOL, "(default: true) use if-then-else solver.");
     }
     
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            expr_dependency_ref & core) {
-        (*m_imp)(in, result, core);
+    void operator()(goal_ref const & in, 
+                            goal_ref_buffer & result) override {
+        (*m_imp)(in, result);
         report_tactic_progress(":num-elim-vars", m_imp->get_num_eliminated_vars());
     }
     

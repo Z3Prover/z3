@@ -223,10 +223,8 @@ class degree_shift_tactic : public tactic {
         }
 
         void operator()(goal_ref const & g, 
-                        goal_ref_buffer & result, 
-                        expr_dependency_ref & core) {
+                        goal_ref_buffer & result) {
             SASSERT(g->is_well_sorted());
-            core = 0;
             m_produce_proofs = g->proofs_enabled();
             m_produce_models = g->models_enabled();
             tactic_report report("degree_shift", *g);
@@ -291,9 +289,8 @@ public:
     }
 
     virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            expr_dependency_ref & core) {
-        (*m_imp)(in, result, core);
+                            goal_ref_buffer & result) {
+        (*m_imp)(in, result);
     }
     
     virtual void cleanup() {

@@ -1367,7 +1367,6 @@ void pred_transformer::frames::simplify_formulas ()
         // normalize level
         unsigned level = i < m_size ? i : infty_level ();
 
-        expr_dependency_ref core(m);
         goal_ref_buffer result;
 
         // simplify lemmas of the current level
@@ -1393,7 +1392,7 @@ void pred_transformer::frames::simplify_formulas ()
         }
 
         // more than one lemma at current level. simplify.
-        (*simplifier)(g, result, core);
+        (*simplifier)(g, result);
         SASSERT(result.size () == 1);
         goal *r = result[0];
 

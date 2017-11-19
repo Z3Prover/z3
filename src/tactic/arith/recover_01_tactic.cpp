@@ -292,13 +292,12 @@ class recover_01_tactic : public tactic {
         }
     
         void operator()(goal_ref const & g, 
-                        goal_ref_buffer & result, 
-                        expr_dependency_ref & core) {
+                        goal_ref_buffer & result) {
             SASSERT(g->is_well_sorted());
             fail_if_proof_generation("recover-01", g);
             fail_if_unsat_core_generation("recover-01", g);
             m_produce_models      = g->models_enabled();
-            core = 0; result.reset();
+            result.reset();
             tactic_report report("recover-01", *g);
             
             bool saved = false;
@@ -401,10 +400,9 @@ public:
     }
 
     void operator()(goal_ref const & g, 
-                    goal_ref_buffer & result, 
-                    expr_dependency_ref & core) {
+                    goal_ref_buffer & result) {
         try {
-            (*m_imp)(g, result, core);
+            (*m_imp)(g, result);
         }
         catch (rewriter_exception & ex) {
             throw tactic_exception(ex.msg());

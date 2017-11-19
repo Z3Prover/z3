@@ -129,10 +129,8 @@ class nlsat_tactic : public tactic {
         }
 
         void operator()(goal_ref const & g, 
-                        goal_ref_buffer & result, 
-                        expr_dependency_ref & core) {
+                        goal_ref_buffer & result) {
             SASSERT(g->is_well_sorted());
-            core = 0;
             tactic_report report("nlsat", *g);
             
             if (g->is_decided()) {
@@ -233,12 +231,11 @@ public:
     }
     
     virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            expr_dependency_ref & core) {
+                            goal_ref_buffer & result) {
         try {
             imp local_imp(in->m(), m_params);
             scoped_set_imp setter(*this, local_imp);
-            local_imp(in, result, core);
+            local_imp(in, result);
         }
         catch (z3_error & ex) {
             throw ex;

@@ -61,7 +61,6 @@ class inc_sat_solver : public solver {
     model_converter_ref m_mc;
     model_converter_ref m_mc0;
     model_converter_ref m_sat_mc;
-    expr_dependency_ref m_dep_core;
     svector<double>     m_weights;
     std::string         m_unknown;
     // access formulas after they have been pre-processed and handled by the sat solver.
@@ -82,7 +81,6 @@ public:
         m_core(m),
         m_map(m),
         m_num_scopes(0),
-        m_dep_core(m),
         m_unknown("no reason given"),
         m_internalized(false), 
         m_internalized_converted(false), 
@@ -495,7 +493,6 @@ private:
     lbool internalize_goal(goal_ref& g, dep2asm_t& dep2asm, bool is_lemma) {
         m_mc.reset();
         m_pc.reset();
-        m_dep_core.reset();
         m_subgoals.reset();
         init_preprocess();
         SASSERT(g->models_enabled());
@@ -505,7 +502,7 @@ private:
         SASSERT(!g->proofs_enabled());
         TRACE("sat", g->display(tout););
         try {
-            (*m_preprocess)(g, m_subgoals, m_dep_core);
+            (*m_preprocess)(g, m_subgoals);
         }
         catch (tactic_exception & ex) {
             IF_VERBOSE(0, verbose_stream() << "exception in tactic " << ex.msg() << "\n";);

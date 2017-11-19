@@ -90,11 +90,8 @@ public:
         SASSERT(g->is_well_sorted());
     }
     
-    virtual void operator()(goal_ref const & g, 
-                            goal_ref_buffer & result, 
-                            expr_dependency_ref & core) {
+    virtual void operator()(goal_ref const & g, goal_ref_buffer & result) {
         fail_if_proof_generation("aig", g);
-        core = 0;
         operator()(g);
         g->inc_depth();
         result.push_back(g.get());

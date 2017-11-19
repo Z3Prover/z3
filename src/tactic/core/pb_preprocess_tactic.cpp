@@ -147,12 +147,10 @@ public:
         return alloc(pb_preprocess_tactic, m);
     }
     
-    virtual void operator()(
+    void operator()(
         goal_ref const & g, 
-        goal_ref_buffer & result, 
-        expr_dependency_ref & core) {
+        goal_ref_buffer & result) override {
         SASSERT(g->is_well_sorted());
-        core = 0;
 
         if (g->proofs_enabled()) {
             throw tactic_exception("pb-preprocess does not support proofs");

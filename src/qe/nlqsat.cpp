@@ -660,7 +660,7 @@ namespace qe {
             g->assert_expr(fml);
             expr_dependency_ref core(m);
             goal_ref_buffer result;
-            (*m_nftactic)(g, result, core);
+            (*m_nftactic)(g, result);
             SASSERT(result.size() == 1);
             TRACE("qe", result[0]->display(tout););
             g2s(*result[0], m_params, m_solver, m_a2b, m_t2x);
@@ -810,14 +810,12 @@ namespace qe {
 
         
         void operator()(/* in */  goal_ref const & in, 
-                        /* out */ goal_ref_buffer & result, 
-                        /* out */ expr_dependency_ref & core) {
+                        /* out */ goal_ref_buffer & result) {
 
             tactic_report report("nlqsat-tactic", *in);
 
             ptr_vector<expr> fmls;
             expr_ref fml(m);
-            core = 0;
             in->get_formulas(fmls);
             fml = mk_and(m, fmls.size(), fmls.c_ptr());
             if (m_mode == elim_t) {

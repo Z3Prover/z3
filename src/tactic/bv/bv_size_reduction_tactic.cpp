@@ -39,7 +39,7 @@ public:
 
     virtual ~bv_size_reduction_tactic();
 
-    virtual void operator()(goal_ref const & g, goal_ref_buffer & result, expr_dependency_ref & core);
+    virtual void operator()(goal_ref const & g, goal_ref_buffer & result);
 
     virtual void cleanup();
 };
@@ -382,12 +382,11 @@ bv_size_reduction_tactic::~bv_size_reduction_tactic() {
 }
 
 void bv_size_reduction_tactic::operator()(goal_ref const & g, 
-                                          goal_ref_buffer & result, 
-                                          expr_dependency_ref & core) {
+                                          goal_ref_buffer & result) {
     SASSERT(g->is_well_sorted());
     fail_if_proof_generation("bv-size-reduction", g);
     fail_if_unsat_core_generation("bv-size-reduction", g);
-    core = 0; result.reset();
+    result.reset();
     model_converter_ref mc;
     m_imp->operator()(*(g.get()), mc);
     g->inc_depth();

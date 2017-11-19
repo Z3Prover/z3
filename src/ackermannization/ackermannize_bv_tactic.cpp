@@ -29,9 +29,7 @@ public:
 
     virtual ~ackermannize_bv_tactic() { }
 
-    virtual void operator()(goal_ref const & g,
-        goal_ref_buffer & result,
-        expr_dependency_ref & core) {
+    virtual void operator()(goal_ref const & g, goal_ref_buffer & result) {
         tactic_report report("ackermannize", *g);
         fail_if_unsat_core_generation("ackermannize", g);
         fail_if_proof_generation("ackermannize", g);
@@ -49,7 +47,6 @@ public:
             TRACE("ackermannize", tout << "ackermannize not run due to limit" << std::endl;);
             result.reset();
             result.push_back(g.get());
-            core = 0;
             return;
         }
         result.push_back(resg.get());

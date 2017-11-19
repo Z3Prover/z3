@@ -233,8 +233,7 @@ namespace qe {
 
         virtual void operator()(
             goal_ref const& goal,  
-            goal_ref_buffer& result, 
-            expr_dependency_ref& core) 
+            goal_ref_buffer& result) 
         {
             try {
                 checkpoint();

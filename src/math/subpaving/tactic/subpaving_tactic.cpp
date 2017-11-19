@@ -242,14 +242,12 @@ public:
     }
 
     virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            expr_dependency_ref & core) {
+                            goal_ref_buffer & result) {
         try {
             m_imp->process(*in);
             m_imp->collect_statistics(m_stats);
             result.reset();
             result.push_back(in.get());
-            core = 0;
         }
         catch (z3_exception & ex) {
             // convert all Z3 exceptions into tactic exceptions

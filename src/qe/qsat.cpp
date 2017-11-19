@@ -1211,16 +1211,12 @@ namespace qe {
 
         
         void operator()(/* in */  goal_ref const & in, 
-                        /* out */ goal_ref_buffer & result, 
-                        /* out */ expr_dependency_ref & core) {
+                        /* out */ goal_ref_buffer & result) {
             tactic_report report("qsat-tactic", *in);
             ptr_vector<expr> fmls;
             expr_ref_vector defs(m);
             expr_ref fml(m);
-            core = 0;
             in->get_formulas(fmls);
-
-
             fml = mk_and(m, fmls.size(), fmls.c_ptr());
             
             // for now:

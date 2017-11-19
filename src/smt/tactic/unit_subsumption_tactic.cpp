@@ -40,8 +40,7 @@ struct unit_subsumption_tactic : public tactic {
     void cleanup() {}
 
     virtual void operator()(/* in */  goal_ref const & in, 
-                            /* out */ goal_ref_buffer & result, 
-                            /* out */ expr_dependency_ref & core) {        
+                            /* out */ goal_ref_buffer & result) {        
         reduce_core(in, result);
     }
 

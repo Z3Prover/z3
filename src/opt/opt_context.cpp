@@ -745,9 +745,8 @@ namespace opt {
         else {
             set_simplify(tac0.get());
         }
-        expr_dependency_ref core(m);
         goal_ref_buffer result;
-        (*m_simplify)(g, result, core); 
+        (*m_simplify)(g, result); 
         SASSERT(result.size() == 1);
         goal* r = result[0];
         m_model_converter = r->mc();

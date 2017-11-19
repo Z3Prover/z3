@@ -116,10 +116,7 @@ public:
     virtual void collect_param_descrs(param_descrs & r) {
     }
 
-    virtual void operator()(goal_ref const & g,
-                            goal_ref_buffer & result,
-                            expr_dependency_ref & core) {
-        core = 0;
+    virtual void operator()(goal_ref const & g, goal_ref_buffer & result) {
         bool produce_proofs = g->proofs_enabled();
         tactic_report report("dt2bv", *g);
         unsigned   size = g->size();

@@ -67,12 +67,8 @@ void report_tactic_progress(char const * id, unsigned val) {
     }
 }
 
-void skip_tactic::operator()(goal_ref const & in, 
-                             goal_ref_buffer & result, 
-                             expr_dependency_ref & core) {
-    result.reset();
+void skip_tactic::operator()(goal_ref const & in, goal_ref_buffer& result) {
     result.push_back(in.get());
-    core = 0;
 }
 
 tactic * mk_skip_tactic() {
@@ -81,9 +77,7 @@ tactic * mk_skip_tactic() {
 
 class fail_tactic : public tactic {
 public:
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            expr_dependency_ref & core) {
+    void operator()(goal_ref const & in, goal_ref_buffer & result) override {
         throw tactic_exception("fail tactic");
     }
 
@@ -102,11 +96,9 @@ class report_verbose_tactic : public skip_tactic {
 public:
     report_verbose_tactic(char const * msg, unsigned lvl) : m_msg(msg), m_lvl(lvl) {}
 
-    void operator()(goal_ref const & in, 
-                    goal_ref_buffer & result, 
-                    expr_dependency_ref & core) override {
+    void operator()(goal_ref const & in, goal_ref_buffer& result) override {
         IF_VERBOSE(m_lvl, verbose_stream() << m_msg << "\n";);
-        skip_tactic::operator()(in, result, core);
+        skip_tactic::operator()(in, result);
     }
 };
 
@@ -119,12 +111,10 @@ class trace_tactic : public skip_tactic {
 public:
     trace_tactic(char const * tag): m_tag(tag) {}
     
-    void operator()(goal_ref const & in, 
-                    goal_ref_buffer & result, 
-                    expr_dependency_ref & core) override {
+    void operator()(goal_ref const & in, goal_ref_buffer& result) override {
         TRACE(m_tag, in->display(tout););
         (void)m_tag;
-        skip_tactic::operator()(in, result, core);
+        skip_tactic::operator()(in, result);
     }
 };
 
@@ -136,12 +126,10 @@ class fail_if_undecided_tactic : public skip_tactic {
 public:
     fail_if_undecided_tactic() {}
 
-    void operator()(goal_ref const & in, 
-                    goal_ref_buffer & result, 
-                    expr_dependency_ref & core) override {
+    void operator()(goal_ref const & in, goal_ref_buffer& result) override {
         if (!in->is_decided()) 
             throw tactic_exception("undecided");
-        skip_tactic::operator()(in, result, core);
+        skip_tactic::operator()(in, result);
     }
 };
 
@@ -149,10 +137,10 @@ tactic * mk_fail_if_undecided_tactic() {
     return alloc(fail_if_undecided_tactic);
 }
 
-void exec(tactic & t, goal_ref const & in, goal_ref_buffer & result, expr_dependency_ref & core) {
+void exec(tactic & t, goal_ref const & in, goal_ref_buffer & result) {
     t.reset_statistics();
     try {
-        t(in, result, core);
+        t(in, result);
         t.cleanup();
     }
     catch (tactic_exception & ex) {
@@ -173,7 +161,7 @@ lbool check_sat(tactic & t, goal_ref & g, model_ref & md, labels_vec & labels, p
     ast_manager & m = g->m();
     goal_ref_buffer r;
     try {
-        exec(t, g, r, core);
+        exec(t, g, r);
     }
     catch (tactic_exception & ex) {
         reason_unknown = ex.msg();

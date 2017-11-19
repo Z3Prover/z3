@@ -70,10 +70,8 @@ public:
     virtual void reset_statistics() { m_num_steps = 0; }
     
     virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            expr_dependency_ref & core) {
+                            goal_ref_buffer & result) {
         
-        core = 0;
         reduce(*(in.get()));
         in->inc_depth();
         result.push_back(in.get());

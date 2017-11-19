@@ -15,6 +15,42 @@ Author:
 
 Notes:
 
+    A model converter, mc, can be used to convert a model for one 
+    of a generated subgoal into a model for an initial goal or solver state.
+    For a goal or solver state that is decided, a model converter can be
+    a simple wrapper around a model.
+
+    Logically, given a formula F and subgoal formula F_s a model converter mc
+    for F_s relative to F has the property:
+
+        m |= F_s  iff mc(m) |= F     for every model m
+
+    For the evaluator associated with models, m, we expect
+
+        eval(m)(F_s) <=> eval(mc(m))(F)
+
+    This property holds for both eval, that decides on a fixed value
+    for constants that have no interpretation in m and for 'peval' 
+    (partial eval) that retuns just the constants that are unfixed.
+    (in the model evaluator one can control this behavior using a 
+    configuration flag)
+
+    and more generally over the eval method have:
+
+        G => F_s   iff peval(mc(e))(G) => F   for every formula G
+
+    
+    where e is the empty model (a model that does not evaluate any
+
+    When a model converter supports application to a formula it satisfies
+    the following property:
+
+       mc(G) & F_s is SAT  iff G & F is SAT
+
+    For a model converter that is a sequence of definitions and removals
+    of functions we can obtain mc(G) by adding back or expanding definitinos
+    that are required to interpret G fully in the context of F_s.
+
 --*/
 #ifndef MODEL_CONVERTER_H_
 #define MODEL_CONVERTER_H_

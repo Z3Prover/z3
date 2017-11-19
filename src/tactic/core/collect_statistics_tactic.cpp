@@ -63,8 +63,7 @@ public:
 
     virtual void collect_param_descrs(param_descrs & r) {}
 
-    virtual void operator()(goal_ref const & g, goal_ref_buffer & result,
-                            expr_dependency_ref & core) {
+    virtual void operator()(goal_ref const & g, goal_ref_buffer & result) {
         tactic_report report("collect-statistics", *g);
 
         collect_proc cp(m, m_stats);

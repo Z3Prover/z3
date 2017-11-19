@@ -54,8 +54,7 @@ public:
     virtual ~qfufbv_ackr_tactic() { }
 
     virtual void operator()(goal_ref const & g,
-        goal_ref_buffer & result,
-        expr_dependency_ref & core) {
+        goal_ref_buffer & result) {
         ast_manager& m(g->m());
         tactic_report report("qfufbv_ackr", *g);
         fail_if_unsat_core_generation("qfufbv_ackr", g);

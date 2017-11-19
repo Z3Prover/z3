@@ -54,11 +54,9 @@ public:
     virtual void collect_param_descrs(param_descrs & r) { nnf::get_param_descrs(r); }
 
     virtual void operator()(goal_ref const & g, 
-                            goal_ref_buffer & result, 
-                            expr_dependency_ref & core) {
+                            goal_ref_buffer & result) {
         TRACE("nnf", tout << "params: " << m_params << "\n"; g->display(tout););
         SASSERT(g->is_well_sorted());
-        core = 0;
         tactic_report report("nnf", *g);
         bool produce_proofs = g->proofs_enabled();
 

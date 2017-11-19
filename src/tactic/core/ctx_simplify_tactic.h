@@ -55,8 +55,7 @@ public:
     virtual void collect_param_descrs(param_descrs & r) { get_param_descrs(r); }
     
     virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            expr_dependency_ref & core);
+                            goal_ref_buffer & result);
 
     virtual void cleanup();
 };

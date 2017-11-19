@@ -32,10 +32,8 @@ class ufbv_rewriter_tactic : public tactic {
         ast_manager & m() const { return m_manager; }
                 
         void operator()(goal_ref const & g, 
-                        goal_ref_buffer & result, 
-                        expr_dependency_ref & core) {
+                        goal_ref_buffer & result) {
             SASSERT(g->is_well_sorted());
-            core = 0;
             tactic_report report("ufbv-rewriter", *g);
             fail_if_unsat_core_generation("ufbv-rewriter", g);
 
@@ -100,9 +98,8 @@ public:
     }
 
     virtual void operator()(goal_ref const & in,
-                            goal_ref_buffer & result,
-                            expr_dependency_ref & core) {
-        (*m_imp)(in, result, core);
+                            goal_ref_buffer & result) {
+        (*m_imp)(in, result);
     }
 
     virtual void cleanup() {

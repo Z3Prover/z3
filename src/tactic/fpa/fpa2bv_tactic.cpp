@@ -47,14 +47,13 @@ class fpa2bv_tactic : public tactic {
         }
 
         void operator()(goal_ref const & g,
-                        goal_ref_buffer & result,
-                        expr_dependency_ref & core) {
+                        goal_ref_buffer & result) {
             SASSERT(g->is_well_sorted());
             m_proofs_enabled      = g->proofs_enabled();
             m_produce_models      = g->models_enabled();
             m_produce_unsat_cores = g->unsat_core_enabled();
 
-            core = 0; result.reset();
+            result.reset();
             tactic_report report("fpa2bv", *g);
             m_rw.reset();
 
@@ -138,10 +137,9 @@ public:
     }
 
     virtual void operator()(goal_ref const & in,
-                            goal_ref_buffer & result,
-                            expr_dependency_ref & core) {
+                            goal_ref_buffer & result) {
         try {
-            (*m_imp)(in, result, core);
+            (*m_imp)(in, result);
         }
         catch (rewriter_exception & ex) {
             throw tactic_exception(ex.msg());

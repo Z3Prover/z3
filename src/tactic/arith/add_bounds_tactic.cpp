@@ -111,9 +111,7 @@ class add_bounds_tactic : public tactic {
         };
         
         void operator()(goal_ref const & g, 
-                        goal_ref_buffer & result, 
-                        expr_dependency_ref & core) {
-            core = 0;
+                        goal_ref_buffer & result) {
             tactic_report report("add-bounds", *g);
             bound_manager bm(m);
             expr_fast_mark1 visited;
@@ -159,9 +157,8 @@ public:
     }
     
     virtual void operator()(goal_ref const & g, 
-                            goal_ref_buffer & result, 
-                            expr_dependency_ref & core) {
-        (*m_imp)(g, result, core);
+                            goal_ref_buffer & result) {
+        (*m_imp)(g, result);
     }
     
     virtual void cleanup() {

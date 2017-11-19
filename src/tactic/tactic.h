@@ -61,9 +61,7 @@ public:
        
        Therefore, in most cases, pc == 0 and core == 0 for non-branching tactics.
     */
-    virtual void operator()(/* in */  goal_ref const & in, 
-                            /* out */ goal_ref_buffer & result, 
-                            /* out */ expr_dependency_ref & core) = 0;
+    virtual void operator()(goal_ref const & in, goal_ref_buffer& result) = 0;
 
     virtual void collect_statistics(statistics & st) const {}
     virtual void reset_statistics() {}
@@ -103,7 +101,7 @@ void report_tactic_progress(char const * id, unsigned val);
 
 class skip_tactic : public tactic {
 public:
-    void operator()(goal_ref const & in, goal_ref_buffer & result, expr_dependency_ref & core) override;
+    void operator()(goal_ref const & in, goal_ref_buffer& result) override;
     void cleanup() override {}
     tactic * translate(ast_manager & m) override { return this; } 
 };
@@ -136,7 +134,7 @@ public:                                                                         
 
 #define MK_SIMPLE_TACTIC_FACTORY(NAME, ST)  MK_TACTIC_FACTORY(NAME, return ST;)
 
-void exec(tactic & t, goal_ref const & in, goal_ref_buffer & result, expr_dependency_ref & core);
+void exec(tactic & t, goal_ref const & in, goal_ref_buffer & result);
 lbool check_sat(tactic & t, goal_ref & g, model_ref & md, labels_vec & labels, proof_ref & pr, expr_dependency_ref & core, std::string & reason_unknown);
 
 // Throws an exception if goal \c in requires proof generation.

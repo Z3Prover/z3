@@ -107,6 +107,7 @@ void goal::copy_to(goal & target) const {
     target.m_precision            = mk_union(prec(), target.prec());
     target.m_mc                   = m_mc.get(); 
     target.m_pc                   = m_pc.get(); 
+    target.m_dc                   = m_dc.get();
 }
 
 void goal::push_back(expr * f, proof * pr, expr_dependency * d) {
@@ -655,6 +656,7 @@ goal * goal::translate(ast_translation & translator) const {
     res->m_precision    = m_precision;
     res->m_pc           = m_pc ? m_pc->translate(translator) : nullptr;
     res->m_mc           = m_mc ? m_mc->translate(translator) : nullptr;
+    res->m_dc           = m_dc ? m_dc->translate(translator) : nullptr;
 
     return res;
 }

@@ -46,11 +46,7 @@ public:
     virtual void collect_param_descrs(param_descrs & r) {
     }
 
-    virtual void operator()(goal_ref const & g,
-                            goal_ref_buffer & result,
-                            expr_dependency_ref & core) {
-        core = 0;
-
+    void operator()(goal_ref const & g, goal_ref_buffer& result) override {
         TRACE("sine", g->display(tout););
         TRACE("sine", tout << g->size(););
         ptr_vector<expr> new_forms;
