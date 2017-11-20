@@ -79,12 +79,7 @@ class normalize_bounds_tactic : public tactic {
             return false;
         }
         
-        void operator()(goal_ref const & in, 
-                        goal_ref_buffer & result, 
-                        model_converter_ref & mc, 
-                        proof_converter_ref & pc,
-                        expr_dependency_ref & core) {
-            mc = 0; pc = 0; core = 0;
+        void operator()(goal_ref const & in, goal_ref_buffer & result) {
             bool produce_models = in->models_enabled();
             bool produce_proofs = in->proofs_enabled();
             tactic_report report("normalize-bounds", *in);
@@ -100,16 +95,13 @@ class normalize_bounds_tactic : public tactic {
             generic_model_converter   * gmc  = 0;
             if (produce_models) {
                 gmc = alloc(generic_model_converter, m);
-                mc  = gmc;
+                in->add(gmc);
             }
             
             unsigned num_norm_bounds = 0;
             expr_substitution subst(m);
             rational val;
-            bound_manager::iterator it  = m_bm.begin();
-            bound_manager::iterator end = m_bm.end();
-            for (; it != end; ++it) {
-                expr * x = *it;
+            for (expr * x : m_bm) {
                 if (is_target(x, val)) {
                     num_norm_bounds++;
                     sort * s = m.get_sort(x);
@@ -171,12 +163,9 @@ public:
     }
 
     virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
+                            goal_ref_buffer & result) {
         try {
-            (*m_imp)(in, result, mc, pc, core);
+            (*m_imp)(in, result);
         }
         catch (rewriter_exception & ex) {
             throw tactic_exception(ex.msg());

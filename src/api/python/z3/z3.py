@@ -4964,6 +4964,35 @@ class Goal(Z3PPObject):
         """
         self.assert_exprs(*args)
 
+    def convert_model(self, model):
+        """Retrieve model from a satisfiable goal
+        >>> a, b = Ints('a b')
+        >>> g = Goal()
+        >>> g.add(Or(a == 0, a == 1), Or(b == 0, b == 1), a > b)
+        >>> t = Then(Tactic('split-clause'), Tactic('solve-eqs'))
+        >>> r = t(g)
+        >>> r[0]
+        [Or(b == 0, b == 1), Not(0 <= b)]
+        >>> r[1]
+        [Or(b == 0, b == 1), Not(1 <= b)]
+        >>> # Remark: the subgoal r[0] is unsatisfiable
+        >>> # Creating a solver for solving the second subgoal
+        >>> s = Solver()
+        >>> s.add(r[1])
+        >>> s.check()
+        sat
+        >>> s.model()
+        [b = 0]
+        >>> # Model s.model() does not assign a value to `a`
+        >>> # It is a model for subgoal `r[1]`, but not for goal `g`
+        >>> # The method convert_model creates a model for `g` from a model for `r[1]`.
+        >>> r[1].convert_model(s.model())
+        [b = 0, a = 1]
+        """
+        if __debug__:
+            _z3_assert(isinstance(model, ModelRef), "Z3 Model expected")
+        return ModelRef(Z3_goal_convert_model(self.ctx.ref(), self.goal, model.model), self.ctx)
+
     def __repr__(self):
         return obj_to_string(self)
 
@@ -7072,36 +7101,6 @@ class ApplyResult(Z3PPObject):
         """Return a textual representation of the s-expression representing the set of subgoals in `self`."""
         return Z3_apply_result_to_string(self.ctx.ref(), self.result)
 
-    def convert_model(self, model, idx=0):
-        """Convert a model for a subgoal into a model for the original goal.
-
-        >>> a, b = Ints('a b')
-        >>> g = Goal()
-        >>> g.add(Or(a == 0, a == 1), Or(b == 0, b == 1), a > b)
-        >>> t = Then(Tactic('split-clause'), Tactic('solve-eqs'))
-        >>> r = t(g)
-        >>> r[0]
-        [Or(b == 0, b == 1), Not(0 <= b)]
-        >>> r[1]
-        [Or(b == 0, b == 1), Not(1 <= b)]
-        >>> # Remark: the subgoal r[0] is unsatisfiable
-        >>> # Creating a solver for solving the second subgoal
-        >>> s = Solver()
-        >>> s.add(r[1])
-        >>> s.check()
-        sat
-        >>> s.model()
-        [b = 0]
-        >>> # Model s.model() does not assign a value to `a`
-        >>> # It is a model for subgoal `r[1]`, but not for goal `g`
-        >>> # The method convert_model creates a model for `g` from a model for `r[1]`.
-        >>> r.convert_model(s.model(), 1)
-        [b = 0, a = 1]
-        """
-        if __debug__:
-            _z3_assert(idx < len(self), "index out of bounds")
-            _z3_assert(isinstance(model, ModelRef), "Z3 Model expected")
-        return ModelRef(Z3_apply_result_convert_model(self.ctx.ref(), self.result, idx, model.model), self.ctx)
 
     def as_expr(self):
         """Return a Z3 expression consisting of all subgoals.
@@ -8057,13 +8056,13 @@ def parse_smt2_string(s, sorts={}, decls={}, ctx=None):
     the symbol table used for the SMT 2.0 parser.
 
     >>> parse_smt2_string('(declare-const x Int) (assert (> x 0)) (assert (< x 10))')
-    And(x > 0, x < 10)
+    [x > 0, x < 10]
     >>> x, y = Ints('x y')
     >>> f = Function('f', IntSort(), IntSort())
     >>> parse_smt2_string('(assert (> (+ foo (g bar)) 0))', decls={ 'foo' : x, 'bar' : y, 'g' : f})
-    x + f(y) > 0
+    [x + f(y) > 0]
     >>> parse_smt2_string('(declare-const a U) (assert (> a 0))', sorts={ 'U' : IntSort() })
-    a > 0
+    [a > 0]
     """
     ctx = _get_ctx(ctx)
     ssz, snames, ssorts = _dict2sarray(sorts, ctx)

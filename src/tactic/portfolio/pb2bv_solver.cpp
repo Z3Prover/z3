@@ -118,7 +118,7 @@ public:
         for (func_decl* f : fns) {
             filter.hide(f);
         }
-        filter(mdl, 0);
+        filter(mdl);
     }
 
     virtual unsigned get_num_assertions() const {

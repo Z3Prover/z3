@@ -109,7 +109,7 @@ namespace smt {
             if (m_name2assertion.contains(a)) {
                 throw default_exception("named assertion defined twice");
             }
-            solver_na2as::assert_expr(t, a);
+            solver_na2as::assert_expr_core(t, a);
             get_manager().inc_ref(t);
             m_name2assertion.insert(a, t);
         }

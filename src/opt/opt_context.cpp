@@ -324,10 +324,8 @@ namespace opt {
 
     void context::fix_model(model_ref& mdl) {
         if (mdl) {
-            if (m_model_converter) {
-                (*m_model_converter)(mdl, 0);
-            }
-            m_fm(mdl, 0);
+            apply(m_model_converter, mdl);
+            m_fm(mdl);
         }
     }
 
@@ -747,12 +745,11 @@ namespace opt {
         else {
             set_simplify(tac0.get());
         }
-        proof_converter_ref pc;
-        expr_dependency_ref core(m);
         goal_ref_buffer result;
-        (*m_simplify)(g, result, m_model_converter, pc, core); 
+        (*m_simplify)(g, result); 
         SASSERT(result.size() == 1);
         goal* r = result[0];
+        m_model_converter = r->mc();
         fmls.reset();
         expr_ref tmp(m);
         for (unsigned i = 0; i < r->size(); ++i) {

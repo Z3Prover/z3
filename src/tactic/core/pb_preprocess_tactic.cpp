@@ -48,8 +48,7 @@ class pb_preproc_model_converter : public model_converter {
 public:
     pb_preproc_model_converter(ast_manager& m):m(m), pb(m), m_refs(m) {}
 
-    virtual void operator()(model_ref & mdl, unsigned goal_idx) {
-        SASSERT(goal_idx == 0);
+    virtual void operator()(model_ref & mdl) {
         for (auto const& kv : m_const) {
             mdl->register_decl(kv.first->get_decl(), kv.second);
         }
@@ -148,21 +147,17 @@ public:
         return alloc(pb_preprocess_tactic, m);
     }
     
-    virtual void operator()(
+    void operator()(
         goal_ref const & g, 
-        goal_ref_buffer & result, 
-        model_converter_ref & mc, 
-        proof_converter_ref & pc,
-        expr_dependency_ref & core) {
+        goal_ref_buffer & result) override {
         SASSERT(g->is_well_sorted());
-        pc = 0; core = 0;
 
         if (g->proofs_enabled()) {
             throw tactic_exception("pb-preprocess does not support proofs");
         }
 
         pb_preproc_model_converter* pp = alloc(pb_preproc_model_converter, m);
-        mc = pp;
+        g->add(pp);
 
         g->inc_depth();        
         result.push_back(g.get());       

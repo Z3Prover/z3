@@ -29,12 +29,16 @@ Revision History:
 #include "util/scoped_ctrl_c.h"
 #include "util/cancel_eh.h"
 #include "util/scoped_timer.h"
+#include "util/file_path.h"
 #include "tactic/portfolio/smt_strategic_solver.h"
 #include "smt/smt_solver.h"
 #include "smt/smt_implied_equalities.h"
 #include "solver/smt_logics.h"
 #include "cmd_context/cmd_context.h"
 #include "parsers/smt2/smt2parser.h"
+#include "sat/dimacs.h"
+#include "sat/sat_solver.h"
+#include "sat/tactic/goal2sat.h"
 
 
 extern "C" {
@@ -127,13 +131,30 @@ extern "C" {
     void Z3_API Z3_solver_from_file(Z3_context c, Z3_solver s, Z3_string file_name) {
         Z3_TRY;
         LOG_Z3_solver_from_file(c, s, file_name);
-        scoped_ptr<cmd_context> ctx = alloc(cmd_context, false, &(mk_c(c)->m()));
-        ctx->set_ignore_check(true);
+        char const* ext = get_extension(file_name);
         std::ifstream is(file_name);
         if (!is) {
             SET_ERROR_CODE(Z3_FILE_ACCESS_ERROR);
             return;
         }
+        if (ext && std::string("dimacs") == ext) {
+            ast_manager& m = to_solver_ref(s)->get_manager();
+            sat::solver solver(to_solver_ref(s)->get_params(), m.limit());
+            parse_dimacs(is, solver);
+            sat2goal s2g;
+            model_converter_ref mc;
+            atom2bool_var a2b(m);
+            goal g(m);            
+            s2g(solver, a2b, to_solver_ref(s)->get_params(), g, mc);
+            for (unsigned i = 0; i < g.size(); ++i) {
+                to_solver_ref(s)->assert_expr(g.form(i));
+            }
+            return;
+        }
+
+        scoped_ptr<cmd_context> ctx = alloc(cmd_context, false, &(mk_c(c)->m()));
+        ctx->set_ignore_check(true);
+
         if (!parse_smt2_commands(*ctx.get(), is)) {
             ctx = nullptr;
             SET_ERROR_CODE(Z3_PARSER_ERROR);

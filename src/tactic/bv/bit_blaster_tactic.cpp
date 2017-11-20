@@ -51,11 +51,7 @@ class bit_blaster_tactic : public tactic {
         
 
         void operator()(goal_ref const & g, 
-                        goal_ref_buffer & result, 
-                        model_converter_ref & mc, 
-                        proof_converter_ref & pc,
-                        expr_dependency_ref & core) {
-            mc = 0; pc = 0; core = 0;
+                        goal_ref_buffer & result) {
             bool proofs_enabled = g->proofs_enabled();
 
             if (proofs_enabled && m_blast_quant)
@@ -88,12 +84,10 @@ class bit_blaster_tactic : public tactic {
             }
             
             if (change && g->models_enabled())  
-                mc = mk_bit_blaster_model_converter(m(), m_rewriter->const2bits());
-            else
-                mc = 0;
+                g->add(mk_bit_blaster_model_converter(m(), m_rewriter->const2bits()));
             g->inc_depth();
             result.push_back(g.get());
-            TRACE("after_bit_blaster", g->display(tout); if (mc) mc->display(tout); tout << "\n";);
+            TRACE("after_bit_blaster", g->display(tout); if (g->mc()) g->mc()->display(tout); tout << "\n";);
             m_rewriter->cleanup();
         }
         
@@ -135,12 +129,9 @@ public:
     }
      
     virtual void operator()(goal_ref const & g, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
+                            goal_ref_buffer & result) {
         try {
-            (*m_imp)(g, result, mc, pc, core);
+            (*m_imp)(g, result);
         }
         catch (rewriter_exception & ex) {
             throw tactic_exception(ex.msg());

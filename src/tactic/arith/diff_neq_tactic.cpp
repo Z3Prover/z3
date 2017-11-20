@@ -313,13 +313,10 @@ class diff_neq_tactic : public tactic {
         }
 
         void operator()(goal_ref const & g, 
-                        goal_ref_buffer & result, 
-                        model_converter_ref & mc, 
-                        proof_converter_ref & pc,
-                        expr_dependency_ref & core) {
+                        goal_ref_buffer & result) {
             SASSERT(g->is_well_sorted());
             m_produce_models = g->models_enabled();
-            mc = 0; pc = 0; core = 0; result.reset();
+            result.reset();
             tactic_report report("diff-neq", *g);
             fail_if_proof_generation("diff-neq", g);
             fail_if_unsat_core_generation("diff-neq", g);
@@ -332,8 +329,9 @@ class diff_neq_tactic : public tactic {
             bool r = search();
             report_tactic_progress(":conflicts", m_num_conflicts);
             if (r) {
-                if (m_produce_models)
-                    mc = model2model_converter(mk_model());
+                if (m_produce_models) {
+                    g->add(model2model_converter(mk_model()));
+                }
                 g->reset();
             }
             else {
@@ -384,11 +382,8 @@ public:
        If s is not really in the difference logic fragment, then this is a NOOP.
     */
     virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
-        (*m_imp)(in, result, mc, pc, core);
+                            goal_ref_buffer & result) {
+        (*m_imp)(in, result);
     }
     
     virtual void cleanup() {

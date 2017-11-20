@@ -21,6 +21,7 @@ Revision History:
 #include "api/api_context.h"
 #include "api/api_goal.h"
 #include "ast/ast_translation.h"
+#include "api/api_model.h"
 
 extern "C" {
 
@@ -150,6 +151,20 @@ extern "C" {
         return to_goal_ref(g)->is_decided_unsat();
         Z3_CATCH_RETURN(Z3_FALSE);
     }
+
+    Z3_model Z3_API Z3_goal_convert_model(Z3_context c, Z3_goal g, Z3_model m) {
+        Z3_TRY;
+        LOG_Z3_goal_convert_model(c, g, m);
+        RESET_ERROR_CODE();
+        model_ref new_m;
+        Z3_model_ref * m_ref = alloc(Z3_model_ref, *mk_c(c)); 
+        mk_c(c)->save_object(m_ref);
+        if (m) m_ref->m_model = to_model_ref(m)->copy(); 
+        if (to_goal_ref(g)->mc()) 
+            (*to_goal_ref(g)->mc())(m_ref->m_model);
+        RETURN_Z3(of_model(m_ref));
+        Z3_CATCH_RETURN(0);
+    }    
 
     Z3_goal Z3_API Z3_goal_translate(Z3_context c, Z3_goal g, Z3_context target) {
         Z3_TRY;

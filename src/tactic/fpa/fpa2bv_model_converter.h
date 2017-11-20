@@ -37,20 +37,16 @@ public:
         dealloc(m_bv2fp);
     }
 
-    virtual void operator()(model_ref & md, unsigned goal_idx) {
-        SASSERT(goal_idx == 0);
+    void operator()(model_ref & md) override {
         model * new_model = alloc(model, m);
         convert(md.get(), new_model);
         md = new_model;
     }
 
-    virtual void operator()(model_ref & md) {
-        operator()(md, 0);
-    }
 
-    void display(std::ostream & out);
+    void display(std::ostream & out) override;
 
-    virtual model_converter * translate(ast_translation & translator);
+    model_converter * translate(ast_translation & translator) override;
 
 protected:
     fpa2bv_model_converter(ast_manager & m) :

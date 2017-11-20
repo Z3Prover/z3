@@ -128,13 +128,9 @@ class occf_tactic : public tactic {
         }
         
         void operator()(goal_ref const & g, 
-                        goal_ref_buffer & result, 
-                        model_converter_ref & mc, 
-                        proof_converter_ref & pc,
-                        expr_dependency_ref & core) {
+                        goal_ref_buffer & result) {
             SASSERT(g->is_well_sorted());
-            mc = 0; pc = 0; core = 0;
-
+            
             fail_if_proof_generation("occf", g);
 
             bool produce_models = g->models_enabled();
@@ -158,7 +154,7 @@ class occf_tactic : public tactic {
                     continue;
                 if (produce_models && !m_mc) {
                     m_mc = alloc(generic_model_converter, m);
-                    mc = m_mc;
+                    g->add(m_mc);
                 }
                 expr * keep = 0;
                 new_lits.reset();
@@ -211,11 +207,8 @@ public:
     virtual void collect_param_descrs(param_descrs & r) {}
     
     virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
-        (*m_imp)(in, result, mc, pc, core);
+                            goal_ref_buffer & result) {
+        (*m_imp)(in, result);
     }
     
     virtual void cleanup() {

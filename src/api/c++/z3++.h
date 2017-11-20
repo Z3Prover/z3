@@ -2104,6 +2104,17 @@ namespace z3 {
         unsigned num_exprs() const { return Z3_goal_num_exprs(ctx(), m_goal); }
         bool is_decided_sat() const { return Z3_goal_is_decided_sat(ctx(), m_goal) != 0; }
         bool is_decided_unsat() const { return Z3_goal_is_decided_unsat(ctx(), m_goal) != 0; }
+        model convert_model(model const & m) const {
+            check_context(*this, m);
+            Z3_model new_m = Z3_goal_convert_model(ctx(), m_goal, m);
+            check_error();
+            return model(ctx(), new_m);
+        }
+        model get_model() const {
+            Z3_model new_m = Z3_goal_convert_model(ctx(), m_goal, 0);
+            check_error();
+            return model(ctx(), new_m);
+        }
         expr as_expr() const {
             unsigned n = size();
             if (n == 0)
@@ -2142,12 +2153,6 @@ namespace z3 {
         }
         unsigned size() const { return Z3_apply_result_get_num_subgoals(ctx(), m_apply_result); }
         goal operator[](int i) const { assert(0 <= i); Z3_goal r = Z3_apply_result_get_subgoal(ctx(), m_apply_result, i); check_error(); return goal(ctx(), r); }
-        model convert_model(model const & m, unsigned i = 0) const {
-            check_context(*this, m);
-            Z3_model new_m = Z3_apply_result_convert_model(ctx(), m_apply_result, i, m);
-            check_error();
-            return model(ctx(), new_m);
-        }
         friend std::ostream & operator<<(std::ostream & out, apply_result const & r);
     };
     inline std::ostream & operator<<(std::ostream & out, apply_result const & r) { out << Z3_apply_result_to_string(r.ctx(), r); return out; }

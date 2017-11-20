@@ -52,19 +52,17 @@ public:
 
     void add(expr * d, expr* e) { SASSERT(is_app(d) && to_app(d)->get_num_args() == 0); add(to_app(d)->get_decl(), e); }
     
-    virtual void operator()(model_ref & md, unsigned goal_idx);
-
-    virtual void operator()(svector<symbol> & labels, unsigned goal_idx) {}
+    void operator()(labels_vec & labels) override {}
     
-    virtual void operator()(model_ref & md) { operator()(md, 0); } 
+    void operator()(model_ref & md) override;
 
-    virtual void cancel() {}
+    void cancel() override {}
 
-    virtual void display(std::ostream & out);
+    void display(std::ostream & out) override;
 
-    virtual model_converter * translate(ast_translation & translator);
+    model_converter * translate(ast_translation & translator) override;
 
-    virtual void collect(ast_pp_util& visitor);
+    void collect(ast_pp_util& visitor) override;
 
     void operator()(expr_ref& fml) override; 
 };

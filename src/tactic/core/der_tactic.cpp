@@ -74,11 +74,7 @@ public:
     }
     
     virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
-        mc = 0; pc = 0; core = 0;
+                            goal_ref_buffer & result) {
         (*m_imp)(*(in.get()));
         in->inc_depth();
         result.push_back(in.get());

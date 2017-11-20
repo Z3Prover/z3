@@ -102,11 +102,7 @@ public:
     }
 
     virtual void operator()(/* in */  goal_ref const & in, 
-                            /* out */ goal_ref_buffer & result, 
-                            /* out */ model_converter_ref & mc, 
-                            /* out */ proof_converter_ref & pc,
-                            /* out */ expr_dependency_ref & core) {
-        pc = 0; mc = 0; core = 0;
+                            /* out */ goal_ref_buffer & result) {
         expr_ref_vector clauses(m);
         expr2expr_map               bool2dep;
         ptr_vector<expr>            assumptions;
@@ -120,9 +116,11 @@ public:
             if (in->models_enabled()) {
                 model_ref mdl;
                 local_solver->get_model(mdl);
+                model_converter_ref mc;
                 mc = model2model_converter(mdl.get());
                 mc = concat(fmc.get(), mc.get());
                 mc = concat(local_solver->mc0(), mc.get());
+                in->add(mc.get());
             }
             in->reset();
             result.push_back(in.get());
@@ -130,30 +128,32 @@ public:
         case l_false: {
             in->reset();
             proof* pr = 0;
-            expr_dependency* lcore = 0;
+            expr_dependency_ref lcore(m);
             if (in->proofs_enabled()) {
                 pr = local_solver->get_proof();
-                pc = proof2proof_converter(m, pr);
+                in->set(proof2proof_converter(m, pr));
             }
             if (in->unsat_core_enabled()) {
                 ptr_vector<expr> core;
                 local_solver->get_unsat_core(core);
-                for (unsigned i = 0; i < core.size(); ++i) {
-                    lcore = m.mk_join(lcore, m.mk_leaf(bool2dep.find(core[i])));
+                for (expr* c : core) {
+                    lcore = m.mk_join(lcore, m.mk_leaf(bool2dep.find(c)));
                 }
             }
             in->assert_expr(m.mk_false(), pr, lcore);
             result.push_back(in.get());
-            core = lcore;
+            in->set(dependency_converter::unit(lcore));
             break;
         }
         case l_undef:
             if (m.canceled()) {
                 throw tactic_exception(Z3_CANCELED_MSG);
             }
+            model_converter_ref mc;
             mc = local_solver->get_model_converter();                
             mc = concat(fmc.get(), mc.get());            
             in->reset();
+            in->add(mc.get());
             unsigned sz = local_solver->get_num_assertions();
             for (unsigned i = 0; i < sz; ++i) {
                 in->assert_expr(local_solver->get_assertion(i));

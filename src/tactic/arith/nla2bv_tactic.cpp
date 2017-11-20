@@ -440,19 +440,17 @@ public:
        \return false if transformation is not possible.
     */
     virtual void operator()(goal_ref const & g,
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
+                            goal_ref_buffer & result) {
         SASSERT(g->is_well_sorted());
         fail_if_proof_generation("nla2bv", g);
         fail_if_unsat_core_generation("nla2bv", g);
-        mc = 0; pc = 0; core = 0; result.reset();
-
+        result.reset();
+        
         imp proc(g->m(), m_params);
         scoped_set_imp setter(*this, proc);
+        model_converter_ref mc;
         proc(*(g.get()), mc);
-        
+        g->add(mc.get());
         result.push_back(g.get());
         SASSERT(g->is_well_sorted());
     }
