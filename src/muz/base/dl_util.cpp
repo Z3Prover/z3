@@ -380,26 +380,29 @@ namespace datalog {
     public:
         skip_model_converter() {}
  
-        virtual model_converter * translate(ast_translation & translator) { 
+        model_converter * translate(ast_translation & translator) override { 
             return alloc(skip_model_converter);
         }
 
-        virtual void display(std::ostream & out) { }
+        void operator()(model_ref&) override {}
+
+        void display(std::ostream & out) override { }
     };
 
     model_converter* mk_skip_model_converter() { return alloc(skip_model_converter); }
 
     class skip_proof_converter : public proof_converter {
-        virtual void operator()(ast_manager & m, unsigned num_source, proof * const * source, proof_ref & result) {
+
+        proof_ref operator()(ast_manager & m, unsigned num_source, proof * const * source) override {
             SASSERT(num_source == 1);
-            result = source[0];
+            return proof_ref(source[0], m);
         }
 
-        virtual proof_converter * translate(ast_translation & translator) {
+        proof_converter * translate(ast_translation & translator) override {
             return alloc(skip_proof_converter);
         }
 
-        virtual void display(std::ostream & out) { out << "(skip-proof-converter)\n"; }
+        void display(std::ostream & out) override { out << "(skip-proof-converter)\n"; }
     };
 
     proof_converter* mk_skip_proof_converter() { return alloc(skip_proof_converter); }

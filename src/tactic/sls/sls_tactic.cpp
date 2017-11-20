@@ -60,18 +60,16 @@ public:
     }
     
     virtual void operator()(goal_ref const & g, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
+                            goal_ref_buffer & result) {
         SASSERT(g->is_well_sorted());        
-        mc = 0; pc = 0; core = 0; result.reset();
+        result.reset();
         
         TRACE("sls", g->display(tout););
         tactic_report report("sls", *g);
         
+        model_converter_ref mc;
         m_engine->operator()(g, mc);
-
+        g->add(mc.get());
         g->inc_depth();
         result.push_back(g.get());
         TRACE("sls", g->display(tout););

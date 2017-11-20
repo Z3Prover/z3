@@ -159,12 +159,8 @@ public:
     }
     
     virtual void operator()(goal_ref const & g, 
-                    goal_ref_buffer & result, 
-                    model_converter_ref & mc, 
-                    proof_converter_ref & pc,
-                    expr_dependency_ref & core) {
+                    goal_ref_buffer & result) {
         SASSERT(g->is_well_sorted());
-        mc = 0; pc = 0; core = 0;
         m_01s->reset();
         
         tactic_report report("cardinality-intro", *g);
@@ -173,9 +169,7 @@ public:
         bounds(*g);
 
         
-        bound_manager::iterator bit = bounds.begin(), bend = bounds.end();
-        for (; bit != bend; ++bit) {
-            expr* x = *bit;
+        for (expr* x : bounds) {
             bool s1 = false, s2 = false;
             rational lo, hi;
             if (a.is_int(x) && 
@@ -197,9 +191,7 @@ public:
             g->update(i, new_curr, new_pr, g->dep(i));
             mark_rec(subfmls, new_curr);
         }
-        expr_set::iterator it = m_01s->begin(), end = m_01s->end();
-        for (; it != end; ++it) {
-            expr* v = *it;
+        for (expr* v : *m_01s) {
             if (subfmls.is_marked(v)) {
                 g->assert_expr(a.mk_le(v, a.mk_numeral(rational(1), true)));
                 g->assert_expr(a.mk_le(a.mk_numeral(rational(0), true), v));

@@ -149,14 +149,8 @@ public:
     void updt_params(params_ref const & p) {
     }
     
-    virtual void operator()(
-        goal_ref const & g, 
-        goal_ref_buffer & result, 
-        model_converter_ref & mc, 
-        proof_converter_ref & pc,
-        expr_dependency_ref & core) {
+    virtual void operator()(goal_ref const & g, goal_ref_buffer & result) {
         SASSERT(g->is_well_sorted());
-        mc = 0; pc = 0; core = 0;
         m_trail.reset();
         m_fd.reset();
         m_max.reset();
@@ -212,7 +206,7 @@ public:
             }
         }        
         g->inc_depth();
-        mc = mc1.get();
+        g->add(mc1.get());
         result.push_back(g.get());
         TRACE("pb", g->display(tout););
         SASSERT(g->is_well_sorted());        

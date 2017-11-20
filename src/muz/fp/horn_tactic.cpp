@@ -177,12 +177,8 @@ class horn_tactic : public tactic {
         }
 
         void operator()(goal_ref const & g, 
-                        goal_ref_buffer & result, 
-                        model_converter_ref & mc, 
-                        proof_converter_ref & pc,
-                        expr_dependency_ref & core) {
+                        goal_ref_buffer & result) {
             SASSERT(g->is_well_sorted());
-            mc = 0; pc = 0; core = 0;
             tactic_report report("horn", *g);
             bool produce_proofs = g->proofs_enabled();
 
@@ -231,16 +227,20 @@ class horn_tactic : public tactic {
                 queries.push_back(q);
                 generic_model_converter* mc1 = alloc(generic_model_converter, m);
                 mc1->hide(q);
-                mc = mc1;
+                g->add(mc1);
             }
             SASSERT(queries.size() == 1);
             q = queries[0].get();
+            proof_converter_ref pc = g->pc();
+            model_converter_ref mc;
             if (m_is_simplify) {
                 simplify(q, g, result, mc, pc);
             }
             else {
                 verify(q, g, result, mc, pc);
             }
+            g->set(pc.get());
+            g->set(mc.get());
         }
 
         void verify(expr* q, 
@@ -384,11 +384,8 @@ public:
     }
     
     virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
-        (*m_imp)(in, result, mc, pc, core);
+                            goal_ref_buffer & result) {
+        (*m_imp)(in, result);
     }
     
     virtual void collect_statistics(statistics & st) const {

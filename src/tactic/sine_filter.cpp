@@ -46,13 +46,7 @@ public:
     virtual void collect_param_descrs(param_descrs & r) {
     }
 
-    virtual void operator()(goal_ref const & g,
-                            goal_ref_buffer & result,
-                            model_converter_ref & mc,
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
-        mc = 0; pc = 0; core = 0;
-
+    void operator()(goal_ref const & g, goal_ref_buffer& result) override {
         TRACE("sine", g->display(tout););
         TRACE("sine", tout << g->size(););
         ptr_vector<expr> new_forms;
@@ -67,8 +61,6 @@ public:
         result.push_back(g.get());
         TRACE("sine", result[0]->display(tout););
         SASSERT(g->is_well_sorted());
-        generic_model_converter * fmc = alloc(generic_model_converter, m);
-        mc = fmc;
     }
     
     virtual void cleanup() {

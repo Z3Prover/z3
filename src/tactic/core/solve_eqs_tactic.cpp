@@ -666,13 +666,9 @@ class solve_eqs_tactic : public tactic {
             return m_num_eliminated_vars;
         }
         
-        void operator()(goal_ref const & g, 
-                        goal_ref_buffer & result, 
-                        model_converter_ref & mc, 
-                        proof_converter_ref & pc,
-                        expr_dependency_ref & core) {
+        void operator()(goal_ref const & g, goal_ref_buffer & result) {
             SASSERT(g->is_well_sorted());
-            mc = 0; pc = 0; core = 0;
+            model_converter_ref mc;
             tactic_report report("solve_eqs", *g);
             m_produce_models = g->models_enabled();
             m_produce_proofs = g->proofs_enabled();
@@ -692,7 +688,6 @@ class solve_eqs_tactic : public tactic {
                     normalize();
                     substitute(*(g.get()));
                     if (g->inconsistent()) {
-                        mc   = 0;
                         break;
                     }
                     save_elim_vars(mc);
@@ -700,6 +695,7 @@ class solve_eqs_tactic : public tactic {
                 }
             }
             g->inc_depth();
+            g->add(mc.get());
             result.push_back(g.get());
             TRACE("solve_eqs", g->display(tout););
             SASSERT(g->is_well_sorted());
@@ -733,12 +729,9 @@ public:
         r.insert("ite_solver", CPK_BOOL, "(default: true) use if-then-else solver.");
     }
     
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
-        (*m_imp)(in, result, mc, pc, core);
+    void operator()(goal_ref const & in, 
+                            goal_ref_buffer & result) override {
+        (*m_imp)(in, result);
         report_tactic_progress(":num-elim-vars", m_imp->get_num_eliminated_vars());
     }
     

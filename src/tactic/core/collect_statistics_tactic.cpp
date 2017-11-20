@@ -63,10 +63,7 @@ public:
 
     virtual void collect_param_descrs(param_descrs & r) {}
 
-    virtual void operator()(goal_ref const & g, goal_ref_buffer & result,
-                            model_converter_ref & mc, proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
-        mc = 0;
+    virtual void operator()(goal_ref const & g, goal_ref_buffer & result) {
         tactic_report report("collect-statistics", *g);
 
         collect_proc cp(m, m_stats);
@@ -76,10 +73,8 @@ public:
             for_each_expr(cp, visited, g->form(i));
 
         std::cout << "(" << std::endl;
-        stats_type::iterator it = m_stats.begin();
-        stats_type::iterator end = m_stats.end();
-        for (; it != end; it++)
-            std::cout << " :" << it->first << "    " << it->second << std::endl;
+        for (auto const& kv : m_stats) 
+            std::cout << " :" << kv.first << "    " << kv.second << std::endl;
         std::cout << ")" << std::endl;
 
         g->inc_depth();

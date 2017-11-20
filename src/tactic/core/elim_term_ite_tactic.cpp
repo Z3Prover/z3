@@ -100,12 +100,8 @@ class elim_term_ite_tactic : public tactic {
         }
         
         void operator()(goal_ref const & g, 
-                        goal_ref_buffer & result, 
-                        model_converter_ref & mc, 
-                        proof_converter_ref & pc,
-                        expr_dependency_ref & core) {
+                        goal_ref_buffer & result) {
             SASSERT(g->is_well_sorted());
-            mc = 0; pc = 0; core = 0;
             tactic_report report("elim-term-ite", *g);
             bool produce_proofs = g->proofs_enabled();
             m_rw.cfg().m_produce_models = g->models_enabled();
@@ -124,7 +120,7 @@ class elim_term_ite_tactic : public tactic {
                 }
                 g->update(idx, new_curr, new_pr, g->dep(idx));
             }
-            mc = m_rw.m_cfg.m_mc.get();
+            g->add(m_rw.m_cfg.m_mc.get());
             report_tactic_progress(":elim-term-ite-consts", m_rw.m_cfg.m_num_fresh);
             g->inc_depth();
             result.push_back(g.get());
@@ -162,11 +158,8 @@ public:
     }
     
     virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
-        (*m_imp)(in, result, mc, pc, core);
+                            goal_ref_buffer & result) {
+        (*m_imp)(in, result);
     }
     
     virtual void cleanup() {

@@ -23,8 +23,7 @@ Notes:
 #include "model/model_evaluator.h"
 
 
-void generic_model_converter::operator()(model_ref & md, unsigned goal_idx) {
-    std::cout << "model converter\n";
+void generic_model_converter::operator()(model_ref & md) {
     TRACE("model_converter", tout << "before generic_model_converter\n"; model_v2_pp(tout, *md); display(tout););
     model_evaluator ev(*(md.get()));
     ev.set_model_completion(true);
@@ -35,12 +34,10 @@ void generic_model_converter::operator()(model_ref & md, unsigned goal_idx) {
         entry const& e = m_entries[i];
         switch (e.m_instruction) {
         case HIDE:
-            std::cout << "hide " << e.m_f << "\n";
             md->unregister_decl(e.m_f);
             break;
         case ADD:
             ev(e.m_def, val);
-            std::cout << e.m_f << " " << e.m_def << " " << val << "\n";
             TRACE("model_converter", tout << e.m_f->get_name() << " ->\n" << e.m_def << "\n==>\n" << val << "\n";);
             arity = e.m_f->get_arity();
             if (arity == 0) {

@@ -116,12 +116,7 @@ public:
     virtual void collect_param_descrs(param_descrs & r) {
     }
 
-    virtual void operator()(goal_ref const & g,
-                            goal_ref_buffer & result,
-                            model_converter_ref & mc,
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
-        mc = 0; pc = 0; core = 0;
+    virtual void operator()(goal_ref const & g, goal_ref_buffer & result) {
         bool produce_proofs = g->proofs_enabled();
         tactic_report report("dt2bv", *g);
         unsigned   size = g->size();
@@ -155,7 +150,7 @@ public:
             for (auto const& kv : rw.enum2def()) 
                 filter->add(kv.m_key, kv.m_value);
             
-            mc = filter.get();
+            g->add(filter.get());
             report_tactic_progress(":fd-num-translated", rw.num_translated());
         }
         g->inc_depth();

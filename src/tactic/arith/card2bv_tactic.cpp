@@ -53,13 +53,10 @@ public:
 
     
     virtual void operator()(goal_ref const & g, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
+                            goal_ref_buffer & result) {
         TRACE("card2bv-before", g->display(tout););
         SASSERT(g->is_well_sorted());
-        mc = 0; pc = 0; core = 0; result.reset();
+        result.reset();
         tactic_report report("card2bv", *g);
         th_rewriter rw1(m, m_params);
         pb2bv_rewriter rw2(m, m_params);
@@ -90,10 +87,8 @@ public:
         func_decl_ref_vector const& fns = rw2.fresh_constants();
         if (!fns.empty()) {
             generic_model_converter* filter = alloc(generic_model_converter, m);
-            for (unsigned i = 0; i < fns.size(); ++i) {
-                filter->hide(fns[i]);
-            }
-            mc = filter;
+            for (func_decl* f : fns) filter->hide(f);
+            g->add(filter);
         }
 
         g->inc_depth();

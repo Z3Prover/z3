@@ -28,17 +28,14 @@ public:
     echo_tactic(cmd_context & ctx, char const * msg, bool newline):m_ctx(ctx), m_msg(msg), m_newline(newline) {}
     
     virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
+                            goal_ref_buffer & result) {
         #pragma omp critical (echo_tactic)
         {
             m_ctx.regular_stream() << m_msg;
             if (m_newline)
                 m_ctx.regular_stream() << std::endl;
         }
-        skip_tactic::operator()(in, result, mc, pc, core);
+        skip_tactic::operator()(in, result);
     }
 };
 
@@ -62,10 +59,7 @@ public:
     }
     
     virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
+                            goal_ref_buffer & result) {
         double val = (*m_p)(*(in.get())).get_value();
         #pragma omp critical (probe_value_tactic)
         {
@@ -75,7 +69,7 @@ public:
             if (m_newline)
                 m_ctx.diagnostic_stream() << std::endl;
         }
-        skip_tactic::operator()(in, result, mc, pc, core);
+        skip_tactic::operator()(in, result);
     }
 };
 

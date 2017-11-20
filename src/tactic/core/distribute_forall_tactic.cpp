@@ -100,16 +100,13 @@ public:
     }
 
     virtual void operator()(goal_ref const & g,
-                            goal_ref_buffer & result,
-                            model_converter_ref & mc,
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
+                            goal_ref_buffer & result) {
         SASSERT(g->is_well_sorted());
         ast_manager & m = g->m();
         bool produce_proofs = g->proofs_enabled();
         rw r(m, produce_proofs);
         m_rw = &r;
-        mc = 0; pc = 0; core = 0; result.reset();
+        result.reset();
         tactic_report report("distribute-forall", *g);
 
         expr_ref   new_curr(m);

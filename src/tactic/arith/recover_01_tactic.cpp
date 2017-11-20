@@ -292,15 +292,12 @@ class recover_01_tactic : public tactic {
         }
     
         void operator()(goal_ref const & g, 
-                        goal_ref_buffer & result, 
-                        model_converter_ref & mc, 
-                        proof_converter_ref & pc,
-                        expr_dependency_ref & core) {
+                        goal_ref_buffer & result) {
             SASSERT(g->is_well_sorted());
             fail_if_proof_generation("recover-01", g);
             fail_if_unsat_core_generation("recover-01", g);
             m_produce_models      = g->models_enabled();
-            mc = 0; pc = 0; core = 0; result.reset();
+            result.reset();
             tactic_report report("recover-01", *g);
             
             bool saved = false;
@@ -308,7 +305,9 @@ class recover_01_tactic : public tactic {
             SASSERT(new_goal->depth() == g->depth());
             SASSERT(new_goal->prec() == g->prec());
             new_goal->inc_depth();
-            
+            new_goal->add(g->mc());
+            new_goal->add(g->pc());
+
             unsigned sz = g->size();
             for (unsigned i = 0; i < sz; i++) {
                 expr * f = g->form(i);
@@ -327,7 +326,7 @@ class recover_01_tactic : public tactic {
             
             if (m_produce_models) {
                 gmc = alloc(generic_model_converter, m);
-                mc  = gmc;
+                new_goal->add(gmc);
             }
             
             dec_ref_key_values(m, bool2int);
@@ -336,25 +335,20 @@ class recover_01_tactic : public tactic {
             bool recovered = false;
             expr_substitution _subst(m);
             subst = &_subst;
-            var2clauses::iterator it  = m_var2clauses.begin();
-            var2clauses::iterator end = m_var2clauses.end();
-            for (; it != end; ++it) {
-                if (process(it->m_key, it->m_value)) {
+            for (auto& kv : m_var2clauses) {
+                if (process(kv.m_key, kv.m_value)) {
                     recovered = true;
                     counter++;
                 }
                 else {
-                    ptr_vector<app>::iterator it2   = it->m_value.begin();
-                    ptr_vector<app>::iterator end2  = it->m_value.end();
-                    for (; it2 != end2; ++it2) {
-                        new_goal->assert_expr(*it2);
+                    for (app* a : kv.m_value) {
+                        new_goal->assert_expr(a);
                     }
                 }
             }
             
             if (!recovered) {
                 result.push_back(g.get());
-                mc = 0;
                 return;
             }
             
@@ -406,12 +400,9 @@ public:
     }
 
     void operator()(goal_ref const & g, 
-                    goal_ref_buffer & result, 
-                    model_converter_ref & mc, 
-                    proof_converter_ref & pc,
-                    expr_dependency_ref & core) {
+                    goal_ref_buffer & result) {
         try {
-            (*m_imp)(g, result, mc, pc, core);
+            (*m_imp)(g, result);
         }
         catch (rewriter_exception & ex) {
             throw tactic_exception(ex.msg());

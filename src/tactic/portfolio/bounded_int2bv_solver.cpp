@@ -210,7 +210,7 @@ private:
         }
         generic_model_converter filter(m);
         for (func_decl* f : m_bv_fns) filter.hide(f);
-        filter(mdl, 0);
+        filter(mdl);
     }
 
     void extend_model(model_ref& mdl) {
@@ -225,7 +225,7 @@ private:
             TRACE("int2bv", tout << mk_pp(kv.m_key, m) << " " << value << "\n";);
             ext.add(kv.m_key, value);
         }
-        ext(mdl, 0);
+        ext(mdl);
     }
 
     void accumulate_sub(expr_safe_replace& sub) const {
