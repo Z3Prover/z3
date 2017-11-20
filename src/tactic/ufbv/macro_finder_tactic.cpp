@@ -19,7 +19,7 @@ Notes:
 #include "tactic/tactical.h"
 #include "ast/macros/macro_manager.h"
 #include "ast/macros/macro_finder.h"
-#include "tactic/extension_model_converter.h"
+#include "tactic/generic_model_converter.h"
 #include "tactic/ufbv/macro_finder_tactic.h"
 
 class macro_finder_tactic : public tactic {
@@ -69,12 +69,12 @@ class macro_finder_tactic : public tactic {
                                produce_proofs ? new_proofs.get(i) : 0,
                                unsat_core_enabled ? new_deps.get(i) : 0);
 
-            extension_model_converter * evmc = alloc(extension_model_converter, mm.get_manager());
+            generic_model_converter * evmc = alloc(generic_model_converter, mm.get_manager());
             unsigned num = mm.get_num_macros();
             for (unsigned i = 0; i < num; i++) {
                 expr_ref f_interp(mm.get_manager());
                 func_decl * f = mm.get_macro_interpretation(i, f_interp);
-                evmc->insert(f, f_interp);
+                evmc->add(f, f_interp);
             }
             mc = evmc;
 

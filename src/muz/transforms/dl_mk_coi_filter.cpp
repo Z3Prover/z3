@@ -21,7 +21,7 @@ Author:
 #include "muz/dataflow/dataflow.h"
 #include "muz/dataflow/reachability.h"
 #include "ast/ast_pp.h"
-#include "tactic/extension_model_converter.h"
+#include "tactic/generic_model_converter.h"
 
 namespace datalog {
     rule_set * mk_coi_filter::operator()(rule_set const & source) {
@@ -90,10 +90,10 @@ namespace datalog {
 
         // set to false each unreached predicate 
         if (m_context.get_model_converter()) {
-            extension_model_converter* mc0 = alloc(extension_model_converter, m);
-            for (dataflow_engine<reachability_info>::iterator it = engine.begin(); it != engine.end(); it++) {
-                if (!it->m_value.is_reachable()) {
-                    mc0->insert(it->m_key, m.mk_false());
+            generic_model_converter* mc0 = alloc(generic_model_converter, m);
+            for (auto const& kv : engine) {
+                if (!kv.m_value.is_reachable()) {
+                    mc0->add(kv.m_key, m.mk_false());
                 }
             }
             m_context.add_model_converter(mc0);
@@ -127,7 +127,7 @@ namespace datalog {
         if (res && m_context.get_model_converter()) {
             func_decl_set::iterator end = pruned_preds.end();
             func_decl_set::iterator it = pruned_preds.begin();
-            extension_model_converter* mc0 = alloc(extension_model_converter, m);
+            generic_model_converter* mc0 = alloc(generic_model_converter, m);
             for (; it != end; ++it) {
                 const rule_vector& rules = source.get_predicate_rules(*it);
                 expr_ref_vector fmls(m);
@@ -144,7 +144,7 @@ namespace datalog {
                 }
                 expr_ref fml(m);
                 fml = m.mk_or(fmls.size(), fmls.c_ptr());
-                mc0->insert(*it, fml);
+                mc0->add(*it, fml);
             }
             m_context.add_model_converter(mc0);
         }

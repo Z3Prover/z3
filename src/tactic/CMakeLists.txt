@@ -1,7 +1,6 @@
 z3_add_component(tactic
   SOURCES
     equiv_proof_converter.cpp
-    extension_model_converter.cpp
     generic_model_converter.cpp
     goal.cpp
     goal_num_occurs.cpp

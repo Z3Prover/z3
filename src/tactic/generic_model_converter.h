@@ -34,9 +34,9 @@ class generic_model_converter : public model_converter {
     ast_manager& m;
     vector<entry> m_add_entries;
     vector<entry> m_hide_entries;
-    obj_map<func_decl_ref, unsigned> m_first_idx;
+    obj_map<func_decl, unsigned> m_first_idx;
 public:
-    generic_model_converter(ast_manager & m): m(m) {}
+    generic_model_converter(ast_manager & m) : m(m) {}
     
     virtual ~generic_model_converter() { }
     
@@ -44,7 +44,13 @@ public:
 
     void hide(func_decl * f) { m_hide_entries.push_back(entry(f, 0, m, HIDE)); }
 
-    void add(func_decl * d, expr* e) { m_add_entries.push_back(entry(d, e, m, ADD)); }
+    void add(func_decl * d, expr* e) {
+        struct entry et(d, e, m, ADD);
+        m_first_idx.insert_if_not_there(et.m_f, m_add_entries.size());
+        m_add_entries.push_back(et);
+    }
+
+    void add(expr * d, expr* e) { SASSERT(is_app(d) && to_app(d)->get_num_args() == 0); add(to_app(d)->get_decl(), e); }
     
     virtual void operator()(model_ref & md, unsigned goal_idx);
 

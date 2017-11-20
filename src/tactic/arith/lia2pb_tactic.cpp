@@ -20,7 +20,6 @@ Revision History:
 #include "tactic/arith/bound_manager.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/for_each_expr.h"
-#include "tactic/extension_model_converter.h"
 #include "tactic/generic_model_converter.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/expr_substitution.h"
@@ -224,12 +223,10 @@ class lia2pb_tactic : public tactic {
             if (!check_num_bits())
                 throw tactic_exception("lia2pb failed, number of necessary bits exceeds specified threshold (use option :lia2pb-total-bits to increase threshold)");
             
-            extension_model_converter * mc1 = 0;
-            generic_model_converter    * mc2 = 0;
+            generic_model_converter    * gmc = 0;
             if (m_produce_models) {
-                mc1 = alloc(extension_model_converter, m);
-                mc2 = alloc(generic_model_converter, m);
-                mc  = concat(mc2, mc1);
+                gmc = alloc(generic_model_converter, m);
+                mc  = gmc;
             }
             
             expr_ref zero(m);
@@ -259,7 +256,7 @@ class lia2pb_tactic : public tactic {
                         else
                             def_args.push_back(m_util.mk_mul(m_util.mk_numeral(a, true), x_prime));
                         if (m_produce_models)
-                            mc2->hide(x_prime->get_decl());
+                            gmc->hide(x_prime->get_decl());
                         a *= rational(2);
                     }
                     SASSERT(def_args.size() > 1);
@@ -273,7 +270,7 @@ class lia2pb_tactic : public tactic {
                     TRACE("lia2pb", tout << mk_ismt2_pp(x, m) << " -> " << dep << "\n";);
                     subst.insert(x, def, 0, dep);
                     if (m_produce_models) {
-                        mc1->insert(to_app(x)->get_decl(), def);
+                        gmc->add(x, def);
                     }
                 }
             }

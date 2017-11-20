@@ -22,7 +22,6 @@ Notes:
 #include "tactic/tactic.h"
 #include "ast/rewriter/pb2bv_rewriter.h"
 #include "tactic/generic_model_converter.h"
-#include "tactic/extension_model_converter.h"
 #include "ast/ast_pp.h"
 #include "model/model_smt2_pp.h"
 #include "tactic/arith/bound_manager.h"
@@ -215,17 +214,16 @@ private:
     }
 
     void extend_model(model_ref& mdl) {
-        extension_model_converter ext(m);
-        obj_map<func_decl, func_decl*>::iterator it = m_int2bv.begin(), end = m_int2bv.end();
-        for (; it != end; ++it) {
+        generic_model_converter ext(m);
+        for (auto const& kv : m_int2bv) {
             rational offset;
-            VERIFY (m_bv2offset.find(it->m_value, offset));
-            expr_ref value(m_bv.mk_bv2int(m.mk_const(it->m_value)), m);
+            VERIFY (m_bv2offset.find(kv.m_value, offset));
+            expr_ref value(m_bv.mk_bv2int(m.mk_const(kv.m_value)), m);
             if (!offset.is_zero()) {
                 value = m_arith.mk_add(value, m_arith.mk_numeral(offset, true));
             }
-            TRACE("int2bv", tout << mk_pp(it->m_key, m) << " " << value << "\n";);
-            ext.insert(it->m_key, value);
+            TRACE("int2bv", tout << mk_pp(kv.m_key, m) << " " << value << "\n";);
+            ext.add(kv.m_key, value);
         }
         ext(mdl, 0);
     }

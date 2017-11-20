@@ -21,7 +21,6 @@ Revision History:
 #include "tactic/generic_model_converter.h"
 #include "ast/datatype_decl_plugin.h"
 #include "ast/rewriter/rewriter_def.h"
-#include "tactic/extension_model_converter.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/ast_util.h"
 #include "util/obj_pair_hashtable.h"

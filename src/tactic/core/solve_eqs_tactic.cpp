@@ -18,7 +18,7 @@ Revision History:
 --*/
 #include "tactic/tactical.h"
 #include "ast/rewriter/expr_replacer.h"
-#include "tactic/extension_model_converter.h"
+#include "tactic/generic_model_converter.h"
 #include "ast/occurs.h"
 #include "util/cooperate.h"
 #include "tactic/goal_shared_occs.h"
@@ -26,7 +26,7 @@ Revision History:
 
 class solve_eqs_tactic : public tactic {
     struct imp {
-        typedef extension_model_converter gmc;
+        typedef generic_model_converter gmc;
         
         ast_manager &                 m_manager;
         expr_replacer *               m_r;
@@ -509,10 +509,8 @@ class solve_eqs_tactic : public tactic {
             expr_ref new_def(m());
             proof_ref new_pr(m());
             expr_dependency_ref new_dep(m());
-            unsigned size = m_ordered_vars.size();
-            for (unsigned idx = 0; idx < size; idx++) {
+            for (app * v : m_ordered_vars) {
                 checkpoint();
-                expr * v   = m_ordered_vars[idx];
                 expr * def = 0;
                 proof * pr = 0;
                 expr_dependency * dep = 0;
@@ -609,16 +607,13 @@ class solve_eqs_tactic : public tactic {
             if (m_produce_models) {
                 if (mc.get() == 0)
                     mc = alloc(gmc, m());
-                ptr_vector<app>::iterator it  = m_ordered_vars.begin();
-                ptr_vector<app>::iterator end = m_ordered_vars.end();
-                for (; it != end; ++it) {
-                    app * v    = *it;
+                for (app * v : m_ordered_vars) {
                     expr * def = 0;
                     proof * pr;
                     expr_dependency * dep;
                     m_norm_subst->find(v, def, pr, dep);
                     SASSERT(def != 0);
-                    static_cast<gmc*>(mc.get())->insert(v->get_decl(), def);
+                    static_cast<gmc*>(mc.get())->add(v, def);
                 }
             }
         }

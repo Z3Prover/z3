@@ -26,7 +26,6 @@ Revision History:
 #include "ast/bv_decl_plugin.h"
 #include "ast/rewriter/rewriter_def.h"
 #include "tactic/generic_model_converter.h"
-#include "tactic/extension_model_converter.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/ast_util.h"
 #include "ast/rewriter/enum2bv_rewriter.h"
@@ -134,7 +133,6 @@ public:
         for (sort* s : m_non_fd_sorts) 
             m_fd_sorts.remove(s);
         if (!m_fd_sorts.empty()) {
-            ref<extension_model_converter> ext = alloc(extension_model_converter, m);
             ref<generic_model_converter> filter = alloc(generic_model_converter, m);
             enum2bv_rewriter rw(m, m_params);
             rw.set_is_fd(&m_is_fd);            
@@ -155,9 +153,9 @@ public:
             for (auto const& kv : rw.enum2bv()) 
                 filter->hide(kv.m_value);
             for (auto const& kv : rw.enum2def()) 
-                ext->insert(kv.m_key, kv.m_value);
+                filter->add(kv.m_key, kv.m_value);
             
-            mc = concat(filter.get(), ext.get());
+            mc = filter.get();
             report_tactic_progress(":fd-num-translated", rw.num_translated());
         }
         g->inc_depth();
