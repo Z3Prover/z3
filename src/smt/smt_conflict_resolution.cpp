@@ -313,8 +313,8 @@ namespace smt {
         SASSERT(var < static_cast<int>(m_ctx.get_num_bool_vars()));
         TRACE("conflict", tout << "processing antecedent (level " << lvl << "):";
               m_ctx.display_literal(tout, antecedent);
-              m_ctx.display_detailed_literal(tout << " ", antecedent); tout << "\n";);
-
+              m_ctx.display_detailed_literal(tout << " ", antecedent) << "\n";);
+        
         if (!m_ctx.is_marked(var) && lvl > m_ctx.get_base_level()) {
             m_ctx.set_mark(var);
             m_ctx.inc_bvar_activity(var);
@@ -328,8 +328,7 @@ namespace smt {
 
             if (get_manager().has_trace_stream()) {
                 get_manager().trace_stream() << "[resolve-lit] " << m_conflict_lvl - lvl << " ";
-                m_ctx.display_literal(get_manager().trace_stream(), ~antecedent);
-                get_manager().trace_stream() << "\n";
+                m_ctx.display_literal(get_manager().trace_stream(), ~antecedent) << "\n";
             }
 
             if (lvl == m_conflict_lvl) {
@@ -391,7 +390,7 @@ namespace smt {
               << " search_lvl: " << m_ctx.get_search_level() << "\n";
               tout << "js.kind: " << js.get_kind() << "\n";
               tout << "consequent: " << consequent << ": ";
-              m_ctx.display_literal_verbose(tout, consequent); tout << "\n";
+              m_ctx.display_literal_verbose(tout, consequent) << "\n";
               m_ctx.display(tout, js); tout << "\n";
           );
 
@@ -430,32 +429,16 @@ namespace smt {
     void conflict_resolution::finalize_resolve(b_justification conflict, literal not_l) {
         unmark_justifications(0);
 
-        TRACE("conflict",
-              tout << "before minimization:\n";
-              m_ctx.display_literals(tout, m_lemma);
-              tout << "\n";);
+        TRACE("conflict", m_ctx.display_literals(tout << "before minimization:\n", m_lemma) << "\n";);
 
-        TRACE("conflict_verbose",
-              tout << "before minimization:\n";
-              m_ctx.display_literals_verbose(tout, m_lemma);
-              tout << "\n";);
+        TRACE("conflict_verbose",m_ctx.display_literals_verbose(tout << "before minimization:\n", m_lemma) << "\n";);
 
         if (m_params.m_minimize_lemmas)
             minimize_lemma();
 
-        TRACE("conflict",
-              tout << "after minimization:\n";
-              m_ctx.display_literals(tout, m_lemma);
-              tout << "\n";);
-
-        TRACE("conflict_verbose",
-              tout << "after minimization:\n";
-              m_ctx.display_literals_verbose(tout, m_lemma);
-              tout << "\n";);
-
-        TRACE("conflict_bug",
-              m_ctx.display_literals_verbose(tout, m_lemma);
-              tout << "\n";);
+        TRACE("conflict", m_ctx.display_literals(tout << "after minimization:\n", m_lemma) << "\n";);
+        TRACE("conflict_verbose", m_ctx.display_literals_verbose(tout << "after minimization:\n", m_lemma) << "\n";);
+        TRACE("conflict_bug", m_ctx.display_literals_verbose(tout, m_lemma) << "\n";);
 
         literal_vector::iterator it  = m_lemma.begin();
         literal_vector::iterator end = m_lemma.end();
@@ -527,7 +510,8 @@ namespace smt {
                 get_manager().trace_stream() << "\n";
             }
 
-            TRACE("conflict", tout << "processing consequent: " << idx << " "; m_ctx.display_literal_verbose(tout, consequent); tout << "\n";
+            TRACE("conflict", tout << "processing consequent id: " << idx << " lit: " << consequent << " "; m_ctx.display_literal(tout, consequent); 
+                  m_ctx.display_literal_verbose(tout, consequent) << "\n";
                   tout << "num_marks: " << num_marks << ", js kind: " << js.get_kind() << " level: " << m_ctx.get_assign_level(consequent) << "\n";
                   );
             SASSERT(js != null_b_justification);

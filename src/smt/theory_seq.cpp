@@ -1298,6 +1298,21 @@ void theory_seq::propagate_eq(dependency* dep, enode* n1, enode* n2) {
           display_deps(tout, dep); 
           );
 
+#if 0
+    //std::cout << mk_pp(n1->get_owner(), m) << " = " << mk_pp(n2->get_owner(), m) << "\n";
+    //display_deps(std::cout, dep);
+
+    for (literal lit : lits) {
+        SASSERT(ctx.get_assignment(lit) == l_true);
+    }
+    for (enode_pair p : eqs) {
+        if (p.first->get_root() != p.second->get_root()) {
+            std::cout << mk_pp(p.first->get_owner(), m) << " " << mk_pp(p.second->get_owner(), m) << "\n";
+        }
+        SASSERT(p.first->get_root() == p.second->get_root());
+    }
+#endif
+
     justification* js = ctx.mk_justification(
         ext_theory_eq_propagation_justification(
             get_id(), ctx.get_region(), lits.size(), lits.c_ptr(), eqs.size(), eqs.c_ptr(), n1, n2));
@@ -3027,6 +3042,8 @@ expr_ref theory_seq::expand1(expr* e0, dependency*& eqs) {
             enode* n1 = ctx.get_enode(num);
             enode* n2 = ctx.get_enode(e1);
             res = m_util.str.mk_string(symbol(val.to_string().c_str()));
+#if 1
+            // TBD remove this: using roots is unsound for propagation.
             if (n1->get_root() == n2->get_root()) {
                 result = res;
                 deps = m_dm.mk_join(deps, m_dm.mk_leaf(assumption(n1, n2)));
@@ -3037,6 +3054,12 @@ expr_ref theory_seq::expand1(expr* e0, dependency*& eqs) {
                 add_axiom(mk_eq(num, e1, false), ~mk_eq(e, res, false));
                 result = e;
             }
+#else
+            TRACE("seq", tout << "add axiom\n";);                
+            add_axiom(~mk_eq(num, e1, false), mk_eq(e, res, false));
+            add_axiom(mk_eq(num, e1, false), ~mk_eq(e, res, false));
+            result = e;
+#endif
         }
         else {
             result = e;

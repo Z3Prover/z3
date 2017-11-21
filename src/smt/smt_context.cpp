@@ -287,6 +287,13 @@ namespace smt {
 
 
     void context::assign_core(literal l, b_justification j, bool decision) {
+#if 0
+        // for debugging #1233
+        if (l.var() == 11133 && l.sign()) {
+            std::cout << l << "\n";
+            UNREACHABLE();
+        }
+#endif
         TRACE("assign_core", tout << (decision?"decision: ":"propagating: ") << l << " ";
               display_literal_verbose(tout, l); tout << " level: " << m_scope_lvl << "\n";
               display(tout, j););
@@ -902,7 +909,7 @@ namespace smt {
     }
 
     /**
-       \brief Propabate the boolean assignment when two equivalence classes are merged.
+       \brief Propagate the boolean assignment when two equivalence classes are merged.
     */
     void context::propagate_bool_enode_assignment(enode * r1, enode * r2, enode * n1, enode * n2) {
         SASSERT(n1->is_bool());
