@@ -3995,59 +3995,52 @@ def BVRedOr(a):
 
 def BVAddNoOverflow(a, b, signed):
     """A predicate the determines that bit-vector addition does not overflow"""
-    if __debug__:
-        _z3_assert(is_bv(a), "Arguments should be bit-vectors")
-        _z3_assert(is_bv(b), "Arguments should be bit-vectors")
+    _check_bv_args(a, b)
+    a, b = _coerce_exprs(a, b)
     return BoolRef(Z3_mk_bvadd_no_overflow(a.ctx_ref(), a.as_ast(), b.as_ast(), signed), a.ctx)
 
 def BVAddNoUnderflow(a, b, signed):
     """A predicate the determines that signed bit-vector addition does not underflow"""
-    if __debug__:
-        _z3_assert(is_bv(a), "Arguments should be bit-vectors")
-        _z3_assert(is_bv(b), "Arguments should be bit-vectors")
+    _check_bv_args(a, b)
+    a, b = _coerce_exprs(a, b)
     return BoolRef(Z3_mk_bvadd_no_underflow(a.ctx_ref(), a.as_ast(), b.as_ast()), a.ctx)
 
 def BVSubNoOverflow(a, b):
     """A predicate the determines that bit-vector subtraction does not overflow"""
-    if __debug__:
-        _z3_assert(is_bv(a), "Arguments should be bit-vectors")
-        _z3_assert(is_bv(b), "Arguments should be bit-vectors")
+    _check_bv_args(a, b)
+    a, b = _coerce_exprs(a, b)
     return BoolRef(Z3_mk_bvsub_no_overflow(a.ctx_ref(), a.as_ast(), b.as_ast()), a.ctx)
     
 
 def BVSubNoUnderflow(a, b, signed):
     """A predicate the determines that bit-vector subtraction does not underflow"""
-    if __debug__:
-        _z3_assert(is_bv(a), "Arguments should be bit-vectors")
-        _z3_assert(is_bv(b), "Arguments should be bit-vectors")
+    _check_bv_args(a, b)
+    a, b = _coerce_exprs(a, b)
     return BoolRef(Z3_mk_bvsub_no_underflow(a.ctx_ref(), a.as_ast(), b.as_ast(), signed), a.ctx)
 
 def BVSDivNoOverflow(a, b):
     """A predicate the determines that bit-vector signed division does not overflow"""
-    if __debug__:
-        _z3_assert(is_bv(a), "Arguments should be bit-vectors")
-        _z3_assert(is_bv(b), "Arguments should be bit-vectors")
+    _check_bv_args(a, b)
+    a, b = _coerce_exprs(a, b)
     return BoolRef(Z3_mk_bvsdiv_no_overflow(a.ctx_ref(), a.as_ast(), b.as_ast()), a.ctx)
 
 def BVSNegNoOverflow(a):
     """A predicate the determines that bit-vector unary negation does not overflow"""
     if __debug__:
-        _z3_assert(is_bv(a), "Arguments should be bit-vectors")
+        _z3_assert(is_bv(a), "Argument should be a bit-vector")
     return BoolRef(Z3_mk_bvneg_no_overflow(a.ctx_ref(), a.as_ast()), a.ctx)
 
 def BVMulNoOverflow(a, b, signed):
     """A predicate the determines that bit-vector multiplication does not overflow"""
-    if __debug__:
-        _z3_assert(is_bv(a), "Arguments should be bit-vectors")
-        _z3_assert(is_bv(b), "Arguments should be bit-vectors")
+    _check_bv_args(a, b)
+    a, b = _coerce_exprs(a, b)
     return BoolRef(Z3_mk_bvmul_no_overflow(a.ctx_ref(), a.as_ast(), b.as_ast(), signed), a.ctx)
 
 
 def BVMulNoUnderflow(a, b, signed):
     """A predicate the determines that bit-vector signed multiplication does not underflow"""
-    if __debug__:
-        _z3_assert(is_bv(a), "Arguments should be bit-vectors")
-        _z3_assert(is_bv(b), "Arguments should be bit-vectors")
+    _check_bv_args(a, b)
+    a, b = _coerce_exprs(a, b)
     return BoolRef(Z3_mk_bvmul_no_underflow(a.ctx_ref(), a.as_ast(), b.as_ast()), a.ctx)
 
 
