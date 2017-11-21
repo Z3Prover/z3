@@ -104,7 +104,6 @@ void generic_model_converter::operator()(expr_ref& fml) {
     unsigned min_idx = min_proc.m_min;
     for (unsigned i = m_add_entries.size(); i-- > min_idx;) {
         entry const& e = m_add_entries[i];
-        m_add_entries.pop_back();
         unsigned arity = e.m_f->get_arity();
         if (arity == 0) {
             fml = m.mk_and(fml, m.mk_eq(m.mk_const(e.m_f), e.m_def));
@@ -115,5 +114,6 @@ void generic_model_converter::operator()(expr_ref& fml) {
         if (m_first_idx[e.m_f] == i) {
             m_first_idx.remove(e.m_f);
         }
+        m_add_entries.pop_back();
     }
 }
