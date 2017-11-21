@@ -429,11 +429,12 @@ namespace Microsoft.Z3
                 var lvl = BacktrackLevel;
                 BacktrackLevel = uint.MaxValue;
                 ASTVector r = new ASTVector(Context, Native.Z3_solver_cube(Context.nCtx, NativeObject, lvl));
-                if (r.Size == 1 && ((Expr)r[0]).IsFalse) {
+                var v = r.ToBoolExprArray();
+                if (v.Length == 1 && v[0].IsFalse) {
                    break;
                 }
-                yield return r.ToBoolExprArray();
-	        if (r.Size == 0) {
+                yield return v; 
+ 	            if (v.Length == 0) {
                    break;
                 }
 	     }
