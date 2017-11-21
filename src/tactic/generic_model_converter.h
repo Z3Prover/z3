@@ -32,19 +32,25 @@ class generic_model_converter : public model_converter {
             m_f(f, m), m_def(d, m), m_instruction(i) {}
     };
     ast_manager& m;
-    vector<entry> m_entries;
+    vector<entry> m_add_entries;
+    vector<entry> m_hide_entries;
+    obj_map<func_decl, unsigned> m_first_idx;
 public:
-    generic_model_converter(ast_manager & m): m(m) {}
+    generic_model_converter(ast_manager & m) : m(m) {}
     
     virtual ~generic_model_converter() { }
     
     void hide(expr* e) { SASSERT(is_app(e) && to_app(e)->get_num_args() == 0); hide(to_app(e)->get_decl()); }
 
-    void hide(func_decl * f) { m_entries.push_back(entry(f, 0, m, HIDE)); }
+    void hide(func_decl * f) { m_hide_entries.push_back(entry(f, 0, m, HIDE)); }
 
-    void add(func_decl * d, expr* e) { m_entries.push_back(entry(d, e, m, ADD)); }
+    void add(func_decl * d, expr* e) {
+        struct entry et(d, e, m, ADD);
+        m_first_idx.insert_if_not_there(et.m_f, m_add_entries.size());
+        m_add_entries.push_back(et);
+    }
 
-    void add(expr * d, expr* e) { SASSERT(is_app(d) && to_app(d)->get_num_args() == 0); m_entries.push_back(entry(to_app(d)->get_decl(), e, m, ADD)); }
+    void add(expr * d, expr* e) { SASSERT(is_app(d) && to_app(d)->get_num_args() == 0); add(to_app(d)->get_decl(), e); }
     
     void operator()(labels_vec & labels) override {}
     

@@ -885,7 +885,8 @@ struct sat2goal::imp {
         sat::model_converter         m_mc;
         expr_ref_vector              m_var2expr;
         generic_model_converter_ref  m_fmc; // filter for eliminating fresh variables introduced in the assertion-set --> sat conversion
-        
+        generic_model_converter_ref  m_imc; // used to ensure correctness in incremental calls with simplifications that require model conversions
+
         sat_model_converter(ast_manager & m):
             m_var2expr(m) {
         }
@@ -894,6 +895,7 @@ struct sat2goal::imp {
         sat_model_converter(ast_manager & m, sat::solver const & s):m_var2expr(m) {
             m_mc.copy(s.get_model_converter());
             m_fmc = alloc(generic_model_converter, m);
+            m_imc = nullptr;
         }
         
         ast_manager & m() { return m_var2expr.get_manager(); }
@@ -920,6 +922,7 @@ struct sat2goal::imp {
                     insert(l.var(), m().mk_fresh_const(0, m().mk_bool_sort()), true);
                 }
             }
+            m_imc = nullptr;
         }
         
         virtual void operator()(model_ref & md) {
@@ -1026,7 +1029,34 @@ struct sat2goal::imp {
         }
 
         void operator()(expr_ref& formula) override {
-            NOT_IMPLEMENTED_YET();
+            if (!m_imc) {
+                m_imc = alloc(generic_model_converter, m());
+                sat::literal_vector updates;
+                m_mc.expand(updates);
+                sat::literal_vector clause;
+                expr_ref_vector tail(m());
+                expr_ref def(m());
+                for (sat::literal l : updates) {
+                    if (l == sat::null_literal) {
+                        sat::literal lit0 = clause[0];
+                        for (unsigned i = 1; i < clause.size(); ++i) {
+                            tail.push_back(lit2expr(~clause[i]));
+                        }
+                        def = m().mk_or(lit2expr(lit0), mk_and(tail));
+                        if (lit0.sign()) {
+                            lit0.neg();
+                            def = m().mk_not(def);
+                        }
+                        m_imc->add(lit2expr(lit0), def);
+                        clause.reset();
+                        tail.reset();
+                    }
+                    else {
+                        clause.push_back(l);
+                    }
+                }
+            }
+            (*m_imc)(formula);
         }
     };
 
