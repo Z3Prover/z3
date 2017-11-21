@@ -257,10 +257,8 @@ namespace smt {
         literal_vector & antecedents = m_tmp_literal_vector;
         antecedents.reset();
         justification2literals(js, antecedents);
-        literal_vector::iterator it  = antecedents.begin();
-        literal_vector::iterator end = antecedents.end();
-        for(; it != end; ++it)
-            r = std::max(r, m_ctx.get_assign_level(*it));
+        for (literal lit : antecedents) 
+            r = std::max(r, m_ctx.get_assign_level(lit));
         return r;
     }
 
@@ -335,6 +333,7 @@ namespace smt {
             }
 
             if (lvl == m_conflict_lvl) {
+                TRACE("conflict", m_ctx.display_literal(tout << "marking:", antecedent) << "\n";);
                 num_marks++;
             }
             else {
@@ -486,6 +485,20 @@ namespace smt {
     }
 
     bool conflict_resolution::resolve(b_justification conflict, literal not_l) {
+
+#if 0
+        // for debugging #1233
+        if (not_l == to_literal(22267)) {
+            std::cout << not_l << "\n";
+            enable_trace("conflict");
+            enable_trace("conflict_verbose");
+            TRACE("conflict", 
+                  unsigned idx = 0;
+                  for (literal lit : m_assigned_literals) {
+                      m_ctx.display_literal(tout << (idx++) << ":", lit); tout << "\n";
+                  });
+        }
+#endif
         b_justification js;
         literal consequent;
 
@@ -514,7 +527,7 @@ namespace smt {
                 get_manager().trace_stream() << "\n";
             }
 
-            TRACE("conflict", tout << "processing consequent: "; m_ctx.display_literal_verbose(tout, consequent); tout << "\n";
+            TRACE("conflict", tout << "processing consequent: " << idx << " "; m_ctx.display_literal_verbose(tout, consequent); tout << "\n";
                   tout << "num_marks: " << num_marks << ", js kind: " << js.get_kind() << " level: " << m_ctx.get_assign_level(consequent) << "\n";
                   );
             SASSERT(js != null_b_justification);
@@ -566,8 +579,10 @@ namespace smt {
                 if (m_ctx.is_marked(l.var()))
                     break;
                 CTRACE("conflict", m_ctx.get_assign_level(l) != m_conflict_lvl && m_ctx.get_assign_level(l) != m_ctx.get_base_level(),
-                       tout << "assign_level(l): " << m_ctx.get_assign_level(l) << ", conflict_lvl: " << m_conflict_lvl << ", l: "; m_ctx.display_literal_verbose(tout, l);
-                       tout << "\n";);
+                       tout << "assign_level(l): " << m_ctx.get_assign_level(l) << ", conflict_lvl: ";
+                       tout << m_conflict_lvl << ", l: "; m_ctx.display_literal_verbose(tout, l);
+                       tout << "\n";
+                       tout << "num marks: " << num_marks << "\n";);
                 SASSERT(m_ctx.get_assign_level(l) == m_conflict_lvl ||
                         // it may also be an (out-of-order) asserted literal
                         m_ctx.get_assign_level(l) == m_ctx.get_base_level());
@@ -606,10 +621,8 @@ namespace smt {
     */
     level_approx_set conflict_resolution::get_lemma_approx_level_set() {
         level_approx_set result;
-        literal_vector::const_iterator it  = m_lemma.begin();
-        literal_vector::const_iterator end = m_lemma.end();
-        for(; it != end; ++it)
-            result.insert(m_ctx.get_assign_level(*it));
+        for (literal l : m_lemma) 
+            result.insert(m_ctx.get_assign_level(l));
         return result;
     }
 
@@ -660,10 +673,8 @@ namespace smt {
         // The method unmark_justifications must be invoked to reset these caches.
         // Remark: The method reset_unmark_and_justifications invokes unmark_justifications.
         justification2literals_core(js, antecedents);
-        literal_vector::iterator it  = antecedents.begin();
-        literal_vector::iterator end = antecedents.end();
-        for(; it != end; ++it)
-            if (!process_antecedent_for_minimization(*it))
+        for (literal l : antecedents) 
+            if (!process_antecedent_for_minimization(l))
                 return false;
         return true;
     }
@@ -1063,10 +1074,8 @@ namespace smt {
         m_eq2proof.reset();
         m_lit2proof.reset();
         m_js2proof.reset();
-        literal_vector::iterator it  = m_lemma.begin();
-        literal_vector::iterator end = m_lemma.end();
-        for (; it != end;  ++it)
-            m_ctx.set_mark((*it).var());
+        for (literal lit : m_lemma)
+            m_ctx.set_mark(lit.var());
     }
 
     bool conflict_resolution::visit_b_justification(literal l, b_justification js) {
@@ -1246,12 +1255,9 @@ namespace smt {
         SASSERT(conflict.get_kind() != b_justification::BIN_CLAUSE);
         SASSERT(conflict.get_kind() != b_justification::AXIOM);
         SASSERT(not_l == null_literal || conflict.get_kind() == b_justification::JUSTIFICATION);
-        TRACE("mk_conflict_proof", tout << "lemma literals: ";
-              literal_vector::iterator it  = m_lemma.begin();
-              literal_vector::iterator end = m_lemma.end();
-              for (; it != end; ++it) {
-                  m_ctx.display_literal(tout, *it);
-                  tout << " ";
+        TRACE("mk_conflict_proof", tout << "lemma literals:";
+              for (literal lit : m_lemma) {
+                  m_ctx.display_literal(tout << " ", lit);
               }
               tout << "\n";);
         init_mk_proof();
@@ -1328,12 +1334,10 @@ namespace smt {
             pr = m_manager.mk_unit_resolution(2, prs);
         }
         expr_ref_buffer lits(m_manager);
-        literal_vector::iterator it  = m_lemma.begin();
-        literal_vector::iterator end = m_lemma.end();
-        for (; it != end; ++it) {
-            m_ctx.unset_mark((*it).var());
+        for (literal lit : m_lemma) {
+            m_ctx.unset_mark(lit.var());
             expr_ref l_expr(m_manager);
-            m_ctx.literal2expr(*it, l_expr);
+            m_ctx.literal2expr(lit, l_expr);
             lits.push_back(l_expr);
         }
         expr * fact = 0;
@@ -1369,10 +1373,8 @@ namespace smt {
         literal_vector & antecedents = m_tmp_literal_vector;
         antecedents.reset();
         justification2literals_core(js, antecedents);
-        literal_vector::iterator it  = antecedents.begin();
-        literal_vector::iterator end = antecedents.end();
-        for(; it != end; ++it)
-            process_antecedent_for_unsat_core(*it);
+        for (literal lit : antecedents) 
+            process_antecedent_for_unsat_core(lit);
     }
 
     void conflict_resolution::mk_unsat_core(b_justification conflict, literal not_l) {

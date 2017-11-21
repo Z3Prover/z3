@@ -143,7 +143,6 @@ public:
             }
             out << ")\n";            
             m_base->display(out, num_assumptions, assumptions);
-            bool first = true;
             out << "(check-sat";
             for (unsigned i = 0; i < num_assumptions; ++i) {
                 out << " " << mk_pp(assumptions[i], m);

@@ -1615,11 +1615,9 @@ namespace smt {
        \brief Return set of assigned literals as expressions.
     */
     void context::get_assignments(expr_ref_vector& assignments) {
-        literal_vector::const_iterator it  = m_assigned_literals.begin();
-        literal_vector::const_iterator end = m_assigned_literals.end();
-        for (; it != end; ++it) {
+        for (literal lit : m_assigned_literals) {
             expr_ref e(m_manager);
-            literal2expr(*it, e);
+            literal2expr(lit, e);
             assignments.push_back(e);
         }
     }
@@ -1694,10 +1692,8 @@ namespace smt {
     }
 
     bool context::propagate_theories() {
-        ptr_vector<theory>::iterator it  = m_theory_set.begin();
-        ptr_vector<theory>::iterator end = m_theory_set.end();
-        for (; it != end; ++it) {
-            (*it)->propagate();
+        for (theory * t : m_theory_set) {
+            t->propagate();
             if (inconsistent())
                 return false;
         }
@@ -1733,10 +1729,8 @@ namespace smt {
     }
 
     bool context::can_theories_propagate() const {
-        ptr_vector<theory>::const_iterator it  = m_theory_set.begin();
-        ptr_vector<theory>::const_iterator end = m_theory_set.end();
-        for (; it != end; ++it) {
-            if ((*it)->can_propagate()) {
+        for (theory* t : m_theory_set) {
+            if (t->can_propagate()) {
                 return true;
             }
         }
@@ -1821,7 +1815,7 @@ namespace smt {
     }
 
     void context::rescale_bool_var_activity() {
-        TRACE("case_split", tout << "rescale\n";);
+        TRACE("case_split", tout << "rescale\n";);        
         svector<double>::iterator it  = m_activity.begin();
         svector<double>::iterator end = m_activity.end();
         for (; it != end; ++it)
@@ -1968,10 +1962,8 @@ namespace smt {
         m_case_split_queue->push_scope();
         m_asserted_formulas.push_scope();
 
-        ptr_vector<theory>::iterator it  = m_theory_set.begin();
-        ptr_vector<theory>::iterator end = m_theory_set.end();
-        for (; it != end; ++it)
-            (*it)->push_scope_eh();
+        for (theory* t : m_theory_set) 
+            t->push_scope_eh();
         CASSERT("context", check_invariant());
     }
 
@@ -2146,10 +2138,7 @@ namespace smt {
             }
             for (unsigned i = new_scope_lvl; i <= lim; i++) {
                 clause_vector & v = m_clauses_to_reinit[i];
-                clause_vector::iterator it  = v.begin();
-                clause_vector::iterator end = v.end();
-                for (; it != end; ++it) {
-                    clause * cls        = *it;
+                for (clause* cls : v) {
                     cache_generation(cls, new_scope_lvl);
                 }
             }
@@ -2246,10 +2235,7 @@ namespace smt {
         }
         for (unsigned i = m_scope_lvl+1; i <= lim; i++) {
             clause_vector & v = m_clauses_to_reinit[i];
-            clause_vector::iterator it  = v.begin();
-            clause_vector::iterator end = v.end();
-            for (; it != end; ++it) {
-                clause * cls        = *it;
+            for (clause* cls : v) {
                 if (cls->deleted()) {
                     cls->release_atoms(m_manager);
                     cls->m_reinit              = false;
@@ -2922,10 +2908,8 @@ namespace smt {
         TRACE("flush", tout << "m_scope_lvl: " << m_scope_lvl << "\n";);
         m_relevancy_propagator = 0;
         m_model_generator->reset();
-        ptr_vector<theory>::iterator it  = m_theory_set.begin();
-        ptr_vector<theory>::iterator end = m_theory_set.end();
-        for (; it != end; ++it)
-            (*it)->flush_eh();
+        for (theory* t : m_theory_set) 
+            t->flush_eh();
         undo_trail_stack(0);
         m_qmanager = 0;
         del_clauses(m_aux_clauses, 0);
@@ -3183,10 +3167,8 @@ namespace smt {
     }
 
     void context::reset_assumptions() {
-        literal_vector::iterator it  = m_assumptions.begin();
-        literal_vector::iterator end = m_assumptions.end();
-        for (; it != end; ++it)
-            get_bdata(it->var()).m_assumption = false;
+        for (literal lit : m_assumptions) 
+            get_bdata(lit.var()).m_assumption = false;
         m_assumptions.reset();
     }
 
