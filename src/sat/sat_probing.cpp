@@ -19,6 +19,7 @@ Revision History:
 --*/
 #include "sat/sat_probing.h"
 #include "sat/sat_solver.h"
+#include "sat/sat_simplifier_params.hpp"
 
 namespace sat {
     probing::probing(solver & _s, params_ref const & p):
@@ -238,12 +239,13 @@ namespace sat {
         return r;
     }
 
-    void probing::updt_params(params_ref const & p) {
-        m_probing             = p.get_bool("probing", true);
-        m_probing_limit       = p.get_uint("probing_limit", 5000000);
-        m_probing_cache       = p.get_bool("probing_cache", true);
-        m_probing_binary      = p.get_bool("probing_binary", true);
-        m_probing_cache_limit = megabytes_to_bytes(p.get_uint("probing_chache_limit", 1024));
+    void probing::updt_params(params_ref const & _p) {
+        sat_simplifier_params p(_p);
+        m_probing             = p.probing();
+        m_probing_limit       = p.probing_limit();
+        m_probing_cache       = p.probing_cache();
+        m_probing_binary      = p.probing_binary();
+        m_probing_cache_limit = p.probing_cache_limit();
     }
 
     void probing::collect_param_descrs(param_descrs & d) {
