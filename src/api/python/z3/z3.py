@@ -3999,7 +3999,7 @@ def BVAddNoOverflow(a, b, signed):
     a, b = _coerce_exprs(a, b)
     return BoolRef(Z3_mk_bvadd_no_overflow(a.ctx_ref(), a.as_ast(), b.as_ast(), signed), a.ctx)
 
-def BVAddNoUnderflow(a, b, signed):
+def BVAddNoUnderflow(a, b):
     """A predicate the determines that signed bit-vector addition does not underflow"""
     _check_bv_args(a, b)
     a, b = _coerce_exprs(a, b)
@@ -4037,7 +4037,7 @@ def BVMulNoOverflow(a, b, signed):
     return BoolRef(Z3_mk_bvmul_no_overflow(a.ctx_ref(), a.as_ast(), b.as_ast(), signed), a.ctx)
 
 
-def BVMulNoUnderflow(a, b, signed):
+def BVMulNoUnderflow(a, b):
     """A predicate the determines that bit-vector signed multiplication does not underflow"""
     _check_bv_args(a, b)
     a, b = _coerce_exprs(a, b)
