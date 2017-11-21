@@ -468,20 +468,6 @@ namespace smt {
     }
 
     bool conflict_resolution::resolve(b_justification conflict, literal not_l) {
-
-#if 0
-        // for debugging #1233
-        if (not_l == to_literal(22267)) {
-            std::cout << not_l << "\n";
-            enable_trace("conflict");
-            enable_trace("conflict_verbose");
-            TRACE("conflict", 
-                  unsigned idx = 0;
-                  for (literal lit : m_assigned_literals) {
-                      m_ctx.display_literal(tout << (idx++) << ":", lit); tout << "\n";
-                  });
-        }
-#endif
         b_justification js;
         literal consequent;
 

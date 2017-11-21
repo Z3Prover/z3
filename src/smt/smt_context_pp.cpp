@@ -601,7 +601,7 @@ namespace smt {
             out << "justification " << j.get_justification()->get_from_theory() << ": ";
             literal_vector lits;
             const_cast<conflict_resolution&>(*m_conflict_resolution).justification2literals(j.get_justification(), lits);
-            display_literals(out, lits.size(), lits.c_ptr());
+            display_literals(out, lits);
             break;
         }
         default:
