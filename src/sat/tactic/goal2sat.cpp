@@ -921,7 +921,7 @@ struct sat2goal::imp {
                 }
             }
         }
-        
+                
         virtual void operator()(model_ref & md) {
             TRACE("sat_mc", tout << "before sat_mc\n"; model_v2_pp(tout, *md); display(tout););
             // REMARK: potential problem

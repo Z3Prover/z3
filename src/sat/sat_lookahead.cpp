@@ -678,7 +678,7 @@ namespace sat {
         for (literal u : succ) {
             SASSERT(u != l);
             // l => u
-            if (u.index() > l.index() && is_stamped(u)) {
+            if (u.index() > (~l).index() && is_stamped(u)) {
                 add_arc(~l, ~u);
                 add_arc( u,  l);
             }
