@@ -98,7 +98,7 @@ model_converter * concat(model_converter * mc1, model_converter * mc2);
 
 model_converter * model2model_converter(model * m);
 
-model_converter * model_and_labels2model_converter(model * m, buffer<symbol> &r);
+model_converter * model_and_labels2model_converter(model * m, labels_vec const &r);
 
 void model_converter2model(ast_manager & mng, model_converter * mc, model_ref & m);
 

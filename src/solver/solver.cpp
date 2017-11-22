@@ -179,6 +179,7 @@ bool solver::is_literal(ast_manager& m, expr* e) {
 void solver::assert_expr(expr* f) {
     expr_ref fml(f, get_manager());
     model_converter_ref mc = get_model_converter();
+    mc = concat(mc0(), mc.get());
     if (mc) {
         (*mc)(fml);        
     }
@@ -190,6 +191,7 @@ void solver::assert_expr(expr* f, expr* t) {
     expr_ref fml(f, m);
     expr_ref a(t, m);
     model_converter_ref mc = get_model_converter();
+    mc = concat(mc0(), mc.get());
     if (mc) {
         (*mc)(fml);        
         // (*mc0())(a);        

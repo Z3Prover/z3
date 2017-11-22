@@ -217,8 +217,10 @@ public:
                     m_ctx->get_model(md);
                     buffer<symbol> r;
                     m_ctx->get_relevant_labels(0, r);
+                    labels_vec rv;
+                    rv.append(r.size(), r.c_ptr());
                     model_converter_ref mc;
-                    mc = model_and_labels2model_converter(md.get(), r);
+                    mc = model_and_labels2model_converter(md.get(), rv);
                     mc = concat(fmc.get(), mc.get());
                     in->add(mc.get());
                 }
@@ -268,7 +270,9 @@ public:
                             m_ctx->get_model(md);
                             buffer<symbol> r;
                             m_ctx->get_relevant_labels(0, r);
-                            in->add(model_and_labels2model_converter(md.get(), r));
+                            labels_vec rv;
+                            rv.append(r.size(), r.c_ptr());
+                            in->add(model_and_labels2model_converter(md.get(), rv));
                         }
                         return;
                     default:

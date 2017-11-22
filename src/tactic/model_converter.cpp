@@ -96,11 +96,11 @@ model_converter * concat(model_converter * mc1, model_converter * mc2) {
 
 class model2mc : public model_converter {
     model_ref m_model;
-    buffer<symbol> m_labels;
+    labels_vec m_labels;
 public:
     model2mc(model * m):m_model(m) {}
 
-    model2mc(model * m, buffer<symbol> const & r):m_model(m), m_labels(r) {}
+    model2mc(model * m, labels_vec const & r):m_model(m), m_labels(r) {}
 
     virtual ~model2mc() {}
 
@@ -122,27 +122,25 @@ public:
     }
     
     void display(std::ostream & out) override {
-        out << "(model->model-converter-wrapper\n";
+        out << "(rmodel->model-converter-wrapper\n";
         model_v2_pp(out, *m_model);
         out << ")\n";
     }    
     
     virtual model_converter * translate(ast_translation & translator) {
         model * m = m_model->translate(translator);
-        return alloc(model2mc, m);
+        return alloc(model2mc, m, m_labels);
     }
 
 };
 
 model_converter * model2model_converter(model * m) {
-    if (m == 0)
-        return 0;
+    if (!m) return nullptr;
     return alloc(model2mc, m);
 }
 
-model_converter * model_and_labels2model_converter(model * m, buffer<symbol> & r) {
-    if (m == 0)
-        return 0;
+model_converter * model_and_labels2model_converter(model * m, labels_vec const & r) {
+    if (!m) return nullptr;
     return alloc(model2mc, m, r);
 }
 

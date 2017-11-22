@@ -58,7 +58,7 @@ void generic_model_converter::display(std::ostream & out) {
         display_del(out, e.m_f);
     }
     for (entry const& e : m_add_entries) {
-        display_del(out, e.m_f);
+        display_add(out, m, e.m_f, e.m_def);
     }
 }
 
