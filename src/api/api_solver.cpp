@@ -128,30 +128,7 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
 
-    void Z3_API Z3_solver_from_file(Z3_context c, Z3_solver s, Z3_string file_name) {
-        Z3_TRY;
-        LOG_Z3_solver_from_file(c, s, file_name);
-        char const* ext = get_extension(file_name);
-        std::ifstream is(file_name);
-        if (!is) {
-            SET_ERROR_CODE(Z3_FILE_ACCESS_ERROR);
-            return;
-        }
-        if (ext && std::string("dimacs") == ext) {
-            ast_manager& m = to_solver_ref(s)->get_manager();
-            sat::solver solver(to_solver_ref(s)->get_params(), m.limit());
-            parse_dimacs(is, solver);
-            sat2goal s2g;
-            model_converter_ref mc;
-            atom2bool_var a2b(m);
-            goal g(m);            
-            s2g(solver, a2b, to_solver_ref(s)->get_params(), g, mc);
-            for (unsigned i = 0; i < g.size(); ++i) {
-                to_solver_ref(s)->assert_expr(g.form(i));
-            }
-            return;
-        }
-
+    void solver_from_stream(Z3_context c, Z3_solver s, std::istream& is) {
         scoped_ptr<cmd_context> ctx = alloc(cmd_context, false, &(mk_c(c)->m()));
         ctx->set_ignore_check(true);
 
@@ -170,6 +147,41 @@ extern "C" {
             to_solver_ref(s)->assert_expr(*it);
         }
         to_solver_ref(s)->set_model_converter(ctx->get_model_converter());
+    }
+
+    void Z3_API Z3_solver_from_string(Z3_context c, Z3_solver s, Z3_string c_str) {
+        Z3_TRY;
+        LOG_Z3_solver_from_string(c, s, c_str);
+        std::string str(c_str);
+        std::istringstream is(str);
+        solver_from_stream(c, s, is);
+        Z3_CATCH;        
+    }
+
+    void Z3_API Z3_solver_from_file(Z3_context c, Z3_solver s, Z3_string file_name) {
+        Z3_TRY;
+        LOG_Z3_solver_from_file(c, s, file_name);
+        char const* ext = get_extension(file_name);
+        std::ifstream is(file_name);
+        if (!is) {
+            SET_ERROR_CODE(Z3_FILE_ACCESS_ERROR);
+        }
+        else if (ext && std::string("dimacs") == ext) {
+            ast_manager& m = to_solver_ref(s)->get_manager();
+            sat::solver solver(to_solver_ref(s)->get_params(), m.limit());
+            parse_dimacs(is, solver);
+            sat2goal s2g;
+            model_converter_ref mc;
+            atom2bool_var a2b(m);
+            goal g(m);            
+            s2g(solver, a2b, to_solver_ref(s)->get_params(), g, mc);
+            for (unsigned i = 0; i < g.size(); ++i) {
+                to_solver_ref(s)->assert_expr(g.form(i));
+            }
+        }
+        else {
+            solver_from_stream(c, s, is);
+        }
         Z3_CATCH;
     }
 

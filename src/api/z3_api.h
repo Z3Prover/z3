@@ -6153,6 +6153,13 @@ extern "C" {
     void Z3_API Z3_solver_from_file(Z3_context c, Z3_solver s, Z3_string file_name);
 
     /**
+       \brief load solver assertions from a string.
+
+       def_API('Z3_solver_from_string', VOID, (_in(CONTEXT), _in(SOLVER), _in(STRING)))
+    */
+    void Z3_API Z3_solver_from_string(Z3_context c, Z3_solver s, Z3_string file_name);
+
+    /**
        \brief Return the set of asserted formulas on the solver.
 
        def_API('Z3_solver_get_assertions', AST_VECTOR, (_in(CONTEXT), _in(SOLVER)))

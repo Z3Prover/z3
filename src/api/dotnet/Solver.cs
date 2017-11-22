@@ -231,6 +231,14 @@ namespace Microsoft.Z3
 	     Native.Z3_solver_from_file(Context.nCtx, NativeObject, file);	
 	}
 
+	/// <summary>
+	/// Load solver assertions from a string.
+	/// </summary>
+	public void FromString(string str) 
+        {
+	     Native.Z3_solver_from_string(Context.nCtx, NativeObject, str);	
+	}
+
         /// <summary>
         /// Assert a lemma (or multiple) into the solver.
         /// </summary>        
