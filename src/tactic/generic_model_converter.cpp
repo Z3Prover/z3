@@ -102,9 +102,10 @@ struct min_app_idx_proc {
 void generic_model_converter::operator()(expr_ref& fml) {
     min_app_idx_proc min_proc(m_first_idx);
     for_each_expr(min_proc, fml);
+    unsigned min_idx = min_proc.m_min;
+    if (min_idx == UINT_MAX) return;
     expr_ref_vector fmls(m);
     fmls.push_back(fml);
-    unsigned min_idx = min_proc.m_min;
     for (unsigned i = m_add_entries.size(); i-- > min_idx;) {
         entry const& e = m_add_entries[i];
         unsigned arity = e.m_f->get_arity();
@@ -120,6 +121,7 @@ void generic_model_converter::operator()(expr_ref& fml) {
                 names.push_back(symbol(i));
                 args.push_back(m.mk_var(i, sorts.back()));
             }
+            // TBD: check if order is correct with respect to quantifier binding ordering
             expr_ref lhs(m.mk_app(e.m_f, arity, args.c_ptr()), m);
             expr_ref body(m.mk_eq(lhs, e.m_def), m);
             fmls.push_back(m.mk_forall(arity, sorts.c_ptr(), names.c_ptr(), body));
