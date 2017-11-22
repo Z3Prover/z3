@@ -1065,6 +1065,7 @@ void normalize (expr *e, expr_ref &out,
                 // equivalence classes
                 expr_equiv_class eq_classes(out.m());
                 factor_eqs(v, eq_classes);
+                rewrite_eqs(v, eq_classes);
                 equiv_to_expr(eq_classes, v);
             }
 
