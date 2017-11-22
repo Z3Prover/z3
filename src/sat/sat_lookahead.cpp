@@ -233,7 +233,6 @@ namespace sat {
             if (is_sat()) {
                 return false;
             }         
-            std::cout << "include newbies\n";
         }
         SASSERT(!m_candidates.empty());
         // cut number of candidates down to max_num_cand.
@@ -437,8 +436,8 @@ namespace sat {
             for (binary b : m_ternary[(~l1).index()]) {
                 if (sz-- == 0) break;
                 if (!(is_true(b.m_u) || is_true(b.m_v) || (is_undef(b.m_v) && is_undef(b.m_u)))) {
-                    std::cout << b.m_u << " " << b.m_v << "\n";
-                    std::cout << get_level(b.m_u) << " " << get_level(b.m_v) << " level: " << m_level << "\n"; 
+                    IF_VERBOSE(0, verbose_stream() << b.m_u << " " << b.m_v << "\n"
+                               << get_level(b.m_u) << " " << get_level(b.m_v) << " level: " << m_level << "\n";);
                     UNREACHABLE();
                 }
                 if ((is_false(b.m_u) && is_undef(b.m_v)) || (is_false(b.m_v) && is_undef(b.m_u)))
@@ -649,6 +648,7 @@ namespace sat {
         TRACE("sat", display_scc(tout););
     }
     void lookahead::init_scc() {
+        std::cerr << "init-scc\n";
         inc_bstamp();
         for (unsigned i = 0; i < m_candidates.size(); ++i) {
             literal lit(m_candidates[i].m_var, false);
@@ -661,6 +661,7 @@ namespace sat {
             init_arcs(~lit);
         }
         m_rank = 0; 
+        m_rank_max = UINT_MAX;
         m_active = null_literal;
         m_settled = null_literal;
         TRACE("sat", display_dfs(tout););
@@ -678,21 +679,30 @@ namespace sat {
         for (literal u : succ) {
             SASSERT(u != l);
             // l => u
-            if (u.index() > (~l).index() && is_stamped(u)) {
+            // NB. u.index() > l.index() iff u.index() > (~l).index().
+            // since indices for the same boolean variables occupy
+            // two adjacent numbers.
+            if (u.index() > l.index() && is_stamped(u)) {                
                 add_arc(~l, ~u);
                 add_arc( u,  l);
             }
         }
         for (auto w : m_watches[l.index()]) {
+            lits.reset();
             if (w.is_ext_constraint() && m_s.m_ext->is_extended_binary(w.get_ext_constraint_idx(), lits)) { 
                 for (literal u : lits) {
-                    if (u.index() > (~l).index() && is_stamped(u)) {
+                    if (u.index() > l.index() && is_stamped(u)) {
                         add_arc(~l, ~u);
                         add_arc( u,  l);
                     }
                 }
             }
         }
+    }
+
+    void lookahead::add_arc(literal u, literal v) {
+        auto & lst = m_dfs[u.index()].m_next;
+        if (lst.empty() || lst.back() != v) lst.push_back(v);
     }
 
     void lookahead::get_scc(literal v) {
@@ -744,7 +754,7 @@ namespace sat {
         m_active = get_link(v);
         literal best = v;
         double best_rating = get_rating(v);
-        set_rank(v, UINT_MAX);
+        set_rank(v, m_rank_max);
         set_link(v, m_settled); m_settled = t; 
         while (t != v) {
             if (t == ~v) {
@@ -752,7 +762,7 @@ namespace sat {
                 set_conflict();
                 break;
             }
-            set_rank(t, UINT_MAX);
+            set_rank(t, m_rank_max);
             set_parent(t, v);
             double t_rating = get_rating(t);
             if (t_rating > best_rating) {
@@ -763,7 +773,7 @@ namespace sat {
         }
         set_parent(v, v);
         set_vcomp(v, best);
-        if (get_rank(~v) == UINT_MAX) {
+        if (maxed_rank(~v)) {
             set_vcomp(v, ~get_vcomp(get_parent(~v)));
         }
     } 
@@ -2279,6 +2289,17 @@ namespace sat {
                 IF_VERBOSE(1, verbose_stream() << "(sat-lookahead :equivalences " << to_elim.size() << ")\n";);
                 elim_eqs elim(m_s);
                 elim(roots, to_elim);
+
+#if 0
+                // TBD: 
+                // Finally create a new graph between parents
+                // based on the arcs in the the m_dfs[index].m_next structure
+                // Visit all nodes, assign DFS numbers
+                // Then prune binary clauses that differ in DFS number more than 1
+                // Add binary clauses that have DFS number 1, but no companion binary clause.
+                // 
+#endif
+
             }
         }   
         m_lookahead.reset();

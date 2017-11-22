@@ -77,7 +77,33 @@ struct pb2bv_rewriter::imp {
                 fmls.push_back(bv.mk_ule(bound, result));
             }
             return result;
+        }
 
+        typedef std::pair<rational, expr_ref> ca;
+
+        struct compare_coeffs {
+            bool operator()(ca const& x, ca const& y) const {
+                return x.first < y.first;
+            }
+        };
+
+        void sort_args() {
+            vector<ca> cas;
+            for (unsigned i = 0; i < m_args.size(); ++i) {
+                cas.push_back(std::make_pair(m_coeffs[i], expr_ref(m_args[i].get(), m)));
+            }
+            //for (ca const& ca : cas) std::cout << ca.first << " ";
+            //std::cout << "\n";
+            std::sort(cas.begin(), cas.end(), compare_coeffs());
+            //std::cout << "post-sort\n";
+            //for (ca const& ca : cas) std::cout << ca.first << " ";
+            //std::cout << "\n";
+            m_coeffs.reset();
+            m_args.reset();
+            for (ca const& ca : cas) {
+                m_coeffs.push_back(ca.first);
+                m_args.push_back(ca.second);
+            }
         }
 
         // 
@@ -93,7 +119,10 @@ struct pb2bv_rewriter::imp {
         // is_le = l_false -  >= 
         //
         template<lbool is_le>
-        expr_ref mk_le_ge(unsigned sz, expr * const* args, rational const & k) {
+        expr_ref mk_le_ge(rational const & k) {
+            //sort_args();
+            unsigned sz = m_args.size();
+            expr * const* args = m_args.c_ptr();
             TRACE("pb", 
                   for (unsigned i = 0; i < sz; ++i) {
                       tout << m_coeffs[i] << "*" << mk_pp(args[i], m) << " ";
@@ -107,7 +136,7 @@ struct pb2bv_rewriter::imp {
                   tout << k << "\n";);
             if (k.is_zero()) {
                 if (is_le != l_false) {
-                    return expr_ref(m.mk_not(::mk_or(m, sz, args)), m);
+                    return expr_ref(m.mk_not(::mk_or(m_args)), m);
                 }
                 else {
                     return expr_ref(m.mk_true(), m);
@@ -501,25 +530,25 @@ struct pb2bv_rewriter::imp {
             decl_kind kind = f->get_decl_kind();
             rational k = pb.get_k(f);
             m_coeffs.reset();
+            m_args.reset();
             for (unsigned i = 0; i < sz; ++i) {
                 m_coeffs.push_back(pb.get_coeff(f, i));
+                m_args.push_back(args[i]);
             }
             CTRACE("pb", k.is_neg(), tout << expr_ref(m.mk_app(f, sz, args), m) << "\n";);
             SASSERT(!k.is_neg());
             switch (kind) {
             case OP_PB_GE:
             case OP_AT_LEAST_K: {
-                expr_ref_vector nargs(m);
-                nargs.append(sz, args);
-                dualize(f, nargs, k);
+                dualize(f, m_args, k);
                 SASSERT(!k.is_neg());
-                return mk_le_ge<l_true>(sz, nargs.c_ptr(), k);
+                return mk_le_ge<l_true>(k);
             }
             case OP_PB_LE:
             case OP_AT_MOST_K:
-                return mk_le_ge<l_true>(sz, args, k);
+                return mk_le_ge<l_true>(k);
             case OP_PB_EQ:
-                return mk_le_ge<l_undef>(sz, args, k);
+                return mk_le_ge<l_undef>(k);
             default:
                 UNREACHABLE();
                 return expr_ref(m.mk_true(), m);
@@ -591,21 +620,21 @@ struct pb2bv_rewriter::imp {
                 // skip
             }
             else if (au.is_le(f) && is_pb(args[0], args[1])) {
-                result = mk_le_ge<l_true>(m_args.size(), m_args.c_ptr(), m_k);
+                result = mk_le_ge<l_true>(m_k);
             }
             else if (au.is_lt(f) && is_pb(args[0], args[1])) {
                 ++m_k;
-                result = mk_le_ge<l_true>(m_args.size(), m_args.c_ptr(), m_k);
+                result = mk_le_ge<l_true>(m_k);
             }
             else if (au.is_ge(f) && is_pb(args[1], args[0])) {
-                result = mk_le_ge<l_true>(m_args.size(), m_args.c_ptr(), m_k);
+                result = mk_le_ge<l_true>(m_k);
             }
             else if (au.is_gt(f) && is_pb(args[1], args[0])) {
                 ++m_k;
-                result = mk_le_ge<l_true>(m_args.size(), m_args.c_ptr(), m_k);
+                result = mk_le_ge<l_true>(m_k);
             }
             else if (m.is_eq(f) && is_pb(args[0], args[1])) {
-                result = mk_le_ge<l_undef>(m_args.size(), m_args.c_ptr(), m_k);
+                result = mk_le_ge<l_undef>(m_k);
             }
             else {
                 return false;
