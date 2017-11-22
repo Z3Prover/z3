@@ -40,27 +40,20 @@ std::ostream& solver::display(std::ostream & out, unsigned n, expr* const* assum
     expr_ref_vector fmls(get_manager());
     stopwatch sw;
     sw.start();
-    // std::cout << "display 1\n";
     get_assertions(fmls);
-    // std::cout << "display 2 " << sw.get_current_seconds() << "\n";
     ast_pp_util visitor(get_manager());
     model_converter_ref mc = get_model_converter();
-    // std::cout << "display 3 " << sw.get_current_seconds() << "\n";
+    mc = concat(mc0(), mc.get());
     if (mc.get()) { 
         mc->collect(visitor); 
     }
-    // std::cout << "display 4 " << sw.get_current_seconds() << "\n";
     visitor.collect(fmls);
-    // std::cout << "display 5 " << sw.get_current_seconds() << "\n";
     visitor.collect(n, assumptions);
     visitor.display_decls(out);
-    // std::cout << "display 6 " << sw.get_current_seconds() << "\n";
     visitor.display_asserts(out, fmls, true);
-    // std::cout << "display 7 " << sw.get_current_seconds() << "\n";
     if (mc.get()) {
         mc->display(out);
     }
-    // std::cout << "display 8 " << sw.get_current_seconds() << "\n";
     return out;
 }
 

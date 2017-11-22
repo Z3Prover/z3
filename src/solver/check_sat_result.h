@@ -57,7 +57,7 @@ public:
         r.append(core.size(), core.c_ptr());
     }
     void set_model_converter(model_converter* mc) { m_mc0 = mc; }
-    model_converter* mc0() { return m_mc0.get(); }
+    model_converter* mc0() const { return m_mc0.get(); }
     virtual void get_model_core(model_ref & m) = 0;
     void get_model(model_ref & m) {
         get_model_core(m);

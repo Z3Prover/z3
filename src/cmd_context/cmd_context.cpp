@@ -864,7 +864,8 @@ void cmd_context::insert(symbol const & s, object_ref * r) {
 }
 
 void cmd_context::model_add(symbol const & s, unsigned arity, sort *const* domain, expr * t) {
-    if (!m_mc0) m_mc0 = alloc(generic_model_converter, m());
+    if (!m_mc0.get()) m_mc0 = alloc(generic_model_converter, m());
+    if (m_solver.get() && !m_solver->mc0()) m_solver->set_model_converter(m_mc0.get()); 
     func_decl_ref fn(m().mk_func_decl(s, arity, domain, m().get_sort(t)), m());
     dictionary<func_decls>::entry * e = m_func_decls.insert_if_not_there2(s, func_decls());
     func_decls & fs = e->get_data().m_value;
@@ -873,7 +874,8 @@ void cmd_context::model_add(symbol const & s, unsigned arity, sort *const* domai
 }
 
 void cmd_context::model_del(func_decl* f) {
-    if (!m_mc0) m_mc0 = alloc(generic_model_converter, m());
+    if (!m_mc0.get()) m_mc0 = alloc(generic_model_converter, m());
+    if (m_solver.get() && !m_solver->mc0()) m_solver->set_model_converter(m_mc0.get()); 
     m_mc0->hide(f);
 }
 
