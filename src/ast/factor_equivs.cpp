@@ -27,7 +27,9 @@ Revision History:
 
 #include "ast/factor_equivs.h"
 #include "ast/arith_decl_plugin.h"
-
+#include "ast/for_each_expr.h"
+#include "ast/ast_pp.h"
+#include "ast/rewriter/expr_safe_replace.h"
 /**
    Factors input vector v into equivalence classes and the rest
  */
@@ -59,8 +61,8 @@ void factor_eqs(expr_ref_vector &v, expr_equiv_class &equiv) {
             equiv.merge(e1, e2);
         }
         else {
-            if (j < i) { 
-                v[j] = v.get(i); 
+            if (j < i) {
+                v[j] = v.get(i);
             }
             j++;
         }
@@ -69,18 +71,51 @@ void factor_eqs(expr_ref_vector &v, expr_equiv_class &equiv) {
 }
 
 /**
+ * Chooses a representative of an equivalence class
+ */
+expr *choose_rep(expr_equiv_class::eq_class &clazz, ast_manager &m) {
+    expr *rep = nullptr;
+    unsigned rep_sz, elem_sz;
+    for (expr *elem : clazz) {
+        if (!m.is_value(elem)) {
+            elem_sz = get_num_exprs(elem);
+            if (!rep || (rep && rep_sz > elem_sz)) {
+                rep = elem;
+                rep_sz = elem_sz;
+            }
+        }
+    }
+    TRACE("equiv",
+          tout << "Rep: " << mk_pp(rep, m) << "\n";
+          for (expr *el : clazz)
+              tout << mk_pp(el, m) << "\n";
+          tout << "RepEnd\n";);
+
+    return rep;
+}
+
+void rewrite_eqs (expr_ref_vector &v, expr_equiv_class &equiv) {
+    ast_manager &m = v.m();
+    expr_safe_replace sub(m);
+    for (auto eq_class : equiv) {
+        expr *rep = choose_rep(eq_class, m);
+        for (expr *el : eq_class) {
+            if (el != rep) {
+                sub.insert (el, rep);
+            }
+        }
+    }
+    sub(v);
+}
+
+
+/**
  * converts equivalence classes to equalities
  */
 void equiv_to_expr(expr_equiv_class &equiv, expr_ref_vector &out) {
     ast_manager &m = out.get_manager();
     for (auto eq_class : equiv) {
-        expr *rep = nullptr;
-        for (expr *elem : eq_class) {
-            if (!m.is_value(elem)) {
-                rep = elem;
-                break;
-            }
-        }
+        expr *rep = choose_rep(eq_class, m);
         SASSERT(rep);
         for (expr *elem : eq_class) {
             if (rep != elem) {

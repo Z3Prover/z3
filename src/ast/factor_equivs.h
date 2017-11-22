@@ -60,6 +60,8 @@ public:
 
     obj_equiv_class(Manager& m) : m_to_obj(m) {}
 
+    Manager &m() const {return m_to_obj.m();}
+
     void add_elem(OBJ*o) {
         SASSERT(!m_to_int.find(o));
         add_elem_impl(o);
@@ -169,6 +171,11 @@ typedef obj_equiv_class<expr, ast_manager> expr_equiv_class;
  *  Factors input vector v into equivalence classes and the rest
  */
 void factor_eqs(expr_ref_vector &v, expr_equiv_class &equiv);
+/**
+ * Rewrite expressions in v by choosing a representative from the
+ * equivalence class.
+ */
+void rewrite_eqs(expr_ref_vector &v, expr_equiv_class &equiv);
 /**
  * converts equivalence classes to equalities
  */
