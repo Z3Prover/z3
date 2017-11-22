@@ -19,6 +19,7 @@ Notes:
 --*/
 #include "ast/ast_pp.h"
 #include "ast/for_each_expr.h"
+#include "ast/ast_util.h"
 #include "tactic/generic_model_converter.h"
 #include "model/model_v2_pp.h"
 #include "model/model_evaluator.h"
@@ -101,19 +102,32 @@ struct min_app_idx_proc {
 void generic_model_converter::operator()(expr_ref& fml) {
     min_app_idx_proc min_proc(m_first_idx);
     for_each_expr(min_proc, fml);
+    expr_ref_vector fmls(m);
+    fmls.push_back(fml);
     unsigned min_idx = min_proc.m_min;
     for (unsigned i = m_add_entries.size(); i-- > min_idx;) {
         entry const& e = m_add_entries[i];
         unsigned arity = e.m_f->get_arity();
         if (arity == 0) {
-            fml = m.mk_and(fml, m.mk_eq(m.mk_const(e.m_f), e.m_def));
+            fmls.push_back(m.mk_eq(m.mk_const(e.m_f), e.m_def));
         }
         else {
-            NOT_IMPLEMENTED_YET();
+            expr_ref_vector args(m);
+            sort_ref_vector sorts(m);
+            svector<symbol> names;
+            for (unsigned i = 0; i < arity; ++i) {
+                sorts.push_back(e.m_f->get_domain(i));
+                names.push_back(symbol(i));
+                args.push_back(m.mk_var(i, sorts.back()));
+            }
+            expr_ref lhs(m.mk_app(e.m_f, arity, args.c_ptr()), m);
+            expr_ref body(m.mk_eq(lhs, e.m_def), m);
+            fmls.push_back(m.mk_forall(arity, sorts.c_ptr(), names.c_ptr(), body));
         }
         if (m_first_idx[e.m_f] == i) {
             m_first_idx.remove(e.m_f);
         }
         m_add_entries.pop_back();
     }
+    fml = mk_and(fmls);
 }

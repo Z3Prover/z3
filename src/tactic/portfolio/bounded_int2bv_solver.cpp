@@ -304,8 +304,8 @@ private:
     void flush_assertions() const {
         if (m_assertions.empty()) return;
         bound_manager& bm = *m_bounds.back();
-        for (unsigned i = 0; i < m_assertions.size(); ++i) {
-            bm(m_assertions[i].get());
+        for (expr* a : m_assertions) {
+            bm(a);
         }
         TRACE("int2bv", bm.display(tout););
         expr_safe_replace sub(m);
@@ -316,8 +316,8 @@ private:
             m_solver->assert_expr(m_assertions);
         }
         else {
-            for (unsigned i = 0; i < m_assertions.size(); ++i) {
-                sub(m_assertions[i].get(), fml1);
+            for (expr* a : m_assertions) {
+                sub(a, fml1);
                 m_rewriter(fml1, fml2, proof);
                 if (m.canceled()) {
                     m_rewriter.reset();

@@ -1031,10 +1031,8 @@ class smt2_printer {
 
     void reset_expr2alias_stack() {
         SASSERT(!m_expr2alias_stack.empty());
-        ptr_vector<expr2alias>::iterator it  = m_expr2alias_stack.begin();
-        ptr_vector<expr2alias>::iterator end = m_expr2alias_stack.end();
-        for (; it != end; ++it)
-            (*it)->reset();
+        for (expr2alias * e : m_expr2alias_stack) 
+            e->reset();
         m_expr2alias = m_expr2alias_stack[0];
     }
 
