@@ -40,7 +40,7 @@ std::ostream& solver::display(std::ostream & out, unsigned n, expr* const* assum
     expr_ref_vector fmls(get_manager());
     stopwatch sw;
     sw.start();
-    get_assertions(fmls);
+    get_assertions(fmls);    
     ast_pp_util visitor(get_manager());
     model_converter_ref mc = get_model_converter();
     mc = concat(mc0(), mc.get());
@@ -194,7 +194,7 @@ void solver::assert_expr(expr* f, expr* t) {
     mc = concat(mc0(), mc.get());
     if (mc) {
         (*mc)(fml);        
-        // (*mc0())(a);        
+        // (*mc)(a);        
     }
     assert_expr_core(fml, a);    
 }

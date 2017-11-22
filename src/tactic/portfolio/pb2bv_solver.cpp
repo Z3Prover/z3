@@ -134,6 +134,7 @@ public:
 
 private:
     void flush_assertions() const {
+        if (m_assertions.empty()) return;
         m_rewriter.updt_params(get_params());
         proof_ref proof(m);
         expr_ref fml1(m), fml(m);

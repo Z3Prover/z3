@@ -1030,6 +1030,7 @@ struct sat2goal::imp {
 
         void operator()(expr_ref& formula) override {
             if (!m_imc) {
+                std::cout << "create generic\n";
                 m_imc = alloc(generic_model_converter, m());
                 sat::literal_vector updates;
                 m_mc.expand(updates);
