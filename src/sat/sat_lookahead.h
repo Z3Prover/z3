@@ -387,6 +387,7 @@ namespace sat {
         
         literal           m_active; 
         unsigned          m_rank; 
+        unsigned          m_rank_max;
         literal           m_settled;
         vector<dfs_info>  m_dfs;
         
@@ -394,7 +395,7 @@ namespace sat {
         void init_scc();
         void init_dfs_info(literal l);
         void init_arcs(literal l);
-        void add_arc(literal u, literal v) { m_dfs[u.index()].m_next.push_back(v); }
+        void add_arc(literal u, literal v);
         bool has_arc(literal v) const { return m_dfs[v.index()].m_next.size() > m_dfs[v.index()].m_nextp; } 
         arcs get_arcs(literal v) const { return m_dfs[v.index()].m_next; }
         literal pop_arc(literal u) { return m_dfs[u.index()].m_next[m_dfs[u.index()].m_nextp++]; }
@@ -402,6 +403,7 @@ namespace sat {
         literal get_next(literal u, unsigned i) const { return m_dfs[u.index()].m_next[i]; }
         literal get_min(literal v) const { return m_dfs[v.index()].m_min; }
         unsigned get_rank(literal v) const { return m_dfs[v.index()].m_rank; }
+        bool     maxed_rank(literal v) const { return get_rank(v) >= m_rank_max; }
         unsigned get_height(literal v) const { return m_dfs[v.index()].m_height; }
         literal get_parent(literal u) const { return m_dfs[u.index()].m_parent; }
         literal get_link(literal u) const { return m_dfs[u.index()].m_link; }
