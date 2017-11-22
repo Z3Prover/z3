@@ -173,17 +173,17 @@ public class Solver extends Z3Object {
     /// <summary>
     /// Load solver assertions from a file.
     /// </summary>
-    public void FromFile(string file) 
+    public void fromFile(String file) 
     {
-        Native.Z3_solver_from_file(Context.nCtx, NativeObject, file);	
+        Native.solverFromFile(getContext().nCtx(), getNativeObject(), file);	
     }
 
     /// <summary>
     /// Load solver assertions from a string.
     /// </summary>
-    public void FromString(string str) 
+    public void fromString(String str) 
     {
-        Native.Z3_solver_from_string(Context.nCtx, NativeObject, str);	
+        Native.solverFromString(getContext().nCtx(), getNativeObject(), str);	
     }
 
 
