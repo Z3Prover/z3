@@ -285,15 +285,7 @@ namespace smt {
         d.set_justification(j);
     }
 
-
     void context::assign_core(literal l, b_justification j, bool decision) {
-#if 0
-        // for debugging #1233
-        if (l.var() == 11133 && l.sign()) {
-            std::cout << l << "\n";
-            UNREACHABLE();
-        }
-#endif
         TRACE("assign_core", tout << (decision?"decision: ":"propagating: ") << l << " ";
               display_literal_verbose(tout, l); tout << " level: " << m_scope_lvl << "\n";
               display(tout, j););

@@ -431,7 +431,7 @@ namespace smt {
         bool explain_empty(expr_ref_vector& es, dependency*& dep);
 
         // asserting consequences
-        void linearize(dependency* dep, enode_pair_vector& eqs, literal_vector& lits) const;
+        bool linearize(dependency* dep, enode_pair_vector& eqs, literal_vector& lits) const;
         void propagate_lit(dependency* dep, literal lit) { propagate_lit(dep, 0, 0, lit); }
         void propagate_lit(dependency* dep, unsigned n, literal const* lits, literal lit);
         void propagate_eq(dependency* dep, enode* n1, enode* n2);
