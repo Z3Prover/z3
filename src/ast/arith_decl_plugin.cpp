@@ -539,7 +539,7 @@ void arith_decl_plugin::get_op_names(svector<builtin_name>& op_names, symbol con
     op_names.push_back(builtin_name("to_int",OP_TO_INT));
     op_names.push_back(builtin_name("is_int",OP_IS_INT));
     op_names.push_back(builtin_name("abs", OP_ABS));
-    if (logic == symbol::null) {
+    if (logic == symbol::null || logic == symbol("ALL")) {
         op_names.push_back(builtin_name("^", OP_POWER));
         op_names.push_back(builtin_name("sin", OP_SIN));
         op_names.push_back(builtin_name("cos", OP_COS));
