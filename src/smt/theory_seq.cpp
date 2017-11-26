@@ -1987,10 +1987,13 @@ bool theory_seq::solve_ne(unsigned idx) {
 
             dependency* deps1 = 0;
             if (explain_eq(n.l(), n.r(), deps1)) {
-                new_lits.reset();
-                new_lits.push_back(~mk_eq(n.l(), n.r(), false));
-                new_deps = deps1;
-                TRACE("seq", tout << "conflict explained\n";);
+                literal diseq = mk_eq(n.l(), n.r(), false);
+                if (ctx.get_assignment(diseq) == l_false) {
+                    new_lits.reset();                
+                    new_lits.push_back(~diseq);
+                    new_deps = deps1;
+                    TRACE("seq", tout << "conflict explained\n";);
+                }
             }
             set_conflict(new_deps, new_lits);
             SASSERT(m_new_propagation);
