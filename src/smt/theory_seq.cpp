@@ -3230,8 +3230,8 @@ void theory_seq::add_indexof_axiom(expr* i) {
         // offset > len(t) => indexof(t, s, offset) = -1
         // offset = len(t) & |s| = 0 => indexof(t, s, offset) = offset
         expr_ref len_t(m_util.str.mk_length(t), m);
-        literal offset_ge_len = mk_simplified_literal(m_autil.mk_ge(offset, len_t));
-        literal offset_le_len = mk_simplified_literal(m_autil.mk_le(offset, len_t));
+        literal offset_ge_len = mk_simplified_literal(m_autil.mk_ge(m_autil.mk_sub(offset, len_t), zero));
+        literal offset_le_len = mk_simplified_literal(m_autil.mk_le(m_autil.mk_sub(offset, len_t), zero));
         literal i_eq_offset = mk_eq(i, offset, false);
         add_axiom(~offset_ge_len, s_eq_empty, i_eq_m1);
         add_axiom(offset_le_len, i_eq_m1);
