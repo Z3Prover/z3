@@ -509,6 +509,7 @@ namespace smt {
         expr_ref digit2int(expr* ch);
         void add_itos_length_axiom(expr* n);
         literal mk_literal(expr* n);
+        literal mk_simplified_literal(expr* n);
         literal mk_eq_empty(expr* n, bool phase = true);
         literal mk_seq_eq(expr* a, expr* b);
         void tightest_prefix(expr* s, expr* x);
