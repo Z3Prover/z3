@@ -1572,6 +1572,8 @@ bool seq_rewriter::reduce_eq(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_
     bool lchange = false;
     SASSERT(lhs.empty());
     TRACE("seq", tout << ls << "\n"; tout << rs << "\n";);
+	//std::cout << ls << "\n";
+	//std::cout << rs << "\n";
     // solve from back
     while (true) {
         while (!rs.empty() && m_util.str.is_empty(rs.back())) {
@@ -1645,6 +1647,7 @@ bool seq_rewriter::reduce_eq(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_
         if (m_util.str.is_unit(r) && m_util.str.is_string(l)) {
             std::swap(l, r);
             ls.swap(rs);
+            std::swap(head1, head2);
         }
         if (l == r) {
             ++head1;
