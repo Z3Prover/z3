@@ -84,6 +84,7 @@ namespace sat {
         bool               m_local_search;
         bool               m_lookahead_search;
         bool               m_lookahead_simplify;
+        bool               m_lookahead_simplify_bca;
         unsigned           m_lookahead_cube_cutoff;
         double             m_lookahead_cube_fraction;
         reward_t           m_lookahead_reward;

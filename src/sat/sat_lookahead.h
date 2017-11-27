@@ -115,6 +115,7 @@ namespace sat {
 
         struct stats {
             unsigned m_propagations;
+            unsigned m_bca;
             unsigned m_add_binary;
             unsigned m_del_binary;
             unsigned m_decisions;
@@ -532,6 +533,8 @@ namespace sat {
         void init_config();
 
         void normalize_parents();
+
+        void add_hyper_binary();
 
     public:
         lookahead(solver& s) : 
