@@ -2400,6 +2400,7 @@ bool theory_seq::add_stoi_axiom(expr* e) {
             nums[i] = m_autil.mk_mul(coeff, nums[i].get());
         }
         num = m_autil.mk_add(nums.size(), nums.c_ptr());
+        ctx.get_rewriter()(num);
         lits.push_back(mk_eq(e, num, false));
         ++m_stats.m_add_axiom;
         m_new_propagation = true;
