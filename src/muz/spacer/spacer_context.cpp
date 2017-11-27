@@ -3133,7 +3133,12 @@ lbool context::expand_node(pob& n)
             checkpoint ();
             (*m_lemma_generalizers[i])(lemma);
         }
+        DEBUG_CODE(
+                   lemma_sanity_checker sanity_checker(*this);
+                   sanity_checker(lemma);
+                   );
 
+        
         TRACE("spacer", tout << "invariant state: "
               << (is_infty_level(lemma->level())?"(inductive)":"")
               <<  mk_pp(lemma->get_expr(), m) << "\n";);
