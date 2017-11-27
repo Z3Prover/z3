@@ -1077,13 +1077,14 @@ namespace smt {
     void theory_str::instantiate_axiom_CharAt(enode * e) {
         context & ctx = get_context();
         ast_manager & m = get_manager();
-
+        expr* arg0, *arg1;
         app * expr = e->get_owner();
         if (axiomatized_terms.contains(expr)) {
             TRACE("str", tout << "already set up CharAt axiom for " << mk_pp(expr, m) << std::endl;);
             return;
         }
         axiomatized_terms.insert(expr);
+        VERIFY(u.str.is_at(expr, arg0, arg1));
 
         TRACE("str", tout << "instantiate CharAt axiom for " << mk_pp(expr, m) << std::endl;);
 
@@ -1092,28 +1093,20 @@ namespace smt {
         expr_ref ts2(mk_str_var("ts2"), m);
 
         expr_ref cond(m.mk_and(
-                          m_autil.mk_ge(expr->get_arg(1), mk_int(0)),
-                          // REWRITE for arithmetic theory:
-                          // m_autil.mk_lt(expr->get_arg(1), mk_strlen(expr->get_arg(0)))
-                          mk_not(m, m_autil.mk_ge(m_autil.mk_add(expr->get_arg(1), m_autil.mk_mul(mk_int(-1), mk_strlen(expr->get_arg(0)))), mk_int(0)))
-                               ), m);
+                          m_autil.mk_ge(arg1, mk_int(0)),
+                          m_autil.mk_lt(arg1, mk_strlen(arg0))), m);
 
         expr_ref_vector and_item(m);
-        and_item.push_back(ctx.mk_eq_atom(expr->get_arg(0), mk_concat(ts0, mk_concat(ts1, ts2))));
-        and_item.push_back(ctx.mk_eq_atom(expr->get_arg(1), mk_strlen(ts0)));
+        and_item.push_back(ctx.mk_eq_atom(arg0, mk_concat(ts0, mk_concat(ts1, ts2))));
+        and_item.push_back(ctx.mk_eq_atom(arg1, mk_strlen(ts0)));
         and_item.push_back(ctx.mk_eq_atom(mk_strlen(ts1), mk_int(1)));
 
-        expr_ref thenBranch(m.mk_and(and_item.size(), and_item.c_ptr()), m);
+        expr_ref thenBranch(::mk_and(and_item));
         expr_ref elseBranch(ctx.mk_eq_atom(ts1, mk_string("")), m);
-
         expr_ref axiom(m.mk_ite(cond, thenBranch, elseBranch), m);
         expr_ref reductionVar(ctx.mk_eq_atom(expr, ts1), m);
-
-        SASSERT(axiom);
-        SASSERT(reductionVar);
-
         expr_ref finalAxiom(m.mk_and(axiom, reductionVar), m);
-        SASSERT(finalAxiom);
+        get_context().get_rewriter()(finalAxiom);
         assert_axiom(finalAxiom);
     }
 
