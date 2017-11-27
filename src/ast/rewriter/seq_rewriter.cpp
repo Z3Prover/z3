@@ -1572,8 +1572,6 @@ bool seq_rewriter::reduce_eq(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_
     bool lchange = false;
     SASSERT(lhs.empty());
     TRACE("seq", tout << ls << "\n"; tout << rs << "\n";);
-	//std::cout << ls << "\n";
-	//std::cout << rs << "\n";
     // solve from back
     while (true) {
         while (!rs.empty() && m_util.str.is_empty(rs.back())) {
