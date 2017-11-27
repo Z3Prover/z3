@@ -326,10 +326,19 @@ class reduce_hypotheses {
                 m_hypmark.mark(p, true);
                 m_hyps.insert(m.get_fact(p));
             } else {
-                bool hyp_mark = compute_mark1(p);
+                compute_mark1(p);
+            }
+        }
+        ProofIteratorPostOrder pit2(pr, m);
+        while (pit2.hasNext()) {
+            p = pit2.next();
+            if (!m.is_hypothesis(p))
+            {
                 // collect units that are hyp-free and are used as hypotheses somewhere
-                if (!hyp_mark && m.has_fact(p) && m_hyps.contains(m.get_fact(p)))
-                { m_units.insert(m.get_fact(p), p); }
+                if (!m_hypmark.is_marked(p) && m.has_fact(p) && m_hyps.contains(m.get_fact(p)))
+                {
+                    m_units.insert(m.get_fact(p), p);
+                }
             }
         }
     }
@@ -348,7 +357,7 @@ class reduce_hypotheses {
         bool dirty = false;
 
         while (!m_todo.empty()) {
-            proof *p, *tmp, *pp;
+            proof *p, *tmp, *tmp2, *pp;
             unsigned todo_sz;
 
             p = m_todo.back();
@@ -377,7 +386,17 @@ class reduce_hypotheses {
             if (m.is_hypothesis(p)) {
                 // hyp: replace by a corresponding unit
                 if (m_units.find(m.get_fact(p), tmp)) {
-                    res = tmp;
+                    // if the transformed subproof ending in the unit has already been computed, use it
+                    if (m_cache.find(tmp,tmp2))
+                    {
+                        res = tmp2;
+                    }
+                    // otherwise first compute the transformed subproof ending in the unit
+                    else
+                    {
+                        m_todo.push_back(tmp);
+                        continue;
+                    }
                 } else { res = p; }
             }
 
@@ -393,18 +412,33 @@ class reduce_hypotheses {
                 res = mk_unit_resolution_core(args.size(), args.c_ptr());
                 compute_mark1(res);
             } else  {
-                // other: reduce all premises; reapply
-                if (m.has_fact(p)) { args.push_back(to_app(m.get_fact(p))); }
-                SASSERT(p->get_decl()->get_arity() == args.size());
-                res = m.mk_app(p->get_decl(), args.size(), (expr * const*)args.c_ptr());
-                m_pinned.push_back(res);
-                compute_mark1(res);
+                // if any literal is false, we don't need a step
+                bool has_empty_clause_premise = false;
+                for (unsigned i = 0; i < args.size(); ++i)
+                {
+                    if (m.is_false(m.get_fact(args[i])))
+                    {
+                        has_empty_clause_premise = true;
+                        res = args[i];
+                    }
+                }
+                
+                // otherwise:
+                if (!has_empty_clause_premise)
+                {
+                    // other: reduce all premises; reapply
+                    if (m.has_fact(p)) { args.push_back(to_app(m.get_fact(p))); }
+                    SASSERT(p->get_decl()->get_arity() == args.size());
+                    res = m.mk_app(p->get_decl(), args.size(), (expr * const*)args.c_ptr());
+                    m_pinned.push_back(res);
+                    compute_mark1(res);
+                }
             }
 
             SASSERT(res);
             m_cache.insert(p, res);
 
-            if (m.has_fact(res) && m.is_false(m.get_fact(res))) { break; }
+            if (!m_hypmark.is_marked(res) && m.has_fact(res) && m.is_false(m.get_fact(res))) { break; }
         }
 
         out = res;
@@ -458,6 +492,15 @@ class reduce_hypotheses {
         ptr_buffer<proof> pf_args;
         pf_args.push_back(args [0]);
 
+        // if any literal is false, we don't need a unit resolution step
+        for (unsigned i = 1; i < num_args; ++i)
+        {
+            if (m.is_false(m.get_fact(args[i])))
+            {
+                return args[i];
+            }
+        }
+
         app *cls_fact = to_app(m.get_fact(args[0]));
         ptr_buffer<expr> cls;
         if (m.is_or(cls_fact)) {
@@ -488,9 +531,16 @@ class reduce_hypotheses {
         new_fact = mk_or(m, new_fact_cls.size(), new_fact_cls.c_ptr());
 
         // create new proof step
-        proof *res = m.mk_unit_resolution(pf_args.size(), pf_args.c_ptr(), new_fact);
-        m_pinned.push_back(res);
-        return res;
+        if (pf_args.size() == 1) // the only premise is the clause itself
+        {
+            return args[0];
+        }
+        else
+        {
+            proof *res = m.mk_unit_resolution(pf_args.size(), pf_args.c_ptr(), new_fact);
+            m_pinned.push_back(res);
+            return res;
+        }
     }
 
     // reduce all units, if any unit reduces to false return true and put its proof into out
@@ -516,9 +566,7 @@ public:
     void operator()(proof_ref &pr)
     {
         compute_marks(pr);
-        if (!reduce_units(pr)) {
-            reduce(pr.get(), pr);
-        }
+        reduce(pr.get(), pr);
         reset();
     }
 };
