@@ -1452,9 +1452,9 @@ namespace sat {
         for (nary* n : m_nary[(~l).index()]) {
             if (sz-- == 0) break;
             unsigned nonfixed = n->dec_size();
-            if (is_true(n->get_head())) continue;
+            // if (is_true(n->get_head())) continue;
             if (inconsistent()) continue;
-            if (nonfixed <= 1) {
+            if (nonfixed <= 1 && !is_true(n->get_head())) {
                 bool found_conflict = true;
                 for (literal lit : *n) {
                     if (!is_fixed(lit)) {
@@ -1473,7 +1473,7 @@ namespace sat {
                     continue;
                 }
             }
-            else if (m_search_mode == lookahead_mode::lookahead1) {
+            if (m_search_mode == lookahead_mode::lookahead1) {
                 SASSERT(nonfixed >= 2);
                 switch (m_config.m_reward_type) {
                 case heule_schur_reward: {
