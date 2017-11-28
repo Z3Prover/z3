@@ -174,6 +174,15 @@ namespace z3 {
             return e;
         }
 
+        void check_parser_error() const {
+            Z3_error_code e = Z3_get_error_code(*this);
+            if (e != Z3_OK && enable_exceptions()) {
+                Z3_string s = Z3_get_parser_error(*this);
+                if (s && *s) Z3_THROW(exception(s));
+            }
+            check_error();
+        }
+
         /**
            \brief The C++ API uses by defaults exceptions on errors. 
            For applications that don't work well with exceptions (there should be only few)
@@ -2774,13 +2783,12 @@ namespace z3 {
 
     inline expr context::parse_string(char const* s) {
         Z3_ast r = Z3_parse_smtlib2_string(*this, s, 0, 0, 0, 0, 0, 0);
-        check_error();
-        return expr(*this, r);
-        
+        check_parser_error();
+        return expr(*this, r);        
     }
     inline expr context::parse_file(char const* s) {
         Z3_ast r = Z3_parse_smtlib2_file(*this, s, 0, 0, 0, 0, 0, 0);
-        check_error();
+        check_parser_error();
         return expr(*this, r);
     }
 
@@ -2796,7 +2804,7 @@ namespace z3 {
             decl_names[i] = decls[i].name();
         }
         Z3_ast r = Z3_parse_smtlib2_string(*this, s, sorts.size(), sort_names.ptr(), sorts1.ptr(), decls.size(), decl_names.ptr(), decls1.ptr());
-        check_error();
+        check_parser_error();
         return expr(*this, r);
     }
 
@@ -2812,7 +2820,7 @@ namespace z3 {
             decl_names[i] = decls[i].name();
         }
         Z3_ast r = Z3_parse_smtlib2_file(*this, s, sorts.size(), sort_names.ptr(), sorts1.ptr(), decls.size(), decl_names.ptr(), decls1.ptr());
-        check_error();
+        check_parser_error();
         return expr(*this, r);
     }
 
