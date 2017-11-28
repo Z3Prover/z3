@@ -22,6 +22,7 @@ Notes:
 #include "ast/ast_util.h"
 #include "ast/occurs.h"
 #include "ast/rewriter/expr_safe_replace.h"
+#include "ast/rewriter/th_rewriter.h"
 #include "tactic/generic_model_converter.h"
 #include "model/model_v2_pp.h"
 #include "model/model_evaluator.h"
@@ -160,7 +161,10 @@ expr_ref generic_model_converter::simplify_def(entry const& e) {
         expr_ref result2 = e.m_def;
         rep.apply_substitution(c, m.mk_true(),  result1);
         rep.apply_substitution(c, m.mk_false(), result2);
-        return expr_ref(m.mk_and(m.mk_or(c, result2), m.mk_or(m.mk_not(c), result1)), m);
+        th_rewriter rw(m);
+        expr_ref result(m.mk_and(m.mk_implies(result2, c), m.mk_implies(c, result1)), m);
+        rw(result);
+        return result;
     }
     else {
         return expr_ref(m.mk_eq(c, e.m_def), m);
