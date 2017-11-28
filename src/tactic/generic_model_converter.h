@@ -35,6 +35,9 @@ class generic_model_converter : public model_converter {
     vector<entry> m_add_entries;
     vector<entry> m_hide_entries;
     obj_map<func_decl, unsigned> m_first_idx;
+
+    expr_ref simplify_def(entry const& e);
+
 public:
     generic_model_converter(ast_manager & m) : m(m) {}
     

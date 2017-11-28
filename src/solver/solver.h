@@ -45,7 +45,9 @@ public:
 */
 class solver : public check_sat_result {
     params_ref m_params;
+    bool       m_enforce_model_conversion;
 public:
+    solver(): m_enforce_model_conversion(true) {}
     virtual ~solver() {}
 
     /**
@@ -56,7 +58,7 @@ public:
     /**
        \brief Update the solver internal settings. 
     */
-    virtual void updt_params(params_ref const & p) { m_params.copy(p); }
+    virtual void updt_params(params_ref const & p);
 
     /**
        \brief Retrieve set of parameters set on solver.
@@ -67,7 +69,7 @@ public:
        \brief Store in \c r a description of the configuration
        parameters available in this solver.
     */
-    virtual void collect_param_descrs(param_descrs & r) {}
+    virtual void collect_param_descrs(param_descrs & r);
     
     /**
        \brief Enable/Disable model generation for this solver object.

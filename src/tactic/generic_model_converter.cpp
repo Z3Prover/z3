@@ -20,6 +20,8 @@ Notes:
 #include "ast/ast_pp.h"
 #include "ast/for_each_expr.h"
 #include "ast/ast_util.h"
+#include "ast/occurs.h"
+#include "ast/rewriter/expr_safe_replace.h"
 #include "tactic/generic_model_converter.h"
 #include "model/model_v2_pp.h"
 #include "model/model_evaluator.h"
@@ -110,7 +112,7 @@ void generic_model_converter::operator()(expr_ref& fml) {
         entry const& e = m_add_entries[i];
         unsigned arity = e.m_f->get_arity();
         if (arity == 0) {
-            fmls.push_back(m.mk_eq(m.mk_const(e.m_f), e.m_def));
+            fmls.push_back(simplify_def(e));
         }
         else {
             expr_ref_vector args(m);
@@ -132,4 +134,35 @@ void generic_model_converter::operator()(expr_ref& fml) {
         m_add_entries.pop_back();
     }
     fml = mk_and(fmls);
+}
+
+/*
+ \brief simplify definition expansion from model converter in the case they come from blocked clauses.
+ In this case the definitions are of the form:
+ 
+    x <=> x or not (C)
+
+  or dually,
+
+    x <=> not (not x or not C)
+
+  in either case the definitions simplify to
+
+    x or C
+
+ */
+expr_ref generic_model_converter::simplify_def(entry const& e) {
+    expr_ref result(m);
+    expr_ref c(m.mk_const(e.m_f), m);
+    if (m.is_bool(c) && occurs(c, e.m_def)) {
+        expr_safe_replace rep(m);
+        expr_ref result1 = e.m_def;
+        expr_ref result2 = e.m_def;
+        rep.apply_substitution(c, m.mk_true(),  result1);
+        rep.apply_substitution(c, m.mk_false(), result2);
+        return expr_ref(m.mk_and(m.mk_or(c, result2), m.mk_or(m.mk_not(c), result1)), m);
+    }
+    else {
+        return expr_ref(m.mk_eq(c, e.m_def), m);
+    }
 }

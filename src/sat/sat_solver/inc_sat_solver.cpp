@@ -266,6 +266,7 @@ public:
     }
     virtual void set_produce_models(bool f) {}
     virtual void collect_param_descrs(param_descrs & r) {
+        solver::collect_param_descrs(r);
         goal2sat::collect_param_descrs(r);
         sat::solver::collect_param_descrs(r);
     }

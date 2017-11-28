@@ -178,24 +178,37 @@ bool solver::is_literal(ast_manager& m, expr* e) {
 
 void solver::assert_expr(expr* f) {
     expr_ref fml(f, get_manager());
-    model_converter_ref mc = get_model_converter();
-    mc = concat(mc0(), mc.get());
-    if (mc) {
-        (*mc)(fml);        
+    if (m_enforce_model_conversion) {
+        model_converter_ref mc = get_model_converter();
+        mc = concat(mc0(), mc.get());
+        if (mc) {
+            (*mc)(fml);        
+        }
     }
     assert_expr_core(fml);    
 }
 
 void solver::assert_expr(expr* f, expr* t) {
     ast_manager& m = get_manager();
-    expr_ref fml(f, m);
+    expr_ref fml(f, m);    
     expr_ref a(t, m);
-    model_converter_ref mc = get_model_converter();
-    mc = concat(mc0(), mc.get());
-    if (mc) {
-        (*mc)(fml);        
-        // (*mc)(a);        
+    if (m_enforce_model_conversion) {
+        model_converter_ref mc = get_model_converter();
+        mc = concat(mc0(), mc.get());
+        if (mc) {
+            (*mc)(fml);        
+            // (*mc)(a);        
+        }
     }
     assert_expr_core(fml, a);    
+}
+
+void solver::collect_param_descrs(param_descrs & r) {
+    r.insert("solver.enforce_model_conversion", CPK_BOOL, "(default: true) enforce model conversion when asserting formulas");
+}
+
+void solver::updt_params(params_ref const & p) { 
+    m_params.copy(p); 
+    m_enforce_model_conversion = m_params.get_bool("solver.enforce_model_conversion", true);
 }
 
