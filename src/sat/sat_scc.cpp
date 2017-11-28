@@ -45,16 +45,20 @@ namespace sat {
         scc &     m_scc;
         stopwatch m_watch;
         unsigned  m_num_elim;
+        unsigned  m_num_elim_bin;
         report(scc & c):
             m_scc(c),
-            m_num_elim(c.m_num_elim) {
+            m_num_elim(c.m_num_elim),
+            m_num_elim_bin(c.m_num_elim_bin) {
             m_watch.start();
         }
         ~report() {
             m_watch.stop();
+            unsigned elim_bin = m_scc.m_num_elim_bin - m_num_elim_bin;
             IF_VERBOSE(SAT_VB_LVL, 
-                       verbose_stream() << " (sat-scc :elim-vars " << (m_scc.m_num_elim - m_num_elim)
-                       << mk_stat(m_scc.m_solver)
+                       verbose_stream() << " (sat-scc :elim-vars " << (m_scc.m_num_elim - m_num_elim);
+                       if (elim_bin > 0) verbose_stream() << " :elim-bin " << elim_bin;
+                       verbose_stream() << mk_stat(m_scc.m_solver)
                        << " :time " << std::fixed << std::setprecision(2) << m_watch.get_seconds() << ")\n";);
         }
     };
@@ -223,20 +227,133 @@ namespace sat {
         eliminator(roots, to_elim);
         TRACE("scc_detail", m_solver.display(tout););
         CASSERT("scc_bug", m_solver.check_invariant());
+
+        if (m_scc_tr) {
+            reduce_tr();
+        }
         return to_elim.size();
+    }
+
+    void scc::get_dfs_num(svector<int>& dfs, bool learned) {
+        unsigned num_lits = m_solver.num_vars() * 2;
+        vector<literal_vector> dag(num_lits);
+        svector<bool>          roots(num_lits, true);
+        literal_vector todo;
+        SASSERT(dfs.size() == num_lits);
+        unsigned num_edges = 0;
+
+        // retrieve DAG
+        for (unsigned l_idx = 0; l_idx < num_lits; l_idx++) {
+            literal u(to_literal(l_idx));
+            if (m_solver.was_eliminated(u.var())) 
+                continue;
+            auto& edges = dag[u.index()];
+            for (watched const& w : m_solver.m_watches[l_idx]) {
+                if (learned ? w.is_binary_clause() : w.is_binary_unblocked_clause()) {
+                    literal v = w.get_literal();
+                    roots[v.index()] = false;
+                    edges.push_back(v);
+                    ++num_edges;
+                }
+            }
+            unsigned sz = edges.size();
+            // shuffle vertices to obtain different DAG traversal each time
+            if (sz > 1) {
+                for (unsigned i = sz; i-- > 0; ) {
+                    std::swap(edges[i], edges[m_rand(i+1)]);
+                }
+            }
+        }
+        // std::cout << "dag num edges: " << num_edges << "\n";
+        // retrieve literals that have no predecessors
+        for (unsigned l_idx = 0; l_idx < num_lits; l_idx++) {
+            literal u(to_literal(l_idx));
+            if (roots[u.index()]) todo.push_back(u);
+        }
+        // std::cout << "num roots: " << roots.size() << "\n";
+        // traverse DAG, annotate nodes with DFS number
+        int dfs_num = 0;
+        while (!todo.empty()) {
+            literal u = todo.back();
+            int& d = dfs[u.index()];
+            // already visited
+            if (d > 0) {
+                todo.pop_back();
+            }
+            // visited as child:
+            else if (d < 0) {
+                d = -d;
+                for (literal v : dag[u.index()]) {
+                    if (dfs[v.index()] == 0) {
+                        dfs[v.index()] = - d - 1;
+                        todo.push_back(v);
+                    }
+                }
+            }
+            // new root.
+            else {
+                d = --dfs_num;
+            }
+        }
+    }
+
+    bool scc::reduce_tr(svector<int> const& dfs, bool learned) {        
+        unsigned idx = 0;
+        bool reduced = false;
+        for (watch_list & wlist : m_solver.m_watches) {
+            literal u = to_literal(idx++);
+            watch_list::iterator it     = wlist.begin();
+            watch_list::iterator itprev = it;
+            watch_list::iterator end    = wlist.end();
+            for (; it != end; ++it) {
+                watched& w = *it;
+                if (learned ? w.is_binary_learned_clause() : w.is_binary_unblocked_clause()) {
+                    literal v = w.get_literal();
+                    if (dfs[u.index()] + 1 < dfs[v.index()]) {
+                        ++m_num_elim_bin;
+                        reduced = true;
+                    }
+                    else {
+                        *itprev = *it;
+                        itprev++;
+                    }
+                }
+                else {
+                    *itprev = *it;
+                    itprev++;
+                }
+            }
+            wlist.set_end(itprev);
+        }
+        return reduced;
+    }
+
+    bool scc::reduce_tr(bool learned) {
+        unsigned num_lits = m_solver.num_vars() * 2;
+        svector<int> dfs(num_lits);
+        get_dfs_num(dfs, learned);
+        return reduce_tr(dfs, learned);
+    }
+
+    void scc::reduce_tr() {
+        while (reduce_tr(false)) {}
+        while (reduce_tr(true)) {}
     }
 
     void scc::collect_statistics(statistics & st) const {
         st.update("elim bool vars", m_num_elim);
+        st.update("elim binary", m_num_elim_bin);
     }
     
     void scc::reset_statistics() {
         m_num_elim = 0;
+        m_num_elim_bin = 0;
     }
 
     void scc::updt_params(params_ref const & _p) {
         sat_scc_params p(_p);
         m_scc = p.scc();
+        m_scc_tr = p.scc_tr();
     }
 
     void scc::collect_param_descrs(param_descrs & d) {

@@ -17,9 +17,10 @@ Author:
 Notes:
 
 --*/
-#include "sat_solver.h"
-#include "sat_extension.h"
-#include "sat_lookahead.h"
+#include "sat/sat_solver.h"
+#include "sat/sat_extension.h"
+#include "sat/sat_lookahead.h"
+#include "util/union_find.h"
 
 namespace sat {
     lookahead::scoped_ext::scoped_ext(lookahead& p): p(p) {
@@ -648,7 +649,6 @@ namespace sat {
         TRACE("sat", display_scc(tout););
     }
     void lookahead::init_scc() {
-        std::cerr << "init-scc\n";
         inc_bstamp();
         for (unsigned i = 0; i < m_candidates.size(); ++i) {
             literal lit(m_candidates[i].m_var, false);
@@ -2290,20 +2290,51 @@ namespace sat {
                 elim_eqs elim(m_s);
                 elim(roots, to_elim);
 
-#if 0
-                // TBD: 
-                // Finally create a new graph between parents
-                // based on the arcs in the the m_dfs[index].m_next structure
-                // Visit all nodes, assign DFS numbers
-                // Then prune binary clauses that differ in DFS number more than 1
-                // Add binary clauses that have DFS number 1, but no companion binary clause.
-                // 
-#endif
-
+                if (get_config().m_lookahead_simplify_bca) {
+                    add_hyper_binary();
+                }
             }
         }   
-        m_lookahead.reset();
-        
+        m_lookahead.reset();        
+    }
+
+    /**
+       \brief reduction based on binary implication graph
+     */
+
+    void lookahead::add_hyper_binary() {
+        unsigned num_lits = m_s.num_vars() * 2;
+        union_find_default_ctx ufctx;
+        union_find<union_find_default_ctx> uf(ufctx);
+        for (unsigned i = 0; i < num_lits; ++i) uf.mk_var();
+        for (unsigned idx = 0; idx < num_lits; ++idx) {
+            literal u = get_parent(to_literal(idx));
+            if (null_literal != u) {
+                for (watched const& w : m_s.m_watches[idx]) {
+                    if (!w.is_binary_clause()) continue;
+                    literal v = get_parent(w.get_literal());
+                    if (null_literal != v) {
+                        uf.merge(u.index(), v.index());
+                    }
+                }
+            }
+        }
+
+        unsigned disconnected = 0;
+        for (unsigned i = 0; i < m_binary.size(); ++i) {
+            literal u = to_literal(i);
+            if (u == get_parent(u)) {
+                for (literal v : m_binary[i]) {
+                    if (v == get_parent(v) && uf.find(u.index()) != uf.find(v.index())) {
+                        ++disconnected;
+                        uf.merge(u.index(), v.index());
+                        m_s.mk_clause(~u, v, true);
+                    }
+                }
+            }
+        }
+        IF_VERBOSE(10, verbose_stream() << "(sat-lookahead :bca " << disconnected << ")\n";);
+        m_stats.m_bca += disconnected;
     }
 
     void lookahead::normalize_parents() {
@@ -2378,6 +2409,7 @@ namespace sat {
     void lookahead::collect_statistics(statistics& st) const {
         st.update("lh bool var", m_vprefix.size());
         // TBD: keep count of ternary and >3-ary clauses.
+        st.update("lh bca", m_stats.m_bca);
         st.update("lh add binary", m_stats.m_add_binary);
         st.update("lh del binary", m_stats.m_del_binary);
         st.update("lh propagations", m_stats.m_propagations);

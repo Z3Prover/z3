@@ -34,11 +34,9 @@ namespace sat {
     }
 
     void elim_eqs::cleanup_bin_watches(literal_vector const & roots) {
-        vector<watch_list>::iterator it  = m_solver.m_watches.begin();
-        vector<watch_list>::iterator end = m_solver.m_watches.end();
-        for (unsigned l_idx = 0; it != end; ++it, ++l_idx) {
-            watch_list & wlist = *it;
-            literal l1 = ~to_literal(l_idx);
+        unsigned l_idx = 0;
+        for (watch_list & wlist : m_solver.m_watches) {
+            literal l1 = ~to_literal(l_idx++);
             literal r1 = norm(roots, l1);
             watch_list::iterator it2    = wlist.begin();
             watch_list::iterator itprev = it2;

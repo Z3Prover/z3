@@ -31,8 +31,17 @@ namespace sat {
         solver &   m_solver;
         // config
         bool       m_scc;
+        bool       m_scc_tr;
         // stats
         unsigned   m_num_elim;
+        unsigned   m_num_elim_bin;
+        random_gen m_rand;
+
+        void get_dfs_num(svector<int>& dfs, bool learned);
+        void reduce_tr();
+        bool reduce_tr(bool learned);
+        bool reduce_tr(svector<int> const& dfs, bool learned);
+
     public:
         scc(solver & s, params_ref const & p);
         unsigned operator()();
