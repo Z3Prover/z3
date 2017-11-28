@@ -190,9 +190,6 @@ bool rewriter_tpl<Config>::constant_fold(app * t, frame & fr) {
         else if (m().is_false(cond)) {
             arg = t->get_arg(2);
         }
-        else {
-            std::cout << mk_ismt2_pp(cond, m()) << "\n";
-        }
         if (arg) {
             result_stack().shrink(fr.m_spos);
             result_stack().push_back(arg);
