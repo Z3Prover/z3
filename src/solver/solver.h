@@ -226,6 +226,7 @@ protected:
 
     bool is_literal(ast_manager& m, expr* e);
 
+    void hoist_converter(model_converter_ref& mc);
 };
 
 typedef ref<solver> solver_ref;

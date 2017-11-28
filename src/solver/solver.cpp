@@ -212,3 +212,7 @@ void solver::updt_params(params_ref const & p) {
     m_enforce_model_conversion = m_params.get_bool("solver.enforce_model_conversion", true);
 }
 
+void solver::hoist_converter(model_converter_ref& mc) {
+    
+}
+

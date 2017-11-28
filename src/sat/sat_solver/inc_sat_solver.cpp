@@ -108,11 +108,20 @@ public:
         for (unsigned l : m_fmls_lim) result->m_fmls_lim.push_back(l);
         for (unsigned a : m_asms_lim) result->m_asms_lim.push_back(a);
         for (unsigned h : m_fmls_head_lim) result->m_fmls_head_lim.push_back(h);
+        std::cout << "translate internalized " << m_internalized_fmls.size() << "\n";
+        std::cout.flush();
         for (expr* f : m_internalized_fmls) result->m_internalized_fmls.push_back(tr(f));
-        if (m_mc0.get()) result->m_mc0 = m_mc0->translate(tr);
+        std::cout << "mc0\n";
+        std::cout.flush();
+        model_converter_ref mc = concat(mc0(), get_model_converter().get());
+        if (mc) {
+            ast_translation tr(m, dst_m);
+            result->set_model_converter(mc->translate(tr));
+        } 
+        std::cout << "mc1\n";
+        std::cout.flush();
         result->m_internalized = m_internalized;
         result->m_internalized_converted = m_internalized_converted;
-        if (mc0()) result->set_model_converter(mc0()->translate(tr));
         return result;
     }
 

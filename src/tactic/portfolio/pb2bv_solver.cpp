@@ -50,9 +50,10 @@ public:
     virtual solver* translate(ast_manager& dst_m, params_ref const& p) {
         flush_assertions();
         solver* result = alloc(pb2bv_solver, dst_m, p, m_solver->translate(dst_m, p));
-        if (mc0()) {
+        model_converter_ref mc = concat(mc0(), m_solver->get_model_converter().get());
+        if (mc) {
             ast_translation tr(m, dst_m);
-            result->set_model_converter(mc0()->translate(tr));
+            result->set_model_converter(mc->translate(tr));
         }
         return result;
     }
