@@ -436,9 +436,9 @@ public:
 
     virtual model_converter_ref get_model_converter() const {
         const_cast<inc_sat_solver*>(this)->convert_internalized();
+        if (m_cached_mc)
+            return m_cached_mc;
         if (m_internalized && m_internalized_converted) {            
-            if (m_cached_mc)
-                return m_cached_mc;
             m_cached_mc = concat(m_mc0.get(), mk_bit_blaster_model_converter(m, m_bb_rewriter->const2bits()));
             m_cached_mc = concat(solver::get_model_converter().get(), m_cached_mc.get());
             m_cached_mc = concat(m_cached_mc.get(), m_sat_mc.get());
@@ -452,7 +452,6 @@ public:
     void convert_internalized() {
         if (!m_internalized || m_internalized_converted) return;
         sat2goal s2g;
-        m_sat_mc = nullptr;
         m_cached_mc = nullptr;
         goal g(m, false, true, false);
         s2g(m_solver, m_map, m_params, g, m_sat_mc);

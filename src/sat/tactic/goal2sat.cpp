@@ -1183,8 +1183,8 @@ struct sat2goal::imp {
         ref<sat_model_converter> _mc;
         if (r.models_enabled()) {
             _mc = alloc(sat_model_converter, m, s);
+            mc = _mc.get();            
         }
-        mc = _mc.get();
         init_lit2expr(s, map, _mc);
         // collect units
         unsigned num_vars = s.num_vars();
