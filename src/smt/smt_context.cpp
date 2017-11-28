@@ -4366,8 +4366,9 @@ namespace smt {
                 SASSERT(is_app(fn));
                 // reverse argument order so that variable 0 starts at the beginning.
                 expr_ref_vector subst(m);
+                unsigned idx = 0;
                 for (expr* arg : *to_app(fn)) {
-                    subst.push_back(arg);
+                    subst.push_back(m.mk_var(idx++, m.get_sort(arg)));
                 }
                 expr_ref bodyr(m);
                 var_subst sub(m, true);
