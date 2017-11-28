@@ -478,7 +478,7 @@ class smt_printer {
 
     void print_no_lets(expr *e)
     {
-        smt_printer p(m_out, m_manager, m_qlists, m_renaming, m_logic, true, m_simplify_implies, true, m_indent, m_num_var_names, m_var_names);
+        smt_printer p(m_out, m_manager, m_qlists, m_renaming, m_logic, true, m_simplify_implies, m_indent, m_num_var_names, m_var_names);
         p(e);
     }
 
@@ -511,7 +511,7 @@ class smt_printer {
             m_out << "(! ";
         }
         {
-            smt_printer p(m_out, m_manager, m_qlists, m_renaming, m_logic, false, true, m_simplify_implies, m_indent, m_num_var_names, m_var_names);
+            smt_printer p(m_out, m_manager, m_qlists, m_renaming, m_logic, false, m_simplify_implies, m_indent, m_num_var_names, m_var_names);
             p(q->get_expr());
         }
 
@@ -704,7 +704,7 @@ class smt_printer {
 
 public:
     smt_printer(std::ostream& out, ast_manager& m, ptr_vector<quantifier>& ql, smt_renaming& rn,
-                symbol logic, bool no_lets, bool is_smt2, bool simplify_implies, unsigned indent, unsigned num_var_names = 0, char const* const* var_names = 0) :
+                symbol logic, bool no_lets, bool simplify_implies, unsigned indent, unsigned num_var_names = 0, char const* const* var_names = 0) :
         m_out(out),
         m_manager(m),
         m_qlists(ql),
@@ -895,24 +895,25 @@ ast_smt_pp::ast_smt_pp(ast_manager& m):
 {}
 
 
+#if 0
 void ast_smt_pp::display_expr(std::ostream& strm, expr* n) {
-    ptr_vector<quantifier> ql;
-    smt_renaming rn;
-    smt_printer p(strm, m_manager, ql, rn, m_logic, false, false, m_simplify_implies, 0);
+    ptr_vector<quantifier> ql;    smt_renaming rn;
+    smt_printer p(strm, m_manager, ql, rn, m_logic, false, m_simplify_implies, 0);
     p(n);
 }
+#endif
 
 void ast_smt_pp::display_expr_smt2(std::ostream& strm, expr* n, unsigned indent, unsigned num_var_names, char const* const* var_names) {
     ptr_vector<quantifier> ql;
     smt_renaming rn;
-    smt_printer p(strm, m_manager, ql, rn, m_logic, false, true, m_simplify_implies, indent, num_var_names, var_names);
+    smt_printer p(strm, m_manager, ql, rn, m_logic, false, m_simplify_implies, indent, num_var_names, var_names);
     p(n);
 }
 
 void ast_smt_pp::display_ast_smt2(std::ostream& strm, ast* a, unsigned indent, unsigned num_var_names, char const* const* var_names) {
     ptr_vector<quantifier> ql;
     smt_renaming rn;
-    smt_printer p(strm, m_manager, ql, rn, m_logic, false, true, m_simplify_implies, indent, num_var_names, var_names);
+    smt_printer p(strm, m_manager, ql, rn, m_logic, false, m_simplify_implies, indent, num_var_names, var_names);
     if (is_expr(a)) {
         p(to_expr(a));
     }

@@ -1314,13 +1314,11 @@ typedef enum {
 
    - Z3_PRINT_SMTLIB_FULL:   Print AST nodes in SMTLIB verbose format.
    - Z3_PRINT_LOW_LEVEL:     Print AST nodes using a low-level format.
-   - Z3_PRINT_SMTLIB_COMPLIANT: Print AST nodes in SMTLIB 1.x compliant format.
    - Z3_PRINT_SMTLIB2_COMPLIANT: Print AST nodes in SMTLIB 2.x compliant format.
 */
 typedef enum {
     Z3_PRINT_SMTLIB_FULL,
     Z3_PRINT_LOW_LEVEL,
-    Z3_PRINT_SMTLIB_COMPLIANT,
     Z3_PRINT_SMTLIB2_COMPLIANT
 } Z3_ast_print_mode;
 
@@ -5116,7 +5114,7 @@ extern "C" {
        To print shared common subexpressions only once,
        use the Z3_PRINT_LOW_LEVEL mode.
        To print in way that conforms to SMT-LIB standards and uses let
-       expressions to share common sub-expressions use Z3_PRINT_SMTLIB_COMPLIANT.
+       expressions to share common sub-expressions use Z3_PRINT_SMTLIB2_COMPLIANT.
 
        \sa Z3_ast_to_string
        \sa Z3_pattern_to_string
