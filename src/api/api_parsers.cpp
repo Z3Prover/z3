@@ -55,7 +55,19 @@ extern "C" {
             psort* ps = ctx->pm().mk_psort_cnst(to_sort(sorts[i]));
             ctx->insert(ctx->pm().mk_psort_user_decl(0, to_symbol(sort_names[i]), ps));
         }
-        if (!parse_smt2_commands(*ctx.get(), is)) {
+        std::stringstream errstrm;
+        ctx->set_regular_stream(errstrm);
+        try {
+            if (!parse_smt2_commands(*ctx.get(), is)) {
+                ctx = nullptr;
+                mk_c(c)->m_parser_error_buffer = errstrm.str();
+                SET_ERROR_CODE(Z3_PARSER_ERROR);
+                return of_ast(mk_c(c)->m().mk_true());
+            }
+        }
+        catch (z3_exception& e) {
+            errstrm << e.msg();
+            mk_c(c)->m_parser_error_buffer = errstrm.str();            
             ctx = nullptr;
             SET_ERROR_CODE(Z3_PARSER_ERROR);
             return of_ast(mk_c(c)->m().mk_true());

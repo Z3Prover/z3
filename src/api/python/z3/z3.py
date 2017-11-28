@@ -6668,11 +6668,17 @@ class Fixedpoint(Z3PPObject):
 
     def parse_string(self, s):
         """Parse rules and queries from a string"""
-        return AstVector(Z3_fixedpoint_from_string(self.ctx.ref(), self.fixedpoint, s), self.ctx)
+        try:
+            return AstVector(Z3_fixedpoint_from_string(self.ctx.ref(), self.fixedpoint, s), self.ctx)
+        except Z3Exception as e:
+            _handle_parse_error(e, self.ctx)
 
     def parse_file(self, f):
         """Parse rules and queries from a file"""
-        return AstVector(Z3_fixedpoint_from_file(self.ctx.ref(), self.fixedpoint, f), self.ctx)
+        try:
+            return AstVector(Z3_fixedpoint_from_file(self.ctx.ref(), self.fixedpoint, f), self.ctx)
+        except Z3Exception as e:
+            _handle_parse_error(e, self.ctx)
 
     def get_rules(self):
         """retrieve rules that have been added to fixedpoint context"""
@@ -6995,15 +7001,21 @@ class Optimize(Z3PPObject):
     def upper_values(self, obj):
         if not isinstance(obj, OptimizeObjective):
             raise Z3Exception("Expecting objective handle returned by maximize/minimize")
-        return obj.upper_values()
+        return obj.upper_values()    
 
     def from_file(self, filename):
         """Parse assertions and objectives from a file"""
-        Z3_optimize_from_file(self.ctx.ref(), self.optimize, filename)
+        try:
+            Z3_optimize_from_file(self.ctx.ref(), self.optimize, filename)
+        except Z3Exception as e:
+            _handle_parse_error(e, self.ctx)
 
     def from_string(self, s):
         """Parse assertions and objectives from a string"""
-        Z3_optimize_from_string(self.ctx.ref(), self.optimize, s)
+        try:
+            Z3_optimize_from_string(self.ctx.ref(), self.optimize, s)
+        except Z3Exception as e:
+            _handle_parse_error(e, self.ctx)
 
     def assertions(self):
         """Return an AST vector containing all added constraints."""
@@ -8071,6 +8083,12 @@ def _dict2darray(decls, ctx):
         i = i + 1
     return sz, _names, _decls
 
+def _handle_parse_error(ex, ctx):
+    msg = Z3_get_parser_error(ctx.ref())
+    if msg != "":
+        raise Z3Exception(msg)
+    raise ex
+
 def parse_smt2_string(s, sorts={}, decls={}, ctx=None):
     """Parse a string in SMT 2.0 format using the given sorts and decls.
 
@@ -8089,7 +8107,10 @@ def parse_smt2_string(s, sorts={}, decls={}, ctx=None):
     ctx = _get_ctx(ctx)
     ssz, snames, ssorts = _dict2sarray(sorts, ctx)
     dsz, dnames, ddecls = _dict2darray(decls, ctx)
-    return _to_expr_ref(Z3_parse_smtlib2_string(ctx.ref(), s, ssz, snames, ssorts, dsz, dnames, ddecls), ctx)
+    try: 
+        return _to_expr_ref(Z3_parse_smtlib2_string(ctx.ref(), s, ssz, snames, ssorts, dsz, dnames, ddecls), ctx)
+    except Z3Exception as e:
+        _handle_parse_error(e, ctx)
 
 def parse_smt2_file(f, sorts={}, decls={}, ctx=None):
     """Parse a file in SMT 2.0 format using the given sorts and decls.
@@ -8099,7 +8120,10 @@ def parse_smt2_file(f, sorts={}, decls={}, ctx=None):
     ctx = _get_ctx(ctx)
     ssz, snames, ssorts = _dict2sarray(sorts, ctx)
     dsz, dnames, ddecls = _dict2darray(decls, ctx)
-    return _to_expr_ref(Z3_parse_smtlib2_file(ctx.ref(), f, ssz, snames, ssorts, dsz, dnames, ddecls), ctx)
+    try: 
+        return _to_expr_ref(Z3_parse_smtlib2_file(ctx.ref(), f, ssz, snames, ssorts, dsz, dnames, ddecls), ctx)
+    except Z3Exception as e:
+        _handle_parse_error(e, ctx)
 
 def Interpolant(a,ctx=None):
     """Create an interpolation operator.
