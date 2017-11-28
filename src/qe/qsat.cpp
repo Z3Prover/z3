@@ -626,6 +626,9 @@ namespace qe {
                     SASSERT(validate_assumptions(*m_model.get(), asms));
                     SASSERT(validate_model(asms));
                     TRACE("qe", s.display(tout); display(tout << "\n", *m_model.get()); display(tout, asms); );
+                    if (m_level == 0) {
+                        m_model_save = m_model;
+                    }
                     push();
                     if (m_level == 1 && m_mode == qsat_maximize) {
                         maximize_model();
@@ -1274,7 +1277,7 @@ namespace qe {
                 in->inc_depth();
                 result.push_back(in.get());
                 if (in->models_enabled()) {
-                    mc = model2model_converter(m_model.get());
+                    mc = model2model_converter(m_model_save.get());
                     mc = concat(m_pred_abs.fmc(), mc.get());
                 }
                 break;
