@@ -5228,115 +5228,13 @@ extern "C" {
                                         Z3_symbol const decl_names[],
                                         Z3_func_decl const decls[]);
 
-    /**
-       \brief Parse the given string using the SMT-LIB parser.
-
-       The symbol table of the parser can be initialized using the given sorts and declarations.
-       The symbols in the arrays \c sort_names and \c decl_names don't need to match the names
-       of the sorts and declarations in the arrays \c sorts and \c decls. This is an useful feature
-       since we can use arbitrary names to reference sorts and declarations defined using the C API.
-
-       The formulas, assumptions and declarations defined in \c str can be extracted using the functions:
-       #Z3_get_smtlib_num_formulas, #Z3_get_smtlib_formula, #Z3_get_smtlib_num_assumptions, #Z3_get_smtlib_assumption,
-       #Z3_get_smtlib_num_decls, and #Z3_get_smtlib_decl.
-
-       def_API('Z3_parse_smtlib_string', VOID, (_in(CONTEXT), _in(STRING), _in(UINT), _in_array(2, SYMBOL), _in_array(2, SORT), _in(UINT), _in_array(5, SYMBOL), _in_array(5, FUNC_DECL)))
-    */
-    void Z3_API Z3_parse_smtlib_string(Z3_context c,
-                                       Z3_string str,
-                                       unsigned num_sorts,
-                                       Z3_symbol const sort_names[],
-                                       Z3_sort const sorts[],
-                                       unsigned num_decls,
-                                       Z3_symbol const decl_names[],
-                                       Z3_func_decl const decls[]
-                                       );
-
-    /**
-       \brief Similar to #Z3_parse_smtlib_string, but reads the benchmark from a file.
-
-       def_API('Z3_parse_smtlib_file', VOID, (_in(CONTEXT), _in(STRING), _in(UINT), _in_array(2, SYMBOL), _in_array(2, SORT), _in(UINT), _in_array(5, SYMBOL), _in_array(5, FUNC_DECL)))
-    */
-    void Z3_API Z3_parse_smtlib_file(Z3_context c,
-                                     Z3_string file_name,
-                                     unsigned num_sorts,
-                                     Z3_symbol const sort_names[],
-                                     Z3_sort const sorts[],
-                                     unsigned num_decls,
-                                     Z3_symbol const decl_names[],
-                                     Z3_func_decl const decls[]
-                                     );
-
-    /**
-       \brief Return the number of SMTLIB formulas parsed by the last call to #Z3_parse_smtlib_string or #Z3_parse_smtlib_file.
-
-       def_API('Z3_get_smtlib_num_formulas', UINT, (_in(CONTEXT), ))
-    */
-    unsigned Z3_API Z3_get_smtlib_num_formulas(Z3_context c);
-
-    /**
-       \brief Return the i-th formula parsed by the last call to #Z3_parse_smtlib_string or #Z3_parse_smtlib_file.
-
-       \pre i < Z3_get_smtlib_num_formulas(c)
-
-       def_API('Z3_get_smtlib_formula', AST, (_in(CONTEXT), _in(UINT)))
-    */
-    Z3_ast Z3_API Z3_get_smtlib_formula(Z3_context c, unsigned i);
-
-    /**
-       \brief Return the number of SMTLIB assumptions parsed by #Z3_parse_smtlib_string or #Z3_parse_smtlib_file.
-
-       def_API('Z3_get_smtlib_num_assumptions', UINT, (_in(CONTEXT), ))
-    */
-    unsigned Z3_API Z3_get_smtlib_num_assumptions(Z3_context c);
-
-    /**
-       \brief Return the i-th assumption parsed by the last call to #Z3_parse_smtlib_string or #Z3_parse_smtlib_file.
-
-       \pre i < Z3_get_smtlib_num_assumptions(c)
-
-       def_API('Z3_get_smtlib_assumption', AST, (_in(CONTEXT), _in(UINT)))
-    */
-    Z3_ast Z3_API Z3_get_smtlib_assumption(Z3_context c, unsigned i);
-
-    /**
-       \brief Return the number of declarations parsed by #Z3_parse_smtlib_string or #Z3_parse_smtlib_file.
-
-       def_API('Z3_get_smtlib_num_decls', UINT, (_in(CONTEXT), ))
-    */
-    unsigned Z3_API Z3_get_smtlib_num_decls(Z3_context c);
-
-    /**
-       \brief Return the i-th declaration parsed by the last call to #Z3_parse_smtlib_string or #Z3_parse_smtlib_file.
-
-       \pre i < Z3_get_smtlib_num_decls(c)
-
-       def_API('Z3_get_smtlib_decl', FUNC_DECL, (_in(CONTEXT), _in(UINT)))
-    */
-    Z3_func_decl Z3_API Z3_get_smtlib_decl(Z3_context c, unsigned i);
-
-    /**
-       \brief Return the number of sorts parsed by #Z3_parse_smtlib_string or #Z3_parse_smtlib_file.
-
-       def_API('Z3_get_smtlib_num_sorts', UINT, (_in(CONTEXT), ))
-    */
-    unsigned Z3_API Z3_get_smtlib_num_sorts(Z3_context c);
-
-    /**
-       \brief Return the i-th sort parsed by the last call to #Z3_parse_smtlib_string or #Z3_parse_smtlib_file.
-
-       \pre i < Z3_get_smtlib_num_sorts(c)
-
-       def_API('Z3_get_smtlib_sort', SORT, (_in(CONTEXT), _in(UINT)))
-    */
-    Z3_sort Z3_API Z3_get_smtlib_sort(Z3_context c, unsigned i);
 
     /**
        \brief Retrieve that last error message information generated from parsing.
 
-       def_API('Z3_get_smtlib_error', STRING, (_in(CONTEXT), ))
+       def_API('Z3_get_parser_error', STRING, (_in(CONTEXT), ))
     */
-    Z3_string Z3_API Z3_get_smtlib_error(Z3_context c);
+    Z3_string Z3_API Z3_get_parser_error(Z3_context c);
     /*@}*/
 
     /** @name Error Handling */
