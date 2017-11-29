@@ -872,12 +872,7 @@ extern "C" {
         for (unsigned i = 0; i < num_assumptions; ++i) {
             pp.add_assumption(to_expr(assumptions[i]));
         }
-        if (mk_c(c)->get_print_mode() == Z3_PRINT_SMTLIB2_COMPLIANT) {
-            pp.display_smt2(buffer, to_expr(formula));
-        }
-        else {
-            pp.display(buffer, to_expr(formula));
-        }
+        pp.display_smt2(buffer, to_expr(formula));
         return mk_c(c)->mk_external_string(buffer.str());
         Z3_CATCH_RETURN("");
     }
