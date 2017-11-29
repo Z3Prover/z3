@@ -578,8 +578,9 @@ int smtlib_maxsat(char * file_name, int approach)
     unsigned i;
     Z3_optimize opt;
     unsigned num_hard_cnstrs, num_soft_cnstrs;
-    Z3_ast * hard_cnstrs, * soft_cnstrs, soft;
+    Z3_ast * hard_cnstrs, * soft_cnstrs;
     Z3_ast_vector  hard, objs;
+    Z3_app soft;
     unsigned result = 0;
     ctx = mk_context();
     s = mk_solver(ctx);
@@ -595,22 +596,16 @@ int smtlib_maxsat(char * file_name, int approach)
     }
     objs = Z3_optimize_get_objectives(ctx, opt);
     Z3_ast_vector_inc_ref(ctx, objs);
-    num_soft_cnstrs = 0;
-    soft = Z3_ast_vector_get(ctx, objs, 0);
-    while (Z3_get_decl_kind(ctx, Z3_get_app_decl(ctx, Z3_to_app(ctx, soft))) == Z3_OP_ITE) {
-        ++num_soft_cnstrs;
-        soft = Z3_get_app_arg(ctx, Z3_to_app(ctx, soft), 1);
-    }
+
+    // soft constraints are stored in a single objective which is a sum 
+    // of if-then-else expressions.
+    soft = Z3_to_app(ctx, Z3_ast_vector_get(ctx, objs, 0));
+    num_soft_cnstrs = Z3_get_app_num_args(ctx, soft);
     soft_cnstrs = (Z3_ast *) malloc(sizeof(Z3_ast) * (num_soft_cnstrs));
-    num_soft_cnstrs = 0;
-    soft = Z3_ast_vector_get(ctx, objs, 0);    
-    while (Z3_get_decl_kind(ctx, Z3_get_app_decl(ctx, Z3_to_app(ctx, soft))) == Z3_OP_ITE) {        
-        soft_cnstrs[num_soft_cnstrs] = Z3_get_app_arg(ctx, Z3_to_app(ctx, soft), 0);
-        ++num_soft_cnstrs;
-        soft = Z3_get_app_arg(ctx, Z3_to_app(ctx, soft), 1);
+    for (i = 0; i < num_soft_cnstrs; ++i) {
+        soft_cnstrs[i] = Z3_get_app_arg(ctx, Z3_to_app(ctx, Z3_get_app_arg(ctx, soft, i)), 0);
     }
     
-    // soft_cnstrs = get_soft_constraints(ctx, &num_soft_cnstrs);
     switch (approach) {
     case NAIVE_MAXSAT: 
         result = naive_maxsat(ctx, s, num_hard_cnstrs, hard_cnstrs, num_soft_cnstrs, soft_cnstrs);

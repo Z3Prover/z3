@@ -4299,7 +4299,7 @@ extern "C" {
     /**
        \brief Return the i-th argument of the given application.
 
-       \pre i < Z3_get_num_args(c, a)
+       \pre i < Z3_get_app_num_args(c, a)
 
        def_API('Z3_get_app_arg', AST, (_in(CONTEXT), _in(APP), _in(UINT)))
     */
