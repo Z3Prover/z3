@@ -607,6 +607,9 @@ namespace datalog {
         rule_set * res = alloc(rule_set, m_context);
         if (transform_rules(source, *res)) {
             res->inherit_predicates(source);
+            TRACE("dl", 
+                  source.display(tout); 
+                  res->display(tout););
         } else {
             dealloc(res);
             res = 0;

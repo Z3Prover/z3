@@ -3127,6 +3127,20 @@ namespace Microsoft.Z3
 
             return (BitVecNum)MkNumeral(v, MkBitVecSort(size));
         }
+
+        /// <summary>
+        /// Create a bit-vector numeral.
+        /// </summary>
+        /// <param name="bits">An array of bits representing the bit-vector. Least signficant bit is at position 0.</param>
+        public BitVecNum MkBV(bool[] bits)
+        {
+            Contract.Ensures(Contract.Result<BitVecNum>() != null);
+            int[] _bits = new int[bits.Length];
+            for (int i = 0; i < bits.Length; ++i) _bits[i] = bits[i] ? 1 : 0;	
+            return (BitVecNum)Expr.Create(this, Native.Z3_mk_bv_numeral(nCtx, (uint)bits.Length, _bits));
+        }
+
+
         #endregion
 
         #endregion // Numerals

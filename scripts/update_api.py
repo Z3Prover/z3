@@ -240,7 +240,7 @@ def param2javaw(p):
     if k == OUT:
         return "jobject"
     elif k == IN_ARRAY or k == INOUT_ARRAY or k == OUT_ARRAY:
-        if param_type(p) == INT or param_type(p) == UINT:
+        if param_type(p) == INT or param_type(p) == UINT or param_type(p) == BOOL:
             return "jintArray"
         else:
             return "jlongArray"
@@ -258,7 +258,7 @@ def param2pystr(p):
 def param2ml(p):
     k = param_kind(p)
     if k == OUT:
-        if param_type(p) == INT or param_type(p) == UINT or param_type(p) == INT64 or param_type(p) == UINT64:
+        if param_type(p) == INT or param_type(p) == UINT or param_type(p) == BOOL or param_type(p) == INT64 or param_type(p) == UINT64:
             return "int"
         elif param_type(p) == STRING:
             return "string"
@@ -279,8 +279,8 @@ def mk_py_binding(name, result, params):
     global _API2PY
     _API2PY.append((name, result, params))
     if result != VOID:
-        core_py.write("  _lib.%s.restype = %s\n" % (name, type2pystr(result)))
-    core_py.write("  _lib.%s.argtypes = [" % name)
+        core_py.write("_lib.%s.restype = %s\n" % (name, type2pystr(result)))
+    core_py.write("_lib.%s.argtypes = [" % name)
     first = True
     for p in params:
         if first:
@@ -311,8 +311,32 @@ def display_args_to_z3(params):
             core_py.write("a%s" % i)
         i = i + 1
 
+NULLWrapped = [ 'Z3_mk_context', 'Z3_mk_context_rc', 'Z3_mk_interpolation_context' ]
+Unwrapped = [ 'Z3_del_context', 'Z3_get_error_code' ]
+
 def mk_py_wrappers():
-    core_py.write("\n")
+    core_py.write("""
+class Elementaries:
+  def __init__(self, f):
+    self.f = f
+    self.get_error_code = _lib.Z3_get_error_code
+    self.get_error_message = _lib.Z3_get_error_msg
+    self.OK = Z3_OK
+    self.Exception = Z3Exception
+
+  def Check(self, ctx):
+    err = self.get_error_code(ctx)
+    if err != self.OK:
+        raise self.Exception(self.get_error_message(ctx, err))
+
+def Z3_set_error_handler(ctx, hndlr, _elems=Elementaries(_lib.Z3_set_error_handler)):
+  ceh = _error_handler_type(hndlr)
+  _elems.f(ctx, ceh)
+  _elems.Check(ctx)
+  return ceh
+
+""")
+
     for sig in _API2PY:
         name   = sig[0]
         result = sig[1]
@@ -320,25 +344,20 @@ def mk_py_wrappers():
         num    = len(params)
         core_py.write("def %s(" % name)
         display_args(num)
-        core_py.write("):\n")
-        core_py.write("  _lib = lib()\n")
-        core_py.write("  if _lib is None or _lib.%s is None:\n" % name)
-        core_py.write("     return\n")
-        if result != VOID:
-            core_py.write("  r = _lib.%s(" % name)
-        else:
-            core_py.write("  _lib.%s(" % name)
+        comma = ", " if num != 0 else ""
+        core_py.write("%s_elems=Elementaries(_lib.%s)):\n" % (comma, name))
+        lval = "r = " if result != VOID else ""
+        core_py.write("  %s_elems.f(" % lval)
         display_args_to_z3(params)
         core_py.write(")\n")
-        if len(params) > 0 and param_type(params[0]) == CONTEXT:
-            core_py.write("  err = _lib.Z3_get_error_code(a0)\n")
-            core_py.write("  if err != Z3_OK:\n")
-            core_py.write("    raise Z3Exception(_lib.Z3_get_error_msg(a0, err))\n")
+        if len(params) > 0 and param_type(params[0]) == CONTEXT and not name in Unwrapped:
+            core_py.write("  _elems.Check(a0)\n")
         if result == STRING:
             core_py.write("  return _to_pystr(r)\n")
         elif result != VOID:
             core_py.write("  return r\n")
         core_py.write("\n")
+    core_py
 
 
 ## .NET API native interface
@@ -390,10 +409,6 @@ def mk_dotnet(dotnet):
             i = i + 1
         dotnet.write(');\n\n')
     dotnet.write('        }\n')
-
-
-NULLWrapped = [ 'Z3_mk_context', 'Z3_mk_context_rc', 'Z3_mk_interpolation_context' ]
-Unwrapped = [ 'Z3_del_context', 'Z3_get_error_code' ]
 
 def mk_dotnet_wrappers(dotnet):
     global Type2Str
@@ -476,7 +491,7 @@ def java_method_name(name):
 
 # Return the type of the java array elements
 def java_array_element_type(p):
-    if param_type(p) == INT or param_type(p) == UINT:
+    if param_type(p) == INT or param_type(p) == UINT or param_type(p) == BOOL:
         return 'jint'
     else:
         return 'jlong'
@@ -638,7 +653,7 @@ def mk_java(java_dir, package_name):
             if k == OUT or k == INOUT:
                 java_wrapper.write('  %s _a%s;\n' % (type2str(param_type(param)), i))
             elif k == IN_ARRAY or k == INOUT_ARRAY:
-                if param_type(param) == INT or param_type(param) == UINT:
+                if param_type(param) == INT or param_type(param) == UINT or param_type(param) == BOOL:
                     java_wrapper.write('  %s * _a%s = (%s*) jenv->GetIntArrayElements(a%s, NULL);\n' % (type2str(param_type(param)), i, type2str(param_type(param)), i))
                 else:
                     java_wrapper.write('  GETLONGAELEMS(%s, a%s, _a%s);\n' % (type2str(param_type(param)), i, i))
@@ -648,7 +663,7 @@ def mk_java(java_dir, package_name):
                                                                                                      type2str(param_type(param)),
                                                                                                      param_array_capacity_pos(param),
                                                                                                      type2str(param_type(param))))
-                if param_type(param) == INT or param_type(param) == UINT:
+                if param_type(param) == INT or param_type(param) == UINT or param_type(param) == BOOL:
                     java_wrapper.write('  jenv->GetIntArrayRegion(a%s, 0, (jsize)a%s, (jint*)_a%s);\n' % (i, param_array_capacity_pos(param), i))
                 else:
                     java_wrapper.write('  GETLONGAREGION(%s, a%s, 0, a%s, _a%s);\n' % (type2str(param_type(param)), i, param_array_capacity_pos(param), i))
@@ -687,19 +702,19 @@ def mk_java(java_dir, package_name):
         for param in params:
             k = param_kind(param)
             if k == OUT_ARRAY:
-                if param_type(param) == INT or param_type(param) == UINT:
+                if param_type(param) == INT or param_type(param) == UINT or param_type(param) == BOOL:
                     java_wrapper.write('  jenv->SetIntArrayRegion(a%s, 0, (jsize)a%s, (jint*)_a%s);\n' % (i, param_array_capacity_pos(param), i))
                 else:
                     java_wrapper.write('  SETLONGAREGION(a%s, 0, a%s, _a%s);\n' % (i, param_array_capacity_pos(param), i))
                 java_wrapper.write('  free(_a%s);\n' % i)
             elif k == IN_ARRAY or k == OUT_ARRAY:
-                if param_type(param) == INT or param_type(param) == UINT:
+                if param_type(param) == INT or param_type(param) == UINT or param_type(param) == BOOL:
                     java_wrapper.write('  jenv->ReleaseIntArrayElements(a%s, (jint*)_a%s, JNI_ABORT);\n' % (i, i))
                 else:
                     java_wrapper.write('  RELEASELONGAELEMS(a%s, _a%s);\n' % (i, i))
 
             elif k == OUT or k == INOUT:
-                if param_type(param) == INT or param_type(param) == UINT:
+                if param_type(param) == INT or param_type(param) == UINT or param_type(param) == BOOL:
                     java_wrapper.write('  {\n')
                     java_wrapper.write('     jclass mc    = jenv->GetObjectClass(a%s);\n' % i)
                     java_wrapper.write('     jfieldID fid = jenv->GetFieldID(mc, "value", "I");\n')
@@ -942,7 +957,7 @@ def def_API(name, result, params):
                 log_c.write(" }\n")
                 log_c.write("  Au(a%s);\n" % sz)
                 exe_c.write("in.get_uint_array(%s)" % i)
-            elif ty == INT:
+            elif ty == INT or ty == BOOL:
                 log_c.write("U(a%s[i]);" % i)
                 log_c.write(" }\n")
                 log_c.write("  Au(a%s);\n" % sz)
@@ -1605,35 +1620,79 @@ def write_exe_c_preamble(exe_c):
 
 def write_core_py_post(core_py):
   core_py.write("""
-
+# Clean up
+del _lib
+del _default_dirs
+del _all_dirs
+del _ext
 """)
     
 def write_core_py_preamble(core_py):
-  core_py.write('# Automatically generated file\n')
-  core_py.write('import sys, os\n')
-  core_py.write('import ctypes\n')
-  core_py.write('import pkg_resources\n')
-  core_py.write('from .z3types import *\n')
-  core_py.write('from .z3consts import *\n')
   core_py.write(
 """
+# Automatically generated file
+import sys, os
+import ctypes
+import pkg_resources
+from .z3types import *
+from .z3consts import *
+
 _ext = 'dll' if sys.platform in ('win32', 'cygwin') else 'dylib' if sys.platform == 'darwin' else 'so'
-
 _lib = None
+_default_dirs = ['.',
+                 os.path.dirname(os.path.abspath(__file__)),
+                 pkg_resources.resource_filename('z3', 'lib'),
+                 os.path.join(sys.prefix, 'lib'),
+                 None]
+_all_dirs = []
 
-def lib():
-  global _lib
-  if _lib is None:
-     _dirs = ['.', os.path.dirname(os.path.abspath(__file__)), pkg_resources.resource_filename('z3', 'lib'), os.path.join(sys.prefix, 'lib'), None]
-     for _dir in _dirs:
-       try:
-          init(_dir)
-          break
-       except:
-          pass
-  if _lib is None:
-    raise Z3Exception("init(Z3_LIBRARY_PATH) must be invoked before using Z3-python")
-  return _lib
+if sys.version < '3':
+  import __builtin__
+  if hasattr(__builtin__, "Z3_LIB_DIRS"):
+    _all_dirs = __builtin__.Z3_LIB_DIRS
+else:
+  import builtins
+  if hasattr(builtins, "Z3_LIB_DIRS"):
+    _all_dirs = builtins.Z3_LIB_DIRS
+
+for v in ('Z3_LIBRARY_PATH', 'PATH'):
+  if v in os.environ:
+    lp = os.environ[v];
+    lds = lp.split(';') if sys.platform in ('win32') else lp.split(':')
+    _all_dirs.extend(lds)
+
+_all_dirs.extend(_default_dirs)
+
+for d in _all_dirs:
+  try:
+    d = os.path.realpath(d)
+    if os.path.isdir(d):
+      d = os.path.join(d, 'libz3.%s' % _ext)
+      if os.path.isfile(d):
+        _lib = ctypes.CDLL(d)
+        break
+  except:
+    pass
+
+if _lib is None:
+  # If all else failed, ask the system to find it.
+  try:
+    _lib = ctypes.CDLL('libz3.%s' % _ext)
+  except:
+    pass
+
+if _lib is None:
+  print("Could not find libz3.%s; consider adding the directory containing it to" % _ext)
+  print("  - your system's PATH environment variable,")
+  print("  - the Z3_LIBRARY_PATH environment variable, or ")
+  print("  - to the custom Z3_LIBRARY_DIRS Python-builtin before importing the z3 module, e.g. via")
+  if sys.version < '3':
+    print("    import __builtin__")
+    print("    __builtin__.Z3_LIB_DIRS = [ '/path/to/libz3.%s' ] " % _ext)
+  else:
+    print("    import builtins")
+    print("    builtins.Z3_LIB_DIRS = [ '/path/to/libz3.%s' ] " % _ext)
+  raise Z3Exception("libz3.%s not found." % _ext)
 
 def _to_ascii(s):
   if isinstance(s, str):
@@ -1653,16 +1712,11 @@ else:
      else:
         return ""
 
-def init(PATH):
-  if PATH:
-    PATH = os.path.realpath(PATH)
-    if os.path.isdir(PATH):
-      PATH = os.path.join(PATH, 'libz3.%s' % _ext)
-  else:
-    PATH = 'libz3.%s' % _ext
+_error_handler_type  = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_uint)
 
-  global _lib
-  _lib = ctypes.CDLL(PATH)
+_lib.Z3_set_error_handler.restype  = None
+_lib.Z3_set_error_handler.argtypes = [ContextObj, _error_handler_type]
+
 """
   )
 

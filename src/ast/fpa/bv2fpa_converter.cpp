@@ -297,7 +297,7 @@ func_interp * bv2fpa_converter::convert_func_interp(model_core * mc, func_decl *
                 // The BV model may have multiple equivalent entries using different
                 // representations of NaN. We can only keep one and we check that
                 // the results for all those entries are the same.
-                if (ft_fres != fe->get_result())
+                if (m_fpa_util.is_float(rng) && ft_fres != fe->get_result())
                     throw default_exception("BUG: UF function entries disagree with each other");
             }
         }

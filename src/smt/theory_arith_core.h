@@ -443,7 +443,7 @@ namespace smt {
     }
 
     template<typename Ext>
-    void theory_arith<Ext>::mk_axiom(expr * ante, expr * conseq) {
+    void theory_arith<Ext>::mk_axiom(expr * ante, expr * conseq, bool simplify_conseq) {
         ast_manager & m = get_manager();
         context & ctx   = get_context();
         th_rewriter & s  = ctx.get_rewriter();
@@ -459,7 +459,8 @@ namespace smt {
         literal l_ante = ctx.get_literal(s_ante);
         if (negated) l_ante.neg();
 
-        s(conseq, s_conseq);
+        s_conseq = conseq;
+        if (simplify_conseq) s(conseq, s_conseq);
         if (ctx.get_cancel_flag()) return;
         negated = m.is_not(s_conseq, s_conseq_n);
         if (negated) s_conseq = s_conseq_n;
@@ -507,26 +508,30 @@ namespace smt {
     template<typename Ext>
     void theory_arith<Ext>::mk_idiv_mod_axioms(expr * dividend, expr * divisor) {
         if (!m_util.is_zero(divisor)) {
-            // if divisor is zero, then idiv and mod are uninterpreted functions.
             ast_manager & m = get_manager();
-            expr_ref div(m), mod(m), zero(m), abs_divisor(m);
+            bool is_numeral = m_util.is_numeral(divisor);
+            // if divisor is zero, then idiv and mod are uninterpreted functions.
+            expr_ref div(m), mod(m), zero(m), abs_divisor(m), one(m);
             expr_ref eqz(m), eq(m), lower(m), upper(m);
+            th_rewriter & s  = get_context().get_rewriter();
             div         = m_util.mk_idiv(dividend, divisor);
             mod         = m_util.mk_mod(dividend, divisor);
-            zero        = m_util.mk_numeral(rational(0), true);
-            abs_divisor = m.mk_ite(m_util.mk_lt(divisor, zero), m_util.mk_sub(zero, divisor), divisor);
+            zero        = m_util.mk_int(0);
+            one        = m_util.mk_int(1);
+            abs_divisor = m_util.mk_sub(m.mk_ite(m_util.mk_lt(divisor, zero), m_util.mk_sub(zero, divisor), divisor), one);
+            s(abs_divisor);
             eqz         = m.mk_eq(divisor, zero);
             eq          = m.mk_eq(m_util.mk_add(m_util.mk_mul(divisor, div), mod), dividend);
-            lower       = m_util.mk_le(zero, mod);
-            upper       = m_util.mk_lt(mod, abs_divisor);
+            lower       = m_util.mk_ge(mod, zero);
+            upper       = m_util.mk_le(mod, abs_divisor);
             TRACE("div_axiom_bug", 
-                  tout << "eqz:   " << mk_pp(eqz, m) << "\neq: " << mk_pp(eq, m) << "\n";
-                  tout << "lower: " << mk_pp(lower, m) << "\n";
-                  tout << "upper: " << mk_pp(upper, m) << "\n";);
+                  tout << "eqz:   " << eqz << " neq: " << eq << "\n";
+                  tout << "lower: " << lower << "\n";
+                  tout << "upper: " << upper << "\n";);
 
-            mk_axiom(eqz, eq);
-            mk_axiom(eqz, lower);
-            mk_axiom(eqz, upper);
+            mk_axiom(eqz, eq, !is_numeral);
+            mk_axiom(eqz, lower, !is_numeral);
+            mk_axiom(eqz, upper, !is_numeral);
             rational k;
             if (m_params.m_arith_enum_const_mod && m_util.is_numeral(divisor, k) && 
                 k.is_pos() && k < rational(8)) {

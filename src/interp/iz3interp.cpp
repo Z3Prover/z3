@@ -550,7 +550,7 @@ void interpolation_options_struct::apply(iz3base &b){
 
 // On linux and mac, unlimit stack space so we get recursion
 
-#if defined(_WINDOWS) || defined(_CYGWIN)
+#if defined(_WINDOWS) || defined(_CYGWIN) || defined(_MINGW)
 
 #else
 

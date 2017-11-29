@@ -458,7 +458,7 @@ namespace datatype {
         
         void plugin::get_op_names(svector<builtin_name> & op_names, symbol const & logic) {
             op_names.push_back(builtin_name("is", OP_DT_IS));
-            if (logic == symbol::null) {
+            if (logic == symbol::null || logic == symbol("ALL")) {
                 op_names.push_back(builtin_name("update-field", OP_DT_UPDATE_FIELD));
             }
         }

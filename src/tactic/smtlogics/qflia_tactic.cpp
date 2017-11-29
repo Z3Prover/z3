@@ -42,10 +42,7 @@ struct quasi_pb_probe : public probe {
         bound_manager bm(g.m());
         bm(g);
         rational l, u; bool st;
-        bound_manager::iterator it  = bm.begin();
-        bound_manager::iterator end = bm.end();
-        for (; it != end; ++it) {
-            expr * t = *it;
+        for (expr * t : bm) {
             if (bm.has_lower(t, l, st) && bm.has_upper(t, u, st) && (l.is_zero() || l.is_one()) && (u.is_zero() || u.is_one()))
                 continue;
             if (found_non_01)

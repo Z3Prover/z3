@@ -112,8 +112,6 @@ def _symbol2py(ctx, s):
     else:
         return Z3_get_symbol_string(ctx.ref(), s)
 
-_error_handler_fptr = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_uint)
-
 # Hack for having nary functions that can receive one argument that is the
 # list of arguments.
 def _get_args(args):
@@ -127,13 +125,6 @@ def _get_args(args):
     except:  # len is not necessarily defined when args is not a sequence (use reflection?)
         return args
 
-def _Z3python_error_handler_core(c, e):
-    # Do nothing error handler, just avoid exit(0)
-    # The wrappers in z3core.py will raise a Z3Exception if an error is detected
-    return
-
-_Z3Python_error_handler = _error_handler_fptr(_Z3python_error_handler_core)
-
 def _to_param_value(val):
     if isinstance(val, bool):
         if val == True:
@@ -142,6 +133,11 @@ def _to_param_value(val):
             return "false"
     else:
         return str(val)
+
+def z3_error_handler(c, e):
+    # Do nothing error handler, just avoid exit(0)
+    # The wrappers in z3core.py will raise a Z3Exception if an error is detected
+    return
 
 class Context:
     """A Context manages all other Z3 objects, global configuration options, etc.
@@ -168,17 +164,15 @@ class Context:
             else:
                 Z3_set_param_value(conf, str(prev), _to_param_value(a))
                 prev = None
-        self.lib = lib()
         self.ctx = Z3_mk_context_rc(conf)
+        self.eh = Z3_set_error_handler(self.ctx, z3_error_handler)
         Z3_set_ast_print_mode(self.ctx, Z3_PRINT_SMTLIB2_COMPLIANT)
-        lib().Z3_set_error_handler.restype  = None
-        lib().Z3_set_error_handler.argtypes = [ContextObj, _error_handler_fptr]
-        lib().Z3_set_error_handler(self.ctx, _Z3Python_error_handler)
         Z3_del_config(conf)
 
     def __del__(self):
-        self.lib.Z3_del_context(self.ctx)
+        Z3_del_context(self.ctx)        
         self.ctx = None
+        self.eh = None
 
     def ref(self):
         """Return a reference to the actual C pointer to the Z3 context."""
@@ -3998,6 +3992,58 @@ def BVRedOr(a):
     if __debug__:
         _z3_assert(is_bv(a), "First argument must be a Z3 Bitvector expression")
     return BitVecRef(Z3_mk_bvredor(a.ctx_ref(), a.as_ast()), a.ctx)
+
+def BVAddNoOverflow(a, b, signed):
+    """A predicate the determines that bit-vector addition does not overflow"""
+    _check_bv_args(a, b)
+    a, b = _coerce_exprs(a, b)
+    return BoolRef(Z3_mk_bvadd_no_overflow(a.ctx_ref(), a.as_ast(), b.as_ast(), signed), a.ctx)
+
+def BVAddNoUnderflow(a, b):
+    """A predicate the determines that signed bit-vector addition does not underflow"""
+    _check_bv_args(a, b)
+    a, b = _coerce_exprs(a, b)
+    return BoolRef(Z3_mk_bvadd_no_underflow(a.ctx_ref(), a.as_ast(), b.as_ast()), a.ctx)
+
+def BVSubNoOverflow(a, b):
+    """A predicate the determines that bit-vector subtraction does not overflow"""
+    _check_bv_args(a, b)
+    a, b = _coerce_exprs(a, b)
+    return BoolRef(Z3_mk_bvsub_no_overflow(a.ctx_ref(), a.as_ast(), b.as_ast()), a.ctx)
+    
+
+def BVSubNoUnderflow(a, b, signed):
+    """A predicate the determines that bit-vector subtraction does not underflow"""
+    _check_bv_args(a, b)
+    a, b = _coerce_exprs(a, b)
+    return BoolRef(Z3_mk_bvsub_no_underflow(a.ctx_ref(), a.as_ast(), b.as_ast(), signed), a.ctx)
+
+def BVSDivNoOverflow(a, b):
+    """A predicate the determines that bit-vector signed division does not overflow"""
+    _check_bv_args(a, b)
+    a, b = _coerce_exprs(a, b)
+    return BoolRef(Z3_mk_bvsdiv_no_overflow(a.ctx_ref(), a.as_ast(), b.as_ast()), a.ctx)
+
+def BVSNegNoOverflow(a):
+    """A predicate the determines that bit-vector unary negation does not overflow"""
+    if __debug__:
+        _z3_assert(is_bv(a), "Argument should be a bit-vector")
+    return BoolRef(Z3_mk_bvneg_no_overflow(a.ctx_ref(), a.as_ast()), a.ctx)
+
+def BVMulNoOverflow(a, b, signed):
+    """A predicate the determines that bit-vector multiplication does not overflow"""
+    _check_bv_args(a, b)
+    a, b = _coerce_exprs(a, b)
+    return BoolRef(Z3_mk_bvmul_no_overflow(a.ctx_ref(), a.as_ast(), b.as_ast(), signed), a.ctx)
+
+
+def BVMulNoUnderflow(a, b):
+    """A predicate the determines that bit-vector signed multiplication does not underflow"""
+    _check_bv_args(a, b)
+    a, b = _coerce_exprs(a, b)
+    return BoolRef(Z3_mk_bvmul_no_underflow(a.ctx_ref(), a.as_ast(), b.as_ast()), a.ctx)
+
+
 
 #########################################
 #

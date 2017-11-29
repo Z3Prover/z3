@@ -431,7 +431,7 @@ namespace smt {
         bool explain_empty(expr_ref_vector& es, dependency*& dep);
 
         // asserting consequences
-        void linearize(dependency* dep, enode_pair_vector& eqs, literal_vector& lits) const;
+        bool linearize(dependency* dep, enode_pair_vector& eqs, literal_vector& lits) const;
         void propagate_lit(dependency* dep, literal lit) { propagate_lit(dep, 0, 0, lit); }
         void propagate_lit(dependency* dep, unsigned n, literal const* lits, literal lit);
         void propagate_eq(dependency* dep, enode* n1, enode* n2);
@@ -509,6 +509,7 @@ namespace smt {
         expr_ref digit2int(expr* ch);
         void add_itos_length_axiom(expr* n);
         literal mk_literal(expr* n);
+        literal mk_simplified_literal(expr* n);
         literal mk_eq_empty(expr* n, bool phase = true);
         literal mk_seq_eq(expr* a, expr* b);
         void tightest_prefix(expr* s, expr* x);

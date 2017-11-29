@@ -127,10 +127,8 @@ namespace smt {
                         out << " #" << bindings[i]->get_owner_id();
                     }
                     out << " ;";
-                    ptr_vector<enode>::const_iterator it  = used_enodes.begin();
-                    ptr_vector<enode>::const_iterator end = used_enodes.end();
-                    for (; it != end; ++it)
-                        out << " #" << (*it)->get_owner_id();
+                    for (enode* n : used_enodes) 
+                        out << " #" << n->get_owner_id();
                     out << "\n";
                 }
                 m_qi_queue.insert(f, pat, max_generation, min_top_generation, max_top_generation); // TODO
@@ -150,10 +148,7 @@ namespace smt {
 
         void init_search_eh() {
             m_num_instances = 0;
-            ptr_vector<quantifier>::iterator it2  = m_quantifiers.begin();
-            ptr_vector<quantifier>::iterator end2 = m_quantifiers.end();
-            for (; it2 != end2; ++it2) {
-                quantifier * q = *it2;
+            for (quantifier * q : m_quantifiers) {
                 get_stat(q)->reset_num_instances_curr_search();
             }
             m_qi_queue.init_search_eh();

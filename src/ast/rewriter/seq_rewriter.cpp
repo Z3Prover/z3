@@ -1645,6 +1645,7 @@ bool seq_rewriter::reduce_eq(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_
         if (m_util.str.is_unit(r) && m_util.str.is_string(l)) {
             std::swap(l, r);
             ls.swap(rs);
+            std::swap(head1, head2);
         }
         if (l == r) {
             ++head1;

@@ -71,11 +71,9 @@ namespace smt {
         case NUM_CONFLICTS: r = "max-conflicts-reached"; break;
         case THEORY: {
             r = "(incomplete (theory";
-            ptr_vector<theory>::const_iterator it  = m_incomplete_theories.begin();
-            ptr_vector<theory>::const_iterator end = m_incomplete_theories.end();
-            for (; it != end; ++it) {
+            for (theory* t : m_incomplete_theories) {
                 r += " ";
-                r += (*it)->get_name();
+                r += t->get_name();
             }
             r += "))";
             break;
@@ -91,20 +89,20 @@ namespace smt {
         m_asserted_formulas.display_ll(out, get_pp_visited());
     }
 
-    void context::display_literal(std::ostream & out, literal l) const {
-        l.display_compact(out, m_bool_var2expr.c_ptr());
+    std::ostream& context::display_literal(std::ostream & out, literal l) const {
+        l.display_compact(out, m_bool_var2expr.c_ptr()); return out;
     }
 
-    void context::display_literals(std::ostream & out, unsigned num_lits, literal const * lits) const {
-        display_compact(out, num_lits, lits, m_bool_var2expr.c_ptr());
+    std::ostream& context::display_literals(std::ostream & out, unsigned num_lits, literal const * lits) const {
+        display_compact(out, num_lits, lits, m_bool_var2expr.c_ptr()); return out;
     }
 
-    void context::display_literal_verbose(std::ostream & out, literal lit) const {
-        display_literals_verbose(out, 1, &lit);
+    std::ostream& context::display_literal_verbose(std::ostream & out, literal lit) const {
+        return display_literals_verbose(out, 1, &lit);
     }
 
-    void context::display_literals_verbose(std::ostream & out, unsigned num_lits, literal const * lits) const {
-        display_verbose(out, m_manager, num_lits, lits, m_bool_var2expr.c_ptr(), "\n");
+    std::ostream& context::display_literals_verbose(std::ostream & out, unsigned num_lits, literal const * lits) const {
+        display_verbose(out, m_manager, num_lits, lits, m_bool_var2expr.c_ptr(), "\n"); return out;
     }
 
     void context::display_literal_info(std::ostream & out, literal l) const {
@@ -136,10 +134,8 @@ namespace smt {
     }
 
     void context::display_enode_defs(std::ostream & out) const {
-        ptr_vector<enode>::const_iterator it  = m_enodes.begin();
-        ptr_vector<enode>::const_iterator end = m_enodes.end();
-        for (; it != end; ++it) {
-            expr * n = (*it)->get_owner();
+        for (enode * x : m_enodes) {
+            expr * n = x->get_owner();
             ast_def_ll_pp(out, m_manager, n, get_pp_visited(), true, false);
         }
     }
@@ -169,10 +165,8 @@ namespace smt {
     }
 
     void context::display_clauses(std::ostream & out, ptr_vector<clause> const & v) const {
-        ptr_vector<clause>::const_iterator it  = v.begin();
-        ptr_vector<clause>::const_iterator end = v.end();
-        for (; it != end; ++it) {
-            display_clause(out, *it);
+        for (clause* cp : v) {
+            display_clause(out, cp);
             out << "\n";
         }
     }
@@ -207,12 +201,10 @@ namespace smt {
     void context::display_assignment(std::ostream & out) const {
         if (!m_assigned_literals.empty()) {
             out << "current assignment:\n";
-            literal_vector::const_iterator it  = m_assigned_literals.begin();
-            literal_vector::const_iterator end = m_assigned_literals.end();
-            for (; it != end; ++it) {
-                display_literal(out, *it);
+            for (literal lit : m_assigned_literals) {
+                display_literal(out, lit);
                 out << ": ";
-                display_verbose(out, m_manager, 1, &*it, m_bool_var2expr.c_ptr());
+                display_verbose(out, m_manager, 1, &lit, m_bool_var2expr.c_ptr());
                 out << "\n";
             }
         }
@@ -223,11 +215,9 @@ namespace smt {
         pp.set_benchmark_name("lemma");
         pp.set_status("unknown");
         pp.set_logic(logic);
-        literal_vector::const_iterator it  = m_assigned_literals.begin();
-        literal_vector::const_iterator end = m_assigned_literals.end();
-        for (; it != end; ++it) {
+        for (literal lit : m_assigned_literals) {
             expr_ref n(m_manager);
-            literal2expr(*it, n);
+            literal2expr(lit, n);
             pp.add_assumption(n);
         }
         pp.display_smt2(out, m_manager.mk_true());
@@ -235,11 +225,9 @@ namespace smt {
 
     void context::display_eqc(std::ostream & out) const {
         bool first = true;
-        ptr_vector<enode>::const_iterator it  = m_enodes.begin();
-        ptr_vector<enode>::const_iterator end = m_enodes.end();
-        for (; it != end; ++it) {
-            expr * n = (*it)->get_owner();
-            expr * r = (*it)->get_root()->get_owner();
+        for (enode * x : m_enodes) {
+            expr * n = x->get_owner();
+            expr * r = x->get_root()->get_owner();
             if (n != r) {
                 if (first) {
                     out << "equivalence classes:\n";
@@ -610,10 +598,10 @@ namespace smt {
             break;
         }
         case b_justification::JUSTIFICATION: {
-            out << "justification ";
+            out << "justification " << j.get_justification()->get_from_theory() << ": ";
             literal_vector lits;
             const_cast<conflict_resolution&>(*m_conflict_resolution).justification2literals(j.get_justification(), lits);
-            display_literals(out, lits.size(), lits.c_ptr());
+            display_literals(out, lits);
             break;
         }
         default:

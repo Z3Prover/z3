@@ -643,12 +643,8 @@ namespace smt {
                 return t_result;
             }
 
-            bool is_infinite(sort * s) const {
-                // we should not assume that uninterpreted sorts are infinite in benchmarks with quantifiers.
-                return 
-                    !m.is_uninterp(s) &&
-                    s->is_infinite();
-            }
+            // we should not assume that uninterpreted sorts are infinite in benchmarks with quantifiers.
+            bool is_infinite(sort * s) const { return !m.is_uninterp(s) && s->is_infinite(); }
 
             /**
                \brief Return a fresh constant k that is used as a witness for elements that must be different from

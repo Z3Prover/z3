@@ -32,6 +32,7 @@ namespace smt {
     model_checker::model_checker(ast_manager & m, qi_params const & p, model_finder & mf):
         m(m),
         m_params(p),
+        m_autil(m),
         m_qm(0),
         m_context(0),
         m_root2value(0),
@@ -205,13 +206,13 @@ namespace smt {
     }
 
     void model_checker::operator()(expr *n) {
-        if (m.is_model_value(n)) {
+        if (m.is_model_value(n) || m_autil.is_as_array(n)) {
             throw is_model_value();
         }
     }
 
     bool model_checker::contains_model_value(expr* n) {
-        if (m.is_model_value(n)) {
+        if (m.is_model_value(n) || m_autil.is_as_array(n)) {
             return true;
         }
         if (is_app(n) && to_app(n)->get_num_args() == 0) {

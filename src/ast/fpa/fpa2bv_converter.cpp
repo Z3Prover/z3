@@ -3093,8 +3093,10 @@ void fpa2bv_converter::mk_to_ieee_bv_unspecified(func_decl * f, unsigned num, ex
     unsigned ebits = f->get_domain()[0]->get_parameter(0).get_int();
     unsigned sbits = f->get_domain()[0]->get_parameter(1).get_int();
 
-    if (m_hi_fp_unspecified)
-        mk_nan(f->get_range(), result);
+    if (m_hi_fp_unspecified) {
+        mk_nan(f->get_domain()[0], result);
+        join_fp(result, result);
+    }
     else {
         expr * n = args[0];
         expr_ref n_bv(m);

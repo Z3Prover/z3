@@ -426,7 +426,7 @@ namespace datalog {
 
         for (unsigned i = 0; i < m_inlined_rules.get_num_rules(); ++i) {
             rule* r = m_inlined_rules.get_rule(i);
-            datalog::del_rule(m_mc, *r);
+            datalog::del_rule(m_mc, *r, true);
         }
     }
 
@@ -465,7 +465,7 @@ namespace datalog {
             }
         }
         if (modified) {
-            datalog::del_rule(m_mc, *r0);
+            datalog::del_rule(m_mc, *r0, true);
         }
 
         return modified;
@@ -488,9 +488,9 @@ namespace datalog {
         }
 
         if (something_done && m_mc) {
-            for (rule_set::iterator rit = orig.begin(); rit!=rend; ++rit) {
-                if (inlining_allowed(orig, (*rit)->get_decl())) {
-                    datalog::del_rule(m_mc, **rit);
+            for (rule* r : orig) {
+                if (inlining_allowed(orig, r->get_decl())) {
+                    datalog::del_rule(m_mc, *r, true);
                 }
             }
         }
@@ -580,7 +580,7 @@ namespace datalog {
                 // nothing unifies with the tail atom, therefore the rule is unsatisfiable
                 // (we can say this because relation pred doesn't have any ground facts either)
                 res = 0;
-                datalog::del_rule(m_mc, *r);
+                datalog::del_rule(m_mc, *r, false);
                 return true;
             }
             if (!is_oriented_rewriter(inlining_candidate, strat)) {
@@ -590,7 +590,7 @@ namespace datalog {
                 goto process_next_tail;
             }
             if (!try_to_inline_rule(*r, *inlining_candidate, ti, res)) {
-                datalog::del_rule(m_mc, *r);
+                datalog::del_rule(m_mc, *r, false);
                 res = 0;
             }
             return true;
@@ -823,7 +823,7 @@ namespace datalog {
                 if (num_tail_unifiers == 1) {
                     TRACE("dl", tout << "setting invalid: " << j << "\n";);
                     valid.set(j, false);
-                    datalog::del_rule(m_mc, *r2);
+                    datalog::del_rule(m_mc, *r2, true);
                     del_rule(r2, j);
                 }
 

@@ -843,6 +843,8 @@ br_status arith_rewriter::mk_mod_core(expr * arg1, expr * arg2, expr_ref & resul
                 continue;
             if (m_util.is_numeral(arg, arg_v) && mod(arg_v, v2) == arg_v)
                 continue;
+            if (m().is_ite(arg)) 
+                continue;
             // found target for rewriting
             break;
         }

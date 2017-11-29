@@ -267,6 +267,10 @@ protected:
 
     str_value_factory * m_factory;
 
+    // Unique identifier appended to unused variables to ensure that model construction
+    // does not introduce equalities when they weren't enforced.
+    unsigned m_unused_id;
+
     // terms we couldn't go through set_up_axioms() with because they weren't internalized
     expr_ref_vector m_delayed_axiom_setup_terms;
 
@@ -358,8 +362,8 @@ protected:
     // cache mapping each string S to Length(S)
     obj_map<expr, app*> length_ast_map;
 
-    th_union_find m_find;
     th_trail_stack m_trail_stack;
+    th_union_find m_find;
     theory_var get_var(expr * n) const;
     expr * get_eqc_next(expr * n);
     app * get_ast(theory_var i);

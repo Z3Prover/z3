@@ -20,7 +20,6 @@ Revision History:
 #include "qe/qe_lite.h"
 #include "ast/expr_abstract.h"
 #include "ast/used_vars.h"
-#include "ast/occurs.h"
 #include "ast/rewriter/rewriter_def.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
@@ -39,6 +38,30 @@ Revision History:
 #include "qe/qe_vartest.h"
 
 namespace eq {
+
+    bool occurs_var(unsigned idx, expr* e) {
+        ptr_buffer<expr> todo;
+        todo.push_back(e);        
+        ast_mark mark;
+        while (!todo.empty()) {
+            expr* e = todo.back();
+            todo.pop_back();
+            if (mark.is_marked(e)) continue;
+            mark.mark(e, true);
+            if (is_var(e)) {
+                if (to_var(e)->get_idx() == idx) return true;
+            }
+            else if (is_app(e)) {
+                todo.append(to_app(e)->get_num_args(), to_app(e)->get_args());
+            }
+            else if (is_quantifier(e)) {
+                quantifier* q = to_quantifier(e);
+                if (occurs_var(idx + q->get_num_decls(), q->get_expr())) return true;
+            }
+        }
+        return false;
+    }
+
     class der {
         ast_manager &   m;
         arith_util      a;
@@ -65,7 +88,7 @@ namespace eq {
             for (unsigned i = 0; i < definitions.size(); i++) {
                 var * v  = vars[i];
                 expr * t = definitions[i];
-                if (t == 0 || has_quantifiers(t) || occurs(v, t))
+                if (t == 0 || has_quantifiers(t) || occurs_var(v->get_idx(), t))
                     definitions[i] = 0;
                 else
                     found = true; // found at least one candidate
@@ -679,9 +702,9 @@ namespace eq {
         }
 
         bool is_unconstrained(var* x, expr* t, unsigned i, expr_ref_vector const& conjs) {
-            bool occ = occurs(x, t);
+            bool occ = occurs_var(x->get_idx(), t);
             for (unsigned j = 0; !occ && j < conjs.size(); ++j) {
-                occ = (i != j) && occurs(x, conjs[j]);
+                occ = (i != j) && occurs_var(x->get_idx(), conjs[j]);
             }
             return !occ;
         }
