@@ -641,7 +641,6 @@ namespace smt {
     }
 
     app * theory_str::mk_indexof(expr * haystack, expr * needle) {
-        // TODO check meaning of the third argument here
         app * indexof = u.str.mk_index(haystack, needle, mk_int(0));
         m_trail.push_back(indexof);
         // immediately force internalization so that axiom setup does not fail
@@ -844,14 +843,7 @@ namespace smt {
                     instantiate_axiom_Contains(e);
                 } else if (u.str.is_index(a)) {
                     instantiate_axiom_Indexof(e);
-                    /* TODO NEXT: Indexof2/Lastindexof rewrite?
-                       } else if (is_Indexof2(e)) {
-                       instantiate_axiom_Indexof2(e);
-                       } else if (is_LastIndexof(e)) {
-                       instantiate_axiom_LastIndexof(e);
-                    */
                 } else if (u.str.is_extract(a)) {
-                    // TODO check semantics of substr vs. extract
                     instantiate_axiom_Substr(e);
                 } else if (u.str.is_replace(a)) {
                     instantiate_axiom_Replace(e);
@@ -1232,27 +1224,37 @@ namespace smt {
         context & ctx = get_context();
         ast_manager & m = get_manager();
 
-        app * expr = e->get_owner();
-        if (axiomatized_terms.contains(expr)) {
-            TRACE("str", tout << "already set up Indexof axiom for " << mk_pp(expr, m) << std::endl;);
+        app * ex = e->get_owner();
+        if (axiomatized_terms.contains(ex)) {
+            TRACE("str", tout << "already set up str.indexof axiom for " << mk_pp(ex, m) << std::endl;);
             return;
         }
-        axiomatized_terms.insert(expr);
+        SASSERT(ex->get_num_args() == 3);
+        // if the third argument is exactly the integer 0, we can use this "simple" indexof;
+        // otherwise, we call the "extended" version
+        expr * startingPosition = ex->get_arg(2);
+        rational startingInteger;
+        if (!m_autil.is_numeral(startingPosition, startingInteger) || !startingInteger.is_zero()) {
+            // "extended" indexof term with prefix
+            instantiate_axiom_Indexof_extended(e);
+            return;
+        }
+        axiomatized_terms.insert(ex);
 
-        TRACE("str", tout << "instantiate Indexof axiom for " << mk_pp(expr, m) << std::endl;);
+        TRACE("str", tout << "instantiate str.indexof axiom for " << mk_pp(ex, m) << std::endl;);
 
         expr_ref x1(mk_str_var("x1"), m);
         expr_ref x2(mk_str_var("x2"), m);
         expr_ref indexAst(mk_int_var("index"), m);
 
-        expr_ref condAst(mk_contains(expr->get_arg(0), expr->get_arg(1)), m);
+        expr_ref condAst(mk_contains(ex->get_arg(0), ex->get_arg(1)), m);
         SASSERT(condAst);
 
         // -----------------------
         // true branch
         expr_ref_vector thenItems(m);
         //  args[0] = x1 . args[1] . x2
-        thenItems.push_back(ctx.mk_eq_atom(expr->get_arg(0), mk_concat(x1, mk_concat(expr->get_arg(1), x2))));
+        thenItems.push_back(ctx.mk_eq_atom(ex->get_arg(0), mk_concat(x1, mk_concat(ex->get_arg(1), x2))));
         //  indexAst = |x1|
         thenItems.push_back(ctx.mk_eq_atom(indexAst, mk_strlen(x1)));
         //     args[0]  = x3 . x4
@@ -1260,11 +1262,11 @@ namespace smt {
         //  /\ ! contains(x3, args[1])
         expr_ref x3(mk_str_var("x3"), m);
         expr_ref x4(mk_str_var("x4"), m);
-        expr_ref tmpLen(m_autil.mk_add(indexAst, mk_strlen(expr->get_arg(1)), mk_int(-1)), m);
+        expr_ref tmpLen(m_autil.mk_add(indexAst, mk_strlen(ex->get_arg(1)), mk_int(-1)), m);
         SASSERT(tmpLen);
-        thenItems.push_back(ctx.mk_eq_atom(expr->get_arg(0), mk_concat(x3, x4)));
+        thenItems.push_back(ctx.mk_eq_atom(ex->get_arg(0), mk_concat(x3, x4)));
         thenItems.push_back(ctx.mk_eq_atom(mk_strlen(x3), tmpLen));
-        thenItems.push_back(mk_not(m, mk_contains(x3, expr->get_arg(1))));
+        thenItems.push_back(mk_not(m, mk_contains(x3, ex->get_arg(1))));
         expr_ref thenBranch(m.mk_and(thenItems.size(), thenItems.c_ptr()), m);
         SASSERT(thenBranch);
 
@@ -1276,7 +1278,7 @@ namespace smt {
         expr_ref breakdownAssert(m.mk_ite(condAst, thenBranch, elseBranch), m);
         SASSERT(breakdownAssert);
 
-        expr_ref reduceToIndex(ctx.mk_eq_atom(expr, indexAst), m);
+        expr_ref reduceToIndex(ctx.mk_eq_atom(ex, indexAst), m);
         SASSERT(reduceToIndex);
 
         expr_ref finalAxiom(m.mk_and(breakdownAssert, reduceToIndex), m);
@@ -1284,18 +1286,19 @@ namespace smt {
         assert_axiom(finalAxiom);
     }
 
-    void theory_str::instantiate_axiom_Indexof2(enode * e) {
+    void theory_str::instantiate_axiom_Indexof_extended(enode * e) {
         context & ctx = get_context();
         ast_manager & m = get_manager();
 
         app * expr = e->get_owner();
         if (axiomatized_terms.contains(expr)) {
-            TRACE("str", tout << "already set up Indexof2 axiom for " << mk_pp(expr, m) << std::endl;);
+            TRACE("str", tout << "already set up extended str.indexof axiom for " << mk_pp(expr, m) << std::endl;);
             return;
         }
+        SASSERT(expr->get_num_args() == 3);
         axiomatized_terms.insert(expr);
 
-        TRACE("str", tout << "instantiate Indexof2 axiom for " << mk_pp(expr, m) << std::endl;);
+        TRACE("str", tout << "instantiate extended str.indexof axiom for " << mk_pp(expr, m) << std::endl;);
 
         // -------------------------------------------------------------------------------
         //   if (arg[2] >= length(arg[0]))                          // ite2
