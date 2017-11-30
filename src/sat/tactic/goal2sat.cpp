@@ -151,6 +151,7 @@ struct goal2sat::imp {
         else {
             SASSERT(v != sat::null_bool_var);
             l = sat::literal(v, sign);
+            m_solver.set_eliminated(v, false);
         }
         SASSERT(l != sat::null_literal);
         if (root)

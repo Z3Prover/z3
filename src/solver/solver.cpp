@@ -204,12 +204,12 @@ void solver::assert_expr(expr* f, expr* t) {
 }
 
 void solver::collect_param_descrs(param_descrs & r) {
-    r.insert("solver.enforce_model_conversion", CPK_BOOL, "(default: true) enforce model conversion when asserting formulas");
+    r.insert("solver.enforce_model_conversion", CPK_BOOL, "(default: false) enforce model conversion when asserting formulas");
 }
 
 void solver::updt_params(params_ref const & p) { 
     m_params.copy(p); 
-    m_enforce_model_conversion = m_params.get_bool("solver.enforce_model_conversion", true);
+    m_enforce_model_conversion = m_params.get_bool("solver.enforce_model_conversion", false);
 }
 
 void solver::hoist_converter(model_converter_ref& mc) {

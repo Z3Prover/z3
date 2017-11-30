@@ -266,6 +266,7 @@ namespace sat {
         void set_external(bool_var v);
         void set_non_external(bool_var v);
         bool was_eliminated(bool_var v) const { return m_eliminated[v] != 0; }
+        void set_eliminated(bool_var v, bool f) { m_eliminated[v] = f; }
         unsigned scope_lvl() const { return m_scope_lvl; }
         unsigned search_lvl() const { return m_search_lvl; }
         bool  at_search_lvl() const { return m_scope_lvl == m_search_lvl; }
