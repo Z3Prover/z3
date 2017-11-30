@@ -108,18 +108,11 @@ public:
         for (unsigned l : m_fmls_lim) result->m_fmls_lim.push_back(l);
         for (unsigned a : m_asms_lim) result->m_asms_lim.push_back(a);
         for (unsigned h : m_fmls_head_lim) result->m_fmls_head_lim.push_back(h);
-        std::cout << "translate internalized " << m_internalized_fmls.size() << "\n";
-        std::cout.flush();
         for (expr* f : m_internalized_fmls) result->m_internalized_fmls.push_back(tr(f));
-        std::cout << "mc0\n";
-        std::cout.flush();
-        model_converter_ref mc = concat(mc0(), get_model_converter().get());
-        if (mc) {
-            ast_translation tr(m, dst_m);
-            result->set_model_converter(mc->translate(tr));
-        } 
-        std::cout << "mc1\n";
-        std::cout.flush();
+        if (m_mc) result->m_mc = m_mc->translate(tr);
+        if (m_mc0) result->m_mc0 = m_mc0->translate(tr);
+        //if (m_sat_mc) result->m_sat_mc = m_sat_mc->translate(tr);         MN: commenting this line removes bloat
+        // copy m_bb_rewriter?
         result->m_internalized = m_internalized;
         result->m_internalized_converted = m_internalized_converted;
         return result;
