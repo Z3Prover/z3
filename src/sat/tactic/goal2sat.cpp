@@ -891,6 +891,35 @@ struct sat2goal::imp {
             m_var2expr(m) {
         }
         
+        void ensure_imc() {
+            if (m_imc) return;
+            m_imc = alloc(generic_model_converter, m());
+            sat::literal_vector updates;
+            m_mc.expand(updates);
+            sat::literal_vector clause;
+            expr_ref_vector tail(m());
+            expr_ref def(m());
+            for (sat::literal l : updates) {
+                if (l == sat::null_literal) {
+                    sat::literal lit0 = clause[0];
+                    for (unsigned i = 1; i < clause.size(); ++i) {
+                        tail.push_back(lit2expr(~clause[i]));
+                    }
+                    def = m().mk_or(lit2expr(lit0), mk_and(tail));
+                    if (lit0.sign()) {
+                        lit0.neg();
+                        def = m().mk_not(def);
+                    }
+                    m_imc->add(lit2expr(lit0), def);
+                    clause.reset();
+                    tail.reset();
+                }
+                else {
+                    clause.push_back(l);
+                }
+            }
+        }
+
     public:
         sat_model_converter(ast_manager & m, sat::solver const & s):m_var2expr(m) {
             m_mc.copy(s.get_model_converter());
@@ -979,6 +1008,7 @@ struct sat2goal::imp {
         
         virtual model_converter * translate(ast_translation & translator) {
             sat_model_converter * res = alloc(sat_model_converter, translator.to());
+            res->m_mc = m_mc;
             res->m_fmc = static_cast<generic_model_converter*>(m_fmc->translate(translator));
             for (expr* e : m_var2expr) 
                 res->m_var2expr.push_back(e ? translator(e) : nullptr);
@@ -995,30 +1025,8 @@ struct sat2goal::imp {
         }
 
         void display(std::ostream & out) {
-            sat::literal_vector updates;
-            m_mc.expand(updates);
-            sat::literal_vector clause;
-            expr_ref_vector tail(m());
-            expr_ref def(m());
-            for (sat::literal l : updates) {
-                if (l == sat::null_literal) {
-                    sat::literal lit0 = clause[0];
-                    for (unsigned i = 1; i < clause.size(); ++i) {
-                        tail.push_back(lit2expr(~clause[i]));
-                    }
-                    def = m().mk_or(lit2expr(lit0), mk_and(tail));            
-                    if (lit0.sign()) {
-                        lit0.neg();
-                        def = m().mk_not(def);
-                    }
-                    display_add(out, m(), to_app(lit2expr(lit0))->get_decl(), def);
-                    clause.reset();
-                    tail.reset();
-                }
-                else {
-                    clause.push_back(l);
-                }
-            }
+            ensure_imc();
+            m_imc->display(out);
             m_fmc->display(out);
         }
         
@@ -1026,36 +1034,12 @@ struct sat2goal::imp {
             m_env = &visitor.env();
             for (expr* e : m_var2expr) if (e) visitor.coll.visit(e);
             if (m_fmc) m_fmc->collect(visitor);
+            ensure_imc();
+            m_imc->collect(visitor);
         }
 
         void operator()(expr_ref& formula) override {
-            if (!m_imc) {
-                m_imc = alloc(generic_model_converter, m());
-                sat::literal_vector updates;
-                m_mc.expand(updates);
-                sat::literal_vector clause;
-                expr_ref_vector tail(m());
-                expr_ref def(m());
-                for (sat::literal l : updates) {
-                    if (l == sat::null_literal) {
-                        sat::literal lit0 = clause[0];
-                        for (unsigned i = 1; i < clause.size(); ++i) {
-                            tail.push_back(lit2expr(~clause[i]));
-                        }
-                        def = m().mk_or(lit2expr(lit0), mk_and(tail));
-                        if (lit0.sign()) {
-                            lit0.neg();
-                            def = m().mk_not(def);
-                        }
-                        m_imc->add(lit2expr(lit0), def);
-                        clause.reset();
-                        tail.reset();
-                    }
-                    else {
-                        clause.push_back(l);
-                    }
-                }
-            }
+            ensure_imc();
             (*m_imc)(formula);
         }
     };
