@@ -9,7 +9,7 @@ from mk_util import *
 
 # Z3 Project definition
 def init_project_def():
-    set_version(4, 6, 1, 0)
+    set_version(4, 6, 0, 0)
     add_lib('util', [])
     add_lib('lp', ['util'], 'util/lp')
     add_lib('polynomial', ['util'], 'math/polynomial')
