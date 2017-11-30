@@ -37,12 +37,19 @@ namespace sat {
         unsigned   m_num_elim_bin;
         random_gen m_rand;
 
-        void get_dfs_num(svector<int>& dfs, bool learned);
+        // BIG state:
+
+        vector<literal_vector> m_dag;
+        svector<bool>          m_roots;
+        svector<int>           m_left, m_right;
+        literal_vector         m_root, m_parent;
+
+        void shuffle(literal_vector& lits);
         void reduce_tr();
-        bool reduce_tr(bool learned);
-        bool reduce_tr(svector<int> const& dfs, bool learned);
+        unsigned reduce_tr(bool learned);
 
     public:
+
         scc(solver & s, params_ref const & p);
         unsigned operator()();
 
@@ -51,6 +58,19 @@ namespace sat {
 
         void collect_statistics(statistics & st) const;
         void reset_statistics();
+
+        /*
+          \brief retrieve binary implication graph
+         */
+        vector<literal_vector> const& get_big(bool learned);
+
+        int get_left(literal l) const { return m_left[l.index()]; }
+        int get_right(literal l) const { return m_right[l.index()]; }
+        literal get_parent(literal l) const { return m_parent[l.index()]; }
+        literal get_root(literal l) const { return m_root[l.index()]; }
+
+        void get_dfs_num(bool learned);
+
     };
 };
 

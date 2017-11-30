@@ -19,6 +19,7 @@ Revision History:
 #include "sat/sat_asymm_branch.h"
 #include "sat/sat_asymm_branch_params.hpp"
 #include "sat/sat_solver.h"
+#include "sat/sat_scc.h"
 #include "util/stopwatch.h"
 #include "util/trace.h"
 
@@ -26,6 +27,7 @@ namespace sat {
 
     asymm_branch::asymm_branch(solver & _s, params_ref const & p):
         s(_s),
+        m_params(p),
         m_counter(0) {
         updt_params(p);
         reset_statistics();
@@ -59,12 +61,12 @@ namespace sat {
 
     void asymm_branch::process(clause_vector& clauses) {
         int64 limit = -m_asymm_branch_limit;
-        std::stable_sort(s.m_clauses.begin(), s.m_clauses.end(), clause_size_lt());
-        m_counter -= s.m_clauses.size();
+        std::stable_sort(clauses.begin(), clauses.end(), clause_size_lt());
+        m_counter -= clauses.size();
         SASSERT(s.m_qhead == s.m_trail.size());
-        clause_vector::iterator it  = s.m_clauses.begin();
+        clause_vector::iterator it  = clauses.begin();
         clause_vector::iterator it2 = it;
-        clause_vector::iterator end = s.m_clauses.end();
+        clause_vector::iterator end = clauses.end();
         try {
             for (; it != end; ++it) {
                 if (s.inconsistent()) {
@@ -86,14 +88,14 @@ namespace sat {
                 *it2 = *it;
                 ++it2;
             }
-            s.m_clauses.set_end(it2);
+            clauses.set_end(it2);
         }
         catch (solver_exception & ex) {
             // put m_clauses in a consistent state...
             for (; it != end; ++it, ++it2) {
                 *it2 = *it;
             }
-            s.m_clauses.set_end(it2);
+            clauses.set_end(it2);
             m_counter = -m_counter;
             throw ex;
         }
@@ -143,6 +145,99 @@ namespace sat {
         return true;
     }
 
+    void asymm_branch::setup_big() {
+        scc scc(s, m_params);
+        vector<literal_vector> const& big = scc.get_big(true); // include learned binary clauses 
+        
+    }
+
+    struct asymm_branch::compare_left {
+        scc& s;
+        compare_left(scc& s): s(s) {}
+        bool operator()(literal u, literal v) const {
+            return s.get_left(u) < s.get_left(v);
+        }
+    };
+
+    void asymm_branch::sort(scc& scc, clause const& c) {
+        m_pos.reset(); m_neg.reset();
+        for (literal l : c) {
+            m_pos.push_back(l);
+            m_neg.push_back(~l);
+        }
+        compare_left cmp(scc);
+        std::sort(m_pos.begin(), m_pos.end(), cmp);
+        std::sort(m_neg.begin(), m_neg.end(), cmp);
+    }
+
+    bool asymm_branch::uhte(scc& scc, clause & c) {
+        unsigned pindex = 0, nindex = 0;
+        literal lpos = m_pos[pindex++];
+        literal lneg = m_neg[nindex++];
+        while (true) {
+            if (scc.get_left(lneg) > scc.get_left(lpos)) {
+                if (pindex == m_pos.size()) return false;
+                lpos = m_pos[pindex++];
+            }
+            else if (scc.get_right(lneg) < scc.get_right(lpos) ||
+                     (m_pos.size() == 2 && (lpos == ~lneg || scc.get_parent(lpos) == lneg))) {
+                if (nindex == m_neg.size()) return false;
+                lneg = m_neg[nindex++];
+            }
+            else {
+                return true;
+            }
+        }
+        return false;
+    }
+
+   bool asymm_branch::uhle(scoped_detach& scoped_d, scc& scc, clause & c) {
+        int right = scc.get_right(m_pos.back());
+        m_to_delete.reset();
+        for (unsigned i = m_pos.size() - 1; i-- > 0; ) {
+            literal lit = m_pos[i];
+            SASSERT(scc.get_left(lit) < scc.get_left(last));
+            int right2 = scc.get_right(lit);
+            if (right2 > right) {
+                // lit => last, so lit can be deleted
+                m_to_delete.push_back(lit);
+            }
+            else {
+                right = right2;
+            }
+        }
+        right = scc.get_right(m_neg[0]);
+        for (unsigned i = 1; i < m_neg.size(); ++i) {
+            literal lit = m_neg[i];
+            int right2 = scc.get_right(lit);
+            if (right > right2) {
+                // ~first => ~lit
+                m_to_delete.push_back(~lit);
+            }
+            else {
+                right = right2;
+            }
+        }
+        if (!m_to_delete.empty()) {
+            unsigned j = 0;
+            for (unsigned i = 0; i < c.size(); ++i) {
+                if (!m_to_delete.contains(c[i])) {
+                    c[j] = c[i];
+                    ++j;
+                }
+                else {
+                    m_pos.erase(c[i]);
+                    m_neg.erase(~c[i]);
+                }
+            }
+            return re_attach(scoped_d, c, j);
+        }
+        else {
+            return true;
+        }
+    }
+
+
     bool asymm_branch::propagate_literal(clause const& c, literal l) {
         SASSERT(!s.inconsistent());
         TRACE("asymm_branch_detail", tout << "assigning: " << l << "\n";);
@@ -190,8 +285,12 @@ namespace sat {
         new_sz = j;
         m_elim_literals += c.size() - new_sz;
         // std::cout << "cleanup: " << c.id() << ": " << literal_vector(new_sz, c.begin()) << " delta: " << (c.size() - new_sz) << " " << skip_idx << " " << new_sz << "\n";
-        switch(new_sz) {
-        case 0:
+        return re_attach(scoped_d, c, new_sz);
+    }
+
+   bool asymm_branch::re_attach(scoped_detach& scoped_d, clause& c, unsigned new_sz) {
+       switch(new_sz) {
+       case 0:
             s.set_conflict(justification());
             return false;
         case 1:
@@ -214,6 +313,15 @@ namespace sat {
             SASSERT(s.m_qhead == s.m_trail.size());
             return true;
         }
+    }
+
+    bool asymm_branch::process2(scc& scc, clause & c) {
+        scoped_detach scoped_d(s, c);
+        if (uhte(scc, c)) {
+            scoped_d.del_clause();
+            return false;
+        }
+        return uhle(scoped_d, scc, c);        
     }
 
     bool asymm_branch::process(clause & c) {
