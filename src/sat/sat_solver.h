@@ -575,8 +575,8 @@ namespace sat {
         }
 
         void decay_activity() {
-            m_activity_inc *= 11;
-            m_activity_inc /= 10;
+            m_activity_inc *= m_config.m_variable_decay;
+            m_activity_inc /= 100;
         }
 
     private:

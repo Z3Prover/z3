@@ -6335,7 +6335,7 @@ class Solver(Z3PPObject):
 
     def from_string(self, s):
         """Parse assertions from a string"""
-        Z3_solver_from_string(self.ctx.ref(), self.solver, filename)
+        Z3_solver_from_string(self.ctx.ref(), self.solver, s)
         
     def assertions(self):
         """Return an AST vector containing all added constraints.

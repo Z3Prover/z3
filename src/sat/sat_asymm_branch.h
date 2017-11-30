@@ -44,6 +44,8 @@ namespace sat {
         unsigned m_elim_literals;
 
         bool process(clause & c);
+
+        void process(clause_vector & c);
         
         bool process_all(clause & c);
         

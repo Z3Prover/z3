@@ -176,6 +176,8 @@ namespace sat {
         m_reward_multiplier = 0.9;
         m_reward_offset = 1000000.0;
 
+        m_variable_decay = p.variable_decay();
+
         // PB parameters
         s = p.pb_solver();
         if (s == symbol("circuit")) {

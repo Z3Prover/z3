@@ -635,10 +635,8 @@ struct aig_manager::imp {
         }
 
         bool check_cache() const {
-            obj_map<expr, aig_lit>::iterator it  = m_cache.begin();
-            obj_map<expr, aig_lit>::iterator end = m_cache.end();
-            for (; it != end; ++it) {
-                SASSERT(ref_count(it->m_value) > 0);
+            for (auto const& kv : m_cache) {
+                SASSERT(ref_count(kv.m_value) > 0);
             }
             return true;
         }

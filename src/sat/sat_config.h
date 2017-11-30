@@ -95,6 +95,8 @@ namespace sat {
         double             m_simplify_mult2;
         unsigned           m_simplify_max;
 
+        unsigned           m_variable_decay;
+
         gc_strategy        m_gc_strategy;
         unsigned           m_gc_initial;
         unsigned           m_gc_increment;

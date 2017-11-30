@@ -56,25 +56,8 @@ namespace sat {
                        << " :time " << std::fixed << std::setprecision(2) << m_watch.get_seconds() << ")\n";);
         }
     };
-    
-    void asymm_branch::operator()(bool force) {
-        ++m_calls;
-        if (m_calls <= 1)
-            return;
-        if (!m_asymm_branch && !m_asymm_branch_all)
-            return;
-        s.propagate(false); // must propagate, since it uses s.push()
-        if (s.m_inconsistent)
-            return;
-        if (!force && m_counter > 0) {
-            m_counter /= 100;
-            return;
-        }
-        CASSERT("asymm_branch", s.check_invariant());
-        TRACE("asymm_branch_detail", s.display(tout););
-        report rpt(*this);
-        svector<char> saved_phase(s.m_phase);
-        m_counter  = 0; 
+
+    void asymm_branch::process(clause_vector& clauses) {
         int64 limit = -m_asymm_branch_limit;
         std::stable_sort(s.m_clauses.begin(), s.m_clauses.end(), clause_size_lt());
         m_counter -= s.m_clauses.size();
@@ -114,6 +97,27 @@ namespace sat {
             m_counter = -m_counter;
             throw ex;
         }
+    }
+    
+    void asymm_branch::operator()(bool force) {
+        ++m_calls;
+        if (m_calls <= 1)
+            return;
+        if (!m_asymm_branch && !m_asymm_branch_all)
+            return;
+        s.propagate(false); // must propagate, since it uses s.push()
+        if (s.m_inconsistent)
+            return;
+        if (!force && m_counter > 0) {
+            m_counter /= 100;
+            return;
+        }
+        CASSERT("asymm_branch", s.check_invariant());
+        TRACE("asymm_branch_detail", s.display(tout););
+        report rpt(*this);
+        svector<char> saved_phase(s.m_phase);
+        m_counter  = 0; 
+        process(s.m_clauses);
         m_counter = -m_counter;
         s.m_phase = saved_phase;
         m_asymm_branch_limit *= 2;

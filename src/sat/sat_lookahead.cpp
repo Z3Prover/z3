@@ -2303,7 +2303,16 @@ namespace sat {
      */
 
     void lookahead::add_hyper_binary() {
+
+        std::cout << "binary trail size: " << m_binary_trail.size() << "\n";
+        std::cout << "Are windfalls still on the trail at base level?\n";
         unsigned num_lits = m_s.num_vars() * 2;
+        unsigned_vector bin_size(num_lits);
+        for (unsigned idx : m_binary_trail) {
+            bin_size[idx]++;
+        }
+        
+
         union_find_default_ctx ufctx;
         union_find<union_find_default_ctx> uf(ufctx);
         for (unsigned i = 0; i < num_lits; ++i) uf.mk_var();

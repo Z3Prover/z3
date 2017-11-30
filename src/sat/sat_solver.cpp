@@ -1415,6 +1415,7 @@ namespace sat {
         m_next_simplify           = 0;
         m_min_d_tk                = 1.0;
         m_search_lvl              = 0;
+        m_conflicts_since_gc      = 0;
         m_asymm_branch.init_search();
         m_stopwatch.reset();
         m_stopwatch.start();
@@ -1660,6 +1661,7 @@ namespace sat {
     void solver::gc() {
         if (m_conflicts_since_gc <= m_gc_threshold)
             return;
+        IF_VERBOSE(1, verbose_stream() << "gc\n";);
         CASSERT("sat_gc_bug", check_invariant());
         switch (m_config.m_gc_strategy) {
         case GC_GLUE:
