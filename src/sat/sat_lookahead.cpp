@@ -20,6 +20,7 @@ Notes:
 #include "sat/sat_solver.h"
 #include "sat/sat_extension.h"
 #include "sat/sat_lookahead.h"
+#include "sat/sat_scc.h"
 #include "util/union_find.h"
 
 namespace sat {
@@ -2304,15 +2305,86 @@ namespace sat {
 
     void lookahead::add_hyper_binary() {
 
+        unsigned num_lits = m_s.num_vars() * 2;
+
+#if 0
         std::cout << "binary trail size: " << m_binary_trail.size() << "\n";
         std::cout << "Are windfalls still on the trail at base level?\n";
-        unsigned num_lits = m_s.num_vars() * 2;
+#endif   
+
+        unsigned disconnected1 = 0;
+        unsigned disconnected2 = 0;
+
+#if 1
+        typedef std::pair<unsigned, unsigned> u_pair;
+        hashtable<u_pair, pair_hash<unsigned_hash, unsigned_hash>, default_eq<u_pair> > imp;
+        for (unsigned idx = 0; idx < num_lits; ++idx) {
+            literal u = get_parent(to_literal(idx));
+            if (null_literal != u) {
+                for (watched const& w : m_s.m_watches[idx]) {
+                    if (!w.is_binary_clause()) continue;
+                    literal v = get_parent(w.get_literal());
+                    if (null_literal != v) {
+                        imp.insert(std::make_pair(u.index(), v.index()));
+                    }
+                }
+            }
+        }
+
+        scc scc(m_s, m_s.m_params);
+        scc.init_big(true);
+        svector<std::pair<literal, literal>> candidates;
+
         unsigned_vector bin_size(num_lits);
         for (unsigned idx : m_binary_trail) {
             bin_size[idx]++;
         }
-        
+        for (unsigned idx = 0; idx < num_lits; ++idx) {
+            literal u = to_literal(idx);
+            if (u != get_parent(u)) continue;
+            if (m_s.was_eliminated(u.var())) continue;
+            literal_vector const& lits = m_binary[idx];
+            for (unsigned sz = bin_size[idx]; sz > 0; --sz) {
+                literal v = lits[lits.size() - sz];
+                if (v != get_parent(v)) continue;
+                if (m_s.was_eliminated(v.var())) continue;
+                if (imp.contains(std::make_pair(u.index(), v.index()))) continue;
+                if (scc.reaches(u, v)) continue;
+                candidates.push_back(std::make_pair(u, v));
+            }
+        }
+        for (unsigned i = 0; i < 5; ++i) {
+            scc.init_big(true);
+            unsigned k = 0;
+            union_find_default_ctx ufctx;
+            union_find<union_find_default_ctx> uf(ufctx);
+            for (unsigned i = 0; i < num_lits; ++i) uf.mk_var();
+            for (unsigned j = 0; j < candidates.size(); ++j) {
+                literal u = candidates[j].first;
+                literal v = candidates[j].second;
+                if (!scc.reaches(u, v)) {
+                    if (uf.find(u.index()) != uf.find(v.index())) {
+                        ++disconnected1;
+                        uf.merge(u.index(), v.index());
+                        uf.merge((~u).index(), (~v).index());
+                        m_s.mk_clause(~u, v, true);
+                    }
+                    else {
+                        candidates[k] = candidates[j];
+                        ++k;
+                    }
+                }
+            }
+            std::cout << candidates.size() << " -> " << k << "\n";
+            if (k == candidates.size()) break;
+            candidates.shrink(k);
+        }
 
+        std::cout << "candidates: " << candidates.size() << "\n";
+
+#endif
+
+#if 0
         union_find_default_ctx ufctx;
         union_find<union_find_default_ctx> uf(ufctx);
         for (unsigned i = 0; i < num_lits; ++i) uf.mk_var();
@@ -2329,21 +2401,25 @@ namespace sat {
             }
         }
 
-        unsigned disconnected = 0;
         for (unsigned i = 0; i < m_binary.size(); ++i) {
             literal u = to_literal(i);
-            if (u == get_parent(u)) {
+            if (u == get_parent(u) && !m_s.was_eliminated(u.var())) {
                 for (literal v : m_binary[i]) {
-                    if (v == get_parent(v) && uf.find(u.index()) != uf.find(v.index())) {
-                        ++disconnected;
+                    if (v == get_parent(v) && 
+                        !m_s.was_eliminated(v.var()) && 
+                        uf.find(u.index()) != uf.find(v.index())) {
+                        ++disconnected2;
                         uf.merge(u.index(), v.index());
-                        m_s.mk_clause(~u, v, true);
+                        // m_s.mk_clause(~u, v, true);
                     }
                 }
             }
         }
-        IF_VERBOSE(10, verbose_stream() << "(sat-lookahead :bca " << disconnected << ")\n";);
-        m_stats.m_bca += disconnected;
+#endif
+        
+        IF_VERBOSE(10, verbose_stream() << "(sat-lookahead :bca " << disconnected1 << " " << disconnected2 << ")\n";);
+        //IF_VERBOSE(10, verbose_stream() << "(sat-lookahead :bca " << disconnected << ")\n";);
+        //m_stats.m_bca += disconnected;
     }
 
     void lookahead::normalize_parents() {

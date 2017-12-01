@@ -59,7 +59,7 @@ namespace sat {
         }
     };
 
-    void asymm_branch::process(clause_vector& clauses) {
+    void asymm_branch::process(scc& scc, clause_vector& clauses) {
         int64 limit = -m_asymm_branch_limit;
         std::stable_sort(clauses.begin(), clauses.end(), clause_size_lt());
         m_counter -= clauses.size();
@@ -83,8 +83,9 @@ namespace sat {
                 }
                 s.checkpoint();
                 clause & c = *(*it);
-                if (!process(c))
+                if (m_asymm_branch_sampled ? !process_sampled(scc, c) : !process(c)) {
                     continue; // clause was removed
+                }
                 *it2 = *it;
                 ++it2;
             }
@@ -103,7 +104,7 @@ namespace sat {
     
     void asymm_branch::operator()(bool force) {
         ++m_calls;
-        if (m_calls <= 1)
+        if (m_calls <= m_asymm_branch_delay)
             return;
         if (!m_asymm_branch && !m_asymm_branch_all)
             return;
@@ -118,9 +119,27 @@ namespace sat {
         TRACE("asymm_branch_detail", s.display(tout););
         report rpt(*this);
         svector<char> saved_phase(s.m_phase);
-        m_counter  = 0; 
-        process(s.m_clauses);
-        m_counter = -m_counter;
+        if (m_asymm_branch_sampled) {
+            scc scc(s, m_params);
+            while (true) {
+                unsigned elim = m_elim_literals;
+                scc.init_big(true);
+                process(scc, s.m_clauses);
+                process(scc, s.m_learned);
+                s.propagate(false); 
+                if (s.m_inconsistent)
+                    break;
+                std::cout << m_elim_literals - elim << "\n";
+                if (m_elim_literals == elim)
+                    break;
+            }
+        }
+        else {
+            scc scc(s, m_params);
+            m_counter  = 0; 
+            process(scc, s.m_clauses);
+            m_counter = -m_counter;
+        }
         s.m_phase = saved_phase;
         m_asymm_branch_limit *= 2;
         if (m_asymm_branch_limit > UINT_MAX)
@@ -143,12 +162,6 @@ namespace sat {
                 return cleanup(scoped_d, c, i, new_sz);
         }
         return true;
-    }
-
-    void asymm_branch::setup_big() {
-        scc scc(s, m_params);
-        vector<literal_vector> const& big = scc.get_big(true); // include learned binary clauses 
-        
     }
 
     struct asymm_branch::compare_left {
@@ -206,19 +219,34 @@ namespace sat {
                 right = right2;
             }
         }
-        right = scc.get_right(m_neg[0]);
-        for (unsigned i = 1; i < m_neg.size(); ++i) {
-            literal lit = m_neg[i];
-            int right2 = scc.get_right(lit);
-            if (right > right2) {
-                // ~first => ~lit
-                m_to_delete.push_back(~lit);
-            }
-            else {
-                right = right2;
+        if (m_to_delete.empty()) {
+            right = scc.get_right(m_neg[0]);
+            for (unsigned i = 1; i < m_neg.size(); ++i) {
+                literal lit = m_neg[i];
+                int right2 = scc.get_right(lit);
+                if (right > right2) {
+                    // ~first => ~lit
+                    m_to_delete.push_back(~lit);
+                }
+                else {
+                    right = right2;
+                }
             }
         }
         if (!m_to_delete.empty()) {
+#if 0
+            std::cout << "delete " << m_to_delete << "\n";
+
+            std::cout << "pos\n";
+            for (literal l : m_pos) {
+                std::cout << l << ": " << scc.get_left(l) << " " << scc.get_right(l) << "\n";
+            }
+            std::cout << "neg\n";
+            for (literal l : m_neg) {
+                std::cout << l << ": " << scc.get_left(l) << " " << scc.get_right(l) << "\n";
+            }
+            std::cout << "\n";
+#endif
             unsigned j = 0;
             for (unsigned i = 0; i < c.size(); ++i) {
                 if (!m_to_delete.contains(c[i])) {
@@ -282,13 +310,13 @@ namespace sat {
                 break;
             }
         }
-        new_sz = j;
-        m_elim_literals += c.size() - new_sz;
+        new_sz = j;        
         // std::cout << "cleanup: " << c.id() << ": " << literal_vector(new_sz, c.begin()) << " delta: " << (c.size() - new_sz) << " " << skip_idx << " " << new_sz << "\n";
         return re_attach(scoped_d, c, new_sz);
     }
 
    bool asymm_branch::re_attach(scoped_detach& scoped_d, clause& c, unsigned new_sz) {
+       m_elim_literals += c.size() - new_sz;
        switch(new_sz) {
        case 0:
             s.set_conflict(justification());
@@ -315,8 +343,9 @@ namespace sat {
         }
     }
 
-    bool asymm_branch::process2(scc& scc, clause & c) {
+    bool asymm_branch::process_sampled(scc& scc, clause & c) {
         scoped_detach scoped_d(s, c);
+        sort(scc, c);
         if (uhte(scc, c)) {
             scoped_d.del_clause();
             return false;
@@ -372,6 +401,8 @@ namespace sat {
     void asymm_branch::updt_params(params_ref const & _p) {
         sat_asymm_branch_params p(_p);
         m_asymm_branch        = p.asymm_branch();
+        m_asymm_branch_delay = p.asymm_branch_delay();
+        m_asymm_branch_sampled = p.asymm_branch_sampled();
         m_asymm_branch_limit  = p.asymm_branch_limit();
         m_asymm_branch_all    = p.asymm_branch_all();
         if (m_asymm_branch_limit > UINT_MAX)

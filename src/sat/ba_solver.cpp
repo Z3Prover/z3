@@ -216,12 +216,12 @@ namespace sat {
     // ----------------------------
     // card
 
-    bool ba_solver::init_watch(card& c, bool is_true) {
+    bool ba_solver::init_watch(card& c) {
         clear_watch(c);
         literal root = c.lit();
-        if (root != null_literal && root.sign() == is_true) {
+        if (root != null_literal && value(root) == l_false) {
             c.negate();
-			root.neg();
+            root.neg();
         }
         if (root != null_literal) {
             if (!is_watched(root, c)) watch_literal(root, c);
@@ -352,7 +352,7 @@ namespace sat {
             IF_VERBOSE(100, display(verbose_stream() << "nullify tracking literal\n", p, true););
             SASSERT(lvl(p.lit()) == 0);
             nullify_tracking_literal(p);
-            init_watch(p, true);
+            init_watch(p);
         }
 
         SASSERT(p.lit() == null_literal || value(p.lit()) != l_false);
@@ -379,7 +379,7 @@ namespace sat {
         }
         else if (true_val == 0 && num_false == 0) {
             if (p.lit() == null_literal || value(p.lit()) == l_true) {
-                init_watch(p, true);
+                init_watch(p);
             }
         }
         else if (true_val >= p.k()) {
@@ -431,7 +431,7 @@ namespace sat {
                 return;
             }
             else if (p.lit() == null_literal || value(p.lit()) == l_true) {
-                init_watch(p, true);
+                init_watch(p);
             }
             else {
                 SASSERT(value(p.lit()) == l_undef);
@@ -510,13 +510,13 @@ namespace sat {
 
 
     // watch a prefix of literals, such that the slack of these is >= k
-    bool ba_solver::init_watch(pb& p, bool is_true) {
+    bool ba_solver::init_watch(pb& p) {
         clear_watch(p);        
-        if (p.lit() != null_literal && p.lit().sign() == is_true) {
-            p.negate();
+        if (p.lit() != null_literal && value(p.lit()) == l_false) {
+            p.negate();           
         }
         
-        SASSERT(p.lit() == null_literal || value(p.lit()) == l_true);
+        VERIFY(p.lit() == null_literal || value(p.lit()) == l_true);
         unsigned sz = p.size(), bound = p.k();
 
         // put the non-false literals into the head.
@@ -548,7 +548,7 @@ namespace sat {
 
         if (slack < bound) {
             literal lit = p[j].second;
-            SASSERT(value(lit) == l_false);
+            VERIFY(value(lit) == l_false);
             for (unsigned i = j + 1; i < sz; ++i) {
                 if (lvl(lit) < lvl(p[i].second)) {
                     lit = p[i].second;
@@ -826,7 +826,7 @@ namespace sat {
             SASSERT(p.well_formed());
             
             if (p.lit() == null_literal || value(p.lit()) == l_true) {
-                init_watch(p, true);
+                init_watch(p);
             }
         }
     }
@@ -909,9 +909,9 @@ namespace sat {
         return odd;
     }
 
-    bool ba_solver::init_watch(xor& x, bool is_true) {
+    bool ba_solver::init_watch(xor& x) {
         clear_watch(x);
-        if (x.lit() != null_literal && x.lit().sign() == is_true) {
+        if (x.lit() != null_literal && value(x.lit()) == l_false) {
             x.negate();
         }
         TRACE("ba", display(tout, x, true););
@@ -1566,7 +1566,7 @@ namespace sat {
             m_constraint_to_reinit.push_back(c);
         }
         else if (lit == null_literal) {
-            init_watch(*c, true);
+            init_watch(*c);
         }
         else {
             if (m_solver) m_solver->set_external(lit.var());
@@ -1577,12 +1577,12 @@ namespace sat {
     }
 
 
-    bool ba_solver::init_watch(constraint& c, bool is_true) {
+    bool ba_solver::init_watch(constraint& c) {
         if (inconsistent()) return false;
         switch (c.tag()) {
-        case card_t: return init_watch(c.to_card(), is_true); 
-        case pb_t: return init_watch(c.to_pb(), is_true); 
-        case xor_t: return init_watch(c.to_xor(), is_true); 
+        case card_t: return init_watch(c.to_card()); 
+        case pb_t: return init_watch(c.to_pb());
+        case xor_t: return init_watch(c.to_xor()); 
         }
         UNREACHABLE();
         return false;
@@ -1642,7 +1642,7 @@ namespace sat {
         constraint& c = index2constraint(idx);
         TRACE("ba", tout << l << "\n";);
         if (c.lit() != null_literal && l.var() == c.lit().var()) {
-            init_watch(c, !l.sign());
+            init_watch(c);
             return true;
         }
         else if (c.lit() != null_literal && value(c.lit()) != l_true) {
@@ -2358,7 +2358,7 @@ namespace sat {
         unsigned sz = m_constraint_to_reinit_last_sz;
         for (unsigned i = sz; i < m_constraint_to_reinit.size(); ++i) {
             constraint* c = m_constraint_to_reinit[i];
-            if (!init_watch(*c, true) && !s().at_base_lvl()) {
+            if (!init_watch(*c) && !s().at_base_lvl()) {
                 m_constraint_to_reinit[sz++] = c;
             }
         }
@@ -2677,7 +2677,7 @@ namespace sat {
         }
         else {
             if (c.lit() == null_literal || value(c.lit()) == l_true) {
-                init_watch(c, true);
+                init_watch(c);
             }
             SASSERT(c.lit() == null_literal || is_watched(c.lit(), c));
             SASSERT(c.well_formed());
@@ -2753,10 +2753,7 @@ namespace sat {
             recompile(c);
         }
         else {
-            // review for potential incompleteness: if c.lit() == l_false, do propagations happen?
-            if (c.lit() == null_literal || value(c.lit()) == l_true) {    
-                init_watch(c, true);
-            }
+            if (c.lit() == null_literal || value(c.lit()) != l_undef) init_watch(c);            
             SASSERT(c.well_formed());
         }
     }
@@ -2870,7 +2867,6 @@ namespace sat {
                 s().set_external(v);                
             }
         }
-        IF_VERBOSE(10, verbose_stream() << "non-external variables converted: " << ext << "\n";);
         return ext;
     }
 
@@ -2897,7 +2893,6 @@ namespace sat {
                 ++pure_literals;
             }
         }
-        IF_VERBOSE(10, verbose_stream() << "pure literals converted: " << pure_literals << " " << inconsistent() << "\n";);
         return pure_literals;
     }
 
@@ -3119,7 +3114,7 @@ namespace sat {
                         }
                     }
                     c2.set_size(c2.size() - 1);
-                    init_watch(c2, true);
+                    init_watch(c2);
                     m_simplify_change = true;
 #endif
                 }
