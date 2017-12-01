@@ -27,6 +27,38 @@ Revision History:
 
 namespace spacer {
     
+    // arith lemmas: second parameter specifies exact type of lemma, could be "farkas", "triangle-eq", "eq-propagate", "assign-bounds", maybe also something else
+    bool is_arith_lemma(ast_manager& m, proof* pr)
+    {
+        if (pr->get_decl_kind() == PR_TH_LEMMA)
+        {
+            func_decl* d = pr->get_decl();
+            symbol sym;
+            if (d->get_num_parameters() >= 1 &&
+                d->get_parameter(0).is_symbol(sym) && sym == "arith")
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    bool is_farkas_lemma(ast_manager& m, proof* pr)
+    {
+        if (pr->get_decl_kind() == PR_TH_LEMMA)
+        {
+            func_decl* d = pr->get_decl();
+            symbol sym;
+            if (d->get_num_parameters() >= 2 && // the Farkas coefficients are saved in the parameters of step
+                d->get_parameter(0).is_symbol(sym) && sym == "arith" && // the first two parameters are "arith", "farkas",
+                d->get_parameter(1).is_symbol(sym) && sym == "farkas")
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /*
      * ====================================
      * methods for proof traversal
@@ -153,24 +185,18 @@ proof* ProofIteratorPostOrder::next()
                         edge_label = "hyp:";
                         color = "grey";
                         break;
-                    default:
-                        if (currentNode->get_decl_kind() == PR_TH_LEMMA)
+                    case PR_TH_LEMMA:
+                        if (is_farkas_lemma(m, currentNode))
                         {
-                            edge_label = "th_axiom:";
-                            func_decl* d = currentNode->get_decl();
-                            symbol sym;
-                            if (d->get_num_parameters() >= 2 && // the Farkas coefficients are saved in the parameters of step
-                                d->get_parameter(0).is_symbol(sym) && sym == "arith" && // the first two parameters are "arith", "farkas",
-                                d->get_parameter(1).is_symbol(sym) && sym == "farkas")
-                            {
-                                edge_label = "th_axiom(farkas):";
-                            }
+                            edge_label = "th_axiom(farkas):";
                         }
                         else
                         {
-                            edge_label = "unknown axiom-type:";
-                            break;
+                            edge_label = "th_axiom:";
                         }
+                        break;
+                    default:
+                            edge_label = "unknown axiom-type:";
                 }
             }
             else
@@ -266,32 +292,111 @@ proof* ProofIteratorPostOrder::next()
 
     /*
      * ====================================
-     * methods for reducing hypothesis
+     * methods for transforming proofs
      * ====================================
      */
     
-class reduce_hypotheses {
-    ast_manager &m;
-    // tracking all created expressions
-    expr_ref_vector m_pinned;
+    void theory_axiom_reducer::reset()
+    {
+        m_cache.reset();
+        m_pinned.reset();
+    }
+    
+    proof_ref theory_axiom_reducer::reduce(proof* pr)
+    {
+        ProofIteratorPostOrder pit(pr, m);
+        while (pit.hasNext())
+        {
+            proof* p = pit.next();
+            
+            if (m.get_num_parents(p) == 0 && is_arith_lemma(m, p))
+            {
+                // we have an arith-theory-axiom and want to get rid of it
+                // we need to replace the axiom with 1a) corresponding hypothesis', 1b) a theory lemma and a 1c) a lemma. Furthermore update datastructures
+                app *cls_fact = to_app(m.get_fact(p));
+                ptr_buffer<expr> cls;
+                if (m.is_or(cls_fact)) {
+                    for (unsigned i = 0, sz = cls_fact->get_num_args(); i < sz; ++i)
+                    { cls.push_back(cls_fact->get_arg(i)); }
+                } else { cls.push_back(cls_fact); }
+                
+                // 1a) create hypothesis'
+                ptr_buffer<proof> hyps;
+                for (unsigned i=0; i < cls.size(); ++i)
+                {
+                    expr* hyp_fact = m.is_not(cls[i]) ? to_app(cls[i])->get_arg(0) : m.mk_not(cls[i]);
+                    proof* hyp = m.mk_hypothesis(hyp_fact);
+                    m_pinned.push_back(hyp);
+                    hyps.push_back(hyp);
+                }
+                
+                // 1b) create farkas lemma: need to rebuild parameters since mk_th_lemma adds tid as first parameter
+                unsigned num_params = p->get_decl()->get_num_parameters();
+                parameter const* params = p->get_decl()->get_parameters();
+                vector<parameter> parameters;
+                for (unsigned i = 1; i < num_params; ++i) {
+                    parameters.push_back(params[i]);
+                }
+                
+                SASSERT(params[0].is_symbol());
+                family_id tid = m.mk_family_id(params[0].get_symbol());
+                SASSERT(tid != null_family_id);
+                
+                proof* th_lemma = m.mk_th_lemma(tid, m.mk_false(),hyps.size(), hyps.c_ptr(), num_params-1, parameters.c_ptr());
+                SASSERT(is_arith_lemma(m, th_lemma));
+                
+                // 1c) create lemma
+                proof* res = m.mk_lemma(th_lemma, cls_fact);
+                SASSERT(m.get_fact(res) == m.get_fact(p));
+                m_pinned.push_back(res);
+                m_cache.insert(p, res);
+            }
+            else
+            {
+                bool dirty = false; // proof is dirty, if a subproof of one of its premises has been transformed
 
-    // cache for the transformation
-    obj_map<proof, proof*> m_cache;
+                ptr_buffer<proof> args;
+                for (unsigned i = 0, sz = m.get_num_parents(p); i < sz; ++i)
+                {
+                    proof* pp = m.get_parent(p, i);
+                    proof* tmp;
+                    if (m_cache.find(pp, tmp))
+                    {
+                        args.push_back(tmp);
+                        dirty = dirty || pp != tmp;
+                    }
+                    else
+                    {
+                        SASSERT(false);
+                    }
+                }
+                if (!dirty) // if not dirty just use the old step
+                {
+                    m_cache.insert(p, p);
+                }
+                else // otherwise create new step with the corresponding proofs of the premises
+                {
+                    if (m.has_fact(p)) { args.push_back(to_app(m.get_fact(p))); }
+                    SASSERT(p->get_decl()->get_arity() == args.size());
+                    proof* res = m.mk_app(p->get_decl(), args.size(), (expr * const*)args.c_ptr());
+                    m_pinned.push_back(res);
+                    m_cache.insert(p, res);
+                }
+            }
+        }
+        
+        proof* res;
+        bool found = m_cache.find(pr,res);
+        SASSERT(found);
+        DEBUG_CODE(proof_checker pc(m);
+                   expr_ref_vector side(m);
+                   SASSERT(pc.check(res, side));
+                   );
+        
+        return proof_ref(res,m);
+    }
 
-    // map from unit literals to their hypotheses-free derivations
-    obj_map<expr, proof*> m_units;
-
-    // -- all hypotheses in the the proof
-    obj_hashtable<expr> m_hyps;
-
-    // marks hypothetical proofs
-    ast_mark m_hypmark;
-
-
-    // stack
-    ptr_vector<proof> m_todo;
-
-    void reset()
+    void hypothesis_reducer::reset()
     {
         m_cache.reset();
         m_units.reset();
@@ -299,14 +404,35 @@ class reduce_hypotheses {
         m_hypmark.reset();
         m_pinned.reset();
     }
+    
+    void hypothesis_reducer::compute_hypmarks_and_hyps(proof* pr)
+    {
+        proof *p;
+        ProofIteratorPostOrder pit(pr, m);
+        while (pit.hasNext()) {
+            p = pit.next();
+            if (m.is_hypothesis(p))
+            {
+                m_hypmark.mark(p, true);
+                m_hyps.insert(m.get_fact(p));
+            }
+            else
+            {
+                compute_hypmark_from_parents(p);
+            }
+        }
+    }
 
-    bool compute_mark1(proof *pr)
+    bool hypothesis_reducer::compute_hypmark_from_parents(proof *pr)
     {
         bool hyp_mark = false;
-        // lemmas clear all hypotheses
-        if (!m.is_lemma(pr)) {
-            for (unsigned i = 0, sz = m.get_num_parents(pr); i < sz; ++i) {
-                if (m_hypmark.is_marked(m.get_parent(pr, i))) {
+        
+        if (!m.is_lemma(pr)) // lemmas clear all hypotheses
+        {
+            for (unsigned i = 0, sz = m.get_num_parents(pr); i < sz; ++i)
+            {
+                if (m_hypmark.is_marked(m.get_parent(pr, i)))
+                {
                     hyp_mark = true;
                     break;
                 }
@@ -316,22 +442,13 @@ class reduce_hypotheses {
         return hyp_mark;
     }
 
-    void compute_marks(proof* pr)
+    // collect all units that are hyp-free and are used as hypotheses somewhere
+    // requires that m_hypmarks and m_hyps have been computed
+    void hypothesis_reducer::collect_units(proof* pr)
     {
-        proof *p;
         ProofIteratorPostOrder pit(pr, m);
         while (pit.hasNext()) {
-            p = pit.next();
-            if (m.is_hypothesis(p)) {
-                m_hypmark.mark(p, true);
-                m_hyps.insert(m.get_fact(p));
-            } else {
-                compute_mark1(p);
-            }
-        }
-        ProofIteratorPostOrder pit2(pr, m);
-        while (pit2.hasNext()) {
-            p = pit2.next();
+            proof* p = pit.next();
             if (!m.is_hypothesis(p))
             {
                 // collect units that are hyp-free and are used as hypotheses somewhere
@@ -342,12 +459,25 @@ class reduce_hypotheses {
             }
         }
     }
-    void find_units(proof *pr)
-    {
-        // optional. not implemented yet.
-    }
 
-    void reduce(proof* pf, proof_ref &out)
+    proof_ref hypothesis_reducer::reduce(proof* pr)
+    {
+        compute_hypmarks_and_hyps(pr);
+        collect_units(pr);
+        proof* res = compute_transformed_proof(pr);
+        SASSERT(res != nullptr);
+        
+        proof_ref res_ref(res,m);
+        
+        reset();
+        DEBUG_CODE(proof_checker pc(m);
+                   expr_ref_vector side(m);
+                   SASSERT(pc.check(res, side));
+                   );
+        return res_ref;
+    }
+    
+    proof* hypothesis_reducer::compute_transformed_proof(proof* pf)
     {
         proof *res = NULL;
 
@@ -383,9 +513,14 @@ class reduce_hypotheses {
             if (todo_sz < m_todo.size()) { continue; }
             else { m_todo.pop_back(); }
 
-            if (m.is_hypothesis(p)) {
+            // here the transformation begins
+            // INV: for each premise of p, we have computed the transformed proof.
+            
+            if (m.is_hypothesis(p))
+            {
                 // hyp: replace by a corresponding unit
-                if (m_units.find(m.get_fact(p), tmp)) {
+                if (m_units.find(m.get_fact(p), tmp))
+                {
                     // if the transformed subproof ending in the unit has already been computed, use it
                     if (m_cache.find(tmp,tmp2))
                     {
@@ -406,11 +541,11 @@ class reduce_hypotheses {
                 //lemma: reduce the premise; remove reduced consequences from conclusion
                 SASSERT(args.size() == 1);
                 res = mk_lemma_core(args.get(0), m.get_fact(p));
-                compute_mark1(res);
+                compute_hypmark_from_parents(res);
             } else if (m.is_unit_resolution(p)) {
                 // unit: reduce untis; reduce the first premise; rebuild unit resolution
                 res = mk_unit_resolution_core(args.size(), args.c_ptr());
-                compute_mark1(res);
+                compute_hypmark_from_parents(res);
             } else  {
                 // if any literal is false, we don't need a step
                 bool has_empty_clause_premise = false;
@@ -431,21 +566,22 @@ class reduce_hypotheses {
                     SASSERT(p->get_decl()->get_arity() == args.size());
                     res = m.mk_app(p->get_decl(), args.size(), (expr * const*)args.c_ptr());
                     m_pinned.push_back(res);
-                    compute_mark1(res);
+                    compute_hypmark_from_parents(res);
                 }
             }
 
             SASSERT(res);
             m_cache.insert(p, res);
 
-            if (!m_hypmark.is_marked(res) && m.has_fact(res) && m.is_false(m.get_fact(res))) { break; }
+            if (!m_hypmark.is_marked(res) && m.has_fact(res) && m.is_false(m.get_fact(res)))
+            {
+                return res;
+            }
         }
-
-        out = res;
     }
 
     // returns true if (hypothesis (not a)) would be reduced
-    bool is_reduced(expr *a)
+    bool hypothesis_reducer::is_reduced(expr *a)
     {
         expr_ref e(m);
         if (m.is_not(a)) { e = to_app(a)->get_arg(0); }
@@ -453,7 +589,8 @@ class reduce_hypotheses {
 
         return m_units.contains(e);
     }
-    proof *mk_lemma_core(proof *pf, expr *fact)
+    
+    proof* hypothesis_reducer::mk_lemma_core(proof *pf, expr *fact)
     {
         ptr_buffer<expr> args;
         expr_ref lemma(m);
@@ -486,7 +623,7 @@ class reduce_hypotheses {
         return res;
     }
 
-    proof *mk_unit_resolution_core(unsigned num_args, proof* const *args)
+    proof* hypothesis_reducer::mk_unit_resolution_core(unsigned num_args, proof* const *args)
     {
 
         ptr_buffer<proof> pf_args;
@@ -542,42 +679,4 @@ class reduce_hypotheses {
             return res;
         }
     }
-
-    // reduce all units, if any unit reduces to false return true and put its proof into out
-    bool reduce_units(proof_ref &out)
-    {
-        proof_ref res(m);
-        for (auto entry : m_units) {
-            reduce(entry.get_value(), res);
-            if (m.is_false(m.get_fact(res))) {
-                out = res;
-                return true;
-            }
-            res.reset();
-        }
-        return false;
-    }
-
-
-public:
-    reduce_hypotheses(ast_manager &m) : m(m), m_pinned(m) {}
-
-
-    void operator()(proof_ref &pr)
-    {
-        compute_marks(pr);
-        reduce(pr.get(), pr);
-        reset();
-    }
 };
-void reduce_hypotheses(proof_ref &pr)
-{
-    ast_manager &m = pr.get_manager();
-    class reduce_hypotheses hypred(m);
-    hypred(pr);
-    DEBUG_CODE(proof_checker pc(m);
-               expr_ref_vector side(m);
-               SASSERT(pc.check(pr, side));
-              );
-}
-}
