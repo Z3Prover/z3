@@ -1032,6 +1032,7 @@ namespace sat {
         }
         propagate();
         m_qhead = m_trail.size();
+        m_init_freevars = m_freevars.size();
         TRACE("sat", m_s.display(tout); display(tout););
     }
 
@@ -2054,8 +2055,11 @@ namespace sat {
             }
             backtrack_level = UINT_MAX;
             depth = m_cube_state.m_cube.size();
-            if ((m_config.m_cube_cutoff != 0 && depth == m_config.m_cube_cutoff) ||
-                (m_config.m_cube_cutoff == 0 && m_freevars.size() < m_cube_state.m_freevars_threshold)) {
+            if ((m_config.m_cube_cutoff == fixed_depth_cutoff && depth == m_config.m_cube_depth) ||
+                (m_config.m_cube_cutoff == adaptive_cutoff && m_freevars.size() < m_cube_state.m_freevars_threshold) ||
+                /* m_cube_cutoff is fixed_freevars */ m_freevars.size() <= m_init_freevars * m_config.m_cube_freevars) {
+            /*if ((m_config.m_cube_cutoff != 0 && depth == m_config.m_cube_cutoff) ||
+                (m_config.m_cube_cutoff == 0 && m_freevars.size() < m_cube_state.m_freevars_threshold)) {*/
                 m_cube_state.m_freevars_threshold *= (1.0 - pow(m_config.m_cube_fraction, depth));
                 set_conflict();
 #if 0
@@ -2413,6 +2417,8 @@ namespace sat {
         m_config.m_reward_type = m_s.m_config.m_lookahead_reward;
         m_config.m_cube_cutoff = m_s.m_config.m_lookahead_cube_cutoff;
         m_config.m_cube_fraction = m_s.m_config.m_lookahead_cube_fraction;
+        m_config.m_cube_depth = m_s.m_config.m_lookahead_cube_depth;
+        m_config.m_cube_freevars = m_s.m_config.m_lookahead_cube_freevars;
     }
 
     void lookahead::collect_statistics(statistics& st) const {

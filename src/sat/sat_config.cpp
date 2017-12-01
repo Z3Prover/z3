@@ -112,8 +112,21 @@ namespace sat {
             throw sat_param_exception("invalid reward type supplied: accepted heuristics are 'ternary', 'heuleu', 'unit' or 'heule_schur'");
         }
 
+        if (p.lookahead_cube_cutoff() == symbol("adaptive")) {
+            m_lookahead_cube_cutoff = adaptive_cutoff;
+        }
+        else if (p.lookahead_cube_cutoff() == symbol("fixed_depth")) {
+            m_lookahead_cube_cutoff = fixed_depth_cutoff;
+        }
+        else if (p.lookahead_cube_cutoff() == symbol("fixed_freevars")) {
+            m_lookahead_cube_cutoff = fixed_freevars_cutoff;
+        }
+        else {
+            throw sat_param_exception("invalid cutoff type supplied: accepted cutoffs are 'adaptive', 'fixed_depth', 'fixed_freevars'");
+        }
         m_lookahead_cube_fraction = p.lookahead_cube_fraction();
-        m_lookahead_cube_cutoff = p.lookahead_cube_cutoff();
+        m_lookahead_cube_depth = p.lookahead_cube_depth();
+        m_lookahead_cube_freevars = p.lookahead_cube_freevars();
         m_lookahead_global_autarky = p.lookahead_global_autarky();
 
         // These parameters are not exposed

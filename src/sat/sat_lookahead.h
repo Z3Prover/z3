@@ -80,8 +80,10 @@ namespace sat {
             unsigned m_dl_max_iterations;
             unsigned m_tc1_limit;
             reward_t m_reward_type;
-            unsigned m_cube_cutoff;
+            cutoff_t m_cube_cutoff;
+            unsigned m_cube_depth;
             double   m_cube_fraction;
+            double   m_cube_freevars;
 
             config() {
                 memset(this, sizeof(*this), 0);
@@ -96,8 +98,10 @@ namespace sat {
                 m_dl_max_iterations = 2;
                 m_tc1_limit = 10000000;
                 m_reward_type = ternary_reward;
-                m_cube_cutoff = 0;
+                m_cube_cutoff = adaptive_cutoff;
+                m_cube_depth = 10;
                 m_cube_fraction = 0.4;
+                m_cube_freevars = 0.8;
             }
         };
 
@@ -222,11 +226,12 @@ namespace sat {
         svector<prefix>        m_vprefix;       // var:     prefix where variable participates in propagation
         unsigned               m_rating_throttle; // throttle to recompute rating
         indexed_uint_set       m_freevars;
+        unsigned               m_init_freevars;
         lookahead_mode         m_search_mode;   // mode of search
         stats                  m_stats;
         model                  m_model; 
         cube_state             m_cube_state;
-        scoped_ptr<extension>   m_ext;
+        scoped_ptr<extension>  m_ext;
  
         // ---------------------------------------
         // truth values

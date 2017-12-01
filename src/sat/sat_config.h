@@ -65,6 +65,12 @@ namespace sat {
         march_cu_reward
     };
 
+    enum cutoff_t {
+        adaptive_cutoff,
+        fixed_depth_cutoff,
+        fixed_freevars_cutoff
+    };
+
     struct config {
         unsigned long long m_max_memory;
         phase_selection    m_phase;
@@ -85,8 +91,10 @@ namespace sat {
         bool               m_lookahead_search;
         bool               m_lookahead_simplify;
         bool               m_lookahead_simplify_bca;
-        unsigned           m_lookahead_cube_cutoff;
+        cutoff_t           m_lookahead_cube_cutoff;
         double             m_lookahead_cube_fraction;
+        unsigned           m_lookahead_cube_depth;
+        double             m_lookahead_cube_freevars;
         reward_t           m_lookahead_reward;
         bool               m_lookahead_global_autarky;
 
