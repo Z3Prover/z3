@@ -96,7 +96,7 @@ namespace sat {
             // apply substitution
             for (i = 0; i < sz; i++) {                
                 c[i] = norm(roots, c[i]);
-				VERIFY(c[i] == norm(roots, c[i]));
+                VERIFY(c[i] == norm(roots, c[i]));
                 VERIFY(!m_solver.was_eliminated(c[i].var()));
             }
             std::sort(c.begin(), c.end());
