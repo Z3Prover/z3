@@ -1139,7 +1139,7 @@ static void parse_example() {
     expr a = c.parse_string("(assert a)", sorts, decls);
     std::cout << a << "\n";
 
-    expr b = c.parse_string("(benchmark tst :extrafuns ((x Int) (y Int)) :formula (> x y) :formula (> x 0))");
+    // expr b = c.parse_string("(benchmark tst :extrafuns ((x Int) (y Int)) :formula (> x y) :formula (> x 0))");
 }
 
 

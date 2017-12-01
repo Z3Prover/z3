@@ -853,6 +853,7 @@ pdecl_manager::~pdecl_manager() {
     dec_ref(m_list);
     reset_sort_info();
     SASSERT(m_sort2psort.empty());    
+    SASSERT(m_table.empty());
 }
 
 psort * pdecl_manager::mk_psort_cnst(sort * s) {

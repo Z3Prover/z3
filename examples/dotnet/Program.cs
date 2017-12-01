@@ -1383,7 +1383,7 @@ namespace test_mapi
         {
             Console.WriteLine("ParserExample1");
 
-            var fml = ctx.ParseSMTLIB2String("(benchmark tst :extrafuns ((x Int) (y Int)) :formula (> x y) :formula (> x 0))");
+            var fml = ctx.ParseSMTLIB2String("(declare-const x Int) (declare-const y Int) (assert (> x y)) (assert (> x 0))");
             Console.WriteLine("formula {0}", fml);
 
             Model m = Check(ctx, fml, Status.SATISFIABLE);
@@ -1417,7 +1417,7 @@ namespace test_mapi
 
             BoolExpr ca = CommAxiom(ctx, g);
 
-            BoolExpr thm = ctx.ParseSMTLIB2String("(assert (forall ((x Int) (y Int)) (implies (= x y) (= (gg x 0) (gg 0 y)))))",
+            BoolExpr thm = ctx.ParseSMTLIB2String("(assert (forall ((x Int) (y Int)) (=> (= x y) (= (gg x 0) (gg 0 y)))))",
              null, null,
              new Symbol[] { ctx.MkSymbol("gg") },
              new FuncDecl[] { g });

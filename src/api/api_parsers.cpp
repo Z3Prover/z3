@@ -52,8 +52,12 @@ extern "C" {
             ctx->insert(to_symbol(decl_names[i]), to_func_decl(decls[i]));
         }
         for (unsigned i = 0; i < num_sorts; ++i) {
-            psort* ps = ctx->pm().mk_psort_cnst(to_sort(sorts[i]));
-            ctx->insert(ctx->pm().mk_psort_user_decl(0, to_symbol(sort_names[i]), ps));
+            sort* srt = to_sort(sorts[i]);
+            symbol name(to_symbol(sort_names[i]));
+            if (!ctx->find_psort_decl(name)) {
+                psort* ps = ctx->pm().mk_psort_cnst(srt);
+                ctx->insert(ctx->pm().mk_psort_user_decl(0, name, ps));
+            }
         }
         std::stringstream errstrm;
         ctx->set_regular_stream(errstrm);
