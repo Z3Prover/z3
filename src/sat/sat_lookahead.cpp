@@ -2013,6 +2013,11 @@ namespace sat {
         return true;
     }
 
+    void lookahead::update_cube_statistics(statistics& st) {
+        st.update("lh cube cutoffs", m_cube_state.m_cutoffs);
+        st.update("lh cube conflicts", m_cube_state.m_conflicts);        
+    }
+
     lbool lookahead::cube(bool_var_vector const& vars, literal_vector& lits, unsigned backtrack_level) {
         scoped_ext _scoped_ext(*this);
         lits.reset();
@@ -2031,6 +2036,7 @@ namespace sat {
         unsigned depth = 0;
         unsigned init_trail = m_trail.size();
         
+        m_cube_state.reset_stats();
         if (!is_first) {
             goto pick_up_work;
         }
@@ -2041,8 +2047,9 @@ namespace sat {
             inc_istamp();
             if (inconsistent()) {
                 TRACE("sat", tout << "inconsistent: " << m_cube_state.m_cube << "\n";);
-                m_cube_state.m_freevars_threshold = m_freevars.size();                
-                if (!backtrack(m_cube_state.m_cube, m_cube_state.m_is_decision)) return l_false;
+                m_cube_state.m_freevars_threshold = m_freevars.size();               
+                m_cube_state.inc_conflict();
+                if (!backtrack(m_cube_state.m_cube, m_cube_state.m_is_decision)) return l_false;                
                 continue;
             }
         pick_up_work:
@@ -2059,6 +2066,7 @@ namespace sat {
                 (m_config.m_cube_cutoff == 0 && m_freevars.size() < m_cube_state.m_freevars_threshold)) {
                 m_cube_state.m_freevars_threshold *= (1.0 - pow(m_config.m_cube_fraction, depth));
                 set_conflict();
+                m_cube_state.inc_cutoff();
 #if 0
                 // return cube of all literals, not just the ones in the main cube
                 lits.append(m_trail.size() - init_trail, m_trail.c_ptr() + init_trail);
