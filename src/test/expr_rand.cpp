@@ -40,7 +40,7 @@ void tst_expr_arith(unsigned num_files) {
 
         pp.set_logic(symbol("QF_AUFLIA"));
         std::ostringstream buffer;
-        buffer << "random_arith_" << i << ".smt";
+        buffer << "random_arith_" << i << ".smt2";
         std::cout << buffer.str() << "\n";
         std::ofstream file(buffer.str().c_str());
         pp.display_smt2(file, e.get());
@@ -83,7 +83,7 @@ void tst_expr_rand(unsigned num_files) {
 
         pp.set_logic(symbol("QF_AUFBV"));
         std::ostringstream buffer;
-        buffer << "random_bv_" << i << ".smt";
+        buffer << "random_bv_" << i << ".smt2";
         std::cout << buffer.str() << "\n";
         std::ofstream file(buffer.str().c_str());
         pp.display_smt2(file, e.get());
