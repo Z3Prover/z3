@@ -958,8 +958,10 @@ namespace sat {
 
         literal_vector m_covered_clause;
         literal_vector m_intersection;
+        literal_vector m_new_intersection;
+        svector<bool>  m_in_intersection;
         sat::model_converter::elim_stackv m_elim_stack;
-        unsigned m_ala_qhead;
+        unsigned       m_ala_qhead;
 
         blocked_clause_elim(simplifier & _s, unsigned limit, model_converter & _mc, use_list & l,
                             vector<watch_list> & wlist):
@@ -967,6 +969,7 @@ namespace sat {
             m_counter(limit),
             mc(_mc),
             m_queue(l, wlist) {
+            m_in_intersection.resize(s.s.num_vars() * 2, false);
         }
 
         void insert(literal l) {
@@ -986,7 +989,7 @@ namespace sat {
                 cce<true>();
             if (s.bca_enabled())
                 bca();
-    }
+        }
 
         void block_clauses() {
             insert_queue();
@@ -1066,13 +1069,26 @@ namespace sat {
                 s.block_clause(*c);
         }
 
+        void reset_intersection() {
+            for (literal l : m_intersection) m_in_intersection[l.index()] = false;
+            m_intersection.reset();
+        }
+
+        void add_intersection(literal lit) {
+            m_intersection.push_back(lit);
+            m_in_intersection[lit.index()] = true;
+        }
+
+        
+        
         //
         // Resolve intersection
         // Find literals that are in the intersection of all resolvents with l.
         //
-        bool resolution_intersection(literal l, literal_vector& inter, bool adding) {
+        bool resolution_intersection(literal l, bool adding) {
             if (!process_var(l.var())) return false;
             bool first = true;
+            reset_intersection();
             for (watched & w : s.get_wlist(l)) {
                 // when adding a blocked clause, then all non-learned clauses have to be considered for the
                 // resolution intersection.
@@ -1083,11 +1099,12 @@ namespace sat {
                         continue; // tautology
                     }
                     if (!first || s.is_marked(lit)) {
-                        inter.reset();
+                        reset_intersection();
                         return false; // intersection is empty or does not add anything new.
                     }
                     first = false;
-                    inter.push_back(lit);
+                    SASSERT(m_intersection.empty());
+                    add_intersection(lit);
                 }
             }
             clause_use_list & neg_occs = s.m_use_list.get(~l);
@@ -1103,20 +1120,22 @@ namespace sat {
                 }
                 if (!tautology) {
                     if (first) {
-                        for (literal lit : c) {
-                            if (lit != ~l && !s.is_marked(lit)) inter.push_back(lit);
-                        }
+                        for (literal lit : c) 
+                            if (lit != ~l && !s.is_marked(lit)) 
+                                add_intersection(lit);
                         first = false;
-                        if (inter.empty()) return false;
                     }
                     else {
-                        unsigned j = 0;
-                        for (literal lit : inter)
-                            if (c.contains(lit))
-                                inter[j++] = lit;
-                        inter.shrink(j);
-                        if (j == 0) return false;
+                        m_new_intersection.reset();
+                        for (literal lit : c) 
+                            if (m_in_intersection[lit.index()]) 
+                                m_new_intersection.push_back(lit);
+                        reset_intersection();
+                        for (literal lit : m_new_intersection) 
+                            add_intersection(lit);
                     }
+                    if (m_intersection.empty()) 
+                        return false;
                 }
             }
             return first;
@@ -1176,8 +1195,7 @@ namespace sat {
          */
         bool add_cla(literal& blocked) {
             for (unsigned i = 0; i < m_covered_clause.size(); ++i) {
-                m_intersection.reset();
-                if (resolution_intersection(m_covered_clause[i], m_intersection, false)) {
+                if (resolution_intersection(m_covered_clause[i], false)) {
                     blocked = m_covered_clause[i];
                     return true;
                 }
@@ -1404,8 +1422,7 @@ namespace sat {
           Then the following binary clause is blocked: l \/ ~l'
          */
         void bca(literal l) {
-            m_intersection.reset();
-            if (resolution_intersection(l, m_intersection, true)) {
+            if (resolution_intersection(l, true)) {
                 // this literal is pure. 
                 return;
             }
