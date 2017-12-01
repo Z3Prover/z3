@@ -191,7 +191,7 @@ namespace sat {
         // Misc
         //
         // -----------------------
-        void updt_params(params_ref const & p);
+        void updt_params(params_ref const & p);        
         static void collect_param_descrs(param_descrs & d);
 
         void collect_statistics(statistics & st) const;

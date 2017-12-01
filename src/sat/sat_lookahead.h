@@ -171,13 +171,19 @@ namespace sat {
             svector<bool>  m_is_decision;
             literal_vector m_cube;
             double         m_freevars_threshold;
+            unsigned       m_conflicts;
+            unsigned       m_cutoffs;
             cube_state() { reset(); }
             void reset() { 
                 m_first = true;
                 m_is_decision.reset(); 
                 m_cube.reset(); 
-                m_freevars_threshold = 0; 
+                m_freevars_threshold = 0;
+                reset_stats();
             }
+            void reset_stats() { m_conflicts = 0; m_cutoffs = 0; }
+            void inc_conflict() { ++m_conflicts; }
+            void inc_cutoff() { ++m_cutoffs; }
         };
 
         config                 m_config;
@@ -576,6 +582,8 @@ namespace sat {
         */
 
         lbool cube(bool_var_vector const& vars, literal_vector& lits, unsigned backtrack_level);
+
+        void update_cube_statistics(statistics& st);
 
         literal select_lookahead(literal_vector const& assumptions, bool_var_vector const& vars);
         /**

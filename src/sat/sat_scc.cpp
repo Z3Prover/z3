@@ -234,17 +234,7 @@ namespace sat {
         return to_elim.size();
     }
 
-    // shuffle vertices to obtain different DAG traversal each time
-    void scc::shuffle(literal_vector& lits) {
-        unsigned sz = lits.size();
-        if (sz > 1) {
-            for (unsigned i = sz; i-- > 0; ) {
-                std::swap(lits[i], lits[m_rand(i+1)]);
-            }
-        }
-    }
-
-    vector<literal_vector> const& scc::get_big(bool learned) {
+    void scc::init_big(bool learned) {
         unsigned num_lits = m_solver.num_vars() * 2;
         m_dag.reset();
         m_roots.reset();
@@ -263,53 +253,21 @@ namespace sat {
                     edges.push_back(v);
                 }
             }
-            shuffle(edges);
+            shuffle<literal>(edges.size(), edges.c_ptr(), m_rand);
         }
-        return m_dag;
+        init_dfs_num(learned);
     }
 
-    void scc::get_dfs_num(bool learned) {
-        unsigned num_lits = m_solver.num_vars() * 2;
-        SASSERT(m_left.size() == num_lits);
-        SASSERT(m_right.size() == num_lits);
-        literal_vector todo;
-        // retrieve literals that have no predecessors
-        for (unsigned l_idx = 0; l_idx < num_lits; l_idx++) {
-            literal u(to_literal(l_idx));
-            if (m_roots[u.index()]) todo.push_back(u);
-        }
-        shuffle(todo);
-        int dfs_num = 0;
-        while (!todo.empty()) {
-            literal u = todo.back();
-            int& d = m_left[u.index()];
-            // already visited
-            if (d > 0) {
-                if (m_right[u.index()] < 0) {
-                    m_right[u.index()] = dfs_num;
-                }
-                todo.pop_back();
-            }
-            // visited as child:
-            else if (d < 0) {
-                d = -d;
-                for (literal v : m_dag[u.index()]) {
-                    if (m_left[v.index()] == 0) {
-                        m_left[v.index()] = - d - 1;
-                        m_root[v.index()] = m_root[u.index()];
-                        m_parent[v.index()] = u;
-                        todo.push_back(v);
-                    }
-                }
-            }
-            // new root.
-            else {
-                d = --dfs_num;
-            }
-        }
-    }
+    struct scc::pframe {
+        literal m_parent;
+        literal m_child;
+        pframe(literal p, literal c):
+            m_parent(p), m_child(c) {}
+        literal child() const { return m_child; }
+        literal parent() const { return m_parent; }
+    };
 
-    unsigned scc::reduce_tr(bool learned) {        
+    void scc::init_dfs_num(bool learned) {
         unsigned num_lits = m_solver.num_vars() * 2;
         m_left.reset();
         m_right.reset();
@@ -317,11 +275,61 @@ namespace sat {
         m_parent.reset();
         m_left.resize(num_lits, 0);
         m_right.resize(num_lits, -1);
+        m_root.resize(num_lits, null_literal);
+        m_parent.resize(num_lits, null_literal);
         for (unsigned i = 0; i < num_lits; ++i) {
             m_root[i]   = to_literal(i);
             m_parent[i] = to_literal(i);            
         }
-        get_dfs_num(learned);
+        svector<pframe> todo;
+        // retrieve literals that have no predecessors
+        for (unsigned l_idx = 0; l_idx < num_lits; l_idx++) {
+            literal u(to_literal(l_idx));
+            if (m_roots[u.index()]) {
+                todo.push_back(pframe(null_literal, u));
+            }
+        }
+        shuffle<pframe>(todo.size(), todo.c_ptr(), m_rand);
+        int dfs_num = 0;
+        while (!todo.empty()) {
+            literal u = todo.back().child();
+            if (m_left[u.index()] > 0) {
+                // already visited
+                if (m_right[u.index()] < 0) {
+                    m_right[u.index()] = ++dfs_num;
+                }
+                todo.pop_back();
+            }
+            else {
+                SASSERT(m_left[u.index()] == 0);
+                m_left[u.index()] = ++dfs_num;
+                for (literal v : m_dag[u.index()]) {
+                    if (m_left[v.index()] == 0) {
+                        todo.push_back(pframe(u, v));
+                    }
+                }
+                literal p = todo.back().parent();
+                if (p != null_literal) {
+                    m_root[u.index()] = m_root[p.index()];
+                    m_parent[u.index()] = p;
+                }
+            }
+        }
+        for (unsigned i = 0; i < num_lits; ++i) {
+            if (m_right[i] < 0) {
+                VERIFY(m_left[i] == 0);
+                m_left[i]  = ++dfs_num;
+                m_right[i] = ++dfs_num;
+            }
+        }
+        for (unsigned i = 0; i < num_lits; ++i) {
+            VERIFY(m_left[i] < m_right[i]);
+        }
+    }
+
+    unsigned scc::reduce_tr(bool learned) {        
+        unsigned num_lits = m_solver.num_vars() * 2;
+        init_big(learned);
         unsigned idx = 0;
         unsigned elim = m_num_elim_bin;
         for (watch_list & wlist : m_solver.m_watches) {
@@ -333,7 +341,7 @@ namespace sat {
                 watched& w = *it;
                 if (learned ? w.is_binary_learned_clause() : w.is_binary_unblocked_clause()) {
                     literal v = w.get_literal();
-                    if (m_left[u.index()] + 1 < m_left[v.index()]) {
+                    if (reaches(u, v) && u != get_parent(v)) {
                         ++m_num_elim_bin;
                     }
                     else {

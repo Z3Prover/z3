@@ -859,6 +859,7 @@ namespace sat {
             m_cuber = alloc(lookahead, *this);
         }
         lbool result = m_cuber->cube(vars, lits, backtrack_level);
+        m_cuber->update_cube_statistics(m_aux_stats);
         if (result == l_false) {
             dealloc(m_cuber);
             m_cuber = nullptr;

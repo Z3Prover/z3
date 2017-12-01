@@ -44,9 +44,12 @@ namespace sat {
         svector<int>           m_left, m_right;
         literal_vector         m_root, m_parent;
 
-        void shuffle(literal_vector& lits);
         void reduce_tr();
         unsigned reduce_tr(bool learned);
+
+        void init_dfs_num(bool learned);
+
+        struct pframe;
 
     public:
 
@@ -60,17 +63,14 @@ namespace sat {
         void reset_statistics();
 
         /*
-          \brief retrieve binary implication graph
+          \brief create binary implication graph and associated data-structures to check transitivity.
          */
-        vector<literal_vector> const& get_big(bool learned);
-
+        void init_big(bool learned);
         int get_left(literal l) const { return m_left[l.index()]; }
         int get_right(literal l) const { return m_right[l.index()]; }
         literal get_parent(literal l) const { return m_parent[l.index()]; }
         literal get_root(literal l) const { return m_root[l.index()]; }
-
-        void get_dfs_num(bool learned);
-
+        bool reaches(literal u, literal v) const { return m_left[u.index()] < m_left[v.index()] && m_right[v.index()] < m_right[u.index()]; }
     };
 };
 

@@ -296,7 +296,7 @@ namespace sat {
         void watch_literal(wliteral w, pb& p);
         bool is_watched(literal l, constraint const& c) const;
         void add_constraint(constraint* c);
-        bool init_watch(constraint& c, bool is_true);
+        bool init_watch(constraint& c);
         void init_watch(bool_var v);
         void clear_watch(constraint& c);
         lbool add_assign(constraint& c, literal l);
@@ -320,7 +320,7 @@ namespace sat {
 
 
         // cardinality
-        bool init_watch(card& c, bool is_true);
+        bool init_watch(card& c);
         lbool add_assign(card& c, literal lit);
         void clear_watch(card& c);
         void reset_coeffs();
@@ -334,7 +334,7 @@ namespace sat {
 
         // xor specific functionality
         void clear_watch(xor& x);
-        bool init_watch(xor& x, bool is_true);
+        bool init_watch(xor& x);
         bool parity(xor const& x, unsigned offset) const;
         lbool add_assign(xor& x, literal alit);
         void get_xor_antecedents(literal l, unsigned index, justification js, literal_vector& r);
@@ -345,7 +345,7 @@ namespace sat {
         
         // pb functionality
         unsigned m_a_max;
-        bool init_watch(pb& p, bool is_true);
+        bool init_watch(pb& p);
         lbool add_assign(pb& p, literal alit);
         void add_index(pb& p, unsigned index, literal lit);
         void clear_watch(pb& p);
