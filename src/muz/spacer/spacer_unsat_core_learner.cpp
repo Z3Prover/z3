@@ -41,7 +41,7 @@ void unsat_core_learner::register_plugin(unsat_core_plugin* plugin)
 void unsat_core_learner::compute_unsat_core(expr_ref_vector& unsat_core)
 {
     // traverse proof
-   proof_post_order it(m_pr.get(), m);
+    proof_post_order it(m_pr.get(), m);
     while (it.hasNext())
     {
         proof* currentNode = it.next();
@@ -54,7 +54,7 @@ void unsat_core_learner::compute_unsat_core(expr_ref_vector& unsat_core)
             {
                 SASSERT(m.is_proof(currentNode->get_arg(i)));
                 proof* premise = to_app(currentNode->get_arg(i));
-
+                
                 need_to_mark_closed = need_to_mark_closed && (!m_pr.is_b_marked(premise) || m_closed.is_marked(premise));
             }
 
@@ -75,16 +75,6 @@ void unsat_core_learner::compute_unsat_core(expr_ref_vector& unsat_core)
 
     // TODO: remove duplicates from unsat core?
 
-    // count both number of all Farkas lemmas and number of Farkas lemmas in the cut
-    if (m_print_farkas_stats)
-    {
-        m_pr.print_farkas_stats();
-                        }
-    //TODO remove this
-    if(m_iuc_debug_proof)
-    {
-    }
-    
     verbose_stream() << std::endl;
     // move all lemmas into vector
     for (expr* const* it = m_unsat_core.begin(); it != m_unsat_core.end(); ++it)
@@ -119,14 +109,14 @@ void unsat_core_learner::set_closed(proof* p, bool value)
 {
     m_closed.mark(p, value);
 }
-
+  
 bool unsat_core_learner::is_b_open(proof *p)
-    {
+{
      return m_pr.is_b_marked(p) && !is_closed (p);
-    }
+}
 
 void unsat_core_learner::add_lemma_to_core(expr* lemma)
 {
     m_unsat_core.push_back(lemma);
-    }
+}
 }

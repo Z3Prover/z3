@@ -281,7 +281,23 @@ void itp_solver::get_itp_core (expr_ref_vector &core)
         // preprocess proof in order to get a proof which is better suited for unsat-core-extraction
         proof_ref pr(get_proof(), m);
         
+        if (m_print_farkas_stats)
+        {
+            iuc_proof iuc_before(m, pr.get(), B);
+            verbose_stream() << "Stats before transformation:";
+            iuc_before.print_farkas_stats();
+        }
+
         spacer::reduce_hypotheses(pr);
+        spacer::reduce_hypotheses(pr);
+
+        if (m_print_farkas_stats)
+        {
+            iuc_proof iuc_after(m, pr.get(), B);
+            verbose_stream() << "Stats after transformation:";
+            iuc_after.print_farkas_stats();
+        }
+        
         STRACE("spacer.unsat_core_learner",
                verbose_stream() << "Reduced proof:\n" << mk_ismt2_pp(pr, m) << "\n";
                );
