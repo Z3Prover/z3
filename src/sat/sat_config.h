@@ -82,7 +82,6 @@ namespace sat {
         unsigned           m_num_threads;
         unsigned           m_local_search_threads;
         bool               m_local_search;
-        bool               m_lookahead_search;
         bool               m_lookahead_simplify;
         bool               m_lookahead_simplify_bca;
         unsigned           m_lookahead_cube_cutoff;
@@ -111,8 +110,6 @@ namespace sat {
         symbol             m_drat_file;
         bool               m_drat_check_unsat;
         bool               m_drat_check_sat;
-
-        bool               m_dimacs_inprocess_display;
 
         symbol             m_always_true;
         symbol             m_always_false;

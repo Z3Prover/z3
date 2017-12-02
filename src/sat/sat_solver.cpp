@@ -950,12 +950,6 @@ namespace sat {
                 if (m_config.m_inprocess_max <= m_simplifications) {
                     m_reason_unknown = "sat.max.inprocess";
                     IF_VERBOSE(SAT_VB_LVL, verbose_stream() << "(sat \"abort: max-inprocess\")\n";);
-                    if (m_config.m_dimacs_inprocess_display) {
-                        display_dimacs(std::cout);
-                        for (unsigned i = 0; i < num_lits; ++lits) {
-                            std::cout << dimacs_lit(lits[i]) << " 0\n";
-                        }
-                    }
                     return l_undef;
                 }
 

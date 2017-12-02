@@ -38,8 +38,6 @@ namespace sat {
         m_glue_psm("glue_psm"),
         m_psm_glue("psm_glue") {
         m_num_threads = 1;
-        m_local_search = 0;
-        m_lookahead_search = false;
         m_lookahead_simplify = false;
         m_lookahead_simplify_bca = false;
         m_elim_vars = false;
@@ -92,7 +90,6 @@ namespace sat {
         m_local_search_threads = p.local_search_threads();
         m_lookahead_simplify = p.lookahead_simplify();
         m_lookahead_simplify_bca = p.lookahead_simplify_bca();
-        m_lookahead_search = p.lookahead_search();
         if (p.lookahead_reward() == symbol("heule_schur")) {
             m_lookahead_reward = heule_schur_reward;
         }
@@ -195,7 +192,6 @@ namespace sat {
         else {
             throw sat_param_exception("invalid PB solver: solver, totalizer, circuit, sorting");
         }
-        m_dimacs_inprocess_display  = p.dimacs_inprocess_display();
 
         sat_simplifier_params sp(_p);
         m_elim_vars = sp.elim_vars();
