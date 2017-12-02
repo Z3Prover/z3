@@ -394,7 +394,6 @@ namespace sat {
         void sort_watch_lits();
         void exchange_par();
         lbool check_par(unsigned num_lits, literal const* lits);
-        lbool lookahead_search();
         lbool do_local_search(unsigned num_lits, literal const* lits);
 
         // -----------------------

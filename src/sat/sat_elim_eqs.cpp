@@ -94,10 +94,11 @@ namespace sat {
             if (!c.frozen())
                 m_solver.detach_clause(c);
             // apply substitution
-            for (i = 0; i < sz; i++) {                
-                c[i] = norm(roots, c[i]);
+            for (i = 0; i < sz; i++) {   
+				literal lit = c[i];
+                c[i] = norm(roots, lit);
                 VERIFY(c[i] == norm(roots, c[i]));
-                VERIFY(!m_solver.was_eliminated(c[i].var()));
+				VERIFY(!m_solver.was_eliminated(c[i].var()) || lit == c[i]);
             }
             std::sort(c.begin(), c.end());
             for (literal l : c) VERIFY(l == norm(roots, l));

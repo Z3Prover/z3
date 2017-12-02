@@ -41,6 +41,7 @@ namespace sat {
         bool       m_asymm_branch;
         unsigned   m_asymm_branch_delay;
         bool       m_asymm_branch_sampled;
+        bool       m_asymm_branch_propagate;
         bool       m_asymm_branch_all;
         int64      m_asymm_branch_limit;
 
@@ -64,7 +65,7 @@ namespace sat {
 
         bool process_sampled(scc& scc, clause & c);
 
-        void process(scc& scc, clause_vector & c);
+        void process(scc* scc, clause_vector & c);
         
         bool process_all(clause & c);
         

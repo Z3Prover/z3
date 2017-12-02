@@ -2081,6 +2081,7 @@ namespace sat {
             if (inconsistent()) {
                 TRACE("sat", tout << "inconsistent: " << m_cube_state.m_cube << "\n";);
                 m_cube_state.m_freevars_threshold = prev_nfreevars;
+                m_cube_state.inc_conflict();
                 if (!backtrack(m_cube_state.m_cube, m_cube_state.m_is_decision)) return l_false;
                 continue;
             }
@@ -2375,6 +2376,8 @@ namespace sat {
                         ++disconnected1;
                         uf.merge(u.index(), v.index());
                         uf.merge((~u).index(), (~v).index());
+                        VERIFY(!m_s.was_eliminated(u.var()));
+                        VERIFY(!m_s.was_eliminated(v.var()));
                         m_s.mk_clause(~u, v, true);
                     }
                     else {
