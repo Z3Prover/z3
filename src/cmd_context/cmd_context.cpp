@@ -339,6 +339,13 @@ void ast_object_ref::finalize(cmd_context & ctx) {
     ctx.m().dec_ref(m_ast);
 }
 
+void stream_ref::set(std::ostream& out) {
+    reset();
+    m_owner = false;
+    m_name = "caller-owned";
+    m_stream = &out;
+}
+
 void stream_ref::set(char const * name) {
     if (!name) {
         throw cmd_exception("invalid stream name");

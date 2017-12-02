@@ -852,7 +852,7 @@ pdecl_manager::pdecl_manager(ast_manager & m):
 pdecl_manager::~pdecl_manager() {
     dec_ref(m_list);
     reset_sort_info();
-    SASSERT(m_sort2psort.empty());
+    SASSERT(m_sort2psort.empty());    
     SASSERT(m_table.empty());
 }
 
@@ -864,6 +864,8 @@ psort * pdecl_manager::mk_psort_cnst(sort * s) {
     m_sort2psort.insert(s, r);
     return r;
 }
+
+static unsigned r_count = 0;
 
 psort * pdecl_manager::register_psort(psort * n) {
     TRACE("register_psort", tout << "registering psort...\n"; n->display(tout); tout << "\n";);

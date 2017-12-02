@@ -173,10 +173,9 @@ namespace test_mapi
                 throw new Exception("function must be binary, and argument types must be equal to return type");
             }
 
-            string bench = string.Format("(benchmark comm :formula (forall (x {0}) (y {1}) (= ({2} x y) ({3} y x))))",
+            string bench = string.Format("(assert (forall ((x {0}) (y {1})) (= ({2} x y) ({3} y x))))",
                              t.Name, t.Name, f.Name, f.Name);
-            ctx.ParseSMTLIBString(bench, new Symbol[] { t.Name }, new Sort[] { t }, new Symbol[] { f.Name }, new FuncDecl[] { f });
-            return ctx.SMTLIBFormulas[0];
+            return ctx.ParseSMTLIB2String(bench, new Symbol[] { t.Name }, new Sort[] { t }, new Symbol[] { f.Name }, new FuncDecl[] { f });
         }
 
         /// <summary>
@@ -965,21 +964,6 @@ namespace test_mapi
                 }
         }
 
-        /// <summary>
-        /// Shows how to read an SMT1 file.
-        /// </summary>
-        static void SMT1FileTest(string filename)
-        {
-            Console.Write("SMT File test ");
-
-            using (Context ctx = new Context(new Dictionary<string, string>() { { "MODEL", "true" } }))
-            {
-                ctx.ParseSMTLIBFile(filename);
-
-                BoolExpr a = ctx.MkAnd(ctx.SMTLIBFormulas);
-                Console.WriteLine("read formula: " + a);
-            }
-        }
 
         /// <summary>
         /// Shows how to read an SMT2 file.
@@ -1399,11 +1383,10 @@ namespace test_mapi
         {
             Console.WriteLine("ParserExample1");
 
-            ctx.ParseSMTLIBString("(benchmark tst :extrafuns ((x Int) (y Int)) :formula (> x y) :formula (> x 0))");
-            foreach (BoolExpr f in ctx.SMTLIBFormulas)
-                Console.WriteLine("formula {0}", f);
+            var fml = ctx.ParseSMTLIB2String("(declare-const x Int) (declare-const y Int) (assert (> x y)) (assert (> x 0))");
+            Console.WriteLine("formula {0}", fml);
 
-            Model m = Check(ctx, ctx.MkAnd(ctx.SMTLIBFormulas), Status.SATISFIABLE);
+            Model m = Check(ctx, fml, Status.SATISFIABLE);
         }
 
         /// <summary>
@@ -1412,15 +1395,11 @@ namespace test_mapi
         public static void ParserExample2(Context ctx)
         {
             Console.WriteLine("ParserExample2");
-
             Symbol[] declNames = { ctx.MkSymbol("a"), ctx.MkSymbol("b") };
             FuncDecl a = ctx.MkConstDecl(declNames[0], ctx.MkIntSort());
             FuncDecl b = ctx.MkConstDecl(declNames[1], ctx.MkIntSort());
             FuncDecl[] decls = new FuncDecl[] { a, b };
-
-            ctx.ParseSMTLIBString("(benchmark tst :formula (> a b))",
-                                 null, null, declNames, decls);
-            BoolExpr f = ctx.SMTLIBFormulas[0];
+            BoolExpr f = ctx.ParseSMTLIB2String("(assert (> a b))", null, null, declNames, decls);
             Console.WriteLine("formula: {0}", f);
             Check(ctx, f, Status.SATISFIABLE);
         }
@@ -1438,37 +1417,13 @@ namespace test_mapi
 
             BoolExpr ca = CommAxiom(ctx, g);
 
-            ctx.ParseSMTLIBString("(benchmark tst :formula (forall (x Int) (y Int) (implies (= x y) (= (gg x 0) (gg 0 y)))))",
+            BoolExpr thm = ctx.ParseSMTLIB2String("(assert (forall ((x Int) (y Int)) (=> (= x y) (= (gg x 0) (gg 0 y)))))",
              null, null,
              new Symbol[] { ctx.MkSymbol("gg") },
              new FuncDecl[] { g });
 
-            BoolExpr thm = ctx.SMTLIBFormulas[0];
             Console.WriteLine("formula: {0}", thm);
             Prove(ctx, thm, false, ca);
-        }
-
-        /// <summary>
-        /// Display the declarations, assumptions and formulas in a SMT-LIB string.
-        /// </summary>
-        public static void ParserExample4(Context ctx)
-        {
-            Console.WriteLine("ParserExample4");
-
-            ctx.ParseSMTLIBString
-            ("(benchmark tst :extrafuns ((x Int) (y Int)) :assumption (= x 20) :formula (> x y) :formula (> x 0))");
-            foreach (var decl in ctx.SMTLIBDecls)
-            {
-                Console.WriteLine("Declaration: {0}", decl);
-            }
-            foreach (var f in ctx.SMTLIBAssumptions)
-            {
-                Console.WriteLine("Assumption: {0}", f);
-            }
-            foreach (var f in ctx.SMTLIBFormulas)
-            {
-                Console.WriteLine("Formula: {0}", f);
-            }
         }
 
         /// <summary>
@@ -1481,9 +1436,9 @@ namespace test_mapi
 
             try
             {
-                ctx.ParseSMTLIBString(
+                ctx.ParseSMTLIB2String(
                     /* the following string has a parsing error: missing parenthesis */
-                         "(benchmark tst :extrafuns ((x Int (y Int)) :formula (> x y) :formula (> x 0))");
+                         "(declare-const x Int (declare-const y Int)) (assert (> x y))");
             }
             catch (Z3Exception e)
             {
@@ -2213,7 +2168,6 @@ namespace test_mapi
                     BitvectorExample2(ctx);
                     ParserExample1(ctx);
                     ParserExample2(ctx);
-                    ParserExample4(ctx);
                     ParserExample5(ctx);
                     ITEExample(ctx);
                     EvalExample1(ctx);

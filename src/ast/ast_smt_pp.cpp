@@ -340,8 +340,7 @@ class smt_printer {
     }
 
 
-    void pp_arg(expr *arg, app *parent)
-    {
+    void pp_arg(expr *arg, app *parent) {
         pp_marked_expr(arg);
     }
 
@@ -417,7 +416,7 @@ class smt_printer {
         else if (m_simplify_implies && m_manager.is_implies(decl) && m_manager.is_implies(n->get_arg(1))) {
             expr *curr = n;
             expr *arg;
-            m_out << "(implies (and";
+            m_out << "(=> (and";
             while (m_manager.is_implies(curr)) {
                 arg = to_app(curr)->get_arg(0);
 
@@ -476,9 +475,8 @@ class smt_printer {
         }
     }
 
-    void print_no_lets(expr *e)
-    {
-        smt_printer p(m_out, m_manager, m_qlists, m_renaming, m_logic, true, m_simplify_implies, true, m_indent, m_num_var_names, m_var_names);
+    void print_no_lets(expr *e) {
+        smt_printer p(m_out, m_manager, m_qlists, m_renaming, m_logic, true, m_simplify_implies, m_indent, m_num_var_names, m_var_names);
         p(e);
     }
 
@@ -511,7 +509,7 @@ class smt_printer {
             m_out << "(! ";
         }
         {
-            smt_printer p(m_out, m_manager, m_qlists, m_renaming, m_logic, false, true, m_simplify_implies, m_indent, m_num_var_names, m_var_names);
+            smt_printer p(m_out, m_manager, m_qlists, m_renaming, m_logic, false, m_simplify_implies, m_indent, m_num_var_names, m_var_names);
             p(q->get_expr());
         }
 
@@ -704,7 +702,7 @@ class smt_printer {
 
 public:
     smt_printer(std::ostream& out, ast_manager& m, ptr_vector<quantifier>& ql, smt_renaming& rn,
-                symbol logic, bool no_lets, bool is_smt2, bool simplify_implies, unsigned indent, unsigned num_var_names = 0, char const* const* var_names = 0) :
+                symbol logic, bool no_lets, bool simplify_implies, unsigned indent, unsigned num_var_names = 0, char const* const* var_names = 0) :
         m_out(out),
         m_manager(m),
         m_qlists(ql),
@@ -894,25 +892,17 @@ ast_smt_pp::ast_smt_pp(ast_manager& m):
     m_simplify_implies(true)
 {}
 
-
-void ast_smt_pp::display_expr(std::ostream& strm, expr* n) {
-    ptr_vector<quantifier> ql;
-    smt_renaming rn;
-    smt_printer p(strm, m_manager, ql, rn, m_logic, false, false, m_simplify_implies, 0);
-    p(n);
-}
-
 void ast_smt_pp::display_expr_smt2(std::ostream& strm, expr* n, unsigned indent, unsigned num_var_names, char const* const* var_names) {
     ptr_vector<quantifier> ql;
     smt_renaming rn;
-    smt_printer p(strm, m_manager, ql, rn, m_logic, false, true, m_simplify_implies, indent, num_var_names, var_names);
+    smt_printer p(strm, m_manager, ql, rn, m_logic, false, m_simplify_implies, indent, num_var_names, var_names);
     p(n);
 }
 
 void ast_smt_pp::display_ast_smt2(std::ostream& strm, ast* a, unsigned indent, unsigned num_var_names, char const* const* var_names) {
     ptr_vector<quantifier> ql;
     smt_renaming rn;
-    smt_printer p(strm, m_manager, ql, rn, m_logic, false, true, m_simplify_implies, indent, num_var_names, var_names);
+    smt_printer p(strm, m_manager, ql, rn, m_logic, false, m_simplify_implies, indent, num_var_names, var_names);
     if (is_expr(a)) {
         p(to_expr(a));
     }
@@ -1020,93 +1010,4 @@ void ast_smt_pp::display_smt2(std::ostream& strm, expr* n) {
     else {
         p(n);
     }
-}
-
-void ast_smt_pp::display(std::ostream& strm, expr* n) {
-    ptr_vector<quantifier> ql;
-    decl_collector decls(m_manager);
-    smt_renaming rn;
-
-    for (unsigned i = 0; i < m_assumptions.size(); ++i) {
-        decls.visit(m_assumptions[i].get());
-    }
-    for (unsigned i = 0; i < m_assumptions_star.size(); ++i) {
-        decls.visit(m_assumptions_star[i].get());
-    }
-    decls.visit(n);
-
-    strm << "(benchmark ";
-
-    if (m_benchmark_name != symbol::null) {
-        strm << m_benchmark_name << "\n";
-    }
-    else {
-        strm << "unnamed\n";
-    }
-    if (m_source_info != symbol::null && m_source_info != symbol("")) {
-        strm << ":source { " << m_source_info << " }\n";
-    }
-    strm << ":status " << m_status << "\n";
-    if (m_category != symbol::null && m_category != symbol("")) {
-        strm << ":category { " << m_category << " }\n";
-    }
-    if (m_logic != symbol::null && m_logic != symbol("")) {
-        strm << ":logic " << m_logic << "\n";
-    }
-
-    if (m_attributes.size() > 0) {
-        strm << m_attributes.c_str();
-    }
-
-    ast_mark sort_mark;
-    for (unsigned i = 0; i < decls.get_num_sorts(); ++i) {
-        sort* s = decls.get_sorts()[i];
-        if (!(*m_is_declared)(s)) {
-            smt_printer p(strm, m_manager, ql, rn, m_logic, true, false, m_simplify_implies, 0);
-            p.pp_sort_decl(sort_mark, s);
-        }
-    }
-
-    for (unsigned i = 0; i < decls.get_num_decls(); ++i) {
-        func_decl* d = decls.get_func_decls()[i];
-        if (!(*m_is_declared)(d)) {
-            strm << ":extrafuns (";
-            smt_printer p(strm, m_manager, ql, rn, m_logic, true, false, m_simplify_implies, 0);
-            p(d);
-            strm << ")\n";
-        }
-    }
-
-    for (unsigned i = 0; i < decls.get_num_preds(); ++i) {
-        func_decl* d = decls.get_pred_decls()[i];
-        if (!(*m_is_declared)(d)) {
-            strm << ":extrapreds (";
-            smt_printer p(strm, m_manager, ql, rn, m_logic, true, false, m_simplify_implies, 0);
-            p.visit_pred(d);
-            strm << ")\n";
-        }
-    }
-
-    for (unsigned i = 0; i < m_assumptions.size(); ++i) {
-        expr *    e = m_assumptions[i].get();
-        strm << ":assumption\n";
-        smt_printer p(strm, m_manager, ql, rn, m_logic, false, false, m_simplify_implies, 0);
-        p(e);
-        strm << "\n";
-    }
-
-    for (unsigned i = 0; i < m_assumptions_star.size(); ++i) {
-        strm << ":assumption-core\n";
-        smt_printer p(strm, m_manager, ql, rn, m_logic, false, false, m_simplify_implies, 0);
-        p(m_assumptions_star[i].get());
-        strm << "\n";
-    }
-
-    {
-        strm << ":formula\n";
-        smt_printer p(strm, m_manager, ql, rn, m_logic, false, false, m_simplify_implies, 0);
-        p(n);
-        strm << "\n";
-    }
-    strm << ")\n";
 }

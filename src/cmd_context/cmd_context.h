@@ -128,6 +128,7 @@ public:
     stream_ref(std::string n, std::ostream & d):m_default_name(n), m_default(d), m_name(n), m_stream(&d), m_owner(false) {}
     ~stream_ref() { reset(); }
     void set(char const * name);
+    void set(std::ostream& strm);
     void reset();
     std::ostream & operator*() { return *m_stream; }
     char const * name() const { return m_name.c_str(); }
@@ -404,6 +405,7 @@ public:
     void reset_object_refs();
     void reset_user_tactics();
     void set_regular_stream(char const * name) { m_regular.set(name); }
+    void set_regular_stream(std::ostream& out) { m_regular.set(out); }
     void set_diagnostic_stream(char const * name);
     virtual std::ostream & regular_stream() { return *m_regular; }
     virtual std::ostream & diagnostic_stream() { return *m_diagnostic; }

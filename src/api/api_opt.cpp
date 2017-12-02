@@ -286,11 +286,23 @@ extern "C" {
         scoped_ptr<cmd_context> ctx = alloc(cmd_context, false, &m);
         install_opt_cmds(*ctx.get(), to_optimize_ptr(opt));
         ctx->set_ignore_check(true);
-        if (!parse_smt2_commands(*ctx.get(), s)) {
+        std::stringstream errstrm;
+        ctx->set_regular_stream(errstrm);
+        try {
+            if (!parse_smt2_commands(*ctx.get(), s)) {
+                mk_c(c)->m_parser_error_buffer = errstrm.str();
+                ctx = nullptr;
+                SET_ERROR_CODE(Z3_PARSER_ERROR);
+                return;
+            }        
+        }
+        catch (z3_exception& e) {
+            errstrm << e.msg();
+            mk_c(c)->m_parser_error_buffer = errstrm.str();            
             ctx = nullptr;
             SET_ERROR_CODE(Z3_PARSER_ERROR);
             return;
-        }        
+        }
         ptr_vector<expr>::const_iterator it  = ctx->begin_assertions();
         ptr_vector<expr>::const_iterator end = ctx->end_assertions();
         for (; it != end; ++it) {

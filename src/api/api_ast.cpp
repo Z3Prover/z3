@@ -832,30 +832,9 @@ extern "C" {
         case Z3_PRINT_LOW_LEVEL:
             buffer << mk_ll_pp(to_ast(a), mk_c(c)->m());
             break;
-        case Z3_PRINT_SMTLIB_COMPLIANT: {
-            ast_smt_pp pp(mk_c(c)->m());
-            pp_params params;
-            pp.set_simplify_implies(params.simplify_implies());
-            ast* a1 = to_ast(a);
-            pp.set_logic(mk_c(c)->fparams().m_logic);
-            if (!is_expr(a1)) {
-                buffer << mk_pp(a1, mk_c(c)->m());
-                break;
-            }
-            if (mk_c(c)->get_print_mode() == Z3_PRINT_SMTLIB_COMPLIANT) {
-                pp.display_expr(buffer, to_expr(a1));
-                break;
-            }
-            if (mk_c(c)->get_print_mode() == Z3_PRINT_SMTLIB2_COMPLIANT) {
-                pp.display_expr_smt2(buffer, to_expr(a1));
-                break;
-            }
-            break;
-        }
-        case Z3_PRINT_SMTLIB2_COMPLIANT: {
+        case Z3_PRINT_SMTLIB2_COMPLIANT: 
             buffer << mk_ismt2_pp(to_ast(a), mk_c(c)->m());
             break;
-        }
         default:
             UNREACHABLE();
         }
@@ -893,12 +872,7 @@ extern "C" {
         for (unsigned i = 0; i < num_assumptions; ++i) {
             pp.add_assumption(to_expr(assumptions[i]));
         }
-        if (mk_c(c)->get_print_mode() == Z3_PRINT_SMTLIB2_COMPLIANT) {
-            pp.display_smt2(buffer, to_expr(formula));
-        }
-        else {
-            pp.display(buffer, to_expr(formula));
-        }
+        pp.display_smt2(buffer, to_expr(formula));
         return mk_c(c)->mk_external_string(buffer.str());
         Z3_CATCH_RETURN("");
     }
