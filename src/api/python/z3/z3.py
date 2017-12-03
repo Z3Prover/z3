@@ -6324,6 +6324,20 @@ class Solver(Z3PPObject):
         sz = len(consequences)
         consequences = [ consequences[i] for i in range(sz) ]
         return CheckSatResult(r), consequences
+
+    def from_file(self, filename):
+        """Parse assertions from a file"""
+        try:
+            Z3_solver_from_file(self.ctx.ref(), self.solver, filename)
+        except Z3Exception as e:
+            _handle_parse_error(e, self.ctx)
+
+    def from_string(self, s):
+        """Parse assertions from a string"""
+        try:
+           Z3_solver_from_string(self.ctx.ref(), self.solver, s)
+        except Z3Exception as e:
+            _handle_parse_error(e, self.ctx)        
     
     def proof(self):
         """Return a proof for the last `check()`. Proof construction must be enabled."""

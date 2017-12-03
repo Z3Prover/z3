@@ -35,6 +35,7 @@ Revision History:
 #include "util/error_codes.h"
 #include "util/gparams.h"
 #include "util/env_params.h"
+#include "util/file_path.h"
 #include "shell/lp_frontend.h"
 
 typedef enum { IN_UNSPECIFIED, IN_SMTLIB_2, IN_DATALOG, IN_DIMACS, IN_WCNF, IN_OPB, IN_Z3_LOG, IN_MPS } input_kind;
@@ -286,19 +287,6 @@ void parse_cmd_line_args(int argc, char ** argv) {
     }
 }
 
-char const * get_extension(char const * file_name) {
-    if (file_name == 0)
-        return 0;
-    char const * last_dot = 0;
-    for (;;) {
-        char const * tmp = strchr(file_name, '.');
-        if (tmp == 0) {
-            return last_dot;
-        }
-        last_dot  = tmp + 1;
-        file_name = last_dot;
-    }
-}
 
 int STD_CALL main(int argc, char ** argv) {
     try{

@@ -6039,6 +6039,20 @@ extern "C" {
     Z3_ast_vector Z3_API Z3_solver_get_assertions(Z3_context c, Z3_solver s);
 
     /**
+       \brief load solver assertions from a file.
+
+       def_API('Z3_solver_from_file', VOID, (_in(CONTEXT), _in(SOLVER), _in(STRING)))
+    */
+    void Z3_API Z3_solver_from_file(Z3_context c, Z3_solver s, Z3_string file_name);
+
+    /**
+       \brief load solver assertions from a string.
+
+       def_API('Z3_solver_from_string', VOID, (_in(CONTEXT), _in(SOLVER), _in(STRING)))
+    */
+    void Z3_API Z3_solver_from_string(Z3_context c, Z3_solver s, Z3_string file_name);
+
+    /**
        \brief Check whether the assertions in a given solver are consistent or not.
 
        The function #Z3_solver_get_model retrieves a model if the
