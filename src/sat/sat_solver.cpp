@@ -159,17 +159,20 @@ namespace sat {
                 }
             }
             // copy high quality lemmas
+            unsigned num_learned = 0;
             for (clause* c : src.m_learned) {
                 if (c->glue() <= 2 || (c->size() <= 40 && c->glue() <= 8)) {
                     buffer.reset();
                     for (literal l : *c) buffer.push_back(l);
                     clause* c1 = mk_clause_core(buffer.size(), buffer.c_ptr(), true);
                     if (c1) {
+                        ++num_learned;
                         c1->set_glue(c->glue());
                         c1->set_psm(c->psm());
                     }
                 }
             }
+            IF_VERBOSE(1, verbose_stream() << "(sat.copy :learned " << num_learned << ")\n";);
         }
 
         m_user_scope_literals.reset();
@@ -879,9 +882,6 @@ namespace sat {
         m_stats.m_units = init_trail_size();
         IF_VERBOSE(2, verbose_stream() << "(sat.sat-solver)\n";);
         SASSERT(at_base_lvl());
-        if (m_config.m_lookahead_search && num_lits == 0) {
-            return lookahead_search();
-        }
 
         if (m_config.m_local_search) {
             return do_local_search(num_lits, lits);
@@ -950,12 +950,6 @@ namespace sat {
                 if (m_config.m_inprocess_max <= m_simplifications) {
                     m_reason_unknown = "sat.max.inprocess";
                     IF_VERBOSE(SAT_VB_LVL, verbose_stream() << "(sat \"abort: max-inprocess\")\n";);
-                    if (m_config.m_dimacs_inprocess_display) {
-                        display_dimacs(std::cout);
-                        for (unsigned i = 0; i < num_lits; ++lits) {
-                            std::cout << dimacs_lit(lits[i]) << " 0\n";
-                        }
-                    }
                     return l_undef;
                 }
 
@@ -981,21 +975,6 @@ namespace sat {
         lbool r = srch.check(num_lits, lits, 0);
         m_model = srch.get_model();
         // srch.collect_statistics(m_aux_stats);
-        return r;
-    }
-
-    lbool solver::lookahead_search() {
-        lookahead lh(*this);
-        lbool r = l_undef;
-        try {
-            r = lh.check();
-            m_model = lh.get_model();
-        }
-        catch (z3_exception&) {
-            lh.collect_statistics(m_aux_stats);
-            throw;
-        }
-        lh.collect_statistics(m_aux_stats);
         return r;
     }
 

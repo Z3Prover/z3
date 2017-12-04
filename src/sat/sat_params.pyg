@@ -35,8 +35,8 @@ def_module_params('sat',
                           ('pb.solver', SYMBOL, 'circuit', 'method for handling Pseudo-Boolean constraints: circuit (arithmetical circuit), sorting (sorting circuit), totalizer (use totalizer encoding), solver (use SMT solver)'),
                           ('xor.solver', BOOL, False, 'use xor solver'),
                           ('atmost1_encoding', SYMBOL, 'grouped', 'encoding used for at-most-1 constraints grouped, bimander, ordered'),
-                          ('local_search_threads', UINT, 0, 'number of local search threads to find satisfiable solution'),
                           ('local_search', BOOL, False, 'use local search instead of CDCL'),
+                          ('local_search_threads', UINT, 0, 'number of local search threads to find satisfiable solution'),
                           ('lookahead.cube.cutoff', SYMBOL, 'adaptive', 'cutoff type used to create lookahead cubes: adaptive, fixed_depth, fixed_freevars, psat'),
                           ('lookahead.cube.fraction', DOUBLE, 0.4, 'adaptive fraction to create lookahead cubes. Used when lookahead.cube.cutoff is adaptive'),
                           ('lookahead.cube.depth', UINT, 10, 'cut-off depth to create cubes. Used when lookahead.cube.cutoff is fixed_depth.'),
@@ -49,6 +49,5 @@ def_module_params('sat',
                           ('lookahead_simplify', BOOL, False, 'use lookahead solver during simplification'),
                           ('lookahead_simplify.bca', BOOL, False, 'add learned binary clauses as part of lookahead simplification'),
                           ('lookahead.global_autarky', BOOL, False, 'prefer to branch on variables that occur in clauses that are reduced'),
-                          ('lookahead.reward', SYMBOL, 'march_cu', 'select lookahead heuristic: ternary, heule_schur (Heule Schur), heuleu (Heule Unit), unit, or march_cu'),
-                          ('dimacs.inprocess.display', BOOL, False, 'display SAT instance in DIMACS format if unsolved after inprocess.max inprocessing passes')))
+                          ('lookahead.reward', SYMBOL, 'march_cu', 'select lookahead heuristic: ternary, heule_schur (Heule Schur), heuleu (Heule Unit), unit, or march_cu')))
 

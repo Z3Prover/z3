@@ -2408,6 +2408,8 @@ namespace sat {
                         ++disconnected1;
                         uf.merge(u.index(), v.index());
                         uf.merge((~u).index(), (~v).index());
+                        VERIFY(!m_s.was_eliminated(u.var()));
+                        VERIFY(!m_s.was_eliminated(v.var()));
                         m_s.mk_clause(~u, v, true);
                     }
                     else {

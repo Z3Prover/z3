@@ -303,15 +303,15 @@ namespace sat {
             else {
                 SASSERT(m_left[u.index()] == 0);
                 m_left[u.index()] = ++dfs_num;
-                for (literal v : m_dag[u.index()]) {
-                    if (m_left[v.index()] == 0) {
-                        todo.push_back(pframe(u, v));
-                    }
-                }
                 literal p = todo.back().parent();
                 if (p != null_literal) {
                     m_root[u.index()] = m_root[p.index()];
                     m_parent[u.index()] = p;
+                }
+                for (literal v : m_dag[u.index()]) {
+                    if (m_left[v.index()] == 0) {
+                        todo.push_back(pframe(u, v));
+                    }
                 }
             }
         }
@@ -339,7 +339,7 @@ namespace sat {
             watch_list::iterator end    = wlist.end();
             for (; it != end; ++it) {
                 watched& w = *it;
-                if (learned ? w.is_binary_learned_clause() : w.is_binary_unblocked_clause()) {
+                if (learned ? w.is_binary_learned_clause() : w.is_binary_clause()) {
                     literal v = w.get_literal();
                     if (reaches(u, v) && u != get_parent(v)) {
                         ++m_num_elim_bin;

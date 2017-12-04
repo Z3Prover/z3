@@ -59,7 +59,7 @@ namespace sat {
         }
     };
 
-    void asymm_branch::process(scc& scc, clause_vector& clauses) {
+    void asymm_branch::process(scc* scc, clause_vector& clauses) {
         int64 limit = -m_asymm_branch_limit;
         std::stable_sort(clauses.begin(), clauses.end(), clause_size_lt());
         m_counter -= clauses.size();
@@ -83,7 +83,7 @@ namespace sat {
                 }
                 s.checkpoint();
                 clause & c = *(*it);
-                if (m_asymm_branch_sampled ? !process_sampled(scc, c) : !process(c)) {
+                if (scc ? !process_sampled(*scc, c) : !process(c)) {
                     continue; // clause was removed
                 }
                 *it2 = *it;
@@ -106,7 +106,7 @@ namespace sat {
         ++m_calls;
         if (m_calls <= m_asymm_branch_delay)
             return;
-        if (!m_asymm_branch && !m_asymm_branch_all)
+        if (!m_asymm_branch && !m_asymm_branch_all && !m_asymm_branch_sampled)
             return;
         s.propagate(false); // must propagate, since it uses s.push()
         if (s.m_inconsistent)
@@ -119,13 +119,18 @@ namespace sat {
         TRACE("asymm_branch_detail", s.display(tout););
         report rpt(*this);
         svector<char> saved_phase(s.m_phase);
+        if (m_asymm_branch) {
+            m_counter  = 0; 
+            process(nullptr, s.m_clauses);
+            m_counter = -m_counter;
+        }
         if (m_asymm_branch_sampled) {
             scc scc(s, m_params);
             while (true) {
                 unsigned elim = m_elim_literals;
                 scc.init_big(true);
-                process(scc, s.m_clauses);
-                process(scc, s.m_learned);
+                process(&scc, s.m_clauses);
+                process(&scc, s.m_learned);
                 s.propagate(false); 
                 if (s.m_inconsistent)
                     break;
@@ -133,12 +138,6 @@ namespace sat {
                 if (m_elim_literals == elim)
                     break;
             }
-        }
-        else {
-            scc scc(s, m_params);
-            m_counter  = 0; 
-            process(scc, s.m_clauses);
-            m_counter = -m_counter;
         }
         s.m_phase = saved_phase;
         m_asymm_branch_limit *= 2;
