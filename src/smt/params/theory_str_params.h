@@ -80,6 +80,13 @@ struct theory_str_params {
 
     double m_OverlapTheoryAwarePriority;
 
+    /*
+     * If RegexAutomata is set to true,
+     * Z3str3 will use automata-based methods to reason about
+     * regular expression constraints.
+     */
+    bool m_RegexAutomata;
+
     theory_str_params(params_ref const & p = params_ref()):
         m_StrongArrangements(true),
         m_AggressiveLengthTesting(false),
@@ -91,7 +98,8 @@ struct theory_str_params {
         m_FiniteOverlapModels(false),
         m_UseBinarySearch(false),
         m_BinarySearchInitialUpperBound(64),
-        m_OverlapTheoryAwarePriority(-0.1)
+        m_OverlapTheoryAwarePriority(-0.1),
+        m_RegexAutomata(true)
     {
         updt_params(p);
     }

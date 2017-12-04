@@ -6446,6 +6446,111 @@ namespace smt {
         }
     }
 
+    // saturating unsigned addition
+    unsigned inline _qadd(unsigned a, unsigned b) {
+        if (a == UINT_MAX || b == UINT_MAX) {
+            return UINT_MAX;
+        }
+        unsigned result = a + b;
+        if (result < a || result < b) {
+            return UINT_MAX;
+        }
+        return result;
+    }
+
+    // saturating unsigned multiply
+    unsigned inline _qmul(unsigned a, unsigned b) {
+        if (a == UINT_MAX || b == UINT_MAX) {
+            return UINT_MAX;
+        }
+        unsigned result = a * b;
+        if (result < a || result < b) {
+            return UINT_MAX;
+        }
+        return result;
+    }
+
+    unsigned theory_str::estimate_regex_complexity(expr * re) {
+        ENSURE(u.is_re(re));
+        expr * sub1;
+        expr * sub2;
+        if (u.re.is_to_re(re, sub1)) {
+            SASSERT(u.str.is_string(sub1));
+            zstring str;
+            u.str.is_string(sub1, str);
+            return str.length();
+        } else if (u.re.is_complement(re, sub1)) {
+            return estimate_regex_complexity_under_complement(sub1);
+        } else if (u.re.is_concat(re, sub1, sub2)) {
+            unsigned cx1 = estimate_regex_complexity(sub1);
+            unsigned cx2 = estimate_regex_complexity(sub2);
+            return _qadd(cx1, cx2);
+        } else if (u.re.is_union(re, sub1, sub2)) {
+            unsigned cx1 = estimate_regex_complexity(sub1);
+            unsigned cx2 = estimate_regex_complexity(sub2);
+            return _qadd(cx1, cx2);
+        } else if (u.re.is_star(re, sub1) || u.re.is_plus(re, sub1)) {
+            unsigned cx = estimate_regex_complexity(sub1);
+            return _qmul(2, cx);
+        } else if (u.re.is_range(re, sub1, sub2)) {
+            SASSERT(u.str.is_string(sub1));
+            SASSERT(u.str.is_string(sub2));
+            zstring str1, str2;
+            u.str.is_string(sub1, str1);
+            u.str.is_string(sub2, str2);
+            SASSERT(str1.length() == 1);
+            SASSERT(str2.length() == 1);
+            return 1 + str2[0] - str1[0];
+        } else if (u.re.is_full(re)) {
+            return 1;
+        } else {
+            TRACE("str", tout << "WARNING: unknown regex term " << mk_pp(re, get_manager()) << std::endl;);
+            return 1;
+        }
+    }
+
+    unsigned theory_str::estimate_regex_complexity_under_complement(expr * re) {
+        ENSURE(u.is_re(re));
+        expr * sub1;
+        expr * sub2;
+        if (u.re.is_to_re(re, sub1)) {
+            SASSERT(u.str.is_string(sub1));
+            zstring str;
+            u.str.is_string(sub1, str);
+            return str.length();
+        } else if (u.re.is_complement(re, sub1)) {
+            // Why don't we return the regular complexity here?
+            // We could, but this might be called from under another complemented subexpression.
+            // It's better to give a worst-case complexity.
+            return estimate_regex_complexity_under_complement(sub1);
+        } else if (u.re.is_concat(re, sub1, sub2)) {
+            unsigned cx1 = estimate_regex_complexity_under_complement(sub1);
+            unsigned cx2 = estimate_regex_complexity_under_complement(sub2);
+            return _qadd(_qmul(2, cx1), cx2);
+        } else if (u.re.is_union(re, sub1, sub2)) {
+            unsigned cx1 = estimate_regex_complexity_under_complement(sub1);
+            unsigned cx2 = estimate_regex_complexity_under_complement(sub2);
+            return _qmul(cx1, cx2);
+        } else if (u.re.is_star(re, sub1) || u.re.is_plus(re, sub1)) {
+            unsigned cx = estimate_regex_complexity_under_complement(sub1);
+            return _qmul(2, cx);
+        } else if (u.re.is_range(re, sub1, sub2)) {
+            SASSERT(u.str.is_string(sub1));
+            SASSERT(u.str.is_string(sub2));
+            zstring str1, str2;
+            u.str.is_string(sub1, str1);
+            u.str.is_string(sub2, str2);
+            SASSERT(str1.length() == 1);
+            SASSERT(str2.length() == 1);
+            return 1 + str2[0] - str1[0];
+        } else if (u.re.is_full(re)) {
+            return 1;
+        } else {
+            TRACE("str", tout << "WARNING: unknown regex term " << mk_pp(re, get_manager()) << std::endl;);
+            return 1;
+        }
+    }
+
     /*
      * strArgmt::solve_concat_eq_str()
      * Solve concatenations of the form:

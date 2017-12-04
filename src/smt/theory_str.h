@@ -457,10 +457,13 @@ protected:
     expr * mk_RegexIn(expr * str, expr * regexp);
     void instantiate_axiom_RegexIn(enode * e);
     app * mk_unroll(expr * n, expr * bound);
-
     void process_unroll_eq_const_str(expr * unrollFunc, expr * constStr);
     void unroll_str2reg_constStr(expr * unrollFunc, expr * eqConstStr);
     void process_concat_eq_unroll(expr * concat, expr * unroll);
+
+    // regex automata
+    unsigned estimate_regex_complexity(expr * re);
+    unsigned estimate_regex_complexity_under_complement(expr * re);
 
     void set_up_axioms(expr * ex);
     void handle_equality(expr * lhs, expr * rhs);

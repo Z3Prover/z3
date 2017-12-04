@@ -200,6 +200,9 @@ void re2automaton::set_solver(expr_solver* solver) {
     m_sa = alloc(symbolic_automata_t, sm, *m_ba.get());
 }
 
+eautomaton* re2automaton::mk_product(eautomaton* a1, eautomaton* a2) {
+    return m_sa->mk_product(*a1, *a2);
+}
 
 eautomaton* re2automaton::operator()(expr* e) { 
     eautomaton* r = re2aut(e); 
