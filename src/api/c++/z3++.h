@@ -1537,7 +1537,7 @@ namespace z3 {
             return *this;
         }
         bool contains(T const& x) const {
-            for (auto y : *this) if (eq(x, y)) return true;
+            for (T y : *this) if (eq(x, y)) return true;
             return false;
         }
 
@@ -1957,7 +1957,8 @@ namespace z3 {
         void add(expr const & e, char const * p) {
             add(e, ctx().bool_const(p));
         }
-        void add(expr_vector const& v) { check_context(*this, v); for (expr e : v) add(e); }
+        // fails for some compilers: 
+        // void add(expr_vector const& v) { check_context(*this, v); for (expr e : v) add(e); }
         void from_file(char const* file) { Z3_solver_from_file(ctx(), m_solver, file); ctx().check_parser_error(); }
         void from_string(char const* s) { Z3_solver_from_string(ctx(), m_solver, s); ctx().check_parser_error(); }
 
@@ -2041,7 +2042,8 @@ namespace z3 {
             return *this;
         }
         void add(expr const & f) { check_context(*this, f); Z3_goal_assert(ctx(), m_goal, f); check_error(); }
-        void add(expr_vector const& v) { check_context(*this, v); for (expr e : v) add(e); }
+        // fails for some compilers: 
+        // void add(expr_vector const& v) { check_context(*this, v); for (expr e : v) add(e); }
         unsigned size() const { return Z3_goal_size(ctx(), m_goal); }
         expr operator[](int i) const { assert(0 <= i); Z3_ast r = Z3_goal_formula(ctx(), m_goal, i); check_error(); return expr(ctx(), r); }
         Z3_goal_prec precision() const { return Z3_goal_precision(ctx(), m_goal); }
