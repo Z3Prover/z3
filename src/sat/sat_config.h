@@ -68,7 +68,8 @@ namespace sat {
     enum cutoff_t {
         adaptive_cutoff,
         fixed_depth_cutoff,
-        fixed_freevars_cutoff
+        fixed_freevars_cutoff,
+        psat_cutoff
     };
 
     struct config {
@@ -95,6 +96,9 @@ namespace sat {
         double             m_lookahead_cube_fraction;
         unsigned           m_lookahead_cube_depth;
         double             m_lookahead_cube_freevars;
+        double             m_lookahead_cube_psat_var_exp;
+        double             m_lookahead_cube_psat_clause_base;
+        double             m_lookahead_cube_psat_trigger;
         reward_t           m_lookahead_reward;
         bool               m_lookahead_global_autarky;
 

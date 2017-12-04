@@ -42,8 +42,8 @@ def_module_params('sat',
                           ('lookahead.cube.depth', UINT, 10, 'cut-off depth to create cubes. Used when lookahead.cube.cutoff is fixed_depth.'),
                           ('lookahead.cube.freevars', DOUBLE, 0.8, 'cube free fariable fraction. Used when lookahead.cube.cutoff is fixed_freevars'),
                           ('lookahead.cube.psat.var_exp', DOUBLE, 1, 'free variable exponent for PSAT cutoff'),
-                          ('lookahead.cube.psat.clause_base', DOUBLE, 1, 'clause base for PSAT cutoff')
-                          ('lookahead.cube.psat.probability', DOUBLE' 0.5, 'probability to create lookahead cubes for PSAT cutoff')
+                          ('lookahead.cube.psat.clause_base', DOUBLE, 2, 'clause base for PSAT cutoff'),
+                          ('lookahead.cube.psat.trigger', DOUBLE, 5, 'trigger value to create lookahead cubes for PSAT cutoff'),
                           ('lookahead_search', BOOL, False, 'use lookahead solver'),
                           ('lookahead.preselect', BOOL, False, 'use pre-selection of subset of variables for branching'),
                           ('lookahead_simplify', BOOL, False, 'use lookahead solver during simplification'),

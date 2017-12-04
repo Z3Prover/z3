@@ -84,6 +84,9 @@ namespace sat {
             unsigned m_cube_depth;
             double   m_cube_fraction;
             double   m_cube_freevars;
+            double   m_cube_psat_var_exp;
+            double   m_cube_psat_clause_base;
+            double   m_cube_psat_trigger;
 
             config() {
                 memset(this, sizeof(*this), 0);
@@ -102,6 +105,9 @@ namespace sat {
                 m_cube_depth = 10;
                 m_cube_fraction = 0.4;
                 m_cube_freevars = 0.8;
+                m_cube_psat_var_exp = 1.0;
+                m_cube_psat_clause_base = 2.0;
+                m_cube_psat_trigger = 5.0;
             }
         };
 
@@ -546,6 +552,8 @@ namespace sat {
         void normalize_parents();
 
         void add_hyper_binary();
+
+        double psat_heur();
 
     public:
         lookahead(solver& s) : 

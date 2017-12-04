@@ -2019,6 +2019,35 @@ namespace sat {
         st.update("lh cube conflicts", m_cube_state.m_conflicts);        
     }
 
+    double lookahead::psat_heur() {
+        double h = 0.0;
+        for (bool_var x : m_freevars) {
+            literal l(x, false);
+            for (literal lit : m_binary[l.index()]) {
+                h += l.index() > lit.index() ? 1.0 / m_config.m_cube_psat_clause_base : 0.0;
+            }
+            for (literal lit : m_binary[(~l).index()]) {
+                h += l.index() > lit.index() ? 1.0 / m_config.m_cube_psat_clause_base : 0.0;
+            }
+            for (binary b : m_ternary[l.index()]) {
+                h += l.index() > b.m_u.index() && l.index() > b.m_v.index() ?
+                     1.0 / pow(m_config.m_cube_psat_clause_base, 2) :
+                     0.0;
+            }
+            for (binary b : m_ternary[(~l).index()]) {
+                h += l.index() > b.m_u.index() && l.index() > b.m_v.index() ?
+                     1.0 / pow(m_config.m_cube_psat_clause_base, 2) :
+                     0.0;
+            }
+        }
+        for (nary * n : m_nary_clauses) {
+            h += 1.0 / pow(m_config.m_cube_psat_clause_base, n->size() - 1);
+        }
+        h /= pow(m_freevars.size(), m_config.m_cube_psat_var_exp);
+        IF_VERBOSE(10, verbose_stream() << "(sat-cube-psat :val " << h << ")\n";);
+        return h;
+    }
+
     lbool lookahead::cube(bool_var_vector const& vars, literal_vector& lits, unsigned backtrack_level) {
         scoped_ext _scoped_ext(*this);
         lits.reset();
@@ -2065,9 +2094,8 @@ namespace sat {
             depth = m_cube_state.m_cube.size();
             if ((m_config.m_cube_cutoff == fixed_depth_cutoff && depth == m_config.m_cube_depth) ||
                 (m_config.m_cube_cutoff == adaptive_cutoff && m_freevars.size() < m_cube_state.m_freevars_threshold) ||
-                /* m_cube_cutoff is fixed_freevars */ m_freevars.size() <= m_init_freevars * m_config.m_cube_freevars) {
-            /*if ((m_config.m_cube_cutoff != 0 && depth == m_config.m_cube_cutoff) ||
-                (m_config.m_cube_cutoff == 0 && m_freevars.size() < m_cube_state.m_freevars_threshold)) {*/
+                (m_config.m_cube_cutoff == fixed_freevars_cutoff && m_freevars.size() <= m_init_freevars * m_config.m_cube_freevars) ||
+                (m_config.m_cube_cutoff == psat_cutoff && psat_heur() >= m_config.m_cube_psat_trigger)) {
                 m_cube_state.m_freevars_threshold *= (1.0 - pow(m_config.m_cube_fraction, depth));
                 set_conflict();
                 m_cube_state.inc_cutoff();
@@ -2085,6 +2113,7 @@ namespace sat {
             if (inconsistent()) {
                 TRACE("sat", tout << "inconsistent: " << m_cube_state.m_cube << "\n";);
                 m_cube_state.m_freevars_threshold = prev_nfreevars;
+                m_cube_state.inc_conflict();
                 if (!backtrack(m_cube_state.m_cube, m_cube_state.m_is_decision)) return l_false;
                 continue;
             }
@@ -2503,6 +2532,9 @@ namespace sat {
         m_config.m_cube_fraction = m_s.m_config.m_lookahead_cube_fraction;
         m_config.m_cube_depth = m_s.m_config.m_lookahead_cube_depth;
         m_config.m_cube_freevars = m_s.m_config.m_lookahead_cube_freevars;
+        m_config.m_cube_psat_var_exp = m_s.m_config.m_lookahead_cube_psat_var_exp;
+        m_config.m_cube_psat_clause_base = m_s.m_config.m_lookahead_cube_psat_clause_base;
+        m_config.m_cube_psat_trigger = m_s.m_config.m_lookahead_cube_psat_trigger;
     }
 
     void lookahead::collect_statistics(statistics& st) const {
