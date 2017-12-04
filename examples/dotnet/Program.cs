@@ -1945,7 +1945,7 @@ namespace test_mapi
             BoolExpr p2 = ctx.MkBoolConst("P2");
             BoolExpr p3 = ctx.MkBoolConst("P3");
             BoolExpr p4 = ctx.MkBoolConst("P4");
-            BoolExpr[] assumptions = new BoolExpr[] { ctx.MkNot(p1), ctx.MkNot(p2), ctx.MkNot(p3), ctx.MkNot(p4) };
+            Expr[] assumptions = new Expr[] { ctx.MkNot(p1), ctx.MkNot(p2), ctx.MkNot(p3), ctx.MkNot(p4) };
             BoolExpr f1 = ctx.MkAnd(new BoolExpr[] { pa, pb, pc });
             BoolExpr f2 = ctx.MkAnd(new BoolExpr[] { pa, ctx.MkNot(pb), pc });
             BoolExpr f3 = ctx.MkOr(ctx.MkNot(pa), ctx.MkNot(pc));
