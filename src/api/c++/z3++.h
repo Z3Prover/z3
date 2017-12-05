@@ -1536,10 +1536,13 @@ namespace z3 {
             m_vector = s.m_vector;
             return *this;
         }
+        /*
+          Disabled pending C++98 build upgrade
         bool contains(T const& x) const {
             for (T y : *this) if (eq(x, y)) return true;
             return false;
         }
+        */
 
         class iterator {
             ast_vector_tpl const* m_vector;
