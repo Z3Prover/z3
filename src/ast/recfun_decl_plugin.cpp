@@ -342,7 +342,7 @@ namespace recfun {
      */
 
     util::util(ast_manager & m, family_id id)
-    : m_manager(m), m_family_id(id), m_th_rw(m), m_plugin(0) {
+    : m_manager(m), m_family_id(id), m_th_rw(m), m_plugin(0), m_dlimit_map() {
         m_plugin = dynamic_cast<decl::plugin*>(m.get_plugin(m_family_id));
     }
 
@@ -354,6 +354,15 @@ namespace recfun {
         d.set_definition(n_vars, vars, rhs);
     }
 
+    // get or create predicate for depth limit
+    depth_limit_pred_ref util::get_depth_limit_pred(unsigned d) {
+        depth_limit_pred * pred = nullptr;
+        if (! m_dlimit_map.find(d, pred)) {
+            pred = alloc(depth_limit_pred, m(), m_family_id, d);
+            m_dlimit_map.insert(d, pred);   
+        }
+        return depth_limit_pred_ref(pred, *this);
+    }
 
     // used to know which `app` are from this theory
     struct is_imm_pred : is_immediate_pred {
@@ -385,6 +394,17 @@ namespace recfun {
                     
         is_imm_pred is_i(*u);
         d->compute_cases(is_i, u->get_th_rewriter(), n_vars, vars, rhs);
+    }
+
+    depth_limit_pred::depth_limit_pred(ast_manager & m, family_id fid, unsigned d)
+    : m_name_buf(), m_name(""), m_depth(d), m_decl(m) {
+        // build name, then build decl
+        std::ostringstream tmpname(m_name_buf);
+        tmpname << "depth_limit_" << d;
+        m_name = symbol(m_name_buf.c_str());
+        parameter params[1] = { parameter(d) };
+        func_decl_info info(fid, OP_DEPTH_LIMIT, 1, params);
+        m_decl = m.mk_func_decl(m_name, 0, ((sort*const *)nullptr), m.mk_bool_sort(), info);
     }
 
     namespace decl {
@@ -422,6 +442,13 @@ namespace recfun {
             for (case_def & c : d.get_def()->get_cases()) {
                 m_case_defs.insert(c.get_name(), &c);
             }
+        }
+
+        app_ref plugin::mk_depth_limit_pred(unsigned d) {
+            depth_limit_pred_ref p = u().get_depth_limit_pred(d);
+            app_ref res(m());
+            m().mk_app(p->get_decl(), 0, nullptr, res);
+            return res;
         }
 
         def* plugin::mk_def(symbol const& name, unsigned n, sort ** params, sort * range,

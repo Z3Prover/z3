@@ -30,6 +30,7 @@ namespace recfun {
     enum op_kind {
         OP_FUN_DEFINED, // defined function with one or more cases, possibly recursive
         OP_FUN_CASE_PRED, // predicate guarding a given control flow path
+        OP_DEPTH_LIMIT, // predicate enforcing some depth limit
     };
 
     /*! A predicate `p(t1…tn)`, that, if true, means `f(t1…tn)` is following
@@ -145,6 +146,27 @@ namespace recfun {
         def * get_def() const { return d; }
     };
 
+    // predicate for limiting unrolling depth, to be used in assumptions and conflicts
+    class depth_limit_pred {
+        friend class util;
+        std::string     m_name_buf;
+        symbol          m_name;
+        unsigned        m_depth;
+        func_decl_ref   m_decl;
+        unsigned        m_refcount;
+
+        void inc_ref() { m_refcount ++; }
+        void dec_ref() { SASSERT(m_refcount > 0); m_refcount --; }
+    public:
+        depth_limit_pred(ast_manager & m, family_id fid, unsigned d);
+        unsigned get_depth() const { return m_depth; }
+        symbol const & get_name() const { return m_name; }
+        func_decl * get_decl() const { return m_decl.get(); }
+    };
+
+    // A reference to `depth_limit_pred`
+    typedef obj_ref<depth_limit_pred, util> depth_limit_pred_ref;
+
     namespace decl {
 
         class plugin : public decl_plugin {
@@ -186,6 +208,7 @@ namespace recfun {
             bool has_case_def(const symbol& s) const { return m_case_defs.contains(s); }
             case_def& get_case_def(symbol const& s) { SASSERT(has_case_def(s)); return *(m_case_defs[s]); }
             bool is_declared(symbol const& s) const { return m_defs.contains(s); }
+            app_ref mk_depth_limit_pred(unsigned d);
         private:
             func_decl * mk_fun_pred_decl(unsigned num_parameters, parameter const * parameters, 
                                          unsigned arity, sort * const * domain, sort * range);
@@ -198,11 +221,14 @@ namespace recfun {
     // Varus utils for recursive functions
     class util {
         friend class decl::plugin;
+
+        typedef map<int, depth_limit_pred *, int_hash, default_eq<int>> depth_limit_map;
         
         ast_manager &           m_manager;
         family_id               m_family_id;
         th_rewriter             m_th_rw;
         decl::plugin *          m_plugin;
+        depth_limit_map         m_dlimit_map;
 
         bool compute_is_immediate(expr * rhs);
         void set_definition(promise_def & d, unsigned n_vars, var * const * vars, expr * rhs);
@@ -237,10 +263,22 @@ namespace recfun {
         app* mk_case_pred(case_pred const & p, ptr_vector<expr> const & args) {
             return m().mk_app(p.get_decl(), args.size(), args.c_ptr());
         }
+
+        void inc_ref(depth_limit_pred * p) { p->inc_ref(); }
+        void dec_ref(depth_limit_pred * p) {
+            p->dec_ref();
+            if (p->m_refcount == 0) {
+                m_dlimit_map.remove(p->m_depth);
+                dealloc(p);
+            }
+        }
+
+        depth_limit_pred_ref get_depth_limit_pred(unsigned d);
     };
 }
 
 typedef recfun::def recfun_def;
 typedef recfun::case_def recfun_case_def;
+typedef recfun::depth_limit_pred recfun_depth_limit_pred;
 typedef recfun::decl::plugin recfun_decl_plugin;
 typedef recfun::util recfun_util;
