@@ -66,10 +66,11 @@ namespace sat {
     };
 
     enum cutoff_t {
-        adaptive_cutoff,
-        fixed_depth_cutoff,
-        fixed_freevars_cutoff,
-        psat_cutoff
+        depth_cutoff,
+        freevars_cutoff,
+        psat_cutoff,
+        adaptive_freevars_cutoff,
+        adaptive_psat_cutoff
     };
 
     struct config {

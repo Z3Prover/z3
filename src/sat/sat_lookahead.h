@@ -101,7 +101,7 @@ namespace sat {
                 m_dl_max_iterations = 2;
                 m_tc1_limit = 10000000;
                 m_reward_type = ternary_reward;
-                m_cube_cutoff = adaptive_cutoff;
+                m_cube_cutoff = adaptive_freevars_cutoff;
                 m_cube_depth = 10;
                 m_cube_fraction = 0.4;
                 m_cube_freevars = 0.8;
@@ -177,6 +177,7 @@ namespace sat {
             svector<bool>  m_is_decision;
             literal_vector m_cube;
             double         m_freevars_threshold;
+            double         m_psat_threshold;
             unsigned       m_conflicts;
             unsigned       m_cutoffs;
             cube_state() { reset(); }
@@ -185,6 +186,7 @@ namespace sat {
                 m_is_decision.reset(); 
                 m_cube.reset(); 
                 m_freevars_threshold = 0;
+                m_psat_threshold = DBL_MAX;
                 reset_stats();
             }
             void reset_stats() { m_conflicts = 0; m_cutoffs = 0; }

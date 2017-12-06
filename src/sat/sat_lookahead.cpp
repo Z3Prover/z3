@@ -2092,11 +2092,14 @@ namespace sat {
             }
             backtrack_level = UINT_MAX;
             depth = m_cube_state.m_cube.size();
-            if ((m_config.m_cube_cutoff == fixed_depth_cutoff && depth == m_config.m_cube_depth) ||
-                (m_config.m_cube_cutoff == adaptive_cutoff && m_freevars.size() < m_cube_state.m_freevars_threshold) ||
-                (m_config.m_cube_cutoff == fixed_freevars_cutoff && m_freevars.size() <= m_init_freevars * m_config.m_cube_freevars) ||
-                (m_config.m_cube_cutoff == psat_cutoff && psat_heur() >= m_config.m_cube_psat_trigger)) {
-                m_cube_state.m_freevars_threshold *= (1.0 - pow(m_config.m_cube_fraction, depth));
+            if ((m_config.m_cube_cutoff == depth_cutoff && depth == m_config.m_cube_depth) ||
+                (m_config.m_cube_cutoff == freevars_cutoff && m_freevars.size() <= m_init_freevars * m_config.m_cube_freevars) ||
+                (m_config.m_cube_cutoff == psat_cutoff && psat_heur() >= m_config.m_cube_psat_trigger) ||
+                (m_config.m_cube_cutoff == adaptive_freevars_cutoff && m_freevars.size() < m_cube_state.m_freevars_threshold) ||
+                (m_config.m_cube_cutoff == adaptive_psat_cutoff && psat_heur() >= m_cube_state.m_psat_threshold)) {
+                double dec = (1.0 - pow(m_config.m_cube_fraction, depth));
+                m_cube_state.m_freevars_threshold *= dec;
+                m_cube_state.m_psat_threshold *= dec;
                 set_conflict();
                 m_cube_state.inc_cutoff();
 #if 0
@@ -2109,10 +2112,12 @@ namespace sat {
                 return l_undef;
             }
             int prev_nfreevars = m_freevars.size();
+            double prev_psat = m_config.m_cube_cutoff == adaptive_psat_cutoff ? psat_heur() : DBL_MAX;  // MN. only compute PSAT if enabled
             literal lit = choose();
             if (inconsistent()) {
                 TRACE("sat", tout << "inconsistent: " << m_cube_state.m_cube << "\n";);
                 m_cube_state.m_freevars_threshold = prev_nfreevars;
+                m_cube_state.m_psat_threshold = prev_psat;
                 m_cube_state.inc_conflict();
                 if (!backtrack(m_cube_state.m_cube, m_cube_state.m_is_decision)) return l_false;
                 continue;
