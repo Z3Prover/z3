@@ -111,9 +111,10 @@ namespace api {
         m_last_obj = 0;
         u_map<api::object*>::iterator it = m_allocated_objects.begin();
         while (it != m_allocated_objects.end()) {
-            DEBUG_CODE(warning_msg("Uncollected memory: %d: %s", it->m_key, typeid(*it->m_value).name()););
+            api::object* val = it->m_value;
+            DEBUG_CODE(warning_msg("Uncollected memory: %d: %s", it->m_key, typeid(*val).name()););
             m_allocated_objects.remove(it->m_key);
-            dealloc(it->m_value);
+            dealloc(val);
             it = m_allocated_objects.begin();
         }
     }

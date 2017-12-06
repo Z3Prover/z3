@@ -865,8 +865,6 @@ psort * pdecl_manager::mk_psort_cnst(sort * s) {
     return r;
 }
 
-static unsigned r_count = 0;
-
 psort * pdecl_manager::register_psort(psort * n) {
     TRACE("register_psort", tout << "registering psort...\n"; n->display(tout); tout << "\n";);
     psort * r = m_table.insert_if_not_there(n);
