@@ -23,6 +23,7 @@
 #include "ast/ast_pp.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/rewriter/th_rewriter.h"
+#include "ast/rewriter/seq_rewriter.h"
 #include "ast/seq_decl_plugin.h"
 #include "smt/smt_theory.h"
 #include "smt/params/theory_str_params.h"
@@ -267,6 +268,8 @@ protected:
 
     str_value_factory * m_factory;
 
+    re2automaton m_mk_aut;
+
     // Unique identifier appended to unused variables to ensure that model construction
     // does not introduce equalities when they weren't enforced.
     unsigned m_unused_id;
@@ -461,9 +464,10 @@ protected:
     void unroll_str2reg_constStr(expr * unrollFunc, expr * eqConstStr);
     void process_concat_eq_unroll(expr * concat, expr * unroll);
 
-    // regex automata
+    // regex automata and length-aware regex
     unsigned estimate_regex_complexity(expr * re);
     unsigned estimate_regex_complexity_under_complement(expr * re);
+    expr_ref infer_all_regex_lengths(expr * lenVar, expr * re, expr_ref_vector & freeVariables);
 
     void set_up_axioms(expr * ex);
     void handle_equality(expr * lhs, expr * rhs);
@@ -640,6 +644,7 @@ protected:
     virtual void new_diseq_eh(theory_var, theory_var);
 
     virtual theory* mk_fresh(context*) { return alloc(theory_str, get_manager(), m_params); }
+    virtual void init(context * ctx);
     virtual void init_search_eh();
     virtual void add_theory_assumptions(expr_ref_vector & assumptions);
     virtual lbool validate_unsat_core(expr_ref_vector & unsat_core);

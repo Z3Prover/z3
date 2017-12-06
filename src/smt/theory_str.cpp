@@ -25,6 +25,8 @@
 #include "smt/theory_seq_empty.h"
 #include "smt/theory_arith.h"
 #include "ast/ast_util.h"
+#include "seq_rewriter.h"
+#include "smt_kernel.h"
 
 namespace smt {
 
@@ -48,6 +50,7 @@ namespace smt {
         finalCheckProgressIndicator(false),
         m_trail(m),
         m_factory(nullptr),
+        m_mk_aut(m),
         m_unused_id(0),
         m_delayed_axiom_setup_terms(m),
         tmpStringVarCount(0),
@@ -93,6 +96,26 @@ namespace smt {
     expr * theory_str::mk_string(const char * str) {
         symbol sym(str);
         return u.str.mk_string(sym);
+    }
+
+    class seq_expr_solver : public expr_solver {
+        kernel m_kernel;
+    public:
+        seq_expr_solver(ast_manager& m, smt_params& fp):
+            m_kernel(m, fp) {}
+        virtual lbool check_sat(expr* e) {
+            m_kernel.push();
+            m_kernel.assert_expr(e);
+            lbool r = m_kernel.check();
+            m_kernel.pop(1);
+            return r;
+        }
+    };
+
+    void theory_str::init(context * ctx) {
+        theory::init(ctx);
+        m_mk_aut.set_solver(alloc(seq_expr_solver, get_manager(),
+                                  get_context().get_fparams()));
     }
 
     void theory_str::initialize_charset() {
@@ -1718,6 +1741,11 @@ namespace smt {
             regex_in_var_reg_str_map[ex->get_arg(0)].insert(regexStr);
         }
 
+        if (m_params.m_RegexAutomata) {
+            // stop setting up axioms here, we do this differently
+            return;
+        }
+
         expr_ref str(ex->get_arg(0), m);
         app * regex = to_app(ex->get_arg(1));
 
@@ -1887,7 +1915,7 @@ namespace smt {
             check_contain_in_new_eq(lhs, rhs);
         }
 
-        if (!regex_in_bool_map.empty()) {
+        if (!regex_in_bool_map.empty() && !m_params.m_RegexAutomata) {
             TRACE("str", tout << "checking regex consistency" << std::endl;);
             check_regex_in(lhs, rhs);
         }
@@ -6548,6 +6576,92 @@ namespace smt {
         } else {
             TRACE("str", tout << "WARNING: unknown regex term " << mk_pp(re, get_manager()) << std::endl;);
             return 1;
+        }
+    }
+    /*
+     * Infer all length constraints implied by the given regular expression `re`
+     * in order to constrain `lenVar` (which must be of sort Int).
+     * This assumes that `re` appears in a positive context.
+     * Returns a Boolean formula expressing the appropriate constraints over `lenVar`.
+     * In some cases, the returned formula requires one or more free integer variables to be created.
+     * These variables are returned in the reference parameter `freeVariables`.
+     * Extra assertions should be made for these free variables constraining them to be non-negative.
+     */
+    expr_ref theory_str::infer_all_regex_lengths(expr * lenVar, expr * re, expr_ref_vector & freeVariables) {
+        ENSURE(u.is_re(re));
+        context & ctx = get_context();
+        ast_manager & m = get_manager();
+        expr * sub1;
+        expr * sub2;
+        if (u.re.is_to_re(re, sub1)) {
+            SASSERT(u.str.is_string(sub1));
+            zstring str;
+            u.str.is_string(sub1, str);
+            rational strlen(str.length());
+            expr_ref retval(ctx.mk_eq_atom(lenVar, m_autil.mk_numeral(strlen, true)), m);
+            return retval;
+        } else if (u.re.is_union(re, sub1, sub2)) {
+            expr_ref r1 = infer_all_regex_lengths(lenVar, sub1, freeVariables);
+            expr_ref r2 = infer_all_regex_lengths(lenVar, sub2, freeVariables);
+            expr_ref retval(m.mk_or(r1, r2), m);
+            return retval;
+        } else if (u.re.is_concat(re, sub1, sub2)) {
+            expr * v1 = mk_int_var("rlen1");
+            expr * v2 = mk_int_var("rlen2");
+            freeVariables.push_back(v1);
+            freeVariables.push_back(v2);
+            expr_ref r1 = infer_all_regex_lengths(v1, sub1, freeVariables);
+            expr_ref r2 = infer_all_regex_lengths(v2, sub2, freeVariables);
+            expr_ref_vector finalResult(m);
+            finalResult.push_back(ctx.mk_eq_atom(lenVar, m_autil.mk_add(v1, v2)));
+            finalResult.push_back(r1);
+            finalResult.push_back(r2);
+            expr_ref retval(mk_and(finalResult), m);
+            return retval;
+        } else if (u.re.is_star(re, sub1)) {
+            expr * v = mk_int_var("rlen");
+            expr * n = mk_int_var("rstar");
+            freeVariables.push_back(v);
+            freeVariables.push_back(n);
+            expr_ref rsub = infer_all_regex_lengths(v, sub1, freeVariables);
+            expr_ref_vector finalResult(m);
+            finalResult.push_back(rsub);
+            finalResult.push_back(ctx.mk_eq_atom(lenVar, m_autil.mk_mul(v, n)));
+            expr_ref retval(mk_and(finalResult), m);
+            return retval;
+        } else if (u.re.is_plus(re, sub1)) {
+            expr * v = mk_int_var("rlen");
+            expr * n = mk_int_var("rstar");
+            freeVariables.push_back(v);
+            freeVariables.push_back(n);
+            expr_ref rsub = infer_all_regex_lengths(v, sub1, freeVariables);
+            expr_ref_vector finalResult(m);
+            finalResult.push_back(rsub);
+            finalResult.push_back(ctx.mk_eq_atom(lenVar, m_autil.mk_mul(v, n)));
+            finalResult.push_back(m_autil.mk_ge(n, m_autil.mk_numeral(rational::one(), true)));
+            expr_ref retval(mk_and(finalResult), m);
+            return retval;
+        } else if (u.re.is_range(re, sub1, sub2)) {
+            SASSERT(u.str.is_string(sub1));
+            SASSERT(u.str.is_string(sub2));
+            zstring str1, str2;
+            u.str.is_string(sub1, str1);
+            u.str.is_string(sub2, str2);
+            SASSERT(str1.length() == 1);
+            SASSERT(str2.length() == 1);
+            expr_ref retval(ctx.mk_eq_atom(lenVar, m_autil.mk_numeral(rational::one(), true)), m);
+            return retval;
+        } else if (u.re.is_full(re)) {
+            expr_ref retval(ctx.mk_eq_atom(lenVar, m_autil.mk_numeral(rational::one(), true)), m);
+            return retval;
+        } else if (u.re.is_complement(re)) {
+            // skip complement for now, in general this is difficult to predict
+            expr_ref retval(m_autil.mk_ge(lenVar, m_autil.mk_numeral(rational::zero(), true)), m);
+            return retval;
+        } else {
+            TRACE("str", tout << "WARNING: unknown regex term " << mk_pp(re, m) << std::endl;);
+            expr_ref retval(m_autil.mk_ge(lenVar, m_autil.mk_numeral(rational::zero(), true)), m);
+            return retval;
         }
     }
 
