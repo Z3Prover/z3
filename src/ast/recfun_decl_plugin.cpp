@@ -23,9 +23,8 @@ Revision History:
 #include "ast/ast_pp.h"
 #include "util/scoped_ptr_vector.h"
 
-#define DEBUG(x) do { auto& out = std::cout; out << "recfun: "; x; out << '\n' << std::flush; } while(0)
+#define DEBUG(x) TRACE("recfun", tout << x << '\n';)
 #define VALIDATE_PARAM(m, _pred_) if (!(_pred_)) m.raise_exception("invalid parameter to recfun "  #_pred_);
-
 
 namespace recfun {
     case_pred::case_pred(ast_manager & m, family_id fid, std::string const & s, sort_ref_vector const & domain)
@@ -186,10 +185,7 @@ namespace recfun {
     void def::add_case(std::string & name, unsigned n_conditions, expr ** conditions, expr * rhs, bool is_imm) {
         case_def c(m(), m_fid, this, name, get_domain(), n_conditions, conditions, rhs);
         c.set_is_immediate(is_imm);
-        TRACE("recfun", tout << "add_case " << name << " " << mk_pp(rhs, m())
-              << " :is_imm " << is_imm
-              << " :guards " << mk_pp_vec(n_conditions, (ast**)conditions, m()););
-        DEBUG(out << "add_case " << name << " " << mk_pp(rhs, m())
+        DEBUG("add_case " << name << " " << mk_pp(rhs, m())
               << " :is_imm " << is_imm
               << " :guards " << mk_pp_vec(n_conditions, (ast**)conditions, m()));
         m_cases.push_back(c);
@@ -201,12 +197,12 @@ namespace recfun {
                             unsigned n_vars, var *const * vars, expr* rhs0)
     {
         if (m_cases.size() != 0) {
-            TRACE("recfun", tout << "bug: cases for " << m_name << " has cases already";);
+            DEBUG("bug: cases for " << m_name << " has cases already");
             UNREACHABLE();
         }
         SASSERT(n_vars = m_domain.size());
 
-        DEBUG(out << "compute cases " << mk_pp(rhs0, m()));
+        DEBUG("compute cases " << mk_pp(rhs0, m()));
 
         unsigned case_idx = 0;
         std::string name;
@@ -226,7 +222,7 @@ namespace recfun {
         th_rw(rhs0, simplified_rhs); 
         rhs = simplified_rhs.get();
 
-        DEBUG(out << "simplified into " << mk_pp(rhs, m()));
+        DEBUG("simplified into " << mk_pp(rhs, m()));
 #else
         expr*  rhs = rhs0;
 #endif
@@ -252,7 +248,7 @@ namespace recfun {
         }
 
         while (! st.empty()) {
-            DEBUG(out << "main loop iter");
+            DEBUG("main loop iter");
 
             branch b = st.pop_branch();
 
@@ -334,7 +330,7 @@ namespace recfun {
             }
         }
 
-        TRACE("recfun", tout << "done analysing " << get_name(););
+        DEBUG("done analysing " << get_name());
     }
 
     /*
@@ -362,6 +358,12 @@ namespace recfun {
             m_dlimit_map.insert(d, pred);   
         }
         return depth_limit_pred_ref(pred, *this);
+    }
+
+    app_ref util::mk_depth_limit_pred(unsigned d) {
+        depth_limit_pred_ref p = get_depth_limit_pred(d);
+        app_ref res(m().mk_const(p->get_decl()), m());
+        return res;
     }
 
     // used to know which `app` are from this theory
@@ -399,12 +401,13 @@ namespace recfun {
     depth_limit_pred::depth_limit_pred(ast_manager & m, family_id fid, unsigned d)
     : m_name_buf(), m_name(""), m_depth(d), m_decl(m) {
         // build name, then build decl
-        std::ostringstream tmpname(m_name_buf);
-        tmpname << "depth_limit_" << d;
+        std::ostringstream tmpname;
+        tmpname << "depth_limit_" << d << std::flush;
+        m_name_buf.append(tmpname.str());
         m_name = symbol(m_name_buf.c_str());
         parameter params[1] = { parameter(d) };
         func_decl_info info(fid, OP_DEPTH_LIMIT, 1, params);
-        m_decl = m.mk_func_decl(m_name, 0, ((sort*const *)nullptr), m.mk_bool_sort(), info);
+        m_decl = m.mk_const_decl(m_name, m.mk_bool_sort(), info);
     }
 
     namespace decl {
@@ -442,13 +445,6 @@ namespace recfun {
             for (case_def & c : d.get_def()->get_cases()) {
                 m_case_defs.insert(c.get_name(), &c);
             }
-        }
-
-        app_ref plugin::mk_depth_limit_pred(unsigned d) {
-            depth_limit_pred_ref p = u().get_depth_limit_pred(d);
-            app_ref res(m());
-            m().mk_app(p->get_decl(), 0, nullptr, res);
-            return res;
         }
 
         def* plugin::mk_def(symbol const& name, unsigned n, sort ** params, sort * range,

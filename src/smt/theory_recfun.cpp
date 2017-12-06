@@ -4,10 +4,18 @@
 #include "smt/theory_recfun.h"
 #include "smt/params/smt_params_helper.hpp"
 
-#define DEBUG(x) \
-    do { \
-    TRACE("recfun", tout << x << '\n';); \
-    auto& out = std::cout; out << "recfun: "; out << x; out << '\n' << std::flush; } while(0)
+#define DEBUG(x) TRACE("recfun", tout << x << '\n';)
+
+struct pp_lit {
+    smt::context & ctx;
+    smt::literal lit;
+    pp_lit(smt::context & ctx, smt::literal lit) : ctx(ctx), lit(lit) {}
+};
+
+std::ostream & operator<<(std::ostream & out, pp_lit const & pp) {
+    pp.ctx.display_detailed_literal(out, pp.lit);
+    return out;
+}
 
 // NOTE: debug
 struct pp_lits {
@@ -76,7 +84,6 @@ namespace smt {
     }
 
     bool theory_recfun::internalize_term(app * term) {
-        DEBUG("internalizing term: " << mk_pp(term, m()));
         context & ctx = get_context();
         for (expr* e : *term) ctx.internalize(e, false);
         // the internalization of the arguments may have triggered the internalization of term.
@@ -112,11 +119,13 @@ namespace smt {
     }
 
     void theory_recfun::push_scope_eh() {
+        DEBUG("push_scope");
         theory::push_scope_eh();
         m_trail.push_scope();
     }
 
     void theory_recfun::pop_scope_eh(unsigned num_scopes) {
+        DEBUG("pop_scope");
         m_trail.pop_scope(num_scopes);
         theory::pop_scope_eh(num_scopes);
         reset_queues();
@@ -151,20 +160,64 @@ namespace smt {
         m_q_body_expand.clear();
     }
 
+    class depth_conflict_justification : public justification {
+        literal_vector  lits;
+        theory_recfun * th;
+        ast_manager & m() const { return th->get_manager(); }
+    public:
+        depth_conflict_justification(theory_recfun * th, region & r, literal_vector const & lits)
+        : lits(lits), th(th) {}
+        depth_conflict_justification(depth_conflict_justification const & from)
+        : lits(from.lits), th(from.th) {}
+        depth_conflict_justification(depth_conflict_justification && from)
+        : lits(std::move(from.lits)), th(from.th) {}
+        char const * get_name() const override { return "depth-conflict"; }
+        theory_id get_from_theory() const override { return th->get_id(); } 
+
+        void get_antecedents(conflict_resolution & cr) override {
+            auto & ctx = cr.get_context();
+            for (unsigned i=0; i < lits.size(); ++i) {
+                DEBUG("mark literal " << pp_lit(ctx, lits[i]));
+                cr.mark_literal(lits[i]);
+            }
+        }
+        proof * mk_proof(conflict_resolution & cr) override {
+            UNREACHABLE();
+            /* FIXME: actual proof
+            app * lemma = m().mk_or(c.size(), c.c_ptr());
+            return m().mk_lemma(m().mk_false(), lemma);
+            */
+        }
+    };
+
+
     void theory_recfun::max_depth_conflict() {
         DEBUG("max-depth conflict");
-        // TODO: build clause from `m_guards`
-        /*
         context & ctx = get_context();
-        region & r = ctx.get_region(); 
-        ctx.set_conflict(
-        */
+        literal_vector c;
+        // make clause `depth_limit => V_{g : guards} ~ g`
+        {
+            // first literal must be the depth limit one
+            app_ref dlimit = m_util->mk_depth_limit_pred(get_max_depth());
+            ctx.internalize(dlimit, false);
+            c.push_back(~ ctx.get_literal(dlimit));
+            SASSERT(ctx.get_assignment(ctx.get_literal(dlimit)) == l_true);
+        }
+        for (auto& kv : m_guards) {
+            expr * g = & kv.get_key();
+            c.push_back(~ ctx.get_literal(g));
+        }
+        DEBUG("max-depth conflict: add clause " << pp_lits(ctx, c.size(), c.c_ptr()));
+        SASSERT(std::all_of(c.begin(), c.end(), [&](literal & l) { return ctx.get_assignment(l) == l_false; })); // conflict
+        region r;
+
+        depth_conflict_justification js(this, r, c);
+        ctx.set_conflict(ctx.mk_justification(js));
     }
 
     // if `is_true` and `v = C_f_i(t1…tn)`, then body-expand i-th case of `f(t1…tn)`
     void theory_recfun::assign_eh(bool_var v, bool is_true) {
         expr* e = get_context().bool_var2expr(v);
-        DEBUG("assign_eh "<< mk_pp(e,m()));
         if (!is_true) return;
         if (!is_app(e)) return;
         app* a = to_app(e);
@@ -256,7 +309,6 @@ namespace smt {
             }
             // assert `p(args) <=> And(guards)` (with CNF on the fly)
             ctx.internalize(pred_applied, false);
-            // FIXME: we need to be informed wen `pred_applied` is true!!
             ctx.mark_as_relevant(ctx.get_bool_var(pred_applied));
             literal concl = ctx.get_literal(pred_applied);
             {
@@ -335,8 +387,9 @@ namespace smt {
     }
 
     void theory_recfun::add_theory_assumptions(expr_ref_vector & assumptions) {
-        DEBUG("add_theory_assumptions");
-        // TODO: add depth-limit assumptions?
+        app_ref dlimit = m_util->mk_depth_limit_pred(get_max_depth());
+        DEBUG("add_theory_assumption " << mk_pp(dlimit.get(), m()));
+        assumptions.push_back(dlimit);
     }
 
     void theory_recfun::display(std::ostream & out) const {

@@ -208,7 +208,6 @@ namespace recfun {
             bool has_case_def(const symbol& s) const { return m_case_defs.contains(s); }
             case_def& get_case_def(symbol const& s) { SASSERT(has_case_def(s)); return *(m_case_defs[s]); }
             bool is_declared(symbol const& s) const { return m_defs.contains(s); }
-            app_ref mk_depth_limit_pred(unsigned d);
         private:
             func_decl * mk_fun_pred_decl(unsigned num_parameters, parameter const * parameters, 
                                          unsigned arity, sort * const * domain, sort * range);
@@ -274,6 +273,7 @@ namespace recfun {
         }
 
         depth_limit_pred_ref get_depth_limit_pred(unsigned d);
+        app_ref mk_depth_limit_pred(unsigned d);
     };
 }
 
