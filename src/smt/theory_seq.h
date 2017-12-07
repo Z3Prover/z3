@@ -301,6 +301,12 @@ namespace smt {
         unsigned                   m_eq_id;
         th_union_find              m_find;
 
+        obj_map<expr, unsigned_vector>        m_overlap;
+        obj_map<expr, unsigned_vector>        m_overlap2;
+        obj_map<enode, obj_map<enode, int>>   m_len_offset;
+        int                                   m_len_prop_lvl;
+
+
         seq_factory*               m_factory;    // value factory
         exclusion_table            m_exclude;    // set of asserted disequalities.
         expr_ref_vector            m_axioms;     // list of axioms to add.
@@ -365,23 +371,44 @@ namespace smt {
         virtual void init_search_eh();
 
         void init_model(expr_ref_vector const& es);
+        
+        void len_offset(expr* const& e, rational val);
+        void prop_arith_to_len_offset();
+        int find_fst_non_empty_idx(expr_ref_vector const& x) const;
+        expr* find_fst_non_empty_var(expr_ref_vector const& x) const;
+        void find_max_eq_len(expr_ref_vector const& ls, expr_ref_vector const& rs);
+        bool has_len_offset(expr_ref_vector const& ls, expr_ref_vector const& rs, int & diff);
+        bool find_better_rep(expr_ref_vector const& ls, expr_ref_vector const& rs, unsigned const& idx, dependency*& deps, expr_ref_vector & res);
+        
         // final check 
         bool simplify_and_solve_eqs();   // solve unitary equalities
         bool reduce_length_eq();
         bool branch_unit_variable();     // branch on XYZ = abcdef
         bool branch_binary_variable();   // branch on abcX = Ydefg 
+        bool branch_ternary_variable1(); // branch on XabcY = Zdefg or XabcY = defgZ
+        bool branch_ternary_variable2(); // branch on XabcY = defgZmnpq
+        bool branch_quat_variable();     // branch on XabcY = ZdefgT
+        bool len_based_split();          // split based on len offset
         bool branch_variable_mb();       // branch on a variable, model based on length
         bool branch_variable();          // branch on a variable
-        bool split_variable();           // split a variable
         bool is_solved(); 
         bool check_length_coherence();
         bool check_length_coherence0(expr* e);
         bool check_length_coherence(expr* e);
-        bool fixed_length();
-        bool fixed_length(expr* e);
+        bool fixed_length(bool is_zero = false);
+        bool fixed_length(expr* e, bool is_zero);
         void branch_unit_variable(dependency* dep, expr* X, expr_ref_vector const& units);
         bool branch_variable(eq const& e);
         bool branch_binary_variable(eq const& e);
+        bool eq_unit(expr* const& l, expr* const &r) const;       
+        unsigned_vector overlap(ptr_vector<expr> const& ls, ptr_vector<expr> const& rs);
+        unsigned_vector overlap2(ptr_vector<expr> const& ls, ptr_vector<expr> const& rs);
+        bool branch_ternary_variable_base(dependency* dep, unsigned_vector indexes, expr* x, ptr_vector<expr> xs, expr* y1, ptr_vector<expr> ys, expr* y2);
+        bool branch_ternary_variable_base2(dependency* dep, unsigned_vector indexes, ptr_vector<expr> xs, expr* x, expr* y1, ptr_vector<expr> ys, expr* y2);
+        bool branch_ternary_variable(eq const& e, bool flag1 = false);
+        bool branch_ternary_variable2(eq const& e, bool flag1 = false);
+        bool branch_quat_variable(eq const& e);
+        bool len_based_split(eq const& e);
         bool is_unit_eq(expr_ref_vector const& ls, expr_ref_vector const& rs);
         bool propagate_length_coherence(expr* e);  
         bool split_lengths(dependency* dep,
@@ -394,11 +421,14 @@ namespace smt {
         bool check_extensionality();
         bool check_contains();
         bool solve_eqs(unsigned start);
-        bool solve_eq(expr_ref_vector const& l, expr_ref_vector const& r, dependency* dep);
+        bool solve_eq(expr_ref_vector const& l, expr_ref_vector const& r, dependency* dep, unsigned idx);
         bool simplify_eq(expr_ref_vector& l, expr_ref_vector& r, dependency* dep);
         bool solve_unit_eq(expr* l, expr* r, dependency* dep);
         bool solve_unit_eq(expr_ref_vector const& l, expr_ref_vector const& r, dependency* dep);
         bool is_binary_eq(expr_ref_vector const& l, expr_ref_vector const& r, expr*& x, ptr_vector<expr>& xunits, ptr_vector<expr>& yunits, expr*& y);
+        bool is_quat_eq(expr_ref_vector const& ls, expr_ref_vector const& rs, expr*& x1, ptr_vector<expr>& xs, expr*& x2, expr*& y1, ptr_vector<expr>& ys, expr*& y2);
+        bool is_ternary_eq(expr_ref_vector const& ls, expr_ref_vector const& rs, expr*& x, ptr_vector<expr>& xs, expr*& y1, ptr_vector<expr>& ys, expr*& y2, bool flag1);
+        bool is_ternary_eq2(expr_ref_vector const& ls, expr_ref_vector const& rs, ptr_vector<expr>& xs, expr*& x, expr*& y1, ptr_vector<expr>& ys, expr*& y2, bool flag1);
         bool solve_binary_eq(expr_ref_vector const& l, expr_ref_vector const& r, dependency* dep);
         bool propagate_max_length(expr* l, expr* r, dependency* dep);
 
@@ -449,8 +479,9 @@ namespace smt {
         // variable solving utilities
         bool occurs(expr* a, expr* b);
         bool occurs(expr* a, expr_ref_vector const& b);
-        bool is_var(expr* b);
+        bool is_var(expr* b) const;
         bool add_solution(expr* l, expr* r, dependency* dep);
+        bool is_unit_nth(expr* a) const;
         bool is_nth(expr* a) const;
         bool is_nth(expr* a, expr*& e1, expr*& e2) const;
         bool is_tail(expr* a, expr*& s, unsigned& idx) const;
@@ -514,6 +545,7 @@ namespace smt {
         literal mk_seq_eq(expr* a, expr* b);
         void tightest_prefix(expr* s, expr* x);
         expr_ref mk_sub(expr* a, expr* b);
+        expr_ref mk_add(expr* a, expr* b);
         enode* ensure_enode(expr* a);
         
         dependency* mk_join(dependency* deps, literal lit);
@@ -523,6 +555,7 @@ namespace smt {
         // arithmetic integration
         bool get_num_value(expr* s, rational& val) const;
         bool lower_bound(expr* s, rational& lo) const;
+        bool lower_bound2(expr* s, rational& lo);
         bool upper_bound(expr* s, rational& hi) const;
         bool get_length(expr* s, rational& val) const;
 
