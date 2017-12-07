@@ -1330,7 +1330,7 @@ namespace smt {
         ite2ElseItems.push_back(ctx.mk_eq_atom(indexAst, mk_indexof(suffix, expr->get_arg(1))));
         ite2ElseItems.push_back(ctx.mk_eq_atom(expr->get_arg(2), prefixLen));
         ite2ElseItems.push_back(ite3);
-        expr_ref ite2Else(m.mk_and(ite2ElseItems.size(), ite2ElseItems.c_ptr()), m);
+        expr_ref ite2Else(mk_and(ite2ElseItems), m);
         SASSERT(ite2Else);
 
         expr_ref ite2(m.mk_ite(
