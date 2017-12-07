@@ -1,7 +1,11 @@
 RELEASE NOTES
 
-Version 4.5.x
+Version 4.6.0
 =============
+- New requirements:
+  - C++11 capable compiler to build Z3.
+  - C++ API now requires C++11 or newer.
+
 - New features (including):
   - A new string solver from University of Waterloo
   - A new linear real arithmetic solver
