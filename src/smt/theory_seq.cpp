@@ -522,7 +522,7 @@ bool theory_seq::eq_unit(expr* const& l, expr* const &r) const {
     return l == r || is_unit_nth(l) || is_unit_nth(r);
 }
 
-// exists x, y, rs' s.t.  (ls = x ++ rs' ++ y & rs = rs') || (ls = rs' ++ x && rs = y ++ rs')
+// exists x, y, rs' != empty s.t.  (ls = x ++ rs' ++ y & rs = rs') || (ls = rs' ++ x && rs = y ++ rs')
 unsigned_vector theory_seq::overlap(ptr_vector<expr> const& ls, ptr_vector<expr> const& rs) {
     SASSERT(!ls.empty() && !rs.empty());
     unsigned_vector res;
@@ -554,7 +554,7 @@ unsigned_vector theory_seq::overlap(ptr_vector<expr> const& ls, ptr_vector<expr>
     return result;
 }
 
-// exists x, y, rs' s.t.  (ls = x ++ rs' ++ y & rs = rs') || (ls = x ++ rs' && rs = rs' ++ y)
+// exists x, y, rs' != empty s.t.  (ls = x ++ rs' ++ y & rs = rs') || (ls = x ++ rs' && rs = rs' ++ y)
 unsigned_vector theory_seq::overlap2(ptr_vector<expr> const& ls, ptr_vector<expr> const& rs) {
     SASSERT(!ls.empty() && !rs.empty());
     unsigned_vector res;
@@ -568,11 +568,13 @@ unsigned_vector theory_seq::overlap2(ptr_vector<expr> const& ls, ptr_vector<expr
     for (unsigned i = 0; i < ls.size(); ++i) {
         if (eq_unit(ls[i],rs[0])) {
             bool same = true;
-            for (unsigned j = i; j<ls.size() && j-i<rs.size(); ++j) {
+            unsigned j = i+1;
+            while (j<ls.size() && j-i<rs.size()) {
                 if (!eq_unit(ls[j], rs[j-i])) {
                     same = false;
                     break;
                 }
+                ++j;
             }
             if (same)
                 result.push_back(i);
