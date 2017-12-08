@@ -352,7 +352,7 @@ bool theory_seq::reduce_length_eq() {
 }
 
 bool theory_seq::branch_binary_variable() {
-    for (eq const& e : m_eqs) {
+    for (auto const& e : m_eqs) {
         if (branch_binary_variable(e)) {
             TRACE("seq", display_equation(tout, e););
             return true;
@@ -431,7 +431,7 @@ bool theory_seq::branch_binary_variable(eq const& e) {
 
 bool theory_seq::branch_unit_variable() {
     bool result = false;
-    for (eq const& e : m_eqs) {
+    for (auto const& e : m_eqs) {
         if (is_unit_eq(e.ls(), e.rs())) {
             branch_unit_variable(e.dep(), e.ls()[0], e.rs());
             result = true;
@@ -454,7 +454,7 @@ bool theory_seq::is_unit_eq(expr_ref_vector const& ls, expr_ref_vector const& rs
     if (ls.empty() || !is_var(ls[0])) {
         return false;
     }
-    for (expr* const& elem : rs) {
+    for (auto const& elem : rs) {
         if (!m_util.str.is_unit(elem)) {
             return false;
         }
@@ -499,7 +499,7 @@ void theory_seq::branch_unit_variable(dependency* dep, expr* X, expr_ref_vector 
 }
 
 bool theory_seq::branch_ternary_variable1() {
-    for (eq const& e : m_eqs) {
+    for (auto const& e : m_eqs) {
         if (branch_ternary_variable(e) || branch_ternary_variable2(e)) {
             return true;
         }
@@ -508,7 +508,7 @@ bool theory_seq::branch_ternary_variable1() {
 }
 
 bool theory_seq::branch_ternary_variable2() {
-    for (eq const& e : m_eqs) {
+    for (auto const& e : m_eqs) {
         if (branch_ternary_variable(e, true)) {
             return true;
         }
@@ -586,7 +586,7 @@ bool theory_seq::branch_ternary_variable_base(dependency* dep, unsigned_vector i
 expr* x, ptr_vector<expr> xs, expr* y1, ptr_vector<expr> ys, expr* y2) {
     context& ctx = get_context();
     bool change = false;
-    for (unsigned ind : indexes) {
+    for (auto ind : indexes) {
         TRACE("seq", tout << "ind = " << ind << "\n";);
         expr_ref xs2E(m);
         if (xs.size() > ind) {
@@ -702,7 +702,7 @@ bool theory_seq::branch_ternary_variable_base2(dependency* dep, unsigned_vector 
 ptr_vector<expr> xs, expr* x, expr* y1, ptr_vector<expr> ys, expr* y2) {
     context& ctx = get_context();
     bool change = false;
-    for (unsigned ind : indexes) {
+    for (auto ind : indexes) {
         expr_ref xs1E(m);
         if (ind > 0) {
             xs1E = m_util.str.mk_concat(ind, xs.c_ptr());
@@ -815,7 +815,7 @@ bool theory_seq::branch_ternary_variable2(eq const& e, bool flag1) {
 }
 
 bool theory_seq::branch_quat_variable() {
-    for (eq const& e : m_eqs) {
+    for (auto const& e : m_eqs) {
         if (branch_quat_variable(e)) {
             return true;
         }
@@ -1367,7 +1367,7 @@ bool theory_seq::len_based_split(eq const& e) {
 
 bool theory_seq::branch_variable_mb() {
     bool change = false;
-    for (eq const& e : m_eqs) {
+    for (auto const& e : m_eqs) {
         vector<rational> len1, len2;
         if (!is_complex(e)) {
             continue;
@@ -1382,8 +1382,8 @@ bool theory_seq::branch_variable_mb() {
             continue;
         }
         rational l1, l2;
-        for (rational elem : len1) l1 += elem;
-        for (rational elem : len2) l2 += elem;
+        for (auto elem : len1) l1 += elem;
+        for (auto elem : len2) l2 += elem;
         if (l1 != l2) {
             TRACE("seq", tout << "lengths are not compatible\n";);
             expr_ref l = mk_concat(e.ls());
@@ -1406,10 +1406,10 @@ bool theory_seq::branch_variable_mb() {
 
 bool theory_seq::is_complex(eq const& e) {
     unsigned num_vars1 = 0, num_vars2 = 0;
-    for (expr* const& elem : e.ls()) {
+    for (auto const& elem : e.ls()) {
         if (is_var(elem)) ++num_vars1;
     }
-    for (expr* const& elem : e.rs()) {
+    for (auto const& elem : e.rs()) {
         if (is_var(elem)) ++num_vars2;
     }
     return num_vars1 > 0 && num_vars2 > 0 && num_vars1 + num_vars2 > 2;
@@ -1816,13 +1816,13 @@ bool theory_seq::check_length_coherence0(expr* e) {
 bool theory_seq::check_length_coherence() {
 
 #if 1
-    for (expr* e : m_length) {
+    for (auto e : m_length) {
         if (check_length_coherence0(e)) {
             return true;
         }
     }
 #endif
-    for (expr* e : m_length) {
+    for (auto e : m_length) {
         if (check_length_coherence(e)) {
             return true;
         }
@@ -1832,7 +1832,7 @@ bool theory_seq::check_length_coherence() {
 
 bool theory_seq::fixed_length(bool is_zero) {
     bool found = false;
-    for (expr* e : m_length) {
+    for (auto e : m_length) {
         if (fixed_length(e, is_zero)) {
             found = true;
         }
@@ -2326,7 +2326,7 @@ bool theory_seq::solve_unit_eq(expr* l, expr* r, dependency* deps) {
 
 
 bool theory_seq::occurs(expr* a, expr_ref_vector const& b) {
-    for (expr* const& elem : b) {
+    for (auto const& elem : b) {
         if (a == elem || m.is_ite(elem)) return true;
     }
     return false;
@@ -3326,7 +3326,7 @@ bool theory_seq::internalize_term(app* term) {
         return true;
     }
     TRACE("seq_verbose", tout << mk_pp(term, m) << "\n";);
-    for (expr* arg : *term) {
+    for (auto arg : *term) {
         mk_var(ensure_enode(arg));
     }
     if (m.is_bool(term)) {
@@ -3569,7 +3569,7 @@ void theory_seq::display(std::ostream & out) const {
     }
 
     if (!m_length.empty()) {
-        for (expr* e : m_length) {
+        for (auto e : m_length) {
             rational lo(-1), hi(-1);
             lower_bound(e, lo);
             upper_bound(e, hi);
@@ -3594,7 +3594,7 @@ void theory_seq::display_nc(std::ostream& out, nc const& nc) const {
 }
 
 void theory_seq::display_equations(std::ostream& out) const {
-    for (eq const& e : m_eqs) {
+    for (auto const& e : m_eqs) {
         display_equation(out, e);
     }
 }
@@ -3690,7 +3690,7 @@ void theory_seq::init_search_eh() {
 
 void theory_seq::init_model(expr_ref_vector const& es) {
     expr_ref new_s(m);
-    for (expr* e : es) {
+    for (auto e : es) {
         dependency* eqs = 0;
         expr_ref s = canonize(e, eqs);
         if (is_var(s)) {
@@ -4946,7 +4946,7 @@ literal theory_seq::mk_eq_empty(expr* _e, bool phase) {
     }
     expr_ref_vector concats(m);
     m_util.str.get_concat(e, concats);
-    for (expr* c : concats) {
+    for (auto c : concats) {
         if (m_util.str.is_unit(c)) {
             return false_literal;
         }
