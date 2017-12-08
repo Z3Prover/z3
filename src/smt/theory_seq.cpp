@@ -217,6 +217,8 @@ theory_seq::theory_seq(ast_manager& m):
     m_new_solution(false),
     m_new_propagation(false),
     m_len_prop_lvl(-1),
+    m_overlap(m),
+    m_overlap2(m),
     m_mk_aut(m) {
     m_prefix         = "seq.p.suffix";
     m_suffix         = "seq.s.prefix";

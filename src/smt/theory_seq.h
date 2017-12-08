@@ -29,6 +29,7 @@ Revision History:
 #include "math/automata/automaton.h"
 #include "ast/rewriter/seq_rewriter.h"
 #include "util/union_find.h"
+#include "util/obj_ref_hashtable.h"
 
 namespace smt {
 
@@ -301,8 +302,8 @@ namespace smt {
         unsigned                   m_eq_id;
         th_union_find              m_find;
 
-        obj_map<expr, unsigned_vector>        m_overlap;
-        obj_map<expr, unsigned_vector>        m_overlap2;
+        obj_ref_map<ast_manager, expr, unsigned_vector>    m_overlap;
+        obj_ref_map<ast_manager, expr, unsigned_vector>    m_overlap2;
         obj_map<enode, obj_map<enode, int>>   m_len_offset;
         int                                   m_len_prop_lvl;
 
