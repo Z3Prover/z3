@@ -454,8 +454,8 @@ bool theory_seq::is_unit_eq(expr_ref_vector const& ls, expr_ref_vector const& rs
     if (ls.empty() || !is_var(ls[0])) {
         return false;
     }
-    for (unsigned i = 0; i < rs.size(); ++i) {
-        if (!m_util.str.is_unit(rs[i])) {
+    for (expr* const& elem : rs) {
+        if (!m_util.str.is_unit(elem)) {
             return false;
         }
     }
@@ -501,9 +501,7 @@ void theory_seq::branch_unit_variable(dependency* dep, expr* X, expr_ref_vector 
 }
 
 bool theory_seq::branch_ternary_variable1() {
-    unsigned sz = m_eqs.size();
-    for (unsigned i = 0; i < sz; ++i) {
-        eq const& e = m_eqs[i];
+    for (eq const& e : m_eqs) {
         if (branch_ternary_variable(e) || branch_ternary_variable2(e)) {
             return true;
         }
@@ -512,9 +510,7 @@ bool theory_seq::branch_ternary_variable1() {
 }
 
 bool theory_seq::branch_ternary_variable2() {
-    unsigned sz = m_eqs.size();
-    for (unsigned i = 0; i < sz; ++i) {
-        eq const& e = m_eqs[i];
+    for (eq const& e : m_eqs) {
         if (branch_ternary_variable(e, true)) {
             return true;
         }
@@ -588,8 +584,7 @@ bool theory_seq::branch_ternary_variable_base(dependency* dep, unsigned_vector i
 expr* x, ptr_vector<expr> xs, expr* y1, ptr_vector<expr> ys, expr* y2) {
     context& ctx = get_context();
     bool change = false;
-    for (unsigned i = 0; i < indexes.size(); ++i) {
-        unsigned ind = indexes[i];
+    for (unsigned ind : indexes) {
         TRACE("seq", tout << "ind = " << ind << "\n";);
         expr_ref xs2E(m);
         if (xs.size() > ind) {
@@ -705,8 +700,7 @@ bool theory_seq::branch_ternary_variable_base2(dependency* dep, unsigned_vector 
 ptr_vector<expr> xs, expr* x, expr* y1, ptr_vector<expr> ys, expr* y2) {
     context& ctx = get_context();
     bool change = false;
-    for (unsigned i = 0; i < indexes.size(); ++i) {
-        unsigned ind = indexes[i];
+    for (unsigned ind : indexes) {
         expr_ref xs1E(m);
         if (ind > 0) {
             xs1E = m_util.str.mk_concat(ind, xs.c_ptr());
@@ -819,9 +813,7 @@ bool theory_seq::branch_ternary_variable2(eq const& e, bool flag1) {
 }
 
 bool theory_seq::branch_quat_variable() {
-    unsigned sz = m_eqs.size();
-    for (unsigned i = 0; i < sz; ++i) {
-        eq const& e = m_eqs[i];
+    for (eq const& e : m_eqs) {
         if (branch_quat_variable(e)) {
             return true;
         }
@@ -1373,8 +1365,7 @@ bool theory_seq::len_based_split(eq const& e) {
 
 bool theory_seq::branch_variable_mb() {
     bool change = false;
-    for (unsigned i = 0; i < m_eqs.size(); ++i) {
-        eq const& e = m_eqs[i];
+    for (eq const& e : m_eqs) {
         vector<rational> len1, len2;
         if (!is_complex(e)) {
             continue;
@@ -1389,8 +1380,8 @@ bool theory_seq::branch_variable_mb() {
             continue;
         }
         rational l1, l2;
-        for (unsigned j = 0; j < len1.size(); ++j) l1 += len1[j];
-        for (unsigned j = 0; j < len2.size(); ++j) l2 += len2[j];
+        for (rational elem : len1) l1 += elem;
+        for (rational elem : len2) l2 += elem;
         if (l1 != l2) {
             TRACE("seq", tout << "lengths are not compatible\n";);
             expr_ref l = mk_concat(e.ls().size(), e.ls().c_ptr());
@@ -1414,11 +1405,11 @@ bool theory_seq::branch_variable_mb() {
 
 bool theory_seq::is_complex(eq const& e) {
     unsigned num_vars1 = 0, num_vars2 = 0;
-    for (unsigned i = 0; i < e.ls().size(); ++i) {
-        if (is_var(e.ls()[i])) ++num_vars1;
+    for (expr* const& elem : e.ls()) {
+        if (is_var(elem)) ++num_vars1;
     }
-    for (unsigned i = 0; i < e.rs().size(); ++i) {
-        if (is_var(e.rs()[i])) ++num_vars2;
+    for (expr* const& elem : e.rs()) {
+        if (is_var(elem)) ++num_vars2;
     }
     return num_vars1 > 0 && num_vars2 > 0 && num_vars1 + num_vars2 > 2;
 }
@@ -2322,8 +2313,8 @@ bool theory_seq::solve_unit_eq(expr* l, expr* r, dependency* deps) {
 
 
 bool theory_seq::occurs(expr* a, expr_ref_vector const& b) {
-    for (unsigned i = 0; i < b.size(); ++i) {
-        if (a == b[i] || m.is_ite(b[i])) return true;
+    for (expr* const& elem : b) {
+        if (a == elem || m.is_ite(elem)) return true;
     }
     return false;
 }
