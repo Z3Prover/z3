@@ -727,10 +727,10 @@ namespace smt {
             setup_str();
         }
         else if (m_params.m_string_solver == "seq") {
-            setup_seq();
+            setup_unknown();
         }
         else if (m_params.m_string_solver == "auto") {
-            setup_seq();
+            setup_unknown();
         }
         else {
             throw default_exception("invalid parameter for smt.string_solver, valid options are 'z3str3', 'seq', 'auto'");
