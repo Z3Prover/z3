@@ -123,8 +123,8 @@ namespace smt {
             setup_QF_FP();
         else if (m_logic == "QF_FPBV" || m_logic == "QF_BVFP")
             setup_QF_FPBV();
-//        else if (m_logic == "QF_S")
-//            setup_QF_S();
+        else if (m_logic == "QF_S")
+            setup_QF_S();
         else if (m_logic == "QF_DT")
             setup_QF_DT();
         else
@@ -170,8 +170,8 @@ namespace smt {
                  setup_QF_BVRE();
             else if (m_logic == "QF_AUFLIA")
                 setup_QF_AUFLIA(st);
-//            else if (m_logic == "QF_S")
-//                setup_QF_S();
+            else if (m_logic == "QF_S")
+                setup_QF_S();
             else if (m_logic == "AUFLIA")
                 setup_AUFLIA(st);
             else if (m_logic == "AUFLIRA")
@@ -723,8 +723,18 @@ namespace smt {
     }
 
     void setup::setup_QF_S() {
-        m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
-        m_context.register_plugin(alloc(smt::theory_str, m_manager, m_params));
+        if (m_params.m_string_solver == "z3str3") {
+            setup_str();
+        }
+        else if (m_params.m_string_solver == "seq") {
+            setup_seq();
+        }
+        else if (m_params.m_string_solver == "auto") {
+            setup_seq();
+        }
+        else {
+            throw default_exception("invalid parameter for smt.string_solver, valid options are 'z3str3', 'seq', 'auto'");
+        }
     }
 
     bool is_arith(static_features const & st) {
