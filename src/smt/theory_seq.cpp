@@ -522,8 +522,9 @@ bool theory_seq::eq_unit(expr* const& l, expr* const &r) const {
     return l == r || is_unit_nth(l) || is_unit_nth(r);
 }
 
-// exists y s.t. ls and rs ++ y have the same suffix
+// exists x, y, rs' s.t.  (ls = x ++ rs' ++ y & rs = rs') || (ls = rs' ++ x && rs = y ++ rs')
 unsigned_vector theory_seq::overlap(ptr_vector<expr> const& ls, ptr_vector<expr> const& rs) {
+    SASSERT(!ls.empty() && !rs.empty());
     unsigned_vector res;
     expr* l = m_util.str.mk_concat(ls.size(),ls.c_ptr());
     expr* r = m_util.str.mk_concat(rs.size(),rs.c_ptr());
@@ -553,8 +554,9 @@ unsigned_vector theory_seq::overlap(ptr_vector<expr> const& ls, ptr_vector<expr>
     return result;
 }
 
-// exists x s.t. x ++ ls and rs have the same prefix
+// exists x, y, rs' s.t.  (ls = x ++ rs' ++ y & rs = rs') || (ls = x ++ rs' && rs = rs' ++ y)
 unsigned_vector theory_seq::overlap2(ptr_vector<expr> const& ls, ptr_vector<expr> const& rs) {
+    SASSERT(!ls.empty() && !rs.empty());
     unsigned_vector res;
     expr* l = m_util.str.mk_concat(ls.size(),ls.c_ptr());
     expr* r = m_util.str.mk_concat(rs.size(),rs.c_ptr());
