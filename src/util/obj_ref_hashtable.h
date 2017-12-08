@@ -26,6 +26,12 @@ class obj_ref_map {
     M&                  m;
     obj_map<Key, Value> m_table;
 public:
+    typedef typename obj_map<Key, Value> iterator;
+    typedef Key key;
+    typedef Value value;
+    typedef typename obj_map<Key, Value>::key_data key_data;
+    typedef typename obj_map<Key, Value>::obj_map_entry obj_map_entry;
+
     obj_ref_map(M& m):m(m) {}
     
     ~obj_ref_map() { reset();  }
