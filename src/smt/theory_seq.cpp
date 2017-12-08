@@ -1269,8 +1269,7 @@ bool theory_seq::len_based_split() {
         }
     }
 
-    for (unsigned i = 0; i < sz; ++i) {
-        eq const& e = m_eqs[i];
+    for (auto const& e : m_eqs) {
         if (len_based_split(e)) {
             return true;
         }
