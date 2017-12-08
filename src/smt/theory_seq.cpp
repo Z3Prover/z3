@@ -415,15 +415,13 @@ bool theory_seq::branch_binary_variable(eq const& e) {
         expr_ref Y1(mk_skolem(symbol("seq.left"), x, y), m);
         expr_ref Y2(mk_skolem(symbol("seq.right"), x, y), m);
         ys.push_back(Y1);
-        expr_ref ysY1(m_util.str.mk_concat(ys.size(), ys.c_ptr()), m);
-        expr_ref xsE(m_util.str.mk_concat(xs.size(), xs.c_ptr()), m);
-        expr_ref Y1Y2(m_util.str.mk_concat(Y1, Y2), m);
-        literal_vector lits;
-        lits.push_back(~lit);
+        expr_ref ysY1(mk_concat(ys));
+        expr_ref xsE(mk_concat(xs));
+        expr_ref Y1Y2(mk_concat(Y1, Y2)); 
         dependency* dep = e.dep();
-        propagate_eq(dep, lits, x, ysY1, true);
-        propagate_eq(dep, lits, y, Y1Y2, true);
-        propagate_eq(dep, lits, Y2, xsE, true);
+        propagate_eq(dep, ~lit, x, ysY1);
+        propagate_eq(dep, ~lit, y, Y1Y2);
+        propagate_eq(dep, ~lit, Y2, xsE);
     }
     else {
         ctx.mark_as_relevant(lit);
@@ -489,9 +487,7 @@ void theory_seq::branch_unit_variable(dependency* dep, expr* X, expr_ref_vector 
         literal lit = mk_eq(m_autil.mk_int(lX), m_util.str.mk_length(X), false);
         if (l_true == ctx.get_assignment(lit)) {
             expr_ref R(m_util.str.mk_concat(lX, units.c_ptr()), m);
-            literal_vector lits;
-            lits.push_back(lit);
-            propagate_eq(dep, lits, X, R, true);
+            propagate_eq(dep, lit, X, R);
             TRACE("seq", tout << "propagate " << mk_pp(X, m) << " " << R << "\n";);
         }
         else {
@@ -1390,11 +1386,10 @@ bool theory_seq::branch_variable_mb() {
         for (rational elem : len2) l2 += elem;
         if (l1 != l2) {
             TRACE("seq", tout << "lengths are not compatible\n";);
-            expr_ref l = mk_concat(e.ls().size(), e.ls().c_ptr());
-            expr_ref r = mk_concat(e.rs().size(), e.rs().c_ptr());
+            expr_ref l = mk_concat(e.ls());
+            expr_ref r = mk_concat(e.rs());
             expr_ref lnl(m_util.str.mk_length(l), m), lnr(m_util.str.mk_length(r), m);
-            literal_vector lits;
-            propagate_eq(e.dep(), lits, lnl, lnr, false);
+            propagate_eq(e.dep(), lnl, lnr, false);
             change = true;
             continue;
         }
@@ -1510,8 +1505,8 @@ bool theory_seq::split_lengths(dependency* dep,
         SASSERT(is_var(Y));
         expr_ref Y1(mk_skolem(symbol("seq.left"), X, b, Y), m);
         expr_ref Y2(mk_skolem(symbol("seq.right"), X, b, Y), m);
-        expr_ref bY1(m_util.str.mk_concat(b, Y1), m);
-        expr_ref Y1Y2(m_util.str.mk_concat(Y1, Y2), m);
+        expr_ref bY1 = mk_concat(b, Y1);
+        expr_ref Y1Y2 = mk_concat(Y1, Y2);
         propagate_eq(dep, lits, X, bY1, true);
         propagate_eq(dep, lits, Y, Y1Y2, true);
     }
@@ -2207,6 +2202,18 @@ void theory_seq::propagate_eq(dependency* dep, enode* n1, enode* n2) {
     enforce_length_coherence(n1, n2);
 }
 
+void theory_seq::propagate_eq(dependency* dep, expr* e1, expr* e2, bool add_eq) {
+    literal_vector lits;
+    propagate_eq(dep, lits, e1, e2, add_eq);
+}
+
+void theory_seq::propagate_eq(dependency* dep, literal lit, expr* e1, expr* e2, bool add_to_eqs) {
+    literal_vector lits;
+    lits.push_back(lit);
+    propagate_eq(dep, lits, e1, e2, add_to_eqs);
+}
+
+
 void theory_seq::enforce_length_coherence(enode* n1, enode* n2) {
     expr* o1 = n1->get_owner();
     expr* o2 = n2->get_owner();
@@ -2696,8 +2703,8 @@ bool theory_seq::reduce_length(unsigned i, unsigned j, bool front, expr_ref_vect
     }
     SASSERT(0 < l1 && l1 < ls.size());
     SASSERT(0 < r1 && r1 < rs.size());
-    expr_ref l(m_util.str.mk_concat(l1, ls1), m);
-    expr_ref r(m_util.str.mk_concat(r1, rs1), m);            
+    expr_ref l = mk_concat(l1, ls1);
+    expr_ref r = mk_concat(r1, rs1);
     expr_ref lenl(m_util.str.mk_length(l), m);
     expr_ref lenr(m_util.str.mk_length(r), m);
     expr_ref len_eq(m.mk_eq(lenl, lenr), m);
@@ -2709,7 +2716,7 @@ bool theory_seq::reduce_length(unsigned i, unsigned j, bool front, expr_ref_vect
         rhs.append(r2, rs2);
         deps = mk_join(deps, lit);
         m_eqs.push_back(eq(m_eq_id++, lhs, rhs, deps));
-        propagate_eq(deps, lits, l, r, true);
+        propagate_eq(deps, l, r, true);
         TRACE("seq", tout << "propagate eq\nlhs: " << lhs << "\nrhs: " << rhs << "\n";);
         return true;
     }
