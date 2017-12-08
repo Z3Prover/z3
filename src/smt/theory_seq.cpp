@@ -634,7 +634,7 @@ expr* x, ptr_vector<expr> xs, expr* y1, ptr_vector<expr> ys, expr* y2) {
 // Equation is of the form x ++ xs = y1 ++ ys ++ y2 where xs, ys are units.
 bool theory_seq::branch_ternary_variable(eq const& e, bool flag1) {
     ptr_vector<expr> xs, ys;
-    expr* x, *y1, *y2;
+    expr* x = nullptr, *y1 = nullptr, *y2 = nullptr;
     bool is_ternary = is_ternary_eq(e.ls(), e.rs(), x, xs, y1, ys, y2, flag1);
     if (!is_ternary) {
         is_ternary = is_ternary_eq(e.rs(), e.ls(), x, xs, y1, ys, y2, flag1);
@@ -749,7 +749,7 @@ ptr_vector<expr> xs, expr* x, expr* y1, ptr_vector<expr> ys, expr* y2) {
 // Equation is of the form xs ++ x = y1 ++ ys ++ y2 where xs, ys are units.
 bool theory_seq::branch_ternary_variable2(eq const& e, bool flag1) {
     ptr_vector<expr> xs, ys;
-    expr* x, *y1, *y2;
+    expr* x = nullptr, *y1 = nullptr, *y2 = nullptr;
     bool is_ternary = is_ternary_eq2(e.ls(), e.rs(), xs, x, y1, ys, y2, flag1);
     if (!is_ternary) {
         is_ternary = is_ternary_eq2(e.rs(), e.ls(), xs, x, y1, ys, y2, flag1);
@@ -826,7 +826,7 @@ bool theory_seq::branch_quat_variable() {
 // Equation is of the form x1 ++ xs ++ x2 = y1 ++ ys ++ y2 where xs, ys are units.
 bool theory_seq::branch_quat_variable(eq const& e) {
     ptr_vector<expr> xs, ys;
-    expr* x1, *x2, *y1, *y2;
+    expr* x1 = nullptr, *x2 = nullptr, *y1 = nullptr, *y2 = nullptr;
     bool is_quat = is_quat_eq(e.ls(), e.rs(), x1, xs, x2, y1, ys, y2);
     if (!is_quat) {
         return false;
@@ -893,14 +893,14 @@ bool theory_seq::branch_quat_variable(eq const& e) {
 
 void theory_seq::len_offset(expr* const& e, rational val) {
     context & ctx = get_context();
-    expr *l1, *l2, *l21, *l22;
+    expr *l1 = nullptr, *l2 = nullptr, *l21 = nullptr, *l22 = nullptr;
     rational fact;
     if (m_autil.is_add(e, l1, l2) && m_autil.is_mul(l2, l21, l22) &&
             m_autil.is_numeral(l21, fact) && fact.is_minus_one()) {
         if (ctx.e_internalized(l1) && ctx.e_internalized(l22)) {
             enode* r1 = ctx.get_enode(l1)->get_root(), *n1 = r1;
             enode* r2 = ctx.get_enode(l22)->get_root(), *n2 = r2;
-            expr *e1, *e2;
+            expr *e1 = nullptr, *e2 = nullptr;
             do {
                 if (!m_util.str.is_length(n1->get_owner(), e1))
                     n1 = n1->get_next();
@@ -1906,7 +1906,7 @@ bool theory_seq::propagate_is_conc(expr* e, expr* conc) {
 }
 
 bool theory_seq::is_unit_nth(expr* e) const {
-    expr *s;
+    expr *s = nullptr;
     return m_util.str.is_unit(e, s) && is_nth(s);
 }
 
