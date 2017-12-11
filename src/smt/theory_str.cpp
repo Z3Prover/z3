@@ -1494,6 +1494,10 @@ namespace smt {
         expr_ref case3_conclusion(mk_and(case3_conclusion_terms), m);
         expr_ref case3(m.mk_implies(m.mk_and(argumentsValid, m.mk_not(lenOutOfBounds)), case3_conclusion), m);
 
+        // crash avoidance
+        m_trail.push_back(case1);
+        m_trail.push_back(case2);
+        m_trail.push_back(case3);
         {
             th_rewriter rw(m);
 
