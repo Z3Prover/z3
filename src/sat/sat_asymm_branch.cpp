@@ -208,7 +208,6 @@ namespace sat {
         m_to_delete.reset();
         for (unsigned i = m_pos.size() - 1; i-- > 0; ) {
             literal lit = m_pos[i];
-            SASSERT(scc.get_left(lit) < scc.get_left(last));
             int right2 = scc.get_right(lit);
             if (right2 > right) {
                 // lit => last, so lit can be deleted
@@ -345,10 +344,12 @@ namespace sat {
     bool asymm_branch::process_sampled(scc& scc, clause & c) {
         scoped_detach scoped_d(s, c);
         sort(scc, c);
+#if 0
         if (uhte(scc, c)) {
             scoped_d.del_clause();
             return false;
         }
+#endif
         return uhle(scoped_d, scc, c);        
     }
 
