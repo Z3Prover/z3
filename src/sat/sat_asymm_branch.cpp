@@ -208,7 +208,7 @@ namespace sat {
         m_to_delete.reset();
         for (unsigned i = m_pos.size() - 1; i-- > 0; ) {
             literal lit = m_pos[i];
-            SASSERT(scc.get_left(lit) < scc.get_left(last));
+            //SASSERT(scc.get_left(lit) < scc.get_left(last));
             int right2 = scc.get_right(lit);
             if (right2 > right) {
                 // lit => last, so lit can be deleted

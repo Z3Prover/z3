@@ -1476,7 +1476,7 @@ namespace sat {
                 }
             }
             if (m_search_mode == lookahead_mode::lookahead1) {
-                SASSERT(nonfixed >= 2);
+                //SASSERT(nonfixed >= 2);
                 switch (m_config.m_reward_type) {
                 case heule_schur_reward: {
                     double to_add = 0;
@@ -1492,7 +1492,7 @@ namespace sat {
                     m_lookahead_reward += pow(0.5, nonfixed);
                     break;
                 case march_cu_reward:
-                    m_lookahead_reward += 3.3 * pow(0.5, nonfixed - 2);
+                    m_lookahead_reward += nonfixed >= 2 ? 3.3 * pow(0.5, nonfixed - 2) : 0.0;
                     break;
                 case ternary_reward:
                     UNREACHABLE();
@@ -1702,7 +1702,8 @@ namespace sat {
                     num_units += do_double(lit, dl_lvl);
                     if (dl_lvl > level) {
                         base = dl_lvl;
-                        SASSERT(get_level(m_trail.back()) == base + m_lookahead[i].m_offset);
+                        //SASSERT(get_level(m_trail.back()) == base + m_lookahead[i].m_offset);
+                        SASSERT(get_level(m_trail.back()) == base);
                     }
                     unsat = inconsistent();
                     pop_lookahead1(lit, num_units);
@@ -1821,11 +1822,11 @@ namespace sat {
     unsigned lookahead::double_look(literal l, unsigned& base) {
         SASSERT(!inconsistent());
         SASSERT(dl_no_overflow(base));
+        SASSERT(is_fixed_at(l, base));
         base += m_lookahead.size();
         unsigned dl_truth = base + m_lookahead.size() * m_config.m_dl_max_iterations;
         scoped_level _sl(*this, dl_truth);
-        SASSERT(get_level(m_trail.back()) == dl_truth);
-        SASSERT(is_fixed(l));
+        //SASSERT(get_level(m_trail.back()) == dl_truth);
         IF_VERBOSE(2, verbose_stream() << "(sat-lookahead :double " << l << " :depth " << m_trail_lim.size() << ")\n";);
         lookahead_backtrack();
         assign(l);
@@ -2077,7 +2078,8 @@ namespace sat {
             inc_istamp();
             if (inconsistent()) {
                 TRACE("sat", tout << "inconsistent: " << m_cube_state.m_cube << "\n";);
-                m_cube_state.m_freevars_threshold = m_freevars.size();               
+                m_cube_state.m_freevars_threshold = m_freevars.size();     
+                m_cube_state.m_psat_threshold = m_config.m_cube_cutoff == adaptive_psat_cutoff ? psat_heur() : DBL_MAX;  // MN. only compute PSAT if enabled
                 m_cube_state.inc_conflict();
                 if (!backtrack(m_cube_state.m_cube, m_cube_state.m_is_decision)) return l_false;                
                 continue;
@@ -2099,7 +2101,7 @@ namespace sat {
                 (m_config.m_cube_cutoff == adaptive_psat_cutoff && psat_heur() >= m_cube_state.m_psat_threshold)) {
                 double dec = (1.0 - pow(m_config.m_cube_fraction, depth));
                 m_cube_state.m_freevars_threshold *= dec;
-                m_cube_state.m_psat_threshold *= dec;
+                m_cube_state.m_psat_threshold *= 2.0 - dec;
                 set_conflict();
                 m_cube_state.inc_cutoff();
 #if 0
@@ -2423,12 +2425,12 @@ namespace sat {
                     }
                 }
             }
-            std::cout << candidates.size() << " -> " << k << "\n";
+            //std::cout << candidates.size() << " -> " << k << "\n";
             if (k == candidates.size()) break;
             candidates.shrink(k);
         }
 
-        std::cout << "candidates: " << candidates.size() << "\n";
+        //std::cout << "candidates: " << candidates.size() << "\n";
 
 #endif
 
