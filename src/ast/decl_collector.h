@@ -41,7 +41,7 @@ class decl_collector {
 
 public:
     // if preds == true, then predicates are stored in a separate collection.
-    decl_collector(ast_manager & m, bool preds=true);
+    decl_collector(ast_manager & m, bool preds = true);
     ast_manager & m() { return m_manager; }
 
     void visit_func(func_decl* n);
