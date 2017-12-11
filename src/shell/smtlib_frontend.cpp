@@ -21,7 +21,6 @@ Revision History:
 #include<iostream>
 #include<time.h>
 #include<signal.h>
-#include "parsers/smt/smtlib_solver.h"
 #include "util/timeout.h"
 #include "parsers/smt2/smt2parser.h"
 #include "muz/fp/dl_cmds.h"
@@ -35,20 +34,14 @@ Revision History:
 
 extern bool g_display_statistics;
 static clock_t             g_start_time;
-static smtlib::solver*     g_solver      = 0;
 static cmd_context *       g_cmd_context = 0;
 
 static void display_statistics() {
     clock_t end_time = clock();
-    if ((g_solver || g_cmd_context) && g_display_statistics) {
+    if (g_cmd_context && g_display_statistics) {
         std::cout.flush();
         std::cerr.flush();
-        if (g_solver) {
-            g_solver->display_statistics();
-            memory::display_max_usage(std::cout);
-            std::cout << "time:               " << ((static_cast<double>(end_time) - static_cast<double>(g_start_time)) / CLOCKS_PER_SEC) << " secs\n";
-        }
-        else if (g_cmd_context) {
+        if (g_cmd_context) {
             g_cmd_context->set_regular_stream("stdout");
             g_cmd_context->display_statistics(true, ((static_cast<double>(end_time) - static_cast<double>(g_start_time)) / CLOCKS_PER_SEC));
         }
@@ -72,33 +65,6 @@ static void STD_CALL on_ctrl_c(int) {
     raise(SIGINT);
 }
 
-unsigned read_smtlib_file(char const * benchmark_file) {
-    g_start_time = clock();
-    register_on_timeout_proc(on_timeout);
-    signal(SIGINT, on_ctrl_c);
-    smtlib::solver solver;
-    g_solver = &solver;
-
-    bool ok = true;
-
-    ok = solver.solve_smt(benchmark_file);
-    if (!ok) {
-        if (benchmark_file) {
-            std::cerr << "ERROR: solving '" << benchmark_file << "'.\n";
-        }
-        else {
-            std::cerr << "ERROR: solving input stream.\n";
-        }
-    }
-
-    #pragma omp critical (g_display_stats)
-    {
-        display_statistics();
-        register_on_timeout_proc(0);
-        g_solver = 0;
-    }
-    return solver.get_error_code();
-}
 
 unsigned read_smtlib2_commands(char const * file_name) {
     g_start_time = clock();

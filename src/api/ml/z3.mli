@@ -3441,43 +3441,6 @@ sig
       @return A string representation of the benchmark. *)
   val benchmark_to_smtstring : context -> string -> string -> string -> string -> Expr.expr list -> Expr.expr -> string
 
-  (** Parse the given string using the SMT-LIB parser.
-
-      The symbol table of the parser can be initialized using the given sorts and declarations.
-      The symbols in the arrays in the third and fifth argument
-      don't need to match the names of the sorts and declarations in the arrays in the fourth
-      and sixth argument. This is a useful feature since we can use arbitrary names to
-      reference sorts and declarations. *)
-  val parse_smtlib_string : context -> string -> Symbol.symbol list -> Sort.sort list -> Symbol.symbol list -> FuncDecl.func_decl list -> unit
-
-  (** Parse the given file using the SMT-LIB parser.
-      {!parse_smtlib_string} *)
-  val parse_smtlib_file : context -> string -> Symbol.symbol list -> Sort.sort list -> Symbol.symbol list -> FuncDecl.func_decl list -> unit
-
-  (** The number of SMTLIB formulas parsed by the last call to [ParseSMTLIBString] or [ParseSMTLIBFile]. *)
-  val get_num_smtlib_formulas : context -> int
-
-  (** The formulas parsed by the last call to [ParseSMTLIBString] or [ParseSMTLIBFile]. *)
-  val get_smtlib_formulas : context -> Expr.expr list
-
-  (** The number of SMTLIB assumptions parsed by the last call to [ParseSMTLIBString] or [ParseSMTLIBFile]. *)
-  val get_num_smtlib_assumptions : context -> int
-
-  (** The assumptions parsed by the last call to [ParseSMTLIBString] or [ParseSMTLIBFile]. *)
-  val get_smtlib_assumptions : context -> Expr.expr list
-
-  (** The number of SMTLIB declarations parsed by the last call to [ParseSMTLIBString] or [ParseSMTLIBFile]. *)
-  val get_num_smtlib_decls : context -> int
-
-  (** The declarations parsed by the last call to [ParseSMTLIBString] or [ParseSMTLIBFile]. *)
-  val get_smtlib_decls : context -> FuncDecl.func_decl list
-
-  (** The number of SMTLIB sorts parsed by the last call to [ParseSMTLIBString] or [ParseSMTLIBFile]. *)
-  val get_num_smtlib_sorts : context -> int
-
-  (** The sort declarations parsed by the last call to [ParseSMTLIBString] or [ParseSMTLIBFile]. *)
-  val get_smtlib_sorts : context -> Sort.sort list
-
   (** Parse the given string using the SMT-LIB2 parser.
 
       {!parse_smtlib_string}

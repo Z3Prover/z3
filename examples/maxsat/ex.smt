@@ -1,11 +1,11 @@
-(benchmark ex
-  :logic AUFLIA
-  :extrafuns ((x Int) (y Int) (z Int))
-  :assumption (> x 0)
-  :assumption (<= x -1)
-  :assumption (or (> x 0) (< y 1))
-  :assumption (> y 2)
-  :assumption (> y 3)
-  :assumption (<= y -1) 
-  :formula (= z (+ x y)))
+(declare-const x Int)
+(declare-const y Int)
+(declare-const z Int)
+(assert-soft (> x 0))
+(assert-soft (<= x -1))
+(assert-soft (or (> x 0) (< y 1)))
+(assert-soft (> y 2))
+(assert-soft (> y 3))
+(assert-soft (<= y -1)) 
+(assert (= z (+ x y)))
         

@@ -111,16 +111,6 @@ void static_features::flush_cache() {
     m_expr2formula_depth.reset();
 }
 
-#if 0
-bool static_features::is_non_linear(expr * e) const {
-    if (!is_arith_expr(e))
-        return false;
-    if (is_numeral(e))
-        return true;
-    if (m_autil.is_add(e))
-        return true; // the non
-} 
-#endif
 
 bool static_features::is_diff_term(expr const * e, rational & r) const {
     // lhs can be 'x' or '(+ k x)'
@@ -301,10 +291,12 @@ void static_features::update_core(expr * e) {
                 m_num_interpreted_constants++;
         }
         if (fid == m_afid) {
+            // std::cout << mk_pp(e, m_manager) << "\n";
             switch (to_app(e)->get_decl_kind()) {
             case OP_MUL:
-                if (!is_numeral(to_app(e)->get_arg(0)))
+                if (!is_numeral(to_app(e)->get_arg(0)) || to_app(e)->get_num_args() > 2) {
                     m_num_non_linear++;
+                }
                 break;
             case OP_DIV:
             case OP_IDIV:

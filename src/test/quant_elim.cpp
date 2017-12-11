@@ -8,8 +8,6 @@ Copyright (c) 2015 Microsoft Corporation
 #include "smt/params/smt_params.h"
 #include "qe/qe.h"
 #include "ast/ast_pp.h"
-#include "parsers/smt/smtlib.h"
-#include "parsers/smt/smtparser.h"
 #include "util/lbool.h"
 #include <sstream>
 #include "ast/reg_decl_plugins.h"
@@ -54,6 +52,9 @@ static void test_qe(ast_manager& m, lbool expected_outcome, expr* fml, char cons
 static void test_formula(lbool expected_outcome, char const* fml) {
     ast_manager m;
     reg_decl_plugins(m);
+    // No-op requires SMTLIB2
+
+#if 0
     scoped_ptr<smtlib::parser> parser = smtlib::parser::create(m);
     parser->initialize_smtlib();
 
@@ -73,7 +74,9 @@ static void test_formula(lbool expected_outcome, char const* fml) {
     for (; it != end; ++it) {
         test_qe(m, expected_outcome, *it, 0);
     }
+#endif
 }
+
 
 void tst_quant_elim() {
     disable_debug("heap");

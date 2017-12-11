@@ -233,13 +233,14 @@ namespace opt {
 
     private:
         lbool execute(objective const& obj, bool committed, bool scoped);
-        lbool execute_min_max(unsigned index, bool committed, bool scoped, bool is_max);
+        lbool execute_min_max(unsigned index, bool committed, bool scoped, bool is_max);        
         lbool execute_maxsat(symbol const& s, bool committed, bool scoped);
         lbool execute_lex();
         lbool execute_box();
         lbool execute_pareto();
         lbool adjust_unknown(lbool r);
         bool scoped_lex();
+        bool contains_quantifiers() const;
         expr_ref to_expr(inf_eps const& n);
         void to_exprs(inf_eps const& n, expr_ref_vector& es);
 

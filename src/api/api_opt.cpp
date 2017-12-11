@@ -16,17 +16,19 @@ Revision History:
 
 --*/
 #include<iostream>
+#include "util/cancel_eh.h"
+#include "util/file_path.h"
+#include "util/scoped_timer.h"
+#include "parsers/smt2/smt2parser.h"
+#include "opt/opt_context.h"
+#include "opt/opt_cmds.h"
+#include "opt/opt_parse.h"
 #include "api/z3.h"
 #include "api/api_log_macros.h"
 #include "api/api_stats.h"
 #include "api/api_context.h"
 #include "api/api_util.h"
 #include "api/api_model.h"
-#include "opt/opt_context.h"
-#include "opt/opt_cmds.h"
-#include "util/cancel_eh.h"
-#include "util/scoped_timer.h"
-#include "parsers/smt2/smt2parser.h"
 #include "api/api_ast_vector.h"
 
 extern "C" {
@@ -281,22 +283,48 @@ extern "C" {
     static void Z3_optimize_from_stream(
         Z3_context    c,
         Z3_optimize opt,
-        std::istream& s) {
-        ast_manager& m = mk_c(c)->m();
+        std::istream& s, 
+        char const* ext) {
+        ast_manager& m = mk_c(c)->m();        
+        if (ext && std::string("opb") == ext) {
+            unsigned_vector h;
+            parse_opb(*to_optimize_ptr(opt), s, h);
+            return;
+        }
+        if (ext && std::string("wcnf") == ext) {
+            unsigned_vector h;
+            parse_wcnf(*to_optimize_ptr(opt), s, h);
+            return;
+        }
         scoped_ptr<cmd_context> ctx = alloc(cmd_context, false, &m);
         install_opt_cmds(*ctx.get(), to_optimize_ptr(opt));
+        std::stringstream errstrm;
+        ctx->set_regular_stream(errstrm);
         ctx->set_ignore_check(true);
-        if (!parse_smt2_commands(*ctx.get(), s)) {
+        try {
+            if (!parse_smt2_commands(*ctx.get(), s)) {
+                mk_c(c)->m_parser_error_buffer = errstrm.str();            
+                ctx = nullptr;
+                SET_ERROR_CODE(Z3_PARSER_ERROR);
+                return;
+            }        
+        }
+        catch (z3_exception& e) {
+            errstrm << e.msg();
+            mk_c(c)->m_parser_error_buffer = errstrm.str();            
             ctx = nullptr;
             SET_ERROR_CODE(Z3_PARSER_ERROR);
             return;
-        }        
+        }
+
         ptr_vector<expr>::const_iterator it  = ctx->begin_assertions();
         ptr_vector<expr>::const_iterator end = ctx->end_assertions();
         for (; it != end; ++it) {
             to_optimize_ptr(opt)->add_hard_constraint(*it);
         }
     }
+
+
 
     void Z3_API Z3_optimize_from_string(
         Z3_context    c,
@@ -306,7 +334,7 @@ extern "C" {
         //LOG_Z3_optimize_from_string(c, d, s);
         std::string str(s);
         std::istringstream is(str);
-        Z3_optimize_from_stream(c, d, is);
+        Z3_optimize_from_stream(c, d, is, nullptr);
         Z3_CATCH;
     }
 
@@ -322,7 +350,7 @@ extern "C" {
             strm << "Could not open file " << s;
             throw default_exception(strm.str());
         }
-        Z3_optimize_from_stream(c, d, is);
+        Z3_optimize_from_stream(c, d, is, get_extension(s));
         Z3_CATCH;
     }
 
@@ -335,8 +363,8 @@ extern "C" {
         mk_c(c)->save_object(v);
         expr_ref_vector hard(mk_c(c)->m());
         to_optimize_ptr(o)->get_hard_constraints(hard);
-        for (unsigned i = 0; i < hard.size(); i++) {
-            v->m_ast_vector.push_back(hard[i].get());
+        for (expr* h : hard) {
+            v->m_ast_vector.push_back(h);
         }
         RETURN_Z3(of_ast_vector(v));
         Z3_CATCH_RETURN(0);        

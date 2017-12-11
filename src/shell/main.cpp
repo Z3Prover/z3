@@ -35,9 +35,10 @@ Revision History:
 #include "util/error_codes.h"
 #include "util/gparams.h"
 #include "util/env_params.h"
+#include "util/file_path.h"
 #include "shell/lp_frontend.h"
 
-typedef enum { IN_UNSPECIFIED, IN_SMTLIB, IN_SMTLIB_2, IN_DATALOG, IN_DIMACS, IN_WCNF, IN_OPB, IN_Z3_LOG, IN_MPS } input_kind;
+typedef enum { IN_UNSPECIFIED, IN_SMTLIB_2, IN_DATALOG, IN_DIMACS, IN_WCNF, IN_OPB, IN_Z3_LOG, IN_MPS } input_kind;
 
 std::string         g_aux_input_file;
 char const *        g_input_file          = 0;
@@ -169,9 +170,6 @@ void parse_cmd_line_args(int argc, char ** argv) {
                 std::cout << "\n";
                 exit(0);
             }
-            else if (strcmp(opt_name, "smt") == 0) {
-                g_input_kind = IN_SMTLIB;
-            }
             else if (strcmp(opt_name, "smt2") == 0) {
                 g_input_kind = IN_SMTLIB_2;
             }
@@ -289,19 +287,6 @@ void parse_cmd_line_args(int argc, char ** argv) {
     }
 }
 
-char const * get_extension(char const * file_name) {
-    if (file_name == 0)
-        return 0;
-    char const * last_dot = 0;
-    for (;;) {
-        char const * tmp = strchr(file_name, '.');
-        if (tmp == 0) {
-            return last_dot;
-        }
-        last_dot  = tmp + 1;
-        file_name = last_dot;
-    }
-}
 
 int STD_CALL main(int argc, char ** argv) {
     try{
@@ -340,9 +325,6 @@ int STD_CALL main(int argc, char ** argv) {
                 else if (strcmp(ext, "smt2") == 0) {
                     g_input_kind = IN_SMTLIB_2;
                 }
-                else if (strcmp(ext, "smt") == 0) {
-                    g_input_kind = IN_SMTLIB;
-                }
                 else if (strcmp(ext, "mps") == 0 || strcmp(ext, "sif") == 0 ||
                          strcmp(ext, "MPS") == 0 || strcmp(ext, "SIF") == 0) {
                     g_input_kind = IN_MPS;
@@ -350,9 +332,6 @@ int STD_CALL main(int argc, char ** argv) {
             }
     }
         switch (g_input_kind) {
-        case IN_SMTLIB:
-            return_value = read_smtlib_file(g_input_file);
-            break;
         case IN_SMTLIB_2:
             memory::exit_when_out_of_memory(true, "(error \"out of memory\")");
             return_value = read_smtlib2_commands(g_input_file);
