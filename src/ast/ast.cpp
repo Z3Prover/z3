@@ -1289,7 +1289,7 @@ decl_kind user_sort_plugin::register_name(symbol s) {
 
 decl_plugin * user_sort_plugin::mk_fresh() {
     user_sort_plugin * p = alloc(user_sort_plugin);
-    for (symbol const& s : m_sort_names) 
+    for (symbol const& s : m_sort_names)
         p->register_name(s);
     return p;
 }
@@ -1415,7 +1415,7 @@ ast_manager::~ast_manager() {
             p->finalize();
     }
     for (decl_plugin* p : m_plugins) {
-        if (p) 
+        if (p)
             dealloc(p);
     }
     m_plugins.reset();
@@ -1454,13 +1454,13 @@ ast_manager::~ast_manager() {
                 mark_array_ref(mark, to_quantifier(n)->get_num_patterns(), to_quantifier(n)->get_patterns());
                 mark_array_ref(mark, to_quantifier(n)->get_num_no_patterns(), to_quantifier(n)->get_no_patterns());
                 break;
-            }           
-        }        
+            }
+        }
         for (ast * n : m_ast_table) {
             if (!mark.is_marked(n)) {
                 roots.push_back(n);
             }
-        }        
+        }
         SASSERT(!roots.empty());
         for (unsigned i = 0; i < roots.size(); ++i) {
             ast* a = roots[i];
@@ -1683,7 +1683,7 @@ ast * ast_manager::register_node_core(ast * n) {
     bool contains = m_ast_table.contains(n);
     CASSERT("nondet_bug", contains || slow_not_contains(n));
 #endif
-    
+
     ast * r = m_ast_table.insert_if_not_there(n);
     SASSERT(r->m_hash == h);
     if (r != n) {
@@ -2358,8 +2358,9 @@ quantifier * ast_manager::mk_quantifier(bool forall, unsigned num_decls, sort * 
                                         unsigned num_patterns, expr * const * patterns,
                                         unsigned num_no_patterns, expr * const * no_patterns) {
     SASSERT(body);
-    SASSERT(num_patterns == 0 || num_no_patterns == 0);
     SASSERT(num_decls > 0);
+    if (num_patterns != 0 && num_no_patterns != 0)
+        throw ast_exception("simultaneous patterns and no-patterns not supported");
     DEBUG_CODE({
             for (unsigned i = 0; i < num_patterns; ++i) {
                 TRACE("ast", tout << i << " " << mk_pp(patterns[i], *this) << "\n";);
@@ -2763,7 +2764,7 @@ proof * ast_manager::mk_transitivity(unsigned num_proofs, proof * const * proofs
 }
 
 proof * ast_manager::mk_transitivity(unsigned num_proofs, proof * const * proofs, expr * n1, expr * n2) {
-    if (num_proofs == 0) 
+    if (num_proofs == 0)
         return nullptr;
     if (num_proofs == 1)
         return proofs[0];
