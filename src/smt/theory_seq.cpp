@@ -4976,12 +4976,69 @@ void theory_seq::add_axiom(literal l1, literal l2, literal l3, literal l4, liter
     ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
 }
 
+expr* theory_seq::coalesce_chars(expr* const& e) {
+    expr* s;
+    if (m_util.str.is_concat(e)) {
+        expr_ref_vector concats(m);
+        m_util.str.get_concat(e, concats);
+        expr_ref_vector result(m);
+        for (unsigned i = 0; i < concats.size(); ++i) {
+            expr_ref tmp(coalesce_chars(concats[i].get()), m);
+            if (m_util.str.is_empty(tmp)) continue;
+            zstring zs, a;
+            bool flag = false;
+            while (m_util.str.is_string(tmp, a)) {
+                if (flag)
+                    zs = zs + a;
+                else
+                    zs = a;
+                flag = true;
+                if (i < concats.size()-1)
+                    tmp = coalesce_chars(concats[++i].get());
+                else {
+                    ++i;
+                    break;
+                }
+            }
+            if (flag) {
+                result.push_back(m_util.str.mk_string(zs));
+                if (i < concats.size())
+                    result.push_back(tmp);
+            }
+            else
+                result.push_back(tmp);
+        }
+        SASSERT(result.size() > 0);
+        if (result.size() > 1)
+            return m_util.str.mk_concat(result.size(), result.c_ptr());
+        else 
+            return e;
+    }
+    else if (m_util.str.is_unit(e, s)) {
+        bv_util bvu(m);
+        if (bvu.is_bv(s)) {
+            expr_ref result(m);
+            expr * args[1] = {s};
+            if (m_seq_rewrite.mk_app_core(to_app(s)->get_decl(), 1, args, result)) {
+                return result;
+            }
+        }
+    }
+    return e;
+}
 
 expr_ref theory_seq::mk_skolem(symbol const& name, expr* e1, expr* e2, expr* e3, expr*e4, sort* range) {
     expr* es[4] = { e1, e2, e3, e4 };
     unsigned len = e4?4:(e3?3:(e2?2:1));
+
     if (!range) {
         range = m.get_sort(e1);
+    }
+    if (name == symbol("seq.align")) {
+        for (unsigned i = 0; i < len; ++i) {
+      	    es[i] = coalesce_chars(es[i]);
+      	    TRACE("seq", tout << mk_pp(es[i], m) << "\n";);
+        }
     }
     return expr_ref(m_util.mk_skolem(name, len, es, range), m);
 }
