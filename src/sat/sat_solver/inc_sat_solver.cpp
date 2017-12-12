@@ -251,15 +251,6 @@ public:
         }
     }
 
-    virtual void assert_lemma(expr* e) {
-        dep2asm_t dep2asm;
-        goal_ref g = alloc(goal, m, true, false); // models, maybe cores are enabled
-        for (unsigned i = m_fmls_head ; i < m_fmls.size(); ++i) {
-            g->assert_expr(m_fmls[i].get());
-        }
-        VERIFY(l_undef != internalize_goal(g, dep2asm, true));        
-    }
-
     virtual ast_manager& get_manager() const { return m; }
     virtual void assert_expr_core(expr * t) {
         m_internalized = false;
@@ -526,7 +517,7 @@ private:
         m_pc = g->pc();
         m_mc = g->mc();
         TRACE("sat", g->display_with_dependencies(tout););
-        m_goal2sat(*g, m_params, m_solver, m_map, dep2asm, false, is_lemma);
+        m_goal2sat(*g, m_params, m_solver, m_map, dep2asm, m_solver.get_config().m_incremental, is_lemma);
         m_goal2sat.get_interpreted_atoms(atoms);
         if (!atoms.empty()) {
             std::stringstream strm;

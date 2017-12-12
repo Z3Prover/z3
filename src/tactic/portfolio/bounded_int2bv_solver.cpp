@@ -105,10 +105,6 @@ public:
         }
     }
 
-    virtual void assert_lemma(expr * t) {
-        m_solver->assert_lemma(t);
-    }
-
     virtual void push_core() {
         flush_assertions();
         m_solver->push();

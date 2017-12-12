@@ -163,6 +163,7 @@ namespace sat {
         void cleanup_clauses(clause_vector & cs, bool learned, bool vars_eliminated, bool in_use_lists);
 
         bool is_external(bool_var v) const;
+        bool is_external(literal l) const { return is_external(l.var()); }
         bool was_eliminated(bool_var v) const;
         lbool value(bool_var v) const;
         lbool value(literal l) const;

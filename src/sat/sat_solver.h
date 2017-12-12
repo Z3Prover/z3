@@ -263,6 +263,7 @@ namespace sat {
         unsigned num_clauses() const;
         unsigned num_restarts() const { return m_restarts; }
         bool is_external(bool_var v) const { return m_external[v] != 0; }
+        bool is_external(literal l) const { return is_external(l.var()); }
         void set_external(bool_var v);
         void set_non_external(bool_var v);
         bool was_eliminated(bool_var v) const { return m_eliminated[v] != 0; }
@@ -305,6 +306,7 @@ namespace sat {
         bool canceled() { return !m_rlimit.inc(); }
         config const& get_config() const { return m_config; }
         void set_incremental(bool b) { m_config.m_incremental = b; }
+        bool is_incremental() const { return m_config.m_incremental; }
         extension* get_extension() const { return m_ext.get(); }
         void       set_extension(extension* e);
         bool       set_root(literal l, literal r);

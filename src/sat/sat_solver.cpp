@@ -904,6 +904,11 @@ namespace sat {
             propagate(false);
             if (check_inconsistent()) return l_false;
             cleanup();
+            if (m_config.m_gc_burst) {
+                // force gc
+                m_conflicts_since_gc = m_gc_threshold + 1;
+                gc();
+            }
             if (m_config.m_max_conflicts > 0 && m_config.m_burst_search > 0) {
                 m_restart_threshold = m_config.m_burst_search;
                 lbool r = bounded_search();
@@ -1326,6 +1331,7 @@ namespace sat {
     void solver::add_assumption(literal lit) {
         m_assumption_set.insert(lit);
         m_assumptions.push_back(lit);
+        VERIFY(is_external(lit.var()));
     }
 
     void solver::pop_assumption() {
@@ -1438,13 +1444,11 @@ namespace sat {
             CASSERT("sat_simplify_bug", check_invariant());
         }
 
-
         if (m_config.m_lookahead_simplify) {
             lookahead lh(*this);
             lh.simplify();
             lh.collect_statistics(m_aux_stats);
         }
-
 
         sort_watch_lits();
         CASSERT("sat_simplify_bug", check_invariant());
@@ -1585,6 +1589,8 @@ namespace sat {
         }
         for (literal l : m_assumptions) {
             if (value_at(l, m) != l_true) {
+                VERIFY(is_external(l.var()));
+                IF_VERBOSE(0, verbose_stream() << l << " does not model check " << value_at(l, m) << "\n";);
                 TRACE("sat",
                       tout << l << " does not model check\n";
                       tout << "trail: " << m_trail << "\n";
@@ -1641,7 +1647,7 @@ namespace sat {
     void solver::gc() {
         if (m_conflicts_since_gc <= m_gc_threshold)
             return;
-        IF_VERBOSE(1, verbose_stream() << "gc\n";);
+        IF_VERBOSE(10, verbose_stream() << "(sat.gc)\n";);
         CASSERT("sat_gc_bug", check_invariant());
         switch (m_config.m_gc_strategy) {
         case GC_GLUE:
@@ -2099,6 +2105,7 @@ namespace sat {
 
         pop_reinit(m_scope_lvl - new_scope_lvl);
         TRACE("sat_conflict_detail", tout << new_scope_lvl << "\n"; display(tout););
+        // unsound: m_asymm_branch.minimize(m_scc, m_lemma);
         clause * lemma = mk_clause_core(m_lemma.size(), m_lemma.c_ptr(), true);
         if (lemma) {
             lemma->set_glue(glue);

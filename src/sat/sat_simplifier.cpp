@@ -77,6 +77,7 @@ namespace sat {
     inline bool simplifier::is_external(bool_var v) const { 
         return 
             s.is_assumption(v) ||
+            (s.is_external(v) && s.is_incremental()) ||
             (s.is_external(v) && s.m_ext &&
              (!m_ext_use_list.get(literal(v, false)).empty() ||
               !m_ext_use_list.get(literal(v, true)).empty()));
@@ -154,6 +155,7 @@ namespace sat {
         else {
             remove_clause(c);
         }
+        
     }
 
     inline void simplifier::unblock_clause(clause & c) {
@@ -1354,6 +1356,7 @@ namespace sat {
 
         void prepare_block_clause(clause& c, literal l, model_converter::entry*& new_entry, model_converter::kind k) {
             TRACE("blocked_clause", tout << "new blocked clause: " << c << "\n";);
+            VERIFY(!s.is_external(l));
             if (new_entry == 0 && !s.m_retain_blocked_clauses)
                 new_entry = &(mc.mk(k, l.var()));
             m_to_remove.push_back(&c);
@@ -1365,20 +1368,22 @@ namespace sat {
         }
 
         void block_clause(clause& c, literal l, model_converter::entry *& new_entry) {
+            SASSERT(!s.is_external(l.var()));
             prepare_block_clause(c, l, new_entry, model_converter::BLOCK_LIT);
-            if (!s.m_retain_blocked_clauses) 
-                mc.insert(*new_entry, c);
+            mc.insert(*new_entry, c);
         }
 
         void block_covered_clause(clause& c, literal l, model_converter::kind k) {
+            SASSERT(!s.is_external(l.var()));
             model_converter::entry * new_entry = 0;
             prepare_block_clause(c, l, new_entry, k);
-            if (!s.m_retain_blocked_clauses) 
-                mc.insert(*new_entry, m_covered_clause, m_elim_stack);
+            mc.insert(*new_entry, m_covered_clause, m_elim_stack);
         }
         
         void prepare_block_binary(watch_list::iterator it, literal l1, literal blocked, model_converter::entry*& new_entry, model_converter::kind k) {
-            if (new_entry == 0 && !s.m_retain_blocked_clauses) 
+            SASSERT(!s.is_external(blocked));
+            VERIFY(!s.is_external(blocked));
+            if (new_entry == 0) 
                 new_entry = &(mc.mk(k, blocked.var()));
             literal l2 = it->get_literal();
             TRACE("blocked_clause", tout << "new blocked clause: " << l2 << " " << l1 << "\n";);
@@ -1394,15 +1399,13 @@ namespace sat {
         
         void block_binary(watch_list::iterator it, literal l, model_converter::entry *& new_entry) {
             prepare_block_binary(it, l, l, new_entry, model_converter::BLOCK_LIT);
-            if (!s.m_retain_blocked_clauses) 
-                mc.insert(*new_entry, l, it->get_literal());
+            mc.insert(*new_entry, l, it->get_literal());
         }
 
         void block_covered_binary(watch_list::iterator it, literal l, literal blocked, model_converter::kind k) {
             model_converter::entry * new_entry = 0;
             prepare_block_binary(it, l, blocked, new_entry, k);
-            if (!s.m_retain_blocked_clauses) 
-                mc.insert(*new_entry, m_covered_clause, m_elim_stack);
+            mc.insert(*new_entry, m_covered_clause, m_elim_stack);
         }
 
         void bca() {
@@ -1779,6 +1782,7 @@ namespace sat {
 
         // eliminate variable
         ++s.m_stats.m_elim_var_res;
+        VERIFY(!s.is_external(v));
         model_converter::entry & mc_entry = s.m_mc.mk(model_converter::ELIM_VAR, v);
         save_clauses(mc_entry, m_pos_cls);
         save_clauses(mc_entry, m_neg_cls);
@@ -1867,7 +1871,10 @@ namespace sat {
             checkpoint();
             if (m_elim_counter < 0) 
                 break;
-            if (try_eliminate(v)) {
+            if (is_external(v)) {
+                // skip
+            }
+            else if (try_eliminate(v)) {
                 m_num_elim_vars++;
             }
             else if (elim_vars_bdd_enabled() && elim_bdd(v)) { 
