@@ -134,7 +134,6 @@ namespace sat {
                 s.propagate(false); 
                 if (s.m_inconsistent)
                     break;
-                // std::cout << m_elim_literals - elim << "\n";
                 if (m_elim_literals == elim)
                     break;
             }
@@ -232,19 +231,6 @@ namespace sat {
             }
         }
         if (!m_to_delete.empty()) {
-#if 0
-            std::cout << "delete " << m_to_delete << "\n";
-
-            std::cout << "pos\n";
-            for (literal l : m_pos) {
-                std::cout << l << ": " << scc.get_left(l) << " " << scc.get_right(l) << "\n";
-            }
-            std::cout << "neg\n";
-            for (literal l : m_neg) {
-                std::cout << l << ": " << scc.get_left(l) << " " << scc.get_right(l) << "\n";
-            }
-            std::cout << "\n";
-#endif
             unsigned j = 0;
             for (unsigned i = 0; i < c.size(); ++i) {
                 if (!m_to_delete.contains(c[i])) {
