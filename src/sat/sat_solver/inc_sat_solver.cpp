@@ -36,6 +36,7 @@ Notes:
 #include "ast/ast_util.h"
 #include "tactic/core/propagate_values_tactic.h"
 #include "sat/sat_params.hpp"
+#include "sat/sat_simplifier_params.hpp"
 
 // incremental SAT solver.
 class inc_sat_solver : public solver {
@@ -88,7 +89,17 @@ public:
         m_internalized_fmls(m) {
         updt_params(p);
         init_preprocess();
-        m_solver.set_incremental(incremental_mode);
+        m_solver.set_incremental(incremental_mode && !override_incremental());
+    }
+
+    bool override_incremental() const {
+        sat_simplifier_params p(m_params);
+        std::cout << "override: " << p.override_incremental() << "\n";
+        return p.override_incremental();
+    }
+
+    bool is_incremental() const {
+        return m_solver.get_config().m_incremental;
     }
 
     virtual ~inc_sat_solver() {}
@@ -99,7 +110,7 @@ public:
         }
         ast_translation tr(m, dst_m);
         m_solver.pop_to_base_level();
-        inc_sat_solver* result = alloc(inc_sat_solver, dst_m, p, m_solver.get_config().m_incremental);
+        inc_sat_solver* result = alloc(inc_sat_solver, dst_m, p, is_incremental());
         result->m_solver.copy(m_solver);
         result->m_fmls_head = m_fmls_head;
         for (expr* f : m_fmls) result->m_fmls.push_back(tr(f));
@@ -272,6 +283,7 @@ public:
         m_params.set_bool("pb_totalizer", m_solver.get_config().m_pb_solver == sat::PB_TOTALIZER);
         m_params.set_bool("xor_solver", p1.xor_solver());
         m_solver.updt_params(m_params);
+        m_solver.set_incremental(is_incremental() && !override_incremental());
 
     }
     virtual void collect_statistics(statistics & st) const {
@@ -517,7 +529,7 @@ private:
         m_pc = g->pc();
         m_mc = g->mc();
         TRACE("sat", g->display_with_dependencies(tout););
-        m_goal2sat(*g, m_params, m_solver, m_map, dep2asm, m_solver.get_config().m_incremental, is_lemma);
+        m_goal2sat(*g, m_params, m_solver, m_map, dep2asm, is_incremental(), is_lemma);
         m_goal2sat.get_interpreted_atoms(atoms);
         if (!atoms.empty()) {
             std::stringstream strm;
