@@ -2420,7 +2420,7 @@ namespace sat {
                     }
                 }
             }
-            std::cout << candidates.size() << " -> " << k << "\n";
+            //std::cout << candidates.size() << " -> " << k << "\n";
             if (k == candidates.size()) break;
             candidates.shrink(k);
             if (k == 0) break;
