@@ -134,7 +134,7 @@ namespace sat {
                 s.propagate(false); 
                 if (s.m_inconsistent)
                     break;
-                std::cout << m_elim_literals - elim << "\n";
+                // std::cout << m_elim_literals - elim << "\n";
                 if (m_elim_literals == elim)
                     break;
             }
