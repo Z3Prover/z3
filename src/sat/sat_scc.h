@@ -51,6 +51,8 @@ namespace sat {
 
         struct pframe;
 
+        bool reaches_aux(literal u, literal v) const { return m_left[u.index()] < m_left[v.index()] && m_right[v.index()] < m_right[u.index()]; } 
+
     public:
 
         scc(solver & s, params_ref const & p);
@@ -66,11 +68,12 @@ namespace sat {
           \brief create binary implication graph and associated data-structures to check transitivity.
          */
         void init_big(bool learned);
+        void ensure_big(bool learned) { if (m_left.empty()) init_big(learned); }
         int get_left(literal l) const { return m_left[l.index()]; }
         int get_right(literal l) const { return m_right[l.index()]; }
         literal get_parent(literal l) const { return m_parent[l.index()]; }
         literal get_root(literal l) const { return m_root[l.index()]; }
-        bool reaches(literal u, literal v) const { return m_left[u.index()] < m_left[v.index()] && m_right[v.index()] < m_right[u.index()]; }
+        bool reaches(literal u, literal v) const { return reaches_aux(u, v) || reaches_aux(~v, ~u); }        
     };
 };
 

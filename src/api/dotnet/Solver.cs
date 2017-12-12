@@ -240,29 +240,6 @@ namespace Microsoft.Z3
 	}
 
         /// <summary>
-        /// Assert a lemma (or multiple) into the solver.
-        /// </summary>        
-        public void AssertLemma(params BoolExpr[] constraints)
-        {
-            Contract.Requires(constraints != null);
-            Contract.Requires(Contract.ForAll(constraints, c => c != null));
-
-            Context.CheckContextMatch<BoolExpr>(constraints);
-            foreach (BoolExpr a in constraints)
-            {
-                Native.Z3_solver_assert_lemma(Context.nCtx, NativeObject, a.NativeObject);
-            }
-        }
-
-        /// <summary>
-        /// Assert a lemma (or multiple) into the solver.
-        /// </summary>        
-        public void AddLemma(IEnumerable<BoolExpr> constraints)
-        {
-            AssertLemma(constraints.ToArray());
-        }
-
-        /// <summary>
         /// The number of assertions in the solver.
         /// </summary>
         public uint NumAssertions
@@ -324,6 +301,7 @@ namespace Microsoft.Z3
                 r = (Z3_lbool)Native.Z3_solver_check_assumptions(Context.nCtx, NativeObject, (uint)asms.Length, AST.ArrayToNative(asms));
             return lboolToStatus(r);
         }
+
 
         /// <summary>
         /// Retrieve fixed assignments to the set of variables in the form of consequences.

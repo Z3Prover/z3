@@ -68,16 +68,6 @@ public:
         m_solver->assert_expr(bounds);
     }
 
-    virtual void assert_lemma(expr* t) {
-        expr_ref tmp(t, m);
-        expr_ref_vector bounds(m);
-        proof_ref tmp_proof(m);
-        m_rewriter(t, tmp, tmp_proof);
-        m_solver->assert_lemma(tmp);
-        m_rewriter.flush_side_constraints(bounds);
-        m_solver->assert_expr(bounds);        
-    }  
-
     virtual void push_core() {
         m_rewriter.push();
         m_solver->push();

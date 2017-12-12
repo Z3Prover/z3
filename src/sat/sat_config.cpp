@@ -24,24 +24,8 @@ Revision History:
 
 namespace sat {
 
-    config::config(params_ref const & p):
-        m_restart_max(0),
-        m_always_true("always_true"),
-        m_always_false("always_false"),
-        m_caching("caching"),
-        m_random("random"),
-        m_geometric("geometric"),
-        m_luby("luby"),
-        m_dyn_psm("dyn_psm"),
-        m_psm("psm"),
-        m_glue("glue"),
-        m_glue_psm("glue_psm"),
-        m_psm_glue("psm_glue") {
-        m_num_threads = 1;
-        m_lookahead_simplify = false;
-        m_lookahead_simplify_bca = false;
-        m_elim_vars = false;
-        m_incremental = false;
+    config::config(params_ref const & p) {
+        m_incremental = false; // ad-hoc parameter
         updt_params(p); 
     }
 
@@ -50,21 +34,21 @@ namespace sat {
         m_max_memory  = megabytes_to_bytes(p.max_memory());
 
         symbol s = p.restart();
-        if (s == m_luby)
+        if (s == symbol("luby"))
             m_restart = RS_LUBY;
-        else if (s == m_geometric)
+        else if (s == symbol("geometric"))
             m_restart = RS_GEOMETRIC;
         else
             throw sat_param_exception("invalid restart strategy");
 
         s = p.phase();
-        if (s == m_always_false) 
+        if (s == symbol("always_false")) 
             m_phase = PS_ALWAYS_FALSE;
-        else if (s == m_always_true)
+        else if (s == symbol("always_true"))
             m_phase = PS_ALWAYS_TRUE;
-        else if (s == m_caching)
+        else if (s == symbol("caching"))
             m_phase = PS_CACHING;
-        else if (s == m_random)
+        else if (s == symbol("random"))
             m_phase = PS_RANDOM;
         else
             throw sat_param_exception("invalid phase selection strategy");
@@ -90,24 +74,18 @@ namespace sat {
         m_local_search_threads = p.local_search_threads();
         m_lookahead_simplify = p.lookahead_simplify();
         m_lookahead_simplify_bca = p.lookahead_simplify_bca();
-        if (p.lookahead_reward() == symbol("heule_schur")) {
+        if (p.lookahead_reward() == symbol("heule_schur")) 
             m_lookahead_reward = heule_schur_reward;
-        }
-        else if (p.lookahead_reward() == symbol("heuleu")) {
+        else if (p.lookahead_reward() == symbol("heuleu")) 
             m_lookahead_reward = heule_unit_reward;
-        }
-        else if (p.lookahead_reward() == symbol("ternary")) {
+        else if (p.lookahead_reward() == symbol("ternary")) 
             m_lookahead_reward = ternary_reward;
-        }
-        else if (p.lookahead_reward() == symbol("unit")) {
+        else if (p.lookahead_reward() == symbol("unit")) 
             m_lookahead_reward = unit_literal_reward;
-        }
-        else if (p.lookahead_reward() == symbol("march_cu")) {
+        else if (p.lookahead_reward() == symbol("march_cu")) 
             m_lookahead_reward = march_cu_reward;
-        }
-        else { 
+        else  
             throw sat_param_exception("invalid reward type supplied: accepted heuristics are 'ternary', 'heuleu', 'unit' or 'heule_schur'");
-        }
 
         m_lookahead_cube_fraction = p.lookahead_cube_fraction();
         m_lookahead_cube_cutoff = p.lookahead_cube_cutoff();
@@ -120,29 +98,23 @@ namespace sat {
         // --------------------------------
 
         s = p.gc();
-        if (s == m_dyn_psm) {
-            m_gc_strategy     = GC_DYN_PSM;
-            m_gc_initial      = p.gc_initial();
-            m_gc_increment    = p.gc_increment();
-            m_gc_small_lbd    = p.gc_small_lbd();
-            m_gc_k            = p.gc_k();
-            if (m_gc_k > 255)
-                m_gc_k = 255;
-        }
-        else {
-            if (s == m_glue_psm)
-                m_gc_strategy = GC_GLUE_PSM;
-            else if (s == m_glue)
-                m_gc_strategy = GC_GLUE;
-            else if (s == m_psm)
-                m_gc_strategy = GC_PSM;
-            else if (s == m_psm_glue)
-                m_gc_strategy = GC_PSM_GLUE;
-            else 
-                throw sat_param_exception("invalid gc strategy");
-            m_gc_initial      = p.gc_initial();
-            m_gc_increment    = p.gc_increment();
-        }
+        if (s == symbol("dyn_psm")) 
+            m_gc_strategy = GC_DYN_PSM;
+        else if (s == symbol("glue_psm"))
+            m_gc_strategy = GC_GLUE_PSM;
+        else if (s == symbol("glue"))
+            m_gc_strategy = GC_GLUE;
+        else if (s == symbol("psm"))
+            m_gc_strategy = GC_PSM;
+        else if (s == symbol("psm_glue"))
+            m_gc_strategy = GC_PSM_GLUE;
+        else 
+            throw sat_param_exception("invalid gc strategy");
+        m_gc_initial      = p.gc_initial();
+        m_gc_increment    = p.gc_increment();
+        m_gc_small_lbd    = p.gc_small_lbd();
+        m_gc_k            = std::min(255u, p.gc_k());
+
         m_minimize_lemmas = p.minimize_lemmas();
         m_core_minimize   = p.core_minimize();
         m_core_minimize_partial   = p.core_minimize_partial();
@@ -154,18 +126,15 @@ namespace sat {
 
         // Parameters used in Liang, Ganesh, Poupart, Czarnecki AAAI 2016.
         m_branching_heuristic = BH_VSIDS;
-        if (p.branching_heuristic() == symbol("vsids")) {
+        if (p.branching_heuristic() == symbol("vsids")) 
             m_branching_heuristic = BH_VSIDS;
-        }
-        else if (p.branching_heuristic() == symbol("chb")) {
+        else if (p.branching_heuristic() == symbol("chb")) 
             m_branching_heuristic = BH_CHB;
-        }
-        else if (p.branching_heuristic() == symbol("lrb")) {
+        else if (p.branching_heuristic() == symbol("lrb")) 
             m_branching_heuristic = BH_LRB;
-        }
-        else {
+        else 
             throw sat_param_exception("invalid branching heuristic: accepted heuristics are 'vsids', 'lrb' or 'chb'");
-        }
+
         m_anti_exploration = p.branching_anti_exploration();
         m_step_size_init = 0.40;
         m_step_size_dec  = 0.000001;
@@ -177,21 +146,16 @@ namespace sat {
 
         // PB parameters
         s = p.pb_solver();
-        if (s == symbol("circuit")) {
+        if (s == symbol("circuit")) 
             m_pb_solver = PB_CIRCUIT;
-        }
-        else if (s == symbol("sorting")) {
+        else if (s == symbol("sorting")) 
             m_pb_solver = PB_SORTING;
-        }
-        else if (s == symbol("totalizer")) {
+        else if (s == symbol("totalizer")) 
             m_pb_solver = PB_TOTALIZER;
-        }
-        else if (s == symbol("solver")) {
+        else if (s == symbol("solver")) 
             m_pb_solver = PB_SOLVER;
-        }
-        else {
+        else 
             throw sat_param_exception("invalid PB solver: solver, totalizer, circuit, sorting");
-        }
 
         sat_simplifier_params sp(_p);
         m_elim_vars = sp.elim_vars();

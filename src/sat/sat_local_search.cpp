@@ -301,12 +301,10 @@ namespace sat {
             for (unsigned l_idx = 0; l_idx < sz; ++l_idx) {
                 literal l1 = ~to_literal(l_idx);
                 watch_list const & wlist = s.m_watches[l_idx];
-                watch_list::const_iterator it  = wlist.begin();
-                watch_list::const_iterator end = wlist.end();
-                for (; it != end; ++it) {
-                    if (!it->is_binary_unblocked_clause())
+                for (watched const& w : wlist) {
+                    if (!w.is_binary_unblocked_clause())
                         continue;
-                    literal l2 = it->get_literal();
+                    literal l2 = w.get_literal();
                     if (l1.index() > l2.index()) 
                         continue;
                     literal ls[2] = { l1, l2 };
@@ -316,11 +314,8 @@ namespace sat {
         }
 
         // copy clauses
-        clause_vector::const_iterator it =  s.m_clauses.begin();
-        clause_vector::const_iterator end = s.m_clauses.end();
-        for (; it != end; ++it) {
-            clause& c = *(*it);
-            add_clause(c.size(), c.begin());
+        for (clause* c : s.m_clauses) {
+            add_clause(c->size(), c->begin());
         }
         m_num_non_binary_clauses = s.m_clauses.size();
 
@@ -568,12 +563,11 @@ namespace sat {
             best_var = v = l.var();
             bool tt = cur_solution(v);
             coeff_vector const& falsep = m_vars[v].m_watch[!tt];
-            coeff_vector::const_iterator it = falsep.begin(), end = falsep.end();
-            for (; it != end; ++it) {
-                int slack = constraint_slack(it->m_constraint_id);
+            for (pbcoeff const& pbc : falsep) {
+                int slack = constraint_slack(pbc.m_constraint_id);
                 if (slack < 0)
                     ++best_bsb;
-                else if (slack < static_cast<int>(it->m_coeff))
+                else if (slack < static_cast<int>(pbc.m_coeff))
                     best_bsb += num_unsat;
             }
             ++cit;
@@ -583,7 +577,7 @@ namespace sat {
                     v = l.var();                    
                     unsigned bsb = 0;
                     coeff_vector const& falsep = m_vars[v].m_watch[!cur_solution(v)];
-                    coeff_vector::const_iterator it = falsep.begin(), end = falsep.end();
+                    auto it = falsep.begin(), end = falsep.end();
                     for (; it != end; ++it) {
                         int slack = constraint_slack(it->m_constraint_id);
                         if (slack < 0) {
@@ -637,22 +631,20 @@ namespace sat {
         coeff_vector const& truep = m_vars[flipvar].m_watch[flip_is_true];
         coeff_vector const& falsep = m_vars[flipvar].m_watch[!flip_is_true];
 
-        coeff_vector::const_iterator it = truep.begin(), end = truep.end();
-        for (; it != end; ++it) {
-            unsigned ci = it->m_constraint_id;
+        for (auto const& pbc : truep) {
+            unsigned ci = pbc.m_constraint_id;
             constraint& c = m_constraints[ci];
             int old_slack = c.m_slack;
-            c.m_slack -= it->m_coeff;
+            c.m_slack -= pbc.m_coeff;
             if (c.m_slack < 0 && old_slack >= 0) { // from non-negative to negative: sat -> unsat
                 unsat(ci);
             }
         }
-        it = falsep.begin(), end = falsep.end();
-        for (; it != end; ++it) {
-            unsigned ci = it->m_constraint_id;
+        for (auto const& pbc : falsep) {
+            unsigned ci = pbc.m_constraint_id;
             constraint& c = m_constraints[ci];
             int old_slack = c.m_slack;
-            c.m_slack += it->m_coeff;
+            c.m_slack += pbc.m_coeff;
             if (c.m_slack >= 0 && old_slack < 0) { // from negative to non-negative: unsat -> sat
                 sat(ci);
             }
