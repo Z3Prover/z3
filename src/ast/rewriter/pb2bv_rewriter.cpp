@@ -319,9 +319,8 @@ struct pb2bv_rewriter::imp {
                     sums.insert(sum);                        
                 }
             }
-            uint_set::iterator it = sums.begin(), end = sums.end();
-            for (; it != end; ++it) {
-                oc.push_back(*it);
+            for (unsigned u : sums) {
+                oc.push_back(u);
             }            
             std::sort(oc.begin(), oc.end());
             DEBUG_CODE(                

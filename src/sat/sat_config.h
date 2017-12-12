@@ -114,6 +114,7 @@ namespace sat {
         unsigned           m_gc_increment;
         unsigned           m_gc_small_lbd;
         unsigned           m_gc_k;
+        bool               m_gc_burst;
 
         bool               m_minimize_lemmas;
         bool               m_dyn_sub_res;
@@ -123,20 +124,7 @@ namespace sat {
         symbol             m_drat_file;
         bool               m_drat_check_unsat;
         bool               m_drat_check_sat;
-
-        symbol             m_always_true;
-        symbol             m_always_false;
-        symbol             m_caching;
-        symbol             m_random;
-        symbol             m_geometric;
-        symbol             m_luby;
         
-        symbol             m_dyn_psm;
-        symbol             m_psm;        
-        symbol             m_glue;        
-        symbol             m_glue_psm;        
-        symbol             m_psm_glue;      
-
         pb_solver          m_pb_solver;
         
         // branching heuristic settings.

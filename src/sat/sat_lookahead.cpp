@@ -683,7 +683,7 @@ namespace sat {
             // NB. u.index() > l.index() iff u.index() > (~l).index().
             // since indices for the same boolean variables occupy
             // two adjacent numbers.
-            if (u.index() > l.index() && is_stamped(u)) {                
+            if (u.index() > l.index() && is_stamped(u) && ~l != u) {                
                 add_arc(~l, ~u);
                 add_arc( u,  l);
             }
@@ -692,7 +692,8 @@ namespace sat {
             lits.reset();
             if (w.is_ext_constraint() && m_s.m_ext->is_extended_binary(w.get_ext_constraint_idx(), lits)) { 
                 for (literal u : lits) {
-                    if (u.index() > l.index() && is_stamped(u)) {
+                    // u is positive in lits, l is negative:                    
+                    if (~l != u && u.index() > l.index() && is_stamped(u)) {
                         add_arc(~l, ~u);
                         add_arc( u,  l);
                     }
@@ -2291,7 +2292,7 @@ namespace sat {
         init();                
         if (inconsistent()) return;
         inc_istamp();            
-        literal l = choose();
+        literal l = choose();        
         if (inconsistent()) return;
         SASSERT(m_trail_lim.empty());
         unsigned num_units = 0;
@@ -2303,7 +2304,7 @@ namespace sat {
                 ++num_units;
             }
         }        
-        IF_VERBOSE(1, verbose_stream() << "(sat-lookahead :units " << num_units << ")\n";);
+        IF_VERBOSE(1, verbose_stream() << "(sat-lookahead :units " << num_units << " :propagations " << m_stats.m_propagations << ")\n";);
          
         if (m_s.inconsistent()) return;
 
@@ -2352,16 +2353,8 @@ namespace sat {
     void lookahead::add_hyper_binary() {
 
         unsigned num_lits = m_s.num_vars() * 2;
+        unsigned num_bins = 0;
 
-#if 0
-        std::cout << "binary trail size: " << m_binary_trail.size() << "\n";
-        std::cout << "Are windfalls still on the trail at base level?\n";
-#endif   
-
-        unsigned disconnected1 = 0;
-        unsigned disconnected2 = 0;
-
-#if 1
         typedef std::pair<unsigned, unsigned> u_pair;
         hashtable<u_pair, pair_hash<unsigned_hash, unsigned_hash>, default_eq<u_pair> > imp;
         for (unsigned idx = 0; idx < num_lits; ++idx) {
@@ -2392,14 +2385,16 @@ namespace sat {
             literal_vector const& lits = m_binary[idx];
             for (unsigned sz = bin_size[idx]; sz > 0; --sz) {
                 literal v = lits[lits.size() - sz];
-                if (v != get_parent(v)) continue;
-                if (m_s.was_eliminated(v.var())) continue;
-                if (imp.contains(std::make_pair(u.index(), v.index()))) continue;
-                if (scc.reaches(u, v)) continue;
-                candidates.push_back(std::make_pair(u, v));
+                if (v == get_parent(v) && 
+                    !m_s.was_eliminated(v.var()) && 
+                    !imp.contains(std::make_pair(u.index(), v.index())) && 
+                    !scc.reaches(u, v)) {
+                    candidates.push_back(std::make_pair(u, v));
+                }
             }
         }
-        for (unsigned i = 0; i < 5; ++i) {
+
+        for (unsigned count = 0; count < 5; ++count) {
             scc.init_big(true);
             unsigned k = 0;
             union_find_default_ctx ufctx;
@@ -2410,7 +2405,7 @@ namespace sat {
                 literal v = candidates[j].second;
                 if (!scc.reaches(u, v)) {
                     if (uf.find(u.index()) != uf.find(v.index())) {
-                        ++disconnected1;
+                        ++num_bins;
                         uf.merge(u.index(), v.index());
                         uf.merge((~u).index(), (~v).index());
                         VERIFY(!m_s.was_eliminated(u.var()));
@@ -2426,48 +2421,11 @@ namespace sat {
             std::cout << candidates.size() << " -> " << k << "\n";
             if (k == candidates.size()) break;
             candidates.shrink(k);
+            if (k == 0) break;
         }
-
-        std::cout << "candidates: " << candidates.size() << "\n";
-
-#endif
-
-#if 0
-        union_find_default_ctx ufctx;
-        union_find<union_find_default_ctx> uf(ufctx);
-        for (unsigned i = 0; i < num_lits; ++i) uf.mk_var();
-        for (unsigned idx = 0; idx < num_lits; ++idx) {
-            literal u = get_parent(to_literal(idx));
-            if (null_literal != u) {
-                for (watched const& w : m_s.m_watches[idx]) {
-                    if (!w.is_binary_clause()) continue;
-                    literal v = get_parent(w.get_literal());
-                    if (null_literal != v) {
-                        uf.merge(u.index(), v.index());
-                    }
-                }
-            }
-        }
-
-        for (unsigned i = 0; i < m_binary.size(); ++i) {
-            literal u = to_literal(i);
-            if (u == get_parent(u) && !m_s.was_eliminated(u.var())) {
-                for (literal v : m_binary[i]) {
-                    if (v == get_parent(v) && 
-                        !m_s.was_eliminated(v.var()) && 
-                        uf.find(u.index()) != uf.find(v.index())) {
-                        ++disconnected2;
-                        uf.merge(u.index(), v.index());
-                        // m_s.mk_clause(~u, v, true);
-                    }
-                }
-            }
-        }
-#endif
         
-        IF_VERBOSE(10, verbose_stream() << "(sat-lookahead :bca " << disconnected1 << " " << disconnected2 << ")\n";);
-        //IF_VERBOSE(10, verbose_stream() << "(sat-lookahead :bca " << disconnected << ")\n";);
-        //m_stats.m_bca += disconnected;
+        IF_VERBOSE(10, verbose_stream() << "(sat-lookahead :bca " << num_bins << ")\n";);
+        m_stats.m_bca += num_bins;
     }
 
     void lookahead::normalize_parents() {
