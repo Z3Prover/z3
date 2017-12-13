@@ -132,7 +132,6 @@ namespace sat {
         void remove_clause(clause & c);
         void remove_clause(clause & c, literal l);
         void block_clause(clause & c);
-        void block_bin_clause_half(literal l1, literal l2);
         void unblock_clause(clause & c);
         void remove_bin_clause_half(literal l1, literal l2, bool learned);
 
@@ -185,7 +184,7 @@ namespace sat {
         unsigned get_num_unblocked_bin(literal l) const;
         unsigned get_to_elim_cost(bool_var v) const;
         void order_vars_for_elim(bool_var_vector & r);
-        void collect_clauses(literal l, clause_wrapper_vector & r, bool include_blocked);
+        void collect_clauses(literal l, clause_wrapper_vector & r);
         clause_wrapper_vector m_pos_cls;
         clause_wrapper_vector m_neg_cls;
         literal_vector m_new_cls;

@@ -302,7 +302,7 @@ namespace sat {
                 literal l1 = ~to_literal(l_idx);
                 watch_list const & wlist = s.m_watches[l_idx];
                 for (watched const& w : wlist) {
-                    if (!w.is_binary_unblocked_clause())
+                    if (!w.is_binary_non_learned_clause())
                         continue;
                     literal l2 = w.get_literal();
                     if (l1.index() > l2.index()) 

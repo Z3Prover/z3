@@ -3158,11 +3158,8 @@ namespace sat {
             if (w.is_binary_clause() && is_marked(w.get_literal())) {
                 ++m_stats.m_num_bin_subsumes;
                 // IF_VERBOSE(10, verbose_stream() << c1 << " subsumes (" << lit << " " << w.get_literal() << ")\n";);
-                if (w.is_learned()) {
+                if (!w.is_learned()) {
                     c1.set_learned(false);
-                }
-                else if (w.is_blocked()) {
-                    w.set_unblocked();
                 }
             }
             else {

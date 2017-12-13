@@ -85,8 +85,8 @@ namespace sat{
         // eliminate variable
         simp.m_pos_cls.reset();
         simp.m_neg_cls.reset();
-        simp.collect_clauses(pos_l, simp.m_pos_cls, false);
-        simp.collect_clauses(neg_l, simp.m_neg_cls, false);
+        simp.collect_clauses(pos_l, simp.m_pos_cls);
+        simp.collect_clauses(neg_l, simp.m_neg_cls);
         VERIFY(!s.is_external(v));
         model_converter::entry & mc_entry = s.m_mc.mk(model_converter::ELIM_VAR, v);
         simp.save_clauses(mc_entry, simp.m_pos_cls);
@@ -295,7 +295,7 @@ namespace sat{
     bool elim_vars::mark_literals(literal lit) {
         watch_list& wl = simp.get_wlist(lit);
         for (watched const& w : wl) {
-            if (w.is_binary_unblocked_clause()) {
+            if (w.is_binary_non_learned_clause()) {
                 mark_var(w.get_literal().var());
             }
         }
@@ -321,7 +321,7 @@ namespace sat{
         bdd result = m.mk_true();
         watch_list& wl = simp.get_wlist(~lit);
         for (watched const& w : wl) {
-            if (w.is_binary_unblocked_clause()) {
+            if (w.is_binary_non_learned_clause()) {
                 result &= (mk_literal(lit) || mk_literal(w.get_literal()));
             }
         }        

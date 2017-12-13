@@ -80,8 +80,13 @@ namespace sat {
             unsigned m_dl_max_iterations;
             unsigned m_tc1_limit;
             reward_t m_reward_type;
-            unsigned m_cube_cutoff;
+            cutoff_t m_cube_cutoff;
+            unsigned m_cube_depth;
             double   m_cube_fraction;
+            double   m_cube_freevars;
+            double   m_cube_psat_var_exp;
+            double   m_cube_psat_clause_base;
+            double   m_cube_psat_trigger;
 
             config() {
                 memset(this, sizeof(*this), 0);
@@ -96,8 +101,13 @@ namespace sat {
                 m_dl_max_iterations = 2;
                 m_tc1_limit = 10000000;
                 m_reward_type = ternary_reward;
-                m_cube_cutoff = 0;
+                m_cube_cutoff = adaptive_freevars_cutoff;
+                m_cube_depth = 10;
                 m_cube_fraction = 0.4;
+                m_cube_freevars = 0.8;
+                m_cube_psat_var_exp = 1.0;
+                m_cube_psat_clause_base = 2.0;
+                m_cube_psat_trigger = 5.0;
             }
         };
 
@@ -167,6 +177,7 @@ namespace sat {
             svector<bool>  m_is_decision;
             literal_vector m_cube;
             double         m_freevars_threshold;
+            double         m_psat_threshold;
             unsigned       m_conflicts;
             unsigned       m_cutoffs;
             cube_state() { reset(); }
@@ -175,6 +186,7 @@ namespace sat {
                 m_is_decision.reset(); 
                 m_cube.reset(); 
                 m_freevars_threshold = 0;
+                m_psat_threshold = DBL_MAX;
                 reset_stats();
             }
             void reset_stats() { m_conflicts = 0; m_cutoffs = 0; }
@@ -228,11 +240,12 @@ namespace sat {
         svector<prefix>        m_vprefix;       // var:     prefix where variable participates in propagation
         unsigned               m_rating_throttle; // throttle to recompute rating
         indexed_uint_set       m_freevars;
+        unsigned               m_init_freevars;
         lookahead_mode         m_search_mode;   // mode of search
         stats                  m_stats;
         model                  m_model; 
         cube_state             m_cube_state;
-        scoped_ptr<extension>   m_ext;
+        scoped_ptr<extension>  m_ext;
  
         // ---------------------------------------
         // truth values
@@ -541,6 +554,8 @@ namespace sat {
         void normalize_parents();
 
         void add_hyper_binary();
+
+        double psat_heur();
 
     public:
         lookahead(solver& s) : 

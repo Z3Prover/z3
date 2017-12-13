@@ -65,6 +65,14 @@ namespace sat {
         march_cu_reward
     };
 
+    enum cutoff_t {
+        depth_cutoff,
+        freevars_cutoff,
+        psat_cutoff,
+        adaptive_freevars_cutoff,
+        adaptive_psat_cutoff
+    };
+
     struct config {
         unsigned long long m_max_memory;
         phase_selection    m_phase;
@@ -84,8 +92,13 @@ namespace sat {
         bool               m_local_search;
         bool               m_lookahead_simplify;
         bool               m_lookahead_simplify_bca;
-        unsigned           m_lookahead_cube_cutoff;
+        cutoff_t           m_lookahead_cube_cutoff;
         double             m_lookahead_cube_fraction;
+        unsigned           m_lookahead_cube_depth;
+        double             m_lookahead_cube_freevars;
+        double             m_lookahead_cube_psat_var_exp;
+        double             m_lookahead_cube_psat_clause_base;
+        double             m_lookahead_cube_psat_trigger;
         reward_t           m_lookahead_reward;
         bool               m_lookahead_global_autarky;
 

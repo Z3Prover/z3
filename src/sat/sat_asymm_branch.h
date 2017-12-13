@@ -20,7 +20,7 @@ Revision History:
 #define SAT_ASYMM_BRANCH_H_
 
 #include "sat/sat_types.h"
-#include "sat/sat_scc.h"
+#include "sat/sat_big.h"
 #include "util/statistics.h"
 #include "util/params.h"
 
@@ -51,29 +51,29 @@ namespace sat {
         unsigned   m_elim_learned_literals;
         unsigned   m_hidden_tautologies;
 
-        literal_vector m_pos, m_neg; // literals (complements of literals) in clauses sorted by discovery time (m_left in scc).
+        literal_vector m_pos, m_neg; // literals (complements of literals) in clauses sorted by discovery time (m_left in BIG).
         literal_vector m_to_delete;
        
         struct compare_left;
 
-        void sort(scc& scc, literal const* begin, literal const* end);
-        void sort(scc & scc, clause const& c);
+        void sort(big& big, literal const* begin, literal const* end);
+        void sort(big & big, clause const& c);
 
-        bool uhle(scoped_detach& scoped_d, scc & scc, clause & c);
+        bool uhle(scoped_detach& scoped_d, big & big, clause & c);
 
-        void uhle(scc & scc);
+        void uhle(big & big);
 
-        bool uhte(scc & scc, clause & c);
+        bool uhte(big & big, clause & c);
 
         bool re_attach(scoped_detach& scoped_d, clause& c, unsigned new_sz);
 
-        bool process(scc* scc);
+        bool process(big* big);
 
         bool process(clause & c);
 
-        bool process_sampled(scc& scc, clause & c);
+        bool process_sampled(big& big, clause & c);
 
-        void process(scc* scc, clause_vector & c);
+        void process(big* big, clause_vector & c);
         
         bool process_all(clause & c);
         
@@ -94,7 +94,7 @@ namespace sat {
         void collect_statistics(statistics & st) const;
         void reset_statistics();
 
-        void minimize(scc& scc, literal_vector& lemma);
+        void minimize(big& big, literal_vector& lemma);
 
         void init_search() { m_calls = 0; }
 

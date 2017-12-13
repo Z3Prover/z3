@@ -40,6 +40,38 @@ namespace sat {
         return false;                                           
     }
 
+    watched* find_binary_watch(watch_list & wlist, literal l) {
+        for (watched& w : wlist) {
+            if (w.is_binary_clause() && w.get_literal() == l) return &w;
+        }
+        return nullptr;
+    }
+
+    watched const* find_binary_watch(watch_list const& wlist, literal l) {
+        for (watched const& w : wlist) {
+            if (w.is_binary_clause() && w.get_literal() == l) return &w;
+        }
+        return nullptr;
+    }
+
+    void erase_binary_watch(watch_list& wlist, literal l) {
+        watch_list::iterator it = wlist.begin(), end = wlist.end();
+        watch_list::iterator it2 = it;
+        bool found = false;
+        for (; it != end; ++it) {
+            if (it->is_binary_clause() && it->get_literal() == l && !found) {
+                found = true;
+            }
+            else {
+                *it2 = *it;
+                ++it2;
+            }
+        }
+        wlist.set_end(it2);
+        VERIFY(found);
+    }
+
+
     std::ostream& display_watch_list(std::ostream & out, clause_allocator const & ca, watch_list const & wlist) {
         bool first = true;
         for (watched const& w : wlist) {

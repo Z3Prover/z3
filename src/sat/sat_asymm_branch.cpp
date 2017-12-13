@@ -19,7 +19,7 @@ Revision History:
 #include "sat/sat_asymm_branch.h"
 #include "sat/sat_asymm_branch_params.hpp"
 #include "sat/sat_solver.h"
-#include "sat/sat_scc.h"
+#include "sat/sat_big.h"
 #include "util/stopwatch.h"
 #include "util/trace.h"
 
@@ -65,14 +65,14 @@ namespace sat {
         }
     };
 
-    bool asymm_branch::process(scc* scc) {
+    bool asymm_branch::process(big* big) {
         unsigned elim0 = m_elim_literals;
         unsigned eliml0 = m_elim_learned_literals;
         for (unsigned i = 0; i < m_asymm_branch_rounds; ++i) {
             unsigned elim = m_elim_literals;
-            if (scc) scc->init_big(true);
-            process(scc, s.m_clauses);
-            process(scc, s.m_learned);
+            if (big) big->init_big(s, true);
+            process(big, s.m_clauses);
+            process(big, s.m_learned);
             s.propagate(false); 
             if (s.m_inconsistent)
                 break;
@@ -86,7 +86,7 @@ namespace sat {
     }
 
 
-    void asymm_branch::process(scc* scc, clause_vector& clauses) {
+    void asymm_branch::process(big* big, clause_vector& clauses) {
         int64 limit = -m_asymm_branch_limit;
         std::stable_sort(clauses.begin(), clauses.end(), clause_size_lt());
         m_counter -= clauses.size();
@@ -110,7 +110,7 @@ namespace sat {
                 }
                 s.checkpoint();
                 clause & c = *(*it);
-                if (scc ? !process_sampled(*scc, c) : !process(c)) {
+                if (big ? !process_sampled(*big, c) : !process(c)) {
                     continue; // clause was removed
                 }
                 *it2 = *it;
@@ -153,8 +153,8 @@ namespace sat {
             ++counter;
             change = false;
             if (m_asymm_branch_sampled) {
-                scc sc(s, m_params);
-                if (process(&sc)) change = true;
+                big big;
+                if (process(&big)) change = true;
             }
             if (m_asymm_branch) {
                 m_counter  = 0; 
@@ -188,40 +188,40 @@ namespace sat {
     }
 
     struct asymm_branch::compare_left {
-        scc& s;
-        compare_left(scc& s): s(s) {}
+        big& s;
+        compare_left(big& s): s(s) {}
         bool operator()(literal u, literal v) const {
             return s.get_left(u) < s.get_left(v);
         }
     };
 
-    void asymm_branch::sort(scc& scc, clause const& c) {
-        sort(scc, c.begin(), c.end());
+    void asymm_branch::sort(big& big, clause const& c) {
+        sort(big, c.begin(), c.end());
     }
 
-    void asymm_branch::sort(scc& scc, literal const* begin, literal const* end) {
+    void asymm_branch::sort(big& big, literal const* begin, literal const* end) {
         m_pos.reset(); m_neg.reset();
         for (; begin != end; ++begin) {
             literal l = *begin;
             m_pos.push_back(l);
             m_neg.push_back(~l);
         }
-        compare_left cmp(scc);
+        compare_left cmp(big);
         std::sort(m_pos.begin(), m_pos.end(), cmp);
         std::sort(m_neg.begin(), m_neg.end(), cmp);
     }
 
-    bool asymm_branch::uhte(scc& scc, clause & c) {
+    bool asymm_branch::uhte(big& big, clause & c) {
         unsigned pindex = 0, nindex = 0;
         literal lpos = m_pos[pindex++];
         literal lneg = m_neg[nindex++];
         while (true) {
-            if (scc.get_left(lneg) > scc.get_left(lpos)) {
+            if (big.get_left(lneg) > big.get_left(lpos)) {
                 if (pindex == m_pos.size()) return false;
                 lpos = m_pos[pindex++];
             }
-            else if (scc.get_right(lneg) < scc.get_right(lpos) ||
-                     (m_pos.size() == 2 && (lpos == ~lneg || scc.get_parent(lpos) == lneg))) {
+            else if (big.get_right(lneg) < big.get_right(lpos) ||
+                     (m_pos.size() == 2 && (lpos == ~lneg || big.get_parent(lpos) == lneg))) {
                 if (nindex == m_neg.size()) return false;
                 lneg = m_neg[nindex++];
             }
@@ -232,10 +232,10 @@ namespace sat {
         return false;
     }
 
-    void asymm_branch::minimize(scc& scc, literal_vector& lemma) {
-        scc.ensure_big(true);
-        sort(scc, lemma.begin(), lemma.end());
-        uhle(scc);
+    void asymm_branch::minimize(big& big, literal_vector& lemma) {
+        big.ensure_big(s, true);
+        sort(big, lemma.begin(), lemma.end());
+        uhle(big);
         if (!m_to_delete.empty()) {
             unsigned j = 0;
             for (unsigned i = 0; i < lemma.size(); ++i) {
@@ -249,14 +249,13 @@ namespace sat {
         }
     }
 
-    void asymm_branch::uhle(scc& scc) {
+    void asymm_branch::uhle(big& big) {
         m_to_delete.reset();
         if (m_to_delete.empty()) {
-            int right = scc.get_right(m_pos.back());
+            int right = big.get_right(m_pos.back());
             for (unsigned i = m_pos.size() - 1; i-- > 0; ) {
                 literal lit = m_pos[i];
-                SASSERT(scc.get_left(lit) < scc.get_left(last));
-                int right2 = scc.get_right(lit);
+                int right2 = big.get_right(lit);
                 if (right2 > right) {
                     // lit => last, so lit can be deleted
                     m_to_delete.push_back(lit);
@@ -267,10 +266,10 @@ namespace sat {
             }
         }
         if (m_to_delete.empty()) {
-            int right = scc.get_right(m_neg[0]);
+            int right = big.get_right(m_neg[0]);
             for (unsigned i = 1; i < m_neg.size(); ++i) {
                 literal lit = m_neg[i];
-                int right2 = scc.get_right(lit);
+                int right2 = big.get_right(lit);
                 if (right > right2) {
                     // ~first => ~lit
                     m_to_delete.push_back(~lit);
@@ -282,8 +281,8 @@ namespace sat {
         }
     }
 
-    bool asymm_branch::uhle(scoped_detach& scoped_d, scc& scc, clause & c) {
-        uhle(scc);
+    bool asymm_branch::uhle(scoped_detach& scoped_d, big& big, clause & c) {
+        uhle(big);
         if (!m_to_delete.empty()) {
             unsigned j = 0;
             for (unsigned i = 0; i < c.size(); ++i) {
@@ -384,17 +383,17 @@ namespace sat {
         }
     }
 
-    bool asymm_branch::process_sampled(scc& scc, clause & c) {
+    bool asymm_branch::process_sampled(big& big, clause & c) {
         scoped_detach scoped_d(s, c);
-        sort(scc, c);
+        sort(big, c);
 #if 0
-        if (uhte(scc, c)) {
+        if (uhte(big, c)) {
             ++m_hidden_tautologies;
             scoped_d.del_clause();
             return false;
         }
 #endif
-        return uhle(scoped_d, scc, c);        
+        return uhle(scoped_d, big, c);        
     }
 
     bool asymm_branch::process(clause & c) {
