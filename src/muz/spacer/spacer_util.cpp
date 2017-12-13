@@ -9,6 +9,7 @@ Abstract:
 
     Utility functions for SPACER.
 
+
 Author:
 
     Krystof Hoder (t-khoder) 2011-8-19.
@@ -64,6 +65,7 @@ Notes:
 #include "tactic/arith/arith_bounds_tactic.h"
 
 #include "ast/factor_equivs.h"
+#include "muz/spacer/spacer_term_graph.h"
 
 namespace spacer {
 
@@ -1061,14 +1063,24 @@ void normalize (expr *e, expr_ref &out,
                 simplify_bounds (v);
             }
             if (use_factor_eqs) {
-                // pick non-constant value representative for
-                // equivalence classes
-                expr_equiv_class eq_classes(out.m());
-                factor_eqs(v, eq_classes);
-                rewrite_eqs(v, eq_classes);
-                equiv_to_expr(eq_classes, v);
+                // -- refactor equivalence classes and choose a representative
+                spacer::term_graph egraph(out.m());
+                egraph.add_lits (v);
+                v.reset();
+                egraph.to_lits(v);
             }
 
+                TRACE("spacer_normalize",
+                      tout << "Normalized:\n"
+                      << out << "\n"
+                      << "to\n"
+                      << mk_and(v) << "\n";);
+                TRACE("spacer_normalize",
+                      spacer::term_graph egraph(out.m());
+                      for (unsigned i = 0, sz = v.size(); i < sz; ++i)
+                          egraph.add_lit (to_app(v.get(i)));
+                      tout << "Reduced app:\n"
+                      << mk_pp(egraph.to_app(), out.m()) << "\n";);
             out = mk_and (v);
         }
     }
