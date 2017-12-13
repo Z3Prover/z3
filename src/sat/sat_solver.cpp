@@ -137,10 +137,6 @@ namespace sat {
                                         
                     watched w1(l2, wi.is_learned());
                     watched w2(l, wi.is_learned());
-                    if (wi.is_blocked()) {
-                        w1.set_blocked();
-                        w2.set_blocked();
-                    }
                     m_watches[(~l).index()].push_back(w1);
                     m_watches[(~l2).index()].push_back(w2);
                 }
@@ -315,6 +311,19 @@ namespace sat {
     }
 
     void solver::mk_bin_clause(literal l1, literal l2, bool learned) {
+        watched* w0 = find_binary_watch(get_wlist(~l1), l2);
+        if (w0) {
+            if (w0->is_learned() && !learned) {
+                w0->set_not_learned();
+            }            
+            w0 = find_binary_watch(get_wlist(~l2), l1);
+        }
+        if (w0) {
+            if (w0->is_learned() && !learned) {
+                w0->set_not_learned();
+            }            
+            return;
+        }
         if (m_config.m_drat) 
             m_drat.add(l1, l2, learned);
         if (propagate_bin_clause(l1, l2)) {
@@ -324,8 +333,8 @@ namespace sat {
                 m_clauses_to_reinit.push_back(clause_wrapper(l1, l2));
         }
         m_stats.m_mk_bin_clause++;
-        m_watches[(~l1).index()].push_back(watched(l2, learned));
-        m_watches[(~l2).index()].push_back(watched(l1, learned));
+        get_wlist(~l1).push_back(watched(l2, learned));
+        get_wlist(~l2).push_back(watched(l1, learned));        
     }
 
     bool solver::propagate_bin_clause(literal l1, literal l2) {
@@ -1419,6 +1428,8 @@ namespace sat {
         if (m_conflicts_since_init < m_next_simplify) {
             return;
         }
+        integrity_checker si(*this);
+        si.check_watches();
         m_simplifications++;
         IF_VERBOSE(2, verbose_stream() << "(sat.simplify :simplifications " << m_simplifications << ")\n";);
 
@@ -1430,26 +1441,26 @@ namespace sat {
 
         m_cleaner();
         CASSERT("sat_simplify_bug", check_invariant());
+        si.check_watches();
 
         m_scc();
         CASSERT("sat_simplify_bug", check_invariant());
+        si.check_watches();
         
         m_simplifier(false);
         CASSERT("sat_simplify_bug", check_invariant());
         CASSERT("sat_missed_prop", check_missed_propagation());
-        
+		si.check_watches();
         if (!m_learned.empty()) {
             m_simplifier(true);
             CASSERT("sat_missed_prop", check_missed_propagation());
             CASSERT("sat_simplify_bug", check_invariant());
         }
-
         if (m_config.m_lookahead_simplify) {
             lookahead lh(*this);
             lh.simplify();
             lh.collect_statistics(m_aux_stats);
         }
-
         sort_watch_lits();
         CASSERT("sat_simplify_bug", check_invariant());
 
@@ -1575,7 +1586,7 @@ namespace sat {
             literal l = ~to_literal(l_idx);
             if (value_at(l, m) != l_true) {
                 for (watched const& w : wlist) {
-                    if (!w.is_binary_unblocked_clause())
+                    if (!w.is_binary_non_learned_clause())
                         continue;
                     literal l2 = w.get_literal();
                     if (value_at(l2, m) != l_true) {

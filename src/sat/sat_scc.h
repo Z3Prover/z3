@@ -19,9 +19,10 @@ Revision History:
 #ifndef SAT_SCC_H_
 #define SAT_SCC_H_
 
-#include "sat/sat_types.h"
 #include "util/statistics.h"
 #include "util/params.h"
+#include "sat/sat_types.h"
+#include "sat/sat_big.h"
 
 namespace sat {
     class solver;
@@ -35,23 +36,11 @@ namespace sat {
         // stats
         unsigned   m_num_elim;
         unsigned   m_num_elim_bin;
-        random_gen m_rand;
 
-        // BIG state:
-
-        vector<literal_vector> m_dag;
-        svector<bool>          m_roots;
-        svector<int>           m_left, m_right;
-        literal_vector         m_root, m_parent;
+        big        m_big;
 
         void reduce_tr();
         unsigned reduce_tr(bool learned);
-
-        void init_dfs_num(bool learned);
-
-        struct pframe;
-
-        bool reaches_aux(literal u, literal v) const { return m_left[u.index()] < m_left[v.index()] && m_right[v.index()] < m_right[u.index()]; } 
 
     public:
 
@@ -67,13 +56,16 @@ namespace sat {
         /*
           \brief create binary implication graph and associated data-structures to check transitivity.
          */
-        void init_big(bool learned);
-        void ensure_big(bool learned) { if (m_left.empty()) init_big(learned); }
-        int get_left(literal l) const { return m_left[l.index()]; }
-        int get_right(literal l) const { return m_right[l.index()]; }
-        literal get_parent(literal l) const { return m_parent[l.index()]; }
-        literal get_root(literal l) const { return m_root[l.index()]; }
-        bool reaches(literal u, literal v) const { return reaches_aux(u, v) || reaches_aux(~v, ~u); }        
+        void init_big(bool learned) { m_big.init_big(m_solver, learned); }
+        void ensure_big(bool learned) { m_big.ensure_big(m_solver, learned); }
+        int get_left(literal l) const { return m_big.get_left(l); }
+        int get_right(literal l) const { return m_big.get_right(l); }
+        literal get_parent(literal l) const { return m_big.get_parent(l); }
+        literal get_root(literal l) const { return m_big.get_root(l); }
+        bool reaches(literal u, literal v) const { return m_big.reaches(u, v); }        
+        bool connected(literal u, literal v) const {
+            return m_big.connected(u, v); 
+        }
     };
 };
 

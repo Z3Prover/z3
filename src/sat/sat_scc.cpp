@@ -234,102 +234,10 @@ namespace sat {
         return to_elim.size();
     }
 
-    void scc::init_big(bool learned) {
-        unsigned num_lits = m_solver.num_vars() * 2;
-        m_dag.reset();
-        m_roots.reset();
-        m_dag.resize(num_lits, 0);
-        m_roots.resize(num_lits, true);
-        SASSERT(num_lits == m_dag.size() && num_lits == m_roots.size());
-        for (unsigned l_idx = 0; l_idx < num_lits; l_idx++) {
-            literal u = to_literal(l_idx);
-            if (m_solver.was_eliminated(u.var())) 
-                continue;
-            auto& edges = m_dag[l_idx];
-            for (watched const& w : m_solver.m_watches[l_idx]) {
-                if (learned ? w.is_binary_clause() : w.is_binary_unblocked_clause()) {
-                    literal v = w.get_literal();
-                    m_roots[v.index()] = false;
-                    edges.push_back(v);
-                }
-            }
-            shuffle<literal>(edges.size(), edges.c_ptr(), m_rand);
-        }
-        init_dfs_num(learned);
-    }
-
-    struct scc::pframe {
-        literal m_parent;
-        literal m_child;
-        pframe(literal p, literal c):
-            m_parent(p), m_child(c) {}
-        literal child() const { return m_child; }
-        literal parent() const { return m_parent; }
-    };
-
-    void scc::init_dfs_num(bool learned) {
-        unsigned num_lits = m_solver.num_vars() * 2;
-        m_left.reset();
-        m_right.reset();
-        m_root.reset();
-        m_parent.reset();
-        m_left.resize(num_lits, 0);
-        m_right.resize(num_lits, -1);
-        m_root.resize(num_lits, null_literal);
-        m_parent.resize(num_lits, null_literal);
-        for (unsigned i = 0; i < num_lits; ++i) {
-            m_root[i]   = to_literal(i);
-            m_parent[i] = to_literal(i);            
-        }
-        svector<pframe> todo;
-        // retrieve literals that have no predecessors
-        for (unsigned l_idx = 0; l_idx < num_lits; l_idx++) {
-            literal u(to_literal(l_idx));
-            if (m_roots[u.index()]) {
-                todo.push_back(pframe(null_literal, u));
-            }
-        }
-        shuffle<pframe>(todo.size(), todo.c_ptr(), m_rand);
-        int dfs_num = 0;
-        while (!todo.empty()) {
-            literal u = todo.back().child();
-            if (m_left[u.index()] > 0) {
-                // already visited
-                if (m_right[u.index()] < 0) {
-                    m_right[u.index()] = ++dfs_num;
-                }
-                todo.pop_back();
-            }
-            else {
-                SASSERT(m_left[u.index()] == 0);
-                m_left[u.index()] = ++dfs_num;
-                literal p = todo.back().parent();
-                if (p != null_literal) {
-                    m_root[u.index()] = m_root[p.index()];
-                    m_parent[u.index()] = p;
-                }
-                for (literal v : m_dag[u.index()]) {
-                    if (m_left[v.index()] == 0) {
-                        todo.push_back(pframe(u, v));
-                    }
-                }
-            }
-        }
-        for (unsigned i = 0; i < num_lits; ++i) {
-            if (m_right[i] < 0) {
-                VERIFY(m_left[i] == 0);
-                m_left[i]  = ++dfs_num;
-                m_right[i] = ++dfs_num;
-            }
-        }
-        for (unsigned i = 0; i < num_lits; ++i) {
-            VERIFY(m_left[i] < m_right[i]);
-        }
-    }
-
     unsigned scc::reduce_tr(bool learned) {        
         unsigned num_lits = m_solver.num_vars() * 2;
         init_big(learned);
+        
         unsigned idx = 0;
         unsigned elim = m_num_elim_bin;
         for (watch_list & wlist : m_solver.m_watches) {
@@ -343,6 +251,7 @@ namespace sat {
                     literal v = w.get_literal();
                     if (reaches(u, v) && u != get_parent(v)) {
                         ++m_num_elim_bin;
+                        m_solver.get_wlist(~v).erase(watched(~u, w.is_learned()));
                     }
                     else {
                         *itprev = *it;

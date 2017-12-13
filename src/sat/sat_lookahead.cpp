@@ -2372,8 +2372,8 @@ namespace sat {
             }
         }
 
-        scc scc(m_s, m_s.m_params);
-        scc.init_big(true);
+        big big;
+        big.init_big(m_s, true);
         svector<std::pair<literal, literal>> candidates;
 
         unsigned_vector bin_size(num_lits);
@@ -2390,14 +2390,14 @@ namespace sat {
                 if (v == get_parent(v) && 
                     !m_s.was_eliminated(v.var()) && 
                     !imp.contains(std::make_pair(u.index(), v.index())) && 
-                    !scc.reaches(u, v)) {
+                    !big.connected(u, v)) {
                     candidates.push_back(std::make_pair(u, v));
                 }
             }
         }
 
         for (unsigned count = 0; count < 5; ++count) {
-            scc.init_big(true);
+            big.init_big(m_s, true);
             unsigned k = 0;
             union_find_default_ctx ufctx;
             union_find<union_find_default_ctx> uf(ufctx);
@@ -2405,7 +2405,7 @@ namespace sat {
             for (unsigned j = 0; j < candidates.size(); ++j) {
                 literal u = candidates[j].first;
                 literal v = candidates[j].second;
-                if (!scc.reaches(u, v)) {
+                if (!big.connected(u, v)) {
                     if (uf.find(u.index()) != uf.find(v.index())) {
                         ++num_bins;
                         uf.merge(u.index(), v.index());
