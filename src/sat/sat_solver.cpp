@@ -61,7 +61,7 @@ namespace sat {
         m_num_checkpoints         = 0;
         m_simplifications         = 0;
         m_cuber                   = nullptr;
-        m_mc.set_solver(nullptr);
+        m_mc.set_solver(this);
     }
 
     solver::~solver() {
@@ -1544,7 +1544,7 @@ namespace sat {
         
         if (m_config.m_drat) m_drat.check_model(m_model);
 
-        m_mc.set_solver(nullptr);
+        // m_mc.set_solver(nullptr);
         m_mc(m_model);
 
         
@@ -1601,7 +1601,7 @@ namespace sat {
         for (literal l : m_assumptions) {
             if (value_at(l, m) != l_true) {
                 VERIFY(is_external(l.var()));
-                IF_VERBOSE(0, verbose_stream() << l << " does not model check " << value_at(l, m) << "\n";);
+                IF_VERBOSE(0, verbose_stream() << "assumption: " << l << " does not model check " << value_at(l, m) << "\n";);
                 TRACE("sat",
                       tout << l << " does not model check\n";
                       tout << "trail: " << m_trail << "\n";
