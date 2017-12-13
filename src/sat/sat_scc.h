@@ -63,7 +63,9 @@ namespace sat {
         literal get_parent(literal l) const { return m_big.get_parent(l); }
         literal get_root(literal l) const { return m_big.get_root(l); }
         bool reaches(literal u, literal v) const { return m_big.reaches(u, v); }        
-        bool connected(literal u, literal v) const { return m_big.connected(u, v); }
+        bool connected(literal u, literal v) const {
+            return m_big.connected(u, v); 
+        }
     };
 };
 

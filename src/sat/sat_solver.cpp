@@ -1341,7 +1341,6 @@ namespace sat {
         m_assumption_set.insert(lit);
         m_assumptions.push_back(lit);
         set_external(lit.var());
-        VERIFY(is_external(lit.var()));
     }
 
     void solver::pop_assumption() {
@@ -1457,13 +1456,11 @@ namespace sat {
             CASSERT("sat_missed_prop", check_missed_propagation());
             CASSERT("sat_simplify_bug", check_invariant());
         }
-		si.check_watches();
         if (m_config.m_lookahead_simplify) {
             lookahead lh(*this);
             lh.simplify();
             lh.collect_statistics(m_aux_stats);
         }
-		si.check_watches();
         sort_watch_lits();
         CASSERT("sat_simplify_bug", check_invariant());
 
