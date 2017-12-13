@@ -20,6 +20,7 @@ z3_add_component(spacer
   spacer_antiunify.cpp
   spacer_mev_array.cpp
   spacer_qe_project.cpp
+  spacer_term_graph.cpp
   COMPONENT_DEPENDENCIES
   arith_tactics
   core_tactics
