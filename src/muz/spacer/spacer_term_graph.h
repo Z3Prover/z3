@@ -36,7 +36,7 @@ public:
     family_id get_family_id() const {return m_id;}
 
     /// Process (and potentially augment) a literal
-    virtual app* process_lit (app *lit) {return lit;}
+    virtual app_ref process_lit (app *lit) = 0;
 };
 
 class term_graph {
@@ -80,9 +80,15 @@ public:
     ast_manager &get_ast_manager() const {return m;}
 
     void add_lit(app *lit);
+    void add_lits(expr_ref_vector const &lits) {
+        for (unsigned i = 0, sz = lits.size(); i < sz; ++i) {
+            add_lit(::to_app(lits.get(i)));
+        }
+    }
 
     void reset();
-    void to_lits (app_ref_vector &lits, bool all_equalities = false);
+    void to_lits(app_ref_vector &lits, bool all_equalities = false);
+    void to_lits(expr_ref_vector &lits, bool all_equalities = false);
     app_ref to_app();
 
 };

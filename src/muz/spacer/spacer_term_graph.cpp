@@ -91,7 +91,7 @@ public:
 
     virtual ~arith_term_graph_plugin() {}
 
-    bool mk_eq_core (expr *_e1, expr *_e2, app* &res) {
+    bool mk_eq_core (expr *_e1, expr *_e2, app_ref &res) {
         expr *e1, *e2;
         e1 = _e1;
         e2 = _e2;
@@ -115,7 +115,7 @@ public:
         return true;
     }
 
-    bool mk_le_core (expr *arg1, expr * arg2, app* &result) {
+    bool mk_le_core (expr *arg1, expr * arg2, app_ref &result) {
         // t <= -1  ==> t < 0 ==> ! (t >= 0)
         if (m_arith.is_int (arg1) && m_arith.is_minus_one (arg2)) {
             result = m.mk_not (m_arith.mk_ge (arg1, mk_zero ()));
@@ -130,7 +130,7 @@ public:
         return m_arith.is_numeral (n, val) && val.is_one ();
     }
 
-    bool mk_ge_core (expr * arg1, expr * arg2, app* &result) {
+    bool mk_ge_core (expr * arg1, expr * arg2, app_ref &result) {
         // t >= 1 ==> t > 0 ==> ! (t <= 0)
         if (m_arith.is_int (arg1) && is_one (arg2)) {
             result = m.mk_not (m_arith.mk_le (arg1, mk_zero ()));
@@ -139,11 +139,12 @@ public:
         return false;
     }
 
-    virtual app* process_lit (app *lit) {
+    virtual app_ref process_lit (app *lit) {
         expr *e1, *e2;
 
 
-   app *res = lit;
+        app_ref res(m);
+        res = lit;
         if (m.is_eq (lit, e1, e2)) {
             mk_eq_core(e1, e2, res);
         }
@@ -429,7 +430,13 @@ void term_graph::to_lits (app_ref_vector &lits, bool all_equalities) {
             mk_equalities(*t, lits);
         }
     }
-
+}
+void term_graph::to_lits (expr_ref_vector &lits, bool all_equalities) {
+    app_ref_vector out(m);
+    to_lits (out, all_equalities);
+    for (unsigned i = 0, sz = out.size(); i < sz; ++i) {
+        lits.push_back(out.get(i));
+    }
 }
 
 app_ref term_graph::to_app() {
