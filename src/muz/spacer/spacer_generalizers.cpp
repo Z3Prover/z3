@@ -24,8 +24,7 @@ Revision History:
 #include "ast/expr_abstract.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/for_each_expr.h"
-#include "ast/factor_equivs.h"
-
+#include "muz/spacer/spacer_term_graph.h"
 
 namespace spacer {
 void lemma_sanity_checker::operator()(lemma_ref &lemma) {
@@ -282,16 +281,20 @@ void lemma_eq_generalizer::operator() (lemma_ref &lemma)
 {
     TRACE("core_eq", tout << "Transforming equivalence classes\n";);
 
-    ast_manager &m = m_ctx.get_ast_manager();
-    expr_ref_vector core(m);
-    core.append (lemma->get_cube());
+    if (lemma->get_cube().empty()) return;
 
-    bool dirty;
-    expr_equiv_class eq_classes(m);
-    factor_eqs(core, eq_classes);
-    // create all possible equalities to allow for simple inductive generalization
-    dirty = equiv_to_expr_full(eq_classes, core);
-    if (dirty) {
+    ast_manager &m = m_ctx.get_ast_manager();
+    spacer::term_graph egraph(m);
+    egraph.add_lits(lemma->get_cube());
+
+    // -- expand the cube with all derived equalities
+    expr_ref_vector core(m);
+    egraph.to_lits(core, true);
+
+    // -- if the core looks different from the original cube
+    if (core.size() != lemma->get_cube().size() ||
+        core.get(0) != lemma->get_cube().get(0)) {
+        // -- update the lemma
         lemma->update_cube(lemma->get_pob(), core);
     }
 }
