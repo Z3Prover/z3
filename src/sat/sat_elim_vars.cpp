@@ -87,7 +87,7 @@ namespace sat{
         simp.m_neg_cls.reset();
         simp.collect_clauses(pos_l, simp.m_pos_cls, false);
         simp.collect_clauses(neg_l, simp.m_neg_cls, false);
-        VERIFY(!s.is_external(v));
+        //VERIFY(!s.is_external(v));
         model_converter::entry & mc_entry = s.m_mc.mk(model_converter::ELIM_VAR, v);
         simp.save_clauses(mc_entry, simp.m_pos_cls);
         simp.save_clauses(mc_entry, simp.m_neg_cls);

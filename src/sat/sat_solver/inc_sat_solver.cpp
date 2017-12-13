@@ -94,7 +94,7 @@ public:
 
     bool override_incremental() const {
         sat_simplifier_params p(m_params);
-        std::cout << "override: " << p.override_incremental() << "\n";
+        //std::cout << "override: " << p.override_incremental() << "\n";
         return p.override_incremental();
     }
 

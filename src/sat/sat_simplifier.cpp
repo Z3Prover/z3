@@ -1356,7 +1356,7 @@ namespace sat {
 
         void prepare_block_clause(clause& c, literal l, model_converter::entry*& new_entry, model_converter::kind k) {
             TRACE("blocked_clause", tout << "new blocked clause: " << c << "\n";);
-            VERIFY(!s.is_external(l));
+            //VERIFY(!s.is_external(l));
             if (new_entry == 0)
                 new_entry = &(mc.mk(k, l.var()));
             m_to_remove.push_back(&c);
@@ -1382,7 +1382,7 @@ namespace sat {
         
         void prepare_block_binary(watch_list::iterator it, literal l1, literal blocked, model_converter::entry*& new_entry, model_converter::kind k) {
             SASSERT(!s.is_external(blocked));
-            VERIFY(!s.is_external(blocked));
+            //VERIFY(!s.is_external(blocked));
             if (new_entry == 0) 
                 new_entry = &(mc.mk(k, blocked.var()));
             literal l2 = it->get_literal();
@@ -1782,7 +1782,7 @@ namespace sat {
 
         // eliminate variable
         ++s.m_stats.m_elim_var_res;
-        VERIFY(!is_external(v));
+        //VERIFY(!is_external(v));
         model_converter::entry & mc_entry = s.m_mc.mk(model_converter::ELIM_VAR, v);
         save_clauses(mc_entry, m_pos_cls);
         save_clauses(mc_entry, m_neg_cls);

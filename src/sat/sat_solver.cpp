@@ -1331,7 +1331,7 @@ namespace sat {
     void solver::add_assumption(literal lit) {
         m_assumption_set.insert(lit);
         m_assumptions.push_back(lit);
-        VERIFY(is_external(lit.var()));
+        set_external(lit.var());
     }
 
     void solver::pop_assumption() {
