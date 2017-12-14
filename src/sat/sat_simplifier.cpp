@@ -970,11 +970,12 @@ namespace sat {
         }
 
         void insert(literal l) {
+            VERIFY(process_var(l.var()));
             m_queue.insert(l);
         }
 
         bool process_var(bool_var v) {
-            return !s.s.is_assumption(v) &&  !s.was_eliminated(v) && !s.is_external(v);
+            return !s.s.is_assumption(v) && !s.was_eliminated(v) && !s.is_external(v);
         }
 
         void operator()() {

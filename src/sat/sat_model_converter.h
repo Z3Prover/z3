@@ -92,6 +92,8 @@ namespace sat {
 
         std::ostream& display(std::ostream & out, entry const& entry) const;
 
+        bool legal_to_flip(bool_var v) const;
+
     public:
         model_converter();
         ~model_converter();

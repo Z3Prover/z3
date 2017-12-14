@@ -353,6 +353,7 @@ namespace sat {
         void set_model(model const& mdl);
         char const* get_reason_unknown() const { return m_reason_unknown.c_str(); }
         bool check_clauses(model const& m) const;
+        bool is_assumption(bool_var v) const;
 
         literal select_lookahead(literal_vector const& assumptions, bool_var_vector const& vars);
         lbool  cube(bool_var_vector const& vars, literal_vector& lits, unsigned backtrack_level);
@@ -389,7 +390,6 @@ namespace sat {
         void reinit_assumptions();
         bool tracking_assumptions() const;
         bool is_assumption(literal l) const;
-        bool is_assumption(bool_var v) const;
         void simplify_problem();
         void mk_model();
         bool check_model(model const & m) const;

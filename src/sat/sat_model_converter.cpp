@@ -39,6 +39,22 @@ namespace sat {
         return *this;
     }
 
+    bool model_converter::legal_to_flip(bool_var v) const {
+        // std::cout << "check " << v << " " << m_solver << "\n";
+        if (m_solver && m_solver->is_assumption(v)) {
+            std::cout << "flipping assumption v" << v << "\n";
+            UNREACHABLE();
+            throw solver_exception("flipping assumption");
+        }
+        if (m_solver && m_solver->is_external(v) && m_solver->is_incremental()) {
+            std::cout << "flipping external v" << v << "\n";
+            UNREACHABLE();
+            throw solver_exception("flipping external");
+        }
+        return !m_solver || !m_solver->is_assumption(v);
+    }
+
+
     void model_converter::process_stack(model & m, literal_vector const& c, elim_stackv const& stack) const {
         SASSERT(!stack.empty());
         unsigned sz = stack.size();
@@ -50,6 +66,7 @@ namespace sat {
                 sat = value_at(c[j], m) == l_true;
             }
             if (!sat) {
+                VERIFY(legal_to_flip(lit.var()));
                 m[lit.var()] = lit.sign() ? l_false : l_true;
             }
         }
@@ -59,7 +76,7 @@ namespace sat {
         vector<entry>::const_iterator begin = m_entries.begin();
         vector<entry>::const_iterator it    = m_entries.end();
         bool first = true;
-        //VERIFY(!m_solver || m_solver->check_clauses(m));
+        //SASSERT(!m_solver || m_solver->check_clauses(m));
         while (it != begin) {
             --it;
             SASSERT(it->get_kind() != ELIM_VAR || m[it->var()] == l_undef);
@@ -69,11 +86,13 @@ namespace sat {
             bool var_sign = false;
             unsigned index = 0;
             literal_vector clause;
+            VERIFY(legal_to_flip(it->var()));
             for (literal l : it->m_clauses) {
                 if (l == null_literal) {
                     // end of clause
                     elim_stack* st = it->m_elim_stack[index];
-                    if (!sat) {                        
+                    if (!sat) {     
+                        VERIFY(legal_to_flip(it->var()));                        
                         m[it->var()] = var_sign ? l_false : l_true;
                     }
                     if (st) {
@@ -101,6 +120,7 @@ namespace sat {
                 if (value_at(l, m) == l_true)
                     sat = true;
                 else if (!sat && v != it->var() && m[v] == l_undef) {
+                    VERIFY(legal_to_flip(v));
                     // clause can be satisfied by assigning v.
                     m[v] = sign ? l_false : l_true;
                     // if (first) std::cout << "set: " << l << "\n";
@@ -170,6 +190,7 @@ namespace sat {
         entry & e = m_entries.back();
         SASSERT(e.var() == v);
         SASSERT(e.get_kind() == k);
+        VERIFY(legal_to_flip(v));
         return e;
     }
 
@@ -213,6 +234,7 @@ namespace sat {
         for (literal l : c) e.m_clauses.push_back(l);
         e.m_clauses.push_back(null_literal);
         e.m_elim_stack.push_back(elims.empty() ? nullptr : alloc(elim_stack, elims));
+        for (auto const& s : elims) VERIFY(legal_to_flip(s.second.var()));
         TRACE("sat_mc_bug", tout << "adding: " << c << "\n";);
     }
 
