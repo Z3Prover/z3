@@ -42,7 +42,6 @@ namespace sat {
         unsigned   m_asymm_branch_rounds;
         unsigned   m_asymm_branch_delay;
         bool       m_asymm_branch_sampled;
-        bool       m_asymm_branch_propagate;
         bool       m_asymm_branch_all;
         int64      m_asymm_branch_limit;
 

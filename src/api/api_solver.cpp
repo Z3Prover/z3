@@ -557,7 +557,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_solver_cube(c, s, cutoff);
         ast_manager& m = mk_c(c)->m();
-        expr_ref_vector result(m);
+        expr_ref_vector result(m), vars(m);
         unsigned timeout     = to_solver(s)->m_params.get_uint("timeout", mk_c(c)->get_timeout());
         unsigned rlimit      = to_solver(s)->m_params.get_uint("rlimit", mk_c(c)->get_rlimit());
         bool     use_ctrl_c  = to_solver(s)->m_params.get_bool("ctrl_c", false);
@@ -568,7 +568,7 @@ extern "C" {
             scoped_timer timer(timeout, &eh);
             scoped_rlimit _rlimit(mk_c(c)->m().limit(), rlimit);
             try {
-                result.append(to_solver_ref(s)->cube(cutoff));
+                result.append(to_solver_ref(s)->cube(vars, cutoff));
             }
             catch (z3_exception & ex) {
                 mk_c(c)->handle_exception(ex);
@@ -580,6 +580,7 @@ extern "C" {
         for (expr* e : result) {
             v->m_ast_vector.push_back(e);
         }
+        // TBD: save return variables from vars into variable ast-vector.
         RETURN_Z3(of_ast_vector(v));
         Z3_CATCH_RETURN(0);        
     }

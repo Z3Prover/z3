@@ -94,7 +94,7 @@ public:
     virtual void reset();
 
     virtual void set_progress_callback(progress_callback *callback) {UNREACHABLE();}
-    virtual expr_ref_vector cube(unsigned) { return expr_ref_vector(m); }
+    virtual expr_ref_vector cube(expr_ref_vector&, unsigned) { return expr_ref_vector(m); }
 
     virtual solver *translate(ast_manager &m, params_ref const &p);
 

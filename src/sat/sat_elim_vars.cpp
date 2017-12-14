@@ -123,13 +123,13 @@ namespace sat{
         TRACE("elim_vars",
               tout << "eliminate " << v << "\n";
               for (watched const& w : simp.get_wlist(~pos_l)) {
-                  if (w.is_binary_unblocked_clause()) {
+                  if (w.is_binary_non_learned_clause()) {
                       tout << pos_l << " " << w.get_literal() << "\n";
                   }
               }
               m.display(tout, b1);
               for (watched const& w : simp.get_wlist(~neg_l)) {
-                  if (w.is_binary_unblocked_clause()) {
+                  if (w.is_binary_non_learned_clause()) {
                       tout << neg_l << " " << w.get_literal() << "\n";
                   }
               }

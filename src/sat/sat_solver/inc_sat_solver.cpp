@@ -305,7 +305,7 @@ public:
         return 0;
     }
 
-    virtual expr_ref_vector cube(unsigned backtrack_level) {
+    virtual expr_ref_vector cube(expr_ref_vector& vs, unsigned backtrack_level) {
         if (!m_internalized) {
             dep2asm_t dep2asm;
             m_model = 0;

@@ -190,7 +190,7 @@ public:
        \brief extract a lookahead candidates for branching.
     */
 
-    virtual expr_ref_vector cube(unsigned backtrack_level) = 0;
+    virtual expr_ref_vector cube(expr_ref_vector& vars, unsigned backtrack_level) = 0;
 
     /**
        \brief Display the content of this solver.

@@ -414,7 +414,8 @@ private:
         cubes.reset();
         s.set_cube_params();
         while (true) {
-            expr_ref_vector c = s.get_solver().cube(UINT_MAX); // TBD tune this
+            expr_ref_vector vars(m);
+            expr_ref_vector c = s.get_solver().cube(vars, UINT_MAX); // TBD tune this
             if (c.empty()) {
                 report_undef(s);
                 return;
