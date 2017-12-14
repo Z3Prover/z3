@@ -39,7 +39,7 @@ namespace smt {
 
     theory_recfun::theory_recfun(ast_manager & m)
         : theory(m.mk_family_id("recfun")), m_util(0), m_trail(*this),
-          m_guards(), m_max_depth(0), m_q_case_expand(), m_q_body_expand()
+          m_guards(), m_max_depth(0), m_q_case_expand(), m_q_body_expand(), m_q_clauses()
         {
             recfun_decl_plugin * plugin =
                 reinterpret_cast<recfun_decl_plugin*>(m.get_plugin(get_family_id()));
@@ -96,6 +96,7 @@ namespace smt {
     void theory_recfun::reset_queues() {
         m_q_case_expand.reset();
         m_q_body_expand.reset();
+        m_q_clauses.reset();
     }
 
     void theory_recfun::reset_eh() {
@@ -137,10 +138,19 @@ namespace smt {
     }
 
     bool theory_recfun::can_propagate() {
-        return ! (m_q_case_expand.empty() && m_q_body_expand.empty());
+        return ! (m_q_case_expand.empty() &&
+                  m_q_body_expand.empty() &&
+                  m_q_clauses.empty());
     }
 
     void theory_recfun::propagate() {
+        context & ctx = get_context();
+
+        for (literal_vector & c : m_q_clauses) {
+            ctx.mk_th_axiom(get_id(), c.size(), c.c_ptr());
+        }
+        m_q_clauses.clear();
+
         for (case_expansion & e : m_q_case_expand) {
             if (e.m_def->is_fun_macro()) {
                 // body expand immediately
@@ -160,37 +170,6 @@ namespace smt {
         m_q_body_expand.clear();
     }
 
-    class depth_conflict_justification : public justification {
-        literal_vector  lits;
-        theory_recfun * th;
-        ast_manager & m() const { return th->get_manager(); }
-    public:
-        depth_conflict_justification(theory_recfun * th, region & r, literal_vector const & lits)
-        : lits(lits), th(th) {}
-        depth_conflict_justification(depth_conflict_justification const & from)
-        : lits(from.lits), th(from.th) {}
-        depth_conflict_justification(depth_conflict_justification && from)
-        : lits(std::move(from.lits)), th(from.th) {}
-        char const * get_name() const override { return "depth-conflict"; }
-        theory_id get_from_theory() const override { return th->get_id(); } 
-
-        void get_antecedents(conflict_resolution & cr) override {
-            auto & ctx = cr.get_context();
-            for (unsigned i=0; i < lits.size(); ++i) {
-                DEBUG("mark literal " << pp_lit(ctx, lits[i]));
-                cr.mark_literal(lits[i]);
-            }
-        }
-        proof * mk_proof(conflict_resolution & cr) override {
-            UNREACHABLE();
-            /* FIXME: actual proof
-            app * lemma = m().mk_or(c.size(), c.c_ptr());
-            return m().mk_lemma(m().mk_false(), lemma);
-            */
-        }
-    };
-
-
     void theory_recfun::max_depth_conflict() {
         DEBUG("max-depth conflict");
         context & ctx = get_context();
@@ -207,12 +186,10 @@ namespace smt {
             expr * g = & kv.get_key();
             c.push_back(~ ctx.get_literal(g));
         }
-        DEBUG("max-depth conflict: add clause " << pp_lits(ctx, c.size(), c.c_ptr()));
+        DEBUG("max-depth limit: add clause " << pp_lits(ctx, c.size(), c.c_ptr()));
         SASSERT(std::all_of(c.begin(), c.end(), [&](literal & l) { return ctx.get_assignment(l) == l_false; })); // conflict
-        region r;
 
-        depth_conflict_justification js(this, r, c);
-        ctx.set_conflict(ctx.mk_justification(js));
+        m_q_clauses.push_back(std::move(c));
     }
 
     // if `is_true` and `v = C_f_i(t1…tn)`, then body-expand i-th case of `f(t1…tn)`

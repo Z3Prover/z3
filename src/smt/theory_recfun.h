@@ -103,6 +103,7 @@ namespace smt {
 
         vector<case_expansion>      m_q_case_expand;
         vector<body_expansion>      m_q_body_expand;
+        vector<literal_vector>      m_q_clauses;
 
         recfun_util & u() const { SASSERT(m_util); return *m_util; }
         ast_manager & m() { return get_manager(); }
