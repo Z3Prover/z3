@@ -122,17 +122,17 @@ namespace sat{
         bdd b =  m.mk_exists(m_var2index[v], b0);       
         TRACE("elim_vars",
               tout << "eliminate " << v << "\n";
-              for (watched const& w : simp.get_wlist(~pos_l)) {
+              /*for (watched const& w : simp.get_wlist(~pos_l)) {
                   if (w.is_binary_unblocked_clause()) {
                       tout << pos_l << " " << w.get_literal() << "\n";
                   }
-              }
+              }*/
               m.display(tout, b1);
-              for (watched const& w : simp.get_wlist(~neg_l)) {
+              /*for (watched const& w : simp.get_wlist(~neg_l)) {
                   if (w.is_binary_unblocked_clause()) {
                       tout << neg_l << " " << w.get_literal() << "\n";
                   }
-              }
+              }*/
               m.display(tout, b2);
               clause_use_list::iterator itp = pos_occs.mk_iterator();
               while (!itp.at_end()) {
