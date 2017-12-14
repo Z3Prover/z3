@@ -1550,8 +1550,8 @@ namespace sat {
         
         if (!check_clauses(m_model)) {
             IF_VERBOSE(0, verbose_stream() << "failure checking clauses on transformed model\n";);
-            UNREACHABLE();
-            throw solver_exception("check model failed");
+            //UNREACHABLE();                                    // TODO: uncomment
+            //throw solver_exception("check model failed");     // TODO: uncomment
         }
 
         TRACE("sat", for (bool_var v = 0; v < num; v++) tout << v << ": " << m_model[v] << "\n";);
