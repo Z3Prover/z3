@@ -111,6 +111,8 @@ namespace smt {
     void theory_recfun::reset_eh() {
         m_trail.reset();
         reset_queues();   
+        m_stats.reset();
+        theory::reset_eh();
     }
 
     /*
@@ -135,15 +137,16 @@ namespace smt {
     }
 
     void theory_recfun::pop_scope_eh(unsigned num_scopes) {
-        DEBUG("pop_scope");
+        DEBUG("pop_scope " << num_scopes);
         m_trail.pop_scope(num_scopes);
         theory::pop_scope_eh(num_scopes);
         reset_queues();
     }
     
     void theory_recfun::restart_eh() {
-        m_trail.reset();
+        DEBUG("restart");
         reset_queues();
+        theory::restart_eh();
     }
 
     bool theory_recfun::can_propagate() {
