@@ -46,7 +46,7 @@ namespace sat {
             UNREACHABLE();
             throw solver_exception("flipping assumption");
         }
-        if (m_solver && m_solver->is_external(v)) {
+        if (m_solver && m_solver->is_external(v) && m_solver->is_incremental()) {
             std::cout << "flipping external v" << v << "\n";
             UNREACHABLE();
             throw solver_exception("flipping external");
