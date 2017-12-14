@@ -2294,8 +2294,8 @@ namespace sat {
             // literal is no longer watched.
             return l_undef;
         }
-        SASSERT(index <= bound);
-        SASSERT(c[index] == alit);
+        VERIFY(index <= bound);
+        VERIFY(c[index] == alit);
         
         // find a literal to swap with:
         for (unsigned i = bound + 1; i < sz; ++i) {
