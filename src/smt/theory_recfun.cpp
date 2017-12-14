@@ -4,6 +4,8 @@
 #include "smt/theory_recfun.h"
 #include "smt/params/smt_params_helper.hpp"
 
+#ifdef Z3DEBUG
+
 #define DEBUG(x) TRACE("recfun", tout << x << '\n';)
 
 struct pp_lit {
@@ -17,7 +19,6 @@ std::ostream & operator<<(std::ostream & out, pp_lit const & pp) {
     return out;
 }
 
-// NOTE: debug
 struct pp_lits {
     smt::context & ctx;
     smt::literal *lits;
@@ -34,6 +35,14 @@ std::ostream & operator<<(std::ostream & out, pp_lits const & pp) {
     }
     return out << "}";
 }
+
+#else
+
+#define DEBUG(x) do{}while(0)
+
+#endif
+
+
 
 namespace smt {
 
@@ -147,6 +156,7 @@ namespace smt {
         context & ctx = get_context();
 
         for (literal_vector & c : m_q_clauses) {
+            DEBUG("add axiom " << pp_lits(ctx, c.size(), c.c_ptr()));
             ctx.mk_th_axiom(get_id(), c.size(), c.c_ptr());
         }
         m_q_clauses.clear();
@@ -379,6 +389,7 @@ namespace smt {
         st.update("recfun body expansion", m_stats.m_body_expansions);
     }
 
+#ifdef Z3DEBUG
     std::ostream& operator<<(std::ostream & out, theory_recfun::pp_case_expansion const & e) {
         return out << "case_exp(" << mk_pp(e.e.m_lhs, e.m) << ")";
     }
@@ -390,4 +401,5 @@ namespace smt {
         }
         return out << ")";
     }
+#endif
 }
