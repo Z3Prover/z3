@@ -861,12 +861,7 @@ namespace sat {
         return r;
     }
 
-    literal solver::select_lookahead(literal_vector const& assumptions, bool_var_vector const& vars) {
-        lookahead lh(*this);
-        return lh.select_lookahead(assumptions, vars);
-    }
-
-    lbool  solver::cube(bool_var_vector const& vars, literal_vector& lits, unsigned backtrack_level) {
+    lbool solver::cube(bool_var_vector& vars, literal_vector& lits, unsigned backtrack_level) {
         if (!m_cuber) {
             m_cuber = alloc(lookahead, *this);
         }

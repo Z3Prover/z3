@@ -67,12 +67,12 @@ class inc_sat_solver : public solver {
     std::string         m_unknown;
     // access formulas after they have been pre-processed and handled by the sat solver.
     // this allows to access the internal state of the SAT solver and carry on partial results.
-    bool                m_internalized;           // are formulas internalized?
     bool                m_internalized_converted; // have internalized formulas been converted back
     expr_ref_vector     m_internalized_fmls;      // formulas in internalized format
 
-
     typedef obj_map<expr, sat::literal> dep2asm_t;
+
+    bool is_internalized() const { return m_fmls_head == m_fmls.size(); }
 public:
     inc_sat_solver(ast_manager& m, params_ref const& p, bool incremental_mode):
         m(m), 
@@ -84,7 +84,6 @@ public:
         m_map(m),
         m_num_scopes(0),
         m_unknown("no reason given"),
-        m_internalized(false), 
         m_internalized_converted(false), 
         m_internalized_fmls(m) {
         updt_params(p);
@@ -94,7 +93,6 @@ public:
 
     bool override_incremental() const {
         sat_simplifier_params p(m_params);
-        std::cout << "override: " << p.override_incremental() << "\n";
         return p.override_incremental();
     }
 
@@ -124,7 +122,6 @@ public:
         if (m_mc0) result->m_mc0 = m_mc0->translate(tr);
         //if (m_sat_mc) result->m_sat_mc = m_sat_mc->translate(tr);         MN: commenting this line removes bloat
         // copy m_bb_rewriter?
-        result->m_internalized = m_internalized;
         result->m_internalized_converted = m_internalized_converted;
         return result;
     }
@@ -188,8 +185,6 @@ public:
         if (r != l_true) return r;
         r = internalize_assumptions(sz, _assumptions.c_ptr(), dep2asm);
         if (r != l_true) return r;
-        m_internalized = true;
-        m_internalized_converted = false;
 
         init_reason_unknown();
         try {
@@ -226,11 +221,8 @@ public:
         m_fmls_head_lim.push_back(m_fmls_head);
         if (m_bb_rewriter) m_bb_rewriter->push();
         m_map.push();
-        m_internalized = true;
-        m_internalized_converted = false;
     }
     virtual void pop(unsigned n) {
-        m_internalized = false;
         if (n > m_num_scopes) {   // allow inc_sat_solver to
             n = m_num_scopes;     // take over for another solver.
         }
@@ -264,7 +256,6 @@ public:
 
     virtual ast_manager& get_manager() const { return m; }
     virtual void assert_expr_core(expr * t) {
-        m_internalized = false;
         TRACE("goal2sat", tout << mk_pp(t, m) << "\n";);
         m_fmls.push_back(t);
     }
@@ -306,17 +297,18 @@ public:
     }
 
     virtual expr_ref_vector cube(expr_ref_vector& vs, unsigned backtrack_level) {
-        if (!m_internalized) {
-            dep2asm_t dep2asm;
+        if (!is_internalized()) {
             m_model = 0;
             lbool r = internalize_formulas();
             if (r != l_true) return expr_ref_vector(m);
-            m_internalized = true;
         }
         convert_internalized();
+        obj_hashtable<expr> _vs;
+        for (expr* v : vs) _vs.insert(v);
         sat::bool_var_vector vars;
         for (auto& kv : m_map) {
-            vars.push_back(kv.m_value);
+            if (_vs.empty() || _vs.contains(kv.m_key))
+                vars.push_back(kv.m_value);
         }
         sat::literal_vector lits;
         lbool result = m_solver.cube(vars, lits, backtrack_level);
@@ -327,13 +319,20 @@ public:
         }
         if (result == l_true) {
             return expr_ref_vector(m);
-        }
+        }        
         expr_ref_vector fmls(m);
         expr_ref_vector lit2expr(m);
         lit2expr.resize(m_solver.num_vars() * 2);
         m_map.mk_inv(lit2expr);
         for (sat::literal l : lits) {
             fmls.push_back(lit2expr[l.index()].get());
+        }
+        vs.reset();
+        for (sat::bool_var v : vars) {
+            expr* x = lit2expr[sat::literal(v, false).index()].get();
+            if (x) {
+                vs.push_back(x);
+            }
         }
         return fmls;
     }
@@ -419,7 +418,7 @@ public:
     }
     virtual unsigned get_num_assertions() const {
         const_cast<inc_sat_solver*>(this)->convert_internalized();
-        if (m_internalized && m_internalized_converted) {            
+        if (is_internalized() && m_internalized_converted) {            
             return m_internalized_fmls.size();
         }
         else {
@@ -427,7 +426,7 @@ public:
         }
     }
     virtual expr * get_assertion(unsigned idx) const {
-        if (m_internalized && m_internalized_converted) {
+        if (is_internalized() && m_internalized_converted) {
             return m_internalized_fmls[idx];
         }
         return m_fmls[idx];
@@ -443,7 +442,7 @@ public:
         const_cast<inc_sat_solver*>(this)->convert_internalized();
         if (m_cached_mc)
             return m_cached_mc;
-        if (m_internalized && m_internalized_converted) {            
+        if (is_internalized() && m_internalized_converted) {            
             m_cached_mc = concat(m_mc0.get(), mk_bit_blaster_model_converter(m, m_bb_rewriter->const2bits()));
             m_cached_mc = concat(solver::get_model_converter().get(), m_cached_mc.get());
             m_cached_mc = concat(m_cached_mc.get(), m_sat_mc.get());
@@ -455,7 +454,10 @@ public:
     }
 
     void convert_internalized() {
-        if (!m_internalized || m_internalized_converted) return;
+        if (!is_internalized() && m_fmls_head > 0) {
+            internalize_formulas();
+        }
+        if (!is_internalized() || m_internalized_converted) return;
         sat2goal s2g;
         m_cached_mc = nullptr;
         goal g(m, false, true, false);
@@ -679,6 +681,7 @@ private:
         if (res != l_undef) {
             m_fmls_head = m_fmls.size();
         }
+        m_internalized_converted = false;
         return res;
     }
 

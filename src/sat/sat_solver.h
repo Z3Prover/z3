@@ -355,10 +355,10 @@ namespace sat {
         bool check_clauses(model const& m) const;
         bool is_assumption(bool_var v) const;
 
-        literal select_lookahead(literal_vector const& assumptions, bool_var_vector const& vars);
-        lbool  cube(bool_var_vector const& vars, literal_vector& lits, unsigned backtrack_level);
+        lbool  cube(bool_var_vector& vars, literal_vector& lits, unsigned backtrack_level);
 
     protected:
+
         unsigned m_conflicts_since_init;
         unsigned m_restarts;
         unsigned m_conflicts_since_restart;

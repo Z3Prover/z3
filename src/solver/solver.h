@@ -47,7 +47,7 @@ class solver : public check_sat_result {
     params_ref m_params;
     bool       m_enforce_model_conversion;
 public:
-    solver(): m_enforce_model_conversion(true) {}
+    solver(): m_enforce_model_conversion(false) {}
     virtual ~solver() {}
 
     /**

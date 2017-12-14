@@ -707,7 +707,7 @@ void tactic_example7() {
     std::cout << s.check() << "\n";
     model m = s.get_model();
     std::cout << "model for subgoal:\n" << m << "\n";
-    std::cout << "model for original goal:\n" << r.convert_model(m) << "\n";
+    std::cout << "model for original goal:\n" << subgoal.convert_model(m) << "\n";
 }
 
 void tactic_example8() {

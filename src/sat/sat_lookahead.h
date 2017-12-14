@@ -587,15 +587,14 @@ namespace sat {
         /**
            \brief create cubes to std-out in DIMACS form.
            The cubes are controlled using cut-depth and cut-fraction parameters.
-           If cut-depth != 0, then it is used to control the depth of cuts.
+           If cut-depth != 0, then it is used to control thedepth of cuts.
            Otherwise, cut-fraction gives an adaptive threshold for creating cuts.
         */
 
-        lbool cube(bool_var_vector const& vars, literal_vector& lits, unsigned backtrack_level);
+        lbool cube(bool_var_vector& vars, literal_vector& lits, unsigned backtrack_level);
 
         void update_cube_statistics(statistics& st);
 
-        literal select_lookahead(literal_vector const& assumptions, bool_var_vector const& vars);
         /**
            \brief simplify set of clauses by extracting units from a lookahead at base level.
          */

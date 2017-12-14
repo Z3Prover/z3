@@ -553,11 +553,19 @@ extern "C" {
         Z3_CATCH_RETURN(Z3_L_UNDEF);        
     }
 
-    Z3_ast_vector Z3_API Z3_solver_cube(Z3_context c, Z3_solver s, unsigned cutoff) {
+    Z3_ast_vector Z3_API Z3_solver_cube(Z3_context c, Z3_solver s, Z3_ast_vector vs, unsigned cutoff) {
         Z3_TRY;
-        LOG_Z3_solver_cube(c, s, cutoff);
+        LOG_Z3_solver_cube(c, s, vs, cutoff);
         ast_manager& m = mk_c(c)->m();
         expr_ref_vector result(m), vars(m);
+        for (ast* a : to_ast_vector_ref(vs)) {
+            if (!is_expr(a)) {
+                SET_ERROR_CODE(Z3_INVALID_USAGE);
+            }
+            else {
+                vars.push_back(to_expr(a));
+            }
+        }
         unsigned timeout     = to_solver(s)->m_params.get_uint("timeout", mk_c(c)->get_timeout());
         unsigned rlimit      = to_solver(s)->m_params.get_uint("rlimit", mk_c(c)->get_rlimit());
         bool     use_ctrl_c  = to_solver(s)->m_params.get_bool("ctrl_c", false);
@@ -580,7 +588,10 @@ extern "C" {
         for (expr* e : result) {
             v->m_ast_vector.push_back(e);
         }
-        // TBD: save return variables from vars into variable ast-vector.
+        to_ast_vector_ref(vs).reset();
+        for (expr* a : vars) {
+            to_ast_vector_ref(vs).push_back(a);
+        }
         RETURN_Z3(of_ast_vector(v));
         Z3_CATCH_RETURN(0);        
     }

@@ -404,6 +404,11 @@ namespace Microsoft.Z3
 	/// Backtrack level that can be adjusted by conquer process
 	/// </summary>
         public uint BacktrackLevel { get; set; }
+
+	/// <summary>
+	/// Variables available and returned by the cuber.
+	/// </summary>
+	public BoolExpr[] CubeVariables { get; set; }
         
 
 	/// <summary>
@@ -411,16 +416,21 @@ namespace Microsoft.Z3
 	/// </summary>
 	public IEnumerable<BoolExpr[]> Cube()
 	{
+             ASTVector cv = new ASTVector(Context);
+             if (CubeVariables != null) 
+                foreach (var b in CubeVariables) cv.Push(b);
+
 	     while (true) {
                 var lvl = BacktrackLevel;
                 BacktrackLevel = uint.MaxValue;
-                ASTVector r = new ASTVector(Context, Native.Z3_solver_cube(Context.nCtx, NativeObject, lvl));
+                ASTVector r = new ASTVector(Context, Native.Z3_solver_cube(Context.nCtx, NativeObject, cv.NativeObject, lvl));
                 var v = r.ToBoolExprArray();
+                CubeVariables = cv.ToBoolExprArray();
                 if (v.Length == 1 && v[0].IsFalse) {
                    break;
                 }
                 yield return v; 
- 	            if (v.Length == 0) {
+                if (v.Length == 0) {
                    break;
                 }
 	     }

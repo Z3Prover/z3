@@ -6230,13 +6230,20 @@ extern "C" {
        The number of (non-constant) cubes is by default 1. For the sat solver cubing is controlled
        using parameters sat.lookahead.cube.cutoff and sat.lookahead.cube.fraction.
        
+       The third argument is a vector of variables that may be used for cubing.
+       The contents of the vector is only used in the first call. The initial list of variables
+       is used in subsequent calls until it returns the unsatisfiable cube. 
+       The vector is modified to contain a set of Autarky variables that occor in clauses that
+       are affected by the (last literal in the) cube. These variables could be used by a different
+       cuber (on a different solver object) for further recursive cubing. 
+
        The last argument is a backtracking level. It instructs the cube process to backtrack below
        the indicated level for the next cube.
        
-       def_API('Z3_solver_cube', AST_VECTOR, (_in(CONTEXT), _in(SOLVER), _in(UINT)))
+       def_API('Z3_solver_cube', AST_VECTOR, (_in(CONTEXT), _in(SOLVER), _in(AST_VECTOR), _in(UINT)))
     */
 
-    Z3_ast_vector Z3_API Z3_solver_cube(Z3_context c, Z3_solver s, unsigned backtrack_level);
+    Z3_ast_vector Z3_API Z3_solver_cube(Z3_context c, Z3_solver s, Z3_ast_vector vars, unsigned backtrack_level);
 
     /**
        \brief Retrieve the model for the last #Z3_solver_check or #Z3_solver_check_assumptions

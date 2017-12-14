@@ -6313,17 +6313,24 @@ class Solver(Z3PPObject):
         consequences = [ consequences[i] for i in range(sz) ]
         return CheckSatResult(r), consequences
     
-    def cube(self):
+    def cube(self, vars = None):
         """Get set of cubes"""
+        self.cube_vs = AstVector(None, self.ctx)
+        if vars is not None:
+           for v in vars:
+               self.cube_vs.push(v)
         while True:
             lvl = self.backtrack_level
             self.backtrack_level = 4000000000
-            r = AstVector(Z3_solver_cube(self.ctx.ref(), self.solver, lvl), self.ctx)            
+            r = AstVector(Z3_solver_cube(self.ctx.ref(), self.solver, self.cube_vs.vector, lvl), self.ctx)            
             if (len(r) == 1 and is_false(r[0])):
-                return
-            yield r            
+                return            
+            yield r         
             if (len(r) == 0):                
                 return
+
+    def cube_vars(self):
+        return self.cube_vs
 
     def proof(self):
         """Return a proof for the last `check()`. Proof construction must be enabled."""

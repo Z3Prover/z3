@@ -1999,18 +1999,23 @@ namespace z3 {
         param_descrs get_param_descrs() { return param_descrs(ctx(), Z3_solver_get_param_descrs(ctx(), m_solver)); }
 
 
-        expr_vector cube(unsigned cutoff) { Z3_ast_vector r = Z3_solver_cube(ctx(), m_solver, cutoff); check_error(); return expr_vector(ctx(), r); }  
+        expr_vector cube(expr_vector& vars, unsigned cutoff) { 
+            Z3_ast_vector r = Z3_solver_cube(ctx(), m_solver, vars, cutoff); 
+            check_error(); 
+            return expr_vector(ctx(), r); 
+        }  
 
         class cube_iterator {
-            solver&     m_solver;
-            unsigned&   m_cutoff;
-            expr_vector m_cube;
-            bool        m_end;
-            bool        m_empty;
+            solver&      m_solver;
+            unsigned&    m_cutoff;
+            expr_vector& m_vars;
+            expr_vector  m_cube;
+            bool         m_end;
+            bool         m_empty;
 
             void inc() {
                 assert(!m_end && !m_empty);
-                m_cube = m_solver.cube(m_cutoff);
+                m_cube = m_solver.cube(m_vars, m_cutoff);
                 m_cutoff = 0xFFFFFFFF;
                 if (m_cube.size() == 1 && m_cube[0].is_false()) {
                     m_cube = z3::expr_vector(m_solver.ctx());
@@ -2021,9 +2026,10 @@ namespace z3 {
                 }
             }
         public:
-            cube_iterator(solver& s, unsigned& cutoff, bool end):
+            cube_iterator(solver& s, expr_vector& vars, unsigned& cutoff, bool end):
                 m_solver(s),
                 m_cutoff(cutoff),
+                m_vars(vars),
                 m_cube(s.ctx()),
                 m_end(end),
                 m_empty(false) {
@@ -2056,20 +2062,32 @@ namespace z3 {
         };
 
         class cube_generator {
-            solver& m_solver;
-            unsigned m_cutoff;
+            solver&      m_solver;
+            unsigned     m_cutoff;
+            expr_vector  m_default_vars;
+            expr_vector& m_vars;
         public:
             cube_generator(solver& s):
                 m_solver(s),
-                m_cutoff(0xFFFFFFFF)
+                m_cutoff(0xFFFFFFFF),
+                m_default_vars(s.ctx()),
+                m_vars(m_default_vars)
             {}
 
-            cube_iterator begin() { return cube_iterator(m_solver, m_cutoff, false); }
-            cube_iterator end() { return cube_iterator(m_solver, m_cutoff, true); }
+            cube_generator(solver& s, expr_vector& vars):
+                m_solver(s),
+                m_cutoff(0xFFFFFFFF),
+                m_default_vars(s.ctx()),
+                m_vars(vars)
+            {}
+
+            cube_iterator begin() { return cube_iterator(m_solver, m_vars, m_cutoff, false); }
+            cube_iterator end() { return cube_iterator(m_solver, m_vars, m_cutoff, true); }
             void set_cutoff(unsigned c) { m_cutoff = c; }
         };
 
         cube_generator cubes() { return cube_generator(*this); }
+        cube_generator cubes(expr_vector& vars) { return cube_generator(*this, vars); }
 
     };
     inline std::ostream & operator<<(std::ostream & out, solver const & s) { out << Z3_solver_to_string(s.ctx(), s); return out; }
