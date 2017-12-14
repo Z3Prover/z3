@@ -63,5 +63,8 @@ private:
                                          expr_ref& res);
 };
 
+/// Abstracts numbers in the given ground expression by variables
+/// Returns the created pattern and the corresponding substitution.
+void mk_num_pat(expr *e, expr_ref &result, app_ref_vector &subs);
 }
 #endif

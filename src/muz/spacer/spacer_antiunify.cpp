@@ -28,6 +28,7 @@ Revision History:
 
 namespace spacer {
 
+
 // Abstracts numeric values by variables
 struct var_abs_rewriter : public default_rewriter_cfg {
     ast_manager &m;
@@ -453,7 +454,83 @@ void naive_convex_closure::substitute_vars_by_const(ast_manager& m, expr* t,
     subs_rw (t, res);
 }
 
+
+/// Construct a pattern by abstracting all numbers by variables
+struct mk_num_pat_rewriter : public default_rewriter_cfg {
+    ast_manager &m;
+    arith_util m_arith;
+
+    // -- mark already seen expressions
+    ast_mark m_seen;
+    // -- true if the expression is known to have a number as a sub-expression
+    ast_mark m_has_num;
+    // -- expressions created during the transformation
+    expr_ref_vector m_pinned;
+    // -- map from introduced variables to expressions they replace
+    app_ref_vector &m_subs;
+
+
+    // -- stack of expressions being processed to have access to expressions
+    // -- before rewriting
+    ptr_buffer<expr> m_stack;
+
+    mk_num_pat_rewriter (ast_manager &manager, app_ref_vector& subs) :
+        m(manager), m_arith(m), m_pinned(m), m_subs(subs) {}
+
+    bool pre_visit(expr * t) {
+        // -- don't touch multiplication
+        if (m_arith.is_mul(t)) return false;
+
+        bool r = (!m_seen.is_marked(t) || m_has_num.is_marked(t));
+        if (r) {m_stack.push_back (t);}
+        return r;
+    }
+
+
+    br_status reduce_app (func_decl * f, unsigned num, expr * const * args,
+                          expr_ref & result, proof_ref & result_pr) {
+        expr *s;
+        s = m_stack.back();
+        m_stack.pop_back();
+        if (is_app(s)) {
+            app *a = to_app(s);
+            for (unsigned i = 0, sz = a->get_num_args(); i < sz; ++i) {
+                if (m_has_num.is_marked(a->get_arg(i))) {
+                    m_has_num.mark(a, true);
+                    break;
+                }
+            }
+        }
+        return BR_FAILED;
+    }
+
+    bool cache_all_results() const { return false; }
+    bool cache_results() const { return false; }
+
+    bool get_subst(expr * s, expr * & t, proof * & t_pr) {
+        if (m_arith.is_numeral(s)) {
+            t = m.mk_var(m_subs.size(), m.get_sort(s));
+            m_pinned.push_back(t);
+            m_subs.push_back(to_app(s));
+
+            m_has_num.mark(t, true);
+            m_seen.mark(t, true);
+            return true;
+        }
+        return false;
+    }
+
+};
+
+void mk_num_pat(expr *e, expr_ref &result, app_ref_vector &subs) {
+    SASSERT(subs.empty());
+    mk_num_pat_rewriter rw_cfg(result.m(), subs);
+    rewriter_tpl<mk_num_pat_rewriter> rw(result.m(), false, rw_cfg);
+    rw(e, result);
+}
+
 }
 
 template class rewriter_tpl<spacer::var_abs_rewriter>;
 template class rewriter_tpl<spacer::subs_rewriter_cfg>;
+template class rewriter_tpl<spacer::mk_num_pat_rewriter>;
