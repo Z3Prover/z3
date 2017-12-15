@@ -734,8 +734,10 @@ namespace nlsat {
         void undo_set_updt(interval_set * old_set) {
             SASSERT(m_xk != null_var);
             var x = m_xk;
-            m_ism.dec_ref(m_infeasible[x]);
-            m_infeasible[x] = old_set;
+			if (x < m_infeasible.size() && m_infeasible[x]) {
+				m_ism.dec_ref(m_infeasible[x]);
+				m_infeasible[x] = old_set;
+			}
         }
 
         void undo_new_stage() {
@@ -757,7 +759,8 @@ namespace nlsat {
 
         void undo_updt_eq(atom * a) {
             SASSERT(m_xk != null_var);
-            m_var2eq[m_xk] = a; 
+			if (m_var2eq.size() > m_xk)
+                m_var2eq[m_xk] = a; 
         }
 
         template<typename Predicate>

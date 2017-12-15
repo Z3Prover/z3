@@ -107,8 +107,8 @@ tactic * mk_qfnia_tactic(ast_manager & m, params_ref const & p) {
     simp_p.set_bool("som", true); // expand into sums of monomials
 
     return and_then(mk_qfnia_premable(m, p),
-                    or_else(mk_qfnia_sat_solver(m, p),
-                            mk_qfnia_nlsat_solver(m, p),
+                    or_else(mk_qfnia_nlsat_solver(m, p),
+                            mk_qfnia_sat_solver(m, p),
                             and_then(using_params(mk_simplify_tactic(m), simp_p),
                                      mk_smt_tactic())));
 }
