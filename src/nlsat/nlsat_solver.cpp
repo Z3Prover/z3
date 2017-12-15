@@ -903,15 +903,18 @@ namespace nlsat {
         */
         lbool value(literal l) {
             lbool val = assigned_value(l);
-            if (val != l_undef)
+            if (val != l_undef) {
                 return val;
+            }
             bool_var b = l.var();
             atom * a = m_atoms[b];
-            if (a == 0)
+            if (a == 0) {
                 return l_undef;
+            }
             var max = a->max_var();
-            if (!m_assignment.is_assigned(max))
+            if (!m_assignment.is_assigned(max)) {
                 return l_undef;
+            }
             val = to_lbool(m_evaluator.eval(a, l.sign()));
             TRACE("value_bug", tout << "value of: "; display(tout, l); tout << " := " << val << "\n"; 
                   tout << "xk: " << m_xk << ", a->max_var(): " << a->max_var() << "\n";
@@ -1168,7 +1171,7 @@ namespace nlsat {
         void select_witness() {
             scoped_anum w(m_am);
             SASSERT(!m_ism.is_full(m_infeasible[m_xk]));
-            m_ism.peek_in_complement(m_infeasible[m_xk], w, m_randomize);
+            m_ism.peek_in_complement(m_infeasible[m_xk], m_is_int[m_xk], w, m_randomize);
             TRACE("nlsat", 
                   tout << "infeasible intervals: "; m_ism.display(tout, m_infeasible[m_xk]); tout << "\n";
                   tout << "assigning "; m_display_var(tout, m_xk); tout << "(x" << m_xk << ") -> " << w << "\n";);
@@ -1232,6 +1235,61 @@ namespace nlsat {
             }
         }
 
+        lbool search_check() {
+            lbool r = l_undef;
+            while (true) {
+                r = search();
+                if (r != l_true) break;     
+                random_gen r(++m_random_seed);
+                unsigned start = r(num_vars());
+                for (var y = 0; y < num_vars(); y++) {
+                    var x = (y + start) % num_vars();
+                    if (m_is_int[x] && m_assignment.is_assigned(x) && !m_am.is_int(m_assignment.value(x))) {
+                        scoped_anum v(m_am), vlo(m_am), vhi(m_am);
+                        rational lo, hi;
+                        bool is_even = false;
+                        v = m_assignment.value(x);
+                        init_search();
+                        m_am.int_lt(v, vlo);
+                        m_am.int_gt(v, vhi);
+                        if (!m_am.is_int(vlo)) break;
+                        if (!m_am.is_int(vhi)) break;
+                        m_am.to_rational(vlo, lo);
+                        m_am.to_rational(vhi, hi);
+
+                        // derive tight bounds.
+                        while (true) {
+                            lo++;
+                            if (!m_am.gt(v, lo.to_mpq())) { lo--; break; }
+                        }
+                        while (true) {
+                            hi--;
+                            if (!m_am.lt(v, hi.to_mpq())) { hi++; break; }
+                        }
+                        
+                        polynomial_ref p(m_pm);
+                        rational one(1);
+                        m_lemma.reset();
+                        p = m_pm.mk_linear(1, &one, &x, -lo);
+                        poly* p1 = p.get();
+                        m_lemma.push_back(~mk_ineq_literal(atom::GT, 1, &p1, &is_even));
+                        p = m_pm.mk_linear(1, &one, &x, -hi);
+                        poly* p2 = p.get();
+                        m_lemma.push_back(~mk_ineq_literal(atom::LT, 1, &p2, &is_even));
+
+                        // perform branch and bound
+                        clause * cls = mk_clause(m_lemma.size(), m_lemma.c_ptr(), false, 0);
+                        if (cls) {
+                            TRACE("nlsat", display(tout << "conflict " << lo << " " << hi, *cls); tout << "\n";);
+                        }
+                        r = l_undef;
+                        break;
+                    }
+                }
+            }
+            return r;
+        }
+
         lbool check() {
             TRACE("nlsat_smt2", display_smt2(tout););
             TRACE("nlsat_fd", tout << "is_full_dimensional: " << is_full_dimensional() << "\n";);
@@ -1250,7 +1308,7 @@ namespace nlsat {
                 reordered = true;
             }
             sort_watched_clauses();
-            lbool r = search();
+            lbool r = search_check();
             CTRACE("nlsat_model", r == l_true, tout << "model before restore order\n"; display_assignment(tout););
             if (reordered)
                 restore_order();
@@ -1929,7 +1987,7 @@ namespace nlsat {
             for (var x = 0; x < num; x++) {
                 p.push_back(x);
             }
-            random_gen r(m_random_seed);
+            random_gen r(++m_random_seed);
             shuffle(p.size(), p.c_ptr(), r);
             reorder(p.size(), p.c_ptr());
         }
