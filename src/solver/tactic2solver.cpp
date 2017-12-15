@@ -77,7 +77,7 @@ public:
 
     virtual ast_manager& get_manager() const; 
 
-    virtual expr_ref_vector cube(unsigned ) {
+    virtual expr_ref_vector cube(expr_ref_vector& vars, unsigned ) {
         return expr_ref_vector(get_manager());
     }
 

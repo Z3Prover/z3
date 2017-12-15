@@ -223,7 +223,7 @@ public:
     virtual void get_labels(svector<symbol> & r) { return m_base->get_labels(r); }
     virtual void set_progress_callback(progress_callback * callback) { m_base->set_progress_callback(callback); }
 
-    virtual expr_ref_vector cube(unsigned ) { return expr_ref_vector(m); }
+    virtual expr_ref_vector cube(expr_ref_vector& vars, unsigned ) { return expr_ref_vector(m); }
 
     virtual ast_manager& get_manager() const { return m_base->get_manager(); } 
 

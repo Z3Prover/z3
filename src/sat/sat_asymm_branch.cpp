@@ -72,7 +72,7 @@ namespace sat {
             unsigned elim = m_elim_literals;
             if (big) big->init_big(s, true);
             process(big, s.m_clauses);
-            process(big, s.m_learned);
+            if (big) process(big, s.m_learned);
             s.propagate(false); 
             if (s.m_inconsistent)
                 break;

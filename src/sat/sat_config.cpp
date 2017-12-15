@@ -136,6 +136,7 @@ namespace sat {
         m_gc_increment    = p.gc_increment();
         m_gc_small_lbd    = p.gc_small_lbd();
         m_gc_k            = std::min(255u, p.gc_k());
+        m_gc_burst        = p.gc_burst();
 
         m_minimize_lemmas = p.minimize_lemmas();
         m_core_minimize   = p.core_minimize();

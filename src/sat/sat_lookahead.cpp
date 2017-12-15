@@ -338,7 +338,7 @@ namespace sat {
         } 
         TRACE("sat", display_candidates(tout << "sum: " << sum << "\n"););
         if (skip_candidates > 0) {
-            IF_VERBOSE(0, verbose_stream() << "candidates: " << m_candidates.size() << " skip: " << skip_candidates << "\n";);
+            IF_VERBOSE(1, verbose_stream() << "(sat-lookahead :candidates " << m_candidates.size() << " :skipped " << skip_candidates << ")\n";);
         }
         return sum;
     }
@@ -2050,15 +2050,15 @@ namespace sat {
         return h;
     }
 
-    lbool lookahead::cube(bool_var_vector const& vars, literal_vector& lits, unsigned backtrack_level) {
+    lbool lookahead::cube(bool_var_vector& vars, literal_vector& lits, unsigned backtrack_level) {
         scoped_ext _scoped_ext(*this);
         lits.reset();
-        m_select_lookahead_vars.reset();
-        for (auto v : vars) {
-            m_select_lookahead_vars.insert(v);
-        }
         bool is_first = m_cube_state.m_first;
         if (is_first) {
+            m_select_lookahead_vars.reset();
+            for (auto v : vars) {
+                m_select_lookahead_vars.insert(v);
+            }
             init_search();
             m_model.reset();
             m_cube_state.m_first = false;
@@ -2111,6 +2111,8 @@ namespace sat {
 #else
                 lits.append(m_cube_state.m_cube);
 #endif
+                vars.reset();
+                for (auto v : m_freevars) if (in_reduced_clause(v)) vars.push_back(v);
                 backtrack(m_cube_state.m_cube, m_cube_state.m_is_decision);
                 return l_undef;
             }
@@ -2126,6 +2128,8 @@ namespace sat {
                 continue;
             }
             if (lit == null_literal) {
+                vars.reset();
+                for (auto v : m_freevars) if (in_reduced_clause(v)) vars.push_back(v);
                 return l_true;
             }
             TRACE("sat", tout << "choose: " << lit << " cube: " << m_cube_state.m_cube << "\n";);
@@ -2245,40 +2249,6 @@ namespace sat {
             l = select_literal();
         }
         SASSERT(inconsistent() || !is_unsat());
-        return l;
-    }
-
-
-    literal lookahead::select_lookahead(literal_vector const& assumptions, bool_var_vector const& vars) {
-        IF_VERBOSE(1, verbose_stream() << "(sat-select " << vars.size() << ")\n";);
-        scoped_ext _sext(*this);
-        m_search_mode = lookahead_mode::searching;
-        scoped_level _sl(*this, c_fixed_truth);
-        init();                
-        if (inconsistent()) return null_literal;
-        inc_istamp();        
-        for (auto v : vars) {
-            m_select_lookahead_vars.insert(v);
-        }
-        
-        scoped_assumptions _sa(*this, assumptions);
-        literal l = choose();
-        m_select_lookahead_vars.reset();
-        if (inconsistent()) l = null_literal;
-
-#if 0
-        // assign unit literals that were found during search for lookahead.
-        if (assumptions.empty()) {
-            unsigned num_assigned = 0;
-            for (literal lit : m_trail) {
-                if (!m_s.was_eliminated(lit.var()) && m_s.value(lit) != l_true) {
-                    m_s.assign(lit, justification());
-                    ++num_assigned;
-                }
-            }
-            IF_VERBOSE(1, verbose_stream() << "(sat-lookahead :units " << num_assigned << ")\n";);
-        }
-#endif
         return l;
     }
 

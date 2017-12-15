@@ -222,7 +222,7 @@ namespace smt {
             return expr_ref(m.mk_true(), m);
         }
 
-        virtual expr_ref_vector cube(unsigned) {
+        virtual expr_ref_vector cube(expr_ref_vector&, unsigned) {
             return expr_ref_vector(get_manager());
         }
 

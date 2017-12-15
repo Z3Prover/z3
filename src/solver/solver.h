@@ -47,7 +47,7 @@ class solver : public check_sat_result {
     params_ref m_params;
     bool       m_enforce_model_conversion;
 public:
-    solver(): m_enforce_model_conversion(true) {}
+    solver(): m_enforce_model_conversion(false) {}
     virtual ~solver() {}
 
     /**
@@ -190,7 +190,7 @@ public:
        \brief extract a lookahead candidates for branching.
     */
 
-    virtual expr_ref_vector cube(unsigned backtrack_level) = 0;
+    virtual expr_ref_vector cube(expr_ref_vector& vars, unsigned backtrack_level) = 0;
 
     /**
        \brief Display the content of this solver.
