@@ -1360,7 +1360,7 @@ namespace sat {
 
         void prepare_block_clause(clause& c, literal l, model_converter::entry*& new_entry, model_converter::kind k) {
             TRACE("blocked_clause", tout << "new blocked clause: " << c << "\n";);
-            //VERIFY(!s.is_external(l));
+            VERIFY(!s.is_external(l));
             if (new_entry == 0)
                 new_entry = &(mc.mk(k, l.var()));
             m_to_remove.push_back(&c);

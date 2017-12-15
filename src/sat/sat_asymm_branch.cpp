@@ -76,12 +76,12 @@ namespace sat {
             s.propagate(false); 
             if (s.m_inconsistent)
                 break;
-            //std::cout << "elim: " << m_elim_literals - elim << "\n";
+            std::cout << "elim: " << m_elim_literals - elim << "\n";
             if (m_elim_literals == elim)
                 break;
         }
-        //std::cout << "elim-literals: " << m_elim_literals - elim0 << "\n";
-        //std::cout << "elim-learned-literals: " << m_elim_learned_literals - eliml0 << "\n";
+        std::cout << "elim-literals: " << m_elim_literals - elim0 << "\n";
+        std::cout << "elim-learned-literals: " << m_elim_learned_literals - eliml0 << "\n";
         return m_elim_literals > elim0;
     }
 
