@@ -732,7 +732,7 @@ namespace nlsat {
         }
 
         void undo_set_updt(interval_set * old_set) {
-            SASSERT(m_xk != null_var);
+			if (m_xk == null_var) return;
             var x = m_xk;
 			if (x < m_infeasible.size()) {
 				m_ism.dec_ref(m_infeasible[x]);
@@ -741,8 +741,7 @@ namespace nlsat {
         }
 
         void undo_new_stage() {
-            SASSERT(m_xk != null_var);
-            if (m_xk == 0) {
+            if (m_xk == 0 || m_xk == null_var) {
                 m_xk = null_var;
             }
             else {
@@ -758,7 +757,6 @@ namespace nlsat {
         }
 
         void undo_updt_eq(atom * a) {
-            SASSERT(m_xk != null_var);
 			if (m_var2eq.size() > m_xk)
                 m_var2eq[m_xk] = a; 
         }
