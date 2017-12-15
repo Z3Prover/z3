@@ -181,7 +181,7 @@ namespace sat {
         for (bool_var v : to_elim) {
             literal  l(v, false);
             literal r  = roots[v];
-            SASSERT(v != r.var());            
+            SASSERT(v != r.var());
             bool root_ok = !m_solver.is_external(v) || m_solver.set_root(l, r);
             if (m_solver.is_external(v) && (m_solver.is_incremental() || !root_ok)) {
                 // cannot really eliminate v, since we have to notify extension of future assignments

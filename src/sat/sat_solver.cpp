@@ -60,6 +60,7 @@ namespace sat {
         m_next_simplify           = 0;
         m_num_checkpoints         = 0;
         m_simplifications         = 0;
+        m_ext                     = 0;
         m_cuber                   = nullptr;
         m_mc.set_solver(this);
     }

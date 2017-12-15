@@ -77,8 +77,8 @@ void ast_translation::push_frame(ast * n) {
 }
 
 bool ast_translation::visit(ast * n) {        
-    ast * r;
     if (n->get_ref_count() > 1) {
+        ast * r;
         if (m_cache.find(n, r)) {
             m_result_stack.push_back(r);
             ++m_hit_count;
