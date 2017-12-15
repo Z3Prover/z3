@@ -1251,6 +1251,7 @@ namespace nlsat {
                         rational lo;
                         m_am.int_lt(v, vlo);
                         if (!m_am.is_int(vlo)) continue;
+                        m_am.to_rational(vlo, lo);
                         // derive tight bounds.
                         while (true) {
                             lo++;
