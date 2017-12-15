@@ -24,12 +24,8 @@ namespace sat {
     big::big() {}
 
     void big::init_big(solver& s, bool learned) {
-        m_num_vars = s.num_vars();
+        init_adding_edges(s.num_vars());
         unsigned num_lits = m_num_vars * 2;
-        m_dag.reset();
-        m_roots.reset();
-        m_dag.resize(num_lits, 0);
-        m_roots.resize(num_lits, true);
         literal_vector lits;
         SASSERT(num_lits == m_dag.size() && num_lits == m_roots.size());
         for (unsigned l_idx = 0; l_idx < num_lits; l_idx++) {
@@ -44,10 +40,30 @@ namespace sat {
                     edges.push_back(v);
                 }
             }
+        }
+        done_adding_edges();
+    }
+
+    void big::init_adding_edges(unsigned num_vars) {
+        m_num_vars = num_vars;
+        unsigned num_lits = m_num_vars * 2;
+        m_dag.reset();
+        m_roots.reset();
+        m_dag.resize(num_lits, 0);
+        m_roots.resize(num_lits, true);
+    }
+
+    void big::add_edge(literal u, literal v) {
+        m_dag[u.index()].push_back(v);
+    }
+
+    void big::done_adding_edges() {
+        for (auto& edges : m_dag) {
             shuffle<literal>(edges.size(), edges.c_ptr(), m_rand);
         }
-        init_dfs_num(learned);
+        init_dfs_num();
     }
+
 
     struct big::pframe {
         literal m_parent;
@@ -58,7 +74,7 @@ namespace sat {
         literal parent() const { return m_parent; }
     };
 
-    void big::init_dfs_num(bool learned) {
+    void big::init_dfs_num() {
         unsigned num_lits = m_num_vars * 2;
         m_left.reset();
         m_right.reset();

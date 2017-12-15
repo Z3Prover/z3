@@ -48,14 +48,10 @@ void ast_translation::reset_cache() {
 void ast_translation::cache(ast * s, ast * t) {
     SASSERT(!m_cache.contains(s));
     if (s->get_ref_count() > 1) {
-        if (m_insert_count > (1 << 17)) {
-            reset_cache();
-            m_insert_count = 0;
-        }
-        m_cache.insert(s, t);
-        ++m_insert_count;
         m_from_manager.inc_ref(s);
         m_to_manager.inc_ref(t);
+        m_cache.insert(s, t);
+        ++m_insert_count;
     }
 }
 

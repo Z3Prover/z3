@@ -55,9 +55,11 @@ namespace sat {
         ~report() {
             m_watch.stop();
             IF_VERBOSE(SAT_VB_LVL, 
-                       verbose_stream() << " (sat-asymm-branch :elim-literals "
-                       << (m_asymm_branch.m_elim_literals - m_elim_literals)
-                       << " :elim-learned-literals " << (m_asymm_branch.m_elim_learned_literals - m_elim_learned_literals)
+                       unsigned num_learned = (m_asymm_branch.m_elim_learned_literals - m_elim_learned_literals);
+                       unsigned num_total = (m_asymm_branch.m_elim_literals - m_elim_literals);
+                       verbose_stream() 
+                       << " (sat-asymm-branch :elim-literals " << (num_total - num_learned) 
+                       << " :elim-learned-literals " << num_learned
                        << " :hidden-tautologies " << (m_asymm_branch.m_hidden_tautologies - m_hidden_tautologies)
                        << " :cost " << m_asymm_branch.m_counter
                        << mem_stat()
@@ -76,12 +78,15 @@ namespace sat {
             s.propagate(false); 
             if (s.m_inconsistent)
                 break;
-            std::cout << "elim: " << m_elim_literals - elim << "\n";
-            if (m_elim_literals == elim)
+            unsigned num_elim = m_elim_literals - elim;
+            IF_VERBOSE(1, verbose_stream() << "(sat-asymm-branch-step :elim " << num_elim << ")\n";);
+            if (num_elim == 0)
                 break;
-        }
-        std::cout << "elim-literals: " << m_elim_literals - elim0 << "\n";
-        std::cout << "elim-learned-literals: " << m_elim_learned_literals - eliml0 << "\n";
+            if (num_elim > 1000) 
+                i = 0;
+        }        
+        IF_VERBOSE(1, if (m_elim_learned_literals > eliml0) 
+                          verbose_stream() << "(sat-asymm-branch :elim " << m_elim_learned_literals - eliml0 << ")\n";);
         return m_elim_literals > elim0;
     }
 
@@ -127,6 +132,16 @@ namespace sat {
             m_counter = -m_counter;
             throw ex;
         }
+    }
+
+    void asymm_branch::operator()(big& big) {
+        s.propagate(false); 
+        if (s.m_inconsistent)
+            return;
+        report rpt(*this);
+        svector<char> saved_phase(s.m_phase);
+        process(&big);
+        s.m_phase = saved_phase;
     }
     
     void asymm_branch::operator()(bool force) {
@@ -244,7 +259,6 @@ namespace sat {
                     lemma[j++] = l;
                 }
             }
-            // std::cout << lemma.size() << " -> " << j << "\n";
             lemma.shrink(j);
         }
     }
@@ -347,8 +361,7 @@ namespace sat {
                 break;
             }
         }
-        new_sz = j;        
-        // std::cout << "cleanup: " << c.id() << ": " << literal_vector(new_sz, c.begin()) << " delta: " << (c.size() - new_sz) << " " << skip_idx << " " << new_sz << "\n";
+        new_sz = j;                
         return re_attach(scoped_d, c, new_sz);
     }
 
@@ -386,7 +399,7 @@ namespace sat {
     bool asymm_branch::process_sampled(big& big, clause & c) {
         scoped_detach scoped_d(s, c);
         sort(big, c);
-#if 0
+#if 1
         if (uhte(big, c)) {
             ++m_hidden_tautologies;
             scoped_d.del_clause();

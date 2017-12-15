@@ -2308,12 +2308,40 @@ namespace sat {
                 elim_eqs elim(m_s);
                 elim(roots, to_elim);
 
+                if (get_config().m_lookahead_simplify_asymm_branch) {
+                    big_asymm_branch();
+                }
                 if (get_config().m_lookahead_simplify_bca) {
                     add_hyper_binary();
                 }
+                
             }
         }   
         m_lookahead.reset();        
+    }
+
+    /**
+       \brief extract binary implication graph from learned binary clauses and use it
+       for strengthening clauses.
+     */
+
+    void lookahead::big_asymm_branch() {
+        unsigned num_lits = m_s.num_vars() * 2;
+        unsigned idx = 0;
+        big big;
+        big.init_adding_edges(m_s.num_vars());
+        for (auto const& lits : m_binary) {
+            literal u = get_parent(to_literal(idx++));
+            if (u == null_literal) continue;
+            for (literal v : lits) {
+                v = get_parent(v);
+                if (v != null_literal) 
+                    big.add_edge(u, v);
+            }            
+        }
+        big.done_adding_edges();
+        asymm_branch ab(m_s, m_s.m_params);
+        ab(big);
     }
 
     /**

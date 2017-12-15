@@ -555,6 +555,8 @@ namespace sat {
 
         void add_hyper_binary();
 
+        void big_asymm_branch();
+
         double psat_heur();
 
     public:
