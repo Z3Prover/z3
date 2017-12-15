@@ -732,19 +732,19 @@ namespace nlsat {
         }
 
         void undo_set_updt(interval_set * old_set) {
-			if (m_xk == null_var) return;
+            if (m_xk == null_var) return;
             var x = m_xk;
-			if (x < m_infeasible.size()) {
-				m_ism.dec_ref(m_infeasible[x]);
-				m_infeasible[x] = old_set;
-			}
+            if (x < m_infeasible.size()) {
+                m_ism.dec_ref(m_infeasible[x]);
+                m_infeasible[x] = old_set;
+            }
         }
 
         void undo_new_stage() {
-            if (m_xk == 0 || m_xk == null_var) {
+            if (m_xk == 0) {
                 m_xk = null_var;
             }
-            else {
+            else if (m_xk != null_var) {
                 m_xk--;
                 m_assignment.reset(m_xk);
             }
@@ -757,7 +757,7 @@ namespace nlsat {
         }
 
         void undo_updt_eq(atom * a) {
-			if (m_var2eq.size() > m_xk)
+            if (m_var2eq.size() > m_xk)
                 m_var2eq[m_xk] = a; 
         }
 
@@ -1241,50 +1241,47 @@ namespace nlsat {
             while (true) {
                 r = search();
                 if (r != l_true) break;     
-                random_gen r(++m_random_seed);
-                unsigned start = r(num_vars());
-                for (var y = 0; y < num_vars(); y++) {
-                    var x = (y + start) % num_vars();
-                    if (m_is_int[x] && m_assignment.is_assigned(x) && !m_am.is_int(m_assignment.value(x))) {
-                        scoped_anum v(m_am), vlo(m_am), vhi(m_am);
-                        rational lo, hi;
-                        bool is_even = false;
-                        v = m_assignment.value(x);
-                        init_search();
-                        m_am.int_lt(v, vlo);
-                        m_am.int_gt(v, vhi);
-                        if (!m_am.is_int(vlo)) break;
-                        if (!m_am.is_int(vhi)) break;
-                        m_am.to_rational(vlo, lo);
-                        m_am.to_rational(vhi, hi);
+                vector<rational> lows;
+                vector<var>      vars;
 
+                for (var x = 0; x < num_vars(); x++) {
+                    if (m_is_int[x] && m_assignment.is_assigned(x) && !m_am.is_int(m_assignment.value(x))) {
+                        scoped_anum v(m_am), vlo(m_am);
+                        v = m_assignment.value(x);
+                        rational lo;
+                        m_am.int_lt(v, vlo);
+                        if (!m_am.is_int(vlo)) continue;
                         // derive tight bounds.
                         while (true) {
                             lo++;
                             if (!m_am.gt(v, lo.to_mpq())) { lo--; break; }
                         }
-                        while (true) {
-                            hi--;
-                            if (!m_am.lt(v, hi.to_mpq())) { hi++; break; }
-                        }
-                        
-                        polynomial_ref p(m_pm);
-                        rational one(1);
-                        m_lemma.reset();
-                        p = m_pm.mk_linear(1, &one, &x, -lo);
-                        poly* p1 = p.get();
-                        m_lemma.push_back(~mk_ineq_literal(atom::GT, 1, &p1, &is_even));
-                        p = m_pm.mk_linear(1, &one, &x, -hi);
-                        poly* p2 = p.get();
-                        m_lemma.push_back(~mk_ineq_literal(atom::LT, 1, &p2, &is_even));
+                        lows.push_back(lo);
+                        vars.push_back(x);
+                    }
+                }
+                if (lows.empty()) break;
 
-                        // perform branch and bound
-                        clause * cls = mk_clause(m_lemma.size(), m_lemma.c_ptr(), false, 0);
-                        if (cls) {
-                            TRACE("nlsat", display(tout << "conflict " << lo << " " << hi, *cls); tout << "\n";);
-                        }
-                        r = l_undef;
-                        break;
+                init_search();                
+                for (unsigned i = 0; i < lows.size(); ++i) {
+                    rational lo = lows[i];
+                    rational hi = lo + rational::one();
+                    var x = vars[i];
+                    bool is_even = false;                        
+                    polynomial_ref p(m_pm);
+                    rational one(1);
+                    m_lemma.reset();
+                    p = m_pm.mk_linear(1, &one, &x, -lo);
+                    poly* p1 = p.get();
+                    m_lemma.push_back(~mk_ineq_literal(atom::GT, 1, &p1, &is_even));
+                    p = m_pm.mk_linear(1, &one, &x, -hi);
+                    poly* p2 = p.get();
+                    m_lemma.push_back(~mk_ineq_literal(atom::LT, 1, &p2, &is_even));
+                    
+                    // perform branch and bound
+                    clause * cls = mk_clause(m_lemma.size(), m_lemma.c_ptr(), false, 0);
+                    if (cls) {
+                        TRACE("nlsat", display(tout << "conflict " << lo << " " << hi, *cls); tout << "\n";);
                     }
                 }
             }
