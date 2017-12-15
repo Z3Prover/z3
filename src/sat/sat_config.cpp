@@ -87,24 +87,18 @@ namespace sat {
         else  
             throw sat_param_exception("invalid reward type supplied: accepted heuristics are 'ternary', 'heuleu', 'unit' or 'heule_schur'");
 
-        if (p.lookahead_cube_cutoff() == symbol("depth")) {
+        if (p.lookahead_cube_cutoff() == symbol("depth")) 
             m_lookahead_cube_cutoff = depth_cutoff;
-        }
-        else if (p.lookahead_cube_cutoff() == symbol("freevars")) {
+        else if (p.lookahead_cube_cutoff() == symbol("freevars")) 
             m_lookahead_cube_cutoff = freevars_cutoff;
-        }
-        else if (p.lookahead_cube_cutoff() == symbol("psat")) {
+        else if (p.lookahead_cube_cutoff() == symbol("psat")) 
             m_lookahead_cube_cutoff = psat_cutoff;
-        }
-        else if (p.lookahead_cube_cutoff() == symbol("adaptive_freevars")) {
+        else if (p.lookahead_cube_cutoff() == symbol("adaptive_freevars")) 
             m_lookahead_cube_cutoff = adaptive_freevars_cutoff;
-        }
-        else if (p.lookahead_cube_cutoff() == symbol("adaptive_psat")) {
+        else if (p.lookahead_cube_cutoff() == symbol("adaptive_psat")) 
             m_lookahead_cube_cutoff = adaptive_psat_cutoff;
-        }
-        else {
+        else 
             throw sat_param_exception("invalid cutoff type supplied: accepted cutoffs are 'depth', 'freevars', 'psat', 'adaptive_freevars' and 'adaptive_psat'");
-        }
         m_lookahead_cube_fraction = p.lookahead_cube_fraction();
         m_lookahead_cube_depth = p.lookahead_cube_depth();
         m_lookahead_cube_freevars = p.lookahead_cube_freevars();
