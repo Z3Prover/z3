@@ -1772,7 +1772,7 @@ namespace sat {
 
         // eliminate variable
         ++s.m_stats.m_elim_var_res;
-        //VERIFY(!is_external(v));
+        VERIFY(!is_external(v));
         model_converter::entry & mc_entry = s.m_mc.mk(model_converter::ELIM_VAR, v);
         save_clauses(mc_entry, m_pos_cls);
         save_clauses(mc_entry, m_neg_cls);

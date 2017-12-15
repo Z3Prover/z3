@@ -74,6 +74,7 @@ namespace sat {
         m_local_search_threads = p.local_search_threads();
         m_lookahead_simplify = p.lookahead_simplify();
         m_lookahead_simplify_bca = p.lookahead_simplify_bca();
+        m_lookahead_simplify_asymm_branch = p.lookahead_simplify_asymm_branch();
         if (p.lookahead_reward() == symbol("heule_schur")) 
             m_lookahead_reward = heule_schur_reward;
         else if (p.lookahead_reward() == symbol("heuleu")) 

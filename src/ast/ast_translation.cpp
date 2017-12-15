@@ -52,7 +52,6 @@ void ast_translation::cache(ast * s, ast * t) {
         m_to_manager.inc_ref(t);
         m_cache.insert(s, t);
         ++m_insert_count;
-
     }
 }
 
