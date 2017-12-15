@@ -37,6 +37,11 @@ class ast_translation {
     ptr_vector<ast>     m_extra_children_stack; // for sort and func_decl, since they have nested AST in their parameters
     ptr_vector<ast>     m_result_stack; 
     obj_map<ast, ast*>  m_cache;
+    unsigned            m_loop_count;
+    unsigned            m_hit_count;
+    unsigned            m_miss_count;
+    unsigned            m_insert_count;
+    unsigned            m_num_process;
 
     void cache(ast * s, ast * t);
     void collect_decl_extra_children(decl * d);
@@ -50,6 +55,11 @@ class ast_translation {
 
 public:
     ast_translation(ast_manager & from, ast_manager & to, bool copy_plugins = true) : m_from_manager(from), m_to_manager(to) {
+        m_loop_count = 0;
+        m_hit_count = 0;
+        m_miss_count = 0;
+        m_insert_count = 0;
+        m_num_process = 0;
         if (&from != &to) {
             if (copy_plugins)
                 m_to_manager.copy_families_plugins(m_from_manager);
@@ -73,6 +83,12 @@ public:
 
     void reset_cache();
     void cleanup();
+    
+    unsigned loop_count() const { return m_loop_count; }
+    unsigned hit_count() const { return m_hit_count; }
+    unsigned miss_count() const { return m_miss_count; }
+    unsigned insert_count() const { return m_insert_count; }
+    unsigned long long get_num_collision() const { return m_cache.get_num_collision(); }
 };
 
 // Translation with non-persistent cache.
