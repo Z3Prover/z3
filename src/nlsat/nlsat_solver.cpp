@@ -734,7 +734,7 @@ namespace nlsat {
         void undo_set_updt(interval_set * old_set) {
             SASSERT(m_xk != null_var);
             var x = m_xk;
-			if (x < m_infeasible.size() && m_infeasible[x]) {
+			if (x < m_infeasible.size()) {
 				m_ism.dec_ref(m_infeasible[x]);
 				m_infeasible[x] = old_set;
 			}
