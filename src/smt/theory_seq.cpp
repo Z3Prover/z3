@@ -522,7 +522,7 @@ bool theory_seq::eq_unit(expr* const& l, expr* const &r) const {
 }
 
 // exists x, y, rs' != empty s.t.  (ls = x ++ rs' ++ y & rs = rs') || (ls = rs' ++ x && rs = y ++ rs')
-unsigned_vector theory_seq::overlap(ptr_vector<expr> const& ls, ptr_vector<expr> const& rs) {
+unsigned_vector theory_seq::overlap(expr_ref_vector const& ls, expr_ref_vector const& rs) {
     SASSERT(!ls.empty() && !rs.empty());
     unsigned_vector res;
     expr* l = mk_concat(ls);
@@ -554,7 +554,7 @@ unsigned_vector theory_seq::overlap(ptr_vector<expr> const& ls, ptr_vector<expr>
 }
 
 // exists x, y, rs' != empty s.t.  (ls = x ++ rs' ++ y & rs = rs') || (ls = x ++ rs' && rs = rs' ++ y)
-unsigned_vector theory_seq::overlap2(ptr_vector<expr> const& ls, ptr_vector<expr> const& rs) {
+unsigned_vector theory_seq::overlap2(expr_ref_vector const& ls, expr_ref_vector const& rs) {
     SASSERT(!ls.empty() && !rs.empty());
     unsigned_vector res;
     expr* l = mk_concat(ls);
@@ -584,7 +584,7 @@ unsigned_vector theory_seq::overlap2(ptr_vector<expr> const& ls, ptr_vector<expr
 }
 
 bool theory_seq::branch_ternary_variable_base(dependency* dep, unsigned_vector indexes,
-expr* x, ptr_vector<expr> xs, expr* y1, ptr_vector<expr> ys, expr* y2) {
+        expr* const& x, expr_ref_vector const& xs, expr* const& y1, expr_ref_vector const& ys, expr* const& y2) {
     context& ctx = get_context();
     bool change = false;
     for (auto ind : indexes) {
@@ -634,7 +634,7 @@ expr* x, ptr_vector<expr> xs, expr* y1, ptr_vector<expr> ys, expr* y2) {
 
 // Equation is of the form x ++ xs = y1 ++ ys ++ y2 where xs, ys are units.
 bool theory_seq::branch_ternary_variable(eq const& e, bool flag1) {
-    ptr_vector<expr> xs, ys;
+    expr_ref_vector xs(m), ys(m);
     expr* x = nullptr, *y1 = nullptr, *y2 = nullptr;
     bool is_ternary = is_ternary_eq(e.ls(), e.rs(), x, xs, y1, ys, y2, flag1);
     if (!is_ternary) {
@@ -701,7 +701,7 @@ bool theory_seq::branch_ternary_variable(eq const& e, bool flag1) {
 }
 
 bool theory_seq::branch_ternary_variable_base2(dependency* dep, unsigned_vector indexes,
-ptr_vector<expr> xs, expr* x, expr* y1, ptr_vector<expr> ys, expr* y2) {
+        expr_ref_vector const& xs, expr* const& x, expr* const& y1, expr_ref_vector const& ys, expr* const& y2) {
     context& ctx = get_context();
     bool change = false;
     for (auto ind : indexes) {
@@ -750,7 +750,7 @@ ptr_vector<expr> xs, expr* x, expr* y1, ptr_vector<expr> ys, expr* y2) {
 
 // Equation is of the form xs ++ x = y1 ++ ys ++ y2 where xs, ys are units.
 bool theory_seq::branch_ternary_variable2(eq const& e, bool flag1) {
-    ptr_vector<expr> xs, ys;
+    expr_ref_vector xs(m), ys(m);
     expr* x = nullptr, *y1 = nullptr, *y2 = nullptr;
     bool is_ternary = is_ternary_eq2(e.ls(), e.rs(), xs, x, y1, ys, y2, flag1);
     if (!is_ternary) {
@@ -827,7 +827,7 @@ bool theory_seq::branch_quat_variable() {
 
 // Equation is of the form x1 ++ xs ++ x2 = y1 ++ ys ++ y2 where xs, ys are units.
 bool theory_seq::branch_quat_variable(eq const& e) {
-    ptr_vector<expr> xs, ys;
+    expr_ref_vector xs(m), ys(m);
     expr* x1_l = nullptr, *x2 = nullptr, *y1_l = nullptr, *y2 = nullptr;
     bool is_quat = is_quat_eq(e.ls(), e.rs(), x1_l, xs, x2, y1_l, ys, y2);
     if (!is_quat) {
@@ -1388,8 +1388,8 @@ bool theory_seq::branch_variable_mb() {
         for (auto elem : len2) l2 += elem;
         if (l1 != l2) {
             TRACE("seq", tout << "lengths are not compatible\n";);
-            expr_ref l = mk_concat(e.ls());
-            expr_ref r = mk_concat(e.rs());
+            expr_ref l(mk_concat(e.ls()), m);
+            expr_ref r(mk_concat(e.rs()), m);
             expr_ref lnl(m_util.str.mk_length(l), m), lnr(m_util.str.mk_length(r), m);
             propagate_eq(e.dep(), lnl, lnr, false);
             change = true;
@@ -2490,7 +2490,7 @@ bool theory_seq::is_binary_eq(expr_ref_vector const& ls, expr_ref_vector const& 
 }
 
 bool theory_seq::is_quat_eq(expr_ref_vector const& ls, expr_ref_vector const& rs, 
-expr*& x1, ptr_vector<expr>& xs, expr*& x2, expr*& y1, ptr_vector<expr>& ys, expr*& y2) {
+expr*& x1, expr_ref_vector& xs, expr*& x2, expr*& y1, expr_ref_vector& ys, expr*& y2) {
     if (ls.size() > 1 && is_var(ls[0]) && is_var(ls.back()) &&
         rs.size() > 1 && is_var(rs[0]) && is_var(rs.back())) {
         unsigned l_start = 1;
@@ -2533,7 +2533,7 @@ expr*& x1, ptr_vector<expr>& xs, expr*& x2, expr*& y1, ptr_vector<expr>& ys, exp
 }
 
 bool theory_seq::is_ternary_eq(expr_ref_vector const& ls, expr_ref_vector const& rs, 
-expr*& x, ptr_vector<expr>& xs, expr*& y1, ptr_vector<expr>& ys, expr*& y2, bool flag1) {
+expr*& x, expr_ref_vector& xs, expr*& y1, expr_ref_vector& ys, expr*& y2, bool flag1) {
     if (ls.size() > 1 && (is_var(ls[0]) || flag1) &&
         rs.size() > 1 && is_var(rs[0]) && is_var(rs.back())) {
         unsigned l_start = ls.size()-1;
@@ -2571,7 +2571,7 @@ expr*& x, ptr_vector<expr>& xs, expr*& y1, ptr_vector<expr>& ys, expr*& y2, bool
 }
 
 bool theory_seq::is_ternary_eq2(expr_ref_vector const& ls, expr_ref_vector const& rs, 
-ptr_vector<expr>& xs, expr*& x, expr*& y1, ptr_vector<expr>& ys, expr*& y2, bool flag1) {
+        expr_ref_vector& xs, expr*& x, expr*& y1, expr_ref_vector& ys, expr*& y2, bool flag1) {
     if (ls.size() > 1 && (is_var(ls.back()) || flag1) &&
         rs.size() > 1 && is_var(rs[0]) && is_var(rs.back())) {
         unsigned l_start = 0;

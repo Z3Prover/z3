@@ -402,10 +402,10 @@ namespace smt {
         bool branch_variable(eq const& e);
         bool branch_binary_variable(eq const& e);
         bool eq_unit(expr* const& l, expr* const &r) const;       
-        unsigned_vector overlap(ptr_vector<expr> const& ls, ptr_vector<expr> const& rs);
-        unsigned_vector overlap2(ptr_vector<expr> const& ls, ptr_vector<expr> const& rs);
-        bool branch_ternary_variable_base(dependency* dep, unsigned_vector indexes, expr* x, ptr_vector<expr> xs, expr* y1, ptr_vector<expr> ys, expr* y2);
-        bool branch_ternary_variable_base2(dependency* dep, unsigned_vector indexes, ptr_vector<expr> xs, expr* x, expr* y1, ptr_vector<expr> ys, expr* y2);
+        unsigned_vector overlap(expr_ref_vector const& ls, expr_ref_vector const& rs);
+        unsigned_vector overlap2(expr_ref_vector const& ls, expr_ref_vector const& rs);
+        bool branch_ternary_variable_base(dependency* dep, unsigned_vector indexes, expr* const& x, expr_ref_vector const& xs, expr* const& y1, expr_ref_vector const& ys, expr* const& y2);
+        bool branch_ternary_variable_base2(dependency* dep, unsigned_vector indexes, expr_ref_vector const& xs, expr* const& x, expr* const& y1, expr_ref_vector const& ys, expr* const& y2);
         bool branch_ternary_variable(eq const& e, bool flag1 = false);
         bool branch_ternary_variable2(eq const& e, bool flag1 = false);
         bool branch_quat_variable(eq const& e);
@@ -427,9 +427,9 @@ namespace smt {
         bool solve_unit_eq(expr* l, expr* r, dependency* dep);
         bool solve_unit_eq(expr_ref_vector const& l, expr_ref_vector const& r, dependency* dep);
         bool is_binary_eq(expr_ref_vector const& l, expr_ref_vector const& r, expr*& x, ptr_vector<expr>& xunits, ptr_vector<expr>& yunits, expr*& y);
-        bool is_quat_eq(expr_ref_vector const& ls, expr_ref_vector const& rs, expr*& x1, ptr_vector<expr>& xs, expr*& x2, expr*& y1, ptr_vector<expr>& ys, expr*& y2);
-        bool is_ternary_eq(expr_ref_vector const& ls, expr_ref_vector const& rs, expr*& x, ptr_vector<expr>& xs, expr*& y1, ptr_vector<expr>& ys, expr*& y2, bool flag1);
-        bool is_ternary_eq2(expr_ref_vector const& ls, expr_ref_vector const& rs, ptr_vector<expr>& xs, expr*& x, expr*& y1, ptr_vector<expr>& ys, expr*& y2, bool flag1);
+        bool is_quat_eq(expr_ref_vector const& ls, expr_ref_vector const& rs, expr*& x1, expr_ref_vector& xs, expr*& x2, expr*& y1, expr_ref_vector& ys, expr*& y2);
+        bool is_ternary_eq(expr_ref_vector const& ls, expr_ref_vector const& rs, expr*& x, expr_ref_vector& xs, expr*& y1, expr_ref_vector& ys, expr*& y2, bool flag1);
+        bool is_ternary_eq2(expr_ref_vector const& ls, expr_ref_vector const& rs, expr_ref_vector& xs, expr*& x, expr*& y1, expr_ref_vector& ys, expr*& y2, bool flag1);
         bool solve_binary_eq(expr_ref_vector const& l, expr_ref_vector const& r, dependency* dep);
         bool propagate_max_length(expr* l, expr* r, dependency* dep);
 
@@ -441,7 +441,7 @@ namespace smt {
         expr_ref mk_empty(sort* s) { return expr_ref(m_util.str.mk_empty(s), m); }
         expr_ref mk_concat(unsigned n, expr*const* es) { return expr_ref(m_util.str.mk_concat(n, es), m); }
         expr_ref mk_concat(expr_ref_vector const& es, sort* s) { if (es.empty()) return mk_empty(s); return mk_concat(es.size(), es.c_ptr()); }
-        expr_ref mk_concat(expr_ref_vector const& es) { SASSERT(!es.empty());  return mk_concat(es.size(), es.c_ptr()); }
+        expr* mk_concat(expr_ref_vector const& es) { SASSERT(!es.empty());  return m_util.str.mk_concat(es.size(), es.c_ptr()); }
         expr_ref mk_concat(ptr_vector<expr> const& es) { SASSERT(!es.empty()); return mk_concat(es.size(), es.c_ptr()); }
         expr_ref mk_concat(expr* e1, expr* e2) { return expr_ref(m_util.str.mk_concat(e1, e2), m); }
         expr_ref mk_concat(expr* e1, expr* e2, expr* e3) { return expr_ref(m_util.str.mk_concat(e1, e2, e3), m); }
