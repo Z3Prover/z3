@@ -26,8 +26,10 @@ Notes:
 #include "tactic/bv/max_bv_sharing_tactic.h"
 #include "sat/tactic/sat_tactic.h"
 #include "tactic/arith/nla2bv_tactic.h"
+#include "tactic/arith/elim01_tactic.h"
 #include "tactic/core/ctx_simplify_tactic.h"
 #include "tactic/core/cofactor_term_ite_tactic.h"
+#include "nlsat/tactic/qfnra_nlsat_tactic.h"
 
 static tactic * mk_qfnia_bv_solver(ast_manager & m, params_ref const & p_ref) {
     params_ref p = p_ref;
@@ -61,8 +63,6 @@ static tactic * mk_qfnia_premable(ast_manager & m, params_ref const & p_ref) {
     ctx_simp_p.set_uint("max_depth", 30);
     ctx_simp_p.set_uint("max_steps", 5000000);
     
-    params_ref simp_p = p_ref;
-    simp_p.set_bool("hoist_mul", true);
 
     params_ref elim_p = p_ref;
     elim_p.set_uint("max_memory",20);
@@ -73,21 +73,42 @@ static tactic * mk_qfnia_premable(ast_manager & m, params_ref const & p_ref) {
                  using_params(mk_ctx_simplify_tactic(m), ctx_simp_p),
                  using_params(mk_simplify_tactic(m), pull_ite_p),
                  mk_elim_uncnstr_tactic(m),
-                 skip_if_failed(using_params(mk_cofactor_term_ite_tactic(m), elim_p)),
-                 using_params(mk_simplify_tactic(m), simp_p));    
+                 mk_elim01_tactic(m),
+                 skip_if_failed(using_params(mk_cofactor_term_ite_tactic(m), elim_p)));
 }
 
 static tactic * mk_qfnia_sat_solver(ast_manager & m, params_ref const & p) {
     params_ref nia2sat_p = p;
-    nia2sat_p.set_uint("nla2bv_max_bv_size", 64);   
+    nia2sat_p.set_uint("nla2bv_max_bv_size", 64);  
+    params_ref simp_p = p;
+    simp_p.set_bool("hoist_mul", true); // hoist multipliers to create smaller circuits.
 
-    return and_then(mk_nla2bv_tactic(m, nia2sat_p),
+    return and_then(using_params(mk_simplify_tactic(m), simp_p),
+                    mk_nla2bv_tactic(m, nia2sat_p),
                     mk_qfnia_bv_solver(m, p),
                     mk_fail_if_undecided_tactic());
 }
 
+static tactic * mk_qfnia_nlsat_solver(ast_manager & m, params_ref const & p) {
+    params_ref nia2sat_p = p;
+    nia2sat_p.set_uint("nla2bv_max_bv_size", 64);  
+    params_ref simp_p = p;
+    simp_p.set_bool("som", true); // expand into sums of monomials
+    simp_p.set_bool("factor", false);
+
+
+    return and_then(using_params(mk_simplify_tactic(m), simp_p),
+                    try_for(mk_qfnra_nlsat_tactic(m, simp_p), 3000),
+                    mk_fail_if_undecided_tactic());
+}
+
 tactic * mk_qfnia_tactic(ast_manager & m, params_ref const & p) {
+    params_ref simp_p = p;
+    simp_p.set_bool("som", true); // expand into sums of monomials
+
     return and_then(mk_qfnia_premable(m, p),
-                    or_else(mk_qfnia_sat_solver(m, p),
-                            mk_smt_tactic()));
+                    or_else(mk_qfnia_nlsat_solver(m, p),
+                            mk_qfnia_sat_solver(m, p),
+                            and_then(using_params(mk_simplify_tactic(m), simp_p),
+                                     mk_smt_tactic())));
 }

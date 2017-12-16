@@ -732,18 +732,19 @@ namespace nlsat {
         }
 
         void undo_set_updt(interval_set * old_set) {
-            SASSERT(m_xk != null_var);
+            if (m_xk == null_var) return;
             var x = m_xk;
-            m_ism.dec_ref(m_infeasible[x]);
-            m_infeasible[x] = old_set;
+            if (x < m_infeasible.size()) {
+                m_ism.dec_ref(m_infeasible[x]);
+                m_infeasible[x] = old_set;
+            }
         }
 
         void undo_new_stage() {
-            SASSERT(m_xk != null_var);
             if (m_xk == 0) {
                 m_xk = null_var;
             }
-            else {
+            else if (m_xk != null_var) {
                 m_xk--;
                 m_assignment.reset(m_xk);
             }
@@ -756,8 +757,8 @@ namespace nlsat {
         }
 
         void undo_updt_eq(atom * a) {
-            SASSERT(m_xk != null_var);
-            m_var2eq[m_xk] = a; 
+            if (m_var2eq.size() > m_xk)
+                m_var2eq[m_xk] = a; 
         }
 
         template<typename Predicate>
@@ -903,15 +904,18 @@ namespace nlsat {
         */
         lbool value(literal l) {
             lbool val = assigned_value(l);
-            if (val != l_undef)
+            if (val != l_undef) {
                 return val;
+            }
             bool_var b = l.var();
             atom * a = m_atoms[b];
-            if (a == 0)
+            if (a == 0) {
                 return l_undef;
+            }
             var max = a->max_var();
-            if (!m_assignment.is_assigned(max))
+            if (!m_assignment.is_assigned(max)) {
                 return l_undef;
+            }
             val = to_lbool(m_evaluator.eval(a, l.sign()));
             TRACE("value_bug", tout << "value of: "; display(tout, l); tout << " := " << val << "\n"; 
                   tout << "xk: " << m_xk << ", a->max_var(): " << a->max_var() << "\n";
@@ -1168,7 +1172,7 @@ namespace nlsat {
         void select_witness() {
             scoped_anum w(m_am);
             SASSERT(!m_ism.is_full(m_infeasible[m_xk]));
-            m_ism.peek_in_complement(m_infeasible[m_xk], w, m_randomize);
+            m_ism.peek_in_complement(m_infeasible[m_xk], m_is_int[m_xk], w, m_randomize);
             TRACE("nlsat", 
                   tout << "infeasible intervals: "; m_ism.display(tout, m_infeasible[m_xk]); tout << "\n";
                   tout << "assigning "; m_display_var(tout, m_xk); tout << "(x" << m_xk << ") -> " << w << "\n";);
@@ -1232,6 +1236,59 @@ namespace nlsat {
             }
         }
 
+        lbool search_check() {
+            lbool r = l_undef;
+            while (true) {
+                r = search();
+                if (r != l_true) break;     
+                vector<rational> lows;
+                vector<var>      vars;
+
+                for (var x = 0; x < num_vars(); x++) {
+                    if (m_is_int[x] && m_assignment.is_assigned(x) && !m_am.is_int(m_assignment.value(x))) {
+                        scoped_anum v(m_am), vlo(m_am);
+                        v = m_assignment.value(x);
+                        rational lo;
+                        m_am.int_lt(v, vlo);
+                        if (!m_am.is_int(vlo)) continue;
+                        m_am.to_rational(vlo, lo);
+                        // derive tight bounds.
+                        while (true) {
+                            lo++;
+                            if (!m_am.gt(v, lo.to_mpq())) { lo--; break; }
+                        }
+                        lows.push_back(lo);
+                        vars.push_back(x);
+                    }
+                }
+                if (lows.empty()) break;
+
+                init_search();                
+                for (unsigned i = 0; i < lows.size(); ++i) {
+                    rational lo = lows[i];
+                    rational hi = lo + rational::one();
+                    var x = vars[i];
+                    bool is_even = false;                        
+                    polynomial_ref p(m_pm);
+                    rational one(1);
+                    m_lemma.reset();
+                    p = m_pm.mk_linear(1, &one, &x, -lo);
+                    poly* p1 = p.get();
+                    m_lemma.push_back(~mk_ineq_literal(atom::GT, 1, &p1, &is_even));
+                    p = m_pm.mk_linear(1, &one, &x, -hi);
+                    poly* p2 = p.get();
+                    m_lemma.push_back(~mk_ineq_literal(atom::LT, 1, &p2, &is_even));
+                    
+                    // perform branch and bound
+                    clause * cls = mk_clause(m_lemma.size(), m_lemma.c_ptr(), false, 0);
+                    if (cls) {
+                        TRACE("nlsat", display(tout << "conflict " << lo << " " << hi, *cls); tout << "\n";);
+                    }
+                }
+            }
+            return r;
+        }
+
         lbool check() {
             TRACE("nlsat_smt2", display_smt2(tout););
             TRACE("nlsat_fd", tout << "is_full_dimensional: " << is_full_dimensional() << "\n";);
@@ -1250,7 +1307,7 @@ namespace nlsat {
                 reordered = true;
             }
             sort_watched_clauses();
-            lbool r = search();
+            lbool r = search_check();
             CTRACE("nlsat_model", r == l_true, tout << "model before restore order\n"; display_assignment(tout););
             if (reordered)
                 restore_order();
@@ -1929,7 +1986,7 @@ namespace nlsat {
             for (var x = 0; x < num; x++) {
                 p.push_back(x);
             }
-            random_gen r(m_random_seed);
+            random_gen r(++m_random_seed);
             shuffle(p.size(), p.c_ptr(), r);
             reorder(p.size(), p.c_ptr());
         }
