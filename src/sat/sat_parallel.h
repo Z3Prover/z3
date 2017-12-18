@@ -65,6 +65,7 @@ namespace sat {
         svector<lbool>     m_phase;
         unsigned           m_num_clauses;
         scoped_ptr<solver> m_solver_copy;
+        bool               m_consumer_ready;
 
         scoped_limits      m_scoped_rlimit;
         vector<reslimit>   m_limits;
@@ -106,6 +107,8 @@ namespace sat {
         void set_phase(local_search& s);
 
         void get_phase(local_search& s);
+
+        bool copy_solver(solver& s);
     };
 
 };

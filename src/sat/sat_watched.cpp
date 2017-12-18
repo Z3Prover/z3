@@ -27,11 +27,10 @@ namespace sat {
         for (; it != end; ++it) {                              
             if (it->is_clause() && it->get_clause_offset() == c) {                                        
                 watch_list::iterator it2 = it;                 
-                ++it;                                        
-                for (; it != end; ++it) {                      
+                ++it;    
+                for (; it != end; ++it, ++it2) {                      
                     SASSERT(!((it->is_clause() && it->get_clause_offset() == c)));
                     *it2 = *it;                                
-                    ++it2;
                 }                    
                 wlist.set_end(it2);
                 return true;                                  
@@ -69,6 +68,13 @@ namespace sat {
         }
         wlist.set_end(it2);
         VERIFY(found);
+    }
+
+    void conflict_cleanup(watch_list::iterator it, watch_list::iterator it2, watch_list& wlist) {
+        watch_list::iterator end = wlist.end();
+        for (; it != end; ++it, ++it2) 
+            *it2 = *it; 
+        wlist.set_end(it2);
     }
 
 

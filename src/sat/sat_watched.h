@@ -139,6 +139,8 @@ namespace sat {
 
     class clause_allocator;
     std::ostream& display_watch_list(std::ostream & out, clause_allocator const & ca, watch_list const & wlist);
+
+    void conflict_cleanup(watch_list::iterator it, watch_list::iterator it2, watch_list& wlist);
 };
 
 #endif

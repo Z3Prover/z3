@@ -1518,7 +1518,7 @@ namespace sat {
         return p;        
     }
 
-    ba_solver::ba_solver(): m_solver(0), m_lookahead(0), m_constraint_id(0) {        
+    ba_solver::ba_solver(): m_solver(0), m_lookahead(0), m_unit_walk(0), m_constraint_id(0) {        
         TRACE("ba", tout << this << "\n";);
     }
 

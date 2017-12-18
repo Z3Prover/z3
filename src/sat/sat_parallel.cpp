@@ -91,7 +91,7 @@ namespace sat {
         return false;
     }
 
-    parallel::parallel(solver& s): m_scoped_rlimit(s.rlimit()), m_num_clauses(0) {}
+    parallel::parallel(solver& s): m_scoped_rlimit(s.rlimit()), m_num_clauses(0), m_consumer_ready(false) {}
 
     parallel::~parallel() {
         for (unsigned i = 0; i < m_solvers.size(); ++i) {            
@@ -230,14 +230,14 @@ namespace sat {
                 }
             }
             IF_VERBOSE(1, verbose_stream() << "set phase: " << m_num_clauses << " " << s.m_clauses.size() << " " << m_solver_copy << "\n";);
-            if (m_num_clauses == 0 || (m_num_clauses > s.m_clauses.size())) {
-                // time to update local search with new clauses.
-                // there could be multiple local search engines runing at the same time.
-                IF_VERBOSE(1, verbose_stream() << "(sat-parallel refresh local search " << m_num_clauses << " -> " << s.m_clauses.size() << ")\n";);
-                m_solver_copy = alloc(solver, s.m_params, s.rlimit());
-                m_solver_copy->copy(s);
-                m_num_clauses = s.m_clauses.size();
-            }
+        }
+        if (m_consumer_ready && (m_num_clauses == 0 || (m_num_clauses > s.m_clauses.size()))) {
+            // time to update local search with new clauses.
+            // there could be multiple local search engines runing at the same time.
+            IF_VERBOSE(1, verbose_stream() << "(sat-parallel refresh :from " << m_num_clauses << " :to " << s.m_clauses.size() << ")\n";);
+            m_solver_copy = alloc(solver, s.m_params, s.rlimit());
+            m_solver_copy->copy(s);
+            m_num_clauses = s.m_clauses.size();
         }
     }
 
@@ -285,6 +285,7 @@ namespace sat {
     void parallel::set_phase(local_search& s) {
         #pragma omp critical (par_solver)
         {
+            m_consumer_ready = true;
             m_phase.reserve(s.num_vars(), l_undef);
             for (unsigned i = 0; i < s.num_vars(); ++i) {
                 m_phase[i] = s.get_phase(i) ? l_true : l_false;
@@ -293,6 +294,19 @@ namespace sat {
         }
     }
 
+    bool parallel::copy_solver(solver& s) {
+        bool copied = false;
+        #pragma omp critical (par_solver)
+        {
+            m_consumer_ready = true;
+            if (m_solver_copy && s.m_clauses.size() > m_solver_copy->m_clauses.size()) {
+                s.copy(*m_solver_copy);
+                copied = true;
+                m_num_clauses = s.m_clauses.size();
+            }
+        }        
+        return copied;
+    }
     
 };
 

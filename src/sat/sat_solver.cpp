@@ -20,6 +20,7 @@ Revision History:
 #include "sat/sat_solver.h"
 #include "sat/sat_integrity_checker.h"
 #include "sat/sat_lookahead.h"
+#include "sat/sat_unit_walk.h"
 #include "util/luby.h"
 #include "util/trace.h"
 #include "util/max_cliques.h"
@@ -69,15 +70,15 @@ namespace sat {
         m_ext = 0;
         SASSERT(check_invariant());
         TRACE("sat", tout << "Delete clauses\n";);
-        del_clauses(m_clauses.begin(), m_clauses.end());
+        del_clauses(m_clauses);
         TRACE("sat", tout << "Delete learned\n";);
-        del_clauses(m_learned.begin(), m_learned.end());
+        del_clauses(m_learned);
     }
 
-    void solver::del_clauses(clause * const * begin, clause * const * end) {
-        for (clause * const * it = begin; it != end; ++it) {
-            m_cls_allocator.del_clause(*it);
-        }
+    void solver::del_clauses(clause_vector& clauses) {
+        for (clause * cp : clauses) 
+            m_cls_allocator.del_clause(cp);
+        clauses.reset();
         ++m_stats.m_non_learned_generation;
     }
 
@@ -88,24 +89,46 @@ namespace sat {
 
     void solver::copy(solver const & src) {
         pop_to_base_level();
+        del_clauses(m_clauses);
+        del_clauses(m_learned);
+        m_watches.reset();
+        m_assignment.reset();
+        m_justification.reset();
+        m_decision.reset();
+        m_eliminated.reset();
+        m_activity.reset();
+        m_level.reset();
+        m_mark.reset();
+        m_lit_mark.reset();
+        m_phase.reset();
+        m_prev_phase.reset();
+        m_assigned_since_gc.reset();
+        m_last_conflict.reset();
+        m_last_propagation.reset();
+        m_participated.reset();
+        m_canceled.reset();
+        m_reasoned.reset();
+        m_simplifier.reset_todos();
+        m_qhead = 0;
+        m_trail.reset();
+        m_scopes.reset();
+        
         // create new vars
-        if (num_vars() < src.num_vars()) {
-            for (bool_var v = num_vars(); v < src.num_vars(); v++) {
-                bool ext  = src.m_external[v] != 0;
-                bool dvar = src.m_decision[v] != 0;
-                VERIFY(v == mk_var(ext, dvar));
-                if (src.was_eliminated(v)) {
-                    m_eliminated[v] = true;
-                }
-                m_phase[v] = src.m_phase[v];
-                m_prev_phase[v] = src.m_prev_phase[v];
-
-#if 1
-                // inherit activity:
-                m_activity[v] = src.m_activity[v];
-                m_case_split_queue.activity_changed_eh(v, false);
-#endif
+        for (bool_var v = num_vars(); v < src.num_vars(); v++) {
+            bool ext  = src.m_external[v] != 0;
+            bool dvar = src.m_decision[v] != 0;
+            VERIFY(v == mk_var(ext, dvar));
+            if (src.was_eliminated(v)) {
+                m_eliminated[v] = true;
             }
+            m_phase[v] = src.m_phase[v];
+            m_prev_phase[v] = src.m_prev_phase[v];
+            
+#if 1
+            // inherit activity:
+            m_activity[v] = src.m_activity[v];
+            m_case_split_queue.activity_changed_eh(v, false);
+#endif
         }
 
         //
@@ -891,7 +914,7 @@ namespace sat {
         if (m_config.m_local_search) {
             return do_local_search(num_lits, lits);
         }
-        if ((m_config.m_num_threads > 1 || m_config.m_local_search_threads > 0) && !m_par) {
+        if ((m_config.m_num_threads > 1 || m_config.m_local_search_threads > 0 || m_config.m_unit_walk_threads > 0) && !m_par) {
             SASSERT(scope_lvl() == 0);
             return check_par(num_lits, lits);
         }
@@ -909,6 +932,10 @@ namespace sat {
             propagate(false);
             if (check_inconsistent()) return l_false;
             cleanup();
+
+            if (m_config.m_unit_walk) {
+                return do_unit_walk();
+            }
             if (m_config.m_gc_burst) {
                 // force gc
                 m_conflicts_since_gc = m_gc_threshold + 1;
@@ -988,11 +1015,19 @@ namespace sat {
         return r;
     }
 
+    lbool solver::do_unit_walk() {
+        unit_walk srch(*this);
+        lbool r = srch();
+        return r;
+    }
+
     lbool solver::check_par(unsigned num_lits, literal const* lits) {
         scoped_ptr_vector<local_search> ls;
-        int num_threads = static_cast<int>(m_config.m_num_threads + m_config.m_local_search_threads);
+        scoped_ptr_vector<solver> uw;
         int num_extra_solvers = m_config.m_num_threads - 1;
         int num_local_search  = static_cast<int>(m_config.m_local_search_threads);
+        int num_unit_walk = static_cast<int>(m_config.m_unit_walk_threads);
+        int num_threads = num_extra_solvers + 1 + num_local_search + num_unit_walk;
         for (int i = 0; i < num_local_search; ++i) {
             local_search* l = alloc(local_search);
             l->config().set_seed(m_config.m_random_seed + i);
@@ -1000,15 +1035,35 @@ namespace sat {
             ls.push_back(l);
         }
 
+        // set up unit walk
+        vector<reslimit> lims(num_unit_walk);            
+        for (int i = 0; i < num_unit_walk; ++i) {
+            solver* s = alloc(solver, m_params,  lims[i]);
+            s->copy(*this);
+            s->m_config.m_unit_walk = true;
+            uw.push_back(s);
+        }
+
+        int local_search_offset = num_extra_solvers;
+        int unit_walk_offset = num_extra_solvers + num_local_search;
+        int main_solver_offset = unit_walk_offset + num_unit_walk;
+
 #define IS_AUX_SOLVER(i)   (0 <= i && i < num_extra_solvers)
-#define IS_LOCAL_SEARCH(i) (num_extra_solvers <= i && i + 1 < num_threads)
-#define IS_MAIN_SOLVER(i)  (i + 1 == num_threads)
+#define IS_LOCAL_SEARCH(i) (local_search_offset <= i && i < unit_walk_offset)
+#define IS_UNIT_WALK(i)    (unit_walk_offset <= i && i < main_solver_offset)
+#define IS_MAIN_SOLVER(i)  (i == main_solver_offset)
 
         sat::parallel par(*this);
         par.reserve(num_threads, 1 << 12);
         par.init_solvers(*this, num_extra_solvers);
         for (unsigned i = 0; i < ls.size(); ++i) {
             par.push_child(ls[i]->rlimit());
+        }
+        for (reslimit& rl : lims) {
+            par.push_child(rl);
+        }
+        for (unsigned i = 0; i < uw.size(); ++i) {
+            uw[i]->set_par(&par, 0);
         }
         int finished_id = -1;
         std::string        ex_msg;
@@ -1024,7 +1079,10 @@ namespace sat {
                     r = par.get_solver(i).check(num_lits, lits);
                 }
                 else if (IS_LOCAL_SEARCH(i)) {
-                    r = ls[i-num_extra_solvers]->check(num_lits, lits, &par);
+                    r = ls[i-local_search_offset]->check(num_lits, lits);
+                }
+                else if (IS_UNIT_WALK(i)) {
+                    r = uw[i-unit_walk_offset]->check(num_lits, lits);
                 }
                 else {
                     r = check(num_lits, lits);
@@ -1041,6 +1099,9 @@ namespace sat {
                 if (first) {
                     for (unsigned j = 0; j < ls.size(); ++j) {
                         ls[j]->rlimit().cancel();
+                    }
+                    for (auto& rl : lims) {
+                        rl.cancel();
                     }
                     for (int j = 0; j < num_extra_solvers; ++j) {
                         if (i != j) {
@@ -1076,13 +1137,17 @@ namespace sat {
             m_core.append(par.get_solver(finished_id).get_core());
         }
         if (result == l_true && IS_LOCAL_SEARCH(finished_id)) {
-            set_model(ls[finished_id - num_extra_solvers]->get_model());
+            set_model(ls[finished_id - local_search_offset]->get_model());
+        }
+        if (result == l_true && IS_UNIT_WALK(finished_id)) {
+            set_model(uw[finished_id - unit_walk_offset]->get_model());
         }
         if (!canceled) {
             rlimit().reset_cancel();
         }
         set_par(0, 0);        
         ls.reset();
+        uw.reset();
         if (finished_id == -1) {
             switch (ex_kind) {
             case ERROR_EX: throw z3_error(error_code);

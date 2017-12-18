@@ -90,6 +90,8 @@ namespace sat {
         unsigned           m_num_threads;
         unsigned           m_local_search_threads;
         bool               m_local_search;
+        unsigned           m_unit_walk_threads;
+        bool               m_unit_walk;
         bool               m_lookahead_simplify;
         bool               m_lookahead_simplify_bca;
         bool               m_lookahead_simplify_asymm_branch;

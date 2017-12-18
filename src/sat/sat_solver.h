@@ -163,7 +163,7 @@ namespace sat {
 
         statistics              m_aux_stats;
 
-        void del_clauses(clause * const * begin, clause * const * end);
+        void del_clauses(clause_vector& clauses);
 
         friend class integrity_checker;
         friend class cleaner;
@@ -180,6 +180,7 @@ namespace sat {
         friend class parallel;
         friend class lookahead;
         friend class local_search;
+        friend class unit_walk;
         friend struct mk_stat;
         friend class elim_vars;
         friend class scoped_detach;
@@ -398,6 +399,7 @@ namespace sat {
         void exchange_par();
         lbool check_par(unsigned num_lits, literal const* lits);
         lbool do_local_search(unsigned num_lits, literal const* lits);
+        lbool do_unit_walk();
 
         // -----------------------
         //

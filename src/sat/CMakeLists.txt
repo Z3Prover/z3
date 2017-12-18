@@ -24,6 +24,7 @@ z3_add_component(sat
     sat_scc.cpp
     sat_simplifier.cpp
     sat_solver.cpp
+    sat_unit_walk.cpp
     sat_watched.cpp
   COMPONENT_DEPENDENCIES
     util
