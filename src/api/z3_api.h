@@ -1331,7 +1331,7 @@ typedef enum {
    - Z3_IOB:           Index out of bounds.
    - Z3_INVALID_ARG:   Invalid argument was provided.
    - Z3_PARSER_ERROR:  An error occurred when parsing a string or file.
-   - Z3_NO_PARSER:     Parser output is not available, that is, user didn't invoke #Z3_parse_smtlib_string or #Z3_parse_smtlib_file.
+   - Z3_NO_PARSER:     Parser output is not available, that is, user didn't invoke #Z3_parse_smtlib2_string or #Z3_parse_smtlib2_file.
    - Z3_INVALID_PATTERN: Invalid pattern was used to build a quantifier.
    - Z3_MEMOUT_FAIL:   A memory allocation failure was encountered.
    - Z3_FILE_ACCESS_ERRROR: A file could not be accessed.

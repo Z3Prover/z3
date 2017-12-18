@@ -3443,12 +3443,10 @@ sig
 
   (** Parse the given string using the SMT-LIB2 parser.
 
-      {!parse_smtlib_string}
       @return A conjunction of assertions in the scope (up to push/pop) at the end of the string. *)
   val parse_smtlib2_string : context -> string -> Symbol.symbol list -> Sort.sort list -> Symbol.symbol list -> FuncDecl.func_decl list -> Expr.expr
 
-  (** Parse the given file using the SMT-LIB2 parser.
-      {!parse_smtlib2_string} *)
+  (** Parse the given file using the SMT-LIB2 parser. *)
   val parse_smtlib2_file : context -> string -> Symbol.symbol list -> Sort.sort list -> Symbol.symbol list -> FuncDecl.func_decl list -> Expr.expr
 end
 
