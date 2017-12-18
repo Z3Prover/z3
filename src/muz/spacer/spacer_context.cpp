@@ -1178,7 +1178,7 @@ lemma::lemma (ast_manager &manager, expr * body, unsigned lvl) :
     m_ref_count(0), m(manager),
     m_body(body, m), m_cube(m),
     m_zks(m), m_bindings(m), m_lvl(lvl),
-    m_pob(nullptr), m_new_pob(false) {
+    m_pob(nullptr) {
     SASSERT(m_body);
     normalize(m_body, m_body);
 }
@@ -1187,64 +1187,64 @@ lemma::lemma(pob_ref const &p) :
     m_ref_count(0), m(p->get_ast_manager()),
     m_body(m), m_cube(m),
     m_zks(m), m_bindings(m), m_lvl(p->level()),
-    m_pob(p), m_new_pob(m_pob) {SASSERT(m_pob); m_pob->get_skolems(m_zks);}
+    m_pob(p) {
+    SASSERT(m_pob);
+    m_pob->get_skolems(m_zks);
+    add_binding(m_pob->get_binding());
+}
 
 lemma::lemma(pob_ref const &p, expr_ref_vector &cube, unsigned lvl) :
     m_ref_count(0),
     m(p->get_ast_manager()),
     m_body(m), m_cube(m),
     m_zks(m), m_bindings(m), m_lvl(p->level()),
-    m_pob(p), m_new_pob(m_pob)
+    m_pob(p)
 {
-    if (m_pob) {m_pob->get_skolems(m_zks);}
+    if (m_pob) {
+        m_pob->get_skolems(m_zks);
+        add_binding(m_pob->get_binding());
+    }
     update_cube(p, cube);
     set_level(lvl);
 }
+
+void lemma::add_skolem(app *zk, app *b) {
+    SASSERT(m_bindings.size() == m_zks.size());
+    // extend bindings
+    m_bindings.push_back(b);
+    // extend skolems
+    m_zks.push_back(zk);
+}
+
 
 void lemma::mk_expr_core() {
     if (m_body) return;
 
     if (m_pob) {
         mk_cube_core();
+    }
 
-        // make a clause by negating the cube
-        m_body = ::push_not(::mk_and(m_cube));
-        normalize(m_body, m_body);
+    SASSERT(!m_cube.empty());
+    m_body = ::push_not(::mk_and(m_cube));
+    normalize(m_body, m_body);
 
-        if (!m_zks.empty() && has_zk_const(m_body)) {
-            app_ref_vector zks(m);
-            zks.append(m_zks);
-            zks.reverse();
-            expr_abstract(m, 0,
-                          zks.size(), (expr* const*)zks.c_ptr(), m_body,
-                          m_body);
-            ptr_buffer<sort> sorts;
-            svector<symbol> names;
-            for (unsigned i=0, sz=zks.size(); i < sz; ++i) {
-                sorts.push_back(get_sort(zks.get(i)));
-                names.push_back(zks.get(i)->get_decl()->get_name());
-            }
-            m_body = m.mk_quantifier(true, zks.size(),
-                                     sorts.c_ptr(),
-                                     names.c_ptr(),
-                                     m_body, 15, symbol(m_body->get_id()));
-            if (m_new_pob) {
-                // XXX This assertion will fail when a lemma is
-                // XXX generalized with additional quantified variables
-                SASSERT(m_pob->get_binding().size() == m_zks.size());
-                add_binding(m_pob->get_binding());
-            }
+    if (!m_zks.empty() && has_zk_const(m_body)) {
+        app_ref_vector zks(m);
+        zks.append(m_zks);
+        zks.reverse();
+        expr_abstract(m, 0,
+                      zks.size(), (expr* const*)zks.c_ptr(), m_body,
+                      m_body);
+        ptr_buffer<sort> sorts;
+        svector<symbol> names;
+        for (unsigned i=0, sz=zks.size(); i < sz; ++i) {
+            sorts.push_back(get_sort(zks.get(i)));
+            names.push_back(zks.get(i)->get_decl()->get_name());
         }
-        m_new_pob = false;
-        return;
-    }
-    else if (!m_cube.empty()) {
-        m_body = ::push_not(::mk_and(m_cube));
-        normalize(m_body, m_body);
-        return;
-    }
-    else {
-        UNREACHABLE();
+        m_body = m.mk_quantifier(true, zks.size(),
+                                 sorts.c_ptr(),
+                                 names.c_ptr(),
+                                 m_body, 15, symbol(m_body->get_id()));
     }
     SASSERT(m_body);
 }

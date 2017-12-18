@@ -114,7 +114,6 @@ class lemma {
     app_ref_vector m_bindings;
     unsigned m_lvl;
     pob_ref m_pob;
-    bool m_new_pob;
 
     void mk_expr_core();
     void mk_cube_core();
@@ -134,8 +133,7 @@ public:
     pob_ref &get_pob() {return m_pob;}
     inline unsigned weakness();
 
-    void add_skolems(app_ref_vector &zks) {m_zks.append(zks);}
-    void add_skolem(app *zk) {m_zks.push_back(zk);}
+    void add_skolem(app *zk, app* b);
 
     unsigned level () const {return m_lvl;}
     void set_level (unsigned lvl) {m_lvl = lvl;}
