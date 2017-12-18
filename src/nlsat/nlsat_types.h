@@ -151,6 +151,7 @@ namespace nlsat {
     class solver_exception : public default_exception {
     public:
         solver_exception(char const * msg):default_exception(msg) {}
+        virtual ~solver_exception() {}
     };
 
     class assignment;
