@@ -3568,6 +3568,14 @@ def BV2Int(a, is_signed=False):
     ## investigate problem with bv2int
     return ArithRef(Z3_mk_bv2int(ctx.ref(), a.as_ast(), is_signed), ctx)
 
+def Int2BV(a, num_bits):
+    """Return the z3 expression Int2BV(a, num_bits).
+    It is a bit-vector of width num_bits and represents the
+    modulo of a by 2^num_bits
+    """
+    ctx = a.ctx
+    return BitVecRef(Z3_mk_int2bv(ctx.ref(), num_bits, a.as_ast()), ctx)
+
 def BitVecSort(sz, ctx=None):
     """Return a Z3 bit-vector sort of the given size. If `ctx=None`, then the global context is used.
 
