@@ -5140,9 +5140,18 @@ class AstVector(Z3PPObject):
         >>> A[1]
         y
         """
-        if i >= self.__len__():
-            raise IndexError
-        return _to_ast_ref(Z3_ast_vector_get(self.ctx.ref(), self.vector, i), self.ctx)
+
+        if isinstance(i, int):
+            if i < 0:
+                i += self.__len__()
+
+            if i >= self.__len__():
+                raise IndexError
+            return _to_ast_ref(Z3_ast_vector_get(self.ctx.ref(), self.vector, i), self.ctx)
+
+        elif isinstance(i, slice):
+            return [_to_ast_ref(Z3_ast_vector_get(self.ctx.ref(), self.vector, ii), self.ctx) for ii in range(*i.indices(self.__len__()))]
+
 
     def __setitem__(self, i, v):
         """Update AST at position `i`.
