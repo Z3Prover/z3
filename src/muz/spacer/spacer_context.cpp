@@ -1894,7 +1894,6 @@ void pob::set_post(expr* post, app_ref_vector const &b) {
     expr_safe_replace sub(m);
     for (unsigned i = 0, sz = m_binding.size(); i < sz; ++i) {
         expr* e;
-
         e = m_binding.get(i);
         pinned.push_back (mk_zk_const (m, i, get_sort(e)));
         sub.insert (e, pinned.back());
@@ -1939,7 +1938,6 @@ void pob::close () {
 void pob::get_skolems(app_ref_vector &v) {
     for (unsigned i = 0, sz = m_binding.size(); i < sz; ++i) {
         expr* e;
-
         e = m_binding.get(i);
         v.push_back (mk_zk_const (get_ast_manager(), i, get_sort(e)));
     }
@@ -2271,6 +2269,11 @@ void context::init_lemma_generalizers(datalog::rule_set& rules)
         fparams.m_qi_eager_threshold = 10;
         fparams.m_qi_lazy_threshold = 20;
         fparams.m_ng_lift_ite = LI_FULL;
+    }
+
+    if (m_params.spacer_use_quant_generalizer()) {
+        m_lemma_generalizers.push_back(alloc(lemma_bool_inductive_generalizer, *this, 0, false));
+        m_lemma_generalizers.push_back(alloc(lemma_quantifier_generalizer, *this));
     }
 
     if (get_params().spacer_use_eqclass()) {

@@ -340,22 +340,27 @@ app* mk_zk_const(ast_manager &m, unsigned idx, sort *s) {
 
 namespace find_zk_const_ns {
 struct proc {
+    int m_max;
     app_ref_vector &m_out;
-    proc (app_ref_vector &out) : m_out(out) {}
+    proc (app_ref_vector &out) : m_max(-1), m_out(out) {}
     void operator() (var const * n) const {}
-    void operator() (app *n) const {
-        if (is_uninterp_const(n) &&
-            n->get_decl()->get_name().str().compare (0, 3, "sk!") == 0) {
-            m_out.push_back (n);
+    void operator() (app *n) {
+        int idx;
+        if (is_zk_const(n, idx)) {
+            m_out.push_back(n);
+            if (idx > m_max) {
+                m_max = idx;
+            }
         }
     }
     void operator() (quantifier const *n) const {}
 };
 }
 
-void find_zk_const(expr *e, app_ref_vector &res) {
+int find_zk_const(expr *e, app_ref_vector &res) {
     find_zk_const_ns::proc p(res);
     for_each_expr (p, e);
+    return p.m_max;
 }
 
 namespace has_zk_const_ns {
@@ -363,8 +368,8 @@ struct found {};
 struct proc {
     void operator() (var const *n) const {}
     void operator() (app const *n) const {
-        if (is_uninterp_const(n) &&
-            n->get_decl()->get_name().str().compare(0, 3, "sk!") == 0) {
+        int idx;
+        if (is_zk_const(n, idx)) {
             throw found();
         }
     }

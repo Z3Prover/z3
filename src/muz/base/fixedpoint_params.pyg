@@ -187,7 +187,8 @@ def_module_params('fixedpoint',
                           ('spacer.reuse_pobs', BOOL, True, 'reuse POBs'),
                           ('spacer.print_farkas_stats', BOOL, False, 'prints for each proof how many Farkas lemmas it contains and how many of these participate in the cut'),
                           ('spacer.iuc.debug_proof', BOOL, False, 'prints proof used by unsat-core-learner for debugging purposes'),
-                          ('spacer.simplify_pob', BOOL, False, 'simplify POBs by removing redundant constraints')
+                          ('spacer.simplify_pob', BOOL, False, 'simplify POBs by removing redundant constraints'),
+                          ('spacer.use_quant_generalizer', BOOL, False, 'use quantified lemma generalizer'),
                           ))
 
 

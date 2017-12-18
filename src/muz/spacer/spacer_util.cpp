@@ -1317,9 +1317,9 @@ bool contains_selects(expr* fml, ast_manager& m)
         return false;
     }
 
-void get_select_indices(expr* fml, app_ref_vector& indices, ast_manager& m)
+void get_select_indices(expr* fml, app_ref_vector &indices, ast_manager& m)
 {
-        array_util a_util(m);
+    array_util a_util(m);
     if (!is_app(fml)) { return; }
         ast_mark done;
         ptr_vector<app> todo;

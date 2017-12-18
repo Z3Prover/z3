@@ -326,4 +326,6 @@ void lemma_eq_generalizer::operator() (lemma_ref &lemma)
         lemma->update_cube(lemma->get_pob(), core);
     }
 }
+
+
 };

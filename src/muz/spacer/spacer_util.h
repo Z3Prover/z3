@@ -144,7 +144,10 @@ void compute_implicant_literals (model_evaluator_util &mev,
 void simplify_bounds (expr_ref_vector &lemmas);
 void normalize(expr *e, expr_ref &out, bool use_simplify_bounds = true, bool factor_eqs = false);
 
-/** ground expression by replacing all free variables by skolem constants */
+/** Ground expression by replacing all free variables by skolem
+ ** constants. On return, out is the resulting expression, and vars is
+ ** a map from variable ids to corresponding skolem constants.
+ */
 void ground_expr (expr *e, expr_ref &out, app_ref_vector &vars);
 
 

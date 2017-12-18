@@ -97,6 +97,54 @@ public:
     void operator()(lemma_ref &lemma) override;
 };
 
+class lemma_quantifier_generalizer : public lemma_generalizer {
+    struct stats {
+        unsigned count;
+        unsigned num_failures;
+        stopwatch watch;
+        stats() {reset();}
+        void reset() {count = 0; num_failures = 0; watch.reset();}
+    };
 
+    ast_manager &m;
+    arith_util m_arith;
+    stats m_st;
+public:
+    lemma_quantifier_generalizer(context &ctx);
+    virtual ~lemma_quantifier_generalizer() {}
+    virtual void operator()(lemma_ref &lemma);
+
+    virtual void collect_statistics(statistics& st) const;
+    virtual void reset_statistics() {m_st.reset();}
+private:
+    bool match_sk_idx(expr *e, app_ref_vector const &zks, expr *&idx, app *&sk);
+    void cleanup(expr_ref_vector& cube, app_ref_vector const &zks, expr_ref &bind);
+    void generalize_pattern_lits(expr_ref_vector &pats);
+    void find_candidates(
+        expr *e,
+        app_ref_vector &candidate);
+    void generate_patterns(
+        expr_ref_vector const &cube,
+        app_ref_vector const &candidates,
+        var_ref_vector &subs,
+        expr_ref_vector &patterns,
+        unsigned offset);
+    void find_matching_expressions(
+        expr_ref_vector const &cube,
+        var_ref_vector const &subs,
+        expr_ref_vector &patterns,
+        vector<expr_ref_vector> &idx_instances,
+        vector<bool> &dirty);
+    void find_guards(
+        expr_ref_vector const &indices,
+        expr_ref &lower,
+        expr_ref &upper);
+    void add_lower_bounds(
+        var_ref_vector const &subs,
+        app_ref_vector const &zks,
+        vector<expr_ref_vector> const &idx_instances,
+        expr_ref_vector &cube);
 };
+}
+
 #endif

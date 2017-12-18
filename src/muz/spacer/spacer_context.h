@@ -527,7 +527,9 @@ public:
     unsigned get_free_vars_size() { return m_binding.size(); }
     app_ref_vector const &get_binding() const {return m_binding;}
     /*
-     * Return skolem variables that appear in post
+     * Returns a map from variable id to skolems that implicitly
+     * represent them in the pob. Note that only some (or none) of the
+     * skolems returned actually appear in the post of the pob.
      */
     void get_skolems(app_ref_vector& v);
 
