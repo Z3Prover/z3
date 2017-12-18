@@ -2,6 +2,7 @@ RELEASE NOTES
 
 Version 4.6.0
 =============
+
 - New requirements:
   - C++11 capable compiler to build Z3.
   - C++ API now requires C++11 or newer.
@@ -13,6 +14,10 @@ Version 4.6.0
     Objective values are no longer printed by default. They can be retrieved by
     issuing the command (get-objectives). Pareto front objectives are accessed by
     issuing multiple (check-sat) calls until it returns unsat.
+
+- Removed features:
+  - Removed support for SMT-LIB 1.x
+
 
 Version 4.5.0
 =============
@@ -49,10 +54,9 @@ Version 4.5.0
     over compound formulas, introduce a fresh predicate whose 
     arguments are the relevant free variables in the formula and add a rule
     that uses the fresh predicate in the head and formula in the body.
-  - minimization of unsat cores is avaialble as an option for the SAT and SMT cores.
+  - Minimization of unsat cores is available as an option for the SAT and SMT cores.
     By setting smt.core.minimize=true resp. sat.core.minimize=true
-    cores produced by these modules are minimized.
-    
+    cores produced by these modules are minimized.    
 
 - A multitude of bugs has been fixed.
 
