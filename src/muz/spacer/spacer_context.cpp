@@ -40,7 +40,7 @@ Notes:
 #include "ast/ast_smt2_pp.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/ast_util.h"
-#include "ast/proofs/proof_checker.h"
+#include "ast/proof_checker/proof_checker.h"
 #include "smt/smt_value_sort.h"
 #include "ast/scoped_proof.h"
 #include "muz/spacer/spacer_qe_project.h"
@@ -1177,7 +1177,7 @@ void pred_transformer::inherit_properties(pred_transformer& other)
 lemma::lemma (ast_manager &manager, expr * body, unsigned lvl) :
     m_ref_count(0), m(manager),
     m_body(body, m), m_cube(m),
-    m_bindings(m), m_lvl(lvl),
+    m_bindings(m), m_zks(m), m_lvl(lvl),
     m_pob(nullptr), m_new_pob(false) {
     SASSERT(m_body);
     normalize(m_body, m_body);
@@ -1186,16 +1186,17 @@ lemma::lemma (ast_manager &manager, expr * body, unsigned lvl) :
 lemma::lemma(pob_ref const &p) :
     m_ref_count(0), m(p->get_ast_manager()),
     m_body(m), m_cube(m),
-    m_bindings(m), m_lvl(p->level()),
-    m_pob(p), m_new_pob(m_pob) {SASSERT(m_pob);}
+    m_bindings(m), m_zks(m), m_lvl(p->level()),
+    m_pob(p), m_new_pob(m_pob) {SASSERT(m_pob); m_pob->get_skolems(m_zks);}
 
 lemma::lemma(pob_ref const &p, expr_ref_vector &cube, unsigned lvl) :
     m_ref_count(0),
     m(p->get_ast_manager()),
     m_body(m), m_cube(m),
-    m_bindings(m), m_lvl(p->level()),
+    m_bindings(m), m_zks(m), m_lvl(p->level()),
     m_pob(p), m_new_pob(m_pob)
 {
+    m_pob->get_skolems(m_zks);
     update_cube(p, cube);
     set_level(lvl);
 }
@@ -1210,9 +1211,9 @@ void lemma::mk_expr_core() {
         m_body = ::push_not(::mk_and(m_cube));
         normalize(m_body, m_body);
 
-        if (!m_pob->is_ground() && has_zk_const(m_body)) {
+        if (!m_zks.empty() && has_zk_const(m_body)) {
             app_ref_vector zks(m);
-            m_pob->get_skolems(zks);
+            zks.append(m_zks);
             zks.reverse();
             expr_abstract(m, 0,
                           zks.size(), (expr* const*)zks.c_ptr(), m_body,
@@ -2163,8 +2164,8 @@ bool context::validate()
         expr_ref_vector refs(m);
         expr_ref tmp(m);
         model_ref model;
-        model_converter_ref mc;
         vector<relation_info> rs;
+        model_converter_ref mc;
         get_level_property(m_inductive_lvl, refs, rs);
         inductive_property ex(m, mc, rs);
         ex.to_model(model);
