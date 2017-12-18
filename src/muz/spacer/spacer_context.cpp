@@ -1177,7 +1177,7 @@ void pred_transformer::inherit_properties(pred_transformer& other)
 lemma::lemma (ast_manager &manager, expr * body, unsigned lvl) :
     m_ref_count(0), m(manager),
     m_body(body, m), m_cube(m),
-    m_bindings(m), m_zks(m), m_lvl(lvl),
+    m_zks(m), m_bindings(m), m_lvl(lvl),
     m_pob(nullptr), m_new_pob(false) {
     SASSERT(m_body);
     normalize(m_body, m_body);
@@ -1186,17 +1186,17 @@ lemma::lemma (ast_manager &manager, expr * body, unsigned lvl) :
 lemma::lemma(pob_ref const &p) :
     m_ref_count(0), m(p->get_ast_manager()),
     m_body(m), m_cube(m),
-    m_bindings(m), m_zks(m), m_lvl(p->level()),
+    m_zks(m), m_bindings(m), m_lvl(p->level()),
     m_pob(p), m_new_pob(m_pob) {SASSERT(m_pob); m_pob->get_skolems(m_zks);}
 
 lemma::lemma(pob_ref const &p, expr_ref_vector &cube, unsigned lvl) :
     m_ref_count(0),
     m(p->get_ast_manager()),
     m_body(m), m_cube(m),
-    m_bindings(m), m_zks(m), m_lvl(p->level()),
+    m_zks(m), m_bindings(m), m_lvl(p->level()),
     m_pob(p), m_new_pob(m_pob)
 {
-    m_pob->get_skolems(m_zks);
+    if (m_pob) {m_pob->get_skolems(m_zks);}
     update_cube(p, cube);
     set_level(lvl);
 }
@@ -1229,6 +1229,9 @@ void lemma::mk_expr_core() {
                                      names.c_ptr(),
                                      m_body, 15, symbol(m_body->get_id()));
             if (m_new_pob) {
+                // XXX This assertion will fail when a lemma is
+                // XXX generalized with additional quantified variables
+                SASSERT(m_pob->get_binding().size() == m_zks.size());
                 add_binding(m_pob->get_binding());
             }
         }
