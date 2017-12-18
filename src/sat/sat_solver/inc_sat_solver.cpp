@@ -61,7 +61,7 @@ class inc_sat_solver : public solver {
     proof_converter_ref m_pc;
     model_converter_ref m_mc;
     model_converter_ref m_mc0;
-    model_converter_ref m_sat_mc;
+    ref<sat2goal::mc>   m_sat_mc;
     mutable model_converter_ref m_cached_mc;
     svector<double>     m_weights;
     std::string         m_unknown;
@@ -120,7 +120,7 @@ public:
         for (expr* f : m_internalized_fmls) result->m_internalized_fmls.push_back(tr(f));
         if (m_mc) result->m_mc = m_mc->translate(tr);
         if (m_mc0) result->m_mc0 = m_mc0->translate(tr);
-        //if (m_sat_mc) result->m_sat_mc = m_sat_mc->translate(tr);         MN: commenting this line removes bloat
+        if (m_sat_mc) result->m_sat_mc = dynamic_cast<sat2goal::mc*>(m_sat_mc->translate(tr));
         // copy m_bb_rewriter?
         result->m_internalized_converted = m_internalized_converted;
         return result;
@@ -531,6 +531,11 @@ private:
         m_pc = g->pc();
         m_mc = g->mc();
         TRACE("sat", g->display_with_dependencies(tout););
+
+        // ensure that if goal is already internalized, then import mc from m_solver.
+        if (!m_sat_mc) m_sat_mc = alloc(sat2goal::mc, m);
+        m_sat_mc->flush_smc(m_solver);
+
         m_goal2sat(*g, m_params, m_solver, m_map, dep2asm, is_incremental(), is_lemma);
         m_goal2sat.get_interpreted_atoms(atoms);
         if (!atoms.empty()) {

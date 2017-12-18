@@ -878,173 +878,135 @@ void goal2sat::get_interpreted_atoms(expr_ref_vector& atoms) {
 }
 
 
+sat2goal::mc::mc(ast_manager& m): m(m), m_var2expr(m) {}
+
+void sat2goal::mc::flush_smc(sat::solver& s) {
+    s.flush(m_smc);
+}
+
+void sat2goal::mc::flush_gmc() {
+    sat::literal_vector updates;
+    m_smc.expand(updates);
+    m_smc.reset();
+    if (!m_gmc) m_gmc = alloc(generic_model_converter, m);
+    // now gmc owns the model converter
+    sat::literal_vector clause;
+    expr_ref_vector tail(m);
+    expr_ref def(m);
+    for (sat::literal l : updates) {
+        if (l == sat::null_literal) {
+            sat::literal lit0 = clause[0];
+            for (unsigned i = 1; i < clause.size(); ++i) {
+                tail.push_back(lit2expr(~clause[i]));
+            }
+            def = m.mk_or(lit2expr(lit0), mk_and(tail));
+            if (lit0.sign()) {
+                lit0.neg();
+                def = m.mk_not(def);
+            }
+            m_gmc->add(lit2expr(lit0), def);
+            clause.reset();
+            tail.reset();
+        }
+        else {
+            clause.push_back(l);
+        }
+    }
+}
+ 
+model_converter* sat2goal::mc::translate(ast_translation& translator) {
+    mc* result = alloc(mc, m);
+    result->m_smc.copy(m_smc);
+    result->m_gmc = m_gmc ? dynamic_cast<generic_model_converter*>(m_gmc->translate(translator)) : nullptr;
+    for (app* e : m_var2expr) {
+        result->m_var2expr.push_back(translator(e));
+    }
+    return result;
+}
+
+void sat2goal::mc::collect(ast_pp_util& visitor) {
+    flush_gmc();
+    collect(visitor);
+}
+
+void sat2goal::mc::display(std::ostream& out) {
+    flush_gmc();
+    if (m_gmc) m_gmc->display(out);
+}
+
+void sat2goal::mc::operator()(model_ref & md) {
+    model_evaluator ev(*md);
+    ev.set_model_completion(false);
+    
+    // create a SAT model using md
+    sat::model sat_md;
+    expr_ref val(m);
+    for (expr * atom : m_var2expr) {
+        if (!atom) {
+            sat_md.push_back(l_undef);
+            continue;
+        }
+        ev(atom, val);
+        if (m.is_true(val)) 
+            sat_md.push_back(l_true);
+        else if (m.is_false(val))
+            sat_md.push_back(l_false);
+        else 
+            sat_md.push_back(l_undef);
+    }
+    
+    // apply SAT model converter
+    m_smc(sat_md);
+            
+    // register value of non-auxiliary boolean variables back into md
+    unsigned sz = m_var2expr.size();
+    for (sat::bool_var v = 0; v < sz; v++) {
+        app * atom = m_var2expr.get(v);
+        if (atom && is_uninterp_const(atom)) {
+            func_decl * d = atom->get_decl();
+            lbool new_val = sat_md[v];
+            if (new_val == l_true)
+                md->register_decl(d, m.mk_true());
+            else if (new_val == l_false)
+                md->register_decl(d, m.mk_false());
+        }
+    }    
+    // apply externalized model converter
+    if (m_gmc) (*m_gmc)(md);
+    TRACE("sat_mc", tout << "after sat_mc\n"; model_v2_pp(tout, *md););
+}
+
+
+void sat2goal::mc::operator()(expr_ref& fml) {
+    flush_gmc();
+    if (m_gmc) (*m_gmc)(fml);
+}
+
+void sat2goal::mc::insert(sat::bool_var v, app * atom, bool aux) {
+    VERIFY(!m_var2expr.get(v, nullptr));
+    m_var2expr.reserve(v + 1);
+    m_var2expr.set(v, atom);
+    if (aux) {
+        SASSERT(is_uninterp_const(atom));
+        SASSERT(m.is_bool(atom));
+        if (!m_gmc) m_gmc = alloc(generic_model_converter, m);
+        m_gmc->hide(atom->get_decl());
+    }
+}
+
+expr_ref sat2goal::mc::lit2expr(sat::literal l) {
+    VERIFY(m_var2expr.get(l.var()));
+    expr_ref result(m_var2expr.get(l.var()), m);
+    if (l.sign()) {
+        result = m.mk_not(result);
+    }
+    return result;
+}
+
+
 struct sat2goal::imp {
 
-    // Wrapper for sat::model_converter: converts it into an "AST level" model_converter.
-    class sat_model_converter : public model_converter {
-        model_converter_ref          m_cached_mc;
-        sat::model_converter         m_mc;
-        expr_ref_vector              m_var2expr;
-        generic_model_converter_ref  m_fmc; // filter for eliminating fresh variables introduced in the assertion-set --> sat conversion
-        generic_model_converter_ref  m_imc; // used to ensure correctness in incremental calls with simplifications that require model conversions
-
-        sat_model_converter(ast_manager & m):
-            m_var2expr(m) {
-        }
-        
-        void ensure_imc() {
-            if (m_imc) return;
-            m_imc = alloc(generic_model_converter, m());
-            sat::literal_vector updates;
-            m_mc.expand(updates);
-            sat::literal_vector clause;
-            expr_ref_vector tail(m());
-            expr_ref def(m());
-            for (sat::literal l : updates) {
-                if (l == sat::null_literal) {
-                    sat::literal lit0 = clause[0];
-                    for (unsigned i = 1; i < clause.size(); ++i) {
-                        tail.push_back(lit2expr(~clause[i]));
-                    }
-                    def = m().mk_or(lit2expr(lit0), mk_and(tail));
-                    if (lit0.sign()) {
-                        lit0.neg();
-                        def = m().mk_not(def);
-                    }
-                    m_imc->add(lit2expr(lit0), def);
-                    clause.reset();
-                    tail.reset();
-                }
-                else {
-                    clause.push_back(l);
-                }
-            }
-        }
-
-    public:
-        sat_model_converter(ast_manager & m, sat::solver const & s):m_var2expr(m) {
-            m_mc.copy(s.get_model_converter());
-            m_fmc = alloc(generic_model_converter, m);
-            m_imc = nullptr;
-        }
-        
-        ast_manager & m() { return m_var2expr.get_manager(); }
-       
-        void init(unsigned num_vars) {
-            m_var2expr.resize(num_vars);
-        }
-
-        void insert(unsigned v, expr * atom, bool aux) {
-            VERIFY(!m_var2expr.get(v));
-            m_var2expr[v] = atom;
-            if (aux) {
-                SASSERT(is_uninterp_const(atom));
-                SASSERT(m().is_bool(atom));
-                m_fmc->hide(to_app(atom)->get_decl());
-            }
-        }
-
-        void finish() {
-            sat::literal_vector updates;
-            m_mc.expand(updates);
-            for (sat::literal l : updates) {
-                if (l != sat::null_literal && !m_var2expr.get(l.var())) {
-                    insert(l.var(), m().mk_fresh_const(0, m().mk_bool_sort()), true);
-                }
-            }
-            m_imc = nullptr;
-        }
-                
-        virtual void operator()(model_ref & md) {
-            TRACE("sat_mc", tout << "before sat_mc\n"; model_v2_pp(tout, *md); display(tout););
-            // REMARK: potential problem
-            // model_evaluator can't evaluate quantifiers. Then,
-            // an eliminated variable that depends on a quantified expression can't be recovered.
-            // A similar problem also affects any model_converter that uses elim_var_model_converter.
-            //
-            // Possible solution:
-            //   model_converters reject any variable elimination that depends on a quantified expression.
-            
-            model_evaluator ev(*md);
-            ev.set_model_completion(false);
-            
-            // create a SAT model using md
-            sat::model sat_md;
-            expr_ref val(m());
-            for (expr * atom : m_var2expr) {
-                if (!atom) {
-                    sat_md.push_back(l_undef);
-                    continue;
-                }
-                ev(atom, val);
-                if (m().is_true(val)) 
-                    sat_md.push_back(l_true);
-                else if (m().is_false(val))
-                    sat_md.push_back(l_false);
-                else 
-                    sat_md.push_back(l_undef);
-            }
-            
-            // apply SAT model converter
-            m_mc(sat_md);
-            
-            // register value of non-auxiliary boolean variables back into md
-            unsigned sz = m_var2expr.size();
-            for (sat::bool_var v = 0; v < sz; v++) {
-                expr * atom = m_var2expr.get(v);
-                if (atom && is_uninterp_const(atom)) {
-                    func_decl * d = to_app(atom)->get_decl();
-                    lbool new_val = sat_md[v];
-                    if (new_val == l_true)
-                        md->register_decl(d, m().mk_true());
-                    else if (new_val == l_false)
-                        md->register_decl(d, m().mk_false());
-                }
-            }
-            
-            // apply filter model converter
-            (*m_fmc)(md);
-            TRACE("sat_mc", tout << "after sat_mc\n"; model_v2_pp(tout, *md););
-        }
-        
-        virtual model_converter * translate(ast_translation & translator) {
-            sat_model_converter * res = alloc(sat_model_converter, translator.to());
-            res->m_mc = m_mc;
-            res->m_fmc = static_cast<generic_model_converter*>(m_fmc->translate(translator));
-            for (expr* e : m_var2expr) 
-                res->m_var2expr.push_back(e ? translator(e) : nullptr);
-            return res;
-        }
-        
-        expr_ref lit2expr(sat::literal l) {
-            VERIFY(m_var2expr.get(l.var()));
-            expr_ref result(m_var2expr.get(l.var()), m());
-            if (l.sign()) {
-                result = m().mk_not(result);
-            }
-            return result;
-        }
-
-        void display(std::ostream & out) {
-            ensure_imc();
-            m_imc->display(out);
-            m_fmc->display(out);
-        }
-        
-        virtual void collect(ast_pp_util& visitor) { 
-            m_env = &visitor.env();
-            for (expr* e : m_var2expr) if (e) visitor.coll.visit(e);
-            if (m_fmc) m_fmc->collect(visitor);
-            ensure_imc();
-            m_imc->collect(visitor);
-        }
-
-        void operator()(expr_ref& formula) override {
-            ensure_imc();
-            (*m_imc)(formula);
-        }
-    };
-
+    typedef mc sat_model_converter;
     typedef ref<sat_model_converter> sat_model_converter_ref;
 
     ast_manager &           m;
@@ -1073,12 +1035,11 @@ struct sat2goal::imp {
         m_lit2expr.resize(num_vars * 2);
         map.mk_inv(m_lit2expr);
         if (mc) {
-            mc->init(num_vars);
             for (sat::bool_var v = 0; v < num_vars; v++) {
-                checkpoint();
+                checkpoint();                
                 sat::literal l(v, false);
                 if (m_lit2expr.get(l.index())) {
-                    mc->insert(v, m_lit2expr.get(l.index()), false);
+                    mc->insert(v, to_app(m_lit2expr.get(l.index())), false);
                     SASSERT(m_lit2expr.get((~l).index()));
                 }
             }
@@ -1088,9 +1049,12 @@ struct sat2goal::imp {
     expr * lit2expr(sat_model_converter_ref& mc, sat::literal l) {
         if (!m_lit2expr.get(l.index())) {
             SASSERT(m_lit2expr.get((~l).index()) == 0);
-            app * aux = m.mk_fresh_const(0, m.mk_bool_sort());
-            if (mc)
-                mc->insert(l.var(), aux, true);
+            app* aux = mc ? mc->var2expr(l.var()) : nullptr;
+            if (!aux) {
+                aux = m.mk_fresh_const(0, m.mk_bool_sort());
+                if (mc)
+                    mc->insert(l.var(), aux, true);
+            }
             m_lit2expr.set(l.index(), aux);
             m_lit2expr.set((~l).index(), m.mk_not(aux));
         }        
@@ -1160,27 +1124,26 @@ struct sat2goal::imp {
         return dynamic_cast<sat::ba_solver*>(s.get_extension());
     }
 
-    void operator()(sat::solver const & s, atom2bool_var const & map, goal & r, model_converter_ref & mc) {
+    void operator()(sat::solver & s, atom2bool_var const & map, goal & r, ref<mc> & mc) {
         if (s.inconsistent()) {
             r.assert_expr(m.mk_false());
             return;
         }
-        ref<sat_model_converter> _mc;
-        if (r.models_enabled()) {
-            _mc = alloc(sat_model_converter, m, s);
-            mc = _mc.get();            
+        if (r.models_enabled() && !mc) {
+            mc = alloc(sat_model_converter, m);
         }
-        init_lit2expr(s, map, _mc);
+        if (mc) mc->flush_smc(s);
+        init_lit2expr(s, map, mc);
         // collect units
         unsigned num_vars = s.num_vars();
         for (sat::bool_var v = 0; v < num_vars; v++) {
             checkpoint();
             switch (s.value(v)) {
             case l_true:
-                r.assert_expr(lit2expr(_mc, sat::literal(v, false)));
+                r.assert_expr(lit2expr(mc, sat::literal(v, false)));
                 break;
             case l_false:
-                r.assert_expr(lit2expr(_mc, sat::literal(v, true)));
+                r.assert_expr(lit2expr(mc, sat::literal(v, true)));
                 break;
             case l_undef:
                 break;
@@ -1191,28 +1154,27 @@ struct sat2goal::imp {
         s.collect_bin_clauses(bin_clauses, m_learned);
         for (sat::solver::bin_clause const& bc : bin_clauses) {
             checkpoint();
-            r.assert_expr(m.mk_or(lit2expr(_mc, bc.first), lit2expr(_mc, bc.second)));
+            r.assert_expr(m.mk_or(lit2expr(mc, bc.first), lit2expr(mc, bc.second)));
         }
         // collect clauses
-        assert_clauses(_mc, s, s.clauses(), r, true);
+        assert_clauses(mc, s, s.clauses(), r, true);
 
         sat::ba_solver* ext = get_ba_solver(s);
         if (ext) {
             for (auto* c : ext->constraints()) {
                 switch (c->tag()) {
                 case sat::ba_solver::card_t: 
-                    assert_card(_mc, r, c->to_card());
+                    assert_card(mc, r, c->to_card());
                     break;
                 case sat::ba_solver::pb_t: 
-                    assert_pb(_mc, r, c->to_pb());
+                    assert_pb(mc, r, c->to_pb());
                     break;
                 case sat::ba_solver::xor_t: 
-                    assert_xor(_mc, r, c->to_xor());
+                    assert_xor(mc, r, c->to_xor());
                     break;
                 }
             }
         }
-        if (_mc) _mc->finish();
     }
 
     void add_clause(sat_model_converter_ref& mc, sat::literal_vector const& lits, expr_ref_vector& lemmas) {
@@ -1255,8 +1217,8 @@ struct sat2goal::scoped_set_imp {
     }
 };
 
-void sat2goal::operator()(sat::solver const & t, atom2bool_var const & m, params_ref const & p, 
-                          goal & g, model_converter_ref & mc) {
+void sat2goal::operator()(sat::solver & t, atom2bool_var const & m, params_ref const & p, 
+                          goal & g, ref<mc> & mc) {
     imp proc(g.m(), p);
     scoped_set_imp set(this, &proc);
     proc(t, m, g, mc);

@@ -113,8 +113,12 @@ namespace sat {
         bool check_invariant(unsigned num_vars) const;
         void display(std::ostream & out) const;
         bool check_model(model const & m) const;
-
         void copy(model_converter const & src);
+        
+        /*
+          \brief Append entries from src, then remove entries in src.
+        */
+        void flush(model_converter& src);
         void collect_vars(bool_var_set & s) const;
         unsigned max_var(unsigned min) const;
         /*

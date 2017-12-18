@@ -171,7 +171,7 @@ extern "C" {
             sat::solver solver(to_solver_ref(s)->get_params(), m.limit());
             parse_dimacs(is, solver);
             sat2goal s2g;
-            model_converter_ref mc;
+            ref<sat2goal::mc> mc;
             atom2bool_var a2b(m);
             goal g(m);            
             s2g(solver, a2b, to_solver_ref(s)->get_params(), g, mc);

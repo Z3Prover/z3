@@ -351,6 +351,7 @@ namespace sat {
         bool model_is_current() const { return m_model_is_current; }
         literal_vector const& get_core() const { return m_core; }
         model_converter const & get_model_converter() const { return m_mc; }
+        void flush(model_converter& mc) { mc.flush(m_mc); }
         void set_model(model const& mdl);
         char const* get_reason_unknown() const { return m_reason_unknown.c_str(); }
         bool check_clauses(model const& m) const;

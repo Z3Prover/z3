@@ -108,7 +108,7 @@ class sat_tactic : public tactic {
                 IF_VERBOSE(TACTIC_VERBOSITY_LVL, verbose_stream() << "\"formula constains interpreted atoms, recovering formula from sat solver...\"\n";);
 #endif
                 m_solver.pop_to_base_level();
-                model_converter_ref mc;
+                ref<sat2goal::mc> mc;
                 m_sat2goal(m_solver, map, m_params, *(g.get()), mc);
                 g->add(mc.get());
             }

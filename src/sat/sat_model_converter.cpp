@@ -324,6 +324,11 @@ namespace sat {
         m_entries.append(src.m_entries);
     }
 
+    void model_converter::flush(model_converter & src) {
+        m_entries.append(src.m_entries);
+        src.m_entries.reset();
+    }
+
     void model_converter::collect_vars(bool_var_set & s) const {
         for (entry const & e : m_entries) s.insert(e.m_var);
     }
