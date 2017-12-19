@@ -77,41 +77,27 @@ private:
 
     private:
         typedef obj_hashtable<expr> expr_set;
-        
+        typedef obj_hashtable<proof> proof_set;
+
         ast_manager &m;
-        // tracking all created expressions
-        expr_ref_vector m_pinned;
         
-        // maps each proof of a clause to the transformed subproof of that clause
-        obj_map<proof, proof*> m_cache;
-        
-        // maps each unit literals to the transformed subproof of that unit
-        obj_map<expr, proof*> m_units;
-        
-        // -- all hypotheses in the the proof
-        obj_hashtable<expr> m_hyps;
-        
-        // marks hypothetical proofs
-        ast_mark m_hypmark;
-        
-        std::vector<expr_set> m_pinned_hyp_sets; // tracking all created sets of hypothesis
-        obj_map<expr, expr_set*> m_hyp_anchestor; // maps each proof to the set of hypothesis it contains, needed to avoid creating cycles in the proof.
-        
-        // stack
-        ptr_vector<proof> m_todo;
+        expr_ref_vector m_pinned; // tracking all created expressions
+        ptr_vector<proof_set> m_pinned_active_hyps; // tracking all created sets of active hypothesis
+        ptr_vector<expr_set> m_pinned_parent_hyps; // tracking all created sets of parent hypothesis
+
+        obj_map<proof, proof*> m_cache; // maps each proof of a clause to the transformed subproof of that clause
+        obj_map<expr, proof*> m_units; // maps each unit literal to the subproof of that unit
+        obj_map<proof, proof_set*> m_active_hyps; // maps each proof of a clause to the set of proofs of active hypothesis' of the clause
+        obj_map<proof, expr_set*> m_parent_hyps; // maps each proof of a clause to the hypothesis-fact, which are transitive parents of that clause, needed to avoid creating cycles in the proof.
         
         void reset();
+        void compute_hypsets(proof* pr); // compute active_hyps and parent_hyps for pr
+        void collect_units(proof* pr); // compute m_units
         proof* compute_transformed_proof(proof* pf);
-
-        void compute_hypmarks_and_hyps(proof* pr);
-        bool compute_hypmark_from_parents(proof *pr);
-        void collect_units(proof* pr);
-        
-        // returns true if (hypothesis (not a)) would be reduced
-        bool is_reduced(expr *a);
         
         proof* mk_lemma_core(proof *pf, expr *fact);
-        proof* mk_unit_resolution_core(unsigned num_args, proof* const *args);
+        proof* mk_unit_resolution_core(ptr_buffer<proof>& args);
+        proof* mk_step_core(proof* old_step, ptr_buffer<proof>& args);
     };
 }
 #endif

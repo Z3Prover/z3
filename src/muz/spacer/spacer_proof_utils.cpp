@@ -18,12 +18,14 @@ Revision History:
 
 #include "muz/spacer/spacer_proof_utils.h"
 #include "ast/ast_util.h"
+
 #include "ast/ast_pp.h"
 
 #include "ast/proof_checker/proof_checker.h"
 #include <unordered_map>
 #include "params.h"
 #include "muz/spacer/spacer_iuc_proof.h"
+#include "muz/base/dl_util.h"
 
 namespace spacer {
     
@@ -355,7 +357,7 @@ proof* ProofIteratorPostOrder::next()
             {
                 bool dirty = false; // proof is dirty, if a subproof of one of its premises has been transformed
 
-                ptr_buffer<proof> args;
+                ptr_buffer<expr> args;
                 for (unsigned i = 0, sz = m.get_num_parents(p); i < sz; ++i)
                 {
                     proof* pp = m.get_parent(p, i);
@@ -376,7 +378,7 @@ proof* ProofIteratorPostOrder::next()
                 }
                 else // otherwise create new step with the corresponding proofs of the premises
                 {
-                    if (m.has_fact(p)) { args.push_back(to_app(m.get_fact(p))); }
+                    if (m.has_fact(p)) { args.push_back(m.get_fact(p)); }
                     SASSERT(p->get_decl()->get_arity() == args.size());
                     proof* res = m.mk_app(p->get_decl(), args.size(), (expr * const*)args.c_ptr());
                     m_pinned.push_back(res);
@@ -400,59 +402,103 @@ proof* ProofIteratorPostOrder::next()
     {
         m_cache.reset();
         m_units.reset();
-        m_hyps.reset();
-        m_hypmark.reset();
+        m_active_hyps.reset();
+        m_parent_hyps.reset();
+        m_pinned_active_hyps.reset();
+        m_pinned_parent_hyps.reset();
         m_pinned.reset();
     }
     
-    void hypothesis_reducer::compute_hypmarks_and_hyps(proof* pr)
+    void hypothesis_reducer::compute_hypsets(proof* pr)
     {
-        proof *p;
-        ProofIteratorPostOrder pit(pr, m);
-        while (pit.hasNext()) {
-            p = pit.next();
-            if (m.is_hypothesis(p))
+        ptr_vector<proof> todo;
+        todo.push_back(pr);
+        
+        while (!todo.empty())
+        {
+            proof* p = todo.back();
+            
+            if (m_active_hyps.contains(p))
             {
-                m_hypmark.mark(p, true);
-                m_hyps.insert(m.get_fact(p));
+                SASSERT(m_parent_hyps.contains(p));
+                todo.pop_back();
             }
+            // if we haven't already visited the current unit
             else
             {
-                compute_hypmark_from_parents(p);
-            }
-        }
-    }
-
-    bool hypothesis_reducer::compute_hypmark_from_parents(proof *pr)
-    {
-        bool hyp_mark = false;
-        
-        if (!m.is_lemma(pr)) // lemmas clear all hypotheses
-        {
-            for (unsigned i = 0, sz = m.get_num_parents(pr); i < sz; ++i)
-            {
-                if (m_hypmark.is_marked(m.get_parent(pr, i)))
+                bool existsUnvisitedParent = false;
+                
+                // add unprocessed premises to stack for DFS. If there is at least one unprocessed premise, don't compute the result
+                // for p now, but wait until those unprocessed premises are processed.
+                for (unsigned i = 0; i < m.get_num_parents(p); ++i) {
+                    SASSERT(m.is_proof(p->get_arg(i)));
+                    proof* premise = to_app(p->get_arg(i));
+                    
+                    // if we haven't visited the premise yet
+                    if (!m_active_hyps.contains(premise))
+                    {
+                        SASSERT(!m_parent_hyps.contains(premise));
+                        // add it to the stack
+                        todo.push_back(premise);
+                        existsUnvisitedParent = true;
+                    }
+                }
+                
+                // if we already visited all premises, we can visit p too
+                if (!existsUnvisitedParent)
                 {
-                    hyp_mark = true;
-                    break;
+                    todo.pop_back();
+
+                    // create active_hyps-set and parent_hyps-set for step p
+                    proof_set* active_hyps = alloc(proof_set);
+                    m_pinned_active_hyps.insert(active_hyps);
+                    m_active_hyps.insert(p, active_hyps);
+                    
+                    expr_set* parent_hyps = alloc(expr_set);
+                    m_pinned_parent_hyps.insert(parent_hyps);
+                    m_parent_hyps.insert(p, parent_hyps);
+                    
+                    // fill both sets
+                    if (m.is_hypothesis(p))
+                    {
+                        active_hyps->insert(p);
+                        parent_hyps->insert(m.get_fact(p));
+                    }
+                    else
+                    {
+                        for (unsigned i = 0, sz = m.get_num_parents(p); i < sz; ++i)
+                        {
+                            proof* pp = m.get_parent(p, i);
+                            datalog::set_union(*parent_hyps, *m_parent_hyps.find(pp));
+
+                            if (!m.is_lemma(p)) // lemmas clear all hypotheses
+                            {
+                                datalog::set_union(*active_hyps, *m_active_hyps.find(pp));
+                            }
+                        }
+                    }
                 }
             }
         }
-        m_hypmark.mark(pr, hyp_mark);
-        return hyp_mark;
     }
-
+    
     // collect all units that are hyp-free and are used as hypotheses somewhere
-    // requires that m_hypmarks and m_hyps have been computed
+    // requires that m_active_hyps and m_parent_hyps have been computed
     void hypothesis_reducer::collect_units(proof* pr)
     {
+        expr_set* all_hyps = m_parent_hyps.find(pr);
+        SASSERT(all_hyps != nullptr);
+
         ProofIteratorPostOrder pit(pr, m);
         while (pit.hasNext()) {
             proof* p = pit.next();
             if (!m.is_hypothesis(p))
             {
-                // collect units that are hyp-free and are used as hypotheses somewhere
-                if (!m_hypmark.is_marked(p) && m.has_fact(p) && m_hyps.contains(m.get_fact(p)))
+                proof_set* active_hyps = m_active_hyps.find(p);
+                SASSERT(active_hyps != nullptr);
+
+                // collect units that are hyp-free and are used as hypotheses in the proof pr
+                if (active_hyps->empty() && m.has_fact(p) && all_hyps->contains(m.get_fact(p)))
                 {
                     m_units.insert(m.get_fact(p), p);
                 }
@@ -462,8 +508,9 @@ proof* ProofIteratorPostOrder::next()
 
     proof_ref hypothesis_reducer::reduce(proof* pr)
     {
-        compute_hypmarks_and_hyps(pr);
+        compute_hypsets(pr);
         collect_units(pr);
+        
         proof* res = compute_transformed_proof(pr);
         SASSERT(res != nullptr);
         
@@ -481,156 +528,162 @@ proof* ProofIteratorPostOrder::next()
     {
         proof *res = NULL;
 
-        m_todo.reset();
-        m_todo.push_back(pf);
+        ptr_vector<proof> todo;
+        todo.push_back(pf);
         ptr_buffer<proof> args;
         bool dirty = false;
 
-        while (!m_todo.empty()) {
-            proof *p, *tmp, *tmp2, *pp;
+        while (!todo.empty()) {
+            proof *p, *tmp, *pp;
             unsigned todo_sz;
 
-            p = m_todo.back();
+            p = todo.back();
             if (m_cache.find(p, tmp)) {
-                res = tmp;
-                m_todo.pop_back();
+                res = tmp; // TODO: shouldn't this line be removed?
+                todo.pop_back();
                 continue;
             }
 
             dirty = false;
             args.reset();
-            todo_sz = m_todo.size();
+            todo_sz = todo.size();
             for (unsigned i = 0, sz = m.get_num_parents(p); i < sz; ++i) {
                 pp = m.get_parent(p, i);
                 if (m_cache.find(pp, tmp)) {
                     args.push_back(tmp);
                     dirty = dirty || pp != tmp;
                 } else {
-                    m_todo.push_back(pp);
+                    todo.push_back(pp);
                 }
             }
 
-            if (todo_sz < m_todo.size()) { continue; }
-            else { m_todo.pop_back(); }
+            if (todo_sz < todo.size()) { continue; }
+            else { todo.pop_back(); }
 
-            // here the transformation begins
-            // INV: for each premise of p, we have computed the transformed proof.
             
+            // here the proof transformation begins
+            // INV: whenever we visit p, active_hyps and parent_hyps have been computed for the args.
             if (m.is_hypothesis(p))
             {
                 // hyp: replace by a corresponding unit
                 if (m_units.find(m.get_fact(p), tmp))
                 {
-                    // if the transformed subproof ending in the unit has already been computed, use it
-                    if (m_cache.find(tmp,tmp2))
+                    // look up the proof of the unit:
+                    // if there is a transformed proof use that one
+                    // otherwise use the original proof
+                    proof* proof_of_unit;
+                    if (!m_cache.find(tmp,proof_of_unit))
                     {
-                        res = tmp2;
+                        proof_of_unit = tmp;
                     }
-                    // otherwise first compute the transformed subproof ending in the unit
+
+                    // compute hypsets (have not been computed in general, since the unit can be anywhere in the proof)
+                    compute_hypsets(proof_of_unit);
+                    
+                    // if the transformation doesn't create a cycle, perform it
+                    SASSERT(m_parent_hyps.contains(proof_of_unit));
+                    expr_set* parent_hyps = m_parent_hyps.find(proof_of_unit);
+                    if (!parent_hyps->contains(p))
+                    {
+                        res = proof_of_unit;
+                        // hypsets have already been computed for proof_of_unit
+                    }
+                    // otherwise don't transform the proof and just use the hypothesis
                     else
                     {
-                        m_todo.push_back(tmp);
-                        continue;
+                        res = p;
+                        // hypsets have already been computed for p
                     }
-                } else { res = p; }
+                }
+                else
+                {
+                    res = p;
+                    // hypsets have already been computed for p
+                }
             }
-
             else if (!dirty) { res = p; }
 
-            else if (m.is_lemma(p)) {
+            else if (m.is_lemma(p))
+            {
                 //lemma: reduce the premise; remove reduced consequences from conclusion
                 SASSERT(args.size() == 1);
-                res = mk_lemma_core(args.get(0), m.get_fact(p));
-                compute_hypmark_from_parents(res);
-            } else if (m.is_unit_resolution(p)) {
+                res = mk_lemma_core(args[0], m.get_fact(p));
+                compute_hypsets(res);
+            }
+            else if (m.is_unit_resolution(p))
+            {
                 // unit: reduce untis; reduce the first premise; rebuild unit resolution
-                res = mk_unit_resolution_core(args.size(), args.c_ptr());
-                compute_hypmark_from_parents(res);
-            } else  {
-                // if any literal is false, we don't need a step
-                bool has_empty_clause_premise = false;
-                for (unsigned i = 0; i < args.size(); ++i)
-                {
-                    if (m.is_false(m.get_fact(args[i])))
-                    {
-                        has_empty_clause_premise = true;
-                        res = args[i];
-                    }
-                }
-                
-                // otherwise:
-                if (!has_empty_clause_premise)
-                {
-                    // other: reduce all premises; reapply
-                    if (m.has_fact(p)) { args.push_back(to_app(m.get_fact(p))); }
-                    SASSERT(p->get_decl()->get_arity() == args.size());
-                    res = m.mk_app(p->get_decl(), args.size(), (expr * const*)args.c_ptr());
-                    m_pinned.push_back(res);
-                    compute_hypmark_from_parents(res);
-                }
+                res = mk_unit_resolution_core(args);
+                compute_hypsets(res);
+            }
+            else
+            {
+                res = mk_step_core(p, args);
+                compute_hypsets(res);
             }
 
             SASSERT(res);
-            m_cache.insert(p, res);
-
-            if (!m_hypmark.is_marked(res) && m.has_fact(res) && m.is_false(m.get_fact(res)))
+            m_cache.insert(p, res);            
+            
+            SASSERT(m_active_hyps.contains(res));
+            proof_set* active_hyps = m_active_hyps.find(res);
+            if (active_hyps->empty() && m.has_fact(res) && m.is_false(m.get_fact(res)))
             {
                 return res;
             }
         }
-    }
-
-    // returns true if (hypothesis (not a)) would be reduced
-    bool hypothesis_reducer::is_reduced(expr *a)
-    {
-        expr_ref e(m);
-        if (m.is_not(a)) { e = to_app(a)->get_arg(0); }
-        else { e = m.mk_not(a); }
-
-        return m_units.contains(e);
+        UNREACHABLE();
+        return nullptr;
     }
     
-    proof* hypothesis_reducer::mk_lemma_core(proof *pf, expr *fact)
+    proof* hypothesis_reducer::mk_lemma_core(proof* premise, expr *fact)
     {
-        ptr_buffer<expr> args;
-        expr_ref lemma(m);
+        SASSERT(m.is_false(m.get_fact(premise)));
+        
+        SASSERT(m_active_hyps.contains(premise));
+        proof_set* active_hyps = m_active_hyps.find(premise);
 
-        if (m.is_or(fact)) {
-            for (unsigned i = 0, sz = to_app(fact)->get_num_args(); i < sz; ++i) {
-                expr *a = to_app(fact)->get_arg(i);
-                if (!is_reduced(a))
-                { args.push_back(a); }
+        // if there is no active hypothesis return the premise
+        if (active_hyps->empty())
+        {
+            return premise;
+        }
+        // otherwise build disjunction of the negated active hypothesis' and add lemma step.
+        else
+        {
+            expr_ref_buffer args(m);
+            for (auto hyp : *active_hyps)
+            {
+                expr* hyp_fact = m.get_fact(hyp);
+                expr_ref negated_hyp_fact(m);
+                negated_hyp_fact = m.is_not(hyp_fact) ? to_app(hyp_fact)->get_arg(0) : m.mk_not(hyp_fact);
+                args.push_back(negated_hyp_fact);
             }
-        } else if (!is_reduced(fact))
-        { args.push_back(fact); }
-
-
-        if (args.size() == 0) { return pf; }
-        else if (args.size() == 1) {
-            lemma = args.get(0);
-        } else {
-            lemma = m.mk_or(args.size(), args.c_ptr());
+            
+            expr_ref lemma(m);
+            if (args.size() == 1)
+            {
+                lemma = args[0];
+            }
+            else
+            {
+                lemma = m.mk_or(args.size(), args.c_ptr());
+            }
+            proof_ref res(m);
+            res = m.mk_lemma(premise, lemma);
+            m_pinned.push_back(res);
+            return res;
         }
-        proof* res = m.mk_lemma(pf, lemma);
-        m_pinned.push_back(res);
-
-        // XXX this is wrong because lemma is a proof and m_hyps only
-        // XXX contains expressions.
-        // XXX Not sure this is ever needed.
-        if (m_hyps.contains(lemma)) {
-            m_units.insert(lemma, res);
-        }
-        return res;
     }
 
-    proof* hypothesis_reducer::mk_unit_resolution_core(unsigned num_args, proof* const *args)
+    proof* hypothesis_reducer::mk_unit_resolution_core(ptr_buffer<proof>& args)
     {
-
-        ptr_buffer<proof> pf_args;
-        pf_args.push_back(args [0]);
+        ptr_buffer<proof> pf_args; // the arguments of the transformed unit resolution step
+        pf_args.push_back(args [0]); // the first element of args is the clause to resolve with
 
         // if any literal is false, we don't need a unit resolution step
-        for (unsigned i = 1; i < num_args; ++i)
+        // could be the case due to transformations which already have been done
+        for (unsigned i = 1; i < args.size(); ++i)
         {
             if (m.is_false(m.get_fact(args[i])))
             {
@@ -638,7 +691,7 @@ proof* ProofIteratorPostOrder::next()
             }
         }
 
-        app *cls_fact = to_app(m.get_fact(args[0]));
+        app *cls_fact = to_app(m.get_fact(args[0])); // BUG: I guess this shouldn't work with quantifiers (since they are no apps)
         ptr_buffer<expr> cls;
         if (m.is_or(cls_fact)) {
             for (unsigned i = 0, sz = cls_fact->get_num_args(); i < sz; ++i)
@@ -651,7 +704,7 @@ proof* ProofIteratorPostOrder::next()
         // XXX quadratic
         for (unsigned i = 0, sz = cls.size(); i < sz; ++i) {
             found = false;
-            for (unsigned j = 1; j < num_args; ++j) {
+            for (unsigned j = 1; j < args.size(); ++j) {
                 if (m.is_complement(cls.get(i), m.get_fact(args [j]))) {
                     found = true;
                     pf_args.push_back(args [j]);
@@ -674,9 +727,30 @@ proof* ProofIteratorPostOrder::next()
         }
         else
         {
-            proof *res = m.mk_unit_resolution(pf_args.size(), pf_args.c_ptr(), new_fact);
+            proof* res = m.mk_unit_resolution(pf_args.size(), pf_args.c_ptr(), new_fact);
             m_pinned.push_back(res);
             return res;
         }
     }
+    
+    proof* hypothesis_reducer::mk_step_core(proof* old_step, ptr_buffer<proof>& args)
+    {
+        // if any of the literals is false, we don't need a step
+        for (unsigned i = 0; i < args.size(); ++i)
+        {
+            if (m.is_false(m.get_fact(args[i])))
+            {
+                return args[i];
+            }
+        }
+        
+        // otherwise build step
+        args.push_back(to_app(m.get_fact(old_step))); // BUG: I guess this doesn't work with quantifiers (since they are no apps)
+        
+        SASSERT(old_step->get_decl()->get_arity() == args.size());
+        proof* res = m.mk_app(old_step->get_decl(), args.size(), (expr * const*)args.c_ptr());
+        m_pinned.push_back(res);
+        return res;
+    }
+
 };
