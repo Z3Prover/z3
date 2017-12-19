@@ -148,11 +148,7 @@ namespace nlsat {
     typedef algebraic_numbers::anum    anum;
     typedef algebraic_numbers::manager anum_manager;
 
-    class solver_exception : public default_exception {
-    public:
-        solver_exception(char const * msg):default_exception(msg) {}
-        virtual ~solver_exception() {}
-    };
+    typedef default_exception solver_exception;
 
     class assignment;
     
