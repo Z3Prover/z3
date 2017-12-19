@@ -24,8 +24,10 @@ Revision History:
 #include "ast/rewriter/rewriter.h"
 #include "ast/rewriter/rewriter_def.h"
 #include "muz/transforms/dl_mk_subsumption_checker.h"
-
 #include "muz/base/fixedpoint_params.hpp"
+#include "tactic/extension_model_converter.h"
+
+
 namespace datalog {
 
 
@@ -37,26 +39,28 @@ namespace datalog {
 
 
     bool mk_subsumption_checker::is_total_rule(const rule * r) {
-        if(r->get_tail_size()!=0) { return false; }
+        if (r->get_tail_size() != 0) { 
+            return false; 
+        }
 
         unsigned pt_len = r->get_positive_tail_size();
-        if(pt_len!=r->get_uninterpreted_tail_size()) {
-            //we dont' expect rules with negative tails to be total
+        if(pt_len != r->get_uninterpreted_tail_size()) {
+            // we dont' expect rules with negative tails to be total
             return false;
         }
 
-        for(unsigned i=0; i<pt_len; i++) {
+        for (unsigned i = 0; i < pt_len; i++) {
             func_decl * tail_pred = r->get_tail(i)->get_decl();
-            if(!m_total_relations.contains(tail_pred)) {
-                //this rule has a non-total predicate in the tail
+            if (!m_total_relations.contains(tail_pred)) {
+                // this rule has a non-total predicate in the tail
                 return false;
             }
         }
 
         unsigned t_len = r->get_positive_tail_size();
-        for(unsigned i=pt_len; i<t_len; i++) {
+        for(unsigned i = pt_len; i < t_len; i++) {
             SASSERT(!r->is_neg_tail(i)); //we assume interpreted tail not to be negated
-            if(!m.is_true(r->get_tail(i))) {
+            if (!m.is_true(r->get_tail(i))) {
                 //this rule has an interpreted tail which is not constant true
                 return false;
             }
@@ -183,20 +187,15 @@ namespace datalog {
         rule_ref_vector orig_rules(m_context.get_rule_manager());
         orig_rules.append(orig.get_num_rules(), orig.begin());
 
-        rule * * rbegin = orig_rules.c_ptr();
-        rule * * rend = rbegin + orig_rules.size();
-
         //before traversing we sort rules so that the shortest are in the beginning.
         //this will help make subsumption checks more efficient
-        std::sort(rbegin, rend, rule_size_comparator);
+        std::sort(orig_rules.c_ptr(), orig_rules.c_ptr() + orig_rules.size(), rule_size_comparator);
 
-        for(rule_set::iterator rit = rbegin; rit!=rend; ++rit) {
-
-            rule * r = *rit;
+        for (rule * r : orig_rules) {
             func_decl * head_pred = r->get_decl();
 
-            if(m_total_relations.contains(head_pred)) {
-                if(!orig.is_output_predicate(head_pred) ||
+            if (m_total_relations.contains(head_pred)) {
+                if (!orig.is_output_predicate(head_pred) ||
                         total_relations_with_included_rules.contains(head_pred)) {
                     //We just skip definitions of total non-output relations as 
                     //we'll eliminate them from the problem.
@@ -205,8 +204,7 @@ namespace datalog {
                     modified = true;
                     continue;
                 }
-                rule * defining_rule;
-                VERIFY(m_total_relation_defining_rules.find(head_pred, defining_rule));
+                rule * defining_rule = m_total_relation_defining_rules.find(head_pred);
                 if (defining_rule) {
                     rule_ref totality_rule(m_context.get_rule_manager());
                     VERIFY(transform_rule(defining_rule, subs_index, totality_rule));
@@ -224,24 +222,31 @@ namespace datalog {
             }
 
             rule_ref new_rule(m_context.get_rule_manager());
-            if(!transform_rule(r, subs_index, new_rule)) {
+            if (!transform_rule(r, subs_index, new_rule)) {
                 modified = true;
                 continue;
             }
-            if(m_new_total_relation_discovery_during_transformation && is_total_rule(new_rule)) {
+            if (m_new_total_relation_discovery_during_transformation && is_total_rule(new_rule)) {
                 on_discovered_total_relation(head_pred, new_rule.get());
             }
-            if(subs_index.is_subsumed(new_rule)) {
+            if (subs_index.is_subsumed(new_rule)) {
                 modified = true;
                 continue;
             }
-            if(new_rule.get()!=r) {
+            if (new_rule.get()!=r) {
                 modified = true;
             }
             tgt.add_rule(new_rule);
             subs_index.add(new_rule);
         }
         tgt.inherit_predicates(orig);
+        if (!m_total_relations.empty() && m_context.get_model_converter()) {
+            extension_model_converter* mc0 = alloc(extension_model_converter, m);
+            for (func_decl* p : m_total_relations) {
+                mc0->insert(p, m.mk_true());
+            }
+            m_context.add_model_converter(mc0);
+        }
         TRACE("dl",
             tout << "original set size: "<<orig.get_num_rules()<<"\n"
                  << "reduced set size: "<<tgt.get_num_rules()<<"\n"; );

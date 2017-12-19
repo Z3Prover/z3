@@ -149,30 +149,27 @@ namespace pdr {
     }
 
     datalog::rule const& pred_transformer::find_rule(model_core const& model) const {
-        obj_map<expr, datalog::rule const*>::iterator it = m_tag2rule.begin(), end = m_tag2rule.end();
         TRACE("pdr_verbose",
               datalog::rule_manager& rm = ctx.get_context().get_rule_manager();
-              for (; it != end; ++it) {
-                  expr* pred = it->m_key;
+              for (auto const& kv : m_tag2rule) {
+                  expr* pred = kv.m_key;
                   tout << mk_pp(pred, m) << ":\n";
-                  if (it->m_value) rm.display_smt2(*it->m_value, tout) << "\n";
+                  if (kv.m_value) rm.display_smt2(*kv.m_value, tout) << "\n";
               }
         );
 
-        it = m_tag2rule.begin();
         if (m_tag2rule.size() == 1) {
-            return *it->m_value;
+            return *m_tag2rule.begin()->m_value;
         }
 
         expr_ref vl(m);
-        for (; it != end; ++it) {
-            expr* pred = it->m_key;
+        for (auto const& kv : m_tag2rule) {
+            expr* pred = kv.m_key;
             if (model.eval(to_app(pred)->get_decl(), vl) && m.is_true(vl)) {
-                return *it->m_value;
+                return *kv.m_value;
             }
         }
-        UNREACHABLE();
-        return *((datalog::rule*)0);
+        throw default_exception("could not find rule");
     }
 
     void pred_transformer::find_predecessors(datalog::rule const& r, ptr_vector<func_decl>& preds) const {
@@ -201,7 +198,7 @@ namespace pdr {
 
     void pred_transformer::simplify_formulas(tactic& tac, expr_ref_vector& v) {
         goal_ref g(alloc(goal, m, false, false, false));
-        for (unsigned j = 0; j < v.size(); ++j) g->assert_expr(v[j].get());
+        for (expr* e : v) g->assert_expr(e);
         model_converter_ref mc;
         proof_converter_ref pc;
         expr_dependency_ref core(m);
@@ -216,9 +213,8 @@ namespace pdr {
     void pred_transformer::simplify_formulas() {
         tactic_ref us = mk_unit_subsumption_tactic(m);
         simplify_formulas(*us, m_invariants);
-        for (unsigned i = 0; i < m_levels.size(); ++i) {
-            simplify_formulas(*us, m_levels[i]);
-        }
+        for (auto & fmls : m_levels) 
+            simplify_formulas(*us, fmls);
     }
 
     expr_ref pred_transformer::get_formulas(unsigned level, bool add_axioms) {

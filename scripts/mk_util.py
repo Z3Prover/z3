@@ -1240,9 +1240,9 @@ def get_so_ext():
     sysname = os.uname()[0]
     if sysname == 'Darwin':
         return 'dylib'
-    elif sysname == 'Linux' or sysname == 'FreeBSD' or sysname == 'OpenBSD' or sysname.startswith('MSYS_NT') or sysname.startswith('MINGW'):
+    elif sysname == 'Linux' or sysname == 'FreeBSD' or sysname == 'OpenBSD':
         return 'so'
-    elif sysname == 'CYGWIN':
+    elif sysname == 'CYGWIN' or sysname.startswith('MSYS_NT') or sysname.startswith('MINGW'):
         return 'dll'
     else:
         assert(False)
@@ -1990,7 +1990,7 @@ class MLComponent(Component):
             out.write('%s.cmxa: %s %s %s %s.cma\n' % (z3mls, cmxs, stubso, z3dllso, z3mls))
             out.write('\t%s -o %s -I %s %s %s %s\n' % (OCAMLMKLIB, z3mls, self.sub_dir, stubso, cmxs, LIBZ3))
             out.write('%s.cmxs: %s.cmxa\n' % (z3mls, z3mls))
-            out.write('\t%s -shared -o %s.cmxs -I %s %s.cmxa\n' % (OCAMLOPTF, z3mls, self.sub_dir, z3mls))
+            out.write('\t%s -linkall -shared -o %s.cmxs -I %s %s.cmxa\n' % (OCAMLOPTF, z3mls, self.sub_dir, z3mls))
 
             out.write('\n')
             out.write('ml: %s.cma %s.cmxa %s.cmxs\n' % (z3mls, z3mls, z3mls))
@@ -2072,7 +2072,6 @@ class ExampleComponent(Component):
     def is_example(self):
         return True
 
-
 class CppExampleComponent(ExampleComponent):
     def __init__(self, name, path):
         ExampleComponent.__init__(self, name, path)
@@ -2118,6 +2117,30 @@ class CExampleComponent(CppExampleComponent):
 
     def src_files(self):
         return get_c_files(self.ex_dir)
+
+    def mk_makefile(self, out):
+        dll_name = get_component(Z3_DLL_COMPONENT).dll_name
+        dll = '%s$(SO_EXT)' % dll_name
+
+        objfiles = ''
+        for cfile in self.src_files():
+            objfile = '%s$(OBJ_EXT)' % (cfile[:cfile.rfind('.')])
+            objfiles = objfiles + ('%s ' % objfile)
+            out.write('%s: %s\n' % (objfile, os.path.join(self.to_ex_dir, cfile)));
+            out.write('\t%s $(CFLAGS) $(OS_DEFINES) $(EXAMP_DEBUG_FLAG) $(C_OUT_FLAG)%s $(LINK_FLAGS)' % (self.compiler(), objfile))
+            out.write(' -I%s' % get_component(API_COMPONENT).to_src_dir)
+            out.write(' %s' % os.path.join(self.to_ex_dir, cfile))
+            out.write('\n')
+
+        exefile = '%s$(EXE_EXT)' % self.name
+        out.write('%s: %s %s\n' % (exefile, dll, objfiles))
+        out.write('\t$(LINK) $(LINK_OUT_FLAG)%s $(LINK_FLAGS) %s ' % (exefile, objfiles))
+        if IS_WINDOWS:
+            out.write('%s.lib' % dll_name)
+        else:
+            out.write(dll)
+        out.write(' $(LINK_EXTRA_FLAGS)\n')
+        out.write('_ex_%s: %s\n\n' % (self.name, exefile))
 
 class DotNetExampleComponent(ExampleComponent):
     def __init__(self, name, path):
@@ -2320,6 +2343,7 @@ def mk_config():
             'CC=cl\n'
             'CXX=cl\n'
             'CXX_OUT_FLAG=/Fo\n'
+            'C_OUT_FLAG=/Fo\n'
             'OBJ_EXT=.obj\n'
             'LIB_EXT=.lib\n'
             'AR=lib\n'
@@ -2397,7 +2421,7 @@ def mk_config():
                     'LINK_EXTRA_FLAGS=/link%s /DEBUG /MACHINE:X86 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE /NXCOMPAT %s\n'
                     'SLINK_EXTRA_FLAGS=/link%s /DEBUG /MACHINE:X86 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 %s %s\n' % (LTCG, link_extra_opt, LTCG, maybe_disable_dynamic_base, link_extra_opt))
 
-
+        config.write('CFLAGS=$(CXXFLAGS)\n')
 
         # End of Windows VS config.mk
         if is_verbose():
@@ -2418,6 +2442,8 @@ def mk_config():
         CXX = find_cxx_compiler()
         CC  = find_c_compiler()
         SLIBEXTRAFLAGS = ''
+        EXE_EXT = ''
+        LIB_EXT = '.a'
         if GPROF:
             CXXFLAGS = '%s -pg' % CXXFLAGS
             LDFLAGS  = '%s -pg' % LDFLAGS
@@ -2447,18 +2473,19 @@ def mk_config():
         if DEBUG_MODE:
             CXXFLAGS     = '%s -g -Wall' % CXXFLAGS
             EXAMP_DEBUG_FLAG = '-g'
+            CPPFLAGS     = '%s -DZ3DEBUG -D_DEBUG' % CPPFLAGS
         else:
+            CXXFLAGS     = '%s -O3' % CXXFLAGS
             if GPROF:
-                CXXFLAGS     = '%s -O3 -D _EXTERNAL_RELEASE' % CXXFLAGS
-            else:
-                CXXFLAGS     = '%s -O3 -D _EXTERNAL_RELEASE -fomit-frame-pointer' % CXXFLAGS
+                CXXFLAGS     += '-fomit-frame-pointer'
+            CPPFLAGS     = '%s -DNDEBUG -D_EXTERNAL_RELEASE' % CPPFLAGS
         if is_CXX_clangpp():
             CXXFLAGS   = '%s -Wno-unknown-pragmas -Wno-overloaded-virtual -Wno-unused-value' % CXXFLAGS
         sysname, _, _, _, machine = os.uname()
         if sysname == 'Darwin':
             SO_EXT         = '.dylib'
             SLIBFLAGS      = '-dynamiclib'
-        elif sysname == 'Linux' or sysname.startswith('MSYS_NT') or sysname.startswith('MINGW'):
+        elif sysname == 'Linux':
             CXXFLAGS       = '%s -D_LINUX_' % CXXFLAGS
             OS_DEFINES     = '-D_LINUX_'
             SO_EXT         = '.so'
@@ -2477,15 +2504,22 @@ def mk_config():
             OS_DEFINES     = '-D_OPENBSD_'
             SO_EXT         = '.so'
             SLIBFLAGS      = '-shared'
-        elif sysname[:6] ==  'CYGWIN':
+        elif sysname.startswith('CYGWIN'):
             CXXFLAGS       = '%s -D_CYGWIN' % CXXFLAGS
             OS_DEFINES     = '-D_CYGWIN'
             SO_EXT         = '.dll'
             SLIBFLAGS      = '-shared'
+        elif sysname.startswith('MSYS_NT') or sysname.startswith('MINGW'):
+            CXXFLAGS       = '%s -D_MINGW' % CXXFLAGS
+            OS_DEFINES     = '-D_MINGW'
+            SO_EXT         = '.dll'
+            SLIBFLAGS      = '-shared'
+            EXE_EXT        = '.exe'
+            LIB_EXT        = '.lib'
         else:
             raise MKException('Unsupported platform: %s' % sysname)
         if is64():
-            if sysname[:6] != 'CYGWIN':
+            if not sysname.startswith('CYGWIN') and not sysname.startswith('MSYS') and not sysname.startswith('MINGW'):
                 CXXFLAGS     = '%s -fPIC' % CXXFLAGS
             CPPFLAGS     = '%s -D_AMD64_' % CPPFLAGS
             if sysname == 'Linux':
@@ -2494,10 +2528,6 @@ def mk_config():
             CXXFLAGS     = '%s -m32' % CXXFLAGS
             LDFLAGS      = '%s -m32' % LDFLAGS
             SLIBFLAGS    = '%s -m32' % SLIBFLAGS
-        if DEBUG_MODE:
-            CPPFLAGS     = '%s -DZ3DEBUG -D_DEBUG' % CPPFLAGS
-        else:
-            CPPFLAGS     = '%s -DNDEBUG -D_EXTERNAL_RELEASE' % CPPFLAGS
         if TRACE or DEBUG_MODE:
             CPPFLAGS     = '%s -D_TRACE' % CPPFLAGS
         if is_cygwin_mingw():
@@ -2512,14 +2542,16 @@ def mk_config():
         config.write('CC=%s\n' % CC)
         config.write('CXX=%s\n' % CXX)
         config.write('CXXFLAGS=%s %s\n' % (CPPFLAGS, CXXFLAGS))
+        config.write('CFLAGS=%s %s\n' % (CPPFLAGS, CXXFLAGS.replace('-std=c++11', '')))
         config.write('EXAMP_DEBUG_FLAG=%s\n' % EXAMP_DEBUG_FLAG)
         config.write('CXX_OUT_FLAG=-o \n')
+        config.write('C_OUT_FLAG=-o \n')
         config.write('OBJ_EXT=.o\n')
-        config.write('LIB_EXT=.a\n')
+        config.write('LIB_EXT=%s\n' % LIB_EXT)
         config.write('AR=%s\n' % AR)
         config.write('AR_FLAGS=rcs\n')
         config.write('AR_OUTFLAG=\n')
-        config.write('EXE_EXT=\n')
+        config.write('EXE_EXT=%s\n' % EXE_EXT)
         config.write('LINK=%s\n' % CXX)
         config.write('LINK_FLAGS=\n')
         config.write('LINK_OUT_FLAG=-o \n')

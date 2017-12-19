@@ -116,58 +116,48 @@ public:
     const checked_int64 operator--(int) { checked_int64 tmp(*this); --(*this); return tmp; }
 
     checked_int64& operator+=(checked_int64 const& other) { 
-        if (CHECK && m_value > 0 && other.m_value > 0 &&
-            (m_value > INT_MAX || other.m_value > INT_MAX)) {
-            rational r(r64(m_value) + r64(other.m_value));
-            if (!r.is_int64()) {
-                throw overflow_exception();
-            }
-            m_value = r.get_int64();
-            return *this;
+        if (CHECK) {
+            uint64 x = static_cast<uint64>(m_value);
+            uint64 y = static_cast<uint64>(other.m_value);
+            int64 r = static_cast<int64>(x + y);
+            if (m_value > 0 && other.m_value > 0 && r <= 0) throw overflow_exception();
+            if (m_value < 0 && other.m_value < 0 && r >= 0) throw overflow_exception();
+            m_value = r;
         }
-        if (CHECK && m_value < 0 && other.m_value < 0 &&
-            (m_value < INT_MIN || other.m_value < INT_MIN)) {
-            rational r(r64(m_value) + r64(other.m_value));
-            if (!r.is_int64()) {
-                throw overflow_exception();
-            }
-            m_value = r.get_int64();
-            return *this;
+        else {
+            m_value += other.m_value; 
         }
-        m_value += other.m_value; 
         return *this;
     }
 
     checked_int64& operator-=(checked_int64 const& other) {
-        if (CHECK && m_value > 0 && other.m_value < 0 &&
-            (m_value > INT_MAX || other.m_value < INT_MIN)) {
-            rational r(r64(m_value) - r64(other.m_value));
-            if (!r.is_int64()) {
-                throw overflow_exception();
-            }
-            m_value = r.get_int64();
-            return *this;
+        if (CHECK) {
+            uint64 x = static_cast<uint64>(m_value);
+            uint64 y = static_cast<uint64>(other.m_value);
+            int64 r = static_cast<int64>(x - y);
+            if (m_value > 0 && other.m_value < 0 && r <= 0) throw overflow_exception();
+            if (m_value < 0 && other.m_value > 0 && r >= 0) throw overflow_exception();
+            m_value = r;            
         }
-        if (CHECK && m_value < 0 && other.m_value > 0 &&
-            (m_value < INT_MIN || other.m_value > INT_MAX)) {
-            rational r(r64(m_value) - r64(other.m_value));
-            if (!r.is_int64()) {
-                throw overflow_exception();
-            }
-            m_value = r.get_int64();
-            return *this;
+        else {
+            m_value -= other.m_value;
         }
-        m_value -= other.m_value;
         return *this;
     }
 
     checked_int64& operator*=(checked_int64 const& other) {
         if (CHECK) {
-            rational r(r64(m_value) * r64(other.m_value));
-            if (!r.is_int64()) {
-                throw overflow_exception();
+            if (INT_MIN < m_value && m_value <= INT_MAX && INT_MIN < other.m_value && other.m_value <= INT_MAX) {
+                m_value *= other.m_value;
             }
-            m_value = r.get_int64();
+            // TBD: could be tuned by using known techniques or 128-bit arithmetic.
+            else {
+                rational r(r64(m_value) * r64(other.m_value));
+                if (!r.is_int64()) {
+                    throw overflow_exception();
+                }
+                m_value = r.get_int64();
+            }
         }
         else {
             m_value *= other.m_value; 

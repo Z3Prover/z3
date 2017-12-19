@@ -21,6 +21,7 @@ Author:
 #include "muz/dataflow/dataflow.h"
 #include "muz/dataflow/reachability.h"
 #include "ast/ast_pp.h"
+#include "ast/ast_util.h"
 #include "tactic/extension_model_converter.h"
 
 namespace datalog {
@@ -33,20 +34,28 @@ namespace datalog {
     rule_set * mk_coi_filter::bottom_up(rule_set const & source) {
         dataflow_engine<reachability_info> engine(source.get_manager(), source);
         engine.run_bottom_up();
+        func_decl_set unreachable;
         scoped_ptr<rule_set> res = alloc(rule_set, m_context);
         res->inherit_predicates(source);
-        for (rule_set::iterator it = source.begin(); it != source.end(); ++it) {
-            rule * r = *it;
-
+        for (rule* r : source) {
             bool new_tail = false;
             bool contained = true;
+            m_new_tail.reset();
+            m_new_tail_neg.reset();
             for (unsigned i = 0; i < r->get_uninterpreted_tail_size(); ++i) {
-                if (m_context.has_facts(r->get_decl(i))) {
+                func_decl* decl_i = r->get_decl(i);
+                if (m_context.has_facts(decl_i)) {
                     return 0;
                 }
 
+                bool reachable = engine.get_fact(decl_i).is_reachable();
+
+                if (!reachable) {
+                    unreachable.insert(decl_i);
+                }
+
                 if (r->is_neg_tail(i)) {
-                    if (!engine.get_fact(r->get_decl(i)).is_reachable()) {
+                    if (!reachable) {
                         if (!new_tail) {
                             for (unsigned j = 0; j < i; ++j) {
                                 m_new_tail.push_back(r->get_tail(j));
@@ -60,10 +69,9 @@ namespace datalog {
                         m_new_tail_neg.push_back(true);
                     }
                 } 
-
                 else {
                     SASSERT(!new_tail);
-                    if (!engine.get_fact(r->get_decl(i)).is_reachable()) {
+                    if (!reachable) {
                         contained = false;
                         break;
                     }
@@ -78,23 +86,25 @@ namespace datalog {
                     res->add_rule(r);
                 }
             }
-            m_new_tail.reset();
-            m_new_tail_neg.reset();
         }
         if (res->get_num_rules() == source.get_num_rules()) {
             TRACE("dl", tout << "No transformation\n";);
             res = 0;
-        } else {
+        } 
+        else {
             res->close();
         }
-
+        
         // set to false each unreached predicate 
-        if (m_context.get_model_converter()) {
+        if (res && m_context.get_model_converter()) {
             extension_model_converter* mc0 = alloc(extension_model_converter, m);
-            for (dataflow_engine<reachability_info>::iterator it = engine.begin(); it != engine.end(); it++) {
-                if (!it->m_value.is_reachable()) {
-                    mc0->insert(it->m_key, m.mk_false());
+            for (auto const& kv : engine) {
+                if (!kv.m_value.is_reachable()) {
+                    mc0->insert(kv.m_key, m.mk_false());
                 }
+            }
+            for (func_decl* f : unreachable) {
+                mc0->insert(f, m.mk_false());
             }
             m_context.add_model_converter(mc0);
         }
@@ -109,9 +119,7 @@ namespace datalog {
         scoped_ptr<rule_set> res = alloc(rule_set, m_context);
         res->inherit_predicates(source);
 
-        rule_set::iterator rend = source.end();
-        for (rule_set::iterator rit = source.begin(); rit != rend; ++rit) {
-            rule * r = *rit;
+        for (rule * r : source) {
             func_decl * pred = r->get_decl();
             if (engine.get_fact(pred).is_reachable()) {
                 res->add_rule(r);
@@ -125,14 +133,12 @@ namespace datalog {
             res = 0;
         }
         if (res && m_context.get_model_converter()) {
-            func_decl_set::iterator end = pruned_preds.end();
-            func_decl_set::iterator it = pruned_preds.begin();
             extension_model_converter* mc0 = alloc(extension_model_converter, m);
-            for (; it != end; ++it) {
-                const rule_vector& rules = source.get_predicate_rules(*it);
+            for (func_decl* f : pruned_preds) {
+                const rule_vector& rules = source.get_predicate_rules(f);
                 expr_ref_vector fmls(m);
-                for (unsigned i = 0; i < rules.size(); ++i) {
-                    app* head = rules[i]->get_head();
+                for (rule * r : rules) {
+                    app* head = r->get_head();
                     expr_ref_vector conj(m);
                     for (unsigned j = 0; j < head->get_num_args(); ++j) {
                         expr* arg = head->get_arg(j);
@@ -140,11 +146,9 @@ namespace datalog {
                             conj.push_back(m.mk_eq(m.mk_var(j, m.get_sort(arg)), arg));
                         }
                     }
-                    fmls.push_back(m.mk_and(conj.size(), conj.c_ptr()));
+                    fmls.push_back(mk_and(conj));
                 }
-                expr_ref fml(m);
-                fml = m.mk_or(fmls.size(), fmls.c_ptr());
-                mc0->insert(*it, fml);
+                mc0->insert(f, mk_or(fmls));
             }
             m_context.add_model_converter(mc0);
         }

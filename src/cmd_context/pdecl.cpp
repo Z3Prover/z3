@@ -852,7 +852,7 @@ pdecl_manager::pdecl_manager(ast_manager & m):
 pdecl_manager::~pdecl_manager() {
     dec_ref(m_list);
     reset_sort_info();
-    SASSERT(m_sort2psort.empty());
+    SASSERT(m_sort2psort.empty());    
     SASSERT(m_table.empty());
 }
 

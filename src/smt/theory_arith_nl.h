@@ -711,6 +711,7 @@ namespace smt {
             if (ctx.is_relevant(get_enode(*it)) && !check_monomial_assignment(*it, computed_epsilon)) {
                 TRACE("non_linear_failed", tout << "check_monomial_assignment failed for:\n" << mk_ismt2_pp(var2expr(*it), get_manager()) << "\n";
                       display_var(tout, *it););
+                
                 return false;
             }
         }

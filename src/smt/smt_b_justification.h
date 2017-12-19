@@ -93,6 +93,16 @@ namespace smt {
 
     const b_justification null_b_justification(static_cast<clause*>(0));
 
+    inline std::ostream& operator<<(std::ostream& out, b_justification::kind k) {
+        switch (k) {
+        case b_justification::CLAUSE: return out << "clause";
+        case b_justification::BIN_CLAUSE: return out << "bin_clause";
+        case b_justification::AXIOM: return out << "axiom";
+        case b_justification::JUSTIFICATION: return out << "theory";
+        }
+        return out;
+    }
+
     typedef std::pair<literal, b_justification> justified_literal;
 };
 

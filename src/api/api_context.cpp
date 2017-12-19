@@ -19,7 +19,6 @@ Revision History:
 --*/
 #include<typeinfo>
 #include "api/api_context.h"
-#include "parsers/smt/smtparser.h"
 #include "util/version.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
@@ -89,8 +88,6 @@ namespace api {
         m_print_mode = Z3_PRINT_SMTLIB_FULL;
         m_searching  = false;
         
-        m_smtlib_parser           = 0;
-        m_smtlib_parser_has_decls = false;
 
         m_interruptable = 0;                
         m_error_handler = &default_error_handler;
@@ -111,13 +108,13 @@ namespace api {
 
 
     context::~context() {
-        reset_parser();
         m_last_obj = 0;
         u_map<api::object*>::iterator it = m_allocated_objects.begin();
         while (it != m_allocated_objects.end()) {
-            DEBUG_CODE(warning_msg("Uncollected memory: %d: %s", it->m_key, typeid(*it->m_value).name()););
+            api::object* val = it->m_value;
+            DEBUG_CODE(warning_msg("Uncollected memory: %d: %s", it->m_key, typeid(*val).name()););
             m_allocated_objects.remove(it->m_key);
-            dealloc(it->m_value);
+            dealloc(val);
             it = m_allocated_objects.begin();
         }
     }
@@ -301,39 +298,6 @@ namespace api {
                 break;
             }
             set_error_code(Z3_SORT_ERROR);
-        }
-    }
-
-
-    // ------------------------
-    //
-    // Parser interface for backward compatibility 
-    //
-    // ------------------------
-    
-    void context::reset_parser() {
-        if (m_smtlib_parser) {
-            dealloc(m_smtlib_parser);
-            m_smtlib_parser = 0;
-            m_smtlib_parser_has_decls = false;
-            m_smtlib_parser_decls.reset();
-            m_smtlib_parser_sorts.reset();
-        }
-        SASSERT(!m_smtlib_parser_has_decls);
-    }
-    
-    void context::extract_smtlib_parser_decls() {
-        if (m_smtlib_parser) {
-            if (!m_smtlib_parser_has_decls) {
-                smtlib::symtable * table = m_smtlib_parser->get_benchmark()->get_symtable();
-                table->get_func_decls(m_smtlib_parser_decls);
-                table->get_sorts(m_smtlib_parser_sorts);
-                m_smtlib_parser_has_decls = true;
-            }
-        }
-        else {
-            m_smtlib_parser_decls.reset();
-            m_smtlib_parser_sorts.reset();
         }
     }
 

@@ -1975,56 +1975,6 @@ struct
       (List.length assumptions) assumptions
       formula
 
-  let parse_smtlib_string (ctx:context) (str:string) (sort_names:Symbol.symbol list) (sorts:Sort.sort list) (decl_names:Symbol.symbol list) (decls:func_decl list) =
-    let csn = List.length sort_names in
-    let cs = List.length sorts in
-    let cdn = List.length decl_names in
-    let cd = List.length decls in
-    if (csn <> cs || cdn <> cd) then
-      raise (Error "Argument size mismatch")
-    else
-      Z3native.parse_smtlib_string ctx str
-        cs sort_names sorts cd decl_names decls
-
-  let parse_smtlib_file (ctx:context) (file_name:string) (sort_names:Symbol.symbol list) (sorts:Sort.sort list) (decl_names:Symbol.symbol list) (decls:func_decl list) =
-    let csn = (List.length sort_names) in
-    let cs = (List.length sorts) in
-    let cdn = (List.length decl_names) in
-    let cd = (List.length decls) in
-    if (csn <> cs || cdn <> cd) then
-      raise (Error "Argument size mismatch")
-    else
-      Z3native.parse_smtlib_file ctx file_name
-        cs sort_names sorts cd decl_names decls
-
-  let get_num_smtlib_formulas (ctx:context) = Z3native.get_smtlib_num_formulas ctx
-
-  let get_smtlib_formulas (ctx:context) =
-    let n = get_num_smtlib_formulas ctx in
-    let f i = Z3native.get_smtlib_formula ctx i in
-    mk_list f n
-
-  let get_num_smtlib_assumptions (ctx:context) = Z3native.get_smtlib_num_assumptions ctx
-
-  let get_smtlib_assumptions (ctx:context) =
-    let n = get_num_smtlib_assumptions ctx in
-    let f i = Z3native.get_smtlib_assumption ctx i in
-    mk_list f n
-
-  let get_num_smtlib_decls (ctx:context) = Z3native.get_smtlib_num_decls ctx
-
-  let get_smtlib_decls (ctx:context) =
-    let n = get_num_smtlib_decls ctx in
-    let f i = Z3native.get_smtlib_decl ctx i in
-    mk_list f n
-
-  let get_num_smtlib_sorts (ctx:context)  = Z3native.get_smtlib_num_sorts ctx
-
-  let get_smtlib_sorts (ctx:context) =
-    let n = get_num_smtlib_sorts ctx in
-    let f i = Z3native.get_smtlib_sort ctx i in
-    mk_list f n
-
   let parse_smtlib2_string (ctx:context) (str:string) (sort_names:Symbol.symbol list) (sorts:Sort.sort list) (decl_names:Symbol.symbol list) (decls:func_decl list) =
     let csn = List.length sort_names in
     let cs = List.length sorts in

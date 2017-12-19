@@ -867,7 +867,7 @@ namespace smt2 {
                         throw parser_exception("invalid datatype declaration, too many data-type bodies defined");
                     }
                     symbol dt_name = m_dt_names[i];
-                    parse_datatype_dec(new_ct_decls);
+                    parse_datatype_dec(nullptr, new_ct_decls);
                     d = pm().mk_pdatatype_decl(m_dt_name2arity.find(dt_name), dt_name, new_ct_decls.size(), new_ct_decls.c_ptr());
                 }
                 else {
@@ -942,7 +942,7 @@ namespace smt2 {
 
             pdatatype_decl_ref d(pm());                
             pconstructor_decl_ref_buffer new_ct_decls(pm());
-            parse_datatype_dec(new_ct_decls);
+            parse_datatype_dec(&dt_name, new_ct_decls);
             d = pm().mk_pdatatype_decl(m_sort_id2param_idx.size(), dt_name, new_ct_decls.size(), new_ct_decls.c_ptr());
             
             check_missing(d, line, pos);
@@ -956,12 +956,16 @@ namespace smt2 {
 
         // datatype_dec ::= ( constructor_dec+ ) | ( par ( symbol+ ) ( constructor_dec+ ) )
 
-        void parse_datatype_dec(pconstructor_decl_ref_buffer & ct_decls) {
+        void parse_datatype_dec(symbol* dt_name, pconstructor_decl_ref_buffer & ct_decls) {
             check_lparen_next("invalid datatype declaration, '(' expected");
             if (curr_id() == m_par) {
                 next();
                 parse_sort_decl_params();
                 check_lparen_next("invalid constructor declaration after par, '(' expected");
+                unsigned sz = m_sort_id2param_idx.size();
+                if (sz > 0 && dt_name) {
+                    m_ctx.insert(pm().mk_psort_dt_decl(sz, *dt_name));
+                }
                 parse_constructor_decls(ct_decls);
                 check_rparen_next("invalid datatype declaration, ')' expected");
             }

@@ -399,8 +399,8 @@ void bv_size_reduction_tactic::operator()(goal_ref const & g,
 
  
 void bv_size_reduction_tactic::cleanup() {
-    imp * d = alloc(imp, m_imp->m);
-    std::swap(d, m_imp);    
-    dealloc(d);
+    ast_manager & m = m_imp->m;
+    m_imp->~imp();
+    new (m_imp) imp(m);
 }
 

@@ -22,6 +22,7 @@ Revision History:
 #define SMT_MODEL_CHECKER_H_
 
 #include "ast/ast.h"
+#include "ast/array_decl_plugin.h"
 #include "util/obj_hashtable.h"
 #include "smt/params/qi_params.h"
 #include "smt/params/smt_params.h"
@@ -39,6 +40,7 @@ namespace smt {
     class model_checker {
         ast_manager &                               m; // _manager;
         qi_params const &                           m_params;
+        array_util                                  m_autil;
         // copy of smt_params for auxiliary context.
         // the idea is to use a different configuration for the aux context (e.g., disable relevancy)
         scoped_ptr<smt_params>                      m_fparams;

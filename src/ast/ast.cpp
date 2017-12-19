@@ -1289,7 +1289,7 @@ decl_kind user_sort_plugin::register_name(symbol s) {
 
 decl_plugin * user_sort_plugin::mk_fresh() {
     user_sort_plugin * p = alloc(user_sort_plugin);
-    for (symbol const& s : m_sort_names) 
+    for (symbol const& s : m_sort_names)
         p->register_name(s);
     return p;
 }
@@ -1415,7 +1415,7 @@ ast_manager::~ast_manager() {
             p->finalize();
     }
     for (decl_plugin* p : m_plugins) {
-        if (p) 
+        if (p)
             dealloc(p);
     }
     m_plugins.reset();
@@ -1454,13 +1454,13 @@ ast_manager::~ast_manager() {
                 mark_array_ref(mark, to_quantifier(n)->get_num_patterns(), to_quantifier(n)->get_patterns());
                 mark_array_ref(mark, to_quantifier(n)->get_num_no_patterns(), to_quantifier(n)->get_no_patterns());
                 break;
-            }           
-        }        
+            }
+        }
         for (ast * n : m_ast_table) {
             if (!mark.is_marked(n)) {
                 roots.push_back(n);
             }
-        }        
+        }
         SASSERT(!roots.empty());
         for (unsigned i = 0; i < roots.size(); ++i) {
             ast* a = roots[i];
@@ -1684,22 +1684,9 @@ ast * ast_manager::register_node_core(ast * n) {
     CASSERT("nondet_bug", contains || slow_not_contains(n));
 #endif
 
-#if 0
-    static unsigned counter = 0;
-    counter++;
-    if (counter % 100000 == 0)
-        verbose_stream() << "[ast-table] counter: " << counter << " collisions: " << m_ast_table.collisions() << " capacity: " << m_ast_table.capacity() << " size: " << m_ast_table.size() << "\n";
-#endif
-
     ast * r = m_ast_table.insert_if_not_there(n);
     SASSERT(r->m_hash == h);
     if (r != n) {
-#if 0
-        static unsigned reused = 0;
-        reused++;
-        if (reused % 100000 == 0)
-            verbose_stream() << "[ast-table] reused: " << reused << "\n";
-#endif
         SASSERT(contains);
         SASSERT(m_ast_table.contains(n));
         if (is_func_decl(r) && to_func_decl(r)->get_range() != to_func_decl(n)->get_range()) {
@@ -1718,12 +1705,6 @@ ast * ast_manager::register_node_core(ast * n) {
 
 
     n->m_id   = is_decl(n) ? m_decl_id_gen.mk() : m_expr_id_gen.mk();
-
-    static unsigned count = 0;
-    if (n->m_id == 404) {
-        ++count;
-        //if (count == 2) SASSERT(false);
-    }
 
     TRACE("ast", tout << "Object " << n->m_id << " was created.\n";);
     TRACE("mk_var_bug", tout << "mk_ast: " << n->m_id << "\n";);
@@ -2377,8 +2358,9 @@ quantifier * ast_manager::mk_quantifier(bool forall, unsigned num_decls, sort * 
                                         unsigned num_patterns, expr * const * patterns,
                                         unsigned num_no_patterns, expr * const * no_patterns) {
     SASSERT(body);
-    SASSERT(num_patterns == 0 || num_no_patterns == 0);
     SASSERT(num_decls > 0);
+    if (num_patterns != 0 && num_no_patterns != 0)
+        throw ast_exception("simultaneous patterns and no-patterns not supported");
     DEBUG_CODE({
             for (unsigned i = 0; i < num_patterns; ++i) {
                 TRACE("ast", tout << i << " " << mk_pp(patterns[i], *this) << "\n";);
@@ -2626,7 +2608,7 @@ bool ast_manager::is_fully_interp(sort * s) const {
 
 proof * ast_manager::mk_proof(family_id fid, decl_kind k, unsigned num_args, expr * const * args) {
     if (proofs_disabled())
-        return m_undef_proof;
+        return nullptr;
     return mk_app(fid, k, num_args, args);
 }
 
@@ -2782,7 +2764,7 @@ proof * ast_manager::mk_transitivity(unsigned num_proofs, proof * const * proofs
 }
 
 proof * ast_manager::mk_transitivity(unsigned num_proofs, proof * const * proofs, expr * n1, expr * n2) {
-    if (num_proofs == 0) 
+    if (num_proofs == 0)
         return nullptr;
     if (num_proofs == 1)
         return proofs[0];
@@ -2842,23 +2824,20 @@ proof * ast_manager::mk_distributivity(expr * s, expr * r) {
 }
 
 proof * ast_manager::mk_rewrite(expr * s, expr * t) {
-    SASSERT(proofs_enabled());
     if (proofs_disabled())
-        return m_undef_proof;
+        return nullptr;
     return mk_app(m_basic_family_id, PR_REWRITE, mk_eq(s, t));
 }
 
 proof * ast_manager::mk_oeq_rewrite(expr * s, expr * t) {
-    SASSERT(proofs_enabled());
     if (proofs_disabled())
-        return m_undef_proof;
+        return nullptr;
     return mk_app(m_basic_family_id, PR_REWRITE, mk_oeq(s, t));
 }
 
 proof * ast_manager::mk_rewrite_star(expr * s, expr * t, unsigned num_proofs, proof * const * proofs) {
-    SASSERT(proofs_enabled());
     if (proofs_disabled())
-        return m_undef_proof;
+        return nullptr;
     ptr_buffer<expr> args;
     args.append(num_proofs, (expr**) proofs);
     args.push_back(mk_eq(s, t));
@@ -2866,44 +2845,38 @@ proof * ast_manager::mk_rewrite_star(expr * s, expr * t, unsigned num_proofs, pr
 }
 
 proof * ast_manager::mk_pull_quant(expr * e, quantifier * q) {
-    SASSERT(proofs_enabled());
     if (proofs_disabled())
-        return m_undef_proof;
+        return nullptr;
     return mk_app(m_basic_family_id, PR_PULL_QUANT, mk_iff(e, q));
 }
 
 proof * ast_manager::mk_pull_quant_star(expr * e, quantifier * q) {
-    SASSERT(proofs_enabled());
     if (proofs_disabled())
-        return m_undef_proof;
+        return nullptr;
     return mk_app(m_basic_family_id, PR_PULL_QUANT_STAR, mk_iff(e, q));
 }
 
 proof * ast_manager::mk_push_quant(quantifier * q, expr * e) {
-    SASSERT(proofs_enabled());
     if (proofs_disabled())
-        return m_undef_proof;
+        return nullptr;
     return mk_app(m_basic_family_id, PR_PUSH_QUANT, mk_iff(q, e));
 }
 
 proof * ast_manager::mk_elim_unused_vars(quantifier * q, expr * e) {
-    SASSERT(proofs_enabled());
     if (proofs_disabled())
-        return m_undef_proof;
+        return nullptr;
     return mk_app(m_basic_family_id, PR_ELIM_UNUSED_VARS, mk_iff(q, e));
 }
 
 proof * ast_manager::mk_der(quantifier * q, expr * e) {
-    SASSERT(proofs_enabled());
     if (proofs_disabled())
-        return m_undef_proof;
+        return nullptr;
     return mk_app(m_basic_family_id, PR_DER, mk_iff(q, e));
 }
 
 proof * ast_manager::mk_quant_inst(expr * not_q_or_i, unsigned num_bind, expr* const* binding) {
-    SASSERT(proofs_enabled());
     if (proofs_disabled())
-        return m_undef_proof;
+        return nullptr;
     vector<parameter> params;
     for (unsigned i = 0; i < num_bind; ++i) {
         params.push_back(parameter(binding[i]));
@@ -2937,9 +2910,8 @@ bool ast_manager::is_rewrite(expr const* e, expr*& r1, expr*& r2) const {
 }
 
 proof * ast_manager::mk_def_axiom(expr * ax) {
-    SASSERT(proofs_enabled());
     if (proofs_disabled())
-        return m_undef_proof;
+        return nullptr;
     return mk_app(m_basic_family_id, PR_DEF_AXIOM, ax);
 }
 
@@ -3077,7 +3049,7 @@ proof * ast_manager::mk_def_intro(expr * new_def) {
 
 proof * ast_manager::mk_apply_defs(expr * n, expr * def, unsigned num_proofs, proof * const * proofs) {
     if (proofs_disabled())
-        return m_undef_proof;
+        return nullptr;
     ptr_buffer<expr> args;
     args.append(num_proofs, (expr**) proofs);
     args.push_back(mk_oeq(n, def));
@@ -3110,7 +3082,7 @@ bool ast_manager::check_nnf_proof_parents(unsigned num_proofs, proof * const * p
 
 proof * ast_manager::mk_nnf_pos(expr * s, expr * t, unsigned num_proofs, proof * const * proofs) {
     if (proofs_disabled())
-        return m_undef_proof;
+        return nullptr;
     check_nnf_proof_parents(num_proofs, proofs);
     ptr_buffer<expr> args;
     args.append(num_proofs, (expr**) proofs);
@@ -3120,7 +3092,7 @@ proof * ast_manager::mk_nnf_pos(expr * s, expr * t, unsigned num_proofs, proof *
 
 proof * ast_manager::mk_nnf_neg(expr * s, expr * t, unsigned num_proofs, proof * const * proofs) {
     if (proofs_disabled())
-        return m_undef_proof;
+        return nullptr;
     check_nnf_proof_parents(num_proofs, proofs);
     ptr_buffer<expr> args;
     args.append(num_proofs, (expr**) proofs);
@@ -3130,7 +3102,7 @@ proof * ast_manager::mk_nnf_neg(expr * s, expr * t, unsigned num_proofs, proof *
 
 proof * ast_manager::mk_nnf_star(expr * s, expr * t, unsigned num_proofs, proof * const * proofs) {
     if (proofs_disabled())
-        return m_undef_proof;
+        return nullptr;
     ptr_buffer<expr> args;
     args.append(num_proofs, (expr**) proofs);
     args.push_back(mk_oeq(s, t));
@@ -3139,7 +3111,7 @@ proof * ast_manager::mk_nnf_star(expr * s, expr * t, unsigned num_proofs, proof 
 
 proof * ast_manager::mk_skolemization(expr * q, expr * e) {
     if (proofs_disabled())
-        return m_undef_proof;
+        return nullptr;
     SASSERT(is_bool(q));
     SASSERT(is_bool(e));
     return mk_app(m_basic_family_id, PR_SKOLEMIZE, mk_oeq(q, e));
@@ -3147,7 +3119,7 @@ proof * ast_manager::mk_skolemization(expr * q, expr * e) {
 
 proof * ast_manager::mk_cnf_star(expr * s, expr * t, unsigned num_proofs, proof * const * proofs) {
     if (proofs_disabled())
-        return m_undef_proof;
+        return nullptr;
     ptr_buffer<expr> args;
     args.append(num_proofs, (expr**) proofs);
     args.push_back(mk_oeq(s, t));
@@ -3156,7 +3128,7 @@ proof * ast_manager::mk_cnf_star(expr * s, expr * t, unsigned num_proofs, proof 
 
 proof * ast_manager::mk_and_elim(proof * p, unsigned i) {
     if (proofs_disabled())
-        return m_undef_proof;
+        return nullptr;
     SASSERT(has_fact(p));
     SASSERT(is_and(get_fact(p)));
     CTRACE("mk_and_elim", i >= to_app(get_fact(p))->get_num_args(), tout << "i: " << i << "\n" << mk_pp(get_fact(p), *this) << "\n";);
@@ -3167,7 +3139,7 @@ proof * ast_manager::mk_and_elim(proof * p, unsigned i) {
 
 proof * ast_manager::mk_not_or_elim(proof * p, unsigned i) {
     if (proofs_disabled())
-        return m_undef_proof;
+        return nullptr;
     SASSERT(has_fact(p));
     SASSERT(is_not(get_fact(p)));
     SASSERT(is_or(to_app(get_fact(p))->get_arg(0)));
@@ -3190,7 +3162,7 @@ proof * ast_manager::mk_th_lemma(
     )
 {
     if (proofs_disabled())
-        return m_undef_proof;
+        return nullptr;
 
     ptr_buffer<expr> args;
     vector<parameter> parameters;

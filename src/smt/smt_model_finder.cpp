@@ -643,12 +643,8 @@ namespace smt {
                 return t_result;
             }
 
-            bool is_infinite(sort * s) const {
-                // we should not assume that uninterpreted sorts are infinite in benchmarks with quantifiers.
-                return 
-                    !m.is_uninterp(s) &&
-                    s->is_infinite();
-            }
+            // we should not assume that uninterpreted sorts are infinite in benchmarks with quantifiers.
+            bool is_infinite(sort * s) const { return !m.is_uninterp(s) && s->is_infinite(); }
 
             /**
                \brief Return a fresh constant k that is used as a witness for elements that must be different from
@@ -2276,10 +2272,9 @@ namespace smt {
                 process_literal(atom, pol == NEG);
             }
 
-            void process_or(app * n, polarity p) {
-                unsigned num_args = n->get_num_args();
-                for (unsigned i = 0; i < num_args; i++)
-                    visit_formula(n->get_arg(i), p);
+            void process_and_or(app * n, polarity p) {
+                for (expr* arg : *n)
+                    visit_formula(arg, p);
             }
 
             void process_ite(app * n, polarity p) {
@@ -2310,13 +2305,13 @@ namespace smt {
                     if (is_app(curr)) {
                         if (to_app(curr)->get_family_id() == m_manager.get_basic_family_id() && m_manager.is_bool(curr)) {
                             switch (static_cast<basic_op_kind>(to_app(curr)->get_decl_kind())) {
-                            case OP_AND:
                             case OP_IMPLIES:
                             case OP_XOR:
                                 UNREACHABLE(); // simplifier eliminated ANDs, IMPLIEs, and XORs
                                 break;
                             case OP_OR:
-                                process_or(to_app(curr), pol);
+                            case OP_AND:
+                                process_and_or(to_app(curr), pol);
                                 break;
                             case OP_NOT:
                                 visit_formula(to_app(curr)->get_arg(0), neg(pol));

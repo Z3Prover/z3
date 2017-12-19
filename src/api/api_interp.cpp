@@ -510,31 +510,15 @@ extern "C" {
         read_error.clear();
         try {
             std::string foo(filename);
-            if (foo.size() >= 5 && foo.substr(foo.size() - 5) == ".smt2"){
-                Z3_ast assrts = Z3_parse_smtlib2_file(ctx, filename, 0, 0, 0, 0, 0, 0);
-                Z3_app app = Z3_to_app(ctx, assrts);
-                int nconjs = Z3_get_app_num_args(ctx, app);
-                assertions.resize(nconjs);
-                for (int k = 0; k < nconjs; k++)
-                    assertions[k] = Z3_get_app_arg(ctx, app, k);
-            }
-            else {
-                Z3_parse_smtlib_file(ctx, filename, 0, 0, 0, 0, 0, 0);
-                int numa = Z3_get_smtlib_num_assumptions(ctx);
-                int numf = Z3_get_smtlib_num_formulas(ctx);
-                int num = numa + numf;
-
-                assertions.resize(num);
-                for (int j = 0; j < num; j++){
-                    if (j < numa)
-                        assertions[j] = Z3_get_smtlib_assumption(ctx, j);
-                    else
-                        assertions[j] = Z3_get_smtlib_formula(ctx, j - numa);
-                }
-            }
+            Z3_ast assrts = Z3_parse_smtlib2_file(ctx, filename, 0, 0, 0, 0, 0, 0);
+            Z3_app app = Z3_to_app(ctx, assrts);
+            int nconjs = Z3_get_app_num_args(ctx, app);
+            assertions.resize(nconjs);
+            for (int k = 0; k < nconjs; k++)
+                assertions[k] = Z3_get_app_arg(ctx, app, k);
         }
         catch (...) {
-            read_error << "SMTLIB parse error: " << Z3_get_smtlib_error(ctx);
+            read_error << "SMTLIB parse error: " << Z3_get_parser_error(ctx);
             read_msg = read_error.str();
             *error = read_msg.c_str();
             return false;

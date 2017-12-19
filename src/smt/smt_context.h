@@ -209,7 +209,12 @@ namespace smt {
             ~scoped_mk_model() {
                 if (m_ctx.m_proto_model.get() != 0) {
                     m_ctx.m_model = m_ctx.m_proto_model->mk_model();
-                    m_ctx.add_rec_funs_to_model();
+                    try {
+                        m_ctx.add_rec_funs_to_model();
+                    }
+                    catch (...) {
+                        // no op
+                    }
                     m_ctx.m_proto_model = 0; // proto_model is not needed anymore.
                 }
             }
@@ -1230,24 +1235,24 @@ namespace smt {
 
         void display_asserted_formulas(std::ostream & out) const;
 
-        void display_literal(std::ostream & out, literal l) const;
+        std::ostream& display_literal(std::ostream & out, literal l) const;
 
-        void display_detailed_literal(std::ostream & out, literal l) const { l.display(out, m_manager, m_bool_var2expr.c_ptr()); }
+        std::ostream& display_detailed_literal(std::ostream & out, literal l) const { l.display(out, m_manager, m_bool_var2expr.c_ptr()); return out; }
 
         void display_literal_info(std::ostream & out, literal l) const;
 
-        void display_literals(std::ostream & out, unsigned num_lits, literal const * lits) const;
+        std::ostream& display_literals(std::ostream & out, unsigned num_lits, literal const * lits) const;
 
-        void display_literals(std::ostream & out, literal_vector const& lits) const {
-            display_literals(out, lits.size(), lits.c_ptr());
+        std::ostream& display_literals(std::ostream & out, literal_vector const& lits) const {
+            return display_literals(out, lits.size(), lits.c_ptr());
         }
 
-        void display_literal_verbose(std::ostream & out, literal lit) const;
+        std::ostream& display_literal_verbose(std::ostream & out, literal lit) const;
 
-        void display_literals_verbose(std::ostream & out, unsigned num_lits, literal const * lits) const;
-
-        void display_literals_verbose(std::ostream & out, literal_vector const& lits) const {
-            display_literals_verbose(out, lits.size(), lits.c_ptr());
+        std::ostream& display_literals_verbose(std::ostream & out, unsigned num_lits, literal const * lits) const;
+        
+        std::ostream& display_literals_verbose(std::ostream & out, literal_vector const& lits) const {
+            return display_literals_verbose(out, lits.size(), lits.c_ptr());
         }
 
         void display_watch_list(std::ostream & out, literal l) const;

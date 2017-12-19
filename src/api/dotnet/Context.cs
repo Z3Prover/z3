@@ -3127,6 +3127,20 @@ namespace Microsoft.Z3
 
             return (BitVecNum)MkNumeral(v, MkBitVecSort(size));
         }
+
+        /// <summary>
+        /// Create a bit-vector numeral.
+        /// </summary>
+        /// <param name="bits">An array of bits representing the bit-vector. Least signficant bit is at position 0.</param>
+        public BitVecNum MkBV(bool[] bits)
+        {
+            Contract.Ensures(Contract.Result<BitVecNum>() != null);
+            int[] _bits = new int[bits.Length];
+            for (int i = 0; i < bits.Length; ++i) _bits[i] = bits[i] ? 1 : 0;	
+            return (BitVecNum)Expr.Create(this, Native.Z3_mk_bv_numeral(nCtx, (uint)bits.Length, _bits));
+        }
+
+
         #endregion
 
         #endregion // Numerals
@@ -3306,160 +3320,10 @@ namespace Microsoft.Z3
         #endregion
 
         #region SMT Files & Strings
-        /// <summary>
-        /// Convert a benchmark into an SMT-LIB formatted string.
-        /// </summary>
-        /// <param name="name">Name of the benchmark. The argument is optional.</param>
-        /// <param name="logic">The benchmark logic. </param>
-        /// <param name="status">The status string (sat, unsat, or unknown)</param>
-        /// <param name="attributes">Other attributes, such as source, difficulty or category.</param>
-        /// <param name="assumptions">Auxiliary assumptions.</param>
-        /// <param name="formula">Formula to be checked for consistency in conjunction with assumptions.</param>
-        /// <returns>A string representation of the benchmark.</returns>
-        public string BenchmarkToSMTString(string name, string logic, string status, string attributes,
-                                           BoolExpr[] assumptions, BoolExpr formula)
-        {
-            Contract.Requires(assumptions != null);
-            Contract.Requires(formula != null);
-            Contract.Ensures(Contract.Result<string>() != null);
-
-            return Native.Z3_benchmark_to_smtlib_string(nCtx, name, logic, status, attributes,
-                                            (uint)assumptions.Length, AST.ArrayToNative(assumptions),
-                                            formula.NativeObject);
-        }
-
-        /// <summary>
-        /// Parse the given string using the SMT-LIB parser.
-        /// </summary>
-        /// <remarks>
-        /// The symbol table of the parser can be initialized using the given sorts and declarations.
-        /// The symbols in the arrays <paramref name="sortNames"/> and <paramref name="declNames"/>
-        /// don't need to match the names of the sorts and declarations in the arrays <paramref name="sorts"/>
-        /// and <paramref name="decls"/>. This is a useful feature since we can use arbitrary names to
-        /// reference sorts and declarations.
-        /// </remarks>
-        public void ParseSMTLIBString(string str, Symbol[] sortNames = null, Sort[] sorts = null, Symbol[] declNames = null, FuncDecl[] decls = null)
-        {
-            uint csn = Symbol.ArrayLength(sortNames);
-            uint cs = Sort.ArrayLength(sorts);
-            uint cdn = Symbol.ArrayLength(declNames);
-            uint cd = AST.ArrayLength(decls);
-            if (csn != cs || cdn != cd)
-                throw new Z3Exception("Argument size mismatch");
-            Native.Z3_parse_smtlib_string(nCtx, str,
-                AST.ArrayLength(sorts), Symbol.ArrayToNative(sortNames), AST.ArrayToNative(sorts),
-                AST.ArrayLength(decls), Symbol.ArrayToNative(declNames), AST.ArrayToNative(decls));
-        }
-
-        /// <summary>
-        /// Parse the given file using the SMT-LIB parser.
-        /// </summary>
-        /// <seealso cref="ParseSMTLIBString"/>
-        public void ParseSMTLIBFile(string fileName, Symbol[] sortNames = null, Sort[] sorts = null, Symbol[] declNames = null, FuncDecl[] decls = null)
-        {
-            uint csn = Symbol.ArrayLength(sortNames);
-            uint cs = Sort.ArrayLength(sorts);
-            uint cdn = Symbol.ArrayLength(declNames);
-            uint cd = AST.ArrayLength(decls);
-            if (csn != cs || cdn != cd)
-                throw new Z3Exception("Argument size mismatch");
-            Native.Z3_parse_smtlib_file(nCtx, fileName,
-                AST.ArrayLength(sorts), Symbol.ArrayToNative(sortNames), AST.ArrayToNative(sorts),
-                AST.ArrayLength(decls), Symbol.ArrayToNative(declNames), AST.ArrayToNative(decls));
-        }
-
-        /// <summary>
-        /// The number of SMTLIB formulas parsed by the last call to <c>ParseSMTLIBString</c> or <c>ParseSMTLIBFile</c>.
-        /// </summary>
-        public uint NumSMTLIBFormulas { get { return Native.Z3_get_smtlib_num_formulas(nCtx); } }
-
-        /// <summary>
-        /// The formulas parsed by the last call to <c>ParseSMTLIBString</c> or <c>ParseSMTLIBFile</c>.
-        /// </summary>
-        public BoolExpr[] SMTLIBFormulas
-        {
-            get
-            {
-                Contract.Ensures(Contract.Result<BoolExpr[]>() != null);
-
-                uint n = NumSMTLIBFormulas;
-                BoolExpr[] res = new BoolExpr[n];
-                for (uint i = 0; i < n; i++)
-                    res[i] = (BoolExpr)Expr.Create(this, Native.Z3_get_smtlib_formula(nCtx, i));
-                return res;
-            }
-        }
-
-        /// <summary>
-        /// The number of SMTLIB assumptions parsed by the last call to <c>ParseSMTLIBString</c> or <c>ParseSMTLIBFile</c>.
-        /// </summary>
-        public uint NumSMTLIBAssumptions { get { return Native.Z3_get_smtlib_num_assumptions(nCtx); } }
-
-        /// <summary>
-        /// The assumptions parsed by the last call to <c>ParseSMTLIBString</c> or <c>ParseSMTLIBFile</c>.
-        /// </summary>
-        public BoolExpr[] SMTLIBAssumptions
-        {
-            get
-            {
-                Contract.Ensures(Contract.Result<BoolExpr[]>() != null);
-
-                uint n = NumSMTLIBAssumptions;
-                BoolExpr[] res = new BoolExpr[n];
-                for (uint i = 0; i < n; i++)
-                    res[i] = (BoolExpr)Expr.Create(this, Native.Z3_get_smtlib_assumption(nCtx, i));
-                return res;
-            }
-        }
-
-        /// <summary>
-        /// The number of SMTLIB declarations parsed by the last call to <c>ParseSMTLIBString</c> or <c>ParseSMTLIBFile</c>.
-        /// </summary>
-        public uint NumSMTLIBDecls { get { return Native.Z3_get_smtlib_num_decls(nCtx); } }
-
-        /// <summary>
-        /// The declarations parsed by the last call to <c>ParseSMTLIBString</c> or <c>ParseSMTLIBFile</c>.
-        /// </summary>
-        public FuncDecl[] SMTLIBDecls
-        {
-            get
-            {
-                Contract.Ensures(Contract.Result<FuncDecl[]>() != null);
-
-                uint n = NumSMTLIBDecls;
-                FuncDecl[] res = new FuncDecl[n];
-                for (uint i = 0; i < n; i++)
-                    res[i] = new FuncDecl(this, Native.Z3_get_smtlib_decl(nCtx, i));
-                return res;
-            }
-        }
-
-        /// <summary>
-        /// The number of SMTLIB sorts parsed by the last call to <c>ParseSMTLIBString</c> or <c>ParseSMTLIBFile</c>.
-        /// </summary>
-        public uint NumSMTLIBSorts { get { return Native.Z3_get_smtlib_num_sorts(nCtx); } }
-
-        /// <summary>
-        /// The declarations parsed by the last call to <c>ParseSMTLIBString</c> or <c>ParseSMTLIBFile</c>.
-        /// </summary>
-        public Sort[] SMTLIBSorts
-        {
-            get
-            {
-                Contract.Ensures(Contract.Result<Sort[]>() != null);
-
-                uint n = NumSMTLIBSorts;
-                Sort[] res = new Sort[n];
-                for (uint i = 0; i < n; i++)
-                    res[i] = Sort.Create(this, Native.Z3_get_smtlib_sort(nCtx, i));
-                return res;
-            }
-        }
 
         /// <summary>
         /// Parse the given string using the SMT-LIB2 parser.
         /// </summary>
-        /// <seealso cref="ParseSMTLIBString"/>
         /// <returns>A conjunction of assertions in the scope (up to push/pop) at the end of the string.</returns>
         public BoolExpr ParseSMTLIB2String(string str, Symbol[] sortNames = null, Sort[] sorts = null, Symbol[] declNames = null, FuncDecl[] decls = null)
         {

@@ -387,4 +387,17 @@ extern "C" {
         Z3_CATCH_RETURN(Z3_FALSE);
     }
 
+    Z3_ast Z3_API Z3_mk_bv_numeral(Z3_context c, unsigned sz, Z3_bool const* bits) {
+        Z3_TRY;
+        LOG_Z3_mk_bv_numeral(c, sz, bits);
+        RESET_ERROR_CODE();
+        rational r(0);
+        for (unsigned i = 0; i < sz; ++i) {
+            if (bits[i]) r += rational::power_of_two(i);
+        }
+        ast * a = mk_c(c)->mk_numeral_core(r, mk_c(c)->bvutil().mk_sort(sz));
+        RETURN_Z3(of_ast(a));
+        Z3_CATCH_RETURN(0);
+    }
+
 };
