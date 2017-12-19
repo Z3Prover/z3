@@ -1303,8 +1303,7 @@ void lemma::update_cube (pob_ref const &p, expr_ref_vector &cube) {
 }
 
 bool lemma::has_binding(app_ref_vector const &binding) {
-    expr *lem = get_expr();
-    unsigned num_decls = to_quantifier(lem)->get_num_decls();
+    unsigned num_decls = m_zks.size();
 
     SASSERT(binding.size() == num_decls);
 
