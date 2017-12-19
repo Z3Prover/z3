@@ -8,6 +8,7 @@
 ############################################
 import sys
 import os
+import platform
 import re
 import getopt
 import shutil
@@ -593,26 +594,33 @@ def check_eol():
             dos2unix_tree()
 
 if os.name == 'nt':
-    IS_WINDOWS=True
-    # Visual Studio already displays the files being compiled
-    SHOW_CPPS=False
+	if(os.environ['MSYSTEM'].startswith('MSYS') or os.environ['MSYSTEM'].startswith('MINGW')):
+		IS_MSYS2=True
+		if (platform.uname()[4] == 'x86_64') or (platform.uname()[4] == 'AMD64'):
+			LINUX_X64=True
+		else:
+			LINUX_X64=False     
+	else:
+		IS_WINDOWS=True
+		# Visual Studio already displays the files being compiled
+		SHOW_CPPS=False
 elif os.name == 'posix':
-    if os.uname()[0] == 'Darwin':
+    if platform.uname()[0] == 'Darwin':
         IS_OSX=True
         PREFIX="/usr/local"
-    elif os.uname()[0] == 'Linux':
+    elif platform.uname()[0] == 'Linux':
         IS_LINUX=True
-    elif os.uname()[0] == 'FreeBSD':
+    elif platform.uname()[0] == 'FreeBSD':
         IS_FREEBSD=True
-    elif os.uname()[0] == 'OpenBSD':
+    elif platform.uname()[0] == 'OpenBSD':
         IS_OPENBSD=True
-    elif os.uname()[0][:6] == 'CYGWIN':
+    elif platform.uname()[0][:6] == 'CYGWIN':
         IS_CYGWIN=True
         if (CC != None and "mingw" in CC):
             IS_CYGWIN_MINGW=True
-    elif os.uname()[0].startswith('MSYS_NT') or os.uname()[0].startswith('MINGW'):
+    elif os.environ['MSYSTEM'].startswith('MSYS') or os.environ['MSYSTEM'].startswith('MINGW'):
         IS_MSYS2=True
-        if os.uname()[4] == 'x86_64':
+        if platform.uname()[4] == 'x86_64':
             LINUX_X64=True
         else:
             LINUX_X64=False
@@ -1237,12 +1245,12 @@ class ExtraExeComponent(ExeComponent):
         return False
 
 def get_so_ext():
-    sysname = os.uname()[0]
+    sysname = platform.uname()[0]
     if sysname == 'Darwin':
         return 'dylib'
-    elif sysname == 'Linux' or sysname == 'FreeBSD' or sysname == 'OpenBSD':
+    elif sysname == 'Linux' or sysname == 'FreeBSD' or sysname == 'OpenBSD' or os.environ['MSYSTEM'].startswith('MSYS') or os.environ['MSYSTEM'].startswith('MINGW'):
         return 'so'
-    elif sysname == 'CYGWIN' or sysname.startswith('MSYS_NT') or sysname.startswith('MINGW'):
+    elif sysname == 'CYGWIN':
         return 'dll'
     else:
         assert(False)
@@ -2481,7 +2489,7 @@ def mk_config():
             CPPFLAGS     = '%s -DNDEBUG -D_EXTERNAL_RELEASE' % CPPFLAGS
         if is_CXX_clangpp():
             CXXFLAGS   = '%s -Wno-unknown-pragmas -Wno-overloaded-virtual -Wno-unused-value' % CXXFLAGS
-        sysname, _, _, _, machine = os.uname()
+        sysname, _, _, _, machine, _ = platform.uname()
         if sysname == 'Darwin':
             SO_EXT         = '.dylib'
             SLIBFLAGS      = '-dynamiclib'
@@ -2509,17 +2517,17 @@ def mk_config():
             OS_DEFINES     = '-D_CYGWIN'
             SO_EXT         = '.dll'
             SLIBFLAGS      = '-shared'
-        elif sysname.startswith('MSYS_NT') or sysname.startswith('MINGW'):
+        elif os.environ['MSYSTEM'].startswith('MSYS_NT') or os.environ['MSYSTEM'].startswith('MINGW'):
             CXXFLAGS       = '%s -D_MINGW' % CXXFLAGS
             OS_DEFINES     = '-D_MINGW'
-            SO_EXT         = '.dll'
+            SO_EXT         = '.so'
             SLIBFLAGS      = '-shared'
             EXE_EXT        = '.exe'
             LIB_EXT        = '.lib'
         else:
             raise MKException('Unsupported platform: %s' % sysname)
         if is64():
-            if not sysname.startswith('CYGWIN') and not sysname.startswith('MSYS') and not sysname.startswith('MINGW'):
+            if not sysname.startswith('CYGWIN') and not os.environ['MSYSTEM'].startswith('MSYS') and not os.environ['MSYSTEM'].startswith('MINGW'):
                 CXXFLAGS     = '%s -fPIC' % CXXFLAGS
             CPPFLAGS     = '%s -D_AMD64_' % CPPFLAGS
             if sysname == 'Linux':
