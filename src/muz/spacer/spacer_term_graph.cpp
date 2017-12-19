@@ -292,7 +292,7 @@ app* term_graph::mk_app_core (app *a) {
         kids.push_back (mk_app(::to_app(a->get_arg(i))));
     }
 
-    app* res = m.mk_app(a->get_decl(), kids.c_ptr());
+    app* res = m.mk_app(a->get_decl(), a->get_num_args(), kids.c_ptr());
     m_pinned.push_back(res);
 
     return res;
