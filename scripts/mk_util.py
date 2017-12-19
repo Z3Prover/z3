@@ -2527,7 +2527,7 @@ def mk_config():
         else:
             raise MKException('Unsupported platform: %s' % sysname)
         if is64():
-            if not sysname.startswith('CYGWIN') and not os.environ['MSYSTEM'].startswith('MSYS') and not os.environ['MSYSTEM'].startswith('MINGW'):
+            if not sysname.startswith('CYGWIN') and not is_msys2():
                 CXXFLAGS     = '%s -fPIC' % CXXFLAGS
             CPPFLAGS     = '%s -D_AMD64_' % CPPFLAGS
             if sysname == 'Linux':
