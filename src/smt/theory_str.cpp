@@ -1494,6 +1494,9 @@ namespace smt {
         expr_ref case3_conclusion(mk_and(case3_conclusion_terms), m);
         expr_ref case3(m.mk_implies(m.mk_and(argumentsValid, m.mk_not(lenOutOfBounds)), case3_conclusion), m);
 
+        m_trail.push_back(case1);
+        m_trail.push_back(case2);
+        m_trail.push_back(case3);
         {
             th_rewriter rw(m);
 
@@ -1553,11 +1556,13 @@ namespace smt {
         th_rewriter rw(m);
 
         expr_ref breakdownAssert(m.mk_ite(condAst, m.mk_and(thenItems.size(), thenItems.c_ptr()), elseBranch), m);
+	m_trail.push_back(breakdownAssert);
         expr_ref breakdownAssert_rw(breakdownAssert, m);
         rw(breakdownAssert_rw);
         assert_axiom(breakdownAssert_rw);
 
         expr_ref reduceToResult(ctx.mk_eq_atom(expr, result), m);
+	m_trail.push_back(reduceToResult);
         expr_ref reduceToResult_rw(reduceToResult, m);
         rw(reduceToResult_rw);
         assert_axiom(reduceToResult_rw);
