@@ -74,6 +74,7 @@ namespace smt {
 
     theory_str::~theory_str() {
         m_trail_stack.reset();
+        regex_automata.clear();
     }
 
     expr * theory_str::mk_string(zstring const& str) {
@@ -1741,13 +1742,18 @@ namespace smt {
             regex_in_var_reg_str_map[ex->get_arg(0)].insert(regexStr);
         }
 
+        expr_ref str(ex->get_arg(0), m);
+        app * regex = to_app(ex->get_arg(1));
+
         if (m_params.m_RegexAutomata) {
+            regex_terms.insert(ex);
+            if (!regex_terms_by_string.contains(str)) {
+                regex_terms_by_string.insert(str, ptr_vector<expr>());
+            }
+            regex_terms_by_string[str].push_back(ex);
             // stop setting up axioms here, we do this differently
             return;
         }
-
-        expr_ref str(ex->get_arg(0), m);
-        app * regex = to_app(ex->get_arg(1));
 
         // quick reference for the following code:
         //  - ex: top-level regex membership term
@@ -6666,6 +6672,77 @@ namespace smt {
     }
 
     /*
+     * Refine the upper bound on the length of a solution to a given automaton.
+     * The method returns TRUE if a solution of length `current_upper_bound` exists,
+     * and FALSE otherwise. In addition, the reference parameter `refined_upper_bound`
+     * is assigned the length of the longest solution shorter than `current_upper_bound`,
+     * if a shorter solution exists, or -1 otherwise.
+     */
+    bool theory_str::refine_automaton_upper_bound(eautomaton * aut, rational current_upper_bound, rational & refined_upper_bound) {
+        ENSURE(aut != NULL);
+
+        if (aut->final_states().empty()) {
+            // no solutions at all!
+            refined_upper_bound = rational::minus_one();
+            return false;
+        }
+
+        // from here we assume there is a final state reachable from the initial state
+        unsigned_vector search_queue;
+        // populate search queue with all states reachable from the epsilon-closure of the start state
+        aut->get_epsilon_closure(aut->init(), search_queue);
+
+        rational last_solution_depth = rational::minus_one();
+        bool found_solution_at_upper_bound = false;
+
+        unsigned search_depth = 0;
+        hashtable<unsigned, unsigned_hash, default_eq<unsigned> > next_states;
+        unsigned_vector next_search_queue;
+
+        while(!search_queue.empty()) {
+            // see if any of the current states are final
+            for (unsigned_vector::iterator it = search_queue.begin(); it != search_queue.end(); ++it) {
+                unsigned src = *it;
+                if (aut->is_final_state(src)) {
+                    if (search_depth == current_upper_bound.get_unsigned()) {
+                        found_solution_at_upper_bound = true;
+                    } else {
+                        last_solution_depth = rational(search_depth);
+                    }
+                    break;
+                }
+            }
+
+            if (search_depth == current_upper_bound.get_unsigned()) {
+                break;
+            }
+
+            next_states.reset();
+            next_search_queue.clear();
+            // move one step along all states
+            for (unsigned_vector::iterator it = search_queue.begin(); it != search_queue.end(); ++it) {
+                unsigned src = *it;
+                eautomaton::moves next_moves;
+                aut->get_moves_from(src, next_moves, true);
+                for (eautomaton::moves::iterator moves_it = next_moves.begin();
+                        moves_it != next_moves.end(); ++moves_it) {
+                    unsigned dst = moves_it->dst();
+                    if (!next_states.contains(dst)) {
+                        next_states.insert(dst);
+                        next_search_queue.push_back(dst);
+                    }
+                }
+            }
+            search_queue.clear();
+            search_queue.append(next_search_queue);
+            search_depth += 1;
+        } //!search_queue.empty()
+
+        refined_upper_bound = last_solution_depth;
+        return found_solution_at_upper_bound;
+    }
+
+    /*
      * strArgmt::solve_concat_eq_str()
      * Solve concatenations of the form:
      *   const == Concat(const, X)
@@ -9076,6 +9153,155 @@ namespace smt {
             }
         }
 
+        // regex automata
+        if (m_params.m_RegexAutomata) {
+            bool regex_axiom_add = false;
+            for (obj_hashtable<expr>::iterator it = regex_terms.begin(); it != regex_terms.end(); ++it) {
+                expr * str_in_re = *it;
+                expr * str;
+                expr * re;
+                u.str.is_in_re(str_in_re, str, re);
+                lbool current_assignment = ctx.get_assignment(str_in_re);
+                TRACE("str", tout << "regex term: " << mk_pp(str, m) << " in " << mk_pp(re, m) << " : " << current_assignment << std::endl;);
+                if (current_assignment == l_undef) {
+                    continue;
+                }
+                rational exact_length_value;
+                if (get_len_value(str, exact_length_value)) {
+                    TRACE("str", tout << "exact length of " << mk_pp(str, m) << " is " << exact_length_value << std::endl;);
+                    NOT_IMPLEMENTED_YET();
+                }
+                expr_ref str_len(mk_strlen(str), m);
+                rational lower_bound_value;
+                rational upper_bound_value;
+                bool lower_bound_exists = lower_bound(str_len, lower_bound_value);
+                bool upper_bound_exists = upper_bound(str_len, upper_bound_value);
+                CTRACE("str", lower_bound_exists, tout << "lower bound of " << mk_pp(str, m) << " is " << lower_bound_value << std::endl;);
+                CTRACE("str", upper_bound_exists, tout << "upper bound of " << mk_pp(str, m) << " is " << upper_bound_value << std::endl;);
+
+                if (upper_bound_exists) {
+                    // check current assumptions
+                    if (regex_automaton_assumptions.contains(re) &&
+                            !regex_automaton_assumptions[re].empty()){
+                        // one or more existing assumptions.
+                        // see if the (current best) upper bound can be refined
+                        // (note that if we have an automaton with no assumption,
+                        // this automatically counts as best)
+                        bool need_assumption = true;
+                        regex_automaton_under_assumptions last_assumption;
+                        rational last_ub = rational::minus_one();
+                        for (svector<regex_automaton_under_assumptions>::iterator it = regex_automaton_assumptions[re].begin();
+                                it != regex_automaton_assumptions[re].end(); ++it) {
+                            regex_automaton_under_assumptions autA = *it;
+                            if ((current_assignment == l_true && autA.get_polarity() == false)
+                                    || (current_assignment == l_false && autA.get_polarity() == true)) {
+                                // automaton uses incorrect polarity
+                                continue;
+                            }
+                            rational this_ub;
+                            if (autA.get_upper_bound(this_ub)) {
+                                if (last_ub == rational::minus_one() || this_ub < last_ub) {
+                                    last_ub = this_ub;
+                                    last_assumption = autA;
+                                }
+                            } else {
+                                need_assumption = false;
+                                last_assumption = autA;
+                                break;
+                            }
+                        }
+                        if (!last_ub.is_minus_one() || !need_assumption) {
+                            CTRACE("str", !need_assumption, tout << "using automaton with full length information" << std::endl;);
+                            CTRACE("str", need_assumption, tout << "using automaton with assumed upper bound of " << last_ub << std::endl;);
+
+                            rational refined_upper_bound;
+                            bool solution_at_upper_bound = refine_automaton_upper_bound(last_assumption.get_automaton(),
+                                    upper_bound_value, refined_upper_bound);
+                            TRACE("str", tout << "refined upper bound is " << refined_upper_bound <<
+                                    (solution_at_upper_bound?", solution at upper bound":", no solution at upper bound") << std::endl;);
+
+                            expr_ref_vector lhs(m);
+                            if (current_assignment == l_false) {
+                                lhs.push_back(m.mk_not(str_in_re));
+                            } else {
+                                lhs.push_back(str_in_re);
+                            }
+                            if (need_assumption) {
+                                lhs.push_back(m_autil.mk_le(str_len, m_autil.mk_numeral(last_ub, true)));
+                            }
+                            lhs.push_back(m_autil.mk_le(str_len, m_autil.mk_numeral(upper_bound_value, true)));
+
+                            expr_ref_vector rhs(m);
+
+                            if (solution_at_upper_bound) {
+                                if (refined_upper_bound.is_minus_one()) {
+                                    // If there are solutions at the upper bound but not below it, make the bound exact.
+                                    NOT_IMPLEMENTED_YET();
+                                } else {
+                                    // If there are solutions at and below the upper bound, add an additional bound.
+                                    NOT_IMPLEMENTED_YET();
+                                }
+                            } else {
+                                if (refined_upper_bound.is_minus_one()) {
+                                    // If there are no solutions at or below the upper bound, assert a conflict clause.
+                                    rhs.push_back(m.mk_not(m_autil.mk_le(str_len, m_autil.mk_numeral(upper_bound_value, true))));
+                                } else {
+                                    // If there are solutions below the upper bound but not at it, refine the bound.
+                                    NOT_IMPLEMENTED_YET();
+                                }
+                            }
+
+                            expr_ref lhs_terms(mk_and(lhs), m);
+                            expr_ref rhs_terms(mk_and(rhs), m);
+                            assert_implication(lhs_terms, rhs_terms);
+                            regex_axiom_add = true;
+                        }
+                    } else {
+                        // no existing automata/assumptions.
+                        // if it's easy to construct a full automaton for R, do so
+                        unsigned expected_complexity = estimate_regex_complexity(re);
+                        unsigned threshold = 1000; // TODO better metric
+                        if (expected_complexity <= threshold) {
+                            eautomaton * aut = m_mk_aut(re);
+                            aut->compress();
+                            regex_automata.push_back(aut);
+                            regex_automaton_under_assumptions new_aut(re, aut, true);
+                            if (!regex_automaton_assumptions.contains(re)) {
+                                regex_automaton_assumptions.insert(re, svector<regex_automaton_under_assumptions>());
+                            }
+                            regex_automaton_assumptions[re].push_back(new_aut);
+                            TRACE("str", tout << "add new automaton for " << mk_pp(re, m) << ": no assumptions" << std::endl;);
+                            regex_axiom_add = true;
+                            // TODO immediately attempt to learn lower/upper bound info here
+                        } else {
+                            // TODO check negation?
+                            // construct a partial automaton for R to the given upper bound
+                            NOT_IMPLEMENTED_YET();
+                        }
+                    }
+                    // if we have *any* automaton for R, and the upper bound is not too large,
+                    // finitize the automaton (if we have not already done so) and assert all solutions
+                    if (upper_bound_value < 50) { // TODO better metric for threshold
+                        // NOT_IMPLEMENTED_YET(); // TODO(mtrberzi)
+                    }
+                } else { // !upper_bound_exists
+                    // no upper bound information
+                    if (lower_bound_exists) {
+                        // lower bound, no upper bound
+                        NOT_IMPLEMENTED_YET();
+                    } else { // !lower_bound_exists
+                        // no bounds information
+                        NOT_IMPLEMENTED_YET();
+                    }
+                }
+
+                // NOT_IMPLEMENTED_YET();
+            }
+            if (regex_axiom_add) {
+                return FC_CONTINUE;
+            }
+        } // RegexAutomata
+
         bool needToAssignFreeVars = false;
         std::set<expr*> free_variables;
         std::set<expr*> unused_internal_variables;
@@ -10567,6 +10793,13 @@ namespace smt {
                     SASSERT(lenTestAssert != NULL);
                     return lenTestAssert;
                 } else {
+                    // if we are performing automata-based reasoning and the term associated with
+                    // this length tester is in any way constrained by regex terms,
+                    // do not perform value testing -- this term is not a free variable.
+                    if (m_params.m_RegexAutomata) {
+                        NOT_IMPLEMENTED_YET(); // TODO
+                    }
+
                     TRACE("str", tout << "length is fixed; generating models for free var" << std::endl;);
                     // length is fixed
                     expr * valueAssert = gen_free_var_options(freeVar, effectiveLenInd, effectiveLenIndiStr, NULL, zstring(""));

@@ -166,6 +166,69 @@ public:
     bool matches(zstring input);
 };
 
+class regex_automaton_under_assumptions {
+protected:
+    expr * str_in_re;
+    eautomaton * aut;
+    bool polarity;
+
+    bool assume_lower_bound;
+    rational lower_bound;
+
+    bool assume_upper_bound;
+    rational upper_bound;
+public:
+    regex_automaton_under_assumptions() :
+        str_in_re(NULL), aut(NULL), polarity(false),
+        assume_lower_bound(false), assume_upper_bound(false) {}
+
+    regex_automaton_under_assumptions(expr * str_in_re, eautomaton * aut, bool polarity) :
+        str_in_re(str_in_re), aut(aut), polarity(polarity),
+        assume_lower_bound(false), assume_upper_bound(false) {}
+
+    void set_lower_bound(rational & lb) {
+        lower_bound = lb;
+        assume_lower_bound = true;
+    }
+    void unset_lower_bound() {
+        assume_lower_bound = false;
+    }
+
+    void set_upper_bound(rational & ub) {
+        upper_bound = ub;
+        assume_upper_bound = true;
+    }
+    void unset_upper_bound() {
+        assume_upper_bound = false;
+    }
+
+    bool get_lower_bound(rational & lb) const {
+        if (assume_lower_bound) {
+            lb = lower_bound;
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    bool get_upper_bound(rational & ub) const {
+        if (assume_upper_bound) {
+            ub = upper_bound;
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    eautomaton * get_automaton() const { return aut; }
+    bool get_polarity() const { return polarity; }
+
+    virtual ~regex_automaton_under_assumptions() {
+        // don't free str_in_re or aut;
+        // they are managed separately
+    }
+};
+
 class theory_str : public theory {
     struct T_cut
     {
@@ -338,6 +401,11 @@ protected:
     std::map<std::pair<expr*, zstring>, expr*> regex_in_bool_map;
     std::map<expr*, std::set<zstring> > regex_in_var_reg_str_map;
 
+    // regex automata
+    ptr_vector<eautomaton> regex_automata;
+    obj_hashtable<expr> regex_terms;
+    obj_map<expr, ptr_vector<expr> > regex_terms_by_string; // S --> [ (str.in.re S *) ]
+    obj_map<expr, svector<regex_automaton_under_assumptions> > regex_automaton_assumptions; // RegEx --> [ aut+assumptions ]
     std::map<expr*, nfa> regex_nfa_cache; // Regex term --> NFA
 
     svector<char> char_set;
@@ -468,6 +536,7 @@ protected:
     unsigned estimate_regex_complexity(expr * re);
     unsigned estimate_regex_complexity_under_complement(expr * re);
     expr_ref infer_all_regex_lengths(expr * lenVar, expr * re, expr_ref_vector & freeVariables);
+    bool refine_automaton_upper_bound(eautomaton * aut, rational current_upper_bound, rational & refined_upper_bound);
 
     void set_up_axioms(expr * ex);
     void handle_equality(expr * lhs, expr * rhs);
