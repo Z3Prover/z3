@@ -115,10 +115,45 @@ public:
         return true;
     }
 
+    app* mk_le_zero(expr *arg) {
+        expr *e1, *e2, *e3;
+        // XXX currently disabled
+        if (false && m_arith.is_add(arg, e1, e2)) {
+            // e1-e2<=0 --> e1<=e2
+            if (m_arith.is_times_minus_one(e2, e3)) {
+                return m_arith.mk_le(e1, e3);
+            }
+            // -e1+e2<=0 --> e2<=e1
+            else if (m_arith.is_times_minus_one(e1, e3)) {
+                return m_arith.mk_le(e2, e3);
+            }
+        }
+        return m_arith.mk_le(arg, mk_zero());
+    }
+    app* mk_ge_zero(expr *arg) {
+        expr *e1, *e2, *e3;
+        // XXX currently disabled
+        if (false && m_arith.is_add(arg, e1, e2)) {
+            // e1-e2>=0 --> e1>=e2
+            if (m_arith.is_times_minus_one(e2, e3)) {
+                return m_arith.mk_ge(e1, e3);
+            }
+            // -e1+e2>=0 --> e2>=e1
+            else if (m_arith.is_times_minus_one(e1, e3)) {
+                return m_arith.mk_ge(e2, e3);
+            }
+        }
+        return m_arith.mk_ge(arg, mk_zero());
+    }
+
     bool mk_le_core (expr *arg1, expr * arg2, app_ref &result) {
         // t <= -1  ==> t < 0 ==> ! (t >= 0)
         if (m_arith.is_int (arg1) && m_arith.is_minus_one (arg2)) {
-            result = m.mk_not (m_arith.mk_ge (arg1, mk_zero ()));
+            result = m.mk_not (mk_ge_zero (arg1));
+            return true;
+        }
+        else if (m_arith.is_zero(arg2)) {
+            result = mk_le_zero(arg1);
             return true;
         }
         return false;
@@ -133,15 +168,25 @@ public:
     bool mk_ge_core (expr * arg1, expr * arg2, app_ref &result) {
         // t >= 1 ==> t > 0 ==> ! (t <= 0)
         if (m_arith.is_int (arg1) && is_one (arg2)) {
-            result = m.mk_not (m_arith.mk_le (arg1, mk_zero ()));
+            result = m.mk_not (mk_le_zero (arg1));
+            return true;
+        }
+        else if (m_arith.is_zero(arg2)) {
+            result = mk_ge_zero(arg1);
             return true;
         }
         return false;
     }
 
-    virtual app_ref process_lit (app *lit) {
+    virtual app_ref process_lit (app *_lit) {
+        app *lit = _lit;
         expr *e1, *e2;
 
+        // strip negation
+        bool is_neg = m.is_not(lit);
+        if (is_neg) {
+            lit = to_app(to_app(lit)->get_arg(0));
+        }
 
         app_ref res(m);
         res = lit;
@@ -154,6 +199,12 @@ public:
         else if (m_arith.is_ge(lit, e1, e2)) {
             mk_ge_core(e1, e2, res);
         }
+
+        // restore negation
+        if (is_neg) {
+            res = m.mk_not(res);
+        }
+
         return res;
     }
 };
