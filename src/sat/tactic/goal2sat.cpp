@@ -983,11 +983,7 @@ void sat2goal::mc::operator()(expr_ref& fml) {
 }
 
 void sat2goal::mc::insert(sat::bool_var v, app * atom, bool aux) {
-    if (m_var2expr.get(v, nullptr)) {
-        std::cout << mk_pp(atom, m) << "\n";
-        std::cout << mk_pp(m_var2expr.get(v, nullptr), m) << "\n";
-    }
-    VERIFY(!m_var2expr.get(v, nullptr));
+    SASSERT(!m_var2expr.get(v, nullptr));
     m_var2expr.reserve(v + 1);
     m_var2expr.set(v, atom);
     if (aux) {
