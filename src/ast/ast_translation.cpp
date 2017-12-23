@@ -196,7 +196,7 @@ ast * ast_translation::process(ast const * _n) {
     SASSERT(m_extra_children_stack.empty());
     
     ++m_num_process;
-    if (m_num_process > (1 << 16)) {
+    if (m_num_process > (1 << 14)) {
         reset_cache();
         m_num_process = 0;
     }

@@ -1,7 +1,7 @@
 /*++
 Copyright (c) 2006 Microsoft Corporation
 
-Module Name:
+Modulre Name:
 
     resource_limit.h
 

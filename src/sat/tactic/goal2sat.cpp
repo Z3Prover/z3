@@ -915,7 +915,7 @@ void sat2goal::mc::flush_gmc() {
 }
  
 model_converter* sat2goal::mc::translate(ast_translation& translator) {
-    mc* result = alloc(mc, m);
+    mc* result = alloc(mc, translator.to());
     result->m_smc.copy(m_smc);
     result->m_gmc = m_gmc ? dynamic_cast<generic_model_converter*>(m_gmc->translate(translator)) : nullptr;
     for (app* e : m_var2expr) {
@@ -983,6 +983,10 @@ void sat2goal::mc::operator()(expr_ref& fml) {
 }
 
 void sat2goal::mc::insert(sat::bool_var v, app * atom, bool aux) {
+    if (m_var2expr.get(v, nullptr)) {
+        std::cout << mk_pp(atom, m) << "\n";
+        std::cout << mk_pp(m_var2expr.get(v, nullptr), m) << "\n";
+    }
     VERIFY(!m_var2expr.get(v, nullptr));
     m_var2expr.reserve(v + 1);
     m_var2expr.set(v, atom);
@@ -1038,7 +1042,7 @@ struct sat2goal::imp {
             for (sat::bool_var v = 0; v < num_vars; v++) {
                 checkpoint();                
                 sat::literal l(v, false);
-                if (m_lit2expr.get(l.index())) {
+                if (m_lit2expr.get(l.index()) && !mc->var2expr(v)) {
                     mc->insert(v, to_app(m_lit2expr.get(l.index())), false);
                     SASSERT(m_lit2expr.get((~l).index()));
                 }
