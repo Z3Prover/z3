@@ -239,6 +239,7 @@ namespace recfun {
         th_rewriter & get_th_rewriter() { return m_th_rw; }
         bool is_case_pred(app * e) const { return is_app_of(e, m_family_id, OP_FUN_CASE_PRED); }
         bool is_defined(app * e) const { return is_app_of(e, m_family_id, OP_FUN_DEFINED); }
+        bool is_depth_limit(app * e) const { return is_app_of(e, m_family_id, OP_DEPTH_LIMIT); }
         bool owns_app(app * e) const { return e->get_family_id() == m_family_id; }
 
         //<! add a function declaration

@@ -193,14 +193,14 @@ namespace smt {
             app_ref dlimit = m_util->mk_depth_limit_pred(get_max_depth());
             ctx.internalize(dlimit, false);
             c.push_back(~ ctx.get_literal(dlimit));
-            //SASSERT(ctx.get_assignment(ctx.get_literal(dlimit)) == l_true);
+            SASSERT(ctx.get_assignment(ctx.get_literal(dlimit)) == l_true);
         }
         for (auto& kv : m_guards) {
             expr * g = & kv.get_key();
             c.push_back(~ ctx.get_literal(g));
         }
         DEBUG("max-depth limit: add clause " << pp_lits(ctx, c.size(), c.c_ptr()));
-        //SASSERT(std::all_of(c.begin(), c.end(), [&](literal & l) { return ctx.get_assignment(l) == l_false; })); // conflict
+        SASSERT(std::all_of(c.begin(), c.end(), [&](literal & l) { return ctx.get_assignment(l) == l_false; })); // conflict
 
         m_q_clauses.push_back(std::move(c));
     }
@@ -371,6 +371,16 @@ namespace smt {
         app_ref dlimit = m_util->mk_depth_limit_pred(get_max_depth());
         DEBUG("add_theory_assumption " << mk_pp(dlimit.get(), m()));
         assumptions.push_back(dlimit);
+    }
+
+
+    // if `dlimit` occurs in unsat core, return "unknown"
+    lbool theory_recfun::validate_unsat_core(expr_ref_vector & unsat_core) {
+        for (auto & e : unsat_core) {
+            if (is_app(e) && m_util->is_depth_limit(to_app(e)))
+                return l_undef;
+        }
+        return l_false;
     }
 
     void theory_recfun::display(std::ostream & out) const {

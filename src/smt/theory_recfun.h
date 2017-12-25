@@ -136,6 +136,7 @@ namespace smt {
         void restart_eh() override;
         bool can_propagate() override;
         void propagate() override;
+        lbool validate_unsat_core(expr_ref_vector &) override;
 
         void new_eq_eh(theory_var v1, theory_var v2) override {}
         void new_diseq_eh(theory_var v1, theory_var v2) override {}
