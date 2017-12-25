@@ -233,6 +233,7 @@ namespace recfun {
         void set_definition(promise_def & d, unsigned n_vars, var * const * vars, expr * rhs);
     public:
         util(ast_manager &m, family_id);
+        virtual ~util();
 
         ast_manager & m() { return m_manager; }
         th_rewriter & get_th_rewriter() { return m_th_rw; }

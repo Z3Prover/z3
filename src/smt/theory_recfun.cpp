@@ -62,7 +62,7 @@ namespace smt {
         for (auto & kv : m_guards) {
             m().dec_ref(kv.m_key);
         }
-        m_guards.reset();   
+        m_guards.reset();
     }
 
     char const * theory_recfun::get_name() const { return "recfun"; }
