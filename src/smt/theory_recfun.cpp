@@ -193,14 +193,14 @@ namespace smt {
             app_ref dlimit = m_util->mk_depth_limit_pred(get_max_depth());
             ctx.internalize(dlimit, false);
             c.push_back(~ ctx.get_literal(dlimit));
-            SASSERT(ctx.get_assignment(ctx.get_literal(dlimit)) == l_true);
+            //SASSERT(ctx.get_assignment(ctx.get_literal(dlimit)) == l_true);
         }
         for (auto& kv : m_guards) {
             expr * g = & kv.get_key();
             c.push_back(~ ctx.get_literal(g));
         }
         DEBUG("max-depth limit: add clause " << pp_lits(ctx, c.size(), c.c_ptr()));
-        SASSERT(std::all_of(c.begin(), c.end(), [&](literal & l) { return ctx.get_assignment(l) == l_false; })); // conflict
+        //SASSERT(std::all_of(c.begin(), c.end(), [&](literal & l) { return ctx.get_assignment(l) == l_false; })); // conflict
 
         m_q_clauses.push_back(std::move(c));
     }
@@ -254,30 +254,21 @@ namespace smt {
     void theory_recfun::assert_macro_axiom(case_expansion & e) {
         DEBUG("assert_macro_axiom " << pp_case_expansion(e,m()));
         SASSERT(e.m_def->is_fun_macro());
-        expr * lhs = e.m_lhs;
+        expr_ref lhs(e.m_lhs, m());
         context & ctx = get_context();
         auto & vars = e.m_def->get_vars();
         // substitute `e.args` into the macro RHS
-        expr * rhs = apply_args(vars, e.m_args, e.m_def->get_macro_rhs());
+        expr_ref rhs(apply_args(vars, e.m_args, e.m_def->get_macro_rhs()), m());
         DEBUG("macro expansion yields" << mk_pp(rhs,m()));
         // now build the axiom `lhs = rhs`
         ctx.internalize(rhs, false);
-        DEBUG("adding axiom: " << mk_pp(lhs, m()) << " = " << mk_pp(rhs, m()));
-        if (m().proofs_enabled()) {
-            // add unit clause `lhs=rhs`
-            literal l(mk_eq(lhs, rhs, true));
-            ctx.mark_as_relevant(l);
-            literal lits[1] = {l};
-            ctx.mk_th_axiom(get_id(), 1, lits);
-        }
-        else {
-            //region r;
-            enode * e_lhs = ctx.get_enode(lhs);
-            enode * e_rhs = ctx.get_enode(rhs);
-            // TODO: proper justification
-            //justification * js = ctx.mk_justification(
-            ctx.assign_eq(e_lhs, e_rhs, eq_justification());
-        }   
+        // add unit clause `lhs=rhs`
+        literal l(mk_eq(lhs, rhs, true));
+        ctx.mark_as_relevant(l);
+        literal_vector lits;
+        lits.push_back(l);
+        DEBUG("assert_macro_axiom: " << pp_lits(ctx, lits.size(), lits.c_ptr()));
+        ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());   
     }
 
     void theory_recfun::assert_case_axioms(case_expansion & e) {
@@ -368,7 +359,7 @@ namespace smt {
         literal l(mk_eq(lhs, rhs, true));
         ctx.mark_as_relevant(l);
         clause.push_back(l);
-        DEBUG("assert_body_axiom " << pp_lits(get_context(), clause.size(), clause.c_ptr()));
+        DEBUG("assert_body_axiom " << pp_lits(ctx, clause.size(), clause.c_ptr()));
         ctx.mk_th_axiom(get_id(), clause.size(), clause.c_ptr());   
     }
     
