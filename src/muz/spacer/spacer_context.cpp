@@ -1307,6 +1307,8 @@ bool lemma::has_binding(app_ref_vector const &binding) {
 
     SASSERT(binding.size() == num_decls);
 
+    if (num_decls == 0) return true;
+
     for (unsigned off = 0, sz = m_bindings.size(); off < sz; off += num_decls) {
         unsigned i = 0;
         for (; i < num_decls; ++i) {
