@@ -24,7 +24,14 @@ Revision History:
 #include "ast/expr_abstract.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/for_each_expr.h"
+
 #include "muz/spacer/spacer_term_graph.h"
+
+#include "ast/rewriter/expr_safe_replace.h"
+#include "ast/substitution/matcher.h"
+
+#include "ast/expr_functors.h"
+
 
 namespace spacer {
 void lemma_sanity_checker::operator()(lemma_ref &lemma) {
@@ -36,6 +43,19 @@ void lemma_sanity_checker::operator()(lemma_ref &lemma) {
                                                   lemma->weakness()));
 }
 
+namespace{
+    class contains_array_op_proc : public i_expr_pred {
+        ast_manager &m;
+        family_id m_array_fid;
+    public:
+        contains_array_op_proc(ast_manager &manager) :
+            m(manager), m_array_fid(m.mk_family_id("array"))
+            {}
+        virtual bool operator()(expr *e) {
+            return is_app(e) && to_app(e)->get_family_id() == m_array_fid;
+        }
+    };
+}
 
 // ------------------------
 // lemma_bool_inductive_generalizer
@@ -49,6 +69,9 @@ void lemma_bool_inductive_generalizer::operator()(lemma_ref &lemma) {
     unsigned uses_level;
     pred_transformer &pt = lemma->get_pob()->pt();
     ast_manager &m = pt.get_ast_manager();
+
+    contains_array_op_proc has_array_op(m);
+    check_pred has_arrays(has_array_op, m);
 
     expr_ref_vector cube(m);
     cube.append(lemma->get_cube());
@@ -65,6 +88,11 @@ void lemma_bool_inductive_generalizer::operator()(lemma_ref &lemma) {
            (!m_failure_limit || num_failures < m_failure_limit)) {
         expr_ref lit(m);
         lit = cube.get(i);
+        if (m_array_only && !has_arrays(lit)) {
+            processed.push_back(lit);
+            ++i;
+            continue;
+        }
         cube[i] = true_expr;
         if (cube.size() > 1 &&
             pt.check_inductive(lemma->level(), cube, uses_level, weakness)) {

@@ -48,11 +48,14 @@ class lemma_bool_inductive_generalizer : public lemma_generalizer {
     };
 
     unsigned m_failure_limit;
+    bool m_array_only;
     stats m_st;
 
 public:
-    lemma_bool_inductive_generalizer(context& ctx, unsigned failure_limit) :
-        lemma_generalizer(ctx), m_failure_limit(failure_limit) {}
+    lemma_bool_inductive_generalizer(context& ctx, unsigned failure_limit,
+                                     bool array_only = false) :
+        lemma_generalizer(ctx), m_failure_limit(failure_limit),
+        m_array_only(array_only) {}
     ~lemma_bool_inductive_generalizer() override {}
     void operator()(lemma_ref &lemma) override;
 
