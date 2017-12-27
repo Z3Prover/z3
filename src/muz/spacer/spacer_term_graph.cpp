@@ -118,7 +118,7 @@ public:
     app* mk_le_zero(expr *arg) {
         expr *e1, *e2, *e3;
         // XXX currently disabled
-        if (false && m_arith.is_add(arg, e1, e2)) {
+        if (m_arith.is_add(arg, e1, e2)) {
             // e1-e2<=0 --> e1<=e2
             if (m_arith.is_times_minus_one(e2, e3)) {
                 return m_arith.mk_le(e1, e3);
@@ -133,7 +133,7 @@ public:
     app* mk_ge_zero(expr *arg) {
         expr *e1, *e2, *e3;
         // XXX currently disabled
-        if (false && m_arith.is_add(arg, e1, e2)) {
+        if (m_arith.is_add(arg, e1, e2)) {
             // e1-e2>=0 --> e1>=e2
             if (m_arith.is_times_minus_one(e2, e3)) {
                 return m_arith.mk_ge(e1, e3);
@@ -148,12 +148,18 @@ public:
 
     bool mk_le_core (expr *arg1, expr * arg2, app_ref &result) {
         // t <= -1  ==> t < 0 ==> ! (t >= 0)
+        rational n;
         if (m_arith.is_int (arg1) && m_arith.is_minus_one (arg2)) {
             result = m.mk_not (mk_ge_zero (arg1));
             return true;
         }
         else if (m_arith.is_zero(arg2)) {
             result = mk_le_zero(arg1);
+            return true;
+        }
+        else if (m_arith.is_numeral(arg2, n)) {
+            // t <= n ==> t < n + 1 ==> ! (t >= n + 1)
+            result = m.mk_not(m_arith.mk_ge(arg1, m_arith.mk_numeral(n+1, true)));
             return true;
         }
         return false;
@@ -167,12 +173,18 @@ public:
 
     bool mk_ge_core (expr * arg1, expr * arg2, app_ref &result) {
         // t >= 1 ==> t > 0 ==> ! (t <= 0)
+        rational n;
         if (m_arith.is_int (arg1) && is_one (arg2)) {
             result = m.mk_not (mk_le_zero (arg1));
             return true;
         }
         else if (m_arith.is_zero(arg2)) {
             result = mk_ge_zero(arg1);
+            return true;
+        }
+        else if (m_arith.is_numeral(arg2, n)) {
+            // t >= n ==> t > n - 1 ==> ! (t <= n - 1)
+            result = m.mk_not(m_arith.mk_le(arg1, m_arith.mk_numeral(n-1, true)));
             return true;
         }
         return false;
