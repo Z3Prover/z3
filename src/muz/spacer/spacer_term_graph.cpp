@@ -157,7 +157,7 @@ public:
             result = mk_le_zero(arg1);
             return true;
         }
-        else if (m_arith.is_numeral(arg2, n)) {
+        else if (m_arith.is_int(arg1) && m_arith.is_numeral(arg2, n) && n < 0) {
             // t <= n ==> t < n + 1 ==> ! (t >= n + 1)
             result = m.mk_not(m_arith.mk_ge(arg1, m_arith.mk_numeral(n+1, true)));
             return true;
@@ -182,7 +182,7 @@ public:
             result = mk_ge_zero(arg1);
             return true;
         }
-        else if (m_arith.is_numeral(arg2, n)) {
+        else if (m_arith.is_int(arg1) && m_arith.is_numeral(arg2, n) && n > 0) {
             // t >= n ==> t > n - 1 ==> ! (t <= n - 1)
             result = m.mk_not(m_arith.mk_le(arg1, m_arith.mk_numeral(n-1, true)));
             return true;
