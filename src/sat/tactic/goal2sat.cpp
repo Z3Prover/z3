@@ -926,7 +926,7 @@ model_converter* sat2goal::mc::translate(ast_translation& translator) {
 
 void sat2goal::mc::collect(ast_pp_util& visitor) {
     flush_gmc();
-    collect(visitor);
+    if (m_gmc) m_gmc->collect(visitor);
 }
 
 void sat2goal::mc::display(std::ostream& out) {
@@ -995,6 +995,10 @@ void sat2goal::mc::insert(sat::bool_var v, app * atom, bool aux) {
 }
 
 expr_ref sat2goal::mc::lit2expr(sat::literal l) {
+    if (!m_var2expr.get(l.var())) {
+        app* aux = m.mk_fresh_const(0, m.mk_bool_sort());
+        m_var2expr.set(l.var(), aux);
+    }
     VERIFY(m_var2expr.get(l.var()));
     expr_ref result(m_var2expr.get(l.var()), m);
     if (l.sign()) {
