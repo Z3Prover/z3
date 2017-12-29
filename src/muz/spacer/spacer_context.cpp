@@ -1300,6 +1300,18 @@ void lemma::update_cube (pob_ref const &p, expr_ref_vector &cube) {
     m_body.reset();
     m_cube.append(cube);
     if (m_cube.empty()) {m_cube.push_back(m.mk_true());}
+
+    // after the cube is updated, if there are no skolems,
+    // convert the lemma to quantifier-free
+    bool is_quant = false;
+    for (unsigned i = 0, sz = cube.size(); !is_quant && i < sz; ++i) {
+        is_quant = has_zk_const(cube.get(i));
+    }
+
+    if (!is_quant) {
+        m_zks.reset();
+        m_bindings.reset();
+    }
 }
 
 bool lemma::has_binding(app_ref_vector const &binding) {
@@ -2272,7 +2284,7 @@ void context::init_lemma_generalizers(datalog::rule_set& rules)
     }
 
     if (m_params.spacer_use_quant_generalizer()) {
-        m_lemma_generalizers.push_back(alloc(lemma_bool_inductive_generalizer, *this, 0, false));
+        m_lemma_generalizers.push_back(alloc(lemma_bool_inductive_generalizer, *this, 0, true));
         m_lemma_generalizers.push_back(alloc(lemma_quantifier_generalizer, *this));
     }
 

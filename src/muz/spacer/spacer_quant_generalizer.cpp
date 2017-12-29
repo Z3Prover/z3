@@ -202,7 +202,11 @@ void lemma_quantifier_generalizer::find_matching_expressions(
             sem_matcher match(m);
             bool pos;
             substitution v_sub(m);
-            v_sub.reserve(2, subs.size()+1);
+
+            // allocate space for the largest variable in the pattern
+            unsigned max_idx = 0;
+            for (var* v : subs) {max_idx = std::max(max_idx, v->get_idx());}
+            v_sub.reserve(2, max_idx + 1);
 
             if (!match(pattern, lit, v_sub, pos)) {
                 continue;
@@ -378,13 +382,15 @@ void lemma_quantifier_generalizer::operator()(lemma_ref &lemma) {
 
     TRACE("spacer_qgen",
           tout << "initial cube: " << mk_and(lemma->get_cube()) << "\n";);
-    if (false) {
+    if (true) {
         // -- re-normalize the cube
         expr_ref c(m);
         c = mk_and(cube);
         normalize(c, c, true, true);
         cube.reset();
         flatten_and(c, cube);
+        TRACE("spacer_qgen",
+              tout << "normalized cube:\n" << mk_and(cube) << "\n";);
     }
 
     app_ref_vector skolems(m);
@@ -398,10 +404,6 @@ void lemma_quantifier_generalizer::operator()(lemma_ref &lemma) {
         // generate candidates
         app_ref_vector candidates(m);
         find_candidates(r, candidates);
-
-        // XXX Can candidates be empty and arguments not empty?
-        // XXX Why separate candidates and arguments?
-        // XXX Why are arguments processed before candidates?
         if (candidates.empty()) continue;
 
 
@@ -456,7 +458,7 @@ void lemma_quantifier_generalizer::operator()(lemma_ref &lemma) {
             unsigned weakness = lemma->weakness();
             pred_transformer &pt = lemma->get_pob()->pt();
             if (pt.check_inductive(lemma->level(), new_cube, uses_level, weakness)) {
-                TRACE("spacer",
+                TRACE("spacer_qgen",
                       tout << "Quantifier Generalization Succeeded!\n"
                       << "New CUBE is: " << mk_pp(mk_and(new_cube),m) << "\n";);
                 SASSERT(zks.size() >= offset);
@@ -482,6 +484,7 @@ void lemma_quantifier_generalizer::operator()(lemma_ref &lemma) {
                 lemma->update_cube(lemma->get_pob(), new_cube);
                 lemma->set_level(uses_level);
 
+                SASSERT(offset + 1 == zks.size());
                 // XXX Assumes that offset + 1 == zks.size();
                 for (unsigned sk=offset; sk < zks.size(); sk++)
                     lemma->add_skolem(zks.get(sk), to_app(bind));
