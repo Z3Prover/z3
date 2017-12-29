@@ -131,7 +131,6 @@ extern "C" {
     void Z3_API Z3_solver_import_model_converter(Z3_context c, Z3_solver src, Z3_solver dst) {
         Z3_TRY;
         LOG_Z3_solver_import_model_converter(c, src, dst);
-        std::cout << "import converter\n";
         model_converter_ref mc = to_solver_ref(src)->get_model_converter();
         to_solver_ref(dst)->set_model_converter(mc.get());
         Z3_CATCH;
