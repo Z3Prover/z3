@@ -446,6 +446,13 @@ namespace Microsoft.Z3
              return new Solver(ctx, Native.Z3_solver_translate(Context.nCtx, NativeObject, ctx.nCtx));
         }
 
+	/// <summary>
+	/// Import model converter from other solver. 
+	/// </summary>
+	public void ImportModelConverter(Solver src) 
+	{
+	     Native.Z3_solver_import_model_converter(Context.nCtx, src.NativeObject, NativeObject);
+	}
 
         /// <summary>
         /// Solver statistics.

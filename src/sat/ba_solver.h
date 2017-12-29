@@ -26,8 +26,7 @@ Revision History:
 #include "sat/sat_lookahead.h"
 #include "sat/sat_unit_walk.h"
 #include "util/scoped_ptr_vector.h"
-#include "util/lp/lar_solver.h"
-
+#include "util/sorting_network.h"
 
 namespace sat {
     
@@ -232,6 +231,24 @@ namespace sat {
 
         unsigned_vector   m_pb_undef;
 
+        struct ba_sort {
+            ba_solver& s;
+            literal m_true;
+
+            typedef sat::literal literal;
+            typedef sat::literal_vector literal_vector;
+            ba_sort(ba_solver& s): s(s), m_true(null_literal) {}
+            literal mk_false();
+            literal mk_true();
+            literal mk_not(literal l);
+            literal fresh(char const*);
+            literal mk_max(literal l1, literal l2);
+            literal mk_min(literal l1, literal l2);
+            void    mk_clause(unsigned n, literal const* lits);
+        };
+        ba_sort           m_ba;
+        psort_nw<ba_sort> m_sort;
+
         void     ensure_parity_size(bool_var v);
         unsigned get_parity(bool_var v);
         void     inc_parity(bool_var v);
@@ -276,11 +293,6 @@ namespace sat {
         void gc_half(char const* _method);
         void update_psm(constraint& c) const;
         void mutex_reduction();
-
-        typedef vector<std::pair<rational, lp::var_index>> lhs_t;
-        void lp_lookahead_reduction();
-        void lp_add_var(int coeff, lp::var_index v, lhs_t& lhs, rational& rhs);
-        void lp_add_clause(lp::lar_solver& s, svector<lp::var_index> const& vars, clause const& c);
 
         unsigned use_count(literal lit) const { return m_cnstr_use_list[lit.index()].size() + m_clause_use_list.get(lit).size(); }
 
@@ -330,6 +342,7 @@ namespace sat {
         void get_antecedents(literal l, card const& c, literal_vector & r);
         void flush_roots(card& c);
         void recompile(card& c);
+        bool clausify(card& c);
         lbool eval(card const& c) const;
         double get_reward(card const& c, literal_occs_fun& occs) const;
 
@@ -481,6 +494,7 @@ namespace sat {
         ptr_vector<constraint> const & constraints() const { return m_constraints; }
 
         virtual bool validate();
+
 
     };
 

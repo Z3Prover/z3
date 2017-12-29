@@ -128,6 +128,14 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
 
+    void Z3_API Z3_solver_import_model_converter(Z3_context c, Z3_solver src, Z3_solver dst) {
+        Z3_TRY;
+        LOG_Z3_solver_import_model_converter(c, src, dst);
+        model_converter_ref mc = to_solver_ref(src)->get_model_converter();
+        to_solver_ref(dst)->set_model_converter(mc.get());
+        Z3_CATCH;
+    }
+
     void solver_from_stream(Z3_context c, Z3_solver s, std::istream& is) {
         scoped_ptr<cmd_context> ctx = alloc(cmd_context, false, &(mk_c(c)->m()));
         ctx->set_ignore_check(true);

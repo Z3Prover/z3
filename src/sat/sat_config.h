@@ -129,6 +129,7 @@ namespace sat {
         bool               m_drat_check_sat;
         
         pb_solver          m_pb_solver;
+        bool               m_card_solver;
         
         // branching heuristic settings.
         branching_heuristic m_branching_heuristic;

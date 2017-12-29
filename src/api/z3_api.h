@@ -6036,6 +6036,13 @@ extern "C" {
     Z3_solver Z3_API Z3_solver_translate(Z3_context source, Z3_solver s, Z3_context target);
 
     /**
+       \brief Ad-hoc method for importing model convertion from solver.
+       
+       def_API('Z3_solver_import_model_converter', VOID, (_in(CONTEXT), _in(SOLVER), _in(SOLVER)))
+     */
+    void Z3_API Z3_solver_import_model_converter(Z3_context ctx, Z3_solver src, Z3_solver dst);
+
+    /**
        \brief Return a string describing all solver available parameters.
 
        def_API('Z3_solver_get_help', STRING, (_in(CONTEXT), _in(SOLVER)))

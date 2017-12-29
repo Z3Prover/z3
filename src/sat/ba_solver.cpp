@@ -1518,7 +1518,7 @@ namespace sat {
         return p;        
     }
 
-    ba_solver::ba_solver(): m_solver(0), m_lookahead(0), m_unit_walk(0), m_constraint_id(0) {        
+    ba_solver::ba_solver(): m_solver(0), m_lookahead(0), m_unit_walk(0), m_constraint_id(0), m_ba(*this), m_sort(m_ba) {        
         TRACE("ba", tout << this << "\n";);
     }
 
@@ -2436,119 +2436,54 @@ namespace sat {
         }
     }
 
-    // ----------------------------------
-    // lp based relaxation 
-
-#if 0
-    void ba_solver::lp_add_var(int coeff, lp::var_index v, lhs_t& lhs, rational& rhs) {
-        if (coeff < 0) {
-            rhs += rational(coeff);
-        }
-        lhs.push_back(std::make_pair(rational(coeff), v));
+    // -------------------------
+    // sorting networks
+    literal ba_solver::ba_sort::mk_false() {
+        return ~mk_true();
     }
 
-    void ba_solver::lp_add_clause(lp::lar_solver& s, svector<lp::var_index> const& vars, clause const& c) {
-        lhs_t lhs;
-        rational rhs;
-        if (c.frozen()) return;
-        rhs = rational::one();
-        for (literal l : c) {
-            lp_add_var(l.sign() ? -1 : 1, vars[l.var()], lhs, rhs);
+    literal ba_solver::ba_sort::mk_true() {
+        if (m_true == null_literal) {
+            bool_var v = s.s().mk_var(false, false);
+            m_true = literal(v, false);
+            s.s().mk_clause(1,&m_true);
         }
-        s.add_constraint(lhs, lp::GE, rhs);
+        VERIFY(m_true != null_literal);
+        return m_true;
     }
 
-    void ba_solver::lp_lookahead_reduction() {
-        lp::lar_solver solver;
-        solver.settings().set_message_ostream(&std::cout);
-        solver.settings().set_debug_ostream(&std::cout);
-        solver.settings().print_statistics = true;
-        solver.settings().report_frequency = 1000;
-        // solver.settings().simplex_strategy() = lp::simplex_strategy_enum::lu; - runs out of memory
-        // TBD: set rlimit on the solver
-        svector<lp::var_index> vars;
-        for (unsigned i = 0; i < s().num_vars(); ++i) {
-            lp::var_index v = solver.add_var(i, false);
-            vars.push_back(v);
-            solver.add_var_bound(v, lp::GE, rational::zero());
-            solver.add_var_bound(v, lp::LE, rational::one());
-            switch (value(v)) {
-            case l_true: solver.add_var_bound(v, lp::GE, rational::one()); break;
-            case l_false: solver.add_var_bound(v, lp::LE, rational::zero()); break;
-            default: break;
-            }
-        }
-        lhs_t lhs;
-        rational rhs;
-        for (clause* c : s().m_clauses) {            
-            lp_add_clause(solver, vars, *c);
-        }
-        for (clause* c : s().m_learned) {            
-            lp_add_clause(solver, vars, *c);
-        }
-        for (constraint const* c : m_constraints) {
-            if (c->lit() != null_literal) continue; // ignore definitions for now.
-            switch (c->tag()) {
-            case card_t:
-            case pb_t: {
-                pb_base const& p = dynamic_cast<pb_base const&>(*c);
-                rhs = rational(p.k());
-                lhs.reset();
-                for (unsigned i = 0; i < p.size(); ++i) {
-                    literal l = p.get_lit(i);
-                    int co = p.get_coeff(i);
-                    lp_add_var(l.sign() ? -co : co, vars[l.var()], lhs, rhs);
-                }
-                solver.add_constraint(lhs, lp::GE, rhs);
-                break;
-            }
-            default:
-                // ignore xor
-                break;
-            }
-        }
-        std::cout << "lp solve\n";
-        std::cout.flush();
-
-        lp::lp_status st = solver.solve();
-        if (st == lp::lp_status::INFEASIBLE) {
-            std::cout << "infeasible\n";
-            s().set_conflict(justification());
-            return;
-        }
-        std::cout << "feasible\n";
-        std::cout.flush();
-        for (unsigned i = 0; i < s().num_vars(); ++i) {
-            lp::var_index v = vars[i];
-            if (value(v) != l_undef) continue;
-            // TBD: take initial model into account to limit queries.
-            std::cout << "solve v" << v << "\n";
-            std::cout.flush();
-            solver.push();
-            solver.add_var_bound(v, lp::GE, rational::one());
-            st = solver.solve();
-            solver.pop(1);
-            if (st == lp::lp_status::INFEASIBLE) {
-                std::cout << "found unit: " << literal(v, true) << "\n";
-                s().assign(literal(v, true), justification());
-                solver.add_var_bound(v, lp::LE, rational::zero());
-                continue;
-            }
-
-            solver.push();
-            solver.add_var_bound(v, lp::LE, rational::zero());
-            st = solver.solve();
-            solver.pop(1);
-            if (st == lp::lp_status::INFEASIBLE) {
-                std::cout << "found unit: " << literal(v, false) << "\n";
-                s().assign(literal(v, false), justification());
-                solver.add_var_bound(v, lp::GE, rational::zero());
-                continue;
-            }
-        }
+    literal ba_solver::ba_sort::mk_not(literal l) { 
+        return ~l; 
     }
-#endif
 
+    literal ba_solver::ba_sort::fresh(char const*) {
+        bool_var v = s.s().mk_var(false, true);
+        return literal(v, false);
+    }
+
+    literal ba_solver::ba_sort::mk_max(literal l1, literal l2) {
+        VERIFY(l1 != null_literal);
+        VERIFY(l2 != null_literal);
+        if (l1 == m_true) return l1;
+        if (l2 == m_true) return l2;
+        if (l1 == ~m_true) return l2;
+        if (l2 == ~m_true) return l1;
+        literal max = fresh("max");
+        s.s().mk_clause(~l1, max);
+        s.s().mk_clause(~l2, max);
+        s.s().mk_clause(~max, l1, l2);
+        return max;
+    }
+
+    literal ba_solver::ba_sort::mk_min(literal l1, literal l2) {
+        return ~mk_max(~l1, ~l2);
+    }
+
+    void ba_solver::ba_sort::mk_clause(unsigned n, literal const* lits) {
+        literal_vector _lits(n, lits);
+        s.s().mk_clause(n, _lits.c_ptr());
+    }
+    
     // -------------------------------
     // set literals equivalent
 
@@ -2665,6 +2600,10 @@ namespace sat {
         c.set_size(sz);
         c.set_k(k);    
 
+        if (clausify(c)) {
+            return;
+        }
+
         if (!all_units) {            
             TRACE("ba", tout << "replacing by pb: " << c << "\n";);
             m_wlits.reset();
@@ -2684,6 +2623,27 @@ namespace sat {
         }        
     }
 
+    bool ba_solver::clausify(card& c) {
+#if 0
+        if (get_config().m_card_solver)
+            return false;
+
+        //
+        // TBD: conditions for when to clausify are TBD and
+        // handling of conditional cardinality as well.
+        // 
+        if (c.lit() == null_literal) {
+            if (!c.learned() && !std::any_of(c.begin(), c.end(), [&](literal l) { return s().was_eliminated(l.var()); })) {
+                IF_VERBOSE(0, verbose_stream() << "clausify " << c << "\n";
+                m_sort.ge(false, c.k(), c.size(), c.begin());
+            }
+            remove_constraint(c, "recompiled to clauses");
+            return true;
+        }
+#endif
+        return false;
+    }
+
 
     void ba_solver::split_root(constraint& c) {
         switch (c.tag()) {
@@ -2692,8 +2652,6 @@ namespace sat {
         case xor_t: NOT_IMPLEMENTED_YET(); break;
         }
     }
-
-
 
     void ba_solver::flush_roots(constraint& c) {
         if (c.lit() != null_literal && !is_watched(c.lit(), c)) {

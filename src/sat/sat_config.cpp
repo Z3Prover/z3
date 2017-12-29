@@ -177,6 +177,8 @@ namespace sat {
         else 
             throw sat_param_exception("invalid PB solver: solver, totalizer, circuit, sorting");
 
+        m_card_solver = p.cardinality_solver();
+
         sat_simplifier_params sp(_p);
         m_elim_vars = sp.elim_vars();
     }
