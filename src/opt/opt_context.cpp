@@ -1235,6 +1235,9 @@ namespace opt {
     }
 
     void context::display_assignment(std::ostream& out) {
+        if (m_scoped_state.m_objectives.size() != m_objectives.size()) {
+            throw default_exception("check-sat has not been called with latest objectives");
+        }
         out << "(objectives\n";
         for (unsigned i = 0; i < m_scoped_state.m_objectives.size(); ++i) {
             objective const& obj = m_scoped_state.m_objectives[i];
