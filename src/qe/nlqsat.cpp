@@ -782,7 +782,7 @@ namespace qe {
             m(m),
             m_mode(mode),
             m_params(p),
-            m_solver(m.limit(), p),
+            m_solver(m.limit(), p, true),
             m_nftactic(0),
             m_rmodel(m_solver.am()),
             m_rmodel0(m_solver.am()),

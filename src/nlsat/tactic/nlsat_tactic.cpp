@@ -32,11 +32,11 @@ class nlsat_tactic : public tactic {
         ast_manager & m;
         expr_ref_vector m_var2expr;
         expr_display_var_proc(ast_manager & _m):m(_m), m_var2expr(_m) {}
-        virtual void operator()(std::ostream & out, nlsat::var x) const { 
+        virtual std::ostream& operator()(std::ostream & out, nlsat::var x) const { 
             if (x < m_var2expr.size())
-                out << mk_ismt2_pp(m_var2expr.get(x), m); 
+                return out << mk_ismt2_pp(m_var2expr.get(x), m); 
             else
-                out << "x!" << x;
+                return out << "x!" << x;
         }
     };
 
@@ -51,7 +51,7 @@ class nlsat_tactic : public tactic {
             m(_m),
             m_params(p),
             m_display_var(_m),
-            m_solver(m.limit(), p) {
+            m_solver(m.limit(), p, false) {
         }
         
         void updt_params(params_ref const & p) {

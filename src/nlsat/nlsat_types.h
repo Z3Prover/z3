@@ -47,6 +47,8 @@ namespace nlsat {
     typedef polynomial::var_vector     var_vector;
     typedef polynomial::manager        pmanager;
     typedef polynomial::polynomial     poly;
+    typedef polynomial::monomial       monomial;
+    typedef polynomial::numeral        numeral;
     const var null_var = polynomial::null_var;
     
     const var true_bool_var = 0;
