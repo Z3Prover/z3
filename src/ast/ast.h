@@ -53,10 +53,10 @@ Revision History:
 #pragma warning(disable : 4355)
 #endif
 
-#ifdef __GNUC__
-#  define Z3_NORETURN __attribute__((noreturn))
+#ifdef _MSC_VER
+#  define Z3_NORETURN __declspec(noreturn)
 #else
-#  define Z3_NORETURN
+#  define Z3_NORETURN [[noreturn]]
 #endif
 
 class ast;
@@ -1521,7 +1521,7 @@ public:
     void compress_ids();
 
     // Equivalent to throw ast_exception(msg)
-    void raise_exception(char const * msg) Z3_NORETURN;
+    Z3_NORETURN void raise_exception(char const * msg);
 
     bool is_format_manager() const { return m_format_manager == 0; }
 
