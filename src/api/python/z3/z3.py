@@ -365,6 +365,12 @@ class AstRef(Z3PPObject):
             _z3_assert(isinstance(target, Context), "argument must be a Z3 context")
         return _to_ast_ref(Z3_translate(self.ctx.ref(), self.as_ast(), target.ref()), target)
 
+    def __copy__(self):
+        return self.translate(self.ctx)
+
+    def __deepcopy__(self):
+        return self.translate(self.ctx)
+
     def hash(self):
         """Return a hashcode for the `self`.
 
@@ -5048,6 +5054,12 @@ class Goal(Z3PPObject):
             _z3_assert(isinstance(target, Context), "target must be a context")
         return Goal(goal=Z3_goal_translate(self.ctx.ref(), self.goal, target.ref()), ctx=target)
 
+    def __copy__(self):
+        return self.translate(self.ctx)
+
+    def __deepcopy__(self):
+        return self.translate(self.ctx)
+
     def simplify(self, *arguments, **keywords):
         """Return a new simplified goal.
 
@@ -5229,6 +5241,12 @@ class AstVector(Z3PPObject):
         [x]
         """
         return AstVector(Z3_ast_vector_translate(self.ctx.ref(), self.vector, other_ctx.ref()), other_ctx)
+
+    def __copy__(self):
+        return self.translate(self.ctx)
+
+    def __deepcopy__(self):
+        return self.translate(self.ctx)
 
     def __repr__(self):
         return obj_to_string(self)
@@ -6429,6 +6447,12 @@ class Solver(Z3PPObject):
             _z3_assert(isinstance(target, Context), "argument must be a Z3 context")
         solver = Z3_solver_translate(self.ctx.ref(), self.solver, target.ref())
         return Solver(solver, target)
+
+    def __copy__(self):
+        return self.translate(self.ctx)
+
+    def __deepcopy__(self):
+        return self.translate(self.ctx)
 
     def sexpr(self):
         """Return a formatted string (in Lisp-like format) with all added constraints. We say the string is in s-expression format.

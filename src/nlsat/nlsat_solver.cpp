@@ -154,6 +154,7 @@ namespace nlsat {
         bool                   m_randomize;
         bool                   m_random_order;
         unsigned               m_random_seed;
+        bool                   m_inline_vars;
         unsigned               m_max_conflicts;
 
         // statistics
@@ -210,6 +211,7 @@ namespace nlsat {
             m_max_conflicts  = p.max_conflicts();
             m_random_order   = p.shuffle_vars();
             m_random_seed    = p.seed();
+            m_inline_vars    = p.inline_vars();
             m_ism.set_seed(m_random_seed);
             m_explain.set_simplify_cores(m_simplify_cores);
             m_explain.set_minimize_cores(min_cores);
@@ -1313,11 +1315,8 @@ namespace nlsat {
             m_explain.set_full_dimensional(is_full_dimensional());
             bool reordered = false;
 
-#if 0
-            // disabled
-            if (!m_incremental) 
+            if (!m_incremental && m_inline_vars) 
                 simplify();
-#endif
 
             if (!can_reorder()) {
 
