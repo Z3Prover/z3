@@ -537,7 +537,7 @@ namespace smt {
                 }
             }
 
-            // For each instantiation_set, reemove entries that do not evaluate to values.
+            // For each instantiation_set, remove entries that do not evaluate to values.
             void cleanup_instantiation_sets() {
                 ptr_vector<expr> to_delete;
                 for (node * curr : m_nodes) {
@@ -735,7 +735,7 @@ namespace smt {
                         }
                     }
                     // TBD: add support for the else of bitvectors.
-                    // Idea: get the term t with the minimal interpreation and use t - 1.
+                    // Idea: get the term t with the minimal interpretation and use t - 1.
                 }
                 n->set_else((*(elems.begin())).m_key);
             }
@@ -955,7 +955,7 @@ namespace smt {
                     if (elems.empty()) {
                         // The method get_some_value cannot be used if n->get_sort() is an uninterpreted sort or is a sort built using uninterpreted sorts
                         // (e.g., (Array S S) where S is uninterpreted). The problem is that these sorts do not have a fixed interpretation.
-                        // Moreover, a model assigns an arbitrary intepretation to these sorts using "model_values" a model value.
+                        // Moreover, a model assigns an arbitrary interpretation to these sorts using "model_values" a model value.
                         // If these module values "leak" inside the logical context, they may affect satisfiability.
                         //
                         sort * ns = n->get_sort();
@@ -1007,7 +1007,7 @@ namespace smt {
                This may happen because the evaluator uses model_completion.
                In the beginning of fix_model() we collected all f with
                partial interpretations. During the process of computing the
-               projections we used the evalutator with model_completion,
+               projections we used the evaluator with model_completion,
                and it may have fixed the "else" case of some partial interpretations.
                This is ok, because in the "limit" the "else" of the interpretation
                is irrelevant after the projections are applied.
@@ -1570,7 +1570,7 @@ namespace smt {
                 ast_manager & m = ctx->get_manager();
                 sort * s = q->get_decl_sort(num_vars - m_var_i - 1);
                 if (m.is_uninterp(s)) {
-                    // For uninterpreted sorst, we add all terms in the context.
+                    // For uninterpreted sorts, we add all terms in the context.
                     // See Section 4.1 in the paper "Complete Quantifier Instantiation"
                     node * S_q_i = slv.get_uvar(q, m_var_i);
                     ptr_vector<enode>::const_iterator it  = ctx->begin_enodes();
@@ -1741,7 +1741,7 @@ namespace smt {
                 if (has_quantifiers(q->get_expr())) {
                     static bool displayed_flat_msg = false;
                     if (!displayed_flat_msg) {
-                        // [Leo]: This warning message is not usefult.
+                        // [Leo]: This warning message is not useful.
                         // warning_msg("For problems containing quantifiers, the model finding capabilities of Z3 work better when the formula does not contain nested quantifiers. You can use PULL_NESTED_QUANTIFIERS=true to eliminate nested quantifiers.");
                         displayed_flat_msg = true;
                     }
@@ -2104,7 +2104,7 @@ namespace smt {
             }
 
             /**
-               \brief Process unintrepreted applications.
+               \brief Process uninterpreted applications.
             */
             void process_u_app(app * t) {
                 unsigned num_args = t->get_num_args();
@@ -2130,7 +2130,7 @@ namespace smt {
 
             /**
                \brief A term \c t is said to be a auf_select if
-               it is of ther form
+               it is of the form
 
                (select a i) Where:
 
@@ -2151,7 +2151,7 @@ namespace smt {
             }
 
             /**
-               \brief Process intrepreted applications.
+               \brief Process interpreted applications.
             */
             void process_i_app(app * t) {
                 if (is_auf_select(t)) {
@@ -2512,7 +2512,7 @@ namespace smt {
                         SASSERT(f_else != 0);
                         // Remark: I can ignore the conditions of m because
                         // I know the (partial) interpretation of f satisfied the ground part.
-                        // MBQI will force extra instantiations if the the (partial) interpretation of f
+                        // MBQI will force extra instantiations if the (partial) interpretation of f
                         // does not satisfy the quantifier.
                         // In all other cases the "else" of f will satisfy the quantifier.
                         set_else_interp(f, f_else);
@@ -2937,7 +2937,7 @@ namespace smt {
             }
 
             /**
-               \brief Use m_fs to set the interpreation of the function symbols that were used to satisfy the
+               \brief Use m_fs to set the interpretation of the function symbols that were used to satisfy the
                quantifiers in m_satisfied.
             */
             void set_interp() {

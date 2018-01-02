@@ -270,7 +270,7 @@ typedef enum
    - Z3_OP_ARRAY_MAP Array map operator.
          It satisfies map[f](a1,..,a_n)[i] = f(a1[i],...,a_n[i]) for every i.
 
-   - Z3_OP_SET_UNION Set union between two Booelan arrays (two arrays whose range type is Boolean). The function is binary.
+   - Z3_OP_SET_UNION Set union between two Boolean arrays (two arrays whose range type is Boolean). The function is binary.
 
    - Z3_OP_SET_INTERSECT Set intersection between two Boolean arrays. The function is binary.
 
@@ -406,7 +406,7 @@ typedef enum
 
    - Z3_OP_BSMUL_NO_UDFL: check that bit-wise signed multiplication does not underflow.
      Signed multiplication underflows if the operands have opposite signs and the result of multiplication
-     does not fit within the avaialble bits. Z3_mk_bvmul_no_underflow.
+     does not fit within the available bits. Z3_mk_bvmul_no_underflow.
 
    - Z3_OP_BSDIV_I: Binary signed division.
      It has the same semantics as Z3_OP_BSDIV, but created in a context where the second operand can be assumed to be non-zero.
@@ -485,7 +485,7 @@ typedef enum
           [monotonicity T1 ... Tn]: (R (f t_1 ... t_n) (f s_1 ... s_n))
           }
           Remark: if t_i == s_i, then the antecedent Ti is suppressed.
-          That is, reflexivity proofs are supressed to save space.
+          That is, reflexivity proofs are suppressed to save space.
 
    - Z3_OP_PR_QUANT_INTRO: Given a proof for (~ p q), produces a proof for (~ (forall (x) p) (forall (x) q)).
 
@@ -832,7 +832,7 @@ typedef enum
 
       - Z3_OP_RA_FILTER: Filter (restrict) a relation with respect to a predicate.
         The first argument is a relation.
-        The second argument is a predicate with free de-Brujin indices
+        The second argument is a predicate with free de-Bruijn indices
         corresponding to the columns of the relation.
         So the first column in the relation has index 0.
 
@@ -969,7 +969,7 @@ typedef enum
 
       - Z3_OP_FPA_TO_FP: Floating-point conversion (various)
 
-      - Z3_OP_FPA_TO_FP_UNSIGNED: Floating-point conversion from unsigend bit-vector
+      - Z3_OP_FPA_TO_FP_UNSIGNED: Floating-point conversion from unsigned bit-vector
 
       - Z3_OP_FPA_TO_UBV: Floating-point conversion to unsigned bit-vector
 
@@ -984,7 +984,7 @@ typedef enum
         of non-relevant terms in theory_fpa)
 
       - Z3_OP_FPA_BV2RM: Conversion of a 3-bit bit-vector term to a
-        floating-point rouding-mode term
+        floating-point rounding-mode term
 
         The conversion uses the following values:
             0 = 000 = Z3_OP_FPA_RM_NEAREST_TIES_TO_EVEN,
@@ -1922,7 +1922,7 @@ extern "C" {
 
        \param c logical context
        \param name name of the enumeration sort.
-       \param n number of elemenets in enumeration sort.
+       \param n number of elements in enumeration sort.
        \param enum_names names of the enumerated elements.
        \param enum_consts constants corresponding to the enumerated elements.
        \param enum_testers predicates testing if terms of the enumeration sort correspond to an enumeration.
@@ -3186,7 +3186,7 @@ extern "C" {
 
        \param c logical context.
        \param num numerator of rational.
-       \param den denomerator of rational.
+       \param den denominator of rational.
 
        \pre den != 0
 
@@ -3201,7 +3201,7 @@ extern "C" {
     /**
        \brief Create a numeral of an int, bit-vector, or finite-domain sort.
 
-       This function can be use to create numerals that fit in a machine integer.
+       This function can be used to create numerals that fit in a machine integer.
        It is slightly faster than #Z3_mk_numeral since it is not necessary to parse a string.
 
        \sa Z3_mk_numeral
@@ -3213,7 +3213,7 @@ extern "C" {
     /**
        \brief Create a numeral of a int, bit-vector, or finite-domain sort.
 
-       This function can be use to create numerals that fit in a machine unsinged integer.
+       This function can be used to create numerals that fit in a machine unsigned integer.
        It is slightly faster than #Z3_mk_numeral since it is not necessary to parse a string.
 
        \sa Z3_mk_numeral
@@ -3225,7 +3225,7 @@ extern "C" {
     /**
        \brief Create a numeral of a int, bit-vector, or finite-domain sort.
 
-       This function can be use to create numerals that fit in a machine __int64 integer.
+       This function can be used to create numerals that fit in a machine __int64 integer.
        It is slightly faster than #Z3_mk_numeral since it is not necessary to parse a string.
 
        \sa Z3_mk_numeral
@@ -3237,7 +3237,7 @@ extern "C" {
     /**
        \brief Create a numeral of a int, bit-vector, or finite-domain sort.
 
-       This function can be use to create numerals that fit in a machine __uint64 integer.
+       This function can be used to create numerals that fit in a machine __uint64 integer.
        It is slightly faster than #Z3_mk_numeral since it is not necessary to parse a string.
 
        \sa Z3_mk_numeral
@@ -3493,8 +3493,8 @@ extern "C" {
     Z3_ast Z3_API Z3_mk_re_range(Z3_context c, Z3_ast lo, Z3_ast hi);
 
     /**
-       \brief Create a regular expression loop. The supplied regular expression \c r is repated
-       between \c lo and \c hi times. The \c lo should be below \c hi with one exection: when
+       \brief Create a regular expression loop. The supplied regular expression \c r is repeated
+       between \c lo and \c hi times. The \c lo should be below \c hi with one exception: when
        supplying the value \c hi as 0, the meaning is to repeat the argument \c r at least
        \c lo number of times, and with an unbounded upper bound.
 
@@ -4248,7 +4248,7 @@ extern "C" {
     Z3_sort Z3_API Z3_get_decl_sort_parameter(Z3_context c, Z3_func_decl d, unsigned idx);
 
     /**
-       \brief Return the expresson value associated with an expression parameter.
+       \brief Return the expression value associated with an expression parameter.
 
        \pre Z3_get_decl_parameter_kind(c, d, idx) == Z3_PARAMETER_AST
 
@@ -4257,7 +4257,7 @@ extern "C" {
     Z3_ast Z3_API Z3_get_decl_ast_parameter(Z3_context c, Z3_func_decl d, unsigned idx);
 
     /**
-       \brief Return the expresson value associated with an expression parameter.
+       \brief Return the expression value associated with an expression parameter.
 
        \pre Z3_get_decl_parameter_kind(c, d, idx) == Z3_PARAMETER_FUNC_DECL
 
@@ -4327,7 +4327,7 @@ extern "C" {
 
     /**
        \brief Return a hash code for the given AST.
-       The hash code is structural. You can use Z3_get_ast_id interchangably with
+       The hash code is structural. You can use Z3_get_ast_id interchangeably with
        this function.
 
        def_API('Z3_get_ast_hash', UINT, (_in(CONTEXT), _in(AST)))
@@ -4556,7 +4556,7 @@ extern "C" {
     Z3_ast Z3_API Z3_get_pattern(Z3_context c, Z3_pattern p, unsigned idx);
 
     /**
-       \brief Return index of de-Brujin bound variable.
+       \brief Return index of de-Bruijn bound variable.
 
        \pre Z3_get_ast_kind(a) == Z3_VAR_AST
 
@@ -4659,7 +4659,7 @@ extern "C" {
 
         Provides an interface to the AST simplifier used by Z3.
         It returns an AST object which is equal to the argument.
-        The returned AST is simplified using algebraic simplificaiton rules,
+        The returned AST is simplified using algebraic simplification rules,
         such as constant propagation (propagating true/false over logical connectives).
 
         def_API('Z3_simplify', AST, (_in(CONTEXT), _in(AST)))
@@ -4861,9 +4861,9 @@ extern "C" {
     Z3_func_decl Z3_API Z3_model_get_func_decl(Z3_context c, Z3_model m, unsigned i);
 
     /**
-       \brief Return the number of uninterpreted sorts that \c m assigs an interpretation to.
+       \brief Return the number of uninterpreted sorts that \c m assigns an interpretation to.
 
-       Z3 also provides an intepretation for uninterpreted sorts used in a formua.
+       Z3 also provides an interpretation for uninterpreted sorts used in a formula.
        The interpretation for a sort \c s is a finite set of distinct values. We say this finite set is
        the "universe" of \c s.
 
@@ -4971,7 +4971,7 @@ extern "C" {
     unsigned Z3_API Z3_func_interp_get_num_entries(Z3_context c, Z3_func_interp f);
 
     /**
-       \brief Return a "point" of the given function intepretation. It represents the
+       \brief Return a "point" of the given function interpretation. It represents the
        value of \c f in a particular point.
 
        \pre i < Z3_func_interp_get_num_entries(c, f)
@@ -5013,7 +5013,7 @@ extern "C" {
        \brief add a function entry to a function interpretation.
 
        \param c logical context
-       \param fi a function interpregation to be updated.
+       \param fi a function interpretation to be updated.
        \param args list of arguments. They should be constant values (such as integers) and be of the same types as the domain of the function.
        \param value value of the function when the parameters match args.
 
@@ -5466,7 +5466,7 @@ extern "C" {
     Z3_bool Z3_API Z3_goal_is_decided_unsat(Z3_context c, Z3_goal g);
 
     /**
-       \brief Copy a goal \c g from the context \c source to a the context \c target.
+       \brief Copy a goal \c g from the context \c source to the context \c target.
 
        def_API('Z3_goal_translate', GOAL, (_in(CONTEXT), _in(GOAL), _in(CONTEXT)))
     */
@@ -5932,7 +5932,7 @@ extern "C" {
     Z3_solver Z3_API Z3_mk_solver_from_tactic(Z3_context c, Z3_tactic t);
 
     /**
-       \brief Copy a solver \c s from the context \c source to a the context \c target.
+       \brief Copy a solver \c s from the context \c source to the context \c target.
 
        def_API('Z3_solver_translate', SOLVER, (_in(CONTEXT), _in(SOLVER), _in(CONTEXT)))
     */

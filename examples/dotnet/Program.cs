@@ -622,7 +622,7 @@ namespace test_mapi
                 Console.WriteLine("{0}", q1);
             }
 
-            // Quantifier with de-Brujin indices.
+            // Quantifier with de-Bruijn indices.
             {
                 Expr x = ctx.MkBound(1, ctx.IntSort);
                 Expr y = ctx.MkBound(0, ctx.IntSort);

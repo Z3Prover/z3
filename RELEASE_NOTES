@@ -712,7 +712,7 @@ The following bugs are fixed in this release:
   bvshl when using a shift amount that evaluates to the length
   of the bit-vector. Thanks to Trevor Hansen and Robert Brummayer. 
 
-- Incorrect NNF conversion in linear quantifier elimniation routines.
+- Incorrect NNF conversion in linear quantifier elimination routines.
   Thanks to Josh Berdine.
 
 - Missing constant folding of extraction for large bit-vectors.

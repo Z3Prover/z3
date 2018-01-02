@@ -188,7 +188,7 @@ namespace smt {
        1) Variables:   (f ... X ...)
        2) Ground terms: (f ... t ...)
        3) depth 2 joint: (f ... (g ... X ...) ...)
-          Joint2 stores the declartion g, and the position of variable X, and its idx.
+          Joint2 stores the declaration g, and the position of variable X, and its idx.
 
        \remark Z3 has no support for depth 3 joints (f ... (g ... (h ... X ...) ...) ....)
     */
@@ -211,7 +211,7 @@ namespace smt {
         approx_set      m_lbl_set; // singleton set containing m_label
         /*
           The following field is an array of tagged pointers.
-          Each positon contains:
+          Each position contains:
           1- null (no joint), NULL_TAG
           2- a boxed integer (i.e., register that contains the variable bind) VAR_TAG
           3- an enode pointer (ground term)  GROUND_TERM_TAG

@@ -502,7 +502,7 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
         return false;
     }
     case PR_HYPOTHESIS: {
-        // TBD all branches with hyptheses must be closed by a later lemma.
+        // TBD all branches with hypotheses must be closed by a later lemma.
         if (match_proof(p) &&
             match_fact(p, fml)) {
             return true;

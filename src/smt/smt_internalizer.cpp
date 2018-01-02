@@ -369,7 +369,7 @@ namespace smt {
                 else {
                     TRACE("internalize_bug", tout << "creating enode for #" << n->get_id() << "\n";);
                     mk_enode(to_app(n), 
-                             true, /* supress arguments, we not not use CC for this kind of enode */
+                             true, /* suppress arguments, we not not use CC for this kind of enode */
                              true, /* bool enode must be merged with true/false, since it is not in the context of a gate */
                              false /* CC is not enabled */ );
                     set_enode_flag(v, false);
@@ -453,7 +453,7 @@ namespace smt {
             // must be associated with an enode.
             if (!e_internalized(n)) {
                 mk_enode(to_app(n), 
-                         true, /* supress arguments, we not not use CC for this kind of enode */
+                         true, /* suppress arguments, we not not use CC for this kind of enode */
                          true  /* bool enode must be merged with true/false, since it is not in the context of a gate */,
                          false /* CC is not enabled */);
             }
@@ -739,7 +739,7 @@ namespace smt {
         app_ref eq1(mk_eq_atom(n, t), m_manager);
         app_ref eq2(mk_eq_atom(n, e), m_manager);
         mk_enode(n, 
-                 true /* supress arguments, I don't want to apply CC on ite terms */, 
+                 true /* suppress arguments, I don't want to apply CC on ite terms */,
                  false /* it is a term, so it should not be merged with true/false */,
                  false /* CC is not enabled */);
         internalize(c, true);
@@ -797,7 +797,7 @@ namespace smt {
         }
         
         enode * e = mk_enode(n, 
-                             false, /* do not supress args */
+                             false, /* do not suppress args */
                              false, /* it is a term, so it should not be merged with true/false */
                              true);
         apply_sort_cnstr(n, e);
@@ -1506,7 +1506,7 @@ namespace smt {
             relevancy_eh * eh = m_relevancy_propagator->mk_and_relevancy_eh(n);
             unsigned num = n->get_num_args();
             for (unsigned i = 0; i < num; i++) {
-                // if one child is assigned to false, the the and-parent must be notified
+                // if one child is assigned to false, the and-parent must be notified
                 literal l = get_literal(n->get_arg(i));
                 add_rel_watch(~l, eh);
             }
@@ -1518,7 +1518,7 @@ namespace smt {
             relevancy_eh * eh = m_relevancy_propagator->mk_or_relevancy_eh(n);
             unsigned num = n->get_num_args();
             for (unsigned i = 0; i < num; i++) {
-                // if one child is assigned to true, the the or-parent must be notified
+                // if one child is assigned to true, the or-parent must be notified
                 literal l = get_literal(n->get_arg(i));
                 add_rel_watch(l, eh);
             }

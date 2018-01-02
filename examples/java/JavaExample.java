@@ -660,7 +660,7 @@ class JavaExample
             System.out.println(q1);
         }
 
-        // Quantifier with de-Brujin indices.
+        // Quantifier with de-Bruijn indices.
         {
             Expr x = ctx.mkBound(1, ctx.getIntSort());
             Expr y = ctx.mkBound(0, ctx.getIntSort());

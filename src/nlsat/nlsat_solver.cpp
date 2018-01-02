@@ -89,7 +89,7 @@ namespace nlsat {
 
         unsigned               m_num_bool_vars;
         atom_vector            m_atoms;        // bool_var -> atom
-        svector<lbool>         m_bvalues;      // boolean assigment
+        svector<lbool>         m_bvalues;      // boolean assignment
         unsigned_vector        m_levels;       // bool_var -> level
         svector<justification> m_justifications;
         vector<clause_vector>  m_bwatches;     // bool_var (that are not attached to atoms) -> clauses where it is maximal
@@ -1051,7 +1051,7 @@ namespace nlsat {
         }
         
         /**
-           \brief Process a clause that contains nonlinar arithmetic literals
+           \brief Process a clause that contains nonlinear arithmetic literals
 
            If satisfy_learned is true, then learned clauses are satisfied even if m_lazy > 0
         */
@@ -1569,7 +1569,7 @@ namespace nlsat {
                         max = lvl;
                 }
                 else {
-                    // l must be a literal from a previous stage that is false in the current intepretation
+                    // l must be a literal from a previous stage that is false in the current interpretation
                     SASSERT(assigned_value(l) == l_undef);
                     SASSERT(max_var(b) != null_var);
                     SASSERT(m_xk       != null_var);
@@ -1890,7 +1890,7 @@ namespace nlsat {
 
         // -----------------------
         //
-        // Variable reodering
+        // Variable reordering
         //
         // -----------------------
 

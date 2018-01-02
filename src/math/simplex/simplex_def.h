@@ -634,7 +634,7 @@ namespace simplex {
         //
         //   max { c*x | A*x = 0 and l <= x <= u }
         //
-        // start with feasible assigment 
+        // start with feasible assignment
         // A*x0 = 0 and l <= x0 <= u
         //
         // Identify pivot: i, j: such that x_i is base,
