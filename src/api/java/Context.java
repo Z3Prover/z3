@@ -2234,7 +2234,7 @@ public class Context implements AutoCloseable {
     }
 
     /**
-     * Create a Term of a given sort. This function can be use to create
+     * Create a Term of a given sort. This function can be used to create
      * numerals that fit in a machine integer. It is slightly faster than
      * {@code MakeNumeral} since it is not necessary to parse a string.
      * 
@@ -2250,7 +2250,7 @@ public class Context implements AutoCloseable {
     }
 
     /**
-     * Create a Term of a given sort. This function can be use to create
+     * Create a Term of a given sort. This function can be used to create
      * numerals that fit in a machine integer. It is slightly faster than
      * {@code MakeNumeral} since it is not necessary to parse a string.
      * 
@@ -2438,7 +2438,7 @@ public class Context implements AutoCloseable {
     }
 
     /**
-     * Creates an existential quantifier using de-Brujin indexed variables. 
+     * Creates an existential quantifier using de-Bruijn indexed variables.
      * @see #mkForall(Sort[],Symbol[],Expr,int,Pattern[],Expr[],Symbol,Symbol)
      **/
     public Quantifier mkExists(Sort[] sorts, Symbol[] names, Expr body,

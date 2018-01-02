@@ -182,7 +182,7 @@ class Context:
         """Interrupt a solver performing a satisfiability test, a tactic processing a goal, or simplify functions.
 
         This method can be invoked from a thread different from the one executing the
-        interruptable procedure.
+        interruptible procedure.
         """
         Z3_interrupt(self.ref())
 
@@ -602,7 +602,7 @@ def _sort(ctx, a):
     return _to_sort_ref(Z3_get_sort(ctx.ref(), a), ctx)
 
 def DeclareSort(name, ctx=None):
-    """Create a new uninterpred sort named `name`.
+    """Create a new uninterpreted sort named `name`.
 
     If `ctx=None`, then the new sort is declared in the global Z3Py context.
 
@@ -724,7 +724,7 @@ class FuncDeclRef(AstRef):
 
         The arguments must be Z3 expressions. This method assumes that
         the sorts of the elements in `args` match the sorts of the
-        domain. Limited coersion is supported.  For example, if
+        domain. Limited coercion is supported.  For example, if
         args[0] is a Python integer, and the function expects a Z3
         integer, then the argument is automatically converted into a
         Z3 integer.
@@ -9243,7 +9243,7 @@ def fpMul(rm, a, b, ctx=None):
     return _mk_fp_bin(Z3_mk_fpa_mul, rm, a, b, ctx)
 
 def fpDiv(rm, a, b, ctx=None):
-    """Create a Z3 floating-point divison expression.
+    """Create a Z3 floating-point division expression.
 
     >>> s = FPSort(8, 24)
     >>> rm = RNE()
@@ -9270,7 +9270,7 @@ def fpRem(a, b, ctx=None):
     return _mk_fp_bin_norm(Z3_mk_fpa_rem, a, b, ctx)
 
 def fpMin(a, b, ctx=None):
-    """Create a Z3 floating-point minimium expression.
+    """Create a Z3 floating-point minimum expression.
 
     >>> s = FPSort(8, 24)
     >>> rm = RNE()

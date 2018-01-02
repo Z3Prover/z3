@@ -330,7 +330,7 @@ std::ostream& operator<<(std::ostream& out, sort_size const & ss);
 // -----------------------------------
 
 /**
-   \brief Extra information that may be attached to intepreted sorts.
+   \brief Extra information that may be attached to interpreted sorts.
 */
 class sort_info : public decl_info {
     sort_size m_num_elements;
@@ -932,7 +932,7 @@ struct builtin_name {
 };
 
 /**
-   \brief Each family of intepreted function declarations and sorts must provide a plugin
+   \brief Each family of interpreted function declarations and sorts must provide a plugin
    to build sorts and decls of the family.
 */
 class decl_plugin {
@@ -1059,7 +1059,7 @@ protected:
     ptr_vector<func_decl> m_eq_decls;  // cached eqs
     ptr_vector<func_decl> m_ite_decls; // cached ites
 
-    ptr_vector<func_decl> m_oeq_decls;  // cached obsevational eqs
+    ptr_vector<func_decl> m_oeq_decls;  // cached observational eqs
     sort *      m_proof_sort;
     func_decl * m_undef_decl;
     func_decl * m_true_pr_decl;
@@ -1161,7 +1161,7 @@ public:
     virtual expr * get_some_value(sort * s);
 };
 
-typedef app proof; /* a proof is just an applicaton */
+typedef app proof; /* a proof is just an application */
 
 // -----------------------------------
 //
@@ -1220,7 +1220,7 @@ enum pattern_op_kind {
 
 /**
    \brief Patterns are used to group expressions. These expressions are using during E-matching for
-   heurisitic quantifier instantiation.
+   heuristic quantifier instantiation.
 */
 class pattern_decl_plugin : public decl_plugin {
 public:
@@ -1245,13 +1245,13 @@ enum model_value_op_kind {
 /**
    \brief Values are used during model construction. All values are
    assumed to be different.  Users should not use them, since they may
-   introduce unsoundess if the sort of a value is finite.
+   introduce unsoundness if the sort of a value is finite.
 
    Moreover, values should never be internalized in a logical context.
 
    However, values can be used during evaluation (i.e., simplification).
 
-   \remark Model values can be viewed as the partion ids in Z3 1.x.
+   \remark Model values can be viewed as the partition ids in Z3 1.x.
 */
 class model_value_decl_plugin : public decl_plugin {
 public:
