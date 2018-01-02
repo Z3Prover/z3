@@ -5585,6 +5585,17 @@ class FuncInterp(Z3PPObject):
             raise IndexError
         return FuncEntry(Z3_func_interp_get_entry(self.ctx.ref(), self.f, idx), self.ctx)
 
+    def translate(self, other_ctx):
+        """Copy model 'self' to context 'other_ctx'.
+        """
+        return ModelRef(Z3_model_translate(self.ctx.ref(), self.model, other_ctx.ref()), other_ctx)
+
+    def __copy__(self):
+        return self.translate(self.ctx)
+
+    def __deepcopy__(self):
+        return self.translate(self.ctx)
+
     def as_list(self):
         """Return the function interpretation as a Python list.
         >>> f = Function('f', IntSort(), IntSort())
@@ -5613,9 +5624,6 @@ class ModelRef(Z3PPObject):
         self.model = m
         self.ctx   = ctx
         Z3_model_inc_ref(self.ctx.ref(), self.model)
-
-    def __deepcopy__(self, memo={}):
-        return ModelRef(self.m, self.ctx)
 
     def __del__(self):
         if self.ctx.ref() is not None:
@@ -5870,6 +5878,20 @@ class ModelRef(Z3PPObject):
             r.append(FuncDeclRef(Z3_model_get_func_decl(self.ctx.ref(), self.model, i), self.ctx))
         return r
 
+    def translate(self, target):
+        """Translate `self` to the context `target`. That is, return a copy of `self` in the context `target`.
+        """
+        if __debug__:
+            _z3_assert(isinstance(target, Context), "argument must be a Z3 context")
+        model = Z3_model_translate(self.ctx.ref(), self.model, target.ref())
+        return Model(model, target)
+
+    def __copy__(self):
+        return self.translate(self.ctx)
+
+    def __deepcopy__(self):
+        return self.translate(self.ctx)
+
 def is_as_array(n):
     """Return true if n is a Z3 expression of the form (_ as-array f)."""
     return isinstance(n, ExprRef) and Z3_is_as_array(n.ctx.ref(), n.as_ast())
@@ -6071,9 +6093,6 @@ class Solver(Z3PPObject):
         else:
             self.solver = solver
         Z3_solver_inc_ref(self.ctx.ref(), self.solver)
-
-    def __deepcopy__(self, memo={}):
-        return Solver(self.solver, self.ctx)
 
     def __del__(self):
         if self.solver is not None and self.ctx.ref() is not None:

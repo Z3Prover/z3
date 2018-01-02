@@ -4897,6 +4897,13 @@ extern "C" {
     Z3_ast_vector Z3_API Z3_model_get_sort_universe(Z3_context c, Z3_model m, Z3_sort s);
 
     /**
+       \brief translate model from context c to context \c dst.
+
+       def_API('Z3_model_translate', MODEL, (_in(CONTEXT), _in(MODEL), _in(CONTEXT)))
+    */
+    Z3_model Z3_API Z3_model_translate(Z3_context c, Z3_model m, Z3_context dst);
+
+    /**
        \brief The \ccode{(_ as-array f)} AST node is a construct for assigning interpretations for arrays in Z3.
        It is the array such that forall indices \c i we have that \ccode{(select (_ as-array f) i)} is equal to \ccode{(f i)}.
        This procedure returns Z3_TRUE if the \c a is an \c as-array AST node.
