@@ -1519,7 +1519,7 @@ void ast_manager::compress_ids() {
         m_ast_table.insert(a);
 }
 
-[[noreturn]] void ast_manager::raise_exception(char const * msg) {
+void ast_manager::raise_exception(char const * msg) {
     throw ast_exception(msg);
 }
 
