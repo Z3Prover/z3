@@ -74,7 +74,7 @@ each offset is a different "variable bank". A pair (expr, offset) is essentially
 where every variable in expr is assumed to be from the "bank" offset.
 
 The class substitution (in substitution.h) manages offsets for us.
-The class matcher (in matcher.h) can be use to test whether an expression is an instance of another one.
+The class matcher (in matcher.h) can be used to test whether an expression is an instance of another one.
 
 Finally, there is the problem when we have N demodulators (where N is big), and a big formula, and we want
 to traverse the formula only once looking for opportunities for applying these N demodulators.

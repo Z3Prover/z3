@@ -1474,7 +1474,7 @@ namespace smt {
         // pos < strlen(base)
         // --> pos + -1*strlen(base) < 0
         argumentsValid_terms.push_back(mk_not(m, m_autil.mk_ge(
-                                                    m_autil.mk_add(substrPos, m_autil.mk_mul(minusOne, substrLen)),
+                                                    m_autil.mk_add(substrPos, m_autil.mk_mul(minusOne, mk_strlen(substrBase))),
                                                     zero)));
 
         // len >= 0

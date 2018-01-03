@@ -974,7 +974,7 @@ namespace ar {
 
 
 // ------------------------------------------------------------
-// fm_tactic adapted to eliminate designated de-Brujin indices.
+// fm_tactic adapted to eliminate designated de-Bruijn indices.
 
 namespace fm {
     typedef ptr_vector<app> clauses;

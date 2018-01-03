@@ -526,7 +526,7 @@ namespace smt {
                 }
             }
         }
-        pp.display(out, m.mk_true());
+        pp.display_smt2(out, m.mk_true());
     }
 
     template<typename Ext>

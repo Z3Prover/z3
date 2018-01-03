@@ -1289,7 +1289,7 @@ decl_kind user_sort_plugin::register_name(symbol s) {
 
 decl_plugin * user_sort_plugin::mk_fresh() {
     user_sort_plugin * p = alloc(user_sort_plugin);
-    for (symbol const& s : m_sort_names) 
+    for (symbol const& s : m_sort_names)
         p->register_name(s);
     return p;
 }
@@ -1415,7 +1415,7 @@ ast_manager::~ast_manager() {
             p->finalize();
     }
     for (decl_plugin* p : m_plugins) {
-        if (p) 
+        if (p)
             dealloc(p);
     }
     m_plugins.reset();
@@ -1454,13 +1454,13 @@ ast_manager::~ast_manager() {
                 mark_array_ref(mark, to_quantifier(n)->get_num_patterns(), to_quantifier(n)->get_patterns());
                 mark_array_ref(mark, to_quantifier(n)->get_num_no_patterns(), to_quantifier(n)->get_no_patterns());
                 break;
-            }           
-        }        
+            }
+        }
         for (ast * n : m_ast_table) {
             if (!mark.is_marked(n)) {
                 roots.push_back(n);
             }
-        }        
+        }
         SASSERT(!roots.empty());
         for (unsigned i = 0; i < roots.size(); ++i) {
             ast* a = roots[i];
@@ -1492,11 +1492,8 @@ void ast_manager::compact_memory() {
     unsigned capacity = m_ast_table.capacity();
     if (capacity > 4*m_ast_table.size()) {
         ast_table new_ast_table;
-        ast_table::iterator it  = m_ast_table.begin();
-        ast_table::iterator end = m_ast_table.end();
-        for (; it != end; ++it) {
-            new_ast_table.insert(*it);
-        }
+        for (ast* curr : m_ast_table)
+            new_ast_table.insert(curr);
         m_ast_table.swap(new_ast_table);
         IF_VERBOSE(10, verbose_stream() << "(ast-table :prev-capacity " << capacity
                    << " :capacity " << m_ast_table.capacity() << " :size " << m_ast_table.size() << ")\n";);
@@ -1510,10 +1507,7 @@ void ast_manager::compress_ids() {
     ptr_vector<ast> asts;
     m_expr_id_gen.cleanup();
     m_decl_id_gen.cleanup(c_first_decl_id);
-    ast_table::iterator it  = m_ast_table.begin();
-    ast_table::iterator end = m_ast_table.end();
-    for (; it != end; ++it) {
-        ast * n = *it;
+    for (ast * n : m_ast_table) {
         if (is_decl(n))
             n->m_id = m_decl_id_gen.mk();
         else
@@ -1521,10 +1515,8 @@ void ast_manager::compress_ids() {
         asts.push_back(n);
     }
     m_ast_table.finalize();
-    ptr_vector<ast>::iterator it2  = asts.begin();
-    ptr_vector<ast>::iterator end2 = asts.end();
-    for (; it2 != end2; ++it2)
-        m_ast_table.insert(*it2);
+    for (ast* a : asts) 
+        m_ast_table.insert(a);
 }
 
 void ast_manager::raise_exception(char const * msg) {
@@ -1570,20 +1562,15 @@ void ast_manager::copy_families_plugins(ast_manager const & from) {
 }
 
 void ast_manager::set_next_expr_id(unsigned id) {
-    while (true) {
-        id = m_expr_id_gen.set_next_id(id);
-        ast_table::iterator it  = m_ast_table.begin();
-        ast_table::iterator end = m_ast_table.end();
-        for (; it != end; ++it) {
-            ast * curr = *it;
-            if (curr->get_id() == id)
-                break;
+ try_again:
+    id = m_expr_id_gen.set_next_id(id);
+    for (ast * curr : m_ast_table) {
+        if (curr->get_id() == id) {
+            // id is in use, move to the next one.
+            ++id;
+            goto try_again;
         }
-        if (it == end)
-            return;
-        // id is in use, move to the next one.
-        id++;
-    }
+    }    
 }
 
 unsigned ast_manager::get_node_size(ast const * n) { return ::get_node_size(n); }
@@ -1683,7 +1670,7 @@ ast * ast_manager::register_node_core(ast * n) {
     bool contains = m_ast_table.contains(n);
     CASSERT("nondet_bug", contains || slow_not_contains(n));
 #endif
-    
+
     ast * r = m_ast_table.insert_if_not_there(n);
     SASSERT(r->m_hash == h);
     if (r != n) {
@@ -2358,8 +2345,9 @@ quantifier * ast_manager::mk_quantifier(bool forall, unsigned num_decls, sort * 
                                         unsigned num_patterns, expr * const * patterns,
                                         unsigned num_no_patterns, expr * const * no_patterns) {
     SASSERT(body);
-    SASSERT(num_patterns == 0 || num_no_patterns == 0);
     SASSERT(num_decls > 0);
+    if (num_patterns != 0 && num_no_patterns != 0)
+        throw ast_exception("simultaneous patterns and no-patterns not supported");
     DEBUG_CODE({
             for (unsigned i = 0; i < num_patterns; ++i) {
                 TRACE("ast", tout << i << " " << mk_pp(patterns[i], *this) << "\n";);
@@ -2763,7 +2751,7 @@ proof * ast_manager::mk_transitivity(unsigned num_proofs, proof * const * proofs
 }
 
 proof * ast_manager::mk_transitivity(unsigned num_proofs, proof * const * proofs, expr * n1, expr * n2) {
-    if (num_proofs == 0) 
+    if (num_proofs == 0)
         return nullptr;
     if (num_proofs == 1)
         return proofs[0];

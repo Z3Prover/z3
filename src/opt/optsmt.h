@@ -49,6 +49,8 @@ namespace opt {
 
         lbool lex(unsigned obj_index, bool is_maximize);
 
+        bool is_unbounded(unsigned obj_index, bool is_maximize);
+
         unsigned add(app* t);
 
         void updt_params(params_ref& p);

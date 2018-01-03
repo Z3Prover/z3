@@ -55,7 +55,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
 
     /* The summation rule. The term sum(p,c,i) takes a proof p of an
        inequality i', an integer coefficient c and an inequality i, and
-       yieds a proof of i' + ci. */
+       yields a proof of i' + ci. */
     symb sum;
 
     /* Proof rotation. The proof term rotate(q,p) takes a
@@ -75,7 +75,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
     symb leq2eq;
 
     /* Equality to inequality. eq2leq(p, q) takes a proof p of x=y, and
-       a proof q ~(x <= y) and and yields a proof of false. */
+       a proof q ~(x <= y) and yields a proof of false. */
     symb eq2leq;
 
     /* Proof term cong(p,q) takes a proof p of x=y and a proof
@@ -97,7 +97,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
 
     /* This oprerator represents a concatenation of rewrites.  The term
        a=b;c=d represents an A rewrite from a to b, followed by a B
-       rewrite fron b to c, followed by an A rewrite from c to d.
+       rewrite from b to c, followed by an A rewrite from c to d.
     */
     symb concat;
 
@@ -1542,7 +1542,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
         return my_implies(arg(rew,1),arg(rew,2));
     }
   
-    // make rewrite rew conditon on rewrite cond 
+    // make rewrite rew condition on rewrite cond
     ast rewrite_conditional(const ast &cond, const ast &rew){
         ast cf = rewrite_to_formula(cond);
         return make(sym(rew),arg(rew,0),my_and(arg(rew,1),cf),arg(rew,2));

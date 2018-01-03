@@ -345,12 +345,24 @@ namespace opt {
         fix_model(mdl);
     }
 
+    bool context::contains_quantifiers() const {
+        for (expr* f : m_hard_constraints) {
+            if (has_quantifiers(f)) return true;
+        }
+        return false;
+    }
+
+
     lbool context::execute_min_max(unsigned index, bool committed, bool scoped, bool is_max) {
         if (scoped) get_solver().push();            
         lbool result = m_optsmt.lex(index, is_max);
         if (result == l_true) m_optsmt.get_model(m_model, m_labels);
         if (scoped) get_solver().pop(1);        
         if (result == l_true && committed) m_optsmt.commit_assignment(index);
+        if (result == l_true && m_optsmt.is_unbounded(index, is_max) && contains_quantifiers()) {
+            throw default_exception("unbounded objectives on quantified constraints is not supported");
+            result = l_undef;
+        }
         return result;
     }
     
@@ -646,8 +658,7 @@ namespace opt {
         expr_fast_mark1 visited;
         is_bv proc(m);
         try {
-            for (unsigned i = 0; i < m_objectives.size(); ++i) {
-                objective & obj = m_objectives[i];
+            for (objective& obj : m_objectives) {
                 if (obj.m_type != O_MAXSMT) return false;
                 maxsmt& ms = *m_maxsmts.find(obj.m_id);
                 for (unsigned j = 0; j < ms.size(); ++j) {
@@ -658,8 +669,8 @@ namespace opt {
             for (unsigned i = 0; i < sz; i++) {
                 quick_for_each_expr(proc, visited, get_solver().get_assertion(i));
             }
-            for (unsigned i = 0; i < m_hard_constraints.size(); ++i) {
-                quick_for_each_expr(proc, visited, m_hard_constraints[i].get());
+            for (expr* f : m_hard_constraints) {
+                quick_for_each_expr(proc, visited, f);
             }
         }
         catch (is_bv::found) {
@@ -1224,6 +1235,9 @@ namespace opt {
     }
 
     void context::display_assignment(std::ostream& out) {
+        if (m_scoped_state.m_objectives.size() != m_objectives.size()) {
+            throw default_exception("check-sat has not been called with latest objectives");
+        }
         out << "(objectives\n";
         for (unsigned i = 0; i < m_scoped_state.m_objectives.size(); ++i) {
             objective const& obj = m_scoped_state.m_objectives[i];

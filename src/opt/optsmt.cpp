@@ -161,6 +161,14 @@ namespace opt {
         return l_true;        
     }
 
+    bool optsmt::is_unbounded(unsigned obj_index, bool is_maximize) {
+        if (is_maximize) {
+            return !m_upper[obj_index].is_finite();
+        }
+        else {
+            return !m_lower[obj_index].is_finite();
+        }
+    }
 
     lbool optsmt::geometric_lex(unsigned obj_index, bool is_maximize) {
         arith_util arith(m);

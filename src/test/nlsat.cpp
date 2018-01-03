@@ -272,7 +272,7 @@ static void tst4() {
 static void tst5() {
     params_ref      ps;
     reslimit        rlim;
-    nlsat::solver s(rlim, ps);
+    nlsat::solver s(rlim, ps, false);
     anum_manager & am = s.am();
     nlsat::pmanager & pm = s.pm();
     nlsat::assignment           as(am);
@@ -330,7 +330,7 @@ static nlsat::literal mk_eq(nlsat::solver& s, nlsat::poly* p) {
 static void tst6() {
     params_ref      ps;
     reslimit        rlim;
-    nlsat::solver s(rlim, ps);
+    nlsat::solver s(rlim, ps, false);
     anum_manager & am     = s.am();
     nlsat::pmanager & pm  = s.pm();
     nlsat::assignment as(am);
@@ -390,7 +390,7 @@ static void tst6() {
 static void tst7() {
     params_ref      ps;
     reslimit        rlim;
-    nlsat::solver s(rlim, ps);
+    nlsat::solver s(rlim, ps, false);
     nlsat::pmanager & pm  = s.pm();
     nlsat::var x0, x1, x2, a, b, c, d;
     a  = s.mk_var(false);
@@ -443,7 +443,7 @@ static void tst7() {
 static void tst8() {
     params_ref      ps;
     reslimit        rlim;
-    nlsat::solver s(rlim, ps);
+    nlsat::solver s(rlim, ps, false);
     anum_manager & am     = s.am();
     nlsat::pmanager & pm  = s.pm();
     nlsat::assignment as(am);
@@ -492,7 +492,7 @@ static void tst8() {
 static void tst9() {
     params_ref      ps;
     reslimit        rlim;
-    nlsat::solver s(rlim, ps);
+    nlsat::solver s(rlim, ps, false);
     anum_manager & am     = s.am();
     nlsat::pmanager & pm  = s.pm();
     nlsat::assignment as(am);
@@ -624,7 +624,7 @@ static bool satisfies_root(nlsat::solver& s, nlsat::atom::kind k, nlsat::poly* p
 static void tst10() {
     params_ref      ps;
     reslimit        rlim;
-    nlsat::solver s(rlim, ps);
+    nlsat::solver s(rlim, ps, false);
     anum_manager & am     = s.am();
     nlsat::pmanager & pm  = s.pm();
     nlsat::assignment as(am);

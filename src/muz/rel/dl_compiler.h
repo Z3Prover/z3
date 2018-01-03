@@ -60,7 +60,7 @@ namespace datalog {
 
             ACK_UNBOUND_VAR(var_index) - encodes that the column contains a variable that
                                          is unbound (by the corresponding rule body),
-                                         var_index is the de-Brujin index (var->get_idx())
+                                         var_index is the de-Bruijn index (var->get_idx())
                                          of the variable associated with the column.
 
             ACK_CONSTANT(constant) - encodes that the column contains the constant.

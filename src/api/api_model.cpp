@@ -212,6 +212,18 @@ extern "C" {
         RETURN_Z3(of_ast_vector(v));
         Z3_CATCH_RETURN(0);
     }
+
+    Z3_model Z3_API Z3_model_translate(Z3_context c, Z3_model m, Z3_context target) {
+        Z3_TRY;
+        LOG_Z3_model_translate(c, m, target);
+        RESET_ERROR_CODE();
+        Z3_model_ref* dst = alloc(Z3_model_ref, *mk_c(target));
+        ast_translation tr(mk_c(c)->m(), mk_c(target)->m());
+        dst->m_model = to_model_ref(m)->translate(tr);
+        mk_c(target)->save_object(dst);
+        RETURN_Z3(of_model(dst));
+        Z3_CATCH_RETURN(0);
+    }
     
     Z3_bool Z3_API Z3_is_as_array(Z3_context c, Z3_ast a) {
         Z3_TRY;

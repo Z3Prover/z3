@@ -131,6 +131,7 @@ void asserted_formulas::set_eliminate_and(bool flag) {
     p.set_bool("gcd_rounding", true);
     p.set_bool("expand_select_store", true);
     p.set_bool("bv_sort_ac", true);
+    p.set_bool("som", true);
     m_rewriter.updt_params(p);
     flush_cache();
 }

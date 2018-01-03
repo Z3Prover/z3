@@ -270,7 +270,7 @@ typedef enum
    - Z3_OP_ARRAY_MAP Array map operator.
          It satisfies map[f](a1,..,a_n)[i] = f(a1[i],...,a_n[i]) for every i.
 
-   - Z3_OP_SET_UNION Set union between two Booelan arrays (two arrays whose range type is Boolean). The function is binary.
+   - Z3_OP_SET_UNION Set union between two Boolean arrays (two arrays whose range type is Boolean). The function is binary.
 
    - Z3_OP_SET_INTERSECT Set intersection between two Boolean arrays. The function is binary.
 
@@ -406,7 +406,7 @@ typedef enum
 
    - Z3_OP_BSMUL_NO_UDFL: check that bit-wise signed multiplication does not underflow.
      Signed multiplication underflows if the operands have opposite signs and the result of multiplication
-     does not fit within the avaialble bits. Z3_mk_bvmul_no_underflow.
+     does not fit within the available bits. Z3_mk_bvmul_no_underflow.
 
    - Z3_OP_BSDIV_I: Binary signed division.
      It has the same semantics as Z3_OP_BSDIV, but created in a context where the second operand can be assumed to be non-zero.
@@ -485,7 +485,7 @@ typedef enum
           [monotonicity T1 ... Tn]: (R (f t_1 ... t_n) (f s_1 ... s_n))
           }
           Remark: if t_i == s_i, then the antecedent Ti is suppressed.
-          That is, reflexivity proofs are supressed to save space.
+          That is, reflexivity proofs are suppressed to save space.
 
    - Z3_OP_PR_QUANT_INTRO: Given a proof for (~ p q), produces a proof for (~ (forall (x) p) (forall (x) q)).
 
@@ -832,7 +832,7 @@ typedef enum
 
       - Z3_OP_RA_FILTER: Filter (restrict) a relation with respect to a predicate.
         The first argument is a relation.
-        The second argument is a predicate with free de-Brujin indices
+        The second argument is a predicate with free de-Bruijn indices
         corresponding to the columns of the relation.
         So the first column in the relation has index 0.
 
@@ -969,7 +969,7 @@ typedef enum
 
       - Z3_OP_FPA_TO_FP: Floating-point conversion (various)
 
-      - Z3_OP_FPA_TO_FP_UNSIGNED: Floating-point conversion from unsigend bit-vector
+      - Z3_OP_FPA_TO_FP_UNSIGNED: Floating-point conversion from unsigned bit-vector
 
       - Z3_OP_FPA_TO_UBV: Floating-point conversion to unsigned bit-vector
 
@@ -984,7 +984,7 @@ typedef enum
         of non-relevant terms in theory_fpa)
 
       - Z3_OP_FPA_BV2RM: Conversion of a 3-bit bit-vector term to a
-        floating-point rouding-mode term
+        floating-point rounding-mode term
 
         The conversion uses the following values:
             0 = 000 = Z3_OP_FPA_RM_NEAREST_TIES_TO_EVEN,
@@ -1314,13 +1314,11 @@ typedef enum {
 
    - Z3_PRINT_SMTLIB_FULL:   Print AST nodes in SMTLIB verbose format.
    - Z3_PRINT_LOW_LEVEL:     Print AST nodes using a low-level format.
-   - Z3_PRINT_SMTLIB_COMPLIANT: Print AST nodes in SMTLIB 1.x compliant format.
    - Z3_PRINT_SMTLIB2_COMPLIANT: Print AST nodes in SMTLIB 2.x compliant format.
 */
 typedef enum {
     Z3_PRINT_SMTLIB_FULL,
     Z3_PRINT_LOW_LEVEL,
-    Z3_PRINT_SMTLIB_COMPLIANT,
     Z3_PRINT_SMTLIB2_COMPLIANT
 } Z3_ast_print_mode;
 
@@ -1333,7 +1331,7 @@ typedef enum {
    - Z3_IOB:           Index out of bounds.
    - Z3_INVALID_ARG:   Invalid argument was provided.
    - Z3_PARSER_ERROR:  An error occurred when parsing a string or file.
-   - Z3_NO_PARSER:     Parser output is not available, that is, user didn't invoke #Z3_parse_smtlib_string or #Z3_parse_smtlib_file.
+   - Z3_NO_PARSER:     Parser output is not available, that is, user didn't invoke #Z3_parse_smtlib2_string or #Z3_parse_smtlib2_file.
    - Z3_INVALID_PATTERN: Invalid pattern was used to build a quantifier.
    - Z3_MEMOUT_FAIL:   A memory allocation failure was encountered.
    - Z3_FILE_ACCESS_ERRROR: A file could not be accessed.
@@ -1924,7 +1922,7 @@ extern "C" {
 
        \param c logical context
        \param name name of the enumeration sort.
-       \param n number of elemenets in enumeration sort.
+       \param n number of elements in enumeration sort.
        \param enum_names names of the enumerated elements.
        \param enum_consts constants corresponding to the enumerated elements.
        \param enum_testers predicates testing if terms of the enumeration sort correspond to an enumeration.
@@ -3188,7 +3186,7 @@ extern "C" {
 
        \param c logical context.
        \param num numerator of rational.
-       \param den denomerator of rational.
+       \param den denominator of rational.
 
        \pre den != 0
 
@@ -3203,7 +3201,7 @@ extern "C" {
     /**
        \brief Create a numeral of an int, bit-vector, or finite-domain sort.
 
-       This function can be use to create numerals that fit in a machine integer.
+       This function can be used to create numerals that fit in a machine integer.
        It is slightly faster than #Z3_mk_numeral since it is not necessary to parse a string.
 
        \sa Z3_mk_numeral
@@ -3215,7 +3213,7 @@ extern "C" {
     /**
        \brief Create a numeral of a int, bit-vector, or finite-domain sort.
 
-       This function can be use to create numerals that fit in a machine unsinged integer.
+       This function can be used to create numerals that fit in a machine unsigned integer.
        It is slightly faster than #Z3_mk_numeral since it is not necessary to parse a string.
 
        \sa Z3_mk_numeral
@@ -3227,7 +3225,7 @@ extern "C" {
     /**
        \brief Create a numeral of a int, bit-vector, or finite-domain sort.
 
-       This function can be use to create numerals that fit in a machine __int64 integer.
+       This function can be used to create numerals that fit in a machine __int64 integer.
        It is slightly faster than #Z3_mk_numeral since it is not necessary to parse a string.
 
        \sa Z3_mk_numeral
@@ -3239,7 +3237,7 @@ extern "C" {
     /**
        \brief Create a numeral of a int, bit-vector, or finite-domain sort.
 
-       This function can be use to create numerals that fit in a machine __uint64 integer.
+       This function can be used to create numerals that fit in a machine __uint64 integer.
        It is slightly faster than #Z3_mk_numeral since it is not necessary to parse a string.
 
        \sa Z3_mk_numeral
@@ -3495,8 +3493,8 @@ extern "C" {
     Z3_ast Z3_API Z3_mk_re_range(Z3_context c, Z3_ast lo, Z3_ast hi);
 
     /**
-       \brief Create a regular expression loop. The supplied regular expression \c r is repated
-       between \c lo and \c hi times. The \c lo should be below \c hi with one exection: when
+       \brief Create a regular expression loop. The supplied regular expression \c r is repeated
+       between \c lo and \c hi times. The \c lo should be below \c hi with one exception: when
        supplying the value \c hi as 0, the meaning is to repeat the argument \c r at least
        \c lo number of times, and with an unbounded upper bound.
 
@@ -4250,7 +4248,7 @@ extern "C" {
     Z3_sort Z3_API Z3_get_decl_sort_parameter(Z3_context c, Z3_func_decl d, unsigned idx);
 
     /**
-       \brief Return the expresson value associated with an expression parameter.
+       \brief Return the expression value associated with an expression parameter.
 
        \pre Z3_get_decl_parameter_kind(c, d, idx) == Z3_PARAMETER_AST
 
@@ -4259,7 +4257,7 @@ extern "C" {
     Z3_ast Z3_API Z3_get_decl_ast_parameter(Z3_context c, Z3_func_decl d, unsigned idx);
 
     /**
-       \brief Return the expresson value associated with an expression parameter.
+       \brief Return the expression value associated with an expression parameter.
 
        \pre Z3_get_decl_parameter_kind(c, d, idx) == Z3_PARAMETER_FUNC_DECL
 
@@ -4301,7 +4299,7 @@ extern "C" {
     /**
        \brief Return the i-th argument of the given application.
 
-       \pre i < Z3_get_num_args(c, a)
+       \pre i < Z3_get_app_num_args(c, a)
 
        def_API('Z3_get_app_arg', AST, (_in(CONTEXT), _in(APP), _in(UINT)))
     */
@@ -4329,7 +4327,7 @@ extern "C" {
 
     /**
        \brief Return a hash code for the given AST.
-       The hash code is structural. You can use Z3_get_ast_id interchangably with
+       The hash code is structural. You can use Z3_get_ast_id interchangeably with
        this function.
 
        def_API('Z3_get_ast_hash', UINT, (_in(CONTEXT), _in(AST)))
@@ -4558,7 +4556,7 @@ extern "C" {
     Z3_ast Z3_API Z3_get_pattern(Z3_context c, Z3_pattern p, unsigned idx);
 
     /**
-       \brief Return index of de-Brujin bound variable.
+       \brief Return index of de-Bruijn bound variable.
 
        \pre Z3_get_ast_kind(a) == Z3_VAR_AST
 
@@ -4661,7 +4659,7 @@ extern "C" {
 
         Provides an interface to the AST simplifier used by Z3.
         It returns an AST object which is equal to the argument.
-        The returned AST is simplified using algebraic simplificaiton rules,
+        The returned AST is simplified using algebraic simplification rules,
         such as constant propagation (propagating true/false over logical connectives).
 
         def_API('Z3_simplify', AST, (_in(CONTEXT), _in(AST)))
@@ -4863,9 +4861,9 @@ extern "C" {
     Z3_func_decl Z3_API Z3_model_get_func_decl(Z3_context c, Z3_model m, unsigned i);
 
     /**
-       \brief Return the number of uninterpreted sorts that \c m assigs an interpretation to.
+       \brief Return the number of uninterpreted sorts that \c m assigns an interpretation to.
 
-       Z3 also provides an intepretation for uninterpreted sorts used in a formua.
+       Z3 also provides an interpretation for uninterpreted sorts used in a formula.
        The interpretation for a sort \c s is a finite set of distinct values. We say this finite set is
        the "universe" of \c s.
 
@@ -4897,6 +4895,13 @@ extern "C" {
        def_API('Z3_model_get_sort_universe', AST_VECTOR, (_in(CONTEXT), _in(MODEL), _in(SORT)))
     */
     Z3_ast_vector Z3_API Z3_model_get_sort_universe(Z3_context c, Z3_model m, Z3_sort s);
+
+    /**
+       \brief translate model from context c to context \c dst.
+
+       def_API('Z3_model_translate', MODEL, (_in(CONTEXT), _in(MODEL), _in(CONTEXT)))
+    */
+    Z3_model Z3_API Z3_model_translate(Z3_context c, Z3_model m, Z3_context dst);
 
     /**
        \brief The \ccode{(_ as-array f)} AST node is a construct for assigning interpretations for arrays in Z3.
@@ -4966,7 +4971,7 @@ extern "C" {
     unsigned Z3_API Z3_func_interp_get_num_entries(Z3_context c, Z3_func_interp f);
 
     /**
-       \brief Return a "point" of the given function intepretation. It represents the
+       \brief Return a "point" of the given function interpretation. It represents the
        value of \c f in a particular point.
 
        \pre i < Z3_func_interp_get_num_entries(c, f)
@@ -5008,7 +5013,7 @@ extern "C" {
        \brief add a function entry to a function interpretation.
 
        \param c logical context
-       \param fi a function interpregation to be updated.
+       \param fi a function interpretation to be updated.
        \param args list of arguments. They should be constant values (such as integers) and be of the same types as the domain of the function.
        \param value value of the function when the parameters match args.
 
@@ -5116,7 +5121,7 @@ extern "C" {
        To print shared common subexpressions only once,
        use the Z3_PRINT_LOW_LEVEL mode.
        To print in way that conforms to SMT-LIB standards and uses let
-       expressions to share common sub-expressions use Z3_PRINT_SMTLIB_COMPLIANT.
+       expressions to share common sub-expressions use Z3_PRINT_SMTLIB2_COMPLIANT.
 
        \sa Z3_ast_to_string
        \sa Z3_pattern_to_string
@@ -5228,115 +5233,13 @@ extern "C" {
                                         Z3_symbol const decl_names[],
                                         Z3_func_decl const decls[]);
 
-    /**
-       \brief Parse the given string using the SMT-LIB parser.
-
-       The symbol table of the parser can be initialized using the given sorts and declarations.
-       The symbols in the arrays \c sort_names and \c decl_names don't need to match the names
-       of the sorts and declarations in the arrays \c sorts and \c decls. This is an useful feature
-       since we can use arbitrary names to reference sorts and declarations defined using the C API.
-
-       The formulas, assumptions and declarations defined in \c str can be extracted using the functions:
-       #Z3_get_smtlib_num_formulas, #Z3_get_smtlib_formula, #Z3_get_smtlib_num_assumptions, #Z3_get_smtlib_assumption,
-       #Z3_get_smtlib_num_decls, and #Z3_get_smtlib_decl.
-
-       def_API('Z3_parse_smtlib_string', VOID, (_in(CONTEXT), _in(STRING), _in(UINT), _in_array(2, SYMBOL), _in_array(2, SORT), _in(UINT), _in_array(5, SYMBOL), _in_array(5, FUNC_DECL)))
-    */
-    void Z3_API Z3_parse_smtlib_string(Z3_context c,
-                                       Z3_string str,
-                                       unsigned num_sorts,
-                                       Z3_symbol const sort_names[],
-                                       Z3_sort const sorts[],
-                                       unsigned num_decls,
-                                       Z3_symbol const decl_names[],
-                                       Z3_func_decl const decls[]
-                                       );
-
-    /**
-       \brief Similar to #Z3_parse_smtlib_string, but reads the benchmark from a file.
-
-       def_API('Z3_parse_smtlib_file', VOID, (_in(CONTEXT), _in(STRING), _in(UINT), _in_array(2, SYMBOL), _in_array(2, SORT), _in(UINT), _in_array(5, SYMBOL), _in_array(5, FUNC_DECL)))
-    */
-    void Z3_API Z3_parse_smtlib_file(Z3_context c,
-                                     Z3_string file_name,
-                                     unsigned num_sorts,
-                                     Z3_symbol const sort_names[],
-                                     Z3_sort const sorts[],
-                                     unsigned num_decls,
-                                     Z3_symbol const decl_names[],
-                                     Z3_func_decl const decls[]
-                                     );
-
-    /**
-       \brief Return the number of SMTLIB formulas parsed by the last call to #Z3_parse_smtlib_string or #Z3_parse_smtlib_file.
-
-       def_API('Z3_get_smtlib_num_formulas', UINT, (_in(CONTEXT), ))
-    */
-    unsigned Z3_API Z3_get_smtlib_num_formulas(Z3_context c);
-
-    /**
-       \brief Return the i-th formula parsed by the last call to #Z3_parse_smtlib_string or #Z3_parse_smtlib_file.
-
-       \pre i < Z3_get_smtlib_num_formulas(c)
-
-       def_API('Z3_get_smtlib_formula', AST, (_in(CONTEXT), _in(UINT)))
-    */
-    Z3_ast Z3_API Z3_get_smtlib_formula(Z3_context c, unsigned i);
-
-    /**
-       \brief Return the number of SMTLIB assumptions parsed by #Z3_parse_smtlib_string or #Z3_parse_smtlib_file.
-
-       def_API('Z3_get_smtlib_num_assumptions', UINT, (_in(CONTEXT), ))
-    */
-    unsigned Z3_API Z3_get_smtlib_num_assumptions(Z3_context c);
-
-    /**
-       \brief Return the i-th assumption parsed by the last call to #Z3_parse_smtlib_string or #Z3_parse_smtlib_file.
-
-       \pre i < Z3_get_smtlib_num_assumptions(c)
-
-       def_API('Z3_get_smtlib_assumption', AST, (_in(CONTEXT), _in(UINT)))
-    */
-    Z3_ast Z3_API Z3_get_smtlib_assumption(Z3_context c, unsigned i);
-
-    /**
-       \brief Return the number of declarations parsed by #Z3_parse_smtlib_string or #Z3_parse_smtlib_file.
-
-       def_API('Z3_get_smtlib_num_decls', UINT, (_in(CONTEXT), ))
-    */
-    unsigned Z3_API Z3_get_smtlib_num_decls(Z3_context c);
-
-    /**
-       \brief Return the i-th declaration parsed by the last call to #Z3_parse_smtlib_string or #Z3_parse_smtlib_file.
-
-       \pre i < Z3_get_smtlib_num_decls(c)
-
-       def_API('Z3_get_smtlib_decl', FUNC_DECL, (_in(CONTEXT), _in(UINT)))
-    */
-    Z3_func_decl Z3_API Z3_get_smtlib_decl(Z3_context c, unsigned i);
-
-    /**
-       \brief Return the number of sorts parsed by #Z3_parse_smtlib_string or #Z3_parse_smtlib_file.
-
-       def_API('Z3_get_smtlib_num_sorts', UINT, (_in(CONTEXT), ))
-    */
-    unsigned Z3_API Z3_get_smtlib_num_sorts(Z3_context c);
-
-    /**
-       \brief Return the i-th sort parsed by the last call to #Z3_parse_smtlib_string or #Z3_parse_smtlib_file.
-
-       \pre i < Z3_get_smtlib_num_sorts(c)
-
-       def_API('Z3_get_smtlib_sort', SORT, (_in(CONTEXT), _in(UINT)))
-    */
-    Z3_sort Z3_API Z3_get_smtlib_sort(Z3_context c, unsigned i);
 
     /**
        \brief Retrieve that last error message information generated from parsing.
 
-       def_API('Z3_get_smtlib_error', STRING, (_in(CONTEXT), ))
+       def_API('Z3_get_parser_error', STRING, (_in(CONTEXT), ))
     */
-    Z3_string Z3_API Z3_get_smtlib_error(Z3_context c);
+    Z3_string Z3_API Z3_get_parser_error(Z3_context c);
     /*@}*/
 
     /** @name Error Handling */
@@ -5563,7 +5466,7 @@ extern "C" {
     Z3_bool Z3_API Z3_goal_is_decided_unsat(Z3_context c, Z3_goal g);
 
     /**
-       \brief Copy a goal \c g from the context \c source to a the context \c target.
+       \brief Copy a goal \c g from the context \c source to the context \c target.
 
        def_API('Z3_goal_translate', GOAL, (_in(CONTEXT), _in(GOAL), _in(CONTEXT)))
     */
@@ -6029,7 +5932,7 @@ extern "C" {
     Z3_solver Z3_API Z3_mk_solver_from_tactic(Z3_context c, Z3_tactic t);
 
     /**
-       \brief Copy a solver \c s from the context \c source to a the context \c target.
+       \brief Copy a solver \c s from the context \c source to the context \c target.
 
        def_API('Z3_solver_translate', SOLVER, (_in(CONTEXT), _in(SOLVER), _in(CONTEXT)))
     */
@@ -6141,6 +6044,20 @@ extern "C" {
        def_API('Z3_solver_get_assertions', AST_VECTOR, (_in(CONTEXT), _in(SOLVER)))
     */
     Z3_ast_vector Z3_API Z3_solver_get_assertions(Z3_context c, Z3_solver s);
+
+    /**
+       \brief load solver assertions from a file.
+
+       def_API('Z3_solver_from_file', VOID, (_in(CONTEXT), _in(SOLVER), _in(STRING)))
+    */
+    void Z3_API Z3_solver_from_file(Z3_context c, Z3_solver s, Z3_string file_name);
+
+    /**
+       \brief load solver assertions from a string.
+
+       def_API('Z3_solver_from_string', VOID, (_in(CONTEXT), _in(SOLVER), _in(STRING)))
+    */
+    void Z3_API Z3_solver_from_string(Z3_context c, Z3_solver s, Z3_string file_name);
 
     /**
        \brief Check whether the assertions in a given solver are consistent or not.

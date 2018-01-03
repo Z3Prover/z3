@@ -220,19 +220,11 @@ namespace api {
 
         // ------------------------
         //
-        // Parser interface for backward compatibility 
+        // Parser interface 
         //
         // ------------------------
 
-        // TODO: move to a "parser" object visible to the external world.
-        std::string                m_smtlib_error_buffer;
-        smtlib::parser *           m_smtlib_parser;
-        bool                       m_smtlib_parser_has_decls;
-        ptr_vector<func_decl>      m_smtlib_parser_decls;
-        ptr_vector<sort>           m_smtlib_parser_sorts;
-        
-        void reset_parser();
-        void extract_smtlib_parser_decls();
+        std::string m_parser_error_buffer;        
         
     };
     

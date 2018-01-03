@@ -1916,7 +1916,7 @@ namespace smt {
             lp::var_index vi = m_theory_var2var_index[v];
             SASSERT(m_solver->is_term(vi));
             lp::lar_term const& term = m_solver->get_term(vi);
-            for (auto const coeff : term.m_coeffs) {
+            for (auto const& coeff : term.m_coeffs) {
                 lp::var_index wi = coeff.first;
                 lp::constraint_index ci;
                 rational value;

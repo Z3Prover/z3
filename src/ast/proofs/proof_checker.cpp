@@ -502,7 +502,7 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
         return false;
     }
     case PR_HYPOTHESIS: {
-        // TBD all branches with hyptheses must be closed by a later lemma.
+        // TBD all branches with hypotheses must be closed by a later lemma.
         if (match_proof(p) &&
             match_fact(p, fml)) {
             return true;
@@ -1284,7 +1284,7 @@ void proof_checker::dump_proof(unsigned num_antecedents, expr * const * antecede
         pp.add_assumption(antecedents[i]);
     expr_ref n(m);
     n = m.mk_not(consequent);
-    pp.display(out, n);
+    pp.display_smt2(out, n);
     out.close();
     m_proof_lemma_id++;
 }

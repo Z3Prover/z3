@@ -3202,10 +3202,8 @@ namespace smt {
               });
         validate_unsat_core();
         // theory validation of unsat core
-        ptr_vector<theory>::iterator th_it = m_theory_set.begin();
-        ptr_vector<theory>::iterator th_end = m_theory_set.end();
-        for (; th_it != th_end; ++th_it) {
-            lbool theory_result = (*th_it)->validate_unsat_core(m_unsat_core);
+        for (theory* th : m_theory_set) {
+            lbool theory_result = th->validate_unsat_core(m_unsat_core);
             if (theory_result == l_undef) {
                 return l_undef;
             }
@@ -3296,10 +3294,8 @@ namespace smt {
 #ifndef _EXTERNAL_RELEASE
         if (m_fparams.m_display_installed_theories) {
             std::cout << "(theories";
-            ptr_vector<theory>::iterator it  = m_theory_set.begin();
-            ptr_vector<theory>::iterator end = m_theory_set.end();
-            for (; it != end; ++it) {
-                std::cout << " " << (*it)->get_name();
+            for (theory* th : m_theory_set) {
+                std::cout << " " << th->get_name();
             }
             std::cout << ")" << std::endl;
         }
@@ -3316,17 +3312,13 @@ namespace smt {
             m_fparams.m_relevancy_lemma = false;
 
         // setup all the theories
-        ptr_vector<theory>::iterator it  = m_theory_set.begin();
-        ptr_vector<theory>::iterator end = m_theory_set.end();
-        for (; it != end; ++it)
-            (*it)->setup();
+        for (theory* th : m_theory_set) 
+            th->setup();
     }
 
     void context::add_theory_assumptions(expr_ref_vector & theory_assumptions) {
-        ptr_vector<theory>::iterator it = m_theory_set.begin();
-        ptr_vector<theory>::iterator end = m_theory_set.end();
-        for (; it != end; ++it) {
-            (*it)->add_theory_assumptions(theory_assumptions);
+        for (theory* th : m_theory_set) {
+            th->add_theory_assumptions(theory_assumptions);
         }
     }
 
@@ -3342,18 +3334,7 @@ namespace smt {
         if (!check_preamble(reset_cancel))
             return l_undef;
 
-        expr_ref_vector all_assumptions(m_manager, ext_num_assumptions, ext_assumptions);
-        if (!already_did_theory_assumptions) {
-            add_theory_assumptions(all_assumptions);
-        }
-
-        unsigned num_assumptions = all_assumptions.size();
-        expr * const * assumptions = all_assumptions.c_ptr();
-
-        if (!validate_assumptions(num_assumptions, assumptions))
-            return l_undef;
         TRACE("check_bug", tout << "inconsistent: " << inconsistent() << ", m_unsat_core.empty(): " << m_unsat_core.empty() << "\n";);
-        TRACE("unsat_core_bug", for (unsigned i = 0; i < num_assumptions; i++) { tout << mk_pp(assumptions[i], m_manager) << "\n";});
         pop_to_base_lvl();
         TRACE("before_search", display(tout););
         SASSERT(at_base_level());
@@ -3363,6 +3344,18 @@ namespace smt {
         }
         else {
             setup_context(false);
+            expr_ref_vector all_assumptions(m_manager, ext_num_assumptions, ext_assumptions);
+            if (!already_did_theory_assumptions) {
+                add_theory_assumptions(all_assumptions);
+            }
+            
+            unsigned num_assumptions = all_assumptions.size();
+            expr * const * assumptions = all_assumptions.c_ptr();
+
+            if (!validate_assumptions(num_assumptions, assumptions))
+                return l_undef;
+            TRACE("unsat_core_bug", tout << all_assumptions << "\n";);
+
             internalize_assertions();
             TRACE("after_internalize_assertions", display(tout););
             if (m_asserted_formulas.inconsistent()) {
@@ -3551,10 +3544,9 @@ namespace smt {
                 pop_scope(m_scope_lvl - curr_lvl);
                 SASSERT(at_search_level());
             }
-            ptr_vector<theory>::iterator it  = m_theory_set.begin();
-            ptr_vector<theory>::iterator end = m_theory_set.end();
-            for (; it != end && !inconsistent(); ++it)
-                (*it)->restart_eh();
+            for (theory* th : m_theory_set) {
+                if (!inconsistent()) th->restart_eh();
+            }
             TRACE("mbqi_bug_detail", tout << "before instantiating quantifiers...\n";);
             if (!inconsistent()) {
                 m_qmanager->restart_eh();
@@ -4070,10 +4062,7 @@ namespace smt {
                     bool include = false;
                     if (at_lbls) {
                         // include if there is a label with the '@' sign.
-                        buffer<symbol>::const_iterator it  = lbls.begin();
-                        buffer<symbol>::const_iterator end = lbls.end();
-                        for (; it != end; ++it) {
-                            symbol const & s = *it;
+                        for (symbol const& s : lbls) {
                             if (s.contains('@')) {
                                 include = true;
                                 break;
