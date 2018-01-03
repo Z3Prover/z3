@@ -536,6 +536,7 @@ protected:
     unsigned estimate_regex_complexity(expr * re);
     unsigned estimate_regex_complexity_under_complement(expr * re);
     expr_ref infer_all_regex_lengths(expr * lenVar, expr * re, expr_ref_vector & freeVariables);
+    bool refine_automaton_lower_bound(eautomaton * aut, rational current_lower_bound, rational & refined_lower_bound);
     bool refine_automaton_upper_bound(eautomaton * aut, rational current_upper_bound, rational & refined_upper_bound);
 
     void set_up_axioms(expr * ex);

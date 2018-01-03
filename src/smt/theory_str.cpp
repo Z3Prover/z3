@@ -6672,6 +6672,118 @@ namespace smt {
     }
 
     /*
+     * Refine the lower bound on the length of a solution to a given automaton.
+     * The method returns TRUE if a solution of length `current_lower_bound` exists,
+     * and FALSE otherwise. In addition, the reference parameter `refined_lower_bound`
+     * is assigned the length of the shortest solution longer than `current_lower_bound`
+     * if it exists, or -1 otherwise.
+     */
+    bool theory_str::refine_automaton_lower_bound(eautomaton * aut, rational current_lower_bound, rational & refined_lower_bound) {
+        ENSURE(aut != NULL);
+
+        ast_manager & m = get_manager();
+
+        if (aut->final_states().size() < 1) {
+            // no solutions at all
+            refined_lower_bound = rational::minus_one();
+            return false;
+        }
+
+        // from here we assume that there is a final state reachable from the initial state
+
+        unsigned_vector search_queue;
+        // populate search_queue with all states reachable from the epsilon-closure of start state
+        aut->get_epsilon_closure(aut->init(), search_queue);
+
+        unsigned search_depth = 0;
+        hashtable<unsigned, unsigned_hash, default_eq<unsigned>> next_states;
+        unsigned_vector next_search_queue;
+
+        bool found_solution_at_lower_bound = false;
+
+        while (!search_queue.empty()) {
+            // if we are at the lower bound, check for final states
+            if (search_depth == current_lower_bound.get_unsigned()) {
+                for (unsigned_vector::iterator it = search_queue.begin(); it != search_queue.end(); ++it) {
+                    unsigned state = *it;
+                    if (aut->is_final_state(state)) {
+                        found_solution_at_lower_bound = true;
+                        break;
+                    }
+                }
+                // end phase 1
+                break;
+            }
+            next_states.reset();
+            next_search_queue.clear();
+            // move one step along all states
+            for (unsigned_vector::iterator it = search_queue.begin(); it != search_queue.end(); ++it) {
+                unsigned src = *it;
+                eautomaton::moves next_moves;
+                aut->get_moves_from(src, next_moves, true);
+                for (eautomaton::moves::iterator move_it = next_moves.begin();
+                        move_it != next_moves.end(); ++move_it) {
+                    unsigned dst = move_it->dst();
+                    if (!next_states.contains(dst)) {
+                        next_states.insert(dst);
+                        next_search_queue.push_back(dst);
+                    }
+                }
+            }
+            search_queue.clear();
+            search_queue.append(next_search_queue);
+            search_depth += 1;
+        } // !search_queue.empty()
+
+        // if we got here before reaching the lower bound,
+        // there aren't any solutions at or above it, so stop
+        if (search_depth < current_lower_bound.get_unsigned()) {
+            refined_lower_bound = rational::minus_one();
+            return false;
+        }
+
+        // phase 2: continue exploring the automaton above the lower bound
+        SASSERT(search_depth == current_lower_bound.get_unsigned());
+
+        while (!search_queue.empty()) {
+            if (search_depth > current_lower_bound.get_unsigned()) {
+                // check if we have found a solution above the lower bound
+                for (unsigned_vector::iterator it = search_queue.begin(); it != search_queue.end(); ++it) {
+                    unsigned state = *it;
+                    if (aut->is_final_state(state)) {
+                        // this is a solution at a depth higher than the lower bound
+                        refined_lower_bound = rational(search_depth);
+                        return found_solution_at_lower_bound;
+                    }
+                }
+            }
+            next_states.reset();
+            next_search_queue.clear();
+            // move one step along all states
+            for (unsigned_vector::iterator it = search_queue.begin(); it != search_queue.end(); ++it) {
+                unsigned src = *it;
+                eautomaton::moves next_moves;
+                aut->get_moves_from(src, next_moves, true);
+                for (eautomaton::moves::iterator move_it = next_moves.begin();
+                        move_it != next_moves.end(); ++move_it) {
+                    unsigned dst = move_it->dst();
+                    if (!next_states.contains(dst)) {
+                        next_states.insert(dst);
+                        next_search_queue.push_back(dst);
+                    }
+                }
+            }
+            search_queue.clear();
+            search_queue.append(next_search_queue);
+            search_depth += 1;
+        }
+        // if we reached this point, we explored the whole automaton and didn't find any
+        // solutions above the lower bound
+        refined_lower_bound = rational::minus_one();
+        return found_solution_at_lower_bound;
+    }
+
+    /*
      * Refine the upper bound on the length of a solution to a given automaton.
      * The method returns TRUE if a solution of length `current_upper_bound` exists,
      * and FALSE otherwise. In addition, the reference parameter `refined_upper_bound`
@@ -9291,7 +9403,51 @@ namespace smt {
                     // no upper bound information
                     if (lower_bound_exists) {
                         // lower bound, no upper bound
-                        NOT_IMPLEMENTED_YET();
+
+                        // check current assumptions
+                        if (regex_automaton_assumptions.contains(re) &&
+                                !regex_automaton_assumptions[re].empty()){
+                            // one or more existing assumptions.
+                            // see if the (current best) lower bound can be refined
+                            // (note that if we have an automaton with no assumption,
+                            // this automatically counts as best)
+                            bool need_assumption = true;
+                            regex_automaton_under_assumptions last_assumption;
+                            rational last_lb = rational::zero(); // the default
+                            for (svector<regex_automaton_under_assumptions>::iterator it = regex_automaton_assumptions[re].begin();
+                                    it != regex_automaton_assumptions[re].end(); ++it) {
+                                regex_automaton_under_assumptions autA = *it;
+                                if ((current_assignment == l_true && autA.get_polarity() == false)
+                                        || (current_assignment == l_false && autA.get_polarity() == true)) {
+                                    // automaton uses incorrect polarity
+                                    continue;
+                                }
+                                rational this_lb;
+                                if (autA.get_lower_bound(this_lb)) {
+                                    if (this_lb > last_lb) {
+                                        last_lb = this_lb;
+                                        last_assumption = autA;
+                                    }
+                                } else {
+                                    need_assumption = false;
+                                    last_assumption = autA;
+                                    break;
+                                }
+                            }
+                            if (!last_lb.is_zero() || !need_assumption) {
+                                CTRACE("str", !need_assumption, tout << "using automaton with full length information" << std::endl;);
+                                CTRACE("str", need_assumption, tout << "using automaton with assumed lower bound of " << last_lb << std::endl;);
+                                rational refined_lower_bound;
+                                bool solution_at_lower_bound = refine_automaton_lower_bound(last_assumption.get_automaton(),
+                                        lower_bound_value, refined_lower_bound);
+                                TRACE("str", tout << "refined lower bound is " << refined_lower_bound <<
+                                        (solution_at_lower_bound?", solution at upper bound":", no solution at upper bound") << std::endl;);
+                                NOT_IMPLEMENTED_YET();
+                            }
+                        } else {
+                            // no existing automata/assumptions.
+                            NOT_IMPLEMENTED_YET();
+                        }
                     } else { // !lower_bound_exists
                         // no bounds information
                         NOT_IMPLEMENTED_YET();
