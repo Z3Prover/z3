@@ -182,7 +182,7 @@ class Context:
         """Interrupt a solver performing a satisfiability test, a tactic processing a goal, or simplify functions.
 
         This method can be invoked from a thread different from the one executing the
-        interruptable procedure.
+        interruptible procedure.
         """
         Z3_interrupt(self.ref())
 
@@ -364,6 +364,12 @@ class AstRef(Z3PPObject):
         if __debug__:
             _z3_assert(isinstance(target, Context), "argument must be a Z3 context")
         return _to_ast_ref(Z3_translate(self.ctx.ref(), self.as_ast(), target.ref()), target)
+
+    def __copy__(self):
+        return self.translate(self.ctx)
+
+    def __deepcopy__(self):
+        return self.translate(self.ctx)
 
     def hash(self):
         """Return a hashcode for the `self`.
@@ -596,7 +602,7 @@ def _sort(ctx, a):
     return _to_sort_ref(Z3_get_sort(ctx.ref(), a), ctx)
 
 def DeclareSort(name, ctx=None):
-    """Create a new uninterpred sort named `name`.
+    """Create a new uninterpreted sort named `name`.
 
     If `ctx=None`, then the new sort is declared in the global Z3Py context.
 
@@ -718,7 +724,7 @@ class FuncDeclRef(AstRef):
 
         The arguments must be Z3 expressions. This method assumes that
         the sorts of the elements in `args` match the sorts of the
-        domain. Limited coersion is supported.  For example, if
+        domain. Limited coercion is supported.  For example, if
         args[0] is a Python integer, and the function expects a Z3
         integer, then the argument is automatically converted into a
         Z3 integer.
@@ -3568,6 +3574,14 @@ def BV2Int(a, is_signed=False):
     ## investigate problem with bv2int
     return ArithRef(Z3_mk_bv2int(ctx.ref(), a.as_ast(), is_signed), ctx)
 
+def Int2BV(a, num_bits):
+    """Return the z3 expression Int2BV(a, num_bits).
+    It is a bit-vector of width num_bits and represents the
+    modulo of a by 2^num_bits
+    """
+    ctx = a.ctx
+    return BitVecRef(Z3_mk_int2bv(ctx.ref(), num_bits, a.as_ast()), ctx)
+
 def BitVecSort(sz, ctx=None):
     """Return a Z3 bit-vector sort of the given size. If `ctx=None`, then the global context is used.
 
@@ -5040,6 +5054,12 @@ class Goal(Z3PPObject):
             _z3_assert(isinstance(target, Context), "target must be a context")
         return Goal(goal=Z3_goal_translate(self.ctx.ref(), self.goal, target.ref()), ctx=target)
 
+    def __copy__(self):
+        return self.translate(self.ctx)
+
+    def __deepcopy__(self):
+        return self.translate(self.ctx)
+
     def simplify(self, *arguments, **keywords):
         """Return a new simplified goal.
 
@@ -5132,9 +5152,18 @@ class AstVector(Z3PPObject):
         >>> A[1]
         y
         """
-        if i >= self.__len__():
-            raise IndexError
-        return _to_ast_ref(Z3_ast_vector_get(self.ctx.ref(), self.vector, i), self.ctx)
+
+        if isinstance(i, int):
+            if i < 0:
+                i += self.__len__()
+
+            if i >= self.__len__():
+                raise IndexError
+            return _to_ast_ref(Z3_ast_vector_get(self.ctx.ref(), self.vector, i), self.ctx)
+
+        elif isinstance(i, slice):
+            return [_to_ast_ref(Z3_ast_vector_get(self.ctx.ref(), self.vector, ii), self.ctx) for ii in range(*i.indices(self.__len__()))]
+
 
     def __setitem__(self, i, v):
         """Update AST at position `i`.
@@ -5212,6 +5241,12 @@ class AstVector(Z3PPObject):
         [x]
         """
         return AstVector(Z3_ast_vector_translate(self.ctx.ref(), self.vector, other_ctx.ref()), other_ctx)
+
+    def __copy__(self):
+        return self.translate(self.ctx)
+
+    def __deepcopy__(self):
+        return self.translate(self.ctx)
 
     def __repr__(self):
         return obj_to_string(self)
@@ -5550,6 +5585,17 @@ class FuncInterp(Z3PPObject):
             raise IndexError
         return FuncEntry(Z3_func_interp_get_entry(self.ctx.ref(), self.f, idx), self.ctx)
 
+    def translate(self, other_ctx):
+        """Copy model 'self' to context 'other_ctx'.
+        """
+        return ModelRef(Z3_model_translate(self.ctx.ref(), self.model, other_ctx.ref()), other_ctx)
+
+    def __copy__(self):
+        return self.translate(self.ctx)
+
+    def __deepcopy__(self):
+        return self.translate(self.ctx)
+
     def as_list(self):
         """Return the function interpretation as a Python list.
         >>> f = Function('f', IntSort(), IntSort())
@@ -5578,9 +5624,6 @@ class ModelRef(Z3PPObject):
         self.model = m
         self.ctx   = ctx
         Z3_model_inc_ref(self.ctx.ref(), self.model)
-
-    def __deepcopy__(self, memo={}):
-        return ModelRef(self.m, self.ctx)
 
     def __del__(self):
         if self.ctx.ref() is not None:
@@ -5835,6 +5878,20 @@ class ModelRef(Z3PPObject):
             r.append(FuncDeclRef(Z3_model_get_func_decl(self.ctx.ref(), self.model, i), self.ctx))
         return r
 
+    def translate(self, target):
+        """Translate `self` to the context `target`. That is, return a copy of `self` in the context `target`.
+        """
+        if __debug__:
+            _z3_assert(isinstance(target, Context), "argument must be a Z3 context")
+        model = Z3_model_translate(self.ctx.ref(), self.model, target.ref())
+        return Model(model, target)
+
+    def __copy__(self):
+        return self.translate(self.ctx)
+
+    def __deepcopy__(self):
+        return self.translate(self.ctx)
+
 def is_as_array(n):
     """Return true if n is a Z3 expression of the form (_ as-array f)."""
     return isinstance(n, ExprRef) and Z3_is_as_array(n.ctx.ref(), n.as_ast())
@@ -6036,9 +6093,6 @@ class Solver(Z3PPObject):
         else:
             self.solver = solver
         Z3_solver_inc_ref(self.ctx.ref(), self.solver)
-
-    def __deepcopy__(self, memo={}):
-        return Solver(self.solver, self.ctx)
 
     def __del__(self):
         if self.solver is not None and self.ctx.ref() is not None:
@@ -6412,6 +6466,12 @@ class Solver(Z3PPObject):
             _z3_assert(isinstance(target, Context), "argument must be a Z3 context")
         solver = Z3_solver_translate(self.ctx.ref(), self.solver, target.ref())
         return Solver(solver, target)
+
+    def __copy__(self):
+        return self.translate(self.ctx)
+
+    def __deepcopy__(self):
+        return self.translate(self.ctx)
 
     def sexpr(self):
         """Return a formatted string (in Lisp-like format) with all added constraints. We say the string is in s-expression format.
@@ -9183,7 +9243,7 @@ def fpMul(rm, a, b, ctx=None):
     return _mk_fp_bin(Z3_mk_fpa_mul, rm, a, b, ctx)
 
 def fpDiv(rm, a, b, ctx=None):
-    """Create a Z3 floating-point divison expression.
+    """Create a Z3 floating-point division expression.
 
     >>> s = FPSort(8, 24)
     >>> rm = RNE()
@@ -9210,7 +9270,7 @@ def fpRem(a, b, ctx=None):
     return _mk_fp_bin_norm(Z3_mk_fpa_rem, a, b, ctx)
 
 def fpMin(a, b, ctx=None):
-    """Create a Z3 floating-point minimium expression.
+    """Create a Z3 floating-point minimum expression.
 
     >>> s = FPSort(8, 24)
     >>> rm = RNE()

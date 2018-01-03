@@ -3218,9 +3218,10 @@ void theory_seq::add_indexof_axiom(expr* i) {
     literal t_eq_empty = mk_eq_empty(t);
 
     // |t| = 0 => |s| = 0 or indexof(t,s,offset) = -1
-    // ~contains(t,s) => indexof(t,s,offset) = -1
+    // ~contains(t,s) <=> indexof(t,s,offset) = -1
 
     add_axiom(cnt,  i_eq_m1);
+//    add_axiom(~cnt,  ~i_eq_m1);
     add_axiom(~t_eq_empty, s_eq_empty, i_eq_m1);
 
     if (!offset || (m_autil.is_numeral(offset, r) && r.is_zero())) {
@@ -3233,6 +3234,7 @@ void theory_seq::add_indexof_axiom(expr* i) {
         add_axiom(~s_eq_empty, i_eq_0);
         add_axiom(~cnt, s_eq_empty, mk_seq_eq(t, xsy));
         add_axiom(~cnt, s_eq_empty, mk_eq(i, lenx, false));
+        add_axiom(~cnt, mk_literal(m_autil.mk_ge(i, zero)));
         tightest_prefix(s, x);
     }
     else {

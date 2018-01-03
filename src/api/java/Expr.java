@@ -1421,7 +1421,7 @@ public class Expr extends AST
      * Remarks:  T1:
      * (R t_1 s_1) ... Tn: (R t_n s_n) [monotonicity T1 ... Tn]: (R (f t_1 ...
      * t_n) (f s_1 ... s_n)) Remark: if t_i == s_i, then the antecedent Ti is
-     * suppressed. That is, reflexivity proofs are supressed to save space.
+     * suppressed. That is, reflexivity proofs are suppressed to save space.
      * 
      * @throws Z3Exception on error
      * @return a boolean
@@ -1473,7 +1473,7 @@ public class Expr extends AST
     }
 
     /**
-     * Indicates whether the term is a proof by eliminiation of not-or 
+     * Indicates whether the term is a proof by elimination of not-or
      * Remarks:  * Given a proof for (not (or l_1 ... l_n)), produces a proof for (not l_i). * T1: (not (or l_1 ... l_n)) [not-or-elim T1]: (not l_i) 
      * @throws Z3Exception on error
      * @return a boolean
@@ -1605,7 +1605,7 @@ public class Expr extends AST
     }
 
     /**
-     * Indicates whether the term is a hypthesis marker.
+     * Indicates whether the term is a hypothesis marker.
      * Remarks: Mark a
      * hypothesis in a natural deduction style proof.
      * @throws Z3Exception on error
@@ -1987,7 +1987,7 @@ public class Expr extends AST
      * Indicates whether the term is a relation filter
      * Remarks:  Filter
      * (restrict) a relation with respect to a predicate. The first argument is
-     * a relation. The second argument is a predicate with free de-Brujin
+     * a relation. The second argument is a predicate with free de-Bruijn
      * indices corresponding to the columns of the relation. So the first column
      * in the relation has index 0. 
      * @throws Z3Exception on error
@@ -2094,7 +2094,7 @@ public class Expr extends AST
     }
 
     /**
-     * The de-Burijn index of a bound variable.
+     * The de-Bruijn index of a bound variable.
      * Remarks:  Bound variables are
      * indexed by de-Bruijn indices. It is perhaps easiest to explain the
      * meaning of de-Bruijn indices by indicating the compilation process from

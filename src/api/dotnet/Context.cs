@@ -2262,7 +2262,7 @@ namespace Microsoft.Z3
         /// Maps f on the argument arrays.
         /// </summary>
         /// <remarks>
-        /// Eeach element of <c>args</c> must be of an array sort <c>[domain_i -> range_i]</c>.
+        /// Each element of <c>args</c> must be of an array sort <c>[domain_i -> range_i]</c>.
         /// The function declaration <c>f</c> must have type <c> range_1 .. range_n -> range</c>.
         /// <c>v</c> must have sort range. The sort of the result is <c>[domain_i -> range]</c>.
         /// <seealso cref="MkArraySort(Sort, Sort)"/>
@@ -2862,7 +2862,7 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
-        /// Create a Term of a given sort. This function can be use to create numerals that fit in a machine integer.
+        /// Create a Term of a given sort. This function can be used to create numerals that fit in a machine integer.
         /// It is slightly faster than <c>MakeNumeral</c> since it is not necessary to parse a string.
         /// </summary>
         /// <param name="v">Value of the numeral</param>
@@ -2878,7 +2878,7 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
-        /// Create a Term of a given sort. This function can be use to create numerals that fit in a machine integer.
+        /// Create a Term of a given sort. This function can be used to create numerals that fit in a machine integer.
         /// It is slightly faster than <c>MakeNumeral</c> since it is not necessary to parse a string.
         /// </summary>
         /// <param name="v">Value of the numeral</param>
@@ -2894,7 +2894,7 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
-        /// Create a Term of a given sort. This function can be use to create numerals that fit in a machine integer.
+        /// Create a Term of a given sort. This function can be used to create numerals that fit in a machine integer.
         /// It is slightly faster than <c>MakeNumeral</c> since it is not necessary to parse a string.
         /// </summary>
         /// <param name="v">Value of the numeral</param>
@@ -2910,7 +2910,7 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
-        /// Create a Term of a given sort. This function can be use to create numerals that fit in a machine integer.
+        /// Create a Term of a given sort. This function can be used to create numerals that fit in a machine integer.
         /// It is slightly faster than <c>MakeNumeral</c> since it is not necessary to parse a string.
         /// </summary>
         /// <param name="v">Value of the numeral</param>
@@ -3211,7 +3211,7 @@ namespace Microsoft.Z3
         /// Create an existential Quantifier.
         /// </summary>
         /// <remarks>
-        /// Creates an existential quantifier using de-Brujin indexed variables.
+        /// Creates an existential quantifier using de-Bruijn indexed variables.
         /// (<see cref="MkForall(Sort[], Symbol[], Expr, uint, Pattern[], Expr[], Symbol, Symbol)"/>).
         /// </remarks>
         public Quantifier MkExists(Sort[] sorts, Symbol[] names, Expr body, uint weight = 1, Pattern[] patterns = null, Expr[] noPatterns = null, Symbol quantifierID = null, Symbol skolemID = null)

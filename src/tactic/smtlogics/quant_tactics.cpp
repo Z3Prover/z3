@@ -24,7 +24,6 @@ Revision History:
 #include "qe/qe_tactic.h"
 #include "qe/qe_lite.h"
 #include "qe/qsat.h"
-#include "qe/nlqsat.h"
 #include "tactic/core/ctx_simplify_tactic.h"
 #include "smt/tactic/smt_tactic.h"
 #include "tactic/core/elim_term_ite_tactic.h"

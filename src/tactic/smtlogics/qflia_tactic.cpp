@@ -24,7 +24,6 @@ Notes:
 #include "tactic/core/solve_eqs_tactic.h"
 #include "tactic/core/elim_uncnstr_tactic.h"
 #include "smt/tactic/smt_tactic.h"
-// include"mip_tactic.h"
 #include "tactic/arith/add_bounds_tactic.h"
 #include "tactic/arith/pb2bv_tactic.h"
 #include "tactic/arith/lia2pb_tactic.h"

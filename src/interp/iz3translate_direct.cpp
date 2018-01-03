@@ -9,7 +9,7 @@
 
   Translate a Z3 proof into the interpolating proof calculus.
   Translation is direct, without transformations on the target proof
-  representaiton.
+  representation.
 
   Author:
 

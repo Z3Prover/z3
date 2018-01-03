@@ -609,7 +609,7 @@ namespace datalog {
         std::string to_nice_string(const relation_element & el) const;
         /**
            This one may give a nicer representation of \c el than the 
-           \c to_nice_string(const relation_element & el) function, by unsing the information about the sort
+           \c to_nice_string(const relation_element & el) function, by using the information about the sort
            of the element.
         */
         std::string to_nice_string(const relation_sort & s, const relation_element & el) const;

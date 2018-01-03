@@ -1994,7 +1994,7 @@ struct
     if csn <> cs || cdn <> cd then
       raise (Error "Argument size mismatch")
     else
-      Z3native.parse_smtlib2_string ctx file_name
+      Z3native.parse_smtlib2_file ctx file_name
         cs sort_names sorts cd decl_names decls
 end
 

@@ -16,7 +16,7 @@ Abstract:
     Remarks:
       - The semantics of division by zero is not specified. Thus,
         uninterpreted functions are used.  An ExRCF procedure may
-        treat the unintepreted function applications as fresh
+        treat the uninterpreted function applications as fresh
         constants.  Then, in any model produced by this procedure,
         the interpretation for division by zero must be checked.
 

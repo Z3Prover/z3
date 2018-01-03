@@ -44,6 +44,7 @@ class solve_eqs_tactic : public tactic {
         expr_sparse_mark              m_candidate_set;
         ptr_vector<expr>              m_candidates;
         ptr_vector<app>               m_vars;
+        expr_sparse_mark              m_nonzero;
         ptr_vector<app>               m_ordered_vars;
         bool                          m_produce_proofs;
         bool                          m_produce_unsat_cores;
@@ -55,8 +56,7 @@ class solve_eqs_tactic : public tactic {
             m_r_owner(r == 0 || owner),
             m_a_util(m),
             m_num_steps(0),
-            m_num_eliminated_vars(0)
-             {
+            m_num_eliminated_vars(0) {
             updt_params(p);
             if (m_r == 0)
                 m_r       = mk_default_expr_replacer(m);
@@ -78,7 +78,7 @@ class solve_eqs_tactic : public tactic {
         void checkpoint() {
             if (m().canceled())
                 throw tactic_exception(m().limit().get_cancel_msg());
-        cooperate("solve-eqs");
+            cooperate("solve-eqs");
         }
         
         // Check if the number of occurrences of t is below the specified threshold :solve-eqs-max-occs
@@ -106,7 +106,8 @@ class solve_eqs_tactic : public tactic {
             }
         }
         bool trivial_solve(expr * lhs, expr * rhs, app_ref & var, expr_ref & def, proof_ref & pr) {
-            if (trivial_solve1(lhs, rhs, var, def, pr)) return true;
+            if (trivial_solve1(lhs, rhs, var, def, pr)) 
+                return true;
             if (trivial_solve1(rhs, lhs, var, def, pr)) {
                 if (m_produce_proofs) {
                     pr = m().mk_commutativity(m().mk_eq(lhs, rhs));
@@ -187,6 +188,77 @@ class solve_eqs_tactic : public tactic {
             }
             return false;
         }
+
+        void add_pos(expr* f) {
+            expr* lhs = nullptr, *rhs = nullptr;
+            rational val;
+            if (m_a_util.is_le(f, lhs, rhs) && m_a_util.is_numeral(rhs, val) && val.is_neg()) {
+                m_nonzero.mark(lhs);
+            }
+            else if (m_a_util.is_ge(f, lhs, rhs) && m_a_util.is_numeral(rhs, val) && val.is_pos()) {
+                m_nonzero.mark(lhs);
+            }
+            else if (m().is_not(f, f)) {
+                if (m_a_util.is_le(f, lhs, rhs) && m_a_util.is_numeral(rhs, val) && !val.is_neg()) {
+                    m_nonzero.mark(lhs);
+                }
+                else if (m_a_util.is_ge(f, lhs, rhs) && m_a_util.is_numeral(rhs, val) && !val.is_pos()) {
+                    m_nonzero.mark(lhs);
+                }
+                else if (m().is_eq(f, lhs, rhs) && m_a_util.is_numeral(rhs, val) && val.is_zero()) {
+                    m_nonzero.mark(lhs);                    
+                }
+            }            
+        }
+
+        bool is_nonzero(expr* e) {
+            return m_nonzero.is_marked(e);
+        }
+
+        bool isolate_var(app* arg, app_ref& var, expr_ref& div, unsigned i, app* lhs, expr* rhs) {
+            if (!m_a_util.is_mul(arg)) return false;
+            unsigned n = arg->get_num_args();
+            for (unsigned j = 0; j < n; ++j) {
+                expr* e = arg->get_arg(j);
+                bool ok = is_uninterp_const(e) && check_occs(e) && !occurs(e, rhs) && !occurs_except(e, lhs, i);
+                if (!ok) continue;
+                var = to_app(e);
+                for (unsigned k = 0; ok && k < n; ++k) {
+                    expr* arg_k = arg->get_arg(k);
+                    ok = k == j || (!occurs(var, arg_k) && is_nonzero(arg_k));
+                }
+                if (!ok) continue;
+                ptr_vector<expr> args;
+                for (unsigned k = 0; k < n; ++k) {
+                    if (k != j) args.push_back(arg->get_arg(k));
+                }
+                div = m_a_util.mk_mul(args.size(), args.c_ptr());
+                return true;
+            }
+            return false;
+        }
+
+        bool solve_nl(app * lhs, expr * rhs, expr* eq, app_ref& var, expr_ref & def, proof_ref & pr) {
+            SASSERT(m_a_util.is_add(lhs));
+            if (m_a_util.is_int(lhs)) return false;
+            unsigned num = lhs->get_num_args();
+            expr_ref div(m());
+            for (unsigned i = 0; i < num; i++) {
+                expr * arg = lhs->get_arg(i);
+                if (is_app(arg) && isolate_var(to_app(arg), var, div, i, lhs, rhs)) {
+                    ptr_vector<expr> args;
+                    for (unsigned k = 0; k < num; ++k) {
+                        if (k != i) args.push_back(lhs->get_arg(k));
+                    }
+                    def = m_a_util.mk_sub(rhs, m_a_util.mk_add(args.size(), args.c_ptr()));
+                    def = m_a_util.mk_div(def, div);
+                    if (m_produce_proofs)
+                        pr = m().mk_rewrite(eq, m().mk_eq(var, def));
+                    return true;
+                }
+            }
+            return false;
+        }
         
         bool solve_arith_core(app * lhs, expr * rhs, expr * eq, app_ref & var, expr_ref & def, proof_ref & pr) {
             SASSERT(m_a_util.is_add(lhs));
@@ -204,7 +276,8 @@ class solve_eqs_tactic : public tactic {
                     break;
                 }
                 else if (m_a_util.is_mul(arg, a, v) && 
-                         is_uninterp_const(v) && !m_candidate_vars.is_marked(v) &&
+                         is_uninterp_const(v) && 
+                         !m_candidate_vars.is_marked(v) &&
                          m_a_util.is_numeral(a, a_val) &&
                          !a_val.is_zero() &&
                          (!is_int || a_val.is_minus_one()) &&
@@ -252,16 +325,20 @@ class solve_eqs_tactic : public tactic {
             return 
                 (m_a_util.is_add(lhs) && solve_arith_core(to_app(lhs), rhs, eq, var, def, pr)) ||
                 (m_a_util.is_add(rhs) && solve_arith_core(to_app(rhs), lhs, eq, var, def, pr));
+#if 0
+            // better done inside of nlsat
+                (m_a_util.is_add(lhs) && solve_nl(to_app(lhs), rhs, eq, var, def, pr)) ||
+                (m_a_util.is_add(rhs) && solve_nl(to_app(rhs), lhs, eq, var, def, pr));
+#endif
         }
         
         bool solve(expr * f, app_ref & var, expr_ref & def, proof_ref & pr) {
-            if (m().is_eq(f)) {
-                if (trivial_solve(to_app(f)->get_arg(0), to_app(f)->get_arg(1), var, def, pr))
+            expr* arg1 = 0, *arg2 = 0;
+            if (m().is_eq(f, arg1, arg2)) {
+                if (trivial_solve(arg1, arg2, var, def, pr))
                     return true;
                 if (m_theory_solver) {
-                    expr * lhs = to_app(f)->get_arg(0);
-                    expr * rhs = to_app(f)->get_arg(1);
-                    if (solve_arith(lhs, rhs, f, var, def, pr))
+                    if (solve_arith(arg1, arg2, f, var, def, pr))
                         return true;
                 }
                 return false;
@@ -321,11 +398,14 @@ class solve_eqs_tactic : public tactic {
             m_candidate_set.reset();
             m_candidates.reset();
             m_vars.reset();
-            
+            m_nonzero.reset();
             app_ref  var(m());
             expr_ref  def(m());
             proof_ref pr(m());
             unsigned size = g.size();
+            for (unsigned idx = 0; idx < size; idx++) {
+                add_pos(g.form(idx));
+            }
             for (unsigned idx = 0; idx < size; idx++) {
                 checkpoint();
                 expr * f = g.form(idx);
@@ -347,10 +427,8 @@ class solve_eqs_tactic : public tactic {
             
             TRACE("solve_eqs", 
                   tout << "candidate vars:\n";
-                  ptr_vector<app>::iterator it = m_vars.begin();
-                  ptr_vector<app>::iterator end = m_vars.end();
-                  for (; it != end; ++it) {
-                      tout << mk_ismt2_pp(*it, m()) << " ";
+                  for (app* v : m_vars) {
+                      tout << mk_ismt2_pp(v, m()) << " ";
                   }
                   tout << "\n";);
         }
@@ -374,12 +452,9 @@ class solve_eqs_tactic : public tactic {
             
             typedef std::pair<expr *, unsigned> frame;
             svector<frame> todo;
-            ptr_vector<app>::const_iterator it  = m_vars.begin();
-            ptr_vector<app>::const_iterator end = m_vars.end();
-            unsigned num;
-            for (; it != end; ++it) {
+            unsigned num = 0;
+            for (app* v : m_vars) {
                 checkpoint();
-                app * v = *it;
                 if (!m_candidate_vars.is_marked(v))
                     continue;
                 todo.push_back(frame(v, 0));
@@ -483,20 +558,19 @@ class solve_eqs_tactic : public tactic {
             }
             
             // cleanup
-            it  = m_vars.begin();
-            for (unsigned idx = 0; it != end; ++it, ++idx) {
-                if (!m_candidate_vars.is_marked(*it)) {
+            unsigned idx = 0;
+            for (expr* v : m_vars) {
+                if (!m_candidate_vars.is_marked(v)) {
                     m_candidate_set.mark(m_candidates[idx], false);
                 }
+                ++idx;
             }
             
             TRACE("solve_eqs", 
                   tout << "ordered vars:\n";
-                  ptr_vector<app>::iterator it = m_ordered_vars.begin();
-                  ptr_vector<app>::iterator end = m_ordered_vars.end();
-                  for (; it != end; ++it) {
-                      SASSERT(m_candidate_vars.is_marked(*it));
-                      tout << mk_ismt2_pp(*it, m()) << " ";
+                  for (app* v : m_ordered_vars) {
+                      SASSERT(m_candidate_vars.is_marked(v));
+                      tout << mk_ismt2_pp(v, m()) << " ";
                   }
                   tout << "\n";);
             m_candidate_vars.reset();
@@ -609,10 +683,7 @@ class solve_eqs_tactic : public tactic {
             if (m_produce_models) {
                 if (mc.get() == 0)
                     mc = alloc(gmc, m());
-                ptr_vector<app>::iterator it  = m_ordered_vars.begin();
-                ptr_vector<app>::iterator end = m_ordered_vars.end();
-                for (; it != end; ++it) {
-                    app * v    = *it;
+                for (app* v : m_ordered_vars) {
                     expr * def = 0;
                     proof * pr;
                     expr_dependency * dep;

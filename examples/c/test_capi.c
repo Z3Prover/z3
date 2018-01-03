@@ -1546,7 +1546,7 @@ void two_contexts_example1()
 }
 
 /**
-   \brief Demonstrates how error codes can be read insted of registering an error handler.
+   \brief Demonstrates how error codes can be read instead of registering an error handler.
  */
 void error_code_example1()
 {
@@ -2533,7 +2533,7 @@ void reference_counter_example() {
 
     cfg                = Z3_mk_config();
     Z3_set_param_value(cfg, "model", "true");
-    // Create a Z3 context where the user is reponsible for managing
+    // Create a Z3 context where the user is responsible for managing
     // Z3_ast reference counters.
     ctx                = Z3_mk_context_rc(cfg);
     Z3_del_config(cfg);

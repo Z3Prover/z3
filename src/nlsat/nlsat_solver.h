@@ -35,7 +35,7 @@ namespace nlsat {
         struct imp;
         imp * m_imp;
     public:
-        solver(reslimit& rlim, params_ref const & p);
+        solver(reslimit& rlim, params_ref const & p, bool incremental);
         ~solver();
 
         /**
