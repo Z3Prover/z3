@@ -9236,10 +9236,13 @@ namespace smt {
                             if (solution_at_upper_bound) {
                                 if (refined_upper_bound.is_minus_one()) {
                                     // If there are solutions at the upper bound but not below it, make the bound exact.
-                                    NOT_IMPLEMENTED_YET();
+                                    rhs.push_back(ctx.mk_eq_atom(str_len, m_autil.mk_numeral(upper_bound_value, true)));
                                 } else {
                                     // If there are solutions at and below the upper bound, add an additional bound.
-                                    NOT_IMPLEMENTED_YET();
+                                    rhs.push_back(m.mk_or(
+                                            ctx.mk_eq_atom(str_len, m_autil.mk_numeral(upper_bound_value, true)),
+                                            m_autil.mk_le(str_len, m_autil.mk_numeral(refined_upper_bound, true))
+                                            ));
                                 }
                             } else {
                                 if (refined_upper_bound.is_minus_one()) {
@@ -9247,7 +9250,7 @@ namespace smt {
                                     rhs.push_back(m.mk_not(m_autil.mk_le(str_len, m_autil.mk_numeral(upper_bound_value, true))));
                                 } else {
                                     // If there are solutions below the upper bound but not at it, refine the bound.
-                                    NOT_IMPLEMENTED_YET();
+                                    rhs.push_back(m_autil.mk_le(str_len, m_autil.mk_numeral(refined_upper_bound, true)));
                                 }
                             }
 
