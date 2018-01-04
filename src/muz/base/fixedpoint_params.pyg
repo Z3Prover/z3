@@ -189,6 +189,7 @@ def_module_params('fixedpoint',
                           ('spacer.iuc.debug_proof', BOOL, False, 'prints proof used by unsat-core-learner for debugging purposes'),
                           ('spacer.simplify_pob', BOOL, False, 'simplify POBs by removing redundant constraints'),
                           ('spacer.use_quant_generalizer', BOOL, False, 'use quantified lemma generalizer'),
+                          ('spacer.quic_gen_normalize', BOOL, True, 'normalize cube before quantified generalization'),
                           ))
 
 

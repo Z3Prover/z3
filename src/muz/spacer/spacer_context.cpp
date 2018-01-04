@@ -2284,8 +2284,10 @@ void context::init_lemma_generalizers(datalog::rule_set& rules)
     }
 
     if (m_params.spacer_use_quant_generalizer()) {
-        m_lemma_generalizers.push_back(alloc(lemma_bool_inductive_generalizer, *this, 0, true));
-        m_lemma_generalizers.push_back(alloc(lemma_quantifier_generalizer, *this));
+        m_lemma_generalizers.push_back(alloc(lemma_bool_inductive_generalizer,
+                                             *this, 0, true));
+        m_lemma_generalizers.push_back(alloc(lemma_quantifier_generalizer, *this,
+                                             m_params.spacer_quic_gen_normalize()));
     }
 
     if (get_params().spacer_use_eqclass()) {
