@@ -524,6 +524,7 @@ public:
     void erase_child (pob &v) {m_kids.erase (&v);}
 
     bool is_ground () { return m_binding.empty (); }
+    unsigned get_free_vars_size() { return m_binding.size(); }
     app_ref_vector const &get_binding() const {return m_binding;}
     /*
      * Return skolem variables that appear in post
