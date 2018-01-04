@@ -109,41 +109,30 @@ class lemma_quantifier_generalizer : public lemma_generalizer {
     ast_manager &m;
     arith_util m_arith;
     stats m_st;
+    expr_ref_vector m_cube;
+
+    bool m_normalize_cube;
+    int m_offset;
 public:
-    lemma_quantifier_generalizer(context &ctx);
+    lemma_quantifier_generalizer(context &ctx, bool normalize_cube = true);
     virtual ~lemma_quantifier_generalizer() {}
     virtual void operator()(lemma_ref &lemma);
 
     virtual void collect_statistics(statistics& st) const;
     virtual void reset_statistics() {m_st.reset();}
 private:
+    bool generalize(lemma_ref &lemma, app *term);
+
+    void find_candidates(expr *e, app_ref_vector &candidate);
+    bool is_ub(var *var, expr *e);
+    bool is_lb(var *var, expr *e);
+    void mk_abs_cube (app *term, var *var,
+                      expr_ref_vector &gnd_cube,
+                      expr_ref_vector &abs_cube,
+                      expr *&lb, expr *&ub);
+
     bool match_sk_idx(expr *e, app_ref_vector const &zks, expr *&idx, app *&sk);
     void cleanup(expr_ref_vector& cube, app_ref_vector const &zks, expr_ref &bind);
-    void generalize_pattern_lits(expr_ref_vector &pats);
-    void find_candidates(
-        expr *e,
-        app_ref_vector &candidate);
-    void generate_patterns(
-        expr_ref_vector const &cube,
-        app_ref_vector const &candidates,
-        var_ref_vector &subs,
-        expr_ref_vector &patterns,
-        unsigned offset);
-    void find_matching_expressions(
-        expr_ref_vector const &cube,
-        var_ref_vector const &subs,
-        expr_ref_vector &patterns,
-        vector<expr_ref_vector> &idx_instances,
-        vector<bool> &dirty);
-    void find_guards(
-        expr_ref_vector const &indices,
-        expr_ref &lower,
-        expr_ref &upper);
-    void add_lower_bounds(
-        var_ref_vector const &subs,
-        app_ref_vector const &zks,
-        vector<expr_ref_vector> const &idx_instances,
-        expr_ref_vector &cube);
 };
 }
 
