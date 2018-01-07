@@ -138,7 +138,7 @@ namespace api {
         datatype_decl_plugin * get_dt_plugin() const { return m_dt_plugin; }
 
         Z3_error_code get_error_code() const { return m_error_code; }
-        void reset_error_code() { m_error_code = Z3_OK; }
+        void reset_error_code();
         void set_error_code(Z3_error_code err);
         void set_error_handler(Z3_error_handler h) { m_error_handler = h; }
         // Sign an error if solver is searching

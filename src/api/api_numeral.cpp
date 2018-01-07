@@ -73,7 +73,7 @@ extern "C" {
                      ('P' == *m) ||
                      ('+' == *m))))) {
                 SET_ERROR_CODE(Z3_PARSER_ERROR);
-                return 0;
+                RETURN_Z3(0);
             }
             ++m;
         }
@@ -235,7 +235,7 @@ extern "C" {
         expr* e = to_expr(a);
         if (!e) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            return "";
+            RETURN_Z3("");
         }
         rational r;
         arith_util & u = mk_c(c)->autil();

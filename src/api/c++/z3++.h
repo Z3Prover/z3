@@ -2524,11 +2524,11 @@ namespace z3 {
     inline expr context::real_val(__uint64 n) { Z3_ast r = Z3_mk_unsigned_int64(m_ctx, n, real_sort()); check_error(); return expr(*this, r); }
     inline expr context::real_val(char const * n) { Z3_ast r = Z3_mk_numeral(m_ctx, n, real_sort()); check_error(); return expr(*this, r); }
 
-    inline expr context::bv_val(int n, unsigned sz) { Z3_ast r = Z3_mk_int(m_ctx, n, bv_sort(sz)); check_error(); return expr(*this, r); }
-    inline expr context::bv_val(unsigned n, unsigned sz) { Z3_ast r = Z3_mk_unsigned_int(m_ctx, n, bv_sort(sz)); check_error(); return expr(*this, r); }
-    inline expr context::bv_val(__int64 n, unsigned sz) { Z3_ast r = Z3_mk_int64(m_ctx, n, bv_sort(sz)); check_error(); return expr(*this, r); }
-    inline expr context::bv_val(__uint64 n, unsigned sz) { Z3_ast r = Z3_mk_unsigned_int64(m_ctx, n, bv_sort(sz)); check_error(); return expr(*this, r); }
-    inline expr context::bv_val(char const * n, unsigned sz) { Z3_ast r = Z3_mk_numeral(m_ctx, n, bv_sort(sz)); check_error(); return expr(*this, r); }
+    inline expr context::bv_val(int n, unsigned sz) { sort s = bv_sort(sz); Z3_ast r = Z3_mk_int(m_ctx, n, s); check_error(); return expr(*this, r); }
+    inline expr context::bv_val(unsigned n, unsigned sz) { sort s = bv_sort(sz); Z3_ast r = Z3_mk_unsigned_int(m_ctx, n, s); check_error(); return expr(*this, r); }
+    inline expr context::bv_val(__int64 n, unsigned sz) { sort s = bv_sort(sz); Z3_ast r = Z3_mk_int64(m_ctx, n, s); check_error(); return expr(*this, r); }
+    inline expr context::bv_val(__uint64 n, unsigned sz) { sort s = bv_sort(sz); Z3_ast r = Z3_mk_unsigned_int64(m_ctx, n, s); check_error(); return expr(*this, r); }
+    inline expr context::bv_val(char const * n, unsigned sz) { sort s = bv_sort(sz); Z3_ast r = Z3_mk_numeral(m_ctx, n, s); check_error(); return expr(*this, r); }
     inline expr context::bv_val(unsigned n, bool const* bits) { 
         array<Z3_bool> _bits(n);
         for (unsigned i = 0; i < n; ++i) _bits[i] = bits[i] ? 1 : 0;
