@@ -2101,6 +2101,19 @@ namespace z3 {
             check_error();
             return model(ctx(), new_m);
         }
+        expr as_expr() const {
+            unsigned n = size();
+            if (n == 0)
+                return ctx().bool_val(true);
+            else if (n == 1)
+                return operator[](0).as_expr();
+            else {
+                array<Z3_ast> args(n);
+                for (unsigned i = 0; i < n; i++)
+                    args[i] = operator[](i).as_expr();
+                return expr(ctx(), Z3_mk_or(ctx(), n, args.ptr()));
+            }
+        }
         friend std::ostream & operator<<(std::ostream & out, apply_result const & r);
     };
     inline std::ostream & operator<<(std::ostream & out, apply_result const & r) { out << Z3_apply_result_to_string(r.ctx(), r); return out; }
