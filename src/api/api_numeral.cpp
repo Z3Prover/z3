@@ -235,7 +235,7 @@ extern "C" {
         expr* e = to_expr(a);
         if (!e) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3("");
+            return "";
         }
         rational r;
         arith_util & u = mk_c(c)->autil();
