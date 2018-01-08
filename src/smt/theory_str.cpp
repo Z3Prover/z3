@@ -9441,16 +9441,93 @@ namespace smt {
                                 bool solution_at_lower_bound = refine_automaton_lower_bound(last_assumption.get_automaton(),
                                         lower_bound_value, refined_lower_bound);
                                 TRACE("str", tout << "refined lower bound is " << refined_lower_bound <<
-                                        (solution_at_lower_bound?", solution at upper bound":", no solution at upper bound") << std::endl;);
-                                NOT_IMPLEMENTED_YET();
+                                        (solution_at_lower_bound?", solution at lower bound":", no solution at lower bound") << std::endl;);
+
+                                expr_ref_vector lhs(m);
+                                if (current_assignment == l_false) {
+                                    lhs.push_back(m.mk_not(str_in_re));
+                                } else {
+                                    lhs.push_back(str_in_re);
+                                }
+                                if (need_assumption) {
+                                    lhs.push_back(m_autil.mk_ge(str_len, m_autil.mk_numeral(last_lb, true)));
+                                }
+                                lhs.push_back(m_autil.mk_ge(str_len, m_autil.mk_numeral(lower_bound_value, true)));
+
+                                expr_ref_vector rhs(m);
+
+                                if (solution_at_lower_bound) {
+                                    if (refined_lower_bound.is_minus_one()) {
+                                        // If there are solutions at the lower bound but not above it, make the bound exact.
+                                        rhs.push_back(ctx.mk_eq_atom(str_len, m_autil.mk_numeral(lower_bound_value, true)));
+                                    } else {
+                                        // If there are solutions at and above the lower bound, add an additional bound.
+                                        rhs.push_back(m.mk_or(
+                                                ctx.mk_eq_atom(str_len, m_autil.mk_numeral(lower_bound_value, true)),
+                                                m_autil.mk_ge(str_len, m_autil.mk_numeral(refined_lower_bound, true))
+                                        ));
+                                    }
+                                } else {
+                                    if (refined_lower_bound.is_minus_one()) {
+                                        // If there are no solutions at or above the lower bound, assert a conflict clause.
+                                        rhs.push_back(m.mk_not(m_autil.mk_ge(str_len, m_autil.mk_numeral(lower_bound_value, true))));
+                                    } else {
+                                        // If there are solutions above the lower bound but not at it, refine the bound.
+                                        rhs.push_back(m_autil.mk_ge(str_len, m_autil.mk_numeral(refined_lower_bound, true)));
+                                    }
+                                }
+
+                                expr_ref lhs_terms(mk_and(lhs), m);
+                                expr_ref rhs_terms(mk_and(rhs), m);
+                                assert_implication(lhs_terms, rhs_terms);
+                                regex_axiom_add = true;
                             }
                         } else {
                             // no existing automata/assumptions.
-                            NOT_IMPLEMENTED_YET();
+                            // if it's easy to construct a full automaton for R, do so
+                            unsigned expected_complexity = estimate_regex_complexity(re);
+                            unsigned threshold = 1000; // TODO better metric
+                            if (expected_complexity <= threshold) {
+                                eautomaton * aut = m_mk_aut(re);
+                                aut->compress();
+                                regex_automata.push_back(aut);
+                                regex_automaton_under_assumptions new_aut(re, aut, true);
+                                if (!regex_automaton_assumptions.contains(re)) {
+                                    regex_automaton_assumptions.insert(re, svector<regex_automaton_under_assumptions>());
+                                }
+                                regex_automaton_assumptions[re].push_back(new_aut);
+                                TRACE("str", tout << "add new automaton for " << mk_pp(re, m) << ": no assumptions" << std::endl;);
+                                regex_axiom_add = true;
+                                // TODO immediately attempt to learn lower/upper bound info here
+                            } else {
+                                // TODO check negation?
+                                // construct a partial automaton for R to the given upper bound
+                                NOT_IMPLEMENTED_YET();
+                            }
                         }
                     } else { // !lower_bound_exists
                         // no bounds information
+                        // check for existing automata;
+                        // try to construct an automaton if we don't have one yet
+                        // and doing so without bounds is not difficult
                         NOT_IMPLEMENTED_YET();
+                        if (true) {
+                            unsigned expected_complexity = estimate_regex_complexity(re);
+                            unsigned threshold = 1000; // TODO better metric
+                            if (expected_complexity <= threshold) {
+                                eautomaton * aut = m_mk_aut(re);
+                                aut->compress();
+                                regex_automata.push_back(aut);
+                                regex_automaton_under_assumptions new_aut(re, aut, true);
+                                if (!regex_automaton_assumptions.contains(re)) {
+                                    regex_automaton_assumptions.insert(re, svector<regex_automaton_under_assumptions>());
+                                }
+                                regex_automaton_assumptions[re].push_back(new_aut);
+                                TRACE("str", tout << "add new automaton for " << mk_pp(re, m) << ": no assumptions" << std::endl;);
+                                regex_axiom_add = true;
+                                // TODO immediately attempt to learn lower/upper bound info here
+                            }
+                        }
                     }
                 }
 
