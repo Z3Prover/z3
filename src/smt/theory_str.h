@@ -407,6 +407,7 @@ protected:
     obj_map<expr, ptr_vector<expr> > regex_terms_by_string; // S --> [ (str.in.re S *) ]
     obj_map<expr, svector<regex_automaton_under_assumptions> > regex_automaton_assumptions; // RegEx --> [ aut+assumptions ]
     std::map<expr*, nfa> regex_nfa_cache; // Regex term --> NFA
+    obj_hashtable<expr> regex_terms_with_path_constraints; // set of string terms which have had path constraints asserted in the current scope
 
     svector<char> char_set;
     std::map<char, int>  charSetLookupTable;
@@ -538,7 +539,7 @@ protected:
     expr_ref infer_all_regex_lengths(expr * lenVar, expr * re, expr_ref_vector & freeVariables);
     bool refine_automaton_lower_bound(eautomaton * aut, rational current_lower_bound, rational & refined_lower_bound);
     bool refine_automaton_upper_bound(eautomaton * aut, rational current_upper_bound, rational & refined_upper_bound);
-    expr_ref generate_regex_path_constraints(expr * stringTerm, eautomaton * aut, rational lenVal);
+    expr_ref generate_regex_path_constraints(expr * stringTerm, eautomaton * aut, rational lenVal, expr_ref & characterConstraints);
     void aut_path_add_next(u_map<expr*>& next, expr_ref_vector& trail, unsigned idx, expr* cond);
     expr_ref aut_path_rewrite_constraint(expr * cond, expr * ch_var);
 
@@ -629,6 +630,7 @@ protected:
             std::map<expr*, std::map<expr*, int> > & concat_eq_concat_map,
             std::map<expr*, std::set<expr*> > & unrollGroupMap);
 
+    bool term_appears_as_subterm(expr * needle, expr * haystack);
     void classify_ast_by_type(expr * node, std::map<expr*, int> & varMap,
             std::map<expr*, int> & concatMap, std::map<expr*, int> & unrollMap);
     void classify_ast_by_type_in_positive_context(std::map<expr*, int> & varMap,

@@ -87,6 +87,12 @@ struct theory_str_params {
      */
     bool m_RegexAutomata;
 
+    /*
+     * RegexAutomata_DifficultyThreshold is the lowest difficulty above which Z3str3
+     * will not eagerly construct an automaton for a regular expression term.
+     */
+    unsigned m_RegexAutomata_DifficultyThreshold;
+
     theory_str_params(params_ref const & p = params_ref()):
         m_StrongArrangements(true),
         m_AggressiveLengthTesting(false),
@@ -99,7 +105,8 @@ struct theory_str_params {
         m_UseBinarySearch(false),
         m_BinarySearchInitialUpperBound(64),
         m_OverlapTheoryAwarePriority(-0.1),
-        m_RegexAutomata(true)
+        m_RegexAutomata(true),
+        m_RegexAutomata_DifficultyThreshold(1000)
     {
         updt_params(p);
     }

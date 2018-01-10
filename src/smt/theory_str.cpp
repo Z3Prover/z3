@@ -6918,9 +6918,11 @@ namespace smt {
     /*
      * Create finite path constraints for the string variable `str` with respect to the automaton `aut`.
      * The returned expression is the right-hand side of a constraint of the form
-     * (str in re) AND (|str| = len) AND (any applicable length assumptions on aut) -> RHS
+     * (str in re) AND (|str| = len) AND (any applicable length assumptions on aut) -> (rhs AND character constraints).
+     * The character constraints, which are (str = c0 . c1 . (...) . cn) and (|c0| = 1, ...),
+     * are returned in `characterConstraints`.
      */
-    expr_ref theory_str::generate_regex_path_constraints(expr * stringTerm, eautomaton * aut, rational lenVal) {
+    expr_ref theory_str::generate_regex_path_constraints(expr * stringTerm, eautomaton * aut, rational lenVal, expr_ref & characterConstraints) {
         ENSURE(aut != NULL);
         context & ctx = get_context();
         ast_manager & m = get_manager();
@@ -7060,29 +7062,23 @@ namespace smt {
         expr_ref result(mk_or(ors));
         TRACE("str", tout << "regex path constraint: " << mk_pp(result, m) << "\n";);
 
-        // if the path constraint is instantly false, then we know that the LHS must be false,
-        // so negate it and instantly assert a conflict clause
-        if (m.is_false(result)) {
-            expr_ref conflict(m.mk_false(), m);
-            return conflict;
+        expr_ref concat_rhs(m);
+        if (pathChars.size() == 1) {
+            concat_rhs = ctx.mk_eq_atom(stringTerm, pathChars.get(0));
         } else {
-            expr_ref concat_rhs(m);
-            if (pathChars.size() == 1) {
-                concat_rhs = ctx.mk_eq_atom(stringTerm, pathChars.get(0));
-            } else {
-                expr_ref acc(pathChars.get(0), m);
-                for (unsigned i = 1; i < pathChars.size(); ++i) {
-                    acc = mk_concat(acc, pathChars.get(i));
-                }
-                concat_rhs = ctx.mk_eq_atom(stringTerm, acc);
+            expr_ref acc(pathChars.get(0), m);
+            for (unsigned i = 1; i < pathChars.size(); ++i) {
+                acc = mk_concat(acc, pathChars.get(i));
             }
-
-            expr_ref toplevel_rhs(m.mk_and(result, mk_and(pathChars_len_constraints), concat_rhs), m);
-            //expr_ref final_axiom(rewrite_implication(mk_and(toplevel_lhs), toplevel_rhs), m);
-            //regex_automata_assertions.insert(stringTerm, final_axiom);
-            //m_trail_stack.push(insert_obj_map<theory_str, expr, expr* >(regex_automata_assertions, stringTerm) );
-            return toplevel_rhs;
+            concat_rhs = ctx.mk_eq_atom(stringTerm, acc);
         }
+
+        //expr_ref toplevel_rhs(m.mk_and(result, mk_and(pathChars_len_constraints), concat_rhs), m);
+        characterConstraints = m.mk_and(mk_and(pathChars_len_constraints), concat_rhs);
+        //expr_ref final_axiom(rewrite_implication(mk_and(toplevel_lhs), toplevel_rhs), m);
+        //regex_automata_assertions.insert(stringTerm, final_axiom);
+        //m_trail_stack.push(insert_obj_map<theory_str, expr, expr* >(regex_automata_assertions, stringTerm) );
+        return result;
     }
 
     /*
@@ -8239,6 +8235,27 @@ namespace smt {
                 tout << mk_ismt2_pp(ex, m) << (ctx.is_relevant(ex) ? "" : " (NOT REL)") << std::endl;
             }
                    );
+    }
+
+    // returns true if needle appears as a subterm anywhere under haystack,
+    // or if needle appears in the same EQC as a subterm anywhere under haystack
+    bool theory_str::term_appears_as_subterm(expr * needle, expr * haystack) {
+        if (in_same_eqc(needle, haystack)) {
+            return true;
+        }
+
+        if (is_app(haystack)) {
+            app * a_haystack = to_app(haystack);
+            for (unsigned i = 0; i < a_haystack->get_num_args(); ++i) {
+                expr * subterm = a_haystack->get_arg(i);
+                if (term_appears_as_subterm(needle, subterm)) {
+                    return true;
+                }
+            }
+        }
+
+        // not found
+        return false;
     }
 
     void theory_str::classify_ast_by_type(expr * node, std::map<expr*, int> & varMap,
@@ -9512,8 +9529,78 @@ namespace smt {
                 rational exact_length_value;
                 if (get_len_value(str, exact_length_value)) {
                     TRACE("str", tout << "exact length of " << mk_pp(str, m) << " is " << exact_length_value << std::endl;);
-                    // TODO generate_regex_path_constraints();
-                    NOT_IMPLEMENTED_YET();
+
+                    if (regex_terms_with_path_constraints.contains(str_in_re)) {
+                        TRACE("str", tout << "term " << mk_pp(str_in_re, m) << " already has path constraints set up" << std::endl;);
+                        continue;
+                    }
+
+                    // find a consistent automaton for this term
+                    bool found = false;
+                    regex_automaton_under_assumptions assumption;
+                    if (regex_automaton_assumptions.contains(re) &&
+                                                !regex_automaton_assumptions[re].empty()){
+                        for (svector<regex_automaton_under_assumptions>::iterator it = regex_automaton_assumptions[re].begin();
+                                it != regex_automaton_assumptions[re].end(); ++it) {
+                            regex_automaton_under_assumptions autA = *it;
+                            rational assumed_upper_bound, assumed_lower_bound;
+                            bool assumes_upper_bound = autA.get_upper_bound(assumed_upper_bound);
+                            bool assumes_lower_bound = autA.get_lower_bound(assumed_lower_bound);
+                            if (!assumes_upper_bound && !assumes_lower_bound) {
+                                // automaton with no assumptions is always usable
+                                assumption = autA;
+                                found = true;
+                                break;
+                            }
+                            // check consistency of bounds assumptions
+                        } // foreach(a in regex_automaton_assumptions)
+                    }
+                    if (found) {
+                        expr_ref pathConstraint(m);
+                        expr_ref characterConstraints(m);
+                        pathConstraint = generate_regex_path_constraints(str, assumption.get_automaton(), exact_length_value, characterConstraints);
+                        TRACE("str", tout << "generated regex path constraint " << mk_pp(pathConstraint, m) << std::endl;);
+                        TRACE("str", tout << "character constraints are " << mk_pp(characterConstraints, m) << std::endl;);
+
+                        expr_ref_vector lhs_terms(m);
+                        lhs_terms.push_back(str_in_re);
+                        lhs_terms.push_back(ctx.mk_eq_atom(mk_strlen(str), m_autil.mk_numeral(exact_length_value, true)));
+                        expr_ref lhs(mk_and(lhs_terms), m);
+                        // If the automaton was built with the same polarity as the constraint,
+                        // assert directly. Otherwise, negate the path constraint
+                        if ( (current_assignment == l_true && assumption.get_polarity())
+                                || (current_assignment == l_false && !assumption.get_polarity())) {
+                            expr_ref rhs(m.mk_and(pathConstraint, characterConstraints), m);
+                            assert_implication(lhs, rhs);
+                        } else {
+                            expr_ref rhs(m.mk_and(m.mk_not(pathConstraint), characterConstraints), m);
+                            assert_implication(lhs, rhs);
+                        }
+                        regex_terms_with_path_constraints.insert(str_in_re);
+                        m_trail_stack.push(insert_obj_trail<theory_str, expr>(regex_terms_with_path_constraints, str_in_re));
+                        regex_axiom_add = true;
+                        continue;
+                    } else {
+                        // no automata available, or else all bounds assumptions are invalid
+                        unsigned expected_complexity = estimate_regex_complexity(re);
+                        if (expected_complexity <= m_params.m_RegexAutomata_DifficultyThreshold) {
+                            eautomaton * aut = m_mk_aut(re);
+                            aut->compress();
+                            regex_automata.push_back(aut);
+                            regex_automaton_under_assumptions new_aut(re, aut, true);
+                            if (!regex_automaton_assumptions.contains(re)) {
+                                regex_automaton_assumptions.insert(re, svector<regex_automaton_under_assumptions>());
+                            }
+                            regex_automaton_assumptions[re].push_back(new_aut);
+                            TRACE("str", tout << "add new automaton for " << mk_pp(re, m) << ": no assumptions" << std::endl;);
+                            regex_axiom_add = true;
+                            // TODO immediately attempt to learn lower/upper bound info here
+                        } else {
+                            // TODO increment failure count
+                            NOT_IMPLEMENTED_YET();
+                        }
+                        continue;
+                    }
                 }
                 expr_ref str_len(mk_strlen(str), m);
                 rational lower_bound_value;
@@ -9607,8 +9694,7 @@ namespace smt {
                         // no existing automata/assumptions.
                         // if it's easy to construct a full automaton for R, do so
                         unsigned expected_complexity = estimate_regex_complexity(re);
-                        unsigned threshold = 1000; // TODO better metric
-                        if (expected_complexity <= threshold) {
+                        if (expected_complexity <= m_params.m_RegexAutomata_DifficultyThreshold) {
                             eautomaton * aut = m_mk_aut(re);
                             aut->compress();
                             regex_automata.push_back(aut);
@@ -9622,9 +9708,11 @@ namespace smt {
                             // TODO immediately attempt to learn lower/upper bound info here
                         } else {
                             // TODO check negation?
-                            // construct a partial automaton for R to the given upper bound
+                            // TODO construct a partial automaton for R to the given upper bound?
+                            // TODO increment failure count if we can't
                             NOT_IMPLEMENTED_YET();
                         }
+                        continue;
                     }
                     // if we have *any* automaton for R, and the upper bound is not too large,
                     // finitize the automaton (if we have not already done so) and assert all solutions
@@ -9718,8 +9806,7 @@ namespace smt {
                             // no existing automata/assumptions.
                             // if it's easy to construct a full automaton for R, do so
                             unsigned expected_complexity = estimate_regex_complexity(re);
-                            unsigned threshold = 1000; // TODO better metric
-                            if (expected_complexity <= threshold) {
+                            if (expected_complexity <= m_params.m_RegexAutomata_DifficultyThreshold) {
                                 eautomaton * aut = m_mk_aut(re);
                                 aut->compress();
                                 regex_automata.push_back(aut);
@@ -9733,9 +9820,11 @@ namespace smt {
                                 // TODO immediately attempt to learn lower/upper bound info here
                             } else {
                                 // TODO check negation?
-                                // construct a partial automaton for R to the given upper bound
+                                // TODO construct a partial automaton for R to the given lower bound?
+                                // TODO increment failure count
                                 NOT_IMPLEMENTED_YET();
                             }
+                            continue;
                         }
                     } else { // !lower_bound_exists
                         // no bounds information
@@ -9745,8 +9834,7 @@ namespace smt {
                         NOT_IMPLEMENTED_YET();
                         if (true) {
                             unsigned expected_complexity = estimate_regex_complexity(re);
-                            unsigned threshold = 1000; // TODO better metric
-                            if (expected_complexity <= threshold) {
+                            if (expected_complexity <= m_params.m_RegexAutomata_DifficultyThreshold) {
                                 eautomaton * aut = m_mk_aut(re);
                                 aut->compress();
                                 regex_automata.push_back(aut);
@@ -11265,7 +11353,18 @@ namespace smt {
                     // this length tester is in any way constrained by regex terms,
                     // do not perform value testing -- this term is not a free variable.
                     if (m_params.m_RegexAutomata) {
-                        NOT_IMPLEMENTED_YET(); // TODO
+                        std::map<std::pair<expr*, zstring>, expr*>::iterator it = regex_in_bool_map.begin();
+                        for (; it != regex_in_bool_map.end(); ++it) {
+                            expr * re = it->second;
+                            expr * re_str = to_app(re)->get_arg(0);
+                            // recursive descent through all subterms of re_str to see if any of them are
+                            // - the same as freeVar
+                            // - in the same EQC as freeVar
+                            if (term_appears_as_subterm(freeVar, re_str)) {
+                                TRACE("str", tout << "prevent value testing on free var " << mk_pp(freeVar, m) << " as it belongs to one or more regex constraints." << std::endl;);
+                                return NULL;
+                            }
+                        }
                     }
 
                     TRACE("str", tout << "length is fixed; generating models for free var" << std::endl;);
