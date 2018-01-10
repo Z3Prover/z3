@@ -539,7 +539,6 @@ proof* ProofIteratorPostOrder::next()
 
             p = todo.back();
             if (m_cache.find(p, tmp)) {
-                res = tmp; // TODO: shouldn't this line be removed?
                 todo.pop_back();
                 continue;
             }
