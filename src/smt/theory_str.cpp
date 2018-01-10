@@ -6854,6 +6854,237 @@ namespace smt {
         return found_solution_at_upper_bound;
     }
 
+    void theory_str::aut_path_add_next(u_map<expr*>& next, expr_ref_vector& trail, unsigned idx, expr* cond) {
+        expr* acc;
+        if (!get_manager().is_true(cond) && next.find(idx, acc)) {
+            expr* args[2] = { cond, acc };
+            cond = mk_or(get_manager(), 2, args);
+        }
+        trail.push_back(cond);
+        next.insert(idx, cond);
+    }
+
+    expr_ref theory_str::aut_path_rewrite_constraint(expr * cond, expr * ch_var) {
+        context & ctx = get_context();
+        ast_manager & m = get_manager();
+        bv_util bvu(m);
+
+        expr_ref retval(m);
+
+        rational char_val;
+        unsigned int bv_width;
+
+        expr * lhs;
+        expr * rhs;
+
+        if (bvu.is_numeral(cond, char_val, bv_width)) {
+            SASSERT(char_val.is_nonneg() && char_val.get_unsigned() < 256);
+            TRACE("str", tout << "rewrite character constant " << char_val << std::endl;);
+            zstring str_const(char_val.get_unsigned());
+            retval = u.str.mk_string(str_const);
+            return retval;
+        } else if (is_var(cond)) {
+            TRACE("str", tout << "substitute var" << std::endl;);
+            retval = ch_var;
+            return retval;
+        } else if (m.is_eq(cond, lhs, rhs)) {
+            // handle this specially because the sort of the equality will change
+            expr_ref new_lhs(aut_path_rewrite_constraint(lhs, ch_var), m);
+            SASSERT(new_lhs);
+            expr_ref new_rhs(aut_path_rewrite_constraint(rhs, ch_var), m);
+            SASSERT(new_rhs);
+            retval = ctx.mk_eq_atom(new_lhs, new_rhs);
+            return retval;
+        } else if (m.is_bool(cond)) {
+            TRACE("str", tout << "rewrite boolean term " << mk_pp(cond, m) << std::endl;);
+            app * a_cond = to_app(cond);
+            expr_ref_vector rewritten_args(m);
+            for (unsigned i = 0; i < a_cond->get_num_args(); ++i) {
+                expr * argI = a_cond->get_arg(i);
+                expr_ref new_arg(aut_path_rewrite_constraint(argI, ch_var), m);
+                SASSERT(new_arg);
+                rewritten_args.push_back(new_arg);
+            }
+            retval = m.mk_app(a_cond->get_decl(), rewritten_args.c_ptr());
+            TRACE("str", tout << "final rewritten term is " << mk_pp(retval, m) << std::endl;);
+            return retval;
+        } else {
+            TRACE("str", tout << "ERROR: unrecognized automaton path constraint " << mk_pp(cond, m) << ", cannot translate" << std::endl;);
+            retval = NULL;
+            return retval;
+        }
+    }
+
+    /*
+     * Create finite path constraints for the string variable `str` with respect to the automaton `aut`.
+     * The returned expression is the right-hand side of a constraint of the form
+     * (str in re) AND (|str| = len) AND (any applicable length assumptions on aut) -> RHS
+     */
+    expr_ref theory_str::generate_regex_path_constraints(expr * stringTerm, eautomaton * aut, rational lenVal) {
+        ENSURE(aut != NULL);
+        context & ctx = get_context();
+        ast_manager & m = get_manager();
+
+        if (lenVal.is_zero()) {
+            // if any state in the epsilon-closure of the start state is accepting,
+            // then the empty string is in this language
+            unsigned_vector states;
+            bool has_final = false;
+            aut->get_epsilon_closure(aut->init(), states);
+            for (unsigned i = 0; i < states.size() && !has_final; ++i) {
+                has_final = aut->is_final_state(states[i]);
+            }
+            if (has_final) {
+                // empty string is OK, assert axiom
+                expr_ref rhs(ctx.mk_eq_atom(stringTerm, mk_string("")), m);
+                SASSERT(rhs);
+                //regex_automata_assertions.insert(stringTerm, final_axiom);
+                //m_trail_stack.push(insert_obj_map<theory_str, expr, expr* >(regex_automata_assertions, stringTerm) );
+                return rhs;
+            } else {
+                // negate -- the empty string isn't in the language
+                //expr_ref conflict(m.mk_not(mk_and(toplevel_lhs)), m);
+                //assert_axiom(conflict);
+                expr_ref conflict(m.mk_false(), m);
+                return conflict;
+            }
+        } // lenVal.is_zero()
+
+        expr_ref_vector pathChars(m);
+        expr_ref_vector pathChars_len_constraints(m);
+        for (unsigned i = 0; i < lenVal.get_unsigned(); ++i) {
+            std::stringstream ss;
+            ss << "ch" << i;
+            expr_ref ch(mk_str_var(ss.str()), m);
+            pathChars.push_back(ch);
+            pathChars_len_constraints.push_back(ctx.mk_eq_atom(mk_strlen(ch), m_autil.mk_numeral(rational::one(), true)));
+        }
+
+        // modification of code in seq_rewriter::mk_str_in_regexp()
+        expr_ref_vector trail(m);
+        u_map<expr*> maps[2];
+        bool select_map = false;
+        expr_ref ch(m), cond(m);
+        eautomaton::moves mvs;
+        maps[0].insert(aut->init(), m.mk_true());
+        // is_accepted(a, aut) & some state in frontier is final.
+        for (unsigned i = 0; i < lenVal.get_unsigned(); ++i) {
+            u_map<expr*>& frontier = maps[select_map];
+            u_map<expr*>& next = maps[!select_map];
+            select_map = !select_map;
+            ch = pathChars.get(i);
+            next.reset();
+            u_map<expr*>::iterator it = frontier.begin(), end = frontier.end();
+            for (; it != end; ++it) {
+                mvs.reset();
+                unsigned state = it->m_key;
+                expr*    acc  = it->m_value;
+                aut->get_moves_from(state, mvs, false);
+                for (unsigned j = 0; j < mvs.size(); ++j) {
+                    eautomaton::move const& mv = mvs[j];
+                    SASSERT(mv.t());
+                    if (mv.t()->is_char() && m.is_value(mv.t()->get_char())) {
+                        // change this to a string constraint
+                        expr_ref cond_rhs = aut_path_rewrite_constraint(mv.t()->get_char(), ch);
+                        SASSERT(cond_rhs);
+                        cond = ctx.mk_eq_atom(ch, cond_rhs);
+                        SASSERT(cond);
+                        expr * args[2] = {cond, acc};
+                        cond = mk_and(m, 2, args);
+                        aut_path_add_next(next, trail, mv.dst(), cond);
+                    } else if (mv.t()->is_range()) {
+                        expr_ref range_lo(mv.t()->get_lo(), m);
+                        expr_ref range_hi(mv.t()->get_hi(), m);
+                        bv_util bvu(m);
+
+                        rational lo_val, hi_val;
+                        unsigned int bv_width;
+
+                        if (bvu.is_numeral(range_lo, lo_val, bv_width) && bvu.is_numeral(range_hi, hi_val, bv_width)) {
+                            TRACE("str", tout << "make range predicate from " << lo_val << " to " << hi_val << std::endl;);
+                            expr_ref cond_rhs(m);
+
+                            if (hi_val < lo_val) {
+                                rational tmp = lo_val;
+                                lo_val = hi_val;
+                                hi_val = tmp;
+                            }
+
+                            expr_ref_vector cond_rhs_terms(m);
+                            for (unsigned i = lo_val.get_unsigned(); i <= hi_val.get_unsigned(); ++i) {
+                                zstring str_const(i);
+                                expr_ref str_expr(u.str.mk_string(str_const), m);
+                                cond_rhs_terms.push_back(ctx.mk_eq_atom(ch, str_expr));
+                            }
+                            cond_rhs = mk_or(cond_rhs_terms);
+                            SASSERT(cond_rhs);
+                            expr * args[2] = {cond_rhs, acc};
+                            cond = mk_and(m, 2, args);
+                            aut_path_add_next(next, trail, mv.dst(), cond);
+                        } else {
+                            TRACE("str", tout << "warning: non-bitvectors in automaton range predicate" << std::endl;);
+                            UNREACHABLE();
+                        }
+                    } else if (mv.t()->is_pred()) {
+                        // rewrite this constraint over string terms
+                        expr_ref cond_rhs = aut_path_rewrite_constraint(mv.t()->get_pred(), ch);
+                        SASSERT(cond_rhs);
+
+                        if (m.is_false(cond_rhs)) {
+                            continue;
+                        } else if (m.is_true(cond_rhs)) {
+                            aut_path_add_next(next, trail, mv.dst(), acc);
+                            continue;
+                        }
+                        expr * args[2] = {cond_rhs, acc};
+                        cond = mk_and(m, 2, args);
+                        aut_path_add_next(next, trail, mv.dst(), cond);
+                    }
+                }
+            }
+        }
+        u_map<expr*> const& frontier = maps[select_map];
+        u_map<expr*>::iterator it = frontier.begin(), end = frontier.end();
+        expr_ref_vector ors(m);
+        for (; it != end; ++it) {
+            unsigned_vector states;
+            bool has_final = false;
+            aut->get_epsilon_closure(it->m_key, states);
+            for (unsigned i = 0; i < states.size() && !has_final; ++i) {
+                has_final = aut->is_final_state(states[i]);
+            }
+            if (has_final) {
+                ors.push_back(it->m_value);
+            }
+        }
+        expr_ref result(mk_or(ors));
+        TRACE("str", tout << "regex path constraint: " << mk_pp(result, m) << "\n";);
+
+        // if the path constraint is instantly false, then we know that the LHS must be false,
+        // so negate it and instantly assert a conflict clause
+        if (m.is_false(result)) {
+            expr_ref conflict(m.mk_false(), m);
+            return conflict;
+        } else {
+            expr_ref concat_rhs(m);
+            if (pathChars.size() == 1) {
+                concat_rhs = ctx.mk_eq_atom(stringTerm, pathChars.get(0));
+            } else {
+                expr_ref acc(pathChars.get(0), m);
+                for (unsigned i = 1; i < pathChars.size(); ++i) {
+                    acc = mk_concat(acc, pathChars.get(i));
+                }
+                concat_rhs = ctx.mk_eq_atom(stringTerm, acc);
+            }
+
+            expr_ref toplevel_rhs(m.mk_and(result, mk_and(pathChars_len_constraints), concat_rhs), m);
+            //expr_ref final_axiom(rewrite_implication(mk_and(toplevel_lhs), toplevel_rhs), m);
+            //regex_automata_assertions.insert(stringTerm, final_axiom);
+            //m_trail_stack.push(insert_obj_map<theory_str, expr, expr* >(regex_automata_assertions, stringTerm) );
+            return toplevel_rhs;
+        }
+    }
+
     /*
      * strArgmt::solve_concat_eq_str()
      * Solve concatenations of the form:
@@ -9281,6 +9512,7 @@ namespace smt {
                 rational exact_length_value;
                 if (get_len_value(str, exact_length_value)) {
                     TRACE("str", tout << "exact length of " << mk_pp(str, m) << " is " << exact_length_value << std::endl;);
+                    // TODO generate_regex_path_constraints();
                     NOT_IMPLEMENTED_YET();
                 }
                 expr_ref str_len(mk_strlen(str), m);

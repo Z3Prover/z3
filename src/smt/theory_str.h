@@ -538,6 +538,9 @@ protected:
     expr_ref infer_all_regex_lengths(expr * lenVar, expr * re, expr_ref_vector & freeVariables);
     bool refine_automaton_lower_bound(eautomaton * aut, rational current_lower_bound, rational & refined_lower_bound);
     bool refine_automaton_upper_bound(eautomaton * aut, rational current_upper_bound, rational & refined_upper_bound);
+    expr_ref generate_regex_path_constraints(expr * stringTerm, eautomaton * aut, rational lenVal);
+    void aut_path_add_next(u_map<expr*>& next, expr_ref_vector& trail, unsigned idx, expr* cond);
+    expr_ref aut_path_rewrite_constraint(expr * cond, expr * ch_var);
 
     void set_up_axioms(expr * ex);
     void handle_equality(expr * lhs, expr * rhs);
