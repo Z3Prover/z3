@@ -24,17 +24,22 @@ Notes:
  * Add or overwrite value in model.
  */
 void model_converter::display_add(std::ostream& out, ast_manager& m, func_decl* f, expr* e) const {
-    VERIFY(m_env);
+    smt2_pp_environment_dbg env(m);
+    smt2_pp_environment* _env = m_env ? m_env : &env;
     VERIFY(f->get_range() == m.get_sort(e));
-    ast_smt2_pp(out, f, e, *m_env, params_ref(), 0, "model-add") << "\n";
+    ast_smt2_pp(out, f, e, *_env, params_ref(), 0, "model-add") << "\n";
 }
 
 /*
  * A value is removed from the model.
  */
 void model_converter::display_del(std::ostream& out, func_decl* f) const {
-    VERIFY(m_env);
-    ast_smt2_pp(out << "(model-del ", f->get_name(), f->is_skolem(), *m_env) << ")\n";    
+    if (m_env) {
+        ast_smt2_pp(out << "(model-del ", f->get_name(), f->is_skolem(), *m_env) << ")\n";    
+    }
+    else {
+        out << "(model-del " << f->get_name() << ")\n";
+    }
 }
 
 void model_converter::display_add(std::ostream& out, ast_manager& m) {
