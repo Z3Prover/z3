@@ -787,21 +787,23 @@ private:
         }
         m_model = md;
 
+        if (m_sat_mc) {
+            (*m_sat_mc)(m_model);
+        }
         if (m_bb_rewriter.get() && !m_bb_rewriter->const2bits().empty()) {
             m_mc0 = concat(m_mc0.get(), mk_bit_blaster_model_converter(m, m_bb_rewriter->const2bits()));
         }
-        if (m_mc0) {
+        if (m_mc0) {            
             (*m_mc0)(m_model);
         }
         SASSERT(m_model);
 
         DEBUG_CODE(
-            for (unsigned i = 0; i < m_fmls.size(); ++i) {
+            for (expr * f : m_fmls) {
                 expr_ref tmp(m);
-                if (m_model->eval(m_fmls[i].get(), tmp, true)) {
+                if (m_model->eval(f, tmp, true)) {
                     CTRACE("sat", !m.is_true(tmp),
-                           tout << "Evaluation failed: " << mk_pp(m_fmls[i].get(), m)
-                           << " to " << tmp << "\n";
+                           tout << "Evaluation failed: " << mk_pp(f, m) << " to " << tmp << "\n";
                            model_smt2_pp(tout, m, *(m_model.get()), 0););
                     SASSERT(m.is_true(tmp));
                 }

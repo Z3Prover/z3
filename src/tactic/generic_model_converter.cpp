@@ -28,6 +28,13 @@ Notes:
 #include "model/model_evaluator.h"
 
 
+void generic_model_converter::add(func_decl * d, expr* e) {
+    struct entry et(d, e, m, ADD);
+    VERIFY(d->get_range() == m.get_sort(e));
+    m_first_idx.insert_if_not_there(et.m_f, m_add_entries.size());
+    m_add_entries.push_back(et);
+}
+
 void generic_model_converter::operator()(model_ref & md) {
     TRACE("model_converter", tout << "before generic_model_converter\n"; model_v2_pp(tout, *md); display(tout););
     model_evaluator ev(*(md.get()));

@@ -25,6 +25,7 @@ Notes:
  */
 void model_converter::display_add(std::ostream& out, ast_manager& m, func_decl* f, expr* e) const {
     VERIFY(m_env);
+    VERIFY(f->get_range() == m.get_sort(e));
     ast_smt2_pp(out, f, e, *m_env, params_ref(), 0, "model-add") << "\n";
 }
 
