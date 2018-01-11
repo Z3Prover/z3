@@ -126,13 +126,15 @@ private:
     void find_candidates(expr *e, app_ref_vector &candidate);
     bool is_ub(var *var, expr *e);
     bool is_lb(var *var, expr *e);
-    void mk_abs_cube (app *term, var *var,
+    void mk_abs_cube (lemma_ref &lemma, app *term, var *var,
                       expr_ref_vector &gnd_cube,
                       expr_ref_vector &abs_cube,
-                      expr *&lb, expr *&ub);
+                      expr *&lb, expr *&ub, unsigned &stride);
 
     bool match_sk_idx(expr *e, app_ref_vector const &zks, expr *&idx, app *&sk);
     void cleanup(expr_ref_vector& cube, app_ref_vector const &zks, expr_ref &bind);
+
+    bool find_stride(expr_ref_vector &c, expr_ref &pattern, unsigned &stride);
 };
 }
 
