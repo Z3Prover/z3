@@ -1139,20 +1139,12 @@ struct sat2goal::imp {
         if (mc) mc->flush_smc(s);
         init_lit2expr(s, map, mc);
         // collect units
-        unsigned num_vars = s.num_vars();
-        for (sat::bool_var v = 0; v < num_vars; v++) {
+        unsigned trail_sz = s.init_trail_size();
+        for (unsigned i = 0; i < trail_sz; ++i) {
             checkpoint();
-            switch (s.value(v)) {
-            case l_true:
-                r.assert_expr(lit2expr(mc, sat::literal(v, false)));
-                break;
-            case l_false:
-                r.assert_expr(lit2expr(mc, sat::literal(v, true)));
-                break;
-            case l_undef:
-                break;
-            }
+            r.assert_expr(lit2expr(mc, s.trail_literal(i)));
         }
+
         // collect binary clauses
         svector<sat::solver::bin_clause> bin_clauses;
         s.collect_bin_clauses(bin_clauses, m_learned);
