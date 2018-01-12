@@ -6480,6 +6480,26 @@ namespace smt {
         }
     }
 
+    void theory_str::regex_inc_counter(obj_map<expr, unsigned> & counter_map, expr * key) {
+        unsigned old_v;
+        if (counter_map.find(key, old_v)) {
+            unsigned new_v = old_v += 1;
+            counter_map.insert(key, new_v);
+        } else {
+            counter_map.insert(key, 1);
+        }
+    }
+
+    unsigned theory_str::regex_get_counter(obj_map<expr, unsigned> & counter_map, expr * key) {
+        unsigned v;
+        if (counter_map.find(key, v)) {
+            return v;
+        } else {
+            counter_map.insert(key, 0);
+            return 0;
+        }
+    }
+
     // saturating unsigned addition
     unsigned inline _qadd(unsigned a, unsigned b) {
         if (a == UINT_MAX || b == UINT_MAX) {
@@ -9515,6 +9535,7 @@ namespace smt {
 
         // regex automata
         if (m_params.m_RegexAutomata) {
+            // TODO since heuristics might fail, the "no progress" flag might need to be handled specially here
             bool regex_axiom_add = false;
             for (obj_hashtable<expr>::iterator it = regex_terms.begin(); it != regex_terms.end(); ++it) {
                 expr * str_in_re = *it;
@@ -9579,11 +9600,16 @@ namespace smt {
                         regex_terms_with_path_constraints.insert(str_in_re);
                         m_trail_stack.push(insert_obj_trail<theory_str, expr>(regex_terms_with_path_constraints, str_in_re));
                         regex_axiom_add = true;
+
+                        // increment LengthAttemptCount
+                        regex_inc_counter(regex_length_attempt_count, str_in_re);
                         continue;
                     } else {
                         // no automata available, or else all bounds assumptions are invalid
                         unsigned expected_complexity = estimate_regex_complexity(re);
-                        if (expected_complexity <= m_params.m_RegexAutomata_DifficultyThreshold) {
+                        if (expected_complexity <= m_params.m_RegexAutomata_DifficultyThreshold || regex_get_counter(regex_fail_count, str_in_re) >= m_params.m_RegexAutomata_FailedAutomatonThreshold) {
+                            CTRACE("str", regex_get_counter(regex_fail_count, str_in_re) >= m_params.m_RegexAutomata_FailedAutomatonThreshold,
+                                    tout << "failed automaton threshold reached for " << mk_pp(str_in_re, m) << " -- automatically constructing full automaton" << std::endl;);
                             eautomaton * aut = m_mk_aut(re);
                             aut->compress();
                             regex_automata.push_back(aut);
@@ -9596,8 +9622,7 @@ namespace smt {
                             regex_axiom_add = true;
                             // TODO immediately attempt to learn lower/upper bound info here
                         } else {
-                            // TODO increment failure count
-                            NOT_IMPLEMENTED_YET();
+                            regex_inc_counter(regex_fail_count, str_in_re);
                         }
                         continue;
                     }
@@ -9852,7 +9877,68 @@ namespace smt {
                 }
 
                 // NOT_IMPLEMENTED_YET();
-            }
+            } // foreach (entry in regex_terms)
+
+            for (obj_map<expr, ptr_vector<expr> >::iterator it = regex_terms_by_string.begin();
+                    it != regex_terms_by_string.end(); ++it) {
+                // TODO do we need to check equivalence classes of strings here?
+
+                expr * str = it->m_key;
+                ptr_vector<expr> str_in_re_terms = it->m_value;
+
+                svector<regex_automaton_under_assumptions> intersect_constraints;
+                // we may find empty intersection before checking every constraint;
+                // this vector keeps track of which ones actually take part in intersection
+                svector<regex_automaton_under_assumptions> used_intersect_constraints;
+
+                // choose an automaton/assumption for each assigned (str.in.re)
+                // that's consistent with the current length information
+                NOT_IMPLEMENTED_YET();
+
+                eautomaton * aut_inter = NULL;
+                CTRACE("str", !intersect_constraints.empty(), tout << "check intersection of automata constraints for " << mk_pp(str, m) << std::endl;);
+                for (svector<regex_automaton_under_assumptions>::iterator aut_it = intersect_constraints.begin();
+                        aut_it != intersect_constraints.end(); ++aut_it) {
+                    regex_automaton_under_assumptions aut = *aut_it;
+                    if (aut_inter == NULL) {
+                        // start somewhere
+                        aut_inter = aut.get_automaton();
+                        used_intersect_constraints.push_back(aut);
+                        continue;
+                    }
+
+                    if (regex_get_counter(regex_length_attempt_count, aut.get_regex_term()) >= m_params.m_RegexAutomata_LengthAttemptThreshold) {
+                        unsigned intersectionDifficulty = 0; // TODO EstimateIntersectionDifficulty
+                        if (intersectionDifficulty <= m_params.m_RegexAutomata_IntersectionDifficultyThreshold
+                                || regex_get_counter(regex_intersection_fail_count, aut.get_regex_term()) >= m_params.m_RegexAutomata_FailedIntersectionThreshold) {
+                            lbool current_assignment = ctx.get_assignment(aut.get_regex_term());
+                            // if the assignment is consistent with our assumption, use the automaton directly;
+                            // otherwise, complement it (and save that automaton for next time)
+                            // TODO we should cache these intermediate results
+                            // TODO do we need to push the intermediates into a vector for deletion anyway?
+                            if ( (current_assignment == l_true && aut.get_polarity())
+                                    || (current_assignment == l_false && !aut.get_polarity())) {
+                                aut_inter = m_mk_aut.mk_product(aut_inter, aut.get_automaton());
+                            } else {
+                                // need to complement first
+                                NOT_IMPLEMENTED_YET();
+                            }
+                            used_intersect_constraints.push_back(aut);
+                            if (aut_inter->is_empty()) {
+                                break;
+                            }
+                        } else {
+                            // failed intersection
+                            regex_inc_counter(regex_intersection_fail_count, aut.get_regex_term());
+                        }
+                    }
+                } // foreach(entry in intersect_constraints)
+                if (aut_inter->is_empty()) {
+                    TRACE("str", tout << "product automaton is empty; asserting conflict clause" << std::endl;);
+                    NOT_IMPLEMENTED_YET();
+                }
+            } // foreach (entry in regex_terms_by_string)
+
             if (regex_axiom_add) {
                 return FC_CONTINUE;
             }

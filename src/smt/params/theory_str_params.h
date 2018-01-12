@@ -93,6 +93,30 @@ struct theory_str_params {
      */
     unsigned m_RegexAutomata_DifficultyThreshold;
 
+    /*
+     * RegexAutomata_IntersectionDifficultyThreshold is the lowest difficulty above which Z3str3
+     * will not eagerly intersect automata to check unsatisfiability.
+     */
+    unsigned m_RegexAutomata_IntersectionDifficultyThreshold;
+
+    /*
+     * RegexAutomata_FailedAutomatonThreshold is the number of failed attempts to build an automaton
+     * after which a full automaton (i.e. with no length information) will be built regardless of difficulty.
+     */
+    unsigned m_RegexAutomata_FailedAutomatonThreshold;
+
+    /*
+     * RegexAutomaton_FailedIntersectionThreshold is the number of failed attempts to perform automaton
+     * intersection after which intersection will always be performed regardless of difficulty.
+     */
+    unsigned m_RegexAutomata_FailedIntersectionThreshold;
+
+    /*
+     * RegexAutomaton_LengthAttemptThreshold is the number of attempts to satisfy length/path constraints
+     * before which we begin checking unsatisfiability of a regex term.
+     */
+    unsigned m_RegexAutomata_LengthAttemptThreshold;
+
     theory_str_params(params_ref const & p = params_ref()):
         m_StrongArrangements(true),
         m_AggressiveLengthTesting(false),
@@ -106,7 +130,11 @@ struct theory_str_params {
         m_BinarySearchInitialUpperBound(64),
         m_OverlapTheoryAwarePriority(-0.1),
         m_RegexAutomata(true),
-        m_RegexAutomata_DifficultyThreshold(1000)
+        m_RegexAutomata_DifficultyThreshold(1000),
+        m_RegexAutomata_IntersectionDifficultyThreshold(1000),
+        m_RegexAutomata_FailedAutomatonThreshold(10),
+        m_RegexAutomata_FailedIntersectionThreshold(10),
+        m_RegexAutomata_LengthAttemptThreshold(10)
     {
         updt_params(p);
     }

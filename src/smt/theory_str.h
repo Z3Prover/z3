@@ -221,6 +221,7 @@ public:
     }
 
     eautomaton * get_automaton() const { return aut; }
+    expr * get_regex_term() const { return str_in_re; }
     bool get_polarity() const { return polarity; }
 
     virtual ~regex_automaton_under_assumptions() {
@@ -409,6 +410,12 @@ protected:
     std::map<expr*, nfa> regex_nfa_cache; // Regex term --> NFA
     obj_hashtable<expr> regex_terms_with_path_constraints; // set of string terms which have had path constraints asserted in the current scope
 
+    // each counter maps a (str.in.re) expression to an integer.
+    // use helper functions regex_inc_counter() and regex_get_counter() to access
+    obj_map<expr, unsigned> regex_length_attempt_count;
+    obj_map<expr, unsigned> regex_fail_count;
+    obj_map<expr, unsigned> regex_intersection_fail_count;
+
     svector<char> char_set;
     std::map<char, int>  charSetLookupTable;
     int           charSetSize;
@@ -542,6 +549,8 @@ protected:
     expr_ref generate_regex_path_constraints(expr * stringTerm, eautomaton * aut, rational lenVal, expr_ref & characterConstraints);
     void aut_path_add_next(u_map<expr*>& next, expr_ref_vector& trail, unsigned idx, expr* cond);
     expr_ref aut_path_rewrite_constraint(expr * cond, expr * ch_var);
+    void regex_inc_counter(obj_map<expr, unsigned> & counter_map, expr * key);
+    unsigned regex_get_counter(obj_map<expr, unsigned> & counter_map, expr * key);
 
     void set_up_axioms(expr * ex);
     void handle_equality(expr * lhs, expr * rhs);
