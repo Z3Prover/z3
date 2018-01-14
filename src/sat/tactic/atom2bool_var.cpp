@@ -31,6 +31,12 @@ void atom2bool_var::mk_inv(expr_ref_vector & lit2expr) const {
     }
 }
 
+void atom2bool_var::mk_var_inv(app_ref_vector & var2expr) const {
+    for (auto const& kv : m_mapping) {
+        var2expr.set(kv.m_value, to_app(kv.m_key));
+    }
+}
+
 sat::bool_var atom2bool_var::to_bool_var(expr * n) const {
     sat::bool_var v = sat::null_bool_var;
     m_mapping.find(n, v);

@@ -52,18 +52,19 @@ Notes:
 
 --*/
 
+#include "ast/ast_pp.h"
+#include "ast/pb_decl_plugin.h"
+#include "ast/ast_util.h"
+#include "model/model_smt2_pp.h"
 #include "solver/solver.h"
+#include "solver/mus.h"
+#include "sat/sat_solver/inc_sat_solver.h"
+#include "smt/smt_solver.h"
+#include "opt/opt_context.h"
+#include "opt/opt_params.hpp"
 #include "opt/maxsmt.h"
 #include "opt/maxres.h"
-#include "ast/ast_pp.h"
-#include "solver/mus.h"
 #include "opt/mss.h"
-#include "sat/sat_solver/inc_sat_solver.h"
-#include "opt/opt_context.h"
-#include "ast/pb_decl_plugin.h"
-#include "opt/opt_params.hpp"
-#include "ast/ast_util.h"
-#include "smt/smt_solver.h"
 
 using namespace opt;
 
@@ -737,6 +738,8 @@ public:
 
         m_model = mdl;
 
+        TRACE("opt", model_smt2_pp(tout << "updated model\n", m, *m_model, 0););
+
         for (unsigned i = 0; i < m_soft.size(); ++i) {
             m_assignment[i] = is_true(m_soft[i]);
         }
@@ -780,6 +783,9 @@ public:
     bool is_true(expr_ref_vector const& es) {
         unsigned i = 0;
         for (; i < es.size() && is_true(es[i]); ++i) { }
+        CTRACE("opt", i < es.size(), tout << mk_pp(es[i], m) << "\n";
+               model_smt2_pp(tout, m, *m_model, 0);
+               );
         return i == es.size();
     }
 

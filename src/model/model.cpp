@@ -42,10 +42,8 @@ model::~model() {
 
 
 void model::copy_const_interps(model const & source) {
-    decl2expr::iterator it1  = source.m_interp.begin();
-    decl2expr::iterator end1 = source.m_interp.end();
-    for (; it1 != end1; ++it1) {
-        register_decl(it1->m_key, it1->m_value);
+    for (auto const& kv : source.m_interp) {
+        register_decl(kv.m_key, kv.m_value);
     }
 }
 

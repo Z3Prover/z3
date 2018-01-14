@@ -17,11 +17,13 @@ Notes:
 
 --*/
 
-#include "opt/opt_context.h"
-#include "ast/ast_pp.h"
-#include "opt/opt_solver.h"
-#include "opt/opt_params.hpp"
 #include "ast/for_each_expr.h"
+#include "ast/ast_pp.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/pb_decl_plugin.h"
+#include "ast/ast_smt_pp.h"
+#include "ast/ast_pp_util.h"
+#include "model/model_smt2_pp.h"
 #include "tactic/goal.h"
 #include "tactic/tactic.h"
 #include "tactic/arith/lia2card_tactic.h"
@@ -32,17 +34,16 @@ Notes:
 #include "tactic/core/solve_eqs_tactic.h"
 #include "tactic/core/elim_uncnstr_tactic.h"
 #include "tactic/tactical.h"
-#include "model/model_smt2_pp.h"
 #include "tactic/arith/card2bv_tactic.h"
 #include "tactic/arith/eq2bv_tactic.h"
 #include "tactic/bv/dt2bv_tactic.h"
-#include "sat/sat_solver/inc_sat_solver.h"
-#include "ast/bv_decl_plugin.h"
-#include "ast/pb_decl_plugin.h"
-#include "ast/ast_smt_pp.h"
 #include "tactic/generic_model_converter.h"
-#include "ast/ast_pp_util.h"
+#include "sat/sat_solver/inc_sat_solver.h"
 #include "qe/qsat.h"
+#include "opt/opt_context.h"
+#include "opt/opt_solver.h"
+#include "opt/opt_params.hpp"
+
 
 namespace opt {
 
@@ -995,7 +996,11 @@ namespace opt {
         }
         rational v = m_objectives[index].m_adjust_value(_v);
         expr_ref val(m);
-        model_ref mdl = md;
+        //
+        // we have to clone the model so that maxsat solver can use 
+        // internal variables that are otherwise deleted from the model.
+        //
+        model_ref mdl = md->copy();
         fix_model(mdl);
 
         if (!mdl->eval(term, val)) {
@@ -1021,9 +1026,7 @@ namespace opt {
         generic_model_converter_ref fm;
         if (m_arith.is_add(term)) {
             expr_ref_vector args(m);
-            unsigned sz = term->get_num_args();
-            for (unsigned i = 0; i < sz; ++i) {
-                expr* arg = term->get_arg(i);
+            for (expr* arg : *term) {
                 if (is_mul_const(arg)) {
                     args.push_back(arg);
                 }
@@ -1364,9 +1367,8 @@ namespace opt {
         if (m_simplify) {
             m_simplify->collect_statistics(stats);
         }
-        map_t::iterator it = m_maxsmts.begin(), end = m_maxsmts.end();
-        for (; it != end; ++it) {
-            it->m_value->collect_statistics(stats);
+        for (auto const& kv : m_maxsmts) {
+            kv.m_value->collect_statistics(stats);
         }        
         get_memory_statistics(stats);
         get_rlimit_statistics(m.limit(), stats);

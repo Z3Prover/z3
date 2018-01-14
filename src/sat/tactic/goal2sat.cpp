@@ -880,8 +880,11 @@ void goal2sat::get_interpreted_atoms(expr_ref_vector& atoms) {
 
 sat2goal::mc::mc(ast_manager& m): m(m), m_var2expr(m) {}
 
-void sat2goal::mc::flush_smc(sat::solver& s) {
+
+void sat2goal::mc::flush_smc(sat::solver& s, atom2bool_var const& map) {
     s.flush(m_smc);
+    m_var2expr.resize(s.num_vars());
+    map.mk_var_inv(m_var2expr);
 }
 
 void sat2goal::mc::flush_gmc() {
@@ -941,6 +944,7 @@ void sat2goal::mc::operator()(model_ref & md) {
     // create a SAT model using md
     sat::model sat_md;
     expr_ref val(m);
+    VERIFY(!m_var2expr.empty());
     for (expr * atom : m_var2expr) {
         if (!atom) {
             sat_md.push_back(l_undef);
@@ -1011,7 +1015,6 @@ expr_ref sat2goal::mc::lit2expr(sat::literal l) {
 struct sat2goal::imp {
 
     typedef mc sat_model_converter;
-    typedef ref<sat_model_converter> sat_model_converter_ref;
 
     ast_manager &           m;
     expr_ref_vector         m_lit2expr;
@@ -1034,23 +1037,7 @@ struct sat2goal::imp {
             throw tactic_exception(TACTIC_MAX_MEMORY_MSG);
     }
 
-    void init_lit2expr(sat::solver const & s, atom2bool_var const & map, sat_model_converter_ref & mc) {
-        unsigned num_vars = s.num_vars();
-        m_lit2expr.resize(num_vars * 2);
-        map.mk_inv(m_lit2expr);
-        if (mc) {
-            for (sat::bool_var v = 0; v < num_vars; v++) {
-                checkpoint();                
-                sat::literal l(v, false);
-                if (m_lit2expr.get(l.index()) && !mc->var2expr(v)) {
-                    mc->insert(v, to_app(m_lit2expr.get(l.index())), false);
-                    SASSERT(m_lit2expr.get((~l).index()));
-                }
-            }
-        }
-    }
-
-    expr * lit2expr(sat_model_converter_ref& mc, sat::literal l) {
+    expr * lit2expr(ref<mc>& mc, sat::literal l) {
         if (!m_lit2expr.get(l.index())) {
             SASSERT(m_lit2expr.get((~l).index()) == 0);
             app* aux = mc ? mc->var2expr(l.var()) : nullptr;
@@ -1059,13 +1046,14 @@ struct sat2goal::imp {
                 if (mc)
                     mc->insert(l.var(), aux, true);
             }
-            m_lit2expr.set(l.index(), aux);
-            m_lit2expr.set((~l).index(), m.mk_not(aux));
+            sat::literal lit(l.var(), false);
+            m_lit2expr.set(lit.index(), aux);
+            m_lit2expr.set((~lit).index(), m.mk_not(aux));
         }        
         return m_lit2expr.get(l.index());
     }
 
-    void assert_pb(sat_model_converter_ref& mc, goal& r, sat::ba_solver::pb const& p) {
+    void assert_pb(ref<mc>& mc, goal& r, sat::ba_solver::pb const& p) {
         pb_util pb(m);
         ptr_buffer<expr> lits;
         vector<rational> coeffs;
@@ -1082,7 +1070,7 @@ struct sat2goal::imp {
         r.assert_expr(fml);
     }
 
-    void assert_card(sat_model_converter_ref& mc, goal& r, sat::ba_solver::card const& c) {
+    void assert_card(ref<mc>& mc, goal& r, sat::ba_solver::card const& c) {
         pb_util pb(m);
         ptr_buffer<expr> lits;
         for (sat::literal l : c) {
@@ -1096,7 +1084,7 @@ struct sat2goal::imp {
         r.assert_expr(fml);
     }
 
-    void assert_xor(sat_model_converter_ref& mc, goal & r, sat::ba_solver::xor const& x) {
+    void assert_xor(ref<mc>& mc, goal & r, sat::ba_solver::xor const& x) {
         ptr_buffer<expr> lits;
         for (sat::literal l : x) {
             lits.push_back(lit2expr(mc, l));
@@ -1109,7 +1097,7 @@ struct sat2goal::imp {
         r.assert_expr(fml);
     }
 
-    void assert_clauses(sat_model_converter_ref& mc, sat::solver const & s, sat::clause_vector const& clauses, goal & r, bool asserted) {
+    void assert_clauses(ref<mc>& mc, sat::solver const & s, sat::clause_vector const& clauses, goal & r, bool asserted) {
         ptr_buffer<expr> lits;
         for (sat::clause* cp : clauses) {
             checkpoint();
@@ -1136,8 +1124,9 @@ struct sat2goal::imp {
         if (r.models_enabled() && !mc) {
             mc = alloc(sat_model_converter, m);
         }
-        if (mc) mc->flush_smc(s);
-        init_lit2expr(s, map, mc);
+        if (mc) mc->flush_smc(s, map);
+        m_lit2expr.resize(s.num_vars() * 2);
+        map.mk_inv(m_lit2expr);
         // collect units
         unsigned trail_sz = s.init_trail_size();
         for (unsigned i = 0; i < trail_sz; ++i) {
@@ -1173,7 +1162,7 @@ struct sat2goal::imp {
         }
     }
 
-    void add_clause(sat_model_converter_ref& mc, sat::literal_vector const& lits, expr_ref_vector& lemmas) {
+    void add_clause(ref<mc>& mc, sat::literal_vector const& lits, expr_ref_vector& lemmas) {
         expr_ref_vector lemma(m);
         for (sat::literal l : lits) {
             expr* e = lit2expr(mc, l);
@@ -1183,7 +1172,7 @@ struct sat2goal::imp {
         lemmas.push_back(mk_or(lemma));
     }
 
-    void add_clause(sat_model_converter_ref& mc, sat::clause const& c, expr_ref_vector& lemmas) {
+    void add_clause(ref<mc>& mc, sat::clause const& c, expr_ref_vector& lemmas) {
         expr_ref_vector lemma(m);
         for (sat::literal l : c) {
             expr* e = lit2expr(mc, l);

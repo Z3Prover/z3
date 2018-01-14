@@ -1640,7 +1640,6 @@ namespace sat {
     bool ba_solver::propagate(literal l, ext_constraint_idx idx) {
         SASSERT(value(l) == l_true);
         constraint& c = index2constraint(idx);
-        TRACE("ba", tout << l << "\n";);
         if (c.lit() != null_literal && l.var() == c.lit().var()) {
             init_watch(c);
             return true;
@@ -1756,7 +1755,7 @@ namespace sat {
                     for (unsigned i = 1; i < x.size(); ++i) {
                         literal lit(value(x[i]) == l_true ? x[i] : ~x[i]);
                         inc_parity(lit.var());
-                        if (true || lvl(lit) == level) {
+                        if (lvl(lit) == level) {
                             ++num_marks;
                         }
                         else {
