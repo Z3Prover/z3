@@ -392,11 +392,15 @@ struct goal2sat::imp {
             return;
         }
         sat::literal_vector lits;
-        convert_pb_args(num, lits);
         sat::bool_var v = m_solver.mk_var(true);
+        lits.push_back(sat::literal(v, true));
+        convert_pb_args(num, lits);
+        // ensure that = is converted to xor
+        for (unsigned i = 1; i + 1 < lits.size(); ++i) {
+            lits[i].neg();
+        }
         ensure_extension();
-        if (lits.size() % 2 == 0) lits[0].neg();
-        m_ext->add_xor(v, lits);
+        m_ext->add_xor(lits);
         sat::literal lit(v, sign);
         if (root) {            
             m_result_stack.reset();

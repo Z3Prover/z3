@@ -178,7 +178,7 @@ namespace sat {
             literal        m_lits[0];
         public:
             static size_t get_obj_size(unsigned num_lits) { return sizeof(xor) + num_lits * sizeof(literal); }
-            xor(unsigned id, literal lit, literal_vector const& lits);
+            xor(unsigned id, literal_vector const& lits);
             literal operator[](unsigned i) const { return m_lits[i]; }
             literal const* begin() const { return m_lits; }
             literal const* end() const { return begin() + m_size; }
@@ -246,6 +246,7 @@ namespace sat {
             literal mk_max(literal l1, literal l2);
             literal mk_min(literal l1, literal l2);
             void    mk_clause(unsigned n, literal const* lits);
+            std::ostream& pp(std::ostream& out, literal l) const;
         };
         ba_sort           m_ba;
         psort_nw<ba_sort> m_sort;
@@ -458,7 +459,7 @@ namespace sat {
 
         constraint* add_at_least(literal l, literal_vector const& lits, unsigned k, bool learned);
         constraint* add_pb_ge(literal l, svector<wliteral> const& wlits, unsigned k, bool learned);
-        constraint* add_xor(literal l, literal_vector const& lits, bool learned);
+        constraint* add_xor(literal_vector const& lits, bool learned);
 
         void copy_core(ba_solver* result);
     public:
@@ -469,7 +470,7 @@ namespace sat {
         virtual void set_unit_walk(unit_walk* u) { m_unit_walk = u; }
         void    add_at_least(bool_var v, literal_vector const& lits, unsigned k);
         void    add_pb_ge(bool_var v, svector<wliteral> const& wlits, unsigned k);
-        void    add_xor(bool_var v, literal_vector const& lits);
+        void    add_xor(literal_vector const& lits);
 
         virtual bool propagate(literal l, ext_constraint_idx idx);
         virtual lbool resolve_conflict();

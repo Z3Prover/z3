@@ -189,8 +189,8 @@ namespace sat {
     // -----------------------------------
     // xor
     
-    ba_solver::xor::xor(unsigned id, literal lit, literal_vector const& lits):
-    constraint(xor_t, id, lit, lits.size(), get_obj_size(lits.size())) {
+    ba_solver::xor::xor(unsigned id, literal_vector const& lits):
+    constraint(xor_t, id, null_literal, lits.size(), get_obj_size(lits.size())) {
         for (unsigned i = 0; i < size(); ++i) {
             m_lits[i] = lits[i];
         }
@@ -959,17 +959,19 @@ namespace sat {
     lbool ba_solver::add_assign(xor& x, literal alit) {
         // literal is assigned     
         unsigned sz = x.size();
-        TRACE("ba", tout << "assign: " << x.lit() << ": " << ~alit << "@" << lvl(~alit) << "\n";);
+        TRACE("ba", tout << "assign: "  << ~alit << "@" << lvl(~alit) << " " << x << "\n"; display(tout, x, true); );
 
-        SASSERT(x.lit() == null_literal || value(x.lit()) == l_true);
+        SASSERT(x.lit() == null_literal);
         SASSERT(value(alit) != l_undef);
         unsigned index = 0;
-        for (; index <= 2; ++index) {
+        for (; index < 2; ++index) {
             if (x[index].var() == alit.var()) break;
         }
         if (index == 2) {
             // literal is no longer watched.
-            UNREACHABLE();
+            // this can happen as both polarities of literals
+            // are put in watch lists and they are removed only
+            // one polarity at a time.
             return l_undef;
         }
         SASSERT(x[index].var() == alit.var());
@@ -979,7 +981,10 @@ namespace sat {
             literal lit2 = x[i];
             if (value(lit2) == l_undef) {
                 x.swap(index, i);
+                // unwatch_literal(alit, x);
                 watch_literal(lit2, x);
+                watch_literal(~lit2, x);
+                TRACE("ba", tout << "swap in: " << lit2 << " " << x << "\n";);
                 return l_undef;
             }
         }
@@ -1627,13 +1632,13 @@ namespace sat {
         add_pb_ge(lit, wlits, k, false);
     }
 
-    void ba_solver::add_xor(bool_var v, literal_vector const& lits) {
-        add_xor(literal(v, false), lits, false);
+    void ba_solver::add_xor(literal_vector const& lits) {
+        add_xor(lits, false);
     }
 
-    ba_solver::constraint* ba_solver::add_xor(literal lit, literal_vector const& lits, bool learned) {
+    ba_solver::constraint* ba_solver::add_xor(literal_vector const& lits, bool learned) {
         void * mem = m_allocator.allocate(xor::get_obj_size(lits.size()));
-        xor* x = new (mem) xor(next_id(), lit, lits);
+        xor* x = new (mem) xor(next_id(), lits);
         x->set_learned(learned);
         add_constraint(x);
         for (literal l : lits) s().set_external(l.var()); // TBD: determine if goal2sat does this.
@@ -1740,20 +1745,24 @@ namespace sat {
         unsigned level = lvl(l);
         bool_var v = l.var();
         SASSERT(js.get_kind() == justification::EXT_JUSTIFICATION);
-        TRACE("ba", tout << l << ": " << js << "\n"; tout << s().m_trail << "\n";);
+        TRACE("ba", tout << l << ": " << js << "\n"; 
+              for (unsigned i = 0; i <= index; ++i) tout << s().m_trail[i] << " "; tout << "\n";
+              s().display_units(tout);
+              );
 
         unsigned num_marks = 0;
         unsigned count = 0;
         while (true) {
+            TRACE("ba", tout << "process: " << l << "\n";);
             ++count;
             if (js.get_kind() == justification::EXT_JUSTIFICATION) {
                 constraint& c = index2constraint(js.get_ext_justification_idx());
+                TRACE("ba", tout << c << "\n";);
                 if (!c.is_xor()) {
                     r.push_back(l);
                 }
                 else {
-                    xor& x = c.to_xor();
-                    if (x.lit() != null_literal && lvl(x.lit()) > 0) r.push_back(x.lit());
+                    xor& x = c.to_xor();                    
                     if (x[1].var() == l.var()) {
                         x.swap(0, 1);
                     }
@@ -1762,6 +1771,7 @@ namespace sat {
                         literal lit(value(x[i]) == l_true ? x[i] : ~x[i]);
                         inc_parity(lit.var());
                         if (lvl(lit) == level) {
+                            TRACE("ba", tout << "mark: " << lit << "\n";);
                             ++num_marks;
                         }
                         else {
@@ -1773,24 +1783,25 @@ namespace sat {
             else {
                 r.push_back(l);
             }
+            bool found = false;
             while (num_marks > 0) {
                 l = s().m_trail[index];
                 v = l.var();
                 unsigned n = get_parity(v);
                 if (n > 0) {
                     reset_parity(v);
+                    num_marks -= n;
                     if (n % 2 == 1) {
+                        found = true;
                         break;
                     }
-                    --num_marks;
                 }
                 --index;
             }
-            if (num_marks == 0) {
+            if (!found) {
                 break;
             }
             --index;
-            --num_marks;
             js = s().m_justification[v];
         }
 
@@ -2492,6 +2503,11 @@ namespace sat {
         m_lits.append(n, lits);
         s.s().mk_clause(n, m_lits.c_ptr());
     }
+
+    std::ostream& ba_solver::ba_sort::pp(std::ostream& out, literal l) const {
+        return out << l;
+    }
+
     
     // -------------------------------
     // set literals equivalent
@@ -3299,7 +3315,7 @@ namespace sat {
                 xor const& x = cp->to_xor();
                 lits.reset();
                 for (literal l : x) lits.push_back(l);
-                result->add_xor(x.lit(), lits, x.learned());        
+                result->add_xor(lits, x.learned());        
                 break;
             }
             default:
@@ -3427,19 +3443,8 @@ namespace sat {
     }
 
     void ba_solver::display(std::ostream& out, xor const& x, bool values) const {
-        out << "xor " << x.lit();
-        if (x.lit() != null_literal && values) {
-            out << "@(" << value(x.lit());
-            if (value(x.lit()) != l_undef) {
-                out << ":" << lvl(x.lit());
-            }
-            out << "): ";
-        }
-        else {
-            out << ": ";
-        }
-        for (unsigned i = 0; i < x.size(); ++i) {
-            literal l = x[i];
+        out << "xor: ";
+        for (literal l : x) {
             out << l;
             if (values) {
                 out << "@(" << value(l);
