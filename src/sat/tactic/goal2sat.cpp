@@ -880,7 +880,6 @@ void goal2sat::get_interpreted_atoms(expr_ref_vector& atoms) {
 
 sat2goal::mc::mc(ast_manager& m): m(m), m_var2expr(m) {}
 
-
 void sat2goal::mc::flush_smc(sat::solver& s, atom2bool_var const& map) {
     s.flush(m_smc);
     m_var2expr.resize(s.num_vars());

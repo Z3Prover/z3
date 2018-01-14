@@ -286,13 +286,13 @@ public:
             m_last_index = 0;
             bool first = index > 0;
             SASSERT(index < asms.size() || asms.empty());
-			IF_VERBOSE(1, verbose_stream() << "start hill climb " << index << " asms: " << asms.size() << "\n";);
+            IF_VERBOSE(10, verbose_stream() << "start hill climb " << index << " asms: " << asms.size() << "\n";);
             while (index < asms.size() && is_sat == l_true) {
                 while (!first && asms.size() > 20*(index - m_last_index) && index < asms.size()) {
                     index = next_index(asms, index);
                 }
-				IF_VERBOSE(1, verbose_stream() << "hill climb " << index << "\n";);
                 first = false;
+                IF_VERBOSE(3, verbose_stream() << "hill climb " << index << "\n";);
                 // IF_VERBOSE(3, verbose_stream() << "weight: " << get_weight(asms[0].get()) << " " << get_weight(asms[index-1].get()) << " num soft: " << index << "\n";);
                 m_last_index = index;
                 is_sat = check_sat(index, asms.c_ptr());

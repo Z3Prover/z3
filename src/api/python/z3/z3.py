@@ -1407,6 +1407,17 @@ def is_or(a):
     """
     return is_app_of(a, Z3_OP_OR)
 
+def is_implies(a):
+    """Return `True` if `a` is a Z3 implication expression.
+
+    >>> p, q = Bools('p q')
+    >>> is_implies(Implies(p, q))
+    True
+    >>> is_implies(And(p, q))
+    False
+    """
+    return is_app_of(a, Z3_OP_IMPLIES)
+
 def is_not(a):
     """Return `True` if `a` is a Z3 not expression.
 

@@ -234,6 +234,7 @@ namespace sat {
         struct ba_sort {
             ba_solver& s;
             literal m_true;
+            literal_vector m_lits;
 
             typedef sat::literal literal;
             typedef sat::literal_vector literal_vector;
@@ -343,6 +344,7 @@ namespace sat {
         void flush_roots(card& c);
         void recompile(card& c);
         bool clausify(card& c);
+        bool clausify(literal lit, unsigned n, literal const* lits, unsigned k);
         lbool eval(card const& c) const;
         double get_reward(card const& c, literal_occs_fun& occs) const;
 
@@ -355,6 +357,7 @@ namespace sat {
         void get_xor_antecedents(literal l, unsigned index, justification js, literal_vector& r);
         void get_antecedents(literal l, xor const& x, literal_vector & r);
         void simplify(xor& x);
+        bool clausify(xor& x);
         void flush_roots(xor& x);
         lbool eval(xor const& x) const;
         
@@ -371,6 +374,8 @@ namespace sat {
         bool is_cardinality(pb const& p);
         void flush_roots(pb& p);
         void recompile(pb& p);
+        bool clausify(pb& p);
+        bool is_cardinality(pb const& p, literal_vector& lits);
         lbool eval(pb const& p) const;
         double get_reward(pb const& p, literal_occs_fun& occs) const;
 

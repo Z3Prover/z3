@@ -446,7 +446,7 @@ namespace sat {
     }
 
     /*
-      \brief slit PB constraint into two because root is reused in arguments.
+      \brief split PB constraint into two because root is reused in arguments.
     
       x <=> a*x + B*y >= k
      
@@ -825,6 +825,9 @@ namespace sat {
             p.set_k(k);
             SASSERT(p.well_formed());
             
+            if (clausify(p)) {
+                return;
+            }
             if (p.lit() == null_literal || value(p.lit()) == l_true) {
                 init_watch(p);
             }
@@ -1541,6 +1544,9 @@ namespace sat {
         if (k == 1 && lit == null_literal) {
             literal_vector _lits(lits);
             s().mk_clause(_lits.size(), _lits.c_ptr(), learned);
+            return 0;
+        }
+        if (!learned && clausify(lit, lits.size(), lits.c_ptr(), k)) {
             return 0;
         }
         void * mem = m_allocator.allocate(card::get_obj_size(lits.size()));
@@ -2369,13 +2375,16 @@ namespace sat {
         SASSERT(s().at_base_lvl());
         switch (c.tag()) {
         case card_t:
-            simplify(c.to_card());
+            if (!clausify(c.to_card())) 
+                simplify(c.to_card());
             break;
         case pb_t:
-            simplify(c.to_pb());
+            if (!clausify(c.to_pb()))
+                simplify(c.to_pb());
             break;
         case xor_t:
-            simplify(c.to_xor());
+            if (!clausify(c.to_xor()))
+                simplify(c.to_xor());
             break;
         default:
             UNREACHABLE();
@@ -2479,8 +2488,9 @@ namespace sat {
     }
 
     void ba_solver::ba_sort::mk_clause(unsigned n, literal const* lits) {
-        literal_vector _lits(n, lits);
-        s.s().mk_clause(n, _lits.c_ptr());
+        m_lits.reset();
+        m_lits.append(n, lits);
+        s.s().mk_clause(n, m_lits.c_ptr());
     }
     
     // -------------------------------
@@ -2622,8 +2632,25 @@ namespace sat {
         }        
     }
 
+    bool ba_solver::clausify(literal lit, unsigned n, literal const* lits, unsigned k) {
+        bool is_def = lit != null_literal;
+        if ((!is_def || !s().was_eliminated(lit)) && 
+            !std::any_of(lits, lits + n, [&](literal l) { return s().was_eliminated(l); })) {
+            literal def_lit = m_sort.ge(is_def, k, n, lits);
+            if (is_def) {
+                s().mk_clause(~lit,  def_lit);
+                s().mk_clause( lit, ~def_lit);
+            }
+            return true;
+        }
+        return false;
+    }
+
+    bool ba_solver::clausify(xor& x) {
+        return false;
+    }
+
     bool ba_solver::clausify(card& c) {
-#if 0
         if (get_config().m_card_solver)
             return false;
 
@@ -2631,18 +2658,54 @@ namespace sat {
         // TBD: conditions for when to clausify are TBD and
         // handling of conditional cardinality as well.
         // 
-        if (c.lit() == null_literal) {
-            if (!c.learned() && !std::any_of(c.begin(), c.end(), [&](literal l) { return s().was_eliminated(l.var()); })) {
-                IF_VERBOSE(0, verbose_stream() << "clausify " << c << "\n";
-                m_sort.ge(false, c.k(), c.size(), c.begin());
-            }
-            remove_constraint(c, "recompiled to clauses");
+        if (!c.learned() && clausify(c.lit(), c.size(), c.begin(), c.k())) {
+            IF_VERBOSE(0, verbose_stream() << "clausify " << c << "\n";);                       
+            // compiled
+        }        
+        remove_constraint(c, "recompiled to clauses");
+        return true;        
+    }
+
+    bool ba_solver::clausify(pb& p) {
+        if (get_config().m_card_solver) 
+            return false;
+
+        bool ok = !p.learned();
+        bool is_def = p.lit() != null_literal;
+        for (wliteral wl : p) {
+            ok &= !s().was_eliminated(wl.second);
+        }
+        ok &= !is_def || !s().was_eliminated(p.lit());
+        if (!ok) {
+            remove_constraint(p, "recompiled to clauses");
             return true;
         }
-#endif
+
+        if (is_cardinality(p, m_lemma)) {
+            literal lit = m_sort.ge(is_def, p.k(), m_lemma.size(), m_lemma.c_ptr());
+            if (is_def) {
+                s().mk_clause(p.lit(), ~lit);
+                s().mk_clause(~p.lit(), lit);
+            }
+            remove_constraint(p, "recompiled to clauses");
+            return true;
+        }
         return false;
     }
 
+    bool ba_solver::is_cardinality(pb const& p, literal_vector& lits) {
+        lits.reset();
+        p.size();
+        for (wliteral wl : p) {
+            if (lits.size() > 2*p.size() + wl.first) {
+                return false;
+            }
+            for (unsigned i = 0; i < wl.first; ++i) {
+                lits.push_back(wl.second);
+            }
+        }
+        return true;
+    }
 
     void ba_solver::split_root(constraint& c) {
         switch (c.tag()) {
