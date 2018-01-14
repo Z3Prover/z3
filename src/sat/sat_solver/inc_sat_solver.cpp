@@ -533,11 +533,11 @@ private:
         TRACE("sat", g->display_with_dependencies(tout););
 
         // ensure that if goal is already internalized, then import mc from m_solver.
-        if (!m_sat_mc) m_sat_mc = alloc(sat2goal::mc, m);
-        m_sat_mc->flush_smc(m_solver);
 
         m_goal2sat(*g, m_params, m_solver, m_map, dep2asm, is_incremental(), is_lemma);
         m_goal2sat.get_interpreted_atoms(atoms);
+        if (!m_sat_mc) m_sat_mc = alloc(sat2goal::mc, m);
+        m_sat_mc->flush_smc(m_solver, m_map);
         if (!atoms.empty()) {
             std::stringstream strm;
             strm << "interpreted atoms sent to SAT solver " << atoms;
@@ -798,16 +798,20 @@ private:
         }
         SASSERT(m_model);
 
-        DEBUG_CODE(
-            for (expr * f : m_fmls) {
-                expr_ref tmp(m);
-                if (m_model->eval(f, tmp, true)) {
-                    CTRACE("sat", !m.is_true(tmp),
-                           tout << "Evaluation failed: " << mk_pp(f, m) << " to " << tmp << "\n";
-                           model_smt2_pp(tout, m, *(m_model.get()), 0););
-                    SASSERT(m.is_true(tmp));
+        IF_VERBOSE(0, verbose_stream() << "Verifying solution\n";);
+        for (expr * f : m_fmls) {
+            expr_ref tmp(m);
+            if (m_model->eval(f, tmp, true)) {
+                CTRACE("sat", !m.is_true(tmp),
+                       tout << "Evaluation failed: " << mk_pp(f, m) << " to " << tmp << "\n";
+                       model_smt2_pp(tout, m, *(m_model.get()), 0););
+                if (!m.is_true(tmp)) {
+                    IF_VERBOSE(0, verbose_stream() << "failed to verify: " << tmp << "\n";);
+                    IF_VERBOSE(0, verbose_stream() << m_params << "\n";);
                 }
-            });
+                VERIFY(m.is_true(tmp));                    
+            }
+        }
     }
 };
 
