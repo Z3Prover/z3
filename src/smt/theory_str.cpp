@@ -9637,7 +9637,13 @@ namespace smt {
                         regex_axiom_add = true;
 
                         // increment LengthAttemptCount
-                        regex_inc_counter(regex_length_attempt_count, str_in_re);
+                        regex_inc_counter(regex_length_attempt_count, re);
+
+                        {
+                            unsigned v = regex_get_counter(regex_length_attempt_count, re);
+                            TRACE("str", tout << "length attempt count for " << mk_pp(re, m) << " is " << v << std::endl;);
+                        }
+
                         continue;
                     } else {
                         // no automata available, or else all bounds assumptions are invalid
@@ -9910,8 +9916,6 @@ namespace smt {
                         }
                     }
                 }
-
-                // NOT_IMPLEMENTED_YET();
             } // foreach (entry in regex_terms)
 
             for (obj_map<expr, ptr_vector<expr> >::iterator it = regex_terms_by_string.begin();
@@ -9999,11 +10003,19 @@ namespace smt {
                         continue;
                     }
 
+                    {
+                        unsigned v = regex_get_counter(regex_length_attempt_count, aut.get_regex_term());
+                        TRACE("str", tout << "length attempt count of " << mk_pp(aut.get_regex_term(), m) << " is " << v
+                                << ", threshold is " << m_params.m_RegexAutomata_LengthAttemptThreshold << std::endl;);
+                    }
+
                     if (regex_get_counter(regex_length_attempt_count, aut.get_regex_term()) >= m_params.m_RegexAutomata_LengthAttemptThreshold) {
                         unsigned intersectionDifficulty = 0; // TODO EstimateIntersectionDifficulty
                         if (intersectionDifficulty <= m_params.m_RegexAutomata_IntersectionDifficultyThreshold
                                 || regex_get_counter(regex_intersection_fail_count, aut.get_regex_term()) >= m_params.m_RegexAutomata_FailedIntersectionThreshold) {
-                            lbool current_assignment = ctx.get_assignment(aut.get_regex_term());
+
+                            expr * str_in_re_term(u.re.mk_in_re(str, aut.get_regex_term()));
+                            lbool current_assignment = ctx.get_assignment(str_in_re_term);
                             // if the assignment is consistent with our assumption, use the automaton directly;
                             // otherwise, complement it (and save that automaton for next time)
                             // TODO we should cache these intermediate results
@@ -10013,7 +10025,12 @@ namespace smt {
                                 aut_inter = m_mk_aut.mk_product(aut_inter, aut.get_automaton());
                             } else {
                                 // need to complement first
-                                NOT_IMPLEMENTED_YET();
+                                expr_ref rc(u.re.mk_complement(aut.get_regex_term()), m);
+                                eautomaton * aut_c = m_mk_aut(rc);
+                                regex_automata.push_back(aut_c);
+                                // TODO is there any way to build a complement automaton from an existing one?
+                                // this discards length information
+                                aut_inter = m_mk_aut.mk_product(aut_inter, aut_c);
                             }
                             used_intersect_constraints.push_back(aut);
                             if (aut_inter->is_empty()) {
@@ -10028,7 +10045,34 @@ namespace smt {
                 TRACE("str", tout << "intersected " << used_intersect_constraints.size() << " constraints" << std::endl;);
                 if (aut_inter != NULL && aut_inter->is_empty()) {
                     TRACE("str", tout << "product automaton is empty; asserting conflict clause" << std::endl;);
-                    NOT_IMPLEMENTED_YET();
+                    expr_ref_vector conflict_terms(m);
+
+                    for (svector<regex_automaton_under_assumptions>::iterator aut_it = used_intersect_constraints.begin();
+                            aut_it != used_intersect_constraints.end(); ++aut_it) {
+                        regex_automaton_under_assumptions aut = *aut_it;
+                        expr * str_in_re_term(u.re.mk_in_re(str, aut.get_regex_term()));
+                        lbool current_assignment = ctx.get_assignment(str_in_re_term);
+                        if (current_assignment == l_true) {
+                            conflict_terms.push_back(str_in_re_term);
+                        } else if (current_assignment == l_false) {
+                            conflict_terms.push_back(m.mk_not(str_in_re_term));
+                        }
+                        // add length assumptions, if any
+                        rational ub;
+                        if (aut.get_upper_bound(ub)) {
+                            expr_ref ub_term(m_autil.mk_le(mk_strlen(str), m_autil.mk_numeral(ub, true)), m);
+                            conflict_terms.push_back(ub_term);
+                        }
+                        rational lb;
+                        if (aut.get_lower_bound(lb)) {
+                            expr_ref lb_term(m_autil.mk_ge(mk_strlen(str), m_autil.mk_numeral(lb, true)), m);
+                            conflict_terms.push_back(lb_term);
+                        }
+                    }
+
+                    expr_ref conflict_clause(m.mk_not(mk_and(conflict_terms)), m);
+                    assert_axiom(conflict_clause);
+                    regex_axiom_add = true;
                 }
             } // foreach (entry in regex_terms_by_string)
 

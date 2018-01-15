@@ -168,7 +168,7 @@ public:
 
 class regex_automaton_under_assumptions {
 protected:
-    expr * str_in_re;
+    expr * re_term;
     eautomaton * aut;
     bool polarity;
 
@@ -179,11 +179,11 @@ protected:
     rational upper_bound;
 public:
     regex_automaton_under_assumptions() :
-        str_in_re(NULL), aut(NULL), polarity(false),
+        re_term(NULL), aut(NULL), polarity(false),
         assume_lower_bound(false), assume_upper_bound(false) {}
 
-    regex_automaton_under_assumptions(expr * str_in_re, eautomaton * aut, bool polarity) :
-        str_in_re(str_in_re), aut(aut), polarity(polarity),
+    regex_automaton_under_assumptions(expr * re_term, eautomaton * aut, bool polarity) :
+        re_term(re_term), aut(aut), polarity(polarity),
         assume_lower_bound(false), assume_upper_bound(false) {}
 
     void set_lower_bound(rational & lb) {
@@ -221,7 +221,7 @@ public:
     }
 
     eautomaton * get_automaton() const { return aut; }
-    expr * get_regex_term() const { return str_in_re; }
+    expr * get_regex_term() const { return re_term; }
     bool get_polarity() const { return polarity; }
 
     virtual ~regex_automaton_under_assumptions() {
