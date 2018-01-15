@@ -6982,6 +6982,9 @@ namespace smt {
             pathChars_len_constraints.push_back(ctx.mk_eq_atom(mk_strlen(ch), m_autil.mk_numeral(rational::one(), true)));
         }
 
+        // TODO(mtrberzi) possibly modify this to reuse character terms over the same string,
+        // i.e. across different constraints over S the same variables S_0, S_1, ... are always used and refreshed
+
         // modification of code in seq_rewriter::mk_str_in_regexp()
         expr_ref_vector trail(m);
         u_map<expr*> maps[2];
@@ -9536,6 +9539,7 @@ namespace smt {
         // regex automata
         if (m_params.m_RegexAutomata) {
             // TODO since heuristics might fail, the "no progress" flag might need to be handled specially here
+            // TODO learning of linear length constraints in the style of length automata, if possible?
             bool regex_axiom_add = false;
             for (obj_hashtable<expr>::iterator it = regex_terms.begin(); it != regex_terms.end(); ++it) {
                 expr * str_in_re = *it;
@@ -9584,16 +9588,22 @@ namespace smt {
                         TRACE("str", tout << "character constraints are " << mk_pp(characterConstraints, m) << std::endl;);
 
                         expr_ref_vector lhs_terms(m);
-                        lhs_terms.push_back(str_in_re);
+                        if (current_assignment == l_true) {
+                            lhs_terms.push_back(str_in_re);
+                        } else {
+                            lhs_terms.push_back(m.mk_not(str_in_re));
+                        }
                         lhs_terms.push_back(ctx.mk_eq_atom(mk_strlen(str), m_autil.mk_numeral(exact_length_value, true)));
                         expr_ref lhs(mk_and(lhs_terms), m);
                         // If the automaton was built with the same polarity as the constraint,
                         // assert directly. Otherwise, negate the path constraint
                         if ( (current_assignment == l_true && assumption.get_polarity())
                                 || (current_assignment == l_false && !assumption.get_polarity())) {
+                            TRACE("str", tout << "automaton and regex term have same polarity" << std::endl;);
                             expr_ref rhs(m.mk_and(pathConstraint, characterConstraints), m);
                             assert_implication(lhs, rhs);
                         } else {
+                            TRACE("str", tout << "automaton and regex term have opposite polarity" << std::endl;);
                             expr_ref rhs(m.mk_and(m.mk_not(pathConstraint), characterConstraints), m);
                             assert_implication(lhs, rhs);
                         }
@@ -9893,7 +9903,64 @@ namespace smt {
 
                 // choose an automaton/assumption for each assigned (str.in.re)
                 // that's consistent with the current length information
-                NOT_IMPLEMENTED_YET();
+                for (ptr_vector<expr>::iterator term_it = str_in_re_terms.begin();
+                        term_it != str_in_re_terms.end(); ++term_it) {
+                    expr * _unused;
+                    expr * re;
+                    SASSERT(u.str.is_in_re(*term_it));
+                    u.str.is_in_re(*term_it, _unused, re);
+
+                    rational exact_len;
+                    bool has_exact_len = get_len_value(str, exact_len);
+
+                    rational lb, ub;
+                    bool has_lower_bound = lower_bound(mk_strlen(str), lb);
+                    bool has_upper_bound = upper_bound(mk_strlen(str), ub);
+
+                    if (regex_automaton_assumptions.contains(re) &&
+                                                    !regex_automaton_assumptions[re].empty()){
+                        for (svector<regex_automaton_under_assumptions>::iterator aut_it = regex_automaton_assumptions[re].begin();
+                                                           aut_it != regex_automaton_assumptions[re].end(); ++aut_it) {
+                            regex_automaton_under_assumptions aut = *aut_it;
+                            rational aut_ub;
+                            bool assume_ub = aut.get_upper_bound(aut_ub);
+                            rational aut_lb;
+                            bool assume_lb = aut.get_lower_bound(aut_lb);
+                            bool consistent = true;
+
+                            if (assume_ub) {
+                                // check consistency of assumed upper bound
+                                if (has_exact_len) {
+                                    if (exact_len > aut_ub) {
+                                        consistent = false;
+                                    }
+                                } else {
+                                    if (has_upper_bound && ub > aut_ub) {
+                                        consistent = false;
+                                    }
+                                }
+                            }
+
+                            if (assume_lb) {
+                                // check consistency of assumed lower bound
+                                if (has_exact_len) {
+                                    if (exact_len < aut_lb) {
+                                        consistent = false;
+                                    }
+                                } else {
+                                    if (has_lower_bound && lb < aut_lb) {
+                                        consistent = false;
+                                    }
+                                }
+                            }
+
+                            if (consistent) {
+                                intersect_constraints.push_back(aut);
+                                break;
+                            }
+                        }
+                    }
+                } // foreach(term in str_in_re_terms)
 
                 eautomaton * aut_inter = NULL;
                 CTRACE("str", !intersect_constraints.empty(), tout << "check intersection of automata constraints for " << mk_pp(str, m) << std::endl;);
@@ -9933,7 +10000,8 @@ namespace smt {
                         }
                     }
                 } // foreach(entry in intersect_constraints)
-                if (aut_inter->is_empty()) {
+                TRACE("str", tout << "intersected " << used_intersect_constraints.size() << " constraints" << std::endl;);
+                if (aut_inter != NULL && aut_inter->is_empty()) {
                     TRACE("str", tout << "product automaton is empty; asserting conflict clause" << std::endl;);
                     NOT_IMPLEMENTED_YET();
                 }
