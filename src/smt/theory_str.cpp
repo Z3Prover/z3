@@ -6974,16 +6974,41 @@ namespace smt {
 
         expr_ref_vector pathChars(m);
         expr_ref_vector pathChars_len_constraints(m);
-        for (unsigned i = 0; i < lenVal.get_unsigned(); ++i) {
-            std::stringstream ss;
-            ss << "ch" << i;
-            expr_ref ch(mk_str_var(ss.str()), m);
-            pathChars.push_back(ch);
-            pathChars_len_constraints.push_back(ctx.mk_eq_atom(mk_strlen(ch), m_autil.mk_numeral(rational::one(), true)));
-        }
 
-        // TODO(mtrberzi) possibly modify this to reuse character terms over the same string,
-        // i.e. across different constraints over S the same variables S_0, S_1, ... are always used and refreshed
+        // reuse character terms over the same string
+        if (string_chars.contains(stringTerm)) {
+            // find out whether we have enough characters already
+            ptr_vector<expr> old_chars;
+            string_chars.find(stringTerm, old_chars);
+            if (old_chars.size() < lenVal.get_unsigned()) {
+                for (unsigned i = old_chars.size(); i < lenVal.get_unsigned(); ++i) {
+                    std::stringstream ss;
+                    ss << "ch" << i;
+                    expr_ref ch(mk_str_var(ss.str()), m);
+                    m_trail.push_back(ch);
+                    old_chars.push_back(ch);
+                }
+            }
+            string_chars.insert(stringTerm, old_chars);
+            // now we're guaranteed to have at least the right number of characters in old_chars
+            for (unsigned i = 0; i < lenVal.get_unsigned(); ++i) {
+                expr_ref ch(old_chars.get(i), m);
+                refresh_theory_var(ch);
+                pathChars.push_back(ch);
+                pathChars_len_constraints.push_back(ctx.mk_eq_atom(mk_strlen(ch), m_autil.mk_numeral(rational::one(), true)));
+            }
+        } else {
+            ptr_vector<expr> new_chars;
+            for (unsigned i = 0; i < lenVal.get_unsigned(); ++i) {
+                std::stringstream ss;
+                ss << "ch" << i;
+                expr_ref ch(mk_str_var(ss.str()), m);
+                pathChars.push_back(ch);
+                pathChars_len_constraints.push_back(ctx.mk_eq_atom(mk_strlen(ch), m_autil.mk_numeral(rational::one(), true)));
+                new_chars.push_back(ch);
+            }
+            string_chars.insert(stringTerm, new_chars);
+        }
 
         // modification of code in seq_rewriter::mk_str_in_regexp()
         expr_ref_vector trail(m);
