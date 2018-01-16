@@ -2649,6 +2649,7 @@ namespace sat {
     }
 
     bool ba_solver::clausify(literal lit, unsigned n, literal const* lits, unsigned k) {
+        return false;
         bool is_def = lit != null_literal;
         if ((!is_def || !s().was_eliminated(lit)) && 
             !std::any_of(lits, lits + n, [&](literal l) { return s().was_eliminated(l); })) {
@@ -2667,6 +2668,7 @@ namespace sat {
     }
 
     bool ba_solver::clausify(card& c) {
+        return false;
         if (get_config().m_card_solver)
             return false;
 

@@ -60,7 +60,8 @@ class inc_sat_solver : public solver {
     goal_ref_buffer     m_subgoals;
     proof_converter_ref m_pc;
     model_converter_ref m_mc;
-    model_converter_ref m_mc0;
+    mutable model_converter_ref m_mc0;
+    mutable obj_hashtable<func_decl>  m_inserted_const2bits;
     ref<sat2goal::mc>   m_sat_mc;
     mutable model_converter_ref m_cached_mc;
     svector<double>     m_weights;
@@ -227,6 +228,7 @@ public:
             n = m_num_scopes;     // take over for another solver.
         }
         if (m_bb_rewriter) m_bb_rewriter->pop(n);
+        m_inserted_const2bits.reset();
         m_map.pop(n);
         SASSERT(n <= m_num_scopes);
         m_solver.user_pop(n);
@@ -443,7 +445,8 @@ public:
         if (m_cached_mc)
             return m_cached_mc;
         if (is_internalized() && m_internalized_converted) {            
-            m_cached_mc = concat(m_mc0.get(), mk_bit_blaster_model_converter(m, m_bb_rewriter->const2bits()));
+            insert_const2bits();
+            m_cached_mc = m_mc0.get();
             m_cached_mc = concat(solver::get_model_converter().get(), m_cached_mc.get());
             m_cached_mc = concat(m_cached_mc.get(), m_sat_mc.get());
             return m_cached_mc;
@@ -499,6 +502,21 @@ public:
     }
 
 private:
+
+    void insert_const2bits() const {
+        if (!m_bb_rewriter) return;
+        obj_map<func_decl, expr*> to_insert;
+        obj_map<func_decl, expr*> const& const2bits = m_bb_rewriter->const2bits();
+        for (auto const& kv : const2bits) {
+            if (!m_inserted_const2bits.contains(kv.m_key)) {
+                m_inserted_const2bits.insert(kv.m_key);
+                to_insert.insert(kv.m_key, kv.m_value);
+            }
+        }
+        if (!to_insert.empty()) {
+            m_mc0 = concat(m_mc0.get(), mk_bit_blaster_model_converter(m, to_insert));
+        }
+    }
 
 
     lbool internalize_goal(goal_ref& g, dep2asm_t& dep2asm, bool is_lemma) {
@@ -790,9 +808,7 @@ private:
         if (m_sat_mc) {
             (*m_sat_mc)(m_model);
         }
-        if (m_bb_rewriter.get() && !m_bb_rewriter->const2bits().empty()) {
-            m_mc0 = concat(m_mc0.get(), mk_bit_blaster_model_converter(m, m_bb_rewriter->const2bits()));
-        }
+        insert_const2bits();
         if (m_mc0) {            
             (*m_mc0)(m_model);
         }

@@ -193,6 +193,8 @@ void solver::assert_expr(expr* f, expr* t) {
     expr_ref fml(f, m);    
     expr_ref a(t, m);
     if (m_enforce_model_conversion) {
+        IF_VERBOSE(0, verbose_stream() << "enforce model conversion\n";);
+        exit(0);
         model_converter_ref mc = get_model_converter();
         mc = concat(mc0(), mc.get());
         if (mc) {
