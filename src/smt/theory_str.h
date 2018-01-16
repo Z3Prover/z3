@@ -418,6 +418,7 @@ protected:
     obj_map<expr, unsigned> regex_length_attempt_count;
     obj_map<expr, unsigned> regex_fail_count;
     obj_map<expr, unsigned> regex_intersection_fail_count;
+
     obj_map<expr, ptr_vector<expr> > string_chars; // S --> [S_0, S_1, ...] for character terms S_i
 
     svector<char> char_set;

@@ -9854,8 +9854,11 @@ namespace smt {
                         } else {
                             // TODO check negation?
                             // TODO construct a partial automaton for R to the given upper bound?
-                            // TODO increment failure count if we can't
-                            NOT_IMPLEMENTED_YET();
+                            if (false) {
+
+                            } else {
+                                regex_inc_counter(regex_fail_count, str_in_re);
+                            }
                         }
                         continue;
                     }
@@ -9866,8 +9869,8 @@ namespace smt {
                     }
                 } else { // !upper_bound_exists
                     // no upper bound information
-                    if (lower_bound_exists) {
-                        // lower bound, no upper bound
+                    if (lower_bound_exists && !lower_bound_value.is_zero()) {
+                        // nonzero lower bound, no upper bound
 
                         // check current assumptions
                         if (regex_automaton_assumptions.contains(re) &&
@@ -9967,7 +9970,11 @@ namespace smt {
                                 // TODO check negation?
                                 // TODO construct a partial automaton for R to the given lower bound?
                                 // TODO increment failure count
-                                NOT_IMPLEMENTED_YET();
+                                if (false) {
+
+                                } else {
+                                    regex_inc_counter(regex_fail_count, str_in_re);
+                                }
                             }
                             continue;
                         }
@@ -9976,10 +9983,12 @@ namespace smt {
                         // check for existing automata;
                         // try to construct an automaton if we don't have one yet
                         // and doing so without bounds is not difficult
-                        NOT_IMPLEMENTED_YET();
-                        if (true) {
+                        bool existingAutomata = (regex_automaton_assumptions.contains(re) && !regex_automaton_assumptions[re].empty());
+                        bool failureThresholdExceeded = (regex_get_counter(regex_fail_count, str_in_re) >= m_params.m_RegexAutomata_FailedAutomatonThreshold);
+                        if (!existingAutomata || failureThresholdExceeded) {
                             unsigned expected_complexity = estimate_regex_complexity(re);
-                            if (expected_complexity <= m_params.m_RegexAutomata_DifficultyThreshold) {
+                            if (expected_complexity <= m_params.m_RegexAutomata_DifficultyThreshold
+                                    || failureThresholdExceeded) {
                                 eautomaton * aut = m_mk_aut(re);
                                 aut->compress();
                                 regex_automata.push_back(aut);
@@ -9991,7 +10000,11 @@ namespace smt {
                                 TRACE("str", tout << "add new automaton for " << mk_pp(re, m) << ": no assumptions" << std::endl;);
                                 regex_axiom_add = true;
                                 // TODO immediately attempt to learn lower/upper bound info here
+                            } else {
+                                regex_inc_counter(regex_fail_count, str_in_re);
                             }
+                        } else {
+                            regex_inc_counter(regex_fail_count, str_in_re);
                         }
                     }
                 }
