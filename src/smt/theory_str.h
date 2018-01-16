@@ -409,6 +409,9 @@ protected:
     obj_map<expr, svector<regex_automaton_under_assumptions> > regex_automaton_assumptions; // RegEx --> [ aut+assumptions ]
     std::map<expr*, nfa> regex_nfa_cache; // Regex term --> NFA
     obj_hashtable<expr> regex_terms_with_path_constraints; // set of string terms which have had path constraints asserted in the current scope
+    obj_hashtable<expr> regex_terms_with_length_constraints; // set of regex terms which had had length constraints asserted in the current scope
+    obj_map<expr, expr*> regex_term_to_length_constraint; // (str.in.re S R) -> (length constraint over S wrt. R)
+    obj_map<expr, ptr_vector<expr> > regex_term_to_extra_length_vars; // extra length vars used in regex_term_to_length_constraint entries
 
     // each counter maps a (str.in.re) expression to an integer.
     // use helper functions regex_inc_counter() and regex_get_counter() to access

@@ -6735,8 +6735,6 @@ namespace smt {
     bool theory_str::refine_automaton_lower_bound(eautomaton * aut, rational current_lower_bound, rational & refined_lower_bound) {
         ENSURE(aut != NULL);
 
-        ast_manager & m = get_manager();
-
         if (aut->final_states().size() < 1) {
             // no solutions at all
             refined_lower_bound = rational::minus_one();
@@ -9610,6 +9608,53 @@ namespace smt {
                 if (current_assignment == l_undef) {
                     continue;
                 }
+
+                if (!regex_terms_with_length_constraints.contains(str_in_re)) {
+                    if (current_assignment == l_true && check_regex_length_linearity(re)) {
+                        TRACE("str", tout << "regex length constraints expected to be linear -- generating and asserting them" << std::endl;);
+
+                        if (regex_term_to_length_constraint.contains(str_in_re)) {
+                            // use existing length constraint
+                            expr * top_level_length_constraint;
+                            regex_term_to_length_constraint.find(str_in_re, top_level_length_constraint);
+
+                            ptr_vector<expr> extra_length_vars;
+                            regex_term_to_extra_length_vars.find(str_in_re, extra_length_vars);
+
+                            assert_axiom(top_level_length_constraint);
+                            for(ptr_vector<expr>::iterator it = extra_length_vars.begin(); it != extra_length_vars.end(); ++it) {
+                                expr * v = *it;
+                                refresh_theory_var(v);
+                                expr_ref len_constraint(m_autil.mk_ge(v, m_autil.mk_numeral(rational::zero(), true)), m);
+                                assert_axiom(len_constraint);
+                            }
+                        } else {
+                            // generate new length constraint
+                            expr_ref_vector extra_length_vars(m);
+                            expr_ref top_level_length_constraint = infer_all_regex_lengths(mk_strlen(str), re, extra_length_vars);
+                            TRACE("str", tout << "top-level length constraint: " << mk_pp(top_level_length_constraint, m) << std::endl;);
+                            // assert and track length constraint
+                            assert_axiom(top_level_length_constraint);
+                            for(expr_ref_vector::iterator it = extra_length_vars.begin(); it != extra_length_vars.end(); ++it) {
+                                expr * v = *it;
+                                expr_ref len_constraint(m_autil.mk_ge(v, m_autil.mk_numeral(rational::zero(), true)), m);
+                                assert_axiom(len_constraint);
+                            }
+
+                            regex_term_to_length_constraint.insert(str_in_re, top_level_length_constraint);
+                            ptr_vector<expr> vtmp;
+                            for(expr_ref_vector::iterator it = extra_length_vars.begin(); it != extra_length_vars.end(); ++it) {
+                                vtmp.push_back(*it);
+                            }
+                            regex_term_to_extra_length_vars.insert(str_in_re, vtmp);
+                        }
+
+                        regex_terms_with_length_constraints.insert(str_in_re);
+                        m_trail_stack.push(insert_obj_trail<theory_str, expr>(regex_terms_with_length_constraints, str_in_re));
+                        regex_axiom_add = true;
+                    }
+                } // re not in regex_terms_with_length_constraints
+
                 rational exact_length_value;
                 if (get_len_value(str, exact_length_value)) {
                     TRACE("str", tout << "exact length of " << mk_pp(str, m) << " is " << exact_length_value << std::endl;);
