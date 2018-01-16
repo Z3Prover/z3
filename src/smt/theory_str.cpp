@@ -6604,6 +6604,40 @@ namespace smt {
             return 1;
         }
     }
+
+    // Check whether a regex translates well to a linear set of length constraints.
+    bool theory_str::check_regex_length_linearity(expr * re) {
+        return check_regex_length_linearity_helper(re, false);
+    }
+
+    bool theory_str::check_regex_length_linearity_helper(expr * re, bool already_star) {
+        expr * sub1;
+        expr * sub2;
+        if (u.re.is_to_re(re)) {
+            return true;
+        } else if (u.re.is_concat(re, sub1, sub2)) {
+            return check_regex_length_linearity_helper(sub1, already_star) && check_regex_length_linearity_helper(sub2, already_star);
+        } else if (u.re.is_union(re, sub1, sub2)) {
+            return check_regex_length_linearity_helper(sub1, already_star) && check_regex_length_linearity_helper(sub2, already_star);
+        } else if (u.re.is_star(re, sub1) || u.re.is_plus(re, sub1)) {
+            if (already_star) {
+                return false;
+            } else {
+                return check_regex_length_linearity_helper(sub1, true);
+            }
+        } else if (u.re.is_range(re)) {
+            return true;
+        } else if (u.re.is_full(re)) {
+            return true;
+        } else if (u.re.is_complement(re)) {
+            // TODO can we do better?
+            return false;
+        } else {
+            TRACE("str", tout << "WARNING: unknown regex term " << mk_pp(re, get_manager()) << std::endl;);
+            UNREACHABLE(); return false;
+        }
+    }
+
     /*
      * Infer all length constraints implied by the given regular expression `re`
      * in order to constrain `lenVar` (which must be of sort Int).
