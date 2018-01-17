@@ -44,8 +44,8 @@ INSTALL_LIB_DIR=getenv("Z3_INSTALL_LIB_DIR", "lib")
 INSTALL_INCLUDE_DIR=getenv("Z3_INSTALL_INCLUDE_DIR", "include")
 INSTALL_PKGCONFIG_DIR=getenv("Z3_INSTALL_PKGCONFIG_DIR", os.path.join(INSTALL_LIB_DIR, 'pkgconfig'))
 
-CXX_COMPILERS=['g++', 'clang++']
-C_COMPILERS=['gcc', 'clang']
+CXX_COMPILERS=['clang++', 'g++']
+C_COMPILERS=['clang', 'gcc']
 CSC_COMPILERS=['csc', 'mcs']
 JAVAC=None
 JAR=None
@@ -107,6 +107,7 @@ USE_OMP=True
 LOG_SYNC=False
 GUARD_CF=False
 ALWAYS_DYNAMIC_BASE=False
+USE_CFFI=False
 
 FPMATH="Default"
 FPMATH_FLAGS="-mfpmath=sse -msse -msse2"
@@ -649,6 +650,7 @@ def display_help(exit_code):
     print("  --java                        generate Java bindings.")
     print("  --ml                          generate OCaml bindings.")
     print("  --python                      generate Python bindings.")
+    print("  --use-cffi                    use cffi instead of ctypes for Python bindings.")
     print("  --staticlib                   build Z3 static library.")
     print("  --staticbin                   build a statically linked Z3 binary.")
     if not IS_WINDOWS:
@@ -689,7 +691,7 @@ def parse_options():
                                                'b:df:sxhmcvtnp:gj',
                                                ['build=', 'debug', 'silent', 'x64', 'help', 'makefiles', 'showcpp', 'vsproj', 'guardcf',
                                                 'trace', 'dotnet', 'dotnet-key=', 'staticlib', 'prefix=', 'gmp', 'java', 'parallel=', 'gprof',
-                                                'githash=', 'git-describe', 'x86', 'ml', 'optimize', 'noomp', 'pypkgdir=', 'python', 'staticbin', 'log-sync'])
+                                                'githash=', 'git-describe', 'x86', 'ml', 'optimize', 'noomp', 'pypkgdir=', 'python', 'staticbin', 'log-sync', 'use-cffi'])
     except:
         print("ERROR: Invalid command line option")
         display_help(1)
@@ -759,6 +761,8 @@ def parse_options():
         elif opt == '--guardcf':
             GUARD_CF = True
             ALWAYS_DYNAMIC_BASE = True # /GUARD:CF requires /DYNAMICBASE
+        elif opt in ('--use-cffi'):
+            USE_CFFI = True
         else:
             print("ERROR: Invalid command line option '%s'" % opt)
             display_help(1)
@@ -2921,6 +2925,9 @@ def mk_bindings(api_files):
         ml_output_dir = None
         if is_ml_enabled():
           ml_output_dir = get_component('ml').src_dir
+        use_ffi_mod = 'ctypes'
+        if USE_CFFI:
+            use_ffi_mod = 'cffi'
         # Get the update_api module to do the work for us
         update_api.generate_files(api_files=new_api_files,
           api_output_dir=get_component('api').src_dir,
@@ -2929,7 +2936,8 @@ def mk_bindings(api_files):
           java_output_dir=java_output_dir,
           java_package_name=java_package_name,
           ml_output_dir=ml_output_dir,
-          ml_src_dir=ml_output_dir
+          ml_src_dir=ml_output_dir,
+          use_ffi=use_ffi_mod
         )
         cp_z3py_to_build()
         if is_ml_enabled():

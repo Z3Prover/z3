@@ -91,7 +91,11 @@ def init_project_def():
     add_java_dll('java', ['api_dll'], 'api/java', dll_name='libz3java', package_name="com.microsoft.z3", manifest_file='manifest')
     add_ml_lib('ml', ['api_dll'], 'api/ml', lib_name='libz3ml')
     add_hlib('cpp', 'api/c++', includes2install=['z3++.h'])
-    set_z3py_dir('api/python')
+    global USE_CFFI
+    if USE_CFFI:
+        set_z3py_dir('api/pypy')
+    else:
+        set_z3py_dir('api/python')
     add_python(_libz3Component)
     add_python_install(_libz3Component)
     # Examples

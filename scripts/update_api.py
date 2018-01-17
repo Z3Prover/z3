@@ -57,6 +57,11 @@ FLOAT      = 13
 
 FIRST_OBJ_ID = 100
 
+# Wether the generated wrapper uses ctypes or cffi as ffi module
+use_ffi_module = "ctypes"
+if 'PyPy' in sys.version:
+    use_ffi_module = "cffi"
+
 def is_obj(ty):
     return ty >= FIRST_OBJ_ID
 
@@ -70,6 +75,11 @@ Type2PyStr = { VOID_PTR : 'ctypes.c_void_p', INT : 'ctypes.c_int', UINT : 'ctype
                STRING : 'ctypes.c_char_p', STRING_PTR : 'ctypes.POINTER(ctypes.c_char_p)', BOOL : 'ctypes.c_bool', SYMBOL : 'Symbol',
                PRINT_MODE : 'ctypes.c_uint', ERROR_CODE : 'ctypes.c_uint'
                }
+
+Type2PyCffiStr = { VOID : 'void', VOID_PTR : 'void*', INT : 'int', UINT : 'unsigned', INT64 : 'int64_t', UINT64 : 'uint64_t', DOUBLE : 'double',
+                   FLOAT : 'float', STRING : 'char*', STRING_PTR : 'char**', BOOL : 'int', SYMBOL : 'Z3_symbol',
+                   PRINT_MODE : 'unsigned', ERROR_CODE : 'unsigned'
+                   }
 
 # Mapping to .NET types
 Type2Dotnet = { VOID : 'void', VOID_PTR : 'IntPtr', INT : 'int', UINT : 'uint', INT64 : 'Int64', UINT64 : 'UInt64', DOUBLE : 'double',
@@ -93,13 +103,21 @@ Type2ML = { VOID : 'unit', VOID_PTR : 'VOIDP', INT : 'int', UINT : 'int', INT64 
 next_type_id = FIRST_OBJ_ID
 
 def def_Type(var, c_type, py_type):
-    global next_type_id
+    global next_type_id, core_py
     exec('%s = %s' % (var, next_type_id), globals())
     Type2Str[next_type_id] = c_type
-    Type2PyStr[next_type_id] = py_type
+    if use_ffi_module == 'ctypes':
+        Type2PyStr[next_type_id] = py_type
+    else:
+        Type2PyCffiStr[next_type_id] = c_type
+        if c_type == 'Z3_app':
+            core_py.write('typedef struct _Z3_ast* Z3_app;\n')
+        else:
+            core_py.write('typedef struct _%s* %s;\n' %(c_type, c_type))
     next_type_id    = next_type_id + 1
 
 def def_Types(api_files):
+    global core_py
     pat1 = re.compile(" *def_Type\(\'(.*)\',[^\']*\'(.*)\',[^\']*\'(.*)\'\)[ \t]*")
     for api_file in api_files:
         api = open(api_file, 'r')
@@ -107,6 +125,7 @@ def def_Types(api_files):
             m = pat1.match(line)
             if m:
                 def_Type(m.group(1), m.group(2), m.group(3))
+    core_py.write('typedef struct _Z3_symbol* Z3_symbol;\n\n')
     for k in Type2Str:
         v = Type2Str[k]
         if is_obj(k):
@@ -120,6 +139,10 @@ def type2str(ty):
 def type2pystr(ty):
     global Type2PyStr
     return Type2PyStr[ty]
+
+def type2pycffistr(ty):
+    global Type2PyCffiStr
+    return Type2PyCffiStr[ty]
 
 def type2dotnet(ty):
     global Type2Dotnet
@@ -250,10 +273,17 @@ def param2javaw(p):
         return type2javaw(param_type(p))
 
 def param2pystr(p):
+    global use_ffi_module
     if param_kind(p) == IN_ARRAY or param_kind(p) == OUT_ARRAY or param_kind(p) == IN_ARRAY or param_kind(p) == INOUT_ARRAY or param_kind(p) == OUT:
-        return "ctypes.POINTER(%s)" % type2pystr(param_type(p))
+        if use_ffi_module == 'ctypes':
+            return "ctypes.POINTER(%s)" % type2pystr(param_type(p))
+        else:
+            return type2pycffistr(param_type(p)) + '*'
     else:
-        return type2pystr(param_type(p))
+        if use_ffi_module == 'ctypes':
+            return type2pystr(param_type(p))
+        else:
+            return type2pycffistr(param_type(p))
 
 def param2ml(p):
     k = param_kind(p)
@@ -290,8 +320,26 @@ def mk_py_binding(name, result, params):
         core_py.write(param2pystr(p))
     core_py.write("]\n")
 
+def mk_py_cffi_binding(name, result, params):
+    global core_py
+    global _API2PY
+    _API2PY.append((name, result, params))
+    core_py.write("%s %s (" % (type2pycffistr(result), name))
+    first = True
+    for p in params:
+        if first:
+            first = False
+        else:
+            core_py.write(", ")
+        core_py.write(param2pystr(p))
+    core_py.write(");\n");
+
 def extra_API(name, result, params):
-    mk_py_binding(name, result, params)
+    global use_ffi_module
+    if use_ffi_module == 'ctypes':
+        mk_py_binding(name, result, params)
+    else:
+        mk_py_cffi_binding(name, result, params)
     reg_dotnet(name, result, params)
 
 def display_args(num):
@@ -305,17 +353,71 @@ def display_args_to_z3(params):
     for p in params:
         if i > 0:
             core_py.write(", ")
-        if param_type(p) == STRING:
-            core_py.write("_to_ascii(a%s)" % i)
-        else:
-            core_py.write("a%s" % i)
+        #if param_type(p) == STRING:
+        #    core_py.write("_to_ascii(a%s)" % i)
+        #else:
+        #    core_py.write("a%s" % i)
+        core_py.write("a%s" % i)
         i = i + 1
 
 NULLWrapped = [ 'Z3_mk_context', 'Z3_mk_context_rc', 'Z3_mk_interpolation_context' ]
 Unwrapped = [ 'Z3_del_context', 'Z3_get_error_code' ]
 
 def mk_py_wrappers():
-    core_py.write("""
+    global use_ffi_module, core_py
+    if use_ffi_module == 'cffi':
+        core_py.write(r"""
+void Z3_set_error_handler (void*, void*);
+''')
+
+for d in _all_dirs:
+  try:
+    d = os.path.realpath(d)
+    if os.path.isdir(d):
+      d = os.path.join(d, 'libz3.%s' % _ext)
+      if os.path.isfile(d):
+        _lib = ffi.dlopen(d)
+        break
+  except:
+    pass
+
+if _lib is None:
+  # If all else failed, ask the system to find it.
+  try:
+    _lib = ffi.dlopen('libz3.%s' % _ext)
+  except:
+    pass
+
+if _lib is None:
+  print("Could not find libz3.%s; consider adding the directory containing it to" % _ext)
+  print("  - your system's PATH environment variable,")
+  print("  - the Z3_LIBRARY_PATH environment variable, or ")
+  print("  - to the custom Z3_LIBRARY_DIRS Python-builtin before importing the z3 module, e.g. via")
+  print("    import __builtin__")
+  print("    __builtin__.Z3_LIB_DIRS = [ '/path/to/libz3.%s' ] " % _ext)
+  raise Z3Exception("libz3.%s not found." % _ext)
+
+class Elementaries:
+  def __init__(self, f):
+    self.f = f
+    self.get_error_code = _lib.Z3_get_error_code
+    self.get_error_message = _lib.Z3_get_error_msg
+    self.OK = Z3_OK
+    self.Exception = Z3Exception
+
+  def Check(self, ctx):
+    err = self.get_error_code(ctx)
+    if err != self.OK:
+        raise self.Exception(self.get_error_message(ctx, err))
+
+def Z3_set_error_handler(ctx, hndlr, _elems=Elementaries(_lib.Z3_set_error_handler)):
+  _elems.f(ctx, ffi.NULL)
+  _elems.Check(ctx)
+  return 0
+
+""")
+    else:
+        core_py.write("""
 class Elementaries:
   def __init__(self, f):
     self.f = f
@@ -354,6 +456,8 @@ def Z3_set_error_handler(ctx, hndlr, _elems=Elementaries(_lib.Z3_set_error_handl
             core_py.write("  _elems.Check(a0)\n")
         if result == STRING:
             core_py.write("  return _to_pystr(r)\n")
+        elif result == BOOL:
+            core_py.write("  return bool(r)\n")
         elif result != VOID:
             core_py.write("  return r\n")
         core_py.write("\n")
@@ -857,7 +961,11 @@ API2Id = {}
 def def_API(name, result, params):
     global API2Id, next_id
     global log_h, log_c
-    mk_py_binding(name, result, params)
+    global use_ffi_module
+    if use_ffi_module == 'ctypes':
+        mk_py_binding(name, result, params)
+    else:
+        mk_py_cffi_binding(name, result, params)
     reg_dotnet(name, result, params)
     API2Id[next_id] = name
     mk_log_header(log_h, name, params)
@@ -1584,7 +1692,7 @@ def def_APIs(api_files):
                 if m:
                     eval(line)
             except Exception:
-                raise mk_exec_header.MKException("Failed to process API definition: %s" % line)
+                raise mk_exception.MKException("Failed to process API definition: %s" % line)
 
 def write_log_h_preamble(log_h):
   log_h.write('// Automatically generated file\n')
@@ -1619,16 +1727,27 @@ def write_exe_c_preamble(exe_c):
   exe_c.write('void Z3_replayer_error_handler(Z3_context ctx, Z3_error_code c) { printf("[REPLAYER ERROR HANDLER]: %s\\n", Z3_get_error_msg(ctx, c)); }\n')
 
 def write_core_py_post(core_py):
-  core_py.write("""
+  global use_ffi_module
+  if use_ffi_module == 'ctypes':
+    core_py.write("""
 # Clean up
 del _lib
 del _default_dirs
 del _all_dirs
 del _ext
 """)
-    
+  else:
+    core_py.write("""
+# Clean up
+del _default_dirs
+del _all_dirs
+del _ext
+""")
+
 def write_core_py_preamble(core_py):
-  core_py.write(
+  global use_ffi_module
+  if use_ffi_module == 'ctypes':
+    core_py.write(
 """
 # Automatically generated file
 import sys, os
@@ -1696,11 +1815,7 @@ if _lib is None:
 
 def _to_ascii(s):
   if isinstance(s, str):
-    try: 
-      return s.encode('ascii')
-    except:
-      # kick the bucket down the road.  :-J
-      return s
+    return s.encode('ascii')
   else:
     return s
 
@@ -1722,7 +1837,59 @@ _lib.Z3_set_error_handler.restype  = None
 _lib.Z3_set_error_handler.argtypes = [ContextObj, _error_handler_type]
 
 """
-  )
+    )
+  else:
+    core_py.write(
+"""
+# Automatically generated file
+import sys, os
+from cffi import FFI
+import pkg_resources
+from .z3consts import *
+
+_ext = 'dll' if sys.platform in ('win32', 'cygwin') else 'dylib' if sys.platform == 'darwin' else 'so'
+_lib = None
+_default_dirs = ['.',
+                 os.path.dirname(os.path.abspath(__file__)),
+                 pkg_resources.resource_filename('z3', 'lib'),
+                 os.path.join(sys.prefix, 'lib'),
+                 None]
+_all_dirs = []
+
+import __builtin__
+if hasattr(__builtin__, "Z3_LIB_DIRS"):
+  _all_dirs = __builtin__.Z3_LIB_DIRS
+
+for v in ('Z3_LIBRARY_PATH', 'PATH'):
+  if v in os.environ:
+    lp = os.environ[v];
+    lds = lp.split(';') if sys.platform in ('win32') else lp.split(':')
+    _all_dirs.extend(lds)
+
+_all_dirs.extend(_default_dirs)
+
+def _to_ascii(s):
+  if isinstance(s, str):
+    return s.encode('ascii')
+  else:
+    return s
+
+class Z3Exception(Exception):
+    def __init__(self, value):
+        self.value = value
+    def __str__(self):
+        return str(self.value)
+
+ffi = FFI()
+
+def _to_pystr(s):
+    if isinstance(s, ffi.CData):
+        return ffi.string(s)
+    return s
+
+ffi.cdef(r'''
+"""
+    )
 
 log_h = None
 log_c = None
@@ -1738,7 +1905,8 @@ def generate_files(api_files,
                    java_output_dir=None,
                    java_package_name=None,
                    ml_output_dir=None,
-                   ml_src_dir=None):
+                   ml_src_dir=None,
+                   use_ffi="cffi"):
   """
     Scan the api files in ``api_files`` and emit the relevant API files into
     the output directories specified. If an output directory is set to ``None``
@@ -1763,8 +1931,9 @@ def generate_files(api_files,
     to determine the output directory paths.
   """
   # FIXME: These should not be global
-  global log_h, log_c, exe_c, core_py
+  global log_h, log_c, exe_c, core_py, use_ffi_module
   assert isinstance(api_files, list)
+  use_ffi_module = use_ffi
 
   # Hack: Avoid emitting files when we don't want them
   # by writing to temporary files that get deleted when
@@ -1850,6 +2019,10 @@ def main(args):
                       dest="ml_output_dir",
                       default=None,
                       help="Directory to emit OCaml files. If not specified no files are emitted.")
+  parser.add_argument("--use-ffi",
+                      dest="use_ffi",
+                      default="cffi",
+                      help="python ffi module (ctypes or cffi) to use. If not specified cffi is used.")
   pargs = parser.parse_args(args)
 
   if pargs.java_output_dir:
@@ -1874,7 +2047,8 @@ def main(args):
                  java_output_dir=pargs.java_output_dir,
                  java_package_name=pargs.java_package_name,
                  ml_output_dir=pargs.ml_output_dir,
-                 ml_src_dir=pargs.ml_src_dir)
+                 ml_src_dir=pargs.ml_src_dir,
+                 use_ffi=pargs.use_ffi)
   return 0
 
 if __name__ == '__main__':
