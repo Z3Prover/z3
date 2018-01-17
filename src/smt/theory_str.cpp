@@ -9755,7 +9755,32 @@ namespace smt {
                 CTRACE("str", lower_bound_exists, tout << "lower bound of " << mk_pp(str, m) << " is " << lower_bound_value << std::endl;);
                 CTRACE("str", upper_bound_exists, tout << "upper bound of " << mk_pp(str, m) << " is " << upper_bound_value << std::endl;);
 
-                if (upper_bound_exists) {
+                bool new_lower_bound_info = true;
+                bool new_upper_bound_info = true;
+                // check last seen lower/upper bound to avoid performing duplicate work
+                if (regex_last_lower_bound.contains(str)) {
+                    rational last_lb_value;
+                    regex_last_lower_bound.find(str, last_lb_value);
+                    if (last_lb_value == lower_bound_value) {
+                        new_lower_bound_info = false;
+                    }
+                }
+                if (regex_last_upper_bound.contains(str)) {
+                    rational last_ub_value;
+                    regex_last_upper_bound.find(str, last_ub_value);
+                    if (last_ub_value == upper_bound_value) {
+                        new_upper_bound_info = false;
+                    }
+                }
+
+                if (new_lower_bound_info) {
+                    regex_last_lower_bound.insert(str, lower_bound_value);
+                }
+                if (new_upper_bound_info) {
+                    regex_last_upper_bound.insert(str, upper_bound_value);
+                }
+
+                if (upper_bound_exists && new_upper_bound_info) {
                     // check current assumptions
                     if (regex_automaton_assumptions.contains(re) &&
                             !regex_automaton_assumptions[re].empty()){
@@ -9869,7 +9894,7 @@ namespace smt {
                     }
                 } else { // !upper_bound_exists
                     // no upper bound information
-                    if (lower_bound_exists && !lower_bound_value.is_zero()) {
+                    if (lower_bound_exists && !lower_bound_value.is_zero() && new_lower_bound_info) {
                         // nonzero lower bound, no upper bound
 
                         // check current assumptions
@@ -9930,10 +9955,13 @@ namespace smt {
                                         rhs.push_back(ctx.mk_eq_atom(str_len, m_autil.mk_numeral(lower_bound_value, true)));
                                     } else {
                                         // If there are solutions at and above the lower bound, add an additional bound.
+                                        // DISABLED as this is causing non-termination in the integer solver. --mtrberzi
+                                        /*
                                         rhs.push_back(m.mk_or(
                                                 ctx.mk_eq_atom(str_len, m_autil.mk_numeral(lower_bound_value, true)),
                                                 m_autil.mk_ge(str_len, m_autil.mk_numeral(refined_lower_bound, true))
                                         ));
+                                        */
                                     }
                                 } else {
                                     if (refined_lower_bound.is_minus_one()) {

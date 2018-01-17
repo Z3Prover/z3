@@ -413,6 +413,11 @@ protected:
     obj_map<expr, expr*> regex_term_to_length_constraint; // (str.in.re S R) -> (length constraint over S wrt. R)
     obj_map<expr, ptr_vector<expr> > regex_term_to_extra_length_vars; // extra length vars used in regex_term_to_length_constraint entries
 
+    // keep track of the last lower/upper bound we saw for each string term
+    // so we don't perform duplicate work
+    obj_map<expr, rational> regex_last_lower_bound;
+    obj_map<expr, rational> regex_last_upper_bound;
+
     // each counter maps a (str.in.re) expression to an integer.
     // use helper functions regex_inc_counter() and regex_get_counter() to access
     obj_map<expr, unsigned> regex_length_attempt_count;
