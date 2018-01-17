@@ -556,6 +556,7 @@ protected:
     bool check_regex_length_linearity(expr * re);
     bool check_regex_length_linearity_helper(expr * re, bool already_star);
     expr_ref infer_all_regex_lengths(expr * lenVar, expr * re, expr_ref_vector & freeVariables);
+    void find_automaton_initial_bounds(expr * str_in_re, eautomaton * aut);
     bool refine_automaton_lower_bound(eautomaton * aut, rational current_lower_bound, rational & refined_lower_bound);
     bool refine_automaton_upper_bound(eautomaton * aut, rational current_upper_bound, rational & refined_upper_bound);
     expr_ref generate_regex_path_constraints(expr * stringTerm, eautomaton * aut, rational lenVal, expr_ref & characterConstraints);
