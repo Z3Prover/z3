@@ -6834,7 +6834,7 @@ class FiniteDomainSortRef(SortRef):
 
 def FiniteDomainSort(name, sz, ctx=None):
     """Create a named finite domain sort of a given size sz"""
-    if not isinstance(name, Symbol):
+    if not iscffiinstance(name, 'Z3_symbol'):
         name = to_symbol(name)
     ctx = _get_ctx(ctx)
     return FiniteDomainSortRef(Z3_mk_finite_domain_sort(ctx.ref(), name, sz), ctx)

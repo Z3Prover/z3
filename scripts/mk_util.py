@@ -44,8 +44,8 @@ INSTALL_LIB_DIR=getenv("Z3_INSTALL_LIB_DIR", "lib")
 INSTALL_INCLUDE_DIR=getenv("Z3_INSTALL_INCLUDE_DIR", "include")
 INSTALL_PKGCONFIG_DIR=getenv("Z3_INSTALL_PKGCONFIG_DIR", os.path.join(INSTALL_LIB_DIR, 'pkgconfig'))
 
-CXX_COMPILERS=['clang++', 'g++']
-C_COMPILERS=['clang', 'gcc']
+CXX_COMPILERS=['g++', 'clang++']
+C_COMPILERS=['gcc', 'clang']
 CSC_COMPILERS=['csc', 'mcs']
 JAVAC=None
 JAR=None
@@ -683,7 +683,7 @@ def display_help(exit_code):
 # Parse configuration option for mk_make script
 def parse_options():
     global VERBOSE, DEBUG_MODE, IS_WINDOWS, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ, TRACE, VS_PAR, VS_PAR_NUM
-    global DOTNET_ENABLED, DOTNET_KEY_FILE, JAVA_ENABLED, ML_ENABLED, STATIC_LIB, STATIC_BIN, PREFIX, GMP, PYTHON_PACKAGE_DIR, GPROF, GIT_HASH, GIT_DESCRIBE, PYTHON_INSTALL_ENABLED, PYTHON_ENABLED
+    global DOTNET_ENABLED, DOTNET_KEY_FILE, JAVA_ENABLED, ML_ENABLED, STATIC_LIB, STATIC_BIN, PREFIX, GMP, PYTHON_PACKAGE_DIR, GPROF, GIT_HASH, GIT_DESCRIBE, PYTHON_INSTALL_ENABLED, PYTHON_ENABLED, USE_CFFI
     global LINUX_X64, SLOW_OPTIMIZE, USE_OMP, LOG_SYNC
     global GUARD_CF, ALWAYS_DYNAMIC_BASE
     try:
@@ -761,7 +761,7 @@ def parse_options():
         elif opt == '--guardcf':
             GUARD_CF = True
             ALWAYS_DYNAMIC_BASE = True # /GUARD:CF requires /DYNAMICBASE
-        elif opt in ('--use-cffi'):
+        elif opt == '--use-cffi':
             USE_CFFI = True
         else:
             print("ERROR: Invalid command line option '%s'" % opt)
@@ -823,7 +823,7 @@ def set_z3py_dir(p):
         raise MKException("Python bindings directory '%s' does not exist" % full)
     Z3PY_SRC_DIR = full
     if VERBOSE:
-        print("Python bindings directory was detected.")
+        print("Python bindings directory '%s' is detected." % full)
 
 _UNIQ_ID = 0
 
@@ -2925,6 +2925,7 @@ def mk_bindings(api_files):
         ml_output_dir = None
         if is_ml_enabled():
           ml_output_dir = get_component('ml').src_dir
+        global USE_CFFI
         use_ffi_mod = 'ctypes'
         if USE_CFFI:
             use_ffi_mod = 'cffi'

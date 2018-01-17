@@ -5,6 +5,7 @@
 #
 # Author: Leonardo de Moura (leonardo)
 ############################################
+import mk_util
 from mk_util import *
 
 # Z3 Project definition
@@ -91,10 +92,13 @@ def init_project_def():
     add_java_dll('java', ['api_dll'], 'api/java', dll_name='libz3java', package_name="com.microsoft.z3", manifest_file='manifest')
     add_ml_lib('ml', ['api_dll'], 'api/ml', lib_name='libz3ml')
     add_hlib('cpp', 'api/c++', includes2install=['z3++.h'])
-    global USE_CFFI
-    if USE_CFFI:
+    if mk_util.USE_CFFI:
+        if VERBOSE:
+            print("Python bindings set to use cffi.")
         set_z3py_dir('api/pypy')
     else:
+        if VERBOSE:
+            print("Python bindings set to use ctypes.")
         set_z3py_dir('api/python')
     add_python(_libz3Component)
     add_python_install(_libz3Component)
