@@ -9609,6 +9609,8 @@ namespace smt {
                     continue;
                 }
 
+                // DISABLED due to bug -- star-over-union (and possibly others) results in unsound constraints
+                /*
                 if (!regex_terms_with_length_constraints.contains(str_in_re)) {
                     if (current_assignment == l_true && check_regex_length_linearity(re)) {
                         TRACE("str", tout << "regex length constraints expected to be linear -- generating and asserting them" << std::endl;);
@@ -9654,6 +9656,7 @@ namespace smt {
                         regex_axiom_add = true;
                     }
                 } // re not in regex_terms_with_length_constraints
+                */
 
                 rational exact_length_value;
                 if (get_len_value(str, exact_length_value)) {
