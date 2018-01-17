@@ -18,30 +18,31 @@ Notes:
 --*/
 
 
+#include "ast/ast_pp.h"
+#include "ast/ast_translation.h"
+#include "ast/ast_util.h"
 #include "solver/solver.h"
-#include "tactic/tactical.h"
-#include "sat/sat_solver.h"
 #include "solver/tactic2solver.h"
+#include "tactic/tactical.h"
 #include "tactic/aig/aig_tactic.h"
 #include "tactic/core/propagate_values_tactic.h"
 #include "tactic/bv/max_bv_sharing_tactic.h"
 #include "tactic/arith/card2bv_tactic.h"
 #include "tactic/bv/bit_blaster_tactic.h"
 #include "tactic/core/simplify_tactic.h"
-#include "sat/tactic/goal2sat.h"
-#include "ast/ast_pp.h"
 #include "model/model_smt2_pp.h"
+#include "model/model_v2_pp.h"
 #include "tactic/bv/bit_blaster_model_converter.h"
-#include "ast/ast_translation.h"
-#include "ast/ast_util.h"
 #include "tactic/core/propagate_values_tactic.h"
+#include "sat/sat_solver.h"
 #include "sat/sat_params.hpp"
+#include "sat/tactic/goal2sat.h"
 #include "sat/sat_simplifier_params.hpp"
 
 // incremental SAT solver.
 class inc_sat_solver : public solver {
     ast_manager&    m;
-    sat::solver     m_solver;
+    mutable sat::solver     m_solver;
     goal2sat        m_goal2sat;
     params_ref      m_params;
     expr_ref_vector m_fmls;
@@ -62,7 +63,7 @@ class inc_sat_solver : public solver {
     model_converter_ref m_mc;
     mutable model_converter_ref m_mc0;
     mutable obj_hashtable<func_decl>  m_inserted_const2bits;
-    ref<sat2goal::mc>   m_sat_mc;
+    mutable ref<sat2goal::mc>   m_sat_mc;
     mutable model_converter_ref m_cached_mc;
     svector<double>     m_weights;
     std::string         m_unknown;
@@ -382,7 +383,7 @@ public:
         return r;
     }
 
-    virtual lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) {
+    lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) override {
         sat::literal_vector ls;
         u_map<expr*> lit2var;
         for (unsigned i = 0; i < vars.size(); ++i) {
@@ -410,15 +411,19 @@ public:
     void init_reason_unknown() {
         m_unknown = "no reason given";
     }
-    virtual std::string reason_unknown() const {
+
+    std::string reason_unknown() const override {
         return m_unknown;
     }
-    virtual void set_reason_unknown(char const* msg) {
+
+    void set_reason_unknown(char const* msg) override {
         m_unknown = msg;
     }
-    virtual void get_labels(svector<symbol> & r) {
+
+    void get_labels(svector<symbol> & r) override {
     }
-    virtual unsigned get_num_assertions() const {
+
+    unsigned get_num_assertions() const override {
         const_cast<inc_sat_solver*>(this)->convert_internalized();
         if (is_internalized() && m_internalized_converted) {            
             return m_internalized_fmls.size();
@@ -427,28 +432,33 @@ public:
             return m_fmls.size();
         }
     }
-    virtual expr * get_assertion(unsigned idx) const {
+
+    expr * get_assertion(unsigned idx) const override {
         if (is_internalized() && m_internalized_converted) {
             return m_internalized_fmls[idx];
         }
         return m_fmls[idx];
     }
-    virtual unsigned get_num_assumptions() const {
+
+    unsigned get_num_assumptions() const override {
         return m_asmsf.size();
     }
-    virtual expr * get_assumption(unsigned idx) const {
+
+    expr * get_assumption(unsigned idx) const override {
         return m_asmsf[idx];
     }
 
-    virtual model_converter_ref get_model_converter() const {
+    model_converter_ref get_model_converter() const override {
         const_cast<inc_sat_solver*>(this)->convert_internalized();
         if (m_cached_mc)
             return m_cached_mc;
         if (is_internalized() && m_internalized_converted) {            
             insert_const2bits();
+            m_sat_mc->flush_smc(m_solver, m_map);
             m_cached_mc = m_mc0.get();
             m_cached_mc = concat(solver::get_model_converter().get(), m_cached_mc.get());
             m_cached_mc = concat(m_cached_mc.get(), m_sat_mc.get());
+            // IF_VERBOSE(0, m_cached_mc->display(verbose_stream() << "get-model-converter\n"););
             return m_cached_mc;
         }
         else {
@@ -804,16 +814,22 @@ private:
             }
         }
         m_model = md;
+        //IF_VERBOSE(0, model_v2_pp(verbose_stream(), *m_model, true););
 
         if (m_sat_mc) {
+          //  IF_VERBOSE(0, m_sat_mc->display(verbose_stream() << "satmc\n"););
             (*m_sat_mc)(m_model);
         }
         insert_const2bits();
         if (m_mc0) {            
+          //  IF_VERBOSE(0, m_mc0->display(verbose_stream() << "mc0\n"););
             (*m_mc0)(m_model);
         }
         TRACE("sat", model_smt2_pp(tout, m, *m_model, 0););
 
+        // IF_VERBOSE(0, m_sat_mc->display(verbose_stream() << "after\n"););
+
+#if 0
         IF_VERBOSE(0, verbose_stream() << "Verifying solution\n";);
         for (expr * f : m_fmls) {
             expr_ref tmp(m);
@@ -828,6 +844,7 @@ private:
                 VERIFY(m.is_true(tmp));                    
             }
         }
+#endif
     }
 };
 

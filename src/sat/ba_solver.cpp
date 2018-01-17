@@ -1139,8 +1139,7 @@ namespace sat {
 
             if (m_overflow || offset > (1 << 12)) {
                 IF_VERBOSE(20, verbose_stream() << "offset: " << offset << "\n";
-                           active2pb(m_A);
-                           display(verbose_stream(), m_A););
+                           DEBUG_CODE(active2pb(m_A); display(verbose_stream(), m_A);););
                 goto bail_out;
             }
 
@@ -1148,7 +1147,7 @@ namespace sat {
                 goto process_next_resolvent;            
             }
 
-            TRACE("sat_verbose", display(tout, m_A););
+            DEBUG_CODE(TRACE("sat_verbose", display(tout, m_A);););
             TRACE("ba", tout << "process consequent: " << consequent << " : "; s().display_justification(tout, js) << "\n";);
             SASSERT(offset > 0);
 
@@ -1248,9 +1247,8 @@ namespace sat {
             DEBUG_CODE(
                 active2pb(m_C);
                 VERIFY(validate_resolvent());
-                m_A = m_C;);
-
-            TRACE("ba", display(tout << "conflict: ", m_A););
+                m_A = m_C;
+                TRACE("ba", display(tout << "conflict: ", m_A);););
 
             cut();
 
@@ -1528,6 +1526,7 @@ namespace sat {
 
     ba_solver::ba_solver(): m_solver(0), m_lookahead(0), m_unit_walk(0), m_constraint_id(0), m_ba(*this), m_sort(m_ba) {        
         TRACE("ba", tout << this << "\n";);
+        m_num_propagations_since_pop = 0;
     }
 
     ba_solver::~ba_solver() {

@@ -260,7 +260,6 @@ namespace sat {
                 break;
         }
         while (!m_sub_todo.empty());
-
         bool vars_eliminated = m_num_elim_vars > m_old_num_elim_vars;
 
         if (m_need_cleanup || vars_eliminated) {
@@ -981,17 +980,21 @@ namespace sat {
         void operator()() {
             integrity_checker si(s.s);
             si.check_watches();
-            if (s.bce_enabled())
+            if (s.bce_enabled()) {
                 block_clauses();
+            }
             si.check_watches();
-            if (s.abce_enabled())
+            if (s.abce_enabled()) {
                 cce<false>();
+            }
             si.check_watches();
-            if (s.cce_enabled()) 
+            if (s.cce_enabled()) {
                 cce<true>();
+            }
             si.check_watches();
-            if (s.bca_enabled())
+            if (s.bca_enabled()) {
                 bca();
+            }
             si.check_watches();
         }
 

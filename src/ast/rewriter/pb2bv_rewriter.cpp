@@ -39,6 +39,8 @@ struct pb2bv_rewriter::imp {
     func_decl_ref_vector      m_fresh;       // all fresh variables
     unsigned_vector           m_fresh_lim;
     unsigned                  m_num_translated;
+    unsigned                  m_compile_bv;
+    unsigned                  m_compile_card;
 
     struct card2bv_rewriter {               
         typedef expr* literal;
@@ -526,6 +528,7 @@ struct pb2bv_rewriter::imp {
         }
 
         expr_ref mk_bv(func_decl * f, unsigned sz, expr * const* args) {
+            ++m_imp.m_compile_bv;
             decl_kind kind = f->get_decl_kind();
             rational k = pb.get_k(f);
             m_coeffs.reset();
@@ -735,22 +738,27 @@ struct pb2bv_rewriter::imp {
             else if (pb.is_at_most_k(f) && pb.get_k(f).is_unsigned()) {
                 if (m_keep_cardinality_constraints && f->get_arity() >= m_min_arity) return false;
                 result = m_sort.le(full, pb.get_k(f).get_unsigned(), sz, args);
+                ++m_imp.m_compile_card;
             }
             else if (pb.is_at_least_k(f) && pb.get_k(f).is_unsigned()) {
                 if (m_keep_cardinality_constraints && f->get_arity() >= m_min_arity) return false;
                 result = m_sort.ge(full, pb.get_k(f).get_unsigned(), sz, args);
+                ++m_imp.m_compile_card;
             }
             else if (pb.is_eq(f) && pb.get_k(f).is_unsigned() && pb.has_unit_coefficients(f)) {
                 if (m_keep_cardinality_constraints && f->get_arity() >= m_min_arity) return false;
                 result = m_sort.eq(full, pb.get_k(f).get_unsigned(), sz, args);
+                ++m_imp.m_compile_card;
             }
             else if (pb.is_le(f) && pb.get_k(f).is_unsigned() && pb.has_unit_coefficients(f)) {
                 if (m_keep_cardinality_constraints && f->get_arity() >= m_min_arity) return false;
                 result = m_sort.le(full, pb.get_k(f).get_unsigned(), sz, args);
+                ++m_imp.m_compile_card;
             }
             else if (pb.is_ge(f) && pb.get_k(f).is_unsigned() && pb.has_unit_coefficients(f)) {
                 if (m_keep_cardinality_constraints && f->get_arity() >= m_min_arity) return false;
                 result = m_sort.ge(full, pb.get_k(f).get_unsigned(), sz, args);
+                ++m_imp.m_compile_card;
             }
             else if (pb.is_eq(f) && pb.get_k(f).is_unsigned() && has_small_coefficients(f) && m_keep_pb_constraints) {
                 return false;
@@ -909,6 +917,8 @@ struct pb2bv_rewriter::imp {
         m_num_translated(0), 
         m_rw(*this, m) {
         updt_params(p);
+        m_compile_bv = 0;
+        m_compile_card = 0;
     }
 
     void updt_params(params_ref const & p) {
@@ -953,6 +963,8 @@ struct pb2bv_rewriter::imp {
     }
 
     void collect_statistics(statistics & st) const {
+        st.update("pb-compile-bv", m_compile_bv);
+        st.update("pb-compile-card", m_compile_card);
         st.update("pb-aux-variables", m_fresh.size());
         st.update("pb-aux-clauses", m_rw.m_cfg.m_r.m_sort.m_stats.m_num_compiled_clauses);
     }

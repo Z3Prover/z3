@@ -1696,11 +1696,11 @@ struct contains_underspecified_op_proc {
     \brief Complete the model if necessary.
 */
 void cmd_context::complete_model() {
-    if (!is_model_available() ||
+    model_ref md;
+    if (!is_model_available(md) ||
         gparams::get_value("model.completion") != "true")
         return;
 
-    model_ref md;
     get_check_sat_result()->get_model(md);
     SASSERT(md.get() != 0);
     params_ref p;
@@ -1765,11 +1765,11 @@ void cmd_context::complete_model() {
    \brief Check if the current model satisfies the quantifier free formulas.
 */
 void cmd_context::validate_model() {
+    model_ref md;
     if (!validate_model_enabled())
         return;
-    if (!is_model_available())
+    if (!is_model_available(md))
         return;
-    model_ref md;
     get_check_sat_result()->get_model(md);
     SASSERT(md.get() != 0);
     params_ref p;
@@ -1897,11 +1897,10 @@ void cmd_context::display_assertions() {
     regular_stream() << ")" << std::endl;
 }
 
-bool cmd_context::is_model_available() const {
+bool cmd_context::is_model_available(model_ref& md) const {
     if (produce_models() &&
         has_manager() &&
         (cs_state() == css_sat || cs_state() == css_unknown)) {
-        model_ref md;
         get_check_sat_result()->get_model(md);
         return md.get() != 0;
     }

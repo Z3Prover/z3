@@ -1566,6 +1566,17 @@ namespace sat {
 #endif
     }
 
+    unsigned solver::get_hash() const {
+        unsigned result = 0;
+        for (clause* cp : m_clauses) {
+            result = combine_hash(cp->size(), combine_hash(result, cp->id()));
+        }
+        for (clause* cp : m_learned) {
+            result = combine_hash(cp->size(), combine_hash(result, cp->id()));
+        }
+        return result;
+    }
+
     bool solver::set_root(literal l, literal r) {
         return !m_ext || m_ext->set_root(l, r);
     }
@@ -4032,7 +4043,7 @@ namespace sat {
         st.update("dyn subsumption resolution", m_dyn_sub_res);
         st.update("blocked correction sets", m_blocked_corr_sets);
         st.update("units", m_units);
-        st.update("elim bool vars", m_elim_var_res);
+        st.update("elim bool vars res", m_elim_var_res);
         st.update("elim bool vars bdd", m_elim_var_bdd);
     }
 

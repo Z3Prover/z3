@@ -325,6 +325,7 @@ namespace sat {
     }
 
     void model_converter::flush(model_converter & src) {
+        VERIFY(this != &src);
         m_entries.append(src.m_entries);
         src.m_entries.reset();
     }
