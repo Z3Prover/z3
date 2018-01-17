@@ -125,7 +125,8 @@ def def_Types(api_files):
             m = pat1.match(line)
             if m:
                 def_Type(m.group(1), m.group(2), m.group(3))
-    core_py.write('typedef struct _Z3_symbol* Z3_symbol;\n\n')
+    if use_ffi_module == 'cffi':
+    	core_py.write('typedef struct _Z3_symbol* Z3_symbol;\n\n')
     for k in Type2Str:
         v = Type2Str[k]
         if is_obj(k):
