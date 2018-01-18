@@ -122,6 +122,7 @@ namespace opt {
         m_bv(m),
         m_hard_constraints(m),
         m_solver(0),
+        m_pareto1(false),
         m_box_index(UINT_MAX),
         m_optsmt(m),
         m_scoped_state(m),
@@ -294,11 +295,18 @@ namespace opt {
         if (0 == m_objectives.size()) {
             // no op
         }
+        else if (1 == m_objectives.size()) {
+            if (m_pareto1) {
+                is_sat = l_false;
+                m_pareto1 = false;
+            }
+            else {
+                m_pareto1 = (pri == symbol("pareto"));
+                is_sat = execute(m_objectives[0], true, false);
+            }
+        }
         else if (pri == symbol("pareto")) {
             is_sat = execute_pareto();
-        }
-        else if (1 == m_objectives.size()) {
-            is_sat = execute(m_objectives[0], true, false);
         }
         else if (pri == symbol("box")) {
             is_sat = execute_box();
@@ -1358,13 +1366,14 @@ namespace opt {
     }
 
     void context::clear_state() {
-        set_pareto(0);
+        set_pareto(0);        
         m_box_index = UINT_MAX;
         m_model.reset();
     }
 
     void context::set_pareto(pareto_base* p) {
         m_pareto = p;        
+        m_pareto1 = p != nullptr;
     }
 
     void context::collect_statistics(statistics& stats) const {

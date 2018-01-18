@@ -144,7 +144,8 @@ namespace opt {
         ref<opt_solver>     m_opt_solver;
         ref<solver>         m_solver;
         ref<solver>         m_sat_solver;
-        scoped_ptr<pareto_base>          m_pareto;
+        scoped_ptr<pareto_base> m_pareto;
+        bool                 m_pareto1;
         scoped_ptr<qe::qmax> m_qmax;
         sref_vector<model>  m_box_models;
         unsigned            m_box_index;

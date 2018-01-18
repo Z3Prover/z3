@@ -74,9 +74,7 @@ namespace sat {
             DEBUG_CODE({
                 // all clauses must be satisfied
                 bool sat = false;
-                it2 = it->m_clauses.begin();
-                for (; it2 != end2; ++it2) {
-                    literal l = *it2;
+                for (literal l : m_clauses) {
                     if (l == null_literal) {
                         SASSERT(sat);
                         sat = false;
