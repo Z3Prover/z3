@@ -9856,7 +9856,7 @@ namespace smt {
                             if ( (current_assignment == l_true && !assumption.get_polarity())
                                     || (current_assignment == l_false && assumption.get_polarity())) {
                                 // invert sense
-                                NOT_IMPLEMENTED_YET();
+                                zero_solution = !zero_solution;
                             }
 
                             if (zero_solution) {
