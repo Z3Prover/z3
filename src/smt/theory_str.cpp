@@ -6638,6 +6638,68 @@ namespace smt {
         }
     }
 
+    // note: returns an empty set `lens` if something went wrong
+    void theory_str::check_subterm_lengths(expr * re, integer_set & lens) {
+        expr * sub1;
+        expr * sub2;
+        if (u.re.is_to_re(re, sub1)) {
+            SASSERT(u.str.is_string(sub1));
+            zstring(str);
+            u.str.is_string(sub1, str);
+            lens.insert(str.length());
+        } else if (u.re.is_concat(re, sub1, sub2)) {
+            integer_set lens_1, lens_2;
+            check_subterm_lengths(sub1, lens_1);
+            check_subterm_lengths(sub2, lens_2);
+            if (lens_1.empty() || lens_2.empty()) {
+                lens.reset();
+            } else {
+                // take all pairwise lengths
+                for (integer_set::iterator it1 = lens_1.begin(); it1 != lens_1.end(); ++it1) {
+                    for(integer_set::iterator it2 = lens_2.begin(); it2 != lens_2.end(); ++it2) {
+                        int l1 = *it1;
+                        int l2 = *it2;
+                        lens.insert(l1 + l2);
+                    }
+                }
+            }
+        } else if (u.re.is_union(re, sub1, sub2)) {
+            integer_set lens_1, lens_2;
+            check_subterm_lengths(sub1, lens_1);
+            check_subterm_lengths(sub2, lens_2);
+            if (lens_1.empty() || lens_2.empty()) {
+                lens.reset();
+            } else {
+                // take all possibilities from either side
+                for (integer_set::iterator it1 = lens_1.begin(); it1 != lens_1.end(); ++it1) {
+                    lens.insert(*it1);
+                }
+                for (integer_set::iterator it2 = lens_2.begin(); it2 != lens_2.end(); ++it2) {
+                    lens.insert(*it2);
+                }
+            }
+        } else if (u.re.is_star(re, sub1) || u.re.is_plus(re, sub1)) {
+            // this is bad -- term generation requires this not to appear
+            lens.reset();
+        } else if (u.re.is_range(re, sub1, sub2)) {
+            SASSERT(u.str.is_string(sub1));
+            SASSERT(u.str.is_string(sub2));
+            zstring str1, str2;
+            u.str.is_string(sub1, str1);
+            u.str.is_string(sub2, str2);
+            SASSERT(str1.length() == 1);
+            SASSERT(str2.length() == 1);
+            lens.insert(1);
+        } else if (u.re.is_full(re)) {
+            lens.insert(1);
+        } else if (u.re.is_complement(re)) {
+            lens.reset();
+        } else {
+            TRACE("str", tout << "WARNING: unknown regex term " << mk_pp(re, get_manager()) << std::endl;);
+            lens.reset();
+        }
+    }
+
     /*
      * Infer all length constraints implied by the given regular expression `re`
      * in order to constrain `lenVar` (which must be of sort Int).
@@ -6648,7 +6710,6 @@ namespace smt {
      * Extra assertions should be made for these free variables constraining them to be non-negative.
      *
      * TODO: star unrolling?
-     * TODO: generate stars "correctly" as a linear combination of all possible subterm lengths
      */
     expr_ref theory_str::infer_all_regex_lengths(expr * lenVar, expr * re, expr_ref_vector & freeVariables) {
         ENSURE(u.is_re(re));
@@ -6682,6 +6743,9 @@ namespace smt {
             expr_ref retval(mk_and(finalResult), m);
             return retval;
         } else if (u.re.is_star(re, sub1)) {
+            // stars are generated as a linear combination of all possible subterm lengths;
+            // this requires that there are no stars under this one
+            /*
             expr * v = mk_int_var("rlen");
             expr * n = mk_int_var("rstar");
             freeVariables.push_back(v);
@@ -6692,7 +6756,32 @@ namespace smt {
             finalResult.push_back(ctx.mk_eq_atom(lenVar, m_autil.mk_mul(v, n)));
             expr_ref retval(mk_and(finalResult), m);
             return retval;
+            */
+            integer_set subterm_lens;
+            check_subterm_lengths(sub1, subterm_lens);
+            if (subterm_lens.empty()) {
+                // somehow generation was impossible
+                expr_ref retval(m_autil.mk_ge(lenVar, m_autil.mk_numeral(rational::zero(), true)), m);
+                return retval;
+            } else {
+                TRACE("str", tout << "subterm lengths:";
+                for(integer_set::iterator it = subterm_lens.begin(); it != subterm_lens.end(); ++it) {
+                    tout << " " << *it;
+                }
+                tout << std::endl;);
+                expr_ref_vector sum_terms(m);
+                for (integer_set::iterator it = subterm_lens.begin(); it != subterm_lens.end(); ++it) {
+                    rational lenOption(*it);
+                    expr * n = mk_int_var("rstar");
+                    freeVariables.push_back(n);
+                    expr_ref term(m_autil.mk_mul(m_autil.mk_numeral(lenOption, true), n), m);
+                    sum_terms.push_back(term);
+                }
+                expr_ref retval(ctx.mk_eq_atom(lenVar, m_autil.mk_add_simplify(sum_terms)), m);
+                return retval;
+            }
         } else if (u.re.is_plus(re, sub1)) {
+            /*
             expr * v = mk_int_var("rlen");
             expr * n = mk_int_var("rstar");
             freeVariables.push_back(v);
@@ -6704,6 +6793,9 @@ namespace smt {
             finalResult.push_back(m_autil.mk_ge(n, m_autil.mk_numeral(rational::one(), true)));
             expr_ref retval(mk_and(finalResult), m);
             return retval;
+            */
+            // TODO this should really be done as a sub-case of star
+            NOT_IMPLEMENTED_YET();
         } else if (u.re.is_range(re, sub1, sub2)) {
             SASSERT(u.str.is_string(sub1));
             SASSERT(u.str.is_string(sub2));
@@ -9664,8 +9756,6 @@ namespace smt {
                     continue;
                 }
 
-                // DISABLED due to bug -- star-over-union (and possibly others) results in unsound constraints
-                /*
                 if (!regex_terms_with_length_constraints.contains(str_in_re)) {
                     if (current_assignment == l_true && check_regex_length_linearity(re)) {
                         TRACE("str", tout << "regex length constraints expected to be linear -- generating and asserting them" << std::endl;);
@@ -9711,7 +9801,6 @@ namespace smt {
                         regex_axiom_add = true;
                     }
                 } // re not in regex_terms_with_length_constraints
-                */
 
                 rational exact_length_value;
                 if (get_len_value(str, exact_length_value)) {

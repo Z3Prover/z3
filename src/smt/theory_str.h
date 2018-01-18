@@ -20,6 +20,7 @@
 #include "util/trail.h"
 #include "util/union_find.h"
 #include "util/scoped_ptr_vector.h"
+#include "util/hashtable.h"
 #include "ast/ast_pp.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/rewriter/th_rewriter.h"
@@ -37,6 +38,7 @@
 namespace smt {
 
 typedef hashtable<symbol, symbol_hash_proc, symbol_eq_proc> symbol_set;
+typedef int_hashtable<int_hash, default_eq<int> > integer_set;
 
 class str_value_factory : public value_factory {
     seq_util u;
@@ -556,6 +558,7 @@ protected:
     bool check_regex_length_linearity(expr * re);
     bool check_regex_length_linearity_helper(expr * re, bool already_star);
     expr_ref infer_all_regex_lengths(expr * lenVar, expr * re, expr_ref_vector & freeVariables);
+    void check_subterm_lengths(expr * re, integer_set & lens);
     void find_automaton_initial_bounds(expr * str_in_re, eautomaton * aut);
     bool refine_automaton_lower_bound(eautomaton * aut, rational current_lower_bound, rational & refined_lower_bound);
     bool refine_automaton_upper_bound(eautomaton * aut, rational current_upper_bound, rational & refined_upper_bound);
