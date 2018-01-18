@@ -32,6 +32,7 @@ Notes:
 #include "tactic/core/simplify_tactic.h"
 #include "model/model_smt2_pp.h"
 #include "model/model_v2_pp.h"
+#include "model/model_evaluator.h"
 #include "tactic/bv/bit_blaster_model_converter.h"
 #include "tactic/core/propagate_values_tactic.h"
 #include "sat/sat_solver.h"
@@ -831,18 +832,18 @@ private:
 
 #if 0
         IF_VERBOSE(0, verbose_stream() << "Verifying solution\n";);
+        model_evaluator eval(*m_model);
         for (expr * f : m_fmls) {
             expr_ref tmp(m);
-            if (m_model->eval(f, tmp, true)) {
-                CTRACE("sat", !m.is_true(tmp),
-                       tout << "Evaluation failed: " << mk_pp(f, m) << " to " << mk_pp(f, m) << "\n";
-                       model_smt2_pp(tout, m, *(m_model.get()), 0););
-                if (!m.is_true(tmp)) {
-                    IF_VERBOSE(0, verbose_stream() << "failed to verify: " << tmp << "\n";);
-                    IF_VERBOSE(0, verbose_stream() << m_params << "\n";);
-                }
-                VERIFY(m.is_true(tmp));                    
+            eval(f, tmp);
+            CTRACE("sat", !m.is_true(tmp),
+                   tout << "Evaluation failed: " << mk_pp(f, m) << " to " << mk_pp(f, m) << "\n";
+                   model_smt2_pp(tout, m, *(m_model.get()), 0););
+            if (!m.is_true(tmp)) {
+                IF_VERBOSE(0, verbose_stream() << "failed to verify: " << mk_pp(f, m) << "\n";);
+                IF_VERBOSE(0, verbose_stream() << m_params << "\n";);
             }
+            VERIFY(m.is_true(tmp));                                
         }
 #endif
     }

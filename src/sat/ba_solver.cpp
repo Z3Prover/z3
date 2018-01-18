@@ -111,7 +111,7 @@ namespace sat {
     // card
 
     ba_solver::card::card(unsigned id, literal lit, literal_vector const& lits, unsigned k):
-        pb_base(card_t, id, lit, lits.size(), get_obj_size(lits.size()), k) {
+        pb_base(card_t, id, lit, lits.size(), get_obj_size(lits.size()), k) {        
         for (unsigned i = 0; i < size(); ++i) {
             m_lits[i] = lits[i];
         }
@@ -420,17 +420,18 @@ namespace sat {
             sz = j;
             // _bad_id = p.id();
             BADLOG(display(verbose_stream() << "simplify ", p, true));
-            
-            p.set_size(sz);
-            p.set_k(p.k() - true_val);
 
-            if (p.k() == 1 && p.lit() == null_literal) {
+            unsigned k = p.k() - true_val;
+
+            if (k == 1 && p.lit() == null_literal) {
                 literal_vector lits(sz, p.literals().c_ptr());
                 s().mk_clause(sz, lits.c_ptr(), p.learned());
                 remove_constraint(p, "is clause");
                 return;
             }
-            else if (p.lit() == null_literal || value(p.lit()) == l_true) {
+            p.set_size(sz);
+            p.set_k(k);
+            if (p.lit() == null_literal || value(p.lit()) == l_true) {
                 init_watch(p);
             }
             else {
@@ -2621,6 +2622,7 @@ namespace sat {
             return;
         }
 
+        VERIFY(c.size() - c.k() >= sz - k);
         c.set_size(sz);
         c.set_k(k);    
 

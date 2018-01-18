@@ -520,7 +520,7 @@ struct goal2sat::imp {
         }
     }
 
-    void convert_at_least_k(app* t, rational k, bool root, bool sign) {
+    void convert_at_least_k(app* t, rational const& k, bool root, bool sign) {
         SASSERT(k.is_unsigned());
         sat::literal_vector lits;
         unsigned sz = m_result_stack.size();
@@ -539,7 +539,7 @@ struct goal2sat::imp {
         }
     }
 
-    void convert_at_most_k(app* t, rational k, bool root, bool sign) {
+    void convert_at_most_k(app* t, rational const& k, bool root, bool sign) {
         SASSERT(k.is_unsigned());
         sat::literal_vector lits;
         unsigned sz = m_result_stack.size();
@@ -560,7 +560,7 @@ struct goal2sat::imp {
         }        
     }
 
-    void convert_eq_k(app* t, rational k, bool root, bool sign) {
+    void convert_eq_k(app* t, rational const& k, bool root, bool sign) {
         SASSERT(k.is_unsigned());
         sat::literal_vector lits;
         convert_pb_args(t->get_num_args(), lits);
@@ -622,16 +622,20 @@ struct goal2sat::imp {
         }
         else if (t->get_family_id() == pb.get_family_id()) {
             ensure_extension();
+            rational k;
             switch (t->get_decl_kind()) {
             case OP_AT_MOST_K:
-                convert_at_most_k(t, pb.get_k(t), root, sign);
+                k = pb.get_k(t);
+                convert_at_most_k(t, k, root, sign);
                 break;
             case OP_AT_LEAST_K:
-                convert_at_least_k(t, pb.get_k(t), root, sign);
+                k = pb.get_k(t);
+                convert_at_least_k(t, k, root, sign);
                 break;
             case OP_PB_LE:
                 if (pb.has_unit_coefficients(t)) {
-                    convert_at_most_k(t, pb.get_k(t), root, sign);
+                    k = pb.get_k(t);
+                    convert_at_most_k(t, k, root, sign);
                 }
                 else {
                     convert_pb_le(t, root, sign);
@@ -639,7 +643,8 @@ struct goal2sat::imp {
                 break;
             case OP_PB_GE:
                 if (pb.has_unit_coefficients(t)) {
-                    convert_at_least_k(t, pb.get_k(t), root, sign);
+                    k = pb.get_k(t);
+                    convert_at_least_k(t, k, root, sign);
                 }
                 else {
                     convert_pb_ge(t, root, sign);
@@ -647,7 +652,8 @@ struct goal2sat::imp {
                 break;
             case OP_PB_EQ:
                 if (pb.has_unit_coefficients(t)) {
-                    convert_eq_k(t, pb.get_k(t), root, sign);
+                    k = pb.get_k(t);
+                    convert_eq_k(t, k, root, sign);
                 }
                 else {
                     convert_pb_eq(t, root, sign);
