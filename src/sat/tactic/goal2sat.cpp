@@ -311,7 +311,6 @@ struct goal2sat::imp {
         }
     }
 
-
     void convert_ite(app * n, bool root, bool sign) {
         unsigned sz = m_result_stack.size();
         SASSERT(sz >= 3);
