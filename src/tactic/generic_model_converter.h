@@ -30,10 +30,16 @@ class generic_model_converter : public model_converter {
         instruction   m_instruction;
         entry(func_decl* f, expr* d, ast_manager& m, instruction i):
             m_f(f, m), m_def(d, m), m_instruction(i) {}
+
+        entry& operator=(entry const& other) {
+            m_f = other.m_f;
+            m_def = other.m_def;
+            m_instruction = other.m_instruction;
+            return *this;
+        }
     };
     ast_manager& m;
-    vector<entry> m_add_entries;
-    vector<entry> m_hide_entries;
+    vector<entry> m_entries;
     obj_map<func_decl, unsigned> m_first_idx;
 
     expr_ref simplify_def(entry const& e);
@@ -45,7 +51,7 @@ public:
     
     void hide(expr* e) { SASSERT(is_app(e) && to_app(e)->get_num_args() == 0); hide(to_app(e)->get_decl()); }
 
-    void hide(func_decl * f) { m_hide_entries.push_back(entry(f, 0, m, HIDE)); }
+    void hide(func_decl * f) { m_entries.push_back(entry(f, 0, m, HIDE)); }
 
     void add(func_decl * d, expr* e);
 

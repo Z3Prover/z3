@@ -198,6 +198,7 @@ namespace sat {
             literal_vector  m_lits;
             svector<uint64> m_coeffs;
             uint64        m_k;
+            ineq(): m_k(0) {}
             void reset(uint64 k) { m_lits.reset(); m_coeffs.reset(); m_k = k; }
             void push(literal l, uint64 c) { m_lits.push_back(l); m_coeffs.push_back(c); }
         };

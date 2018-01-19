@@ -151,7 +151,7 @@ namespace format_ns {
     }
     
     format * mk_int(ast_manager & m, int i) {
-        static char buffer[128];
+        char buffer[128];
 #ifdef _WINDOWS
         sprintf_s(buffer, ARRAYSIZE(buffer), "%d", i);
 #else
@@ -161,7 +161,7 @@ namespace format_ns {
     }
     
     format * mk_unsigned(ast_manager & m, unsigned u) {
-        static char buffer[128];
+        char buffer[128];
 #ifdef _WINDOWS
         sprintf_s(buffer, ARRAYSIZE(buffer), "%u", u);
 #else

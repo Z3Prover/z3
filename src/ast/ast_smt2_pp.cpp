@@ -122,8 +122,10 @@ format * smt2_pp_environment::pp_fdecl_params(format * fname, func_decl * f) {
                 (f->get_parameter(i).is_ast() && is_func_decl(f->get_parameter(i).get_ast())));
         if (f->get_parameter(i).is_int())
             fs.push_back(mk_int(get_manager(), f->get_parameter(i).get_int()));
-        else if (f->get_parameter(i).is_rational())
-            fs.push_back(mk_string(get_manager(), f->get_parameter(i).get_rational().to_string().c_str()));
+        else if (f->get_parameter(i).is_rational()) {
+            std::string str = f->get_parameter(i).get_rational().to_string();
+            fs.push_back(mk_string(get_manager(), str.c_str()));
+        }
         else
             fs.push_back(pp_fdecl_ref(to_func_decl(f->get_parameter(i).get_ast())));
     }

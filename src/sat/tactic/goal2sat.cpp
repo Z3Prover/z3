@@ -519,7 +519,7 @@ struct goal2sat::imp {
         }
     }
 
-    void convert_at_least_k(app* t, rational k, bool root, bool sign) {
+    void convert_at_least_k(app* t, rational const& k, bool root, bool sign) {
         SASSERT(k.is_unsigned());
         sat::literal_vector lits;
         unsigned sz = m_result_stack.size();
@@ -538,7 +538,7 @@ struct goal2sat::imp {
         }
     }
 
-    void convert_at_most_k(app* t, rational k, bool root, bool sign) {
+    void convert_at_most_k(app* t, rational const& k, bool root, bool sign) {
         SASSERT(k.is_unsigned());
         sat::literal_vector lits;
         unsigned sz = m_result_stack.size();
@@ -559,7 +559,7 @@ struct goal2sat::imp {
         }        
     }
 
-    void convert_eq_k(app* t, rational k, bool root, bool sign) {
+    void convert_eq_k(app* t, rational const& k, bool root, bool sign) {
         SASSERT(k.is_unsigned());
         sat::literal_vector lits;
         convert_pb_args(t->get_num_args(), lits);
@@ -621,16 +621,20 @@ struct goal2sat::imp {
         }
         else if (t->get_family_id() == pb.get_family_id()) {
             ensure_extension();
+            rational k;
             switch (t->get_decl_kind()) {
             case OP_AT_MOST_K:
-                convert_at_most_k(t, pb.get_k(t), root, sign);
+                k = pb.get_k(t);
+                convert_at_most_k(t, k, root, sign);
                 break;
             case OP_AT_LEAST_K:
-                convert_at_least_k(t, pb.get_k(t), root, sign);
+                k = pb.get_k(t);
+                convert_at_least_k(t, k, root, sign);
                 break;
             case OP_PB_LE:
                 if (pb.has_unit_coefficients(t)) {
-                    convert_at_most_k(t, pb.get_k(t), root, sign);
+                    k = pb.get_k(t);
+                    convert_at_most_k(t, k, root, sign);
                 }
                 else {
                     convert_pb_le(t, root, sign);
@@ -638,7 +642,8 @@ struct goal2sat::imp {
                 break;
             case OP_PB_GE:
                 if (pb.has_unit_coefficients(t)) {
-                    convert_at_least_k(t, pb.get_k(t), root, sign);
+                    k = pb.get_k(t);
+                    convert_at_least_k(t, k, root, sign);
                 }
                 else {
                     convert_pb_ge(t, root, sign);
@@ -646,7 +651,8 @@ struct goal2sat::imp {
                 break;
             case OP_PB_EQ:
                 if (pb.has_unit_coefficients(t)) {
-                    convert_eq_k(t, pb.get_k(t), root, sign);
+                    k = pb.get_k(t);
+                    convert_eq_k(t, k, root, sign);
                 }
                 else {
                     convert_pb_eq(t, root, sign);
@@ -891,14 +897,15 @@ void sat2goal::mc::flush_smc(sat::solver& s, atom2bool_var const& map) {
 
 void sat2goal::mc::flush_gmc() {
     sat::literal_vector updates;
-    m_smc.expand(updates);
+    m_smc.expand(updates);    
     m_smc.reset();
     if (!m_gmc) m_gmc = alloc(generic_model_converter, m);
     // now gmc owns the model converter
     sat::literal_vector clause;
     expr_ref_vector tail(m);
     expr_ref def(m);
-    for (sat::literal l : updates) {
+    for (unsigned i = 0; i < updates.size(); ++i) {
+        sat::literal l = updates[i];
         if (l == sat::null_literal) {
             sat::literal lit0 = clause[0];
             for (unsigned i = 1; i < clause.size(); ++i) {
@@ -912,6 +919,21 @@ void sat2goal::mc::flush_gmc() {
             m_gmc->add(lit2expr(lit0), def);
             clause.reset();
             tail.reset();
+        }
+        // short circuit for equivalences:
+        else if (clause.empty() && tail.empty() && 
+                 i + 5 < updates.size() && 
+                 updates[i] == ~updates[i + 3] &&
+                 updates[i + 1] == ~updates[i + 4] && 
+                 updates[i + 2] == sat::null_literal && 
+                 updates[i + 5] == sat::null_literal) {
+            sat::literal r = ~updates[i+1];
+            if (l.sign()) { 
+                l.neg(); 
+                r.neg(); 
+            }
+            m_gmc->add(lit2expr(l), lit2expr(r));
+            i += 5;
         }
         else {
             clause.push_back(l);

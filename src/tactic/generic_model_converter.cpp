@@ -31,8 +31,8 @@ Notes:
 void generic_model_converter::add(func_decl * d, expr* e) {
     struct entry et(d, e, m, ADD);
     VERIFY(d->get_range() == m.get_sort(e));
-    m_first_idx.insert_if_not_there(et.m_f, m_add_entries.size());
-    m_add_entries.push_back(et);
+    m_first_idx.insert_if_not_there(et.m_f, m_entries.size());
+    m_entries.push_back(et);
 }
 
 void generic_model_converter::operator()(model_ref & md) {
@@ -42,54 +42,86 @@ void generic_model_converter::operator()(model_ref & md) {
     ev.set_expand_array_equalities(false);
     expr_ref val(m);
     unsigned arity;
-    for (unsigned i = m_hide_entries.size(); i-- > 0; ) {
-        entry const& e = m_hide_entries[i];
-        md->unregister_decl(e.m_f);
-    }
-    for (unsigned i = m_add_entries.size(); i-- > 0; ) {
-        entry const& e = m_add_entries[i];
-        ev(e.m_def, val);
-        TRACE("model_converter", tout << e.m_f->get_name() << " ->\n" << e.m_def << "\n==>\n" << val << "\n";);
-        arity = e.m_f->get_arity();
-        if (arity == 0) {
-            md->register_decl(e.m_f, val);
-        }
-        else {
-            func_interp * new_fi = alloc(func_interp, m, arity);
-            new_fi->set_else(val);
-            md->register_decl(e.m_f, new_fi);
+    for (unsigned i = m_entries.size(); i-- > 0; ) {
+        entry const& e = m_entries[i];
+        switch (e.m_instruction) {
+        case instruction::HIDE:
+            md->unregister_decl(e.m_f);
+            break;
+        case instruction::ADD:
+            ev(e.m_def, val);
+#if 0
+            if (e.m_f->get_name() == symbol("XX")) {
+                IF_VERBOSE(0, verbose_stream() << e.m_f->get_name() << " " << e.m_def << " -> " << val << "\n";);
+                ptr_vector<expr> ts;
+                ts.push_back(e.m_def);
+                while (!ts.empty()) {
+                    app* t = to_app(ts.back());
+                    ts.pop_back();
+                    if (t->get_num_args() > 0) {
+                        ts.append(t->get_num_args(), t->get_args());
+                    }
+                    expr_ref tmp(m);
+                    ev(t, tmp);
+                    IF_VERBOSE(0, verbose_stream() << mk_pp(t, m) << " -> " << tmp << "\n";);                    
+                }
+            }
+#endif
+            TRACE("model_converter", tout << e.m_f->get_name() << " ->\n" << e.m_def << "\n==>\n" << val << "\n";);
+            arity = e.m_f->get_arity();
+            if (arity == 0) {
+                expr* old_val = md->get_const_interp(e.m_f);
+                if (old_val && old_val == val) {
+                    // skip
+                }
+                else {
+                    if (old_val) ev.reset();
+                    md->register_decl(e.m_f, val);
+                }
+            }
+            else {
+                func_interp * old_val = md->get_func_interp(e.m_f);
+                if (old_val && old_val->get_else() == val) {
+                    // skip
+                }
+                else {
+                    if (old_val) ev.reset();
+                    func_interp * new_fi = alloc(func_interp, m, arity);
+                    new_fi->set_else(val);
+                    md->register_decl(e.m_f, new_fi);
+                }
+            }
+            break;
         }
     }
     TRACE("model_converter", tout << "after generic_model_converter\n"; model_v2_pp(tout, *md););
 }
 
 void generic_model_converter::display(std::ostream & out) {
-    for (entry const& e : m_hide_entries) {
-        display_del(out, e.m_f);
-    }
-    for (entry const& e : m_add_entries) {
-        display_add(out, m, e.m_f, e.m_def);
+    for (entry const& e : m_entries) {
+        switch (e.m_instruction) {
+        case instruction::HIDE:
+            display_del(out, e.m_f);
+            break;
+        case instruction::ADD:
+            display_add(out, m, e.m_f, e.m_def);
+            break;
+        }
     }
 }
 
 model_converter * generic_model_converter::translate(ast_translation & translator) {
     ast_manager& to = translator.to();
     generic_model_converter * res = alloc(generic_model_converter, to);
-    for (entry const& e : m_hide_entries) {
-        res->m_hide_entries.push_back(entry(translator(e.m_f.get()), translator(e.m_def.get()), to, e.m_instruction));
-    }
-    for (entry const& e : m_add_entries) {
-        res->m_add_entries.push_back(entry(translator(e.m_f.get()), translator(e.m_def.get()), to, e.m_instruction));
+    for (entry const& e : m_entries) {
+        res->m_entries.push_back(entry(translator(e.m_f.get()), translator(e.m_def.get()), to, e.m_instruction));
     }
     return res;
 }
 
 void generic_model_converter::collect(ast_pp_util& visitor) { 
     m_env = &visitor.env(); 
-    for (entry const& e : m_hide_entries) {
-        visitor.coll.visit_func(e.m_f);
-    }
-    for (entry const& e : m_add_entries) {
+    for (entry const& e : m_entries) {
         visitor.coll.visit_func(e.m_f);
         if (e.m_def) visitor.coll.visit(e.m_def);
     }
@@ -116,8 +148,11 @@ void generic_model_converter::operator()(expr_ref& fml) {
     if (min_idx == UINT_MAX) return;
     expr_ref_vector fmls(m);
     fmls.push_back(fml);
-    for (unsigned i = m_add_entries.size(); i-- > min_idx;) {
-        entry const& e = m_add_entries[i];
+    for (unsigned i = m_entries.size(); i-- > min_idx;) {
+        entry const& e = m_entries[i];
+        if (e.m_instruction != instruction::ADD) {
+            continue;
+        }
         unsigned arity = e.m_f->get_arity();
         if (arity == 0) {
             fmls.push_back(simplify_def(e));
@@ -139,8 +174,18 @@ void generic_model_converter::operator()(expr_ref& fml) {
         if (m_first_idx[e.m_f] == i) {
             m_first_idx.remove(e.m_f);
         }
-        m_add_entries.pop_back();
     }
+    unsigned j = min_idx;
+    for (unsigned i = min_idx; i < m_entries.size(); ++i) {
+        entry const& e = m_entries[i];
+        if (e.m_instruction == instruction::HIDE) {
+            if (i != j) {
+                m_entries[j] = e;
+            }
+            ++j;
+        }
+    }
+    m_entries.shrink(j);
     fml = mk_and(fmls);
 }
 

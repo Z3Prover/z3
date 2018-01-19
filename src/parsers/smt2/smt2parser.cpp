@@ -2593,15 +2593,11 @@ namespace smt2 {
             }
 
             check_rparen("invalid get-value command, ')' expected");
-            if (!m_ctx.is_model_available() || m_ctx.get_check_sat_result() == 0)
-                throw cmd_exception("model is not available");
             model_ref md;
-            if (index == 0) {
-                m_ctx.get_check_sat_result()->get_model(md);
-            }
-            else {
+            if (!m_ctx.is_model_available(md) || m_ctx.get_check_sat_result() == 0)
+                throw cmd_exception("model is not available");
+            if (index != 0) {
                 m_ctx.get_opt()->get_box_model(md, index);
-
             }
             m_ctx.regular_stream() << "(";
             expr ** expr_it  = expr_stack().c_ptr() + spos;

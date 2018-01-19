@@ -445,7 +445,7 @@ public:
 
     model_converter* get_model_converter() { return m_mc0.get(); }
 
-    bool is_model_available() const;
+    bool is_model_available(model_ref& md) const;
 
     double get_seconds() const { return m_watch.get_seconds(); }
 

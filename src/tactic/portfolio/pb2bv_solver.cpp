@@ -16,14 +16,14 @@ Notes:
    
 --*/
 
-#include "tactic/portfolio/pb2bv_solver.h"
-#include "solver/solver_na2as.h"
-#include "tactic/tactic.h"
-#include "ast/rewriter/pb2bv_rewriter.h"
-#include "ast/rewriter/th_rewriter.h"
-#include "tactic/generic_model_converter.h"
 #include "ast/ast_pp.h"
 #include "model/model_smt2_pp.h"
+#include "tactic/portfolio/pb2bv_solver.h"
+#include "tactic/tactic.h"
+#include "tactic/generic_model_converter.h"
+#include "solver/solver_na2as.h"
+#include "ast/rewriter/pb2bv_rewriter.h"
+#include "ast/rewriter/th_rewriter.h"
 
 class pb2bv_solver : public solver_na2as {
     ast_manager&     m;
@@ -50,10 +50,9 @@ public:
     virtual solver* translate(ast_manager& dst_m, params_ref const& p) {
         flush_assertions();
         solver* result = alloc(pb2bv_solver, dst_m, p, m_solver->translate(dst_m, p));
-        model_converter_ref mc = mc0();
-        if (mc) {
+        if (mc0()) {
             ast_translation tr(m, dst_m);
-            result->set_model_converter(mc->translate(tr));
+            result->set_model_converter(mc0()->translate(tr));
         }
         return result;
     }
