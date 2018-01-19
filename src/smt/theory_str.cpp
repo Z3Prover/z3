@@ -35,7 +35,7 @@ namespace smt {
         m_params(params),
         /* Options */
         opt_EagerStringConstantLengthAssertions(true),
-        opt_VerifyFinalCheckProgress(true),
+        opt_VerifyFinalCheckProgress(false),
         opt_LCMUnrollStep(2),
         opt_NoQuickReturn_IntegerTheory(false),
         opt_DisableIntegerTheoryIntegration(false),
