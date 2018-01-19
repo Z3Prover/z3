@@ -10372,7 +10372,9 @@ namespace smt {
                         }
                     }
                 } // foreach(entry in intersect_constraints)
-                aut_inter->compress();
+                if (aut_inter != NULL) {
+                    aut_inter->compress();
+                }
                 TRACE("str", tout << "intersected " << used_intersect_constraints.size() << " constraints" << std::endl;);
 
                 expr_ref_vector conflict_terms(m);
