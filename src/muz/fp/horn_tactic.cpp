@@ -225,7 +225,7 @@ class horn_tactic : public tactic {
                 }
                 queries.reset();
                 queries.push_back(q);
-                generic_model_converter* mc1 = alloc(generic_model_converter, m);
+                generic_model_converter* mc1 = alloc(generic_model_converter, m, "horn");
                 mc1->hide(q);
                 g->add(mc1);
             }

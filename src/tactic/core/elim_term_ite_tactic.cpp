@@ -55,7 +55,7 @@ class elim_term_ite_tactic : public tactic {
                 m_num_fresh++;
                 if (m_produce_models) {
                     if (!m_mc)
-                        m_mc = alloc(generic_model_converter, m);
+                        m_mc = alloc(generic_model_converter, m, "elim_term_ite");
                     m_mc->hide(_result->get_decl());
                 }
             }

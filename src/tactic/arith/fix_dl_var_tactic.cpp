@@ -266,7 +266,7 @@ class fix_dl_var_tactic : public tactic {
                 m_rw.set_substitution(&subst);
             
                 if (m_produce_models) {
-                    generic_model_converter * mc = alloc(generic_model_converter, m);
+                    generic_model_converter * mc = alloc(generic_model_converter, m, "fix_dl");
                     mc->add(var, zero);
                     g->add(mc);
                 }

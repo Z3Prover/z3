@@ -606,7 +606,7 @@ class solve_eqs_tactic : public tactic {
             m_num_eliminated_vars += m_ordered_vars.size();
             if (m_produce_models) {
                 if (mc.get() == 0)
-                    mc = alloc(gmc, m());
+                    mc = alloc(gmc, m(), "solve_eqs");
                 for (app * v : m_ordered_vars) {
                     expr * def = 0;
                     proof * pr;

@@ -94,7 +94,7 @@ class normalize_bounds_tactic : public tactic {
             
             generic_model_converter   * gmc  = 0;
             if (produce_models) {
-                gmc = alloc(generic_model_converter, m);
+                gmc = alloc(generic_model_converter, m, "normalize_bounds");
                 in->add(gmc);
             }
             

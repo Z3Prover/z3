@@ -899,7 +899,7 @@ void sat2goal::mc::flush_gmc() {
     sat::literal_vector updates;
     m_smc.expand(updates);    
     m_smc.reset();
-    if (!m_gmc) m_gmc = alloc(generic_model_converter, m);
+    if (!m_gmc) m_gmc = alloc(generic_model_converter, m, "sat2goal");
     // now gmc owns the model converter
     sat::literal_vector clause;
     expr_ref_vector tail(m);
@@ -1017,7 +1017,7 @@ void sat2goal::mc::insert(sat::bool_var v, app * atom, bool aux) {
     if (aux) {
         SASSERT(is_uninterp_const(atom));
         SASSERT(m.is_bool(atom));
-        if (!m_gmc) m_gmc = alloc(generic_model_converter, m);
+        if (!m_gmc) m_gmc = alloc(generic_model_converter, m, "sat2goal");
         m_gmc->hide(atom->get_decl());
     }
 }

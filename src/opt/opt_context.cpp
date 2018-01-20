@@ -126,7 +126,7 @@ namespace opt {
         m_box_index(UINT_MAX),
         m_optsmt(m),
         m_scoped_state(m),
-        m_fm(m),
+        m_fm(m, "opt"),
         m_objective_refs(m),
         m_enable_sat(false),
         m_is_clausal(false),
@@ -1062,7 +1062,7 @@ namespace opt {
        std::ostringstream out;
        out << mk_pp(term, m);
        app* q = m.mk_fresh_const(out.str().c_str(), m.get_sort(term));
-       if (!fm) fm = alloc(generic_model_converter, m);
+       if (!fm) fm = alloc(generic_model_converter, m, "opt");
        m_hard_constraints.push_back(m.mk_eq(q, term));
        fm->hide(q);
        return q;

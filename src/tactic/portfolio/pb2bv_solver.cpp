@@ -50,9 +50,10 @@ public:
     virtual solver* translate(ast_manager& dst_m, params_ref const& p) {
         flush_assertions();
         solver* result = alloc(pb2bv_solver, dst_m, p, m_solver->translate(dst_m, p));
-        if (mc0()) {
+        model_converter_ref mc = external_model_converter();
+        if (mc.get()) {
             ast_translation tr(m, dst_m);
-            result->set_model_converter(mc0()->translate(tr));
+            result->set_model_converter(mc->translate(tr));
         }
         return result;
     }
@@ -93,7 +94,14 @@ public:
             filter_model(mdl);            
         }
     } 
-    virtual model_converter_ref get_model_converter() const { return m_solver->get_model_converter(); }
+    model_converter* external_model_converter() const {
+        return concat(mc0(), filter_model_converter());
+    }
+    virtual model_converter_ref get_model_converter() const { 
+        model_converter_ref mc = concat(mc0(), filter_model_converter());
+        mc = concat(mc.get(), m_solver->get_model_converter().get());
+        return mc;
+    }
     virtual proof * get_proof() { return m_solver->get_proof(); }
     virtual std::string reason_unknown() const { return m_solver->reason_unknown(); }
     virtual void set_reason_unknown(char const* msg) { m_solver->set_reason_unknown(msg); }
@@ -105,16 +113,23 @@ public:
         flush_assertions(); 
         return m_solver->get_consequences(asms, vars, consequences); }
 
-    void filter_model(model_ref& mdl) {
+    model_converter* filter_model_converter() const {
         if (m_rewriter.fresh_constants().empty()) {
-            return;
+            return nullptr;
         }
-        generic_model_converter filter(m);
+        generic_model_converter* filter = alloc(generic_model_converter, m, "pb2bv");
         func_decl_ref_vector const& fns = m_rewriter.fresh_constants();
         for (func_decl* f : fns) {
-            filter.hide(f);
+            filter->hide(f);
         }
-        filter(mdl);
+        return filter;
+    }
+
+    void filter_model(model_ref& mdl) {
+        model_converter_ref mc = filter_model_converter();
+        if (mc.get()) {
+            (*mc)(mdl);
+        }
     }
 
     virtual unsigned get_num_assertions() const {

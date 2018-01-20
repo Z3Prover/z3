@@ -24,6 +24,7 @@ Notes:
  * Add or overwrite value in model.
  */
 void model_converter::display_add(std::ostream& out, ast_manager& m, func_decl* f, expr* e) const {
+	VERIFY(e);
     smt2_pp_environment_dbg env(m);
     smt2_pp_environment* _env = m_env ? m_env : &env;
     VERIFY(f->get_range() == m.get_sort(e));

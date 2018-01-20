@@ -39,13 +39,14 @@ class generic_model_converter : public model_converter {
         }
     };
     ast_manager& m;
+    std::string  m_orig;
     vector<entry> m_entries;
     obj_map<func_decl, unsigned> m_first_idx;
 
     expr_ref simplify_def(entry const& e);
 
 public:
-    generic_model_converter(ast_manager & m) : m(m) {}
+    generic_model_converter(ast_manager & m, char const* orig) : m(m), m_orig(orig) {}
     
     virtual ~generic_model_converter() { }
     

@@ -50,7 +50,7 @@ namespace opt {
             if (is_sat != l_true) {
                 return is_sat;
             }
-            m_filter = alloc(generic_model_converter, m);
+            m_filter = alloc(generic_model_converter, m, "sortmax");
             rational offset = m_lower;
             m_upper = offset;
             expr_ref_vector in(m);

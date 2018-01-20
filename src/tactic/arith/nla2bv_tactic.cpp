@@ -85,7 +85,7 @@ class nla2bv_tactic : public tactic {
             TRACE("nla2bv", g.display(tout);
                   tout << "Muls: " << count_mul(g) << "\n";
                   );
-            m_fmc = alloc(generic_model_converter, m_manager);
+            m_fmc = alloc(generic_model_converter, m_manager, "nla2bv");
             m_bounds(g);
             collect_power2(g);
             if(!collect_vars(g)) {

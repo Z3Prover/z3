@@ -222,7 +222,7 @@ class lia2pb_tactic : public tactic {
             
             ref<generic_model_converter> gmc;
             if (m_produce_models) {
-                gmc = alloc(generic_model_converter, m);
+                gmc = alloc(generic_model_converter, m, "lia2pb");
             }
             
             expr_ref zero(m);

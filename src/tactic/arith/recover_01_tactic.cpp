@@ -325,7 +325,7 @@ class recover_01_tactic : public tactic {
             }
             
             if (m_produce_models) {
-                gmc = alloc(generic_model_converter, m);
+                gmc = alloc(generic_model_converter, m, "recover_01");
                 new_goal->add(gmc);
             }
             

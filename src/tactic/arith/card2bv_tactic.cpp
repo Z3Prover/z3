@@ -86,7 +86,7 @@ public:
         
         func_decl_ref_vector const& fns = rw2.fresh_constants();
         if (!fns.empty()) {
-            generic_model_converter* filter = alloc(generic_model_converter, m);
+            generic_model_converter* filter = alloc(generic_model_converter, m, "card2bv");
             for (func_decl* f : fns) filter->hide(f);
             g->add(filter);
         }

@@ -93,7 +93,7 @@ public:
         result.push_back(g.get());
         unsigned num_extra_names = dnames.get_num_names();
         if (num_extra_names > 0) {
-            generic_model_converter * fmc = alloc(generic_model_converter, m);
+            generic_model_converter * fmc = alloc(generic_model_converter, m, "nnf");
             g->add(fmc);
             for (unsigned i = 0; i < num_extra_names; i++)
                 fmc->hide(dnames.get_name_decl(i));

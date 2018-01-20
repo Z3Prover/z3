@@ -198,7 +198,7 @@ class degree_shift_tactic : public tactic {
             SASSERT(!m_var2degree.empty());
             generic_model_converter * xmc = 0;
             if (m_produce_models) {
-                xmc = alloc(generic_model_converter, m);
+                xmc = alloc(generic_model_converter, m, "degree_shift");
                 mc = xmc;
             }
             for (auto const& kv : m_var2degree) {

@@ -43,7 +43,6 @@ std::ostream& solver::display(std::ostream & out, unsigned n, expr* const* assum
     get_assertions(fmls);    
     ast_pp_util visitor(get_manager());
     model_converter_ref mc = get_model_converter();
-    mc = concat(mc0(), mc.get());
     if (mc.get()) { 
         mc->collect(visitor); 
     }
@@ -180,7 +179,6 @@ void solver::assert_expr(expr* f) {
     expr_ref fml(f, get_manager());
     if (m_enforce_model_conversion) {
         model_converter_ref mc = get_model_converter();
-        mc = concat(mc0(), mc.get());
         if (mc) {
             (*mc)(fml);        
         }
@@ -196,7 +194,6 @@ void solver::assert_expr(expr* f, expr* t) {
         IF_VERBOSE(0, verbose_stream() << "enforce model conversion\n";);
         exit(0);
         model_converter_ref mc = get_model_converter();
-        mc = concat(mc0(), mc.get());
         if (mc) {
             (*mc)(fml);        
             // (*mc)(a);        

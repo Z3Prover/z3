@@ -299,7 +299,7 @@ namespace datalog {
             }
             
             if (m_context.get_model_converter()) {               
-                generic_model_converter* fmc = alloc(generic_model_converter, m);
+                generic_model_converter* fmc = alloc(generic_model_converter, m, "dl_mk_bit_blast");
                 bit_blast_model_converter* bvmc = alloc(bit_blast_model_converter, m);
                 func_decl_ref_vector const& old_funcs = m_rewriter.m_cfg.old_funcs();
                 func_decl_ref_vector const& new_funcs = m_rewriter.m_cfg.new_funcs();

@@ -44,7 +44,7 @@ namespace qe {
         m(m),
         m_asms(m),
         m_trail(m),
-        m_fmc(alloc(generic_model_converter, m))
+        m_fmc(alloc(generic_model_converter, m, "qsat"))
     {
     }
 

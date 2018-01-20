@@ -29,6 +29,7 @@ Notes:
 
 
 void generic_model_converter::add(func_decl * d, expr* e) {
+    VERIFY(e);
     struct entry et(d, e, m, ADD);
     VERIFY(d->get_range() == m.get_sort(e));
     m_first_idx.insert_if_not_there(et.m_f, m_entries.size());
@@ -39,9 +40,10 @@ void generic_model_converter::operator()(model_ref & md) {
     TRACE("model_converter", tout << "before generic_model_converter\n"; model_v2_pp(tout, *md); display(tout););
     model_evaluator ev(*(md.get()));
     ev.set_model_completion(true);
-    ev.set_expand_array_equalities(false);
+    ev.set_expand_array_equalities(false);    
     expr_ref val(m);
     unsigned arity;
+    bool reset_ev = false;
     for (unsigned i = m_entries.size(); i-- > 0; ) {
         entry const& e = m_entries[i];
         switch (e.m_instruction) {
@@ -50,32 +52,16 @@ void generic_model_converter::operator()(model_ref & md) {
             break;
         case instruction::ADD:
             ev(e.m_def, val);
-#if 0
-            if (e.m_f->get_name() == symbol("XX")) {
-                IF_VERBOSE(0, verbose_stream() << e.m_f->get_name() << " " << e.m_def << " -> " << val << "\n";);
-                ptr_vector<expr> ts;
-                ts.push_back(e.m_def);
-                while (!ts.empty()) {
-                    app* t = to_app(ts.back());
-                    ts.pop_back();
-                    if (t->get_num_args() > 0) {
-                        ts.append(t->get_num_args(), t->get_args());
-                    }
-                    expr_ref tmp(m);
-                    ev(t, tmp);
-                    IF_VERBOSE(0, verbose_stream() << mk_pp(t, m) << " -> " << tmp << "\n";);                    
-                }
-            }
-#endif
             TRACE("model_converter", tout << e.m_f->get_name() << " ->\n" << e.m_def << "\n==>\n" << val << "\n";);
             arity = e.m_f->get_arity();
+            reset_ev = false;
             if (arity == 0) {
                 expr* old_val = md->get_const_interp(e.m_f);
                 if (old_val && old_val == val) {
                     // skip
                 }
                 else {
-                    if (old_val) ev.reset();
+                    reset_ev = old_val != nullptr;
                     md->register_decl(e.m_f, val);
                 }
             }
@@ -85,11 +71,16 @@ void generic_model_converter::operator()(model_ref & md) {
                     // skip
                 }
                 else {
-                    if (old_val) ev.reset();
+                    reset_ev = old_val != nullptr;
                     func_interp * new_fi = alloc(func_interp, m, arity);
                     new_fi->set_else(val);
                     md->register_decl(e.m_f, new_fi);
                 }
+            }
+            if (reset_ev) {
+                ev.reset();
+                ev.set_model_completion(true);
+                ev.set_expand_array_equalities(false);
             }
             break;
         }
@@ -98,7 +89,9 @@ void generic_model_converter::operator()(model_ref & md) {
 }
 
 void generic_model_converter::display(std::ostream & out) {
+    unsigned i = 0;
     for (entry const& e : m_entries) {
+        ++i;
         switch (e.m_instruction) {
         case instruction::HIDE:
             display_del(out, e.m_f);
@@ -112,7 +105,7 @@ void generic_model_converter::display(std::ostream & out) {
 
 model_converter * generic_model_converter::translate(ast_translation & translator) {
     ast_manager& to = translator.to();
-    generic_model_converter * res = alloc(generic_model_converter, to);
+    generic_model_converter * res = alloc(generic_model_converter, to, m_orig.c_str());
     for (entry const& e : m_entries) {
         res->m_entries.push_back(entry(translator(e.m_f.get()), translator(e.m_def.get()), to, e.m_instruction));
     }

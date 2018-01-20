@@ -65,7 +65,7 @@ void extract_clauses_and_dependencies(goal_ref const& g, expr_ref_vector& clause
                         bool2dep.insert(b, d);
                         assumptions.push_back(b);
                         if (!fmc) {
-                            fmc = alloc(generic_model_converter, m);
+                            fmc = alloc(generic_model_converter, m, "solver2tactic");
                         }
                         fmc->hide(to_app(b)->get_decl());
                     }
