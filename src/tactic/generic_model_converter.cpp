@@ -89,9 +89,7 @@ void generic_model_converter::operator()(model_ref & md) {
 }
 
 void generic_model_converter::display(std::ostream & out) {
-    unsigned i = 0;
     for (entry const& e : m_entries) {
-        ++i;
         switch (e.m_instruction) {
         case instruction::HIDE:
             display_del(out, e.m_f);

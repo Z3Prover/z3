@@ -866,6 +866,7 @@ psort * pdecl_manager::mk_psort_cnst(sort * s) {
 }
 
 psort * pdecl_manager::register_psort(psort * n) {
+    enable_trace("register_psort");
     TRACE("register_psort", tout << "registering psort...\n"; n->display(tout); tout << "\n";);
     psort * r = m_table.insert_if_not_there(n);
     if (r != n) {
@@ -946,6 +947,8 @@ void pdecl_manager::del_decl_core(pdecl * p) {
 }
 
 void pdecl_manager::del_decl(pdecl * p) {
+enable_trace("register_psort");
+    TRACE("register_psort", tout << "del psort "; p->display(tout); tout << "\n";);   
     if (p->is_psort()) {
         psort * _p = static_cast<psort*>(p);
         if (_p->is_sort_wrapper())

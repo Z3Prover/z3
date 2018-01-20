@@ -830,7 +830,7 @@ private:
 
         // IF_VERBOSE(0, m_sat_mc->display(verbose_stream() << "after\n"););
 
-#if 0
+#if 1
         IF_VERBOSE(0, verbose_stream() << "Verifying solution\n";);
         model_evaluator eval(*m_model);
         for (expr * f : m_fmls) {
@@ -842,6 +842,9 @@ private:
             if (!m.is_true(tmp)) {
                 IF_VERBOSE(0, verbose_stream() << "failed to verify: " << mk_pp(f, m) << "\n";);
                 IF_VERBOSE(0, verbose_stream() << m_params << "\n";);
+                IF_VERBOSE(0, m_sat_mc->display(verbose_stream() << "sat mc\n"););
+                IF_VERBOSE(0, if (m_mc0) m_mc0->display(verbose_stream() << "mc0\n"););
+                break;
             }
             VERIFY(m.is_true(tmp));                                
         }
