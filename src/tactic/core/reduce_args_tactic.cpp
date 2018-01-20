@@ -393,7 +393,7 @@ struct reduce_args_tactic::imp {
         ptr_buffer<expr> new_args;
         var_ref_vector   new_vars(m_manager);
         ptr_buffer<expr> new_eqs;
-        generic_model_converter * f_mc    = alloc(generic_model_converter, m_manager);
+        generic_model_converter * f_mc    = alloc(generic_model_converter, m_manager, "reduce_args");
         for (auto const& kv : decl2arg2funcs) {
             func_decl * f  = kv.m_key;
             arg2func * map = kv.m_value;

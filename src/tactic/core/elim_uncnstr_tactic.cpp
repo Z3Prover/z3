@@ -808,7 +808,7 @@ class elim_uncnstr_tactic : public tactic {
                 m_mc = 0;
                 return;
             }
-            m_mc = alloc(mc, m());
+            m_mc = alloc(mc, m(), "elim_uncstr");
         }
         
         void init_rw(bool produce_proofs) {
@@ -867,7 +867,7 @@ class elim_uncnstr_tactic : public tactic {
                         app_ref_vector & fresh_vars = m_rw->cfg().m_fresh_vars;
                         m_num_elim_apps = fresh_vars.size();
                         if (produce_models && !fresh_vars.empty()) {
-                            generic_model_converter * fmc = alloc(generic_model_converter, m());
+                            generic_model_converter * fmc = alloc(generic_model_converter, m(), "elim_uncnstr");
                             for (app * f : fresh_vars) 
                                 fmc->hide(f);
                             g->add(concat(fmc, m_mc.get()));

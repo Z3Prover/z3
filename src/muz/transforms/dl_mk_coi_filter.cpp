@@ -90,7 +90,7 @@ namespace datalog {
 
         // set to false each unreached predicate 
         if (m_context.get_model_converter()) {
-            generic_model_converter* mc0 = alloc(generic_model_converter, m);
+            generic_model_converter* mc0 = alloc(generic_model_converter, m, "dl_coi");
             for (auto const& kv : engine) {
                 if (!kv.m_value.is_reachable()) {
                     mc0->add(kv.m_key, m.mk_false());
@@ -127,7 +127,7 @@ namespace datalog {
         if (res && m_context.get_model_converter()) {
             func_decl_set::iterator end = pruned_preds.end();
             func_decl_set::iterator it = pruned_preds.begin();
-            generic_model_converter* mc0 = alloc(generic_model_converter, m);
+            generic_model_converter* mc0 = alloc(generic_model_converter, m, "dl_coi");
             for (; it != end; ++it) {
                 const rule_vector& rules = source.get_predicate_rules(*it);
                 expr_ref_vector fmls(m);

@@ -81,9 +81,10 @@ public:
         for (func_decl* f : m_bv_fns) result->m_bv_fns.push_back(tr(f));
         for (func_decl* f : m_int_fns) result->m_int_fns.push_back(tr(f));
         for (bound_manager* b : m_bounds) result->m_bounds.push_back(b->translate(dst_m));
-        if (mc0()) {
+        model_converter_ref mc = external_model_converter();
+        if (mc) {
             ast_translation tr(m, dst_m);
-            result->set_model_converter(mc0()->translate(tr));
+            result->set_model_converter(mc->translate(tr));
         }
         return result;
     }
@@ -151,11 +152,36 @@ public:
     virtual void get_model_core(model_ref & mdl) {
         m_solver->get_model(mdl);
         if (mdl) {
-            extend_model(mdl);
-            filter_model(mdl);
+            model_converter_ref mc = bounded_model_converter();
+            if (mc) (*mc)(mdl);
         }
     }
-    virtual model_converter_ref get_model_converter() const { return m_solver->get_model_converter(); }
+    model_converter* external_model_converter() const {
+        return concat(mc0(), bounded_model_converter());
+    }
+    model_converter* bounded_model_converter() const {
+        if (m_int2bv.empty() && m_bv_fns.empty()) return nullptr;
+        generic_model_converter* mc = alloc(generic_model_converter, m, "bounded_int2bv");
+        for (func_decl* f : m_bv_fns) 
+            mc->hide(f);
+        for (auto const& kv : m_int2bv) {
+            rational offset;
+            VERIFY (m_bv2offset.find(kv.m_value, offset));
+            expr_ref value(m_bv.mk_bv2int(m.mk_const(kv.m_value)), m);
+            if (!offset.is_zero()) {
+                value = m_arith.mk_add(value, m_arith.mk_numeral(offset, true));
+            }
+            TRACE("int2bv", tout << mk_pp(kv.m_key, m) << " " << value << "\n";);
+            mc->add(kv.m_key, value);
+        }
+        return mc;
+    }
+
+    virtual model_converter_ref get_model_converter() const { 
+        model_converter_ref mc = concat(mc0(), bounded_model_converter());
+        mc = concat(mc.get(), m_solver->get_model_converter().get());
+        return mc;
+    }
     virtual proof * get_proof() { return m_solver->get_proof(); }
     virtual std::string reason_unknown() const { return m_solver->reason_unknown(); }
     virtual void set_reason_unknown(char const* msg) { m_solver->set_reason_unknown(msg); }
@@ -198,34 +224,9 @@ public:
             }
         }
         return r;
-
     }
 
 private:
-
-    void filter_model(model_ref& mdl) const {
-        if (m_bv_fns.empty()) {
-            return;
-        }
-        generic_model_converter filter(m);
-        for (func_decl* f : m_bv_fns) filter.hide(f);
-        filter(mdl);
-    }
-
-    void extend_model(model_ref& mdl) {
-        generic_model_converter ext(m);
-        for (auto const& kv : m_int2bv) {
-            rational offset;
-            VERIFY (m_bv2offset.find(kv.m_value, offset));
-            expr_ref value(m_bv.mk_bv2int(m.mk_const(kv.m_value)), m);
-            if (!offset.is_zero()) {
-                value = m_arith.mk_add(value, m_arith.mk_numeral(offset, true));
-            }
-            TRACE("int2bv", tout << mk_pp(kv.m_key, m) << " " << value << "\n";);
-            ext.add(kv.m_key, value);
-        }
-        ext(mdl);
-    }
 
     void accumulate_sub(expr_safe_replace& sub) const {
         for (unsigned i = 0; i < m_bounds.size(); ++i) {

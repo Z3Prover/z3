@@ -947,7 +947,7 @@ private:
 
             if (m_produce_models) {
                 model_converter_ref mc;
-                generic_model_converter * mc1 = alloc(generic_model_converter, m);
+                generic_model_converter * mc1 = alloc(generic_model_converter, m, "pb2bv");
                 for (auto const& kv : m_const2bit) 
                     mc1->hide(kv.m_value);
                 // store temp int constants in the filter

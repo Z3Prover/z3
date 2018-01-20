@@ -77,7 +77,7 @@ class quasi_macros_tactic : public tactic {
                                produce_proofs ? proofs.get(i) : 0,
                                produce_unsat_cores ? deps.get(i) : 0);
 
-            generic_model_converter * evmc = alloc(generic_model_converter, mm.get_manager());
+            generic_model_converter * evmc = alloc(generic_model_converter, mm.get_manager(), "quasi_macros");
             unsigned num = mm.get_num_macros();
             for (unsigned i = 0; i < num; i++) {
                 expr_ref f_interp(mm.get_manager());

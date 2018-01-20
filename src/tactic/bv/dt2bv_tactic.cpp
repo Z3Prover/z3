@@ -25,7 +25,6 @@ Revision History:
 #include "ast/datatype_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"
 #include "ast/rewriter/rewriter_def.h"
-#include "tactic/generic_model_converter.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/ast_util.h"
 #include "ast/rewriter/enum2bv_rewriter.h"
@@ -128,7 +127,7 @@ public:
         for (sort* s : m_non_fd_sorts) 
             m_fd_sorts.remove(s);
         if (!m_fd_sorts.empty()) {
-            ref<generic_model_converter> filter = alloc(generic_model_converter, m);
+            ref<generic_model_converter> filter = alloc(generic_model_converter, m, "dt2bv");
             enum2bv_rewriter rw(m, m_params);
             rw.set_is_fd(&m_is_fd);            
             expr_ref   new_curr(m);

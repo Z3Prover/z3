@@ -50,9 +50,10 @@ public:
 
     virtual solver* translate(ast_manager& dst_m, params_ref const& p) {   
         solver* result = alloc(enum2bv_solver, dst_m, p, m_solver->translate(dst_m, p));
-        if (mc0()) {
+        model_converter_ref mc = external_model_converter();
+        if (mc) {
             ast_translation tr(m, dst_m);
-            result->set_model_converter(mc0()->translate(tr));
+            result->set_model_converter(mc->translate(tr));
         }
         return result;
     }
@@ -91,18 +92,43 @@ public:
     virtual void get_model_core(model_ref & mdl) { 
         m_solver->get_model(mdl);
         if (mdl) {
-            extend_model(mdl);
-            filter_model(mdl);            
+            model_converter_ref mc = enum_model_converter();
+            if (mc) (*mc)(mdl);
         }
     } 
-    virtual model_converter_ref get_model_converter() const { return m_solver->get_model_converter(); }
+    model_converter* enum_model_converter() const {
+        if (m_rewriter.enum2def().empty() && 
+            m_rewriter.enum2bv().empty()) {
+            return nullptr;
+        }
+        generic_model_converter* mc = alloc(generic_model_converter, m, "enum2bv");
+        for (auto const& kv : m_rewriter.enum2bv()) 
+            mc->hide(kv.m_value);
+        for (auto const& kv : m_rewriter.enum2def()) 
+            mc->add(kv.m_key, kv.m_value);            
+        return mc;
+    }
+
+    model_converter* external_model_converter() const {
+        return concat(mc0(), enum_model_converter());
+    }
+
+    virtual model_converter_ref get_model_converter() const { 
+        model_converter_ref mc = external_model_converter();
+        mc = concat(mc.get(), m_solver->get_model_converter().get());
+        return mc;
+    }
     virtual proof * get_proof() { return m_solver->get_proof(); }
     virtual std::string reason_unknown() const { return m_solver->reason_unknown(); }
     virtual void set_reason_unknown(char const* msg) { m_solver->set_reason_unknown(msg); }
     virtual void get_labels(svector<symbol> & r) { m_solver->get_labels(r); }
     virtual ast_manager& get_manager() const { return m;  }
-    virtual lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) { return m_solver->find_mutexes(vars, mutexes); }
-    virtual expr_ref_vector cube(expr_ref_vector& vars, unsigned backtrack_level) { return m_solver->cube(vars, backtrack_level); }
+    virtual lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) { 
+        return m_solver->find_mutexes(vars, mutexes); 
+    }
+    virtual expr_ref_vector cube(expr_ref_vector& vars, unsigned backtrack_level) { 
+        return m_solver->cube(vars, backtrack_level); 
+    }
     
     virtual lbool get_consequences_core(expr_ref_vector const& asms, expr_ref_vector const& vars, expr_ref_vector& consequences) {
         datatype_util dt(m);
@@ -152,20 +178,7 @@ public:
         return r;
     }
 
-    void filter_model(model_ref& mdl) {
-        generic_model_converter filter(m);
-        for (auto const& kv : m_rewriter.enum2bv()) {
-            filter.hide(kv.m_value);
-        }
-        filter(mdl);
-    }
 
-    void extend_model(model_ref& mdl) {
-        generic_model_converter ext(m);
-        for (auto const& kv : m_rewriter.enum2def()) 
-            ext.add(kv.m_key, kv.m_value);            
-        ext(mdl);
-    }
 
     virtual unsigned get_num_assertions() const {
         return m_solver->get_num_assertions();

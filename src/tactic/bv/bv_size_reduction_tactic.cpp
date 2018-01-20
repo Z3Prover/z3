@@ -265,10 +265,10 @@ struct bv_size_reduction_tactic::imp {
                             subst.insert(v, new_def);
                             if (m_produce_models) {
                                 if (!m_mc) 
-                                    m_mc = alloc(bv_size_reduction_mc, m);
+                                    m_mc = alloc(bv_size_reduction_mc, m, "bv_size_reduction");
                                 m_mc->add(v, new_def);
                                 if (!m_fmc && new_const) 
-                                    m_fmc = alloc(generic_model_converter, m);
+                                    m_fmc = alloc(generic_model_converter, m, "bv_size_reduction");
                                 if (new_const) 
                                     m_fmc->hide(new_const);
                             }
@@ -334,7 +334,7 @@ struct bv_size_reduction_tactic::imp {
                                 m_mc = alloc(bv_size_reduction_mc, m);
                             m_mc->insert(v->get_decl(), new_def);
                             if (!m_fmc && new_const) 
-                                m_fmc = alloc(generic_model_converter, m);
+                                m_fmc = alloc(generic_model_converter, m, "bv_size_reduction");
                             if (new_const) 
                                 m_fmc->hide(new_const);
                         }

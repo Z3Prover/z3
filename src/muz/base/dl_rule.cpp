@@ -326,7 +326,7 @@ namespace datalog {
         rules.set_output_predicate(qpred);
 
         if (m_ctx.get_model_converter()) {
-            generic_model_converter* mc = alloc(generic_model_converter, m);
+            generic_model_converter* mc = alloc(generic_model_converter, m, "dl_rule");
             mc->hide(qpred);
             m_ctx.add_model_converter(mc);
         }

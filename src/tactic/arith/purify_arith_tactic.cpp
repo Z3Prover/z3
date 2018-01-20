@@ -765,7 +765,7 @@ struct purify_arith_proc {
         
         // add generic_model_converter to eliminate auxiliary variables from model
         if (produce_models) {
-            generic_model_converter * fmc = alloc(generic_model_converter, m());
+            generic_model_converter * fmc = alloc(generic_model_converter, m(), "purify");
             mc = fmc;
             obj_map<app, expr*> & f2v = r.cfg().m_app2fresh;
             for (auto const& kv : f2v) {
@@ -775,7 +775,7 @@ struct purify_arith_proc {
             }
         }
         if (produce_models && !m_sin_cos.empty()) {
-            generic_model_converter* emc = alloc(generic_model_converter, m());
+            generic_model_converter* emc = alloc(generic_model_converter, m(), "purify_sin_cos");
             mc = concat(mc.get(), emc);
             obj_map<app, std::pair<expr*,expr*> >::iterator it = m_sin_cos.begin(), end = m_sin_cos.end();
             for (; it != end; ++it) {

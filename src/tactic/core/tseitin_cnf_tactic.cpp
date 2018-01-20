@@ -813,7 +813,7 @@ class tseitin_cnf_tactic : public tactic {
             m_frame_stack.reset();
             m_clauses.reset();
             if (m_produce_models)
-                m_mc = alloc(generic_model_converter, m);
+                m_mc = alloc(generic_model_converter, m, "tseitin");
             else
                 m_mc = 0;
 

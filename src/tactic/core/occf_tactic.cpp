@@ -153,7 +153,7 @@ class occf_tactic : public tactic {
                 if (!is_target(cls))
                     continue;
                 if (produce_models && !m_mc) {
-                    m_mc = alloc(generic_model_converter, m);
+                    m_mc = alloc(generic_model_converter, m, "occf");
                     g->add(m_mc);
                 }
                 expr * keep = 0;

@@ -65,7 +65,7 @@ class bvarray2uf_tactic : public tactic {
             model_converter_ref mc;
 
             if (m_produce_models) {
-                generic_model_converter * fmc = alloc(generic_model_converter, m_manager);
+                generic_model_converter * fmc = alloc(generic_model_converter, m_manager, "bvarray2uf");
                 mc = fmc;
                 m_rw.set_mcs(fmc);
             }
