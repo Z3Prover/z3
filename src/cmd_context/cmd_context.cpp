@@ -1419,7 +1419,9 @@ void cmd_context::restore_assertions(unsigned old_sz) {
         SASSERT(m_assertions.empty());
         return;
     }
-    SASSERT(old_sz <= m_assertions.size());
+    if (old_sz == m_assertions.size())
+        return;
+    SASSERT(old_sz < m_assertions.size());
     SASSERT(!m_interactive_mode || m_assertions.size() == m_assertion_strings.size());
     restore(m(), m_assertions, old_sz);
     if (produce_unsat_cores())
@@ -1520,7 +1522,6 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
     }
     display_sat_result(r);
     if (r == l_true) {
-        complete_model();
         validate_model();
     }
     validate_check_sat_result(r);
@@ -1528,9 +1529,8 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
         // get_opt()->display_assignment(regular_stream());
     }
 
-    if (r == l_true && m_params.m_dump_models) {
-        model_ref md;
-        get_check_sat_result()->get_model(md);
+    model_ref md;
+    if (r == l_true && m_params.m_dump_models && is_model_available(md)) {
         display_model(md);
     }
 }
@@ -1695,14 +1695,10 @@ struct contains_underspecified_op_proc {
 /**
     \brief Complete the model if necessary.
 */
-void cmd_context::complete_model() {
-    model_ref md;
-    if (!is_model_available(md) ||
-        gparams::get_value("model.completion") != "true")
+void cmd_context::complete_model(model_ref& md) const {
+    if (gparams::get_value("model.completion") != "true" || !md.get())
         return;
 
-    get_check_sat_result()->get_model(md);
-    SASSERT(md.get() != 0);
     params_ref p;
     p.set_uint("max_degree", UINT_MAX); // evaluate algebraic numbers of any degree.
     p.set_uint("sort_store", true);
@@ -1770,7 +1766,6 @@ void cmd_context::validate_model() {
         return;
     if (!is_model_available(md))
         return;
-    get_check_sat_result()->get_model(md);
     SASSERT(md.get() != 0);
     params_ref p;
     p.set_uint("max_degree", UINT_MAX); // evaluate algebraic numbers of any degree.
@@ -1902,6 +1897,7 @@ bool cmd_context::is_model_available(model_ref& md) const {
         has_manager() &&
         (cs_state() == css_sat || cs_state() == css_unknown)) {
         get_check_sat_result()->get_model(md);
+        complete_model(md);
         return md.get() != 0;
     }
     return false;

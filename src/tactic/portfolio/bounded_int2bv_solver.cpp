@@ -152,14 +152,14 @@ public:
     virtual void get_model_core(model_ref & mdl) {
         m_solver->get_model(mdl);
         if (mdl) {
-            model_converter_ref mc = bounded_model_converter();
+            model_converter_ref mc = local_model_converter();
             if (mc) (*mc)(mdl);
         }
     }
     model_converter* external_model_converter() const {
-        return concat(mc0(), bounded_model_converter());
+        return concat(mc0(), local_model_converter());
     }
-    model_converter* bounded_model_converter() const {
+    model_converter* local_model_converter() const {
         if (m_int2bv.empty() && m_bv_fns.empty()) return nullptr;
         generic_model_converter* mc = alloc(generic_model_converter, m, "bounded_int2bv");
         for (func_decl* f : m_bv_fns) 
@@ -178,7 +178,7 @@ public:
     }
 
     virtual model_converter_ref get_model_converter() const { 
-        model_converter_ref mc = concat(mc0(), bounded_model_converter());
+        model_converter_ref mc = external_model_converter();
         mc = concat(mc.get(), m_solver->get_model_converter().get());
         return mc;
     }

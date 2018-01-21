@@ -231,7 +231,7 @@ namespace sat {
         if (bce_enabled() || abce_enabled() || bca_enabled()) {
             elim_blocked_clauses();
         }
-        si.check_watches();
+        if (!m_need_cleanup) si.check_watches();
 
         if (!learned) {
             m_num_calls++;
@@ -680,7 +680,7 @@ namespace sat {
     }
 
     void simplifier::elim_lit(clause & c, literal l) {
-        TRACE("elim_lit", tout << "processing: " << c << "\n";);
+        TRACE("elim_lit", tout << "processing: " << l << " @ " << c << "\n";);
         m_need_cleanup = true;
         m_num_elim_lits++;
         insert_elim_todo(l.var());
@@ -979,23 +979,23 @@ namespace sat {
 
         void operator()() {
             integrity_checker si(s.s);
-            si.check_watches();
+            //si.check_watches();
             if (s.bce_enabled()) {
                 block_clauses();
             }
-            si.check_watches();
+            //si.check_watches();
             if (s.abce_enabled()) {
                 cce<false>();
             }
-            si.check_watches();
+            //si.check_watches();
             if (s.cce_enabled()) {
                 cce<true>();
             }
-            si.check_watches();
+            //si.check_watches();
             if (s.bca_enabled()) {
                 bca();
             }
-            si.check_watches();
+            //si.check_watches();
         }
 
         void block_clauses() {
@@ -1829,7 +1829,6 @@ namespace sat {
                     return true;
             }
         }
-
         return true;
     }
 

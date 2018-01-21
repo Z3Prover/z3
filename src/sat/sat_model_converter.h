@@ -94,6 +94,8 @@ namespace sat {
 
         bool legal_to_flip(bool_var v) const;
 
+        void swap(bool_var v, unsigned sz, literal_vector& clause);
+
     public:
         model_converter();
         ~model_converter();

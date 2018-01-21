@@ -92,11 +92,11 @@ public:
     virtual void get_model_core(model_ref & mdl) { 
         m_solver->get_model(mdl);
         if (mdl) {
-            model_converter_ref mc = enum_model_converter();
+            model_converter_ref mc = local_model_converter();
             if (mc) (*mc)(mdl);
         }
     } 
-    model_converter* enum_model_converter() const {
+    model_converter* local_model_converter() const {
         if (m_rewriter.enum2def().empty() && 
             m_rewriter.enum2bv().empty()) {
             return nullptr;
@@ -110,7 +110,7 @@ public:
     }
 
     model_converter* external_model_converter() const {
-        return concat(mc0(), enum_model_converter());
+        return concat(mc0(), local_model_converter());
     }
 
     virtual model_converter_ref get_model_converter() const { 

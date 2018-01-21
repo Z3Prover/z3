@@ -38,6 +38,7 @@ void generic_model_converter::add(func_decl * d, expr* e) {
 
 void generic_model_converter::operator()(model_ref & md) {
     TRACE("model_converter", tout << "before generic_model_converter\n"; model_v2_pp(tout, *md); display(tout););
+    // IF_VERBOSE(0, verbose_stream() << "Apply converter " << m_orig << "\n";);
     model_evaluator ev(*(md.get()));
     ev.set_model_completion(true);
     ev.set_expand_array_equalities(false);    

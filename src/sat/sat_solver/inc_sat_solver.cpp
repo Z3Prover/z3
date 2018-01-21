@@ -54,7 +54,6 @@ class inc_sat_solver : public solver {
     unsigned            m_fmls_head;
     expr_ref_vector     m_core;
     atom2bool_var       m_map;
-    model_ref           m_model;
     scoped_ptr<bit_blaster_rewriter> m_bb_rewriter;
     tactic_ref          m_preprocess;
     unsigned            m_num_scopes;
@@ -183,7 +182,6 @@ public:
 
         TRACE("sat", tout << _assumptions << "\n";);
         dep2asm_t dep2asm;
-        m_model = 0;
         lbool r = internalize_formulas();
         if (r != l_true) return r;
         r = internalize_assumptions(sz, _assumptions.c_ptr(), dep2asm);
@@ -289,12 +287,6 @@ public:
         r.reset();
         r.append(m_core.size(), m_core.c_ptr());
     }
-    virtual void get_model_core(model_ref & mdl) {
-        if (!m_model.get()) {
-            extract_model();
-        }
-        mdl = m_model;
-    }
     virtual proof * get_proof() {
         UNREACHABLE();
         return 0;
@@ -302,7 +294,6 @@ public:
 
     virtual expr_ref_vector cube(expr_ref_vector& vs, unsigned backtrack_level) {
         if (!is_internalized()) {
-            m_model = 0;
             lbool r = internalize_formulas();
             if (r != l_true) return expr_ref_vector(m);
         }
@@ -789,14 +780,14 @@ private:
         }
     }
 
-    void extract_model() {
+    virtual void get_model_core(model_ref & mdl) {
         TRACE("sat", tout << "retrieve model " << (m_solver.model_is_current()?"present":"absent") << "\n";);
         if (!m_solver.model_is_current()) {
-            m_model = 0;
+            mdl = nullptr;
             return;
         }
         sat::model const & ll_m = m_solver.get_model();
-        model_ref md = alloc(model, m);
+        mdl = alloc(model, m);
         for (auto const& kv : m_map) {
             expr * n   = kv.m_key;
             if (is_app(n) && to_app(n)->get_num_args() > 0) {
@@ -805,40 +796,39 @@ private:
             sat::bool_var v = kv.m_value;
             switch (sat::value_at(v, ll_m)) {
             case l_true:
-                md->register_decl(to_app(n)->get_decl(), m.mk_true());
+                mdl->register_decl(to_app(n)->get_decl(), m.mk_true());
                 break;
             case l_false:
-                md->register_decl(to_app(n)->get_decl(), m.mk_false());
+                mdl->register_decl(to_app(n)->get_decl(), m.mk_false());
                 break;
             default:
                 break;
             }
         }
-        m_model = md;
-        //IF_VERBOSE(0, model_v2_pp(verbose_stream(), *m_model, true););
+        //IF_VERBOSE(0, model_v2_pp(verbose_stream(), *mdl, true););
 
         if (m_sat_mc) {
-          //  IF_VERBOSE(0, m_sat_mc->display(verbose_stream() << "satmc\n"););
-            (*m_sat_mc)(m_model);
+            //IF_VERBOSE(0, m_sat_mc->display(verbose_stream() << "satmc\n"););
+            (*m_sat_mc)(mdl);
         }
         insert_const2bits();
         if (m_mc0) {            
-          //  IF_VERBOSE(0, m_mc0->display(verbose_stream() << "mc0\n"););
-            (*m_mc0)(m_model);
+            //IF_VERBOSE(0, m_mc0->display(verbose_stream() << "mc0\n"););
+            (*m_mc0)(mdl);
         }
-        TRACE("sat", model_smt2_pp(tout, m, *m_model, 0););
+        TRACE("sat", model_smt2_pp(tout, m, *mdl, 0););
+        
+        // IF_VERBOSE(0, model_smt2_pp(verbose_stream() << "after\n", m, *mdl, 0););
 
-        // IF_VERBOSE(0, m_sat_mc->display(verbose_stream() << "after\n"););
-
-#if 1
+#if 0
         IF_VERBOSE(0, verbose_stream() << "Verifying solution\n";);
-        model_evaluator eval(*m_model);
+        model_evaluator eval(*mdl);
         for (expr * f : m_fmls) {
             expr_ref tmp(m);
             eval(f, tmp);
             CTRACE("sat", !m.is_true(tmp),
                    tout << "Evaluation failed: " << mk_pp(f, m) << " to " << mk_pp(f, m) << "\n";
-                   model_smt2_pp(tout, m, *(m_model.get()), 0););
+                   model_smt2_pp(tout, m, *(mdl.get()), 0););
             if (!m.is_true(tmp)) {
                 IF_VERBOSE(0, verbose_stream() << "failed to verify: " << mk_pp(f, m) << "\n";);
                 IF_VERBOSE(0, verbose_stream() << m_params << "\n";);

@@ -91,14 +91,15 @@ public:
     virtual void get_model_core(model_ref & mdl) { 
         m_solver->get_model(mdl);
         if (mdl) {
-            filter_model(mdl);            
+            model_converter_ref mc = local_model_converter();
+            if (mc) (*mc)(mdl);
         }
     } 
     model_converter* external_model_converter() const {
-        return concat(mc0(), filter_model_converter());
+        return concat(mc0(), local_model_converter());
     }
     virtual model_converter_ref get_model_converter() const { 
-        model_converter_ref mc = concat(mc0(), filter_model_converter());
+        model_converter_ref mc = external_model_converter();
         mc = concat(mc.get(), m_solver->get_model_converter().get());
         return mc;
     }
@@ -113,7 +114,7 @@ public:
         flush_assertions(); 
         return m_solver->get_consequences(asms, vars, consequences); }
 
-    model_converter* filter_model_converter() const {
+    model_converter* local_model_converter() const {
         if (m_rewriter.fresh_constants().empty()) {
             return nullptr;
         }
@@ -123,13 +124,6 @@ public:
             filter->hide(f);
         }
         return filter;
-    }
-
-    void filter_model(model_ref& mdl) {
-        model_converter_ref mc = filter_model_converter();
-        if (mc.get()) {
-            (*mc)(mdl);
-        }
     }
 
     virtual unsigned get_num_assertions() const {

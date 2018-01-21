@@ -365,7 +365,7 @@ public:
     void set_check_sat_result(check_sat_result * r) { m_check_sat_result = r; }
     check_sat_result * get_check_sat_result() const { return m_check_sat_result.get(); }
     check_sat_state cs_state() const;
-    void complete_model();
+    void complete_model(model_ref& mdl) const;
     void validate_model();
     void display_model(model_ref& mdl);
 

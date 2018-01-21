@@ -347,6 +347,17 @@ namespace sat {
         return result;
     }
 
+    void model_converter::swap(bool_var v, unsigned sz, literal_vector& clause) {
+        for (unsigned j = 0; j < sz; ++j) {
+            if (v == clause[j].var()) {
+                std::swap(clause[0], clause[j]);
+                return;
+            }
+        }
+        IF_VERBOSE(0, verbose_stream() << "not found: v" << v << " " << clause << "\n";);
+        UNREACHABLE();
+    }
+
     void model_converter::expand(literal_vector& update_stack) {
         sat::literal_vector clause;
         for (entry const& e : m_entries) {
@@ -357,34 +368,23 @@ namespace sat {
                 if (l == null_literal) {
                     elim_stack* st = e.m_elim_stack[index];                    
                     if (st) {
-                        // clause sizes increase
-                        elim_stackv const& stack = st->stack();
-                        unsigned sz = stack.size();
-                        for (unsigned i = 0; i < sz; ++i) {
-                            unsigned csz = stack[i].first;
-                            literal lit = stack[i].second;
-                            BOOL found = false;
-                            unsigned j = 0;
-                            for (j = 0; j < csz; ++j) {
-                                if (clause[j] == lit) {
-                                    std::swap(clause[j], clause[0]);
-                                    found = true;
-                                    break;
-                                }
-                            }
-                            SASSERT(found);
+                        // clause sizes increase, so we can always swap
+                        // the blocked literal to the front from the prefix.
+                        for (auto const& p : st->stack()) {
+                            unsigned csz = p.first;
+                            literal lit = p.second;
+                            swap(lit.var(), csz, clause);
                             update_stack.append(csz, clause.c_ptr());
                             update_stack.push_back(null_literal);
                         }
                     }
+                    swap(e.var(), clause.size(), clause);
                     update_stack.append(clause);
                     update_stack.push_back(null_literal);
                     clause.reset();
-                    continue;
                 }
-                clause.push_back(l);
-                if (l.var() == e.var()) {
-                    std::swap(clause[0], clause.back());
+                else {
+                    clause.push_back(l);
                 }
             }
         }
