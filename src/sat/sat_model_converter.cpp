@@ -275,14 +275,7 @@ namespace sat {
     }
 
     std::ostream& model_converter::display(std::ostream& out, entry const& entry) const {
-        out << "  (";
-        switch (entry.get_kind()) {
-        case ELIM_VAR: out << "elim"; break;
-        case BLOCK_LIT: out << "blocked"; break;
-        case CCE: out << "cce"; break;
-        case ACCE: out << "acce"; break;
-        }
-        out << " " << entry.var();
+        out << "  (" << entry.get_kind() << " " << entry.var(); 
         bool start = true;
         unsigned index = 0;
         for (literal l : entry.m_clauses) {

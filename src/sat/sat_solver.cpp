@@ -3225,7 +3225,9 @@ namespace sat {
                 literal l2 = w.get_literal();
                 if (l.index() > l2.index())
                     continue;
-                out << "(" << l << " " << l2 << ")\n";
+                out << "(" << l << " " << l2 << ")";
+                if (w.is_learned()) out << "*";
+                out << "\n";
             }
         }
     }

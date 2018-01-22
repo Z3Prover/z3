@@ -399,13 +399,11 @@ namespace sat {
     bool asymm_branch::process_sampled(big& big, clause & c) {
         scoped_detach scoped_d(s, c);
         sort(big, c);
-#if 1
-        if (uhte(big, c)) {
+        if (c.is_learned() && uhte(big, c)) {
             ++m_hidden_tautologies;
             scoped_d.del_clause();
             return false;
         }
-#endif
         return uhle(scoped_d, big, c);        
     }
 

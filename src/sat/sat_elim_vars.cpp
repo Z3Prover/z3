@@ -88,6 +88,7 @@ namespace sat{
         simp.collect_clauses(pos_l, simp.m_pos_cls);
         simp.collect_clauses(neg_l, simp.m_neg_cls);
         VERIFY(!simp.is_external(v));
+
         model_converter::entry & mc_entry = s.m_mc.mk(model_converter::ELIM_VAR, v);
         simp.save_clauses(mc_entry, simp.m_pos_cls);
         simp.save_clauses(mc_entry, simp.m_neg_cls);
@@ -100,7 +101,7 @@ namespace sat{
         pos_occs.reset();
         neg_occs.reset();
         literal_vector lits;
-        add_clauses(b, lits); 
+        add_clauses(b, lits);         
         return true;
     }
 

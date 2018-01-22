@@ -142,6 +142,7 @@ struct goal2sat::imp {
                 sat::bool_var v = m_solver.mk_var(ext);
                 m_map.insert(t, v);
                 l = sat::literal(v, sign);
+                // if (to_app(t)->get_decl()->get_name() == "XX") IF_VERBOSE(0, verbose_stream() << mk_ismt2_pp(t, m) << ": " << "v" << v << "\n";);
                 TRACE("sat", tout << "new_var: " << v << ": " << mk_ismt2_pp(t, m) << "\n";);
                 if (ext && !is_uninterp_const(t)) {
                     m_interpreted_atoms.push_back(t);
@@ -1025,6 +1026,7 @@ void sat2goal::mc::insert(sat::bool_var v, app * atom, bool aux) {
 expr_ref sat2goal::mc::lit2expr(sat::literal l) {
     if (!m_var2expr.get(l.var())) {
         app* aux = m.mk_fresh_const(0, m.mk_bool_sort());
+        // if (aux->get_decl()->get_name() == "k!81740") IF_VERBOSE(0, verbose_stream() << mk_ismt2_pp(aux, m) << ": " << "v" << l.var() << "\n";);
         m_var2expr.set(l.var(), aux);
     }
     VERIFY(m_var2expr.get(l.var()));
@@ -1067,6 +1069,7 @@ struct sat2goal::imp {
             app* aux = mc ? mc->var2expr(l.var()) : nullptr;
             if (!aux) {
                 aux = m.mk_fresh_const(0, m.mk_bool_sort());
+                // if (aux->get_decl()->get_name() == "k!81740") IF_VERBOSE(0, verbose_stream() << mk_ismt2_pp(aux, m) << ": " << "v" << l.var() << "\n";);
                 if (mc)
                     mc->insert(l.var(), aux, true);
             }

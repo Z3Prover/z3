@@ -134,6 +134,16 @@ namespace sat {
         void expand(literal_vector& update_stack);
     };
 
+    inline std::ostream& operator<<(std::ostream& out, model_converter::kind k) {
+        switch (k) {
+        case model_converter::ELIM_VAR: out << "elim"; break;
+        case model_converter::BLOCK_LIT: out << "blocked"; break;
+        case model_converter::CCE: out << "cce"; break;
+        case model_converter::ACCE: out << "acce"; break;
+        }
+        return out;
+    }
+
 };
 
 #endif

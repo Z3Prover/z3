@@ -1818,6 +1818,7 @@ namespace sat {
 
                     if (s.m_config.m_drat) s.m_drat.add(*new_c, true);
                     s.m_clauses.push_back(new_c);
+
                     m_use_list.insert(*new_c);
                     if (m_sub_counter > 0)
                         back_subsumption1(*new_c);
@@ -1829,6 +1830,7 @@ namespace sat {
                     return true;
             }
         }
+
         return true;
     }
 
