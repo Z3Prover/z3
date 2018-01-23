@@ -37,6 +37,8 @@ add_custom_command(OUTPUT "${z3py_bindings_build_dest}/z3/z3core.py"
     ${Z3_FULL_PATH_API_HEADER_FILES_TO_SCAN}
     "--z3py-output-dir"
     "${z3py_bindings_build_dest}"
+	"--use-ffi"
+	"cffi"
   DEPENDS
     ${Z3_FULL_PATH_API_HEADER_FILES_TO_SCAN}
     "${CMAKE_SOURCE_DIR}/scripts/update_api.py"

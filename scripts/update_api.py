@@ -350,15 +350,18 @@ def display_args(num):
         core_py.write("a%s" % i)
 
 def display_args_to_z3(params):
+    global use_ffi_module, core_py
     i = 0
     for p in params:
         if i > 0:
             core_py.write(", ")
-        #if param_type(p) == STRING:
-        #    core_py.write("_to_ascii(a%s)" % i)
-        #else:
-        #    core_py.write("a%s" % i)
-        core_py.write("a%s" % i)
+        if use_ffi_module == 'ctypes':
+            if param_type(p) == STRING:
+                core_py.write("_to_ascii(a%s)" % i)
+            else:
+                core_py.write("a%s" % i)
+        else:
+        	core_py.write("a%s" % i)
         i = i + 1
 
 NULLWrapped = [ 'Z3_mk_context', 'Z3_mk_context_rc', 'Z3_mk_interpolation_context' ]
@@ -2022,8 +2025,8 @@ def main(args):
                       help="Directory to emit OCaml files. If not specified no files are emitted.")
   parser.add_argument("--use-ffi",
                       dest="use_ffi",
-                      default="cffi",
-                      help="python ffi module (ctypes or cffi) to use. If not specified cffi is used.")
+                      default="ctypes",
+                      help="python ffi module (ctypes or cffi) to use. If not specified ctypes is used.")
   pargs = parser.parse_args(args)
 
   if pargs.java_output_dir:

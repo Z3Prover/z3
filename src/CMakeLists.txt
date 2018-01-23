@@ -230,7 +230,8 @@ if (BUILD_PYTHON_BINDINGS)
     message(FATAL_ERROR "The python bindings will not work with a static libz3. "
             "You either need to disable BUILD_PYTHON_BINDINGS or enable BUILD_LIBZ3_SHARED")
   endif()
-  add_subdirectory(api/python)
+  string(REGEX REPLACE ".*/(.*)$" "\\1" py_interp ${PYTHON_EXECUTABLE})
+  add_subdirectory(api/${py_interp})
 endif()
 
 ################################################################################
