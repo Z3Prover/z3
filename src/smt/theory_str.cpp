@@ -9787,7 +9787,10 @@ namespace smt {
                         } else {
                             // generate new length constraint
                             expr_ref_vector extra_length_vars(m);
-                            expr_ref top_level_length_constraint = infer_all_regex_lengths(mk_strlen(str), re, extra_length_vars);
+                            expr_ref _top_level_length_constraint = infer_all_regex_lengths(mk_strlen(str), re, extra_length_vars);
+                            expr_ref top_level_length_constraint(_top_level_length_constraint, m);
+                            th_rewriter rw(m);
+                            rw(top_level_length_constraint);
                             TRACE("str", tout << "top-level length constraint: " << mk_pp(top_level_length_constraint, m) << std::endl;);
                             // assert and track length constraint
                             assert_axiom(top_level_length_constraint);
