@@ -6523,6 +6523,9 @@ namespace smt {
         if (a == UINT_MAX || b == UINT_MAX) {
             return UINT_MAX;
         }
+        if (a == 0 || b == 0) {
+            return 0;
+        }
         unsigned result = a * b;
         if (result < a || result < b) {
             return UINT_MAX;
@@ -9817,7 +9820,6 @@ namespace smt {
                         continue;
                     }
 
-
                     // find a consistent automaton for this term
                     bool found = false;
                     regex_automaton_under_assumptions assumption;
@@ -9835,7 +9837,7 @@ namespace smt {
                                 found = true;
                                 break;
                             }
-                            // check consistency of bounds assumptions
+                            // TODO check consistency of bounds assumptions
                         } // foreach(a in regex_automaton_assumptions)
                     }
                     if (found) {
@@ -10101,7 +10103,8 @@ namespace smt {
                         // no existing automata/assumptions.
                         // if it's easy to construct a full automaton for R, do so
                         unsigned expected_complexity = estimate_regex_complexity(re);
-                        if (expected_complexity <= m_params.m_RegexAutomata_DifficultyThreshold) {
+                        bool failureThresholdExceeded = (regex_get_counter(regex_fail_count, str_in_re) >= m_params.m_RegexAutomata_FailedAutomatonThreshold);
+                        if (expected_complexity <= m_params.m_RegexAutomata_DifficultyThreshold || failureThresholdExceeded) {
                             eautomaton * aut = m_mk_aut(re);
                             aut->compress();
                             regex_automata.push_back(aut);
@@ -10221,7 +10224,8 @@ namespace smt {
                             // no existing automata/assumptions.
                             // if it's easy to construct a full automaton for R, do so
                             unsigned expected_complexity = estimate_regex_complexity(re);
-                            if (expected_complexity <= m_params.m_RegexAutomata_DifficultyThreshold) {
+                            bool failureThresholdExceeded = (regex_get_counter(regex_fail_count, str_in_re) >= m_params.m_RegexAutomata_FailedAutomatonThreshold);
+                            if (expected_complexity <= m_params.m_RegexAutomata_DifficultyThreshold || failureThresholdExceeded) {
                                 eautomaton * aut = m_mk_aut(re);
                                 aut->compress();
                                 regex_automata.push_back(aut);
@@ -10516,6 +10520,27 @@ namespace smt {
             if (addedStrIntAxioms) {
                 TRACE("str", tout << "Resuming search due to addition of string-integer conversion axioms." << std::endl;);
                 return FC_CONTINUE;
+            }
+
+            // We must be be 100% certain that if there are any regex constraints,
+            // the string assignment for each variable is consistent with the automaton.
+            // The (probably) easiest way to do this is to ensure
+            // that we have path constraints set up for every assigned regex term.
+            if (m_params.m_RegexAutomata && !regex_terms.empty()) {
+                for (obj_hashtable<expr>::iterator it = regex_terms.begin(); it != regex_terms.end(); ++it) {
+                    expr * str_in_re = *it;
+                    expr * str;
+                    expr * re;
+                    u.str.is_in_re(str_in_re, str, re);
+                    lbool current_assignment = ctx.get_assignment(str_in_re);
+                    if (current_assignment == l_undef) {
+                        continue;
+                    }
+                    if (!regex_terms_with_path_constraints.contains(str_in_re)) {
+                        TRACE("str", tout << "assigned regex term " << mk_pp(str_in_re, m) << " has no path constraints -- continuing search" << std::endl;);
+                        return FC_CONTINUE;
+                    }
+                } // foreach (str.in.re in regex_terms)
             }
 
             if (unused_internal_variables.empty()) {
