@@ -9904,21 +9904,44 @@ namespace smt {
                             }
                             lhs_terms.push_back(ctx.mk_eq_atom(mk_strlen(str), m_autil.mk_numeral(exact_length_value, true)));
                             expr_ref lhs(mk_and(lhs_terms), m);
-                            // If the automaton was built with the same polarity as the constraint,
-                            // assert directly. Otherwise, negate the path constraint
-                            if ( (current_assignment == l_true && assumption.get_polarity())
-                                    || (current_assignment == l_false && !assumption.get_polarity())) {
-                                TRACE("str", tout << "automaton and regex term have same polarity" << std::endl;);
-                                expr_ref rhs(m.mk_and(pathConstraint, characterConstraints), m);
-                                assert_implication(lhs, rhs);
+
+                            // If the path constraint comes out as "false", this means there are no paths of that length
+                            // in the automaton. If the polarity is the same, we can assert a conflict clause.
+                            // If the polarity is opposite, we ignore the path constraint.
+
+                            if (m.is_false(pathConstraint)) {
+                                if ( (current_assignment == l_true && assumption.get_polarity())
+                                        || (current_assignment == l_false && !assumption.get_polarity())) {
+                                    // automaton and constraint have same polarity -- assert conflict clause
+                                    TRACE("str", tout << "path constraint is false with matching polarity; asserting conflict clause" << std::endl;);
+                                    expr_ref conflict(m.mk_not(mk_and(lhs_terms)), m);
+                                    assert_axiom(conflict);
+                                    // don't set up "regex_terms_with_path_constraints" as a conflict clause is not a path constraint
+                                } else {
+                                    // automaton and constraint have opposite polarity -- ignore path constraint
+                                    TRACE("str", tout << "path constraint is false with opposite polarity; ignoring path constraint" << std::endl;);
+                                    assert_implication(lhs, characterConstraints);
+                                    regex_terms_with_path_constraints.insert(str_in_re);
+                                    m_trail_stack.push(insert_obj_trail<theory_str, expr>(regex_terms_with_path_constraints, str_in_re));
+                                }
+                                regex_axiom_add = true;
                             } else {
-                                TRACE("str", tout << "automaton and regex term have opposite polarity" << std::endl;);
-                                expr_ref rhs(m.mk_and(m.mk_not(pathConstraint), characterConstraints), m);
-                                assert_implication(lhs, rhs);
+                                // If the automaton was built with the same polarity as the constraint,
+                                // assert directly. Otherwise, negate the path constraint
+                                if ( (current_assignment == l_true && assumption.get_polarity())
+                                        || (current_assignment == l_false && !assumption.get_polarity())) {
+                                    TRACE("str", tout << "automaton and regex term have same polarity" << std::endl;);
+                                    expr_ref rhs(m.mk_and(pathConstraint, characterConstraints), m);
+                                    assert_implication(lhs, rhs);
+                                } else {
+                                    TRACE("str", tout << "automaton and regex term have opposite polarity" << std::endl;);
+                                    expr_ref rhs(m.mk_and(m.mk_not(pathConstraint), characterConstraints), m);
+                                    assert_implication(lhs, rhs);
+                                }
+                                regex_terms_with_path_constraints.insert(str_in_re);
+                                m_trail_stack.push(insert_obj_trail<theory_str, expr>(regex_terms_with_path_constraints, str_in_re));
+                                regex_axiom_add = true;
                             }
-                            regex_terms_with_path_constraints.insert(str_in_re);
-                            m_trail_stack.push(insert_obj_trail<theory_str, expr>(regex_terms_with_path_constraints, str_in_re));
-                            regex_axiom_add = true;
 
                             // increment LengthAttemptCount
                             regex_inc_counter(regex_length_attempt_count, re);
