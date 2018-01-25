@@ -709,6 +709,12 @@ namespace smt {
         bool n2HasEqcValue = false;
         expr * v1 = get_eqc_value(n1, n1HasEqcValue);
         expr * v2 = get_eqc_value(n2, n2HasEqcValue);
+        if (u.str.is_string(v1)) {
+            n1HasEqcValue = true;
+        }
+        if (u.str.is_string(v2)) {
+            n2HasEqcValue = true;
+        }
         if (n1HasEqcValue && n2HasEqcValue) {
             zstring n1_str;
             u.str.is_string(v1, n1_str);
