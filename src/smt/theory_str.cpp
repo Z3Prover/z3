@@ -9371,7 +9371,7 @@ namespace smt {
         bool Ival_exists = get_arith_value(a, Ival);
         if (Ival_exists) {
             TRACE("str", tout << "integer theory assigns " << mk_pp(a, m) << " = " << Ival.to_string() << std::endl;);
-            // if that value is not -1, we can assert (str.to-int S) = Ival --> S = "Ival"
+            // if that value is not -1, we can assert (str.to.int S) = Ival --> S = "Ival"
             if (!Ival.is_minus_one()) {
                 zstring Ival_str(Ival.to_string().c_str());
                 expr_ref premise(ctx.mk_eq_atom(a, m_autil.mk_numeral(Ival, true)), m);
@@ -9391,6 +9391,54 @@ namespace smt {
             axiomAdd = true;
             TRACE("str", ctx.display(tout););
             // NOT_IMPLEMENTED_YET();
+        }
+
+        bool S_hasEqcValue;
+        expr * S_str = get_eqc_value(S, S_hasEqcValue);
+        if (S_hasEqcValue) {
+            zstring str;
+            u.str.is_string(S_str, str);
+            bool valid = true;
+            rational convertedRepresentation(0);
+            rational ten(10);
+            if (str.length() == 0) {
+                valid = false;
+            } else {
+                for (unsigned i = 0; i < str.length(); ++i) {
+                    if (!('0' <= str[i] && str[i] <= '9')) {
+                        valid = false;
+                        break;
+                    } else {
+                        // accumulate
+                        char digit = (int)str[i];
+                        std::string sDigit(1, digit);
+                        int val = atoi(sDigit.c_str());
+                        convertedRepresentation = (ten * convertedRepresentation) + rational(val);
+                    }
+                }
+            }
+            // TODO this duplicates code a bit, we can simplify the branch on "conclusion" only
+            if (valid) {
+                expr_ref premise(ctx.mk_eq_atom(S, mk_string(str)), m);
+                expr_ref conclusion(ctx.mk_eq_atom(a, m_autil.mk_numeral(convertedRepresentation, true)), m);
+                expr_ref axiom(rewrite_implication(premise, conclusion), m);
+                if (!string_int_axioms.contains(axiom)) {
+                    string_int_axioms.insert(axiom);
+                    assert_axiom(axiom);
+                    m_trail_stack.push(insert_obj_trail<theory_str, expr>(string_int_axioms, axiom));
+                    axiomAdd = true;
+                }
+            } else {
+                expr_ref premise(ctx.mk_eq_atom(S, mk_string(str)), m);
+                expr_ref conclusion(ctx.mk_eq_atom(a, m_autil.mk_numeral(rational::minus_one(), true)), m);
+                expr_ref axiom(rewrite_implication(premise, conclusion), m);
+                if (!string_int_axioms.contains(axiom)) {
+                    string_int_axioms.insert(axiom);
+                    assert_axiom(axiom);
+                    m_trail_stack.push(insert_obj_trail<theory_str, expr>(string_int_axioms, axiom));
+                    axiomAdd = true;
+                }
+            }
         }
 
         return axiomAdd;
