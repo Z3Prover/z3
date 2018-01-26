@@ -71,6 +71,8 @@ if [ -n "${C_COMPILER}" ]; then
   BUILD_OPTS+=("--build-arg" "CC=${C_COMPILER}")
 fi
 
+BUILD_OPTS+=("--build-arg" "COMMIT_HASH=$(git rev-parse HEAD)")
+
 # TravisCI reserves CXX for itself so use a different name
 if [ -n "${CXX_COMPILER}" ]; then
   BUILD_OPTS+=("--build-arg" "CXX=${CXX_COMPILER}")
@@ -152,10 +154,6 @@ case ${LINUX_BASE} in
   ubuntu_16.04)
     BASE_DOCKER_FILE="${DOCKER_FILE_DIR}/z3_base_ubuntu_16.04.Dockerfile"
     BASE_DOCKER_IMAGE_NAME="z3_base_ubuntu:16.04"
-    ;;
-  ubuntu32_16.04)
-    BASE_DOCKER_FILE="${DOCKER_FILE_DIR}/z3_base_ubuntu32_16.04.Dockerfile"
-    BASE_DOCKER_IMAGE_NAME="z3_base_ubuntu32:16.04"
     ;;
   *)
     echo "Unknown Linux base ${LINUX_BASE}"

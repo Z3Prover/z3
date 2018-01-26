@@ -26,10 +26,6 @@ export Z3_SRC_DIR="${TRAVIS_BUILD_DIR}"
 export Z3_BUILD_DIR="${Z3_SRC_DIR}/build"
 export Z3_SYSTEM_TEST_DIR="${Z3_SRC_DIR}/z3_system_test"
 
-# Overwrite whatever what set in TravisCI
-export CC="${C_COMPILER}"
-export CXX="${CXX_COMPILER}"
-
 if [ "X${MACOS_SKIP_DEPS_UPDATE}" = "X1" ]; then
   # This is just for local testing to avoid updating
   echo "Skipping dependency update"
@@ -38,14 +34,9 @@ else
 fi
 
 # Build Z3
-"${SCRIPT_DIR}/build_z3_cmake.sh"
-# Test building docs
-"${SCRIPT_DIR}/test_z3_docs.sh"
-# Test examples
-"${SCRIPT_DIR}/test_z3_examples_cmake.sh"
-# Run unit tests
-"${SCRIPT_DIR}/test_z3_unit_tests_cmake.sh"
-# Run system tests
-"${SCRIPT_DIR}/test_z3_system_tests.sh"
-# Test install
-"${SCRIPT_DIR}/test_z3_install_cmake.sh"
+if [ "${USE_OPENMP}" = 1 ]; then
+   "${TRAVIS_BUILD_DIR}/package_z3_osx_openmp.sh"
+else
+   "${TRAVIS_BUILD_DIR}/package_z3_osx.sh"
+fi
+
