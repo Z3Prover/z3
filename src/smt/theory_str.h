@@ -555,6 +555,7 @@ protected:
     // regex automata and length-aware regex
     unsigned estimate_regex_complexity(expr * re);
     unsigned estimate_regex_complexity_under_complement(expr * re);
+    unsigned estimate_automata_intersection_difficulty(eautomaton * aut1, eautomaton * aut2);
     bool check_regex_length_linearity(expr * re);
     bool check_regex_length_linearity_helper(expr * re, bool already_star);
     expr_ref infer_all_regex_lengths(expr * lenVar, expr * re, expr_ref_vector & freeVariables);

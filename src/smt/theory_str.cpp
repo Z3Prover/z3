@@ -287,10 +287,13 @@ namespace smt {
     }
 
     void theory_str::refresh_theory_var(expr * e) {
+        ast_manager & m = get_manager();
         enode * en = ensure_enode(e);
         theory_var v = mk_var(en); (void)v;
         TRACE("str", tout << "refresh " << mk_pp(e, get_manager()) << ": v#" << v << std::endl;);
-        m_basicstr_axiom_todo.push_back(en);
+        if (m.get_sort(e) == u.str.mk_string_sort()) {
+            m_basicstr_axiom_todo.push_back(en);
+        }
     }
 
     theory_var theory_str::mk_var(enode* n) {
@@ -1628,12 +1631,11 @@ namespace smt {
 
         {
             expr_ref premise(m_autil.mk_ge(ex, m_autil.mk_numeral(rational::one(), true)), m);
-            expr_ref hd(mk_str_var("hd"), m);
-            expr_ref tl(mk_str_var("tl"), m);
-            expr_ref conclusion1(ctx.mk_eq_atom(S, mk_concat(hd, tl)), m);
-            expr_ref conclusion2(ctx.mk_eq_atom(mk_strlen(hd), m_autil.mk_numeral(rational::one(), true)), m);
-            expr_ref conclusion3(mk_not(m, ctx.mk_eq_atom(hd, mk_string("0"))), m);
-            expr_ref conclusion(m.mk_and(conclusion1, conclusion2, conclusion3), m);
+            // S >= 1 --> S in [1-9][0-9]*
+            expr_ref re_positiveInteger(u.re.mk_concat(
+                    u.re.mk_range(mk_string("1"), mk_string("9")),
+                    u.re.mk_star(u.re.mk_range(mk_string("0"), mk_string("9")))), m);
+            expr_ref conclusion(mk_RegexIn(S, re_positiveInteger), m);
             SASSERT(premise);
             SASSERT(conclusion);
             assert_implication(premise, conclusion);
@@ -6614,6 +6616,12 @@ namespace smt {
         }
     }
 
+    unsigned theory_str::estimate_automata_intersection_difficulty(eautomaton * aut1, eautomaton * aut2) {
+        ENSURE(aut1 != NULL);
+        ENSURE(aut2 != NULL);
+        return _qmul(aut1->num_states(), aut2->num_states());
+    }
+
     // Check whether a regex translates well to a linear set of length constraints.
     bool theory_str::check_regex_length_linearity(expr * re) {
         return check_regex_length_linearity_helper(re, false);
@@ -10291,7 +10299,6 @@ namespace smt {
                             } else {
                                 // TODO check negation?
                                 // TODO construct a partial automaton for R to the given lower bound?
-                                // TODO increment failure count
                                 if (false) {
 
                                 } else {
@@ -10424,7 +10431,8 @@ namespace smt {
                     }
 
                     if (regex_get_counter(regex_length_attempt_count, aut.get_regex_term()) >= m_params.m_RegexAutomata_LengthAttemptThreshold) {
-                        unsigned intersectionDifficulty = 0; // TODO EstimateIntersectionDifficulty
+                        unsigned intersectionDifficulty = estimate_automata_intersection_difficulty(aut_inter, aut.get_automaton());
+                        TRACE("str", tout << "intersection difficulty is " << intersectionDifficulty << std::endl;);
                         if (intersectionDifficulty <= m_params.m_RegexAutomata_IntersectionDifficultyThreshold
                                 || regex_get_counter(regex_intersection_fail_count, aut.get_regex_term()) >= m_params.m_RegexAutomata_FailedIntersectionThreshold) {
 
