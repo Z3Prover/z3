@@ -30,6 +30,7 @@ CPPFLAGS=getenv("CPPFLAGS", "")
 CXXFLAGS=getenv("CXXFLAGS", "")
 AR=getenv("AR", "ar")
 EXAMP_DEBUG_FLAG=''
+EXTRA_LIB_SEARCH_PATH=getenv("EXTRA_LIB_SEARCH_PATH", "")
 LDFLAGS=getenv("LDFLAGS", "")
 JNI_HOME=getenv("JNI_HOME", None)
 OCAMLC=getenv("OCAMLC", "ocamlc")
@@ -2470,6 +2471,8 @@ def mk_config():
             CXXFLAGS = '%s -D_NO_OMP_' % CXXFLAGS
         if HAS_OMP and LOG_SYNC:
             CXXFLAGS = '%s -DZ3_LOG_SYNC' % CXXFLAGS
+        if EXTRA_LIB_SEARCH_PATH:
+            SLIBEXTRAFLAGS = '%s %s' % (SLIBEXTRAFLAGS, EXTRA_LIB_SEARCH_PATH)
         if DEBUG_MODE:
             CXXFLAGS     = '%s -g -Wall' % CXXFLAGS
             EXAMP_DEBUG_FLAG = '-g'

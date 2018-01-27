@@ -153,10 +153,6 @@ case ${LINUX_BASE} in
     BASE_DOCKER_FILE="${DOCKER_FILE_DIR}/z3_base_ubuntu_16.04.Dockerfile"
     BASE_DOCKER_IMAGE_NAME="z3_base_ubuntu:16.04"
     ;;
-  ubuntu32_16.04)
-    BASE_DOCKER_FILE="${DOCKER_FILE_DIR}/z3_base_ubuntu32_16.04.Dockerfile"
-    BASE_DOCKER_IMAGE_NAME="z3_base_ubuntu32:16.04"
-    ;;
   *)
     echo "Unknown Linux base ${LINUX_BASE}"
     exit 1

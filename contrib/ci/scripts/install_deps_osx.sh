@@ -45,3 +45,5 @@ fi
 if [ "X${JAVA_BINDINGS}" = "X1" ]; then
   brew cask install java
 fi
+brew_install_or_upgrade llvm
+
