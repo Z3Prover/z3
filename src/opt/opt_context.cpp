@@ -138,6 +138,7 @@ namespace opt {
         p.set_bool("unsat_core", true);
         p.set_bool("elim_to_real", true);
         updt_params(p);
+        m_model_counter = 0;
     }
 
     context::~context() {
@@ -1007,6 +1008,22 @@ namespace opt {
         }
     }
 
+    void context::model_updated(model* md) {
+        opt_params optp(m_params);
+        symbol prefix = optp.solution_prefix();
+        if (prefix == symbol::null) return;        
+        model_ref mdl = md->copy();
+        fix_model(mdl);
+        std::ostringstream buffer;
+        buffer << prefix << (m_model_counter++) << ".smt2";
+        std::ofstream out(buffer.str());        
+        if (out) {
+            model_smt2_pp(out, m, *mdl, 0);
+            out.close();
+        }
+    }
+
+
     bool context::verify_model(unsigned index, model* md, rational const& _v) {
         rational r;
         app_ref term = m_objectives[index].m_term;
@@ -1015,7 +1032,7 @@ namespace opt {
         }
         rational v = m_objectives[index].m_adjust_value(_v);
         expr_ref val(m);
-        model_ref mdl = md;
+        model_ref mdl = md->copy();
         fix_model(mdl);
 
         if (!mdl->eval(term, val)) {

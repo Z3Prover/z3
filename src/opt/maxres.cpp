@@ -727,6 +727,7 @@ public:
         }
 
         m_model = mdl;
+        m_c.model_updated(mdl);
 
         for (unsigned i = 0; i < m_soft.size(); ++i) {
             m_assignment[i] = is_true(m_soft[i]);

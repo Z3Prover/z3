@@ -57,6 +57,7 @@ namespace opt {
         virtual unsigned num_objectives() = 0;
         virtual bool verify_model(unsigned id, model* mdl, rational const& v) = 0;
         virtual void set_model(model_ref& _m) = 0;
+        virtual void model_updated(model* mdl) = 0;
     };
 
     /**
@@ -154,9 +155,10 @@ namespace opt {
         map_t               m_maxsmts;
         scoped_state        m_scoped_state;
         vector<objective>   m_objectives;
-        model_ref           m_model;
+        model_ref           m_model;        
         model_converter_ref          m_model_converter;
         filter_model_converter       m_fm;
+        unsigned                     m_model_counter;
         obj_map<func_decl, unsigned> m_objective_fns;
         obj_map<func_decl, expr*>    m_objective_orig;
         func_decl_ref_vector         m_objective_refs;
@@ -231,6 +233,8 @@ namespace opt {
 
 
         virtual bool verify_model(unsigned id, model* mdl, rational const& v);
+        
+        virtual void model_updated(model* mdl);
 
     private:
         lbool execute(objective const& obj, bool committed, bool scoped);

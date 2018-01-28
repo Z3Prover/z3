@@ -155,7 +155,7 @@ namespace opt {
                    rational l = m_adjust_value(m_lower);
                    rational u = m_adjust_value(m_upper);
                    if (l > u) std::swap(l, u);
-                   verbose_stream() << "(opt." << solver << " [" << l << ":" << u << "])\n";);        
+                   verbose_stream() << "(opt." << solver << " [" << l << ":" << u << "])\n";);                
     }
 
     lbool maxsmt_solver_base::find_mutexes(obj_map<expr, rational>& new_soft) {
@@ -389,6 +389,10 @@ namespace opt {
 
     solver& maxsmt::s() {
         return m_c.get_solver(); 
+    }
+
+    void maxsmt::model_updated(model* mdl) {
+        m_c.model_updated(mdl);
     }
 
 

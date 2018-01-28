@@ -147,6 +147,7 @@ namespace opt {
         bool get_assignment(unsigned index) const;
         void display_answer(std::ostream& out) const;        
         void collect_statistics(statistics& st) const;
+        void model_updated(model* mdl);
     private:
         bool is_maxsat_problem(weights_t& ws) const;        
         void verify_assignment();
