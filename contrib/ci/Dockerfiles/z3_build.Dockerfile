@@ -7,7 +7,6 @@ ARG ASAN_BUILD
 ARG ASAN_DSO
 ARG BUILD_DOCS
 ARG CC
-ARG COMMIT_HASH
 ARG CXX
 ARG DOTNET_BINDINGS
 ARG JAVA_BINDINGS
@@ -27,6 +26,7 @@ ARG USE_OPENMP
 ARG Z3_SRC_DIR=/home/user/z3_src
 ARG Z3_BUILD_TYPE
 ARG Z3_CMAKE_GENERATOR
+ARG Z3_GIT_VERSION
 ARG Z3_INSTALL_PREFIX
 ARG Z3_STATIC_BUILD
 ARG Z3_SYSTEM_TEST_GIT_REVISION
@@ -35,7 +35,7 @@ ARG Z3_VERBOSE_BUILD_OUTPUT
 
 ENV \
   CC=${CC} \
-  COMMIT_HASH=${COMMIT_HASH} \
+  Z3_GIT_VERSION=${Z3_GIT_VERSION} \
   CXX=${CXX} \
   Z3_SRC_DIR=${Z3_SRC_DIR} \
   Z3_BUILD_DIR=/home/user/z3_build \
@@ -49,6 +49,8 @@ ADD --chown=user /examples ${Z3_SRC_DIR}/examples/
 ADD --chown=user /scripts ${Z3_SRC_DIR}/scripts/
 ADD --chown=user /src ${Z3_SRC_DIR}/src/
 ADD --chown=user *.txt *.md RELEASE_NOTES ${Z3_SRC_DIR}/
+ADD --chown=user /linux_common.sh ${Z3_SRC_DIR}/
+ADD --chown=user /common.sh ${Z3_SRC_DIR}/
 ADD --chown=user /package_z3_linux.sh ${Z3_SRC_DIR}/
 RUN ${Z3_SRC_DIR}/package_z3_linux.sh
 

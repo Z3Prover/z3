@@ -1,0 +1,16 @@
+To generate zips on your local machine, do:
+
+## Ubuntu 14,04 (USES DOCKER)
+LINUX_BASE=ubuntu_14.04 TRAVIS_OS_NAME=linux contrib/ci/scripts/travis_ci_entry_point.sh
+
+## Ubuntu 16,04 (USES DOCKER)
+LINUX_BASE=ubuntu_16.04 TRAVIS_OS_NAME=linux contrib/ci/scripts/travis_ci_entry_point.sh
+
+## OSX with OpenMP (RECOMMENDED, MUST BE RUN ON OSX, DOES NOT USE DOCKER)
+./package_z3_osx_openmp.sh
+
+## OSX without OpenMP (NOT RECOMMENDED, MUST BE RUN ON OSX, DOES NOT USE DOCKER)
+./package_z3_osx.sh
+
+
+Output zips are placed in build/generated-packages/

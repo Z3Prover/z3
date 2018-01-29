@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE}")" && pwd)"
-COMMIT_HASH="$(git rev-parse HEAD)"
-if [ -z "${COMMIT_HASH}" ]; then
-   echo "Not a git repository" 1>&2
-   exit 1
-fi
+set -x
+set -e
+. "${REPO_ROOT}/common.sh"
+Z3_GIT_VERSION="$(z3_git_version)"
 if ! which python2.7; then
    echo Missing python2.7 1>&2
    exit 1
@@ -19,17 +18,15 @@ if ! which javac; then
 fi
 OLD_PWD="${PWD}"
 OLD_UMASK="$(umask)"
-VERSION="$(date "+%Y-%m-%d")-${COMMIT_HASH}"
+VERSION="${COMMIT_DATE}-${COMMIT_HASH}"
 OSX_VERSION="$(sw_vers | grep ProductVersion | awk '{ print $2; }')"
 if [ -z "${BREW_LLVM_PREFIX}" ]; then
    NO_OPENMP_SUFFIX="-without-openmp"
 else
    NO_OPENMP_SUFFIX=
 fi
-Z3_VERSION="z3-${VERSION}-x64-osx-${OSX_VERSION}${NO_OPENMP_SUFFIX}"
+Z3_VERSION="z3-${Z3_GIT_VERSION}-x64-osx-${OSX_VERSION}${NO_OPENMP_SUFFIX}"
 Z3_ZIP="${Z3_VERSION}.zip"
-set -x
-set -e
 cd "${REPO_ROOT}"
 rm -rf build
 python scripts/mk_make.py --java USE_OPENMP=1
@@ -58,7 +55,8 @@ if [ -n "${BREW_LLVM_PREFIX}" ]; then
   cp "${BREW_LLVM_PREFIX}/lib/libomp.dylib" "${Z3_VERSION}/lib/libomp.dylib"
   chmod 0644 "${Z3_VERSION}/lib/libomp.dylib"
 fi
-zip -r "${BUILD_DIR}/${Z3_ZIP}" "${Z3_VERSION}"
+mkdir -p "${BUILD_DIR}/generated-packages"
+zip -r "${BUILD_DIR}/generated-packages/${Z3_ZIP}" "${Z3_VERSION}"
 cd "${BUILD_DIR}"
 rm -rf "${WORKING}"
 
