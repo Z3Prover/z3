@@ -18,7 +18,6 @@ if ! which javac; then
 fi
 OLD_PWD="${PWD}"
 OLD_UMASK="$(umask)"
-VERSION="${COMMIT_DATE}-${COMMIT_HASH}"
 OSX_VERSION="$(sw_vers | grep ProductVersion | awk '{ print $2; }')"
 if [ -z "${BREW_LLVM_PREFIX}" ]; then
    NO_OPENMP_SUFFIX="-without-openmp"
