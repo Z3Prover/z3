@@ -614,7 +614,7 @@ namespace datalog {
 
     std::string get_file_name_without_extension(std::string name) {
         size_t slash_index = name.find_last_of("\\/");
-        size_t dot_index = name.rfind(".");
+        size_t dot_index = name.rfind('.');
         size_t ofs = (slash_index==std::string::npos) ? 0 : slash_index+1;
         size_t count = (dot_index!=std::string::npos && dot_index>ofs) ? 
             (dot_index-ofs) : std::string::npos;
