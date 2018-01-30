@@ -462,7 +462,8 @@ namespace sat {
         constraint* add_pb_ge(literal l, svector<wliteral> const& wlits, unsigned k, bool learned);
         constraint* add_xor(literal_vector const& lits, bool learned);
 
-        void copy_core(ba_solver* result);
+        void copy_core(ba_solver* result, bool learned);
+        void copy_constraints(ba_solver* result, ptr_vector<constraint> const& constraints);
     public:
         ba_solver();
         virtual ~ba_solver();
@@ -489,7 +490,7 @@ namespace sat {
         virtual std::ostream& display_justification(std::ostream& out, ext_justification_idx idx) const;
         virtual void collect_statistics(statistics& st) const;
         virtual extension* copy(solver* s);
-        virtual extension* copy(lookahead* s);
+        virtual extension* copy(lookahead* s, bool learned);
         virtual void find_mutexes(literal_vector& lits, vector<literal_vector> & mutexes);
         virtual void pop_reinit();
         virtual void gc(); 

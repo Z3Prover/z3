@@ -488,7 +488,7 @@ namespace sat {
         // initialization
         
         void init_var(bool_var v);
-        void init();
+        void init(bool learned);
         void copy_clauses(clause_vector const& clauses, bool learned);
         nary * copy_clause(clause const& c);
 
@@ -555,7 +555,7 @@ namespace sat {
 
         void add_hyper_binary();
 
-        void big_asymm_branch();
+        void big_asymm_branch(bool learned);
 
         double psat_heur();
 
@@ -600,7 +600,7 @@ namespace sat {
         /**
            \brief simplify set of clauses by extracting units from a lookahead at base level.
          */
-        void simplify();
+        void simplify(bool learned);
 
         std::ostream& display(std::ostream& out) const;
         std::ostream& display_summary(std::ostream& out) const;

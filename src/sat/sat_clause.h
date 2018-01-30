@@ -50,7 +50,6 @@ namespace sat {
         unsigned           m_used:1;
         unsigned           m_frozen:1;
         unsigned           m_reinit_stack:1;
-        unsigned           m_blocked;
         unsigned           m_inact_rounds:8;
         unsigned           m_glue:8;
         unsigned           m_psm:8;  // transient field used during gc
@@ -66,6 +65,7 @@ namespace sat {
         literal & operator[](unsigned idx) { SASSERT(idx < m_size); return m_lits[idx]; }
         literal const & operator[](unsigned idx) const { SASSERT(idx < m_size); return m_lits[idx]; }
         bool is_learned() const { return m_learned; }
+        void set_learned() { SASSERT(!is_learned()); m_learned = true; }
         void unset_learned() { SASSERT(is_learned()); m_learned = false; }
         void shrink(unsigned num_lits) { SASSERT(num_lits <= m_size); if (num_lits < m_size) { m_size = num_lits; mark_strengthened(); } }
         bool strengthened() const { return m_strengthened; }
@@ -92,9 +92,6 @@ namespace sat {
         unsigned inact_rounds() const { return m_inact_rounds; }
         bool frozen() const { return m_frozen; }
         void freeze() { SASSERT(is_learned()); SASSERT(!frozen()); m_frozen = true; }
-        bool is_blocked() const { return m_blocked; }
-        void block() { SASSERT(!m_blocked); SASSERT(!is_learned()); m_blocked = true; }
-        void unblock() { SASSERT(m_blocked); SASSERT(!is_learned()); m_blocked = false; }
         void unfreeze() { SASSERT(is_learned()); SASSERT(frozen()); m_frozen = false; }
         static var_approx_set approx(unsigned num, literal const * lits);
         void set_glue(unsigned glue) { m_glue = glue > 255 ? 255 : glue; }
@@ -161,6 +158,16 @@ namespace sat {
     public:
         clause_wrapper(literal l1, literal l2):m_l1_idx(l1.to_uint()), m_l2_idx(l2.to_uint()) {}
         clause_wrapper(clause & c):m_cls(&c), m_l2_idx(null_literal.to_uint()) {}
+        clause_wrapper& operator=(clause_wrapper const& other) {
+            if (other.is_binary()) {
+                m_l1_idx = other.m_l1_idx;
+            }
+            else {
+                m_cls = other.m_cls;
+            }
+            m_l2_idx = other.m_l2_idx;
+            return *this;
+        }
 
         bool is_binary() const { return m_l2_idx != null_literal.to_uint(); }
         unsigned size() const { return is_binary() ? 2 : m_cls->size(); }

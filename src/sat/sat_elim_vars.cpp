@@ -43,7 +43,7 @@ namespace sat{
         if (num_bin_neg > m_max_literals) return false;
         clause_use_list & pos_occs = simp.m_use_list.get(pos_l);
         clause_use_list & neg_occs = simp.m_use_list.get(neg_l);
-        unsigned clause_size = num_bin_pos + num_bin_neg + pos_occs.non_blocked_size() + neg_occs.non_blocked_size();
+        unsigned clause_size = num_bin_pos + num_bin_neg + pos_occs.num_irredundant() + neg_occs.num_irredundant();
         if (clause_size == 0) {
             return false;
         }
@@ -307,13 +307,11 @@ namespace sat{
         bdd result = m.mk_true();       
         for (auto it = occs.mk_iterator(); !it.at_end(); it.next()) {
             clause const& c = it.curr();
-            if (!c.is_blocked()) {
-                bdd cl = m.mk_false();
-                for (literal l : c) {
-                    cl |= mk_literal(l);
-                }           
-                result &= cl;
-            }
+            bdd cl = m.mk_false();
+            for (literal l : c) {
+                cl |= mk_literal(l);
+            }           
+            result &= cl;            
         }
         return result;
     }

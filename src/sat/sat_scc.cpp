@@ -26,7 +26,8 @@ Revision History:
 namespace sat {
 
     scc::scc(solver & s, params_ref const & p):
-        m_solver(s) {
+        m_solver(s),
+        m_big(s.m_rand, true) {
         reset_statistics();
         updt_params(p);
     }
@@ -237,41 +238,16 @@ namespace sat {
     unsigned scc::reduce_tr(bool learned) {        
         unsigned num_lits = m_solver.num_vars() * 2;
         init_big(learned);
-        
-        unsigned idx = 0;
-        unsigned elim = m_num_elim_bin;
-        for (watch_list & wlist : m_solver.m_watches) {
-            literal u = to_literal(idx++);
-            watch_list::iterator it     = wlist.begin();
-            watch_list::iterator itprev = it;
-            watch_list::iterator end    = wlist.end();
-            for (; it != end; ++it) {
-                watched& w = *it;
-                if (learned ? w.is_binary_learned_clause() : w.is_binary_clause()) {
-                    literal v = w.get_literal();
-                    if (reaches(u, v) && u != get_parent(v)) {
-                        ++m_num_elim_bin;
-                        m_solver.get_wlist(~v).erase(watched(~u, w.is_learned()));
-                    }
-                    else {
-                        *itprev = *it;
-                        itprev++;
-                    }
-                }
-                else {
-                    *itprev = *it;
-                    itprev++;
-                }
-            }
-            wlist.set_end(itprev);
-        }
-        return m_num_elim_bin - elim;
+        unsigned num_elim = m_big.reduce_tr(m_solver);
+        m_num_elim_bin += num_elim;
+        return num_elim;
     }
 
     void scc::reduce_tr() {
         unsigned quota = 0, num_reduced = 0;
         while ((num_reduced = reduce_tr(false)) > quota) { quota = std::max(100u, num_reduced / 2); }
-        while ((num_reduced = reduce_tr(true)) > quota) { quota = std::max(100u, num_reduced / 2); }
+        quota = 0;
+        while ((num_reduced = reduce_tr(true))  > quota) { quota = std::max(100u, num_reduced / 2); }
     }
 
     void scc::collect_statistics(statistics & st) const {

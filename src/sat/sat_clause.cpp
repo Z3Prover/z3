@@ -29,7 +29,6 @@ namespace sat {
         m_capacity(sz),
         m_removed(false),
         m_learned(learned),
-        m_blocked(false),
         m_used(false),
         m_frozen(false),
         m_reinit_stack(false),
@@ -165,7 +164,6 @@ namespace sat {
         if (c.was_removed()) out << "x";
         if (c.strengthened()) out << "+";
         if (c.is_learned()) out << "*";
-        if (c.is_blocked()) out << "b";
         return out;
     }
 

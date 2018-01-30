@@ -989,7 +989,7 @@ namespace sat {
             m_freevars.insert(v);
     }
 
-    void lookahead::init() {
+    void lookahead::init(bool learned) {
         m_delta_trigger = 0.0;
         m_delta_decrease = 0.0;
         m_config.m_dl_success = 0.8;
@@ -1010,6 +1010,8 @@ namespace sat {
             for (auto& w : wlist) {
                 if (!w.is_binary_clause())
                     continue;
+                if (!learned && w.is_learned())
+                    continue;
                 literal l2 = w.get_literal();                    
                 if (l.index() < l2.index() && !m_s.was_eliminated(l2.var()))
                     add_binary(l, l2);
@@ -1017,7 +1019,7 @@ namespace sat {
         }
 
         copy_clauses(m_s.m_clauses, false);
-        copy_clauses(m_s.m_learned, true);
+        if (learned) copy_clauses(m_s.m_learned, true);
 
         // copy units
         unsigned trail_sz = m_s.init_trail_size();
@@ -1030,7 +1032,7 @@ namespace sat {
         }
         
         if (m_s.m_ext) {
-            m_ext = m_s.m_ext->copy(this);
+            m_ext = m_s.m_ext->copy(this, learned);
         }
         propagate();
         m_qhead = m_trail.size();
@@ -2223,7 +2225,7 @@ namespace sat {
     void lookahead::init_search() {
         m_search_mode = lookahead_mode::searching;
         scoped_level _sl(*this, c_fixed_truth);
-        init();            
+        init(true);            
     }
 
     void lookahead::checkpoint() {
@@ -2255,13 +2257,13 @@ namespace sat {
     /**
        \brief simplify set of clauses by extracting units from a lookahead at base level.
     */
-    void lookahead::simplify() {
+    void lookahead::simplify(bool learned) {
         scoped_ext _scoped_ext(*this);
         SASSERT(m_prefix == 0);
         SASSERT(m_watches.empty());
         m_search_mode = lookahead_mode::searching;
         scoped_level _sl(*this, c_fixed_truth);
-        init();                
+        init(learned);                
         if (inconsistent()) return;
         inc_istamp();            
         literal l = choose();        
@@ -2311,12 +2313,11 @@ namespace sat {
                 elim(roots, to_elim);
 
                 if (get_config().m_lookahead_simplify_asymm_branch) {
-                    big_asymm_branch();
+                    big_asymm_branch(learned);
                 }
-                if (get_config().m_lookahead_simplify_bca) {
+                if (learned && get_config().m_lookahead_simplify_bca) {
                     add_hyper_binary();
-                }
-                
+                }                
             }
         }   
         m_lookahead.reset();        
@@ -2327,11 +2328,11 @@ namespace sat {
        for strengthening clauses.
      */
 
-    void lookahead::big_asymm_branch() {
+    void lookahead::big_asymm_branch(bool learned) {
         unsigned num_lits = m_s.num_vars() * 2;
         unsigned idx = 0;
-        big big;
-        big.init_adding_edges(m_s.num_vars());
+        big big(m_s.m_rand, false);
+        big.init_adding_edges(m_s.num_vars(), learned);
         for (auto const& lits : m_binary) {
             literal u = get_parent(to_literal(idx++));
             if (u == null_literal) continue;
@@ -2370,8 +2371,8 @@ namespace sat {
             }
         }
 
-        big big;
-        big.init_big(m_s, true);
+        big big(m_s.m_rand, false);
+        big.init(m_s, true);
         svector<std::pair<literal, literal>> candidates;
 
         unsigned_vector bin_size(num_lits);
@@ -2395,7 +2396,7 @@ namespace sat {
         }
 
         for (unsigned count = 0; count < 5; ++count) {
-            big.init_big(m_s, true);
+            big.init(m_s, true);
             unsigned k = 0;
             union_find_default_ctx ufctx;
             union_find<union_find_default_ctx> uf(ufctx);
@@ -2418,7 +2419,7 @@ namespace sat {
                     }
                 }
             }
-            std::cout << candidates.size() << " -> " << k << "\n";
+            // std::cout << candidates.size() << " -> " << k << "\n";
             if (k == candidates.size()) break;
             candidates.shrink(k);
             if (k == 0) break;

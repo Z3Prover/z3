@@ -107,6 +107,7 @@ namespace sat {
         unsigned               m_num_sub_res;
         unsigned               m_num_elim_lits;
         unsigned               m_num_bca;
+        unsigned               m_num_ate;
 
         bool                   m_learned_in_use_lists;
         unsigned               m_old_num_elim_vars;
@@ -159,6 +160,7 @@ namespace sat {
         void mark_as_not_learned(literal l1, literal l2);
 
         void cleanup_watches();
+        void move_clauses(clause_vector & cs, bool learned);
         void cleanup_clauses(clause_vector & cs, bool learned, bool vars_eliminated, bool in_use_lists);
 
         bool is_external(bool_var v) const;

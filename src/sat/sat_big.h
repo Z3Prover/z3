@@ -27,32 +27,41 @@ namespace sat {
     class solver;
 
     class big {
-        random_gen             m_rand;
+        random_gen&            m_rand;
         unsigned               m_num_vars;
         vector<literal_vector> m_dag;
         svector<bool>          m_roots;
         svector<int>           m_left, m_right;
         literal_vector         m_root, m_parent;
+        bool                   m_learned;
+        bool                   m_binary;   // is the BIG produced from binary clauses or hyper-binary resolution?
 
         void init_dfs_num();
         struct pframe;
 
     public:
 
-        big();
+        big(random_gen& rand, bool binary);
         /**
            \brief initialize a BIG from a solver.
          */
-        void init_big(solver& s, bool learned);
+        void init(solver& s, bool learned);
+
+        void reinit();
 
         /**
            \brief initialize a BIG externally by adding implications.
         */
-        void init_adding_edges(unsigned num_vars);
+        void init_adding_edges(unsigned num_vars, bool learned);
         void add_edge(literal u, literal v);
         void done_adding_edges();
 
-        void ensure_big(solver& s, bool learned) { if (m_left.empty()) init_big(s, learned); }
+        void ensure_big(solver& s, bool learned) { if (m_left.empty()) init(s, learned); }
+
+        unsigned reduce_tr(solver& s);
+
+        // does it include learned binaries?
+        bool learned() const { return m_learned; }
         int get_left(literal l) const { return m_left[l.index()]; }
         int get_right(literal l) const { return m_right[l.index()]; }
         literal get_parent(literal l) const { return m_parent[l.index()]; }

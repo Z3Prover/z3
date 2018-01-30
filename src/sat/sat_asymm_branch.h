@@ -66,7 +66,9 @@ namespace sat {
 
         bool re_attach(scoped_detach& scoped_d, clause& c, unsigned new_sz);
 
-        bool process(big* big);
+        bool process(bool learned);
+
+        bool process(big& big, bool learned);
 
         bool process(clause & c);
 
@@ -75,6 +77,8 @@ namespace sat {
         void process(big* big, clause_vector & c);
         
         bool process_all(clause & c);
+
+        void process_bin(big& big);
         
         bool flip_literal_at(clause const& c, unsigned flip_index, unsigned& new_sz);
         
@@ -85,7 +89,7 @@ namespace sat {
     public:
         asymm_branch(solver & s, params_ref const & p);
 
-        void operator()(bool force = false);
+        void operator()(bool force);
 
         void operator()(big& big);
 

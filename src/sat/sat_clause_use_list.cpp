@@ -27,11 +27,11 @@ namespace sat {
             if (!c->was_removed())
                 sz++;
         SASSERT(sz == m_size);
-        unsigned blocked = 0;
+        unsigned redundant = 0;
         for (clause* c : m_clauses) 
-            if (c->is_blocked())
-                blocked++;
-        SASSERT(blocked == m_num_blocked);
+            if (c->is_learned())
+                redundant++;
+        SASSERT(redundant == m_num_redundant);
 
         return true;
     }

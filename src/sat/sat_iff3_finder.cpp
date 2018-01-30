@@ -73,7 +73,7 @@ namespace sat {
        It assumes wlist have been sorted using iff3_lt
     */
     static bool contains(watch_list const & wlist, literal l1, literal l2) {
-        watched k(l1, l2);
+        watched k(l1, l2, false);
         if (wlist.size() < SMALL_WLIST)
             return wlist.contains(k);
         iff3_lt lt;

@@ -67,27 +67,43 @@ namespace sat {
         }
     };
 
-    bool asymm_branch::process(big* big) {
+    void asymm_branch::process_bin(big& big) {
+        unsigned elim = big.reduce_tr(s);
+        m_hidden_tautologies += elim;
+    }
+
+    bool asymm_branch::process(big& big, bool learned) {
         unsigned elim0 = m_elim_literals;
         unsigned eliml0 = m_elim_learned_literals;
         for (unsigned i = 0; i < m_asymm_branch_rounds; ++i) {
-            unsigned elim = m_elim_literals;
-            if (big) big->init_big(s, true);
-            process(big, s.m_clauses);
-            if (big) process(big, s.m_learned);
+            unsigned elim = m_elim_literals + m_hidden_tautologies;
+            big.init(s, learned);
+            process(&big, s.m_clauses);
+            process(&big, s.m_learned);
+            process_bin(big);
             s.propagate(false); 
             if (s.m_inconsistent)
                 break;
-            unsigned num_elim = m_elim_literals - elim;
+            unsigned num_elim = m_elim_literals + m_hidden_tautologies - elim;
             IF_VERBOSE(1, verbose_stream() << "(sat-asymm-branch-step :elim " << num_elim << ")\n";);
             if (num_elim == 0)
                 break;
-            if (num_elim > 1000) 
+            if (num_elim > 100) 
                 i = 0;
         }        
         IF_VERBOSE(1, if (m_elim_learned_literals > eliml0) 
                           verbose_stream() << "(sat-asymm-branch :elim " << m_elim_learned_literals - eliml0 << ")\n";);
         return m_elim_literals > elim0;
+    }
+
+    bool asymm_branch::process(bool learned) {
+        unsigned eliml0 = m_elim_learned_literals;
+        unsigned elim = m_elim_literals;
+        process(nullptr, s.m_clauses);
+        s.propagate(false); 
+        IF_VERBOSE(1, if (m_elim_learned_literals > eliml0) 
+                          verbose_stream() << "(sat-asymm-branch :elim " << m_elim_learned_literals - eliml0 << ")\n";);
+        return m_elim_literals > elim;
     }
 
 
@@ -138,10 +154,22 @@ namespace sat {
         s.propagate(false); 
         if (s.m_inconsistent)
             return;
-        report rpt(*this);
-        svector<char> saved_phase(s.m_phase);
-        process(&big);
-        s.m_phase = saved_phase;
+        report rpt(*this);        
+        
+        for (unsigned i = 0; i < m_asymm_branch_rounds; ++i) {
+            unsigned elim = m_elim_literals;
+            big.reinit();
+            process(&big, s.m_clauses);
+            process(&big, s.m_learned);
+            process_bin(big);
+            unsigned num_elim = m_elim_literals - elim;
+            IF_VERBOSE(1, verbose_stream() << "(sat-asymm-branch-step :elim " << num_elim << ")\n";);
+            if (num_elim == 0)
+                break;
+            if (num_elim > 1000)
+                i = 0;
+        }
+        s.propagate(false);       
     }
     
     void asymm_branch::operator()(bool force) {
@@ -168,12 +196,16 @@ namespace sat {
             ++counter;
             change = false;
             if (m_asymm_branch_sampled) {
-                big big;
-                if (process(&big)) change = true;
+                big big(s.m_rand, true);
+                if (process(big, true)) change = true;
+            }
+            if (m_asymm_branch_sampled) {
+                big big(s.m_rand, false);
+                if (process(big, false)) change = true;
             }
             if (m_asymm_branch) {
                 m_counter  = 0; 
-                if (process(nullptr)) change = true;
+                if (process(true)) change = true;
                 m_counter = -m_counter;
             }
         }
@@ -399,7 +431,7 @@ namespace sat {
     bool asymm_branch::process_sampled(big& big, clause & c) {
         scoped_detach scoped_d(s, c);
         sort(big, c);
-        if (c.is_learned() && uhte(big, c)) {
+        if ((c.is_learned() || !big.learned()) && uhte(big, c)) {
             ++m_hidden_tautologies;
             scoped_d.del_clause();
             return false;
@@ -408,7 +440,6 @@ namespace sat {
     }
 
     bool asymm_branch::process(clause & c) {
-        if (c.is_blocked()) return true;
         TRACE("asymm_branch_detail", tout << "processing: " << c << "\n";);
         SASSERT(s.scope_lvl() == 0);
         SASSERT(s.m_qhead == s.m_trail.size());

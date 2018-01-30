@@ -3282,21 +3282,26 @@ namespace sat {
     extension* ba_solver::copy(solver* s) {
         ba_solver* result = alloc(ba_solver);
         result->set_solver(s);
-        copy_core(result);
+        copy_core(result, false);
         return result;
     }
 
-    extension* ba_solver::copy(lookahead* s) {
+    extension* ba_solver::copy(lookahead* s, bool learned) {
         ba_solver* result = alloc(ba_solver);
         result->set_lookahead(s);
-        copy_core(result);
+        copy_core(result, learned);
         return result;
     }
 
-    void ba_solver::copy_core(ba_solver* result) {
+    void ba_solver::copy_core(ba_solver* result, bool learned) {
+        copy_constraints(result, m_constraints);
+        if (learned) copy_constraints(result, m_learned);
+    }
+
+    void ba_solver::copy_constraints(ba_solver* result, ptr_vector<constraint> const& constraints) {
         literal_vector lits;
         svector<wliteral> wlits;
-        for (constraint* cp : m_constraints) {
+        for (constraint* cp : constraints) {
             switch (cp->tag()) {
             case card_t: {
                 card const& c = cp->to_card();

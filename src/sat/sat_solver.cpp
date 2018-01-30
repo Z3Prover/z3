@@ -173,11 +173,9 @@ namespace sat {
             for (clause* c : src.m_clauses) {
                 buffer.reset();
                 for (literal l : *c) buffer.push_back(l);
-                clause* c1 = mk_clause_core(buffer);
-                if (c1 && c->is_blocked()) {
-                    c1->block();
-                }
+                mk_clause_core(buffer);
             }
+
             // copy high quality lemmas
             unsigned num_learned = 0;
             for (clause* c : src.m_learned) {
@@ -398,9 +396,9 @@ namespace sat {
 
     bool solver::attach_ter_clause(clause & c) {
         bool reinit = false;
-        m_watches[(~c[0]).index()].push_back(watched(c[1], c[2]));
-        m_watches[(~c[1]).index()].push_back(watched(c[0], c[2]));
-        m_watches[(~c[2]).index()].push_back(watched(c[0], c[1]));
+        m_watches[(~c[0]).index()].push_back(watched(c[1], c[2], c.is_learned()));
+        m_watches[(~c[1]).index()].push_back(watched(c[0], c[2], c.is_learned()));
+        m_watches[(~c[2]).index()].push_back(watched(c[0], c[1], c.is_learned()));
         if (!at_base_lvl()) {
             if (value(c[1]) == l_false && value(c[2]) == l_false) {
                 m_stats.m_ter_propagate++;
@@ -1508,6 +1506,7 @@ namespace sat {
         CASSERT("sat_simplify_bug", check_invariant());
         si.check_watches();
         
+
         m_simplifier(false);
         CASSERT("sat_simplify_bug", check_invariant());
         CASSERT("sat_missed_prop", check_missed_propagation());
@@ -1517,11 +1516,6 @@ namespace sat {
             CASSERT("sat_missed_prop", check_missed_propagation());
             CASSERT("sat_simplify_bug", check_invariant());
         }
-        if (m_config.m_lookahead_simplify) {
-            lookahead lh(*this);
-            lh.simplify();
-            lh.collect_statistics(m_aux_stats);
-        }
         sort_watch_lits();
         CASSERT("sat_simplify_bug", check_invariant());
 
@@ -1529,13 +1523,24 @@ namespace sat {
         CASSERT("sat_missed_prop", check_missed_propagation());
         CASSERT("sat_simplify_bug", check_invariant());
 
-        m_asymm_branch();
+        m_asymm_branch(false);
         CASSERT("sat_missed_prop", check_missed_propagation());
         CASSERT("sat_simplify_bug", check_invariant());
 
         if (m_ext) {
             m_ext->clauses_modifed();
             m_ext->simplify();
+        }
+
+        if (m_config.m_lookahead_simplify) {
+            lookahead lh(*this);
+            lh.simplify(true);
+            lh.collect_statistics(m_aux_stats);
+        }
+        if (false && m_config.m_lookahead_simplify) {
+            lookahead lh(*this);
+            lh.simplify(false);
+            lh.collect_statistics(m_aux_stats);
         }
 
         TRACE("sat", display(tout << "consistent: " << (!inconsistent()) << "\n"););
@@ -1639,7 +1644,7 @@ namespace sat {
         bool ok = true;
         for (clause const* cp : m_clauses) {
             clause const & c = *cp;
-            if (!c.satisfied_by(m) && !c.is_blocked()) {
+            if (!c.satisfied_by(m)) {
                 IF_VERBOSE(0, verbose_stream() << "failed clause " << c.id() << ": " << c << "\n";);
                 TRACE("sat", tout << "failed: " << c << "\n";
                       tout << "assumptions: " << m_assumptions << "\n";
@@ -3282,6 +3287,19 @@ namespace sat {
         return num_cls + m_clauses.size() + m_learned.size();
     }
 
+    void solver::num_binary(unsigned& given, unsigned& learned) const {
+        given = learned = 0;
+        unsigned l_idx = 0;
+        for (auto const& wl : m_watches) {
+            literal l = ~to_literal(l_idx++);
+            for (auto const& w : wl) {
+                if (w.is_binary_clause() && l.index() < w.get_literal().index()) {
+                    if (w.is_learned()) ++learned; else ++given;
+                }
+            }
+        }
+    }
+
     void solver::display_dimacs(std::ostream & out) const {
         out << "p cnf " << num_vars() << " " << num_clauses() << "\n";
         for (literal lit : m_trail) {
@@ -4054,10 +4072,12 @@ namespace sat {
     }
 
     void mk_stat::display(std::ostream & out) const {
+        unsigned given, learned;
+        m_solver.num_binary(given, learned);
         if (!m_solver.m_clauses.empty())
-            out << " :clauses " << m_solver.m_clauses.size();
+            out << " :clauses " << m_solver.m_clauses.size() + given << "/" << given;
         if (!m_solver.m_learned.empty()) {
-            out << " :learned " << (m_solver.m_learned.size() - m_solver.m_num_frozen);
+            out << " :learned " << (m_solver.m_learned.size() + learned - m_solver.m_num_frozen) << "/" << learned;
             if (m_solver.m_num_frozen > 0)
                 out << " :frozen " << m_solver.m_num_frozen;
         }

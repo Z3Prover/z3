@@ -30,24 +30,24 @@ namespace sat {
     class clause_use_list {
         clause_vector   m_clauses;
         unsigned        m_size;
-        unsigned        m_num_blocked;
+        unsigned        m_num_redundant;
     public:
         clause_use_list() {
             STRACE("clause_use_list_bug", tout << "[cul_created] " << this << "\n";);
             m_size = 0; 
-            m_num_blocked = 0;
+            m_num_redundant = 0;
         }
         
         unsigned size() const { 
             return m_size; 
         }
 
-        unsigned num_blocked() const {
-            return m_num_blocked;
+        unsigned num_redundant() const {
+            return m_num_redundant;
         }
-
-        unsigned non_blocked_size() const {
-            return m_size - m_num_blocked;
+        
+        unsigned num_irredundant() const {
+            return m_size - m_num_redundant;
         }
 
         bool empty() const { return size() == 0; }
@@ -58,7 +58,7 @@ namespace sat {
             SASSERT(!c.was_removed()); 
             m_clauses.push_back(&c); 
             m_size++; 
-            if (c.is_blocked()) ++m_num_blocked;
+            if (c.is_learned()) ++m_num_redundant;
         }
 
         void erase_not_removed(clause & c) { 
@@ -67,7 +67,7 @@ namespace sat {
             SASSERT(!c.was_removed()); 
             m_clauses.erase(&c); 
             m_size--; 
-            if (c.is_blocked()) --m_num_blocked;
+            if (c.is_learned()) --m_num_redundant;
         }
 
         void erase(clause & c) { 
@@ -75,25 +75,25 @@ namespace sat {
             SASSERT(m_clauses.contains(&c)); 
             SASSERT(c.was_removed()); 
             m_size--; 
-            if (c.is_blocked()) --m_num_blocked;
+            if (c.is_learned()) --m_num_redundant;
         }
 
         void block(clause const& c) {
-            SASSERT(c.is_blocked());
-            ++m_num_blocked;
+            SASSERT(c.is_learned());
+            ++m_num_redundant;
             SASSERT(check_invariant());
         }
 
         void unblock(clause const& c) {
-            SASSERT(!c.is_blocked());
-            --m_num_blocked;
+            SASSERT(!c.is_learned());
+            --m_num_redundant;
             SASSERT(check_invariant());
         }
         
         void reset() { 
             m_clauses.finalize(); 
             m_size = 0; 
-            m_num_blocked = 0;
+            m_num_redundant = 0;
         }
         
         bool check_invariant() const;

@@ -21,10 +21,13 @@ Revision History:
 
 namespace sat {
 
-    big::big() {}
+    big::big(random_gen& rand, bool binary): 
+        m_rand(rand) {
+        m_binary = binary;
+    }
 
-    void big::init_big(solver& s, bool learned) {
-        init_adding_edges(s.num_vars());
+    void big::init(solver& s, bool learned) {
+        init_adding_edges(s.num_vars(), learned);
         unsigned num_lits = m_num_vars * 2;
         literal_vector lits;
         SASSERT(num_lits == m_dag.size() && num_lits == m_roots.size());
@@ -44,7 +47,12 @@ namespace sat {
         done_adding_edges();
     }
 
-    void big::init_adding_edges(unsigned num_vars) {
+    void big::reinit() {
+        done_adding_edges();
+    }
+
+    void big::init_adding_edges(unsigned num_vars, bool learned) {
+        m_learned = learned;
         m_num_vars = num_vars;
         unsigned num_lits = m_num_vars * 2;
         m_dag.reset();
@@ -129,9 +137,36 @@ namespace sat {
                 m_right[i] = ++dfs_num;
             }
         }
-        for (unsigned i = 0; i < num_lits; ++i) {
-            VERIFY(m_left[i] < m_right[i]);
+        DEBUG_CODE(for (unsigned i = 0; i < num_lits; ++i) { VERIFY(m_left[i] < m_right[i]);});
+    }
+
+    unsigned big::reduce_tr(solver& s) {
+        if (!m_binary && learned()) return 0;
+        unsigned num_lits = s.num_vars() * 2;
+        unsigned idx = 0;
+        unsigned elim = 0;
+        for (watch_list & wlist : s.m_watches) {
+            literal u = to_literal(idx++);
+            watch_list::iterator it     = wlist.begin();
+            watch_list::iterator itprev = it;
+            watch_list::iterator end    = wlist.end();
+            for (; it != end; ++it) {
+                watched& w = *it;
+                if (learned() ? w.is_binary_learned_clause() : w.is_binary_clause()) {
+                    literal v = w.get_literal();
+                    if (reaches(u, v) && u != get_parent(v)) {
+                        ++elim;
+                        // could turn non-learned non-binary tautology into learned binary.
+                        s.get_wlist(~v).erase(watched(~u, w.is_learned()));
+                        continue;
+                    }
+                }
+                *itprev = *it;
+                itprev++;
+            }
+            wlist.set_end(itprev);
         }
+        return elim;
     }
 
     void big::display(std::ostream& out) const {

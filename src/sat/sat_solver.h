@@ -263,6 +263,7 @@ namespace sat {
         bool inconsistent() const { return m_inconsistent; }
         unsigned num_vars() const { return m_level.size(); }
         unsigned num_clauses() const;
+        void num_binary(unsigned& given, unsigned& learned) const;
         unsigned num_restarts() const { return m_restarts; }
         bool is_external(bool_var v) const { return m_external[v] != 0; }
         bool is_external(literal l) const { return is_external(l.var()); }

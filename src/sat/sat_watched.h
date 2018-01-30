@@ -53,15 +53,16 @@ namespace sat {
             SASSERT(learned || is_binary_non_learned_clause());
         }
 
-        watched(literal l1, literal l2) {
+        watched(literal l1, literal l2, bool learned) {
             SASSERT(l1 != l2);
             if (l1.index() > l2.index())
                 std::swap(l1, l2);
             m_val1 = l1.to_uint();
-            m_val2 = static_cast<unsigned>(TERNARY) + (l2.to_uint() << 2);
+            m_val2 = static_cast<unsigned>(TERNARY) + (static_cast<unsigned>(learned) << 2) + (l2.to_uint() << 3);
             SASSERT(is_ternary_clause());
             SASSERT(get_literal1() == l1);
             SASSERT(get_literal2() == l2);
+            SASSERT(is_learned() == learned);
         }
 
         unsigned val2() const { return m_val2; }
@@ -91,12 +92,12 @@ namespace sat {
         bool is_binary_learned_clause() const { return is_binary_clause() && is_learned(); }
         bool is_binary_non_learned_clause() const { return is_binary_clause() && !is_learned(); }
 
-        void set_not_learned() { SASSERT(is_learned()); m_val2 = static_cast<unsigned>(BINARY); SASSERT(!is_learned()); }
-        void set_learned() { SASSERT(!is_learned()); m_val2 = static_cast<unsigned>(BINARY) + (1u << 2); SASSERT(is_learned()); }
+        void set_not_learned() { SASSERT(is_learned()); m_val2 &= 0x3; SASSERT(!is_learned()); }
+        void set_learned() { SASSERT(!is_learned()); m_val2 |= 0x4; SASSERT(is_learned()); }
                 
         bool is_ternary_clause() const { return get_kind() == TERNARY; }
         literal get_literal1() const { SASSERT(is_ternary_clause()); return to_literal(static_cast<unsigned>(m_val1)); }
-        literal get_literal2() const { SASSERT(is_ternary_clause()); return to_literal(m_val2 >> 2); }
+        literal get_literal2() const { SASSERT(is_ternary_clause()); return to_literal(m_val2 >> 3); }
 
         bool is_clause() const { return get_kind() == CLAUSE; }
         clause_offset get_clause_offset() const { SASSERT(is_clause()); return static_cast<clause_offset>(m_val1); }
@@ -135,7 +136,7 @@ namespace sat {
     watched* find_binary_watch(watch_list & wlist, literal l);
     watched const* find_binary_watch(watch_list const & wlist, literal l);
     bool erase_clause_watch(watch_list & wlist, clause_offset c);
-    inline void erase_ternary_watch(watch_list & wlist, literal l1, literal l2) { wlist.erase(watched(l1, l2)); }
+    inline void erase_ternary_watch(watch_list & wlist, literal l1, literal l2) { wlist.erase(watched(l1, l2, true)); wlist.erase(watched(l1, l2, false)); }
 
     class clause_allocator;
     std::ostream& display_watch_list(std::ostream & out, clause_allocator const & ca, watch_list const & wlist);
