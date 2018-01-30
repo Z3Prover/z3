@@ -280,6 +280,7 @@ namespace opt {
         if (is_sat != l_false) {
             s.get_model(m_model);
             s.get_labels(m_labels);
+            model_updated(m_model.get());
         }
         if (is_sat != l_true) {
             TRACE("opt", tout << m_hard_constraints << "\n";);
