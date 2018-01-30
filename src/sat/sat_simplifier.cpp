@@ -943,6 +943,27 @@ namespace sat {
             }
         };
 
+        class clause_ante {
+            literal m_lit1;
+            literal m_lit2;
+            clause* m_clause;
+        public:
+            clause_ante():
+                m_lit1(null_literal), m_lit2(null_literal), m_clause(nullptr) {}
+            clause_ante(literal l1):
+                m_lit1(l1), m_lit2(null_literal), m_clause(nullptr) {}
+            clause_ante(literal l1, literal l2):
+                m_lit1(l1), m_lit2(l2), m_clause(nullptr) {}
+            clause_ante(clause& c):
+                m_lit1(null_literal), m_lit2(null_literal), m_clause(&c) {}            
+            literal lit1() const { return m_lit1; }
+            literal lit2() const { return m_lit2; }
+            clause* cls() const { return m_clause; }
+            bool operator==(clause_ante const& a) const {
+                return a.m_lit1 == m_lit1 && a.m_lit2 == m_lit2 && a.m_clause == m_clause;
+            }
+        };
+
         class queue {
             heap<literal_lt> m_queue;
         public:
@@ -972,6 +993,7 @@ namespace sat {
         clause_vector     m_to_remove;
 
         literal_vector m_covered_clause;
+        svector<clause_ante> m_covered_antecedent;
         literal_vector m_intersection;
         literal_vector m_new_intersection;
         literal_vector m_blocked_binary;
@@ -1229,6 +1251,41 @@ namespace sat {
             return !m_clause.is_binary() && (m_clause.get_clause() == &c);
         }
 
+        void minimize_covered_clause(unsigned idx) {
+            IF_VERBOSE(0, verbose_stream() << "minimize: " << m_covered_clause << " @ " << idx << "\n";);
+            for (literal l : m_covered_clause) s.unmark_visited(l);
+            s.mark_visited(m_covered_clause[idx]);
+            for (unsigned i = idx; i > 0; --i) {
+                literal lit = m_covered_clause[i];
+                if (!s.is_marked(lit)) continue;
+                clause_ante const& ante = m_covered_antecedent[i];
+                if (ante.cls()) {
+                    for (literal l : *ante.cls()) {
+                        IF_VERBOSE(0, verbose_stream() << "clause ante: " << l << "\n";);                        
+                        if (l != ~lit) s.mark_visited(l);
+                    }
+                }
+                if (ante.lit1() != null_literal) {
+                    IF_VERBOSE(0, verbose_stream() << "ante1: " << ante.lit1() << "\n";);                        
+                    s.mark_visited(ante.lit1());
+                }
+                if (ante.lit2() != null_literal) {
+                    IF_VERBOSE(0, verbose_stream() << "ante2: " << ante.lit2() << "\n";);                        
+                    s.mark_visited(ante.lit2());
+                }
+            }
+            unsigned j = 0;
+            for (unsigned i = 0; i <= idx; ++i) {
+                literal lit = m_covered_clause[i];
+                if (s.is_marked(lit) || m_covered_antecedent[i] == clause_ante()) {
+                    m_covered_clause[j++] = lit;
+                    s.unmark_visited(lit);
+                }
+            }
+            m_covered_clause.resize(j);
+            IF_VERBOSE(0, verbose_stream() << "reduced: " << m_covered_clause << "\n";);
+        }
+
         /*
          * C \/ l     l \/ lit
          * -------------------
@@ -1257,6 +1314,7 @@ namespace sat {
                         if (!s.is_marked(~lit)) {
                             IF_VERBOSE(0, verbose_stream() << "ALA: " << m_covered_clause << " binary " << l << " " << lit << " " << (~lit) << "\n";);
                             m_covered_clause.push_back(~lit);
+                            m_covered_antecedent.push_back(clause_ante(l));
                             s.mark_visited(~lit);
                         }
                     }
@@ -1271,12 +1329,14 @@ namespace sat {
                         if (s.is_marked(lit1) && !s.is_marked(~lit2)) {
                             IF_VERBOSE(0, verbose_stream() << "ALA: " << m_covered_clause << " ternary " << l << " " << lit1 << " " << lit2 << " " << (~lit2) << "\n";);
                             m_covered_clause.push_back(~lit2);
+                            m_covered_antecedent.push_back(clause_ante(l, lit1));
                             s.mark_visited(~lit2);
                             continue;
                         }
                         if (s.is_marked(lit2) && !s.is_marked(~lit1)) {
                             IF_VERBOSE(0, verbose_stream() << "ALA: " << m_covered_clause << " ternay " << l << " " << lit1 << " " << lit2 << " " << (~lit1) << "\n";);
                             m_covered_clause.push_back(~lit1);
+                            m_covered_antecedent.push_back(clause_ante(l, lit2));
                             s.mark_visited(~lit1);
                             continue;
                         }
@@ -1305,6 +1365,7 @@ namespace sat {
                         }
                         IF_VERBOSE(0, verbose_stream() << "ALA: " << m_covered_clause << " clause " << c << " " << (~lit1) << "\n";);
                         m_covered_clause.push_back(~lit1);
+                        m_covered_antecedent.push_back(clause_ante(c));
                         s.mark_visited(~lit1);
                     }
                 }
@@ -1322,8 +1383,10 @@ namespace sat {
          */
         bool add_cla(literal& blocked) {
             for (unsigned i = 0; i < m_covered_clause.size(); ++i) {
-                if (resolution_intersection(m_covered_clause[i], false)) {
+                literal lit = m_covered_clause[i];
+                if (resolution_intersection(lit, false)) {
                     blocked = m_covered_clause[i];
+                    minimize_covered_clause(i);
                     return true;
                 }
                 if (!m_intersection.empty()) {
@@ -1333,6 +1396,7 @@ namespace sat {
                     if (!s.is_marked(l)) {
                         s.mark_visited(l);
                         m_covered_clause.push_back(l);
+                        m_covered_antecedent.push_back(clause_ante(lit));
                     }
                 }
             }
@@ -1362,10 +1426,14 @@ namespace sat {
              * and then check if any of the first sz0 literals are blocked.
              */
             if (et == abce_t) {
-                if (add_ala()) return at_t;               
+                if (add_ala()) {
+                    for (literal l : m_covered_clause) s.unmark_visited(l);
+                    return at_t;
+                }               
                 for (unsigned i = 0; !is_tautology && i < sz0; ++i) {
                     if (check_abce_tautology(m_covered_clause[i])) {
                         blocked = m_covered_clause[i];
+                        minimize_covered_clause(i);
                         is_tautology = true;
                         break;
                     }
@@ -1391,7 +1459,10 @@ namespace sat {
                 if (above_threshold(sz0)) break;
                 if (et == acce_t && !is_tautology) {
                     sz = m_covered_clause.size();
-                    if (add_ala()) return at_t;
+                    if (add_ala()) {
+                        for (literal l : m_covered_clause) s.unmark_visited(l);
+                        return at_t;
+                    }
                     k = model_converter::ACCE;
                 }
             }
@@ -1408,7 +1479,11 @@ namespace sat {
         verdict_type cce(clause& c, literal& blocked, model_converter::kind& k) {
             m_clause = clause_wrapper(c);
             m_covered_clause.reset();
-            for (literal l : c) m_covered_clause.push_back(l);
+            m_covered_antecedent.reset();
+            for (literal l : c) { 
+                m_covered_clause.push_back(l);
+                m_covered_antecedent.push_back(clause_ante());
+            }
             return cla<et>(blocked, k);
         }
 
@@ -1416,8 +1491,11 @@ namespace sat {
         verdict_type cce(literal l1, literal l2, literal& blocked, model_converter::kind& k) {
             m_clause = clause_wrapper(l1, l2);
             m_covered_clause.reset();
+            m_covered_antecedent.reset();
             m_covered_clause.push_back(l1);
             m_covered_clause.push_back(l2);
+            m_covered_antecedent.push_back(clause_ante());
+            m_covered_antecedent.push_back(clause_ante());
             return cla<et>(blocked, k);            
         }
         

@@ -155,8 +155,8 @@ namespace sat {
         };
         unsigned m_l2_idx;
     public:
-        clause_wrapper(literal l1, literal l2):m_l1_idx(l1.to_uint()), m_l2_idx(l2.to_uint()) {}
-        clause_wrapper(clause & c):m_cls(&c), m_l2_idx(null_literal.to_uint()) {}
+        explicit clause_wrapper(literal l1, literal l2):m_l1_idx(l1.to_uint()), m_l2_idx(l2.to_uint()) {}
+        explicit clause_wrapper(clause & c):m_cls(&c), m_l2_idx(null_literal.to_uint()) {}
         clause_wrapper& operator=(clause_wrapper const& other) {
             if (other.is_binary()) {
                 m_l1_idx = other.m_l1_idx;

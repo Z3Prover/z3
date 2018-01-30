@@ -202,12 +202,8 @@ namespace sat {
     }
 
     bool integrity_checker::check_reinit_stack() const {
-        clause_wrapper_vector::const_iterator it  = s.m_clauses_to_reinit.begin();
-        clause_wrapper_vector::const_iterator end = s.m_clauses_to_reinit.end();
-        for (; it != end; ++it) {
-            if (it->is_binary())
-                continue;
-            SASSERT(it->get_clause()->on_reinit_stack());
+        for (auto const& c : s.m_clauses_to_reinit) {
+            SASSERT(c.is_binary() || c.get_clause()->on_reinit_stack());
         }
         return true;
     }
