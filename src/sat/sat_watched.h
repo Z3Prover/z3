@@ -33,7 +33,7 @@ namespace sat {
 
        For binary clauses: we use a bit to store whether the binary clause was learned or not.
        
-       Remark: there is not Clause object for binary clauses.
+       Remark: there are no clause objects for binary clauses.
     */
     class watched {
     public:
@@ -87,13 +87,12 @@ namespace sat {
         bool is_binary_clause() const { return get_kind() == BINARY; }
         literal get_literal() const { SASSERT(is_binary_clause()); return to_literal(static_cast<unsigned>(m_val1)); }
         void set_literal(literal l) { SASSERT(is_binary_clause()); m_val1 = l.to_uint(); }
-        bool is_learned() const { SASSERT(is_binary_clause()); return (m_val2 >> 2) == 1; }
+        bool is_learned() const { SASSERT(is_binary_clause() || is_ternary_clause()); return ((m_val2 >> 2) & 1) == 1; }
 
         bool is_binary_learned_clause() const { return is_binary_clause() && is_learned(); }
         bool is_binary_non_learned_clause() const { return is_binary_clause() && !is_learned(); }
 
-        void set_not_learned() { SASSERT(is_learned()); m_val2 &= 0x3; SASSERT(!is_learned()); }
-        void set_learned() { SASSERT(!is_learned()); m_val2 |= 0x4; SASSERT(is_learned()); }
+        void set_learned(bool l) { SASSERT(is_learned() != l); if (l) m_val2 |= 4; else m_val2 &= 3; SASSERT(is_learned() == l); }
                 
         bool is_ternary_clause() const { return get_kind() == TERNARY; }
         literal get_literal1() const { SASSERT(is_ternary_clause()); return to_literal(static_cast<unsigned>(m_val1)); }
@@ -136,7 +135,8 @@ namespace sat {
     watched* find_binary_watch(watch_list & wlist, literal l);
     watched const* find_binary_watch(watch_list const & wlist, literal l);
     bool erase_clause_watch(watch_list & wlist, clause_offset c);
-    inline void erase_ternary_watch(watch_list & wlist, literal l1, literal l2) { wlist.erase(watched(l1, l2, true)); wlist.erase(watched(l1, l2, false)); }
+    void erase_ternary_watch(watch_list & wlist, literal l1, literal l2);
+    void set_ternary_learned(watch_list& wlist, literal l1, literal l2, bool learned);
 
     class clause_allocator;
     std::ostream& display_watch_list(std::ostream & out, clause_allocator const & ca, watch_list const & wlist);

@@ -233,6 +233,7 @@ namespace sat {
         bool attach_nary_clause(clause & c);
         void attach_clause(clause & c, bool & reinit);
         void attach_clause(clause & c) { bool reinit; attach_clause(c, reinit); }
+        void set_learned(clause& c, bool learned);
         class scoped_disable_checkpoint {
             solver& s;
         public:
@@ -611,7 +612,7 @@ namespace sat {
         clause * const * end_learned() const { return m_learned.end(); }
         clause_vector const& learned() const { return m_learned; }
         clause_vector const& clauses() const { return m_clauses; }
-        void collect_bin_clauses(svector<bin_clause> & r, bool learned, bool learned_only = false) const;
+        void collect_bin_clauses(svector<bin_clause> & r, bool learned, bool learned_only = false) const;        
 
         // -----------------------
         //

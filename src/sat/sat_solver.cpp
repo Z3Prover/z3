@@ -336,13 +336,13 @@ namespace sat {
         watched* w0 = find_binary_watch(get_wlist(~l1), l2);
         if (w0) {
             if (w0->is_learned() && !learned) {
-                w0->set_not_learned();
+                w0->set_learned(false);
             }            
             w0 = find_binary_watch(get_wlist(~l2), l1);
         }
         if (w0) {
             if (w0->is_learned() && !learned) {
-                w0->set_not_learned();
+                w0->set_learned(false);
             }            
             return;
         }
@@ -480,6 +480,19 @@ namespace sat {
         else
             reinit = attach_nary_clause(c);
     }
+
+    void solver::set_learned(clause& c, bool learned) {
+        if (c.is_learned() == learned) 
+            return;
+
+        if (c.size() == 3) {
+            set_ternary_learned(get_wlist(~c[0]), c[1], c[2], learned);
+            set_ternary_learned(get_wlist(~c[1]), c[0], c[2], learned);
+            set_ternary_learned(get_wlist(~c[2]), c[0], c[1], learned);
+        }
+        c.set_learned(learned);
+    }
+
 
     /**
        \brief Select a watch literal starting the search at the given position.

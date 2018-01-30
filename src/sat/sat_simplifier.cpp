@@ -151,7 +151,7 @@ namespace sat {
     inline void simplifier::block_clause(clause & c) {
         if (m_retain_blocked_clauses) {
             m_need_cleanup = true;
-            c.set_learned();
+            s.set_learned(c, true);
             m_use_list.block(c);
         }
         else {
@@ -161,7 +161,7 @@ namespace sat {
     }
 
     inline void simplifier::unblock_clause(clause & c) {
-        c.unset_learned();
+        s.set_learned(c, false);
         m_use_list.unblock(c);
     }
 
@@ -499,7 +499,7 @@ namespace sat {
             if (!c2.was_removed() && *l_it == null_literal) {
                 // c2 was subsumed
                 if (c1.is_learned() && !c2.is_learned())
-                    c1.unset_learned();
+                    s.set_learned(c1, false);
                 TRACE("subsumption", tout << c1 << " subsumed " << c2 << "\n";);
                 remove_clause(c2);
                 m_num_subsumed++;
@@ -599,7 +599,7 @@ namespace sat {
             clause & c2 = *cp;
             // c2 was subsumed
             if (c1.is_learned() && !c2.is_learned())
-                c1.unset_learned();
+                s.set_learned(c1, false);
             TRACE("subsumption", tout << c1 << " subsumed " << c2 << "\n";);
             remove_clause(c2);
             m_num_subsumed++;
@@ -759,7 +759,7 @@ namespace sat {
                             SASSERT(wlist[j] == w);
                             TRACE("set_not_learned_bug",
                                   tout << "marking as not learned: " << l2 << " " << wlist[j].is_learned() << "\n";);
-                            wlist[j].set_not_learned();
+                            wlist[j].set_learned(false);
                             mark_as_not_learned_core(get_wlist(~l2), l);
                         }
                         if (s.inconsistent())
@@ -776,7 +776,7 @@ namespace sat {
     void simplifier::mark_as_not_learned_core(watch_list & wlist, literal l2) {
         for (watched & w : wlist) {
             if (w.is_binary_clause() && w.get_literal() == l2 && w.is_learned()) {
-                w.set_not_learned();
+                w.set_learned(false);
                 return;
             }
         }
@@ -1793,7 +1793,7 @@ namespace sat {
         w = find_binary_watch(wlist1, l2);
         if (w) {
             if (w->is_learned())
-                w->set_not_learned();
+                w->set_learned(false);
         }
         else {
             wlist1.push_back(watched(l2, false));
@@ -1802,7 +1802,7 @@ namespace sat {
         w = find_binary_watch(wlist2, l1);
         if (w) {
             if (w->is_learned())
-                w->set_not_learned();
+                w->set_learned(false);
         }
         else {
             wlist2.push_back(watched(l1, false));
