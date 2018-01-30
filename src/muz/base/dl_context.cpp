@@ -400,7 +400,7 @@ namespace datalog {
         }
         uint64 res;
         if (!try_get_sort_constant_count(srt, res)) {
-            sort_size sz = srt->get_num_elements();
+            const sort_size & sz = srt->get_num_elements();
             if (sz.is_finite()) {
                 res = sz.size();
             }
@@ -411,7 +411,7 @@ namespace datalog {
         return res;
     }
 
-    void context::set_argument_names(const func_decl * pred, svector<symbol> var_names)
+    void context::set_argument_names(const func_decl * pred, const svector<symbol> & var_names)
     {
         SASSERT(!m_argument_var_names.contains(pred));
         m_argument_var_names.insert(pred, var_names);

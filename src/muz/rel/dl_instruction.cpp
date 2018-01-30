@@ -168,7 +168,7 @@ namespace datalog {
     }
 
 
-    void instruction::display_indented(execution_context const & _ctx, std::ostream & out, std::string indentation) const {
+    void instruction::display_indented(execution_context const & _ctx, std::ostream & out, const std::string & indentation) const {
         out << indentation;
         rel_context const& ctx = _ctx.get_rel_context();
         display_head_impl(_ctx, out);
@@ -191,7 +191,7 @@ namespace datalog {
         reg_idx m_reg;
     public:
         instr_io(bool store, func_decl_ref pred, reg_idx reg)
-            : m_store(store), m_pred(pred), m_reg(reg) {}
+            : m_store(store), m_pred(std::move(pred)), m_reg(reg) {}
         virtual bool perform(execution_context & ctx) {
             log_verbose(ctx);            
             if (m_store) {
@@ -348,7 +348,7 @@ namespace datalog {
             out << "while";
             print_container(m_controls, out);
         }
-        virtual void display_body_impl(execution_context const & ctx, std::ostream & out, std::string indentation) const {
+        virtual void display_body_impl(execution_context const & ctx, std::ostream & out, const std::string & indentation) const {
             m_body->display_indented(ctx, out, indentation+"    ");
         }
     };
@@ -1182,7 +1182,7 @@ namespace datalog {
         }
     }
 
-    void instruction_block::display_indented(execution_context const& _ctx, std::ostream & out, std::string indentation) const {
+    void instruction_block::display_indented(execution_context const& _ctx, std::ostream & out, const std::string & indentation) const {
         rel_context const& ctx = _ctx.get_rel_context();
         instr_seq_type::const_iterator it = m_data.begin();
         instr_seq_type::const_iterator end = m_data.end();

@@ -3418,7 +3418,7 @@ expr_ref context::get_constraints (unsigned level)
     return m_pm.mk_and (constraints);
 }
 
-void context::add_constraints (unsigned level, expr_ref c)
+void context::add_constraints (unsigned level, const expr_ref& c)
 {
     if (!c.get()) { return; }
     if (m.is_true(c)) { return; }

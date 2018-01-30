@@ -30,8 +30,8 @@ namespace spacer {
         unsigned num_rows();
         unsigned num_cols();
 
-        rational get(unsigned i, unsigned j);
-        void set(unsigned i, unsigned j, rational v);
+        const rational& get(unsigned i, unsigned j);
+        void set(unsigned i, unsigned j, const rational& v);
 
         unsigned perform_gaussian_elimination();
 
