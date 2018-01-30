@@ -25,7 +25,7 @@ namespace spacer {
 
     class spacer_matrix {
     public:
-        spacer_matrix(unsigned m, unsigned n); // m rows, n colums
+        spacer_matrix(unsigned m, unsigned n); // m rows, n columns
 
         unsigned num_rows();
         unsigned num_cols();

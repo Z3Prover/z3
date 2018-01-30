@@ -424,7 +424,7 @@ namespace datalog {
 
         /**
             \c array \c removed_cols contains column indexes to be removed in ascending order and
-            is terminated by a number greated than the highest column index of a join the the two tables. 
+            is terminated by a number greater than the highest column index of a join the two tables.
             This is to simplify the traversal of the array when building facts.
          */
         static void concatenate_rows(const column_layout & layout1, const column_layout & layout2,
@@ -436,7 +436,7 @@ namespace datalog {
            columns from t2 using indexing.
 
            \c array \c removed_cols contains column indexes to be removed in ascending order and
-           is terminated by a number greated than the highest column index of a join the the two tables. 
+           is terminated by a number greater than the highest column index of a join the two tables.
            This is to simplify the traversal of the array when building facts.
 
            \c tables_swapped value means that the resulting facts should contain facts from t2 first,

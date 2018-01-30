@@ -187,8 +187,8 @@ namespace z3 {
            \brief The C++ API uses by defaults exceptions on errors. 
            For applications that don't work well with exceptions (there should be only few)
            you have the ability to turn off exceptions. The tradeoffs are that applications
-           have to very careful about using check_error() after calls that may result in an errornous
-           state.
+           have to very careful about using check_error() after calls that may result in an
+           erroneous state.
          */
         void set_enable_exceptions(bool f) { m_enable_exceptions = f; }
 
@@ -213,7 +213,7 @@ namespace z3 {
 
         /**
            \brief Interrupt the current procedure being executed by any object managed by this context.
-           This is a soft interruption: there is no guarantee the object will actualy stop.
+           This is a soft interruption: there is no guarantee the object will actually stop.
         */
         void interrupt() { Z3_interrupt(m_ctx); }
 
@@ -709,7 +709,7 @@ namespace z3 {
 
            It only makes sense to use this function if the caller can ensure that
            the result is an integer or if exceptions are enabled. 
-           If exceptions are disabled, then use the the is_numeral_i function.
+           If exceptions are disabled, then use the is_numeral_i function.
            
            \pre is_numeral()
         */
@@ -729,7 +729,7 @@ namespace z3 {
 
            It only makes sense to use this function if the caller can ensure that
            the result is an integer or if exceptions are enabled. 
-           If exceptions are disabled, then use the the is_numeral_u function.           
+           If exceptions are disabled, then use the is_numeral_u function.
            \pre is_numeral()
         */
         unsigned get_numeral_uint() const {

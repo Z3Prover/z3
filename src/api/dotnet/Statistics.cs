@@ -56,7 +56,7 @@ namespace Microsoft.Z3
             public bool IsDouble { get { return m_is_double; } }
 
             /// <summary>
-            /// The string representation of the the entry's value.
+            /// The string representation of the entry's value.
             /// </summary>
             public string Value
             {

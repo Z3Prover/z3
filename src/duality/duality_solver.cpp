@@ -112,9 +112,9 @@ namespace Duality {
     };
 
 
-    /** This is the main solver. It takes anarbitrary (possibly cyclic)
+    /** This is the main solver. It takes an arbitrary (possibly cyclic)
         RPFP and either annotates it with a solution, or returns a
-        counterexample derivation in the form of an embedd RPFP tree. */
+        counterexample derivation in the form of an embedded RPFP tree. */
 
     class Duality : public Solver {
 

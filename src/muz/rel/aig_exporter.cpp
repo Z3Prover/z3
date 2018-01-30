@@ -32,7 +32,7 @@ namespace datalog {
             predicates.insert(I->first);
         }
 
-        // reserve pred id = 0 for initalization purposes
+        // reserve pred id = 0 for initialization purposes
         unsigned num_preds = (unsigned)predicates.size() + 1;
 
         // poor's man round-up log2

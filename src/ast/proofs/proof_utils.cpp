@@ -83,7 +83,7 @@ class reduce_hypotheses {
     // map from unit literals to their hypotheses-free derivations
     obj_map<expr, proof*> m_units;
 
-    // -- all hypotheses in the the proof
+    // -- all hypotheses in the proof
     obj_hashtable<expr> m_hyps;
 
     // marks hypothetical proofs
@@ -192,7 +192,7 @@ class reduce_hypotheses {
                 res = mk_lemma_core(args.get(0), m.get_fact(p));
                 compute_mark1(res);
             } else if (m.is_unit_resolution(p)) {
-                // unit: reduce untis; reduce the first premise; rebuild unit resolution
+                // unit: reduce units; reduce the first premise; rebuild unit resolution
                 res = mk_unit_resolution_core(args.size(), args.c_ptr());
                 compute_mark1(res);
             } else  {
@@ -340,7 +340,7 @@ void reduce_hypotheses(proof_ref &pr) {
 class reduce_hypotheses0 {
     typedef obj_hashtable<expr> expr_set;
     ast_manager&          m;
-    // reference for any expression created by the tranformation
+    // reference for any expression created by the transformation
     expr_ref_vector       m_refs;
     // currently computed result
     obj_map<proof,proof*> m_cache;
@@ -352,7 +352,7 @@ class reduce_hypotheses0 {
     unsigned_vector       m_limits;
     // map from proofs to active hypotheses
     obj_map<proof, expr_set*> m_hypmap;
-    // refernce train for hypotheses sets
+    // reference train for hypotheses sets
     ptr_vector<expr_set>  m_hyprefs;
     ptr_vector<expr>      m_literals;
     
@@ -492,7 +492,7 @@ public:
             // replace result by m_units[m.get_fact (p)] if defined
             // AG: This is the main step. Replace a hypothesis by a derivation of its consequence
             if (!m_units.find(m.get_fact(p), result)) {
-                // restore ther result back to p
+                // restore the result back to p
                 result = p.get();
             }
             // compute hypothesis of the result

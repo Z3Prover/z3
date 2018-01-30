@@ -934,7 +934,7 @@ public class Context implements AutoCloseable {
      * exposed. It follows the semantics prescribed by the SMT-LIB standard.
      * 
      * You can take the floor of a real by creating an auxiliary integer Term
-     * {@code k} and and asserting
+     * {@code k} and asserting
      * {@code MakeInt2Real(k) &lt;= t1 &lt; MkInt2Real(k)+1}. The argument
      * must be of integer sort. 
      **/
