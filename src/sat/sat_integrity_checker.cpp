@@ -28,8 +28,8 @@ namespace sat {
     }
 
     // for ternary clauses 
-    static bool contains_watched(watch_list const & wlist, literal l1, literal l2, bool learned) {
-        return wlist.contains(watched(l1, l2, learned));
+    static bool contains_watched(watch_list const & wlist, literal l1, literal l2) {
+        return wlist.contains(watched(l1, l2));
     }
     
     // for nary clauses
@@ -68,9 +68,9 @@ namespace sat {
                    tout << "watch_list:\n";
                    sat::display_watch_list(tout, s.m_cls_allocator, s.get_wlist(~c[0]));
                    tout << "\n";);
-            VERIFY(contains_watched(s.get_wlist(~c[0]), c[1], c[2], c.is_learned()));
-            VERIFY(contains_watched(s.get_wlist(~c[1]), c[0], c[2], c.is_learned()));
-            VERIFY(contains_watched(s.get_wlist(~c[2]), c[0], c[1], c.is_learned()));
+            VERIFY(contains_watched(s.get_wlist(~c[0]), c[1], c[2]));
+            VERIFY(contains_watched(s.get_wlist(~c[1]), c[0], c[2]));
+            VERIFY(contains_watched(s.get_wlist(~c[2]), c[0], c[1]));
         }
         else {
             if (s.value(c[0]) == l_false || s.value(c[1]) == l_false) {

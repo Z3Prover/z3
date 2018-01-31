@@ -100,14 +100,16 @@ namespace sat {
         unsigned               m_elim_vars_bdd_delay;
 
         // stats
-        unsigned               m_num_blocked_clauses;
-        unsigned               m_num_covered_clauses;
+        unsigned               m_num_bce;
+        unsigned               m_num_cce;
+        unsigned               m_num_acce;
+        unsigned               m_num_abce;
+        unsigned               m_num_bca;
+        unsigned               m_num_ate;
         unsigned               m_num_subsumed;
         unsigned               m_num_elim_vars;
         unsigned               m_num_sub_res;
         unsigned               m_num_elim_lits;
-        unsigned               m_num_bca;
-        unsigned               m_num_ate;
 
         bool                   m_learned_in_use_lists;
         unsigned               m_old_num_elim_vars;
@@ -132,9 +134,8 @@ namespace sat {
         void remove_clause_core(clause & c);
         void remove_clause(clause & c);
         void remove_clause(clause & c, literal l);
-        void block_clause(clause & c);
-        void unblock_clause(clause & c);
-        void remove_bin_clause_half(literal l1, literal l2, bool learned);
+        void set_learned(clause & c);
+        void set_learned(literal l1, literal l2);
 
         bool_var get_min_occ_var(clause const & c) const;
         bool subsumes1(clause const & c1, clause const & c2, literal & l);
@@ -183,7 +184,7 @@ namespace sat {
         bool elim_vars_bdd_enabled() const;
         bool elim_vars_enabled() const;
 
-        unsigned get_num_unblocked_bin(literal l) const;
+        unsigned num_nonlearned_bin(literal l) const;
         unsigned get_to_elim_cost(bool_var v) const;
         void order_vars_for_elim(bool_var_vector & r);
         void collect_clauses(literal l, clause_wrapper_vector & r);

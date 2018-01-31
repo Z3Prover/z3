@@ -234,6 +234,8 @@ namespace sat {
         void attach_clause(clause & c, bool & reinit);
         void attach_clause(clause & c) { bool reinit; attach_clause(c, reinit); }
         void set_learned(clause& c, bool learned);
+        void set_learned(literal l1, literal l2, bool learned);
+        void set_learned1(literal l1, literal l2, bool learned);
         class scoped_disable_checkpoint {
             solver& s;
         public:

@@ -2306,6 +2306,7 @@ namespace sat {
                         roots[v] = p;
                         VERIFY(get_parent(p) == p);
                         VERIFY(get_parent(~p) == ~p);
+                        IF_VERBOSE(0, verbose_stream() << p << " " << q << "\n";);
                     }
                 }
                 IF_VERBOSE(1, verbose_stream() << "(sat-lookahead :equivalences " << to_elim.size() << ")\n";);

@@ -60,7 +60,7 @@ namespace sat {
                        verbose_stream() 
                        << " (sat-asymm-branch :elim-literals " << (num_total - num_learned) 
                        << " :elim-learned-literals " << num_learned
-                       << " :hidden-tautologies " << (m_asymm_branch.m_hidden_tautologies - m_hidden_tautologies)
+                       << " :hte " << (m_asymm_branch.m_hidden_tautologies - m_hidden_tautologies)
                        << " :cost " << m_asymm_branch.m_counter
                        << mem_stat()
                        << " :time " << std::fixed << std::setprecision(2) << m_watch.get_seconds() << ")\n";);
@@ -124,13 +124,13 @@ namespace sat {
                     break;
                 }
                 SASSERT(s.m_qhead == s.m_trail.size());
-                if (m_counter < limit || s.inconsistent()) {
+                clause & c = *(*it);
+                if (m_counter < limit || s.inconsistent() || c.was_removed()) {
                     *it2 = *it;
                     ++it2;
                     continue;
                 }
-                s.checkpoint();
-                clause & c = *(*it);
+                s.checkpoint();                
                 if (big ? !process_sampled(*big, c) : !process(c)) {
                     continue; // clause was removed
                 }
@@ -431,7 +431,8 @@ namespace sat {
     bool asymm_branch::process_sampled(big& big, clause & c) {
         scoped_detach scoped_d(s, c);
         sort(big, c);
-        if ((c.is_learned() || !big.learned()) && uhte(big, c)) {
+        if (!big.learned() && !c.is_learned() && uhte(big, c)) {
+			// TBD: mark clause as learned.
             ++m_hidden_tautologies;
             scoped_d.del_clause();
             return false;
@@ -501,7 +502,7 @@ namespace sat {
     
     void asymm_branch::collect_statistics(statistics & st) const {
         st.update("elim literals", m_elim_literals);
-        st.update("hidden tautologies", m_hidden_tautologies);
+        st.update("hte", m_hidden_tautologies);
     }
 
     void asymm_branch::reset_statistics() {

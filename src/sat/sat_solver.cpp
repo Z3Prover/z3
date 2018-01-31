@@ -396,9 +396,9 @@ namespace sat {
 
     bool solver::attach_ter_clause(clause & c) {
         bool reinit = false;
-        m_watches[(~c[0]).index()].push_back(watched(c[1], c[2], c.is_learned()));
-        m_watches[(~c[1]).index()].push_back(watched(c[0], c[2], c.is_learned()));
-        m_watches[(~c[2]).index()].push_back(watched(c[0], c[1], c.is_learned()));
+        m_watches[(~c[0]).index()].push_back(watched(c[1], c[2]));
+        m_watches[(~c[1]).index()].push_back(watched(c[0], c[2]));
+        m_watches[(~c[2]).index()].push_back(watched(c[0], c[1]));
         if (!at_base_lvl()) {
             if (value(c[1]) == l_false && value(c[2]) == l_false) {
                 m_stats.m_ter_propagate++;
@@ -482,17 +482,23 @@ namespace sat {
     }
 
     void solver::set_learned(clause& c, bool learned) {
-        if (c.is_learned() == learned) 
-            return;
-
-        if (c.size() == 3) {
-            set_ternary_learned(get_wlist(~c[0]), c[1], c[2], learned);
-            set_ternary_learned(get_wlist(~c[1]), c[0], c[2], learned);
-            set_ternary_learned(get_wlist(~c[2]), c[0], c[1], learned);
-        }
-        c.set_learned(learned);
+        if (c.is_learned() != learned) 
+            c.set_learned(learned);
     }
 
+    void solver::set_learned1(literal l1, literal l2, bool learned) {
+        for (watched& w : get_wlist(~l1)) {
+            if (w.is_binary_clause() && l2 == w.get_literal() && !w.is_learned()) {
+                w.set_learned(learned);
+                break;
+            }
+        }
+    }
+
+    void solver::set_learned(literal l1, literal l2, bool learned) {
+        set_learned1(l1, l2, learned);
+        set_learned1(l2, l1, learned);
+    }
 
     /**
        \brief Select a watch literal starting the search at the given position.
@@ -1523,7 +1529,7 @@ namespace sat {
         m_simplifier(false);
         CASSERT("sat_simplify_bug", check_invariant());
         CASSERT("sat_missed_prop", check_missed_propagation());
-		si.check_watches();
+        si.check_watches();
         if (!m_learned.empty()) {
             m_simplifier(true);
             CASSERT("sat_missed_prop", check_missed_propagation());

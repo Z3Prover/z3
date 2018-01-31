@@ -66,7 +66,7 @@ namespace sat {
         literal const & operator[](unsigned idx) const { SASSERT(idx < m_size); return m_lits[idx]; }
         bool is_learned() const { return m_learned; }
         void set_learned(bool l) { SASSERT(is_learned() != l); m_learned = l; }
-        void shrink(unsigned num_lits) { SASSERT(num_lits <= m_size); if (num_lits < m_size) { m_size = num_lits; mark_strengthened(); } }
+        void shrink(unsigned num_lits);
         bool strengthened() const { return m_strengthened; }
         void mark_strengthened() { m_strengthened = true; update_approx(); }
         void unmark_strengthened() { m_strengthened = false; }
