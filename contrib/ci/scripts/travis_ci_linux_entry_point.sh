@@ -6,6 +6,12 @@ set -x
 set -e
 set -o pipefail
 
+REPO_ROOT="${SCRIPT_DIR}/../../.."
+. "${REPO_ROOT}/common.sh"
+Z3_GIT_VERSION="$(z3_git_version)"
+PACKAGE_OUTPUT_DIR="${REPO_ROOT}/build/generated-packages"
+mkdir -p "${PACKAGE_OUTPUT_DIR}"
+
 DOCKER_FILE_DIR="$(cd ${SCRIPT_DIR}/../Dockerfiles; echo $PWD)"
 
 : ${LINUX_BASE?"LINUX_BASE must be specified"}
@@ -70,6 +76,8 @@ fi
 if [ -n "${C_COMPILER}" ]; then
   BUILD_OPTS+=("--build-arg" "CC=${C_COMPILER}")
 fi
+
+BUILD_OPTS+=("--build-arg" "Z3_GIT_VERSION=${Z3_GIT_VERSION}")
 
 # TravisCI reserves CXX for itself so use a different name
 if [ -n "${CXX_COMPILER}" ]; then
@@ -153,10 +161,6 @@ case ${LINUX_BASE} in
     BASE_DOCKER_FILE="${DOCKER_FILE_DIR}/z3_base_ubuntu_16.04.Dockerfile"
     BASE_DOCKER_IMAGE_NAME="z3_base_ubuntu:16.04"
     ;;
-  ubuntu32_16.04)
-    BASE_DOCKER_FILE="${DOCKER_FILE_DIR}/z3_base_ubuntu32_16.04.Dockerfile"
-    BASE_DOCKER_IMAGE_NAME="z3_base_ubuntu32:16.04"
-    ;;
   *)
     echo "Unknown Linux base ${LINUX_BASE}"
     exit 1
@@ -226,7 +230,13 @@ else
 fi
 
 # Now build Z3 and test it using the created base image
+export POSTBUILD_IMAGE="batfish/z3-docker-postbuild-$(echo "${LINUX_BASE}" | tr -d '.')"
 docker build \
+  -t "${POSTBUILD_IMAGE}" \
   -f "${DOCKER_BUILD_FILE}" \
   "${BUILD_OPTS[@]}" \
   .
+DOCKER_REPO_ROOT="/home/user/z3_src"
+Z3_ZIP="$(docker run "${POSTBUILD_IMAGE}" /bin/bash -c ". ${DOCKER_REPO_ROOT}/linux_common.sh && linux_zip_name")"
+docker cp "$(docker create "${POSTBUILD_IMAGE}"):${DOCKER_REPO_ROOT}/build/generated-packages/${Z3_ZIP}" "${PACKAGE_OUTPUT_DIR}/"
+

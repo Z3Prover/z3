@@ -19,14 +19,15 @@ RUN apt-get update && \
         libomp5 \
         libomp-dev \
         llvm-3.9 \
+        lsb-release \
         make \
-        mono-devel \
         ninja-build \
         python3 \
         python3-setuptools \
         python2.7 \
         python-setuptools \
-        sudo
+        sudo \
+        zip
 
 # Create `user` user for container with password `user`.  and give it
 # password-less sudo access
