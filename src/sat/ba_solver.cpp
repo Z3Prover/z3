@@ -2798,7 +2798,7 @@ namespace sat {
     }
 
     unsigned ba_solver::get_num_unblocked_bin(literal l) {
-        return s().m_simplifier.get_num_unblocked_bin(l);
+        return s().m_simplifier.num_nonlearned_bin(l);
     }
 
     /*

@@ -37,9 +37,9 @@ namespace sat{
 
         literal pos_l(v, false);
         literal neg_l(v, true);
-        unsigned num_bin_pos = simp.get_num_unblocked_bin(pos_l);
+        unsigned num_bin_pos = simp.num_nonlearned_bin(pos_l);
         if (num_bin_pos > m_max_literals) return false;
-        unsigned num_bin_neg = simp.get_num_unblocked_bin(neg_l);
+        unsigned num_bin_neg = simp.num_nonlearned_bin(neg_l);
         if (num_bin_neg > m_max_literals) return false;
         clause_use_list & pos_occs = simp.m_use_list.get(pos_l);
         clause_use_list & neg_occs = simp.m_use_list.get(neg_l);

@@ -71,27 +71,21 @@ namespace sat {
     }
 
     void erase_ternary_watch(watch_list& wlist, literal l1, literal l2) {
+        watched w(l1, l2);
         watch_list::iterator it = wlist.begin(), end = wlist.end();
         watch_list::iterator it2 = it;
         bool found = false;
         for (; it != end; ++it) {
-            if (it->is_ternary_clause() && it->get_literal1() == l1 && it->get_literal2() == l2) {
+            if (!found && w == *it) {
                 found = true;
-                continue;
             }
-            *it2 = *it;
-            ++it2;        
+            else {
+                *it2 = *it;
+                ++it2;    
+            }    
         }
         wlist.set_end(it2);
         VERIFY(found);
-    }
-
-    void set_ternary_learned(watch_list& wlist, literal l1, literal l2, bool learned) {
-        for (watched& w : wlist) {
-            if (w.is_ternary_clause() && w.get_literal1() == l1 && w.get_literal2() == l2) {
-                w.set_learned(learned);
-            }
-        }
     }
 
     void conflict_cleanup(watch_list::iterator it, watch_list::iterator it2, watch_list& wlist) {

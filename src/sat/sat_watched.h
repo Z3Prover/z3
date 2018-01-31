@@ -53,12 +53,12 @@ namespace sat {
             SASSERT(learned || is_binary_non_learned_clause());
         }
 
-        watched(literal l1, literal l2, bool learned) {
+        watched(literal l1, literal l2) {
             SASSERT(l1 != l2);
             if (l1.index() > l2.index())
                 std::swap(l1, l2);
             m_val1 = l1.to_uint();
-            m_val2 = static_cast<unsigned>(TERNARY) + (static_cast<unsigned>(learned) << 2) + (l2.to_uint() << 3);
+            m_val2 = static_cast<unsigned>(TERNARY) + (l2.to_uint() << 2);
             SASSERT(is_ternary_clause());
             SASSERT(get_literal1() == l1);
             SASSERT(get_literal2() == l2);
@@ -87,16 +87,16 @@ namespace sat {
         bool is_binary_clause() const { return get_kind() == BINARY; }
         literal get_literal() const { SASSERT(is_binary_clause()); return to_literal(static_cast<unsigned>(m_val1)); }
         void set_literal(literal l) { SASSERT(is_binary_clause()); m_val1 = l.to_uint(); }
-        bool is_learned() const { SASSERT(is_binary_clause() || is_ternary_clause()); return ((m_val2 >> 2) & 1) == 1; }
+        bool is_learned() const { SASSERT(is_binary_clause()); return ((m_val2 >> 2) & 1) == 1; }
 
         bool is_binary_learned_clause() const { return is_binary_clause() && is_learned(); }
         bool is_binary_non_learned_clause() const { return is_binary_clause() && !is_learned(); }
 
-        void set_learned(bool l) { SASSERT(is_learned() != l); if (l) m_val2 |= 4; else m_val2 &= 3; SASSERT(is_learned() == l); }
+        void set_learned(bool l) { if (l) m_val2 |= 4u; else m_val2 &= ~4u; SASSERT(is_learned() == l); }
                 
         bool is_ternary_clause() const { return get_kind() == TERNARY; }
         literal get_literal1() const { SASSERT(is_ternary_clause()); return to_literal(static_cast<unsigned>(m_val1)); }
-        literal get_literal2() const { SASSERT(is_ternary_clause()); return to_literal(m_val2 >> 3); }
+        literal get_literal2() const { SASSERT(is_ternary_clause()); return to_literal(m_val2 >> 2); }
 
         bool is_clause() const { return get_kind() == CLAUSE; }
         clause_offset get_clause_offset() const { SASSERT(is_clause()); return static_cast<clause_offset>(m_val1); }

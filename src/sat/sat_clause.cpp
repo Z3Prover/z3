@@ -87,6 +87,15 @@ namespace sat {
         mark_strengthened();
     }
 
+    void clause::shrink(unsigned num_lits) { 
+        SASSERT(num_lits <= m_size); 
+        if (num_lits < m_size) { 
+            m_size = num_lits; 
+            mark_strengthened(); 
+        } 
+    }
+
+
     bool clause::satisfied_by(model const & m) const {
         for (literal l : *this) {
             if (l.sign()) {
