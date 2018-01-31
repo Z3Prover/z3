@@ -53,6 +53,21 @@ void generic_model_converter::operator()(model_ref & md) {
             break;
         case instruction::ADD:
             ev(e.m_def, val);
+            if (e.m_f->get_name() == symbol("FOX-PIT-17")) {
+                IF_VERBOSE(0, verbose_stream() << e.m_f->get_name() << " " << e.m_def << " -> " << val << "\n";);
+                ptr_vector<expr> ts;
+                ts.push_back(e.m_def);
+                while (!ts.empty()) {
+                    app* t = to_app(ts.back());
+                    ts.pop_back();
+                    if (t->get_num_args() > 0) {
+                        ts.append(t->get_num_args(), t->get_args());
+                    }
+                    expr_ref tmp(m);
+                    ev(t, tmp);
+                    IF_VERBOSE(0, verbose_stream() << mk_pp(t, m) << " -> " << tmp << "\n";);                    
+                }
+            }
             TRACE("model_converter", tout << e.m_f->get_name() << " ->\n" << e.m_def << "\n==>\n" << val << "\n";);
             arity = e.m_f->get_arity();
             reset_ev = false;
