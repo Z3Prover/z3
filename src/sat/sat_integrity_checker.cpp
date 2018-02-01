@@ -64,7 +64,7 @@ namespace sat {
             return true;
 
         if (c.size() == 3) {
-            CTRACE("sat_ter_watch_bug", !contains_watched(s.get_wlist(~c[0]), c[1], c[2], c.is_learned()), tout << c << "\n";
+            CTRACE("sat_ter_watch_bug", !contains_watched(s.get_wlist(~c[0]), c[1], c[2]), tout << c << "\n";
                    tout << "watch_list:\n";
                    sat::display_watch_list(tout, s.m_cls_allocator, s.get_wlist(~c[0]));
                    tout << "\n";);

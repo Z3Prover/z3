@@ -94,23 +94,18 @@ namespace sat {
 
     bool simplifier::single_threaded() const { return s.m_config.m_num_threads == 1; }
 
-    bool simplifier::bce_enabled() const { 
+    bool simplifier::bce_enabled_base() const {
         return 
-            !m_incremental_mode && !s.tracking_assumptions() && !m_learned_in_use_lists && m_num_calls >= m_bce_delay && 
-            (m_elim_blocked_clauses || m_elim_blocked_clauses_at == m_num_calls || cce_enabled()); 
+            !m_incremental_mode && !s.tracking_assumptions() && 
+            !m_learned_in_use_lists && m_num_calls >= m_bce_delay && single_threaded();
     }
-    bool simplifier::acce_enabled() const { 
-        return !s.m_ext && !m_incremental_mode && !s.tracking_assumptions() && !m_learned_in_use_lists && m_num_calls >= m_bce_delay && m_acce; 
-    }
-    bool simplifier::cce_enabled()  const { 
-        return !s.m_ext && !m_incremental_mode && !s.tracking_assumptions() && !m_learned_in_use_lists && m_num_calls >= m_bce_delay && (m_cce || acce_enabled()); 
-    }
-    bool simplifier::abce_enabled() const { 
-        return !s.m_ext && !m_incremental_mode && !s.tracking_assumptions() && !m_learned_in_use_lists && m_num_calls >= m_bce_delay && m_abce; 
-    }
-    bool simplifier::bca_enabled()  const { 
-        return !s.m_ext && !m_incremental_mode && !s.tracking_assumptions() && m_bca && m_learned_in_use_lists && single_threaded(); 
-    }
+
+    bool simplifier::ate_enabled()  const { return m_ate; }
+    bool simplifier::bce_enabled()  const { return bce_enabled_base() && (m_bce || m_bce_at == m_num_calls || m_acce || m_abce || m_cce); }
+    bool simplifier::acce_enabled() const { return bce_enabled_base() && m_acce; }
+    bool simplifier::cce_enabled()  const { return bce_enabled_base() && (m_cce || m_acce); }
+    bool simplifier::abce_enabled() const { return bce_enabled_base() && m_abce; }
+    bool simplifier::bca_enabled()  const { return bce_enabled_base() && m_bca; }
     bool simplifier::elim_vars_bdd_enabled() const { 
         return !m_incremental_mode && !s.tracking_assumptions() && m_elim_vars_bdd && m_num_calls >= m_elim_vars_bdd_delay && single_threaded(); 
     }
@@ -219,7 +214,7 @@ namespace sat {
         }
         register_clauses(s.m_clauses);
 
-        if (bce_enabled() || abce_enabled() || bca_enabled()) {
+        if (bce_enabled() || bca_enabled() || ate_enabled()) {
             elim_blocked_clauses();
         }
 
@@ -1010,27 +1005,26 @@ namespace sat {
         enum elim_type {
             cce_t,
             acce_t,
-            abce_t
-        };
-
-        enum verdict_type {
-            at_t,    // asymmetric tautology
-            bc_t,    // blocked clause
-            no_t     // neither
+            abce_t,
+            ate_t,
+            no_t
         };
 
         void operator()() {
-            if (s.bce_enabled()) {
-                block_clauses();
-            }
-            if (s.abce_enabled()) {
-                cce<abce_t>();
-            }
-            if (s.cce_enabled()) {
-                cce<cce_t>();
-            }
             if (s.acce_enabled()) {
                 cce<acce_t>();
+            }
+            if (s.ate_enabled() && !s.abce_enabled() && !s.acce_enabled()) {
+                cce<ate_t>();
+            }
+            if (s.cce_enabled() && !s.acce_enabled()) {
+                cce<cce_t>();
+            }
+            if (s.abce_enabled() && !s.acce_enabled()) {
+                cce<abce_t>();
+            }
+            if (s.bce_enabled() && !s.cce_enabled() && !s.abce_enabled()) {
+                block_clauses();
             }
             if (s.bca_enabled()) {
                 bca();
@@ -1223,7 +1217,8 @@ namespace sat {
            This routine removes literals that were not relevant to establishing it was blocked.
          */
         void minimize_covered_clause(unsigned idx) {
-            // IF_VERBOSE(0, verbose_stream() << "minimize: " << m_covered_clause << " @ " << idx << "\n" << "tautology: " << m_tautology << "\n";);
+            // IF_VERBOSE(0, verbose_stream() << "minimize: " << m_covered_clause 
+            // << " @ " << idx << "\n" << "tautology: " << m_tautology << "\n";);
             for (literal l : m_tautology) VERIFY(s.is_marked(l));
             for (literal l : m_covered_clause) s.unmark_visited(l);
             for (literal l : m_tautology) s.mark_visited(l);
@@ -1369,14 +1364,25 @@ namespace sat {
         }
 
         template<elim_type et>
-        verdict_type cla(literal& blocked, model_converter::kind& k) {
-            bool is_tautology = false;
+        elim_type cce(literal& blocked, model_converter::kind& k) {
+            bool is_tautology = false, first = true;
+            unsigned sz = 0, sz0 = m_covered_clause.size();     
             for (literal l : m_covered_clause) s.mark_visited(l);
-            unsigned num_iterations = 0, sz;
+            shuffle<literal>(m_covered_clause.size(), m_covered_clause.c_ptr(), s.s.m_rand);
             m_elim_stack.reset();
             m_ala_qhead = 0;
-            k = model_converter::CCE;
-            unsigned sz0 = m_covered_clause.size();
+
+            switch (et) {
+            case abce_t:
+                k = model_converter::BLOCK_LIT;
+                break;
+            case cce_t:
+                k = model_converter::CCE;
+                break;
+            case acce_t:
+                k = model_converter::ACCE;
+                break;
+            }
 
             /*
              * For blocked clause elimination with asymmetric literal addition (ABCE) 
@@ -1385,56 +1391,48 @@ namespace sat {
              * So we record sz0, the original set of literals in the clause, mark additional literals, 
              * and then check if any of the first sz0 literals are blocked.
              */
-            if (et == abce_t) {
-                if (add_ala()) {
-                    for (literal l : m_covered_clause) s.unmark_visited(l);
-                    return at_t;
-                }               
-                for (unsigned i = 0; i < sz0; ++i) {
-                    if (check_abce_tautology(m_covered_clause[i])) {
-                        blocked = m_covered_clause[i];
-                        is_tautology = true;
-                        break;
-                    }
-                }
-                k = model_converter::BLOCK_LIT; // actually ABCE
-                for (literal l : m_covered_clause) s.unmark_visited(l);
-                m_covered_clause.shrink(sz0);
-                return is_tautology ? bc_t : no_t;
-            }
 
-            /*
-             * For CCE we add the resolution intersection while checking if the clause becomes a tautology.
-             * For ACCE, in addition, we add literals.
-             */
-            do {
-                do {
-                    if (above_threshold(sz0)) break;
-                    ++num_iterations;
-                    sz = m_covered_clause.size();
+            while (!is_tautology && m_covered_clause.size() > sz && !above_threshold(sz0)) {
+                SASSERT(!is_tautology);
+                if ((et == abce_t || et == acce_t || et == ate_t) && add_ala()) {
+                    for (literal l : m_covered_clause) s.unmark_visited(l);
+                    return ate_t;                               
+                }
+
+                if (first) {
+                    for (unsigned i = 0; i < sz0; ++i) {
+                        if (check_abce_tautology(m_covered_clause[i])) {
+                            blocked = m_covered_clause[i];
+                            is_tautology = true;
+                            break;
+                        }
+                    }
+                    first = false;
+                }
+                
+                if (is_tautology || et == abce_t) {
+                    for (literal l : m_covered_clause) s.unmark_visited(l);
+                    m_covered_clause.shrink(sz0);
+                    return is_tautology ? abce_t : no_t;
+                }
+                
+                /*
+                 * Add resolution intersection while checking if the clause becomes a tautology.
+                 */
+                sz = m_covered_clause.size();
+                if (et == cce_t || et == acce_t) {
                     is_tautology = add_cla(blocked);
                 }
-                while (m_covered_clause.size() > sz && !is_tautology);
-                if (et == acce_t && !is_tautology) {
-                    sz = m_covered_clause.size();
-                    if (add_ala()) {
-                        for (literal l : m_covered_clause) s.unmark_visited(l);
-                        return at_t;
-                    }
-                    k = model_converter::ACCE;
-                }
-                if (above_threshold(sz0)) break;
             }
-            while (m_covered_clause.size() > sz && !is_tautology);
             for (literal l : m_covered_clause) s.unmark_visited(l);
-            return is_tautology ? bc_t : no_t;
+            return is_tautology ? et : no_t;
         }
 
         // perform covered clause elimination.
         // first extract the covered literal addition (CLA).
         // then check whether the CLA is blocked.
         template<elim_type et>
-        verdict_type cce(clause& c, literal& blocked, model_converter::kind& k) {
+        elim_type cce(clause& c, literal& blocked, model_converter::kind& k) {
             m_clause = clause_wrapper(c);
             m_covered_clause.reset();
             m_covered_antecedent.reset();
@@ -1443,11 +1441,11 @@ namespace sat {
                 m_covered_antecedent.push_back(clause_ante());
             }
             // shuffle<literal>(s.s.m_rand, m_covered_clause);
-            return cla<et>(blocked, k);
+            return cce<et>(blocked, k);
         }
 
         template<elim_type et>
-        verdict_type cce(literal l1, literal l2, literal& blocked, model_converter::kind& k) {
+        elim_type cce(literal l1, literal l2, literal& blocked, model_converter::kind& k) {
             m_clause = clause_wrapper(l1, l2);
             m_covered_clause.reset();
             m_covered_antecedent.reset();
@@ -1455,7 +1453,7 @@ namespace sat {
             m_covered_clause.push_back(l2);
             m_covered_antecedent.push_back(clause_ante());
             m_covered_antecedent.push_back(clause_ante());
-            return cla<et>(blocked, k);            
+            return cce<et>(blocked, k);            
         }
         
         template<elim_type et>
@@ -1481,20 +1479,21 @@ namespace sat {
             model_converter::kind k;
             for (watched & w : wlist) {
                 if (!w.is_binary_non_learned_clause()) continue;
+                if (!select_clause<et>(2)) continue;
                 literal l2 = w.get_literal();
-                switch (cce<et>(l, l2, blocked, k)) {
-                case bc_t:
-                    inc_bc<et>();
-                    block_covered_binary(w, l, blocked, k);
-                    w.set_learned(true);
-                    s.s.set_learned1(l2, l, true);
-                    break;
-                case at_t:
-                    s.m_num_ate++;
+                elim_type r = cce<et>(l, l2, blocked, k); 
+                inc_bc(r);
+                switch (r) {
+                case ate_t:
                     w.set_learned(true);
                     s.s.set_learned1(l2, l, true);
                     break;
                 case no_t:
+                    break;
+                default:
+                    block_covered_binary(w, l, blocked, k);
+                    w.set_learned(true);
+                    s.s.set_learned1(l2, l, true);
                     break;
                 }
             }
@@ -1507,29 +1506,38 @@ namespace sat {
             for (clause* cp : s.s.m_clauses) {
                 clause& c = *cp;
                 if (c.was_removed() || c.is_learned()) continue;
-                switch (cce<et>(c, blocked, k)) {
-                case bc_t:
-                    inc_bc<et>();
-                    block_covered_clause(c, blocked, k);
-                    s.set_learned(c);
-                    break;
-                case at_t:
-                    s.m_num_ate++;
+                if (!select_clause<et>(c.size())) continue;
+                elim_type r = cce<et>(c, blocked, k);
+                inc_bc(r);
+                switch (r) {
+                case ate_t:
                     s.set_learned(c);
                     break;
                 case no_t:
+                    break;
+                default:
+                    block_covered_clause(c, blocked, k);
+                    s.set_learned(c);
                     break;
                 }
             }
         }
 
-        template<elim_type et>
-        void inc_bc() {
+        void inc_bc(elim_type et) {
             switch (et) {
             case cce_t: s.m_num_cce++; break;
             case acce_t: s.m_num_acce++; break;
             case abce_t: s.m_num_abce++; break;
+            case ate_t: s.m_num_ate++; break;
+            default: break;
             }
+        }
+
+        // select 25% of clauses size 2, 3
+        // always try to remove larger clauses.
+        template<elim_type et>
+        bool select_clause(unsigned sz) {
+            return et == ate_t || (sz > 3) || s.s.m_rand(4) == 0;
         }
 
         void prepare_block_clause(clause& c, literal l, model_converter::entry*& new_entry, model_converter::kind k) {
@@ -2070,9 +2078,10 @@ namespace sat {
         m_acce                    = p.acce();
         m_bca                     = p.bca();
         m_abce                    = p.abce();
+        m_ate                     = p.ate();
         m_bce_delay               = p.bce_delay();
-        m_elim_blocked_clauses    = p.elim_blocked_clauses();
-        m_elim_blocked_clauses_at = p.elim_blocked_clauses_at();
+        m_bce                     = p.elim_blocked_clauses();
+        m_bce_at                  = p.elim_blocked_clauses_at();
         m_retain_blocked_clauses  = p.retain_blocked_clauses();
         m_blocked_clause_limit    = p.blocked_clause_limit();
         m_res_limit               = p.resolution_limit();

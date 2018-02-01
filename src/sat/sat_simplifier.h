@@ -76,8 +76,9 @@ namespace sat {
         bool                   m_acce; // cce with asymetric literal addition
         bool                   m_bca;  // blocked (binary) clause addition. 
         unsigned               m_bce_delay; 
-        bool                   m_elim_blocked_clauses;
-        unsigned               m_elim_blocked_clauses_at;
+        bool                   m_bce;  // blocked clause elimination
+        bool                   m_ate;  // asymmetric tautology elimination
+        unsigned               m_bce_at;
         bool                   m_retain_blocked_clauses;
         unsigned               m_blocked_clause_limit;
         bool                   m_incremental_mode; 
@@ -176,6 +177,8 @@ namespace sat {
         void elim_blocked_clauses();
 
         bool single_threaded() const; // { return s.m_config.m_num_threads == 1; }
+        bool bce_enabled_base() const;
+        bool ate_enabled()  const;
         bool bce_enabled()  const;
         bool acce_enabled() const;
         bool cce_enabled()  const;
