@@ -94,7 +94,6 @@ namespace sat {
         bool               m_unit_walk;
         bool               m_lookahead_simplify;
         bool               m_lookahead_simplify_bca;
-        bool               m_lookahead_simplify_asymm_branch;
         cutoff_t           m_lookahead_cube_cutoff;
         double             m_lookahead_cube_fraction;
         unsigned           m_lookahead_cube_depth;

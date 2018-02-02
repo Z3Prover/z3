@@ -27,7 +27,7 @@ namespace sat {
 
     scc::scc(solver & s, params_ref const & p):
         m_solver(s),
-        m_big(s.m_rand, true) {
+        m_big(s.m_rand) {
         reset_statistics();
         updt_params(p);
     }

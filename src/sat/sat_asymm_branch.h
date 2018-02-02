@@ -91,8 +91,6 @@ namespace sat {
 
         void operator()(bool force);
 
-        void operator()(big& big);
-
         void updt_params(params_ref const & p);
         static void collect_param_descrs(param_descrs & d);
 

@@ -214,7 +214,7 @@ namespace sat {
         }
         register_clauses(s.m_clauses);
 
-        if (bce_enabled() || bca_enabled() || ate_enabled()) {
+        if (!learned && (bce_enabled() || bca_enabled() || ate_enabled())) {
             elim_blocked_clauses();
         }
 

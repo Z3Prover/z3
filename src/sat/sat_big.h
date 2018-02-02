@@ -41,7 +41,7 @@ namespace sat {
 
     public:
 
-        big(random_gen& rand, bool binary);
+        big(random_gen& rand);
         /**
            \brief initialize a BIG from a solver.
          */

@@ -150,27 +150,6 @@ namespace sat {
         }
     }
 
-    void asymm_branch::operator()(big& big) {
-        s.propagate(false); 
-        if (s.m_inconsistent)
-            return;
-        report rpt(*this);        
-        
-        for (unsigned i = 0; i < m_asymm_branch_rounds; ++i) {
-            unsigned elim = m_elim_literals;
-            big.reinit();
-            process(&big, s.m_clauses);
-            process(&big, s.m_learned);
-            process_bin(big);
-            unsigned num_elim = m_elim_literals - elim;
-            IF_VERBOSE(1, verbose_stream() << "(sat-asymm-branch-step :elim " << num_elim << ")\n";);
-            if (num_elim == 0)
-                break;
-            if (num_elim > 1000)
-                i = 0;
-        }
-        s.propagate(false);       
-    }
     
     void asymm_branch::operator()(bool force) {
         ++m_calls;
@@ -196,11 +175,11 @@ namespace sat {
             ++counter;
             change = false;
             if (m_asymm_branch_sampled) {
-                big big(s.m_rand, true);
+                big big(s.m_rand);
                 if (process(big, true)) change = true;
             }
             if (m_asymm_branch_sampled) {
-                big big(s.m_rand, false);
+                big big(s.m_rand);
                 if (process(big, false)) change = true;
             }
             if (m_asymm_branch) {
@@ -431,11 +410,10 @@ namespace sat {
     bool asymm_branch::process_sampled(big& big, clause & c) {
         scoped_detach scoped_d(s, c);
         sort(big, c);
-        if (!big.learned() && !c.is_learned() && uhte(big, c)) {
-			// TBD: mark clause as learned.
-            ++m_hidden_tautologies;
-            scoped_d.del_clause();
-            return false;
+        if (uhte(big, c)) {
+            // don't touch hidden tautologies. 
+            // ATE takes care of them.
+            return true;
         }
         return uhle(scoped_d, big, c);        
     }

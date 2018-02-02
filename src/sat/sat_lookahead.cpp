@@ -2306,16 +2306,12 @@ namespace sat {
                         roots[v] = p;
                         VERIFY(get_parent(p) == p);
                         VERIFY(get_parent(~p) == ~p);
-                        IF_VERBOSE(0, verbose_stream() << p << " " << q << "\n";);
                     }
                 }
                 IF_VERBOSE(1, verbose_stream() << "(sat-lookahead :equivalences " << to_elim.size() << ")\n";);
                 elim_eqs elim(m_s);
                 elim(roots, to_elim);
 
-                if (get_config().m_lookahead_simplify_asymm_branch) {
-                    big_asymm_branch(learned);
-                }
                 if (learned && get_config().m_lookahead_simplify_bca) {
                     add_hyper_binary();
                 }                
@@ -2324,29 +2320,6 @@ namespace sat {
         m_lookahead.reset();        
     }
 
-    /**
-       \brief extract binary implication graph from learned binary clauses and use it
-       for strengthening clauses.
-     */
-
-    void lookahead::big_asymm_branch(bool learned) {
-        unsigned num_lits = m_s.num_vars() * 2;
-        unsigned idx = 0;
-        big big(m_s.m_rand, false);
-        big.init_adding_edges(m_s.num_vars(), learned);
-        for (auto const& lits : m_binary) {
-            literal u = get_parent(to_literal(idx++));
-            if (u == null_literal) continue;
-            for (literal v : lits) {
-                v = get_parent(v);
-                if (v != null_literal) 
-                    big.add_edge(u, v);
-            }            
-        }
-        big.done_adding_edges();
-        asymm_branch ab(m_s, m_s.m_params);
-        ab(big);
-    }
 
     /**
        \brief reduction based on binary implication graph
@@ -2372,7 +2345,7 @@ namespace sat {
             }
         }
 
-        big big(m_s.m_rand, false);
+        big big(m_s.m_rand);
         big.init(m_s, true);
         svector<std::pair<literal, literal>> candidates;
 

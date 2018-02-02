@@ -36,40 +36,36 @@ public:
     void next() { m_val = m_stream.get(); }
     bool eof() const { return ch() == EOF; }
     unsigned line() const { return m_line; }
-    void skip_whitespace();
-    void skip_space();
-    void skip_line();
+    void skip_whitespace() {
+        while ((ch() >= 9 && ch() <= 13) || ch() == 32) {
+            if (ch() == 10) ++m_line;
+            next(); 
+        }
+    }
+    void skip_space() {
+        while (ch() != 10 && ((ch() >= 9 && ch() <= 13) || ch() == 32)) 
+            next();  
+    }
+    void skip_line() {
+        while(true) {
+            if (eof()) {
+                return;
+            }
+            if (ch() == '\n') { 
+                ++m_line;
+                next();
+                return; 
+            }
+            next();
+        }
+    }
     bool parse_token(char const* token);
     int parse_int();
     unsigned parse_unsigned();
 };
 
 
-void opt_stream_buffer::skip_whitespace() {
-    while ((ch() >= 9 && ch() <= 13) || ch() == 32) {
-        if (ch() == 10) ++m_line;
-        next(); 
-    }
-}
 
-void opt_stream_buffer::skip_space() {
-    while (ch() != 10 && ((ch() >= 9 && ch() <= 13) || ch() == 32)) {
-        next(); 
-    }
-}
-void opt_stream_buffer::skip_line() {
-    while(true) {
-        if (eof()) {
-            return;
-        }
-        if (ch() == '\n') { 
-            ++m_line;
-            next();
-            return; 
-        }
-        next();
-    } 
-}
 
 bool opt_stream_buffer::parse_token(char const* token) {
     skip_whitespace();
@@ -314,4 +310,183 @@ void parse_opb(opt::context& opt, std::istream& is, unsigned_vector& h) {
     opb.parse();
 }
 
+#if 0
 
+class lp_stream_buffer : opt_stream_buffer {
+public:    
+    lp_stream_buffer(std::istream & s):
+        opt_stream_buffer(s)
+    {}
+
+    char lower(char c) {
+        return ('A' <= c && c <= 'Z') ? c - 'A' + 'a' : c;
+    }
+
+    bool parse_token_nocase(char const* token) {
+        skip_whitespace();
+        char const* t = token;
+        while (lower(ch()) == *t) {
+            next();
+            ++t;
+        }
+        return 0 == *t;
+    }
+};
+
+
+class lp_tokenizer {
+    opt_stream_buffer& in;
+public:
+    lp_tokenizer(opt_stream_buffer& in):
+        in(in)
+    {}
+    
+};
+
+class lp_parse {
+    opt::context& opt;
+    lp_tokenizer& tok;
+public:
+    lp_parse(opt::context& opt, lp_stream_buffer& in): opt(opt), tok(is) {}
+    
+    void parse() {
+        objective();
+        subject_to();
+        bounds();
+        general();
+        binary();
+    }
+
+    void objective() {
+        m_objective.m_is_max = minmax();
+        m_objective.m_name = try_name();
+        m_objective.m_expr = expr();
+    }
+
+    bool minmax() {
+        if (try_accept("minimize"))
+            return false;
+        if (try_accept("min"))
+            return false;
+        if (try_accept("maximize"))
+            return true;
+        if (try_accept("max"))
+            return true;
+        error("expected min or max objective");
+        return false;
+    }
+
+    bool try_accept(char const* token) {
+        return false;
+    }
+
+    bool indicator(symbol& var, bool& val) {
+        if (!try_variable(var)) return false;
+        check(in.parse_token("="));
+        
+    }
+
+                
+    def indicator(self):
+        v = self.variable()
+        self.accept("=")
+        val = self.try_accept("1")
+        if val is None:
+            val = self.accept("0")            
+        self.accept("->")
+        return (var, val)
+
+    def try_indicator(self):
+        try:
+            return self.indicator()
+        with:
+            return None
+
+    def constraints(self):
+        return [c for c in self._constraints()]
+    
+    def _constraints(self):
+        while True:
+            c = self.try_constraint()
+            if c in None:
+                return
+            yield c
+
+    def try_constraint(self):
+        try:
+            return self.constraint()
+        except:
+            return None
+        
+    def constraint(self):
+        name = self.try_label()
+        guard = self.try_guard()
+        e = self.expr()
+        op = self.relation()
+        rhs = self.numeral()
+        return (name, guard, e, ops, rhs)
+
+    def expr(self):
+        return [t for t in self.terms()]
+
+    def terms(self):
+        while True:
+            t = self.term()
+            if t is None:
+                return None
+            yield t
+
+    def term(self):
+        sign = self.sign()
+        coeff = self.coeff()
+        v = self.variable()
+        return (sign*coeff, v)
+
+    def sign(self):
+        if self.try_accept("-"):
+            return -1
+        return 1
+
+    def coeff(self):
+        tok = self.peek()
+        if tok is int:
+            self.next()
+            return (int) tok
+        return 1
+
+    def relation(self):
+        if self.try_accept("<="):
+            return "<="
+        if self.try_accept(">="):
+            return ">="
+        if self.try_accept("=<"):
+            return "<="
+        if self.try_accept("=>"):
+            return ">="
+        if self.try_accept("="):
+            return "="
+        return None
+
+    def subject_to(self):
+        if self.accept("subject") and self.accept("to"):
+            return
+        if self.accept("such") and self.accept("that"):
+            return
+        if self.accept("st"):
+            return
+        if self.accept("s"):
+            self.try_accept(".")
+            self.accept("t")
+            self.accept(".")
+            return
+        
+
+};
+
+void parse_lp(opt::context& opt, std::istream& is) {
+    lp_stream_buffer _is(is);
+    lp_parse lp(opt, _is);
+    lp.parse();
+}
+
+#endif

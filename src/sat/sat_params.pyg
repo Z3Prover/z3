@@ -51,7 +51,6 @@ def_module_params('sat',
                           ('lookahead.preselect', BOOL, False, 'use pre-selection of subset of variables for branching'),
                           ('lookahead_simplify', BOOL, False, 'use lookahead solver during simplification'),
                           ('lookahead_simplify.bca', BOOL, True, 'add learned binary clauses as part of lookahead simplification'),
-                          ('lookahead_simplify.asymm_branch', BOOL, True, 'apply asymmetric branch simplification with lookahead simplifier'),
                           ('lookahead.global_autarky', BOOL, False, 'prefer to branch on variables that occur in clauses that are reduced'),
                           ('lookahead.reward', SYMBOL, 'march_cu', 'select lookahead heuristic: ternary, heule_schur (Heule Schur), heuleu (Heule Unit), unit, or march_cu')))
 

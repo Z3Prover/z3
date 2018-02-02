@@ -21,9 +21,8 @@ Revision History:
 
 namespace sat {
 
-    big::big(random_gen& rand, bool binary): 
+    big::big(random_gen& rand): 
         m_rand(rand) {
-        m_binary = binary;
     }
 
     void big::init(solver& s, bool learned) {
@@ -141,7 +140,6 @@ namespace sat {
     }
 
     unsigned big::reduce_tr(solver& s) {
-        if (!m_binary && learned()) return 0;
         unsigned num_lits = s.num_vars() * 2;
         unsigned idx = 0;
         unsigned elim = 0;
