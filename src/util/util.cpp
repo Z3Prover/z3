@@ -18,7 +18,7 @@ Revision History:
 --*/
 
 #ifdef _WINDOWS
-#include "windows.h"
+#include <windows.h>
 #endif
 #include "util/util.h"
 

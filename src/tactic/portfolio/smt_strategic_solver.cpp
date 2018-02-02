@@ -36,7 +36,6 @@ Notes:
 #include "tactic/portfolio/fd_solver.h"
 #include "tactic/ufbv/ufbv_tactic.h"
 #include "tactic/fpa/qffp_tactic.h"
-#include "tactic/smtlogics/qfufnra_tactic.h"
 #include "muz/fp/horn_tactic.h"
 #include "smt/smt_solver.h"
 #include "sat/sat_solver/inc_sat_solver.h"

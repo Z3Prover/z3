@@ -183,7 +183,7 @@ unsigned long long memory::get_max_used_memory() {
 }
 
 #if defined(_WINDOWS)
-#include "Windows.h"
+#include <Windows.h>
 #endif
 
 unsigned long long memory::get_max_memory_size() {

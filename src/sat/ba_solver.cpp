@@ -19,7 +19,6 @@ Revision History:
 
 #include "sat/ba_solver.h"
 #include "sat/sat_types.h"
-#include "util/lp/lar_solver.h"
 
 
 namespace sat {
