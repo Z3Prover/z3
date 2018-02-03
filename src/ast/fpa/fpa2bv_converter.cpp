@@ -3098,13 +3098,11 @@ void fpa2bv_converter::mk_to_ieee_bv_unspecified(func_decl * f, unsigned num, ex
         join_fp(result, result);
     }
     else {
-        expr * n = args[0];
-        expr_ref n_bv(m);
-        join_fp(n, n_bv);
+        expr_ref nw = nan_wrap(args[0]);
 
-        sort * domain[1] = { m.get_sort(n_bv) };
+        sort * domain[1] = { m.get_sort(nw) };
         func_decl * f_bv = mk_bv_uf(f, domain, f->get_range());
-        result = m.mk_app(f_bv, n_bv);
+        result = m.mk_app(f_bv, nw);
 
         expr_ref exp_bv(m), exp_all_ones(m);
         exp_bv = m_bv_util.mk_extract(ebits+sbits-2, sbits-1, result);
@@ -3280,6 +3278,17 @@ void fpa2bv_converter::mk_to_sbv(func_decl * f, unsigned num, expr * const * arg
     mk_to_bv(f, num, args, true, result);
 }
 
+expr_ref fpa2bv_converter::nan_wrap(expr * n) {
+    expr_ref n_bv(m), arg_is_nan(m), nan(m), nan_bv(m), res(m);
+    mk_is_nan(n, arg_is_nan);
+    mk_nan(m.get_sort(n), nan);
+    join_fp(nan, nan_bv);
+    join_fp(n, n_bv);
+    res = expr_ref(m.mk_ite(arg_is_nan, nan_bv, n_bv), m);
+    SASSERT(is_well_sorted(m, res));
+    return res;
+}
+
 void fpa2bv_converter::mk_to_bv_unspecified(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
     SASSERT(num == 2);
     SASSERT(m_util.is_bv2rm(args[0]));
@@ -3289,13 +3298,10 @@ void fpa2bv_converter::mk_to_bv_unspecified(func_decl * f, unsigned num, expr * 
         result = m_bv_util.mk_numeral(0, m_bv_util.get_bv_size(f->get_range()));
     else {
         expr * rm_bv = to_app(args[0])->get_arg(0);
-        expr * n = args[1];
-        expr_ref n_bv(m);
-        join_fp(n, n_bv);
-
-        sort * domain[2] = { m.get_sort(rm_bv), m.get_sort(n_bv) };
+        expr_ref nw = nan_wrap(args[1]);
+        sort * domain[2] = { m.get_sort(rm_bv), m.get_sort(nw) };
         func_decl * f_bv = mk_bv_uf(f, domain, f->get_range());
-        result = m.mk_app(f_bv, rm_bv, n_bv);
+        result = m.mk_app(f_bv, rm_bv, nw);
     }
 
     TRACE("fpa2bv_to_bv_unspecified", tout << "result=" << mk_ismt2_pp(result, m) << std::endl;);
@@ -3309,12 +3315,10 @@ void fpa2bv_converter::mk_to_real_unspecified(func_decl * f, unsigned num, expr 
         result = m_arith_util.mk_numeral(rational(0), false);
     else {
         expr * n = args[0];
-        expr_ref n_bv(m);
-        join_fp(n, n_bv);
-
-        sort * domain[1] = { m.get_sort(n_bv) };
+        expr_ref nw = nan_wrap(n);
+        sort * domain[1] = { m.get_sort(nw) };
         func_decl * f_bv = mk_bv_uf(f, domain, f->get_range());
-        result = m.mk_app(f_bv, n_bv);
+        result = m.mk_app(f_bv, nw);
     }
 }
 
