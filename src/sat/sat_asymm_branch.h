@@ -48,7 +48,7 @@ namespace sat {
         // stats
         unsigned   m_elim_literals;
         unsigned   m_elim_learned_literals;
-        unsigned   m_hidden_tautologies;
+        unsigned   m_tr;
 
         literal_vector m_pos, m_neg; // literals (complements of literals) in clauses sorted by discovery time (m_left in BIG).
         literal_vector m_to_delete;

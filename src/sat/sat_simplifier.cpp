@@ -1394,10 +1394,16 @@ namespace sat {
 
             while (!is_tautology && m_covered_clause.size() > sz && !above_threshold(sz0)) {
                 SASSERT(!is_tautology);
+
                 if ((et == abce_t || et == acce_t || et == ate_t) && add_ala()) {
                     for (literal l : m_covered_clause) s.unmark_visited(l);
                     return ate_t;                               
                 }
+
+                if (et == ate_t) {
+                    for (literal l : m_covered_clause) s.unmark_visited(l);
+                    return no_t;  
+                }              
 
                 if (first) {
                     for (unsigned i = 0; i < sz0; ++i) {
@@ -1440,7 +1446,6 @@ namespace sat {
                 m_covered_clause.push_back(l);
                 m_covered_antecedent.push_back(clause_ante());
             }
-            // shuffle<literal>(s.s.m_rand, m_covered_clause);
             return cce<et>(blocked, k);
         }
 
@@ -1537,7 +1542,7 @@ namespace sat {
         // always try to remove larger clauses.
         template<elim_type et>
         bool select_clause(unsigned sz) {
-            return et == ate_t || (sz > 3) || s.s.m_rand(4) == 0;
+            return (sz > 3) || s.s.m_rand(4) == 0;
         }
 
         void prepare_block_clause(clause& c, literal l, model_converter::entry*& new_entry, model_converter::kind k) {
@@ -2080,8 +2085,8 @@ namespace sat {
         m_abce                    = p.abce();
         m_ate                     = p.ate();
         m_bce_delay               = p.bce_delay();
-        m_bce                     = p.elim_blocked_clauses();
-        m_bce_at                  = p.elim_blocked_clauses_at();
+        m_bce                     = p.bce();
+        m_bce_at                  = p.bce_at();
         m_retain_blocked_clauses  = p.retain_blocked_clauses();
         m_blocked_clause_limit    = p.blocked_clause_limit();
         m_res_limit               = p.resolution_limit();

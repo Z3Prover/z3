@@ -43,12 +43,12 @@ namespace sat {
         stopwatch      m_watch;
         unsigned       m_elim_literals;
         unsigned       m_elim_learned_literals;
-        unsigned       m_hidden_tautologies;
+        unsigned       m_tr;
         report(asymm_branch & a):
             m_asymm_branch(a),
             m_elim_literals(a.m_elim_literals),
             m_elim_learned_literals(a.m_elim_learned_literals),
-            m_hidden_tautologies(a.m_hidden_tautologies) {
+            m_tr(a.m_tr) {
             m_watch.start();
         }
         
@@ -60,7 +60,7 @@ namespace sat {
                        verbose_stream() 
                        << " (sat-asymm-branch :elim-literals " << (num_total - num_learned) 
                        << " :elim-learned-literals " << num_learned
-                       << " :hte " << (m_asymm_branch.m_hidden_tautologies - m_hidden_tautologies)
+                       << " :hte " << (m_asymm_branch.m_tr - m_tr)
                        << " :cost " << m_asymm_branch.m_counter
                        << mem_stat()
                        << " :time " << std::fixed << std::setprecision(2) << m_watch.get_seconds() << ")\n";);
@@ -68,15 +68,14 @@ namespace sat {
     };
 
     void asymm_branch::process_bin(big& big) {
-        unsigned elim = big.reduce_tr(s);
-        m_hidden_tautologies += elim;
+        m_tr += big.reduce_tr(s);
     }
 
     bool asymm_branch::process(big& big, bool learned) {
         unsigned elim0 = m_elim_literals;
         unsigned eliml0 = m_elim_learned_literals;
         for (unsigned i = 0; i < m_asymm_branch_rounds; ++i) {
-            unsigned elim = m_elim_literals + m_hidden_tautologies;
+            unsigned elim = m_elim_literals + m_tr;
             big.init(s, learned);
             process(&big, s.m_clauses);
             process(&big, s.m_learned);
@@ -84,11 +83,11 @@ namespace sat {
             s.propagate(false); 
             if (s.m_inconsistent)
                 break;
-            unsigned num_elim = m_elim_literals + m_hidden_tautologies - elim;
+            unsigned num_elim = m_elim_literals + m_tr - elim;
             IF_VERBOSE(1, verbose_stream() << "(sat-asymm-branch-step :elim " << num_elim << ")\n";);
             if (num_elim == 0)
                 break;
-            if (num_elim > 100) 
+            if (false && num_elim > 1000) 
                 i = 0;
         }        
         IF_VERBOSE(1, if (m_elim_learned_literals > eliml0) 
@@ -149,7 +148,7 @@ namespace sat {
             throw ex;
         }
     }
-
+    
     
     void asymm_branch::operator()(bool force) {
         ++m_calls;
@@ -480,13 +479,13 @@ namespace sat {
     
     void asymm_branch::collect_statistics(statistics & st) const {
         st.update("elim literals", m_elim_literals);
-        st.update("hte", m_hidden_tautologies);
+        st.update("tr", m_tr);
     }
 
     void asymm_branch::reset_statistics() {
         m_elim_literals = 0;
         m_elim_learned_literals = 0;
-        m_hidden_tautologies = 0;
+        m_tr = 0;
     }
 
 };

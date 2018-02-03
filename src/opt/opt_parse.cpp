@@ -344,23 +344,60 @@ public:
 };
 
 class lp_parse {
-    opt::context& opt;
-    lp_tokenizer& tok;
+    typedef svector<std::pair<int, symbol> > lin_term;
+
+    struct objective {
+        bool      m_is_max;
+        symbol    m_name;
+        lin_term  m_expr;
+    };
+
+    enum rel_op {
+        le, ge, eq
+    };
+
+    struct indicator {
+        symbol m_var;
+        bool   m_true;
+    };
+
+    struct constraint {
+        optional<indicator> m_ind;
+        lin_term m_expr;
+        rel_op   m_rel;
+        int      m_bound;
+    };
+
+    struct bound {
+        symbol            m_var;
+        option<rational>  m_lo, m_hi;
+    };
+
+    opt::context&        opt;
+    lp_tokenizer&        tok;
+    objective            m_objective;
+    vector<constraint>   m_constraints;
+    vector<bound>        m_bounds;
+    hashtable<symbol, symbol_hash_proc, symbol_eq_proc> m_binary;
+
 public:
-    lp_parse(opt::context& opt, lp_stream_buffer& in): opt(opt), tok(is) {}
+
+    lp_parse(opt::context& opt, lp_stream_buffer& in): 
+        opt(opt), tok(is) {}
     
     void parse() {
-        objective();
-        subject_to();
-        bounds();
-        general();
-        binary();
+        parse_objective();
+        parse_subject_to();
+        parse_bounds();
+        parse_general();
+        parse_binary();
+        post_process();
     }
 
-    void objective() {
+    void parse_objective() {
         m_objective.m_is_max = minmax();
         m_objective.m_name = try_name();
-        m_objective.m_expr = expr();
+        parse_expr(m_objective.m_expr);
     }
 
     bool minmax() {
@@ -376,16 +413,31 @@ public:
         return false;
     }
 
+
     bool try_accept(char const* token) {
         return false;
     }
 
-    bool indicator(symbol& var, bool& val) {
-        if (!try_variable(var)) return false;
-        check(in.parse_token("="));
+    bool parse_indicator(symbol& var, bool& val) {
+        if (!peek("=", 1)) return false;
+        if (!peek(":", 3)) return false;
+        if (!peek("1", 2) && !peek("0", 2)) return false;
+        val = peek("1",2);
+        parse_variable(var);
+        accept("=");
+        accept();
+        accept(":");
+        return true;
+    }
+
+    void parse_bounds() {
+        if (!try_accept("bounds")) return;
         
     }
 
+    void parse_indicator() {
+
+    }
                 
     def indicator(self):
         v = self.variable()
