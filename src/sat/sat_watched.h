@@ -62,7 +62,6 @@ namespace sat {
             SASSERT(is_ternary_clause());
             SASSERT(get_literal1() == l1);
             SASSERT(get_literal2() == l2);
-            SASSERT(is_learned() == learned);
         }
 
         unsigned val2() const { return m_val2; }

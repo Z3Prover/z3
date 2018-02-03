@@ -34,17 +34,29 @@ Author:
 Notes:
 
 --*/
-#include "tactic/tactical.h"
 #include "util/cooperate.h"
-#include "tactic/arith/bound_manager.h"
 #include "ast/ast_pp.h"
 #include "ast/pb_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/rewriter/rewriter_def.h"
+#include "ast/rewriter/expr_safe_replace.h"
 #include "ast/ast_util.h"
 #include "ast/ast_pp_util.h"
+#include "tactic/tactical.h"
+#include "tactic/arith/bound_manager.h"
+#include "tactic/generic_model_converter.h"
 
 class lia2card_tactic : public tactic {
+
+    struct bound {
+        unsigned m_lo;
+        unsigned m_hi;
+        expr*    m_expr;
+        bound(unsigned lo, unsigned hi, expr* b):
+            m_lo(lo), m_hi(hi), m_expr(b) {}
+        bound(): m_lo(0), m_hi(0), m_expr(0) {}
+    };
+
     struct lia_rewriter_cfg : public default_rewriter_cfg {
         ast_manager&     m;
         lia2card_tactic& t;
@@ -58,7 +70,7 @@ class lia2card_tactic : public tactic {
             coeffs.reset();
             coeff.reset();
             return 
-                t.get_pb_sum(x, rational::one(), args, coeffs, coeff) &&
+                t.get_pb_sum(x,  rational::one(), args, coeffs, coeff) &&
                 t.get_pb_sum(y, -rational::one(), args, coeffs, coeff);
         }
 
@@ -128,15 +140,17 @@ class lia2card_tactic : public tactic {
     };
 
 public:
-    typedef obj_hashtable<expr> expr_set;
+    typedef obj_map<expr, bound> bounds_map;
     ast_manager &                    m;
     arith_util                       a;
     lia_rewriter                     m_rw;
     params_ref                       m_params;
     pb_util                          m_pb;
     mutable ptr_vector<expr>*        m_todo;
-    expr_set*                        m_01s;
+    bounds_map                       m_bounds;
     bool                             m_compile_equality;
+    unsigned                         m_max_ub;
+    ref<generic_model_converter>     m_mc;
         
     lia2card_tactic(ast_manager & _m, params_ref const & p):
         m(_m),
@@ -144,13 +158,12 @@ public:
         m_rw(*this),
         m_pb(m),
         m_todo(alloc(ptr_vector<expr>)),
-        m_01s(alloc(expr_set)),
         m_compile_equality(false) {
+        m_max_ub = 100;
     }
 
     virtual ~lia2card_tactic() {
         dealloc(m_todo);
-        dealloc(m_01s);
     }
                 
     void updt_params(params_ref const & p) {
@@ -158,85 +171,75 @@ public:
         m_compile_equality = p.get_bool("compile_equality", false);
     }
     
-    virtual void operator()(goal_ref const & g, 
-                    goal_ref_buffer & result) {
+    expr_ref mk_bounded(expr_ref_vector& axioms, app* x, unsigned lo, unsigned hi) {
+        expr_ref_vector xs(m);
+        expr_ref last_v(m);
+        if (!m_mc) m_mc = alloc(generic_model_converter, m, "lia2card");
+        for (unsigned i = 0; i < hi; ++i) {     
+            if (i < lo) {
+                xs.push_back(a.mk_int(1));
+                continue;
+            }
+            std::string name(x->get_decl()->get_name().str());
+            expr_ref v(m.mk_fresh_const(name.c_str(), m.mk_bool_sort()), m);
+            if (last_v) axioms.push_back(m.mk_implies(v, last_v));
+            xs.push_back(m.mk_ite(v, a.mk_int(1), a.mk_int(0)));
+            m_mc->hide(v);            
+            last_v = v;
+        }
+        expr* r = a.mk_add(xs.size(), xs.c_ptr());
+        m_mc->add(x->get_decl(), r);
+        return expr_ref(r, m);        
+    }    
+
+    virtual void operator()(goal_ref const & g, goal_ref_buffer & result) {
         SASSERT(g->is_well_sorted());
-        m_01s->reset();
+        m_bounds.reset();
+        m_mc.reset();
+        expr_ref_vector axioms(m);
+        expr_safe_replace rep(m);
         
         tactic_report report("cardinality-intro", *g);
         
         bound_manager bounds(m);
         bounds(*g);
-
         
         for (expr* x : bounds) {
             bool s1 = false, s2 = false;
             rational lo, hi;
             if (a.is_int(x) && 
-                bounds.has_lower(x, lo, s1) && !s1 && lo.is_zero() &&
-                bounds.has_upper(x, hi, s2) && !s2 && hi.is_one()) {
-                m_01s->insert(x);
+                is_uninterp_const(x) && 
+                bounds.has_lower(x, lo, s1) && !s1 && lo.is_unsigned() &&
+                bounds.has_upper(x, hi, s2) && !s2 && hi.is_unsigned() && hi.get_unsigned() <= m_max_ub) {
+                expr_ref b = mk_bounded(axioms, to_app(x), lo.get_unsigned(), hi.get_unsigned());
+                rep.insert(x, b);
+                m_bounds.insert(x, bound(lo.get_unsigned(), hi.get_unsigned(), b));
                 TRACE("pb", tout << "add bound " << mk_pp(x, m) << "\n";);
             }
         }
-        expr_mark subfmls;
         for (unsigned i = 0; i < g->size(); i++) {            
-            expr_ref   new_curr(m);
+            expr_ref   new_curr(m), tmp(m);
             proof_ref  new_pr(m);        
-            m_rw(g->form(i), new_curr, new_pr);
+            rep(g->form(i), tmp);
+            if (tmp == g->form(i)) continue;
+            m_rw(tmp, new_curr, new_pr);
             if (m.proofs_enabled() && !new_pr) {
                 new_pr = m.mk_rewrite(g->form(i), new_curr);
                 new_pr = m.mk_modus_ponens(g->pr(i), new_pr);
             }
             g->update(i, new_curr, new_pr, g->dep(i));
-            mark_rec(subfmls, new_curr);
         }
-        for (expr* v : *m_01s) {
-            if (subfmls.is_marked(v)) {
-                g->assert_expr(a.mk_le(v, a.mk_numeral(rational(1), true)));
-                g->assert_expr(a.mk_le(a.mk_numeral(rational(0), true), v));
-            }
+        for (expr* a : axioms) {
+            g->assert_expr(a);
         }
+        if (m_mc) g->add(m_mc.get());
         g->inc_depth();
         result.push_back(g.get());
         TRACE("pb", g->display(tout););
         SASSERT(g->is_well_sorted());
-        
-        // TBD: convert models for 0-1 variables.
-        // TBD: support proof conversion (or not..)
+        m_bounds.reset();        
     }
     
-    void mark_rec(expr_mark& mark, expr* e) {
-        ptr_vector<expr> todo;
-        todo.push_back(e);
-        while (!todo.empty()) {
-            e = todo.back();
-            todo.pop_back();
-            if (!mark.is_marked(e)) {
-                mark.mark(e);
-                if (is_app(e)) {
-                    for (unsigned i = 0; i < to_app(e)->get_num_args(); ++i) {
-                        todo.push_back(to_app(e)->get_arg(i));
-                    }
-                }
-                else if (is_quantifier(e)) {
-                    todo.push_back(to_quantifier(e)->get_expr());
-                }
-            }
-        }
-    }
-
-
-    bool is_01var(expr* x) const {
-        return m_01s->contains(x);
-    }
-    
-    expr_ref mk_01(expr* x) {
-        expr* r = m.mk_eq(x, a.mk_numeral(rational(1), m.get_sort(x)));
-        return expr_ref(r, m);
-    }        
-    
-
     expr* mk_le(unsigned sz, rational const* weights, expr* const* args, rational const& w) {
         if (sz == 0) {
             return w.is_neg()?m.mk_false():m.mk_true();
@@ -324,9 +327,6 @@ public:
             ok &= get_sum(u, mul, conds, args, coeffs, coeff);
             conds.pop_back();            
         }
-        else if (is_01var(x)) {
-            insert_arg(mul, conds, mk_01(x), args, coeffs, coeff);
-        }
         else if (is_numeral(x, r)) {
             insert_arg(mul*r, conds, m.mk_true(), args, coeffs, coeff);
         }
@@ -391,9 +391,8 @@ public:
     }
         
     virtual void cleanup() {        
-        expr_set* d = alloc(expr_set);
+        bounds_map* d = alloc(bounds_map);
         ptr_vector<expr>* todo = alloc(ptr_vector<expr>);
-        std::swap(m_01s, d);
         std::swap(m_todo, todo);        
         dealloc(d);
         dealloc(todo);
