@@ -110,8 +110,8 @@ namespace sat {
         m_lookahead_global_autarky = p.lookahead_global_autarky();
 
         // These parameters are not exposed
-        m_simplify_mult1  = _p.get_uint("simplify_mult1", 100);
-        m_simplify_mult2  = _p.get_double("simplify_mult2", 1.2);
+        m_simplify_mult1  = _p.get_uint("simplify_mult1", 300);
+        m_simplify_mult2  = _p.get_double("simplify_mult2", 1.5);
         m_simplify_max    = _p.get_uint("simplify_max", 500000);
         // --------------------------------
 

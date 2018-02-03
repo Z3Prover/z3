@@ -1003,6 +1003,7 @@ namespace sat {
         }
 
         enum elim_type {
+            bce_t,
             cce_t,
             acce_t,
             abce_t,
@@ -1024,18 +1025,10 @@ namespace sat {
                 cce<abce_t>();
             }
             if (s.bce_enabled() && !s.cce_enabled() && !s.abce_enabled()) {
-                block_clauses();
+                cce<bce_t>();
             }
             if (s.bca_enabled()) {
                 bca();
-            }
-        }
-
-        void block_clauses() {
-            insert_queue();
-            while (!m_queue.empty() && m_counter >= 0) {
-                s.checkpoint();
-                process(m_queue.next());
             }
         }
 
@@ -1047,55 +1040,6 @@ namespace sat {
                     insert(literal(v, true));
                 }
             }
-        }
-
-        void process(literal l) {
-            TRACE("blocked_clause", tout << "processing: " << l << "\n";);
-            if (!process_var(l.var())) {
-                return;
-            }
-            integrity_checker si(s.s);
-            process_clauses(l);
-            process_binary(l);
-        }        
-
-        void process_binary(literal l) {
-            model_converter::entry* new_entry = 0;
-            watch_list & wlist = s.get_wlist(~l);
-            m_counter -= wlist.size();
-            for (watched& w : wlist) {
-                if (!w.is_binary_non_learned_clause()) {
-                    continue;
-                }
-                literal l2 = w.get_literal();
-                s.mark_visited(l2);
-                if (all_tautology(l)) {
-                    block_binary(w, l, new_entry);
-                    w.set_learned(true);
-                    s.s.set_learned1(l2, l, true);
-                    s.m_num_bce++;
-                }
-                s.unmark_visited(l2);
-            }
-        }
-
-        void process_clauses(literal l) {
-            model_converter::entry* new_entry = 0;
-            clause_use_list & occs = s.m_use_list.get(l);
-            clause_use_list::iterator it = occs.mk_iterator();
-            for (; !it.at_end(); it.next()) {
-                clause & c = it.curr();
-                if (c.is_learned()) continue;
-                m_counter -= c.size();
-                SASSERT(c.contains(l));
-                s.mark_all_but(c, l);
-                if (all_tautology(l)) {
-                    block_clause(c, l, new_entry);
-                    s.m_num_bce++;
-                    s.set_learned(c);
-                }
-                s.unmark_all(c);
-            }                
         }
 
         void reset_intersection() {
@@ -1359,7 +1303,7 @@ namespace sat {
         }
 
         bool above_threshold(unsigned sz0) const {
-            if (sz0 * 400 < m_covered_clause.size()) IF_VERBOSE(0, verbose_stream() << "above threshold " << sz0 << " " << m_covered_clause.size() << "\n";);
+            // if (sz0 * 400 < m_covered_clause.size()) IF_VERBOSE(0, verbose_stream() << "above threshold " << sz0 << " " << m_covered_clause.size() << "\n";);
             return sz0 * 400 < m_covered_clause.size();
         }
 
@@ -1374,6 +1318,7 @@ namespace sat {
 
             switch (et) {
             case abce_t:
+            case bce_t:
                 k = model_converter::BLOCK_LIT;
                 break;
             case cce_t:
@@ -1416,10 +1361,12 @@ namespace sat {
                     first = false;
                 }
                 
-                if (is_tautology || et == abce_t) {
+                if (is_tautology || et == abce_t || et == bce_t) {
                     for (literal l : m_covered_clause) s.unmark_visited(l);
                     m_covered_clause.shrink(sz0);
-                    return is_tautology ? abce_t : no_t;
+                    if (!is_tautology) return no_t;
+                    if (et == bce_t) return bce_t;
+                    return abce_t;
                 }
                 
                 /*
@@ -1534,6 +1481,7 @@ namespace sat {
             case acce_t: s.m_num_acce++; break;
             case abce_t: s.m_num_abce++; break;
             case ate_t: s.m_num_ate++; break;
+            case bce_t: s.m_num_bce++; break;
             default: break;
             }
         }
@@ -1545,51 +1493,26 @@ namespace sat {
             return (sz > 3) || s.s.m_rand(4) == 0;
         }
 
-        void prepare_block_clause(clause& c, literal l, model_converter::entry*& new_entry, model_converter::kind k) {
+        void block_covered_clause(clause& c, literal l, model_converter::kind k) {
             TRACE("blocked_clause", tout << "new blocked clause: " << c << "\n";);
-            VERIFY(!s.is_external(l));
-            if (new_entry == 0)
-                new_entry = &(mc.mk(k, l.var()));
+            SASSERT(!s.is_external(l));
+            model_converter::entry& new_entry = mc.mk(k, l.var());
             for (literal lit : c) {
                 if (lit != l && process_var(lit.var())) {
                     m_queue.decreased(~lit);
                 }
             }
-        }
-
-        void block_clause(clause& c, literal l, model_converter::entry *& new_entry) {
-            SASSERT(!s.is_external(l.var()));
-            prepare_block_clause(c, l, new_entry, model_converter::BLOCK_LIT);
-            mc.insert(*new_entry, c);
-        }
-
-        void block_covered_clause(clause& c, literal l, model_converter::kind k) {
-            SASSERT(!s.is_external(l.var()));
-            model_converter::entry * new_entry = 0;
-            prepare_block_clause(c, l, new_entry, k);
-            mc.insert(*new_entry, m_covered_clause, m_elim_stack);
+            mc.insert(new_entry, m_covered_clause, m_elim_stack);
         }
         
-        void prepare_block_binary(watched const& w, literal l1, literal blocked, model_converter::entry*& new_entry, model_converter::kind k) {
+        void block_covered_binary(watched const& w, literal l1, literal blocked, model_converter::kind k) {
             SASSERT(!s.is_external(blocked));
-            if (new_entry == 0) 
-                new_entry = &(mc.mk(k, blocked.var()));
+            model_converter::entry& new_entry = mc.mk(k, blocked.var());
             literal l2 = w.get_literal();
             TRACE("blocked_clause", tout << "new blocked clause: " << l2 << " " << l1 << "\n";);
             s.set_learned(l1, l2);
+            mc.insert(new_entry, m_covered_clause, m_elim_stack);
             m_queue.decreased(~l2);
-        }
-        
-        void block_binary(watched const& w, literal l, model_converter::entry *& new_entry) {
-            literal l2 = w.get_literal();
-            prepare_block_binary(w, l, l, new_entry, model_converter::BLOCK_LIT);
-            mc.insert(*new_entry, l, l2);
-        }
-
-        void block_covered_binary(watched const& w, literal l, literal blocked, model_converter::kind k) {
-            model_converter::entry * new_entry = 0;
-            prepare_block_binary(w, l, blocked, new_entry, k);
-            mc.insert(*new_entry, m_covered_clause, m_elim_stack);
         }
 
         void bca() {
