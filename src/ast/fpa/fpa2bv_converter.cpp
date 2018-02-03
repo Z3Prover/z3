@@ -3139,6 +3139,7 @@ void fpa2bv_converter::mk_to_bv(func_decl * f, unsigned num, expr * const * args
     unsigned bv_sz = (unsigned)f->get_parameter(0).get_int();
 
     expr_ref bv0(m), bv1(m);
+    bv0 = m_bv_util.mk_numeral(0, 1);
     bv1 = m_bv_util.mk_numeral(1, 1);
 
     expr_ref x_is_nan(m), x_is_inf(m), x_is_zero(m), x_is_neg(m), x_is_nzero(m);
@@ -3188,9 +3189,9 @@ void fpa2bv_converter::mk_to_bv(func_decl * f, unsigned num, expr * const * args
     exp_m_lz = m_bv_util.mk_bv_sub(m_bv_util.mk_sign_extend(2, exp),
                                    m_bv_util.mk_zero_extend(2, lz));
 
-    // big_sig is +- [... bv_sz+2 bits ...].[r][g][ ... sbits-1 ... ]
-    big_sig = m_bv_util.mk_zero_extend(bv_sz+2, sig);
-    unsigned big_sig_sz = sig_sz+bv_sz+2;
+    // big_sig is +- [... bv_sz+2 bits ...][1].[r][ ... sbits-1  ... ]
+    big_sig = m_bv_util.mk_concat(m_bv_util.mk_zero_extend(bv_sz + 2, sig), bv0);
+    unsigned big_sig_sz = sig_sz+1+bv_sz+2;
     SASSERT(m_bv_util.get_bv_size(big_sig) == big_sig_sz);
 
     is_neg_shift = m_bv_util.mk_sle(exp_m_lz, m_bv_util.mk_numeral(0, ebits+2));
