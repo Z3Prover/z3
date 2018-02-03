@@ -3746,14 +3746,10 @@ expr_ref fpa2bv_converter::mk_rounding_decision(expr * rm, expr * sgn, expr * la
     expr * nround_lors[2] = { not_round, not_lors };
     expr * pos_args[2] = { sgn, not_rors };
     expr * neg_args[2] = { not_sgn, not_rors };
-    expr * nl_r[2] = { last, not_round };
-    expr * nl_nr_sn[3] = { not_last, not_round, not_sticky };
 
     expr_ref inc_teven(m), inc_taway(m), inc_pos(m), inc_neg(m);
     inc_teven = m_bv_util.mk_bv_not(m_bv_util.mk_bv_or(2, nround_lors));
-    expr *taway_args[2] = { m_bv_util.mk_bv_not(m_bv_util.mk_bv_or(2, nl_r)),
-        m_bv_util.mk_bv_not(m_bv_util.mk_bv_or(3, nl_nr_sn)) };
-    inc_taway = m_bv_util.mk_bv_or(2, taway_args);
+    inc_taway = round;
     inc_pos = m_bv_util.mk_bv_not(m_bv_util.mk_bv_or(2, pos_args));
     inc_neg = m_bv_util.mk_bv_not(m_bv_util.mk_bv_or(2, neg_args));
 

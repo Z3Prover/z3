@@ -2045,7 +2045,7 @@ void mpf_manager::round(mpf_rounding_mode rm, mpf & o) {
     bool inc = false;
     switch (rm) {
     case MPF_ROUND_NEAREST_TEVEN: inc = round && (last || sticky); break;
-    case MPF_ROUND_NEAREST_TAWAY: inc = round && (!last || sticky); break;
+    case MPF_ROUND_NEAREST_TAWAY: inc = round; break;
     case MPF_ROUND_TOWARD_POSITIVE: inc = (!o.sign && (round || sticky)); break;
     case MPF_ROUND_TOWARD_NEGATIVE: inc = (o.sign && (round || sticky)); break;
     case MPF_ROUND_TOWARD_ZERO: inc = false; break;
