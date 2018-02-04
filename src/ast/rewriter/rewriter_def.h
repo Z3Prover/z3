@@ -497,23 +497,27 @@ void rewriter_tpl<Config>::process_quantifier(quantifier * q, frame & fr) {
     SASSERT(fr.m_spos + num_children == result_stack().size());
     expr * const * it = result_stack().c_ptr() + fr.m_spos;
     expr * new_body   = *it;
-    expr * const * new_pats;
-    expr * const * new_no_pats;
+    unsigned num_pats = q->get_num_patterns();
+    unsigned num_no_pats = q->get_num_no_patterns();
+    expr_ref_vector new_pats(m_manager, num_pats, q->get_patterns());
+    expr_ref_vector new_no_pats(m_manager, num_no_pats, q->get_no_patterns());
     if (rewrite_patterns()) {
         TRACE("reduce_quantifier_bug", tout << "rewrite patterns\n";);
-        new_pats    = it + 1;
-        new_no_pats = new_pats + q->get_num_patterns();
-    }
-    else {
-        new_pats    = q->get_patterns();
-        new_no_pats = q->get_no_patterns();
+        expr * const * np  = it + 1;
+        expr * const * nnp = np + num_pats;
+        for (unsigned i = 0; i < num_pats; i++)
+            if (m_manager.is_pattern(np[i]))
+                new_pats[i] = np[i];
+        for (unsigned i = 0; i < num_no_pats; i++)
+            if (m_manager.is_pattern(nnp[i]))
+                new_no_pats[i] = nnp[i];
     }
     if (ProofGen) {
-        quantifier_ref new_q(m().update_quantifier(q, q->get_num_patterns(), new_pats, q->get_num_no_patterns(), new_no_pats, new_body), m());
+        quantifier_ref new_q(m().update_quantifier(q, num_pats, new_pats.c_ptr(), num_no_pats, new_no_pats.c_ptr(), new_body), m());
         m_pr = q == new_q ? 0 : m().mk_quant_intro(q, new_q, result_pr_stack().get(fr.m_spos));
         m_r = new_q;
         proof_ref pr2(m());
-        if (m_cfg.reduce_quantifier(new_q, new_body, new_pats, new_no_pats, m_r, pr2)) {
+        if (m_cfg.reduce_quantifier(new_q, new_body, new_pats.c_ptr(), new_no_pats.c_ptr(), m_r, pr2)) {
             m_pr = m().mk_transitivity(m_pr, pr2);
         }
         TRACE("reduce_quantifier_bug", tout << "m_pr is_null: " << (m_pr.get() == 0) << "\n";
@@ -524,9 +528,9 @@ void rewriter_tpl<Config>::process_quantifier(quantifier * q, frame & fr) {
     else {
         expr_ref tmp(m());
         TRACE("reduce_quantifier_bug", tout << mk_ismt2_pp(q, m()) << " " << mk_ismt2_pp(new_body, m()) << "\n";);
-        if (!m_cfg.reduce_quantifier(q, new_body, new_pats, new_no_pats, m_r, m_pr)) {
+        if (!m_cfg.reduce_quantifier(q, new_body, new_pats.c_ptr(), new_no_pats.c_ptr(), m_r, m_pr)) {
             if (fr.m_new_child) {
-                m_r = m().update_quantifier(q, q->get_num_patterns(), new_pats, q->get_num_no_patterns(), new_no_pats, new_body);
+                m_r = m().update_quantifier(q, num_pats, new_pats.c_ptr(), num_no_pats, new_no_pats.c_ptr(), new_body);
             }
             else {
                 TRACE("rewriter_reuse", tout << "reusing:\n" << mk_ismt2_pp(q, m()) << "\n";);
