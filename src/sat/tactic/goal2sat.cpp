@@ -571,6 +571,8 @@ struct goal2sat::imp {
             l.neg();
         }
         m_ext->add_at_least(v2, lits, lits.size() - k.get_unsigned());
+
+
         if (root) {
             m_result_stack.reset();
         }
@@ -582,7 +584,8 @@ struct goal2sat::imp {
             mk_clause(~l, l2);
             mk_clause(~l1, ~l2, l);
             m_result_stack.shrink(m_result_stack.size() - t->get_num_args());
-            m_result_stack.push_back(l);
+            m_result_stack.push_back(sign ? ~l : l);
+
         }
     }
 

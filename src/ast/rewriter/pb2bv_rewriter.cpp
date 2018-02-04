@@ -94,12 +94,7 @@ struct pb2bv_rewriter::imp {
             for (unsigned i = 0; i < m_args.size(); ++i) {
                 cas.push_back(std::make_pair(m_coeffs[i], expr_ref(m_args[i].get(), m)));
             }
-            //for (ca const& ca : cas) std::cout << ca.first << " ";
-            //std::cout << "\n";
             std::sort(cas.begin(), cas.end(), compare_coeffs());
-            //std::cout << "post-sort\n";
-            //for (ca const& ca : cas) std::cout << ca.first << " ";
-            //std::cout << "\n";
             m_coeffs.reset();
             m_args.reset();
             for (ca const& ca : cas) {

@@ -162,6 +162,9 @@ app * pb_util::mk_eq(unsigned num_args, rational const * coeffs, expr * const * 
     if (!m_k.is_int()) {
         return m.mk_false();
     }
+    if (num_args == 0) {
+        return m_k.is_zero() ? m.mk_true() : m.mk_false();
+    }
     m_params.reset();
     m_params.push_back(parameter(m_k));
     for (unsigned i = 0; i < num_args; ++i) {
