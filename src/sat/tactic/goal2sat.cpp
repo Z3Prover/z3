@@ -495,8 +495,8 @@ struct goal2sat::imp {
         SASSERT(k.is_unsigned());
         svector<wliteral> wlits;
         convert_pb_args(t, wlits);
-        sat::bool_var v1 = root ? sat::null_bool_var : m_solver.mk_var(true);
-        sat::bool_var v2 = root ? sat::null_bool_var : m_solver.mk_var(true);
+        sat::bool_var v1 = (root && !sign) ? sat::null_bool_var : m_solver.mk_var(true);
+        sat::bool_var v2 = (root && !sign) ? sat::null_bool_var : m_solver.mk_var(true);
         m_ext->add_pb_ge(v1, wlits, k.get_unsigned());        
         k.neg();
         for (wliteral& wl : wlits) {
@@ -505,7 +505,7 @@ struct goal2sat::imp {
         }
         check_unsigned(k);
         m_ext->add_pb_ge(v2, wlits, k.get_unsigned());
-        if (root) {
+        if (root && !sign) {
             m_result_stack.reset();
         }
         else {
@@ -516,7 +516,8 @@ struct goal2sat::imp {
             mk_clause(~l, l2);
             mk_clause(~l1, ~l2, l);
             m_result_stack.shrink(m_result_stack.size() - t->get_num_args());
-            m_result_stack.push_back(l);
+            m_result_stack.push_back(sign ? ~l : l);
+            if (root) mk_clause(~l);
         }
     }
 
@@ -564,8 +565,8 @@ struct goal2sat::imp {
         SASSERT(k.is_unsigned());
         sat::literal_vector lits;
         convert_pb_args(t->get_num_args(), lits);
-        sat::bool_var v1 = root ? sat::null_bool_var : m_solver.mk_var(true);
-        sat::bool_var v2 = root ? sat::null_bool_var : m_solver.mk_var(true);
+        sat::bool_var v1 = (root && !sign) ? sat::null_bool_var : m_solver.mk_var(true);
+        sat::bool_var v2 = (root && !sign) ? sat::null_bool_var : m_solver.mk_var(true);
         m_ext->add_at_least(v1, lits, k.get_unsigned());        
         for (sat::literal& l : lits) {
             l.neg();
@@ -573,7 +574,7 @@ struct goal2sat::imp {
         m_ext->add_at_least(v2, lits, lits.size() - k.get_unsigned());
 
 
-        if (root) {
+        if (root && !sign) {
             m_result_stack.reset();
         }
         else {
@@ -585,7 +586,7 @@ struct goal2sat::imp {
             mk_clause(~l1, ~l2, l);
             m_result_stack.shrink(m_result_stack.size() - t->get_num_args());
             m_result_stack.push_back(sign ? ~l : l);
-
+            if (root) mk_clause(~l);
         }
     }
 

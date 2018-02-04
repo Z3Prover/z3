@@ -1571,7 +1571,7 @@ namespace sat {
             m_constraints.push_back(c);
         }
         literal lit = c->lit();
-        if (c->learned() && !s().at_base_lvl()) {
+        if (c->learned() && m_solver && !s().at_base_lvl()) {
             SASSERT(lit == null_literal);
             // gets initialized after backjump.
             m_constraint_to_reinit.push_back(c);

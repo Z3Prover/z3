@@ -103,21 +103,6 @@ class lia2card_tactic : public tactic {
             }
             TRACE("pbsum", tout << expr_ref(m.mk_app(f, sz, es), m) << " ==>\n" <<  result << "\n";);
 
-#if 0
-            expr_ref vc(m);
-            vc = m.mk_not(m.mk_eq(m.mk_app(f, sz, es), result));
-            ast_pp_util pp(m);
-            pp.collect(vc);
-            std::cout 
-                << "(push)\n"
-                << "(echo \"" << result << "\")\n"
-                ;
-            pp.display_decls(std::cout);
-            std::cout
-                << "(assert " << vc << ")\n"
-                << "(check-sat)\n"
-                << "(pop)\n";
-#endif
             return BR_DONE;
         }
 
@@ -237,7 +222,7 @@ public:
         result.push_back(g.get());
         TRACE("pb", g->display(tout););
         SASSERT(g->is_well_sorted());
-        m_bounds.reset();        
+        m_bounds.reset();   
     }
     
     expr* mk_le(unsigned sz, rational const* weights, expr* const* args, rational const& w) {
