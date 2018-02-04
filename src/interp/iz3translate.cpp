@@ -49,6 +49,9 @@ using namespace stl_ext;
    prover is used.
 */
 
+
+#define throw_unsupported(_e_) { TRACE("iz3", tout << expr_ref((expr*)_e_.raw(), *_e_.mgr()) << "\n";); throw unsupported(_e_); }
+
 class iz3translation_full : public iz3translation {
 public:
 
@@ -994,10 +997,10 @@ public:
             else if(arg(lhs,0) == make_int(rational(-1)))
                 lb = true;
             else 
-                throw unsupported(lhs);
+                throw_unsupported(lhs);
             return arg(lhs,1);
         default:
-            throw unsupported(lhs);
+            throw_unsupported(lhs);
         }
     }
 
@@ -1102,10 +1105,10 @@ public:
         rational xcoeff = get_first_coefficient(arg(x,0),xvar);
         rational ycoeff = get_first_coefficient(arg(y,0),yvar);
         if(xcoeff == rational(0) || ycoeff == rational(0) || xvar != yvar)
-            throw unsupported(x);  // can be caused by non-linear arithmetic
+            throw_unsupported(x);  // can be caused by non-linear arithmetic
         rational ratio = xcoeff/ycoeff;
         if(denominator(ratio) != rational(1))
-            throw unsupported(y); // can this ever happen?
+            throw_unsupported(y); // can this ever happen?
         return make_int(ratio); // better be integer!
     }
 
@@ -1114,7 +1117,7 @@ public:
         get_assign_bounds_coeffs(proof,farkas_coeffs);
         int nargs = num_args(con);
         if(nargs != (int)(farkas_coeffs.size()))
-            throw unsupported(proof); // should never happen
+            throw_unsupported(proof); // should never happen
 #if 0
         if(farkas_coeffs[0] != make_int(rational(1)))
             farkas_coeffs[0] = make_int(rational(1));
@@ -1238,7 +1241,7 @@ public:
         if(pr(rew) == PR_REWRITE){
             return clause; // just hope the rewrite does nothing!
         }
-        throw unsupported(rew);
+        throw_unsupported(rew);
     }
 
 
@@ -1312,7 +1315,7 @@ public:
   
     ast commute_equality_iff(const ast &con){
         if(op(con) != Iff || op(arg(con,0)) != Equal)
-            throw unsupported(con);
+            throw_unsupported(con);
         return make(Iff,commute_equality(arg(con,0)),commute_equality(arg(con,1)));
     }
   
@@ -1338,7 +1341,7 @@ public:
             prs.push_back(con);
             return clone(proof,prs);
         default:
-            throw unsupported(proof);
+            throw_unsupported(proof);
         }
     }
 
@@ -1838,7 +1841,7 @@ public:
             for(unsigned i = 0; i < nprems; i++)
                 if(sym(args[i]) == commute
                    && !(dk == PR_TRANSITIVITY || dk == PR_MODUS_PONENS || dk == PR_SYMMETRY ||  (dk == PR_MONOTONICITY && op(arg(con,0)) == Not)))
-                    throw unsupported(proof);
+                    throw_unsupported(proof);
 
             switch(dk){
             case PR_TRANSITIVITY: {
@@ -1909,7 +1912,7 @@ public:
                             int nargs = num_args(con);
                             if(farkas_coeffs.size() != (unsigned)nargs){
                                 pfgoto(proof);
-                                throw unsupported(proof);
+                                throw_unsupported(proof);
                             }
                             for(int i = 0; i < nargs; i++){
                                 ast lit = mk_not(arg(con,i));
@@ -1947,7 +1950,7 @@ public:
                         get_broken_gcd_test_coeffs(proof,farkas_coeffs);
                         if(farkas_coeffs.size() != nprems){
                             pfgoto(proof);
-                            throw unsupported(proof);
+                            throw_unsupported(proof);
                         }
                         std::vector<Iproof::node> my_prems; my_prems.resize(2);
                         std::vector<ast> my_prem_cons; my_prem_cons.resize(2);
@@ -1970,7 +1973,7 @@ public:
                         if(args.size() > 0)
                             res =  GomoryCutRule2Farkas(proof, conc(proof), args);
                         else
-                            throw unsupported(proof);
+                            throw_unsupported(proof);
                         break;
                     }
                     case EqPropagateKind: {
@@ -1989,7 +1992,7 @@ public:
                         break;
                     }
                     default:
-                        throw unsupported(proof);
+                        throw_unsupported(proof);
                     }
                     break;
                 case ArrayTheory: {// nothing fancy for this
@@ -2001,7 +2004,7 @@ public:
                     break;
                 }
                 default:
-                    throw unsupported(proof);
+                    throw_unsupported(proof);
                 }
                 break;
             }
@@ -2025,7 +2028,7 @@ public:
                 if(is_local(con))
                     res = args[0];
                 else
-                    throw unsupported(con);
+                    throw_unsupported(con);
                 break;
             }
             case PR_COMMUTATIVITY: {
@@ -2049,7 +2052,7 @@ public:
                 IF_VERBOSE(0, verbose_stream() << "Unsupported proof rule: " << expr_ref((expr*)proof.raw(), *proof.mgr()) << "\n";);
                 //                pfgoto(proof);                
                 // SASSERT(0 && "translate_main: unsupported proof rule");
-                throw unsupported(proof);
+                throw_unsupported(proof);
             }
         }
 
