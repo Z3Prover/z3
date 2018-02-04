@@ -2460,10 +2460,7 @@ namespace sat {
             // try to use cached implication if available
             literal_vector * implied_lits = m_probing.cached_implied_lits(~l);
             if (implied_lits) {
-                literal_vector::iterator it  = implied_lits->begin();
-                literal_vector::iterator end = implied_lits->end();
-                for (; it != end; ++it) {
-                    literal l2 = *it;
+                for (literal l2 : *implied_lits) {
                     // Here, we must check l0 != ~l2.
                     // l \/ l2 is an implied binary clause.
                     // However, it may have been deduced using a lemma that has been deleted.
