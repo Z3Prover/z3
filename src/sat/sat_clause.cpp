@@ -33,6 +33,8 @@ namespace sat {
         m_frozen(false),
         m_reinit_stack(false),
         m_inact_rounds(0) {
+        m_psm = 0;
+        m_glue = 0;
         memcpy(m_lits, lits, sizeof(literal) * sz);
         mark_strengthened();
         SASSERT(check_approx());
