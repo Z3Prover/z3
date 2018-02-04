@@ -115,14 +115,15 @@ expr_ref pb_rewriter::translate_pb2lia(obj_map<expr,expr*>& vars, expr* fml) {
         else {
             tmp = a.mk_add(es.size(), es.c_ptr());
         }
+        rational k = util.get_k(fml);
         if (util.is_le(fml)) {
-            result = a.mk_le(tmp, a.mk_numeral(util.get_k(fml), false));
+            result = a.mk_le(tmp, a.mk_numeral(k, false));
         }
         else if (util.is_ge(fml)) {
-            result = a.mk_ge(tmp, a.mk_numeral(util.get_k(fml), false));
+            result = a.mk_ge(tmp, a.mk_numeral(k, false));
         }
         else {
-            result = m().mk_eq(tmp, a.mk_numeral(util.get_k(fml), false));
+            result = m().mk_eq(tmp, a.mk_numeral(k, false));
         }
     }
     else {
@@ -264,6 +265,12 @@ br_status pb_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * cons
         if (is_eq) {
             if (sz == 0) {
                 result = k.is_zero()?m.mk_true():m.mk_false();
+            }
+            else if (k.is_zero()) {
+                result = mk_not(m, mk_or(m, sz, m_args.c_ptr()));
+            }
+            else if (k.is_one() && all_unit && m_args.size() == 1) {
+                result = m_args.back();
             }
             else {
                 result = m_util.mk_eq(sz, m_coeffs.c_ptr(), m_args.c_ptr(), k);

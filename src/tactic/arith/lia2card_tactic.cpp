@@ -158,7 +158,7 @@ public:
         m_rw(*this),
         m_pb(m),
         m_todo(alloc(ptr_vector<expr>)),
-        m_compile_equality(false) {
+        m_compile_equality(true) {
         m_max_ub = 100;
     }
 
@@ -168,7 +168,7 @@ public:
                 
     void updt_params(params_ref const & p) {
         m_params = p;
-        m_compile_equality = p.get_bool("compile_equality", false);
+        m_compile_equality = p.get_bool("compile_equality", true);
     }
     
     expr_ref mk_bounded(expr_ref_vector& axioms, app* x, unsigned lo, unsigned hi) {
