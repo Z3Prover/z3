@@ -2715,6 +2715,7 @@ namespace sat {
 
     void solver::user_pop(unsigned num_scopes) {
         pop_to_base_level();
+        TRACE("sat", display(tout););
         while (num_scopes > 0) {
             literal lit = m_user_scope_literals.back();
             m_user_scope_literals.pop_back();
@@ -2734,8 +2735,10 @@ namespace sat {
                     break;
                 }
             }
-            gc_var(lit.var());
+            gc_var(lit.var());            
         }
+        m_qhead = 0;
+        propagate(false);
     }
 
     void solver::pop_to_base_level() {
