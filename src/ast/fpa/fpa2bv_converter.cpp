@@ -3098,13 +3098,11 @@ void fpa2bv_converter::mk_to_ieee_bv_unspecified(func_decl * f, unsigned num, ex
         join_fp(result, result);
     }
     else {
-        expr * n = args[0];
-        expr_ref n_bv(m);
-        join_fp(n, n_bv);
+        expr_ref nw = nan_wrap(args[0]);
 
-        sort * domain[1] = { m.get_sort(n_bv) };
+        sort * domain[1] = { m.get_sort(nw) };
         func_decl * f_bv = mk_bv_uf(f, domain, f->get_range());
-        result = m.mk_app(f_bv, n_bv);
+        result = m.mk_app(f_bv, nw);
 
         expr_ref exp_bv(m), exp_all_ones(m);
         exp_bv = m_bv_util.mk_extract(ebits+sbits-2, sbits-1, result);
@@ -3139,6 +3137,7 @@ void fpa2bv_converter::mk_to_bv(func_decl * f, unsigned num, expr * const * args
     unsigned bv_sz = (unsigned)f->get_parameter(0).get_int();
 
     expr_ref bv0(m), bv1(m);
+    bv0 = m_bv_util.mk_numeral(0, 1);
     bv1 = m_bv_util.mk_numeral(1, 1);
 
     expr_ref x_is_nan(m), x_is_inf(m), x_is_zero(m), x_is_neg(m), x_is_nzero(m);
@@ -3188,9 +3187,9 @@ void fpa2bv_converter::mk_to_bv(func_decl * f, unsigned num, expr * const * args
     exp_m_lz = m_bv_util.mk_bv_sub(m_bv_util.mk_sign_extend(2, exp),
                                    m_bv_util.mk_zero_extend(2, lz));
 
-    // big_sig is +- [... bv_sz+2 bits ...].[r][g][ ... sbits-1 ... ]
-    big_sig = m_bv_util.mk_zero_extend(bv_sz+2, sig);
-    unsigned big_sig_sz = sig_sz+bv_sz+2;
+    // big_sig is +- [... bv_sz+2 bits ...][1].[r][ ... sbits-1  ... ]
+    big_sig = m_bv_util.mk_concat(m_bv_util.mk_zero_extend(bv_sz + 2, sig), bv0);
+    unsigned big_sig_sz = sig_sz+1+bv_sz+2;
     SASSERT(m_bv_util.get_bv_size(big_sig) == big_sig_sz);
 
     is_neg_shift = m_bv_util.mk_sle(exp_m_lz, m_bv_util.mk_numeral(0, ebits+2));
@@ -3279,6 +3278,17 @@ void fpa2bv_converter::mk_to_sbv(func_decl * f, unsigned num, expr * const * arg
     mk_to_bv(f, num, args, true, result);
 }
 
+expr_ref fpa2bv_converter::nan_wrap(expr * n) {
+    expr_ref n_bv(m), arg_is_nan(m), nan(m), nan_bv(m), res(m);
+    mk_is_nan(n, arg_is_nan);
+    mk_nan(m.get_sort(n), nan);
+    join_fp(nan, nan_bv);
+    join_fp(n, n_bv);
+    res = expr_ref(m.mk_ite(arg_is_nan, nan_bv, n_bv), m);
+    SASSERT(is_well_sorted(m, res));
+    return res;
+}
+
 void fpa2bv_converter::mk_to_bv_unspecified(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
     SASSERT(num == 2);
     SASSERT(m_util.is_bv2rm(args[0]));
@@ -3288,13 +3298,10 @@ void fpa2bv_converter::mk_to_bv_unspecified(func_decl * f, unsigned num, expr * 
         result = m_bv_util.mk_numeral(0, m_bv_util.get_bv_size(f->get_range()));
     else {
         expr * rm_bv = to_app(args[0])->get_arg(0);
-        expr * n = args[1];
-        expr_ref n_bv(m);
-        join_fp(n, n_bv);
-
-        sort * domain[2] = { m.get_sort(rm_bv), m.get_sort(n_bv) };
+        expr_ref nw = nan_wrap(args[1]);
+        sort * domain[2] = { m.get_sort(rm_bv), m.get_sort(nw) };
         func_decl * f_bv = mk_bv_uf(f, domain, f->get_range());
-        result = m.mk_app(f_bv, rm_bv, n_bv);
+        result = m.mk_app(f_bv, rm_bv, nw);
     }
 
     TRACE("fpa2bv_to_bv_unspecified", tout << "result=" << mk_ismt2_pp(result, m) << std::endl;);
@@ -3308,12 +3315,10 @@ void fpa2bv_converter::mk_to_real_unspecified(func_decl * f, unsigned num, expr 
         result = m_arith_util.mk_numeral(rational(0), false);
     else {
         expr * n = args[0];
-        expr_ref n_bv(m);
-        join_fp(n, n_bv);
-
-        sort * domain[1] = { m.get_sort(n_bv) };
+        expr_ref nw = nan_wrap(n);
+        sort * domain[1] = { m.get_sort(nw) };
         func_decl * f_bv = mk_bv_uf(f, domain, f->get_range());
-        result = m.mk_app(f_bv, n_bv);
+        result = m.mk_app(f_bv, nw);
     }
 }
 
@@ -3745,14 +3750,10 @@ expr_ref fpa2bv_converter::mk_rounding_decision(expr * rm, expr * sgn, expr * la
     expr * nround_lors[2] = { not_round, not_lors };
     expr * pos_args[2] = { sgn, not_rors };
     expr * neg_args[2] = { not_sgn, not_rors };
-    expr * nl_r[2] = { last, not_round };
-    expr * nl_nr_sn[3] = { not_last, not_round, not_sticky };
 
     expr_ref inc_teven(m), inc_taway(m), inc_pos(m), inc_neg(m);
     inc_teven = m_bv_util.mk_bv_not(m_bv_util.mk_bv_or(2, nround_lors));
-    expr *taway_args[2] = { m_bv_util.mk_bv_not(m_bv_util.mk_bv_or(2, nl_r)),
-        m_bv_util.mk_bv_not(m_bv_util.mk_bv_or(3, nl_nr_sn)) };
-    inc_taway = m_bv_util.mk_bv_or(2, taway_args);
+    inc_taway = round;
     inc_pos = m_bv_util.mk_bv_not(m_bv_util.mk_bv_or(2, pos_args));
     inc_neg = m_bv_util.mk_bv_not(m_bv_util.mk_bv_or(2, neg_args));
 
