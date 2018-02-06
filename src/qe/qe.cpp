@@ -1536,19 +1536,19 @@ namespace qe {
             pop(*model_eval);                    
         } 
 
-        ast_manager& get_manager() { return m; }
+        ast_manager& get_manager() override { return m; }
 
-        atom_set const& pos_atoms() const { return m_current->pos_atoms(); }
+        atom_set const& pos_atoms() const override { return m_current->pos_atoms(); }
 
-        atom_set const& neg_atoms() const { return m_current->neg_atoms(); }
+        atom_set const& neg_atoms() const override { return m_current->neg_atoms(); }
 
-        unsigned get_num_vars() const { return m_current->num_free_vars(); }
+        unsigned get_num_vars() const override { return m_current->num_free_vars(); }
 
-        app* get_var(unsigned idx) const { return m_current->free_var(idx); } 
+        app* get_var(unsigned idx) const override { return m_current->free_var(idx); }
 
-        app_ref_vector const& get_vars() const { return m_current->free_vars(); }
+        app_ref_vector const& get_vars() const override { return m_current->free_vars(); }
 
-        contains_app& contains(unsigned idx) { return contains(get_var(idx)); }              
+        contains_app& contains(unsigned idx) override { return contains(get_var(idx)); }
 
         //
         // The variable at idx is eliminated (without branching).
@@ -1564,7 +1564,7 @@ namespace qe {
             normalize(*m_current);
         }
         
-        void add_var(app* x) {
+        void add_var(app* x) override {
             m_new_vars.push_back(x);
             if (m_var2branch.contains(x)) {
                 return;
@@ -1583,7 +1583,7 @@ namespace qe {
             m_var2branch.insert(x, bv);
         }
 
-        virtual void add_constraint(bool use_current_val, expr* l1 = 0, expr* l2 = 0, expr* l3 = 0) {
+        void add_constraint(bool use_current_val, expr* l1 = 0, expr* l2 = 0, expr* l3 = 0) override {
             search_tree* node = m_current;           
             if (!use_current_val) {
                 node = m_current->parent();
@@ -1602,7 +1602,7 @@ namespace qe {
             m_solver.assert_expr(fml);
         }            
 
-        void blast_or(app* var, expr_ref& fml) {
+        void blast_or(app* var, expr_ref& fml) override {
             m_qe.eliminate_exists(1, &var, fml, m_free_vars, false, 0);
         }
 
