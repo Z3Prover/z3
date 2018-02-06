@@ -1494,7 +1494,7 @@ namespace Duality {
     /** Determines the value in the counterexample of a symbol occuring in the transformer formula of
      *  a given edge. */
 
-    RPFP::Term RPFP::Eval(Edge *e, Term t)
+    RPFP::Term RPFP::Eval(Edge *e, const Term& t)
     {
         Term tl = Localize(e, t);
         return dualModel.eval(tl);

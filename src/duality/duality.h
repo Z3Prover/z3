@@ -725,7 +725,7 @@ namespace Duality {
         /** Determines the value in the counterexample of a symbol occuring in the transformer formula of
          *  a given edge. */
 
-        Term Eval(Edge *e, Term t);
+        Term Eval(Edge *e, const Term& t);
 
         /** Return the fact derived at node p in a counterexample. */
 
