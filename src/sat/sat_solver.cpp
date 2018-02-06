@@ -2702,6 +2702,8 @@ namespace sat {
         if (v < m_level.size()) {
             for (bool_var i = v; i < m_level.size(); ++i) {
                 m_case_split_queue.del_var_eh(i);
+                m_probing.reset_cache(literal(i, true));
+                m_probing.reset_cache(literal(i, false));
             }
             m_watches.shrink(2*v);
             m_assignment.shrink(2*v);

@@ -55,7 +55,6 @@ namespace sat {
 
         struct report;
 
-        void reset_cache(literal l);
         void cache_bins(literal l, unsigned old_tr_sz);
         bool try_lit(literal l, bool updt_cache);
         void process(bool_var v);
@@ -66,6 +65,7 @@ namespace sat {
         
         bool operator()(bool force = false);
 
+        void reset_cache(literal l);
         void updt_params(params_ref const & p);
         static void collect_param_descrs(param_descrs & d);
 
