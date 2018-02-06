@@ -122,7 +122,7 @@ namespace qe {
             // Access current set of variables to solve
             virtual unsigned      get_num_vars() const { return m_vars.size(); }
             virtual app*          get_var(unsigned idx) const {  return m_vars[idx]; }
-            virtual app*const*    get_vars() const { return m_vars.c_ptr(); }
+            virtual app_ref_vector const& get_vars() const { return m_vars; }
             virtual bool          is_var(expr* e, unsigned& idx) const {
                 for (unsigned i = 0; i < m_vars.size(); ++i) {
                     if (e == m_vars[i]) return (idx = i, true);

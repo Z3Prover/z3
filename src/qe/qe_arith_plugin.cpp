@@ -105,6 +105,7 @@ namespace qe {
     public:
         arith_util        m_arith; // initialize before m_zero_i, etc.
         th_rewriter       simplify;
+        app_ref_vector    m_vars_added;
     private:
         arith_eq_solver   m_arith_solver;
         bv_util           m_bv;
@@ -126,6 +127,7 @@ namespace qe {
             m_ctx(ctx),
             m_arith(m),
             simplify(m),
+            m_vars_added(m),
             m_arith_solver(m),
             m_bv(m),
             m_zero_i(m_arith.mk_numeral(numeral(0), true), m),
@@ -783,6 +785,11 @@ namespace qe {
             }
         }
 
+        void add_var(app* v, bool track = true) {
+            m_ctx.add_var(v);
+            if (track) m_vars_added.push_back(v);
+        }
+
 
     private:
 
@@ -850,10 +857,11 @@ namespace qe {
                   << mk_pp(result, m) << "\n";);
         }
 
+
         void mk_big_or_symbolic(numeral up, app* x, expr* body, expr_ref& result) {
             app_ref z_bv(m);
             mk_big_or_symbolic(up, x, body, z_bv, result);
-            m_ctx.add_var(z_bv);
+            add_var(z_bv);
         }        
 
         void mk_big_or_symbolic_blast(numeral up, app* x, expr* body, expr_ref& result) {
@@ -999,9 +1007,9 @@ namespace qe {
         bool solve_linear(expr* p, expr* fml) {
             vector<numeral> values;
             unsigned num_vars = m_ctx.get_num_vars();
-            app*const* vars_ptr = m_ctx.get_vars();
+            app_ref_vector const& vars = m_ctx.get_vars();
             
-            if (!is_linear(p, num_vars, vars_ptr, values)) {
+            if (!is_linear(p, num_vars, vars.c_ptr(), values)) {
                 return false;
             }
 
@@ -1025,7 +1033,7 @@ namespace qe {
                 // it has coefficient 'm' = values[index].
                 SASSERT(values[index] >= rational(3));
                 z  = m.mk_fresh_const("x", m_arith.mk_int());
-                m_ctx.add_var(z);
+                add_var(z);
                 p1 = m_arith.mk_mul(m_arith.mk_numeral(values[index], true), z);
             }
             else {                
@@ -1475,16 +1483,18 @@ public:
         expr*    m_result;
         rational m_coeff;
         expr*    m_term;
+        ptr_vector<app> m_vars;
 
         branch_formula(): m_fml(0), m_var(0), m_branch(0), m_result(0), m_term(0) {}
         
-        branch_formula(expr* fml, app* var, unsigned b, expr* r, rational coeff, expr* term):
+        branch_formula(expr* fml, app* var, unsigned b, expr* r, rational coeff, expr* term, app_ref_vector const& vars):
             m_fml(fml),
             m_var(var),
             m_branch(b),
             m_result(r),
             m_coeff(coeff),
-            m_term(term)
+            m_term(term),
+            m_vars(vars.size(), vars.c_ptr())
         {}
         
         unsigned mk_hash() const {
@@ -1544,6 +1554,7 @@ public:
             if (get_cache(x, fml, v, result)) {
                 return;
             }
+            m_util.m_vars_added.reset();
             
             bounds_proc& bounds = get_bounds(x, fml);            
             bool is_lower = get_bound_sizes(bounds, x, t_size, e_size);            
@@ -1601,8 +1612,7 @@ public:
             expr_ref t(bounds.exprs(is_strict, is_lower)[index], m);
             rational a = bounds.coeffs(is_strict, is_lower)[index];
 
-            
-                                
+                                            
             mk_bounds(bounds, x, true,  is_eq, is_strict, is_lower, index, a, t, result);
             mk_bounds(bounds, x, false, is_eq, is_strict, is_lower, index, a, t, result);
 
@@ -1617,7 +1627,7 @@ public:
                   {
                       tout << vl << " " << mk_pp(bounds.atoms(is_strict, is_lower)[index],m) << "\n";
                       tout << mk_pp(fml, m) << "\n";
-                      tout << mk_pp(result, m) << "\n";
+                      tout << result << "\n";
                   }
                   );
         }
@@ -1637,7 +1647,7 @@ public:
 
         virtual void subst(contains_app& contains_x, rational const& vl, expr_ref& fml, expr_ref* def) {
             SASSERT(vl.is_unsigned());            
-           if (def) {
+            if (def) {
                get_def(contains_x, vl.get_unsigned(), fml, *def);
             }
             VERIFY(get_cache(contains_x.x(), fml, vl.get_unsigned(), fml));
@@ -1740,7 +1750,7 @@ public:
             x_subst x_t(m_util);
             bounds_proc& bounds = get_bounds(x, fml);    
             branch_formula bf;
-            VERIFY (m_subst.find(branch_formula(fml, x, v, 0, rational::zero(), 0), bf));
+            VERIFY (m_subst.find(branch_formula(fml, x, v, 0, rational::zero(), 0, m_util.m_vars_added), bf));
             x_t.set_term(bf.m_term);
             x_t.set_coeff(bf.m_coeff);
 
@@ -2022,16 +2032,19 @@ public:
             m_trail.push_back(fml);
             m_trail.push_back(result);
             if (term) m_trail.push_back(term);
-            m_subst.insert(branch_formula(fml, x, v, result, coeff, term));
+            m_subst.insert(branch_formula(fml, x, v, result, coeff, term, m_util.m_vars_added));
         }
         
         bool get_cache(app* x, expr* fml, unsigned v, expr_ref& result) {
             branch_formula bf;
-            if (!m_subst.find(branch_formula(fml, x, v, 0, rational::zero(), 0), bf)) {
+            if (!m_subst.find(branch_formula(fml, x, v, 0, rational::zero(), 0, m_util.m_vars_added), bf)) {
                 return false;
             }
             SASSERT(bf.m_result);
             result = bf.m_result;
+            for (app* v : bf.m_vars) {
+                m_util.add_var(v, false);
+            }            
             return true;
         }
 
@@ -2043,7 +2056,7 @@ public:
             if (!bounds.div_z(d, z_bv, z)) {
                 return;
             }
-            m_ctx.add_var(z_bv);
+            m_util.add_var(z_bv);
             
             //
             // assert 
@@ -2120,7 +2133,7 @@ public:
                 app* z1_bv = bounds.nested_div_z_bv(i);
                 app* z1 = bounds.nested_div_z(i);
 
-                m_ctx.add_var(z1_bv);
+                m_util.add_var(z1_bv);
 
                 //
                 // assert

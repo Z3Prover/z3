@@ -86,7 +86,7 @@ namespace qe {
         // Access current set of variables to solve
         virtual unsigned      get_num_vars() const = 0;
         virtual app*          get_var(unsigned idx) const = 0;
-        virtual app*const*    get_vars() const = 0;
+        virtual app_ref_vector const&  get_vars() const = 0;
         virtual bool          is_var(expr* e, unsigned& idx) const;
         virtual contains_app& contains(unsigned idx) = 0;
 
