@@ -141,8 +141,8 @@ namespace smt {
        \brief Return the number of variables that
        do not have bounds associated with it.
        The result is 0, 1, or 2. The value 2 means "2 or more".
-       The second value is the idx of the a variable that does not
-       have bounds associated with it. It is only usefull when the first value is 1.
+       The second value is the idx of the variable that does not
+       have bounds associated with it. It is only useful when the first value is 1.
        The second value is -1 if such variable does not exist, that is, the first
        value is 0.
 

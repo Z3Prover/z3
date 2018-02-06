@@ -260,7 +260,7 @@ void der_sort_vars(ptr_vector<var> & vars, ptr_vector<expr> & definitions, unsig
                 vidx = to_var(t)->get_idx();
                 if (fr.second == 0) {
                     CTRACE("der_bug", vidx >= definitions.size(), tout << "vidx: " << vidx << "\n";);
-                    // Remark: The size of definitions may be smaller than the number of variables occuring in the quantified formula.
+                    // Remark: The size of definitions may be smaller than the number of variables occurring in the quantified formula.
                     if (definitions.get(vidx, 0) != 0) {
                         if (visiting.is_marked(t)) {
                             // cycle detected: remove t

@@ -1421,7 +1421,7 @@ namespace polynomial {
             }
         }
 
-        // Return the maximal variable y occuring in [m_ms + start, m_ms + end) that is smaller than x
+        // Return the maximal variable y occurring in [m_ms + start, m_ms + end) that is smaller than x
         var max_smaller_than(unsigned start, unsigned end, var x) {
             var max = null_var;
             for (unsigned i = start; i < end; i++) {
@@ -1456,7 +1456,7 @@ namespace polynomial {
         }
 
         /**
-           \brief Make sure that the first monomial contains the maximal variable x occuring in the polynomial,
+           \brief Make sure that the first monomial contains the maximal variable x occurring in the polynomial,
            and x occurs with maximal degree.
         */
         void make_first_maximal() {
@@ -3209,7 +3209,7 @@ namespace polynomial {
         typedef sbuffer<var, 32>      var_buffer;
 
         /**
-           Store in pws the variables occuring in p and their (minimal or maximal) degrees.
+           Store in pws the variables occurring in p and their (minimal or maximal) degrees.
         */
         unsigned_vector m_var_degrees_tmp;
         template<bool Max>
@@ -3470,7 +3470,7 @@ namespace polynomial {
                 pp = mk_one();
                 return;
             }
-            // Apply filter and collect powers of x occuring in p
+            // Apply filter and collect powers of x occurring in p
             // The quick filter is the following:
             //   If p contains a monomial x^k and no monomial of the form m*x^k m != 1, then
             //      c = m_unit_poly
@@ -3479,7 +3479,7 @@ namespace polynomial {
             //      - found monomial x^k then iccp_powers[k]++;
             //      - found monomial m*x^k then iccp_powers[k]+=2;
             //   If after traversing p, there is a k s.t. iccp_powers[k] == 1, we know c == 1
-            // We store iccp_powers the powers of x occuring in p.
+            // We store iccp_powers the powers of x occurring in p.
             sbuffer<unsigned, 128> iccp_filter;
             sbuffer<unsigned, 128> iccp_powers;
             iccp_filter.resize(d+1, 0);

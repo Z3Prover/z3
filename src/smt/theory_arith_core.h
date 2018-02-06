@@ -40,7 +40,7 @@ namespace smt {
     template<typename Ext>
     void theory_arith<Ext>::found_underspecified_op(app * n) {
         if (!m_found_underspecified_op) {
-            TRACE("arith", tout << "found underspecificed expression:\n" << mk_pp(n, get_manager()) << "\n";);
+            TRACE("arith", tout << "found underspecified expression:\n" << mk_pp(n, get_manager()) << "\n";);
             get_context().push_trail(value_trail<context, bool>(m_found_underspecified_op));
             m_found_underspecified_op = true;
         }
