@@ -363,7 +363,7 @@ extern "C" {
     void Z3_API Z3_fixedpoint_set_reduce_assign_callback(
         Z3_context c ,Z3_fixedpoint d, Z3_fixedpoint_reduce_assign_callback_fptr cb);
 
-    /** \brief Register a callback for buildling terms based on the relational operators. */
+    /** \brief Register a callback for building terms based on the relational operators. */
     void Z3_API Z3_fixedpoint_set_reduce_app_callback(
         Z3_context c, Z3_fixedpoint d, Z3_fixedpoint_reduce_app_callback_fptr cb);
 

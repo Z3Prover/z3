@@ -2157,7 +2157,7 @@ namespace Duality {
         std::vector<Term> la_pos_vars;
         bool fixing;
     
-        void IndexLAcoeff(const Term &coeff1, const Term &coeff2, Term t, int id) {
+        void IndexLAcoeff(const Term &coeff1, const Term &coeff2, const Term &t, int id) {
             Term coeff = coeff1 * coeff2;
             coeff = coeff.simplify();
             Term is_pos = (coeff >= ctx.int_val(0));
@@ -3303,7 +3303,7 @@ namespace Duality {
     // This returns a new FuncDel with same sort as top-level function
     // of term t, but with numeric suffix appended to name.
 
-    Z3User::FuncDecl Z3User::SuffixFuncDecl(Term t, int n)
+    Z3User::FuncDecl Z3User::SuffixFuncDecl(const Term &t, int n)
     {
         std::string name = t.decl().name().str() + "_" + string_of_int(n);
         std::vector<sort> sorts;

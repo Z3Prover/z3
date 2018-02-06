@@ -454,7 +454,7 @@ namespace datalog {
             : m_manager(ctx.get_manager()), 
               m_subst(ctx.get_var_subst()), 
               m_col_idx(col_idx), 
-              m_new_rule(new_rule) {}
+              m_new_rule(std::move(new_rule)) {}
 
         virtual void operator()(relation_base & r0) {
             explanation_relation & r = static_cast<explanation_relation &>(r0);

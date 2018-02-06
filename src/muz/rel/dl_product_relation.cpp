@@ -488,7 +488,7 @@ namespace datalog {
         ptr_vector<relation_transformer_fn> m_transforms;
     public:
         transform_fn(relation_signature s, unsigned num_trans, relation_transformer_fn** trans):
-          m_sig(s),
+          m_sig(std::move(s)),
           m_transforms(num_trans, trans) {}
 
           ~transform_fn() { dealloc_ptr_vector_content(m_transforms); }

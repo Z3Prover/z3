@@ -1924,7 +1924,7 @@ namespace datalog {
         }
     }
 
-    void finite_product_relation::extract_table_fact(const relation_fact rf, table_fact & tf) const {
+    void finite_product_relation::extract_table_fact(const relation_fact & rf, table_fact & tf) const {
         const relation_signature & sig = get_signature();
         relation_manager & rmgr = get_manager();
 
@@ -1940,7 +1940,7 @@ namespace datalog {
         tf.push_back(0);
     }
 
-    void finite_product_relation::extract_other_fact(const relation_fact rf, relation_fact & of) const {
+    void finite_product_relation::extract_other_fact(const relation_fact & rf, relation_fact & of) const {
         of.reset();
         unsigned o_sz = m_other_sig.size();
         for(unsigned i=0; i<o_sz; i++) {

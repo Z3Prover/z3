@@ -281,11 +281,11 @@ namespace datalog {
            \brief Extract the values of table non-functional columns from the relation fact.
            The value of the functional column which determines index of the inner relation is undefined.
          */
-        void extract_table_fact(const relation_fact rf, table_fact & tf) const;
+        void extract_table_fact(const relation_fact & rf, table_fact & tf) const;
         /**
            \brief Extract the values of the inner relation columns from the relation fact.
          */
-        void extract_other_fact(const relation_fact rf, relation_fact & of) const;
+        void extract_other_fact(const relation_fact & rf, relation_fact & of) const;
 
         relation_base * mk_empty_inner();
         relation_base * mk_full_inner(func_decl* pred);

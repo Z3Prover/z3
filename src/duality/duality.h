@@ -66,7 +66,7 @@ namespace Duality {
 
         bool is_variable(const Term &t);
 
-        FuncDecl SuffixFuncDecl(Term t, int n);
+        FuncDecl SuffixFuncDecl(const Term &t, int n);
 
 
         Term SubstRecHide(hash_map<ast, Term> &memo, const Term &t, int number);

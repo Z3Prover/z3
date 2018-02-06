@@ -108,7 +108,7 @@ namespace datalog {
 
         sieve_relation * mk_from_inner(const relation_signature & s, const bool * inner_columns, 
             relation_base * inner_rel);
-        sieve_relation * mk_from_inner(const relation_signature & s, const svector<bool> inner_columns, 
+        sieve_relation * mk_from_inner(const relation_signature & s, const svector<bool> & inner_columns, 
                 relation_base * inner_rel) {
             SASSERT(inner_columns.size()==s.size());
             return mk_from_inner(s, inner_columns.c_ptr(), inner_rel);

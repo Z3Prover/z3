@@ -897,7 +897,7 @@ namespace smt {
         void trace_assign(literal l, b_justification j, bool decision) const;
 
     public:
-        void assign(literal l, b_justification j, bool decision = false) {
+        void assign(literal l, const b_justification & j, bool decision = false) {
             SASSERT(l != false_literal);
             SASSERT(l != null_literal);
             switch (get_assignment(l)) {
@@ -998,9 +998,9 @@ namespace smt {
 
         void assign_quantifier(quantifier * q);
 
-        void set_conflict(b_justification js, literal not_l);
+        void set_conflict(const b_justification & js, literal not_l);
 
-        void set_conflict(b_justification js) {
+        void set_conflict(const b_justification & js) {
             set_conflict(js, null_literal);
         }
 

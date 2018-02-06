@@ -301,7 +301,7 @@ public:
     void operator()(quantifier*) {}
 };
 
-void unsat_core_learner::collect_symbols_b(expr_set axioms_b)
+void unsat_core_learner::collect_symbols_b(const expr_set& axioms_b)
 {
     expr_mark visited;
     collect_pure_proc proc(m_symbols_b);

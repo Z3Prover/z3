@@ -187,7 +187,7 @@ class mpz_manager {
 
     /**
        \brief Set \c a with the value stored at m_tmp[IDX], and the given sign.
-       \c sz is an overapproximation of the the size of the number stored at \c tmp.
+       \c sz is an overapproximation of the size of the number stored at \c tmp.
     */
     template<int IDX>
     void set(mpz & a, int sign, unsigned sz);

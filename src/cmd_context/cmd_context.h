@@ -125,7 +125,7 @@ class stream_ref {
     std::ostream * m_stream;
     bool           m_owner;
 public:
-    stream_ref(std::string n, std::ostream & d):m_default_name(n), m_default(d), m_name(n), m_stream(&d), m_owner(false) {}
+    stream_ref(const std::string& n, std::ostream & d):m_default_name(n), m_default(d), m_name(n), m_stream(&d), m_owner(false) {}
     ~stream_ref() { reset(); }
     void set(char const * name);
     void set(std::ostream& strm);

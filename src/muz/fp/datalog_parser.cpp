@@ -1303,7 +1303,7 @@ private:
         }
     }
 
-    void parse_rules_file(std::string fname) {
+    void parse_rules_file(const std::string & fname) {
         SASSERT(file_exists(fname));
         flet<std::string> flet_cur_file(m_current_file, fname);
 
@@ -1347,7 +1347,7 @@ private:
         return true;
     }
 
-    void parse_rel_file(std::string fname) {
+    void parse_rel_file(const std::string & fname) {
         SASSERT(file_exists(fname));
 
         IF_VERBOSE(10, verbose_stream() << "Parsing relation file " << fname << "\n";);
@@ -1496,7 +1496,7 @@ private:
         return true;
     }
 
-    void parse_map_file(std::string fname) {
+    void parse_map_file(const std::string & fname) {
         SASSERT(file_exists(fname));
 
         IF_VERBOSE(10, verbose_stream() << "Parsing map file " << fname << "\n";);
