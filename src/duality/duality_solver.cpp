@@ -107,7 +107,7 @@ namespace Duality {
 
     struct InternalError {
         std::string msg;
-        InternalError(const std::string _msg)
+        InternalError(const std::string & _msg)
             : msg(_msg) {}
     };
 

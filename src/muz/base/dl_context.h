@@ -368,7 +368,7 @@ namespace datalog {
            These names are used when printing out the relations to make the output conform 
            to the one of bddbddb.
         */
-        void set_argument_names(const func_decl * pred, svector<symbol> var_names);
+        void set_argument_names(const func_decl * pred, const svector<symbol> & var_names);
         symbol get_argument_name(const func_decl * pred, unsigned arg_index);
 
         void set_predicate_representation(func_decl * pred, unsigned relation_name_cnt, 

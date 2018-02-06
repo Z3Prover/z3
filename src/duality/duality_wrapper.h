@@ -191,7 +191,7 @@ namespace Duality {
         sort int_sort();
         sort real_sort();
         sort bv_sort(unsigned sz);
-        sort array_sort(sort d, sort r);
+        sort array_sort(const sort & d, const sort & r);
 
         func_decl function(symbol const & name, unsigned arity, sort const * domain, sort const & range);
         func_decl function(char const * name, unsigned arity, sort const * domain, sort const & range);
@@ -763,11 +763,11 @@ namespace Duality {
         unsigned size() const;
         func_decl operator[](unsigned i) const;
 
-        expr get_const_interp(func_decl f) const {
+        expr get_const_interp(const func_decl & f) const {
             return ctx().cook(m_model->get_const_interp(to_func_decl(f.raw())));
         }
 
-        func_interp get_func_interp(func_decl f) const {
+        func_interp get_func_interp(const func_decl & f) const {
             return func_interp(ctx(),m_model->get_func_interp(to_func_decl(f.raw())));
         }
 
@@ -1169,7 +1169,7 @@ namespace Duality {
         ::sort *s = m().mk_sort(m_arith_fid, REAL_SORT);
         return sort(*this, s);
     }
-    inline sort context::array_sort(sort d, sort r) {
+    inline sort context::array_sort(const sort & d, const sort & r) {
         parameter params[2]  = { parameter(d), parameter(to_sort(r)) };
         ::sort * s =  m().mk_sort(m_array_fid, ARRAY_SORT, 2, params);
         return sort(*this, s);
@@ -1274,11 +1274,11 @@ namespace Duality {
     class TermTree {
     public:
 
-        TermTree(expr _term){
+        TermTree(const expr &_term){
             term = _term;
         }
 
-        TermTree(expr _term, const std::vector<TermTree *> &_children){
+        TermTree(const expr &_term, const std::vector<TermTree *> &_children){
             term = _term;
             children = _children;
         }
@@ -1302,9 +1302,9 @@ namespace Duality {
             return num;
         }
 
-        inline void setTerm(expr t){term = t;}
+        inline void setTerm(const expr &t){term = t;}
 
-        inline void addTerm(expr t){terms.push_back(t);}
+        inline void addTerm(const expr &t){terms.push_back(t);}
 
         inline void setChildren(const std::vector<TermTree *> & _children){
             children = _children;

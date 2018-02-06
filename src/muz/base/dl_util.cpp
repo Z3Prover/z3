@@ -547,7 +547,7 @@ namespace datalog {
     //
     // -----------------------------------
 
-    void get_file_names(std::string directory, std::string extension, bool traverse_subdirs, 
+    void get_file_names(std::string directory, const std::string & extension, bool traverse_subdirs,
             string_vector & res) {
 
         if(directory[directory.size()-1]!='\\' && directory[directory.size()-1]!='/') {
@@ -595,7 +595,7 @@ namespace datalog {
 #endif
     }
 
-    bool file_exists(std::string name) {
+    bool file_exists(const std::string & name) {
         struct stat st;
         if(stat(name.c_str(),&st) == 0) {
             return true;
@@ -603,7 +603,7 @@ namespace datalog {
         return false;
     }
 
-    bool is_directory(std::string name) {
+    bool is_directory(const std::string & name) {
         if(!file_exists(name)) {
             return false;
         }
@@ -612,7 +612,7 @@ namespace datalog {
         return (status.st_mode&S_IFDIR)!=0;
     }
 
-    std::string get_file_name_without_extension(std::string name) {
+    std::string get_file_name_without_extension(const std::string & name) {
         size_t slash_index = name.find_last_of("\\/");
         size_t dot_index = name.rfind('.');
         size_t ofs = (slash_index==std::string::npos) ? 0 : slash_index+1;

@@ -240,7 +240,7 @@ namespace datalog {
 
             const table_relation & tr_src = static_cast<const table_relation &>(src);
             relation_manager & rmgr = tr_src.get_manager();
-            relation_signature sig = tr_src.get_signature();
+            const relation_signature & sig = tr_src.get_signature();
             SASSERT(tgt.get_signature()==sig);
             SASSERT(!delta || delta->get_signature()==sig);
             

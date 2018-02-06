@@ -289,7 +289,7 @@ namespace datalog {
         relation_transformer_fn * mk_permutation_rename_fn(const relation_base & t, 
             const unsigned * permutation);
         relation_transformer_fn * mk_permutation_rename_fn(const relation_base & t, 
-                const unsigned_vector permutation) {
+                const unsigned_vector & permutation) {
             SASSERT(t.get_signature().size()==permutation.size());
             return mk_permutation_rename_fn(t, permutation.c_ptr());
         }
@@ -343,7 +343,7 @@ namespace datalog {
 
         relation_mutator_fn * mk_filter_identical_fn(const relation_base & t, unsigned col_cnt, 
             const unsigned * identical_cols);
-        relation_mutator_fn * mk_filter_identical_fn(const relation_base & t, const unsigned_vector identical_cols) {
+        relation_mutator_fn * mk_filter_identical_fn(const relation_base & t, const unsigned_vector & identical_cols) {
             return mk_filter_identical_fn(t, identical_cols.size(), identical_cols.c_ptr());
         }
 
@@ -468,7 +468,7 @@ namespace datalog {
            of column number.
         */
         table_transformer_fn * mk_permutation_rename_fn(const table_base & t, const unsigned * permutation);
-        table_transformer_fn * mk_permutation_rename_fn(const table_base & t, const unsigned_vector permutation) {
+        table_transformer_fn * mk_permutation_rename_fn(const table_base & t, const unsigned_vector & permutation) {
             SASSERT(t.get_signature().size()==permutation.size());
             return mk_permutation_rename_fn(t, permutation.c_ptr());
         }
@@ -522,7 +522,7 @@ namespace datalog {
 
         table_mutator_fn * mk_filter_identical_fn(const table_base & t, unsigned col_cnt, 
             const unsigned * identical_cols);
-        table_mutator_fn * mk_filter_identical_fn(const table_base & t, const unsigned_vector identical_cols) {
+        table_mutator_fn * mk_filter_identical_fn(const table_base & t, const unsigned_vector & identical_cols) {
             return mk_filter_identical_fn(t, identical_cols.size(), identical_cols.c_ptr());
         }
 
