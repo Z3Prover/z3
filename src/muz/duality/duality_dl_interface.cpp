@@ -273,6 +273,7 @@ namespace Duality {
                     if (!heads.contains(fd)) {
                         int arity = f.arity();
                         std::vector<expr> args;
+                        args.reserve(arity);
                         for (int j = 0; j < arity; j++)
                             args.push_back(_d->ctx.fresh_func_decl("X", f.domain(j))());
                         expr c = implies(_d->ctx.bool_val(false), f(args));

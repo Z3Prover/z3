@@ -3424,6 +3424,7 @@ namespace Duality {
                     func_decl f = t.decl();
                     std::vector<expr> args;
                     int nargs = t.num_args();
+                    args.reserve(nargs);
                     for(int i = 0; i < nargs; i++)
                         args.push_back(AddParamToRels(memo, rmap, p, t.arg(i)));
                     hash_map<func_decl,func_decl>::iterator rit = rmap.find(f);
