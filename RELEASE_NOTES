@@ -427,11 +427,11 @@ Version 3.0
 
 - New Bitvector (QF_BV) solver. The new solver is only available when using the new SMT2 front-end.
 
-- Major performace improvements. 
+- Major performance improvements.
 
 - New preprocessing stack.
 
-- Performance improvements for linear and nonlinear arithmetic. The improvements are only available when using the the SMT2 front-end.
+- Performance improvements for linear and nonlinear arithmetic. The improvements are only available when using the SMT2 front-end.
 
 - Added API for parsing SMT2 files.
 
@@ -772,7 +772,7 @@ This release also introduces some new preprocessing features:
 
 - More efficient destructive equality resolution DER=true.
         
-- DISTRIBUTE_FORALL=true (distributes universal quatifiers over conjunctions, this transformation may affect pattern inference). 
+- DISTRIBUTE_FORALL=true (distributes universal quantifiers over conjunctions, this transformation may affect pattern inference).
 
 - Rewriter that uses universally quantified equations PRE_DEMODULATOR=true (yes, the option name is not good, we will change it in a future release).
 
@@ -842,7 +842,7 @@ This release introduces the following features:
 
 It fixes the following bugs:
 
-- Incorrect simplification of map over store in the extendted array theory. Reported by Catalin Hritcu.
+- Incorrect simplification of map over store in the extended array theory. Reported by Catalin Hritcu.
 
 - Incomplete handling of equality propagation with constant arrays. Reported by Catalin Hritcu.
 
@@ -886,7 +886,7 @@ Version 2.0
   proof object.
 
 - Proof Objects.
-  The #Z3_check_assumptions retuns a proof object if 
+  The #Z3_check_assumptions returns a proof object if
   the configuration flag PROOF_MODE is set to 1 or 2.
 
 - Partial support for non-linear arithmetic. 
@@ -899,4 +899,4 @@ Version 2.0
   The theory of well-founded recursive data-types is supported
   over the binary APIs. It supports ground satisfiability checking
   for tuples, enumeration types (scalars), 
-  lists and mututally recursive data-types.
+  lists and mutually recursive data-types.

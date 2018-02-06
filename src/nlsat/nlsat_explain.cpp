@@ -242,7 +242,7 @@ namespace nlsat {
         }
         
         /**
-           \breif Store in ps the polynomials occurring in the given literals.
+           \brief Store in ps the polynomials occurring in the given literals.
         */
         void collect_polys(unsigned num, literal const * ls, polynomial_ref_vector & ps) {
             ps.reset();
@@ -332,7 +332,7 @@ namespace nlsat {
                 if (!is_zero(lc)) {
                     if (sign(lc) != 0)
                         return;
-                    // lc is not the zero polynomial, but it vanished in the current interpretaion.
+                    // lc is not the zero polynomial, but it vanished in the current interpretation.
                     // so we keep searching...
                     add_zero_assumption(lc);
                 }

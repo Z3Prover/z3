@@ -51,7 +51,7 @@ namespace api {
     class context : public tactic_manager {
         struct add_plugins {  add_plugins(ast_manager & m); };
         context_params             m_params;
-        bool                       m_user_ref_count; //!< if true, the user is responsible for managing referenc counters.
+        bool                       m_user_ref_count; //!< if true, the user is responsible for managing reference counters.
         scoped_ptr<ast_manager>    m_manager;
         add_plugins                m_plugins;
 
@@ -158,7 +158,7 @@ namespace api {
         // Create a numeral of the given sort
         expr * mk_numeral_core(rational const & n, sort * s);
         
-        // Return a conjuction that will be exposed to the "external" world.
+        // Return a conjunction that will be exposed to the "external" world.
         expr * mk_and(unsigned num_exprs, expr * const * exprs);
 
         // Hack for preventing an AST for being GC when ref-count is not used

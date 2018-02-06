@@ -65,7 +65,7 @@ public class Statistics extends Z3Object {
         }
 
         /**
-         * The string representation of the the entry's value.
+         * The string representation of the entry's value.
          * 
          * @throws Z3Exception
          **/

@@ -67,7 +67,7 @@ namespace datalog {
     }
 
     relation_base * sieve_relation::complement(func_decl* p) const {
-        //this is not precisely a complement, because we still treat the ignored collumns as
+        //this is not precisely a complement, because we still treat the ignored columns as
         //full, but it should give reasonable results inside the product relation
         relation_base * new_inner = get_inner().complement(p);
         return get_plugin().mk_from_inner(get_signature(), m_inner_cols.c_ptr(), new_inner);
