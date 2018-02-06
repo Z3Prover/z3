@@ -2641,15 +2641,22 @@ namespace sat {
         clauses.shrink(j);
     }
 
-    void solver::gc_bin(bool learned, literal nlit) {
-        m_user_bin_clauses.reset();
-        collect_bin_clauses(m_user_bin_clauses, learned);
-        for (unsigned i = 0; i < m_user_bin_clauses.size(); ++i) {
-            literal l1 = m_user_bin_clauses[i].first;
-            literal l2 = m_user_bin_clauses[i].second;
-            if (nlit == l1 || nlit == l2) {
-                detach_bin_clause(l1, l2, learned);
+    void solver::gc_bin(literal lit) {
+        bool_var v = lit.var();
+        for (watch_list& wlist : m_watches) {
+            watch_list::iterator it  = wlist.begin();
+            watch_list::iterator it2 = wlist.begin();
+            watch_list::iterator end = wlist.end();
+            for (; it != end; ++it) {
+                if (it->is_binary_clause() && it->get_literal().var() == v) {
+                    // skip
+                }
+                else {
+                    *it2 = *it;
+                    ++it2;
+                }
             }
+            wlist.set_end(it2);
         }
     }
 
@@ -2724,8 +2731,7 @@ namespace sat {
 
             gc_lit(m_learned, lit);
             gc_lit(m_clauses, lit);
-            gc_bin(true, lit);
-            gc_bin(false, lit);
+            gc_bin(lit);
             TRACE("sat", tout << "gc: " << lit << "\n"; display(tout););
             --num_scopes;
             for (unsigned i = 0; i < m_trail.size(); ++i) {

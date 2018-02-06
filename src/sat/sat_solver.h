@@ -444,7 +444,7 @@ namespace sat {
         literal_vector m_aux_literals;
         svector<bin_clause> m_user_bin_clauses;
         void gc_lit(clause_vector& clauses, literal lit);
-        void gc_bin(bool learned, literal nlit);
+        void gc_bin(literal lit);
         void gc_var(bool_var v);
 
         bool_var max_var(clause_vector& clauses, bool_var v);
