@@ -54,3 +54,4 @@ template void lp::lp_solver<lp::mpq, lp::mpq>::scale();
 template void lp::lp_solver<lp::mpq, lp::mpq>::set_scaled_cost(unsigned int);
 template lp::lp_solver<lp::mpq, lp::mpq>::~lp_solver();
 template double lp::lp_solver<double, double>::get_column_value_by_name(std::string) const;
+template std::string lp::lp_solver<lp::mpq, lp::mpq>::get_column_name(unsigned int) const;
