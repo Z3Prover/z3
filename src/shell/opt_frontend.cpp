@@ -14,6 +14,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "util/timeout.h"
 #include "ast/reg_decl_plugins.h"
 #include "opt/opt_parse.h"
+#include "shell/opt_frontend.h"
 
 extern bool g_display_statistics;
 static bool g_first_interrupt = true;
@@ -73,18 +74,23 @@ static void on_timeout() {
     }
 }
 
-static unsigned parse_opt(std::istream& in, bool is_wcnf) {
+static unsigned parse_opt(std::istream& in, opt_format f) {
     ast_manager m;
     reg_decl_plugins(m);
     opt::context opt(m);
     g_opt = &opt;
     params_ref p = gparams::get_module("opt");
     opt.updt_params(p);
-    if (is_wcnf) {
+    switch (f) {
+    case wcnf_t:
         parse_wcnf(opt, in, g_handles);
-    }
-    else {
+        break;
+    case opb_t:
         parse_opb(opt, in, g_handles);
+        break;
+    case lp_t:
+        parse_lp(opt, in, g_handles);
+        break;
     }
     try {
         lbool r = opt.optimize();
@@ -121,7 +127,7 @@ static unsigned parse_opt(std::istream& in, bool is_wcnf) {
     return 0;
 }
 
-unsigned parse_opt(char const* file_name, bool is_wcnf) {
+unsigned parse_opt(char const* file_name, opt_format f) {
     g_first_interrupt = true;
     g_start_time = static_cast<double>(clock());
     register_on_timeout_proc(on_timeout);
@@ -132,10 +138,10 @@ unsigned parse_opt(char const* file_name, bool is_wcnf) {
             std::cerr << "(error \"failed to open file '" << file_name << "'\")" << std::endl;
             exit(ERR_OPEN_FILE);
         }
-        return parse_opt(in, is_wcnf);
+        return parse_opt(in, f);
     }
     else {
-        return parse_opt(std::cin, is_wcnf);
+        return parse_opt(std::cin, f);
     }
 }
 

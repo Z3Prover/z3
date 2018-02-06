@@ -85,7 +85,7 @@ namespace sat {
             }    
         }
         wlist.set_end(it2);
-        VERIFY(found);
+        //VERIFY(found);
     }
 
     void conflict_cleanup(watch_list::iterator it, watch_list::iterator it2, watch_list& wlist) {

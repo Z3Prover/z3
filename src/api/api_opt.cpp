@@ -302,6 +302,11 @@ extern "C" {
             parse_wcnf(*to_optimize_ptr(opt), s, h);
             return;
         }
+        if (ext && std::string("lp") == ext) {
+            unsigned_vector h;
+            parse_lp(*to_optimize_ptr(opt), s, h);
+            return;
+        }
         scoped_ptr<cmd_context> ctx = alloc(cmd_context, false, &m);
         install_opt_cmds(*ctx.get(), to_optimize_ptr(opt));
         ctx->set_ignore_check(true);

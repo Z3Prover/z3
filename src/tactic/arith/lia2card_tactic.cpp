@@ -160,11 +160,10 @@ public:
         expr_ref_vector xs(m);
         expr_ref last_v(m);
         if (!m_mc) m_mc = alloc(generic_model_converter, m, "lia2card");
-        for (unsigned i = 0; i < hi; ++i) {     
-            if (i < lo) {
-                xs.push_back(a.mk_int(1));
-                continue;
-            }
+        if (lo > 0) {
+            xs.push_back(a.mk_int(lo));
+        }
+        for (unsigned i = lo; i < hi; ++i) {     
             std::string name(x->get_decl()->get_name().str());
             expr_ref v(m.mk_fresh_const(name.c_str(), m.mk_bool_sort()), m);
             if (last_v) axioms.push_back(m.mk_implies(v, last_v));
@@ -195,7 +194,7 @@ public:
             if (a.is_int(x) && 
                 is_uninterp_const(x) && 
                 bounds.has_lower(x, lo, s1) && !s1 && lo.is_unsigned() &&
-                bounds.has_upper(x, hi, s2) && !s2 && hi.is_unsigned() && hi.get_unsigned() <= m_max_ub) {
+                bounds.has_upper(x, hi, s2) && !s2 && hi.is_unsigned() && hi.get_unsigned() - lo.get_unsigned() <= m_max_ub) {
                 expr_ref b = mk_bounded(axioms, to_app(x), lo.get_unsigned(), hi.get_unsigned());
                 rep.insert(x, b);
                 m_bounds.insert(x, bound(lo.get_unsigned(), hi.get_unsigned(), b));
