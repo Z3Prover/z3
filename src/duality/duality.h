@@ -507,6 +507,7 @@ namespace Duality {
         {
             std::vector<Term> _IndParams;
             int nargs = t.num_args();
+            _IndParams.reserve(nargs);
             for(int i = 0; i < nargs; i++)
                 _IndParams.push_back(t.arg(i));
             Node *n = new Node(t.decl(),

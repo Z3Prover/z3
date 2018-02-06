@@ -1146,6 +1146,7 @@ public:
         my_cons.push_back(mk_not(farkas_con));
         my_coeffs.push_back(make_int("1"));
         std::vector<Iproof::node> my_hyps;
+        my_hyps.reserve(nargs);
         for(int i = 0; i < nargs; i++)
             my_hyps.push_back(iproof->make_hypothesis(my_cons[i]));
         ast res = iproof->make_farkas(mk_false(),my_hyps,my_cons,my_coeffs);
@@ -1203,6 +1204,7 @@ public:
         int nargs = num_prems(proof);
         if(nargs != (int)(my_coeffs.size()))
             throw "bad gomory-cut theory lemma";
+        my_prem_cons.reserve(nargs);
         for(int i = 0; i < nargs; i++)
             my_prem_cons.push_back(conc(prem(proof,i)));
         ast my_con = normalize_inequality(sum_inequalities(my_coeffs,my_prem_cons));

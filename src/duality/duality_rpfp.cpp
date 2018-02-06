@@ -234,6 +234,7 @@ namespace Duality {
             func_decl f = t.decl();
             std::vector<Term> args;
             int nargs = t.num_args();
+            args.reserve(nargs);
             for (int i = 0; i < nargs; i++)
                 args.push_back(LocalizeRec(e, memo, t.arg(i)));
             hash_map<func_decl, int>::iterator rit = e->relMap.find(f);
@@ -352,6 +353,7 @@ namespace Duality {
             func_decl f = t.decl();
             std::vector<Term> args;
             int nargs = t.num_args();
+            args.reserve(nargs);
             for (int i = 0; i < nargs; i++)
                 args.push_back(SubstRec(memo, t.arg(i)));
             res = f(args.size(), VEC2PTR(args));
@@ -379,6 +381,7 @@ namespace Duality {
             func_decl f = t.decl();
             std::vector<Term> args;
             int nargs = t.num_args();
+            args.reserve(nargs);
             for (int i = 0; i < nargs; i++)
                 args.push_back(SubstRec(memo, map, t.arg(i)));
             hash_map<func_decl, func_decl>::iterator it = map.find(f);
@@ -409,6 +412,7 @@ namespace Duality {
             func_decl f = t.decl();
             std::vector<Term> args;
             int nargs = t.num_args();
+            args.reserve(nargs);
             for (int i = 0; i < nargs; i++)
                 args.push_back(ExtractStores(memo, t.arg(i), cnstrs, renaming));
             res = f(args.size(), VEC2PTR(args));
@@ -655,6 +659,7 @@ namespace Duality {
             func_decl f = t.decl();
             std::vector<Term> args;
             int nargs = t.num_args();
+            args.reserve(nargs);
             for (int i = 0; i < nargs; i++)
                 args.push_back(RemoveRedundancyRec(memo, smemo, t.arg(i)));
 
@@ -703,6 +708,7 @@ namespace Duality {
             func_decl f = t.decl();
             std::vector<Term> args;
             int nargs = t.num_args();
+            args.reserve(nargs);
             for (int i = 0; i < nargs; i++)
                 args.push_back(IneqToEqRec(memo, t.arg(i)));
 
@@ -749,6 +755,7 @@ namespace Duality {
                 res = ctx.constant(name.c_str(), t.get_sort());
                 return res;
             }
+            args.reserve(nargs);
             for (int i = 0; i < nargs; i++)
                 args.push_back(SubstRec(memo, t.arg(i)));
             res = f(args.size(), VEC2PTR(args));
@@ -3308,6 +3315,7 @@ namespace Duality {
         std::string name = t.decl().name().str() + "_" + string_of_int(n);
         std::vector<sort> sorts;
         int nargs = t.num_args();
+        sorts.reserve(nargs);
         for(int i = 0; i < nargs; i++)
             sorts.push_back(t.arg(i).get_sort());
         return ctx.function(name.c_str(), nargs, VEC2PTR(sorts), t.get_sort());
@@ -3319,8 +3327,9 @@ namespace Duality {
         name = name.substr(0,name.rfind('_')) + "_" + string_of_int(n);
         int arity = f.arity();
         std::vector<sort> domain;
+        domain.reserve(arity);
         for(int i = 0; i < arity; i++)
-        domain.push_back(f.domain(i));
+            domain.push_back(f.domain(i));
         return ctx.function(name.c_str(), arity, VEC2PTR(domain), f.range());
     }
 
@@ -3330,8 +3339,9 @@ namespace Duality {
         name = name + "_" + string_of_int(n);
         int arity = f.arity();
         std::vector<sort> domain;
+        domain.reserve(arity);
         for(int i = 0; i < arity; i++)
-        domain.push_back(f.domain(i));
+            domain.push_back(f.domain(i));
         return ctx.function(name.c_str(), arity, VEC2PTR(domain), f.range());
     }
 
@@ -3355,6 +3365,7 @@ namespace Duality {
             }
             int nargs = t.num_args();
             std::vector<Term> args;
+            args.reserve(nargs);
             for(int i = 0; i < nargs; i++)
                 args.push_back(ScanBody(memo,t.arg(i),pmap,parms,nodes));
             res = f(nargs, VEC2PTR(args));
@@ -3403,6 +3414,7 @@ namespace Duality {
             else {
                 int nargs = t.num_args();
                 std::vector<Term> args;
+                args.reserve(nargs);
                 for(int i = 0; i < nargs; i++)
                     args.push_back(RemoveLabelsRec(memo,t.arg(i),lbls));
                 res = f(nargs, VEC2PTR(args));
@@ -3432,6 +3444,7 @@ namespace Duality {
                 func_decl f = t.decl();
                 std::vector<Term> args;
                 int nargs = t.num_args();
+                args.reserve(nargs);
                 if(nargs == 0 && f.get_decl_kind() == Uninterpreted)
                     ls->declare_constant(f);  // keep track of background constants
                 for(int i = 0; i < nargs; i++)
@@ -3474,6 +3487,7 @@ namespace Duality {
                 func_decl f = t.decl();
                 std::vector<Term> args;
                 int nargs = t.num_args();
+                args.reserve(nargs);
                 for(int i = 0; i < nargs; i++)
                     args.push_back(DeleteBoundRec(memo, level, num, t.arg(i)));
                 res = f(args.size(), VEC2PTR(args));
@@ -3870,6 +3884,7 @@ namespace Duality {
     void RPFP::AddParamsToNode(Node *node, const std::vector<expr> &params){
         int arity = node->Annotation.IndParams.size();
         std::vector<sort> domain;
+        domain.reserve(arity + params.size());
         for(int i = 0; i < arity; i++)
             domain.push_back(node->Annotation.IndParams[i].get_sort());
         for(unsigned i = 0; i < params.size(); i++)
@@ -3936,6 +3951,7 @@ namespace Duality {
                     func_decl fd = SuffixFuncDecl(new_lit,j);
                     int nargs = new_lit.num_args();
                     std::vector<Term> args;
+                    args.reserve(nargs);
                     for(int k = 0; k < nargs; k++)
                         args.push_back(new_lit.arg(k));
                     new_lit = fd(nargs, VEC2PTR(args));
@@ -4126,6 +4142,7 @@ namespace Duality {
                 // int idx;
                 std::vector<Term> args;
                 int nargs = t.num_args();
+                args.reserve(nargs);
                 for(int i = 0; i < nargs; i++)
                     args.push_back(ToRuleRec(e, memo, t.arg(i),quants));
                 hash_map<func_decl,int>::iterator rit = e->relMap.find(f);                 

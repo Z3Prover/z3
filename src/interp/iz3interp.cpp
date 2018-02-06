@@ -97,6 +97,7 @@ struct frame_reducer : public iz3mgr {
 
         // if multiple children of a tree node are used, we can't delete it
         std::vector<int> used_children; 
+        used_children.reserve(frames);
         for(int i = 0; i < frames; i++)
             used_children.push_back(0);
         for(int i = 0; i < frames; i++)
