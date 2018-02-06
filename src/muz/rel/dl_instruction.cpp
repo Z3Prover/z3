@@ -190,8 +190,8 @@ namespace datalog {
         func_decl_ref m_pred;
         reg_idx m_reg;
     public:
-        instr_io(bool store, func_decl_ref pred, reg_idx reg)
-            : m_store(store), m_pred(std::move(pred)), m_reg(reg) {}
+        instr_io(bool store, func_decl_ref const& pred, reg_idx reg)
+            : m_store(store), m_pred(pred), m_reg(reg) {}
         virtual bool perform(execution_context & ctx) {
             log_verbose(ctx);            
             if (m_store) {
