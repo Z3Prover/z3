@@ -39,42 +39,42 @@ public:
     
     virtual ~binary_tactical() {}
     
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_t1->updt_params(p);
         m_t2->updt_params(p);
     }
     
-    virtual void collect_param_descrs(param_descrs & r) {
+    void collect_param_descrs(param_descrs & r) override {
         m_t1->collect_param_descrs(r);
         m_t2->collect_param_descrs(r);
     }
     
-    virtual void collect_statistics(statistics & st) const {
+    void collect_statistics(statistics & st) const override {
         m_t1->collect_statistics(st);
         m_t2->collect_statistics(st);
     }
 
-    virtual void reset_statistics() { 
+    void reset_statistics() override { 
         m_t1->reset_statistics();
         m_t2->reset_statistics();
     }
         
-    virtual void cleanup() {
+    void cleanup() override {
         m_t1->cleanup();
         m_t2->cleanup();
     }
     
-    virtual void reset() {
+    void reset() override {
         m_t1->reset();
         m_t2->reset();
     }
 
-    virtual void set_logic(symbol const & l) {
+    void set_logic(symbol const & l) override {
         m_t1->set_logic(l);
         m_t2->set_logic(l);
     }
 
-    virtual void set_progress_callback(progress_callback * callback) {
+    void set_progress_callback(progress_callback * callback) override {
         m_t1->set_progress_callback(callback);
         m_t2->set_progress_callback(callback);
     }
@@ -162,7 +162,7 @@ public:
         }
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return translate_core<and_then_tactical>(m);
     }
 
@@ -285,7 +285,7 @@ public:
 
     virtual ~or_else_tactical() {}
 
-    virtual void operator()(goal_ref const & in, goal_ref_buffer& result) {
+    void operator()(goal_ref const & in, goal_ref_buffer& result) override {
         goal orig(*(in.get()));
         unsigned sz = m_ts.size();
         unsigned i;
@@ -310,7 +310,7 @@ public:
         }
     }
 
-    virtual tactic * translate(ast_manager & m) { return translate_core<or_else_tactical>(m); }
+    tactic * translate(ast_manager & m) override { return translate_core<or_else_tactical>(m); }
 };
 
 tactic * or_else(unsigned num, tactic * const * ts) {
@@ -471,7 +471,7 @@ public:
         }
     }    
 
-    virtual tactic * translate(ast_manager & m) { return translate_core<par_tactical>(m); }
+    tactic * translate(ast_manager & m) override { return translate_core<par_tactical>(m); }
 };
 
 tactic * par(unsigned num, tactic * const * ts) {
@@ -715,7 +715,7 @@ public:
         }
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return translate_core<and_then_tactical>(m);
     }
 
@@ -753,14 +753,14 @@ public:
         m_t->operator()(in, result);
     }
    
-    virtual void cleanup(void) { m_t->cleanup(); }
-    virtual void collect_statistics(statistics & st) const { m_t->collect_statistics(st); }
-    virtual void reset_statistics() { m_t->reset_statistics(); }    
-    virtual void updt_params(params_ref const & p) { m_t->updt_params(p); }
-    virtual void collect_param_descrs(param_descrs & r) { m_t->collect_param_descrs(r); }
-    virtual void reset() { m_t->reset(); }
-    virtual void set_logic(symbol const& l) { m_t->set_logic(l); }    
-    virtual void set_progress_callback(progress_callback * callback) { m_t->set_progress_callback(callback); }
+    void cleanup(void) override { m_t->cleanup(); }
+    void collect_statistics(statistics & st) const override { m_t->collect_statistics(st); }
+    void reset_statistics() override { m_t->reset_statistics(); }    
+    void updt_params(params_ref const & p) override { m_t->updt_params(p); }
+    void collect_param_descrs(param_descrs & r) override { m_t->collect_param_descrs(r); }
+    void reset() override { m_t->reset(); }
+    void set_logic(symbol const& l) override { m_t->set_logic(l); }    
+    void set_progress_callback(progress_callback * callback) override { m_t->set_progress_callback(callback); }
 protected:
 
     template<typename T>
@@ -858,7 +858,7 @@ public:
         operator()(0, in, result);
     }
 
-    virtual tactic * translate(ast_manager & m) { 
+    tactic * translate(ast_manager & m) override { 
         tactic * new_t = m_t->translate(m);
         return alloc(repeat_tactical, new_t, m_max_depth);
     }
@@ -881,7 +881,7 @@ public:
         }
     };    
 
-    virtual tactic * translate(ast_manager & m) { 
+    tactic * translate(ast_manager & m) override { 
         tactic * new_t = m_t->translate(m);
         return alloc(fail_if_branching_tactical, new_t, m_threshold);
     }
@@ -900,7 +900,7 @@ public:
         m_t->cleanup();
     }    
 
-    virtual tactic * translate(ast_manager & m) { 
+    tactic * translate(ast_manager & m) override { 
         tactic * new_t = m_t->translate(m);
         return alloc(cleanup_tactical, new_t);
     }
@@ -924,7 +924,7 @@ public:
         }
     }
 
-    virtual tactic * translate(ast_manager & m) { 
+    tactic * translate(ast_manager & m) override { 
         tactic * new_t = m_t->translate(m);
         return alloc(try_for_tactical, new_t, m_timeout);
     }
@@ -941,7 +941,7 @@ public:
         t->updt_params(p);
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         TRACE("using_params", 
               tout << "before p: " << p << "\n";
               tout << "m_params: " << m_params << "\n";);
@@ -956,7 +956,7 @@ public:
               tout << "new_p: " << new_p << "\n";);
     }
 
-    virtual tactic * translate(ast_manager & m) { 
+    tactic * translate(ast_manager & m) override { 
         tactic * new_t = m_t->translate(m);
         return alloc(using_params_tactical, new_t, m_params);
     }
@@ -986,7 +986,7 @@ public:
         m_t->operator()(in, result);
     }
 
-    virtual tactic * translate(ast_manager & m) { 
+    tactic * translate(ast_manager & m) override { 
         tactic * new_t = m_t->translate(m);
         return alloc(annotate_tactical, m_name.c_str(), new_t);
     }
@@ -1015,7 +1015,7 @@ public:
             m_t2->operator()(in, result);
     }
 
-    virtual tactic * translate(ast_manager & m) { 
+    tactic * translate(ast_manager & m) override { 
         tactic * new_t1 = m_t1->translate(m);
         tactic * new_t2 = m_t2->translate(m);
         return alloc(cond_tactical, m_p.get(), new_t1, new_t2);
@@ -1049,7 +1049,7 @@ public:
         result.push_back(in.get());
     }
 
-    virtual tactic * translate(ast_manager & m) { 
+    tactic * translate(ast_manager & m) override { 
         return this;
     }
 };
@@ -1075,7 +1075,9 @@ public:
         }
     }
 
-    virtual tactic * translate(ast_manager & m) { return translate_core<if_no_proofs_tactical>(m); }
+    tactic * translate(ast_manager & m) override { 
+        return translate_core<if_no_proofs_tactical>(m); 
+    }
 };
 
 class if_no_unsat_cores_tactical : public unary_tactical {

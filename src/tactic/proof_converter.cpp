@@ -24,7 +24,7 @@ class concat_proof_converter : public concat_converter<proof_converter> {
 public:
     concat_proof_converter(proof_converter * pc1, proof_converter * pc2):concat_converter<proof_converter>(pc1, pc2) {}
 
-    virtual char const * get_name() const { return "concat-proof-converter"; }
+    char const * get_name() const override { return "concat-proof-converter"; }
 
     proof_ref operator()(ast_manager & m, unsigned num_source, proof * const * source) override {
         proof_ref tmp(m);

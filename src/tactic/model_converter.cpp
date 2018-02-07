@@ -134,7 +134,7 @@ public:
         out << ")\n";
     }    
     
-    virtual model_converter * translate(ast_translation & translator) {
+    model_converter * translate(ast_translation & translator) override {
         model * m = m_model->translate(translator);
         return alloc(model2mc, m, m_labels);
     }
