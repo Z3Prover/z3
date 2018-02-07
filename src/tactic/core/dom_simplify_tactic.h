@@ -129,17 +129,14 @@ public:
         m_trail(m), m_args(m), 
         m_dominators(m), m_depth(0), m_max_depth(1024), m_forward(true) {}
 
-
     virtual ~dom_simplify_tactic();
 
-    virtual tactic * translate(ast_manager & m);
-    virtual void updt_params(params_ref const & p) {}
+    tactic * translate(ast_manager & m) override;
+    void updt_params(params_ref const & p) override {}
     static  void get_param_descrs(param_descrs & r) {}
-    virtual void collect_param_descrs(param_descrs & r) { get_param_descrs(r); }
-    
+    void collect_param_descrs(param_descrs & r) override { get_param_descrs(r); }    
     void operator()(goal_ref const & in, goal_ref_buffer & result) override;
-
-    virtual void cleanup();
+    void cleanup() override;
 };
 
 class expr_substitution_simplifier : public dom_simplifier {

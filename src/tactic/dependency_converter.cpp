@@ -36,7 +36,7 @@ public:
     }
 
     virtual void display(std::ostream& out) {
-        out << m_dep << "\n";
+        out << m_dep.get() << "\n";
     }
 };
 
