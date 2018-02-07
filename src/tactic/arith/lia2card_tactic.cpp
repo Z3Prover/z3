@@ -160,6 +160,9 @@ public:
         expr_ref_vector xs(m);
         expr_ref last_v(m);
         if (!m_mc) m_mc = alloc(generic_model_converter, m, "lia2card");
+        if (hi == 0) {
+            return expr_ref(a.mk_int(0), m);
+        }
         if (lo > 0) {
             xs.push_back(a.mk_int(lo));
         }
@@ -183,7 +186,7 @@ public:
         expr_ref_vector axioms(m);
         expr_safe_replace rep(m);
         
-        tactic_report report("cardinality-intro", *g);
+        tactic_report report("lia2card", *g);
         
         bound_manager bounds(m);
         bounds(*g);
@@ -205,7 +208,6 @@ public:
             expr_ref   new_curr(m), tmp(m);
             proof_ref  new_pr(m);        
             rep(g->form(i), tmp);
-            if (tmp == g->form(i)) continue;
             m_rw(tmp, new_curr, new_pr);
             if (m.proofs_enabled() && !new_pr) {
                 new_pr = m.mk_rewrite(g->form(i), new_curr);

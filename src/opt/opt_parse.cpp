@@ -386,6 +386,26 @@ private:
                 in.skip_line();
                 continue;
             }
+            bool neg = false;
+            if (c == '-') {
+                in.next();
+                c = in.ch();
+                m_buffer.reset();
+                m_buffer.push_back('-');
+                if (is_num(c)) {
+                    neg = true;
+                }
+                else {
+                    while (!is_ws(c) && !in.eof()) {
+                        m_buffer.push_back(c);
+                        in.next();
+                        c = in.ch();
+                    }
+                    m_buffer.push_back(0);
+                    m_tokens.push_back(asymbol(symbol(m_buffer.c_ptr()), in.line()));
+                    continue;
+                }
+            }
 
             if (is_num(c)) {
                 rational n(0);
@@ -405,6 +425,7 @@ private:
                     }
                 }
                 if (div > 1) n = n / rational(div);
+                if (neg) n.neg();
                 m_tokens.push_back(asymbol(n, in.line()));
                 continue;
             }
@@ -453,6 +474,7 @@ private:
             c == '{' ||
             c == '}' ||
             c == ',' ||
+            c == '_' ||
             c == '.' ||
             c == ';' ||
             c == '?' ||
@@ -687,12 +709,15 @@ private:
                 tok.next(2);
             }
         }
-        if (peek_le(1) && tok.peek_num(2)) {
+        else if (peek_le(1) && tok.peek_num(2)) {
             v = peek(0);
             tok.next(2);
             rational rhs = tok.get_num(0);
             update_upper(v, rhs);
             tok.next(1);
+        }
+        else {
+            error("bound expected");
         }
     }
 

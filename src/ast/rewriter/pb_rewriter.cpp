@@ -272,6 +272,9 @@ br_status pb_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * cons
             else if (k.is_one() && all_unit && m_args.size() == 1) {
                 result = m_args.back();
             }
+            else if (slack == k) {
+                result = mk_and(m, sz, m_args.c_ptr());
+            }
             else {
                 result = m_util.mk_eq(sz, m_coeffs.c_ptr(), m_args.c_ptr(), k);
             }

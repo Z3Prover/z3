@@ -197,13 +197,17 @@ bool is_threaded();
         }                                                       \
     } } ((void) 0)              
 
+#ifdef _NO_OMP_
+#define LOCK_CODE(CODE) CODE;
+#else
 #define LOCK_CODE(CODE)                         \
     {                                           \
-    __pragma(omp critical (verbose_lock))      \
-    {                                           \
-    CODE;                                       \
-    }                                           \
+        __pragma(omp critical (verbose_lock))   \
+            {                                   \
+                CODE;                           \
+            }                                   \
     }                                           
+#endif
 
 template<typename T>
 struct default_eq {

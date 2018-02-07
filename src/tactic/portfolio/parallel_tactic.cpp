@@ -242,6 +242,7 @@ class parallel_tactic : public tactic {
         lbool simplify() {
             lbool r = l_undef;
             if (m_depth == 1) {
+                IF_VERBOSE(2, verbose_stream() << "(parallel.tactic simplify-1)\n";);
                 set_simplify_params(true, true);         // retain PB, retain blocked
                 r = get_solver().check_sat(0,0);
                 if (r != l_undef) return r;
@@ -255,9 +256,11 @@ class parallel_tactic : public tactic {
                 m_solver->set_model_converter(mc.get());
                 m_solver->assert_expr(fmls);
             }
+            IF_VERBOSE(2, verbose_stream() << "(parallel.tactic simplify-2)\n";);
             set_simplify_params(false, true);         // remove PB, retain blocked
             r = get_solver().check_sat(0,0);
             if (r != l_undef) return r;
+            IF_VERBOSE(2, verbose_stream() << "(parallel.tactic simplify-3)\n";);
             set_simplify_params(false, false);        // remove any PB, remove blocked
             r = get_solver().check_sat(0,0);
             return r;            
@@ -398,6 +401,7 @@ private:
         cube.reset();
         cube.append(s.split_cubes(1));
         SASSERT(cube.size() <= 1);
+        IF_VERBOSE(2, verbose_stream() << "(sat.parallel :split-cube " << cube.size() << ")\n";);
         if (!s.cubes().empty()) m_queue.add_task(s.clone());
         if (!cube.empty()) s.assert_cube(cube.get(0));
         s.inc_depth(1);

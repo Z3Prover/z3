@@ -735,8 +735,8 @@ namespace opt {
         tactic_ref tac1, tac2, tac3, tac4;
         if (optp.elim_01()) {
             tac1 = mk_dt2bv_tactic(m);
-            tac2 = mk_elim01_tactic(m);
-            tac3 = mk_lia2card_tactic(m);
+            tac2 = mk_lia2card_tactic(m);
+            tac3 = mk_elim01_tactic(m);
             tac4 = mk_eq2bv_tactic(m);
             params_ref lia_p;
             lia_p.set_bool("compile_equality", optp.pb_compile_equality());

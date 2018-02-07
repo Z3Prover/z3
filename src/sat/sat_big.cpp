@@ -28,7 +28,7 @@ namespace sat {
     void big::init(solver& s, bool learned) {
         init_adding_edges(s.num_vars(), learned);
         unsigned num_lits = m_num_vars * 2;
-        literal_vector lits;
+        literal_vector lits, r;
         SASSERT(num_lits == m_dag.size() && num_lits == m_roots.size());
         for (unsigned l_idx = 0; l_idx < num_lits; l_idx++) {
             literal u = to_literal(l_idx);
@@ -41,6 +41,13 @@ namespace sat {
                     m_roots[v.index()] = false;
                     edges.push_back(v);
                 }
+#if 0
+                if (w.is_ext_constraint() && 
+                    s.m_ext && 
+                    s.m_ext->is_extended_binary(w.get_ext_constraint_idx(), r)) {
+                    IF_VERBOSE(0, verbose_stream() << "extended binary " << r.size() << "\n";);
+                }
+#endif
             }
         }
         done_adding_edges();
