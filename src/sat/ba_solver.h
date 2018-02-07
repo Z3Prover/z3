@@ -51,12 +51,12 @@ namespace sat {
         enum tag_t {
             card_t,
             pb_t,
-            xor_t
+            xr_t
         };
 
         class card;
         class pb;
-        class xor;
+        class xr;
 
         class constraint {
         protected:
@@ -91,13 +91,13 @@ namespace sat {
             size_t obj_size() const { return m_obj_size; }
             card& to_card();
             pb&  to_pb();
-            xor& to_xor();
+            xr& to_xr();
             card const& to_card() const;
             pb const&  to_pb() const;
-            xor const& to_xor() const;
+            xr const& to_xr() const;
             bool is_card() const { return m_tag == card_t; }
             bool is_pb() const { return m_tag == pb_t; }
-            bool is_xor() const { return m_tag == xor_t; }
+            bool is_xr() const { return m_tag == xr_t; }
             
             virtual bool is_watching(literal l) const { UNREACHABLE(); return false; };
             virtual literal_vector literals() const { UNREACHABLE(); return literal_vector(); }
@@ -174,11 +174,11 @@ namespace sat {
             virtual unsigned get_coeff(unsigned i) const { return m_wlits[i].first; }
         };
 
-        class xor : public constraint {
+        class xr : public constraint {
             literal        m_lits[0];
         public:
-            static size_t get_obj_size(unsigned num_lits) { return sizeof(xor) + num_lits * sizeof(literal); }
-            xor(unsigned id, literal_vector const& lits);
+            static size_t get_obj_size(unsigned num_lits) { return sizeof(xr) + num_lits * sizeof(literal); }
+            xr(unsigned id, literal_vector const& lits);
             literal operator[](unsigned i) const { return m_lits[i]; }
             literal const* begin() const { return m_lits; }
             literal const* end() const { return begin() + m_size; }
@@ -351,17 +351,17 @@ namespace sat {
         double get_reward(card const& c, literal_occs_fun& occs) const;
 
 
-        // xor specific functionality
-        void clear_watch(xor& x);
-        bool init_watch(xor& x);
-        bool parity(xor const& x, unsigned offset) const;
-        lbool add_assign(xor& x, literal alit);
-        void get_xor_antecedents(literal l, unsigned index, justification js, literal_vector& r);
-        void get_antecedents(literal l, xor const& x, literal_vector & r);
-        void simplify(xor& x);
-        bool clausify(xor& x);
-        void flush_roots(xor& x);
-        lbool eval(xor const& x) const;
+        // xr specific functionality
+        void clear_watch(xr& x);
+        bool init_watch(xr& x);
+        bool parity(xr const& x, unsigned offset) const;
+        lbool add_assign(xr& x, literal alit);
+        void get_xr_antecedents(literal l, unsigned index, justification js, literal_vector& r);
+        void get_antecedents(literal l, xr const& x, literal_vector & r);
+        void simplify(xr& x);
+        bool clausify(xr& x);
+        void flush_roots(xr& x);
+        lbool eval(xr const& x) const;
         
         // pb functionality
         unsigned m_a_max;
@@ -425,14 +425,14 @@ namespace sat {
 
         // validation utilities
         bool validate_conflict(card const& c) const;
-        bool validate_conflict(xor const& x) const;
+        bool validate_conflict(xr const& x) const;
         bool validate_conflict(pb const& p) const;
         bool validate_assign(literal_vector const& lits, literal lit);
         bool validate_lemma();
         bool validate_unit_propagation(card const& c, literal alit) const;
         bool validate_unit_propagation(pb const& p, literal alit) const;
         bool validate_unit_propagation(pb const& p, literal_vector const& r, literal alit) const;
-        bool validate_unit_propagation(xor const& x, literal alit) const;
+        bool validate_unit_propagation(xr const& x, literal alit) const;
         bool validate_conflict(literal_vector const& lits, ineq& p);
         bool validate_watch_literals() const;
         bool validate_watch_literal(literal lit) const;
@@ -456,11 +456,11 @@ namespace sat {
         void display(std::ostream& out, constraint const& c, bool values) const;
         void display(std::ostream& out, card const& c, bool values) const;
         void display(std::ostream& out, pb const& p, bool values) const;
-        void display(std::ostream& out, xor const& c, bool values) const;
+        void display(std::ostream& out, xr const& c, bool values) const;
 
         constraint* add_at_least(literal l, literal_vector const& lits, unsigned k, bool learned);
         constraint* add_pb_ge(literal l, svector<wliteral> const& wlits, unsigned k, bool learned);
-        constraint* add_xor(literal_vector const& lits, bool learned);
+        constraint* add_xr(literal_vector const& lits, bool learned);
 
         void copy_core(ba_solver* result, bool learned);
         void copy_constraints(ba_solver* result, ptr_vector<constraint> const& constraints);
@@ -472,7 +472,7 @@ namespace sat {
         virtual void set_unit_walk(unit_walk* u) { m_unit_walk = u; }
         void    add_at_least(bool_var v, literal_vector const& lits, unsigned k);
         void    add_pb_ge(bool_var v, svector<wliteral> const& wlits, unsigned k);
-        void    add_xor(literal_vector const& lits);
+        void    add_xr(literal_vector const& lits);
 
         virtual bool propagate(literal l, ext_constraint_idx idx);
         virtual lbool resolve_conflict();

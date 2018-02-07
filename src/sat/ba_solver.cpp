@@ -7,7 +7,7 @@ Module Name:
 
 Abstract:
 
-    Extension for cardinality and xor reasoning.
+    Extension for cardinality and xr reasoning.
 
 Author:
 
@@ -47,14 +47,14 @@ namespace sat {
         return static_cast<pb const&>(*this);
     }
 
-    ba_solver::xor& ba_solver::constraint::to_xor() {
-        SASSERT(is_xor());
-        return static_cast<xor&>(*this);
+    ba_solver::xr& ba_solver::constraint::to_xr() {
+        SASSERT(is_xr());
+        return static_cast<xr&>(*this);
     }
 
-    ba_solver::xor const& ba_solver::constraint::to_xor() const{
-        SASSERT(is_xor());
-        return static_cast<xor const&>(*this);
+    ba_solver::xr const& ba_solver::constraint::to_xr() const{
+        SASSERT(is_xr());
+        return static_cast<xr const&>(*this);
     }
 
     std::ostream& operator<<(std::ostream& out, ba_solver::constraint const& cnstr) {
@@ -77,8 +77,8 @@ namespace sat {
             out << " >= " << p.k();
             break;
         }
-        case ba_solver::xor_t: {
-            ba_solver::xor const& x = cnstr.to_xor();
+        case ba_solver::xr_t: {
+            ba_solver::xr const& x = cnstr.to_xr();
             for (unsigned i = 0; i < x.size(); ++i) {
                 out << x[i] << " ";
                 if (i + 1 < x.size()) out << "x ";
@@ -187,22 +187,22 @@ namespace sat {
 
 
     // -----------------------------------
-    // xor
+    // xr
     
-    ba_solver::xor::xor(unsigned id, literal_vector const& lits):
-    constraint(xor_t, id, null_literal, lits.size(), get_obj_size(lits.size())) {
+    ba_solver::xr::xr(unsigned id, literal_vector const& lits):
+    constraint(xr_t, id, null_literal, lits.size(), get_obj_size(lits.size())) {
         for (unsigned i = 0; i < size(); ++i) {
             m_lits[i] = lits[i];
         }
     }
 
-    bool ba_solver::xor::is_watching(literal l) const {
+    bool ba_solver::xr::is_watching(literal l) const {
         return 
             l == (*this)[0] || l == (*this)[1] ||
             ~l == (*this)[0] || ~l == (*this)[1];            
     }
 
-    bool ba_solver::xor::well_formed() const {
+    bool ba_solver::xr::well_formed() const {
         uint_set vars;        
         if (lit() != null_literal) vars.insert(lit().var());
         for (literal l : *this) {
@@ -305,7 +305,7 @@ namespace sat {
             UNREACHABLE();
         }
         SASSERT(validate_conflict(c));
-        if (c.is_xor() && value(lit) == l_true) lit.neg();
+        if (c.is_xr() && value(lit) == l_true) lit.neg();
         SASSERT(value(lit) == l_false);
         set_conflict(justification::mk_ext_justification(c.index()), ~lit);
         SASSERT(inconsistent());
@@ -892,16 +892,16 @@ namespace sat {
 
 
     // --------------------
-    // xor:
+    // xr:
 
-    void ba_solver::clear_watch(xor& x) {
+    void ba_solver::clear_watch(xr& x) {
         unwatch_literal(x[0], x);
         unwatch_literal(x[1], x);         
         unwatch_literal(~x[0], x);
         unwatch_literal(~x[1], x);         
     }
 
-    bool ba_solver::parity(xor const& x, unsigned offset) const {
+    bool ba_solver::parity(xr const& x, unsigned offset) const {
         bool odd = false;
         unsigned sz = x.size();
         for (unsigned i = offset; i < sz; ++i) {
@@ -913,7 +913,7 @@ namespace sat {
         return odd;
     }
 
-    bool ba_solver::init_watch(xor& x) {
+    bool ba_solver::init_watch(xr& x) {
         clear_watch(x);
         if (x.lit() != null_literal && value(x.lit()) == l_false) {
             x.negate();
@@ -957,7 +957,7 @@ namespace sat {
     }
 
 
-    lbool ba_solver::add_assign(xor& x, literal alit) {
+    lbool ba_solver::add_assign(xr& x, literal alit) {
         // literal is assigned     
         unsigned sz = x.size();
         TRACE("ba", tout << "assign: "  << ~alit << "@" << lvl(~alit) << " " << x << "\n"; display(tout, x, true); );
@@ -1223,12 +1223,12 @@ namespace sat {
                     for (literal l : m_lemma) process_antecedent(~l, offset);
                     break;
                 }
-                case xor_t: {
+                case xr_t: {
                     // jus.push_back(js);
                     m_lemma.reset();
                     inc_bound(offset);
                     inc_coeff(consequent, offset);
-                    get_xor_antecedents(consequent, idx, js, m_lemma);
+                    get_xr_antecedents(consequent, idx, js, m_lemma);
                     for (literal l : m_lemma) process_antecedent(~l, offset);
                     break;
                 }
@@ -1593,7 +1593,7 @@ namespace sat {
         switch (c.tag()) {
         case card_t: return init_watch(c.to_card()); 
         case pb_t: return init_watch(c.to_pb());
-        case xor_t: return init_watch(c.to_xor()); 
+        case xr_t: return init_watch(c.to_xr()); 
         }
         UNREACHABLE();
         return false;
@@ -1603,7 +1603,7 @@ namespace sat {
         switch (c.tag()) {
         case card_t: return add_assign(c.to_card(), l); 
         case pb_t: return add_assign(c.to_pb(), l); 
-        case xor_t: return add_assign(c.to_xor(), l); 
+        case xr_t: return add_assign(c.to_xr(), l); 
         }
         UNREACHABLE();
         return l_undef;
@@ -1632,13 +1632,13 @@ namespace sat {
         add_pb_ge(lit, wlits, k, false);
     }
 
-    void ba_solver::add_xor(literal_vector const& lits) {
-        add_xor(lits, false);
+    void ba_solver::add_xr(literal_vector const& lits) {
+        add_xr(lits, false);
     }
 
-    ba_solver::constraint* ba_solver::add_xor(literal_vector const& lits, bool learned) {
-        void * mem = m_allocator.allocate(xor::get_obj_size(lits.size()));
-        xor* x = new (mem) xor(next_id(), lits);
+    ba_solver::constraint* ba_solver::add_xr(literal_vector const& lits, bool learned) {
+        void * mem = m_allocator.allocate(xr::get_obj_size(lits.size()));
+        xr* x = new (mem) xr(next_id(), lits);
         x->set_learned(learned);
         add_constraint(x);
         for (literal l : lits) s().set_external(l.var()); // TBD: determine if goal2sat does this.
@@ -1709,7 +1709,7 @@ namespace sat {
         switch (c.tag()) {
         case card_t: return get_reward(c.to_card(), occs);
         case pb_t: return get_reward(c.to_pb(), occs); 
-        case xor_t: return 0;
+        case xr_t: return 0;
         default: UNREACHABLE(); return 0;
         }
     }
@@ -1737,11 +1737,11 @@ namespace sat {
     }
     
     /**
-       \brief perform parity resolution on xor premises.
-       The idea is to collect premises based on xor resolvents. 
+       \brief perform parity resolution on xr premises.
+       The idea is to collect premises based on xr resolvents. 
        Variables that are repeated an even number of times cancel out.
      */
-    void ba_solver::get_xor_antecedents(literal l, unsigned index, justification js, literal_vector& r) {
+    void ba_solver::get_xr_antecedents(literal l, unsigned index, justification js, literal_vector& r) {
         unsigned level = lvl(l);
         bool_var v = l.var();
         SASSERT(js.get_kind() == justification::EXT_JUSTIFICATION);
@@ -1758,11 +1758,11 @@ namespace sat {
             if (js.get_kind() == justification::EXT_JUSTIFICATION) {
                 constraint& c = index2constraint(js.get_ext_justification_idx());
                 TRACE("ba", tout << c << "\n";);
-                if (!c.is_xor()) {
+                if (!c.is_xr()) {
                     r.push_back(l);
                 }
                 else {
-                    xor& x = c.to_xor();                    
+                    xr& x = c.to_xr();                    
                     if (x[1].var() == l.var()) {
                         x.swap(0, 1);
                     }
@@ -1959,7 +1959,7 @@ namespace sat {
         }
     }
 
-    void ba_solver::simplify(xor& x) {
+    void ba_solver::simplify(xr& x) {
         // no-op
     }
 
@@ -1979,7 +1979,7 @@ namespace sat {
         }
     }
 
-    void ba_solver::get_antecedents(literal l, xor const& x, literal_vector& r) {
+    void ba_solver::get_antecedents(literal l, xr const& x, literal_vector& r) {
         if (x.lit() != null_literal) r.push_back(x.lit());
         // TRACE("ba", display(tout << l << " ", x, true););
         SASSERT(x.lit() == null_literal || value(x.lit()) == l_true);
@@ -2021,7 +2021,7 @@ namespace sat {
         switch (c.tag()) {
         case card_t: get_antecedents(l, c.to_card(), r); break;
         case pb_t: get_antecedents(l, c.to_pb(), r); break;
-        case xor_t: get_antecedents(l, c.to_xor(), r); break;
+        case xr_t: get_antecedents(l, c.to_xr(), r); break;
         default: UNREACHABLE(); break;
         }
     }
@@ -2042,8 +2042,8 @@ namespace sat {
         case pb_t:
             clear_watch(c.to_pb());
             break;
-        case xor_t:
-            clear_watch(c.to_xor());
+        case xr_t:
+            clear_watch(c.to_xr());
             break;
         default:
             UNREACHABLE();
@@ -2066,7 +2066,7 @@ namespace sat {
         switch (c.tag()) {
         case card_t:  return validate_unit_propagation(c.to_card(), l); 
         case pb_t: return validate_unit_propagation(c.to_pb(), l);
-        case xor_t: return true;
+        case xr_t: return true;
         default: UNREACHABLE(); break;
         }
         return false;
@@ -2081,7 +2081,7 @@ namespace sat {
         switch (c.tag()) {
         case card_t: return eval(v1, eval(c.to_card())); 
         case pb_t:   return eval(v1, eval(c.to_pb()));
-        case xor_t:  return eval(v1, eval(c.to_xor()));
+        case xr_t:  return eval(v1, eval(c.to_xr()));
         default: UNREACHABLE(); break;
         }
         return l_undef;        
@@ -2120,7 +2120,7 @@ namespace sat {
         return l_undef;        
     }
 
-    lbool ba_solver::eval(xor const& x) const {
+    lbool ba_solver::eval(xr const& x) const {
         bool odd = false;
         
         for (auto l : x) {
@@ -2393,9 +2393,9 @@ namespace sat {
             if (!clausify(c.to_pb()))
                 simplify(c.to_pb());
             break;
-        case xor_t:
-            if (!clausify(c.to_xor()))
-                simplify(c.to_xor());
+        case xr_t:
+            if (!clausify(c.to_xr()))
+                simplify(c.to_xr());
             break;
         default:
             UNREACHABLE();
@@ -2551,7 +2551,7 @@ namespace sat {
         case pb_t:
             recompile(c.to_pb());
             break;
-        case xor_t:
+        case xr_t:
             NOT_IMPLEMENTED_YET();
             break;
         default:
@@ -2664,7 +2664,7 @@ namespace sat {
         return false;
     }
 
-    bool ba_solver::clausify(xor& x) {
+    bool ba_solver::clausify(xr& x) {
         return false;
     }
 
@@ -2730,7 +2730,7 @@ namespace sat {
         switch (c.tag()) {
         case card_t: split_root(c.to_card()); break;
         case pb_t: split_root(c.to_pb()); break;
-        case xor_t: NOT_IMPLEMENTED_YET(); break;
+        case xr_t: NOT_IMPLEMENTED_YET(); break;
         }
     }
 
@@ -2843,8 +2843,8 @@ namespace sat {
                 }
                 break;
             }
-            case xor_t: {
-                xor& x = cp->to_xor();
+            case xr_t: {
+                xr& x = cp->to_xr();
                 for (literal l : x) {
                     m_cnstr_use_list[l.index()].push_back(&x);
                     m_cnstr_use_list[(~l).index()].push_back(&x);
@@ -3319,11 +3319,11 @@ namespace sat {
                 result->add_pb_ge(p.lit(), wlits, p.k(), p.learned());
                 break;
             }
-            case xor_t: {
-                xor const& x = cp->to_xor();
+            case xr_t: {
+                xr const& x = cp->to_xr();
                 lits.reset();
                 for (literal l : x) lits.push_back(l);
-                result->add_xor(lits, x.learned());        
+                result->add_xr(lits, x.learned());        
                 break;
             }
             default:
@@ -3355,8 +3355,8 @@ namespace sat {
                 }
                 break;
             }
-            case xor_t: {
-                xor const& x = cp->to_xor();
+            case xr_t: {
+                xr const& x = cp->to_xr();
                 for (literal l : x) {
                     ul.insert(l, idx);
                     ul.insert(~l, idx);
@@ -3450,8 +3450,8 @@ namespace sat {
         out << ">= " << ineq.m_k << "\n";
     }
 
-    void ba_solver::display(std::ostream& out, xor const& x, bool values) const {
-        out << "xor: ";
+    void ba_solver::display(std::ostream& out, xr const& x, bool values) const {
+        out << "xr: ";
         for (literal l : x) {
             out << l;
             if (values) {
@@ -3520,7 +3520,7 @@ namespace sat {
         switch (c.tag()) {
         case card_t: display(out, c.to_card(), values); break;
         case pb_t: display(out, c.to_pb(), values); break;
-        case xor_t: display(out, c.to_xor(), values); break;
+        case xr_t: display(out, c.to_xr(), values); break;
         default: UNREACHABLE(); break;
         }
     }
@@ -3612,7 +3612,7 @@ namespace sat {
         return false;
     }
 
-    bool ba_solver::validate_unit_propagation(xor const& x, literal alit) const {
+    bool ba_solver::validate_unit_propagation(xr const& x, literal alit) const {
         if (value(x.lit()) != l_true) return false;
         for (unsigned i = 1; i < x.size(); ++i) {
             if (value(x[i]) == l_undef) return false;
@@ -3827,14 +3827,14 @@ namespace sat {
                 if (p.lit() != null_literal) ineq.push(~p.lit(), p.k());
                 break;
             }
-            case xor_t: {
-                xor& x = cnstr.to_xor();
+            case xr_t: {
+                xr& x = cnstr.to_xr();
                 literal_vector ls;
                 get_antecedents(lit, x, ls);                
                 ineq.reset(offset);
                 for (literal l : ls) ineq.push(~l, offset);
-                literal lxor = x.lit();                
-                if (lxor != null_literal) ineq.push(~lxor, offset);
+                literal lxr = x.lit();                
+                if (lxr != null_literal) ineq.push(~lxr, offset);
                 break;
             }
             default:

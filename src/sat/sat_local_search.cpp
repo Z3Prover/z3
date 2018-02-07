@@ -400,7 +400,7 @@ namespace sat {
                     }
                     break;
                 }
-                case ba_solver::xor_t:
+                case ba_solver::xr_t:
                     NOT_IMPLEMENTED_YET();
                     break;
                 }

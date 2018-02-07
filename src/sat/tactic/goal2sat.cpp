@@ -400,7 +400,7 @@ struct goal2sat::imp {
             lits[i].neg();
         }
         ensure_extension();
-        m_ext->add_xor(lits);
+        m_ext->add_xr(lits);
         sat::literal lit(v, sign);
         if (root) {            
             m_result_stack.reset();
@@ -1115,7 +1115,7 @@ struct sat2goal::imp {
         r.assert_expr(fml);
     }
 
-    void assert_xor(ref<mc>& mc, goal & r, sat::ba_solver::xor const& x) {
+    void assert_xor(ref<mc>& mc, goal & r, sat::ba_solver::xr const& x) {
         ptr_buffer<expr> lits;
         for (sat::literal l : x) {
             lits.push_back(lit2expr(mc, l));
@@ -1185,8 +1185,8 @@ struct sat2goal::imp {
                 case sat::ba_solver::pb_t: 
                     assert_pb(mc, r, c->to_pb());
                     break;
-                case sat::ba_solver::xor_t: 
-                    assert_xor(mc, r, c->to_xor());
+                case sat::ba_solver::xr_t: 
+                    assert_xor(mc, r, c->to_xr());
                     break;
                 }
             }

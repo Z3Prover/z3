@@ -104,7 +104,7 @@ public:
 
     virtual ~inc_sat_solver() {}
 
-    virtual solver* translate(ast_manager& dst_m, params_ref const& p) {
+    solver* translate(ast_manager& dst_m, params_ref const& p) override {
         if (m_num_scopes > 0) {
             throw default_exception("Cannot translate sat solver at non-base level");
         }
@@ -128,7 +128,7 @@ public:
         return result;
     }
 
-    virtual void set_progress_callback(progress_callback * callback) {}
+    void set_progress_callback(progress_callback * callback) override {}
 
     void display_weighted(std::ostream& out, unsigned sz, expr * const * assumptions, unsigned const* weights) {
         if (weights != 0) {
@@ -160,7 +160,7 @@ public:
             (m.is_not(e, e) && is_uninterp_const(e));
     }
 
-    virtual lbool check_sat(unsigned sz, expr * const * assumptions) {
+    lbool check_sat(unsigned sz, expr * const * assumptions) override {
         m_solver.pop_to_base_level();
         m_core.reset();
         if (m_solver.inconsistent()) return l_false;
@@ -213,7 +213,8 @@ public:
         }
         return r;
     }
-    virtual void push() {
+
+    void push() override {
         internalize_formulas();
         m_solver.user_push();
         ++m_num_scopes;
@@ -223,7 +224,8 @@ public:
         if (m_bb_rewriter) m_bb_rewriter->push();
         m_map.push();
     }
-    virtual void pop(unsigned n) {
+
+    void pop(unsigned n) override {
         if (n > m_num_scopes) {   // allow inc_sat_solver to
             n = m_num_scopes;     // take over for another solver.
         }
@@ -243,9 +245,11 @@ public:
             --n;
         }
     }
+
     unsigned get_scope_level() const override {
         return m_num_scopes;
     }
+
     void assert_expr_core2(expr * t, expr * a) override {
         if (a) {
             m_asmsf.push_back(a);
@@ -256,18 +260,18 @@ public:
         }
     }
 
-    virtual ast_manager& get_manager() const { return m; }
-    virtual void assert_expr_core(expr * t) {
+    ast_manager& get_manager() const override { return m; }
+    void assert_expr_core(expr * t) override {
         TRACE("goal2sat", tout << mk_pp(t, m) << "\n";);
         m_fmls.push_back(t);
     }
-    virtual void set_produce_models(bool f) {}
-    virtual void collect_param_descrs(param_descrs & r) {
+    void set_produce_models(bool f) override {}
+    void collect_param_descrs(param_descrs & r) override {
         solver::collect_param_descrs(r);
         goal2sat::collect_param_descrs(r);
         sat::solver::collect_param_descrs(r);
     }
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_params.append(p);
         sat_params p1(p);
         m_params.set_bool("keep_cardinality_constraints", p1.cardinality_solver());
@@ -279,20 +283,20 @@ public:
         m_solver.set_incremental(is_incremental() && !override_incremental());
 
     }
-    virtual void collect_statistics(statistics & st) const {
+    void collect_statistics(statistics & st) const override {
         if (m_preprocess) m_preprocess->collect_statistics(st);
         m_solver.collect_statistics(st);
     }
-    virtual void get_unsat_core(ptr_vector<expr> & r) {
+    void get_unsat_core(ptr_vector<expr> & r) override {
         r.reset();
         r.append(m_core.size(), m_core.c_ptr());
     }
-    virtual proof * get_proof() {
+    proof * get_proof() override {
         UNREACHABLE();
         return 0;
     }
 
-    virtual expr_ref_vector cube(expr_ref_vector& vs, unsigned backtrack_level) {
+    expr_ref_vector cube(expr_ref_vector& vs, unsigned backtrack_level) override {
         if (!is_internalized()) {
             lbool r = internalize_formulas();
             if (r != l_true) return expr_ref_vector(m);
@@ -331,8 +335,8 @@ public:
         }
         return fmls;
     }
-
-    virtual lbool get_consequences_core(expr_ref_vector const& assumptions, expr_ref_vector const& vars, expr_ref_vector& conseq) {
+    
+    lbool get_consequences_core(expr_ref_vector const& assumptions, expr_ref_vector const& vars, expr_ref_vector& conseq) override {
         init_preprocess();
         TRACE("sat", tout << assumptions << "\n" << vars << "\n";);
         sat::literal_vector asms;
@@ -780,7 +784,7 @@ private:
         }
     }
 
-    virtual void get_model_core(model_ref & mdl) {
+    void get_model_core(model_ref & mdl) override {
         TRACE("sat", tout << "retrieve model " << (m_solver.model_is_current()?"present":"absent") << "\n";);
         if (!m_solver.model_is_current()) {
             mdl = nullptr;
