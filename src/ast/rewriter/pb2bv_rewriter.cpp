@@ -471,7 +471,8 @@ struct pb2bv_rewriter::imp {
                 
                 expr_ref gt = mod_ge(out, B, d_i + 1);
                 expr_ref ge = mod_ge(out, B, d_i);
-                result = mk_or(gt, mk_and(ge, result));                
+                result = mk_and(ge, result);
+                result = mk_or(gt, result);                
                 TRACE("pb", tout << "b: " << b_i << " d: " << d_i << " gt: " << gt << " ge: " << ge << " " << result << "\n";);
 
                 new_carry.reset();
