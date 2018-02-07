@@ -1012,7 +1012,7 @@ namespace opt {
     void context::model_updated(model* md) {
         opt_params optp(m_params);
         symbol prefix = optp.solution_prefix();
-        if (prefix == symbol::null) return;        
+        if (prefix == symbol::null || prefix == symbol("")) return;        
         model_ref mdl = md->copy();
         fix_model(mdl);
         std::ostringstream buffer;
