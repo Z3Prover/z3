@@ -60,6 +60,8 @@ namespace sat {
         return out;
     }
 
+    const double dbl_max = 100000000.0;
+
     class lookahead {
         solver&    m_s;
         unsigned   m_num_vars;
@@ -186,7 +188,7 @@ namespace sat {
                 m_is_decision.reset(); 
                 m_cube.reset(); 
                 m_freevars_threshold = 0;
-                m_psat_threshold = 100000000.0;
+                m_psat_threshold = dbl_max;
                 reset_stats();
             }
             void reset_stats() { m_conflicts = 0; m_cutoffs = 0; }

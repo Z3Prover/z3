@@ -1070,7 +1070,7 @@ namespace sat {
             m_overflow = true;
             return UINT_MAX;
         }
-        return static_cast<unsigned>(abs(c));
+        return static_cast<unsigned>(std::abs(c));
     }
 
     int ba_solver::get_int_coeff(bool_var v) const {
@@ -1376,16 +1376,16 @@ namespace sat {
                 unsigned acoeff = get_abs_coeff(v);
                 if (lvl(lit) == m_conflict_lvl) {
                     if (m_lemma[0] == null_literal) {
-                        asserting_coeff = abs(coeff);
+                        asserting_coeff = std::abs(coeff);
                         slack -= asserting_coeff;
                         m_lemma[0] = ~lit;
                     }
                     else {
                         ++num_skipped;
-                        if (asserting_coeff < abs(coeff)) {
+                        if (asserting_coeff < std::abs(coeff)) {
                             m_lemma[0] = ~lit;
-                            slack -= (abs(coeff) - asserting_coeff);
-                            asserting_coeff = abs(coeff);
+                            slack -= (std::abs(coeff) - asserting_coeff);
+                            asserting_coeff = std::abs(coeff);
                         }
                     }
                 }
