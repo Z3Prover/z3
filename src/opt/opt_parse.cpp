@@ -577,7 +577,7 @@ private:
         
     symbol const& peek(unsigned i) { return tok.peek(i); }
 
-    bool try_accept(char * token) {
+    bool try_accept(char const * token) {
         if (peek(0) == token) {
             tok.next();
             return true;

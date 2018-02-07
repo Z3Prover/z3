@@ -19,6 +19,8 @@ Revision History:
 #ifndef FILE_PATH_H_
 #define FILE_PATH_H_
 
+#include<string.h>
+
 inline char const * get_extension(char const * file_name) {
     if (file_name == 0)
         return 0;
