@@ -32,7 +32,7 @@ solver_na2as::~solver_na2as() {}
 
 void solver_na2as::assert_expr_core(expr * t, expr * a) {
     if (a == 0) {
-        assert_expr_core(t);
+        solver::assert_expr_core(t);
     }
     else {
         SASSERT(is_uninterp_const(a));
@@ -41,7 +41,7 @@ void solver_na2as::assert_expr_core(expr * t, expr * a) {
         m_assumptions.push_back(a);
         expr_ref new_t(m);
         new_t = m.mk_implies(a, t);
-        assert_expr_core(new_t);
+        solver::assert_expr_core(new_t);
     }
 }
 
