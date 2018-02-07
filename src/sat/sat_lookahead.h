@@ -186,7 +186,7 @@ namespace sat {
                 m_is_decision.reset(); 
                 m_cube.reset(); 
                 m_freevars_threshold = 0;
-                m_psat_threshold = DBL_MAX;
+                m_psat_threshold = 100000000.0;
                 reset_stats();
             }
             void reset_stats() { m_conflicts = 0; m_cutoffs = 0; }

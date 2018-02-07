@@ -243,10 +243,10 @@ public:
             --n;
         }
     }
-    virtual unsigned get_scope_level() const {
+    unsigned get_scope_level() const override {
         return m_num_scopes;
     }
-    virtual void assert_expr_core(expr * t, expr * a) {
+    void assert_expr_core2(expr * t, expr * a) override {
         if (a) {
             m_asmsf.push_back(a);
             assert_expr_core(m.mk_implies(a, t));

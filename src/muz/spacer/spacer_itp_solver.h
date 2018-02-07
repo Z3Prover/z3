@@ -115,7 +115,7 @@ public:
     virtual void assert_expr_core(expr *t)
     {m_solver.assert_expr(t);}
 
-    virtual void assert_expr_core(expr *t, expr *a)
+    virtual void assert_expr_core2(expr *t, expr *a)
     {NOT_IMPLEMENTED_YET();}
     virtual void assert_lemma(expr* e) { NOT_IMPLEMENTED_YET(); }
     virtual expr_ref lookahead(const expr_ref_vector &,const expr_ref_vector &) { return expr_ref(m.mk_true(), m); }

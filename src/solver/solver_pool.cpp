@@ -49,7 +49,7 @@ public:
         m_in_delayed_scope(false),
         m_dump_counter(0) {
         if (is_virtual()) {
-            solver_na2as::assert_expr_core(m.mk_true(), pred);
+            solver_na2as::assert_expr_core2(m.mk_true(), pred);
         }
     }
 

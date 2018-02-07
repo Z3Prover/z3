@@ -50,7 +50,7 @@ virtual_solver::virtual_solver(virtual_solver_factory &factory,
     // -- change m_context, but will add m_pred to
     // -- the private field solver_na2as::m_assumptions
     if (m_virtual)
-    { solver_na2as::assert_expr_core(m.mk_true(), m_pred); }
+    { solver_na2as::assert_expr_core2(m.mk_true(), m_pred); }
 }
 
 virtual_solver::~virtual_solver()

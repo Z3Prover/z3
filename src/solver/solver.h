@@ -102,7 +102,7 @@ public:
 
     void assert_expr(expr * t, expr* a);
 
-    virtual void assert_expr_core(expr * t, expr * a) = 0;
+    virtual void assert_expr_core2(expr * t, expr * a) = 0;
 
     /**
        \brief Create a backtracking point.

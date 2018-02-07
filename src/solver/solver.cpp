@@ -199,7 +199,7 @@ void solver::assert_expr(expr* f, expr* t) {
             // (*mc)(a);        
         }
     }
-    assert_expr_core(fml, a);    
+    assert_expr_core2(fml, a);    
 }
 
 void solver::collect_param_descrs(param_descrs & r) {
