@@ -9838,7 +9838,7 @@ def Full(s):
     re.all
     >>> e1 = Full(ReSort(StringSort()))
     >>> print(e1)
-    re.allchar
+    re.all
     """
     if isinstance(s, ReSortRef):
        return ReRef(Z3_mk_re_full(s.ctx_ref(), s.ast), s.ctx)
