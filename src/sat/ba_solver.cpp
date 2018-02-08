@@ -1390,7 +1390,7 @@ namespace sat {
                     }
                 }
                 else {
-                    slack -= abs(coeff);
+                    slack -= std::abs(coeff);
                     m_lemma.push_back(~lit);
                 }
             }
@@ -3655,7 +3655,7 @@ namespace sat {
             m_active_var_set.insert(v);
             literal lit(v, coeff < 0);
             p.m_lits.push_back(lit);
-            p.m_coeffs.push_back(abs(coeff));
+            p.m_coeffs.push_back(std::abs(coeff));
         }
     }
 

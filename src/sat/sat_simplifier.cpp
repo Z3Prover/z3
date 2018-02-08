@@ -71,11 +71,11 @@ namespace sat {
         finalize();
     }
 
-    inline watch_list & simplifier::get_wlist(literal l) { return s.get_wlist(l); }
+    watch_list & simplifier::get_wlist(literal l) { return s.get_wlist(l); }
 
-    inline watch_list const & simplifier::get_wlist(literal l) const { return s.get_wlist(l); }
+    watch_list const & simplifier::get_wlist(literal l) const { return s.get_wlist(l); }
 
-    inline bool simplifier::is_external(bool_var v) const { 
+    bool simplifier::is_external(bool_var v) const { 
         return 
             s.is_assumption(v) ||
             (s.is_external(v) && s.is_incremental()) ||
@@ -1317,15 +1317,14 @@ namespace sat {
             m_ala_qhead = 0;
 
             switch (et) {
-            case abce_t:
-            case bce_t:
-                k = model_converter::BLOCK_LIT;
-                break;
             case cce_t:
                 k = model_converter::CCE;
                 break;
             case acce_t:
                 k = model_converter::ACCE;
+                break;
+            default:
+                k = model_converter::BLOCK_LIT;
                 break;
             }
 
