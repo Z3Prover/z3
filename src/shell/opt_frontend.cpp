@@ -9,6 +9,8 @@ Copyright (c) 2015 Microsoft Corporation
 #include<time.h>
 #include "util/gparams.h"
 #include "util/timeout.h"
+#include "util/cancel_eh.h"
+#include "util/scoped_timer.h"
 #include "ast/ast_util.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/ast_pp.h"
@@ -101,6 +103,11 @@ static unsigned parse_opt(std::istream& in, opt_format f) {
         break;
     }
     try {
+        cancel_eh<reslimit> eh(m.limit());
+        unsigned timeout = std::stoi(gparams::get_value("timeout"));
+        unsigned rlimit = std::stoi(gparams::get_value("rlimit"));
+        scoped_timer timer(timeout, &eh);
+        scoped_rlimit _rlimit(m.limit(), rlimit);
         lbool r = opt.optimize();
         switch (r) {
         case l_true:  std::cout << "sat\n"; break;

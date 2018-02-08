@@ -52,11 +52,12 @@ namespace sat {
                     for (unsigned i = 0; i < r.size(); ++i) {
                         literal u = r[i]; 
                         for (unsigned j = i + 1; j < r.size(); ++j) {
-                            // add r[i] -> ~r[j]
-                            literal v = ~r[j];
+                            // add ~r[i] -> r[j]
+                            literal v = r[j];
+                            literal u = ~r[j];
                             m_roots[v.index()] = false;
                             m_dag[u.index()].push_back(v);
-                            // add r[j] -> ~r[i]
+                            // add ~r[j] -> r[i]
                             v.neg();
                             u.neg();
                             m_roots[u.index()] = false;
