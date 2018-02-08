@@ -27,7 +27,6 @@ Notes:
 #include "tactic/goal.h"
 #include "tactic/tactic.h"
 #include "tactic/arith/lia2card_tactic.h"
-#include "tactic/arith/elim01_tactic.h"
 #include "tactic/core/solve_eqs_tactic.h"
 #include "tactic/core/simplify_tactic.h"
 #include "tactic/core/propagate_values_tactic.h"
@@ -736,12 +735,11 @@ namespace opt {
         if (optp.elim_01()) {
             tac1 = mk_dt2bv_tactic(m);
             tac2 = mk_lia2card_tactic(m);
-            tac3 = mk_elim01_tactic(m);
-            tac4 = mk_eq2bv_tactic(m);
+            tac3 = mk_eq2bv_tactic(m);
             params_ref lia_p;
             lia_p.set_bool("compile_equality", optp.pb_compile_equality());
             tac3->updt_params(lia_p);
-            set_simplify(and_then(tac0.get(), tac1.get(), tac2.get(), tac3.get(), tac4.get(), mk_simplify_tactic(m)));
+            set_simplify(and_then(tac0.get(), tac1.get(), tac2.get(), tac3.get(), mk_simplify_tactic(m)));
         }
         else {
             set_simplify(tac0.get());
