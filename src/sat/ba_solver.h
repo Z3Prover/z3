@@ -387,6 +387,8 @@ namespace sat {
         // access solver
         inline lbool value(bool_var v) const { return value(literal(v, false)); }
         inline lbool value(literal lit) const { return m_lookahead ? m_lookahead->value(lit) : m_solver->value(lit); }
+        inline lbool value(model const& m, literal l) const { return l.sign() ? ~m[l.var()] : m[l.var()]; }
+
         inline unsigned lvl(literal lit) const { return m_lookahead || m_unit_walk ? 0 : m_solver->lvl(lit); }
         inline unsigned lvl(bool_var v) const { return m_lookahead || m_unit_walk ? 0 : m_solver->lvl(v); }
         inline bool inconsistent() const { 
@@ -467,7 +469,6 @@ namespace sat {
         void copy_core(ba_solver* result, bool learned);
         void copy_constraints(ba_solver* result, ptr_vector<constraint> const& constraints);
 
-        bool check_model(model const& m, constraint const& c) const;
     public:
         ba_solver();
         virtual ~ba_solver();

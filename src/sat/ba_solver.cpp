@@ -2086,7 +2086,7 @@ namespace sat {
     }
 
     lbool ba_solver::eval(model const& m, constraint const& c) const {
-        lbool v1 = c.lit() == null_literal ? l_true : value(c.lit());
+        lbool v1 = c.lit() == null_literal ? l_true : value(m, c.lit());
         switch (c.tag()) {
         case card_t: return eval(v1, eval(m, c.to_card())); 
         case pb_t:   return eval(v1, eval(m, c.to_pb()));
@@ -2118,7 +2118,7 @@ namespace sat {
     lbool ba_solver::eval(model const& m, card const& c) const {
         unsigned trues = 0, undefs = 0;
         for (literal l : c) {
-            switch (l.sign() ? ~m[l.var()] : m[l.var()]) {
+            switch (value(m, l)) {
             case l_true: trues++; break;
             case l_undef: undefs++; break;
             default: break;
@@ -2132,7 +2132,7 @@ namespace sat {
     lbool ba_solver::eval(model const& m, pb const& p) const {
         unsigned trues = 0, undefs = 0;
         for (wliteral wl : p) {
-            switch (wl.second.sign() ? ~m[wl.second.var()] : m[wl.second.var()]) {
+            switch (value(m, wl.second)) {
             case l_true: trues += wl.first; break;
             case l_undef: undefs += wl.first; break;
             default: break;
@@ -2174,7 +2174,7 @@ namespace sat {
         bool odd = false;
         
         for (auto l : x) {
-            switch (l.sign() ? ~m[l.var()] : m[l.var()]) {
+            switch (value(m, l)) {
             case l_true: odd = !odd; break;
             case l_false: break;
             default: return l_undef;
@@ -2736,9 +2736,10 @@ namespace sat {
     }
 
     bool ba_solver::clausify(pb& p) {
+        return false;
         if (get_config().m_card_solver) 
             return false;
-
+        
         bool ok = !p.learned();
         bool is_def = p.lit() != null_literal;
         for (wliteral wl : p) {
@@ -4094,19 +4095,19 @@ namespace sat {
     bool ba_solver::check_model(model const& m) const {
         bool ok = true;
         for (constraint const* c : m_constraints) {
-            if (!check_model(m, *c)) ok = false;
+            switch (eval(m, *c)) {
+            case l_false: 
+                IF_VERBOSE(0, verbose_stream() << "failed checking " << c->id() << ": " << *c << "\n";);
+                ok = false;
+                break;
+            case l_true:
+                break;
+            case l_undef:
+                IF_VERBOSE(0, verbose_stream() << "undef " << c->id() << ": " << *c << "\n";);
+                break;
+            }
         }
         return ok;
-    }
-
-    bool ba_solver::check_model(model const& m, constraint const& c) const {
-        if (eval(m, c) != l_true) {
-            IF_VERBOSE(0, verbose_stream() << "failed checking " << c.id() << ": " << c << "\n";);
-            return false;
-        }
-        else {
-            return true;
-        }
     }
 
     

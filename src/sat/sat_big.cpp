@@ -42,7 +42,7 @@ namespace sat {
                     m_roots[v.index()] = false;
                     edges.push_back(v);
                 }
-#if 1
+#if 0
                 if (w.is_ext_constraint() && 
                     s.m_ext && 
                     learned && 
