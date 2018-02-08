@@ -1318,7 +1318,7 @@ namespace sat {
 
         m_overflow = false;
 
-        while (m_num_marks > 0 && idx >= 0) {
+        while (m_num_marks > 0) {
             bool_var v = lits[idx].var();
             if (s().is_marked(v)) {
                 s().reset_mark(v);
