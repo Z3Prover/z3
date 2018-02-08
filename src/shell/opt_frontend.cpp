@@ -7,13 +7,14 @@ Copyright (c) 2015 Microsoft Corporation
 #include<fstream>
 #include<signal.h>
 #include<time.h>
-#include "opt/opt_context.h"
+#include "util/gparams.h"
+#include "util/timeout.h"
 #include "ast/ast_util.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/ast_pp.h"
-#include "util/gparams.h"
-#include "util/timeout.h"
 #include "ast/reg_decl_plugins.h"
+#include "model/model_smt2_pp.h"
+#include "opt/opt_context.h"
 #include "opt/opt_parse.h"
 #include "shell/opt_frontend.h"
 
@@ -27,9 +28,15 @@ static unsigned_vector g_handles;
 
 static void display_results() {
     if (g_opt) {
-        for (unsigned i = 0; i < g_handles.size(); ++i) {
-            expr_ref lo = g_opt->get_lower(g_handles[i]);
-            expr_ref hi = g_opt->get_upper(g_handles[i]);
+        model_ref mdl;
+        g_opt->get_model(mdl);
+        if (mdl) {
+            model_smt2_pp(std::cout, g_opt->get_manager(), *mdl, 0); 
+        }
+
+        for (unsigned h : g_handles) {
+            expr_ref lo = g_opt->get_lower(h);
+            expr_ref hi = g_opt->get_upper(h);
             if (lo == hi) {
                 std::cout << "   " << lo << "\n";
             }

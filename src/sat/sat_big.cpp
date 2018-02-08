@@ -30,6 +30,7 @@ namespace sat {
         unsigned num_lits = m_num_vars * 2;
         literal_vector lits, r;
         SASSERT(num_lits == m_dag.size() && num_lits == m_roots.size());
+        size_t_map<bool> seen_idx;
         for (unsigned l_idx = 0; l_idx < num_lits; l_idx++) {
             literal u = to_literal(l_idx);
             if (s.was_eliminated(u.var())) 
@@ -41,11 +42,27 @@ namespace sat {
                     m_roots[v.index()] = false;
                     edges.push_back(v);
                 }
-#if 0
+#if 1
                 if (w.is_ext_constraint() && 
                     s.m_ext && 
+                    learned && 
+                    !seen_idx.contains(w.get_ext_constraint_idx()) &&
                     s.m_ext->is_extended_binary(w.get_ext_constraint_idx(), r)) {
-                    IF_VERBOSE(0, verbose_stream() << "extended binary " << r.size() << "\n";);
+                    seen_idx.insert(w.get_ext_constraint_idx(), true);
+                    for (unsigned i = 0; i < r.size(); ++i) {
+                        literal u = r[i]; 
+                        for (unsigned j = i + 1; j < r.size(); ++j) {
+                            // add r[i] -> ~r[j]
+                            literal v = ~r[j];
+                            m_roots[v.index()] = false;
+                            m_dag[u.index()].push_back(v);
+                            // add r[j] -> ~r[i]
+                            v.neg();
+                            u.neg();
+                            m_roots[u.index()] = false;
+                            m_dag[v.index()].push_back(u);
+                        }
+                    }
                 }
 #endif
             }
