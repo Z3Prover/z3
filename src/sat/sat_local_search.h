@@ -99,11 +99,12 @@ namespace sat {
         };
 
         struct constraint {
+            unsigned        m_id;
             unsigned        m_k;
             int             m_slack;
             unsigned        m_size;
             literal_vector  m_literals;
-            constraint(unsigned k) : m_k(k), m_slack(0), m_size(0) {}
+            constraint(unsigned k, unsigned id) : m_id(id), m_k(k), m_slack(0), m_size(0) {}
             void push(literal l) { m_literals.push_back(l); ++m_size; }
             unsigned size() const { return m_size; }
             literal const& operator[](unsigned idx) const { return m_literals[idx]; }
@@ -232,6 +233,8 @@ namespace sat {
 
         unsigned constraint_value(constraint const& c) const;
 
+        unsigned constraint_coeff(constraint const& c, literal l) const;
+
         void print_info(std::ostream& out);
 
         void extract_model();
@@ -240,11 +243,11 @@ namespace sat {
 
         void add_clause(unsigned sz, literal const* c);
 
-        void display(std::ostream& out) const;
+        std::ostream& display(std::ostream& out) const;
 
-        void display(std::ostream& out, constraint const& c) const;
+        std::ostream& display(std::ostream& out, constraint const& c) const;
 
-        void display(std::ostream& out, unsigned v, var_info const& vi) const;
+        std::ostream& display(std::ostream& out, unsigned v, var_info const& vi) const;
 
     public:
 

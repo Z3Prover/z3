@@ -517,7 +517,10 @@ struct goal2sat::imp {
             mk_clause(~l1, ~l2, l);
             m_result_stack.shrink(m_result_stack.size() - t->get_num_args());
             m_result_stack.push_back(sign ? ~l : l);
-            if (root) mk_clause(~l);
+            if (root) {
+                m_result_stack.reset();
+                mk_clause(~l);
+            }
         }
     }
 
@@ -586,7 +589,10 @@ struct goal2sat::imp {
             mk_clause(~l1, ~l2, l);
             m_result_stack.shrink(m_result_stack.size() - t->get_num_args());
             m_result_stack.push_back(sign ? ~l : l);
-            if (root) mk_clause(~l);
+            if (root) {
+                mk_clause(~l);
+                m_result_stack.reset();
+            }
         }
     }
 
@@ -808,7 +814,7 @@ struct goal2sat::imp {
                 }                
                 f = m.mk_or(fmls.size(), fmls.c_ptr());
             }
-            TRACE("goal2sat", tout << mk_pp(f, m) << "\n";);
+            TRACE("goal2sat", tout << f << "\n";);
             process(f);
         skip_dep:
             ;

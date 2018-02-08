@@ -213,7 +213,9 @@ public:
                 new_pr = m.mk_rewrite(g->form(i), new_curr);
                 new_pr = m.mk_modus_ponens(g->pr(i), new_pr);
             }
+            // IF_VERBOSE(0, verbose_stream() << mk_pp(g->form(i), m) << "\n--->\n" << new_curr << "\n";);
             g->update(i, new_curr, new_pr, g->dep(i));
+
         }
         for (expr* a : axioms) {
             g->assert_expr(a);

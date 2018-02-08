@@ -721,8 +721,8 @@ namespace opt {
         }
 
         goal_ref g(alloc(goal, m, true, false));
-        for (unsigned i = 0; i < fmls.size(); ++i) {
-            g->assert_expr(fmls[i].get());
+        for (expr* fml : fmls) {
+            g->assert_expr(fml);
         }
         tactic_ref tac0 = 
             and_then(mk_simplify_tactic(m, m_params), 

@@ -453,7 +453,6 @@ namespace sat {
         bool validate_resolvent();
 
         void display(std::ostream& out, ineq& p, bool values = false) const;
-        void display(std::ostream& out, constraint const& c, bool values) const;
         void display(std::ostream& out, card const& c, bool values) const;
         void display(std::ostream& out, pb const& p, bool values) const;
         void display(std::ostream& out, xr const& c, bool values) const;
@@ -500,6 +499,7 @@ namespace sat {
         virtual bool is_blocked(literal l, ext_constraint_idx idx);
 
         ptr_vector<constraint> const & constraints() const { return m_constraints; }
+        void display(std::ostream& out, constraint const& c, bool values) const;
 
         virtual bool validate();
 

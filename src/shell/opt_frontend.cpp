@@ -10,6 +10,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "opt/opt_context.h"
 #include "ast/ast_util.h"
 #include "ast/arith_decl_plugin.h"
+#include "ast/ast_pp.h"
 #include "util/gparams.h"
 #include "util/timeout.h"
 #include "ast/reg_decl_plugins.h"
@@ -99,21 +100,20 @@ static unsigned parse_opt(std::istream& in, opt_format f) {
         case l_false: std::cout << "unsat\n"; break;
         case l_undef: std::cout << "unknown\n"; break;
         }
-        DEBUG_CODE(
-            if (false && r == l_true) {
-                model_ref mdl;
-                opt.get_model(mdl);
-                expr_ref_vector hard(m);
-                opt.get_hard_constraints(hard);
-                for (unsigned i = 0; i < hard.size(); ++i) {
-                    std::cout << "validate: " << i << "\n";
-                    expr_ref tmp(m);
-                    VERIFY(mdl->eval(hard[i].get(), tmp));
-                    if (!m.is_true(tmp)) {
-                        std::cout << tmp << "\n";
-                    }
+        
+        if (r != l_false && gparams::get().get_bool("model_validate", false)) {
+            model_ref mdl;
+            opt.get_model(mdl);
+            expr_ref_vector hard(m);
+            opt.get_hard_constraints(hard);
+            for (expr* h : hard) {
+                expr_ref tmp(m);
+                VERIFY(mdl->eval(h, tmp));
+                if (!m.is_true(tmp)) {
+                    std::cout << mk_pp(h, m) << " " << tmp << "\n";
                 }
-            });
+            }
+        }
     }
     catch (z3_exception & ex) {
         std::cerr << ex.msg() << "\n";

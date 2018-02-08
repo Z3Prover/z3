@@ -104,7 +104,7 @@ namespace sat {
             coeff_vector& falsep = m_vars[v].m_watch[!is_true];
             for (unsigned i = 0; i < falsep.size(); ++i) {
                 constraint& c = m_constraints[falsep[i].m_constraint_id];
-                SASSERT(falsep[i].m_coeff == 1);
+                //SASSERT(falsep[i].m_coeff == 1);
                 // will --slack
                 if (c.m_slack <= 0) {
                     dec_slack_score(v);
@@ -113,7 +113,7 @@ namespace sat {
                 }
             }
             for (unsigned i = 0; i < truep.size(); ++i) {
-                SASSERT(truep[i].m_coeff == 1);
+                //SASSERT(truep[i].m_coeff == 1);
                 constraint& c = m_constraints[truep[i].m_constraint_id];
                 // will --true_terms_count[c]
                 // will ++slack
@@ -139,7 +139,8 @@ namespace sat {
 
     void local_search::reinit() {
 
-        if (!m_is_pb) {
+        IF_VERBOSE(10, verbose_stream() << "(sat-local-search reinit)\n";);
+        if (true || !m_is_pb) {
             //
             // the following methods does NOT converge for pseudo-boolean
             // can try other way to define "worse" and "better"
@@ -156,8 +157,7 @@ namespace sat {
             }
         }
 
-        for (unsigned i = 0; i < m_constraints.size(); ++i) {
-            constraint& c = m_constraints[i];
+        for (constraint & c : m_constraints) {
             c.m_slack = c.m_k;
         }
         
@@ -216,31 +216,43 @@ namespace sat {
     }
     
     void local_search::verify_solution() const {
-        for (unsigned i = 0; i < m_constraints.size(); ++i) {
-            verify_constraint(m_constraints[i]);
-        }
+        for (constraint const& c : m_constraints) 
+            verify_constraint(c);
     }
 
-    void local_search::verify_unsat_stack() const {
-        for (unsigned i = 0; i < m_unsat_stack.size(); ++i) {
-            constraint const& c = m_constraints[m_unsat_stack[i]];
+    void local_search::verify_unsat_stack() const {        
+        for (unsigned i : m_unsat_stack) {
+            constraint const& c = m_constraints[i];
             SASSERT(c.m_k < constraint_value(c));
         }
     }
 
+    unsigned local_search::constraint_coeff(constraint const& c, literal l) const {
+        for (auto const& pb : m_vars[l.var()].m_watch[is_pos(l)]) {
+            if (pb.m_constraint_id == c.m_id) return pb.m_coeff;
+        }
+        UNREACHABLE();
+        return 0;
+    }
+
+
     unsigned local_search::constraint_value(constraint const& c) const {
         unsigned value = 0;
         for (unsigned i = 0; i < c.size(); ++i) {
-            value += is_true(c[i]) ? 1 : 0;
+            literal t = c[i];
+            if (is_true(t)) {
+                value += constraint_coeff(c, t);
+            }
         }
         return value;
     }
 
     void local_search::verify_constraint(constraint const& c) const {
         unsigned value = constraint_value(c);
+        IF_VERBOSE(11, display(verbose_stream() << "verify ", c););
+        TRACE("sat", display(verbose_stream() << "verify ", c););
         if (c.m_k < value) {
-            IF_VERBOSE(0, display(verbose_stream() << "violated constraint: ", c);
-                       verbose_stream() << "value: " << value << "\n";);
+            IF_VERBOSE(0, display(verbose_stream() << "violated constraint: ", c) << "value: " << value << "\n";);
             UNREACHABLE();
         }
     }
@@ -252,7 +264,7 @@ namespace sat {
     // ~c <= k
     void local_search::add_cardinality(unsigned sz, literal const* c, unsigned k) {
         unsigned id = m_constraints.size();
-        m_constraints.push_back(constraint(k));
+        m_constraints.push_back(constraint(k, id));
         for (unsigned i = 0; i < sz; ++i) {
             m_vars.reserve(c[i].var() + 1);
             literal t(~c[i]);            
@@ -264,14 +276,15 @@ namespace sat {
         }
     }
 
+    // c * coeffs <= k
     void local_search::add_pb(unsigned sz, literal const* c, unsigned const* coeffs, unsigned k) {
         unsigned id = m_constraints.size();
-        m_constraints.push_back(constraint(k));
+        m_constraints.push_back(constraint(k, id));
         for (unsigned i = 0; i < sz; ++i) {
             m_vars.reserve(c[i].var() + 1);            
-            literal t(~c[i]);            
+            literal t(c[i]);            
             m_vars[t.var()].m_watch[is_pos(t)].push_back(pbcoeff(id, coeffs[i]));
-            m_constraints.back().push(t); // add coefficient to constraint?
+            m_constraints.back().push(t);
         }
         if (sz == 1 && k == 0) {
             m_vars[c[0].var()].m_bias = c[0].sign() ? 0 : 100;
@@ -359,7 +372,7 @@ namespace sat {
                         
                         lits.reset();
                         coeffs.reset();
-                        for (unsigned j = 0; j < n; ++j) lits.push_back(~c[j]), coeffs.push_back(1);
+                        for (literal l : c) lits.push_back(~l), coeffs.push_back(1);
                         lits.push_back(c.lit()); coeffs.push_back(k);
                         add_pb(lits.size(), lits.c_ptr(), coeffs.c_ptr(), n);
                     }
@@ -889,21 +902,27 @@ namespace sat {
         }
     }
 
-    void local_search::display(std::ostream& out) const {
+    std::ostream& local_search::display(std::ostream& out) const {
         for (constraint const& c : m_constraints) {
             display(out, c);
         }        
         for (bool_var v = 0; v < num_vars(); ++v) {
             display(out, v, m_vars[v]);
         }
+        return out;
     }
     
-    void local_search::display(std::ostream& out, constraint const& c) const {
-        out << c.m_literals << " <= " << c.m_k << " lhs value: " << constraint_value(c) << "\n";
+    std::ostream& local_search::display(std::ostream& out, constraint const& c) const {
+        for (literal l : c) {
+            unsigned coeff = constraint_coeff(c, l);
+            if (coeff > 1) out << coeff << " * ";
+            out << l << " ";
+        }
+        return out << " <= " << c.m_k << " lhs value: " << constraint_value(c) << "\n";
     }
     
-    void local_search::display(std::ostream& out, unsigned v, var_info const& vi) const {
-        out << "v" << v << " := " << (vi.m_value?"true":"false") << " bias: " << vi.m_bias << "\n";
+    std::ostream& local_search::display(std::ostream& out, unsigned v, var_info const& vi) const {
+        return out << "v" << v << " := " << (vi.m_value?"true":"false") << " bias: " << vi.m_bias << "\n";
     }
 
     bool local_search::check_goodvar() {
