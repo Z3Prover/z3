@@ -2271,7 +2271,8 @@ bool theory_seq::internalize_re(expr* e) {
         m_util.re.is_concat(e, e1, e2)) {
         return internalize_re(e1) && internalize_re(e2);
     }
-    if (m_util.re.is_full(e) ||
+    if (m_util.re.is_full_seq(e) ||
+        m_util.re.is_full_char(e) ||
         m_util.re.is_empty(e)) {
         return true;
     }

@@ -165,7 +165,7 @@ extern "C" {
     MK_BINARY(Z3_mk_re_range, mk_c(c)->get_seq_fid(), OP_RE_RANGE, SKIP);
 
     MK_SORTED(Z3_mk_re_empty, mk_c(c)->sutil().re.mk_empty);
-    MK_SORTED(Z3_mk_re_full, mk_c(c)->sutil().re.mk_full);
+    MK_SORTED(Z3_mk_re_full, mk_c(c)->sutil().re.mk_full_seq);
 
 
 

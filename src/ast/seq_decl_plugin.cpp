@@ -544,7 +544,8 @@ void seq_decl_plugin::init() {
     m_sigs[OP_RE_LOOP]           = alloc(psig, m, "re.loop",    1, 1, &reA, reA);
     m_sigs[OP_RE_COMPLEMENT]     = alloc(psig, m, "re.complement", 1, 1, &reA, reA);
     m_sigs[OP_RE_EMPTY_SET]      = alloc(psig, m, "re.empty", 1, 0, 0, reA);
-    m_sigs[OP_RE_FULL_SET]       = alloc(psig, m, "re.all", 1, 0, 0, reA);
+    m_sigs[OP_RE_FULL_SEQ_SET]   = alloc(psig, m, "re.all", 1, 0, 0, reA);
+    m_sigs[OP_RE_FULL_CHAR_SET]  = alloc(psig, m, "re.all1", 1, 0, 0, reA);
     m_sigs[OP_RE_OF_PRED]        = alloc(psig, m, "re.of.pred", 1, 1, &predA, reA);
     m_sigs[OP_SEQ_TO_RE]         = alloc(psig, m, "seq.to.re",  1, 1, &seqA, reA);
     m_sigs[OP_SEQ_IN_RE]         = alloc(psig, m, "seq.in.re", 1, 2, seqAreA, boolT);
@@ -562,7 +563,7 @@ void seq_decl_plugin::init() {
     m_sigs[_OP_STRING_IN_REGEXP]  = alloc(psig, m, "str.in.re", 0, 2, strTreT, boolT);
     m_sigs[_OP_STRING_TO_REGEXP]  = alloc(psig, m, "str.to.re", 0, 1, &strT, reT);
     m_sigs[_OP_REGEXP_EMPTY]      = alloc(psig, m, "re.nostr", 0, 0, 0, reT);
-    m_sigs[_OP_REGEXP_FULL]       = alloc(psig, m, "re.allchar", 0, 0, 0, reT);
+    m_sigs[_OP_REGEXP_FULL_CHAR]  = alloc(psig, m, "re.allchar", 0, 0, 0, reT);
     m_sigs[_OP_STRING_SUBSTR]     = alloc(psig, m, "str.substr", 0, 3, strTint2T, strT);
     m_sigs[_OP_RE_UNROLL]         = alloc(psig, m, "_re.unroll", 0, 2, reTintT, strT);
 }
@@ -669,20 +670,24 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
         match(*m_sigs[k], arity, domain, range, rng);
         return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, rng, func_decl_info(m_family_id, k));
 
-    case _OP_REGEXP_FULL:
+    case _OP_REGEXP_FULL_CHAR:
         if (!range) {
             range = m_re;
         }
         match(*m_sigs[k], arity, domain, range, rng);
-        return m.mk_func_decl(symbol("re.allchar"), arity, domain, rng, func_decl_info(m_family_id, OP_RE_FULL_SET));
-    case OP_RE_FULL_SET:
+        return m.mk_func_decl(symbol("re.allchar"), arity, domain, rng, func_decl_info(m_family_id, OP_RE_FULL_CHAR_SET));
+
+    case OP_RE_FULL_CHAR_SET:
         if (!range) range = m_re;
         if (range == m_re) {
             match(*m_sigs[k], arity, domain, range, rng);
             return m.mk_func_decl(symbol("re.allchar"), arity, domain, rng, func_decl_info(m_family_id, k));
         }
         return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, range, func_decl_info(m_family_id, k));
-        
+
+    case OP_RE_FULL_SEQ_SET:
+        if (!range) range = m_re;
+        return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, range, func_decl_info(m_family_id, k));        
 
     case _OP_REGEXP_EMPTY:
         if (!range) {
@@ -972,8 +977,12 @@ app* seq_util::re::mk_loop(expr* r, unsigned lo, unsigned hi) {
     return m.mk_app(m_fid, OP_RE_LOOP, 2, params, 1, &r);
 }
 
-app* seq_util::re::mk_full(sort* s) {
-    return m.mk_app(m_fid, OP_RE_FULL_SET, 0, 0, 0, 0, s);
+app* seq_util::re::mk_full_char(sort* s) {
+    return m.mk_app(m_fid, OP_RE_FULL_CHAR_SET, 0, 0, 0, 0, s);
+}
+
+app* seq_util::re::mk_full_seq(sort* s) {
+    return m.mk_app(m_fid, OP_RE_FULL_SEQ_SET, 0, 0, 0, 0, s);
 }
 
 app* seq_util::re::mk_empty(sort* s) {    

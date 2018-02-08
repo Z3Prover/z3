@@ -1115,7 +1115,7 @@ extern "C" {
             case _OP_STRING_SUBSTR: return Z3_OP_SEQ_EXTRACT;
             case _OP_STRING_STRIDOF: return Z3_OP_SEQ_INDEX;
             case _OP_REGEXP_EMPTY: return Z3_OP_RE_EMPTY_SET;
-            case _OP_REGEXP_FULL: return Z3_OP_RE_FULL_SET;
+            case _OP_REGEXP_FULL_CHAR: return Z3_OP_RE_FULL_SET;
 
             case OP_STRING_STOI: return Z3_OP_STR_TO_INT;
             case OP_STRING_ITOS: return Z3_OP_INT_TO_STR;
@@ -1127,7 +1127,8 @@ extern "C" {
             case OP_RE_UNION: return Z3_OP_RE_UNION;
             case OP_RE_INTERSECT: return Z3_OP_RE_INTERSECT;
             case OP_RE_LOOP: return Z3_OP_RE_LOOP;
-            case OP_RE_FULL_SET: return Z3_OP_RE_FULL_SET;
+            // case OP_RE_FULL_SEQ_SET: return Z3_OP_RE_FULL_SET;
+            case OP_RE_FULL_CHAR_SET: return Z3_OP_RE_FULL_SET;
             case OP_RE_EMPTY_SET: return Z3_OP_RE_EMPTY_SET;
             default:
                 return Z3_OP_INTERNAL;

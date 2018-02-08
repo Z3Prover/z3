@@ -56,7 +56,8 @@ enum seq_op_kind {
     OP_RE_LOOP,
     OP_RE_COMPLEMENT,
     OP_RE_EMPTY_SET,
-    OP_RE_FULL_SET,
+    OP_RE_FULL_SEQ_SET,
+    OP_RE_FULL_CHAR_SET,
     OP_RE_OF_PRED,
 
 
@@ -77,7 +78,7 @@ enum seq_op_kind {
     _OP_STRING_SUBSTR,
     _OP_STRING_STRIDOF,
     _OP_REGEXP_EMPTY,
-    _OP_REGEXP_FULL,
+    _OP_REGEXP_FULL_CHAR,
     _OP_SEQ_SKOLEM,
     _OP_RE_UNROLL,
     LAST_SEQ_OP
@@ -327,7 +328,8 @@ public:
         app* mk_opt(expr* r) { return m.mk_app(m_fid, OP_RE_OPTION, r); }
         app* mk_loop(expr* r, unsigned lo);
         app* mk_loop(expr* r, unsigned lo, unsigned hi);
-        app* mk_full(sort* s);
+        app* mk_full_char(sort* s);
+        app* mk_full_seq(sort* s);
         app* mk_empty(sort* s);
 
         bool is_to_re(expr const* n)    const { return is_app_of(n, m_fid, OP_SEQ_TO_RE); }
@@ -341,7 +343,8 @@ public:
         bool is_range(expr const* n)    const { return is_app_of(n, m_fid, OP_RE_RANGE); }
         bool is_loop(expr const* n)    const { return is_app_of(n, m_fid, OP_RE_LOOP); }
         bool is_empty(expr const* n)  const { return is_app_of(n, m_fid, OP_RE_EMPTY_SET); }
-        bool is_full(expr const* n)  const { return is_app_of(n, m_fid, OP_RE_FULL_SET); }
+        bool is_full_char(expr const* n)  const { return is_app_of(n, m_fid, OP_RE_FULL_CHAR_SET); }
+        bool is_full_seq(expr const* n)  const { return is_app_of(n, m_fid, OP_RE_FULL_SEQ_SET); }
         MATCH_UNARY(is_to_re);
         MATCH_BINARY(is_concat);
         MATCH_BINARY(is_union);

@@ -286,13 +286,22 @@ eautomaton* re2automaton::re2aut(expr* e) {
     else if (u.re.is_empty(e)) {
         return alloc(eautomaton, sm);
     }
-    else if (u.re.is_full(e)) {
+    else if (u.re.is_full_seq(e)) {
         expr_ref tt(m.mk_true(), m);
         sort *seq_s = 0, *char_s = 0;
         VERIFY (u.is_re(m.get_sort(e), seq_s));
         VERIFY (u.is_seq(seq_s, char_s));
         sym_expr* _true = sym_expr::mk_pred(tt, char_s);
         return eautomaton::mk_loop(sm, _true);
+    }
+    else if (u.re.is_full_char(e)) {
+        expr_ref tt(m.mk_true(), m);
+        sort *seq_s = 0, *char_s = 0;
+        VERIFY (u.is_re(m.get_sort(e), seq_s));
+        VERIFY (u.is_seq(seq_s, char_s));
+        sym_expr* _true = sym_expr::mk_pred(tt, char_s);
+        a = alloc(eautomaton, sm, _true);
+        return a.detach();
     }
     else if (u.re.is_intersection(e, e1, e2) && m_sa && (a = re2aut(e1)) && (b = re2aut(e2))) {
         return m_sa->mk_product(*a, *b);
@@ -370,7 +379,9 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
         return mk_re_loop(num_args, args, result);
     case OP_RE_EMPTY_SET:
         return BR_FAILED;    
-    case OP_RE_FULL_SET:
+    case OP_RE_FULL_SEQ_SET:
+        return BR_FAILED;    
+    case OP_RE_FULL_CHAR_SET:
         return BR_FAILED;    
     case OP_RE_OF_PRED:
         return BR_FAILED;    
@@ -1217,7 +1228,7 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
         result = m().mk_false();
         return BR_DONE;
     }
-    if (m_util.re.is_full(b)) {
+    if (m_util.re.is_full_seq(b)) {
         result = m().mk_true();
         return BR_DONE;
     }
@@ -1312,7 +1323,7 @@ br_status seq_rewriter::mk_str_to_regexp(expr* a, expr_ref& result) {
     return BR_FAILED;
 }
 br_status seq_rewriter::mk_re_concat(expr* a, expr* b, expr_ref& result) {
-    if (m_util.re.is_full(a) && m_util.re.is_full(b)) {
+    if (m_util.re.is_full_seq(a) && m_util.re.is_full_seq(b)) {
         result = a;
         return BR_DONE;
     }
@@ -1352,11 +1363,11 @@ br_status seq_rewriter::mk_re_union(expr* a, expr* b, expr_ref& result) {
         result = a;
         return BR_DONE;
     }
-    if (m_util.re.is_full(a)) {
+    if (m_util.re.is_full_seq(a)) {
         result = a;
         return BR_DONE;
     }
-    if (m_util.re.is_full(b)) {
+    if (m_util.re.is_full_seq(b)) {
         result = b;
         return BR_DONE;
     }
@@ -1382,10 +1393,10 @@ br_status seq_rewriter::mk_re_complement(expr* a, expr_ref& result) {
         return BR_REWRITE2;
     }
     if (m_util.re.is_empty(a)) {
-        result = m_util.re.mk_full(m().get_sort(a));
+        result = m_util.re.mk_full_seq(m().get_sort(a));
         return BR_DONE;
     }
-    if (m_util.re.is_full(a)) {
+    if (m_util.re.is_full_seq(a)) {
         result = m_util.re.mk_empty(m().get_sort(a));
         return BR_DONE;
     }
@@ -1412,11 +1423,11 @@ br_status seq_rewriter::mk_re_inter(expr* a, expr* b, expr_ref& result) {
         result = b;
         return BR_DONE;
     }
-    if (m_util.re.is_full(a)) {
+    if (m_util.re.is_full_seq(a)) {
         result = b;
         return BR_DONE;
     }
-    if (m_util.re.is_full(b)) {
+    if (m_util.re.is_full_seq(b)) {
         result = a;
         return BR_DONE;
     }
@@ -1459,8 +1470,14 @@ br_status seq_rewriter::mk_re_loop(unsigned num_args, expr* const* args, expr_re
 */
 br_status seq_rewriter::mk_re_star(expr* a, expr_ref& result) {
     expr* b, *c, *b1, *c1;
-    if (m_util.re.is_star(a) || m_util.re.is_full(a)) {
+    if (m_util.re.is_star(a) || m_util.re.is_full_seq(a)) {
         result = a;
+        return BR_DONE;
+    }
+    if (m_util.re.is_full_char(a)) {
+        sort* seq_sort = 0;
+        VERIFY(m_util.is_re(a, seq_sort));
+        result = m_util.re.mk_full_seq(seq_sort);
         return BR_DONE;
     }
     if (m_util.re.is_empty(a)) {
@@ -1519,7 +1536,7 @@ br_status seq_rewriter::mk_re_plus(expr* a, expr_ref& result) {
         result = a;
         return BR_DONE;
     }
-    if (m_util.re.is_full(a)) {
+    if (m_util.re.is_full_seq(a)) {
         result = a;
         return BR_DONE;
     }

@@ -1689,8 +1689,10 @@ namespace smt {
             u.str.is_string(range1, range1val);
             u.str.is_string(range2, range2val);
             return zstring("[") + range1val + zstring("-") + range2val + zstring("]");
-        } else if (u.re.is_full(a_regex)) {
+        } else if (u.re.is_full_seq(a_regex)) {
             return zstring("(.*)");
+        } else if (u.re.is_full_char(a_regex)) {
+            return zstring("str.allchar");
         } else {
             TRACE("str", tout << "BUG: unrecognized regex term " << mk_pp(regex, get_manager()) << std::endl;);
             UNREACHABLE(); return zstring("");
@@ -1806,9 +1808,12 @@ namespace smt {
             expr_ref finalAxiom(m.mk_iff(ex, rhs), m);
             SASSERT(finalAxiom);
             assert_axiom(finalAxiom);
-        } else if (u.re.is_full(regex)) {
+        } else if (u.re.is_full_seq(regex)) {
             // trivially true for any string!
             assert_axiom(ex);
+        } else if (u.re.is_full_char(regex)) {
+            TRACE("str", tout << "ERROR: unknown regex expression " << mk_pp(regex, m) << "!" << std::endl;);
+            NOT_IMPLEMENTED_YET(); 
         } else {
             TRACE("str", tout << "ERROR: unknown regex expression " << mk_pp(regex, m) << "!" << std::endl;);
             NOT_IMPLEMENTED_YET();
@@ -6309,7 +6314,7 @@ namespace smt {
             }
 
             TRACE("str", tout << "range NFA: start = " << start << ", end = " << end << std::endl;);
-        } else if (u.re.is_full(e)) {
+        } else if (u.re.is_full_seq(e)) {
             // effectively the same as .* where . can be any single character
             // start --e--> tmp
             // tmp --e--> end
