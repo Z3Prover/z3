@@ -1641,7 +1641,6 @@ namespace sat {
         xr* x = new (mem) xr(next_id(), lits);
         x->set_learned(learned);
         add_constraint(x);
-        for (literal l : lits) s().set_external(l.var()); // TBD: determine if goal2sat does this.
         return x;
     }
 
@@ -1713,7 +1712,6 @@ namespace sat {
         default: UNREACHABLE(); return 0;
         }
     }
-
 
 
     void ba_solver::ensure_parity_size(bool_var v) {
@@ -2087,6 +2085,17 @@ namespace sat {
         return l_undef;        
     }
 
+    lbool ba_solver::eval(model const& m, constraint const& c) const {
+        lbool v1 = c.lit() == null_literal ? l_true : value(c.lit());
+        switch (c.tag()) {
+        case card_t: return eval(v1, eval(m, c.to_card())); 
+        case pb_t:   return eval(v1, eval(m, c.to_pb()));
+        case xr_t:  return eval(v1, eval(m, c.to_xr()));
+        default: UNREACHABLE(); break;
+        }
+        return l_undef;        
+    }
+
     lbool ba_solver::eval(lbool a, lbool b) const {
         if (a == l_undef || b == l_undef) return l_undef;
         return (a == b) ? l_true : l_false;
@@ -2103,6 +2112,34 @@ namespace sat {
         }
         if (trues + undefs < c.k()) return l_false;
         if (trues >= c.k()) return l_true;
+        return l_undef;        
+    }
+
+    lbool ba_solver::eval(model const& m, card const& c) const {
+        unsigned trues = 0, undefs = 0;
+        for (literal l : c) {
+            switch (l.sign() ? ~m[l.var()] : m[l.var()]) {
+            case l_true: trues++; break;
+            case l_undef: undefs++; break;
+            default: break;
+            }
+        }
+        if (trues + undefs < c.k()) return l_false;
+        if (trues >= c.k()) return l_true;
+        return l_undef;        
+    }
+
+    lbool ba_solver::eval(model const& m, pb const& p) const {
+        unsigned trues = 0, undefs = 0;
+        for (wliteral wl : p) {
+            switch (wl.second.sign() ? ~m[wl.second.var()] : m[wl.second.var()]) {
+            case l_true: trues += wl.first; break;
+            case l_undef: undefs += wl.first; break;
+            default: break;
+            }
+        }
+        if (trues + undefs < p.k()) return l_false;
+        if (trues >= p.k()) return l_true;
         return l_undef;        
     }
 
@@ -2125,6 +2162,19 @@ namespace sat {
         
         for (auto l : x) {
             switch (value(l)) {
+            case l_true: odd = !odd; break;
+            case l_false: break;
+            default: return l_undef;
+            }
+        }
+        return odd ? l_true : l_false;
+    }
+
+    lbool ba_solver::eval(model const& m, xr const& x) const {
+        bool odd = false;
+        
+        for (auto l : x) {
+            switch (l.sign() ? ~m[l.var()] : m[l.var()]) {
             case l_true: odd = !odd; break;
             case l_false: break;
             default: return l_undef;
@@ -2903,7 +2953,6 @@ namespace sat {
                     remove_constraint(c, "contains eliminated var");                    
                     break;
                 }
-                s().set_external(v);                
             }
         }
         return ext;
@@ -2984,14 +3033,6 @@ namespace sat {
         m_constraint_removed = false;
     }
 
-    void ba_solver::ensure_external(constraint const& c) {
-        literal_vector lits(c.literals());
-        for (literal l : lits) {
-            s().set_external(l.var());
-        }
-    }
-
-
     void ba_solver::cleanup_constraints(ptr_vector<constraint>& cs, bool learned) {
         ptr_vector<constraint>::iterator it = cs.begin();
         ptr_vector<constraint>::iterator it2 = it;
@@ -3004,7 +3045,6 @@ namespace sat {
                 m_allocator.deallocate(c.obj_size(), &c);
             }
             else if (learned && !c.learned()) {
-                ensure_external(c);
                 m_constraints.push_back(&c);
             }
             else {
@@ -4051,6 +4091,23 @@ namespace sat {
         return value < p.m_k;
     }
 
+    bool ba_solver::check_model(model const& m) const {
+        bool ok = true;
+        for (constraint const* c : m_constraints) {
+            if (!check_model(m, *c)) ok = false;
+        }
+        return ok;
+    }
+
+    bool ba_solver::check_model(model const& m, constraint const& c) const {
+        if (eval(m, c) != l_true) {
+            IF_VERBOSE(0, verbose_stream() << "failed checking " << c.id() << ": " << c << "\n";);
+            return false;
+        }
+        else {
+            return true;
+        }
+    }
 
     
 };

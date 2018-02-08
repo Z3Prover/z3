@@ -302,7 +302,6 @@ namespace sat {
         void cleanup_clauses();
         void cleanup_constraints();
         void cleanup_constraints(ptr_vector<constraint>& cs, bool learned);
-        void ensure_external(constraint const& c);
         void remove_constraint(constraint& c, char const* reason);
 
         // constraints
@@ -328,6 +327,7 @@ namespace sat {
         void attach_constraint(constraint const& c);
         void detach_constraint(constraint const& c);
         lbool eval(constraint const& c) const;
+        lbool eval(model const& m, constraint const& c) const;
         lbool eval(lbool a, lbool b) const;
         void assert_unconstrained(literal lit, literal_vector const& lits);
         void flush_roots(constraint& c);
@@ -348,6 +348,7 @@ namespace sat {
         bool clausify(card& c);
         bool clausify(literal lit, unsigned n, literal const* lits, unsigned k);
         lbool eval(card const& c) const;
+        lbool eval(model const& m, card const& c) const;
         double get_reward(card const& c, literal_occs_fun& occs) const;
 
 
@@ -362,6 +363,7 @@ namespace sat {
         bool clausify(xr& x);
         void flush_roots(xr& x);
         lbool eval(xr const& x) const;
+        lbool eval(model const& m, xr const& x) const;
         
         // pb functionality
         unsigned m_a_max;
@@ -379,6 +381,7 @@ namespace sat {
         bool clausify(pb& p);
         bool is_cardinality(pb const& p, literal_vector& lits);
         lbool eval(pb const& p) const;
+        lbool eval(model const& m, pb const& p) const;
         double get_reward(pb const& p, literal_occs_fun& occs) const;
 
         // access solver
@@ -463,6 +466,8 @@ namespace sat {
 
         void copy_core(ba_solver* result, bool learned);
         void copy_constraints(ba_solver* result, ptr_vector<constraint> const& constraints);
+
+        bool check_model(model const& m, constraint const& c) const;
     public:
         ba_solver();
         virtual ~ba_solver();
@@ -497,6 +502,7 @@ namespace sat {
         virtual bool is_extended_binary(ext_justification_idx idx, literal_vector & r);
         virtual void init_use_list(ext_use_list& ul);
         virtual bool is_blocked(literal l, ext_constraint_idx idx);
+        virtual bool check_model(model const& m) const;
 
         ptr_vector<constraint> const & constraints() const { return m_constraints; }
         void display(std::ostream& out, constraint const& c, bool values) const;

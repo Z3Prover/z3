@@ -244,7 +244,6 @@ namespace sat {
     void solver::set_external(bool_var v) {
         if (m_external[v] != 0) return;
         m_external[v] = 1;
-
         if (!m_ext) return;
         
         lbool val = value(v);
@@ -1706,6 +1705,9 @@ namespace sat {
                       );
                 ok = false;
             }
+        }
+        if (m_ext && !m_ext->check_model(m)) {
+            ok = false;
         }
         return ok;
     }
