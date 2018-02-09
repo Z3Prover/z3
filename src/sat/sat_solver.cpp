@@ -2536,8 +2536,13 @@ namespace sat {
         }
         num = i;
         // reset m_diff_levels.
-        for (i = 0; i < num; i++)
-            m_diff_levels[lvl(lits[i])] = false;
+        for (i = 0; i < num; i++) {
+            literal lit = lits[i];
+            if (value(lit) == l_false) {
+                VERIFY(lvl(lit) < m_diff_levels.size());
+                m_diff_levels[lvl(lit)] = false;
+            }
+        }
         return glue < max_glue;        
     }
 

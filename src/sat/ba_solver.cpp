@@ -1389,7 +1389,7 @@ namespace sat {
                         }
                     }
                 }
-                else {
+                else if (lvl(lit) < m_conflict_lvl) {
                     slack -= std::abs(coeff);
                     m_lemma.push_back(~lit);
                 }
