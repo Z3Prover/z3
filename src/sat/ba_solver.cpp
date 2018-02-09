@@ -2672,11 +2672,11 @@ namespace sat {
             return;
         }
 
-        VERIFY(c.size() - c.k() >= sz - k);
+        VERIFY(!all_units || c.size() - c.k() >= sz - k);
         c.set_size(sz);
         c.set_k(k);    
 
-        if (clausify(c)) {
+        if (all_units && clausify(c)) {
             return;
         }
 
