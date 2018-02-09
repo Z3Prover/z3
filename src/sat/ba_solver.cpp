@@ -2615,8 +2615,9 @@ namespace sat {
 
         // pre-condition is that the literals, except c.lit(), in c are unwatched.
         if (c.id() == _bad_id) std::cout << "recompile: " << c << "\n";
+        // IF_VERBOSE(0, verbose_stream() << c << "\n";);
         m_weights.resize(2*s().num_vars(), 0);
-
+        // for (unsigned w : m_weights) VERIFY(w == 0);
         for (literal l : c) {
             ++m_weights[l.index()];
         }
@@ -2673,6 +2674,36 @@ namespace sat {
             return;
         }
 
+        if (sz == 0) {
+            if (c.lit() == null_literal) {
+                if (k > 0) {
+                    s().mk_clause(0, nullptr, true);
+                }
+            }
+            else if (k > 0) {
+                literal lit = ~c.lit();
+                s().mk_clause(1, &lit, c.learned());
+            }
+            else {
+                literal lit = c.lit();
+                s().mk_clause(1, &lit, c.learned());
+            }
+            remove_constraint(c, "recompiled to clause");
+            return;
+        }
+        if (all_units && sz < k) {
+            // IF_VERBOSE(0, verbose_stream() << "all units " << sz << " " << k << "\n");
+            if (c.lit() == null_literal) {
+                s().mk_clause(0, nullptr, true);            
+            }
+            else {
+                literal lit = ~c.lit();
+                s().mk_clause(1, &lit, c.learned());
+            }
+            remove_constraint(c, "recompiled to clause");
+            return;            
+        }
+        // IF_VERBOSE(0, verbose_stream() << "csz: " << c.size() << " ck:" << c.k() << " sz:" << sz << " k:" << k << "\n");
         VERIFY(!all_units || c.size() - c.k() >= sz - k);
         c.set_size(sz);
         c.set_k(k);    

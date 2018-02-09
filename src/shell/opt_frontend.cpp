@@ -29,24 +29,24 @@ static unsigned_vector g_handles;
 
 
 static void display_results() {
-    if (g_opt) {
-        model_ref mdl;
-        g_opt->get_model(mdl);
-        if (mdl) {
-            model_smt2_pp(std::cout, g_opt->get_manager(), *mdl, 0); 
-        }
-
-        for (unsigned h : g_handles) {
-            expr_ref lo = g_opt->get_lower(h);
-            expr_ref hi = g_opt->get_upper(h);
-            if (lo == hi) {
-                std::cout << "   " << lo << "\n";
-            }
-            else {
-                std::cout << "  [" << lo << ":" << hi << "]\n";
-            }
-        }
-    }
+    IF_VERBOSE(1, 
+               if (g_opt) {
+                   model_ref mdl;
+                   g_opt->get_model(mdl);
+                   if (mdl) {
+                       model_smt2_pp(verbose_stream(), g_opt->get_manager(), *mdl, 0); 
+                   }
+                   for (unsigned h : g_handles) {
+                       expr_ref lo = g_opt->get_lower(h);
+                       expr_ref hi = g_opt->get_upper(h);
+                       if (lo == hi) {
+                           std::cout << "   " << lo << "\n";
+                       }
+                       else {
+                           std::cout << "  [" << lo << ":" << hi << "]\n";
+                       }
+                   }
+               });
 }
 
 static void display_statistics() {
