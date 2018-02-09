@@ -104,7 +104,7 @@ static unsigned parse_opt(std::istream& in, opt_format f) {
     }
     try {
         cancel_eh<reslimit> eh(m.limit());
-        unsigned timeout = std::stoi(gparams::get_value("timeout"));
+        unsigned timeout = std::stoul(gparams::get_value("timeout"));
         unsigned rlimit = std::stoi(gparams::get_value("rlimit"));
         scoped_timer timer(timeout, &eh);
         scoped_rlimit _rlimit(m.limit(), rlimit);
