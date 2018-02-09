@@ -481,6 +481,7 @@ namespace sat {
             w2 = m_weights[(~l).index()];
             if (w1 >= w2) {
                 if (w2 >= k) {
+                    for (literal l2 : lits) m_weights[l2.index()] = 0;
                     // constraint is true
                     return;
                 }
@@ -2614,8 +2615,8 @@ namespace sat {
 
         // pre-condition is that the literals, except c.lit(), in c are unwatched.
         if (c.id() == _bad_id) std::cout << "recompile: " << c << "\n";
-        // IF_VERBOSE(0, verbose_stream() << "re: " << c << "\n";);
         m_weights.resize(2*s().num_vars(), 0);
+
         for (literal l : c) {
             ++m_weights[l.index()];
         }
