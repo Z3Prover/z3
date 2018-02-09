@@ -68,14 +68,14 @@ class reduce_args_tactic : public tactic {
 public:
     reduce_args_tactic(ast_manager & m);
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(reduce_args_tactic, m);
     }
 
-    virtual ~reduce_args_tactic();
+    ~reduce_args_tactic() override;
     
-    virtual void operator()(goal_ref const & g, goal_ref_buffer & result, model_converter_ref & mc, proof_converter_ref & pc, expr_dependency_ref & core);
-    virtual void cleanup();
+    void operator()(goal_ref const & g, goal_ref_buffer & result, model_converter_ref & mc, proof_converter_ref & pc, expr_dependency_ref & core) override;
+    void cleanup() override;
 };
 
 tactic * mk_reduce_args_tactic(ast_manager & m, params_ref const & p) {

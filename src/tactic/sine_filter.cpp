@@ -38,21 +38,21 @@ public:
     sine_tactic(ast_manager& m, params_ref const& p): 
         m(m), m_params(p) {}
     
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(sine_tactic, m, m_params);
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
     }
 
-    virtual void collect_param_descrs(param_descrs & r) {
+    void collect_param_descrs(param_descrs & r) override {
     }
 
-    virtual void operator()(goal_ref const & g,
-                            goal_ref_buffer & result,
-                            model_converter_ref & mc,
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
+    void operator()(goal_ref const & g,
+                    goal_ref_buffer & result,
+                    model_converter_ref & mc,
+                    proof_converter_ref & pc,
+                    expr_dependency_ref & core) override {
         mc = 0; pc = 0; core = 0;
 
         TRACE("sine", g->display(tout););
@@ -73,7 +73,7 @@ public:
         mc = fmc;
     }
     
-    virtual void cleanup() {
+    void cleanup() override {
     }
 
 private:

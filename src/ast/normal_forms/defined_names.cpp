@@ -74,7 +74,7 @@ struct defined_names::impl {
 
 struct defined_names::pos_impl : public defined_names::impl {
     pos_impl(ast_manager & m, char const * fresh_prefix):impl(m, fresh_prefix) {}
-    virtual void mk_definition(expr * e, app * n, sort_ref_buffer & var_sorts, buffer<symbol> const & var_names, expr_ref & new_def);
+    void mk_definition(expr * e, app * n, sort_ref_buffer & var_sorts, buffer<symbol> const & var_names, expr_ref & new_def) override;
 };
 
 

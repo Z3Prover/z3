@@ -85,17 +85,17 @@ tactic * mk_skip_tactic() {
 
 class fail_tactic : public tactic {
 public:
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
+    void operator()(goal_ref const & in,
+                    goal_ref_buffer & result,
+                    model_converter_ref & mc,
+                    proof_converter_ref & pc,
+                    expr_dependency_ref & core) override {
         throw tactic_exception("fail tactic");
     }
 
-    virtual void cleanup() {}
+    void cleanup() override {}
 
-    virtual tactic * translate(ast_manager & m) { return this; }
+    tactic * translate(ast_manager & m) override { return this; }
 };
 
 tactic * mk_fail_tactic() {
@@ -108,11 +108,11 @@ class report_verbose_tactic : public skip_tactic {
 public:
     report_verbose_tactic(char const * msg, unsigned lvl) : m_msg(msg), m_lvl(lvl) {}
 
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
+    void operator()(goal_ref const & in,
+                    goal_ref_buffer & result,
+                    model_converter_ref & mc,
+                    proof_converter_ref & pc,
+                    expr_dependency_ref & core) override {
         IF_VERBOSE(m_lvl, verbose_stream() << m_msg << "\n";);
         skip_tactic::operator()(in, result, mc, pc, core);
     }
@@ -127,11 +127,11 @@ class trace_tactic : public skip_tactic {
 public:
     trace_tactic(char const * tag): m_tag(tag) {}
     
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
+    void operator()(goal_ref const & in,
+                    goal_ref_buffer & result,
+                    model_converter_ref & mc,
+                    proof_converter_ref & pc,
+                    expr_dependency_ref & core) override {
         TRACE(m_tag, in->display(tout););
         (void)m_tag;
         skip_tactic::operator()(in, result, mc, pc, core);
@@ -146,11 +146,11 @@ class fail_if_undecided_tactic : public skip_tactic {
 public:
     fail_if_undecided_tactic() {}
 
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
+    void operator()(goal_ref const & in,
+                    goal_ref_buffer & result,
+                    model_converter_ref & mc,
+                    proof_converter_ref & pc,
+                    expr_dependency_ref & core) override {
         if (!in->is_decided()) 
             throw tactic_exception("undecided");
         skip_tactic::operator()(in, result, mc, pc, core);

@@ -148,21 +148,21 @@ public:
         m_compile_equality(false) {
     }
 
-    virtual ~lia2card_tactic() {
+    ~lia2card_tactic() override {
         dealloc(m_todo);
         dealloc(m_01s);
     }
                 
-    void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_params = p;
         m_compile_equality = p.get_bool("compile_equality", false);
     }
     
-    virtual void operator()(goal_ref const & g, 
-                    goal_ref_buffer & result, 
-                    model_converter_ref & mc, 
+    void operator()(goal_ref const & g,
+                    goal_ref_buffer & result,
+                    model_converter_ref & mc,
                     proof_converter_ref & pc,
-                    expr_dependency_ref & core) {
+                    expr_dependency_ref & core) override {
         SASSERT(g->is_well_sorted());
         mc = 0; pc = 0; core = 0;
         m_01s->reset();
@@ -389,16 +389,16 @@ public:
         }
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(lia2card_tactic, m, m_params);
     }
         
-    virtual void collect_param_descrs(param_descrs & r) {
+    void collect_param_descrs(param_descrs & r) override {
         r.insert("compile_equality", CPK_BOOL, 
                  "(default:false) compile equalities into pseudo-Boolean equality");
     }
         
-    virtual void cleanup() {        
+    void cleanup() override {
         expr_set* d = alloc(expr_set);
         ptr_vector<expr>* todo = alloc(ptr_vector<expr>);
         std::swap(m_01s, d);

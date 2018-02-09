@@ -92,20 +92,20 @@ public:
         m_solver(s)
     {}
     
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_params.append(p);
         m_solver->updt_params(p);
     }
 
-    virtual void collect_param_descrs(param_descrs & r) {
+    void collect_param_descrs(param_descrs & r) override {
         m_solver->collect_param_descrs(r);
     }
 
-    virtual void operator()(/* in */  goal_ref const & in, 
-                            /* out */ goal_ref_buffer & result, 
-                            /* out */ model_converter_ref & mc, 
-                            /* out */ proof_converter_ref & pc,
-                            /* out */ expr_dependency_ref & core) {
+    void operator()(/* in */  goal_ref const & in,
+                    /* out */ goal_ref_buffer & result,
+                    /* out */ model_converter_ref & mc,
+                    /* out */ proof_converter_ref & pc,
+                    /* out */ expr_dependency_ref & core) override {
         pc = 0; mc = 0; core = 0;
         expr_ref_vector clauses(m);
         expr2expr_map               bool2dep;
@@ -155,21 +155,21 @@ public:
         local_solver->collect_statistics(m_st);
     }
 
-    virtual void collect_statistics(statistics & st) const {
+    void collect_statistics(statistics & st) const override {
         st.copy(m_st);
     }
-    virtual void reset_statistics() { m_st.reset(); }
+    void reset_statistics() override { m_st.reset(); }
 
-    virtual void cleanup() { }
-    virtual void reset() { cleanup(); }
+    void cleanup() override { }
+    void reset() override { cleanup(); }
 
-    virtual void set_logic(symbol const & l) {}
+    void set_logic(symbol const & l) override {}
 
-    virtual void set_progress_callback(progress_callback * callback) {
+    void set_progress_callback(progress_callback * callback) override {
         m_solver->set_progress_callback(callback);
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(solver2tactic, m_solver->translate(m, m_params));
     }    
 };

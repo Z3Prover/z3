@@ -268,34 +268,34 @@ public:
         m_imp = alloc(imp, m, p);
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(elim_small_bv_tactic, m, m_params);
     }
 
-    virtual ~elim_small_bv_tactic() {
+    ~elim_small_bv_tactic() override {
         dealloc(m_imp);
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_params = p;
         m_imp->m_rw.cfg().updt_params(p);
     }
 
-    virtual void collect_param_descrs(param_descrs & r) {
+    void collect_param_descrs(param_descrs & r) override {
         insert_max_memory(r);
         insert_max_steps(r);
         r.insert("max_bits", CPK_UINT, "(default: 4) maximum bit-vector size of quantified bit-vectors to be eliminated.");
     }
 
-    virtual void operator()(goal_ref const & in,
+    void operator()(goal_ref const & in,
         goal_ref_buffer & result,
         model_converter_ref & mc,
         proof_converter_ref & pc,
-        expr_dependency_ref & core) {
+        expr_dependency_ref & core) override {
         (*m_imp)(in, result, mc, pc, core);
     }
 
-    virtual void cleanup() {
+    void cleanup() override {
         ast_manager & m = m_imp->m;
         m_imp->~imp();
         m_imp = new (m_imp) imp(m, m_params);

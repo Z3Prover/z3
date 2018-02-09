@@ -1129,7 +1129,7 @@ protected:
         unsigned num_parameters, parameter const* params, unsigned num_parents);
 
 
-    virtual void set_manager(ast_manager * m, family_id id);
+    void set_manager(ast_manager * m, family_id id) override;
     func_decl * mk_eq_decl_core(char const * name, decl_kind k, sort * s, ptr_vector<func_decl> & cache);
     func_decl * mk_ite_decl(sort * s);
     sort* join(sort* s1, sort* s2);
@@ -1138,33 +1138,33 @@ protected:
 public:
     basic_decl_plugin();
 
-    virtual ~basic_decl_plugin() {}
-    virtual void finalize();
+    ~basic_decl_plugin() override {}
+    void finalize() override;
 
-    virtual decl_plugin * mk_fresh() {
+    decl_plugin * mk_fresh() override {
         return alloc(basic_decl_plugin);
     }
 
-    virtual sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const* parameters);
+    sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const* parameters) override;
 
-    virtual func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
-                                     unsigned arity, sort * const * domain, sort * range);
+    func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
+                             unsigned arity, sort * const * domain, sort * range) override;
 
-    virtual func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
-                                     unsigned num_args, expr * const * args, sort * range);
+    func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
+                             unsigned num_args, expr * const * args, sort * range) override;
 
-    virtual void get_op_names(svector<builtin_name> & op_names, symbol const & logic);
+    void get_op_names(svector<builtin_name> & op_names, symbol const & logic) override;
 
-    virtual void get_sort_names(svector<builtin_name> & sort_names, symbol const & logic);
+    void get_sort_names(svector<builtin_name> & sort_names, symbol const & logic) override;
 
-    virtual bool is_value(app* a) const;
+    bool is_value(app* a) const override;
 
-    virtual bool is_unique_value(app* a) const;
+    bool is_unique_value(app* a) const override;
 
     sort * mk_bool_sort() const { return m_bool_sort; }
     sort * mk_proof_sort() const { return m_proof_sort; }
 
-    virtual expr * get_some_value(sort * s);
+    expr * get_some_value(sort * s) override;
 };
 
 typedef app proof; /* a proof is just an application */
@@ -1188,15 +1188,15 @@ class label_decl_plugin : public decl_plugin {
     symbol m_lblneg;
     symbol m_lbllit;
 
-    virtual void set_manager(ast_manager * m, family_id id);
+    void set_manager(ast_manager * m, family_id id) override;
 
 public:
     label_decl_plugin();
-    virtual ~label_decl_plugin();
+    ~label_decl_plugin() override;
 
-    virtual decl_plugin * mk_fresh() { return alloc(label_decl_plugin); }
+    decl_plugin * mk_fresh() override { return alloc(label_decl_plugin); }
 
-    virtual sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters);
+    sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) override;
 
     /**
        contract: when label
@@ -1210,8 +1210,8 @@ public:
        ...
        parameter[n-1] (symbol): label's tag.
     */
-    virtual func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
-                                     unsigned arity, sort * const * domain, sort * range);
+    func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
+                             unsigned arity, sort * const * domain, sort * range) override;
 };
 
 // -----------------------------------
@@ -1230,12 +1230,12 @@ enum pattern_op_kind {
 */
 class pattern_decl_plugin : public decl_plugin {
 public:
-    virtual decl_plugin * mk_fresh() { return alloc(pattern_decl_plugin); }
+    decl_plugin * mk_fresh() override { return alloc(pattern_decl_plugin); }
 
-    virtual sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters);
+    sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) override;
 
-    virtual func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
-                                     unsigned arity, sort * const * domain, sort * range);
+    func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
+                             unsigned arity, sort * const * domain, sort * range) override;
 };
 
 // -----------------------------------
@@ -1263,21 +1263,21 @@ class model_value_decl_plugin : public decl_plugin {
 public:
     model_value_decl_plugin() {}
 
-    virtual decl_plugin * mk_fresh() { return alloc(model_value_decl_plugin); }
+    decl_plugin * mk_fresh() override { return alloc(model_value_decl_plugin); }
 
-    virtual sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters);
+    sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) override;
 
     /**
        contract:
        parameter[0]: (integer) value idx
        parameter[1]: (ast)     sort of the value.
     */
-    virtual func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
-                                     unsigned arity, sort * const * domain, sort * range);
+    func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
+                             unsigned arity, sort * const * domain, sort * range) override;
 
-    virtual bool is_value(app* n) const;
+    bool is_value(app* n) const override;
 
-    virtual bool is_unique_value(app* a) const;
+    bool is_unique_value(app* a) const override;
 };
 
 // -----------------------------------
@@ -1292,11 +1292,11 @@ class user_sort_plugin : public decl_plugin {
 public:
     user_sort_plugin() {}
 
-    virtual sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters);
-    virtual func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
-                                     unsigned arity, sort * const * domain, sort * range);
+    sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) override;
+    func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
+                             unsigned arity, sort * const * domain, sort * range) override;
     decl_kind register_name(symbol s);
-    virtual decl_plugin * mk_fresh();
+    decl_plugin * mk_fresh() override;
 };
 
 
@@ -2467,9 +2467,9 @@ class scoped_mark : public ast_mark {
     unsigned_vector m_lim;
 public:
     scoped_mark(ast_manager& m): m_stack(m) {}
-    virtual ~scoped_mark() {}
-    virtual void mark(ast * n, bool flag);
-    virtual void reset();
+    ~scoped_mark() override {}
+    void mark(ast * n, bool flag) override;
+    void reset() override;
     void mark(ast * n);
     void push_scope();
     void pop_scope();

@@ -112,7 +112,7 @@ namespace nlsat {
                 m_perm(perm),
                 m_proc(0) {
             }
-            std::ostream& operator()(std::ostream & out, var x) const { 
+            std::ostream& operator()(std::ostream & out, var x) const override {
                 if (m_proc == 0)
                     m_default_display_var(out, x);
                 else
@@ -2699,7 +2699,7 @@ namespace nlsat {
             var m_x;
         public:
             mathematica_var_proc(var x):m_x(x) {}
-            virtual std::ostream& operator()(std::ostream & out, var x) const { 
+            std::ostream& operator()(std::ostream & out, var x) const override {
                 if (m_x == x)
                     return out << "#1";
                 else

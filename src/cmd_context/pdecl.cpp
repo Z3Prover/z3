@@ -136,25 +136,25 @@ class psort_sort : public psort {
     friend class pdecl_manager;
     sort * m_sort;
     psort_sort(unsigned id, pdecl_manager & m, sort * s):psort(id, 0), m_sort(s) { m.m().inc_ref(m_sort); }
-    virtual void finalize(pdecl_manager & m) {
+    void finalize(pdecl_manager & m) override {
         m.m().dec_ref(m_sort);
         psort::finalize(m);
     }
-    virtual bool check_num_params(pdecl * other) const { return true; }
-    virtual size_t obj_size() const { return sizeof(psort_sort); }
+    bool check_num_params(pdecl * other) const override { return true; }
+    size_t obj_size() const override { return sizeof(psort_sort); }
     sort * get_sort() const { return m_sort; }
-    virtual sort * instantiate(pdecl_manager & m, sort * const * s) { return m_sort; }
+    sort * instantiate(pdecl_manager & m, sort * const * s) override { return m_sort; }
 public:
-    virtual ~psort_sort() {}
-    virtual bool is_sort_wrapper() const { return true; }
-    virtual char const * hcons_kind() const { return "psort_sort"; }
-    virtual unsigned hcons_hash() const { return m_sort->get_id(); }
-    virtual bool hcons_eq(psort const * other) const {
+    ~psort_sort() override {}
+    bool is_sort_wrapper() const override { return true; }
+    char const * hcons_kind() const override { return "psort_sort"; }
+    unsigned hcons_hash() const override { return m_sort->get_id(); }
+    bool hcons_eq(psort const * other) const override {
         if (other->hcons_kind() != hcons_kind())
             return false;
         return m_sort == static_cast<psort_sort const *>(other)->m_sort;
     }
-    virtual void display(std::ostream & out) const {
+    void display(std::ostream & out) const override {
         out << m_sort->get_name();
     }
 };
@@ -163,19 +163,19 @@ class psort_var : public psort {
     friend class pdecl_manager;
     unsigned m_idx;
     psort_var(unsigned id, unsigned num_params, unsigned idx):psort(id, num_params), m_idx(idx) { SASSERT(idx < num_params); }
-    virtual sort * instantiate(pdecl_manager & m, sort * const * s) { return s[m_idx]; }
-    virtual size_t obj_size() const { return sizeof(psort_var); }
+    sort * instantiate(pdecl_manager & m, sort * const * s) override { return s[m_idx]; }
+    size_t obj_size() const override { return sizeof(psort_var); }
 public:
-    virtual ~psort_var() {}
-    virtual char const * hcons_kind() const { return "psort_var"; }
-    virtual unsigned hcons_hash() const { return hash_u_u(m_num_params, m_idx); }
-    virtual bool hcons_eq(psort const * other) const {
+    ~psort_var() override {}
+    char const * hcons_kind() const override { return "psort_var"; }
+    unsigned hcons_hash() const override { return hash_u_u(m_num_params, m_idx); }
+    bool hcons_eq(psort const * other) const override {
         return 
             other->hcons_kind() == hcons_kind() && 
             get_num_params() == other->get_num_params() && 
             m_idx == static_cast<psort_var const *>(other)->m_idx;
     }
-    virtual void display(std::ostream & out) const {
+    void display(std::ostream & out) const override {
         out << "s_" << m_idx;
     }
     unsigned idx() const { return m_idx; }
@@ -196,13 +196,13 @@ class psort_app : public psort {
         DEBUG_CODE(if (num_args == num_params) { for (unsigned i = 0; i < num_params; i++) args[i]->check_num_params(this); });
     }
 
-    virtual void finalize(pdecl_manager & m) {
+    void finalize(pdecl_manager & m) override {
         m.lazy_dec_ref(m_decl);
         m.lazy_dec_ref(m_args.size(), m_args.c_ptr());
         psort::finalize(m);
     }
 
-    virtual size_t obj_size() const { return sizeof(psort_app); }
+    size_t obj_size() const override { return sizeof(psort_app); }
 
     struct khasher {
         unsigned operator()(psort_app const * d) const { return d->m_decl->hash(); }
@@ -212,7 +212,7 @@ class psort_app : public psort {
         unsigned operator()(psort_app const * d, unsigned idx) const { return d->m_args[idx]->hash(); }
     };
 
-    virtual sort * instantiate(pdecl_manager & m, sort * const * s) {
+    sort * instantiate(pdecl_manager & m, sort * const * s) override {
         sort * r = find(s);
         if (r)
             return r;
@@ -228,12 +228,12 @@ class psort_app : public psort {
     }
 
 public:
-    virtual ~psort_app() {}
-    virtual char const * hcons_kind() const { return "psort_app"; }
-    virtual unsigned hcons_hash() const {
+    ~psort_app() override {}
+    char const * hcons_kind() const override { return "psort_app"; }
+    unsigned hcons_hash() const override {
         return get_composite_hash<psort_app*, khasher, chasher>(const_cast<psort_app*>(this), m_args.size());
     }
-    virtual bool hcons_eq(psort const * other) const {
+    bool hcons_eq(psort const * other) const override {
         if (other->hcons_kind() != hcons_kind())
             return false;
         if (get_num_params() != other->get_num_params())
@@ -249,7 +249,7 @@ public:
         }
         return true;
     }
-    virtual void display(std::ostream & out) const {
+    void display(std::ostream & out) const override {
         if (m_args.empty()) {
             out << m_decl->get_name();
         }
@@ -752,16 +752,16 @@ struct pdecl_manager::app_sort_info : public pdecl_manager::sort_info {
         m.m().inc_array_ref(n, s);
     }
 
-    virtual ~app_sort_info() {}
+    ~app_sort_info() override {}
 
-    virtual unsigned obj_size() const { return sizeof(app_sort_info); }
+    unsigned obj_size() const override { return sizeof(app_sort_info); }
 
-    virtual void finalize(pdecl_manager & m) {
+    void finalize(pdecl_manager & m) override {
         sort_info::finalize(m);
         m.m().dec_array_ref(m_args.size(), m_args.c_ptr());
     }
 
-    virtual void display(std::ostream & out, pdecl_manager const & m) const {
+    void display(std::ostream & out, pdecl_manager const & m) const override {
         if (m_args.empty()) {
             out << m_decl->get_name();
         }
@@ -775,7 +775,7 @@ struct pdecl_manager::app_sort_info : public pdecl_manager::sort_info {
         }
     }
 
-    virtual format * pp(pdecl_manager const & m) const {
+    format * pp(pdecl_manager const & m) const override {
         if (m_args.empty()) {
             return mk_string(m.m(), m_decl->get_name().str().c_str());
         }
@@ -796,11 +796,11 @@ struct pdecl_manager::indexed_sort_info : public pdecl_manager::sort_info {
         m_indices(n, s) {
     }
 
-    virtual ~indexed_sort_info() {}
+    ~indexed_sort_info() override {}
 
-    virtual unsigned obj_size() const { return sizeof(indexed_sort_info); }
+    unsigned obj_size() const override { return sizeof(indexed_sort_info); }
 
-    virtual void display(std::ostream & out, pdecl_manager const & m) const {
+    void display(std::ostream & out, pdecl_manager const & m) const override {
         if (m_indices.empty()) {
             out << m_decl->get_name();
         }
@@ -813,7 +813,7 @@ struct pdecl_manager::indexed_sort_info : public pdecl_manager::sort_info {
         }
     }
 
-    virtual format * pp(pdecl_manager const & m) const {
+    format * pp(pdecl_manager const & m) const override {
         if (m_indices.empty()) {
             return mk_string(m.m(), m_decl->get_name().str().c_str());
         }

@@ -32,18 +32,18 @@ class symmetry_reduce_tactic : public tactic {
 public:
     symmetry_reduce_tactic(ast_manager & m);
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(symmetry_reduce_tactic, m);
     }
     
-    virtual ~symmetry_reduce_tactic();
+    ~symmetry_reduce_tactic() override;
     
-    virtual void operator()(goal_ref const & g, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core);
-    virtual void cleanup();
+    void operator()(goal_ref const & g,
+                    goal_ref_buffer & result,
+                    model_converter_ref & mc,
+                    proof_converter_ref & pc,
+                    expr_dependency_ref & core) override;
+    void cleanup() override;
 };
 
 class ac_rewriter {

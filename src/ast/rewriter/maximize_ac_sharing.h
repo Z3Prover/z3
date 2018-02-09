@@ -103,8 +103,8 @@ public:
 class maximize_bv_sharing : public maximize_ac_sharing {
     bv_util m_util;
 protected:
-    virtual void init_core();
-    virtual bool is_numeral(expr * n) const;
+    void init_core() override;
+    bool is_numeral(expr * n) const override;
 public:
     maximize_bv_sharing(ast_manager & m);
 };

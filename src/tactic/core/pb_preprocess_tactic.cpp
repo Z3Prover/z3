@@ -48,7 +48,7 @@ class pb_preproc_model_converter : public model_converter {
 public:
     pb_preproc_model_converter(ast_manager& m):m(m), pb(m), m_refs(m) {}
 
-    virtual void operator()(model_ref & mdl, unsigned goal_idx) {
+    void operator()(model_ref & mdl, unsigned goal_idx) override {
         SASSERT(goal_idx == 0);
         for (unsigned i = 0; i < m_const.size(); ++i) {
             mdl->register_decl(m_const[i].first->get_decl(), m_const[i].second);
@@ -63,7 +63,7 @@ public:
         set_value_p(to_app(e), p?m.mk_true():m.mk_false());        
     }
 
-    virtual model_converter * translate(ast_translation & translator) {
+    model_converter * translate(ast_translation & translator) override {
         pb_preproc_model_converter* mc = alloc(pb_preproc_model_converter, translator.to());
         for (unsigned i = 0; i < m_const.size(); ++i) {
             mc->set_value_p(translator(m_const[i].first), translator(m_const[i].second));
@@ -136,18 +136,17 @@ public:
     pb_preprocess_tactic(ast_manager& m, params_ref const& p = params_ref()): 
         m(m), pb(m), m_r(m) {}
 
-    virtual ~pb_preprocess_tactic() {}
+    ~pb_preprocess_tactic() override {}
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(pb_preprocess_tactic, m);
     }
     
-    virtual void operator()(
-        goal_ref const & g, 
-        goal_ref_buffer & result, 
-        model_converter_ref & mc, 
-        proof_converter_ref & pc,
-        expr_dependency_ref & core) {
+    void operator()(goal_ref const & g,
+                    goal_ref_buffer & result,
+                    model_converter_ref & mc,
+                    proof_converter_ref & pc,
+                    expr_dependency_ref & core) override {
         SASSERT(g->is_well_sorted());
         pc = 0; core = 0;
 
@@ -262,15 +261,15 @@ public:
         return m_progress;
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
     }
 
-    virtual void cleanup() {
+    void cleanup() override {
     }
 
 private:
 
-    void reset() {
+    void reset() override {
         m_ge.reset();
         m_other.reset();
         m_vars.reset();

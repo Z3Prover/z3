@@ -73,7 +73,7 @@ class contains_app {
         app* m_x;
     public:
         pred(app* x) : m_x(x) {}
-        virtual bool operator()(expr* e) {
+        bool operator()(expr* e) override {
             return m_x == e;
         }
     };

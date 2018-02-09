@@ -58,16 +58,16 @@ protected:
 public:
     concat_converter(T * c1, T * c2):m_c1(c1), m_c2(c2) {}
     
-    virtual ~concat_converter() {}
+    ~concat_converter() override {}
 
-    virtual void cancel() {
+    void cancel() override {
         m_c2->cancel();
         m_c1->cancel();
     }
 
     virtual char const * get_name() const = 0;
     
-    virtual void display(std::ostream & out) {
+    void display(std::ostream & out) override {
         out << "(" << get_name() << "\n";
         m_c1->display(out);
         m_c2->display(out);
@@ -104,7 +104,7 @@ public:
         }
     }
 
-    virtual ~concat_star_converter() {
+    ~concat_star_converter() override {
         unsigned sz = m_c2s.size();
         for (unsigned i = 0; i < sz; i++) {
             T * c2 = m_c2s[i];
@@ -113,7 +113,7 @@ public:
         }
     }
 
-    virtual void cancel() {
+    void cancel() override {
         if (m_c1)
             m_c1->cancel();
         unsigned num = m_c2s.size();
@@ -125,7 +125,7 @@ public:
 
     virtual char const * get_name() const = 0;
     
-    virtual void display(std::ostream & out) {
+    void display(std::ostream & out) override {
         out << "(" << get_name() << "\n";
         if (m_c1)
             m_c1->display(out);

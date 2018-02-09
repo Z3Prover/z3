@@ -33,13 +33,13 @@ class ctx_propagate_assertions : public ctx_simplify_tactic::simplifier {
     void assert_eq_core(expr * t, app * val);
 public:
     ctx_propagate_assertions(ast_manager& m);
-    virtual ~ctx_propagate_assertions() {}
-    virtual bool assert_expr(expr * t, bool sign);
-    virtual bool simplify(expr* t, expr_ref& result);
+    ~ctx_propagate_assertions() override {}
+    bool assert_expr(expr * t, bool sign) override;
+    bool simplify(expr* t, expr_ref& result) override;
     void push();
-    virtual void pop(unsigned num_scopes);
-    virtual unsigned scope_level() const { return m_scopes.size(); }
-    virtual simplifier * translate(ast_manager & m);
+    void pop(unsigned num_scopes) override;
+    unsigned scope_level() const override { return m_scopes.size(); }
+    simplifier * translate(ast_manager & m) override;
 };
 
 

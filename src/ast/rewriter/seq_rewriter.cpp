@@ -85,15 +85,15 @@ public:
     sym_expr_boolean_algebra(ast_manager& m, expr_solver& s): 
         m(m), m_solver(s) {}
 
-    virtual T mk_false() {
+    T mk_false() override {
         expr_ref fml(m.mk_false(), m);
         return sym_expr::mk_pred(fml, m.mk_bool_sort()); // use of Bool sort for bound variable is arbitrary
     }
-    virtual T mk_true() {
+    T mk_true() override {
         expr_ref fml(m.mk_true(), m);
         return sym_expr::mk_pred(fml, m.mk_bool_sort());
     }
-    virtual T mk_and(T x, T y) {
+    T mk_and(T x, T y) override {
         if (x->is_char() && y->is_char()) {
             if (x->get_char() == y->get_char()) {
                 return x;
@@ -118,7 +118,7 @@ public:
         br.mk_and(fml1, fml2, fml);
         return sym_expr::mk_pred(fml, x->get_sort());
     }
-    virtual T mk_or(T x, T y) {
+    T mk_or(T x, T y) override {
         if (x->is_char() && y->is_char() &&
             x->get_char() == y->get_char()) {
             return x;
@@ -135,7 +135,7 @@ public:
         return sym_expr::mk_pred(fml, x->get_sort());
     }
 
-    virtual T mk_and(unsigned sz, T const* ts) {
+    T mk_and(unsigned sz, T const* ts) override {
         switch (sz) {
         case 0: return mk_true();
         case 1: return ts[0];
@@ -148,7 +148,7 @@ public:
         }
         }
     }
-    virtual T mk_or(unsigned sz, T const* ts) {
+    T mk_or(unsigned sz, T const* ts) override {
         switch (sz) {
         case 0: return mk_false();
         case 1: return ts[0];
@@ -161,7 +161,7 @@ public:
         }
         }
     }
-    virtual lbool is_sat(T x) {
+    lbool is_sat(T x) override {
         if (x->is_char()) {
             return l_true;
         }
@@ -178,7 +178,7 @@ public:
         }
         return m_solver.check_sat(fml);
     }
-    virtual T mk_not(T x) {
+    T mk_not(T x) override {
         var_ref v(m.mk_var(0, x->get_sort()), m);
         expr_ref fml(m.mk_not(x->accept(v)), m);
         return sym_expr::mk_pred(fml, x->get_sort());

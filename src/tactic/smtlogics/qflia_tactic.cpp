@@ -36,7 +36,7 @@ Notes:
 #include "tactic/arith/probe_arith.h"
 
 struct quasi_pb_probe : public probe {
-    virtual result operator()(goal const & g) {
+    result operator()(goal const & g) override {
         bool found_non_01 = false;
         bound_manager bm(g.m());
         bm(g);

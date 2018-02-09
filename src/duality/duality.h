@@ -248,14 +248,14 @@ namespace Duality {
                                    TermTree *&interpolants,
                                    model &_model,
                                    TermTree *goals = 0,
-                                   bool weak = false)
+                                   bool weak = false) override
             {
                 literals _labels;
                 islvr->SetWeakInterpolants(weak);
                 return islvr->interpolate_tree(assumptions,interpolants,_model,_labels,true);
             }
 
-            void assert_axiom(const expr &axiom){
+            void assert_axiom(const expr &axiom) override {
 #if 1
                 // HACK: large "distict" predicates can kill the legacy SMT solver.
                 // encode them with a UIF
@@ -280,11 +280,11 @@ namespace Duality {
                 islvr->AssertInterpolationAxiom(axiom);
             }
 
-            const std::vector<expr> &get_axioms() {
+            const std::vector<expr> &get_axioms() override {
                 return islvr->GetInterpolationAxioms();
             }
 
-            std::string profile(){
+            std::string profile() override {
                 return islvr->profile();
             }
 
@@ -307,31 +307,31 @@ namespace Duality {
             void write_interpolation_problem(const std::string &file_name,
                                              const std::vector<expr> &assumptions,
                                              const std::vector<expr> &theory
-                                             ){
+                                             ) override {
 #if 0
                 islvr->write_interpolation_problem(file_name,assumptions,theory);
 #endif
 
             }
 
-            void cancel(){islvr->cancel();}
+            void cancel() override {islvr->cancel();}
 
             /** Declare a constant in the background theory. */
-            virtual void declare_constant(const func_decl &f){
+            void declare_constant(const func_decl &f) override {
                 bckg.insert(f);
             }
 
             /** Is this a background constant? */
-            virtual bool is_constant(const func_decl &f){
+            bool is_constant(const func_decl &f) override {
                 return bckg.find(f) != bckg.end();
             }
 
             /** Get the constants in the background vocabulary */
-            virtual hash_set<func_decl> &get_constants(){
+            hash_set<func_decl> &get_constants() override {
                 return bckg;
             }
 
-            ~iZ3LogicSolver(){
+            ~iZ3LogicSolver() override {
                 // delete ictx;
                 delete islvr;
             }
@@ -1274,7 +1274,7 @@ namespace Duality {
         virtual void AssertEdge(Edge *e, int persist = 0, bool with_children = false, bool underapprox = false);
 #endif
 
-        virtual ~RPFP_caching(){}
+        ~RPFP_caching() override {}
 
     protected:
         hash_map<ast,expr> AssumptionLits;
@@ -1320,21 +1320,21 @@ namespace Duality {
         void FilterCore(std::vector<expr> &core, std::vector<expr> &full_core);
         void ConstrainEdgeLocalizedCache(Edge *e, const Term &tl, std::vector<expr> &lits);
 
-        virtual void slvr_add(const expr &e);
+        void slvr_add(const expr &e) override;
 
-        virtual void slvr_pop(int i);
+        void slvr_pop(int i) override;
 
-        virtual void slvr_push();
+        void slvr_push() override;
 
-        virtual check_result slvr_check(unsigned n = 0, expr * const assumptions = 0, unsigned *core_size = 0, expr *core = 0);
+        check_result slvr_check(unsigned n = 0, expr * const assumptions = 0, unsigned *core_size = 0, expr *core = 0) override;
 
-        virtual lbool ls_interpolate_tree(TermTree *assumptions,
+        lbool ls_interpolate_tree(TermTree *assumptions,
                                           TermTree *&interpolants,
                                           model &_model,
                                           TermTree *goals = 0,
-                                          bool weak = false);
+                                          bool weak = false) override;
 
-        virtual bool proof_core_contains(const expr &e);
+        bool proof_core_contains(const expr &e) override;
 
         void GetTermTreeAssertionLiterals(TermTree *assumptions);
 

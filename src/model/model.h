@@ -33,7 +33,7 @@ protected:
 
 public:
     model(ast_manager & m);
-    virtual ~model(); 
+    ~model() override;
 
     void copy_func_interps(model const & source);
     void copy_const_interps(model const & source);
@@ -44,11 +44,11 @@ public:
     bool eval(func_decl * f, expr_ref & r) const { return model_core::eval(f, r); }
     bool eval(expr * e, expr_ref & result, bool model_completion = false);
     
-    virtual expr * get_some_value(sort * s);
-    virtual ptr_vector<expr> const & get_universe(sort * s) const;
-    virtual unsigned get_num_uninterpreted_sorts() const;
-    virtual sort * get_uninterpreted_sort(unsigned idx) const;
-    bool has_uninterpreted_sort(sort * s) const; 
+    expr * get_some_value(sort * s) override;
+    ptr_vector<expr> const & get_universe(sort * s) const override;
+    unsigned get_num_uninterpreted_sorts() const override;
+    sort * get_uninterpreted_sort(unsigned idx) const override;
+    bool has_uninterpreted_sort(sort * s) const;
 
     //
     // Primitives for building models

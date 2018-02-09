@@ -34,15 +34,15 @@ class bv_size_reduction_tactic : public tactic {
 public:
     bv_size_reduction_tactic(ast_manager & m);
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(bv_size_reduction_tactic, m);
     }
 
-    virtual ~bv_size_reduction_tactic();
+    ~bv_size_reduction_tactic() override;
 
-    virtual void operator()(goal_ref const & g, goal_ref_buffer & result, model_converter_ref & mc, proof_converter_ref & pc, expr_dependency_ref & core);
+    void operator()(goal_ref const & g, goal_ref_buffer & result, model_converter_ref & mc, proof_converter_ref & pc, expr_dependency_ref & core) override;
 
-    virtual void cleanup();
+    void cleanup() override;
 };
 
 tactic * mk_bv_size_reduction_tactic(ast_manager & m, params_ref const & p) {

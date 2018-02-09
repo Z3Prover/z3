@@ -51,13 +51,13 @@ public:
         , m_inc_use_sat(false)
     {}
 
-    virtual ~qfufbv_ackr_tactic() { }
+    ~qfufbv_ackr_tactic() override { }
 
-    virtual void operator()(goal_ref const & g,
+    void operator()(goal_ref const & g,
         goal_ref_buffer & result,
         model_converter_ref & mc,
         proof_converter_ref & pc,
-        expr_dependency_ref & core) {
+        expr_dependency_ref & core) override {
         mc = 0;
         ast_manager& m(g->m());
         tactic_report report("qfufbv_ackr", *g);
@@ -84,23 +84,23 @@ public:
         }
     }
 
-    void updt_params(params_ref const & _p) {
+    void updt_params(params_ref const & _p) override {
         qfufbv_tactic_params p(_p);
         m_use_sat = p.sat_backend();
         m_inc_use_sat = p.inc_sat_backend();
     }
 
-    virtual void collect_statistics(statistics & st) const {
+    void collect_statistics(statistics & st) const override {
         ackermannization_params p(m_p);
         if (!p.eager()) st.update("lackr-its", m_st.m_it);
         st.update("ackr-constraints", m_st.m_ackrs_sz);
     }
 
-    virtual void reset_statistics() { m_st.reset(); }
+    void reset_statistics() override { m_st.reset(); }
 
-    virtual void cleanup() { }
+    void cleanup() override { }
 
-    virtual tactic* translate(ast_manager& m) {
+    tactic* translate(ast_manager& m) override {
         return alloc(qfufbv_ackr_tactic, m, m_p);
     }
 private:

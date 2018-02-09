@@ -84,12 +84,12 @@ private:
         solver *        m_solver;
         volatile bool   m_canceled;
         aux_timeout_eh(solver * s):m_solver(s), m_canceled(false) {}
-        ~aux_timeout_eh() {
+        ~aux_timeout_eh() override {
             if (m_canceled) {                
                 m_solver->get_manager().limit().dec_cancel();
             }
         }
-        virtual void operator()(event_handler_caller_t caller_id) {
+        void operator()(event_handler_caller_t caller_id) override {
             m_canceled = true;            
             m_solver->get_manager().limit().inc_cancel();
         }
@@ -102,7 +102,7 @@ private:
         m_inc_unknown_behavior = static_cast<inc_unknown_behavior>(p.solver2_unknown());
     }
 
-    virtual ast_manager& get_manager() const { return m_solver1->get_manager(); }
+    ast_manager& get_manager() const override { return m_solver1->get_manager(); }
 
     bool has_quantifiers() const {
         unsigned sz = get_num_assertions();
@@ -135,7 +135,7 @@ public:
         m_use_solver1_results = true;
     }
 
-    solver* translate(ast_manager& m, params_ref const& p) {
+    solver* translate(ast_manager& m, params_ref const& p) override {
         solver* s1 = m_solver1->translate(m, p);
         solver* s2 = m_solver2->translate(m, p);
         combined_solver* r = alloc(combined_solver, s1, s2, p);
@@ -146,25 +146,25 @@ public:
         return r;
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         solver::updt_params(p);
         m_solver1->updt_params(p);
         m_solver2->updt_params(p);
         updt_local_params(p);
     }
 
-    virtual void collect_param_descrs(param_descrs & r) {
+    void collect_param_descrs(param_descrs & r) override {
         m_solver1->collect_param_descrs(r);
         m_solver2->collect_param_descrs(r);
         combined_solver_params::collect_param_descrs(r);
     }
     
-    virtual void set_produce_models(bool f) {
+    void set_produce_models(bool f) override {
         m_solver1->set_produce_models(f);
         m_solver2->set_produce_models(f);
     }
     
-    virtual void assert_expr(expr * t) {
+    void assert_expr(expr * t) override {
         if (m_check_sat_executed)
             switch_inc_mode();
         m_solver1->assert_expr(t);
@@ -172,7 +172,7 @@ public:
             m_solver2->assert_expr(t);
     }
 
-    virtual void assert_expr(expr * t, expr * a) {
+    void assert_expr(expr * t, expr * a) override {
         if (m_check_sat_executed)
             switch_inc_mode();
         m_solver1->assert_expr(t, a);
@@ -180,23 +180,23 @@ public:
         m_solver2->assert_expr(t, a);
     }
 
-    virtual void push() {
+    void push() override {
         switch_inc_mode();
         m_solver1->push();
         m_solver2->push();
     }
     
-    virtual void pop(unsigned n) {
+    void pop(unsigned n) override {
         switch_inc_mode();
         m_solver1->pop(n);
         m_solver2->pop(n);
     }
 
-    virtual unsigned get_scope_level() const {
+    unsigned get_scope_level() const override {
         return m_solver1->get_scope_level();
     }
 
-    virtual lbool get_consequences(expr_ref_vector const& asms, expr_ref_vector const& vars, expr_ref_vector& consequences) {
+    lbool get_consequences(expr_ref_vector const& asms, expr_ref_vector const& vars, expr_ref_vector& consequences) override {
         switch_inc_mode();
         m_use_solver1_results = false;
         try {
@@ -213,7 +213,7 @@ public:
         return l_undef;
     }
 
-    virtual lbool check_sat(unsigned num_assumptions, expr * const * assumptions) {
+    lbool check_sat(unsigned num_assumptions, expr * const * assumptions) override {
         m_check_sat_executed  = true;        
         m_use_solver1_results = false;
 
@@ -258,73 +258,73 @@ public:
         return m_solver1->check_sat(num_assumptions, assumptions);
     }
     
-    virtual void set_progress_callback(progress_callback * callback) {
+    void set_progress_callback(progress_callback * callback) override {
         m_solver1->set_progress_callback(callback);
         m_solver2->set_progress_callback(callback);
     }
     
-    virtual unsigned get_num_assertions() const {
+    unsigned get_num_assertions() const override {
         return m_solver1->get_num_assertions();
     }
 
-    virtual expr * get_assertion(unsigned idx) const {
+    expr * get_assertion(unsigned idx) const override {
         return m_solver1->get_assertion(idx);
     }
 
-    virtual unsigned get_num_assumptions() const {
+    unsigned get_num_assumptions() const override {
         return m_solver1->get_num_assumptions() + m_solver2->get_num_assumptions();
     }
 
-    virtual expr * get_assumption(unsigned idx) const {
+    expr * get_assumption(unsigned idx) const override {
         unsigned c1 = m_solver1->get_num_assumptions();
         if (idx < c1) return m_solver1->get_assumption(idx);
         return m_solver2->get_assumption(idx - c1);
     }
 
-    virtual std::ostream& display(std::ostream & out, unsigned n, expr* const* es) const {
+    std::ostream& display(std::ostream & out, unsigned n, expr* const* es) const override {
         return m_solver1->display(out, n, es);
     }
 
-    virtual void collect_statistics(statistics & st) const {
+    void collect_statistics(statistics & st) const override {
         m_solver2->collect_statistics(st);
         if (m_use_solver1_results)
             m_solver1->collect_statistics(st);
     }
 
-    virtual void get_unsat_core(ptr_vector<expr> & r) {
+    void get_unsat_core(ptr_vector<expr> & r) override {
         if (m_use_solver1_results)
             m_solver1->get_unsat_core(r);
         else
             m_solver2->get_unsat_core(r);
     }
 
-    virtual void get_model(model_ref & m) {
+    void get_model(model_ref & m) override {
         if (m_use_solver1_results)
             m_solver1->get_model(m);
         else
             m_solver2->get_model(m);
     }
 
-    virtual proof * get_proof() {
+    proof * get_proof() override {
         if (m_use_solver1_results)
             return m_solver1->get_proof();
         else
             return m_solver2->get_proof();
     }
 
-    virtual std::string reason_unknown() const {
+    std::string reason_unknown() const override {
         if (m_use_solver1_results)
             return m_solver1->reason_unknown();
         else
             return m_solver2->reason_unknown();
     }
 
-    virtual void set_reason_unknown(char const* msg) {
+    void set_reason_unknown(char const* msg) override {
         m_solver1->set_reason_unknown(msg);
         m_solver2->set_reason_unknown(msg);
     }
 
-    virtual void get_labels(svector<symbol> & r) {
+    void get_labels(svector<symbol> & r) override {
         if (m_use_solver1_results)
             return m_solver1->get_labels(r);
         else
@@ -343,9 +343,9 @@ class combined_solver_factory : public solver_factory {
     scoped_ptr<solver_factory> m_f2;
 public:
     combined_solver_factory(solver_factory * f1, solver_factory * f2):m_f1(f1), m_f2(f2) {}
-    virtual ~combined_solver_factory() {}
+    ~combined_solver_factory() override {}
 
-    virtual solver * operator()(ast_manager & m, params_ref const & p, bool proofs_enabled, bool models_enabled, bool unsat_core_enabled, symbol const & logic) {
+    solver * operator()(ast_manager & m, params_ref const & p, bool proofs_enabled, bool models_enabled, bool unsat_core_enabled, symbol const & logic) override {
         return mk_combined_solver((*m_f1)(m, p, proofs_enabled, models_enabled, unsat_core_enabled, logic),
                                   (*m_f2)(m, p, proofs_enabled, models_enabled, unsat_core_enabled, logic),
                                   p);

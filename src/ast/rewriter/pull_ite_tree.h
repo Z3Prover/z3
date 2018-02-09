@@ -96,8 +96,8 @@ public:
 class pull_cheap_ite_tree_cfg : public pull_ite_tree_cfg {
 public:
     pull_cheap_ite_tree_cfg(ast_manager & m):pull_ite_tree_cfg(m) {}
-    virtual ~pull_cheap_ite_tree_cfg() {}
-    virtual bool is_target(app * n) const;
+    ~pull_cheap_ite_tree_cfg() override {}
+    bool is_target(app * n) const override;
 };
 
 class pull_cheap_ite_tree_rw  : public rewriter_tpl<pull_cheap_ite_tree_cfg> {

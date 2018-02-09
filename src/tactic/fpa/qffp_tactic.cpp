@@ -66,10 +66,10 @@ struct is_non_fp_qfnra_predicate {
 
 class is_fp_qfnra_probe : public probe {
 public:
-    virtual result operator()(goal const & g) {
+    result operator()(goal const & g) override {
         return !test<is_non_fp_qfnra_predicate>(g);
     }
-    virtual ~is_fp_qfnra_probe() {}
+    ~is_fp_qfnra_probe() override {}
 };
 
 probe * mk_is_fp_qfnra_probe() {
@@ -141,11 +141,11 @@ struct is_non_qffp_predicate {
 
 class is_qffp_probe : public probe {
 public:
-    virtual result operator()(goal const & g) {
+    result operator()(goal const & g) override {
         return !test<is_non_qffp_predicate>(g);
     }
 
-    virtual ~is_qffp_probe() {}
+    ~is_qffp_probe() override {}
 };
 
 probe * mk_is_qffp_probe() {
