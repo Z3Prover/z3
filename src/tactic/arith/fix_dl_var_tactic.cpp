@@ -196,7 +196,7 @@ class fix_dl_var_tactic : public tactic {
 
         app * most_occs() {
             // We try to choose a variable that when set to 0 will generate many bounded variables.
-            // That is why we give preference to variables occuring in non-nested inequalities.
+            // That is why we give preference to variables occurring in non-nested inequalities.
             unsigned best1, best2;
             app * r1, * r2;
             r1 = most_occs(m_non_nested_occs, best1);

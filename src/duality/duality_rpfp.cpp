@@ -1491,7 +1491,7 @@ namespace Duality {
         return res;
     }      
 
-    /** Determines the value in the counterexample of a symbol occuring in the transformer formula of
+    /** Determines the value in the counterexample of a symbol occurring in the transformer formula of
      *  a given edge. */
 
     RPFP::Term RPFP::Eval(Edge *e, Term t)
@@ -1500,7 +1500,7 @@ namespace Duality {
         return dualModel.eval(tl);
     }
 
-    /** Returns true if the given node is empty in the primal solution. For proecudure summaries,
+    /** Returns true if the given node is empty in the primal solution. For proceudure summaries,
         this means that the procedure is not called in the current counter-model. */
   
     bool RPFP::Empty(Node *p)

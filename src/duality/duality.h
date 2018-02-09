@@ -722,7 +722,7 @@ namespace Duality {
 
         check_result CheckUpdateModel(Node *root, std::vector<expr> assumps);
 
-        /** Determines the value in the counterexample of a symbol occuring in the transformer formula of
+        /** Determines the value in the counterexample of a symbol occurring in the transformer formula of
          *  a given edge. */
 
         Term Eval(Edge *e, Term t);
@@ -731,7 +731,7 @@ namespace Duality {
 
         Term EvalNode(Node *p);
 
-        /** Returns true if the given node is empty in the primal solution. For proecudure summaries,
+        /** Returns true if the given node is empty in the primal solution. For procedure summaries,
             this means that the procedure is not called in the current counter-model. */
 
         bool Empty(Node *p);
@@ -854,7 +854,7 @@ namespace Duality {
         /** Write the RPFP to a file (currently in SMTLIB 1.2 format) */
         void WriteProblemToFile(std::string filename, FileFormat format = DualityFormat);
 
-        /** Read the RPFP from a file (in specificed format) */
+        /** Read the RPFP from a file (in specified format) */
         void ReadProblemFromFile(std::string filename, FileFormat format = DualityFormat);
 
         /** Translate problem to Horn clause form */
@@ -870,9 +870,9 @@ namespace Duality {
         std::vector<Edge *> edges;
 
         /** Fuse a vector of transformers. If the total number of inputs of the transformers
-            is N, then the result is an N-ary transfomer whose output is the union of
-            the outputs of the given transformers. The is, suppose we have a vetor of transfoermers
-            {T_i(r_i1,...,r_iN(i) : i=1..M}. The the result is a transformer
+            is N, then the result is an N-ary transformer whose output is the union of
+            the outputs of the given transformers. The is, suppose we have a vector of transformers
+            {T_i(r_i1,...,r_iN(i) : i=1..M}. The result is a transformer
 
             F(r_11,...,r_iN(1),...,r_M1,...,r_MN(M)) =
             T_1(r_11,...,r_iN(1)) U ... U T_M(r_M1,...,r_MN(M))
