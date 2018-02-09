@@ -449,7 +449,7 @@ bool bv_bounds::add_constraint(expr* e) {
     return m_okay;
 }
 
-bool bv_bounds::add_bound_unsigned(app * v, numeral a, numeral b, bool negate) {
+bool bv_bounds::add_bound_unsigned(app * v, const numeral& a, const numeral& b, bool negate) {
     TRACE("bv_bounds", tout << "bound_unsigned " << mk_ismt2_pp(v, m_m) << ": " << (negate ? "~[" : "[") << a << ";" << b << "]" << std::endl;);
     const unsigned bv_sz = m_bv_util.get_bv_size(v);
     const numeral& zero = numeral::zero();
@@ -472,7 +472,7 @@ bool bv_bounds::add_bound_unsigned(app * v, numeral a, numeral b, bool negate) {
     }
 }
 
-bv_bounds::conv_res bv_bounds::convert_signed(app * v, numeral a, numeral b, bool negate, vector<ninterval>& nis) {
+bv_bounds::conv_res bv_bounds::convert_signed(app * v, const numeral& a, const numeral& b, bool negate, vector<ninterval>& nis) {
     TRACE("bv_bounds", tout << "convert_signed " << mk_ismt2_pp(v, m_m) << ":" << (negate ? "~[" : "[") << a << ";" << b << "]" << std::endl;);
     const unsigned bv_sz = m_bv_util.get_bv_size(v);
     SASSERT(a <= b);
@@ -496,7 +496,7 @@ bv_bounds::conv_res bv_bounds::convert_signed(app * v, numeral a, numeral b, boo
     }
 }
 
-bool bv_bounds::add_bound_signed(app * v, numeral a, numeral b, bool negate) {
+bool bv_bounds::add_bound_signed(app * v, const numeral& a, const numeral& b, bool negate) {
     TRACE("bv_bounds", tout << "bound_signed " << mk_ismt2_pp(v, m_m) << ":" << (negate ? "~" : " ") << a << ";" << b << std::endl;);
     const unsigned bv_sz = m_bv_util.get_bv_size(v);
     SASSERT(a <= b);
@@ -519,7 +519,7 @@ bool bv_bounds::add_bound_signed(app * v, numeral a, numeral b, bool negate) {
     }
 }
 
-bool bv_bounds::bound_lo(app * v, numeral l) {
+bool bv_bounds::bound_lo(app * v, const numeral& l) {
     SASSERT(in_range(v, l));
     TRACE("bv_bounds", tout << "lower " << mk_ismt2_pp(v, m_m) << ":" << l << std::endl;);
     // l <= v
@@ -530,7 +530,7 @@ bool bv_bounds::bound_lo(app * v, numeral l) {
     return m_okay;
 }
 
-bool bv_bounds::bound_up(app * v, numeral u) {
+bool bv_bounds::bound_up(app * v, const numeral& u) {
     SASSERT(in_range(v, u));
     TRACE("bv_bounds", tout << "upper " << mk_ismt2_pp(v, m_m) << ":" << u << std::endl;);
     // v <= u
@@ -541,7 +541,7 @@ bool bv_bounds::bound_up(app * v, numeral u) {
     return m_okay;
 }
 
-bool bv_bounds::add_neg_bound(app * v, numeral a, numeral b) {
+bool bv_bounds::add_neg_bound(app * v, const numeral& a, const numeral& b) {
     TRACE("bv_bounds", tout << "negative bound " << mk_ismt2_pp(v, m_m) << ":" << a << ";" << b << std::endl;);
     bv_bounds::interval negative_interval(a, b);
     SASSERT(m_bv_util.is_bv(v));
