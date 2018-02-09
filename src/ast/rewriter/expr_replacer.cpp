@@ -90,14 +90,14 @@ public:
         m_replacer(m, m.proofs_enabled(), m_cfg) {
     }
     
-    virtual ast_manager & m() const { return m_replacer.m(); }
+    ast_manager & m() const override { return m_replacer.m(); }
 
-    virtual void set_substitution(expr_substitution * s) { 
+    void set_substitution(expr_substitution * s) override {
         m_replacer.cleanup();
         m_replacer.cfg().m_subst = s;
     }
     
-    virtual void operator()(expr * t, expr_ref & result, proof_ref & result_pr, expr_dependency_ref & result_dep) {
+    void operator()(expr * t, expr_ref & result, proof_ref & result_pr, expr_dependency_ref & result_dep) override {
         result_dep = 0;
         m_replacer.operator()(t, result, result_pr);
         if (m_cfg.m_used_dependencies != 0) {
@@ -108,11 +108,11 @@ public:
     }
 
 
-    virtual unsigned get_num_steps() const {
+    unsigned get_num_steps() const override {
         return m_replacer.get_num_steps();
     }
 
-    virtual void reset() {
+    void reset() override {
         m_replacer.reset();
     }
 };
@@ -131,23 +131,23 @@ public:
         m_r(m, p) {
     }
 
-    virtual ~th_rewriter2expr_replacer() {}
+    ~th_rewriter2expr_replacer() override {}
 
-    virtual ast_manager & m() const { return m_r.m(); }
+    ast_manager & m() const override { return m_r.m(); }
 
-    virtual void set_substitution(expr_substitution * s) { m_r.set_substitution(s); }
+    void set_substitution(expr_substitution * s) override { m_r.set_substitution(s); }
 
-    virtual void operator()(expr * t, expr_ref & result, proof_ref & result_pr, expr_dependency_ref & result_dep) {
+    void operator()(expr * t, expr_ref & result, proof_ref & result_pr, expr_dependency_ref & result_dep) override {
         m_r(t, result, result_pr);
         result_dep = m_r.get_used_dependencies();
         m_r.reset_used_dependencies();
     }
 
-    virtual unsigned get_num_steps() const { 
+    unsigned get_num_steps() const override {
         return m_r.get_num_steps();
     }
 
-    virtual void reset() {
+    void reset() override {
         m_r.reset();
     }
 

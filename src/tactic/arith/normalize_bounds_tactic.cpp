@@ -156,28 +156,28 @@ public:
         m_imp = alloc(imp, m, p);
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(normalize_bounds_tactic, m, m_params);
     }
 
-    virtual ~normalize_bounds_tactic() {
+    ~normalize_bounds_tactic() override {
         dealloc(m_imp);
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_imp->updt_params(p);
     }
 
-    virtual void collect_param_descrs(param_descrs & r) { 
+    void collect_param_descrs(param_descrs & r) override {
         insert_produce_models(r);
         r.insert("norm_int_only", CPK_BOOL, "(default: true) normalize only the bounds of integer constants.");
     }
 
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
+    void operator()(goal_ref const & in,
+                    goal_ref_buffer & result,
+                    model_converter_ref & mc,
+                    proof_converter_ref & pc,
+                    expr_dependency_ref & core) override {
         try {
             (*m_imp)(in, result, mc, pc, core);
         }
@@ -186,7 +186,7 @@ public:
         }
     }
     
-    virtual void cleanup() {
+    void cleanup() override {
         ast_manager & m = m_imp->m;
         imp * d = alloc(imp, m, m_params);
         std::swap(d, m_imp);        

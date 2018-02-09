@@ -44,36 +44,36 @@ class tactic2solver : public solver_na2as {
     
 public:
     tactic2solver(ast_manager & m, tactic * t, params_ref const & p, bool produce_proofs, bool produce_models, bool produce_unsat_cores, symbol const & logic);
-    virtual ~tactic2solver();
+    ~tactic2solver() override;
 
-    virtual solver* translate(ast_manager& m, params_ref const& p);
+    solver* translate(ast_manager& m, params_ref const& p) override;
 
-    virtual void updt_params(params_ref const & p);
-    virtual void collect_param_descrs(param_descrs & r);
+    void updt_params(params_ref const & p) override;
+    void collect_param_descrs(param_descrs & r) override;
 
-    virtual void set_produce_models(bool f) { m_produce_models = f; }
+    void set_produce_models(bool f) override { m_produce_models = f; }
 
-    virtual void assert_expr(expr * t);
+    void assert_expr(expr * t) override;
 
-    virtual void push_core();
-    virtual void pop_core(unsigned n);
-    virtual lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions);
+    void push_core() override;
+    void pop_core(unsigned n) override;
+    lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions) override;
 
 
-    virtual void collect_statistics(statistics & st) const;
-    virtual void get_unsat_core(ptr_vector<expr> & r);
-    virtual void get_model(model_ref & m);
-    virtual proof * get_proof();
-    virtual std::string reason_unknown() const;
-    virtual void set_reason_unknown(char const* msg);
-    virtual void get_labels(svector<symbol> & r) {}
+    void collect_statistics(statistics & st) const override;
+    void get_unsat_core(ptr_vector<expr> & r) override;
+    void get_model(model_ref & m) override;
+    proof * get_proof() override;
+    std::string reason_unknown() const override;
+    void set_reason_unknown(char const* msg) override;
+    void get_labels(svector<symbol> & r) override {}
 
-    virtual void set_progress_callback(progress_callback * callback) {}
+    void set_progress_callback(progress_callback * callback) override {}
 
-    virtual unsigned get_num_assertions() const;
-    virtual expr * get_assertion(unsigned idx) const;
+    unsigned get_num_assertions() const override;
+    expr * get_assertion(unsigned idx) const override;
 
-    virtual ast_manager& get_manager() const; 
+    ast_manager& get_manager() const override;
 };
 
 ast_manager& tactic2solver::get_manager() const { return m_assertions.get_manager(); }
@@ -261,9 +261,9 @@ public:
     tactic2solver_factory(tactic * t):m_tactic(t) {
     }
     
-    virtual ~tactic2solver_factory() {}
+    ~tactic2solver_factory() override {}
     
-    virtual solver * operator()(ast_manager & m, params_ref const & p, bool proofs_enabled, bool models_enabled, bool unsat_core_enabled, symbol const & logic) {
+    solver * operator()(ast_manager & m, params_ref const & p, bool proofs_enabled, bool models_enabled, bool unsat_core_enabled, symbol const & logic) override {
         return mk_tactic2solver(m, m_tactic.get(), p, proofs_enabled, models_enabled, unsat_core_enabled, logic);
     }
 };
@@ -274,9 +274,9 @@ public:
     tactic_factory2solver_factory(tactic_factory * f):m_factory(f) {
     }
     
-    virtual ~tactic_factory2solver_factory() {}
+    ~tactic_factory2solver_factory() override {}
     
-    virtual solver * operator()(ast_manager & m, params_ref const & p, bool proofs_enabled, bool models_enabled, bool unsat_core_enabled, symbol const & logic) {
+    solver * operator()(ast_manager & m, params_ref const & p, bool proofs_enabled, bool models_enabled, bool unsat_core_enabled, symbol const & logic) override {
         tactic * t = (*m_factory)(m, p);
         return mk_tactic2solver(m, t, p, proofs_enabled, models_enabled, unsat_core_enabled, logic);
     }

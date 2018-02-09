@@ -23,16 +23,16 @@ class concat_proof_converter : public concat_converter<proof_converter> {
 public:
     concat_proof_converter(proof_converter * pc1, proof_converter * pc2):concat_converter<proof_converter>(pc1, pc2) {}
 
-    virtual char const * get_name() const { return "concat-proof-converter"; }
+    char const * get_name() const override { return "concat-proof-converter"; }
 
-    virtual void operator()(ast_manager & m, unsigned num_source, proof * const * source, proof_ref & result) {
+    void operator()(ast_manager & m, unsigned num_source, proof * const * source, proof_ref & result) override {
         proof_ref tmp(m);
         this->m_c2->operator()(m, num_source, source, tmp);
         proof * new_source = tmp.get();
         this->m_c1->operator()(m, 1, &new_source, result);
     }
 
-    virtual proof_converter * translate(ast_translation & translator) {
+    proof_converter * translate(ast_translation & translator) override {
         return this->translate_core<concat_proof_converter>(translator);
     }
 };
@@ -51,9 +51,9 @@ public:
         concat_star_converter<proof_converter>(pc1, num, pc2s, szs) {
     }
 
-    virtual char const * get_name() const { return "concat-star-proof-converter"; }
+    char const * get_name() const override { return "concat-star-proof-converter"; }
 
-    virtual void operator()(ast_manager & m, unsigned num_source, proof * const * source, proof_ref & result) {
+    void operator()(ast_manager & m, unsigned num_source, proof * const * source, proof_ref & result) override {
         unsigned num = this->m_szs.size();
 #ifdef Z3DEBUG
         unsigned sum = 0;
@@ -86,7 +86,7 @@ public:
         }
     }
 
-    virtual proof_converter * translate(ast_translation & translator) {
+    proof_converter * translate(ast_translation & translator) override {
         return this->translate_core<concat_star_proof_converter>(translator);
     }
 };
@@ -111,18 +111,18 @@ class proof2pc : public proof_converter {
     proof_ref m_pr;
 public:
     proof2pc(ast_manager & m, proof * pr):m_pr(pr, m) {}
-    virtual ~proof2pc() {}
+    ~proof2pc() override {}
 
-    virtual void operator()(ast_manager & m, unsigned num_source, proof * const * source, proof_ref & result) {
+    void operator()(ast_manager & m, unsigned num_source, proof * const * source, proof_ref & result) override {
         SASSERT(num_source == 0);
         result = m_pr;
     }
 
-    virtual proof_converter * translate(ast_translation & translator) {
+    proof_converter * translate(ast_translation & translator) override {
         return alloc(proof2pc, translator.to(), translator(m_pr.get()));
     }
 
-    virtual void display(std::ostream & out) {
+    void display(std::ostream & out) override {
         out << "(proof->proof-converter-wrapper\n" << mk_ismt2_pp(m_pr.get(), m_pr.get_manager()) << ")\n";
     }    
 };

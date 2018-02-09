@@ -45,7 +45,7 @@ public:
 class solver : public check_sat_result {
     params_ref m_params;
 public:
-    virtual ~solver() {}
+    ~solver() override {}
 
     /**
     \brief Creates a clone of the solver.

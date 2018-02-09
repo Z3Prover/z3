@@ -390,29 +390,29 @@ public:
         m_imp = alloc(imp, m, p);
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(recover_01_tactic, m, m_params);
     }
     
-    virtual ~recover_01_tactic() {
+    ~recover_01_tactic() override {
         dealloc(m_imp);
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_params = p;
         m_imp->updt_params(p);
     }
 
-    virtual void collect_param_descrs(param_descrs & r) { 
+    void collect_param_descrs(param_descrs & r) override {
         th_rewriter::get_param_descrs(r);
         r.insert("recover_01_max_bits", CPK_UINT, "(default: 10) maximum number of bits to consider in a clause.");
     }
 
-    void operator()(goal_ref const & g, 
-                    goal_ref_buffer & result, 
-                    model_converter_ref & mc, 
+    void operator()(goal_ref const & g,
+                    goal_ref_buffer & result,
+                    model_converter_ref & mc,
                     proof_converter_ref & pc,
-                    expr_dependency_ref & core) {
+                    expr_dependency_ref & core) override {
         try {
             (*m_imp)(g, result, mc, pc, core);
         }
@@ -421,7 +421,7 @@ public:
         }
     }
     
-    virtual void cleanup() {
+    void cleanup() override {
         imp * d = alloc(imp, m_imp->m, m_params);
         std::swap(d, m_imp);        
         dealloc(d);

@@ -32,7 +32,7 @@ class nlsat_tactic : public tactic {
         ast_manager & m;
         expr_ref_vector m_var2expr;
         expr_display_var_proc(ast_manager & _m):m(_m), m_var2expr(_m) {}
-        virtual std::ostream& operator()(std::ostream & out, nlsat::var x) const { 
+        std::ostream& operator()(std::ostream & out, nlsat::var x) const override {
             if (x < m_var2expr.size())
                 return out << mk_ismt2_pp(m_var2expr.get(x), m); 
             else
@@ -214,29 +214,29 @@ public:
         m_imp = 0;
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(nlsat_tactic, m_params);
     }
         
-    virtual ~nlsat_tactic() {
+    ~nlsat_tactic() override {
         SASSERT(m_imp == 0);
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_params = p;
     }
 
-    virtual void collect_param_descrs(param_descrs & r) {
+    void collect_param_descrs(param_descrs & r) override {
         goal2nlsat::collect_param_descrs(r);
         nlsat::solver::collect_param_descrs(r);
         algebraic_numbers::manager::collect_param_descrs(r);
     }
     
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
+    void operator()(goal_ref const & in,
+                    goal_ref_buffer & result,
+                    model_converter_ref & mc,
+                    proof_converter_ref & pc,
+                    expr_dependency_ref & core) override {
         try {
             imp local_imp(in->m(), m_params);
             scoped_set_imp setter(*this, local_imp);
@@ -251,13 +251,13 @@ public:
         }
     }
     
-    virtual void cleanup() {}
+    void cleanup() override {}
     
-    virtual void collect_statistics(statistics & st) const {
+    void collect_statistics(statistics & st) const override {
         st.copy(m_stats);
     }
 
-    virtual void reset_statistics() {
+    void reset_statistics() override {
         m_stats.reset();
     }
 };

@@ -46,7 +46,7 @@ public:
         updt_params(p); 
     }
     
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         aig_tactic * t = alloc(aig_tactic);
         t->m_max_memory = m_max_memory;
         t->m_aig_gate_encoding = m_aig_gate_encoding;
@@ -54,13 +54,13 @@ public:
         return t;
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_max_memory        = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
         m_aig_gate_encoding = p.get_bool("aig_default_gate_encoding", true);
         m_aig_per_assertion = p.get_bool("aig_per_assertion", true); 
     }
 
-    virtual void collect_param_descrs(param_descrs & r) { 
+    void collect_param_descrs(param_descrs & r) override {
         insert_max_memory(r);
         r.insert("aig_per_assertion", CPK_BOOL, "(default: true) process one assertion at a time.");
     }
@@ -90,11 +90,11 @@ public:
         SASSERT(g->is_well_sorted());
     }
     
-    virtual void operator()(goal_ref const & g, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
+    void operator()(goal_ref const & g,
+                    goal_ref_buffer & result,
+                    model_converter_ref & mc,
+                    proof_converter_ref & pc,
+                    expr_dependency_ref & core) override {
         fail_if_proof_generation("aig", g);
         mc = 0; pc = 0; core = 0;
         operator()(g);
@@ -102,7 +102,7 @@ public:
         result.push_back(g.get());
     }
 
-    virtual void cleanup() {}
+    void cleanup() override {}
 
 };
 

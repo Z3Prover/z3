@@ -93,7 +93,7 @@ bool model::eval(expr * e, expr_ref & result, bool model_completion) {
 struct model::value_proc : public some_value_proc {
     model & m_model;
     value_proc(model & m):m_model(m) {}
-    virtual expr * operator()(sort * s) {
+    expr * operator()(sort * s) override {
         ptr_vector<expr> * u = 0;
         if (m_model.m_usort2universe.find(s, u)) {
             if (u->size() > 0)

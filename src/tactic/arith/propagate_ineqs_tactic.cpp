@@ -43,18 +43,18 @@ class propagate_ineqs_tactic : public tactic {
 public:
     propagate_ineqs_tactic(ast_manager & m, params_ref const & p);
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(propagate_ineqs_tactic, m, m_params);
     }
 
-    virtual ~propagate_ineqs_tactic();
+    ~propagate_ineqs_tactic() override;
 
-    virtual void updt_params(params_ref const & p);
-    virtual void collect_param_descrs(param_descrs & r) {}
+    void updt_params(params_ref const & p) override;
+    void collect_param_descrs(param_descrs & r) override {}
 
-    virtual void operator()(goal_ref const & g, goal_ref_buffer & result, model_converter_ref & mc, proof_converter_ref & pc, expr_dependency_ref & core);
+    void operator()(goal_ref const & g, goal_ref_buffer & result, model_converter_ref & mc, proof_converter_ref & pc, expr_dependency_ref & core) override;
     
-    virtual void cleanup();
+    void cleanup() override;
 };
 
 tactic * mk_propagate_ineqs_tactic(ast_manager & m, params_ref const & p) {

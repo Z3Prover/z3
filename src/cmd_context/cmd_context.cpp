@@ -414,25 +414,25 @@ protected:
 
 public:
     pp_env(cmd_context & o):m_owner(o), m_autil(o.m()), m_bvutil(o.m()), m_arutil(o.m()), m_futil(o.m()), m_sutil(o.m()), m_dtutil(o.m()), m_dlutil(o.m()) {}
-    virtual ~pp_env() {}
-    virtual ast_manager & get_manager() const { return m_owner.m(); }
-    virtual arith_util & get_autil() { return m_autil; }
-    virtual bv_util & get_bvutil() { return m_bvutil; }
-    virtual array_util & get_arutil() { return m_arutil; }
-    virtual fpa_util & get_futil() { return m_futil; }
-    virtual seq_util & get_sutil() { return m_sutil; }
-    virtual datatype_util & get_dtutil() { return m_dtutil; }
+    ~pp_env() override {}
+    ast_manager & get_manager() const override { return m_owner.m(); }
+    arith_util & get_autil() override { return m_autil; }
+    bv_util & get_bvutil() override { return m_bvutil; }
+    array_util & get_arutil() override { return m_arutil; }
+    fpa_util & get_futil() override { return m_futil; }
+    seq_util & get_sutil() override { return m_sutil; }
+    datatype_util & get_dtutil() override { return m_dtutil; }
 
-    virtual datalog::dl_decl_util& get_dlutil() { return m_dlutil; }
-    virtual bool uses(symbol const & s) const {
+    datalog::dl_decl_util& get_dlutil() override { return m_dlutil; }
+    bool uses(symbol const & s) const override {
         return
             m_owner.m_builtin_decls.contains(s) ||
             m_owner.m_func_decls.contains(s);
     }
-    virtual format_ns::format * pp_sort(sort * s) {
+    format_ns::format * pp_sort(sort * s) override {
         return m_owner.pp(s);
     }
-    virtual format_ns::format * pp_fdecl(func_decl * f, unsigned & len) {
+    format_ns::format * pp_fdecl(func_decl * f, unsigned & len) override {
         symbol s = f->get_name();
         func_decls fs;
         if (m_owner.m_func_decls.find(s, fs) && fs.contains(f)) {
@@ -443,7 +443,7 @@ public:
         }
         return smt2_pp_environment::pp_fdecl(f, len);
     }
-    virtual format_ns::format * pp_fdecl_ref(func_decl * f) {
+    format_ns::format * pp_fdecl_ref(func_decl * f) override {
         symbol s = f->get_name();
         func_decls fs;
         if (m_owner.m_func_decls.find(s, fs) && fs.contains(f)) {

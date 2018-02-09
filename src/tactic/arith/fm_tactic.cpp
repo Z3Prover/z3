@@ -164,7 +164,7 @@ class fm_tactic : public tactic {
     public:
         fm_model_converter(ast_manager & _m):m(_m) {}
 
-        virtual ~fm_model_converter() {
+        ~fm_model_converter() override {
             m.dec_array_ref(m_xs.size(), m_xs.c_ptr());
             vector<clauses>::iterator it  = m_clauses.begin();
             vector<clauses>::iterator end = m_clauses.end();
@@ -180,7 +180,7 @@ class fm_tactic : public tactic {
             m_clauses.back().swap(c);
         }
 
-        virtual void operator()(model_ref & md, unsigned goal_idx) {
+        void operator()(model_ref & md, unsigned goal_idx) override {
             TRACE("fm_mc", model_v2_pp(tout, *md); display(tout););
             model_evaluator ev(*(md.get()));
             ev.set_model_completion(true);
@@ -244,7 +244,7 @@ class fm_tactic : public tactic {
         }
 
 
-        virtual void display(std::ostream & out) {
+        void display(std::ostream & out) override {
             out << "(fm-model-converter";
             SASSERT(m_xs.size() == m_clauses.size());
             unsigned sz = m_xs.size();
@@ -261,7 +261,7 @@ class fm_tactic : public tactic {
             out << ")\n";
         }
 
-        virtual model_converter * translate(ast_translation & translator) {
+        model_converter * translate(ast_translation & translator) override {
             ast_manager & to_m = translator.to();
             fm_model_converter * res = alloc(fm_model_converter, to_m);
             unsigned sz = m_xs.size();
@@ -1643,20 +1643,20 @@ public:
         m_imp = alloc(imp, m, p);
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(fm_tactic, m, m_params);
     }
 
-    virtual ~fm_tactic() {
+    ~fm_tactic() override {
         dealloc(m_imp);
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_params = p;
         m_imp->updt_params(p);
     }
 
-    virtual void collect_param_descrs(param_descrs & r) {
+    void collect_param_descrs(param_descrs & r) override {
         insert_produce_models(r);
         insert_max_memory(r);
         r.insert("fm_real_only", CPK_BOOL, "(default: true) consider only real variables for fourier-motzkin elimination.");
@@ -1668,17 +1668,17 @@ public:
     }
 
 
-    virtual void cleanup() {
+    void cleanup() override {
         imp * d = alloc(imp, m_imp->m, m_params);
         std::swap(d, m_imp);        
         dealloc(d);
     }
 
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
+    void operator()(goal_ref const & in,
+                    goal_ref_buffer & result,
+                    model_converter_ref & mc,
+                    proof_converter_ref & pc,
+                    expr_dependency_ref & core) override {
         (*m_imp)(in, result, mc, pc, core);
     }
 };

@@ -43,21 +43,21 @@ public:
         TRACE("nnf", tout << "nnf_tactic constructor: " << p << "\n";);
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(nnf_tactic, m_params);
     }
 
-    virtual ~nnf_tactic() {}
+    ~nnf_tactic() override {}
 
-    virtual void updt_params(params_ref const & p) { m_params = p; }
+    void updt_params(params_ref const & p) override { m_params = p; }
 
-    virtual void collect_param_descrs(param_descrs & r) { nnf::get_param_descrs(r); }
+    void collect_param_descrs(param_descrs & r) override { nnf::get_param_descrs(r); }
 
-    virtual void operator()(goal_ref const & g, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
+    void operator()(goal_ref const & g,
+                    goal_ref_buffer & result,
+                    model_converter_ref & mc,
+                    proof_converter_ref & pc,
+                    expr_dependency_ref & core) override {
         TRACE("nnf", tout << "params: " << m_params << "\n"; g->display(tout););
         SASSERT(g->is_well_sorted());
         mc = 0; pc = 0; core = 0;
@@ -106,7 +106,7 @@ public:
         SASSERT(g->is_well_sorted());
     }
     
-    virtual void cleanup() {}
+    void cleanup() override {}
 };
 
 tactic * mk_snf_tactic(ast_manager & m, params_ref const & p) {

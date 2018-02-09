@@ -426,20 +426,20 @@ public:
         m_imp = alloc(imp, m, p);
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(bv1_blaster_tactic, m, m_params);
     }
 
-    virtual ~bv1_blaster_tactic() {
+    ~bv1_blaster_tactic() override {
         dealloc(m_imp);
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_params = p;
         m_imp->m_rw.cfg().updt_params(p);
     }
 
-    virtual void collect_param_descrs(param_descrs & r) { 
+    void collect_param_descrs(param_descrs & r) override {
         insert_max_memory(r);
         insert_max_steps(r);
     }
@@ -454,15 +454,15 @@ public:
        It also does not support quantifiers.
        Return a model_converter that converts any model for the updated set into a model for the old set.
     */
-    virtual void operator()(goal_ref const & g, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
+    void operator()(goal_ref const & g,
+                    goal_ref_buffer & result,
+                    model_converter_ref & mc,
+                    proof_converter_ref & pc,
+                    expr_dependency_ref & core) override {
         (*m_imp)(g, result, mc, pc, core);
     }
     
-    virtual void cleanup() {
+    void cleanup() override {
         imp * d = alloc(imp, m_imp->m(), m_params);
         std::swap(d, m_imp);        
         dealloc(d);
@@ -480,7 +480,7 @@ tactic * mk_bv1_blaster_tactic(ast_manager & m, params_ref const & p) {
 
 class is_qfbv_eq_probe : public probe {
 public:
-    virtual result operator()(goal const & g) {
+    result operator()(goal const & g) override {
         bv1_blaster_tactic t(g.m());
         return t.is_target(g);
 

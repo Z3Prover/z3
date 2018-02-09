@@ -297,23 +297,23 @@ public:
         m_imp = alloc(imp, m);
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(degree_shift_tactic, m);
     }
         
-    virtual ~degree_shift_tactic() {
+    ~degree_shift_tactic() override {
         dealloc(m_imp);
     }
 
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
+    void operator()(goal_ref const & in,
+                    goal_ref_buffer & result,
+                    model_converter_ref & mc,
+                    proof_converter_ref & pc,
+                    expr_dependency_ref & core) override {
         (*m_imp)(in, result, mc, pc, core);
     }
     
-    virtual void cleanup() {
+    void cleanup() override {
         imp * d = alloc(imp, m_imp->m);
         std::swap(d, m_imp);        
         dealloc(d);

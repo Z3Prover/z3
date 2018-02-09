@@ -145,7 +145,7 @@ protected:
     bool        m_convert_int_numerals_to_real;
 
     func_decl * mk_func_decl(decl_kind k, bool is_real);
-    virtual void set_manager(ast_manager * m, family_id id);
+    void set_manager(ast_manager * m, family_id id) override;
     decl_kind fix_kind(decl_kind k, unsigned arity);
     void check_arity(unsigned arity, unsigned expected_arity);
     func_decl * mk_num_decl(unsigned num_parameters, parameter const * parameters, unsigned arity);
@@ -153,38 +153,38 @@ protected:
 public:
     arith_decl_plugin();
 
-    virtual ~arith_decl_plugin();
-    virtual void finalize();
+    ~arith_decl_plugin() override;
+    void finalize() override;
 
     algebraic_numbers::manager & am() const;
     algebraic_numbers_wrapper & aw() const;
 
-    virtual void del(parameter const & p);
-    virtual parameter translate(parameter const & p, decl_plugin & target);
+    void del(parameter const & p) override;
+    parameter translate(parameter const & p, decl_plugin & target) override;
 
-    virtual decl_plugin * mk_fresh() {
+    decl_plugin * mk_fresh() override {
         return alloc(arith_decl_plugin);
     }
 
-    virtual sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters);
+    sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) override;
 
-    virtual func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
-                                     unsigned arity, sort * const * domain, sort * range);
+    func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
+                             unsigned arity, sort * const * domain, sort * range) override;
 
-    virtual func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
-                                     unsigned num_args, expr * const * args, sort * range);
+    func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
+                             unsigned num_args, expr * const * args, sort * range) override;
 
-    virtual bool is_value(app * e) const;
+    bool is_value(app * e) const override;
 
-    virtual bool is_unique_value(app * e) const;
+    bool is_unique_value(app * e) const override;
 
-    virtual bool are_equal(app * a, app * b) const;
+    bool are_equal(app * a, app * b) const override;
 
-    virtual bool are_distinct(app * a, app * b) const;
+    bool are_distinct(app * a, app * b) const override;
 
-    virtual void get_op_names(svector<builtin_name> & op_names, symbol const & logic);
+    void get_op_names(svector<builtin_name> & op_names, symbol const & logic) override;
 
-    virtual void get_sort_names(svector<builtin_name> & sort_names, symbol const & logic);
+    void get_sort_names(svector<builtin_name> & sort_names, symbol const & logic) override;
 
     app * mk_numeral(rational const & n, bool is_int);
 
@@ -197,9 +197,9 @@ public:
 
     app * mk_e() const { return m_e; }
 
-    virtual expr * get_some_value(sort * s);
+    expr * get_some_value(sort * s) override;
 
-    virtual bool is_considered_uninterpreted(func_decl * f) {
+    bool is_considered_uninterpreted(func_decl * f) override {
         if (f->get_family_id() != get_family_id())
             return false;
         switch (f->get_decl_kind())

@@ -80,15 +80,15 @@ class smt2_pp_environment_dbg : public smt2_pp_environment {
     datalog::dl_decl_util m_dlutil;
 public:
     smt2_pp_environment_dbg(ast_manager & m):m_manager(m), m_autil(m), m_bvutil(m), m_arutil(m), m_futil(m), m_sutil(m), m_dtutil(m), m_dlutil(m) {}
-    virtual ast_manager & get_manager() const { return m_manager; }
-    virtual arith_util & get_autil() { return m_autil; }
-    virtual bv_util & get_bvutil() { return m_bvutil; }
-    virtual seq_util & get_sutil() { return m_sutil; }
-    virtual array_util & get_arutil() { return m_arutil; }
-    virtual fpa_util & get_futil() { return m_futil; }
-    virtual datalog::dl_decl_util& get_dlutil() { return m_dlutil; }
-    virtual datatype_util& get_dtutil() { return m_dtutil; }
-    virtual bool uses(symbol const & s) const { return false; }
+    ast_manager & get_manager() const override { return m_manager; }
+    arith_util & get_autil() override { return m_autil; }
+    bv_util & get_bvutil() override { return m_bvutil; }
+    seq_util & get_sutil() override { return m_sutil; }
+    array_util & get_arutil() override { return m_arutil; }
+    fpa_util & get_futil() override { return m_futil; }
+    datalog::dl_decl_util& get_dlutil() override { return m_dlutil; }
+    datatype_util& get_dtutil() override { return m_dtutil; }
+    bool uses(symbol const & s) const override { return false; }
 };
 
 void mk_smt2_format(expr * n, smt2_pp_environment & env, params_ref const & p, 

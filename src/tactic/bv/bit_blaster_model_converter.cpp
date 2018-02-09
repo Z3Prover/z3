@@ -46,7 +46,7 @@ struct bit_blaster_model_converter : public model_converter {
         }
     }
     
-    virtual ~bit_blaster_model_converter() {
+    ~bit_blaster_model_converter() override {
     }
     
     void collect_bits(obj_hashtable<func_decl> & bits) {
@@ -142,7 +142,7 @@ struct bit_blaster_model_converter : public model_converter {
         }
     }
 
-    virtual void operator()(model_ref & md, unsigned goal_idx) {
+    void operator()(model_ref & md, unsigned goal_idx) override {
         SASSERT(goal_idx == 0);
         model * new_model = alloc(model, m());
         obj_hashtable<func_decl> bits;
@@ -152,11 +152,11 @@ struct bit_blaster_model_converter : public model_converter {
         md = new_model;
     }
 
-    virtual void operator()(model_ref & md) {
+    void operator()(model_ref & md) override {
         operator()(md, 0);
     }
     
-    virtual void display(std::ostream & out) {
+    void display(std::ostream & out) override {
         out << "(bit-blaster-model-converter";
         unsigned sz = m_vars.size();
         for (unsigned i = 0; i < sz; i++) {
@@ -171,7 +171,7 @@ protected:
     bit_blaster_model_converter(ast_manager & m):m_vars(m), m_bits(m) { }
 public:
 
-    virtual model_converter * translate(ast_translation & translator) {
+    model_converter * translate(ast_translation & translator) override {
         bit_blaster_model_converter * res = alloc(bit_blaster_model_converter, translator.to());
         for (unsigned i = 0; i < m_vars.size(); i++)
             res->m_vars.push_back(translator(m_vars[i].get()));

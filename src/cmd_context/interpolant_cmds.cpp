@@ -219,29 +219,29 @@ protected:
 public:
     get_interpolant_cmd(char const * name = "get-interpolant"):parametric_cmd(name) {}
 
-    virtual char const * get_usage() const { return "<fmla>+"; }
+    char const * get_usage() const override { return "<fmla>+"; }
 
-    virtual char const * get_main_descr() const { 
+    char const * get_main_descr() const override {
         return "get interpolant for formulas";
     }
     
-    virtual void init_pdescrs(cmd_context & ctx, param_descrs & p) {
+    void init_pdescrs(cmd_context & ctx, param_descrs & p) override {
     }
     
-    virtual void prepare(cmd_context & ctx) { 
+    void prepare(cmd_context & ctx) override {
         parametric_cmd::prepare(ctx);
         m_targets.resize(0);
     }
 
-    virtual cmd_arg_kind next_arg_kind(cmd_context & ctx) const {
+    cmd_arg_kind next_arg_kind(cmd_context & ctx) const override {
         return CPK_EXPR;
     }
     
-    virtual void set_next_arg(cmd_context & ctx, expr * arg) {
+    void set_next_arg(cmd_context & ctx, expr * arg) override {
         m_targets.push_back(arg);
     }
     
-    virtual void execute(cmd_context & ctx) {
+    void execute(cmd_context & ctx) override {
         get_interpolant(ctx,m_targets,m_params);
     }
 };
@@ -250,7 +250,7 @@ class compute_interpolant_cmd : public get_interpolant_cmd {
 public:
     compute_interpolant_cmd(char const * name = "compute-interpolant"):get_interpolant_cmd(name) {}
 
-    virtual void execute(cmd_context & ctx) {      
+    void execute(cmd_context & ctx) override {
         compute_interpolant(ctx,m_targets,m_params);
     }
 

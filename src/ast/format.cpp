@@ -32,7 +32,7 @@ namespace format_ns {
         symbol       m_line_break;
         symbol       m_line_break_ext;
         
-        virtual void set_manager(ast_manager * m, family_id id) {
+        void set_manager(ast_manager * m, family_id id) override {
             SASSERT(m->is_format_manager());
             decl_plugin::set_manager(m, id);
             
@@ -52,24 +52,24 @@ namespace format_ns {
             m_line_break_ext("cr++") {
         }
         
-        virtual ~format_decl_plugin() {}
+        ~format_decl_plugin() override {}
 
-        virtual void finalize() {
+        void finalize() override {
             if (m_format_sort)
                 m_manager->dec_ref(m_format_sort);
         }
 
-        virtual decl_plugin * mk_fresh() {
+        decl_plugin * mk_fresh() override {
             return alloc(format_decl_plugin);
         }
         
-        virtual sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const* parameters) {
+        sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const* parameters) override {
             SASSERT(k == FORMAT_SORT);
             return m_format_sort;
         }
         
-        virtual func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters, 
-                                         unsigned arity, sort * const * domain, sort * range) {
+        func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
+                                 unsigned arity, sort * const * domain, sort * range) override {
             switch (k) {
             case OP_NIL:    
                 return m_manager->mk_func_decl(m_nil, arity, domain, m_format_sort, 

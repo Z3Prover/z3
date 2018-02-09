@@ -39,47 +39,47 @@ public:
         m_t2->inc_ref();
     }
     
-    virtual ~binary_tactical() {
+    ~binary_tactical() override {
         m_t1->dec_ref();
         m_t2->dec_ref();
     }
     
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_t1->updt_params(p);
         m_t2->updt_params(p);
     }
     
-    virtual void collect_param_descrs(param_descrs & r) {
+    void collect_param_descrs(param_descrs & r) override {
         m_t1->collect_param_descrs(r);
         m_t2->collect_param_descrs(r);
     }
     
-    virtual void collect_statistics(statistics & st) const {
+    void collect_statistics(statistics & st) const override {
         m_t1->collect_statistics(st);
         m_t2->collect_statistics(st);
     }
 
-    virtual void reset_statistics() { 
+    void reset_statistics() override {
         m_t1->reset_statistics();
         m_t2->reset_statistics();
     }
         
-    virtual void cleanup() {
+    void cleanup() override {
         m_t1->cleanup();
         m_t2->cleanup();
     }
     
-    virtual void reset() {
+    void reset() override {
         m_t1->reset();
         m_t2->reset();
     }
 
-    virtual void set_logic(symbol const & l) {
+    void set_logic(symbol const & l) override {
         m_t1->set_logic(l);
         m_t2->set_logic(l);
     }
 
-    virtual void set_progress_callback(progress_callback * callback) {
+    void set_progress_callback(progress_callback * callback) override {
         m_t1->set_progress_callback(callback);
         m_t2->set_progress_callback(callback);
     }
@@ -104,13 +104,13 @@ struct false_pred {
 class and_then_tactical : public binary_tactical {
 public:
     and_then_tactical(tactic * t1, tactic * t2):binary_tactical(t1, t2) {}
-    virtual ~and_then_tactical() {}
+    ~and_then_tactical() override {}
 
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc, 
-                            expr_dependency_ref & core) {
+    void operator()(goal_ref const & in,
+                    goal_ref_buffer & result,
+                    model_converter_ref & mc,
+                    proof_converter_ref & pc,
+                    expr_dependency_ref & core) override {
 
         bool models_enabled = in->models_enabled();
         bool proofs_enabled = in->proofs_enabled();
@@ -212,7 +212,7 @@ public:
         }
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return translate_core<and_then_tactical>(m);
     }
 
@@ -282,14 +282,14 @@ public:
         }
     }
 
-    virtual ~nary_tactical() {
+    ~nary_tactical() override {
         unsigned sz = m_ts.size();
         for (unsigned i = 0; i < sz; i++) {
             m_ts[i]->dec_ref();
         }
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         TRACE("nary_tactical_updt_params", tout << "updt_params: " << p << "\n";);
         ptr_vector<tactic>::iterator it  = m_ts.begin();
         ptr_vector<tactic>::iterator end = m_ts.end();
@@ -297,49 +297,49 @@ public:
             (*it)->updt_params(p);
     }
     
-    virtual void collect_param_descrs(param_descrs & r) {
+    void collect_param_descrs(param_descrs & r) override {
         ptr_vector<tactic>::iterator it  = m_ts.begin();
         ptr_vector<tactic>::iterator end = m_ts.end();
         for (; it != end; ++it)
             (*it)->collect_param_descrs(r);
     }
     
-    virtual void collect_statistics(statistics & st) const {
+    void collect_statistics(statistics & st) const override {
         ptr_vector<tactic>::const_iterator it  = m_ts.begin();
         ptr_vector<tactic>::const_iterator end = m_ts.end();
         for (; it != end; ++it)
             (*it)->collect_statistics(st);
     }
 
-    virtual void reset_statistics() { 
+    void reset_statistics() override {
         ptr_vector<tactic>::const_iterator it  = m_ts.begin();
         ptr_vector<tactic>::const_iterator end = m_ts.end();
         for (; it != end; ++it)
             (*it)->reset_statistics();
     }
         
-    virtual void cleanup() {
+    void cleanup() override {
         ptr_vector<tactic>::iterator it  = m_ts.begin();
         ptr_vector<tactic>::iterator end = m_ts.end();
         for (; it != end; ++it)
             (*it)->cleanup();
     }
     
-    virtual void reset() {
+    void reset() override {
         ptr_vector<tactic>::iterator it  = m_ts.begin();
         ptr_vector<tactic>::iterator end = m_ts.end();
         for (; it != end; ++it)
             (*it)->reset();
     }
 
-    virtual void set_logic(symbol const & l) {
+    void set_logic(symbol const & l) override {
         ptr_vector<tactic>::iterator it  = m_ts.begin();
         ptr_vector<tactic>::iterator end = m_ts.end();
         for (; it != end; ++it)
             (*it)->set_logic(l);
     }
 
-    virtual void set_progress_callback(progress_callback * callback) {
+    void set_progress_callback(progress_callback * callback) override {
         ptr_vector<tactic>::iterator it  = m_ts.begin();
         ptr_vector<tactic>::iterator end = m_ts.end();
         for (; it != end; ++it)
@@ -367,13 +367,13 @@ class or_else_tactical : public nary_tactical {
 public:
     or_else_tactical(unsigned num, tactic * const * ts):nary_tactical(num, ts) { SASSERT(num > 0); }
 
-    virtual ~or_else_tactical() {}
+    ~or_else_tactical() override {}
 
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc, 
-                            expr_dependency_ref & core) {
+    void operator()(goal_ref const & in,
+                    goal_ref_buffer & result,
+                    model_converter_ref & mc,
+                    proof_converter_ref & pc,
+                    expr_dependency_ref & core) override {
         goal orig(*(in.get()));
         unsigned sz = m_ts.size();
         unsigned i;
@@ -401,7 +401,7 @@ public:
         }
     }
 
-    virtual tactic * translate(ast_manager & m) { return translate_core<or_else_tactical>(m); }
+    tactic * translate(ast_manager & m) override { return translate_core<or_else_tactical>(m); }
 };
 
 tactic * or_else(unsigned num, tactic * const * ts) {
@@ -464,15 +464,15 @@ class par_tactical : public or_else_tactical {
 
 public:
     par_tactical(unsigned num, tactic * const * ts):or_else_tactical(num, ts) {}
-    virtual ~par_tactical() {}
+    ~par_tactical() override {}
 
     
 
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc, 
-                            expr_dependency_ref & core) {
+    void operator()(goal_ref const & in,
+                    goal_ref_buffer & result,
+                    model_converter_ref & mc,
+                    proof_converter_ref & pc,
+                    expr_dependency_ref & core) override {
         bool use_seq;
 #ifdef _NO_OMP_
         use_seq = true;
@@ -572,7 +572,7 @@ public:
         }
     }    
 
-    virtual tactic * translate(ast_manager & m) { return translate_core<par_tactical>(m); }
+    tactic * translate(ast_manager & m) override { return translate_core<par_tactical>(m); }
 };
 
 tactic * par(unsigned num, tactic * const * ts) {
@@ -597,13 +597,13 @@ tactic * par(tactic * t1, tactic * t2, tactic * t3, tactic * t4) {
 class par_and_then_tactical : public and_then_tactical {
 public:
     par_and_then_tactical(tactic * t1, tactic * t2):and_then_tactical(t1, t2) {}
-    virtual ~par_and_then_tactical() {}
+    ~par_and_then_tactical() override {}
 
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc, 
-                            expr_dependency_ref & core) {
+    void operator()(goal_ref const & in,
+                    goal_ref_buffer & result,
+                    model_converter_ref & mc,
+                    proof_converter_ref & pc,
+                    expr_dependency_ref & core) override {
         bool use_seq;
 #ifdef _NO_OMP_
         use_seq = true;
@@ -862,7 +862,7 @@ public:
         }
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return translate_core<and_then_tactical>(m);
     }
 
@@ -895,26 +895,26 @@ public:
         t->inc_ref(); 
     }    
 
-    virtual ~unary_tactical() { 
+    ~unary_tactical() override {
         m_t->dec_ref();
     }
 
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc, 
-                            expr_dependency_ref & core) {
+    void operator()(goal_ref const & in,
+                    goal_ref_buffer & result,
+                    model_converter_ref & mc,
+                    proof_converter_ref & pc,
+                    expr_dependency_ref & core) override {
         m_t->operator()(in, result, mc, pc, core);
     }
    
-    virtual void cleanup(void) { m_t->cleanup(); }
-    virtual void collect_statistics(statistics & st) const { m_t->collect_statistics(st); }
-    virtual void reset_statistics() { m_t->reset_statistics(); }    
-    virtual void updt_params(params_ref const & p) { m_t->updt_params(p); }
-    virtual void collect_param_descrs(param_descrs & r) { m_t->collect_param_descrs(r); }
-    virtual void reset() { m_t->reset(); }
-    virtual void set_logic(symbol const& l) { m_t->set_logic(l); }    
-    virtual void set_progress_callback(progress_callback * callback) { m_t->set_progress_callback(callback); }
+    void cleanup(void) override { m_t->cleanup(); }
+    void collect_statistics(statistics & st) const override { m_t->collect_statistics(st); }
+    void reset_statistics() override { m_t->reset_statistics(); }
+    void updt_params(params_ref const & p) override { m_t->updt_params(p); }
+    void collect_param_descrs(param_descrs & r) override { m_t->collect_param_descrs(r); }
+    void reset() override { m_t->reset(); }
+    void set_logic(symbol const& l) override { m_t->set_logic(l); }
+    void set_progress_callback(progress_callback * callback) override { m_t->set_progress_callback(callback); }
 protected:
 
     template<typename T>
@@ -1056,15 +1056,15 @@ public:
         m_max_depth(max_depth) {
     }
     
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc, 
-                            expr_dependency_ref & core) {
+    void operator()(goal_ref const & in,
+                    goal_ref_buffer & result,
+                    model_converter_ref & mc,
+                    proof_converter_ref & pc,
+                    expr_dependency_ref & core) override {
         operator()(0, in, result, mc, pc, core);
     }
 
-    virtual tactic * translate(ast_manager & m) { 
+    tactic * translate(ast_manager & m) override {
         tactic * new_t = m_t->translate(m);
         return alloc(repeat_tactical, new_t, m_max_depth);
     }
@@ -1079,11 +1079,11 @@ class fail_if_branching_tactical : public unary_tactical {
 public:
     fail_if_branching_tactical(tactic * t, unsigned threshold):unary_tactical(t), m_threshold(threshold) {}
 
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc, 
-                            expr_dependency_ref & core) {
+    void operator()(goal_ref const & in,
+                    goal_ref_buffer & result,
+                    model_converter_ref & mc,
+                    proof_converter_ref & pc,
+                    expr_dependency_ref & core) override {
         m_t->operator()(in, result, mc, pc, core);
         if (result.size() > m_threshold) {
             result.reset();
@@ -1094,7 +1094,7 @@ public:
         }
     };    
 
-    virtual tactic * translate(ast_manager & m) { 
+    tactic * translate(ast_manager & m) override {
         tactic * new_t = m_t->translate(m);
         return alloc(fail_if_branching_tactical, new_t, m_threshold);
     }
@@ -1108,16 +1108,16 @@ class cleanup_tactical : public unary_tactical {
 public:
     cleanup_tactical(tactic * t):unary_tactical(t) {}
 
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc, 
-                            expr_dependency_ref & core) {
+    void operator()(goal_ref const & in,
+                    goal_ref_buffer & result,
+                    model_converter_ref & mc,
+                    proof_converter_ref & pc,
+                    expr_dependency_ref & core) override {
         m_t->operator()(in, result, mc, pc, core);
         m_t->cleanup();
     }    
 
-    virtual tactic * translate(ast_manager & m) { 
+    tactic * translate(ast_manager & m) override {
         tactic * new_t = m_t->translate(m);
         return alloc(cleanup_tactical, new_t);
     }
@@ -1132,11 +1132,11 @@ class try_for_tactical : public unary_tactical {
 public:
     try_for_tactical(tactic * t, unsigned ts):unary_tactical(t), m_timeout(ts) {}
     
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc, 
-                            expr_dependency_ref & core) {
+    void operator()(goal_ref const & in,
+                    goal_ref_buffer & result,
+                    model_converter_ref & mc,
+                    proof_converter_ref & pc,
+                    expr_dependency_ref & core) override {
         cancel_eh<reslimit> eh(in->m().limit());
         { 
             // Warning: scoped_timer is not thread safe in Linux.
@@ -1145,7 +1145,7 @@ public:
         }
     }
 
-    virtual tactic * translate(ast_manager & m) { 
+    tactic * translate(ast_manager & m) override {
         tactic * new_t = m_t->translate(m);
         return alloc(try_for_tactical, new_t, m_timeout);
     }
@@ -1162,7 +1162,7 @@ public:
         t->updt_params(p);
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         TRACE("using_params", 
               tout << "before p: " << p << "\n";
               tout << "m_params: " << m_params << "\n";);
@@ -1177,7 +1177,7 @@ public:
               tout << "new_p: " << new_p << "\n";);
     }
 
-    virtual tactic * translate(ast_manager & m) { 
+    tactic * translate(ast_manager & m) override {
         tactic * new_t = m_t->translate(m);
         return alloc(using_params_tactical, new_t, m_params);
     }
@@ -1202,16 +1202,16 @@ public:
     annotate_tactical(char const* name, tactic* t):
         unary_tactical(t), m_name(name) {}
     
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc, 
-                            expr_dependency_ref & core) {        
+    void operator()(goal_ref const & in,
+                    goal_ref_buffer & result,
+                    model_converter_ref & mc,
+                    proof_converter_ref & pc,
+                    expr_dependency_ref & core) override {
         scope _scope(m_name);
         m_t->operator()(in, result, mc, pc, core);
     }
 
-    virtual tactic * translate(ast_manager & m) { 
+    tactic * translate(ast_manager & m) override {
         tactic * new_t = m_t->translate(m);
         return alloc(annotate_tactical, m_name.c_str(), new_t);
     }
@@ -1232,22 +1232,22 @@ public:
         m_p->inc_ref(); 
     }
 
-    ~cond_tactical() {
+    ~cond_tactical() override {
         m_p->dec_ref();
     }
     
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc, 
-                            expr_dependency_ref & core) {
+    void operator()(goal_ref const & in,
+                    goal_ref_buffer & result,
+                    model_converter_ref & mc,
+                    proof_converter_ref & pc,
+                    expr_dependency_ref & core) override {
         if (m_p->operator()(*(in.get())).is_true()) 
             m_t1->operator()(in, result, mc, pc, core);
         else
             m_t2->operator()(in, result, mc, pc, core);
     }
 
-    virtual tactic * translate(ast_manager & m) { 
+    tactic * translate(ast_manager & m) override {
         tactic * new_t1 = m_t1->translate(m);
         tactic * new_t2 = m_t2->translate(m);
         return alloc(cond_tactical, m_p, new_t1, new_t2);
@@ -1271,17 +1271,17 @@ public:
         m_p->inc_ref(); 
     }
     
-    ~fail_if_tactic() {
+    ~fail_if_tactic() override {
         m_p->dec_ref();
     }
 
-    void cleanup() {}
+    void cleanup() override {}
 
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc, 
-                            expr_dependency_ref & core) {
+    void operator()(goal_ref const & in,
+                    goal_ref_buffer & result,
+                    model_converter_ref & mc,
+                    proof_converter_ref & pc,
+                    expr_dependency_ref & core) override {
         mc   = 0;
         pc   = 0;
         core = 0;
@@ -1291,7 +1291,7 @@ public:
         result.push_back(in.get());
     }
 
-    virtual tactic * translate(ast_manager & m) { 
+    tactic * translate(ast_manager & m) override {
         return this;
     }
 };
@@ -1308,11 +1308,11 @@ class if_no_proofs_tactical : public unary_tactical {
 public:
     if_no_proofs_tactical(tactic * t):unary_tactical(t) {}
     
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc, 
-                            expr_dependency_ref & core) {
+    void operator()(goal_ref const & in,
+                    goal_ref_buffer & result,
+                    model_converter_ref & mc,
+                    proof_converter_ref & pc,
+                    expr_dependency_ref & core) override {
         if (in->proofs_enabled()) {
             mc = 0; pc = 0; core = 0;
             result.reset();
@@ -1323,18 +1323,18 @@ public:
         }
     }
 
-    virtual tactic * translate(ast_manager & m) { return translate_core<if_no_proofs_tactical>(m); }
+    tactic * translate(ast_manager & m) override { return translate_core<if_no_proofs_tactical>(m); }
 };
 
 class if_no_unsat_cores_tactical : public unary_tactical {
 public:
     if_no_unsat_cores_tactical(tactic * t):unary_tactical(t) {}
     
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc, 
-                            expr_dependency_ref & core) {
+    void operator()(goal_ref const & in,
+                    goal_ref_buffer & result,
+                    model_converter_ref & mc,
+                    proof_converter_ref & pc,
+                    expr_dependency_ref & core) override {
         if (in->unsat_core_enabled()) {
             mc = 0; pc = 0; core = 0;
             result.reset();
@@ -1345,18 +1345,18 @@ public:
         }
     }
 
-    virtual tactic * translate(ast_manager & m) { return translate_core<if_no_unsat_cores_tactical>(m); }
+    tactic * translate(ast_manager & m) override { return translate_core<if_no_unsat_cores_tactical>(m); }
 };
 
 class if_no_models_tactical : public unary_tactical {
 public:
     if_no_models_tactical(tactic * t):unary_tactical(t) {}
     
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc, 
-                            expr_dependency_ref & core) {
+    void operator()(goal_ref const & in,
+                    goal_ref_buffer & result,
+                    model_converter_ref & mc,
+                    proof_converter_ref & pc,
+                    expr_dependency_ref & core) override {
         if (in->models_enabled()) {
             mc = 0; pc = 0; core = 0;
             result.reset();
@@ -1367,7 +1367,7 @@ public:
         }
     }
 
-    virtual tactic * translate(ast_manager & m) { return translate_core<if_no_models_tactical>(m); }
+    tactic * translate(ast_manager & m) override { return translate_core<if_no_models_tactical>(m); }
 };
 
 tactic * if_no_proofs(tactic * t) {
@@ -1386,4 +1386,3 @@ tactic * skip_if_failed(tactic * t) {
     return or_else(t, mk_skip_tactic());
 }
 
-    

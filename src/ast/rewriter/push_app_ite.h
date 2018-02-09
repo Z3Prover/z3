@@ -45,7 +45,7 @@ struct push_app_ite_cfg : public default_rewriter_cfg {
 */
 class ng_push_app_ite_cfg : public push_app_ite_cfg {
 protected:
-    virtual bool is_target(func_decl * decl, unsigned num_args, expr * const * args);
+    bool is_target(func_decl * decl, unsigned num_args, expr * const * args) override;
 public:
     ng_push_app_ite_cfg(ast_manager& m, bool conservative = true): push_app_ite_cfg(m, conservative) {}
     virtual ~ng_push_app_ite_cfg() {}
