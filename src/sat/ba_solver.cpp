@@ -213,13 +213,13 @@ namespace sat {
         return true;
     }
 
-    // ----------------------------
+    // ----------------------------            
     // card
 
     bool ba_solver::init_watch(card& c) {
-        clear_watch(c);
         literal root = c.lit();
         if (root != null_literal && value(root) == l_false) {
+            clear_watch(c);
             c.negate();
             root.neg();
         }
@@ -240,6 +240,10 @@ namespace sat {
         for (unsigned i = 0; i < sz; ++i) {
             if (value(c[i]) != l_false) {
                 if (j != i) {
+                    if (c.is_watched() && j <= bound && i > bound) {
+                        unwatch_literal(c[j], c);
+                        watch_literal(c[i], c);
+                    }
                     c.swap(i, j);
                 }
                 ++j;
@@ -255,6 +259,7 @@ namespace sat {
         // j is the number of non-false, sz - j the number of false.
 
         if (j < bound) {
+            if (c.is_watched()) clear_watch(c);
             SASSERT(0 < bound && bound < sz);
             literal alit = c[j];
             
@@ -280,14 +285,19 @@ namespace sat {
             return false;
         }
         else {
+            if (c.is_watched()) return true;
+            clear_watch(c);
             for (unsigned i = 0; i <= bound; ++i) {
                 watch_literal(c[i], c);
             }
+            c.set_watch();
             return true;
         }
     }
 
     void ba_solver::clear_watch(card& c) {
+        if (c.is_clear()) return;
+        c.clear_watch();
         unsigned sz = std::min(c.k() + 1, c.size());
         for (unsigned i = 0; i < sz; ++i) {
             unwatch_literal(c[i], c);            
@@ -747,6 +757,7 @@ namespace sat {
     }
 
     void ba_solver::clear_watch(pb& p) {
+        p.clear_watch();
         for (unsigned i = 0; i < p.num_watch(); ++i) {
             unwatch_literal(p[i].second, p);          
         }  
@@ -896,6 +907,7 @@ namespace sat {
     // xr:
 
     void ba_solver::clear_watch(xr& x) {
+        x.clear_watch();
         unwatch_literal(x[0], x);
         unwatch_literal(x[1], x);         
         unwatch_literal(~x[0], x);

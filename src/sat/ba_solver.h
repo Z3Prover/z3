@@ -63,6 +63,7 @@ namespace sat {
             tag_t          m_tag;
             bool           m_removed;
             literal        m_lit;
+            literal        m_watch;
             unsigned       m_glue;
             unsigned       m_psm;
             unsigned       m_size;
@@ -70,7 +71,8 @@ namespace sat {
             bool           m_learned;
             unsigned       m_id;
         public:
-            constraint(tag_t t, unsigned id, literal l, unsigned sz, size_t osz): m_tag(t), m_removed(false), m_lit(l), m_glue(0), m_psm(0), m_size(sz), m_obj_size(osz), m_learned(false), m_id(id) {}
+            constraint(tag_t t, unsigned id, literal l, unsigned sz, size_t osz): 
+            m_tag(t), m_removed(false), m_lit(l), m_watch(null_literal), m_glue(0), m_psm(0), m_size(sz), m_obj_size(osz), m_learned(false), m_id(id) {}
             ext_constraint_idx index() const { return reinterpret_cast<ext_constraint_idx>(this); }
             unsigned id() const { return m_id; }
             tag_t tag() const { return m_tag; }
@@ -87,6 +89,10 @@ namespace sat {
             void set_psm(unsigned p) { m_psm = p; }
             void set_learned(bool f) { m_learned = f; }
             bool learned() const { return m_learned; }            
+            bool is_watched() const { return m_watch == m_lit && m_lit != null_literal; }
+            void set_watch() { m_watch = m_lit; }
+            void clear_watch() { m_watch = null_literal; }
+            bool is_clear() const { return m_watch == null_literal && m_lit != null_literal; }
 
             size_t obj_size() const { return m_obj_size; }
             card& to_card();

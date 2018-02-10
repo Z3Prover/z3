@@ -610,7 +610,7 @@ struct pb2bv_rewriter::imp {
             m_keep_pb_constraints(false),
             m_pb_num_system(false),
             m_pb_totalizer(false),
-            m_min_arity(2)
+            m_min_arity(3)
         {}
 
         bool mk_app(bool full, func_decl * f, unsigned sz, expr * const* args, expr_ref & result) {
