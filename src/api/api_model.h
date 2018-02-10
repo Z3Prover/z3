@@ -24,7 +24,7 @@ Revision History:
 struct Z3_model_ref : public api::object {
     model_ref  m_model;
     Z3_model_ref(api::context& c): api::object(c) {}
-    virtual ~Z3_model_ref() {}
+    ~Z3_model_ref() override {}
 };
 
 inline Z3_model_ref * to_model(Z3_model s) { return reinterpret_cast<Z3_model_ref *>(s); }
@@ -35,7 +35,7 @@ struct Z3_func_interp_ref : public api::object {
     model_ref     m_model; // must have it to prevent reference to m_func_interp to be killed.
     func_interp * m_func_interp;
     Z3_func_interp_ref(api::context& c, model * m): api::object(c), m_model(m), m_func_interp(0) {}
-    virtual ~Z3_func_interp_ref() {}
+    ~Z3_func_interp_ref() override {}
 };
 
 inline Z3_func_interp_ref * to_func_interp(Z3_func_interp s) { return reinterpret_cast<Z3_func_interp_ref *>(s); }
@@ -47,7 +47,7 @@ struct Z3_func_entry_ref : public api::object {
     func_interp *       m_func_interp;
     func_entry const *  m_func_entry;
     Z3_func_entry_ref(api::context& c, model * m):api::object(c), m_model(m), m_func_interp(0), m_func_entry(0) {}
-    virtual ~Z3_func_entry_ref() {}
+    ~Z3_func_entry_ref() override {}
 };
 
 inline Z3_func_entry_ref * to_func_entry(Z3_func_entry s) { return reinterpret_cast<Z3_func_entry_ref *>(s); }

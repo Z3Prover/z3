@@ -51,8 +51,8 @@ namespace api {
             m_context(m, m_register_engine, p),
             m_trail(m) {}
 
-        virtual ~fixedpoint_context() {}
-        family_id get_family_id() const { return const_cast<datalog::context&>(m_context).get_decl_util().get_family_id(); }
+        ~fixedpoint_context() override {}
+        family_id get_family_id() const override { return const_cast<datalog::context&>(m_context).get_decl_util().get_family_id(); }
         void set_state(void* state) {
             SASSERT(!m_state);
             m_state = state;
@@ -73,7 +73,7 @@ namespace api {
         void set_reduce_assign(reduce_assign_callback_fptr f) { 
             m_reduce_assign = f; 
         }
-        virtual void reduce(func_decl* f, unsigned num_args, expr * const* args, expr_ref& result) {
+        void reduce(func_decl* f, unsigned num_args, expr * const* args, expr_ref& result) override {
             expr* r = 0;
             if (m_reduce_app) {
                 m_reduce_app(m_state, f, num_args, args, &r);
@@ -90,7 +90,7 @@ namespace api {
                 result = m.mk_app(f, num_args, args);
             }
         }
-        virtual void reduce_assign(func_decl* f, unsigned num_args, expr * const* args, unsigned num_out, expr* const* outs) {
+        void reduce_assign(func_decl* f, unsigned num_args, expr * const* args, unsigned num_out, expr* const* outs) override {
             if (m_reduce_assign) {
                 m_trail.push_back(f);
                 for (unsigned i = 0; i < num_args; ++i) {

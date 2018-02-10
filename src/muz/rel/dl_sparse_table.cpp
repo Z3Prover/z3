@@ -198,7 +198,7 @@ namespace datalog {
               row_interface(t), 
               m_parent(parent) {}
 
-            virtual table_element operator[](unsigned col) const {
+            table_element operator[](unsigned col) const override {
                 return m_parent.m_layout.get(m_parent.m_ptr, col);
             }
 
@@ -218,15 +218,15 @@ namespace datalog {
           m_row_obj(t, *this),
           m_layout(t.m_column_layout) {}
 
-        virtual bool is_finished() const {
+        bool is_finished() const override {
             return m_ptr == m_end;
         }
 
-        virtual row_interface & operator*() {
+        row_interface & operator*() override {
             SASSERT(!is_finished());
             return m_row_obj;
         }
-        virtual void operator++() {
+        void operator++() override {
             SASSERT(!is_finished());
             m_ptr+=m_fact_size;
         }
@@ -312,7 +312,7 @@ namespace datalog {
             m_keys(key_len*sizeof(table_element)), 
             m_first_nonindexed(0) {}
 
-        virtual void update(const sparse_table & t) {
+        void update(const sparse_table & t) override {
             if (m_first_nonindexed == t.m_data.after_last_offset()) {
                 return;
             }
@@ -351,7 +351,7 @@ namespace datalog {
             m_first_nonindexed = t.m_data.after_last_offset();
         }
 
-        virtual query_result get_matching_offsets(const key_value & key) const {
+        query_result get_matching_offsets(const key_value & key) const override {
             key_to_reserve(key);
             store_offset ofs;
             if (!m_keys.find_reserve_content(ofs)) {
@@ -406,9 +406,9 @@ namespace datalog {
             m_key_fact.resize(t.get_signature().size());
         }
 
-        virtual ~full_signature_key_indexer() {}
+        ~full_signature_key_indexer() override {}
 
-        virtual query_result get_matching_offsets(const key_value & key) const {
+        query_result get_matching_offsets(const key_value & key) const override {
             unsigned key_len = m_key_cols.size();
             for (unsigned i=0; i<key_len; i++) {
                 m_key_fact[m_permutation[i]] = key[i];
@@ -826,7 +826,7 @@ namespace datalog {
             m_removed_cols.push_back(UINT_MAX);
         }
 
-        virtual table_base * operator()(const table_base & tb1, const table_base & tb2) {
+        table_base * operator()(const table_base & tb1, const table_base & tb2) override {
 
             const sparse_table & t1 = get(tb1);
             const sparse_table & t2 = get(tb2);
@@ -882,7 +882,7 @@ namespace datalog {
 
     class sparse_table_plugin::union_fn : public table_union_fn {
     public:
-        virtual void operator()(table_base & tgt0, const table_base & src0, table_base * delta0) {
+        void operator()(table_base & tgt0, const table_base & src0, table_base * delta0) override {
             verbose_action  _va("union");
             sparse_table & tgt = get(tgt0);
             const sparse_table & src = get(src0);
@@ -941,7 +941,7 @@ namespace datalog {
                 SASSERT(r_idx == m_removed_col_cnt);
         }
 
-        virtual table_base * operator()(const table_base & tb) {
+        table_base * operator()(const table_base & tb) override {
             verbose_action  _va("project");
             const sparse_table & t = get(tb);
 
@@ -985,7 +985,7 @@ namespace datalog {
             m_key.push_back(val);
         }
 
-        virtual table_base * operator()(const table_base & tb) {
+        table_base * operator()(const table_base & tb) override {
             verbose_action  _va("select_equal_and_project");
             const sparse_table & t = get(tb);
 
@@ -1072,7 +1072,7 @@ namespace datalog {
                 }
         }
 
-        virtual table_base * operator()(const table_base & tb) {
+        table_base * operator()(const table_base & tb) override {
             verbose_action  _va("rename");
 
             const sparse_table & t = get(tb);
@@ -1210,7 +1210,7 @@ namespace datalog {
             }
         }
 
-        virtual void operator()(table_base & tgt0, const table_base & neg0) {
+        void operator()(table_base & tgt0, const table_base & neg0) override {
             sparse_table & tgt = get(tgt0);
             const sparse_table & neg = get(neg0);
            
@@ -1310,7 +1310,7 @@ namespace datalog {
             m_s2_cols.append(src2_cols);
         }
 
-        virtual void operator()(table_base & _t, const table_base & _s1, const table_base& _s2) {
+        void operator()(table_base & _t, const table_base & _s1, const table_base& _s2) override {
 
             verbose_action  _va("negated_join");
             sparse_table& t = get(_t);

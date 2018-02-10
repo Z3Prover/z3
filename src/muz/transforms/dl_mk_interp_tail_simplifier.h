@@ -90,7 +90,7 @@ namespace datalog {
         bool transform_rules(const rule_set & orig, rule_set & tgt);
     public:
         mk_interp_tail_simplifier(context & ctx, unsigned priority=40000);
-        virtual ~mk_interp_tail_simplifier();
+        ~mk_interp_tail_simplifier() override;
 
         /**If rule should be retained, assign transformed version to res and return true;
         if rule can be deleted, return false.
@@ -100,7 +100,7 @@ namespace datalog {
         */
         bool transform_rule(rule * r, rule_ref& res);
 
-        rule_set * operator()(rule_set const & source);
+        rule_set * operator()(rule_set const & source) override;
     };
 
 };

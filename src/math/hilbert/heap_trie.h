@@ -81,14 +81,14 @@ class heap_trie {
         Value m_value;
     public:
         leaf(): node(leaf_t) {}
-        virtual ~leaf() {}
+        ~leaf() override {}
         Value const& get_value() const { return m_value; }
         void set_value(Value const& v) { m_value = v; }
-        virtual void display(std::ostream& out, unsigned indent) const {
+        void display(std::ostream& out, unsigned indent) const override {
             out << " value: " << m_value;
         }
-        virtual unsigned num_nodes() const { return 1; }
-        virtual unsigned num_leaves() const { return this->ref_count()>0?1:0; }
+        unsigned num_nodes() const override { return 1; }
+        unsigned num_leaves() const override { return this->ref_count()>0?1:0; }
     };
 
     typedef buffer<std::pair<Key,node*>, true, 2> children_t;
@@ -99,7 +99,7 @@ class heap_trie {
     public:
         trie(): node(trie_t) {}
 
-        virtual ~trie() {
+        ~trie() override {
         }
 
         node* find_or_insert(Key k, node* n) {
@@ -137,7 +137,7 @@ class heap_trie {
         children_t const& nodes() const { return m_nodes; }
         children_t & nodes() { return m_nodes; }
 
-        virtual void display(std::ostream& out, unsigned indent) const {
+        void display(std::ostream& out, unsigned indent) const override {
             for (unsigned j = 0; j < m_nodes.size(); ++j) {
                 if (j != 0 || indent > 0) {
                     out << "\n";
@@ -151,7 +151,7 @@ class heap_trie {
             }
         }
 
-        virtual unsigned num_nodes() const {
+        unsigned num_nodes() const override {
             unsigned sz = 1;
             for (unsigned j = 0; j < m_nodes.size(); ++j) {
                 sz += m_nodes[j].second->num_nodes();
@@ -159,7 +159,7 @@ class heap_trie {
             return sz;
         }
 
-        virtual unsigned num_leaves() const {
+        unsigned num_leaves() const override {
             unsigned sz = 0;
             for (unsigned j = 0; j < m_nodes.size(); ++j) {
                 sz += m_nodes[j].second->num_leaves();

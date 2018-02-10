@@ -36,7 +36,7 @@ extern "C" {
     struct Z3_optimize_ref : public api::object {
         opt::context* m_opt;
         Z3_optimize_ref(api::context& c): api::object(c), m_opt(0) {}
-        virtual ~Z3_optimize_ref() { dealloc(m_opt); }
+        ~Z3_optimize_ref() override { dealloc(m_opt); }
     };
     inline Z3_optimize_ref * to_optimize(Z3_optimize o) { return reinterpret_cast<Z3_optimize_ref *>(o); }
     inline Z3_optimize of_optimize(Z3_optimize_ref * o) { return reinterpret_cast<Z3_optimize>(o); }

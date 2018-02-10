@@ -88,7 +88,7 @@ inline lbool    to_lbool(Z3_lbool b) { return static_cast<lbool>(b); }
 struct Z3_params_ref : public api::object {
     params_ref m_params;
     Z3_params_ref(api::context& c): api::object(c) {}
-    virtual ~Z3_params_ref() {}
+    ~Z3_params_ref() override {}
 };
 
 inline Z3_params_ref * to_params(Z3_params p) { return reinterpret_cast<Z3_params_ref *>(p); }
@@ -98,7 +98,7 @@ inline params_ref to_param_ref(Z3_params p) { return p == 0 ? params_ref() : to_
 struct Z3_param_descrs_ref : public api::object {
     param_descrs m_descrs;
     Z3_param_descrs_ref(api::context& c): api::object(c) {}
-    virtual ~Z3_param_descrs_ref() {}
+    ~Z3_param_descrs_ref() override {}
 };
 
 inline Z3_param_descrs_ref * to_param_descrs(Z3_param_descrs p) { return reinterpret_cast<Z3_param_descrs_ref *>(p); }

@@ -79,7 +79,7 @@ namespace datalog {
             : convenient_relation_join_fn(o1_sig, o2_sig, col_cnt, cols1, cols2) {
         }
 
-        virtual relation_base * operator()(const relation_base & _r1, const relation_base & _r2) {
+        relation_base * operator()(const relation_base & _r1, const relation_base & _r2) override {
             bound_relation const& r1 = get(_r1);
             bound_relation const& r2 = get(_r2);
             bound_relation_plugin& p = r1.get_plugin();
@@ -104,7 +104,7 @@ namespace datalog {
             : convenient_relation_project_fn(orig_sig, removed_col_cnt, removed_cols) {
         }
 
-        virtual relation_base * operator()(const relation_base & _r) {
+        relation_base * operator()(const relation_base & _r) override {
             bound_relation const& r = get(_r);
             bound_relation_plugin& p = r.get_plugin();
             bound_relation* result = get(p.mk_full(0, get_result_signature()));            
@@ -124,7 +124,7 @@ namespace datalog {
             : convenient_relation_rename_fn(orig_sig, cycle_len, cycle) {
         }
 
-        virtual relation_base * operator()(const relation_base & _r) {
+        relation_base * operator()(const relation_base & _r) override {
             bound_relation const& r = get(_r);
             bound_relation_plugin& p = r.get_plugin();
             bound_relation* result = get(p.mk_full(0, get_result_signature()));
@@ -148,7 +148,7 @@ namespace datalog {
         union_fn(bool is_widen) :
             m_is_widen(is_widen) {            
         }
-        virtual void operator()(relation_base & _r, const relation_base & _src, relation_base * _delta) {
+        void operator()(relation_base & _r, const relation_base & _src, relation_base * _delta) override {
             TRACE("bound_relation", _r.display(tout << "dst:\n"); _src.display(tout  << "src:\n"););
             get(_r).mk_union(get(_src), get(_delta), m_is_widen);
         }
@@ -160,7 +160,7 @@ namespace datalog {
         union_fn_i(bool is_widen) :
             m_is_widen(is_widen) {            
         }
-        virtual void operator()(relation_base & _r, const relation_base & _src, relation_base * _delta) {
+        void operator()(relation_base & _r, const relation_base & _src, relation_base * _delta) override {
             TRACE("bound_relation", _r.display(tout << "dst:\n"); _src.display(tout  << "src:\n"););   
             get(_r).mk_union_i(get_interval_relation(_src), get(_delta), m_is_widen);
             TRACE("bound_relation", _r.display(tout << "dst':\n"););
@@ -197,7 +197,7 @@ namespace datalog {
         filter_identical_fn(unsigned col_cnt, const unsigned * identical_cols) 
             : m_cols(col_cnt, identical_cols) {}
 
-        virtual void operator()(relation_base & r) {
+        void operator()(relation_base & r) override {
             for (unsigned i = 1; i < m_cols.size(); ++i) {
                 get(r).equate(m_cols[0], m_cols[i]);
             }
@@ -216,7 +216,7 @@ namespace datalog {
     public:
         filter_equal_fn(relation_element const& value, unsigned col) {}
 
-        virtual void operator()(relation_base & r) { }
+        void operator()(relation_base & r) override { }
     };
 
     relation_mutator_fn * bound_relation_plugin::mk_filter_equal_fn(const relation_base & r, 
@@ -342,7 +342,7 @@ namespace datalog {
         // x < y + z
         //  
 
-        void operator()(relation_base& t) {
+        void operator()(relation_base& t) override {
             TRACE("dl", tout << mk_pp(m_cond, m_cond.get_manager()) << "\n"; t.display(tout););
             bound_relation& r = get(t);
             switch(m_kind) {
@@ -370,11 +370,11 @@ namespace datalog {
             TRACE("dl", t.display(tout << "result\n"););   
         }
 
-        bool supports_attachment(relation_base& t) {
+        bool supports_attachment(relation_base& t) override {
             return is_interval_relation(t);
         }
 
-        void attach(relation_base& t) {
+        void attach(relation_base& t) override {
             SASSERT(is_interval_relation(t));
             interval_relation& r = get_interval_relation(t);
             m_interval = &r;

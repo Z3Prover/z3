@@ -111,7 +111,7 @@ namespace datalog {
         
         add_invariant_model_converter(ast_manager& m): m(m), a(m), m_funcs(m), m_invs(m) {}
 
-        virtual ~add_invariant_model_converter() { }
+        ~add_invariant_model_converter() override { }
 
         void add(func_decl* p, expr* inv) {
             if (!m.is_true(inv)) {
@@ -120,7 +120,7 @@ namespace datalog {
             }
         }
 
-        virtual void operator()(model_ref & mr) {
+        void operator()(model_ref & mr) override {
             for (unsigned i = 0; i < m_funcs.size(); ++i) {
                 func_decl* p = m_funcs[i].get();
                 func_interp* f = mr->get_func_interp(p);
@@ -142,7 +142,7 @@ namespace datalog {
             }            
         }
     
-        virtual model_converter * translate(ast_translation & translator) {
+        model_converter * translate(ast_translation & translator) override {
             add_invariant_model_converter* mc = alloc(add_invariant_model_converter, m);
             for (unsigned i = 0; i < m_funcs.size(); ++i) {
                 mc->add(translator(m_funcs[i].get()), m_invs[i].get());

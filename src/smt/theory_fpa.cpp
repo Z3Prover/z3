@@ -32,8 +32,8 @@ namespace smt {
     public:
         fpa2bv_conversion_trail_elem(ast_manager & m, obj_map<expr, expr*> & map, expr * e) :
             m(m), m_map(map), key(e, m) { }
-        virtual ~fpa2bv_conversion_trail_elem() { }
-        virtual void undo(theory_fpa & th) {
+        ~fpa2bv_conversion_trail_elem() override { }
+        void undo(theory_fpa & th) override {
             expr * val = m_map.find(key);
             m_map.remove(key);
             m.dec_ref(key);

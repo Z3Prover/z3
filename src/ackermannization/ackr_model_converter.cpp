@@ -37,9 +37,9 @@ public:
         , fixed_model(false)
     { }
 
-    virtual ~ackr_model_converter() { }
+    ~ackr_model_converter() override { }
 
-    virtual void operator()(model_ref & md, unsigned goal_idx) {
+    void operator()(model_ref & md, unsigned goal_idx) override {
         SASSERT(goal_idx == 0);
         SASSERT(!fixed_model || md.get() == 0 || (!md->get_num_constants() && !md->get_num_functions()));
         model_ref& old_model = fixed_model ? abstr_model : md;
@@ -49,9 +49,9 @@ public:
         md = new_model;
     }
 
-    virtual void operator()(model_ref & md) { operator()(md, 0); }
+    void operator()(model_ref & md) override { operator()(md, 0); }
 
-    virtual model_converter * translate(ast_translation & translator) {
+    model_converter * translate(ast_translation & translator) override {
         ackr_info_ref retv_info = info->translate(translator);
         if (fixed_model) {
             model_ref retv_mod_ref = abstr_model->translate(translator);

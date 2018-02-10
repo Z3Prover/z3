@@ -66,9 +66,9 @@ namespace datalog {
         */
         mk_array_blast(context & ctx, unsigned priority);
 
-        virtual ~mk_array_blast();
+        ~mk_array_blast() override;
         
-        rule_set * operator()(rule_set const & source);
+        rule_set * operator()(rule_set const & source) override;
 
     };
 

@@ -41,33 +41,33 @@ namespace Duality {
 
     public:
         dl_interface(datalog::context& ctx); 
-        ~dl_interface();
+        ~dl_interface() override;
         
-        lbool query(expr* query);
+        lbool query(expr* query) override;
 
-        void cancel();
+        void cancel() override;
 
-        void cleanup();
+        void cleanup() override;
 
-        void display_certificate(std::ostream& out) const;
+        void display_certificate(std::ostream& out) const override;
 
-        void collect_statistics(statistics& st) const;
+        void collect_statistics(statistics& st) const override;
 
-        void reset_statistics();
+        void reset_statistics() override;
 
-        expr_ref get_answer();
+        expr_ref get_answer() override;
 
-        unsigned get_num_levels(func_decl* pred);
+        unsigned get_num_levels(func_decl* pred) override;
 
-        expr_ref get_cover_delta(int level, func_decl* pred);
+        expr_ref get_cover_delta(int level, func_decl* pred) override;
        
-        void add_cover(int level, func_decl* pred, expr* property);
+        void add_cover(int level, func_decl* pred, expr* property) override;
                
-        void updt_params();
+        void updt_params() override;
 
-        model_ref get_model();
+        model_ref get_model() override;
 
-        proof_ref get_proof();
+        proof_ref get_proof() override;
         
         duality_data *dd(){return _d;}
 

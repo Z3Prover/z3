@@ -45,7 +45,7 @@ public:
         m_kernel(m, fp)
     {}
 
-    virtual lbool check_sat(expr* e) {
+    lbool check_sat(expr* e) override {
         m_kernel.push();
         m_kernel.assert_expr(e);
         lbool r = m_kernel.check();
@@ -2691,7 +2691,7 @@ class theory_seq::seq_value_proc : public model_value_proc {
 public:
     seq_value_proc(theory_seq& th, sort* s): th(th), m_sort(s) {
     }
-    virtual ~seq_value_proc() {}
+    ~seq_value_proc() override {}
     void add_unit(enode* n) { 
         m_dependencies.push_back(model_value_dependency(n)); 
         m_source.push_back(unit_source);
@@ -2704,7 +2704,7 @@ public:
         m_strings.push_back(n);
         m_source.push_back(string_source);
     }
-    virtual void get_dependencies(buffer<model_value_dependency> & result) {
+    void get_dependencies(buffer<model_value_dependency> & result) override {
         result.append(m_dependencies.size(), m_dependencies.c_ptr());
     }
 
@@ -2714,7 +2714,7 @@ public:
         }        
     }
 
-    virtual app * mk_value(model_generator & mg, ptr_vector<expr> & values) {
+    app * mk_value(model_generator & mg, ptr_vector<expr> & values) override {
         SASSERT(values.size() == m_dependencies.size());
         expr_ref_vector args(th.m);
         unsigned j = 0, k = 0;

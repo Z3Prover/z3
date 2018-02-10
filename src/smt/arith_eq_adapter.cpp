@@ -42,7 +42,7 @@ namespace smt {
             m_n2(n2) {
         }
         
-        virtual void undo(context & ctx) {
+        void undo(context & ctx) override {
             m_already_processed.erase(m_n1, m_n2);
             TRACE("arith_eq_adapter_profile", tout << "del #" << m_n1->get_owner_id() << " #" << m_n2->get_owner_id() << "\n";);
         }
@@ -67,9 +67,9 @@ namespace smt {
             m_ge(ge) {
         }
 
-        virtual ~arith_eq_relevancy_eh() {}
+        ~arith_eq_relevancy_eh() override {}
 
-        virtual void operator()(relevancy_propagator & rp) {
+        void operator()(relevancy_propagator & rp) override {
             if (!rp.is_relevant(m_n1))
                 return;
             if (!rp.is_relevant(m_n2))

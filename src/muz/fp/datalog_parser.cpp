@@ -494,7 +494,7 @@ public:
     {
     }
 
-    virtual bool parse_file(char const * filename) {
+    bool parse_file(char const * filename) override {
         reset();
         if (filename != 0) {            
             set_path(filename);
@@ -510,7 +510,7 @@ public:
         }
     }
 
-    virtual bool parse_string(char const * string) {
+    bool parse_string(char const * string) override {
         reset();
         std::string s(string);
         std::istringstream is(s);
@@ -1200,13 +1200,13 @@ public:
           m_short_sort(ctx.get_manager()),
           m_use_map_names(ctx.use_map_names()) {
     }
-    ~wpa_parser_impl() {
+    ~wpa_parser_impl() override {
         reset_dealloc_values(m_sort_contents);
     }
     void reset() {
     }
 
-    virtual bool parse_directory(char const * path) {
+    bool parse_directory(char const * path) override {
         bool result = false;
         try {
             result = parse_directory_core(path);

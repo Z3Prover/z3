@@ -47,29 +47,29 @@ namespace pdr {
 
     public:
         dl_interface(datalog::context& ctx); 
-        ~dl_interface();
+        ~dl_interface() override;
         
-        virtual lbool query(expr* query);
+        lbool query(expr* query) override;
 
-        virtual void display_certificate(std::ostream& out) const;
+        void display_certificate(std::ostream& out) const override;
 
-        virtual void collect_statistics(statistics& st) const;
+        void collect_statistics(statistics& st) const override;
 
-        virtual void reset_statistics();
+        void reset_statistics() override;
 
-        virtual expr_ref get_answer();
+        expr_ref get_answer() override;
 
-        virtual unsigned get_num_levels(func_decl* pred);
+        unsigned get_num_levels(func_decl* pred) override;
 
-        virtual expr_ref get_cover_delta(int level, func_decl* pred);
+        expr_ref get_cover_delta(int level, func_decl* pred) override;
        
-        virtual void add_cover(int level, func_decl* pred, expr* property);
+        void add_cover(int level, func_decl* pred, expr* property) override;
                
-        virtual void updt_params();
+        void updt_params() override;
 
-        virtual model_ref get_model();
+        model_ref get_model() override;
 
-        virtual proof_ref get_proof();
+        proof_ref get_proof() override;
         
     };
 }

@@ -1383,7 +1383,7 @@ namespace qe {
             m_rewriter.updt_params(params);
         }
 
-        virtual ~quant_elim_plugin() {        
+        ~quant_elim_plugin() override {
             reset();
         }
         
@@ -2035,7 +2035,7 @@ namespace qe {
           {
           }
 
-        virtual ~quant_elim_new() {
+        ~quant_elim_new() override {
             reset();
         }
         
@@ -2052,17 +2052,17 @@ namespace qe {
         }
 
 
-        void collect_statistics(statistics & st) const {
+        void collect_statistics(statistics & st) const override {
             for (unsigned i = 0; i < m_plugins.size(); ++i) {
                 m_plugins[i]->collect_statistics(st);
             }
         }
 
-        void updt_params(params_ref const& p) {
+        void updt_params(params_ref const& p) override {
             m_eliminate_variables_as_block = p.get_bool("eliminate_variables_as_block", m_eliminate_variables_as_block);
         }
         
-        void eliminate(bool is_forall, unsigned num_vars, app* const* vars, expr_ref& fml) {
+        void eliminate(bool is_forall, unsigned num_vars, app* const* vars, expr_ref& fml) override {
               if (is_forall) {
                   eliminate_forall_bind(num_vars, vars, fml);
               }
@@ -2092,14 +2092,14 @@ namespace qe {
             }
         }
 
-        virtual void set_assumption(expr* fml) {
+        void set_assumption(expr* fml) override {
             m_assumption = fml;
         }
         
 
-        virtual lbool eliminate_exists(
+        lbool eliminate_exists(
             unsigned num_vars, app* const* vars, expr_ref& fml, 
-            app_ref_vector& free_vars, bool get_first, guarded_defs* defs) {
+            app_ref_vector& free_vars, bool get_first, guarded_defs* defs) override {
             if (get_first) {
                 return eliminate_block(num_vars, vars, fml, free_vars, get_first, defs);
             }
@@ -2483,7 +2483,7 @@ namespace qe {
             m_fparams.updt_params(p);
         }
 
-        virtual ~simplify_solver_context() { reset(); }    
+        ~simplify_solver_context() override { reset(); }
         
 
         void solve(expr_ref& fml, app_ref_vector& vars) {
@@ -2502,16 +2502,16 @@ namespace qe {
             while (solved);
         }
 
-        virtual ast_manager& get_manager() { return m; }
+        ast_manager& get_manager() override { return m; }
 
-        virtual atom_set const& pos_atoms() const { return m_pos; }
-        virtual atom_set const& neg_atoms() const { return m_neg; }
+        atom_set const& pos_atoms() const override { return m_pos; }
+        atom_set const& neg_atoms() const override { return m_neg; }
 
         // Access current set of variables to solve
-        virtual unsigned    get_num_vars() const { return m_vars->size(); }
-        virtual app*        get_var(unsigned idx) const { return (*m_vars)[idx].get(); }
-        virtual app_ref_vector const&  get_vars() const { return *m_vars; }
-        virtual bool        is_var(expr* e, unsigned& idx) const { 
+        unsigned    get_num_vars() const override { return m_vars->size(); }
+        app*        get_var(unsigned idx) const override { return (*m_vars)[idx].get(); }
+        app_ref_vector const&  get_vars() const override { return *m_vars; }
+        bool        is_var(expr* e, unsigned& idx) const override {
             for (unsigned i = 0; i < m_vars->size(); ++i) {
                 if ((*m_vars)[i].get() == e) { 
                     idx = i; 
@@ -2521,12 +2521,12 @@ namespace qe {
             return false;
         }
 
-        virtual contains_app& contains(unsigned idx) {
+        contains_app& contains(unsigned idx) override {
             return *m_contains[idx];
         }
 
         // callback to replace variable at index 'idx' with definition 'def' and updated formula 'fml'
-        virtual void elim_var(unsigned idx, expr* fml, expr* def) {
+        void elim_var(unsigned idx, expr* fml, expr* def) override {
             TRACE("qe", tout << mk_pp(m_vars->get(idx), m) << " " << mk_pp(fml, m) << "\n";);
             *m_fml = fml;
             m_vars->set(idx, m_vars->get(m_vars->size()-1));
@@ -2537,17 +2537,17 @@ namespace qe {
         }
 
         // callback to add new variable to branch.
-        virtual void add_var(app* x) {
+        void add_var(app* x) override {
             TRACE("qe", tout << "add var: " << mk_pp(x, m) << "\n";);
             m_vars->push_back(x);
         }
 
         // callback to add constraints in branch.
-        virtual void add_constraint(bool use_var, expr* l1 = 0, expr* l2 = 0, expr* l3 = 0) {
+        void add_constraint(bool use_var, expr* l1 = 0, expr* l2 = 0, expr* l3 = 0) override {
             UNREACHABLE();
         }
         // eliminate finite domain variable 'var' from fml.
-        virtual void blast_or(app* var, expr_ref& fml) {
+        void blast_or(app* var, expr_ref& fml) override {
             UNREACHABLE();
         }
 

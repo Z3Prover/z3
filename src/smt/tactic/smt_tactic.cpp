@@ -53,11 +53,11 @@ public:
         TRACE("smt_tactic", tout << "p: " << p << "\n";);
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(smt_tactic, m_params_ref);
     }
 
-    virtual ~smt_tactic() {
+    ~smt_tactic() override {
         SASSERT(m_ctx == 0);
     }
 
@@ -74,7 +74,7 @@ public:
         m_fail_if_inconclusive = p.get_bool("fail_if_inconclusive", true);
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         TRACE("smt_tactic", tout << "updt_params: " << p << "\n";);
         updt_params_core(p);
         fparams().updt_params(p);
@@ -86,7 +86,7 @@ public:
         SASSERT(p.get_bool("auto_config", fparams().m_auto_config) == fparams().m_auto_config);
     }
 
-    virtual void collect_param_descrs(param_descrs & r) {
+    void collect_param_descrs(param_descrs & r) override {
         r.insert("candidate_models", CPK_BOOL, "(default: false) create candidate models even when quantifier or theory reasoning is incomplete.");
         r.insert("fail_if_inconclusive", CPK_BOOL, "(default: true) fail if found unsat (sat) for under (over) approximated goal.");
         smt_params_helper::collect_param_descrs(r);
@@ -94,25 +94,25 @@ public:
     }
 
 
-    virtual void collect_statistics(statistics & st) const {
+    void collect_statistics(statistics & st) const override {
         if (m_ctx)
             m_ctx->collect_statistics(st); // ctx is still running...
         else
             st.copy(m_stats);
     }
 
-    virtual void cleanup() {
+    void cleanup() override {
     }
 
-    virtual void reset_statistics() {
+    void reset_statistics() override {
         m_stats.reset();
     }
 
-    virtual void set_logic(symbol const & l) {
+    void set_logic(symbol const & l) override {
         m_logic = l;
     }
 
-    virtual void set_progress_callback(progress_callback * callback) {
+    void set_progress_callback(progress_callback * callback) override {
         m_callback = callback;
     }
 
@@ -144,11 +144,11 @@ public:
     };
 
 
-    virtual void operator()(goal_ref const & in,
-                            goal_ref_buffer & result,
-                            model_converter_ref & mc,
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
+    void operator()(goal_ref const & in,
+                    goal_ref_buffer & result,
+                    model_converter_ref & mc,
+                    proof_converter_ref & pc,
+                    expr_dependency_ref & core) override {
         try {
             IF_VERBOSE(10, verbose_stream() << "(smt.tactic start)\n";);
             mc = 0; pc = 0; core = 0;

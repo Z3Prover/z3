@@ -59,7 +59,7 @@ namespace datalog {
             : convenient_relation_join_fn(o1_sig, o2_sig, col_cnt, cols1, cols2){
         }
 
-        virtual relation_base * operator()(const relation_base & _r1, const relation_base & _r2) {
+        relation_base * operator()(const relation_base & _r1, const relation_base & _r2) override {
             interval_relation const& r1 = get(_r1);
             interval_relation const& r2 = get(_r2);
             interval_relation_plugin& p = r1.get_plugin();
@@ -84,7 +84,7 @@ namespace datalog {
             : convenient_relation_project_fn(orig_sig, removed_col_cnt, removed_cols) {
         }
 
-        virtual relation_base * operator()(const relation_base & _r) {
+        relation_base * operator()(const relation_base & _r) override {
             interval_relation const& r = get(_r);
             interval_relation_plugin& p = r.get_plugin();
             interval_relation* result = dynamic_cast<interval_relation*>(p.mk_full(0, get_result_signature()));            
@@ -104,7 +104,7 @@ namespace datalog {
             : convenient_relation_rename_fn(orig_sig, cycle_len, cycle) {
         }
 
-        virtual relation_base * operator()(const relation_base & _r) {
+        relation_base * operator()(const relation_base & _r) override {
             interval_relation const& r = get(_r);
             interval_relation_plugin& p = r.get_plugin();
             interval_relation* result = dynamic_cast<interval_relation*>(p.mk_full(0, get_result_signature()));
@@ -198,7 +198,7 @@ namespace datalog {
             m_is_widen(is_widen) {            
         }
 
-        virtual void operator()(relation_base & _r, const relation_base & _src, relation_base * _delta) {
+        void operator()(relation_base & _r, const relation_base & _src, relation_base * _delta) override {
 
             TRACE("interval_relation", _r.display(tout << "dst:\n"); _src.display(tout  << "src:\n"););
 
@@ -237,7 +237,7 @@ namespace datalog {
         filter_identical_fn(unsigned col_cnt, const unsigned * identical_cols) 
             : m_identical_cols(col_cnt, identical_cols) {}
 
-        virtual void operator()(relation_base & r) {
+        void operator()(relation_base & r) override {
             interval_relation & pr = get(r);
             for (unsigned i = 1; i < m_identical_cols.size(); ++i) {
                 unsigned c1 = m_identical_cols[0];
@@ -266,7 +266,7 @@ namespace datalog {
             VERIFY(arith.is_numeral(value, m_value));            
         }
 
-        virtual void operator()(relation_base & _r) {
+        void operator()(relation_base & _r) override {
             interval_relation & r = get(_r);
             interval_relation_plugin & p = r.get_plugin();
             r.mk_intersect(m_col, interval(p.dep(), m_value));
@@ -290,7 +290,7 @@ namespace datalog {
             m_cond(cond, t.get_plugin().get_ast_manager()) {
         }
 
-        void operator()(relation_base& t) {
+        void operator()(relation_base& t) override {
             get(t).filter_interpreted(m_cond);
             TRACE("interval_relation", tout << mk_pp(m_cond, m_cond.get_manager()) << "\n"; t.display(tout););
         }

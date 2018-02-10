@@ -2068,7 +2068,7 @@ public:
 
     // We actually compute the interpolant here and then produce a proof consisting of just a lemma
 
-    iz3proof::node translate(ast proof, iz3proof &dst){
+    iz3proof::node translate(ast proof, iz3proof &dst) override {
         std::vector<ast> itps;
         scan_skolems(proof);
         for(int i = 0; i < frames -1; i++){
@@ -2114,7 +2114,7 @@ public:
         m().inc_ref(commute);
     }
 
-    ~iz3translation_full(){
+    ~iz3translation_full() override {
         m().dec_ref(commute);
     }
 };

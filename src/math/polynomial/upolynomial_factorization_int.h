@@ -322,7 +322,7 @@ namespace upolynomial {
         /**
            \brief Filter the ones not in the degree set.
         */
-        bool filter_current() const {
+        bool filter_current() const override {
             
             // select only the ones that have degrees in the degree set
             if (!m_degree_set.in_set(current_degree())) {

@@ -631,7 +631,7 @@ namespace smt {
         set_merge_tf_trail(enode * n):
             m_node(n) {
         }
-        virtual void undo(context & ctx) {
+        void undo(context & ctx) override {
             m_node->m_merge_tf = false;
         }
     };
@@ -667,7 +667,7 @@ namespace smt {
         set_enode_flag_trail(bool_var v):
             m_var(v) {
         }
-        virtual void undo(context & ctx) {
+        void undo(context & ctx) override {
             bool_var_data & data = ctx.m_bdata[m_var];
             data.reset_enode_flag();
         }
@@ -1612,7 +1612,7 @@ namespace smt {
             SASSERT(m_th_var != null_theory_var);
         }
         
-        virtual void undo(context & ctx) {
+        void undo(context & ctx) override {
             theory_var v = m_enode->get_th_var(m_th_id);
             SASSERT(v != null_theory_var);
             SASSERT(m_th_var == v);
@@ -1637,7 +1637,7 @@ namespace smt {
             m_old_th_var(old_var) {
         }
         
-        virtual void undo(context & ctx) {
+        void undo(context & ctx) override {
             SASSERT(m_enode->get_th_var(m_th_id) != null_theory_var);
             m_enode->replace_th_var(m_old_th_var, m_th_id);
         }

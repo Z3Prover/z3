@@ -444,12 +444,12 @@ namespace datalog {
             init(r1.get_signature(), 1, rels1, r2.get_signature(), 1, rels2, col_cnt, cols1, cols2);
         }
 
-        ~join_fn() { 
+        ~join_fn() override {
             dealloc_ptr_vector_content(m_joins);
             dealloc_ptr_vector_content(m_full);
         }
 
-        virtual relation_base * operator()(const relation_base & _r1, const relation_base & _r2) {
+        relation_base * operator()(const relation_base & _r1, const relation_base & _r2) override {
             TRACE("dl", _r1.display(tout); _r2.display(tout););
             ptr_vector<relation_base> relations;
             unsigned sz = m_joins.size();
@@ -491,9 +491,9 @@ namespace datalog {
           m_sig(std::move(s)),
           m_transforms(num_trans, trans) {}
 
-          ~transform_fn() { dealloc_ptr_vector_content(m_transforms); }
+          ~transform_fn() override { dealloc_ptr_vector_content(m_transforms); }
 
-        virtual relation_base * operator()(const relation_base & _r) {
+        relation_base * operator()(const relation_base & _r) override {
             product_relation const& r = get(_r);
             product_relation_plugin& p = r.get_plugin();
             SASSERT(m_transforms.size() == r.size());
@@ -628,14 +628,14 @@ namespace datalog {
             init(tgt.m_relations, src.m_relations, delta ? &delta->m_relations : 0);
         }
 
-        ~aligned_union_fn() {
+        ~aligned_union_fn() override {
             unsigned sz = m_unions.size();
             for(unsigned i=0; i<sz; i++) {
                 dealloc_ptr_vector_content(m_unions[i]);
             }
         }
 
-        virtual void operator()(relation_base& _tgt, const relation_base& _src, relation_base* _delta) {
+        void operator()(relation_base& _tgt, const relation_base& _src, relation_base* _delta) override {
             TRACE("dl", _tgt.display(tout << "dst:\n"); _src.display(tout  << "src:\n"););
             SASSERT(m_plugin.check_kind(_tgt));
             SASSERT(m_plugin.check_kind(_src));
@@ -748,7 +748,7 @@ namespace datalog {
         }
 
 
-        virtual void operator()(relation_base& _tgt, const relation_base& _src, relation_base* _delta) {
+        void operator()(relation_base& _tgt, const relation_base& _src, relation_base* _delta) override {
             TRACE("dl_verbose", _tgt.display(tout << "dst:\n"); _src.display(tout  << "src:\n"););
             product_relation& tgt = get(_tgt);
             product_relation const& src0 = get(_src);
@@ -783,7 +783,7 @@ namespace datalog {
                 : m_single_rel_idx(single_rel_idx),
                 m_inner_union_fun(inner_union_fun) {}
 
-        virtual void operator()(relation_base& tgt, const relation_base& _src, relation_base* delta) {
+        void operator()(relation_base& tgt, const relation_base& _src, relation_base* delta) override {
             TRACE("dl", tgt.display(tout); _src.display(tout); );
             product_relation const& src = get(_src);
             (*m_inner_union_fun)(tgt, src[m_single_rel_idx], delta);
@@ -834,9 +834,9 @@ namespace datalog {
         mutator_fn(unsigned sz, relation_mutator_fn** muts):
           m_mutators(sz, muts) {}
 
-       ~mutator_fn() { dealloc_ptr_vector_content(m_mutators); }
+       ~mutator_fn() override { dealloc_ptr_vector_content(m_mutators); }
 
-        virtual void operator()(relation_base & _r) {
+        void operator()(relation_base & _r) override {
             TRACE("dl", _r.display(tout););
             product_relation& r = get(_r);
             SASSERT(m_mutators.size() == r.size());
@@ -911,9 +911,9 @@ namespace datalog {
             }
         }
 
-        ~filter_interpreted_fn() { dealloc_ptr_vector_content(m_mutators); }
+        ~filter_interpreted_fn() override { dealloc_ptr_vector_content(m_mutators); }
 
-        void operator()(relation_base& _r) {
+        void operator()(relation_base& _r) override {
             TRACE("dl", _r.display(tout););
             product_relation const& r = get(_r);
             for (unsigned i = 0; i < m_attach.size(); ++i) {

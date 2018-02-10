@@ -2844,7 +2844,7 @@ namespace smt {
             unsigned                m_lbl_id;
         public:
             mk_tree_trail(ptr_vector<code_tree> & t, unsigned id):m_trees(t), m_lbl_id(id) {}
-            virtual void undo(mam_impl & m) {
+            void undo(mam_impl & m) override {
                 dealloc(m_trees[m_lbl_id]);
                 m_trees[m_lbl_id] = 0;
             }
@@ -3104,7 +3104,7 @@ namespace smt {
             enode * m_enode;
         public:
             add_shared_enode_trail(enode * n):m_enode(n) {}
-            virtual void undo(mam_impl & m) { m.m_shared_enodes.erase(m_enode); }
+            void undo(mam_impl & m) override { m.m_shared_enodes.erase(m_enode); }
         };
 
 #ifdef Z3DEBUG
@@ -3819,11 +3819,11 @@ namespace smt {
             reset_pp_pc();
         }
 
-        virtual ~mam_impl() {
+        ~mam_impl() override {
             m_trail_stack.reset();
         }
 
-        virtual void add_pattern(quantifier * qa, app * mp) {
+        void add_pattern(quantifier * qa, app * mp) override {
             SASSERT(m_ast_manager.is_pattern(mp));
             TRACE("trigger_bug", tout << "adding pattern\n" << mk_ismt2_pp(qa, m_ast_manager) << "\n" << mk_ismt2_pp(mp, m_ast_manager) << "\n";);
             TRACE("mam_bug", tout << "adding pattern\n" << mk_pp(qa, m_ast_manager) << "\n" << mk_pp(mp, m_ast_manager) << "\n";);
@@ -3846,11 +3846,11 @@ namespace smt {
                 m_trees.add_pattern(qa, mp, i);
         }
 
-        virtual void push_scope() {
+        void push_scope() override {
             m_trail_stack.push_scope();
         }
 
-        virtual void pop_scope(unsigned num_scopes) {
+        void pop_scope(unsigned num_scopes) override {
             if (!m_to_match.empty()) {
                 ptr_vector<code_tree>::iterator it  = m_to_match.begin();
                 ptr_vector<code_tree>::iterator end = m_to_match.end();
@@ -3864,7 +3864,7 @@ namespace smt {
             m_trail_stack.pop_scope(num_scopes);
         }
 
-        virtual void reset() {
+        void reset() override {
             m_trail_stack.reset();
             m_trees.reset();
             m_to_match.reset();
@@ -3875,7 +3875,7 @@ namespace smt {
             m_tmp_region.reset();
         }
 
-        virtual void display(std::ostream& out) {
+        void display(std::ostream& out) override {
             out << "mam:\n";
             m_lbl_hasher.display(out);
             ptr_vector<code_tree>::iterator it = m_trees.begin_code_trees();
@@ -3886,7 +3886,7 @@ namespace smt {
             }
         }
 
-        virtual void match() {
+        void match() override {
             TRACE("trigger_bug", tout << "match\n"; display(tout););
             ptr_vector<code_tree>::iterator it  = m_to_match.begin();
             ptr_vector<code_tree>::iterator end = m_to_match.end();
@@ -3903,7 +3903,7 @@ namespace smt {
             }
         }
 
-        virtual void rematch(bool use_irrelevant) {
+        void rematch(bool use_irrelevant) override {
             ptr_vector<code_tree>::iterator it  = m_trees.begin_code_trees();
             ptr_vector<code_tree>::iterator end = m_trees.end_code_trees();
             unsigned lbl = 0;
@@ -3932,7 +3932,7 @@ namespace smt {
         }
 #endif
 
-        virtual void on_match(quantifier * qa, app * pat, unsigned num_bindings, enode * const * bindings, unsigned max_generation, ptr_vector<enode> & used_enodes) {
+        void on_match(quantifier * qa, app * pat, unsigned num_bindings, enode * const * bindings, unsigned max_generation, ptr_vector<enode> & used_enodes) override {
             TRACE("trigger_bug", tout << "found match " << mk_pp(qa, m_ast_manager) << "\n";);
 #ifdef Z3DEBUG
             if (m_check_missing_instances) {
@@ -3955,13 +3955,13 @@ namespace smt {
             m_context.add_instance(qa, pat, num_bindings, bindings, max_generation, min_gen, max_gen, used_enodes);
         }
 
-        virtual bool is_shared(enode * n) const {
+        bool is_shared(enode * n) const override {
             return !m_shared_enodes.empty() && m_shared_enodes.contains(n);
         }
 
         // This method is invoked when n becomes relevant.
         // If lazy == true, then n is not added to the list of candidate enodes for matching. That is, the method just updates the lbls.
-        virtual void relevant_eh(enode * n, bool lazy) {
+        void relevant_eh(enode * n, bool lazy) override {
             TRACE("trigger_bug", tout << "relevant_eh:\n" << mk_ismt2_pp(n->get_owner(), m_ast_manager) << "\n";
                   tout << "mam: " << this << "\n";);
             TRACE("mam", tout << "relevant_eh: #" << n->get_owner_id() << "\n";);
@@ -3984,11 +3984,11 @@ namespace smt {
             }
         }
 
-        virtual bool has_work() const {
+        bool has_work() const override {
             return !m_to_match.empty() || !m_new_patterns.empty();
         }
 
-        virtual void add_eq_eh(enode * r1, enode * r2) {
+        void add_eq_eh(enode * r1, enode * r2) override {
             flet<enode *> l1(m_r1, r1);
             flet<enode *> l2(m_r2, r2);
 

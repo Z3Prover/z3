@@ -271,14 +271,14 @@ namespace datalog {
             m_renaming.insert(orig_rule, unsigned_vector(sz, renaming));
         }
 
-        virtual void operator()(ast_manager& m, unsigned num_source, proof * const * source, proof_ref & result) {
+        void operator()(ast_manager& m, unsigned num_source, proof * const * source, proof_ref & result) override {
             SASSERT(num_source == 1);
             result = source[0];
             init_form2rule();
             translate_proof(result);
         }        
 
-        virtual proof_converter * translate(ast_translation & translator) {
+        proof_converter * translate(ast_translation & translator) override {
             UNREACHABLE();
             // this would require implementing translation for the dl_context.
             return 0;
@@ -305,7 +305,7 @@ namespace datalog {
             m_sliceable.insert(f, bv);
         }
 
-        virtual void operator()(model_ref & md) {
+        void operator()(model_ref & md) override {
             if (m_slice2old.empty()) {
                 return;
             }
@@ -391,7 +391,7 @@ namespace datalog {
             TRACE("dl", model_smt2_pp(tout, m, *md, 0); );
         }
      
-        virtual model_converter * translate(ast_translation & translator) {
+        model_converter * translate(ast_translation & translator) override {
             UNREACHABLE();
             return 0;
         }

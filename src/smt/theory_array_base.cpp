@@ -828,7 +828,7 @@ namespace smt {
             m_unspecified_else(true) {
         }
 
-        virtual ~array_value_proc() {}
+        ~array_value_proc() override {}
      
         void add_entry(unsigned num_args, enode * const * args, enode * value) {
             SASSERT(num_args > 0);
@@ -840,11 +840,11 @@ namespace smt {
             m_dependencies.push_back(model_value_dependency(value));
         }
 
-        virtual void get_dependencies(buffer<model_value_dependency> & result) {
+        void get_dependencies(buffer<model_value_dependency> & result) override {
             result.append(m_dependencies.size(), m_dependencies.c_ptr());
         }
         
-        virtual app * mk_value(model_generator & mg, ptr_vector<expr> & values) {
+        app * mk_value(model_generator & mg, ptr_vector<expr> & values) override {
             // values must have size = m_num_entries * (m_dim + 1) + ((m_else || m_unspecified_else) ? 0 : 1) 
             // an array value is a lookup table + else_value
             // each entry has m_dim indexes that map to a value.

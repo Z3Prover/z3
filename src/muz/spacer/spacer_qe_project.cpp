@@ -190,14 +190,14 @@ namespace qe {
 
     class is_relevant_default : public i_expr_pred {
     public:
-        bool operator()(expr* e) {
+        bool operator()(expr* e) override {
             return true;
         }
     };
 
     class mk_atom_default : public i_nnf_atom {
     public:
-        virtual void operator()(expr* e, bool pol, expr_ref& result) {
+        void operator()(expr* e, bool pol, expr_ref& result) override {
             if (pol) result = e;
             else result = result.get_manager().mk_not(e);
         }

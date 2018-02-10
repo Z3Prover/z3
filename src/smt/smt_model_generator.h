@@ -159,16 +159,16 @@ namespace smt {
         app * m_value;
     public:
         expr_wrapper_proc(app * v):m_value(v) {}
-        virtual app * mk_value(model_generator & m, ptr_vector<expr> & values) { return m_value; }
+        app * mk_value(model_generator & m, ptr_vector<expr> & values) override { return m_value; }
     };
 
     class fresh_value_proc : public model_value_proc {
         extra_fresh_value * m_value;
     public:
         fresh_value_proc(extra_fresh_value * v):m_value(v) {}
-        virtual void get_dependencies(buffer<model_value_dependency> & result) { result.push_back(m_value); }
-        virtual app * mk_value(model_generator & m, ptr_vector<expr> & values) { return to_app(values[0]); }
-        virtual bool is_fresh() const { return true; }
+        void get_dependencies(buffer<model_value_dependency> & result) override { result.push_back(m_value); }
+        app * mk_value(model_generator & m, ptr_vector<expr> & values) override { return to_app(values[0]); }
+        bool is_fresh() const override { return true; }
     };
 
     /**

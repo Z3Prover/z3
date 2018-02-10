@@ -328,7 +328,7 @@ namespace datalog {
             t2.expand_column_vector(m_cols2);
         }
 
-        virtual relation_base * operator()(const relation_base & _r1, const relation_base & _r2) {
+        relation_base * operator()(const relation_base & _r1, const relation_base & _r2) override {
             udoc_relation const& r1 = get(_r1);
             udoc_relation const& r2 = get(_r2);
             TRACE("doc", r1.display(tout << "r1:\n"); r2.display(tout  << "r2:\n"););
@@ -369,7 +369,7 @@ namespace datalog {
             }
         }
 
-        virtual relation_base * operator()(const relation_base & tb) {
+        relation_base * operator()(const relation_base & tb) override {
             TRACE("doc", tb.display(tout << "src:\n"););
             udoc_relation const& t = get(tb);
             udoc_plugin& p = t.get_plugin();
@@ -462,7 +462,7 @@ namespace datalog {
             }
         }
 
-        virtual relation_base * operator()(const relation_base & _r) {
+        relation_base * operator()(const relation_base & _r) override {
             udoc_relation const& r = get(_r);
             TRACE("doc", r.display(tout << "r:\n"););
             udoc_plugin& p = r.get_plugin();            
@@ -494,7 +494,7 @@ namespace datalog {
     public:
         union_fn() {}
 
-        virtual void operator()(relation_base & _r, const relation_base & _src, relation_base * _delta) {
+        void operator()(relation_base & _r, const relation_base & _src, relation_base * _delta) override {
             TRACE("doc", _r.display(tout << "dst:\n"); _src.display(tout  << "src:\n"););
             udoc_relation& r = get(_r);
             udoc_relation const& src = get(_src);
@@ -574,7 +574,7 @@ namespace datalog {
             }
         }
         
-        virtual void operator()(relation_base & _r) {
+        void operator()(relation_base & _r) override {
             udoc_relation& r = get(_r);
             udoc& d = r.get_udoc();
             doc_manager& dm = r.get_dm();
@@ -602,10 +602,10 @@ namespace datalog {
             SASSERT(num_bits == hi - lo);
             dm.tbvm().set(m_filter->pos(), r, hi-1, lo);
         }
-        virtual ~filter_equal_fn() {
+        ~filter_equal_fn() override {
             dm.deallocate(m_filter);
         }        
-        virtual void operator()(relation_base & tb) {
+        void operator()(relation_base & tb) override {
             udoc_relation & t = get(tb);
             t.get_udoc().intersect(dm, *m_filter);
             SASSERT(t.get_udoc().well_formed(t.get_dm()));
@@ -932,11 +932,11 @@ namespace datalog {
                   m_udoc.display(dm, tout) << "\n";);
         }
 
-        virtual ~filter_interpreted_fn() {
+        ~filter_interpreted_fn() override {
             m_udoc.reset(dm);
         }
         
-        virtual void operator()(relation_base & tb) {            
+        void operator()(relation_base & tb) override {
             udoc_relation & t = get(tb);
             udoc& u = t.get_udoc();
             SASSERT(u.well_formed(dm));
@@ -987,7 +987,7 @@ namespace datalog {
 
 
         // TBD: replace this by "join" given below.
-        virtual relation_base* operator()(relation_base const& t1, relation_base const& t2) {
+        relation_base* operator()(relation_base const& t1, relation_base const& t2) override {
 #if 1
             return join(get(t1), get(t2));
 #else
@@ -1043,7 +1043,7 @@ namespace datalog {
     public:
       join_project_and_fn() {}
 
-      virtual relation_base* operator()(relation_base const& t1, relation_base const& t2) {
+      relation_base* operator()(relation_base const& t1, relation_base const& t2) override {
           udoc_relation *result = get(t1.clone());
           result->get_udoc().intersect(result->get_dm(), get(t2).get_udoc());
           return result;
@@ -1121,7 +1121,7 @@ namespace datalog {
             neg.expand_column_vector(m_neg_cols);
         }
         
-        virtual void operator()(relation_base& tb, const relation_base& negb) {
+        void operator()(relation_base& tb, const relation_base& negb) override {
             udoc_relation& t = get(tb);
             udoc_relation const& n = get(negb);
             IF_VERBOSE(3, t.display(verbose_stream() << "dst:"););
@@ -1223,10 +1223,10 @@ namespace datalog {
             t.compile_guard(guard, m_udoc, m_to_delete);
         }
         
-        virtual ~filter_proj_fn() {
+        ~filter_proj_fn() override {
             m_udoc.reset(dm);
         }
-        virtual relation_base* operator()(const relation_base & tb) {
+        relation_base* operator()(const relation_base & tb) override {
             udoc_relation const & t = get(tb);
             udoc const& u1 = t.get_udoc();
             doc_manager& dm = t.get_dm();

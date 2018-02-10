@@ -51,7 +51,7 @@ namespace smt {
             m_util(u)
         {}
 
-        virtual app * mk_value_core(unsigned const & val, sort * s) {
+        app * mk_value_core(unsigned const & val, sort * s) override {
             return m_util.mk_numeral(val, s);
         }
     };
@@ -74,9 +74,9 @@ namespace smt {
             
             dl_value_proc(theory_dl& th, smt::enode* n) : m_th(th), m_node(n) {}
             
-            virtual void get_dependencies(buffer<smt::model_value_dependency> & result) {}
+            void get_dependencies(buffer<smt::model_value_dependency> & result) override {}
             
-            virtual app * mk_value(smt::model_generator & mg, ptr_vector<expr> & ) {
+            app * mk_value(smt::model_generator & mg, ptr_vector<expr> & ) override {
                 smt::context& ctx = m_th.get_context();
                 app* result = 0;
                 expr* n = m_node->get_owner();
@@ -111,9 +111,9 @@ namespace smt {
         }
 
 
-        virtual char const * get_name() const { return "datalog"; }
+        char const * get_name() const override { return "datalog"; }
 
-        virtual bool internalize_atom(app * atom, bool gate_ctx) {
+        bool internalize_atom(app * atom, bool gate_ctx) override {
             TRACE("theory_dl", tout << mk_pp(atom, m()) << "\n";);
             context& ctx = get_context();
             if (ctx.b_internalized(atom)) {
@@ -136,7 +136,7 @@ namespace smt {
             return false;
         }
 
-        virtual bool internalize_term(app * term) {
+        bool internalize_term(app * term) override {
             TRACE("theory_dl", tout << mk_pp(term, m()) << "\n";);
             if (u().is_finite_sort(term)) {
                 return mk_rep(term);
@@ -146,27 +146,27 @@ namespace smt {
             }
         }
 
-        virtual void new_eq_eh(theory_var v1, theory_var v2) {
+        void new_eq_eh(theory_var v1, theory_var v2) override {
             
         }
 
-        virtual void new_diseq_eh(theory_var v1, theory_var v2) {
+        void new_diseq_eh(theory_var v1, theory_var v2) override {
 
         }
 
-        virtual theory * mk_fresh(context * new_ctx) {
+        theory * mk_fresh(context * new_ctx) override {
             return alloc(theory_dl, new_ctx->get_manager());
         }
 
-        virtual void init_model(smt::model_generator & m) {
+        void init_model(smt::model_generator & m) override {
             m.register_factory(alloc(dl_factory, m_util, m.get_model()));
         }
         
-        virtual smt::model_value_proc * mk_value(smt::enode * n, smt::model_generator&) {
+        smt::model_value_proc * mk_value(smt::enode * n, smt::model_generator&) override {
             return alloc(dl_value_proc, *this, n);
         }
 
-        virtual void apply_sort_cnstr(enode * n, sort * s) {
+        void apply_sort_cnstr(enode * n, sort * s) override {
             app* term = n->get_owner();
             if (u().is_finite_sort(term)) {
                 mk_rep(term);
@@ -174,7 +174,7 @@ namespace smt {
         }
 
         
-        virtual void relevant_eh(app * n) {
+        void relevant_eh(app * n) override {
             if (u().is_finite_sort(n)) {
                 sort* s = m().get_sort(n);
                 func_decl* r, *v;
@@ -194,7 +194,7 @@ namespace smt {
             }
         }
 
-        virtual void display(std::ostream & out) const {
+        void display(std::ostream & out) const override {
         }
 
 

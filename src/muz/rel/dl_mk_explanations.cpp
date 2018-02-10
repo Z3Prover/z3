@@ -69,7 +69,7 @@ namespace datalog {
             m_relation_level_explanations(relation_level),
             m_union_decl(mk_explanations::get_union_decl(get_context()), get_ast_manager()) {}
 
-        ~explanation_relation_plugin() {
+        ~explanation_relation_plugin() override {
             for (unsigned i = 0; i < m_pool.size(); ++i) {
                 for (unsigned j = 0; j < m_pool[i].size(); ++j) {
                     dealloc(m_pool[i][j]);
@@ -77,7 +77,7 @@ namespace datalog {
             }
         }
 
-        virtual bool can_handle_signature(const relation_signature & s) {
+        bool can_handle_signature(const relation_signature & s) override {
             unsigned n=s.size();
             for (unsigned i=0; i<n; i++) {
                 if (!get_context().get_decl_util().is_rule_sort(s[i])) {
@@ -87,27 +87,27 @@ namespace datalog {
             return true;
         }
         
-        virtual relation_base * mk_empty(const relation_signature & s);
+        relation_base * mk_empty(const relation_signature & s) override;
 
         void recycle(explanation_relation* r);
 
     protected:
 
-        virtual relation_join_fn * mk_join_fn(const relation_base & t1, const relation_base & t2,
-            unsigned col_cnt, const unsigned * cols1, const unsigned * cols2);
-        virtual relation_transformer_fn * mk_project_fn(const relation_base & t, unsigned col_cnt, 
-            const unsigned * removed_cols);
-        virtual relation_transformer_fn * mk_rename_fn(const relation_base & t, unsigned permutation_cycle_len, 
-            const unsigned * permutation_cycle);
-        virtual relation_union_fn * mk_union_fn(const relation_base & tgt, const relation_base & src, 
-            const relation_base * delta);
-        virtual relation_mutator_fn * mk_filter_interpreted_fn(const relation_base & t, app * condition);
-        virtual relation_intersection_filter_fn * mk_filter_by_negation_fn(const relation_base & t, 
-            const relation_base & negated_obj, unsigned joined_col_cnt, 
-            const unsigned * t_cols, const unsigned * negated_cols);
-        virtual relation_intersection_filter_fn * mk_filter_by_intersection_fn(const relation_base & t, 
-                const relation_base & src, unsigned joined_col_cnt, 
-                const unsigned * t_cols, const unsigned * src_cols);
+        relation_join_fn * mk_join_fn(const relation_base & t1, const relation_base & t2,
+            unsigned col_cnt, const unsigned * cols1, const unsigned * cols2) override;
+        relation_transformer_fn * mk_project_fn(const relation_base & t, unsigned col_cnt,
+            const unsigned * removed_cols) override;
+        relation_transformer_fn * mk_rename_fn(const relation_base & t, unsigned permutation_cycle_len,
+            const unsigned * permutation_cycle) override;
+        relation_union_fn * mk_union_fn(const relation_base & tgt, const relation_base & src,
+            const relation_base * delta) override;
+        relation_mutator_fn * mk_filter_interpreted_fn(const relation_base & t, app * condition) override;
+        relation_intersection_filter_fn * mk_filter_by_negation_fn(const relation_base & t,
+            const relation_base & negated_obj, unsigned joined_col_cnt,
+            const unsigned * t_cols, const unsigned * negated_cols) override;
+        relation_intersection_filter_fn * mk_filter_by_intersection_fn(const relation_base & t,
+                const relation_base & src, unsigned joined_col_cnt,
+                const unsigned * t_cols, const unsigned * src_cols) override;
 
     };
 
@@ -173,7 +173,7 @@ namespace datalog {
             }
         }
 
-        virtual void deallocate() {
+        void deallocate() override {
             get_plugin().recycle(this);
         }
 
@@ -183,7 +183,7 @@ namespace datalog {
             return static_cast<explanation_relation_plugin &>(relation_base::get_plugin());
         }
 
-        virtual void to_formula(expr_ref& fml) const {    
+        void to_formula(expr_ref& fml) const override {
             ast_manager& m = fml.get_manager();
             fml = m.mk_eq(m.mk_var(0, m.get_sort(m_data[0])), m_data[0]);
         }
@@ -204,23 +204,23 @@ namespace datalog {
             return true;
         }
 
-        virtual bool empty() const { return m_empty; }
+        bool empty() const override { return m_empty; }
 
-        virtual void reset() {
+        void reset() override {
             m_empty = true;
         }
 
-        virtual void add_fact(const relation_fact & f) {
+        void add_fact(const relation_fact & f) override {
             SASSERT(empty());
             assign_data(f);
         }
 
-        virtual bool contains_fact(const relation_fact & f) const {
+        bool contains_fact(const relation_fact & f) const override {
             UNREACHABLE();
             throw 0;
         }
 
-        virtual explanation_relation * clone() const {
+        explanation_relation * clone() const override {
             explanation_relation * res = static_cast<explanation_relation *>(get_plugin().mk_empty(get_signature()));
             res->m_empty = m_empty;
             SASSERT(res->m_data.empty());
@@ -228,7 +228,7 @@ namespace datalog {
             return res;
         }
 
-        virtual relation_base * complement(func_decl* pred) const {
+        relation_base * complement(func_decl* pred) const override {
             explanation_relation * res = static_cast<explanation_relation *>(get_plugin().mk_empty(get_signature()));
             if (empty()) {
                 res->set_undefined();
@@ -247,7 +247,7 @@ namespace datalog {
             }
         }
 
-        virtual void display(std::ostream & out) const {
+        void display(std::ostream & out) const override {
             if (empty()) {
                 out << "<empty explanation relation>\n";
                 return;
@@ -298,7 +298,7 @@ namespace datalog {
         join_fn(const relation_signature & sig1, const relation_signature & sig2)
             : convenient_relation_join_fn(sig1, sig2, 0, 0, 0) {}
 
-        virtual relation_base * operator()(const relation_base & r1_0, const relation_base & r2_0) {
+        relation_base * operator()(const relation_base & r1_0, const relation_base & r2_0) override {
             const explanation_relation & r1 = static_cast<const explanation_relation &>(r1_0);
             const explanation_relation & r2 = static_cast<const explanation_relation &>(r2_0);
             explanation_relation_plugin & plugin = r1.get_plugin();
@@ -331,7 +331,7 @@ namespace datalog {
         project_fn(const relation_signature & sig, unsigned col_cnt, const unsigned * removed_cols)
             : convenient_relation_project_fn(sig, col_cnt, removed_cols) {}
 
-        virtual relation_base * operator()(const relation_base & r0) {
+        relation_base * operator()(const relation_base & r0) override {
             const explanation_relation & r = static_cast<const explanation_relation &>(r0);
             explanation_relation_plugin & plugin = r.get_plugin();
 
@@ -359,7 +359,7 @@ namespace datalog {
         rename_fn(const relation_signature & sig, unsigned permutation_cycle_len, const unsigned * permutation_cycle)
             : convenient_relation_rename_fn(sig, permutation_cycle_len, permutation_cycle) {}
 
-        virtual relation_base * operator()(const relation_base & r0) {
+        relation_base * operator()(const relation_base & r0) override {
             const explanation_relation & r = static_cast<const explanation_relation &>(r0);
             explanation_relation_plugin & plugin = r.get_plugin();
 
@@ -382,7 +382,7 @@ namespace datalog {
     class explanation_relation_plugin::union_fn : public relation_union_fn {
         scoped_ptr<relation_union_fn> m_delta_union_fun;
     public:
-        virtual void operator()(relation_base & tgt0, const relation_base & src0, relation_base * delta0) {
+        void operator()(relation_base & tgt0, const relation_base & src0, relation_base * delta0) override {
             explanation_relation & tgt = static_cast<explanation_relation &>(tgt0);
             const explanation_relation & src = static_cast<const explanation_relation &>(src0);
             explanation_relation * delta = delta0 ? static_cast<explanation_relation *>(delta0) : 0;
@@ -418,7 +418,7 @@ namespace datalog {
     class explanation_relation_plugin::foreign_union_fn : public relation_union_fn {
         scoped_ptr<relation_union_fn> m_delta_union_fun;
     public:
-        virtual void operator()(relation_base & tgt0, const relation_base & src, relation_base * delta0) {
+        void operator()(relation_base & tgt0, const relation_base & src, relation_base * delta0) override {
             explanation_relation & tgt = static_cast<explanation_relation &>(tgt0);
             explanation_relation * delta = delta0 ? static_cast<explanation_relation *>(delta0) : 0;
 
@@ -456,7 +456,7 @@ namespace datalog {
               m_col_idx(col_idx), 
               m_new_rule(std::move(new_rule)) {}
 
-        virtual void operator()(relation_base & r0) {
+        void operator()(relation_base & r0) override {
             explanation_relation & r = static_cast<explanation_relation &>(r0);
 
             if (!r.is_undefined(m_col_idx)) {
@@ -509,7 +509,7 @@ namespace datalog {
 
     class explanation_relation_plugin::negation_filter_fn : public relation_intersection_filter_fn {
     public:
-        virtual void operator()(relation_base & r, const relation_base & neg) {
+        void operator()(relation_base & r, const relation_base & neg) override {
             if (!neg.empty()) {
                 r.reset();
             }
@@ -531,7 +531,7 @@ namespace datalog {
         intersection_filter_fn(explanation_relation_plugin & plugin)
             : m_union_decl(plugin.m_union_decl) {}
 
-        virtual void operator()(relation_base & tgt0, const relation_base & src0) {
+        void operator()(relation_base & tgt0, const relation_base & src0) override {
             explanation_relation & tgt = static_cast<explanation_relation &>(tgt0);
             const explanation_relation & src = static_cast<const explanation_relation &>(src0);
 

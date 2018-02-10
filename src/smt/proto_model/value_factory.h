@@ -64,13 +64,13 @@ class basic_factory : public value_factory {
 public:
     basic_factory(ast_manager & m);
     
-    virtual expr * get_some_value(sort * s);
+    expr * get_some_value(sort * s) override;
 
-    virtual bool get_some_values(sort * s, expr_ref & v1, expr_ref & v2);
+    bool get_some_values(sort * s, expr_ref & v1, expr_ref & v2) override;
     
-    virtual expr * get_fresh_value(sort * s);
+    expr * get_fresh_value(sort * s) override;
 
-    virtual void register_value(expr * n) { }
+    void register_value(expr * n) override { }
 };
 
 /**
@@ -133,11 +133,11 @@ public:
         m_sorts(m) {
     }
 
-    virtual ~simple_factory() {
+    ~simple_factory() override {
         std::for_each(m_sets.begin(), m_sets.end(), delete_proc<value_set>());
     }
     
-    virtual expr * get_some_value(sort * s) {
+    expr * get_some_value(sort * s) override {
         value_set * set = 0;
         expr * result = 0;
         if (m_sort2value_set.find(s, set) && !set->m_values.empty()) 
@@ -147,7 +147,7 @@ public:
         return result;
     }
 
-    virtual bool get_some_values(sort * s, expr_ref & v1, expr_ref & v2) {
+    bool get_some_values(sort * s, expr_ref & v1, expr_ref & v2) override {
         value_set * set = 0;
         if (m_sort2value_set.find(s, set)) {
             switch (set->m_values.size()) {
@@ -176,7 +176,7 @@ public:
         return true;
     }
 
-    virtual expr * get_fresh_value(sort * s) {
+    expr * get_fresh_value(sort * s) override {
         value_set * set  = get_value_set(s);
         bool is_new      = false;
         expr * result    = 0;
@@ -202,7 +202,7 @@ public:
         return result;
     }
 
-    virtual void register_value(expr * n) {
+    void register_value(expr * n) override {
         sort * s = this->m_manager.get_sort(n);
         value_set * set  = get_value_set(s);
         if (!set->m_values.contains(n)) {
@@ -228,10 +228,10 @@ public:
 class user_sort_factory : public simple_factory<unsigned> {
     obj_hashtable<sort>  m_finite;   //!< set of sorts that are marked as finite.
     obj_hashtable<expr>  m_empty_universe;
-    virtual app * mk_value_core(unsigned const & val, sort * s);
+    app * mk_value_core(unsigned const & val, sort * s) override;
 public:
     user_sort_factory(ast_manager & m);
-    virtual ~user_sort_factory() {}
+    ~user_sort_factory() override {}
 
     /**
        \brief Make the universe of \c s finite, by preventing new
@@ -257,13 +257,13 @@ public:
     */
     obj_hashtable<sort> const & get_finite_sorts() const { return m_finite; }
 
-    virtual expr * get_some_value(sort * s);
+    expr * get_some_value(sort * s) override;
 
-    virtual bool get_some_values(sort * s, expr_ref & v1, expr_ref & v2);
+    bool get_some_values(sort * s, expr_ref & v1, expr_ref & v2) override;
 
-    virtual expr * get_fresh_value(sort * s);
+    expr * get_fresh_value(sort * s) override;
     
-    virtual void register_value(expr * n);
+    void register_value(expr * n) override;
 };
 
 #endif /* VALUE_FACTORY_H_ */

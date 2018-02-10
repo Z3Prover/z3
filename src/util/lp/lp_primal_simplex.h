@@ -70,7 +70,7 @@ public:
     
     void set_core_solver_bounds();
 
-    void find_maximal_solution();
+    void find_maximal_solution() override;
 
     void fill_A_x_and_basis_for_stage_one_total_inf();
 
@@ -79,7 +79,7 @@ public:
     void solve_with_total_inf();
 
 
-    ~lp_primal_simplex();
+    ~lp_primal_simplex() override;
 
     bool bounds_hold(std::unordered_map<std::string, T> const & solution);
 
@@ -96,11 +96,11 @@ public:
         return bounds_hold(solution) && row_constraints_hold(solution);
     }
 
-    virtual T get_column_value(unsigned column) const {
+    T get_column_value(unsigned column) const override {
         return this->get_column_value_with_core_solver(column, m_core_solver);
     }
 
-    T get_current_cost() const;
+    T get_current_cost() const override;
 
     
 };
