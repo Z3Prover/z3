@@ -2317,7 +2317,7 @@ namespace sat {
                 }                
             }
         }   
-        m_lookahead.reset();        
+        m_lookahead.reset();    
     }
 
 

@@ -2248,6 +2248,8 @@ namespace sat {
                            display(verbose_stream(), c, true);
                            if (c.lit() != null_literal) verbose_stream() << value(c.lit()) << "\n";);
 
+                IF_VERBOSE(0, s().display_watches(verbose_stream()));
+
                 UNREACHABLE();
                 exit(1);
                 return false;

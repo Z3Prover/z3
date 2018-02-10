@@ -1505,8 +1505,6 @@ namespace sat {
         if (m_conflicts_since_init < m_next_simplify) {
             return;
         }
-        integrity_checker si(*this);
-        si.check_watches();
         m_simplifications++;
         IF_VERBOSE(2, verbose_stream() << "(sat.simplify :simplifications " << m_simplifications << ")\n";);
 
@@ -1518,17 +1516,14 @@ namespace sat {
 
         m_cleaner();
         CASSERT("sat_simplify_bug", check_invariant());
-        si.check_watches();
 
         m_scc();
         CASSERT("sat_simplify_bug", check_invariant());
-        si.check_watches();
         
 
         m_simplifier(false);
         CASSERT("sat_simplify_bug", check_invariant());
         CASSERT("sat_missed_prop", check_missed_propagation());
-        si.check_watches();
         if (!m_learned.empty()) {
             m_simplifier(true);
             CASSERT("sat_missed_prop", check_missed_propagation());
@@ -1540,24 +1535,16 @@ namespace sat {
         m_probing();
         CASSERT("sat_missed_prop", check_missed_propagation());
         CASSERT("sat_simplify_bug", check_invariant());
-
         m_asymm_branch(false);
         CASSERT("sat_missed_prop", check_missed_propagation());
         CASSERT("sat_simplify_bug", check_invariant());
-
         if (m_ext) {
             m_ext->clauses_modifed();
             m_ext->simplify();
         }
-
-        if (m_config.m_lookahead_simplify) {
+        if (m_config.m_lookahead_simplify && !m_ext) {
             lookahead lh(*this);
             lh.simplify(true);
-            lh.collect_statistics(m_aux_stats);
-        }
-        if (false && m_config.m_lookahead_simplify) {
-            lookahead lh(*this);
-            lh.simplify(false);
             lh.collect_statistics(m_aux_stats);
         }
 
@@ -1573,6 +1560,7 @@ namespace sat {
             if (m_next_simplify > m_conflicts_since_init + m_config.m_simplify_max)
                 m_next_simplify = m_conflicts_since_init + m_config.m_simplify_max;
         }
+
 
         if (m_par) m_par->set_phase(*this);
 
@@ -1755,6 +1743,8 @@ namespace sat {
 
     void solver::gc() {
         if (m_conflicts_since_gc <= m_gc_threshold)
+            return;
+        if (m_config.m_gc_strategy == GC_DYN_PSM && !at_base_lvl())
             return;
         IF_VERBOSE(10, verbose_stream() << "(sat.gc)\n";);
         CASSERT("sat_gc_bug", check_invariant());
@@ -3233,8 +3223,8 @@ namespace sat {
     bool solver::check_invariant() const {
         if (!m_rlimit.inc()) return true;
         integrity_checker checker(*this);
-        SASSERT(checker());
-        SASSERT(!m_ext || m_ext->validate());
+        VERIFY(checker());
+        VERIFY(!m_ext || m_ext->validate());
         return true;
     }
 

@@ -188,9 +188,6 @@ namespace sat {
 
     void simplifier::operator()(bool learned) {
 
-        integrity_checker si(s);
-        si.check_watches();
-
         if (s.inconsistent())
             return;
         if (!m_subsumption && !bce_enabled() && !bca_enabled() && !elim_vars_enabled())
@@ -255,14 +252,12 @@ namespace sat {
             cleanup_clauses(s.m_learned, true, vars_eliminated,  m_learned_in_use_lists);
             cleanup_clauses(s.m_clauses, false, vars_eliminated, true);
         }
-        si.check_watches();
 
         CASSERT("sat_solver", s.check_invariant());
         TRACE("after_simplifier", s.display(tout); tout << "model_converter:\n"; s.m_mc.display(tout););
 
         finalize();
 
-        si.check_watches();
     }
 
     /**
@@ -285,7 +280,7 @@ namespace sat {
                     break;
                 }
             }
-            wlist.set_end(itprev);
+            wlist.set_end(itprev);            
         }
     }
 
@@ -1948,7 +1943,6 @@ namespace sat {
                     return true;
             }
         }
-
         return true;
     }
 
