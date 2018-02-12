@@ -36,13 +36,13 @@ namespace datalog {
         {
         }
 
-        virtual bool empty() const { 
+        bool empty() const override {
             return m_empty;
         }
 
-        virtual bool is_precise() const { return false; }
+        bool is_precise() const override { return false; }
 
-        virtual void add_fact(const relation_fact & f) {
+        void add_fact(const relation_fact & f) override {
             SASSERT(m_empty);
             SASSERT(!m_basis_valid);
             m_empty = false;
@@ -60,12 +60,12 @@ namespace datalog {
             }
         }
 
-        virtual bool contains_fact(const relation_fact & f) const {            
+        bool contains_fact(const relation_fact & f) const override {
             UNREACHABLE();
             return false;
         }
 
-        virtual void display(std::ostream & out) const {
+        void display(std::ostream & out) const override {
             if (m_fn) {
                 out << m_fn->get_name() << "\n";
             }
@@ -82,18 +82,18 @@ namespace datalog {
             }
         }
 
-        virtual karr_relation * clone() const {
+        karr_relation * clone() const override {
             karr_relation* result = alloc(karr_relation, m_plugin, m_fn, get_signature(), m_empty);
             result->copy(*this);
             return result;
         }
 
-        virtual karr_relation * complement(func_decl*) const {
+        karr_relation * complement(func_decl*) const override {
             UNREACHABLE();
             return 0;
         }
 
-        virtual void to_formula(expr_ref& fml) const {
+        void to_formula(expr_ref& fml) const override {
             if (empty()) {
                 fml = m.mk_false();
             }
@@ -514,7 +514,7 @@ namespace datalog {
             : convenient_relation_join_fn(o1_sig, o2_sig, col_cnt, cols1, cols2){
         }
         
-        virtual relation_base * operator()(const relation_base & _r1, const relation_base & _r2) {
+        relation_base * operator()(const relation_base & _r1, const relation_base & _r2) override {
             karr_relation const& r1 = get(_r1);
             karr_relation const& r2 = get(_r2);
             karr_relation_plugin& p = r1.get_plugin();
@@ -540,7 +540,7 @@ namespace datalog {
             : convenient_relation_project_fn(orig_sig, removed_col_cnt, removed_cols) {
         }
 
-        virtual relation_base * operator()(const relation_base & _r) {
+        relation_base * operator()(const relation_base & _r) override {
             karr_relation const& r = get(_r);
             karr_relation_plugin& p = r.get_plugin();
             karr_relation* result = dynamic_cast<karr_relation*>(p.mk_full(0, get_result_signature()));            
@@ -559,7 +559,7 @@ namespace datalog {
         rename_fn(karr_relation_plugin& p, const relation_signature & orig_sig, unsigned cycle_len, const unsigned * cycle) 
             : convenient_relation_rename_fn(orig_sig, cycle_len, cycle) {}
 
-        virtual relation_base * operator()(const relation_base & _r) {
+        relation_base * operator()(const relation_base & _r) override {
             karr_relation const& r = get(_r);
             karr_relation_plugin& p = r.get_plugin();
             karr_relation* result = dynamic_cast<karr_relation*>(p.mk_full(0, get_result_signature()));
@@ -676,7 +676,7 @@ namespace datalog {
     public:
         union_fn() {}
 
-        virtual void operator()(relation_base & _r, const relation_base & _src, relation_base * _delta) {
+        void operator()(relation_base & _r, const relation_base & _src, relation_base * _delta) override {
 
             karr_relation& r = get(_r);
             karr_relation const& src = get(_src);
@@ -707,7 +707,7 @@ namespace datalog {
         filter_identical_fn(unsigned col_cnt, const unsigned * identical_cols) 
             : m_identical_cols(col_cnt, identical_cols) {}
 
-        virtual void operator()(relation_base & _r) {
+        void operator()(relation_base & _r) override {
             karr_relation & r = get(_r);
             TRACE("dl", r.display(tout << "src:\n"););
             r.get_ineqs();
@@ -747,7 +747,7 @@ namespace datalog {
             m_valid = arith.is_numeral(value, m_value) && m_value.is_int();
         }
 
-        virtual void operator()(relation_base & _r) {
+        void operator()(relation_base & _r) override {
             karr_relation & r = get(_r);
             if (m_valid) {
                 r.get_ineqs();
@@ -779,7 +779,7 @@ namespace datalog {
             m_cond(cond, t.get_plugin().get_ast_manager()) {
         }
 
-        void operator()(relation_base& t) {
+        void operator()(relation_base& t) override {
             get(t).filter_interpreted(m_cond);
             TRACE("dl", tout << mk_pp(m_cond, m_cond.get_manager()) << "\n"; t.display(tout););
         }

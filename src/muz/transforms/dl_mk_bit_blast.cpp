@@ -59,11 +59,11 @@ namespace datalog {
             m_new_funcs.push_back(new_f);
         }
 
-        virtual model_converter * translate(ast_translation & translator) { 
+        model_converter * translate(ast_translation & translator) override {
             return alloc(bit_blast_model_converter, m);
         }
 
-        virtual void operator()(model_ref & model) {
+        void operator()(model_ref & model) override {
             for (unsigned i = 0; i < m_new_funcs.size(); ++i) {
                 func_decl* p = m_new_funcs[i].get();
                 func_decl* q = m_old_funcs[i].get();

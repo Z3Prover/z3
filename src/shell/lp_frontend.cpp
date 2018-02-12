@@ -49,7 +49,7 @@ struct front_end_resource_limit : public lp::lp_resource_limit {
         m_reslim(lim)
     {}
 
-    virtual bool get_cancel_flag() { return !m_reslim.inc(); }
+    bool get_cancel_flag() override { return !m_reslim.inc(); }
 };
 
 void run_solver(lp_params & params, char const * mps_file_name) {

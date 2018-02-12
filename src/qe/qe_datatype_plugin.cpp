@@ -435,7 +435,7 @@ namespace qe {
         {
         }
                      
-        virtual ~datatype_plugin() {
+        ~datatype_plugin() override {
             {
                 eqs_cache::iterator it = m_eqs_cache.begin(), end = m_eqs_cache.end();
                 for (; it != end; ++it) {
@@ -451,7 +451,7 @@ namespace qe {
             
         }
         
-        virtual bool get_num_branches( contains_app& x, expr* fml, rational& num_branches) {
+        bool get_num_branches( contains_app& x, expr* fml, rational& num_branches) override {
             sort* s = x.x()->get_decl()->get_range();
             SASSERT(m_datatype_util.is_datatype(s));
             if (m_datatype_util.is_recursive(s)) {
@@ -463,7 +463,7 @@ namespace qe {
         }
 
                 
-        virtual void assign(contains_app& x, expr* fml, rational const& vl) {
+        void assign(contains_app& x, expr* fml, rational const& vl) override {
             sort* s = x.x()->get_decl()->get_range();
             SASSERT(m_datatype_util.is_datatype(s));
             TRACE("qe", tout << mk_pp(x.x(), m) << " " << vl << "\n";);
@@ -475,7 +475,7 @@ namespace qe {
             }
         }
 
-        virtual void subst(contains_app& x, rational const& vl, expr_ref& fml, expr_ref* def) {
+        void subst(contains_app& x, rational const& vl, expr_ref& fml, expr_ref* def) override {
             sort* s = x.x()->get_decl()->get_range();
             SASSERT(m_datatype_util.is_datatype(s));
             TRACE("qe", tout << mk_pp(x.x(), m) << " " << vl << "\n";);
@@ -487,20 +487,20 @@ namespace qe {
             }
         }
         
-        virtual unsigned get_weight( contains_app& x, expr* fml) {
+        unsigned get_weight( contains_app& x, expr* fml) override {
             return UINT_MAX;
         }
 
-        virtual bool solve( conj_enum& conj, expr* fml) {
+        bool solve( conj_enum& conj, expr* fml) override {
             return false;
         }
 
-        virtual bool simplify( expr_ref& fml) {
+        bool simplify( expr_ref& fml) override {
             lift_foreign_vars lift(m, m_datatype_util, m_ctx);
             return lift.lift(fml);
         }
 
-        virtual bool mk_atom(expr* e, bool p, expr_ref& result) {
+        bool mk_atom(expr* e, bool p, expr_ref& result) override {
             return false;
         }
 
@@ -807,7 +807,7 @@ namespace qe {
         public:
             has_select(app* x, func_decl* c, datatype_util& u): m_x(x), m_c(c), m_util(u) {}
 
-            virtual bool operator()(expr* e) {
+            bool operator()(expr* e) override {
                 if (!is_app(e)) return false;
                 app* a = to_app(e);
                 if (!m_util.is_accessor(a)) return false;

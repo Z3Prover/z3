@@ -65,46 +65,46 @@ private:
     void refresh();
 
 public:
-    virtual ~virtual_solver();
-    virtual unsigned get_num_assumptions() const
+    ~virtual_solver() override;
+    unsigned get_num_assumptions() const override
     {
         unsigned sz = solver_na2as::get_num_assumptions();
         return m_virtual ? sz - 1 : sz;
     }
-    virtual expr* get_assumption(unsigned idx) const
+    expr* get_assumption(unsigned idx) const override
     {
         if(m_virtual) { idx++; }
         return solver_na2as::get_assumption(idx);
     }
 
-    virtual void get_unsat_core(ptr_vector<expr> &r);
-    virtual void assert_expr(expr *e);
-    virtual void collect_statistics(statistics &st) const {}
-    virtual void get_model(model_ref &m) {m_context.get_model(m);}
-    virtual proof* get_proof();
-    virtual std::string reason_unknown() const
+    void get_unsat_core(ptr_vector<expr> &r) override;
+    void assert_expr(expr *e) override;
+    void collect_statistics(statistics &st) const override {}
+    void get_model(model_ref &m) override {m_context.get_model(m);}
+    proof* get_proof() override;
+    std::string reason_unknown() const override
     {return m_context.last_failure_as_string();}
-    virtual void set_reason_unknown(char const *msg)
+    void set_reason_unknown(char const *msg) override
     {m_context.set_reason_unknown(msg);}
-    virtual ast_manager& get_manager() const {return m;}
-    virtual void get_labels(svector<symbol> &r);
-    virtual void set_produce_models(bool f);
+    ast_manager& get_manager() const override {return m;}
+    void get_labels(svector<symbol> &r) override;
+    void set_produce_models(bool f) override;
     virtual bool get_produce_models();
     virtual smt_params &fparams();
     virtual void reset();
-    virtual void set_progress_callback(progress_callback *callback)
+    void set_progress_callback(progress_callback *callback) override
     {UNREACHABLE();}
 
-    virtual solver *translate(ast_manager &m, params_ref const &p);
+    solver *translate(ast_manager &m, params_ref const &p) override;
 
-    virtual void updt_params(params_ref const &p);
-    virtual void collect_param_descrs(param_descrs &r);
+    void updt_params(params_ref const &p) override;
+    void collect_param_descrs(param_descrs &r) override;
 
 
 protected:
-    virtual lbool check_sat_core(unsigned num_assumptions, expr *const * assumptions);
-    virtual void push_core();
-    virtual void pop_core(unsigned n);
+    lbool check_sat_core(unsigned num_assumptions, expr *const * assumptions) override;
+    void push_core() override;
+    void pop_core(unsigned n) override;
 };
 
 /// multi-solver abstraction on top of a single smt::kernel

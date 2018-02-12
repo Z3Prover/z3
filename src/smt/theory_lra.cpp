@@ -137,7 +137,7 @@ namespace smt {
             imp& m_imp;
         public:
             resource_limit(imp& i): m_imp(i) { }
-            virtual bool get_cancel_flag() { return m_imp.m.canceled(); }
+            bool get_cancel_flag() override { return m_imp.m.canceled(); }
         };
 
 
@@ -1358,11 +1358,11 @@ namespace smt {
             imp & m_imp;
             local_bound_propagator(imp& i) : lp_bound_propagator(*i.m_solver), m_imp(i) {}
 
-            bool bound_is_interesting(unsigned j, lp::lconstraint_kind kind, const rational & v) {
+            bool bound_is_interesting(unsigned j, lp::lconstraint_kind kind, const rational & v) override {
                 return m_imp.bound_is_interesting(j, kind, v);
             }
 
-            virtual void consume(rational const& v, unsigned j) {
+            void consume(rational const& v, unsigned j) override {
                 m_imp.set_evidence(j);
             }
         };

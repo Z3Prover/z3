@@ -65,7 +65,7 @@ namespace smt {
         bool_var m_var;
     public:
         mk_atom_trail(bool_var v):m_var(v) {}
-        virtual void undo(theory_bv & th) {
+        void undo(theory_bv & th) override {
             theory_bv::atom * a = th.get_bv2a(m_var);
             a->~atom();
             th.erase_bv2a(m_var);
@@ -213,7 +213,7 @@ namespace smt {
         theory_bv::bit_atom * m_atom;
     public:
         add_var_pos_trail(theory_bv::bit_atom * a):m_atom(a) {}
-        virtual void undo(theory_bv & th) {
+        void undo(theory_bv & th) override {
             SASSERT(m_atom->m_occs);
             m_atom->m_occs = m_atom->m_occs->m_next;
         }
@@ -389,12 +389,12 @@ namespace smt {
             m_th(th), m_var1(v1), m_var2(v2) {
         }
         
-        virtual void get_antecedents(conflict_resolution & cr) {
+        void get_antecedents(conflict_resolution & cr) override {
             mark_bits(cr, m_th.m_bits[m_var1]);
             mark_bits(cr, m_th.m_bits[m_var2]);
         }
         
-        virtual proof * mk_proof(conflict_resolution & cr) {
+        proof * mk_proof(conflict_resolution & cr) override {
             ptr_buffer<proof> prs;
             context & ctx                       = cr.get_context();
             bool visited                        = true;
@@ -414,11 +414,11 @@ namespace smt {
             return m.mk_th_lemma(get_from_theory(), fact, prs.size(), prs.c_ptr());
         }
 
-        virtual theory_id get_from_theory() const {
+        theory_id get_from_theory() const override {
             return m_th.get_id();
         }
         
-        virtual char const * get_name() const { return "bv-fixed-eq"; }
+        char const * get_name() const override { return "bv-fixed-eq"; }
 
     };
 
@@ -1510,13 +1510,13 @@ namespace smt {
         bit_eq_justification(theory_id th_id, enode * v1, enode * v2, literal c, literal a):
             m_v1(v1), m_v2(v2), m_th_id(th_id), m_consequent(c), m_antecedent(a) {}
 
-        virtual void get_antecedents(conflict_resolution & cr) {
+        void get_antecedents(conflict_resolution & cr) override {
             cr.mark_eq(m_v1, m_v2);
             if (m_antecedent.var() != true_bool_var)
                 cr.mark_literal(m_antecedent);
         }
 
-        virtual proof * mk_proof(conflict_resolution & cr) {
+        proof * mk_proof(conflict_resolution & cr) override {
             bool visited = true;
             ptr_buffer<proof> prs;
             proof * pr = cr.get_proof(m_v1, m_v2);
@@ -1540,11 +1540,11 @@ namespace smt {
             return m.mk_th_lemma(get_from_theory(), fact, prs.size(), prs.c_ptr());
         }
 
-        virtual theory_id get_from_theory() const {
+        theory_id get_from_theory() const override {
             return m_th_id;
         }
 
-        virtual char const * get_name() const { return "bv-bit-eq"; }
+        char const * get_name() const override { return "bv-bit-eq"; }
     };
 
     inline justification * theory_bv::mk_bit_eq_justification(theory_var v1, theory_var v2, literal consequent, literal antecedent) {

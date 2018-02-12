@@ -220,7 +220,7 @@ namespace datalog {
         */
         class mutator_fn : public base_fn {
         public:
-            virtual ~mutator_fn() {}
+            ~mutator_fn() override {}
 
             virtual void operator()(base_object & t) = 0;
 
@@ -629,19 +629,19 @@ namespace datalog {
 
         class identity_transformer_fn : public transformer_fn {
         public:
-            virtual base_object * operator()(const base_object & t) {
+            base_object * operator()(const base_object & t) override {
                 return t.clone();
             }
         };
 
         class identity_mutator_fn : public mutator_fn {
         public:
-            virtual void operator()(base_object & t) {};
+            void operator()(base_object & t) override {};
         };
 
         class identity_intersection_filter_fn : public intersection_filter_fn {
         public:
-            virtual void operator()(base_object & t, const base_object & neg) {};
+            void operator()(base_object & t, const base_object & neg) override {};
         };
 
         class default_permutation_rename_fn : public transformer_fn {
@@ -655,11 +655,11 @@ namespace datalog {
                 : m_permutation(o.get_signature().size(), permutation),
                 m_renamers_initialized(false) {}
 
-            ~default_permutation_rename_fn() {
+            ~default_permutation_rename_fn() override {
                 dealloc_ptr_vector_content(m_renamers);
             }
 
-            base_object * operator()(const base_object & o) {
+            base_object * operator()(const base_object & o) override {
                 const base_object * res = &o;
                 scoped_rel<base_object> res_scoped;
                 if(m_renamers_initialized) {
@@ -803,11 +803,11 @@ namespace datalog {
     protected:
         relation_base(relation_plugin & plugin, const relation_signature & s) 
             : base_ancestor(plugin, s) {}
-        virtual ~relation_base() {}
+        ~relation_base() override {}
     public:
         virtual relation_base * complement(func_decl* p) const = 0;
 
-        virtual void reset();
+        void reset() override;
 
         virtual void display_tuples(func_decl & pred, std::ostream & out) const {
             out << "Tuples in " << pred.get_name() << ": \n";
@@ -1022,7 +1022,7 @@ namespace datalog {
         table_plugin(symbol const& n, relation_manager & manager) : plugin_object(n, manager) {}
     public:
 
-        virtual bool can_handle_signature(const table_signature & s) { return s.functional_columns()==0; }
+        bool can_handle_signature(const table_signature & s) override { return s.functional_columns()==0; }
 
     protected:
         /**
@@ -1044,17 +1044,17 @@ namespace datalog {
     protected:
         table_base(table_plugin & plugin, const table_signature & s) 
             : base_ancestor(plugin, s) {}
-        virtual ~table_base() {}
+        ~table_base() override {}
     public:
-        virtual table_base * clone() const;
+        table_base * clone() const override;
         virtual table_base * complement(func_decl* p, const table_element * func_columns = 0) const;
-        virtual bool empty() const;
+        bool empty() const override;
 
         /**
            \brief Return true if table contains fact that corresponds to \c f in all non-functional
            columns.
          */
-        virtual bool contains_fact(const table_fact & f) const;
+        bool contains_fact(const table_fact & f) const override;
 
         /**
            \brief If \c f (i.e. its non-functional part) is not present in the table, 
@@ -1082,11 +1082,11 @@ namespace datalog {
         virtual void remove_fact(table_element const* fact) = 0;
         virtual void remove_facts(unsigned fact_cnt, const table_fact * facts);
         virtual void remove_facts(unsigned fact_cnt, const table_element * facts);
-        virtual void reset();
+        void reset() override;
 
         class row_interface;
 
-        virtual void display(std::ostream & out) const;
+        void display(std::ostream & out) const override;
 
         /**
            \brief Convert table to a formula that encodes the table.
@@ -1245,9 +1245,9 @@ namespace datalog {
         public:
             caching_row_interface(const table_base & parent) : row_interface(parent) {}
 
-            virtual void get_fact(table_fact & result) const = 0;
+            void get_fact(table_fact & result) const override = 0;
 
-            virtual table_element operator[](unsigned col) const { 
+            table_element operator[](unsigned col) const override {
                 ensure_populated();
                 return m_current[col];
             }

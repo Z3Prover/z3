@@ -746,7 +746,7 @@ namespace smt {
         friend class mk_bool_var_trail;
         class mk_bool_var_trail : public trail<context> {
         public:
-            virtual void undo(context & ctx) { ctx.undo_mk_bool_var(); }
+            void undo(context & ctx) override { ctx.undo_mk_bool_var(); }
         };
         mk_bool_var_trail   m_mk_bool_var_trail;
 
@@ -755,7 +755,7 @@ namespace smt {
         friend class mk_enode_trail;
         class mk_enode_trail : public trail<context> {
         public:
-            virtual void undo(context & ctx) { ctx.undo_mk_enode(); }
+            void undo(context & ctx) override { ctx.undo_mk_enode(); }
         };
 
         mk_enode_trail   m_mk_enode_trail;

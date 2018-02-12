@@ -90,10 +90,10 @@ namespace datalog {
             return idx;
         }
 
-        virtual unsigned get_constant_count() const {
+        unsigned get_constant_count() const override {
             return m_el_names.size();
         }
-        virtual void print_element(finite_element el_num, std::ostream & out) {
+        void print_element(finite_element el_num, std::ostream & out) override {
             if (el_num>=m_el_names.size()) {
                 out << el_num;
                 return;
@@ -132,10 +132,10 @@ namespace datalog {
             }
             return idx;
         }
-        virtual unsigned get_constant_count() const {
+        unsigned get_constant_count() const override {
             return m_el_names.size();
         }
-        virtual void print_element(finite_element el_num, std::ostream & out) {
+        void print_element(finite_element el_num, std::ostream & out) override {
             if (el_num >= m_el_names.size()) {
                 out << "<unk " << m_sort->get_name() << ":" << el_num << '>';
                 return;
@@ -159,9 +159,9 @@ namespace datalog {
     public:
         restore_rules(rule_set& r): m_old_rules(alloc(rule_set, r)) {}
 
-        virtual ~restore_rules() {}
+        ~restore_rules() override {}
         
-        virtual void undo(context& ctx) {
+        void undo(context& ctx) override {
             ctx.replace_rules(*m_old_rules);
             reset();
         }
@@ -173,8 +173,8 @@ namespace datalog {
         unsigned m_old_size;
     public:
         restore_vec_size_trail(Vec& v): m_vector(v), m_old_size(v.size()) {}
-        virtual ~restore_vec_size_trail() {}
-        virtual void undo(Ctx& ctx) { m_vector.shrink(m_old_size); }
+        ~restore_vec_size_trail() override {}
+        void undo(Ctx& ctx) override { m_vector.shrink(m_old_size); }
     };
 
     void context::push() {

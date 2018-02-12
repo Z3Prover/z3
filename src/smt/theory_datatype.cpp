@@ -33,7 +33,7 @@ namespace smt {
             ext_theory_eq_propagation_justification(fid, r, 1, &antecedent, 0, 0, lhs, rhs) {
         }
         // Remark: the assignment must be propagated back to the datatype theory.
-        virtual theory_id get_from_theory() const { return null_theory_id; } 
+        theory_id get_from_theory() const override { return null_theory_id; }
     };
 
 
@@ -551,11 +551,11 @@ namespace smt {
     public:
         datatype_value_proc(func_decl * d):m_constructor(d) {}
         void add_dependency(enode * n) { m_dependencies.push_back(model_value_dependency(n)); }
-        virtual ~datatype_value_proc() {}
-        virtual void get_dependencies(buffer<model_value_dependency> & result) {
+        ~datatype_value_proc() override {}
+        void get_dependencies(buffer<model_value_dependency> & result) override {
             result.append(m_dependencies.size(), m_dependencies.c_ptr());
         }
-        virtual app * mk_value(model_generator & mg, ptr_vector<expr> & values) {
+        app * mk_value(model_generator & mg, ptr_vector<expr> & values) override {
             SASSERT(values.size() == m_dependencies.size());
             return mg.get_manager().mk_app(m_constructor, values.size(), values.c_ptr());
         }

@@ -97,7 +97,7 @@ namespace datalog {
 
             void start_rule(rule * r) { SASSERT(!m_current); m_current=r; }
             void finish_rule() { m_current = 0; }
-            virtual void notify(instruction * i) {
+            void notify(instruction * i) override {
                 if(m_current) {
                     i->set_accounting_parent_object(m_parent.m_context, m_current);
                 }

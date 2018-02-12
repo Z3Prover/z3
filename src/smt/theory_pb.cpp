@@ -254,7 +254,7 @@ namespace smt {
         unsigned   v;
     public:
         remove_var(theory_pb& pb, unsigned v): pb(pb), v(v) {}
-        virtual void undo(context& ctx) {
+        void undo(context& ctx) override {
             pb.m_vars.remove(v);
             pb.m_simplex.unset_lower(v);
             pb.m_simplex.unset_upper(v);
@@ -282,7 +282,7 @@ namespace smt {
             m_last_bound_valid(last_bound_valid),
             m_last_explain(last_explain) {}
 
-        virtual void undo(context& ctx) {
+        void undo(context& ctx) override {
             if (m_is_lower) {
                 if (m_last_bound_valid) {
                     pb.m_simplex.set_lower(m_v, m_last_bound);
@@ -889,7 +889,7 @@ namespace smt {
         ineq&      c;
     public:
         rewatch_vars(theory_pb& p, ineq& c): pb(p), c(c) {}        
-        virtual void undo(context& ctx) {
+        void undo(context& ctx) override {
             for (unsigned i = 0; i < c.size(); ++i) {
                 pb.watch_var(c.lit(i).var(), &c);
             }
@@ -900,7 +900,7 @@ namespace smt {
         ineq& c;
     public:
         negate_ineq(ineq& c): c(c) {}
-        virtual void undo(context& ctx) {
+        void undo(context& ctx) override {
             c.negate();
         }
     };
@@ -1357,7 +1357,7 @@ namespace smt {
     public:
         unwatch_ge(theory_pb& p, ineq& c): pb(p), c(c) {}
         
-        virtual void undo(context& ctx) {
+        void undo(context& ctx) override {
             for (unsigned i = 0; i < c.watch_size(); ++i) {
                 pb.unwatch_literal(c.lit(i), &c);
             }
@@ -2008,11 +2008,11 @@ namespace smt {
             m_dependencies.push_back(model_value_dependency(n)); 
         }
 
-        virtual void get_dependencies(buffer<model_value_dependency> & result) {
+        void get_dependencies(buffer<model_value_dependency> & result) override {
             result.append(m_dependencies.size(), m_dependencies.c_ptr());
         }
 
-        virtual app * mk_value(model_generator & mg, ptr_vector<expr> & values) {
+        app * mk_value(model_generator & mg, ptr_vector<expr> & values) override {
             ast_manager& m = mg.get_manager();
             SASSERT(values.size() == m_dependencies.size());
             SASSERT(values.size() == m_app->get_num_args());
@@ -2049,18 +2049,18 @@ namespace smt {
         pb_factory(ast_manager& m, family_id fid):
             value_factory(m, fid) {}
         
-        virtual expr * get_some_value(sort * s) {
+        expr * get_some_value(sort * s) override {
             return m_manager.mk_true();
         }        
-        virtual bool get_some_values(sort * s, expr_ref & v1, expr_ref & v2) {
+        bool get_some_values(sort * s, expr_ref & v1, expr_ref & v2) override {
             v1 = m_manager.mk_true();
             v2 = m_manager.mk_false();
             return true;
         }        
-        virtual expr * get_fresh_value(sort * s) {
+        expr * get_fresh_value(sort * s) override {
             return 0;
         }
-        virtual void register_value(expr * n) { }
+        void register_value(expr * n) override { }
     };
 
     void theory_pb::init_model(model_generator & m) {

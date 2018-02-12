@@ -423,17 +423,17 @@ namespace datalog {
         const row_interface & m_parent;
         unsigned m_index;
     protected:
-        virtual bool is_finished() const { return m_index==m_parent.size(); }
+        bool is_finished() const override { return m_index==m_parent.size(); }
     public:
         fact_row_iterator(const row_interface & row, bool finished) 
             : m_parent(row), m_index(finished ? row.size() : 0) {}
 
-        virtual table_element operator*() {
+        table_element operator*() override {
             SASSERT(!is_finished());
             return m_parent[m_index];
         }
 
-        virtual void operator++() {
+        void operator++() override {
             m_index++;
             SASSERT(m_index<=m_parent.size());
         }

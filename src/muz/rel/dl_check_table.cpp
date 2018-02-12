@@ -65,7 +65,7 @@ namespace datalog {
             m_checker = p.get_manager().mk_join_fn(checker(t1), checker(t2), col_cnt, cols1, cols2);
         }
 
-        virtual table_base* operator()(const table_base & t1, const table_base & t2) {
+        table_base* operator()(const table_base & t1, const table_base & t2) override {
             IF_VERBOSE(1, verbose_stream() << __FUNCTION__ << "\n";);
             table_base* ttocheck = (*m_tocheck)(tocheck(t1), tocheck(t2));
             table_base* tchecker = (*m_checker)(checker(t1), checker(t2));
@@ -93,7 +93,7 @@ namespace datalog {
             m_checker = p.get_manager().mk_join_project_fn(checker(t1), checker(t2), col_cnt, cols1, cols2, removed_col_cnt, removed_cols);
         }
 
-        virtual table_base* operator()(const table_base & t1, const table_base & t2) {
+        table_base* operator()(const table_base & t1, const table_base & t2) override {
             table_base* ttocheck = (*m_tocheck)(tocheck(t1), tocheck(t2));
             table_base* tchecker = (*m_checker)(checker(t1), checker(t2));
             check_table* result = alloc(check_table, get(t1).get_plugin(), ttocheck->get_signature(), ttocheck, tchecker);
@@ -119,7 +119,7 @@ namespace datalog {
             m_checker = p.get_manager().mk_union_fn(checker(tgt), checker(src), checker(delta));
         }
         
-        virtual void operator()(table_base& tgt, const table_base& src, table_base* delta) {
+        void operator()(table_base& tgt, const table_base& src, table_base* delta) override {
             IF_VERBOSE(1, verbose_stream() << __FUNCTION__ << "\n";);
             (*m_tocheck)(tocheck(tgt), tocheck(src), tocheck(delta));
             (*m_checker)(checker(tgt), checker(src), checker(delta));
@@ -147,7 +147,7 @@ namespace datalog {
             m_tocheck = p.get_manager().mk_project_fn(tocheck(t), col_cnt, removed_cols);
         }
 
-        table_base* operator()(table_base const& src) {
+        table_base* operator()(table_base const& src) override {
             table_base* tchecker = (*m_checker)(checker(src));
             table_base* ttocheck = (*m_tocheck)(tocheck(src));
             check_table* result = alloc(check_table, get(src).get_plugin(), tchecker->get_signature(), ttocheck, tchecker);
@@ -171,7 +171,7 @@ namespace datalog {
             m_tocheck = p.get_manager().mk_select_equal_and_project_fn(tocheck(t), value, col);
         }
 
-        table_base* operator()(table_base const& src) {
+        table_base* operator()(table_base const& src) override {
             table_base* tchecker = (*m_checker)(checker(src));
             table_base* ttocheck = (*m_tocheck)(tocheck(src));
             check_table* result = alloc(check_table, get(src).get_plugin(), tchecker->get_signature(), ttocheck, tchecker);
@@ -196,7 +196,7 @@ namespace datalog {
             m_tocheck = p.get_manager().mk_rename_fn(tocheck(t), cycle_len, cycle);
         }
 
-        table_base* operator()(table_base const& src) {
+        table_base* operator()(table_base const& src) override {
             IF_VERBOSE(1, verbose_stream() << __FUNCTION__ << "\n";);
             table_base* tchecker = (*m_checker)(checker(src));
             table_base* ttocheck = (*m_tocheck)(tocheck(src));
@@ -222,7 +222,7 @@ namespace datalog {
             m_tocheck = p.get_manager().mk_filter_identical_fn(tocheck(t), cnt, cols);        
         }
 
-        void operator()(table_base & t) {
+        void operator()(table_base & t) override {
             (*m_checker)(checker(t));
             (*m_tocheck)(tocheck(t));
             get(t).well_formed();
@@ -247,7 +247,7 @@ namespace datalog {
             m_tocheck = p.get_manager().mk_filter_equal_fn(tocheck(t), v, col); 
         }
 
-        virtual void operator()(table_base& src) {
+        void operator()(table_base& src) override {
             (*m_checker)(checker(src));
             (*m_tocheck)(tocheck(src));
             get(src).well_formed();
@@ -271,7 +271,7 @@ namespace datalog {
             m_tocheck = p.get_manager().mk_filter_interpreted_fn(tocheck(t), condition); 
         }
 
-        virtual void operator()(table_base& src) {
+        void operator()(table_base& src) override {
             (*m_checker)(checker(src));
             (*m_tocheck)(tocheck(src));
             get(src).well_formed();
@@ -296,7 +296,7 @@ namespace datalog {
             m_tocheck = p.get_manager().mk_filter_interpreted_and_project_fn(tocheck(t), condition, removed_col_cnt, removed_cols); 
         }
 
-        table_base* operator()(table_base const& src) {
+        table_base* operator()(table_base const& src) override {
             table_base* tchecker = (*m_checker)(checker(src));
             table_base* ttocheck = (*m_tocheck)(tocheck(src));
             check_table* result = alloc(check_table, get(src).get_plugin(), ttocheck->get_signature(), ttocheck, tchecker);
@@ -325,7 +325,7 @@ namespace datalog {
             m_tocheck = p.get_manager().mk_filter_by_negation_fn(tocheck(t), tocheck(negated_obj), joined_col_cnt, t_cols, negated_cols);
         }
 
-        virtual void operator()(table_base& src, table_base const& negated_obj) {
+        void operator()(table_base& src, table_base const& negated_obj) override {
             IF_VERBOSE(1, verbose_stream() << __FUNCTION__ << "\n";);
             (*m_checker)(checker(src), checker(negated_obj));
             (*m_tocheck)(tocheck(src), tocheck(negated_obj));

@@ -472,7 +472,7 @@ namespace smt {
                                              bounds.num_params(), bounds.params("gomory-cut")) {
         }
         // Remark: the assignment must be propagated back to arith
-        virtual theory_id get_from_theory() const { return null_theory_id; } 
+        theory_id get_from_theory() const override { return null_theory_id; }
     };
 
     /**

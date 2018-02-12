@@ -89,7 +89,7 @@ namespace datalog {
             obj_map<expr, unsigned_vector> m_positions;
         public:
             visitor(context& c, substitution & s): st_visitor(s), m_context(c) { (void) m_context; }
-            virtual bool operator()(expr* e);
+            bool operator()(expr* e) override;
             void         reset() { m_unifiers.reset(); }
             void         reset(unsigned sz);
             svector<bool>& can_remove() { return m_can_remove; }
@@ -194,9 +194,9 @@ namespace datalog {
             m_head_visitor(ctx, m_subst),
             m_tail_visitor(ctx, m_subst)
         {}
-        virtual ~mk_rule_inliner() { }
+        ~mk_rule_inliner() override { }
 
-        rule_set * operator()(rule_set const & source);
+        rule_set * operator()(rule_set const & source) override;
     };
 
 };

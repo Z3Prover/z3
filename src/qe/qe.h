@@ -49,13 +49,13 @@ namespace qe {
             i_solver_context& m_s;
         public:
             is_relevant(i_solver_context& s):m_s(s) {}
-            virtual bool operator()(expr* e);
+            bool operator()(expr* e) override;
         };
         class mk_atom_fn : public i_nnf_atom {
             i_solver_context& m_s;
         public:
             mk_atom_fn(i_solver_context& s) : m_s(s) {}
-            void operator()(expr* e, bool p, expr_ref& result);
+            void operator()(expr* e, bool p, expr_ref& result) override;
         };
 
         is_relevant                  m_is_relevant;

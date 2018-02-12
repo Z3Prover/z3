@@ -344,13 +344,13 @@ namespace realclosure {
     // ---------------------------------
 
     struct mk_pi_interval : public mk_interval {
-        virtual void operator()(unsigned k, mpqi_manager & im, mpqi_manager::interval & r) {
+        void operator()(unsigned k, mpqi_manager & im, mpqi_manager::interval & r) override {
             im.pi(k, r);
         }
     };
 
     struct mk_e_interval : public mk_interval {
-        virtual void operator()(unsigned k, mpqi_manager & im, mpqi_manager::interval & r) {
+        void operator()(unsigned k, mpqi_manager & im, mpqi_manager::interval & r) override {
             im.e(k, r);
         }
     };

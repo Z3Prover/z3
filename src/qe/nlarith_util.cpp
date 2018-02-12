@@ -1018,13 +1018,13 @@ namespace nlarith {
             app* m_x;
         public:
             basic_subst(imp& i, app* x) : isubst(i), m_x(x) {}
-            virtual void mk_lt(poly const& p, app_ref& r) {
+            void mk_lt(poly const& p, app_ref& r) override {
                 imp& I = m_imp;
                 app_ref result(I.m());
                 I.mk_polynomial(m_x, p, result);
                 r = I.mk_lt(result);
             }
-            virtual void mk_eq(poly const& p, app_ref& r) {
+            void mk_eq(poly const& p, app_ref& r) override {
                 imp& I = m_imp;
                 app_ref result(I.m());
                 I.mk_polynomial(m_x, p, result);
@@ -1039,7 +1039,7 @@ namespace nlarith {
 
             // p[e/x] < 0: (a*parity(d) < 0 /\ 0 < a*a - b*b*c) \/
             //             (b*parity(d) <= 0 /\ (a*parity(d) < 0 \/ a*a - b*b*c < 0))  
-            virtual void mk_lt(poly const& p, app_ref& r) {
+            void mk_lt(poly const& p, app_ref& r) override {
                 imp& I = m_imp;
                 ast_manager& m = I.m();
                 app_ref a(m), b(m), c(m_s.m_c), d(m);
@@ -1061,7 +1061,7 @@ namespace nlarith {
 
 
             // p[e/x] = 0: a*b <= 0 & a*a - b*b*c = 0
-            virtual void mk_eq(poly const& p, app_ref& r) {
+            void mk_eq(poly const& p, app_ref& r) override {
                 imp& I = m_imp;
                 ast_manager& m = I.m();
                 app_ref a(m), b(m), c(m_s.m_c),d(m), aabbc(m);
@@ -1076,7 +1076,7 @@ namespace nlarith {
             }
 
             // p[e/x] <= 0: a*parity(d) <= 0 /\ 0 <= a*a - b*b*c \/ b*parity(d) <= 0 /\ a*a - b*b*c <= 0
-            virtual void mk_le(poly const& p, app_ref& r) {
+            void mk_le(poly const& p, app_ref& r) override {
                 imp& I = m_imp;
                 ast_manager& m = I.m();
                 app_ref a(m), b(m), c(m_s.m_c), d(m);
@@ -1125,10 +1125,10 @@ namespace nlarith {
         public:
             plus_eps_subst(imp& i, isubst& s) : isubst(i), m_s(s) {}
             
-            virtual void mk_lt(poly const& p, app_ref& r) { mk_nu(p, r); }
+            void mk_lt(poly const& p, app_ref& r) override { mk_nu(p, r); }
 
             // /\ p[i] = 0
-            virtual void mk_eq(poly const& p, app_ref& r) { r = m_imp.mk_zero(p); }
+            void mk_eq(poly const& p, app_ref& r) override { r = m_imp.mk_zero(p); }
         };
 
         class minus_eps_subst : public isubst {
@@ -1172,10 +1172,10 @@ namespace nlarith {
         public:
             minus_eps_subst(imp& i, isubst& s) : isubst(i), m_s(s) {}
             
-            virtual void mk_lt(poly const& p, app_ref& r) { mk_nu(p, true, r); }
+            void mk_lt(poly const& p, app_ref& r) override { mk_nu(p, true, r); }
 
             // /\ p[i] = 0
-            virtual void mk_eq(poly const& p, app_ref& r) { r = m_imp.mk_zero(p); }
+            void mk_eq(poly const& p, app_ref& r) override { r = m_imp.mk_zero(p); }
         };
 
         class minus_inf_subst : public isubst {  
@@ -1208,12 +1208,12 @@ namespace nlarith {
         public:
             minus_inf_subst(imp& i) : isubst(i) {}
 
-            virtual void mk_lt(poly const& p, app_ref& r) {
+            void mk_lt(poly const& p, app_ref& r) override {
                 r = mk_lt(p, p.size());
             }
 
             // /\ p[i] = 0
-            virtual void mk_eq(poly const& p, app_ref& r) { r = m_imp.mk_zero(p); }
+            void mk_eq(poly const& p, app_ref& r) override { r = m_imp.mk_zero(p); }
         };
 
 
@@ -1238,10 +1238,10 @@ namespace nlarith {
         public:
             plus_inf_subst(imp& i) : isubst(i) {}
 
-            virtual void mk_lt(poly const& p, app_ref& r) { r = mk_lt(p, p.size()); }
+            void mk_lt(poly const& p, app_ref& r) override { r = mk_lt(p, p.size()); }
 
             // /\ p[i] = 0
-            virtual void mk_eq(poly const& p, app_ref& r) { r = m_imp.mk_zero(p); }
+            void mk_eq(poly const& p, app_ref& r) override { r = m_imp.mk_zero(p); }
         };
         
         /**
@@ -1615,9 +1615,9 @@ namespace nlarith {
         public:
             simple_branch(ast_manager& m, app* cnstr):
               m_cnstr(cnstr, m), m_atoms(m) {}
-            virtual ~simple_branch() {}
-            virtual app* get_constraint() { return m_cnstr.get(); }
-            virtual void get_updates(ptr_vector<app>& atoms, svector<util::atom_update>& updates) {
+            ~simple_branch() override {}
+            app* get_constraint() override { return m_cnstr.get(); }
+            void get_updates(ptr_vector<app>& atoms, svector<util::atom_update>& updates) override {
                 for (unsigned i = 0; i < m_atoms.size(); ++i) {
                     atoms.push_back(m_atoms[i].get());
                     updates.push_back(m_updates[i]);
@@ -1635,7 +1635,7 @@ namespace nlarith {
         public:
             ins_rem_branch(ast_manager& m, app* a, app* r, app* cnstr):
               simple_branch(m, cnstr) { insert(a); remove(r); }             
-            virtual ~ins_rem_branch() {}
+            ~ins_rem_branch() override {}
         };
 
         /**

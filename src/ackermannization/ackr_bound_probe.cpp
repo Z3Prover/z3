@@ -57,7 +57,7 @@ class ackr_bound_probe : public probe {
 public:
     ackr_bound_probe() {}
 
-    virtual result operator()(goal const & g) {
+    result operator()(goal const & g) override {
         proc p(g.m());
         unsigned sz = g.size();
         expr_fast_mark1 visited;

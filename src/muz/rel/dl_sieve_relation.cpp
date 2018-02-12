@@ -294,7 +294,7 @@ namespace datalog {
             }
         }
 
-        virtual relation_base * operator()(const relation_base & r1, const relation_base & r2) {
+        relation_base * operator()(const relation_base & r1, const relation_base & r2) override {
             bool r1_sieved = r1.get_plugin().is_sieve_relation();
             bool r2_sieved = r2.get_plugin().is_sieve_relation();
             SASSERT(r1_sieved || r2_sieved);
@@ -357,7 +357,7 @@ namespace datalog {
             get_result_signature() = result_sig;
         }
 
-        virtual relation_base * operator()(const relation_base & r0) {
+        relation_base * operator()(const relation_base & r0) override {
             SASSERT(r0.get_plugin().is_sieve_relation());
             const sieve_relation & r = static_cast<const sieve_relation &>(r0);
             sieve_relation_plugin & plugin = r.get_plugin();
@@ -439,7 +439,7 @@ namespace datalog {
     public:
         union_fn(relation_union_fn * union_fun) : m_union_fun(union_fun) {}
 
-        virtual void operator()(relation_base & tgt, const relation_base & src, relation_base * delta) {
+        void operator()(relation_base & tgt, const relation_base & src, relation_base * delta) override {
             bool tgt_sieved = tgt.get_plugin().is_sieve_relation();
             bool src_sieved = src.get_plugin().is_sieve_relation();
             bool delta_sieved = delta && delta->get_plugin().is_sieve_relation();
@@ -504,7 +504,7 @@ namespace datalog {
         filter_fn(relation_mutator_fn * inner_fun) 
             : m_inner_fun(inner_fun) {}
 
-        virtual void operator()(relation_base & r0) {
+        void operator()(relation_base & r0) override {
             SASSERT(r0.get_plugin().is_sieve_relation());
             sieve_relation & r = static_cast<sieve_relation &>(r0);
 
@@ -600,7 +600,7 @@ namespace datalog {
         negation_filter_fn(relation_intersection_filter_fn * inner_fun)
             : m_inner_fun(inner_fun) {}
 
-        virtual void operator()(relation_base & r, const relation_base & neg) {
+        void operator()(relation_base & r, const relation_base & neg) override {
             bool r_sieved = r.get_plugin().is_sieve_relation();
             bool neg_sieved = neg.get_plugin().is_sieve_relation();
             SASSERT(r_sieved || neg_sieved);

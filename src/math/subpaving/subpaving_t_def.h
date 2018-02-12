@@ -36,7 +36,7 @@ public:
         context_t<C>::node_selector(ctx) {
     }
 
-    virtual node * operator()(node * front, node * back) {
+    node * operator()(node * front, node * back) override {
         return back;
     }
 };
@@ -80,7 +80,7 @@ public:
     }
 
     // Return the next variable to branch.
-    virtual var operator()(typename context_t<C>::node * n) {
+    var operator()(typename context_t<C>::node * n) override {
         typename context_t<C>::numeral_manager & nm = this->ctx()->nm();
         SASSERT(this->ctx()->num_vars() > 0);
         var x = this->ctx()->splitting_var(n);
@@ -197,7 +197,7 @@ public:
         SASSERT(m_delta < INT_MAX);
     }
 
-    virtual void operator()(node * n, var x) {
+    void operator()(node * n, var x) override {
         SASSERT(!n->inconsistent());
         numeral_manager & nm = this->ctx()->nm();
         node * left   = this->mk_node(n);

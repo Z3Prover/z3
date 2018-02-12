@@ -24,7 +24,7 @@ Revision History:
 struct Z3_goal_ref : public api::object {
     goal_ref m_goal;
     Z3_goal_ref(api::context& c) : api::object(c) {}
-    virtual ~Z3_goal_ref() {}
+    ~Z3_goal_ref() override {}
 };
 
 inline Z3_goal_ref * to_goal(Z3_goal g) { return reinterpret_cast<Z3_goal_ref *>(g); }

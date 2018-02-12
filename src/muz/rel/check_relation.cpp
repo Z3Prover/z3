@@ -192,8 +192,8 @@ namespace datalog {
                  const unsigned * cols1, const unsigned * cols2)
             : convenient_join_fn(o1_sig, o2_sig, col_cnt, cols1, cols2), m_join(j) 
         {}
-        virtual ~join_fn() {}
-        virtual relation_base * operator()(const relation_base & r1, const relation_base & r2) {
+        ~join_fn() override {}
+        relation_base * operator()(const relation_base & r1, const relation_base & r2) override {
             check_relation const& t1 = get(r1);
             check_relation const& t2 = get(r2);
             check_relation_plugin& p = t1.get_plugin();
@@ -221,8 +221,8 @@ namespace datalog {
             : convenient_join_project_fn(o1_sig, o2_sig, col_cnt, cols1, cols2,
                                          removed_col_cnt, removed_cols), m_join(j) 
         {}
-        virtual ~join_project_fn() {}
-        virtual relation_base * operator()(const relation_base & r1, const relation_base & r2) {
+        ~join_project_fn() override {}
+        relation_base * operator()(const relation_base & r1, const relation_base & r2) override {
             check_relation const& t1 = get(r1);
             check_relation const& t2 = get(r2);
             check_relation_plugin& p = t1.get_plugin();
@@ -491,7 +491,7 @@ namespace datalog {
     public:
         union_fn(relation_union_fn* m): m_union(m) {}
 
-        virtual void operator()(relation_base & _r, const relation_base & _src, relation_base * _delta) {
+        void operator()(relation_base & _r, const relation_base & _src, relation_base * _delta) override {
             TRACE("doc", _r.display(tout << "dst:\n"); _src.display(tout  << "src:\n"););
             check_relation& r = get(_r);
             check_relation const& src = get(_src);
@@ -529,9 +529,9 @@ namespace datalog {
               m_filter(f) {
         }
 
-        virtual ~filter_identical_fn() {}
+        ~filter_identical_fn() override {}
         
-        virtual void operator()(relation_base & _r) {
+        void operator()(relation_base & _r) override {
             check_relation& r = get(_r);
             check_relation_plugin& p = r.get_plugin();            
             ast_manager& m = p.m;
@@ -565,9 +565,9 @@ namespace datalog {
             m_condition(condition) {
         }
 
-        virtual ~filter_interpreted_fn() {}
+        ~filter_interpreted_fn() override {}
         
-        virtual void operator()(relation_base & tb) {            
+        void operator()(relation_base & tb) override {
             check_relation& r = get(tb);
             check_relation_plugin& p = r.get_plugin();            
             expr_ref fml = r.m_fml;
@@ -592,9 +592,9 @@ namespace datalog {
               m_project(p) {
         }
 
-        virtual ~project_fn() {}
+        ~project_fn() override {}
 
-        virtual relation_base * operator()(const relation_base & tb) {
+        relation_base * operator()(const relation_base & tb) override {
             check_relation const& t = get(tb);
             check_relation_plugin& p = t.get_plugin();
             relation_base* r = (*m_project)(t.rb());
@@ -620,9 +620,9 @@ namespace datalog {
               m_permute(permute) {
         }
 
-        virtual ~rename_fn() {}
+        ~rename_fn() override {}
 
-        virtual relation_base * operator()(const relation_base & _t) {
+        relation_base * operator()(const relation_base & _t) override {
             check_relation const& t = get(_t);
             check_relation_plugin& p = t.get_plugin();            
             relation_signature const& sig = get_result_signature();
@@ -649,8 +649,8 @@ namespace datalog {
             m_val(val),
             m_col(col)
         {}
-        virtual ~filter_equal_fn() { }        
-        virtual void operator()(relation_base & tb) {
+        ~filter_equal_fn() override { }
+        void operator()(relation_base & tb) override {
             check_relation & t = get(tb);
             check_relation_plugin& p = t.get_plugin();
             (*m_filter)(t.rb());
@@ -682,7 +682,7 @@ namespace datalog {
             SASSERT(joined_col_cnt > 0);
         }
         
-        virtual void operator()(relation_base& tb, const relation_base& negb) {
+        void operator()(relation_base& tb, const relation_base& negb) override {
             check_relation& t = get(tb);
             check_relation const& n = get(negb);
             check_relation_plugin& p = t.get_plugin();
@@ -763,9 +763,9 @@ namespace datalog {
             m_xform(xform)
         {}
         
-        virtual ~filter_proj_fn() {}
+        ~filter_proj_fn() override {}
 
-        virtual relation_base* operator()(const relation_base & tb) {
+        relation_base* operator()(const relation_base & tb) override {
             check_relation const & t = get(tb);
             check_relation_plugin& p = t.get_plugin();
             relation_base* r = (*m_xform)(t.rb());

@@ -73,11 +73,11 @@ namespace datalog {
 
     public:
         mk_filter_rules(context & ctx);
-        ~mk_filter_rules();
+        ~mk_filter_rules() override;
         /**
            \brief Return a new rule set where only filter rules contain atoms with repeated variables and/or values.
         */
-        rule_set * operator()(rule_set const & source);
+        rule_set * operator()(rule_set const & source) override;
     };
 
 };

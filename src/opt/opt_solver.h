@@ -85,28 +85,28 @@ namespace opt {
         bool                m_was_unknown;
     public:
         opt_solver(ast_manager & m, params_ref const & p, filter_model_converter& fm);
-        virtual ~opt_solver();
+        ~opt_solver() override;
 
-        virtual solver* translate(ast_manager& m, params_ref const& p);
-        virtual void updt_params(params_ref const& p);
-        virtual void collect_param_descrs(param_descrs & r);
-        virtual void collect_statistics(statistics & st) const;
-        virtual void assert_expr(expr * t);
-        virtual void push_core();
-        virtual void pop_core(unsigned n);
-        virtual lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions);        
-        virtual void get_unsat_core(ptr_vector<expr> & r);
-        virtual void get_model(model_ref & _m);        
-        virtual proof * get_proof();
-        virtual std::string reason_unknown() const;
-        virtual void set_reason_unknown(char const* msg);
-        virtual void get_labels(svector<symbol> & r);
-        virtual void set_progress_callback(progress_callback * callback);
-        virtual unsigned get_num_assertions() const;
-        virtual expr * get_assertion(unsigned idx) const;
-        virtual ast_manager& get_manager() const { return m; } 
-        virtual lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes);
-        virtual lbool preferred_sat(expr_ref_vector const& asms, vector<expr_ref_vector>& cores);
+        solver* translate(ast_manager& m, params_ref const& p) override;
+        void updt_params(params_ref const& p) override;
+        void collect_param_descrs(param_descrs & r) override;
+        void collect_statistics(statistics & st) const override;
+        void assert_expr(expr * t) override;
+        void push_core() override;
+        void pop_core(unsigned n) override;
+        lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions) override;
+        void get_unsat_core(ptr_vector<expr> & r) override;
+        void get_model(model_ref & _m) override;
+        proof * get_proof() override;
+        std::string reason_unknown() const override;
+        void set_reason_unknown(char const* msg) override;
+        void get_labels(svector<symbol> & r) override;
+        void set_progress_callback(progress_callback * callback) override;
+        unsigned get_num_assertions() const override;
+        expr * get_assertion(unsigned idx) const override;
+        ast_manager& get_manager() const override { return m; }
+        lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) override;
+        lbool preferred_sat(expr_ref_vector const& asms, vector<expr_ref_vector>& cores) override;
         void set_logic(symbol const& logic);
 
         smt::theory_var add_objective(app* term);

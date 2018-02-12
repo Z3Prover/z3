@@ -64,7 +64,7 @@ class permutation_matrix : public tail_matrix<T, X> {
         // create a unit permutation of the given length
         void init(unsigned length);
         unsigned get_rev(unsigned i) { return m_rev[i]; }
-        bool is_dense() const { return false; }
+        bool is_dense() const override { return false; }
 #ifdef Z3DEBUG
         permutation_matrix get_inverse() const {
             return permutation_matrix(size(), m_rev);
@@ -76,13 +76,13 @@ class permutation_matrix : public tail_matrix<T, X> {
 
         unsigned operator[](unsigned i) const { return m_permutation[i]; }
 
-        void apply_from_left(vector<X> & w, lp_settings &);
+        void apply_from_left(vector<X> & w, lp_settings &) override;
 
-        void apply_from_left_to_T(indexed_vector<T> & w, lp_settings & settings);
+        void apply_from_left_to_T(indexed_vector<T> & w, lp_settings & settings) override;
 
-        void apply_from_right(vector<T> & w);
+        void apply_from_right(vector<T> & w) override;
 
-        void apply_from_right(indexed_vector<T> & w);
+        void apply_from_right(indexed_vector<T> & w) override;
         
         template <typename L>
         void copy_aside(vector<L> & t, vector<unsigned> & tmp_index, indexed_vector<L> & w);

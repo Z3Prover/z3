@@ -46,7 +46,7 @@ public:
 #endif
         m_column_index(column_index) {}
 
-    bool is_dense() const { return false; }
+    bool is_dense() const override { return false; }
 
     void print(std::ostream & out) {
         print_matrix(*this, out);
@@ -65,12 +65,12 @@ public:
         return m_diagonal_element;
     }
 
-    void apply_from_left(vector<X> & w, lp_settings & );
+    void apply_from_left(vector<X> & w, lp_settings & ) override;
 
     template <typename L>
     void apply_from_left_local(indexed_vector<L> & w, lp_settings & settings);
 
-    void apply_from_left_to_T(indexed_vector<T> & w, lp_settings & settings) {
+    void apply_from_left_to_T(indexed_vector<T> & w, lp_settings & settings) override {
         apply_from_left_local(w, settings);
     }
 
@@ -80,8 +80,8 @@ public:
         m_column_vector.push_back(row_index, val);
     }
 
-    void apply_from_right(vector<T> & w);
-    void apply_from_right(indexed_vector<T> & w);
+    void apply_from_right(vector<T> & w) override;
+    void apply_from_right(indexed_vector<T> & w) override;
 
     T get_elem(unsigned i, unsigned j) const;
 #ifdef Z3DEBUG

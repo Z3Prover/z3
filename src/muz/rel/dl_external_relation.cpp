@@ -195,7 +195,7 @@ namespace datalog {
             m_join_fn = m.mk_func_decl(fid, OP_RA_JOIN, params.size(), params.c_ptr(), 2, domain);
         }
 
-        virtual relation_base * operator()(const relation_base & r1, const relation_base & r2) {
+        relation_base * operator()(const relation_base & r1, const relation_base & r2) override {
             expr_ref res(m_plugin.get_ast_manager());
             m_args[0] = get(r1).get_relation();
             m_args[1] = get(r2).get_relation();
@@ -231,7 +231,7 @@ namespace datalog {
             m_project_fn = m.mk_func_decl(fid, OP_RA_PROJECT, params.size(), params.c_ptr(), 1, &relation_sort);
         }
 
-        virtual relation_base * operator()(const relation_base & r) {
+        relation_base * operator()(const relation_base & r) override {
             expr_ref res(m_plugin.get_ast_manager());
             expr* rel = get(r).get_relation();
             m_plugin.reduce(m_project_fn, 1, &rel, res); 
@@ -265,7 +265,7 @@ namespace datalog {
             m_rename_fn = m.mk_func_decl(fid, OP_RA_RENAME, params.size(), params.c_ptr(), 1, &relation_sort);
         }
 
-        virtual relation_base * operator()(const relation_base & r) {
+        relation_base * operator()(const relation_base & r) override {
             expr* rel = get(r).get_relation();
             expr_ref res(m_plugin.get_ast_manager());
             m_args[0] = rel;
@@ -298,7 +298,7 @@ namespace datalog {
             m_union_fn = m.mk_func_decl(p.get_family_id(), k, 0, 0, 2, domain);
         }
 
-        virtual void operator()(relation_base & r, const relation_base & src, relation_base * delta) {
+        void operator()(relation_base & r, const relation_base & src, relation_base * delta) override {
             ast_manager& m = m_plugin.get_ast_manager();
             expr_ref_vector res(m);
             m_args[0] = get(r).get_relation();
@@ -342,7 +342,7 @@ namespace datalog {
             SASSERT(p.get_ast_manager().is_bool(condition));
         }
 
-        virtual void operator()(relation_base & r) {
+        void operator()(relation_base & r) override {
             SASSERT(m_plugin.check_kind(r));
             expr* arg = get(r).get_relation();
             m_plugin.reduce_assign(m_filter_fn, 1, &arg, 1, &arg);
@@ -396,7 +396,7 @@ namespace datalog {
             }
         }
 
-        virtual void operator()(relation_base & r) {
+        void operator()(relation_base & r) override {
             expr* r0 = get(r).get_relation();
             for (unsigned i = 0; i < m_filter_fn.size(); ++i) {
                 m_plugin.reduce_assign(m_filter_fn[i].get(), 1, &r0, 1, &r0);                  
@@ -436,7 +436,7 @@ namespace datalog {
             m_negated_filter_fn = m.mk_func_decl(fid, OP_RA_NEGATION_FILTER, params.size(), params.c_ptr(), 2, domain);            
         }
 
-        void operator()(relation_base & t, const relation_base & negated_obj) {
+        void operator()(relation_base & t, const relation_base & negated_obj) override {
             m_args[0] = get(t).get_relation();
             m_args[1] = get(negated_obj).get_relation();
             m_plugin.reduce_assign(m_negated_filter_fn.get(), 2, m_args, 1, m_args);                       

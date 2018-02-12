@@ -102,15 +102,15 @@ namespace smt {
     public:
         justification_proof_wrapper(context & ctx, proof * pr, bool in_region = true);
 
-        virtual bool has_del_eh() const {
+        bool has_del_eh() const override {
             return true;
         }
         
-        virtual void del_eh(ast_manager & m);
+        void del_eh(ast_manager & m) override;
         
-        virtual proof * mk_proof(conflict_resolution & cr);
+        proof * mk_proof(conflict_resolution & cr) override;
         
-        virtual char const * get_name() const { return "proof-wrapper"; }
+        char const * get_name() const override { return "proof-wrapper"; }
     };
 
     class unit_resolution_justification : public justification {
@@ -122,21 +122,21 @@ namespace smt {
 
         unit_resolution_justification(justification * js, unsigned num_lits, literal const * lits);
 
-        ~unit_resolution_justification();
+        ~unit_resolution_justification() override;
 
-        virtual bool has_del_eh() const {
+        bool has_del_eh() const override {
             return !in_region() && m_antecedent && m_antecedent->has_del_eh();
         }
         
-        virtual void del_eh(ast_manager & m) {
+        void del_eh(ast_manager & m) override {
             if (!in_region() && m_antecedent) m_antecedent->del_eh(m); 
         }
 
-        virtual void get_antecedents(conflict_resolution & cr);
+        void get_antecedents(conflict_resolution & cr) override;
 
-        virtual proof * mk_proof(conflict_resolution & cr);
+        proof * mk_proof(conflict_resolution & cr) override;
 
-        virtual char const * get_name() const { return "unit-resolution"; }
+        char const * get_name() const override { return "unit-resolution"; }
     };
 
     class eq_conflict_justification : public justification {
@@ -150,11 +150,11 @@ namespace smt {
             m_js(js) {
         }
 
-        virtual void get_antecedents(conflict_resolution & cr);
+        void get_antecedents(conflict_resolution & cr) override;
 
-        virtual proof * mk_proof(conflict_resolution & cr);
+        proof * mk_proof(conflict_resolution & cr) override;
 
-        virtual char const * get_name() const { return "eq-conflict"; }
+        char const * get_name() const override { return "eq-conflict"; }
     };
     
     /**
@@ -166,11 +166,11 @@ namespace smt {
         eq_root_propagation_justification(enode * n):m_node(n) {
         }
 
-        virtual void get_antecedents(conflict_resolution & cr);
+        void get_antecedents(conflict_resolution & cr) override;
 
-        virtual proof * mk_proof(conflict_resolution & cr);
+        proof * mk_proof(conflict_resolution & cr) override;
 
-        virtual char const * get_name() const { return "eq-root"; }
+        char const * get_name() const override { return "eq-root"; }
     };        
 
     /**
@@ -184,11 +184,11 @@ namespace smt {
             SASSERT(n1 != n2);
         }
 
-        virtual void get_antecedents(conflict_resolution & cr);
+        void get_antecedents(conflict_resolution & cr) override;
 
-        virtual proof * mk_proof(conflict_resolution & cr);
+        proof * mk_proof(conflict_resolution & cr) override;
 
-        virtual char const * get_name() const { return "eq-propagation"; }
+        char const * get_name() const override { return "eq-propagation"; }
     };        
 
     /**
@@ -201,11 +201,11 @@ namespace smt {
         mp_iff_justification(enode * n1, enode * n2):m_node1(n1), m_node2(n2) {
         }
 
-        virtual void get_antecedents(conflict_resolution & cr);
+        void get_antecedents(conflict_resolution & cr) override;
 
-        virtual proof * mk_proof(conflict_resolution & cr);
+        proof * mk_proof(conflict_resolution & cr) override;
 
-        virtual char const * get_name() const { return "mp-iff"; }
+        char const * get_name() const override { return "mp-iff"; }
     };
 
     /**
@@ -221,11 +221,11 @@ namespace smt {
     public:
         simple_justification(region & r, unsigned num_lits, literal const * lits);
 
-        virtual void get_antecedents(conflict_resolution & cr);
+        void get_antecedents(conflict_resolution & cr) override;
 
-        virtual proof * mk_proof(conflict_resolution & cr) = 0;
+        proof * mk_proof(conflict_resolution & cr) override = 0;
 
-        virtual char const * get_name() const { return "simple"; }
+        char const * get_name() const override { return "simple"; }
 
     };
 
@@ -240,13 +240,13 @@ namespace smt {
             unsigned num_params, parameter* params):
             simple_justification(r, num_lits, lits),
             m_th_id(fid), m_params(num_params, params) {}
-        virtual ~simple_theory_justification() {}
+        ~simple_theory_justification() override {}
 
-        virtual bool has_del_eh() const { return !m_params.empty(); }
+        bool has_del_eh() const override { return !m_params.empty(); }
 
-        virtual void del_eh(ast_manager & m) { m_params.reset(); }       
+        void del_eh(ast_manager & m) override { m_params.reset(); }
 
-        virtual theory_id get_from_theory() const { return m_th_id; }
+        theory_id get_from_theory() const override { return m_th_id; }
  
     };
 
@@ -258,11 +258,11 @@ namespace smt {
                                    unsigned num_params = 0, parameter* params = 0):
             simple_theory_justification(fid, r, num_lits, lits, num_params, params)  {}
         
-        virtual void get_antecedents(conflict_resolution & cr) {}
+        void get_antecedents(conflict_resolution & cr) override {}
 
-        virtual proof * mk_proof(conflict_resolution & cr);
+        proof * mk_proof(conflict_resolution & cr) override;
 
-        virtual char const * get_name() const { return "theory-axiom"; }
+        char const * get_name() const override { return "theory-axiom"; }
     };
 
     class theory_propagation_justification : public simple_theory_justification {
@@ -272,10 +272,10 @@ namespace smt {
                                          unsigned num_params = 0, parameter* params = 0):
             simple_theory_justification(fid, r, num_lits, lits, num_params, params), m_consequent(consequent) {}
 
-        virtual proof * mk_proof(conflict_resolution & cr);
+        proof * mk_proof(conflict_resolution & cr) override;
 
 
-        virtual char const * get_name() const { return "theory-propagation"; }
+        char const * get_name() const override { return "theory-propagation"; }
         
     };
      
@@ -285,9 +285,9 @@ namespace smt {
                                       unsigned num_params = 0, parameter* params = 0):
             simple_theory_justification(fid, r, num_lits, lits, num_params, params) {}
 
-        virtual proof * mk_proof(conflict_resolution & cr);
+        proof * mk_proof(conflict_resolution & cr) override;
 
-        virtual char const * get_name() const { return "theory-conflict"; }
+        char const * get_name() const override { return "theory-conflict"; }
     };
 
     /**
@@ -304,11 +304,11 @@ namespace smt {
         ext_simple_justification(region & r, unsigned num_lits, literal const * lits, 
                                  unsigned num_eqs, enode_pair const * eqs);
 
-        virtual void get_antecedents(conflict_resolution & cr);
+        void get_antecedents(conflict_resolution & cr) override;
 
-        virtual proof * mk_proof(conflict_resolution & cr) = 0;
+        proof * mk_proof(conflict_resolution & cr) override = 0;
 
-        virtual char const * get_name() const { return "ext-simple"; }
+        char const * get_name() const override { return "ext-simple"; }
     };
 
     /**
@@ -325,13 +325,13 @@ namespace smt {
                                         unsigned num_params = 0, parameter* params = 0):
             ext_simple_justification(r, num_lits, lits, num_eqs, eqs), m_th_id(fid), m_params(num_params, params) {}
             
-        virtual ~ext_theory_simple_justification() {}
+        ~ext_theory_simple_justification() override {}
 
-        virtual bool has_del_eh() const { return !m_params.empty(); }
+        bool has_del_eh() const override { return !m_params.empty(); }
 
-        virtual void del_eh(ast_manager & m) { m_params.reset(); }       
+        void del_eh(ast_manager & m) override { m_params.reset(); }
 
-        virtual theory_id get_from_theory() const { return m_th_id; }
+        theory_id get_from_theory() const override { return m_th_id; }
     };
 
     class ext_theory_propagation_justification : public ext_theory_simple_justification {
@@ -345,9 +345,9 @@ namespace smt {
             ext_theory_simple_justification(fid, r, num_lits, lits, num_eqs, eqs, num_params, params), 
             m_consequent(consequent) {}
 
-        virtual proof * mk_proof(conflict_resolution & cr);
+        proof * mk_proof(conflict_resolution & cr) override;
 
-        virtual char const * get_name() const { return "ext-theory-propagation"; }
+        char const * get_name() const override { return "ext-theory-propagation"; }
     };
 
     class ext_theory_conflict_justification : public ext_theory_simple_justification {
@@ -357,9 +357,9 @@ namespace smt {
                                           unsigned num_params = 0, parameter* params = 0):
             ext_theory_simple_justification(fid, r, num_lits, lits, num_eqs, eqs, num_params, params) {}
 
-        virtual proof * mk_proof(conflict_resolution & cr);
+        proof * mk_proof(conflict_resolution & cr) override;
 
-        virtual char const * get_name() const { return "ext-theory-conflict"; }
+        char const * get_name() const override { return "ext-theory-conflict"; }
     };
 
     class ext_theory_eq_propagation_justification : public ext_theory_simple_justification {
@@ -374,9 +374,9 @@ namespace smt {
             unsigned num_params = 0, parameter* params = 0):
             ext_theory_simple_justification(fid, r, num_lits, lits, num_eqs, eqs, num_params, params), m_lhs(lhs), m_rhs(rhs) {}
 
-        virtual proof * mk_proof(conflict_resolution & cr);
+        proof * mk_proof(conflict_resolution & cr) override;
 
-        virtual char const * get_name() const { return "ext-theory-eq-propagation"; }
+        char const * get_name() const override { return "ext-theory-eq-propagation"; }
     };  
 
     /**
@@ -394,19 +394,19 @@ namespace smt {
         theory_lemma_justification(family_id fid, context & ctx, unsigned num_lits, literal const * lits, 
                                    unsigned num_params = 0, parameter* params = 0);
 
-        virtual ~theory_lemma_justification();
+        ~theory_lemma_justification() override;
 
-        virtual bool has_del_eh() const {
+        bool has_del_eh() const override {
             return true;
         }
         
-        virtual void del_eh(ast_manager & m);
+        void del_eh(ast_manager & m) override;
         
-        virtual void get_antecedents(conflict_resolution & cr) {}
+        void get_antecedents(conflict_resolution & cr) override {}
 
-        virtual proof * mk_proof(conflict_resolution & cr);
+        proof * mk_proof(conflict_resolution & cr) override;
 
-        virtual char const * get_name() const { return "theory-lemma"; }
+        char const * get_name() const override { return "theory-lemma"; }
     };
       
 };

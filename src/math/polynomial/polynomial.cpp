@@ -6350,9 +6350,9 @@ namespace polynomial {
                 m_var_pos(buffer, xs_sz, xs),
                 m_vs(vs) {
             }
-            virtual unsynch_mpq_manager & m() const { UNREACHABLE(); static unsynch_mpq_manager m; return m; }
-            virtual bool contains(var x) const { return m_var_pos(x) != UINT_MAX; }
-            virtual mpq const & operator()(var x) const { return m_vs[m_var_pos(x)]; }
+            unsynch_mpq_manager & m() const override { UNREACHABLE(); static unsynch_mpq_manager m; return m; }
+            bool contains(var x) const override { return m_var_pos(x) != UINT_MAX; }
+            mpq const & operator()(var x) const override { return m_vs[m_var_pos(x)]; }
         };
 
         polynomial * substitute(polynomial const * p, unsigned xs_sz, var const * xs, mpq const * vs) {
@@ -6527,9 +6527,9 @@ namespace polynomial {
             numeral const & m_val;
         public:
             single_var2value(numeral_manager & m, var x, numeral const & val):m_manager(m), m_x(x), m_val(val) {}
-            virtual numeral_manager & m() const { return m_manager; }
-            virtual bool contains(var x) const { return m_x == x; }
-            virtual numeral const & operator()(var x) const { SASSERT(m_x == x); return m_val; }
+            numeral_manager & m() const override { return m_manager; }
+            bool contains(var x) const override { return m_x == x; }
+            numeral const & operator()(var x) const override { SASSERT(m_x == x); return m_val; }
         };
 
         void univ_eval(polynomial const * p, var x, numeral const & val, numeral & r) {

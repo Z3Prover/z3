@@ -82,7 +82,7 @@ namespace datalog {
             : convenient_relation_join_project_fn(s1, s2, col_cnt, cols1, cols2, removed_col_cnt,
                     removed_cols), m_tfun(tfun) {}
         
-        virtual relation_base * operator()(const relation_base & t1, const relation_base & t2) {
+        relation_base * operator()(const relation_base & t1, const relation_base & t2) override {
             SASSERT(t1.from_table());
             SASSERT(t2.from_table());
             table_relation_plugin & plugin = static_cast<table_relation_plugin &>(t1.get_plugin());
@@ -146,7 +146,7 @@ namespace datalog {
         tr_transformer_fn(const relation_signature & rsig, table_transformer_fn * tfun) 
             : m_tfun(tfun) { get_result_signature() = rsig; }
 
-        virtual relation_base * operator()(const relation_base & t) {
+        relation_base * operator()(const relation_base & t) override {
             SASSERT(t.from_table());
             table_relation_plugin & plugin = static_cast<table_relation_plugin &>(t.get_plugin());
 
@@ -235,7 +235,7 @@ namespace datalog {
        by iterating through the table and calling \c add_fact of the target relation.
     */
     class table_relation_plugin::universal_target_union_fn : public relation_union_fn {
-        virtual void operator()(relation_base & tgt, const relation_base & src, relation_base * delta) {
+        void operator()(relation_base & tgt, const relation_base & src, relation_base * delta) override {
             SASSERT(src.from_table());
 
             const table_relation & tr_src = static_cast<const table_relation &>(src);
@@ -271,7 +271,7 @@ namespace datalog {
     public:
         tr_union_fn(table_union_fn * tfun) : m_tfun(tfun) {}
 
-        virtual void operator()(relation_base & tgt, const relation_base & src, relation_base * delta) {
+        void operator()(relation_base & tgt, const relation_base & src, relation_base * delta) override {
             SASSERT(tgt.from_table());
             SASSERT(src.from_table());
             SASSERT(!delta || delta->from_table());
@@ -311,7 +311,7 @@ namespace datalog {
     public:
         tr_mutator_fn(table_mutator_fn * tfun) : m_tfun(tfun) {}
 
-        virtual void operator()(relation_base & r) {
+        void operator()(relation_base & r) override {
             SASSERT(r.from_table());
             table_relation & tr = static_cast<table_relation &>(r);            
             (*m_tfun)(tr.get_table());
@@ -377,7 +377,7 @@ namespace datalog {
     public:
         tr_intersection_filter_fn(table_intersection_filter_fn * tfun) : m_tfun(tfun) {}
 
-        virtual void operator()(relation_base & r, const relation_base & src) {
+        void operator()(relation_base & r, const relation_base & src) override {
             SASSERT(r.from_table()); 
             SASSERT(src.from_table());
 

@@ -385,7 +385,7 @@ namespace datalog {
     public:
         skip_model_converter() {}
  
-        virtual model_converter * translate(ast_translation & translator) { 
+        model_converter * translate(ast_translation & translator) override {
             return alloc(skip_model_converter);
         }
 
@@ -394,12 +394,12 @@ namespace datalog {
     model_converter* mk_skip_model_converter() { return alloc(skip_model_converter); }
 
     class skip_proof_converter : public proof_converter {
-        virtual void operator()(ast_manager & m, unsigned num_source, proof * const * source, proof_ref & result) {
+        void operator()(ast_manager & m, unsigned num_source, proof * const * source, proof_ref & result) override {
             SASSERT(num_source == 1);
             result = source[0];
         }
 
-        virtual proof_converter * translate(ast_translation & translator) {
+        proof_converter * translate(ast_translation & translator) override {
             return alloc(skip_proof_converter);
         }
 

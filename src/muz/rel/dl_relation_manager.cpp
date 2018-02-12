@@ -538,7 +538,7 @@ namespace datalog {
 
     class relation_manager::empty_signature_relation_join_fn : public relation_join_fn {
     public:
-        virtual relation_base * operator()(const relation_base & r1, const relation_base & r2) {
+        relation_base * operator()(const relation_base & r1, const relation_base & r2) override {
             TRACE("dl", tout << r1.get_plugin().get_name() << " " << r2.get_plugin().get_name() << "\n";);
             if(r1.get_signature().empty()) {
                 if(r1.empty()) {
@@ -615,7 +615,7 @@ namespace datalog {
               m_project(0), 
               m_removed_cols(removed_col_cnt, removed_cols) {}
 
-        virtual relation_base * operator()(const relation_base & t) {
+        relation_base * operator()(const relation_base & t) override {
             scoped_rel<relation_base> t1 = t.clone();
             (*m_filter)(*t1);
             if( !m_project) {
@@ -658,11 +658,11 @@ namespace datalog {
         default_relation_apply_sequential_fn(unsigned n, relation_mutator_fn ** mutators):
             m_mutators(n, mutators) {            
         }
-        virtual ~default_relation_apply_sequential_fn() {
+        ~default_relation_apply_sequential_fn() override {
             std::for_each(m_mutators.begin(), m_mutators.end(), delete_proc<relation_mutator_fn>());
         }
         
-        virtual void operator()(relation_base& t) {
+        void operator()(relation_base& t) override {
             for (unsigned i = 0; i < m_mutators.size(); ++i) {
                 if (t.empty()) return;
                 (*(m_mutators[i]))(t);
@@ -688,7 +688,7 @@ namespace datalog {
             const unsigned * removed_cols)
             : m_join(join), m_project(0), m_removed_cols(removed_col_cnt, removed_cols) {}
 
-        virtual relation_base * operator()(const relation_base & t1, const relation_base & t2) {
+        relation_base * operator()(const relation_base & t1, const relation_base & t2) override {
             scoped_rel<relation_base> aux = (*m_join)(t1, t2);
             if(!m_project) {
                 relation_manager & rmgr = aux->get_plugin().get_manager();
@@ -787,7 +787,7 @@ namespace datalog {
         default_relation_select_equal_and_project_fn(relation_mutator_fn * filter, relation_transformer_fn * project)
             : m_filter(filter), m_project(project) {}
 
-        virtual relation_base * operator()(const relation_base & t1) {
+        relation_base * operator()(const relation_base & t1) override {
             TRACE("dl", tout << t1.get_plugin().get_name() << "\n";);
             scoped_rel<relation_base> aux = t1.clone();
             (*m_filter)(*aux);
@@ -823,7 +823,7 @@ namespace datalog {
         default_relation_intersection_filter_fn(relation_join_fn * join_fun, relation_union_fn * union_fun) 
             : m_join_fun(join_fun), m_union_fun(union_fun) {}
 
-        virtual void operator()(relation_base & tgt, const relation_base & intersected_obj) {
+        void operator()(relation_base & tgt, const relation_base & intersected_obj) override {
             scoped_rel<relation_base> filtered_rel = (*m_join_fun)(tgt, intersected_obj);
             TRACE("dl", 
                   tgt.display(tout << "tgt:\n"); 
@@ -926,7 +926,7 @@ namespace datalog {
             const unsigned * cols1, const unsigned * cols2) 
             : convenient_table_join_fn(t1_sig, t2_sig, col_cnt, cols1, cols2), m_col_cnt(col_cnt) {}
 
-        virtual table_base * operator()(const table_base & t1, const table_base & t2) {
+        table_base * operator()(const table_base & t1, const table_base & t2) override {
             table_plugin * plugin = &t1.get_plugin();
 
             const table_signature & res_sign = get_result_signature();
@@ -1037,15 +1037,15 @@ namespace datalog {
                 SASSERT(removed_col_cnt>0);
         }
 
-        virtual const table_signature & get_result_signature() const {
+        const table_signature & get_result_signature() const override {
             return convenient_table_project_fn::get_result_signature();
         }
 
-        virtual void modify_fact(table_fact & f) const {
+        void modify_fact(table_fact & f) const override {
             project_out_vector_columns(f, m_removed_cols);
         }
 
-        virtual table_base * operator()(const table_base & t) {
+        table_base * operator()(const table_base & t) override {
             return auxiliary_table_transformer_fn::operator()(t);
         }
     };
@@ -1054,7 +1054,7 @@ namespace datalog {
         const table_signature m_empty_sig;
     public:
         null_signature_table_project_fn() : m_empty_sig() {}
-        virtual table_base * operator()(const table_base & t) {
+        table_base * operator()(const table_base & t) override {
             relation_manager & m = t.get_plugin().get_manager();
             table_base * res = m.mk_empty_table(m_empty_sig);
             if(!t.empty()) {
@@ -1096,14 +1096,14 @@ namespace datalog {
             m_removed_cols(removed_col_cnt, removed_cols) {}
 
         class unreachable_reducer : public table_row_pair_reduce_fn {
-            virtual void operator()(table_element * func_columns, const table_element * merged_func_columns) {
+            void operator()(table_element * func_columns, const table_element * merged_func_columns) override {
                 //we do project_with_reduce only if we are sure there will be no reductions
                 //(see code of the table_signature::from_join_project function)
                 UNREACHABLE();
             }
         };
 
-        virtual table_base * operator()(const table_base & t1, const table_base & t2) {
+        table_base * operator()(const table_base & t1, const table_base & t2) override {
             table_base * aux = (*m_join)(t1, t2);
             if(m_project==0) {
                 relation_manager & rmgr = aux->get_plugin().get_manager();
@@ -1154,15 +1154,15 @@ namespace datalog {
             SASSERT(permutation_cycle_len>=2);
         }
 
-        virtual const table_signature & get_result_signature() const {
+        const table_signature & get_result_signature() const override {
             return convenient_table_rename_fn::get_result_signature();
         }
 
-        virtual void modify_fact(table_fact & f) const {
+        void modify_fact(table_fact & f) const override {
             permutate_by_cycle(f, m_cycle);
         }
 
-        virtual table_base * operator()(const table_base & t) {
+        table_base * operator()(const table_base & t) override {
             return auxiliary_table_transformer_fn::operator()(t);
         }
 
@@ -1190,7 +1190,7 @@ namespace datalog {
     class relation_manager::default_table_union_fn : public table_union_fn {
         table_fact m_row;
     public:
-        virtual void operator()(table_base & tgt, const table_base & src, table_base * delta) {
+        void operator()(table_base & tgt, const table_base & src, table_base * delta) override {
             table_base::iterator it = src.begin();
             table_base::iterator iend = src.end();
 
@@ -1283,7 +1283,7 @@ namespace datalog {
             SASSERT(col_cnt>=2);
         }
 
-        virtual bool should_remove(const table_fact & f) const {
+        bool should_remove(const table_fact & f) const override {
             table_element val=f[m_identical_cols[0]];
             for(unsigned i=1; i<m_col_cnt; i++) {
                 if(f[m_identical_cols[i]]!=val) {
@@ -1293,7 +1293,7 @@ namespace datalog {
             return false;
         }
 
-        virtual void operator()(table_base & t) {
+        void operator()(table_base & t) override {
             auxiliary_table_filter_fn::operator()(t);
         }
 
@@ -1318,11 +1318,11 @@ namespace datalog {
                 : m_value(value),
                 m_col(col) {}
 
-        virtual bool should_remove(const table_fact & f) const {
+        bool should_remove(const table_fact & f) const override {
             return f[m_col]!=m_value;
         }
 
-        virtual void operator()(table_base & t) {
+        void operator()(table_base & t) override {
             auxiliary_table_filter_fn::operator()(t);
         }
     };
@@ -1346,11 +1346,11 @@ namespace datalog {
               m_value(value) {
         }
 
-        virtual bool should_remove(const table_fact & f) const {
+        bool should_remove(const table_fact & f) const override {
             return f[m_column] == m_value;
         }
 
-        virtual void operator()(table_base & t) {
+        void operator()(table_base & t) override {
             auxiliary_table_filter_fn::operator()(t);
         }
 
@@ -1402,7 +1402,7 @@ namespace datalog {
             m_free_vars(m_condition);
         }
 
-        virtual bool should_remove(const table_fact & f) const {
+        bool should_remove(const table_fact & f) const override {
             expr_ref_vector& args = const_cast<expr_ref_vector&>(m_args);
 
             args.reset();
@@ -1425,7 +1425,7 @@ namespace datalog {
             return m_ast_manager.is_false(ground);
         }
 
-        virtual void operator()(table_base & t) {
+        void operator()(table_base & t) override {
             auxiliary_table_filter_fn::operator()(t);
         }
     };
@@ -1455,7 +1455,7 @@ namespace datalog {
                 : m_filter(filter), m_condition(condition, ctx.get_manager()),
                 m_removed_cols(removed_col_cnt, removed_cols) {}
 
-        virtual table_base* operator()(const table_base & tb) {
+        table_base* operator()(const table_base & tb) override {
             table_base *t2 = tb.clone();
             (*m_filter)(*t2);
             if (!m_project) {
@@ -1506,7 +1506,7 @@ namespace datalog {
             m_aux_fact.resize(neg_t.get_signature().size());
         }
 
-        virtual bool should_remove(const table_fact & f) const {
+        bool should_remove(const table_fact & f) const override {
             if(!m_all_neg_bound || m_overlap) {
                 table_base::iterator nit = m_negated_table->begin();
                 table_base::iterator nend = m_negated_table->end();
@@ -1524,7 +1524,7 @@ namespace datalog {
             }
         }
 
-        virtual void operator()(table_base & tgt, const table_base & negated_table) {
+        void operator()(table_base & tgt, const table_base & negated_table) override {
             SASSERT(m_negated_table==0);
             flet<const table_base *> flet_neg_table(m_negated_table, &negated_table);
             auxiliary_table_filter_fn::operator()(tgt);
@@ -1568,7 +1568,7 @@ namespace datalog {
         default_table_select_equal_and_project_fn(table_mutator_fn * filter, table_transformer_fn * project)
             : m_filter(filter), m_project(project) {}
 
-        virtual table_base * operator()(const table_base & t1) {
+        table_base * operator()(const table_base & t1) override {
             TRACE("dl", tout << t1.get_plugin().get_name() << "\n";);
             scoped_rel<table_base> aux = t1.clone();
             (*m_filter)(*aux);
@@ -1606,9 +1606,9 @@ namespace datalog {
             m_union_fn = plugin.mk_union_fn(t, *m_aux_table, static_cast<table_base *>(0));
         }
 
-        virtual ~default_table_map_fn() {}
+        ~default_table_map_fn() override {}
 
-        virtual void operator()(table_base & t) {
+        void operator()(table_base & t) override {
             SASSERT(t.get_signature()==m_aux_table->get_signature());
             if(!m_aux_table->empty()) {
                 m_aux_table->reset();
@@ -1664,7 +1664,7 @@ namespace datalog {
             m_former_row.resize(get_result_signature().size());
         }
 
-        virtual ~default_table_project_with_reduce_fn() {}
+        ~default_table_project_with_reduce_fn() override {}
 
         virtual void modify_fact(table_fact & f) const {
             unsigned ofs=1;
@@ -1693,7 +1693,7 @@ namespace datalog {
             }
         }
 
-        virtual table_base * operator()(const table_base & t) {
+        table_base * operator()(const table_base & t) override {
             table_plugin & plugin = t.get_plugin();
             const table_signature & res_sign = get_result_signature();
             SASSERT(plugin.can_handle_signature(res_sign));

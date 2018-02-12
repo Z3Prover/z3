@@ -47,9 +47,9 @@ namespace datalog {
         qa_model_converter(ast_manager& m):
             m(m), m_old_funcs(m), m_new_funcs(m) {}
 
-        virtual ~qa_model_converter() {}
+        ~qa_model_converter() override {}
 
-        virtual model_converter * translate(ast_translation & translator) { 
+        model_converter * translate(ast_translation & translator) override {
             return alloc(qa_model_converter, m);
         }
 
@@ -61,7 +61,7 @@ namespace datalog {
             m_sorts.push_back(sorts);
         }
 
-        virtual void operator()(model_ref & old_model) {
+        void operator()(model_ref & old_model) override {
             model_ref new_model = alloc(model, m);
             for (unsigned i = 0; i < m_new_funcs.size(); ++i) {
                 func_decl* p = m_new_funcs[i].get();

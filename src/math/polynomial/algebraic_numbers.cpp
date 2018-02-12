@@ -1932,9 +1932,9 @@ namespace algebraic_numbers {
             imp & m_imp;
             polynomial::var2anum const & m_x2v;
             opt_var2basic(imp & i, polynomial::var2anum const & x2v):m_imp(i), m_x2v(x2v) {}
-            virtual unsynch_mpq_manager & m() const { return m_imp.qm(); }
-            virtual bool contains(polynomial::var x) const { return m_x2v.contains(x); }
-            virtual mpq const & operator()(polynomial::var x) const {
+            unsynch_mpq_manager & m() const override { return m_imp.qm(); }
+            bool contains(polynomial::var x) const override { return m_x2v.contains(x); }
+            mpq const & operator()(polynomial::var x) const override {
                 anum const & v = m_x2v(x);
                 if (!v.is_basic())
                     throw failed();
@@ -1949,9 +1949,9 @@ namespace algebraic_numbers {
             imp & m_imp;
             polynomial::var2anum const & m_x2v;
             var2basic(imp & i, polynomial::var2anum const & x2v):m_imp(i), m_x2v(x2v) {}
-            virtual unsynch_mpq_manager & m() const { return m_imp.qm(); }
-            virtual bool contains(polynomial::var x) const { return m_x2v.contains(x) && m_x2v(x).is_basic(); }
-            virtual mpq const & operator()(polynomial::var x) const {
+            unsynch_mpq_manager & m() const override { return m_imp.qm(); }
+            bool contains(polynomial::var x) const override { return m_x2v.contains(x) && m_x2v(x).is_basic(); }
+            mpq const & operator()(polynomial::var x) const override {
                 anum const & v = m_x2v(x);
                 SASSERT(v.is_basic());
                 TRACE("var2basic", tout << "getting value of x" << x << " -> " << m().to_string(m_imp.basic_value(v)) << "\n";);
@@ -1966,9 +1966,9 @@ namespace algebraic_numbers {
             imp & m_imp;
             polynomial::var2anum const & m_x2v;
             var2interval(imp & i, polynomial::var2anum const & x2v):m_imp(i), m_x2v(x2v) {}
-            virtual mpbqi_manager & m() const { return m_imp.bqim(); }
-            virtual bool contains(polynomial::var x) const { return m_x2v.contains(x) && !m_x2v(x).is_basic(); }
-            virtual mpbqi const & operator()(polynomial::var x) const {
+            mpbqi_manager & m() const override { return m_imp.bqim(); }
+            bool contains(polynomial::var x) const override { return m_x2v.contains(x) && !m_x2v(x).is_basic(); }
+            mpbqi const & operator()(polynomial::var x) const override {
                 anum const & v = m_x2v(x);
                 SASSERT(!v.is_basic());
                 return v.to_algebraic()->m_interval;
@@ -2220,9 +2220,9 @@ namespace algebraic_numbers {
                 m_x(x),
                 m_v(v) {
             }
-            virtual manager & m() const { return m_am; }
-            virtual bool contains(polynomial::var x) const { return x == m_x || m_x2v.contains(x); }
-            virtual anum const & operator()(polynomial::var x) const {
+            manager & m() const override { return m_am; }
+            bool contains(polynomial::var x) const override { return x == m_x || m_x2v.contains(x); }
+            anum const & operator()(polynomial::var x) const override {
                 if (x == m_x)
                     return m_v;
                 else
@@ -2553,9 +2553,9 @@ namespace algebraic_numbers {
                 m_x2v(x2v),
                 m_v(v) {
             }
-            virtual manager & m() const { return m_am; }
-            virtual bool contains(polynomial::var x) const { return true; }
-            virtual anum const & operator()(polynomial::var x) const {
+            manager & m() const override { return m_am; }
+            bool contains(polynomial::var x) const override { return true; }
+            anum const & operator()(polynomial::var x) const override {
                 if (m_x2v.contains(x))
                     return m_x2v(x);
                 else

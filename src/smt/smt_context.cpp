@@ -476,7 +476,7 @@ namespace smt {
             m_r2_num_parents(r2_num_parents) {
         }
 
-        virtual void undo(context & ctx) {
+        void undo(context & ctx) override {
             ctx.undo_add_eq(m_r1, m_n1, m_r2_num_parents);
         }
     };
@@ -1451,7 +1451,7 @@ namespace smt {
         bool_var m_var;
     public:
         set_var_theory_trail(bool_var v):m_var(v) {}
-        virtual void undo(context & ctx) {
+        void undo(context & ctx) override {
             bool_var_data & d = ctx.m_bdata[m_var];
             d.reset_notify_theory();
         }
@@ -2951,7 +2951,7 @@ namespace smt {
         case_split_insert_trail(literal l):
             l(l) {
         }
-        virtual void undo(context & ctx) {
+        void undo(context & ctx) override {
             ctx.undo_th_case_split(l);
         }
     };
@@ -4131,7 +4131,7 @@ namespace smt {
         bool_var m_var;
     public:
         set_true_first_trail(bool_var v):m_var(v) {}
-        virtual void undo(context & ctx) {
+        void undo(context & ctx) override {
             ctx.m_bdata[m_var].reset_true_first_flag();
         }
     };

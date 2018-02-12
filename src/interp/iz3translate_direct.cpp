@@ -1611,7 +1611,7 @@ public:
             // 1) Translate ast proof term to Zproof
             // 2) Translate Zproof to Iproof
 
-            Iproof::node translate(ast proof, Iproof &dst){
+            Iproof::node translate(ast proof, Iproof &dst) override {
                 iproof = &dst;
                 Iproof::node Ipf = translate_main(proof,0);  // builds result in dst
                 return Ipf;
@@ -1629,7 +1629,7 @@ public:
                     traced_lit = ast();
                 }
 
-            ~iz3translation_direct(){
+            ~iz3translation_direct() override {
                 for(hash_map<non_local_lits, non_local_lits *>::iterator
                         it = non_local_lits_unique.begin(),
                         en = non_local_lits_unique.end();

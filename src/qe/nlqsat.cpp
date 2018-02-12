@@ -555,7 +555,7 @@ namespace qe {
         }
 
 
-        void reset() {
+        void reset() override {
             //m_solver.reset();
             m_asms.reset();
             m_cached_asms.reset();
@@ -798,16 +798,16 @@ namespace qe {
             m_nftactic = mk_tseitin_cnf_tactic(m);
         }
 
-        virtual ~nlqsat() {
+        ~nlqsat() override {
         }
 
-        void updt_params(params_ref const & p) {
+        void updt_params(params_ref const & p) override {
             params_ref p2(p);
             p2.set_bool("factor", false);
             m_solver.updt_params(p2);
         }
         
-        void collect_param_descrs(param_descrs & r) {
+        void collect_param_descrs(param_descrs & r) override {
         }
 
         
@@ -815,7 +815,7 @@ namespace qe {
                         /* out */ goal_ref_buffer & result, 
                         /* out */ model_converter_ref & mc, 
                         /* out */ proof_converter_ref & pc,
-                        /* out */ expr_dependency_ref & core) {
+                        /* out */ expr_dependency_ref & core) override {
 
             tactic_report report("nlqsat-tactic", *in);
 
@@ -863,27 +863,27 @@ namespace qe {
         }
 
 
-        void collect_statistics(statistics & st) const {
+        void collect_statistics(statistics & st) const override {
             st.copy(m_st);
             st.update("qsat num rounds", m_stats.m_num_rounds); 
         }
 
-        void reset_statistics() {
+        void reset_statistics() override {
             m_stats.reset();
             m_solver.reset_statistics();
         }
 
-        void cleanup() {
+        void cleanup() override {
             reset();
         }
         
-        void set_logic(symbol const & l) {
+        void set_logic(symbol const & l) override {
         }
         
-        void set_progress_callback(progress_callback * callback) {
+        void set_progress_callback(progress_callback * callback) override {
         }
         
-        tactic * translate(ast_manager & m) {
+        tactic * translate(ast_manager & m) override {
             return alloc(nlqsat, m, m_mode, m_params);
         }
     };

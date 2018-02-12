@@ -593,7 +593,7 @@ struct sat2goal::imp {
             }
         }
         
-        virtual void operator()(model_ref & md, unsigned goal_idx) {
+        void operator()(model_ref & md, unsigned goal_idx) override {
             SASSERT(goal_idx == 0);
             TRACE("sat_mc", tout << "before sat_mc\n"; model_v2_pp(tout, *md); display(tout););
             // REMARK: potential problem
@@ -644,7 +644,7 @@ struct sat2goal::imp {
             TRACE("sat_mc", tout << "after sat_mc\n"; model_v2_pp(tout, *md););
         }
         
-        virtual model_converter * translate(ast_translation & translator) {
+        model_converter * translate(ast_translation & translator) override {
             sat_model_converter * res = alloc(sat_model_converter, translator.to());
             res->m_fmc = static_cast<filter_model_converter*>(m_fmc->translate(translator));
             unsigned sz = m_var2expr.size();
@@ -653,7 +653,7 @@ struct sat2goal::imp {
             return res;
         }
         
-        void display(std::ostream & out) {
+        void display(std::ostream & out) override {
             out << "(sat-model-converter\n";
             m_mc.display(out);
             sat::bool_var_set vars;

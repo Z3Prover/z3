@@ -123,15 +123,15 @@ namespace smt {
         //
         // 
         // --------------------------------------------------
-        virtual bool is_shared(theory_var v) const;
+        bool is_shared(theory_var v) const override;
         void collect_shared_vars(sbuffer<theory_var> & result);
         unsigned mk_interface_eqs();
 
-        virtual bool can_propagate();
-        virtual void propagate();
-        virtual void push_scope_eh();
-        virtual void pop_scope_eh(unsigned num_scopes);
-        virtual void reset_eh();
+        bool can_propagate() override;
+        void propagate() override;
+        void push_scope_eh() override;
+        void pop_scope_eh(unsigned num_scopes) override;
+        void reset_eh() override;
         
         void reset_queues();
         // -----------------------------------
@@ -177,7 +177,7 @@ namespace smt {
         void set_default(theory_var v, enode* n);
         enode* get_default(theory_var v);
 
-        virtual void init_model(model_generator & m);
+        void init_model(model_generator & m) override;
         bool is_unspecified_default_ok() const;
         void collect_defaults();
         void collect_selects();
@@ -185,12 +185,12 @@ namespace smt {
         void propagate_selects_to_store_parents(enode * r, enode_pair_vector & todo);
         void propagate_selects();
         select_set * get_select_set(enode * n);
-        virtual void finalize_model(model_generator & m);
-        virtual model_value_proc * mk_value(enode * n, model_generator & m);
+        void finalize_model(model_generator & m) override;
+        model_value_proc * mk_value(enode * n, model_generator & m) override;
         
     public:
         theory_array_base(ast_manager & m);
-        virtual ~theory_array_base() { restore_sorts(0); }
+        ~theory_array_base() override { restore_sorts(0); }
     };
 
 };

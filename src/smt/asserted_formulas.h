@@ -82,80 +82,80 @@ class asserted_formulas {
     class reduce_asserted_formulas_fn : public simplify_fmls {
     public:
         reduce_asserted_formulas_fn(asserted_formulas& af): simplify_fmls(af, "reduce-asserted") {}
-        virtual void simplify(justified_expr const& j, expr_ref& n, proof_ref& p) { af.m_rewriter(j.get_fml(), n, p); }
+        void simplify(justified_expr const& j, expr_ref& n, proof_ref& p) override { af.m_rewriter(j.get_fml(), n, p); }
     };
 
     class find_macros_fn : public simplify_fmls {
     public:
         find_macros_fn(asserted_formulas& af): simplify_fmls(af, "find-macros") {}
-        virtual void operator()() { af.find_macros_core(); }
-        virtual bool should_apply() const { return af.m_params.m_macro_finder && af.has_quantifiers(); }
-        virtual void simplify(justified_expr const& j, expr_ref& n, proof_ref& p) { UNREACHABLE(); }
+        void operator()() override { af.find_macros_core(); }
+        bool should_apply() const override { return af.m_params.m_macro_finder && af.has_quantifiers(); }
+        void simplify(justified_expr const& j, expr_ref& n, proof_ref& p) override { UNREACHABLE(); }
     };
 
     class apply_quasi_macros_fn : public simplify_fmls {
     public:
         apply_quasi_macros_fn(asserted_formulas& af): simplify_fmls(af, "find-quasi-macros") {}
-        virtual void operator()() { af.apply_quasi_macros(); }
-        virtual bool should_apply() const { return af.m_params.m_quasi_macros && af.has_quantifiers(); }
-        virtual void simplify(justified_expr const& j, expr_ref& n, proof_ref& p) { UNREACHABLE(); }
+        void operator()() override { af.apply_quasi_macros(); }
+        bool should_apply() const override { return af.m_params.m_quasi_macros && af.has_quantifiers(); }
+        void simplify(justified_expr const& j, expr_ref& n, proof_ref& p) override { UNREACHABLE(); }
     };
 
     class nnf_cnf_fn : public simplify_fmls {
     public:
         nnf_cnf_fn(asserted_formulas& af): simplify_fmls(af, "nnf-cnf") {}
-        virtual void operator()() { af.nnf_cnf(); }
-        virtual bool should_apply() const { return af.m_params.m_nnf_cnf || (af.m_params.m_mbqi && af.has_quantifiers()); }
-        virtual void simplify(justified_expr const& j, expr_ref& n, proof_ref& p) { UNREACHABLE(); }
+        void operator()() override { af.nnf_cnf(); }
+        bool should_apply() const override { return af.m_params.m_nnf_cnf || (af.m_params.m_mbqi && af.has_quantifiers()); }
+        void simplify(justified_expr const& j, expr_ref& n, proof_ref& p) override { UNREACHABLE(); }
     };
 
     class propagate_values_fn : public simplify_fmls {
     public:
         propagate_values_fn(asserted_formulas& af): simplify_fmls(af, "propagate-values") {}
-        virtual void operator()() { af.propagate_values(); }
-        virtual bool should_apply() const { return af.m_params.m_propagate_values; }
-        virtual void simplify(justified_expr const& j, expr_ref& n, proof_ref& p) { UNREACHABLE(); }
+        void operator()() override { af.propagate_values(); }
+        bool should_apply() const override { return af.m_params.m_propagate_values; }
+        void simplify(justified_expr const& j, expr_ref& n, proof_ref& p) override { UNREACHABLE(); }
     };
 
     class distribute_forall_fn : public simplify_fmls {
         distribute_forall m_functor;
     public:
         distribute_forall_fn(asserted_formulas& af): simplify_fmls(af, "distribute-forall"), m_functor(af.m) {}
-        virtual void simplify(justified_expr const& j, expr_ref& n, proof_ref& p) { m_functor(j.get_fml(), n); }
-        virtual bool should_apply() const { return af.m_params.m_distribute_forall && af.has_quantifiers(); }
-        virtual void post_op() { af.reduce_and_solve();  TRACE("asserted_formulas", af.display(tout);); }
+        void simplify(justified_expr const& j, expr_ref& n, proof_ref& p) override { m_functor(j.get_fml(), n); }
+        bool should_apply() const override { return af.m_params.m_distribute_forall && af.has_quantifiers(); }
+        void post_op() override { af.reduce_and_solve();  TRACE("asserted_formulas", af.display(tout);); }
     };
 
     class pattern_inference_fn : public simplify_fmls {
         pattern_inference_rw m_infer;
     public:
         pattern_inference_fn(asserted_formulas& af): simplify_fmls(af, "pattern-inference"), m_infer(af.m, af.m_params) {}
-        virtual void simplify(justified_expr const& j, expr_ref& n, proof_ref& p) { m_infer(j.get_fml(), n, p); }
-        virtual bool should_apply() const { return af.m_params.m_ematching && af.has_quantifiers(); }
+        void simplify(justified_expr const& j, expr_ref& n, proof_ref& p) override { m_infer(j.get_fml(), n, p); }
+        bool should_apply() const override { return af.m_params.m_ematching && af.has_quantifiers(); }
     };
 
     class refine_inj_axiom_fn : public simplify_fmls {
     public:
         refine_inj_axiom_fn(asserted_formulas& af): simplify_fmls(af, "refine-injectivity") {}
-        virtual void simplify(justified_expr const& j, expr_ref& n, proof_ref& p);
-        virtual bool should_apply() const { return af.m_params.m_refine_inj_axiom && af.has_quantifiers(); }
+        void simplify(justified_expr const& j, expr_ref& n, proof_ref& p) override;
+        bool should_apply() const override { return af.m_params.m_refine_inj_axiom && af.has_quantifiers(); }
     };
 
     class max_bv_sharing_fn : public simplify_fmls {
     public:
         max_bv_sharing_fn(asserted_formulas& af): simplify_fmls(af, "maximizing-bv-sharing") {}
-        virtual void simplify(justified_expr const& j, expr_ref& n, proof_ref& p) { af.m_bv_sharing(j.get_fml(), n, p); }
-        virtual bool should_apply() const { return af.m_params.m_max_bv_sharing; }
-        virtual void post_op() { af.m_reduce_asserted_formulas(); }
+        void simplify(justified_expr const& j, expr_ref& n, proof_ref& p) override { af.m_bv_sharing(j.get_fml(), n, p); }
+        bool should_apply() const override { return af.m_params.m_max_bv_sharing; }
+        void post_op() override { af.m_reduce_asserted_formulas(); }
     };
 
     class elim_term_ite_fn : public simplify_fmls {
         elim_term_ite_rw m_elim;
     public:
         elim_term_ite_fn(asserted_formulas& af): simplify_fmls(af, "elim-term-ite"), m_elim(af.m, af.m_defined_names) {}
-        virtual void simplify(justified_expr const& j, expr_ref& n, proof_ref& p) { m_elim(j.get_fml(), n, p); }
-        virtual bool should_apply() const { return af.m_params.m_eliminate_term_ite && af.m_params.m_lift_ite != LI_FULL; }
-        virtual void post_op() { af.m_formulas.append(m_elim.new_defs()); af.reduce_and_solve(); m_elim.reset(); }
+        void simplify(justified_expr const& j, expr_ref& n, proof_ref& p) override { m_elim(j.get_fml(), n, p); }
+        bool should_apply() const override { return af.m_params.m_eliminate_term_ite && af.m_params.m_lift_ite != LI_FULL; }
+        void post_op() override { af.m_formulas.append(m_elim.new_defs()); af.reduce_and_solve(); m_elim.reset(); }
     };
 
 #define MK_SIMPLIFIERA(NAME, FUNCTOR, MSG, APP, ARG, REDUCE)            \

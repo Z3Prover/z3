@@ -345,9 +345,9 @@ extern "C" {
     public:
         vector_var2anum(scoped_anum_vector & as):m_as(as) {}
         virtual ~vector_var2anum() {}
-        virtual algebraic_numbers::manager & m() const { return m_as.m(); }
-        virtual bool contains(polynomial::var x) const { return static_cast<unsigned>(x) < m_as.size(); }
-        virtual algebraic_numbers::anum const & operator()(polynomial::var x) const { return m_as.get(x); }
+        algebraic_numbers::manager & m() const override { return m_as.m(); }
+        bool contains(polynomial::var x) const override { return static_cast<unsigned>(x) < m_as.size(); }
+        algebraic_numbers::anum const & operator()(polynomial::var x) const override { return m_as.get(x); }
     };
 
     Z3_ast_vector Z3_API Z3_algebraic_roots(Z3_context c, Z3_ast p, unsigned n, Z3_ast a[]) {
