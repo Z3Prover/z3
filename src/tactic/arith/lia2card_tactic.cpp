@@ -16,24 +16,6 @@ Author:
 Notes:
 
 --*/
-/*++
-Copyright (c) 2013 Microsoft Corporation
-
-Module Name:
-
-    lia2card_tactic.cpp
-
-Abstract:
-
-    Convert 0-1 integer variables cardinality constraints to built-in cardinality operator.
-
-Author:
- 
-    Nikolaj Bjorner (nbjorner) 2013-11-5
-
-Notes:
-
---*/
 #include "util/cooperate.h"
 #include "ast/ast_pp.h"
 #include "ast/pb_decl_plugin.h"

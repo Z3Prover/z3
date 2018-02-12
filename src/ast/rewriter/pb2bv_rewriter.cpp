@@ -610,7 +610,7 @@ struct pb2bv_rewriter::imp {
             m_keep_pb_constraints(false),
             m_pb_num_system(false),
             m_pb_totalizer(false),
-            m_min_arity(3)
+            m_min_arity(9)
         {}
 
         bool mk_app(bool full, func_decl * f, unsigned sz, expr * const* args, expr_ref & result) {
@@ -797,7 +797,7 @@ struct pb2bv_rewriter::imp {
             m_trail.push_back(l);
             return l;
         }
-        literal fresh(char const* n) {
+        literal fresh(char const* n) {                      
             expr_ref fr(m.mk_fresh_const(n, m.mk_bool_sort()), m);
             m_imp.m_fresh.push_back(to_app(fr)->get_decl());
             return trail(fr);

@@ -51,12 +51,14 @@ namespace sat {
         enum tag_t {
             card_t,
             pb_t,
-            xr_t
+            xr_t,
+            eq_t
         };
 
         class card;
         class pb;
         class xr;
+        class eq;
 
         class constraint {
         protected:
@@ -98,12 +100,15 @@ namespace sat {
             card& to_card();
             pb&  to_pb();
             xr& to_xr();
+            eq& to_eq();
             card const& to_card() const;
             pb const&  to_pb() const;
             xr const& to_xr() const;
+            eq const& to_eq() const;
             bool is_card() const { return m_tag == card_t; }
             bool is_pb() const { return m_tag == pb_t; }
             bool is_xr() const { return m_tag == xr_t; }
+            bool is_eq() const { return m_tag == eq_t; }
             
             virtual bool is_watching(literal l) const { UNREACHABLE(); return false; };
             virtual literal_vector literals() const { UNREACHABLE(); return literal_vector(); }
@@ -180,6 +185,60 @@ namespace sat {
             virtual unsigned get_coeff(unsigned i) const { return m_wlits[i].first; }
         };
 
+        struct eliteral {
+            unsigned weight;
+            literal  lit;
+            unsigned tweight;
+            literal  tlit;
+            eliteral(unsigned w, literal lit):
+                weight(w), lit(lit), tweight(0), tlit(null_literal)
+            {}
+            eliteral(): weight(0), lit(null_literal), tweight(0), tlit(null_literal) {}
+        };
+        class eq : public constraint {
+            unsigned       m_lo, m_hi, m_max, m_k, m_trail_sz;
+            eliteral       m_wlits[0];
+        public:
+            static size_t get_obj_size(unsigned num_lits) { return sizeof(eq) + num_lits * sizeof(eliteral); }
+            eq(unsigned id, literal lit, svector<wliteral> const& wlits, unsigned k);
+            literal lit() const { return m_lit; }
+            eliteral operator[](unsigned i) const { return m_wlits[i]; }
+            eliteral& operator[](unsigned i) { return m_wlits[i]; }
+            eliteral const* begin() const { return m_wlits; }
+            eliteral const* end() const { return begin() + m_size; }
+            unsigned index(literal l) const;            
+            unsigned k() const { return m_k; }
+            void reset_lo() { m_lo = 0; }
+            void reset_hi() { m_hi = m_max; }
+            unsigned lo() const { return m_lo; }
+            unsigned hi() const { return m_hi; }
+            void inc_hi(unsigned d) { m_hi += d; }
+            void dec_lo(unsigned d) { SASSERT(d <= m_lo); m_lo -= d; }
+            // increment/decrement lo/hi save delta and variable in a trail.
+            void inc_lo(eliteral const& e) { 
+                m_lo += e.weight; 
+                m_wlits[m_trail_sz].tlit = literal(e.lit.var(), false); 
+                m_wlits[m_trail_sz++].tweight = e.weight; 
+            }
+            void dec_hi(eliteral const& e) { 
+                m_hi -= e.weight; 
+                m_wlits[m_trail_sz].tlit = literal(e.lit.var(), true); 
+                m_wlits[m_trail_sz++].tweight = e.weight; 
+            }
+            unsigned trail_sz() const { return m_trail_sz; }
+            void set_trail_sz(unsigned sz) { m_trail_sz = sz; }
+
+            virtual void negate() { SASSERT(lit() != null_literal); m_lit.neg(); }
+            virtual void set_k(unsigned k) { m_k = k; }
+            virtual void swap(unsigned i, unsigned j) { std::swap(m_wlits[i], m_wlits[j]); }
+            virtual literal_vector literals() const { literal_vector lits; for (auto wl : *this) lits.push_back(wl.lit); return lits; }
+            virtual bool is_watching(literal l) const { return true; }
+            virtual literal get_lit(unsigned i) const { return m_wlits[i].lit; }
+            virtual void set_lit(unsigned i, literal l) { m_wlits[i].lit = l; }
+            virtual unsigned get_coeff(unsigned i) const { return m_wlits[i].weight; }
+            
+        };
+
         class xr : public constraint {
             literal        m_lits[0];
         public:
@@ -222,6 +281,8 @@ namespace sat {
         unsigned_vector        m_constraint_to_reinit_lim;
         unsigned               m_constraint_to_reinit_last_sz;
         unsigned               m_constraint_id;
+        ptr_vector<eq>         m_eq_to_pop;
+        unsigned_vector        m_eq_to_pop_lim;
 
         // conflict resolution
         unsigned          m_num_marks;
@@ -390,6 +451,19 @@ namespace sat {
         lbool eval(model const& m, pb const& p) const;
         double get_reward(pb const& p, literal_occs_fun& occs) const;
 
+        // eq functionality
+        void pop_eq(eq& e);
+        bool init_watch(eq& e);
+        void clear_watch(eq& e);
+        lbool add_assign(eq& e, literal alit);
+        void get_antecedents(literal l, eq const& e, literal_vector& r);
+        void simplify(eq& e);
+        void recompile(eq& e);
+        void split_root(eq& e);
+        void calibrate(eq& e);
+        lbool eval(eq const& e) const;
+        lbool eval(model const& m, eq const& e) const;
+
         // access solver
         inline lbool value(bool_var v) const { return value(literal(v, false)); }
         inline lbool value(literal lit) const { return m_lookahead ? m_lookahead->value(lit) : m_solver->value(lit); }
@@ -467,10 +541,13 @@ namespace sat {
         void display(std::ostream& out, card const& c, bool values) const;
         void display(std::ostream& out, pb const& p, bool values) const;
         void display(std::ostream& out, xr const& c, bool values) const;
+        void display(std::ostream& out, eq const& e, bool values) const;
+        void display_lit(std::ostream& out, literal l, unsigned sz, bool values) const;
 
         constraint* add_at_least(literal l, literal_vector const& lits, unsigned k, bool learned);
         constraint* add_pb_ge(literal l, svector<wliteral> const& wlits, unsigned k, bool learned);
         constraint* add_xr(literal_vector const& lits, bool learned);
+        constraint* add_eq(literal l, svector<wliteral> const& wlits, unsigned k, bool learned);
 
         void copy_core(ba_solver* result, bool learned);
         void copy_constraints(ba_solver* result, ptr_vector<constraint> const& constraints);
@@ -484,6 +561,7 @@ namespace sat {
         void    add_at_least(bool_var v, literal_vector const& lits, unsigned k);
         void    add_pb_ge(bool_var v, svector<wliteral> const& wlits, unsigned k);
         void    add_xr(literal_vector const& lits);
+        void    add_eq(literal l, svector<wliteral> const& wlits, unsigned k) { add_eq(l, wlits, k, false); }
 
         virtual bool propagate(literal l, ext_constraint_idx idx);
         virtual lbool resolve_conflict();

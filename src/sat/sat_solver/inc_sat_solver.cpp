@@ -60,7 +60,6 @@ class inc_sat_solver : public solver {
     sat::literal_vector m_asms;
     goal_ref_buffer     m_subgoals;
     proof_converter_ref m_pc;
-    model_converter_ref m_mc;
     mutable model_converter_ref m_mc0;
     mutable obj_hashtable<func_decl>  m_inserted_const2bits;
     mutable ref<sat2goal::mc>   m_sat_mc;
@@ -120,7 +119,6 @@ public:
         for (unsigned a : m_asms_lim) result->m_asms_lim.push_back(a);
         for (unsigned h : m_fmls_head_lim) result->m_fmls_head_lim.push_back(h);
         for (expr* f : m_internalized_fmls) result->m_internalized_fmls.push_back(tr(f));
-        if (m_mc) result->m_mc = m_mc->translate(tr);
         if (m_mc0) result->m_mc0 = m_mc0->translate(tr);
         if (m_sat_mc) result->m_sat_mc = dynamic_cast<sat2goal::mc*>(m_sat_mc->translate(tr));
         // copy m_bb_rewriter?
@@ -189,6 +187,7 @@ public:
 
         init_reason_unknown();
         try {
+            // IF_VERBOSE(0, m_solver.display(verbose_stream()));
             r = m_solver.check(m_asms.size(), m_asms.c_ptr());
         }
         catch (z3_exception& ex) {
@@ -526,7 +525,6 @@ private:
 
 
     lbool internalize_goal(goal_ref& g, dep2asm_t& dep2asm, bool is_lemma) {
-        m_mc.reset();
         m_pc.reset();
         m_subgoals.reset();
         init_preprocess();
@@ -553,7 +551,7 @@ private:
         g = m_subgoals[0];
         expr_ref_vector atoms(m);
         m_pc = g->pc();
-        m_mc = g->mc();
+        m_mc0 = concat(m_mc0.get(), g->mc());
         TRACE("sat", g->display_with_dependencies(tout););
 
         // ensure that if goal is already internalized, then import mc from m_solver.

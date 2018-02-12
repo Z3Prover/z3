@@ -1052,10 +1052,10 @@ namespace sat {
         // Find literals that are in the intersection of all resolvents with l.
         //
         bool resolution_intersection(literal l, bool adding) {
-            if (!process_var(l.var())) return false;
-            bool first = true;
             reset_intersection();
             m_tautology.reset();
+            if (!process_var(l.var())) return false;
+            bool first = true;
             for (watched & w : s.get_wlist(l)) {
                 // when adding a blocked clause, then all non-learned clauses have to be considered for the
                 // resolution intersection.
