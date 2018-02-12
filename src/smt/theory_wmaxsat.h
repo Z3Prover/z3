@@ -96,7 +96,7 @@ namespace smt {
         }
         void reset_local();
         void reset_eh() override;
-        theory * mk_fresh(context * new_ctx) override { return 0; }
+        theory * mk_fresh(context * new_ctx) override { return nullptr; }
         bool internalize_atom(app * atom, bool gate_ctx) override { return false; }
         bool internalize_term(app * term) override { return false; }
         void new_eq_eh(theory_var v1, theory_var v2) override { }

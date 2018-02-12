@@ -37,7 +37,7 @@ public:
     void pp(func_decl * f, format_ns::format_ref & r) const override { mk_smt2_format(f, env(), params_ref(), r); }
     void pp(expr * n, format_ns::format_ref & r) const override {
         sbuffer<symbol> buf;
-        mk_smt2_format(n, env(), params_ref(), 0, 0, r, buf); 
+        mk_smt2_format(n, env(), params_ref(), 0, nullptr, r, buf);
     }
     void pp(expr * n, unsigned num_vars, char const * var_prefix, format_ns::format_ref & r, sbuffer<symbol> & var_names) const override {
         mk_smt2_format(n, env(), params_ref(), num_vars, var_prefix, r, var_names);

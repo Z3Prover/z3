@@ -255,7 +255,7 @@ namespace smt {
 
         theory_axiom_justification(family_id fid, region & r,                                    
                                    unsigned num_lits, literal const * lits, 
-                                   unsigned num_params = 0, parameter* params = 0):
+                                   unsigned num_params = 0, parameter* params = nullptr):
             simple_theory_justification(fid, r, num_lits, lits, num_params, params)  {}
         
         void get_antecedents(conflict_resolution & cr) override {}
@@ -269,7 +269,7 @@ namespace smt {
         literal        m_consequent;
     public:
         theory_propagation_justification(family_id fid, region & r, unsigned num_lits, literal const * lits, literal consequent, 
-                                         unsigned num_params = 0, parameter* params = 0):
+                                         unsigned num_params = 0, parameter* params = nullptr):
             simple_theory_justification(fid, r, num_lits, lits, num_params, params), m_consequent(consequent) {}
 
         proof * mk_proof(conflict_resolution & cr) override;
@@ -282,7 +282,7 @@ namespace smt {
     class theory_conflict_justification : public simple_theory_justification {
     public:
         theory_conflict_justification(family_id fid, region & r, unsigned num_lits, literal const * lits, 
-                                      unsigned num_params = 0, parameter* params = 0):
+                                      unsigned num_params = 0, parameter* params = nullptr):
             simple_theory_justification(fid, r, num_lits, lits, num_params, params) {}
 
         proof * mk_proof(conflict_resolution & cr) override;
@@ -322,7 +322,7 @@ namespace smt {
     public:
         ext_theory_simple_justification(family_id fid, region & r, unsigned num_lits, literal const * lits, 
                                         unsigned num_eqs, enode_pair const * eqs, 
-                                        unsigned num_params = 0, parameter* params = 0):
+                                        unsigned num_params = 0, parameter* params = nullptr):
             ext_simple_justification(r, num_lits, lits, num_eqs, eqs), m_th_id(fid), m_params(num_params, params) {}
             
         ~ext_theory_simple_justification() override {}
@@ -341,7 +341,7 @@ namespace smt {
                                              unsigned num_lits, literal const * lits, 
                                              unsigned num_eqs, enode_pair const * eqs,
                                              literal consequent,
-                                             unsigned num_params = 0, parameter* params = 0):
+                                             unsigned num_params = 0, parameter* params = nullptr):
             ext_theory_simple_justification(fid, r, num_lits, lits, num_eqs, eqs, num_params, params), 
             m_consequent(consequent) {}
 
@@ -354,7 +354,7 @@ namespace smt {
     public:
         ext_theory_conflict_justification(family_id fid, region & r, unsigned num_lits, literal const * lits, 
                                           unsigned num_eqs, enode_pair const * eqs,
-                                          unsigned num_params = 0, parameter* params = 0):
+                                          unsigned num_params = 0, parameter* params = nullptr):
             ext_theory_simple_justification(fid, r, num_lits, lits, num_eqs, eqs, num_params, params) {}
 
         proof * mk_proof(conflict_resolution & cr) override;
@@ -371,7 +371,7 @@ namespace smt {
             unsigned num_lits, literal const * lits, 
             unsigned num_eqs, enode_pair const * eqs,
             enode * lhs, enode * rhs,
-            unsigned num_params = 0, parameter* params = 0):
+            unsigned num_params = 0, parameter* params = nullptr):
             ext_theory_simple_justification(fid, r, num_lits, lits, num_eqs, eqs, num_params, params), m_lhs(lhs), m_rhs(rhs) {}
 
         proof * mk_proof(conflict_resolution & cr) override;
@@ -392,7 +392,7 @@ namespace smt {
         
     public:
         theory_lemma_justification(family_id fid, context & ctx, unsigned num_lits, literal const * lits, 
-                                   unsigned num_params = 0, parameter* params = 0);
+                                   unsigned num_params = 0, parameter* params = nullptr);
 
         ~theory_lemma_justification() override;
 

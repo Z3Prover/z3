@@ -63,7 +63,7 @@ public:
     raw_ast * const &raw() const {return _ast;}
     ast_i(raw_ast *a){_ast = a;}
     
-    ast_i(){_ast = 0;}
+    ast_i(){_ast = nullptr;}
     bool eq(const ast_i &other) const {
         return _ast == other._ast;
     }
@@ -92,7 +92,7 @@ public:
         m->inc_ref(a);
     }
     
-    ast_r() {_m = 0;}
+    ast_r() {_m = nullptr;}
     
     ast_r(const ast_r &other) : ast_i(other) {
         _m = other._m;
@@ -287,7 +287,7 @@ class iz3mgr  {
 
     symb sym(const ast& t){
         raw_ast *_ast = t.raw();
-        return is_app(_ast) ? to_app(_ast)->get_decl() : 0;
+        return is_app(_ast) ? to_app(_ast)->get_decl() : nullptr;
     }
 
     std::string string_of_symbol(symb s){

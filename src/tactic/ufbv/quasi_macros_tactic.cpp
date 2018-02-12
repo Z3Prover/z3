@@ -41,7 +41,7 @@ class quasi_macros_tactic : public tactic {
                         proof_converter_ref & pc,
                         expr_dependency_ref & core) {
             SASSERT(g->is_well_sorted());
-            mc = 0; pc = 0; core = 0;
+            mc = nullptr; pc = nullptr; core = nullptr;
             tactic_report report("quasi-macros", *g);
 
             bool produce_proofs = g->proofs_enabled();
@@ -78,8 +78,8 @@ class quasi_macros_tactic : public tactic {
             g->reset();
             for (unsigned i = 0; i < new_forms.size(); i++)
                 g->assert_expr(forms.get(i),
-                               produce_proofs ? proofs.get(i) : 0,
-                               produce_unsat_cores ? deps.get(i) : 0);
+                               produce_proofs ? proofs.get(i) : nullptr,
+                               produce_unsat_cores ? deps.get(i) : nullptr);
 
             extension_model_converter * evmc = alloc(extension_model_converter, mm.get_manager());
             unsigned num = mm.get_num_macros();

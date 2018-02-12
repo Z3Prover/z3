@@ -78,7 +78,7 @@ public:
                     model_converter_ref & mc,
                     proof_converter_ref & pc,
                     expr_dependency_ref & core) override {
-        mc = 0; pc = 0; core = 0;
+        mc = nullptr; pc = nullptr; core = nullptr;
         (*m_imp)(*(in.get()));
         in->inc_depth();
         result.push_back(in.get());

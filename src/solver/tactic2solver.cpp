@@ -105,12 +105,12 @@ void tactic2solver::collect_param_descrs(param_descrs & r) {
 
 void tactic2solver::assert_expr(expr * t) {
     m_assertions.push_back(t);
-    m_result = 0;
+    m_result = nullptr;
 }
 
 void tactic2solver::push_core() {
     m_scopes.push_back(m_assertions.size());
-    m_result = 0;
+    m_result = nullptr;
 }
 
 void tactic2solver::pop_core(unsigned n) {
@@ -118,11 +118,11 @@ void tactic2solver::pop_core(unsigned n) {
     unsigned old_sz  = m_scopes[new_lvl];
     m_assertions.shrink(old_sz);
     m_scopes.shrink(new_lvl);
-    m_result = 0;
+    m_result = nullptr;
 }
 
 lbool tactic2solver::check_sat_core(unsigned num_assumptions, expr * const * assumptions) {
-    if (m_tactic.get() == 0)
+    if (m_tactic.get() == nullptr)
         return l_false;
     ast_manager & m = m_assertions.m();
     m_result = alloc(simple_check_sat_result, m);
@@ -187,7 +187,7 @@ lbool tactic2solver::check_sat_core(unsigned num_assumptions, expr * const * ass
 solver* tactic2solver::translate(ast_manager& m, params_ref const& p) {
     tactic* t = m_tactic->translate(m);
     tactic2solver* r = alloc(tactic2solver, m, t, p, m_produce_proofs, m_produce_models, m_produce_unsat_cores, m_logic);
-    r->m_result = 0;
+    r->m_result = nullptr;
     if (!m_scopes.empty()) {
         throw default_exception("translation of contexts is only supported at base level");
     }
@@ -220,7 +220,7 @@ proof * tactic2solver::get_proof() {
     if (m_result.get())
         return m_result->get_proof();
     else
-        return 0;
+        return nullptr;
 }
 
 std::string tactic2solver::reason_unknown() const {

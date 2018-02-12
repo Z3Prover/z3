@@ -423,20 +423,20 @@ namespace smt {
             instruction * curr = head;
             out << *curr;
             curr = curr->m_next;
-            while (curr != 0 && curr->m_opcode != CHOOSE && curr->m_opcode != NOOP) {
+            while (curr != nullptr && curr->m_opcode != CHOOSE && curr->m_opcode != NOOP) {
                 out << "\n";
                 out << *curr;
                 curr = curr->m_next;
             }
             out << "\n";
-            if (curr != 0) {
+            if (curr != nullptr) {
                 display_children(out, static_cast<choose*>(curr), indent + 1);
             }
         }
 
         void display_children(std::ostream & out, choose * first_child, unsigned indent) const {
             choose * curr = first_child;
-            while (curr != 0) {
+            while (curr != nullptr) {
                 display_seq(out, curr, indent);
                 curr = curr->m_alt;
             }
@@ -485,7 +485,7 @@ namespace smt {
             m_filter_candidates(filter_candidates),
             m_num_regs(num_args + 1),
             m_num_choices(0),
-            m_root(0) {
+            m_root(nullptr) {
             DEBUG_CODE(m_context = 0;);
 #ifdef _PROFILE_MAM
             m_counter = 0;
@@ -607,7 +607,7 @@ namespace smt {
             void * mem = m_region.allocate(size);
             OP * r = new (mem) OP;
             r->m_opcode = op;
-            r->m_next   = 0;
+            r->m_next   = nullptr;
 #ifdef _PROFILE_MAM
             r->m_counter = 0;
 #endif
@@ -696,7 +696,7 @@ namespace smt {
 
         choose * mk_noop() {
             choose * r  = mk_instr<choose>(NOOP, sizeof(choose));
-            r->m_alt = 0;
+            r->m_alt = nullptr;
             return r;
         }
 
@@ -923,7 +923,7 @@ namespace smt {
         */
         void linearise_core() {
             m_aux.reset();
-            app *         first_app = 0;
+            app *         first_app = nullptr;
             unsigned      first_app_reg;
             unsigned      first_app_sz;
             unsigned      first_app_num_unbound_vars;
@@ -1111,7 +1111,7 @@ namespace smt {
             // multi_pattern support
             for (unsigned i = 1; i < num_args; i++) {
                 // select the pattern with the biggest number of bound variables
-                app *    best  = 0;
+                app *    best  = nullptr;
                 unsigned best_num_bvars = 0;
                 unsigned best_j = 0;
                 bool     found_bounded_mp = false;
@@ -1127,7 +1127,7 @@ namespace smt {
                         found_bounded_mp = true;
                         break;
                     }
-                    if (best == 0 || (num_bvars > best_num_bvars)) {
+                    if (best == nullptr || (num_bvars > best_num_bvars)) {
                         best           = p;
                         best_num_bvars = num_bvars;
                         best_j         = j;
@@ -1286,16 +1286,16 @@ namespace smt {
 
         choose * find_best_child(choose * first_child) {
             unsigned num_too_simple    = 0;
-            choose * best_child        = 0;
+            choose * best_child        = nullptr;
             unsigned max_compatibility = 0;
             choose * curr_child        = first_child;
-            while (curr_child != 0) {
+            while (curr_child != nullptr) {
                 bool simple = false;
                 unsigned curr_compatibility = get_compatibility_measure(curr_child, simple);
                 if (simple) {
                     num_too_simple++;
                     if (num_too_simple > FIND_BEST_CHILD_THRESHOLD)
-                        return 0; // it is unlikely we will find a compatible node
+                        return nullptr; // it is unlikely we will find a compatible node
                 }
                 if (curr_compatibility > max_compatibility) {
                     best_child         = curr_child;
@@ -1310,7 +1310,7 @@ namespace smt {
             unsigned ireg = instr->m_ireg;
             expr * n      = m_registers[ireg];
             return
-                n != 0 &&
+                n != nullptr &&
                 is_app(n) &&
                 // It is wasteful to use a bind of a ground term.
                 // Actually, in the rest of the code I assume that.
@@ -1450,7 +1450,7 @@ namespace smt {
             unsigned weight    = 0;
             unsigned num_instr = 0;
             instruction * curr = child->m_next;
-            while (curr != 0 && curr->m_opcode != CHOOSE && curr->m_opcode != NOOP) {
+            while (curr != nullptr && curr->m_opcode != CHOOSE && curr->m_opcode != NOOP) {
                 num_instr++;
                 switch (curr->m_opcode) {
                 case BIND1: case BIND2: case BIND3: case BIND4: case BIND5: case BIND6: case BINDN:
@@ -1493,7 +1493,7 @@ namespace smt {
                 }
                 curr = curr->m_next;
             }
-            if (num_instr > SIMPLE_SEQ_THRESHOLD || (curr != 0 && curr->m_opcode == CHOOSE))
+            if (num_instr > SIMPLE_SEQ_THRESHOLD || (curr != nullptr && curr->m_opcode == CHOOSE))
                 simple = false;
             unsigned_vector::iterator it  = m_to_reset.begin();
             unsigned_vector::iterator end = m_to_reset.end();
@@ -1509,7 +1509,7 @@ namespace smt {
                 TRACE("mam_compiler_detail", tout << "processing head: " << *head << "\n";);
                 instruction * curr = head->m_next;
                 instruction * last = head;
-                while (curr != 0 && curr->m_opcode != CHOOSE && curr->m_opcode != NOOP) {
+                while (curr != nullptr && curr->m_opcode != CHOOSE && curr->m_opcode != NOOP) {
                     TRACE("mam_compiler_detail", tout << "processing instr: " << *curr << "\n";);
                     switch (curr->m_opcode) {
                     case BIND1: case BIND2: case BIND3: case BIND4: case BIND5: case BIND6: case BINDN:
@@ -1680,7 +1680,7 @@ namespace smt {
                     SASSERT(curr->m_opcode == CHOOSE);
                     choose * first_child = static_cast<choose *>(curr);
                     choose * best_child = find_best_child(first_child);
-                    if (best_child == 0) {
+                    if (best_child == nullptr) {
                         // There is no compatible child
                         // Suppose the sequence is:
                         //   head -> c1 -> ... -> (cn == last) -> first_child;
@@ -1902,7 +1902,7 @@ namespace smt {
                 curr = curr->get_next();
             }
             while (curr != first);
-            return 0;
+            return nullptr;
         }
 
         enode * get_next_f_app(func_decl * lbl, unsigned num_expected_args, enode * first, enode * curr) {
@@ -1914,7 +1914,7 @@ namespace smt {
                 }
                 curr = curr->get_next();
             }
-            return 0;
+            return nullptr;
         }
 
         /**
@@ -2094,7 +2094,7 @@ namespace smt {
     enode_vector * interpreter::mk_depth2_vector(joint2 * j2, func_decl * f, unsigned i) {
         enode * n = m_registers[j2->m_reg]->get_root();
         if (n->get_num_parents() == 0)
-            return 0;
+            return nullptr;
         unsigned num_args = n->get_num_args();
         enode_vector * v  = mk_enode_vector();
         enode_vector::const_iterator it1  = n->begin_parents();
@@ -2132,7 +2132,7 @@ namespace smt {
         // quick filter... check if any of the joint points have zero parents...
         for (unsigned i = 0; i < num_args; i++) {
             void * bare = c->m_joints[i];
-            enode * n   = 0;
+            enode * n   = nullptr;
             switch (GET_TAG(bare)) {
             case NULL_TAG:
                 goto non_depth1;
@@ -2147,20 +2147,20 @@ namespace smt {
             }
             r = n->get_root();
             if (m_use_filters && r->get_plbls().empty_intersection(c->m_lbl_set))
-                return 0;
+                return nullptr;
             if (r->get_num_parents() == 0)
-                return 0;
+                return nullptr;
         non_depth1:
             ;
         }
         // traverse each joint and select the best one.
-        enode_vector * best_v   = 0;
+        enode_vector * best_v   = nullptr;
         for (unsigned i = 0; i < num_args; i++) {
             enode * bare          = c->m_joints[i];
-            enode_vector * curr_v = 0;
+            enode_vector * curr_v = nullptr;
             switch (GET_TAG(bare)) {
             case NULL_TAG:
-                curr_v = 0;
+                curr_v = nullptr;
                 break;
             case GROUND_TERM_TAG:
                 curr_v = mk_depth1_vector(UNTAG(enode *, bare), lbl, i);
@@ -2172,14 +2172,14 @@ namespace smt {
                 curr_v = mk_depth2_vector(UNTAG(joint2 *, bare), lbl, i);
                 break;
             }
-            if (curr_v != 0) {
-                if (curr_v->size() < min_sz && (best_v == 0 || curr_v->size() < best_v->size())) {
+            if (curr_v != nullptr) {
+                if (curr_v->size() < min_sz && (best_v == nullptr || curr_v->size() < best_v->size())) {
                     if (best_v)
                         recycle_enode_vector(best_v);
                     best_v  = curr_v;
                     if (best_v->empty()) {
                         recycle_enode_vector(best_v);
-                        return 0;
+                        return nullptr;
                     }
                 }
                 else {
@@ -2191,10 +2191,10 @@ namespace smt {
         bp.m_instr                = c;
         bp.m_old_max_generation   = m_max_generation;
         bp.m_old_used_enodes_size = m_used_enodes.size();
-        if (best_v == 0) {
+        if (best_v == nullptr) {
             TRACE("mam_bug", tout << "m_top: " << m_top << ", m_backtrack_stack.size(): " << m_backtrack_stack.size() << "\n";
                   tout << *c << "\n";);
-            bp.m_to_recycle           = 0;
+            bp.m_to_recycle           = nullptr;
             bp.m_it                   = m_context.begin_enodes_of(lbl);
             bp.m_end                  = m_context.end_enodes_of(lbl);
         }
@@ -2211,7 +2211,7 @@ namespace smt {
                 break;
         }
         if (bp.m_it == bp.m_end)
-            return 0;
+            return nullptr;
         m_top++;
         update_max_generation(*(bp.m_it));
         return *(bp.m_it);
@@ -2648,7 +2648,7 @@ namespace smt {
             m_num_args = static_cast<const cont *>(m_pc)->m_num_args;
             m_oreg     = static_cast<const cont *>(m_pc)->m_oreg;
             m_app = init_continue(static_cast<const cont *>(m_pc), m_num_args);
-            if (m_app == 0)
+            if (m_app == nullptr)
                 goto backtrack;
             m_pattern_instances.push_back(m_app);
             TRACE("mam_int", tout << "continue candidate:\n" << mk_ll_pp(m_app->get_owner(), m_ast_manager););
@@ -2911,7 +2911,7 @@ namespace smt {
             if (lbl_id < m_trees.size())
                 return m_trees[lbl_id];
             else
-                return 0;
+                return nullptr;
         }
 
         ptr_vector<code_tree>::iterator begin_code_trees() {
@@ -2974,11 +2974,11 @@ namespace smt {
             if (p1->m_label        != p2->m_label ||
                 p1->m_arg_idx      != p2->m_arg_idx ||
                 p1->m_pattern_idx  != p2->m_pattern_idx ||
-                (p1->m_child == 0) != (p2->m_child == 0)) {
+                (p1->m_child == nullptr) != (p2->m_child == nullptr)) {
                 return false;
             }
 
-            if (p1->m_child == 0 && p2->m_child == 0)
+            if (p1->m_child == nullptr && p2->m_child == nullptr)
                 return true;
 
             p1 = p1->m_child;
@@ -3014,11 +3014,11 @@ namespace smt {
             m_arg_idx(p->m_arg_idx),
             m_ground_arg_idx(p->m_ground_arg_idx),
             m_ground_arg(p->m_ground_arg),
-            m_code(0),
+            m_code(nullptr),
             m_filter(h(p->m_label)),
-            m_sibling(0),
-            m_first_child(0),
-            m_todo(0) {
+            m_sibling(nullptr),
+            m_first_child(nullptr),
+            m_todo(nullptr) {
 #ifdef _PROFILE_PATH_TREE
             m_counter = 0;
             m_num_eq_visited = 0;
@@ -3029,7 +3029,7 @@ namespace smt {
 
         void display(std::ostream & out, unsigned indent) {
             path_tree * curr = this;
-            while (curr != 0) {
+            while (curr != nullptr) {
                 for (unsigned i = 0; i < indent; i++) out << "  ";
                 out << curr->m_label->get_name() << ":" << curr->m_arg_idx;
                 if (curr->m_ground_arg)
@@ -3122,7 +3122,7 @@ namespace smt {
         }
 
         void add_candidate(code_tree * t, enode * app) {
-            if (t != 0) {
+            if (t != nullptr) {
                 TRACE("mam_candidate", tout << "adding candidate:\n" << mk_ll_pp(app->get_owner(), m_ast_manager););
                 if (!t->has_candidates())
                     m_to_match.push_back(t);
@@ -3221,7 +3221,7 @@ namespace smt {
                 for (unsigned j = 0; j < APPROX_SET_CAPACITY; j++) {
                     m_pp[i][j].first  = 0;
                     m_pp[i][j].second = 0;
-                    m_pc[i][j]        = 0;
+                    m_pc[i][j]        = nullptr;
                 }
             }
         }
@@ -3240,10 +3240,10 @@ namespace smt {
             SASSERT(m_ast_manager.is_pattern(mp));
             SASSERT(p != 0);
             unsigned pat_idx = p->m_pattern_idx;
-            path_tree * head = 0;
-            path_tree * curr = 0;
-            path_tree * prev = 0;
-            while (p != 0) {
+            path_tree * head = nullptr;
+            path_tree * curr = nullptr;
+            path_tree * prev = nullptr;
+            while (p != nullptr) {
                 curr = new (m_region) path_tree(p, m_lbl_hasher);
                 if (prev)
                     prev->m_first_child = curr;
@@ -3260,9 +3260,9 @@ namespace smt {
         void insert(path_tree * t, path * p, quantifier * qa, app * mp) {
             SASSERT(m_ast_manager.is_pattern(mp));
             path_tree * head = t;
-            path_tree * prev_sibling = 0;
+            path_tree * prev_sibling = nullptr;
             bool found_label = false;
-            while (t != 0) {
+            while (t != nullptr) {
                 if (t->m_label == p->m_label) {
                     found_label = true;
                     if (t->m_arg_idx == p->m_arg_idx &&
@@ -3270,8 +3270,8 @@ namespace smt {
                         t->m_ground_arg_idx == p->m_ground_arg_idx
                         ) {
                         // found compatible node
-                        if (t->m_first_child == 0) {
-                            if (p->m_child == 0) {
+                        if (t->m_first_child == nullptr) {
+                            if (p->m_child == nullptr) {
                                 SASSERT(t->m_code != 0);
                                 insert_code(t, qa, mp, p->m_pattern_idx);
                             }
@@ -3281,7 +3281,7 @@ namespace smt {
                             }
                         }
                         else {
-                            if (p->m_child == 0) {
+                            if (p->m_child == nullptr) {
                                 if (t->m_code) {
                                     insert_code(t, qa, mp, p->m_pattern_idx);
                                 }
@@ -3393,7 +3393,7 @@ namespace smt {
                     return mk_enode(m_context, qa, to_app(arg));
                 }
             }
-            return 0;
+            return nullptr;
         }
 
         /**
@@ -3460,7 +3460,7 @@ namespace smt {
             unsigned num_patterns = mp->get_num_args();
             for (unsigned i = 0; i < num_patterns; i++) {
                 app * pat = to_app(mp->get_arg(i));
-                update_filters(pat, 0, qa, mp, i);
+                update_filters(pat, nullptr, qa, mp, i);
             }
         }
 
@@ -3496,7 +3496,7 @@ namespace smt {
            \brief Collect new E-matching candidates using the inverted path index t.
         */
         void collect_parents(enode * r, path_tree * t) {
-            if (t == 0)
+            if (t == nullptr)
                 return;
 #ifdef _PROFILE_PATH_TREE
             t->m_watch.start();
@@ -3604,7 +3604,7 @@ namespace smt {
                                         // Filter 2.
                                         (
                                          // curr_tree has no support for the filter based on a ground argument.
-                                         curr_tree->m_ground_arg == 0 ||
+                                         curr_tree->m_ground_arg == nullptr ||
                                          // checks whether the child of the parent is equal to the expected ground argument.
                                          is_eq(curr_tree->m_ground_arg, curr_parent->get_arg(curr_tree->m_ground_arg_idx))
                                          )) {
@@ -3614,7 +3614,7 @@ namespace smt {
                                         }
                                         if (curr_tree->m_first_child) {
                                             path_tree * child = curr_tree->m_first_child;
-                                            if (child->m_todo == 0) {
+                                            if (child->m_todo == nullptr) {
                                                 child->m_todo = mk_tmp_vector();
                                                 m_todo.push_back(child);
                                             }
@@ -3636,7 +3636,7 @@ namespace smt {
                     }
                 }
                 recycle(t->m_todo);
-                t->m_todo = 0;
+                t->m_todo = nullptr;
                 // remove both marks.
                 unmark_enodes(to_unmark->size(), to_unmark->c_ptr());
                 unmark_enodes2(to_unmark2->size(), to_unmark2->c_ptr());
@@ -3812,8 +3812,8 @@ namespace smt {
             m_interpreter(ctx, *this, use_filters),
             m_trees(m_ast_manager, m_compiler, m_trail_stack),
             m_region(m_trail_stack.get_region()),
-            m_r1(0),
-            m_r2(0) {
+            m_r1(nullptr),
+            m_r2(nullptr) {
             DEBUG_CODE(m_trees.set_context(&ctx););
             DEBUG_CODE(m_check_missing_instances = false;);
             reset_pp_pc();

@@ -130,7 +130,7 @@ namespace pdr {
     smt_context* smt_context_manager::mk_fresh() {        
         ++m_num_contexts;
         app_ref pred(m);
-        smt::kernel * ctx = 0;
+        smt::kernel * ctx = nullptr;
         if (m_max_num_contexts == 0) {
             m_contexts.push_back(alloc(smt::kernel, m, m_fparams));
             pred = m.mk_true();

@@ -20,7 +20,7 @@ Revision History:
 #include<iostream>
 #include "util/scoped_ctrl_c.h"
 
-scoped_ctrl_c * scoped_ctrl_c::g_obj = 0;
+scoped_ctrl_c * scoped_ctrl_c::g_obj = nullptr;
 
 void scoped_ctrl_c::on_ctrl_c(int) {
     if (g_obj->m_first) {

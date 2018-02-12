@@ -56,7 +56,7 @@ public:
     cmd_arg_kind next_arg_kind(cmd_context & ctx) const override { return CPK_SYMBOL; }
     void set_next_arg(cmd_context & ctx, symbol const & s) override {
         cmd * c = ctx.find_cmd(s);
-        if (c == 0) {
+        if (c == nullptr) {
             std::string err_msg("unknown command '");
             err_msg = err_msg + s.bare_str() + "'";
             throw cmd_exception(err_msg);
@@ -109,7 +109,7 @@ public:
     cmd_arg_kind next_arg_kind(cmd_context & ctx) const override { return CPK_UINT; }
     void set_next_arg(cmd_context & ctx, unsigned index) override { m_index = index; }
     void execute(cmd_context & ctx) override {
-        if (!ctx.is_model_available() || ctx.get_check_sat_result() == 0)
+        if (!ctx.is_model_available() || ctx.get_check_sat_result() == nullptr)
             throw cmd_exception("model is not available");
         model_ref m;
         if (m_index > 0 && ctx.get_opt()) {
@@ -785,7 +785,7 @@ public:
     }
     void execute(cmd_context & ctx) override {
         psort_decl * array_sort = ctx.find_psort_decl(m_array_sort);
-        if (array_sort == 0)
+        if (array_sort == nullptr)
             throw cmd_exception("Array sort is not available");
         ptr_vector<sort> & array_sort_args = m_domain;
         sort_ref_buffer domain(ctx.m());
@@ -892,7 +892,7 @@ void install_ext_basic_cmds(cmd_context & ctx) {
     ctx.insert(alloc(echo_cmd));
     ctx.insert(alloc(labels_cmd));
     ctx.insert(alloc(declare_map_cmd));
-    ctx.insert(alloc(builtin_cmd, "reset", 0, "reset the shell (all declarations and assertions will be erased)"));
+    ctx.insert(alloc(builtin_cmd, "reset", nullptr, "reset the shell (all declarations and assertions will be erased)"));
     install_simplify_cmd(ctx);
     install_eval_cmd(ctx);
 }

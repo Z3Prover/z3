@@ -262,7 +262,7 @@ class factor_tactic : public tactic {
                         proof_converter_ref & pc,
                         expr_dependency_ref & core) {
             SASSERT(g->is_well_sorted());
-            mc = 0; pc = 0; core = 0;
+            mc = nullptr; pc = nullptr; core = nullptr;
             tactic_report report("factor", *g);
             bool produce_proofs = g->proofs_enabled();
 

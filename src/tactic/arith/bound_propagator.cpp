@@ -182,7 +182,7 @@ void bound_propagator::mk_eq(unsigned sz, mpz * as, var * xs) {
 }
 
 void bound_propagator::init_eq(linear_equation * eq) {
-    if (eq == 0)
+    if (eq == nullptr)
         return;
     unsigned c_idx = m_constraints.size();
     m_constraints.push_back(constraint());
@@ -383,7 +383,7 @@ bool bound_propagator::relevant_bound(var x, double new_k) const {
           if (LOWER && has_lower(x)) tout << "old: " << m.to_string(m_lowers[x]->m_k) << " | " << m_lowers[x]->m_approx_k << "\n";
           if (!LOWER && has_upper(x)) tout << "old: " << m.to_string(m_uppers[x]->m_k) << " | " << m_uppers[x]->m_approx_k << "\n";);
     bound * b = LOWER ? m_lowers[x] : m_uppers[x];
-    if (b == 0)
+    if (b == nullptr)
         return true; // variable did not have a bound
     
     double interval_size;
@@ -537,7 +537,7 @@ bool bound_propagator::propagate_eq(unsigned c_idx) {
         bound * u_i = m_uppers[x_i];
         if (a_i < 0.0) {
             if (!ll_failed) {
-                if (l_i == 0) {
+                if (l_i == nullptr) {
                     if (ll_i == UINT_MAX)
                         ll_i = i;
                     else
@@ -549,7 +549,7 @@ bool bound_propagator::propagate_eq(unsigned c_idx) {
             }
             
             if (!uu_failed) {
-                if (u_i == 0) {
+                if (u_i == nullptr) {
                     if (uu_i == UINT_MAX)
                         uu_i = i;
                     else
@@ -562,7 +562,7 @@ bool bound_propagator::propagate_eq(unsigned c_idx) {
         }
         else {
             if (!ll_failed) {
-                if (u_i == 0) {
+                if (u_i == nullptr) {
                     if (ll_i == UINT_MAX)
                         ll_i = i;
                     else
@@ -574,7 +574,7 @@ bool bound_propagator::propagate_eq(unsigned c_idx) {
             }
 
             if (!uu_failed) {
-                if (l_i == 0) {
+                if (l_i == nullptr) {
                     if (uu_i == UINT_MAX)
                         uu_i = i;
                     else
@@ -780,7 +780,7 @@ bool bound_propagator::upper(var x, mpq & k, bool & strict, unsigned & ts) const
 
 bound_propagator::bound * bound_propagator::bound::at(unsigned timestamp) {
     bound * r = this;
-    while (r != 0 && r->m_timestamp >= timestamp) 
+    while (r != nullptr && r->m_timestamp >= timestamp)
         r = r->m_prev;
     return r;
 }

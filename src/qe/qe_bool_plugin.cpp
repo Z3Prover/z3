@@ -65,7 +65,7 @@ namespace qe {
             CTRACE("qe", (!m.is_true(val_x) && !m.is_false(val_x)),
                    tout << "Boolean is a don't care: " << mk_pp(x.x(), m) << "\n";);
             val = m.is_true(val_x)?rational::one():rational::zero();
-            subst(x, val, fml, 0);
+            subst(x, val, fml, nullptr);
             return true;
         }
 

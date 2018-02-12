@@ -21,15 +21,15 @@ Revision History:
 #include "util/util.h"
 #include "util/version.h"
 
-std::ostream * g_z3_log = 0;
+std::ostream * g_z3_log = nullptr;
 bool g_z3_log_enabled   = false;
 
 extern "C" {
     void Z3_close_log_unsafe(void) {
-        if (g_z3_log != 0) {
+        if (g_z3_log != nullptr) {
             dealloc(g_z3_log);
             g_z3_log_enabled = false;
-            g_z3_log = 0;
+            g_z3_log = nullptr;
         }
     }
 
@@ -40,12 +40,12 @@ extern "C" {
         #pragma omp critical (z3_log)
         {
 #endif
-            if (g_z3_log != 0)
+            if (g_z3_log != nullptr)
                 Z3_close_log_unsafe();
             g_z3_log = alloc(std::ofstream, filename);
             if (g_z3_log->bad() || g_z3_log->fail()) {
                 dealloc(g_z3_log);
-                g_z3_log = 0;
+                g_z3_log = nullptr;
                 res = Z3_FALSE;
             }
             else {
@@ -61,13 +61,13 @@ extern "C" {
     }
 
     void Z3_API Z3_append_log(Z3_string str) {
-        if (g_z3_log == 0)
+        if (g_z3_log == nullptr)
             return;
 #ifdef Z3_LOG_SYNC
         #pragma omp critical (z3_log)
         {
 #endif
-            if (g_z3_log != 0)
+            if (g_z3_log != nullptr)
                 _Z3_append_log(static_cast<char const *>(str));
 #ifdef Z3_LOG_SYNC
         }
@@ -75,7 +75,7 @@ extern "C" {
     }
 
     void Z3_API Z3_close_log(void) {
-        if (g_z3_log != 0) {
+        if (g_z3_log != nullptr) {
 #ifdef Z3_LOG_SYNC
             #pragma omp critical (z3_log)
             {

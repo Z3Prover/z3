@@ -399,7 +399,7 @@ typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_produ
                     continue;
                 }
                 else if (is_sat == l_undef) {
-                    return 0;
+                    return nullptr;
                 }
                 unsigned_pair tgt_pair(mvsA[i].dst(), mvsB[j].dst());
                 unsigned tgt;

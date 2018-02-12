@@ -52,7 +52,7 @@ public:
     assert_soft_cmd(opt::context* opt):
         parametric_cmd("assert-soft"),
         m_idx(0),
-        m_formula(0),
+        m_formula(nullptr),
         m_opt(opt)
     {}
 
@@ -61,7 +61,7 @@ public:
 
     virtual void reset(cmd_context & ctx) { 
         m_idx = 0; 
-        m_formula = 0;
+        m_formula = nullptr;
     }
 
     virtual char const * get_usage() const { return "<formula> [:weight <rational-weight>] [:id <symbol>]"; }

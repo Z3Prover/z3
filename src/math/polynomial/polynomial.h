@@ -192,7 +192,7 @@ namespace polynomial {
     private:
         imp * m_imp;
     public:
-        manager(reslimit& lim, numeral_manager & m, monomial_manager * mm = 0);
+        manager(reslimit& lim, numeral_manager & m, monomial_manager * mm = nullptr);
         manager(reslimit& lim, numeral_manager & m, small_object_allocator * a);
         ~manager();
 
@@ -227,7 +227,7 @@ namespace polynomial {
             friend class manager;
             del_eh * m_next;
         public:
-            del_eh():m_next(0) {}
+            del_eh():m_next(nullptr) {}
             virtual void operator()(polynomial * p) = 0;
         };
 

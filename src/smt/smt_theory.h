@@ -235,7 +235,7 @@ namespace smt {
            disequality propagation.
         */
         virtual justification * why_is_diseq(theory_var v1, theory_var v2) {
-            return 0;
+            return nullptr;
         }
 
         /**
@@ -369,7 +369,7 @@ namespace smt {
                 theory_var other = null_theory_var;
                 TRACE("assume_eqs",
                       tout << "#" << n->get_owner_id() << " is_relevant_and_shared: " << is_relevant_and_shared(n) << "\n";);
-                if (n != 0 && is_relevant_and_shared(n)) {
+                if (n != nullptr && is_relevant_and_shared(n)) {
                     other = table.insert_if_not_there(v);
                     if (other != v) {
                         enode * n2 = get_enode(other);
@@ -423,7 +423,7 @@ namespace smt {
            \brief Return a functor that can build the value (interpretation) for n.
         */
         virtual model_value_proc * mk_value(enode * n, model_generator & mg) {
-            return 0;
+            return nullptr;
         }
 
         virtual bool include_func_interp(func_decl* f) {

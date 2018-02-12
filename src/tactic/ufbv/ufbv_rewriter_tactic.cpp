@@ -37,7 +37,7 @@ class ufbv_rewriter_tactic : public tactic {
                         proof_converter_ref & pc,
                         expr_dependency_ref & core) {
             SASSERT(g->is_well_sorted());
-            mc = 0; pc = 0; core = 0;
+            mc = nullptr; pc = nullptr; core = nullptr;
             tactic_report report("ufbv-rewriter", *g);
             fail_if_unsat_core_generation("ufbv-rewriter", g);
 
@@ -58,9 +58,9 @@ class ufbv_rewriter_tactic : public tactic {
         
             g->reset();
             for (unsigned i = 0; i < new_forms.size(); i++)
-                g->assert_expr(new_forms.get(i), produce_proofs ? new_proofs.get(i) : 0, 0);
+                g->assert_expr(new_forms.get(i), produce_proofs ? new_proofs.get(i) : nullptr, nullptr);
 
-            mc = 0; // CMW: Remark: The demodulator could potentially remove all references to a variable. 
+            mc = nullptr; // CMW: Remark: The demodulator could potentially remove all references to a variable.
 
             g->inc_depth();
             result.push_back(g.get());

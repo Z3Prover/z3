@@ -236,7 +236,7 @@ format * smt2_pp_environment::pp_float_literal(app * t, bool use_bv_lits, bool u
     mpf_manager & fm = get_futil().fm();
     scoped_mpf v(fm);
     ast_manager & m = get_manager();
-    format * body = 0;
+    format * body = nullptr;
     string_buffer<> buf;
     VERIFY(get_futil().is_numeral(t, v));
     if (fm.is_nan(v)) {
@@ -750,7 +750,7 @@ class smt2_printer {
         }
         buffer<symbol> labels;
         bool is_pos;
-        format * f = 0;
+        format * f = nullptr;
         format ** it  = m_format_stack.c_ptr() + fr.m_spos;
         format ** end = m_format_stack.c_ptr() + m_format_stack.size();
         if (m().is_label(t, is_pos, labels)) {
@@ -1004,7 +1004,7 @@ class smt2_printer {
     void del_expr2alias_stack() {
         std::for_each(m_expr2alias_stack.begin(), m_expr2alias_stack.end(), delete_proc<expr2alias>());
         m_expr2alias_stack.reset();
-        m_expr2alias = 0;
+        m_expr2alias = nullptr;
     }
 
     void reset_expr2alias_stack() {
@@ -1064,7 +1064,7 @@ public:
         m_manager(env.get_manager()),
         m_env(env),
         m_soccs(m_manager),
-        m_root(0),
+        m_root(nullptr),
         m_aliased_pps(fm()),
         m_next_alias_idx(1),
         m_format_stack(fm()) {
@@ -1092,7 +1092,7 @@ public:
 
     void operator()(expr * n, unsigned num, char const * var_prefix, format_ref & r, sbuffer<symbol> & var_names) {
         reset_var_names();
-        if (var_prefix == 0)
+        if (var_prefix == nullptr)
             var_prefix = "x";
         if (strcmp(var_prefix, ALIAS_PREFIX) == 0) {
             var_prefix = "_a";
@@ -1228,7 +1228,7 @@ mk_ismt2_pp::mk_ismt2_pp(ast * t, ast_manager & m, unsigned indent, unsigned num
 
 std::ostream& operator<<(std::ostream& out, mk_ismt2_pp const & p) {
     smt2_pp_environment_dbg env(p.m_manager);    
-    if (p.m_ast == 0) {
+    if (p.m_ast == nullptr) {
         out << "null";
     }
     else if (is_expr(p.m_ast)) {
@@ -1263,13 +1263,13 @@ std::ostream& operator<<(std::ostream& out, sort_ref const&  e) {
 std::ostream& operator<<(std::ostream& out, expr_ref_vector const&  e) {
     smt2_pp_environment_dbg env(e.get_manager());
     params_ref p;
-    return ast_smt2_pp(out, e.size(), e.c_ptr(), env, p, 0, 0, 0);
+    return ast_smt2_pp(out, e.size(), e.c_ptr(), env, p, 0, 0, nullptr);
 }
 
 std::ostream& operator<<(std::ostream& out, app_ref_vector const&  e) {
     smt2_pp_environment_dbg env(e.get_manager());
     params_ref p;
-    return ast_smt2_pp(out, e.size(), (expr*const*)e.c_ptr(), env, p, 0, 0, 0);
+    return ast_smt2_pp(out, e.size(), (expr*const*)e.c_ptr(), env, p, 0, 0, nullptr);
 }
 
 std::ostream& operator<<(std::ostream& out, func_decl_ref_vector const&  e) {

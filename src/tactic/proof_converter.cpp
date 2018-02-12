@@ -38,9 +38,9 @@ public:
 };
 
 proof_converter * concat(proof_converter * pc1, proof_converter * pc2) {
-    if (pc1 == 0)
+    if (pc1 == nullptr)
         return pc2;
-    if (pc2 == 0)
+    if (pc2 == nullptr)
         return pc1;
     return alloc(concat_proof_converter, pc1, pc2);
 }
@@ -97,7 +97,7 @@ proof_converter * concat(proof_converter * pc1, unsigned num, proof_converter * 
         return concat(pc1, pc2s[0]);
     unsigned i;
     for (i = 0; i < num; i++) {
-        if (pc2s[i] != 0)
+        if (pc2s[i] != nullptr)
             break;
     }
     if (i == num) {
@@ -128,8 +128,8 @@ public:
 };
 
 proof_converter * proof2proof_converter(ast_manager & m, proof * pr) {
-    if (pr == 0)
-        return 0;
+    if (pr == nullptr)
+        return nullptr;
     return alloc(proof2pc, m, pr);
 }
 
@@ -155,7 +155,7 @@ void apply(ast_manager & m, proof_converter_ref & pc1, proof_converter_ref_buffe
     for (unsigned i = 0; i < sz; i++) {
         proof_ref pr(m);
         SASSERT(pc2s[i]); // proof production is enabled
-        pc2s[i]->operator()(m, 0, 0, pr);
+        pc2s[i]->operator()(m, 0, nullptr, pr);
         prs.push_back(pr);
     }
     (*pc1)(m, sz, prs.c_ptr(), result);

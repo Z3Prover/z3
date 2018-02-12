@@ -37,12 +37,12 @@ class aig_tactic : public tactic {
         
         ~mk_aig_manager() {
             dealloc(m_owner.m_aig_manager);
-            m_owner.m_aig_manager = 0;
+            m_owner.m_aig_manager = nullptr;
         }
     };
 
 public:
-    aig_tactic(params_ref const & p = params_ref()):m_aig_manager(0) { 
+    aig_tactic(params_ref const & p = params_ref()):m_aig_manager(nullptr) {
         updt_params(p); 
     }
     
@@ -77,7 +77,7 @@ public:
                 expr_ref new_f(g->m());
                 m_aig_manager->to_formula(r, new_f);
                 expr_dependency * ed = g->dep(i);
-                g->update(i, new_f, 0, ed);
+                g->update(i, new_f, nullptr, ed);
             }
         }
         else {
@@ -96,7 +96,7 @@ public:
                     proof_converter_ref & pc,
                     expr_dependency_ref & core) override {
         fail_if_proof_generation("aig", g);
-        mc = 0; pc = 0; core = 0;
+        mc = nullptr; pc = nullptr; core = nullptr;
         operator()(g);
         g->inc_depth();
         result.push_back(g.get());

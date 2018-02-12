@@ -98,7 +98,7 @@ void mk_smt2_format(sort * s, smt2_pp_environment & env, params_ref const & p, f
 void mk_smt2_format(func_decl * f, smt2_pp_environment & env, params_ref const & p, format_ns::format_ref & r);
 
 std::ostream & ast_smt2_pp(std::ostream & out, expr * n, smt2_pp_environment & env, params_ref const & p = params_ref(), unsigned indent = 0, 
-                           unsigned num_vars = 0, char const * var_prefix = 0);
+                           unsigned num_vars = 0, char const * var_prefix = nullptr);
 std::ostream & ast_smt2_pp(std::ostream & out, sort * s, smt2_pp_environment & env, params_ref const & p = params_ref(), unsigned indent = 0);
 std::ostream & ast_smt2_pp(std::ostream & out, func_decl * f, smt2_pp_environment & env, params_ref const & p = params_ref(), unsigned indent = 0);
 
@@ -113,8 +113,8 @@ struct mk_ismt2_pp {
     unsigned           m_indent;
     unsigned           m_num_vars;
     char const *       m_var_prefix;
-    mk_ismt2_pp(ast * t, ast_manager & m, params_ref const & p, unsigned indent = 0, unsigned num_vars = 0, char const * var_prefix = 0);
-    mk_ismt2_pp(ast * t, ast_manager & m, unsigned indent = 0, unsigned num_vars = 0, char const * var_prefix = 0);
+    mk_ismt2_pp(ast * t, ast_manager & m, params_ref const & p, unsigned indent = 0, unsigned num_vars = 0, char const * var_prefix = nullptr);
+    mk_ismt2_pp(ast * t, ast_manager & m, unsigned indent = 0, unsigned num_vars = 0, char const * var_prefix = nullptr);
 };
 
 std::ostream& operator<<(std::ostream& out, mk_ismt2_pp const & p);

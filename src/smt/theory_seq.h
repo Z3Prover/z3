@@ -37,7 +37,7 @@ namespace smt {
             enode* n1, *n2;
             literal lit;
             assumption(enode* n1, enode* n2): n1(n1), n2(n2), lit(null_literal) {}
-            assumption(literal lit): n1(0), n2(0), lit(lit) {}
+            assumption(literal lit): n1(nullptr), n2(nullptr), lit(lit) {}
         };
         typedef scoped_dependency_manager<assumption> dependency_manager;
         typedef dependency_manager::dependency dependency;        
@@ -434,7 +434,7 @@ namespace smt {
 
         // asserting consequences
         bool linearize(dependency* dep, enode_pair_vector& eqs, literal_vector& lits) const;
-        void propagate_lit(dependency* dep, literal lit) { propagate_lit(dep, 0, 0, lit); }
+        void propagate_lit(dependency* dep, literal lit) { propagate_lit(dep, 0, nullptr, lit); }
         void propagate_lit(dependency* dep, unsigned n, literal const* lits, literal lit);
         void propagate_eq(dependency* dep, enode* n1, enode* n2);
         void propagate_eq(literal lit, expr* e1, expr* e2, bool add_to_eqs);
@@ -531,7 +531,7 @@ namespace smt {
         bool get_length(expr* s, rational& val) const;
 
         void mk_decompose(expr* e, expr_ref& head, expr_ref& tail);
-        expr_ref mk_skolem(symbol const& s, expr* e1, expr* e2 = 0, expr* e3 = 0, sort* range = 0);
+        expr_ref mk_skolem(symbol const& s, expr* e1, expr* e2 = nullptr, expr* e3 = nullptr, sort* range = nullptr);
         bool is_skolem(symbol const& s, expr* e) const;
 
         void set_incomplete(app* term);

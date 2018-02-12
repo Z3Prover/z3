@@ -146,7 +146,7 @@ app* itp_solver::def_manager::mk_proxy (expr *v)
 
 bool itp_solver::def_manager::is_proxy (app *k, app_ref &def)
 {
-    app *r = NULL;
+    app *r = nullptr;
     bool found = m_proxy2def.find (k, r);
     def = r;
     return found;

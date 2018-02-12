@@ -34,7 +34,7 @@ void extract_clauses_and_dependencies(goal_ref const& g, expr_ref_vector& clause
     for (unsigned i = 0; i < sz; i++) {
         expr * f            = g->form(i);
         expr_dependency * d = g->dep(i);
-        if (d == 0 || !g->unsat_core_enabled()) {
+        if (d == nullptr || !g->unsat_core_enabled()) {
             clauses.push_back(f);
         }
         else {
@@ -58,9 +58,9 @@ void extract_clauses_and_dependencies(goal_ref const& g, expr_ref_vector& clause
                 }
                 else {
                     // must normalize assumption
-                    expr * b = 0;
+                    expr * b = nullptr;
                     if (!dep2bool.find(d, b)) {
-                        b = m.mk_fresh_const(0, m.mk_bool_sort());
+                        b = m.mk_fresh_const(nullptr, m.mk_bool_sort());
                         dep2bool.insert(d, b);
                         bool2dep.insert(b, d);
                         assumptions.push_back(b);
@@ -106,7 +106,7 @@ public:
                     /* out */ model_converter_ref & mc,
                     /* out */ proof_converter_ref & pc,
                     /* out */ expr_dependency_ref & core) override {
-        pc = 0; mc = 0; core = 0;
+        pc = nullptr; mc = nullptr; core = nullptr;
         expr_ref_vector clauses(m);
         expr2expr_map               bool2dep;
         ptr_vector<expr>            assumptions;
@@ -128,8 +128,8 @@ public:
             break;
         case l_false: {
             in->reset();
-            proof* pr = 0;
-            expr_dependency* lcore = 0;
+            proof* pr = nullptr;
+            expr_dependency* lcore = nullptr;
             if (in->proofs_enabled()) {
                 pr = local_solver->get_proof();
                 pc = proof2proof_converter(m, pr);

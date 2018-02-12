@@ -411,7 +411,7 @@ class num_consts_probe : public probe {
         family_id     m_fid;
         unsigned      m_counter;
         proc(ast_manager & _m, bool b, char const * family):m(_m), m_bool(b), m_counter(0) {
-            if (family != 0)
+            if (family != nullptr)
                 m_fid = m.mk_family_id(family);
             else
                 m_fid = null_family_id;
@@ -454,11 +454,11 @@ public:
 };
 
 probe * mk_num_consts_probe() {
-    return alloc(num_consts_probe, false, 0);
+    return alloc(num_consts_probe, false, nullptr);
 }
 
 probe * mk_num_bool_consts_probe() {
-    return alloc(num_consts_probe, true, 0);
+    return alloc(num_consts_probe, true, nullptr);
 }
 
 probe * mk_num_arith_consts_probe() {

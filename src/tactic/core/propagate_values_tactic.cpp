@@ -38,7 +38,7 @@ class propagate_values_tactic : public tactic {
         imp(ast_manager & m, params_ref const & p):
             m(m),
             m_r(m, p),
-            m_goal(0),
+            m_goal(nullptr),
             m_occs(m, true /* track atoms */) {
             updt_params_core(p);
         }
@@ -92,7 +92,7 @@ class propagate_values_tactic : public tactic {
             if (m_goal->unsat_core_enabled()) {
                 new_d = m_goal->dep(m_idx);
                 expr_dependency * used_d = m_r.get_used_dependencies();
-                if (used_d != 0) {
+                if (used_d != nullptr) {
                     new_d = m.mk_join(new_d, used_d);
                     m_r.reset_used_dependencies();
                 }
@@ -141,7 +141,7 @@ class propagate_values_tactic : public tactic {
                         proof_converter_ref & pc,
                         expr_dependency_ref & core) {
             SASSERT(g->is_well_sorted());
-            mc = 0; pc = 0; core = 0;
+            mc = nullptr; pc = nullptr; core = nullptr;
             tactic_report report("propagate-values", *g);
             m_goal = g.get();
 
@@ -210,7 +210,7 @@ class propagate_values_tactic : public tactic {
             SASSERT(m_goal->is_well_sorted());
             TRACE("propagate_values", tout << "end\n"; m_goal->display(tout););
             TRACE("propagate_values_core", m_goal->display_with_dependencies(tout););
-            m_goal = 0;
+            m_goal = nullptr;
         }
     };
     

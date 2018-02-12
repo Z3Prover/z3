@@ -204,7 +204,7 @@ namespace datatype {
             m_util(u),
             m_name(n),
             m_class_id(class_id),            
-            m_sort_size(0),
+            m_sort_size(nullptr),
             m_params(m, num_params, params), 
             m_sort(m)
         {}
@@ -228,7 +228,7 @@ namespace datatype {
         sort_ref_vector const& params() const { return m_params; }
         util& u() const { return m_util; }
         param_size::size* sort_size() { return m_sort_size; }
-        void set_sort_size(param_size::size* p) { m_sort_size = p; p->inc_ref(); m_sort = 0; }
+        void set_sort_size(param_size::size* p) { m_sort_size = p; p->inc_ref(); m_sort = nullptr; }
         def* translate(ast_translation& tr, util& u);
     };
 
@@ -398,7 +398,7 @@ typedef datatype::util datatype_util;
 class type_ref {
     void * m_data;
 public:
-    type_ref():m_data(TAG(void *, static_cast<void*>(0), 1)) {}
+    type_ref():m_data(TAG(void *, nullptr, 1)) {}
     type_ref(int idx):m_data(BOXINT(void *, idx)) {}
     type_ref(sort * s):m_data(TAG(void *, s, 1)) {}
     

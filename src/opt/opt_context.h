@@ -191,14 +191,14 @@ namespace opt {
         void get_box_model(model_ref& _m, unsigned index) override;
         void fix_model(model_ref& _m) override;
         void collect_statistics(statistics& stats) const override;
-        proof* get_proof() override { return 0; }
+        proof* get_proof() override { return nullptr; }
         void get_labels(svector<symbol> & r) override;
         void get_unsat_core(ptr_vector<expr> & r) override;
         std::string reason_unknown() const override;
         void set_reason_unknown(char const* msg) override { m_unknown = msg; }
 
         void display_assignment(std::ostream& out) override;
-        bool is_pareto() override { return m_pareto.get() != 0; }
+        bool is_pareto() override { return m_pareto.get() != nullptr; }
         void set_logic(symbol const& s) override { m_logic = s; }
         void set_clausal(bool f) { m_is_clausal = f; }
 
@@ -223,7 +223,7 @@ namespace opt {
 
         smt::context& smt_context() override { return m_opt_solver->get_context(); }
         filter_model_converter& fm() override { return m_fm; }
-        bool sat_enabled() const override { return 0 != m_sat_solver.get(); }
+        bool sat_enabled() const override { return nullptr != m_sat_solver.get(); }
         solver& get_solver() override;
         ast_manager& get_manager() const override { return this->m; }
         params_ref& params() override { return m_params; }

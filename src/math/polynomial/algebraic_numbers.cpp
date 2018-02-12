@@ -48,7 +48,7 @@ namespace algebraic_numbers {
         unsigned   m_sign_lower:1;
         unsigned   m_not_rational:1; // if true we know for sure it is not a rational
         unsigned   m_i:29; // number is the i-th root of p, 0 if it is not known which root of p the number is.
-        algebraic_cell():m_p_sz(0), m_p(0), m_minimal(false), m_not_rational(false), m_i(0) {}
+        algebraic_cell():m_p_sz(0), m_p(nullptr), m_minimal(false), m_not_rational(false), m_i(0) {}
         bool is_minimal() const { return m_minimal != 0; }
     };
 
@@ -186,7 +186,7 @@ namespace algebraic_numbers {
             for (unsigned i = 0; i < c->m_p_sz; i++)
                 qm().del(c->m_p[i]);
             m_allocator.deallocate(sizeof(mpz)*c->m_p_sz, c->m_p);
-            c->m_p    = 0;
+            c->m_p    = nullptr;
             c->m_p_sz = 0;
         }
 
@@ -201,13 +201,13 @@ namespace algebraic_numbers {
         }
 
         void del(numeral & a) {
-            if (a.m_cell == 0)
+            if (a.m_cell == nullptr)
                 return;
             if (a.is_basic())
                 del(a.to_basic());
             else
                 del(a.to_algebraic());
-            a.m_cell = 0;
+            a.m_cell = nullptr;
         }
 
         void reset(numeral & a) {
@@ -215,7 +215,7 @@ namespace algebraic_numbers {
         }
 
         bool is_zero(numeral const & a) {
-            return a.m_cell == 0;
+            return a.m_cell == nullptr;
         }
 
         bool is_pos(numeral const & a) {
@@ -361,7 +361,7 @@ namespace algebraic_numbers {
 
         basic_cell * mk_basic_cell(mpq & n) {
             if (qm().is_zero(n))
-                return 0;
+                return nullptr;
             void * mem = static_cast<basic_cell*>(m_allocator.allocate(sizeof(basic_cell)));
             basic_cell * c = new (mem) basic_cell();
             qm().swap(c->m_value, n);
@@ -1037,7 +1037,7 @@ namespace algebraic_numbers {
                 unsigned target_i = UINT_MAX; // index of sequence that is isolating
                 int target_lV = 0, target_uV = 0;
                 for (unsigned i = 0; i < num_fs; i++) {
-                    if (seqs[i] == 0)
+                    if (seqs[i] == nullptr)
                         continue; // sequence was discarded because it does not contain the root.
                     TRACE("anum_mk_binary", tout << "sequence " << i << "\n"; upm().display(tout, *(seqs[i])); tout << "\n";);
                     int lV = upm().sign_variations_at(*(seqs[i]), r_i.lower());
@@ -1050,7 +1050,7 @@ namespace algebraic_numbers {
                           );
                     if (V <= 0) {
                         // discard sequence, since factor does not contain the root
-                        seqs.set(i, 0);
+                        seqs.set(i, nullptr);
                     }
                     else if (V == 1) {
                         target_i  = i;
@@ -1115,7 +1115,7 @@ namespace algebraic_numbers {
                 unsigned target_i = UINT_MAX; // index of sequence that is isolating
                 int target_lV = 0, target_uV = 0;
                 for (unsigned i = 0; i < num_fs; i++) {
-                    if (seqs[i] == 0)
+                    if (seqs[i] == nullptr)
                         continue; // sequence was discarded because it does not contain the root.
                     int lV = upm().sign_variations_at(*(seqs[i]), r_i.lower());
                     int uV = upm().sign_variations_at(*(seqs[i]), r_i.upper());
@@ -1126,7 +1126,7 @@ namespace algebraic_numbers {
                           );
                     if (V <= 0) {
                         // discard sequence, since factor does not contain the root
-                        seqs.set(i, 0);
+                        seqs.set(i, nullptr);
                     }
                     else if (V == 1) {
                         target_i  = i;
@@ -2772,7 +2772,7 @@ namespace algebraic_numbers {
     manager::manager(reslimit& lim, unsynch_mpq_manager & m, params_ref const & p, small_object_allocator * a) {
         m_own_allocator = false;
         m_allocator     = a;
-        if (m_allocator == 0) {
+        if (m_allocator == nullptr) {
             m_own_allocator = true;
             m_allocator     = alloc(small_object_allocator, "algebraic");
         }

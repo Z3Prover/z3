@@ -2188,7 +2188,7 @@ void iz3translation_full_conc_symbols_out_of_scope(iz3translation_full *p, int i
 
 struct stdio_fixer {
     stdio_fixer(){
-        std::cout.rdbuf()->pubsetbuf(0,0);
+        std::cout.rdbuf()->pubsetbuf(nullptr,0);
     }
 
 } my_stdio_fixer;

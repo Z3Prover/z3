@@ -204,9 +204,9 @@ namespace datalog {
 
         sort* mk_rule_sort();
 
-        app* mk_rule(symbol const& name, unsigned num_args = 0, expr* const* args = 0);
+        app* mk_rule(symbol const& name, unsigned num_args = 0, expr* const* args = nullptr);
 
-        app* mk_fact(symbol const& name) { return mk_rule(name, 0, 0); }
+        app* mk_fact(symbol const& name) { return mk_rule(name, 0, nullptr); }
 
         ast_manager& get_manager() const { return m; }
 

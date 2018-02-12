@@ -31,7 +31,7 @@ unsigned solver::get_num_assertions() const {
 
 expr * solver::get_assertion(unsigned idx) const {
     NOT_IMPLEMENTED_YET();
-    return 0;
+    return nullptr;
 }
 
 std::ostream& solver::display(std::ostream & out, unsigned n, expr* const* assumptions) const {
@@ -156,7 +156,7 @@ lbool solver::find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>&
 }
 
 lbool solver::preferred_sat(expr_ref_vector const& asms, vector<expr_ref_vector>& cores) {
-    return check_sat(0, 0);
+    return check_sat(0, nullptr);
 }
 
 bool solver::is_literal(ast_manager& m, expr* e) {

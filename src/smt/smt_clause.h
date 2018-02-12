@@ -149,8 +149,8 @@ namespace smt {
         void release_atoms(ast_manager & m);
         
     public:
-        static clause * mk(ast_manager & m, unsigned num_lits, literal * lits, clause_kind k, justification * js = 0, 
-                           clause_del_eh * del_eh = 0, bool save_atoms = false, expr * const * bool_var2expr_map = 0);
+        static clause * mk(ast_manager & m, unsigned num_lits, literal * lits, clause_kind k, justification * js = nullptr,
+                           clause_del_eh * del_eh = nullptr, bool save_atoms = false, expr * const * bool_var2expr_map = nullptr);
         
         void deallocate(ast_manager & m);
         
@@ -211,11 +211,11 @@ namespace smt {
         }
 
         clause_del_eh * get_del_eh() const {
-            return m_has_del_eh ? *(get_del_eh_addr()) : 0;
+            return m_has_del_eh ? *(get_del_eh_addr()) : nullptr;
         }
 
         justification * get_justification() const {
-            return m_has_justification ? *(get_justification_addr()) : 0;
+            return m_has_justification ? *(get_justification_addr()) : nullptr;
         }
 
         unsigned get_num_atoms() const {
@@ -253,7 +253,7 @@ namespace smt {
             clause_del_eh * del_eh = get_del_eh();
             if (del_eh) {
                 (*del_eh)(m, this);
-                *(const_cast<clause_del_eh **>(get_del_eh_addr())) = 0;
+                *(const_cast<clause_del_eh **>(get_del_eh_addr())) = nullptr;
             }
         }
 

@@ -52,11 +52,11 @@ extern "C" {
         LOG_Z3_mk_numeral(c, n, ty);
         RESET_ERROR_CODE();
         if (!check_numeral_sort(c, ty)) {
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         if (!n) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         sort * _ty = to_sort(ty);
         bool is_float = mk_c(c)->fpautil().is_float(_ty);
@@ -73,11 +73,11 @@ extern "C" {
                      ('P' == *m) ||
                      ('+' == *m))))) {
                 SET_ERROR_CODE(Z3_PARSER_ERROR);
-                RETURN_Z3(0);
+                RETURN_Z3(nullptr);
             }
             ++m;
         }
-        ast * a = 0;
+        ast * a = nullptr;
         if (_ty->get_family_id() == mk_c(c)->get_fpa_fid()) {
             // avoid expanding floats into huge rationals.
             fpa_util & fu = mk_c(c)->fpautil();
@@ -89,7 +89,7 @@ extern "C" {
         else
             a = mk_c(c)->mk_numeral_core(rational(n), _ty);
         RETURN_Z3(of_ast(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_int(Z3_context c, int value, Z3_sort ty) {
@@ -97,11 +97,11 @@ extern "C" {
         LOG_Z3_mk_int(c, value, ty);
         RESET_ERROR_CODE();
         if (!check_numeral_sort(c, ty)) {
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         ast * a = mk_c(c)->mk_numeral_core(rational(value), to_sort(ty));
         RETURN_Z3(of_ast(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_unsigned_int(Z3_context c, unsigned value, Z3_sort ty) {
@@ -109,11 +109,11 @@ extern "C" {
         LOG_Z3_mk_unsigned_int(c, value, ty);
         RESET_ERROR_CODE();
         if (!check_numeral_sort(c, ty)) {
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         ast * a = mk_c(c)->mk_numeral_core(rational(value), to_sort(ty));
         RETURN_Z3(of_ast(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_int64(Z3_context c, long long value, Z3_sort ty) {
@@ -121,12 +121,12 @@ extern "C" {
         LOG_Z3_mk_int64(c, value, ty);
         RESET_ERROR_CODE();
         if (!check_numeral_sort(c, ty)) {
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         rational n(value, rational::i64());
         ast* a = mk_c(c)->mk_numeral_core(n, to_sort(ty));
         RETURN_Z3(of_ast(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_unsigned_int64(Z3_context c, unsigned long long value, Z3_sort ty) {
@@ -134,12 +134,12 @@ extern "C" {
         LOG_Z3_mk_unsigned_int64(c, value, ty);
         RESET_ERROR_CODE();
         if (!check_numeral_sort(c, ty)) {
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         rational n(value, rational::ui64());
         ast * a = mk_c(c)->mk_numeral_core(n, to_sort(ty));
         RETURN_Z3(of_ast(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_bool Z3_API Z3_is_numeral_ast(Z3_context c, Z3_ast a) {
@@ -397,7 +397,7 @@ extern "C" {
         }
         ast * a = mk_c(c)->mk_numeral_core(r, mk_c(c)->bvutil().mk_sort(sz));
         RETURN_Z3(of_ast(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
 };

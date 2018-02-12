@@ -55,7 +55,7 @@ class bit_blaster_tactic : public tactic {
                         model_converter_ref & mc, 
                         proof_converter_ref & pc,
                         expr_dependency_ref & core) {
-            mc = 0; pc = 0; core = 0;
+            mc = nullptr; pc = nullptr; core = nullptr;
             bool proofs_enabled = g->proofs_enabled();
 
             if (proofs_enabled && m_blast_quant)
@@ -90,7 +90,7 @@ class bit_blaster_tactic : public tactic {
             if (change && g->models_enabled())  
                 mc = mk_bit_blaster_model_converter(m(), m_rewriter->const2bits());
             else
-                mc = 0;
+                mc = nullptr;
             g->inc_depth();
             result.push_back(g.get());
             TRACE("after_bit_blaster", g->display(tout); if (mc) mc->display(tout); tout << "\n";);
@@ -113,7 +113,7 @@ public:
 
     tactic * translate(ast_manager & m) override {
         SASSERT(!m_rewriter); // assume translation isn't used where rewriter is external.
-        return alloc(bit_blaster_tactic, m, 0, m_params); 
+        return alloc(bit_blaster_tactic, m, nullptr, m_params);
     }
 
     ~bit_blaster_tactic() override {
@@ -161,7 +161,7 @@ public:
 
 
 tactic * mk_bit_blaster_tactic(ast_manager & m, params_ref const & p) {
-    return clean(alloc(bit_blaster_tactic, m, 0, p));
+    return clean(alloc(bit_blaster_tactic, m, nullptr, p));
 }
 
 tactic * mk_bit_blaster_tactic(ast_manager & m, bit_blaster_rewriter* rw, params_ref const & p) {

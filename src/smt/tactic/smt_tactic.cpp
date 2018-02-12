@@ -47,8 +47,8 @@ class smt_tactic : public tactic {
 public:
     smt_tactic(params_ref const & p):
         m_params_ref(p),
-        m_ctx(0),
-        m_callback(0) {
+        m_ctx(nullptr),
+        m_callback(nullptr) {
         updt_params_core(p);
         TRACE("smt_tactic", tout << "p: " << p << "\n";);
     }
@@ -136,7 +136,7 @@ public:
 
         ~scoped_init_ctx() {
             smt::kernel * d = m_owner.m_ctx;
-            m_owner.m_ctx = 0;
+            m_owner.m_ctx = nullptr;
 
             if (d)
                 dealloc(d);
@@ -151,7 +151,7 @@ public:
                     expr_dependency_ref & core) override {
         try {
             IF_VERBOSE(10, verbose_stream() << "(smt.tactic start)\n";);
-            mc = 0; pc = 0; core = 0;
+            mc = nullptr; pc = nullptr; core = nullptr;
             SASSERT(in->is_well_sorted());
             ast_manager & m = in->m();
             TRACE("smt_tactic", tout << this << "\nAUTO_CONFIG: " << fparams().m_auto_config << " HIDIV0: " << fparams().m_hi_div0 << " "
@@ -220,7 +220,7 @@ public:
                     model_ref md;
                     m_ctx->get_model(md);
                     buffer<symbol> r;
-                    m_ctx->get_relevant_labels(0, r);
+                    m_ctx->get_relevant_labels(nullptr, r);
                     mc = model_and_labels2model_converter(md.get(), r);
                     mc = concat(fmc.get(), mc.get());
                 }
@@ -233,8 +233,8 @@ public:
                 }
                 // formula is unsat, reset the goal, and store false there.
                 in->reset();
-                proof * pr              = 0;
-                expr_dependency * lcore = 0;
+                proof * pr              = nullptr;
+                expr_dependency * lcore = nullptr;
                 if (in->proofs_enabled())
                     pr = m_ctx->get_proof();
                 if (in->unsat_core_enabled()) {
@@ -269,7 +269,7 @@ public:
                             model_ref md;
                             m_ctx->get_model(md);
                             buffer<symbol> r;
-                            m_ctx->get_relevant_labels(0, r);
+                            m_ctx->get_relevant_labels(nullptr, r);
                             mc = model_and_labels2model_converter(md.get(), r);
                         }
                         return;

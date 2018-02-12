@@ -57,7 +57,7 @@ public:
 
     sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) override {
         UNREACHABLE();
-        return 0;
+        return nullptr;
     }
 
     decl_plugin * mk_fresh() override {

@@ -52,12 +52,12 @@ namespace smt {
             theory_var    m_var;
             unsigned      m_idx;
             var_pos_occ * m_next;
-            var_pos_occ(theory_var v = null_theory_var, unsigned idx = 0, var_pos_occ * next = 0):m_var(v), m_idx(idx), m_next(next) {} 
+            var_pos_occ(theory_var v = null_theory_var, unsigned idx = 0, var_pos_occ * next = nullptr):m_var(v), m_idx(idx), m_next(next) {}
         };
 
         struct bit_atom : public atom {
             var_pos_occ * m_occs;
-            bit_atom():m_occs(0) {}
+            bit_atom():m_occs(nullptr) {}
             ~bit_atom() override {}
             bool is_bit() const override { return true; }
         };

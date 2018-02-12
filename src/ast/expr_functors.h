@@ -115,7 +115,7 @@ public:
     
     void reset() { m_map.reset(); }
     
-    void visit(var* e) { m_map.insert(e, e, 0); }
+    void visit(var* e) { m_map.insert(e, e, nullptr); }
     
     void visit(quantifier* e);
     

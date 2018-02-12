@@ -129,7 +129,7 @@ public:
         if (e) {
             v = e->get_data().m_value;
         }
-        return (0 != e);
+        return (nullptr != e);
     }
 
     value const& get(key const& k, value const& default_value) const {
@@ -164,7 +164,7 @@ public:
 
 
     bool contains(key const & k) const { 
-        return find_core(k) != 0; 
+        return find_core(k) != nullptr;
     }
 
     void remove(key const & k) {

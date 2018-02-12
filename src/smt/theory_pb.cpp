@@ -403,12 +403,12 @@ namespace smt {
         }
 
         m_stats.m_num_conflicts++;
-        justification* js = 0;
+        justification* js = nullptr;
         if (proofs_enabled()) {                                         
             js = alloc(theory_lemma_justification, get_id(), ctx, lits.size(), lits.c_ptr());
         }
         TRACE("pb", tout << lits << "\n";);
-        ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, 0);
+        ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, nullptr);
 
         return false;
     }
@@ -697,7 +697,7 @@ namespace smt {
     void theory_pb::watch_literal(literal lit, ineq* c) {
         init_watch(lit.var());
         ptr_vector<ineq>* ineqs = m_var_infos[lit.var()].m_lit_watch[lit.sign()];
-        if (ineqs == 0) {
+        if (ineqs == nullptr) {
             ineqs = alloc(ptr_vector<ineq>);
             m_var_infos[lit.var()].m_lit_watch[lit.sign()] = ineqs;
         }
@@ -707,7 +707,7 @@ namespace smt {
     void theory_pb::watch_var(bool_var v, ineq* c) {
         init_watch(v);
         ptr_vector<ineq>* ineqs = m_var_infos[v].m_var_watch;
-        if (ineqs == 0) {
+        if (ineqs == nullptr) {
             ineqs = alloc(ptr_vector<ineq>);
             m_var_infos[v].m_var_watch = ineqs;
         }
@@ -770,12 +770,12 @@ namespace smt {
     }
 
     void theory_pb::assign_eh(bool_var v, bool is_true) {
-        ptr_vector<ineq>* ineqs = 0;
+        ptr_vector<ineq>* ineqs = nullptr;
         literal nlit(v, is_true);
         init_watch(v);
         TRACE("pb", tout << "assign: " << ~nlit << "\n";);
         ineqs = m_var_infos[v].m_lit_watch[nlit.sign()];
-        if (ineqs != 0) {
+        if (ineqs != nullptr) {
             if (m_enable_simplex) {
                 mpq_inf num(mpq(is_true?1:0),mpq(0));
                 if (!update_bound(v, ~nlit, is_true, num)) {
@@ -796,14 +796,14 @@ namespace smt {
             }
         }
         ineqs = m_var_infos[v].m_var_watch;
-        if (ineqs != 0) {
+        if (ineqs != nullptr) {
             for (unsigned i = 0; i < ineqs->size(); ++i) {
                 ineq* c = (*ineqs)[i]; 
                 assign_watch(v, is_true, *c);
             }
         }
         ineq* c = m_var_infos[v].m_ineq;
-        if (c != 0) {
+        if (c != nullptr) {
             if (m_enable_simplex) {
                 row_info const& info = m_ineq_row_info.find(v);
                 unsynch_mpq_manager mgr;
@@ -1197,7 +1197,7 @@ namespace smt {
 
         void mk_clause(unsigned n, literal const* ls) {
             literal_vector tmp(n, ls);
-            ctx.mk_clause(n, tmp.c_ptr(), th.justify(tmp), CLS_AUX, 0);
+            ctx.mk_clause(n, tmp.c_ptr(), th.justify(tmp), CLS_AUX, nullptr);
         }
 
         literal mk_false() { return false_literal; }
@@ -1319,7 +1319,7 @@ namespace smt {
             bool_var v = m_ineqs_trail.back();
             ineq* c = m_var_infos[v].m_ineq;
             clear_watch(*c);
-            m_var_infos[v].m_ineq = 0;
+            m_var_infos[v].m_ineq = nullptr;
             m_ineqs_trail.pop_back();
             if (m_enable_simplex) {
                 row_info r_info;
@@ -1449,7 +1449,7 @@ namespace smt {
               tout << "\n";
               display(tout, c, true););
 
-        justification* js = 0;
+        justification* js = nullptr;
 
         if (m_conflict_frequency == 0 || (m_conflict_frequency -1 == (c.m_num_propagations % m_conflict_frequency))) {
             resolve_conflict(c);
@@ -1458,7 +1458,7 @@ namespace smt {
             js = alloc(theory_lemma_justification, get_id(), ctx, lits.size(), lits.c_ptr());
         }
         TRACE("pb", tout << lits << "\n";);
-        ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, 0);
+        ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, nullptr);
     }
 
 
@@ -1702,18 +1702,18 @@ namespace smt {
                 break;
             case b_justification::JUSTIFICATION: {
                 justification* j = js.get_justification(); 
-                pb_justification* pbj = 0;
+                pb_justification* pbj = nullptr;
 
                 if (!conseq.sign() && j->get_from_theory() == get_id()) {                    
                     pbj = dynamic_cast<pb_justification*>(j);
                 }
                 if (pbj && pbj->get_ineq().is_eq()) {
                     // only resolve >= that are positive consequences.
-                    pbj = 0;
+                    pbj = nullptr;
                 }
                 if (pbj && pbj->get_ineq().lit() == conseq) {
                     // can't resolve against literal representing inequality.
-                    pbj = 0;
+                    pbj = nullptr;
                 }
                 if (pbj) {
                     // weaken the lemma and resolve.
@@ -1765,7 +1765,7 @@ namespace smt {
                 m_ineq_literals[i].neg();
             }
             TRACE("pb", tout << m_ineq_literals << "\n";);
-            ctx.mk_clause(m_ineq_literals.size(), m_ineq_literals.c_ptr(), justify(m_ineq_literals), CLS_AUX_LEMMA, 0);
+            ctx.mk_clause(m_ineq_literals.size(), m_ineq_literals.c_ptr(), justify(m_ineq_literals), CLS_AUX_LEMMA, nullptr);
             break;
         default: {
             app_ref tmp = m_lemma.to_expr(false, ctx, get_manager());
@@ -1785,7 +1785,7 @@ namespace smt {
 
     justification* theory_pb::justify(literal l1, literal l2) {
         literal lits[2] = { l1, l2 };
-        justification* js = 0;
+        justification* js = nullptr;
         if (proofs_enabled()) {                                         
             js = get_context().mk_justification(theory_axiom_justification(get_id(), get_context().get_region(), 2, lits));
         }
@@ -1793,7 +1793,7 @@ namespace smt {
     }
 
     justification* theory_pb::justify(literal_vector const& lits) {
-        justification* js = 0;
+        justification* js = nullptr;
         if (proofs_enabled()) {                                         
             js = get_context().mk_justification(theory_axiom_justification(get_id(), get_context().get_region(), lits.size(), lits.c_ptr()));
         }
@@ -2038,9 +2038,9 @@ namespace smt {
                 return (sum >= k)?m.mk_true():m.mk_false();
             default:
                 UNREACHABLE();
-                return 0;
+                return nullptr;
             }
-            return 0;
+            return nullptr;
         }
     };
 
@@ -2058,7 +2058,7 @@ namespace smt {
             return true;
         }        
         expr * get_fresh_value(sort * s) override {
-            return 0;
+            return nullptr;
         }
         void register_value(expr * n) override { }
     };

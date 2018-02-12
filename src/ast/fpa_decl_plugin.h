@@ -342,7 +342,7 @@ public:
 
     app * mk_bv2rm(expr * bv3) {
         SASSERT(m_bv_util.is_bv(bv3) && m_bv_util.get_bv_size(bv3) == 3);
-        return m().mk_app(m_fid, OP_FPA_BV2RM, 0, 0, 1, &bv3, mk_rm_sort());
+        return m().mk_app(m_fid, OP_FPA_BV2RM, 0, nullptr, 1, &bv3, mk_rm_sort());
     }
 
     bool is_bvwrap(expr const * e) const { return is_app_of(e, get_family_id(), OP_FPA_BVWRAP); }

@@ -65,7 +65,7 @@ class horn_tactic : public tactic {
 
         void normalize(expr_ref& f) {
             bool is_positive = true;
-            expr* e = 0;
+            expr* e = nullptr;
             while (true) {
                 if (is_forall(f) && is_positive) {
                     f = to_quantifier(f)->get_expr();
@@ -141,7 +141,7 @@ class horn_tactic : public tactic {
             ast_mark mark;
             expr_ref_vector args(m), body(m);
             expr_ref head(m);
-            expr* a = 0, *a1 = 0;
+            expr* a = nullptr, *a1 = nullptr;
             flatten_or(tmp, args);
             for (unsigned i = 0; i < args.size(); ++i) {
                 a = args[i].get(); 
@@ -182,7 +182,7 @@ class horn_tactic : public tactic {
                         proof_converter_ref & pc,
                         expr_dependency_ref & core) {
             SASSERT(g->is_well_sorted());
-            mc = 0; pc = 0; core = 0;
+            mc = nullptr; pc = nullptr; core = nullptr;
             tactic_report report("horn", *g);
             bool produce_proofs = g->proofs_enabled();
 
@@ -270,7 +270,7 @@ class horn_tactic : public tactic {
                 if (produce_proofs) {
                     proof_ref proof = m_ctx.get_proof();
                     pc = proof2proof_converter(m, proof);
-                    g->assert_expr(m.mk_false(), proof, 0);
+                    g->assert_expr(m.mk_false(), proof, nullptr);
                 }
                 else {
                     g->assert_expr(m.mk_false());

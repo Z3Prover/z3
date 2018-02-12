@@ -58,7 +58,7 @@ public:
         model_converter_ref & mc,
         proof_converter_ref & pc,
         expr_dependency_ref & core) override {
-        mc = 0;
+        mc = nullptr;
         ast_manager& m(g->m());
         tactic_report report("qfufbv_ackr", *g);
         fail_if_unsat_core_generation("qfufbv_ackr", g);
@@ -111,7 +111,7 @@ private:
     bool                                 m_inc_use_sat;
 
     solver* setup_sat() {
-        solver * sat(NULL);
+        solver * sat(nullptr);
         if (m_use_sat) {
             if (m_inc_use_sat) {
                 sat = mk_inc_sat_solver(m_m, m_p);

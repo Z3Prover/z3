@@ -84,7 +84,7 @@ class max_bv_sharing_tactic : public tactic {
                 return m().mk_app(f, arg1, arg2);
             if (s.contains(expr_pair(arg2, arg1)))
                 return m().mk_app(f, arg2, arg1);
-            return 0;
+            return nullptr;
         }
 
         struct ref_count_lt {
@@ -106,10 +106,10 @@ class max_bv_sharing_tactic : public tactic {
 
             ptr_buffer<expr, 128> _args;
             bool first = false;
-            expr * num = 0;
+            expr * num = nullptr;
             for (unsigned i = 0; i < num_args; i++) {
                 expr * arg = args[i];
-                if (num == 0 && m_util.is_numeral(arg)) {
+                if (num == nullptr && m_util.is_numeral(arg)) {
                     if (i == 0) first = true;
                     num = arg;
                 }
@@ -128,7 +128,7 @@ class max_bv_sharing_tactic : public tactic {
                 for (unsigned i = 0; i < num_args - 1; i++) {
                     for (unsigned j = i + 1; j < num_args; j++) {
                         expr * r = reuse(s, f, _args[i], _args[j]);
-                        if (r != 0) {
+                        if (r != nullptr) {
                             TRACE("bv_sharing_detail", tout << "reusing args: " << i << " " << j << "\n";);
                             _args[i] = r;
                             SASSERT(num_args > 1);
@@ -186,7 +186,7 @@ class max_bv_sharing_tactic : public tactic {
                 }
                 num_args = j;
                 if (num_args == 1) {
-                    if (num == 0) { 
+                    if (num == nullptr) {
                         result = _args[0];
                     }
                     else {
@@ -209,7 +209,7 @@ class max_bv_sharing_tactic : public tactic {
             case OP_BMUL:
             case OP_BOR:
             case OP_BXOR:
-                result_pr = 0;
+                result_pr = nullptr;
                 return reduce_ac_app(f, num, args, result);
             default:
                 return BR_FAILED;
@@ -242,7 +242,7 @@ class max_bv_sharing_tactic : public tactic {
                         proof_converter_ref & pc,
                         expr_dependency_ref & core) {
             SASSERT(g->is_well_sorted());
-            mc = 0; pc = 0; core = 0;
+            mc = nullptr; pc = nullptr; core = nullptr;
             tactic_report report("max-bv-sharing", *g);
             bool produce_proofs = g->proofs_enabled();
             

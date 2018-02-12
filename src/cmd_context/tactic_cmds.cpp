@@ -55,13 +55,13 @@ class declare_tactic_cmd : public cmd {
 public:
     declare_tactic_cmd():
         cmd("declare-tactic"),
-        m_decl(0) {
+        m_decl(nullptr) {
     }
 
     char const * get_usage() const override { return "<symbol> <tactic>"; }
     char const * get_descr(cmd_context & ctx) const override { return "declare a new tactic, use (help-tactic) for the tactic language syntax."; }
     unsigned get_arity() const override { return 2; }
-    void prepare(cmd_context & ctx) override { m_name = symbol::null; m_decl = 0; }
+    void prepare(cmd_context & ctx) override { m_name = symbol::null; m_decl = nullptr; }
     cmd_arg_kind next_arg_kind(cmd_context & ctx) const override {
         if (m_name == symbol::null) return CPK_SYMBOL;
         return CPK_SEXPR;
@@ -137,11 +137,11 @@ public:
 
     void prepare(cmd_context & ctx) override {
         parametric_cmd::prepare(ctx);
-        m_tactic = 0;
+        m_tactic = nullptr;
     }
 
     cmd_arg_kind next_arg_kind(cmd_context & ctx) const override {
-        if (m_tactic == 0) return CPK_SEXPR;
+        if (m_tactic == nullptr) return CPK_SEXPR;
         return parametric_cmd::next_arg_kind(ctx);
     }
 
@@ -597,9 +597,9 @@ static tactic * mk_echo(cmd_context & ctx, sexpr * n) {
         if (curr->is_string())
             t = mk_echo_tactic(ctx, curr->get_string().c_str(), last);
         else
-            t = mk_probe_value_tactic(ctx, 0, sexpr2probe(ctx, curr), last);
+            t = mk_probe_value_tactic(ctx, nullptr, sexpr2probe(ctx, curr), last);
         tactic * new_res;
-        if (res.get() == 0)
+        if (res.get() == nullptr)
             new_res = t;
         else
             new_res = and_then(res.get(), t);
@@ -608,7 +608,7 @@ static tactic * mk_echo(cmd_context & ctx, sexpr * n) {
         res = new_res;
     }
     UNREACHABLE();
-    return 0;
+    return nullptr;
 }
 
 static tactic * mk_fail_if_branching(cmd_context & ctx, sexpr * n) {
@@ -665,10 +665,10 @@ static tactic * mk_skip_if_failed(cmd_context & ctx, sexpr * n) {
 tactic * sexpr2tactic(cmd_context & ctx, sexpr * n) {
     if (n->is_symbol()) {
         tactic_cmd * cmd = ctx.find_tactic_cmd(n->get_symbol());
-        if (cmd != 0)
+        if (cmd != nullptr)
             return cmd->mk(ctx.m());
         sexpr * decl = ctx.find_user_tactic(n->get_symbol());
-        if (decl != 0)
+        if (decl != nullptr)
             return sexpr2tactic(ctx, decl);
         throw cmd_exception("invalid tactic, unknown tactic ", n->get_symbol(), n->get_line(), n->get_pos());
     }
@@ -778,7 +778,7 @@ MK_NARY_PROBE(mk_mul);
 probe * sexpr2probe(cmd_context & ctx, sexpr * n) {
     if (n->is_symbol()) {
         probe_info * pinfo = ctx.find_probe(n->get_symbol());
-        if (pinfo != 0)
+        if (pinfo != nullptr)
             return pinfo->get();
         throw cmd_exception("invalid probe, unknown builtin probe ", n->get_symbol(), n->get_line(), n->get_pos());
     }

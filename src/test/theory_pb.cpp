@@ -148,7 +148,7 @@ void tst_theory_pb() {
                 ctx.push();
                 smt::literal l = smt::theory_pb::assert_ge(ctx, k+1, lits.size(), lits.c_ptr());
                 if (l != smt::false_literal) {
-                    ctx.assign(l, 0, false);
+                    ctx.assign(l, nullptr, false);
                     TRACE("pb", tout << "assign: " << l << "\n";
                           ctx.display(tout););
                     VERIFY(l_false == ctx.check());
@@ -160,7 +160,7 @@ void tst_theory_pb() {
                 ctx.push();
                 smt::literal l = smt::theory_pb::assert_ge(ctx, k, lits.size(), lits.c_ptr());
                 ENSURE(l != smt::false_literal);
-                ctx.assign(l, 0, false);
+                ctx.assign(l, nullptr, false);
                 TRACE("pb", ctx.display(tout););
                 VERIFY(l_true == ctx.check());
                 ctx.pop(1);

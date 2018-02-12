@@ -74,7 +74,7 @@ public:
                     model_converter_ref & mc,
                     proof_converter_ref & pc,
                     expr_dependency_ref & core) override {
-        mc = 0; pc = 0; core = 0;
+        mc = nullptr; pc = nullptr; core = nullptr;
         reduce(*(in.get()));
         in->inc_depth();
         result.push_back(in.get());
@@ -126,7 +126,7 @@ protected:
             m_solver.pop(1);
         });
         g.reset();
-        g.assert_expr(fml, 0, 0); 
+        g.assert_expr(fml, nullptr, nullptr);
         IF_VERBOSE(TACTIC_VERBOSITY_LVL, verbose_stream() << "(ctx-solver-simplify :num-steps " << m_num_steps << ")\n";);
         SASSERT(g.is_well_sorted());        
     }
@@ -140,7 +140,7 @@ protected:
             m_parent(p), m_self(s), m_idx(i), m_expr(e)
         {}
         expr_pos():
-            m_parent(0), m_self(0), m_idx(0), m_expr(0)
+            m_parent(0), m_self(0), m_idx(0), m_expr(nullptr)
         {}
     };
 
@@ -193,7 +193,7 @@ protected:
             
             a = to_app(e);
             sz = a->get_num_args();            
-            n2 = 0;
+            n2 = nullptr;
 
             for (unsigned i = 0; i < sz; ++i) {
                 expr* arg = a->get_arg(i);

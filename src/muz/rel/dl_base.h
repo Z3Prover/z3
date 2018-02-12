@@ -41,20 +41,20 @@ namespace datalog {
     public:
         scoped_rel(T* t) : m_t(t) {}
         ~scoped_rel() { if (m_t) { universal_delete(m_t); } }
-        scoped_rel() : m_t(0) {}
+        scoped_rel() : m_t(nullptr) {}
         scoped_rel& operator=(T* t) { if (m_t && t != m_t) { universal_delete(m_t); } m_t = t;  return *this; }
         T* operator->() { return m_t; }
         const T* operator->() const { return m_t; }
         T& operator*() { return *m_t; }
         const T& operator*() const { return *m_t; }
-        operator bool() const { return m_t!=0; }
+        operator bool() const { return m_t!=nullptr; }
         T* get() const { return m_t; }
         /**
            \brief Remove object from \c scoped_rel without deleting it.
         */
         T* release() {
             T* res = m_t;
-            m_t = 0;
+            m_t = nullptr;
             return res;
         }
     };
@@ -202,7 +202,7 @@ namespace datalog {
             virtual void operator()(base_object & tgt, const base_object & src, base_object * delta) = 0;
 
             void operator()(base_object & tgt, const base_object & src) {
-                (*this)(tgt, src, static_cast<base_object *>(0));
+                (*this)(tgt, src, static_cast<base_object *>(nullptr));
             }
         };
 
@@ -335,55 +335,55 @@ namespace datalog {
 
 
             virtual join_fn * mk_join_fn(const base_object & t1, const base_object & t2,
-                unsigned col_cnt, const unsigned * cols1, const unsigned * cols2) { return 0; }
+                unsigned col_cnt, const unsigned * cols1, const unsigned * cols2) { return nullptr; }
 
             virtual transformer_fn * mk_project_fn(const base_object & t, unsigned col_cnt, 
-                const unsigned * removed_cols) { return 0; }
+                const unsigned * removed_cols) { return nullptr; }
 
             virtual join_fn * mk_join_project_fn(const base_object & t1, const base_object & t2,
                     unsigned joined_col_cnt, const unsigned * cols1, const unsigned * cols2, 
-                    unsigned removed_col_cnt, const unsigned * removed_cols) { return 0; }
+                    unsigned removed_col_cnt, const unsigned * removed_cols) { return nullptr; }
 
             virtual transformer_fn * mk_rename_fn(const base_object & t, unsigned permutation_cycle_len, 
-                const unsigned * permutation_cycle) { return 0; }
+                const unsigned * permutation_cycle) { return nullptr; }
 
             virtual transformer_fn * mk_permutation_rename_fn(const base_object & t,
-                const unsigned * permutation) { return 0; }
+                const unsigned * permutation) { return nullptr; }
 
         public:
             virtual union_fn * mk_union_fn(const base_object & tgt, const base_object & src, 
-                const base_object * delta) { return 0; }
+                const base_object * delta) { return nullptr; }
         protected:
 
             virtual union_fn * mk_widen_fn(const base_object & tgt, const base_object & src, 
-                const base_object * delta) { return 0; }
+                const base_object * delta) { return nullptr; }
 
             virtual mutator_fn * mk_filter_identical_fn(const base_object & t, unsigned col_cnt, 
-                const unsigned * identical_cols) { return 0; }
+                const unsigned * identical_cols) { return nullptr; }
 
             virtual mutator_fn * mk_filter_equal_fn(const base_object & t, const element & value, 
-                unsigned col) { return 0; }
+                unsigned col) { return nullptr; }
 
             virtual mutator_fn * mk_filter_interpreted_fn(const base_object & t, app * condition)
-            { return 0; }
+            { return nullptr; }
 
             virtual transformer_fn * mk_filter_interpreted_and_project_fn(const base_object & t,
                 app * condition, unsigned removed_col_cnt, const unsigned * removed_cols)
-            { return 0; }
+            { return nullptr; }
 
             virtual transformer_fn * mk_select_equal_and_project_fn(const base_object & t, 
-                    const element & value, unsigned col) { return 0; }
+                    const element & value, unsigned col) { return nullptr; }
 
             virtual intersection_filter_fn * mk_filter_by_intersection_fn(const base_object & t, 
                 const base_object & src, unsigned joined_col_cnt, 
                 const unsigned * t_cols, const unsigned * src_cols) 
-            { return 0; }
+            { return nullptr; }
 
 
             virtual intersection_filter_fn * mk_filter_by_negation_fn(const base_object & t, 
                 const base_object & negated_obj, unsigned joined_col_cnt, 
                 const unsigned * t_cols, const unsigned * negated_cols) 
-            { return 0; }
+            { return nullptr; }
 
             virtual intersection_join_filter_fn * mk_filter_by_negated_join_fn(
                 const base_object & t, 
@@ -393,7 +393,7 @@ namespace datalog {
                 unsigned_vector const& src_cols,
                 unsigned_vector const& src1_cols,
                 unsigned_vector const& src2_cols) 
-            { return 0; }
+            { return nullptr; }
 
         };
 
@@ -1029,14 +1029,14 @@ namespace datalog {
            If the returned value is non-zero, the returned object must take ownership of \c mapper.
            Otherwise \c mapper must remain unmodified.
         */
-        virtual table_mutator_fn * mk_map_fn(const table_base & t, table_row_mutator_fn * mapper) { return 0; }
+        virtual table_mutator_fn * mk_map_fn(const table_base & t, table_row_mutator_fn * mapper) { return nullptr; }
 
         /**
            If the returned value is non-zero, the returned object must take ownership of \c reducer.
            Otherwise \c reducer must remain unmodified.
         */
         virtual table_transformer_fn * mk_project_with_reduce_fn(const table_base & t, unsigned col_cnt, 
-            const unsigned * removed_cols, table_row_pair_reduce_fn * reducer) { return 0; }
+            const unsigned * removed_cols, table_row_pair_reduce_fn * reducer) { return nullptr; }
 
     };
 
@@ -1047,7 +1047,7 @@ namespace datalog {
         ~table_base() override {}
     public:
         table_base * clone() const override;
-        virtual table_base * complement(func_decl* p, const table_element * func_columns = 0) const;
+        virtual table_base * complement(func_decl* p, const table_element * func_columns = nullptr) const;
         bool empty() const override;
 
         /**

@@ -90,7 +90,7 @@ void model_implicant::reset() {
     m_visited.reset();
     m_numbers.reset();
     m_refs.reset();
-    m_model = 0;
+    m_model = nullptr;
 }
 
 expr_ref_vector model_implicant::minimize_model(ptr_vector<expr> const & formulas, model_ref& mdl) {
@@ -666,8 +666,8 @@ void model_implicant::eval_eq(app* e, expr* arg1, expr* arg2) {
 }
 
 void model_implicant::eval_basic(app* e) {
-    expr* arg1 = 0, *arg2 = 0;
-    expr *argCond = 0, *argThen = 0, *argElse = 0, *arg = 0;
+    expr* arg1 = nullptr, *arg2 = nullptr;
+    expr *argCond = nullptr, *argThen = nullptr, *argElse = nullptr, *arg = nullptr;
     bool has_x = false;
     unsigned arity = e->get_num_args();
     switch(e->get_decl_kind()) {

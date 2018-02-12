@@ -50,7 +50,7 @@ public:
     ast_manager & m() const { return m_util.get_manager(); }
     
     void operator()(goal const & g);
-    void operator()(expr * n, expr_dependency * d = 0);
+    void operator()(expr * n, expr_dependency * d = nullptr);
     
     bool has_lower(expr * c, numeral & v, bool & strict) const {
         limit l;
@@ -76,14 +76,14 @@ public:
         expr_dependency * d;
         if (m_lower_deps.find(c, d))
             return d;
-        return 0;
+        return nullptr;
     }
 
     expr_dependency * upper_dep(expr * c) const {
         expr_dependency * d;
         if (m_upper_deps.find(c, d))
             return d;
-        return 0;
+        return nullptr;
     }
     
     bool has_lower(expr * c) const {

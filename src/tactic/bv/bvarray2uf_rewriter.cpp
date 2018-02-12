@@ -37,8 +37,8 @@ bvarray2uf_rewriter_cfg::bvarray2uf_rewriter_cfg(ast_manager & m, params_ref con
     m_bindings(m),
     m_bv_util(m),
     m_array_util(m),
-    m_emc(0),
-    m_fmc(0),
+    m_emc(nullptr),
+    m_fmc(nullptr),
     extra_assertions(m) {
     updt_params(p);
     // We need to make sure that the mananger has the BV and array plugins loaded.
@@ -108,7 +108,7 @@ func_decl_ref bvarray2uf_rewriter_cfg::mk_uf_for_array(expr * e) {
     if (m_array_util.is_as_array(e))
         return func_decl_ref(static_cast<func_decl*>(to_app(e)->get_decl()->get_parameter(0).get_ast()), m_manager);
     else {
-        func_decl * bv_f = 0;
+        func_decl * bv_f = nullptr;
         if (!m_arrays_fs.find(e, bv_f)) {
             sort * domain = get_index_sort(e);
             sort * range = get_value_sort(e);
@@ -184,7 +184,7 @@ br_status bvarray2uf_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr 
         func_decl_ref itefd(m_manager);
         e = m_manager.mk_ite(c, f_ta, f_fa);
 
-        func_decl * bv_f = 0;
+        func_decl * bv_f = nullptr;
         if (!m_arrays_fs.find(f_a, bv_f)) {
             sort * domain = get_index_sort(args[1]);
             sort * range = get_value_sort(args[1]);

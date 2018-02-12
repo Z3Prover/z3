@@ -203,7 +203,7 @@ namespace datalog {
         return dynamic_cast<udoc_relation&>(r);
     }
     udoc_relation* udoc_plugin::get(relation_base* r) {
-        return r?dynamic_cast<udoc_relation*>(r):0;
+        return r?dynamic_cast<udoc_relation*>(r):nullptr;
     }
     udoc_relation const & udoc_plugin::get(relation_base const& r) {
         return dynamic_cast<udoc_relation const&>(r);        
@@ -351,7 +351,7 @@ namespace datalog {
         const relation_base & t1, const relation_base & t2,
         unsigned col_cnt, const unsigned * cols1, const unsigned * cols2) {
         if (!check_kind(t1) || !check_kind(t2)) {
-            return 0;
+            return nullptr;
         }
         return alloc(join_fn, *this, get(t1), get(t2), col_cnt, cols1, cols2);
     }
@@ -394,7 +394,7 @@ namespace datalog {
         const relation_base & t, unsigned col_cnt, 
         const unsigned * removed_cols) {
         if (!check_kind(t))
-            return 0;
+            return nullptr;
         return alloc(project_fn, get(t), col_cnt, removed_cols);
     }
 
@@ -487,7 +487,7 @@ namespace datalog {
             return alloc(rename_fn, get(r), cycle_len, permutation_cycle);
         }
         else {
-            return 0;
+            return nullptr;
         }
     }
     class udoc_plugin::union_fn : public relation_union_fn {
@@ -500,7 +500,7 @@ namespace datalog {
             udoc_relation const& src = get(_src);
             udoc_relation* d = get(_delta);
             doc_manager& dm = r.get_dm();
-            udoc* d1 = 0;
+            udoc* d1 = nullptr;
             if (d) d1 = &d->get_udoc();
             IF_VERBOSE(3, r.display(verbose_stream() << "orig:  "););
             r.get_plugin().mk_union(dm, r.get_udoc(), src.get_udoc(), d1);
@@ -539,7 +539,7 @@ namespace datalog {
         const relation_base & tgt, const relation_base & src, 
         const relation_base * delta) {
         if (!check_kind(tgt) || !check_kind(src) || (delta && !check_kind(*delta))) {
-            return 0;
+            return nullptr;
         }
         return alloc(union_fn);
     }
@@ -585,7 +585,7 @@ namespace datalog {
     };
     relation_mutator_fn * udoc_plugin::mk_filter_identical_fn(
         const relation_base & t, unsigned col_cnt, const unsigned * identical_cols) {
-        return check_kind(t)?alloc(filter_identical_fn, t, col_cnt, identical_cols):0;
+        return check_kind(t)?alloc(filter_identical_fn, t, col_cnt, identical_cols):nullptr;
     }
     class udoc_plugin::filter_equal_fn : public relation_mutator_fn {
         doc_manager& dm;
@@ -614,7 +614,7 @@ namespace datalog {
     relation_mutator_fn * udoc_plugin::mk_filter_equal_fn(
         const relation_base & t, const relation_element & value, unsigned col) {
         if (!check_kind(t))
-            return 0;
+            return nullptr;
         return alloc(filter_equal_fn, *this, get(t), value, col);
     }
 
@@ -951,7 +951,7 @@ namespace datalog {
         }
     };
     relation_mutator_fn * udoc_plugin::mk_filter_interpreted_fn(const relation_base & t, app * condition) {
-        return check_kind(t)?alloc(filter_interpreted_fn, get(t), get_ast_manager(), condition):0;
+        return check_kind(t)?alloc(filter_interpreted_fn, get(t), get_ast_manager(), condition):nullptr;
     }
 
     class udoc_plugin::join_project_fn : public convenient_relation_join_project_fn {
@@ -1055,7 +1055,7 @@ namespace datalog {
         unsigned joined_col_cnt, const unsigned * cols1, const unsigned * cols2, 
         unsigned removed_col_cnt, const unsigned * removed_cols) {    
         if (!check_kind(t1) || !check_kind(t2))
-            return 0;
+            return nullptr;
         // special case where we have h(X) :- f(X), g(X).
         if (joined_col_cnt == removed_col_cnt &&
             t1.get_signature().size() == joined_col_cnt &&
@@ -1183,7 +1183,7 @@ namespace datalog {
         const relation_base& neg, unsigned joined_col_cnt, const unsigned *t_cols,
         const unsigned *negated_cols) {
         if (!check_kind(t) || !check_kind(neg))
-            return 0;
+            return nullptr;
         return alloc(negation_filter_fn, get(t), get(neg), joined_col_cnt, t_cols, negated_cols);
     }
 
@@ -1250,7 +1250,7 @@ namespace datalog {
     relation_transformer_fn * udoc_plugin::mk_filter_interpreted_and_project_fn(
         const relation_base & t, app * condition,
         unsigned removed_col_cnt, const unsigned * removed_cols) {
-        return check_kind(t)?alloc(filter_proj_fn, get(t), get_ast_manager(), condition, removed_col_cnt, removed_cols):0;
+        return check_kind(t)?alloc(filter_proj_fn, get(t), get_ast_manager(), condition, removed_col_cnt, removed_cols):nullptr;
     }
 
 

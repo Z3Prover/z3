@@ -30,7 +30,7 @@ public:
     params_ref               m_params;
     scoped_ptr<param_descrs> m_pdescrs;
 public:
-    parametric_cmd(char const * name):cmd(name), m_descr(0) {}
+    parametric_cmd(char const * name):cmd(name), m_descr(nullptr) {}
     ~parametric_cmd() override { if (m_descr) dealloc(m_descr); }
     virtual void init_pdescrs(cmd_context & ctx, param_descrs & d) = 0;
     param_descrs const & pdescrs(cmd_context & ctx) const;

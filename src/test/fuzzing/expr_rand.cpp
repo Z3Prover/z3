@@ -35,7 +35,7 @@ void expr_rand::add_func_decl(func_decl* f) {
 
 void expr_rand::add_expr(expr* t) {
     sort* s = m_manager.get_sort(t);
-    expr_ref_vector* vals = 0;
+    expr_ref_vector* vals = nullptr;
     if (!m_nodes.find(s, vals)) {
         vals = alloc(expr_ref_vector, m_manager);
         m_nodes.insert(s, vals);
@@ -71,7 +71,7 @@ func_decl* expr_rand::choose_func_decl() {
 }
 
 expr* expr_rand::choose_expr(sort* s) {
-    expr_ref_vector* vals = 0;
+    expr_ref_vector* vals = nullptr;
     if (!m_nodes.find(s, vals)) {
         add_var(s);
         if (!m_nodes.find(s, vals)) {
@@ -86,14 +86,14 @@ expr* expr_rand::choose_expr(sort* s) {
 void expr_rand::initialize_arith(unsigned num_vars) {
     arith_util u(m_manager);
     family_id afid = m_manager.mk_family_id("arith");
-    sort* i_ty = m_manager.mk_sort(afid, INT_SORT, 0, 0);
+    sort* i_ty = m_manager.mk_sort(afid, INT_SORT, 0, nullptr);
     for(unsigned i = 0; i < num_vars; ++i) {
         add_var(i_ty);
     }
     sort* is[2] = { i_ty, i_ty };
     decl_kind kinds[7] = {OP_ADD, OP_MUL, OP_SUB, OP_LE, OP_LT, OP_GE, OP_GT };
     for (unsigned i = 0; i < 7; ++i) {
-        add_func_decl(m_manager.mk_func_decl(afid, kinds[i], 0, 0, 2, is));
+        add_func_decl(m_manager.mk_func_decl(afid, kinds[i], 0, nullptr, 2, is));
     }
 
     add_expr(u.mk_numeral(rational(0), true));
@@ -137,37 +137,37 @@ void expr_rand::initialize_bv(unsigned num_vars) {
         sort* s = m_manager.mk_sort(bvfid, BV_SORT, 1, &param);
         
         sort* ss[3] = { s, s, s };
-        add_func_decl(m_manager.mk_func_decl(bvfid, OP_BNEG, 0, 0, 1, ss));
-        add_func_decl(m_manager.mk_func_decl(bvfid, OP_BADD, 0, 0, 2, ss));
-        add_func_decl(m_manager.mk_func_decl(bvfid, OP_BSUB, 0, 0, 2, ss));
-        add_func_decl(m_manager.mk_func_decl(bvfid, OP_BMUL, 0, 0, 2, ss));
-        add_func_decl(m_manager.mk_func_decl(bvfid, OP_BSDIV, 0, 0, 2, ss));
-        add_func_decl(m_manager.mk_func_decl(bvfid, OP_BUDIV, 0, 0, 2, ss));
-        add_func_decl(m_manager.mk_func_decl(bvfid, OP_BSREM, 0, 0, 2, ss));
-        add_func_decl(m_manager.mk_func_decl(bvfid, OP_BUREM, 0, 0, 2, ss));
-        add_func_decl(m_manager.mk_func_decl(bvfid, OP_BSMOD, 0, 0, 2, ss));
-        add_func_decl(m_manager.mk_func_decl(bvfid, OP_ULEQ, 0, 0, 2, ss));
-        add_func_decl(m_manager.mk_func_decl(bvfid, OP_SLEQ, 0, 0, 2, ss));
-        add_func_decl(m_manager.mk_func_decl(bvfid, OP_UGEQ, 0, 0, 2, ss));
-        add_func_decl(m_manager.mk_func_decl(bvfid, OP_SGEQ, 0, 0, 2, ss));
-        add_func_decl(m_manager.mk_func_decl(bvfid, OP_ULT, 0, 0, 2, ss));
-        add_func_decl(m_manager.mk_func_decl(bvfid, OP_SLT, 0, 0, 2, ss));
-        add_func_decl(m_manager.mk_func_decl(bvfid, OP_UGT, 0, 0, 2, ss));
-        add_func_decl(m_manager.mk_func_decl(bvfid, OP_SGT, 0, 0, 2, ss));
-        add_func_decl(m_manager.mk_func_decl(bvfid, OP_BAND, 0, 0, 2, ss));
-        add_func_decl(m_manager.mk_func_decl(bvfid, OP_BOR, 0, 0, 2, ss));
-        add_func_decl(m_manager.mk_func_decl(bvfid, OP_BNOT, 0, 0, 1, ss));
-        add_func_decl(m_manager.mk_func_decl(bvfid, OP_BXOR, 0, 0, 2, ss));
-        add_func_decl(m_manager.mk_func_decl(bvfid, OP_BXNOR, 0, 0, 2, ss));
-        add_func_decl(m_manager.mk_func_decl(bvfid, OP_BNAND, 0, 0, 2, ss));
-        add_func_decl(m_manager.mk_func_decl(bvfid, OP_BCOMP, 0, 0, 2, ss));
-        add_func_decl(m_manager.mk_func_decl(bvfid, OP_BREDAND, 0, 0, 1, ss));
-        add_func_decl(m_manager.mk_func_decl(bvfid, OP_BREDOR, 0, 0, 1, ss));
-        add_func_decl(m_manager.mk_func_decl(bvfid, OP_BSHL, 0, 0, 2, ss));
-        add_func_decl(m_manager.mk_func_decl(bvfid, OP_BLSHR, 0, 0, 2, ss));
-        add_func_decl(m_manager.mk_func_decl(bvfid, OP_BASHR, 0, 0, 2, ss));
+        add_func_decl(m_manager.mk_func_decl(bvfid, OP_BNEG, 0, nullptr, 1, ss));
+        add_func_decl(m_manager.mk_func_decl(bvfid, OP_BADD, 0, nullptr, 2, ss));
+        add_func_decl(m_manager.mk_func_decl(bvfid, OP_BSUB, 0, nullptr, 2, ss));
+        add_func_decl(m_manager.mk_func_decl(bvfid, OP_BMUL, 0, nullptr, 2, ss));
+        add_func_decl(m_manager.mk_func_decl(bvfid, OP_BSDIV, 0, nullptr, 2, ss));
+        add_func_decl(m_manager.mk_func_decl(bvfid, OP_BUDIV, 0, nullptr, 2, ss));
+        add_func_decl(m_manager.mk_func_decl(bvfid, OP_BSREM, 0, nullptr, 2, ss));
+        add_func_decl(m_manager.mk_func_decl(bvfid, OP_BUREM, 0, nullptr, 2, ss));
+        add_func_decl(m_manager.mk_func_decl(bvfid, OP_BSMOD, 0, nullptr, 2, ss));
+        add_func_decl(m_manager.mk_func_decl(bvfid, OP_ULEQ, 0, nullptr, 2, ss));
+        add_func_decl(m_manager.mk_func_decl(bvfid, OP_SLEQ, 0, nullptr, 2, ss));
+        add_func_decl(m_manager.mk_func_decl(bvfid, OP_UGEQ, 0, nullptr, 2, ss));
+        add_func_decl(m_manager.mk_func_decl(bvfid, OP_SGEQ, 0, nullptr, 2, ss));
+        add_func_decl(m_manager.mk_func_decl(bvfid, OP_ULT, 0, nullptr, 2, ss));
+        add_func_decl(m_manager.mk_func_decl(bvfid, OP_SLT, 0, nullptr, 2, ss));
+        add_func_decl(m_manager.mk_func_decl(bvfid, OP_UGT, 0, nullptr, 2, ss));
+        add_func_decl(m_manager.mk_func_decl(bvfid, OP_SGT, 0, nullptr, 2, ss));
+        add_func_decl(m_manager.mk_func_decl(bvfid, OP_BAND, 0, nullptr, 2, ss));
+        add_func_decl(m_manager.mk_func_decl(bvfid, OP_BOR, 0, nullptr, 2, ss));
+        add_func_decl(m_manager.mk_func_decl(bvfid, OP_BNOT, 0, nullptr, 1, ss));
+        add_func_decl(m_manager.mk_func_decl(bvfid, OP_BXOR, 0, nullptr, 2, ss));
+        add_func_decl(m_manager.mk_func_decl(bvfid, OP_BXNOR, 0, nullptr, 2, ss));
+        add_func_decl(m_manager.mk_func_decl(bvfid, OP_BNAND, 0, nullptr, 2, ss));
+        add_func_decl(m_manager.mk_func_decl(bvfid, OP_BCOMP, 0, nullptr, 2, ss));
+        add_func_decl(m_manager.mk_func_decl(bvfid, OP_BREDAND, 0, nullptr, 1, ss));
+        add_func_decl(m_manager.mk_func_decl(bvfid, OP_BREDOR, 0, nullptr, 1, ss));
+        add_func_decl(m_manager.mk_func_decl(bvfid, OP_BSHL, 0, nullptr, 2, ss));
+        add_func_decl(m_manager.mk_func_decl(bvfid, OP_BLSHR, 0, nullptr, 2, ss));
+        add_func_decl(m_manager.mk_func_decl(bvfid, OP_BASHR, 0, nullptr, 2, ss));
 
-        add_func_decl(m_manager.mk_func_decl(bfid,  OP_EQ, 0, 0, 2, ss));
+        add_func_decl(m_manager.mk_func_decl(bfid,  OP_EQ, 0, nullptr, 2, ss));
 
         add_func_decl(m_manager.mk_func_decl(bvfid, OP_ROTATE_LEFT, 1, &p1, 1, ss));
         add_func_decl(m_manager.mk_func_decl(bvfid, OP_ROTATE_RIGHT, 1, &p1, 1, ss));
@@ -182,22 +182,22 @@ void expr_rand::initialize_bv(unsigned num_vars) {
     // OP_CONCAT:
     {
         sort* ss[2] = { b8, b8 };
-        add_func_decl(m_manager.mk_func_decl(bvfid, OP_CONCAT, 0, 0, 2, ss));
+        add_func_decl(m_manager.mk_func_decl(bvfid, OP_CONCAT, 0, nullptr, 2, ss));
         ss[0] = b16;
         ss[1] = b8;
-        add_func_decl(m_manager.mk_func_decl(bvfid, OP_CONCAT, 0, 0, 2, ss));
+        add_func_decl(m_manager.mk_func_decl(bvfid, OP_CONCAT, 0, nullptr, 2, ss));
         ss[0] = b8;
         ss[1] = b16;
-        add_func_decl(m_manager.mk_func_decl(bvfid, OP_CONCAT, 0, 0, 2, ss));
+        add_func_decl(m_manager.mk_func_decl(bvfid, OP_CONCAT, 0, nullptr, 2, ss));
         ss[0] = b16;
         ss[1] = b16;
-        add_func_decl(m_manager.mk_func_decl(bvfid, OP_CONCAT, 0, 0, 2, ss));
+        add_func_decl(m_manager.mk_func_decl(bvfid, OP_CONCAT, 0, nullptr, 2, ss));
         ss[0] = b24;
         ss[1] = b8;
-        add_func_decl(m_manager.mk_func_decl(bvfid, OP_CONCAT, 0, 0, 2, ss));
+        add_func_decl(m_manager.mk_func_decl(bvfid, OP_CONCAT, 0, nullptr, 2, ss));
         ss[0] = b8;
         ss[1] = b24;
-        add_func_decl(m_manager.mk_func_decl(bvfid, OP_CONCAT, 0, 0, 2, ss));
+        add_func_decl(m_manager.mk_func_decl(bvfid, OP_CONCAT, 0, nullptr, 2, ss));
     }
 
     
@@ -246,8 +246,8 @@ void expr_rand::initialize_array(unsigned num_vars, sort* dom, sort* rng) {
     sort* a = m_manager.mk_sort(afid, ARRAY_SORT, 2, ps);
     sort* ss[3] = { a, dom, rng };
     
-    add_func_decl(m_manager.mk_func_decl(afid, OP_STORE, 0, 0, 3, ss));
-    add_func_decl(m_manager.mk_func_decl(afid, OP_SELECT, 0, 0, 2, ss));
+    add_func_decl(m_manager.mk_func_decl(afid, OP_STORE, 0, nullptr, 3, ss));
+    add_func_decl(m_manager.mk_func_decl(afid, OP_SELECT, 0, nullptr, 2, ss));
 
     for (unsigned i = 0; i < num_vars; ++i) {
         add_var(a);
@@ -258,14 +258,14 @@ void expr_rand::initialize_basic(unsigned amplification) {
     family_id bfid = m_manager.get_basic_family_id();
     sort* bools[2] = { m_manager.mk_bool_sort(), m_manager.mk_bool_sort() };
     for (unsigned i = 0; i < amplification; ++i) {
-        add_func_decl(m_manager.mk_func_decl(bfid, OP_OR, 0, 0, 2, bools));
-        add_func_decl(m_manager.mk_func_decl(bfid, OP_NOT, 0, 0, 1, bools));         
+        add_func_decl(m_manager.mk_func_decl(bfid, OP_OR, 0, nullptr, 2, bools));
+        add_func_decl(m_manager.mk_func_decl(bfid, OP_NOT, 0, nullptr, 1, bools));
     }
     map_t::iterator it  = m_nodes.begin(); 
     map_t::iterator end = m_nodes.end(); 
     for (; it != end; ++it) {
         sort* s = it->m_key;
         sort* ites[3] = { bools[0], s, s };
-        add_func_decl(m_manager.mk_func_decl(bfid, OP_ITE, 0, 0, 3, ites));
+        add_func_decl(m_manager.mk_func_decl(bfid, OP_ITE, 0, nullptr, 3, ites));
     }
 }

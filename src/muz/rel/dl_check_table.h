@@ -120,7 +120,7 @@ namespace datalog {
         void add_fact(const table_fact & f) override;
         void remove_fact(const table_element*  fact) override;
         bool contains_fact(const table_fact & f) const override;
-        table_base * complement(func_decl* p, const table_element * func_columns = 0) const override;
+        table_base * complement(func_decl* p, const table_element * func_columns = nullptr) const override;
         table_base * clone() const override;
 
         iterator begin() const override { SASSERT(well_formed()); return m_tocheck->begin(); }

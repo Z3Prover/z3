@@ -222,20 +222,20 @@ namespace datalog {
         */
         app * detect_equivalence(const arg_pair& p1, const arg_pair& p2, bool inside_disjunction)
         {
-            if (m.is_not(p1.first)==m.is_not(p2.first)) { return 0; }
-            if (m.is_not(p1.second)==m.is_not(p2.second)) { return 0; }
+            if (m.is_not(p1.first)==m.is_not(p2.first)) { return nullptr; }
+            if (m.is_not(p1.second)==m.is_not(p2.second)) { return nullptr; }
 
-            expr * first_bare = 0;
-            if (m.is_not(p1.first, first_bare) && p2.first!=first_bare) { return 0; }
-            if (m.is_not(p2.first, first_bare) && p1.first!=first_bare) { return 0; }
+            expr * first_bare = nullptr;
+            if (m.is_not(p1.first, first_bare) && p2.first!=first_bare) { return nullptr; }
+            if (m.is_not(p2.first, first_bare) && p1.first!=first_bare) { return nullptr; }
             SASSERT(first_bare);
 
-            expr * second_bare = 0;
-            if (m.is_not(p1.second, second_bare) && p2.second!=second_bare) { return 0; }
-            if (m.is_not(p2.second, second_bare) && p1.second!=second_bare) { return 0; }
+            expr * second_bare = nullptr;
+            if (m.is_not(p1.second, second_bare) && p2.second!=second_bare) { return nullptr; }
+            if (m.is_not(p2.second, second_bare) && p1.second!=second_bare) { return nullptr; }
             SASSERT(second_bare);
 
-            if (!m.is_bool(first_bare) || !m.is_bool(second_bare)) { return 0; }
+            if (!m.is_bool(first_bare) || !m.is_bool(second_bare)) { return nullptr; }
 
             //both negations are in the same pair
             bool negs_together = m.is_not(p1.first)==m.is_not(p1.second);
@@ -261,7 +261,7 @@ namespace datalog {
 
                 arg_pair new_ap;
                 if (match_arg_pair(e, new_ap, inside_disjunction)) {
-                    app * neq = 0;
+                    app * neq = nullptr;
                     if (have_pair) {
                         neq = detect_equivalence(ap, new_ap, inside_disjunction);
                     }
@@ -601,7 +601,7 @@ namespace datalog {
 
     rule_set * mk_interp_tail_simplifier::operator()(rule_set const & source) {
         if (source.get_num_rules() == 0) {
-            return 0;
+            return nullptr;
         }
 
         rule_set * res = alloc(rule_set, m_context);
@@ -612,7 +612,7 @@ namespace datalog {
                   res->display(tout););
         } else {
             dealloc(res);
-            res = 0;
+            res = nullptr;
         }
         return res;
     }

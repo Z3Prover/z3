@@ -447,7 +447,7 @@ doc* doc_manager::join(const doc& d1, const doc& d2, doc_manager& dm1,
         }
         else if (v1 != v2) {
             // columns don't match
-            return 0;
+            return nullptr;
         }
         SASSERT(well_formed(*d));
     }

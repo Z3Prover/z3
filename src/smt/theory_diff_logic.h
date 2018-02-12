@@ -234,7 +234,7 @@ namespace smt {
             m_agility(0.5),
             m_is_lia(true),
             m_non_diff_logic_exprs(false),
-            m_factory(0),
+            m_factory(nullptr),
             m_nc_functor(*this),
             m_S(m.limit()),
             m_num_simplex_edges(0) {
@@ -297,7 +297,7 @@ namespace smt {
         
         justification * why_is_diseq(theory_var v1, theory_var v2) override {
             NOT_IMPLEMENTED_YET();
-            return 0;
+            return nullptr;
         }
 
         // virtual void flush_eh();

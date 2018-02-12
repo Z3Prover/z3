@@ -67,12 +67,12 @@ namespace smt {
             if (u.is_seq(s)) {
                 return u.str.mk_empty(s);
             }
-            sort* seq = 0;
+            sort* seq = nullptr;
             if (u.is_re(s, seq)) {
                 return u.re.mk_to_re(u.str.mk_empty(seq));
             }
             UNREACHABLE();
-            return 0;
+            return nullptr;
         }
         bool get_some_values(sort* s, expr_ref& v1, expr_ref& v2) override {
             if (u.is_string(s)) {
@@ -105,7 +105,7 @@ namespace smt {
                     return u.str.mk_string(sym);
                 }
             }
-            sort* seq = 0, *ch = 0;
+            sort* seq = nullptr, *ch = nullptr;
             if (u.is_re(s, seq)) {
                 expr* v0 = get_fresh_value(seq);
                 return u.re.mk_to_re(v0);
@@ -120,7 +120,7 @@ namespace smt {
                 return u.str.mk_unit(v);
             }
             UNREACHABLE();
-            return 0;
+            return nullptr;
         }
         void register_value(expr* n) override {
             symbol sym;
@@ -150,7 +150,7 @@ namespace smt {
         bool m_used;
         final_check_status final_check_eh() override { return m_used?FC_GIVEUP:FC_DONE; }
         bool internalize_atom(app*, bool) override { if (!m_used) { get_context().push_trail(value_trail<context,bool>(m_used)); m_used = true; } return false; }
-        bool internalize_term(app*) override { return internalize_atom(0,false);  }
+        bool internalize_term(app*) override { return internalize_atom(nullptr,false);  }
         void new_eq_eh(theory_var, theory_var) override { }
         void new_diseq_eh(theory_var, theory_var) override {}
         theory* mk_fresh(context* new_ctx) override { return alloc(theory_seq_empty, new_ctx->get_manager()); }

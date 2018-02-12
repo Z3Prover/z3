@@ -136,7 +136,7 @@ struct mus::imp {
 
     // use correction sets
     lbool get_mus2(expr_ref_vector& mus) {
-        expr* lit = 0;
+        expr* lit = nullptr;
         lbool is_sat;
         ptr_vector<expr> unknown(m_lit2expr.size(), m_lit2expr.c_ptr());
         while (!unknown.empty()) { 
@@ -163,7 +163,7 @@ struct mus::imp {
         expr_ref_vector  nmcs(m);
         expr_set core, min_core, nmcs_set;
         bool min_core_valid = false;
-        expr* min_lit = 0;
+        expr* min_lit = nullptr;
         while (!unknown.empty()) {
             expr* lit = unknown.back();
             unknown.pop_back();

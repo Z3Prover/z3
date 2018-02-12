@@ -17,10 +17,10 @@ Copyright (c) 2015 Microsoft Corporation
 #define SAME_OP(_d1_, _d2_) ((_d1_ == _d2_) || (IS_EQUIV(_d1_) && IS_EQUIV(_d2_)))
 
 proof_checker::hyp_decl_plugin::hyp_decl_plugin() : 
-    m_cons(0),
-    m_atom(0),
-    m_nil(0),
-    m_cell(0) {
+    m_cons(nullptr),
+    m_atom(nullptr),
+    m_nil(nullptr),
+    m_cell(nullptr) {
 }
 
 void proof_checker::hyp_decl_plugin::finalize() {
@@ -54,7 +54,7 @@ func_decl * proof_checker::hyp_decl_plugin::mk_func_decl(decl_kind k) {
     case OP_NIL: return m_nil;
     default:
         UNREACHABLE();
-        return 0;
+        return nullptr;
     }
 }
 
@@ -739,7 +739,7 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
         // (not (forall ?x (p ?x y))) -> (not (p (sk y) y))
         if (match_fact(p, fact) &&
             match_oeq(fact.get(), t1, t2)) {
-            quantifier* q = 0;
+            quantifier* q = nullptr;
             expr* e = t1.get();
             bool is_forall = false;
             if (match_not(t1.get(), s1)) {
@@ -823,7 +823,7 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
         premise0 = fmls[0].get();
         for (unsigned i = 1; i < fmls.size(); ++i) {
             expr_ref lit1(m), lit2(m);
-            expr* lit3 = 0;
+            expr* lit3 = nullptr;
             std::pair<unsigned, unsigned> pos = positions[i-1];
             premise1 = fmls[i].get();
             set_false(premise0, pos.first, lit1);
@@ -1099,7 +1099,7 @@ void proof_checker::get_ors(expr* e, expr_ref_vector& ors) {
 
 void proof_checker::get_hypotheses(proof* p, expr_ref_vector& ante) {
     ptr_vector<proof> stack;
-    expr* h = 0;
+    expr* h = nullptr;
     expr_ref hyp(m);
 
     stack.push_back(p);
@@ -1234,7 +1234,7 @@ bool proof_checker::is_hypothesis(proof* p) const {
 }
 
 expr* proof_checker::mk_hyp(unsigned num_hyps, expr * const * hyps) {
-    expr* result = 0;
+    expr* result = nullptr;
     for (unsigned i = 0; i < num_hyps; ++i) {
         if (!match_nil(hyps[i])) {
             if (result) {
@@ -1245,7 +1245,7 @@ expr* proof_checker::mk_hyp(unsigned num_hyps, expr * const * hyps) {
             }
         }
     }
-    if (result == 0) {
+    if (result == nullptr) {
         return mk_nil();
     }
     else {

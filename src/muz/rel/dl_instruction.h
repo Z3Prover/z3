@@ -107,7 +107,7 @@ namespace datalog {
         */
         reg_type reg(reg_idx i) const { 
             if (i >= m_registers.size()) {
-                return 0;
+                return nullptr;
             }
             return m_registers[i];
         }
@@ -138,7 +138,7 @@ namespace datalog {
 
         void make_empty(reg_idx i) {
             if (reg(i)) {
-                set_reg(i, 0);
+                set_reg(i, nullptr);
             }
         }
 
@@ -326,7 +326,7 @@ namespace datalog {
         instr_seq_type m_data;
         instruction_observer* m_observer;
     public:
-        instruction_block() : m_observer(0) {}
+        instruction_block() : m_observer(nullptr) {}
         ~instruction_block();
         void reset();
 

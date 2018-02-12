@@ -153,7 +153,7 @@ public:
                     proof_converter_ref & pc,
                     expr_dependency_ref & core) override {
         SASSERT(g->is_well_sorted());
-        mc = 0; pc = 0; core = 0;
+        mc = nullptr; pc = nullptr; core = nullptr;
         
         tactic_report report("elim01", *g);
         

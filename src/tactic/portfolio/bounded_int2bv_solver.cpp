@@ -167,7 +167,7 @@ public:
 
         // translate bit-vector consequences back to integer values
         for (unsigned i = 0; i < consequences.size(); ++i) {
-            expr* a = 0, *b = 0, *u = 0, *v = 0;
+            expr* a = nullptr, *b = nullptr, *u = nullptr, *v = nullptr;
             func_decl* f;
             rational num;
             unsigned bvsize;

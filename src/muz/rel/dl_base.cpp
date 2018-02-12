@@ -51,7 +51,7 @@ namespace datalog {
         ast_manager & m = renaming_arg.get_manager();
         unsigned sz = map.size();
         unsigned ofs = sz-1;
-        renaming_arg.resize(sz, static_cast<expr *>(0));
+        renaming_arg.resize(sz, static_cast<expr *>(nullptr));
         for(unsigned i=0; i<sz; i++) {
             if(map[i]!=UINT_MAX) {
                 renaming_arg.set(ofs-i, m.mk_var(map[i], orig_sig[i]));
@@ -127,7 +127,7 @@ namespace datalog {
 
         unsigned func_cnt = src.functional_columns();
 
-        if(removed_cols==0) {
+        if(removed_cols==nullptr) {
             result.set_functional_columns(func_cnt);
             return;
         }

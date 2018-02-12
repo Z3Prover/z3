@@ -86,7 +86,7 @@ class func_decl_dependencies::top_sort {
     ptr_vector<func_decl>   m_todo;
 
     func_decl_set * definition(func_decl * f) const {        
-        func_decl_set * r = 0;
+        func_decl_set * r = nullptr;
         m_deps.find(f, r);
         return r;
     }
@@ -210,7 +210,7 @@ bool func_decl_dependencies::insert(func_decl * f, func_decl_set * s) {
 }
 
 void func_decl_dependencies::erase(func_decl * f) {
-    func_decl_set * s = 0;
+    func_decl_set * s = nullptr;
     if (m_deps.find(f, s)) {
         m_manager.dec_ref(f);
         dec_ref(m_manager, *s);

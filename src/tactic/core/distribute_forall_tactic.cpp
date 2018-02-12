@@ -93,7 +93,7 @@ class distribute_forall_tactic : public tactic {
     rw * m_rw;
 
 public:
-    distribute_forall_tactic():m_rw(0) {}
+    distribute_forall_tactic():m_rw(nullptr) {}
 
     tactic * translate(ast_manager & m) override {
         return alloc(distribute_forall_tactic);
@@ -109,7 +109,7 @@ public:
         bool produce_proofs = g->proofs_enabled();
         rw r(m, produce_proofs);
         m_rw = &r;
-        mc = 0; pc = 0; core = 0; result.reset();
+        mc = nullptr; pc = nullptr; core = nullptr; result.reset();
         tactic_report report("distribute-forall", *g);
 
         expr_ref   new_curr(m);
@@ -131,7 +131,7 @@ public:
         result.push_back(g.get());
         TRACE("distribute-forall", g->display(tout););
         SASSERT(g->is_well_sorted());
-        m_rw = 0;
+        m_rw = nullptr;
     }
 
     void cleanup() override {}

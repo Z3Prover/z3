@@ -69,7 +69,7 @@ namespace datalog {
 
         relation_join_fn * mk_join_project_fn(const relation_base & t1, const relation_base & t2,
                     unsigned joined_col_cnt, const unsigned * cols1, const unsigned * cols2,
-                    unsigned removed_col_cnt, const unsigned * removed_cols) override { return 0; }
+                    unsigned removed_col_cnt, const unsigned * removed_cols) override { return nullptr; }
 
 
 #if 0

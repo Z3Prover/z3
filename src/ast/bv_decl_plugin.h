@@ -122,7 +122,7 @@ inline bv_op_kind get_div0_op(bv_op_kind k) {
 // models the value of "div" it is underspecified (i.e., when the denominator is zero).
 inline func_decl * get_div0_decl(ast_manager & m, func_decl * decl) {
     return m.mk_func_decl(decl->get_family_id(), get_div0_op(static_cast<bv_op_kind>(decl->get_decl_kind())),
-                          0, 0, 1, decl->get_domain());
+                          0, nullptr, 1, decl->get_domain());
 }
 
 class bv_decl_plugin : public decl_plugin {

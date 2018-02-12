@@ -203,11 +203,11 @@ namespace smt {
         struct scoped_mk_model {
             context & m_ctx;
             scoped_mk_model(context & ctx):m_ctx(ctx) {
-                m_ctx.m_proto_model = 0;
-                m_ctx.m_model       = 0;
+                m_ctx.m_proto_model = nullptr;
+                m_ctx.m_model       = nullptr;
             }
             ~scoped_mk_model() {
-                if (m_ctx.m_proto_model.get() != 0) {
+                if (m_ctx.m_proto_model.get() != nullptr) {
                     m_ctx.m_model = m_ctx.m_proto_model->mk_model();
                     try {
                         m_ctx.add_rec_funs_to_model();
@@ -215,7 +215,7 @@ namespace smt {
                     catch (...) {
                         // no op
                     }
-                    m_ctx.m_proto_model = 0; // proto_model is not needed anymore.
+                    m_ctx.m_proto_model = nullptr; // proto_model is not needed anymore.
                 }
             }
         };
@@ -514,12 +514,12 @@ namespace smt {
 
         enode_vector::const_iterator begin_enodes_of(func_decl const * decl) const {
             unsigned id = decl->get_decl_id();
-            return id < m_decl2enodes.size() ? m_decl2enodes[id].begin() : 0;
+            return id < m_decl2enodes.size() ? m_decl2enodes[id].begin() : nullptr;
         }
 
         enode_vector::const_iterator end_enodes_of(func_decl const * decl) const {
             unsigned id = decl->get_decl_id();
-            return id < m_decl2enodes.size() ? m_decl2enodes[id].end() : 0;
+            return id < m_decl2enodes.size() ? m_decl2enodes[id].end() : nullptr;
         }
 
         ptr_vector<enode>::const_iterator begin_enodes() const {
@@ -822,17 +822,17 @@ namespace smt {
 
         void internalize(expr * n, bool gate_ctx, unsigned generation);
 
-        clause * mk_clause(unsigned num_lits, literal * lits, justification * j, clause_kind k = CLS_AUX, clause_del_eh * del_eh = 0);
+        clause * mk_clause(unsigned num_lits, literal * lits, justification * j, clause_kind k = CLS_AUX, clause_del_eh * del_eh = nullptr);
 
         void mk_clause(literal l1, literal l2, justification * j);
 
         void mk_clause(literal l1, literal l2, literal l3, justification * j);
 
-        void mk_th_axiom(theory_id tid, unsigned num_lits, literal * lits, unsigned num_params = 0, parameter * params = 0);
+        void mk_th_axiom(theory_id tid, unsigned num_lits, literal * lits, unsigned num_params = 0, parameter * params = nullptr);
 
-        void mk_th_axiom(theory_id tid, literal l1, literal l2, unsigned num_params = 0, parameter * params = 0);
+        void mk_th_axiom(theory_id tid, literal l1, literal l2, unsigned num_params = 0, parameter * params = nullptr);
 
-        void mk_th_axiom(theory_id tid, literal l1, literal l2, literal l3, unsigned num_params = 0, parameter * params = 0);
+        void mk_th_axiom(theory_id tid, literal l1, literal l2, literal l3, unsigned num_params = 0, parameter * params = nullptr);
 
         /*
          * Provide a hint to the core solver that the specified literals form a "theory case split".
@@ -1460,7 +1460,7 @@ namespace smt {
            If l == 0, then the logic of this context is used in the new context.
            If p == 0, then this->m_params is used
         */
-        context * mk_fresh(symbol const * l = 0,  smt_params * p = 0);
+        context * mk_fresh(symbol const * l = nullptr,  smt_params * p = nullptr);
 
         static void copy(context& src, context& dst);
 
@@ -1482,7 +1482,7 @@ namespace smt {
 
         void pop(unsigned num_scopes);
 
-        lbool check(unsigned num_assumptions = 0, expr * const * assumptions = 0, bool reset_cancel = true, bool already_did_theory_assumptions = false);
+        lbool check(unsigned num_assumptions = 0, expr * const * assumptions = nullptr, bool reset_cancel = true, bool already_did_theory_assumptions = false);
 
         lbool get_consequences(expr_ref_vector const& assumptions, expr_ref_vector const& vars, expr_ref_vector& conseq, expr_ref_vector& unfixed);
 

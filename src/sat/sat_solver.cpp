@@ -36,7 +36,7 @@ namespace sat {
         m_checkpoint_enabled(true),
         m_config(p),
         m_ext(ext),
-        m_par(0),
+        m_par(nullptr),
         m_cleaner(*this),
         m_simplifier(*this, p),
         m_scc(*this, p),
@@ -198,7 +198,7 @@ namespace sat {
             bool keep = simplify_clause(num_lits, lits);
             TRACE("sat_mk_clause", tout << "mk_clause (after simp), keep: " << keep << "\n" << mk_lits_pp(num_lits, lits) << "\n";);
             if (!keep) {
-                return 0; // clause is equivalent to true.
+                return nullptr; // clause is equivalent to true.
             }
             ++m_stats.m_non_learned_generation;
         }
@@ -206,13 +206,13 @@ namespace sat {
         switch (num_lits) {
         case 0:
             set_conflict(justification());
-            return 0;
+            return nullptr;
         case 1:
             assign(lits[0], justification());
-            return 0;
+            return nullptr;
         case 2:
             mk_bin_clause(lits[0], lits[1], learned);
-            return 0;
+            return nullptr;
         case 3:
             return mk_ter_clause(lits, learned);
         default:
@@ -815,7 +815,7 @@ namespace sat {
             if (i == 1 + num_threads/2) {
                 m_params.set_sym("phase", symbol("random"));
             }
-            solvers[i] = alloc(sat::solver, m_params, rlims[i], 0);
+            solvers[i] = alloc(sat::solver, m_params, rlims[i], nullptr);
             solvers[i]->copy(*this);
             solvers[i]->set_par(&par);
             scoped_rlimit.push_child(&solvers[i]->rlimit());
@@ -874,7 +874,7 @@ namespace sat {
                 }
             }
         }
-        set_par(0);
+        set_par(nullptr);
         if (finished_id != -1 && finished_id < num_extra_solvers) {
             m_stats = solvers[finished_id]->m_stats;
         }

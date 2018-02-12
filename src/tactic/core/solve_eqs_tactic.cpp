@@ -53,12 +53,12 @@ class solve_eqs_tactic : public tactic {
         imp(ast_manager & m, params_ref const & p, expr_replacer * r, bool owner):
             m_manager(m),
             m_r(r),
-            m_r_owner(r == 0 || owner),
+            m_r_owner(r == nullptr || owner),
             m_a_util(m),
             m_num_steps(0),
             m_num_eliminated_vars(0) {
             updt_params(p);
-            if (m_r == 0)
+            if (m_r == nullptr)
                 m_r       = mk_default_expr_replacer(m);
         }
         
@@ -98,7 +98,7 @@ class solve_eqs_tactic : public tactic {
             if (is_uninterp_const(lhs) && !m_candidate_vars.is_marked(lhs) && !occurs(lhs, rhs) && check_occs(lhs)) {
                 var = to_app(lhs); 
                 def = rhs;
-                pr  = 0;
+                pr  = nullptr;
                 return true;
             }
             else {
@@ -333,7 +333,7 @@ class solve_eqs_tactic : public tactic {
         }
         
         bool solve(expr * f, app_ref & var, expr_ref & def, proof_ref & pr) {
-            expr* arg1 = 0, *arg2 = 0;
+            expr* arg1 = nullptr, *arg2 = nullptr;
             if (m().is_eq(f, arg1, arg2)) {
                 if (trivial_solve(arg1, arg2, var, def, pr))
                     return true;
@@ -393,7 +393,7 @@ class solve_eqs_tactic : public tactic {
         void collect(goal const & g) {
             m_subst->reset();
             m_norm_subst->reset();
-            m_r->set_substitution(0);
+            m_r->set_substitution(nullptr);
             m_candidate_vars.reset();
             m_candidate_set.reset();
             m_candidates.reset();
@@ -499,7 +499,7 @@ class solve_eqs_tactic : public tactic {
                                         
                                         // Must save t and its definition.
                                         // See comment in the beginning of the function
-                                        expr * def = 0;
+                                        expr * def = nullptr;
                                         proof * pr;
                                         expr_dependency * dep;
                                         m_subst->find(to_app(t), def, pr, dep);
@@ -513,7 +513,7 @@ class solve_eqs_tactic : public tactic {
                                     else {
                                         visiting.mark(t);
                                         fr.second = 1;
-                                        expr * def = 0;
+                                        expr * def = nullptr;
                                         proof * pr;
                                         expr_dependency * dep;
                                         m_subst->find(to_app(t), def, pr, dep);
@@ -587,9 +587,9 @@ class solve_eqs_tactic : public tactic {
             for (unsigned idx = 0; idx < size; idx++) {
                 checkpoint();
                 expr * v   = m_ordered_vars[idx];
-                expr * def = 0;
-                proof * pr = 0;
-                expr_dependency * dep = 0;
+                expr * def = nullptr;
+                proof * pr = nullptr;
+                expr_dependency * dep = nullptr;
                 m_subst->find(v, def, pr, dep);
                 SASSERT(def != 0);
                 m_r->operator()(def, new_def, new_pr, new_dep);
@@ -645,7 +645,7 @@ class solve_eqs_tactic : public tactic {
                     // so, we must remove remove the mark before doing the update
                     m_candidate_set.mark(f, false);
                     SASSERT(!m_candidate_set.is_marked(f));
-                    g.update(idx, m().mk_true(), m().mk_true_proof(), 0);
+                    g.update(idx, m().mk_true(), m().mk_true_proof(), nullptr);
                     m_num_steps ++;
                     continue;
                 }
@@ -681,10 +681,10 @@ class solve_eqs_tactic : public tactic {
             IF_VERBOSE(100, if (!m_ordered_vars.empty()) verbose_stream() << "num. eliminated vars: " << m_ordered_vars.size() << "\n";);
             m_num_eliminated_vars += m_ordered_vars.size();
             if (m_produce_models) {
-                if (mc.get() == 0)
+                if (mc.get() == nullptr)
                     mc = alloc(gmc, m());
                 for (app* v : m_ordered_vars) {
-                    expr * def = 0;
+                    expr * def = nullptr;
                     proof * pr;
                     expr_dependency * dep;
                     m_norm_subst->find(v, def, pr, dep);
@@ -748,7 +748,7 @@ class solve_eqs_tactic : public tactic {
                         proof_converter_ref & pc,
                         expr_dependency_ref & core) {
             SASSERT(g->is_well_sorted());
-            mc = 0; pc = 0; core = 0;
+            mc = nullptr; pc = nullptr; core = nullptr;
             tactic_report report("solve_eqs", *g);
             m_produce_models = g->models_enabled();
             m_produce_proofs = g->proofs_enabled();
@@ -768,7 +768,7 @@ class solve_eqs_tactic : public tactic {
                     normalize();
                     substitute(*(g.get()));
                     if (g->inconsistent()) {
-                        mc   = 0;
+                        mc   = nullptr;
                         break;
                     }
                     save_elim_vars(mc);
@@ -823,7 +823,7 @@ public:
         ast_manager & m = m_imp->m();
         expr_replacer * r = m_imp->m_r;
         if (r)
-            r->set_substitution(0);
+            r->set_substitution(nullptr);
         bool owner = m_imp->m_r_owner;
         m_imp->m_r_owner  = false; // stole replacer
 
@@ -844,7 +844,7 @@ public:
 };
 
 tactic * mk_solve_eqs_tactic(ast_manager & m, params_ref const & p, expr_replacer * r) {
-    if (r == 0)
+    if (r == nullptr)
         return clean(alloc(solve_eqs_tactic, m, p, mk_expr_simp_replacer(m, p), true));
     else
         return clean(alloc(solve_eqs_tactic, m, p, r, false));

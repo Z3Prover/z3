@@ -89,7 +89,7 @@ namespace datalog {
     table_join_fn * hashtable_table_plugin::mk_join_fn(const table_base & t1, const table_base & t2,
             unsigned col_cnt, const unsigned * cols1, const unsigned * cols2) {
         if(t1.get_kind()!=get_kind() || t2.get_kind()!=get_kind()) {
-            return 0;
+            return nullptr;
         }
         return alloc(join_fn, t1.get_signature(), t2.get_signature(), col_cnt, cols1, cols2);
     }

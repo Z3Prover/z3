@@ -111,7 +111,7 @@ public:
         SASSERT(in->is_well_sorted());
         tactic_report report("split-clause", *in);
         TRACE("before_split_clause", in->display(tout););
-        pc = 0; mc = 0; core = 0; 
+        pc = nullptr; mc = nullptr; core = nullptr;
         ast_manager & m = in->m();
         unsigned cls_pos = select_clause(m, in);
         if (cls_pos == UINT_MAX) {
@@ -131,7 +131,7 @@ public:
             else
                 subgoal_i = alloc(goal, *in);
             expr * lit_i = cls->get_arg(i);
-            proof * pr_i = 0;
+            proof * pr_i = nullptr;
             if (produce_proofs)
                 pr_i = m.mk_hypothesis(lit_i);
             subgoal_i->update(cls_pos, lit_i, pr_i, cls_dep);

@@ -186,7 +186,7 @@ namespace datalog {
             m_simp(m_context.get_rewriter()),
             m_pinned(m_rm),
             m_inlined_rules(m_context),
-            m_mc(0),
+            m_mc(nullptr),
             m_unifier(ctx),
             m_head_index(m),
             m_tail_index(m),

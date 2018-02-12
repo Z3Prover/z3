@@ -257,8 +257,8 @@ namespace datalog {
                \brief Empty result.
             */
             query_result() : m_singleton(false) {
-                m_many.begin = 0;
-                m_many.end = 0;
+                m_many.begin = nullptr;
+                m_many.end = nullptr;
             }
             query_result(offset_iterator begin, offset_iterator end) : m_singleton(false) {
                 m_many.begin = begin;
@@ -327,7 +327,7 @@ namespace datalog {
             key_value key;
             key.resize(key_len);
 
-            offset_vector * index_entry = 0;
+            offset_vector * index_entry = nullptr;
             bool key_modified = true;
 
             for (; ofs!=after_last; ofs+=t.m_fact_size) {
@@ -473,7 +473,7 @@ namespace datalog {
 #endif
         key_spec kspec;
         kspec.append(key_len, key_cols);
-        key_index_map::entry * key_map_entry = m_key_indexes.insert_if_not_there2(kspec, 0);
+        key_index_map::entry * key_map_entry = m_key_indexes.insert_if_not_there2(kspec, nullptr);
         if (!key_map_entry->get_data().m_value) {
             if (full_signature_key_indexer::can_handle(key_len, key_cols, *this)) {
                 key_map_entry->get_data().m_value = alloc(full_signature_key_indexer, key_len, key_cols, *this);
@@ -777,9 +777,9 @@ namespace datalog {
         const table_signature & sig = t->get_signature();
         t->reset();
 
-        table_pool::entry * e = m_pool.insert_if_not_there2(sig, 0);
+        table_pool::entry * e = m_pool.insert_if_not_there2(sig, nullptr);
         sp_table_vector * & vect = e->get_data().m_value;
-        if (vect == 0) {
+        if (vect == nullptr) {
             vect = alloc(sp_table_vector);
         }
         IF_VERBOSE(12, verbose_stream() << "Recycle: " << t->get_size_estimate_bytes() << "\n";);
@@ -859,9 +859,9 @@ namespace datalog {
         if (t1.get_kind()!=get_kind() || t2.get_kind()!=get_kind() 
             || join_involves_functional(sig1, sig2, col_cnt, cols1, cols2)) {
             //We also don't allow indexes on functional columns (and they are needed for joins)
-            return 0;
+            return nullptr;
         }
-        return mk_join_project_fn(t1, t2, col_cnt, cols1, cols2, 0, static_cast<unsigned*>(0));
+        return mk_join_project_fn(t1, t2, col_cnt, cols1, cols2, 0, static_cast<unsigned*>(nullptr));
     }
 
     table_join_fn * sparse_table_plugin::mk_join_project_fn(const table_base & t1, const table_base & t2,
@@ -874,7 +874,7 @@ namespace datalog {
             || join_involves_functional(sig1, sig2, col_cnt, cols1, cols2)) {
             //We don't allow sparse tables with zero signatures (and project on all columns leads to such)
             //We also don't allow indexes on functional columns.
-            return 0;
+            return nullptr;
         }
         return alloc(join_project_fn, t1.get_signature(), t2.get_signature(), col_cnt, cols1, cols2,
             removed_col_cnt, removed_cols);
@@ -905,7 +905,7 @@ namespace datalog {
             || (delta && delta->get_kind()!=get_kind()) 
             || tgt.get_signature()!=src.get_signature() 
             || (delta && delta->get_signature()!=tgt.get_signature())) {
-            return 0;
+            return nullptr;
         }
         return alloc(union_fn);
     }
@@ -969,7 +969,7 @@ namespace datalog {
     table_transformer_fn * sparse_table_plugin::mk_project_fn(const table_base & t, unsigned col_cnt, 
             const unsigned * removed_cols) {
         if (col_cnt == t.get_signature().size()) {
-            return 0;
+            return nullptr;
         }
         return alloc(project_fn, t.get_signature(), col_cnt, removed_cols);
     }
@@ -1032,7 +1032,7 @@ namespace datalog {
             //column table produces one).
             //We also don't allow indexes on functional columns. And our implementation of
             //select_equal_and_project uses index on \c col.
-            return 0;
+            return nullptr;
         }
         return alloc(select_equal_and_project_fn, t.get_signature(), value, col);
     }
@@ -1113,7 +1113,7 @@ namespace datalog {
     table_transformer_fn * sparse_table_plugin::mk_rename_fn(const table_base & t, unsigned permutation_cycle_len,
             const unsigned * permutation_cycle) {
         if (t.get_kind()!=get_kind()) {
-            return 0;
+            return nullptr;
         }
         return alloc(rename_fn, t.get_signature(), permutation_cycle_len, permutation_cycle);
     }
@@ -1252,7 +1252,7 @@ namespace datalog {
         if (!check_kind(t) || !check_kind(negated_obj)
             || join_involves_functional(t.get_signature(), negated_obj.get_signature(), joined_col_cnt, 
                 t_cols, negated_cols) ) {
-            return 0;
+            return nullptr;
         }
         return alloc(negation_filter_fn, t, negated_obj, joined_col_cnt, t_cols, negated_cols);
     }
@@ -1394,7 +1394,7 @@ namespace datalog {
             return alloc(negated_join_fn, src1, t_cols, src_cols, src1_cols, src2_cols);
         }
         else {
-            return 0;
+            return nullptr;
         }
     }
 

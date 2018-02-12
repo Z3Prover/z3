@@ -53,7 +53,7 @@ tactic_report::tactic_report(char const * id, goal const & g) {
     if (get_verbosity_level() >= TACTIC_VERBOSITY_LVL)
         m_imp = alloc(imp, id, g);
     else
-        m_imp = 0;
+        m_imp = nullptr;
 }
 
 tactic_report::~tactic_report() {
@@ -74,9 +74,9 @@ void skip_tactic::operator()(goal_ref const & in,
                              expr_dependency_ref & core) {
     result.reset();
     result.push_back(in.get());
-    mc = 0;
-    pc = 0;
-    core = 0;
+    mc = nullptr;
+    pc = nullptr;
+    core = nullptr;
 }
 
 tactic * mk_skip_tactic() {
@@ -179,9 +179,9 @@ lbool check_sat(tactic & t, goal_ref & g, model_ref & md, labels_vec & labels, p
     bool models_enabled = g->models_enabled();
     bool proofs_enabled = g->proofs_enabled();
     bool cores_enabled  = g->unsat_core_enabled();
-    md   = 0;
-    pr   = 0;
-    core = 0;
+    md   = nullptr;
+    pr   = nullptr;
+    core = nullptr;
     ast_manager & m = g->m();
     goal_ref_buffer r;
     model_converter_ref mc;

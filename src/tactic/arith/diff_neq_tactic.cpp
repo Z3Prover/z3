@@ -319,7 +319,7 @@ class diff_neq_tactic : public tactic {
                         expr_dependency_ref & core) {
             SASSERT(g->is_well_sorted());
             m_produce_models = g->models_enabled();
-            mc = 0; pc = 0; core = 0; result.reset();
+            mc = nullptr; pc = nullptr; core = nullptr; result.reset();
             tactic_report report("diff-neq", *g);
             fail_if_proof_generation("diff-neq", g);
             fail_if_unsat_core_generation("diff-neq", g);

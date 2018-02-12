@@ -315,7 +315,7 @@ namespace sat {
         //
         // -----------------------
     public:
-        lbool check(unsigned num_lits = 0, literal const* lits = 0);
+        lbool check(unsigned num_lits = 0, literal const* lits = nullptr);
 
         model const & get_model() const { return m_model; }
         bool model_is_current() const { return m_model_is_current; }

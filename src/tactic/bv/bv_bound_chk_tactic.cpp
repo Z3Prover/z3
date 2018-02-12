@@ -68,7 +68,7 @@ struct bv_bound_chk_rewriter_cfg : public default_rewriter_cfg {
     }
 
     br_status reduce_app_core(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
-        result_pr = 0;
+        result_pr = nullptr;
         const family_id fid = f->get_family_id();
         if (fid != m_b_rw.get_fid()) return BR_FAILED;
         bv_bounds bvb(m());
@@ -206,7 +206,7 @@ void bv_bound_chk_tactic::operator()(goal_ref const & g,
     fail_if_proof_generation("bv-bound-chk", g);
     fail_if_unsat_core_generation("bv-bound-chk", g);
     TRACE("bv-bound-chk", g->display(tout << "before:"); tout << std::endl;);
-    mc = 0; pc = 0; core = 0; result.reset();
+    mc = nullptr; pc = nullptr; core = nullptr; result.reset();
     m_imp->operator()(g);
     g->inc_depth();
     result.push_back(g.get());

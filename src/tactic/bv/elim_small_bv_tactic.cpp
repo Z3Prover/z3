@@ -52,7 +52,7 @@ class elim_small_bv_tactic : public tactic {
             m_bindings(_m),
             m_num_eliminated(0) {
             updt_params(p);
-            m_goal = 0;
+            m_goal = nullptr;
             m_max_steps = UINT_MAX;
         }
 
@@ -77,13 +77,13 @@ class elim_small_bv_tactic : public tactic {
             expr_ref res(m);
             expr_ref_vector substitution(m);
 
-            substitution.resize(num_decls, 0);
+            substitution.resize(num_decls, nullptr);
             substitution[num_decls - idx - 1] = replacement;
 
             // (VAR 0) is in the first position of substitution; (VAR num_decls-1) is in the last position.
 
             for (unsigned i = 0; i < max_var_idx_p1; i++)
-                substitution.push_back(0);
+                substitution.push_back(nullptr);
 
             // (VAR num_decls) ... (VAR num_decls+sz-1); are in positions num_decls .. num_decls+sz-1
 
@@ -175,7 +175,7 @@ class elim_small_bv_tactic : public tactic {
 
             TRACE("elim_small_bv", tout << "elimination result: " << mk_ismt2_pp(result, m) << std::endl; );
 
-            result_pr = 0; // proofs NIY
+            result_pr = nullptr; // proofs NIY
             m_bindings.shrink(old_sz);
             return true;
         }
@@ -230,7 +230,7 @@ class elim_small_bv_tactic : public tactic {
             proof_converter_ref & pc,
             expr_dependency_ref & core) {
             SASSERT(g->is_well_sorted());
-            mc = 0; pc = 0; core = 0;
+            mc = nullptr; pc = nullptr; core = nullptr;
             tactic_report report("elim-small-bv", *g);
             bool produce_proofs = g->proofs_enabled();
             fail_if_proof_generation("elim-small-bv", g);

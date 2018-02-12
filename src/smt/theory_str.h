@@ -66,13 +66,13 @@ public:
                 return u.str.mk_string(sym);
             }
         }
-        sort* seq = 0;
+        sort* seq = nullptr;
         if (u.is_re(s, seq)) {
             expr* v0 = get_fresh_value(seq);
             return u.re.mk_to_re(v0);
         }
         TRACE("t_str", tout << "unexpected sort in get_fresh_value(): " << mk_pp(s, m_manager) << std::endl;);
-        UNREACHABLE(); return NULL;
+        UNREACHABLE(); return nullptr;
     }
     void register_value(expr * n) override { /* Ignore */ }
 };
@@ -87,7 +87,7 @@ public:
             return value;
         } else {
             TRACE("t_str", tout << "WARNING: lookup miss in contain_pair_bool_map!" << std::endl;);
-            return NULL;
+            return nullptr;
         }
     }
 

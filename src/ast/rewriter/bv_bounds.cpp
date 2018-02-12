@@ -200,7 +200,7 @@ bv_bounds::conv_res bv_bounds::convert(expr * e, vector<ninterval>& nis, bool ne
         }
 
         // v + c1 <= v + c2
-        app * v1(NULL), *v2(NULL);
+        app * v1(nullptr), *v2(nullptr);
         numeral val1, val2;
         if (is_constant_add(bv_sz, lhs, v1, val1)
                 && is_constant_add(bv_sz, rhs, v2, val2)
@@ -412,7 +412,7 @@ bool bv_bounds::add_constraint(expr* e) {
         }
 
         // v + c1 <= v + c2
-        app * v1(NULL), *v2(NULL);
+        app * v1(nullptr), *v2(nullptr);
         numeral val1, val2;
         if (is_constant_add(bv_sz, lhs, v1, val1)
                 && is_constant_add(bv_sz, rhs, v2, val2)
@@ -550,8 +550,8 @@ bool bv_bounds::add_neg_bound(app * v, const numeral& a, const numeral& b) {
     SASSERT(a <= b);
 
     intervals_map::obj_map_entry * const e = m_negative_intervals.find_core(v);
-    intervals * ivs(NULL);
-    if (e == 0) {
+    intervals * ivs(nullptr);
+    if (e == nullptr) {
         ivs = alloc(intervals);
         m_negative_intervals.insert(v, ivs);
     }
@@ -621,7 +621,7 @@ bool bv_bounds::is_sat_core(app * v) {
     if (!has_lower) lower = numeral::zero();
     if (!has_upper) upper = (numeral::power_of_two(bv_sz) - one);
     TRACE("bv_bounds", tout << "is_sat bound:" << lower << "-" << upper << std::endl;);
-    intervals * negative_intervals(NULL);
+    intervals * negative_intervals(nullptr);
     const bool has_neg_intervals = m_negative_intervals.find(v, negative_intervals);
     bool is_sat(false);
     numeral new_lo = lower;

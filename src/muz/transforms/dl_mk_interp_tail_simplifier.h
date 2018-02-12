@@ -44,7 +44,7 @@ namespace datalog {
             void apply(app * a, app_ref& res);
         public:
             rule_substitution(context & ctx)
-                : m(ctx.get_manager()), m_context(ctx), m_subst(m), m_unif(m), m_head(m), m_tail(m), m_rule(0) {}
+                : m(ctx.get_manager()), m_context(ctx), m_subst(m), m_unif(m), m_head(m), m_tail(m), m_rule(nullptr) {}
 
             /**
             Reset substitution and get it ready for working with rule r.

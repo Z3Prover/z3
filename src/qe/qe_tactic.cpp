@@ -56,7 +56,7 @@ class qe_tactic : public tactic {
                         proof_converter_ref & pc,
                         expr_dependency_ref & core) {
             SASSERT(g->is_well_sorted());
-            mc = 0; pc = 0; core = 0;
+            mc = nullptr; pc = nullptr; core = nullptr;
             tactic_report report("qe", *g);
             m_fparams.m_model = g->models_enabled();
             proof_ref new_pr(m);
@@ -72,7 +72,7 @@ class qe_tactic : public tactic {
                 if (!has_quantifiers(f))
                     continue;
                 m_qe(m.mk_true(), f, new_f);
-                new_pr = 0;
+                new_pr = nullptr;
                 if (produce_proofs) {
                     new_pr = m.mk_modus_ponens(g->pr(i), new_pr);
                 }

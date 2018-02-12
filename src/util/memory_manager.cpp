@@ -342,7 +342,7 @@ void * memory::allocate(size_t s) {
     if (counts_exceeded)
         throw_alloc_counts_exceeded();
     void * r = malloc(s);
-    if (r == 0)
+    if (r == nullptr)
         throw_out_of_memory();
     *(static_cast<size_t*>(r)) = s;
     return static_cast<size_t*>(r) + 1; // we return a pointer to the location after the extra field
@@ -370,7 +370,7 @@ void* memory::reallocate(void *p, size_t s) {
     if (counts_exceeded)
         throw_alloc_counts_exceeded();
     void *r = realloc(real_p, s);
-    if (r == 0)
+    if (r == nullptr)
         throw_out_of_memory();
     *(static_cast<size_t*>(r)) = s;
     return static_cast<size_t*>(r) + 1; // we return a pointer to the location after the extra field

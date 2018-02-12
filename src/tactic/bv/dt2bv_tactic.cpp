@@ -122,7 +122,7 @@ public:
                     model_converter_ref & mc,
                     proof_converter_ref & pc,
                     expr_dependency_ref & core) override {
-        mc = 0; pc = 0; core = 0;
+        mc = nullptr; pc = nullptr; core = nullptr;
         bool produce_proofs = g->proofs_enabled();
         tactic_report report("dt2bv", *g);
         unsigned   size = g->size();

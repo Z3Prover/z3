@@ -109,8 +109,8 @@ namespace datalog {
     public:
         relation_manager(context & ctx) : 
           m_context(ctx), 
-          m_favourite_table_plugin(0),
-          m_favourite_relation_plugin(0),
+          m_favourite_table_plugin(nullptr),
+          m_favourite_relation_plugin(nullptr),
           m_next_table_fid(0),
           m_next_relation_fid(0) {}
 
@@ -331,7 +331,7 @@ namespace datalog {
             const relation_base * delta);
 
         relation_union_fn * mk_union_fn(const relation_base & tgt, const relation_base & src) { 
-            return mk_union_fn(tgt, src, static_cast<relation_base *>(0));
+            return mk_union_fn(tgt, src, static_cast<relation_base *>(nullptr));
         }
 
         /**
@@ -510,7 +510,7 @@ namespace datalog {
             const table_base * delta);
 
         table_union_fn * mk_union_fn(const table_base & tgt, const table_base & src) { 
-            return mk_union_fn(tgt, src, static_cast<table_base *>(0));
+            return mk_union_fn(tgt, src, static_cast<table_base *>(nullptr));
         }
 
         /**

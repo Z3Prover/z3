@@ -34,7 +34,7 @@ extern "C" {
         RESET_ERROR_CODE();
         Z3_sort r = of_sort(mk_c(c)->m().mk_sort(mk_c(c)->get_arith_fid(), INT_SORT));
         RETURN_Z3(r);
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_sort Z3_API Z3_mk_real_sort(Z3_context c) {
@@ -43,7 +43,7 @@ extern "C" {
         RESET_ERROR_CODE();
         Z3_sort r = of_sort(mk_c(c)->m().mk_sort(mk_c(c)->get_arith_fid(), REAL_SORT));
         RETURN_Z3(r);
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_real(Z3_context c, int num, int den) {
@@ -52,12 +52,12 @@ extern "C" {
         RESET_ERROR_CODE();
         if (den == 0) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         sort* s = mk_c(c)->m().mk_sort(mk_c(c)->get_arith_fid(), REAL_SORT);
         ast* a = mk_c(c)->mk_numeral_core(rational(num, den), s);
         RETURN_Z3(of_ast(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     MK_ARITH_OP(Z3_mk_add, OP_ADD);
@@ -77,11 +77,11 @@ extern "C" {
             k = OP_DIV;
         }
         expr * args[2] = { to_expr(n1), to_expr(n2) };
-        ast* a = mk_c(c)->m().mk_app(mk_c(c)->get_arith_fid(), k, 0, 0, 2, args);
+        ast* a = mk_c(c)->m().mk_app(mk_c(c)->get_arith_fid(), k, 0, nullptr, 2, args);
         mk_c(c)->save_ast_trail(a);
         check_sorts(c, a);
         RETURN_Z3(of_ast(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     MK_ARITH_PRED(Z3_mk_lt,  OP_LT);
@@ -98,17 +98,17 @@ extern "C" {
         RESET_ERROR_CODE();
         if (num_args == 0) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         expr* r = to_expr(args[0]);
         for (unsigned i = 1; i < num_args; ++i) {
             expr* args1[2] = { r, to_expr(args[i]) };
-            r = mk_c(c)->m().mk_app(mk_c(c)->get_arith_fid(), OP_SUB, 0, 0, 2, args1);
+            r = mk_c(c)->m().mk_app(mk_c(c)->get_arith_fid(), OP_SUB, 0, nullptr, 2, args1);
             check_sorts(c, r);
         }
         mk_c(c)->save_ast_trail(r);
         RETURN_Z3(of_expr(r));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_unary_minus(Z3_context c, Z3_ast n) {
@@ -116,7 +116,7 @@ extern "C" {
         LOG_Z3_mk_unary_minus(c, n);
         RESET_ERROR_CODE();
         MK_UNARY_BODY(Z3_mk_unary_minus, mk_c(c)->get_arith_fid(), OP_UMINUS, SKIP);
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_bool Z3_API Z3_is_algebraic_number(Z3_context c, Z3_ast a) {
@@ -134,7 +134,7 @@ extern "C" {
         RESET_ERROR_CODE();
         if (!Z3_is_algebraic_number(c, a)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         expr * e = to_expr(a);
         algebraic_numbers::anum const & val = mk_c(c)->autil().to_irrational_algebraic_numeral(e);
@@ -143,7 +143,7 @@ extern "C" {
         expr * r = mk_c(c)->autil().mk_numeral(l, false);
         mk_c(c)->save_ast_trail(r);
         RETURN_Z3(of_expr(r));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_get_algebraic_number_upper(Z3_context c, Z3_ast a, unsigned precision) {
@@ -152,7 +152,7 @@ extern "C" {
         RESET_ERROR_CODE();
         if (!Z3_is_algebraic_number(c, a)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         expr * e = to_expr(a);
         algebraic_numbers::anum const & val = mk_c(c)->autil().to_irrational_algebraic_numeral(e);
@@ -161,7 +161,7 @@ extern "C" {
         expr * r = mk_c(c)->autil().mk_numeral(l, false);
         mk_c(c)->save_ast_trail(r);
         RETURN_Z3(of_expr(r));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_get_numerator(Z3_context c, Z3_ast a) {
@@ -172,12 +172,12 @@ extern "C" {
         ast * _a = to_ast(a);
         if (!is_expr(_a) || !mk_c(c)->autil().is_numeral(to_expr(_a), val)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         expr * r = mk_c(c)->autil().mk_numeral(numerator(val), true);
         mk_c(c)->save_ast_trail(r);
         RETURN_Z3(of_expr(r));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_get_denominator(Z3_context c, Z3_ast a) {
@@ -188,12 +188,12 @@ extern "C" {
         ast * _a = to_ast(a);
         if (!is_expr(_a) || !mk_c(c)->autil().is_numeral(to_expr(_a), val)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         expr * r = mk_c(c)->autil().mk_numeral(denominator(val), true);
         mk_c(c)->save_ast_trail(r);
         RETURN_Z3(of_expr(r));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
 };

@@ -106,7 +106,7 @@ class bv1_blaster_tactic : public tactic {
             sort * b = butil().mk_sort(1);
             ptr_buffer<expr> bits;
             for (unsigned i = 0; i < bv_size; i++) {
-                bits.push_back(m().mk_fresh_const(0, b));
+                bits.push_back(m().mk_fresh_const(nullptr, b));
             }
             r = butil().mk_concat(bits.size(), bits.c_ptr());
             m_saved.push_back(r);
@@ -253,7 +253,7 @@ class bv1_blaster_tactic : public tactic {
         }
         
         br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
-            result_pr = 0;
+            result_pr = nullptr;
             if (num == 0 && f->get_family_id() == null_family_id && butil().is_bv_sort(f->get_range())) {
                 mk_const(f, result);
                 return BR_DONE;
@@ -383,7 +383,7 @@ class bv1_blaster_tactic : public tactic {
                         model_converter_ref & mc, 
                         proof_converter_ref & pc,
                         expr_dependency_ref & core) {
-            mc = 0; pc = 0; core = 0;
+            mc = nullptr; pc = nullptr; core = nullptr;
             
             if (!is_target(*g))
                 throw tactic_exception("bv1 blaster cannot be applied to goal");

@@ -149,7 +149,7 @@ namespace qe {
             }
             
             // callback to add constraints in branch.
-            void add_constraint(bool use_var, expr* l1 = 0, expr* l2 = 0, expr* l3 = 0) override {
+            void add_constraint(bool use_var, expr* l1 = nullptr, expr* l2 = nullptr, expr* l3 = nullptr) override {
                 ptr_buffer<expr> args;
                 if (l1) args.push_back(l1);
                 if (l2) args.push_back(l2);
@@ -179,7 +179,7 @@ namespace qe {
                 m_super.m_rewriter(m_fml);
                 TRACE("qe", model_v2_pp(tout, *model); tout << "\n";
                       tout << mk_pp(m_fml, m) << "\n";);
-                elim_var(i, m_fml, 0);
+                elim_var(i, m_fml, nullptr);
             }
 
             void project_var_full(unsigned i) {
@@ -191,7 +191,7 @@ namespace qe {
                 m_fml = result;
                 m_super.m_rewriter(m_fml);
                 TRACE("qe", tout << mk_pp(m_fml, m) << "\n";);
-                elim_var(i, m_fml, 0);
+                elim_var(i, m_fml, nullptr);
             }
 
             void project_var(unsigned i) {
@@ -329,7 +329,7 @@ namespace qe {
             for (unsigned i = 0; i < m_solvers.size(); ++i) {
                 dealloc(m_solvers[i]);
             }
-            m_fml = 0;
+            m_fml = nullptr;
             m_Ms.reset();
             m_fparamv.reset();
             m_solvers.reset();

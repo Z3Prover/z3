@@ -121,7 +121,7 @@ namespace opt {
         m_arith(m),
         m_bv(m),
         m_hard_constraints(m),
-        m_solver(0),
+        m_solver(nullptr),
         m_pareto1(false),
         m_box_index(UINT_MAX),
         m_optsmt(m),
@@ -274,7 +274,7 @@ namespace opt {
         s.assert_expr(m_hard_constraints);
         display_benchmark();
         IF_VERBOSE(1, verbose_stream() << "(optimize:check-sat)\n";);
-        lbool is_sat = s.check_sat(0,0);
+        lbool is_sat = s.check_sat(0,nullptr);
         TRACE("opt", tout << "initial search result: " << is_sat << "\n";
               s.display(tout););
         if (is_sat != l_false) {
@@ -435,7 +435,7 @@ namespace opt {
             return l_true;
         }
         if (m_box_index < m_objectives.size()) {
-            m_model = 0;
+            m_model = nullptr;
             ++m_box_index;
             return l_undef;
         }
@@ -553,7 +553,7 @@ namespace opt {
         }
         lbool is_sat = (*(m_pareto.get()))();
         if (is_sat != l_true) {
-            set_pareto(0);
+            set_pareto(nullptr);
         }
         if (is_sat == l_true) {
             yield();
@@ -925,7 +925,7 @@ namespace opt {
         func_decl* f = m.mk_fresh_func_decl(name,"", domain.size(), domain.c_ptr(), m.mk_bool_sort());
         m_objective_fns.insert(f, index);
         m_objective_refs.push_back(f);
-        m_objective_orig.insert(f, sz > 0 ? args[0] : 0);        
+        m_objective_orig.insert(f, sz > 0 ? args[0] : nullptr);
         return m.mk_app(f, sz, args);
     }
 
@@ -968,7 +968,7 @@ namespace opt {
                 }
                 mk_atomic(terms);
                 SASSERT(obj.m_id == id);
-                obj.m_term = orig_term?to_app(orig_term):0;
+                obj.m_term = orig_term?to_app(orig_term):nullptr;
                 obj.m_terms.reset();
                 obj.m_terms.append(terms);
                 obj.m_weights.reset();
@@ -1384,7 +1384,7 @@ namespace opt {
     }
 
     void context::clear_state() {
-        set_pareto(0);        
+        set_pareto(nullptr);
         m_box_index = UINT_MAX;
         m_model.reset();
     }

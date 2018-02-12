@@ -69,7 +69,7 @@ namespace opt {
 
     solver* opt_solver::translate(ast_manager& m, params_ref const& p) {
         UNREACHABLE();
-        return 0;
+        return nullptr;
     }
 
     void opt_solver::collect_param_descrs(param_descrs & r) {
@@ -261,7 +261,7 @@ namespace opt {
         expr_ref ge = mk_ge(i, val);
         TRACE("opt", tout << ge << "\n";);
         assert_expr(ge);
-        lbool is_sat = m_context.check(0, 0);
+        lbool is_sat = m_context.check(0, nullptr);
         is_sat = adjust_result(is_sat);
         if (is_sat == l_true) {
             set_model(i);
@@ -316,7 +316,7 @@ namespace opt {
     void opt_solver::get_labels(svector<symbol> & r) {
         r.reset();
         buffer<symbol> tmp;
-        m_context.get_relevant_labels(0, tmp);
+        m_context.get_relevant_labels(nullptr, tmp);
         r.append(tmp.size(), tmp.c_ptr());
     }
         
@@ -340,7 +340,7 @@ namespace opt {
         m_objective_values.push_back(inf_eps(rational(-1), inf_rational()));
         m_objective_terms.push_back(term);
         m_valid_objectives.push_back(true);
-        m_models.push_back(0);
+        m_models.push_back(nullptr);
         return v;
     }
     

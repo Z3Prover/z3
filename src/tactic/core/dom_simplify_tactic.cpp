@@ -100,7 +100,7 @@ bool expr_dominators::compute_dominators() {
         for (unsigned i = 0; i + 1 < m_post2expr.size(); ++i) {
             expr * child = m_post2expr[i];
             ptr_vector<expr> const& p = m_parents[child];
-            expr * new_idom = 0, *idom2 = 0;
+            expr * new_idom = nullptr, *idom2 = nullptr;
 
             for (expr * pred : p) {
                 if (m_doms.contains(pred)) {
@@ -189,7 +189,7 @@ void dom_simplify_tactic::operator()(
     model_converter_ref & mc,
     proof_converter_ref & pc,
     expr_dependency_ref & core) {
-    mc = 0; pc = 0; core = 0;
+    mc = nullptr; pc = nullptr; core = nullptr;
 
     tactic_report report("dom-simplify", *in.get());
     simplify_goal(*(in.get()));
@@ -207,7 +207,7 @@ void dom_simplify_tactic::cleanup() {
 
 expr_ref dom_simplify_tactic::simplify_ite(app * ite) {
     expr_ref r(m);
-    expr * c = 0, *t = 0, *e = 0;
+    expr * c = nullptr, *t = nullptr, *e = nullptr;
     VERIFY(m.is_ite(ite, c, t, e));
     unsigned old_lvl = scope_level();
     expr_ref new_c = simplify_arg(c);
@@ -262,7 +262,7 @@ expr_ref dom_simplify_tactic::simplify_arg(expr * e) {
 */
 expr_ref dom_simplify_tactic::simplify_rec(expr * e0) {
     expr_ref r(m);
-    expr* e = 0;
+    expr* e = nullptr;
 
     TRACE("simplify", tout << "depth: " << m_depth << " " << mk_pp(e0, m) << "\n";);
     if (!m_result.find(e0, e)) {
@@ -380,9 +380,9 @@ void dom_simplify_tactic::simplify_goal(goal& g) {
             }
             CTRACE("simplify", r != g.form(i), tout << r << " " << mk_pp(g.form(i), m) << "\n";);
             change |= r != g.form(i);
-            proof* new_pr = 0;
+            proof* new_pr = nullptr;
             if (g.proofs_enabled()) {
-                new_pr = m.mk_modus_ponens(g.pr(i), m.mk_rewrite_star(g.form(i), r, 0, 0)); 
+                new_pr = m.mk_modus_ponens(g.pr(i), m.mk_rewrite_star(g.form(i), r, 0, nullptr));
             }
             g.update(i, r, new_pr, g.dep(i));
         }
@@ -400,9 +400,9 @@ void dom_simplify_tactic::simplify_goal(goal& g) {
             }
             change |= r != g.form(i);
             CTRACE("simplify", r != g.form(i), tout << r << " " << mk_pp(g.form(i), m) << "\n";);
-            proof* new_pr = 0;
+            proof* new_pr = nullptr;
             if (g.proofs_enabled()) {
-                new_pr = m.mk_modus_ponens(g.pr(i), m.mk_rewrite_star(g.form(i), r, 0, 0)); 
+                new_pr = m.mk_modus_ponens(g.pr(i), m.mk_rewrite_star(g.form(i), r, 0, nullptr));
             }
             g.update(i, r, new_pr, g.dep(i));
         }
@@ -448,14 +448,14 @@ bool expr_substitution_simplifier::assert_expr(expr * t, bool sign) {
     m_scoped_substitution.push();
     expr* tt;    
     if (!sign) {
-        update_substitution(t, 0);
+        update_substitution(t, nullptr);
     }
     else if (m.is_not(t, tt)) {
-        update_substitution(tt, 0);
+        update_substitution(tt, nullptr);
     }
     else {
         expr_ref nt(m.mk_not(t), m);
-        update_substitution(nt, 0);
+        update_substitution(nt, nullptr);
     }
     return true;
 }

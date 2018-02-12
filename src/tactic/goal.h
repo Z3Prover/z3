@@ -107,17 +107,17 @@ public:
     void assert_expr(expr * f, proof * pr, expr_dependency * d);
     void assert_expr(expr * f, expr_dependency * d);
     void assert_expr(expr * f, expr * d) { assert_expr(f, m().mk_leaf(d)); }
-    void assert_expr(expr * f) { assert_expr(f, static_cast<expr_dependency*>(0)); }
+    void assert_expr(expr * f) { assert_expr(f, static_cast<expr_dependency*>(nullptr)); }
     
     unsigned size() const { return m().size(m_forms); }
 
     unsigned num_exprs() const;
   
     expr * form(unsigned i) const { return m().get(m_forms, i); }
-    proof * pr(unsigned i) const { return proofs_enabled() ? static_cast<proof*>(m().get(m_proofs, i)) : 0; }
-    expr_dependency * dep(unsigned i) const { return unsat_core_enabled() ? m().get(m_dependencies, i) : 0; }
+    proof * pr(unsigned i) const { return proofs_enabled() ? static_cast<proof*>(m().get(m_proofs, i)) : nullptr; }
+    expr_dependency * dep(unsigned i) const { return unsat_core_enabled() ? m().get(m_dependencies, i) : nullptr; }
 
-    void update(unsigned i, expr * f, proof * pr = 0, expr_dependency * dep = 0);
+    void update(unsigned i, expr * f, proof * pr = nullptr, expr_dependency * dep = nullptr);
 
     void get_formulas(ptr_vector<expr> & result);
     

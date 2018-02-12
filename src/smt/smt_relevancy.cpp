@@ -159,28 +159,28 @@ namespace smt {
         }
 
         relevancy_ehs * get_handlers(expr * n) {
-            relevancy_ehs * r = 0;
+            relevancy_ehs * r = nullptr;
             m_relevant_ehs.find(n, r);
             SASSERT(m_relevant_ehs.contains(n) || r == 0);
             return r;
         }
 
         void set_handlers(expr * n, relevancy_ehs * ehs) {
-            if (ehs == 0)
+            if (ehs == nullptr)
                 m_relevant_ehs.erase(n);
             else
                 m_relevant_ehs.insert(n, ehs);
         }
 
         relevancy_ehs * get_watches(expr * n, bool val) {
-            relevancy_ehs * r = 0;
+            relevancy_ehs * r = nullptr;
             m_watches[val ? 1 : 0].find(n, r);
             SASSERT(m_watches[val ? 1 : 0].contains(n) || r == 0);
             return r;
         }
 
         void set_watches(expr * n, bool val, relevancy_ehs * ehs) {
-            if (ehs == 0)
+            if (ehs == nullptr)
                 m_watches[val ? 1 : 0].erase(n);
             else
                 m_watches[val ? 1 : 0].insert(n, ehs);
@@ -330,7 +330,7 @@ namespace smt {
                 return;
             if (!is_relevant_core(n)) {
                 enode * e    = m_context.find_enode(n);
-                if (e != 0) {
+                if (e != nullptr) {
                     enode * curr = e;
                     do {
                         set_relevant(curr->get_owner());
@@ -376,7 +376,7 @@ namespace smt {
             case l_undef:
                 break;
             case l_true: {
-                expr * true_arg = 0;
+                expr * true_arg = nullptr;
                 unsigned num_args = n->get_num_args();
                 for (unsigned i = 0; i < num_args; i++) {
                     expr * arg  = n->get_arg(i);
@@ -400,7 +400,7 @@ namespace smt {
             lbool val    = m_context.find_assignment(n);
             switch (val) {
             case l_false: {
-                expr * false_arg = 0;
+                expr * false_arg = nullptr;
                 unsigned num_args = n->get_num_args();
                 for (unsigned i = 0; i < num_args; i++) {
                     expr * arg  = n->get_arg(i);
@@ -487,7 +487,7 @@ namespace smt {
                 }
                 
                 relevancy_ehs * ehs = get_handlers(n);
-                while (ehs != 0) {
+                while (ehs != nullptr) {
                     ehs->head()->operator()(*this, n);
                     ehs = ehs->tail();
                 }
@@ -510,7 +510,7 @@ namespace smt {
                     propagate_relevant_and(to_app(n));
             }
             relevancy_ehs * ehs = get_watches(n, val);
-            while (ehs != 0) {
+            while (ehs != nullptr) {
                 ehs->head()->operator()(*this, n, val);
                 ehs = ehs->tail();
             }

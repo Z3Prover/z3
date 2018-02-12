@@ -48,7 +48,7 @@ namespace datalog {
     relation_base * table_relation_plugin::mk_empty(const relation_signature & s) {
         table_signature tsig;
         if (!get_manager().relation_signature_to_table(s, tsig)) {
-            return 0;
+            return nullptr;
         }
         table_base * t = m_table_plugin.mk_empty(tsig);
         return alloc(table_relation, *this, s, t);
@@ -57,7 +57,7 @@ namespace datalog {
     relation_base * table_relation_plugin::mk_full_relation(const relation_signature & s, func_decl* p, family_id kind) {
         table_signature tsig;
         if(!get_manager().relation_signature_to_table(s, tsig)) {
-            return 0;
+            return nullptr;
         }
         table_base * t = m_table_plugin.mk_full(p, tsig, kind);
         return alloc(table_relation, *this, s, t);
@@ -108,25 +108,25 @@ namespace datalog {
     relation_join_fn * table_relation_plugin::mk_join_fn(const relation_base & r1, const relation_base & r2,
             unsigned col_cnt, const unsigned * cols1, const unsigned * cols2) {
         if(!r1.from_table() || !r2.from_table()) {
-            return 0;
+            return nullptr;
         }
         const table_relation & tr1 = static_cast<const table_relation &>(r1);
         const table_relation & tr2 = static_cast<const table_relation &>(r2);
 
         table_join_fn * tfun = get_manager().mk_join_fn(tr1.get_table(), tr2.get_table(), col_cnt, cols1, cols2);
         if(!tfun) {
-            return 0;
+            return nullptr;
         }
 
         return alloc(tr_join_project_fn, r1.get_signature(), r2.get_signature(), col_cnt, cols1, 
-            cols2, 0, static_cast<const unsigned *>(0), tfun);
+            cols2, 0, static_cast<const unsigned *>(nullptr), tfun);
     }
 
     relation_join_fn * table_relation_plugin::mk_join_project_fn(const relation_base & r1, 
             const relation_base & r2, unsigned joined_col_cnt, const unsigned * cols1, const unsigned * cols2, 
             unsigned removed_col_cnt, const unsigned * removed_cols) {
         if(!r1.from_table() || !r2.from_table()) {
-            return 0;
+            return nullptr;
         }
         const table_relation & tr1 = static_cast<const table_relation &>(r1);
         const table_relation & tr2 = static_cast<const table_relation &>(r2);
@@ -168,7 +168,7 @@ namespace datalog {
     relation_transformer_fn * table_relation_plugin::mk_project_fn(const relation_base & t, unsigned col_cnt, 
             const unsigned * removed_cols) {
         if(!t.from_table()) {
-            return 0;
+            return nullptr;
         }
         const table_relation & tr = static_cast<const table_relation &>(t);
 
@@ -184,7 +184,7 @@ namespace datalog {
     relation_transformer_fn * table_relation_plugin::mk_rename_fn(const relation_base & t, unsigned permutation_cycle_len, 
         const unsigned * permutation_cycle) {
         if(!t.from_table()) {
-            return 0;
+            return nullptr;
         }
         const table_relation & tr = static_cast<const table_relation &>(t);
 
@@ -200,7 +200,7 @@ namespace datalog {
     relation_transformer_fn * table_relation_plugin::mk_permutation_rename_fn(const relation_base & t, 
         const unsigned * permutation) {
         if(!t.from_table()) {
-            return 0;
+            return nullptr;
         }
         const table_relation & tr = static_cast<const table_relation &>(t);
 
@@ -216,7 +216,7 @@ namespace datalog {
     relation_transformer_fn * table_relation_plugin::mk_select_equal_and_project_fn(const relation_base & t, 
             const relation_element & value, unsigned col) {
         if(!t.from_table()) {
-            return 0;
+            return nullptr;
         }
         const table_relation & tr = static_cast<const table_relation &>(t);
 
@@ -280,7 +280,7 @@ namespace datalog {
             const table_relation & tr_src = static_cast<const table_relation &>(src);
             table_relation * tr_delta = static_cast<table_relation *>(delta);
             
-            (*m_tfun)(tr_tgt.get_table(), tr_src.get_table(), tr_delta ? &tr_delta->get_table() : 0);
+            (*m_tfun)(tr_tgt.get_table(), tr_src.get_table(), tr_delta ? &tr_delta->get_table() : nullptr);
 
             TRACE("dl_table_relation", tout << "# union => "; tr_tgt.get_table().display(tout););
         }
@@ -289,7 +289,7 @@ namespace datalog {
     relation_union_fn * table_relation_plugin::mk_union_fn(const relation_base & tgt, const relation_base & src,
         const relation_base * delta) {
         if(!src.from_table()) {
-            return 0;
+            return nullptr;
         }
         if(!tgt.from_table() || (delta && !delta->from_table())) {
             return alloc(universal_target_union_fn);
@@ -299,7 +299,7 @@ namespace datalog {
         const table_relation * tr_delta = static_cast<const table_relation *>(delta);
 
         table_union_fn * tfun = get_manager().mk_union_fn(tr_tgt.get_table(), tr_src.get_table(), 
-            tr_delta ? &tr_delta->get_table() : 0);
+            tr_delta ? &tr_delta->get_table() : nullptr);
         SASSERT(tfun);
 
         return alloc(tr_union_fn, tfun);
@@ -322,7 +322,7 @@ namespace datalog {
     relation_mutator_fn * table_relation_plugin::mk_filter_identical_fn(const relation_base & t, unsigned col_cnt, 
         const unsigned * identical_cols) {
         if(!t.from_table()) {
-            return 0;
+            return nullptr;
         }
         const table_relation & tr = static_cast<const table_relation &>(t);
 
@@ -334,7 +334,7 @@ namespace datalog {
     relation_mutator_fn * table_relation_plugin::mk_filter_equal_fn(const relation_base & t, const relation_element & value, 
         unsigned col) {
         if(!t.from_table()) {
-            return 0;
+            return nullptr;
         }
         const table_relation & tr = static_cast<const table_relation &>(t);
 
@@ -349,7 +349,7 @@ namespace datalog {
     relation_mutator_fn * table_relation_plugin::mk_filter_interpreted_fn(const relation_base & t, app * condition) {
         bool condition_needs_transforming = false;
         if(!t.from_table() || condition_needs_transforming) {
-            return 0;
+            return nullptr;
         }
         const table_relation & tr = static_cast<const table_relation &>(t);
         table_mutator_fn * tfun = get_manager().mk_filter_interpreted_fn(tr.get_table(), condition);
@@ -360,7 +360,7 @@ namespace datalog {
     relation_transformer_fn * table_relation_plugin::mk_filter_interpreted_and_project_fn(const relation_base & t,
             app * condition, unsigned removed_col_cnt, const unsigned * removed_cols) {
         if (!t.from_table())
-            return 0;
+            return nullptr;
 
         const table_relation & tr = static_cast<const table_relation &>(t);
         table_transformer_fn * tfun = get_manager().mk_filter_interpreted_and_project_fn(tr.get_table(),
@@ -392,14 +392,14 @@ namespace datalog {
     relation_intersection_filter_fn * table_relation_plugin::mk_filter_by_intersection_fn(const relation_base & r, 
             const relation_base & src, unsigned joined_col_cnt, const unsigned * r_cols, const unsigned * src_cols) {
         if(!r.from_table() || !src.from_table()) {
-            return 0;
+            return nullptr;
         }
         const table_relation & tr = static_cast<const table_relation &>(r);
         const table_relation & tr_neg = static_cast<const table_relation &>(src);
         table_intersection_filter_fn * tfun = get_manager().mk_filter_by_intersection_fn(tr.get_table(), 
             tr_neg.get_table(), joined_col_cnt, r_cols, src_cols);
         if(!tfun) {
-            return 0;
+            return nullptr;
         }
 
         return alloc(tr_intersection_filter_fn, tfun);
@@ -410,7 +410,7 @@ namespace datalog {
             const relation_base & negated_rel, unsigned joined_col_cnt, 
             const unsigned * r_cols, const unsigned * negated_cols) {
         if(!r.from_table() || !negated_rel.from_table()) {
-            return 0;
+            return nullptr;
         }
         const table_relation & tr = static_cast<const table_relation &>(r);
         const table_relation & tr_neg = static_cast<const table_relation &>(negated_rel);

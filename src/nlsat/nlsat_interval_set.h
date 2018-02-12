@@ -40,7 +40,7 @@ namespace nlsat {
         /**
            \brief Return the empty set.
         */
-        interval_set * mk_empty() { return 0; }
+        interval_set * mk_empty() { return nullptr; }
         
         /**
            \brief Return a set of composed of a single interval.
@@ -64,7 +64,7 @@ namespace nlsat {
            \brief Return true if s is the empty set.
         */
         bool is_empty(interval_set const * s) {
-            return s == 0;
+            return s == nullptr;
         }
         
         /**

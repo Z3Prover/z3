@@ -331,7 +331,7 @@ namespace datalog {
            names. Generally, the names coming from the parses are registered here.
         */
         func_decl * try_get_predicate_decl(symbol const& pred_name) const {
-            func_decl * res = 0;
+            func_decl * res = nullptr;
             m_preds_by_name.find(pred_name, res);
             return res;
         }        
@@ -341,7 +341,7 @@ namespace datalog {
 
         */
         func_decl * mk_fresh_head_predicate(symbol const & prefix, symbol const & suffix, 
-            unsigned arity, sort * const * domain, func_decl* orig_pred=0);
+            unsigned arity, sort * const * domain, func_decl* orig_pred=nullptr);
 
 
         /**

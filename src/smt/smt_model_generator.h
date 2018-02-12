@@ -80,7 +80,7 @@ namespace smt {
         unsigned m_idx;
         expr *   m_value;
     public:
-        extra_fresh_value(sort * s, unsigned idx):m_sort(s), m_idx(idx), m_value(0) {}
+        extra_fresh_value(sort * s, unsigned idx):m_sort(s), m_idx(idx), m_value(nullptr) {}
         sort * get_sort() const { return m_sort; }
         unsigned get_idx() const { return m_idx; }
         void set_value(expr * n) { SASSERT(m_value == 0); m_value = n; }
@@ -100,7 +100,7 @@ namespace smt {
             extra_fresh_value * m_value; //!< When m_fresh == true, contains the sort of the fresh value
         };
     public:
-        model_value_dependency():m_fresh(true), m_value(0) {}
+        model_value_dependency():m_fresh(true), m_value(nullptr) {}
         model_value_dependency(enode * n):m_fresh(false), m_enode(n->get_root()) {}
         model_value_dependency(extra_fresh_value * v):m_fresh(true), m_value(v) {}
         bool is_fresh_value() const { return m_fresh; }

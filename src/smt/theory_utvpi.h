@@ -242,7 +242,7 @@ namespace smt {
         
         justification * why_is_diseq(th_var v1, th_var v2) override {
             UNREACHABLE();
-            return 0;
+            return nullptr;
         }
 
         void reset_eh() override;

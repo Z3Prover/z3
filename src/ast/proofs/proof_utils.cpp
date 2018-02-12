@@ -143,7 +143,7 @@ class reduce_hypotheses {
 
     void reduce(proof* pf, proof_ref &out)
     {
-        proof *res = NULL;
+        proof *res = nullptr;
 
         m_todo.reset();
         m_todo.push_back(pf);
@@ -392,7 +392,7 @@ class reduce_hypotheses0 {
     }
     
     void add_hypotheses(proof* p) {
-        expr_set* hyps = 0;
+        expr_set* hyps = nullptr;
         bool inherited = false;
         if (p->get_decl_kind() == PR_HYPOTHESIS) {
             hyps = alloc(expr_set);
@@ -509,7 +509,7 @@ public:
             // eliminate hypothesis recursively in the proof of the lemma
             elim(tmp);
             expr_set* hyps = m_hypmap.find(tmp);
-            expr_set* new_hyps = 0;
+            expr_set* new_hyps = nullptr;
             // XXX if the proof is correct, the hypotheses of the tmp
             // XXX should be exactly those of the consequence of the lemma
             // XXX but if this code actually eliminates hypotheses, the set might be a subset
@@ -567,7 +567,7 @@ public:
             }
             if (new_hyps && new_hyps->empty()) {
                 dealloc(new_hyps);
-                new_hyps = 0;
+                new_hyps = nullptr;
             }
             m_hypmap.insert(result, new_hyps);
             // might push 0 into m_hyprefs. No reason for that
@@ -822,7 +822,7 @@ bool proof_utils::is_closed(ast_manager& m, proof* p) {
 
 static void permute_unit_resolution(expr_ref_vector& refs, obj_map<proof,proof*>& cache, proof_ref& pr) {
     ast_manager& m = pr.get_manager();
-    proof* pr2 = 0;
+    proof* pr2 = nullptr;
     proof_ref_vector parents(m);
     proof_ref prNew(pr); 
     if (cache.find(pr, pr2)) {

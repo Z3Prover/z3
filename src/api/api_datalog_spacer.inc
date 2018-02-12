@@ -49,7 +49,7 @@ Notes:
         expr* e = to_fixedpoint_ref(d)->ctx().get_ground_sat_answer();
         mk_c(c)->save_ast_trail(e);
         RETURN_Z3(of_expr(e));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast_vector Z3_API Z3_fixedpoint_get_rules_along_trace(
@@ -69,7 +69,7 @@ Notes:
             v->m_ast_vector.push_back(rules[i].get());
         }
         RETURN_Z3(of_ast_vector(v));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_symbol Z3_API Z3_fixedpoint_get_rule_names_along_trace(
@@ -90,7 +90,7 @@ Notes:
             ss << ";" << names[i].str();
         }
         RETURN_Z3(of_symbol(symbol(ss.str().substr(1).c_str())));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     void Z3_API Z3_fixedpoint_add_invariant(Z3_context c, Z3_fixedpoint d, Z3_func_decl pred, Z3_ast property) {
@@ -108,6 +108,6 @@ Notes:
         expr_ref r = to_fixedpoint_ref(d)->ctx().get_reachable(to_func_decl(pred));
         mk_c(c)->save_ast_trail(r);        
         RETURN_Z3(of_expr(r.get()));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 

@@ -68,7 +68,7 @@ class inc_sat_solver : public solver {
     typedef obj_map<expr, sat::literal> dep2asm_t;
 public:
     inc_sat_solver(ast_manager& m, params_ref const& p):
-        m(m), m_solver(p, m.limit(), 0),
+        m(m), m_solver(p, m.limit(), nullptr),
         m_optimize_model(false),
         m_fmls(m),
         m_asmsf(m),
@@ -106,7 +106,7 @@ public:
     void set_progress_callback(progress_callback * callback) override {}
 
     void display_weighted(std::ostream& out, unsigned sz, expr * const * assumptions, unsigned const* weights) {
-        if (weights != 0) {
+        if (weights != nullptr) {
             for (unsigned i = 0; i < sz; ++i) m_weights.push_back(weights[i]);
         }
         init_preprocess();
@@ -155,7 +155,7 @@ public:
 
         TRACE("sat", tout << _assumptions << "\n";);
         dep2asm_t dep2asm;
-        m_model = 0;
+        m_model = nullptr;
         lbool r = internalize_formulas();
         if (r != l_true) return r;
         r = internalize_assumptions(sz, _assumptions.c_ptr(), dep2asm);
@@ -258,7 +258,7 @@ public:
     }
     proof * get_proof() override {
         UNREACHABLE();
-        return 0;
+        return nullptr;
     }
 
     lbool get_consequences_core(expr_ref_vector const& assumptions, expr_ref_vector const& vars, expr_ref_vector& conseq) override {
@@ -403,8 +403,8 @@ private:
         catch (tactic_exception & ex) {
             IF_VERBOSE(0, verbose_stream() << "exception in tactic " << ex.msg() << "\n";);
             TRACE("sat", tout << "exception: " << ex.msg() << "\n";);
-            m_preprocess = 0;
-            m_bb_rewriter = 0;
+            m_preprocess = nullptr;
+            m_bb_rewriter = nullptr;
             return l_undef;
         }
         if (m_subgoals.size() != 1) {
@@ -515,7 +515,7 @@ private:
         expr_ref_vector conj(m);
         internalize_value(value, v, val);
         while (!premises.empty()) {
-            expr* e = 0;
+            expr* e = nullptr;
             VERIFY(asm2dep.find(premises.pop().index(), e));
             conj.push_back(e);
         }
@@ -616,7 +616,7 @@ private:
 
         m_core.reset();
         for (unsigned i = 0; i < core.size(); ++i) {
-            expr* e = 0;
+            expr* e = nullptr;
             VERIFY(asm2dep.find(core[i].index(), e));
             if (asm2fml.contains(e)) {
                 e = asm2fml.find(e);
@@ -643,7 +643,7 @@ private:
     void extract_model() {
         TRACE("sat", tout << "retrieve model " << (m_solver.model_is_current()?"present":"absent") << "\n";);
         if (!m_solver.model_is_current()) {
-            m_model = 0;
+            m_model = nullptr;
             return;
         }
         sat::model const & ll_m = m_solver.get_model();

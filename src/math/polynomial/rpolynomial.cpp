@@ -63,8 +63,8 @@ namespace rpolynomial {
             m_wrapper(w),
             m_manager(m),
             m_allocator(a),
-            m_own_allocator(a == 0) {
-            if (a == 0)
+            m_own_allocator(a == nullptr) {
+            if (a == nullptr)
                 m_allocator = alloc(small_object_allocator, "rpolynomial");
         }
 
@@ -107,7 +107,7 @@ namespace rpolynomial {
                 unsigned sz = p->size();
                 for (unsigned i = 0; i < sz; i++) {
                     poly_or_num * pn = p->arg(i);
-                    if (pn == 0)
+                    if (pn == nullptr)
                         continue;
                     if (is_num(pn)) {
                         del_numeral(to_num_ptr(pn));
@@ -141,11 +141,11 @@ namespace rpolynomial {
 
         static bool is_const(polynomial const * p) {
             SASSERT(p == 0 || (p->max_var() == null_var) == (p->size() == 1 && p->arg(0) != 0 && is_num(p->arg(0))));
-            return p == 0 || p->max_var() == null_var;
+            return p == nullptr || p->max_var() == null_var;
         }
 
         bool is_zero(polynomial const * p) {
-            return p == 0;
+            return p == nullptr;
         }
 
         static bool is_univariate(polynomial const * p) {
@@ -154,7 +154,7 @@ namespace rpolynomial {
             unsigned sz = p->size();
             for (unsigned i = 0; i < sz; i++) {
                 poly_or_num * pn = p->arg(i);
-                if (pn == 0) 
+                if (pn == nullptr)
                     continue;
                 if (is_poly(pn))
                     return false;
@@ -169,7 +169,7 @@ namespace rpolynomial {
             SASSERT(sz > 0);
             SASSERT(p->arg(sz - 1) != 0);
             for (unsigned i = 0; i < sz - 1; i++) {
-                if (p->arg(i) != 0)
+                if (p->arg(i) != nullptr)
                     return false;
             }
             SASSERT(is_poly(p->arg(sz - 1)));
@@ -179,13 +179,13 @@ namespace rpolynomial {
         unsigned degree(polynomial const * p) {
             SASSERT(p != 0);
             SASSERT(p->size() > 0);
-            return p == 0 ? 0 : p->size() - 1;
+            return p == nullptr ? 0 : p->size() - 1;
         }
      
         bool eq(polynomial const * p1, polynomial const * p2) {
             if (p1 == p2)
                 return true;
-            if (p1 == 0 || p2 == 0)
+            if (p1 == nullptr || p2 == nullptr)
                 return false;
             if (p1->size() != p2->size())
                 return false;
@@ -195,9 +195,9 @@ namespace rpolynomial {
             for (unsigned i = 0; i < sz; i++) {
                 poly_or_num * pn1 = p1->arg(i);
                 poly_or_num * pn2 = p2->arg(i);
-                if (pn1 == 0 && pn2 == 0)
+                if (pn1 == nullptr && pn2 == nullptr)
                     continue;
-                if (pn1 == 0 || pn2 == 0)
+                if (pn1 == nullptr || pn2 == nullptr)
                     return false;
                 if (is_num(pn1) && is_num(pn2)) {
                     if (!m_manager.eq(to_num(pn1), to_num(pn2)))
@@ -217,7 +217,7 @@ namespace rpolynomial {
         void inc_ref_args(unsigned sz, poly_or_num * const * args) {
             for (unsigned i = 0; i < sz; i++) {
                 poly_or_num * pn = args[i];
-                if (pn == 0 || is_num(pn))
+                if (pn == nullptr || is_num(pn))
                     continue;
                 inc_ref(to_poly(pn));
             }
@@ -226,7 +226,7 @@ namespace rpolynomial {
         void dec_ref_args(unsigned sz, poly_or_num * const * args) {
             for (unsigned i = 0; i < sz; i++) {
                 poly_or_num * pn = args[i];
-                if (pn == 0 || is_num(pn))
+                if (pn == nullptr || is_num(pn))
                     continue;
                 dec_ref(to_poly(pn));
             }
@@ -234,7 +234,7 @@ namespace rpolynomial {
 
         unsigned trim(unsigned sz, poly_or_num * const * args) {
             while (sz > 0) {
-                if (args[sz - 1] != 0)
+                if (args[sz - 1] != nullptr)
                     return sz;
                 sz--;
             }
@@ -281,8 +281,8 @@ namespace rpolynomial {
 
         polynomial * mk_poly(unsigned sz, poly_or_num * const * args, var max_var) {
             poly_or_num * _p = mk_poly_core(sz, args, max_var);
-            if (_p == 0)
-                return 0;
+            if (_p == nullptr)
+                return nullptr;
             else if (is_num(_p))
                 return allocate_poly(1, &_p, null_var);
             else
@@ -291,7 +291,7 @@ namespace rpolynomial {
 
         polynomial * mk_const(numeral const & n) {
             if (m_manager.is_zero(n))
-                return 0;
+                return nullptr;
             numeral * a = mk_numeral();
             m_manager.set(*a, n);
             poly_or_num * _a = to_poly_or_num(a);
@@ -322,8 +322,8 @@ namespace rpolynomial {
         }
 
         poly_or_num * unpack(polynomial const * p) {
-            if (p == 0) {
-                return 0;
+            if (p == nullptr) {
+                return nullptr;
             }
             else if (is_const(p)) {
                 SASSERT(p->size() == 1);
@@ -336,8 +336,8 @@ namespace rpolynomial {
         }
 
         polynomial * pack(poly_or_num * p) {
-            if (p == 0)
-                return 0;
+            if (p == nullptr)
+                return nullptr;
             else if (is_num(p))
                 return mk_poly(1, &p, null_var);
             else
@@ -345,8 +345,8 @@ namespace rpolynomial {
         }
 
         poly_or_num * mul_core(numeral const & c, poly_or_num * p) {
-            if (m_manager.is_zero(c) || p == 0) {
-                return 0;
+            if (m_manager.is_zero(c) || p == nullptr) {
+                return nullptr;
             }
             else if (is_num(p)) {
                 numeral * r = mk_numeral();
@@ -379,7 +379,7 @@ namespace rpolynomial {
             if (m_manager.is_zero(c)) {
                 return p;
             }
-            else if (p == 0) {
+            else if (p == nullptr) {
                 numeral * r = mk_numeral();
                 m_manager.set(*r, c);
                 return to_poly_or_num(r);
@@ -388,7 +388,7 @@ namespace rpolynomial {
                 numeral a;
                 m_manager.add(c, to_num(p), a);
                 if (m_manager.is_zero(a))
-                    return 0;
+                    return nullptr;
                 numeral * new_arg = mk_numeral();
                 m_manager.swap(*new_arg, a);
                 return to_poly_or_num(new_arg);
@@ -662,7 +662,7 @@ namespace rpolynomial {
             while (i > 0) {
                 --i;
                 poly_or_num * pn = p->arg(i);
-                if (pn == 0)
+                if (pn == nullptr)
                     continue;
                 if (first)
                     first = false;
@@ -730,7 +730,7 @@ namespace rpolynomial {
     }
 
     bool manager::is_zero(polynomial const * p) {
-        return p == 0;
+        return p == nullptr;
     }
 
 #if 0     

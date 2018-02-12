@@ -107,7 +107,7 @@ namespace qe {
                 subst_large_domain(x, eqs, uv, fml);
             }
             if (def) {
-                *def = 0; // TBD
+                *def = nullptr; // TBD
             }
         }
 
@@ -169,13 +169,13 @@ namespace qe {
 
 
         eq_atoms& get_eqs(app* x, expr* fml) {
-            eq_atoms* eqs = 0;
+            eq_atoms* eqs = nullptr;
             VERIFY(m_eqs_cache.find(x, fml, eqs));
             return *eqs;
         }
 
         bool update_eqs(contains_app& contains_x, expr* fml) {
-            eq_atoms* eqs = 0;
+            eq_atoms* eqs = nullptr;
             if (m_eqs_cache.find(contains_x.x(), fml, eqs)) {
                 return true;
             }

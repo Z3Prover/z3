@@ -117,7 +117,7 @@ static void get_interpolant_and_maybe_check(cmd_context & ctx, expr * t, params_
     ptr_vector<ast> interps;
  
     try {
-        iz3interpolate(ctx.m(),pr.get(),cnsts,t,interps,0);
+        iz3interpolate(ctx.m(),pr.get(),cnsts,t,interps,nullptr);
     }
     catch (iz3_bad_tree &) {
         throw cmd_exception("interpolation pattern contains non-asserted formula");
@@ -160,7 +160,7 @@ static void compute_interpolant_and_maybe_check(cmd_context & ctx, expr * t, par
   
     lbool res;
     try {
-        res = iz3interpolate(_m, *sp.get(), t, cnsts, interps, m, 0);
+        res = iz3interpolate(_m, *sp.get(), t, cnsts, interps, m, nullptr);
     }
     catch (iz3_incompleteness &) {
         throw cmd_exception("incompleteness in interpolator");

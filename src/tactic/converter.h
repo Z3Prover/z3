@@ -84,11 +84,11 @@ protected:
 
     template<typename T2>
     T * translate_core(ast_translation & translator) {
-        T * t1 = m_c1 ? m_c1->translate(translator) : 0;
+        T * t1 = m_c1 ? m_c1->translate(translator) : nullptr;
         ptr_buffer<T> t2s;
         unsigned num = m_c2s.size();
         for (unsigned i = 0; i < num; i++)
-            t2s.push_back(m_c2s[i] ? m_c2s[i]->translate(translator) : 0);
+            t2s.push_back(m_c2s[i] ? m_c2s[i]->translate(translator) : nullptr);
         return alloc(T2, t1, num, t2s.c_ptr(), m_szs.c_ptr());
     }
 

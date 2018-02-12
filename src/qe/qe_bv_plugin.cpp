@@ -61,7 +61,7 @@ namespace qe {
             unsigned bv_size;
             model_eval(x.x(), val_x);
             m_bv.is_numeral(val_x, val, bv_size);
-            subst(x, val, fml, 0);
+            subst(x, val, fml, nullptr);
             return true;
         }
 

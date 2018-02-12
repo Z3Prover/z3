@@ -23,7 +23,7 @@ Abstract:
 namespace datalog {
     class aig_exporter {
     public:
-        aig_exporter(const rule_set& rules, context& ctx, const fact_vector *facts = 0);
+        aig_exporter(const rule_set& rules, context& ctx, const fact_vector *facts = nullptr);
         void operator()(std::ostream& out);
 
     private:
@@ -60,7 +60,7 @@ namespace datalog {
         unsigned mk_or(unsigned id1, unsigned id2);
         unsigned get_var(const expr *e);
         unsigned mk_var(const expr *e);
-        unsigned mk_input_var(const expr *e = 0);
+        unsigned mk_input_var(const expr *e = nullptr);
         unsigned mk_expr_id();
     };
 }

@@ -55,7 +55,7 @@ public:
 protected:
     fpa2bv_model_converter(ast_manager & m) :
         m(m),
-        m_bv2fp(0) {}
+        m_bv2fp(nullptr) {}
 
     void convert(model_core * mc, model * float_mdl);
 };

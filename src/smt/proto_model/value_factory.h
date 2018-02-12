@@ -95,7 +95,7 @@ protected:
     ptr_vector<value_set>  m_sets;
 
     value_set * get_value_set(sort * s) {
-        value_set * set = 0;
+        value_set * set = nullptr;
         if (!m_sort2value_set.find(s, set)) {
             set = alloc(value_set);
             m_sort2value_set.insert(s, set);
@@ -138,8 +138,8 @@ public:
     }
     
     expr * get_some_value(sort * s) override {
-        value_set * set = 0;
-        expr * result = 0;
+        value_set * set = nullptr;
+        expr * result = nullptr;
         if (m_sort2value_set.find(s, set) && !set->m_values.empty()) 
             result = *(set->m_values.begin());
         else
@@ -148,7 +148,7 @@ public:
     }
 
     bool get_some_values(sort * s, expr_ref & v1, expr_ref & v2) override {
-        value_set * set = 0;
+        value_set * set = nullptr;
         if (m_sort2value_set.find(s, set)) {
             switch (set->m_values.size()) {
             case 0:
@@ -179,9 +179,9 @@ public:
     expr * get_fresh_value(sort * s) override {
         value_set * set  = get_value_set(s);
         bool is_new      = false;
-        expr * result    = 0;
+        expr * result    = nullptr;
         sort_info* s_info = s->get_info();
-        sort_size const* sz = s_info?&s_info->get_num_elements():0;
+        sort_size const* sz = s_info?&s_info->get_num_elements():nullptr;
         bool has_max = false;
         Number max_size(0);
         if (sz && sz->is_finite() && sz->size() < UINT_MAX) {
@@ -195,7 +195,7 @@ public:
             result = mk_value(next, s, is_new);
             next++;
             if (has_max && next > max_size + start) {
-                return 0;
+                return nullptr;
             }
         }
         SASSERT(result != 0);

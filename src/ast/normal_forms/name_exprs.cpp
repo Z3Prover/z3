@@ -38,8 +38,8 @@ class name_exprs_core : public name_exprs {
             m_pred(pred),
             m_r(m),
             m_pr(m),
-            m_def_exprs(0),
-            m_def_proofs(0) {
+            m_def_exprs(nullptr),
+            m_def_proofs(nullptr) {
         }
 
         void gen_name_for_expr(expr * n, expr * & t, proof * & t_pr) {
@@ -127,7 +127,7 @@ class name_nested_formulas : public name_exprs_core {
         ast_manager & m_manager;
         expr *        m_root;
 
-        pred(ast_manager & m):m_manager(m), m_root(0) {}
+        pred(ast_manager & m):m_manager(m), m_root(nullptr) {}
 
         bool operator()(expr * t) override {
             TRACE("name_exprs", tout << "name_nested_formulas::pred:\n" << mk_ismt2_pp(t, m_manager) << "\n";);

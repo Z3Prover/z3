@@ -30,14 +30,14 @@ extern "C" {
         RESET_ERROR_CODE();
         if (proofs != 0 && !mk_c(c)->m().proofs_enabled()) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         Z3_goal_ref * g = alloc(Z3_goal_ref, *mk_c(c));
         g->m_goal       = alloc(goal, mk_c(c)->m(), proofs != 0, models != 0, unsat_cores != 0);
         mk_c(c)->save_object(g);
         Z3_goal r       = of_goal(g);
         RETURN_Z3(r);
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     void Z3_API Z3_goal_inc_ref(Z3_context c, Z3_goal g) {
@@ -119,12 +119,12 @@ extern "C" {
         RESET_ERROR_CODE();
         if (idx >= to_goal_ref(g)->size()) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         expr * result = to_goal_ref(g)->form(idx);
         mk_c(c)->save_ast_trail(result);
         RETURN_Z3(of_ast(result));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
     
     unsigned Z3_API Z3_goal_num_exprs(Z3_context c, Z3_goal g) {
@@ -161,7 +161,7 @@ extern "C" {
         mk_c(target)->save_object(_r);
         Z3_goal r = of_goal(_r);
         RETURN_Z3(r);
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_string Z3_API Z3_goal_to_string(Z3_context c, Z3_goal g) {

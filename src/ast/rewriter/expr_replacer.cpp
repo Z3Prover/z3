@@ -34,7 +34,7 @@ void expr_replacer::operator()(expr * t, expr_ref & result) {
 struct expr_replacer::scoped_set_subst {
     expr_replacer & m_r;
     scoped_set_subst(expr_replacer & r, expr_substitution & s):m_r(r) { m_r.set_substitution(&s); }
-    ~scoped_set_subst() { m_r.set_substitution(0); }
+    ~scoped_set_subst() { m_r.set_substitution(nullptr); }
 };
 
 void expr_replacer::apply_substitution(expr * s, expr * def, proof * def_pr, expr_ref & t) { 
@@ -58,14 +58,14 @@ struct default_expr_replacer_cfg : public default_rewriter_cfg  {
 
     default_expr_replacer_cfg(ast_manager & _m):
         m(_m),
-        m_subst(0),
+        m_subst(nullptr),
         m_used_dependencies(_m) {
     }
 
     bool get_subst(expr * s, expr * & t, proof * & pr) { 
-        if (m_subst == 0)
+        if (m_subst == nullptr)
             return false;
-        expr_dependency * d = 0;
+        expr_dependency * d = nullptr;
         if (m_subst->find(s, t, pr, d)) {
             m_used_dependencies = m.mk_join(m_used_dependencies, d);
             return true;
@@ -98,12 +98,12 @@ public:
     }
     
     void operator()(expr * t, expr_ref & result, proof_ref & result_pr, expr_dependency_ref & result_dep) override {
-        result_dep = 0;
+        result_dep = nullptr;
         m_replacer.operator()(t, result, result_pr);
         if (m_cfg.m_used_dependencies != 0) {
             result_dep = m_cfg.m_used_dependencies;
             m_replacer.reset(); // reset cache
-            m_cfg.m_used_dependencies = 0;
+            m_cfg.m_used_dependencies = nullptr;
         }
     }
 

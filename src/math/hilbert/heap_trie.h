@@ -195,9 +195,9 @@ public:
         m_le(le),
         m_num_keys(0),
         m_do_reshuffle(4),
-        m_root(0),
-        m_spare_leaf(0),
-        m_spare_trie(0)
+        m_root(nullptr),
+        m_spare_leaf(nullptr),
+        m_spare_trie(nullptr)
     {}
 
     ~heap_trie() {
@@ -283,7 +283,7 @@ public:
         ++m_stats.m_num_removes;
         // assumption: key is in table.
         node* n = m_root;
-        node* m = 0;
+        node* m = nullptr;
         for (unsigned i = 0; i < num_keys(); ++i) {
             n->dec_ref();
             VERIFY (to_trie(n)->find(get_key(keys, i), m));

@@ -64,7 +64,7 @@ class psort : public pdecl {
 protected:
     psort_inst_cache * m_inst_cache;
     friend class pdecl_manager;
-    psort(unsigned id, unsigned num_params):pdecl(id, num_params), m_inst_cache(0) {}
+    psort(unsigned id, unsigned num_params):pdecl(id, num_params), m_inst_cache(nullptr) {}
     bool is_psort() const override { return true; }
     void finalize(pdecl_manager & m) override;
     ~psort() override {}
@@ -72,7 +72,7 @@ protected:
     virtual sort * find(sort * const * s) const;
 public:
     virtual bool is_sort_wrapper() const { return false; }
-    virtual sort * instantiate(pdecl_manager & m, sort * const * s) { return 0; }
+    virtual sort * instantiate(pdecl_manager & m, sort * const * s) { return nullptr; }
     // we use hash-consing for psorts.
     virtual char const * hcons_kind() const = 0;
     virtual unsigned hcons_hash() const = 0;
@@ -102,8 +102,8 @@ protected:
     ~psort_decl() override {}
 public:
     virtual sort * instantiate(pdecl_manager & m, unsigned n, sort * const * s) = 0;
-    virtual sort * instantiate(pdecl_manager & m, unsigned n, unsigned const * s) { return 0; }
-    virtual sort * instantiate(pdecl_manager & m) { return instantiate(m, 0, static_cast<sort*const*>(0)); }
+    virtual sort * instantiate(pdecl_manager & m, unsigned n, unsigned const * s) { return nullptr; }
+    virtual sort * instantiate(pdecl_manager & m) { return instantiate(m, 0, static_cast<sort*const*>(nullptr)); }
     // return true if the declaration accepts a variable number of parameters.
     // Only builtin declarations can have a variable number of parameters.
     bool has_var_params() const { return m_num_params == PSORT_DECL_VAR_PARAMS; }
@@ -172,7 +172,7 @@ class ptype {
     };
     symbol     m_missing_ref;
 public:
-    ptype():m_kind(PTR_PSORT), m_sort(0) {}
+    ptype():m_kind(PTR_PSORT), m_sort(nullptr) {}
     ptype(int idx):m_kind(PTR_REC_REF), m_idx(idx) {}
     ptype(psort * s):m_kind(PTR_PSORT), m_sort(s) {}
     ptype(symbol const & s):m_kind(PTR_MISSING_REF), m_missing_ref(s) {}

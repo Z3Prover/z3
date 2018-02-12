@@ -48,7 +48,7 @@ public:
     
     Plugin * get_plugin(family_id fid) const {
         if (fid == null_family_id) {
-            return 0;
+            return nullptr;
         }
         return m_fid2plugins.get(fid, 0);
     }
