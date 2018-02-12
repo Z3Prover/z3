@@ -25,11 +25,11 @@ namespace qe {
         imp* m_imp;        
     public:
         arith_project_plugin(ast_manager& m);
-        virtual ~arith_project_plugin();
-        virtual bool operator()(model& model, app* var, app_ref_vector& vars, expr_ref_vector& lits);
-        virtual bool solve(model& model, app_ref_vector& vars, expr_ref_vector& lits);
-        virtual family_id get_family_id();
-        virtual void operator()(model& model, app_ref_vector& vars, expr_ref_vector& lits);
+        ~arith_project_plugin() override;
+        bool operator()(model& model, app* var, app_ref_vector& vars, expr_ref_vector& lits) override;
+        bool solve(model& model, app_ref_vector& vars, expr_ref_vector& lits) override;
+        family_id get_family_id() override;
+        void operator()(model& model, app_ref_vector& vars, expr_ref_vector& lits) override;
 
 
         opt::inf_eps maximize(expr_ref_vector const& fmls, model& mdl, app* t, expr_ref& ge, expr_ref& gt);

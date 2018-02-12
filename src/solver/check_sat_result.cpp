@@ -57,11 +57,11 @@ void simple_check_sat_result::get_model(model_ref & m) {
     if (m_status != l_false) 
         m = m_model; 
     else 
-        m = 0; 
+        m = nullptr;
 }
 
 proof * simple_check_sat_result::get_proof() { 
-    return m_status == l_false ? m_proof.get() : 0; 
+    return m_status == l_false ? m_proof.get() : nullptr;
 }
 
 std::string simple_check_sat_result::reason_unknown() const { 

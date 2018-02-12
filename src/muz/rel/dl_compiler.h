@@ -93,11 +93,11 @@ namespace datalog {
             compiler & m_parent;
             rule * m_current;
         public:
-            instruction_observer(compiler & parent) : m_parent(parent), m_current(0) {}
+            instruction_observer(compiler & parent) : m_parent(parent), m_current(nullptr) {}
 
             void start_rule(rule * r) { SASSERT(!m_current); m_current=r; }
-            void finish_rule() { m_current = 0; }
-            virtual void notify(instruction * i) {
+            void finish_rule() { m_current = nullptr; }
+            void notify(instruction * i) override {
                 if(m_current) {
                     i->set_accounting_parent_object(m_parent.m_context, m_current);
                 }

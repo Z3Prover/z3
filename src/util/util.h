@@ -222,7 +222,7 @@ template<typename T>
 class scoped_ptr {
     T * m_ptr;
 public:
-    scoped_ptr(T * ptr=0):
+    scoped_ptr(T * ptr=nullptr):
         m_ptr(ptr) {
     }
 
@@ -239,7 +239,7 @@ public:
     }
 
     operator bool() const { 
-        return m_ptr != 0; 
+        return m_ptr != nullptr;
     }
     
     const T & operator*() const {
@@ -260,7 +260,7 @@ public:
 
     T * detach() {
         T* tmp = m_ptr;
-        m_ptr = 0;
+        m_ptr = nullptr;
         return tmp;
     }
 

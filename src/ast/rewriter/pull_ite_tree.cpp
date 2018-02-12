@@ -56,10 +56,10 @@ void pull_ite_tree::reduce(expr * n) {
         expr * c = to_app(n)->get_arg(0);
         expr * t_old = to_app(n)->get_arg(1);
         expr * e_old = to_app(n)->get_arg(2);
-        expr * t     = 0;
-        proof * t_pr = 0;
-        expr * e     = 0;
-        proof * e_pr = 0;
+        expr * t     = nullptr;
+        proof * t_pr = nullptr;
+        expr * e     = nullptr;
+        proof * e_pr = nullptr;
         get_cached(t_old, t, t_pr);
         get_cached(e_old, e, e_pr);
         expr_ref r(m_manager);
@@ -67,7 +67,7 @@ void pull_ite_tree::reduce(expr * n) {
         r = m_rewriter.mk_app(to_app(n)->get_decl(), 3, args);
         if (!m_manager.proofs_enabled()) {
             // expr * r = m_manager.mk_ite(c, t, e);
-            cache_result(n, r, 0);
+            cache_result(n, r, nullptr);
         }
         else {
             // t_pr is a proof for (m_p ... t_old ...) == t
@@ -83,15 +83,15 @@ void pull_ite_tree::reduce(expr * n) {
             proof * pr1 = m_manager.mk_rewrite(old, tmp1);  // proof for (m_p ... (ite c t_old e_old) ...) = (ite c (m_p ... t_old ...) (m_p ... e_old ...))
             expr_ref tmp2(m_manager);
             tmp2 = m_manager.mk_ite(c, t, e); // (ite c t e)
-            proof * pr2 = 0; // it will contain a proof for (ite c (m_p ... t_old ...) (m_p ... e_old ...)) = (ite c t e)
-            proof * pr3 = 0; // it will contain a proof for (m_p ... (ite c t_old e_old) ...)               = (ite c t e)
+            proof * pr2 = nullptr; // it will contain a proof for (ite c (m_p ... t_old ...) (m_p ... e_old ...)) = (ite c t e)
+            proof * pr3 = nullptr; // it will contain a proof for (m_p ... (ite c t_old e_old) ...)               = (ite c t e)
             proof * proofs[2];
             unsigned num_proofs = 0;
-            if (t_pr != 0) {
+            if (t_pr != nullptr) {
                 proofs[num_proofs] = t_pr;
                 num_proofs++;
             }
-            if (e_pr != 0) {
+            if (e_pr != nullptr) {
                 proofs[num_proofs] = e_pr;
                 num_proofs++;
             }
@@ -102,8 +102,8 @@ void pull_ite_tree::reduce(expr * n) {
             else {
                 pr3 = pr1;
             }
-            proof * pr4 = 0; // it will contain a proof for (ite c t e) = r
-            proof * pr5 = 0; // it will contain a proof for (m_p ... (ite c t_old e_old) ...) = r
+            proof * pr4 = nullptr; // it will contain a proof for (ite c t e) = r
+            proof * pr5 = nullptr; // it will contain a proof for (m_p ... (ite c t_old e_old) ...) = r
             if (tmp2 != r) {
                 pr4 = m_manager.mk_rewrite(tmp2, r);
                 pr5 = m_manager.mk_transitivity(pr3, pr4);
@@ -120,14 +120,14 @@ void pull_ite_tree::reduce(expr * n) {
         r = m_rewriter.mk_app(m_p, m_args.size(), m_args.c_ptr());
         if (!m_manager.proofs_enabled()) {
             // expr * r = m_manager.mk_app(m_p, m_args.size(), m_args.c_ptr());
-            cache_result(n, r, 0);
+            cache_result(n, r, nullptr);
         }
         else {
             expr_ref old(m_manager);
             proof * p;
             old = mk_p_arg(n);
             if (old == r)
-                p = 0;
+                p = nullptr;
             else
                 p = m_manager.mk_rewrite(old, r);
             cache_result(n, r, p);
@@ -139,7 +139,7 @@ void pull_ite_tree::operator()(app * n, app_ref & r, proof_ref & pr) {
     unsigned num_args = n->get_num_args();
     m_args.resize(num_args);
     m_p = n->get_decl();
-    expr * ite = 0;
+    expr * ite = nullptr;
     for (unsigned i = 0; i < num_args; i++) {
         expr * arg = n->get_arg(i);
         if (ite) {
@@ -156,7 +156,7 @@ void pull_ite_tree::operator()(app * n, app_ref & r, proof_ref & pr) {
     }
     if (!ite) {
         r = n;
-        pr = 0;
+        pr = nullptr;
         return;
     }
     m_todo.push_back(ite);
@@ -170,8 +170,8 @@ void pull_ite_tree::operator()(app * n, app_ref & r, proof_ref & pr) {
         }
     }
     SASSERT(is_cached(ite));
-    expr *   _r = 0;
-    proof * _pr = 0;
+    expr *   _r = nullptr;
+    proof * _pr = nullptr;
     get_cached(ite, _r, _pr);
     r  = to_app(_r);
     pr = _pr;

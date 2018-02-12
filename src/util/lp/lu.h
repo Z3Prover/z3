@@ -67,7 +67,7 @@ public:
 #endif
     }
 
-    bool is_dense() const { return false; }
+    bool is_dense() const override { return false; }
 
     one_elem_on_diag(const one_elem_on_diag & o);
 
@@ -83,15 +83,15 @@ public:
     unsigned row_count() const { return m_m; } // not defined }
     unsigned column_count() const { return m_m; } // not defined  }
 #endif
-    void apply_from_left(vector<X> & w, lp_settings &) {
+    void apply_from_left(vector<X> & w, lp_settings &) override {
         w[m_i] /= m_val;
     }
 
-    void apply_from_right(vector<T> & w) {
+    void apply_from_right(vector<T> & w) override {
         w[m_i] /= m_val;
     }
 
-    void apply_from_right(indexed_vector<T> & w) {
+    void apply_from_right(indexed_vector<T> & w) override {
         if (is_zero(w.m_data[m_i]))
             return;
         auto & v = w.m_data[m_i] /= m_val;
@@ -102,7 +102,7 @@ public:
     }
 
     
-    void apply_from_left_to_T(indexed_vector<T> & w, lp_settings & settings);
+    void apply_from_left_to_T(indexed_vector<T> & w, lp_settings & settings) override;
 
     void conjugate_by_permutation(permutation_matrix<T, X> & p) {
         // this = p * this * p(-1)

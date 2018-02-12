@@ -121,7 +121,7 @@ public:
     bool find(symbol key, T & result) const {
         key_data dummy(key);
         hash_entry * e = m_sym_table.find_core(dummy);
-        if (e == 0) {
+        if (e == nullptr) {
             return false;
         }
         result = e->get_data().m_data;
@@ -140,7 +140,7 @@ public:
         if (get_scope_level() > 0) {
             key_data dummy(key);
             hash_entry * e = m_sym_table.find_core(dummy);
-            if (e != 0) {
+            if (e != nullptr) {
                 m_trail_stack.push_back(e->m_data);
                 e->m_data.m_data = data;
                 return;

@@ -216,7 +216,7 @@ private:
             }
 
             bool get_subst(expr * s, expr * & t, proof * & t_pr) { 
-                t_pr = 0;
+                t_pr = nullptr;
                 if (owner.is_constraint_core(s)) {
                     owner.convert(to_app(s), m_saved_res, true, false);
                     t = m_saved_res;
@@ -328,12 +328,12 @@ private:
             func_decl * fd = x->get_decl();
             obj_map<func_decl, expr*> & const2lit = sign ? m_not_const2bit : m_const2bit;
 
-            expr * r = 0;
+            expr * r = nullptr;
             const2lit.find(fd, r);
-            if (r != 0)
+            if (r != nullptr)
                 return r;
 
-            r = m.mk_fresh_const(0, m.mk_bool_sort());
+            r = m.mk_fresh_const(nullptr, m.mk_bool_sort());
             expr * not_r = m.mk_not(r);
             m_const2bit.insert(fd, r);
             m_not_const2bit.insert(fd, not_r);
@@ -490,7 +490,7 @@ private:
             for (unsigned j = 0; j < i; j++)
                 m_clause.push_back(monomial(numeral(1), m_p[j].m_lit));
         
-            app * new_var = m.mk_fresh_const(0, m_arith_util.mk_int());
+            app * new_var = m.mk_fresh_const(nullptr, m_arith_util.mk_int());
             m_temporary_ints.push_back(new_var);
         
             m_clause.push_back(monomial(numeral(1), lit(new_var,  true)));        
@@ -895,7 +895,7 @@ private:
             fail_if_proof_generation("pb2bv", g);
             m_produce_models      = g->models_enabled();
             m_produce_unsat_cores = g->unsat_core_enabled();
-            mc = 0; pc = 0; core = 0; result.reset();
+            mc = nullptr; pc = nullptr; core = nullptr; result.reset();
             tactic_report report("pb2bv", *g);
             m_bm.reset(); m_rw.reset(); m_new_deps.reset();
 
@@ -946,7 +946,7 @@ private:
             }
 
             for (unsigned idx = 0; idx < size; idx++)
-                g->update(idx, new_exprs[idx].get(), 0, (m_produce_unsat_cores) ? new_deps[idx].get() : g->dep(idx));
+                g->update(idx, new_exprs[idx].get(), nullptr, (m_produce_unsat_cores) ? new_deps[idx].get() : g->dep(idx));
 
             if (m_produce_models) {
                 filter_model_converter * mc1 = alloc(filter_model_converter, m);
@@ -983,32 +983,32 @@ public:
         m_imp = alloc(imp, m, p);
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(pb2bv_tactic, m, m_params);
     }
 
-    virtual ~pb2bv_tactic() {
+    ~pb2bv_tactic() override {
         dealloc(m_imp);
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_params = p;
         m_imp->updt_params(p);
     }
 
-    virtual void collect_param_descrs(param_descrs & r) {  
+    void collect_param_descrs(param_descrs & r) override {
         m_imp->collect_param_descrs(r);
     }
 
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
+    void operator()(goal_ref const & in,
+                    goal_ref_buffer & result,
+                    model_converter_ref & mc,
+                    proof_converter_ref & pc,
+                    expr_dependency_ref & core) override {
         (*m_imp)(in, result, mc, pc, core);
     }
     
-    virtual void cleanup() {
+    void cleanup() override {
         ast_manager & m = m_imp->m;
         imp * d = alloc(imp, m, m_params);
         std::swap(d, m_imp);        
@@ -1023,7 +1023,7 @@ tactic * mk_pb2bv_tactic(ast_manager & m, params_ref const & p) {
 }
 
 struct is_pb_probe : public probe {
-    virtual result operator()(goal const & g) {
+    result operator()(goal const & g) override {
         try {
             ast_manager & m = g.m();
             bound_manager bm(m);

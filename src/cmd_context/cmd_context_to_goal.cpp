@@ -33,14 +33,14 @@ void assert_exprs_from(cmd_context const & ctx, goal & t) {
         ptr_vector<expr>::const_iterator it2  = ctx.begin_assertion_names();
         SASSERT(end - it == ctx.end_assertion_names() - it2);
         for (; it != end; ++it, ++it2) {
-            t.assert_expr(*it, proofs_enabled ? m.mk_asserted(*it) : 0, m.mk_leaf(*it2));
+            t.assert_expr(*it, proofs_enabled ? m.mk_asserted(*it) : nullptr, m.mk_leaf(*it2));
         }
     }
     else {
         ptr_vector<expr>::const_iterator it  = ctx.begin_assertions();
         ptr_vector<expr>::const_iterator end = ctx.end_assertions();
         for (; it != end; ++it) {
-            t.assert_expr(*it, proofs_enabled ? m.mk_asserted(*it) : 0, 0);
+            t.assert_expr(*it, proofs_enabled ? m.mk_asserted(*it) : nullptr, nullptr);
         }
         SASSERT(ctx.begin_assertion_names() == ctx.end_assertion_names());
     }

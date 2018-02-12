@@ -31,7 +31,7 @@ solver_na2as::solver_na2as(ast_manager & m):
 solver_na2as::~solver_na2as() {}
 
 void solver_na2as::assert_expr(expr * t, expr * a) {
-    if (a == 0) {
+    if (a == nullptr) {
         assert_expr(t);
     }
     else {

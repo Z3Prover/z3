@@ -211,7 +211,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
         pivot literal, while the conclusion of premise2 should contain the
         pivot literal.
     */
-    node make_resolution(ast pivot, const std::vector<ast> &conc, node premise1, node premise2) {
+    node make_resolution(ast pivot, const std::vector<ast> &conc, node premise1, node premise2) override {
         LitType lt = get_term_type(pivot);
         if(lt == LitA)
             return my_or(premise1,premise2);
@@ -2146,7 +2146,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
     }
   
     /** Make an assumption node. The given clause is assumed in the given frame. */
-    virtual node make_assumption(int frame, const std::vector<ast> &assumption){
+    node make_assumption(int frame, const std::vector<ast> &assumption) override {
         if(!weak){
             if(pv->in_range(frame,rng)){
                 std::vector<ast> itp_clause;
@@ -2219,7 +2219,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
     /** Make a modus-ponens node. This takes derivations of |- x
         and |- x = y and produces |- y */
   
-    virtual node make_mp(const ast &p_eq_q, const ast &prem1, const ast &prem2){
+    node make_mp(const ast &p_eq_q, const ast &prem1, const ast &prem2) override {
     
         /* Interpolate the axiom p, p=q -> q */
         ast p = arg(p_eq_q,0);
@@ -2281,7 +2281,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
     }
 
     /** Make an axiom node. The conclusion must be an instance of an axiom. */
-    virtual node make_axiom(const std::vector<ast> &conclusion, prover::range frng){
+    node make_axiom(const std::vector<ast> &conclusion, prover::range frng) override {
         int nargs = conclusion.size();
         std::vector<ast> largs(nargs);
         std::vector<ast> eqs;
@@ -2306,20 +2306,20 @@ class iz3proof_itp_impl : public iz3proof_itp {
         return capture_localization(itp);
     }
 
-    virtual node make_axiom(const std::vector<ast> &conclusion){
+    node make_axiom(const std::vector<ast> &conclusion) override {
         return make_axiom(conclusion,pv->range_full());
     }
 
     /** Make a Contra node. This rule takes a derivation of the form
         Gamma |- False and produces |- \/~Gamma. */
 
-    virtual node make_contra(node prem, const std::vector<ast> &conclusion){
+    node make_contra(node prem, const std::vector<ast> &conclusion) override {
         return prem;
     }
 
     /** Make hypothesis. Creates a node of the form P |- P. */
 
-    virtual node make_hypothesis(const ast &P){
+    node make_hypothesis(const ast &P) override {
         if(is_not(P))
             return make_hypothesis(arg(P,0));
         switch(get_term_type(P)){
@@ -2354,7 +2354,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
 
     /** Make a Reflexivity node. This rule produces |- x = x */
   
-    virtual node make_reflexivity(ast con){
+    node make_reflexivity(ast con) override {
         if(get_term_type(con) == LitA)
             return mk_false();
         if(get_term_type(con) == LitB)
@@ -2367,7 +2367,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
     /** Make a Symmetry node. This takes a derivation of |- x = y and
         produces | y = x. Ditto for ~(x=y) */
 
-    virtual node make_symmetry(ast con, const ast &premcon, node prem){
+    node make_symmetry(ast con, const ast &premcon, node prem) override {
 #if 0
         ast x = arg(con,0);
         ast y = arg(con,1);
@@ -2394,7 +2394,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
     /** Make a transitivity node. This takes derivations of |- x = y
         and |- y = z produces | x = z */
 
-    virtual node make_transitivity(const ast &x, const ast &y, const ast &z, node prem1, node prem2){
+    node make_transitivity(const ast &x, const ast &y, const ast &z, node prem1, node prem2) override {
 
         /* Interpolate the axiom x=y,y=z,-> x=z */
         ast p = make_equiv_rel(x,y);
@@ -2413,7 +2413,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
     /** Make a congruence node. This takes derivations of |- x_i = y_i
         and produces |- f(x_1,...,x_n) = f(y_1,...,y_n) */
   
-    virtual node make_congruence(const ast &p, const ast &con, const ast &prem1){
+    node make_congruence(const ast &p, const ast &con, const ast &prem1) override {
         ast x = arg(p,0), y = arg(p,1);
         ast itp;
         LitType con_t = get_term_type(con);
@@ -2454,7 +2454,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
     /** Make a congruence node. This takes derivations of |- x_i1 = y_i1, |- x_i2 = y_i2,...
         and produces |- f(...x_i1...x_i2...) = f(...y_i1...y_i2...) */
   
-    node make_congruence(const std::vector<ast> &p, const ast &con, const std::vector<ast> &prems){
+    node make_congruence(const std::vector<ast> &p, const ast &con, const std::vector<ast> &prems) override {
         if(p.size() == 0)
             throw proof_error();
         if(p.size() == 1)
@@ -2516,8 +2516,8 @@ class iz3proof_itp_impl : public iz3proof_itp {
 
     /** Make a farkas proof node. */
 
-    virtual node make_farkas(ast con, const std::vector<node> &prems, const std::vector<ast> &prem_cons,
-                             const std::vector<ast> &coeffs){
+    node make_farkas(ast con, const std::vector<node> &prems, const std::vector<ast> &prem_cons,
+                     const std::vector<ast> &coeffs) override {
 
         /* Compute the interpolant for the clause */
 
@@ -2619,7 +2619,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
     }
   
     /* Make an axiom instance of the form |- x<=y, y<= x -> x =y */
-    virtual node make_leq2eq(ast x, ast y, const ast &xleqy, const ast &yleqx){
+    node make_leq2eq(ast x, ast y, const ast &xleqy, const ast &yleqx) override {
         ast con = make(Equal,x,y);
         ast itp;
         switch(get_term_type(con)){
@@ -2658,7 +2658,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
     }
 
     /* Make an axiom instance of the form |- x = y -> x <= y */
-    virtual node make_eq2leq(ast x, ast y, const ast &xleqy){
+    node make_eq2leq(ast x, ast y, const ast &xleqy) override {
         ast itp;
         switch(get_term_type(xleqy)){
         case LitA:
@@ -2681,7 +2681,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
 
     /* Make an inference of the form t <= c |- t/d <= floor(c/d) where t
        is an affine term divisble by d and c is an integer constant */
-    virtual node make_cut_rule(const ast &tleqc, const ast &d, const ast &con, const ast &prem){
+    node make_cut_rule(const ast &tleqc, const ast &d, const ast &con, const ast &prem) override {
         ast itp = mk_false();
         switch(get_term_type(con)){
         case LitA:
@@ -2965,7 +2965,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
     }  
 
     /* Return an interpolant from a proof of false */
-    ast interpolate(const node &pf){
+    ast interpolate(const node &pf) override {
         // proof of false must be a formula, with quantified symbols
 #ifndef BOGUS_QUANTS
         return close_universally(add_quants(z3_simplify(pf)));
@@ -3089,7 +3089,7 @@ public:
         m().inc_ref(sexists);
     }
 
-    ~iz3proof_itp_impl(){
+    ~iz3proof_itp_impl() override {
         m().dec_ref(contra);
         m().dec_ref(sum);
         m().dec_ref(rotate_sum);

@@ -433,7 +433,7 @@ extern "C" {
         \param c logical context
         \param rm term of RoundingMode sort
         \param t1 term of FloatingPoint sort
-        \param t2 term of FloatingPoint sor
+        \param t2 term of FloatingPoint sort
         \param t3 term of FloatingPoint sort
 
         The result is round((t1 * t2) + t3)

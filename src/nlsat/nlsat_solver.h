@@ -108,7 +108,7 @@ namespace nlsat {
         /**
            \brief Create a new clause.
         */
-        void mk_clause(unsigned num_lits, literal * lits, assumption a = 0);
+        void mk_clause(unsigned num_lits, literal * lits, assumption a = nullptr);
 
         // -----------------------
         //

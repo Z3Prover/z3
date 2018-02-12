@@ -25,13 +25,13 @@ namespace spacer {
 
     class spacer_matrix {
     public:
-        spacer_matrix(unsigned m, unsigned n); // m rows, n colums
+        spacer_matrix(unsigned m, unsigned n); // m rows, n columns
 
         unsigned num_rows();
         unsigned num_cols();
 
-        rational get(unsigned i, unsigned j);
-        void set(unsigned i, unsigned j, rational v);
+        const rational& get(unsigned i, unsigned j);
+        void set(unsigned i, unsigned j, const rational& v);
 
         unsigned perform_gaussian_elimination();
 

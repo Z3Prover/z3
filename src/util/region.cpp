@@ -38,11 +38,11 @@ inline void region::allocate_page() {
 }
 
 region::region() {
-    m_curr_page    = 0;
-    m_curr_ptr     = 0;
-    m_curr_end_ptr = 0;
-    m_free_pages   = 0;
-    m_mark         = 0;
+    m_curr_page    = nullptr;
+    m_curr_ptr     = nullptr;
+    m_curr_end_ptr = nullptr;
+    m_free_pages   = nullptr;
+    m_mark         = nullptr;
     allocate_page();
 }
 
@@ -81,13 +81,13 @@ inline void region::recycle_curr_page() {
 }
 
 void region::reset() {
-    while (m_curr_page != 0) {
+    while (m_curr_page != nullptr) {
         recycle_curr_page();
     }
     SASSERT(m_curr_page == 0);
-    m_curr_ptr     = 0;
-    m_curr_end_ptr = 0;
-    m_mark         = 0;
+    m_curr_ptr     = nullptr;
+    m_curr_end_ptr = nullptr;
+    m_mark         = nullptr;
     allocate_page();
 }
 
@@ -113,7 +113,7 @@ void region::pop_scope() {
 void region::display_mem_stats(std::ostream & out) const {
     unsigned n = 0;
     char * page = m_curr_page;
-    while (page != 0) {
+    while (page != nullptr) {
         n++;
         page = prev_page(page);
     }

@@ -37,7 +37,7 @@ namespace smt {
             enode* n1, *n2;
             literal lit;
             assumption(enode* n1, enode* n2): n1(n1), n2(n2), lit(null_literal) {}
-            assumption(literal lit): n1(0), n2(0), lit(lit) {}
+            assumption(literal lit): n1(nullptr), n2(nullptr), lit(lit) {}
         };
         typedef scoped_dependency_manager<assumption> dependency_manager;
         typedef dependency_manager::dependency dependency;        
@@ -224,8 +224,8 @@ namespace smt {
             expr_ref m_e;
         public:
             replay_length_coherence(ast_manager& m, expr* e) : m_e(e, m) {}
-            virtual ~replay_length_coherence() {}
-            virtual void operator()(theory_seq& th) {
+            ~replay_length_coherence() override {}
+            void operator()(theory_seq& th) override {
                 th.check_length_coherence(m_e);
                 m_e.reset();
             }
@@ -235,8 +235,8 @@ namespace smt {
             expr_ref m_e;
         public:
             replay_fixed_length(ast_manager& m, expr* e) : m_e(e, m) {}
-            virtual ~replay_fixed_length() {}
-            virtual void operator()(theory_seq& th) {
+            ~replay_fixed_length() override {}
+            void operator()(theory_seq& th) override {
                 th.fixed_length(m_e);
                 m_e.reset();
             }
@@ -246,8 +246,8 @@ namespace smt {
             expr_ref m_e;
         public:
             replay_axiom(ast_manager& m, expr* e) : m_e(e, m) {}
-            virtual ~replay_axiom() {}
-            virtual void operator()(theory_seq& th) {
+            ~replay_axiom() override {}
+            void operator()(theory_seq& th) override {
                 th.enque_axiom(m_e);
                 m_e.reset();
             }
@@ -257,7 +257,7 @@ namespace smt {
             apply* m_apply;
         public:
             push_replay(apply* app): m_apply(app) {}
-            virtual void undo(theory_seq& th) {
+            void undo(theory_seq& th) override {
                 th.m_replay.push_back(m_apply);
             }
         };
@@ -266,7 +266,7 @@ namespace smt {
             unsigned k;
         public:
             pop_branch(unsigned k): k(k) {}
-            virtual void undo(theory_seq& th) {
+            void undo(theory_seq& th) override {
                 th.m_branch_start.erase(k);
             }
         };
@@ -340,29 +340,29 @@ namespace smt {
 
         obj_hashtable<expr>            m_fixed;            // string variables that are fixed length.
 
-        virtual void init(context* ctx);
-        virtual final_check_status final_check_eh();
-        virtual bool internalize_atom(app* atom, bool);
-        virtual bool internalize_term(app*);        
-        virtual void internalize_eq_eh(app * atom, bool_var v);
-        virtual void new_eq_eh(theory_var, theory_var);
-        virtual void new_diseq_eh(theory_var, theory_var);
-        virtual void assign_eh(bool_var v, bool is_true);        
-        virtual bool can_propagate();
-        virtual void propagate();
-        virtual void push_scope_eh();
-        virtual void pop_scope_eh(unsigned num_scopes);
-        virtual void restart_eh();
-        virtual void relevant_eh(app* n);
-        virtual theory* mk_fresh(context* new_ctx) { return alloc(theory_seq, new_ctx->get_manager()); }
-        virtual char const * get_name() const { return "seq"; }
-        virtual theory_var mk_var(enode* n);
-        virtual void apply_sort_cnstr(enode* n, sort* s);
-        virtual void display(std::ostream & out) const;        
-        virtual void collect_statistics(::statistics & st) const;
-        virtual model_value_proc * mk_value(enode * n, model_generator & mg);
-        virtual void init_model(model_generator & mg);
-        virtual void init_search_eh();
+        void init(context* ctx) override;
+        final_check_status final_check_eh() override;
+        bool internalize_atom(app* atom, bool) override;
+        bool internalize_term(app*) override;
+        void internalize_eq_eh(app * atom, bool_var v) override;
+        void new_eq_eh(theory_var, theory_var) override;
+        void new_diseq_eh(theory_var, theory_var) override;
+        void assign_eh(bool_var v, bool is_true) override;
+        bool can_propagate() override;
+        void propagate() override;
+        void push_scope_eh() override;
+        void pop_scope_eh(unsigned num_scopes) override;
+        void restart_eh() override;
+        void relevant_eh(app* n) override;
+        theory* mk_fresh(context* new_ctx) override { return alloc(theory_seq, new_ctx->get_manager()); }
+        char const * get_name() const override { return "seq"; }
+        theory_var mk_var(enode* n) override;
+        void apply_sort_cnstr(enode* n, sort* s) override;
+        void display(std::ostream & out) const override;
+        void collect_statistics(::statistics & st) const override;
+        model_value_proc * mk_value(enode * n, model_generator & mg) override;
+        void init_model(model_generator & mg) override;
+        void init_search_eh() override;
 
         void init_model(expr_ref_vector const& es);
         // final check 
@@ -434,7 +434,7 @@ namespace smt {
 
         // asserting consequences
         bool linearize(dependency* dep, enode_pair_vector& eqs, literal_vector& lits) const;
-        void propagate_lit(dependency* dep, literal lit) { propagate_lit(dep, 0, 0, lit); }
+        void propagate_lit(dependency* dep, literal lit) { propagate_lit(dep, 0, nullptr, lit); }
         void propagate_lit(dependency* dep, unsigned n, literal const* lits, literal lit);
         void propagate_eq(dependency* dep, enode* n1, enode* n2);
         void propagate_eq(literal lit, expr* e1, expr* e2, bool add_to_eqs);
@@ -531,7 +531,7 @@ namespace smt {
         bool get_length(expr* s, rational& val) const;
 
         void mk_decompose(expr* e, expr_ref& head, expr_ref& tail);
-        expr_ref mk_skolem(symbol const& s, expr* e1, expr* e2 = 0, expr* e3 = 0, sort* range = 0);
+        expr_ref mk_skolem(symbol const& s, expr* e1, expr* e2 = nullptr, expr* e3 = nullptr, sort* range = nullptr);
         bool is_skolem(symbol const& s, expr* e) const;
 
         void set_incomplete(app* term);
@@ -584,7 +584,7 @@ namespace smt {
         void display_nc(std::ostream& out, nc const& nc) const;
     public:
         theory_seq(ast_manager& m);
-        virtual ~theory_seq();
+        ~theory_seq() override;
 
         // model building
         app* mk_value(app* a);

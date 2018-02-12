@@ -104,7 +104,7 @@ public:
         m_ok = (m_file != NULL) && (err == 0);
 #else
         m_file = fopen(fname, "rb");
-        m_ok = (m_file != NULL);
+        m_ok = (m_file != nullptr);
 #endif
     }
     ~line_reader() {
@@ -171,7 +171,7 @@ class char_reader {
 public:
     char_reader(char const* file):
         m_line_reader(file),
-        m_line(0)
+        m_line(nullptr)
     {}
    
     bool operator()() { return m_line_reader(); }
@@ -184,7 +184,7 @@ public:
             m_line = m_line_reader.get_line();
         }
         if (!(m_line[0])) {
-            m_line = 0;
+            m_line = nullptr;
             return '\n';
         }
         char result = m_line[0];
@@ -266,8 +266,8 @@ public:
     }
 
     dlexer():
-        m_input(0),
-        m_reader(0),
+        m_input(nullptr),
+        m_reader(nullptr),
         m_prev_char(0),
         m_curr_char(0),
         m_line(1),
@@ -494,27 +494,27 @@ public:
     {
     }
 
-    virtual bool parse_file(char const * filename) {
+    bool parse_file(char const * filename) override {
         reset();
-        if (filename != 0) {            
+        if (filename != nullptr) {
             set_path(filename);
             char_reader reader(filename);            
             if (!reader()) {
                 get_err() << "ERROR: could not open file '" << filename << "'.\n";
                 return false;
             }
-            return parse_stream(0, &reader);
+            return parse_stream(nullptr, &reader);
         }
         else {
-            return parse_stream(&std::cin, 0);
+            return parse_stream(&std::cin, nullptr);
         }
     }
 
-    virtual bool parse_string(char const * string) {
+    bool parse_string(char const * string) override {
         reset();
         std::string s(string);
         std::istringstream is(s);
-        return parse_stream(&is, 0);
+        return parse_stream(&is, nullptr);
     }
     
 protected:
@@ -701,7 +701,7 @@ protected:
                 if(is_predicate_declaration) {
                     return unexpected(tok, "predicate declaration should not end with '.'");
                 }
-                add_rule(pred, 0, 0, 0);
+                add_rule(pred, 0, nullptr, nullptr);
                 return m_lexer->next_token();
             case TK_LEFT_ARROW:
                 return parse_body(pred);
@@ -777,7 +777,7 @@ protected:
     dtoken parse_infix(dtoken tok1, char const* td, app_ref& pred) {
         symbol td1(td);
         expr_ref v1(m_manager), v2(m_manager);
-        sort* s = 0;
+        sort* s = nullptr;
         dtoken tok2 = m_lexer->next_token();
         if (tok2 != TK_NEQ && tok2 != TK_GT && tok2 != TK_LT && tok2 != TK_EQ) {
             return unexpected(tok2, "built-in infix operator");
@@ -790,12 +790,12 @@ protected:
         symbol td2(td);
 
         if (tok1 == TK_ID) {
-            expr* _v1 = 0;
+            expr* _v1 = nullptr;
             m_vars.find(td1.bare_str(), _v1);
             v1 = _v1;
         }
         if (tok3 == TK_ID) {
-            expr* _v2 = 0;
+            expr* _v2 = nullptr;
             m_vars.find(td2.bare_str(), _v2);
             v2 = _v2;
         }
@@ -842,8 +842,8 @@ protected:
         svector<symbol> arg_names;
         func_decl* f = m_context.try_get_predicate_decl(s);
         tok = parse_args(tok, f, args, arg_names);
-        is_predicate_declaration = f==0;
-        if (f==0) {
+        is_predicate_declaration = f==nullptr;
+        if (f==nullptr) {
             //we're in a declaration
             unsigned arity = args.size();
             ptr_vector<sort> domain;
@@ -884,7 +884,7 @@ protected:
         tok = m_lexer->next_token();
         while (tok != TK_EOS && tok != TK_ERROR) {
             symbol alias;
-            sort* s = 0;
+            sort* s = nullptr;
 
             if(!f) {
                 //we're in a predicate declaration
@@ -951,7 +951,7 @@ protected:
             symbol data (m_lexer->get_token_data());
             if (is_var(data.bare_str())) {
                 unsigned idx = 0;
-                expr* v = 0;
+                expr* v = nullptr;
                 if (!m_vars.find(data.bare_str(), v)) {
                     idx = m_num_vars++;
                     v = m_manager.mk_var(idx, s);
@@ -1014,7 +1014,7 @@ protected:
         dlexer lexer;
         {
             flet<dlexer*> lexer_let(m_lexer, &lexer);
-            m_lexer->set_stream(0, &stream);
+            m_lexer->set_stream(nullptr, &stream);
             tok = m_lexer->next_token();
             if(parsing_domain) {
                 tok = parse_domains(tok);
@@ -1186,7 +1186,7 @@ class wpa_parser_impl : public wpa_parser, dparser {
     bool m_use_map_names;
 
     uint64_set& ensure_sort_content(symbol sort_name) {
-        sym2nums::entry * e = m_sort_contents.insert_if_not_there2(sort_name, 0);
+        sym2nums::entry * e = m_sort_contents.insert_if_not_there2(sort_name, nullptr);
         if(!e->get_data().m_value) {
             e->get_data().m_value = alloc(uint64_set);
         }
@@ -1200,13 +1200,13 @@ public:
           m_short_sort(ctx.get_manager()),
           m_use_map_names(ctx.use_map_names()) {
     }
-    ~wpa_parser_impl() {
+    ~wpa_parser_impl() override {
         reset_dealloc_values(m_sort_contents);
     }
     void reset() {
     }
 
-    virtual bool parse_directory(char const * path) {
+    bool parse_directory(char const * path) override {
         bool result = false;
         try {
             result = parse_directory_core(path);
@@ -1303,7 +1303,7 @@ private:
         }
     }
 
-    void parse_rules_file(std::string fname) {
+    void parse_rules_file(const std::string & fname) {
         SASSERT(file_exists(fname));
         flet<std::string> flet_cur_file(m_current_file, fname);
 
@@ -1312,10 +1312,10 @@ private:
 
         dlexer lexer;
         m_lexer = &lexer;
-        m_lexer->set_stream(&stm, 0);
+        m_lexer->set_stream(&stm, nullptr);
         dtoken tok = m_lexer->next_token();
         tok = parse_decls(tok);
-        m_lexer = 0;
+        m_lexer = nullptr;
     }
 
     bool parse_rel_line(char * full_line, uint64_vector & args) {
@@ -1347,7 +1347,7 @@ private:
         return true;
     }
 
-    void parse_rel_file(std::string fname) {
+    void parse_rel_file(const std::string & fname) {
         SASSERT(file_exists(fname));
 
         IF_VERBOSE(10, verbose_stream() << "Parsing relation file " << fname << "\n";);
@@ -1496,7 +1496,7 @@ private:
         return true;
     }
 
-    void parse_map_file(std::string fname) {
+    void parse_map_file(const std::string & fname) {
         SASSERT(file_exists(fname));
 
         IF_VERBOSE(10, verbose_stream() << "Parsing map file " << fname << "\n";);

@@ -137,7 +137,7 @@ namespace smt {
             imp& m_imp;
         public:
             resource_limit(imp& i): m_imp(i) { }
-            virtual bool get_cancel_flag() { return m_imp.m.canceled(); }
+            bool get_cancel_flag() override { return m_imp.m.canceled(); }
         };
 
 
@@ -658,12 +658,12 @@ namespace smt {
             m_internalize_head(0),
             m_delay_constraints(false),
             m_delayed_terms(m),
-            m_not_handled(0),
+            m_not_handled(nullptr),
             m_asserted_qhead(0),
             m_assume_eq_head(0),
             m_num_conflicts(0),
             m_model_eqs(DEFAULT_HASHTABLE_INITIAL_CAPACITY, var_value_hash(*this), var_value_eq(*this)),
-            m_solver(0),
+            m_solver(nullptr),
             m_resource_limit(*this) {
         }
 
@@ -689,7 +689,7 @@ namespace smt {
             SASSERT(!ctx().b_internalized(atom));
             bool_var bv = ctx().mk_bool_var(atom);
             ctx().set_var_theory(bv, get_id());
-            expr* n1 = 0, *n2 = 0;
+            expr* n1 = nullptr, *n2 = nullptr;
             rational r;
             lra_lp::bound_kind k;
             theory_var v = null_theory_var;
@@ -721,7 +721,7 @@ namespace smt {
             SASSERT(!ctx().b_internalized(atom));
             bool_var bv = ctx().mk_bool_var(atom);
             ctx().set_var_theory(bv, get_id());
-            expr* n1 = 0, *n2 = 0;
+            expr* n1 = nullptr, *n2 = nullptr;
             rational r;
             lra_lp::bound_kind k;
             theory_var v = null_theory_var;
@@ -771,7 +771,7 @@ namespace smt {
         }
 
         void internalize_eq_eh(app * atom, bool_var) {
-            expr* lhs = 0, *rhs = 0;
+            expr* lhs = nullptr, *rhs = nullptr;
             VERIFY(m.is_eq(atom, lhs, rhs));
             enode * n1 = get_enode(lhs);
             enode * n2 = get_enode(rhs);
@@ -862,7 +862,7 @@ namespace smt {
 
         void relevant_eh(app* n) {
             TRACE("arith", tout << mk_pp(n, m) << "\n";);
-            expr* n1 = 0, *n2 = 0;
+            expr* n1 = nullptr, *n2 = nullptr;
             if (a.is_mod(n, n1, n2))
                 mk_idiv_mod_axioms(n1, n2);
             else if (a.is_rem(n, n1, n2))
@@ -898,7 +898,7 @@ namespace smt {
         // to_int (to_real x) = x
         // to_real(to_int(x)) <= x < to_real(to_int(x)) + 1
         void mk_to_int_axiom(app* n) {
-            expr* x = 0, *y = 0;
+            expr* x = nullptr, *y = nullptr;
             VERIFY (a.is_to_int(n, x));
             if (a.is_to_real(x, y)) {
                 mk_axiom(th.mk_eq(y, n, false));
@@ -914,7 +914,7 @@ namespace smt {
 
         // is_int(x) <=> to_real(to_int(x)) = x
         void mk_is_int_axiom(app* n) {
-            expr* x = 0;
+            expr* x = nullptr;
             VERIFY(a.is_is_int(n, x));
             literal eq = th.mk_eq(a.mk_to_real(a.mk_to_int(x)), x, false);
             literal is_int = ctx().get_literal(n);
@@ -1180,7 +1180,7 @@ namespace smt {
                 if (assume_eqs()) {
                     return FC_CONTINUE;
                 }
-                if (m_not_handled != 0) {
+                if (m_not_handled != nullptr) {
                     return FC_GIVEUP;
                 }
                 return FC_DONE;
@@ -1358,11 +1358,11 @@ namespace smt {
             imp & m_imp;
             local_bound_propagator(imp& i) : lp_bound_propagator(*i.m_solver), m_imp(i) {}
 
-            bool bound_is_interesting(unsigned j, lp::lconstraint_kind kind, const rational & v) {
+            bool bound_is_interesting(unsigned j, lp::lconstraint_kind kind, const rational & v) override {
                 return m_imp.bound_is_interesting(j, kind, v);
             }
 
-            virtual void consume(rational const& v, unsigned j) {
+            void consume(rational const& v, unsigned j) override {
                 m_imp.set_evidence(j);
             }
         };
@@ -1439,12 +1439,12 @@ namespace smt {
                     m_core2.push_back(~m_core[i]);
                 }
                 m_core2.push_back(lit);
-                justification * js = 0;
+                justification * js = nullptr;
                 if (proofs_enabled()) {
                     js = alloc(theory_lemma_justification, get_id(), ctx(), m_core2.size(), m_core2.c_ptr(),
                                m_params.size(), m_params.c_ptr());
                 }
-                ctx().mk_clause(m_core2.size(), m_core2.c_ptr(), js, CLS_AUX_LEMMA, 0);
+                ctx().mk_clause(m_core2.size(), m_core2.c_ptr(), js, CLS_AUX_LEMMA, nullptr);
             }
             else {
                 ctx().assign(
@@ -1499,7 +1499,7 @@ namespace smt {
             rational const& k1 = b.get_value();
             lp_bounds & bounds = m_bounds[v];
 
-            lra_lp::bound* end = 0;
+            lra_lp::bound* end = nullptr;
             lra_lp::bound* lo_inf = end, *lo_sup = end;
             lra_lp::bound* hi_inf = end, *hi_sup = end;
 
@@ -1764,7 +1764,7 @@ namespace smt {
             bool find_glb = (is_true == (k == lra_lp::lower_t));
             if (find_glb) {
                 rational glb;
-                lra_lp::bound* lb = 0;
+                lra_lp::bound* lb = nullptr;
                 for (unsigned i = 0; i < bounds.size(); ++i) {
                     lra_lp::bound* b2 = bounds[i];
                     if (b2 == &b) continue;
@@ -1780,7 +1780,7 @@ namespace smt {
             }
             else {
                 rational lub;
-                lra_lp::bound* ub = 0;
+                lra_lp::bound* ub = nullptr;
                 for (unsigned i = 0; i < bounds.size(); ++i) {
                     lra_lp::bound* b2 = bounds[i];
                     if (b2 == &b) continue;
@@ -2111,7 +2111,7 @@ namespace smt {
                         justification* js =
                             ctx().mk_justification(
                                 ext_theory_eq_propagation_justification(
-                                    get_id(), ctx().get_region(), m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), x, y, 0, 0));
+                                    get_id(), ctx().get_region(), m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), x, y, 0, nullptr));
 
                         TRACE("arith",
                               for (unsigned i = 0; i <  m_core.size(); ++i) {
@@ -2236,12 +2236,12 @@ namespace smt {
         }
 
         justification * why_is_diseq(theory_var v1, theory_var v2) {
-            return 0;
+            return nullptr;
         }
 
         void reset_eh() {
             m_arith_eq_adapter.reset_eh();
-            m_solver = 0;
+            m_solver = nullptr;
             m_not_handled = nullptr;
             del_bounds(0);
             m_unassigned_bounds.reset();

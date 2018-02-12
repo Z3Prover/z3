@@ -32,13 +32,13 @@ class array_factory : public struct_factory {
 public:
     array_factory(ast_manager & m, proto_model & md);
 
-    virtual ~array_factory() {}
+    ~array_factory() override {}
 
-    virtual expr * get_some_value(sort * s);
+    expr * get_some_value(sort * s) override;
 
-    virtual bool get_some_values(sort * s, expr_ref & v1, expr_ref & v2);
+    bool get_some_values(sort * s, expr_ref & v1, expr_ref & v2) override;
 
-    virtual expr * get_fresh_value(sort * s);
+    expr * get_fresh_value(sort * s) override;
 };
 
 #endif /* ARRAY_FACTORY_H_ */

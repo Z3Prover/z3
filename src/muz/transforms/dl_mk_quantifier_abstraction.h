@@ -51,9 +51,9 @@ namespace datalog {
     public:
         mk_quantifier_abstraction(context & ctx, unsigned priority);
 
-        virtual ~mk_quantifier_abstraction();
+        ~mk_quantifier_abstraction() override;
         
-        rule_set * operator()(rule_set const & source);
+        rule_set * operator()(rule_set const & source) override;
     };
 
 

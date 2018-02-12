@@ -70,7 +70,7 @@ public:
 
     void init(sparse_matrix<T, X> *parent_matrix, unsigned index_start);
 
-    bool is_dense() const { return true; }
+    bool is_dense() const override { return true; }
     
     ref operator[] (unsigned i) {
         SASSERT(i >= m_index_start);
@@ -137,13 +137,13 @@ public:
 
     bool is_L_matrix() const;
 
-    void apply_from_left_to_T(indexed_vector<T> & w, lp_settings & settings) {
+    void apply_from_left_to_T(indexed_vector<T> & w, lp_settings & settings) override {
         apply_from_left_local(w, settings);
     }
 
     
     
-    void apply_from_right(indexed_vector<T> & w) {
+    void apply_from_right(indexed_vector<T> & w) override {
 #if 1==0
         indexed_vector<T> wcopy = w;
         apply_from_right(wcopy.m_data);
@@ -207,11 +207,11 @@ public:
         w = m_work_vector;
 #endif
     }
-    void apply_from_left(vector<X> & w, lp_settings & /*settings*/) {
+    void apply_from_left(vector<X> & w, lp_settings & /*settings*/) override {
         apply_from_left_to_vector(w);// , settings);
     }
 
-    void apply_from_right(vector<T> & w);
+    void apply_from_right(vector<T> & w) override;
 
 #ifdef Z3DEBUG
     T get_elem (unsigned i, unsigned j) const;

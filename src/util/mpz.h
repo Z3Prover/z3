@@ -92,9 +92,9 @@ class mpz {
     friend class mpbq_manager;
     mpz & operator=(mpz const & other) { UNREACHABLE(); return *this; }
 public:
-    mpz(int v):m_val(v), m_ptr(0) {}
-    mpz():m_val(0), m_ptr(0) {}
-    mpz(mpz && other) : m_val(other.m_val), m_ptr(0) {
+    mpz(int v):m_val(v), m_ptr(nullptr) {}
+    mpz():m_val(0), m_ptr(nullptr) {}
+    mpz(mpz && other) : m_val(other.m_val), m_ptr(nullptr) {
         std::swap(m_ptr, other.m_ptr);
     }
     void swap(mpz & other) { 
@@ -187,7 +187,7 @@ class mpz_manager {
 
     /**
        \brief Set \c a with the value stored at m_tmp[IDX], and the given sign.
-       \c sz is an overapproximation of the the size of the number stored at \c tmp.
+       \c sz is an overapproximation of the size of the number stored at \c tmp.
     */
     template<int IDX>
     void set(mpz & a, int sign, unsigned sz);
@@ -333,16 +333,16 @@ public:
 
     ~mpz_manager();
 
-    static bool is_small(mpz const & a) { return a.m_ptr == 0; }
+    static bool is_small(mpz const & a) { return a.m_ptr == nullptr; }
 
     static mpz mk_z(int val) { return mpz(val); }
     
     void del(mpz & a) { 
-        if (a.m_ptr != 0) {
+        if (a.m_ptr != nullptr) {
             MPZ_BEGIN_CRITICAL();
             deallocate(a.m_ptr); 
             MPZ_END_CRITICAL();
-            a.m_ptr = 0; 
+            a.m_ptr = nullptr;
         } 
     }
     

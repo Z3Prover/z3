@@ -109,8 +109,8 @@ namespace datalog {
     public:
         relation_manager(context & ctx) : 
           m_context(ctx), 
-          m_favourite_table_plugin(0),
-          m_favourite_relation_plugin(0),
+          m_favourite_table_plugin(nullptr),
+          m_favourite_relation_plugin(nullptr),
           m_next_table_fid(0),
           m_next_relation_fid(0) {}
 
@@ -289,7 +289,7 @@ namespace datalog {
         relation_transformer_fn * mk_permutation_rename_fn(const relation_base & t, 
             const unsigned * permutation);
         relation_transformer_fn * mk_permutation_rename_fn(const relation_base & t, 
-                const unsigned_vector permutation) {
+                const unsigned_vector & permutation) {
             SASSERT(t.get_signature().size()==permutation.size());
             return mk_permutation_rename_fn(t, permutation.c_ptr());
         }
@@ -331,7 +331,7 @@ namespace datalog {
             const relation_base * delta);
 
         relation_union_fn * mk_union_fn(const relation_base & tgt, const relation_base & src) { 
-            return mk_union_fn(tgt, src, static_cast<relation_base *>(0));
+            return mk_union_fn(tgt, src, static_cast<relation_base *>(nullptr));
         }
 
         /**
@@ -343,7 +343,7 @@ namespace datalog {
 
         relation_mutator_fn * mk_filter_identical_fn(const relation_base & t, unsigned col_cnt, 
             const unsigned * identical_cols);
-        relation_mutator_fn * mk_filter_identical_fn(const relation_base & t, const unsigned_vector identical_cols) {
+        relation_mutator_fn * mk_filter_identical_fn(const relation_base & t, const unsigned_vector & identical_cols) {
             return mk_filter_identical_fn(t, identical_cols.size(), identical_cols.c_ptr());
         }
 
@@ -468,7 +468,7 @@ namespace datalog {
            of column number.
         */
         table_transformer_fn * mk_permutation_rename_fn(const table_base & t, const unsigned * permutation);
-        table_transformer_fn * mk_permutation_rename_fn(const table_base & t, const unsigned_vector permutation) {
+        table_transformer_fn * mk_permutation_rename_fn(const table_base & t, const unsigned_vector & permutation) {
             SASSERT(t.get_signature().size()==permutation.size());
             return mk_permutation_rename_fn(t, permutation.c_ptr());
         }
@@ -510,7 +510,7 @@ namespace datalog {
             const table_base * delta);
 
         table_union_fn * mk_union_fn(const table_base & tgt, const table_base & src) { 
-            return mk_union_fn(tgt, src, static_cast<table_base *>(0));
+            return mk_union_fn(tgt, src, static_cast<table_base *>(nullptr));
         }
 
         /**
@@ -522,7 +522,7 @@ namespace datalog {
 
         table_mutator_fn * mk_filter_identical_fn(const table_base & t, unsigned col_cnt, 
             const unsigned * identical_cols);
-        table_mutator_fn * mk_filter_identical_fn(const table_base & t, const unsigned_vector identical_cols) {
+        table_mutator_fn * mk_filter_identical_fn(const table_base & t, const unsigned_vector & identical_cols) {
             return mk_filter_identical_fn(t, identical_cols.size(), identical_cols.c_ptr());
         }
 

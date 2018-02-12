@@ -42,7 +42,7 @@ namespace spacer
         return m_num_cols;
     }
 
-    rational spacer_matrix::get(unsigned int i, unsigned int j)
+    const rational& spacer_matrix::get(unsigned int i, unsigned int j)
     {
         SASSERT(i < m_num_rows);
         SASSERT(j < m_num_cols);
@@ -50,7 +50,7 @@ namespace spacer
         return m_matrix[i][j];
     }
 
-    void spacer_matrix::set(unsigned int i, unsigned int j, rational v)
+    void spacer_matrix::set(unsigned int i, unsigned int j, const rational& v)
     {
         SASSERT(i < m_num_rows);
         SASSERT(j < m_num_cols);

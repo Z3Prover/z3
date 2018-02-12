@@ -1696,7 +1696,11 @@ if _lib is None:
 
 def _to_ascii(s):
   if isinstance(s, str):
-    return s.encode('ascii')
+    try: 
+      return s.encode('ascii')
+    except:
+      # kick the bucket down the road.  :-J
+      return s
   else:
     return s
 

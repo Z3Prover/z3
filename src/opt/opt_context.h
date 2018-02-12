@@ -57,6 +57,7 @@ namespace opt {
         virtual unsigned num_objectives() = 0;
         virtual bool verify_model(unsigned id, model* mdl, rational const& v) = 0;
         virtual void set_model(model_ref& _m) = 0;
+        virtual void model_updated(model* mdl) = 0;
     };
 
     /**
@@ -144,7 +145,8 @@ namespace opt {
         ref<opt_solver>     m_opt_solver;
         ref<solver>         m_solver;
         ref<solver>         m_sat_solver;
-        scoped_ptr<pareto_base>          m_pareto;
+        scoped_ptr<pareto_base> m_pareto;
+        bool                 m_pareto1;
         scoped_ptr<qe::qmax> m_qmax;
         sref_vector<model>  m_box_models;
         unsigned            m_box_index;
@@ -153,9 +155,10 @@ namespace opt {
         map_t               m_maxsmts;
         scoped_state        m_scoped_state;
         vector<objective>   m_objectives;
-        model_ref           m_model;
+        model_ref           m_model;        
         model_converter_ref          m_model_converter;
         filter_model_converter       m_fm;
+        unsigned                     m_model_counter;
         obj_map<func_decl, unsigned> m_objective_fns;
         obj_map<func_decl, expr*>    m_objective_orig;
         func_decl_ref_vector         m_objective_refs;
@@ -170,7 +173,7 @@ namespace opt {
         std::string                  m_unknown;
     public:
         context(ast_manager& m);
-        virtual ~context();
+        ~context() override;
         unsigned add_soft_constraint(expr* f, rational const& w, symbol const& id);
         unsigned add_objective(app* t, bool is_max);
         void add_hard_constraint(expr* f);
@@ -178,30 +181,30 @@ namespace opt {
         void get_hard_constraints(expr_ref_vector& hard);
         expr_ref get_objective(unsigned i);
 
-        virtual void push();
-        virtual void pop(unsigned n);
-        virtual bool empty() { return m_scoped_state.m_objectives.empty(); }
-        virtual void set_hard_constraints(ptr_vector<expr> & hard);
-        virtual lbool optimize();
-        virtual void set_model(model_ref& _m) { m_model = _m; }
-        virtual void get_model(model_ref& _m);
-        virtual void get_box_model(model_ref& _m, unsigned index);
-        virtual void fix_model(model_ref& _m);
-        virtual void collect_statistics(statistics& stats) const;
-        virtual proof* get_proof() { return 0; }
-        virtual void get_labels(svector<symbol> & r);
-        virtual void get_unsat_core(ptr_vector<expr> & r);
-        virtual std::string reason_unknown() const;
-        virtual void set_reason_unknown(char const* msg) { m_unknown = msg; }
+        void push() override;
+        void pop(unsigned n) override;
+        bool empty() override { return m_scoped_state.m_objectives.empty(); }
+        void set_hard_constraints(ptr_vector<expr> & hard) override;
+        lbool optimize() override;
+        void set_model(model_ref& _m) override { m_model = _m; }
+        void get_model(model_ref& _m) override;
+        void get_box_model(model_ref& _m, unsigned index) override;
+        void fix_model(model_ref& _m) override;
+        void collect_statistics(statistics& stats) const override;
+        proof* get_proof() override { return nullptr; }
+        void get_labels(svector<symbol> & r) override;
+        void get_unsat_core(ptr_vector<expr> & r) override;
+        std::string reason_unknown() const override;
+        void set_reason_unknown(char const* msg) override { m_unknown = msg; }
 
-        virtual void display_assignment(std::ostream& out);
-        virtual bool is_pareto() { return m_pareto.get() != 0; }
-        virtual void set_logic(symbol const& s) { m_logic = s; }
+        void display_assignment(std::ostream& out) override;
+        bool is_pareto() override { return m_pareto.get() != nullptr; }
+        void set_logic(symbol const& s) override { m_logic = s; }
         void set_clausal(bool f) { m_is_clausal = f; }
 
         void display(std::ostream& out);
         static void collect_param_descrs(param_descrs & r);
-        virtual void updt_params(params_ref const& p);
+        void updt_params(params_ref const& p) override;
         params_ref& get_params() { return m_params; }
 
         expr_ref get_lower(unsigned idx);
@@ -213,23 +216,25 @@ namespace opt {
         std::string to_string() const;
 
 
-        virtual unsigned num_objectives() { return m_scoped_state.m_objectives.size(); }       
-        virtual expr_ref mk_gt(unsigned i, model_ref& model);
-        virtual expr_ref mk_ge(unsigned i, model_ref& model);
-        virtual expr_ref mk_le(unsigned i, model_ref& model);
+        unsigned num_objectives() override { return m_scoped_state.m_objectives.size(); }
+        expr_ref mk_gt(unsigned i, model_ref& model) override;
+        expr_ref mk_ge(unsigned i, model_ref& model) override;
+        expr_ref mk_le(unsigned i, model_ref& model) override;
 
-        virtual smt::context& smt_context() { return m_opt_solver->get_context(); }
-        virtual filter_model_converter& fm() { return m_fm; }
-        virtual bool sat_enabled() const { return 0 != m_sat_solver.get(); }
-        virtual solver& get_solver();
-        virtual ast_manager& get_manager() const { return this->m; }
-        virtual params_ref& params() { return m_params; }
-        virtual void enable_sls(bool force);
-        virtual symbol const& maxsat_engine() const { return m_maxsat_engine; }
-        virtual void get_base_model(model_ref& _m);
+        smt::context& smt_context() override { return m_opt_solver->get_context(); }
+        filter_model_converter& fm() override { return m_fm; }
+        bool sat_enabled() const override { return nullptr != m_sat_solver.get(); }
+        solver& get_solver() override;
+        ast_manager& get_manager() const override { return this->m; }
+        params_ref& params() override { return m_params; }
+        void enable_sls(bool force) override;
+        symbol const& maxsat_engine() const override { return m_maxsat_engine; }
+        void get_base_model(model_ref& _m) override;
 
 
-        virtual bool verify_model(unsigned id, model* mdl, rational const& v);
+        bool verify_model(unsigned id, model* mdl, rational const& v) override;
+        
+        void model_updated(model* mdl) override;
 
     private:
         lbool execute(objective const& obj, bool committed, bool scoped);

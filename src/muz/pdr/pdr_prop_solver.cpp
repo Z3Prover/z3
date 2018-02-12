@@ -234,9 +234,9 @@ namespace pdr {
         m_pos_level_atoms(m),
         m_neg_level_atoms(m),
         m_proxies(m),
-        m_core(0),
-        m_model(0),
-        m_consequences(0),
+        m_core(nullptr),
+        m_model(nullptr),
+        m_consequences(nullptr),
         m_subset_based_core(false),
         m_use_farkas(false),
         m_in_level(false),
@@ -249,7 +249,7 @@ namespace pdr {
         unsigned idx = level_cnt();
         std::stringstream name;
         name << m_name << "#level_" << idx;
-        func_decl * lev_pred = m.mk_fresh_func_decl(name.str().c_str(), 0, 0,m.mk_bool_sort());
+        func_decl * lev_pred = m.mk_fresh_func_decl(name.str().c_str(), 0, nullptr,m.mk_bool_sort());
         m_aux_symbols.insert(lev_pred);
         m_level_preds.push_back(lev_pred);
 
@@ -301,7 +301,7 @@ namespace pdr {
         safe_assumptions& safe,
         const expr_ref_vector& atoms)
     {
-        flet<bool> _model(m_fparams.m_model, m_model != 0);
+        flet<bool> _model(m_fparams.m_model, m_model != nullptr);
         expr_ref_vector expr_atoms(m);
         expr_atoms.append(atoms.size(), atoms.c_ptr());
 
@@ -342,8 +342,8 @@ namespace pdr {
             extract_subset_core(safe);    
             SASSERT(expr_atoms.size() >= m_core->size());
         }
-        m_core = 0;
-        m_model = 0;
+        m_core = nullptr;
+        m_model = nullptr;
         m_subset_based_core = false;
         return result;
     }

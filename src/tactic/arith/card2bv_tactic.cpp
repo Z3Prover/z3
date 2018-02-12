@@ -36,29 +36,29 @@ public:
         m_params(p) {
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(card2bv_tactic, m, m_params);
     }
 
-    virtual ~card2bv_tactic() {
+    ~card2bv_tactic() override {
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_params = p;
     }
 
-    virtual void collect_param_descrs(param_descrs & r) {  
+    void collect_param_descrs(param_descrs & r) override {
     }
 
     
-    virtual void operator()(goal_ref const & g, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
+    void operator()(goal_ref const & g,
+                    goal_ref_buffer & result,
+                    model_converter_ref & mc,
+                    proof_converter_ref & pc,
+                    expr_dependency_ref & core) override {
         TRACE("card2bv-before", g->display(tout););
         SASSERT(g->is_well_sorted());
-        mc = 0; pc = 0; core = 0; result.reset();
+        mc = nullptr; pc = nullptr; core = nullptr; result.reset();
         tactic_report report("card2bv", *g);
         th_rewriter rw1(m, m_params);
         pb2bv_rewriter rw2(m, m_params);
@@ -101,7 +101,7 @@ public:
         SASSERT(g->is_well_sorted());
     }
     
-    virtual void cleanup() {
+    void cleanup() override {
     }
 };
 

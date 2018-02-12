@@ -122,7 +122,7 @@ public:
     func_decl * try_get_primary_by_prefix(func_decl* prefix) const {
         func_decl * res;
         if(!m_prefix2prim.find(prefix, res)) {
-            return 0;
+            return nullptr;
         }
         return res;
     }
@@ -133,7 +133,7 @@ public:
     func_decl * try_get_by_prefix(func_decl* prefix, unsigned idx) {
         func_decl * prim = try_get_primary_by_prefix(prefix);
         if(!prim) {
-            return 0;
+            return nullptr;
         }
         return conv(prim, 0, idx);
     }

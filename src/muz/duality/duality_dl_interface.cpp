@@ -71,10 +71,10 @@ namespace Duality {
         Solver::Counterexample cex;
 
         duality_data(ast_manager &_m) : ctx(_m,config(params_ref())) {
-            ls = 0;
-            rpfp = 0;
+            ls = nullptr;
+            rpfp = nullptr;
             status = StatusNull;
-            old_rs = 0;
+            old_rs = nullptr;
         }
         ~duality_data(){
             if(old_rs)
@@ -92,7 +92,7 @@ namespace Duality {
         m_ctx(dl_ctx)
 
     {
-        _d = 0;
+        _d = nullptr;
         //   dl_ctx.get_manager().toggle_proof_mode(PGM_FINE);
     }
 
@@ -138,7 +138,7 @@ namespace Duality {
 
         // if there is old data, get the cex and dispose (later)
         duality_data *old_data = _d;
-        Solver *old_rs = 0;
+        Solver *old_rs = nullptr;
         if(old_data){
             old_rs = old_data->old_rs;
             old_rs->GetCounterexample().swap(old_data->cex);
@@ -273,6 +273,7 @@ namespace Duality {
                     if (!heads.contains(fd)) {
                         int arity = f.arity();
                         std::vector<expr> args;
+                        args.reserve(arity);
                         for (int j = 0; j < arity; j++)
                             args.push_back(_d->ctx.fresh_func_decl("X", f.domain(j))());
                         expr c = implies(_d->ctx.bool_val(false), f(args));

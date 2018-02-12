@@ -36,7 +36,7 @@ namespace sat {
         m_checkpoint_enabled(true),
         m_config(p),
         m_ext(ext),
-        m_par(0),
+        m_par(nullptr),
         m_cleaner(*this),
         m_simplifier(*this, p),
         m_scc(*this, p),
@@ -198,7 +198,7 @@ namespace sat {
             bool keep = simplify_clause(num_lits, lits);
             TRACE("sat_mk_clause", tout << "mk_clause (after simp), keep: " << keep << "\n" << mk_lits_pp(num_lits, lits) << "\n";);
             if (!keep) {
-                return 0; // clause is equivalent to true.
+                return nullptr; // clause is equivalent to true.
             }
             ++m_stats.m_non_learned_generation;
         }
@@ -206,13 +206,13 @@ namespace sat {
         switch (num_lits) {
         case 0:
             set_conflict(justification());
-            return 0;
+            return nullptr;
         case 1:
             assign(lits[0], justification());
-            return 0;
+            return nullptr;
         case 2:
             mk_bin_clause(lits[0], lits[1], learned);
-            return 0;
+            return nullptr;
         case 3:
             return mk_ter_clause(lits, learned);
         default:
@@ -815,7 +815,7 @@ namespace sat {
             if (i == 1 + num_threads/2) {
                 m_params.set_sym("phase", symbol("random"));
             }
-            solvers[i] = alloc(sat::solver, m_params, rlims[i], 0);
+            solvers[i] = alloc(sat::solver, m_params, rlims[i], nullptr);
             solvers[i]->copy(*this);
             solvers[i]->set_par(&par);
             scoped_rlimit.push_child(&solvers[i]->rlimit());
@@ -874,7 +874,7 @@ namespace sat {
                 }
             }
         }
-        set_par(0);
+        set_par(nullptr);
         if (finished_id != -1 && finished_id < num_extra_solvers) {
             m_stats = solvers[finished_id]->m_stats;
         }
@@ -2460,10 +2460,7 @@ namespace sat {
             // try to use cached implication if available
             literal_vector * implied_lits = m_probing.cached_implied_lits(~l);
             if (implied_lits) {
-                literal_vector::iterator it  = implied_lits->begin();
-                literal_vector::iterator end = implied_lits->end();
-                for (; it != end; ++it) {
-                    literal l2 = *it;
+                for (literal l2 : *implied_lits) {
                     // Here, we must check l0 != ~l2.
                     // l \/ l2 is an implied binary clause.
                     // However, it may have been deduced using a lemma that has been deleted.
@@ -2644,15 +2641,22 @@ namespace sat {
         clauses.shrink(j);
     }
 
-    void solver::gc_bin(bool learned, literal nlit) {
-        m_user_bin_clauses.reset();
-        collect_bin_clauses(m_user_bin_clauses, learned);
-        for (unsigned i = 0; i < m_user_bin_clauses.size(); ++i) {
-            literal l1 = m_user_bin_clauses[i].first;
-            literal l2 = m_user_bin_clauses[i].second;
-            if (nlit == l1 || nlit == l2) {
-                detach_bin_clause(l1, l2, learned);
+    void solver::gc_bin(literal lit) {
+        bool_var v = lit.var();
+        for (watch_list& wlist : m_watches) {
+            watch_list::iterator it  = wlist.begin();
+            watch_list::iterator it2 = wlist.begin();
+            watch_list::iterator end = wlist.end();
+            for (; it != end; ++it) {
+                if (it->is_binary_clause() && it->get_literal().var() == v) {
+                    // skip
+                }
+                else {
+                    *it2 = *it;
+                    ++it2;
+                }
             }
+            wlist.set_end(it2);
         }
     }
 
@@ -2698,6 +2702,8 @@ namespace sat {
         if (v < m_level.size()) {
             for (bool_var i = v; i < m_level.size(); ++i) {
                 m_case_split_queue.del_var_eh(i);
+                m_probing.reset_cache(literal(i, true));
+                m_probing.reset_cache(literal(i, false));
             }
             m_watches.shrink(2*v);
             m_assignment.shrink(2*v);
@@ -2718,6 +2724,7 @@ namespace sat {
 
     void solver::user_pop(unsigned num_scopes) {
         pop_to_base_level();
+        TRACE("sat", display(tout););
         while (num_scopes > 0) {
             literal lit = m_user_scope_literals.back();
             m_user_scope_literals.pop_back();
@@ -2726,8 +2733,7 @@ namespace sat {
 
             gc_lit(m_learned, lit);
             gc_lit(m_clauses, lit);
-            gc_bin(true, lit);
-            gc_bin(false, lit);
+            gc_bin(lit);
             TRACE("sat", tout << "gc: " << lit << "\n"; display(tout););
             --num_scopes;
             for (unsigned i = 0; i < m_trail.size(); ++i) {
@@ -2737,8 +2743,10 @@ namespace sat {
                     break;
                 }
             }
-            gc_var(lit.var());
+            gc_var(lit.var());            
         }
+        m_qhead = 0;
+        propagate(false);
     }
 
     void solver::pop_to_base_level() {

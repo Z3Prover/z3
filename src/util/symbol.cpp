@@ -22,7 +22,7 @@ Revision History:
 #include "util/string_buffer.h"
 #include "util/z3_omp.h"
 
-symbol symbol::m_dummy(TAG(void*, static_cast<void*>(0), 2));
+symbol symbol::m_dummy(TAG(void*, nullptr, 2));
 const symbol symbol::null;
 
 /**
@@ -60,7 +60,7 @@ public:
     }
 };
 
-internal_symbol_table* g_symbol_table = 0;
+internal_symbol_table* g_symbol_table = nullptr;
 
 void initialize_symbols() {
     if (!g_symbol_table) {
@@ -70,12 +70,12 @@ void initialize_symbols() {
 
 void finalize_symbols() {
     dealloc(g_symbol_table);
-    g_symbol_table = 0;
+    g_symbol_table = nullptr;
 }
 
 symbol::symbol(char const * d) {
-    if (d == 0)
-        m_data = 0;
+    if (d == nullptr)
+        m_data = nullptr;
     else
         m_data = g_symbol_table->get_str(d);
 }
@@ -103,7 +103,7 @@ std::string symbol::str() const {
 bool symbol::contains(char ch) const {
     SASSERT(!is_marked());
     if (GET_TAG(m_data) == 0) {
-        return strchr(m_data, ch) != 0;
+        return strchr(m_data, ch) != nullptr;
     }
     else {
         return false;

@@ -96,7 +96,7 @@ namespace datalog {
           m(ctx.get_manager()),
           m_rmanager(ctx),
           m_answer(m), 
-          m_last_result_relation(0),
+          m_last_result_relation(nullptr),
           m_ectx(ctx),
           m_sw(0) {
 
@@ -121,7 +121,7 @@ namespace datalog {
     rel_context::~rel_context() {
         if (m_last_result_relation) {
             m_last_result_relation->deallocate();
-            m_last_result_relation = 0;
+            m_last_result_relation = nullptr;
         }        
     }
 

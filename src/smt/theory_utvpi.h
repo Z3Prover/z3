@@ -166,7 +166,7 @@ namespace smt {
         void new_edge(dl_var src, dl_var dst, unsigned num_edges, edge_id const* edges) {}
 
         // Create a new theory variable.
-        virtual th_var mk_var(enode* n);
+        th_var mk_var(enode* n) override;
 
         virtual th_var mk_var(expr* n);
                                 
@@ -181,83 +181,83 @@ namespace smt {
     public:    
         theory_utvpi(ast_manager& m);
 
-        virtual ~theory_utvpi();
+        ~theory_utvpi() override;
 
-        virtual theory * mk_fresh(context * new_ctx);
+        theory * mk_fresh(context * new_ctx) override;
 
-        virtual char const * get_name() const { return "utvpi-logic"; }
+        char const * get_name() const override { return "utvpi-logic"; }
 
         /**
            \brief See comment in theory::mk_eq_atom
         */
-        virtual app * mk_eq_atom(expr * lhs, expr * rhs) { return a.mk_eq(lhs, rhs); }
+        app * mk_eq_atom(expr * lhs, expr * rhs) override { return a.mk_eq(lhs, rhs); }
 
-        virtual void init(context * ctx);
+        void init(context * ctx) override;
 
-        virtual bool internalize_atom(app * atom, bool gate_ctx);
+        bool internalize_atom(app * atom, bool gate_ctx) override;
                                                      
-        virtual bool internalize_term(app * term);
+        bool internalize_term(app * term) override;
 
-        virtual void internalize_eq_eh(app * atom, bool_var v);
+        void internalize_eq_eh(app * atom, bool_var v) override;
 
-        virtual void assign_eh(bool_var v, bool is_true);
+        void assign_eh(bool_var v, bool is_true) override;
 
-        virtual void new_eq_eh(th_var v1, th_var v2) {
+        void new_eq_eh(th_var v1, th_var v2) override {
             m_stats.m_num_core2th_eqs++;
             m_arith_eq_adapter.new_eq_eh(v1, v2);
         }
 
-        virtual bool use_diseqs() const { return true; }
+        bool use_diseqs() const override { return true; }
 
-        virtual void new_diseq_eh(th_var v1, th_var v2) {
+        void new_diseq_eh(th_var v1, th_var v2) override {
             m_arith_eq_adapter.new_diseq_eh(v1, v2);
         }
 
-        virtual void push_scope_eh();
+        void push_scope_eh() override;
 
-        virtual void pop_scope_eh(unsigned num_scopes);
+        void pop_scope_eh(unsigned num_scopes) override;
 
-        virtual void restart_eh() {
+        void restart_eh() override {
             m_arith_eq_adapter.restart_eh();
         }
 
-        virtual void relevant_eh(app* e) {}
+        void relevant_eh(app* e) override {}
 
-        virtual void init_search_eh() {
+        void init_search_eh() override {
             m_arith_eq_adapter.init_search_eh();
         }
 
-        virtual final_check_status final_check_eh();
+        final_check_status final_check_eh() override;
 
-        virtual bool is_shared(th_var v) const {
+        bool is_shared(th_var v) const override {
             return false;
         }
     
-        virtual bool can_propagate() {
+        bool can_propagate() override {
             SASSERT(m_asserted_qhead <= m_asserted_atoms.size());
             return m_asserted_qhead != m_asserted_atoms.size();
         }
         
-        virtual void propagate();
+        void propagate() override;
         
-        virtual justification * why_is_diseq(th_var v1, th_var v2) {
+        justification * why_is_diseq(th_var v1, th_var v2) override {
             UNREACHABLE();
-            return 0;
+            return nullptr;
         }
 
-        virtual void reset_eh();
+        void reset_eh() override;
 
-        virtual void init_model(model_generator & m);
+        void init_model(model_generator & m) override;
         
-        virtual model_value_proc * mk_value(enode * n, model_generator & mg);
+        model_value_proc * mk_value(enode * n, model_generator & mg) override;
 
-        virtual bool validate_eq_in_model(th_var v1, th_var v2, bool is_true) const {
+        bool validate_eq_in_model(th_var v1, th_var v2, bool is_true) const override {
             return true;
         }
                 
-        virtual void display(std::ostream & out) const;
+        void display(std::ostream & out) const override;
         
-        virtual void collect_statistics(::statistics & st) const;
+        void collect_statistics(::statistics & st) const override;
 
     private:        
 

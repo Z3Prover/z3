@@ -117,7 +117,7 @@ namespace upolynomial {
         numeral_vector    m_sqf_tmp2;
         numeral_vector    m_pw_tmp;
 
-        static bool is_alias(numeral const * p, numeral_vector & buffer) { return buffer.c_ptr() != 0 && buffer.c_ptr() == p; }
+        static bool is_alias(numeral const * p, numeral_vector & buffer) { return buffer.c_ptr() != nullptr && buffer.c_ptr() == p; }
         void neg_core(unsigned sz1, numeral const * p1, numeral_vector & buffer);
         void add_core(unsigned sz1, numeral const * p1, unsigned sz2, numeral const * p2, numeral_vector & buffer);
         void sub_core(unsigned sz1, numeral const * p1, unsigned sz2, numeral const * p2, numeral_vector & buffer);

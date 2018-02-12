@@ -33,34 +33,34 @@ class nnf_tactic : public tactic {
         }
         
         ~set_nnf() {
-            m_owner.m_nnf = 0;            
+            m_owner.m_nnf = nullptr;
         }
     };
 public:
     nnf_tactic(params_ref const & p):
         m_params(p),
-        m_nnf(0) {
+        m_nnf(nullptr) {
         TRACE("nnf", tout << "nnf_tactic constructor: " << p << "\n";);
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(nnf_tactic, m_params);
     }
 
-    virtual ~nnf_tactic() {}
+    ~nnf_tactic() override {}
 
-    virtual void updt_params(params_ref const & p) { m_params = p; }
+    void updt_params(params_ref const & p) override { m_params = p; }
 
-    virtual void collect_param_descrs(param_descrs & r) { nnf::get_param_descrs(r); }
+    void collect_param_descrs(param_descrs & r) override { nnf::get_param_descrs(r); }
 
-    virtual void operator()(goal_ref const & g, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
+    void operator()(goal_ref const & g,
+                    goal_ref_buffer & result,
+                    model_converter_ref & mc,
+                    proof_converter_ref & pc,
+                    expr_dependency_ref & core) override {
         TRACE("nnf", tout << "params: " << m_params << "\n"; g->display(tout););
         SASSERT(g->is_well_sorted());
-        mc = 0; pc = 0; core = 0;
+        mc = nullptr; pc = nullptr; core = nullptr;
         tactic_report report("nnf", *g);
         bool produce_proofs = g->proofs_enabled();
 
@@ -89,9 +89,9 @@ public:
         sz = defs.size();
         for (unsigned i = 0; i < sz; i++) {
             if (produce_proofs)
-                g->assert_expr(defs.get(i), def_prs.get(i), 0);
+                g->assert_expr(defs.get(i), def_prs.get(i), nullptr);
             else
-                g->assert_expr(defs.get(i), 0, 0);
+                g->assert_expr(defs.get(i), nullptr, nullptr);
         }
         g->inc_depth();
         result.push_back(g.get());
@@ -106,7 +106,7 @@ public:
         SASSERT(g->is_well_sorted());
     }
     
-    virtual void cleanup() {}
+    void cleanup() override {}
 };
 
 tactic * mk_snf_tactic(ast_manager & m, params_ref const & p) {

@@ -124,16 +124,16 @@ namespace datatype {
         struct offset : public size {
             sort_size m_offset;
             offset(sort_size const& s): m_offset(s) {}
-            virtual ~offset() {}
-            virtual size* subst(obj_map<sort,size*>& S) { return this; }
-            virtual sort_size eval(obj_map<sort, sort_size> const& S) { return m_offset; }
+            ~offset() override {}
+            size* subst(obj_map<sort,size*>& S) override { return this; }
+            sort_size eval(obj_map<sort, sort_size> const& S) override { return m_offset; }
         };
         struct plus : public size {
             size* m_arg1, *m_arg2;
             plus(size* a1, size* a2): m_arg1(a1), m_arg2(a2) { a1->inc_ref(); a2->inc_ref();}
-            virtual ~plus() { m_arg1->dec_ref(); m_arg2->dec_ref(); }
-            virtual size* subst(obj_map<sort,size*>& S) { return mk_plus(m_arg1->subst(S), m_arg2->subst(S)); }
-            virtual sort_size eval(obj_map<sort, sort_size> const& S) { 
+            ~plus() override { m_arg1->dec_ref(); m_arg2->dec_ref(); }
+            size* subst(obj_map<sort,size*>& S) override { return mk_plus(m_arg1->subst(S), m_arg2->subst(S)); }
+            sort_size eval(obj_map<sort, sort_size> const& S) override {
                 sort_size s1 = m_arg1->eval(S);
                 sort_size s2 = m_arg2->eval(S);
                 if (s1.is_infinite()) return s1;
@@ -147,9 +147,9 @@ namespace datatype {
         struct times : public size {
             size* m_arg1, *m_arg2;
             times(size* a1, size* a2): m_arg1(a1), m_arg2(a2) { a1->inc_ref(); a2->inc_ref(); }
-            virtual ~times() { m_arg1->dec_ref(); m_arg2->dec_ref(); }
-            virtual size* subst(obj_map<sort,size*>& S) { return mk_times(m_arg1->subst(S), m_arg2->subst(S)); }
-            virtual sort_size eval(obj_map<sort, sort_size> const& S) { 
+            ~times() override { m_arg1->dec_ref(); m_arg2->dec_ref(); }
+            size* subst(obj_map<sort,size*>& S) override { return mk_times(m_arg1->subst(S), m_arg2->subst(S)); }
+            sort_size eval(obj_map<sort, sort_size> const& S) override {
                 sort_size s1 = m_arg1->eval(S);
                 sort_size s2 = m_arg2->eval(S);
                 if (s1.is_infinite()) return s1;
@@ -163,9 +163,9 @@ namespace datatype {
         struct power : public size {
             size* m_arg1, *m_arg2;
             power(size* a1, size* a2): m_arg1(a1), m_arg2(a2) { a1->inc_ref(); a2->inc_ref(); }
-            virtual ~power() { m_arg1->dec_ref(); m_arg2->dec_ref(); }
-            virtual size* subst(obj_map<sort,size*>& S) { return mk_power(m_arg1->subst(S), m_arg2->subst(S)); }
-            virtual sort_size eval(obj_map<sort, sort_size> const& S) { 
+            ~power() override { m_arg1->dec_ref(); m_arg2->dec_ref(); }
+            size* subst(obj_map<sort,size*>& S) override { return mk_power(m_arg1->subst(S), m_arg2->subst(S)); }
+            sort_size eval(obj_map<sort, sort_size> const& S) override {
                 sort_size s1 = m_arg1->eval(S);
                 sort_size s2 = m_arg2->eval(S);
                 // s1^s2
@@ -183,9 +183,9 @@ namespace datatype {
         struct sparam : public size {
             sort_ref m_param;
             sparam(sort_ref& p): m_param(p) {}
-            virtual ~sparam() {}
-            virtual size* subst(obj_map<sort,size*>& S) { return S[m_param]; }
-            virtual sort_size eval(obj_map<sort, sort_size> const& S) { return S[m_param]; }
+            ~sparam() override {}
+            size* subst(obj_map<sort,size*>& S) override { return S[m_param]; }
+            sort_size eval(obj_map<sort, sort_size> const& S) override { return S[m_param]; }
         };
     };
 
@@ -204,7 +204,7 @@ namespace datatype {
             m_util(u),
             m_name(n),
             m_class_id(class_id),            
-            m_sort_size(0),
+            m_sort_size(nullptr),
             m_params(m, num_params, params), 
             m_sort(m)
         {}
@@ -228,7 +228,7 @@ namespace datatype {
         sort_ref_vector const& params() const { return m_params; }
         util& u() const { return m_util; }
         param_size::size* sort_size() { return m_sort_size; }
-        void set_sort_size(param_size::size* p) { m_sort_size = p; p->inc_ref(); m_sort = 0; }
+        void set_sort_size(param_size::size* p) { m_sort_size = p; p->inc_ref(); m_sort = nullptr; }
         def* translate(ast_translation& tr, util& u);
     };
 
@@ -241,30 +241,30 @@ namespace datatype {
             unsigned                 m_class_id;
             util & u() const;
 
-            virtual void inherit(decl_plugin* other_p, ast_translation& tr);
+            void inherit(decl_plugin* other_p, ast_translation& tr) override;
 
         public:
             plugin(): m_class_id(0) {}
-            virtual ~plugin();
+            ~plugin() override;
 
-            virtual void finalize();
+            void finalize() override;
         
-            virtual decl_plugin * mk_fresh() { return alloc(plugin); }
+            decl_plugin * mk_fresh() override { return alloc(plugin); }
         
-            virtual sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters);
+            sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) override;
         
-            virtual func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters, 
-                                             unsigned arity, sort * const * domain, sort * range);
+            func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
+                                     unsigned arity, sort * const * domain, sort * range) override;
                 
-            virtual expr * get_some_value(sort * s);
+            expr * get_some_value(sort * s) override;
         
-            virtual bool is_fully_interp(sort * s) const;
+            bool is_fully_interp(sort * s) const override;
         
-            virtual bool is_value(app* e) const;
+            bool is_value(app* e) const override;
         
-            virtual bool is_unique_value(app * e) const { return is_value(e); }
+            bool is_unique_value(app * e) const override { return is_value(e); }
         
-            virtual void get_op_names(svector<builtin_name> & op_names, symbol const & logic);
+            void get_op_names(svector<builtin_name> & op_names, symbol const & logic) override;
                 
             void begin_def_block() { m_class_id++; m_def_block.reset(); }
 
@@ -398,7 +398,7 @@ typedef datatype::util datatype_util;
 class type_ref {
     void * m_data;
 public:
-    type_ref():m_data(TAG(void *, static_cast<void*>(0), 1)) {}
+    type_ref():m_data(TAG(void *, nullptr, 1)) {}
     type_ref(int idx):m_data(BOXINT(void *, idx)) {}
     type_ref(sort * s):m_data(TAG(void *, s, 1)) {}
     

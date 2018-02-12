@@ -2857,9 +2857,8 @@ extern "C" {
     /**
        \brief Create an \c n bit bit-vector from the integer argument \c t1.
 
-       NB. This function is essentially treated as uninterpreted.
-       So you cannot expect Z3 to precisely reflect the semantics of this function
-       when solving constraints with this function.
+       The resulting bit-vector has \c n bits, where the i'th bit (counting
+       from 0 to \c n-1) is 1 if \c (t1 div 2^i) mod 2 is 1.       
 
        The node \c t1 must have integer sort.
 
@@ -2874,9 +2873,6 @@ extern "C" {
        and in the range \ccode{[0..2^N-1]}, where N are the number of bits in \c t1.
        If \c is_signed is true, \c t1 is treated as a signed bit-vector.
 
-       This function is essentially treated as uninterpreted.
-       So you cannot expect Z3 to precisely reflect the semantics of this function
-       when solving constraints with this function.
 
        The node \c t1 must have a bit-vector sort.
 

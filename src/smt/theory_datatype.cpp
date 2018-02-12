@@ -30,10 +30,10 @@ namespace smt {
     class dt_eq_justification : public ext_theory_eq_propagation_justification {
     public:
         dt_eq_justification(family_id fid, region & r, literal antecedent, enode * lhs, enode * rhs):
-            ext_theory_eq_propagation_justification(fid, r, 1, &antecedent, 0, 0, lhs, rhs) {
+            ext_theory_eq_propagation_justification(fid, r, 1, &antecedent, 0, nullptr, lhs, rhs) {
         }
         // Remark: the assignment must be propagated back to the datatype theory.
-        virtual theory_id get_from_theory() const { return null_theory_id; } 
+        theory_id get_from_theory() const override { return null_theory_id; }
     };
 
 
@@ -340,12 +340,12 @@ namespace smt {
         func_decl * c = m_util.get_recognizer_constructor(r);
         if (is_true) {
             SASSERT(tv != null_theory_var);
-            if (d->m_constructor != 0 && d->m_constructor->get_decl() == c)
+            if (d->m_constructor != nullptr && d->m_constructor->get_decl() == c)
                 return; // do nothing
             assert_is_constructor_axiom(arg, c, literal(v));
         }
         else {
-            if (d->m_constructor != 0) {
+            if (d->m_constructor != nullptr) {
                 if (d->m_constructor->get_decl() == c) {
                     // conflict
                     sign_recognizer_conflict(d->m_constructor, n);
@@ -400,7 +400,7 @@ namespace smt {
                 if (m_params.m_dt_lazy_splits > 0) {
                     // using lazy case splits...
                     var_data * d = m_var_data[v];
-                    if (d->m_constructor == 0) {
+                    if (d->m_constructor == nullptr) {
                         mk_split(v);
                         r = FC_CONTINUE;
                     }
@@ -427,7 +427,7 @@ namespace smt {
         if (res) {
             context & ctx = get_context();
             region & r    = ctx.get_region();
-            ctx.set_conflict(ctx.mk_justification(ext_theory_conflict_justification(get_id(), r, 0, 0, m_used_eqs.size(), m_used_eqs.c_ptr())));
+            ctx.set_conflict(ctx.mk_justification(ext_theory_conflict_justification(get_id(), r, 0, nullptr, m_used_eqs.size(), m_used_eqs.c_ptr())));
             TRACE("occurs_check",
                   tout << "occurs_check: true\n";
                   for (enode_pair const& p : m_used_eqs) {
@@ -551,11 +551,11 @@ namespace smt {
     public:
         datatype_value_proc(func_decl * d):m_constructor(d) {}
         void add_dependency(enode * n) { m_dependencies.push_back(model_value_dependency(n)); }
-        virtual ~datatype_value_proc() {}
-        virtual void get_dependencies(buffer<model_value_dependency> & result) {
+        ~datatype_value_proc() override {}
+        void get_dependencies(buffer<model_value_dependency> & result) override {
             result.append(m_dependencies.size(), m_dependencies.c_ptr());
         }
-        virtual app * mk_value(model_generator & mg, ptr_vector<expr> & values) {
+        app * mk_value(model_generator & mg, ptr_vector<expr> & values) override {
             SASSERT(values.size() == m_dependencies.size());
             return mg.get_manager().mk_app(m_constructor, values.size(), values.c_ptr());
         }
@@ -581,21 +581,21 @@ namespace smt {
         SASSERT(v1 == static_cast<int>(m_find.find(v1)));
         var_data * d1 = m_var_data[v1];
         var_data * d2 = m_var_data[v2];
-        if (d2->m_constructor != 0) {
+        if (d2->m_constructor != nullptr) {
             context & ctx = get_context();
-            if (d1->m_constructor != 0 && d1->m_constructor->get_decl() != d2->m_constructor->get_decl()) {
+            if (d1->m_constructor != nullptr && d1->m_constructor->get_decl() != d2->m_constructor->get_decl()) {
                 region & r    = ctx.get_region();
                 enode_pair p(d1->m_constructor, d2->m_constructor);
                 SASSERT(d1->m_constructor->get_root() == d2->m_constructor->get_root());
-                ctx.set_conflict(ctx.mk_justification(ext_theory_conflict_justification(get_id(), r, 0, 0, 1, &p)));
+                ctx.set_conflict(ctx.mk_justification(ext_theory_conflict_justification(get_id(), r, 0, nullptr, 1, &p)));
             }
-            if (d1->m_constructor == 0) {
+            if (d1->m_constructor == nullptr) {
                 m_trail_stack.push(set_ptr_trail<theory_datatype, enode>(d1->m_constructor)); 
                 // check whether there is a recognizer in d1 that conflicts with d2->m_constructor;
                 if (!d1->m_recognizers.empty()) {
                     unsigned c_idx = m_util.get_constructor_idx(d2->m_constructor->get_decl());
                     enode * recognizer = d1->m_recognizers[c_idx];
-                    if (recognizer != 0 && ctx.get_assignment(recognizer) == l_false) {
+                    if (recognizer != nullptr && ctx.get_assignment(recognizer) == l_false) {
                         sign_recognizer_conflict(d2->m_constructor, recognizer);
                         return;
                     }
@@ -634,7 +634,7 @@ namespace smt {
                 // Otherwise, it will be set when assign_eh is invoked.
                 return; 
             }
-            if (val == l_false && d->m_constructor != 0) {
+            if (val == l_false && d->m_constructor != nullptr) {
                 func_decl * c_decl = m_util.get_recognizer_constructor(recognizer->get_decl());
                 if (d->m_constructor->get_decl() == c_decl) {
                     // conflict
@@ -747,7 +747,7 @@ namespace smt {
         unsigned non_rec_idx  = m_util.get_constructor_idx(non_rec_c);
         var_data * d          = m_var_data[v];
         SASSERT(d->m_constructor == 0);
-        func_decl * r         = 0;
+        func_decl * r         = nullptr;
         m_stats.m_splits++;
 
         if (d->m_recognizers.empty()) {
@@ -755,7 +755,7 @@ namespace smt {
         }
         else {
             enode * recognizer    = d->m_recognizers[non_rec_idx];
-            if (recognizer == 0) {
+            if (recognizer == nullptr) {
                 r = m_util.get_constructor_recognizer(non_rec_c);
             }
             else if (!ctx.is_relevant(recognizer)) {
@@ -773,7 +773,7 @@ namespace smt {
                 ptr_vector<enode>::const_iterator end = d->m_recognizers.end();
                 for (unsigned idx = 0; it != end; ++it, ++idx) {
                     enode * curr = *it;
-                    if (curr == 0) {
+                    if (curr == nullptr) {
                         ptr_vector<func_decl> const & constructors = *m_util.get_datatype_constructors(s);
                         // found empty slot...
                         r = m_util.get_constructor_recognizer(constructors[idx]);
@@ -787,7 +787,7 @@ namespace smt {
                         return;
                     }
                 }
-                if (r == 0)
+                if (r == nullptr)
                     return; // all recognizers are asserted to false... conflict will be detected...
             }
         }

@@ -34,7 +34,7 @@ void extract_clauses_and_dependencies(goal_ref const& g, expr_ref_vector& clause
     for (unsigned i = 0; i < sz; i++) {
         expr * f            = g->form(i);
         expr_dependency * d = g->dep(i);
-        if (d == 0 || !g->unsat_core_enabled()) {
+        if (d == nullptr || !g->unsat_core_enabled()) {
             clauses.push_back(f);
         }
         else {
@@ -58,9 +58,9 @@ void extract_clauses_and_dependencies(goal_ref const& g, expr_ref_vector& clause
                 }
                 else {
                     // must normalize assumption
-                    expr * b = 0;
+                    expr * b = nullptr;
                     if (!dep2bool.find(d, b)) {
-                        b = m.mk_fresh_const(0, m.mk_bool_sort());
+                        b = m.mk_fresh_const(nullptr, m.mk_bool_sort());
                         dep2bool.insert(d, b);
                         bool2dep.insert(b, d);
                         assumptions.push_back(b);
@@ -92,21 +92,21 @@ public:
         m_solver(s)
     {}
     
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_params.append(p);
         m_solver->updt_params(p);
     }
 
-    virtual void collect_param_descrs(param_descrs & r) {
+    void collect_param_descrs(param_descrs & r) override {
         m_solver->collect_param_descrs(r);
     }
 
-    virtual void operator()(/* in */  goal_ref const & in, 
-                            /* out */ goal_ref_buffer & result, 
-                            /* out */ model_converter_ref & mc, 
-                            /* out */ proof_converter_ref & pc,
-                            /* out */ expr_dependency_ref & core) {
-        pc = 0; mc = 0; core = 0;
+    void operator()(/* in */  goal_ref const & in,
+                    /* out */ goal_ref_buffer & result,
+                    /* out */ model_converter_ref & mc,
+                    /* out */ proof_converter_ref & pc,
+                    /* out */ expr_dependency_ref & core) override {
+        pc = nullptr; mc = nullptr; core = nullptr;
         expr_ref_vector clauses(m);
         expr2expr_map               bool2dep;
         ptr_vector<expr>            assumptions;
@@ -128,8 +128,8 @@ public:
             break;
         case l_false: {
             in->reset();
-            proof* pr = 0;
-            expr_dependency* lcore = 0;
+            proof* pr = nullptr;
+            expr_dependency* lcore = nullptr;
             if (in->proofs_enabled()) {
                 pr = local_solver->get_proof();
                 pc = proof2proof_converter(m, pr);
@@ -155,21 +155,21 @@ public:
         local_solver->collect_statistics(m_st);
     }
 
-    virtual void collect_statistics(statistics & st) const {
+    void collect_statistics(statistics & st) const override {
         st.copy(m_st);
     }
-    virtual void reset_statistics() { m_st.reset(); }
+    void reset_statistics() override { m_st.reset(); }
 
-    virtual void cleanup() { }
-    virtual void reset() { cleanup(); }
+    void cleanup() override { }
+    void reset() override { cleanup(); }
 
-    virtual void set_logic(symbol const & l) {}
+    void set_logic(symbol const & l) override {}
 
-    virtual void set_progress_callback(progress_callback * callback) {
+    void set_progress_callback(progress_callback * callback) override {
         m_solver->set_progress_callback(callback);
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(solver2tactic, m_solver->translate(m, m_params));
     }    
 };

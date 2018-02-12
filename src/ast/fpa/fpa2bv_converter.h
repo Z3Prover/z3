@@ -219,6 +219,7 @@ private:
     void mk_to_fp_float(sort * s, expr * rm, expr * x, expr_ref & result);
 
     func_decl * mk_bv_uf(func_decl * f, sort * const * domain, sort * range);
+    expr_ref nan_wrap(expr * n);
 };
 
 #endif

@@ -194,7 +194,7 @@ namespace {
 
         bool is_bound(expr *e, expr*& v, interval& b) const {
             uint64 n;
-            expr *lhs = 0, *rhs = 0;
+            expr *lhs = nullptr, *rhs = nullptr;
             unsigned sz;
 
             if (m_bv.is_bv_ule(e, lhs, rhs)) {
@@ -305,7 +305,7 @@ namespace {
             updt_params(p);
         }
 
-        virtual void updt_params(params_ref const & p) {
+        void updt_params(params_ref const & p) override {
             m_propagate_eq = p.get_bool("propagate_eq", false);
         }
 
@@ -313,7 +313,7 @@ namespace {
             r.insert("propagate-eq", CPK_BOOL, "(default: false) propagate equalities from inequalities");
         }
 
-        virtual ~bv_bounds_simplifier() {
+        ~bv_bounds_simplifier() override {
             for (unsigned i = 0, e = m_expr_vars.size(); i < e; ++i) {
                 dealloc(m_expr_vars[i]);
             }
@@ -322,7 +322,7 @@ namespace {
             }
         }
 
-        virtual bool assert_expr(expr * t, bool sign) {
+        bool assert_expr(expr * t, bool sign) override {
             while (m.is_not(t, t)) {
                 sign = !sign;
             }
@@ -353,7 +353,7 @@ namespace {
             return true;
         }
 
-        virtual bool simplify(expr* t, expr_ref& result) {
+        bool simplify(expr* t, expr_ref& result) override {
             expr* t1;
             interval b;
 
@@ -382,7 +382,7 @@ namespace {
             }
 
             interval ctx, intr;
-            result = 0;
+            result = nullptr;
 
             if (b.is_full() && b.tight) {
                 result = m.mk_true();
@@ -465,7 +465,7 @@ namespace {
             return false;
         }
 
-        virtual bool may_simplify(expr* t) {
+        bool may_simplify(expr* t) override {
             if (m_bv.is_numeral(t))
                 return false;
 
@@ -504,7 +504,7 @@ namespace {
             return false;
         }
 
-        virtual void pop(unsigned num_scopes) {
+        void pop(unsigned num_scopes) override {
             TRACE("bv", tout << "pop: " << num_scopes << "\n";);
             if (m_scopes.empty())
                 return;
@@ -526,11 +526,11 @@ namespace {
             m_scopes.shrink(target);
         }
 
-        virtual simplifier * translate(ast_manager & m) {
+        simplifier * translate(ast_manager & m) override {
             return alloc(bv_bounds_simplifier, m, m_params);
         }
 
-        virtual unsigned scope_level() const {
+        unsigned scope_level() const override {
             return m_scopes.size();
         }
     };
@@ -561,7 +561,7 @@ namespace {
 
         bool is_bound(expr *e, expr*& v, interval& b) const {
             uint64 n;
-            expr *lhs = 0, *rhs = 0;
+            expr *lhs = nullptr, *rhs = nullptr;
             unsigned sz = 0;
 
             if (m_bv.is_bv_ule(e, lhs, rhs)) {
@@ -622,7 +622,7 @@ namespace {
             r.insert("propagate-eq", CPK_BOOL, "(default: false) propagate equalities from inequalities");
         }
 
-        virtual ~dom_bv_bounds_simplifier() {
+        ~dom_bv_bounds_simplifier() override {
             for (unsigned i = 0, e = m_expr_vars.size(); i < e; ++i) {
                 dealloc(m_expr_vars[i]);
             }
@@ -631,7 +631,7 @@ namespace {
             }
         }
 
-        virtual bool assert_expr(expr * t, bool sign) {
+        bool assert_expr(expr * t, bool sign) override {
             while (m.is_not(t, t)) {
                 sign = !sign;
             }
@@ -662,7 +662,7 @@ namespace {
             return true;
         }
 
-        virtual void operator()(expr_ref& r) {
+        void operator()(expr_ref& r) override {
             expr* t1, * t = r;
             interval b;
 
@@ -781,7 +781,7 @@ namespace {
             return false;
         }
 
-        virtual void pop(unsigned num_scopes) {
+        void pop(unsigned num_scopes) override {
             TRACE("bv", tout << "pop: " << num_scopes << "\n";);
             if (m_scopes.empty())
                 return;
@@ -803,11 +803,11 @@ namespace {
             m_scopes.shrink(target);
         }
 
-        virtual dom_simplifier * translate(ast_manager & m) {
+        dom_simplifier * translate(ast_manager & m) override {
             return alloc(dom_bv_bounds_simplifier, m, m_params);
         }
 
-        virtual unsigned scope_level() const {
+        unsigned scope_level() const override {
             return m_scopes.size();
         }
 

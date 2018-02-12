@@ -51,7 +51,7 @@ namespace smt {
         m_relevancy_propagator(mk_relevancy_propagator(*this)),
         m_random(p.m_random_seed),
         m_flushing(false),
-        m_progress_callback(0),
+        m_progress_callback(nullptr),
         m_next_progress_sample(0),
         m_fingerprints(m_region),
         m_b_internalized_stack(m),
@@ -59,7 +59,7 @@ namespace smt {
         m_final_check_idx(0),
         m_cg_table(m),
         m_dyn_ack_manager(*this, p),
-        m_is_diseq_tmp(0),
+        m_is_diseq_tmp(nullptr),
         m_units_to_reassert(m_manager),
         m_qhead(0),
         m_simp_qhead(0),
@@ -176,7 +176,7 @@ namespace smt {
         for (unsigned i = 0; i < src_ctx.m_assigned_literals.size(); ++i) {
             literal lit;
             lit = TRANSLATE(src_ctx.m_assigned_literals[i]);
-            dst_ctx.mk_clause(1, &lit, 0, CLS_AUX, 0);
+            dst_ctx.mk_clause(1, &lit, nullptr, CLS_AUX, nullptr);
         }
 #if 0
         literal_vector lits;
@@ -232,8 +232,8 @@ namespace smt {
     }
 
     context * context::mk_fresh(symbol const * l, smt_params * p) {
-        context * new_ctx = alloc(context, m_manager, p == 0 ? m_fparams : *p);
-        new_ctx->set_logic(l == 0 ? m_setup.get_logic() : *l);
+        context * new_ctx = alloc(context, m_manager, p == nullptr ? m_fparams : *p);
+        new_ctx->set_logic(l == nullptr ? m_setup.get_logic() : *l);
         copy_plugins(*this, *new_ctx);
         return new_ctx;
     }
@@ -476,7 +476,7 @@ namespace smt {
             m_r2_num_parents(r2_num_parents) {
         }
 
-        virtual void undo(context & ctx) {
+        void undo(context & ctx) override {
             ctx.undo_add_eq(m_r1, m_n1, m_r2_num_parents);
         }
     };
@@ -741,9 +741,9 @@ namespace smt {
         enode * curr                      = n->m_trans.m_target;
         enode * prev                      = n;
         eq_justification js               = n->m_trans.m_justification;
-        prev->m_trans.m_target            = 0;
+        prev->m_trans.m_target            = nullptr;
         prev->m_trans.m_justification     = null_eq_justification;
-        while (curr != 0) {
+        while (curr != nullptr) {
             SASSERT(prev->trans_reaches(n));
             enode * new_curr              = curr->m_trans.m_target;
             eq_justification new_js       = curr->m_trans.m_justification;
@@ -798,7 +798,7 @@ namespace smt {
     theory_var context::get_closest_var(enode * n, theory_id th_id) {
         if (th_id == null_theory_id)
             return null_theory_var;
-        while (n != 0) {
+        while (n != nullptr) {
             theory_var v = n->get_th_var(th_id);
             if (v != null_theory_var)
                 return v;
@@ -826,7 +826,7 @@ namespace smt {
         if (js.get_kind() == eq_justification::JUSTIFICATION)
             from_th = js.get_justification()->get_from_theory();
 
-        if (r2->m_th_var_list.get_next() == 0 && r1->m_th_var_list.get_next() == 0) {
+        if (r2->m_th_var_list.get_next() == nullptr && r1->m_th_var_list.get_next() == nullptr) {
             // Common case: r2 and r1 have at most one theory var.
             theory_id  t2 = r2->m_th_var_list.get_th_id();
             theory_id  t1 = r1->m_th_var_list.get_th_id();
@@ -1023,7 +1023,7 @@ namespace smt {
         }
 
         // restore theory vars
-        if (r2->m_th_var_list.get_next() == 0) {
+        if (r2->m_th_var_list.get_next() == nullptr) {
             // common case: r2 has at most one variable
             theory_var v2 = r2->m_th_var_list.get_th_var();
             if (v2 != null_theory_var) {
@@ -1043,7 +1043,7 @@ namespace smt {
         // r1 -> ..  -> n1 -> n2 -> ... -> r2
         SASSERT(r1->trans_reaches(r2));
         SASSERT(r1->trans_reaches(n1));
-        n1->m_trans.m_target        = 0;
+        n1->m_trans.m_target        = nullptr;
         n1->m_trans.m_justification = null_eq_justification;
         invert_trans(r1);
         // ---------------
@@ -1067,7 +1067,7 @@ namespace smt {
     */
     void context::restore_theory_vars(enode * r2, enode * r1) {
         SASSERT(r2->get_root() == r2);
-        theory_var_list * new_l2  = 0;
+        theory_var_list * new_l2  = nullptr;
         theory_var_list * l2      = r2->get_th_var_list();
         while (l2) {
             theory_var v2 = l2->get_th_var();
@@ -1091,11 +1091,11 @@ namespace smt {
         }
 
         if (new_l2) {
-            new_l2->set_next(0);
+            new_l2->set_next(nullptr);
         }
         else {
             r2->m_th_var_list.set_th_var(null_theory_var);
-            r2->m_th_var_list.set_next(0);
+            r2->m_th_var_list.set_next(nullptr);
         }
     }
 
@@ -1128,7 +1128,7 @@ namespace smt {
         }
 
         // Propagate disequalities to theories
-        if (r1->m_th_var_list.get_next() == 0 && r2->m_th_var_list.get_next() == 0) {
+        if (r1->m_th_var_list.get_next() == nullptr && r2->m_th_var_list.get_next() == nullptr) {
             // common case: r2 and r1 have at most one theory var.
             theory_id  t1 = r1->m_th_var_list.get_th_id();
             theory_var v1 = m_fparams.m_new_core2th_eq ? get_closest_var(n1, t1) : r1->m_th_var_list.get_th_var();
@@ -1451,7 +1451,7 @@ namespace smt {
         bool_var m_var;
     public:
         set_var_theory_trail(bool_var v):m_var(v) {}
-        virtual void undo(context & ctx) {
+        void undo(context & ctx) override {
             bool_var_data & d = ctx.m_bdata[m_var];
             d.reset_notify_theory();
         }
@@ -1646,11 +1646,11 @@ namespace smt {
                 m_qmanager->relevant_eh(e);
             }
 
-            theory * propagated_th = 0;
+            theory * propagated_th = nullptr;
             family_id fid = to_app(n)->get_family_id();
             if (fid != m_manager.get_basic_family_id()) {
                 theory * th = get_theory(fid);
-                if (th != 0) {
+                if (th != nullptr) {
                     th->relevant_eh(to_app(n));
                     propagated_th = th; // <<< mark that relevancy_eh was already invoked for theory th.
                 }
@@ -1791,7 +1791,7 @@ namespace smt {
         }
     }
 
-    void context::set_conflict(b_justification js, literal not_l) {
+    void context::set_conflict(const b_justification & js, literal not_l) {
         if (!inconsistent()) {
             TRACE("set_conflict", display_literal_verbose(tout, not_l); display(tout, js); );
             m_conflict = js;
@@ -2412,7 +2412,7 @@ namespace smt {
                 if (!bs.m_inconsistent) {
                     m_conflict = null_b_justification;
                     m_not_l = null_literal;
-                    m_unsat_proof = 0;
+                    m_unsat_proof = nullptr;
                 }
                 m_base_scopes.shrink(new_lvl);
             }
@@ -2532,7 +2532,7 @@ namespace smt {
         if (m_manager.proofs_enabled() && !simp_lits.empty()) {
             SASSERT(m_scope_lvl == m_base_lvl);
             justification * js = cls->get_justification();
-            justification * new_js = 0;
+            justification * new_js = nullptr;
             if (js->in_region())
                 new_js = mk_justification(unit_resolution_justification(m_region,
                                                                         js,
@@ -2586,7 +2586,7 @@ namespace smt {
                                 }
                             }
                             justification * cls_js = cls->get_justification();
-                            justification * js = 0;
+                            justification * js = nullptr;
                             if (!cls_js || cls_js->in_region()) {
                                 // If cls_js is 0 or is allocated in a region, then
                                 // we can allocate the new justification in a region too.
@@ -2598,7 +2598,7 @@ namespace smt {
                             else {
                                 js = alloc(unit_resolution_justification, cls_js, simp_lits.size(), simp_lits.c_ptr());
                                 // js took ownership of the justification object.
-                                cls->set_justification(0);
+                                cls->set_justification(nullptr);
                                 m_justifications.push_back(js);
                             }
                             set_justification(v0, m_bdata[v0], b_justification(js));
@@ -2851,7 +2851,7 @@ namespace smt {
 #endif
 
     void context::register_plugin(theory * th) {
-        if (m_theories.get_plugin(th->get_family_id()) != 0) {
+        if (m_theories.get_plugin(th->get_family_id()) != nullptr) {
             dealloc(th);
             return; // context already has a theory for the given family id.
         }
@@ -2905,12 +2905,12 @@ namespace smt {
     void context::flush() {
         flet<bool> l1(m_flushing, true);
         TRACE("flush", tout << "m_scope_lvl: " << m_scope_lvl << "\n";);
-        m_relevancy_propagator = 0;
+        m_relevancy_propagator = nullptr;
         m_model_generator->reset();
         for (theory* t : m_theory_set) 
             t->flush_eh();
         undo_trail_stack(0);
-        m_qmanager = 0;
+        m_qmanager = nullptr;
         del_clauses(m_aux_clauses, 0);
         del_clauses(m_lemmas, 0);
         del_justifications(m_justifications, 0);
@@ -2918,7 +2918,7 @@ namespace smt {
             m_is_diseq_tmp->del_eh(m_manager, false);
             m_manager.dec_ref(m_is_diseq_tmp->get_owner());
             enode::del_dummy(m_is_diseq_tmp);
-            m_is_diseq_tmp = 0;
+            m_is_diseq_tmp = nullptr;
         }
         std::for_each(m_almost_cg_tables.begin(), m_almost_cg_tables.end(), delete_proc<almost_cg_table>());
     }
@@ -2929,7 +2929,7 @@ namespace smt {
         TRACE("begin_assert_expr", tout << mk_pp(e, m_manager) << "\n";);
         TRACE("begin_assert_expr_ll", tout << mk_ll_pp(e, m_manager) << "\n";);
         pop_to_base_lvl();
-        if (pr == 0)
+        if (pr == nullptr)
             m_asserted_formulas.assert_expr(e);
         else
             m_asserted_formulas.assert_expr(e, pr);
@@ -2937,7 +2937,7 @@ namespace smt {
     }
 
     void context::assert_expr(expr * e) {
-        assert_expr(e, 0);
+        assert_expr(e, nullptr);
     }
 
     void context::assert_expr(expr * e, proof * pr) {
@@ -2951,7 +2951,7 @@ namespace smt {
         case_split_insert_trail(literal l):
             l(l) {
         }
-        virtual void undo(context & ctx) {
+        void undo(context & ctx) override {
             ctx.undo_th_case_split(l);
         }
     };
@@ -2966,7 +2966,7 @@ namespace smt {
                 for (unsigned j = i+1; j < num_lits; ++j) {
                     literal l1 = lits[i];
                     literal l2 = lits[j];
-                    mk_clause(~l1, ~l2, (justification*) 0);
+                    mk_clause(~l1, ~l2, (justification*) nullptr);
                 }
             }
         } else {
@@ -3084,7 +3084,7 @@ namespace smt {
         }
         if (m_asserted_formulas.inconsistent() && !inconsistent()) {
             proof * pr = m_asserted_formulas.get_inconsistency_proof();
-            if (pr == 0) {
+            if (pr == nullptr) {
                 set_conflict(b_justification::mk_axiom());
             }
             else {
@@ -3404,7 +3404,7 @@ namespace smt {
         m_luby_idx                     = 1;
         m_lemma_gc_threshold           = m_fparams.m_lemma_gc_initial;
         m_last_search_failure          = OK;
-        m_unsat_proof                  = 0;
+        m_unsat_proof                  = nullptr;
         m_unsat_core                   .reset();
         m_dyn_ack_manager              .init_search_eh();
         m_final_check_idx              = 0;
@@ -3866,7 +3866,7 @@ namespace smt {
                 expr_signs.push_back(l.sign());
             }
 #endif
-            proof * pr = 0;
+            proof * pr = nullptr;
             if (m_manager.proofs_enabled()) {
                 pr = m_conflict_resolution->get_lemma_proof();
                 // check_proof(pr);
@@ -3939,7 +3939,7 @@ namespace smt {
                 }
             }
 #endif
-            justification * js = 0;
+            justification * js = nullptr;
             if (m_manager.proofs_enabled()) {
                 js = alloc(justification_proof_wrapper, *this, pr, false);
             }
@@ -4131,7 +4131,7 @@ namespace smt {
         bool_var m_var;
     public:
         set_true_first_trail(bool_var v):m_var(v) {}
-        virtual void undo(context & ctx) {
+        void undo(context & ctx) override {
             ctx.m_bdata[m_var].reset_true_first_flag();
         }
     };
@@ -4271,7 +4271,7 @@ namespace smt {
         sort * s      = m_manager.get_sort(n->get_owner());
         family_id fid = s->get_family_id();
         theory * th   = get_theory(fid);
-        if (th == 0)
+        if (th == nullptr)
             return false;
         return th->get_value(n, value);
     }
@@ -4321,13 +4321,13 @@ namespace smt {
 
     proof * context::get_proof() {
         if (!m_manager.proofs_enabled())
-            return 0;
+            return nullptr;
         return m_unsat_proof;
     }
 
     void context::get_model(model_ref & m) const {
         if (inconsistent())
-            m = 0;
+            m = nullptr;
         else
             m = const_cast<model*>(m_model.get());
     }

@@ -104,7 +104,7 @@ tactic * mk_tactic_for_logic(ast_manager & m, params_ref const & p, symbol const
 static solver* mk_special_solver_for_logic(ast_manager & m, params_ref const & p, symbol const& logic) {
     if ((logic == "QF_FD" || logic == "SAT") && !m.proofs_enabled())
         return mk_fd_solver(m, p);
-    return 0;
+    return nullptr;
 }
 
 static solver* mk_solver_for_logic(ast_manager & m, params_ref const & p, symbol const& logic) {
@@ -122,8 +122,8 @@ class smt_strategic_solver_factory : public solver_factory {
 public:
     smt_strategic_solver_factory(symbol const & logic):m_logic(logic) {}
     
-    virtual ~smt_strategic_solver_factory() {}
-    virtual solver * operator()(ast_manager & m, params_ref const & p, bool proofs_enabled, bool models_enabled, bool unsat_core_enabled, symbol const & logic) {
+    ~smt_strategic_solver_factory() override {}
+    solver * operator()(ast_manager & m, params_ref const & p, bool proofs_enabled, bool models_enabled, bool unsat_core_enabled, symbol const & logic) override {
         symbol l;
         if (m_logic != symbol::null)
             l = m_logic;

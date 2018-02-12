@@ -200,7 +200,7 @@ struct blaster_rewriter_cfg : public default_rewriter_cfg {
         sort * b = m().mk_bool_sort();
         m_out.reset();
         for (unsigned i = 0; i < bv_size; i++) {
-            m_out.push_back(m().mk_fresh_const(0, b));
+            m_out.push_back(m().mk_fresh_const(nullptr, b));
         }
         r = mk_mkbv(m_out);
         m_const2bits.insert(f, r);
@@ -342,11 +342,11 @@ MK_PARAMETRIC_UNARY_REDUCE(reduce_sign_extend, mk_sign_extend);
             bits.push_back(m().mk_app(butil().get_family_id(), OP_BIT2BOOL, 1, &p, 1, &t));
         }
         result    = mk_mkbv(bits);
-        result_pr = 0;
+        result_pr = nullptr;
     }
 
     br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
-        result_pr = 0;
+        result_pr = nullptr;
         TRACE("bit_blaster", tout << f->get_name() << " ";
               for (unsigned i = 0; i < num; ++i) tout << mk_pp(args[i], m()) << " ";
               tout << "\n";);
@@ -569,7 +569,7 @@ MK_PARAMETRIC_UNARY_REDUCE(reduce_sign_extend, mk_sign_extend);
             if (t->get_idx() >= m_bindings.size())
                 return false;
             result = m_bindings.get(m_bindings.size() - t->get_idx() - 1);
-            result_pr = 0;
+            result_pr = nullptr;
             return true;
         }
 
@@ -616,7 +616,7 @@ MK_PARAMETRIC_UNARY_REDUCE(reduce_sign_extend, mk_sign_extend);
         result = m().mk_quantifier(old_q->is_forall(), new_decl_sorts.size(), new_decl_sorts.c_ptr(), new_decl_names.c_ptr(),
                                    new_body, old_q->get_weight(), old_q->get_qid(), old_q->get_skid(),
                                    old_q->get_num_patterns(), new_patterns, old_q->get_num_no_patterns(), new_no_patterns);
-        result_pr = 0;
+        result_pr = nullptr;
         m_bindings.shrink(old_sz);
         return true;
     }

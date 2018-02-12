@@ -289,7 +289,7 @@ namespace pdr {
            
            bg is background knowledge and can be null
         */
-        bool implication_surely_holds(expr * lhs, expr * rhs, expr * bg=0);
+        bool implication_surely_holds(expr * lhs, expr * rhs, expr * bg=nullptr);
         
         unsigned get_unique_num() { return m_next_unique_num++; }
         

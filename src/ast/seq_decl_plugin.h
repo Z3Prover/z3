@@ -56,7 +56,8 @@ enum seq_op_kind {
     OP_RE_LOOP,
     OP_RE_COMPLEMENT,
     OP_RE_EMPTY_SET,
-    OP_RE_FULL_SET,
+    OP_RE_FULL_SEQ_SET,
+    OP_RE_FULL_CHAR_SET,
     OP_RE_OF_PRED,
 
 
@@ -77,7 +78,7 @@ enum seq_op_kind {
     _OP_STRING_SUBSTR,
     _OP_STRING_STRIDOF,
     _OP_REGEXP_EMPTY,
-    _OP_REGEXP_FULL,
+    _OP_REGEXP_FULL_CHAR,
     _OP_SEQ_SKOLEM,
     _OP_RE_UNROLL,
     LAST_SEQ_OP
@@ -161,34 +162,34 @@ class seq_decl_plugin : public decl_plugin {
 
     void init();
 
-    virtual void set_manager(ast_manager * m, family_id id);
+    void set_manager(ast_manager * m, family_id id) override;
 
 public:
     seq_decl_plugin();
 
-    virtual ~seq_decl_plugin() {}
-    virtual void finalize();
+    ~seq_decl_plugin() override {}
+    void finalize() override;
 
-    virtual decl_plugin * mk_fresh() { return alloc(seq_decl_plugin); }
+    decl_plugin * mk_fresh() override { return alloc(seq_decl_plugin); }
 
-    virtual sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters);
+    sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) override;
 
-    virtual func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
-                                     unsigned arity, sort * const * domain, sort * range);
+    func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
+                             unsigned arity, sort * const * domain, sort * range) override;
 
-    virtual void get_op_names(svector<builtin_name> & op_names, symbol const & logic);
+    void get_op_names(svector<builtin_name> & op_names, symbol const & logic) override;
 
-    virtual void get_sort_names(svector<builtin_name> & sort_names, symbol const & logic);
+    void get_sort_names(svector<builtin_name> & sort_names, symbol const & logic) override;
 
-    virtual bool is_value(app * e) const;
+    bool is_value(app * e) const override;
 
-    virtual bool is_unique_value(app * e) const { return false; }
+    bool is_unique_value(app * e) const override { return false; }
 
-    virtual bool are_equal(app* a, app* b) const;
+    bool are_equal(app* a, app* b) const override;
 
-    virtual bool are_distinct(app* a, app* b) const;
+    bool are_distinct(app* a, app* b) const override;
 
-    virtual expr * get_some_value(sort * s);
+    expr * get_some_value(sort * s) override;
 
     bool is_char(ast* a) const { return a == m_char; }
 
@@ -232,8 +233,8 @@ public:
         str(seq_util& u): u(u), m(u.m), m_fid(u.m_fid) {}
 
         sort* mk_seq(sort* s) { parameter param(s); return m.mk_sort(m_fid, SEQ_SORT, 1, &param); }
-        sort* mk_string_sort() const { return m.mk_sort(m_fid, _STRING_SORT, 0, 0); }
-        app* mk_empty(sort* s) const { return m.mk_const(m.mk_func_decl(m_fid, OP_SEQ_EMPTY, 0, 0, 0, (expr*const*)0, s)); }
+        sort* mk_string_sort() const { return m.mk_sort(m_fid, _STRING_SORT, 0, nullptr); }
+        app* mk_empty(sort* s) const { return m.mk_const(m.mk_func_decl(m_fid, OP_SEQ_EMPTY, 0, nullptr, 0, (expr*const*)nullptr, s)); }
         app* mk_string(zstring const& s);
         app* mk_string(symbol const& s) { return u.seq.mk_string(s); }
         app* mk_char(char ch);
@@ -327,7 +328,8 @@ public:
         app* mk_opt(expr* r) { return m.mk_app(m_fid, OP_RE_OPTION, r); }
         app* mk_loop(expr* r, unsigned lo);
         app* mk_loop(expr* r, unsigned lo, unsigned hi);
-        app* mk_full(sort* s);
+        app* mk_full_char(sort* s);
+        app* mk_full_seq(sort* s);
         app* mk_empty(sort* s);
 
         bool is_to_re(expr const* n)    const { return is_app_of(n, m_fid, OP_SEQ_TO_RE); }
@@ -341,7 +343,8 @@ public:
         bool is_range(expr const* n)    const { return is_app_of(n, m_fid, OP_RE_RANGE); }
         bool is_loop(expr const* n)    const { return is_app_of(n, m_fid, OP_RE_LOOP); }
         bool is_empty(expr const* n)  const { return is_app_of(n, m_fid, OP_RE_EMPTY_SET); }
-        bool is_full(expr const* n)  const { return is_app_of(n, m_fid, OP_RE_FULL_SET); }
+        bool is_full_char(expr const* n)  const { return is_app_of(n, m_fid, OP_RE_FULL_CHAR_SET); }
+        bool is_full_seq(expr const* n)  const { return is_app_of(n, m_fid, OP_RE_FULL_SEQ_SET); }
         MATCH_UNARY(is_to_re);
         MATCH_BINARY(is_concat);
         MATCH_BINARY(is_union);

@@ -29,33 +29,33 @@ class eval_cmd : public parametric_cmd {
 public:
     eval_cmd():parametric_cmd("eval") {}
 
-    virtual char const * get_usage() const { return "<term> (<keyword> <value>)*"; }
+    char const * get_usage() const override { return "<term> (<keyword> <value>)*"; }
     
-    virtual char const * get_main_descr() const { 
+    char const * get_main_descr() const override {
         return "evaluate the given term in the current model.";
     }
 
-    virtual void init_pdescrs(cmd_context & ctx, param_descrs & p) {
+    void init_pdescrs(cmd_context & ctx, param_descrs & p) override {
         model_evaluator::get_param_descrs(p);
         insert_timeout(p);
         p.insert("model_index", CPK_UINT, "(default: 0) index of model from box optimization objective");
     }
 
-    virtual void prepare(cmd_context & ctx) { 
+    void prepare(cmd_context & ctx) override {
         parametric_cmd::prepare(ctx);
-        m_target = 0; 
+        m_target = nullptr;
     }
 
-    virtual cmd_arg_kind next_arg_kind(cmd_context & ctx) const {
-        if (m_target == 0) return CPK_EXPR;
+    cmd_arg_kind next_arg_kind(cmd_context & ctx) const override {
+        if (m_target == nullptr) return CPK_EXPR;
         return parametric_cmd::next_arg_kind(ctx);
     }
 
-    virtual void set_next_arg(cmd_context & ctx, expr * arg) {
+    void set_next_arg(cmd_context & ctx, expr * arg) override {
         m_target = arg;
     }
 
-    virtual void execute(cmd_context & ctx) {
+    void execute(cmd_context & ctx) override {
         if (!ctx.is_model_available())
             throw cmd_exception("model is not available");
         if (!m_target)

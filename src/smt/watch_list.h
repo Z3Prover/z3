@@ -83,10 +83,10 @@ namespace smt {
         
     public:
         watch_list():
-            m_data(0) {
+            m_data(nullptr) {
         }
 
-        watch_list(watch_list && other) : m_data(0) {
+        watch_list(watch_list && other) : m_data(nullptr) {
             std::swap(m_data, other.m_data);
         }
         
@@ -115,7 +115,7 @@ namespace smt {
         
         void reset_and_release_memory() {
             destroy();
-            m_data = 0;
+            m_data = nullptr;
         }
         
         clause_iterator begin_clause() {
@@ -155,7 +155,7 @@ namespace smt {
         }
         
         void insert_clause(clause * c) {
-            if (m_data == 0 || end_cls_core() + sizeof(clause *) >= begin_lits_core()) {
+            if (m_data == nullptr || end_cls_core() + sizeof(clause *) >= begin_lits_core()) {
                 expand();
             }
             *(reinterpret_cast<clause **>(m_data + end_cls_core()))  = c;
@@ -163,7 +163,7 @@ namespace smt {
         }
         
         void insert_literal(literal const & l) {
-            if (m_data == 0 || begin_lits_core() <= end_cls_core() + sizeof(literal)) {
+            if (m_data == nullptr || begin_lits_core() <= end_cls_core() + sizeof(literal)) {
                 expand();
             }
             SASSERT(begin_lits_core() >= sizeof(literal));

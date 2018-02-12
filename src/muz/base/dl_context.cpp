@@ -90,10 +90,10 @@ namespace datalog {
             return idx;
         }
 
-        virtual unsigned get_constant_count() const {
+        unsigned get_constant_count() const override {
             return m_el_names.size();
         }
-        virtual void print_element(finite_element el_num, std::ostream & out) {
+        void print_element(finite_element el_num, std::ostream & out) override {
             if (el_num>=m_el_names.size()) {
                 out << el_num;
                 return;
@@ -132,10 +132,10 @@ namespace datalog {
             }
             return idx;
         }
-        virtual unsigned get_constant_count() const {
+        unsigned get_constant_count() const override {
             return m_el_names.size();
         }
-        virtual void print_element(finite_element el_num, std::ostream & out) {
+        void print_element(finite_element el_num, std::ostream & out) override {
             if (el_num >= m_el_names.size()) {
                 out << "<unk " << m_sort->get_name() << ":" << el_num << '>';
                 return;
@@ -154,14 +154,14 @@ namespace datalog {
         rule_set* m_old_rules;
         void reset() { 
             dealloc(m_old_rules); 
-            m_old_rules = 0; 
+            m_old_rules = nullptr;
         }
     public:
         restore_rules(rule_set& r): m_old_rules(alloc(rule_set, r)) {}
 
-        virtual ~restore_rules() {}
+        ~restore_rules() override {}
         
-        virtual void undo(context& ctx) {
+        void undo(context& ctx) override {
             ctx.replace_rules(*m_old_rules);
             reset();
         }
@@ -173,8 +173,8 @@ namespace datalog {
         unsigned m_old_size;
     public:
         restore_vec_size_trail(Vec& v): m_vector(v), m_old_size(v.size()) {}
-        virtual ~restore_vec_size_trail() {}
-        virtual void undo(Ctx& ctx) { m_vector.shrink(m_old_size); }
+        ~restore_vec_size_trail() override {}
+        void undo(Ctx& ctx) override { m_vector.shrink(m_old_size); }
     };
 
     void context::push() {
@@ -221,9 +221,9 @@ namespace datalog {
         m_rule_fmls_head(0),
         m_rule_fmls(m),
         m_background(m),
-        m_mc(0),
-        m_rel(0),
-        m_engine(0),
+        m_mc(nullptr),
+        m_rel(nullptr),
+        m_engine(nullptr),
         m_closed(false),
         m_saturation_was_run(false),
         m_enable_bind_variables(true),
@@ -251,8 +251,8 @@ namespace datalog {
         m_preds.reset();
         m_preds_by_name.reset();
         reset_dealloc_values(m_sorts);
-        m_engine = 0;
-        m_rel = 0;
+        m_engine = nullptr;
+        m_rel = nullptr;
     }
 
     bool context::is_fact(app * head) const {
@@ -400,7 +400,7 @@ namespace datalog {
         }
         uint64 res;
         if (!try_get_sort_constant_count(srt, res)) {
-            sort_size sz = srt->get_num_elements();
+            const sort_size & sz = srt->get_num_elements();
             if (sz.is_finite()) {
                 res = sz.size();
             }
@@ -411,7 +411,7 @@ namespace datalog {
         return res;
     }
 
-    void context::set_argument_names(const func_decl * pred, svector<symbol> var_names)
+    void context::set_argument_names(const func_decl * pred, const svector<symbol> & var_names)
     {
         SASSERT(!m_argument_var_names.contains(pred));
         m_argument_var_names.insert(pred, var_names);
@@ -465,7 +465,7 @@ namespace datalog {
         scoped_proof_mode _scp(m, generate_proof_trace()?PGM_ENABLED:PGM_DISABLED);
         while (m_rule_fmls_head < m_rule_fmls.size()) {
             expr* fml = m_rule_fmls[m_rule_fmls_head].get();
-            proof* p = generate_proof_trace()?m.mk_asserted(fml):0;
+            proof* p = generate_proof_trace()?m.mk_asserted(fml):nullptr;
             rm.mk_rule(fml, p, m_rule_set, m_rule_names[m_rule_fmls_head]);
             ++m_rule_fmls_head;
         }
@@ -478,7 +478,7 @@ namespace datalog {
     // 
     void context::update_rule(expr* rl, symbol const& name) {
         datalog::rule_manager& rm = get_rule_manager();
-        proof* p = 0;
+        proof* p = nullptr;
         if (generate_proof_trace()) {
             p = m.mk_asserted(rl);
         }
@@ -493,7 +493,7 @@ namespace datalog {
         // The new rule is inserted last:
         rule_ref r(m_rule_set.get_rule(size_before), rm);
         rule_ref_vector const& rls = m_rule_set.get_rules();
-        rule* old_rule = 0;
+        rule* old_rule = nullptr;
         for (unsigned i = 0; i < size_before; ++i) {
             if (rls[i]->name() == name) {
                 if (old_rule) {                    
@@ -861,8 +861,8 @@ namespace datalog {
     lbool context::query(expr* query) {
         m_mc = mk_skip_model_converter();
         m_last_status = OK;
-        m_last_answer = 0;
-        m_last_ground_answer = 0;
+        m_last_answer = nullptr;
+        m_last_ground_answer = nullptr;
         switch (get_engine()) {
         case DATALOG_ENGINE:
         case SPACER_ENGINE:
@@ -890,8 +890,8 @@ namespace datalog {
     lbool context::query_from_lvl (expr* query, unsigned lvl) {
         m_mc = mk_skip_model_converter();
         m_last_status = OK;
-        m_last_answer = 0;
-        m_last_ground_answer = 0;
+        m_last_answer = nullptr;
+        m_last_ground_answer = nullptr;
         switch (get_engine()) {
         case DATALOG_ENGINE:
         case SPACER_ENGINE:
@@ -933,7 +933,7 @@ namespace datalog {
     }
 
     lbool context::rel_query(unsigned num_rels, func_decl * const* rels) {        
-        m_last_answer = 0;
+        m_last_answer = nullptr;
         ensure_engine();
         return m_engine->query(num_rels, rels);
     }
@@ -1059,7 +1059,7 @@ namespace datalog {
         for (unsigned i = m_rule_fmls_head; i < m_rule_fmls.size(); ++i) {
             m_free_vars(m_rule_fmls[i].get());
             if (!m_free_vars.empty()) {
-                rm.mk_rule(m_rule_fmls[i].get(), 0, m_rule_set, m_rule_names[i]);
+                rm.mk_rule(m_rule_fmls[i].get(), nullptr, m_rule_set, m_rule_names[i]);
                 m_rule_fmls[i] = m_rule_fmls.back();
                 m_rule_names[i] = m_rule_names.back();
                 m_rule_fmls.pop_back();

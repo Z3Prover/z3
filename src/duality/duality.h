@@ -66,7 +66,7 @@ namespace Duality {
 
         bool is_variable(const Term &t);
 
-        FuncDecl SuffixFuncDecl(Term t, int n);
+        FuncDecl SuffixFuncDecl(const Term &t, int n);
 
 
         Term SubstRecHide(hash_map<ast, Term> &memo, const Term &t, int number);
@@ -199,7 +199,7 @@ namespace Duality {
                 lbool interpolate_tree(TermTree *assumptions,
                                        TermTree *&interpolants,
                                        model &_model,
-                                       TermTree *goals = 0,
+                                       TermTree *goals = nullptr,
                                        bool weak = false
                                        ) = 0;
 
@@ -247,15 +247,15 @@ namespace Duality {
             lbool interpolate_tree(TermTree *assumptions,
                                    TermTree *&interpolants,
                                    model &_model,
-                                   TermTree *goals = 0,
-                                   bool weak = false)
+                                   TermTree *goals = nullptr,
+                                   bool weak = false) override
             {
                 literals _labels;
                 islvr->SetWeakInterpolants(weak);
                 return islvr->interpolate_tree(assumptions,interpolants,_model,_labels,true);
             }
 
-            void assert_axiom(const expr &axiom){
+            void assert_axiom(const expr &axiom) override {
 #if 1
                 // HACK: large "distict" predicates can kill the legacy SMT solver.
                 // encode them with a UIF
@@ -280,11 +280,11 @@ namespace Duality {
                 islvr->AssertInterpolationAxiom(axiom);
             }
 
-            const std::vector<expr> &get_axioms() {
+            const std::vector<expr> &get_axioms() override {
                 return islvr->GetInterpolationAxioms();
             }
 
-            std::string profile(){
+            std::string profile() override {
                 return islvr->profile();
             }
 
@@ -307,31 +307,31 @@ namespace Duality {
             void write_interpolation_problem(const std::string &file_name,
                                              const std::vector<expr> &assumptions,
                                              const std::vector<expr> &theory
-                                             ){
+                                             ) override {
 #if 0
                 islvr->write_interpolation_problem(file_name,assumptions,theory);
 #endif
 
             }
 
-            void cancel(){islvr->cancel();}
+            void cancel() override {islvr->cancel();}
 
             /** Declare a constant in the background theory. */
-            virtual void declare_constant(const func_decl &f){
+            void declare_constant(const func_decl &f) override {
                 bckg.insert(f);
             }
 
             /** Is this a background constant? */
-            virtual bool is_constant(const func_decl &f){
+            bool is_constant(const func_decl &f) override {
                 return bckg.find(f) != bckg.end();
             }
 
             /** Get the constants in the background vocabulary */
-            virtual hash_set<func_decl> &get_constants(){
+            hash_set<func_decl> &get_constants() override {
                 return bckg;
             }
 
-            ~iZ3LogicSolver(){
+            ~iZ3LogicSolver() override {
                 // delete ictx;
                 delete islvr;
             }
@@ -393,7 +393,7 @@ namespace Duality {
                 edgeCount = 0;
                 stack.push_back(stack_entry());
                 HornClauses = false;
-                proof_core = 0;
+                proof_core = nullptr;
             }
 
         virtual ~RPFP();
@@ -494,7 +494,7 @@ namespace Duality {
             unsigned recursion_bound;
 
         Node(const FuncDecl &_Name, const Transformer &_Annotation, const Transformer &_Bound, const Transformer &_Underapprox, const Term &_dual, RPFP *_owner, int _number)
-            : Name(_Name), Annotation(_Annotation), Bound(_Bound), Underapprox(_Underapprox), dual(_dual) {owner = _owner; number = _number; Outgoing = 0; recursion_bound = UINT_MAX;}
+            : Name(_Name), Annotation(_Annotation), Bound(_Bound), Underapprox(_Underapprox), dual(_dual) {owner = _owner; number = _number; Outgoing = nullptr; recursion_bound = UINT_MAX;}
         };
 
         /** Create a node in the graph. The input is a term R(v_1...v_n)
@@ -507,6 +507,7 @@ namespace Duality {
         {
             std::vector<Term> _IndParams;
             int nargs = t.num_args();
+            _IndParams.reserve(nargs);
             for(int i = 0; i < nargs; i++)
                 _IndParams.push_back(t.arg(i));
             Node *n = new Node(t.decl(),
@@ -590,7 +591,7 @@ namespace Duality {
         /** Delete a hyper-edge and unlink it from any nodes. */
         void DeleteEdge(Edge *edge){
             if(edge->Parent)
-                edge->Parent->Outgoing = 0;
+                edge->Parent->Outgoing = nullptr;
             for(unsigned int i = 0; i < edge->Children.size(); i++){
                 std::vector<Edge *> &ic = edge->Children[i]->Incoming;
                 for(std::vector<Edge *>::iterator it = ic.begin(), en = ic.end(); it != en; ++it){
@@ -704,7 +705,7 @@ namespace Duality {
 
         /** Get the constraint tree (but don't solve it) */
 
-        TermTree *GetConstraintTree(Node *root, Node *skip_descendant = 0);
+        TermTree *GetConstraintTree(Node *root, Node *skip_descendant = nullptr);
 
         /** Dispose of the dual model (counterexample) if there is one. */
 
@@ -714,23 +715,23 @@ namespace Duality {
          * Solve, except no primal solution (interpolant) is generated in the unsat case. */
 
         check_result Check(Node *root, std::vector<Node *> underapproxes = std::vector<Node *>(),
-                           std::vector<Node *> *underapprox_core = 0);
+                           std::vector<Node *> *underapprox_core = nullptr);
 
         /** Update the model, attempting to make the propositional literals in assumps true. If possible,
             return sat, else return unsat and keep the old model. */
 
         check_result CheckUpdateModel(Node *root, std::vector<expr> assumps);
 
-        /** Determines the value in the counterexample of a symbol occuring in the transformer formula of
+        /** Determines the value in the counterexample of a symbol occurring in the transformer formula of
          *  a given edge. */
 
-        Term Eval(Edge *e, Term t);
+        Term Eval(Edge *e, const Term& t);
 
         /** Return the fact derived at node p in a counterexample. */
 
         Term EvalNode(Node *p);
 
-        /** Returns true if the given node is empty in the primal solution. For proecudure summaries,
+        /** Returns true if the given node is empty in the primal solution. For procedure summaries,
             this means that the procedure is not called in the current counter-model. */
 
         bool Empty(Node *p);
@@ -840,7 +841,7 @@ namespace Duality {
 #ifdef _WINDOWS
         __declspec(dllexport)
 #endif
-            void FromClauses(const std::vector<Term> &clauses, const std::vector<unsigned> *bounds = 0);
+            void FromClauses(const std::vector<Term> &clauses, const std::vector<unsigned> *bounds = nullptr);
 
         void FromFixpointContext(fixedpoint fp, std::vector<Term> &queries);
 
@@ -853,7 +854,7 @@ namespace Duality {
         /** Write the RPFP to a file (currently in SMTLIB 1.2 format) */
         void WriteProblemToFile(std::string filename, FileFormat format = DualityFormat);
 
-        /** Read the RPFP from a file (in specificed format) */
+        /** Read the RPFP from a file (in specified format) */
         void ReadProblemFromFile(std::string filename, FileFormat format = DualityFormat);
 
         /** Translate problem to Horn clause form */
@@ -869,9 +870,9 @@ namespace Duality {
         std::vector<Edge *> edges;
 
         /** Fuse a vector of transformers. If the total number of inputs of the transformers
-            is N, then the result is an N-ary transfomer whose output is the union of
-            the outputs of the given transformers. The is, suppose we have a vetor of transfoermers
-            {T_i(r_i1,...,r_iN(i) : i=1..M}. The the result is a transformer
+            is N, then the result is an N-ary transformer whose output is the union of
+            the outputs of the given transformers. The is, suppose we have a vector of transformers
+            {T_i(r_i1,...,r_iN(i) : i=1..M}. The result is a transformer
 
             F(r_11,...,r_iN(1),...,r_M1,...,r_MN(M)) =
             T_1(r_11,...,r_iN(1)) U ... U T_M(r_M1,...,r_MN(M))
@@ -926,7 +927,7 @@ namespace Duality {
         void ClearProofCore(){
             if(proof_core)
                 delete proof_core;
-            proof_core = 0;
+            proof_core = nullptr;
         }
 
         Term SuffixVariable(const Term &t, int n);
@@ -943,7 +944,7 @@ namespace Duality {
 
         Term ReducedDualEdge(Edge *e);
 
-        TermTree *ToTermTree(Node *root, Node *skip_descendant = 0);
+        TermTree *ToTermTree(Node *root, Node *skip_descendant = nullptr);
 
         TermTree *ToGoalTree(Node *root);
 
@@ -1095,12 +1096,12 @@ namespace Duality {
 
         virtual void slvr_push();
 
-        virtual check_result slvr_check(unsigned n = 0, expr * const assumptions = 0, unsigned *core_size = 0, expr *core = 0);
+        virtual check_result slvr_check(unsigned n = 0, expr * const assumptions = nullptr, unsigned *core_size = nullptr, expr *core = nullptr);
 
         virtual lbool ls_interpolate_tree(TermTree *assumptions,
                                           TermTree *&interpolants,
                                           model &_model,
-                                          TermTree *goals = 0,
+                                          TermTree *goals = nullptr,
                                           bool weak = false);
 
         virtual bool proof_core_contains(const expr &e);
@@ -1120,8 +1121,8 @@ namespace Duality {
             RPFP::Node *root;
         public:
             Counterexample(){
-                tree = 0;
-                root = 0;
+                tree = nullptr;
+                root = nullptr;
             }
             Counterexample(RPFP *_tree, RPFP::Node *_root){
                 tree = _tree;
@@ -1141,7 +1142,7 @@ namespace Duality {
             }
             void clear(){
                 if(tree) delete tree;
-                tree = 0;
+                tree = nullptr;
             }
             RPFP *get_tree() const {return tree;}
             RPFP::Node *get_root() const {return root;}
@@ -1273,7 +1274,7 @@ namespace Duality {
         virtual void AssertEdge(Edge *e, int persist = 0, bool with_children = false, bool underapprox = false);
 #endif
 
-        virtual ~RPFP_caching(){}
+        ~RPFP_caching() override {}
 
     protected:
         hash_map<ast,expr> AssumptionLits;
@@ -1312,28 +1313,28 @@ namespace Duality {
 
 
 
-        void GetAssumptionLits(const expr &fmla, std::vector<expr> &lits, hash_map<ast,expr> *opt_map = 0);
+        void GetAssumptionLits(const expr &fmla, std::vector<expr> &lits, hash_map<ast,expr> *opt_map = nullptr);
 
         void GreedyReduceCache(std::vector<expr> &assumps, std::vector<expr> &core);
 
         void FilterCore(std::vector<expr> &core, std::vector<expr> &full_core);
         void ConstrainEdgeLocalizedCache(Edge *e, const Term &tl, std::vector<expr> &lits);
 
-        virtual void slvr_add(const expr &e);
+        void slvr_add(const expr &e) override;
 
-        virtual void slvr_pop(int i);
+        void slvr_pop(int i) override;
 
-        virtual void slvr_push();
+        void slvr_push() override;
 
-        virtual check_result slvr_check(unsigned n = 0, expr * const assumptions = 0, unsigned *core_size = 0, expr *core = 0);
+        check_result slvr_check(unsigned n = 0, expr * const assumptions = nullptr, unsigned *core_size = nullptr, expr *core = nullptr) override;
 
-        virtual lbool ls_interpolate_tree(TermTree *assumptions,
+        lbool ls_interpolate_tree(TermTree *assumptions,
                                           TermTree *&interpolants,
                                           model &_model,
-                                          TermTree *goals = 0,
-                                          bool weak = false);
+                                          TermTree *goals = nullptr,
+                                          bool weak = false) override;
 
-        virtual bool proof_core_contains(const expr &e);
+        bool proof_core_contains(const expr &e) override;
 
         void GetTermTreeAssertionLiterals(TermTree *assumptions);
 

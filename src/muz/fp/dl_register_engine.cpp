@@ -27,7 +27,7 @@ Revision History:
 #include "muz/spacer/spacer_dl_interface.h"
 
 namespace datalog {
-    register_engine::register_engine(): m_ctx(0) {}
+    register_engine::register_engine(): m_ctx(nullptr) {}
     
     engine_base* register_engine::mk_engine(DL_ENGINE engine_type) {
         switch(engine_type) {
@@ -51,10 +51,10 @@ namespace datalog {
             return alloc(ddnf, *m_ctx);
         case LAST_ENGINE:
             UNREACHABLE();
-            return 0;
+            return nullptr;
         }
         UNREACHABLE();
-        return 0;
+        return nullptr;
     }
 
 }

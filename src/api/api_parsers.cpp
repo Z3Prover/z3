@@ -80,7 +80,7 @@ extern "C" {
         ptr_vector<expr>::const_iterator end = ctx->end_assertions();
         unsigned size = static_cast<unsigned>(end - it);
         return of_ast(mk_c(c)->mk_and(size, it));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_parse_smtlib2_string(Z3_context c, Z3_string str,
@@ -96,7 +96,7 @@ extern "C" {
         std::istringstream is(s);
         Z3_ast r = parse_smtlib2_stream(false, c, is, num_sorts, sort_names, sorts, num_decls, decl_names, decls);
         RETURN_Z3(r);
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_parse_smtlib2_file(Z3_context c, Z3_string file_name,
@@ -111,10 +111,10 @@ extern "C" {
         std::ifstream is(file_name);
         if (!is) {
             SET_ERROR_CODE(Z3_PARSER_ERROR);
-            return 0;
+            return nullptr;
         }
         Z3_ast r = parse_smtlib2_stream(false, c, is, num_sorts, sort_names, sorts, num_decls, decl_names, decls);
         RETURN_Z3(r);
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 };

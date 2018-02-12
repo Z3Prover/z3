@@ -153,7 +153,7 @@ namespace sat {
     }
 
     bool integrity_checker::check_watches() const {
-        DEBUG_CODE(
+        DEBUG_CODE(            
         vector<watch_list>::const_iterator it  = s.m_watches.begin();
         vector<watch_list>::const_iterator end = s.m_watches.end();
         for (unsigned l_idx = 0; it != end; ++it, ++l_idx) {
@@ -165,30 +165,28 @@ namespace sat {
                    s.display_watches(tout);
                    s.display(tout););
             SASSERT(!s.was_eliminated(l.var()) || wlist.empty());
-            watch_list::const_iterator it2  = wlist.begin();
-            watch_list::const_iterator end2 = wlist.end();
-            for (; it2 != end2; ++it2) {
-                switch (it2->get_kind()) {
+            for (watched const& w : wlist) {
+                switch (w.get_kind()) {
                 case watched::BINARY:
-                    SASSERT(!s.was_eliminated(it2->get_literal().var()));
-                    CTRACE("sat_watched_bug", !s.get_wlist(~(it2->get_literal())).contains(watched(l, it2->is_learned())),
-                           tout << "l: " << l << " l2: " << it2->get_literal() << "\n"; 
+                    SASSERT(!s.was_eliminated(w.get_literal().var()));
+                    CTRACE("sat_watched_bug", !s.get_wlist(~(w.get_literal())).contains(watched(l, w.is_learned())),
+                           tout << "l: " << l << " l2: " << w.get_literal() << "\n"; 
                            tout << "was_eliminated1: " << s.was_eliminated(l.var());
-                           tout << " was_eliminated2: " << s.was_eliminated(it2->get_literal().var());
-                           tout << " learned: " << it2->is_learned() << "\n";
+                           tout << " was_eliminated2: " << s.was_eliminated(w.get_literal().var());
+                           tout << " learned: " << w.is_learned() << "\n";
                            sat::display(tout, s.m_cls_allocator, wlist);
                            tout << "\n";
-                           sat::display(tout, s.m_cls_allocator, s.get_wlist(~(it2->get_literal())));
+                           sat::display(tout, s.m_cls_allocator, s.get_wlist(~(w.get_literal())));
                            tout << "\n";);
-                        SASSERT(s.get_wlist(~(it2->get_literal())).contains(watched(l, it2->is_learned())));
+                        SASSERT(s.get_wlist(~(w.get_literal())).contains(watched(l, w.is_learned())));
                     break;
                 case watched::TERNARY:
-                    SASSERT(!s.was_eliminated(it2->get_literal1().var()));
-                    SASSERT(!s.was_eliminated(it2->get_literal2().var()));
-                    SASSERT(it2->get_literal1().index() < it2->get_literal2().index());
+                    SASSERT(!s.was_eliminated(w.get_literal1().var()));
+                    SASSERT(!s.was_eliminated(w.get_literal2().var()));
+                    SASSERT(w.get_literal1().index() < w.get_literal2().index());
                     break;
                 case watched::CLAUSE:
-                    SASSERT(!s.m_cls_allocator.get_clause(it2->get_clause_offset())->was_removed());
+                    SASSERT(!s.m_cls_allocator.get_clause(w.get_clause_offset())->was_removed());
                     break;
                 default:
                     break;

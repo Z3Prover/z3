@@ -111,7 +111,7 @@ namespace Duality {
     }
 
     expr context::mki(family_id fid, ::decl_kind dk, int n, ::expr **args){
-        return cook(m().mk_app(fid, dk, 0, 0, n, (::expr **)args));
+        return cook(m().mk_app(fid, dk, 0, nullptr, n, (::expr **)args));
     }
 
     expr context::make(decl_kind op, const std::vector<expr> &args){
@@ -120,11 +120,11 @@ namespace Duality {
             a.resize(args.size());
         for(unsigned i = 0; i < args.size(); i++)
             a[i] = to_expr(args[i].raw());
-        return make(op,args.size(), args.size() ? VEC2PTR(a) : 0);
+        return make(op,args.size(), args.size() ? VEC2PTR(a) : nullptr);
     }
 
     expr context::make(decl_kind op){
-        return make(op,0,0);
+        return make(op,0,nullptr);
     }
 
     expr context::make(decl_kind op, const expr &arg0){
@@ -173,8 +173,8 @@ namespace Duality {
             0,
             ::symbol(),
             ::symbol(),
-            0, 0,
-            0, 0
+            0, nullptr,
+            0, nullptr
                                    );
         return cook(result.get());
     }
@@ -199,8 +199,8 @@ namespace Duality {
             0,
             ::symbol(),
             ::symbol(),
-            0, 0,
-            0, 0
+            0, nullptr,
+            0, nullptr
                                    );
         return cook(result.get());
     }
@@ -422,7 +422,7 @@ namespace Duality {
     func_decl context::fresh_func_decl(char const * prefix, sort const & range){
         ::func_decl* d = m().mk_fresh_func_decl(prefix,
                                                 0,
-                                                0,
+                                                nullptr,
                                                 to_sort(range.raw()));
         return func_decl(*this,d);
     }

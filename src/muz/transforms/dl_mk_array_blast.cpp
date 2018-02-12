@@ -176,7 +176,7 @@ namespace datalog {
                     if (m_defs.find(e1, v)) {
                         cache.insert(e, v);
                     }
-                    else if (!insert_def(r, e1, 0)) {
+                    else if (!insert_def(r, e1, nullptr)) {
                         return false;                        
                     }
                     else {
@@ -320,7 +320,7 @@ namespace datalog {
     rule_set * mk_array_blast::operator()(rule_set const & source) {
 
         if (!m_ctx.array_blast ()) {
-            return 0;
+            return nullptr;
         }
         rule_set* rules = alloc(rule_set, m_ctx);
         rules->inherit_predicates(source);
@@ -331,7 +331,7 @@ namespace datalog {
         }
         if (!change) {
             dealloc(rules);
-            rules = 0;
+            rules = nullptr;
         }        
         return rules;        
     }

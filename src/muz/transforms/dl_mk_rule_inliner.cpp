@@ -549,16 +549,16 @@ namespace datalog {
 
 
             const rule_vector& pred_rules = rules.get_predicate_rules(pred);
-            rule * inlining_candidate = 0;
+            rule * inlining_candidate = nullptr;
             unsigned rule_cnt = pred_rules.size();
             if (rule_cnt == 0) {
-                inlining_candidate = 0;
+                inlining_candidate = nullptr;
             }
             else if (rule_cnt == 1) {
                 inlining_candidate = pred_rules[0];
             }
             else {
-                inlining_candidate = 0;
+                inlining_candidate = nullptr;
                 
                 for (unsigned ri = 0; ri < rule_cnt; ++ri) {
                     rule * pred_rule = pred_rules[ri];
@@ -566,7 +566,7 @@ namespace datalog {
                         //we skip rules which don't unify with the tail atom
                         continue;
                     }
-                    if (inlining_candidate != 0) {
+                    if (inlining_candidate != nullptr) {
                         // We have two rules that can be inlined into the current 
                         // tail predicate. In this situation we don't do inlinning
                         // on this tail atom, as we don't want the overall number 
@@ -576,10 +576,10 @@ namespace datalog {
                     inlining_candidate = pred_rule;
                 }
             }
-            if (inlining_candidate == 0) {
+            if (inlining_candidate == nullptr) {
                 // nothing unifies with the tail atom, therefore the rule is unsatisfiable
                 // (we can say this because relation pred doesn't have any ground facts either)
-                res = 0;
+                res = nullptr;
                 datalog::del_rule(m_mc, *r, false);
                 return true;
             }
@@ -591,7 +591,7 @@ namespace datalog {
             }
             if (!try_to_inline_rule(*r, *inlining_candidate, ti, res)) {
                 datalog::del_rule(m_mc, *r, false);
-                res = 0;
+                res = nullptr;
             }
             return true;
 
@@ -852,13 +852,13 @@ namespace datalog {
         ref<horn_subsume_model_converter> hsmc;        
 
         if (source.get_num_rules() == 0) {
-            return 0;
+            return nullptr;
         }
 
         rule_set::iterator end = source.end();
         for (rule_set::iterator it = source.begin(); it != end; ++ it) {
             if (has_quantifier(**it)) {
-                return 0;
+                return nullptr;
             }
         }
         
@@ -893,7 +893,7 @@ namespace datalog {
         }
 
         if (!something_done) {
-            res = 0;
+            res = nullptr;
         }
         else {
             m_context.add_model_converter(hsmc.get());

@@ -143,7 +143,7 @@ namespace smt {
                   tout << "inserted: " << (f != 0) << "\n";
                   );
 
-            return f != 0;
+            return f != nullptr;
         }
 
         void init_search_eh() {
@@ -300,7 +300,7 @@ namespace smt {
 
     bool quantifier_manager::add_instance(quantifier * q, unsigned num_bindings, enode * const * bindings, unsigned generation) {
         ptr_vector<enode> tmp;
-        return add_instance(q, 0, num_bindings, bindings, generation, generation, generation, tmp);
+        return add_instance(q, nullptr, num_bindings, bindings, generation, generation, generation, tmp);
     }
 
     void quantifier_manager::init_search_eh() {
@@ -408,17 +408,17 @@ namespace smt {
         bool                        m_active;
     public:
         default_qm_plugin():
-            m_qm(0),
-            m_context(0),
+            m_qm(nullptr),
+            m_context(nullptr),
             m_new_enode_qhead(0),
             m_lazy_matching_idx(0),
             m_active(false) {
         }
 
-        virtual ~default_qm_plugin() {
+        ~default_qm_plugin() override {
         }
 
-        virtual void set_manager(quantifier_manager & qm) {
+        void set_manager(quantifier_manager & qm) override {
             SASSERT(m_qm == 0);
             m_qm            = &qm;
             m_context       = &(qm.get_context());
@@ -434,11 +434,11 @@ namespace smt {
             m_model_checker->set_qm(qm);
         }
 
-        virtual quantifier_manager_plugin * mk_fresh() { return alloc(default_qm_plugin); }
+        quantifier_manager_plugin * mk_fresh() override { return alloc(default_qm_plugin); }
 
-        virtual bool model_based() const { return m_fparams->m_mbqi; }
+        bool model_based() const override { return m_fparams->m_mbqi; }
 
-        virtual bool mbqi_enabled(quantifier *q) const {
+        bool mbqi_enabled(quantifier *q) const override {
             if (!m_fparams->m_mbqi_id) return true;
             const symbol &s = q->get_qid();
             size_t len = strlen(m_fparams->m_mbqi_id);
@@ -450,16 +450,16 @@ namespace smt {
         /* Quantifier id's must begin with the prefix specified by parameter
            mbqi.id to be instantiated with MBQI. The default value is the
            empty string, so all quantifiers are instantiated. */
-        virtual void add(quantifier * q) {
+        void add(quantifier * q) override {
             if (m_fparams->m_mbqi && mbqi_enabled(q)) {
                 m_active = true;
                 m_model_finder->register_quantifier(q);
             }
         }
 
-        virtual void del(quantifier * q) { }
+        void del(quantifier * q) override { }
 
-        virtual void push() {
+        void push() override {
             m_mam->push_scope();
             m_lazy_mam->push_scope();
             if (m_fparams->m_mbqi) {
@@ -467,7 +467,7 @@ namespace smt {
             }
         }
 
-        virtual void pop(unsigned num_scopes) {
+        void pop(unsigned num_scopes) override {
             m_mam->pop_scope(num_scopes);
             m_lazy_mam->pop_scope(num_scopes);
             if (m_fparams->m_mbqi) {
@@ -475,7 +475,7 @@ namespace smt {
             }
         }
 
-        virtual void init_search_eh() {
+        void init_search_eh() override {
             m_lazy_matching_idx = 0;
             if (m_fparams->m_mbqi) {
                 m_model_finder->init_search_eh();
@@ -483,7 +483,7 @@ namespace smt {
             }
         }
 
-        virtual void assign_eh(quantifier * q) {
+        void assign_eh(quantifier * q) override {
             m_active = true;
             ast_manager& m = m_context->get_manager();
             if (!m_fparams->m_ematching) {
@@ -531,23 +531,23 @@ namespace smt {
             return m_fparams->m_ematching && !m_qm->empty();
         }
 
-        virtual void add_eq_eh(enode * e1, enode * e2) {
+        void add_eq_eh(enode * e1, enode * e2) override {
             if (use_ematching())
                 m_mam->add_eq_eh(e1, e2);
         }
 
-        virtual void relevant_eh(enode * e) {
+        void relevant_eh(enode * e) override {
             if (use_ematching()) {
                 m_mam->relevant_eh(e, false);
                 m_lazy_mam->relevant_eh(e, true);
             }
         }
 
-        virtual bool can_propagate() const {
+        bool can_propagate() const override {
             return m_mam->has_work();
         }
 
-        virtual void restart_eh() {
+        void restart_eh() override {
             if (m_fparams->m_mbqi) {
                 m_model_finder->restart_eh();
                 m_model_checker->restart_eh();
@@ -555,17 +555,17 @@ namespace smt {
             TRACE("mam_stats", m_mam->display(tout););
         }
 
-        virtual bool is_shared(enode * n) const {
+        bool is_shared(enode * n) const override {
             return m_active && (m_mam->is_shared(n) || m_lazy_mam->is_shared(n));
         }
 
-        virtual void adjust_model(proto_model * m) {
+        void adjust_model(proto_model * m) override {
             if (m_fparams->m_mbqi) {
                 m_model_finder->fix_model(m);
             }
         }
 
-        virtual void propagate() {
+        void propagate() override {
             m_mam->match();
             if (!m_context->relevancy() && use_ematching()) {
                 ptr_vector<enode>::const_iterator it  = m_context->begin_enodes();
@@ -585,8 +585,8 @@ namespace smt {
             }
         }
 
-        virtual quantifier_manager::check_model_result
-        check_model(proto_model * m, obj_map<enode, app *> const & root2value) {
+        quantifier_manager::check_model_result
+        check_model(proto_model * m, obj_map<enode, app *> const & root2value) override {
             if (m_fparams->m_mbqi) {
                 IF_VERBOSE(10, verbose_stream() << "(smt.mbqi)\n";);
                 if (m_model_checker->check(m, root2value)) {
@@ -599,7 +599,7 @@ namespace smt {
             return quantifier_manager::UNKNOWN;
         }
 
-        virtual final_check_status final_check_eh(bool full) {
+        final_check_status final_check_eh(bool full) override {
             if (!full) {
                 if (m_fparams->m_qi_lazy_instantiation)
                     return final_check_quant();

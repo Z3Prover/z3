@@ -91,7 +91,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
 
     bool evaluate(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
         func_interp * fi = m_model.get_func_interp(f);
-        return (fi != 0) && eval_fi(fi, num, args, result);
+        return (fi != nullptr) && eval_fi(fi, num, args, result);
     }
 
     // Try to use the entries to quickly evaluate the fi
@@ -110,7 +110,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
             return false; // let get_macro handle it
 
         func_entry * entry = fi->get_entry(args);
-        if (entry != 0) {
+        if (entry != nullptr) {
             result = entry->get_result();
             return true;
         }
@@ -119,12 +119,12 @@ struct evaluator_cfg : public default_rewriter_cfg {
     }
 
     br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
-        result_pr = 0;
+        result_pr = nullptr;
         family_id fid = f->get_family_id();
         bool is_uninterp = fid != null_family_id && m.get_plugin(fid)->is_considered_uninterpreted(f);
         if (num == 0 && (fid == null_family_id || is_uninterp)) {
             expr * val = m_model.get_const_interp(f);
-            if (val != 0) {
+            if (val != nullptr) {
                 result = val;
                 return BR_DONE;
             }
@@ -224,7 +224,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
 
         func_interp * fi = m_model.get_func_interp(f);
 
-        if (fi != 0) {
+        if (fi != nullptr) {
             TRACE_MACRO;
             if (fi->is_partial()) {
                 if (m_model_completion) {
@@ -262,8 +262,8 @@ struct evaluator_cfg : public default_rewriter_cfg {
                                            expr_ref & result, proof_ref & result_pr) {
         SASSERT(f != 0);
         SASSERT(!m.is_builtin_family_id(f->get_family_id()));
-        result = 0;
-        result_pr = 0;
+        result = nullptr;
+        result_pr = nullptr;
 
         func_interp * fi = m_model.get_func_interp(f);
         if (fi) {
@@ -382,7 +382,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
                 continue;
             }
             table2.insert(stores2[i].c_ptr());
-            expr * const* args = 0;
+            expr * const* args = nullptr;
             expr* val = stores2[i][arity];
             if (table1.find(stores2[i].c_ptr(), args)) {
                 switch (compare(args[arity], val)) {

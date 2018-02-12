@@ -38,7 +38,7 @@ extern "C" {
         m_ref->m_model = alloc(model, mk_c(c)->m());
         mk_c(c)->save_object(m_ref);
         RETURN_Z3(of_model(m_ref));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     void Z3_API Z3_model_inc_ref(Z3_context c, Z3_model m) {
@@ -65,14 +65,14 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_model_get_const_interp(c, m, a);
         RESET_ERROR_CODE();
-        CHECK_NON_NULL(m, 0);
+        CHECK_NON_NULL(m, nullptr);
         expr * r = to_model_ref(m)->get_const_interp(to_func_decl(a));
         if (!r) {
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         mk_c(c)->save_ast_trail(r);
         RETURN_Z3(of_expr(r));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_bool Z3_API Z3_model_has_interp(Z3_context c, Z3_model m, Z3_func_decl a) {
@@ -91,17 +91,17 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_model_get_func_interp(c, m, f);
         RESET_ERROR_CODE();
-        CHECK_NON_NULL(m, 0);
+        CHECK_NON_NULL(m, nullptr);
         func_interp * _fi       = to_model_ref(m)->get_func_interp(to_func_decl(f));
         if (!_fi) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         Z3_func_interp_ref * fi = alloc(Z3_func_interp_ref, *mk_c(c), to_model_ref(m));
         fi->m_func_interp       = _fi;
         mk_c(c)->save_object(fi);
         RETURN_Z3(of_func_interp(fi));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     unsigned Z3_API Z3_model_get_num_consts(Z3_context c, Z3_model m) {
@@ -117,16 +117,16 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_model_get_const_decl(c, m, i);
         RESET_ERROR_CODE();
-        CHECK_NON_NULL(m, 0);
+        CHECK_NON_NULL(m, nullptr);
         model * _m = to_model_ref(m);
         if (i < _m->get_num_constants()) {
             RETURN_Z3(of_func_decl(_m->get_constant(i))); 
         }
         else {
             SET_ERROR_CODE(Z3_IOB);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
     
     unsigned Z3_API Z3_model_get_num_funcs(Z3_context c, Z3_model m) {
@@ -139,11 +139,11 @@ extern "C" {
     }
 
     Z3_func_decl get_model_func_decl_core(Z3_context c, Z3_model m, unsigned i) {
-        CHECK_NON_NULL(m, 0);
+        CHECK_NON_NULL(m, nullptr);
         model * _m = to_model_ref(m);
         if (i >= _m->get_num_functions()) {
             SET_ERROR_CODE(Z3_IOB);
-            return 0;
+            return nullptr;
         }
         return of_func_decl(_m->get_function(i));
     }
@@ -154,13 +154,13 @@ extern "C" {
         RESET_ERROR_CODE();
         Z3_func_decl r = get_model_func_decl_core(c, m, i);
         RETURN_Z3(r);
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
     
     Z3_bool Z3_API Z3_model_eval(Z3_context c, Z3_model m, Z3_ast t, Z3_bool model_completion, Z3_ast * v) {
         Z3_TRY;
         LOG_Z3_model_eval(c, m, t, model_completion, v);
-        if (v) *v = 0;
+        if (v) *v = nullptr;
         RESET_ERROR_CODE();
         CHECK_NON_NULL(m, Z3_FALSE);
         CHECK_IS_EXPR(t, Z3_FALSE);
@@ -187,11 +187,11 @@ extern "C" {
         RESET_ERROR_CODE();
         if (i >= to_model_ref(m)->get_num_uninterpreted_sorts()) {
             SET_ERROR_CODE(Z3_IOB);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         sort * s = to_model_ref(m)->get_uninterpreted_sort(i);
         RETURN_Z3(of_sort(s));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast_vector Z3_API Z3_model_get_sort_universe(Z3_context c, Z3_model m, Z3_sort s) {
@@ -200,7 +200,7 @@ extern "C" {
         RESET_ERROR_CODE();
         if (!to_model_ref(m)->has_uninterpreted_sort(to_sort(s))) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         ptr_vector<expr> const & universe = to_model_ref(m)->get_universe(to_sort(s));
         Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, *mk_c(c), mk_c(c)->m());
@@ -210,7 +210,7 @@ extern "C" {
             v->m_ast_vector.push_back(universe[i]);
         }
         RETURN_Z3(of_ast_vector(v));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_model Z3_API Z3_model_translate(Z3_context c, Z3_model m, Z3_context target) {
@@ -222,7 +222,7 @@ extern "C" {
         dst->m_model = to_model_ref(m)->translate(tr);
         mk_c(target)->save_object(dst);
         RETURN_Z3(of_model(dst));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
     
     Z3_bool Z3_API Z3_is_as_array(Z3_context c, Z3_ast a) {
@@ -242,9 +242,9 @@ extern "C" {
         }
         else {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_func_interp Z3_API Z3_add_func_interp(Z3_context c, Z3_model m, Z3_func_decl f, Z3_ast else_val) {
@@ -259,7 +259,7 @@ extern "C" {
         mdl->register_decl(d, f_ref->m_func_interp);
         f_ref->m_func_interp->set_else(to_expr(else_val));
         RETURN_Z3(of_func_interp(f_ref));
-        Z3_CATCH_RETURN(0);        
+        Z3_CATCH_RETURN(nullptr);
     }
 
     void Z3_API Z3_add_const_interp(Z3_context c, Z3_model m, Z3_func_decl f, Z3_ast a) {
@@ -310,30 +310,30 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_func_interp_get_entry(c, f, i);
         RESET_ERROR_CODE();
-        CHECK_NON_NULL(f, 0);
+        CHECK_NON_NULL(f, nullptr);
         if (i >= to_func_interp_ref(f)->num_entries()) {
             SET_ERROR_CODE(Z3_IOB);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         Z3_func_entry_ref * e = alloc(Z3_func_entry_ref, *mk_c(c), to_func_interp(f)->m_model.get());
         e->m_func_interp = to_func_interp_ref(f);
         e->m_func_entry  = to_func_interp_ref(f)->get_entry(i);
         mk_c(c)->save_object(e);
         RETURN_Z3(of_func_entry(e));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
     
     Z3_ast Z3_API Z3_func_interp_get_else(Z3_context c, Z3_func_interp f) {
         Z3_TRY;
         LOG_Z3_func_interp_get_else(c, f);
         RESET_ERROR_CODE();
-        CHECK_NON_NULL(f, 0);
+        CHECK_NON_NULL(f, nullptr);
         expr * e = to_func_interp_ref(f)->get_else();
         if (e) {
             mk_c(c)->save_ast_trail(e);
         }
         RETURN_Z3(of_expr(e));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     void Z3_API Z3_func_interp_set_else(Z3_context c, Z3_func_interp f, Z3_ast else_value) {
@@ -399,7 +399,7 @@ extern "C" {
         expr * v = to_func_entry_ref(e)->get_result();
         mk_c(c)->save_ast_trail(v);
         RETURN_Z3(of_expr(v));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     unsigned Z3_API Z3_func_entry_get_num_args(Z3_context c, Z3_func_entry e) {
@@ -416,11 +416,11 @@ extern "C" {
         RESET_ERROR_CODE();
         if (i >= to_func_entry(e)->m_func_interp->get_arity()) {
             SET_ERROR_CODE(Z3_IOB);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         expr * r = to_func_entry(e)->m_func_entry->get_arg(i);
         RETURN_Z3(of_expr(r));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
    
     // ----------------------------
@@ -491,7 +491,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_model_to_string(c, m);
         RESET_ERROR_CODE();
-        CHECK_NON_NULL(m, 0);
+        CHECK_NON_NULL(m, nullptr);
         std::ostringstream buffer;
         std::string result;
         if (mk_c(c)->get_print_mode() == Z3_PRINT_SMTLIB2_COMPLIANT) {
@@ -507,7 +507,7 @@ extern "C" {
             result = buffer.str();
         }
         return mk_c(c)->mk_external_string(result);
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
 };

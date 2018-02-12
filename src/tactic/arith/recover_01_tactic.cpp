@@ -70,7 +70,7 @@ class recover_01_tactic : public tactic {
         bool save_clause(expr * c) {
             if (!m.is_or(c))
                 return false;
-            func_decl * x = 0;
+            func_decl * x = nullptr;
             app * cls   = to_app(c);
             if (cls->get_num_args() <= 1 || cls->get_num_args() >= m_cls_max_size)
                 return false;
@@ -84,7 +84,7 @@ class recover_01_tactic : public tactic {
                 else if (m.is_not(lit, arg) && is_uninterp_const(arg)) {
                     // negative literal
                 }
-                else if (x == 0 && m.is_eq(lit, lhs, rhs)) {
+                else if (x == nullptr && m.is_eq(lit, lhs, rhs)) {
                     // x = k  literal
                     if (is_uninterp_const(lhs) && m_util.is_numeral(rhs)) {
                         x = to_app(lhs)->get_decl();
@@ -101,7 +101,7 @@ class recover_01_tactic : public tactic {
                 }
             }
             
-            if (x != 0) {
+            if (x != nullptr) {
                 var2clauses::obj_map_entry * entry = m_var2clauses.insert_if_not_there2(x, ptr_vector<app>());
                 if (entry->get_data().m_value.empty() || entry->get_data().m_value.back()->get_num_args() == cls->get_num_args()) {
                     entry->get_data().m_value.push_back(cls);
@@ -134,7 +134,7 @@ class recover_01_tactic : public tactic {
                     }
                 }
             }
-            return 0;
+            return nullptr;
         }
         
         // Find coeff (the k of literal (x = k)) of clause cls.
@@ -199,7 +199,7 @@ class recover_01_tactic : public tactic {
             SASSERT(is_uninterp_const(atom));
             expr * var;
             if (!bool2int.find(atom, var)) {
-                var = m.mk_fresh_const(0, m_util.mk_int());
+                var = m.mk_fresh_const(nullptr, m_util.mk_int());
                 new_goal->assert_expr(m_util.mk_le(m_util.mk_numeral(rational(0), true), var));
                 new_goal->assert_expr(m_util.mk_le(var, m_util.mk_numeral(rational(1), true)));
                 expr * bool_def = m.mk_eq(var, m_util.mk_numeral(rational(1), true));
@@ -225,7 +225,7 @@ class recover_01_tactic : public tactic {
             if (clauses.size() < expected_num_clauses) // using < instead of != because we tolerate duplicates
                 return false;
             app * zero_cls = find_zero_cls(x, clauses);
-            if (zero_cls == 0)
+            if (zero_cls == nullptr)
                 return false;
             
             buffer<bool>     found; // marks which idx were found
@@ -302,7 +302,7 @@ class recover_01_tactic : public tactic {
             fail_if_proof_generation("recover-01", g);
             fail_if_unsat_core_generation("recover-01", g);
             m_produce_models      = g->models_enabled();
-            mc = 0; pc = 0; core = 0; result.reset();
+            mc = nullptr; pc = nullptr; core = nullptr; result.reset();
             tactic_report report("recover-01", *g);
             
             bool saved = false;
@@ -357,7 +357,7 @@ class recover_01_tactic : public tactic {
             
             if (!recovered) {
                 result.push_back(g.get());
-                mc = 0;
+                mc = nullptr;
                 return;
             }
             
@@ -390,29 +390,29 @@ public:
         m_imp = alloc(imp, m, p);
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(recover_01_tactic, m, m_params);
     }
     
-    virtual ~recover_01_tactic() {
+    ~recover_01_tactic() override {
         dealloc(m_imp);
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_params = p;
         m_imp->updt_params(p);
     }
 
-    virtual void collect_param_descrs(param_descrs & r) { 
+    void collect_param_descrs(param_descrs & r) override {
         th_rewriter::get_param_descrs(r);
         r.insert("recover_01_max_bits", CPK_UINT, "(default: 10) maximum number of bits to consider in a clause.");
     }
 
-    void operator()(goal_ref const & g, 
-                    goal_ref_buffer & result, 
-                    model_converter_ref & mc, 
+    void operator()(goal_ref const & g,
+                    goal_ref_buffer & result,
+                    model_converter_ref & mc,
                     proof_converter_ref & pc,
-                    expr_dependency_ref & core) {
+                    expr_dependency_ref & core) override {
         try {
             (*m_imp)(g, result, mc, pc, core);
         }
@@ -421,7 +421,7 @@ public:
         }
     }
     
-    virtual void cleanup() {
+    void cleanup() override {
         imp * d = alloc(imp, m_imp->m, m_params);
         std::swap(d, m_imp);        
         dealloc(d);

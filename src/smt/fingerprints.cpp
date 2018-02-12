@@ -24,7 +24,7 @@ namespace smt {
         m_data(d), 
         m_data_hash(d_h),
         m_num_args(n), 
-        m_args(0) {
+        m_args(nullptr) {
         m_args = new (r) enode*[n];
         memcpy(m_args, args, sizeof(enode*) * n);
     }
@@ -54,7 +54,7 @@ namespace smt {
     fingerprint * fingerprint_set::insert(void * data, unsigned data_hash, unsigned num_args, enode * const * args) {
         fingerprint * d = mk_dummy(data, data_hash, num_args, args);
         if (m_set.contains(d)) 
-            return 0;
+            return nullptr;
         TRACE("fingerprint_bug", tout << "1) inserting: " << data_hash << " num_args: " << num_args;
               for (unsigned i = 0; i < num_args; i++) tout << " " << args[i]->get_owner_id(); 
               tout << "\n";);
@@ -64,7 +64,7 @@ namespace smt {
             TRACE("fingerprint_bug", tout << "failed: " << data_hash << " num_args: " << num_args;
                   for (unsigned i = 0; i < num_args; i++) tout << " " << d->m_args[i]->get_owner_id(); 
                   tout << "\n";);
-            return 0;
+            return nullptr;
         }
         TRACE("fingerprint_bug", tout << "2) inserting: " << data_hash << " num_args: " << num_args;
               for (unsigned i = 0; i < num_args; i++) tout << " " << args[i]->get_owner_id(); 

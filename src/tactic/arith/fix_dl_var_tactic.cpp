@@ -44,7 +44,7 @@ class fix_dl_var_tactic : public tactic {
             m_util(u) {
         }
         
-        void throw_failed(expr * ctx1, expr * ctx2 = 0) {
+        void throw_failed(expr * ctx1, expr * ctx2 = nullptr) {
             TRACE("fix_dl_var", tout << mk_ismt2_pp(ctx1, m) << "\n"; if (ctx2) tout << mk_ismt2_pp(ctx2, m) << "\n";);
             throw failed();
         }
@@ -178,7 +178,7 @@ class fix_dl_var_tactic : public tactic {
         }
 
         app * most_occs(obj_map<app, unsigned> & occs, unsigned & best) {
-            app * r = 0;
+            app * r = nullptr;
             best = 0;
             obj_map<app, unsigned>::iterator it  = occs.begin();
             obj_map<app, unsigned>::iterator end = occs.end();
@@ -196,7 +196,7 @@ class fix_dl_var_tactic : public tactic {
 
         app * most_occs() {
             // We try to choose a variable that when set to 0 will generate many bounded variables.
-            // That is why we give preference to variables occuring in non-nested inequalities.
+            // That is why we give preference to variables occurring in non-nested inequalities.
             unsigned best1, best2;
             app * r1, * r2;
             r1 = most_occs(m_non_nested_occs, best1);
@@ -227,7 +227,7 @@ class fix_dl_var_tactic : public tactic {
                 return most_occs();
             }
             catch (failed) {
-                return 0;
+                return nullptr;
             }
         }
     };
@@ -254,13 +254,13 @@ class fix_dl_var_tactic : public tactic {
                         proof_converter_ref & pc,
                         expr_dependency_ref & core) {
             SASSERT(g->is_well_sorted());
-            mc = 0; pc = 0; core = 0;
+            mc = nullptr; pc = nullptr; core = nullptr;
             tactic_report report("fix-dl-var", *g);
             bool produce_proofs = g->proofs_enabled();
             m_produce_models    = g->models_enabled();
 
             app * var = is_target(u)(*g);
-            if (var != 0) {
+            if (var != nullptr) {
                 IF_VERBOSE(TACTIC_VERBOSITY_LVL, verbose_stream() << "(fixing-at-zero " << var->get_decl()->get_name() << ")\n";);
                 tactic_report report("fix-dl-var", *g);
                 
@@ -303,28 +303,28 @@ public:
         m_imp = alloc(imp, m, p);
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(fix_dl_var_tactic, m, m_params);
     }
         
-    virtual ~fix_dl_var_tactic() {
+    ~fix_dl_var_tactic() override {
         dealloc(m_imp);
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_params = p;
         m_imp->updt_params(p);
     }
 
-    virtual void collect_param_descrs(param_descrs & r) {
+    void collect_param_descrs(param_descrs & r) override {
         th_rewriter::get_param_descrs(r);
     }
     
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
+    void operator()(goal_ref const & in,
+                    goal_ref_buffer & result,
+                    model_converter_ref & mc,
+                    proof_converter_ref & pc,
+                    expr_dependency_ref & core) override {
         try {
             (*m_imp)(in, result, mc, pc, core);
         }
@@ -333,7 +333,7 @@ public:
         }
     }
     
-    virtual void cleanup() {
+    void cleanup() override {
         imp * d = alloc(imp, m_imp->m, m_params);
         std::swap(d, m_imp);        
         dealloc(d);

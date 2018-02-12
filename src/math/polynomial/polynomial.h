@@ -192,7 +192,7 @@ namespace polynomial {
     private:
         imp * m_imp;
     public:
-        manager(reslimit& lim, numeral_manager & m, monomial_manager * mm = 0);
+        manager(reslimit& lim, numeral_manager & m, monomial_manager * mm = nullptr);
         manager(reslimit& lim, numeral_manager & m, small_object_allocator * a);
         ~manager();
 
@@ -227,13 +227,13 @@ namespace polynomial {
             friend class manager;
             del_eh * m_next;
         public:
-            del_eh():m_next(0) {}
+            del_eh():m_next(nullptr) {}
             virtual void operator()(polynomial * p) = 0;
         };
 
         /**
            \brief Install a "delete polynomial" event handler.
-           The even hanlder is not owned by the polynomial manager.
+           The event handler is not owned by the polynomial manager.
            If eh = 0, then it uninstall the event handler.
         */
         void add_del_eh(del_eh * eh);
@@ -426,7 +426,7 @@ namespace polynomial {
         polynomial * flip_sign_if_lm_neg(polynomial const * p);
 
         /**
-           \breif Return the gcd g of p and q.
+           \brief Return the gcd g of p and q.
         */
         void gcd(polynomial const * p, polynomial const * q, polynomial_ref & g);
 
@@ -853,7 +853,7 @@ namespace polynomial {
         void resultant(polynomial const * p, polynomial const * q, var x, polynomial_ref & r);
         
         /**
-           \brief Stroe in r the discriminant of p with respect to variable x.
+           \brief Store in r the discriminant of p with respect to variable x.
            discriminant(p, x, r) == resultant(p, derivative(p, x), x, r)
         */
         void discriminant(polynomial const * p, var x, polynomial_ref & r);
@@ -959,7 +959,7 @@ namespace polynomial {
         }
 
         /**
-           \brief Apply substiution [x -> p/q] in r.
+           \brief Apply substitution [x -> p/q] in r.
            That is, given r \in Z[x, y_1, .., y_m] return
            polynomial q^k * r(p/q, y_1, .., y_m), where k is the maximal degree of x in r.
         */

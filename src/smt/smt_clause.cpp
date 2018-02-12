@@ -29,7 +29,7 @@ namespace smt {
                         clause_del_eh * del_eh, bool save_atoms, expr * const * bool_var2expr_map) {
         SASSERT(k == CLS_AUX || js == 0 || !js->in_region());
         SASSERT(num_lits >= 2);
-        unsigned sz                = get_obj_size(num_lits, k, save_atoms, del_eh != 0, js != 0);
+        unsigned sz                = get_obj_size(num_lits, k, save_atoms, del_eh != nullptr, js != nullptr);
         void * mem                 = m.get_allocator().allocate(sz);
         clause * cls               = new (mem) clause();
         cls->m_num_literals        = num_lits;
@@ -38,8 +38,8 @@ namespace smt {
         cls->m_reinit              = save_atoms;
         cls->m_reinternalize_atoms = save_atoms;
         cls->m_has_atoms           = save_atoms;
-        cls->m_has_del_eh          = del_eh != 0;
-        cls->m_has_justification   = js != 0;
+        cls->m_has_del_eh          = del_eh != nullptr;
+        cls->m_has_justification   = js != nullptr;
         cls->m_deleted             = false;
         SASSERT(!m.proofs_enabled() || js != 0);
         memcpy(cls->m_lits, lits, sizeof(literal) * num_lits);
@@ -92,7 +92,7 @@ namespace smt {
         unsigned num_atoms = get_num_atoms();
         for (unsigned i = 0; i < num_atoms; i++) {
             m.dec_ref(get_atom(i));
-            const_cast<expr**>(get_atoms_addr())[i] = 0;
+            const_cast<expr**>(get_atoms_addr())[i] = nullptr;
         }
     }
 

@@ -151,10 +151,10 @@ static void test_solver_semantics(ast_manager& m, expr_ref_vector const& vars, v
         std::cout << fml1 << " " << fml2 << "\n";
         th_rw(fml2, result2, proof);
         ENSURE(m.is_true(result2) || m.is_false(result2));
-        lbool res = slv->check_sat(0,0);
+        lbool res = slv->check_sat(0,nullptr);
         VERIFY(res == l_true);
         slv->assert_expr(m.is_true(result2) ? m.mk_not(result1) : result1.get());
-        res = slv->check_sat(0,0);
+        res = slv->check_sat(0,nullptr);
         VERIFY(res == l_false);
     }
 }

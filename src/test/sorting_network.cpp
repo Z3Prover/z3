@@ -28,7 +28,7 @@ struct ast_ext {
                 return m.mk_implies(a, b);
         }
         UNREACHABLE();
-        return 0;
+        return nullptr;
     }
     T mk_default() {
         return m.mk_false();

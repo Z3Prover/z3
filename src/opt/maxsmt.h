@@ -73,15 +73,15 @@ namespace opt {
     public:
         maxsmt_solver_base(maxsat_context& c, weights_t& ws, expr_ref_vector const& soft); 
 
-        virtual ~maxsmt_solver_base() {}        
-        virtual rational get_lower() const { return m_lower; }
-        virtual rational get_upper() const { return m_upper; }
-        virtual bool get_assignment(unsigned index) const { return m_assignment[index]; }
-        virtual void collect_statistics(statistics& st) const { }
-        virtual void get_model(model_ref& mdl, svector<symbol>& labels) { mdl = m_model.get(); labels = m_labels;}
+        ~maxsmt_solver_base() override {}
+        rational get_lower() const override { return m_lower; }
+        rational get_upper() const override { return m_upper; }
+        bool get_assignment(unsigned index) const override { return m_assignment[index]; }
+        void collect_statistics(statistics& st) const override { }
+        void get_model(model_ref& mdl, svector<symbol>& labels) override { mdl = m_model.get(); labels = m_labels;}
         virtual void commit_assignment();
         void set_model() { s().get_model(m_model); s().get_labels(m_labels); }
-        virtual void updt_params(params_ref& p);
+        void updt_params(params_ref& p) override;
         solver& s();
         bool init();
         void set_mus(bool f);
@@ -147,6 +147,7 @@ namespace opt {
         bool get_assignment(unsigned index) const;
         void display_answer(std::ostream& out) const;        
         void collect_statistics(statistics& st) const;
+        void model_updated(model* mdl);
     private:
         bool is_maxsat_problem(weights_t& ws) const;        
         void verify_assignment();

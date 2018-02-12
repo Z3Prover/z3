@@ -128,7 +128,7 @@ namespace smt {
 
     unsigned qi_queue::get_new_gen(quantifier * q, unsigned generation, float cost) {
         // max_top_generation and min_top_generation are not available for computing inc_gen
-        set_values(q, 0, generation, 0, 0, cost);
+        set_values(q, nullptr, generation, 0, 0, cost);
         float r = m_evaluator(m_new_gen_function, m_vals.size(), m_vals.c_ptr());
         return static_cast<unsigned>(r);
     }

@@ -42,7 +42,7 @@ dl_interface::dl_interface(datalog::context& ctx) :
     m_ctx(ctx),
     m_spacer_rules(ctx),
     m_old_rules(ctx),
-    m_context(0),
+    m_context(nullptr),
     m_refs(ctx.get_manager())
 {
     m_context = alloc(spacer::context, ctx.get_params(), ctx.get_manager());

@@ -122,7 +122,7 @@ namespace nlsat {
     }
     
     void interval_set_manager::del(interval_set * s) {
-        if (s == 0)
+        if (s == nullptr)
             return;
         unsigned num    = s->m_num_intervals;
         unsigned obj_sz = interval_set::get_obj_size(num);
@@ -270,9 +270,9 @@ namespace nlsat {
 
     interval_set * interval_set_manager::mk_union(interval_set const * s1, interval_set const * s2) {
         TRACE("nlsat_interval", tout << "mk_union\ns1: "; display(tout, s1); tout << "\ns2: "; display(tout, s2); tout << "\n";);
-        if (s1 == 0 || s1 == s2)
+        if (s1 == nullptr || s1 == s2)
             return const_cast<interval_set*>(s2);
-        if (s2 == 0)
+        if (s2 == nullptr)
             return const_cast<interval_set*>(s1);
         if (s1->m_full)
             return const_cast<interval_set*>(s1);
@@ -514,22 +514,22 @@ namespace nlsat {
     }
 
     bool interval_set_manager::is_full(interval_set const * s) {
-        if (s == 0)
+        if (s == nullptr)
             return false;
         return s->m_full == 1;
     }
 
     unsigned interval_set_manager::num_intervals(interval_set const * s) const {
-        if (s == 0) return 0;
+        if (s == nullptr) return 0;
         return s->m_num_intervals;
     }
     
     bool interval_set_manager::subset(interval_set const * s1, interval_set const * s2) {
         if (s1 == s2)
             return true;
-        if (s1 == 0)
+        if (s1 == nullptr)
             return true;
-        if (s2 == 0)
+        if (s2 == nullptr)
             return false;
         if (s2->m_full)
             return true;
@@ -616,7 +616,7 @@ namespace nlsat {
     }
 
     bool interval_set_manager::set_eq(interval_set const * s1, interval_set const * s2) {
-        if (s1 == 0 || s2 == 0)
+        if (s1 == nullptr || s2 == nullptr)
             return s1 == s2;
         if (s1->m_full || s2->m_full)
             return s1->m_full == s2->m_full;
@@ -625,7 +625,7 @@ namespace nlsat {
     }
         
     bool interval_set_manager::eq(interval_set const * s1, interval_set const * s2) {
-        if (s1 == 0 || s2 == 0)
+        if (s1 == nullptr || s2 == nullptr)
             return s1 == s2;
         if (s1->m_num_intervals != s2->m_num_intervals)
             return false;
@@ -674,7 +674,7 @@ namespace nlsat {
 
     void interval_set_manager::peek_in_complement(interval_set const * s, bool is_int, anum & w, bool randomize) {
         SASSERT(!is_full(s));
-        if (s == 0) {
+        if (s == nullptr) {
             if (randomize) {
                 int num = m_rand() % 2 == 0 ? 1 : -1;
 #define MAX_RANDOM_DEN_K 4
@@ -744,7 +744,7 @@ namespace nlsat {
     }
 
     void interval_set_manager::display(std::ostream & out, interval_set const * s) const {
-        if (s == 0) {
+        if (s == nullptr) {
             out << "{}";
             return;
         }

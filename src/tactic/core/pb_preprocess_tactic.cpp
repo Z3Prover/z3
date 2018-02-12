@@ -48,7 +48,7 @@ class pb_preproc_model_converter : public model_converter {
 public:
     pb_preproc_model_converter(ast_manager& m):m(m), pb(m), m_refs(m) {}
 
-    virtual void operator()(model_ref & mdl, unsigned goal_idx) {
+    void operator()(model_ref & mdl, unsigned goal_idx) override {
         SASSERT(goal_idx == 0);
         for (unsigned i = 0; i < m_const.size(); ++i) {
             mdl->register_decl(m_const[i].first->get_decl(), m_const[i].second);
@@ -63,7 +63,7 @@ public:
         set_value_p(to_app(e), p?m.mk_true():m.mk_false());        
     }
 
-    virtual model_converter * translate(ast_translation & translator) {
+    model_converter * translate(ast_translation & translator) override {
         pb_preproc_model_converter* mc = alloc(pb_preproc_model_converter, translator.to());
         for (unsigned i = 0; i < m_const.size(); ++i) {
             mc->set_value_p(translator(m_const[i].first), translator(m_const[i].second));
@@ -136,20 +136,19 @@ public:
     pb_preprocess_tactic(ast_manager& m, params_ref const& p = params_ref()): 
         m(m), pb(m), m_r(m) {}
 
-    virtual ~pb_preprocess_tactic() {}
+    ~pb_preprocess_tactic() override {}
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(pb_preprocess_tactic, m);
     }
     
-    virtual void operator()(
-        goal_ref const & g, 
-        goal_ref_buffer & result, 
-        model_converter_ref & mc, 
-        proof_converter_ref & pc,
-        expr_dependency_ref & core) {
+    void operator()(goal_ref const & g,
+                    goal_ref_buffer & result,
+                    model_converter_ref & mc,
+                    proof_converter_ref & pc,
+                    expr_dependency_ref & core) override {
         SASSERT(g->is_well_sorted());
-        pc = 0; core = 0;
+        pc = nullptr; core = nullptr;
 
         if (g->proofs_enabled()) {
             throw tactic_exception("pb-preprocess does not support proofs");
@@ -251,7 +250,7 @@ public:
                 if (!to_ge(g->form(k), args2, coeffs2, k2)) continue;
                 if (subsumes(args1, coeffs1, k1, args2, coeffs2, k2)) {
                     IF_VERBOSE(3, verbose_stream() << "replace " << mk_pp(g->form(k), m) << "\n";);
-                    g->update(k, m.mk_true(), 0, m.mk_join(g->dep(m_ge[i]), g->dep(k))); 
+                    g->update(k, m.mk_true(), nullptr, m.mk_join(g->dep(m_ge[i]), g->dep(k)));
                     m_progress = true;
                 }
             }
@@ -262,15 +261,15 @@ public:
         return m_progress;
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
     }
 
-    virtual void cleanup() {
+    void cleanup() override {
     }
 
 private:
 
-    void reset() {
+    void reset() override {
         m_ge.reset();
         m_other.reset();
         m_vars.reset();
@@ -329,12 +328,12 @@ private:
                 for (unsigned j = 0; j < cuts.size(); ++j) {
                     unsigned end = cuts[j];
                     fml1 = decompose_cut(a, start, end, cut_args, cut_coeffs); 
-                    g->assert_expr(fml1, 0, g->dep(i));
+                    g->assert_expr(fml1, nullptr, g->dep(i));
                     start = end;
                     TRACE("pb", tout << fml1 << "\n";);
                 }
                 fml2 = pb.mk_ge(cut_args.size(), cut_coeffs.c_ptr(), cut_args.c_ptr(), pb.get_k(e));
-                g->update(i, fml2, 0, g->dep(i));
+                g->update(i, fml2, nullptr, g->dep(i));
                 TRACE("pb", tout << fml2 << "\n";);
             }
         }
@@ -579,8 +578,8 @@ private:
               tout << "resolve: " << mk_pp(fml1, m) << "\n" << mk_pp(fml2, m) << "\n" << tmp1 << "\n";
               tout << "to\n" << mk_pp(fml2, m) << " -> " << tmp2 << "\n";);
 
-        g->update(idx2, tmp2, 0, m.mk_join(g->dep(idx1), g->dep(idx2)));
-        g->update(idx1, m.mk_true(), 0, 0); 
+        g->update(idx2, tmp2, nullptr, m.mk_join(g->dep(idx1), g->dep(idx2)));
+        g->update(idx1, m.mk_true(), nullptr, nullptr);
         m_progress = true;
         //IF_VERBOSE(0, if (!g->inconsistent()) display_annotation(verbose_stream(), g););
     }
@@ -652,7 +651,7 @@ private:
                 }
             }
         }
-        m_r.set_substitution(0);
+        m_r.set_substitution(nullptr);
     }
 
     bool subsumes(expr_ref_vector const& args1, 

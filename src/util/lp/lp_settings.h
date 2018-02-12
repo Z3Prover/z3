@@ -109,7 +109,7 @@ private:
         default_lp_resource_limit(lp_settings& s): m_settings(s) {
             m_sw.start();
         }
-        virtual bool get_cancel_flag() {
+        bool get_cancel_flag() override {
             return (m_sw.get_current_seconds()  > m_settings.time_limit);
         }
     };

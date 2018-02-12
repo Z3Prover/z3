@@ -29,7 +29,7 @@ class expr2subpaving {
     struct imp;
     imp *  m_imp;
 public:
-    expr2subpaving(ast_manager & m, subpaving::context & s, expr2var * e2v = 0);
+    expr2subpaving(ast_manager & m, subpaving::context & s, expr2var * e2v = nullptr);
     ~expr2subpaving();
 
     ast_manager & m() const;

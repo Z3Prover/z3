@@ -39,7 +39,7 @@ namespace qe {
             imp*            m_imp;
             
             rw_cfg(ast_manager& m, array_util& a):
-                m(m), a(a), m_lits(m), m_model(0) {}
+                m(m), a(a), m_lits(m), m_model(nullptr) {}
             
             br_status reduce_app(func_decl* f, unsigned n, expr* const* args, expr_ref& result, proof_ref & pr) {
                 if (a.is_select(f) && a.is_store(args[0])) {                    

@@ -108,7 +108,7 @@ namespace smt {
                 if (n->get_family_id() != m_manager.get_basic_family_id())
                     collect(arg, n->get_decl(), j);
                 else
-                    collect(arg, 0, 0);
+                    collect(arg, nullptr, 0);
             }
         }
     }
@@ -157,7 +157,7 @@ namespace smt {
         flet<bool> l(m_conservative, conservative);
         init(q);
         TRACE("collector", tout << "model checking: #" << q->get_id() << "\n" << mk_pp(q, m_manager) << "\n";);
-        collect(q->get_expr(), 0, 0);
+        collect(q->get_expr(), nullptr, 0);
         save_result(candidates);
     }
 
@@ -251,7 +251,7 @@ namespace smt {
                     TRACE("quick_checker_sizes", tout << "found new candidate\n"; 
                           for (unsigned i = 0; i < m_num_bindings; i++) tout << "#" << m_bindings[i]->get_owner_id() << " "; tout << "\n";);
                     unsigned max_generation = get_max_generation(m_num_bindings, m_bindings.c_ptr());
-                    if (m_context.add_instance(q, 0 /* no pattern was used */, m_num_bindings, m_bindings.c_ptr(), max_generation, 
+                    if (m_context.add_instance(q, nullptr /* no pattern was used */, m_num_bindings, m_bindings.c_ptr(), max_generation,
                                                0,  // min_top_generation is only available for instances created by the MAM
                                                0,  // max_top_generation is only available for instances created by the MAM
                                                empty_used_enodes))

@@ -187,8 +187,8 @@ namespace z3 {
            \brief The C++ API uses by defaults exceptions on errors. 
            For applications that don't work well with exceptions (there should be only few)
            you have the ability to turn off exceptions. The tradeoffs are that applications
-           have to very careful about using check_error() after calls that may result in an errornous
-           state.
+           have to very careful about using check_error() after calls that may result in an
+           erroneous state.
          */
         void set_enable_exceptions(bool f) { m_enable_exceptions = f; }
 
@@ -213,7 +213,7 @@ namespace z3 {
 
         /**
            \brief Interrupt the current procedure being executed by any object managed by this context.
-           This is a soft interruption: there is no guarantee the object will actualy stop.
+           This is a soft interruption: there is no guarantee the object will actually stop.
         */
         void interrupt() { Z3_interrupt(m_ctx); }
 
@@ -709,7 +709,7 @@ namespace z3 {
 
            It only makes sense to use this function if the caller can ensure that
            the result is an integer or if exceptions are enabled. 
-           If exceptions are disabled, then use the the is_numeral_i function.
+           If exceptions are disabled, then use the is_numeral_i function.
            
            \pre is_numeral()
         */
@@ -729,7 +729,7 @@ namespace z3 {
 
            It only makes sense to use this function if the caller can ensure that
            the result is an integer or if exceptions are enabled. 
-           If exceptions are disabled, then use the the is_numeral_u function.           
+           If exceptions are disabled, then use the is_numeral_u function.
            \pre is_numeral()
         */
         unsigned get_numeral_uint() const {
@@ -2101,6 +2101,19 @@ namespace z3 {
             check_error();
             return model(ctx(), new_m);
         }
+        expr as_expr() const {
+            unsigned n = size();
+            if (n == 0)
+                return ctx().bool_val(true);
+            else if (n == 1)
+                return operator[](0).as_expr();
+            else {
+                array<Z3_ast> args(n);
+                for (unsigned i = 0; i < n; i++)
+                    args[i] = operator[](i).as_expr();
+                return expr(ctx(), Z3_mk_or(ctx(), n, args.ptr()));
+            }
+        }
         friend std::ostream & operator<<(std::ostream & out, apply_result const & r);
     };
     inline std::ostream & operator<<(std::ostream & out, apply_result const & r) { out << Z3_apply_result_to_string(r.ctx(), r); return out; }
@@ -2524,11 +2537,11 @@ namespace z3 {
     inline expr context::real_val(__uint64 n) { Z3_ast r = Z3_mk_unsigned_int64(m_ctx, n, real_sort()); check_error(); return expr(*this, r); }
     inline expr context::real_val(char const * n) { Z3_ast r = Z3_mk_numeral(m_ctx, n, real_sort()); check_error(); return expr(*this, r); }
 
-    inline expr context::bv_val(int n, unsigned sz) { Z3_ast r = Z3_mk_int(m_ctx, n, bv_sort(sz)); check_error(); return expr(*this, r); }
-    inline expr context::bv_val(unsigned n, unsigned sz) { Z3_ast r = Z3_mk_unsigned_int(m_ctx, n, bv_sort(sz)); check_error(); return expr(*this, r); }
-    inline expr context::bv_val(__int64 n, unsigned sz) { Z3_ast r = Z3_mk_int64(m_ctx, n, bv_sort(sz)); check_error(); return expr(*this, r); }
-    inline expr context::bv_val(__uint64 n, unsigned sz) { Z3_ast r = Z3_mk_unsigned_int64(m_ctx, n, bv_sort(sz)); check_error(); return expr(*this, r); }
-    inline expr context::bv_val(char const * n, unsigned sz) { Z3_ast r = Z3_mk_numeral(m_ctx, n, bv_sort(sz)); check_error(); return expr(*this, r); }
+    inline expr context::bv_val(int n, unsigned sz) { sort s = bv_sort(sz); Z3_ast r = Z3_mk_int(m_ctx, n, s); check_error(); return expr(*this, r); }
+    inline expr context::bv_val(unsigned n, unsigned sz) { sort s = bv_sort(sz); Z3_ast r = Z3_mk_unsigned_int(m_ctx, n, s); check_error(); return expr(*this, r); }
+    inline expr context::bv_val(__int64 n, unsigned sz) { sort s = bv_sort(sz); Z3_ast r = Z3_mk_int64(m_ctx, n, s); check_error(); return expr(*this, r); }
+    inline expr context::bv_val(__uint64 n, unsigned sz) { sort s = bv_sort(sz); Z3_ast r = Z3_mk_unsigned_int64(m_ctx, n, s); check_error(); return expr(*this, r); }
+    inline expr context::bv_val(char const * n, unsigned sz) { sort s = bv_sort(sz); Z3_ast r = Z3_mk_numeral(m_ctx, n, s); check_error(); return expr(*this, r); }
     inline expr context::bv_val(unsigned n, bool const* bits) { 
         array<Z3_bool> _bits(n);
         for (unsigned i = 0; i < n; ++i) _bits[i] = bits[i] ? 1 : 0;

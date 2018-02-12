@@ -119,9 +119,9 @@ void report_tactic_progress(char const * id, unsigned val);
 
 class skip_tactic : public tactic {
 public:
-    virtual void operator()(goal_ref const & in, goal_ref_buffer & result, model_converter_ref & mc, proof_converter_ref & pc, expr_dependency_ref & core);
-    virtual void cleanup() {}
-    virtual tactic * translate(ast_manager & m) { return this; }
+    void operator()(goal_ref const & in, goal_ref_buffer & result, model_converter_ref & mc, proof_converter_ref & pc, expr_dependency_ref & core) override;
+    void cleanup() override {}
+    tactic * translate(ast_manager & m) override { return this; }
 };
 
 tactic * mk_skip_tactic();

@@ -5741,7 +5741,7 @@ class ModelRef(Z3PPObject):
             return None
 
     def num_sorts(self):
-        """Return the number of unintepreted sorts that contain an interpretation in the model `self`.
+        """Return the number of uninterpreted sorts that contain an interpretation in the model `self`.
 
         >>> A = DeclareSort('A')
         >>> a, b = Consts('a b', A)
@@ -5756,7 +5756,7 @@ class ModelRef(Z3PPObject):
         return int(Z3_model_get_num_sorts(self.ctx.ref(), self.model))
 
     def get_sort(self, idx):
-        """Return the unintepreted sort at position `idx` < self.num_sorts().
+        """Return the uninterpreted sort at position `idx` < self.num_sorts().
 
         >>> A = DeclareSort('A')
         >>> B = DeclareSort('B')
@@ -5796,7 +5796,7 @@ class ModelRef(Z3PPObject):
         return [ self.get_sort(i) for i in range(self.num_sorts()) ]
 
     def get_universe(self, s):
-        """Return the intepretation for the uninterpreted sort `s` in the model `self`.
+        """Return the interpretation for the uninterpreted sort `s` in the model `self`.
 
         >>> A = DeclareSort('A')
         >>> a, b = Consts('a b', A)
@@ -5816,7 +5816,7 @@ class ModelRef(Z3PPObject):
             return None
 
     def __getitem__(self, idx):
-        """If `idx` is an integer, then the declaration at position `idx` in the model `self` is returned. If `idx` is a declaration, then the actual interpreation is returned.
+        """If `idx` is an integer, then the declaration at position `idx` in the model `self` is returned. If `idx` is a declaration, then the actual interpretation is returned.
 
         The elements can be retrieved using position or the actual declaration.
 
@@ -5860,7 +5860,7 @@ class ModelRef(Z3PPObject):
         return None
 
     def decls(self):
-        """Return a list with all symbols that have an interpreation in the model `self`.
+        """Return a list with all symbols that have an interpretation in the model `self`.
         >>> f = Function('f', IntSort(), IntSort())
         >>> x = Int('x')
         >>> s = Solver()
@@ -9838,7 +9838,7 @@ def Full(s):
     re.all
     >>> e1 = Full(ReSort(StringSort()))
     >>> print(e1)
-    re.allchar
+    re.all
     """
     if isinstance(s, ReSortRef):
        return ReRef(Z3_mk_re_full(s.ctx_ref(), s.ast), s.ctx)

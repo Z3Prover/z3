@@ -20,7 +20,7 @@ Revision History:
 #include "smt/proto_model/proto_model.h"
 
 struct_factory::value_set * struct_factory::get_value_set(sort * s) {
-    value_set * set = 0;
+    value_set * set = nullptr;
     if (!m_sort2value_set.find(s, set)) {
         set = alloc(value_set);
         m_sort2value_set.insert(s, set);

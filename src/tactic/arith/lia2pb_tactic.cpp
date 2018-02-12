@@ -197,7 +197,7 @@ class lia2pb_tactic : public tactic {
             fail_if_proof_generation("lia2pb", g);
             m_produce_models      = g->models_enabled();
             m_produce_unsat_cores = g->unsat_core_enabled();
-            mc = 0; pc = 0; core = 0; result.reset();
+            mc = nullptr; pc = nullptr; core = nullptr; result.reset();
             tactic_report report("lia2pb", *g);
             m_bm.reset(); m_rw.reset(); m_new_deps.reset();
 
@@ -224,8 +224,8 @@ class lia2pb_tactic : public tactic {
             if (!check_num_bits())
                 throw tactic_exception("lia2pb failed, number of necessary bits exceeds specified threshold (use option :lia2pb-total-bits to increase threshold)");
             
-            extension_model_converter * mc1 = 0;
-            filter_model_converter    * mc2 = 0;
+            extension_model_converter * mc1 = nullptr;
+            filter_model_converter    * mc2 = nullptr;
             if (m_produce_models) {
                 mc1 = alloc(extension_model_converter, m);
                 mc2 = alloc(filter_model_converter, m);
@@ -251,7 +251,7 @@ class lia2pb_tactic : public tactic {
                     rational a(1);
                     unsigned num_bits = u.get_num_bits();
                     for (unsigned i = 0; i < num_bits; i++) {           
-                        app * x_prime = m.mk_fresh_const(0, m_util.mk_int());
+                        app * x_prime = m.mk_fresh_const(nullptr, m_util.mk_int());
                         g->assert_expr(m_util.mk_le(zero, x_prime));
                         g->assert_expr(m_util.mk_le(x_prime, one));
                         if (a.is_one())
@@ -264,14 +264,14 @@ class lia2pb_tactic : public tactic {
                     }
                     SASSERT(def_args.size() > 1);
                     expr * def = m_util.mk_add(def_args.size(), def_args.c_ptr());
-                    expr_dependency * dep = 0;
+                    expr_dependency * dep = nullptr;
                     if (m_produce_unsat_cores) {
                         dep = m.mk_join(m_bm.lower_dep(x), m_bm.upper_dep(x));
-                        if (dep != 0)
+                        if (dep != nullptr)
                             m_new_deps.push_back(dep);
                     }
                     TRACE("lia2pb", tout << mk_ismt2_pp(x, m) << " -> " << dep << "\n";);
-                    subst.insert(x, def, 0, dep);
+                    subst.insert(x, def, nullptr, dep);
                     if (m_produce_models) {
                         mc1->insert(to_app(x)->get_decl(), def);
                     }
@@ -287,7 +287,7 @@ class lia2pb_tactic : public tactic {
             unsigned size = g->size();
             for (unsigned idx = 0; idx < size; idx++) {
                 expr * curr = g->form(idx);
-                expr_dependency * dep = 0;
+                expr_dependency * dep = nullptr;
                 m_rw(curr, new_curr, new_pr);
                 if (m_produce_unsat_cores) {
                     dep = m.mk_join(m_rw.get_used_dependencies(), g->dep(idx));
@@ -313,30 +313,30 @@ public:
         m_imp = alloc(imp, m, p);
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(lia2pb_tactic, m, m_params);
     }
 
-    virtual ~lia2pb_tactic() {
+    ~lia2pb_tactic() override {
         dealloc(m_imp);
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_params = p;
         m_imp->updt_params(p);
     }
 
-    virtual void collect_param_descrs(param_descrs & r) { 
+    void collect_param_descrs(param_descrs & r) override {
         r.insert("lia2pb_partial", CPK_BOOL, "(default: false) partial lia2pb conversion.");
         r.insert("lia2pb_max_bits", CPK_UINT, "(default: 32) maximum number of bits to be used (per variable) in lia2pb.");
         r.insert("lia2pb_total_bits", CPK_UINT, "(default: 2048) total number of bits to be used (per problem) in lia2pb.");
     }
 
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
+    void operator()(goal_ref const & in,
+                    goal_ref_buffer & result,
+                    model_converter_ref & mc,
+                    proof_converter_ref & pc,
+                    expr_dependency_ref & core) override {
         try {
             (*m_imp)(in, result, mc, pc, core);
         }
@@ -345,7 +345,7 @@ public:
         }
     }
     
-    virtual void cleanup() {
+    void cleanup() override {
         imp * d = alloc(imp, m_imp->m, m_params);
         std::swap(d, m_imp);        
         dealloc(d);

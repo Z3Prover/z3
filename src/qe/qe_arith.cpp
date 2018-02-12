@@ -126,7 +126,7 @@ namespace qe {
                 map<rational, expr*, rational::hash_proc, rational::eq_proc> values;
                 bool found_eq = false;
                 for (unsigned i = 0; !found_eq && i < to_app(lit)->get_num_args(); ++i) {
-                    expr* arg1 = to_app(lit)->get_arg(i), *arg2 = 0;
+                    expr* arg1 = to_app(lit)->get_arg(i), *arg2 = nullptr;
                     rational r;
                     expr_ref val = eval(arg1);
                     if (!a.is_numeral(val, r)) return false;
