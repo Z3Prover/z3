@@ -3439,7 +3439,7 @@ namespace sat {
       - A >= k       subsumes A + B >= k' for k' <= k
       - A + A' >= k  subsumes A + B >= k' for k' + |A'| <= k
       - A + lit >= k self subsumes A + ~lit + B >= k' into A + B >= k' for k' <= k
-      - TBD: consider version that generalizes self-subsumption to more than one literal
+      - version that generalizes self-subsumption to more than one literal
         A + ~L + B >= k'   =>    A + B >= k'    if A + A' + L >= k and k' + |L| + |A'| <= k
      */
     bool ba_solver::subsumes(card& c1, card& c2, literal_vector & comp) {
@@ -3480,12 +3480,14 @@ namespace sat {
             }
         }
 
-        if (!comp.empty()) {
-            // self-subsumption is TBD.
+        unsigned c1_exclusive = c1.size() - common - comp.size();
+        bool result = c1_exclusive + 1 <= c1.k();
+
+        if (!comp.empty() && result) {
+            IF_VERBOSE(10, verbose_stream() << "self-subsume clause " << c2 << " is TBD\n";);
             return false;
         }
-        unsigned c1_exclusive = c1.size() - common - comp.size();
-        return c1_exclusive + 1 <= c1.k();
+        return result;
     }
 
     /*
@@ -3559,22 +3561,20 @@ namespace sat {
                 }
                 else {
                     TRACE("ba", tout << "self subsume cardinality\n";);
-                    IF_VERBOSE(0, 
-                               verbose_stream() << "self-subsume cardinality is TBD\n"; 
+                    IF_VERBOSE(11, 
+                               verbose_stream() << "self-subsume cardinality\n"; 
                                verbose_stream() << c1 << "\n";
                                verbose_stream() << c2 << "\n";);
-#if 0
                     clear_watch(c2);                    
+                    unsigned j = 0;
                     for (unsigned i = 0; i < c2.size(); ++i) {
-                        if (slit == c2[i]) {
-                            c2.swap(i, c2.size() -1);
-                            break;
+                        if (!is_marked(~c2[i])) {
+                            c2[j++] = c2[i];
                         }
                     }
-                    c2.set_size(c2.size() - 1);
+                    c2.set_size(j);
                     init_watch(c2);
                     m_simplify_change = true;
-#endif
                 }
             }
         }
@@ -3594,7 +3594,7 @@ namespace sat {
                     c1.set_learned(false);
                 }
                 else {
-                    IF_VERBOSE(0, verbose_stream() << "self-subsume clause is TBD\n";);
+                    IF_VERBOSE(11, verbose_stream() << "self-subsume clause is TBD\n";);
                     // remove literal slit from c2.
                     TRACE("ba", tout << "TBD remove literals " << slit << " from " << c2 << "\n";);
                 }

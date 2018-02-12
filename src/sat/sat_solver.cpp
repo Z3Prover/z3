@@ -1860,7 +1860,7 @@ namespace sat {
     void solver::gc_half(char const * st_name) {
         TRACE("sat", tout << "gc\n";);
         unsigned sz     = m_learned.size();
-        unsigned new_sz = sz/2;
+        unsigned new_sz = sz/2; // std::min(sz/2, m_clauses.size()*2);
         unsigned j      = new_sz;
         for (unsigned i = new_sz; i < sz; i++) {
             clause & c = *(m_learned[i]);
