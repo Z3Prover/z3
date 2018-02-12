@@ -718,7 +718,7 @@ public:
             }
         }
 
-        if (upper >= m_upper) {
+        if (upper > m_upper) {
             return;
         }
 
