@@ -40,7 +40,7 @@ void ast_pp_util::display_decls(std::ostream& out) {
     ast_smt_pp pp(m);
     unsigned n = coll.get_num_sorts();
     for (unsigned i = 0; i < n; ++i) {
-        pp.display_ast_smt2(out, coll.get_sorts()[i], 0, 0, 0);
+        pp.display_ast_smt2(out, coll.get_sorts()[i], 0, 0, nullptr);
     }
     n = coll.get_num_decls();
     for (unsigned i = 0; i < n; ++i) {

@@ -72,17 +72,17 @@ namespace spacer {
     //
 
     model_evaluator_util::model_evaluator_util(ast_manager& m) :
-        m(m), m_mev(nullptr) { 
-        reset (nullptr); 
+        m(m), m_mev(nullptr) {
+        reset (nullptr);
     }
 
-    model_evaluator_util::~model_evaluator_util() {reset (NULL);}
+    model_evaluator_util::~model_evaluator_util() {reset (nullptr);}
 
 
     void model_evaluator_util::reset(model* model) {
         if (m_mev) {
             dealloc(m_mev);
-            m_mev = NULL;
+            m_mev = nullptr;
         }
         m_model = model;
         if (!m_model) { return; }

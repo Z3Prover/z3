@@ -111,7 +111,7 @@ class dom_simplify_tactic : public tactic {
 
     bool is_subexpr(expr * a, expr * b);
 
-    expr_ref get_cached(expr* t) { expr* r = 0; if (!m_result.find(t, r)) r = t; return expr_ref(r, m); }
+    expr_ref get_cached(expr* t) { expr* r = nullptr; if (!m_result.find(t, r)) r = t; return expr_ref(r, m); }
     void cache(expr *t, expr* r) { m_result.insert(t, r); m_trail.push_back(r); }
 
     ptr_vector<expr> const & tree(expr * e);

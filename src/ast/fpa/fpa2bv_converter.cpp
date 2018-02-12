@@ -197,7 +197,7 @@ void fpa2bv_converter::mk_const(func_decl * f, expr_ref & result) {
 #else
         app_ref bv(m);
         unsigned bv_sz = 1 + ebits + (sbits - 1);
-        bv = mk_fresh_const(0, bv_sz);
+        bv = mk_fresh_const(nullptr, bv_sz);
 
         sgn = m_bv_util.mk_extract(bv_sz - 1, bv_sz - 1, bv);
         e = m_bv_util.mk_extract(bv_sz - 2, sbits - 1, bv);
@@ -288,7 +288,7 @@ void fpa2bv_converter::mk_rm_const(func_decl * f, expr_ref & result) {
 #ifdef Z3DEBUG
             "fpa2bv_rm"
 #else
-            0
+            nullptr
 #endif
             , m_bv_util.mk_sort(3));
 
@@ -1274,8 +1274,8 @@ expr_ref fpa2bv_converter::mk_min_max_unspecified(func_decl * f, expr * x, expr 
 
     std::pair<app*, app*> decls(0, 0);
     if (!m_min_max_ufs.find(f, decls)) {
-        decls.first = m.mk_fresh_const(0, m_bv_util.mk_sort(1));
-        decls.second = m.mk_fresh_const(0, m_bv_util.mk_sort(1));
+        decls.first = m.mk_fresh_const(nullptr, m_bv_util.mk_sort(1));
+        decls.second = m.mk_fresh_const(nullptr, m_bv_util.mk_sort(1));
         m_min_max_ufs.insert(f, decls);
         m.inc_ref(f);
         m.inc_ref(decls.first);
@@ -2681,11 +2681,11 @@ void fpa2bv_converter::mk_to_fp_real_int(func_decl * f, unsigned num, expr * con
         a_tz = m_plugin->mk_numeral(tz);
 
         expr_ref bv_nte(m), bv_nta(m), bv_tp(m), bv_tn(m), bv_tz(m);
-        mk_numeral(a_nte->get_decl(), 0, 0, bv_nte);
-        mk_numeral(a_nta->get_decl(), 0, 0, bv_nta);
-        mk_numeral(a_tp->get_decl(), 0, 0, bv_tp);
-        mk_numeral(a_tn->get_decl(), 0, 0, bv_tn);
-        mk_numeral(a_tz->get_decl(), 0, 0, bv_tz);
+        mk_numeral(a_nte->get_decl(), 0, nullptr, bv_nte);
+        mk_numeral(a_nta->get_decl(), 0, nullptr, bv_nta);
+        mk_numeral(a_tp->get_decl(), 0, nullptr, bv_tp);
+        mk_numeral(a_tn->get_decl(), 0, nullptr, bv_tn);
+        mk_numeral(a_tz->get_decl(), 0, nullptr, bv_tz);
 
         expr_ref c1(m), c2(m), c3(m), c4(m);
         c1 = m.mk_eq(bv_rm, m_bv_util.mk_numeral(BV_RM_TO_POSITIVE, 3));
@@ -4103,7 +4103,7 @@ void fpa2bv_converter::reset(void) {
 func_decl * fpa2bv_converter::mk_bv_uf(func_decl * f, sort * const * domain, sort * range) {
     func_decl * res;
     if (!m_uf2bvuf.find(f, res)) {
-        res = m.mk_fresh_func_decl(0, f->get_arity(), domain, range);
+        res = m.mk_fresh_func_decl(nullptr, f->get_arity(), domain, range);
         m_uf2bvuf.insert(f, res);
         m.inc_ref(f);
         m.inc_ref(res);

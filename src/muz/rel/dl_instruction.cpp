@@ -36,7 +36,7 @@ namespace datalog {
     
     execution_context::execution_context(context & context) 
         : m_context(context),
-        m_stopwatch(0),
+        m_stopwatch(nullptr),
         m_timelimit_ms(0) {}
 
     execution_context::~execution_context() {
@@ -271,10 +271,10 @@ namespace datalog {
         bool perform(execution_context & ctx) override {
             if (ctx.reg(m_src)) log_verbose(ctx);            
             if (m_clone) {
-                ctx.set_reg(m_tgt, ctx.reg(m_src) ? ctx.reg(m_src)->clone() : 0);
+                ctx.set_reg(m_tgt, ctx.reg(m_src) ? ctx.reg(m_src)->clone() : nullptr);
             }
             else {
-                ctx.set_reg(m_tgt, ctx.reg(m_src) ? ctx.release_reg(m_src) : 0);
+                ctx.set_reg(m_tgt, ctx.reg(m_src) ? ctx.release_reg(m_src) : nullptr);
             }
             return true;
         }
@@ -662,7 +662,7 @@ namespace datalog {
                 relation_base * new_delta = r_tgt.get_plugin().mk_empty(r_tgt);
                 ctx.set_reg(m_delta, new_delta);
             }
-            relation_base * r_delta = (m_delta!=execution_context::void_register) ? ctx.reg(m_delta) : 0;
+            relation_base * r_delta = (m_delta!=execution_context::void_register) ? ctx.reg(m_delta) : nullptr;
 
             relation_union_fn * fn;
 
@@ -687,10 +687,10 @@ namespace datalog {
             else {
                 if (!find_fn(r_tgt, r_src, fn)) {
                     if (m_widen) {
-                        fn = r_src.get_manager().mk_widen_fn(r_tgt, r_src, 0);
+                        fn = r_src.get_manager().mk_widen_fn(r_tgt, r_src, nullptr);
                     }
                     else {
-                        fn = r_src.get_manager().mk_union_fn(r_tgt, r_src, 0);
+                        fn = r_src.get_manager().mk_union_fn(r_tgt, r_src, nullptr);
                     }
                     if (!fn) {
                         std::stringstream sstm;
@@ -1135,7 +1135,7 @@ namespace datalog {
             dealloc(*it);
         }
         m_data.reset();
-        m_observer = 0;
+        m_observer = nullptr;
     }
 
     bool instruction_block::perform(execution_context & ctx) const {

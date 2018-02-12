@@ -85,7 +85,7 @@ class normalize_bounds_tactic : public tactic {
                         model_converter_ref & mc, 
                         proof_converter_ref & pc,
                         expr_dependency_ref & core) {
-            mc = 0; pc = 0; core = 0;
+            mc = nullptr; pc = nullptr; core = nullptr;
             bool produce_models = in->models_enabled();
             bool produce_proofs = in->proofs_enabled();
             tactic_report report("normalize-bounds", *in);
@@ -98,8 +98,8 @@ class normalize_bounds_tactic : public tactic {
                 return;
             }
             
-            extension_model_converter * mc1 = 0;
-            filter_model_converter   * mc2  = 0;
+            extension_model_converter * mc1 = nullptr;
+            filter_model_converter   * mc2  = nullptr;
             if (produce_models) {
                 mc1 = alloc(extension_model_converter, m);
                 mc2 = alloc(filter_model_converter, m);
@@ -116,7 +116,7 @@ class normalize_bounds_tactic : public tactic {
                 if (is_target(x, val)) {
                     num_norm_bounds++;
                     sort * s = m.get_sort(x);
-                    app * x_prime = m.mk_fresh_const(0, s);
+                    app * x_prime = m.mk_fresh_const(nullptr, s);
                     expr * def = m_util.mk_add(x_prime, m_util.mk_numeral(val, s));
                     subst.insert(x, def);
                     if (produce_models) {

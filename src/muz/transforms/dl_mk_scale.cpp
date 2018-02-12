@@ -97,7 +97,7 @@ namespace datalog {
 
         model_converter * translate(ast_translation & translator) override {
             UNREACHABLE();
-            return 0;
+            return nullptr;
         }
     };
 
@@ -116,7 +116,7 @@ namespace datalog {
         
     rule_set * mk_scale::operator()(rule_set const & source) {
         if (!m_ctx.scale()) {
-            return 0;
+            return nullptr;
         }
         rule_manager& rm = source.get_rule_manager();
         rule_set * result = alloc(rule_set, m_ctx);

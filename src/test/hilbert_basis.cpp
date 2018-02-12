@@ -210,7 +210,7 @@ expr_ref hilbert_basis_validate::mk_validate(hilbert_basis& hb) {
 }
 
 
-hilbert_basis* g_hb = 0;
+hilbert_basis* g_hb = nullptr;
 static double  g_start_time;
 
 static void display_statistics(hilbert_basis& hb) {

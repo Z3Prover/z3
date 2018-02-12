@@ -561,16 +561,16 @@ namespace smt {
         bound * upper(theory_var v) const { return m_bounds[1][v]; }
         inf_numeral const & lower_bound(theory_var v) const { SASSERT(lower(v) != 0); return lower(v)->get_value(); }
         inf_numeral const & upper_bound(theory_var v) const { SASSERT(upper(v) != 0); return upper(v)->get_value(); }
-        bool below_lower(theory_var v) const { bound * l = lower(v); return l != 0 && get_value(v) < l->get_value(); }
-        bool above_upper(theory_var v) const { bound * u = upper(v); return u != 0 && get_value(v) > u->get_value(); }
-        bool below_upper(theory_var v) const { bound * u = upper(v); return u == 0 || get_value(v) < u->get_value(); }
-        bool above_lower(theory_var v) const { bound * l = lower(v); return l == 0 || get_value(v) > l->get_value(); }
+        bool below_lower(theory_var v) const { bound * l = lower(v); return l != nullptr && get_value(v) < l->get_value(); }
+        bool above_upper(theory_var v) const { bound * u = upper(v); return u != nullptr && get_value(v) > u->get_value(); }
+        bool below_upper(theory_var v) const { bound * u = upper(v); return u == nullptr || get_value(v) < u->get_value(); }
+        bool above_lower(theory_var v) const { bound * l = lower(v); return l == nullptr || get_value(v) > l->get_value(); }
         bool at_bound(theory_var v) const;
-        bool at_lower(theory_var v) const { bound * l = lower(v); return l != 0 && get_value(v) == l->get_value(); }
-        bool at_upper(theory_var v) const { bound * u = upper(v); return u != 0 && get_value(v) == u->get_value(); }
-        bool is_free(theory_var v) const { return lower(v) == 0 && upper(v) == 0; }
-        bool is_non_free(theory_var v) const { return lower(v) != 0 || upper(v) != 0; }
-        bool is_bounded(theory_var v) const { return lower(v) != 0 && upper(v) != 0; }
+        bool at_lower(theory_var v) const { bound * l = lower(v); return l != nullptr && get_value(v) == l->get_value(); }
+        bool at_upper(theory_var v) const { bound * u = upper(v); return u != nullptr && get_value(v) == u->get_value(); }
+        bool is_free(theory_var v) const { return lower(v) == nullptr && upper(v) == nullptr; }
+        bool is_non_free(theory_var v) const { return lower(v) != nullptr || upper(v) != nullptr; }
+        bool is_bounded(theory_var v) const { return lower(v) != nullptr && upper(v) != nullptr; }
         bool is_free(expr * n) const { 
             SASSERT(get_context().e_internalized(n) && get_context().get_enode(n)->get_th_var(get_id()) != null_theory_var);
             return is_free(get_context().get_enode(n)->get_th_var(get_id())); 

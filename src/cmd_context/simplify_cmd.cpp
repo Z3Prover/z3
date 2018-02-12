@@ -42,7 +42,7 @@ class simplify_cmd : public parametric_cmd {
             }
             m_solver->push();
             m_solver->assert_expr(e);
-            lbool r = m_solver->check_sat(0,0);
+            lbool r = m_solver->check_sat(0,nullptr);
             m_solver->pop(1);
             return r;
         }
@@ -71,11 +71,11 @@ public:
     
     void prepare(cmd_context & ctx) override {
         parametric_cmd::prepare(ctx);
-        m_target   = 0; 
+        m_target   = nullptr;
     }
 
     cmd_arg_kind next_arg_kind(cmd_context & ctx) const override {
-        if (m_target == 0) return CPK_EXPR;
+        if (m_target == nullptr) return CPK_EXPR;
         return parametric_cmd::next_arg_kind(ctx);
     }
     
@@ -84,7 +84,7 @@ public:
     }
     
     void execute(cmd_context & ctx) override {
-        if (m_target == 0)
+        if (m_target == nullptr)
             throw cmd_exception("invalid simplify command, argument expected");
         expr_ref r(ctx.m());
         proof_ref pr(ctx.m());

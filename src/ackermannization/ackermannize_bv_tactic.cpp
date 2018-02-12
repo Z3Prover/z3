@@ -34,7 +34,7 @@ public:
         model_converter_ref & mc,
         proof_converter_ref & pc,
         expr_dependency_ref & core) override {
-        mc = 0;
+        mc = nullptr;
         tactic_report report("ackermannize", *g);
         fail_if_unsat_core_generation("ackermannize", g);
         fail_if_proof_generation("ackermannize", g);
@@ -43,7 +43,7 @@ public:
         expr_ref_vector flas(m);
         const unsigned sz = g->size();
         for (unsigned i = 0; i < sz; i++) flas.push_back(g->form(i));
-        lackr lackr(m, m_p, m_st, flas, NULL);
+        lackr lackr(m, m_p, m_st, flas, nullptr);
 
         // mk result
         goal_ref resg(alloc(goal, *g, true));
@@ -52,9 +52,9 @@ public:
             TRACE("ackermannize", tout << "ackermannize not run due to limit" << std::endl;);
             result.reset();
             result.push_back(g.get());
-            mc = 0;
-            pc = 0;
-            core = 0;
+            mc = nullptr;
+            pc = nullptr;
+            core = nullptr;
             return;
         }
         result.push_back(resg.get());

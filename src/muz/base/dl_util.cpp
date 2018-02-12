@@ -34,7 +34,7 @@ Revision History:
 
 namespace datalog {
 
-    verbose_action::verbose_action(char const* msg, unsigned lvl): m_lvl(lvl), m_sw(0) {
+    verbose_action::verbose_action(char const* msg, unsigned lvl): m_lvl(lvl), m_sw(nullptr) {
         IF_VERBOSE(m_lvl, 
                    (verbose_stream() << msg << "...").flush(); 
                    m_sw = alloc(stopwatch); 
@@ -87,7 +87,7 @@ namespace datalog {
             else {
                 SASSERT(is_var(arg));
                 int vidx      = to_var(arg)->get_idx();
-                var * new_var = 0;
+                var * new_var = nullptr;
                 if (!varidx2var.find(vidx, new_var)) {
                     new_var = m.mk_var(next_idx, to_var(arg)->get_sort());
                     next_idx++;
@@ -428,7 +428,7 @@ namespace datalog {
 
         unsigned tgt_sz = max_var_idx+1;
         unsigned tgt_ofs = tgt_sz-1;
-        tgt.resize(tgt_sz, 0);
+        tgt.resize(tgt_sz, nullptr);
         for(unsigned i=0; i<src_sz; i++) {
             expr * e = src[src_ofs-i];
             if(!e) {
@@ -446,7 +446,7 @@ namespace datalog {
         out << "(";
         for(int i=len-1; i>=0; i--) {
             out << (len-1-i) <<"->";
-            if(cont.get(i)==0) {
+            if(cont.get(i)==nullptr) {
                 out << "{none}";
             }
             else {

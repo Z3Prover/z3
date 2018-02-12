@@ -66,7 +66,7 @@ public:
     void operator()(goal_ref const & g, goal_ref_buffer & result,
                     model_converter_ref & mc, proof_converter_ref & pc,
                     expr_dependency_ref & core) override {
-        mc = 0;
+        mc = nullptr;
         tactic_report report("collect-statistics", *g);
 
         collect_proc cp(m, m_stats);

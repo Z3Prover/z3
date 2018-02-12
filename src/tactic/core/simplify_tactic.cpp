@@ -101,7 +101,7 @@ void simplify_tactic::operator()(goal_ref const & in,
         (*m_imp)(*(in.get()));
         in->inc_depth();
         result.push_back(in.get());
-        mc = 0; pc = 0; core = 0;
+        mc = nullptr; pc = nullptr; core = nullptr;
     }
     catch (rewriter_exception & ex) {
         throw tactic_exception(ex.msg());

@@ -34,7 +34,7 @@ inline model * to_model_ref(Z3_model s) { return to_model(s)->m_model.get(); }
 struct Z3_func_interp_ref : public api::object {
     model_ref     m_model; // must have it to prevent reference to m_func_interp to be killed.
     func_interp * m_func_interp;
-    Z3_func_interp_ref(api::context& c, model * m): api::object(c), m_model(m), m_func_interp(0) {}
+    Z3_func_interp_ref(api::context& c, model * m): api::object(c), m_model(m), m_func_interp(nullptr) {}
     ~Z3_func_interp_ref() override {}
 };
 
@@ -46,7 +46,7 @@ struct Z3_func_entry_ref : public api::object {
     model_ref           m_model; // must have it to prevent reference to m_func_entry to be killed.
     func_interp *       m_func_interp;
     func_entry const *  m_func_entry;
-    Z3_func_entry_ref(api::context& c, model * m):api::object(c), m_model(m), m_func_interp(0), m_func_entry(0) {}
+    Z3_func_entry_ref(api::context& c, model * m):api::object(c), m_model(m), m_func_interp(nullptr), m_func_entry(nullptr) {}
     ~Z3_func_entry_ref() override {}
 };
 

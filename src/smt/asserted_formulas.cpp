@@ -90,7 +90,7 @@ void asserted_formulas::push_assertion(expr * e, proof * pr, vector<justified_ex
     if (inconsistent()) {
         return;
     }
-    expr* e1 = 0;
+    expr* e1 = nullptr;
     if (m.is_false(e)) {
         result.push_back(justified_expr(m, e, pr));
         m_inconsistent = true;
@@ -101,14 +101,14 @@ void asserted_formulas::push_assertion(expr * e, proof * pr, vector<justified_ex
     else if (m.is_and(e)) {
         for (unsigned i = 0; i < to_app(e)->get_num_args(); ++i) {
             expr* arg = to_app(e)->get_arg(i);
-            proof_ref _pr(m.proofs_enabled() ? m.mk_and_elim(pr, i) : 0, m);
+            proof_ref _pr(m.proofs_enabled() ? m.mk_and_elim(pr, i) : nullptr, m);
             push_assertion(arg, _pr, result);
         }
     }
     else if (m.is_not(e, e1) && m.is_or(e1)) {
         for (unsigned i = 0; i < to_app(e1)->get_num_args(); ++i) {
             expr* arg = to_app(e1)->get_arg(i);
-            proof_ref _pr(m.proofs_enabled() ? m.mk_not_or_elim(pr, i) : 0, m);
+            proof_ref _pr(m.proofs_enabled() ? m.mk_not_or_elim(pr, i) : nullptr, m);
             expr_ref  narg(mk_not(m, arg), m);
             push_assertion(narg, _pr, result);
         }
@@ -376,7 +376,7 @@ void asserted_formulas::nnf_cnf() {
         unsigned sz2 = push_todo.size();
         for (unsigned k = 0; k < sz2; k++) {
             expr * n   = push_todo.get(k);
-            pr = 0;
+            pr = nullptr;
             m_rewriter(n, r1, pr1);
             CASSERT("well_sorted",is_well_sorted(m, r1));
             if (canceled()) {
@@ -598,15 +598,15 @@ void asserted_formulas::compute_depth(expr* e) {
 
 proof * asserted_formulas::get_inconsistency_proof() const {
     if (!inconsistent())
-        return 0;
+        return nullptr;
     if (!m.proofs_enabled())
-        return 0;
+        return nullptr;
     for (justified_expr const& j : m_formulas) {
         if (m.is_false(j.get_fml()))
             return j.get_proof();
     }
     UNREACHABLE();
-    return 0;
+    return nullptr;
 }
 
 void asserted_formulas::refine_inj_axiom_fn::simplify(justified_expr const& j, expr_ref& n, proof_ref& p) {

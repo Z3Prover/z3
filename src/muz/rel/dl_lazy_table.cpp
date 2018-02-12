@@ -65,7 +65,7 @@ namespace datalog {
             return alloc(join_fn, t1.get_signature(), t2.get_signature(), col_cnt, cols1, cols2);
         }
         else {
-            return 0;
+            return nullptr;
         }
     }
 
@@ -81,7 +81,7 @@ namespace datalog {
             lazy_table* delta = get(_delta);  
             table_base const* t_src = src.eval();
             table_base * t_tgt = tgt.eval();
-            table_base * t_delta = delta?delta->eval():0;
+            table_base * t_delta = delta?delta->eval():nullptr;
             verbose_action _t("union");
             table_union_fn* m = tgt.get_lplugin().get_manager().mk_union_fn(*t_tgt, *t_src, t_delta);
             SASSERT(m);
@@ -98,7 +98,7 @@ namespace datalog {
             return alloc(union_fn);
         }
         else {
-            return 0;
+            return nullptr;
         }
     }        
 
@@ -124,7 +124,7 @@ namespace datalog {
             return alloc(project_fn, t.get_signature(), col_cnt, removed_cols);
         }
         else {
-            return 0;
+            return nullptr;
         }
     }
 
@@ -150,7 +150,7 @@ namespace datalog {
             return alloc(rename_fn, t.get_signature(), col_cnt, removed_cols);
         }
         else {
-            return 0;
+            return nullptr;
         }
     }
 
@@ -175,7 +175,7 @@ namespace datalog {
             return alloc(filter_identical_fn, col_cnt, identical_cols);
         }
         else {
-            return 0;
+            return nullptr;
         }
     }
 
@@ -201,7 +201,7 @@ namespace datalog {
             return alloc(filter_interpreted_fn, cond);
         }
         else {
-            return 0;
+            return nullptr;
         }
     }
     
@@ -229,7 +229,7 @@ namespace datalog {
             return alloc(filter_by_negation_fn, joined_col_cnt, t_cols, negated_cols);
         }
         else {
-            return 0;
+            return nullptr;
         }
     }
 
@@ -258,7 +258,7 @@ namespace datalog {
             return alloc(filter_equal_fn, value, col);
         }
         else {
-            return 0;
+            return nullptr;
         }
     }
 
@@ -269,7 +269,7 @@ namespace datalog {
             return alloc(lazy_table_plugin, *sp);
         }
         else {
-            return 0;
+            return nullptr;
         }
     }
 
@@ -397,7 +397,7 @@ namespace datalog {
         SASSERT(!m_table);
         m_table = m_src->eval();
         m_src->release_table();
-        m_src = 0;
+        m_src = nullptr;
         verbose_action _t("filter_identical");
         table_mutator_fn* m = rm().mk_filter_identical_fn(*m_table, m_cols.size(), m_cols.c_ptr());
         SASSERT(m);
@@ -410,7 +410,7 @@ namespace datalog {
         SASSERT(!m_table);
         m_table = m_src->eval();
         m_src->release_table();
-        m_src = 0;
+        m_src = nullptr;
         verbose_action _t("filter_equal");
         table_mutator_fn* m = rm().mk_filter_equal_fn(*m_table, m_value, m_col);
         SASSERT(m);
@@ -423,7 +423,7 @@ namespace datalog {
         SASSERT(!m_table);
         m_table = m_src->eval();
         m_src->release_table();
-        m_src = 0;
+        m_src = nullptr;
         verbose_action _t("filter_interpreted");
         table_mutator_fn* m = rm().mk_filter_interpreted_fn(*m_table, m_condition);
         SASSERT(m);
@@ -436,7 +436,7 @@ namespace datalog {
         SASSERT(!m_table);
         m_table = m_tgt->eval();
         m_tgt->release_table();
-        m_tgt = 0;
+        m_tgt = nullptr;
 
         switch(m_src->kind()) {
 

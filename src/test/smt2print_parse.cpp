@@ -12,7 +12,7 @@ Copyright (c) 2015 Microsoft Corporation
 
 void test_print(Z3_context ctx, Z3_ast a) {
     Z3_set_ast_print_mode(ctx, Z3_PRINT_SMTLIB2_COMPLIANT);
-    char const* spec1 = Z3_benchmark_to_smtlib_string(ctx, "test", 0, 0, 0, 0, 0, a);
+    char const* spec1 = Z3_benchmark_to_smtlib_string(ctx, "test", nullptr, nullptr, nullptr, 0, nullptr, a);
     std::cout << "spec1: benchmark->string\n" << spec1 << "\n";
 
     std::cout << "attempting to parse spec1...\n";
@@ -20,29 +20,29 @@ void test_print(Z3_context ctx, Z3_ast a) {
         Z3_parse_smtlib2_string(ctx, 
                                 spec1,
                                 0,
+                                nullptr,
+                                nullptr,
                                 0,
-                                0,
-                                0,
-                                0,
-                                0);
+                                nullptr,
+                                nullptr);
     std::cout << "parse successful, converting ast->string\n";
     char const* spec2 = Z3_ast_to_string(ctx, b);
     std::cout << "spec2: string->ast->string\n" << spec2 << "\n";
 }
 
 void test_parseprint(char const* spec) {
-    Z3_context ctx = Z3_mk_context(0);
+    Z3_context ctx = Z3_mk_context(nullptr);
     std::cout << "spec:\n" << spec << "\n";
 
     Z3_ast a = 
         Z3_parse_smtlib2_string(ctx, 
                                 spec,
                                 0,
+                                nullptr,
+                                nullptr,
                                 0,
-                                0,
-                                0,
-                                0,
-                                0);
+                                nullptr,
+                                nullptr);
     
     std::cout << "done parsing\n";
 

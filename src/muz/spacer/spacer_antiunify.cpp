@@ -441,7 +441,7 @@ struct subs_rewriter_cfg : public default_rewriter_cfg {
 
     bool reduce_var(var * t, expr_ref & result, proof_ref & result_pr) {
         result = m_c;
-        result_pr = 0;
+        result_pr = nullptr;
         return true;
     }
 };

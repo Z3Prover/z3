@@ -75,7 +75,7 @@ class nla2bv_tactic : public tactic {
             m_vars(m), 
             m_defs(m),
             m_trail(m),
-            m_fmc(0) {
+            m_fmc(nullptr) {
             m_default_bv_size = m_num_bits = p.get_uint("nla2bv_bv_size", 4);
         }
 
@@ -408,14 +408,14 @@ class nla2bv_tactic : public tactic {
         }
 
         ~scoped_set_imp() {
-            m_owner.m_imp = 0;            
+            m_owner.m_imp = nullptr;
         }
     };
     
 public:
     nla2bv_tactic(params_ref const & p):
         m_params(p),
-        m_imp(0) {
+        m_imp(nullptr) {
     }
 
     tactic * translate(ast_manager & m) override {
@@ -449,7 +449,7 @@ public:
         SASSERT(g->is_well_sorted());
         fail_if_proof_generation("nla2bv", g);
         fail_if_unsat_core_generation("nla2bv", g);
-        mc = 0; pc = 0; core = 0; result.reset();
+        mc = nullptr; pc = nullptr; core = nullptr; result.reset();
 
         imp proc(g->m(), m_params);
         scoped_set_imp setter(*this, proc);

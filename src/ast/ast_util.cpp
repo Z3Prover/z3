@@ -38,7 +38,7 @@ app * mk_list_assoc_app(ast_manager & m, func_decl * f, unsigned num_args, expr 
 }
 
 app * mk_list_assoc_app(ast_manager & m, family_id fid, decl_kind k, unsigned num_args, expr * const * args) {
-    func_decl * decl = m.mk_func_decl(fid, k, 0, 0, num_args, args, 0);
+    func_decl * decl = m.mk_func_decl(fid, k, 0, nullptr, num_args, args, nullptr);
     SASSERT(decl != 0);
     SASSERT(decl->is_associative());
     return mk_list_assoc_app(m, decl, num_args, args);

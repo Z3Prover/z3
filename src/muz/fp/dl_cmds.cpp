@@ -56,7 +56,7 @@ struct dl_context {
         m_cmd(ctx),
         m_collected_cmds(collected_cmds),
         m_ref_count(0),
-        m_decl_plugin(0),
+        m_decl_plugin(nullptr),
         m_trail(*this) {}
     
     void inc_ref() {
@@ -88,7 +88,7 @@ struct dl_context {
     }
     
     void reset() {
-        m_context = 0;
+        m_context = nullptr;
     }
 
     void register_predicate(func_decl* pred, unsigned num_kinds, symbol const* kinds) {
@@ -164,7 +164,7 @@ public:
         cmd("rule"),
         m_dl_ctx(dl_ctx),       
         m_arg_idx(0),
-        m_t(0),
+        m_t(nullptr),
         m_bound(UINT_MAX) {}
     char const * get_usage() const override { return "(forall (q) (=> (and body) head)) :optional-name :optional-recursion-bound"; }
     char const * get_descr(cmd_context & ctx) const override { return "add a Horn rule."; }
@@ -206,7 +206,7 @@ public:
     dl_query_cmd(dl_context * dl_ctx):
         parametric_cmd("query"),
         m_dl_ctx(dl_ctx),
-        m_target(0) {
+        m_target(nullptr) {
     }
     char const * get_usage() const override { return "predicate"; }
     char const * get_main_descr() const override {
@@ -214,7 +214,7 @@ public:
     }
 
     cmd_arg_kind next_arg_kind(cmd_context & ctx) const override {
-        if (m_target == 0) return CPK_FUNC_DECL;
+        if (m_target == nullptr) return CPK_FUNC_DECL;
         return parametric_cmd::next_arg_kind(ctx);
     }
 
@@ -232,11 +232,11 @@ public:
     void prepare(cmd_context & ctx) override {
         ctx.m(); // ensure manager is initialized.
         parametric_cmd::prepare(ctx);
-        m_target   = 0; 
+        m_target   = nullptr;
     }
 
     void execute(cmd_context& ctx) override {
-        if (m_target == 0) {
+        if (m_target == nullptr) {
             throw cmd_exception("invalid query command, argument expected");
         }
         if (m_dl_ctx->collect_query(m_target)) {
@@ -318,7 +318,7 @@ public:
         }
         dlctx.cleanup();
         print_statistics(ctx);
-        m_target = 0;
+        m_target = nullptr;
     }
 
     void init_pdescrs(cmd_context & ctx, param_descrs & p) override {
@@ -472,7 +472,7 @@ public:
 
     void execute(cmd_context & ctx) override {
         ast_manager& m = ctx.m();
-        func_decl_ref var(m.mk_func_decl(m_var_name, 0, static_cast<sort*const*>(0), m_var_sort), m);
+        func_decl_ref var(m.mk_func_decl(m_var_name, 0, static_cast<sort*const*>(nullptr), m_var_sort), m);
         ctx.insert(var);
         m_dl_ctx->dlctx().register_variable(var);
     }
@@ -528,7 +528,7 @@ static void install_dl_cmds_aux(cmd_context& ctx, dl_collected_cmds* collected_c
 }
 
 void install_dl_cmds(cmd_context & ctx) {
-    install_dl_cmds_aux(ctx, 0);
+    install_dl_cmds_aux(ctx, nullptr);
 }
 
 void install_dl_collect_cmds(dl_collected_cmds& collected_cmds, cmd_context & ctx) {

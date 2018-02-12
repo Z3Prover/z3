@@ -746,7 +746,7 @@ namespace smt {
     }
 
     app* theory_array_full::mk_epsilon(sort* s) {
-        app* eps = 0;
+        app* eps = nullptr;
         if (m_sort2epsilon.find(s, eps)) {
             return eps;
         }

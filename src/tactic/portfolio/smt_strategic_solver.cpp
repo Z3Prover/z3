@@ -104,7 +104,7 @@ tactic * mk_tactic_for_logic(ast_manager & m, params_ref const & p, symbol const
 static solver* mk_special_solver_for_logic(ast_manager & m, params_ref const & p, symbol const& logic) {
     if ((logic == "QF_FD" || logic == "SAT") && !m.proofs_enabled())
         return mk_fd_solver(m, p);
-    return 0;
+    return nullptr;
 }
 
 static solver* mk_solver_for_logic(ast_manager & m, params_ref const & p, symbol const& logic) {

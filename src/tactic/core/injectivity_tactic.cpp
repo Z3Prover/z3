@@ -149,7 +149,7 @@ class injectivity_tactic : public tactic {
                         proof_converter_ref & pc,
                         expr_dependency_ref & core) {
             SASSERT(goal->is_well_sorted());
-            mc = 0; pc = 0; core = 0;
+            mc = nullptr; pc = nullptr; core = nullptr;
             tactic_report report("injectivity", *goal);
             fail_if_unsat_core_generation("injectivity", goal); // TODO: Support UNSAT cores
             fail_if_proof_generation("injectivity", goal);

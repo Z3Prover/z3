@@ -42,7 +42,7 @@ namespace format_ns {
         
     public:
         format_decl_plugin():
-            m_format_sort(0),
+            m_format_sort(nullptr),
             m_nil("nil"),
             m_string("string"),
             m_indent("indent"),
@@ -94,7 +94,7 @@ namespace format_ns {
                 return m_manager->mk_func_decl(m_line_break_ext, arity, domain, m_format_sort, 
                                                func_decl_info(m_family_id, OP_LINE_BREAK_EXT, num_parameters, parameters));
             default:
-                return 0;
+                return nullptr;
             }
         }
     };
@@ -124,8 +124,8 @@ namespace format_ns {
             SASSERT(m_manager.is_format_manager());
         }
         
-        format * visit(var *) { UNREACHABLE(); return 0; }
-        format * visit(quantifier * q, format *, format * const *, format * const *) { UNREACHABLE(); return 0; }
+        format * visit(var *) { UNREACHABLE(); return nullptr; }
+        format * visit(quantifier * q, format *, format * const *, format * const *) { UNREACHABLE(); return nullptr; }
         format * visit(format * n, format * const * children) {
             if (is_app_of(n, m_fid, OP_LINE_BREAK)) 
                 return mk_string(m_manager, " ");
@@ -147,7 +147,7 @@ namespace format_ns {
     format * mk_string(ast_manager & m, char const * str) {
         symbol s(str);
         parameter p(s);
-        return fm(m).mk_app(fid(m), OP_STRING, 1, &p, 0, 0);
+        return fm(m).mk_app(fid(m), OP_STRING, 1, &p, 0, nullptr);
     }
     
     format * mk_int(ast_manager & m, int i) {

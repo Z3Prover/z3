@@ -44,7 +44,7 @@ class fix_dl_var_tactic : public tactic {
             m_util(u) {
         }
         
-        void throw_failed(expr * ctx1, expr * ctx2 = 0) {
+        void throw_failed(expr * ctx1, expr * ctx2 = nullptr) {
             TRACE("fix_dl_var", tout << mk_ismt2_pp(ctx1, m) << "\n"; if (ctx2) tout << mk_ismt2_pp(ctx2, m) << "\n";);
             throw failed();
         }
@@ -178,7 +178,7 @@ class fix_dl_var_tactic : public tactic {
         }
 
         app * most_occs(obj_map<app, unsigned> & occs, unsigned & best) {
-            app * r = 0;
+            app * r = nullptr;
             best = 0;
             obj_map<app, unsigned>::iterator it  = occs.begin();
             obj_map<app, unsigned>::iterator end = occs.end();
@@ -227,7 +227,7 @@ class fix_dl_var_tactic : public tactic {
                 return most_occs();
             }
             catch (failed) {
-                return 0;
+                return nullptr;
             }
         }
     };
@@ -254,13 +254,13 @@ class fix_dl_var_tactic : public tactic {
                         proof_converter_ref & pc,
                         expr_dependency_ref & core) {
             SASSERT(g->is_well_sorted());
-            mc = 0; pc = 0; core = 0;
+            mc = nullptr; pc = nullptr; core = nullptr;
             tactic_report report("fix-dl-var", *g);
             bool produce_proofs = g->proofs_enabled();
             m_produce_models    = g->models_enabled();
 
             app * var = is_target(u)(*g);
-            if (var != 0) {
+            if (var != nullptr) {
                 IF_VERBOSE(TACTIC_VERBOSITY_LVL, verbose_stream() << "(fixing-at-zero " << var->get_decl()->get_name() << ")\n";);
                 tactic_report report("fix-dl-var", *g);
                 

@@ -299,7 +299,7 @@ namespace smt {
         TRACE("dyn_ack", tout << "del_clause_eh: "; m_context.display_clause(tout, cls); tout << "\n";);
         m_context.m_stats.m_num_del_dyn_ack++;
         
-        app_pair p((app*)0,(app*)0);
+        app_pair p((app*)nullptr,(app*)nullptr);
         if (m_clause2app_pair.find(cls, p)) {
             SASSERT(p.first && p.second);
             m_instantiated.erase(p);
@@ -371,7 +371,7 @@ namespace smt {
         lits.push_back(mk_eq(n1, n2));
         clause_del_eh * del_eh = alloc(dyn_ack_clause_del_eh, *this);
 
-        justification * js = 0;
+        justification * js = nullptr;
         if (m_manager.proofs_enabled())
             js = alloc(dyn_ack_justification, n1, n2);
         clause * cls = m_context.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, del_eh);
@@ -423,7 +423,7 @@ namespace smt {
         lits.push_back(mk_eq(n1, n2));
         clause_del_eh * del_eh = alloc(dyn_ack_clause_del_eh, *this);
 
-        justification * js = 0;
+        justification * js = nullptr;
         if (m_manager.proofs_enabled())
             js = alloc(dyn_ack_justification, n1, n2);
         clause * cls = m_context.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, del_eh);

@@ -90,7 +90,7 @@ void deallocf(char const* file, int line, T * ptr) {
 
 template<typename T>
 void dealloc(T * ptr) {
-    if (ptr == 0) return;
+    if (ptr == nullptr) return;
     ptr->~T();
     memory::deallocate(ptr);
 }
@@ -111,7 +111,7 @@ T * alloc_vect(unsigned sz) {
 
 template<typename T>
 void dealloc_vect(T * ptr, unsigned sz) {
-    if (ptr == 0) return;
+    if (ptr == nullptr) return;
     T * curr = ptr;
     for (unsigned i = 0; i < sz; i++, curr++)
         curr->~T();
@@ -122,7 +122,7 @@ void dealloc_vect(T * ptr, unsigned sz) {
 
 template<typename T>
 void dealloc_svect(T * ptr) {
-    if (ptr == 0) return;
+    if (ptr == nullptr) return;
     memory::deallocate(ptr);
 }
 

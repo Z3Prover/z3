@@ -41,8 +41,8 @@ class subpaving_tactic : public tactic {
         ast_manager & m() const { return m_inv.get_manager(); }
         
         void operator()(std::ostream & out, subpaving::var x) const override {
-            expr * t = m_inv.get(x, 0);
-            if (t != 0)
+            expr * t = m_inv.get(x, nullptr);
+            if (t != nullptr)
                 out << mk_ismt2_pp(t, m());
             else
                 out << "k!" << x;
@@ -160,7 +160,7 @@ class subpaving_tactic : public tactic {
         }
 
         void process_clause(expr * c) {
-            expr * const * args = 0;
+            expr * const * args = nullptr;
             unsigned sz;
             if (m().is_or(c)) {
                 args = to_app(c)->get_args();
@@ -251,9 +251,9 @@ public:
             m_imp->collect_statistics(m_stats);
             result.reset();
             result.push_back(in.get());
-            mc   = 0;
-            pc   = 0;
-            core = 0;
+            mc   = nullptr;
+            pc   = nullptr;
+            core = nullptr;
         }
         catch (z3_exception & ex) {
             // convert all Z3 exceptions into tactic exceptions

@@ -125,28 +125,28 @@ namespace smt {
         unsigned num = n->get_num_args();
         for (unsigned i = 0; i < num; i++) {
             enode * arg = get_enode_eq_to(n->get_arg(i));
-            if (arg == 0) 
-                return 0;
+            if (arg == nullptr)
+                return nullptr;
             buffer.push_back(arg);
         }
         enode * e = m_context.get_enode_eq_to(n->get_decl(), num, buffer.c_ptr());
-        if (e == 0)
-            return 0;
-        return m_context.is_relevant(e) ? e : 0;
+        if (e == nullptr)
+            return nullptr;
+        return m_context.is_relevant(e) ? e : nullptr;
     }
 
     enode * checker::get_enode_eq_to(expr * n) {
         if (is_var(n)) { 
             unsigned idx = to_var(n)->get_idx();
             if (idx >= m_num_bindings)
-                return 0;
+                return nullptr;
             return m_bindings[m_num_bindings - idx - 1];
         }
         if (m_context.e_internalized(n) && m_context.is_relevant(n))
             return m_context.get_enode(n);
         if (!is_app(n) || to_app(n)->get_num_args() == 0)
-            return 0;
-        enode * r = 0;
+            return nullptr;
+        enode * r = nullptr;
         if (n->get_ref_count() > 1 && m_to_enode_cache.find(n, r)) 
             return r;
         r = get_enode_eq_to_core(to_app(n));
@@ -179,7 +179,7 @@ namespace smt {
         m_context(c),
         m_manager(c.get_manager()),
         m_num_bindings(0),
-        m_bindings(0) {
+        m_bindings(nullptr) {
     }
    
 };

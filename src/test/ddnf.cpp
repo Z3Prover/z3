@@ -26,7 +26,7 @@ void read_nums(std::istream& is, unsigned & x, unsigned& y) {
     std::getline(is, line);
 }
 
-static char const* g_file = 0;
+static char const* g_file = nullptr;
 
 
 void create_forwarding(

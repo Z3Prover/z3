@@ -269,12 +269,12 @@ struct goal2nlsat::scoped_set_imp {
     }
     
     ~scoped_set_imp() {
-        m_owner.m_imp = 0;        
+        m_owner.m_imp = nullptr;
     }
 };
 
 goal2nlsat::goal2nlsat() {
-    m_imp = 0;
+    m_imp = nullptr;
 }
 
 goal2nlsat::~goal2nlsat() {

@@ -706,7 +706,7 @@ namespace qe {
             m_asms.reset();
             m_pred_abs.reset();
             m_vars.reset();
-            m_model = 0;
+            m_model = nullptr;
             m_fa.reset();
             m_ex.reset();        
             m_free_vars.reset();
@@ -956,7 +956,7 @@ namespace qe {
             ptr_vector<expr>    todo;
             trail.push_back(fml);
             todo.push_back(fml);
-            expr* e = 0, *r = 0;
+            expr* e = nullptr, *r = nullptr;
             
             while (!todo.empty()) {
                 check_cancel();
@@ -1196,8 +1196,8 @@ namespace qe {
             m_mode(mode),
             m_avars(m),
             m_free_vars(m),
-            m_objective(0),
-            m_value(0),
+            m_objective(nullptr),
+            m_value(nullptr),
             m_was_sat(false),
             m_gt(m)
         {
@@ -1224,7 +1224,7 @@ namespace qe {
             ptr_vector<expr> fmls;
             expr_ref_vector defs(m);
             expr_ref fml(m);
-            mc = 0; pc = 0; core = 0;
+            mc = nullptr; pc = nullptr; core = nullptr;
             in->get_formulas(fmls);
 
 

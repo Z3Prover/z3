@@ -102,7 +102,7 @@ iz3mgr::ast iz3mgr::make(opr op, int n, raw_ast **args){
 }
 
 iz3mgr::ast iz3mgr::mki(family_id fid, decl_kind dk, int n, raw_ast **args){
-    return cook(m().mk_app(fid, dk, 0, 0, n, (expr **)args));        
+    return cook(m().mk_app(fid, dk, 0, nullptr, n, (expr **)args));
 }
 
 iz3mgr::ast iz3mgr::make(opr op, const std::vector<ast> &args){
@@ -111,11 +111,11 @@ iz3mgr::ast iz3mgr::make(opr op, const std::vector<ast> &args){
         a.resize(args.size());
     for(unsigned i = 0; i < args.size(); i++)
         a[i] = args[i].raw();
-    return make(op,args.size(), args.size() ? &a[0] : 0);
+    return make(op,args.size(), args.size() ? &a[0] : nullptr);
 }
 
 iz3mgr::ast iz3mgr::make(opr op){
-    return make(op,0,0);
+    return make(op,0,nullptr);
 }
 
 iz3mgr::ast iz3mgr::make(opr op, const ast &arg0){
@@ -148,11 +148,11 @@ iz3mgr::ast iz3mgr::make(symb sym, const std::vector<ast> &args){
         a.resize(args.size());
     for(unsigned i = 0; i < args.size(); i++)
         a[i] = args[i].raw();
-    return make(sym,args.size(), args.size() ? &a[0] : 0);
+    return make(sym,args.size(), args.size() ? &a[0] : nullptr);
 }
 
 iz3mgr::ast iz3mgr::make(symb sym){
-    return make(sym,0,0);
+    return make(sym,0,nullptr);
 }
 
 iz3mgr::ast iz3mgr::make(symb sym, const ast &arg0){
@@ -201,8 +201,8 @@ iz3mgr::ast iz3mgr::make_quant(opr op, const std::vector<ast> &bvs, ast &body){
         0, 
         symbol("itp"),
         symbol(),
-        0, 0,
-        0, 0
+        0, nullptr,
+        0, nullptr
                                );
     return cook(result.get());
 }

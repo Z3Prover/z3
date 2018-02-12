@@ -161,7 +161,7 @@ class collect_array_proc {
     sort *m_sort;
 public:
     collect_array_proc(ast_manager &m, func_decl_set& s) :
-        m_au(m), m_symbs(s), m_sort(NULL) {}
+        m_au(m), m_symbs(s), m_sort(nullptr) {}
 
     void operator()(app* a)
     {

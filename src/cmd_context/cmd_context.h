@@ -45,7 +45,7 @@ class func_decls {
     bool signatures_collide(func_decl* f, func_decl* g) const;
     bool signatures_collide(unsigned n, sort*const* domain, sort* range, func_decl* g) const;
 public:
-    func_decls():m_decls(0) {}
+    func_decls():m_decls(nullptr) {}
     func_decls(ast_manager & m, func_decl * f);
     void finalize(ast_manager & m);
     bool contains(func_decl * f) const;
@@ -54,7 +54,7 @@ public:
     void erase(ast_manager & m, func_decl * f);
     bool more_than_one() const;
     bool clash(func_decl * f) const;
-    bool empty() const { return m_decls == 0; }
+    bool empty() const { return m_decls == nullptr; }
     func_decl * first() const;
     func_decl * find(unsigned arity, sort * const * domain, sort * range) const;
     func_decl * find(ast_manager & m, unsigned num_args, expr * const * args, sort * range) const;
@@ -76,7 +76,7 @@ struct macro_decl {
 class macro_decls {
     vector<macro_decl>* m_decls;
 public:
-    macro_decls() { m_decls = 0; }
+    macro_decls() { m_decls = nullptr; }
     void finalize(ast_manager& m);
     bool insert(ast_manager& m, unsigned arity, sort *const* domain, expr* body);
     expr* find(unsigned arity, sort *const* domain) const;
@@ -138,8 +138,8 @@ struct builtin_decl {
     family_id      m_fid;
     decl_kind      m_decl;
     builtin_decl * m_next;
-    builtin_decl():m_fid(null_family_id), m_decl(0), m_next(0) {}
-    builtin_decl(family_id fid, decl_kind k, builtin_decl * n = 0):m_fid(fid), m_decl(k), m_next(n) {}
+    builtin_decl():m_fid(null_family_id), m_decl(0), m_next(nullptr) {}
+    builtin_decl(family_id fid, decl_kind k, builtin_decl * n = nullptr):m_fid(fid), m_decl(k), m_next(n) {}
 };
 
 class opt_wrapper : public check_sat_result {
@@ -306,7 +306,7 @@ protected:
 
 
 public:
-    cmd_context(bool main_ctx = true, ast_manager * m = 0, symbol const & l = symbol::null);
+    cmd_context(bool main_ctx = true, ast_manager * m = nullptr, symbol const & l = symbol::null);
     ~cmd_context() override;
     void set_cancel(bool f);
     context_params  & params() { return m_params; }
@@ -352,7 +352,7 @@ public:
     status get_status() const { return m_status; }
     std::string reason_unknown() const;
 
-    bool has_manager() const { return m_manager != 0; }
+    bool has_manager() const { return m_manager != nullptr; }
     ast_manager & m() const { const_cast<cmd_context*>(this)->init_manager(); return *m_manager; }
     ast_manager & get_ast_manager() override { return m(); }
     pdecl_manager & pm() const { if (!m_pmanager) const_cast<cmd_context*>(this)->init_manager(); return *m_pmanager; }

@@ -104,7 +104,7 @@ class poly_isolate_roots_cmd : public cmd {
         }
 
         void set_next_arg(cmd_context & ctx, expr * arg) {
-            if (m_p.get() == 0) {
+            if (m_p.get() == nullptr) {
                 scoped_mpz d(m_qm);
                 if (!m_expr2poly.to_polynomial(arg, m_p, d))
                     throw cmd_exception("expression is not a polynomial");
@@ -132,7 +132,7 @@ class poly_isolate_roots_cmd : public cmd {
         }
 
         void execute(cmd_context & ctx) {
-            if (m_p.get() == 0)
+            if (m_p.get() == nullptr)
                 throw cmd_exception("polynomial expected");
             polynomial::var_vector xs;
             m_pm.vars(m_p, xs);
@@ -162,7 +162,7 @@ class poly_isolate_roots_cmd : public cmd {
     scoped_ptr<context> m_ctx;
     
 public:
-    poly_isolate_roots_cmd(char const * name = "poly/isolate-roots"):cmd(name), m_ctx(0) {}
+    poly_isolate_roots_cmd(char const * name = "poly/isolate-roots"):cmd(name), m_ctx(nullptr) {}
 
     char const * get_usage() const override { return "<term> (<term> <value>)*"; }
 
@@ -175,11 +175,11 @@ public:
     }
 
     void finalize(cmd_context & ctx) override {
-        m_ctx = 0;
+        m_ctx = nullptr;
     }
 
     void failure_cleanup(cmd_context & ctx) override {
-        m_ctx = 0;
+        m_ctx = nullptr;
     }
 
     cmd_arg_kind next_arg_kind(cmd_context & ctx) const override {
@@ -192,7 +192,7 @@ public:
 
     void execute(cmd_context & ctx) override {
         m_ctx->execute(ctx);
-        m_ctx = 0;
+        m_ctx = nullptr;
     }
 };
 
@@ -216,11 +216,11 @@ public:
     
     void prepare(cmd_context & ctx) override {
         parametric_cmd::prepare(ctx);
-        m_target   = 0; 
+        m_target   = nullptr;
     }
 
     cmd_arg_kind next_arg_kind(cmd_context & ctx) const override {
-        if (m_target == 0) return CPK_EXPR;
+        if (m_target == nullptr) return CPK_EXPR;
         return parametric_cmd::next_arg_kind(ctx);
     }
     

@@ -136,7 +136,7 @@ namespace datalog {
         }
 
         table_base * clone() const override;
-        table_base * complement(func_decl* p, const table_element * func_columns = 0) const override;
+        table_base * complement(func_decl* p, const table_element * func_columns = nullptr) const override;
         bool empty() const override;
         bool contains_fact(const table_fact & f) const override;
         void remove_fact(table_element const* fact) override;

@@ -525,7 +525,7 @@ bool goal2sat::has_unsupported_bool(goal const & g) {
     return test<unsupported_bool_proc>(g);
 }
 
-goal2sat::goal2sat():m_imp(0), m_interpreted_atoms(0) {
+goal2sat::goal2sat():m_imp(nullptr), m_interpreted_atoms(nullptr) {
 }
 
 void goal2sat::collect_param_descrs(param_descrs & r) {
@@ -539,7 +539,7 @@ struct goal2sat::scoped_set_imp {
         m_owner->m_imp = i;        
     }
     ~scoped_set_imp() {
-        m_owner->m_imp = 0;        
+        m_owner->m_imp = nullptr;
     }
 };
 
@@ -703,9 +703,9 @@ struct sat2goal::imp {
         for (sat::bool_var v = 0; v < num_vars; v++) {
             checkpoint();
             sat::literal l(v, false);
-            if (m_lit2expr.get(l.index()) == 0) {
+            if (m_lit2expr.get(l.index()) == nullptr) {
                 SASSERT(m_lit2expr.get((~l).index()) == 0);
-                app * aux = m.mk_fresh_const(0, b);
+                app * aux = m.mk_fresh_const(nullptr, b);
                 if (_mc)
                     _mc->insert(aux, true);
                 m_lit2expr.set(l.index(), aux);
@@ -776,7 +776,7 @@ struct sat2goal::imp {
 
 };
 
-sat2goal::sat2goal():m_imp(0) {
+sat2goal::sat2goal():m_imp(nullptr) {
 }
 
 void sat2goal::collect_param_descrs(param_descrs & r) {
@@ -790,7 +790,7 @@ struct sat2goal::scoped_set_imp {
         m_owner->m_imp = i;        
     }
     ~scoped_set_imp() {
-        m_owner->m_imp = 0;        
+        m_owner->m_imp = nullptr;
     }
 };
 

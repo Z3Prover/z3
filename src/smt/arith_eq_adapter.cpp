@@ -154,8 +154,8 @@ namespace smt {
         // Requires that the theory arithmetic internalizer accept non simplified terms of the form t1 - t2 
         // if t1 and t2 already have slacks (theory variables) associated with them.
         // It also accepts terms with repeated variables (Issue #429).
-        app * le = 0;
-        app * ge = 0;
+        app * le = nullptr;
+        app * ge = nullptr;
         if (m_util.is_numeral(t1))
             std::swap(t1, t2);
         if (m_util.is_numeral(t2)) {

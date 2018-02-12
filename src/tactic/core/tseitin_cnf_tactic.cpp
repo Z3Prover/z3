@@ -177,7 +177,7 @@ class tseitin_cnf_tactic : public tactic {
                 goto start;
             case OP_OR:
             case OP_IFF:
-                l = 0;
+                l = nullptr;
                 m_cache.find(to_app(n), l);
                 SASSERT(l != 0);
                 mk_lit(l, sign, r);
@@ -185,7 +185,7 @@ class tseitin_cnf_tactic : public tactic {
             case OP_ITE:
             case OP_EQ:
                 if (m.is_bool(to_app(n)->get_arg(1))) {
-                    l = 0;
+                    l = nullptr;
                     m_cache.find(to_app(n), l);
                     SASSERT(l != 0);
                     mk_lit(l, sign, r);
@@ -341,7 +341,7 @@ class tseitin_cnf_tactic : public tactic {
         
         app * mk_fresh() {
             m_num_aux_vars++;
-            app * v = m.mk_fresh_const(0, m.mk_bool_sort());
+            app * v = m.mk_fresh_const(nullptr, m.mk_bool_sort());
             m_fresh_vars.push_back(v);
             if (m_mc)
                 m_mc->insert(v->get_decl());
@@ -804,7 +804,7 @@ class tseitin_cnf_tactic : public tactic {
                         proof_converter_ref & pc,
                         expr_dependency_ref & core) {
             SASSERT(g->is_well_sorted());
-            mc = 0; pc = 0; core = 0;
+            mc = nullptr; pc = nullptr; core = nullptr;
             tactic_report report("tseitin-cnf", *g);
             fail_if_proof_generation("tseitin-cnf", g);
             m_produce_models      = g->models_enabled();
@@ -819,12 +819,12 @@ class tseitin_cnf_tactic : public tactic {
             if (m_produce_models)
                 m_mc = alloc(filter_model_converter, m);
             else
-                m_mc = 0;
+                m_mc = nullptr;
 
             unsigned size = g->size();
             for (unsigned idx = 0; idx < size; idx++) {
                 process(g->form(idx), g->dep(idx));
-                g->update(idx, m.mk_true(), 0, 0); // to save memory
+                g->update(idx, m.mk_true(), nullptr, nullptr); // to save memory
             }
 
             SASSERT(!m_produce_unsat_cores || m_clauses.size() == m_deps.size());
@@ -838,14 +838,14 @@ class tseitin_cnf_tactic : public tactic {
                     continue;
                 added.mark(cls);
                 if (m_produce_unsat_cores)
-                    g->assert_expr(cls, 0, m_deps.get(i));
+                    g->assert_expr(cls, nullptr, m_deps.get(i));
                 else
                     g->assert_expr(cls);
             }
             if (m_produce_models && !m_fresh_vars.empty()) 
                 mc = m_mc.get();
             else
-                mc = 0;
+                mc = nullptr;
             g->inc_depth();
             result.push_back(g.get());
             TRACE("tseitin_cnf", g->display(tout););

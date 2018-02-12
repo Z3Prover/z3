@@ -35,7 +35,7 @@ namespace smt {
             ptr_vector<enode> m_recognizers; //!< recognizers of this equivalence class that are being watched.
             enode *           m_constructor; //!< constructor of this equivalence class, 0 if there is no constructor in the eqc.
             var_data():
-                m_constructor(0) {
+                m_constructor(nullptr) {
             }
         };
 

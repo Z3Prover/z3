@@ -27,7 +27,7 @@ datatype_factory::datatype_factory(ast_manager & m, proto_model & md):
 }
 
 expr * datatype_factory::get_some_value(sort * s) {
-    value_set * set = 0;
+    value_set * set = nullptr;
     if (m_sort2value_set.find(s, set) && !set->empty())
         return *(set->begin());
     func_decl * c = m_util.get_non_rec_constructor(s);
@@ -46,7 +46,7 @@ expr * datatype_factory::get_some_value(sort * s) {
    \brief Return the last fresh (or almost) fresh value of sort s.
 */
 expr * datatype_factory::get_last_fresh_value(sort * s) {
-    expr * val = 0;
+    expr * val = nullptr;
     if (m_last_fresh_value.find(s, val)) {
         TRACE("datatype", tout << "cached fresh value: " << mk_pp(val, m_manager) << "\n";);
         return val;
@@ -98,7 +98,7 @@ expr * datatype_factory::get_almost_fresh_value(sort * s) {
             sort * s_arg        = constructor->get_domain(i);
             if (!found_fresh_arg && (!m_util.is_datatype(s_arg) || !m_util.are_siblings(s, s_arg))) {
                 expr * new_arg = m_model.get_fresh_value(s_arg);
-                if (new_arg != 0) {
+                if (new_arg != nullptr) {
                     found_fresh_arg = true;
                     args.push_back(new_arg);
                     continue;
@@ -131,7 +131,7 @@ expr * datatype_factory::get_almost_fresh_value(sort * s) {
         }
     }
     SASSERT(!m_util.is_recursive(s));
-    return 0;
+    return nullptr;
 }
 
 
@@ -160,7 +160,7 @@ expr * datatype_factory::get_fresh_value(sort * s) {
             sort * s_arg        = constructor->get_domain(i);
             if (!found_fresh_arg && (!m_util.is_recursive(s) || !m_util.is_datatype(s_arg) || !m_util.are_siblings(s, s_arg))) {
                 expr * new_arg = m_model.get_fresh_value(s_arg);
-                if (new_arg != 0) {
+                if (new_arg != nullptr) {
                     found_fresh_arg = true;
                     args.push_back(new_arg);
                     continue;
@@ -204,7 +204,7 @@ expr * datatype_factory::get_fresh_value(sort * s) {
                           << found_sibling << "\n";);
                     if (!found_sibling && m_util.is_datatype(s_arg) && m_util.are_siblings(s, s_arg)) {
                         found_sibling = true;
-                        expr * maybe_new_arg = 0;
+                        expr * maybe_new_arg = nullptr;
                         if (num_iterations <= 1) {
                             maybe_new_arg = get_almost_fresh_value(s_arg);
                         }
@@ -245,6 +245,6 @@ expr * datatype_factory::get_fresh_value(sort * s) {
     // Search for value that was not created before.
     SASSERT(!m_util.is_recursive(s));
     
-    return 0;
+    return nullptr;
 }
 

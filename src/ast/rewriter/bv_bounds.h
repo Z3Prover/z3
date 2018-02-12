@@ -109,7 +109,7 @@ inline bool bv_bounds::in_range(app *v, const bv_bounds::numeral& n) {
 inline bool bv_bounds::is_constant_add(unsigned bv_sz, expr * e, app*& v, numeral& val) {
     SASSERT(e && !v);
     SASSERT(m_bv_util.get_bv_size(e) == bv_sz);
-    expr *lhs(NULL), *rhs(NULL);
+    expr *lhs(nullptr), *rhs(nullptr);
     if (!m_bv_util.is_bv_add(e, lhs, rhs)) {
         v = to_app(e);
         val = rational(0);

@@ -35,7 +35,7 @@ br_status maximize_ac_sharing::reduce_app(func_decl * f, unsigned num_args, expr
     if (std::find(m_kinds.begin(), m_kinds.end(), k) == m_kinds.end())
         return BR_FAILED;
     ptr_buffer<expr, 128> _args;
-    expr * numeral = 0;
+    expr * numeral = nullptr;
     if (is_numeral(args[0])) {
         numeral = args[0];
         for (unsigned i = 1; i < num_args; i++) 
@@ -86,7 +86,7 @@ br_status maximize_ac_sharing::reduce_app(func_decl * f, unsigned num_args, expr
         }
         num_args = j;
         if (num_args == 1) {
-            if (numeral == 0) { 
+            if (numeral == nullptr) {
                 result = _args[0];
             }
             else {

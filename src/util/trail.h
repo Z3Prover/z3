@@ -77,7 +77,7 @@ public:
     }
 
     void undo(Ctx & ctx) override {
-        m_ptr = 0;
+        m_ptr = nullptr;
     }
 };
 

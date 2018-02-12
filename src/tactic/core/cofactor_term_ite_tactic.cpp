@@ -36,7 +36,7 @@ class cofactor_term_ite_tactic : public tactic {
             expr * f = g.form(i);
             expr_ref new_f(m);
             m_elim_ite(f, new_f);
-            g.update(i, new_f, 0, g.dep(i));
+            g.update(i, new_f, nullptr, g.dep(i));
         }
     }
 
@@ -63,7 +63,7 @@ public:
         fail_if_proof_generation("cofactor-term-ite", g);
         fail_if_unsat_core_generation("cofactor-term-ite", g);
         tactic_report report("cofactor-term-ite", *g);
-        mc = 0; pc = 0; core = 0;
+        mc = nullptr; pc = nullptr; core = nullptr;
         process(*(g.get()));
         g->inc_depth();
         result.push_back(g.get());

@@ -107,7 +107,7 @@ public:
     char const * get_usage() const override { return "<symbol> (<symbol>*) <symbol>"; }
     char const * get_descr(cmd_context & ctx) const override { return "substitute the free variables in the AST referenced by <symbol> using the ASTs referenced by <symbol>*"; }
     unsigned get_arity() const override { return 3; }
-    void prepare(cmd_context & ctx) override { m_idx = 0; m_source = 0; }
+    void prepare(cmd_context & ctx) override { m_idx = 0; m_source = nullptr; }
     cmd_arg_kind next_arg_kind(cmd_context & ctx) const override {
         if (m_idx == 1) return CPK_SYMBOL_LIST;
         return CPK_SYMBOL;
@@ -182,10 +182,10 @@ public:
     char const * get_usage() const override { return "<term> <term>"; }
     char const * get_descr(cmd_context & ctx) const override { return "return true if the first term is smaller than the second one in the internal Z3 total order on terms."; }
     unsigned get_arity() const override { return 2; }
-    void prepare(cmd_context & ctx) override { m_t1 = 0; }
+    void prepare(cmd_context & ctx) override { m_t1 = nullptr; }
     cmd_arg_kind next_arg_kind(cmd_context & ctx) const override { return CPK_EXPR; }
     void set_next_arg(cmd_context & ctx, expr * arg) override {
-        if (m_t1 == 0)
+        if (m_t1 == nullptr)
             m_t1 = arg;
         else
             m_t2 = arg;
@@ -286,10 +286,10 @@ public:
     char const * get_usage() const override { return "<quantifier> (<symbol>*)"; }
     char const * get_descr(cmd_context & ctx) const override { return "instantiate the quantifier using the given expressions."; }
     unsigned get_arity() const override { return 2; }
-    void prepare(cmd_context & ctx) override { m_q = 0; m_args.reset(); }
+    void prepare(cmd_context & ctx) override { m_q = nullptr; m_args.reset(); }
 
     cmd_arg_kind next_arg_kind(cmd_context & ctx) const override {
-        if (m_q == 0) return CPK_EXPR;
+        if (m_q == nullptr) return CPK_EXPR;
         else return CPK_EXPR_LIST;
     }
 

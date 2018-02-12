@@ -143,7 +143,7 @@ namespace smt {
                   tout << "inserted: " << (f != 0) << "\n";
                   );
 
-            return f != 0;
+            return f != nullptr;
         }
 
         void init_search_eh() {
@@ -300,7 +300,7 @@ namespace smt {
 
     bool quantifier_manager::add_instance(quantifier * q, unsigned num_bindings, enode * const * bindings, unsigned generation) {
         ptr_vector<enode> tmp;
-        return add_instance(q, 0, num_bindings, bindings, generation, generation, generation, tmp);
+        return add_instance(q, nullptr, num_bindings, bindings, generation, generation, generation, tmp);
     }
 
     void quantifier_manager::init_search_eh() {
@@ -408,8 +408,8 @@ namespace smt {
         bool                        m_active;
     public:
         default_qm_plugin():
-            m_qm(0),
-            m_context(0),
+            m_qm(nullptr),
+            m_context(nullptr),
             m_new_enode_qhead(0),
             m_lazy_matching_idx(0),
             m_active(false) {

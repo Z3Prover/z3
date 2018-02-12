@@ -116,7 +116,7 @@ void ackr_model_converter::add_entry(model_evaluator & evaluator,
           << mk_ismt2_pp(value, m, 2) << "\n";
     );
 
-    func_interp * fi = 0;
+    func_interp * fi = nullptr;
     func_decl * const declaration = term->get_decl();
     const unsigned sz = declaration->get_arity();
     SASSERT(sz == term->get_num_args());
@@ -133,7 +133,7 @@ void ackr_model_converter::add_entry(model_evaluator & evaluator,
         evaluator(aarg, arg_value);
         args.push_back(arg_value);
     }
-    if (fi->get_entry(args.c_ptr()) == 0) {
+    if (fi->get_entry(args.c_ptr()) == nullptr) {
         TRACE("ackr_model",
               tout << mk_ismt2_pp(declaration, m) << " args: " << std::endl;
                 for (unsigned i = 0; i < args.size(); i++)

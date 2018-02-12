@@ -172,7 +172,7 @@ substitution_tree::node * substitution_tree::find_best_child(node * r) {
 #ifdef Z3DEBUG
     unsigned todo_size   = m_todo.size();
 #endif
-    node * best_child    = 0;
+    node * best_child    = nullptr;
     unsigned max_measure = 0;
     node * curr_child    = r->m_first_child;
     while (curr_child) {
@@ -335,7 +335,7 @@ void substitution_tree::insert(app * new_expr) {
             else {
                 mark_used_regs(r->m_subst);
                 node * best_child = find_best_child(r);
-                if (best_child == 0) {
+                if (best_child == nullptr) {
                     // there is no compatible child
                     node * n          = mk_node_for(new_expr);
                     n->m_next_sibling = r->m_first_child;
@@ -414,7 +414,7 @@ bool substitution_tree::is_fully_compatible(svector<subst> const & sv) {
 */
 bool substitution_tree::find_fully_compatible_child(node * r, node * & prev, node * & child) {
     SASSERT(!r->m_leaf);
-    prev  = 0;
+    prev  = nullptr;
     child = r->m_first_child;
     while (child) {
         if (is_fully_compatible(child->m_subst))
@@ -462,8 +462,8 @@ void substitution_tree::erase(app * e) {
     m_todo.push_back(0);
     
     node * r = m_roots[id];
-    node * parent = 0;
-    node * prev   = 0;
+    node * parent = nullptr;
+    node * prev   = nullptr;
 
     while (true) {
         svector<subst> & sv = r->m_subst;
@@ -495,12 +495,12 @@ void substitution_tree::erase(app * e) {
         if (m_todo.empty()) {
             reset_registers(0);
             SASSERT(r->m_expr == e);
-            if (parent == 0) {
+            if (parent == nullptr) {
                 delete_node(r);
                 m_roots[id] = 0;
             }
             else if (at_least_3_children(parent)) {
-                if (prev == 0)
+                if (prev == nullptr)
                     parent->m_first_child = r->m_next_sibling;
                 else 
                     prev->m_next_sibling  = r->m_next_sibling;
@@ -843,7 +843,7 @@ void substitution_tree::visit(expr * e, st_visitor & st, unsigned in_offset, uns
             ptr_vector<node>::iterator end = m_roots.end();
             for (; it != end; ++it) {
                 node * r = *it;
-                if (r != 0) {
+                if (r != nullptr) {
                     var * v = r->m_subst[0].first;
                     if (v->get_sort() == to_var(e)->get_sort())
                         if (!visit<Mode>(e, st, r))
@@ -878,7 +878,7 @@ void substitution_tree::display(std::ostream & out) const {
     ptr_vector<var_ref_vector>::const_iterator end2 = m_vars.end();
     for (; it2 != end2; ++it2) {
         var_ref_vector * v = *it2;
-        if (v == 0)
+        if (v == nullptr)
             continue; // m_vars may contain null pointers. See substitution_tree::insert.
         unsigned num = v->size();
         for (unsigned i = 0; i < num; i++) {

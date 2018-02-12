@@ -155,8 +155,8 @@ namespace datalog {
         }
 
         bool translate_asserted(proof* p) {
-            expr* fact = 0;
-            rule* r = 0;
+            expr* fact = nullptr;
+            rule* r = nullptr;
             if (!m.is_asserted(p, fact)) {
                 return false;   
             }
@@ -215,7 +215,7 @@ namespace datalog {
                 proof* p1_new = m_new_proof.find(p1);
                 expr* fact1   = m.get_fact(p1);
                 TRACE("dl", tout << "fact1: " << mk_pp(fact1, m) << "\n";);
-                rule* orig1 = 0;
+                rule* orig1 = nullptr;
                 if (!m_sliceform2rule.find(fact1, orig1)) {
                     return false;
                 }
@@ -281,7 +281,7 @@ namespace datalog {
         proof_converter * translate(ast_translation & translator) override {
             UNREACHABLE();
             // this would require implementing translation for the dl_context.
-            return 0;
+            return nullptr;
         }
     };
 
@@ -393,7 +393,7 @@ namespace datalog {
      
         model_converter * translate(ast_translation & translator) override {
             UNREACHABLE();
-            return 0;
+            return nullptr;
         }
 
     };
@@ -405,8 +405,8 @@ namespace datalog {
         rm(ctx.get_rule_manager()), 
         m_solved_vars(m),
         m_pinned(m),
-        m_pc(0),
-        m_mc(0)
+        m_pc(nullptr),
+        m_mc(nullptr)
     {}
 
 
@@ -790,7 +790,7 @@ namespace datalog {
                 tail.push_back(to_app(e));                
             }
                         
-            new_rule = rm.mk(head.get(), tail.size(), tail.c_ptr(), (const bool*) 0, r.name());        
+            new_rule = rm.mk(head.get(), tail.size(), tail.c_ptr(), (const bool*) nullptr, r.name());
 
             rm.fix_unbound_vars(new_rule, false);
 
@@ -805,7 +805,7 @@ namespace datalog {
         dst.add_rule(new_rule.get());
 
         if (m_pc) {
-            m_pc->insert(&r, new_rule.get(), 0, 0);
+            m_pc->insert(&r, new_rule.get(), 0, nullptr);
         }
     }
 
@@ -819,7 +819,7 @@ namespace datalog {
         rule_manager& rm = m_ctx.get_rule_manager();       
         for (unsigned i = 0; i < src.get_num_rules(); ++i) {
             if (rm.has_quantifiers(*src.get_rule(i))) {
-                return 0;
+                return nullptr;
             }
         }
         ref<slice_proof_converter> spc;
@@ -839,7 +839,7 @@ namespace datalog {
         if (m_predicates.empty()) {
             // nothing could be sliced.
             dealloc(result);
-            return 0;
+            return nullptr;
         }
         TRACE("dl", display(tout););        
         update_rules(src, *result);

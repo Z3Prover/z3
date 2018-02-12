@@ -56,7 +56,7 @@ extern "C"
         app_ref_vector vars(mk_c(c)->m ());
         if (!to_apps(num_bounds, bound, vars)) {
             SET_ERROR_CODE (Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
 
         expr_ref result (mk_c(c)->m ());
@@ -66,7 +66,7 @@ extern "C"
         mk_c(c)->save_ast_trail (result.get ());
 
         return of_expr (result.get ());
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_qe_model_project_skolem (Z3_context c,
@@ -83,7 +83,7 @@ extern "C"
         ast_manager& man = mk_c(c)->m ();
         app_ref_vector vars(man);
         if (!to_apps(num_bounds, bound, vars)) {
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
 
         expr_ref result (mk_c(c)->m ());
@@ -103,7 +103,7 @@ extern "C"
         }
 
         return of_expr (result.get ());
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_model_extrapolate (Z3_context c,
@@ -130,7 +130,7 @@ extern "C"
         mk_c(c)->save_ast_trail (result.get ());
 
         return of_expr (result.get ());
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_qe_lite (Z3_context c, Z3_ast_vector vars, Z3_ast body)
@@ -145,7 +145,7 @@ extern "C"
             app *a = to_app (vVars.get (i));
             if (a->get_kind () != AST_APP) {
                 SET_ERROR_CODE (Z3_INVALID_ARG);
-                RETURN_Z3(0);
+                RETURN_Z3(nullptr);
             }
             vApps.push_back (a);
         }
@@ -167,7 +167,7 @@ extern "C"
 
         mk_c(c)->save_ast_trail (result.get ());
         return of_expr (result);
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
 }

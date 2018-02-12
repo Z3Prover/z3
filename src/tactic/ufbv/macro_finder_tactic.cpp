@@ -43,7 +43,7 @@ class macro_finder_tactic : public tactic {
                         proof_converter_ref & pc,
                         expr_dependency_ref & core) {
             SASSERT(g->is_well_sorted());
-            mc = 0; pc = 0; core = 0;
+            mc = nullptr; pc = nullptr; core = nullptr;
             tactic_report report("macro-finder", *g);
 
             bool produce_proofs = g->proofs_enabled();
@@ -66,8 +66,8 @@ class macro_finder_tactic : public tactic {
             g->reset();
             for (unsigned i = 0; i < new_forms.size(); i++)
                 g->assert_expr(new_forms.get(i),
-                               produce_proofs ? new_proofs.get(i) : 0,
-                               unsat_core_enabled ? new_deps.get(i) : 0);
+                               produce_proofs ? new_proofs.get(i) : nullptr,
+                               unsat_core_enabled ? new_deps.get(i) : nullptr);
 
             extension_model_converter * evmc = alloc(extension_model_converter, mm.get_manager());
             unsigned num = mm.get_num_macros();

@@ -116,7 +116,7 @@ namespace opt {
             return dynamic_cast<smt::theory_wmaxsat*>(th);
         }
         else {
-            return 0;
+            return nullptr;
         }
     }
 
@@ -228,7 +228,7 @@ namespace opt {
 
     lbool maxsmt::operator()() {
         lbool is_sat = l_undef;
-        m_msolver = 0;
+        m_msolver = nullptr;
         symbol const& maxsat_engine = m_c.maxsat_engine();
         IF_VERBOSE(1, verbose_stream() << "(maxsmt)\n";);
         TRACE("opt", tout << "maxsmt\n";

@@ -53,7 +53,7 @@ public:
                     model_converter_ref & mc,
                     proof_converter_ref & pc,
                     expr_dependency_ref & core) override {
-        mc = 0; pc = 0; core = 0;
+        mc = nullptr; pc = nullptr; core = nullptr;
 
         TRACE("sine", g->display(tout););
         TRACE("sine", tout << g->size(););
@@ -62,7 +62,7 @@ public:
         TRACE("sine", tout << new_forms.size(););
         g->reset();
         for (unsigned i = 0; i < new_forms.size(); i++) {
-            g->assert_expr(new_forms.get(i), 0, 0);
+            g->assert_expr(new_forms.get(i), nullptr, nullptr);
         }
         g->inc_depth();
         g->updt_prec(goal::OVER);

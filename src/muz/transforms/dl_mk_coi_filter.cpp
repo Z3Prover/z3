@@ -45,7 +45,7 @@ namespace datalog {
             for (unsigned i = 0; i < r->get_uninterpreted_tail_size(); ++i) {
                 func_decl* decl_i = r->get_decl(i);
                 if (m_context.has_facts(decl_i)) {
-                    return 0;
+                    return nullptr;
                 }
 
                 bool reachable = engine.get_fact(decl_i).is_reachable();
@@ -93,7 +93,7 @@ namespace datalog {
         }
         if (res->get_num_rules() == source.get_num_rules()) {
             TRACE("dl", tout << "No transformation\n";);
-            res = 0;
+            res = nullptr;
         } 
         else {
             res->close();
@@ -134,7 +134,7 @@ namespace datalog {
 
         if (res->get_num_rules() == source.get_num_rules()) {
             TRACE("dl", tout << "No transformation\n";);
-            res = 0;
+            res = nullptr;
         }
         if (res && m_context.get_model_converter()) {
             extension_model_converter* mc0 = alloc(extension_model_converter, m);

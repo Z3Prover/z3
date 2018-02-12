@@ -115,7 +115,7 @@ class add_bounds_tactic : public tactic {
                         model_converter_ref & mc, 
                         proof_converter_ref & pc,
                         expr_dependency_ref & core) {
-            mc = 0; pc = 0; core = 0;
+            mc = nullptr; pc = nullptr; core = nullptr;
             tactic_report report("add-bounds", *g);
             bound_manager bm(m);
             expr_fast_mark1 visited;

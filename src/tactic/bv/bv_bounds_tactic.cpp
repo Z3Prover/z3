@@ -194,7 +194,7 @@ namespace {
 
         bool is_bound(expr *e, expr*& v, interval& b) const {
             uint64 n;
-            expr *lhs = 0, *rhs = 0;
+            expr *lhs = nullptr, *rhs = nullptr;
             unsigned sz;
 
             if (m_bv.is_bv_ule(e, lhs, rhs)) {
@@ -382,7 +382,7 @@ namespace {
             }
 
             interval ctx, intr;
-            result = 0;
+            result = nullptr;
 
             if (b.is_full() && b.tight) {
                 result = m.mk_true();
@@ -561,7 +561,7 @@ namespace {
 
         bool is_bound(expr *e, expr*& v, interval& b) const {
             uint64 n;
-            expr *lhs = 0, *rhs = 0;
+            expr *lhs = nullptr, *rhs = nullptr;
             unsigned sz = 0;
 
             if (m_bv.is_bv_ule(e, lhs, rhs)) {

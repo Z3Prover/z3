@@ -702,7 +702,7 @@ class smt_printer {
 
 public:
     smt_printer(std::ostream& out, ast_manager& m, ptr_vector<quantifier>& ql, smt_renaming& rn,
-                symbol logic, bool no_lets, bool simplify_implies, unsigned indent, unsigned num_var_names = 0, char const* const* var_names = 0) :
+                symbol logic, bool no_lets, bool simplify_implies, unsigned indent, unsigned num_var_names = 0, char const* const* var_names = nullptr) :
         m_out(out),
         m_manager(m),
         m_qlists(ql),
@@ -768,7 +768,7 @@ public:
         }
         m_mark.reset();
         m_num_lets = 0;
-        m_top = 0;
+        m_top = nullptr;
     }
 
     void pp_dt(ast_mark& mark, sort* s) {

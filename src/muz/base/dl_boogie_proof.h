@@ -82,7 +82,7 @@ namespace datalog {
         void get_labels(proof* p, labels&);
 
     public:
-        boogie_proof(ast_manager& m): m(m), m_proof(m), m_model(0) {}
+        boogie_proof(ast_manager& m): m(m), m_proof(m), m_model(nullptr) {}
         
         void set_proof(proof* p);
         

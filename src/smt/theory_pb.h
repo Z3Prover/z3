@@ -198,10 +198,10 @@ namespace smt {
             watch_list* m_var_watch;
             ineq*       m_ineq;
             
-            var_info(): m_var_watch(0), m_ineq(0)
+            var_info(): m_var_watch(nullptr), m_ineq(nullptr)
             {
-                m_lit_watch[0] = 0;
-                m_lit_watch[1] = 0;
+                m_lit_watch[0] = nullptr;
+                m_lit_watch[1] = nullptr;
             }
 
             void reset() {

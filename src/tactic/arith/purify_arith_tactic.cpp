@@ -170,8 +170,8 @@ struct purify_arith_proc {
         }
         std::pair<expr*, expr*> pair;
         if (!m_sin_cos.find(to_app(theta), pair)) {
-            pair.first = m().mk_fresh_const(0, u().mk_real());
-            pair.second = m().mk_fresh_const(0, u().mk_real());            
+            pair.first = m().mk_fresh_const(nullptr, u().mk_real());
+            pair.second = m().mk_fresh_const(nullptr, u().mk_real());
             m_sin_cos.insert(to_app(theta), pair);
             m_pinned.push_back(pair.first);
             m_pinned.push_back(pair.second);
@@ -214,7 +214,7 @@ struct purify_arith_proc {
         bool elim_inverses() const { return m_owner.m_elim_inverses; }
 
         expr * mk_fresh_var(bool is_int) {
-            expr * r = m().mk_fresh_const(0, is_int ? u().mk_int() : u().mk_real());
+            expr * r = m().mk_fresh_const(nullptr, is_int ? u().mk_int() : u().mk_real());
             m_new_vars.push_back(r);
             return r;
         }
@@ -241,7 +241,7 @@ struct purify_arith_proc {
         }
    
         void mk_def_proof(expr * k, expr * def, proof_ref & result_pr) {
-            result_pr = 0;
+            result_pr = nullptr;
             if (produce_proofs()) {
                 expr * eq   = m().mk_eq(k, def);
                 proof * pr1 = m().mk_def_intro(eq);
@@ -691,7 +691,7 @@ struct purify_arith_proc {
     };
     
     void process_quantifier(quantifier * q, expr_ref & result, proof_ref & result_pr) { 
-        result_pr = 0;
+        result_pr = nullptr;
         rw r(*this);
         expr_ref new_body(m());
         proof_ref new_body_pr(m());
@@ -761,7 +761,7 @@ struct purify_arith_proc {
         sz = r.cfg().m_new_cnstrs.size();
         TRACE("purify_arith", tout << r.cfg().m_new_cnstrs << "\n";);
         for (unsigned i = 0; i < sz; i++) {
-            m_goal.assert_expr(r.cfg().m_new_cnstrs.get(i), m_produce_proofs ? r.cfg().m_new_cnstr_prs.get(i) : 0, 0);
+            m_goal.assert_expr(r.cfg().m_new_cnstrs.get(i), m_produce_proofs ? r.cfg().m_new_cnstr_prs.get(i) : nullptr, nullptr);
         }
         
         // add filter_model_converter to eliminate auxiliary variables from model
@@ -830,7 +830,7 @@ public:
                     expr_dependency_ref & core) override {
         try {
             SASSERT(g->is_well_sorted());
-            mc = 0; pc = 0; core = 0;
+            mc = nullptr; pc = nullptr; core = nullptr;
             tactic_report report("purify-arith", *g);
             TRACE("purify_arith", g->display(tout););
             bool produce_proofs = g->proofs_enabled();

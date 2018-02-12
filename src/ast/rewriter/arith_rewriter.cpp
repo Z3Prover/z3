@@ -1056,7 +1056,7 @@ br_status arith_rewriter::mk_power_core(expr * arg1, expr * arg2, expr_ref & res
 
 br_status arith_rewriter::mk_to_int_core(expr * arg, expr_ref & result) {
     numeral a;
-    expr* x = 0;
+    expr* x = nullptr;
     if (m_util.is_numeral(arg, a)) {
         result = m_util.mk_numeral(floor(a), true);
         return BR_DONE;
@@ -1303,7 +1303,7 @@ expr * arith_rewriter::mk_sin_value(rational const & k) {
         expr * result = m_util.mk_div(m_util.mk_add(mk_sqrt(rational(6)), mk_sqrt(rational(2))), m_util.mk_numeral(rational(4), false));
         return neg ? m_util.mk_uminus(result) : result;
     }
-    return 0;
+    return nullptr;
 }
 
 br_status arith_rewriter::mk_sin_core(expr * arg, expr_ref & result) {
@@ -1327,7 +1327,7 @@ br_status arith_rewriter::mk_sin_core(expr * arg, expr_ref & result) {
 
     if (is_pi_multiple(arg, k)) {
         result = mk_sin_value(k);
-        if (result.get() != 0)
+        if (result.get() != nullptr)
             return BR_REWRITE_FULL;
     }
 
@@ -1386,7 +1386,7 @@ br_status arith_rewriter::mk_cos_core(expr * arg, expr_ref & result) {
     if (is_pi_multiple(arg, k)) {
         k = k + rational(1, 2);
         result = mk_sin_value(k);
-        if (result.get() != 0)
+        if (result.get() != nullptr)
             return BR_REWRITE_FULL;
     }
 
@@ -1443,7 +1443,7 @@ br_status arith_rewriter::mk_tan_core(expr * arg, expr_ref & result) {
     if (is_pi_multiple(arg, k)) {
         expr_ref n(m()), d(m());
         n = mk_sin_value(k);
-        if (n.get() == 0)
+        if (n.get() == nullptr)
             goto end;
         if (is_zero(n)) {
             result = n;

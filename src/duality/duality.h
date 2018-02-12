@@ -199,7 +199,7 @@ namespace Duality {
                 lbool interpolate_tree(TermTree *assumptions,
                                        TermTree *&interpolants,
                                        model &_model,
-                                       TermTree *goals = 0,
+                                       TermTree *goals = nullptr,
                                        bool weak = false
                                        ) = 0;
 
@@ -247,7 +247,7 @@ namespace Duality {
             lbool interpolate_tree(TermTree *assumptions,
                                    TermTree *&interpolants,
                                    model &_model,
-                                   TermTree *goals = 0,
+                                   TermTree *goals = nullptr,
                                    bool weak = false) override
             {
                 literals _labels;
@@ -393,7 +393,7 @@ namespace Duality {
                 edgeCount = 0;
                 stack.push_back(stack_entry());
                 HornClauses = false;
-                proof_core = 0;
+                proof_core = nullptr;
             }
 
         virtual ~RPFP();
@@ -494,7 +494,7 @@ namespace Duality {
             unsigned recursion_bound;
 
         Node(const FuncDecl &_Name, const Transformer &_Annotation, const Transformer &_Bound, const Transformer &_Underapprox, const Term &_dual, RPFP *_owner, int _number)
-            : Name(_Name), Annotation(_Annotation), Bound(_Bound), Underapprox(_Underapprox), dual(_dual) {owner = _owner; number = _number; Outgoing = 0; recursion_bound = UINT_MAX;}
+            : Name(_Name), Annotation(_Annotation), Bound(_Bound), Underapprox(_Underapprox), dual(_dual) {owner = _owner; number = _number; Outgoing = nullptr; recursion_bound = UINT_MAX;}
         };
 
         /** Create a node in the graph. The input is a term R(v_1...v_n)
@@ -591,7 +591,7 @@ namespace Duality {
         /** Delete a hyper-edge and unlink it from any nodes. */
         void DeleteEdge(Edge *edge){
             if(edge->Parent)
-                edge->Parent->Outgoing = 0;
+                edge->Parent->Outgoing = nullptr;
             for(unsigned int i = 0; i < edge->Children.size(); i++){
                 std::vector<Edge *> &ic = edge->Children[i]->Incoming;
                 for(std::vector<Edge *>::iterator it = ic.begin(), en = ic.end(); it != en; ++it){
@@ -705,7 +705,7 @@ namespace Duality {
 
         /** Get the constraint tree (but don't solve it) */
 
-        TermTree *GetConstraintTree(Node *root, Node *skip_descendant = 0);
+        TermTree *GetConstraintTree(Node *root, Node *skip_descendant = nullptr);
 
         /** Dispose of the dual model (counterexample) if there is one. */
 
@@ -715,7 +715,7 @@ namespace Duality {
          * Solve, except no primal solution (interpolant) is generated in the unsat case. */
 
         check_result Check(Node *root, std::vector<Node *> underapproxes = std::vector<Node *>(),
-                           std::vector<Node *> *underapprox_core = 0);
+                           std::vector<Node *> *underapprox_core = nullptr);
 
         /** Update the model, attempting to make the propositional literals in assumps true. If possible,
             return sat, else return unsat and keep the old model. */
@@ -841,7 +841,7 @@ namespace Duality {
 #ifdef _WINDOWS
         __declspec(dllexport)
 #endif
-            void FromClauses(const std::vector<Term> &clauses, const std::vector<unsigned> *bounds = 0);
+            void FromClauses(const std::vector<Term> &clauses, const std::vector<unsigned> *bounds = nullptr);
 
         void FromFixpointContext(fixedpoint fp, std::vector<Term> &queries);
 
@@ -927,7 +927,7 @@ namespace Duality {
         void ClearProofCore(){
             if(proof_core)
                 delete proof_core;
-            proof_core = 0;
+            proof_core = nullptr;
         }
 
         Term SuffixVariable(const Term &t, int n);
@@ -944,7 +944,7 @@ namespace Duality {
 
         Term ReducedDualEdge(Edge *e);
 
-        TermTree *ToTermTree(Node *root, Node *skip_descendant = 0);
+        TermTree *ToTermTree(Node *root, Node *skip_descendant = nullptr);
 
         TermTree *ToGoalTree(Node *root);
 
@@ -1096,12 +1096,12 @@ namespace Duality {
 
         virtual void slvr_push();
 
-        virtual check_result slvr_check(unsigned n = 0, expr * const assumptions = 0, unsigned *core_size = 0, expr *core = 0);
+        virtual check_result slvr_check(unsigned n = 0, expr * const assumptions = nullptr, unsigned *core_size = nullptr, expr *core = nullptr);
 
         virtual lbool ls_interpolate_tree(TermTree *assumptions,
                                           TermTree *&interpolants,
                                           model &_model,
-                                          TermTree *goals = 0,
+                                          TermTree *goals = nullptr,
                                           bool weak = false);
 
         virtual bool proof_core_contains(const expr &e);
@@ -1121,8 +1121,8 @@ namespace Duality {
             RPFP::Node *root;
         public:
             Counterexample(){
-                tree = 0;
-                root = 0;
+                tree = nullptr;
+                root = nullptr;
             }
             Counterexample(RPFP *_tree, RPFP::Node *_root){
                 tree = _tree;
@@ -1142,7 +1142,7 @@ namespace Duality {
             }
             void clear(){
                 if(tree) delete tree;
-                tree = 0;
+                tree = nullptr;
             }
             RPFP *get_tree() const {return tree;}
             RPFP::Node *get_root() const {return root;}
@@ -1313,7 +1313,7 @@ namespace Duality {
 
 
 
-        void GetAssumptionLits(const expr &fmla, std::vector<expr> &lits, hash_map<ast,expr> *opt_map = 0);
+        void GetAssumptionLits(const expr &fmla, std::vector<expr> &lits, hash_map<ast,expr> *opt_map = nullptr);
 
         void GreedyReduceCache(std::vector<expr> &assumps, std::vector<expr> &core);
 
@@ -1326,12 +1326,12 @@ namespace Duality {
 
         void slvr_push() override;
 
-        check_result slvr_check(unsigned n = 0, expr * const assumptions = 0, unsigned *core_size = 0, expr *core = 0) override;
+        check_result slvr_check(unsigned n = 0, expr * const assumptions = nullptr, unsigned *core_size = nullptr, expr *core = nullptr) override;
 
         lbool ls_interpolate_tree(TermTree *assumptions,
                                           TermTree *&interpolants,
                                           model &_model,
-                                          TermTree *goals = 0,
+                                          TermTree *goals = nullptr,
                                           bool weak = false) override;
 
         bool proof_core_contains(const expr &e) override;

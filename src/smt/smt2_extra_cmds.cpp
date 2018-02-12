@@ -23,7 +23,7 @@ Notes:
 class include_cmd : public cmd {
     char const * m_filename;
 public:
-    include_cmd() : cmd("include"), m_filename(0) {}
+    include_cmd() : cmd("include"), m_filename(nullptr) {}
     char const * get_usage() const override { return "<string>"; }
     char const * get_descr(cmd_context & ctx) const override { return "include a file"; }
     unsigned get_arity() const override { return 1; }
@@ -38,7 +38,7 @@ public:
         is.close();
     }
     void prepare(cmd_context & ctx) override { reset(ctx); }
-    void reset(cmd_context & ctx) override { m_filename = 0; }
+    void reset(cmd_context & ctx) override { m_filename = nullptr; }
     void finalize(cmd_context & ctx) override { reset(ctx); }
 };
 

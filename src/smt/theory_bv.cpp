@@ -373,7 +373,7 @@ namespace smt {
         void get_proof(conflict_resolution & cr, literal l, ptr_buffer<proof> & prs, bool & visited) {
             if (l.var() == true_bool_var)
                 return;
-            proof * pr = 0;
+            proof * pr = nullptr;
             if (cr.get_context().get_assignment(l) == l_true)
                 pr = cr.get_proof(l);
             else
@@ -408,7 +408,7 @@ namespace smt {
                 get_proof(cr, *it2, prs, visited);
             }
             if (!visited)
-                return 0;
+                return nullptr;
             expr * fact     = ctx.mk_eq_atom(m_th.get_enode(m_var1)->get_owner(), m_th.get_enode(m_var2)->get_owner());
             ast_manager & m = ctx.get_manager();
             return m.mk_th_lemma(get_from_theory(), fact, prs.size(), prs.c_ptr());
@@ -1532,7 +1532,7 @@ namespace smt {
                     visited = false;
             }
             if (!visited)
-                return 0;
+                return nullptr;
             context & ctx = cr.get_context();
             ast_manager & m = cr.get_manager();
             expr_ref fact(m);

@@ -71,7 +71,7 @@ expr_ref project_plugin::pick_equality(ast_manager& m, model& model, expr* t) {
         vals.push_back(val);
     }
     UNREACHABLE();
-    return expr_ref(0, m);
+    return expr_ref(nullptr, m);
 }
 
 void project_plugin::partition_values(model& model, expr_ref_vector const& vals, expr_ref_vector& lits) {

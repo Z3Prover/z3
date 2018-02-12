@@ -34,7 +34,7 @@ class sat_tactic : public tactic {
         
         imp(ast_manager & _m, params_ref const & p):
             m(_m),
-            m_solver(p, m.limit(), 0),
+            m_solver(p, m.limit(), nullptr),
             m_params(p) {
             SASSERT(!m.proofs_enabled());
         }
@@ -44,7 +44,7 @@ class sat_tactic : public tactic {
                         model_converter_ref & mc,
                         proof_converter_ref & pc,
                         expr_dependency_ref & core) {
-            mc = 0; pc = 0; core = 0;
+            mc = nullptr; pc = nullptr; core = nullptr;
             fail_if_proof_generation("sat", g);
             bool produce_models = g->models_enabled();
             bool produce_core = g->unsat_core_enabled();
@@ -74,7 +74,7 @@ class sat_tactic : public tactic {
                 }
             }
             if (r == l_false) {
-                expr_dependency * lcore = 0;
+                expr_dependency * lcore = nullptr;
                 if (produce_core) {
                     sat::literal_vector const& ucore = m_solver.get_core();
                     u_map<expr*> asm2dep;
@@ -85,7 +85,7 @@ class sat_tactic : public tactic {
                         lcore = m.mk_join(lcore, m.mk_leaf(dep));                        
                     }
                 }
-                g->assert_expr(m.mk_false(), 0, lcore);
+                g->assert_expr(m.mk_false(), nullptr, lcore);
             }
             else if (r == l_true && !map.interpreted_atoms()) {
                 // register model
@@ -148,7 +148,7 @@ class sat_tactic : public tactic {
         }
         
         ~scoped_set_imp() {
-            m_owner->m_imp = 0;        
+            m_owner->m_imp = nullptr;
         }
     };
 
@@ -158,7 +158,7 @@ class sat_tactic : public tactic {
 
 public:
     sat_tactic(ast_manager & m, params_ref const & p):
-        m_imp(0),
+        m_imp(nullptr),
         m_params(p) {
     }
 

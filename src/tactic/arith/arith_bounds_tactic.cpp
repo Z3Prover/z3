@@ -50,7 +50,7 @@ struct arith_bounds_tactic : public tactic {
     
     void mk_proof(proof_ref& pr, goal_ref const& s, unsigned i, unsigned j) {
         if (s->proofs_enabled()) {
-            proof* th_lemma = m.mk_th_lemma(a.get_family_id(), m.mk_implies(s->form(i), s->form(j)), 0, 0);
+            proof* th_lemma = m.mk_th_lemma(a.get_family_id(), m.mk_implies(s->form(i), s->form(j)), 0, nullptr);
             pr = m.mk_modus_ponens(s->pr(i), th_lemma);
         }        
     }

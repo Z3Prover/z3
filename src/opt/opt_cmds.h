@@ -23,7 +23,7 @@ Notes:
 
 class cmd_context;
 
-void install_opt_cmds(cmd_context & ctx, opt::context* opt = 0);
+void install_opt_cmds(cmd_context & ctx, opt::context* opt = nullptr);
 
 
 #endif

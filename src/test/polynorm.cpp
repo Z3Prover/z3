@@ -172,7 +172,7 @@ static expr_ref mk_mul(arith_util& arith, unsigned num_args, expr* const* args) 
 
 static void nf(expr_ref& term) {
     ast_manager& m = term.get_manager();
-    expr *e1 = 0, *e2 = 0;
+    expr *e1 = nullptr, *e2 = nullptr;
 
     th_rewriter rw(m);
     arith_util arith(m);

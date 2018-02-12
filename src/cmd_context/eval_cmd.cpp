@@ -43,11 +43,11 @@ public:
 
     void prepare(cmd_context & ctx) override {
         parametric_cmd::prepare(ctx);
-        m_target = 0; 
+        m_target = nullptr;
     }
 
     cmd_arg_kind next_arg_kind(cmd_context & ctx) const override {
-        if (m_target == 0) return CPK_EXPR;
+        if (m_target == nullptr) return CPK_EXPR;
         return parametric_cmd::next_arg_kind(ctx);
     }
 

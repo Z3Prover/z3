@@ -112,7 +112,7 @@ class lia2card_tactic : public tactic {
         bool rewrite_patterns() const { return false; }
         bool flat_assoc(func_decl * f) const { return false; }
         br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
-            result_pr = 0;
+            result_pr = nullptr;
             return mk_app_core(f, num, args, result);
         }
         lia_rewriter_cfg(lia2card_tactic& t):m(t.m), t(t), a(m), args(m) {}
@@ -164,7 +164,7 @@ public:
                     proof_converter_ref & pc,
                     expr_dependency_ref & core) override {
         SASSERT(g->is_well_sorted());
-        mc = 0; pc = 0; core = 0;
+        mc = nullptr; pc = nullptr; core = nullptr;
         m_01s->reset();
         
         tactic_report report("cardinality-intro", *g);

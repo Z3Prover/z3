@@ -195,7 +195,7 @@ namespace smt {
 
         void get_labels(svector<symbol> & r) override {
             buffer<symbol> tmp;
-            m_context.get_relevant_labels(0, tmp);
+            m_context.get_relevant_labels(nullptr, tmp);
             r.append(tmp.size(), tmp.c_ptr());
         }
 

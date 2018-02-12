@@ -110,7 +110,7 @@ extern "C" {
                            pre_parents_vec,
                            interpolants,
                            theory_vec,
-                           0); // ignore params for now FIXME
+                           nullptr); // ignore params for now FIXME
 
             // copy result back
             for (unsigned i = 0; i < interpolants.size(); i++){
@@ -174,7 +174,7 @@ extern "C" {
                             itp_vec,
                             theory_vec);
 
-        *error = res ? 0 : itp_err.str().c_str();
+        *error = res ? nullptr : itp_err.str().c_str();
         return res;
     }
 
@@ -227,7 +227,7 @@ extern "C" {
                        cnsts,
                        _pat,
                        interp,
-                       (interpolation_options_struct *)0 // ignore params for now
+                       (interpolation_options_struct *)nullptr // ignore params for now
                        );
 
         // copy result back
@@ -236,7 +236,7 @@ extern "C" {
             _m.dec_ref(interp[i]);
         }
         RETURN_Z3(of_ast_vector(v));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_lbool Z3_API Z3_compute_interpolant(Z3_context c, Z3_ast pat, Z3_params p, Z3_ast_vector *out_interp, Z3_model *model){
@@ -283,7 +283,7 @@ extern "C" {
                                          cnsts,
                                          interp,
                                          m,
-                                         0 // ignore params for now
+                                         nullptr // ignore params for now
                                          );
             }
             catch (z3_exception & ex) {
@@ -297,8 +297,8 @@ extern "C" {
 
         Z3_lbool status = of_lbool(_status);
 
-        Z3_ast_vector_ref *v = 0;
-        *model = 0;
+        Z3_ast_vector_ref *v = nullptr;
+        *model = nullptr;
 
         if (_status == l_false){
             // copy result back
@@ -510,7 +510,7 @@ extern "C" {
         read_error.clear();
         try {
             std::string foo(filename);
-            Z3_ast assrts = Z3_parse_smtlib2_file(ctx, filename, 0, 0, 0, 0, 0, 0);
+            Z3_ast assrts = Z3_parse_smtlib2_file(ctx, filename, 0, nullptr, nullptr, 0, nullptr, nullptr);
             Z3_app app = Z3_to_app(ctx, assrts);
             int nconjs = Z3_get_app_num_args(ctx, app);
             assertions.resize(nconjs);
@@ -523,7 +523,7 @@ extern "C" {
             *error = read_msg.c_str();
             return false;
         }
-        Z3_set_error_handler(ctx, 0);
+        Z3_set_error_handler(ctx, nullptr);
         return true;
     }
 
@@ -571,7 +571,7 @@ extern "C" {
         hash_map<Z3_ast, int> pred_map;
 
         for (unsigned j = 0; j < num; j++){
-            Z3_ast lhs = 0, rhs = read_cnsts[j];
+            Z3_ast lhs = nullptr, rhs = read_cnsts[j];
 
             if (Z3_get_decl_kind(ctx, Z3_get_app_decl(ctx, Z3_to_app(ctx, rhs))) == Z3_OP_IMPLIES){
                 Z3_app app1 = Z3_to_app(ctx, rhs);

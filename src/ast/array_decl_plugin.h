@@ -161,11 +161,11 @@ public:
     bool is_as_array_tree(expr * n);
 
     app * mk_store(unsigned num_args, expr * const * args) {
-        return m_manager.mk_app(m_fid, OP_STORE, 0, 0, num_args, args);
+        return m_manager.mk_app(m_fid, OP_STORE, 0, nullptr, num_args, args);
     }
 
     app * mk_select(unsigned num_args, expr * const * args) {
-        return m_manager.mk_app(m_fid, OP_SELECT, 0, 0, num_args, args);
+        return m_manager.mk_app(m_fid, OP_SELECT, 0, nullptr, num_args, args);
     }
 
     app * mk_map(func_decl * f, unsigned num_args, expr * const * args) {
@@ -191,7 +191,7 @@ public:
 
     app * mk_as_array(func_decl * f) {
         parameter param(f);
-        return m_manager.mk_app(m_fid, OP_AS_ARRAY, 1, &param, 0, 0, 0);
+        return m_manager.mk_app(m_fid, OP_AS_ARRAY, 1, &param, 0, nullptr, nullptr);
     }
 };
 

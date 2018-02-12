@@ -766,7 +766,7 @@ namespace qe {
             for (; it != end; ++it) {
                 expr * a = it->m_key;
                 nlsat::bool_var b = it->m_value;
-                if (a == 0 || !is_uninterp_const(a) || b == m_is_true.var() || !m_free_vars.contains(a) || m_aux_vars.contains(a))
+                if (a == nullptr || !is_uninterp_const(a) || b == m_is_true.var() || !m_free_vars.contains(a) || m_aux_vars.contains(a))
                     continue;
                 lbool val = m_bmodel0.get(b, l_undef);
                 if (val == l_undef)
@@ -783,7 +783,7 @@ namespace qe {
             m_mode(mode),
             m_params(p),
             m_solver(m.limit(), p, true),
-            m_nftactic(0),
+            m_nftactic(nullptr),
             m_rmodel(m_solver.am()),
             m_rmodel0(m_solver.am()),
             m_valid_model(false),
@@ -821,7 +821,7 @@ namespace qe {
 
             ptr_vector<expr> fmls;
             expr_ref fml(m);
-            mc = 0; pc = 0; core = 0;
+            mc = nullptr; pc = nullptr; core = nullptr;
             in->get_formulas(fmls);
             fml = mk_and(m, fmls.size(), fmls.c_ptr());
             if (m_mode == elim_t) {

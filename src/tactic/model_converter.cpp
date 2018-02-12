@@ -47,9 +47,9 @@ public:
 };
 
 model_converter * concat(model_converter * mc1, model_converter * mc2) {
-    if (mc1 == 0)
+    if (mc1 == nullptr)
         return mc2;
-    if (mc2 == 0)
+    if (mc2 == nullptr)
         return mc1;
     return alloc(concat_model_converter, mc1, mc2);
 }
@@ -114,7 +114,7 @@ model_converter * concat(model_converter * mc1, unsigned num, model_converter * 
         return concat(mc1, mc2s[0]);
     unsigned i;
     for (i = 0; i < num; i++) {
-        if (mc2s[i] != 0)
+        if (mc2s[i] != nullptr)
             break;
     }
     if (i == num) {
@@ -162,14 +162,14 @@ public:
 };
 
 model_converter * model2model_converter(model * m) {
-    if (m == 0)
-        return 0;
+    if (m == nullptr)
+        return nullptr;
     return alloc(model2mc, m);
 }
 
 model_converter * model_and_labels2model_converter(model * m, buffer<symbol> & r) {
-    if (m == 0)
-        return 0;
+    if (m == nullptr)
+        return nullptr;
     return alloc(model2mc, m, r);
 }
 

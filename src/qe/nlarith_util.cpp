@@ -32,7 +32,7 @@ namespace nlarith {
         svector<comp>   m_comps;
 
     public:
-        literal_set(ast_manager& m) : m_inf(m), m_sup(m), m_x(0), m_lits(m) {}
+        literal_set(ast_manager& m) : m_inf(m), m_sup(m), m_x(nullptr), m_lits(m) {}
         unsigned size() const { return m_lits.size(); }
 
         app_ref_vector& lits() { return m_lits; }
@@ -123,7 +123,7 @@ namespace nlarith {
                 return false;
             }
 
-            if (!get_polys(contains_x, num_lits, lits, polys, comps, &branch_conds, 0)) {
+            if (!get_polys(contains_x, num_lits, lits, polys, comps, &branch_conds, nullptr)) {
                 TRACE("nlarith", 
                       tout << "could not extract polynomials " << mk_pp(x, m()) << "\n";
                       for (unsigned i = 0; i < num_lits; ++i) {
@@ -1514,9 +1514,9 @@ namespace nlarith {
             new_atoms.reset();
             app_ref tmp(m());
             expr_ref_vector conjs(m());
-            mk_exists_zero(literals, true,  0, conjs, new_atoms);
+            mk_exists_zero(literals, true,  nullptr, conjs, new_atoms);
             mk_same_sign  (literals, true,  conjs, new_atoms);
-            mk_exists_zero(literals, false, 0, conjs, new_atoms);
+            mk_exists_zero(literals, false, nullptr, conjs, new_atoms);
             mk_same_sign  (literals, false, conjs, new_atoms);
             mk_lt(literals.x(), literals.x_inf(), conjs, new_atoms);
             mk_lt(literals.x_sup(), literals.x(), conjs, new_atoms);
@@ -1922,7 +1922,7 @@ namespace nlarith {
             }
             extract_non_linear(atms.size(), atms.begin(), nlvars);
             if (nlvars.empty()) {
-                lits = 0;
+                lits = nullptr;
                 return true;
             }
             app* x = nlvars.back();
@@ -1930,11 +1930,11 @@ namespace nlarith {
             expr* const* _atoms = (expr*const*)atms.begin();
             lits = alloc(util::literal_set, m());
             lits->set_x(x);
-            if (get_polys(contains_x, atms.size(), _atoms, lits->polys(), lits->comps(), 0, &lits->lits())) {
+            if (get_polys(contains_x, atms.size(), _atoms, lits->polys(), lits->comps(), nullptr, &lits->lits())) {
                 return true;
             }
             dealloc(lits);
-            lits = 0;
+            lits = nullptr;
             return false;
         }                  
 

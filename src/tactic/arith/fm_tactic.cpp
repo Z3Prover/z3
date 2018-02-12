@@ -54,7 +54,7 @@ class fm_tactic : public tactic {
         bool is_false(model_ref & md, app * p) {
             SASSERT(is_uninterp_const(p));
             expr * val = md->get_const_interp(p->get_decl());
-            if (val == 0) {
+            if (val == nullptr) {
                 // if it is don't care, then set to false
                 md->register_decl(p->get_decl(), m.mk_false());
                 return true;
@@ -828,7 +828,7 @@ class fm_tactic : public tactic {
             reset_constraints();
             m_bvar2expr.reset();
             m_bvar2sign.reset();
-            m_bvar2expr.push_back(0); // bvar 0 is not used
+            m_bvar2expr.push_back(nullptr); // bvar 0 is not used
             m_bvar2sign.push_back(0);
             m_expr2var.reset();
             m_is_int.reset();
@@ -838,11 +838,11 @@ class fm_tactic : public tactic {
             m_expr2var.reset();
             m_lowers.reset();
             m_uppers.reset();
-            m_new_goal = 0;
-            m_mc = 0;
+            m_new_goal = nullptr;
+            m_mc = nullptr;
             m_counter = 0;
             m_inconsistent = false;
-            m_inconsistent_core = 0;
+            m_inconsistent_core = nullptr;
             init_forbidden_set(g);
         }
         
@@ -878,7 +878,7 @@ class fm_tactic : public tactic {
                 // 0 <= 0 -- > true
                 if (c.m_c.is_pos() || (!c.m_strict && c.m_c.is_zero()))
                     return m.mk_true();
-                ineq = 0;
+                ineq = nullptr;
             }
             else {
                 bool int_cnstr = all_int(c);
@@ -1115,7 +1115,7 @@ class fm_tactic : public tactic {
             }
             else {
                 TRACE("add_constraint_bug", tout << "all variables are forbidden "; display(tout, *c); tout << "\n";);
-                m_new_goal->assert_expr(to_expr(*c), 0, c->m_dep);
+                m_new_goal->assert_expr(to_expr(*c), nullptr, c->m_dep);
                 del_constraint(c);
                 return false;
             }
@@ -1130,7 +1130,7 @@ class fm_tactic : public tactic {
                 if (is_occ(f))
                     add_constraint(f, g.dep(i));
                 else
-                    m_new_goal->assert_expr(f, 0, g.dep(i));
+                    m_new_goal->assert_expr(f, nullptr, g.dep(i));
             }
         }
 
@@ -1367,7 +1367,7 @@ class fm_tactic : public tactic {
                       display(tout, l);
                       tout << "\n";
                       display(tout, u); tout << "\n";);
-                return 0; // no constraint needs to be created.
+                return nullptr; // no constraint needs to be created.
             }
             
             new_lits.reset();
@@ -1411,7 +1411,7 @@ class fm_tactic : public tactic {
                       display(tout, l);
                       tout << "\n";
                       display(tout, u); tout << "\n";);
-                return 0;
+                return nullptr;
             }
 
             expr_dependency * new_dep = m.mk_join(l.m_dep, u.m_dep);
@@ -1423,7 +1423,7 @@ class fm_tactic : public tactic {
                       display(tout, u); tout << "\n";);
                 m_inconsistent      = true;
                 m_inconsistent_core = new_dep;
-                return 0;
+                return nullptr;
             }
             
             constraint * new_cnstr = mk_constraint(new_lits.size(),
@@ -1493,7 +1493,7 @@ class fm_tactic : public tactic {
                     constraint const & l_c = *(l[i]);
                     constraint const & u_c = *(u[j]);
                     constraint * new_c = resolve(l_c, u_c, x);
-                    if (new_c != 0) {
+                    if (new_c != nullptr) {
                         num_new_cnstrs++;
                         new_constraints.push_back(new_c);
                     }
@@ -1528,7 +1528,7 @@ class fm_tactic : public tactic {
                         c->m_dead = true;
                         expr * new_f = to_expr(*c);
                         TRACE("fm_bug", tout << "asserting...\n" << mk_ismt2_pp(new_f, m) << "\nnew_dep: " << c->m_dep << "\n";);
-                        m_new_goal->assert_expr(new_f, 0, c->m_dep);
+                        m_new_goal->assert_expr(new_f, nullptr, c->m_dep);
                     }
                 }
             }
@@ -1555,7 +1555,7 @@ class fm_tactic : public tactic {
                         proof_converter_ref & pc,
                         expr_dependency_ref & core) {
             SASSERT(g->is_well_sorted());
-            mc = 0; pc = 0; core = 0;
+            mc = nullptr; pc = nullptr; core = nullptr;
             tactic_report report("fm", *g);
             fail_if_proof_generation("fm", g);
             m_produce_models = g->models_enabled();
@@ -1571,7 +1571,7 @@ class fm_tactic : public tactic {
             
             if (m_inconsistent) {
                 m_new_goal->reset();
-                m_new_goal->assert_expr(m.mk_false(), 0, m_inconsistent_core);
+                m_new_goal->assert_expr(m.mk_false(), nullptr, m_inconsistent_core);
             }
             else {
                 TRACE("fm", display(tout););
@@ -1595,7 +1595,7 @@ class fm_tactic : public tactic {
                         eliminated++;
                     if (m_inconsistent) {
                         m_new_goal->reset();
-                        m_new_goal->assert_expr(m.mk_false(), 0, m_inconsistent_core);
+                        m_new_goal->assert_expr(m.mk_false(), nullptr, m_inconsistent_core);
                         break;
                     }
                 }

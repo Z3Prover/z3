@@ -419,7 +419,7 @@ namespace smt {
                     val  = l_true;
                 }
                 if ((is_or && val == l_true) || (is_and && val == l_false)) {
-                    expr * undef_child = 0;
+                    expr * undef_child = nullptr;
                     if (!has_child_assigned_to(m_context, to_app(curr), val, undef_child, m_params.m_rel_case_split_order)) {
                         if (m_manager.has_trace_stream()) {
                             m_manager.trace_stream() << "[decide-and-or] #" << curr->get_id() << " #" << undef_child->get_id() << "\n";
@@ -611,7 +611,7 @@ namespace smt {
                     val  = l_true;
                 }
                 if ((is_or && val == l_true) || (is_and && val == l_false)) {
-                    expr * undef_child = 0;
+                    expr * undef_child = nullptr;
                     if (!has_child_assigned_to(m_context, to_app(curr), val, undef_child, m_params.m_rel_case_split_order)) {
                         TRACE("case_split", tout << "found AND/OR candidate: #" << curr->get_id() << " #" << undef_child->get_id() << "\n";);
                         literal l = m_context.get_literal(undef_child);
@@ -747,7 +747,7 @@ namespace smt {
             m_head(0),
             m_bs_num_bool_vars(UINT_MAX),
             m_priority_queue2(0, generation_lt(*this)),
-            m_current_goal(0) {
+            m_current_goal(nullptr) {
             set_global_generation();
         }
         
@@ -875,7 +875,7 @@ namespace smt {
                 val  = l_true;
             }
             if ((is_or && val == l_true) || (is_and && val == l_false)) {
-                expr * undef_child = 0;
+                expr * undef_child = nullptr;
                 if (!has_child_assigned_to(m_context, to_app(curr), val, undef_child, m_params.m_rel_case_split_order)) {
                     if (m_manager.has_trace_stream()) {
                         m_manager.trace_stream() << "[decide-and-or] #" << curr->get_id() << " #" << undef_child->get_id() << "\n";

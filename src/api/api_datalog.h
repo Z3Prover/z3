@@ -37,7 +37,7 @@ namespace api {
 struct Z3_fixedpoint_ref : public api::object {
     api::fixedpoint_context *   m_datalog;
     params_ref               m_params;
-    Z3_fixedpoint_ref(api::context& c): api::object(c), m_datalog(0) {}
+    Z3_fixedpoint_ref(api::context& c): api::object(c), m_datalog(nullptr) {}
     ~Z3_fixedpoint_ref() override { dealloc(m_datalog); }
 };
 

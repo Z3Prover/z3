@@ -130,8 +130,8 @@ namespace smt {
 
     theory::theory(family_id fid):
         m_id(fid),
-        m_context(0),
-        m_manager(0) {
+        m_context(nullptr),
+        m_manager(nullptr) {
     }
 
     theory::~theory() {

@@ -184,8 +184,8 @@ struct bv_size_reduction_tactic::imp {
             return;
         TRACE("before_bv_size_reduction", g.display(tout););
         m_produce_models = g.models_enabled();
-        mc = 0;
-        m_mc = 0;
+        mc = nullptr;
+        m_mc = nullptr;
         unsigned num_reduced = 0;
         {
             tactic_report report("bv-size-reduction", g);
@@ -211,11 +211,11 @@ struct bv_size_reduction_tactic::imp {
                     unsigned bv_sz = m_util.get_bv_size(v);
                     numeral l = m_util.norm(it->m_value, bv_sz, true);
                     obj_map<app, numeral>::obj_map_entry * entry = m_signed_uppers.find_core(v);
-                    if (entry != 0) {
+                    if (entry != nullptr) {
                         numeral u = m_util.norm(entry->get_data().m_value, bv_sz, true);
                         TRACE("bv_size_reduction", tout << l << " <= " << v->get_decl()->get_name() << " <= " << u << "\n";);
-                        expr * new_def = 0;
-                        app  * new_const = 0;
+                        expr * new_def = nullptr;
+                        app  * new_const = nullptr;
                         if (l > u) {
                             g.assert_expr(m.mk_false());
                             return;
@@ -235,7 +235,7 @@ struct bv_size_reduction_tactic::imp {
                                     unsigned i_nb = l_nb;
                                     TRACE("bv_size_reduction", tout << " l <= " << v->get_decl()->get_name() << " <= u <= 0 " << " --> " << i_nb << " bits\n";);
                                     if (i_nb < v_nb) {
-                                        new_const = m.mk_fresh_const(0, m_util.mk_sort(i_nb));
+                                        new_const = m.mk_fresh_const(nullptr, m_util.mk_sort(i_nb));
                                         new_def = m_util.mk_concat(m_util.mk_numeral(numeral(-1), v_nb - i_nb), new_const);
                                     }
                                 }
@@ -245,7 +245,7 @@ struct bv_size_reduction_tactic::imp {
                                     unsigned i_nb = ((l_nb > u_nb) ? l_nb : u_nb) + 1;
                                     TRACE("bv_size_reduction", tout << " l <= " << v->get_decl()->get_name() << " <= 0 <= u " << " --> " << i_nb << " bits\n";);
                                     if (i_nb < v_nb) {
-                                        new_const = m.mk_fresh_const(0, m_util.mk_sort(i_nb));
+                                        new_const = m.mk_fresh_const(nullptr, m_util.mk_sort(i_nb));
                                         new_def = m_util.mk_sign_extend(v_nb - i_nb, new_const);
                                     }
                                 }
@@ -256,7 +256,7 @@ struct bv_size_reduction_tactic::imp {
                                 unsigned v_nb = m_util.get_bv_size(v);
                                 TRACE("bv_size_reduction", tout << l << " <= " << v->get_decl()->get_name() << " <= " << u << " --> " << u_nb << " bits\n";);
                                 if (u_nb < v_nb) {
-                                    new_const = m.mk_fresh_const(0, m_util.mk_sort(u_nb));
+                                    new_const = m.mk_fresh_const(nullptr, m_util.mk_sort(u_nb));
                                     new_def = m_util.mk_concat(m_util.mk_numeral(numeral(0), v_nb - u_nb), new_const);
                                 }
                             }
@@ -365,8 +365,8 @@ struct bv_size_reduction_tactic::imp {
             if (m_fmc) {
                 mc = concat(m_fmc.get(), mc.get());
             }
-            m_mc = 0;
-            m_fmc = 0;
+            m_mc = nullptr;
+            m_fmc = nullptr;
         }
         report_tactic_progress(":bv-reduced", num_reduced);
         TRACE("after_bv_size_reduction", g.display(tout); if (m_mc) m_mc->display(tout););
@@ -390,7 +390,7 @@ void bv_size_reduction_tactic::operator()(goal_ref const & g,
     SASSERT(g->is_well_sorted());
     fail_if_proof_generation("bv-size-reduction", g);
     fail_if_unsat_core_generation("bv-size-reduction", g);
-    mc = 0; pc = 0; core = 0; result.reset();
+    mc = nullptr; pc = nullptr; core = nullptr; result.reset();
     m_imp->operator()(*(g.get()), mc);
     g->inc_depth();
     result.push_back(g.get());

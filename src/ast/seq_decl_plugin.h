@@ -233,8 +233,8 @@ public:
         str(seq_util& u): u(u), m(u.m), m_fid(u.m_fid) {}
 
         sort* mk_seq(sort* s) { parameter param(s); return m.mk_sort(m_fid, SEQ_SORT, 1, &param); }
-        sort* mk_string_sort() const { return m.mk_sort(m_fid, _STRING_SORT, 0, 0); }
-        app* mk_empty(sort* s) const { return m.mk_const(m.mk_func_decl(m_fid, OP_SEQ_EMPTY, 0, 0, 0, (expr*const*)0, s)); }
+        sort* mk_string_sort() const { return m.mk_sort(m_fid, _STRING_SORT, 0, nullptr); }
+        app* mk_empty(sort* s) const { return m.mk_const(m.mk_func_decl(m_fid, OP_SEQ_EMPTY, 0, nullptr, 0, (expr*const*)nullptr, s)); }
         app* mk_string(zstring const& s);
         app* mk_string(symbol const& s) { return u.seq.mk_string(s); }
         app* mk_char(char ch);

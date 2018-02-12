@@ -118,7 +118,7 @@ namespace datalog {
                 }
 
                 exprs.reset();
-                assert_pred_id(numqs ? r->get_tail(0)->get_decl() : 0, m_ruleid_var_set, exprs);
+                assert_pred_id(numqs ? r->get_tail(0)->get_decl() : nullptr, m_ruleid_var_set, exprs);
                 assert_pred_id(r->get_head()->get_decl(), m_ruleid_varp_set, exprs);
 
                 subst.reset();
@@ -141,7 +141,7 @@ namespace datalog {
         if (m_facts) {
             for (fact_vector::const_iterator I = m_facts->begin(), E = m_facts->end(); I != E; ++I) {
                 exprs.reset();
-                assert_pred_id(0, m_ruleid_var_set, exprs);
+                assert_pred_id(nullptr, m_ruleid_var_set, exprs);
                 assert_pred_id(I->first, m_ruleid_varp_set, exprs);
 
                 for (unsigned i = 0; i < I->second.size(); ++i) {

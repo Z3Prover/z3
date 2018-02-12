@@ -36,7 +36,7 @@ std::string marshal(expr_ref e, ast_manager &m) {
 expr_ref unmarshal(std::istream &is, ast_manager &m) {
     cmd_context ctx(false, &m);
     ctx.set_ignore_check(true);
-    if (!parse_smt2_commands(ctx, is)) { return expr_ref(0, m); }
+    if (!parse_smt2_commands(ctx, is)) { return expr_ref(nullptr, m); }
 
     ptr_vector<expr>::const_iterator it  = ctx.begin_assertions();
     ptr_vector<expr>::const_iterator end = ctx.end_assertions();

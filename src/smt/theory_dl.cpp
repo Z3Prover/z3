@@ -78,7 +78,7 @@ namespace smt {
             
             app * mk_value(smt::model_generator & mg, ptr_vector<expr> & ) override {
                 smt::context& ctx = m_th.get_context();
-                app* result = 0;
+                app* result = nullptr;
                 expr* n = m_node->get_owner();
                 sort* s = m_th.m().get_sort(n);
                 func_decl* r, *v;
@@ -204,8 +204,8 @@ namespace smt {
             if(!m_reps.find(s, r) || !m_vals.find(s,v)) {
                 SASSERT(!m_reps.contains(s));
                 sort* bv = b().mk_sort(64);
-                r = m().mk_func_decl(m_util.get_family_id(), datalog::OP_DL_REP, 0, 0, 1, &s, bv);
-                v = m().mk_func_decl(m_util.get_family_id(), datalog::OP_DL_ABS, 0, 0, 1, &bv, s);
+                r = m().mk_func_decl(m_util.get_family_id(), datalog::OP_DL_REP, 0, nullptr, 1, &s, bv);
+                v = m().mk_func_decl(m_util.get_family_id(), datalog::OP_DL_ABS, 0, nullptr, 1, &bv, s);
                 m_reps.insert(s, r);
                 m_vals.insert(s, v);
                 add_trail(r);
@@ -218,7 +218,7 @@ namespace smt {
         bool mk_rep(app* n) {
             context & ctx     = get_context();
             unsigned num_args = n->get_num_args();
-            enode * e = 0;
+            enode * e = nullptr;
             for (unsigned i = 0; i < num_args; i++) {
                 ctx.internalize(n->get_arg(i), false);
             }

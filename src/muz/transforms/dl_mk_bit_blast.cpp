@@ -138,8 +138,8 @@ namespace datalog {
             m_g_vars(m),
             m_old_funcs(m),
             m_new_funcs(m),
-            m_src(0),
-            m_dst(0)
+            m_src(nullptr),
+            m_dst(nullptr)
         {}
 
         ~expand_mkbv_cfg() {}
@@ -186,7 +186,7 @@ namespace datalog {
                     m_g_vars.push_back(m_f_vars.back());
                 }
             }
-            func_decl* g = 0;
+            func_decl* g = nullptr;
             
             if (!m_pred2blast.find(f, g)) {
                 
@@ -202,7 +202,7 @@ namespace datalog {
                 m_dst->inherit_predicate(*m_src, f, g);
             }
             result = m.mk_app(g, m_args.size(), m_args.c_ptr());
-            result_pr = 0;
+            result_pr = nullptr;
             return BR_DONE;
         }
     };
@@ -262,7 +262,7 @@ namespace datalog {
         rule_set * operator()(rule_set const & source) {
             // TODO pc
             if (!m_context.xform_bit_blast()) {
-                return 0;
+                return nullptr;
             }
             rule_manager& rm = m_context.get_rule_manager();
             unsigned sz = source.get_num_rules();

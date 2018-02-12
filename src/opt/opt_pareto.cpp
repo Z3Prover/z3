@@ -29,7 +29,7 @@ namespace opt {
    
     lbool gia_pareto::operator()() {
         expr_ref fml(m);
-        lbool is_sat = m_solver->check_sat(0, 0);
+        lbool is_sat = m_solver->check_sat(0, nullptr);
         if (is_sat == l_true) {
             {
                 solver::scoped_push _s(*m_solver.get());
@@ -45,7 +45,7 @@ namespace opt {
                                model_smt2_pp(verbose_stream() << "new model:\n", m, *mdl, 0););
                     // TBD: we can also use local search to tune solution coordinate-wise.
                     mk_dominates();
-                    is_sat = m_solver->check_sat(0, 0);
+                    is_sat = m_solver->check_sat(0, nullptr);
                 }
             }
             if (is_sat == l_undef) {
@@ -91,7 +91,7 @@ namespace opt {
 
     lbool oia_pareto::operator()() {
         solver::scoped_push _s(*m_solver.get());
-        lbool is_sat = m_solver->check_sat(0, 0);
+        lbool is_sat = m_solver->check_sat(0, nullptr);
         if (m.canceled()) {
             is_sat = l_undef;
         }
