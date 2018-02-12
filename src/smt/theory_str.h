@@ -745,6 +745,7 @@ protected:
     void new_diseq_eh(theory_var, theory_var) override;
 
     theory* mk_fresh(context*) override { return alloc(theory_str, get_manager(), m_params); }
+    void init(context * ctx) override;
     void init_search_eh() override;
     void add_theory_assumptions(expr_ref_vector & assumptions) override;
     lbool validate_unsat_core(expr_ref_vector & unsat_core) override;

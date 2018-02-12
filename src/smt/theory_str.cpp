@@ -6571,7 +6571,7 @@ namespace smt {
             SASSERT(str1.length() == 1);
             SASSERT(str2.length() == 1);
             return 1 + str2[0] - str1[0];
-        } else if (u.re.is_full(re)) {
+        } else if (u.re.is_full_char(re) || u.re.is_full_seq(re)) {
             return 1;
         } else {
             TRACE("str", tout << "WARNING: unknown regex term " << mk_pp(re, get_manager()) << std::endl;);
@@ -6613,7 +6613,7 @@ namespace smt {
             SASSERT(str1.length() == 1);
             SASSERT(str2.length() == 1);
             return 1 + str2[0] - str1[0];
-        } else if (u.re.is_full(re)) {
+        } else if (u.re.is_full_char(re) || u.re.is_full_seq(re)) {
             return 1;
         } else {
             TRACE("str", tout << "WARNING: unknown regex term " << mk_pp(re, get_manager()) << std::endl;);
@@ -6649,8 +6649,10 @@ namespace smt {
             }
         } else if (u.re.is_range(re)) {
             return true;
-        } else if (u.re.is_full(re)) {
+        } else if (u.re.is_full_char(re)) {
             return true;
+        } else if (u.re.is_full_seq(re)) {
+            return false; // generally unbounded
         } else if (u.re.is_complement(re)) {
             // TODO can we do better?
             return false;
@@ -6712,8 +6714,10 @@ namespace smt {
             SASSERT(str1.length() == 1);
             SASSERT(str2.length() == 1);
             lens.insert(1);
-        } else if (u.re.is_full(re)) {
+        } else if (u.re.is_full_char(re)) {
             lens.insert(1);
+        } else if (u.re.is_full_seq(re)) {
+            lens.reset();
         } else if (u.re.is_complement(re)) {
             lens.reset();
         } else {
@@ -6828,8 +6832,12 @@ namespace smt {
             SASSERT(str2.length() == 1);
             expr_ref retval(ctx.mk_eq_atom(lenVar, m_autil.mk_numeral(rational::one(), true)), m);
             return retval;
-        } else if (u.re.is_full(re)) {
+        } else if (u.re.is_full_char(re)) {
             expr_ref retval(ctx.mk_eq_atom(lenVar, m_autil.mk_numeral(rational::one(), true)), m);
+            return retval;
+        } else if (u.re.is_full_seq(re)) {
+            // match any unbounded string
+            expr_ref retval(m_autil.mk_ge(lenVar, m_autil.mk_numeral(rational::zero(), true)), m);
             return retval;
         } else if (u.re.is_complement(re)) {
             // skip complement for now, in general this is difficult to predict
