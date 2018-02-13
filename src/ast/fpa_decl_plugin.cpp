@@ -160,7 +160,7 @@ bool fpa_decl_plugin::is_rm_numeral(expr * n, mpf_rounding_mode & val) {
         return true;
     }
 
-    return 0;
+    return false;
 }
 
 bool fpa_decl_plugin::is_rm_numeral(expr * n) {
