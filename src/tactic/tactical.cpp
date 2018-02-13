@@ -907,7 +907,7 @@ public:
         m_t->operator()(in, result, mc, pc, core);
     }
    
-    void cleanup(void) override { m_t->cleanup(); }
+    void cleanup() override { m_t->cleanup(); }
     void collect_statistics(statistics & st) const override { m_t->collect_statistics(st); }
     void reset_statistics() override { m_t->reset_statistics(); }
     void updt_params(params_ref const & p) override { m_t->updt_params(p); }

@@ -1387,7 +1387,7 @@ namespace smt {
         void flush();
         config_mode get_config_mode(bool use_static_features) const;
         virtual void setup_context(bool use_static_features);
-        void setup_components(void);
+        void setup_components();
         void pop_to_base_lvl();
         void pop_to_search_lvl();
 #ifdef Z3DEBUG
