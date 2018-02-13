@@ -320,7 +320,7 @@ bool cmd_context::macros_find(symbol const& s, unsigned n, expr*const* args, exp
         if (d.m_domain.size() != n) continue;
         bool eq = true;
         for (unsigned i = 0; eq && i < n; ++i) {
-            eq = d.m_domain[i] == m().get_sort(args[i]);
+            eq = m().compatible_sorts(d.m_domain[i], m().get_sort(args[i]));
         }
         if (eq) {
             t = d.m_body;
