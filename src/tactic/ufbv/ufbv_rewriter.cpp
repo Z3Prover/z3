@@ -196,14 +196,14 @@ int ufbv_rewriter::is_smaller(expr * e1, expr * e2) const {
 class max_var_id_proc {
     unsigned    m_max_var_id;
 public:
-    max_var_id_proc(void):m_max_var_id(0) {}
+    max_var_id_proc():m_max_var_id(0) {}
     void operator()(var * n) {
         if(n->get_idx() > m_max_var_id)
             m_max_var_id = n->get_idx();
     }
     void operator()(quantifier * n) {}
     void operator()(app * n) {}
-    unsigned get_max(void) { return m_max_var_id; }
+    unsigned get_max() { return m_max_var_id; }
 };
 
 unsigned ufbv_rewriter::max_var_id(expr * e)
@@ -253,7 +253,7 @@ void ufbv_rewriter::remove_fwd_idx(func_decl * f, quantifier * demodulator) {
     }
 }
 
-bool ufbv_rewriter::check_fwd_idx_consistency(void) {
+bool ufbv_rewriter::check_fwd_idx_consistency() {
     for (fwd_idx_map::iterator it = m_fwd_idx.begin(); it != m_fwd_idx.end() ; it++ ) {
         quantifier_set * set = it->m_value;
         SASSERT(set);
