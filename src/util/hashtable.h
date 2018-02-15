@@ -449,7 +449,7 @@ public:
             INSERT_LOOP_CORE_BODY();
         }
         UNREACHABLE();
-        return 0;
+        return false;
     }
 
     bool insert_if_not_there_core(const data & e, entry * & et) {

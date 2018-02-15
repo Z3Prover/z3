@@ -91,7 +91,7 @@ public:
     void operator()(var * n) { m_bitset.set(n->get_idx(), true); }
     void operator()(quantifier * n) {}
     void operator()(app * n) {}
-    bool all_used(void) {
+    bool all_used() {
         for (unsigned i = 0; i < m_bitset.size() ; i++)
             if (!m_bitset.get(i))
                 return false;
