@@ -38,6 +38,7 @@ void ast_pp_util::collect(expr_ref_vector const& es) {
 void ast_pp_util::display_decls(std::ostream& out) {
     smt2_pp_environment_dbg env(m);
     ast_smt_pp pp(m);
+    coll.order_deps();
     unsigned n = coll.get_num_sorts();
     for (unsigned i = 0; i < n; ++i) {
         pp.display_ast_smt2(out, coll.get_sorts()[i], 0, 0, nullptr);
