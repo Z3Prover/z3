@@ -98,13 +98,59 @@ private:
         vector<exprs> dummy;
         push_exprs(mss, m_asms);
         push_exprs(mss, asms);
-        is_sat = m_mss(mdl.get(), dummy, mss, mcs);
-        SASSERT(is_sat == l_true);
-        mdl.reset();
-        m_mss.get_model(mdl);
-        update_assignment(mdl.get());
-        IF_VERBOSE(2, verbose_stream() << "(opt.mss-solver :mss " << mss.size() - asms.size() << " :mcs " << mcs.size() << ")\n";);
+        is_sat = cld(mdl.get(), mss, mcs);
+        if (is_sat == l_true) {
+            IF_VERBOSE(2, verbose_stream() << "(opt.mss-solver :mss " << mss.size() - asms.size() << " :mcs " << mcs.size() << ")\n";);
+        }
+        /*is_sat = m_mss(mdl.get(), dummy, mss, mcs);
+        SASSERT(is_sat != l_false);
+        if (is_sat == l_true) {
+            mdl.reset();
+            m_mss.get_model(mdl);
+            update_assignment(mdl.get());
+            IF_VERBOSE(2, verbose_stream() << "(opt.mss-solver :mss " << mss.size() - asms.size() << " :mcs " << mcs.size() << ")\n";);
+        }*/
         return is_sat;
+    }
+
+    lbool cld(model_ref initial_model, exprs& mss, exprs& mcs) {
+        exprs sat, undef;
+        undef.append(mss);
+        update_sat(initial_model, sat, undef);
+        lbool is_sat = l_true;
+        while (is_sat == l_true) {
+            expr_ref asum = relax_and_assert(m.mk_or(undef.size(), undef.c_ptr()));
+            sat.push_back(asum);
+            is_sat = check_sat(sat);
+            sat.pop_back();
+            if (is_sat == l_true) {
+                model_ref mdl;
+                s().get_model(mdl);
+                update_sat(mdl, sat, undef);
+                update_assignment(mdl.get());
+            }
+        }
+        if (is_sat == l_false) {
+            mss.reset();
+            mcs.reset();
+            mss.append(sat);
+            mcs.append(undef);
+            is_sat = l_true;
+        }
+        return is_sat;
+    }
+
+    void update_sat(model_ref mdl, exprs& sat, exprs& undef) {
+        for (unsigned i = 0; i < undef.size();) {
+            if (is_true(mdl.get(), undef[i])) {
+                sat.push_back(undef[i]);
+                undef[i] = undef.back();
+                undef.pop_back();
+            }
+            else {
+                ++i;
+            }
+        }
     }
 
     void push_exprs(exprs& dst, expr_ref_vector const& src) {
@@ -120,6 +166,10 @@ private:
 
     lbool check_sat(expr_ref_vector const& asms) {
         return s().check_sat(asms);
+    }
+
+    lbool check_sat(exprs const& asms) {
+        return s().check_sat(asms.size(), asms.c_ptr());
     }
 
     void update_assignment(model* mdl) {
