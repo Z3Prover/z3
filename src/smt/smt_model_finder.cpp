@@ -914,6 +914,7 @@ namespace smt {
                         func_interp * fi = m_model->get_func_interp(f);
                         if (fi == nullptr) {
                             fi = alloc(func_interp, m, f->get_arity());
+                            TRACE("model_finder", tout << "register " << f->get_name() << "\n";);
                             m_model->register_decl(f, fi);
                             SASSERT(fi->is_partial());
                         }
@@ -1784,13 +1785,8 @@ namespace smt {
                 return !m_cond_macros.empty();
             }
 
-            macro_iterator begin_macros() const {
-                return m_cond_macros.begin();
-            }
+            ptr_vector<cond_macro> const& macros() const { return m_cond_macros; }
 
-            macro_iterator end_macros() const {
-                return m_cond_macros.end();
-            }
 
             void set_the_one(func_decl * m) {
                 m_the_one = m;
@@ -2445,6 +2441,7 @@ namespace smt {
                     m_model->register_decl(f, fi);
                 }
                 fi->set_else(f_else);
+                TRACE("model_finder", tout << f->get_name() << " " << mk_pp(f_else, m_manager) << "\n";);
             }
 
             virtual bool process(ptr_vector<quantifier> const & qs, ptr_vector<quantifier> & new_qs, ptr_vector<quantifier> & residue) = 0;
@@ -2499,10 +2496,7 @@ namespace smt {
 
             bool process(quantifier * q, ptr_vector<quantifier> const & qs) {
                 quantifier_info * qi = get_qinfo(q);
-                quantifier_info::macro_iterator it  = qi->begin_macros();
-                quantifier_info::macro_iterator end = qi->end_macros();
-                for (; it != end; ++it) {
-                    cond_macro * m = *it;
+                for (cond_macro* m : qi->macros()) {
                     if (!m->satisfy_atom())
                         continue;
                     func_decl * f  = m->get_f();
@@ -2548,10 +2542,10 @@ namespace smt {
               where Q_{f_i} is the set of quantifiers that contain the function f_i.
               Let f_i = def_i be macros (in this solver conditions are ignored).
               Let Q_{f_i = def_i} be the set of quantifiers where f_i = def_i is a macro.
-              Then, the set Q can be satisfied using f_1 = def_1 ... f_n = d_n
+              Then, the set Q can be satisfied using f_1 = def_1 ... f_n = def_n
               when
 
-              Q_{f_1} union ... union Q_{f_n} = Q_{f_1 = def_1} ... Q_{f_n = d_n} (*)
+              Q_{f_1} union ... union Q_{f_n} = Q_{f_1 = def_1} ... Q_{f_n = def_n} (*)
 
               So, given a set of macros f_1 = def_1, ..., f_n = d_n, it is very easy to check
               whether they can be used to satisfy all quantifiers that use f_1, ..., f_n in
@@ -2630,12 +2624,7 @@ namespace smt {
                 s->insert(q);
             }
 
-            quantifier_set * get_q_f(func_decl * f) {
-                quantifier_set * s = nullptr;
-                m_q_f.find(f, s);
-                SASSERT(s != 0);
-                return s;
-            }
+            quantifier_set * get_q_f(func_decl * f) { return m_q_f[f]; }
 
             quantifier_set * get_q_f_def(func_decl * f, expr * def) {
                 quantifier_set * s = nullptr;
@@ -2644,12 +2633,7 @@ namespace smt {
                 return s;
             }
 
-            expr_set * get_f_defs(func_decl * f) {
-                expr_set * s = nullptr;
-                m_f2defs.find(f, s);
-                SASSERT(s != 0);
-                return s;
-            }
+            expr_set * get_f_defs(func_decl * f) { return m_f2defs[f]; }
 
             void reset_q_fs() {
                 std::for_each(m_qsets.begin(), m_qsets.end(), delete_proc<quantifier_set>());
@@ -2666,10 +2650,7 @@ namespace smt {
 
             bool is_candidate(quantifier * q) const {
                 quantifier_info * qi = get_qinfo(q);
-                quantifier_info::macro_iterator it  = qi->begin_macros();
-                quantifier_info::macro_iterator end = qi->end_macros();
-                for (; it != end; ++it) {
-                    cond_macro * m = *it;
+                for (cond_macro * m : qi->macros()) {
                     if (m->satisfy_atom() && !m_forbidden.contains(m->get_f()))
                         return true;
                 }
@@ -2712,10 +2693,7 @@ namespace smt {
                         if (!m_forbidden.contains(f))
                             insert_q_f(q, f);
                     }
-                    quantifier_info::macro_iterator it3  = qi->begin_macros();
-                    quantifier_info::macro_iterator end3 = qi->end_macros();
-                    for (; it3 != end3; ++it3) {
-                        cond_macro * m = *it3;
+                    for (cond_macro * m : qi->macros()) {
                         if (m->satisfy_atom() && !m_forbidden.contains(m->get_f())) {
                             insert_q_f_def(q, m->get_f(), m->get_def());
                             m_candidates.insert(m->get_f());
@@ -2842,11 +2820,7 @@ namespace smt {
             void get_candidates_from_residue(func_decl_set & candidates) {
                 for (quantifier * q : m_residue) {
                     quantifier_info * qi = get_qinfo(q);
-
-                    quantifier_info::macro_iterator it2  = qi->begin_macros();
-                    quantifier_info::macro_iterator end2 = qi->end_macros();
-                    for (; it2 != end2; ++it2) {
-                        cond_macro * m = *it2;
+                    for (cond_macro * m : qi->macros()) {
                         func_decl * f  = m->get_f();
                         if (m->satisfy_atom() && !m_forbidden.contains(f) && !m_fs.contains(f)) {
                             candidates.insert(f);
@@ -2875,6 +2849,7 @@ namespace smt {
 
                     m_satisfied.push_scope();
                     m_residue.push_scope();
+                    TRACE("model_finder", tout << f->get_name() << " " << mk_pp(def, m_manager) << "\n";);
                     m_fs.insert(f, def);
 
                     if (update_satisfied_residue(f, def)) {
@@ -2890,11 +2865,55 @@ namespace smt {
             }
 
             /**
+               \brief check if satisfied subset introduces a cyclic dependency.
+
+               f_1 = def_1(f_2), ..., f_n = def_n(f_1)
+             */
+
+            expr_mark               m_visited;
+            obj_hashtable<func_decl> m_acyclic;
+            bool is_cyclic() {
+                m_acyclic.reset();
+                while (true) {
+                    unsigned sz = m_acyclic.size();
+                    if (sz == m_fs.size()) return false; // there are no cyclic dependencies
+                    for (auto const& kv : m_fs) {
+                        func_decl * f = kv.m_key;
+                        if (m_acyclic.contains(f)) continue;
+                        if (is_acyclic(kv.m_value))
+                            m_acyclic.insert(f);
+                    }
+                    if (sz == m_acyclic.size()) return true; // no progress, so dependency cycle found.                    
+                }
+            }
+           
+            struct occurs {};
+            struct occurs_check {
+                hint_solver& m_cls;
+                occurs_check(hint_solver& hs): m_cls(hs) {}
+                void operator()(app* n) { if (m_cls.m_fs.contains(n->get_decl()) && !m_cls.m_acyclic.contains(n->get_decl())) throw occurs(); }
+                void operator()(var* n) {}
+                void operator()(quantifier* n) {}
+            };
+            bool is_acyclic(expr* def) {
+                m_visited.reset();
+                occurs_check oc(*this);
+                try {
+                    for_each_expr(oc, m_visited, def);
+                }
+                catch (occurs) {
+                    return false;
+                }
+                return true;
+            }
+
+            /**
                \brief Try to reduce m_residue (if not empty) by selecting a function f
                that is a macro in the residue.
             */
             void greedy(unsigned depth) {
                 if (m_residue.empty()) {
+                    if (is_cyclic()) return;
                     TRACE("model_finder_hint",
                           tout << "found subset that is satisfied by macros\n";
                           display_search_state(tout););
@@ -3007,11 +3026,11 @@ namespace smt {
             qi_params const *                      m_qi_params;
 
             bool add_macro(func_decl * f, expr * f_else) {
-                TRACE("non_auf_macro_solver", tout << "trying to add macro for " << f->get_name() << "\n" << mk_pp(f_else, m_manager) << "\n";);
+                TRACE("model_finder", tout << "trying to add macro for " << f->get_name() << "\n" << mk_pp(f_else, m_manager) << "\n";);
                 func_decl_set * s = m_dependencies.mk_func_decl_set();
                 m_dependencies.collect_ng_func_decls(f_else, s);
                 if (!m_dependencies.insert(f, s)) {
-                    TRACE("non_auf_macro_solver", tout << "failed to add macro\n";);
+                    TRACE("model_finder", tout << "failed to add macro\n";);
                     return false; // cyclic dependency
                 }
                 set_else_interp(f, f_else);
@@ -3033,10 +3052,7 @@ namespace smt {
             cond_macro * get_macro_for(func_decl * f, quantifier * q) {
                 cond_macro * r = nullptr;
                 quantifier_info * qi = get_qinfo(q);
-                quantifier_info::macro_iterator it  = qi->begin_macros();
-                quantifier_info::macro_iterator end = qi->end_macros();
-                for (; it != end; ++it) {
-                    cond_macro * m = *it;
+                for (cond_macro * m : qi->macros()) {
                     if (m->get_f() == f && !m->is_hint() && is_better_macro(m, r))
                         r = m;
                 }
@@ -3048,13 +3064,10 @@ namespace smt {
             void collect_candidates(ptr_vector<quantifier> const & qs, obj_map<func_decl, mq_pair> & full_macros, func_decl_set & cond_macros) {
                 for (quantifier * q : qs) {
                     quantifier_info * qi = get_qinfo(q);
-                    quantifier_info::macro_iterator it2  = qi->begin_macros();
-                    quantifier_info::macro_iterator end2 = qi->end_macros();
-                    for (; it2 != end2; ++it2) {
-                        cond_macro * m = *it2;
+                    for (cond_macro * m : qi->macros()) {
                         if (!m->is_hint()) {
                             func_decl * f = m->get_f();
-                            TRACE("non_auf_macro_solver", tout << "considering macro for: " << f->get_name() << "\n";
+                            TRACE("model_finder", tout << "considering macro for: " << f->get_name() << "\n";
                                   m->display(tout); tout << "\n";);
                             SASSERT(m_qi_params != 0);
                             if (m->is_unconditional() && (!qi->is_auf() || m->get_weight() >= m_qi_params->m_mbqi_force_template)) {
