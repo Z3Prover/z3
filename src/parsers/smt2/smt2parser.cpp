@@ -970,6 +970,9 @@ namespace smt2 {
                 check_rparen_next("invalid datatype declaration, ')' expected");
             }
             else {
+                if (dt_name) {
+                    m_ctx.insert(pm().mk_psort_dt_decl(0, *dt_name));
+                }
                 parse_constructor_decls(ct_decls);
             }
             check_rparen_next("invalid datatype declaration, ')' expected");
