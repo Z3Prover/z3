@@ -21,7 +21,8 @@ def_module_params('opt',
                           ('maxres.max_correction_set_size', UINT, 3, 'allow generating correction set constraints up to maximal size'),
                           ('maxres.wmax', BOOL, False, 'use weighted theory solver to constrain upper bounds'),
                           ('maxres.pivot_on_correction_set', BOOL, True, 'reduce soft constraints if the current correction set is smaller than current core'),
-                          ('mss.max', UINT, UINT_MAX, 'maximum number of MSS to enumerate')
+                          ('mss.max', UINT, UINT_MAX, 'maximum number of MSS to enumerate'),
+                          ('mss.disjoint_cores', BOOL, True, 'partition soft based on disjoint cores')
                           ))
 
 
