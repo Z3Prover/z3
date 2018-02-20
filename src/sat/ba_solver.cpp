@@ -1647,6 +1647,7 @@ namespace sat {
             return true;
         }
         else if (c.lit() != null_literal && value(c.lit()) != l_true) {
+        // else if (c.lit() != null_literal && value(c.lit()) == l_false) {
             return true;
         }
         else {
@@ -1954,6 +1955,13 @@ namespace sat {
     }
 
     void ba_solver::get_antecedents(literal l, card const& c, literal_vector& r) {
+        if (l == ~c.lit()) {
+            for (unsigned i = c.k() - 1; i < c.size(); ++i) {
+                VERIFY(value(c[i]) == l_false);
+                r.push_back(~c[i]);
+            }   
+            return;
+        }
         DEBUG_CODE(
             bool found = false;
             for (unsigned i = 0; !found && i < c.k(); ++i) {
@@ -1962,7 +1970,7 @@ namespace sat {
             SASSERT(found););
         
         // IF_VERBOSE(0, if (_debug_conflict) verbose_stream() << "ante " << l << " " << c << "\n");
-        SASSERT(c.lit() == null_literal || value(c.lit()) != l_false);
+        VERIFY(c.lit() == null_literal || value(c.lit()) != l_false);
         if (c.lit() != null_literal) r.push_back(value(c.lit()) == l_true ? c.lit() : ~c.lit());
         for (unsigned i = c.k(); i < c.size(); ++i) {
             SASSERT(value(c[i]) == l_false);
@@ -2349,7 +2357,7 @@ namespace sat {
             return l_false;
         }
         SASSERT(value(alit) == l_false);
-        SASSERT(c.lit() == null_literal || value(c.lit()) == l_true);
+        VERIFY(c.lit() == null_literal || value(c.lit()) != l_false);
         unsigned index = 0;
         for (index = 0; index <= bound; ++index) {
             if (c[index] == alit) {
@@ -2377,6 +2385,7 @@ namespace sat {
         if (bound != index && value(c[bound]) == l_false) {
             TRACE("ba", tout << "conflict " << c[bound] << " " << alit << "\n";);
             if (c.lit() != null_literal && value(c.lit()) == l_undef) {
+                if (index + 1 < bound) c.swap(index, bound - 1);
                 assign(c, ~c.lit());
                 return inconsistent() ? l_false : l_true;
             }
@@ -2384,14 +2393,15 @@ namespace sat {
             return l_false;
         }
 
+        if (index != bound) {
+            c.swap(index, bound);
+        }        
+
         // TRACE("ba", tout << "no swap " << index << " " << alit << "\n";);
         // there are no literals to swap with,
         // prepare for unit propagation by swapping the false literal into 
         // position bound. Then literals in positions 0..bound-1 have to be
         // assigned l_true.
-        if (index != bound) {
-            c.swap(index, bound);
-        }        
 
         if (c.lit() != null_literal && value(c.lit()) == l_undef) {
             return l_true;
