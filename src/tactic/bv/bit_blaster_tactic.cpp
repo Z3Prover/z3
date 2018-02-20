@@ -62,6 +62,7 @@ class bit_blaster_tactic : public tactic {
             TRACE("before_bit_blaster", g->display(tout););
             m_num_steps = 0;
             
+            m_rewriter->start_rewrite();
             expr_ref   new_curr(m());
             proof_ref  new_pr(m());
             unsigned size = g->size();
@@ -78,13 +79,16 @@ class bit_blaster_tactic : public tactic {
                 }
                 if (curr != new_curr) {
                     change = true;                    
-                    TRACE("bit_blaster", tout << mk_pp(curr, m()) << " -> " << mk_pp(new_curr, m()) << "\n";);
+                    TRACE("bit_blaster", tout << mk_pp(curr, m()) << " -> " << new_curr << "\n";);
                     g->update(idx, new_curr, new_pr, g->dep(idx));
                 }
             }
             
-            if (change && g->models_enabled())  
-                g->add(mk_bit_blaster_model_converter(m(), m_rewriter->const2bits()));
+            if (change && g->models_enabled()) {
+                obj_map<func_decl, expr*> const2bits;
+                m_rewriter->end_rewrite(const2bits);
+                g->add(mk_bit_blaster_model_converter(m(), const2bits));
+            }
             g->inc_depth();
             result.push_back(g.get());
             TRACE("after_bit_blaster", g->display(tout); if (g->mc()) g->mc()->display(tout); tout << "\n";);
@@ -148,6 +152,7 @@ public:
         return m_imp->get_num_steps();
     }
 
+
 };
 
 
@@ -158,3 +163,4 @@ tactic * mk_bit_blaster_tactic(ast_manager & m, params_ref const & p) {
 tactic * mk_bit_blaster_tactic(ast_manager & m, bit_blaster_rewriter* rw, params_ref const & p) {
     return clean(alloc(bit_blaster_tactic, m, rw, p));
 }
+

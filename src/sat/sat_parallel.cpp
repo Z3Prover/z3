@@ -229,7 +229,6 @@ namespace sat {
                     break;
                 }
             }
-            IF_VERBOSE(1, verbose_stream() << "set phase: " << m_num_clauses << " " << s.m_clauses.size() << " " << m_solver_copy << "\n";);
         }
         if (m_consumer_ready && (m_num_clauses == 0 || (m_num_clauses > s.m_clauses.size()))) {
             // time to update local search with new clauses.
@@ -268,10 +267,13 @@ namespace sat {
         }
     }
 
-   void parallel::get_phase(local_search& s) {
+    bool parallel::get_phase(local_search& s) {
+        bool copied = false;
         #pragma omp critical (par_solver)
         {
+            m_consumer_ready = true;
             if (m_solver_copy && s.num_non_binary_clauses() > m_solver_copy->m_clauses.size()) {
+                copied = true;
                 s.import(*m_solver_copy.get(), true);
             }
             for (unsigned i = 0; i < m_phase.size(); ++i) {
@@ -280,6 +282,7 @@ namespace sat {
             }
             m_phase.reserve(s.num_vars(), l_undef);
         }
+        return copied;
     }
 
     void parallel::set_phase(local_search& s) {

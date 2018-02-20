@@ -72,6 +72,10 @@ namespace sat {
         m_num_threads     = p.threads();
         m_local_search    = p.local_search();
         m_local_search_threads = p.local_search_threads();
+        if (p.local_search_mode() == symbol("gsat"))
+            m_local_search_mode = local_search_mode::gsat;
+        else
+            m_local_search_mode = local_search_mode::wsat;
         m_unit_walk       = p.unit_walk();
         m_unit_walk_threads = p.unit_walk_threads();
         m_lookahead_simplify = p.lookahead_simplify();

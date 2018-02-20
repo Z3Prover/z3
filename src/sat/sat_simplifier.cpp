@@ -198,7 +198,7 @@ namespace sat {
         initialize();
 
         CASSERT("sat_solver", s.check_invariant());
-        TRACE("before_simplifier", s.display(tout););
+        TRACE("sat_simplifier", s.display(tout););
 
         s.m_cleaner(true);
         TRACE("after_cleanup", s.display(tout););
@@ -254,7 +254,7 @@ namespace sat {
         }
 
         CASSERT("sat_solver", s.check_invariant());
-        TRACE("after_simplifier", s.display(tout); tout << "model_converter:\n"; s.m_mc.display(tout););
+        TRACE("sat_simplifier", s.display(tout); tout << "model_converter:\n"; s.m_mc.display(tout););
 
         finalize();
 

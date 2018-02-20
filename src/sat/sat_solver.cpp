@@ -332,6 +332,14 @@ namespace sat {
     }
 
     void solver::mk_bin_clause(literal l1, literal l2, bool learned) {
+        if (find_binary_watch(get_wlist(~l1), ~l2)) {
+            assign(l1, justification());
+            return;
+        }
+        if (find_binary_watch(get_wlist(~l2), ~l1)) {
+            assign(l2, justification());
+            return;
+        }
         watched* w0 = find_binary_watch(get_wlist(~l1), l2);
         if (w0) {
             if (w0->is_learned() && !learned) {
@@ -355,7 +363,7 @@ namespace sat {
         }
         m_stats.m_mk_bin_clause++;
         get_wlist(~l1).push_back(watched(l2, learned));
-        get_wlist(~l2).push_back(watched(l1, learned));        
+        get_wlist(~l2).push_back(watched(l1, learned));
     }
 
     bool solver::propagate_bin_clause(literal l1, literal l2) {
@@ -1023,6 +1031,7 @@ namespace sat {
         scoped_limits scoped_rl(rlimit());
         local_search srch;
         srch.config().set_seed(m_config.m_random_seed);
+        srch.config().set_mode(m_config.m_local_search_mode);
         srch.import(*this, false);
         scoped_rl.push_child(&srch.rlimit());
         lbool r = srch.check(num_lits, lits, 0);
@@ -1047,6 +1056,7 @@ namespace sat {
         for (int i = 0; i < num_local_search; ++i) {
             local_search* l = alloc(local_search);
             l->config().set_seed(m_config.m_random_seed + i);
+            l->config().set_mode(m_config.m_local_search_mode);
             l->import(*this, false);
             ls.push_back(l);
         }
@@ -1095,7 +1105,7 @@ namespace sat {
                     r = par.get_solver(i).check(num_lits, lits);
                 }
                 else if (IS_LOCAL_SEARCH(i)) {
-                    r = ls[i-local_search_offset]->check(num_lits, lits);
+                    r = ls[i-local_search_offset]->check(num_lits, lits, &par);
                 }
                 else if (IS_UNIT_WALK(i)) {
                     r = uw[i-unit_walk_offset]->check(num_lits, lits);
@@ -1519,9 +1529,9 @@ namespace sat {
 
         m_scc();
         CASSERT("sat_simplify_bug", check_invariant());
-        
-
+      
         m_simplifier(false);
+
         CASSERT("sat_simplify_bug", check_invariant());
         CASSERT("sat_missed_prop", check_missed_propagation());
         if (!m_learned.empty()) {
@@ -1536,6 +1546,7 @@ namespace sat {
         CASSERT("sat_missed_prop", check_missed_propagation());
         CASSERT("sat_simplify_bug", check_invariant());
         m_asymm_branch(false);
+
         CASSERT("sat_missed_prop", check_missed_propagation());
         CASSERT("sat_simplify_bug", check_invariant());
         if (m_ext) {

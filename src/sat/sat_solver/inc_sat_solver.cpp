@@ -60,7 +60,8 @@ class inc_sat_solver : public solver {
     sat::literal_vector m_asms;
     goal_ref_buffer     m_subgoals;
     proof_converter_ref m_pc;
-    mutable model_converter_ref m_mc0;
+    sref_vector<model_converter> m_mcs;
+    mutable model_converter_ref m_mc0;         // TBD: should be saved/retained under push/pop
     mutable obj_hashtable<func_decl>  m_inserted_const2bits;
     mutable ref<sat2goal::mc>   m_sat_mc;
     mutable model_converter_ref m_cached_mc;
@@ -88,6 +89,7 @@ public:
         m_internalized_converted(false), 
         m_internalized_fmls(m) {
         updt_params(p);
+        m_mcs.push_back(nullptr);
         init_preprocess();
         m_solver.set_incremental(incremental_mode && !override_incremental());
     }
@@ -119,7 +121,7 @@ public:
         for (unsigned a : m_asms_lim) result->m_asms_lim.push_back(a);
         for (unsigned h : m_fmls_head_lim) result->m_fmls_head_lim.push_back(h);
         for (expr* f : m_internalized_fmls) result->m_internalized_fmls.push_back(tr(f));
-        if (m_mc0) result->m_mc0 = m_mc0->translate(tr);
+        if (m_mcs.back()) result->m_mcs.push_back(m_mcs.back()->translate(tr));
         if (m_sat_mc) result->m_sat_mc = dynamic_cast<sat2goal::mc*>(m_sat_mc->translate(tr));
         // copy m_bb_rewriter?
         result->m_internalized_converted = m_internalized_converted;
@@ -186,6 +188,7 @@ public:
         if (r != l_true) return r;
 
         init_reason_unknown();
+        m_internalized_converted = false;
         try {
             // IF_VERBOSE(0, m_solver.display(verbose_stream()));
             r = m_solver.check(m_asms.size(), m_asms.c_ptr());
@@ -217,6 +220,7 @@ public:
         internalize_formulas();
         m_solver.user_push();
         ++m_num_scopes;
+        m_mcs.push_back(m_mcs.back());
         m_fmls_lim.push_back(m_fmls.size());
         m_asms_lim.push_back(m_asmsf.size());
         m_fmls_head_lim.push_back(m_fmls_head);
@@ -234,7 +238,9 @@ public:
         SASSERT(n <= m_num_scopes);
         m_solver.user_pop(n);
         m_num_scopes -= n;
+        // ? m_internalized_converted = false;
         while (n > 0) {
+            m_mcs.pop_back();
             m_fmls_head = m_fmls_head_lim.back();
             m_fmls.resize(m_fmls_lim.back());
             m_fmls_lim.pop_back();
@@ -448,12 +454,10 @@ public:
         if (m_cached_mc)
             return m_cached_mc;
         if (is_internalized() && m_internalized_converted) {            
-            insert_const2bits();
             m_sat_mc->flush_smc(m_solver, m_map);
-            m_cached_mc = m_mc0.get();
+            m_cached_mc = m_mcs.back();
             m_cached_mc = concat(solver::get_model_converter().get(), m_cached_mc.get());
             m_cached_mc = concat(m_cached_mc.get(), m_sat_mc.get());
-            // IF_VERBOSE(0, m_cached_mc->display(verbose_stream() << "get-model-converter\n"););
             return m_cached_mc;
         }
         else {
@@ -493,12 +497,10 @@ public:
         simp2_p.set_bool("elim_and", true);
         simp2_p.set_bool("blast_distinct", true);
         m_preprocess =
-            and_then(mk_card2bv_tactic(m, m_params),
+            and_then(mk_card2bv_tactic(m, m_params),                  // updates model converter
                      using_params(mk_simplify_tactic(m), simp2_p),
                      mk_max_bv_sharing_tactic(m),
-                     mk_bit_blaster_tactic(m, m_bb_rewriter.get()),
-                     //mk_aig_tactic(),
-                     //mk_propagate_values_tactic(m, simp2_p),
+                     mk_bit_blaster_tactic(m, m_bb_rewriter.get()),   // updates model converter
                      using_params(mk_simplify_tactic(m), simp2_p));
         while (m_bb_rewriter->get_num_scopes() < m_num_scopes) {
             m_bb_rewriter->push();
@@ -507,22 +509,6 @@ public:
     }
 
 private:
-
-    void insert_const2bits() const {
-        if (!m_bb_rewriter) return;
-        obj_map<func_decl, expr*> to_insert;
-        obj_map<func_decl, expr*> const& const2bits = m_bb_rewriter->const2bits();
-        for (auto const& kv : const2bits) {
-            if (!m_inserted_const2bits.contains(kv.m_key)) {
-                m_inserted_const2bits.insert(kv.m_key);
-                to_insert.insert(kv.m_key, kv.m_value);
-            }
-        }
-        if (!to_insert.empty()) {
-            m_mc0 = concat(m_mc0.get(), mk_bit_blaster_model_converter(m, to_insert));
-        }
-    }
-
 
     lbool internalize_goal(goal_ref& g, dep2asm_t& dep2asm, bool is_lemma) {
         m_pc.reset();
@@ -543,15 +529,15 @@ private:
             m_preprocess = 0;
             m_bb_rewriter = 0;
             return l_undef;
-        }
+        }        
         if (m_subgoals.size() != 1) {
-            IF_VERBOSE(0, verbose_stream() << "size of subgoals is not 1, it is: " << m_subgoals.size() << "\n";);
+            IF_VERBOSE(0, verbose_stream() << "size of subgoals is not 1, it is: " << m_subgoals.size() << "\n");
             return l_undef;
         }
         g = m_subgoals[0];
         expr_ref_vector atoms(m);
         m_pc = g->pc();
-        m_mc0 = concat(m_mc0.get(), g->mc());
+        m_mcs.set(m_mcs.size()-1, concat(m_mcs.back(), g->mc()));
         TRACE("sat", g->display_with_dependencies(tout););
 
         // ensure that if goal is already internalized, then import mc from m_solver.
@@ -591,8 +577,8 @@ private:
     }
 
     lbool internalize_vars(expr_ref_vector const& vars, sat::bool_var_vector& bvars) {
-        for (unsigned i = 0; i < vars.size(); ++i) {
-            internalize_var(vars[i], bvars);
+        for (expr* v : vars) {
+            internalize_var(v, bvars);
         }
         return l_true;
     }
@@ -604,7 +590,6 @@ private:
         bool internalized = false;
         if (is_uninterp_const(v) && m.is_bool(v)) {
             sat::bool_var b = m_map.to_bool_var(v);
-
             if (b != sat::null_bool_var) {
                 bvars.push_back(b);
                 internalized = true;
@@ -614,10 +599,9 @@ private:
             SASSERT(bvutil.is_bv(bv));
             app* abv = to_app(bv);
             internalized = true;
-            unsigned sz = abv->get_num_args();
-            for (unsigned j = 0; j < sz; ++j) {
-                SASSERT(is_uninterp_const(abv->get_arg(j)));
-                sat::bool_var b = m_map.to_bool_var(abv->get_arg(j));
+            for (expr* arg : *abv) {
+                SASSERT(is_uninterp_const(arg));
+                sat::bool_var b = m_map.to_bool_var(arg);
                 if (b == sat::null_bool_var) {
                     internalized = false;
                 }
@@ -625,7 +609,7 @@ private:
                     bvars.push_back(b);
                 }
             }
-            CTRACE("sat", internalized, tout << "var: "; for (unsigned j = 0; j < sz; ++j) tout << bvars[bvars.size()-sz+j] << " "; tout << "\n";);
+            CTRACE("sat", internalized, tout << "var: " << bvars << "\n";);
         }
         else if (is_uninterp_const(v) && bvutil.is_bv(v)) {
             // variable does not occur in assertions, so is unconstrained.
@@ -813,18 +797,18 @@ private:
             //IF_VERBOSE(0, m_sat_mc->display(verbose_stream() << "satmc\n"););
             (*m_sat_mc)(mdl);
         }
-        insert_const2bits();
-        if (m_mc0) {            
+        if (m_mcs.back()) {            
             //IF_VERBOSE(0, m_mc0->display(verbose_stream() << "mc0\n"););
-            (*m_mc0)(mdl);
+            (*m_mcs.back())(mdl);
         }
         TRACE("sat", model_smt2_pp(tout, m, *mdl, 0););
         
         // IF_VERBOSE(0, model_smt2_pp(verbose_stream() << "after\n", m, *mdl, 0););
 
 #if 0
-        IF_VERBOSE(0, verbose_stream() << "Verifying solution\n";);
+        IF_VERBOSE(0, verbose_streamm() << "Verifying solution\n";);
         model_evaluator eval(*mdl);
+        bool all_true = true;
         for (expr * f : m_fmls) {
             expr_ref tmp(m);
             eval(f, tmp);
@@ -833,13 +817,20 @@ private:
                    model_smt2_pp(tout, m, *(mdl.get()), 0););
             if (!m.is_true(tmp)) {
                 IF_VERBOSE(0, verbose_stream() << "failed to verify: " << mk_pp(f, m) << "\n";);
-                IF_VERBOSE(0, verbose_stream() << m_params << "\n";);
-                IF_VERBOSE(0, m_sat_mc->display(verbose_stream() << "sat mc\n"););
-                IF_VERBOSE(0, if (m_mc0) m_mc0->display(verbose_stream() << "mc0\n"););
-                break;
+                all_true = false;
             }
-            VERIFY(m.is_true(tmp));                                
+            else {
+                VERIFY(m.is_true(tmp));                                
+            }
         }
+        if (!all_true) {
+            IF_VERBOSE(0, verbose_stream() << m_params << "\n";);
+            IF_VERBOSE(0, m_sat_mc->display(verbose_stream() << "sat mc\n"););
+            IF_VERBOSE(0, if (m_mcs.back()) m_mcs.back()->display(verbose_stream() << "mc0\n"););
+            //IF_VERBOSE(0, m_solver.display(verbose_stream()));
+            IF_VERBOSE(0, for (auto const& kv : m_map) verbose_stream() << mk_pp(kv.m_key, m) << " |-> " << kv.m_value << "\n";);
+        }
+
 #endif
     }
 };

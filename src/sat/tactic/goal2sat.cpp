@@ -573,28 +573,6 @@ struct goal2sat::imp {
 
     void convert_eq_k(app* t, rational const& k, bool root, bool sign) {
         SASSERT(k.is_unsigned());
-#if 0
-        IF_VERBOSE(0, verbose_stream() << t->get_id() << ": " << mk_pp(t, m) << "\n";);
-        svector<wliteral> wlits;
-        convert_pb_args(t, wlits);
-        if (root && !sign) {
-            m_ext->add_eq(sat::null_literal, wlits, k.get_unsigned());
-            m_result_stack.reset();
-        }
-        else {
-            sat::bool_var v = m_solver.mk_var();
-            sat::literal l(v, false);
-            m_ext->add_eq(l, wlits, k.get_unsigned());
-            m_result_stack.shrink(m_result_stack.size() - t->get_num_args());
-            m_cache.insert(t, l);
-            if (sign) l.neg();
-            m_result_stack.push_back(l);
-            if (root) {
-                mk_clause(l);
-                m_result_stack.reset();
-            }
-        }
-#else
         sat::literal_vector lits;
         convert_pb_args(t->get_num_args(), lits);
         sat::bool_var v1 = (root && !sign) ? sat::null_bool_var : m_solver.mk_var(true);
@@ -625,7 +603,6 @@ struct goal2sat::imp {
                 m_result_stack.reset();
             }
         }
-#endif
     }
 
     void ensure_extension() {
