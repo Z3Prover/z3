@@ -305,8 +305,8 @@ public:
     T get_elem(unsigned i, unsigned j) const { return get(i, j); }
     unsigned get_number_of_rows() const { return dimension(); }
     unsigned get_number_of_columns() const { return dimension(); }
-    virtual void set_number_of_rows(unsigned /*m*/) { }
-    virtual void set_number_of_columns(unsigned /*n*/) { }
+    void set_number_of_rows(unsigned /*m*/) override { }
+    void set_number_of_columns(unsigned /*n*/) override { }
 #endif
     template <typename L>
     L dot_product_with_row (unsigned row, const vector<L> & y) const;

@@ -79,8 +79,8 @@ public:
 
     void apply_from_left_to_X(vector<X> & w, lp_settings & );
 
-    virtual void set_number_of_rows(unsigned /*m*/) {}
-    virtual void set_number_of_columns(unsigned /*n*/) { }
+    void set_number_of_rows(unsigned /*m*/) override {}
+    void set_number_of_columns(unsigned /*n*/) override {}
 
     T get_elem(unsigned i, unsigned j) const { return m_values[i * m_n + j]; }
 

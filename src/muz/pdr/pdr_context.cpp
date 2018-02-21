@@ -1736,6 +1736,7 @@ namespace pdr {
     }
 
     void context::validate_model() {
+        IF_VERBOSE(1, verbose_stream() << "(pdr.validate_model)\n";);
         std::stringstream msg;
         expr_ref_vector refs(m);
         expr_ref tmp(m);
@@ -1745,11 +1746,10 @@ namespace pdr {
         get_level_property(m_inductive_lvl, refs, rs);
         inductive_property ex(m, mc, rs);
         ex.to_model(model);
-        decl2rel::iterator it = m_rels.begin(), end = m_rels.end();
         var_subst vs(m, false);
         expr_free_vars fv;
-        for (; it != end; ++it) {
-            ptr_vector<datalog::rule> const& rules = it->m_value->rules();
+        for (auto const& kv : m_rels) {
+            ptr_vector<datalog::rule> const& rules = kv.m_value->rules();
             for (unsigned i = 0; i < rules.size(); ++i) {
                 datalog::rule& r = *rules[i];
                 model->eval(r.get_head(), tmp);
@@ -1916,7 +1916,7 @@ namespace pdr {
                     verbose_stream() << ex.to_string();
                 });
 
-            // upgrade invariants that are known to be inductive.
+            // upgrade invariants that are known to be inductive.            
             decl2rel::iterator it = m_rels.begin (), end = m_rels.end ();
             for (; m_inductive_lvl > 0 && it != end; ++it) {
                 if (it->m_value->head() != m_query_pred) {
