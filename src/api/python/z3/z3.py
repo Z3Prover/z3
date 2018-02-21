@@ -7457,8 +7457,7 @@ def WithParams(t, p):
     >>> t((x + 1)*(y + 2) == 0)
     [[2*x + y + x*y == -2]]
     """
-    ctx = keys.pop('ctx', None)
-    t = _to_tactic(t, ctx)
+    t = _to_tactic(t, None)
     return Tactic(Z3_tactic_using_params(t.ctx.ref(), t.tactic, p.params), t.ctx)
 
 def Repeat(t, max=4294967295, ctx=None):
