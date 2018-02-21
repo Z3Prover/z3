@@ -7453,7 +7453,7 @@ def WithParams(t, p):
     >>> x, y = Ints('x y')
     >>> p = ParamsRef()
     >>> p.set("som", True)
-    >>> t = With(Tactic('simplify'), p)
+    >>> t = WithParams(Tactic('simplify'), p)
     >>> t((x + 1)*(y + 2) == 0)
     [[2*x + y + x*y == -2]]
     """

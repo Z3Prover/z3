@@ -210,8 +210,7 @@ namespace datalog {
         }
 
         rule_set::iterator rend = orig.end();
-        for (rule_set::iterator rit = orig.begin(); rit!=rend; ++rit) {
-            rule * r = *rit;
+        for (rule * r : orig) {
             func_decl * head_pred = r->get_decl();
             m_head_pred_ctr.inc(head_pred);
 
@@ -283,9 +282,7 @@ namespace datalog {
         
         const rule_stratifier::comp_vector& comps = r.get_stratifier().get_strats();
 
-        rule_stratifier::comp_vector::const_iterator cend = comps.end();
-        for (rule_stratifier::comp_vector::const_iterator it = comps.begin(); it!=cend; ++it) {
-            rule_stratifier::item_set * stratum = *it;
+        for (rule_stratifier::item_set * stratum : comps) {
             if (stratum->size()==1) {
                 continue;
             }
@@ -307,9 +304,7 @@ namespace datalog {
         const rule_stratifier::comp_vector& comps = 
             proposed_inlined_rules.get_stratifier().get_strats();
 
-        rule_stratifier::comp_vector::const_iterator cend = comps.end();
-        for (rule_stratifier::comp_vector::const_iterator it = comps.begin(); it!=cend; ++it) {
-            rule_stratifier::item_set * stratum = *it;
+        for (rule_stratifier::item_set * stratum : comps) {
 
             SASSERT(stratum->size()==1);
             func_decl * head_pred = *stratum->begin();
@@ -318,10 +313,7 @@ namespace datalog {
             bool is_multi_occurrence_pred = m_tail_pred_ctr.get(head_pred)>1;
 
             const rule_vector& pred_rules = proposed_inlined_rules.get_predicate_rules(head_pred);
-            rule_vector::const_iterator iend = pred_rules.end();
-            for (rule_vector::const_iterator iit = pred_rules.begin(); iit!=iend; ++iit) {
-                rule * r = *iit;
-
+            for (rule * r : pred_rules) {
                 unsigned pt_len = r->get_positive_tail_size();
                 for (unsigned ti = 0; ti<pt_len; ++ti) {
                     func_decl * tail_pred = r->get_decl(ti);
@@ -409,7 +401,6 @@ namespace datalog {
 
         const rule_stratifier::comp_vector& comps = candidate_inlined_set->get_stratifier().get_strats();
 
-        rule_stratifier::comp_vector::const_iterator cend = comps.end();
         for (rule_stratifier::item_set * stratum : comps) {
             SASSERT(stratum->size()==1);
             func_decl * pred = *stratum->begin();
