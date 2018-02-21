@@ -410,15 +410,11 @@ namespace datalog {
         const rule_stratifier::comp_vector& comps = candidate_inlined_set->get_stratifier().get_strats();
 
         rule_stratifier::comp_vector::const_iterator cend = comps.end();
-        for (rule_stratifier::comp_vector::const_iterator it = comps.begin(); it!=cend; ++it) {
-            rule_stratifier::item_set * stratum = *it;
+        for (rule_stratifier::item_set * stratum : comps) {
             SASSERT(stratum->size()==1);
             func_decl * pred = *stratum->begin();
-
-            const rule_vector& pred_rules = candidate_inlined_set->get_predicate_rules(pred);
-            rule_vector::const_iterator iend = pred_rules.end();
-            for (rule_vector::const_iterator iit = pred_rules.begin(); iit!=iend; ++iit) {
-                transform_rule(orig, *iit, m_inlined_rules);
+            for (rule * r : candidate_inlined_set->get_predicate_rules(pred)) {
+                transform_rule(orig, r, m_inlined_rules);
             }
         }
 
@@ -426,7 +422,7 @@ namespace datalog {
 
         for (unsigned i = 0; i < m_inlined_rules.get_num_rules(); ++i) {
             rule* r = m_inlined_rules.get_rule(i);
-            datalog::del_rule(m_mc, *r, true);
+            datalog::del_rule(m_mc, *r, false);
         }
     }
 
@@ -455,9 +451,7 @@ namespace datalog {
 
             func_decl * pred = r->get_decl(i);
             const rule_vector& pred_rules = m_inlined_rules.get_predicate_rules(pred);
-            rule_vector::const_iterator iend = pred_rules.end();
-            for (rule_vector::const_iterator iit = pred_rules.begin(); iit!=iend; ++iit) {
-                rule * inl_rule = *iit;
+            for (rule * inl_rule : pred_rules) {
                 rule_ref inl_result(m_rm);
                 if (try_to_inline_rule(*r.get(), *inl_rule, i, inl_result)) {
                     todo.push_back(inl_result);
@@ -475,9 +469,8 @@ namespace datalog {
 
         bool something_done = false;
 
-        rule_set::iterator rend = orig.end();
-        for (rule_set::iterator rit = orig.begin(); rit!=rend; ++rit) {
-            rule_ref r(*rit, m_rm);
+        for (rule* rl : orig) {
+            rule_ref r(rl, m_rm);
             func_decl * pred = r->get_decl();
 
             // if inlining is allowed, then we are eliminating 
@@ -508,15 +501,10 @@ namespace datalog {
     bool mk_rule_inliner::is_oriented_rewriter(rule * r, rule_stratifier const& strat) {
         func_decl * head_pred = r->get_decl();
         unsigned head_strat = strat.get_predicate_strat(head_pred);
-
         unsigned head_arity = head_pred->get_arity();
-
-
         unsigned pt_len = r->get_positive_tail_size();
-        for (unsigned ti=0; ti<pt_len; ++ti) {
-            
+        for (unsigned ti=0; ti < pt_len; ++ti) {            
             func_decl * pred = r->get_decl(ti);
-
             unsigned pred_strat = strat.get_predicate_strat(pred);
             SASSERT(pred_strat<=head_strat);
 
@@ -855,13 +843,9 @@ namespace datalog {
             return nullptr;
         }
 
-        rule_set::iterator end = source.end();
-        for (rule_set::iterator it = source.begin(); it != end; ++ it) {
-            if (has_quantifier(**it)) {
-                return nullptr;
-            }
-        }
-        
+        for (rule const* r : source) 
+            if (has_quantifier(*r)) 
+                return nullptr;        
 
         if (m_context.get_model_converter()) {
             hsmc = alloc(horn_subsume_model_converter, m);
