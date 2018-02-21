@@ -214,11 +214,11 @@ public:
     void apply_from_right(vector<T> & w) override;
 
 #ifdef Z3DEBUG
-    T get_elem (unsigned i, unsigned j) const;
-    unsigned row_count() const { return m_parent->row_count();}
-    unsigned column_count() const { return row_count();}
-    void set_number_of_rows(unsigned) {}
-    void set_number_of_columns(unsigned) {};
+    T get_elem (unsigned i, unsigned j) const override;
+    unsigned row_count() const override { return m_parent->row_count();}
+    unsigned column_count() const override { return row_count();}
+    void set_number_of_rows(unsigned) override {}
+    void set_number_of_columns(unsigned) override {}
 #endif
     void conjugate_by_permutation(permutation_matrix<T, X> & q);
 };

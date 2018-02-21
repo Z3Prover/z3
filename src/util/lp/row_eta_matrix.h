@@ -79,11 +79,11 @@ public:
 
     void conjugate_by_permutation(permutation_matrix<T, X> & p);
 #ifdef Z3DEBUG
-    T get_elem(unsigned row, unsigned col) const;
-    unsigned row_count() const { return m_dimension; }
-    unsigned column_count() const { return m_dimension; }
-    void set_number_of_rows(unsigned m) { m_dimension = m; }
-    void set_number_of_columns(unsigned n) { m_dimension = n; }
+    T get_elem(unsigned row, unsigned col) const override;
+    unsigned row_count() const override { return m_dimension; }
+    unsigned column_count() const override { return m_dimension; }
+    void set_number_of_rows(unsigned m) override { m_dimension = m; }
+    void set_number_of_columns(unsigned n) override { m_dimension = n; }
 #endif
 }; // end of row_eta_matrix
 }
