@@ -83,7 +83,7 @@ public:
     void apply_from_right(vector<T> & w) override;
     void apply_from_right(indexed_vector<T> & w) override;
 
-    T get_elem(unsigned i, unsigned j) const;
+    T get_elem(unsigned i, unsigned j) const override;
 #ifdef Z3DEBUG
     unsigned row_count() const override { return m_length; }
     unsigned column_count() const override { return m_length; }
