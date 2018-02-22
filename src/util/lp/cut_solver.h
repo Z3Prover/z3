@@ -153,7 +153,7 @@ public :
     polynomial & poly() { return m_poly; }
     const svector<constraint_index> & assert_origins() const { return m_assert_origins;}
     bool is_lemma() const { return !is_assert(); }
-    bool is_assert() const { return m_assert_origins.size() > 0; }
+    bool is_assert() const { return m_predecessors.size() == 0; }
     bool is_ineq() const { return m_is_ineq; }
     const mpq & divider() const { return m_d; }
 public :
@@ -168,9 +168,8 @@ public :
     static constraint * make_ineq_constraint(
         int id,
         const polynomial & p,
-        const svector<constraint_index> & origins,
         std::unordered_set<const constraint*>  predecessors_set) {
-        auto c = new constraint(id, origins, p, true);
+        auto c = new constraint(id, p, true);
         c->predecessors() = predecessors_set;
         return c;
     }
@@ -367,14 +366,21 @@ public: // for debugging
         std::unordered_map<constraint*, bound_type, constraint_hash, constraint_equal> m_dependent_constraints;
         unsigned                                                                       m_external_stack_level;
         unsigned                                                                       m_number_of_bound_propagations;
+        unsigned                                                                       m_number_of_asserts;
         
     public:
+        unsigned number_of_asserts() const { return m_number_of_asserts; }
+
         var_info(unsigned user_var_index) :
-            m_internal_j(user_var_index), m_external_stack_level(static_cast<unsigned>(-1)), m_number_of_bound_propagations(0)
+            m_internal_j(user_var_index),
+            m_external_stack_level(static_cast<unsigned>(-1)),
+            m_number_of_bound_propagations(0),
+            m_number_of_asserts(0)
         {}
         var_info() : m_internal_j(static_cast<unsigned>(-1)),
                      m_external_stack_level(static_cast<unsigned>(-1)),
-                     m_number_of_bound_propagations(0) {}
+                     m_number_of_bound_propagations(0),
+                     m_number_of_asserts(0) {}
 
         bool is_active() const { return m_internal_j != static_cast<unsigned>(-1); }
         
@@ -387,10 +393,14 @@ public: // for debugging
         }
         void add_dependent_constraint(constraint* i, bound_type bt) {
             lp_assert(m_dependent_constraints.find(i) == m_dependent_constraints.end());
+            if (i->is_assert())
+                m_number_of_asserts++;
             m_dependent_constraints[i] = bt;
         }
         void remove_depended_constraint(constraint* i) {
             lp_assert(m_dependent_constraints.find(i) != m_dependent_constraints.end());
+            if (i->is_assert())
+                m_number_of_asserts--;
             m_dependent_constraints.erase(i);
         }
 
@@ -588,6 +598,9 @@ public:
     unsigned                                       m_decision_level;
     bool                                           m_stuck_state;
     bool                                           m_cancelled;
+    // debug fields
+    unsigned                                       m_number_of_constraints_tried_for_propagaton;
+    unsigned                                       m_number_of_pops;
     
 
     bool is_lower_bound(literal & l) const {
@@ -954,7 +967,7 @@ public:
             return b == l.bound() && l.is_lower();
         }
 
-        CTRACE("var_bound_is_correct_by_trail", !(t.m_expl_lower == -1), tout << "return " << (t.m_expl_lower == -1););
+        CTRACE("var_bound_is_correct_by_trail", !(t.m_expl_lower == -1), tout << "return " << (t.m_expl_lower == -1) << " t.m_expl_lower = " << t.m_expl_lower << ", "; print_var_info(tout, v); print_trail(tout););
         return t.m_expl_lower == -1;
     }
     
@@ -987,6 +1000,8 @@ public:
             out << "no lower bound for constraint\n";
     }
 
+    
+    
     bool new_lower_bound_is_relevant(unsigned j, const mpq & v) const {
         mpq lb;
         const var_info & vi = m_var_infos[j];
@@ -1007,6 +1022,10 @@ public:
         
     }
 
+    bool cycle_on_var_info(const var_info & vi) const {
+        return vi.number_of_bound_propagations() > m_settings.m_cut_solver_bound_propagation_factor * vi.number_of_asserts();
+    }
+    
     bool too_many_propagations_for_var(const var_info& vi) const {
         return vi.number_of_bound_propagations() > m_settings.m_cut_solver_bound_propagation_factor * vi.dependent_constraints().size();
     }
@@ -1048,6 +1067,10 @@ public:
                                      const mpq& lower_val,
                                      constraint* c) {
         unsigned j = p.var();
+        if (cycle_on_var_info(m_var_infos[j])) {
+            return;
+        }
+
         if (is_pos(p.coeff())) {
             mpq m;
             get_var_lower_bound(p.var(), m);
@@ -1071,6 +1094,9 @@ public:
                                            const mpq& rs,
                                            constraint *c) {
         unsigned j = p.var();
+        if (cycle_on_var_info(m_var_infos[j])) {
+            return;  
+        }
         if (is_pos(p.coeff())) {
             mpq v = floor(rs / p.coeff());
             if (new_upper_bound_is_relevant(j, v)) {
@@ -1091,19 +1117,19 @@ public:
 
     void print_var_info(std::ostream & out, const var_info & vi) const {
         out << m_var_name_function(vi.internal_j()) << " ";
+        if (vi.internal_j() < m_v.size()) {
+            out << "m_v[" << vi.internal_j() << "] = " << m_v[vi.internal_j()] << std::endl;
+        }
+        if (vi.is_active()) out << ", active var ";
         print_var_domain(out, vi);
-        out << ", propagaions = " <<  vi.number_of_bound_propagations() << ", deps = " << vi.dependent_constraints().size() << std::endl;
+        out << ", propagaions = " <<  vi.number_of_bound_propagations() << ", deps = " << vi.dependent_constraints().size();
+        out << ", asserts = " << vi.number_of_asserts() << std::endl;
         // out << "external levels: ";
         // for (auto j : vi.external_stack_level())
         //     out << j << " ";
     }
 
     void print_var_info(std::ostream & out, unsigned j) const {
-        out << "j = " << j << std::endl;
-        if (j < m_v.size()) {
-            out << "m_v[" << j << "] = " << m_v[j] << std::endl;
-        }
-        if (m_var_infos[j].is_active()) out << "active var ";
         print_var_info(out, m_var_infos[j]);
     }
     
@@ -1196,6 +1222,7 @@ public:
 
     void trace_print_constraint(std::ostream& out, const_constr* i) const {
         print_constraint(out, *i);
+        out << "id = " << i->id() << ", ";
         unsigned j;
         auto pairs = to_pairs(i->poly().m_coeffs);
         auto it = linear_combination_iterator_on_vector<mpq>(pairs);
@@ -1489,6 +1516,7 @@ public:
     
     void print_constraint(std::ostream & out, const_constr & i ) const {
         out << (i.is_lemma()? "lemma ": "assert ");
+        out << "id = " << i.id() << ", ";
         if (!i.is_ineq()) {
             out << i.divider() << " | ";
         }
@@ -1709,14 +1737,31 @@ public:
             pop();
         }
     }
+
+    void print_state_stats(std::ostream & out) const {
+        static bool one_time_print = true;
+        if (m_bounded_search_calls % 10 )
+            return;
+        out << "search_calls = " << m_bounded_search_calls << ", ";
+        out << "vars = " << m_var_infos.size() << ",";
+        out << "asserts = "<< m_asserts.size() << ", ";
+        out << "lemmas = "  << m_lemmas.size() << ", ";
+        out << "trail = " << m_trail.size() << ", props = " << m_number_of_constraints_tried_for_propagaton << ", ";
+        out << "cnfls = " << m_number_of_conflicts << ", ";
+        out << "pops = " << m_number_of_pops << std::endl;
+        if (one_time_print && m_lemmas.size() >= 500) {
+            print_state(out);
+            one_time_print = false;
+        }
+    }
+
     
     lbool check() {
         init_search();
-        TRACE("check_int_state", tout << "starting check" << "\n";);
+        TRACE("check_int", tout << "starting check" << "\n";);
         while (!m_stuck_state && !cancel()) {
             TRACE("cs_ch", tout << "inside loop\n";);
             lbool r = bounded_search();
-            lp_assert(var_infos_are_correct());
             if (cancel()) {
                 break;
             }
@@ -1728,10 +1773,13 @@ public:
             restart();
             simplify_problem();
             if (check_inconsistent()) {
+                TRACE("check_int", tout << "return " << (r == lbool::l_true ? "true" : "false") << "\n"; );
                 pop_to_external_level();
                 return lbool::l_false;
             }
             gc();
+            TRACE("check_int", tout << "continue\n"; print_state_stats(tout); );
+
         }
         TRACE("check_int", tout << "return undef\n";);
         pop_to_external_level();
@@ -1756,9 +1804,12 @@ public:
             m_active_set.add_constraint(c);
         for (auto & vi : m_var_infos)
             vi.number_of_bound_propagations() = 0;
+        m_number_of_constraints_tried_for_propagaton = 0;
+        m_number_of_pops = 0;
     }
 
     constraint* propagate_constraint(constraint* c) {
+        m_number_of_constraints_tried_for_propagaton ++;
         lp_assert(c->is_ineq());
         TRACE("ba_int", trace_print_constraint(tout, c););
         // consider a special case for a constraint with just two variables
@@ -1803,10 +1854,6 @@ public:
             print_constraint(out, *i);
         }
         out << "end of constraints\n";
-        out << "active constraints " << m_active_set.size() << std::endl;
-        for (auto c: m_active_set.cs())
-            print_constraint(out, *c);
-        out << "end of active constraints\n";
         print_trail(out);
         out << "var_infos\n";
         for (const auto & v: m_var_infos) {
@@ -2099,8 +2146,8 @@ public:
         }
         l.tight_constr() = constraint::make_ineq_constraint( m_max_constraint_id++,
                                                              c->poly(),
-                                                             c->assert_origins(),
                                                              c->predecessors());
+        l.tight_constr()->add_predecessor(c);
         tighten(l.tight_constr(), j, a, index_of_literal);
         add_lemma_as_not_active(l.tight_constr());
     }
@@ -2342,6 +2389,7 @@ public:
 
 public:
     void pop(unsigned k) {
+        m_number_of_pops++;
         unsigned new_scope_size = m_scopes.size() - k;
         scope s = m_scopes[new_scope_size];
         m_scopes.shrink(new_scope_size);
@@ -2351,7 +2399,7 @@ public:
                 m_decision_level--;
             var_info & vi = m_var_infos[lit.var()];
             if (vi.external_stack_level() != lit.prev_var_level())
-                vi.pop(k, lit.prev_var_level());
+                vi.pop(1, lit.prev_var_level());
             m_trail.pop_back();
         }
         pop_constraints(s.m_asserts_size, s.m_lemmas_size);
