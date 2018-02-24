@@ -209,7 +209,6 @@ namespace datalog {
             rel->collect_non_empty_predicates(m_preds_with_facts);
         }
 
-        rule_set::iterator rend = orig.end();
         for (rule * r : orig) {
             func_decl * head_pred = r->get_decl();
             m_head_pred_ctr.inc(head_pred);
@@ -257,9 +256,7 @@ namespace datalog {
     rule_set * mk_rule_inliner::create_allowed_rule_set(rule_set const & orig) 
     {
         rule_set * res = alloc(rule_set, m_context);
-        unsigned rcnt = orig.get_num_rules();
-        for (unsigned i=0; i<rcnt; i++) {
-            rule * r = orig.get_rule(i);
+        for (rule * r : orig) {
             if (inlining_allowed(orig, r->get_decl())) {
                 res->add_rule(r);
             }
@@ -283,10 +280,10 @@ namespace datalog {
         const rule_stratifier::comp_vector& comps = r.get_stratifier().get_strats();
 
         for (rule_stratifier::item_set * stratum : comps) {
-            if (stratum->size()==1) {
+            if (stratum->size() == 1) {
                 continue;
             }
-            SASSERT(stratum->size()>1);
+            SASSERT(stratum->size() > 1);
             func_decl * first_stratum_pred = *stratum->begin();
 
             //we're trying to break cycles by removing one predicate from each of them
@@ -397,12 +394,12 @@ namespace datalog {
         // now we start filling in the set of the inlined rules in a topological order,
         // so that we inline rules into other rules
 
-        SASSERT(m_inlined_rules.get_num_rules()==0);
+        SASSERT(m_inlined_rules.get_num_rules() == 0);
 
         const rule_stratifier::comp_vector& comps = candidate_inlined_set->get_stratifier().get_strats();
 
         for (rule_stratifier::item_set * stratum : comps) {
-            SASSERT(stratum->size()==1);
+            SASSERT(stratum->size() == 1);
             func_decl * pred = *stratum->begin();
             for (rule * r : candidate_inlined_set->get_predicate_rules(pred)) {
                 transform_rule(orig, r, m_inlined_rules);
@@ -411,8 +408,7 @@ namespace datalog {
 
         TRACE("dl", tout << "inlined rules after mutual inlining:\n" << m_inlined_rules;  );
 
-        for (unsigned i = 0; i < m_inlined_rules.get_num_rules(); ++i) {
-            rule* r = m_inlined_rules.get_rule(i);
+        for (rule * r : m_inlined_rules) {
             datalog::del_rule(m_mc, *r, false);
         }
     }
@@ -426,9 +422,7 @@ namespace datalog {
             rule_ref r(todo.back(), m_rm);
             todo.pop_back();
             unsigned pt_len = r->get_positive_tail_size();
-
             unsigned i = 0;
-
             for  (; i < pt_len && !inlining_allowed(orig, r->get_decl(i)); ++i) {};
 
             SASSERT(!has_quantifier(*r.get()));
@@ -497,9 +491,9 @@ namespace datalog {
         for (unsigned ti=0; ti < pt_len; ++ti) {            
             func_decl * pred = r->get_decl(ti);
             unsigned pred_strat = strat.get_predicate_strat(pred);
-            SASSERT(pred_strat<=head_strat);
+            SASSERT(pred_strat <= head_strat);
 
-            if (pred_strat==head_strat) {
+            if (pred_strat == head_strat) {
                 if (pred->get_arity()>head_arity
                     || (pred->get_arity()==head_arity && pred->get_id()>=head_pred->get_id()) ) {
                     return false;
