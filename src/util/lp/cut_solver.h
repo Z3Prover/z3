@@ -1023,7 +1023,7 @@ public:
     }
 
     bool cycle_on_var_info(const var_info & vi) const {
-        return vi.number_of_bound_propagations() > m_settings.m_cut_solver_bound_propagation_factor * vi.number_of_asserts();
+        return vi.number_of_bound_propagations() > m_settings.m_cut_solver_cycle_on_var * vi.number_of_asserts();
     }
     
     bool too_many_propagations_for_var(const var_info& vi) const {
