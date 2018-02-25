@@ -6818,8 +6818,8 @@ class FiniteDomainSortRef(SortRef):
 
     def size(self):
         """Return the size of the finite domain sort"""
-        r = (ctype.c_ulonglong * 1)()
-        if Z3_get_finite_domain_sort_size(self.ctx_ref(), self.ast(), r):
+        r = (ctypes.c_ulonglong * 1)()
+        if Z3_get_finite_domain_sort_size(self.ctx_ref(), self.ast, r):
             return r[0]
         else:
             raise Z3Exception("Failed to retrieve finite domain sort size")
