@@ -600,8 +600,7 @@ public:
     bool                                           m_cancelled;
     // debug fields
     unsigned                                       m_number_of_constraints_tried_for_propagaton;
-    unsigned                                       m_number_of_pops;
-    
+    unsigned                                       m_pushes_to_trail;
 
     bool is_lower_bound(literal & l) const {
         return l.is_lower();
@@ -694,11 +693,6 @@ public:
         return lbool::l_true;
     }
     
-    bool resolve_conflict_core() {
-        // this is where the main action is.
-        return true;
-    }
-
     void find_new_conflicting_cores_under_constraint(var_index j, const_constr* c) {
         // lp_assert(false);
     }
@@ -972,6 +966,7 @@ public:
     }
     
     void push_literal_to_trail(literal & l) {
+        m_pushes_to_trail ++;
         m_trail.push_back(l);
         add_changed_var(l.var());
     }
@@ -1022,12 +1017,8 @@ public:
         
     }
 
-    bool cycle_on_var_info(const var_info & vi) const {
-        return vi.number_of_bound_propagations() > m_settings.m_cut_solver_cycle_on_var * vi.number_of_asserts();
-    }
-    
     bool too_many_propagations_for_var(const var_info& vi) const {
-        return vi.number_of_bound_propagations() > m_settings.m_cut_solver_bound_propagation_factor * vi.dependent_constraints().size();
+        return vi.number_of_bound_propagations() > m_settings.m_cut_solver_cycle_on_var * vi.dependent_constraints().size();
     }
 
     bool new_upper_bound_is_relevant(unsigned j, const mpq & v) const {
@@ -1067,9 +1058,6 @@ public:
                                      const mpq& lower_val,
                                      constraint* c) {
         unsigned j = p.var();
-        if (cycle_on_var_info(m_var_infos[j])) {
-            return;
-        }
 
         if (is_pos(p.coeff())) {
             mpq m;
@@ -1094,9 +1082,7 @@ public:
                                            const mpq& rs,
                                            constraint *c) {
         unsigned j = p.var();
-        if (cycle_on_var_info(m_var_infos[j])) {
-            return;  
-        }
+
         if (is_pos(p.coeff())) {
             mpq v = floor(rs / p.coeff());
             if (new_upper_bound_is_relevant(j, v)) {
@@ -1748,7 +1734,6 @@ public:
         out << "lemmas = "  << m_lemmas.size() << ", ";
         out << "trail = " << m_trail.size() << ", props = " << m_number_of_constraints_tried_for_propagaton << ", ";
         out << "cnfls = " << m_number_of_conflicts << ", ";
-        out << "pops = " << m_number_of_pops << std::endl;
         if (one_time_print && m_lemmas.size() >= 500) {
             print_state(out);
             one_time_print = false;
@@ -1805,7 +1790,7 @@ public:
         for (auto & vi : m_var_infos)
             vi.number_of_bound_propagations() = 0;
         m_number_of_constraints_tried_for_propagaton = 0;
-        m_number_of_pops = 0;
+        m_pushes_to_trail = 0;
     }
 
     constraint* propagate_constraint(constraint* c) {
@@ -1920,10 +1905,21 @@ public:
         return false;
     }
 
+    bool cancel_when_propagation_speed_is_too_slow() {
+        if (m_number_of_constraints_tried_for_propagaton >= 1000) {
+            m_cancelled = m_pushes_to_trail <= 5;
+            m_pushes_to_trail = 0;
+            m_number_of_constraints_tried_for_propagaton = 0;
+            return m_cancelled;
+        }
+        return false;
+    }
 
     
     lbool propagate_and_backjump_step() {
         do {
+            if (cancel_when_propagation_speed_is_too_slow())
+                return lbool::l_undef;
             constraint* c = propagate();
             if (cancel())
                 return lbool::l_undef;
@@ -2389,7 +2385,6 @@ public:
 
 public:
     void pop(unsigned k) {
-        m_number_of_pops++;
         unsigned new_scope_size = m_scopes.size() - k;
         scope s = m_scopes[new_scope_size];
         m_scopes.shrink(new_scope_size);
