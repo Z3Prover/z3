@@ -89,7 +89,7 @@ namespace nra {
         */
         lbool check(lp::explanation_t& ex) {
             SASSERT(need_check());
-            m_nlsat = alloc(nlsat::solver, m_limit, m_params);
+            m_nlsat = alloc(nlsat::solver, m_limit, m_params, false);
             m_lp2nl.reset();
             vector<nlsat::assumption, false> core;
 

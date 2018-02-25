@@ -18,10 +18,11 @@ Revision History:
 
 --*/
 #pragma once
-
+#define lp_for_z3
 #include <string>
 #include <cmath>
 #include <algorithm>
+#ifdef lp_for_z3
 #include "../rational.h"
 #include "../sstream.h"
 #include "../z3_exception.h"
@@ -39,7 +40,7 @@ namespace lp {
 
 template <typename T>
 std::string T_to_string(const T & t); // forward definition
-
+#ifdef lp_for_z3
 template <typename T> class numeric_traits {};
 
 template <>  class numeric_traits<unsigned> {
@@ -104,6 +105,7 @@ template <>  class numeric_traits<double> {
         }
 
     };
+#endif
 
 template <typename X, typename Y>
 struct convert_struct {

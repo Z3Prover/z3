@@ -35,10 +35,10 @@ Revision History:
 #include "util/lp/lp_utils.h"
 #include "util/lp/lp_primal_simplex.h"
 #include "util/lp/mps_reader.h"
-#include "test/smt_reader.h"
+#include "test/lp/smt_reader.h"
 #include "util/lp/binary_heap_priority_queue.h"
-#include "test/argument_parser.h"
-#include "test/test_file_reader.h"
+#include "test/lp/argument_parser.h"
+#include "test/lp/test_file_reader.h"
 #include "util/lp/indexed_value.h"
 #include "util/lp/lar_solver.h"
 #include "util/lp/numeric_pair.h"
@@ -2806,7 +2806,7 @@ void test_bound_propagation_one_small_sample1() {
     vector<implied_bound> ev;
     ls.add_var_bound(a, LE, mpq(1));
     ls.solve();
-    lp_bound_propagator bp(ls);
+    bound_propagator bp(ls);
     ls.propagate_bounds_for_touched_rows(bp);
     std::cout << " bound ev from test_bound_propagation_one_small_sample1" << std::endl;
     for (auto & be : bp.m_ibounds)  {
@@ -2859,7 +2859,7 @@ void test_bound_propagation_one_row() {
     vector<implied_bound> ev;
     ls.add_var_bound(x0, LE, mpq(1));
     ls.solve();
-    lp_bound_propagator bp(ls);
+    bound_propagator bp(ls);
     ls.propagate_bounds_for_touched_rows(bp);
 } 
 void test_bound_propagation_one_row_with_bounded_vars() {
@@ -2875,7 +2875,7 @@ void test_bound_propagation_one_row_with_bounded_vars() {
     ls.add_var_bound(x0, LE, mpq(3));
     ls.add_var_bound(x0, LE, mpq(1));
     ls.solve();
-    lp_bound_propagator bp(ls);
+    bound_propagator bp(ls);
     ls.propagate_bounds_for_touched_rows(bp);
 }
 void test_bound_propagation_one_row_mixed() {
@@ -2889,7 +2889,7 @@ void test_bound_propagation_one_row_mixed() {
     vector<implied_bound> ev;
     ls.add_var_bound(x1, LE, mpq(1));
     ls.solve();
-    lp_bound_propagator bp(ls);
+    bound_propagator bp(ls);
     ls.propagate_bounds_for_touched_rows(bp);
 } 
 
@@ -2912,7 +2912,7 @@ void test_bound_propagation_two_rows() {
     vector<implied_bound> ev;
     ls.add_var_bound(y, LE, mpq(1));
     ls.solve();
-    lp_bound_propagator bp(ls);
+    bound_propagator bp(ls);
     ls.propagate_bounds_for_touched_rows(bp);
 } 
 
@@ -2932,7 +2932,7 @@ void test_total_case_u() {
     vector<implied_bound> ev;
     ls.add_var_bound(z, GE, zero_of_type<mpq>());
     ls.solve();
-    lp_bound_propagator bp(ls);
+    bound_propagator bp(ls);
     ls.propagate_bounds_for_touched_rows(bp);
 }
 bool contains_j_kind(unsigned j, lconstraint_kind kind, const mpq & rs, const vector<implied_bound> & ev) {
@@ -2959,7 +2959,7 @@ void test_total_case_l(){
     vector<implied_bound> ev;
     ls.add_var_bound(z, LE, zero_of_type<mpq>());
     ls.solve();
-    lp_bound_propagator bp(ls);
+    bound_propagator bp(ls);
     ls.propagate_bounds_for_touched_rows(bp);
     lp_assert(ev.size() == 4);
     lp_assert(contains_j_kind(x, GE, - one_of_type<mpq>(), ev));

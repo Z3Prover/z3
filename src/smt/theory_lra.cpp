@@ -28,7 +28,6 @@
 #include "util/optional.h"
 #include "util/lp/lp_params.hpp"
 #include "util/inf_rational.h"
-#include "ast/ast_pp.h"
 #include "smt/smt_theory.h"
 #include "smt/smt_context.h"
 #include "smt/theory_lra.h"
@@ -324,7 +323,6 @@ class theory_lra::imp {
         }
     }
 
-=======
 
     void found_not_handled(expr* n) {
         m_not_handled = n;
@@ -1419,7 +1417,6 @@ public:
             lp_api::bound& b = *m_bool_var2bound.find(bv);
             assert_bound(bv, is_true, b);
                 
-=======
 
             ++m_asserted_qhead;
         }
