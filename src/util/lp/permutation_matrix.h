@@ -28,7 +28,7 @@ Revision History:
 #include "util/lp/matrix.h"
 #include "util/lp/tail_matrix.h"
 namespace lp {
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     inline bool is_even(int k) {  return (k/2)*2 == k; }
 #endif
 

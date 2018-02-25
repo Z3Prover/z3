@@ -37,15 +37,13 @@ Revision History:
 #include "util/lp/stacked_value.h"
 #include "util/lp/stacked_vector.h"
 #include "util/lp/stacked_unordered_set.h"
-#include "util/lp/iterator_on_pivot_row.h"
 #include "util/lp/implied_bound.h"
 #include "util/lp/bound_analyzer_on_row.h"
-#include "util/lp/iterator_on_term_with_basis_var.h"
-#include "util/lp/iterator_on_row.h"
 #include "util/lp/quick_xplain.h"
 #include "util/lp/conversion_helper.h"
 #include "util/lp/int_solver.h"
 #include "util/lp/nra_solver.h"
+#include "util/lp/bound_propagator.h"
 
 namespace lp {
 
@@ -60,30 +58,71 @@ class lar_solver : public column_namer {
         unsigned internal_j() const { return m_internal_j;}
         bool is_integer() const {return m_is_integer;}
     };
+#if Z3DEBUG_CHECK_UNIQUE_TERMS
+    struct term_hasher {
+        std::size_t operator()(const lar_term *t) const
+        {
+            using std::size_t;
+            using std::hash;
+            using std::string;
+            size_t seed = 0;
+            for (const auto& p : t->m_coeffs) {
+                hash_combine(seed, p);
+            }
+            return seed;
+        }
+    };
+
+    struct term_ls_comparer {
+        bool operator()(const lar_term *a, const lar_term* b) const
+        {
+            // a is contained in b
+            for (auto & p : a->m_coeffs) {
+                auto t = b->m_coeffs.find(p.first);
+                if (t == b->m_coeffs.end())
+                    return false;
+                if (p.second != t->second)
+                    return false;
+            }
+            // zz is contained in b
+            for (auto & p : b->m_coeffs) {
+                auto t = a->m_coeffs.find(p.first);
+                if (t == a->m_coeffs.end())
+                    return false;
+                if (p.second != t->second)
+                    return false;
+            }
+            return true;
+        }
+    };
+    std::unordered_set<lar_term*, term_hasher, term_ls_comparer>    m_set_of_terms;
+#endif
+    
     //////////////////// fields //////////////////////////
-    lp_settings m_settings;
-    lp_status m_status;
-    stacked_value<simplex_strategy_enum> m_simplex_strategy;
-    std::unordered_map<unsigned, ext_var_info> m_ext_vars_to_columns;
-    vector<unsigned> m_columns_to_ext_vars_or_term_indices;
-    stacked_vector<ul_pair> m_columns_to_ul_pairs;
-    vector<lar_base_constraint*> m_constraints;
+    lp_settings                                         m_settings;
+    lp_status                                           m_status;
+    stacked_value<simplex_strategy_enum>                m_simplex_strategy;
+    std::unordered_map<unsigned, ext_var_info>          m_ext_vars_to_columns;
+    vector<unsigned>                                    m_columns_to_ext_vars_or_term_indices;
+    stacked_vector<ul_pair>                             m_columns_to_ul_pairs;
+    vector<lar_base_constraint*>                        m_constraints;
+private:
+    stacked_value<unsigned>                             m_constraint_count;
+    // the set of column indices j such that bounds have changed for j
+    int_set                                             m_columns_with_changed_bound;
+    int_set                                             m_rows_with_changed_bounds;
+    int_set                                             m_basic_columns_with_changed_cost;
+    stacked_value<int>                                  m_infeasible_column_index; // such can be found at the initialization step
+    stacked_value<unsigned>                             m_term_count;
+    vector<lar_term*>                                   m_terms;
+    const var_index                                     m_terms_start_index;
+    indexed_vector<mpq>                                 m_column_buffer;
+
+    
 public :
     const vector<lar_base_constraint*>& constraints() const {
         return m_constraints;
     }
-private:
-    stacked_value<unsigned> m_constraint_count;
-    // the set of column indices j such that bounds have changed for j
-    int_set m_columns_with_changed_bound;
-    int_set m_rows_with_changed_bounds;
-    int_set m_basic_columns_with_changed_cost;
-    stacked_value<int> m_infeasible_column_index; // such can be found at the initialization step
-    stacked_value<unsigned> m_term_count;
-    vector<lar_term*> m_terms;
-    const var_index m_terms_start_index;
-    indexed_vector<mpq> m_column_buffer;
-public:
     lar_core_solver m_mpq_lar_core_solver;
 private:
     std::function<void (unsigned)> m_tracker_of_x_change;
@@ -138,12 +177,16 @@ public:
     void add_new_var_to_core_fields_for_mpq(bool register_in_basis);
 
 
-    var_index add_term_undecided(const vector<std::pair<mpq, var_index>> & coeffs,
-                                 const mpq &m_v);
 
     // terms
     var_index add_term(const vector<std::pair<mpq, var_index>> & coeffs,
                        const mpq &m_v);
+
+    var_index add_term_undecided(const vector<std::pair<mpq, var_index>> & coeffs,
+                                 const mpq &m_v);
+
+    bool term_coeffs_are_ok(const vector<std::pair<mpq, var_index>> & coeffs, const mpq& v);
+    void push_and_register_term(lar_term* t);
 
     void add_row_for_term(const lar_term * term, unsigned term_ext_index);
 
@@ -217,9 +260,6 @@ public:
     void substitute_basis_var_in_terms_for_row(unsigned i);
     
     void calculate_implied_bounds_for_row(unsigned i, bound_propagator & bp);
-
-  
-    linear_combination_iterator<mpq> * create_new_iter_from_term(unsigned term_index) const;
 
     unsigned adjust_column_index_to_term_index(unsigned j) const;
     
@@ -301,8 +341,6 @@ public:
 
     void detect_rows_of_bound_change_column_for_nbasic_column(unsigned j);
 
-
-    
     void detect_rows_of_bound_change_column_for_nbasic_column_tableau(unsigned j);
 
     bool use_tableau() const;
@@ -479,10 +517,12 @@ public:
     }
     
     bool bound_is_integer_for_integer_column(unsigned j, const mpq & right_side) const;
-    linear_combination_iterator<mpq> * get_iterator_on_row(unsigned i) {
-        return m_mpq_lar_core_solver.m_r_solver.get_iterator_on_row(i);
+    
+    const row_strip<mpq> &  get_row(unsigned i) {
+        return A_r().m_rows[i];
     }
 
+    
     unsigned get_base_column_in_row(unsigned row_index) const {
         return m_mpq_lar_core_solver.m_r_solver.get_base_column_in_row(row_index);
     }
@@ -495,17 +535,20 @@ public:
         return m_columns_to_ul_pairs()[j].lower_bound_witness();
     }
 
-    void subs_terms_for_debugging(lar_term& t) {
-        vector<std::pair<mpq, unsigned>> pol;
+    void subs_term_columns(lar_term& t) {
+        vector<std::pair<unsigned,unsigned>> columns_to_subs;
         for (const auto & m : t.m_coeffs) {
-            pol.push_back(std::make_pair(m.second, adjust_column_index_to_term_index(m.first)));
+            unsigned tj = adjust_column_index_to_term_index(m.first);
+            if (tj == m.first) continue;
+            columns_to_subs.push_back(std::make_pair(m.first, tj));
         }
-        mpq v = t.m_v;
-        
-        vector<std::pair<mpq, unsigned>> pol_after_subs;
-        substitute_terms_in_linear_expression(pol, pol_after_subs, v);
-        t.clear();
-        t = lar_term(pol_after_subs, v);
+        for (const auto & p : columns_to_subs) {
+            auto it = t.m_coeffs.find(p.first);
+            lp_assert(it != t.m_coeffs.end());
+            mpq v = it->second;
+            t.m_coeffs.erase(it);
+            t.m_coeffs[p.second] = v;
+        }
     }
 
     bool inf_int_set_is_correct_for_column(unsigned j) const {

@@ -26,7 +26,6 @@ Revision History:
 #include "util/lp/column_info.h"
 #include "util/lp/lp_primal_core_solver.h"
 #include "util/lp/lp_solver.h"
-#include "util/lp/iterator_on_row.h"
 namespace lp {
 template <typename T, typename X>
 class lp_primal_simplex: public lp_solver<T, X> {

@@ -1,11 +1,25 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+    Nikolaj Bjorner (nbjorner)
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 #pragma once
 #include "util/lp/lp_settings.h"
 #include "util/lp/static_matrix.h"
-#include "util/lp/iterator_on_row.h"
 #include "util/lp/int_set.h"
 #include "util/lp/lar_term.h"
 #include "util/lp/cut_solver.h"
@@ -49,7 +63,7 @@ public:
     const int_set& inf_int_set() const;
     // main function to check that the solution provided by lar_solver is valid for integral values,
     // or provide a way of how it can be adjusted.
-    lia_move check(lar_term& t, mpq& k, explanation& ex);
+    lia_move check(lar_term& t, mpq& k, explanation& ex, bool & upper);
     bool move_non_basic_column_to_bounds(unsigned j);
     lia_move check_wrapper(lar_term& t, mpq& k, explanation& ex);
 private:
@@ -76,17 +90,16 @@ private:
     // creates a fresh inequality.
 
     bool branch(const lp_constraint<mpq, mpq> & new_inequality);
-    bool ext_gcd_test(iterator_on_row<mpq> & it,
+    bool ext_gcd_test(const row_strip<mpq>& row,
                       mpq const & least_coeff, 
                       mpq const & lcm_den,
                       mpq const & consts,
                       explanation & ex);
-    void fill_explanation_from_fixed_columns(iterator_on_row<mpq> & it, explanation &);
+    void fill_explanation_from_fixed_columns(const row_strip<mpq> & row, explanation &);
     void add_to_explanation_from_fixed_or_boxed_column(unsigned j, explanation &);
     void patch_int_infeasible_non_basic_column(unsigned j);
     void patch_int_infeasible_nbasic_columns();
     bool get_freedom_interval_for_column(unsigned j, bool & inf_l, impq & l, bool & inf_u, impq & u, mpq & m);
-    linear_combination_iterator<mpq> * get_column_iterator(unsigned j);
     const impq & lower_bound(unsigned j) const;
     const impq & upper_bound(unsigned j) const;
     bool is_int(unsigned j) const;
@@ -112,14 +125,13 @@ private:
     lp_settings& settings();
     bool move_non_basic_columns_to_bounds();
     void branch_infeasible_int_var(unsigned);
-    lia_move mk_gomory_cut(lar_term& t, mpq& k,explanation & ex, unsigned inf_col, linear_combination_iterator<mpq>& iter);
+    lia_move mk_gomory_cut(lar_term& t, mpq& k,explanation & ex, unsigned inf_col, const row_strip<mpq>& row);
     lia_move report_conflict_from_gomory_cut(mpq & k);
     void adjust_term_and_k_for_some_ints_case_gomory(lar_term& t, mpq& k, mpq& lcm_den);
     void init_check_data();
-    bool constrain_free_vars(linear_combination_iterator<mpq> *  r);
-    lia_move proceed_with_gomory_cut(lar_term& t, mpq& k, explanation& ex, unsigned j);
-    int find_free_var_in_gomory_row(linear_combination_iterator<mpq>& iter);
-    bool is_gomory_cut_target(linear_combination_iterator<mpq> &iter);
+    lia_move proceed_with_gomory_cut(lar_term& t, mpq& k, explanation& ex, unsigned j, bool & upper);
+    int find_free_var_in_gomory_row(const row_strip<mpq>& );
+    bool is_gomory_cut_target(const row_strip<mpq>&);
     bool at_bound(unsigned j) const;
     bool at_low(unsigned j) const;
     bool at_upper(unsigned j) const;
@@ -130,13 +142,15 @@ private:
         return is_zero(n.y);  
     }
 
+public:
     inline static
     mpq fractional_part(const impq & n) {
         lp_assert(is_rational(n));
         return n.x - floor(n.x);
     }
-    void real_case_in_gomory_cut(const mpq & a, unsigned x_j, mpq & k, lar_term& t, explanation & ex, unsigned inf_column);
-    void int_case_in_gomory_cut(const mpq & a, unsigned x_j, mpq & k, lar_term& t, explanation& ex, mpq & lcm_den, unsigned inf_column);
+private:
+    void real_case_in_gomory_cut(const mpq & a, unsigned x_j, mpq & k, lar_term& t, explanation & ex, const mpq& f_0, const mpq& one_minus_f_0);
+    void int_case_in_gomory_cut(const mpq & a, unsigned x_j, mpq & k, lar_term& t, explanation& ex, mpq & lcm_den, const mpq& f_0, const mpq& one_minus_f_0);
     constraint_index column_upper_bound_constraint(unsigned j) const;
     constraint_index column_lower_bound_constraint(unsigned j) const;
     void display_row_info(std::ostream & out, unsigned row_index) const;
@@ -147,7 +161,8 @@ public:
 private:
     unsigned random();
     bool has_inf_int() const;
-    lia_move create_branch_on_column(int j, lar_term& t, mpq& k, bool free_column) const;
+    lia_move create_branch_on_column(int j, lar_term& t, mpq& k, bool free_column, bool & upper);
+    void catch_up_in_adding_constraints_to_cut_solver();
 public:
     void display_inf_or_int_inf_columns(std::ostream & out) const;
     template <typename T>
@@ -155,11 +170,11 @@ public:
     template <typename T>
     void get_int_coeffs_from_constraint(const lar_base_constraint* c, vector<cut_solver::monomial>& coeff, T & rs);
     bool is_term(unsigned j) const;
-    void notify_on_last_added_constraint();
     void add_constraint_to_cut_solver(unsigned,const lar_base_constraint*);
     void copy_explanations_from_cut_solver(explanation &);
     void pop(unsigned);
     void push();
     void copy_values_from_cut_solver();
+    bool left_branch_is_more_narrow_than_right(unsigned);
 };
 }

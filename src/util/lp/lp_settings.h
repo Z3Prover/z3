@@ -106,6 +106,8 @@ struct stats {
     unsigned m_cut_solver_true;
     unsigned m_cut_solver_false;
     unsigned m_cut_solver_undef;
+    unsigned m_gcd_calls;
+    unsigned m_gcd_conflicts;
     stats() { reset(); }
     void reset() { memset(this, 0, sizeof(*this)); }
 };
@@ -226,9 +228,8 @@ public:
                     backup_costs(true),
                     column_number_threshold_for_using_lu_in_lar_solver(4000),
                     m_int_branch_cut_gomory_threshold(4),
-                    m_int_branch_cut_solver(4),
+                    m_int_branch_cut_solver(8),
                     m_run_gcd_test(true),
-                    m_cut_solver_bound_propagation_factor(5),
                     m_cut_solver_cycle_on_var(10)
     {}
 
@@ -339,7 +340,6 @@ public:
     unsigned m_int_branch_cut_gomory_threshold;
     unsigned m_int_branch_cut_solver;
     bool m_run_gcd_test;
-    unsigned m_cut_solver_bound_propagation_factor;
     unsigned m_cut_solver_cycle_on_var;
 }; // end of lp_settings class
 

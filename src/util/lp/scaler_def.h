@@ -220,18 +220,18 @@ template <typename T, typename X>    void scaler<T, X>::scale_row(unsigned i) {
     if (numeric_traits<T>::is_zero(row_max)) {
         return;
     }
-    if (numeric_traits<T>::get_double(row_max) < m_scaling_minimum) {
+    if (row_max < m_scaling_minimum) {
         do {
             alpha *= 2;
             row_max *= 2;
-        } while (numeric_traits<T>::get_double(row_max) < m_scaling_minimum);
+        } while (row_max < m_scaling_minimum);
         m_A.multiply_row(i, alpha);
         m_b[i] *= alpha;
-    } else if (numeric_traits<T>::get_double(row_max) > m_scaling_maximum) {
+    } else if (row_max > m_scaling_maximum) {
         do {
             alpha /= 2;
             row_max /= 2;
-        } while (numeric_traits<T>::get_double(row_max) > m_scaling_maximum);
+        } while (row_max > m_scaling_maximum);
         m_A.multiply_row(i, alpha);
         m_b[i] *= alpha;
     }
@@ -245,16 +245,16 @@ template <typename T, typename X>    void scaler<T, X>::scale_column(unsigned i)
         return; // the column has zeros only
     }
     std::cout << "f";
-    if (numeric_traits<T>::get_double(column_max) < m_scaling_minimum) {
+    if (column_max < m_scaling_minimum) {
         do {
             alpha *= 2;
             column_max *= 2;
-        } while (numeric_traits<T>::get_double(column_max) < m_scaling_minimum);
-    } else if (numeric_traits<T>::get_double(column_max) > m_scaling_maximum) {
+        } while (column_max < m_scaling_minimum);
+    } else if (column_max > m_scaling_maximum) {
         do {
             alpha /= 2;
             column_max /= 2;
-        } while (numeric_traits<T>::get_double(column_max) > m_scaling_maximum);
+        } while (column_max > m_scaling_maximum);
     } else {
         return;
     }

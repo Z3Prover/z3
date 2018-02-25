@@ -28,8 +28,6 @@ Revision History:
 #include "util/lp/lu.h"
 #include "util/lp/permutation_matrix.h"
 #include "util/lp/column_namer.h"
-#include "util/lp/iterator_on_row.h"
-#include "util/lp/iterator_on_pivot_row.h"
 
 namespace lp {
 
@@ -749,13 +747,6 @@ public:
 
     const unsigned & iters_with_no_cost_growing() const {
         return m_iters_with_no_cost_growing;
-    }
-
-    linear_combination_iterator<T> * get_iterator_on_row(unsigned i) {
-        if (m_settings.use_tableau())
-            return new iterator_on_row<T>(m_A.m_rows[i]);
-        calculate_pivot_row(i);
-        return new iterator_on_pivot_row<T>(m_pivot_row, m_basis[i]);
     }
 
     void calculate_pivot_row(unsigned i);

@@ -1,22 +1,22 @@
 /*++
-Copyright (c) 2017 Microsoft Corporation
+  Copyright (c) 2017 Microsoft Corporation
 
-Module Name:
+  Module Name:
 
-    <name>
+  <name>
 
-Abstract:
+  Abstract:
 
-    <abstract>
+  <abstract>
 
-Author:
+  Author:
 
-    Lev Nachmanson (levnach)
+  Lev Nachmanson (levnach)
 
-Revision History:
+  Revision History:
 
 
---*/
+  --*/
 #pragma once
 #include "util/lp/indexed_vector.h"
 namespace lp {
@@ -85,11 +85,55 @@ struct lar_term {
             t.second.neg();
     }
 
+    template <typename T>
+    T apply(const vector<T>& x) const {
+        T ret = T(m_v);
+        for (const auto & t : m_coeffs) {
+            ret += t.second * x[t.first];
+        }
+        return ret;
+    }
+   
     void clear() {
         m_coeffs.clear();
         m_v = zero_of_type<mpq>();
     }
 
+    struct ival {
+        unsigned m_var;
+        const mpq & m_coeff;
+        ival(unsigned var, const mpq & val) : m_var(var), m_coeff(val) {
+        }
+        unsigned var() const { return m_var;}
+        const mpq & coeff() const { return m_coeff; }
+    };
     
+    struct const_iterator {
+        //fields
+        std::unordered_map<unsigned, mpq>::const_iterator m_it;
+
+        typedef const_iterator self_type;
+        typedef ival value_type;
+        typedef ival reference;
+        //        typedef std::pair<const unsigned, mpq>* pointer;
+        typedef int difference_type;
+        typedef std::forward_iterator_tag iterator_category;
+
+        reference operator*() const {
+            return ival(m_it->first, m_it->second);
+        }
+        
+        self_type operator++() {  self_type i = *this; m_it++; return i;  }
+        self_type operator++(int) { m_it++; return *this; }
+
+        const_iterator(std::unordered_map<unsigned, mpq>::const_iterator it) : m_it(it) {}
+        bool operator==(const self_type &other) const {
+            return m_it == other.m_it;
+        }
+        bool operator!=(const self_type &other) const { return !(*this == other); }
+    };
+
+    const_iterator begin() const { return m_coeffs.begin();}
+    const_iterator end() const { return m_coeffs.end(); }
 };
 }

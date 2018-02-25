@@ -130,8 +130,12 @@ template <typename T> void binary_heap_priority_queue<T>::enqueue_new(unsigned o
 // In this case the priority will be changed and the queue adjusted.
 template <typename T> void binary_heap_priority_queue<T>::enqueue(unsigned o, const T & priority) {
     if (o >= m_priorities.size()) {
-        resize(o << 1); // make the size twice larger
+        if (o == 0)
+            resize(2);
+        else 
+            resize(o << 1); // make the size twice larger
     }
+    
     if (m_heap_inverse[o] == -1)
         enqueue_new(o, priority);
     else

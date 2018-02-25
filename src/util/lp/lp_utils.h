@@ -38,7 +38,7 @@ bool contains(const std::unordered_map<A, B> & map, const A& key) {
 #ifdef lp_for_z3
 
 #ifdef Z3DEBUG
-#define LEAN_DEBUG 1
+#define Z3DEBUG 1
 #endif
 
 namespace lp {

@@ -27,7 +27,7 @@ template <typename T, typename X>
 void  static_matrix<T, X>::init_row_columns(unsigned m, unsigned n) {
     lp_assert(m_rows.size() == 0 && m_columns.size() == 0);
     for (unsigned i = 0; i < m; i++){
-        m_rows.push_back(row_strip());
+        m_rows.push_back(row_strip<T>());
     }
     for (unsigned j = 0; j < n; j++){
         m_columns.push_back(column_strip());
@@ -35,7 +35,7 @@ void  static_matrix<T, X>::init_row_columns(unsigned m, unsigned n) {
 }
 
 
-template <typename T, typename X> void static_matrix<T, X>::scan_row_ii_to_offset_vector(const row_strip & rvals) {
+template <typename T, typename X> void static_matrix<T, X>::scan_row_ii_to_offset_vector(const row_strip<T> & rvals) {
     for (unsigned j = 0; j < rvals.size(); j++)
         m_vector_of_row_offsets[rvals[j].m_j] = j;
 }
@@ -166,7 +166,7 @@ template <typename T, typename X>
 std::set<std::pair<unsigned, unsigned>>  static_matrix<T, X>::get_domain() {
     std::set<std::pair<unsigned, unsigned>> ret;
     for (unsigned i = 0; i < m_rows.size(); i++) {
-        for (auto it : m_rows[i]) {
+        for (auto &it : m_rows[i]) {
             ret.insert(std::make_pair(i, it.m_j));
         }
     }
@@ -296,7 +296,7 @@ template <typename T, typename X>    void static_matrix<T, X>::fix_row_indices_i
     }
 }
 
-template <typename T, typename X>    void static_matrix<T, X>::cross_out_row_from_columns(unsigned k, row_strip & row) {
+template <typename T, typename X>    void static_matrix<T, X>::cross_out_row_from_columns(unsigned k, row_strip<T> & row) {
     for (auto & t : row) {
         cross_out_row_from_column(t.m_j, k);
     }

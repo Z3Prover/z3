@@ -39,7 +39,7 @@ template lp::mpq lp::dot_product<lp::mpq, lp::mpq>(vector<lp::mpq > const&, vect
 template void lp::init_factorization<double, double>(lp::lu<double, double>*&, lp::static_matrix<double, double>&, vector<unsigned int>&, lp::lp_settings&);
 template void lp::init_factorization<lp::mpq, lp::mpq>(lp::lu<lp::mpq, lp::mpq>*&, lp::static_matrix<lp::mpq, lp::mpq>&, vector<unsigned int>&, lp::lp_settings&);
 template void lp::init_factorization<lp::mpq, lp::numeric_pair<lp::mpq> >(lp::lu<lp::mpq, lp::numeric_pair<lp::mpq> >*&, lp::static_matrix<lp::mpq, lp::numeric_pair<lp::mpq> >&, vector<unsigned int>&, lp::lp_settings&);
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
 template void lp::print_matrix<double, double>(lp::sparse_matrix<double, double>&, std::ostream & out);
 template void lp::print_matrix<lp::mpq, lp::mpq>(lp::static_matrix<lp::mpq, lp::mpq>&, std::ostream&);
 template void lp::print_matrix<lp::mpq, lp::numeric_pair<lp::mpq> >(lp::static_matrix<lp::mpq, lp::numeric_pair<lp::mpq> >&, std::ostream&);

@@ -490,7 +490,7 @@ void sparse_matrix<T, X>::solve_y_U_indexed(indexed_vector<T> & y, const lp_sett
     }
 
     lp_assert(y.is_OK());
-#if 0 && LEAN_DEBUG
+#if 0 && Z3DEBUG
     if (numeric_traits<T>::precise() == false)
         lp_assert(vectors_are_equal(ycopy, y.m_data));
 #endif
@@ -700,7 +700,7 @@ void sparse_matrix<T, X>::solve_U_y_indexed_only(indexed_vector<L> & y, const lp
     }
 
     lp_assert(y.is_OK());
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
      // dense_matrix<T,X> deb(this);
      // vector<T> clone_y(y.m_data);
      // deb.apply_from_left(clone_y);

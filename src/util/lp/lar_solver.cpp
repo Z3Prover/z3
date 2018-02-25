@@ -151,9 +151,10 @@ void lar_solver::analyze_new_bounds_on_row(
     unsigned row_index,
     bound_propagator & bp) {
     lp_assert(!use_tableau());
-    iterator_on_pivot_row<mpq> it(m_mpq_lar_core_solver.get_pivot_row(), m_mpq_lar_core_solver.m_r_basis[row_index]);
-     
-    bound_analyzer_on_row ra_pos(it,
+    unsigned j =  m_mpq_lar_core_solver.m_r_basis[row_index]; // basis column for the row
+    bound_analyzer_on_row<indexed_vector<mpq>>
+        ra_pos(m_mpq_lar_core_solver.get_pivot_row(),
+                                 j,
                                  zero_of_type<numeric_pair<mpq>>(),
                                  row_index,
                                  bp
@@ -163,14 +164,14 @@ void lar_solver::analyze_new_bounds_on_row(
 
 void lar_solver::analyze_new_bounds_on_row_tableau(
     unsigned row_index,
-    bound_propagator & bp
-                                                   ) {
+    bound_propagator & bp ) {
 
     if (A_r().m_rows[row_index].size() > settings().max_row_length_for_bound_propagation)
         return;
-    iterator_on_row<mpq> it(A_r().m_rows[row_index]);
+
     lp_assert(use_tableau());
-    bound_analyzer_on_row::analyze_row(it,
+    bound_analyzer_on_row<row_strip<mpq>>::analyze_row(A_r().m_rows[row_index],
+                                       static_cast<unsigned>(-1),
                                        zero_of_type<numeric_pair<mpq>>(),
                                        row_index,
                                        bp
@@ -198,13 +199,6 @@ void lar_solver::calculate_implied_bounds_for_row(unsigned i, bound_propagator &
         substitute_basis_var_in_terms_for_row(i);
         analyze_new_bounds_on_row(i, bp);
     }
-}
-
-  
-linear_combination_iterator<mpq> * lar_solver::create_new_iter_from_term(unsigned term_index) const {
-    lp_assert(false); // not implemented
-    return nullptr;
-    //        new linear_combination_iterator_on_vector<mpq>(m_terms[adjust_term_index(term_index)]->coeffs_as_vector());
 }
 
 unsigned lar_solver::adjust_column_index_to_term_index(unsigned j) const {
@@ -407,6 +401,9 @@ void lar_solver::pop(unsigned k) {
     m_constraints.resize(m_constraint_count);
     m_term_count.pop(k);
     for (unsigned i = m_term_count; i < m_terms.size(); i++) {
+#if Z3DEBUG_CHECK_UNIQUE_TERMS
+        m_set_of_terms.erase(m_terms[i]);
+#endif
         delete m_terms[i];
     }
     m_terms.resize(m_term_count);
@@ -595,7 +592,8 @@ void lar_solver::substitute_terms_in_linear_expression(const vector<std::pair<mp
     }
 
     for (auto & p : coeffs)
-        left_side.push_back(std::make_pair(p.second, p.first));
+        if (!is_zero(p.second))
+            left_side.push_back(std::make_pair(p.second, p.first));
 }
 
 
@@ -1023,7 +1021,7 @@ bool lar_solver::the_right_sides_do_not_sum_to_zero(const vector<std::pair<mpq, 
 }
 
 bool lar_solver::explanation_is_correct(const vector<std::pair<mpq, unsigned>>& explanation) const {
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     lconstraint_kind kind;
     lp_assert(the_relations_are_of_same_type(explanation, kind));
     lp_assert(the_left_sides_sum_to_zero(explanation));
@@ -1048,7 +1046,7 @@ bool lar_solver::explanation_is_correct(const vector<std::pair<mpq, unsigned>>& 
 }
 
 bool lar_solver::inf_explanation_is_correct() const {
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     vector<std::pair<mpq, unsigned>> explanation;
     get_infeasibility_explanation(explanation);
     return explanation_is_correct(explanation);
@@ -1190,6 +1188,7 @@ void lar_solver::print_constraint(constraint_index ci, std::ostream & out) const
 }
 
 void lar_solver::print_constraints(std::ostream& out) const  {
+    out << "number of constraints = " << m_constraints.size() << std::endl;
     for (auto c : m_constraints) {
         print_constraint(c, out);
     }
@@ -1214,7 +1213,26 @@ void lar_solver::print_term(lar_term const& term, std::ostream & out) const {
     if (!numeric_traits<mpq>::is_zero(term.m_v)) {
         out << term.m_v << " + ";
     }
-    print_linear_combination_of_column_indices(term.coeffs_as_vector(), out);
+    bool first = true;
+    for (const auto p : term) {
+        mpq val = p.coeff();
+        if (first) {
+            first = false;
+        } else {
+            if (is_pos(val)) {
+                out << " + ";
+            } else {
+                out << " - ";
+                val = -val;
+            }
+        }
+        if (val == -numeric_traits<mpq>::one())
+            out << " - ";
+        else if (val != numeric_traits<mpq>::one())
+            out << T_to_string(val);
+        out << this->get_column_name(p.var());
+    }
+
 }
 
 void lar_solver::print_term_as_indices(lar_term const& term, std::ostream & out) const {
@@ -1584,8 +1602,50 @@ void lar_solver::add_new_var_to_core_fields_for_mpq(bool register_in_basis) {
 
 var_index lar_solver::add_term_undecided(const vector<std::pair<mpq, var_index>> & coeffs,
                                          const mpq &m_v) {
-    m_terms.push_back(new lar_term(coeffs, m_v));
+    push_and_register_term(new lar_term(coeffs, m_v));
     return m_terms_start_index + m_terms.size() - 1;
+}
+
+#if Z3DEBUG_CHECK_UNIQUE_TERMS
+bool lar_solver::term_coeffs_are_ok(const vector<std::pair<mpq, var_index>> & coeffs, const mpq& v) {
+    if (coeffs.empty()) {
+        return is_zero(v);
+    }
+
+    for (const auto & p : coeffs) {
+        if (column_is_real(p.second))
+            return true;
+    }
+    
+    mpq g;
+    bool g_is_set = false;
+    for (const auto & p : coeffs) {
+        if (!p.first.is_int()) {
+            std::cout << "p.first = " << p.first << " is not an int\n";
+            return false;
+        }
+        if (!g_is_set) {
+            g_is_set = true;
+            g = p.first;
+        } else {
+            g = gcd(g, p.first);
+        }
+    }
+    if (g == one_of_type<mpq>())
+        return true;
+
+    std::cout << "term is not ok: g = " << g << std::endl;
+    this->print_linear_combination_of_column_indices_only(coeffs, std::cout);
+    std::cout << " rs = " << v << std::endl;
+    return false;
+}
+#endif
+void lar_solver::push_and_register_term(lar_term* t) {
+#if Z3DEBUG_CHECK_UNIQUE_TERMS
+    lp_assert(m_set_of_terms.find(t) == m_set_of_terms.end());
+    m_set_of_terms.insert(t);
+#endif
+    m_terms.push_back(t);
 }
 
 // terms
@@ -1594,7 +1654,7 @@ var_index lar_solver::add_term(const vector<std::pair<mpq, var_index>> & coeffs,
     if (strategy_is_undecided())
         return add_term_undecided(coeffs, m_v);
 
-    m_terms.push_back(new lar_term(coeffs, m_v));
+    push_and_register_term(new lar_term(coeffs, m_v));
     unsigned adjusted_term_index = m_terms.size() - 1;
     var_index ret = m_terms_start_index + adjusted_term_index;
     if (use_tableau() && !coeffs.empty()) {
@@ -1607,6 +1667,7 @@ var_index lar_solver::add_term(const vector<std::pair<mpq, var_index>> & coeffs,
 }
 
 void lar_solver::add_row_from_term_no_constraint(const lar_term * term, unsigned term_ext_index) {
+    TRACE("dump_terms", print_term(*term, tout); tout << std::endl;);
     register_new_ext_var_index(term_ext_index, term_is_int(term));
     // j will be a new variable
     unsigned j = A_r().column_count();
@@ -1614,8 +1675,8 @@ void lar_solver::add_row_from_term_no_constraint(const lar_term * term, unsigned
     m_columns_to_ul_pairs.push_back(ul);
     add_basic_var_to_core_fields();
     if (use_tableau()) {
-        auto it = iterator_on_term_with_basis_var(*term, j);
-        A_r().fill_last_row_with_pivoting(it,
+        A_r().fill_last_row_with_pivoting(*term,
+                                          j,
                                           m_mpq_lar_core_solver.m_r_solver.m_basis_heading);
         m_mpq_lar_core_solver.m_r_solver.m_b.resize(A_r().column_count(), zero_of_type<mpq>());
     }
@@ -1653,9 +1714,6 @@ constraint_index lar_solver::add_var_bound(var_index j, lconstraint_kind kind, c
         lp_assert(bound_is_integer_for_integer_column(j, right_side));
         auto vc = new lar_var_constraint(j, kind, right_side);
         m_constraints.push_back(vc);
-        if (has_int_var()) {
-            m_int_solver->notify_on_last_added_constraint();
-        }
         update_column_type_and_bound(j, kind, right_side, ci);
     }
     else {
@@ -1697,8 +1755,6 @@ void lar_solver::add_var_bound_on_constraint_for_term(var_index j, lconstraint_k
         unsigned term_j = it->second.internal_j();
         mpq rs = right_side - m_terms[adjusted_term_index]->m_v;
         m_constraints.push_back(new lar_term_constraint(m_terms[adjusted_term_index], kind, right_side));
-        if (has_int_var())
-            m_int_solver->notify_on_last_added_constraint();
         update_column_type_and_bound(term_j, kind, rs, ci);
     }
     else {

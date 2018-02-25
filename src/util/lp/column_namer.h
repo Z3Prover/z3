@@ -19,30 +19,18 @@ Revision History:
 
 --*/
 #include <string>
-#include "util/lp/linear_combination_iterator.h"
+#include "util/lp/static_matrix.h"
 namespace lp {
 class column_namer {
 public:
     virtual std::string get_column_name(unsigned j) const = 0;
     template <typename T>
-    void print_linear_iterator(linear_combination_iterator<T>* it, std::ostream & out) const {
+    void print_row(const row_strip<T> & row, std::ostream & out) const {
         vector<std::pair<T, unsigned>> coeff;
-        T a;
-        unsigned i;
-        while (it->next(a, i)) {
-            coeff.push_back(std::make_pair(a, i));
+        for (auto p : row) {
+            coeff.push_back(std::make_pair(p.coeff(), p.var()));
         }
         print_linear_combination_of_column_indices(coeff, out);
-    }
-    template <typename T>
-    void print_linear_iterator_indices_only(linear_combination_iterator<T>* it, std::ostream & out) const {
-        vector<std::pair<T, unsigned>> coeff;
-        T a;
-        unsigned i;
-        while (it->next(a, i)) {
-            coeff.push_back(std::make_pair(a, i));
-        }
-        print_linear_combination_of_column_indices_only(coeff, out);
     }
     
     template <typename T>

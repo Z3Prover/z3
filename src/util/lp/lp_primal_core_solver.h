@@ -37,7 +37,6 @@ Revision History:
 #include "util/lp/breakpoint.h"
 #include "util/lp/binary_heap_priority_queue.h"
 #include "util/lp/int_set.h"
-#include "util/lp/iterator_on_row.h"
 namespace lp {
 
 // This core solver solves (Ax=b, lower_bound_values \leq x \leq upper_bound_values, maximize costs*x )

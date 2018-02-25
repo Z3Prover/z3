@@ -307,7 +307,7 @@ class theory_lra::imp {
         m_solver->settings().bound_propagation() = BP_NONE != propagation_mode();
         m_solver->set_track_pivoted_rows(lp.bprop_on_pivoted_rows());
         m_solver->settings().m_int_branch_cut_gomory_threshold = ctx().get_fparams().m_arith_branch_cut_ratio;
-        m_solver->settings().m_int_branch_cut_solver = std::max(4u, ctx().get_fparams().m_arith_branch_cut_ratio);
+        m_solver->settings().m_int_branch_cut_solver = std::max(8u, ctx().get_fparams().m_arith_branch_cut_ratio);
         m_solver->settings().m_run_gcd_test = ctx().get_fparams().m_arith_gcd_test;
         m_solver->settings().set_random_seed(ctx().get_fparams().m_random_seed);
         //m_solver->settings().set_ostream(0);
@@ -672,6 +672,10 @@ class theory_lra::imp {
     }
 
     theory_var internalize_def(app* term, scoped_internalize_state& st) {
+        if (ctx().e_internalized(term)) {
+            IF_VERBOSE(0, verbose_stream() << "repeated term\n";);
+            return mk_var(term, false);
+        }
         linearize_term(term, st);
         if (is_unit_var(st)) {
             return st.vars()[0];
@@ -1252,17 +1256,21 @@ public:
     }
 
     // create a bound atom representing term <= k
-    app_ref mk_bound(lp::lar_term const& term, rational const& k) {
+    app_ref mk_bound(lp::lar_term const& term, rational const& k, bool lower_bound) {
         app_ref t = mk_term(term, k.is_int());
-        app_ref atom(a.mk_le(t, a.mk_numeral(k, k.is_int())), m);
+        app_ref atom(m);
+        if (lower_bound) {
+            atom = a.mk_ge(t, a.mk_numeral(k, k.is_int()));
+        }
+        else {
+            atom = a.mk_le(t, a.mk_numeral(k, k.is_int()));
+        }
         expr_ref atom1(m);
         proof_ref atomp(m);
         ctx().get_rewriter()(atom, atom1, atomp);
         atom = to_app(atom1);
         TRACE("arith", tout << atom << "\n";
-              m_solver->print_term(term, tout << "bound atom: "); tout << " <= " << k << "\n";
-              display(tout);
-              );
+              m_solver->print_term(term, tout << "bound atom: "); tout << " <= " << k << "\n";);
         ctx().internalize(atom, true);
         ctx().mark_as_relevant(atom.get());
         return atom;
@@ -1276,12 +1284,15 @@ public:
         lp::lar_term term;
         lp::mpq k;
         lp::explanation ex; // TBD, this should be streamlined accross different explanations
-        switch(m_lia->check(term, k, ex)) {
+        bool upper;
+        switch(m_lia->check(term, k, ex, upper)) {
         case lp::lia_move::ok:
             return l_true;
         case lp::lia_move::branch: {
-            (void)mk_bound(term, k);
+            app_ref b = mk_bound(term, k, upper);
+            // branch on term >= k + 1
             // branch on term <= k
+            // TBD: ctx().force_phase(ctx().get_literal(b));
             // at this point we have a new unassigned atom that the 
             // SAT core assigns a value to
             return l_false;
@@ -1289,7 +1300,7 @@ public:
         case lp::lia_move::cut: {
             ++m_stats.m_gomory_cuts;
             // m_explanation implies term <= k
-            app_ref b = mk_bound(term, k);
+            app_ref b = mk_bound(term, k, upper);
             m_eqs.reset();
             m_core.reset();
             m_params.reset();
@@ -1298,7 +1309,11 @@ public:
                     set_evidence(ev.second);
                 }
             }
-            assign(literal(ctx().get_bool_var(b), false));
+            literal lit(ctx().get_bool_var(b), false);
+            TRACE("arith", 
+                  ctx().display_lemma_as_smt_problem(tout << "new cut:\n", m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), lit);
+                  display(tout););
+            assign(lit);
             return l_false;
         }
         case lp::lia_move::conflict:
@@ -2725,6 +2740,8 @@ public:
         if (m_solver) {
             m_solver->print_constraints(out);
             m_solver->print_terms(out);
+            // auto pp = lp ::core_solver_pretty_printer<lp::mpq, lp::impq>(m_solver->m_mpq_lar_core_solver.m_r_solver, out);
+            // pp.print();
         }
         unsigned nv = th.get_num_vars();
         for (unsigned v = 0; v < nv; ++v) {
@@ -2793,6 +2810,8 @@ public:
         st.update("cut_solver-true", m_solver->settings().st().m_cut_solver_true);
         st.update("cut_solver-false", m_solver->settings().st().m_cut_solver_false);
         st.update("cut_solver-undef", m_solver->settings().st().m_cut_solver_undef);
+        st.update("gcd_calls", m_solver->settings().st().m_gcd_calls);
+        st.update("gcd_conflict", m_solver->settings().st().m_gcd_conflicts);
     }        
 };
     

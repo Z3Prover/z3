@@ -19,6 +19,5 @@ namespace lp {
         c.s.print_constraint(out, c.c);
         return out;
     }
-
 }
 

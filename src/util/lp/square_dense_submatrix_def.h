@@ -300,7 +300,7 @@ void square_dense_submatrix<T, X>::apply_from_left_to_vector(vector<L> & w) {
 }
 
 template <typename T, typename X>    bool square_dense_submatrix<T, X>::is_L_matrix() const {
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     lp_assert(m_row_permutation.is_identity());
     for (unsigned i = 0; i < m_parent->dimension(); i++) {
         if (i < m_index_start) {
@@ -341,7 +341,7 @@ template <typename T, typename X> void square_dense_submatrix<T, X>::apply_from_
         t[adjust_column_inverse(j)] = column_by_vector_product(j, w);
     }
     w = t;
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     //  lp_assert(vector_are_equal<T>(deb_w, w));
 #endif
 }

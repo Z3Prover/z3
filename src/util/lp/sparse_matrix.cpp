@@ -82,7 +82,7 @@ template void sparse_matrix<mpq, numeric_pair<mpq>>::double_solve_U_y<mpq>(index
 template void sparse_matrix<mpq, numeric_pair<mpq> >::double_solve_U_y<numeric_pair<mpq> >(indexed_vector<numeric_pair<mpq>>&, const lp_settings&);
 template void lp::sparse_matrix<double, double>::solve_U_y_indexed_only<double>(lp::indexed_vector<double>&, const lp_settings&, vector<unsigned> &);
 template void lp::sparse_matrix<lp::mpq, lp::mpq>::solve_U_y_indexed_only<lp::mpq>(lp::indexed_vector<lp::mpq>&, const lp_settings &, vector<unsigned> &);
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
 template bool sparse_matrix<double, double>::is_upper_triangular_and_maximums_are_set_correctly_in_rows(lp_settings&) const;
 template bool sparse_matrix<mpq, mpq>::is_upper_triangular_and_maximums_are_set_correctly_in_rows(lp_settings&) const;
 template bool sparse_matrix<mpq, numeric_pair<mpq> >::is_upper_triangular_and_maximums_are_set_correctly_in_rows(lp_settings&) const;

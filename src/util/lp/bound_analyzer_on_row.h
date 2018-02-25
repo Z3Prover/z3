@@ -19,7 +19,6 @@ Revision History:
 --*/
 #pragma once
 #include "util/vector.h"
-#include "util/lp/linear_combination_iterator.h"
 #include "implied_bound.h"
 #include "test_bound_analyzer.h"
 #include "util/lp/bound_propagator.h"
@@ -28,27 +27,85 @@ Revision History:
 // In a loop we drive the partial sum down, denoting the variables of this process by _u.
 // In the same loop trying to pin variables by pushing the partial sum up, denoting the variable related to it by _l
 namespace lp {
-
+template <typename C> // C plays a role of a container
 class bound_analyzer_on_row {
-    
-    linear_combination_iterator<mpq> & m_it;
+    struct term_with_basis_col {
+        const C &  m_row;
+        unsigned   m_bj;
+        struct ival {
+            unsigned m_var;
+            const mpq & m_coeff;
+            ival(unsigned var, const mpq & val) : m_var(var), m_coeff(val) {
+            }
+            unsigned var() const { return m_var;}
+            const mpq & coeff() const { return m_coeff; }
+        };
+        
+        term_with_basis_col(const C& row, unsigned bj) : m_row(row), m_bj(bj) {}
+        struct const_iterator {
+            // fields
+            typename C::const_iterator m_it;
+            unsigned m_bj;
+            
+
+            //typedefs
+            
+            
+            typedef const_iterator self_type;
+            typedef ival value_type;
+            typedef ival reference;
+            typedef int difference_type;
+            typedef std::forward_iterator_tag iterator_category;
+
+            reference operator*() const {
+                if (m_bj == static_cast<unsigned>(-1))
+                    return ival((*m_it).var(), (*m_it).coeff());
+                return ival(m_bj, - 1);
+            }        
+            self_type operator++() {  self_type i = *this; operator++(1); return i;  }
+            
+            self_type operator++(int) {
+                if (m_bj == static_cast<unsigned>(-1))
+                    m_it++;
+                else
+                    m_bj = static_cast<unsigned>(-1);
+                return *this;
+            }
+
+            // constructor
+            const_iterator(const typename C::const_iterator& it, unsigned bj) :
+                m_it(it),
+                m_bj(bj)
+            {}
+            bool operator==(const self_type &other) const {
+                return m_it == other.m_it && m_bj == other.m_bj ;
+            }
+            bool operator!=(const self_type &other) const { return !(*this == other); }
+        };
+        const_iterator begin() const {
+            return const_iterator( m_row.begin(), m_bj);
+        }
+        const_iterator end() const { return const_iterator(m_row.end(), m_bj); }
+    };
+    term_with_basis_col                m_row;
     bound_propagator &                 m_bp;
-    unsigned           m_row_or_term_index;
-    int                m_column_of_u; // index of an unlimited from above monoid
+    unsigned                           m_row_or_term_index;
+    int                                m_column_of_u; // index of an unlimited from above monoid
     // -1 means that such a value is not found, -2 means that at least two of such monoids were found
-    int                m_column_of_l; // index of an unlimited from below monoid
-    impq               m_rs;
+    int                                m_column_of_l; // index of an unlimited from below monoid
+    impq                               m_rs;
 
 public :
     // constructor
     bound_analyzer_on_row(
-        linear_combination_iterator<mpq> &it,
+        const C & it,
+        unsigned  bj, // basis column for the row
         const numeric_pair<mpq>& rs,
         unsigned row_or_term_index,
         bound_propagator & bp
                           )
         :
-        m_it(it),
+        m_row(it, bj),
         m_bp(bp),
         m_row_or_term_index(row_or_term_index),
         m_column_of_u(-1),
@@ -59,11 +116,11 @@ public :
 
     unsigned j;
     void analyze() {
-        
-        mpq a; unsigned j;
-        while (((m_column_of_l != -2) || (m_column_of_u != -2)) && m_it.next(a, j))
-            analyze_bound_on_var_on_coeff(j, a);
-
+        for (auto  c : m_row) {
+            if ((m_column_of_l == -2) && (m_column_of_u == -2))
+                break;
+            analyze_bound_on_var_on_coeff(c.var(), c.coeff());
+        }
         if (m_column_of_u >= 0)
             limit_monoid_u_from_below();
         else if (m_column_of_u == -1)
@@ -168,25 +225,23 @@ public :
         int strict = 0;
         mpq total;
         lp_assert(is_zero(total));
-        m_it.reset();
-        mpq a; unsigned j;
-        while (m_it.next(a, j)) {
+        for (auto p : m_row) {
             bool str;
-            total -= monoid_min(a, j, str);
+            total -= monoid_min(p.coeff(), p.var(), str);
             if (str)
                 strict++;
         }
 
-        m_it.reset();
-        while (m_it.next(a, j)) {
+        
+        for (auto p : m_row) {
             bool str;
-            bool a_is_pos = is_pos(a);
-            mpq bound = total / a + monoid_min_no_mult(a_is_pos, j, str);
+            bool a_is_pos = is_pos(p.coeff());
+            mpq bound = total / p.coeff() + monoid_min_no_mult(a_is_pos, p.var(), str);
             if (a_is_pos) {
-                limit_j(j, bound, true, false, strict - static_cast<int>(str) > 0);
+                limit_j(p.var(), bound, true, false, strict - static_cast<int>(str) > 0);
             }
             else {
-                limit_j(j, bound, false, true, strict - static_cast<int>(str) > 0);
+                limit_j(p.var(), bound, false, true, strict - static_cast<int>(str) > 0);
             }
         }
     }
@@ -195,25 +250,23 @@ public :
         int strict = 0;
         mpq total;
         lp_assert(is_zero(total));
-        m_it.reset();
-        mpq a; unsigned j;
-        while (m_it.next(a, j)) {
+        for (auto p : m_row) {
             bool str;
-            total -= monoid_max(a, j, str);
+            total -= monoid_max(p.coeff(), p.var(), str);
             if (str)
                 strict++;
         }
-        m_it.reset();
-        while (m_it.next(a, j)) {
+
+        for (auto p : m_row) {
             bool str;
-            bool a_is_pos = is_pos(a);
-            mpq bound = total / a + monoid_max_no_mult(a_is_pos, j, str);
+            bool a_is_pos = is_pos(p.coeff());
+            mpq bound = total / p.coeff() + monoid_max_no_mult(a_is_pos, p.var(), str);
             bool astrict = strict - static_cast<int>(str) > 0; 
             if (a_is_pos) {
-                limit_j(j, bound, true, true, astrict);
+                limit_j(p.var(), bound, true, true, astrict);
             }
             else {
-                limit_j(j, bound, false, false, astrict);
+                limit_j(p.var(), bound, false, false, astrict);
             }
         }
     }
@@ -222,18 +275,18 @@ public :
     void limit_monoid_u_from_below() {
         // we are going to limit from below the monoid m_column_of_u,
         // every other monoid is impossible to limit from below
-        mpq u_coeff, a;
+        mpq u_coeff;
         unsigned j;
         mpq bound = -m_rs.x;
-        m_it.reset();
         bool strict = false;
-        while (m_it.next(a, j)) {
+        for (auto p : m_row) {
+            j = p.var();
             if (j == static_cast<unsigned>(m_column_of_u)) {
-                u_coeff = a;
+                u_coeff = p.coeff();
                 continue;
             }
             bool str;
-            bound -= monoid_max(a, j, str);
+            bound -= monoid_max(p.coeff(), j, str);
             if (str)
                 strict = true;
         }
@@ -251,19 +304,19 @@ public :
     void limit_monoid_l_from_above() {
         // we are going to limit from above the monoid m_column_of_l,
         // every other monoid is impossible to limit from above
-        mpq l_coeff, a;
+        mpq l_coeff;
         unsigned j;
         mpq bound = -m_rs.x;
         bool strict = false;
-        m_it.reset();
-        while (m_it.next(a, j)) {
+        for (auto p : m_row) {
+            j = p.var();
             if (j == static_cast<unsigned>(m_column_of_l)) {
-                l_coeff = a;
+                l_coeff = p.coeff();
                 continue;
             }
 
             bool str;
-            bound -= monoid_min(a, j, str);
+            bound -= monoid_min(p.coeff(), j, str);
             if (str)
                 strict = true;
         }
@@ -282,7 +335,7 @@ public :
     //     bool lower_bound = be.m_lower_bound;
     //     if (!coeff_is_pos)
     //         lower_bound = !lower_bound;
-    //     auto it = m_it.clone();
+    //     auto it = m_row.clone();
     //     mpq a; unsigned j;
     //     while (it->next(a, j)) {
     //         if (be.m_j == j) continue;
@@ -336,14 +389,16 @@ public :
         }
     }
 
-    static void analyze_row(linear_combination_iterator<mpq> &it,
+    static void analyze_row(const C & row,
+                            unsigned bj, // basis column for the row
                             const numeric_pair<mpq>& rs,
                             unsigned row_or_term_index,
                             bound_propagator & bp
                             ) {
-        bound_analyzer_on_row a(it, rs, row_or_term_index, bp);
+        bound_analyzer_on_row a(row, bj, rs, row_or_term_index, bp);
         a.analyze();
     }
 
 };
 }
+

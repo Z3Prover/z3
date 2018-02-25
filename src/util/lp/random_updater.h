@@ -25,7 +25,6 @@ Revision History:
 #include <string>
 #include <algorithm>
 #include "util/lp/lp_settings.h"
-#include "util/lp/linear_combination_iterator.h"
 // see http://research.microsoft.com/projects/z3/smt07.pdf
 // The class searches for a feasible solution with as many different values of variables as it can find
 namespace lp {

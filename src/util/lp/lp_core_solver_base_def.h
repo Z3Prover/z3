@@ -159,7 +159,7 @@ solve_Bd(unsigned entering) {
         m_columns_nz[entering] = m_ed.m_index.size();
     lp_assert(m_ed.is_OK());
     lp_assert(m_w.is_OK());
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     // auto B = get_B(*m_factorization, m_basis);
     // vector<T>  a(m_m());
     // m_A.copy_column_to_vector(entering, a);
@@ -978,8 +978,8 @@ template <typename T, typename X>  void lp_core_solver_base<T, X>::pivot_fixed_v
         if (get_column_type(basic_j) != column_type::fixed) continue;
         T a;
         unsigned j;
-        auto * it = get_iterator_on_row(i);
-        while (it->next(a, j)) {
+        for (auto &c : m_A.m_rows[i]) {
+            j = c.var();
             if (j == basic_j)
                 continue;
             if (get_column_type(j) != column_type::fixed) {
@@ -987,7 +987,6 @@ template <typename T, typename X>  void lp_core_solver_base<T, X>::pivot_fixed_v
                     break;
             }
         }
-        delete it;
     }
 }
 

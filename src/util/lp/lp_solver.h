@@ -28,7 +28,6 @@ Revision History:
 #include "util/lp/static_matrix.h"
 #include "util/lp/lp_core_solver_base.h"
 #include "util/lp/scaler.h"
-#include "util/lp/linear_combination_iterator.h"
 #include "util/lp/bound_analyzer_on_row.h"
 namespace lp {
 enum lp_relation  {
