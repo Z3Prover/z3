@@ -4451,7 +4451,7 @@ class Datatype:
         if __debug__:
             _z3_assert(isinstance(name, str), "String expected")
             _z3_assert(name != "", "Constructor name cannot be empty")
-        return self.declare_core(name, "is_" + name, *args)
+        return self.declare_core(name, "is-" + name, *args)
 
     def __repr__(self):
         return "Datatype(%s, %s)" % (self.name, self.constructors)
@@ -4575,7 +4575,7 @@ def CreateDatatypes(*ds):
                 cref = cref()
             setattr(dref, cref_name, cref)
             rref  = dref.recognizer(j)
-            setattr(dref, rref.name(), rref)
+            setattr(dref, rref.name().replace('-', '_', 1), rref)
             for k in range(cref_arity):
                 aref = dref.accessor(j, k)
                 setattr(dref, aref.name(), aref)
