@@ -4451,7 +4451,7 @@ class Datatype:
         if __debug__:
             _z3_assert(isinstance(name, str), "String expected")
             _z3_assert(name != "", "Constructor name cannot be empty")
-        return self.declare_core(name, "is_" + name, *args)
+        return self.declare_core(name, "is-" + name, *args)
 
     def __repr__(self):
         return "Datatype(%s, %s)" % (self.name, self.constructors)
@@ -4575,7 +4575,7 @@ def CreateDatatypes(*ds):
                 cref = cref()
             setattr(dref, cref_name, cref)
             rref  = dref.recognizer(j)
-            setattr(dref, rref.name(), rref)
+            setattr(dref, "is_" + cref_name, rref)
             for k in range(cref_arity):
                 aref = dref.accessor(j, k)
                 setattr(dref, aref.name(), aref)
@@ -4629,16 +4629,16 @@ class DatatypeSortRef(SortRef):
         >>> List.num_constructors()
         2
         >>> List.recognizer(0)
-        is_cons
+        is(cons)
         >>> List.recognizer(1)
-        is_nil
+        is(nil)
         >>> simplify(List.is_nil(List.cons(10, List.nil)))
         False
         >>> simplify(List.is_cons(List.cons(10, List.nil)))
         True
         >>> l = Const('l', List)
         >>> simplify(List.is_cons(l))
-        is_cons(l)
+        is(cons, l)
         """
         if __debug__:
             _z3_assert(idx < self.num_constructors(), "Invalid recognizer index")
