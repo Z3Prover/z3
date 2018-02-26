@@ -2731,13 +2731,12 @@ public:
         bool is_string = th.m_util.is_string(m_sort);
         expr_ref result(th.m);
         if (is_string) {
-            svector<unsigned> sbuffer;
+            unsigned_vector sbuffer;
             bv_util bv(th.m);
             rational val;
             unsigned sz;
-
-            for (unsigned i = 0; i < m_source.size(); ++i) {
-                switch (m_source[i]) {
+            for (source_t src : m_source) {
+                switch (src) {
                 case unit_source: {
                     VERIFY(bv.is_numeral(values[j++], val, sz));
                     sbuffer.push_back(val.get_unsigned());
@@ -2767,12 +2766,13 @@ public:
                     break;
                 }
                 }
+                // TRACE("seq", tout << src << " " << sbuffer << "\n";);
             }
             result = th.m_util.str.mk_string(zstring(sbuffer.size(), sbuffer.c_ptr()));
         }
         else {
-            for (unsigned i = 0; i < m_source.size(); ++i) {
-                switch (m_source[i]) {
+            for (source_t src : m_source) {
+                switch (src) {
                 case unit_source:
                     args.push_back(th.m_util.str.mk_unit(values[j++]));
                     break;
@@ -2814,8 +2814,8 @@ model_value_proc * theory_seq::mk_value(enode * n, model_generator & mg) {
         seq_value_proc* sv = alloc(seq_value_proc, *this, srt);
        
         TRACE("seq", tout << mk_pp(e, m) << "\n";);
-        for (unsigned i = 0; i < concats.size(); ++i) {
-            expr* c = concats[i], *c1;
+        for (expr* c : concats) {
+            expr *c1;
             TRACE("seq", tout << mk_pp(c, m) << "\n";);
             if (m_util.str.is_unit(c, c1)) {
                 if (ctx.e_internalized(c1)) {

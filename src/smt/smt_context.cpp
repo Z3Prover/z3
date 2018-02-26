@@ -4313,9 +4313,7 @@ namespace smt {
             if (m_fparams.m_model_compact)
                 m_proto_model->compress();
             TRACE("mbqi_bug", tout << "after cleanup:\n"; model_pp(tout, *m_proto_model););
-        }
-        else {
-
+            IF_VERBOSE(11, model_pp(verbose_stream(), *m_proto_model););
         }
     }
 

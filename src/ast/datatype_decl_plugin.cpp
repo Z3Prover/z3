@@ -797,6 +797,7 @@ namespace datatype {
         if (m_constructor2recognizer.find(con, d))
             return d;
         sort * datatype = con->get_range();
+#if 0
         def const& dd = get_def(datatype);
         symbol r;
         for (constructor const* c : dd) {
@@ -811,6 +812,14 @@ namespace datatype {
         m_asts.push_back(d);
         m_constructor2recognizer.insert(con, d);
         return d;
+#else
+        parameter ps[1] = { parameter(con)};
+        d = m.mk_func_decl(m_family_id, OP_DT_IS, 1, ps, 1, &datatype);
+        m_constructor2recognizer.insert(con, d);
+        m_asts.push_back(d);
+        m_asts.push_back(con);
+        return d;
+#endif
     }
 
     func_decl * util::get_recognizer_constructor(func_decl * recognizer) const {

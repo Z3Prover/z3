@@ -876,6 +876,8 @@ typedef enum
 
       - Z3_OP_DT_RECOGNISER: datatype recognizer.
 
+      - Z3_OP_DT_IS: datatype recognizer.
+
       - Z3_OP_DT_ACCESSOR: datatype accessor.
 
       - Z3_OP_DT_UPDATE_FIELD: datatype field update.
@@ -1220,6 +1222,7 @@ typedef enum {
     // Datatypes
     Z3_OP_DT_CONSTRUCTOR=0x800,
     Z3_OP_DT_RECOGNISER,
+    Z3_OP_DT_IS,
     Z3_OP_DT_ACCESSOR,
     Z3_OP_DT_UPDATE_FIELD,
 

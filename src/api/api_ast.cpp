@@ -1059,6 +1059,7 @@ extern "C" {
             switch(_d->get_decl_kind()) {
             case OP_DT_CONSTRUCTOR:  return Z3_OP_DT_CONSTRUCTOR;
             case OP_DT_RECOGNISER:   return Z3_OP_DT_RECOGNISER;
+            case OP_DT_IS:           return Z3_OP_DT_IS;
             case OP_DT_ACCESSOR:     return Z3_OP_DT_ACCESSOR;
             case OP_DT_UPDATE_FIELD: return Z3_OP_DT_UPDATE_FIELD;
             default:
