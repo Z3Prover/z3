@@ -1812,8 +1812,11 @@ namespace smt {
             // trivially true for any string!
             assert_axiom(ex);
         } else if (u.re.is_full_char(regex)) {
-            TRACE("str", tout << "ERROR: unknown regex expression " << mk_pp(regex, m) << "!" << std::endl;);
-            NOT_IMPLEMENTED_YET(); 
+            // any char = any string of length 1
+            expr_ref rhs(ctx.mk_eq_atom(mk_strlen(str), mk_int(1)), m);
+            expr_ref finalAxiom(m.mk_iff(ex, rhs), m);
+            SASSERT(finalAxiom);
+            assert_axiom(finalAxiom);
         } else {
             TRACE("str", tout << "ERROR: unknown regex expression " << mk_pp(regex, m) << "!" << std::endl;);
             NOT_IMPLEMENTED_YET();
@@ -6327,6 +6330,13 @@ namespace smt {
                 make_transition(tmp, ch, tmp);
             }
             TRACE("str", tout << "re.all NFA: start = " << start << ", end = " << end << std::endl;);
+        } else if (u.re.is_full_char(e)) {
+            // effectively . (match any one character)
+            for (unsigned int i = 0; i < 256; ++i) {
+                char ch = (char)i;
+                make_transition(start, ch, end);
+            }
+            TRACE("str", tout << "re.allchar NFA: start = " << start << ", end = " << end << std::endl;);
         } else {
             TRACE("str", tout << "invalid regular expression" << std::endl;);
             m_valid = false;
