@@ -1018,7 +1018,7 @@ public:
     }
 
     bool too_many_propagations_for_var(const var_info& vi) const {
-        return vi.number_of_bound_propagations() > m_settings.m_cut_solver_cycle_on_var * vi.dependent_constraints().size();
+        return vi.number_of_bound_propagations() > m_settings.m_cut_solver_cycle_on_var * vi.number_of_asserts();
     }
 
     bool new_upper_bound_is_relevant(unsigned j, const mpq & v) const {
@@ -1906,8 +1906,8 @@ public:
     }
 
     bool cancel_when_propagation_speed_is_too_slow() {
-        if (m_number_of_constraints_tried_for_propagaton >= 1000) {
-            m_cancelled = m_pushes_to_trail <= 5;
+        if (m_number_of_constraints_tried_for_propagaton >= 10000) {
+            m_cancelled = m_pushes_to_trail <= 50;
             m_pushes_to_trail = 0;
             m_number_of_constraints_tried_for_propagaton = 0;
             return m_cancelled;
