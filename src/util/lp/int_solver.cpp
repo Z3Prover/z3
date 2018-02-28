@@ -514,7 +514,6 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
             return lia_move::ok;
         case lbool::l_undef:
             settings().st().m_cut_solver_undef++;
-            settings().m_int_branch_cut_solver *= (settings().m_int_branch_cut_solver); // take a square
             break;
         default:
             return lia_move::give_up;
@@ -1208,9 +1207,7 @@ void int_solver::add_constraint_to_cut_solver(unsigned ci, const lar_base_constr
     vector<mono> coeffs;
     mpq rs;
     get_int_coeffs_from_constraint<mpq>(c, coeffs, rs);
-    svector<constraint_index> explanation;
-    explanation.push_back(ci);
-    m_cut_solver.add_ineq(coeffs, -rs, explanation);
+    m_cut_solver.add_ineq(coeffs, -rs, ci);
 }
 
 void int_solver::notify_on_last_added_constraint() {

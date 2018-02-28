@@ -141,9 +141,9 @@ class constraint { // we only have less or equal for the inequality sign, which 
     bool                                             m_is_ineq;
     polynomial                                       m_poly;
     mpq                                              m_d; // the divider for the case of a divisibility constraint
-    const svector<constraint_index>                  m_assert_origins; // these indices come from the client
+    std::unordered_set<constraint_index>             m_assert_origins; // these indices come from the client
     bool                                             m_active;
-    std::unordered_set<const constraint*>            m_predecessors;  // used in tight_constraints and lemmas
+    unsigned                                         m_trail_size;
 public :
     void set_active_flag() {m_active = true;}
     void remove_active_flag() { m_active = false; }
@@ -151,31 +151,33 @@ public :
     unsigned id() const { return m_id; }
     const polynomial & poly() const { return m_poly; }
     polynomial & poly() { return m_poly; }
-    const svector<constraint_index> & assert_origins() const { return m_assert_origins;}
+    std::unordered_set<constraint_index> & assert_origins() { return m_assert_origins;}
+    const std::unordered_set<constraint_index> & assert_origins() const { return m_assert_origins;}
     bool is_lemma() const { return !is_assert(); }
-    bool is_assert() const { return m_predecessors.size() == 0; }
+    bool is_assert() const { return m_assert_origins.size() == 1; }
     bool is_ineq() const { return m_is_ineq; }
     const mpq & divider() const { return m_d; }
-public :
+    unsigned trail_size() const { return m_trail_size; }
+    void set_trail_size(unsigned s) { m_trail_size = s; }
     static constraint * make_ineq_assert(
         int id,
         const vector<monomial>& term,
         const mpq& a,
-        const svector<constraint_index> & origins) {
-        return new constraint(id, origins, polynomial(term, a), true);
+        constraint_index  origin,
+        unsigned trail_size) {
+        return new constraint(id, origin, polynomial(term, a), true, trail_size);
     }
 
     static constraint * make_ineq_constraint(
         int id,
         const polynomial & p,
-        std::unordered_set<const constraint*>  predecessors_set) {
-        auto c = new constraint(id, p, true);
-        c->predecessors() = predecessors_set;
-        return c;
+        std::unordered_set<constraint_index> origins,
+        unsigned trail_size) {
+        return new constraint(id, origins,p ,true, trail_size);
     }
-    
-    static constraint * make_ineq_lemma(unsigned id, const polynomial &p) {
-        return new constraint(id, p, true);
+
+    static constraint * make_ineq_lemma(unsigned id, const polynomial &p, unsigned trail_size) {
+        return new constraint(id, p, true, trail_size);
     }
 
     // static constraint make_div_lemma(unsigned id, const polynomial &p, const mpq & div) {
@@ -187,26 +189,43 @@ public :
 private:
     constraint(
         unsigned id,
-        const svector<constraint_index> & assert_origins,
+        constraint_index assert_origin,
         const polynomial & p,
-        bool is_ineq):
+        bool is_ineq,
+        unsigned trail_size):
         m_id(id),
         m_is_ineq(is_ineq),
         m_poly(p),
-        m_assert_origins(assert_origins),
-        m_active(false) { // creates an assert
+        m_active(false),
+        m_trail_size(trail_size)
+    { // creates an assert
+        m_assert_origins.insert(assert_origin);
     }
+    constraint(
+        unsigned id,
+        const std::unordered_set<constraint_index>& origins,
+        const polynomial & p,
+        bool is_ineq,
+        unsigned trail_size):
+        m_id(id),
+        m_is_ineq(is_ineq),
+        m_poly(p),
+        m_assert_origins(origins),
+        m_active(false),
+        m_trail_size(trail_size) {}
 
 
     
     constraint(
         unsigned id,
         const polynomial & p,
-        bool is_ineq):
+        bool is_ineq,
+               unsigned trail_size):
         m_id(id),
         m_is_ineq(is_ineq),
         m_poly(p),
-        m_active(false) { // creates a lemma
+        m_active(false),
+        m_trail_size(trail_size) { // creates a lemma
     }
         
 public:
@@ -221,11 +240,10 @@ public:
         const mpq & a = m_poly.coeff(j);
         return a == 1 || a == -1;
     }
-    const std::unordered_set<const constraint*>& predecessors() const { return m_predecessors; }
-    std::unordered_set<const constraint*>& predecessors() { return m_predecessors; }
     void add_predecessor(const constraint* p) {
         lp_assert(p != nullptr);
-        m_predecessors.insert(p); }
+        for (auto m : p->assert_origins())
+            m_assert_origins.insert(m); }
 };
 
 
@@ -363,7 +381,7 @@ public: // for debugging
         unsigned                                                                       m_internal_j; // it is just the index into m_var_infos of this var_info, if the var_info is not active then this value is set to (unsigned)-1
         integer_domain<mpq>                                                            m_domain;
         // the map of constraints using the var: bound_type = UNDEF stands for a div constraint
-        std::unordered_map<constraint*, bound_type, constraint_hash, constraint_equal> m_dependent_constraints;
+        std::unordered_map<constraint*, bool, constraint_hash, constraint_equal>       m_dependent_constraints; // pair (c, true) means that c has a monomial (a, m_internal_j) for a > 0, and (c, false) means that a < 0
         unsigned                                                                       m_external_stack_level;
         unsigned                                                                       m_number_of_bound_propagations;
         unsigned                                                                       m_number_of_asserts;
@@ -391,11 +409,11 @@ public: // for debugging
         void activate(unsigned internal_j) {
             m_internal_j = internal_j;
         }
-        void add_dependent_constraint(constraint* i, bound_type bt) {
+        void add_dependent_constraint(constraint* i, bool coeff_is_pos) {
             lp_assert(m_dependent_constraints.find(i) == m_dependent_constraints.end());
             if (i->is_assert())
                 m_number_of_asserts++;
-            m_dependent_constraints[i] = bt;
+            m_dependent_constraints[i] = coeff_is_pos;
         }
         void remove_depended_constraint(constraint* i) {
             lp_assert(m_dependent_constraints.find(i) != m_dependent_constraints.end());
@@ -427,8 +445,8 @@ public: // for debugging
         bool get_upper_bound_with_expl(mpq & b, unsigned& expl) const { return m_domain.get_upper_bound_with_expl(b, expl); }
         bool get_lower_bound_with_expl(mpq & b, unsigned& expl) const { return m_domain.get_lower_bound_with_expl(b, expl); }
         void print_var_domain(std::ostream &out) const { m_domain.print(out); }
-        std::unordered_map<constraint*, bound_type, constraint_hash, constraint_equal> & dependent_constraints() { return m_dependent_constraints; }
-        const std::unordered_map<constraint*, bound_type, constraint_hash, constraint_equal> & dependent_constraints() const { return m_dependent_constraints; }
+        std::unordered_map<constraint*, bool, constraint_hash, constraint_equal> & dependent_constraints() { return m_dependent_constraints; }
+        const std::unordered_map<constraint*, bool, constraint_hash, constraint_equal> & dependent_constraints() const { return m_dependent_constraints; }
         int get_lower_bound_expl() const { return m_domain.get_lower_bound_expl();}
         int get_upper_bound_expl() const { return m_domain.get_upper_bound_expl();}
     public:
@@ -492,11 +510,11 @@ public:
             if (coeff == one_of_type<mpq>() || coeff == - one_of_type<mpq>())
                 continue;
             if (!all_fixed_except_j(c->poly(), j)) continue;
-            if (p.second == bound_type::UPPER) {
+            if (!p.second) {
                 upper_bounds++;
                 upper = c;
                 if (lower_bounds) return true;
-            } else if (p.second == bound_type::LOWER) {
+            } else {
                 lower_bounds++;
                 lower = c;
                 if (upper_bounds)
@@ -563,22 +581,18 @@ public:
 
     struct scope {
         unsigned m_asserts_size;
-        unsigned m_lemmas_size;
         unsigned m_trail_size;
         scope() {}
         scope(unsigned asserts_size,
-              unsigned lemmas_size,
               unsigned trail_size) : m_asserts_size(asserts_size),
-                                     m_lemmas_size(lemmas_size),
-                                     m_trail_size(trail_size)
-        {}
+                                     m_trail_size(trail_size) {}
 
     };
     
     // fields
-    vector<var_info> m_var_infos;
-    svector<constraint*>                           m_asserts;
-    svector<constraint*>                           m_lemmas;
+    vector<var_info>                               m_var_infos;
+    vector<constraint*>                            m_asserts;
+    vector<constraint*>                            m_lemmas;
     vector<mpq>                                    m_v; // the values of the variables
     std::function<std::string (unsigned)>          m_var_name_function;
     std::function<void (unsigned, std::ostream &)> m_print_constraint_function;
@@ -730,11 +744,12 @@ public:
     }
 
     // 'j' is a variable that changed
-    void add_changed_var(unsigned j) {
+    void add_changed_var(unsigned j, bool lower_bound_got_tighter) {
         TRACE("add_changed_var_int", tout <<  "j = " << j << "\n";);
         for (auto & p: m_var_infos[j].dependent_constraints()) {
             TRACE("add_changed_var_int", tout << pp_constraint(*this, *p.first) << "\n";);
-            m_active_set.add_constraint(p.first);
+            if (p.second == lower_bound_got_tighter)
+                m_active_set.add_constraint(p.first);
         }
     }
 
@@ -968,7 +983,7 @@ public:
     void push_literal_to_trail(literal & l) {
         m_pushes_to_trail ++;
         m_trail.push_back(l);
-        add_changed_var(l.var());
+        add_changed_var(l.var(), l.is_lower());
     }
 
     unsigned find_large_enough_j(unsigned i) {
@@ -1181,9 +1196,6 @@ public:
         
         for (auto j : c->assert_origins())
             m_explanation.insert(j);
-
-        for (const_constr* p : c->predecessors())
-            add_premises(p, visited_constraints);
     }
     
     void fill_conflict_explanation(const constraint *confl) {
@@ -1704,6 +1716,7 @@ public:
     void add_bound(mpq v, unsigned j, bool is_lower, constraint * c) {
         literal l = literal::make_implied_literal(j, is_lower, v, c, m_var_infos[j].external_stack_level());
         push_literal_to_trail(l);
+        c->set_trail_size(m_trail.size());
         m_var_infos[j].number_of_bound_propagations()++;
     }
     
@@ -2142,7 +2155,8 @@ public:
         }
         l.tight_constr() = constraint::make_ineq_constraint( m_max_constraint_id++,
                                                              c->poly(),
-                                                             c->predecessors());
+                                                             c->assert_origins(),
+                                                             index_of_literal + 1);
         l.tight_constr()->add_predecessor(c);
         tighten(l.tight_constr(), j, a, index_of_literal);
         add_lemma_as_not_active(l.tight_constr());
@@ -2289,9 +2303,8 @@ public:
     
     void resolve_conflict_for_inequality(constraint * c) {
         // Create a new constraint, almost copy of "c", that becomes a lemma and could be modified later
-        constraint *lemma = constraint::make_ineq_lemma(m_max_constraint_id++, c->poly());
-        lemma->predecessors() = c->predecessors(); // copy predecessors
-        lemma->add_predecessor(c); // and add c
+        constraint *lemma = constraint::make_ineq_lemma(m_max_constraint_id++, c->poly(), m_trail.size());
+        lemma->add_predecessor(c);
 
         TRACE("resolve_conflict_for_inequality", print_constraint(tout, *lemma););
         lp_assert(lower_is_pos(lemma->poly()));
@@ -2312,8 +2325,10 @@ public:
         }
         
         if (number_of_lemmas == m_lemmas.size()) {
-            if (lemma_has_been_modified)
+            if (lemma_has_been_modified) {
                 add_lemma_as_not_active(lemma);
+                lemma->set_trail_size(m_trail.size());
+            }
             else {
                 delete lemma;
             }
@@ -2335,7 +2350,6 @@ public:
     void print_scope(std::ostream& out) const {
         for (const scope & s : m_scopes) {
             out <<  "asserts_size = " << s.m_asserts_size;
-            out << ", lemmas_size = " << s.m_lemmas_size << "\n";
             out << ", trail_size = " << s.m_trail_size << "\n";
         }
     }
@@ -2354,14 +2368,12 @@ public:
 
 public:
     void push() {
-        m_scopes.push_back(scope(m_asserts.size(), m_lemmas.size(), m_trail.size()));
+        m_scopes.push_back(scope(m_asserts.size(), m_trail.size()));
         TRACE("pp_cs", tout << "level =  " << m_scopes.size() << ", trail size = " << m_trail.size(););
     }
 
 
-    void pop_constraints(unsigned n_asserts, unsigned n_lemmas) {
-        if (n_asserts >= m_asserts.size())
-            return; // only shrink the lemmas if asserts are shrunk
+    void pop_constraints(unsigned n_asserts) {
         while (m_asserts.size() > n_asserts) {
             constraint * i = m_asserts.back();;
             for (auto & p: i->poly().m_coeffs) {
@@ -2372,15 +2384,19 @@ public:
             m_asserts.pop_back();
         }
 
-        while (m_lemmas.size() > n_lemmas) {
-            constraint * i = m_lemmas.back();;
-            for (auto & p: i->poly().m_coeffs) {
-                m_var_infos[p.var()].remove_depended_constraint(i);
+        vector<constraint*> remaining_lemmas;
+        for (constraint * i : m_lemmas) {
+            if (i->trail_size() <= m_trail.size()) {
+                remaining_lemmas.push_back(i);
+            } else {
+                for (auto & p: i->poly().m_coeffs) {
+                    m_var_infos[p.var()].remove_depended_constraint(i);
+                }
+                m_active_set.remove_constraint(i);
+                delete i;
             }
-            m_active_set.remove_constraint(i);
-            delete i;
-            m_lemmas.pop_back();
         }
+        m_lemmas = remaining_lemmas;
     }
 
 public:
@@ -2397,7 +2413,7 @@ public:
                 vi.pop(1, lit.prev_var_level());
             m_trail.pop_back();
         }
-        pop_constraints(s.m_asserts_size, s.m_lemmas_size);
+        pop_constraints(s.m_asserts_size);
         lp_assert(var_infos_are_correct());
     }
 public:    
@@ -2515,7 +2531,7 @@ public:
             m_v.resize(j + 1);
         m_v[j] = b;
         TRACE("decide_var_on_bound", tout<< "j="<< j<<" ";print_var_info(tout, j););
-        add_changed_var(j);
+        add_changed_var(j, !decide_on_lower);
         m_decision_level++;
         literal nl = literal::make_decided_literal(j, !decide_on_lower, b, decision_context_index, var_level);
         push_literal_to_trail(nl);
@@ -2581,7 +2597,8 @@ public:
     void simplify_ineq(polynomial & p) const {
         TRACE("simplify_ineq_int", tout << "p = " << pp_poly(*this, p) << "\n";);
         auto & ms = p.m_coeffs;
-        lp_assert(ms.size());
+        if (ms.size() == 0)
+            return;
         mpq g;
         if (ms.size() == 1) {
             g = abs(ms[0].coeff());
@@ -2605,7 +2622,7 @@ public:
         polynomial & p = lemma->poly();
         simplify_ineq(p);
         for (const auto & m : p.coeffs()) {
-            m_var_infos[m.var()].add_dependent_constraint(lemma, is_pos(m.coeff())? bound_type::UPPER: bound_type::LOWER);
+            m_var_infos[m.var()].add_dependent_constraint(lemma, is_pos(m.coeff()));
         }
     }
 
@@ -2623,7 +2640,7 @@ public:
     
     unsigned add_ineq(const vector<monomial> & lhs,
                       const mpq& free_coeff,
-                      svector<constraint_index> origins) {
+                      constraint_index origin) {
         lp_assert(lhs_is_int(lhs));
         lp_assert(is_int(free_coeff));
         for (auto & p : lhs) {
@@ -2638,19 +2655,13 @@ public:
             }
         }
         
-        constraint * c = constraint::make_ineq_assert(m_max_constraint_id++, lhs, free_coeff,origins);
+        constraint * c = constraint::make_ineq_assert(m_max_constraint_id++, lhs, free_coeff, origin, m_trail.size());
         m_asserts.push_back(c);
         add_constraint_to_dependend_for_its_vars(c);
         m_active_set.add_constraint(c);
 
-        TRACE("add_ineq_int",
-              tout << "explanation :";
-              for (auto i: origins) {
-                  m_print_constraint_function(i, tout);
-                  tout << "\n";
-              });
-
-        TRACE("add_ineq_int", tout << "m_asserts[" << m_asserts.size() - 1 << "] =  ";
+        TRACE("add_ineq_int",tout << "explanation :"; m_print_constraint_function(origin, tout); tout << "\n";
+              tout << "m_asserts[" << m_asserts.size() - 1 << "] =  ";
               print_constraint(tout, *m_asserts.back()); tout << "\n";);
         
         return m_asserts.size() - 1;
@@ -2659,7 +2670,7 @@ public:
 
     void add_constraint_to_dependend_for_its_vars(constraint * c) {
         for (auto & p : c->poly().coeffs()) {
-            m_var_infos[p.var()].add_dependent_constraint(c, is_pos(p.coeff())? bound_type::UPPER : bound_type::LOWER);
+            m_var_infos[p.var()].add_dependent_constraint(c, is_pos(p.coeff()));
         }
     }
 
