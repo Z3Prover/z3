@@ -719,6 +719,7 @@ void cmd_context::init_manager_core(bool new_manager) {
     m_dt_eh = alloc(dt_eh, *this);
     m_pmanager->set_new_datatype_eh(m_dt_eh.get());
     if (!has_logic()) {
+        TRACE("cmd_context", tout << "init manager\n";);
         // add list type only if the logic is not specified.
         // it prevents clashes with builtin types.
         insert(pm().mk_plist_decl());
@@ -1408,7 +1409,8 @@ void cmd_context::restore_assertions(unsigned old_sz) {
         SASSERT(m_assertions.empty());
         return;
     }
-    SASSERT(old_sz <= m_assertions.size());
+    if (old_sz == m_assertions.size()) return;
+    SASSERT(old_sz < m_assertions.size());
     SASSERT(!m_interactive_mode || m_assertions.size() == m_assertion_strings.size());
     restore(m(), m_assertions, old_sz);
     if (produce_unsat_cores())

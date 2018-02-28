@@ -852,7 +852,7 @@ pdecl_manager::pdecl_manager(ast_manager & m):
 pdecl_manager::~pdecl_manager() {
     dec_ref(m_list);
     reset_sort_info();
-    SASSERT(m_sort2psort.empty());    
+    SASSERT(m_sort2psort.empty());
     SASSERT(m_table.empty());
 }
 
@@ -946,6 +946,7 @@ void pdecl_manager::del_decl_core(pdecl * p) {
 }
 
 void pdecl_manager::del_decl(pdecl * p) {
+    TRACE("pdecl_manager", p->display(tout); tout << "\n";);
     if (p->is_psort()) {
         psort * _p = static_cast<psort*>(p);
         if (_p->is_sort_wrapper())
