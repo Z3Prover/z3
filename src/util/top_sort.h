@@ -42,7 +42,7 @@ class top_sort {
         unsigned p_id = 0;
         if (m_dfs_num.find(f, p_id)) {
             if (!m_partition_id.contains(f)) {
-                while (!m_stack_P.empty() && m_partition_id[m_stack_P.back()] > p_id) {
+                while (!m_stack_P.empty() && m_partition_id.contains(m_stack_P.back()) && m_partition_id[m_stack_P.back()] > p_id) {
                     m_stack_P.pop_back();
                 }
             }
