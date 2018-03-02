@@ -791,13 +791,20 @@ namespace datatype {
         return res;
     }
 
+
+    func_decl * util::get_constructor_is(func_decl * con) {
+        SASSERT(is_constructor(con));
+        sort * datatype = con->get_range();
+        parameter ps[1] = { parameter(con)};
+        return m.mk_func_decl(m_family_id, OP_DT_IS, 1, ps, 1, &datatype);
+    }
+
     func_decl * util::get_constructor_recognizer(func_decl * con) {
         SASSERT(is_constructor(con));
         func_decl * d = nullptr;
         if (m_constructor2recognizer.find(con, d))
             return d;
         sort * datatype = con->get_range();
-#if 0
         def const& dd = get_def(datatype);
         symbol r;
         for (constructor const* c : dd) {
@@ -812,14 +819,6 @@ namespace datatype {
         m_asts.push_back(d);
         m_constructor2recognizer.insert(con, d);
         return d;
-#else
-        parameter ps[1] = { parameter(con)};
-        d = m.mk_func_decl(m_family_id, OP_DT_IS, 1, ps, 1, &datatype);
-        m_constructor2recognizer.insert(con, d);
-        m_asts.push_back(d);
-        m_asts.push_back(con);
-        return d;
-#endif
     }
 
     func_decl * util::get_recognizer_constructor(func_decl * recognizer) const {
@@ -1049,15 +1048,11 @@ namespace datatype {
             sort* s = todo.back();
             todo.pop_back();
             out << s->get_name() << " =\n";
-
             ptr_vector<func_decl> const& cnstrs = *get_datatype_constructors(s);
-            for (unsigned i = 0; i < cnstrs.size(); ++i) {
-                func_decl* cns = cnstrs[i];
-                func_decl* rec = get_constructor_recognizer(cns);
-                out << "  " << cns->get_name() << " :: " << rec->get_name() << " :: ";
+            for (func_decl * cns : cnstrs) {
+                out << "  " << cns->get_name() << " :: ";
                 ptr_vector<func_decl> const & accs = *get_constructor_accessors(cns);
-                for (unsigned j = 0; j < accs.size(); ++j) {
-                    func_decl* acc = accs[j];
+                for (func_decl* acc : accs) {
                     sort* s1 = acc->get_range();
                     out << "(" << acc->get_name() << ": " << s1->get_name() << ") "; 
                     if (is_datatype(s1) && are_siblings(s1, s0) && !mark.is_marked(s1)) {
