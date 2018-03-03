@@ -481,6 +481,13 @@ void int_solver::copy_values_from_cut_solver() {
     }
 }
 
+void int_solver::catch_up_in_adding_constraints_to_cut_solver() {
+    lp_assert(m_cut_solver.number_of_asserts() <= m_lar_solver->constraints().size());
+    for (unsigned j = m_cut_solver.number_of_asserts(); j < m_lar_solver->constraints().size(); j++) {
+        add_constraint_to_cut_solver(j, m_lar_solver->constraints()[j]);
+    }
+}
+
 lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
     init_check_data();
     lp_assert(inf_int_set_is_correct());
@@ -501,6 +508,7 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
 
     if ((++m_branch_cut_counter) % settings().m_int_branch_cut_solver == 0) {
         TRACE("check_main_int", tout<<"cut_solver";);
+        catch_up_in_adding_constraints_to_cut_solver();
         auto check_res = m_cut_solver.check();
         settings().st().m_cut_solver_calls++;
         switch (check_res) {
@@ -1210,13 +1218,9 @@ void int_solver::add_constraint_to_cut_solver(unsigned ci, const lar_base_constr
     m_cut_solver.add_ineq(coeffs, -rs, ci);
 }
 
-void int_solver::notify_on_last_added_constraint() {
-    unsigned ci = m_lar_solver->constraints().size() - 1;
-    const lar_base_constraint* c = m_lar_solver->constraints()[ci];
-    add_constraint_to_cut_solver(ci, c);
-}
-
 void int_solver::pop(unsigned k) {
+    while (m_cut_solver.number_of_asserts() > m_lar_solver->constraints().size())
+        m_cut_solver.pop_last_assert();
     m_cut_solver.pop(k);
 }
 

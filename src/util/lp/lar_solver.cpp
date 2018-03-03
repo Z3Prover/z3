@@ -1655,9 +1655,6 @@ constraint_index lar_solver::add_var_bound(var_index j, lconstraint_kind kind, c
         lp_assert(bound_is_integer_for_integer_column(j, right_side));
         auto vc = new lar_var_constraint(j, kind, right_side);
         m_constraints.push_back(vc);
-        if (has_int_var()) {
-            m_int_solver->notify_on_last_added_constraint();
-        }
         update_column_type_and_bound(j, kind, right_side, ci);
     }
     else {
@@ -1699,8 +1696,6 @@ void lar_solver::add_var_bound_on_constraint_for_term(var_index j, lconstraint_k
         unsigned term_j = it->second.internal_j();
         mpq rs = right_side - m_terms[adjusted_term_index]->m_v;
         m_constraints.push_back(new lar_term_constraint(m_terms[adjusted_term_index], kind, right_side));
-        if (has_int_var())
-            m_int_solver->notify_on_last_added_constraint();
         update_column_type_and_bound(term_j, kind, rs, ci);
     }
     else {

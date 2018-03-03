@@ -148,6 +148,7 @@ private:
     unsigned random();
     bool has_inf_int() const;
     lia_move create_branch_on_column(int j, lar_term& t, mpq& k, bool free_column) const;
+    void catch_up_in_adding_constraints_to_cut_solver();
 public:
     void display_inf_or_int_inf_columns(std::ostream & out) const;
     template <typename T>
@@ -155,7 +156,6 @@ public:
     template <typename T>
     void get_int_coeffs_from_constraint(const lar_base_constraint* c, vector<cut_solver::monomial>& coeff, T & rs);
     bool is_term(unsigned j) const;
-    void notify_on_last_added_constraint();
     void add_constraint_to_cut_solver(unsigned,const lar_base_constraint*);
     void copy_explanations_from_cut_solver(explanation &);
     void pop(unsigned);

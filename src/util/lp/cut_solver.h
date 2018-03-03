@@ -592,13 +592,10 @@ public:
     };
 
     struct scope {
-        unsigned m_asserts_size;
         unsigned m_trail_size;
         scope() {}
-        scope(unsigned asserts_size,
-              unsigned trail_size) : m_asserts_size(asserts_size),
-                                     m_trail_size(trail_size) {}
-
+        scope( unsigned trail_size) : 
+            m_trail_size(trail_size) {}
     };
     
     // fields
@@ -2352,7 +2349,6 @@ public:
 
     void print_scope(std::ostream& out) const {
         for (const scope & s : m_scopes) {
-            out <<  "asserts_size = " << s.m_asserts_size;
             out << ", trail_size = " << s.m_trail_size << "\n";
         }
     }
@@ -2370,26 +2366,27 @@ public:
     }
 
 public:
+    unsigned number_of_asserts() const { return m_asserts.size(); }
+    
     void push() {
-        m_scopes.push_back(scope(m_asserts.size(), m_trail.size()));
+        m_scopes.push_back(scope(m_trail.size()));
         TRACE("pp_cs", tout << "level =  " << m_scopes.size() << ", trail size = " << m_trail.size(););
     }
 
-
-    void pop_constraints(unsigned n_asserts) {
-        while (m_asserts.size() > n_asserts) {
-            constraint * i = m_asserts.back();;
-            for (auto & p: i->poly().m_coeffs) {
-                m_var_infos[p.var()].remove_depended_constraint(i);
-            }
-            lp_assert(i->assert_origins().size() == 1);
-            for (constraint_index ci : i->assert_origins())
-                m_lemmas_container.submit_assert_origin_for_delete(ci);
-            m_active_set.remove_constraint(i);
-            delete i;
-            m_asserts.pop_back();
+    void pop_last_assert() {
+        constraint * i = m_asserts.back();;
+        for (auto & p: i->poly().m_coeffs) {
+            m_var_infos[p.var()].remove_depended_constraint(i);
         }
-
+        lp_assert(i->assert_origins().size() == 1);
+        for (constraint_index ci : i->assert_origins())
+            m_lemmas_container.submit_assert_origin_for_delete(ci);
+        m_active_set.remove_constraint(i);
+        delete i;
+        m_asserts.pop_back();
+    }
+    
+    void pop_constraints() {
         vector<constraint*> gone_lemmas = m_lemmas_container.remove_lemmas_depending_on_submitted_origins();
         
         for (constraint * i : gone_lemmas) {
@@ -2415,7 +2412,7 @@ public:
                 vi.pop(1, lit.prev_var_level());
             m_trail.pop_back();
         }
-        pop_constraints(s.m_asserts_size);
+        pop_constraints();
         lp_assert(var_infos_are_correct());
     }
 public:    
