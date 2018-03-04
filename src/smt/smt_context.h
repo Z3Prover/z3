@@ -262,6 +262,8 @@ namespace smt {
             return m_params;
         }
 
+        void updt_params(params_ref const& p);
+
         bool get_cancel_flag();
 
         region & get_region() {

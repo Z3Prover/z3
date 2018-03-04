@@ -223,6 +223,7 @@ public:
     asserted_formulas(ast_manager & m, smt_params & p);
     ~asserted_formulas();
 
+    void updt_params(params_ref const& p);
     bool has_quantifiers() const { return m_has_quantifiers; }
     void setup();
     void assert_expr(expr * e, proof * in_pr);

@@ -132,6 +132,10 @@ namespace smt {
         return !m_manager.limit().inc();
     }
 
+    void context::updt_params(params_ref const& p) {
+        m_params.append(p);
+        m_asserted_formulas.updt_params(p);
+    }
 
     void context::copy(context& src_ctx, context& dst_ctx) {
         ast_manager& dst_m = dst_ctx.get_manager();

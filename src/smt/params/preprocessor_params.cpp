@@ -25,6 +25,7 @@ void preprocessor_params::updt_local_params(params_ref const & _p) {
     m_quasi_macros            = p.quasi_macros();
     m_restricted_quasi_macros = p.restricted_quasi_macros();
     m_pull_nested_quantifiers = p.pull_nested_quantifiers();
+//    m_pull_cheap_ite          = _p.get_bool("pull_cheap_ite", m_pull_cheap_ite);
     m_refine_inj_axiom        = p.refine_inj_axioms();
 }
 

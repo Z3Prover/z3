@@ -117,6 +117,10 @@ void asserted_formulas::push_assertion(expr * e, proof * pr, vector<justified_ex
     }
 }
 
+void asserted_formulas::updt_params(params_ref const& p) {
+    m_rewriter.updt_params(p);
+}
+
 void asserted_formulas::set_eliminate_and(bool flag) {
     if (flag == m_elim_and) return;
     m_elim_and = flag;
