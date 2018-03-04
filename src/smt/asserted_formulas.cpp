@@ -46,7 +46,6 @@ asserted_formulas::asserted_formulas(ast_manager & m, smt_params & p):
     m_refine_inj_axiom(*this),
     m_max_bv_sharing_fn(*this),
     m_elim_term_ite(*this),
-    m_pull_cheap_ite_trees(*this),
     m_pull_nested_quantifiers(*this),
     m_elim_bvs_from_quantifiers(*this),
     m_cheap_quant_fourier_motzkin(*this),
@@ -122,7 +121,7 @@ void asserted_formulas::set_eliminate_and(bool flag) {
     if (flag == m_elim_and) return;
     m_elim_and = flag;
     params_ref p;
-    p.set_bool("pull_cheap_ite", false);
+    if (m_params.m_pull_cheap_ite) p.set_bool("pull_cheap_ite", true);
     p.set_bool("elim_and", flag);
     p.set_bool("arith_ineq_lhs", true);
     p.set_bool("sort_sums", true);
@@ -241,7 +240,6 @@ void asserted_formulas::reduce() {
     if (!invoke(m_nnf_cnf)) return;
     set_eliminate_and(true);
     if (!invoke(m_reduce_asserted_formulas)) return;
-    if (!invoke(m_pull_cheap_ite_trees)) return;
     if (!invoke(m_pull_nested_quantifiers)) return;
     if (!invoke(m_lift_ite)) return;
     if (!invoke(m_ng_lift_ite)) return;

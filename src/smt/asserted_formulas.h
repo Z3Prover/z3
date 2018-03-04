@@ -26,7 +26,6 @@ Revision History:
 #include "ast/rewriter/bit2int.h"
 #include "ast/rewriter/maximize_ac_sharing.h"
 #include "ast/rewriter/distribute_forall.h"
-#include "ast/rewriter/pull_ite_tree.h"
 #include "ast/rewriter/push_app_ite.h"
 #include "ast/rewriter/inj_axiom.h"
 #include "ast/rewriter/bv_elim.h"
@@ -172,7 +171,6 @@ class asserted_formulas {
 
 #define MK_SIMPLIFIERF(NAME, FUNCTOR, MSG, APP, REDUCE) MK_SIMPLIFIERA(NAME, FUNCTOR, MSG, APP, (af.m), REDUCE)
 
-    MK_SIMPLIFIERF(pull_cheap_ite_trees, pull_cheap_ite_tree_rw, "pull-cheap-ite-trees", af.m_params.m_pull_cheap_ite_trees, false);
     MK_SIMPLIFIERF(pull_nested_quantifiers, pull_nested_quant, "pull-nested-quantifiers", af.m_params.m_pull_nested_quantifiers && af.has_quantifiers(), false);
     MK_SIMPLIFIERF(cheap_quant_fourier_motzkin, elim_bounds_rw, "cheap-fourier-motzkin", af.m_params.m_eliminate_bounds && af.has_quantifiers(), true);
     MK_SIMPLIFIERF(elim_bvs_from_quantifiers, bv_elim_rw, "eliminate-bit-vectors-from-quantifiers", af.m_params.m_bb_quantifiers, true);
@@ -187,7 +185,6 @@ class asserted_formulas {
     refine_inj_axiom_fn         m_refine_inj_axiom;
     max_bv_sharing_fn           m_max_bv_sharing_fn;
     elim_term_ite_fn            m_elim_term_ite;
-    pull_cheap_ite_trees        m_pull_cheap_ite_trees;
     pull_nested_quantifiers     m_pull_nested_quantifiers;
     elim_bvs_from_quantifiers   m_elim_bvs_from_quantifiers;
     cheap_quant_fourier_motzkin m_cheap_quant_fourier_motzkin;
@@ -219,7 +216,6 @@ class asserted_formulas {
     bool is_gt(expr* lhs, expr* rhs);
     void compute_depth(expr* e);
     unsigned depth(expr* e) { return m_expr2depth[e]; }
-    bool pull_cheap_ite_trees();
 
     void init(unsigned num_formulas, expr * const * formulas, proof * const * prs);
 
