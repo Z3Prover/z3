@@ -2449,7 +2449,6 @@ expr_ref theory_seq::digit2int(expr* ch) {
 }
 
 void theory_seq::add_itos_axiom(expr* e) {
-    context& ctx = get_context();
     rational val;
     expr* n = nullptr;
     TRACE("seq", tout << mk_pp(e, m) << "\n";);

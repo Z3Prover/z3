@@ -45,7 +45,7 @@ namespace smt {
         m_fparams(p),
         m_params(_p),
         m_setup(*this, p),
-        m_asserted_formulas(m, p),
+        m_asserted_formulas(m, p, _p),
         m_qmanager(alloc(quantifier_manager, *this, p, _p)),
         m_model_generator(alloc(model_generator, m)),
         m_relevancy_propagator(mk_relevancy_propagator(*this)),

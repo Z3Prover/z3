@@ -3924,7 +3924,7 @@ namespace smt {
         }
 
 #ifdef Z3DEBUG
-        virtual bool check_missing_instances() {
+        bool check_missing_instances() override {
             TRACE("missing_instance", tout << "checking for missing instances...\n";);
             flet<bool> l(m_check_missing_instances, true);
             rematch(false);

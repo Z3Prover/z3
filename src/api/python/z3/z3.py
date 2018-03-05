@@ -8266,7 +8266,7 @@ def tree_interpolant(pat,p=None,ctx=None):
     solver that determines satisfiability.
 
     >>> x = Int('x')
-    >>> y = Int('y')
+    >>> y = Int('y')	
     >>> print(tree_interpolant(And(Interpolant(x < 0), Interpolant(y > 2), x == y)))
     [Not(x >= 0), Not(y <= 2)]
 

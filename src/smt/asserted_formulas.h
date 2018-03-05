@@ -43,7 +43,8 @@ Revision History:
 class asserted_formulas {
     
     ast_manager &               m;
-    smt_params &                m_params;
+    smt_params &                m_smt_params;
+    params_ref                  m_params;
     th_rewriter                 m_rewriter;
     expr_substitution           m_substitution;
     scoped_expr_substitution    m_scoped_substitution;
@@ -88,7 +89,7 @@ class asserted_formulas {
     public:
         find_macros_fn(asserted_formulas& af): simplify_fmls(af, "find-macros") {}
         void operator()() override { af.find_macros_core(); }
-        bool should_apply() const override { return af.m_params.m_macro_finder && af.has_quantifiers(); }
+        bool should_apply() const override { return af.m_smt_params.m_macro_finder && af.has_quantifiers(); }
         void simplify(justified_expr const& j, expr_ref& n, proof_ref& p) override { UNREACHABLE(); }
     };
 
@@ -96,7 +97,7 @@ class asserted_formulas {
     public:
         apply_quasi_macros_fn(asserted_formulas& af): simplify_fmls(af, "find-quasi-macros") {}
         void operator()() override { af.apply_quasi_macros(); }
-        bool should_apply() const override { return af.m_params.m_quasi_macros && af.has_quantifiers(); }
+        bool should_apply() const override { return af.m_smt_params.m_quasi_macros && af.has_quantifiers(); }
         void simplify(justified_expr const& j, expr_ref& n, proof_ref& p) override { UNREACHABLE(); }
     };
 
@@ -104,7 +105,7 @@ class asserted_formulas {
     public:
         nnf_cnf_fn(asserted_formulas& af): simplify_fmls(af, "nnf-cnf") {}
         void operator()() override { af.nnf_cnf(); }
-        bool should_apply() const override { return af.m_params.m_nnf_cnf || (af.m_params.m_mbqi && af.has_quantifiers()); }
+        bool should_apply() const override { return af.m_smt_params.m_nnf_cnf || (af.m_smt_params.m_mbqi && af.has_quantifiers()); }
         void simplify(justified_expr const& j, expr_ref& n, proof_ref& p) override { UNREACHABLE(); }
     };
 
@@ -112,7 +113,7 @@ class asserted_formulas {
     public:
         propagate_values_fn(asserted_formulas& af): simplify_fmls(af, "propagate-values") {}
         void operator()() override { af.propagate_values(); }
-        bool should_apply() const override { return af.m_params.m_propagate_values; }
+        bool should_apply() const override { return af.m_smt_params.m_propagate_values; }
         void simplify(justified_expr const& j, expr_ref& n, proof_ref& p) override { UNREACHABLE(); }
     };
 
@@ -121,30 +122,30 @@ class asserted_formulas {
     public:
         distribute_forall_fn(asserted_formulas& af): simplify_fmls(af, "distribute-forall"), m_functor(af.m) {}
         void simplify(justified_expr const& j, expr_ref& n, proof_ref& p) override { m_functor(j.get_fml(), n); }
-        bool should_apply() const override { return af.m_params.m_distribute_forall && af.has_quantifiers(); }
+        bool should_apply() const override { return af.m_smt_params.m_distribute_forall && af.has_quantifiers(); }
         void post_op() override { af.reduce_and_solve();  TRACE("asserted_formulas", af.display(tout);); }
     };
 
     class pattern_inference_fn : public simplify_fmls {
         pattern_inference_rw m_infer;
     public:
-        pattern_inference_fn(asserted_formulas& af): simplify_fmls(af, "pattern-inference"), m_infer(af.m, af.m_params) {}
+        pattern_inference_fn(asserted_formulas& af): simplify_fmls(af, "pattern-inference"), m_infer(af.m, af.m_smt_params) {}
         void simplify(justified_expr const& j, expr_ref& n, proof_ref& p) override { m_infer(j.get_fml(), n, p); }
-        bool should_apply() const override { return af.m_params.m_ematching && af.has_quantifiers(); }
+        bool should_apply() const override { return af.m_smt_params.m_ematching && af.has_quantifiers(); }
     };
 
     class refine_inj_axiom_fn : public simplify_fmls {
     public:
         refine_inj_axiom_fn(asserted_formulas& af): simplify_fmls(af, "refine-injectivity") {}
         void simplify(justified_expr const& j, expr_ref& n, proof_ref& p) override;
-        bool should_apply() const override { return af.m_params.m_refine_inj_axiom && af.has_quantifiers(); }
+        bool should_apply() const override { return af.m_smt_params.m_refine_inj_axiom && af.has_quantifiers(); }
     };
 
     class max_bv_sharing_fn : public simplify_fmls {
     public:
         max_bv_sharing_fn(asserted_formulas& af): simplify_fmls(af, "maximizing-bv-sharing") {}
         void simplify(justified_expr const& j, expr_ref& n, proof_ref& p) override { af.m_bv_sharing(j.get_fml(), n, p); }
-        bool should_apply() const override { return af.m_params.m_max_bv_sharing; }
+        bool should_apply() const override { return af.m_smt_params.m_max_bv_sharing; }
         void post_op() override { af.m_reduce_asserted_formulas(); }
     };
 
@@ -153,7 +154,7 @@ class asserted_formulas {
     public:
         elim_term_ite_fn(asserted_formulas& af): simplify_fmls(af, "elim-term-ite"), m_elim(af.m, af.m_defined_names) {}
         void simplify(justified_expr const& j, expr_ref& n, proof_ref& p) override { m_elim(j.get_fml(), n, p); }
-        bool should_apply() const override { return af.m_params.m_eliminate_term_ite && af.m_params.m_lift_ite != LI_FULL; }
+        bool should_apply() const override { return af.m_smt_params.m_eliminate_term_ite && af.m_smt_params.m_lift_ite != LI_FULL; }
         void post_op() override { af.m_formulas.append(m_elim.new_defs()); af.reduce_and_solve(); m_elim.reset(); }
     };
 
@@ -171,12 +172,12 @@ class asserted_formulas {
 
 #define MK_SIMPLIFIERF(NAME, FUNCTOR, MSG, APP, REDUCE) MK_SIMPLIFIERA(NAME, FUNCTOR, MSG, APP, (af.m), REDUCE)
 
-    MK_SIMPLIFIERF(pull_nested_quantifiers, pull_nested_quant, "pull-nested-quantifiers", af.m_params.m_pull_nested_quantifiers && af.has_quantifiers(), false);
-    MK_SIMPLIFIERF(cheap_quant_fourier_motzkin, elim_bounds_rw, "cheap-fourier-motzkin", af.m_params.m_eliminate_bounds && af.has_quantifiers(), true);
-    MK_SIMPLIFIERF(elim_bvs_from_quantifiers, bv_elim_rw, "eliminate-bit-vectors-from-quantifiers", af.m_params.m_bb_quantifiers, true);
-    MK_SIMPLIFIERF(apply_bit2int, bit2int, "propagate-bit-vector-over-integers", af.m_params.m_simplify_bit2int, true);
-    MK_SIMPLIFIERA(lift_ite, push_app_ite_rw, "lift-ite", af.m_params.m_lift_ite != LI_NONE, (af.m, af.m_params.m_lift_ite == LI_CONSERVATIVE), true);
-    MK_SIMPLIFIERA(ng_lift_ite, ng_push_app_ite_rw, "lift-ite", af.m_params.m_ng_lift_ite != LI_NONE, (af.m, af.m_params.m_ng_lift_ite == LI_CONSERVATIVE), true);
+    MK_SIMPLIFIERF(pull_nested_quantifiers, pull_nested_quant, "pull-nested-quantifiers", af.m_smt_params.m_pull_nested_quantifiers && af.has_quantifiers(), false);
+    MK_SIMPLIFIERF(cheap_quant_fourier_motzkin, elim_bounds_rw, "cheap-fourier-motzkin", af.m_smt_params.m_eliminate_bounds && af.has_quantifiers(), true);
+    MK_SIMPLIFIERF(elim_bvs_from_quantifiers, bv_elim_rw, "eliminate-bit-vectors-from-quantifiers", af.m_smt_params.m_bb_quantifiers, true);
+    MK_SIMPLIFIERF(apply_bit2int, bit2int, "propagate-bit-vector-over-integers", af.m_smt_params.m_simplify_bit2int, true);
+    MK_SIMPLIFIERA(lift_ite, push_app_ite_rw, "lift-ite", af.m_smt_params.m_lift_ite != LI_NONE, (af.m, af.m_smt_params.m_lift_ite == LI_CONSERVATIVE), true);
+    MK_SIMPLIFIERA(ng_lift_ite, ng_push_app_ite_rw, "lift-ite", af.m_smt_params.m_ng_lift_ite != LI_NONE, (af.m, af.m_smt_params.m_ng_lift_ite == LI_CONSERVATIVE), true);
 
 
     reduce_asserted_formulas_fn m_reduce_asserted_formulas;
@@ -220,7 +221,7 @@ class asserted_formulas {
     void init(unsigned num_formulas, expr * const * formulas, proof * const * prs);
 
 public:
-    asserted_formulas(ast_manager & m, smt_params & p);
+    asserted_formulas(ast_manager & m, smt_params & smtp, params_ref const& p);
     ~asserted_formulas();
 
     void updt_params(params_ref const& p);
