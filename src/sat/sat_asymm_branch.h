@@ -51,12 +51,15 @@ namespace sat {
         unsigned   m_tr;
 
         literal_vector m_pos, m_neg; // literals (complements of literals) in clauses sorted by discovery time (m_left in BIG).
+        svector<std::pair<literal, unsigned>> m_pos1, m_neg1;
         literal_vector m_to_delete;
+        literal_vector m_tmp;
        
         struct compare_left;
 
         void sort(big& big, literal const* begin, literal const* end);
         void sort(big & big, clause const& c);
+        void radix_sort(big & big, literal_vector& lits);
 
         bool uhle(scoped_detach& scoped_d, big & big, clause & c);
 

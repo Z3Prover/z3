@@ -224,6 +224,22 @@ namespace sat {
         sort(big, c.begin(), c.end());
     }
 
+    void asymm_branch::radix_sort(big& big, literal_vector& lits) {
+        const unsigned d = 4;
+        const unsigned w = 20; // 1M variable cap        
+        unsigned sz = lits.size();
+        m_tmp.reserve(sz);
+        for (unsigned p = 0; p < w/d; ++p) {
+            unsigned on[16];
+            memset(on, 0, 16*sizeof(unsigned));
+            for (literal l : lits) on[(big.get_left(l) >> 4*p) & 15]++;
+            for (unsigned i = 1; i < 16; ++i) on[i] += on[i-1];
+            for (unsigned i = sz; i-- > 0; ) 
+                m_tmp[--on[(big.get_left(lits[i]) >> 4*p) & 15]] = lits[i];
+            for (unsigned i = sz; i-- > 0; ) lits[i] = m_tmp[i];
+        }
+    }
+
     void asymm_branch::sort(big& big, literal const* begin, literal const* end) {
         m_pos.reset(); m_neg.reset();
         for (; begin != end; ++begin) {
@@ -231,9 +247,20 @@ namespace sat {
             m_pos.push_back(l);
             m_neg.push_back(~l);
         }
+#if 0
         compare_left cmp(big);
         std::sort(m_pos.begin(), m_pos.end(), cmp);
         std::sort(m_neg.begin(), m_neg.end(), cmp);
+#else
+        radix_sort(big, m_pos);
+        radix_sort(big, m_neg);
+#endif
+        IF_VERBOSE(100, 
+                   for (literal l : m_pos) verbose_stream() << big.get_left(l) << " "; 
+                   verbose_stream() << "\n";
+                   for (literal l : m_neg) verbose_stream() << big.get_left(l) << " "; 
+                   verbose_stream() << "\n";
+                   );
     }
 
     bool asymm_branch::uhte(big& big, clause & c) {
