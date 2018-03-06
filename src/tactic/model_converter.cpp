@@ -71,13 +71,18 @@ public:
     }
 
     void operator()(expr_ref & fml) override {
-        this->m_c1->operator()(fml);
         this->m_c2->operator()(fml);
+        this->m_c1->operator()(fml);
     }
     
     void operator()(labels_vec & r) override {
         this->m_c2->operator()(r);
         this->m_c1->operator()(r);
+    }
+
+    void get_units(obj_map<expr, bool>& fmls) override {
+        m_c2->get_units(fmls);
+        m_c1->get_units(fmls);
     }
   
     char const * get_name() const override { return "concat-model-converter"; }
@@ -123,6 +128,10 @@ public:
         expr_ref r(m_model->get_manager());
         m_model->eval(fml, r, false);
         fml = r;
+    }
+
+    void get_units(obj_map<expr, bool>& fmls) override {
+        // no-op
     }
 
     void cancel() override {

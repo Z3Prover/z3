@@ -670,6 +670,14 @@ private:
         return peek(pos) == "<=" || peek(pos) == "=<";
     }
 
+    bool peek_minus_infty(unsigned pos) {
+        return peek(pos) == "-" && (peek(pos+1) == "inf" || peek(pos+1) == "infinity");
+    }
+
+    bool peek_plus_infty(unsigned pos) {
+        return peek(pos) == "+" && (peek(pos+1) == "inf" || peek(pos+1) == "infinity");
+    }
+
     void parse_indicator(symbol& var, rational& val) {
         if (peek(1) == "=" && tok.peek_num(2) && peek(3) == "->") {
             var = peek(0);
@@ -703,11 +711,15 @@ private:
             v = peek(2);
             update_lower(lhs, v);
             tok.next(3);
-            if (peek_le(0) && tok.peek_num(1)) {
-                rational rhs = tok.get_num(1);
-                update_upper(v, rhs);
-                tok.next(2);
-            }
+            parse_upper(v);
+        }
+        else if (peek_minus_infty(0) && peek_le(2)) {
+            v = peek(3);
+            tok.next(4);
+            parse_upper(v);
+        }
+        else if (peek_plus_infty(2) && peek_le(1)) {
+            tok.next(4);            
         }
         else if (peek_le(1) && tok.peek_num(2)) {
             v = peek(0);
@@ -719,6 +731,18 @@ private:
         else {
             error("bound expected");
         }
+    }
+
+    void parse_upper(symbol const& v) {
+        if (peek_le(0) && tok.peek_num(1)) {
+            rational rhs = tok.get_num(1);
+            update_upper(v, rhs);
+            tok.next(2);
+        }
+        else if (peek_le(0) && peek_plus_infty(1)) {
+            tok.next(3);            
+        }
+
     }
 
     void update_lower(rational const& r, symbol const& v) {

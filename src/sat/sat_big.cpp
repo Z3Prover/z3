@@ -169,6 +169,7 @@ namespace sat {
         unsigned idx = 0;
         unsigned elim = 0;
         for (watch_list & wlist : s.m_watches) {
+            if (s.inconsistent()) break;
             literal u = to_literal(idx++);
             watch_list::iterator it     = wlist.begin();
             watch_list::iterator itprev = it;
@@ -179,6 +180,10 @@ namespace sat {
                     literal v = w.get_literal();
                     if (reaches(u, v) && u != get_parent(v)) {
                         ++elim;
+                        if (find_binary_watch(wlist, ~v)) {
+                            IF_VERBOSE(10, verbose_stream() << "binary: " << ~u << "\n");
+                            s.assign(~u, justification());
+                        }
                         // could turn non-learned non-binary tautology into learned binary.
                         s.get_wlist(~v).erase(watched(~u, w.is_learned()));
                         continue;
@@ -189,6 +194,7 @@ namespace sat {
             }
             wlist.set_end(itprev);
         }
+        s.propagate(false);
         return elim;
     }
 

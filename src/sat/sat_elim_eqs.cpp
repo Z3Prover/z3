@@ -223,6 +223,7 @@ namespace sat {
     }
 
     void elim_eqs::operator()(literal_vector const & roots, bool_var_vector const & to_elim) {
+        TRACE("elim_eqs", tout << "before bin cleanup\n"; m_solver.display(tout););
         cleanup_bin_watches(roots);
         TRACE("elim_eqs", tout << "after bin cleanup\n"; m_solver.display(tout););
         cleanup_clauses(roots, m_solver.m_clauses);
@@ -232,5 +233,6 @@ namespace sat {
         save_elim(roots, to_elim);
         m_solver.propagate(false);
         SASSERT(check_clauses(roots));
+        TRACE("elim_eqs", tout << "after full cleanup\n"; m_solver.display(tout););
     }
 };

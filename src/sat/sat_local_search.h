@@ -21,16 +21,12 @@
 
 #include "util/vector.h"
 #include "sat/sat_types.h"
+#include "sat/sat_config.h"
 #include "util/rlimit.h"
 
 namespace sat {
 
     class parallel;
-
-    enum local_search_mode {
-        gsat,
-        wsat
-    };
 
     class local_search_config {
         unsigned m_seed;

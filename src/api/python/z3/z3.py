@@ -6369,6 +6369,11 @@ class Solver(Z3PPObject):
         """
         return AstVector(Z3_solver_get_assertions(self.ctx.ref(), self.solver), self.ctx)
 
+    def units(self):
+        """Return an AST vector containing all currently inferred units.
+        """
+        return AstVector(Z3_solver_get_units(self.ctx.ref(), self.solver), self.ctx)
+
     def statistics(self):
         """Return statistics for the last `check()`.
 

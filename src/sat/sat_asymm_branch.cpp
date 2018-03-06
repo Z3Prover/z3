@@ -87,8 +87,6 @@ namespace sat {
             IF_VERBOSE(1, verbose_stream() << "(sat-asymm-branch-step :elim " << num_elim << ")\n";);
             if (num_elim == 0)
                 break;
-            if (false && num_elim > 1000) 
-                i = 0;
         }        
         IF_VERBOSE(1, if (m_elim_learned_literals > eliml0) 
                           verbose_stream() << "(sat-asymm-branch :elim " << m_elim_learned_literals - eliml0 << ")\n";);

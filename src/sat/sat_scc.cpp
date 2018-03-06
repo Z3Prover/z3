@@ -232,6 +232,7 @@ namespace sat {
         if (m_scc_tr) {
             reduce_tr();
         }
+        TRACE("scc_detail", m_solver.display(tout););
         return to_elim.size();
     }
 

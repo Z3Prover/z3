@@ -181,6 +181,17 @@ struct blaster_rewriter_cfg : public default_rewriter_cfg {
         }
     }
 
+    unsigned m_keypos;
+
+    void start_rewrite() {
+        m_keypos = m_keys.size();
+    }
+    void end_rewrite(obj_map<func_decl, expr*>& const2bits) {
+        for (unsigned i = m_keypos; i < m_keys.size(); ++i) {
+            const2bits.insert(m_keys[i].get(), m_values[i].get());
+        }
+    }
+
     template<typename V>
     app * mk_mkbv(V const & bits) {
         return m().mk_app(butil().get_family_id(), OP_MKBV, bits.size(), bits.c_ptr());
@@ -635,6 +646,8 @@ struct bit_blaster_rewriter::imp : public rewriter_tpl<blaster_rewriter_cfg> {
     }
     void push() { m_cfg.push(); }
     void pop(unsigned s) { m_cfg.pop(s); }
+    void start_rewrite() { m_cfg.start_rewrite(); }
+    void end_rewrite(obj_map<func_decl, expr*>& const2bits) { m_cfg.end_rewrite(const2bits); }
     unsigned get_num_scopes() const { return m_cfg.get_num_scopes(); }
 };
 
@@ -683,3 +696,10 @@ unsigned bit_blaster_rewriter::get_num_scopes() const {
     return m_imp->get_num_scopes();
 }
 
+void bit_blaster_rewriter::start_rewrite() {
+    m_imp->start_rewrite();
+}
+
+void bit_blaster_rewriter::end_rewrite(obj_map<func_decl, expr*>& const2bits) {
+    m_imp->end_rewrite(const2bits);
+}

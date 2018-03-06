@@ -266,6 +266,20 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
+        /// Currently inferred units.
+        /// </summary>
+        public BoolExpr[] Units
+        {
+            get
+            {
+                Contract.Ensures(Contract.Result<BoolExpr[]>() != null);
+
+                ASTVector assertions = new ASTVector(Context, Native.Z3_solver_get_units(Context.nCtx, NativeObject));
+                return assertions.ToBoolExprArray();
+            }
+        }
+
+        /// <summary>
         /// Checks whether the assertions in the solver are consistent or not.
         /// </summary>
         /// <remarks>

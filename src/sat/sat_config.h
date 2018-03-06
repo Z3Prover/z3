@@ -73,6 +73,11 @@ namespace sat {
         adaptive_psat_cutoff
     };
 
+    enum local_search_mode {
+        gsat,
+        wsat
+    };
+
     struct config {
         unsigned long long m_max_memory;
         phase_selection    m_phase;
@@ -90,6 +95,7 @@ namespace sat {
         unsigned           m_num_threads;
         unsigned           m_local_search_threads;
         bool               m_local_search;
+        local_search_mode  m_local_search_mode;
         unsigned           m_unit_walk_threads;
         bool               m_unit_walk;
         bool               m_lookahead_simplify;

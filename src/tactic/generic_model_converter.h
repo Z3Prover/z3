@@ -71,6 +71,8 @@ public:
     void collect(ast_pp_util& visitor) override;
 
     void operator()(expr_ref& fml) override; 
+
+    void get_units(obj_map<expr, bool>& units) override;
 };
 
 typedef ref<generic_model_converter> generic_model_converter_ref;

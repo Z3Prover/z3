@@ -72,8 +72,11 @@ namespace sat {
     void local_search::init_cur_solution() {
         for (unsigned v = 0; v < num_vars(); ++v) {
             // use bias with a small probability
-            if (m_rand() % 100 < 2) {
+            if (m_rand() % 10 < 5) {
                 m_vars[v].m_value = ((unsigned)(m_rand() % 100) < m_vars[v].m_bias);
+            }
+            else {
+                m_vars[v].m_value = (m_rand() % 2) == 0;
             }
         }
     }
@@ -449,7 +452,6 @@ namespace sat {
         m_best_unsat_rate = 1;
         m_last_best_unsat_rate = 1;
 
-
         reinit();
         timer timer;
         timer.start();
@@ -457,20 +459,23 @@ namespace sat {
         PROGRESS(tries, total_flips);
         
         for (tries = 1; !m_unsat_stack.empty() && m_limit.inc(); ++tries) {
-            if (m_unsat_stack.size() < m_best_unsat) {
-                m_best_unsat = m_unsat_stack.size();
-                m_last_best_unsat_rate = m_best_unsat_rate;
-                m_best_unsat_rate = (double)m_unsat_stack.size() / num_constraints();
-            }
             for (step = 0; step < m_max_steps && !m_unsat_stack.empty(); ++step) {
                 pick_flip_walksat();
+                if (m_unsat_stack.size() < m_best_unsat) {
+                    m_best_unsat = m_unsat_stack.size();
+                    m_last_best_unsat_rate = m_best_unsat_rate;
+                    m_best_unsat_rate = (double)m_unsat_stack.size() / num_constraints();                                        
+                }
             }
             total_flips += step;
             PROGRESS(tries, total_flips);
-            if (m_par && tries % 1 == 0) {
-                m_par->get_phase(*this);
+            if (m_par && m_par->get_phase(*this)) {
                 reinit();
             }
+            if (tries % 10 == 0 && !m_unsat_stack.empty()) {
+                reinit();
+            }
+            
         }
     }
 
@@ -490,7 +495,10 @@ namespace sat {
                     if (m_best_objective_value >= m_best_known_value) {
                         break;
                     }
-                }                
+                }          
+                if (m_unsat_stack.size() < m_best_unsat) {
+                    m_best_unsat = m_unsat_stack.size();
+                }
                 flipvar = pick_var_gsat();
                 flip_gsat(flipvar);
                 m_vars[flipvar].m_time_stamp = step++;
@@ -563,6 +571,9 @@ namespace sat {
         unsigned num_unsat = m_unsat_stack.size();
         constraint const& c = m_constraints[m_unsat_stack[m_rand() % m_unsat_stack.size()]];
         SASSERT(c.m_k < constraint_value(c));
+        unsigned reflipped = 0;
+        bool is_core = m_unsat_stack.size() <= 10;
+    reflip:
         // TBD: dynamic noise strategy 
         //if (m_rand() % 100 < 98) {
         if (m_rand() % 10000 <= m_noise) {
@@ -635,6 +646,10 @@ namespace sat {
             }
         }
         flip_walksat(best_var);
+        if (false && is_core && c.m_k < constraint_value(c)) {
+            ++reflipped;
+            goto reflip;
+        }
     }
 
     void local_search::flip_walksat(bool_var flipvar) {

@@ -47,16 +47,6 @@ namespace sat {
         return static_cast<pb const&>(*this);
     }
 
-    ba_solver::eq& ba_solver::constraint::to_eq() {
-        SASSERT(is_eq());
-        return static_cast<eq&>(*this);
-    }
-
-    ba_solver::eq const& ba_solver::constraint::to_eq() const{
-        SASSERT(is_eq());
-        return static_cast<eq const&>(*this);
-    }
-
     ba_solver::xr& ba_solver::constraint::to_xr() {
         SASSERT(is_xr());
         return static_cast<xr&>(*this);
@@ -93,15 +83,6 @@ namespace sat {
                 out << x[i] << " ";
                 if (i + 1 < x.size()) out << "x ";
             }            
-            break;
-        }
-        case ba_solver::eq_t: {
-            ba_solver::eq const& e = cnstr.to_eq();
-            for (ba_solver::eliteral wl : e) {
-                if (wl.weight != 1) out << wl.weight << " * ";
-                out << wl.lit << " ";
-            }
-            out << " = " << e.k();
             break;
         }
         default:
@@ -206,33 +187,6 @@ namespace sat {
 
 
     // -----------------------------------
-    // eq
-
-    ba_solver::eq::eq(unsigned id, literal lit, svector<ba_solver::wliteral> const& wlits, unsigned k):
-        constraint(eq_t, id, lit, wlits.size(), eq::get_obj_size(wlits.size())),
-        m_lo(0),
-        m_hi(0),
-        m_max(0),        
-        m_k(k)        
-    {
-        unsigned i = 0;        
-        for (wliteral const& w : wlits) {
-            m_wlits[i++] = eliteral(w.first, w.second);
-            m_max += w.first;
-        }
-        m_hi = m_max;
-        m_trail_sz = 0;
-    }
-
-    unsigned ba_solver::eq::index(literal l) const {
-        for (unsigned i = 0; i < size(); ++i) {
-            if (l.var() == m_wlits[i].lit.var()) return i;
-        }
-        UNREACHABLE();
-        return UINT_MAX;
-    }
-
-    // -----------------------------------
     // xr
     
     ba_solver::xr::xr(unsigned id, literal_vector const& lits):
@@ -271,7 +225,7 @@ namespace sat {
         }
         if (root != null_literal) {
             if (!is_watched(root, c)) watch_literal(root, c);
-            if (!is_watched(~root, c)) watch_literal(~root, c);
+            if (!c.is_pure() && !is_watched(~root, c)) watch_literal(~root, c);
         }
         TRACE("ba", display(tout << "init watch: ", c, true););
         SASSERT(root == null_literal || value(root) == l_true);
@@ -926,251 +880,6 @@ namespace sat {
     }
 
     // --------------------
-    // eq:
-
-    ba_solver::constraint* ba_solver::add_eq(literal lit, svector<wliteral> const& wlits, unsigned k, bool learned) {
-        void * mem = m_allocator.allocate(eq::get_obj_size(wlits.size()));
-        eq* e = new (mem) eq(next_id(), lit, wlits, k);
-        e->set_learned(learned);
-        add_constraint(e);
-        for (eliteral const& wl : *e) {
-            watch_literal(wl.lit, *e);
-            watch_literal(~(wl.lit), *e);
-        }        
-        return e;
-    }
-
-    void ba_solver::display(std::ostream& out, eq const& e, bool values) const {
-        display_lit(out, e.lit(), e.size(), values);
-        if (values) {
-            if (e.trail_sz() > 0) {
-                out << "trail: ";
-                for (unsigned i = 0; i < e.trail_sz(); ++i) {
-                    out << e[i].tweight << " * " << e[i].tlit << " ";
-                }
-            }
-            out << "[" << e.lo() << ":" << e.hi() << "] ";
-        }
-        for (eliteral wl : e) {
-            literal l = wl.lit;
-            unsigned w = wl.weight;
-            if (w > 1) out << w << " * ";
-            out << l;
-            if (values) {
-                out << "@(" << value(l);
-                if (value(l) != l_undef) {
-                    out << ":" << lvl(l);
-                }
-                out << ") ";
-            }
-            else {
-                out << " ";
-            }
-        }
-        out << "= " << e.k()  << "\n";
-    }
-
-    bool ba_solver::init_watch(eq& e) {
-        return true;
-    }
-
-    void ba_solver::clear_watch(eq& e) {
-        for (eliteral const& wl : e) {
-            unwatch_literal(wl.lit, e);
-            unwatch_literal(~(wl.lit), e);
-        }
-        if (e.lit() != null_literal) {
-            unwatch_literal(e.lit(), e);
-            unwatch_literal(~e.lit(), e);
-        }
-    }
-
-    /*
-     * \update the bounds for [lo,hi] based on what is unassigned on the trail.
-     */
-    void ba_solver::pop_eq(eq& e) {
-        unsigned idx = e.trail_sz() - 1;
-        literal tlit = e[idx].tlit;
-        if (tlit.sign()) {
-            e.inc_hi(e[idx].tweight);
-        }
-        else {
-            e.dec_lo(e[idx].tweight);
-        }
-        e.set_trail_sz(idx);
-    }
-
-    lbool ba_solver::add_assign(eq& e, literal nl) {
-        //IF_VERBOSE(0, verbose_stream() << nl << "@" << lvl(nl) << ": " << e << "\n");
-        SASSERT(value(nl) == l_false);
-        if (nl.var() == e.lit().var()) {
-            // no-op
-        }
-        else {
-            unsigned i = e.index(nl);
-            eliteral wl = e[i];
-            if (wl.lit == nl) {
-                e.dec_hi(wl);
-            }
-            else {
-                SASSERT(wl.lit == ~nl);
-                e.inc_lo(wl);
-            }
-            m_eq_to_pop.push_back(&e);
-        }
-        if (e.lo() > e.k() || e.hi() < e.k()) {
-            if (e.lit() == null_literal || value(e.lit()) == l_true) {
-                set_conflict(e, nl);
-                return l_false;
-            }
-            if (e.lit() != null_literal && value(e.lit()) == l_undef) {
-                assign(e, ~e.lit());
-            }
-        }
-        else if (e.lo() == e.hi()) {
-            SASSERT(e.lo() == e.k());
-            if (e.lit() != null_literal && value(e.lit()) == l_false) {
-                set_conflict(e, nl);
-                return l_false;
-            }
-            if (e.lit() != null_literal && value(e.lit()) == l_undef) {
-                assign(e, e.lit());
-            }
-        }
-        else if ((e.lit() == null_literal || value(e.lit()) == l_true)) {
-            if (e.lo() == e.k()) {
-                for (eliteral el : e) {
-                    if (value(el.lit) == l_undef) {
-                        //IF_VERBOSE(0, display(verbose_stream() << "proapgate " << ~el.lit << " ", e, true));
-                        assign(e, ~el.lit);
-                    }
-                }
-            }
-            else if (e.hi() == e.k()) {
-                for (eliteral el : e) {
-                    if (value(el.lit) == l_undef) {
-                        //IF_VERBOSE(0, display(verbose_stream() << "proapgate " << el.lit << " ", e, true));
-                        assign(e, el.lit);
-                    }
-                }
-            }
-        }
-        return l_true;
-    }
-
-    void ba_solver::simplify(eq& e) {
-        // no-op for now
-    }
-
-    void ba_solver::recompile(eq& e) {
-        for (eliteral const& el : e) {
-            m_weights[el.lit.index()] += el.weight;
-        }
-        unsigned k = e.k(), sz = e.size();
-        unsigned j = 0;
-        bool is_false = false;
-        for (unsigned i = 0; i < sz; ++i) {
-            eliteral el = e[i];
-            unsigned w1 = m_weights[el.lit.index()];
-            unsigned w2 = m_weights[(~el.lit).index()];
-            if (w1 == 0 || w1 < w2) continue;
-            if (k < w2) {
-                is_false = true;
-                break;
-            }            
-            k  -= w2;
-            w1 -= w2;
-            if (w1 == 0) continue;            
-            e[j++] = eliteral(w1, el.lit);            
-        }
-        sz = j;
-        for (eliteral const& el : e) {
-            m_weights[el.lit.index()] = 0;
-            m_weights[(~el.lit).index()] = 0;
-        }        
-        if (is_false) {
-            if (e.lit() == null_literal) {
-                s().mk_clause(0, 0, true);
-            }
-            else {
-                literal lit = ~e.lit();
-                s().mk_clause(1, &lit, true);
-            }
-            remove_constraint(e, "recompiled to false");
-            return;
-        }
-        // update trail
-        e.set_size(sz);
-        e.set_k(k);
-        for (unsigned i = 0; i < sz; ++i) {
-            e[i].tlit = null_literal;
-        }                
-        e.set_trail_sz(0);
-        e.reset_lo();
-        e.reset_hi();
-        for (eliteral const& el : e) {            
-            switch (value(el.lit)) {
-            case l_true:  e.inc_lo(el); break;
-            case l_false: e.dec_hi(el); break;
-            default: break;
-            }
-        }
-    }
-
-    void ba_solver::split_root(eq& e) {
-        NOT_IMPLEMENTED_YET();
-    }
-
-    void ba_solver::get_antecedents(literal l, eq const& e, literal_vector& r) {
-        for (eliteral wl : e) {
-            if (wl.lit.var() == l.var()) continue;
-            switch (value(wl.lit)) {
-            case l_true: r.push_back(wl.lit); break;
-            case l_false: r.push_back(~wl.lit); break;
-            default: break;
-            }
-        }
-        if (e.lit() != null_literal && l.var() != e.lit().var()) {
-            switch (value(e.lit())) {
-            case l_true: r.push_back(e.lit()); break;
-            case l_false: r.push_back(~e.lit()); break;
-            default: break;
-            }            
-        }
-    }
-
-    lbool ba_solver::eval(eq const& e) const {
-        unsigned trues = 0, undefs = 0;
-        for (eliteral wl : e) {
-            switch (value(wl.lit)) {
-            case l_true: trues += wl.weight; break;
-            case l_undef: undefs += wl.weight; break;
-            default: break;
-            }
-        }
-        if (trues + undefs < e.k()) return l_false;
-        if (trues > e.k()) return l_false;
-        if (trues == e.k() && undefs == 0) return l_true;
-        return l_undef;        
-    }
-
-    lbool ba_solver::eval(model const& m, eq const& e) const {
-        unsigned trues = 0, undefs = 0;
-        for (eliteral wl : e) {
-            switch (value(m, wl.lit)) {
-            case l_true: trues += wl.weight; break;
-            case l_undef: undefs += wl.weight; break;
-            default: break;
-            }
-        }
-        if (trues + undefs < e.k()) return l_false;
-        if (trues > e.k()) return l_false;
-        if (trues == e.k() && undefs == 0) return l_true;
-        return l_undef;        
-    }
-
-
-    // --------------------
     // xr:
 
     void ba_solver::clear_watch(xr& x) {
@@ -1511,17 +1220,6 @@ namespace sat {
                     get_xr_antecedents(consequent, idx, js, m_lemma);
                     for (literal l : m_lemma) process_antecedent(~l, offset);
                     break;
-                }
-                case eq_t: {
-                    eq& e = cnstr.to_eq();
-                    m_lemma.reset();
-                    inc_bound(offset);
-                    inc_coeff(consequent, offset);
-                    get_antecedents(consequent, e, m_lemma);
-                    TRACE("ba", display(tout, e, true); tout << m_lemma << "\n";);
-                    for (literal l : m_lemma) process_antecedent(~l, offset);
-                    break;
-
                 }
                 default:
                     UNREACHABLE();
@@ -1888,7 +1586,6 @@ namespace sat {
         case card_t: return init_watch(c.to_card()); 
         case pb_t: return init_watch(c.to_pb());
         case xr_t: return init_watch(c.to_xr()); 
-        case eq_t: return init_watch(c.to_eq());
         }
         UNREACHABLE();
         return false;
@@ -1899,7 +1596,6 @@ namespace sat {
         case card_t: return add_assign(c.to_card(), l); 
         case pb_t: return add_assign(c.to_pb(), l); 
         case xr_t: return add_assign(c.to_xr(), l);
-        case eq_t: return add_assign(c.to_eq(), l);
         }
         UNREACHABLE();
         return l_undef;
@@ -1950,7 +1646,8 @@ namespace sat {
             init_watch(c);
             return true;
         }
-        else if (c.lit() != null_literal && value(c.lit()) != l_true && c.tag() != eq_t) {
+        else if (c.lit() != null_literal && value(c.lit()) != l_true) {
+        // else if (c.lit() != null_literal && value(c.lit()) == l_false) {
             return true;
         }
         else {
@@ -2005,7 +1702,6 @@ namespace sat {
         case card_t: return get_reward(c.to_card(), occs);
         case pb_t: return get_reward(c.to_pb(), occs); 
         case xr_t: return 0;
-        case eq_t: return 1;
         default: UNREACHABLE(); return 0;
         }
     }
@@ -2259,6 +1955,13 @@ namespace sat {
     }
 
     void ba_solver::get_antecedents(literal l, card const& c, literal_vector& r) {
+        if (l == ~c.lit()) {
+            for (unsigned i = c.k() - 1; i < c.size(); ++i) {
+                VERIFY(value(c[i]) == l_false);
+                r.push_back(~c[i]);
+            }   
+            return;
+        }
         DEBUG_CODE(
             bool found = false;
             for (unsigned i = 0; !found && i < c.k(); ++i) {
@@ -2267,7 +1970,7 @@ namespace sat {
             SASSERT(found););
         
         // IF_VERBOSE(0, if (_debug_conflict) verbose_stream() << "ante " << l << " " << c << "\n");
-        SASSERT(c.lit() == null_literal || value(c.lit()) != l_false);
+        VERIFY(c.lit() == null_literal || value(c.lit()) != l_false);
         if (c.lit() != null_literal) r.push_back(value(c.lit()) == l_true ? c.lit() : ~c.lit());
         for (unsigned i = c.k(); i < c.size(); ++i) {
             SASSERT(value(c[i]) == l_false);
@@ -2310,6 +2013,7 @@ namespace sat {
     }
 
     void ba_solver::watch_literal(literal lit, constraint& c) {
+        if (c.is_pure() && lit == ~c.lit()) return;
         get_wlist(~lit).push_back(watched(c.index()));
     }
 
@@ -2318,7 +2022,6 @@ namespace sat {
         case card_t: get_antecedents(l, c.to_card(), r); break;
         case pb_t: get_antecedents(l, c.to_pb(), r); break;
         case xr_t: get_antecedents(l, c.to_xr(), r); break;
-        case eq_t: get_antecedents(l, c.to_eq(), r); break;
         default: UNREACHABLE(); break;
         }
     }
@@ -2342,9 +2045,6 @@ namespace sat {
         case xr_t:
             clear_watch(c.to_xr());
             break;
-        case eq_t:
-            clear_watch(c.to_eq());
-            break;
         default:
             UNREACHABLE();
         }
@@ -2367,7 +2067,6 @@ namespace sat {
         case card_t:  return validate_unit_propagation(c.to_card(), l); 
         case pb_t: return validate_unit_propagation(c.to_pb(), l);
         case xr_t: return true;
-        case eq_t: return validate_unit_propagation(c.to_eq(), l);
         default: UNREACHABLE(); break;
         }
         return false;
@@ -2383,7 +2082,6 @@ namespace sat {
         case card_t: return eval(v1, eval(c.to_card())); 
         case pb_t:   return eval(v1, eval(c.to_pb()));
         case xr_t:  return eval(v1, eval(c.to_xr()));
-        case eq_t:  return eval(v1, eval(c.to_eq()));
         default: UNREACHABLE(); break;
         }
         return l_undef;        
@@ -2395,7 +2093,6 @@ namespace sat {
         case card_t: return eval(v1, eval(m, c.to_card())); 
         case pb_t:   return eval(v1, eval(m, c.to_pb()));
         case xr_t:   return eval(v1, eval(m, c.to_xr()));
-        case eq_t:   return eval(v1, eval(m, c.to_eq()));
         default: UNREACHABLE(); break;
         }
         return l_undef;        
@@ -2660,7 +2357,7 @@ namespace sat {
             return l_false;
         }
         SASSERT(value(alit) == l_false);
-        SASSERT(c.lit() == null_literal || value(c.lit()) == l_true);
+        VERIFY(c.lit() == null_literal || value(c.lit()) != l_false);
         unsigned index = 0;
         for (index = 0; index <= bound; ++index) {
             if (c[index] == alit) {
@@ -2688,6 +2385,7 @@ namespace sat {
         if (bound != index && value(c[bound]) == l_false) {
             TRACE("ba", tout << "conflict " << c[bound] << " " << alit << "\n";);
             if (c.lit() != null_literal && value(c.lit()) == l_undef) {
+                if (index + 1 < bound) c.swap(index, bound - 1);
                 assign(c, ~c.lit());
                 return inconsistent() ? l_false : l_true;
             }
@@ -2695,14 +2393,15 @@ namespace sat {
             return l_false;
         }
 
+        if (index != bound) {
+            c.swap(index, bound);
+        }        
+
         // TRACE("ba", tout << "no swap " << index << " " << alit << "\n";);
         // there are no literals to swap with,
         // prepare for unit propagation by swapping the false literal into 
         // position bound. Then literals in positions 0..bound-1 have to be
         // assigned l_true.
-        if (index != bound) {
-            c.swap(index, bound);
-        }        
 
         if (c.lit() != null_literal && value(c.lit()) == l_undef) {
             return l_true;
@@ -2730,7 +2429,6 @@ namespace sat {
 
     void ba_solver::push() {
         m_constraint_to_reinit_lim.push_back(m_constraint_to_reinit.size());
-        m_eq_to_pop_lim.push_back(m_eq_to_pop.size());
     }
 
     void ba_solver::pop(unsigned n) {        
@@ -2739,13 +2437,6 @@ namespace sat {
         m_constraint_to_reinit_last_sz = m_constraint_to_reinit_lim[new_lim];
         m_constraint_to_reinit_lim.shrink(new_lim);
         m_num_propagations_since_pop = 0;
-
-        new_lim = m_eq_to_pop_lim.size() - n;
-        for (unsigned i = m_eq_to_pop_lim[new_lim]; i < m_eq_to_pop.size(); ++i) {
-            pop_eq(*m_eq_to_pop[i]);
-        }
-        m_eq_to_pop.shrink(m_eq_to_pop_lim[new_lim]);
-        m_eq_to_pop_lim.shrink(new_lim);
     }
 
     void ba_solver::pop_reinit() {
@@ -2772,9 +2463,6 @@ namespace sat {
         case xr_t:
             simplify(c.to_xr());
             break;
-        case eq_t:
-            simplify(c.to_eq());
-            break;
         default:
             UNREACHABLE();
         }                
@@ -2798,6 +2486,7 @@ namespace sat {
             for (unsigned sz = m_learned.size(), i = 0; i < sz; ++i) subsumption(*m_learned[i]);
             cleanup_clauses();
             cleanup_constraints();
+            update_pure();
         }        
         while (m_simplify_change || trail_sz < s().init_trail_size());
 
@@ -2814,7 +2503,41 @@ namespace sat {
         // IF_VERBOSE(0, s().display(verbose_stream()));
         // mutex_reduction();
         // if (s().m_clauses.size() < 80000) lp_lookahead_reduction();
+    }
 
+    /*
+     * ~lit does not occur in clauses
+     * ~lit is only in one constraint use list
+     * lit == C 
+     * -> ignore assignemnts to ~lit for C
+     * 
+     * ~lit does not occur in clauses
+     * lit is only in one constraint use list
+     * lit == C
+     * -> negate: ~lit == ~C
+     */
+    void ba_solver::update_pure() {
+        // return;
+        for (constraint* cp : m_constraints) {
+            literal lit = cp->lit();
+            if (lit != null_literal && 
+                !cp->is_pure() &&
+                value(lit) == l_undef && 
+                get_wlist(~lit).size() == 1 &&                 
+                m_clause_use_list.get(lit).empty()) {
+                clear_watch(*cp);
+                cp->negate();
+                lit.neg();
+            }
+            if (lit != null_literal && 
+                !cp->is_pure() &&
+                m_cnstr_use_list[(~lit).index()].size() == 1 &&
+                get_wlist(lit).size() == 1 && 
+                m_clause_use_list.get(~lit).empty()) { 
+                cp->set_pure();
+                get_wlist(~lit).erase(watched(cp->index())); // just ignore assignments to false
+            }
+        }
     }
 
     void ba_solver::mutex_reduction() {
@@ -2930,9 +2653,6 @@ namespace sat {
         case pb_t:
             recompile(c.to_pb());
             break;
-        case eq_t:
-            recompile(c.to_eq());
-            break;            
         case xr_t:
             NOT_IMPLEMENTED_YET();
             break;
@@ -3144,7 +2864,6 @@ namespace sat {
         case card_t: split_root(c.to_card()); break;
         case pb_t: split_root(c.to_pb()); break;
         case xr_t: NOT_IMPLEMENTED_YET(); break;
-        case eq_t: split_root(c.to_eq()); break;
         }
     }
 
@@ -3265,15 +2984,6 @@ namespace sat {
                 }             
                 break;
             }
-            case eq_t: {
-                eq& e = cp->to_eq();
-                for (eliteral wl : e) {
-                    literal l = wl.lit;
-                    m_cnstr_use_list[l.index()].push_back(&e);
-                    m_cnstr_use_list[(~l).index()].push_back(&e);
-                }
-                break;
-            }
             }
         }
     }
@@ -3296,8 +3006,6 @@ namespace sat {
                 }
                 break;
             }
-            case eq_t: 
-                break;
             default:
                 break;
             }
@@ -3372,8 +3080,6 @@ namespace sat {
             if (p.k() > 1) subsumption(p);
             break;
         }
-        case eq_t: 
-            break;
         default:
             break;                
         }
@@ -3464,30 +3170,32 @@ namespace sat {
         return c1_exclusive + c2.k() + comp.size() <= c1.k();
     }
 
-    bool ba_solver::subsumes(card& c1, clause& c2, literal_vector & comp) {
-        unsigned c2_exclusive = 0;
-        unsigned common = 0;
-        comp.reset();
+    /*
+      \brief L + A >= k subsumes L + C if |A| < k
+             A + L + B >= k self-subsumes A + ~L + C >= 1
+             if k + 1 - |B| - |C| - |L| > 0
+     */
+    bool ba_solver::subsumes(card& c1, clause& c2, bool& self) {
+        unsigned common = 0, complement = 0, c2_exclusive = 0;
+        self = false;
+        
         for (literal l : c2) {
             if (is_marked(l)) {
                 ++common;
             }
             else if (is_marked(~l)) {
-                comp.push_back(l);
+                ++complement;
             }
             else {
                 ++c2_exclusive;
             }
         }
-
-        unsigned c1_exclusive = c1.size() - common - comp.size();
-        bool result = c1_exclusive + 1 <= c1.k();
-
-        if (!comp.empty() && result) {
-            IF_VERBOSE(10, verbose_stream() << "self-subsume clause " << c2 << " is TBD\n";);
-            return false;
+        unsigned c1_exclusive = c1.size() - common - complement;
+        if (complement > 0 && c1.k() + 1 > c1_exclusive + c2_exclusive + common) {
+            self = true;
+            return true; 
         }
-        return result;
+        return c1.size() - common < c1.k();
     }
 
     /*
@@ -3516,8 +3224,6 @@ namespace sat {
                 break;
             case pb_t: 
                 s = subsumes(p1, c->to_pb()); 
-                break;
-            case eq_t:
                 break;
             default: 
                 break;
@@ -3582,23 +3288,22 @@ namespace sat {
 
     void ba_solver::clause_subsumption(card& c1, literal lit, clause_vector& removed_clauses) {
         SASSERT(!c1.was_removed());
-        literal_vector slit;
-        clause_use_list::iterator it = m_clause_use_list.get(lit).mk_iterator();
+        clause_use_list& occurs = m_clause_use_list.get(lit);
+        clause_use_list::iterator it = occurs.mk_iterator();
         while (!it.at_end()) {
             clause& c2 = it.curr();
-            if (!c2.was_removed() && subsumes(c1, c2, slit)) {
-                if (slit.empty()) {
+            bool self;
+            if (!c2.was_removed() && subsumes(c1, c2, self)) {
+                if (self) {
+                    // self-subsumption is TBD
+                }
+                else {
                     TRACE("ba", tout << "remove\n" << c1 << "\n" << c2 << "\n";);
                     removed_clauses.push_back(&c2);
                     ++m_stats.m_num_clause_subsumes;
                     c1.set_learned(false);
-                }
-                else {
-                    IF_VERBOSE(11, verbose_stream() << "self-subsume clause is TBD\n";);
-                    // remove literal slit from c2.
-                    TRACE("ba", tout << "TBD remove literals " << slit << " from " << c2 << "\n";);
-                }
-            }            
+                }            
+            }
             it.next();
         }
     }
@@ -3615,7 +3320,7 @@ namespace sat {
             watched w = *it;
             if (w.is_binary_clause() && is_marked(w.get_literal())) {
                 ++m_stats.m_num_bin_subsumes;
-                // IF_VERBOSE(10, verbose_stream() << c1 << " subsumes (" << lit << " " << w.get_literal() << ")\n";);
+                IF_VERBOSE(10, verbose_stream() << c1 << " subsumes (" << lit << " " << w.get_literal() << ")\n";);
                 if (!w.is_learned()) {
                     c1.set_learned(false);
                 }
@@ -3745,15 +3450,6 @@ namespace sat {
                 result->add_xr(lits, x.learned());        
                 break;
             }
-            case eq_t: {
-                eq const& e = cp->to_eq();
-                wlits.reset();
-                for (eliteral w : e) {
-                    wlits.push_back(wliteral(w.weight, w.lit));
-                }
-                result->add_eq(e.lit(), wlits, e.k(), e.learned());
-                break;
-            }
             default:
                 UNREACHABLE();
             }                
@@ -3788,14 +3484,6 @@ namespace sat {
                 for (literal l : x) {
                     ul.insert(l, idx);
                     ul.insert(~l, idx);
-                }
-                break;
-            }
-            case eq_t: {
-                eq const& e = cp->to_eq();
-                for (eliteral w : e) {
-                    ul.insert(w.lit, idx);
-                    ul.insert(~(w.lit), idx);
                 }
                 break;
             }
@@ -3840,8 +3528,6 @@ namespace sat {
             }
             return weight >= p.k();
         }
-        case eq_t:
-            break;
         default:
             break;
         }
@@ -3963,7 +3649,6 @@ namespace sat {
         case card_t: display(out, c.to_card(), values); break;
         case pb_t: display(out, c.to_pb(), values); break;
         case xr_t: display(out, c.to_xr(), values); break;
-        case eq_t: display(out, c.to_eq(), values); break;
         default: UNREACHABLE(); break;
         }
     }
@@ -4278,13 +3963,6 @@ namespace sat {
                 for (literal l : ls) ineq.push(~l, offset);
                 literal lxr = x.lit();                
                 if (lxr != null_literal) ineq.push(~lxr, offset);
-                break;
-            }
-            case eq_t: {
-                eq& e = cnstr.to_eq();
-                ineq.reset(e.k());
-                for (eliteral wl : e) ineq.push(wl.lit, wl.weight);
-                if (e.lit() != null_literal) ineq.push(~e.lit(), e.k());
                 break;
             }
             default:
