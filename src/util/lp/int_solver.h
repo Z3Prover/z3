@@ -1,7 +1,22 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+    Nikolaj Bjorner (nbjorner)
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
 #pragma once
 #include "util/lp/lp_settings.h"
 #include "util/lp/static_matrix.h"

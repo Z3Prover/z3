@@ -512,15 +512,15 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
         auto check_res = m_cut_solver.check();
         settings().st().m_cut_solver_calls++;
         switch (check_res) {
-        case lbool::l_false:
+        case cut_solver::lbool::l_false:
             copy_explanations_from_cut_solver(ex); 
             settings().st().m_cut_solver_false++;
             return lia_move::conflict;
-        case lbool::l_true:
+        case cut_solver::lbool::l_true:
             settings().st().m_cut_solver_true++;
             copy_values_from_cut_solver();
             return lia_move::ok;
-        case lbool::l_undef:
+        case cut_solver::lbool::l_undef:
             settings().st().m_cut_solver_undef++;
             break;
         default:

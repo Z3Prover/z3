@@ -1,7 +1,23 @@
-/*
-  Copyright (c) 2017 Microsoft Corporation
-  Author: Nikolaj Bjorner, Lev Nachmanson
-*/
+/*++
+Copyright (c) 2017 Microsoft Corporation
+
+Module Name:
+
+    <name>
+
+Abstract:
+
+    <abstract>
+
+Author:
+    Nikolaj Bjorner (nbjorner)
+    Lev Nachmanson (levnach)
+
+Revision History:
+
+
+--*/
+
 #pragma once
 #include "util/vector.h"
 #include "util/trace.h"
@@ -13,228 +29,12 @@
 #include "util/lp/int_set.h"
 #include "util/lp/linear_combination_iterator_on_std_vector.h"
 #include "util/lp/stacked_vector.h"
-
+#include "util/lp/monomial.h"
+#include "util/lp/polynomial.h"
+#include "util/lp/constraint.h"
 namespace lp {
-enum class lbool { l_false, l_true, l_undef };
-inline std::string lbool_to_string(lbool l) {
-    switch(l) {
-    case lbool::l_true: return std::string("true");
-    case lbool::l_false: return std::string("false");
-    case lbool::l_undef: return std::string("undef");
-    default:
-        return std::string("what is it?");
-    }
-}
 
 class cut_solver;
-
-struct monomial {
-    mpq           m_coeff; // the coefficient of the monomial
-    var_index     m_var; // the variable index
-public:
-    monomial(const mpq& coeff, var_index var) : m_coeff(coeff), m_var(var) {}
-    // copy constructor
-    monomial(const monomial& m) : monomial(m.coeff(), m.var()) {}
-    monomial(var_index var) : monomial(one_of_type<mpq>(), var) {}
-    const mpq & coeff() const { return m_coeff; }
-    mpq & coeff() { return m_coeff; }
-    var_index var() const { return m_var; }
-    std::pair<mpq, var_index> to_pair() const { return std::make_pair(coeff(), var());}
-};
-
-struct polynomial {
-    static mpq m_local_zero;
-    // the polynomial evaluates to m_coeffs + m_a
-    vector<monomial>        m_coeffs;
-    mpq                     m_a; // the free coefficient
-    polynomial(const vector<monomial>& p, const mpq & a) : m_coeffs(p), m_a(a) {}
-    polynomial(const vector<monomial>& p) : polynomial(p, zero_of_type<mpq>()) {}
-    polynomial(): m_a(zero_of_type<mpq>()) {}
-    polynomial(const polynomial & p) : m_coeffs(p.m_coeffs), m_a(p.m_a) {} 
-            
-    const mpq & coeff(var_index j) const {
-        for (const auto & t : m_coeffs) {
-            if (j == t.var()) {
-                return t.coeff();
-            }
-        }
-        return m_local_zero;
-    }
-
-    polynomial &  operator+=(const polynomial & p) {
-        m_a += p.m_a;
-        for (const auto & t: p.m_coeffs)
-            *this += monomial(t.coeff(), t.var());
-        return *this;
-    }
-
-    void add(const mpq & c, const polynomial &p) {
-        m_a += p.m_a * c;
-            
-        for (const auto & t: p.m_coeffs)
-            *this += monomial(c * t.coeff(), t.var());
-    }
-        
-    void clear() {
-        m_coeffs.clear();
-        m_a = zero_of_type<mpq>();
-    }
-        
-    bool is_empty() const { return m_coeffs.size() == 0 && numeric_traits<mpq>::is_zero(m_a); }
-
-    unsigned number_of_monomials() const { return m_coeffs.size();}
-
-    void add(const monomial &m ){
-        if (is_zero(m.coeff())) return;
-        for (unsigned k = 0; k < m_coeffs.size(); k++) {
-            auto & l = m_coeffs[k];
-            if (m.var() == l.var()) {
-                l.coeff() += m.coeff();
-                if (l.coeff() == 0)
-                    m_coeffs.erase(m_coeffs.begin() + k);
-                return;
-            }
-        }
-        m_coeffs.push_back(m);
-        lp_assert(is_correct());
-    }
-        
-    polynomial & operator+=(const monomial &m ){
-        add(m);
-        return *this;
-    }
-
-    polynomial & operator+=(const mpq &c ){
-        m_a += c;
-        return *this;
-    }
-
-        
-    bool is_correct() const {
-        std::unordered_set<var_index> s;
-        for (auto & l : m_coeffs) {
-            if (l.coeff() == 0)
-                return false;
-            s.insert(l.var());
-        }
-        return m_coeffs.size() == s.size();
-    }
-
-    bool var_coeff_is_unit(unsigned j) const {
-        const mpq & a = coeff(j);
-        return a == 1 || a == -1;
-    }
-    const vector<monomial> & coeffs() const { return m_coeffs; }
-};
-
-class constraint; // forward definition
-struct constraint_hash {
-    size_t operator() (const constraint* c) const;
-};
-
-struct constraint_equal {
-    bool operator() (const constraint * a, const constraint * b) const;
-};
-
-class constraint { // we only have less or equal for the inequality sign, which is enough for integral variables
-    int                                              m_id;  
-    bool                                             m_is_ineq;
-    polynomial                                       m_poly;
-    mpq                                              m_d; // the divider for the case of a divisibility constraint
-    std::unordered_set<constraint_index>             m_assert_origins; // these indices come from the client and get collected during tightening
-    bool                                             m_active;
-public :
-    void set_active_flag() {m_active = true;}
-    void remove_active_flag() { m_active = false; }
-    bool is_active() const { return m_active; }
-    unsigned id() const { return m_id; }
-    const polynomial & poly() const { return m_poly; }
-    polynomial & poly() { return m_poly; }
-    std::unordered_set<constraint_index> & assert_origins() { return m_assert_origins;}
-    const std::unordered_set<constraint_index> & assert_origins() const { return m_assert_origins;}
-    bool is_lemma() const { return !is_assert(); }
-    bool is_assert() const { return m_assert_origins.size() == 1; }
-    bool is_ineq() const { return m_is_ineq; }
-    const mpq & divider() const { return m_d; }
-    static constraint * make_ineq_assert(
-        int id,
-        const vector<monomial>& term,
-        const mpq& a,
-        constraint_index  origin) {
-        return new constraint(id, origin, polynomial(term, a), true);
-    }
-
-    static constraint * make_ineq_constraint(
-        int id,
-        const polynomial & p,
-        std::unordered_set<constraint_index> origins) {
-        return new constraint(id, origins,p ,true);
-    }
-
-    static constraint * make_ineq_lemma(unsigned id, const polynomial &p) {
-        return new constraint(id, p, true);
-    }
-
-    // static constraint make_div_lemma(unsigned id, const polynomial &p, const mpq & div) {
-    //     lp_assert(false); // not implemented
-    //     // constraint * c = new constraint(id, p, true);
-    //     // c->m_d = div;
-    //     return nullptr;
-    // }
-private:
-    constraint(
-        unsigned id,
-        constraint_index assert_origin,
-        const polynomial & p,
-        bool is_ineq):
-        m_id(id),
-        m_is_ineq(is_ineq),
-        m_poly(p),
-        m_active(false)
-    { // creates an assert
-        m_assert_origins.insert(assert_origin);
-    }
-    constraint(
-        unsigned id,
-        const std::unordered_set<constraint_index>& origins,
-        const polynomial & p,
-        bool is_ineq):
-        m_id(id),
-        m_is_ineq(is_ineq),
-        m_poly(p),
-        m_assert_origins(origins),
-        m_active(false) {}
-
-
-    
-    constraint(
-        unsigned id,
-        const polynomial & p,
-        bool is_ineq):
-        m_id(id),
-        m_is_ineq(is_ineq),
-        m_poly(p),
-        m_active(false) { // creates a lemma
-    }
-        
-public:
-    constraint() {}
-
-    const mpq & coeff(var_index j) const {
-        return m_poly.coeff(j);
-    }
-    const vector<monomial>& coeffs() const { return m_poly.m_coeffs;}
-
-    bool is_tight(unsigned j) const {
-        const mpq & a = m_poly.coeff(j);
-        return a == 1 || a == -1;
-    }
-    void add_predecessor(const constraint* p) {
-        lp_assert(p != nullptr);
-        for (auto m : p->assert_origins())
-            m_assert_origins.insert(m); }
-};
-
 
 struct pp_poly {
     cut_solver const& s;
@@ -252,8 +52,18 @@ std::ostream& operator<<(std::ostream& out, pp_poly const& p);
 std::ostream& operator<<(std::ostream& out, pp_constraint const& p);
     
 class cut_solver : public column_namer {
-public: // for debugging
-
+public:
+enum class lbool { l_false, l_true, l_undef };
+inline std::string lbool_to_string(lbool l) {
+    switch(l) {
+    case lbool::l_true: return std::string("true");
+    case lbool::l_false: return std::string("false");
+    case lbool::l_undef: return std::string("undef");
+    default:
+        return std::string("what is it?");
+    }
+}
+    
     typedef lp::polynomial polynomial;
     typedef lp::monomial monomial;
 
