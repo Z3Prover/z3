@@ -32,9 +32,10 @@ Revision History:
 #include "util/lp/monomial.h"
 #include "util/lp/polynomial.h"
 #include "util/lp/constraint.h"
-namespace lp {
+#include "util/lp/active_set.h"
 
-class cut_solver;
+namespace lp {
+class cut_solver; //forward definition
 
 struct pp_poly {
     cut_solver const& s;
@@ -358,49 +359,6 @@ public:
             delete c;
     }
 
-    class active_set {
-        std::unordered_set<constraint*, constraint_hash, constraint_equal> m_cs;
-    public:
-
-        std::unordered_set<constraint*, constraint_hash, constraint_equal> cs() const { return m_cs;}
-        
-        bool is_empty() const { return m_cs.size() == 0; }
-
-        void add_constraint(constraint* c) {
-            if (c->is_active()) return;
-            m_cs.insert(c);
-            c->set_active_flag();
-        }
-
-        void clear() {
-            for (constraint * c: m_cs) {
-                c->remove_active_flag();
-            }
-            m_cs.clear();
-        }
-        
-        
-        constraint* remove_random_constraint(unsigned rand) {
-            if (m_cs.size() == 0)
-                return nullptr;
-            unsigned j = rand % m_cs.size();
-            auto it = std::next(m_cs.begin(), j);
-            constraint * c = *it;
-            c->remove_active_flag();
-            m_cs.erase(it);
-            return c;
-        }
-        
-        unsigned size() const {
-            return static_cast<unsigned>(m_cs.size());
-        }
-
-        void remove_constraint(constraint * c) {
-            m_cs.erase(c);
-            c->remove_active_flag();
-        }
-    };
-
     struct scope {
         unsigned m_trail_size;
         scope() {}
@@ -562,7 +520,7 @@ public:
     }
 
     // 'j' is a variable that changed
-    void add_changed_var(unsigned j, bool lower_bound_got_tighter) {
+    void add_changed_var(unsigned j, bool lower_bound_got_tighter, int priority) {
         TRACE("add_changed_var_int", tout <<  "j = " << j << "\n";);
         for (auto & p: m_var_infos[j].dependent_constraints()) {
             TRACE("add_changed_var_int", tout << pp_constraint(*this, *p.first) << "\n";);
@@ -801,7 +759,7 @@ public:
     void push_literal_to_trail(literal & l) {
         m_pushes_to_trail ++;
         m_trail.push_back(l);
-        add_changed_var(l.var(), l.is_lower());
+        add_changed_var(l.var(), l.is_lower(), 0);
     }
 
     unsigned find_large_enough_j(unsigned i) {
@@ -1610,8 +1568,8 @@ public:
         m_bounded_search_calls = 0;
         m_stuck_state = false;
         m_cancelled = false;
-        for (constraint * c : m_asserts)
-            m_active_set.add_constraint(c);
+        //        for (constraint * c : m_asserts)
+        //  m_active_set.add_constraint(c, 1);
         for (auto & vi : m_var_infos)
             vi.number_of_bound_propagations() = 0;
         m_number_of_constraints_tried_for_propagaton = 0;
@@ -1988,7 +1946,7 @@ public:
               print_var_info(tout, j);
               tout << "p = " << pp_poly(*this, p) << "\n";);
         if (!improves(j, br)) {
-            CTRACE("int_backjump", lp_settings::ddd, br.print(tout); tout << "\nimproves is false\n";
+            TRACE("int_backjump", br.print(tout); tout << "\nimproves is false\n";
                    tout << "var info after pop = ";  print_var_info(tout, j););
             if (lemma_has_been_modified)
                 add_lemma(lemma);
@@ -2340,7 +2298,7 @@ public:
             m_v.resize(j + 1);
         m_v[j] = b;
         TRACE("decide_var_on_bound", tout<< "j="<< j<<" ";print_var_info(tout, j););
-        add_changed_var(j, !decide_on_lower);
+        add_changed_var(j, !decide_on_lower, 1);
         m_decision_level++;
         literal nl = literal::make_decided_literal(j, !decide_on_lower, b, decision_context_index, var_level);
         push_literal_to_trail(nl);
