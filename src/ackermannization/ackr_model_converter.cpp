@@ -39,6 +39,8 @@ public:
 
     virtual ~ackr_model_converter() { }
 
+    virtual void get_units(obj_map<expr, bool>& units) { units.reset(); }
+
     virtual void operator()(model_ref & md, unsigned goal_idx) {
         SASSERT(goal_idx == 0);
         SASSERT(!fixed_model || md.get() == 0 || (!md->get_num_constants() && !md->get_num_functions()));

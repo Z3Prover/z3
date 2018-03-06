@@ -33,6 +33,7 @@ public:
     virtual ~pb2bv_model_converter();
     void operator()(model_ref & md) override;
     void display(std::ostream & out) override;
+    void get_units(obj_map<expr, bool>& units) override;
     model_converter * translate(ast_translation & translator) override;
 };
 

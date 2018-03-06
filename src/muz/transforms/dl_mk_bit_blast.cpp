@@ -63,6 +63,8 @@ namespace datalog {
             return alloc(bit_blast_model_converter, m);
         }
 
+        virtual void get_units(obj_map<expr, bool>& units)  {}
+
         virtual void display(std::ostream& out) { out << "(bit-blast-model-converter)\n"; }
 
         virtual void operator()(model_ref & model) {

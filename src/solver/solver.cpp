@@ -211,7 +211,35 @@ void solver::updt_params(params_ref const & p) {
     m_enforce_model_conversion = m_params.get_bool("solver.enforce_model_conversion", false);
 }
 
-void solver::hoist_converter(model_converter_ref& mc) {
-    
-}
 
+expr_ref_vector solver::get_units(ast_manager& m) {
+    expr_ref_vector fmls(m), result(m), tmp(m);
+    get_assertions(fmls);
+    obj_map<expr, bool> units;
+    for (expr* f : fmls) {
+        if (m.is_not(f, f) && is_literal(m, f)) {
+            m.inc_ref(f);
+            units.insert(f, false);
+        }
+        else if (is_literal(m, f)) {
+            m.inc_ref(f);
+            units.insert(f, true);
+        }
+    }
+    model_converter_ref mc = get_model_converter();
+    if (mc) {
+        mc->get_units(units);
+    }
+    for (auto const& kv : units) {
+        tmp.push_back(kv.m_key);
+        if (kv.m_value) 
+            result.push_back(kv.m_key); 
+        else 
+            result.push_back(m.mk_not(kv.m_key));
+    }
+    for (expr* e : tmp) {
+        m.dec_ref(e);
+    }
+
+    return result;
+}

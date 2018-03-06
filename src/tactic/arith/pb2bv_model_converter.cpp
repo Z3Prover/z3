@@ -50,6 +50,10 @@ pb2bv_model_converter::~pb2bv_model_converter() {
     }
 }
 
+void pb2bv_model_converter::get_units(obj_map<expr, bool>& units) { 
+    if (!m_c2bit.empty()) units.reset(); 
+}
+
 
 void pb2bv_model_converter::operator()(model_ref & md) {
     TRACE("pb2bv", tout << "converting model:\n"; model_v2_pp(tout, *md); display(tout););

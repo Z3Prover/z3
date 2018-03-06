@@ -981,6 +981,12 @@ void sat2goal::mc::display(std::ostream& out) {
     if (m_gmc) m_gmc->display(out);
 }
 
+void sat2goal::mc::get_units(obj_map<expr, bool>& units) {
+    flush_gmc();
+    if (m_gmc) m_gmc->get_units(units);
+}
+
+
 void sat2goal::mc::operator()(model_ref & md) {
     model_evaluator ev(*md);
     ev.set_model_completion(false);

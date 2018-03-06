@@ -180,6 +180,8 @@ class fm_tactic : public tactic {
             m_clauses.back().swap(c);
         }
 
+        virtual void get_units(obj_map<expr, bool>& units) { units.reset(); }
+
         virtual void operator()(model_ref & md) {
             TRACE("fm_mc", model_v2_pp(tout, *md); display(tout););
             model_evaluator ev(*(md.get()));

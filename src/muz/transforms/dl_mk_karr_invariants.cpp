@@ -120,6 +120,8 @@ namespace datalog {
             }
         }
 
+        virtual void get_units(obj_map<expr, bool>& units) {}
+
         virtual void operator()(model_ref & mr) {
             for (unsigned i = 0; i < m_funcs.size(); ++i) {
                 func_decl* p = m_funcs[i].get();

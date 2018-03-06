@@ -206,6 +206,10 @@ struct bit_blaster_model_converter : public model_converter {
         }
     }
 
+    void get_units(obj_map<expr, bool>& units) override {
+        // no-op
+    }
+
 protected:
     bit_blaster_model_converter(ast_manager & m):m_vars(m), m_bits(m) { }
 public:

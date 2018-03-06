@@ -43,6 +43,8 @@ public:
         operator()(md, 0);
     }
 
+    virtual void get_units(obj_map<expr, bool>& units) { units.reset(); }
+
     //void display(std::ostream & out);
 
     virtual model_converter * translate(ast_translation & translator) {

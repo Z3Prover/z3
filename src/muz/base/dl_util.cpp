@@ -387,6 +387,9 @@ namespace datalog {
         void operator()(model_ref&) override {}
 
         void display(std::ostream & out) override { }
+
+        void get_units(obj_map<expr, bool>& units) override {}
+
     };
 
     model_converter* mk_skip_model_converter() { return alloc(skip_model_converter); }

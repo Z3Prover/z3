@@ -6164,6 +6164,13 @@ extern "C" {
     Z3_ast_vector Z3_API Z3_solver_get_assertions(Z3_context c, Z3_solver s);
 
     /**
+       \brief Return the set of units modulo model conversion.
+
+       def_API('Z3_solver_get_units', AST_VECTOR, (_in(CONTEXT), _in(SOLVER)))
+    */
+    Z3_ast_vector Z3_API Z3_solver_get_units(Z3_context c, Z3_solver s);
+
+    /**
        \brief Check whether the assertions in a given solver are consistent or not.
 
        The function #Z3_solver_get_model retrieves a model if the

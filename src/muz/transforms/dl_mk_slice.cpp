@@ -308,6 +308,8 @@ namespace datalog {
             m_sliceable.insert(f, bv);
         }
 
+        void get_units(obj_map<expr, bool>& units) override {}
+
         void operator()(model_ref & md) override {
             if (m_slice2old.empty()) {
                 return;

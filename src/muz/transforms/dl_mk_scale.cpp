@@ -38,13 +38,13 @@ namespace datalog {
             m_new2old.insert(new_f, old_f);
         }
        
+        virtual void get_units(obj_map<expr, bool>& units) { units.reset(); }
+
         virtual void operator()(model_ref& md) {
             model_ref old_model = alloc(model, m);
-            obj_map<func_decl, func_decl*>::iterator it  = m_new2old.begin();
-            obj_map<func_decl, func_decl*>::iterator end = m_new2old.end();
-            for (; it != end; ++it) {
-                func_decl* old_p = it->m_value;
-                func_decl* new_p = it->m_key;
+            for (auto const& kv : m_new2old) {
+                func_decl* old_p = kv.m_value;
+                func_decl* new_p = kv.m_key;
                 func_interp* old_fi = alloc(func_interp, m, old_p->get_arity());
 
                 if (new_p->get_arity() == 0) {

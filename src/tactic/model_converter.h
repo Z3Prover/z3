@@ -88,6 +88,8 @@ public:
        formula and removing these definitions from the model converter.
      */
     virtual void operator()(expr_ref& formula) { UNREACHABLE(); }
+
+    virtual void get_units(obj_map<expr, bool>& fmls) { UNREACHABLE(); }
 };
 
 typedef ref<model_converter> model_converter_ref;

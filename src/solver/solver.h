@@ -203,6 +203,11 @@ public:
 
     virtual model_converter_ref get_model_converter() const { return m_mc0; }
 
+    /**
+       \brief extract units from solver.
+    */
+    expr_ref_vector get_units(ast_manager& m);
+
     class scoped_push {
         solver& s;
         bool    m_nopop;
@@ -220,7 +225,6 @@ protected:
 
     bool is_literal(ast_manager& m, expr* e);
 
-    void hoist_converter(model_converter_ref& mc);
 };
 
 typedef ref<solver> solver_ref;

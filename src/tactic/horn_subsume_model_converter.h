@@ -80,6 +80,9 @@ public:
     ast_manager& get_manager() { return m; }
 
     void display(std::ostream & out) override {}
+
+    void get_units(obj_map<expr, bool>& units) override { units.reset(); }
+
 };
 
 #endif

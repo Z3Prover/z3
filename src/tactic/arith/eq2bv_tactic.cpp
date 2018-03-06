@@ -119,6 +119,8 @@ class eq2bv_tactic : public tactic {
             }
         }
 
+        virtual void get_units(obj_map<expr, bool>& units) { units.reset(); }
+
     };
 
 public:

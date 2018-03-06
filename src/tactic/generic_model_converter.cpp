@@ -181,6 +181,53 @@ void generic_model_converter::operator()(expr_ref& fml) {
     fml = mk_and(fmls);
 }
 
+void generic_model_converter::get_units(obj_map<expr, bool>& units) {
+    th_rewriter rw(m);
+    expr_safe_replace rep(m);
+    expr_ref tmp(m);
+    bool val = false;
+    expr* f = nullptr;
+    for (auto const& kv : units) {
+        rep.insert(kv.m_key, kv.m_value ? m.mk_true() : m.mk_false());
+    }
+    for (unsigned i = m_entries.size(); i-- > 0;) {
+        entry const& e = m_entries[i];
+        switch (e.m_instruction) {
+        case HIDE: 
+            tmp = m.mk_const(e.m_f);
+            if (units.contains(tmp)) {
+                m.dec_ref(tmp);
+                units.remove(tmp);
+            }
+            break;
+        case ADD:
+            if (e.m_f->get_arity() == 0 && m.is_bool(e.m_f->get_range())) {
+                tmp = m.mk_const(e.m_f);
+                if (units.contains(tmp)) {
+                    break;
+                }
+                tmp = e.m_def;
+                rep(tmp);
+                rw(tmp);
+                if (m.is_true(tmp)) {
+                    tmp = m.mk_const(e.m_f);
+                    m.inc_ref(tmp);
+                    units.insert(tmp, true);
+                    rep.insert(tmp, m.mk_true());
+                }
+                else if (m.is_false(tmp)) {
+                    tmp = m.mk_const(e.m_f);
+                    m.inc_ref(tmp);
+                    units.insert(tmp, false);
+                    rep.insert(tmp, m.mk_false());
+                }
+            }
+            break;
+        }
+    }
+}
+
+
 /*
  \brief simplify definition expansion from model converter in the case they come from blocked clauses.
  In this case the definitions are of the form:
