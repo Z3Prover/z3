@@ -1,22 +1,22 @@
 /*++
-Copyright (c) 2017 Microsoft Corporation
+  Copyright (c) 2017 Microsoft Corporation
 
-Module Name:
+  Module Name:
 
-    <name>
+  <name>
 
-Abstract:
+  Abstract:
 
-    <abstract>
+  <abstract>
 
-Author:
-    Nikolaj Bjorner (nbjorner)
-    Lev Nachmanson (levnach)
+  Author:
+  Nikolaj Bjorner (nbjorner)
+  Lev Nachmanson (levnach)
 
-Revision History:
+  Revision History:
 
 
---*/
+  --*/
 
 #pragma once
 #include "util/vector.h"
@@ -33,6 +33,7 @@ Revision History:
 #include "util/lp/polynomial.h"
 #include "util/lp/constraint.h"
 #include "util/lp/active_set.h"
+#include "util/lp/indexer_of_constraints.h"
 
 namespace lp {
 class cut_solver; //forward definition
@@ -54,16 +55,16 @@ std::ostream& operator<<(std::ostream& out, pp_constraint const& p);
     
 class cut_solver : public column_namer {
 public:
-enum class lbool { l_false, l_true, l_undef };
-inline std::string lbool_to_string(lbool l) {
-    switch(l) {
-    case lbool::l_true: return std::string("true");
-    case lbool::l_false: return std::string("false");
-    case lbool::l_undef: return std::string("undef");
-    default:
-        return std::string("what is it?");
+    enum class lbool { l_false, l_true, l_undef };
+    inline std::string lbool_to_string(lbool l) {
+        switch(l) {
+        case lbool::l_true: return std::string("true");
+        case lbool::l_false: return std::string("false");
+        case lbool::l_undef: return std::string("undef");
+        default:
+            return std::string("what is it?");
+        }
     }
-}
     
     typedef lp::polynomial polynomial;
     typedef lp::monomial monomial;
@@ -152,7 +153,7 @@ inline std::string lbool_to_string(lbool l) {
 
     enum class bound_type {
         LOWER, UPPER, UNDEF
-            };
+    };
 
     struct bound_result {
         mpq m_bound;
@@ -378,7 +379,6 @@ public:
     active_set                                     m_active_set;
     vector<literal>                                m_trail;
     lp_settings &                                  m_settings;
-    unsigned                                       m_max_constraint_id;
     std::set<unsigned>                             m_U; // the set of conflicting cores
     unsigned                                       m_bounded_search_calls;
     unsigned                                       m_number_of_conflicts;
@@ -392,7 +392,8 @@ public:
     // debug fields
     unsigned                                       m_number_of_constraints_tried_for_propagaton;
     unsigned                                       m_pushes_to_trail;
-
+    indexer_of_constraints                         m_indexer_of_constraints;
+    
     bool is_lower_bound(literal & l) const {
         return l.is_lower();
     }
@@ -547,6 +548,38 @@ public:
         test_bound_struct() :m_expl_lower(-1), m_expl_upper(-1) {}
     };
 
+    bool state_is_correct() const {
+        return var_infos_are_correct() && constraint_indices_are_correct();
+    }
+
+    bool constraint_indices_are_correct() const {
+        std::unordered_set<unsigned> r;
+        unsigned n = m_indexer_of_constraints.max();
+        for (auto c: m_asserts) {
+            if (c->id() >= n) {
+                std::cout << "c->id >= n\n";
+                return false;
+            }
+            if (r.find(c->id()) != r.end()){
+                std::cout << "id found\n";
+                return false;
+            }
+            r.insert(c->id());
+        }
+
+        for (auto c: m_lemmas_container.m_lemmas) {
+            if (c->id() >= n) {
+                std::cout << "c->id >= n\n";
+                return false;
+            }
+            if (r.find(c->id()) != r.end()){
+                std::cout << "id found\n";
+                return false;
+            }
+            r.insert(c->id());
+        }
+        return true;
+    }
     
     bool var_infos_are_correct() const {
         vector<test_bound_struct> bounds = get_bounds_from_trail();
@@ -1568,8 +1601,6 @@ public:
         m_bounded_search_calls = 0;
         m_stuck_state = false;
         m_cancelled = false;
-        //        for (constraint * c : m_asserts)
-        //  m_active_set.add_constraint(c, 1);
         for (auto & vi : m_var_infos)
             vi.number_of_bound_propagations() = 0;
         m_number_of_constraints_tried_for_propagaton = 0;
@@ -1923,12 +1954,13 @@ public:
             l.tight_constr() = l.cnstr();
             return;
         }
-        l.tight_constr() = constraint::make_ineq_constraint( m_max_constraint_id++,
+        l.tight_constr() = constraint::make_ineq_constraint( m_indexer_of_constraints.get_new_index(),
                                                              c->poly(),
                                                              c->assert_origins());
         l.tight_constr()->add_predecessor(c);
         tighten(l.tight_constr(), j, a, index_of_literal);
         add_lemma_as_not_active(l.tight_constr());
+        lp_assert(constraint_indices_are_correct());
     }
 
     void backjump(unsigned index_of_literal,
@@ -1947,7 +1979,7 @@ public:
               tout << "p = " << pp_poly(*this, p) << "\n";);
         if (!improves(j, br)) {
             TRACE("int_backjump", br.print(tout); tout << "\nimproves is false\n";
-                   tout << "var info after pop = ";  print_var_info(tout, j););
+                  tout << "var info after pop = ";  print_var_info(tout, j););
             if (lemma_has_been_modified)
                 add_lemma(lemma);
             else {
@@ -2069,10 +2101,11 @@ public:
         return b;
     }
 
+    unsigned get_new_constraint_id() { return m_indexer_of_constraints.get_new_index(); }
     
     void resolve_conflict_for_inequality(constraint * c) {
         // Create a new constraint, almost copy of "c", that becomes a lemma and could be modified later
-        constraint *lemma = constraint::make_ineq_lemma(m_max_constraint_id++, c->poly());
+        constraint *lemma = constraint::make_ineq_lemma(get_new_constraint_id(), c->poly());
         lemma->add_predecessor(c);
 
         TRACE("resolve_conflict_for_inequality", print_constraint(tout, *lemma););
@@ -2098,11 +2131,16 @@ public:
                 add_lemma_as_not_active(lemma);
             }
             else {
-                delete lemma;
+                delete_constraint(lemma);;
             }
         }
     }
 
+    void delete_constraint(constraint * c) {
+        m_indexer_of_constraints.release_index(c->id());
+        delete c;
+    }
+    
     void resolve_conflict(constraint * i) {
         lp_assert(!at_base_lvl());
         TRACE("int_resolve_confl", tout << "inconstistent_constraint = ";
@@ -2150,7 +2188,7 @@ public:
         for (constraint_index ci : i->assert_origins())
             m_lemmas_container.submit_assert_origin_for_delete(ci);
         m_active_set.remove_constraint(i);
-        delete i;
+        delete_constraint(i);
         m_asserts.pop_back();
     }
     
@@ -2162,12 +2200,12 @@ public:
                 m_var_infos[p.var()].remove_depended_constraint(i);
             }
             m_active_set.remove_constraint(i);
-            delete i;
+            delete_constraint(i);
         }
     }
 
 public:
-    void pop(unsigned k) {
+    void pop_trail(unsigned k) {
         unsigned new_scope_size = m_scopes.size() - k;
         scope s = m_scopes[new_scope_size];
         m_scopes.shrink(new_scope_size);
@@ -2175,11 +2213,16 @@ public:
             literal& lit = m_trail[j];
             if (lit.is_decided())
                 m_decision_level--;
+            else
+                m_active_set.add_constraint(lit.cnstr());
             var_info & vi = m_var_infos[lit.var()];
             if (vi.external_stack_level() != lit.prev_var_level())
                 vi.pop(1, lit.prev_var_level());
             m_trail.pop_back();
         }
+    }
+    void pop(unsigned k) {
+        pop_trail(k);
         pop_constraints();
         lp_assert(var_infos_are_correct());
     }
@@ -2196,7 +2239,6 @@ public:
                    m_number_of_variables_function(number_of_variables_function),
                    m_var_value_function(var_value_function),
                    m_settings(settings),
-                   m_max_constraint_id(0),
                    m_decision_level(0)
     {}
 
@@ -2401,6 +2443,7 @@ public:
     void add_lemma(constraint * lemma) {
         add_lemma_common(lemma);
         m_active_set.add_constraint(lemma);
+        lp_assert(constraint_indices_are_correct());
         TRACE("add_lemma_int",  trace_print_constraint(tout, lemma););
     }
 
@@ -2422,7 +2465,9 @@ public:
             }
         }
         
-        constraint * c = constraint::make_ineq_assert(m_max_constraint_id++, lhs, free_coeff, origin);
+        constraint * c = constraint::make_ineq_assert(get_new_constraint_id(), lhs, free_coeff, origin);
+        lp_assert(constraint_indices_are_correct());
+
         m_asserts.push_back(c);
         add_constraint_to_dependend_for_its_vars(c);
         m_active_set.add_constraint(c);
@@ -2444,6 +2489,9 @@ public:
     bool var_has_no_bounds(const var_info& vi) const {
         return !lower_bound_exists(vi) && !upper_bound_exists(vi);
     }
+
+    unsigned number_of_constraints() const { return m_asserts.size() + m_lemmas_container.size(); }
+    
 };
 
 inline polynomial operator*(const mpq & a, polynomial & p) {

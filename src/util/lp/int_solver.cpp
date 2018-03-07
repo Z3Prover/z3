@@ -1219,9 +1219,10 @@ void int_solver::add_constraint_to_cut_solver(unsigned ci, const lar_base_constr
 }
 
 void int_solver::pop(unsigned k) {
+    m_cut_solver.pop_trail(k);
     while (m_cut_solver.number_of_asserts() > m_lar_solver->constraints().size())
         m_cut_solver.pop_last_assert();
-    m_cut_solver.pop(k);
+    m_cut_solver.pop_constraints();
 }
 
 void int_solver::push() {
