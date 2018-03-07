@@ -8734,8 +8734,8 @@ namespace smt {
         context & ctx = get_context();
         ast_manager & m = get_manager();
 
-        expr_ref_vector assignments(m);
-        ctx.get_assignments(assignments);
+        //expr_ref_vector assignments(m);
+        //ctx.get_assignments(assignments);
 
         if (opt_VerifyFinalCheckProgress) {
             finalCheckProgressIndicator = false;
