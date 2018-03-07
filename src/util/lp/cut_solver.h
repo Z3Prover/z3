@@ -526,7 +526,7 @@ public:
         for (auto & p: m_var_infos[j].dependent_constraints()) {
             TRACE("add_changed_var_int", tout << pp_constraint(*this, *p.first) << "\n";);
             if (p.second == lower_bound_got_tighter)
-                m_active_set.add_constraint(p.first);
+                m_active_set.add_constraint(p.first, 2);  // 2 is a priority
         }
     }
 
@@ -1331,7 +1331,7 @@ public:
         if (i.is_ineq()) {
             out << " <= 0";
         }
-        out << " active = " << i.is_active() << " ";
+        out << " active = " << m_active_set.contains(&i) << " ";
         mpq b;
         if (lower(&i, b)) {
             out << ", lower = " << b;
@@ -1954,9 +1954,10 @@ public:
             l.tight_constr() = l.cnstr();
             return;
         }
-        l.tight_constr() = constraint::make_ineq_constraint( m_indexer_of_constraints.get_new_index(),
-                                                             c->poly(),
-                                                             c->assert_origins());
+        l.tight_constr() = new constraint( get_new_constraint_id(),
+                                           c->assert_origins(),
+                                           c->poly(),
+                                           true);
         l.tight_constr()->add_predecessor(c);
         tighten(l.tight_constr(), j, a, index_of_literal);
         add_lemma_as_not_active(l.tight_constr());
@@ -1980,10 +1981,11 @@ public:
         if (!improves(j, br)) {
             TRACE("int_backjump", br.print(tout); tout << "\nimproves is false\n";
                   tout << "var info after pop = ";  print_var_info(tout, j););
-            if (lemma_has_been_modified)
-                add_lemma(lemma);
-            else {
-                m_active_set.add_constraint(orig_conflict);
+            if (lemma_has_been_modified) { // flip_coin() gives
+                // priority 0 or 1, so it is be dequeued fast
+                add_lemma(lemma, flip_coin());
+            } else {
+                m_active_set.add_constraint(orig_conflict, flip_coin());
             }
         } else {
             constraint *c;
@@ -2105,7 +2107,7 @@ public:
     
     void resolve_conflict_for_inequality(constraint * c) {
         // Create a new constraint, almost copy of "c", that becomes a lemma and could be modified later
-        constraint *lemma = constraint::make_ineq_lemma(get_new_constraint_id(), c->poly());
+        constraint *lemma = new constraint(get_new_constraint_id(), c->poly(), true);
         lemma->add_predecessor(c);
 
         TRACE("resolve_conflict_for_inequality", print_constraint(tout, *lemma););
@@ -2159,18 +2161,6 @@ public:
         }
     }
 
-    void remove_active_flag_from_constraints_in_active_set() {
-        for (auto c : m_active_set.cs()) {
-            c->remove_active_flag();
-        }
-    }
-
-    void set_active_flag_for_constraints_in_active_set() {
-        for (auto c : m_active_set.cs()) {
-            c->set_active_flag();
-        }
-    }
-
 public:
     unsigned number_of_asserts() const { return m_asserts.size(); }
     
@@ -2214,7 +2204,7 @@ public:
             if (lit.is_decided())
                 m_decision_level--;
             else
-                m_active_set.add_constraint(lit.cnstr());
+                m_active_set.add_constraint(lit.cnstr(), 2); // 2 is a priority; this constraint will not be processed urgentlty
             var_info & vi = m_var_infos[lit.var()];
             if (vi.external_stack_level() != lit.prev_var_level())
                 vi.pop(1, lit.prev_var_level());
@@ -2440,9 +2430,9 @@ public:
         TRACE("add_lemma_int",  trace_print_constraint(tout, lemma););
     }
     
-    void add_lemma(constraint * lemma) {
+    void add_lemma(constraint * lemma, int priority) {
         add_lemma_common(lemma);
-        m_active_set.add_constraint(lemma);
+        m_active_set.add_constraint(lemma, priority);
         lp_assert(constraint_indices_are_correct());
         TRACE("add_lemma_int",  trace_print_constraint(tout, lemma););
     }
@@ -2465,12 +2455,13 @@ public:
             }
         }
         
-        constraint * c = constraint::make_ineq_assert(get_new_constraint_id(), lhs, free_coeff, origin);
+        constraint * c = new constraint(get_new_constraint_id(), origin, polynomial(lhs, free_coeff), true);
+       
         lp_assert(constraint_indices_are_correct());
 
         m_asserts.push_back(c);
         add_constraint_to_dependend_for_its_vars(c);
-        m_active_set.add_constraint(c);
+        m_active_set.add_constraint(c, 2); // 2 is a priority
 
         TRACE("add_ineq_int",tout << "explanation :"; m_print_constraint_function(origin, tout); tout << "\n";
               tout << "m_asserts[" << m_asserts.size() - 1 << "] =  ";

@@ -19,37 +19,45 @@ Revision History:
 --*/
 
 #pragma once
+#include "util/lp/binary_heap_priority_queue.h"
 namespace lp {
 class active_set {
     std::unordered_set<constraint*, constraint_hash, constraint_equal> m_cs;
+    binary_heap_priority_queue<int>                                    m_q;
+    std::unordered_map<unsigned, constraint *>                         m_id_to_constraint;
 public:
     std::unordered_set<constraint*, constraint_hash, constraint_equal> cs() const { return m_cs;}
 
+    bool contains(const constraint* c)  const {
+        return m_id_to_constraint.find(c->id()) != m_id_to_constraint.end();
+    }
     
     bool is_empty() const { return m_cs.size() == 0; }
-    // 0 - low priority, 1 - high priority
-    void add_constraint(constraint* c) {
-        if (c->is_active()) return;
+    // low priority will be dequeued first
+    void add_constraint(constraint* c, int priority) {
+        if (contains(c))
+            return;
         m_cs.insert(c);
-        c->set_active_flag();
+        m_id_to_constraint[c->id()] = c;
+        m_q.enqueue(c->id(), priority);
     }
 
     void clear() {
-        for (constraint * c: m_cs) {
-            c->remove_active_flag();
-        }
         m_cs.clear();
+        m_id_to_constraint.clear();
+        m_q.clear();
     }
         
         
     constraint* remove_random_constraint(unsigned rand) {
         if (m_cs.size() == 0)
             return nullptr;
-        unsigned j = rand % m_cs.size();
-        auto it = std::next(m_cs.begin(), j);
-        constraint * c = *it;
-        c->remove_active_flag();
-        m_cs.erase(it);
+        unsigned id = m_q.dequeue();
+        auto it = m_id_to_constraint.find(id);
+        lp_assert(it != m_id_to_constraint.end());
+        constraint* c = it->second;
+        m_cs.erase(c);
+        m_id_to_constraint.erase(it);
         return c;
     }
         
@@ -58,8 +66,11 @@ public:
     }
 
     void remove_constraint(constraint * c) {
+        if (! contains(c)) return;
+        
         m_cs.erase(c);
-        c->remove_active_flag();
+        m_id_to_constraint.erase(c->id());
+        m_q.remove(c->id());
     }
 };
 }
