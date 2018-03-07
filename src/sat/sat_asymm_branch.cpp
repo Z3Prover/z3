@@ -245,7 +245,7 @@ namespace sat {
             m_pos.push_back(l);
             m_neg.push_back(~l);
         }
-#if 0
+#if 1
         compare_left cmp(big);
         std::sort(m_pos.begin(), m_pos.end(), cmp);
         std::sort(m_neg.begin(), m_neg.end(), cmp);

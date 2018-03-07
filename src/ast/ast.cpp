@@ -1718,11 +1718,13 @@ ast * ast_manager::register_node_core(ast * n) {
 
     n->m_id   = is_decl(n) ? m_decl_id_gen.mk() : m_expr_id_gen.mk();
 
+#if 0
     static unsigned count = 0;
-    if (n->m_id == 404) {
+    if (n->m_id == 1293522) {
         ++count;
         //if (count == 2) SASSERT(false);
     }
+#endif
 
     TRACE("ast", tout << "Object " << n->m_id << " was created.\n";);
     TRACE("mk_var_bug", tout << "mk_ast: " << n->m_id << "\n";);

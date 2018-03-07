@@ -28,9 +28,12 @@ Notes:
 #include "model/model_evaluator.h"
 
 
+generic_model_converter::~generic_model_converter() {
+}
+
 void generic_model_converter::add(func_decl * d, expr* e) {
     VERIFY(e);
-    struct entry et(d, e, m, ADD);
+    entry et(d, e, m, ADD);
     VERIFY(d->get_range() == m.get_sort(e));
     m_first_idx.insert_if_not_there(et.m_f, m_entries.size());
     m_entries.push_back(et);
@@ -169,7 +172,7 @@ void generic_model_converter::operator()(expr_ref& fml) {
     }
     unsigned j = min_idx;
     for (unsigned i = min_idx; i < m_entries.size(); ++i) {
-        entry const& e = m_entries[i];
+        entry& e = m_entries[i];
         if (e.m_instruction == instruction::HIDE) {
             if (i != j) {
                 m_entries[j] = e;

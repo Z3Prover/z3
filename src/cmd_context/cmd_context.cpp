@@ -870,11 +870,12 @@ void cmd_context::model_add(symbol const & s, unsigned arity, sort *const* domai
     dictionary<func_decls>::entry * e = m_func_decls.insert_if_not_there2(s, func_decls());
     func_decls & fs = e->get_data().m_value;
     fs.insert(m(), fn);
+    VERIFY(fn->get_range() == m().get_sort(t));
     m_mc0->add(fn, t);
 }
 
 void cmd_context::model_del(func_decl* f) {
-    if (!m_mc0.get()) m_mc0 = alloc(generic_model_converter, m(), "model_del");
+    if (!m_mc0.get()) m_mc0 = alloc(generic_model_converter, m(), "cmd_context");
     if (m_solver.get() && !m_solver->mc0()) m_solver->set_model_converter(m_mc0.get()); 
     m_mc0->hide(f);
 }

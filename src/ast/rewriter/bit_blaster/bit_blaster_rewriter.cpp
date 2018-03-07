@@ -15,6 +15,9 @@ Author:
 
 Notes:
 
+    TBD: also keep track of which fresh constants are introduced
+    to instruct model converter to delete them.
+
 --*/
 #include "ast/rewriter/bit_blaster/bit_blaster_rewriter.h"
 #include "ast/bv_decl_plugin.h"
