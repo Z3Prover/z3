@@ -20,9 +20,11 @@ Revision History:
 #define AST_PP_UTIL_H_
 
 #include "ast/decl_collector.h"
+#include "util/obj_hashtable.h"
 
 class ast_pp_util {
     ast_manager&        m;
+    obj_hashtable<func_decl> m_removed;
  public:        
 
     decl_collector      coll;
@@ -34,6 +36,8 @@ class ast_pp_util {
     void collect(unsigned n, expr* const* es);
 
     void collect(expr_ref_vector const& es);
+
+    void remove_decl(func_decl* f);
 
     void display_decls(std::ostream& out);
 

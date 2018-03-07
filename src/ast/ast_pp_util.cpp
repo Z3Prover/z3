@@ -46,12 +46,17 @@ void ast_pp_util::display_decls(std::ostream& out) {
     n = coll.get_num_decls();
     for (unsigned i = 0; i < n; ++i) {
         func_decl* f = coll.get_func_decls()[i];
-        if (f->get_family_id() == null_family_id) {
+        if (f->get_family_id() == null_family_id && !m_removed.contains(f)) {
             ast_smt2_pp(out, f, env);
             out << "\n";
         }
     }
 }
+
+void ast_pp_util::remove_decl(func_decl* f) {
+    m_removed.insert(f);
+}
+
 
 void ast_pp_util::display_asserts(std::ostream& out, expr_ref_vector const& fmls, bool neat) {
     if (neat) {

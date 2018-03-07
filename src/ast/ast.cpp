@@ -1536,34 +1536,35 @@ void ast_manager::copy_families_plugins(ast_manager const & from) {
     // assigned in the order that they are created, this can result in differing
     // family ids. To avoid this, we first assign all family ids and only then inherit plugins.
     for (family_id fid = 0; from.m_family_manager.has_family(fid); fid++) {
-      symbol fid_name   = from.get_family_name(fid);
-      if (!m_family_manager.has_family(fid)) {
-          family_id new_fid = mk_family_id(fid_name);
-          (void)new_fid;
-          TRACE("copy_families_plugins", tout << "new target fid created: " << new_fid << " fid_name: " << fid_name << "\n";);
-      }
+        symbol fid_name   = from.get_family_name(fid);
+        if (!m_family_manager.has_family(fid)) {
+            family_id new_fid = mk_family_id(fid_name);
+            (void)new_fid;
+            TRACE("copy_families_plugins", tout << "new target fid created: " << new_fid << " fid_name: " << fid_name << "\n";);
+        }
     }
     for (family_id fid = 0; from.m_family_manager.has_family(fid); fid++) {
-      SASSERT(from.is_builtin_family_id(fid) == is_builtin_family_id(fid));
-      SASSERT(!from.is_builtin_family_id(fid) || m_family_manager.has_family(fid));
-      symbol fid_name   = from.get_family_name(fid);
-      TRACE("copy_families_plugins", tout << "copying: " << fid_name << ", src fid: " << fid
-            << ", target has_family: " << m_family_manager.has_family(fid) << "\n";
-            if (m_family_manager.has_family(fid)) tout << get_family_id(fid_name) << "\n";);
-      TRACE("copy_families_plugins", tout << "target fid: " << get_family_id(fid_name) << "\n";);
-      SASSERT(fid == get_family_id(fid_name));
-      if (from.has_plugin(fid) && !has_plugin(fid)) {
-          decl_plugin * new_p = from.get_plugin(fid)->mk_fresh();
-          register_plugin(fid, new_p);
-          SASSERT(new_p->get_family_id() == fid);
-          SASSERT(has_plugin(fid));
-      }
-      if (from.has_plugin(fid)) {
-          get_plugin(fid)->inherit(from.get_plugin(fid), trans);
-      }
-      SASSERT(from.m_family_manager.has_family(fid) == m_family_manager.has_family(fid));
-      SASSERT(from.get_family_id(fid_name) == get_family_id(fid_name));
-      SASSERT(!from.has_plugin(fid) || has_plugin(fid));
+        SASSERT(from.is_builtin_family_id(fid) == is_builtin_family_id(fid));
+        SASSERT(!from.is_builtin_family_id(fid) || m_family_manager.has_family(fid));
+        symbol fid_name   = from.get_family_name(fid);
+        (void)fid_name;
+        TRACE("copy_families_plugins", tout << "copying: " << fid_name << ", src fid: " << fid
+              << ", target has_family: " << m_family_manager.has_family(fid) << "\n";
+              if (m_family_manager.has_family(fid)) tout << get_family_id(fid_name) << "\n";);
+        TRACE("copy_families_plugins", tout << "target fid: " << get_family_id(fid_name) << "\n";);
+        SASSERT(fid == get_family_id(fid_name));
+        if (from.has_plugin(fid) && !has_plugin(fid)) {
+            decl_plugin * new_p = from.get_plugin(fid)->mk_fresh();
+            register_plugin(fid, new_p);
+            SASSERT(new_p->get_family_id() == fid);
+            SASSERT(has_plugin(fid));
+        }
+        if (from.has_plugin(fid)) {
+            get_plugin(fid)->inherit(from.get_plugin(fid), trans);
+        }
+        SASSERT(from.m_family_manager.has_family(fid) == m_family_manager.has_family(fid));
+        SASSERT(from.get_family_id(fid_name) == get_family_id(fid_name));
+        SASSERT(!from.has_plugin(fid) || has_plugin(fid));
     }
 }
 
