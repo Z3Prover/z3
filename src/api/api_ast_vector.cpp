@@ -33,7 +33,7 @@ extern "C" {
         mk_c(c)->save_object(v);
         Z3_ast_vector r       = of_ast_vector(v);
         RETURN_Z3(r);
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     void Z3_API Z3_ast_vector_inc_ref(Z3_context c, Z3_ast_vector v) {
@@ -66,12 +66,12 @@ extern "C" {
         RESET_ERROR_CODE();
         if (i >= to_ast_vector_ref(v).size()) {
             SET_ERROR_CODE(Z3_IOB);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         // Remark: Don't need to invoke save_object.
         ast * r = to_ast_vector_ref(v).get(i);
         RETURN_Z3(of_ast(r));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     void Z3_API Z3_ast_vector_set(Z3_context c, Z3_ast_vector v, unsigned i, Z3_ast a) {
@@ -108,7 +108,7 @@ extern "C" {
         RESET_ERROR_CODE();
         if (c == t) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         ast_translation translator(mk_c(c)->m(), mk_c(t)->m()); 
         Z3_ast_vector_ref * new_v = alloc(Z3_ast_vector_ref, *mk_c(t), mk_c(t)->m());
@@ -119,7 +119,7 @@ extern "C" {
             new_v->m_ast_vector.push_back(new_ast);
         }
         RETURN_Z3(of_ast_vector(new_v));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_string Z3_API Z3_ast_vector_to_string(Z3_context c, Z3_ast_vector v) {
@@ -134,7 +134,7 @@ extern "C" {
         }
         buffer << ")";
         return mk_c(c)->mk_external_string(buffer.str());
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
 };

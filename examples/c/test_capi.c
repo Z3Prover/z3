@@ -395,11 +395,10 @@ void assert_comm_axiom(Z3_context ctx, Z3_solver s, Z3_func_decl f)
     t_name = Z3_mk_string_symbol(ctx, "T");
 
 
-    Z3_parse_smtlib_string(ctx,
-                           "(benchmark comm :formula (forall (x T) (y T) (= (f x y) (f y x))))",
+    q = Z3_parse_smtlib2_string(ctx,
+                           "(assert (forall ((x T) (y T)) (= (f x y) (f y x))))",
                            1, &t_name, &t,
                            1, &f_name, &f);
-    q = Z3_get_smtlib_formula(ctx, 0);
     printf("assert axiom:\n%s\n", Z3_ast_to_string(ctx, q));
     Z3_solver_assert(ctx, s, q);
 }
@@ -1547,7 +1546,7 @@ void two_contexts_example1()
 }
 
 /**
-   \brief Demonstrates how error codes can be read insted of registering an error handler.
+   \brief Demonstrates how error codes can be read instead of registering an error handler.
  */
 void error_code_example1()
 {
@@ -1632,35 +1631,6 @@ void error_code_example2() {
     }
 }
 
-/**
-   \brief Demonstrates how to use the SMTLIB parser.
- */
-void parser_example1()
-{
-    Z3_context ctx = mk_context();
-    Z3_solver s = mk_solver(ctx);
-    unsigned i, num_formulas;
-
-    printf("\nparser_example1\n");
-    LOG_MSG("parser_example1");
-
-
-    Z3_parse_smtlib_string(ctx,
-                           "(benchmark tst :extrafuns ((x Int) (y Int)) :formula (> x y) :formula (> x 0))",
-                           0, 0, 0,
-                           0, 0, 0);
-    num_formulas = Z3_get_smtlib_num_formulas(ctx);
-    for (i = 0; i < num_formulas; i++) {
-        Z3_ast f = Z3_get_smtlib_formula(ctx, i);
-        printf("formula %d: %s\n", i, Z3_ast_to_string(ctx, f));
-        Z3_solver_assert(ctx, s, f);
-    }
-
-    check(ctx, s, Z3_L_TRUE);
-
-    del_solver(ctx, s);
-    Z3_del_context(ctx);
-}
 
 /**
    \brief Demonstrates how to initialize the parser symbol table.
@@ -1690,12 +1660,11 @@ void parser_example2()
     names[0] = Z3_mk_string_symbol(ctx, "a");
     names[1] = Z3_mk_string_symbol(ctx, "b");
 
-    Z3_parse_smtlib_string(ctx,
-                           "(benchmark tst :formula (> a b))",
+    f = Z3_parse_smtlib2_string(ctx,
+                           "(assert (> a b))",
                            0, 0, 0,
                            /* 'x' and 'y' declarations are inserted as 'a' and 'b' into the parser symbol table. */
                            2, names, decls);
-    f = Z3_get_smtlib_formula(ctx, 0);
     printf("formula: %s\n", Z3_ast_to_string(ctx, f));
     Z3_solver_assert(ctx, s, f);
     check(ctx, s, Z3_L_TRUE);
@@ -1737,50 +1706,14 @@ void parser_example3()
 
     assert_comm_axiom(ctx, s, g);
 
-    Z3_parse_smtlib_string(ctx,
-                           "(benchmark tst :formula (forall (x Int) (y Int) (implies (= x y) (= (g x 0) (g 0 y)))))",
+    thm = Z3_parse_smtlib2_string(ctx,
+                           "(assert (forall ((x Int) (y Int)) (=> (= x y) (= (g x 0) (g 0 y)))))",
                            0, 0, 0,
                            1, &g_name, &g);
-    thm = Z3_get_smtlib_formula(ctx, 0);
     printf("formula: %s\n", Z3_ast_to_string(ctx, thm));
     prove(ctx, s, thm, Z3_TRUE);
 
     del_solver(ctx, s);
-    Z3_del_context(ctx);
-}
-
-/**
-   \brief Display the declarations, assumptions and formulas in a SMT-LIB string.
-*/
-void parser_example4()
-{
-    Z3_context ctx;
-    unsigned i, num_decls, num_assumptions, num_formulas;
-
-    printf("\nparser_example4\n");
-    LOG_MSG("parser_example4");
-
-    ctx        = mk_context();
-
-    Z3_parse_smtlib_string(ctx,
-                           "(benchmark tst :extrafuns ((x Int) (y Int)) :assumption (= x 20) :formula (> x y) :formula (> x 0))",
-                           0, 0, 0,
-                           0, 0, 0);
-    num_decls = Z3_get_smtlib_num_decls(ctx);
-    for (i = 0; i < num_decls; i++) {
-        Z3_func_decl d = Z3_get_smtlib_decl(ctx, i);
-        printf("declaration %d: %s\n", i, Z3_func_decl_to_string(ctx, d));
-    }
-    num_assumptions = Z3_get_smtlib_num_assumptions(ctx);
-    for (i = 0; i < num_assumptions; i++) {
-        Z3_ast a = Z3_get_smtlib_assumption(ctx, i);
-        printf("assumption %d: %s\n", i, Z3_ast_to_string(ctx, a));
-    }
-    num_formulas = Z3_get_smtlib_num_formulas(ctx);
-    for (i = 0; i < num_formulas; i++) {
-        Z3_ast f = Z3_get_smtlib_formula(ctx, i);
-        printf("formula %d: %s\n", i, Z3_ast_to_string(ctx, f));
-    }
     Z3_del_context(ctx);
 }
 
@@ -1802,9 +1735,9 @@ void parser_example5() {
         s   = mk_solver(ctx);
         Z3_del_config(cfg);
 
-        Z3_parse_smtlib_string(ctx,
+        Z3_parse_smtlib2_string(ctx,
                                /* the following string has a parsing error: missing parenthesis */
-                               "(benchmark tst :extrafuns ((x Int (y Int)) :formula (> x y) :formula (> x 0))",
+                               "(declare-const x Int) declare-const y Int) (assert (and (> x y) (> x 0)))",
                                0, 0, 0,
                                0, 0, 0);
         e = Z3_get_error_code(ctx);
@@ -1817,7 +1750,7 @@ void parser_example5() {
     err:
         printf("Z3 error: %s.\n", Z3_get_error_msg(ctx, e));
         if (ctx != NULL) {
-            printf("Error message: '%s'.\n",Z3_get_smtlib_error(ctx));
+            printf("Error message: '%s'.\n",Z3_get_parser_error(ctx));
 	    del_solver(ctx, s);
             Z3_del_context(ctx);
         }
@@ -2600,7 +2533,7 @@ void reference_counter_example() {
 
     cfg                = Z3_mk_config();
     Z3_set_param_value(cfg, "model", "true");
-    // Create a Z3 context where the user is reponsible for managing
+    // Create a Z3 context where the user is responsible for managing
     // Z3_ast reference counters.
     ctx                = Z3_mk_context_rc(cfg);
     Z3_del_config(cfg);
@@ -3065,10 +2998,8 @@ int main() {
     two_contexts_example1();
     error_code_example1();
     error_code_example2();
-    parser_example1();
     parser_example2();
     parser_example3();
-    parser_example4();
     parser_example5();
     numeral_example();
     ite_example();

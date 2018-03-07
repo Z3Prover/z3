@@ -128,7 +128,7 @@ namespace datalog {
     //
     // -----------------------------------
 
-    cost_recorder::cost_recorder() : m_obj(0) {
+    cost_recorder::cost_recorder() : m_obj(nullptr) {
         m_stopwatch = alloc(stopwatch);
         m_stopwatch->start();
     }
@@ -149,7 +149,7 @@ namespace datalog {
             c.milliseconds+=time_delta;
             m_obj->m_being_recorded = false;
         }
-        m_running = obj!=0;
+        m_running = obj!=nullptr;
         m_obj = obj;
         m_last_time = curr_time;
         if(obj) {

@@ -1,7 +1,12 @@
 RELEASE NOTES
 
-Version 4.5.x
+Version 4.6.0
 =============
+
+- New requirements:
+  - C++11 capable compiler to build Z3.
+  - C++ API now requires C++11 or newer.
+
 - New features (including):
   - A new string solver from University of Waterloo
   - A new linear real arithmetic solver
@@ -9,6 +14,10 @@ Version 4.5.x
     Objective values are no longer printed by default. They can be retrieved by
     issuing the command (get-objectives). Pareto front objectives are accessed by
     issuing multiple (check-sat) calls until it returns unsat.
+
+- Removed features:
+  - Removed support for SMT-LIB 1.x
+
 
 Version 4.5.0
 =============
@@ -45,10 +54,9 @@ Version 4.5.0
     over compound formulas, introduce a fresh predicate whose 
     arguments are the relevant free variables in the formula and add a rule
     that uses the fresh predicate in the head and formula in the body.
-  - minimization of unsat cores is avaialble as an option for the SAT and SMT cores.
+  - Minimization of unsat cores is available as an option for the SAT and SMT cores.
     By setting smt.core.minimize=true resp. sat.core.minimize=true
-    cores produced by these modules are minimized.
-    
+    cores produced by these modules are minimized.    
 
 - A multitude of bugs has been fixed.
 
@@ -419,11 +427,11 @@ Version 3.0
 
 - New Bitvector (QF_BV) solver. The new solver is only available when using the new SMT2 front-end.
 
-- Major performace improvements. 
+- Major performance improvements.
 
 - New preprocessing stack.
 
-- Performance improvements for linear and nonlinear arithmetic. The improvements are only available when using the the SMT2 front-end.
+- Performance improvements for linear and nonlinear arithmetic. The improvements are only available when using the SMT2 front-end.
 
 - Added API for parsing SMT2 files.
 
@@ -704,7 +712,7 @@ The following bugs are fixed in this release:
   bvshl when using a shift amount that evaluates to the length
   of the bit-vector. Thanks to Trevor Hansen and Robert Brummayer. 
 
-- Incorrect NNF conversion in linear quantifier elimniation routines.
+- Incorrect NNF conversion in linear quantifier elimination routines.
   Thanks to Josh Berdine.
 
 - Missing constant folding of extraction for large bit-vectors.
@@ -764,7 +772,7 @@ This release also introduces some new preprocessing features:
 
 - More efficient destructive equality resolution DER=true.
         
-- DISTRIBUTE_FORALL=true (distributes universal quatifiers over conjunctions, this transformation may affect pattern inference). 
+- DISTRIBUTE_FORALL=true (distributes universal quantifiers over conjunctions, this transformation may affect pattern inference).
 
 - Rewriter that uses universally quantified equations PRE_DEMODULATOR=true (yes, the option name is not good, we will change it in a future release).
 
@@ -834,7 +842,7 @@ This release introduces the following features:
 
 It fixes the following bugs:
 
-- Incorrect simplification of map over store in the extendted array theory. Reported by Catalin Hritcu.
+- Incorrect simplification of map over store in the extended array theory. Reported by Catalin Hritcu.
 
 - Incomplete handling of equality propagation with constant arrays. Reported by Catalin Hritcu.
 
@@ -878,7 +886,7 @@ Version 2.0
   proof object.
 
 - Proof Objects.
-  The #Z3_check_assumptions retuns a proof object if 
+  The #Z3_check_assumptions returns a proof object if
   the configuration flag PROOF_MODE is set to 1 or 2.
 
 - Partial support for non-linear arithmetic. 
@@ -891,4 +899,4 @@ Version 2.0
   The theory of well-founded recursive data-types is supported
   over the binary APIs. It supports ground satisfiability checking
   for tuples, enumeration types (scalars), 
-  lists and mututally recursive data-types.
+  lists and mutually recursive data-types.

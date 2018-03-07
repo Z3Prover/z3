@@ -68,7 +68,7 @@ class inc_sat_solver : public solver {
     typedef obj_map<expr, sat::literal> dep2asm_t;
 public:
     inc_sat_solver(ast_manager& m, params_ref const& p):
-        m(m), m_solver(p, m.limit(), 0),
+        m(m), m_solver(p, m.limit(), nullptr),
         m_optimize_model(false),
         m_fmls(m),
         m_asmsf(m),
@@ -83,9 +83,9 @@ public:
         init_preprocess();
     }
 
-    virtual ~inc_sat_solver() {}
+    ~inc_sat_solver() override {}
 
-    virtual solver* translate(ast_manager& dst_m, params_ref const& p) {
+    solver* translate(ast_manager& dst_m, params_ref const& p) override {
         ast_translation tr(m, dst_m);
         if (m_num_scopes > 0) {
             throw default_exception("Cannot translate sat solver at non-base level");
@@ -103,10 +103,10 @@ public:
         return result;
     }
 
-    virtual void set_progress_callback(progress_callback * callback) {}
+    void set_progress_callback(progress_callback * callback) override {}
 
     void display_weighted(std::ostream& out, unsigned sz, expr * const * assumptions, unsigned const* weights) {
-        if (weights != 0) {
+        if (weights != nullptr) {
             for (unsigned i = 0; i < sz; ++i) m_weights.push_back(weights[i]);
         }
         init_preprocess();
@@ -135,7 +135,7 @@ public:
             (m.is_not(e, e) && is_uninterp_const(e));
     }
 
-    virtual lbool check_sat(unsigned sz, expr * const * assumptions) {
+    lbool check_sat(unsigned sz, expr * const * assumptions) override {
         m_solver.pop_to_base_level();
         expr_ref_vector _assumptions(m);
         obj_map<expr, expr*> asm2fml;
@@ -155,7 +155,7 @@ public:
 
         TRACE("sat", tout << _assumptions << "\n";);
         dep2asm_t dep2asm;
-        m_model = 0;
+        m_model = nullptr;
         lbool r = internalize_formulas();
         if (r != l_true) return r;
         r = internalize_assumptions(sz, _assumptions.c_ptr(), dep2asm);
@@ -185,7 +185,7 @@ public:
         }
         return r;
     }
-    virtual void push() {
+    void push() override {
         internalize_formulas();
         m_solver.user_push();
         ++m_num_scopes;
@@ -195,7 +195,7 @@ public:
         if (m_bb_rewriter) m_bb_rewriter->push();
         m_map.push();
     }
-    virtual void pop(unsigned n) {
+    void pop(unsigned n) override {
         if (n > m_num_scopes) {   // allow inc_sat_solver to
             n = m_num_scopes;     // take over for another solver.
         }
@@ -214,10 +214,10 @@ public:
             --n;
         }
     }
-    virtual unsigned get_scope_level() const {
+    unsigned get_scope_level() const override {
         return m_num_scopes;
     }
-    virtual void assert_expr(expr * t, expr * a) {
+    void assert_expr(expr * t, expr * a) override {
         if (a) {
             m_asmsf.push_back(a);
             assert_expr(m.mk_implies(a, t));
@@ -226,42 +226,42 @@ public:
             assert_expr(t);
         }
     }
-    virtual ast_manager& get_manager() const { return m; }
-    virtual void assert_expr(expr * t) {
+    ast_manager& get_manager() const override { return m; }
+    void assert_expr(expr * t) override {
         TRACE("sat", tout << mk_pp(t, m) << "\n";);
         m_fmls.push_back(t);
     }
-    virtual void set_produce_models(bool f) {}
-    virtual void collect_param_descrs(param_descrs & r) {
+    void set_produce_models(bool f) override {}
+    void collect_param_descrs(param_descrs & r) override {
         goal2sat::collect_param_descrs(r);
         sat::solver::collect_param_descrs(r);
     }
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         solver::updt_params(p);
         m_params.set_bool("elim_vars", false);
         m_solver.updt_params(m_params);
         m_optimize_model = m_params.get_bool("optimize_model", false);
     }
-    virtual void collect_statistics(statistics & st) const {
+    void collect_statistics(statistics & st) const override {
         if (m_preprocess) m_preprocess->collect_statistics(st);
         m_solver.collect_statistics(st);
     }
-    virtual void get_unsat_core(ptr_vector<expr> & r) {
+    void get_unsat_core(ptr_vector<expr> & r) override {
         r.reset();
         r.append(m_core.size(), m_core.c_ptr());
     }
-    virtual void get_model(model_ref & mdl) {
+    void get_model(model_ref & mdl) override {
         if (!m_model.get()) {
             extract_model();
         }
         mdl = m_model;
     }
-    virtual proof * get_proof() {
+    proof * get_proof() override {
         UNREACHABLE();
-        return 0;
+        return nullptr;
     }
 
-    virtual lbool get_consequences_core(expr_ref_vector const& assumptions, expr_ref_vector const& vars, expr_ref_vector& conseq) {
+    lbool get_consequences_core(expr_ref_vector const& assumptions, expr_ref_vector const& vars, expr_ref_vector& conseq) override {
         init_preprocess();
         TRACE("sat", tout << assumptions << "\n" << vars << "\n";);
         sat::literal_vector asms;
@@ -304,7 +304,7 @@ public:
         return r;
     }
 
-    virtual lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) {
+    lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) override {
         sat::literal_vector ls;
         u_map<expr*> lit2var;
         for (unsigned i = 0; i < vars.size(); ++i) {
@@ -330,24 +330,24 @@ public:
         return l_true;
     }
 
-    virtual std::string reason_unknown() const {
+    std::string reason_unknown() const override {
         return m_unknown;
     }
-    virtual void set_reason_unknown(char const* msg) {
+    void set_reason_unknown(char const* msg) override {
         m_unknown = msg;
     }
-    virtual void get_labels(svector<symbol> & r) {
+    void get_labels(svector<symbol> & r) override {
     }
-    virtual unsigned get_num_assertions() const {
+    unsigned get_num_assertions() const override {
         return m_fmls.size();
     }
-    virtual expr * get_assertion(unsigned idx) const {
+    expr * get_assertion(unsigned idx) const override {
         return m_fmls[idx];
     }
-    virtual unsigned get_num_assumptions() const {
+    unsigned get_num_assumptions() const override {
         return m_asmsf.size();
     }
-    virtual expr * get_assumption(unsigned idx) const {
+    expr * get_assumption(unsigned idx) const override {
         return m_asmsf[idx];
     }
 
@@ -403,8 +403,8 @@ private:
         catch (tactic_exception & ex) {
             IF_VERBOSE(0, verbose_stream() << "exception in tactic " << ex.msg() << "\n";);
             TRACE("sat", tout << "exception: " << ex.msg() << "\n";);
-            m_preprocess = 0;
-            m_bb_rewriter = 0;
+            m_preprocess = nullptr;
+            m_bb_rewriter = nullptr;
             return l_undef;
         }
         if (m_subgoals.size() != 1) {
@@ -515,7 +515,7 @@ private:
         expr_ref_vector conj(m);
         internalize_value(value, v, val);
         while (!premises.empty()) {
-            expr* e = 0;
+            expr* e = nullptr;
             VERIFY(asm2dep.find(premises.pop().index(), e));
             conj.push_back(e);
         }
@@ -616,7 +616,7 @@ private:
 
         m_core.reset();
         for (unsigned i = 0; i < core.size(); ++i) {
-            expr* e = 0;
+            expr* e = nullptr;
             VERIFY(asm2dep.find(core[i].index(), e));
             if (asm2fml.contains(e)) {
                 e = asm2fml.find(e);
@@ -643,7 +643,7 @@ private:
     void extract_model() {
         TRACE("sat", tout << "retrieve model " << (m_solver.model_is_current()?"present":"absent") << "\n";);
         if (!m_solver.model_is_current()) {
-            m_model = 0;
+            m_model = nullptr;
             return;
         }
         sat::model const & ll_m = m_solver.get_model();

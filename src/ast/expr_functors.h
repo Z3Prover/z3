@@ -73,7 +73,7 @@ class contains_app {
         app* m_x;
     public:
         pred(app* x) : m_x(x) {}
-        virtual bool operator()(expr* e) {
+        bool operator()(expr* e) override {
             return m_x == e;
         }
     };
@@ -115,7 +115,7 @@ public:
     
     void reset() { m_map.reset(); }
     
-    void visit(var* e) { m_map.insert(e, e, 0); }
+    void visit(var* e) { m_map.insert(e, e, nullptr); }
     
     void visit(quantifier* e);
     

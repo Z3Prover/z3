@@ -112,8 +112,8 @@ namespace datalog {
        expr_ref_vector getId(app*old_pred, const expr_ref_vector& new_args);
      public:
         mk_array_instantiation(context & ctx, unsigned priority);
-        rule_set * operator()(rule_set const & source);
-        virtual ~mk_array_instantiation(){}
+        rule_set * operator()(rule_set const & source) override;
+        ~mk_array_instantiation() override{}
     };
 
 

@@ -49,11 +49,11 @@ public: // bounds addition methods
     **/
     bool add_constraint(expr* e);
 
-    bool bound_up(app * v, numeral u); // v <= u
-    bool bound_lo(app * v, numeral l); // l <= v
-    inline bool add_neg_bound(app * v, numeral a, numeral b); // not (a<=v<=b)
-    bool add_bound_signed(app * v, numeral a, numeral b, bool negate);
-    bool add_bound_unsigned(app * v, numeral a, numeral b, bool negate);
+    bool bound_up(app * v, const numeral& u); // v <= u
+    bool bound_lo(app * v, const numeral& l); // l <= v
+    inline bool add_neg_bound(app * v, const numeral& a, const numeral& b); // not (a<=v<=b)
+    bool add_bound_signed(app * v, const numeral& a, const numeral& b, bool negate);
+    bool add_bound_unsigned(app * v, const numeral& a, const numeral& b, bool negate);
 public:
     bool is_sat();  ///< Determine if the set of considered constraints is satisfiable.
     bool is_okay();
@@ -70,7 +70,7 @@ protected:
     enum conv_res { CONVERTED, UNSAT, UNDEF };
     conv_res convert(expr * e, vector<ninterval>& nis, bool negated);
     conv_res record(app * v, numeral lo, numeral hi, bool negated, vector<ninterval>& nis);
-    conv_res convert_signed(app * v, numeral a, numeral b, bool negate, vector<ninterval>& nis);
+    conv_res convert_signed(app * v, const numeral& a, const numeral& b, bool negate, vector<ninterval>& nis);
 
     typedef vector<interval>            intervals;
     typedef obj_map<app, intervals*>    intervals_map;
@@ -83,7 +83,7 @@ protected:
     bool                      m_okay;
     bool                      is_sat(app * v);
 bool                      is_sat_core(app * v);
-    inline bool               in_range(app *v, numeral l);
+    inline bool               in_range(app *v, const numeral& l);
     inline bool               is_constant_add(unsigned bv_sz, expr * e, app*& v, numeral& val);
     void                      record_singleton(app * v,  numeral& singleton_value);
     inline bool               to_bound(const expr * e) const;
@@ -99,7 +99,7 @@ inline bool bv_bounds::to_bound(const expr * e) const {
        && !m_bv_util.is_numeral(e);
 }
 
-inline bool bv_bounds::in_range(app *v, bv_bounds::numeral n) {
+inline bool bv_bounds::in_range(app *v, const bv_bounds::numeral& n) {
     const unsigned bv_sz = m_bv_util.get_bv_size(v);
     const bv_bounds::numeral zero(0);
     const bv_bounds::numeral mod(rational::power_of_two(bv_sz));
@@ -109,7 +109,7 @@ inline bool bv_bounds::in_range(app *v, bv_bounds::numeral n) {
 inline bool bv_bounds::is_constant_add(unsigned bv_sz, expr * e, app*& v, numeral& val) {
     SASSERT(e && !v);
     SASSERT(m_bv_util.get_bv_size(e) == bv_sz);
-    expr *lhs(NULL), *rhs(NULL);
+    expr *lhs(nullptr), *rhs(nullptr);
     if (!m_bv_util.is_bv_add(e, lhs, rhs)) {
         v = to_app(e);
         val = rational(0);

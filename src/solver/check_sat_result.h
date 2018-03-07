@@ -76,15 +76,15 @@ struct simple_check_sat_result : public check_sat_result {
     
 
     simple_check_sat_result(ast_manager & m);
-    virtual ~simple_check_sat_result();
-    virtual ast_manager& get_manager() const { return m_proof.get_manager(); }
-    virtual void collect_statistics(statistics & st) const;
-    virtual void get_unsat_core(ptr_vector<expr> & r);
-    virtual void get_model(model_ref & m);
-    virtual proof * get_proof();
-    virtual std::string reason_unknown() const;
-    virtual void get_labels(svector<symbol> & r);
-    virtual void set_reason_unknown(char const* msg) { m_unknown = msg; }
+    ~simple_check_sat_result() override;
+    ast_manager& get_manager() const override { return m_proof.get_manager(); }
+    void collect_statistics(statistics & st) const override;
+    void get_unsat_core(ptr_vector<expr> & r) override;
+    void get_model(model_ref & m) override;
+    proof * get_proof() override;
+    std::string reason_unknown() const override;
+    void get_labels(svector<symbol> & r) override;
+    void set_reason_unknown(char const* msg) override { m_unknown = msg; }
 };
 
 #endif

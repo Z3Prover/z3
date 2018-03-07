@@ -102,9 +102,9 @@ namespace datalog {
     public:
 
         dl_decl_plugin();
-        virtual ~dl_decl_plugin() {}
+        ~dl_decl_plugin() override {}
 
-        virtual decl_plugin * mk_fresh() { return alloc(dl_decl_plugin); }
+        decl_plugin * mk_fresh() override { return alloc(dl_decl_plugin); }
         
         //
         // Contract for sort DL_RELATION_SORT 
@@ -116,7 +116,7 @@ namespace datalog {
         //   parameters[0]     - name
         //   parameters[1]     - uint64
         //
-        virtual sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters);
+        sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) override;
         
         //
         // Contract for func_decl:
@@ -126,15 +126,15 @@ namespace datalog {
         //   parameters[1]     - a DL_FINITE_SORT sort of the constant
         // Contract for others:
         //   no parameters
-        virtual func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters, 
-                                         unsigned arity, sort * const * domain, sort * range);
+        func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
+                                 unsigned arity, sort * const * domain, sort * range) override;
         
-        virtual void get_op_names(svector<builtin_name> & op_names, symbol const & logic);
+        void get_op_names(svector<builtin_name> & op_names, symbol const & logic) override;
         
-        virtual void get_sort_names(svector<builtin_name> & sort_names, symbol const & logic);
+        void get_sort_names(svector<builtin_name> & sort_names, symbol const & logic) override;
 
-        virtual bool is_value(app * e) const { return is_app_of(e, m_family_id, OP_DL_CONSTANT); }
-        virtual bool is_unique_value(app * e) const { return is_value(e); }
+        bool is_value(app * e) const override { return is_app_of(e, m_family_id, OP_DL_CONSTANT); }
+        bool is_unique_value(app * e) const override { return is_value(e); }
 
     };
 
@@ -204,9 +204,9 @@ namespace datalog {
 
         sort* mk_rule_sort();
 
-        app* mk_rule(symbol const& name, unsigned num_args = 0, expr* const* args = 0);
+        app* mk_rule(symbol const& name, unsigned num_args = 0, expr* const* args = nullptr);
 
-        app* mk_fact(symbol const& name) { return mk_rule(name, 0, 0); }
+        app* mk_fact(symbol const& name) { return mk_rule(name, 0, nullptr); }
 
         ast_manager& get_manager() const { return m; }
 

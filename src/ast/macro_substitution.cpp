@@ -123,20 +123,20 @@ void macro_substitution::insert(func_decl * f, quantifier * q, proof * pr, expr_
  
 void macro_substitution::erase(func_decl * f) {
     if (proofs_enabled()) {
-        proof * pr = 0;
+        proof * pr = nullptr;
         if (m_decl2macro_pr->find(f, pr)) {
             m_manager.dec_ref(pr);
             m_decl2macro_pr->erase(f);
         }
     }
     if (unsat_core_enabled()) {
-        expr_dependency * dep = 0;
+        expr_dependency * dep = nullptr;
         if (m_decl2macro_dep->find(f, dep)) {
             m_manager.dec_ref(dep);
             m_decl2macro_dep->erase(f);
         }
     }
-    quantifier * q = 0;
+    quantifier * q = nullptr;
     if (m_decl2macro.find(f, q)) {
         m_manager.dec_ref(f);
         m_manager.dec_ref(q);

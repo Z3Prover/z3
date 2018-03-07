@@ -35,7 +35,7 @@ namespace smt {
     }
     
     void watch_list::expand() {
-        if (m_data == 0) {
+        if (m_data == nullptr) {
         unsigned size       = DEFAULT_WATCH_LIST_SIZE + HEADER_SIZE;
             unsigned * mem      = reinterpret_cast<unsigned*>(alloc_svect(char, size));
 #ifdef _AMD64_

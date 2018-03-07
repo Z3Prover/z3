@@ -41,7 +41,7 @@ static stopwatch g_overall_time;
 static stopwatch g_piece_timer;
 static unsigned t_parsing = 0;
 
-static datalog::context * g_ctx = 0;
+static datalog::context * g_ctx = nullptr;
 static datalog::rule_set * g_orig_rules;
 static datalog::instruction_block * g_code;
 static datalog::execution_context * g_ectx;
@@ -257,7 +257,7 @@ unsigned read_datalog(char const * file) {
             true);
         return ERR_MEMOUT;
     }
-    register_on_timeout_proc(0);
+    register_on_timeout_proc(nullptr);
     return 0;
 }
 

@@ -190,8 +190,8 @@ public:
     void mk_pinf(unsigned ebits, unsigned sbits, mpf & o);
     void mk_ninf(unsigned ebits, unsigned sbits, mpf & o);
 
-    unsynch_mpz_manager & mpz_manager(void) { return m_mpz_manager; }
-    unsynch_mpq_manager & mpq_manager(void) { return m_mpq_manager; }
+    unsynch_mpz_manager & mpz_manager() { return m_mpz_manager; }
+    unsynch_mpq_manager & mpq_manager() { return m_mpq_manager; }
 
     unsigned hash(mpf const & a) {
         return hash_u_u(m_mpz_manager.hash(a.significand),

@@ -41,7 +41,7 @@ void notify_assertion_violation(const char * fileName, int line, const char * co
     std::cerr << condition << "\n";
 }
 
-static str_hashtable* g_enabled_debug_tags = 0;
+static str_hashtable* g_enabled_debug_tags = nullptr;
 
 static void init_debug_table() {
     if (!g_enabled_debug_tags) {
@@ -51,7 +51,7 @@ static void init_debug_table() {
 
 void finalize_debug() {
     dealloc(g_enabled_debug_tags);
-    g_enabled_debug_tags = 0;
+    g_enabled_debug_tags = nullptr;
 }
 
 void enable_debug(const char * tag) {
@@ -72,7 +72,7 @@ bool is_debug_enabled(const char * tag) {
 #ifndef _WINDOWS
 void invoke_gdb() {
     char buffer[1024];
-    int * x = 0;
+    int * x = nullptr;
     for (;;) {
         std::cerr << "(C)ontinue, (A)bort, (S)top, (T)hrow exception, Invoke (G)DB\n";
         char result;
@@ -103,7 +103,7 @@ void invoke_gdb() {
             else {
                 std::cerr << "error starting GDB...\n";
                 // forcing seg fault.
-                int * x = 0;
+                int * x = nullptr;
                 *x = 0;
             }
             return;

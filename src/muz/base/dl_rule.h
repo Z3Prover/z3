@@ -54,7 +54,7 @@ namespace datalog {
         bool m_found;
         func_decl* m_func;
         uninterpreted_function_finder_proc(ast_manager& m): 
-            m(m), m_dt(m), m_dl(m), m_found(false), m_func(0) {}
+            m(m), m_dt(m), m_dl(m), m_found(false), m_func(nullptr) {}
         void operator()(var * n) { }
         void operator()(quantifier * n) { }
         void operator()(app * n) {
@@ -71,7 +71,7 @@ namespace datalog {
                 }
             }
         }
-        void reset() { m_found = false; m_func = 0; }
+        void reset() { m_found = false; m_func = nullptr; }
 
         bool found(func_decl*& f) const { f = m_func; return m_found; }
     };
@@ -209,7 +209,7 @@ namespace datalog {
            
            \remark A tail may contain negation. tail[i] is assumed to be negated if is_neg != 0 && is_neg[i] == true
         */
-        rule * mk(app * head, unsigned n, app * const * tail, bool const * is_neg = 0, 
+        rule * mk(app * head, unsigned n, app * const * tail, bool const * is_neg = nullptr,
                   symbol const& name = symbol::null, bool normalize = true);
 
         /**

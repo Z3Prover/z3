@@ -152,7 +152,7 @@ public:
     }
 
     /**
-       \brief 'Disagonalizes' the matrix using only column operations. The reusling matrix will have -1 at pivot 
+       \brief 'Diagonalizes' the matrix using only column operations. The resulting matrix will have -1 at pivot
        elements. Returns the rank of the null space.
     */
     unsigned diagonalize() {
@@ -170,7 +170,7 @@ public:
                     m_column_pivot[j] = i;
                     m_row_pivot[i] = j;
 
-                    // found a pivot, to make it -1 we compute the multuplier -p^-1
+                    // found a pivot, to make it -1 we compute the multiplier -p^-1
                     m_zpm.set(multiplier, get(i, j));
                     m_zpm.inv(multiplier);
                     m_zpm.neg(multiplier);
@@ -201,7 +201,7 @@ public:
     }
 
     /**
-       If rank of the matrix is n - r, we are interested in linearly indeprendent vectors v_1, ..., v_r (the basis of 
+       If rank of the matrix is n - r, we are interested in linearly independent vectors v_1, ..., v_r (the basis of
        the null space), such that v_k A = 0. This method will give one at a time. The method returns true if vector has
        been computed properly. The first vector [1, 0, ..., 0] is ignored (m_null_row starts from 1).       
     */
@@ -417,7 +417,7 @@ bool zp_factor_square_free_berlekamp(zp_manager & upm, numeral_vector const & f,
     // construct the berlekamp Q matrix to get the null space
     berlekamp_matrix Q_I(upm, f);
     
-    // copy the inital polynomial to factors
+    // copy the initial polynomial to factors
     unsigned first_factor = factors.distinct_factors();
     factors.push_back(f, 1);
 
@@ -473,7 +473,7 @@ bool zp_factor_square_free_berlekamp(zp_manager & upm, numeral_vector const & f,
                 // get the gcd
                 upm.gcd(v_k.size(), v_k.c_ptr(), current_factor.size(), current_factor.c_ptr(), gcd);
 
-                // if the gcd is 1, or the the gcd is f, we just ignroe it
+                // if the gcd is 1, or the gcd is f, we just ignore it
                 if (gcd.size() != 1 && gcd.size() != current_factor.size()) {
                 
                     // get the divisor also (no need to normalize the div, both are monic)
@@ -568,13 +568,13 @@ bool check_hansel_lift(z_manager & upm, numeral_vector const & C,
 }
 
 /**
-   Performs a Hensel lift of A and B in Z_a to Z_b, where p is prime and and a = p^{a_k}, b = p^{b_k},
+   Performs a Hensel lift of A and B in Z_a to Z_b, where p is prime and a = p^{a_k}, b = p^{b_k},
    r = (a, b), with the following assumptions:
    
-     (1) UA + VB = 1 (mod a) 
+     (1) UA + VB = 1 (mod a)
      (2) C = A*B (mod b)
-     (3) (l(A), r) = 1 (importand in order to divide by A, i.e. to invert l(A))
-     (4) deg(A) + deg(B) = deg(C)     
+     (3) (l(A), r) = 1 (important in order to divide by A, i.e. to invert l(A))
+     (4) deg(A) + deg(B) = deg(C)
 
    The output of is two polynomials A1, B1  such that A1 = A (mod b), B1 = B (mod b), 
    l(A1) = l(A), deg(A1) = deg(A), deg(B1) = deg(B) and C = A1 B1 (mod b*r). Such A1, B1 are unique if 
@@ -625,7 +625,7 @@ void hensel_lift(z_manager & upm, numeral const & a, numeral const & b, numeral 
     // having (1) AU + BV = 1 (mod r) and (5) AT + BS = f (mod r), we know that 
     // A*(fU) + B*(fV) = f (mod r), i.e. T = fU, S = fV is a solution
     // but we also know that we need an S with deg(S) <= deg(A) so we can do the following
-    // we know that l(A) is invertible so we can find the exact remainder of fV with A, i.e. find the qotient 
+    // we know that l(A) is invertible so we can find the exact remainder of fV with A, i.e. find the quotient
     // t in the division and set
     // A*(fU + tB) + B*(fV - tA) = f 
     // T = fU + tB, S = fU - tA
@@ -1093,7 +1093,7 @@ bool factor_square_free(z_manager & upm, numeral_vector const & f, factors & fs,
             continue;
         }
     
-        // if it's not square free, we also try somehting else 
+        // if it's not square free, we also try something else
         scoped_numeral_vector f_pp_zp(nm);
         to_zp_manager(zp_upm, f_pp, f_pp_zp);
 
@@ -1170,7 +1170,7 @@ bool factor_square_free(z_manager & upm, numeral_vector const & f, factors & fs,
     zp_numeral_manager & zpe_nm = zpe_upm.m();
     
     zp_factors zpe_fs(zpe_upm);
-    // this might give something bigger than p^e, but the lifting proocedure will update the zpe_nm
+    // this might give something bigger than p^e, but the lifting procedure will update the zpe_nm
     // zp factors are monic, so will be the zpe factors, i.e. f_pp = zpe_fs * lc(f_pp) (mod p^e)
     hensel_lift(upm, f_pp, zp_fs, e, zpe_fs); 
     
@@ -1182,7 +1182,7 @@ bool factor_square_free(z_manager & upm, numeral_vector const & f, factors & fs,
     scoped_numeral f_pp_lc(nm);
     zpe_nm.set(f_pp_lc, f_pp.back());
     
-    // we always keep in f_pp the the actual primitive part f_pp*lc(f_pp)
+    // we always keep in f_pp the actual primitive part f_pp*lc(f_pp)
     upm.mul(f_pp, f_pp_lc);
     
     // now we go through the combinations of factors to check construct the factorization
@@ -1287,7 +1287,7 @@ bool factor_square_free(z_manager & upm, numeral_vector const & f, factors & fs,
         fs.push_back(f_pp, k);
     } 
     else {
-        // if a constant it must be 1 (it was primitve)
+        // if a constant it must be 1 (it was primitive)
         SASSERT(f_pp.size() == 1 && nm.is_one(f_pp.back()));
     }
 

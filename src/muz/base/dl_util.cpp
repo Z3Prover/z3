@@ -34,7 +34,7 @@ Revision History:
 
 namespace datalog {
 
-    verbose_action::verbose_action(char const* msg, unsigned lvl): m_lvl(lvl), m_sw(0) {
+    verbose_action::verbose_action(char const* msg, unsigned lvl): m_lvl(lvl), m_sw(nullptr) {
         IF_VERBOSE(m_lvl, 
                    (verbose_stream() << msg << "...").flush(); 
                    m_sw = alloc(stopwatch); 
@@ -87,7 +87,7 @@ namespace datalog {
             else {
                 SASSERT(is_var(arg));
                 int vidx      = to_var(arg)->get_idx();
-                var * new_var = 0;
+                var * new_var = nullptr;
                 if (!varidx2var.find(vidx, new_var)) {
                     new_var = m.mk_var(next_idx, to_var(arg)->get_sort());
                     next_idx++;
@@ -385,7 +385,7 @@ namespace datalog {
     public:
         skip_model_converter() {}
  
-        virtual model_converter * translate(ast_translation & translator) { 
+        model_converter * translate(ast_translation & translator) override {
             return alloc(skip_model_converter);
         }
 
@@ -394,12 +394,12 @@ namespace datalog {
     model_converter* mk_skip_model_converter() { return alloc(skip_model_converter); }
 
     class skip_proof_converter : public proof_converter {
-        virtual void operator()(ast_manager & m, unsigned num_source, proof * const * source, proof_ref & result) {
+        void operator()(ast_manager & m, unsigned num_source, proof * const * source, proof_ref & result) override {
             SASSERT(num_source == 1);
             result = source[0];
         }
 
-        virtual proof_converter * translate(ast_translation & translator) {
+        proof_converter * translate(ast_translation & translator) override {
             return alloc(skip_proof_converter);
         }
 
@@ -428,7 +428,7 @@ namespace datalog {
 
         unsigned tgt_sz = max_var_idx+1;
         unsigned tgt_ofs = tgt_sz-1;
-        tgt.resize(tgt_sz, 0);
+        tgt.resize(tgt_sz, nullptr);
         for(unsigned i=0; i<src_sz; i++) {
             expr * e = src[src_ofs-i];
             if(!e) {
@@ -446,7 +446,7 @@ namespace datalog {
         out << "(";
         for(int i=len-1; i>=0; i--) {
             out << (len-1-i) <<"->";
-            if(cont.get(i)==0) {
+            if(cont.get(i)==nullptr) {
                 out << "{none}";
             }
             else {
@@ -547,7 +547,7 @@ namespace datalog {
     //
     // -----------------------------------
 
-    void get_file_names(std::string directory, std::string extension, bool traverse_subdirs, 
+    void get_file_names(std::string directory, const std::string & extension, bool traverse_subdirs,
             string_vector & res) {
 
         if(directory[directory.size()-1]!='\\' && directory[directory.size()-1]!='/') {
@@ -595,7 +595,7 @@ namespace datalog {
 #endif
     }
 
-    bool file_exists(std::string name) {
+    bool file_exists(const std::string & name) {
         struct stat st;
         if(stat(name.c_str(),&st) == 0) {
             return true;
@@ -603,7 +603,7 @@ namespace datalog {
         return false;
     }
 
-    bool is_directory(std::string name) {
+    bool is_directory(const std::string & name) {
         if(!file_exists(name)) {
             return false;
         }
@@ -612,9 +612,9 @@ namespace datalog {
         return (status.st_mode&S_IFDIR)!=0;
     }
 
-    std::string get_file_name_without_extension(std::string name) {
+    std::string get_file_name_without_extension(const std::string & name) {
         size_t slash_index = name.find_last_of("\\/");
-        size_t dot_index = name.rfind(".");
+        size_t dot_index = name.rfind('.');
         size_t ofs = (slash_index==std::string::npos) ? 0 : slash_index+1;
         size_t count = (dot_index!=std::string::npos && dot_index>ofs) ? 
             (dot_index-ofs) : std::string::npos;

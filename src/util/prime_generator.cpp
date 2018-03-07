@@ -99,7 +99,7 @@ uint64 prime_generator::operator()(unsigned idx) {
 prime_generator g_prime_generator;
 
 prime_iterator::prime_iterator(prime_generator * g):m_idx(0) {
-    if (g == 0) {
+    if (g == nullptr) {
         m_generator = &g_prime_generator;
         m_global    = true;
     }

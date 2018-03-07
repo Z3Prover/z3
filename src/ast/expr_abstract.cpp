@@ -27,7 +27,7 @@ void expr_abstractor::operator()(unsigned base, unsigned num_bound, expr* const*
         result = n;
         return;
     }
-    expr * curr = 0, *b = 0;
+    expr * curr = nullptr, *b = nullptr;
     SASSERT(n->get_ref_count() > 0);
 
     m_stack.push_back(n);

@@ -34,6 +34,7 @@ template void lp::lp_solver<double, double>::print_statistics_on_A(std::ostream 
 template bool lp::lp_solver<double, double>::problem_is_empty();
 template void lp::lp_solver<double, double>::scale();
 template void lp::lp_solver<double, double>::set_scaled_cost(unsigned int);
+template std::string lp::lp_solver<double, double>::get_column_name(unsigned int) const;
 template lp::lp_solver<double, double>::~lp_solver();
 template void lp::lp_solver<lp::mpq, lp::mpq>::add_constraint(lp::lp_relation, lp::mpq, unsigned int);
 template void lp::lp_solver<lp::mpq, lp::mpq>::cleanup();
@@ -53,3 +54,4 @@ template void lp::lp_solver<lp::mpq, lp::mpq>::scale();
 template void lp::lp_solver<lp::mpq, lp::mpq>::set_scaled_cost(unsigned int);
 template lp::lp_solver<lp::mpq, lp::mpq>::~lp_solver();
 template double lp::lp_solver<double, double>::get_column_value_by_name(std::string) const;
+template std::string lp::lp_solver<lp::mpq, lp::mpq>::get_column_name(unsigned int) const;

@@ -48,24 +48,24 @@ class proof_checker {
         func_decl* m_atom;
         func_decl* m_nil;
         sort*      m_cell;
-        virtual void set_manager(ast_manager * m, family_id id);
+        void set_manager(ast_manager * m, family_id id) override;
         func_decl * mk_func_decl(decl_kind k);
     public:
         hyp_decl_plugin();
 
-        virtual ~hyp_decl_plugin() {}
+        ~hyp_decl_plugin() override {}
 
-        virtual void finalize();
+        void finalize() override;
         
-        virtual decl_plugin * mk_fresh() { return alloc(hyp_decl_plugin); }
+        decl_plugin * mk_fresh() override { return alloc(hyp_decl_plugin); }
 
-        virtual sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const* parameters);
-        virtual func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters, 
-                                         unsigned arity, sort * const * domain, sort * range);
-        virtual func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters, 
-                                         unsigned num_args, expr * const * args, sort * range);
-        virtual void get_op_names(svector<builtin_name> & op_names, symbol const & logic);
-        virtual void get_sort_names(svector<builtin_name> & sort_names, symbol const & logic);
+        sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const* parameters) override;
+        func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
+                                 unsigned arity, sort * const * domain, sort * range) override;
+        func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
+                                 unsigned num_args, expr * const * args, sort * range) override;
+        void get_op_names(svector<builtin_name> & op_names, symbol const & logic) override;
+        void get_sort_names(svector<builtin_name> & sort_names, symbol const & logic) override;
     };
 public:
     proof_checker(ast_manager& m);

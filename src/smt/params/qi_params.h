@@ -99,7 +99,7 @@ struct qi_params {
         m_mbqi_max_iterations(1000),
         m_mbqi_trace(false),
         m_mbqi_force_template(10),
-        m_mbqi_id(0)  
+        m_mbqi_id(nullptr)
     {
         updt_params(p);
     }

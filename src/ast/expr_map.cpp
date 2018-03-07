@@ -38,7 +38,7 @@ expr_map::~expr_map() {
 void expr_map::insert(expr * k, expr * d, proof * p) {  
     m_manager.inc_ref(d);
     obj_map<expr, expr*>::obj_map_entry * entry = m_expr2expr.find_core(k);
-    if (entry != 0) {
+    if (entry != nullptr) {
         m_manager.dec_ref(entry->get_data().m_value);
         entry->get_data().m_value = d;
         if (m_store_proofs) {
@@ -61,7 +61,7 @@ void expr_map::insert(expr * k, expr * d, proof * p) {
 
 void expr_map::get(expr * k, expr * & d, proof * & p) const {
     if (m_expr2expr.find(k, d)) {
-        p = 0;
+        p = nullptr;
         if (m_store_proofs)
             m_expr2pr.find(k, p);
     }
@@ -73,7 +73,7 @@ void expr_map::erase(expr * k) {
         m_expr2expr.erase(k);
         m_manager.dec_ref(v);
         if (m_store_proofs) {
-            proof * pr = 0;
+            proof * pr = nullptr;
             m_expr2pr.find(k, pr);
             m_expr2pr.erase(k);
             m_manager.dec_ref(pr);

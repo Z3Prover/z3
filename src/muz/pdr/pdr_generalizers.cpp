@@ -189,7 +189,7 @@ namespace pdr {
         expr_ref fml1 = mk_and(core);        
         expr_ref fml2 = n.pt().get_formulas(n.level(), false);
         fml1_2.push_back(fml1);
-        fml1_2.push_back(0);
+        fml1_2.push_back(nullptr);
         flatten_and(fml2, fmls);
         for (unsigned i = 0; i < fmls.size(); ++i) {
             fml2 = m.mk_not(fmls[i].get());
@@ -199,7 +199,7 @@ namespace pdr {
                   tout << "Check states:\n" << mk_pp(state, m) << "\n";
                   tout << "Old states:\n"   << mk_pp(fml2, m) << "\n";
                   );
-            model_node nd(0, state, n.pt(), n.level());
+            model_node nd(nullptr, state, n.pt(), n.level());
             pred_transformer::scoped_farkas sf(n.pt(), true);
             bool uses_level1 = uses_level;
             if (l_false == n.pt().is_reachable(nd, &conv2, uses_level1)) {
@@ -236,7 +236,7 @@ namespace pdr {
             n.pt().get_solver().set_consequences(&consequences);
             pred_transformer::scoped_farkas sf (n.pt(), true);
             VERIFY(l_false == n.pt().is_reachable(n, &core1, uses_level1));        
-            n.pt().get_solver().set_consequences(0);
+            n.pt().get_solver().set_consequences(nullptr);
         }
         IF_VERBOSE(0,
                    verbose_stream() << "Consequences: " << consequences.size() << "\n";
@@ -257,7 +257,7 @@ namespace pdr {
                 cstate.push_back(m.mk_not(consequences[i].get()));
             }
             tmp = m.mk_and(cstate.size(), cstate.c_ptr());
-            model_node nd(0, tmp, n.pt(), n.level());
+            model_node nd(nullptr, tmp, n.pt(), n.level());
             pred_transformer::scoped_farkas sf (n.pt(), false);            
             VERIFY(l_false == n.pt().is_reachable(nd, &core1, uses_level1));            
         }
@@ -752,7 +752,7 @@ namespace pdr {
     // 
     void core_induction_generalizer::operator()(model_node& n, expr_ref_vector& core, bool& uses_level) {
         model_node* p = n.parent();
-        if (p == 0) {
+        if (p == nullptr) {
             return;
         }
         unsigned depth = 2;

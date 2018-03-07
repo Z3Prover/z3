@@ -143,7 +143,7 @@ namespace pdr {
         void add_property(expr * lemma, unsigned lvl);  // add property 'p' to state at level.
 
         lbool is_reachable(model_node& n, expr_ref_vector* core, bool& uses_level);
-        bool is_invariant(unsigned level, expr* co_state, bool inductive, bool& assumes_level, expr_ref_vector* core = 0);
+        bool is_invariant(unsigned level, expr* co_state, bool inductive, bool& assumes_level, expr_ref_vector* core = nullptr);
         bool check_inductive(unsigned level, expr_ref_vector& state, bool& assumes_level);
 
         expr_ref get_formulas(unsigned level, bool add_axioms);
@@ -199,8 +199,8 @@ namespace pdr {
         datalog::rule const*   m_rule;
     public:
         model_node(model_node* parent, expr_ref& state, pred_transformer& pt, unsigned level):
-            m_parent(parent), m_next(0), m_prev(0), m_pt(pt), m_state(state), m_model(0), 
-            m_level(level), m_orig_level(level), m_depth(0), m_closed(false), m_rule(0) {
+            m_parent(parent), m_next(nullptr), m_prev(nullptr), m_pt(pt), m_state(state), m_model(nullptr),
+            m_level(level), m_orig_level(level), m_depth(0), m_closed(false), m_rule(nullptr) {
             model_node* p = m_parent;
             if (p) {
                 p->m_children.push_back(this);
@@ -253,7 +253,7 @@ namespace pdr {
         void dequeue(model_node*& root);
         void enqueue(model_node* n);
         model_node* next() const { return m_next; }
-        bool is_goal() const { return 0 != next(); }
+        bool is_goal() const { return nullptr != next(); }
     };
 
     class model_search {
@@ -271,7 +271,7 @@ namespace pdr {
         unsigned num_goals() const; 
 
     public:
-        model_search(bool bfs): m_bfs(bfs), m_root(0), m_goal(0) {}
+        model_search(bool bfs): m_bfs(bfs), m_root(nullptr), m_goal(nullptr) {}
         ~model_search();
 
         void reset();

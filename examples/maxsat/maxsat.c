@@ -116,41 +116,6 @@ Z3_ast mk_binary_and(Z3_context ctx, Z3_ast in_1, Z3_ast in_2)
 }
 
 
-/**
-   \brief Get hard constraints from a SMT-LIB file. We assume hard constraints
-   are formulas preceeded with the keyword :formula. 
-   Return an array containing all formulas read by the last Z3_parse_smtlib_file invocation.
-   It will store the number of formulas in num_cnstrs.
-*/
-Z3_ast * get_hard_constraints(Z3_context ctx, unsigned * num_cnstrs) 
-{
-    Z3_ast * result;
-    unsigned i;
-    *num_cnstrs = Z3_get_smtlib_num_formulas(ctx); 
-    result = (Z3_ast *) malloc(sizeof(Z3_ast) * (*num_cnstrs));
-    for (i = 0; i < *num_cnstrs; i++) {
-        result[i] = Z3_get_smtlib_formula(ctx, i);
-    }
-    return result;
-}
-
-/**
-   \brief Get soft constraints from a SMT-LIB file. We assume soft constraints
-   are formulas preceeded with the keyword :assumption. 
-   Return an array containing all assumptions read by the last Z3_parse_smtlib_file invocation.
-   It will store the number of formulas in num_cnstrs.
-*/
-Z3_ast * get_soft_constraints(Z3_context ctx, unsigned * num_cnstrs) 
-{
-    Z3_ast * result;
-    unsigned i;
-    *num_cnstrs = Z3_get_smtlib_num_assumptions(ctx); 
-    result = (Z3_ast *) malloc(sizeof(Z3_ast) * (*num_cnstrs));
-    for (i = 0; i < *num_cnstrs; i++) {
-        result[i] = Z3_get_smtlib_assumption(ctx, i);
-    }
-    return result;
-}
 
 /**
    \brief Free the given array of cnstrs that was allocated using get_hard_constraints or get_soft_constraints. 
@@ -610,14 +575,37 @@ int smtlib_maxsat(char * file_name, int approach)
 {
     Z3_context ctx;
     Z3_solver s;
+    unsigned i;
+    Z3_optimize opt;
     unsigned num_hard_cnstrs, num_soft_cnstrs;
     Z3_ast * hard_cnstrs, * soft_cnstrs;
+    Z3_ast_vector  hard, objs;
+    Z3_app soft;
     unsigned result = 0;
     ctx = mk_context();
     s = mk_solver(ctx);
-    Z3_parse_smtlib_file(ctx, file_name, 0, 0, 0, 0, 0, 0);
-    hard_cnstrs = get_hard_constraints(ctx, &num_hard_cnstrs);
-    soft_cnstrs = get_soft_constraints(ctx, &num_soft_cnstrs);
+    opt = Z3_mk_optimize(ctx);
+    Z3_optimize_inc_ref(ctx, opt);
+    Z3_optimize_from_file(ctx, opt, file_name);
+    hard = Z3_optimize_get_assertions(ctx, opt);
+    Z3_ast_vector_inc_ref(ctx, hard);
+    num_hard_cnstrs = Z3_ast_vector_size(ctx, hard);
+    hard_cnstrs = (Z3_ast *) malloc(sizeof(Z3_ast) * (num_hard_cnstrs));
+    for (i = 0; i < num_hard_cnstrs; i++) {
+        hard_cnstrs[i] = Z3_ast_vector_get(ctx, hard, i);
+    }
+    objs = Z3_optimize_get_objectives(ctx, opt);
+    Z3_ast_vector_inc_ref(ctx, objs);
+
+    // soft constraints are stored in a single objective which is a sum 
+    // of if-then-else expressions.
+    soft = Z3_to_app(ctx, Z3_ast_vector_get(ctx, objs, 0));
+    num_soft_cnstrs = Z3_get_app_num_args(ctx, soft);
+    soft_cnstrs = (Z3_ast *) malloc(sizeof(Z3_ast) * (num_soft_cnstrs));
+    for (i = 0; i < num_soft_cnstrs; ++i) {
+        soft_cnstrs[i] = Z3_get_app_arg(ctx, Z3_to_app(ctx, Z3_get_app_arg(ctx, soft, i)), 0);
+    }
+    
     switch (approach) {
     case NAIVE_MAXSAT: 
         result = naive_maxsat(ctx, s, num_hard_cnstrs, hard_cnstrs, num_soft_cnstrs, soft_cnstrs);
@@ -633,6 +621,7 @@ int smtlib_maxsat(char * file_name, int approach)
     free_cnstr_array(hard_cnstrs);
     free_cnstr_array(soft_cnstrs);
     Z3_solver_dec_ref(ctx, s);
+    Z3_optimize_dec_ref(ctx, opt);
     return result;
 }
 

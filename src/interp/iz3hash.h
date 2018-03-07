@@ -132,7 +132,7 @@ namespace hash_space {
             Entry* next;
             Value val;
       
-        Entry(const Value &_val) : val(_val) {next = 0;}
+        Entry(const Value &_val) : val(_val) {next = nullptr;}
         };
     
 
@@ -242,7 +242,7 @@ namespace hash_space {
     
     public:
 
-    hashtable(size_t init_size) : buckets(init_size,(Entry *)0) {
+    hashtable(size_t init_size) : buckets(init_size,(Entry *)nullptr) {
             entries = 0;
         }
     
@@ -281,7 +281,7 @@ namespace hash_space {
         }
     
         iterator end() { 
-            return iterator(0, this);
+            return iterator(nullptr, this);
         }
 
         const_iterator begin() const {
@@ -292,7 +292,7 @@ namespace hash_space {
         }
     
         const_iterator end() const { 
-            return const_iterator(0, this);
+            return const_iterator(nullptr, this);
         }
     
         size_t get_bucket(const Value& val, size_t n) const {
@@ -318,7 +318,7 @@ namespace hash_space {
                 if (key_eq_fun(get_key(ent->val), get_key(val)))
                     return ent;
       
-            if(!ins) return 0;
+            if(!ins) return nullptr;
 
             Entry* tmp = new Entry(val);
             tmp->next = from;
@@ -336,7 +336,7 @@ namespace hash_space {
                 if (key_eq_fun(get_key(ent->val), key))
                     return ent;
       
-            return 0;
+            return nullptr;
         }
 
         const_iterator find(const Key& key) const {
@@ -381,7 +381,7 @@ namespace hash_space {
             if (new_size <= old_n) return;
             const size_t n = next_prime(new_size);
             if (n <= old_n) return;
-            Table tmp(n, (Entry*)(0));
+            Table tmp(n, (Entry*)nullptr);
             for (size_t i = 0; i < old_n; ++i) {
                 Entry* ent = buckets[i];
                 while (ent) {
@@ -398,12 +398,12 @@ namespace hash_space {
         void clear()
         {
             for (size_t i = 0; i < buckets.size(); ++i) {
-                for (Entry* ent = buckets[i]; ent != 0;) {
+                for (Entry* ent = buckets[i]; ent != nullptr;) {
                     Entry* next = ent->next;
                     delete ent;
                     ent = next;
                 }
-                buckets[i] = 0;
+                buckets[i] = nullptr;
             }
             entries = 0;
         }

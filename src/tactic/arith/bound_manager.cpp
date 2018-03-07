@@ -201,22 +201,22 @@ bool bound_manager::is_disjunctive_bound(expr * f, expr_dependency * d) {
     if (!m().is_or(f)) return false;
     unsigned sz = to_app(f)->get_num_args();
     if (sz == 0) return false;
-    expr * x, * y, * v = 0;
+    expr * x, * y, * v = nullptr;
     bool is_int;
     for (unsigned i = 0; i < sz; ++i) {
         expr * e = to_app(f)->get_arg(i);
         if (!m().is_eq(e, x, y)) return false;
         if (is_uninterp_const(x) && 
             is_numeral(y, n, is_int) && is_int && 
-            (x == v || v == 0)) {
-            if (v == 0) { v = x; lo = hi = n; }
+            (x == v || v == nullptr)) {
+            if (v == nullptr) { v = x; lo = hi = n; }
             if (n < lo) lo = n;
             if (n > hi) hi = n;
         }
         else if (is_uninterp_const(y) && 
                  is_numeral(x, n, is_int) && is_int && 
-                 (y == v || v == 0)) {
-            if (v == 0) { v = y; lo = hi = n; }
+                 (y == v || v == nullptr)) {
+            if (v == nullptr) { v = y; lo = hi = n; }
             if (n < lo) lo = n;
             if (n > hi) hi = n;
         }

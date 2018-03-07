@@ -50,8 +50,8 @@ namespace smt {
         expr * m_target;
     public:
         simple_relevancy_eh(expr * t):m_target(t) {}
-        virtual ~simple_relevancy_eh() {}
-        virtual void operator()(relevancy_propagator & rp);
+        ~simple_relevancy_eh() override {}
+        void operator()(relevancy_propagator & rp) override;
     };
     
     /**
@@ -63,8 +63,8 @@ namespace smt {
         expr * m_target;
     public:
         pair_relevancy_eh(expr * s1, expr * s2, expr * t):m_source1(s1), m_source2(s2), m_target(t) {}
-        virtual ~pair_relevancy_eh() {}
-        virtual void operator()(relevancy_propagator & rp);
+        ~pair_relevancy_eh() override {}
+        void operator()(relevancy_propagator & rp) override;
     };
 
     /**

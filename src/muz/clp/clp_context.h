@@ -32,12 +32,12 @@ namespace datalog {
         imp* m_imp;
     public:
         clp(context& ctx);
-        ~clp();
-        virtual lbool query(expr* query);
-        virtual void reset_statistics();
-        virtual void collect_statistics(statistics& st) const;
-        virtual void display_certificate(std::ostream& out) const;        
-        virtual expr_ref get_answer();
+        ~clp() override;
+        lbool query(expr* query) override;
+        void reset_statistics() override;
+        void collect_statistics(statistics& st) const override;
+        void display_certificate(std::ostream& out) const override;
+        expr_ref get_answer() override;
     };
 };
 

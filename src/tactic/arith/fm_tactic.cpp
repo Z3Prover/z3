@@ -54,7 +54,7 @@ class fm_tactic : public tactic {
         bool is_false(model_ref & md, app * p) {
             SASSERT(is_uninterp_const(p));
             expr * val = md->get_const_interp(p->get_decl());
-            if (val == 0) {
+            if (val == nullptr) {
                 // if it is don't care, then set to false
                 md->register_decl(p->get_decl(), m.mk_false());
                 return true;
@@ -164,7 +164,7 @@ class fm_tactic : public tactic {
     public:
         fm_model_converter(ast_manager & _m):m(_m) {}
 
-        virtual ~fm_model_converter() {
+        ~fm_model_converter() override {
             m.dec_array_ref(m_xs.size(), m_xs.c_ptr());
             vector<clauses>::iterator it  = m_clauses.begin();
             vector<clauses>::iterator end = m_clauses.end();
@@ -180,7 +180,7 @@ class fm_tactic : public tactic {
             m_clauses.back().swap(c);
         }
 
-        virtual void operator()(model_ref & md, unsigned goal_idx) {
+        void operator()(model_ref & md, unsigned goal_idx) override {
             TRACE("fm_mc", model_v2_pp(tout, *md); display(tout););
             model_evaluator ev(*(md.get()));
             ev.set_model_completion(true);
@@ -244,7 +244,7 @@ class fm_tactic : public tactic {
         }
 
 
-        virtual void display(std::ostream & out) {
+        void display(std::ostream & out) override {
             out << "(fm-model-converter";
             SASSERT(m_xs.size() == m_clauses.size());
             unsigned sz = m_xs.size();
@@ -261,7 +261,7 @@ class fm_tactic : public tactic {
             out << ")\n";
         }
 
-        virtual model_converter * translate(ast_translation & translator) {
+        model_converter * translate(ast_translation & translator) override {
             ast_manager & to_m = translator.to();
             fm_model_converter * res = alloc(fm_model_converter, to_m);
             unsigned sz = m_xs.size();
@@ -828,7 +828,7 @@ class fm_tactic : public tactic {
             reset_constraints();
             m_bvar2expr.reset();
             m_bvar2sign.reset();
-            m_bvar2expr.push_back(0); // bvar 0 is not used
+            m_bvar2expr.push_back(nullptr); // bvar 0 is not used
             m_bvar2sign.push_back(0);
             m_expr2var.reset();
             m_is_int.reset();
@@ -838,11 +838,11 @@ class fm_tactic : public tactic {
             m_expr2var.reset();
             m_lowers.reset();
             m_uppers.reset();
-            m_new_goal = 0;
-            m_mc = 0;
+            m_new_goal = nullptr;
+            m_mc = nullptr;
             m_counter = 0;
             m_inconsistent = false;
-            m_inconsistent_core = 0;
+            m_inconsistent_core = nullptr;
             init_forbidden_set(g);
         }
         
@@ -878,7 +878,7 @@ class fm_tactic : public tactic {
                 // 0 <= 0 -- > true
                 if (c.m_c.is_pos() || (!c.m_strict && c.m_c.is_zero()))
                     return m.mk_true();
-                ineq = 0;
+                ineq = nullptr;
             }
             else {
                 bool int_cnstr = all_int(c);
@@ -1115,7 +1115,7 @@ class fm_tactic : public tactic {
             }
             else {
                 TRACE("add_constraint_bug", tout << "all variables are forbidden "; display(tout, *c); tout << "\n";);
-                m_new_goal->assert_expr(to_expr(*c), 0, c->m_dep);
+                m_new_goal->assert_expr(to_expr(*c), nullptr, c->m_dep);
                 del_constraint(c);
                 return false;
             }
@@ -1130,7 +1130,7 @@ class fm_tactic : public tactic {
                 if (is_occ(f))
                     add_constraint(f, g.dep(i));
                 else
-                    m_new_goal->assert_expr(f, 0, g.dep(i));
+                    m_new_goal->assert_expr(f, nullptr, g.dep(i));
             }
         }
 
@@ -1367,7 +1367,7 @@ class fm_tactic : public tactic {
                       display(tout, l);
                       tout << "\n";
                       display(tout, u); tout << "\n";);
-                return 0; // no constraint needs to be created.
+                return nullptr; // no constraint needs to be created.
             }
             
             new_lits.reset();
@@ -1411,7 +1411,7 @@ class fm_tactic : public tactic {
                       display(tout, l);
                       tout << "\n";
                       display(tout, u); tout << "\n";);
-                return 0;
+                return nullptr;
             }
 
             expr_dependency * new_dep = m.mk_join(l.m_dep, u.m_dep);
@@ -1423,7 +1423,7 @@ class fm_tactic : public tactic {
                       display(tout, u); tout << "\n";);
                 m_inconsistent      = true;
                 m_inconsistent_core = new_dep;
-                return 0;
+                return nullptr;
             }
             
             constraint * new_cnstr = mk_constraint(new_lits.size(),
@@ -1493,7 +1493,7 @@ class fm_tactic : public tactic {
                     constraint const & l_c = *(l[i]);
                     constraint const & u_c = *(u[j]);
                     constraint * new_c = resolve(l_c, u_c, x);
-                    if (new_c != 0) {
+                    if (new_c != nullptr) {
                         num_new_cnstrs++;
                         new_constraints.push_back(new_c);
                     }
@@ -1528,7 +1528,7 @@ class fm_tactic : public tactic {
                         c->m_dead = true;
                         expr * new_f = to_expr(*c);
                         TRACE("fm_bug", tout << "asserting...\n" << mk_ismt2_pp(new_f, m) << "\nnew_dep: " << c->m_dep << "\n";);
-                        m_new_goal->assert_expr(new_f, 0, c->m_dep);
+                        m_new_goal->assert_expr(new_f, nullptr, c->m_dep);
                     }
                 }
             }
@@ -1555,7 +1555,7 @@ class fm_tactic : public tactic {
                         proof_converter_ref & pc,
                         expr_dependency_ref & core) {
             SASSERT(g->is_well_sorted());
-            mc = 0; pc = 0; core = 0;
+            mc = nullptr; pc = nullptr; core = nullptr;
             tactic_report report("fm", *g);
             fail_if_proof_generation("fm", g);
             m_produce_models = g->models_enabled();
@@ -1571,7 +1571,7 @@ class fm_tactic : public tactic {
             
             if (m_inconsistent) {
                 m_new_goal->reset();
-                m_new_goal->assert_expr(m.mk_false(), 0, m_inconsistent_core);
+                m_new_goal->assert_expr(m.mk_false(), nullptr, m_inconsistent_core);
             }
             else {
                 TRACE("fm", display(tout););
@@ -1595,7 +1595,7 @@ class fm_tactic : public tactic {
                         eliminated++;
                     if (m_inconsistent) {
                         m_new_goal->reset();
-                        m_new_goal->assert_expr(m.mk_false(), 0, m_inconsistent_core);
+                        m_new_goal->assert_expr(m.mk_false(), nullptr, m_inconsistent_core);
                         break;
                     }
                 }
@@ -1643,20 +1643,20 @@ public:
         m_imp = alloc(imp, m, p);
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(fm_tactic, m, m_params);
     }
 
-    virtual ~fm_tactic() {
+    ~fm_tactic() override {
         dealloc(m_imp);
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_params = p;
         m_imp->updt_params(p);
     }
 
-    virtual void collect_param_descrs(param_descrs & r) {
+    void collect_param_descrs(param_descrs & r) override {
         insert_produce_models(r);
         insert_max_memory(r);
         r.insert("fm_real_only", CPK_BOOL, "(default: true) consider only real variables for fourier-motzkin elimination.");
@@ -1668,17 +1668,17 @@ public:
     }
 
 
-    virtual void cleanup() {
+    void cleanup() override {
         imp * d = alloc(imp, m_imp->m, m_params);
         std::swap(d, m_imp);        
         dealloc(d);
     }
 
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
+    void operator()(goal_ref const & in,
+                    goal_ref_buffer & result,
+                    model_converter_ref & mc,
+                    proof_converter_ref & pc,
+                    expr_dependency_ref & core) override {
         (*m_imp)(in, result, mc, pc, core);
     }
 };

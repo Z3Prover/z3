@@ -430,10 +430,10 @@ struct z3_replayer::imp {
                 next(); skip_blank(); read_ptr();
                 TRACE("z3_replayer", tout << "[" << m_line << "] " << "P " << m_ptr << "\n";);
                 if (m_ptr == 0) {
-                    m_args.push_back(0);
+                    m_args.push_back(nullptr);
                 }
                 else {
-                    void * obj = 0;
+                    void * obj = nullptr;
                     if (!m_heap.find(m_ptr, obj))
                         throw z3_replayer_exception("invalid pointer");
                     m_args.push_back(value(obj));
@@ -453,7 +453,7 @@ struct z3_replayer::imp {
                 // push null symbol
                 next();
                 TRACE("z3_replayer", tout << "[" << m_line << "] " << "N\n";);
-                m_args.push_back(value(SYMBOL, static_cast<char const *>(0)));
+                m_args.push_back(value(SYMBOL, static_cast<char const *>(nullptr)));
                 break;
             case '$': {
                 // push symbol
@@ -689,7 +689,7 @@ struct z3_replayer::imp {
     }
 
     void reset() {
-        m_result = 0;
+        m_result = nullptr;
         m_args.reset();
         m_obj_arrays.reset();
         m_sym_arrays.reset();

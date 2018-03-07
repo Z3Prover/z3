@@ -75,7 +75,7 @@ class nla2bv_tactic : public tactic {
             m_vars(m), 
             m_defs(m),
             m_trail(m),
-            m_fmc(0) {
+            m_fmc(nullptr) {
             m_default_bv_size = m_num_bits = p.get_uint("nla2bv_bv_size", 4);
         }
 
@@ -408,28 +408,28 @@ class nla2bv_tactic : public tactic {
         }
 
         ~scoped_set_imp() {
-            m_owner.m_imp = 0;            
+            m_owner.m_imp = nullptr;
         }
     };
     
 public:
     nla2bv_tactic(params_ref const & p):
         m_params(p),
-        m_imp(0) {
+        m_imp(nullptr) {
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(nla2bv_tactic, m_params);
     }
 
-    virtual ~nla2bv_tactic() {
+    ~nla2bv_tactic() override {
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_params = p;
     }
 
-    virtual void collect_param_descrs(param_descrs & r) { 
+    void collect_param_descrs(param_descrs & r) override {
         r.insert("nla2bv_max_bv_size", CPK_UINT, "(default: inf) maximum bit-vector size used by nla2bv tactic");
         r.insert("nla2bv_bv_size", CPK_UINT, "(default: 4) default bit-vector size used by nla2bv tactic.");
         r.insert("nla2bv_root", CPK_UINT, "(default: 2) nla2bv tactic encodes reals into bit-vectors using expressions of the form a+b*sqrt(c), this parameter sets the value of c used in the encoding.");
@@ -441,15 +441,15 @@ public:
        arithmetic in place of non-linear integer arithmetic.
        \return false if transformation is not possible.
     */
-    virtual void operator()(goal_ref const & g,
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
+    void operator()(goal_ref const & g,
+                    goal_ref_buffer & result,
+                    model_converter_ref & mc,
+                    proof_converter_ref & pc,
+                    expr_dependency_ref & core) override {
         SASSERT(g->is_well_sorted());
         fail_if_proof_generation("nla2bv", g);
         fail_if_unsat_core_generation("nla2bv", g);
-        mc = 0; pc = 0; core = 0; result.reset();
+        mc = nullptr; pc = nullptr; core = nullptr; result.reset();
 
         imp proc(g->m(), m_params);
         scoped_set_imp setter(*this, proc);
@@ -459,7 +459,7 @@ public:
         SASSERT(g->is_well_sorted());
     }
     
-    virtual void cleanup(void) {
+    void cleanup() override {
     }
 };
 

@@ -63,7 +63,7 @@ namespace datalog {
         costs m_processed_cost;
         bool m_being_recorded;
     protected:
-        accounted_object() : m_context(0), m_parent_object(0), m_being_recorded(false) {}
+        accounted_object() : m_context(nullptr), m_parent_object(nullptr), m_being_recorded(false) {}
         ~accounted_object();
     public:
 
@@ -107,7 +107,7 @@ namespace datalog {
            before separately.
          */
         void start(accounted_object *);
-        void finish() { start(0); }
+        void finish() { start(nullptr); }
     };
 };
 

@@ -50,7 +50,7 @@ extern "C" {
         if (!converter.to_polynomial(to_expr(p), _p, d) ||
             !converter.to_polynomial(to_expr(q), _q, d)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            return 0;
+            return nullptr;
         }
         Z3_ast_vector_ref* result = alloc(Z3_ast_vector_ref, *mk_c(c), mk_c(c)->m());
         mk_c(c)->save_object(result);
@@ -74,7 +74,7 @@ extern "C" {
             }
         }
         RETURN_Z3(of_ast_vector(result));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
 };

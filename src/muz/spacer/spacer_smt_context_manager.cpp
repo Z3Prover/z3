@@ -50,7 +50,7 @@ smt_context_manager::~smt_context_manager()
 virtual_solver* smt_context_manager::mk_fresh()
 {
     ++m_num_contexts;
-    virtual_solver_factory *solver_factory = 0;
+    virtual_solver_factory *solver_factory = nullptr;
 
     if (m_max_num_contexts == 0 || m_solvers.size() < m_max_num_contexts) {
         m_solvers.push_back(alloc(spacer::virtual_solver_factory, m, m_fparams));

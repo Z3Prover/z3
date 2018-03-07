@@ -80,7 +80,7 @@ void model_evaluator::reset()
     m_visited.reset();
     m_numbers.reset();
     m_refs.reset();
-    m_model = 0;
+    m_model = nullptr;
 }
 
 

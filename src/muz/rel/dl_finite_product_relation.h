@@ -93,23 +93,23 @@ namespace datalog {
 
         finite_product_relation_plugin(relation_plugin & inner_plugin, relation_manager & manager);
 
-        virtual void initialize(family_id fid);
+        void initialize(family_id fid) override;
 
         relation_plugin & get_inner_plugin() const { return m_inner_plugin; }
 
-        virtual bool can_handle_signature(const relation_signature & s);
+        bool can_handle_signature(const relation_signature & s) override;
 
-        virtual relation_base * mk_empty(const relation_signature & s);
+        relation_base * mk_empty(const relation_signature & s) override;
         /**
            \c inner_kind==null_family_id means we don't care about the kind of the inner relation
         */
         finite_product_relation * mk_empty(const relation_signature & s, const bool * table_columns,
             family_id inner_kind=null_family_id);
         finite_product_relation * mk_empty(const finite_product_relation & original);
-        virtual relation_base * mk_empty(const relation_base & original);
-        virtual relation_base * mk_empty(const relation_signature & s, family_id kind);
+        relation_base * mk_empty(const relation_base & original) override;
+        relation_base * mk_empty(const relation_signature & s, family_id kind) override;
 
-        virtual relation_base * mk_full(func_decl* p, const relation_signature & s);
+        relation_base * mk_full(func_decl* p, const relation_signature & s) override;
 
         /**
            \brief Return true if \c r can be converted to \c finite_product_relation_plugin either
@@ -127,22 +127,22 @@ namespace datalog {
         table_relation * to_table_relation(const finite_product_relation & r);
 
     protected:
-        virtual relation_join_fn * mk_join_fn(const relation_base & t1, const relation_base & t2,
-            unsigned col_cnt, const unsigned * cols1, const unsigned * cols2);
-        virtual relation_transformer_fn * mk_project_fn(const relation_base & t, unsigned col_cnt, 
-            const unsigned * removed_cols);
-        virtual relation_transformer_fn * mk_rename_fn(const relation_base & t, unsigned permutation_cycle_len, 
-            const unsigned * permutation_cycle);
-        virtual relation_union_fn * mk_union_fn(const relation_base & tgt, const relation_base & src, 
-            const relation_base * delta);
-        virtual relation_mutator_fn * mk_filter_identical_fn(const relation_base & t, unsigned col_cnt, 
-            const unsigned * identical_cols);
-        virtual relation_mutator_fn * mk_filter_equal_fn(const relation_base & t, const relation_element & value, 
-            unsigned col);
-        virtual relation_mutator_fn * mk_filter_interpreted_fn(const relation_base & t, app * condition);
-        virtual relation_intersection_filter_fn * mk_filter_by_negation_fn(const relation_base & t, 
-            const relation_base & negated_obj, unsigned joined_col_cnt, 
-            const unsigned * t_cols, const unsigned * negated_cols);
+        relation_join_fn * mk_join_fn(const relation_base & t1, const relation_base & t2,
+            unsigned col_cnt, const unsigned * cols1, const unsigned * cols2) override;
+        relation_transformer_fn * mk_project_fn(const relation_base & t, unsigned col_cnt,
+            const unsigned * removed_cols) override;
+        relation_transformer_fn * mk_rename_fn(const relation_base & t, unsigned permutation_cycle_len,
+            const unsigned * permutation_cycle) override;
+        relation_union_fn * mk_union_fn(const relation_base & tgt, const relation_base & src,
+            const relation_base * delta) override;
+        relation_mutator_fn * mk_filter_identical_fn(const relation_base & t, unsigned col_cnt,
+            const unsigned * identical_cols) override;
+        relation_mutator_fn * mk_filter_equal_fn(const relation_base & t, const relation_element & value,
+            unsigned col) override;
+        relation_mutator_fn * mk_filter_interpreted_fn(const relation_base & t, app * condition) override;
+        relation_intersection_filter_fn * mk_filter_by_negation_fn(const relation_base & t,
+            const relation_base & negated_obj, unsigned joined_col_cnt,
+            const unsigned * t_cols, const unsigned * negated_cols) override;
 
     private:
         /**
@@ -281,11 +281,11 @@ namespace datalog {
            \brief Extract the values of table non-functional columns from the relation fact.
            The value of the functional column which determines index of the inner relation is undefined.
          */
-        void extract_table_fact(const relation_fact rf, table_fact & tf) const;
+        void extract_table_fact(const relation_fact & rf, table_fact & tf) const;
         /**
            \brief Extract the values of the inner relation columns from the relation fact.
          */
-        void extract_other_fact(const relation_fact rf, relation_fact & of) const;
+        void extract_other_fact(const relation_fact & rf, relation_fact & of) const;
 
         relation_base * mk_empty_inner();
         relation_base * mk_full_inner(func_decl* pred);
@@ -309,7 +309,7 @@ namespace datalog {
 
         bool try_modify_specification(const bool * table_cols);
 
-        virtual bool can_swap(const relation_base & r) const
+        bool can_swap(const relation_base & r) const override
         { return &get_plugin()==&r.get_plugin(); }
 
         /**
@@ -317,7 +317,7 @@ namespace datalog {
 
            Both relations must come from the same plugin and be of the same signature.
         */
-        virtual void swap(relation_base & r);
+        void swap(relation_base & r) override;
 
         /**
            \brief Create a \c finite_product_relation object.
@@ -325,7 +325,7 @@ namespace datalog {
         finite_product_relation(finite_product_relation_plugin & p, const relation_signature & s,
             const bool * table_columns, table_plugin & tplugin, relation_plugin & oplugin, family_id other_kind);
         finite_product_relation(const finite_product_relation & r);
-        virtual ~finite_product_relation();
+        ~finite_product_relation() override;
     public:
         context & get_context() const;
         finite_product_relation_plugin & get_plugin() const { 
@@ -342,22 +342,22 @@ namespace datalog {
         /**
            The function calls garbage_collect, so the internal state may change when it is called.
         */
-        virtual bool empty() const;
-        void reset() { m_table->reset(); garbage_collect(false); }
+        bool empty() const override;
+        void reset() override { m_table->reset(); garbage_collect(false); }
 
-        virtual void add_fact(const relation_fact & f);
-        virtual bool contains_fact(const relation_fact & f) const;
+        void add_fact(const relation_fact & f) override;
+        bool contains_fact(const relation_fact & f) const override;
 
-        virtual finite_product_relation * clone() const;
-        virtual finite_product_relation * complement(func_decl* p) const;
+        finite_product_relation * clone() const override;
+        finite_product_relation * complement(func_decl* p) const override;
 
-        virtual void display(std::ostream & out) const;
-        virtual void display_tuples(func_decl & pred, std::ostream & out) const;
+        void display(std::ostream & out) const override;
+        void display_tuples(func_decl & pred, std::ostream & out) const override;
 
-        virtual unsigned get_size_estimate_rows() const { return m_table->get_size_estimate_rows(); }
-        virtual unsigned get_size_estimate_bytes() const { return m_table->get_size_estimate_bytes(); }
+        unsigned get_size_estimate_rows() const override { return m_table->get_size_estimate_rows(); }
+        unsigned get_size_estimate_bytes() const override { return m_table->get_size_estimate_bytes(); }
 
-        virtual void to_formula(expr_ref& fml) const;
+        void to_formula(expr_ref& fml) const override;
     };
 
 };

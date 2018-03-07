@@ -29,10 +29,10 @@ namespace smt {
 
     model_generator::model_generator(ast_manager & m):
         m_manager(m),
-        m_context(0),
+        m_context(nullptr),
         m_fresh_idx(1),
         m_asts(m_manager),
-        m_model(0) {
+        m_model(nullptr) {
     }
 
     model_generator::~model_generator() {
@@ -44,7 +44,7 @@ namespace smt {
         m_fresh_idx = 1;
         m_root2value.reset();
         m_asts.reset();
-        m_model = 0;
+        m_model = nullptr;
     }
 
     void model_generator::init_model() {
@@ -89,7 +89,7 @@ namespace smt {
             if (r == r->get_root() && m_context->is_relevant(r)) {
                 roots.push_back(r);
                 sort * s      = m_manager.get_sort(r->get_owner());
-                model_value_proc * proc = 0;
+                model_value_proc * proc = nullptr;
                 if (m_manager.is_bool(s)) {
                     CTRACE("model", m_context->get_assignment(r) == l_undef, 
                            tout << mk_pp(r->get_owner(), m_manager) << "\n";);
@@ -177,7 +177,7 @@ namespace smt {
                 if (m_manager.get_sort(r->get_owner()) != s)
                     continue;
                 SASSERT(r == r->get_root());
-                model_value_proc * proc = 0;
+                model_value_proc * proc = nullptr;
                 root2proc.find(r, proc);
                 SASSERT(proc);
                 if (proc->is_fresh())
@@ -196,7 +196,7 @@ namespace smt {
         enode * n = src.get_enode();
         SASSERT(n == n->get_root());
         bool visited = true;
-        model_value_proc * proc = 0;
+        model_value_proc * proc = nullptr;
         root2proc.find(n, proc);
         SASSERT(proc);
         buffer<model_value_dependency> dependencies;
@@ -283,7 +283,7 @@ namespace smt {
         sz = roots.size();
         for (unsigned i = 0; i < sz; i++) {
             enode * r     = roots[i];
-            model_value_proc * proc = 0;
+            model_value_proc * proc = nullptr;
             root2proc.find(r, proc);
             SASSERT(proc);
             if (!proc->is_fresh())
@@ -345,7 +345,7 @@ namespace smt {
                 TRACE("mg_top_sort", tout << "#" << n->get_owner_id() << "\n";);
                 dependencies.reset();
                 dependency_values.reset();
-                model_value_proc * proc = 0;
+                model_value_proc * proc = nullptr;
                 VERIFY(root2proc.find(n, proc));
                 SASSERT(proc);
                 proc->get_dependencies(dependencies);
@@ -364,7 +364,7 @@ namespace smt {
                         enode * child = d.get_enode();
                         TRACE("mg_top_sort", tout << "#" << n->get_owner_id() << " (" << mk_pp(n->get_owner(), m_manager) << "): " << mk_pp(child->get_owner(), m_manager) << " " << mk_pp(child->get_root()->get_owner(), m_manager) << "\n";);
                         child = child->get_root();
-                        app * val = 0;
+                        app * val = nullptr;
                         m_root2value.find(child, val);
                         SASSERT(val);
                         dependency_values.push_back(val);
@@ -395,7 +395,7 @@ namespace smt {
     }
 
     app * model_generator::get_value(enode * n) const {
-        app * val = 0;
+        app * val = nullptr;
         m_root2value.find(n->get_root(), val);
         SASSERT(val);
         return val;
@@ -438,7 +438,7 @@ namespace smt {
                     args.push_back(arg);
                 }
                 func_interp * fi = m_model->get_func_interp(f);
-                if (fi == 0) {
+                if (fi == nullptr) {
                     fi = alloc(func_interp, m_manager, f->get_arity());
                     m_model->register_decl(f, fi);
                 }
@@ -454,7 +454,7 @@ namespace smt {
                       tout << "value: #" << n->get_owner_id() << "\n" << mk_ismt2_pp(result, m_manager) << "\n";);
                 if (m_context->get_last_search_failure() == smt::THEORY) {
                     // if the theory solvers are incomplete, then we cannot assume the e-graph is close under congruence
-                    if (fi->get_entry(args.c_ptr()) == 0)
+                    if (fi->get_entry(args.c_ptr()) == nullptr)
                         fi->insert_new_entry(args.c_ptr(), result);
                 }
                 else {

@@ -33,7 +33,7 @@ namespace smt {
         enode *           m_target;
         eq_justification  m_justification;
         trans_justification():
-            m_target(0),
+            m_target(nullptr),
             m_justification(null_eq_justification) {
         }
     };
@@ -116,7 +116,7 @@ namespace smt {
         
 
         theory_var_list * get_th_var_list() { 
-            return m_th_var_list.get_th_var() == null_theory_var ? 0 : &m_th_var_list; 
+            return m_th_var_list.get_th_var() == null_theory_var ? nullptr : &m_th_var_list;
         }
 
         friend class set_merge_tf_trail;
@@ -306,7 +306,7 @@ namespace smt {
         }
         
         theory_var_list const * get_th_var_list() const { 
-            return m_th_var_list.get_th_var() == null_theory_var ? 0 : &m_th_var_list; 
+            return m_th_var_list.get_th_var() == null_theory_var ? nullptr : &m_th_var_list;
         }
 
         bool has_th_vars() const {

@@ -35,7 +35,7 @@ namespace smt {
             ptr_vector<enode> m_recognizers; //!< recognizers of this equivalence class that are being watched.
             enode *           m_constructor; //!< constructor of this equivalence class, 0 if there is no constructor in the eqc.
             var_data():
-                m_constructor(0) {
+                m_constructor(nullptr) {
             }
         };
 
@@ -84,35 +84,35 @@ namespace smt {
         void display_var(std::ostream & out, theory_var v) const;
 
     protected:
-        virtual theory_var mk_var(enode * n);
-        virtual bool internalize_atom(app * atom, bool gate_ctx);
-        virtual bool internalize_term(app * term);
-        virtual void apply_sort_cnstr(enode * n, sort * s);
-        virtual void new_eq_eh(theory_var v1, theory_var v2);
-        virtual bool use_diseqs() const;
-        virtual void new_diseq_eh(theory_var v1, theory_var v2);
-        virtual void assign_eh(bool_var v, bool is_true);
-        virtual void relevant_eh(app * n);
-        virtual void push_scope_eh();
-        virtual void pop_scope_eh(unsigned num_scopes);
-        virtual final_check_status final_check_eh();
-        virtual void reset_eh();
-        virtual void restart_eh() { m_util.reset(); }
-        virtual bool is_shared(theory_var v) const;
+        theory_var mk_var(enode * n) override;
+        bool internalize_atom(app * atom, bool gate_ctx) override;
+        bool internalize_term(app * term) override;
+        void apply_sort_cnstr(enode * n, sort * s) override;
+        void new_eq_eh(theory_var v1, theory_var v2) override;
+        bool use_diseqs() const override;
+        void new_diseq_eh(theory_var v1, theory_var v2) override;
+        void assign_eh(bool_var v, bool is_true) override;
+        void relevant_eh(app * n) override;
+        void push_scope_eh() override;
+        void pop_scope_eh(unsigned num_scopes) override;
+        final_check_status final_check_eh() override;
+        void reset_eh() override;
+        void restart_eh() override { m_util.reset(); }
+        bool is_shared(theory_var v) const override;
     public:
         theory_datatype(ast_manager & m, theory_datatype_params & p);
-        virtual ~theory_datatype();
-        virtual theory * mk_fresh(context * new_ctx);
-        virtual void display(std::ostream & out) const;
-        virtual void collect_statistics(::statistics & st) const;        
-        virtual void init_model(model_generator & m);
-        virtual model_value_proc * mk_value(enode * n, model_generator & m);
+        ~theory_datatype() override;
+        theory * mk_fresh(context * new_ctx) override;
+        void display(std::ostream & out) const override;
+        void collect_statistics(::statistics & st) const override;
+        void init_model(model_generator & m) override;
+        model_value_proc * mk_value(enode * n, model_generator & m) override;
         th_trail_stack & get_trail_stack() { return m_trail_stack; }
         virtual void merge_eh(theory_var v1, theory_var v2, theory_var, theory_var);
         static void after_merge_eh(theory_var r1, theory_var r2, theory_var v1, theory_var v2) {}
         void unmerge_eh(theory_var v1, theory_var v2);
-        virtual char const * get_name() const { return "datatype"; }
-        virtual bool include_func_interp(func_decl* f);
+        char const * get_name() const override { return "datatype"; }
+        bool include_func_interp(func_decl* f) override;
 
     };
 

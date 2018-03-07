@@ -29,7 +29,7 @@ inline void print_stat(std::ostream& out, char const* msg, unsigned num) {
 }
 
 inline void print_stat_f(std::ostream& out, char const* msg, float num) {
-    if (num > 0.0) {
+    if (num > 0.0f) {
         out << msg << num << "\n";
     }
 }

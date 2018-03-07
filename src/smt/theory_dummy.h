@@ -33,25 +33,25 @@ namespace smt {
         void found_theory_expr();
 
     protected:
-        virtual bool internalize_atom(app * atom, bool gate_ctx);
-        virtual bool internalize_term(app * term);
-        virtual void new_eq_eh(theory_var v1, theory_var v2);
-        virtual bool use_diseqs() const;
-        virtual void new_diseq_eh(theory_var v1, theory_var v2);
-        virtual void reset_eh();
-        virtual final_check_status final_check_eh();
-        virtual bool build_models() const { 
+        bool internalize_atom(app * atom, bool gate_ctx) override;
+        bool internalize_term(app * term) override;
+        void new_eq_eh(theory_var v1, theory_var v2) override;
+        bool use_diseqs() const override;
+        void new_diseq_eh(theory_var v1, theory_var v2) override;
+        void reset_eh() override;
+        final_check_status final_check_eh() override;
+        bool build_models() const override {
             return false;
         }
-        virtual void display(std::ostream& out) const {}
+        void display(std::ostream& out) const override {}
 
     public:
         theory_dummy(family_id fid, char const * name);
-        virtual ~theory_dummy() {}
+        ~theory_dummy() override {}
 
-        virtual theory * mk_fresh(context * new_ctx) { return alloc(theory_dummy, get_family_id(), m_name); }
+        theory * mk_fresh(context * new_ctx) override { return alloc(theory_dummy, get_family_id(), m_name); }
 
-        virtual char const * get_name() const;
+        char const * get_name() const override;
     };
 };
 

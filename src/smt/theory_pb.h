@@ -198,10 +198,10 @@ namespace smt {
             watch_list* m_var_watch;
             ineq*       m_ineq;
             
-            var_info(): m_var_watch(0), m_ineq(0)
+            var_info(): m_var_watch(nullptr), m_ineq(nullptr)
             {
-                m_lit_watch[0] = 0;
-                m_lit_watch[1] = 0;
+                m_lit_watch[0] = nullptr;
+                m_lit_watch[1] = nullptr;
             }
 
             void reset() {
@@ -261,7 +261,7 @@ namespace smt {
 
         std::ostream& display(std::ostream& out, ineq const& c, bool values = false) const;
         std::ostream& display(std::ostream& out, arg_t const& c, bool values = false) const;
-        virtual void display(std::ostream& out) const;
+        void display(std::ostream& out) const override;
         void display_watch(std::ostream& out, bool_var v, bool sign) const;
         void display_resolved_lemma(std::ostream& out) const;
 
@@ -317,26 +317,26 @@ namespace smt {
     public:
         theory_pb(ast_manager& m, theory_pb_params& p);
         
-        virtual ~theory_pb();
+        ~theory_pb() override;
 
-        virtual theory * mk_fresh(context * new_ctx);
-        virtual bool internalize_atom(app * atom, bool gate_ctx);
-        virtual bool internalize_term(app * term) { UNREACHABLE(); return false; }
-        virtual void new_eq_eh(theory_var v1, theory_var v2);
-        virtual void new_diseq_eh(theory_var v1, theory_var v2) { }
-        virtual bool use_diseqs() const { return false; }
-        virtual bool build_models() const { return false; }
-        virtual final_check_status final_check_eh();
-        virtual void reset_eh();
-        virtual void assign_eh(bool_var v, bool is_true);
-        virtual void init_search_eh();
-        virtual void push_scope_eh();
-        virtual void pop_scope_eh(unsigned num_scopes);
-        virtual void restart_eh();
-        virtual void collect_statistics(::statistics & st) const;
-        virtual model_value_proc * mk_value(enode * n, model_generator & mg);
-        virtual void init_model(model_generator & m);        
-        virtual bool include_func_interp(func_decl* f) { return false; }
+        theory * mk_fresh(context * new_ctx) override;
+        bool internalize_atom(app * atom, bool gate_ctx) override;
+        bool internalize_term(app * term) override { UNREACHABLE(); return false; }
+        void new_eq_eh(theory_var v1, theory_var v2) override;
+        void new_diseq_eh(theory_var v1, theory_var v2) override { }
+        bool use_diseqs() const override { return false; }
+        bool build_models() const override { return false; }
+        final_check_status final_check_eh() override;
+        void reset_eh() override;
+        void assign_eh(bool_var v, bool is_true) override;
+        void init_search_eh() override;
+        void push_scope_eh() override;
+        void pop_scope_eh(unsigned num_scopes) override;
+        void restart_eh() override;
+        void collect_statistics(::statistics & st) const override;
+        model_value_proc * mk_value(enode * n, model_generator & mg) override;
+        void init_model(model_generator & m) override;
+        bool include_func_interp(func_decl* f) override { return false; }
 
         static literal assert_ge(context& ctx, unsigned k, unsigned n, literal const* xs);
     };

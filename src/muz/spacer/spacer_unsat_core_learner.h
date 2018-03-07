@@ -82,7 +82,7 @@ namespace spacer {
     private:
         ptr_vector<unsat_core_plugin> m_plugins;
         func_decl_set m_symbols_b; // symbols, which occur in any b-asserted formula
-        void collect_symbols_b(expr_set axioms_b);
+        void collect_symbols_b(const expr_set& axioms_b);
 
         ast_mark m_a_mark;
         ast_mark m_b_mark;

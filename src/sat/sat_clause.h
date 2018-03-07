@@ -115,7 +115,7 @@ namespace sat {
     class tmp_clause {
         clause * m_clause;
     public:
-        tmp_clause():m_clause(0) {}
+        tmp_clause():m_clause(nullptr) {}
         ~tmp_clause() { if (m_clause) dealloc_svect(m_clause); }
         clause * get() const { return m_clause; }
         void set(unsigned num_lits, literal const * lits, bool learned);

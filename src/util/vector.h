@@ -57,7 +57,7 @@ class vector {
     }
 
     void expand_vector() {
-        if (m_data == 0) {
+        if (m_data == nullptr) {
             SZ capacity = 2;
             SZ * mem    = reinterpret_cast<SZ*>(memory::allocate(sizeof(T) * capacity + sizeof(SZ) * 2));
             *mem              = capacity; 
@@ -132,12 +132,12 @@ public:
     typedef const T * const_iterator;
 
     vector():
-        m_data(0) {
+        m_data(nullptr) {
     }
 
     vector(SZ s) {
         if (s == 0) {
-            m_data = 0;
+            m_data = nullptr;
             return;
         }
         SZ * mem = reinterpret_cast<SZ*>(memory::allocate(sizeof(T) * s + sizeof(SZ) * 2));
@@ -155,24 +155,24 @@ public:
     }
 
     vector(SZ s, T const & elem):
-        m_data(0) {
+        m_data(nullptr) {
         resize(s, elem);
     }
 
     vector(vector const & source):
-        m_data(0) {
+        m_data(nullptr) {
         if (source.m_data) {
             copy_core(source);
         }
         SASSERT(size() == source.size());
     }
 
-    vector(vector&& other) : m_data(0) {
+    vector(vector&& other) : m_data(nullptr) {
         std::swap(m_data, other.m_data);
     }
 
     vector(SZ s, T const * data):
-        m_data(0) {
+        m_data(nullptr) {
         for (SZ i = 0; i < s; i++) {
             push_back(data[i]);
         }
@@ -185,7 +185,7 @@ public:
 
     void finalize() {
         destroy();
-        m_data = 0;
+        m_data = nullptr;
     }
 
     vector & operator=(vector const & source) {
@@ -197,7 +197,7 @@ public:
             copy_core(source);
         }
         else {
-            m_data = 0;
+            m_data = nullptr;
         }
         return *this;
     }
@@ -207,7 +207,7 @@ public:
             return *this;
         }
         destroy();
-        m_data = 0;
+        m_data = nullptr;
         std::swap(m_data, source.m_data);
         return *this;
     }
@@ -224,18 +224,18 @@ public:
     void clear() { reset(); }
 
     bool empty() const { 
-        return m_data == 0 || reinterpret_cast<SZ *>(m_data)[SIZE_IDX] == 0; 
+        return m_data == nullptr || reinterpret_cast<SZ *>(m_data)[SIZE_IDX] == 0;
     }
 
     SZ size() const { 
-        if (m_data == 0) {
+        if (m_data == nullptr) {
             return 0;  
         }
         return reinterpret_cast<SZ *>(m_data)[SIZE_IDX]; 
     }
 
     SZ capacity() const { 
-        if (m_data == 0) {
+        if (m_data == nullptr) {
             return 0;
         }
         return reinterpret_cast<SZ *>(m_data)[CAPACITY_IDX]; 
@@ -349,7 +349,7 @@ public:
     }
 
     void push_back(T const & elem) {
-        if (m_data == 0 || reinterpret_cast<SZ *>(m_data)[SIZE_IDX] == reinterpret_cast<SZ *>(m_data)[CAPACITY_IDX]) {
+        if (m_data == nullptr || reinterpret_cast<SZ *>(m_data)[SIZE_IDX] == reinterpret_cast<SZ *>(m_data)[CAPACITY_IDX]) {
             expand_vector();
         }
         new (m_data + reinterpret_cast<SZ *>(m_data)[SIZE_IDX]) T(elem); 
@@ -357,7 +357,7 @@ public:
     }
 
     void push_back(T && elem) {
-        if (m_data == 0 || reinterpret_cast<SZ *>(m_data)[SIZE_IDX] == reinterpret_cast<SZ *>(m_data)[CAPACITY_IDX]) {
+        if (m_data == nullptr || reinterpret_cast<SZ *>(m_data)[SIZE_IDX] == reinterpret_cast<SZ *>(m_data)[CAPACITY_IDX]) {
             expand_vector();
         }
         new (m_data + reinterpret_cast<SZ *>(m_data)[SIZE_IDX]) T(std::move(elem));

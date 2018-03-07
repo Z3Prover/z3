@@ -127,7 +127,7 @@ void pred_transformer::init_sig()
         std::stringstream name_stm;
         name_stm << m_head->get_name() << '_' << i;
         func_decl_ref stm(m);
-        stm = m.mk_func_decl(symbol(name_stm.str().c_str()), 0, (sort*const*)0, arg_sort);
+        stm = m.mk_func_decl(symbol(name_stm.str().c_str()), 0, (sort*const*)nullptr, arg_sort);
         m_sig.push_back(pm.get_o_pred(stm, 0));
     }
 }
@@ -153,7 +153,7 @@ bool pred_transformer::is_must_reachable(expr* state, model_ref* model)
     m_reach_ctx->push ();
     m_reach_ctx->assert_expr (state);
     m_reach_ctx->assert_expr (m.mk_not (m_reach_case_vars.back ()));
-    lbool res = m_reach_ctx->check_sat (0, NULL);
+    lbool res = m_reach_ctx->check_sat (0, nullptr);
     if (model) { m_reach_ctx->get_model(*model); }
     m_reach_ctx->pop (1);
     return (res == l_true);
@@ -176,14 +176,14 @@ reach_fact* pred_transformer::get_used_reach_fact (model_evaluator_util& mev,
     }
 
     UNREACHABLE ();
-    return NULL;
+    return nullptr;
 }
 
 reach_fact *pred_transformer::get_used_origin_reach_fact (model_evaluator_util& mev,
                                                           unsigned oidx)
 {
     expr_ref b(m), v(m);
-    reach_fact *res = NULL;
+    reach_fact *res = nullptr;
 
     for (unsigned i = 0, sz = m_reach_case_vars.size (); i < sz; i++) {
         pm.formula_n2o (m_reach_case_vars.get (i), v, oidx);
@@ -219,7 +219,7 @@ datalog::rule const* pred_transformer::find_rule(model &model,
     // prefer a rule where the model intersects with reach facts of all predecessors;
     // also find how many predecessors' reach facts are true in the model
     expr_ref vl(m);
-    datalog::rule const* r = ((datalog::rule*)0);
+    datalog::rule const* r = ((datalog::rule*)nullptr);
     tag2rule::iterator it = m_tag2rule.begin(), end = m_tag2rule.end();
     for (; it != end; ++it) {
         expr* tag = it->m_key;
@@ -392,7 +392,7 @@ expr* pred_transformer::mk_fresh_reach_case_var ()
 
     name << head ()->get_name () << "#reach_case_" << m_reach_case_vars.size ();
     decl = m.mk_func_decl (symbol (name.str ().c_str ()), 0,
-                           (sort*const*)0, m.mk_bool_sort ());
+                           (sort*const*)nullptr, m.mk_bool_sort ());
     m_reach_case_vars.push_back (m.mk_const (pm.get_n_pred (decl)));
     return m_reach_case_vars.back ();
 }
@@ -495,7 +495,7 @@ expr_ref pred_transformer::get_reachable()
 
 expr* pred_transformer::get_last_reach_case_var () const
 {
-    return m_reach_case_vars.empty () ? NULL : m_reach_case_vars.back ();
+    return m_reach_case_vars.empty () ? nullptr : m_reach_case_vars.back ();
 }
 
 expr_ref pred_transformer::get_cover_delta(func_decl* p_orig, int level)
@@ -557,7 +557,7 @@ expr_ref pred_transformer::get_origin_summary (model_evaluator_util &mev,
     if (!must) { // use may summary
         summary.push_back (get_formulas (level, false));
         // -- no auxiliary variables in lemmas
-        *aux = NULL;
+        *aux = nullptr;
     } else { // find must summary to use
         reach_fact *f = get_used_origin_reach_fact (mev, oidx);
         summary.push_back (f->get ());
@@ -613,12 +613,12 @@ bool pred_transformer::is_blocked (pob &n, unsigned &uses_level)
 {
     ensure_level (n.level ());
     prop_solver::scoped_level _sl (m_solver, n.level ());
-    m_solver.set_core (NULL);
-    m_solver.set_model (NULL);
+    m_solver.set_core (nullptr);
+    m_solver.set_model (nullptr);
 
     expr_ref_vector post(m), aux(m);
     post.push_back (n.post ());
-    lbool res = m_solver.check_assumptions (post, aux, 0, NULL, 0);
+    lbool res = m_solver.check_assumptions (post, aux, 0, nullptr, 0);
     if (res == l_false) { uses_level = m_solver.uses_level(); }
     return res == l_false;
 }
@@ -775,7 +775,7 @@ bool pred_transformer::is_invariant(unsigned level, expr* lemma,
     prop_solver::scoped_level _sl(m_solver, level);
     prop_solver::scoped_subset_core _sc (m_solver, true);
     m_solver.set_core(core);
-    m_solver.set_model(0);
+    m_solver.set_model(nullptr);
     expr * bg = m_extend_lit.get ();
     lbool r = m_solver.check_assumptions (conj, aux, 1, &bg, 1);
     if (r == l_false) {
@@ -799,7 +799,7 @@ bool pred_transformer::check_inductive(unsigned level, expr_ref_vector& state,
     prop_solver::scoped_level _sl(m_solver, level);
     prop_solver::scoped_subset_core _sc (m_solver, true);
     m_solver.set_core(&core);
-    m_solver.set_model (0);
+    m_solver.set_model (nullptr);
     expr_ref_vector aux (m);
     conj.push_back (m_extend_lit);
     lbool res = m_solver.check_assumptions (state, aux, conj.size (), conj.c_ptr (), 1);
@@ -1023,7 +1023,7 @@ void pred_transformer::ground_free_vars(expr* e, app_ref_vector& vars,
     fv(e);
 
     while (vars.size() < fv.size()) {
-        vars.push_back(0);
+        vars.push_back(nullptr);
     }
     for (unsigned i = 0; i < fv.size(); ++i) {
         if (fv[i] && !vars[i].get()) {
@@ -1110,7 +1110,7 @@ lemma::lemma (ast_manager &manager, expr * body, unsigned lvl) :
     m_ref_count(0), m(manager),
     m_body(body, m), m_cube(m),
     m_bindings(m), m_lvl(lvl),
-    m_pob(0), m_new_pob(false) {
+    m_pob(nullptr), m_new_pob(false) {
     SASSERT(m_body);
     normalize(m_body, m_body);
 }
@@ -1579,7 +1579,7 @@ void derivation::add_premise (pred_transformer &pt,
 
 pob *derivation::create_first_child (model_evaluator_util &mev)
 {
-    if (m_premises.empty()) { return NULL; }
+    if (m_premises.empty()) { return nullptr; }
     m_active = 0;
     return create_next_child(mev);
 }
@@ -1602,7 +1602,7 @@ pob *derivation::create_next_child (model_evaluator_util &mev)
         vars.append (m_premises[m_active].get_ovars ());
         ++m_active;
     }
-    if (m_active >= m_premises.size()) { return NULL; }
+    if (m_active >= m_premises.size()) { return nullptr; }
 
     // -- update m_trans with the pre-image of m_trans over the must summaries
     summaries.push_back (m_trans);
@@ -1621,7 +1621,7 @@ pob *derivation::create_next_child (model_evaluator_util &mev)
 
     if (!mev.is_true (m_premises[m_active].get_summary())) {
         IF_VERBOSE(1, verbose_stream() << "Summary unexpectendly not true\n";);
-        return NULL;
+        return nullptr;
     }
 
 
@@ -1670,7 +1670,7 @@ pob *derivation::create_next_child (model_evaluator_util &mev)
 
 pob *derivation::create_next_child ()
 {
-    if (m_active + 1 >= m_premises.size()) { return NULL; }
+    if (m_active + 1 >= m_premises.size()) { return nullptr; }
 
     bool use_native_mbp = get_context ().use_native_mbp ();
     bool ground = get_context ().use_ground_cti ();
@@ -1697,7 +1697,7 @@ pob *derivation::create_next_child ()
 
     // if not true, bail out, the must summary of m_active is not strong enough
     // this is possible if m_post was weakened for some reason
-    if (!pt.is_must_reachable(pm.mk_and(summaries), &model)) { return NULL; }
+    if (!pt.is_must_reachable(pm.mk_and(summaries), &model)) { return nullptr; }
 
     model_evaluator_util mev (m);
     mev.set_model (*model);
@@ -1848,12 +1848,12 @@ void pob::get_skolems(app_ref_vector &v) {
 pob* pob_queue::top ()
 {
     /// nothing in the queue
-    if (m_obligations.empty()) { return NULL; }
+    if (m_obligations.empty()) { return nullptr; }
     /// top queue element is above max level
-    if (m_obligations.top()->level() > m_max_level) { return NULL; }
+    if (m_obligations.top()->level() > m_max_level) { return nullptr; }
     /// top queue element is at the max level, but at a higher than base depth
     if (m_obligations.top ()->level () == m_max_level &&
-        m_obligations.top()->depth() > m_min_depth) { return NULL; }
+        m_obligations.top()->depth() > m_min_depth) { return nullptr; }
 
     /// there is something good in the queue
     return m_obligations.top ().get ();
@@ -1882,10 +1882,10 @@ context::context(fixedpoint_params const&     params,
                  ast_manager&          m) :
     m_params(params),
     m(m),
-    m_context(0),
+    m_context(nullptr),
     m_pm(params.pdr_max_num_contexts(), m),
     m_query_pred(m),
-    m_query(0),
+    m_query(nullptr),
     m_pob_queue(),
     m_last_result(l_undef),
     m_inductive_lvl(0),
@@ -1914,7 +1914,7 @@ void context::reset()
         dealloc(it->m_value);
     }
     m_rels.reset();
-    m_query = 0;
+    m_query = nullptr;
     m_last_result = l_undef;
     m_inductive_lvl = 0;
 }
@@ -1985,7 +1985,7 @@ void context::update_rules(datalog::rule_set& rules)
     init_rules(rules, rels);
     decl2rel::iterator it = rels.begin(), end = rels.end();
     for (; it != end; ++it) {
-        pred_transformer* pt = 0;
+        pred_transformer* pt = nullptr;
         if (m_rels.find(it->m_key, pt)) {
             it->m_value->inherit_properties(*pt);
         }
@@ -1999,7 +1999,7 @@ void context::update_rules(datalog::rule_set& rules)
 
 unsigned context::get_num_levels(func_decl* p)
 {
-    pred_transformer* pt = 0;
+    pred_transformer* pt = nullptr;
     if (m_rels.find(p, pt)) {
         return pt->get_num_levels();
     } else {
@@ -2010,7 +2010,7 @@ unsigned context::get_num_levels(func_decl* p)
 
 expr_ref context::get_cover_delta(int level, func_decl* p_orig, func_decl* p)
 {
-    pred_transformer* pt = 0;
+    pred_transformer* pt = nullptr;
     if (m_rels.find(p, pt)) {
         return pt->get_cover_delta(p_orig, level);
     } else {
@@ -2021,7 +2021,7 @@ expr_ref context::get_cover_delta(int level, func_decl* p_orig, func_decl* p)
 
 void context::add_cover(int level, func_decl* p, expr* property)
 {
-    pred_transformer* pt = 0;
+    pred_transformer* pt = nullptr;
     if (!m_rels.find(p, pt)) {
         pt = alloc(pred_transformer, *this, get_manager(), p);
         m_rels.insert(p, pt);
@@ -2036,7 +2036,7 @@ void context::add_invariant (func_decl *p, expr *property)
 
 expr_ref context::get_reachable(func_decl *p)
 {
-    pred_transformer* pt = 0;
+    pred_transformer* pt = nullptr;
     if (!m_rels.find(p, pt))
     { return expr_ref(m.mk_false(), m); }
     return pt->get_reachable();
@@ -2300,7 +2300,7 @@ unsigned context::get_cex_depth()
         // get current pt and fact
         pt = pts.get (curr);
         // check for depth marker
-        if (pt == NULL) {
+        if (pt == nullptr) {
             ++cex_depth;
             // insert new marker if there are pts at higher depth
             if (curr + 1 < pts.size()) { pts.push_back(NULL); }
@@ -2635,7 +2635,7 @@ bool context::check_reachability ()
         while (last_reachable) {
             checkpoint ();
             node = last_reachable;
-            last_reachable = NULL;
+            last_reachable = nullptr;
             if (m_pob_queue.is_root(*node)) { return true; }
             if (is_reachable (*node->parent())) {
                 last_reachable = node->parent ();
@@ -2751,14 +2751,14 @@ bool context::is_reachable(pob &n)
 
     // used in case n is reachable
     bool is_concrete;
-    const datalog::rule * r = NULL;
+    const datalog::rule * r = nullptr;
     // denotes which predecessor's (along r) reach facts are used
     vector<bool> reach_pred_used;
     unsigned num_reuse_reach = 0;
 
     unsigned saved = n.level ();
     n.m_level = infty_level ();
-    lbool res = n.pt().is_reachable(n, NULL, &model,
+    lbool res = n.pt().is_reachable(n, nullptr, &model,
                                     uses_level, is_concrete, r,
                                     reach_pred_used, num_reuse_reach);
     n.m_level = saved;
@@ -2782,7 +2782,7 @@ bool context::is_reachable(pob &n)
 
     // if n has a derivation, create a new child and report l_undef
     // otherwise if n has no derivation or no new children, report l_true
-    pob *next = NULL;
+    pob *next = nullptr;
     scoped_ptr<derivation> deriv;
     if (n.has_derivation()) {deriv = n.detach_derivation();}
 
@@ -2854,7 +2854,7 @@ lbool context::expand_node(pob& n)
 
     // used in case n is reachable
     bool is_concrete;
-    const datalog::rule * r = NULL;
+    const datalog::rule * r = nullptr;
     // denotes which predecessor's (along r) reach facts are used
     vector<bool> reach_pred_used;
     unsigned num_reuse_reach = 0;
@@ -2899,7 +2899,7 @@ lbool context::expand_node(pob& n)
 
             // if n has a derivation, create a new child and report l_undef
             // otherwise if n has no derivation or no new children, report l_true
-            pob *next = NULL;
+            pob *next = nullptr;
             scoped_ptr<derivation> deriv;
             if (n.has_derivation()) {deriv = n.detach_derivation();}
 
@@ -3264,7 +3264,7 @@ bool context::create_children(pob& n, datalog::rule const& r,
 
         pred_transformer &pt = get_pred_transformer (preds [j]);
 
-        const ptr_vector<app> *aux = NULL;
+        const ptr_vector<app> *aux = nullptr;
         expr_ref sum(m);
         // XXX This is a bit confusing. The summary is returned over
         // XXX o-variables. But it is simpler if it is returned over n-variables instead.
@@ -3418,7 +3418,7 @@ expr_ref context::get_constraints (unsigned level)
     return m_pm.mk_and (constraints);
 }
 
-void context::add_constraints (unsigned level, expr_ref c)
+void context::add_constraints (unsigned level, const expr_ref& c)
 {
     if (!c.get()) { return; }
     if (m.is_true(c)) { return; }
@@ -3432,7 +3432,7 @@ void context::add_constraints (unsigned level, expr_ref c)
         expr *e1, *e2;
         if (m.is_implies(c, e1, e2)) {
             SASSERT (is_app (e1));
-            pred_transformer *r = 0;
+            pred_transformer *r = nullptr;
             if (m_rels.find (to_app (e1)->get_decl (), r))
             { r->add_lemma(e2, level); }
         }

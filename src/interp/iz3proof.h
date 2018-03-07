@@ -210,7 +210,7 @@ class iz3proof {
     }
 
     /** Default constructor */
-    iz3proof(){pv = 0;}
+    iz3proof(){pv = nullptr;}
 
 
  protected:

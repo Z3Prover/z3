@@ -88,7 +88,7 @@ class elim_aux_assertions {
 
     app_ref m_aux;
 public:
-    elim_aux_assertions(app_ref aux) : m_aux(aux) {}
+    elim_aux_assertions(app_ref const& aux) : m_aux(aux) {}
 
     void mk_or_core(expr_ref_vector &args, expr_ref &res)
     {

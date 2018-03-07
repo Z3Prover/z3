@@ -69,39 +69,39 @@ namespace datalog {
         typedef sparse_table table;
 
         sparse_table_plugin(relation_manager & manager);
-        ~sparse_table_plugin();
+        ~sparse_table_plugin() override;
 
-        virtual bool can_handle_signature(const table_signature & s) 
+        bool can_handle_signature(const table_signature & s) override
         { return s.size()>0; }
 
-        virtual table_base * mk_empty(const table_signature & s);
+        table_base * mk_empty(const table_signature & s) override;
         sparse_table * mk_clone(const sparse_table & t);
 
     protected:
-        virtual table_join_fn * mk_join_fn(const table_base & t1, const table_base & t2,
-            unsigned col_cnt, const unsigned * cols1, const unsigned * cols2);
-        virtual table_join_fn * mk_join_project_fn(const table_base & t1, const table_base & t2,
-            unsigned col_cnt, const unsigned * cols1, const unsigned * cols2, unsigned removed_col_cnt, 
-            const unsigned * removed_cols);
-        virtual table_union_fn * mk_union_fn(const table_base & tgt, const table_base & src, 
-            const table_base * delta);
-        virtual table_transformer_fn * mk_project_fn(const table_base & t, unsigned col_cnt, 
-            const unsigned * removed_cols);
-        virtual table_transformer_fn * mk_rename_fn(const table_base & t, unsigned permutation_cycle_len,
-            const unsigned * permutation_cycle);
-        virtual table_transformer_fn * mk_select_equal_and_project_fn(const table_base & t, 
-            const table_element & value, unsigned col);
-        virtual table_intersection_filter_fn * mk_filter_by_negation_fn(const table_base & t, 
-                const table_base & negated_obj, unsigned joined_col_cnt, 
-                const unsigned * t_cols, const unsigned * negated_cols);
-        virtual table_intersection_join_filter_fn* mk_filter_by_negated_join_fn(
-            const table_base & t, 
-            const table_base & src1, 
-            const table_base & src2, 
+        table_join_fn * mk_join_fn(const table_base & t1, const table_base & t2,
+            unsigned col_cnt, const unsigned * cols1, const unsigned * cols2) override;
+        table_join_fn * mk_join_project_fn(const table_base & t1, const table_base & t2,
+            unsigned col_cnt, const unsigned * cols1, const unsigned * cols2, unsigned removed_col_cnt,
+            const unsigned * removed_cols) override;
+        table_union_fn * mk_union_fn(const table_base & tgt, const table_base & src,
+            const table_base * delta) override;
+        table_transformer_fn * mk_project_fn(const table_base & t, unsigned col_cnt,
+            const unsigned * removed_cols) override;
+        table_transformer_fn * mk_rename_fn(const table_base & t, unsigned permutation_cycle_len,
+            const unsigned * permutation_cycle) override;
+        table_transformer_fn * mk_select_equal_and_project_fn(const table_base & t,
+            const table_element & value, unsigned col) override;
+        table_intersection_filter_fn * mk_filter_by_negation_fn(const table_base & t,
+                const table_base & negated_obj, unsigned joined_col_cnt,
+                const unsigned * t_cols, const unsigned * negated_cols) override;
+        table_intersection_join_filter_fn* mk_filter_by_negated_join_fn(
+            const table_base & t,
+            const table_base & src1,
+            const table_base & src2,
             unsigned_vector const& t_cols,
             unsigned_vector const& src_cols,
             unsigned_vector const& src1_cols,
-            unsigned_vector const& src2_cols);
+            unsigned_vector const& src2_cols) override;
 
         static sparse_table const& get(table_base const&);
         static sparse_table& get(table_base&);
@@ -424,7 +424,7 @@ namespace datalog {
 
         /**
             \c array \c removed_cols contains column indexes to be removed in ascending order and
-            is terminated by a number greated than the highest column index of a join the the two tables. 
+            is terminated by a number greater than the highest column index of a join the two tables.
             This is to simplify the traversal of the array when building facts.
          */
         static void concatenate_rows(const column_layout & layout1, const column_layout & layout2,
@@ -436,7 +436,7 @@ namespace datalog {
            columns from t2 using indexing.
 
            \c array \c removed_cols contains column indexes to be removed in ascending order and
-           is terminated by a number greated than the highest column index of a join the the two tables. 
+           is terminated by a number greater than the highest column index of a join the two tables.
            This is to simplify the traversal of the array when building facts.
 
            \c tables_swapped value means that the resulting facts should contain facts from t2 first,
@@ -463,10 +463,10 @@ namespace datalog {
 
         sparse_table(sparse_table_plugin & p, const table_signature & sig, unsigned init_capacity=0);
         sparse_table(const sparse_table & t);
-        virtual ~sparse_table();
+        ~sparse_table() override;
     public:
 
-        virtual void deallocate() {
+        void deallocate() override {
             get_plugin().recycle(this);
         }
 
@@ -475,22 +475,22 @@ namespace datalog {
         sparse_table_plugin & get_plugin() const 
         { return static_cast<sparse_table_plugin &>(table_base::get_plugin()); }
 
-        virtual bool empty() const { return row_count()==0; }
-        virtual void add_fact(const table_fact & f);
-        virtual bool contains_fact(const table_fact & f) const;
-        virtual bool fetch_fact(table_fact & f) const;
-        virtual void ensure_fact(const table_fact & f);
-        virtual void remove_fact(const table_element* fact);
-        virtual void reset();
+        bool empty() const override { return row_count()==0; }
+        void add_fact(const table_fact & f) override;
+        bool contains_fact(const table_fact & f) const override;
+        bool fetch_fact(table_fact & f) const override;
+        void ensure_fact(const table_fact & f) override;
+        void remove_fact(const table_element* fact) override;
+        void reset() override;
 
-        virtual table_base * clone() const;
+        table_base * clone() const override;
 
-        virtual table_base::iterator begin() const;
-        virtual table_base::iterator end() const;
+        table_base::iterator begin() const override;
+        table_base::iterator end() const override;
 
-        virtual unsigned get_size_estimate_rows() const { return row_count(); }
-        virtual unsigned get_size_estimate_bytes() const;
-        virtual bool knows_exact_size() const { return true; }
+        unsigned get_size_estimate_rows() const override { return row_count(); }
+        unsigned get_size_estimate_bytes() const override;
+        bool knows_exact_size() const override { return true; }
     };
 
  };

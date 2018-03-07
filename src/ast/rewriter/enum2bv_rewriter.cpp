@@ -194,7 +194,7 @@ struct enum2bv_rewriter::imp {
                                      q->get_weight(), q->get_qid(), q->get_skid(), 
                                      q->get_num_patterns(), new_patterns,
                                      q->get_num_no_patterns(), new_no_patterns);
-            result_pr = 0;
+            result_pr = nullptr;
             return true;
         }
 
@@ -226,7 +226,7 @@ struct enum2bv_rewriter::imp {
         m_enum_bvs(m),
         m_enum_defs(m),
         m_num_translated(0), 
-        m_sort_pred(0), 
+        m_sort_pred(nullptr),
         m_rw(*this, m, p) {
     }
 

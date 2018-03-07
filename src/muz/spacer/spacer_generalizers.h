@@ -30,8 +30,8 @@ namespace spacer {
 class lemma_sanity_checker : public lemma_generalizer {
 public:
     lemma_sanity_checker(context& ctx) : lemma_generalizer(ctx) {}
-    virtual ~lemma_sanity_checker() {}
-    virtual void operator()(lemma_ref &lemma);
+    ~lemma_sanity_checker() override {}
+    void operator()(lemma_ref &lemma) override;
 };
 
 /**
@@ -53,11 +53,11 @@ class lemma_bool_inductive_generalizer : public lemma_generalizer {
 public:
     lemma_bool_inductive_generalizer(context& ctx, unsigned failure_limit) :
         lemma_generalizer(ctx), m_failure_limit(failure_limit) {}
-    virtual ~lemma_bool_inductive_generalizer() {}
-    virtual void operator()(lemma_ref &lemma);
+    ~lemma_bool_inductive_generalizer() override {}
+    void operator()(lemma_ref &lemma) override;
 
-    virtual void collect_statistics(statistics& st) const;
-    virtual void reset_statistics() {m_st.reset();}
+    void collect_statistics(statistics& st) const override;
+    void reset_statistics() override {m_st.reset();}
 };
 
 class unsat_core_generalizer : public lemma_generalizer {
@@ -72,26 +72,26 @@ class unsat_core_generalizer : public lemma_generalizer {
     stats m_st;
 public:
     unsat_core_generalizer(context &ctx) : lemma_generalizer(ctx) {}
-    virtual ~unsat_core_generalizer() {}
-    virtual void operator()(lemma_ref &lemma);
+    ~unsat_core_generalizer() override {}
+    void operator()(lemma_ref &lemma) override;
 
-    virtual void collect_statistics(statistics &st) const;
-    virtual void reset_statistics() {m_st.reset();}
+    void collect_statistics(statistics &st) const override;
+    void reset_statistics() override {m_st.reset();}
 };
 
 class lemma_array_eq_generalizer : public lemma_generalizer {
 public:
     lemma_array_eq_generalizer(context &ctx) : lemma_generalizer(ctx) {}
-    virtual ~lemma_array_eq_generalizer() {}
-    virtual void operator()(lemma_ref &lemma);
+    ~lemma_array_eq_generalizer() override {}
+    void operator()(lemma_ref &lemma) override;
 
 };
 
 class lemma_eq_generalizer : public lemma_generalizer {
 public:
     lemma_eq_generalizer(context &ctx) : lemma_generalizer(ctx) {}
-    virtual ~lemma_eq_generalizer() {}
-    virtual void operator()(lemma_ref &lemma);
+    ~lemma_eq_generalizer() override {}
+    void operator()(lemma_ref &lemma) override;
 };
 
 

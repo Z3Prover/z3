@@ -387,9 +387,9 @@ static void tst9() {
 
 static void tst10(bool use_ints) {
     if (use_ints) 
-        std::cout << "Testing multiplication performace using small ints\n";
+        std::cout << "Testing multiplication performance using small ints\n";
     else
-        std::cout << "Testing multiplication performace using small rationals\n";
+        std::cout << "Testing multiplication performance using small rationals\n";
     vector<rational> vals;
     vector<rational> vals2;
     vector<float>    fvals;

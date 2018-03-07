@@ -959,7 +959,7 @@ namespace Microsoft.Z3
         /// Tn: (R t_n s_n)
         /// [monotonicity T1 ... Tn]: (R (f t_1 ... t_n) (f s_1 ... s_n))
         /// Remark: if t_i == s_i, then the antecedent Ti is suppressed.
-        /// That is, reflexivity proofs are supressed to save space.
+        /// That is, reflexivity proofs are suppressed to save space.
         /// </remarks>
         public bool IsProofMonotonicity { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_MONOTONICITY; } }
 
@@ -1002,7 +1002,7 @@ namespace Microsoft.Z3
         public bool IsProofAndElimination { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_AND_ELIM; } }
 
         /// <summary>
-        /// Indicates whether the term is a proof by eliminiation of not-or
+        /// Indicates whether the term is a proof by elimination of not-or
         /// </summary>
         /// <remarks>
         /// Given a proof for (not (or l_1 ... l_n)), produces a proof for (not l_i).
@@ -1112,7 +1112,7 @@ namespace Microsoft.Z3
         public bool IsProofQuantInst { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_QUANT_INST; } }
 
         /// <summary>
-        /// Indicates whether the term is a hypthesis marker.
+        /// Indicates whether the term is a hypothesis marker.
         /// </summary>
         /// <remarks>Mark a hypothesis in a natural deduction style proof.</remarks>
         public bool IsProofHypothesis { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_HYPOTHESIS; } }
@@ -1433,7 +1433,7 @@ namespace Microsoft.Z3
         /// <remarks>
         /// Filter (restrict) a relation with respect to a predicate.
         /// The first argument is a relation.
-        /// The second argument is a predicate with free de-Brujin indices
+        /// The second argument is a predicate with free de-Bruijn indices
         /// corresponding to the columns of the relation.
         /// So the first column in the relation has index 0.
         /// </remarks>
@@ -1649,7 +1649,7 @@ namespace Microsoft.Z3
         public bool IsFPMul { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_MUL; } }
 
         /// <summary>
-        /// Indicates whether the term is a floating-point divison term
+        /// Indicates whether the term is a floating-point division term
         /// </summary>
         public bool IsFPDiv { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_DIV; } }
 
@@ -1709,7 +1709,7 @@ namespace Microsoft.Z3
         public bool IsFPLe { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_LE; } }
 
         /// <summary>
-        /// Indicates whether the term is a floating-point greater-than or erqual term
+        /// Indicates whether the term is a floating-point greater-than or equal term
         /// </summary>
         public bool IsFPGe { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_GE; } }
 
@@ -1789,7 +1789,7 @@ namespace Microsoft.Z3
 
         #region Bound Variables
         /// <summary>
-        /// The de-Burijn index of a bound variable.
+        /// The de-Bruijn index of a bound variable.
         /// </summary>
         /// <remarks>
         /// Bound variables are indexed by de-Bruijn indices. It is perhaps easiest to explain

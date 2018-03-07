@@ -244,7 +244,7 @@ namespace smt {
                 }
                 literal lit = mk_diseq(k, v);
                 literals.push_back(lit);
-                mk_clause(literals.size(), literals.c_ptr(), 0);
+                mk_clause(literals.size(), literals.c_ptr(), nullptr);
                 TRACE("context", display_literals_verbose(tout, literals.size(), literals.c_ptr()););
             }
         }    

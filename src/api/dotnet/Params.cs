@@ -31,98 +31,108 @@ namespace Microsoft.Z3
         /// <summary>
         /// Adds a parameter setting.
         /// </summary>
-        public void Add(Symbol name, bool value)
+        public Params Add(Symbol name, bool value)
         {
             Contract.Requires(name != null);
 
             Native.Z3_params_set_bool(Context.nCtx, NativeObject, name.NativeObject, (value) ? 1 : 0);
+            return this;
         }
 
         /// <summary>
         /// Adds a parameter setting.
         /// </summary>
-        public void Add(Symbol name, uint value)
+        public Params Add(Symbol name, uint value)
         {
             Contract.Requires(name != null);
 
             Native.Z3_params_set_uint(Context.nCtx, NativeObject, name.NativeObject, value);
+            return this;
         }
 
         /// <summary>
         /// Adds a parameter setting.
         /// </summary>
-        public void Add(Symbol name, double value)
+        public Params Add(Symbol name, double value)
         {
-            Contract.Requires(name != null);
-            
+            Contract.Requires(name != null);            
+
             Native.Z3_params_set_double(Context.nCtx, NativeObject, name.NativeObject, value);
+            return this;
         }
 
         /// <summary>
         /// Adds a parameter setting.
         /// </summary>
-        public void Add(Symbol name, string value)
+        public Params Add(Symbol name, string value)
         {
             Contract.Requires(value != null);
 
             Native.Z3_params_set_symbol(Context.nCtx, NativeObject, name.NativeObject, Context.MkSymbol(value).NativeObject);
+            return this;
         }
 
         /// <summary>
         /// Adds a parameter setting.
         /// </summary>
-        public void Add(Symbol name, Symbol value)
+        public Params Add(Symbol name, Symbol value)
         {
             Contract.Requires(name != null);
             Contract.Requires(value != null);
 
             Native.Z3_params_set_symbol(Context.nCtx, NativeObject, name.NativeObject, value.NativeObject);
+            return this;
         }
 
 
         /// <summary>
         /// Adds a parameter setting.
         /// </summary>
-        public void Add(string name, bool value)
+        public Params Add(string name, bool value)
         {
             Native.Z3_params_set_bool(Context.nCtx, NativeObject, Context.MkSymbol(name).NativeObject, (value) ? 1 : 0);
+            return this;
         }
 
         /// <summary>
         /// Adds a parameter setting.
         /// </summary>
-        public void Add(string name, uint value)
+        public Params Add(string name, uint value)
         {
             Native.Z3_params_set_uint(Context.nCtx, NativeObject, Context.MkSymbol(name).NativeObject, value);
+            return this;
         }
 
         /// <summary>
         /// Adds a parameter setting.
         /// </summary>
-        public void Add(string name, double value)
+        public Params Add(string name, double value)
         {
             Native.Z3_params_set_double(Context.nCtx, NativeObject, Context.MkSymbol(name).NativeObject, value);
+            return this;
         }
 
         /// <summary>
         /// Adds a parameter setting.
         /// </summary>
-        public void Add(string name, Symbol value)
+        public Params Add(string name, Symbol value)
         {
             Contract.Requires(value != null);
 
             Native.Z3_params_set_symbol(Context.nCtx, NativeObject, Context.MkSymbol(name).NativeObject, value.NativeObject);
+            return this;
         }
 
         /// <summary>
         /// Adds a parameter setting.
         /// </summary>
-        public void Add(string name, string value)
+        public Params Add(string name, string value)
         {
             Contract.Requires(name != null);
             Contract.Requires(value != null);
 
             Native.Z3_params_set_symbol(Context.nCtx, NativeObject, Context.MkSymbol(name).NativeObject, Context.MkSymbol(value).NativeObject);
+            return this;
         }
 
         /// <summary>

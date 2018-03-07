@@ -86,10 +86,10 @@ public:
         m_farkas_a_const(farkas_a_const)
     {}
 
-    virtual ~itp_solver() {}
+    ~itp_solver() override {}
 
     /* itp solver specific */
-    virtual void get_unsat_core(expr_ref_vector &core);
+    void get_unsat_core(expr_ref_vector &core) override;
     virtual void get_itp_core(expr_ref_vector &core);
     void set_split_literals(bool v) {m_split_literals = v;}
     bool mk_proxies(expr_ref_vector &v, unsigned from = 0);
@@ -104,53 +104,53 @@ public:
 
     /* solver interface */
 
-    virtual solver* translate(ast_manager &m, params_ref const &p)
+    solver* translate(ast_manager &m, params_ref const &p) override
     {return m_solver.translate(m, p);}
-    virtual void updt_params(params_ref const &p)
+    void updt_params(params_ref const &p) override
     {m_solver.updt_params(p);}
-    virtual void collect_param_descrs(param_descrs &r)
+    void collect_param_descrs(param_descrs &r) override
     {m_solver.collect_param_descrs(r);}
-    virtual void set_produce_models(bool f)
+    void set_produce_models(bool f) override
     {m_solver.set_produce_models(f);}
-    virtual void assert_expr(expr *t)
+    void assert_expr(expr *t) override
     {m_solver.assert_expr(t);}
 
-    virtual void assert_expr(expr *t, expr *a)
+    void assert_expr(expr *t, expr *a) override
     {NOT_IMPLEMENTED_YET();}
 
-    virtual void push();
-    virtual void pop(unsigned n);
-    virtual unsigned get_scope_level() const
+    void push() override;
+    void pop(unsigned n) override;
+    unsigned get_scope_level() const override
     {return m_solver.get_scope_level();}
 
-    virtual lbool check_sat(unsigned num_assumptions, expr * const *assumptions);
-    virtual void set_progress_callback(progress_callback *callback)
+    lbool check_sat(unsigned num_assumptions, expr * const *assumptions) override;
+    void set_progress_callback(progress_callback *callback) override
     {m_solver.set_progress_callback(callback);}
-    virtual unsigned get_num_assertions() const
+    unsigned get_num_assertions() const override
     {return m_solver.get_num_assertions();}
-    virtual expr * get_assertion(unsigned idx) const
+    expr * get_assertion(unsigned idx) const override
     {return m_solver.get_assertion(idx);}
-    virtual unsigned get_num_assumptions() const
+    unsigned get_num_assumptions() const override
     {return m_solver.get_num_assumptions();}
-    virtual expr * get_assumption(unsigned idx) const
+    expr * get_assumption(unsigned idx) const override
     {return m_solver.get_assumption(idx);}
-    virtual std::ostream &display(std::ostream &out, unsigned n, expr* const* es) const
+    std::ostream &display(std::ostream &out, unsigned n, expr* const* es) const override
     { return m_solver.display(out, n, es); }
 
     /* check_sat_result interface */
 
-    virtual void collect_statistics(statistics &st) const ;
+    void collect_statistics(statistics &st) const override ;
     virtual void reset_statistics();
-    virtual void get_unsat_core(ptr_vector<expr> &r);
-    virtual void get_model(model_ref &m) {m_solver.get_model(m);}
-    virtual proof *get_proof() {return m_solver.get_proof();}
-    virtual std::string reason_unknown() const
+    void get_unsat_core(ptr_vector<expr> &r) override;
+    void get_model(model_ref &m) override {m_solver.get_model(m);}
+    proof *get_proof() override {return m_solver.get_proof();}
+    std::string reason_unknown() const override
     {return m_solver.reason_unknown();}
-    virtual void set_reason_unknown(char const* msg)
+    void set_reason_unknown(char const* msg) override
     {m_solver.set_reason_unknown(msg);}
-    virtual void get_labels(svector<symbol> &r)
+    void get_labels(svector<symbol> &r) override
     {m_solver.get_labels(r);}
-    virtual ast_manager &get_manager() const {return m;}
+    ast_manager &get_manager() const override {return m;}
 
     virtual void refresh();
 

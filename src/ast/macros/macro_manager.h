@@ -67,7 +67,7 @@ public:
     ~macro_manager();
     ast_manager & get_manager() const { return m; }
     macro_util & get_util() { return m_util; }
-    bool insert(func_decl * f, quantifier * m, proof * pr, expr_dependency * dep = 0);
+    bool insert(func_decl * f, quantifier * m, proof * pr, expr_dependency * dep = nullptr);
     bool has_macros() const { return !m_macros.empty(); }
     void push_scope();
     void pop_scope(unsigned num_scopes);
@@ -82,7 +82,7 @@ public:
     unsigned get_first_macro_last_level() const { return m_scopes.empty() ? 0 : m_scopes.back().m_decls_lim; }
     func_decl * get_macro_func_decl(unsigned i) const { return m_decls.get(i); }
     func_decl * get_macro_interpretation(unsigned i, expr_ref & interp) const;
-    quantifier * get_macro_quantifier(func_decl * f) const { quantifier * q = 0; m_decl2macro.find(f, q); return q; }
+    quantifier * get_macro_quantifier(func_decl * f) const { quantifier * q = nullptr; m_decl2macro.find(f, q); return q; }
     void get_head_def(quantifier * q, func_decl * d, app * & head, expr * & def) const;
     void expand_macros(expr * n, proof * pr, expr_dependency * dep, expr_ref & r, proof_ref & new_pr, expr_dependency_ref & new_dep);
 

@@ -106,13 +106,13 @@ protected:
                     SASSERT(target_it < target + target_slots);
                     if (target_it->is_free()) {
                         target_it->m_data = list_it->m_data;
-                        target_it->m_next = 0;
+                        target_it->m_next = nullptr;
                         used_slots++;
                     }
                     else {
                         SASSERT((get_hash(target_it->m_data) & target_mask) == idx);
                         if (target_cellar == target_end)
-                            return 0; // the cellar is too small...
+                            return nullptr; // the cellar is too small...
                         SASSERT(target_cellar >= target + target_slots);
                         SASSERT(target_cellar < target_end);
                         *target_cellar    = *target_it;
@@ -123,7 +123,7 @@ protected:
                     SASSERT(!target_it->is_free());
                     list_it = list_it->m_next;
                 }
-                while (list_it != 0);
+                while (list_it != nullptr);
             }
         }
 #if 0
@@ -164,13 +164,13 @@ protected:
             cell * next_cell      = copy_table(m_table, m_slots, m_capacity,
                                                new_table, new_slots, new_capacity,
                                                m_used_slots);
-            if (next_cell != 0) {
+            if (next_cell != nullptr) {
                 delete_table();
                 m_table      = new_table;
                 m_capacity   = new_capacity;
                 m_slots      = new_slots;
                 m_next_cell  = next_cell;
-                m_free_cell  = 0;
+                m_free_cell  = nullptr;
                 CASSERT("chashtable", check_invariant());
                 return;
             }
@@ -180,11 +180,11 @@ protected:
     }
 
     bool has_free_cells() const {
-        return m_free_cell != 0 || m_next_cell < m_table + m_capacity;
+        return m_free_cell != nullptr || m_next_cell < m_table + m_capacity;
     }
 
     cell * get_free_cell() {
-        if (m_free_cell != 0) {
+        if (m_free_cell != nullptr) {
             cell * c    = m_free_cell;
             m_free_cell = c->m_next;
             return c;
@@ -211,7 +211,7 @@ protected:
         m_used_slots = 0;
         m_size       = 0;
         m_next_cell  = m_table + slots;
-        m_free_cell  = 0;
+        m_free_cell  = nullptr;
     }
 
 public:
@@ -281,7 +281,7 @@ public:
             m_size++;
             m_used_slots++;
             c->m_data = d;
-            c->m_next = 0;
+            c->m_next = nullptr;
             CASSERT("chashtable_bug", check_invariant());
             return;
         }
@@ -297,7 +297,7 @@ public:
                 CHS_CODE(m_collisions++;);
                 it = it->m_next;
             }
-            while (it != 0);
+            while (it != nullptr);
             // d is not in the table.
             m_size++;
             cell * new_c = get_free_cell();
@@ -320,7 +320,7 @@ public:
             m_size++;
             m_used_slots++;
             c->m_data = d;
-            c->m_next = 0;
+            c->m_next = nullptr;
             CASSERT("chashtable_bug", check_invariant());
             return c->m_data;
         }
@@ -335,7 +335,7 @@ public:
                 CHS_CODE(m_collisions++;);
                 it = it->m_next;
             }
-            while (it != 0);
+            while (it != nullptr);
             // d is not in the table.
             m_size++;
             cell * new_c = get_free_cell();
@@ -358,7 +358,7 @@ public:
             m_size++;
             m_used_slots++;
             c->m_data = d;
-            c->m_next = 0;
+            c->m_next = nullptr;
             CASSERT("chashtable_bug", check_invariant());
             return true;
         }
@@ -373,7 +373,7 @@ public:
                 CHS_CODE(m_collisions++;);
                 it = it->m_next;
             }
-            while (it != 0);
+            while (it != nullptr);
             // d is not in the table.
             m_size++;
             cell * new_c = get_free_cell();
@@ -399,7 +399,7 @@ public:
             CHS_CODE(const_cast<chashtable*>(this)->m_collisions++;);
             c = c->m_next;
         }
-        while (c != 0);
+        while (c != nullptr);
         return false;
     }
 
@@ -409,7 +409,7 @@ public:
         unsigned idx  = h & mask;
         cell * c      = m_table + idx;
         if (c->is_free())
-            return 0;
+            return nullptr;
         do { 
             if (equals(c->m_data, d)) {
                 return &(c->m_data);
@@ -417,8 +417,8 @@ public:
             CHS_CODE(const_cast<chashtable*>(this)->m_collisions++;);
             c = c->m_next;
         }
-        while (c != 0);
-        return 0;
+        while (c != nullptr);
+        return nullptr;
     }
 
     bool find(T const & d, T & r) {
@@ -436,7 +436,7 @@ public:
             CHS_CODE(const_cast<chashtable*>(this)->m_collisions++;);
             c = c->m_next;
         }
-        while (c != 0);
+        while (c != nullptr);
         return false;
     }
 
@@ -447,13 +447,13 @@ public:
         cell * c      = m_table + idx;
         if (c->is_free())
             return; 
-        cell * prev = 0;
+        cell * prev = nullptr;
         do { 
             if (equals(c->m_data, d)) {
                 m_size--;
-                if (prev == 0) {
+                if (prev == nullptr) {
                     cell * next = c->m_next;
-                    if (next == 0) {
+                    if (next == nullptr) {
                         m_used_slots--;
                         c->mark_free();
                         SASSERT(c->is_free());
@@ -474,7 +474,7 @@ public:
             prev = c;
             c = c->m_next;
         }
-        while (c != 0);
+        while (c != nullptr);
     }
 
     class iterator {
@@ -490,12 +490,12 @@ public:
                 }
                 m_it++;
             }
-            m_list_it = 0;
+            m_list_it = nullptr;
         }
         
     public:
         iterator(cell * start, cell * end): m_it(start), m_end(end) { move_to_used(); }
-        iterator():m_it(0), m_end(0), m_list_it(0) {}
+        iterator():m_it(nullptr), m_end(nullptr), m_list_it(nullptr) {}
         T & operator*() { 
             return m_list_it->m_data; 
         }
@@ -506,7 +506,7 @@ public:
         T * operator->() { return &(operator*()); }
         iterator & operator++() { 
             m_list_it = m_list_it->m_next;
-            if (m_list_it == 0) {
+            if (m_list_it == nullptr) {
                 m_it++;
                 move_to_used();
             }
@@ -658,7 +658,7 @@ public:
 
     bool find(Key const & k, Value & v) const {
         key_value * e = m_table.find_core(key_value(k));
-        if (e == 0)
+        if (e == nullptr)
             return false;
         v = e->m_value;
         return true;

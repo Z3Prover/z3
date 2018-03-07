@@ -2,10 +2,10 @@ z3_add_component(opt
   SOURCES
     maxres.cpp
     maxsmt.cpp
-    mss.cpp
     opt_cmds.cpp
     opt_context.cpp
     opt_pareto.cpp
+    opt_parse.cpp
     optsmt.cpp
     opt_solver.cpp
     pb_sls.cpp

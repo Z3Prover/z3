@@ -72,17 +72,17 @@ namespace spacer {
     //
 
     model_evaluator_util::model_evaluator_util(ast_manager& m) :
-        m(m), m_mev(nullptr) { 
-        reset (nullptr); 
+        m(m), m_mev(nullptr) {
+        reset (nullptr);
     }
 
-    model_evaluator_util::~model_evaluator_util() {reset (NULL);}
+    model_evaluator_util::~model_evaluator_util() {reset (nullptr);}
 
 
     void model_evaluator_util::reset(model* model) {
         if (m_mev) {
             dealloc(m_mev);
-            m_mev = NULL;
+            m_mev = nullptr;
         }
         m_model = model;
         if (!m_model) { return; }
@@ -694,7 +694,7 @@ void expand_literals(ast_manager &m, expr_ref_vector& conjs)
         } else if ((m.is_eq(e, c, val) && is_app(val) && dt.is_constructor(to_app(val))) ||
                     (m.is_eq(e, val, c) && is_app(val) && dt.is_constructor(to_app(val)))){
                 func_decl* f = to_app(val)->get_decl();
-                func_decl* r = dt.get_constructor_recognizer(f);
+                func_decl* r = dt.get_constructor_is(f);
                 conjs[i] = m.mk_app(r, c);
                 ptr_vector<func_decl> const& acc = *dt.get_constructor_accessors(f);
                 for (unsigned j = 0; j < acc.size(); ++j) {

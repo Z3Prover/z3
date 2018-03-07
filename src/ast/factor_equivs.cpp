@@ -34,7 +34,7 @@ Revision History:
 void factor_eqs(expr_ref_vector &v, expr_equiv_class &equiv) {
     ast_manager &m = v.get_manager();
     arith_util arith(m);
-    expr *e1 = 0, *e2 = 0;
+    expr *e1 = nullptr, *e2 = nullptr;
 
     flatten_and(v);
     unsigned j = 0;
@@ -45,7 +45,7 @@ void factor_eqs(expr_ref_vector &v, expr_equiv_class &equiv) {
             }
 
             // y + -1*x == 0
-            expr* a0 = 0, *a1 = 0, *x = 0;
+            expr* a0 = nullptr, *a1 = nullptr, *x = nullptr;
             if (arith.is_zero(e2) && arith.is_add(e1, a0, a1)) {
                 if (arith.is_times_minus_one(a1, x)) {
                     e1 = a0;
