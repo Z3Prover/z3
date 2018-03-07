@@ -27,8 +27,8 @@ protected:
     std::string m_msg;
 public:
     tactic_exception(char const * msg):m_msg(msg) {}
-    virtual ~tactic_exception() {}
-    virtual char const * msg() const { return m_msg.c_str(); }
+    ~tactic_exception() override {}
+    char const * msg() const override { return m_msg.c_str(); }
 };
 
 #define TACTIC_CANCELED_MSG      Z3_CANCELED_MSG

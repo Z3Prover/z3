@@ -31,10 +31,10 @@ namespace qe {
         imp* m_imp;
     public:
         array_project_plugin(ast_manager& m);
-        virtual ~array_project_plugin();
-        virtual bool operator()(model& model, app* var, app_ref_vector& vars, expr_ref_vector& lits);
-        virtual bool solve(model& model, app_ref_vector& vars, expr_ref_vector& lits);
-        virtual family_id get_family_id();
+        ~array_project_plugin() override;
+        bool operator()(model& model, app* var, app_ref_vector& vars, expr_ref_vector& lits) override;
+        bool solve(model& model, app_ref_vector& vars, expr_ref_vector& lits) override;
+        family_id get_family_id() override;
     };
 
 };

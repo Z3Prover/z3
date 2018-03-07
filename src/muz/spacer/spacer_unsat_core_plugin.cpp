@@ -506,7 +506,7 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
                 std::string name = "w_" + std::to_string(i) + std::to_string(n);
 
                 func_decl_ref decl(m);
-                decl = m.mk_func_decl(symbol(name.c_str()), 0, (sort*const*)0, util.mk_int());
+                decl = m.mk_func_decl(symbol(name.c_str()), 0, (sort*const*)nullptr, util.mk_int());
                 coeffs[i].push_back(m.mk_const(decl));
             }
 
@@ -516,7 +516,7 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
                 std::string name = "s_" + std::to_string(j) + std::to_string(n);
 
                 func_decl_ref decl(m);
-                decl = m.mk_func_decl(symbol(name.c_str()), 0, (sort*const*)0, util.mk_int());
+                decl = m.mk_func_decl(symbol(name.c_str()), 0, (sort*const*)nullptr, util.mk_int());
 
                 expr_ref s_jn(m);
                 s_jn = m.mk_const(decl);
@@ -556,7 +556,7 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
                 }
 
             // check result
-            lbool res = s->check_sat(0,0);
+            lbool res = s->check_sat(0,nullptr);
 
             // if sat extract model and add corresponding linear combinations to core
             if (res == lbool::l_true) {

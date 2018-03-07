@@ -37,7 +37,7 @@ bool model_core::eval(func_decl* f, expr_ref & r) const {
     }
     else {
         func_interp * fi = get_func_interp(f);
-        if (fi != 0) {
+        if (fi != nullptr) {
             r = fi->get_interp();
             return r != 0;
         }

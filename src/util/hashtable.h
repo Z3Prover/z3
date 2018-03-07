@@ -91,9 +91,9 @@ class ptr_hash_entry {
     T *             m_ptr;
 public:
     typedef T * data;
-    ptr_hash_entry():m_ptr(0) {}
+    ptr_hash_entry():m_ptr(nullptr) {}
     unsigned get_hash() const { return m_hash; }
-    bool is_free() const { return m_ptr == 0; }
+    bool is_free() const { return m_ptr == nullptr; }
     bool is_deleted() const { return m_ptr == reinterpret_cast<T *>(1); }
     bool is_used() const { return m_ptr != reinterpret_cast<T *>(0) && m_ptr != reinterpret_cast<T *>(1); }
     T * get_data() const { return m_ptr; }
@@ -101,7 +101,7 @@ public:
     void set_data(T * d) { m_ptr = d; }
     void set_hash(unsigned h) { m_hash = h; }
     void mark_as_deleted() { m_ptr = reinterpret_cast<T *>(1); }
-    void mark_as_free() { m_ptr = 0; }
+    void mark_as_free() { m_ptr = nullptr; }
 };
 
 
@@ -114,9 +114,9 @@ class ptr_addr_hash_entry : public ptr_hash_entry<T> {
     T *             m_ptr;
 public:
     typedef T * data;
-    ptr_addr_hash_entry():m_ptr(0) {}
+    ptr_addr_hash_entry():m_ptr(nullptr) {}
     unsigned get_hash() const { return get_ptr_hash(m_ptr); }
-    bool is_free() const { return m_ptr == 0; }
+    bool is_free() const { return m_ptr == nullptr; }
     bool is_deleted() const { return m_ptr == reinterpret_cast<T *>(1); }
     bool is_used() const { return m_ptr != reinterpret_cast<T *>(0) && m_ptr != reinterpret_cast<T *>(1); }
     T * get_data() const { return m_ptr; }
@@ -145,7 +145,7 @@ protected:
 
     void delete_table() {
         dealloc_vect(m_table, m_capacity);
-        m_table = 0;
+        m_table = nullptr;
     }
 
 public:
@@ -385,7 +385,7 @@ public:
         entry * begin     = m_table + idx;
         entry * end       = m_table + m_capacity;
         entry * curr      = begin;
-        entry * del_entry = 0;
+        entry * del_entry = nullptr;
         for (; curr != end; ++curr) {
             INSERT_LOOP_BODY();
         }
@@ -441,7 +441,7 @@ public:
         entry * begin     = m_table + idx;
         entry * end       = m_table + m_capacity;
         entry * curr      = begin;
-        entry * del_entry = 0;
+        entry * del_entry = nullptr;
         for (; curr != end; ++curr) {
             INSERT_LOOP_CORE_BODY();
         }
@@ -449,7 +449,7 @@ public:
             INSERT_LOOP_CORE_BODY();
         }
         UNREACHABLE();
-        return 0;
+        return false;
     }
 
     bool insert_if_not_there_core(const data & e, entry * & et) {
@@ -504,12 +504,12 @@ public:
         for (curr = m_table; curr != begin; ++curr) {
             FIND_LOOP_BODY();
         }
-        return 0;
+        return nullptr;
     }
 
     bool find(data const & k, data & r) const {
         entry * e = find_core(k);
-        if (e != 0) {
+        if (e != nullptr) {
             r = e->get_data();
             return true;
         }
@@ -517,7 +517,7 @@ public:
     }
     
     bool contains(data const & e) const { 
-        return find_core(e) != 0; 
+        return find_core(e) != nullptr;
     }
     
     iterator find(data const & e) const { 

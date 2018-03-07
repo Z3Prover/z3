@@ -257,14 +257,14 @@ void virtual_solver::get_labels(svector<symbol> &r)
 {
     r.reset();
     buffer<symbol> tmp;
-    m_context.get_relevant_labels(0, tmp);
+    m_context.get_relevant_labels(nullptr, tmp);
     r.append(tmp.size(), tmp.c_ptr());
 }
 
 solver* virtual_solver::translate(ast_manager& m, params_ref const& p)
 {
     UNREACHABLE();
-    return 0;
+    return nullptr;
 }
 void virtual_solver::updt_params(params_ref const &p)
 { m_factory.updt_params(p); }

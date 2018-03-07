@@ -45,7 +45,7 @@ class prime_iterator {
     prime_generator * m_generator;
     bool              m_global;
 public:
-    prime_iterator(prime_generator * g = 0);
+    prime_iterator(prime_generator * g = nullptr);
     uint64 next();
     static void finalize();
     /*

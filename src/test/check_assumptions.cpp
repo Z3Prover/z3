@@ -20,13 +20,13 @@ void tst_check_assumptions()
     reg_decl_plugins(mgr);
 
     sort_ref b(mgr.mk_bool_sort(), mgr);
-    func_decl_ref pPred(mgr.mk_func_decl(symbol("p"), 0, static_cast<sort * const *>(0), b), mgr);
-    func_decl_ref qPred(mgr.mk_func_decl(symbol("q"), 0, static_cast<sort * const *>(0), b), mgr);
-    func_decl_ref rPred(mgr.mk_func_decl(symbol("r"), 0, static_cast<sort * const *>(0), b), mgr);
+    func_decl_ref pPred(mgr.mk_func_decl(symbol("p"), 0, static_cast<sort * const *>(nullptr), b), mgr);
+    func_decl_ref qPred(mgr.mk_func_decl(symbol("q"), 0, static_cast<sort * const *>(nullptr), b), mgr);
+    func_decl_ref rPred(mgr.mk_func_decl(symbol("r"), 0, static_cast<sort * const *>(nullptr), b), mgr);
 
-    app_ref p(mgr.mk_app(pPred,0,static_cast<expr * const *>(0)), mgr);
-    app_ref q(mgr.mk_app(qPred,0,static_cast<expr * const *>(0)), mgr);
-    app_ref r(mgr.mk_app(rPred,0,static_cast<expr * const *>(0)), mgr);
+    app_ref p(mgr.mk_app(pPred,0,static_cast<expr * const *>(nullptr)), mgr);
+    app_ref q(mgr.mk_app(qPred,0,static_cast<expr * const *>(nullptr)), mgr);
+    app_ref r(mgr.mk_app(rPred,0,static_cast<expr * const *>(nullptr)), mgr);
     app_ref pOqOr(mgr.mk_or(p,q,r), mgr);
 
     app_ref np(mgr.mk_not(p), mgr);

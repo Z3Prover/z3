@@ -198,7 +198,7 @@ expr_ref bv2fpa_converter::rebuild_floats(model_core * mc, sort * s, app * e) {
                     tout << std::endl; );
 
     if (m_fpa_util.is_float(s)) {
-        if (e == 0)
+        if (e == nullptr)
             result = m_fpa_util.mk_pzero(s);
         else if (m_fpa_util.is_numeral(e))
             result = e;
@@ -208,7 +208,7 @@ expr_ref bv2fpa_converter::rebuild_floats(model_core * mc, sort * s, app * e) {
         }
     }
     else if (m_fpa_util.is_rm(s)) {
-        if (e == 0)
+        if (e == nullptr)
             result = m_fpa_util.mk_round_toward_zero();
         else if (m_fpa_util.is_rm_numeral(e))
             result = e;
@@ -256,7 +256,7 @@ bv2fpa_converter::array_model bv2fpa_converter::convert_array_func_interp(model_
 
 func_interp * bv2fpa_converter::convert_func_interp(model_core * mc, func_decl * f, func_decl * bv_f) {
     SASSERT(f->get_arity() > 0);
-    func_interp * result = 0;
+    func_interp * result = nullptr;
     sort * rng = f->get_range();
     sort * const * dmn = f->get_domain();
 
@@ -291,7 +291,7 @@ func_interp * bv2fpa_converter::convert_func_interp(model_core * mc, func_decl *
                         mk_ismt2_pp(new_args[i], m) << std::endl;
                   tout << mk_ismt2_pp(bv_fres, m) << " == " << mk_ismt2_pp(ft_fres, m) << std::endl;);
             func_entry * fe = result->get_entry(new_args.c_ptr());
-            if (fe == 0)
+            if (fe == nullptr)
                 result->insert_new_entry(new_args.c_ptr(), ft_fres);
             else {
                 // The BV model may have multiple equivalent entries using different
@@ -338,7 +338,7 @@ void bv2fpa_converter::convert_consts(model_core * mc, model_core * target_model
         v2 = mc->get_const_interp(a2->get_decl());
 #else
         expr * bv = mc->get_const_interp(to_app(to_app(a0)->get_arg(0))->get_decl());
-        if (bv == 0) {
+        if (bv == nullptr) {
             v0 = m_bv_util.mk_numeral(0, 1);
             v1 = m_bv_util.mk_numeral(0, ebits);
             v2 = m_bv_util.mk_numeral(0, sbits-1);
@@ -477,7 +477,7 @@ void bv2fpa_converter::convert_uf2bvuf(model_core * mc, model_core * target_mode
                     fmv->set_else(m.mk_app(it->m_key, n, args.c_ptr()));
 #else
 
-                    fmv->set_else(0);
+                    fmv->set_else(nullptr);
 #endif
                     target_model->register_decl(f, fmv);
                 }

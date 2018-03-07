@@ -949,7 +949,7 @@ namespace sat {
 
         void process(literal l) {
             TRACE("blocked_clause", tout << "processing: " << l << "\n";);
-            model_converter::entry * new_entry = 0;
+            model_converter::entry * new_entry = nullptr;
             if (!process_var(l.var())) {
                 return;
             }
@@ -965,7 +965,7 @@ namespace sat {
                         s.mark_all_but(c, l);
                         if (all_tautology(l)) {
                             TRACE("blocked_clause", tout << "new blocked clause: " << c << "\n";);
-                            if (new_entry == 0)
+                            if (new_entry == nullptr)
                                 new_entry = &(mc.mk(model_converter::BLOCK_LIT, l.var()));
                             m_to_remove.push_back(&c);
                             s.m_num_blocked_clauses++;
@@ -1003,7 +1003,7 @@ namespace sat {
                     literal l2 = it->get_literal();
                     s.mark_visited(l2);
                     if (all_tautology(l)) {
-                        if (new_entry == 0)
+                        if (new_entry == nullptr)
                             new_entry = &(mc.mk(model_converter::BLOCK_LIT, l.var()));
                         TRACE("blocked_clause", tout << "new blocked clause: " << l2 << " " << l << "\n";);
                         s.remove_bin_clause_half(l2, l, it->is_learned());

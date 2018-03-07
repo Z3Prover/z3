@@ -27,8 +27,8 @@ namespace datalog {
         context* m_ctx;
     public:
         register_engine();
-        engine_base* mk_engine(DL_ENGINE engine_type);
-        void set_context(context* ctx) { m_ctx = ctx; }
+        engine_base* mk_engine(DL_ENGINE engine_type) override;
+        void set_context(context* ctx) override { m_ctx = ctx; }
     };
 
 }

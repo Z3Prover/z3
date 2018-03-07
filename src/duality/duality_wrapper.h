@@ -191,7 +191,7 @@ namespace Duality {
         sort int_sort();
         sort real_sort();
         sort bv_sort(unsigned sz);
-        sort array_sort(sort d, sort r);
+        sort array_sort(const sort & d, const sort & r);
 
         func_decl function(symbol const & name, unsigned arity, sort const * domain, sort const & range);
         func_decl function(char const * name, unsigned arity, sort const * domain, sort const & range);
@@ -276,7 +276,7 @@ namespace Duality {
     protected:
         context * m_ctx;
     public:
-    object(): m_ctx((context *)0) {}
+    object(): m_ctx((context *)nullptr) {}
     object(context & c):m_ctx(&c) {}
     object(object const & s):m_ctx(s.m_ctx) {}
         context & ctx() const { return *m_ctx; }
@@ -317,9 +317,9 @@ namespace Duality {
         ::ast *_ast;
     public:
         ::ast * const &raw() const {return _ast;}
-    ast_i(context & c, ::ast *a = 0) : object(c) {_ast = a;}
+    ast_i(context & c, ::ast *a = nullptr) : object(c) {_ast = a;}
 
-        ast_i(){_ast = 0;}
+        ast_i(){_ast = nullptr;}
         bool eq(const ast_i &other) const {
             return _ast == other._ast;
         }
@@ -346,7 +346,7 @@ namespace Duality {
         friend bool eq(ast const & a, ast const & b) { return a.raw() == b.raw(); }
 
 
-    ast(context &c, ::ast *a = 0) : ast_i(c,a) {
+    ast(context &c, ::ast *a = nullptr) : ast_i(c,a) {
             if(_ast)
                 m().inc_ref(a);
         }
@@ -729,7 +729,7 @@ namespace Duality {
             m_model = m;
         }
     public:
-        model(context & c, ::model * m = 0):object(c), m_model(m) { }
+        model(context & c, ::model * m = nullptr):object(c), m_model(m) { }
         model(model const & s):object(s), m_model(s.m_model) { }
         ~model() { }
         operator ::model *() const { return m_model.get(); }
@@ -763,11 +763,11 @@ namespace Duality {
         unsigned size() const;
         func_decl operator[](unsigned i) const;
 
-        expr get_const_interp(func_decl f) const {
+        expr get_const_interp(const func_decl & f) const {
             return ctx().cook(m_model->get_const_interp(to_func_decl(f.raw())));
         }
 
-        func_interp get_func_interp(func_decl f) const {
+        func_interp get_func_interp(const func_decl & f) const {
             return func_interp(ctx(),m_model->get_func_interp(to_func_decl(f.raw())));
         }
 
@@ -869,28 +869,28 @@ namespace Duality {
         check_result check() {
             scoped_proof_mode spm(m(),m_mode);
             checkpoint();
-            lbool r = m_solver->check_sat(0,0);
+            lbool r = m_solver->check_sat(0,nullptr);
             model_ref m;
             m_solver->get_model(m);
             the_model = m.get();
             return to_check_result(r);
         }
-        check_result check_keep_model(unsigned n, expr * const assumptions, unsigned *core_size = 0, expr *core = 0) {
+        check_result check_keep_model(unsigned n, expr * const assumptions, unsigned *core_size = nullptr, expr *core = nullptr) {
             scoped_proof_mode spm(m(),m_mode);
             model old_model(the_model);
             check_result res = check(n,assumptions,core_size,core);
-            if(the_model == 0)
+            if(the_model == nullptr)
                 the_model = old_model;
             return res;
         }
-        check_result check(unsigned n, expr * const assumptions, unsigned *core_size = 0, expr *core = 0) {
+        check_result check(unsigned n, expr * const assumptions, unsigned *core_size = nullptr, expr *core = nullptr) {
             scoped_proof_mode spm(m(),m_mode);
             checkpoint();
             std::vector< ::expr *> _assumptions(n);
             for (unsigned i = 0; i < n; i++) {
                 _assumptions[i] = to_expr(assumptions[i]);
             }
-            the_model = 0;
+            the_model = nullptr;
             lbool r = m_solver->check_sat(n, VEC2PTR(_assumptions));
 
             if(core_size && core){
@@ -1169,7 +1169,7 @@ namespace Duality {
         ::sort *s = m().mk_sort(m_arith_fid, REAL_SORT);
         return sort(*this, s);
     }
-    inline sort context::array_sort(sort d, sort r) {
+    inline sort context::array_sort(const sort & d, const sort & r) {
         parameter params[2]  = { parameter(d), parameter(to_sort(r)) };
         ::sort * s =  m().mk_sort(m_array_fid, ARRAY_SORT, 2, params);
         return sort(*this, s);
@@ -1228,7 +1228,7 @@ namespace Duality {
         return operator()(args.size(), VEC2PTR(args));
     }
     inline expr func_decl::operator()() const {
-        return operator()(0,0);
+        return operator()(0,nullptr);
     }
     inline expr func_decl::operator()(expr const & a) const {
         return operator()(1,&a);
@@ -1274,11 +1274,11 @@ namespace Duality {
     class TermTree {
     public:
 
-        TermTree(expr _term){
+        TermTree(const expr &_term){
             term = _term;
         }
 
-        TermTree(expr _term, const std::vector<TermTree *> &_children){
+        TermTree(const expr &_term, const std::vector<TermTree *> &_children){
             term = _term;
             children = _children;
         }
@@ -1302,9 +1302,9 @@ namespace Duality {
             return num;
         }
 
-        inline void setTerm(expr t){term = t;}
+        inline void setTerm(const expr &t){term = t;}
 
-        inline void addTerm(expr t){terms.push_back(t);}
+        inline void addTerm(const expr &t){terms.push_back(t);}
 
         inline void setChildren(const std::vector<TermTree *> & _children){
             children = _children;
@@ -1413,7 +1413,7 @@ namespace Duality {
     template <class X> class uptr {
     public:
         X *ptr;
-        uptr(){ptr = 0;}
+        uptr(){ptr = nullptr;}
         void set(X *_ptr){
             if(ptr) delete ptr;
             ptr = _ptr;

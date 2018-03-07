@@ -63,7 +63,7 @@ public:
     raw_ast * const &raw() const {return _ast;}
     ast_i(raw_ast *a){_ast = a;}
     
-    ast_i(){_ast = 0;}
+    ast_i(){_ast = nullptr;}
     bool eq(const ast_i &other) const {
         return _ast == other._ast;
     }
@@ -92,7 +92,7 @@ public:
         m->inc_ref(a);
     }
     
-    ast_r() {_m = 0;}
+    ast_r() {_m = nullptr;}
     
     ast_r(const ast_r &other) : ast_i(other) {
         _m = other._m;
@@ -245,7 +245,7 @@ class iz3mgr  {
     /** Methods for destructing ast. */
 
 
-    int num_args(ast t){
+    int num_args(const ast& t){
         ast_kind dk = t.raw()->get_kind();
         switch(dk){
         case AST_APP:
@@ -285,9 +285,9 @@ class iz3mgr  {
         return res;
     }
 
-    symb sym(ast t){
+    symb sym(const ast& t){
         raw_ast *_ast = t.raw();
-        return is_app(_ast) ? to_app(_ast)->get_decl() : 0;
+        return is_app(_ast) ? to_app(_ast)->get_decl() : nullptr;
     }
 
     std::string string_of_symbol(symb s){
@@ -302,7 +302,7 @@ class iz3mgr  {
         }
     }
 
-    type get_type(ast t){
+    type get_type(const ast& t){
         return m().get_sort(to_expr(t.raw()));
     }
   
@@ -442,23 +442,23 @@ class iz3mgr  {
 
     bool is_farkas_coefficient_negative(const ast &proof, int n);
 
-    bool is_true(ast t){
+    bool is_true(const ast& t){
         return op(t) == True;
     }
   
-    bool is_false(ast t){
+    bool is_false(const ast& t){
         return op(t) == False;
     }
 
-    bool is_iff(ast t){
+    bool is_iff(const ast& t){
         return op(t) == Iff;
     }
 
-    bool is_or(ast t){
+    bool is_or(const ast& t){
         return op(t) == Or;
     }
 
-    bool is_not(ast t){
+    bool is_not(const ast& t){
         return op(t) == Not;
     }
   
@@ -472,7 +472,7 @@ class iz3mgr  {
 
     // Some constructors that simplify things
 
-    ast mk_not(ast x){
+    ast mk_not(const ast& x){
         opr o = op(x);
         if(o == True) return make(False);
         if(o == False) return make(True);
@@ -480,7 +480,7 @@ class iz3mgr  {
         return make(Not,x);
     }
 
-    ast mk_and(ast x, ast y){
+    ast mk_and(const ast& x, const ast& y){
         opr ox = op(x);
         opr oy = op(y);
         if(ox == True) return y;
@@ -491,7 +491,7 @@ class iz3mgr  {
         return make(And,x,y);
     }
 
-    ast mk_or(ast x, ast y){
+    ast mk_or(const ast& x, const ast& y){
         opr ox = op(x);
         opr oy = op(y);
         if(ox == False) return y;
@@ -502,7 +502,7 @@ class iz3mgr  {
         return make(Or,x,y);
     }
 
-    ast mk_implies(ast x, ast y){
+    ast mk_implies(const ast& x, const ast& y){
         opr ox = op(x);
         opr oy = op(y);
         if(ox == True) return y;
@@ -537,7 +537,7 @@ class iz3mgr  {
         return make(And,conjs);
     }
 
-    ast mk_equal(ast x, ast y){
+    ast mk_equal(const ast& x, const ast& y){
         if(x == y) return make(True);
         opr ox = op(x);
         opr oy = op(y);
@@ -550,7 +550,7 @@ class iz3mgr  {
         return make(Equal,x,y);
     }
   
-    ast z3_ite(ast x, ast y, ast z){
+    ast z3_ite(const ast& x, const ast& y, const ast& z){
         opr ox = op(x);
         opr oy = op(y);
         opr oz = op(z);

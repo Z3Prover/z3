@@ -1193,7 +1193,6 @@ bool bit_blaster_tpl<Cfg>::mk_const_case_multiplier(unsigned sz, expr * const * 
         return false;
     }
     SASSERT(out_bits.empty());
-    
     ptr_buffer<expr, 128> na_bits;
     na_bits.append(sz, a_bits);
     ptr_buffer<expr, 128> nb_bits;

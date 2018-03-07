@@ -165,7 +165,7 @@ namespace datalog {
                 SASSERT(is_var(t->get_arg(i)));
                 var * v = to_var(t->get_arg(i));
                 unsigned var_idx = v->get_idx();
-                if (result[res_ofs-var_idx]==0) {
+                if (result[res_ofs-var_idx]==nullptr) {
                     result[res_ofs-var_idx]=m.mk_var(next_var, v->get_sort());
                     next_var++;
                 }
@@ -235,7 +235,7 @@ namespace datalog {
                 //so the order should not matter
             }
 
-            result.resize(max_var_idx+1, static_cast<expr *>(0));
+            result.resize(max_var_idx+1, static_cast<expr *>(nullptr));
             unsigned next_var = 0;
             get_normalizer(t1, next_var, result);
             get_normalizer(t2, next_var, result);
@@ -268,9 +268,9 @@ namespace datalog {
             */
         void register_pair(app * t1, app * t2, rule * r, const var_idx_set & non_local_vars) {
             SASSERT(t1!=t2);
-            cost_map::entry * e = m_costs.insert_if_not_there2(get_key(t1, t2), 0);
+            cost_map::entry * e = m_costs.insert_if_not_there2(get_key(t1, t2), nullptr);
             pair_info * & ptr_inf = e->get_data().m_value;
-            if (ptr_inf==0) {
+            if (ptr_inf==nullptr) {
                 ptr_inf = alloc(pair_info);
             }
             pair_info & inf = *ptr_inf;
@@ -297,7 +297,7 @@ namespace datalog {
         }
 
         void remove_rule_from_pair(app_pair key, rule * r, unsigned original_len) {
-            pair_info * ptr = 0;
+            pair_info * ptr = nullptr;
             if (m_costs.find(key, ptr) && ptr &&
                 ptr->remove_rule(r, original_len)) {
                 SASSERT(ptr->m_rules.empty());
@@ -354,7 +354,7 @@ namespace datalog {
         void join_pair(app_pair pair_key) {
             app * t1 = pair_key.first;
             app * t2 = pair_key.second;
-            pair_info* infp = 0;
+            pair_info* infp = nullptr;
             if (!m_costs.find(pair_key, infp) || !infp) {
                 UNREACHABLE();
                 return;
@@ -402,7 +402,7 @@ namespace datalog {
 
             app * tail[] = {t1, t2};
 
-            rule * new_rule = m_context.get_rule_manager().mk(head, 2, tail, 0);
+            rule * new_rule = m_context.get_rule_manager().mk(head, 2, tail, nullptr);
 
             //TODO: update accounting so that it can handle multiple parents
             new_rule->set_accounting_parent_object(m_context, one_parent);
@@ -702,7 +702,7 @@ namespace datalog {
             }
 
             if (!m_modified_rules) {
-                return 0;
+                return nullptr;
             }
             rule_set * result = alloc(rule_set, m_context);
             rule_pred_map::iterator rcit = m_rules_content.begin();

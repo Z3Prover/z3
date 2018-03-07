@@ -1129,7 +1129,7 @@ namespace tb {
                 }
                 else {
                     change = true;
-                    m_rename.push_back(0);
+                    m_rename.push_back(nullptr);
                 }
             }
             if (change) {

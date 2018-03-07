@@ -41,13 +41,15 @@ namespace opt {
         sref_vector<model> m_models;
     public:
         optsmt(ast_manager& m): 
-            m(m), m_s(0), m_objs(m), m_lower_fmls(m) {}
+            m(m), m_s(nullptr), m_objs(m), m_lower_fmls(m) {}
 
         void setup(opt_solver& solver);
 
         lbool box();
 
         lbool lex(unsigned obj_index, bool is_maximize);
+
+        bool is_unbounded(unsigned obj_index, bool is_maximize);
 
         unsigned add(app* t);
 

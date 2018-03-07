@@ -27,12 +27,12 @@ Revision History:
 #include "util/event_handler.h"
 #include "util/scoped_timer.h"
 
-scoped_timer * g_timeout = 0;
-void (* g_on_timeout)() = 0;
+scoped_timer * g_timeout = nullptr;
+void (* g_on_timeout)() = nullptr;
 
 class g_timeout_eh : public event_handler {
 public:
-    void operator()(event_handler_caller_t caller_id) {
+    void operator()(event_handler_caller_t caller_id) override {
         #pragma omp critical (g_timeout_cs) 
         {
             std::cout << "timeout\n";
@@ -41,7 +41,7 @@ public:
                 g_on_timeout();
             if (g_timeout) 
                 delete g_timeout;
-            g_timeout = 0;
+            g_timeout = nullptr;
             throw z3_error(ERR_TIMEOUT);
         }
     }

@@ -95,8 +95,8 @@ class dt2bv_tactic : public tactic {
     struct sort_pred : public i_sort_pred {
         dt2bv_tactic& m_t;
         sort_pred(dt2bv_tactic& t): m_t(t) {}
-        virtual ~sort_pred() {}
-        virtual bool operator()(sort* s) {
+        ~sort_pred() override {}
+        bool operator()(sort* s) override {
             return m_t.m_fd_sorts.contains(s);
         }
     };
@@ -107,22 +107,22 @@ public:
     dt2bv_tactic(ast_manager& m, params_ref const& p): 
         m(m), m_params(p), m_dt(m), m_bv(m), m_is_fd(*this) {}
     
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(dt2bv_tactic, m, m_params);
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
     }
 
-    virtual void collect_param_descrs(param_descrs & r) {
+    void collect_param_descrs(param_descrs & r) override {
     }
 
-    virtual void operator()(goal_ref const & g,
-                            goal_ref_buffer & result,
-                            model_converter_ref & mc,
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
-        mc = 0; pc = 0; core = 0;
+    void operator()(goal_ref const & g,
+                    goal_ref_buffer & result,
+                    model_converter_ref & mc,
+                    proof_converter_ref & pc,
+                    expr_dependency_ref & core) override {
+        mc = nullptr; pc = nullptr; core = nullptr;
         bool produce_proofs = g->proofs_enabled();
         tactic_report report("dt2bv", *g);
         unsigned   size = g->size();
@@ -177,7 +177,7 @@ public:
         SASSERT(g->is_well_sorted());
     }
     
-    virtual void cleanup() {
+    void cleanup() override {
         m_fd_sorts.reset();
         m_non_fd_sorts.reset();
     }

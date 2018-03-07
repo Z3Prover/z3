@@ -51,22 +51,22 @@ public:
         m_params(p) {
     }
 
-    virtual ~collect_statistics_tactic() {}
+    ~collect_statistics_tactic() override {}
 
-    virtual tactic * translate(ast_manager & m_) {
+    tactic * translate(ast_manager & m_) override {
         return alloc(collect_statistics_tactic, m_, m_params);
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_params = p;
     }
 
-    virtual void collect_param_descrs(param_descrs & r) {}
+    void collect_param_descrs(param_descrs & r) override {}
 
-    virtual void operator()(goal_ref const & g, goal_ref_buffer & result,
-                            model_converter_ref & mc, proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
-        mc = 0;
+    void operator()(goal_ref const & g, goal_ref_buffer & result,
+                    model_converter_ref & mc, proof_converter_ref & pc,
+                    expr_dependency_ref & core) override {
+        mc = nullptr;
         tactic_report report("collect-statistics", *g);
 
         collect_proc cp(m, m_stats);
@@ -86,13 +86,13 @@ public:
         result.push_back(g.get());
     }
 
-    virtual void cleanup() {}
+    void cleanup() override {}
 
-    virtual void collect_statistics(statistics & st) const {
+    void collect_statistics(statistics & st) const override {
     }
 
-    virtual void reset_statistics() { reset();  }
-    virtual void reset() { cleanup(); }
+    void reset_statistics() override { reset();  }
+    void reset() override { cleanup(); }
 
 protected:
     class collect_proc {

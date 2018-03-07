@@ -55,12 +55,12 @@ class split_clause_tactic : public tactic {
             m.inc_ref(pr);
         }
 
-        ~split_pc() {
+        ~split_pc() override {
             m_manager.dec_ref(m_clause);
             m_manager.dec_ref(m_clause_pr);
         }
 
-        virtual void operator()(ast_manager & m, unsigned num_source, proof * const * source, proof_ref & result) {
+        void operator()(ast_manager & m, unsigned num_source, proof * const * source, proof_ref & result) override {
             // Let m_clause be of the form (l_0 or ... or l_{num_source - 1})
             // Each source[i] proof is a proof for "false" using l_i as a hypothesis
             // So, I use lemma for producing a proof for (not l_i) that does not contain the hypothesis,
@@ -76,7 +76,7 @@ class split_clause_tactic : public tactic {
             result = m.mk_unit_resolution(prs.size(), prs.c_ptr());
         }
 
-        virtual proof_converter * translate(ast_translation & translator) {
+        proof_converter * translate(ast_translation & translator) override {
             return alloc(split_pc, translator.to(), translator(m_clause), translator(m_clause_pr));
         }
     };
@@ -86,32 +86,32 @@ public:
         updt_params(ref);
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         split_clause_tactic * t = alloc(split_clause_tactic);
         t->m_largest_clause = m_largest_clause;
         return t;
     }
     
-    virtual ~split_clause_tactic() {
+    ~split_clause_tactic() override {
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_largest_clause = p.get_bool("split_largest_clause", false);
     }
 
-    virtual void collect_param_descrs(param_descrs & r) { 
+    void collect_param_descrs(param_descrs & r) override {
         r.insert("split_largest_clause", CPK_BOOL, "(default: false) split the largest clause in the goal.");
     }
     
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
+    void operator()(goal_ref const & in,
+                    goal_ref_buffer & result,
+                    model_converter_ref & mc,
+                    proof_converter_ref & pc,
+                    expr_dependency_ref & core) override {
         SASSERT(in->is_well_sorted());
         tactic_report report("split-clause", *in);
         TRACE("before_split_clause", in->display(tout););
-        pc = 0; mc = 0; core = 0; 
+        pc = nullptr; mc = nullptr; core = nullptr;
         ast_manager & m = in->m();
         unsigned cls_pos = select_clause(m, in);
         if (cls_pos == UINT_MAX) {
@@ -131,7 +131,7 @@ public:
             else
                 subgoal_i = alloc(goal, *in);
             expr * lit_i = cls->get_arg(i);
-            proof * pr_i = 0;
+            proof * pr_i = nullptr;
             if (produce_proofs)
                 pr_i = m.mk_hypothesis(lit_i);
             subgoal_i->update(cls_pos, lit_i, pr_i, cls_dep);
@@ -140,7 +140,7 @@ public:
         }
     }
     
-    virtual void cleanup() {
+    void cleanup() override {
         // do nothing this tactic is too simple
     }
 };

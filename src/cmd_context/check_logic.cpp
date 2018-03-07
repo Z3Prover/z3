@@ -328,17 +328,17 @@ struct check_logic::imp {
 
     bool is_offset(app * t) {
         while (true) {
-            expr * non_numeral = 0;
+            expr * non_numeral = nullptr;
             unsigned num_args = t->get_num_args();
             for (unsigned i = 0; i < num_args; i++) {
                 expr * arg = t->get_arg(i);
                 if (is_numeral(arg))
                     continue;
-                if (non_numeral != 0)
+                if (non_numeral != nullptr)
                     return false;
                 non_numeral = arg;
             }
-            if (non_numeral == 0)
+            if (non_numeral == nullptr)
                 return true;
             if (is_diff_var(non_numeral))
                 return true;
@@ -501,7 +501,7 @@ struct check_logic::imp {
 };
 
 check_logic::check_logic() {
-    m_imp = 0;
+    m_imp = nullptr;
 }
 
 check_logic::~check_logic() {
@@ -512,7 +512,7 @@ check_logic::~check_logic() {
 void check_logic::reset() {
     if (m_imp)
         dealloc(m_imp);
-    m_imp = 0;
+    m_imp = nullptr;
 }
 
 void check_logic::set_logic(ast_manager & m, symbol const & logic) {

@@ -85,7 +85,7 @@ class normalize_bounds_tactic : public tactic {
                         model_converter_ref & mc, 
                         proof_converter_ref & pc,
                         expr_dependency_ref & core) {
-            mc = 0; pc = 0; core = 0;
+            mc = nullptr; pc = nullptr; core = nullptr;
             bool produce_models = in->models_enabled();
             bool produce_proofs = in->proofs_enabled();
             tactic_report report("normalize-bounds", *in);
@@ -98,8 +98,8 @@ class normalize_bounds_tactic : public tactic {
                 return;
             }
             
-            extension_model_converter * mc1 = 0;
-            filter_model_converter   * mc2  = 0;
+            extension_model_converter * mc1 = nullptr;
+            filter_model_converter   * mc2  = nullptr;
             if (produce_models) {
                 mc1 = alloc(extension_model_converter, m);
                 mc2 = alloc(filter_model_converter, m);
@@ -116,7 +116,7 @@ class normalize_bounds_tactic : public tactic {
                 if (is_target(x, val)) {
                     num_norm_bounds++;
                     sort * s = m.get_sort(x);
-                    app * x_prime = m.mk_fresh_const(0, s);
+                    app * x_prime = m.mk_fresh_const(nullptr, s);
                     expr * def = m_util.mk_add(x_prime, m_util.mk_numeral(val, s));
                     subst.insert(x, def);
                     if (produce_models) {
@@ -156,28 +156,28 @@ public:
         m_imp = alloc(imp, m, p);
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(normalize_bounds_tactic, m, m_params);
     }
 
-    virtual ~normalize_bounds_tactic() {
+    ~normalize_bounds_tactic() override {
         dealloc(m_imp);
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_imp->updt_params(p);
     }
 
-    virtual void collect_param_descrs(param_descrs & r) { 
+    void collect_param_descrs(param_descrs & r) override {
         insert_produce_models(r);
         r.insert("norm_int_only", CPK_BOOL, "(default: true) normalize only the bounds of integer constants.");
     }
 
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
+    void operator()(goal_ref const & in,
+                    goal_ref_buffer & result,
+                    model_converter_ref & mc,
+                    proof_converter_ref & pc,
+                    expr_dependency_ref & core) override {
         try {
             (*m_imp)(in, result, mc, pc, core);
         }
@@ -186,7 +186,7 @@ public:
         }
     }
     
-    virtual void cleanup() {
+    void cleanup() override {
         ast_manager & m = m_imp->m;
         imp * d = alloc(imp, m, m_params);
         std::swap(d, m_imp);        

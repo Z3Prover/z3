@@ -42,7 +42,7 @@ public:
         m_num_decls(num_decls),
         m_var_kind(BY_NUM_DECLS) {}
 
-    virtual bool operator()(expr* e) const {
+    bool operator()(expr* e) const override {
         if (!is_var(e)) {
             return false;
         }

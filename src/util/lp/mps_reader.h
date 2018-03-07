@@ -95,7 +95,7 @@ inline vector<std::string> string_split(const std::string &source, const char *d
     return results;
 }
 
-inline vector<std::string> split_and_trim(std::string line) {
+inline vector<std::string> split_and_trim(const std::string &line) {
     auto split = string_split(line, " \t", false);
     vector<std::string> ret;
     for (auto s : split) {
@@ -127,9 +127,9 @@ class mps_reader {
         std::string m_name;
         bound * m_bound;
         unsigned m_index;
-        column(std::string name, unsigned index): m_name(name),
-                                                  m_bound(nullptr),
-                                                  m_index(index) {
+        column(const std::string &name, unsigned index): m_name(name),
+                                                         m_bound(nullptr),
+                                                         m_index(index) {
         }
     };
 
@@ -140,7 +140,7 @@ class mps_reader {
         unsigned m_index;
         T m_right_side;
         T m_range;
-        row(row_type type, std::string name, unsigned index) :
+        row(row_type type, const std::string &name, unsigned index) :
             m_type(type),
             m_name(name),
             m_index(index),
@@ -254,7 +254,7 @@ class mps_reader {
         } while (m_is_OK);
     }
 
-    void read_column_by_columns(std::string column_name, std::string column_data) {
+    void read_column_by_columns(const std::string & column_name, std::string column_data) {
          // uph, let us try to work with columns
         if (column_data.size() >= 22) {
             std::string ss = column_data.substr(0, 8);
@@ -283,7 +283,7 @@ class mps_reader {
         }
     }
 
-    void read_column(std::string column_name, std::string column_data){
+    void read_column(const std::string & column_name, const std::string & column_data){
         auto tokens = split_and_trim(column_data);
         for (unsigned i = 0; i < tokens.size() - 1; i+= 2) {
             auto row_name = tokens[i];
@@ -421,7 +421,7 @@ class mps_reader {
     }
 
 
-    void read_bound_by_columns(std::string colstr) {
+    void read_bound_by_columns(const std::string & colstr) {
         if (colstr.size() < 14) {
             (*m_message_stream) << "line is too short" << std::endl;
             (*m_message_stream) << m_line << std::endl;
@@ -763,7 +763,7 @@ public:
         }
     }
 
-    mps_reader(std::string file_name):
+    mps_reader(const std::string & file_name):
         m_is_OK(true),
         m_file_name(file_name), 
         m_file_stream(file_name),

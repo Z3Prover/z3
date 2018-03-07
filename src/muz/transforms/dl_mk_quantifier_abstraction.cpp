@@ -47,9 +47,9 @@ namespace datalog {
         qa_model_converter(ast_manager& m):
             m(m), m_old_funcs(m), m_new_funcs(m) {}
 
-        virtual ~qa_model_converter() {}
+        ~qa_model_converter() override {}
 
-        virtual model_converter * translate(ast_translation & translator) { 
+        model_converter * translate(ast_translation & translator) override {
             return alloc(qa_model_converter, m);
         }
 
@@ -61,7 +61,7 @@ namespace datalog {
             m_sorts.push_back(sorts);
         }
 
-        virtual void operator()(model_ref & old_model) {
+        void operator()(model_ref & old_model) override {
             model_ref new_model = alloc(model, m);
             for (unsigned i = 0; i < m_new_funcs.size(); ++i) {
                 func_decl* p = m_new_funcs[i].get();
@@ -143,7 +143,7 @@ namespace datalog {
         m_ctx(ctx),
         a(m),
         m_refs(m),
-        m_mc(NULL){        
+        m_mc(nullptr) {
     }
 
     mk_quantifier_abstraction::~mk_quantifier_abstraction() {        
@@ -153,7 +153,7 @@ namespace datalog {
 
         if (rules.is_output_predicate(old_p)) {
             dst.inherit_predicate(rules, old_p, old_p);
-            return 0;
+            return nullptr;
         }
 
         unsigned sz = old_p->get_arity();
@@ -164,10 +164,10 @@ namespace datalog {
             }
         }
         if (num_arrays == 0) {
-            return 0;
+            return nullptr;
         }
 
-        func_decl* new_p = 0;
+        func_decl* new_p = nullptr;
         if (!m_old2new.find(old_p, new_p)) {
             expr_ref_vector sub(m), vars(m);
             svector<bool> bound;            
@@ -281,7 +281,7 @@ namespace datalog {
             }
             args.push_back(arg);
         }
-        expr* pat = 0;
+        expr* pat = nullptr;
         expr_ref pattern(m);
         pattern = m.mk_pattern(pats.size(), pats.c_ptr());
         pat = pattern.get();
@@ -301,13 +301,13 @@ namespace datalog {
         
     rule_set * mk_quantifier_abstraction::operator()(rule_set const & source) {
         if (!m_ctx.quantify_arrays()) {
-            return 0;
+            return nullptr;
         }
         unsigned sz = source.get_num_rules();
         for (unsigned i = 0; i < sz; ++i) {
             rule& r = *source.get_rule(i);
             if (r.has_negation()) {
-                return 0;
+                return nullptr;
             }
         }
 
@@ -351,12 +351,12 @@ namespace datalog {
         if (m_old2new.empty()) {
             dealloc(result);
             dealloc(m_mc);
-            result = 0;
+            result = nullptr;
         }
         else {
             m_ctx.add_model_converter(m_mc);
         }
-        m_mc = 0;
+        m_mc = nullptr;
 
         return result;
     }

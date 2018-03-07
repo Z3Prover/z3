@@ -78,7 +78,7 @@ void iz3interpolate(ast_manager &_m_manager,
                     const ::vector<int> &parents,
                     ptr_vector<ast> &interps,
                     const ptr_vector<ast> &theory,
-                    interpolation_options_struct * options = 0);
+                    interpolation_options_struct * options = nullptr);
 
 /* Same as above, but each constraint is a vector of formulas. */
 
@@ -88,7 +88,7 @@ void iz3interpolate(ast_manager &_m_manager,
                     const ::vector<int> &parents,
                     ptr_vector<ast> &interps,
                     const ptr_vector<ast> &theory,
-                    interpolation_options_struct * options = 0);
+                    interpolation_options_struct * options = nullptr);
 
 /* Compute an interpolant from a proof. This version uses the ast
    representation, for compatibility with the new API. Here, cnsts is

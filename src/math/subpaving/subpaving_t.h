@@ -210,7 +210,7 @@ public:
         bool inconsistent() const { return m_conflict != null_var; }
         void set_conflict(var x) { SASSERT(!inconsistent()); m_conflict = x; }
         bound * trail_stack() const { return m_trail; }
-        bound * parent_trail_stack() const { return m_parent == 0 ? 0 : m_parent->m_trail; }
+        bound * parent_trail_stack() const { return m_parent == nullptr ? nullptr : m_parent->m_trail; }
         bound * lower(var x) const { return bm().get(m_lowers, x); }
         bound * upper(var x) const { return bm().get(m_uppers, x); }
         node * parent() const { return m_parent; }
@@ -221,7 +221,7 @@ public:
         /**
            \brief Return true if x is unbounded in this node
         */
-        bool is_unbounded(var x) const { return lower(x) == 0 && upper(x) == 0; }
+        bool is_unbounded(var x) const { return lower(x) == nullptr && upper(x) == nullptr; }
         void push(bound * b);
     
         void set_first_child(node * n) { m_first_child = n; }
@@ -275,32 +275,32 @@ public:
         numeral const & lower(interval const & a) const {
             if (a.m_constant) {
                 bound * b = a.m_node->lower(a.m_x);
-                return b == 0 ? a.m_l_val /* don't care */ : b->value();
+                return b == nullptr ? a.m_l_val /* don't care */ : b->value();
             }
             return a.m_l_val;
         }
         numeral const & upper(interval const & a) const {
             if (a.m_constant) {
                 bound * b = a.m_node->upper(a.m_x);
-                return b == 0 ? a.m_u_val /* don't care */ : b->value();
+                return b == nullptr ? a.m_u_val /* don't care */ : b->value();
             }
             return a.m_u_val;
         }
         numeral & lower(interval & a) { SASSERT(!a.m_constant); return a.m_l_val; }
         numeral & upper(interval & a) { SASSERT(!a.m_constant); return a.m_u_val; }
-        bool lower_is_inf(interval const & a) const { return a.m_constant ? a.m_node->lower(a.m_x) == 0 : a.m_l_inf; }
-        bool upper_is_inf(interval const & a) const { return a.m_constant ? a.m_node->upper(a.m_x) == 0 : a.m_u_inf; }
+        bool lower_is_inf(interval const & a) const { return a.m_constant ? a.m_node->lower(a.m_x) == nullptr : a.m_l_inf; }
+        bool upper_is_inf(interval const & a) const { return a.m_constant ? a.m_node->upper(a.m_x) == nullptr : a.m_u_inf; }
         bool lower_is_open(interval const & a) const {
             if (a.m_constant) {
                 bound * b = a.m_node->lower(a.m_x);
-                return b == 0 || b->is_open();
+                return b == nullptr || b->is_open();
             }
             return a.m_l_open;
         }
         bool upper_is_open(interval const & a) const {
             if (a.m_constant) {
                 bound * b = a.m_node->upper(a.m_x);
-                return b == 0 || b->is_open();
+                return b == nullptr || b->is_open();
             }
             return a.m_u_open; 
         }
@@ -367,7 +367,7 @@ public:
     private:
         void * m_data;
     public:
-        watched():m_data(0) {}
+        watched():m_data(nullptr) {}
         explicit watched(var x) { m_data = BOXTAGINT(void*, x, DEFINITION); }
         explicit watched(clause * c) { m_data = TAG(void*, c, CLAUSE); }
         kind get_kind() const { return static_cast<kind>(GET_TAG(m_data)); }
@@ -563,7 +563,7 @@ private:
     void add_clause_core(unsigned sz, ineq * const * atoms, bool lemma, bool watched);
     void del_clause(clause * cls);
 
-    node * mk_node(node * parent = 0);
+    node * mk_node(node * parent = nullptr);
     void del_node(node * n);
     void del_nodes();
 

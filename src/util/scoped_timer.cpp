@@ -157,9 +157,9 @@ struct scoped_timer::imp {
         m_interval = ms?ms:0xFFFFFFFF;
         if (pthread_attr_init(&m_attributes) != 0)
             throw default_exception("failed to initialize timer thread attributes");
-        if (pthread_cond_init(&m_condition_var, NULL) != 0)
+        if (pthread_cond_init(&m_condition_var, nullptr) != 0)
             throw default_exception("failed to initialize timer condition variable");
-        if (pthread_mutex_init(&m_mutex, NULL) != 0)
+        if (pthread_mutex_init(&m_mutex, nullptr) != 0)
             throw default_exception("failed to initialize timer mutex");
 
         clock_serv_t host_clock;
@@ -208,7 +208,7 @@ struct scoped_timer::imp {
         pthread_cond_signal(&m_condition_var);
         pthread_mutex_unlock(&m_mutex);
 
-        if (pthread_join(m_thread_id, NULL) != 0)
+        if (pthread_join(m_thread_id, nullptr) != 0)
             throw default_exception("failed to join thread");
         if (pthread_mutex_destroy(&m_mutex) != 0)
             throw default_exception("failed to destroy pthread mutex");
@@ -248,7 +248,7 @@ scoped_timer::scoped_timer(unsigned ms, event_handler * eh) {
     if (ms != UINT_MAX && ms != 0)
         m_imp = alloc(imp, ms, eh);
     else
-        m_imp = 0;
+        m_imp = nullptr;
 }
     
 scoped_timer::~scoped_timer() {

@@ -185,7 +185,7 @@ void lackr::add_term(app* a) {
     if (a->get_num_args() == 0) return;
     if (!m_ackr_helper.should_ackermannize(a)) return;
     func_decl* const fd = a->get_decl();
-    app_set* ts = 0;
+    app_set* ts = nullptr;
     if (!m_fun2terms.find(fd, ts)) {
         ts = alloc(app_set);
         m_fun2terms.insert(fd, ts);
@@ -205,7 +205,7 @@ lbool lackr::eager() {
     SASSERT(m_is_init);
     push_abstraction();
     TRACE("lackr", tout << "run sat 0\n"; );
-    const lbool rv0 = m_sat->check_sat(0, 0);
+    const lbool rv0 = m_sat->check_sat(0, nullptr);
     if (rv0 == l_false) return l_false;
     eager_enc();
     expr_ref all(m_m);
@@ -213,7 +213,7 @@ lbool lackr::eager() {
     m_simp(all);
     m_sat->assert_expr(all);
     TRACE("lackr", tout << "run sat all\n"; );
-    return m_sat->check_sat(0, 0);
+    return m_sat->check_sat(0, nullptr);
 }
 
 lbool lackr::lazy() {
@@ -225,7 +225,7 @@ lbool lackr::lazy() {
         m_st.m_it++;
         checkpoint();
         TRACE("lackr", tout << "lazy check: " << m_st.m_it << "\n";);
-        const lbool r = m_sat->check_sat(0, 0);
+        const lbool r = m_sat->check_sat(0, nullptr);
         if (r == l_undef) return l_undef; // give up
         if (r == l_false) return l_false; // abstraction unsat
         // reconstruct model

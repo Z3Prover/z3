@@ -2,7 +2,7 @@
 # @AUTO_GEN_MSG@
 #
 # This file is intended to be consumed by clients who wish to use Z3 from CMake.
-# It can be use by doing `find_package(Z3 config)` from within a
+# It can be used by doing `find_package(Z3 config)` from within a
 # `CMakeLists.txt` file. If CMake doesn't find this package automatically you
 # can give it a hint by passing `-DZ3_DIR=<path>` to the CMake invocation where
 # `<path>` is the path to the directory containing this file.

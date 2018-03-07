@@ -103,10 +103,10 @@ class default_expr2polynomial : public expr2polynomial {
     svector<bool> m_is_int;
 public:
     default_expr2polynomial(ast_manager & am, polynomial::manager & pm);
-    virtual ~default_expr2polynomial();
-    virtual bool is_int(polynomial::var x) const;
+    ~default_expr2polynomial() override;
+    bool is_int(polynomial::var x) const override;
 protected:
-    virtual polynomial::var mk_var(bool is_int); 
+    polynomial::var mk_var(bool is_int) override;
 };
 
 #endif

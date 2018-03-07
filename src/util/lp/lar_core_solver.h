@@ -481,7 +481,7 @@ public:
     }
 
     bool no_r_lu() const {
-        return m_r_solver.m_factorization == nullptr || m_r_solver.m_factorization->get_status() == LU_status::Degenerated; 
+        return m_r_solver.m_factorization == nullptr || m_r_solver.m_factorization->get_status() == LU_status::Degenerated;
     }
 
     void solve_on_signature_tableau(const lar_solution_signature & signature, const vector<unsigned> & changes_of_basis) {

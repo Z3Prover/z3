@@ -33,6 +33,8 @@ namespace sat {
         m_frozen(false),
         m_reinit_stack(false),
         m_inact_rounds(0) {
+        m_psm = 0;
+        m_glue = 0;
         memcpy(m_lits, lits, sizeof(literal) * sz);
         mark_strengthened();
         SASSERT(check_approx());
@@ -103,7 +105,7 @@ namespace sat {
     void tmp_clause::set(unsigned num_lits, literal const * lits, bool learned) {
         if (m_clause && m_clause->m_capacity < num_lits) {
             dealloc_svect(m_clause);
-            m_clause = 0;
+            m_clause = nullptr;
         }
         if (!m_clause) {
             void * mem = alloc_svect(char, clause::get_obj_size(num_lits));

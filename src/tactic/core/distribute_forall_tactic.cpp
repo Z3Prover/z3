@@ -93,23 +93,23 @@ class distribute_forall_tactic : public tactic {
     rw * m_rw;
 
 public:
-    distribute_forall_tactic():m_rw(0) {}
+    distribute_forall_tactic():m_rw(nullptr) {}
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(distribute_forall_tactic);
     }
 
-    virtual void operator()(goal_ref const & g,
-                            goal_ref_buffer & result,
-                            model_converter_ref & mc,
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
+    void operator()(goal_ref const & g,
+                    goal_ref_buffer & result,
+                    model_converter_ref & mc,
+                    proof_converter_ref & pc,
+                    expr_dependency_ref & core) override {
         SASSERT(g->is_well_sorted());
         ast_manager & m = g->m();
         bool produce_proofs = g->proofs_enabled();
         rw r(m, produce_proofs);
         m_rw = &r;
-        mc = 0; pc = 0; core = 0; result.reset();
+        mc = nullptr; pc = nullptr; core = nullptr; result.reset();
         tactic_report report("distribute-forall", *g);
 
         expr_ref   new_curr(m);
@@ -131,10 +131,10 @@ public:
         result.push_back(g.get());
         TRACE("distribute-forall", g->display(tout););
         SASSERT(g->is_well_sorted());
-        m_rw = 0;
+        m_rw = nullptr;
     }
 
-    virtual void cleanup() {}
+    void cleanup() override {}
 };
 
 tactic * mk_distribute_forall_tactic(ast_manager & m, params_ref const & p) {

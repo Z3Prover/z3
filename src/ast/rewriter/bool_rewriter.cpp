@@ -585,7 +585,7 @@ bool bool_rewriter::local_ctx_simp(unsigned num_args, expr * const * args, expr_
 
 */
 br_status bool_rewriter::try_ite_value(app * ite, app * val, expr_ref & result) {
-    expr* cond = 0, *t = 0, *e = 0;
+    expr* cond = nullptr, *t = nullptr, *e = nullptr;
     VERIFY(m().is_ite(ite, cond, t, e));
     SASSERT(m().is_value(val));
 

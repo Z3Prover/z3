@@ -98,9 +98,9 @@ class array_decl_plugin : public decl_plugin {
     bool is_array_sort(sort* s) const;
  public:
     array_decl_plugin();
-    virtual ~array_decl_plugin() {}
+    ~array_decl_plugin() override {}
 
-    virtual decl_plugin * mk_fresh() {
+    decl_plugin * mk_fresh() override {
         return alloc(array_decl_plugin);
     }
 
@@ -111,23 +111,23 @@ class array_decl_plugin : public decl_plugin {
     //   parameters[n-1]   - nth dimension
     //   parameters[n]     - range
     //
-    virtual sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters);
+    sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) override;
 
     //
     // Contract for func_decl:
     //   parameters[0]     - array sort
     // Contract for others:
     //   no parameters
-    virtual func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
-                                     unsigned arity, sort * const * domain, sort * range);
+    func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
+                             unsigned arity, sort * const * domain, sort * range) override;
 
-    virtual void get_op_names(svector<builtin_name> & op_names, symbol const & logic);
+    void get_op_names(svector<builtin_name> & op_names, symbol const & logic) override;
 
-    virtual void get_sort_names(svector<builtin_name> & sort_names, symbol const & logic);
+    void get_sort_names(svector<builtin_name> & sort_names, symbol const & logic) override;
 
-    virtual expr * get_some_value(sort * s);
+    expr * get_some_value(sort * s) override;
 
-    virtual bool is_fully_interp(sort * s) const;
+    bool is_fully_interp(sort * s) const override;
 };
 
 class array_recognizers {
@@ -161,11 +161,11 @@ public:
     bool is_as_array_tree(expr * n);
 
     app * mk_store(unsigned num_args, expr * const * args) {
-        return m_manager.mk_app(m_fid, OP_STORE, 0, 0, num_args, args);
+        return m_manager.mk_app(m_fid, OP_STORE, 0, nullptr, num_args, args);
     }
 
     app * mk_select(unsigned num_args, expr * const * args) {
-        return m_manager.mk_app(m_fid, OP_SELECT, 0, 0, num_args, args);
+        return m_manager.mk_app(m_fid, OP_SELECT, 0, nullptr, num_args, args);
     }
 
     app * mk_map(func_decl * f, unsigned num_args, expr * const * args) {
@@ -191,7 +191,7 @@ public:
 
     app * mk_as_array(func_decl * f) {
         parameter param(f);
-        return m_manager.mk_app(m_fid, OP_AS_ARRAY, 1, &param, 0, 0, 0);
+        return m_manager.mk_app(m_fid, OP_AS_ARRAY, 1, &param, 0, nullptr, nullptr);
     }
 };
 

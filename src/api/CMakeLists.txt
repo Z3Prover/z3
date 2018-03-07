@@ -71,5 +71,4 @@ z3_add_component(api
     opt
     portfolio
     realclosure
-    smtparser
 )

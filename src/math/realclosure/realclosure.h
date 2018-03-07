@@ -48,7 +48,7 @@ namespace realclosure {
         friend class save_interval_ctx;
         imp * m_imp;
     public:
-        manager(reslimit& lim, unsynch_mpq_manager & m, params_ref const & p = params_ref(), small_object_allocator * a = 0);
+        manager(reslimit& lim, unsynch_mpq_manager & m, params_ref const & p = params_ref(), small_object_allocator * a = nullptr);
         ~manager();
         typedef num                             numeral;
         typedef svector<numeral>                numeral_vector;
@@ -271,7 +271,7 @@ namespace realclosure {
         friend struct manager::imp;
         value * m_value;
     public:
-        num():m_value(0) {}
+        num():m_value(nullptr) {}
 
         // Low level functions for implementing the C API
         void * c_ptr() { return m_value; }

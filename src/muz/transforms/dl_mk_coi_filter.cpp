@@ -45,7 +45,7 @@ namespace datalog {
             for (unsigned i = 0; i < r->get_uninterpreted_tail_size(); ++i) {
                 func_decl* decl_i = r->get_decl(i);
                 if (m_context.has_facts(decl_i)) {
-                    return 0;
+                    return nullptr;
                 }
 
                 bool reachable = engine.get_fact(decl_i).is_reachable();
@@ -79,6 +79,10 @@ namespace datalog {
             }
             if (contained) {
                 if (new_tail) {
+                    for (unsigned i = r->get_uninterpreted_tail_size(); i < r->get_tail_size(); ++i) {
+                        m_new_tail.push_back(r->get_tail(i));
+                        m_new_tail_neg.push_back(false);                        
+                    }
                     rule* new_r = m_context.get_rule_manager().mk(r->get_head(), m_new_tail.size(),
                         m_new_tail.c_ptr(), m_new_tail_neg.c_ptr(), symbol::null, false);
                     res->add_rule(new_r);
@@ -89,7 +93,7 @@ namespace datalog {
         }
         if (res->get_num_rules() == source.get_num_rules()) {
             TRACE("dl", tout << "No transformation\n";);
-            res = 0;
+            res = nullptr;
         } 
         else {
             res->close();
@@ -130,7 +134,7 @@ namespace datalog {
 
         if (res->get_num_rules() == source.get_num_rules()) {
             TRACE("dl", tout << "No transformation\n";);
-            res = 0;
+            res = nullptr;
         }
         if (res && m_context.get_model_converter()) {
             extension_model_converter* mc0 = alloc(extension_model_converter, m);

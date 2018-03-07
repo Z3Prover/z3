@@ -47,13 +47,13 @@ public:
         solver::updt_params(p);
     }
 
-    virtual ~enum2bv_solver() {}
+    ~enum2bv_solver() override {}
 
-    virtual solver* translate(ast_manager& m, params_ref const& p) {
+    solver* translate(ast_manager& m, params_ref const& p) override {
         return alloc(enum2bv_solver, m, p, m_solver->translate(m, p));
     }
     
-    virtual void assert_expr(expr * t) {
+    void assert_expr(expr * t) override {
         expr_ref tmp(t, m);
         expr_ref_vector bounds(m);
         proof_ref tmp_proof(m);
@@ -63,40 +63,40 @@ public:
         m_solver->assert_expr(bounds);
     }
 
-    virtual void push_core() {
+    void push_core() override {
         m_rewriter.push();
         m_solver->push();
     }
 
-    virtual void pop_core(unsigned n) {
+    void pop_core(unsigned n) override {
         m_solver->pop(n);
         m_rewriter.pop(n);
     }
 
-    virtual lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions) {
+    lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions) override {
         return m_solver->check_sat(num_assumptions, assumptions);
     }
 
-    virtual void updt_params(params_ref const & p) { solver::updt_params(p); m_solver->updt_params(p);  }
-    virtual void collect_param_descrs(param_descrs & r) { m_solver->collect_param_descrs(r); }    
-    virtual void set_produce_models(bool f) { m_solver->set_produce_models(f); }
-    virtual void set_progress_callback(progress_callback * callback) { m_solver->set_progress_callback(callback);  }
-    virtual void collect_statistics(statistics & st) const { m_solver->collect_statistics(st); }
-    virtual void get_unsat_core(ptr_vector<expr> & r) { m_solver->get_unsat_core(r); }
-    virtual void get_model(model_ref & mdl) { 
+    void updt_params(params_ref const & p) override { solver::updt_params(p); m_solver->updt_params(p);  }
+    void collect_param_descrs(param_descrs & r) override { m_solver->collect_param_descrs(r); }    
+    void set_produce_models(bool f) override { m_solver->set_produce_models(f); }
+    void set_progress_callback(progress_callback * callback) override { m_solver->set_progress_callback(callback);  }
+    void collect_statistics(statistics & st) const override { m_solver->collect_statistics(st); }
+    void get_unsat_core(ptr_vector<expr> & r) override { m_solver->get_unsat_core(r); }
+    void get_model(model_ref & mdl) override {
         m_solver->get_model(mdl);
         if (mdl) {
             extend_model(mdl);
             filter_model(mdl);            
         }
     } 
-    virtual proof * get_proof() { return m_solver->get_proof(); }
-    virtual std::string reason_unknown() const { return m_solver->reason_unknown(); }
-    virtual void set_reason_unknown(char const* msg) { m_solver->set_reason_unknown(msg); }
-    virtual void get_labels(svector<symbol> & r) { m_solver->get_labels(r); }
-    virtual ast_manager& get_manager() const { return m;  }
-    virtual lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) { return m_solver->find_mutexes(vars, mutexes); }
-    virtual lbool get_consequences_core(expr_ref_vector const& asms, expr_ref_vector const& vars, expr_ref_vector& consequences) {
+    proof * get_proof() override { return m_solver->get_proof(); }
+    std::string reason_unknown() const override { return m_solver->reason_unknown(); }
+    void set_reason_unknown(char const* msg) override { m_solver->set_reason_unknown(msg); }
+    void get_labels(svector<symbol> & r) override { m_solver->get_labels(r); }
+    ast_manager& get_manager() const override { return m;  }
+    lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) override { return m_solver->find_mutexes(vars, mutexes); }
+    lbool get_consequences_core(expr_ref_vector const& asms, expr_ref_vector const& vars, expr_ref_vector& consequences) override {
         datatype_util dt(m);
         bv_util bv(m);
         expr_ref_vector bvars(m), conseq(m), bounds(m);
@@ -114,7 +114,7 @@ public:
 
         // translate enumeration constants to bit-vectors.
         for (unsigned i = 0; i < vars.size(); ++i) {
-            func_decl* f = 0;
+            func_decl* f = nullptr;
             if (is_app(vars[i]) && is_uninterp_const(vars[i]) && m_rewriter.enum2bv().find(to_app(vars[i])->get_decl(), f)) {
                 bvars.push_back(m.mk_const(f));
             }
@@ -126,7 +126,7 @@ public:
 
         // translate bit-vector consequences back to enumeration types
         for (unsigned i = 0; i < consequences.size(); ++i) {
-            expr* a = 0, *b = 0, *u = 0, *v = 0;
+            expr* a = nullptr, *b = nullptr, *u = nullptr, *v = nullptr;
             func_decl* f;
             rational num;
             unsigned bvsize;
@@ -163,11 +163,11 @@ public:
         ext(mdl, 0);
     }
 
-    virtual unsigned get_num_assertions() const {
+    unsigned get_num_assertions() const override {
         return m_solver->get_num_assertions();
     }
 
-    virtual expr * get_assertion(unsigned idx) const {
+    expr * get_assertion(unsigned idx) const override {
         return m_solver->get_assertion(idx);
     }
 

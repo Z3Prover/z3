@@ -696,7 +696,7 @@ namespace qe {
             m_level -= num_scopes;
         }
         
-        void reset() {
+        void reset() override {
             m_st.reset();        
             m_fa.s().collect_statistics(m_st);
             m_ex.s().collect_statistics(m_st);        
@@ -706,7 +706,7 @@ namespace qe {
             m_asms.reset();
             m_pred_abs.reset();
             m_vars.reset();
-            m_model = 0;
+            m_model = nullptr;
             m_fa.reset();
             m_ex.reset();        
             m_free_vars.reset();
@@ -956,7 +956,7 @@ namespace qe {
             ptr_vector<expr>    todo;
             trail.push_back(fml);
             todo.push_back(fml);
-            expr* e = 0, *r = 0;
+            expr* e = nullptr, *r = nullptr;
             
             while (!todo.empty()) {
                 check_cancel();
@@ -1196,22 +1196,22 @@ namespace qe {
             m_mode(mode),
             m_avars(m),
             m_free_vars(m),
-            m_objective(0),
-            m_value(0),
+            m_objective(nullptr),
+            m_value(nullptr),
             m_was_sat(false),
             m_gt(m)
         {
             reset();
         }
         
-        virtual ~qsat() {
+        ~qsat() override {
             reset();
         }
         
-        void updt_params(params_ref const & p) {
+        void updt_params(params_ref const & p) override {
         }
         
-        void collect_param_descrs(param_descrs & r) {
+        void collect_param_descrs(param_descrs & r) override {
         }
 
         
@@ -1219,12 +1219,12 @@ namespace qe {
                         /* out */ goal_ref_buffer & result, 
                         /* out */ model_converter_ref & mc, 
                         /* out */ proof_converter_ref & pc,
-                        /* out */ expr_dependency_ref & core) {
+                        /* out */ expr_dependency_ref & core) override {
             tactic_report report("qsat-tactic", *in);
             ptr_vector<expr> fmls;
             expr_ref_vector defs(m);
             expr_ref fml(m);
-            mc = 0; pc = 0; core = 0;
+            mc = nullptr; pc = nullptr; core = nullptr;
             in->get_formulas(fmls);
 
 
@@ -1291,7 +1291,7 @@ namespace qe {
             }        
         }
         
-        void collect_statistics(statistics & st) const {
+        void collect_statistics(statistics & st) const override {
             st.copy(m_st);
             m_fa.s().collect_statistics(st);
             m_ex.s().collect_statistics(st);        
@@ -1300,23 +1300,23 @@ namespace qe {
             m_pred_abs.collect_statistics(st);
         }
         
-        void reset_statistics() {
+        void reset_statistics() override {
             m_stats.reset();
             m_fa.reset();
             m_ex.reset();
         }
         
-        void cleanup() {
+        void cleanup() override {
             reset();
         }
         
-        void set_logic(symbol const & l) {
+        void set_logic(symbol const & l) override {
         }
         
-        void set_progress_callback(progress_callback * callback) {
+        void set_progress_callback(progress_callback * callback) override {
         }
         
-        tactic * translate(ast_manager & m) {
+        tactic * translate(ast_manager & m) override {
             return alloc(qsat, m, m_params, m_mode);
         }        
 

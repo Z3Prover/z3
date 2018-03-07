@@ -403,7 +403,7 @@ struct pb2bv_rewriter::imp {
         bool rewrite_patterns() const { return false; }
         bool flat_assoc(func_decl * f) const { return false; }
         br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
-            result_pr = 0;
+            result_pr = nullptr;
             return m_r.mk_app_core(f, num, args, result);
         }
         card2bv_rewriter_cfg(imp& i, ast_manager & m):m_r(i, m) {}

@@ -5,7 +5,7 @@ of the project written in the ``CMakeLists.txt`` files and emits a build
 system for that project of your choice using one of CMake's "generators".
 This allows CMake to support many different platforms and build tools.
 You can run ``cmake --help`` to see the list of supported "generators"
-on your platform. Example generators include "UNIX Makfiles" and "Visual Studio
+on your platform. Example generators include "UNIX Makefiles" and "Visual Studio
 12 2013".
 
 ## Getting started
@@ -44,7 +44,7 @@ cmake -G "Unix Makefiles" ../
 make -j4 # Replace 4 with an appropriate number
 ```
 
-Note that on some platforms "Unix Makesfiles" is the default generator so on those
+Note that on some platforms "Unix Makefiles" is the default generator so on those
 platforms you don't need to pass ``-G "Unix Makefiles"`` command line option to
 ``cmake``.
 

@@ -110,7 +110,7 @@ namespace datalog {
     class rel_context_base : public engine_base {
     public:
         rel_context_base(ast_manager& m, char const* name): engine_base(m, name) {}
-        virtual ~rel_context_base() {}
+        ~rel_context_base() override {}
         virtual relation_manager & get_rmanager() = 0;
         virtual const relation_manager & get_rmanager() const = 0;
         virtual relation_base & get_relation(func_decl * pred) = 0;
@@ -146,9 +146,9 @@ namespace datalog {
             context const& ctx;
         public:
             contains_pred(context& ctx): ctx(ctx) {}
-            virtual ~contains_pred() {}
+            ~contains_pred() override {}
             
-            virtual bool operator()(expr* e) {
+            bool operator()(expr* e) override {
                 return ctx.is_predicate(e);
             }
         };
@@ -331,7 +331,7 @@ namespace datalog {
            names. Generally, the names coming from the parses are registered here.
         */
         func_decl * try_get_predicate_decl(symbol const& pred_name) const {
-            func_decl * res = 0;
+            func_decl * res = nullptr;
             m_preds_by_name.find(pred_name, res);
             return res;
         }        
@@ -341,7 +341,7 @@ namespace datalog {
 
         */
         func_decl * mk_fresh_head_predicate(symbol const & prefix, symbol const & suffix, 
-            unsigned arity, sort * const * domain, func_decl* orig_pred=0);
+            unsigned arity, sort * const * domain, func_decl* orig_pred=nullptr);
 
 
         /**
@@ -368,7 +368,7 @@ namespace datalog {
            These names are used when printing out the relations to make the output conform 
            to the one of bddbddb.
         */
-        void set_argument_names(const func_decl * pred, svector<symbol> var_names);
+        void set_argument_names(const func_decl * pred, const svector<symbol> & var_names);
         symbol get_argument_name(const func_decl * pred, unsigned arg_index);
 
         void set_predicate_representation(func_decl * pred, unsigned relation_name_cnt, 

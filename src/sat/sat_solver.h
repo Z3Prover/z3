@@ -315,7 +315,7 @@ namespace sat {
         //
         // -----------------------
     public:
-        lbool check(unsigned num_lits = 0, literal const* lits = 0);
+        lbool check(unsigned num_lits = 0, literal const* lits = nullptr);
 
         model const & get_model() const { return m_model; }
         bool model_is_current() const { return m_model_is_current; }
@@ -444,7 +444,7 @@ namespace sat {
         literal_vector m_aux_literals;
         svector<bin_clause> m_user_bin_clauses;
         void gc_lit(clause_vector& clauses, literal lit);
-        void gc_bin(bool learned, literal nlit);
+        void gc_bin(literal lit);
         void gc_var(bool_var v);
 
         bool_var max_var(clause_vector& clauses, bool_var v);

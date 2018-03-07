@@ -31,18 +31,18 @@ public:
     extension_model_converter(ast_manager & m):m_vars(m), m_defs(m) {
     }
 
-    virtual ~extension_model_converter();
+    ~extension_model_converter() override;
 
     ast_manager & m() const { return m_vars.get_manager(); }
 
-    virtual void operator()(model_ref & md, unsigned goal_idx);
+    void operator()(model_ref & md, unsigned goal_idx) override;
 
-    virtual void display(std::ostream & out);
+    void display(std::ostream & out) override;
 
     // register a variable that was eliminated
     void insert(func_decl * v, expr * def);
 
-    virtual model_converter * translate(ast_translation & translator);
+    model_converter * translate(ast_translation & translator) override;
 };
 
 

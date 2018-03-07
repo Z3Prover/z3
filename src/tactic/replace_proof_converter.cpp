@@ -39,7 +39,7 @@ public:
     replace_map(ast_manager& m): map_proc(m) {}
 
     void insert(expr* src, expr* dst) {
-        m_map.insert(src, dst, 0);
+        m_map.insert(src, dst, nullptr);
     }
 
     void operator()(var* v) { visit(v); }

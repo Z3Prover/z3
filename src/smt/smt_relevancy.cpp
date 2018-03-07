@@ -52,24 +52,24 @@ namespace smt {
         app * m_parent;
     public:
         and_relevancy_eh(app * p):m_parent(p) {}
-        virtual ~and_relevancy_eh() {}
-        virtual void operator()(relevancy_propagator & rp);
+        ~and_relevancy_eh() override {}
+        void operator()(relevancy_propagator & rp) override;
     };
 
     class or_relevancy_eh : public relevancy_eh {
         app * m_parent;
     public:
         or_relevancy_eh(app * p):m_parent(p) {}
-        virtual ~or_relevancy_eh() {}
-        virtual void operator()(relevancy_propagator & rp);
+        ~or_relevancy_eh() override {}
+        void operator()(relevancy_propagator & rp) override;
     };
 
     class ite_relevancy_eh : public relevancy_eh {
         app * m_parent;
     public:
         ite_relevancy_eh(app * p):m_parent(p) {}
-        virtual ~ite_relevancy_eh() {}
-        virtual void operator()(relevancy_propagator & rp);
+        ~ite_relevancy_eh() override {}
+        void operator()(relevancy_propagator & rp) override;
     };
 
     class ite_term_relevancy_eh : public relevancy_eh {
@@ -78,8 +78,8 @@ namespace smt {
         app  * m_else_eq;
     public:
         ite_term_relevancy_eh(app * p, app * then_eq, app * else_eq):m_parent(p), m_then_eq(then_eq), m_else_eq(else_eq) {}
-        virtual ~ite_term_relevancy_eh() {}
-        virtual void operator()(relevancy_propagator & rp);
+        ~ite_term_relevancy_eh() override {}
+        void operator()(relevancy_propagator & rp) override;
     };
 
     relevancy_propagator::relevancy_propagator(context & ctx):
@@ -154,33 +154,33 @@ namespace smt {
             relevancy_propagator(ctx), m_qhead(0), m_relevant_exprs(ctx.get_manager()),
             m_propagating(false) {}
 
-        virtual ~relevancy_propagator_imp() {
+        ~relevancy_propagator_imp() override {
             undo_trail(0);
         }
 
         relevancy_ehs * get_handlers(expr * n) {
-            relevancy_ehs * r = 0;
+            relevancy_ehs * r = nullptr;
             m_relevant_ehs.find(n, r);
             SASSERT(m_relevant_ehs.contains(n) || r == 0);
             return r;
         }
 
         void set_handlers(expr * n, relevancy_ehs * ehs) {
-            if (ehs == 0)
+            if (ehs == nullptr)
                 m_relevant_ehs.erase(n);
             else
                 m_relevant_ehs.insert(n, ehs);
         }
 
         relevancy_ehs * get_watches(expr * n, bool val) {
-            relevancy_ehs * r = 0;
+            relevancy_ehs * r = nullptr;
             m_watches[val ? 1 : 0].find(n, r);
             SASSERT(m_watches[val ? 1 : 0].contains(n) || r == 0);
             return r;
         }
 
         void set_watches(expr * n, bool val, relevancy_ehs * ehs) {
-            if (ehs == 0)
+            if (ehs == nullptr)
                 m_watches[val ? 1 : 0].erase(n);
             else
                 m_watches[val ? 1 : 0].insert(n, ehs);
@@ -191,7 +191,7 @@ namespace smt {
             m_trail.push_back(t);
         }
         
-        virtual void add_handler(expr * source, relevancy_eh * eh) {
+        void add_handler(expr * source, relevancy_eh * eh) override {
             if (!enabled())
                 return;
             if (is_relevant_core(source)) {
@@ -204,7 +204,7 @@ namespace smt {
             }
         }
         
-        virtual void add_watch(expr * n, bool val, relevancy_eh * eh) {
+        void add_watch(expr * n, bool val, relevancy_eh * eh) override {
             if (!enabled())
                 return;
             lbool lval = m_context.find_assignment(n);
@@ -224,7 +224,7 @@ namespace smt {
             }
         }
 
-        virtual void add_watch(expr * n, bool val, expr * target) {
+        void add_watch(expr * n, bool val, expr * target) override {
             if (!enabled())
                 return;
             lbool lval = m_context.find_assignment(n);
@@ -244,18 +244,18 @@ namespace smt {
         
         bool is_relevant_core(expr * n) const { return m_is_relevant.contains(n); }
         
-        virtual bool is_relevant(expr * n) const {
+        bool is_relevant(expr * n) const override {
             return !enabled() || is_relevant_core(n);
         }
 
-        virtual void push() {
+        void push() override {
             m_scopes.push_back(scope());
             scope & s                  = m_scopes.back();
             s.m_relevant_exprs_lim     = m_relevant_exprs.size();
             s.m_trail_lim              = m_trail.size();
         }
 
-        virtual void pop(unsigned num_scopes) {
+        void pop(unsigned num_scopes) override {
             SASSERT(m_context.get_scope_level() == m_scopes.size());
             unsigned lvl     = m_scopes.size();
             SASSERT(num_scopes <= lvl);
@@ -325,12 +325,12 @@ namespace smt {
            \brief Mark the given expression as relevant if it is not
            already marked. 
         */
-        virtual void mark_as_relevant(expr * n) {
+        void mark_as_relevant(expr * n) override {
             if (!enabled())
                 return;
             if (!is_relevant_core(n)) {
                 enode * e    = m_context.find_enode(n);
-                if (e != 0) {
+                if (e != nullptr) {
                     enode * curr = e;
                     do {
                         set_relevant(curr->get_owner());
@@ -376,7 +376,7 @@ namespace smt {
             case l_undef:
                 break;
             case l_true: {
-                expr * true_arg = 0;
+                expr * true_arg = nullptr;
                 unsigned num_args = n->get_num_args();
                 for (unsigned i = 0; i < num_args; i++) {
                     expr * arg  = n->get_arg(i);
@@ -400,7 +400,7 @@ namespace smt {
             lbool val    = m_context.find_assignment(n);
             switch (val) {
             case l_false: {
-                expr * false_arg = 0;
+                expr * false_arg = nullptr;
                 unsigned num_args = n->get_num_args();
                 for (unsigned i = 0; i < num_args; i++) {
                     expr * arg  = n->get_arg(i);
@@ -450,7 +450,7 @@ namespace smt {
            [m_qhead, m_relevant_exprs.size()) in the stack of 
            relevant expressions.
         */
-        virtual void propagate() {
+        void propagate() override {
             if (m_propagating) {  
                 return;  
             }  
@@ -487,18 +487,18 @@ namespace smt {
                 }
                 
                 relevancy_ehs * ehs = get_handlers(n);
-                while (ehs != 0) {
+                while (ehs != nullptr) {
                     ehs->head()->operator()(*this, n);
                     ehs = ehs->tail();
                 }
             }
         }
 
-        virtual bool can_propagate() const {
+        bool can_propagate() const override {
             return m_qhead < m_relevant_exprs.size();
         }
 
-        virtual void assign_eh(expr * n, bool val) {
+        void assign_eh(expr * n, bool val) override {
             if (!enabled())
                 return;
             ast_manager & m = get_manager();
@@ -510,13 +510,13 @@ namespace smt {
                     propagate_relevant_and(to_app(n));
             }
             relevancy_ehs * ehs = get_watches(n, val);
-            while (ehs != 0) {
+            while (ehs != nullptr) {
                 ehs->head()->operator()(*this, n, val);
                 ehs = ehs->tail();
             }
         }
 
-        virtual void display(std::ostream & out) const {
+        void display(std::ostream & out) const override {
             if (enabled() && !m_relevant_exprs.empty()) {
                 out << "relevant exprs:\n";
                 for (unsigned i = 0; i < m_relevant_exprs.size(); i++) {
@@ -527,7 +527,7 @@ namespace smt {
         }
 
 #ifdef Z3DEBUG
-        bool check_relevancy_app(app * n) const {
+        bool check_relevancy_app(app * n) const  {
             SASSERT(is_relevant(n));
             unsigned num_args = n->get_num_args();
             for (unsigned i = 0; i < num_args; i++) {
@@ -537,7 +537,7 @@ namespace smt {
             return true;
         }
         
-        virtual bool check_relevancy_or(app * n, bool root) const {
+        bool check_relevancy_or(app * n, bool root) const override {
             lbool val    = root ? l_true : m_context.find_assignment(n);
             if (val == l_false)
                 return check_relevancy_app(n);
@@ -600,7 +600,7 @@ namespace smt {
             return true;
         }
         
-        bool check_relevancy(expr_ref_vector const & v) const {
+        bool check_relevancy(expr_ref_vector const & v) const override {
             SASSERT(!can_propagate());
             ast_manager & m = get_manager();
             unsigned sz = v.size();

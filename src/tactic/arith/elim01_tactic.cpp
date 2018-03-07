@@ -41,7 +41,7 @@ public:
         m_refs(m)
     {}
 
-    virtual void operator()(model_ref & old_model, unsigned goal_idx) {
+    void operator()(model_ref & old_model, unsigned goal_idx) override {
         SASSERT(goal_idx == 0);
         model * new_model = alloc(model, m);
         unsigned num = old_model->get_num_constants();
@@ -106,7 +106,7 @@ public:
         }
     }
 
-    virtual model_converter * translate(ast_translation & translator) {
+    model_converter * translate(ast_translation & translator) override {
         bool2int_model_converter* mc = alloc(bool2int_model_converter, translator.to());
         for (unsigned i = 0; i < m_nums_as_int.size(); ++i) {
             mc->insert(m_nums_as_int[i], m_nums_as_bool[i].size(), m_nums_as_bool[i].c_ptr());
@@ -134,26 +134,26 @@ public:
         m_max_hi(rational(m_max_hi_default)) {
     }
 
-    virtual ~elim01_tactic() {
+    ~elim01_tactic() override {
     }
                 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_max_hi = rational(p.get_uint("max_coefficient", m_max_hi_default));
         m_params = p;
     }
 
-    virtual void collect_param_descrs(param_descrs & r) {
+    void collect_param_descrs(param_descrs & r) override {
         r.insert("max_coefficient", CPK_UINT, "(default: 1) maximal upper bound for finite range -> Bool conversion");
     }
 
     
-    virtual void operator()(goal_ref const & g, 
-                    goal_ref_buffer & result, 
-                    model_converter_ref & mc, 
+    void operator()(goal_ref const & g,
+                    goal_ref_buffer & result,
+                    model_converter_ref & mc,
                     proof_converter_ref & pc,
-                    expr_dependency_ref & core) {
+                    expr_dependency_ref & core) override {
         SASSERT(g->is_well_sorted());
-        mc = 0; pc = 0; core = 0;
+        mc = nullptr; pc = nullptr; core = nullptr;
         
         tactic_report report("elim01", *g);
         
@@ -211,11 +211,11 @@ public:
         // TBD: support proof conversion (or not..)
     }
     
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(elim01_tactic, m, m_params);
     }
                 
-    virtual void cleanup() {}
+    void cleanup() override {}
 
     void add_variable(bool2int_model_converter* b2i,
                       expr_safe_replace& sub,

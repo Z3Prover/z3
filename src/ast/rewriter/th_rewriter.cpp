@@ -440,8 +440,8 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         }
         if (num1 != num2 && num1 != num2 + 1 && num1 != num2 - 1)
             return false;
-        new_t1 = 0;
-        new_t2 = 0;
+        new_t1 = nullptr;
+        new_t2 = nullptr;
         expr_fast_mark1 visited1;
         expr_fast_mark2 visited2;
         for (unsigned i = 0; i < num1; i++) {
@@ -533,7 +533,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         expr * c = args[0];
         expr * t = args[1];
         expr * e = args[2];
-        func_decl * f_prime = 0;
+        func_decl * f_prime = nullptr;
         expr_ref new_t(m()), new_e(m()), common(m());
         bool first;
         TRACE("push_ite", tout << "unifying:\n" << mk_ismt2_pp(t, m()) << "\n" << mk_ismt2_pp(e, m()) << "\n";);
@@ -559,7 +559,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
     }
 
     br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
-        result_pr = 0;
+        result_pr = nullptr;
         br_status st = reduce_app_core(f, num, args, result);
         if (st != BR_DONE && st != BR_FAILED) {
             CTRACE("th_rewriter_step", st != BR_FAILED,
@@ -604,7 +604,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
                            expr_ref & result,
                            proof_ref & result_pr) {
         quantifier_ref q1(m());
-        proof * p1 = 0;
+        proof * p1 = nullptr;
         if (is_quantifier(new_body) &&
             to_quantifier(new_body)->is_forall() == old_q->is_forall() &&
             !old_q->has_patterns() &&
@@ -627,7 +627,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
                                    std::min(old_q->get_weight(), nested_q->get_weight()),
                                    old_q->get_qid(),
                                    old_q->get_skid(),
-                                   0, 0, 0, 0);
+                                   0, nullptr, 0, nullptr);
 
             SASSERT(is_well_sorted(m(), q1));
 
@@ -657,9 +657,9 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
 
         TRACE("reduce_quantifier", tout << "after elim_unused_vars:\n" << mk_ismt2_pp(result, m()) << "\n";);
 
-        result_pr = 0;
+        result_pr = nullptr;
         if (m().proofs_enabled()) {
-            proof * p2 = 0;
+            proof * p2 = nullptr;
             if (q1.get() != result.get())
                 p2 = m().mk_elim_unused_vars(q1, result);
             result_pr = m().mk_transitivity(p1, p2);
@@ -680,7 +680,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         m_a_util(m),
         m_bv_util(m),
         m_used_dependencies(m),
-        m_subst(0) {
+        m_subst(nullptr) {
         updt_local_params(p);
     }
 
@@ -690,13 +690,13 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
     }
 
     void reset() {
-        m_subst = 0;
+        m_subst = nullptr;
     }
 
     bool get_subst(expr * s, expr * & t, proof * & pr) {
-        if (m_subst == 0)
+        if (m_subst == nullptr)
             return false;
-        expr_dependency * d = 0;
+        expr_dependency * d = nullptr;
         if (m_subst->find(s, t, pr, d)) {
             m_used_dependencies = m().mk_join(m_used_dependencies, d);
             return true;
@@ -798,9 +798,9 @@ expr_dependency * th_rewriter::get_used_dependencies() {
 }
 
 void th_rewriter::reset_used_dependencies() {
-    if (get_used_dependencies() != 0) {
+    if (get_used_dependencies() != nullptr) {
         set_substitution(m_imp->cfg().m_subst); // reset cache preserving subst
-        m_imp->cfg().m_used_dependencies = 0;
+        m_imp->cfg().m_used_dependencies = nullptr;
     }
 }
 

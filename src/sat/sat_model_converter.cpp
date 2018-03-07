@@ -43,10 +43,7 @@ namespace sat {
             // and the following procedure flips its value.
             bool sat = false;
             bool var_sign = false;
-            literal_vector::const_iterator it2  = it->m_clauses.begin();
-            literal_vector::const_iterator end2 = it->m_clauses.end();
-            for (; it2 != end2; ++it2) {
-                literal l = *it2;
+            for (literal l : it->m_clauses) {
                 if (l == null_literal) {
                     // end of clause
                     if (!sat) {
@@ -74,9 +71,7 @@ namespace sat {
             DEBUG_CODE({
                 // all clauses must be satisfied
                 bool sat = false;
-                it2 = it->m_clauses.begin();
-                for (; it2 != end2; ++it2) {
-                    literal l = *it2;
+                for (literal l : it->m_clauses) {
                     if (l == null_literal) {
                         SASSERT(sat);
                         sat = false;

@@ -190,7 +190,7 @@ namespace upolynomial {
 
     // Copy elements from p to buffer.
     void core_manager::set(unsigned sz, numeral const * p, numeral_vector & buffer) {
-        if (p != 0 && buffer.c_ptr() == p) {
+        if (p != nullptr && buffer.c_ptr() == p) {
             SASSERT(buffer.size() == sz);
             return;
         }

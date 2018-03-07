@@ -24,7 +24,7 @@ s_integer s_integer::m_one(1);
 s_integer s_integer::m_minus_one(-1);
 
 s_integer::s_integer(const char * str) {
-    m_val = static_cast<int>(strtol(str, 0, 10));
+    m_val = static_cast<int>(strtol(str, nullptr, 10));
 }
 
 s_integer power(const s_integer & r, unsigned p) {

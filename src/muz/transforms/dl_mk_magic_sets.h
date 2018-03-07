@@ -126,7 +126,7 @@ namespace datalog {
          */
         mk_magic_sets(context & ctx, func_decl* goal);
         
-        rule_set * operator()(rule_set const & source);
+        rule_set * operator()(rule_set const & source) override;
     };
 
 };

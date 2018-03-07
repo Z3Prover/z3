@@ -297,7 +297,7 @@ namespace datalog {
 
                 SASSERT(total_size>=rel_sz);
                 if(total_size==rel_sz) {
-                    on_discovered_total_relation(pred, 0);
+                    on_discovered_total_relation(pred, nullptr);
                 }
             }
         next_pred:;
@@ -335,7 +335,7 @@ namespace datalog {
     rule_set * mk_subsumption_checker::operator()(rule_set const & source) {
         // TODO mc
         if (!m_context.get_params ().xform_subsumption_checker()) 
-          return 0;
+          return nullptr;
 
         m_have_new_total_rule = false;
         collect_ground_unconditional_rule_heads(source);
@@ -348,7 +348,7 @@ namespace datalog {
 
         if (!m_have_new_total_rule && !modified) {
             dealloc(res);
-            return 0;
+            return nullptr;
         }
 
 

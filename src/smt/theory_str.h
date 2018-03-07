@@ -46,16 +46,16 @@ public:
     str_value_factory(ast_manager & m, family_id fid) :
         value_factory(m, fid),
         u(m), delim("!"), m_next(0) {}
-    virtual ~str_value_factory() {}
-    virtual expr * get_some_value(sort * s) {
+    ~str_value_factory() override {}
+    expr * get_some_value(sort * s) override {
         return u.str.mk_string(symbol("some value"));
     }
-    virtual bool get_some_values(sort * s, expr_ref & v1, expr_ref & v2) {
+    bool get_some_values(sort * s, expr_ref & v1, expr_ref & v2) override {
         v1 = u.str.mk_string(symbol("value 1"));
         v2 = u.str.mk_string(symbol("value 2"));
         return true;
     }
-    virtual expr * get_fresh_value(sort * s) {
+    expr * get_fresh_value(sort * s) override {
         if (u.is_string(s)) {
             while (true) {
                 std::ostringstream strm;
@@ -66,15 +66,15 @@ public:
                 return u.str.mk_string(sym);
             }
         }
-        sort* seq = 0;
+        sort* seq = nullptr;
         if (u.is_re(s, seq)) {
             expr* v0 = get_fresh_value(seq);
             return u.re.mk_to_re(v0);
         }
         TRACE("t_str", tout << "unexpected sort in get_fresh_value(): " << mk_pp(s, m_manager) << std::endl;);
-        UNREACHABLE(); return NULL;
+        UNREACHABLE(); return nullptr;
     }
-    virtual void register_value(expr * n) { /* Ignore */ }
+    void register_value(expr * n) override { /* Ignore */ }
 };
 
 // rather than modify obj_pair_map I inherit from it and add my own helper methods
@@ -87,7 +87,7 @@ public:
             return value;
         } else {
             TRACE("t_str", tout << "WARNING: lookup miss in contain_pair_bool_map!" << std::endl;);
-            return NULL;
+            return nullptr;
         }
     }
 
@@ -104,8 +104,8 @@ class binary_search_trail : public trail<Ctx> {
 public:
     binary_search_trail(obj_map<expr, ptr_vector<expr> > & target, expr * entry) :
         target(target), entry(entry) {}
-    virtual ~binary_search_trail() {}
-    virtual void undo(Ctx & ctx) {
+    ~binary_search_trail() override {}
+    void undo(Ctx & ctx) override {
         TRACE("t_str_binary_search", tout << "in binary_search_trail::undo()" << std::endl;);
         if (target.contains(entry)) {
             if (!target[entry].empty()) {
@@ -616,10 +616,10 @@ protected:
 
 public:
     theory_str(ast_manager & m, theory_str_params const & params);
-    virtual ~theory_str();
+    ~theory_str() override;
 
-    virtual char const * get_name() const { return "seq"; }
-    virtual void display(std::ostream & out) const;
+    char const * get_name() const override { return "seq"; }
+    void display(std::ostream & out) const override;
 
     bool overlapping_variables_detected() const { return loopDetected; }
 
@@ -628,33 +628,33 @@ public:
     void after_merge_eh(theory_var r1, theory_var r2, theory_var v1, theory_var v2) { }
     void unmerge_eh(theory_var v1, theory_var v2) {}
 protected:
-    virtual bool internalize_atom(app * atom, bool gate_ctx);
-    virtual bool internalize_term(app * term);
+    bool internalize_atom(app * atom, bool gate_ctx) override;
+    bool internalize_term(app * term) override;
     virtual enode* ensure_enode(expr* e);
-    virtual theory_var mk_var(enode * n);
+    theory_var mk_var(enode * n) override;
 
-    virtual void new_eq_eh(theory_var, theory_var);
-    virtual void new_diseq_eh(theory_var, theory_var);
+    void new_eq_eh(theory_var, theory_var) override;
+    void new_diseq_eh(theory_var, theory_var) override;
 
-    virtual theory* mk_fresh(context*) { return alloc(theory_str, get_manager(), m_params); }
-    virtual void init_search_eh();
-    virtual void add_theory_assumptions(expr_ref_vector & assumptions);
-    virtual lbool validate_unsat_core(expr_ref_vector & unsat_core);
-    virtual void relevant_eh(app * n);
-    virtual void assign_eh(bool_var v, bool is_true);
-    virtual void push_scope_eh();
-    virtual void pop_scope_eh(unsigned num_scopes);
-    virtual void reset_eh();
+    theory* mk_fresh(context*) override { return alloc(theory_str, get_manager(), m_params); }
+    void init_search_eh() override;
+    void add_theory_assumptions(expr_ref_vector & assumptions) override;
+    lbool validate_unsat_core(expr_ref_vector & unsat_core) override;
+    void relevant_eh(app * n) override;
+    void assign_eh(bool_var v, bool is_true) override;
+    void push_scope_eh() override;
+    void pop_scope_eh(unsigned num_scopes) override;
+    void reset_eh() override;
 
-    virtual bool can_propagate();
-    virtual void propagate();
+    bool can_propagate() override;
+    void propagate() override;
 
-    virtual final_check_status final_check_eh();
+    final_check_status final_check_eh() override;
     virtual void attach_new_th_var(enode * n);
 
-    virtual void init_model(model_generator & m);
-    virtual model_value_proc * mk_value(enode * n, model_generator & mg);
-    virtual void finalize_model(model_generator & mg);
+    void init_model(model_generator & m) override;
+    model_value_proc * mk_value(enode * n, model_generator & mg) override;
+    void finalize_model(model_generator & mg) override;
 };
 
 };
