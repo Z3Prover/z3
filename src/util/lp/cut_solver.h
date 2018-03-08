@@ -937,7 +937,7 @@ public:
         }
         if (vi.is_active()) out << ", active var ";
         print_var_domain(out, vi);
-        out << ", propagaions = " <<  vi.number_of_bound_propagations() << ", deps = " << vi.dependent_constraints().size();
+        out << ", propagations = " <<  vi.number_of_bound_propagations() << ", deps = " << vi.dependent_constraints().size();
         out << ", asserts = " << vi.number_of_asserts() << std::endl;
         // out << "external levels: ";
         // for (auto j : vi.external_stack_level())
@@ -1629,7 +1629,9 @@ public:
                 return c;
             } 
             propagate_constraint_on_lower(c, b); 
-        } else if (r == 1) {
+        } else if (r == 1 &&
+                   !too_many_propagations_for_var(c->poly().coeffs()[the_only_unlim].var())) {
+            // otherwise the new bound, even if it exists, will be rejected! 
             lp_assert(!lower_is_pos(c->poly()));
             propagate_constraint_only_one_unlim(c, the_only_unlim);
         }
