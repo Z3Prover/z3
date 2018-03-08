@@ -2266,15 +2266,15 @@ public:
         }
     }
 
-    constraint* find_constraint_to_propagate(unsigned rand) {
+    constraint* find_constraint_to_propagate() {
         handle_conflicting_cores();
-        return m_active_set.remove_random_constraint(rand);
+        return m_active_set.remove_constraint();
     }
     
     // returns nullptr if there is no conflict, or a conflict constraint otherwise
     constraint* propagate_constraints_on_active_set() {
         constraint *c;
-        while ((c = find_constraint_to_propagate(m_settings.random_next())) != nullptr) {
+        while ((c = find_constraint_to_propagate()) != nullptr) {
             c = propagate_constraint(c);
             if (cancel()) {
                 return nullptr;

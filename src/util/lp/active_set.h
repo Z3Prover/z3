@@ -49,7 +49,7 @@ public:
     }
         
         
-    constraint* remove_random_constraint(unsigned rand) {
+    constraint* remove_constraint() {
         if (m_cs.size() == 0)
             return nullptr;
         unsigned id = m_q.dequeue();
