@@ -1284,6 +1284,21 @@ namespace smt {
         expr_ref finalAxiom(m.mk_and(breakdownAssert, reduceToIndex), m);
         SASSERT(finalAxiom);
         assert_axiom(finalAxiom);
+
+        {
+            // heuristic: integrate with str.contains information
+            // (but don't introduce it if it isn't already in the instance)
+            expr_ref haystack(ex->get_arg(0), m), needle(ex->get_arg(1), m), startIdx(ex->get_arg(2), m);
+            expr_ref zeroAst(mk_int(0), m);
+            // (H contains N) <==> (H indexof N, i) >= 0
+            expr_ref premise(u.str.mk_contains(haystack, needle), m);
+            ctx.internalize(premise, false);
+            expr_ref conclusion(m_autil.mk_ge(ex, zeroAst), m);
+            expr_ref containsAxiom(ctx.mk_eq_atom(premise, conclusion), m);
+            SASSERT(containsAxiom);
+            // we can't assert this during init_search as it breaks an invariant if the instance becomes inconsistent
+            m_delayed_axiom_setup_terms.push_back(containsAxiom);
+        }
     }
 
     void theory_str::instantiate_axiom_Indexof_extended(enode * e) {
@@ -1353,6 +1368,20 @@ namespace smt {
         expr_ref reduceTerm(ctx.mk_eq_atom(expr, resAst), m);
         SASSERT(reduceTerm);
         assert_axiom(reduceTerm);
+
+        {
+            // heuristic: integrate with str.contains information
+            // (but don't introduce it if it isn't already in the instance)
+            expr_ref haystack(expr->get_arg(0), m), needle(expr->get_arg(1), m), startIdx(expr->get_arg(2), m);
+            // (H contains N) <==> (H indexof N, i) >= 0
+            expr_ref premise(u.str.mk_contains(haystack, needle), m);
+            ctx.internalize(premise, false);
+            expr_ref conclusion(m_autil.mk_ge(expr, zeroAst), m);
+            expr_ref containsAxiom(ctx.mk_eq_atom(premise, conclusion), m);
+            SASSERT(containsAxiom);
+            // we can't assert this during init_search as it breaks an invariant if the instance becomes inconsistent
+            m_delayed_axiom_setup_terms.push_back(containsAxiom);
+        }
     }
 
     void theory_str::instantiate_axiom_LastIndexof(enode * e) {
