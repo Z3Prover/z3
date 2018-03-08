@@ -232,12 +232,16 @@ public:
         
         bool intersect_with_lower_bound(const mpq & b, unsigned explanation, unsigned stack_level) {
             conditional_push(stack_level);
-            return m_domain.intersect_with_bound(b, true, explanation);
+            bool ret = m_domain.intersect_with_bound(b, true, explanation);
+            lp_assert(!m_domain.is_empty());
+            return ret;
         }
         
         bool intersect_with_upper_bound(const mpq & b, unsigned explanation, unsigned external_level) {
             conditional_push(external_level);
-            return m_domain.intersect_with_bound(b, false, explanation);
+            bool ret = m_domain.intersect_with_bound(b, false, explanation);
+            lp_assert(!m_domain.is_empty());
+            return ret;
         }
         
         bool is_fixed() const { return m_domain.is_fixed();}
@@ -882,7 +886,8 @@ public:
                                      const mpq& lower_val,
                                      constraint* c) {
         unsigned j = p.var();
-
+        if (m_var_infos[j].is_fixed())
+			return;
         if (is_pos(p.coeff())) {
             mpq m;
             get_var_lower_bound(p.var(), m);
