@@ -14,4 +14,4 @@ if ! $PYTHON -c "print('testing')" > /dev/null ; then
    exit 1
 fi
 
-$PYTHON scripts/mk_make.py $*
+$PYTHON scripts/mk_make.py "$@"
