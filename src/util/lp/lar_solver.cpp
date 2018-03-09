@@ -1191,7 +1191,7 @@ void lar_solver::print_constraint(constraint_index ci, std::ostream & out) const
 }
 
 void lar_solver::print_constraints(std::ostream& out) const  {
-    std::cout << "number of constraints = " << m_constraints.size() << std::endl;
+    out << "number of constraints = " << m_constraints.size() << std::endl;
     for (auto c : m_constraints) {
         print_constraint(c, out);
     }

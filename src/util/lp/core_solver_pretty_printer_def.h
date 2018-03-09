@@ -105,6 +105,8 @@ template <typename T, typename X> void core_solver_pretty_printer<T, X>::init_m_
                 
             string name = m_core_solver.column_name(column);
             for (unsigned row = 0; row < nrows(); row ++) {
+                m_A[row].resize(ncols(), "");
+                m_signs[row].resize(ncols(),"");
                 set_coeff(
                           m_A[row],
                           m_signs[row],
