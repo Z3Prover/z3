@@ -7,7 +7,7 @@ Module Name:
 
 Abstract:
 
-    Tactic expection object.
+    Tactic exception object.
 
 Author:
 

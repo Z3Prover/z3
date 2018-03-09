@@ -989,7 +989,7 @@ namespace z3 {
 
         /**
            \brief sequence and regular expression operations.
-           + is overloaeded as sequence concatenation and regular expression union.
+           + is overloaded as sequence concatenation and regular expression union.
            concat is overloaded to handle sequences and regular expressions
         */
         expr extract(expr const& offset, expr const& length) const { 
