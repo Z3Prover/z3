@@ -1477,7 +1477,6 @@ extern "C" {
     /*@{*/
 
     /**
-        \deprecated
         \brief Create a configuration object for the Z3 context object.
 
         Configurations are created in order to assign parameters prior to creating
@@ -1510,7 +1509,6 @@ extern "C" {
     Z3_config Z3_API Z3_mk_config(void);
 
     /**
-        \deprecated
         \brief Delete the given configuration object.
 
         \sa Z3_mk_config
@@ -1520,7 +1518,6 @@ extern "C" {
     void Z3_API Z3_del_config(Z3_config c);
 
     /**
-        \deprecated
         \brief Set a configuration parameter.
 
         The following parameters can be set for
@@ -1537,7 +1534,6 @@ extern "C" {
     /*@{*/
 
     /**
-       \deprecated
        \brief Create a context using the given configuration.
 
        After a context is created, the configuration cannot be changed,
@@ -1617,7 +1613,6 @@ extern "C" {
     void Z3_API Z3_dec_ref(Z3_context c, Z3_ast a);
 
     /**
-       \deprecated
        \brief Set a value of a context parameter.
 
        \sa Z3_global_param_set
