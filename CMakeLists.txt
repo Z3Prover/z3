@@ -410,17 +410,17 @@ list(APPEND Z3_DEPENDENT_LIBS ${CMAKE_THREAD_LIBS_INIT})
 include(${CMAKE_SOURCE_DIR}/cmake/compiler_warnings.cmake)
 
 ################################################################################
-# If using Ninja, force color output for Clang and gcc.
+# If using Ninja, force color output for Clang (and gcc, disabled to check build).
 ################################################################################
 if (UNIX AND CMAKE_GENERATOR STREQUAL "Ninja")
   if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fcolor-diagnostics")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fcolor-diagnostics")
   endif()
-  if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fdiagnostics-color")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fdiagnostics-color")
-  endif()
+#  if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+#    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fdiagnostics-color")
+#    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fdiagnostics-color")
+#  endif()
 endif()
 
 ################################################################################
