@@ -72,7 +72,7 @@ def main(args):
 
     if count == 0:
         logging.info('No files generated. You need to specific an output directory'
-                     ' for the relevant langauge bindings')
+                     ' for the relevant language bindings')
     # TODO: Add support for other bindings
     return 0
 
