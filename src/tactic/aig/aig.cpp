@@ -267,7 +267,7 @@ struct aig_manager::imp {
             }
             if  (b == r) {
                 if (sign1) {
-                    // subsitution
+                    // substitution
                     // not (a and b) and r --> (not a) and r   IF b == r
                     l = a;
                     l.invert();

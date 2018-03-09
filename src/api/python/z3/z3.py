@@ -2428,7 +2428,7 @@ def is_rational_value(a):
     return is_arith(a) and a.is_real() and _is_numeral(a.ctx, a.as_ast())
 
 def is_algebraic_value(a):
-    """Return `True` if `a` is an algerbraic value of sort Real.
+    """Return `True` if `a` is an algebraic value of sort Real.
 
     >>> is_algebraic_value(RealVal("3/5"))
     False
@@ -4437,7 +4437,7 @@ class Datatype:
         """Declare constructor named `name` with the given accessors `args`.
         Each accessor is a pair `(name, sort)`, where `name` is a string and `sort` a Z3 sort or a reference to the datatypes being declared.
 
-        In the followin example `List.declare('cons', ('car', IntSort()), ('cdr', List))`
+        In the following example `List.declare('cons', ('car', IntSort()), ('cdr', List))`
         declares the constructor named `cons` that builds a new List using an integer and a List.
         It also declares the accessors `car` and `cdr`. The accessor `car` extracts the integer of a `cons` cell,
         and `cdr` the list of a `cons` cell. After all constructors were declared, we use the method create() to create
@@ -4457,7 +4457,7 @@ class Datatype:
         return "Datatype(%s, %s)" % (self.name, self.constructors)
 
     def create(self):
-        """Create a Z3 datatype based on the constructors declared using the mehtod `declare()`.
+        """Create a Z3 datatype based on the constructors declared using the method `declare()`.
 
         The function `CreateDatatypes()` must be used to define mutually recursive datatypes.
 
@@ -8874,7 +8874,7 @@ class FPNumRef(FPRef):
     def isSubnormal(self):
         return Z3_fpa_is_numeral_subnormal(self.ctx.ref(), self.as_ast())
 
-    """Indicates whether the numeral is postitive."""
+    """Indicates whether the numeral is positive."""
     def isPositive(self):
         return Z3_fpa_is_numeral_positive(self.ctx.ref(), self.as_ast())
 
@@ -9670,7 +9670,7 @@ def fpToIEEEBV(x, ctx=None):
     The size of the resulting bit-vector is automatically determined.
 
     Note that IEEE 754-2008 allows multiple different representations of NaN. This conversion
-    knows only one NaN and it will always produce the same bit-vector represenatation of
+    knows only one NaN and it will always produce the same bit-vector representation of
     that NaN.
 
     >>> x = FP('x', FPSort(8, 24))
@@ -9845,7 +9845,7 @@ def Empty(s):
     raise Z3Exception("Non-sequence, non-regular expression sort passed to Empty")
 
 def Full(s):
-    """Create the regular expression that accepts the universal langauge
+    """Create the regular expression that accepts the universal language
     >>> e = Full(ReSort(SeqSort(IntSort())))
     >>> print(e)
     re.all

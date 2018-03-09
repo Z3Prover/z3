@@ -434,7 +434,7 @@ else()
 endif()
 
 ################################################################################
-# Postion independent code
+# Position independent code
 ################################################################################
 # This is required because code built in the components will end up in a shared
 # library. If not building a shared library ``-fPIC`` isn't needed and would add

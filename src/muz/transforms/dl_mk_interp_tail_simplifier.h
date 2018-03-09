@@ -53,7 +53,7 @@ namespace datalog {
             */
             void reset(rule * r);
 
-            /** Reset subtitution and unify tail tgt_idx of the target rule and the head of the src rule */
+            /** Reset substitution and unify tail tgt_idx of the target rule and the head of the src rule */
             bool unify(expr * e1, expr * e2);
 
             void get_result(rule_ref & res);
