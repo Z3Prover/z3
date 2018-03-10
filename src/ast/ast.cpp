@@ -663,7 +663,6 @@ basic_decl_plugin::basic_decl_plugin():
     m_not_or_elim_decl(nullptr),
     m_rewrite_decl(nullptr),
     m_pull_quant_decl(nullptr),
-    m_pull_quant_star_decl(nullptr),
     m_push_quant_decl(nullptr),
     m_elim_unused_vars_decl(nullptr),
     m_der_decl(nullptr),
@@ -827,7 +826,6 @@ func_decl * basic_decl_plugin::mk_proof_decl(basic_op_kind k, unsigned num_paren
     case PR_REWRITE:                      return mk_proof_decl("rewrite", k, 0, m_rewrite_decl);
     case PR_REWRITE_STAR:                 return mk_proof_decl("rewrite*", k, num_parents, m_rewrite_star_decls);
     case PR_PULL_QUANT:                   return mk_proof_decl("pull-quant", k, 0, m_pull_quant_decl);
-    case PR_PULL_QUANT_STAR:              return mk_proof_decl("pull-quant*", k, 0, m_pull_quant_star_decl);
     case PR_PUSH_QUANT:                   return mk_proof_decl("push-quant", k, 0, m_push_quant_decl);
     case PR_ELIM_UNUSED_VARS:             return mk_proof_decl("elim-unused", k, 0, m_elim_unused_vars_decl);
     case PR_DER:                          return mk_proof_decl("der", k, 0, m_der_decl);
@@ -844,8 +842,6 @@ func_decl * basic_decl_plugin::mk_proof_decl(basic_op_kind k, unsigned num_paren
     case PR_IFF_OEQ:                      return mk_proof_decl("iff~", k, 1, m_iff_oeq_decl);
     case PR_NNF_POS:                      return mk_proof_decl("nnf-pos", k, num_parents, m_nnf_pos_decls);
     case PR_NNF_NEG:                      return mk_proof_decl("nnf-neg", k, num_parents, m_nnf_neg_decls);
-    case PR_NNF_STAR:                     return mk_proof_decl("nnf*", k, num_parents, m_nnf_star_decls);
-    case PR_CNF_STAR:                     return mk_proof_decl("cnf*", k, num_parents, m_cnf_star_decls);
     case PR_SKOLEMIZE:                    return mk_proof_decl("sk", k, 0, m_skolemize_decl);
     case PR_MODUS_PONENS_OEQ:             return mk_proof_decl("mp~", k, 2, m_mp_oeq_decl);
     case PR_TH_LEMMA:                     return mk_proof_decl("th-lemma", k, num_parents, m_th_lemma_decls);
@@ -949,7 +945,6 @@ void basic_decl_plugin::finalize() {
     DEC_REF(m_not_or_elim_decl);
     DEC_REF(m_rewrite_decl);
     DEC_REF(m_pull_quant_decl);
-    DEC_REF(m_pull_quant_star_decl);
     DEC_REF(m_push_quant_decl);
     DEC_REF(m_elim_unused_vars_decl);
     DEC_REF(m_der_decl);
@@ -975,8 +970,6 @@ void basic_decl_plugin::finalize() {
     DEC_ARRAY_REF(m_apply_def_decls);
     DEC_ARRAY_REF(m_nnf_pos_decls);
     DEC_ARRAY_REF(m_nnf_neg_decls);
-    DEC_ARRAY_REF(m_nnf_star_decls);
-    DEC_ARRAY_REF(m_cnf_star_decls);
 
     DEC_ARRAY_REF(m_th_lemma_decls);
     DEC_REF(m_hyper_res_decl0);
@@ -2844,12 +2837,6 @@ proof * ast_manager::mk_pull_quant(expr * e, quantifier * q) {
     return mk_app(m_basic_family_id, PR_PULL_QUANT, mk_iff(e, q));
 }
 
-proof * ast_manager::mk_pull_quant_star(expr * e, quantifier * q) {
-    if (proofs_disabled())
-        return nullptr;
-    return mk_app(m_basic_family_id, PR_PULL_QUANT_STAR, mk_iff(e, q));
-}
-
 proof * ast_manager::mk_push_quant(quantifier * q, expr * e) {
     if (proofs_disabled())
         return nullptr;
@@ -3094,30 +3081,12 @@ proof * ast_manager::mk_nnf_neg(expr * s, expr * t, unsigned num_proofs, proof *
     return mk_app(m_basic_family_id, PR_NNF_NEG, args.size(), args.c_ptr());
 }
 
-proof * ast_manager::mk_nnf_star(expr * s, expr * t, unsigned num_proofs, proof * const * proofs) {
-    if (proofs_disabled())
-        return nullptr;
-    ptr_buffer<expr> args;
-    args.append(num_proofs, (expr**) proofs);
-    args.push_back(mk_oeq(s, t));
-    return mk_app(m_basic_family_id, PR_NNF_STAR, args.size(), args.c_ptr());
-}
-
 proof * ast_manager::mk_skolemization(expr * q, expr * e) {
     if (proofs_disabled())
         return nullptr;
     SASSERT(is_bool(q));
     SASSERT(is_bool(e));
     return mk_app(m_basic_family_id, PR_SKOLEMIZE, mk_oeq(q, e));
-}
-
-proof * ast_manager::mk_cnf_star(expr * s, expr * t, unsigned num_proofs, proof * const * proofs) {
-    if (proofs_disabled())
-        return nullptr;
-    ptr_buffer<expr> args;
-    args.append(num_proofs, (expr**) proofs);
-    args.push_back(mk_oeq(s, t));
-    return mk_app(m_basic_family_id, PR_CNF_STAR, args.size(), args.c_ptr());
 }
 
 proof * ast_manager::mk_and_elim(proof * p, unsigned i) {

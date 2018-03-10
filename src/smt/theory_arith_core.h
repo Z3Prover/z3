@@ -597,7 +597,6 @@ namespace smt {
     void theory_arith<Ext>::mk_to_int_axiom(app * n) {
         SASSERT(m_util.is_to_int(n));
         ast_manager & m  = get_manager();
-        context & ctx    = get_context();
         expr* x = n->get_arg(0);
 
         // to_int (to_real x) = x

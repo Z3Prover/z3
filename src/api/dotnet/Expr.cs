@@ -932,7 +932,7 @@ namespace Microsoft.Z3
         /// Indicates whether the term is a proof by condensed transitivity of a relation
         /// </summary>
         /// <remarks>
-        /// Condensed transitivity proof. This proof object is only used if the parameter PROOF_MODE is 1.
+        /// Condensed transitivity proof. 
         /// It combines several symmetry and transitivity proofs.
         /// Example:
         /// T1: (R a b)
@@ -1035,14 +1035,11 @@ namespace Microsoft.Z3
         /// </summary>
         /// <remarks>
         /// A proof for rewriting an expression t into an expression s.
-        /// This proof object is used if the parameter PROOF_MODE is 1.
         /// This proof object can have n antecedents.
         /// The antecedents are proofs for equalities used as substitution rules.
-        /// The object is also used in a few cases if the parameter PROOF_MODE is 2.
-        /// The cases are:
+        /// The object is used in a few cases:
         /// - When applying contextual simplification (CONTEXT_SIMPLIFIER=true)
         /// - When converting bit-vectors to Booleans (BIT2BOOL=true)
-        /// - When pulling ite expression up (PULL_CHEAP_ITE_TREES=true)
         /// </remarks>
         public bool IsProofRewriteStar { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_REWRITE_STAR; } }
 
@@ -1054,15 +1051,6 @@ namespace Microsoft.Z3
         /// </remarks>
         public bool IsProofPullQuant { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_PULL_QUANT; } }
 
-        /// <summary>
-        /// Indicates whether the term is a proof for pulling quantifiers out.
-        /// </summary>
-        /// <remarks>
-        /// A proof for (iff P Q) where Q is in prenex normal form.
-        /// This proof object is only used if the parameter PROOF_MODE is 1.
-        /// This proof object has no antecedents
-        /// </remarks>
-        public bool IsProofPullQuantStar { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_PULL_QUANT_STAR; } }
 
         /// <summary>
         /// Indicates whether the term is a proof for pushing quantifiers in.
@@ -1303,28 +1291,6 @@ namespace Microsoft.Z3
         ///                             (and (or r_1 r_2) (or r_1' r_2')))
         /// </remarks>
         public bool IsProofNNFNeg { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_NNF_NEG; } }
-
-        /// <summary>
-        /// Indicates whether the term is a proof for (~ P Q) here Q is in negation normal form.
-        /// </summary>
-        /// <remarks>
-        /// A proof for (~ P Q) where Q is in negation normal form.
-        ///
-        /// This proof object is only used if the parameter PROOF_MODE is 1.
-        ///
-        /// This proof object may have n antecedents. Each antecedent is a PR_DEF_INTRO.
-        /// </remarks>
-        public bool IsProofNNFStar { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_NNF_STAR; } }
-
-        /// <summary>
-        /// Indicates whether the term is a proof for (~ P Q) where Q is in conjunctive normal form.
-        /// </summary>
-        /// <remarks>
-        /// A proof for (~ P Q) where Q is in conjunctive normal form.
-        /// This proof object is only used if the parameter PROOF_MODE is 1.
-        /// This proof object may have n antecedents. Each antecedent is a PR_DEF_INTRO.
-        /// </remarks>
-        public bool IsProofCNFStar { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_CNF_STAR; } }
 
         /// <summary>
         /// Indicates whether the term is a proof for a Skolemization step

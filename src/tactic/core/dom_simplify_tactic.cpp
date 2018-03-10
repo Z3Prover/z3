@@ -382,7 +382,7 @@ void dom_simplify_tactic::simplify_goal(goal& g) {
             change |= r != g.form(i);
             proof* new_pr = nullptr;
             if (g.proofs_enabled()) {
-                new_pr = m.mk_modus_ponens(g.pr(i), m.mk_rewrite_star(g.form(i), r, 0, nullptr));
+                new_pr = m.mk_modus_ponens(g.pr(i), m.mk_rewrite(g.form(i), r));
             }
             g.update(i, r, new_pr, g.dep(i));
         }
@@ -402,7 +402,7 @@ void dom_simplify_tactic::simplify_goal(goal& g) {
             CTRACE("simplify", r != g.form(i), tout << r << " " << mk_pp(g.form(i), m) << "\n";);
             proof* new_pr = nullptr;
             if (g.proofs_enabled()) {
-                new_pr = m.mk_modus_ponens(g.pr(i), m.mk_rewrite_star(g.form(i), r, 0, nullptr));
+                new_pr = m.mk_modus_ponens(g.pr(i), m.mk_rewrite(g.form(i), r));
             }
             g.update(i, r, new_pr, g.dep(i));
         }

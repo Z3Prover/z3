@@ -440,16 +440,6 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
         IF_VERBOSE(0, verbose_stream() << "Expected proof of equivalence with a quantifier:\n" << mk_bounded_pp(p, m);); 
         return false;
     }
-    case PR_PULL_QUANT_STAR: {
-        if (match_proof(p) &&
-            match_fact(p, fact) &&
-            match_iff(fact.get(), t1, t2)) {
-            // TBD: check the enchilada.
-            return true;
-        }
-        IF_VERBOSE(0, verbose_stream() << "Expected proof of equivalence:\n" << mk_bounded_pp(p, m);); 
-        return false;
-    }
     case PR_PUSH_QUANT: {
         if (match_proof(p) &&
             match_fact(p, fact) &&
@@ -730,10 +720,6 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
         // TBD:
         return true;
     }
-    case PR_NNF_STAR: {
-        // TBD:
-        return true;
-    }
     case PR_SKOLEMIZE: {
         // (exists ?x (p ?x y)) -> (p (sk y) y)
         // (not (forall ?x (p ?x y))) -> (not (p (sk y) y))
@@ -754,19 +740,6 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
         }
         UNREACHABLE();
         return false;
-    }
-    case PR_CNF_STAR: {
-        for (unsigned i = 0; i < proofs.size(); ++i) {
-            if (match_op(proofs[i].get(), PR_DEF_INTRO, terms)) {
-                // ok
-            }
-            else {
-                UNREACHABLE();
-                return false;
-            }
-        }
-        // coarse grain CNF conversion.
-        return true;
     }
     case PR_MODUS_PONENS_OEQ: {
         if (match_fact(p, fact) &&

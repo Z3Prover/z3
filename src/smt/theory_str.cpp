@@ -5595,6 +5595,8 @@ namespace smt {
                 // merge arg0 and arg1
                 expr * arg0 = to_app(node)->get_arg(0);
                 expr * arg1 = to_app(node)->get_arg(1);
+				SASSERT(arg0 != node);
+				SASSERT(arg1 != node);
                 expr * arg0DeAlias = dealias_node(arg0, varAliasMap, concatAliasMap);
                 expr * arg1DeAlias = dealias_node(arg1, varAliasMap, concatAliasMap);
                 get_grounded_concats(arg0DeAlias, varAliasMap, concatAliasMap, varConstMap, concatConstMap, varEqConcatMap, groundedMap);
