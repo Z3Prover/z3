@@ -2358,6 +2358,14 @@ namespace sat {
             idx--;
         }
         reset_unmark(old_size);
+        if (m_core.size() > 1) {
+            unsigned j = 0;
+            for (unsigned i = 0; i < m_core.size(); ++i) {
+                if (lvl(m_core[i]) > 0) m_core[j++] = m_core[i];            
+            }
+            m_core.shrink(j);
+        }
+
         if (m_config.m_core_minimize) {
             if (m_min_core_valid && m_min_core.size() < m_core.size()) {
                 IF_VERBOSE(1, verbose_stream() << "(sat.updating core " << m_min_core.size() << " " << m_core.size() << ")\n";);

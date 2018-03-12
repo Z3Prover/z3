@@ -20,6 +20,7 @@ Revision History:
 #include "sat/ba_solver.h"
 #include "sat/sat_types.h"
 #include "util/mpz.h"
+#include "sat/sat_simplifier_params.hpp"
 
 
 namespace sat {
@@ -3013,19 +3014,21 @@ namespace sat {
     }
     
     unsigned ba_solver::set_non_external() {
+        sat_simplifier_params p(s().m_params);
         // set variables to be non-external if they are not used in theory constraints.
         unsigned ext = 0;
-        for (unsigned v = 0; v < s().num_vars(); ++v) {
+        bool incremental_mode = s().get_config().m_incremental && !p.override_incremental();
+        incremental_mode |=  s().tracking_assumptions();
+        for (unsigned v = 0; !incremental_mode && v < s().num_vars(); ++v) {
             literal lit(v, false);
             if (s().is_external(v) && 
                 m_cnstr_use_list[lit.index()].empty() && 
-                m_cnstr_use_list[(~lit).index()].empty() && 
-                !s().is_assumption(v)) {
+                m_cnstr_use_list[(~lit).index()].empty()) {
                 s().set_non_external(v);
                 ++ext;
             }            
         }
-        // ensure that lemmas use only external variables.
+        // ensure that lemmas use only non-eliminated variables
         for (constraint* cp : m_learned) {
             constraint& c = *cp;
             if (c.was_removed()) continue;
@@ -4182,6 +4185,9 @@ namespace sat {
     bool ba_solver::check_model(model const& m) const {
         bool ok = true;
         for (constraint const* c : m_constraints) {
+            if (c->is_pure() && c->lit() != null_literal && m[c->lit().var()] == (c->lit().sign() ? l_true : l_false)) {
+                continue;
+            }
             switch (eval(m, *c)) {
             case l_false: 
                 IF_VERBOSE(0, verbose_stream() << "failed checking " << c->id() << ": " << *c << "\n";);

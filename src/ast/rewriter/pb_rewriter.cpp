@@ -255,11 +255,11 @@ br_status pb_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * cons
         rational slack(0);
         m_args.reset();
         m_coeffs.reset();
-        for (unsigned i = 0; i < sz; ++i) {
-            m_args.push_back(vec[i].first);
-            m_coeffs.push_back(vec[i].second);
-            SASSERT(vec[i].second.is_pos());
-            slack += vec[i].second;
+        for (auto const& kv : vec) {
+            m_args.push_back(kv.first);
+            m_coeffs.push_back(kv.second);
+            SASSERT(kv.second.is_pos());
+            slack += kv.second;
             all_unit &= m_coeffs.back().is_one();
         }
         if (is_eq) {
@@ -287,7 +287,9 @@ br_status pb_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * cons
         }
         else {
             expr_ref_vector conj(m), disj(m);
-            for (unsigned i = 0; i < m_args.size(); ++i) {
+            unsigned j = 0; 
+            sz = m_args.size();
+            for (unsigned i = 0; i < sz; ++i) {
                 rational& c = m_coeffs[i];
                 if (slack < c + k) {
                     conj.push_back(m_args[i]);
@@ -299,29 +301,25 @@ br_status pb_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * cons
                     disj.push_back(m_args[i]);
                 }
                 else {
-                    continue;
+                    m_args[j] = m_args[i];
+                    m_coeffs[j] = m_coeffs[i];
+                    ++j;
                 }
-                m_args[i] = m_args.back();
-                m_coeffs[i] = m_coeffs.back();
-                --i;
-                m_args.pop_back();
-                m_coeffs.pop_back();
             }
-            sz = m_coeffs.size();
-            if (slack < k) {
-                conj.push_back(m.mk_false());
+            m_args.shrink(j);
+            m_coeffs.shrink(j);
+            sz = j;
+            if (k.is_pos() && sz > 0 && slack >= k) {
+                disj.push_back(m_util.mk_ge(sz, m_coeffs.c_ptr(), m_args.c_ptr(), k));
             }
-            else if (k.is_pos() && sz > 0) {
-                conj.push_back(m_util.mk_ge(sz, m_coeffs.c_ptr(), m_args.c_ptr(), k));
+            if (!disj.empty()) {
+                conj.push_back(mk_or(disj));
             }
             result = mk_and(conj);
-            if (!disj.empty()) {
-                disj.push_back(result);
-                result = mk_or(disj);
-            }
-            if (!disj.empty() || conj.size() > 1) {
+
+            if (disj.size() > 1 || conj.size() > 1) {               
                 st = BR_REWRITE3;
-            }
+            }            
         }
         break;
     }

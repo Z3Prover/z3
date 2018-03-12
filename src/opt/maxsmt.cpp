@@ -266,7 +266,7 @@ namespace opt {
             }
         }
 
-        IF_VERBOSE(1, verbose_stream() << "is-sat: " << is_sat << "\n";
+        IF_VERBOSE(5, verbose_stream() << "is-sat: " << is_sat << "\n";
                    if (is_sat == l_true) {
                        verbose_stream() << "Satisfying soft constraints\n";
                        display_answer(verbose_stream());

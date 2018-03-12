@@ -18,6 +18,7 @@ Notes:
 --*/
 
 
+#include "util/gparams.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_translation.h"
 #include "ast/ast_util.h"
@@ -584,7 +585,9 @@ private:
     }
 
     bool internalize_var(expr* v, sat::bool_var_vector& bvars) {
-        obj_map<func_decl, expr*> const& const2bits = m_bb_rewriter->const2bits();
+        obj_map<func_decl, expr*> const2bits;
+        ptr_vector<func_decl> newbits;
+        m_bb_rewriter->end_rewrite(const2bits, newbits);
         expr* bv;
         bv_util bvutil(m);
         bool internalized = false;
@@ -803,12 +806,13 @@ private:
         }
         TRACE("sat", model_smt2_pp(tout, m, *mdl, 0););
         
-        // IF_VERBOSE(0, model_smt2_pp(verbose_stream() << "after\n", m, *mdl, 0););
 
-#if 0
-        IF_VERBOSE(0, verbose_streamm() << "Verifying solution\n";);
+        if (!gparams::get().get_bool("model_validate", false)) return;
+        IF_VERBOSE(0, verbose_stream() << "Verifying solution\n";);
         model_evaluator eval(*mdl);
+        eval.set_model_completion(false);
         bool all_true = true;
+        //unsigned i = 0;
         for (expr * f : m_fmls) {
             expr_ref tmp(m);
             eval(f, tmp);
@@ -819,19 +823,21 @@ private:
                 IF_VERBOSE(0, verbose_stream() << "failed to verify: " << mk_pp(f, m) << "\n";);
                 all_true = false;
             }
-            else {
-                VERIFY(m.is_true(tmp));                                
-            }
+            //IF_VERBOSE(0, verbose_stream() << (i++) << ": " << mk_pp(f, m) << "\n");
         }
         if (!all_true) {
-            IF_VERBOSE(0, verbose_stream() << m_params << "\n";);
-            IF_VERBOSE(0, m_sat_mc->display(verbose_stream() << "sat mc\n"););
-            IF_VERBOSE(0, if (m_mcs.back()) m_mcs.back()->display(verbose_stream() << "mc0\n"););
+            IF_VERBOSE(0, verbose_stream() << m_params << "\n");
+            IF_VERBOSE(0, m_sat_mc->display(verbose_stream() << "sat mc\n"));
+            IF_VERBOSE(0, if (m_mcs.back()) m_mcs.back()->display(verbose_stream() << "mc0\n"));
             //IF_VERBOSE(0, m_solver.display(verbose_stream()));
-            IF_VERBOSE(0, for (auto const& kv : m_map) verbose_stream() << mk_pp(kv.m_key, m) << " |-> " << kv.m_value << "\n";);
+            IF_VERBOSE(0, for (auto const& kv : m_map) verbose_stream() << mk_pp(kv.m_key, m) << " |-> " << kv.m_value << "\n");
         }
-
-#endif
+        else {
+            IF_VERBOSE(0, verbose_stream() << "solution verified\n");
+//            IF_VERBOSE(0, if (m_mcs.back()) m_mcs.back()->display(verbose_stream() << "mcs\n"));
+//            IF_VERBOSE(0, if (m_sat_mc) m_sat_mc->display(verbose_stream() << "sat_mc\n"));
+//            IF_VERBOSE(0, model_smt2_pp(verbose_stream() << "after\n", m, *mdl, 0););
+        }
     }
 };
 

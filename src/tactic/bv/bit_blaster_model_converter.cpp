@@ -31,10 +31,15 @@ template<bool TO_BOOL>
 struct bit_blaster_model_converter : public model_converter {
     func_decl_ref_vector      m_vars;
     expr_ref_vector           m_bits;
+    func_decl_ref_vector      m_newbits;
 
     ast_manager & m() const { return m_vars.get_manager(); }
     
-    bit_blaster_model_converter(ast_manager & m, obj_map<func_decl, expr*> const & const2bits):m_vars(m), m_bits(m) {
+    bit_blaster_model_converter(
+        ast_manager & m, 
+        obj_map<func_decl, expr*> const & const2bits, 
+        ptr_vector<func_decl> const& newbits):
+        m_vars(m), m_bits(m), m_newbits(m) {
         for (auto const& kv : const2bits) {
             func_decl * v = kv.m_key;
             expr * bits   = kv.m_value;
@@ -43,6 +48,8 @@ struct bit_blaster_model_converter : public model_converter {
             m_vars.push_back(v);
             m_bits.push_back(bits);
         }
+        for (func_decl* f : newbits) 
+            m_newbits.push_back(f);
     }
     
     virtual ~bit_blaster_model_converter() {
@@ -200,10 +207,11 @@ struct bit_blaster_model_converter : public model_converter {
     }
     
     void display(std::ostream & out) override {
+        for (func_decl * f : m_newbits) 
+            display_del(out, f);
         unsigned sz = m_vars.size();
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; i++) 
             display_add(out, m(), m_vars.get(i), m_bits.get(i));
-        }
     }
 
     void get_units(obj_map<expr, bool>& units) override {
@@ -211,7 +219,7 @@ struct bit_blaster_model_converter : public model_converter {
     }
 
 protected:
-    bit_blaster_model_converter(ast_manager & m):m_vars(m), m_bits(m) { }
+    bit_blaster_model_converter(ast_manager & m):m_vars(m), m_bits(m), m_newbits(m) { }
 public:
 
     model_converter * translate(ast_translation & translator) override {
@@ -220,16 +228,18 @@ public:
             res->m_vars.push_back(translator(v));
         for (expr* b : m_bits)
             res->m_bits.push_back(translator(b));
+        for (func_decl* f : m_newbits)
+            res->m_newbits.push_back(translator(f));
         return res;
     }
 };
 
-model_converter * mk_bit_blaster_model_converter(ast_manager & m, obj_map<func_decl, expr*> const & const2bits) {
-    return const2bits.empty() ? nullptr : alloc(bit_blaster_model_converter<true>, m, const2bits);
+model_converter * mk_bit_blaster_model_converter(ast_manager & m, obj_map<func_decl, expr*> const & const2bits, ptr_vector<func_decl> const& newbits) {
+    return const2bits.empty() ? nullptr : alloc(bit_blaster_model_converter<true>, m, const2bits, newbits);
 }
 
-model_converter * mk_bv1_blaster_model_converter(ast_manager & m, obj_map<func_decl, expr*> const & const2bits) {
-    return const2bits.empty() ? nullptr : alloc(bit_blaster_model_converter<false>, m, const2bits);
+model_converter * mk_bv1_blaster_model_converter(ast_manager & m, obj_map<func_decl, expr*> const & const2bits, ptr_vector<func_decl> const& newbits) {
+    return const2bits.empty() ? nullptr : alloc(bit_blaster_model_converter<false>, m, const2bits, newbits);
 }
 
 

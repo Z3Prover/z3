@@ -155,7 +155,7 @@ namespace opt {
         vector<objective>   m_objectives;
         model_ref           m_model;
         model_converter_ref          m_model_converter;
-        generic_model_converter       m_fm;
+        generic_model_converter_ref  m_fm;
         obj_map<func_decl, unsigned> m_objective_fns;
         obj_map<func_decl, expr*>    m_objective_orig;
         func_decl_ref_vector         m_objective_refs;
@@ -219,7 +219,7 @@ namespace opt {
         virtual expr_ref mk_le(unsigned i, model_ref& model);
 
         virtual smt::context& smt_context() { return m_opt_solver->get_context(); }
-        virtual generic_model_converter& fm() { return m_fm; }
+        virtual generic_model_converter& fm() { return *m_fm; }
         virtual bool sat_enabled() const { return 0 != m_sat_solver.get(); }
         virtual solver& get_solver();
         virtual ast_manager& get_manager() const { return this->m; }
@@ -290,12 +290,13 @@ namespace opt {
         void display_objective(std::ostream& out, objective const& obj) const;
         void display_bounds(std::ostream& out, bounds_t const& b) const;
 
-        std::string to_string(expr_ref_vector const& hard, vector<objective> const& objectives) const;
+        std::string to_string(bool is_internal, expr_ref_vector const& hard, vector<objective> const& objectives) const;
         std::string to_string_internal() const;
 
 
         void validate_lex();
         void validate_maxsat(symbol const& id);
+        void validate_model();
 
         void display_benchmark();
 

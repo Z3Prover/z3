@@ -17,6 +17,7 @@ Notes:
 
 --*/
 
+#include "util/gparams.h"
 #include "ast/for_each_expr.h"
 #include "ast/ast_pp.h"
 #include "ast/bv_decl_plugin.h"
@@ -125,7 +126,7 @@ namespace opt {
         m_box_index(UINT_MAX),
         m_optsmt(m),
         m_scoped_state(m),
-        m_fm(m, "opt"),
+        m_fm(alloc(generic_model_converter, m, "opt")),
         m_objective_refs(m),
         m_enable_sat(false),
         m_is_clausal(false),
@@ -277,9 +278,12 @@ namespace opt {
         if (is_sat != l_false) {
             s.get_model(m_model);
             s.get_labels(m_labels);
+            if (is_sat == l_true) {
+                validate_model();
+            }
         }
         if (is_sat != l_true) {
-            TRACE("opt", tout << m_hard_constraints << "\n";);
+            TRACE("opt", tout << m_hard_constraints << "\n";);            
             return is_sat;
         }
         IF_VERBOSE(1, verbose_stream() << "(optimize:sat)\n";);
@@ -308,6 +312,7 @@ namespace opt {
             break;
         }
         }
+        if (is_sat == l_true) validate_model();
         return adjust_unknown(is_sat);
     }
 
@@ -324,8 +329,8 @@ namespace opt {
 
     void context::fix_model(model_ref& mdl) {
         if (mdl) {
+            (*m_fm)(mdl);
             apply(m_model_converter, mdl);
-            m_fm(mdl);
         }
     }
 
@@ -568,7 +573,7 @@ namespace opt {
 
     void context::init_solver() {
         setup_arith_solver();
-        m_opt_solver = alloc(opt_solver, m, m_params, m_fm);
+        m_opt_solver = alloc(opt_solver, m, m_params, *m_fm);
         m_opt_solver->set_logic(m_logic);
         m_solver = m_opt_solver.get();
         m_opt_solver->ensure_pb();
@@ -792,13 +797,13 @@ namespace opt {
                     offset -= weight;
                 }
                 if (m.is_true(arg)) {
-                    IF_VERBOSE(1, verbose_stream() << weight << ": " << mk_pp(m_objectives[index].m_terms[i].get(), m) << " |-> true\n";);
+                    IF_VERBOSE(5, verbose_stream() << weight << ": " << mk_pp(m_objectives[index].m_terms[i].get(), m) << " |-> true\n";);
                 }
                 else if (weight.is_zero()) {
                     // skip
                 }
                 else if (m.is_false(arg)) {
-                    IF_VERBOSE(1, verbose_stream() << weight << ": " << mk_pp(m_objectives[index].m_terms[i].get(), m) << " |-> false\n";);
+                    IF_VERBOSE(5, verbose_stream() << weight << ": " << mk_pp(m_objectives[index].m_terms[i].get(), m) << " |-> false\n";);
                     offset += weight;
                 }
                 else {
@@ -924,8 +929,7 @@ namespace opt {
         TRACE("opt", tout << fmls << "\n";);
         m_hard_constraints.reset();
         expr_ref orig_term(m);
-        for (unsigned i = 0; i < fmls.size(); ++i) {
-            expr* fml = fmls[i];
+        for (expr * fml : fmls) {
             app_ref tr(m);
             expr_ref_vector terms(m);
             vector<rational> weights;
@@ -1110,8 +1114,7 @@ namespace opt {
     }
 
     void context::internalize() {
-        for (unsigned i = 0; i < m_objectives.size(); ++i) {
-            objective & obj = m_objectives[i];
+        for (objective & obj : m_objectives) {
             switch(obj.m_type) {
             case O_MINIMIZE: {
                 app_ref tmp(m);
@@ -1397,21 +1400,21 @@ namespace opt {
     }
 
     std::string context::to_string() const {
-        return to_string(m_scoped_state.m_hard, m_scoped_state.m_objectives);
+        return to_string(false, m_scoped_state.m_hard, m_scoped_state.m_objectives);
     }
 
     std::string context::to_string_internal() const {
-        return to_string(m_hard_constraints, m_objectives);
+        return to_string(true, m_hard_constraints, m_objectives);
     }
 
-    std::string context::to_string(expr_ref_vector const& hard, vector<objective> const& objectives) const {
+    std::string context::to_string(bool is_internal, expr_ref_vector const& hard, vector<objective> const& objectives) const {
         smt2_pp_environment_dbg env(m);
         ast_pp_util visitor(m);
         std::ostringstream out;
         visitor.collect(hard);
+        model_converter_ref mc = concat(m_model_converter.get(), m_fm.get());
                 
-        for (unsigned i = 0; i < objectives.size(); ++i) {
-            objective const& obj = objectives[i];
+        for (objective const& obj : objectives) {
             switch(obj.m_type) {
             case O_MAXIMIZE: 
             case O_MINIMIZE:
@@ -1426,10 +1429,16 @@ namespace opt {
             }
         }
 
+        if (is_internal && mc) { 
+            mc->collect(visitor); 
+        }
+
+        param_descrs descrs;
+        collect_param_descrs(descrs);
+        m_params.display_smt2(out, "opt", descrs);
         visitor.display_decls(out);
         visitor.display_asserts(out, hard, m_pp_neat);
-        for (unsigned i = 0; i < objectives.size(); ++i) {
-            objective const& obj = objectives[i];
+        for (objective const& obj : objectives) {
             switch(obj.m_type) {
             case O_MAXIMIZE: 
                 out << "(maximize ";
@@ -1464,13 +1473,31 @@ namespace opt {
                 break;
             }
         }        
-        
-        param_descrs descrs;
-        collect_param_descrs(descrs);
-        m_params.display_smt2(out, "opt", descrs);
-        
+        if (is_internal && mc) {
+            mc->display(out);
+        }
+                
         out << "(check-sat)\n"; 
         return out.str();
+    }
+
+    void context::validate_model() {
+        if (!gparams::get().get_bool("model_validate", false)) return;
+        expr_ref_vector fmls(m);
+        get_hard_constraints(fmls);
+        expr_ref tmp(m);
+        model_ref mdl;
+        get_model(mdl);
+        for (expr * f : fmls) {
+            if (!mdl->eval(f, tmp) || !m.is_true(tmp)) {
+                //IF_VERBOSE(0, m_fm->display(verbose_stream() << "fm\n"));
+                //IF_VERBOSE(0, m_model_converter->display(verbose_stream() << "mc\n"));
+                IF_VERBOSE(0, verbose_stream() << "Failed to validate " << mk_pp(f, m) << "\n" << tmp << "\n");
+                //IF_VERBOSE(0, model_smt2_pp(verbose_stream(), m, *mdl, 0)); 
+                IF_VERBOSE(11, verbose_stream() << to_string_internal() << "\n");
+                exit(0);
+            }
+        }
     }
 
     void context::validate_maxsat(symbol const& id) {
@@ -1551,8 +1578,8 @@ namespace opt {
         if (!m_arith.is_real(m_objectives[0].m_term)) {
             return false;
         }
-        for (unsigned i = 0; i < m_hard_constraints.size(); ++i) {
-            if (has_quantifiers(m_hard_constraints[i].get())) {
+        for (expr* fml : m_hard_constraints) {
+            if (has_quantifiers(fml)) {
                 return true;
             }
         }

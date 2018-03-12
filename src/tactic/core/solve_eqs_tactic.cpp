@@ -23,6 +23,7 @@ Revision History:
 #include "util/cooperate.h"
 #include "tactic/goal_shared_occs.h"
 #include "ast/ast_pp.h"
+#include "ast/pb_decl_plugin.h"
 
 class solve_eqs_tactic : public tactic {
     struct imp {
@@ -347,10 +348,8 @@ class solve_eqs_tactic : public tactic {
             
             TRACE("solve_eqs", 
                   tout << "candidate vars:\n";
-                  ptr_vector<app>::iterator it = m_vars.begin();
-                  ptr_vector<app>::iterator end = m_vars.end();
-                  for (; it != end; ++it) {
-                      tout << mk_ismt2_pp(*it, m()) << " ";
+                  for (app* v : m_vars) {
+                      tout << mk_ismt2_pp(v, m()) << " ";
                   }
                   tout << "\n";);
         }
@@ -492,11 +491,9 @@ class solve_eqs_tactic : public tactic {
             
             TRACE("solve_eqs", 
                   tout << "ordered vars:\n";
-                  ptr_vector<app>::iterator it = m_ordered_vars.begin();
-                  ptr_vector<app>::iterator end = m_ordered_vars.end();
-                  for (; it != end; ++it) {
-                      SASSERT(m_candidate_vars.is_marked(*it));
-                      tout << mk_ismt2_pp(*it, m()) << " ";
+                  for (app* v : m_ordered_vars) {
+                      SASSERT(m_candidate_vars.is_marked(v));
+                      tout << mk_ismt2_pp(v, m()) << " ";
                   }
                   tout << "\n";);
             m_candidate_vars.reset();
@@ -529,8 +526,7 @@ class solve_eqs_tactic : public tactic {
             m_subst->reset();
             TRACE("solve_eqs", 
                   tout << "after normalizing variables\n";
-                  for (unsigned i = 0; i < m_ordered_vars.size(); i++) {
-                      expr * v = m_ordered_vars[i];
+                  for (expr * v : m_ordered_vars) {
                       expr * def = 0;
                       proof * pr = 0;
                       expr_dependency * dep = 0;
@@ -539,16 +535,15 @@ class solve_eqs_tactic : public tactic {
                   });
 #if 0
             DEBUG_CODE({
-                for (unsigned i = 0; i < m_ordered_vars.size(); i++) {
-                    expr * v = m_ordered_vars[i];
-                    expr * def = 0;
-                    proof * pr = 0;
-                    expr_dependency * dep = 0;
-                    m_norm_subst->find(v, def, pr, dep);
-                    SASSERT(def != 0);
-                    CASSERT("solve_eqs_bug", !occurs(v, def));
-                }
-            });
+                    for (expr * v : m_ordered_vars) {
+                        expr * def = 0;
+                        proof * pr = 0;
+                        expr_dependency * dep = 0;
+                        m_norm_subst->find(v, def, pr, dep);
+                        SASSERT(def != 0);
+                        CASSERT("solve_eqs_bug", !occurs(v, def));
+                    }
+                });
 #endif
         }
 
@@ -575,6 +570,13 @@ class solve_eqs_tactic : public tactic {
                 }
 
                 m_r->operator()(f, new_f, new_pr, new_dep);
+#if 0
+                pb_util pb(m());
+                if (pb.is_ge(f) && f != new_f) {
+                    IF_VERBOSE(0, verbose_stream() << mk_ismt2_pp(f, m()) << "\n--->\n" << mk_ismt2_pp(new_f, m()) << "\n");
+                }
+#endif
+
                 TRACE("solve_eqs_subst", tout << mk_ismt2_pp(f, m()) << "\n--->\n" << mk_ismt2_pp(new_f, m()) << "\n";);
                 m_num_steps += m_r->get_num_steps() + 1;
                 if (m_produce_proofs)
@@ -592,12 +594,11 @@ class solve_eqs_tactic : public tactic {
                   g.display(tout););
 #if 0
             DEBUG_CODE({
-                for (unsigned i = 0; i < m_ordered_vars.size(); i++) {
-                    expr * v = m_ordered_vars[i];
-                    for (unsigned j = 0; j < g.size(); j++) {
-                        CASSERT("solve_eqs_bug", !occurs(v, g.form(j)));
-                    }
-                }});
+                    for (expr* v : m_ordered_vars) {
+                        for (unsigned j = 0; j < g.size(); j++) {
+                            CASSERT("solve_eqs_bug", !occurs(v, g.form(j)));
+                        }
+                    }});
 #endif
         }
 

@@ -23,6 +23,7 @@ Revision History:
 #include "ast/ast_smt2_pp.h"
 #include "ast/expr_substitution.h"
 #include "tactic/goal_shared_occs.h"
+#include "ast/pb_decl_plugin.h"
 
 class propagate_values_tactic : public tactic {
     struct     imp {
@@ -129,10 +130,23 @@ class propagate_values_tactic : public tactic {
             }
 
             TRACE("shallow_context_simplifier_bug", tout << mk_ismt2_pp(curr, m) << "\n---->\n" << mk_ismt2_pp(new_curr, m) << "\n";);
-            push_result(new_curr, new_pr);
-            
-            if (new_curr != curr)
+            if (new_curr != curr) {
                 m_modified = true;
+                //if (has_pb(curr)) 
+                //    IF_VERBOSE(0, verbose_stream() << mk_ismt2_pp(curr, m) << "\n---->\n" << mk_ismt2_pp(new_curr, m) << "\n");
+            }
+            push_result(new_curr, new_pr);            
+        }
+
+        bool has_pb(expr* e) {
+            pb_util pb(m);
+            if (pb.is_ge(e)) return true;
+            if (m.is_or(e)) {
+                for (expr* a : *to_app(e)) {
+                    if (pb.is_ge(a)) return true;
+                }
+            }
+            return false;
         }
 
         void operator()(goal_ref const & g, 
@@ -206,6 +220,7 @@ class propagate_values_tactic : public tactic {
             SASSERT(m_goal->is_well_sorted());
             TRACE("propagate_values", tout << "end\n"; m_goal->display(tout););
             TRACE("propagate_values_core", m_goal->display_with_dependencies(tout););
+            //IF_VERBOSE(0, m_goal->display(verbose_stream()));
             m_goal = 0;
         }
     };
