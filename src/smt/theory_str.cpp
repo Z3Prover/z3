@@ -5553,7 +5553,8 @@ namespace smt {
         return node;
     }
 
-    void theory_str::get_grounded_concats(expr* node, std::map<expr*, expr*> & varAliasMap,
+    void theory_str::get_grounded_concats(unsigned depth,
+                                          expr* node, std::map<expr*, expr*> & varAliasMap,
                                           std::map<expr*, expr*> & concatAliasMap, std::map<expr*, expr*> & varConstMap,
                                           std::map<expr*, expr*> & concatConstMap, std::map<expr*, std::map<expr*, int> > & varEqConcatMap,
                                           std::map<expr*, std::map<std::vector<expr*>, std::set<expr*> > > & groundedMap) {
@@ -5568,6 +5569,9 @@ namespace smt {
         if (groundedMap.find(node) != groundedMap.end()) {
             return;
         }
+        IF_VERBOSE(100, verbose_stream() << "concats " << depth << "\n";
+                   if (depth > 100) verbose_stream() << mk_pp(node, get_manager()) << "\n";
+                   );
 
         // haven't computed grounded concats for "node" (de-aliased)
         // ---------------------------------------------------------
@@ -5595,12 +5599,10 @@ namespace smt {
                 // merge arg0 and arg1
                 expr * arg0 = to_app(node)->get_arg(0);
                 expr * arg1 = to_app(node)->get_arg(1);
-				SASSERT(arg0 != node);
-				SASSERT(arg1 != node);
                 expr * arg0DeAlias = dealias_node(arg0, varAliasMap, concatAliasMap);
                 expr * arg1DeAlias = dealias_node(arg1, varAliasMap, concatAliasMap);
-                get_grounded_concats(arg0DeAlias, varAliasMap, concatAliasMap, varConstMap, concatConstMap, varEqConcatMap, groundedMap);
-                get_grounded_concats(arg1DeAlias, varAliasMap, concatAliasMap, varConstMap, concatConstMap, varEqConcatMap, groundedMap);
+                get_grounded_concats(depth + 1, arg0DeAlias, varAliasMap, concatAliasMap, varConstMap, concatConstMap, varEqConcatMap, groundedMap);
+                get_grounded_concats(depth + 1, arg1DeAlias, varAliasMap, concatAliasMap, varConstMap, concatConstMap, varEqConcatMap, groundedMap);
 
                 std::map<std::vector<expr*>, std::set<expr*> >::iterator arg0_grdItor = groundedMap[arg0DeAlias].begin();
                 std::map<std::vector<expr*>, std::set<expr*> >::iterator arg1_grdItor;
@@ -5650,7 +5652,7 @@ namespace smt {
             else if (varEqConcatMap.find(node) != varEqConcatMap.end()) {
                 expr * eqConcat = varEqConcatMap[node].begin()->first;
                 expr * deAliasedEqConcat = dealias_node(eqConcat, varAliasMap, concatAliasMap);
-                get_grounded_concats(deAliasedEqConcat, varAliasMap, concatAliasMap, varConstMap, concatConstMap, varEqConcatMap, groundedMap);
+                get_grounded_concats(depth + 1, deAliasedEqConcat, varAliasMap, concatAliasMap, varConstMap, concatConstMap, varEqConcatMap, groundedMap);
 
                 std::map<std::vector<expr*>, std::set<expr*> >::iterator grdItor = groundedMap[deAliasedEqConcat].begin();
                 for (; grdItor != groundedMap[deAliasedEqConcat].end(); grdItor++) {
@@ -5859,8 +5861,8 @@ namespace smt {
             expr* strDeAlias = dealias_node(str, varAliasMap, concatAliasMap);
             expr* subStrDeAlias = dealias_node(subStr, varAliasMap, concatAliasMap);
 
-            get_grounded_concats(strDeAlias, varAliasMap, concatAliasMap, varConstMap, concatConstMap, varEqConcatMap, groundedMap);
-            get_grounded_concats(subStrDeAlias, varAliasMap, concatAliasMap, varConstMap, concatConstMap, varEqConcatMap, groundedMap);
+            get_grounded_concats(0, strDeAlias, varAliasMap, concatAliasMap, varConstMap, concatConstMap, varEqConcatMap, groundedMap);
+            get_grounded_concats(0, subStrDeAlias, varAliasMap, concatAliasMap, varConstMap, concatConstMap, varEqConcatMap, groundedMap);
 
             // debugging
             print_grounded_concat(strDeAlias, groundedMap);
