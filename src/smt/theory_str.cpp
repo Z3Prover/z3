@@ -25,7 +25,7 @@
 #include "smt/theory_seq_empty.h"
 #include "smt/theory_arith.h"
 #include "ast/ast_util.h"
-#include "seq_rewriter.h"
+#include "ast/rewriter/seq_rewriter.h"
 #include "smt_kernel.h"
 
 namespace smt {
