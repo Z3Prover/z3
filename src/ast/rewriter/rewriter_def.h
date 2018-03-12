@@ -358,7 +358,7 @@ void rewriter_tpl<Config>::process_app(app * t, frame & fr) {
                 if (ProofGen) {
                     NOT_IMPLEMENTED_YET();
                     // We do not support the use of bindings in proof generation mode.
-                    // Thus we have to apply the subsitution here, and
+                    // Thus we have to apply the substitution here, and
                     // beta_reducer subst(m());
                     // subst.set_bindings(new_num_args, new_args);
                     // expr_ref r2(m());

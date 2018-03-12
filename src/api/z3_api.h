@@ -459,7 +459,7 @@ typedef enum
        [trans T1 T2]: (R t u)
        }
 
-   - Z3_OP_PR_TRANSITIVITY_STAR: Condensed transitivity proof. This proof object is only used if the parameter PROOF_MODE is 1.
+   - Z3_OP_PR_TRANSITIVITY_STAR: Condensed transitivity proof. 
      It combines several symmetry and transitivity proofs.
 
           Example:
@@ -539,20 +539,13 @@ typedef enum
           }
 
    - Z3_OP_PR_REWRITE_STAR: A proof for rewriting an expression t into an expression s.
-       This proof object is used if the parameter PROOF_MODE is 1.
        This proof object can have n antecedents.
        The antecedents are proofs for equalities used as substitution rules.
-       The object is also used in a few cases if the parameter PROOF_MODE is 2.
-       The cases are:
+       The proof rule is used in a few cases. The cases are:
          - When applying contextual simplification (CONTEXT_SIMPLIFIER=true)
          - When converting bit-vectors to Booleans (BIT2BOOL=true)
-         - When pulling ite expression up (PULL_CHEAP_ITE_TREES=true)
 
    - Z3_OP_PR_PULL_QUANT: A proof for (iff (f (forall (x) q(x)) r) (forall (x) (f (q x) r))). This proof object has no antecedents.
-
-   - Z3_OP_PR_PULL_QUANT_STAR: A proof for (iff P Q) where Q is in prenex normal form.
-       This proof object is only used if the parameter PROOF_MODE is 1.
-       This proof object has no antecedents.
 
    - Z3_OP_PR_PUSH_QUANT: A proof for:
 
@@ -726,15 +719,6 @@ typedef enum
          [nnf-neg T1 T2 T3 T4]: (~ (not (iff s_1 s_2))
                                    (and (or r_1 r_2) (or r_1' r_2')))
        }
-   - Z3_OP_PR_NNF_STAR: A proof for (~ P Q) where Q is in negation normal form.
-
-       This proof object is only used if the parameter PROOF_MODE is 1.
-
-       This proof object may have n antecedents. Each antecedent is a PR_DEF_INTRO.
-
-   - Z3_OP_PR_CNF_STAR: A proof for (~ P Q) where Q is in conjunctive normal form.
-       This proof object is only used if the parameter PROOF_MODE is 1.
-       This proof object may have n antecedents. Each antecedent is a PR_DEF_INTRO.
 
    - Z3_OP_PR_SKOLEMIZE: Proof for:
 
@@ -875,6 +859,8 @@ typedef enum
       - Z3_OP_DT_CONSTRUCTOR: datatype constructor.
 
       - Z3_OP_DT_RECOGNISER: datatype recognizer.
+
+      - Z3_OP_DT_IS: datatype recognizer.
 
       - Z3_OP_DT_ACCESSOR: datatype accessor.
 
@@ -1140,7 +1126,6 @@ typedef enum {
     Z3_OP_PR_REWRITE,
     Z3_OP_PR_REWRITE_STAR,
     Z3_OP_PR_PULL_QUANT,
-    Z3_OP_PR_PULL_QUANT_STAR,
     Z3_OP_PR_PUSH_QUANT,
     Z3_OP_PR_ELIM_UNUSED_VARS,
     Z3_OP_PR_DER,
@@ -1157,8 +1142,6 @@ typedef enum {
     Z3_OP_PR_IFF_OEQ,
     Z3_OP_PR_NNF_POS,
     Z3_OP_PR_NNF_NEG,
-    Z3_OP_PR_NNF_STAR,
-    Z3_OP_PR_CNF_STAR,
     Z3_OP_PR_SKOLEMIZE,
     Z3_OP_PR_MODUS_PONENS_OEQ,
     Z3_OP_PR_TH_LEMMA,
@@ -1220,6 +1203,7 @@ typedef enum {
     // Datatypes
     Z3_OP_DT_CONSTRUCTOR=0x800,
     Z3_OP_DT_RECOGNISER,
+    Z3_OP_DT_IS,
     Z3_OP_DT_ACCESSOR,
     Z3_OP_DT_UPDATE_FIELD,
 
@@ -1474,7 +1458,6 @@ extern "C" {
     /*@{*/
 
     /**
-        \deprecated
         \brief Create a configuration object for the Z3 context object.
 
         Configurations are created in order to assign parameters prior to creating
@@ -1507,7 +1490,6 @@ extern "C" {
     Z3_config Z3_API Z3_mk_config(void);
 
     /**
-        \deprecated
         \brief Delete the given configuration object.
 
         \sa Z3_mk_config
@@ -1517,7 +1499,6 @@ extern "C" {
     void Z3_API Z3_del_config(Z3_config c);
 
     /**
-        \deprecated
         \brief Set a configuration parameter.
 
         The following parameters can be set for
@@ -1534,7 +1515,6 @@ extern "C" {
     /*@{*/
 
     /**
-       \deprecated
        \brief Create a context using the given configuration.
 
        After a context is created, the configuration cannot be changed,
@@ -1614,7 +1594,6 @@ extern "C" {
     void Z3_API Z3_dec_ref(Z3_context c, Z3_ast a);
 
     /**
-       \deprecated
        \brief Set a value of a context parameter.
 
        \sa Z3_global_param_set

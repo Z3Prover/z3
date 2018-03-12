@@ -137,7 +137,7 @@ extern "C" {
             func_decl* decl = (decls)[i];
             mk_c(c)->save_multiple_ast_trail(decl);
             enum_consts[i] = of_func_decl(decl);
-            decl = dt_util.get_constructor_recognizer(decl);
+            decl = dt_util.get_constructor_is(decl);
             mk_c(c)->save_multiple_ast_trail(decl);
             enum_testers[i] = of_func_decl(decl);
         }
@@ -196,7 +196,7 @@ extern "C" {
             *nil_decl = of_func_decl(f);
         }
         if (is_nil_decl) {
-            f = data_util.get_constructor_recognizer(cnstrs[0]);
+            f = data_util.get_constructor_is(cnstrs[0]);
             mk_c(c)->save_multiple_ast_trail(f);
             *is_nil_decl = of_func_decl(f);
         }
@@ -206,7 +206,7 @@ extern "C" {
             *cons_decl = of_func_decl(f);
         }
         if (is_cons_decl) {
-            f = data_util.get_constructor_recognizer(cnstrs[1]);
+            f = data_util.get_constructor_is(cnstrs[1]);
             mk_c(c)->save_multiple_ast_trail(f);
             *is_cons_decl = of_func_decl(f);
         }
@@ -290,7 +290,7 @@ extern "C" {
             *constructor_decl = of_func_decl(f);
         }
         if (tester) {
-            func_decl* f2 = data_util.get_constructor_recognizer(f);
+            func_decl* f2 = data_util.get_constructor_is(f);
             mk_c(c)->save_multiple_ast_trail(f2);
             *tester = of_func_decl(f2);
         }
@@ -497,7 +497,7 @@ extern "C" {
             RETURN_Z3(nullptr);
         }
         func_decl* decl = (decls)[idx];
-        decl = dt_util.get_constructor_recognizer(decl);
+        decl = dt_util.get_constructor_is(decl);
         mk_c(c)->save_ast_trail(decl);
         RETURN_Z3(of_func_decl(decl));
         Z3_CATCH_RETURN(nullptr);

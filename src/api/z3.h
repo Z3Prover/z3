@@ -21,7 +21,8 @@ Notes:
 #ifndef Z3_H_
 #define Z3_H_
 
-#include<stdio.h>
+#include <stdio.h>
+#include <stdbool.h>
 #include "z3_macros.h"
 #include "z3_api.h"
 #include "z3_ast_containers.h"

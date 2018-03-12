@@ -167,7 +167,7 @@ namespace smt {
         func_decl * upd  = n->get_decl();
         func_decl * acc  = to_func_decl(upd->get_parameter(0).get_ast());
         func_decl * con  = m_util.get_accessor_constructor(acc);
-        func_decl * rec  = m_util.get_constructor_recognizer(con);
+        func_decl * rec  = m_util.get_constructor_is(con);
         ptr_vector<func_decl> const & accessors = *m_util.get_constructor_accessors(con);
         app_ref rec_app(m.mk_app(rec, arg1), m);
         ctx.internalize(rec_app, false);
@@ -710,7 +710,7 @@ namespace smt {
             literal consequent;
             if (!r) {
                 ptr_vector<func_decl> const & constructors = *m_util.get_datatype_constructors(dt);
-                func_decl * rec = m_util.get_constructor_recognizer(constructors[unassigned_idx]);
+                func_decl * rec = m_util.get_constructor_is(constructors[unassigned_idx]);
                 app * rec_app   = get_manager().mk_app(rec, n->get_owner());
                 ctx.internalize(rec_app, false);
                 consequent = literal(ctx.get_bool_var(rec_app));
@@ -751,12 +751,12 @@ namespace smt {
         m_stats.m_splits++;
 
         if (d->m_recognizers.empty()) {
-            r = m_util.get_constructor_recognizer(non_rec_c);
+            r = m_util.get_constructor_is(non_rec_c);
         }
         else {
             enode * recognizer    = d->m_recognizers[non_rec_idx];
             if (recognizer == nullptr) {
-                r = m_util.get_constructor_recognizer(non_rec_c);
+                r = m_util.get_constructor_is(non_rec_c);
             }
             else if (!ctx.is_relevant(recognizer)) {
                 ctx.mark_as_relevant(recognizer);
@@ -776,7 +776,7 @@ namespace smt {
                     if (curr == nullptr) {
                         ptr_vector<func_decl> const & constructors = *m_util.get_datatype_constructors(s);
                         // found empty slot...
-                        r = m_util.get_constructor_recognizer(constructors[idx]);
+                        r = m_util.get_constructor_is(constructors[idx]);
                         break;
                     }
                     else if (!ctx.is_relevant(curr)) { 

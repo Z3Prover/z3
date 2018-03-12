@@ -527,7 +527,7 @@ namespace smt {
         }
 
 #ifdef Z3DEBUG
-        bool check_relevancy_app(app * n) const {
+        bool check_relevancy_app(app * n) const  {
             SASSERT(is_relevant(n));
             unsigned num_args = n->get_num_args();
             for (unsigned i = 0; i < num_args; i++) {
@@ -537,7 +537,7 @@ namespace smt {
             return true;
         }
         
-        virtual bool check_relevancy_or(app * n, bool root) const {
+        bool check_relevancy_or(app * n, bool root) const override {
             lbool val    = root ? l_true : m_context.find_assignment(n);
             if (val == l_false)
                 return check_relevancy_app(n);
@@ -600,7 +600,7 @@ namespace smt {
             return true;
         }
         
-        bool check_relevancy(expr_ref_vector const & v) const {
+        bool check_relevancy(expr_ref_vector const & v) const override {
             SASSERT(!can_propagate());
             ast_manager & m = get_manager();
             unsigned sz = v.size();

@@ -970,6 +970,9 @@ namespace smt2 {
                 check_rparen_next("invalid datatype declaration, ')' expected");
             }
             else {
+                if (dt_name) {
+                    m_ctx.insert(pm().mk_psort_dt_decl(0, *dt_name));
+                }
                 parse_constructor_decls(ct_decls);
             }
             check_rparen_next("invalid datatype declaration, ')' expected");
@@ -1411,7 +1414,7 @@ namespace smt2 {
             else {
                 SASSERT(is_app(pattern));
                 func_decl * f = to_app(pattern)->get_decl();
-                func_decl * r = dtutil().get_constructor_recognizer(f);
+                func_decl * r = dtutil().get_constructor_is(f);
                 ptr_vector<func_decl> const * acc = dtutil().get_constructor_accessors(f);
                 shifter()(t, acc->size(), tsh);
                 for (func_decl* a : *acc) {

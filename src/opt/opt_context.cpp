@@ -402,8 +402,8 @@ namespace opt {
     */
     bool context::scoped_lex() {
         if (m_maxsat_engine == symbol("maxres")) {
-            for (unsigned i = 0; i < m_objectives.size(); ++i) {
-                if (m_objectives[i].m_type != O_MAXSMT) return true;
+            for (auto const& o : m_objectives) {
+                if (o.m_type != O_MAXSMT) return true;
             }
             return false;
         }
@@ -413,14 +413,16 @@ namespace opt {
     lbool context::execute_lex() {
         lbool r = l_true;
         bool sc = scoped_lex();
-        IF_VERBOSE(1, verbose_stream() << "(optsmt:lex)\n";);
-        for (unsigned i = 0; r == l_true && i < m_objectives.size(); ++i) {
-            bool is_last = i + 1 == m_objectives.size();
-            r = execute(m_objectives[i], i + 1 < m_objectives.size(), sc && !is_last);
+        IF_VERBOSE(1, verbose_stream() << "(opt :lex)\n";);
+        unsigned sz = m_objectives.size();
+        for (unsigned i = 0; r == l_true && i < sz; ++i) {
+            objective const& o = m_objectives[i];
+            bool is_last = i + 1 == sz;            
+            r = execute(o, i + 1 < sz, sc && !is_last && o.m_type != O_MAXSMT);
             if (r == l_true && !get_lower_as_num(i).is_finite()) {
                 return r;
             }
-            if (r == l_true && i + 1 < m_objectives.size()) {
+            if (r == l_true && i + 1 < sz) {
                 update_lower();
             }
         }

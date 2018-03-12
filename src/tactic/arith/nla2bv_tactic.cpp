@@ -459,7 +459,7 @@ public:
         SASSERT(g->is_well_sorted());
     }
     
-    void cleanup(void) override {
+    void cleanup() override {
     }
 };
 

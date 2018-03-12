@@ -45,7 +45,7 @@ namespace smt {
         m_fparams(p),
         m_params(_p),
         m_setup(*this, p),
-        m_asserted_formulas(m, p),
+        m_asserted_formulas(m, p, _p),
         m_qmanager(alloc(quantifier_manager, *this, p, _p)),
         m_model_generator(alloc(model_generator, m)),
         m_relevancy_propagator(mk_relevancy_propagator(*this)),
@@ -132,6 +132,10 @@ namespace smt {
         return !m_manager.limit().inc();
     }
 
+    void context::updt_params(params_ref const& p) {
+        m_params.append(p);
+        m_asserted_formulas.updt_params(p);
+    }
 
     void context::copy(context& src_ctx, context& dst_ctx) {
         ast_manager& dst_m = dst_ctx.get_manager();
@@ -3143,6 +3147,7 @@ namespace smt {
             push_scope();
             for (unsigned i = 0; i < num_assumptions; i++) {
                 expr * curr_assumption = assumptions[i];
+                if (m_manager.is_true(curr_assumption)) continue;
                 SASSERT(is_valid_assumption(m_manager, curr_assumption));
                 proof * pr = m_manager.mk_asserted(curr_assumption);
                 internalize_assertion(curr_assumption, pr, 0);
@@ -4313,9 +4318,7 @@ namespace smt {
             if (m_fparams.m_model_compact)
                 m_proto_model->compress();
             TRACE("mbqi_bug", tout << "after cleanup:\n"; model_pp(tout, *m_proto_model););
-        }
-        else {
-
+            IF_VERBOSE(11, model_pp(verbose_stream(), *m_proto_model););
         }
     }
 

@@ -109,13 +109,13 @@ class permutation_matrix : public tail_matrix<T, X> {
 
         void transpose_from_right(unsigned i, unsigned j);
 #ifdef Z3DEBUG
-        T get_elem(unsigned i, unsigned j) const{
+        T get_elem(unsigned i, unsigned j) const override {
             return m_permutation[i] == j? numeric_traits<T>::one() : numeric_traits<T>::zero();
         }
-        unsigned row_count() const{ return size(); }
-        unsigned column_count() const { return size(); }
-        virtual void set_number_of_rows(unsigned /*m*/) { }
-        virtual void set_number_of_columns(unsigned /*n*/) { }
+        unsigned row_count() const override { return size(); }
+        unsigned column_count() const override { return size(); }
+        void set_number_of_rows(unsigned /*m*/) override { }
+        void set_number_of_columns(unsigned /*n*/) override { }
 #endif
         void multiply_by_permutation_from_left(permutation_matrix<T, X> & p);
 

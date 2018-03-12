@@ -74,14 +74,14 @@ public:
 #ifdef Z3DEBUG
     unsigned m_m;
     unsigned m_n;
-    virtual void set_number_of_rows(unsigned m) { m_m = m; m_n = m; }
-    virtual void set_number_of_columns(unsigned n) { m_m = n; m_n = n; }
+    void set_number_of_rows(unsigned m) override { m_m = m; m_n = m; }
+    void set_number_of_columns(unsigned n) override { m_m = n; m_n = n; }
     T m_one_over_val;
 
-    T get_elem (unsigned i, unsigned j) const;
+    T get_elem (unsigned i, unsigned j) const override;
 
-    unsigned row_count() const { return m_m; } // not defined }
-    unsigned column_count() const { return m_m; } // not defined  }
+    unsigned row_count() const override { return m_m; } // not defined }
+    unsigned column_count() const override { return m_m; } // not defined  }
 #endif
     void apply_from_left(vector<X> & w, lp_settings &) override {
         w[m_i] /= m_val;

@@ -57,7 +57,6 @@ Notes:
 #include "opt/maxres.h"
 #include "ast/ast_pp.h"
 #include "solver/mus.h"
-#include "opt/mss.h"
 #include "sat/sat_solver/inc_sat_solver.h"
 #include "opt/opt_context.h"
 #include "ast/pb_decl_plugin.h"
@@ -90,7 +89,6 @@ private:
     obj_map<expr, rational> m_asm2weight;
     ptr_vector<expr> m_new_core;
     mus              m_mus;
-    mss              m_mss;
     expr_ref_vector  m_trail;
     strategy_t       m_st;
     rational         m_max_upper;    
@@ -121,7 +119,6 @@ public:
         m_index(index), 
         m_B(m), m_asms(m), m_defs(m),
         m_mus(c.get_solver()),
-        m_mss(c.get_solver(), m),
         m_trail(m),
         m_st(st),
         m_correction_set_size(0),

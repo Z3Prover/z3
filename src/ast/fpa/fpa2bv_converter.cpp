@@ -25,7 +25,7 @@ Notes:
 #include "ast/fpa/fpa2bv_converter.h"
 #include "ast/rewriter/fpa_rewriter.h"
 
-#define BVULT(X,Y,R) { expr_ref bvult_eq(m), bvult_not(m); m_simp.mk_eq(X, Y, bvult_eq); m_simp.mk_not(bvult_eq, bvult_not); expr_ref t(m); t = m_bv_util.mk_ule(X,Y); m_simp.mk_and(t, bvult_not, R); }
+#define BVULT(X,Y,R) { expr_ref t(m); t = m_bv_util.mk_ule(Y,X); m_simp.mk_not(t, R); }
 
 fpa2bv_converter::fpa2bv_converter(ast_manager & m) :
     m(m),
@@ -4085,7 +4085,7 @@ void fpa2bv_converter::round(sort * s, expr_ref & rm, expr_ref & sgn, expr_ref &
     TRACE("fpa2bv_round", tout << "ROUND = " << mk_ismt2_pp(result, m) << std::endl; );
 }
 
-void fpa2bv_converter::reset(void) {
+void fpa2bv_converter::reset() {
     dec_ref_map_key_values(m, m_const2bv);
     dec_ref_map_key_values(m, m_rm_const2bv);
     dec_ref_map_key_values(m, m_uf2bvuf);

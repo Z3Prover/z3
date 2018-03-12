@@ -440,16 +440,6 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
         IF_VERBOSE(0, verbose_stream() << "Expected proof of equivalence with a quantifier:\n" << mk_bounded_pp(p, m);); 
         return false;
     }
-    case PR_PULL_QUANT_STAR: {
-        if (match_proof(p) &&
-            match_fact(p, fact) &&
-            match_iff(fact.get(), t1, t2)) {
-            // TBD: check the enchilada.
-            return true;
-        }
-        IF_VERBOSE(0, verbose_stream() << "Expected proof of equivalence:\n" << mk_bounded_pp(p, m);); 
-        return false;
-    }
     case PR_PUSH_QUANT: {
         if (match_proof(p) &&
             match_fact(p, fact) &&
@@ -730,10 +720,6 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
         // TBD:
         return true;
     }
-    case PR_NNF_STAR: {
-        // TBD:
-        return true;
-    }
     case PR_SKOLEMIZE: {
         // (exists ?x (p ?x y)) -> (p (sk y) y)
         // (not (forall ?x (p ?x y))) -> (not (p (sk y) y))
@@ -754,19 +740,6 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
         }
         UNREACHABLE();
         return false;
-    }
-    case PR_CNF_STAR: {
-        for (unsigned i = 0; i < proofs.size(); ++i) {
-            if (match_op(proofs[i].get(), PR_DEF_INTRO, terms)) {
-                // ok
-            }
-            else {
-                UNREACHABLE();
-                return false;
-            }
-        }
-        // coarse grain CNF conversion.
-        return true;
     }
     case PR_MODUS_PONENS_OEQ: {
         if (match_fact(p, fact) &&
@@ -922,7 +895,7 @@ void proof_checker::set_false(expr_ref& e, unsigned position, expr_ref& lit) {
     }
 }
 
-bool proof_checker::match_fact(proof* p, expr_ref& fact) {
+bool proof_checker::match_fact(proof const* p, expr_ref& fact) const {
     if (m.is_proof(p) &&
         m.has_fact(p)) {
         fact = m.get_fact(p);
@@ -938,13 +911,13 @@ void proof_checker::add_premise(proof* p) {
     }
 }
 
-bool proof_checker::match_proof(proof* p) {
+bool proof_checker::match_proof(proof const* p) const {
     return 
         m.is_proof(p) &&
         m.get_num_parents(p) == 0;
 }
 
-bool proof_checker::match_proof(proof* p, proof_ref& p0) {
+bool proof_checker::match_proof(proof const* p, proof_ref& p0) const {
     if (m.is_proof(p) &&
         m.get_num_parents(p) == 1) {
         p0 = m.get_parent(p, 0);
@@ -953,7 +926,7 @@ bool proof_checker::match_proof(proof* p, proof_ref& p0) {
     return false;
 }
  
-bool proof_checker::match_proof(proof* p, proof_ref& p0, proof_ref& p1) {
+bool proof_checker::match_proof(proof const* p, proof_ref& p0, proof_ref& p1) const {
     if (m.is_proof(p) &&
         m.get_num_parents(p) == 2) {
         p0 = m.get_parent(p, 0);
@@ -963,7 +936,7 @@ bool proof_checker::match_proof(proof* p, proof_ref& p0, proof_ref& p1) {
     return false;
 }
 
-bool proof_checker::match_proof(proof* p, proof_ref_vector& parents) {
+bool proof_checker::match_proof(proof const* p, proof_ref_vector& parents) const {
     if (m.is_proof(p)) {
         for (unsigned i = 0; i < m.get_num_parents(p); ++i) {
             parents.push_back(m.get_parent(p, i));
@@ -974,7 +947,7 @@ bool proof_checker::match_proof(proof* p, proof_ref_vector& parents) {
 }
 
 
-bool proof_checker::match_binary(expr* e, func_decl_ref& d, expr_ref& t1, expr_ref& t2) {
+bool proof_checker::match_binary(expr const* e, func_decl_ref& d, expr_ref& t1, expr_ref& t2) const {
     if (e->get_kind() == AST_APP &&
         to_app(e)->get_num_args() == 2) {
         d = to_app(e)->get_decl();
@@ -986,7 +959,7 @@ bool proof_checker::match_binary(expr* e, func_decl_ref& d, expr_ref& t1, expr_r
 }
 
 
-bool proof_checker::match_app(expr* e, func_decl_ref& d, expr_ref_vector& terms) {
+bool proof_checker::match_app(expr const* e, func_decl_ref& d, expr_ref_vector& terms) const {
     if (e->get_kind() == AST_APP) {
         d = to_app(e)->get_decl();
         for (unsigned i = 0; i < to_app(e)->get_num_args(); ++i) {
@@ -997,9 +970,9 @@ bool proof_checker::match_app(expr* e, func_decl_ref& d, expr_ref_vector& terms)
     return false;
 }
 
-bool proof_checker::match_quantifier(expr* e, bool& is_univ, sort_ref_vector& sorts, expr_ref& body) {
+bool proof_checker::match_quantifier(expr const* e, bool& is_univ, sort_ref_vector& sorts, expr_ref& body) const {
     if (is_quantifier(e)) {
-        quantifier* q = to_quantifier(e);
+        quantifier const* q = to_quantifier(e);
         is_univ = q->is_forall();
         body = q->get_expr();
         for (unsigned i = 0; i < q->get_num_decls(); ++i) {
@@ -1010,7 +983,7 @@ bool proof_checker::match_quantifier(expr* e, bool& is_univ, sort_ref_vector& so
     return false;
 }
 
-bool proof_checker::match_op(expr* e, decl_kind k, expr_ref& t1, expr_ref& t2) {
+bool proof_checker::match_op(expr const* e, decl_kind k, expr_ref& t1, expr_ref& t2) const {
     if (e->get_kind() == AST_APP &&
         to_app(e)->get_family_id() == m.get_basic_family_id() &&
         to_app(e)->get_decl_kind() == k &&
@@ -1022,7 +995,7 @@ bool proof_checker::match_op(expr* e, decl_kind k, expr_ref& t1, expr_ref& t2) {
     return false;
 }
 
-bool proof_checker::match_op(expr* e, decl_kind k, expr_ref_vector& terms) {
+bool proof_checker::match_op(expr const* e, decl_kind k, expr_ref_vector& terms) const {
     if (e->get_kind() == AST_APP &&
         to_app(e)->get_family_id() == m.get_basic_family_id() &&
         to_app(e)->get_decl_kind() == k) {
@@ -1035,7 +1008,7 @@ bool proof_checker::match_op(expr* e, decl_kind k, expr_ref_vector& terms) {
 }
 
 
-bool proof_checker::match_op(expr* e, decl_kind k, expr_ref& t) {
+bool proof_checker::match_op(expr const* e, decl_kind k, expr_ref& t) const {
     if (e->get_kind() == AST_APP &&
         to_app(e)->get_family_id() == m.get_basic_family_id() &&
         to_app(e)->get_decl_kind() == k &&
@@ -1046,39 +1019,39 @@ bool proof_checker::match_op(expr* e, decl_kind k, expr_ref& t) {
     return false;
 }
 
-bool proof_checker::match_not(expr* e, expr_ref& t) {
+bool proof_checker::match_not(expr const* e, expr_ref& t) const {
     return match_op(e, OP_NOT, t);
 }
 
-bool proof_checker::match_or(expr* e, expr_ref_vector& terms) {
+bool proof_checker::match_or(expr const* e, expr_ref_vector& terms) const {
     return match_op(e, OP_OR, terms);
 }
 
-bool proof_checker::match_and(expr* e, expr_ref_vector& terms) {
+bool proof_checker::match_and(expr const* e, expr_ref_vector& terms) const {
     return match_op(e, OP_AND, terms);
 }
 
-bool proof_checker::match_iff(expr* e, expr_ref& t1, expr_ref& t2) {
+bool proof_checker::match_iff(expr const* e, expr_ref& t1, expr_ref& t2) const {
     return match_op(e, OP_IFF, t1, t2);
 }
 
-bool proof_checker::match_equiv(expr* e, expr_ref& t1, expr_ref& t2) {
+bool proof_checker::match_equiv(expr const* e, expr_ref& t1, expr_ref& t2) const {
     return match_oeq(e, t1, t2) || match_eq(e, t1, t2);
 }
 
-bool proof_checker::match_implies(expr* e, expr_ref& t1, expr_ref& t2) {
+bool proof_checker::match_implies(expr const* e, expr_ref& t1, expr_ref& t2) const {
     return match_op(e, OP_IMPLIES, t1, t2);
 }
 
-bool proof_checker::match_eq(expr* e, expr_ref& t1, expr_ref& t2) {
+bool proof_checker::match_eq(expr const* e, expr_ref& t1, expr_ref& t2) const {
     return match_op(e, OP_EQ, t1, t2) || match_iff(e, t1, t2);
 }
 
-bool proof_checker::match_oeq(expr* e, expr_ref& t1, expr_ref& t2) {
+bool proof_checker::match_oeq(expr const* e, expr_ref& t1, expr_ref& t2) const {
     return match_op(e, OP_OEQ, t1, t2);
 }
 
-bool proof_checker::match_negated(expr* a, expr* b) {
+bool proof_checker::match_negated(expr const* a, expr* b) const {
     expr_ref t(m);
     return 
         (match_not(a, t) && t.get() == b) ||
@@ -1186,14 +1159,14 @@ void proof_checker::get_hypotheses(proof* p, expr_ref_vector& ante) {
 
 }
 
-bool proof_checker::match_nil(expr* e) const {
+bool proof_checker::match_nil(expr const* e) const {
     return 
         is_app(e) &&
         to_app(e)->get_family_id() == m_hyp_fid &&
         to_app(e)->get_decl_kind() == OP_NIL;
 }
 
-bool proof_checker::match_cons(expr* e, expr_ref& a, expr_ref& b) const {
+bool proof_checker::match_cons(expr const* e, expr_ref& a, expr_ref& b) const {
     if (is_app(e) &&
         to_app(e)->get_family_id() == m_hyp_fid &&
         to_app(e)->get_decl_kind() == OP_CONS) {
@@ -1205,7 +1178,7 @@ bool proof_checker::match_cons(expr* e, expr_ref& a, expr_ref& b) const {
 }
 
 
-bool proof_checker::match_atom(expr* e, expr_ref& a) const {
+bool proof_checker::match_atom(expr const* e, expr_ref& a) const {
     if (is_app(e) &&
         to_app(e)->get_family_id() == m_hyp_fid &&
         to_app(e)->get_decl_kind() == OP_ATOM) {
@@ -1227,7 +1200,7 @@ expr* proof_checker::mk_nil() {
     return m_nil.get();
 }
 
-bool proof_checker::is_hypothesis(proof* p) const {
+bool proof_checker::is_hypothesis(proof const* p) const {
     return 
         m.is_proof(p) &&
         p->get_decl_kind() == PR_HYPOTHESIS;
@@ -1253,7 +1226,7 @@ expr* proof_checker::mk_hyp(unsigned num_hyps, expr * const * hyps) {
     } 
 }
 
-void proof_checker::dump_proof(proof * pr) {
+void proof_checker::dump_proof(proof const* pr) {
     if (!m_dump_lemmas)
         return;
     SASSERT(m.has_fact(pr));

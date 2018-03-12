@@ -43,7 +43,7 @@ struct iz3checker : iz3base {
     /* HACK: for tree interpolants, we assume that uninterpreted functions
        are global. This is because in the current state of the tree interpolation
        code, symbols that appear in sibling sub-trees have to be global, and
-       we have no way to eliminate such function symbols. When tree interpoaltion is
+       we have no way to eliminate such function symbols. When tree interpolation is
        fixed, we can tree function symbols the same as constant symbols. */
 
     bool is_tree;

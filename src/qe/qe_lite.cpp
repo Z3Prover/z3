@@ -692,7 +692,7 @@ namespace eq {
                 }
             }
             else {
-                func_decl* rec = dt.get_constructor_recognizer(d);
+                func_decl* rec = dt.get_constructor_is(d);
                 conjs.push_back(m.mk_app(rec, r));
                 ptr_vector<func_decl> const& acc = *dt.get_constructor_accessors(d);
                 for (unsigned i = 0; i < acc.size(); ++i) {

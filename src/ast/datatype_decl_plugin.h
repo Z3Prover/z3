@@ -368,6 +368,7 @@ namespace datatype {
         sort*  get_datatype_parameter_sort(sort * ty, unsigned idx);
         func_decl * get_non_rec_constructor(sort * ty);
         func_decl * get_constructor_recognizer(func_decl * constructor);
+        func_decl * get_constructor_is(func_decl * constructor);
         ptr_vector<func_decl> const * get_constructor_accessors(func_decl * constructor);
         func_decl * get_accessor_constructor(func_decl * accessor);
         func_decl * get_recognizer_constructor(func_decl * recognizer) const;

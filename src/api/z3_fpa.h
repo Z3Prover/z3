@@ -756,7 +756,7 @@ extern "C" {
     /**
         \brief Conversion of a floating-point term into an unsigned bit-vector.
 
-        Produces a term that represents the conversion of the floating-poiunt term t into a
+        Produces a term that represents the conversion of the floating-point term t into a
         bit-vector term of size sz in unsigned 2's complement format. If necessary, the result
         will be rounded according to rounding mode rm.
 
@@ -772,7 +772,7 @@ extern "C" {
     /**
         \brief Conversion of a floating-point term into a signed bit-vector.
 
-        Produces a term that represents the conversion of the floating-poiunt term t into a
+        Produces a term that represents the conversion of the floating-point term t into a
         bit-vector term of size sz in signed 2's complement format. If necessary, the result
         will be rounded according to rounding mode rm.
 
@@ -788,7 +788,7 @@ extern "C" {
     /**
         \brief Conversion of a floating-point term into a real-numbered term.
 
-        Produces a term that represents the conversion of the floating-poiunt term t into a
+        Produces a term that represents the conversion of the floating-point term t into a
         real number. Note that this type of conversion will often result in non-linear
         constraints over real terms.
 
@@ -1011,7 +1011,7 @@ extern "C" {
         determined.
 
         Note that IEEE 754-2008 allows multiple different representations of NaN. This conversion
-        knows only one NaN and it will always produce the same bit-vector represenatation of
+        knows only one NaN and it will always produce the same bit-vector representation of
         that NaN.
 
         def_API('Z3_mk_fpa_to_ieee_bv', AST, (_in(CONTEXT),_in(AST)))

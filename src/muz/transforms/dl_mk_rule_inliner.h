@@ -45,7 +45,7 @@ namespace datalog {
             : m(ctx.get_manager()), m_rm(ctx.get_rule_manager()), m_context(ctx), 
             m_interp_simplifier(ctx), m_subst(m), m_unif(m), m_ready(false), m_normalize(true) {}
             
-        /** Reset subtitution and unify tail tgt_idx of the target rule and the head of the src rule */
+        /** Reset substitution and unify tail tgt_idx of the target rule and the head of the src rule */
         bool unify_rules(rule const& tgt, unsigned tgt_idx, rule const& src);
 
         /**

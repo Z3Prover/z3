@@ -1478,9 +1478,7 @@ br_status seq_rewriter::mk_re_star(expr* a, expr_ref& result) {
         return BR_DONE;
     }
     if (m_util.re.is_full_char(a)) {
-        sort* seq_sort = nullptr;
-        VERIFY(m_util.is_re(a, seq_sort));
-        result = m_util.re.mk_full_seq(seq_sort);
+        result = m_util.re.mk_full_seq(m().get_sort(a));
         return BR_DONE;
     }
     if (m_util.re.is_empty(a)) {
