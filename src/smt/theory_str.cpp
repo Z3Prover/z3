@@ -4582,8 +4582,9 @@ namespace smt {
 
         std::pair<expr*, expr*> key = std::make_pair(concat, unroll);
         expr_ref toAssert(mgr);
+        expr * _toAssert;
 
-        if (concat_eq_unroll_ast_map.find(key) == concat_eq_unroll_ast_map.end()) {
+        if (!concat_eq_unroll_ast_map.find(concat, unroll, _toAssert)) {
             expr_ref arg1(to_app(concat)->get_arg(0), mgr);
             expr_ref arg2(to_app(concat)->get_arg(1), mgr);
             expr_ref r1(to_app(unroll)->get_arg(0), mgr);
@@ -4634,9 +4635,9 @@ namespace smt {
 
             toAssert = mgr.mk_and(opAnd1, opAnd2);
             m_trail.push_back(toAssert);
-            concat_eq_unroll_ast_map[key] = toAssert;
+            concat_eq_unroll_ast_map.insert(concat, unroll, toAssert);
         } else {
-            toAssert = concat_eq_unroll_ast_map[key];
+            toAssert = _toAssert;
         }
 
         assert_axiom(toAssert);
@@ -4920,7 +4921,7 @@ namespace smt {
 
         expr_ref_vector litems(m);
 
-        if (contain_pair_idx_map.find(varNode) != contain_pair_idx_map.end()) {
+        if (contain_pair_idx_map.contains(varNode)) {
             std::set<std::pair<expr*, expr*> >::iterator itor1 = contain_pair_idx_map[varNode].begin();
             for (; itor1 != contain_pair_idx_map[varNode].end(); ++itor1) {
                 expr * strAst = itor1->first;
@@ -5057,7 +5058,7 @@ namespace smt {
         ast_manager & m = get_manager();
         expr_ref_vector litems(m);
 
-        if (contain_pair_idx_map.find(varNode) != contain_pair_idx_map.end()) {
+        if (contain_pair_idx_map.contains(varNode)) {
             std::set<std::pair<expr*, expr*> >::iterator itor1 = contain_pair_idx_map[varNode].begin();
             for (; itor1 != contain_pair_idx_map[varNode].end(); ++itor1) {
                 expr * strAst = itor1->first;
@@ -5125,7 +5126,7 @@ namespace smt {
     }
 
     bool theory_str::in_contain_idx_map(expr * n) {
-        return contain_pair_idx_map.find(n) != contain_pair_idx_map.end();
+        return contain_pair_idx_map.contains(n);
     }
 
     void theory_str::check_contain_by_eq_nodes(expr * n1, expr * n2) {
@@ -6456,7 +6457,7 @@ namespace smt {
         } else {
             expr_ref_vector::iterator itor = eqNodeSet.begin();
             for (; itor != eqNodeSet.end(); itor++) {
-                if (regex_in_var_reg_str_map.find(*itor) != regex_in_var_reg_str_map.end()) {
+                if (regex_in_var_reg_str_map.contains(*itor)) {
                     std::set<zstring>::iterator strItor = regex_in_var_reg_str_map[*itor].begin();
                     for (; strItor != regex_in_var_reg_str_map[*itor].end(); strItor++) {
                         zstring regStr = *strItor;
@@ -6469,7 +6470,7 @@ namespace smt {
                             expr * regexTerm = a_regexIn->get_arg(1);
 
                             // TODO figure out regex NFA stuff
-                            if (regex_nfa_cache.find(regexTerm) == regex_nfa_cache.end()) {
+                            if (!regex_nfa_cache.contains(regexTerm)) {
                                 TRACE("str", tout << "regex_nfa_cache: cache miss" << std::endl;);
                                 regex_nfa_cache[regexTerm] = nfa(u, regexTerm);
                             } else {
@@ -9596,7 +9597,7 @@ namespace smt {
             if (low.is_neg()) {
                 toAssert = m_autil.mk_ge(cntInUnr, mk_int(0));
             } else {
-                if (unroll_var_map.find(unrFunc) == unroll_var_map.end()) {
+                if (!unroll_var_map.contains(unrFunc)) {
 
                     expr_ref newVar1(mk_regex_rep_var(), mgr);
                     expr_ref newVar2(mk_regex_rep_var(), mgr);

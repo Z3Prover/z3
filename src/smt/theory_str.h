@@ -312,30 +312,29 @@ protected:
     obj_hashtable<expr> input_var_in_len;
 
     obj_map<expr, unsigned int> fvar_len_count_map;
-    std::map<expr*, ptr_vector<expr> > fvar_lenTester_map;
+    obj_map<expr, ptr_vector<expr> > fvar_lenTester_map;
     obj_map<expr, expr*> lenTester_fvar_map;
 
-    std::map<expr*, std::map<int, svector<std::pair<int, expr*> > > > fvar_valueTester_map;
-    std::map<expr*, expr*> valueTester_fvar_map;
+    obj_map<expr, std::map<int, svector<std::pair<int, expr*> > > > fvar_valueTester_map;
+    obj_map<expr, expr*> valueTester_fvar_map;
 
-    std::map<expr*, int_vector> val_range_map;
+    obj_map<expr, int_vector> val_range_map;
 
     // This can't be an expr_ref_vector because the constructor is wrong,
     // we would need to modify the allocator so we pass in ast_manager
-    std::map<expr*, std::map<std::set<expr*>, ptr_vector<expr> > > unroll_tries_map;
-    std::map<expr*, expr*> unroll_var_map;
-    std::map<std::pair<expr*, expr*>, expr*> concat_eq_unroll_ast_map;
+    obj_map<expr, std::map<std::set<expr*>, ptr_vector<expr> > > unroll_tries_map;
+    obj_map<expr, expr*> unroll_var_map;
+    obj_pair_map<expr, expr, expr*> concat_eq_unroll_ast_map;
 
     expr_ref_vector contains_map;
 
     theory_str_contain_pair_bool_map_t contain_pair_bool_map;
-    //obj_map<expr, obj_pair_set<expr, expr> > contain_pair_idx_map;
-    std::map<expr*, std::set<std::pair<expr*, expr*> > > contain_pair_idx_map;
+    obj_map<expr, std::set<std::pair<expr*, expr*> > > contain_pair_idx_map;
 
     std::map<std::pair<expr*, zstring>, expr*> regex_in_bool_map;
-    std::map<expr*, std::set<zstring> > regex_in_var_reg_str_map;
+    obj_map<expr, std::set<zstring> > regex_in_var_reg_str_map;
 
-    std::map<expr*, nfa> regex_nfa_cache; // Regex term --> NFA
+    obj_map<expr, nfa> regex_nfa_cache; // Regex term --> NFA
 
     svector<char> char_set;
     std::map<char, int>  charSetLookupTable;
