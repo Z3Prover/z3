@@ -145,9 +145,8 @@ namespace opt {
     }
 
     void context::reset_maxsmts() {
-        map_t::iterator it = m_maxsmts.begin(), end = m_maxsmts.end();
-        for (; it != end; ++it) {
-            dealloc(it->m_value);
+        for (auto& kv : m_maxsmts) {
+            dealloc(kv.m_value);
         }
         m_maxsmts.reset();
     }
@@ -255,6 +254,9 @@ namespace opt {
         if (m_pareto) {
             return execute_pareto();
         }
+        if (m_lns) {
+            return execute_lns();
+        }
         if (m_box_index != UINT_MAX) {
             return execute_box();
         }
@@ -271,10 +273,16 @@ namespace opt {
 #endif
         solver& s = get_solver();
         s.assert_expr(m_hard_constraints);
-        IF_VERBOSE(1, verbose_stream() << "(optimize:check-sat)\n";);
+        
+        opt_params optp(m_params);
+        symbol pri = optp.priority();
+        if (pri == symbol("lns")) {
+            return execute_lns();
+        }
+
+        IF_VERBOSE(1, verbose_stream() << "(optimize:check-sat)\n");
         lbool is_sat = s.check_sat(0,0);
-        TRACE("opt", tout << "initial search result: " << is_sat << "\n";
-              s.display(tout););
+        TRACE("opt", s.display(tout << "initial search result: " << is_sat << "\n");); 
         if (is_sat != l_false) {
             s.get_model(m_model);
             s.get_labels(m_labels);
@@ -286,7 +294,7 @@ namespace opt {
             TRACE("opt", tout << m_hard_constraints << "\n";);            
             return is_sat;
         }
-        IF_VERBOSE(1, verbose_stream() << "(optimize:sat)\n";);
+        IF_VERBOSE(1, verbose_stream() << "(optimize:sat)\n");
         TRACE("opt", model_smt2_pp(tout, m, *m_model, 0););
         m_optsmt.setup(*m_opt_solver.get());
         update_lower();
@@ -302,6 +310,9 @@ namespace opt {
             symbol pri = optp.priority();
             if (pri == symbol("pareto")) {
                 is_sat = execute_pareto();
+            }
+            else if (pri == symbol("lns")) {
+                is_sat = execute_lns();
             }
             else if (pri == symbol("box")) {
                 is_sat = execute_box();
@@ -525,7 +536,12 @@ namespace opt {
     }
 
     void context::yield() {
-        m_pareto->get_model(m_model, m_labels);
+        if (m_pareto) {
+            m_pareto->get_model(m_model, m_labels);
+        }
+        else if (m_lns) {
+            m_lns->get_model(m_model, m_labels);
+        }
         update_bound(true);
         update_bound(false);
     }
@@ -536,12 +552,26 @@ namespace opt {
         }
         lbool is_sat = (*(m_pareto.get()))();
         if (is_sat != l_true) {
-            set_pareto(0);
+            set_pareto(nullptr);
         }
         if (is_sat == l_true) {
             yield();
         }
         return is_sat;
+    }
+
+    lbool context::execute_lns() {
+        if (!m_lns) {
+            m_lns = alloc(lns, *this, m_solver.get());
+        }
+        lbool is_sat = (*(m_lns.get()))();
+        if (is_sat != l_true) {
+            m_lns = nullptr;
+        }
+        if (is_sat == l_true) {
+            yield();
+        }
+        return l_undef;
     }
 
     std::string context::reason_unknown() const { 
@@ -990,6 +1020,24 @@ namespace opt {
         }
     }
 
+    /**
+       \brief retrieve literals used by the neighborhood search feature.
+     */
+
+    void context::get_lns_literals(expr_ref_vector& lits) {
+        for (objective & obj : m_objectives) {
+            switch(obj.m_type) {
+            case O_MAXSMT: 
+                for (expr* f : obj.m_terms) {
+                    lits.push_back(f);
+                }
+                break;
+            default:
+                break;
+            }
+        }
+    }
+
     bool context::verify_model(unsigned index, model* md, rational const& _v) {
         rational r;
         app_ref term = m_objectives[index].m_term;
@@ -1352,7 +1400,8 @@ namespace opt {
     }
 
     void context::clear_state() {
-        set_pareto(0);
+        m_pareto = nullptr;
+        m_lns = nullptr;
         m_box_index = UINT_MAX;
         m_model.reset();
     }
@@ -1388,9 +1437,8 @@ namespace opt {
             m_solver->updt_params(m_params);
         }
         m_optsmt.updt_params(m_params);
-        map_t::iterator it = m_maxsmts.begin(), end = m_maxsmts.end();
-        for (; it != end; ++it) {
-            it->m_value->updt_params(m_params);
+        for (auto & kv : m_maxsmts) {
+            kv.m_value->updt_params(m_params);
         }
         opt_params _p(p);
         m_enable_sat = _p.enable_sat();

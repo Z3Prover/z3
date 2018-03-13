@@ -19,16 +19,18 @@ Notes:
 #define OPT_CONTEXT_H_
 
 #include "ast/ast.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/bv_decl_plugin.h"
+#include "tactic/model_converter.h"
+#include "tactic/tactic.h"
+#include "qe/qsat.h"
 #include "opt/opt_solver.h"
 #include "opt/opt_pareto.h"
 #include "opt/optsmt.h"
+#include "opt/opt_lns.h"
 #include "opt/maxsmt.h"
-#include "tactic/model_converter.h"
-#include "tactic/tactic.h"
-#include "ast/arith_decl_plugin.h"
-#include "ast/bv_decl_plugin.h"
 #include "cmd_context/cmd_context.h"
-#include "qe/qsat.h"
+
 
 namespace opt {
 
@@ -145,6 +147,7 @@ namespace opt {
         ref<solver>         m_solver;
         ref<solver>         m_sat_solver;
         scoped_ptr<pareto_base>          m_pareto;
+        scoped_ptr<lns>      m_lns;
         scoped_ptr<qe::qmax> m_qmax;
         sref_vector<model>  m_box_models;
         unsigned            m_box_index;
@@ -231,6 +234,8 @@ namespace opt {
 
         virtual bool verify_model(unsigned id, model* mdl, rational const& v);
 
+        void get_lns_literals(expr_ref_vector& lits);
+
     private:
         lbool execute(objective const& obj, bool committed, bool scoped);
         lbool execute_min_max(unsigned index, bool committed, bool scoped, bool is_max);
@@ -238,6 +243,7 @@ namespace opt {
         lbool execute_lex();
         lbool execute_box();
         lbool execute_pareto();
+        lbool execute_lns();
         lbool adjust_unknown(lbool r);
         bool scoped_lex();
         expr_ref to_expr(inf_eps const& n);
@@ -282,7 +288,7 @@ namespace opt {
         void    setup_arith_solver();
         void    add_maxsmt(symbol const& id, unsigned index);
         void    set_simplify(tactic *simplify);
-        void    set_pareto(pareto_base* p);        
+        void    set_pareto(pareto_base* p);  
         void    clear_state();
 
         bool is_numeral(expr* e, rational& n) const;
