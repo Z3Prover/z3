@@ -296,8 +296,7 @@ br_status pb_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * cons
                     slack -= c;
                     k -= c;
                 }
-                else if (c >= k) {
-                    slack -= c;
+                else if (c >= k && k.is_pos()) {
                     disj.push_back(m_args[i]);
                 }
                 else {
@@ -309,7 +308,7 @@ br_status pb_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * cons
             m_args.shrink(j);
             m_coeffs.shrink(j);
             sz = j;
-            if (k.is_pos() && sz > 0 && slack >= k) {
+            if (sz > 0) {
                 disj.push_back(m_util.mk_ge(sz, m_coeffs.c_ptr(), m_args.c_ptr(), k));
             }
             if (!disj.empty()) {

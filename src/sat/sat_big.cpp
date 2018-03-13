@@ -165,9 +165,11 @@ namespace sat {
     }
 
     unsigned big::reduce_tr(solver& s) {
+
         unsigned num_lits = s.num_vars() * 2;
         unsigned idx = 0;
         unsigned elim = 0;
+        m_del_bin.reset();
         for (watch_list & wlist : s.m_watches) {
             if (s.inconsistent()) break;
             literal u = to_literal(idx++);
@@ -178,8 +180,9 @@ namespace sat {
                 watched& w = *it;
                 if (learned() ? w.is_binary_learned_clause() : w.is_binary_clause()) {
                     literal v = w.get_literal();
-                    if (reaches(u, v) && u != get_parent(v)) {
+                    if (u != get_parent(v) && safe_reach(u, v)) {
                         ++elim;
+                        m_del_bin.push_back(std::make_pair(~u, v));
                         if (find_binary_watch(wlist, ~v)) {
                             IF_VERBOSE(10, verbose_stream() << "binary: " << ~u << "\n");
                             s.assign(~u, justification());
@@ -193,9 +196,31 @@ namespace sat {
                 itprev++;
             }
             wlist.set_end(itprev);
-        }
+        }        
         s.propagate(false);
         return elim;
+    }
+
+    bool big::safe_reach(literal u, literal v) {
+        if (!reaches(u, v)) return false;
+        while (u != v) {
+            literal w = next(u, v);
+            if (m_del_bin.contains(std::make_pair(~u, w)) ||
+                m_del_bin.contains(std::make_pair(~w, u))) {
+                return false;
+            }
+            u = w;
+        }
+        return true;
+    }
+
+    literal big::next(literal u, literal v) const {
+        SASSERT(reaches(u, v));
+        for (literal w : m_dag[u.index()]) {
+            if (reaches(u, w) && (w == v || reaches(w, v))) return w;
+        }
+        UNREACHABLE();
+        return null_literal;
     }
 
     void big::display(std::ostream& out) const {

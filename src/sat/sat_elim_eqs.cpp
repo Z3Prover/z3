@@ -33,17 +33,18 @@ namespace sat {
             return roots[l.var()];
     }
 
-    void elim_eqs::cleanup_bin_watches(literal_vector const & roots) {
+    void elim_eqs::cleanup_bin_watches(literal_vector const & roots) {        
         unsigned l_idx = 0;
+        m_new_bin.reset();
         for (watch_list & wlist : m_solver.m_watches) {
             literal l1 = ~to_literal(l_idx++);
             literal r1 = norm(roots, l1);
-            watch_list::iterator it2    = wlist.begin();
-            watch_list::iterator itprev = it2;
-            watch_list::iterator end2   = wlist.end();
-            for (; it2 != end2; ++it2) {
-                if (it2->is_binary_clause()) {
-                    literal l2 = it2->get_literal();
+            watch_list::iterator it     = wlist.begin();
+            watch_list::iterator itprev = it;
+            watch_list::iterator end    = wlist.end();
+            for (; it != end; ++it) {
+                if (it->is_binary_clause()) {
+                    literal l2 = it->get_literal();
                     literal r2 = norm(roots, l2);
                     if (r1 == r2) {
                         m_solver.assign(r1, justification());
@@ -56,18 +57,33 @@ namespace sat {
                         // consume tautology
                         continue;
                     }
+#if 0
                     if (l1 != r1) {
                         // add half r1 => r2, the other half ~r2 => ~r1 is added when traversing l2 
-                        m_solver.m_watches[(~r1).index()].push_back(watched(r2, it2->is_learned()));
+                        m_solver.m_watches[(~r1).index()].push_back(watched(r2, it->is_learned()));
                         continue;
                     }
-                    it2->set_literal(r2); // keep it
+                    it->set_literal(r2); // keep it.
+#else
+                    if (l1 != r1 || l2 != r2) {
+                        if (r1.index() < r2.index()) {
+                            m_new_bin.push_back(bin(r1, r2, it->is_learned()));
+                        }
+                        continue;
+                    }
+                    // keep it
+#endif
                 }
-                *itprev = *it2;
+                *itprev = *it;
                 itprev++;
             }
             wlist.set_end(itprev);
         }
+
+        for (auto const& b : m_new_bin) {
+            m_solver.mk_bin_clause(b.l1, b.l2, b.learned);
+        }
+        m_new_bin.reset();
     }
 
     void elim_eqs::cleanup_clauses(literal_vector const & roots, clause_vector & cs) {

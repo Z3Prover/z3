@@ -1632,7 +1632,6 @@ namespace sat {
 
         IF_VERBOSE(10, verbose_stream() << "\"checking model\"\n";);
         if (!check_clauses(m_model)) {
-            UNREACHABLE();
             throw solver_exception("check model failed");
         }
         
@@ -1644,7 +1643,6 @@ namespace sat {
         
         if (!check_clauses(m_model)) {
             IF_VERBOSE(0, verbose_stream() << "failure checking clauses on transformed model\n";);
-            UNREACHABLE();
             throw solver_exception("check model failed");
         }
 
@@ -1652,8 +1650,12 @@ namespace sat {
 
         if (m_clone) {
             IF_VERBOSE(SAT_VB_LVL, verbose_stream() << "\"checking model (on original set of clauses)\"\n";);
-            if (!m_clone->check_model(m_model))
+            if (!m_clone->check_model(m_model)) {
+                //IF_VERBOSE(0, display(verbose_stream()));
+                //IF_VERBOSE(0, display_watches(verbose_stream()));
+                //IF_VERBOSE(0, m_mc.display(verbose_stream()));
                 throw solver_exception("check model failed (for cloned solver)");
+            }
         }
     }
 
@@ -1683,8 +1685,11 @@ namespace sat {
                     if (!w.is_binary_non_learned_clause())
                         continue;
                     literal l2 = w.get_literal();
+                    if (l.index() > l2.index()) 
+                        continue;
                     if (value_at(l2, m) != l_true) {
-                        IF_VERBOSE(0, verbose_stream() << "failed binary: " << l << " " << l2 << "\n";);
+                        IF_VERBOSE(0, verbose_stream() << "failed binary: " << l << " := " << value_at(l, m) << " " << l2 <<  " := " << value_at(l2, m) << "\n");
+                        IF_VERBOSE(0, verbose_stream() << "elim l1: " << was_eliminated(l.var()) << " elim l2: " << was_eliminated(l2) << "\n");
                         TRACE("sat", m_mc.display(tout << "failed binary: " << l << " " << l2 << "\n"););
                         ok = false;
                     }
@@ -3399,14 +3404,16 @@ namespace sat {
         out.flush();
     }
 
+    void solver::display_watches(std::ostream & out, literal lit) const {
+        sat::display_watch_list(out << lit << ": ", m_cls_allocator, get_wlist(lit)) << "\n";
+    }
 
     void solver::display_watches(std::ostream & out) const {
         unsigned l_idx = 0;
         for (watch_list const& wlist : m_watches) {
             literal l = to_literal(l_idx++);
-            out << l << ": ";
-            sat::display_watch_list(out, m_cls_allocator, wlist);
-            out << "\n";
+            if (!wlist.empty()) 
+                sat::display_watch_list(out << l << ": ", m_cls_allocator, wlist) << "\n";
         }
     }
 

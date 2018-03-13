@@ -222,7 +222,7 @@ namespace sat {
             }
         }
         TRACE("scc", for (unsigned i = 0; i < roots.size(); i++) { tout << i << " -> " << roots[i] << "\n"; }
-              tout << "to_elim: "; for (unsigned i = 0; i < to_elim.size(); i++) tout << to_elim[i] << " "; tout << "\n";);
+              tout << "to_elim: "; for (literal l : to_elim) tout << l << " "; tout << "\n";);
         m_num_elim += to_elim.size();
         elim_eqs eliminator(m_solver);
         eliminator(roots, to_elim);

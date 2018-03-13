@@ -36,8 +36,14 @@ namespace sat {
         bool                   m_learned;
         bool                   m_binary;   // is the BIG produced from binary clauses or hyper-binary resolution?
 
+        svector<std::pair<literal, literal>> m_del_bin;
+        
+
         void init_dfs_num();
         struct pframe;
+
+        bool safe_reach(literal u, literal v);
+        literal next(literal u, literal v) const;
 
     public:
 
