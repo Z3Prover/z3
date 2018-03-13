@@ -134,6 +134,11 @@ public:
 
 #include<ctime>
 
+#ifndef CLOCK_PROCESS_CPUTIME_ID
+/* BSD */
+# define CLOCK_PROCESS_CPUTIME_ID CLOCK_MONOTONIC
+#endif
+
 class stopwatch {
     unsigned long long m_time; // elapsed time in ns
     bool               m_running;
