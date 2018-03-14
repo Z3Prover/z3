@@ -36,15 +36,17 @@ namespace opt {
                 m_index(0)
             {}
         };
-        ast_manager&     m;
-        context&         m_ctx;
-        ref<solver>      m_solver;
-        model_ref        m_model;
-        svector<symbol>  m_labels;
-        vector<queue_elem> m_queue;
-        unsigned         m_qhead;
-        expr_ref_vector  m_models_trail;
+        ast_manager&        m;
+        context&            m_ctx;
+        ref<solver>         m_solver;
+        model_ref           m_model;
+        svector<symbol>     m_labels;
+        vector<queue_elem>  m_queue;
+        unsigned            m_qhead;
+        expr_ref_vector     m_models_trail;
+        expr_ref_vector     m_atoms;
         obj_hashtable<expr> m_models;
+        obj_hashtable<expr> m_fixed;
 
         bool add_assignment();
     public:

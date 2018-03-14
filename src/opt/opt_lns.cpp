@@ -28,7 +28,8 @@ namespace opt {
         m(ctx.get_manager()),
         m_ctx(ctx),
         m_solver(s),
-        m_models_trail(m)
+        m_models_trail(m),
+        m_atoms(m)
     {}
 
     lns::~lns() {}
@@ -42,9 +43,19 @@ namespace opt {
     lbool lns::operator()() {
 
         if (m_queue.empty()) {
-            expr_ref_vector lits(m);
+            expr_ref_vector lits(m), atoms(m);
             m_ctx.get_lns_literals(lits);
-            m_queue.push_back(queue_elem(lits));
+            for (expr* l : lits) {
+                expr* nl = nullptr;
+                if (m.is_not(l, nl)) {
+                    m_atoms.push_back(nl);
+                }
+                else {
+                    atoms.push_back(l);
+                    m_atoms.push_back(l);
+                }
+            }
+            m_queue.push_back(queue_elem(atoms));
             m_qhead = 0;
         }
 
@@ -54,33 +65,46 @@ namespace opt {
         m_solver->updt_params(p);
 
         while (m_qhead < m_queue.size()) {
-            unsigned index = m_queue[m_qhead].m_index;            
-            if (index > m_queue[m_qhead].m_assignment.size()) {
-                ++m_qhead;
+            obj_hashtable<expr> atoms;
+            for (expr* f : m_queue[m_qhead].m_assignment) {
+                atoms.insert(f);
+            }
+            unsigned& index = m_queue[m_qhead].m_index;
+            expr* lit = nullptr;
+            for (; index < m_atoms.size() && (lit = m_atoms[index].get(), (atoms.contains(lit) || m_units.contains(lit))); ++index) ;
+            if (index == m_atoms.size()) {
+                m_qhead++;
                 continue;
             }
+                    
             IF_VERBOSE(2, verbose_stream() << "(opt.lns :queue " << m_qhead << " :index " << index << ")\n");
             
             // recalibrate state to an initial satisfying assignment
             lbool is_sat = m_solver->check_sat(m_queue[m_qhead].m_assignment);
             IF_VERBOSE(2, verbose_stream() << "(opt.lns :calibrate-status " << is_sat << ")\n");
-
-            expr_ref lit(m_queue[m_qhead].m_assignment[index].get(), m);
-            lit = mk_not(m, lit);
-            expr* lits[1] = { lit };
-            ++m_queue[m_qhead].m_index;
             if (!m.limit().inc()) {
                 return l_undef;
             }
+            
+            expr* lit = m_atoms[index].get();
+            expr_ref_vector lits(m);
+            lits.push_back(lit);
+            ++index;
 
             // Update configuration for local search:
             // p.set_uint("sat.local_search_threads", 2);
             // p.set_uint("sat.unit_walk_threads", 1);
             
-            is_sat = m_solver->check_sat(1, lits);
-            IF_VERBOSE(2, verbose_stream() << "(opt.lns :status " << is_sat << ")\n");
+            is_sat = m_solver->check_sat(lits);
+            IF_VERBOSE(2, verbose_stream() << "(opt.lns :lookahead-status " << is_sat << " " << lit << ")\n");
             if (is_sat == l_true && add_assignment()) {
                 return l_true;
+            }
+            if (is_sat == l_false) {
+                m_units.insert(lit);
+            }
+            if (!m.limit().inc()) {
+                return l_undef;
             }
         }        
         return l_false;
@@ -92,13 +116,10 @@ namespace opt {
         m_ctx.fix_model(mdl);
         expr_ref tmp(m);
         expr_ref_vector fmls(m);
-        for (expr* f : m_queue[0].m_assignment) {
+        for (expr* f : m_atoms) {
             mdl->eval(f, tmp);
-            if (m.is_false(tmp)) {
-                fmls.push_back(mk_not(m, tmp));
-            }
-            else {
-                fmls.push_back(tmp);
+            if (m.is_true(tmp)) {
+                fmls.push_back(f);
             }
         }
         tmp = mk_and(fmls);
