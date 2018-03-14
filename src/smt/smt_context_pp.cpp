@@ -19,7 +19,7 @@ Revision History:
 #include "smt/smt_context.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/ast_pp.h"
-#include "ast/ast_smt_pp.h"
+#include "ast/ast_pp_util.h"
 #include "util/stats.h"
 
 namespace smt {
@@ -413,19 +413,23 @@ namespace smt {
     }
 
     void context::display_lemma_as_smt_problem(std::ostream & out, unsigned num_antecedents, literal const * antecedents, literal consequent, symbol const& logic) const {
-        ast_smt_pp pp(m_manager);
-        pp.set_benchmark_name("lemma");
-        pp.set_status("unsat");
-        pp.set_logic(logic);
+        ast_pp_util visitor(m_manager);
+        expr_ref_vector fmls(m_manager);
+        visitor.collect(fmls);
+        expr_ref n(m_manager);
         for (unsigned i = 0; i < num_antecedents; i++) {
             literal l = antecedents[i];
-            expr_ref n(m_manager);
             literal2expr(l, n);
-            pp.add_assumption(n);
+            fmls.push_back(n);
         }
-        expr_ref n(m_manager);
-        literal2expr(~consequent, n);
-        pp.display_smt2(out, n);
+        if (consequent != false_literal) {
+            literal2expr(~consequent, n);
+            fmls.push_back(n);
+        }
+        if (logic != symbol::null) out << "(set-logic " << logic << ")\n";
+        visitor.collect(fmls);
+        visitor.display_decls(out);
+        visitor.display_asserts(out, fmls, true);
     }
 
     static unsigned g_lemma_id = 0;
@@ -448,25 +452,29 @@ namespace smt {
     void context::display_lemma_as_smt_problem(std::ostream & out, unsigned num_antecedents, literal const * antecedents,
                                                unsigned num_eq_antecedents, enode_pair const * eq_antecedents,
                                                literal consequent, symbol const& logic) const {
-        ast_smt_pp pp(m_manager);
-        pp.set_benchmark_name("lemma");
-        pp.set_status("unsat");
-        pp.set_logic(logic);
+        ast_pp_util visitor(m_manager);
+        expr_ref_vector fmls(m_manager);
+        visitor.collect(fmls);
+        expr_ref n(m_manager);
         for (unsigned i = 0; i < num_antecedents; i++) {
             literal l = antecedents[i];
-            expr_ref n(m_manager);
             literal2expr(l, n);
-            pp.add_assumption(n);
+            fmls.push_back(n);
         }
         for (unsigned i = 0; i < num_eq_antecedents; i++) {
             enode_pair const & p = eq_antecedents[i];
-            expr_ref eq(m_manager);
-            eq = m_manager.mk_eq(p.first->get_owner(), p.second->get_owner());
-            pp.add_assumption(eq);
+            n = m_manager.mk_eq(p.first->get_owner(), p.second->get_owner());
+            fmls.push_back(n);
         }
-        expr_ref n(m_manager);
-        literal2expr(~consequent, n);
-        pp.display_smt2(out, n);
+        if (consequent != false_literal) {
+            literal2expr(~consequent, n);
+            fmls.push_back(n);
+        }
+
+        if (logic != symbol::null) out << "(set-logic " << logic << ")\n";
+        visitor.collect(fmls);
+        visitor.display_decls(out);
+        visitor.display_asserts(out, fmls, true);
     }
 
     void context::display_lemma_as_smt_problem(unsigned num_antecedents, literal const * antecedents,
