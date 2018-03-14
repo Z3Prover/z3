@@ -69,6 +69,7 @@ IS_WINDOWS=False
 IS_LINUX=False
 IS_OSX=False
 IS_FREEBSD=False
+IS_NETBSD=False
 IS_OPENBSD=False
 IS_CYGWIN=False
 IS_CYGWIN_MINGW=False
@@ -140,6 +141,9 @@ def is_linux():
 
 def is_freebsd():
     return IS_FREEBSD
+
+def is_netbsd():
+    return IS_NETBSD
 
 def is_openbsd():
     return IS_OPENBSD
@@ -604,6 +608,8 @@ elif os.name == 'posix':
         IS_LINUX=True
     elif os.uname()[0] == 'FreeBSD':
         IS_FREEBSD=True
+    elif os.uname()[0] == 'NetBSD':
+        IS_NETBSD=True
     elif os.uname()[0] == 'OpenBSD':
         IS_OPENBSD=True
     elif os.uname()[0][:6] == 'CYGWIN':
@@ -1245,7 +1251,7 @@ def get_so_ext():
     sysname = os.uname()[0]
     if sysname == 'Darwin':
         return 'dylib'
-    elif sysname == 'Linux' or sysname == 'FreeBSD' or sysname == 'OpenBSD':
+    elif sysname == 'Linux' or sysname == 'FreeBSD' or sysname == 'NetBSD' or sysname == 'OpenBSD':
         return 'so'
     elif sysname == 'CYGWIN' or sysname.startswith('MSYS_NT') or sysname.startswith('MINGW'):
         return 'dll'
@@ -1795,6 +1801,8 @@ class JavaDLLComponent(Component):
                 t = t.replace('PLATFORM', 'linux')
             elif IS_FREEBSD:
                 t = t.replace('PLATFORM', 'freebsd')
+            elif IS_NETBSD:
+                t = t.replace('PLATFORM', 'netbsd')
             elif IS_OPENBSD:
                 t = t.replace('PLATFORM', 'openbsd')
             elif IS_CYGWIN:
@@ -2500,6 +2508,13 @@ def mk_config():
         elif sysname == 'FreeBSD':
             CXXFLAGS       = '%s -D_FREEBSD_' % CXXFLAGS
             OS_DEFINES     = '-D_FREEBSD_'
+            SO_EXT         = '.so'
+            LDFLAGS        = '%s -lrt' % LDFLAGS
+            SLIBFLAGS      = '-shared'
+            SLIBEXTRAFLAGS = '%s -lrt' % SLIBEXTRAFLAGS
+        elif sysname == 'NetBSD':
+            CXXFLAGS       = '%s -D_NETBSD_' % CXXFLAGS
+            OS_DEFINES     = '-D_NETBSD_'
             SO_EXT         = '.so'
             LDFLAGS        = '%s -lrt' % LDFLAGS
             SLIBFLAGS      = '-shared'
