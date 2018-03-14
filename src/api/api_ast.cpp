@@ -919,7 +919,6 @@ extern "C" {
             case PR_REWRITE: return Z3_OP_PR_REWRITE;
             case PR_REWRITE_STAR: return Z3_OP_PR_REWRITE_STAR;
             case PR_PULL_QUANT: return Z3_OP_PR_PULL_QUANT;
-            case PR_PULL_QUANT_STAR: return Z3_OP_PR_PULL_QUANT_STAR;
             case PR_PUSH_QUANT: return Z3_OP_PR_PUSH_QUANT;
             case PR_ELIM_UNUSED_VARS: return Z3_OP_PR_ELIM_UNUSED_VARS;
             case PR_DER: return Z3_OP_PR_DER;
@@ -936,9 +935,7 @@ extern "C" {
             case PR_IFF_OEQ: return Z3_OP_PR_IFF_OEQ;
             case PR_NNF_POS: return Z3_OP_PR_NNF_POS;
             case PR_NNF_NEG: return Z3_OP_PR_NNF_NEG;
-            case PR_NNF_STAR: return Z3_OP_PR_NNF_STAR;
             case PR_SKOLEMIZE:  return Z3_OP_PR_SKOLEMIZE;
-            case PR_CNF_STAR: return Z3_OP_PR_CNF_STAR;
             case PR_MODUS_PONENS_OEQ: return Z3_OP_PR_MODUS_PONENS_OEQ;
             case PR_TH_LEMMA: return Z3_OP_PR_TH_LEMMA;
             case PR_HYPER_RESOLVE: return Z3_OP_PR_HYPER_RESOLVE;

@@ -1042,11 +1042,11 @@ enum basic_op_kind {
 
     PR_UNDEF, PR_TRUE, PR_ASSERTED, PR_GOAL, PR_MODUS_PONENS, PR_REFLEXIVITY, PR_SYMMETRY, PR_TRANSITIVITY, PR_TRANSITIVITY_STAR, PR_MONOTONICITY, PR_QUANT_INTRO,
     PR_DISTRIBUTIVITY, PR_AND_ELIM, PR_NOT_OR_ELIM, PR_REWRITE, PR_REWRITE_STAR, PR_PULL_QUANT,
-    PR_PULL_QUANT_STAR, PR_PUSH_QUANT, PR_ELIM_UNUSED_VARS, PR_DER, PR_QUANT_INST,
+    PR_PUSH_QUANT, PR_ELIM_UNUSED_VARS, PR_DER, PR_QUANT_INST,
 
     PR_HYPOTHESIS, PR_LEMMA, PR_UNIT_RESOLUTION, PR_IFF_TRUE, PR_IFF_FALSE, PR_COMMUTATIVITY, PR_DEF_AXIOM,
 
-    PR_DEF_INTRO, PR_APPLY_DEF, PR_IFF_OEQ, PR_NNF_POS, PR_NNF_NEG, PR_NNF_STAR, PR_SKOLEMIZE, PR_CNF_STAR,
+    PR_DEF_INTRO, PR_APPLY_DEF, PR_IFF_OEQ, PR_NNF_POS, PR_NNF_NEG, PR_SKOLEMIZE, 
     PR_MODUS_PONENS_OEQ, PR_TH_LEMMA, PR_HYPER_RESOLVE, LAST_BASIC_PR
 };
 
@@ -1080,7 +1080,6 @@ protected:
     func_decl * m_not_or_elim_decl;
     func_decl * m_rewrite_decl;
     func_decl * m_pull_quant_decl;
-    func_decl * m_pull_quant_star_decl;
     func_decl * m_push_quant_decl;
     func_decl * m_elim_unused_vars_decl;
     func_decl * m_der_decl;
@@ -1106,8 +1105,6 @@ protected:
     ptr_vector<func_decl> m_apply_def_decls;
     ptr_vector<func_decl> m_nnf_pos_decls;
     ptr_vector<func_decl> m_nnf_neg_decls;
-    ptr_vector<func_decl> m_nnf_star_decls;
-    ptr_vector<func_decl> m_cnf_star_decls;
 
     ptr_vector<func_decl> m_th_lemma_decls;
     func_decl * m_hyper_res_decl0;
@@ -2182,7 +2179,6 @@ public:
     proof * mk_oeq_rewrite(expr * s, expr * t);
     proof * mk_rewrite_star(expr * s, expr * t, unsigned num_proofs, proof * const * proofs);
     proof * mk_pull_quant(expr * e, quantifier * q);
-    proof * mk_pull_quant_star(expr * e, quantifier * q);
     proof * mk_push_quant(quantifier * q, expr * e);
     proof * mk_elim_unused_vars(quantifier * q, expr * r);
     proof * mk_der(quantifier * q, expr * r);
@@ -2201,9 +2197,8 @@ public:
 
     proof * mk_nnf_pos(expr * s, expr * t, unsigned num_proofs, proof * const * proofs);
     proof * mk_nnf_neg(expr * s, expr * t, unsigned num_proofs, proof * const * proofs);
-    proof * mk_nnf_star(expr * s, expr * t, unsigned num_proofs, proof * const * proofs);
     proof * mk_skolemization(expr * q, expr * e);
-    proof * mk_cnf_star(expr * s, expr * t, unsigned num_proofs, proof * const * proofs);
+
 
     proof * mk_and_elim(proof * p, unsigned i);
     proof * mk_not_or_elim(proof * p, unsigned i);

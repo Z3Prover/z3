@@ -1106,6 +1106,16 @@ namespace datalog {
             names.push_back(m_rule_names[i]);            
         }
     }
+
+    static std::ostream& display_symbol(std::ostream& out, symbol const& nm) {
+        if (is_smt2_quoted_symbol(nm)) {
+            out << mk_smt2_quoted_symbol(nm);
+        }
+        else {
+            out << nm;
+        }
+        return out;
+    }
  
     void context::display_smt2(unsigned num_queries, expr* const* qs, std::ostream& out) {
         ast_manager& m = get_manager();
@@ -1148,13 +1158,13 @@ namespace datalog {
         if (!use_fixedpoint_extensions) {
             out << "(set-logic HORN)\n";
         }
+        for (func_decl * f : rels) 
+            visitor.remove_decl(f);
 
         visitor.display_decls(out);
-        func_decl_set::iterator it = rels.begin(), end = rels.end();
-        for (; it != end; ++it) {
-            func_decl* f = *it;
+
+        for (func_decl * f : rels) 
             display_rel_decl(out, f);
-        }
 
         if (use_fixedpoint_extensions && do_declare_vars) {
             declare_vars(rules, fresh_names, out);
@@ -1185,13 +1195,7 @@ namespace datalog {
                     nm = symbol(s.str().c_str());                    
                 }
                 fresh_names.add(nm);
-                if (is_smt2_quoted_symbol(nm)) {
-                    out << mk_smt2_quoted_symbol(nm);
-                }
-                else {
-                    out << nm;
-                }
-                out << ")";
+                display_symbol(out, nm) << ")";
             }
             out << ")\n";
         }
@@ -1219,7 +1223,8 @@ namespace datalog {
                     PP(qfn);
                     out << ")\n";
                 }
-                out << "(query " << fn->get_name() << ")\n";
+                out << "(query ";
+                display_symbol(out, fn->get_name()) << ")\n";
             }
         }
         else {
@@ -1238,7 +1243,8 @@ namespace datalog {
 
     void context::display_rel_decl(std::ostream& out, func_decl* f) {
         smt2_pp_environment_dbg env(m);
-        out << "(declare-rel " << f->get_name() << " (";
+        out << "(declare-rel ";
+        display_symbol(out, f->get_name()) << " (";
         for (unsigned i = 0; i < f->get_arity(); ++i) {                
             ast_smt2_pp(out, f->get_domain(i), env);
             if (i + 1 < f->get_arity()) {

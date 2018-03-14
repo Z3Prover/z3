@@ -447,7 +447,7 @@ protected:
     void instantiate_axiom_suffixof(enode * e);
     void instantiate_axiom_Contains(enode * e);
     void instantiate_axiom_Indexof(enode * e);
-    void instantiate_axiom_Indexof2(enode * e);
+    void instantiate_axiom_Indexof_extended(enode * e);
     void instantiate_axiom_LastIndexof(enode * e);
     void instantiate_axiom_Substr(enode * e);
     void instantiate_axiom_Replace(enode * e);
@@ -495,10 +495,11 @@ protected:
             std::map<expr*, expr*> & concatAliasMap, std::map<expr*, expr *> & varConstMap,
             std::map<expr*, expr*> & concatConstMap, std::map<expr*, std::map<expr*, int> > & varEqConcatMap);
     expr * dealias_node(expr * node, std::map<expr*, expr*> & varAliasMap, std::map<expr*, expr*> & concatAliasMap);
-    void get_grounded_concats(expr* node, std::map<expr*, expr*> & varAliasMap,
-            std::map<expr*, expr*> & concatAliasMap, std::map<expr*, expr*> & varConstMap,
-            std::map<expr*, expr*> & concatConstMap, std::map<expr*, std::map<expr*, int> > & varEqConcatMap,
-            std::map<expr*, std::map<std::vector<expr*>, std::set<expr*> > > & groundedMap);
+    void get_grounded_concats(unsigned depth,
+                              expr* node, std::map<expr*, expr*> & varAliasMap,
+                              std::map<expr*, expr*> & concatAliasMap, std::map<expr*, expr*> & varConstMap,
+                              std::map<expr*, expr*> & concatConstMap, std::map<expr*, std::map<expr*, int> > & varEqConcatMap,
+                              std::map<expr*, std::map<std::vector<expr*>, std::set<expr*> > > & groundedMap);
     void print_grounded_concat(expr * node, std::map<expr*, std::map<std::vector<expr*>, std::set<expr*> > > & groundedMap);
     void check_subsequence(expr* str, expr* strDeAlias, expr* subStr, expr* subStrDeAlias, expr* boolVar,
             std::map<expr*, std::map<std::vector<expr*>, std::set<expr*> > > & groundedMap);
