@@ -170,7 +170,7 @@ lbool dl_interface::query(expr * query)
         return l_false;
     }
 
-    return m_context->solve();
+    return m_context->solve(m_ctx.get_params().spacer_from_level());
 
 }
 
