@@ -24,6 +24,7 @@ z3_add_component(spacer
   spacer_sem_matcher.cpp
   spacer_quant_generalizer.cpp
   spacer_callback.cpp
+  spacer_json.cpp
   COMPONENT_DEPENDENCIES
   arith_tactics
   core_tactics
