@@ -73,10 +73,10 @@ namespace spacer {
         return out;
     }
 
-    std::ostream &json_marshal(std::ostream &out, const lemma_ref_vector lemmas) {
+    std::ostream &json_marshal(std::ostream &out, const lemma_ref_vector &lemmas) {
 
         std::ostringstream ls;
-        for (auto &l:lemmas) {
+        for (auto l:lemmas) {
             ls << (ls.tellp() == 0 ? "" : ",");
             json_marshal(ls, l);
         }
@@ -85,12 +85,13 @@ namespace spacer {
     }
 
 
-    void json_marshaller::pob_blocked_by_lemma_eh(pob *p, lemma *l) {
-        //if(m_ctx->get_params().spacer_pr)
-        m_relations[p][p->depth()].push_back(l);
+    void json_marshaller::register_lemma(lemma *l) {
+        if (l->has_pob()) {
+            m_relations[&*l->get_pob()][l->get_pob()->depth()].push_back(l);
+        }
     }
 
-    void json_marshaller::new_pob_eh(pob *p) {
+    void json_marshaller::register_pob(pob *p) {
         m_relations[p];
     }
 
@@ -110,15 +111,16 @@ namespace spacer {
                 lemmas << (lemmas.tellp() == 0 ? "" : ",\n");
                 lemmas << "\"" << pob_id << "\":{" << pob_lemmas.str() << "}";
             }
+            pob_id++;
         }
 
         unsigned depth = 0;
         while (true) {
             double root_expand_time = m_ctx->get_root().get_expand_time(depth);
             bool a = false;
-            unsigned i = 0;
+            pob_id = 0;
             for (auto &pob_map:m_relations) {
-                pob_ref n = pob_map.first;
+                pob *n = pob_map.first;
                 double expand_time = n->get_expand_time(depth);
                 if (expand_time > 0) {
                     a = true;
@@ -131,7 +133,7 @@ namespace spacer {
                           "\",\"absolute_time\":\"" << std::setprecision(2) << expand_time <<
                           "\",\"predicate\":\"" << n->pt().head()->get_name() <<
                           "\",\"expr_id\":\"" << n->post()->get_id() <<
-                          "\",\"pob_id\":\"" << i <<
+                          "\",\"pob_id\":\"" << pob_id <<
                           "\",\"depth\":\"" << depth <<
                           "\",\"expr\":" << pob_expr.str() << "}";
                     if (n->parent()) {
@@ -140,6 +142,7 @@ namespace spacer {
                               "\",\"to\":\"" << depth << n << "\"}";
                     }
                 }
+                pob_id++;
             }
             if (!a) {
                 break;

@@ -39,8 +39,6 @@ namespace spacer {
 
     class pob;
 
-    typedef ref<pob> pob_ref;
-
     std::ostream &json_marshal(std::ostream &out, ast *t, ast_manager &m);
 
     std::ostream &json_marshal(std::ostream &out, lemma *l);
@@ -50,14 +48,14 @@ namespace spacer {
 
     class json_marshaller {
         context *m_ctx;
-        std::map<pob_ref, std::map<unsigned, lemma_ref_vector>> m_relations;
+        std::map<pob*, std::map<unsigned, lemma_ref_vector>> m_relations;
 
     public:
         json_marshaller(context *ctx) : m_ctx(ctx) {}
 
-        void pob_blocked_by_lemma_eh(pob *p, lemma *l);
+        void register_lemma(lemma *l);
 
-        void new_pob_eh(pob *p);
+        void register_pob(pob *p);
 
         std::ostream &marshal(std::ostream &out) const;
     };

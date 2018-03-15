@@ -1353,6 +1353,14 @@ void lemma::instantiate(expr * const * exprs, expr_ref &result, expr *e) {
     vs(body, num_decls, exprs, result);
 }
 
+void lemma::set_level (unsigned lvl) {
+    if(m_pob){
+        m_pob->blocked_at(lvl);
+    }
+    m_lvl = lvl;
+}
+
+
 void lemma::mk_insts(expr_ref_vector &out, expr* e)
 {
     expr *lem = e == nullptr ? get_expr() : e;
@@ -1376,6 +1384,7 @@ bool pred_transformer::frames::add_lemma(lemma *lem)
 
     for (unsigned i = 0, sz = m_lemmas.size(); i < sz; ++i) {
         if (m_lemmas [i]->get_expr() == lem->get_expr()) {
+            m_pt.get_context().new_lemma_eh(m_pt, lem);
             // extend bindings if needed
             if (!lem->get_bindings().empty()) {
                 m_lemmas [i]->add_binding(lem->get_bindings());
@@ -1879,7 +1888,8 @@ pob::pob (pob* parent, pred_transformer& pt,
     m_binding(m_pt.get_ast_manager()),
     m_new_post (m_pt.get_ast_manager ()),
     m_level (level), m_depth (depth),
-    m_open (true), m_use_farkas (true), m_weakness(0) {
+    m_open (true), m_use_farkas (true), m_weakness(0),
+    m_blocked_lvl(0) {
     if(add_to_parent && m_parent) {
         m_parent->add_child(*this);
     }
@@ -1994,6 +2004,11 @@ void pob_queue::reset()
     if (m_root) { m_obligations.push(m_root); }
 }
 
+void pob_queue::push(pob &n) {
+    m_obligations.push (&n);
+    n.get_context().new_pob_eh(&n);
+}
+
 // ----------------
 // context
 
@@ -2015,7 +2030,8 @@ context::context(fixedpoint_params const&     params,
     m_use_qlemmas (params.spacer_qlemmas ()),
     m_weak_abs(params.spacer_weak_abs()),
     m_use_restarts(params.spacer_restarts()),
-    m_restart_initial_threshold(params.spacer_restart_initial_threshold())
+    m_restart_initial_threshold(params.spacer_restart_initial_threshold()),
+    m_json_marshaller(this)
 {}
 
 context::~context()
@@ -2728,7 +2744,13 @@ lbool context::solve_core (unsigned from_lvl)
         if (check_reachability()) { return l_true; }
 
         if (lvl > 0 && !get_params ().spacer_skip_propagate ())
-            if (propagate(m_expanded_lvl, lvl, UINT_MAX)) { return l_false; }
+            if (propagate(m_expanded_lvl, lvl, UINT_MAX)) { dump_json(); return l_false; }
+
+        dump_json();
+
+        if (is_inductive()){
+            return l_false;
+        }
 
         for (unsigned i = 0; i < m_callbacks.size(); i++){
             if (m_callbacks[i]->unfold())
@@ -2963,6 +2985,7 @@ bool context::is_reachable(pob &n)
 //this processes a goal and creates sub-goal
 lbool context::expand_node(pob& n)
 {
+    pob::on_expand_event _evt(n);
     TRACE ("spacer",
            tout << "expand-node: " << n.pt().head()->get_name()
            << " level: " << n.level()
@@ -3613,6 +3636,8 @@ void context::add_constraint (unsigned level, const expr_ref& c)
 }
 
 void context::new_lemma_eh(pred_transformer &pt, lemma *lem) {
+    if (m_params.spacer_print_json().size())
+        m_json_marshaller.register_lemma(lem);
     bool handle=false;
     for (unsigned i = 0; i < m_callbacks.size(); i++) {
         handle|=m_callbacks[i]->new_lemma();
@@ -3632,6 +3657,18 @@ void context::new_lemma_eh(pred_transformer &pt, lemma *lem) {
                 m_callbacks[i]->new_lemma_eh(lemma, lem->level());
         }
     }
+}
+
+void context::new_pob_eh(pob *p) {
+    if (m_params.spacer_print_json().size())
+        m_json_marshaller.register_pob(p);
+}
+
+bool context::is_inductive() {
+    // check that inductive level (F infinity) of the query predicate
+    // contains a constant false
+
+    return false;
 }
 
 inline bool pob_lt::operator() (const pob *pn1, const pob *pn2) const

@@ -192,7 +192,8 @@ def_module_params('fixedpoint',
                           ('spacer.quic_gen_normalize', BOOL, True, 'normalize cube before quantified generalization'),
                           ('spacer.share_lemmas', BOOL, False, "Share frame lemmas"),
                           ('spacer.share_invariants', BOOL, False, "Share invariants lemmas"),
-                          ('spacer.from_level', UINT, 0, 'starting level to explore')
+                          ('spacer.from_level', UINT, 0, 'starting level to explore'),
+                          ('spacer.print_json', SYMBOL, '', 'print pobs tree in JSON format to a given file')
                           ))
 
 

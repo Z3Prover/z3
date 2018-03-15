@@ -31,6 +31,7 @@ Notes:
 #include "util/scoped_ptr_vector.h"
 #include "muz/spacer/spacer_manager.h"
 #include "muz/spacer/spacer_prop_solver.h"
+#include "muz/spacer/spacer_json.h"
 
 #include "muz/base/fixedpoint_params.hpp"
 
@@ -140,7 +141,7 @@ public:
     inline bool external() { return m_external;}
 
     unsigned level () const {return m_lvl;}
-    void set_level (unsigned lvl) {m_lvl = lvl;}
+    void set_level (unsigned lvl);
     app_ref_vector& get_bindings() {return m_bindings;}
     bool has_binding(app_ref_vector const &binding);
     void add_binding(app_ref_vector const &binding);
@@ -475,6 +476,10 @@ class pob {
     scoped_ptr<derivation>   m_derivation;
 
     ptr_vector<pob>  m_kids;
+
+    // depth -> watch
+    std::map<unsigned, stopwatch> m_expand_watches;
+    unsigned m_blocked_lvl;
 public:
     pob (pob* parent, pred_transformer& pt,
          unsigned level, unsigned depth=0, bool add_to_parent=true);
@@ -504,6 +509,8 @@ public:
 
     unsigned level () const { return m_level; }
     unsigned depth () const {return m_depth;}
+    unsigned width () const {return m_kids.size();}
+    unsigned blocked_at(unsigned lvl=0){return (m_blocked_lvl = std::max(lvl, m_blocked_lvl)); }
 
     bool use_farkas_generalizer () const {return m_use_farkas;}
     void set_farkas_generalizer (bool v) {m_use_farkas = v;}
@@ -537,6 +544,10 @@ public:
      */
     void get_skolems(app_ref_vector& v);
 
+    void on_expand() { m_expand_watches[m_depth].start(); if(m_parent.get()){m_parent.get()->on_expand();} }
+    void off_expand() { m_expand_watches[m_depth].stop(); if(m_parent.get()){m_parent.get()->off_expand();} };
+    double get_expand_time(unsigned depth) { return m_expand_watches[depth].get_seconds();}
+
     void inc_ref () {++m_ref_count;}
     void dec_ref ()
         {
@@ -544,6 +555,13 @@ public:
             if(m_ref_count == 0) { dealloc(this); }
         }
 
+    class on_expand_event
+    {
+        pob &m_p;
+    public:
+        on_expand_event(pob &p) : m_p(p) {m_p.on_expand();}
+        ~on_expand_event() {m_p.off_expand();}
+    };
 };
 
 
@@ -653,7 +671,7 @@ public:
     void reset();
     pob * top ();
     void pop () {m_obligations.pop ();}
-    void push (pob &n) {m_obligations.push (&n);}
+    void push (pob &n);
 
     void inc_level ()
         {
@@ -712,6 +730,10 @@ public:
 
     virtual void unfold_eh() {}
 
+    virtual inline bool propagate() { return false; }
+
+    virtual void propagate_eh() {}
+
 };
 
 
@@ -764,6 +786,7 @@ class context {
     bool                 m_use_restarts;
     unsigned             m_restart_initial_threshold;
     scoped_ptr_vector<spacer_callback> m_callbacks;
+    json_marshaller      m_json_marshaller;
 
     // Functions used by search.
     lbool solve_core (unsigned from_lvl = 0);
@@ -802,6 +825,15 @@ class context {
     bool validate();
 
     unsigned get_cex_depth ();
+
+    void dump_json() {
+        if(m_params.spacer_print_json().size()) {
+            std::ofstream of;
+            of.open(m_params.spacer_print_json().bare_str());
+            m_json_marshaller.marshal(of);
+            of.close();
+        }
+    }
 
 public:
     /**
@@ -887,6 +919,10 @@ public:
     void new_lemma_eh(pred_transformer &pt, lemma *lem);
 
     scoped_ptr_vector<spacer_callback> &callbacks() {return m_callbacks;}
+
+    void new_pob_eh(pob *p);
+
+    bool is_inductive();
 };
 
 inline bool pred_transformer::use_native_mbp () {return ctx.use_native_mbp ();}
