@@ -2458,13 +2458,6 @@ sig
       A proof for (iff (f (forall (x) q(x)) r) (forall (x) (f (q x) r))). This proof object has no antecedents. *)
   val is_pull_quant : Expr.expr -> bool
 
-  (** Indicates whether the term is a proof for pulling quantifiers out.
-
-      A proof for (iff P Q) where Q is in prenex normal form.
-      This proof object is only used if the parameter PROOF_MODE is 1.
-      This proof object has no antecedents *)
-  val is_pull_quant_star : Expr.expr -> bool
-
   (** Indicates whether the term is a proof for pushing quantifiers in.
 
       A proof for:
@@ -2657,22 +2650,6 @@ sig
       [nnf-neg T1 T2 T3 T4]: (~ (not (iff s_1 s_2))
       (and (or r_1 r_2) (or r_1' r_2'))) *)
   val is_nnf_neg : Expr.expr -> bool
-
-  (** Indicates whether the term is a proof for (~ P Q) here Q is in negation normal form.
-
-      A proof for (~ P Q) where Q is in negation normal form.
-
-      This proof object is only used if the parameter PROOF_MODE is 1.
-
-      This proof object may have n antecedents. Each antecedent is a PR_DEF_INTRO. *)
-  val is_nnf_star : Expr.expr -> bool
-
-  (** Indicates whether the term is a proof for (~ P Q) where Q is in conjunctive normal form.
-
-      A proof for (~ P Q) where Q is in conjunctive normal form.
-      This proof object is only used if the parameter PROOF_MODE is 1.
-      This proof object may have n antecedents. Each antecedent is a PR_DEF_INTRO.           *)
-  val is_cnf_star : Expr.expr -> bool
 
   (** Indicates whether the term is a proof for a Skolemization step
 
