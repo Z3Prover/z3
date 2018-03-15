@@ -352,6 +352,10 @@ protected:
     // enode lists for library-aware/high-level string terms (e.g. substr, contains)
     ptr_vector<enode> m_library_aware_axiom_todo;
 
+    // list of axioms that are re-asserted every time the scope is popped
+    expr_ref_vector m_persisted_axioms;
+    expr_ref_vector m_persisted_axiom_todo;
+
     // hashtable of all exprs for which we've already set up term-specific axioms --
     // this prevents infinite recursive descent with respect to axioms that
     // include an occurrence of the term for which axioms are being generated
@@ -544,6 +548,8 @@ protected:
     void instantiate_axiom_Replace(enode * e);
     void instantiate_axiom_str_to_int(enode * e);
     void instantiate_axiom_int_to_str(enode * e);
+
+    void add_persisted_axiom(expr * a);
 
     expr * mk_RegexIn(expr * str, expr * regexp);
     void instantiate_axiom_RegexIn(enode * e);

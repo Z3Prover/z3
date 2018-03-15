@@ -57,6 +57,8 @@ namespace smt {
         tmpXorVarCount(0),
         tmpLenTestVarCount(0),
         tmpValTestVarCount(0),
+        m_persisted_axioms(m),
+        m_persisted_axiom_todo(m),
         avoidLoopCut(true),
         loopDetected(false),
         m_theoryStrOverlapAssumption_term(m),
@@ -827,7 +829,8 @@ namespace smt {
         return !m_basicstr_axiom_todo.empty() || !m_str_eq_todo.empty()
             || !m_concat_axiom_todo.empty() || !m_concat_eval_todo.empty()
             || !m_library_aware_axiom_todo.empty()
-            || !m_delayed_axiom_setup_terms.empty();
+            || !m_delayed_axiom_setup_terms.empty()
+            || !m_persisted_axiom_todo.empty()
         ;
     }
 
@@ -895,7 +898,11 @@ namespace smt {
                 set_up_axioms(m_delayed_axiom_setup_terms[i].get());
             }
             m_delayed_axiom_setup_terms.reset();
-        }
+            for (expr * a : m_persisted_axiom_todo) {
+                assert_axiom(a);
+            }
+            m_persisted_axiom_todo.reset();
+        } // can_propagate
     }
 
     /*
@@ -6696,7 +6703,7 @@ namespace smt {
         } else if (u.re.is_full_char(re)) {
             return true;
         } else if (u.re.is_full_seq(re)) {
-            return false; // generally unbounded
+            return true;
         } else if (u.re.is_complement(re)) {
             // TODO can we do better?
             return false;
@@ -8474,6 +8481,10 @@ namespace smt {
         }
     }
 
+    void theory_str::add_persisted_axiom(expr * a) {
+        m_persisted_axioms.push_back(a);
+    }
+
     void theory_str::pop_scope_eh(unsigned num_scopes) {
         sLevel -= num_scopes;
         TRACE("str", tout << "pop " << num_scopes << " to " << sLevel << std::endl;);
@@ -8518,6 +8529,11 @@ namespace smt {
         }
         m_basicstr_axiom_todo.reset();
         m_basicstr_axiom_todo = new_m_basicstr;
+
+        for (expr * e : m_persisted_axioms) {
+            TRACE("str", tout << "persist axiom: " << mk_pp(e, get_manager()) << std::endl;);
+            m_persisted_axiom_todo.push_back(e);
+        }
 
         m_trail_stack.pop_scope(num_scopes);
         theory::pop_scope_eh(num_scopes);
@@ -10574,6 +10590,7 @@ namespace smt {
                     TRACE("str", tout << "product automaton is empty; asserting conflict clause" << std::endl;);
                     expr_ref conflict_clause(m.mk_not(mk_and(conflict_terms)), m);
                     assert_axiom(conflict_clause);
+                    add_persisted_axiom(conflict_clause);
                     regex_axiom_add = true;
                 }
             } // foreach (entry in regex_terms_by_string)
