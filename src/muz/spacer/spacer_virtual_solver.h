@@ -80,7 +80,7 @@ public:
 
     void get_unsat_core(ptr_vector<expr> &r) override;
     void assert_expr_core(expr *e) override;
-    void collect_statistics(statistics &st) const override {}
+    void collect_statistics(statistics &st) const override {m_context.collect_statistics(st);}
     void get_model_core(model_ref &m) override {m_context.get_model(m);}
     proof* get_proof() override;
     std::string reason_unknown() const override
