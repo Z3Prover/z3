@@ -323,7 +323,6 @@ class params {
     typedef std::pair<symbol, value> entry;
     svector<entry> m_entries;
     unsigned       m_ref_count;
-    
     void del_value(entry & e);
     void del_values();
 

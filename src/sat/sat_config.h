@@ -83,6 +83,7 @@ namespace sat {
         phase_selection    m_phase;
         unsigned           m_phase_caching_on;
         unsigned           m_phase_caching_off;
+        bool               m_phase_sticky;
         restart_strategy   m_restart;
         unsigned           m_restart_initial;
         double             m_restart_factor; // for geometric case

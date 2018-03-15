@@ -14,11 +14,9 @@ Author:
 
     Nikolaj Bjorner (nbjorner) 2018-3-13
 
-Notes:
-
-   
 --*/
 
+#include "ast/ast_pp.h"
 #include "opt/opt_lns.h"
 #include "opt/opt_context.h"
 
@@ -36,12 +34,12 @@ namespace opt {
 
     void lns::display(std::ostream & out) const {
         for (auto const& q : m_queue) {
-            out << q.m_index << ": " << q.m_assignment << "\n";
+            expr_ref tmp(mk_and(q.m_assignment));
+            out << q.m_index << ": " << tmp << "\n";
         }
     }
     
     lbool lns::operator()() {
-
         if (m_queue.empty()) {
             expr_ref_vector lits(m), atoms(m);
             m_ctx.get_lns_literals(lits);
@@ -60,8 +58,7 @@ namespace opt {
         }
 
         params_ref p;
-        p.set_uint("sat.inprocess.max", 3);
-        p.set_uint("smt.max_conflicts", 10000);
+        p.set_uint("inprocess.max", 3ul);
         m_solver->updt_params(p);
 
         while (m_qhead < m_queue.size()) {
@@ -71,13 +68,20 @@ namespace opt {
             }
             unsigned& index = m_queue[m_qhead].m_index;
             expr* lit = nullptr;
-            for (; index < m_atoms.size() && (lit = m_atoms[index].get(), (atoms.contains(lit) || m_units.contains(lit))); ++index) ;
+            for (; index < m_atoms.size(); ++index) {
+                lit = m_atoms[index].get();
+                if (!atoms.contains(lit) && !m_failed.contains(lit)) break;
+            }
             if (index == m_atoms.size()) {
                 m_qhead++;
                 continue;
             }
                     
             IF_VERBOSE(2, verbose_stream() << "(opt.lns :queue " << m_qhead << " :index " << index << ")\n");
+
+            p.set_uint("local_search_threads", 0);
+            p.set_uint("unit_walk_threads", 0);
+            m_solver->updt_params(p);
             
             // recalibrate state to an initial satisfying assignment
             lbool is_sat = m_solver->check_sat(m_queue[m_qhead].m_assignment);
@@ -86,22 +90,27 @@ namespace opt {
                 return l_undef;
             }
             
-            expr* lit = m_atoms[index].get();
             expr_ref_vector lits(m);
             lits.push_back(lit);
             ++index;
 
-            // Update configuration for local search:
-            // p.set_uint("sat.local_search_threads", 2);
-            // p.set_uint("sat.unit_walk_threads", 1);
-            
+            // freeze phase in both SAT solver and local search to current assignment
+            p.set_uint("inprocess.max", 3);
+            p.set_bool("phase.sticky", true);                
+            p.set_uint("local_search_threads", 1);
+            p.set_uint("max_conflicts", 100000);
+            p.set_uint("unit_walk_threads", 1);
+            m_solver->updt_params(p);
+
             is_sat = m_solver->check_sat(lits);
-            IF_VERBOSE(2, verbose_stream() << "(opt.lns :lookahead-status " << is_sat << " " << lit << ")\n");
+            IF_VERBOSE(2, verbose_stream() << "(opt.lns :lookahead-status " << is_sat << " " << mk_pp(lit, m) << ")\n");
             if (is_sat == l_true && add_assignment()) {
                 return l_true;
             }
             if (is_sat == l_false) {
-                m_units.insert(lit);
+                m_failed.insert(lit);
+                expr_ref nlit(m.mk_not(lit), m);
+                m_solver->assert_expr(nlit);
             }
             if (!m.limit().inc()) {
                 return l_undef;

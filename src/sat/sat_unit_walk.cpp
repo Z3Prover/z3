@@ -43,9 +43,9 @@ namespace sat {
         m_runs = 0;
         m_periods = 0;
         m_max_runs = UINT_MAX;
-        m_max_periods = 100; // 5000; // UINT_MAX; // TBD configure
+        m_max_periods = 5000; // UINT_MAX; // TBD configure
         m_max_conflicts = 100;
-        m_sticky_phase = true;
+        m_sticky_phase = s.get_config().m_phase_sticky;
         m_flips = 0;
     }                        
 
@@ -124,7 +124,15 @@ namespace sat {
         m_max_trail = 0;
         if (m_sticky_phase) {
             for (bool_var v : m_freevars) {
-                m_phase[v] = m_rand(100 * static_cast<unsigned>(m_phase_tf[v].t + m_phase_tf[v].f)) <= 100 * m_phase_tf[v].t;
+                if (s.m_phase[v] == POS_PHASE) {
+                    m_phase[v] = true;
+                }
+                else if (s.m_phase[v] == NEG_PHASE) {
+                    m_phase[v] = false;
+                }
+                else {
+                    m_phase[v] = m_rand(100 * static_cast<unsigned>(m_phase_tf[v].t + m_phase_tf[v].f)) <= 100 * m_phase_tf[v].t;
+                }
             }
         }
         else {

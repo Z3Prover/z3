@@ -46,7 +46,7 @@ namespace opt {
         expr_ref_vector     m_models_trail;
         expr_ref_vector     m_atoms;
         obj_hashtable<expr> m_models;
-        obj_hashtable<expr> m_fixed;
+        obj_hashtable<expr> m_failed;
 
         bool add_assignment();
     public:

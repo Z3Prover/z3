@@ -29,27 +29,31 @@ namespace sat {
     class parallel;
 
     class local_search_config {
-        unsigned m_seed;
-        unsigned m_strategy_id;
-        int      m_best_known_value;
+        unsigned          m_random_seed;
+        int               m_best_known_value;
         local_search_mode m_mode;
+        bool              m_phase_sticky;
     public:
         local_search_config() {
-            m_seed = 0;
-            m_strategy_id = 0;
+            m_random_seed = 0;
             m_best_known_value = INT_MAX;
             m_mode = local_search_mode::wsat;
+            m_phase_sticky = false;
         }
 
-        unsigned seed() const { return m_seed; }
-        unsigned strategy_id() const { return m_strategy_id;  }
+        unsigned random_seed() const { return m_random_seed; }
         unsigned best_known_value() const { return m_best_known_value;  }
         local_search_mode mode() const { return m_mode; }
-
-        void set_seed(unsigned s) { m_seed = s;  }
-        void set_strategy_id(unsigned i) { m_strategy_id = i; }
+        bool phase_sticky() const { return m_phase_sticky; }
+        
+        void set_random_seed(unsigned s) { m_random_seed = s;  }
         void set_best_known_value(unsigned v) { m_best_known_value = v; }
-        void set_mode(local_search_mode m) { m_mode = m; }
+
+        void set_config(config const& cfg) {
+            m_mode         = cfg.m_local_search_mode;
+            m_random_seed  = cfg.m_random_seed;
+            m_phase_sticky = cfg.m_phase_sticky;
+        }
     };
 
 
@@ -75,6 +79,7 @@ namespace sat {
             bool m_value;                        // current solution
             unsigned m_bias;                     // bias for current solution in percentage.
                                                  // if bias is 0, then value is always false, if 100, then always true
+            // lbool m_unit;                        // if l_true, then unit atom, if l_false, then unit negative literal
             bool m_conf_change;                  // whether its configure changes since its last flip
             bool m_in_goodvar_stack;
             int  m_score;
@@ -135,6 +140,7 @@ namespace sat {
 
         inline bool cur_solution(bool_var v) const { return m_vars[v].m_value; }
         
+        inline void set_best_unsat();
         /* TBD: other scores */
         
 
@@ -178,9 +184,6 @@ namespace sat {
         // dynamic noise
         double m_noise = 9800; // normalized by 10000
         double m_noise_delta = 0.05;
-
-        // for tuning
-        int   s_id = 0;                        // strategy id
 
         reslimit    m_limit;
         random_gen  m_rand;

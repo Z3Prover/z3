@@ -55,6 +55,7 @@ namespace sat {
 
         m_phase_caching_on  = p.phase_caching_on();
         m_phase_caching_off = p.phase_caching_off();
+        m_phase_sticky      = p.phase_sticky();
 
         m_restart_initial = p.restart_initial();
         m_restart_factor  = p.restart_factor();

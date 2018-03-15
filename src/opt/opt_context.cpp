@@ -1436,6 +1436,9 @@ namespace opt {
         if (m_solver) {
             m_solver->updt_params(m_params);
         }
+        if (m_sat_solver) {
+            m_sat_solver->updt_params(m_params);
+        }
         m_optsmt.updt_params(m_params);
         for (auto & kv : m_maxsmts) {
             kv.m_value->updt_params(m_params);

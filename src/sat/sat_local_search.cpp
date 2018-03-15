@@ -34,8 +34,13 @@ namespace sat {
         // add sentinel variable.
         m_vars.push_back(var_info());
 
-        for (unsigned v = 0; v < num_vars(); ++v) {
-            m_vars[v].m_value = (0 == (m_rand() % 2));
+        if (m_config.phase_sticky()) {
+            for (var_info& vi : m_vars) 
+                vi.m_value = vi.m_bias < 100;
+        }
+        else {
+            for (var_info& vi : m_vars) 
+                vi.m_value = (0 == (m_rand() % 2));
         }
 
         m_best_solution.resize(num_vars() + 1, false);
@@ -70,13 +75,14 @@ namespace sat {
     }
 
     void local_search::init_cur_solution() {
-        for (unsigned v = 0; v < num_vars(); ++v) {
+        IF_VERBOSE(1, verbose_stream() << "(sat.local_search init-cur-solution)\n");
+        for (var_info& vi : m_vars) {
             // use bias with a small probability
-            if (m_rand() % 10 < 5) {
-                m_vars[v].m_value = ((unsigned)(m_rand() % 100) < m_vars[v].m_bias);
+            if (m_rand() % 10 < 5 || m_config.phase_sticky()) {
+                vi.m_value = ((unsigned)(m_rand() % 100) < vi.m_bias);
             }
             else {
-                m_vars[v].m_value = (m_rand() % 2) == 0;
+                vi.m_value = (m_rand() % 2) == 0;
             }
         }
     }
@@ -189,8 +195,15 @@ namespace sat {
         init_slack();
         init_scores();
         init_goodvars();
+        set_best_unsat();
+    }
 
+    void local_search::set_best_unsat() {
         m_best_unsat = m_unsat_stack.size();
+        if (m_best_unsat == 1) {
+            constraint const& c = m_constraints[m_unsat_stack[0]];
+            IF_VERBOSE(2, display(verbose_stream() << "single unsat:", c));
+        }
     }
     
     void local_search::calculate_and_update_ob() {
@@ -275,7 +288,9 @@ namespace sat {
             m_constraints.back().push(t);
         }
         if (sz == 1 && k == 0) {
-            m_vars[c[0].var()].m_bias = c[0].sign() ? 0 : 100;
+            literal lit = c[0];
+            m_vars[lit.var()].m_bias = lit.sign() ? 100 : 0;
+            m_vars[lit.var()].m_value = lit.sign();
         }
     }
 
@@ -289,8 +304,10 @@ namespace sat {
             m_vars[t.var()].m_watch[is_pos(t)].push_back(pbcoeff(id, coeffs[i]));
             m_constraints.back().push(t);
         }
-        if (sz == 1 && k == 0) {
-            m_vars[c[0].var()].m_bias = c[0].sign() ? 0 : 100;
+        if (sz == 1 && k == 0) {      
+            literal lit = c[0];
+            m_vars[lit.var()].m_bias = lit.sign() ? 100 : 0;
+            m_vars[lit.var()].m_value = lit.sign();
         }
     }
 
@@ -304,6 +321,14 @@ namespace sat {
         m_constraints.reset();
 
         m_vars.reserve(s.num_vars());
+        if (m_config.phase_sticky()) {
+            unsigned v = 0;
+            for (var_info& vi : m_vars) {
+                if (vi.m_bias != 0 && vi.m_bias != 100) 
+                    vi.m_bias = s.m_phase[v] == POS_PHASE ? 100 : 0;
+                ++v;
+            }
+        }
 
         // copy units
         unsigned trail_sz = s.init_trail_size();
@@ -462,7 +487,7 @@ namespace sat {
             for (step = 0; step < m_max_steps && !m_unsat_stack.empty(); ++step) {
                 pick_flip_walksat();
                 if (m_unsat_stack.size() < m_best_unsat) {
-                    m_best_unsat = m_unsat_stack.size();
+                    set_best_unsat();
                     m_last_best_unsat_rate = m_best_unsat_rate;
                     m_best_unsat_rate = (double)m_unsat_stack.size() / num_constraints();                                        
                 }
@@ -497,7 +522,7 @@ namespace sat {
                     }
                 }          
                 if (m_unsat_stack.size() < m_best_unsat) {
-                    m_best_unsat = m_unsat_stack.size();
+                    set_best_unsat();
                 }
                 flipvar = pick_var_gsat();
                 flip_gsat(flipvar);
@@ -876,10 +901,7 @@ namespace sat {
     }
 
     void local_search::set_parameters()  {
-        SASSERT(s_id == 0);
-        m_rand.set_seed(m_config.seed());
-        //srand(m_config.seed());
-        s_id = m_config.strategy_id();
+        m_rand.set_seed(m_config.random_seed());
         m_best_known_value = m_config.best_known_value();
 
         switch (m_config.mode()) {

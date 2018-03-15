@@ -1030,8 +1030,7 @@ namespace sat {
     lbool solver::do_local_search(unsigned num_lits, literal const* lits) {
         scoped_limits scoped_rl(rlimit());
         local_search srch;
-        srch.config().set_seed(m_config.m_random_seed);
-        srch.config().set_mode(m_config.m_local_search_mode);
+        srch.config().set_config(m_config);
         srch.import(*this, false);
         scoped_rl.push_child(&srch.rlimit());
         lbool r = srch.check(num_lits, lits, 0);
@@ -1055,8 +1054,8 @@ namespace sat {
         int num_threads = num_extra_solvers + 1 + num_local_search + num_unit_walk;
         for (int i = 0; i < num_local_search; ++i) {
             local_search* l = alloc(local_search);
-            l->config().set_seed(m_config.m_random_seed + i);
-            l->config().set_mode(m_config.m_local_search_mode);
+            l->config().set_config(m_config);
+            l->config().set_random_seed(m_config.m_random_seed + i);
             l->import(*this, false);
             ls.push_back(l);
         }
@@ -1277,10 +1276,12 @@ namespace sat {
                 phase = l_false;
                 break;
             case PS_CACHING:
-                if (m_phase_cache_on && m_phase[next] != PHASE_NOT_AVAILABLE)
+                if ((m_phase_cache_on || m_config.m_phase_sticky) && m_phase[next] != PHASE_NOT_AVAILABLE) {
                     phase = m_phase[next] == POS_PHASE ? l_true : l_false;
-                else
+                }
+                else {
                     phase = l_false;
+                }
                 break;
             case PS_RANDOM:
                 phase = to_lbool((m_rand() % 2) == 0);
@@ -1486,7 +1487,7 @@ namespace sat {
     void solver::init_search() {
         m_model_is_current        = false;
         m_phase_counter           = 0;
-        m_phase_cache_on          = false;
+        m_phase_cache_on          = m_config.m_phase_sticky;
         m_conflicts_since_restart = 0;
         m_restart_threshold       = m_config.m_restart_initial;
         m_luby_idx                = 1;
@@ -1625,8 +1626,10 @@ namespace sat {
         unsigned num = num_vars();
         m_model.resize(num, l_undef);
         for (bool_var v = 0; v < num; v++) {
-            if (!was_eliminated(v))
+            if (!was_eliminated(v)) {
                 m_model[v] = value(v);
+                m_phase[v] = (value(v) == l_true) ? POS_PHASE : NEG_PHASE;
+            }
         }
         TRACE("sat_mc_bug", m_mc.display(tout););
 
