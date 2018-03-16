@@ -4350,7 +4350,7 @@ extern "C" {
     Z3_bool Z3_API Z3_is_numeral_ast(Z3_context c, Z3_ast a);
 
     /**
-       \brief Return true if the give AST is a real algebraic number.
+       \brief Return true if the given AST is a real algebraic number.
 
        def_API('Z3_is_algebraic_number', BOOL, (_in(CONTEXT), _in(AST)))
     */
