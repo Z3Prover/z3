@@ -685,6 +685,7 @@ mpq get_denominators_lcm(iterator_on_row<mpq> &it) {
     while (it.next(a, j)) {
         r = lcm(r, denominator(a));
     }
+    it.reset();
     return r;
 }
     
@@ -735,8 +736,10 @@ bool int_solver::gcd_test_for_row(static_matrix<mpq, numeric_pair<mpq>> & A, uns
         return true;
     }
         
-    if (!(consts / gcds).is_int())
+    if (!(consts / gcds).is_int()) {
         fill_explanation_from_fixed_columns(it, ex);
+        return false;
+    }
         
     if (least_coeff.is_one() && !least_coeff_is_bounded) {
         SASSERT(gcds.is_one());
