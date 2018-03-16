@@ -321,7 +321,7 @@ namespace smt {
             T_cut * varInfo = alloc(T_cut);
             m_cut_allocs.push_back(varInfo);
             varInfo->level = slevel;
-            varInfo->vars[node] = 1;
+            varInfo->vars.insert(node, 1);
             cut_var_map.insert(baseNode, std::stack<T_cut*>());
             cut_var_map[baseNode].push(varInfo);
             TRACE("str", tout << "add var info for baseNode=" << mk_pp(baseNode, get_manager()) << ", node=" << mk_pp(node, get_manager()) << " [" << slevel << "]" << std::endl;);
@@ -330,7 +330,7 @@ namespace smt {
                 T_cut * varInfo = alloc(T_cut);
                 m_cut_allocs.push_back(varInfo);
                 varInfo->level = slevel;
-                varInfo->vars[node] = 1;
+                varInfo->vars.insert(node, 1);
                 cut_var_map[baseNode].push(varInfo);
                 TRACE("str", tout << "add var info for baseNode=" << mk_pp(baseNode, get_manager()) << ", node=" << mk_pp(node, get_manager()) << " [" << slevel << "]" << std::endl;);
             } else {
@@ -339,11 +339,11 @@ namespace smt {
                     m_cut_allocs.push_back(varInfo);
                     varInfo->level = slevel;
                     cut_vars_map_copy(varInfo->vars, cut_var_map[baseNode].top()->vars);
-                    varInfo->vars[node] = 1;
+                    varInfo->vars.insert(node, 1);
                     cut_var_map[baseNode].push(varInfo);
                     TRACE("str", tout << "add var info for baseNode=" << mk_pp(baseNode, get_manager()) << ", node=" << mk_pp(node, get_manager()) << " [" << slevel << "]" << std::endl;);
                 } else if (cut_var_map[baseNode].top()->level == slevel) {
-                    cut_var_map[baseNode].top()->vars[node] = 1;
+                    cut_var_map[baseNode].top()->vars.insert(node, 1);
                     TRACE("str", tout << "add var info for baseNode=" << mk_pp(baseNode, get_manager()) << ", node=" << mk_pp(node, get_manager()) << " [" << slevel << "]" << std::endl;);
                 } else {
                     get_manager().raise_exception("entered illegal state during add_cut_info_one_node()");
