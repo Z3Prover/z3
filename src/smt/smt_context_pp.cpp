@@ -43,11 +43,10 @@ namespace smt {
             return out << "RESOURCE_LIMIT";
         case THEORY:
             if (!m_incomplete_theories.empty()) {
-                ptr_vector<theory>::const_iterator it  = m_incomplete_theories.begin();
-                ptr_vector<theory>::const_iterator end = m_incomplete_theories.end();
-                for (bool first = true; it != end; ++it) {
+                bool first = true;
+                for (theory* th : m_incomplete_theories) {
                     if (first) first = false; else out << " ";
-                    out << (*it)->get_name();
+                    out << th->get_name();
                 }
             }
             else {
@@ -173,12 +172,10 @@ namespace smt {
 
     void context::display_binary_clauses(std::ostream & out) const {
         bool first = true;
-        vector<watch_list>::const_iterator it  = m_watches.begin();
-        vector<watch_list>::const_iterator end = m_watches.end();
-        for (unsigned l_idx = 0; it != end; ++it, ++l_idx) {
-            literal l1 = to_literal(l_idx);
+        unsigned l_idx = 0;
+        for (watch_list const& wl : m_watches) {
+            literal l1 = to_literal(l_idx++);
             literal neg_l1 = ~l1;
-            watch_list const & wl = *it;
             literal const * it2  = wl.begin_literals();
             literal const * end2 = wl.end_literals();
             for (; it2 != end2; ++it2) {
@@ -291,10 +288,7 @@ namespace smt {
     }
 
     void context::display_theories(std::ostream & out) const {
-        ptr_vector<theory>::const_iterator it  = m_theory_set.begin();
-        ptr_vector<theory>::const_iterator end = m_theory_set.end();
-        for (; it != end; ++it) {
-            theory * th = *it;
+        for (theory* th : m_theory_set) {
             th->display(out);
         }
     }
@@ -393,10 +387,8 @@ namespace smt {
 #endif
         m_qmanager->collect_statistics(st);
         m_asserted_formulas.collect_statistics(st);
-        ptr_vector<theory>::const_iterator it  = m_theory_set.begin();
-        ptr_vector<theory>::const_iterator end = m_theory_set.end();
-        for (; it != end; ++it) {
-            (*it)->collect_statistics(st);
+        for (theory* th : m_theory_set) {
+            th->collect_statistics(st);
         }
     }
 
@@ -498,10 +490,7 @@ namespace smt {
      */
     void context::display_normalized_enodes(std::ostream & out) const {
         out << "normalized enodes:\n";
-        ptr_vector<enode>::const_iterator it  = m_enodes.begin();
-        ptr_vector<enode>::const_iterator end = m_enodes.end();
-        for (; it != end; ++it) {
-            enode * n = *it;
+        for (enode * n : m_enodes) {
             out << "#";
             out.width(5);
             out << std::left << n->get_owner_id() << " #";
@@ -532,28 +521,23 @@ namespace smt {
     }
 
     void context::display_enodes_lbls(std::ostream & out) const {
-        ptr_vector<enode>::const_iterator it  = m_enodes.begin();
-        ptr_vector<enode>::const_iterator end = m_enodes.end();
-        for (; it != end; ++it) {
-            enode * n = *it;
+        for (enode* n : m_enodes) {
             n->display_lbls(out);
         }
     }
 
     void context::display_decl2enodes(std::ostream & out) const {
         out << "decl2enodes:\n";
-        vector<enode_vector>::const_iterator it1  = m_decl2enodes.begin();
-        vector<enode_vector>::const_iterator end1 = m_decl2enodes.end();
-        for (unsigned id = 0; it1 != end1; ++it1, ++id) {
-            enode_vector const & v = *it1;
+        unsigned id = 0;
+        for (enode_vector const& v : m_decl2enodes) {
             if (!v.empty()) {
                 out << "id " << id << " ->";
-                enode_vector::const_iterator it2  = v.begin();
-                enode_vector::const_iterator end2 = v.end();
-                for (; it2 != end2; ++it2)
-                    out << " #" << (*it2)->get_owner_id();
+                for (enode* n : v) {
+                    out << " #" << n->get_owner_id();
+                }
                 out << "\n";
             }
+            ++id;
         }
     }
 
