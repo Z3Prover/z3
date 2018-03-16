@@ -145,13 +145,15 @@ private:
         return is_zero(n.y);  
     }
 
+public:
     inline static
     mpq fractional_part(const impq & n) {
         lp_assert(is_rational(n));
         return n.x - floor(n.x);
     }
-    void real_case_in_gomory_cut(const mpq & a, unsigned x_j, mpq & k, lar_term& t, explanation & ex, unsigned inf_column);
-    void int_case_in_gomory_cut(const mpq & a, unsigned x_j, mpq & k, lar_term& t, explanation& ex, mpq & lcm_den, unsigned inf_column);
+private:
+    void real_case_in_gomory_cut(const mpq & a, unsigned x_j, mpq & k, lar_term& t, explanation & ex, const mpq& f_0, const mpq& one_minus_f_0);
+    void int_case_in_gomory_cut(const mpq & a, unsigned x_j, mpq & k, lar_term& t, explanation& ex, mpq & lcm_den, const mpq& f_0, const mpq& one_minus_f_0);
     constraint_index column_upper_bound_constraint(unsigned j) const;
     constraint_index column_lower_bound_constraint(unsigned j) const;
     void display_row_info(std::ostream & out, unsigned row_index) const;

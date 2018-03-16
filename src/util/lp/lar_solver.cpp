@@ -594,7 +594,8 @@ void lar_solver::substitute_terms_in_linear_expression(const vector<std::pair<mp
     }
 
     for (auto & p : coeffs)
-        left_side.push_back(std::make_pair(p.second, p.first));
+        if (!is_zero(p.second))
+            left_side.push_back(std::make_pair(p.second, p.first));
 }
 
 
@@ -1609,6 +1610,7 @@ var_index lar_solver::add_term(const vector<std::pair<mpq, var_index>> & coeffs,
 }
 
 void lar_solver::add_row_from_term_no_constraint(const lar_term * term, unsigned term_ext_index) {
+    TRACE("dump_terms", print_term(*term, tout); tout << std::endl;);
     register_new_ext_var_index(term_ext_index, term_is_int(term));
     // j will be a new variable
     unsigned j = A_r().column_count();

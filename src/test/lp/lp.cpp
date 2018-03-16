@@ -50,6 +50,8 @@ Revision History:
 #include "util/lp/integer_domain.h"
 #include "util/lp/stacked_map.h"
 #include <cstdlib>
+#include "test/lp/gomory_test.h"
+
 namespace lp {
 unsigned seed = 1;
 
@@ -1883,6 +1885,7 @@ void test_replace_column() {
 
 
 void setup_args_parser(argument_parser & parser) {
+    parser.add_option_with_help_string("-gomory", "gomory");
     parser.add_option_with_help_string("-intd", "test integer_domain");
     parser.add_option_with_help_string("-xyz_sample", "run a small interactive scenario");
     parser.add_option_with_after_string_with_help("--density", "the percentage of non-zeroes in the matrix below which it is not dense");
@@ -3255,6 +3258,153 @@ void test_resolve(cut_solver& cs, unsigned constraint_index, unsigned i0)  {
  }
 
 
+void test_gomory_cut_0() {
+        gomory_test g(
+            [](unsigned j) { return "v" + T_to_string(j);} // name_function_p
+            ,
+            [](unsigned j) { //get_value_p
+                if (j == 1)
+                    return mpq(2730, 1727);
+                if (j == 2)
+                    return zero_of_type<mpq>();
+                if (j == 3) return mpq(3);
+                lp_assert(false);
+                return zero_of_type<mpq>();
+            },
+            [](unsigned j) { // at_low_p
+                if (j == 1)
+                    return false;
+                if (j == 2)
+                    return true;
+                if (j == 3)
+                    return true;
+                lp_assert(false);
+                return false;
+            },
+            [](unsigned j) { // at_upper
+                if (j == 1)
+                    return false;
+                if (j == 2)
+                    return true;
+                if (j == 3)
+                    return false;
+                lp_assert(false);
+                return false;
+            },
+            [](unsigned j) { // lower_bound
+                if (j == 1) {
+                    lp_assert(false); //unlimited from below
+                    return 0;
+                }
+                if (j == 2)
+                    return 0;
+                if (j == 3)
+                    return 3;
+                lp_assert(false);
+                return 0;
+            },
+            [](unsigned j) { // upper
+                if (j == 1) {
+                    lp_assert(false); //unlimited from above
+                    return 0;
+                }
+                if (j == 2)
+                    return 0;
+                if (j == 3)
+                    return 10;
+                lp_assert(false);
+                return 0;
+            },
+            [] (unsigned) { return 0; },
+            [] (unsigned) { return 0; }
+                      );
+        lar_term t;
+        mpq k;
+        explanation expl;
+        unsigned inf_col = 1;
+        vector<std::pair<mpq, unsigned>> row;
+        row.push_back(std::make_pair(mpq(1), 1));
+        row.push_back(std::make_pair(mpq(2731, 1727), 2));
+        row.push_back(std::make_pair(mpq(-910, 1727), 3));
+        g.mk_gomory_cut(t,  k, expl, inf_col, row);
+}
+
+void test_gomory_cut_1() {
+        gomory_test g(
+            [](unsigned j) { return "v" + T_to_string(j);} // name_function_p
+            ,
+            [](unsigned j) { //get_value_p
+                if (j == 1)
+                    return mpq(-2);
+                if (j == 2)
+                    return mpq(4363334, 2730001);
+                if (j == 3)
+                    return mpq(1);
+                lp_assert(false);
+                return zero_of_type<mpq>();
+            },
+            [](unsigned j) { // at_low_p
+                if (j == 1)
+                    return false;
+                if (j == 2)
+                    return false;
+                if (j == 3)
+                    return true;
+                lp_assert(false);
+                return false;
+            },
+            [](unsigned j) { // at_upper
+                if (j == 1)
+                    return true;
+                if (j == 2)
+                    return false;
+                if (j == 3)
+                    return true;
+                lp_assert(false);
+                return false;
+            },
+            [](unsigned j) { // lower_bound
+                if (j == 1) {
+                    lp_assert(false); //unlimited from below
+                    return 0;
+                }
+                if (j == 2)
+                    return 1;
+                if (j == 3)
+                    return 1;
+                lp_assert(false);
+                return 0;
+            },
+            [](unsigned j) { // upper
+                if (j == 1) {
+                    return -2;
+                }
+                if (j == 2)
+                    return 3333;
+                if (j == 3)
+                    return 10000;
+                lp_assert(false);
+                return 0;
+            },
+            [] (unsigned) { return 0; },
+            [] (unsigned) { return 0; }
+                      );
+        lar_term t;
+        mpq k;
+        explanation expl;
+        unsigned inf_col = 2;
+        vector<std::pair<mpq, unsigned>> row;
+        row.push_back(std::make_pair(mpq(1726667, 2730001), 1));
+        row.push_back(std::make_pair(mpq(-910000, 2730001), 3));
+        row.push_back(std::make_pair(mpq(1), 2));
+        g.mk_gomory_cut(t,  k, expl, inf_col, row);
+}
+
+void test_gomory_cut() {
+    test_gomory_cut_0();
+    test_gomory_cut_1();
+}
+
 void test_lp_local(int argn, char**argv) {
     
     // initialize_util_module();
@@ -3270,7 +3420,10 @@ void test_lp_local(int argn, char**argv) {
     }
 
     args_parser.print();
-
+    if (args_parser.option_is_used("-gomory")) {
+        test_gomory_cut();
+        return finalize(0);
+    }
     if (args_parser.option_is_used("-intd")) {
         test_integer_domain();
         return finalize(0);
