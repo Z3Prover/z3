@@ -2725,6 +2725,8 @@ public:
         if (m_solver) {
             m_solver->print_constraints(out);
             m_solver->print_terms(out);
+            // auto pp = lp ::core_solver_pretty_printer<lp::mpq, lp::impq>(m_solver->m_mpq_lar_core_solver.m_r_solver, out);
+            // pp.print();
         }
         unsigned nv = th.get_num_vars();
         for (unsigned v = 0; v < nv; ++v) {

@@ -301,8 +301,6 @@ public:
 
     void detect_rows_of_bound_change_column_for_nbasic_column(unsigned j);
 
-
-    
     void detect_rows_of_bound_change_column_for_nbasic_column_tableau(unsigned j);
 
     bool use_tableau() const;
@@ -496,16 +494,19 @@ public:
     }
 
     void subs_term_columns(lar_term& t) {
-        vector<std::pair<mpq, unsigned> > pol;
+        vector<std::pair<unsigned,unsigned>> columns_to_subs;
         for (const auto & m : t.m_coeffs) {
-            pol.push_back(std::make_pair(m.second, adjust_column_index_to_term_index(m.first)));
+            unsigned tj = adjust_column_index_to_term_index(m.first);
+            if (tj == m.first) continue;
+            columns_to_subs.push_back(std::make_pair(m.first, tj));
         }
-        mpq v = t.m_v;
-        vector<std::pair<mpq, unsigned>> pol_after_subs;
-        // todo : remove the call to substitute_terms_in_linear_expression, when theory_lra handles the terms indices
-        substitute_terms_in_linear_expression(pol, pol_after_subs, v);
-        t.clear();
-        t = lar_term(pol_after_subs, v);
+        for (const auto & p : columns_to_subs) {
+            auto it = t.m_coeffs.find(p.first);
+            lp_assert(it != t.m_coeffs.end());
+            mpq v = it->second;
+            t.m_coeffs.erase(it);
+            t.m_coeffs[p.second] = v;
+        }
     }
 
     bool inf_int_set_is_correct_for_column(unsigned j) const {
