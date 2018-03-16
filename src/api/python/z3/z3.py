@@ -368,9 +368,6 @@ class AstRef(Z3PPObject):
     def __copy__(self):
         return self.translate(self.ctx)
 
-    def __deepcopy__(self):
-        return self.translate(self.ctx)
-
     def hash(self):
         """Return a hashcode for the `self`.
 
