@@ -79,7 +79,7 @@ namespace sat {
             bool m_value;                        // current solution
             unsigned m_bias;                     // bias for current solution in percentage.
                                                  // if bias is 0, then value is always false, if 100, then always true
-            // lbool m_unit;                        // if l_true, then unit atom, if l_false, then unit negative literal
+            bool m_unit;                         // is this a unit literal
             bool m_conf_change;                  // whether its configure changes since its last flip
             bool m_in_goodvar_stack;
             int  m_score;
@@ -88,9 +88,11 @@ namespace sat {
             int  m_cscc;                         // how many times its constraint state configure changes since its last flip
             bool_var_vector m_neighbors;         // neighborhood variables
             coeff_vector m_watch[2];
+            literal_vector m_bin[2];
             var_info():
                 m_value(true),
                 m_bias(50), 
+                m_unit(false),
                 m_conf_change(true),
                 m_in_goodvar_stack(false),
                 m_score(0),
@@ -123,6 +125,7 @@ namespace sat {
         
 
         vector<var_info>       m_vars;
+        svector<bool_var>      m_units;
 
         inline int score(bool_var v) const { return m_vars[v].m_score; }
         inline void inc_score(bool_var v) { m_vars[v].m_score++; }
@@ -147,6 +150,7 @@ namespace sat {
         vector<constraint> m_constraints;
 
         literal_vector m_assumptions;
+        literal_vector m_prop_queue;
 
         unsigned m_num_non_binary_clauses;
         bool     m_is_pb; 
@@ -155,6 +159,8 @@ namespace sat {
         inline bool is_true(bool_var v) const { return cur_solution(v); }
         inline bool is_true(literal l) const { return cur_solution(l.var()) != l.sign(); }
         inline bool is_false(literal l) const { return cur_solution(l.var()) == l.sign(); }
+        inline bool is_unit(bool_var v) const { return m_vars[v].m_unit; }
+        inline bool is_unit(literal l) const { return m_vars[l.var()].m_unit; }
 
         unsigned num_constraints() const { return m_constraints.size(); } // constraint index from 1 to num_constraint
 
@@ -162,6 +168,7 @@ namespace sat {
         unsigned constraint_slack(unsigned ci) const { return m_constraints[ci].m_slack; }
         
         // unsat constraint stack
+        bool            m_is_unsat;
         unsigned_vector m_unsat_stack;               // store all the unsat constraits
         unsigned_vector m_index_in_unsat_stack;      // which position is a contraint in the unsat_stack
         
@@ -206,6 +213,10 @@ namespace sat {
 
         void flip_walksat(bool_var v);
 
+        bool propagate(literal lit);
+
+        void add_propagation(literal lit);
+
         void walksat();
 
         void gsat();
@@ -241,6 +252,8 @@ namespace sat {
         bool check_goodvar();
 
         void add_clause(unsigned sz, literal const* c);
+
+        void add_unit(literal lit);
 
         std::ostream& display(std::ostream& out) const;
 

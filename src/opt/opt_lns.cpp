@@ -95,11 +95,11 @@ namespace opt {
             ++index;
 
             // freeze phase in both SAT solver and local search to current assignment
-            p.set_uint("inprocess.max", 3);
+            p.set_uint("inprocess.max", 5);
             p.set_bool("phase.sticky", true);                
             p.set_uint("local_search_threads", 1);
             p.set_uint("max_conflicts", 100000);
-            p.set_uint("unit_walk_threads", 1);
+            //p.set_uint("unit_walk_threads", 1);
             m_solver->updt_params(p);
 
             is_sat = m_solver->check_sat(lits);
