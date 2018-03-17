@@ -288,10 +288,9 @@ namespace smt {
         }
     }
 
-    static void cut_vars_map_copy(std::map<expr*, int> & dest, std::map<expr*, int> & src) {
-        std::map<expr*, int>::iterator itor = src.begin();
-        for (; itor != src.end(); itor++) {
-            dest[itor->first] = 1;
+    static void cut_vars_map_copy(obj_map<expr, int> & dest, obj_map<expr, int> & src) {
+        for (auto const& kv : src) {
+            dest.insert(kv.m_key, 1);
         }
     }
 
@@ -306,9 +305,8 @@ namespace smt {
             return false;
         }
 
-        std::map<expr*, int>::iterator itor = cut_var_map[n1].top()->vars.begin();
-        for (; itor != cut_var_map[n1].top()->vars.end(); ++itor) {
-            if (cut_var_map[n2].top()->vars.find(itor->first) != cut_var_map[n2].top()->vars.end()) {
+        for (auto const& kv : cut_var_map[n1].top()->vars) {
+            if (cut_var_map[n2].top()->vars.contains(kv.m_key)) {
                 return true;
             }
         }
@@ -323,7 +321,7 @@ namespace smt {
             T_cut * varInfo = alloc(T_cut);
             m_cut_allocs.push_back(varInfo);
             varInfo->level = slevel;
-            varInfo->vars[node] = 1;
+            varInfo->vars.insert(node, 1);
             cut_var_map.insert(baseNode, std::stack<T_cut*>());
             cut_var_map[baseNode].push(varInfo);
             TRACE("str", tout << "add var info for baseNode=" << mk_pp(baseNode, get_manager()) << ", node=" << mk_pp(node, get_manager()) << " [" << slevel << "]" << std::endl;);
@@ -332,7 +330,7 @@ namespace smt {
                 T_cut * varInfo = alloc(T_cut);
                 m_cut_allocs.push_back(varInfo);
                 varInfo->level = slevel;
-                varInfo->vars[node] = 1;
+                varInfo->vars.insert(node, 1);
                 cut_var_map[baseNode].push(varInfo);
                 TRACE("str", tout << "add var info for baseNode=" << mk_pp(baseNode, get_manager()) << ", node=" << mk_pp(node, get_manager()) << " [" << slevel << "]" << std::endl;);
             } else {
@@ -341,11 +339,11 @@ namespace smt {
                     m_cut_allocs.push_back(varInfo);
                     varInfo->level = slevel;
                     cut_vars_map_copy(varInfo->vars, cut_var_map[baseNode].top()->vars);
-                    varInfo->vars[node] = 1;
+                    varInfo->vars.insert(node, 1);
                     cut_var_map[baseNode].push(varInfo);
                     TRACE("str", tout << "add var info for baseNode=" << mk_pp(baseNode, get_manager()) << ", node=" << mk_pp(node, get_manager()) << " [" << slevel << "]" << std::endl;);
                 } else if (cut_var_map[baseNode].top()->level == slevel) {
-                    cut_var_map[baseNode].top()->vars[node] = 1;
+                    cut_var_map[baseNode].top()->vars.insert(node, 1);
                     TRACE("str", tout << "add var info for baseNode=" << mk_pp(baseNode, get_manager()) << ", node=" << mk_pp(node, get_manager()) << " [" << slevel << "]" << std::endl;);
                 } else {
                     get_manager().raise_exception("entered illegal state during add_cut_info_one_node()");
@@ -2572,9 +2570,8 @@ namespace smt {
         if (cut_var_map.contains(node)) {
             if (!cut_var_map[node].empty()) {
                 xout << "[" << cut_var_map[node].top()->level << "] ";
-                std::map<expr*, int>::iterator itor = cut_var_map[node].top()->vars.begin();
-                for (; itor != cut_var_map[node].top()->vars.end(); ++itor) {
-                    xout << mk_pp(itor->first, m) << ", ";
+                for (auto const& kv : cut_var_map[node].top()->vars) {
+                    xout << mk_pp(kv.m_key, m) << ", ";
                 }
                 xout << std::endl;
             }
