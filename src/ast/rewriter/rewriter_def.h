@@ -194,12 +194,14 @@ bool rewriter_tpl<Config>::constant_fold(app * t, frame & fr) {
             result_stack().shrink(fr.m_spos);
             result_stack().push_back(arg);
             fr.m_state = REWRITE_BUILTIN;
+            TRACE("rewriter_step", tout << "step\n" << mk_ismt2_pp(t, m()) << "\n";);
             if (visit<false>(arg, fr.m_max_depth)) {
                 m_r = result_stack().back();
                 result_stack().pop_back();
                 result_stack().pop_back();
                 result_stack().push_back(m_r);
                 cache_result<false>(t, m_r, m_pr, fr.m_cache_result);
+                TRACE("rewriter_step", tout << "step 1\n" << mk_ismt2_pp(m_r, m()) << "\n";);
                 frame_stack().pop_back();
                 set_new_child_flag(t);
             }

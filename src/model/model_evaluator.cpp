@@ -187,14 +187,14 @@ struct evaluator_cfg : public default_rewriter_cfg {
             TRACE("model_evaluator", tout << "reduce_app " << f->get_name() << "\n";
                   for (unsigned i = 0; i < num; i++) tout << mk_ismt2_pp(args[i], m) << "\n";
                   tout << "---->\n" << mk_ismt2_pp(result, m) << "\n";);
-            return BR_DONE;
+            return BR_REWRITE1;
         }
         if (st == BR_FAILED && !m.is_builtin_family_id(fid))
             st = evaluate_partial_theory_func(f, num, args, result, result_pr);
         if (st == BR_DONE && is_app(result)) {
             app* a = to_app(result);
             if (evaluate(a->get_decl(), a->get_num_args(), a->get_args(), result)) {
-                return BR_DONE;
+                return BR_REWRITE1;
             }
         }
         CTRACE("model_evaluator", st != BR_FAILED, tout << result << "\n";);
@@ -399,12 +399,11 @@ struct evaluator_cfg : public default_rewriter_cfg {
                 }
             }
         }
-        args_table::iterator it = table1.begin(), end = table1.end();
-        for (; it != end; ++it) {
-            switch (compare((*it)[arity], else2)) {
+        for (auto const& t : table1) {
+            switch (compare((t)[arity], else2)) {
             case l_true: break;
             case l_false: result = m.mk_false(); return BR_DONE;
-            default: conj.push_back(m.mk_eq((*it)[arity], else2)); break;
+            default: conj.push_back(m.mk_eq((t)[arity], else2)); break;
             }
         }
         result = mk_and(conj);
