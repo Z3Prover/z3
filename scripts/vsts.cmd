@@ -17,7 +17,7 @@ rem Build and run examples
 
 rem Build and run unit tests
 nmake test-z3
-test-z3.exe -a
+rem test-z3.exe -a
 
 
 cd ..
