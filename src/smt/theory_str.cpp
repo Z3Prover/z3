@@ -1392,7 +1392,8 @@ namespace smt {
         // case 4: 0 < i < len(H)
         {
             expr_ref premise1(m_autil.mk_gt(i, zero), m);
-            expr_ref premise2(m_autil.mk_lt(i, mk_strlen(H)), m);
+            //expr_ref premise2(m_autil.mk_lt(i, mk_strlen(H)), m);
+            expr_ref premise2(m.mk_not(m_autil.mk_ge(m_autil.mk_add(i, m_autil.mk_mul(minus_one, mk_strlen(H))), zero)), m);
             expr_ref _premise(m.mk_and(premise1, premise2), m);
             expr_ref premise(_premise);
             th_rewriter rw(m);
