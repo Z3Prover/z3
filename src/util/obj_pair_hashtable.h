@@ -160,9 +160,22 @@ public:
         }
         return (nullptr != e);
     }
+
+    Value const & find(Key1 * k1, Key2 * k2) const {
+        entry * e = find_core(k1, k2);
+        return e->get_data().get_value();
+    }
+
+    Value const& operator[](std::pair<Key1 *, Key2 *> const& key) const {
+        return find(key.first, key.second);
+    }
   
     bool contains(Key1 * k1, Key2 * k2) const { 
         return find_core(k1, k2) != nullptr;
+    }
+
+    bool contains(std::pair<Key1 *, Key2 *> const& key) const {
+        return contains(key.first, key.second);
     }
     
     void erase(Key1 * k1, Key2 * k2) {

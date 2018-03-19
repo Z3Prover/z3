@@ -288,9 +288,9 @@ namespace smt {
         }
     }
 
-    static void cut_vars_map_copy(std::map<expr*, int> & dest, std::map<expr*, int> & src) {
-        for (auto entry : src) {
-            dest[entry.first] = 1;
+    static void cut_vars_map_copy(obj_map<expr, int> & dest, obj_map<expr, int> & src) {
+        for (auto const& kv : src) {
+            dest.insert(kv.m_key, 1);
         }
     }
 
@@ -305,8 +305,8 @@ namespace smt {
             return false;
         }
 
-        for (auto entry : cut_var_map[n1].top()->vars) {
-            if (cut_var_map[n2].top()->vars.find(entry.first) != cut_var_map[n2].top()->vars.end()) {
+        for (auto const& kv : cut_var_map[n1].top()->vars) {
+            if (cut_var_map[n2].top()->vars.contains(kv.m_key)) {
                 return true;
             }
         }
@@ -321,7 +321,7 @@ namespace smt {
             T_cut * varInfo = alloc(T_cut);
             m_cut_allocs.push_back(varInfo);
             varInfo->level = slevel;
-            varInfo->vars[node] = 1;
+            varInfo->vars.insert(node, 1);
             cut_var_map.insert(baseNode, std::stack<T_cut*>());
             cut_var_map[baseNode].push(varInfo);
             TRACE("str", tout << "add var info for baseNode=" << mk_pp(baseNode, get_manager()) << ", node=" << mk_pp(node, get_manager()) << " [" << slevel << "]" << std::endl;);
@@ -330,7 +330,7 @@ namespace smt {
                 T_cut * varInfo = alloc(T_cut);
                 m_cut_allocs.push_back(varInfo);
                 varInfo->level = slevel;
-                varInfo->vars[node] = 1;
+                varInfo->vars.insert(node, 1);
                 cut_var_map[baseNode].push(varInfo);
                 TRACE("str", tout << "add var info for baseNode=" << mk_pp(baseNode, get_manager()) << ", node=" << mk_pp(node, get_manager()) << " [" << slevel << "]" << std::endl;);
             } else {
@@ -339,11 +339,11 @@ namespace smt {
                     m_cut_allocs.push_back(varInfo);
                     varInfo->level = slevel;
                     cut_vars_map_copy(varInfo->vars, cut_var_map[baseNode].top()->vars);
-                    varInfo->vars[node] = 1;
+                    varInfo->vars.insert(node, 1);
                     cut_var_map[baseNode].push(varInfo);
                     TRACE("str", tout << "add var info for baseNode=" << mk_pp(baseNode, get_manager()) << ", node=" << mk_pp(node, get_manager()) << " [" << slevel << "]" << std::endl;);
                 } else if (cut_var_map[baseNode].top()->level == slevel) {
-                    cut_var_map[baseNode].top()->vars[node] = 1;
+                    cut_var_map[baseNode].top()->vars.insert(node, 1);
                     TRACE("str", tout << "add var info for baseNode=" << mk_pp(baseNode, get_manager()) << ", node=" << mk_pp(node, get_manager()) << " [" << slevel << "]" << std::endl;);
                 } else {
                     get_manager().raise_exception("entered illegal state during add_cut_info_one_node()");
@@ -441,7 +441,7 @@ namespace smt {
 
     void theory_str::track_variable_scope(expr * var) {
         if (internal_variable_scope_levels.find(sLevel) == internal_variable_scope_levels.end()) {
-            internal_variable_scope_levels[sLevel] = std::set<expr*>();
+            internal_variable_scope_levels[sLevel] = obj_hashtable<expr>();
         }
         internal_variable_scope_levels[sLevel].insert(var);
     }
@@ -2566,8 +2566,8 @@ namespace smt {
         if (cut_var_map.contains(node)) {
             if (!cut_var_map[node].empty()) {
                 xout << "[" << cut_var_map[node].top()->level << "] ";
-                for (auto entry : cut_var_map[node].top()->vars) {
-                    xout << mk_pp(entry.first, m) << ", ";
+                for (auto const& kv : cut_var_map[node].top()->vars) {
+                    xout << mk_pp(kv.m_key, m) << ", ";
                 }
                 xout << std::endl;
             }
@@ -5530,7 +5530,8 @@ namespace smt {
         return node;
     }
 
-    void theory_str::get_grounded_concats(expr* node, std::map<expr*, expr*> & varAliasMap,
+    void theory_str::get_grounded_concats(unsigned depth,
+                                          expr* node, std::map<expr*, expr*> & varAliasMap,
                                           std::map<expr*, expr*> & concatAliasMap, std::map<expr*, expr*> & varConstMap,
                                           std::map<expr*, expr*> & concatConstMap, std::map<expr*, std::map<expr*, int> > & varEqConcatMap,
                                           std::map<expr*, std::map<std::vector<expr*>, std::set<expr*> > > & groundedMap) {
@@ -5545,6 +5546,9 @@ namespace smt {
         if (groundedMap.find(node) != groundedMap.end()) {
             return;
         }
+        IF_VERBOSE(100, verbose_stream() << "concats " << depth << "\n";
+                   if (depth > 100) verbose_stream() << mk_pp(node, get_manager()) << "\n";
+                   );
 
         // haven't computed grounded concats for "node" (de-aliased)
         // ---------------------------------------------------------
@@ -5572,12 +5576,10 @@ namespace smt {
                 // merge arg0 and arg1
                 expr * arg0 = to_app(node)->get_arg(0);
                 expr * arg1 = to_app(node)->get_arg(1);
-				SASSERT(arg0 != node);
-				SASSERT(arg1 != node);
                 expr * arg0DeAlias = dealias_node(arg0, varAliasMap, concatAliasMap);
                 expr * arg1DeAlias = dealias_node(arg1, varAliasMap, concatAliasMap);
-                get_grounded_concats(arg0DeAlias, varAliasMap, concatAliasMap, varConstMap, concatConstMap, varEqConcatMap, groundedMap);
-                get_grounded_concats(arg1DeAlias, varAliasMap, concatAliasMap, varConstMap, concatConstMap, varEqConcatMap, groundedMap);
+                get_grounded_concats(depth + 1, arg0DeAlias, varAliasMap, concatAliasMap, varConstMap, concatConstMap, varEqConcatMap, groundedMap);
+                get_grounded_concats(depth + 1, arg1DeAlias, varAliasMap, concatAliasMap, varConstMap, concatConstMap, varEqConcatMap, groundedMap);
 
                 std::map<std::vector<expr*>, std::set<expr*> >::iterator arg0_grdItor = groundedMap[arg0DeAlias].begin();
                 std::map<std::vector<expr*>, std::set<expr*> >::iterator arg1_grdItor;
@@ -5627,7 +5629,7 @@ namespace smt {
             else if (varEqConcatMap.find(node) != varEqConcatMap.end()) {
                 expr * eqConcat = varEqConcatMap[node].begin()->first;
                 expr * deAliasedEqConcat = dealias_node(eqConcat, varAliasMap, concatAliasMap);
-                get_grounded_concats(deAliasedEqConcat, varAliasMap, concatAliasMap, varConstMap, concatConstMap, varEqConcatMap, groundedMap);
+                get_grounded_concats(depth + 1, deAliasedEqConcat, varAliasMap, concatAliasMap, varConstMap, concatConstMap, varEqConcatMap, groundedMap);
 
                 std::map<std::vector<expr*>, std::set<expr*> >::iterator grdItor = groundedMap[deAliasedEqConcat].begin();
                 for (; grdItor != groundedMap[deAliasedEqConcat].end(); grdItor++) {
@@ -5836,8 +5838,8 @@ namespace smt {
             expr* strDeAlias = dealias_node(str, varAliasMap, concatAliasMap);
             expr* subStrDeAlias = dealias_node(subStr, varAliasMap, concatAliasMap);
 
-            get_grounded_concats(strDeAlias, varAliasMap, concatAliasMap, varConstMap, concatConstMap, varEqConcatMap, groundedMap);
-            get_grounded_concats(subStrDeAlias, varAliasMap, concatAliasMap, varConstMap, concatConstMap, varEqConcatMap, groundedMap);
+            get_grounded_concats(0, strDeAlias, varAliasMap, concatAliasMap, varConstMap, concatConstMap, varEqConcatMap, groundedMap);
+            get_grounded_concats(0, subStrDeAlias, varAliasMap, concatAliasMap, varConstMap, concatConstMap, varEqConcatMap, groundedMap);
 
             // debugging
             print_grounded_concat(strDeAlias, groundedMap);
@@ -6448,7 +6450,7 @@ namespace smt {
                             // TODO figure out regex NFA stuff
                             if (!regex_nfa_cache.contains(regexTerm)) {
                                 TRACE("str", tout << "regex_nfa_cache: cache miss" << std::endl;);
-                                regex_nfa_cache[regexTerm] = nfa(u, regexTerm);
+                                regex_nfa_cache.insert(regexTerm, nfa(u, regexTerm));
                             } else {
                                 TRACE("str", tout << "regex_nfa_cache: cache hit" << std::endl;);
                             }
@@ -9265,7 +9267,7 @@ namespace smt {
             h++;
             coverAll = get_next_val_encode(options[options.size() - 1], base);
         }
-        val_range_map[val_indicator] = options[options.size() - 1];
+        val_range_map.insert(val_indicator, options[options.size() - 1]);
 
         TRACE("str",
               tout << "value tester encoding " << "{" << std::endl;
@@ -9359,7 +9361,7 @@ namespace smt {
             TRACE("str", tout << "no previous value testers, or none of them were in scope" << std::endl;);
             int tries = 0;
             expr * val_indicator = mk_internal_valTest_var(freeVar, len, tries);
-            valueTester_fvar_map[val_indicator] = freeVar;
+            valueTester_fvar_map.insert(val_indicator, freeVar);
             fvar_valueTester_map[freeVar][len].push_back(std::make_pair(sLevel, val_indicator));
             print_value_tester_list(fvar_valueTester_map[freeVar][len]);
             return gen_val_options(freeVar, len_indicator, val_indicator, len_valueStr, tries);
@@ -9409,7 +9411,7 @@ namespace smt {
                     refresh_theory_var(valTester);
                 } else {
                     valTester = mk_internal_valTest_var(freeVar, len, i + 1);
-                    valueTester_fvar_map[valTester] = freeVar;
+                    valueTester_fvar_map.insert(valTester, freeVar);
                     fvar_valueTester_map[freeVar][len].push_back(std::make_pair(sLevel, valTester));
                     print_value_tester_list(fvar_valueTester_map[freeVar][len]);
                 }
@@ -9606,8 +9608,9 @@ namespace smt {
                     // put together
                     toAssert = mgr.mk_and(ctx.mk_eq_atom(op0, and1), toAssert);
 
-                    unroll_var_map[unrFunc] = toAssert;
-                } else {
+                    unroll_var_map.insert(unrFunc, toAssert);
+                } 
+                else {
                     toAssert = unroll_var_map[unrFunc];
                 }
             }

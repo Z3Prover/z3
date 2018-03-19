@@ -2543,14 +2543,15 @@ public class Context implements AutoCloseable {
     /**
      * Parse the given string using the SMT-LIB2 parser. 
      * 
-     * @return A conjunction of assertions in the scope (up to push/pop) at the
-     *         end of the string.
+     * @return A conjunction of assertions.
+     *         
+     * If the string contains push/pop commands, the
+     * set of assertions returned are the ones in the 
+     * last scope level.
      **/
     public BoolExpr parseSMTLIB2String(String str, Symbol[] sortNames,
-            Sort[] sorts, Symbol[] declNames, FuncDecl[] decls)
-           
+            Sort[] sorts, Symbol[] declNames, FuncDecl[] decls)           
     {
-
         int csn = Symbol.arrayLength(sortNames);
         int cs = Sort.arrayLength(sorts);
         int cdn = Symbol.arrayLength(declNames);

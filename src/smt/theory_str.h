@@ -77,25 +77,8 @@ public:
     void register_value(expr * n) override { /* Ignore */ }
 };
 
-// rather than modify obj_pair_map I inherit from it and add my own helper methods
-class theory_str_contain_pair_bool_map_t : public obj_pair_map<expr, expr, expr*> {
-public:
-    expr * operator[](std::pair<expr*, expr*> key) const {
-        expr * value;
-        bool found = this->find(key.first, key.second, value);
-        if (found) {
-            return value;
-        } else {
-            TRACE("t_str", tout << "WARNING: lookup miss in contain_pair_bool_map!" << std::endl;);
-            return nullptr;
-        }
-    }
-
-    bool contains(std::pair<expr*, expr*> key) const {
-        expr * unused;
-        return this->find(key.first, key.second, unused);
-    }
-};
+// NSB: added operator[] and contains to obj_pair_hashtable
+class theory_str_contain_pair_bool_map_t : public obj_pair_map<expr, expr, expr*> {};
 
 template<typename Ctx>
 class binary_search_trail : public trail<Ctx> {
@@ -169,7 +152,7 @@ class theory_str : public theory {
     struct T_cut
     {
         int level;
-        std::map<expr*, int> vars;
+        obj_map<expr, int> vars;
 
         T_cut() {
             level = -100;
@@ -292,8 +275,8 @@ protected:
     int tmpXorVarCount;
     int tmpLenTestVarCount;
     int tmpValTestVarCount;
-    std::map<std::pair<expr*, expr*>, std::map<int, expr*> > varForBreakConcat;
-
+    // obj_pair_map<expr, expr, std::map<int, expr*> > varForBreakConcat;
+    std::map<std::pair<expr*,expr*>, std::map<int, expr*> > varForBreakConcat;
     bool avoidLoopCut;
     bool loopDetected;
     obj_map<expr, std::stack<T_cut*> > cut_var_map;
@@ -303,7 +286,7 @@ protected:
     obj_hashtable<expr> variable_set;
     obj_hashtable<expr> internal_variable_set;
     obj_hashtable<expr> regex_variable_set;
-    std::map<int, std::set<expr*> > internal_variable_scope_levels;
+    std::map<int, obj_hashtable<expr> > internal_variable_scope_levels;
 
     obj_hashtable<expr> internal_lenTest_vars;
     obj_hashtable<expr> internal_valTest_vars;
@@ -315,7 +298,9 @@ protected:
     obj_map<expr, ptr_vector<expr> > fvar_lenTester_map;
     obj_map<expr, expr*> lenTester_fvar_map;
 
+
     obj_map<expr, std::map<int, svector<std::pair<int, expr*> > > > fvar_valueTester_map;
+
     obj_map<expr, expr*> valueTester_fvar_map;
 
     obj_map<expr, int_vector> val_range_map;
@@ -331,9 +316,9 @@ protected:
     theory_str_contain_pair_bool_map_t contain_pair_bool_map;
     obj_map<expr, std::set<std::pair<expr*, expr*> > > contain_pair_idx_map;
 
+    // TBD: do a curried map for determinism.
     std::map<std::pair<expr*, zstring>, expr*> regex_in_bool_map;
     obj_map<expr, std::set<zstring> > regex_in_var_reg_str_map;
-
     obj_map<expr, nfa> regex_nfa_cache; // Regex term --> NFA
 
     svector<char> char_set;
@@ -494,10 +479,11 @@ protected:
             std::map<expr*, expr*> & concatAliasMap, std::map<expr*, expr *> & varConstMap,
             std::map<expr*, expr*> & concatConstMap, std::map<expr*, std::map<expr*, int> > & varEqConcatMap);
     expr * dealias_node(expr * node, std::map<expr*, expr*> & varAliasMap, std::map<expr*, expr*> & concatAliasMap);
-    void get_grounded_concats(expr* node, std::map<expr*, expr*> & varAliasMap,
-            std::map<expr*, expr*> & concatAliasMap, std::map<expr*, expr*> & varConstMap,
-            std::map<expr*, expr*> & concatConstMap, std::map<expr*, std::map<expr*, int> > & varEqConcatMap,
-            std::map<expr*, std::map<std::vector<expr*>, std::set<expr*> > > & groundedMap);
+    void get_grounded_concats(unsigned depth,
+                              expr* node, std::map<expr*, expr*> & varAliasMap,
+                              std::map<expr*, expr*> & concatAliasMap, std::map<expr*, expr*> & varConstMap,
+                              std::map<expr*, expr*> & concatConstMap, std::map<expr*, std::map<expr*, int> > & varEqConcatMap,
+                              std::map<expr*, std::map<std::vector<expr*>, std::set<expr*> > > & groundedMap);
     void print_grounded_concat(expr * node, std::map<expr*, std::map<std::vector<expr*>, std::set<expr*> > > & groundedMap);
     void check_subsequence(expr* str, expr* strDeAlias, expr* subStr, expr* subStrDeAlias, expr* boolVar,
             std::map<expr*, std::map<std::vector<expr*>, std::set<expr*> > > & groundedMap);
