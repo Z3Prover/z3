@@ -108,21 +108,19 @@ int int_solver::find_inf_int_boxed_base_column_with_smallest_range() {
     
 }
 
-bool int_solver::is_gomory_cut_target(linear_combination_iterator<mpq> &iter) {
-    unsigned j;
-    lp_assert(iter.is_reset());
+bool int_solver::is_gomory_cut_target(const row_strip<mpq>& row) {
     // All non base variables must be at their bounds and assigned to rationals (that is, infinitesimals are not allowed).
-    while (iter.next(j)) {
+    unsigned j;
+    for (auto p : row) {
+        j = p.var();
         if (is_base(j)) continue;
         if (!is_zero(get_value(j).y)) {
             TRACE("gomory_cut", tout << "row is not gomory cut target:\n";
                   display_column(tout, j);
                   tout << "infinitesimal: " << !is_zero(get_value(j).y) << "\n";);
-            iter.reset();
             return false;
         }
     }
-    iter.reset();
     return true;
 }
 
@@ -317,18 +315,15 @@ void int_solver::adjust_term_and_k_for_some_ints_case_gomory(lar_term& t, mpq& k
 
 
 
-lia_move int_solver::mk_gomory_cut(lar_term& t, mpq& k, explanation & expl, unsigned inf_col, linear_combination_iterator<mpq>& iter) {
+lia_move int_solver::mk_gomory_cut(lar_term& t, mpq& k, explanation & expl, unsigned inf_col, const row_strip<mpq> & row) {
 
     lp_assert(column_is_int_inf(inf_col));
 
     TRACE("gomory_cut",
-          tout << "applying cut at:\n"; m_lar_solver->print_linear_iterator_indices_only(&iter, tout); tout << std::endl;
-          iter.reset();
-          unsigned j;
-          while(iter.next(j)) {
-              m_lar_solver->m_mpq_lar_core_solver.m_r_solver.print_column_info(j, tout);
+          tout << "applying cut at:\n"; m_lar_solver->print_row(row, tout); tout << std::endl;
+          for (auto p : row) {
+              m_lar_solver->m_mpq_lar_core_solver.m_r_solver.print_column_info(p.var(), tout);
           }
-          iter.reset();
           tout << "inf_col = " << inf_col << std::endl;
           );
         
@@ -340,11 +335,12 @@ lia_move int_solver::mk_gomory_cut(lar_term& t, mpq& k, explanation & expl, unsi
     bool some_int_columns = false;
     mpq f_0  = int_solver::fractional_part(get_value(inf_col));
     mpq one_min_f_0 = 1 - f_0;
-    lp_assert(iter.is_reset());
-    while (iter.next(a, x_j)) {
+    for (auto p : row) {
+        x_j = p.var();
         if (x_j == inf_col)
             continue;
         // make the format compatible with the format used in: Integrating Simplex with DPLL(T)
+        a = p.coeff();
         a.neg();  
         if (is_real(x_j)) 
             real_case_in_gomory_cut(a, x_j, k, t, expl, f_0, one_min_f_0);
@@ -373,28 +369,28 @@ void int_solver::init_check_data() {
     m_old_values_data.resize(n);
 }
 
-int int_solver::find_free_var_in_gomory_row(linear_combination_iterator<mpq>& iter) {
+int int_solver::find_free_var_in_gomory_row(const row_strip<mpq>& row) {
     unsigned j;
-    while(iter.next(j)) {
+    for (auto p : row) {
+        j = p.var();
         if (!is_base(j) && is_free(j))
             return static_cast<int>(j);
     }
-    iter.reset();
     return -1;
 }
 
 lia_move int_solver::proceed_with_gomory_cut(lar_term& t, mpq& k, explanation& ex, unsigned j) {
     lia_move ret;
-    linear_combination_iterator<mpq>* iter = m_lar_solver->get_iterator_on_row(row_of_basic_column(j));
-    int free_j = find_free_var_in_gomory_row(*iter);
+    
+    const row_strip<mpq>& row = m_lar_solver->get_row(row_of_basic_column(j));
+    int free_j = find_free_var_in_gomory_row(row);
     if (free_j != -1) {
         ret = create_branch_on_column(j, t, k, true);
-    } else if (!is_gomory_cut_target(*iter)) {
+    } else if (!is_gomory_cut_target(row)) {
         ret = create_branch_on_column(j, t, k, false);
     } else {
-        ret = mk_gomory_cut(t, k, ex, j, *iter);
+        ret = mk_gomory_cut(t, k, ex, j, row);
     }
-    delete iter;
     return ret;
 }
 

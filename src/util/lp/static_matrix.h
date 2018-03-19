@@ -47,15 +47,8 @@ struct row_cell {
     const T & get_val() const { return m_value;}
     T & get_val() { return m_value;}
     void set_val(const T& v) { m_value = v;  }
-};
-
-template <typename T>
-struct pival {
-    unsigned m_var;
-    const T& m_coeff;
-    pival(unsigned var, const T& coeff) : m_var(var), m_coeff(coeff) {}
-    unsigned var() const { return m_var; }
-    const T& coeff() const { return m_coeff; }
+    unsigned var() const { return m_j;}
+    const T & coeff() const { return m_value;}
 };
 
 template <typename T>
@@ -67,24 +60,25 @@ struct row_strip {
     row_cell<T>& operator[](unsigned j) { return m_cells[j]; }
         
     struct const_iterator {
-        //fields
-        typename vector<row_cell<T>>::const_iterator m_it;
-
+        // the only field
+        const row_cell<T> *m_it;
+        
+        //typedefs
         typedef const_iterator self_type;
-        typedef pival<T> value_type;
-        typedef const pival<T> reference;
-        typedef pival<T>* pointer;
+        typedef row_cell<T> value_type;
+        typedef const row_cell<T>& reference;
+        typedef const row_cell<T>* pointer;
         typedef int difference_type;
         typedef std::forward_iterator_tag iterator_category;
 
         reference operator*() const {
-            return pival<T>(m_it->var(), m_it->coeff());
+            return *m_it;
         }
         
         self_type operator++() {  self_type i = *this; m_it++; return i;  }
         self_type operator++(int) { m_it++; return *this; }
 
-        const_iterator(std::unordered_map<unsigned, mpq>::const_iterator it) : m_it(it) {}
+        const_iterator(const row_cell<T>* it) : m_it(it) {}
         bool operator==(const self_type &other) const {
             return m_it == other.m_it;
         }

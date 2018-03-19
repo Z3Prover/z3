@@ -127,14 +127,14 @@ private:
     lp_settings& settings();
     bool move_non_basic_columns_to_bounds();
     void branch_infeasible_int_var(unsigned);
-    lia_move mk_gomory_cut(lar_term& t, mpq& k,explanation & ex, unsigned inf_col, linear_combination_iterator<mpq>& iter);
+    lia_move mk_gomory_cut(lar_term& t, mpq& k,explanation & ex, unsigned inf_col, const row_strip<mpq>& row);
     lia_move report_conflict_from_gomory_cut(mpq & k);
     void adjust_term_and_k_for_some_ints_case_gomory(lar_term& t, mpq& k, mpq& lcm_den);
     void init_check_data();
     bool constrain_free_vars(linear_combination_iterator<mpq> *  r);
     lia_move proceed_with_gomory_cut(lar_term& t, mpq& k, explanation& ex, unsigned j);
-    int find_free_var_in_gomory_row(linear_combination_iterator<mpq>& iter);
-    bool is_gomory_cut_target(linear_combination_iterator<mpq> &iter);
+    int find_free_var_in_gomory_row(const row_strip<mpq>& );
+    bool is_gomory_cut_target(const row_strip<mpq>&);
     bool at_bound(unsigned j) const;
     bool at_low(unsigned j) const;
     bool at_upper(unsigned j) const;
