@@ -11,5 +11,5 @@ test-z3.exe -a
 
 cd ..
 rem Run regression tests
-git pull https://github.com/z3prover/z3test z3test
-cd z3test
+rem git pull https://github.com/z3prover/z3test z3test
+rem cd z3test
