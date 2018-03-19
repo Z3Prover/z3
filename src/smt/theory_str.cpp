@@ -638,6 +638,7 @@ namespace smt {
         return contains;
     }
 
+    // note, this invokes "special-case" handling for the start index being 0
     app * theory_str::mk_indexof(expr * haystack, expr * needle) {
         app * indexof = u.str.mk_index(haystack, needle, mk_int(0));
         m_trail.push_back(indexof);
@@ -823,31 +824,49 @@ namespace smt {
             }
             m_concat_eval_todo.reset();
 
-            for (enode * e : m_library_aware_axiom_todo) {
-                app * a = e->get_owner();
-                if (u.str.is_stoi(a)) {
-                    instantiate_axiom_str_to_int(e);
-                } else if (u.str.is_itos(a)) {
-                    instantiate_axiom_int_to_str(e);
-                } else if (u.str.is_at(a)) {
-                    instantiate_axiom_CharAt(e);
-                } else if (u.str.is_prefix(a)) {
-                    instantiate_axiom_prefixof(e);
-                } else if (u.str.is_suffix(a)) {
-                    instantiate_axiom_suffixof(e);
-                } else if (u.str.is_contains(a)) {
-                    instantiate_axiom_Contains(e);
-                } else if (u.str.is_index(a)) {
-                    instantiate_axiom_Indexof(e);
-                } else if (u.str.is_extract(a)) {
-                    instantiate_axiom_Substr(e);
-                } else if (u.str.is_replace(a)) {
-                    instantiate_axiom_Replace(e);
-                } else if (u.str.is_in_re(a)) {
-                    instantiate_axiom_RegexIn(e);
+            while(true) {
+                // Special handling: terms can recursively set up other terms
+                // (e.g. indexof can instantiate other indexof terms).
+                // - Copy the list so it can potentially be modified during setup.
+                // - Don't clear this list if new ones are added in the process;
+                //   instead, set up all the new terms before proceeding.
+                // TODO see if any other propagate() worklists need this kind of handling
+                // TODO we really only need to check the new ones on each pass
+                unsigned start_count = m_library_aware_axiom_todo.size();
+                ptr_vector<enode> axioms_tmp(m_library_aware_axiom_todo);
+                for (auto const& e : axioms_tmp) {
+                    app * a = e->get_owner();
+                    if (u.str.is_stoi(a)) {
+                        instantiate_axiom_str_to_int(e);
+                    } else if (u.str.is_itos(a)) {
+                        instantiate_axiom_int_to_str(e);
+                    } else if (u.str.is_at(a)) {
+                        instantiate_axiom_CharAt(e);
+                    } else if (u.str.is_prefix(a)) {
+                        instantiate_axiom_prefixof(e);
+                    } else if (u.str.is_suffix(a)) {
+                        instantiate_axiom_suffixof(e);
+                    } else if (u.str.is_contains(a)) {
+                        instantiate_axiom_Contains(e);
+                    } else if (u.str.is_index(a)) {
+                        instantiate_axiom_Indexof(e);
+                    } else if (u.str.is_extract(a)) {
+                        instantiate_axiom_Substr(e);
+                    } else if (u.str.is_replace(a)) {
+                        instantiate_axiom_Replace(e);
+                    } else if (u.str.is_in_re(a)) {
+                        instantiate_axiom_RegexIn(e);
+                    } else {
+                        TRACE("str", tout << "BUG: unhandled library-aware term " << mk_pp(e->get_owner(), get_manager()) << std::endl;);
+                        NOT_IMPLEMENTED_YET();
+                    }
+                }
+                unsigned end_count = m_library_aware_axiom_todo.size();
+                if (end_count > start_count) {
+                    TRACE("str", tout << "new library-aware terms added during axiom setup -- checking again" << std::endl;);
+                    continue;
                 } else {
-                    TRACE("str", tout << "BUG: unhandled library-aware term " << mk_pp(e->get_owner(), get_manager()) << std::endl;);
-                    NOT_IMPLEMENTED_YET();
+                    break;
                 }
             }
             m_library_aware_axiom_todo.reset();
@@ -1313,74 +1332,85 @@ namespace smt {
         }
     }
 
-    void theory_str::instantiate_axiom_Indexof_extended(enode * e) {
+    void theory_str::instantiate_axiom_Indexof_extended(enode * _e) {
         context & ctx = get_context();
         ast_manager & m = get_manager();
 
-        app * expr = e->get_owner();
-        if (axiomatized_terms.contains(expr)) {
-            TRACE("str", tout << "already set up extended str.indexof axiom for " << mk_pp(expr, m) << std::endl;);
+        app * e = _e->get_owner();
+        if (axiomatized_terms.contains(e)) {
+            TRACE("str", tout << "already set up extended str.indexof axiom for " << mk_pp(e, m) << std::endl;);
             return;
         }
-        SASSERT(expr->get_num_args() == 3);
-        axiomatized_terms.insert(expr);
+        SASSERT(e->get_num_args() == 3);
+        axiomatized_terms.insert(e);
 
-        TRACE("str", tout << "instantiate extended str.indexof axiom for " << mk_pp(expr, m) << std::endl;);
+        TRACE("str", tout << "instantiate extended str.indexof axiom for " << mk_pp(e, m) << std::endl;);
 
-        // -------------------------------------------------------------------------------
-        //   if (arg[2] >= length(arg[0]))                          // ite2
-        //     resAst = -1
-        //   else
-        //     args[0] = prefix . suffix
-        //     /\ indexAst = indexof(suffix, arg[1])
-        //     /\ args[2] = len(prefix)
-        //     /\ if (indexAst == -1)  resAst = indexAst            // ite3
-        //        else   resAst = args[2] + indexAst
-        // -------------------------------------------------------------------------------
+        // str.indexof(H, N, i):
+        // i < 0 --> -1
+        // i == 0 --> str.indexof(H, N, 0)
+        // i >= len(H) --> -1
+        // 0 < i < len(H) -->
+        //     H = hd ++ tl
+        //     len(hd) = i
+        //     str.indexof(tl, N, 0)
 
-        expr_ref resAst(mk_int_var("res"), m);
-        expr_ref indexAst(mk_int_var("index"), m);
-        expr_ref prefix(mk_str_var("prefix"), m);
-        expr_ref suffix(mk_str_var("suffix"), m);
-        expr_ref prefixLen(mk_strlen(prefix), m);
-        expr_ref zeroAst(mk_int(0), m);
-        expr_ref negOneAst(mk_int(-1), m);
+        expr * H; // "haystack"
+        expr * N; // "needle"
+        expr * i; // start index
+        u.str.is_index(e, H, N, i);
 
-        expr_ref ite3(m.mk_ite(
-                          ctx.mk_eq_atom(indexAst, negOneAst),
-                          ctx.mk_eq_atom(resAst, negOneAst),
-                          ctx.mk_eq_atom(resAst, m_autil.mk_add(expr->get_arg(2), indexAst))
-                               ),m);
+        expr_ref minus_one(m_autil.mk_numeral(rational::minus_one(), true), m);
+        expr_ref zero(m_autil.mk_numeral(rational::zero(), true), m);
 
-        expr_ref_vector ite2ElseItems(m);
-        ite2ElseItems.push_back(ctx.mk_eq_atom(expr->get_arg(0), mk_concat(prefix, suffix)));
-        ite2ElseItems.push_back(ctx.mk_eq_atom(indexAst, mk_indexof(suffix, expr->get_arg(1))));
-        ite2ElseItems.push_back(ctx.mk_eq_atom(expr->get_arg(2), prefixLen));
-        ite2ElseItems.push_back(ite3);
-        expr_ref ite2Else(mk_and(ite2ElseItems), m);
-        SASSERT(ite2Else);
+        // case split
 
-        expr_ref ite2(m.mk_ite(
-                          //m_autil.mk_ge(expr->get_arg(2), mk_strlen(expr->get_arg(0))),
-                          m_autil.mk_ge(m_autil.mk_add(expr->get_arg(2), m_autil.mk_mul(mk_int(-1), mk_strlen(expr->get_arg(0)))), zeroAst),
-                          ctx.mk_eq_atom(resAst, negOneAst),
-                          ite2Else
-                               ), m);
-        SASSERT(ite2);
+        // case 1: i < 0
+        {
+            expr_ref premise(m_autil.mk_le(i, minus_one), m);
+            expr_ref conclusion(ctx.mk_eq_atom(e, minus_one), m);
+            assert_implication(premise, conclusion);
+        }
 
-        expr_ref ite1(m.mk_ite(
-                          //m_autil.mk_lt(expr->get_arg(2), zeroAst),
-                          mk_not(m, m_autil.mk_ge(expr->get_arg(2), zeroAst)),
-                          ctx.mk_eq_atom(resAst, mk_indexof(expr->get_arg(0), expr->get_arg(1))),
-                          ite2
-                               ), m);
-        SASSERT(ite1);
-        assert_axiom(ite1);
+        // case 2: i = 0
+        {
+            expr_ref premise(ctx.mk_eq_atom(i, zero), m);
+            // reduction to simpler case
+            expr_ref conclusion(ctx.mk_eq_atom(e, mk_indexof(H, N)), m);
+            assert_implication(premise, conclusion);
+        }
+        // case 3: i >= len(H)
+        {
+            //expr_ref _premise(m_autil.mk_ge(i, mk_strlen(H)), m);
+            //expr_ref premise(_premise);
+            //th_rewriter rw(m);
+            //rw(premise);
+            expr_ref premise(m_autil.mk_ge(m_autil.mk_add(i, m_autil.mk_mul(minus_one, mk_strlen(H))), zero), m);
+            expr_ref conclusion(ctx.mk_eq_atom(e, minus_one), m);
+            assert_implication(premise, conclusion);
+        }
+        // case 4: 0 < i < len(H)
+        {
+            expr_ref premise1(m_autil.mk_gt(i, zero), m);
+            expr_ref premise2(m_autil.mk_lt(i, mk_strlen(H)), m);
+            expr_ref _premise(m.mk_and(premise1, premise2), m);
+            expr_ref premise(_premise);
+            th_rewriter rw(m);
+            rw(premise);
 
-        expr_ref reduceTerm(ctx.mk_eq_atom(expr, resAst), m);
-        SASSERT(reduceTerm);
-        assert_axiom(reduceTerm);
+            expr_ref hd(mk_str_var("hd"), m);
+            expr_ref tl(mk_str_var("tl"), m);
 
+            expr_ref_vector conclusion_terms(m);
+            conclusion_terms.push_back(ctx.mk_eq_atom(H, mk_concat(hd, tl)));
+            conclusion_terms.push_back(ctx.mk_eq_atom(mk_strlen(hd), i));
+            conclusion_terms.push_back(ctx.mk_eq_atom(e, mk_indexof(tl, N)));
+
+            expr_ref conclusion(mk_and(conclusion_terms), m);
+            assert_implication(premise, conclusion);
+        }
+
+        /*
         {
             // heuristic: integrate with str.contains information
             // (but don't introduce it if it isn't already in the instance)
@@ -1394,6 +1424,7 @@ namespace smt {
             // we can't assert this during init_search as it breaks an invariant if the instance becomes inconsistent
             m_delayed_axiom_setup_terms.push_back(containsAxiom);
         }
+        */
     }
 
     void theory_str::instantiate_axiom_LastIndexof(enode * e) {
@@ -7411,8 +7442,7 @@ namespace smt {
 
             if (is_app(ex)) {
                 app * ap = to_app(ex);
-                // TODO indexof2/lastindexof
-                if (u.str.is_index(ap) /* || is_Indexof2(ap) || is_LastIndexof(ap) */) {
+                if (u.str.is_index(ap)) {
                     m_library_aware_axiom_todo.push_back(n);
                 } else if (u.str.is_stoi(ap)) {
                     TRACE("str", tout << "found string-integer conversion term: " << mk_pp(ex, get_manager()) << std::endl;);
