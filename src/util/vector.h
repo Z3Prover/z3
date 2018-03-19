@@ -73,7 +73,6 @@ class vector {
             SZ new_capacity = (3 * old_capacity + 1) >> 1;
             SZ new_capacity_T = sizeof(T) * new_capacity + sizeof(SZ) * 2;
             if (new_capacity <= old_capacity || new_capacity_T <= old_capacity_T) {
-                UNREACHABLE();
                 throw default_exception("Overflow encountered when expanding vector");
             }
             SZ *mem, *old_mem = reinterpret_cast<SZ*>(m_data) - 2;
