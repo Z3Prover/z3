@@ -1,22 +1,22 @@
 /*++
-Copyright (c) 2017 Microsoft Corporation
+  Copyright (c) 2017 Microsoft Corporation
 
-Module Name:
+  Module Name:
 
-    <name>
+  <name>
 
-Abstract:
+  Abstract:
 
-    <abstract>
+  <abstract>
 
-Author:
+  Author:
 
-    Lev Nachmanson (levnach)
+  Lev Nachmanson (levnach)
 
-Revision History:
+  Revision History:
 
 
---*/
+  --*/
 #pragma once
 #include "util/lp/indexed_vector.h"
 namespace lp {
@@ -100,6 +100,32 @@ struct lar_term {
         m_v = zero_of_type<mpq>();
     }
 
-    
+    struct const_iterator {
+        //fields
+        std::unordered_map<unsigned, mpq>::const_iterator m_it;
+
+        typedef const_iterator self_type;
+        typedef std::pair<const unsigned, mpq> value_type;
+        typedef const std::pair<const unsigned, mpq>& reference;
+        typedef std::pair<const unsigned, mpq>* pointer;
+        typedef int difference_type;
+        typedef std::forward_iterator_tag iterator_category;
+
+        reference operator*() const {
+            return *m_it;
+        }
+        
+        self_type operator++() {  self_type i = *this; m_it++; return i;  }
+        self_type operator++(int) { m_it++; return *this; }
+
+        const_iterator(std::unordered_map<unsigned, mpq>::const_iterator it) : m_it(it) {}
+        bool operator==(const self_type &other) const {
+            return m_it == other.m_it;
+        }
+        bool operator!=(const self_type &other) const { return !(*this == other); }
+    };
+
+    const_iterator begin() const { return m_coeffs.begin();}
+    const_iterator end() const { return m_coeffs.end(); }
 };
 }

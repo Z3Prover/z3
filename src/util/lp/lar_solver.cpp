@@ -1217,7 +1217,26 @@ void lar_solver::print_term(lar_term const& term, std::ostream & out) const {
     if (!numeric_traits<mpq>::is_zero(term.m_v)) {
         out << term.m_v << " + ";
     }
-    print_linear_combination_of_column_indices(term.coeffs_as_vector(), out);
+    bool first = true;
+    for (const auto it : term) {
+        auto val = it.second;
+        if (first) {
+            first = false;
+        } else {
+            if (is_pos(val)) {
+                out << " + ";
+            } else {
+                out << " - ";
+                val = -val;
+            }
+        }
+        if (val == -numeric_traits<mpq>::one())
+            out << " - ";
+        else if (val != numeric_traits<mpq>::one())
+            out << T_to_string(val);
+        out << this->get_column_name(it.first);
+    }
+
 }
 
 void lar_solver::print_term_as_indices(lar_term const& term, std::ostream & out) const {
