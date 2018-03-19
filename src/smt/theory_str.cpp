@@ -441,7 +441,7 @@ namespace smt {
 
     void theory_str::track_variable_scope(expr * var) {
         if (internal_variable_scope_levels.find(sLevel) == internal_variable_scope_levels.end()) {
-            internal_variable_scope_levels[sLevel] = std::set<expr*>();
+            internal_variable_scope_levels[sLevel] = obj_hashtable<expr>();
         }
         internal_variable_scope_levels[sLevel].insert(var);
     }
@@ -6468,9 +6468,9 @@ namespace smt {
                             expr * regexTerm = a_regexIn->get_arg(1);
 
                             // TODO figure out regex NFA stuff
-                            if (regex_nfa_cache.find(regexTerm) == regex_nfa_cache.end()) {
+                            if (!regex_nfa_cache.contains(regexTerm)) {
                                 TRACE("str", tout << "regex_nfa_cache: cache miss" << std::endl;);
-                                regex_nfa_cache[regexTerm] = nfa(u, regexTerm);
+                                regex_nfa_cache.insert(regexTerm, nfa(u, regexTerm));
                             } else {
                                 TRACE("str", tout << "regex_nfa_cache: cache hit" << std::endl;);
                             }
@@ -9286,7 +9286,7 @@ namespace smt {
             h++;
             coverAll = get_next_val_encode(options[options.size() - 1], base);
         }
-        val_range_map[val_indicator] = options[options.size() - 1];
+        val_range_map.insert(val_indicator, options[options.size() - 1]);
 
         TRACE("str",
               tout << "value tester encoding " << "{" << std::endl;
@@ -9380,7 +9380,7 @@ namespace smt {
             TRACE("str", tout << "no previous value testers, or none of them were in scope" << std::endl;);
             int tries = 0;
             expr * val_indicator = mk_internal_valTest_var(freeVar, len, tries);
-            valueTester_fvar_map[val_indicator] = freeVar;
+            valueTester_fvar_map.insert(val_indicator, freeVar);
             fvar_valueTester_map[freeVar][len].push_back(std::make_pair(sLevel, val_indicator));
             print_value_tester_list(fvar_valueTester_map[freeVar][len]);
             return gen_val_options(freeVar, len_indicator, val_indicator, len_valueStr, tries);
@@ -9430,7 +9430,7 @@ namespace smt {
                     refresh_theory_var(valTester);
                 } else {
                     valTester = mk_internal_valTest_var(freeVar, len, i + 1);
-                    valueTester_fvar_map[valTester] = freeVar;
+                    valueTester_fvar_map.insert(valTester, freeVar);
                     fvar_valueTester_map[freeVar][len].push_back(std::make_pair(sLevel, valTester));
                     print_value_tester_list(fvar_valueTester_map[freeVar][len]);
                 }
@@ -9595,7 +9595,7 @@ namespace smt {
             if (low.is_neg()) {
                 toAssert = m_autil.mk_ge(cntInUnr, mk_int(0));
             } else {
-                if (unroll_var_map.find(unrFunc) == unroll_var_map.end()) {
+                if (!unroll_var_map.contains(unrFunc)) {
 
                     expr_ref newVar1(mk_regex_rep_var(), mgr);
                     expr_ref newVar2(mk_regex_rep_var(), mgr);
@@ -9627,8 +9627,9 @@ namespace smt {
                     // put together
                     toAssert = mgr.mk_and(ctx.mk_eq_atom(op0, and1), toAssert);
 
-                    unroll_var_map[unrFunc] = toAssert;
-                } else {
+                    unroll_var_map.insert(unrFunc, toAssert);
+                } 
+                else {
                     toAssert = unroll_var_map[unrFunc];
                 }
             }

@@ -286,7 +286,7 @@ protected:
     obj_hashtable<expr> variable_set;
     obj_hashtable<expr> internal_variable_set;
     obj_hashtable<expr> regex_variable_set;
-    std::map<int, std::set<expr*> > internal_variable_scope_levels;
+    std::map<int, obj_hashtable<expr> > internal_variable_scope_levels;
 
     obj_hashtable<expr> internal_lenTest_vars;
     obj_hashtable<expr> internal_valTest_vars;
@@ -295,21 +295,20 @@ protected:
     obj_hashtable<expr> input_var_in_len;
 
     obj_map<expr, unsigned int> fvar_len_count_map;
-    // TBD: need to replace by obj_map for determinism
     std::map<expr*, ptr_vector<expr> > fvar_lenTester_map;
     obj_map<expr, expr*> lenTester_fvar_map;
 
     // TBD: need to replace by obj_map for determinism
     std::map<expr*, std::map<int, svector<std::pair<int, expr*> > > > fvar_valueTester_map;
-    std::map<expr*, expr*> valueTester_fvar_map;
+    obj_map<expr, expr*> valueTester_fvar_map;
 
-    std::map<expr*, int_vector> val_range_map;
+    obj_map<expr, int_vector> val_range_map;
 
     // This can't be an expr_ref_vector because the constructor is wrong,
     // we would need to modify the allocator so we pass in ast_manager
     // TBD: need to replace by obj_map for determinism
     std::map<expr*, std::map<std::set<expr*>, ptr_vector<expr> > > unroll_tries_map;
-    std::map<expr*, expr*> unroll_var_map;
+    obj_map<expr, expr*> unroll_var_map;
     // TBD: need to replace by obj_pair_map for determinism
     std::map<std::pair<expr*, expr*>, expr*> concat_eq_unroll_ast_map;
 
@@ -323,7 +322,7 @@ protected:
     std::map<std::pair<expr*, zstring>, expr*> regex_in_bool_map;
     // TBD: need to replace by obj_map for determinism
     std::map<expr*, std::set<zstring> > regex_in_var_reg_str_map;
-    std::map<expr*, nfa> regex_nfa_cache; // Regex term --> NFA
+    obj_map<expr, nfa> regex_nfa_cache; // Regex term --> NFA
 
     svector<char> char_set;
     std::map<char, int>  charSetLookupTable;
