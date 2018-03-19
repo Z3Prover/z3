@@ -800,25 +800,25 @@ namespace smt {
         context & ctx = get_context();
         while (can_propagate()) {
             TRACE("str", tout << "propagating..." << std::endl;);
-            for (auto el : m_basicstr_axiom_todo) {
+            for (auto const& el : m_basicstr_axiom_todo) {
                 instantiate_basic_string_axioms(el);
             }
             m_basicstr_axiom_todo.reset();
             TRACE("str", tout << "reset m_basicstr_axiom_todo" << std::endl;);
 
-            for (auto pair : m_str_eq_todo) {
+            for (auto const& pair : m_str_eq_todo) {
                 enode * lhs = pair.first;
                 enode * rhs = pair.second;
                 handle_equality(lhs->get_owner(), rhs->get_owner());
             }
             m_str_eq_todo.reset();
 
-            for (auto el : m_concat_axiom_todo) {
+            for (auto const& el : m_concat_axiom_todo) {
                 instantiate_concat_axiom(el);
             }
             m_concat_axiom_todo.reset();
 
-            for (auto el : m_concat_eval_todo) {
+            for (auto const& el : m_concat_eval_todo) {
                 try_eval_concat(el);
             }
             m_concat_eval_todo.reset();
@@ -4977,8 +4977,7 @@ namespace smt {
                             expr_ref_vector constList(m);
                             bool counterEgFound = false;
                             get_const_str_asts_in_node(aConcat, constList);
-                            //for (expr_ref_vector::iterator cstItor = constList.begin(); cstItor != constList.end(); cstItor++) {
-                            for (auto cst : constList) {
+                            for (auto const& cst : constList) {
                                 zstring pieceStr;
                                 u.str.is_string(cst, pieceStr);
                                 if (!strConst.contains(pieceStr)) {
@@ -5118,11 +5117,7 @@ namespace smt {
         ast_manager & m = get_manager();
 
         if (in_contain_idx_map(n1) && in_contain_idx_map(n2)) {
-            //std::set<std::pair<expr*, expr*> >::iterator keysItor1 = contain_pair_idx_map[n1].begin();
-            //std::set<std::pair<expr*, expr*> >::iterator keysItor2;
-
-            //for (; keysItor1 != contain_pair_idx_map[n1].end(); keysItor1++) {
-            for (auto key1 : contain_pair_idx_map[n1]) {
+            for (auto const& key1 : contain_pair_idx_map[n1]) {
                 // keysItor1 is on set {<.., n1>, ..., <n1, ...>, ...}
                 //std::pair<expr*, expr*> key1 = *keysItor1;
                 if (key1.first == n1 && key1.second == n2) {
@@ -5137,7 +5132,7 @@ namespace smt {
                 }
 
                 //for (keysItor2 = contain_pair_idx_map[n2].begin(); keysItor2 != contain_pair_idx_map[n2].end(); keysItor2++) {
-                for (auto key2 : contain_pair_idx_map[n2]) {
+                for (auto const& key2 : contain_pair_idx_map[n2]) {
                     // keysItor2 is on set {<.., n2>, ..., <n2, ...>, ...}
                     //std::pair<expr*, expr*> key2 = *keysItor2;
                     // skip if the pair is eq
@@ -5385,8 +5380,8 @@ namespace smt {
                                 // * key1.second = key2.second
                                 //   check eqc(key1.first) and eqc(key2.first)
                                 // -----------------------------------------------------------
-                                for (auto eqStrVar1 : str1Eqc) {
-                                    for (auto eqStrVar2 : str2Eqc) {
+                                for (auto const& eqStrVar1 : str1Eqc) {
+                                    for (auto const& eqStrVar2 : str2Eqc) {
                                         {
                                             expr_ref_vector litems3(m);
                                             if (n1 != n2) {
@@ -6944,7 +6939,7 @@ namespace smt {
                         }
                         // now create a fake length tester over this finite disjunction of lengths
 
-                        fvar_len_count_map[v] = 1;
+                        fvar_len_count_map.insert(v, 1);
                         unsigned int testNum = fvar_len_count_map[v];
 
                         expr_ref indicator(mk_internal_lenTest_var(v, testNum), m);
