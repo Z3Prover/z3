@@ -41,12 +41,12 @@ template <typename T>
 struct row_cell {
     unsigned m_j; // points to the column
     unsigned m_offset; // offset in column
+    T        m_value;
     row_cell(unsigned j, unsigned offset, T const & val) : m_j(j), m_offset(offset), m_value(val) {
     }
     const T & get_val() const { return m_value;}
     T & get_val() { return m_value;}
     void set_val(const T& v) { m_value = v;  }
-    T m_value;
 };
 
 // each assignment for this matrix should be issued only once!!!
