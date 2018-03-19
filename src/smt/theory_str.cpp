@@ -50,6 +50,7 @@ namespace smt {
         m_factory(nullptr),
         m_unused_id(0),
         m_delayed_axiom_setup_terms(m),
+        m_delayed_assertions_todo(m),
         tmpStringVarCount(0),
         tmpXorVarCount(0),
         tmpLenTestVarCount(0),
@@ -793,7 +794,8 @@ namespace smt {
         return !m_basicstr_axiom_todo.empty() || !m_str_eq_todo.empty()
             || !m_concat_axiom_todo.empty() || !m_concat_eval_todo.empty()
             || !m_library_aware_axiom_todo.empty()
-            || !m_delayed_axiom_setup_terms.empty();
+            || !m_delayed_axiom_setup_terms.empty()
+            || (search_started && !m_delayed_assertions_todo.empty())
         ;
     }
 
@@ -877,6 +879,13 @@ namespace smt {
                 set_up_axioms(el);
             }
             m_delayed_axiom_setup_terms.reset();
+
+            if (search_started) {
+                for (auto const& el : m_delayed_assertions_todo) {
+                    assert_axiom(el);
+                }
+                m_delayed_assertions_todo.reset();
+            }
         }
     }
 
@@ -1327,8 +1336,9 @@ namespace smt {
             expr_ref conclusion(m_autil.mk_ge(ex, zeroAst), m);
             expr_ref containsAxiom(ctx.mk_eq_atom(premise, conclusion), m);
             SASSERT(containsAxiom);
+
             // we can't assert this during init_search as it breaks an invariant if the instance becomes inconsistent
-            m_delayed_axiom_setup_terms.push_back(containsAxiom);
+            //m_delayed_axiom_setup_terms.push_back(containsAxiom);
         }
     }
 
@@ -1411,21 +1421,18 @@ namespace smt {
             assert_implication(premise, conclusion);
         }
 
-        /*
         {
             // heuristic: integrate with str.contains information
             // (but don't introduce it if it isn't already in the instance)
-            expr_ref haystack(expr->get_arg(0), m), needle(expr->get_arg(1), m), startIdx(expr->get_arg(2), m);
             // (H contains N) <==> (H indexof N, i) >= 0
-            expr_ref premise(u.str.mk_contains(haystack, needle), m);
+            expr_ref premise(u.str.mk_contains(H, N), m);
             ctx.internalize(premise, false);
-            expr_ref conclusion(m_autil.mk_ge(expr, zeroAst), m);
+            expr_ref conclusion(m_autil.mk_ge(e, zero), m);
             expr_ref containsAxiom(ctx.mk_eq_atom(premise, conclusion), m);
             SASSERT(containsAxiom);
             // we can't assert this during init_search as it breaks an invariant if the instance becomes inconsistent
-            m_delayed_axiom_setup_terms.push_back(containsAxiom);
+            m_delayed_assertions_todo.push_back(containsAxiom);
         }
-        */
     }
 
     void theory_str::instantiate_axiom_LastIndexof(enode * e) {

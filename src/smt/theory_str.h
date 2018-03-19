@@ -262,6 +262,7 @@ protected:
     ptr_vector<enode> m_concat_axiom_todo;
     ptr_vector<enode> m_string_constant_length_todo;
     ptr_vector<enode> m_concat_eval_todo;
+    expr_ref_vector m_delayed_assertions_todo;
 
     // enode lists for library-aware/high-level string terms (e.g. substr, contains)
     ptr_vector<enode> m_library_aware_axiom_todo;
