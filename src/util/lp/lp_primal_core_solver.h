@@ -253,7 +253,7 @@ public:
         int j = -1;
         unsigned bj = this->m_basis[i];
         bool bj_needs_to_grow = needs_to_grow(bj);
-        for (const row_cell<T>& rc : this->m_A.m_rows[i]) {
+        for (const row_cell<T>& rc : this->m_A.m_rows[i].m_cells) {
             if (rc.m_j == bj)
                 continue;
             if (bj_needs_to_grow) {
@@ -284,7 +284,7 @@ public:
         unsigned len = 100000000;
         unsigned bj = this->m_basis[i];
         bool bj_needs_to_grow = needs_to_grow(bj);
-        for (const row_cell<T>& rc : this->m_A.m_rows[i]) {
+        for (const row_cell<T>& rc : this->m_A.m_rows[i].m_cells) {
             unsigned j = rc.m_j;
             if (j == bj)
                 continue;
@@ -881,7 +881,7 @@ public:
     void update_reduced_cost_for_basic_column_cost_change(const T & delta, unsigned j) {
         lp_assert(this->m_basis_heading[j] >= 0);
         unsigned i = static_cast<unsigned>(this->m_basis_heading[j]);
-        for (const row_cell<T> & rc : this->m_A.m_rows[i]) {
+        for (const row_cell<T> & rc : this->m_A.m_rows[i].m_cells) {
             unsigned k = rc.m_j;
             if (k == j)
                 continue;

@@ -753,7 +753,7 @@ public:
 
     linear_combination_iterator<T> * get_iterator_on_row(unsigned i) {
         if (m_settings.use_tableau())
-            return new iterator_on_row<T>(m_A.m_rows[i]);
+            return new iterator_on_row<T>(m_A.m_rows[i].m_cells);
         calculate_pivot_row(i);
         return new iterator_on_pivot_row<T>(m_pivot_row, m_basis[i]);
     }

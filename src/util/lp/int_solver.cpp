@@ -37,7 +37,7 @@ void int_solver::trace_inf_rows() const {
               unsigned j = m_lar_solver->m_mpq_lar_core_solver.m_r_basis[i];
               if (column_is_int_inf(j)) {
                   num++;
-                  iterator_on_row<mpq> it(m_lar_solver->A_r().m_rows[i]);
+                  iterator_on_row<mpq> it(m_lar_solver->A_r().m_rows[i].m_cells);
                   m_lar_solver->print_linear_iterator(&it, tout);
                   tout << "\n";
               }
@@ -689,7 +689,7 @@ mpq get_denominators_lcm(iterator_on_row<mpq> &it) {
 }
     
 bool int_solver::gcd_test_for_row(static_matrix<mpq, numeric_pair<mpq>> & A, unsigned i, explanation & ex) {
-    iterator_on_row<mpq> it(A.m_rows[i]);
+    iterator_on_row<mpq> it(A.m_rows[i].m_cells);
     mpq lcm_den = get_denominators_lcm(it);
     mpq consts(0);
     mpq gcds(0);

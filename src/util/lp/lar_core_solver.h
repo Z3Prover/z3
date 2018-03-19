@@ -637,7 +637,7 @@ public:
     void create_double_matrix(static_matrix<double, double> & A) {
         for (unsigned i = 0; i < m_r_A.row_count(); i++) {
             auto & row = m_r_A.m_rows[i];
-            for (row_cell<mpq> & c : row) {
+            for (row_cell<mpq> & c : row.m_cells) {
                 A.set(i, c.m_j, c.get_val().get_double());
             }
         }

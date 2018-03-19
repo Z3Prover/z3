@@ -168,7 +168,7 @@ void lar_solver::analyze_new_bounds_on_row_tableau(
 
     if (A_r().m_rows[row_index].size() > settings().max_row_length_for_bound_propagation)
         return;
-    iterator_on_row<mpq> it(A_r().m_rows[row_index]);
+    iterator_on_row<mpq> it(A_r().m_rows[row_index].m_cells);
     lp_assert(use_tableau());
     bound_analyzer_on_row::analyze_row(it,
                                        zero_of_type<numeric_pair<mpq>>(),
@@ -227,7 +227,7 @@ void lar_solver::explain_implied_bound(implied_bound & ib, bound_propagator & bp
         lp_assert(it != m_ext_vars_to_columns.end());
         m_j = it->second.internal_j();
     }
-    for (auto const& r : A_r().m_rows[i]) {
+    for (auto const& r : A_r().m_rows[i].m_cells) {
         unsigned j = r.m_j;
         mpq const& a = r.get_val();
         if (j == m_j) continue;
@@ -466,7 +466,7 @@ void lar_solver::set_costs_to_zero(const vector<std::pair<mpq, var_index>> & ter
         if (i < 0)
             jset.insert(j);
         else {
-            for (auto & rc : A_r().m_rows[i])
+            for (auto & rc : A_r().m_rows[i].m_cells)
                 jset.insert(rc.m_j);
         }
     }
@@ -643,7 +643,7 @@ void lar_solver::adjust_x_of_column(unsigned j) {
 
 bool lar_solver::row_is_correct(unsigned i) const {
     numeric_pair<mpq> r = zero_of_type<numeric_pair<mpq>>();
-    for (const auto & c : A_r().m_rows[i])
+    for (const auto & c : A_r().m_rows[i].m_cells)
         r += c.m_value * m_mpq_lar_core_solver.m_r_x[c.m_j];
     return is_zero(r);
 }
@@ -769,7 +769,7 @@ numeric_pair<mpq> lar_solver::get_basic_var_value_from_row_directly(unsigned i) 
     numeric_pair<mpq> r = zero_of_type<numeric_pair<mpq>>();
         
     unsigned bj = m_mpq_lar_core_solver.m_r_solver.m_basis[i];
-    for (const auto & c: A_r().m_rows[i]) {
+    for (const auto & c: A_r().m_rows[i].m_cells) {
         if (c.m_j == bj) continue;
         const auto & x = m_mpq_lar_core_solver.m_r_x[c.m_j];
         if (!is_zero(x)) 
@@ -881,7 +881,7 @@ void lar_solver::copy_from_mpq_matrix(static_matrix<U, V> & matr) {
     matr.m_rows.resize(A_r().row_count());
     matr.m_columns.resize(A_r().column_count());
     for (unsigned i = 0; i < matr.row_count(); i++) {
-        for (auto & it : A_r().m_rows[i]) {
+        for (auto & it : A_r().m_rows[i].m_cells) {
             matr.set(i, it.m_j,  convert_struct<U, mpq>::convert(it.get_val()));
         }
     }
@@ -1326,12 +1326,12 @@ void lar_solver::remove_last_row_and_column_from_tableau(unsigned j) {
     mpq &cost_j = m_mpq_lar_core_solver.m_r_solver.m_costs[j];
     bool cost_is_nz = !is_zero(cost_j);
     for (unsigned k = last_row.size(); k-- > 0;) {
-        auto &rc = last_row[k];
+        auto &rc = last_row.m_cells[k];
         if (cost_is_nz) {
             m_mpq_lar_core_solver.m_r_solver.m_d[rc.m_j] += cost_j*rc.get_val();
         }
             
-        A_r().remove_element(last_row, rc);
+        A_r().remove_element(last_row.m_cells, rc);
     }
     lp_assert(last_row.size() == 0);
     lp_assert(A_r().m_columns[j].size() == 0);

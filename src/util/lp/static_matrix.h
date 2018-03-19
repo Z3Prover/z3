@@ -63,7 +63,13 @@ class static_matrix
     };
     std::stack<dim> m_stack;
 public:
-    typedef vector<row_cell<T>> row_strip;
+    struct row_strip {
+        vector<row_cell<T>> m_cells;
+        size_t size() const { return m_cells.size(); }
+        bool empty() const { return m_cells.empty(); }
+        const row_cell<T>& operator[](unsigned j) const { return m_cells[j]; }
+        row_cell<T>& operator[](unsigned j) { return m_cells[j]; }
+    };
     typedef vector<column_cell> column_strip;
     vector<int> m_vector_of_row_offsets;
     indexed_vector<T> m_work_vector;
@@ -94,7 +100,7 @@ public:
 public:
 
     const T & get_val(const column_cell & c) const {
-        return m_rows[c.m_i][c.m_offset].get_val();
+        return m_rows[c.m_i].m_cells[c.m_offset].get_val();
     }
 
     row_cell<T> & get_row_cell(const column_cell & c) {
@@ -260,7 +266,7 @@ public:
             while (m < row_count()) {
                 unsigned i = m_rows.size() -1 ;
                 auto & row = m_rows[i];
-                pop_row_columns(row);
+                pop_row_columns(row.m_cells);
                 m_rows.pop_back(); // delete the last row
             }
             unsigned n = m_stack.top().m_n;
@@ -272,13 +278,13 @@ public:
     }
 
     void multiply_row(unsigned row, T const & alpha) {
-        for (auto & t : m_rows[row]) {
+        for (auto & t : m_rows[row].m_cells) {
             t.m_value *= alpha;
         }
     }
 
     void divide_row(unsigned row, T const & alpha) {
-        for (auto & t : m_rows[row]) {
+        for (auto & t : m_rows[row].m_cells) {
             t.m_value /= alpha;
         }
     }
@@ -301,12 +307,12 @@ public:
         m_rows[i] = m_rows[ii];
         m_rows[ii] = t;
         // now fix the columns
-        for (auto & rc : m_rows[i]) {
+        for (auto & rc : m_rows[i].m_cells) {
             column_cell & cc = m_columns[rc.m_j][rc.m_offset];
             lp_assert(cc.m_i == ii);
             cc.m_i = i;
         }
-        for (auto & rc : m_rows[ii]) {
+        for (auto & rc : m_rows[ii].m_cells) {
             column_cell & cc = m_columns[rc.m_j][rc.m_offset];
             lp_assert(cc.m_i == i);
             cc.m_i = ii;
@@ -336,7 +342,7 @@ public:
             if (is_zero(alpha))
                 continue;
         
-            for (const auto & c : m_rows[row_index]) {
+            for (const auto & c : m_rows[row_index].m_cells) {
                 if (c.m_j == j) {
                     continue;
                 }
@@ -377,7 +383,7 @@ public:
     L dot_product_with_row(unsigned row, const vector<L> & w) const {
         L ret = zero_of_type<L>();
         lp_assert(row < m_rows.size());
-        for (auto & it : m_rows[row]) {
+        for (auto & it : m_rows[row].m_cells) {
             ret += w[it.m_j] * it.get_val();
         }
         return ret;
