@@ -967,6 +967,15 @@ namespace smt {
 
         TRACE("str", tout << "set up basic string axioms on " << mk_pp(str->get_owner(), m) << std::endl;);
 
+        {
+            sort * a_sort = m.get_sort(str->get_owner());
+            sort * str_sort = u.str.mk_string_sort();
+            if (a_sort != str_sort) {
+                TRACE("str", tout << "WARNING: not setting up string axioms on non-string term " << mk_pp(str->get_owner(), m) << std::endl;);
+                return;
+            }
+        }
+
         // TESTING: attempt to avoid a crash here when a variable goes out of scope
         if (str->get_iscope_lvl() > ctx.get_scope_level()) {
             TRACE("str", tout << "WARNING: skipping axiom setup on out-of-scope string term" << std::endl;);
@@ -975,6 +984,7 @@ namespace smt {
 
         // generate a stronger axiom for constant strings
         app * a_str = str->get_owner();
+
         if (u.str.is_string(a_str)) {
             expr_ref len_str(m);
             len_str = mk_strlen(a_str);
@@ -1202,6 +1212,12 @@ namespace smt {
             contains_map.push_back(ex);
             std::pair<expr*, expr*> key = std::pair<expr*, expr*>(str, substr);
             contain_pair_bool_map.insert(str, substr, ex);
+            if (!contain_pair_idx_map.contains(str)) {
+                contain_pair_idx_map.insert(str, std::set<std::pair<expr*, expr*>>());
+            }
+            if (!contain_pair_idx_map.contains(substr)) {
+                contain_pair_idx_map.insert(substr, std::set<std::pair<expr*, expr*>>());
+            }
             contain_pair_idx_map[str].insert(key);
             contain_pair_idx_map[substr].insert(key);
         }
@@ -5824,11 +5840,10 @@ namespace smt {
                                       std::map<expr*, expr*> & concatAliasMap, std::map<expr*, expr*> & varConstMap,
                                       std::map<expr*, expr*> & concatConstMap, std::map<expr*, std::map<expr*, int> > & varEqConcatMap) {
         std::map<expr*, std::map<std::vector<expr*>, std::set<expr*> > > groundedMap;
-        theory_str_contain_pair_bool_map_t::iterator containItor = contain_pair_bool_map.begin();
-        for (; containItor != contain_pair_bool_map.end(); containItor++) {
-            expr* containBoolVar = containItor->get_value();
-            expr* str = containItor->get_key1();
-            expr* subStr = containItor->get_key2();
+        for (auto const& kv : contain_pair_bool_map) {
+            expr* containBoolVar = kv.get_value();
+            expr* str = kv.get_key1();
+            expr* subStr = kv.get_key2();
 
             expr* strDeAlias = dealias_node(str, varAliasMap, concatAliasMap);
             expr* subStrDeAlias = dealias_node(subStr, varAliasMap, concatAliasMap);
@@ -6889,12 +6904,14 @@ namespace smt {
 
                     if (!map_effectively_empty) {
                         map_effectively_empty = true;
-                        ptr_vector<expr> indicator_set = fvar_lenTester_map[v];
-                        for (ptr_vector<expr>::iterator it = indicator_set.begin(); it != indicator_set.end(); ++it) {
-                            expr * indicator = *it;
-                            if (internal_variable_set.find(indicator) != internal_variable_set.end()) {
-                                map_effectively_empty = false;
-                                break;
+                        if (fvar_lenTester_map.contains(v)) {
+                            ptr_vector<expr> indicator_set = fvar_lenTester_map[v];
+                            for (ptr_vector<expr>::iterator it = indicator_set.begin(); it != indicator_set.end(); ++it) {
+                                expr * indicator = *it;
+                                if (internal_variable_set.find(indicator) != internal_variable_set.end()) {
+                                    map_effectively_empty = false;
+                                    break;
+                                }
                             }
                         }
                     }
@@ -6946,9 +6963,12 @@ namespace smt {
                         SASSERT(indicator);
                         m_trail.push_back(indicator);
 
+                        if (!fvar_lenTester_map.contains(v)) {
+                            fvar_lenTester_map.insert(v, ptr_vector<expr>());
+                        }
                         fvar_lenTester_map[v].shrink(0);
                         fvar_lenTester_map[v].push_back(indicator);
-                        lenTester_fvar_map[indicator] = v;
+                        lenTester_fvar_map.insert(indicator, v);
 
                         expr_ref_vector orList(m);
                         expr_ref_vector andList(m);
@@ -7015,7 +7035,12 @@ namespace smt {
                 }
             }
         } else {
-            int lenTesterCount = fvar_lenTester_map[fVar].size();
+            int lenTesterCount;
+            if (fvar_lenTester_map.contains(fVar)) {
+                lenTesterCount = fvar_lenTester_map[fVar].size();
+            } else {
+                lenTesterCount = 0;
+            }
 
             expr * effectiveLenInd = nullptr;
             zstring effectiveLenIndiStr = "";
@@ -9336,7 +9361,8 @@ namespace smt {
         // check whether any value tester is actually in scope
         TRACE("str", tout << "checking scope of previous value testers" << std::endl;);
         bool map_effectively_empty = true;
-        if (fvar_valueTester_map[freeVar].find(len) != fvar_valueTester_map[freeVar].end()) {
+        if (fvar_valueTester_map.contains(freeVar) &&
+                fvar_valueTester_map[freeVar].find(len) != fvar_valueTester_map[freeVar].end()) {
             // there's *something* in the map, but check its scope
             svector<std::pair<int, expr*> > entries = fvar_valueTester_map[freeVar][len];
             for (svector<std::pair<int,expr*> >::iterator it = entries.begin(); it != entries.end(); ++it) {
@@ -9357,6 +9383,9 @@ namespace smt {
             int tries = 0;
             expr * val_indicator = mk_internal_valTest_var(freeVar, len, tries);
             valueTester_fvar_map.insert(val_indicator, freeVar);
+            if (!fvar_valueTester_map.contains(freeVar)) {
+                fvar_valueTester_map.insert(freeVar, std::map<int, svector<std::pair<int, expr*> > >());
+            }
             fvar_valueTester_map[freeVar][len].push_back(std::make_pair(sLevel, val_indicator));
             print_value_tester_list(fvar_valueTester_map[freeVar][len]);
             return gen_val_options(freeVar, len_indicator, val_indicator, len_valueStr, tries);
@@ -10240,14 +10269,16 @@ namespace smt {
 
                 // assume empty and find a counterexample
                 map_effectively_empty = true;
-                ptr_vector<expr> indicator_set = fvar_lenTester_map[freeVar];
-                for (ptr_vector<expr>::iterator it = indicator_set.begin(); it != indicator_set.end(); ++it) {
-                    expr * indicator = *it;
-                    if (internal_variable_set.find(indicator) != internal_variable_set.end()) {
-                        TRACE("str", tout <<"found active internal variable " << mk_ismt2_pp(indicator, m)
-                              << " in fvar_lenTester_map[freeVar]" << std::endl;);
-                        map_effectively_empty = false;
-                        break;
+                if (fvar_lenTester_map.contains(freeVar)) {
+                    ptr_vector<expr> indicator_set = fvar_lenTester_map[freeVar];
+                    for (ptr_vector<expr>::iterator it = indicator_set.begin(); it != indicator_set.end(); ++it) {
+                        expr * indicator = *it;
+                        if (internal_variable_set.find(indicator) != internal_variable_set.end()) {
+                            TRACE("str", tout <<"found active internal variable " << mk_ismt2_pp(indicator, m)
+                                    << " in fvar_lenTester_map[freeVar]" << std::endl;);
+                            map_effectively_empty = false;
+                            break;
+                        }
                     }
                 }
                 CTRACE("str", map_effectively_empty, tout << "all variables in fvar_lenTester_map[freeVar] out of scope" << std::endl;);
@@ -10264,6 +10295,9 @@ namespace smt {
                 SASSERT(indicator);
 
                 // since the map is "effectively empty", we can remove those variables that have left scope...
+                if (!fvar_lenTester_map.contains(freeVar)) {
+                    fvar_lenTester_map.insert(freeVar, ptr_vector<expr>());
+                }
                 fvar_lenTester_map[freeVar].shrink(0);
                 fvar_lenTester_map[freeVar].push_back(indicator);
                 lenTester_fvar_map.insert(indicator, freeVar);
@@ -10276,7 +10310,12 @@ namespace smt {
 
                 expr * effectiveLenInd = nullptr;
                 zstring effectiveLenIndiStr("");
-                int lenTesterCount = (int) fvar_lenTester_map[freeVar].size();
+                int lenTesterCount;
+                if (fvar_lenTester_map.contains(freeVar)) {
+                    lenTesterCount = fvar_lenTester_map[freeVar].size();
+                } else {
+                    lenTesterCount = 0;
+                }
 
                 TRACE("str",
                       tout << lenTesterCount << " length testers in fvar_lenTester_map[" << mk_pp(freeVar, m) << "]:" << std::endl;
