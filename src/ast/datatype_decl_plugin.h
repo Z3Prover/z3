@@ -362,6 +362,7 @@ namespace datatype {
         bool is_recognizer(app * f) const { return is_recognizer0(f) || is_is(f); }
         bool is_accessor(app * f) const { return is_app_of(f, m_family_id, OP_DT_ACCESSOR); }
         bool is_update_field(app * f) const { return is_app_of(f, m_family_id, OP_DT_UPDATE_FIELD); }
+        app* mk_is(func_decl * c, expr *f);
         ptr_vector<func_decl> const * get_datatype_constructors(sort * ty);
         unsigned get_datatype_num_constructors(sort * ty);
         unsigned get_datatype_num_parameter_sorts(sort * ty);
