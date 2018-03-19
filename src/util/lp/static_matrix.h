@@ -49,6 +49,52 @@ struct row_cell {
     void set_val(const T& v) { m_value = v;  }
 };
 
+template <typename T>
+struct pival {
+    unsigned m_var;
+    const T& m_coeff;
+    pival(unsigned var, const T& coeff) : m_var(var), m_coeff(coeff) {}
+    unsigned var() const { return m_var; }
+    const T& coeff() const { return m_coeff; }
+};
+
+template <typename T>
+struct row_strip {
+    vector<row_cell<T>> m_cells;
+    size_t size() const { return m_cells.size(); }
+    bool empty() const { return m_cells.empty(); }
+    const row_cell<T>& operator[](unsigned j) const { return m_cells[j]; }
+    row_cell<T>& operator[](unsigned j) { return m_cells[j]; }
+        
+    struct const_iterator {
+        //fields
+        typename vector<row_cell<T>>::const_iterator m_it;
+
+        typedef const_iterator self_type;
+        typedef pival<T> value_type;
+        typedef const pival<T> reference;
+        typedef pival<T>* pointer;
+        typedef int difference_type;
+        typedef std::forward_iterator_tag iterator_category;
+
+        reference operator*() const {
+            return pival<T>(m_it->var(), m_it->coeff());
+        }
+        
+        self_type operator++() {  self_type i = *this; m_it++; return i;  }
+        self_type operator++(int) { m_it++; return *this; }
+
+        const_iterator(std::unordered_map<unsigned, mpq>::const_iterator it) : m_it(it) {}
+        bool operator==(const self_type &other) const {
+            return m_it == other.m_it;
+        }
+        bool operator!=(const self_type &other) const { return !(*this == other); }
+    };
+
+    const_iterator begin() const { return m_cells.begin();}
+    const_iterator end() const { return m_cells.end(); }
+};
+
 // each assignment for this matrix should be issued only once!!!
 template <typename T, typename X>
 class static_matrix
@@ -63,17 +109,10 @@ class static_matrix
     };
     std::stack<dim> m_stack;
 public:
-    struct row_strip {
-        vector<row_cell<T>> m_cells;
-        size_t size() const { return m_cells.size(); }
-        bool empty() const { return m_cells.empty(); }
-        const row_cell<T>& operator[](unsigned j) const { return m_cells[j]; }
-        row_cell<T>& operator[](unsigned j) { return m_cells[j]; }
-    };
     typedef vector<column_cell> column_strip;
     vector<int> m_vector_of_row_offsets;
     indexed_vector<T> m_work_vector;
-    vector<row_strip> m_rows;
+    vector<row_strip<T>> m_rows;
     vector<column_strip> m_columns;
     // starting inner classes
     class ref {
@@ -138,7 +177,7 @@ public:
     void add_columns_at_the_end(unsigned delta);
     void add_new_element(unsigned i, unsigned j, const T & v);
 
-    void add_row() {m_rows.push_back(row_strip());}
+    void add_row() {m_rows.push_back(row_strip<T>());}
     void add_column() {
         m_columns.push_back(column_strip());
         m_vector_of_row_offsets.push_back(-1);
@@ -201,7 +240,7 @@ public:
     //
     void fix_row_indices_in_each_column_for_crossed_row(unsigned k);
 
-    void cross_out_row_from_columns(unsigned k, row_strip & row);
+    void cross_out_row_from_columns(unsigned k, row_strip<T> & row);
 
     void cross_out_row_from_column(unsigned col, unsigned k);
 
@@ -300,7 +339,7 @@ public:
 
     // pivot row i to row ii
     bool pivot_row_to_row_given_cell(unsigned i, column_cell& c, unsigned);
-    void scan_row_ii_to_offset_vector(const row_strip & rvals);
+    void scan_row_ii_to_offset_vector(const row_strip<T> & rvals);
 
     void transpose_rows(unsigned i, unsigned ii) {
         auto t = m_rows[i];
