@@ -92,15 +92,11 @@ void tst_sat_local_search(char ** argv, int argc, int& i) {
             switch (argv[i + 1][1]) {
             case 's': // seed
                 v = atoi(argv[i + 2]);
-                local_search.config().set_seed(v);
+                local_search.config().set_random_seed(v);
                 break;
             case 't': // cutoff_time
                 v = atoi(argv[i + 2]);
                 cutoff_time = v;
-                break;
-            case 'i': // strategy_id
-                v = atoi(argv[i + 2]);
-                local_search.config().set_strategy_id(v);
                 break;
             case 'b': // best_known_value
                 v = atoi(argv[i + 2]);
