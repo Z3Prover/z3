@@ -37,15 +37,13 @@ Revision History:
 #include "util/lp/stacked_value.h"
 #include "util/lp/stacked_vector.h"
 #include "util/lp/stacked_unordered_set.h"
-#include "util/lp/iterator_on_pivot_row.h"
 #include "util/lp/implied_bound.h"
 #include "util/lp/bound_analyzer_on_row.h"
-#include "util/lp/iterator_on_term_with_basis_var.h"
-#include "util/lp/iterator_on_row.h"
 #include "util/lp/quick_xplain.h"
 #include "util/lp/conversion_helper.h"
 #include "util/lp/int_solver.h"
 #include "util/lp/nra_solver.h"
+#include "util/lp/bound_propagator.h"
 
 namespace lp {
 
@@ -217,9 +215,6 @@ public:
     void substitute_basis_var_in_terms_for_row(unsigned i);
     
     void calculate_implied_bounds_for_row(unsigned i, bound_propagator & bp);
-
-  
-    linear_combination_iterator<mpq> * create_new_iter_from_term(unsigned term_index) const;
 
     unsigned adjust_column_index_to_term_index(unsigned j) const;
     
@@ -477,10 +472,7 @@ public:
     }
     
     bool bound_is_integer_for_integer_column(unsigned j, const mpq & right_side) const;
-    linear_combination_iterator<mpq> * get_iterator_on_row(unsigned i) {
-        return m_mpq_lar_core_solver.m_r_solver.get_iterator_on_row(i);
-    }
-
+    
     const row_strip<mpq> &  get_row(unsigned i) {
         return A_r().m_rows[i];
     }

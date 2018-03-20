@@ -37,7 +37,6 @@ Revision History:
 #include "util/lp/breakpoint.h"
 #include "util/lp/binary_heap_priority_queue.h"
 #include "util/lp/int_set.h"
-#include "util/lp/iterator_on_row.h"
 namespace lp {
 
 // This core solver solves (Ax=b, lower_bound_values \leq x \leq upper_bound_values, maximize costs*x )
@@ -253,7 +252,7 @@ public:
         int j = -1;
         unsigned bj = this->m_basis[i];
         bool bj_needs_to_grow = needs_to_grow(bj);
-        for (const row_cell<T>& rc : this->m_A.m_rows[i].m_cells) {
+        for (const row_cell<T>& rc : this->m_A.m_rows[i]) {
             if (rc.m_j == bj)
                 continue;
             if (bj_needs_to_grow) {
@@ -284,7 +283,7 @@ public:
         unsigned len = 100000000;
         unsigned bj = this->m_basis[i];
         bool bj_needs_to_grow = needs_to_grow(bj);
-        for (const row_cell<T>& rc : this->m_A.m_rows[i].m_cells) {
+        for (const row_cell<T>& rc : this->m_A.m_rows[i]) {
             unsigned j = rc.m_j;
             if (j == bj)
                 continue;
@@ -881,7 +880,7 @@ public:
     void update_reduced_cost_for_basic_column_cost_change(const T & delta, unsigned j) {
         lp_assert(this->m_basis_heading[j] >= 0);
         unsigned i = static_cast<unsigned>(this->m_basis_heading[j]);
-        for (const row_cell<T> & rc : this->m_A.m_rows[i].m_cells) {
+        for (const row_cell<T> & rc : this->m_A.m_rows[i]) {
             unsigned k = rc.m_j;
             if (k == j)
                 continue;

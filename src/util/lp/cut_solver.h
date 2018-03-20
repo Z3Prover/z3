@@ -27,7 +27,6 @@
 #include "util/lp/lp_utils.h"
 #include <functional>
 #include "util/lp/int_set.h"
-#include "util/lp/linear_combination_iterator_on_std_vector.h"
 #include "util/lp/stacked_vector.h"
 #include "util/lp/monomial.h"
 #include "util/lp/polynomial.h"
@@ -1035,12 +1034,9 @@ public:
     void trace_print_constraint(std::ostream& out, const_constr* i) const {
         print_constraint(out, *i);
         out << "id = " << i->id() << ", ";
-        unsigned j;
-        auto pairs = to_pairs(i->poly().m_coeffs);
-        auto it = linear_combination_iterator_on_vector<mpq>(pairs);
-        while (it.next(j)) {
-            out << "domain of " << var_name(j) << " = ";
-            print_var_domain(out, j);
+        for (auto p : i->poly().m_coeffs){
+            out << "domain of " << var_name(p.var()) << " = ";
+            print_var_domain(out, p.var());
         }
         if (i->assert_origins().size()) {
             out << (i->assert_origins().size() > 1?"origins: ":"origin: ") ;

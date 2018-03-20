@@ -323,7 +323,7 @@ public:
         lp_assert(m_A.column_count() == heading.size());
 
         for (unsigned i = m_prev; i < m; i++) {
-            for (const row_cell<T> & c : m_A.m_rows[i].m_cells) {
+            for (const row_cell<T> & c : m_A.m_rows[i]) {
                 int h = heading[c.m_j];
                 if (h < 0) {
                     continue;

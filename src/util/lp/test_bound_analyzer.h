@@ -17,9 +17,9 @@ Revision History:
 
 
 --*/
+#if 0
 #pragma once
 #include "util/vector.h"
-#include "util/lp/linear_combination_iterator.h"
 #include "util/lp/implied_bound.h"
 #include "util/lp/lp_settings.h"
 #include <functional>
@@ -273,3 +273,4 @@ public :
 };
 
 }
+#endif

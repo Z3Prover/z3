@@ -104,7 +104,7 @@ pivot_to_reduced_costs_tableau(unsigned i, unsigned j) {
     T &a = m_d[j];
     if (is_zero(a))
         return;
-    for (const row_cell<T> & r: m_A.m_rows[i].m_cells)
+    for (const row_cell<T> & r: m_A.m_rows[i])
         if (r.m_j != j)
             m_d[r.m_j] -= a * r.get_val();
 
@@ -319,7 +319,7 @@ calculate_pivot_row_when_pivot_row_of_B1_is_ready(unsigned pivot_row) {
         if (numeric_traits<T>::is_zero(pi_1)) {
             continue;
         }
-        for (auto & c : m_A.m_rows[i].m_cells) {
+        for (auto & c : m_A.m_rows[i]) {
             unsigned j = c.m_j;
             if (m_basis_heading[j] < 0) {
                 m_pivot_row.add_value_at_index_with_drop_tolerance(j, c.get_val() * pi_1);
@@ -462,7 +462,7 @@ rs_minus_Anx(vector<X> & rs) {
     unsigned row = m_m();
     while (row--) {
         auto &rsv = rs[row] = m_b[row];
-        for (auto & it : m_A.m_rows[row].m_cells) {
+        for (auto & it : m_A.m_rows[row]) {
             unsigned j = it.m_j;
             if (m_basis_heading[j] < 0) {
                 rsv -= m_x[j] * it.get_val();
@@ -650,8 +650,8 @@ pivot_column_tableau(unsigned j, unsigned piv_row_index) {
         column[0]  = column[pivot_col_cell_index];
         column[pivot_col_cell_index] = c;
 
-        m_A.m_rows[piv_row_index].m_cells[column[0].m_offset].m_offset = 0;
-        m_A.m_rows[c.m_i].m_cells[c.m_offset].m_offset = pivot_col_cell_index;
+        m_A.m_rows[piv_row_index][column[0].m_offset].m_offset = 0;
+        m_A.m_rows[c.m_i][c.m_offset].m_offset = pivot_col_cell_index;
     }
     while (column.size() > 1) {
         auto & c = column.back();
@@ -779,7 +779,7 @@ fill_reduced_costs_from_m_y_by_rows() {
     while (i--) {
         const T & y = m_y[i];
         if (is_zero(y)) continue;
-        for (row_cell<T> & it : m_A.m_rows[i].m_cells) {
+        for (row_cell<T> & it : m_A.m_rows[i]) {
             j = it.m_j;
             if (m_basis_heading[j] < 0) {
                 m_d[j] -= y * it.get_val();
@@ -822,7 +822,7 @@ find_error_in_BxB(vector<X>& rs){
     unsigned row = m_m();
     while (row--) {
         auto &rsv = rs[row];
-        for (auto & it : m_A.m_rows[row].m_cells) {
+        for (auto & it : m_A.m_rows[row]) {
             unsigned j = it.m_j;
             if (m_basis_heading[j] >= 0) {
                 rsv -= m_x[j] * it.get_val();
@@ -978,8 +978,8 @@ template <typename T, typename X>  void lp_core_solver_base<T, X>::pivot_fixed_v
         if (get_column_type(basic_j) != column_type::fixed) continue;
         T a;
         unsigned j;
-        auto * it = get_iterator_on_row(i);
-        while (it->next(a, j)) {
+        for (auto c : m_A.m_rows[i]) {
+            j = c.var();
             if (j == basic_j)
                 continue;
             if (get_column_type(j) != column_type::fixed) {
@@ -987,7 +987,6 @@ template <typename T, typename X>  void lp_core_solver_base<T, X>::pivot_fixed_v
                     break;
             }
         }
-        delete it;
     }
 }
 
@@ -1055,7 +1054,7 @@ void lp_core_solver_base<T, X>::calculate_pivot_row(unsigned i) {
     m_pivot_row.resize(m_n());
     if (m_settings.use_tableau()) {
         unsigned basis_j = m_basis[i];
-        for (auto & c : m_A.m_rows[i].m_cells) {
+        for (auto & c : m_A.m_rows[i]) {
             if (c.m_j != basis_j)
                 m_pivot_row.set_value(c.get_val(), c.m_j);
         }

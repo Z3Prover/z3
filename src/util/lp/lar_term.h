@@ -94,25 +94,33 @@ struct lar_term {
         return ret;
     }
    
-    
     void clear() {
         m_coeffs.clear();
         m_v = zero_of_type<mpq>();
     }
 
+    struct ival {
+        unsigned m_var;
+        const mpq & m_coeff;
+        ival(unsigned var, const mpq & val) : m_var(var), m_coeff(val) {
+        }
+        unsigned var() const { return m_var;}
+        const mpq & coeff() const { return m_coeff; }
+    };
+    
     struct const_iterator {
         //fields
         std::unordered_map<unsigned, mpq>::const_iterator m_it;
 
         typedef const_iterator self_type;
-        typedef std::pair<const unsigned, mpq> value_type;
-        typedef const std::pair<const unsigned, mpq>& reference;
-        typedef std::pair<const unsigned, mpq>* pointer;
+        typedef ival value_type;
+        typedef ival reference;
+        //        typedef std::pair<const unsigned, mpq>* pointer;
         typedef int difference_type;
         typedef std::forward_iterator_tag iterator_category;
 
         reference operator*() const {
-            return *m_it;
+            return ival(m_it->first, m_it->second);
         }
         
         self_type operator++() {  self_type i = *this; m_it++; return i;  }

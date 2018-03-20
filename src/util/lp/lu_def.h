@@ -387,7 +387,7 @@ void lu<T, X>::find_error_of_yB_indexed(const indexed_vector<T>& y, const vector
     for (auto k : y.m_index) {
         auto & row = m_A.m_rows[k];
         const T & y_k = y.m_data[k];
-        for (auto & c : row.m_cells) {
+        for (auto & c : row) {
             unsigned j = c.m_j;
             int hj = heading[j];
             if (hj < 0) continue;

@@ -37,8 +37,7 @@ void int_solver::trace_inf_rows() const {
               unsigned j = m_lar_solver->m_mpq_lar_core_solver.m_r_basis[i];
               if (column_is_int_inf(j)) {
                   num++;
-                  iterator_on_row<mpq> it(m_lar_solver->A_r().m_rows[i].m_cells);
-                  m_lar_solver->print_linear_iterator(&it, tout);
+                  m_lar_solver->print_row(m_lar_solver->A_r().m_rows[i], tout);
                   tout << "\n";
               }
           }
@@ -673,27 +672,24 @@ void int_solver::patch_int_infeasible_nbasic_columns() {
     lp_assert(is_feasible() && inf_int_set_is_correct());
 }
 
-mpq get_denominators_lcm(iterator_on_row<mpq> &it) {
+mpq get_denominators_lcm(const row_strip<mpq> & row) {
     mpq r(1);
-    mpq a;
-    unsigned j;
-    while (it.next(a, j)) {
-        r = lcm(r, denominator(a));
+    for  (auto c : row) {
+        r = lcm(r, denominator(c.coeff()));
     }
-    it.reset();
     return r;
 }
     
 bool int_solver::gcd_test_for_row(static_matrix<mpq, numeric_pair<mpq>> & A, unsigned i, explanation & ex) {
-    iterator_on_row<mpq> it(A.m_rows[i].m_cells);
-    mpq lcm_den = get_denominators_lcm(it);
+    mpq lcm_den = get_denominators_lcm(A.m_rows[i]);
     mpq consts(0);
     mpq gcds(0);
     mpq least_coeff(0);
     bool    least_coeff_is_bounded = false;
-    mpq a;
     unsigned j;
-    while (it.next(a, j)) {
+    for (auto c : A.m_rows[i]) {
+        j = c.var();
+        const mpq& a = c.coeff();
         if (m_lar_solver->column_is_fixed(j)) {
             mpq aux = lcm_den * a;
             consts += aux * m_lar_solver->column_lower_bound(j).x;
@@ -732,7 +728,7 @@ bool int_solver::gcd_test_for_row(static_matrix<mpq, numeric_pair<mpq>> & A, uns
     }
         
     if (!(consts / gcds).is_int()) {
-        fill_explanation_from_fixed_columns(it, ex);
+        fill_explanation_from_fixed_columns(A.m_rows[i], ex);
         return false;
     }
         
@@ -742,7 +738,7 @@ bool int_solver::gcd_test_for_row(static_matrix<mpq, numeric_pair<mpq>> & A, uns
     }
         
     if (least_coeff_is_bounded) {
-        return ext_gcd_test(it, least_coeff, lcm_den, consts, ex);
+        return ext_gcd_test(A.m_rows[i], least_coeff, lcm_den, consts, ex);
     }
     return true;
 }
@@ -753,13 +749,11 @@ void int_solver::add_to_explanation_from_fixed_or_boxed_column(unsigned j, expla
     ex.m_explanation.push_back(std::make_pair(mpq(1), lc));
     ex.m_explanation.push_back(std::make_pair(mpq(1), uc));
 }
-void int_solver::fill_explanation_from_fixed_columns(iterator_on_row<mpq> & it, explanation & ex) {
-    it.reset();
-    unsigned j;
-    while (it.next(j)) {
-        if (!m_lar_solver->column_is_fixed(j))
+void int_solver::fill_explanation_from_fixed_columns(const row_strip<mpq> & row, explanation & ex) {
+    for (const auto & c : row) {
+        if (!m_lar_solver->column_is_fixed(c.var()))
             continue;
-        add_to_explanation_from_fixed_or_boxed_column(j, ex);
+        add_to_explanation_from_fixed_or_boxed_column(c.var(), ex);
     }
 }
     
@@ -774,7 +768,7 @@ bool int_solver::gcd_test(explanation & ex) {
     return true;
 }
 
-bool int_solver::ext_gcd_test(iterator_on_row<mpq> & it,
+bool int_solver::ext_gcd_test(const row_strip<mpq> & row,
                               mpq const & least_coeff, 
                               mpq const & lcm_den,
                               mpq const & consts, explanation& ex) {
@@ -782,10 +776,11 @@ bool int_solver::ext_gcd_test(iterator_on_row<mpq> & it,
     mpq l(consts);
     mpq u(consts);
 
-    it.reset();
     mpq a;
     unsigned j;
-    while (it.next(a, j)) {
+    for (const auto & c : row) {
+        j = c.var();
+        const mpq & a = c.coeff();
         if (m_lar_solver->column_is_fixed(j))
             continue;
         SASSERT(!m_lar_solver->column_is_real(j));
@@ -825,20 +820,20 @@ bool int_solver::ext_gcd_test(iterator_on_row<mpq> & it,
     mpq u1 = floor(u/gcds);
         
     if (u1 < l1) {
-        fill_explanation_from_fixed_columns(it, ex);
+        fill_explanation_from_fixed_columns(row, ex);
         return false;
     }
         
     return true;
 
 }
-
+/*
 linear_combination_iterator<mpq> * int_solver::get_column_iterator(unsigned j) {
     if (m_lar_solver->use_tableau())
         return new iterator_on_column<mpq, impq>(m_lar_solver->A_r().m_columns[j], m_lar_solver->A_r());
     return new iterator_on_indexed_vector<mpq>(m_lar_solver->get_column_in_lu_mode(j));
 }
-
+*/
 
 int_solver::int_solver(lar_solver* lar_slv) :
     m_lar_solver(lar_slv),
@@ -901,8 +896,7 @@ bool int_solver::get_freedom_interval_for_column(unsigned j, bool & inf_l, impq 
         return false;
 
     impq const & xj = get_value(j);
-    linear_combination_iterator<mpq> *it = get_column_iterator(j);
-
+    
     inf_l = true;
     inf_u = true;
     l = u = zero_of_type<impq>();
@@ -917,7 +911,12 @@ bool int_solver::get_freedom_interval_for_column(unsigned j, bool & inf_l, impq 
 
     mpq a; // the coefficient in the column
     unsigned row_index;
-    while (it->next(a, row_index)) {
+    lp_assert(settings().use_tableau());
+    const auto & A = m_lar_solver->A_r();
+    for (auto c : A.column(j)) {
+        row_index = c.var();
+        const mpq & a = c.coeff();
+        
         unsigned i = lcs.m_r_basis[row_index];
         impq const & xi = get_value(i);
         if (is_int(i) && is_int(j) && !a.is_int())
@@ -938,7 +937,6 @@ bool int_solver::get_freedom_interval_for_column(unsigned j, bool & inf_l, impq 
         if (!inf_l && !inf_u && l == u) break;;                
     }
 
-    delete it;
     TRACE("freedom_interval",
           tout << "freedom variable for:\n";
           tout << m_lar_solver->get_column_name(j);
@@ -1070,21 +1068,16 @@ lp_settings& int_solver::settings() {
 
 void int_solver::display_row_info(std::ostream & out, unsigned row_index) const  {
     auto & rslv = m_lar_solver->m_mpq_lar_core_solver.m_r_solver;
-    auto it = m_lar_solver->get_iterator_on_row(row_index);
-    mpq a;
-    unsigned j;
-    while (it->next(a, j)) {
-        if (numeric_traits<mpq>::is_pos(a))
+    for (auto c: rslv.m_A.m_rows[row_index]) {
+        if (numeric_traits<mpq>::is_pos(c.coeff()))
             out << "+";
-        out << a << rslv.column_name(j) << " ";
+        out << c.coeff() << rslv.column_name(c.var()) << " ";
     }
 
-    it->reset();
-    while(it->next(j)) {
-        rslv.print_column_bound_info(j, out);
+    for (auto c: rslv.m_A.m_rows[row_index]) {
+        rslv.print_column_bound_info(c.var(), out);
     }
     rslv.print_column_bound_info(rslv.m_basis[row_index], out);
-    delete it;
 }
 
 unsigned int_solver::random() {

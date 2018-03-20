@@ -47,11 +47,11 @@ template <typename T, typename X> bool static_matrix<T, X>::pivot_row_to_row_giv
     T alpha = -get_val(c);
     lp_assert(!is_zero(alpha));
     auto & rowii = m_rows[ii];
-    remove_element(rowii.m_cells, rowii[c.m_offset]);
+    remove_element(rowii, rowii[c.m_offset]);
     scan_row_ii_to_offset_vector(rowii);
     unsigned prev_size_ii = rowii.size();
     // run over the pivot row and update row ii
-    for (const auto & iv : m_rows[i].m_cells) {
+    for (const auto & iv : m_rows[i]) {
         unsigned j = iv.m_j;
         if (j == pivot_col) continue;
         T alv = alpha * iv.m_value;
@@ -72,7 +72,7 @@ template <typename T, typename X> bool static_matrix<T, X>::pivot_row_to_row_giv
     // remove zeroes
     for (unsigned k = rowii.size(); k-- > 0;  ) {
         if (is_zero(rowii[k].m_value)) 
-            remove_element(rowii.m_cells, rowii[k]);
+            remove_element(rowii, rowii[k]);
     }
     return !rowii.empty();
 }
@@ -159,14 +159,14 @@ template <typename T, typename X>    void static_matrix<T, X>::set(unsigned row,
     auto & r = m_rows[row];
     unsigned offs_in_cols = static_cast<unsigned>(m_columns[col].size());
     m_columns[col].push_back(make_column_cell(row, static_cast<unsigned>(r.size())));
-    r.m_cells.push_back(make_row_cell(col, offs_in_cols, val));
+    r.push_back(make_row_cell(col, offs_in_cols, val));
 }
 
 template <typename T, typename X>
 std::set<std::pair<unsigned, unsigned>>  static_matrix<T, X>::get_domain() {
     std::set<std::pair<unsigned, unsigned>> ret;
     for (unsigned i = 0; i < m_rows.size(); i++) {
-        for (auto it : m_rows[i].m_cells) {
+        for (auto it : m_rows[i]) {
             ret.insert(std::make_pair(i, it.m_j));
         }
     }
@@ -187,7 +187,7 @@ template <typename T, typename X>    void static_matrix<T, X>::copy_column_to_in
 
 template <typename T, typename X>    T static_matrix<T, X>::get_max_abs_in_row(unsigned row) const {
     T ret = numeric_traits<T>::zero();
-    for (auto & t : m_rows[row].m_cells) {
+    for (auto & t : m_rows[row]) {
         T a = abs(t.get_val());
         if (a  > ret) {
             ret = a;
@@ -199,7 +199,7 @@ template <typename T, typename X>    T static_matrix<T, X>::get_max_abs_in_row(u
 template <typename T, typename X>    T static_matrix<T, X>::get_min_abs_in_row(unsigned row) const {
     bool first_time = true;
     T ret = numeric_traits<T>::zero();
-    for (auto & t : m_rows[row].m_cells) {
+    for (auto & t : m_rows[row]) {
         T a = abs(t.get_val());
         if (first_time) {
             ret = a;
@@ -313,7 +313,7 @@ template <typename T, typename X>    void static_matrix<T, X>::cross_out_row_fro
 }
 
 template <typename T, typename X>    T static_matrix<T, X>::get_elem(unsigned i, unsigned j) const { // should not be used in efficient code !!!!
-    for (auto & t : m_rows[i].m_cells) {
+    for (auto & t : m_rows[i]) {
         if (t.m_j == j) {
             return t.get_val();
         }
@@ -332,7 +332,7 @@ template <typename T, typename X>    T static_matrix<T, X>::get_balance() const 
 
 template <typename T, typename X>    T static_matrix<T, X>::get_row_balance(unsigned row) const {
     T ret = zero_of_type<T>();
-    for (auto & t : m_rows[row].m_cells) {
+    for (auto & t : m_rows[row]) {
         if (numeric_traits<T>::is_zero(t.get_val())) continue;
         T a = abs(t.get_val());
         numeric_traits<T>::log(a);
@@ -343,7 +343,7 @@ template <typename T, typename X>    T static_matrix<T, X>::get_row_balance(unsi
 
 template <typename T, typename X> bool static_matrix<T, X>::is_correct() const {
     for (unsigned i = 0; i < m_rows.size(); i++) {
-        auto &r = m_rows[i].m_cells;
+        auto &r = m_rows[i];
         std::unordered_set<unsigned> s;
         for (auto & rc : r) {
             if (s.find(rc.m_j) != s.end()) {
@@ -413,7 +413,7 @@ void static_matrix<T, X>::add_new_element(unsigned row, unsigned col, const T& v
     auto & col_vals = m_columns[col];
     unsigned row_el_offs = static_cast<unsigned>(row_vals.size());
     unsigned col_el_offs = static_cast<unsigned>(col_vals.size());
-    row_vals.m_cells.push_back(row_cell<T>(col, col_el_offs, val));
+    row_vals.push_back(row_cell<T>(col, col_el_offs, val));
     col_vals.push_back(column_cell(row, row_el_offs));
 }
 

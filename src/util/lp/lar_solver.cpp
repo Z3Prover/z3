@@ -151,9 +151,10 @@ void lar_solver::analyze_new_bounds_on_row(
     unsigned row_index,
     bound_propagator & bp) {
     lp_assert(!use_tableau());
-    iterator_on_pivot_row<mpq> it(m_mpq_lar_core_solver.get_pivot_row(), m_mpq_lar_core_solver.m_r_basis[row_index]);
-     
-    bound_analyzer_on_row ra_pos(it,
+    unsigned j =  m_mpq_lar_core_solver.m_r_basis[row_index]; // basis column for the row
+    bound_analyzer_on_row<indexed_vector<mpq>>
+        ra_pos(m_mpq_lar_core_solver.get_pivot_row(),
+                                 j,
                                  zero_of_type<numeric_pair<mpq>>(),
                                  row_index,
                                  bp
@@ -163,14 +164,14 @@ void lar_solver::analyze_new_bounds_on_row(
 
 void lar_solver::analyze_new_bounds_on_row_tableau(
     unsigned row_index,
-    bound_propagator & bp
-                                                   ) {
+    bound_propagator & bp ) {
 
     if (A_r().m_rows[row_index].size() > settings().max_row_length_for_bound_propagation)
         return;
-    iterator_on_row<mpq> it(A_r().m_rows[row_index].m_cells);
+
     lp_assert(use_tableau());
-    bound_analyzer_on_row::analyze_row(it,
+    bound_analyzer_on_row<row_strip<mpq>>::analyze_row(A_r().m_rows[row_index],
+                                       static_cast<unsigned>(-1),
                                        zero_of_type<numeric_pair<mpq>>(),
                                        row_index,
                                        bp
@@ -200,13 +201,6 @@ void lar_solver::calculate_implied_bounds_for_row(unsigned i, bound_propagator &
     }
 }
 
-  
-linear_combination_iterator<mpq> * lar_solver::create_new_iter_from_term(unsigned term_index) const {
-    lp_assert(false); // not implemented
-    return nullptr;
-    //        new linear_combination_iterator_on_vector<mpq>(m_terms[adjust_term_index(term_index)]->coeffs_as_vector());
-}
-
 unsigned lar_solver::adjust_column_index_to_term_index(unsigned j) const {
     unsigned ext_var_or_term = m_columns_to_ext_vars_or_term_indices[j];
     return ext_var_or_term < m_terms_start_index ? j : ext_var_or_term;
@@ -227,7 +221,7 @@ void lar_solver::explain_implied_bound(implied_bound & ib, bound_propagator & bp
         lp_assert(it != m_ext_vars_to_columns.end());
         m_j = it->second.internal_j();
     }
-    for (auto const& r : A_r().m_rows[i].m_cells) {
+    for (auto const& r : A_r().m_rows[i]) {
         unsigned j = r.m_j;
         mpq const& a = r.get_val();
         if (j == m_j) continue;
@@ -466,7 +460,7 @@ void lar_solver::set_costs_to_zero(const vector<std::pair<mpq, var_index>> & ter
         if (i < 0)
             jset.insert(j);
         else {
-            for (auto & rc : A_r().m_rows[i].m_cells)
+            for (auto & rc : A_r().m_rows[i])
                 jset.insert(rc.m_j);
         }
     }
@@ -643,7 +637,7 @@ void lar_solver::adjust_x_of_column(unsigned j) {
 
 bool lar_solver::row_is_correct(unsigned i) const {
     numeric_pair<mpq> r = zero_of_type<numeric_pair<mpq>>();
-    for (const auto & c : A_r().m_rows[i].m_cells)
+    for (const auto & c : A_r().m_rows[i])
         r += c.m_value * m_mpq_lar_core_solver.m_r_x[c.m_j];
     return is_zero(r);
 }
@@ -769,7 +763,7 @@ numeric_pair<mpq> lar_solver::get_basic_var_value_from_row_directly(unsigned i) 
     numeric_pair<mpq> r = zero_of_type<numeric_pair<mpq>>();
         
     unsigned bj = m_mpq_lar_core_solver.m_r_solver.m_basis[i];
-    for (const auto & c: A_r().m_rows[i].m_cells) {
+    for (const auto & c: A_r().m_rows[i]) {
         if (c.m_j == bj) continue;
         const auto & x = m_mpq_lar_core_solver.m_r_x[c.m_j];
         if (!is_zero(x)) 
@@ -881,7 +875,7 @@ void lar_solver::copy_from_mpq_matrix(static_matrix<U, V> & matr) {
     matr.m_rows.resize(A_r().row_count());
     matr.m_columns.resize(A_r().column_count());
     for (unsigned i = 0; i < matr.row_count(); i++) {
-        for (auto & it : A_r().m_rows[i].m_cells) {
+        for (auto & it : A_r().m_rows[i]) {
             matr.set(i, it.m_j,  convert_struct<U, mpq>::convert(it.get_val()));
         }
     }
@@ -1218,8 +1212,8 @@ void lar_solver::print_term(lar_term const& term, std::ostream & out) const {
         out << term.m_v << " + ";
     }
     bool first = true;
-    for (const auto it : term) {
-        auto val = it.second;
+    for (const auto p : term) {
+        mpq val = p.coeff();
         if (first) {
             first = false;
         } else {
@@ -1234,7 +1228,7 @@ void lar_solver::print_term(lar_term const& term, std::ostream & out) const {
             out << " - ";
         else if (val != numeric_traits<mpq>::one())
             out << T_to_string(val);
-        out << this->get_column_name(it.first);
+        out << this->get_column_name(p.var());
     }
 
 }
@@ -1326,12 +1320,12 @@ void lar_solver::remove_last_row_and_column_from_tableau(unsigned j) {
     mpq &cost_j = m_mpq_lar_core_solver.m_r_solver.m_costs[j];
     bool cost_is_nz = !is_zero(cost_j);
     for (unsigned k = last_row.size(); k-- > 0;) {
-        auto &rc = last_row.m_cells[k];
+        auto &rc = last_row[k];
         if (cost_is_nz) {
             m_mpq_lar_core_solver.m_r_solver.m_d[rc.m_j] += cost_j*rc.get_val();
         }
             
-        A_r().remove_element(last_row.m_cells, rc);
+        A_r().remove_element(last_row, rc);
     }
     lp_assert(last_row.size() == 0);
     lp_assert(A_r().m_columns[j].size() == 0);
@@ -1637,8 +1631,8 @@ void lar_solver::add_row_from_term_no_constraint(const lar_term * term, unsigned
     m_columns_to_ul_pairs.push_back(ul);
     add_basic_var_to_core_fields();
     if (use_tableau()) {
-        auto it = iterator_on_term_with_basis_var(*term, j);
-        A_r().fill_last_row_with_pivoting(it,
+        A_r().fill_last_row_with_pivoting(*term,
+                                          j,
                                           m_mpq_lar_core_solver.m_r_solver.m_basis_heading);
         m_mpq_lar_core_solver.m_r_solver.m_b.resize(A_r().column_count(), zero_of_type<mpq>());
     }

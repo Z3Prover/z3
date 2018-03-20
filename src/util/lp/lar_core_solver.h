@@ -30,8 +30,6 @@ Revision History:
 #include "util/lp/lp_primal_core_solver.h"
 #include "util/lp/stacked_vector.h"
 #include "util/lp/lar_solution_signature.h"
-#include "util/lp/iterator_on_column.h"
-#include "util/lp/iterator_on_indexed_vector.h"
 #include "util/lp/stacked_value.h"
 namespace lp {
 
@@ -637,7 +635,7 @@ public:
     void create_double_matrix(static_matrix<double, double> & A) {
         for (unsigned i = 0; i < m_r_A.row_count(); i++) {
             auto & row = m_r_A.m_rows[i];
-            for (row_cell<mpq> & c : row.m_cells) {
+            for (row_cell<mpq> & c : row) {
                 A.set(i, c.m_j, c.get_val().get_double());
             }
         }
@@ -799,15 +797,6 @@ public:
 
     void init_column_row_nz_for_r_solver() {
         m_r_solver.init_column_row_non_zeroes();
-    }
-
-    linear_combination_iterator<mpq> * get_column_iterator(unsigned j) {
-        if (settings().use_tableau()) {
-            return new iterator_on_column<mpq, numeric_pair<mpq>>(m_r_solver.m_A.m_columns[j], m_r_solver.m_A);
-        } else {
-            m_r_solver.solve_Bd(j);
-            return new iterator_on_indexed_vector<mpq>(m_r_solver.m_ed);
-        }
     }
 
     bool column_is_fixed(unsigned j) const {

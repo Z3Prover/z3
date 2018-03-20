@@ -20,7 +20,6 @@ Revision History:
 #pragma once
 #include "util/lp/lp_settings.h"
 #include "util/lp/static_matrix.h"
-#include "util/lp/iterator_on_row.h"
 #include "util/lp/int_set.h"
 #include "util/lp/lar_term.h"
 #include "util/lp/cut_solver.h"
@@ -91,17 +90,16 @@ private:
     // creates a fresh inequality.
 
     bool branch(const lp_constraint<mpq, mpq> & new_inequality);
-    bool ext_gcd_test(iterator_on_row<mpq> & it,
+    bool ext_gcd_test(const row_strip<mpq>& row,
                       mpq const & least_coeff, 
                       mpq const & lcm_den,
                       mpq const & consts,
                       explanation & ex);
-    void fill_explanation_from_fixed_columns(iterator_on_row<mpq> & it, explanation &);
+    void fill_explanation_from_fixed_columns(const row_strip<mpq> & row, explanation &);
     void add_to_explanation_from_fixed_or_boxed_column(unsigned j, explanation &);
     void patch_int_infeasible_non_basic_column(unsigned j);
     void patch_int_infeasible_nbasic_columns();
     bool get_freedom_interval_for_column(unsigned j, bool & inf_l, impq & l, bool & inf_u, impq & u, mpq & m);
-    linear_combination_iterator<mpq> * get_column_iterator(unsigned j);
     const impq & lower_bound(unsigned j) const;
     const impq & upper_bound(unsigned j) const;
     bool is_int(unsigned j) const;
@@ -131,7 +129,6 @@ private:
     lia_move report_conflict_from_gomory_cut(mpq & k);
     void adjust_term_and_k_for_some_ints_case_gomory(lar_term& t, mpq& k, mpq& lcm_den);
     void init_check_data();
-    bool constrain_free_vars(linear_combination_iterator<mpq> *  r);
     lia_move proceed_with_gomory_cut(lar_term& t, mpq& k, explanation& ex, unsigned j);
     int find_free_var_in_gomory_row(const row_strip<mpq>& );
     bool is_gomory_cut_target(const row_strip<mpq>&);
