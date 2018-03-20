@@ -13,7 +13,17 @@ python z3test.py z3num
 popd
 
 echo "Build and run examples"
+nmake cpp_example
+cpp_example.exe
 
+nmake c_example
+c_example.exe
+
+nmake java_example
+java_example.exe
+
+nmake dotnet_example
+dotnet_example.exe
 
 
 echo "Build and run unit tests"
@@ -24,5 +34,6 @@ rem test-z3.exe -a
 
 cd ..
 echo "Run regression tests"
-rem git pull https://github.com/z3prover/z3test z3test
-rem cd z3test
+git pull https://github.com/z3prover/z3test z3test
+cd z3test
+
