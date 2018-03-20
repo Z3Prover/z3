@@ -174,9 +174,6 @@ public:
 
     value & find(key * k)  {
         obj_map_entry * e = find_core(k);
-        if (!e) {
-            e = insert_if_not_there2(k, value());
-        }
         SASSERT(e);
         return e->get_data().m_value;
     }

@@ -620,7 +620,7 @@ public:
     core_hashtable& operator=(core_hashtable const& other) {
         if (this == &other) return *this;
         reset();
-        for (const data& d : e) {
+        for (const data& d : other) {
             insert(d);
         }
         return *this;

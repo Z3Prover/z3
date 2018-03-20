@@ -50,6 +50,7 @@ namespace smt {
         m_factory(nullptr),
         m_unused_id(0),
         m_delayed_axiom_setup_terms(m),
+        m_delayed_assertions_todo(m),
         tmpStringVarCount(0),
         tmpXorVarCount(0),
         tmpLenTestVarCount(0),
@@ -640,6 +641,7 @@ namespace smt {
         return contains;
     }
 
+    // note, this invokes "special-case" handling for the start index being 0
     app * theory_str::mk_indexof(expr * haystack, expr * needle) {
         app * indexof = u.str.mk_index(haystack, needle, mk_int(0));
         m_trail.push_back(indexof);
@@ -781,8 +783,8 @@ namespace smt {
             ptr_vector<expr> childrenVector;
             get_nodes_in_concat(concatAst, childrenVector);
             expr_ref_vector items(m);
-            for (unsigned int i = 0; i < childrenVector.size(); i++) {
-                items.push_back(mk_strlen(childrenVector.get(i)));
+            for (auto el : childrenVector) {
+                items.push_back(mk_strlen(el));
             }
             expr_ref lenAssert(ctx.mk_eq_atom(concat_length, m_autil.mk_add(items.size(), items.c_ptr())), m);
             assert_axiom(lenAssert);
@@ -794,7 +796,8 @@ namespace smt {
         return !m_basicstr_axiom_todo.empty() || !m_str_eq_todo.empty()
             || !m_concat_axiom_todo.empty() || !m_concat_eval_todo.empty()
             || !m_library_aware_axiom_todo.empty()
-            || !m_delayed_axiom_setup_terms.empty();
+            || !m_delayed_axiom_setup_terms.empty()
+            || (search_started && !m_delayed_assertions_todo.empty())
         ;
     }
 
@@ -802,66 +805,101 @@ namespace smt {
         context & ctx = get_context();
         while (can_propagate()) {
             TRACE("str", tout << "propagating..." << std::endl;);
-            for (unsigned i = 0; i < m_basicstr_axiom_todo.size(); ++i) {
-                instantiate_basic_string_axioms(m_basicstr_axiom_todo[i]);
+            while(true) {
+                // this can potentially recursively activate itself
+                unsigned start_count = m_basicstr_axiom_todo.size();
+                ptr_vector<enode> axioms_tmp(m_basicstr_axiom_todo);
+                for (auto const& el : axioms_tmp) {
+                    instantiate_basic_string_axioms(el);
+                }
+                unsigned end_count = m_basicstr_axiom_todo.size();
+                if (end_count > start_count) {
+                    TRACE("str", tout << "new basic string axiom terms added -- checking again" << std::endl;);
+                    continue;
+                } else {
+                    break;
+                }
             }
             m_basicstr_axiom_todo.reset();
             TRACE("str", tout << "reset m_basicstr_axiom_todo" << std::endl;);
 
-            for (unsigned i = 0; i < m_str_eq_todo.size(); ++i) {
-                std::pair<enode*,enode*> pair = m_str_eq_todo[i];
+            for (auto const& pair : m_str_eq_todo) {
                 enode * lhs = pair.first;
                 enode * rhs = pair.second;
                 handle_equality(lhs->get_owner(), rhs->get_owner());
             }
             m_str_eq_todo.reset();
 
-            for (unsigned i = 0; i < m_concat_axiom_todo.size(); ++i) {
-                instantiate_concat_axiom(m_concat_axiom_todo[i]);
+            for (auto const& el : m_concat_axiom_todo) {
+                instantiate_concat_axiom(el);
             }
             m_concat_axiom_todo.reset();
 
-            for (unsigned i = 0; i < m_concat_eval_todo.size(); ++i) {
-                try_eval_concat(m_concat_eval_todo[i]);
+            for (auto const& el : m_concat_eval_todo) {
+                try_eval_concat(el);
             }
             m_concat_eval_todo.reset();
 
-            for (unsigned i = 0; i < m_library_aware_axiom_todo.size(); ++i) {
-                enode * e = m_library_aware_axiom_todo[i];
-                app * a = e->get_owner();
-                if (u.str.is_stoi(a)) {
-                    instantiate_axiom_str_to_int(e);
-                } else if (u.str.is_itos(a)) {
-                    instantiate_axiom_int_to_str(e);
-                } else if (u.str.is_at(a)) {
-                    instantiate_axiom_CharAt(e);
-                } else if (u.str.is_prefix(a)) {
-                    instantiate_axiom_prefixof(e);
-                } else if (u.str.is_suffix(a)) {
-                    instantiate_axiom_suffixof(e);
-                } else if (u.str.is_contains(a)) {
-                    instantiate_axiom_Contains(e);
-                } else if (u.str.is_index(a)) {
-                    instantiate_axiom_Indexof(e);
-                } else if (u.str.is_extract(a)) {
-                    instantiate_axiom_Substr(e);
-                } else if (u.str.is_replace(a)) {
-                    instantiate_axiom_Replace(e);
-                } else if (u.str.is_in_re(a)) {
-                    instantiate_axiom_RegexIn(e);
+            while(true) {
+                // Special handling: terms can recursively set up other terms
+                // (e.g. indexof can instantiate other indexof terms).
+                // - Copy the list so it can potentially be modified during setup.
+                // - Don't clear this list if new ones are added in the process;
+                //   instead, set up all the new terms before proceeding.
+                // TODO see if any other propagate() worklists need this kind of handling
+                // TODO we really only need to check the new ones on each pass
+                unsigned start_count = m_library_aware_axiom_todo.size();
+                ptr_vector<enode> axioms_tmp(m_library_aware_axiom_todo);
+                for (auto const& e : axioms_tmp) {
+                    app * a = e->get_owner();
+                    if (u.str.is_stoi(a)) {
+                        instantiate_axiom_str_to_int(e);
+                    } else if (u.str.is_itos(a)) {
+                        instantiate_axiom_int_to_str(e);
+                    } else if (u.str.is_at(a)) {
+                        instantiate_axiom_CharAt(e);
+                    } else if (u.str.is_prefix(a)) {
+                        instantiate_axiom_prefixof(e);
+                    } else if (u.str.is_suffix(a)) {
+                        instantiate_axiom_suffixof(e);
+                    } else if (u.str.is_contains(a)) {
+                        instantiate_axiom_Contains(e);
+                    } else if (u.str.is_index(a)) {
+                        instantiate_axiom_Indexof(e);
+                    } else if (u.str.is_extract(a)) {
+                        instantiate_axiom_Substr(e);
+                    } else if (u.str.is_replace(a)) {
+                        instantiate_axiom_Replace(e);
+                    } else if (u.str.is_in_re(a)) {
+                        instantiate_axiom_RegexIn(e);
+                    } else {
+                        TRACE("str", tout << "BUG: unhandled library-aware term " << mk_pp(e->get_owner(), get_manager()) << std::endl;);
+                        NOT_IMPLEMENTED_YET();
+                    }
+                }
+                unsigned end_count = m_library_aware_axiom_todo.size();
+                if (end_count > start_count) {
+                    TRACE("str", tout << "new library-aware terms added during axiom setup -- checking again" << std::endl;);
+                    continue;
                 } else {
-                    TRACE("str", tout << "BUG: unhandled library-aware term " << mk_pp(e->get_owner(), get_manager()) << std::endl;);
-                    NOT_IMPLEMENTED_YET();
+                    break;
                 }
             }
             m_library_aware_axiom_todo.reset();
 
-            for (unsigned i = 0; i < m_delayed_axiom_setup_terms.size(); ++i) {
+            for (auto el : m_delayed_axiom_setup_terms) {
                 // I think this is okay
-                ctx.internalize(m_delayed_axiom_setup_terms[i].get(), false);
-                set_up_axioms(m_delayed_axiom_setup_terms[i].get());
+                ctx.internalize(el, false);
+                set_up_axioms(el);
             }
             m_delayed_axiom_setup_terms.reset();
+
+            if (search_started) {
+                for (auto const& el : m_delayed_assertions_todo) {
+                    assert_axiom(el);
+                }
+                m_delayed_assertions_todo.reset();
+            }
         }
     }
 
@@ -971,6 +1009,15 @@ namespace smt {
 
         TRACE("str", tout << "set up basic string axioms on " << mk_pp(str->get_owner(), m) << std::endl;);
 
+        {
+            sort * a_sort = m.get_sort(str->get_owner());
+            sort * str_sort = u.str.mk_string_sort();
+            if (a_sort != str_sort) {
+                TRACE("str", tout << "WARNING: not setting up string axioms on non-string term " << mk_pp(str->get_owner(), m) << std::endl;);
+                return;
+            }
+        }
+
         // TESTING: attempt to avoid a crash here when a variable goes out of scope
         if (str->get_iscope_lvl() > ctx.get_scope_level()) {
             TRACE("str", tout << "WARNING: skipping axiom setup on out-of-scope string term" << std::endl;);
@@ -979,6 +1026,7 @@ namespace smt {
 
         // generate a stronger axiom for constant strings
         app * a_str = str->get_owner();
+
         if (u.str.is_string(a_str)) {
             expr_ref len_str(m);
             len_str = mk_strlen(a_str);
@@ -1206,6 +1254,12 @@ namespace smt {
             contains_map.push_back(ex);
             std::pair<expr*, expr*> key = std::pair<expr*, expr*>(str, substr);
             contain_pair_bool_map.insert(str, substr, ex);
+            if (!contain_pair_idx_map.contains(str)) {
+                contain_pair_idx_map.insert(str, std::set<std::pair<expr*, expr*>>());
+            }
+            if (!contain_pair_idx_map.contains(substr)) {
+                contain_pair_idx_map.insert(substr, std::set<std::pair<expr*, expr*>>());
+            }
             contain_pair_idx_map[str].insert(key);
             contain_pair_idx_map[substr].insert(key);
         }
@@ -1296,91 +1350,102 @@ namespace smt {
             expr_ref conclusion(m_autil.mk_ge(ex, zeroAst), m);
             expr_ref containsAxiom(ctx.mk_eq_atom(premise, conclusion), m);
             SASSERT(containsAxiom);
+
             // we can't assert this during init_search as it breaks an invariant if the instance becomes inconsistent
-            m_delayed_axiom_setup_terms.push_back(containsAxiom);
+            //m_delayed_axiom_setup_terms.push_back(containsAxiom);
         }
     }
 
-    void theory_str::instantiate_axiom_Indexof_extended(enode * e) {
+    void theory_str::instantiate_axiom_Indexof_extended(enode * _e) {
         context & ctx = get_context();
         ast_manager & m = get_manager();
 
-        app * expr = e->get_owner();
-        if (axiomatized_terms.contains(expr)) {
-            TRACE("str", tout << "already set up extended str.indexof axiom for " << mk_pp(expr, m) << std::endl;);
+        app * e = _e->get_owner();
+        if (axiomatized_terms.contains(e)) {
+            TRACE("str", tout << "already set up extended str.indexof axiom for " << mk_pp(e, m) << std::endl;);
             return;
         }
-        SASSERT(expr->get_num_args() == 3);
-        axiomatized_terms.insert(expr);
+        SASSERT(e->get_num_args() == 3);
+        axiomatized_terms.insert(e);
 
-        TRACE("str", tout << "instantiate extended str.indexof axiom for " << mk_pp(expr, m) << std::endl;);
+        TRACE("str", tout << "instantiate extended str.indexof axiom for " << mk_pp(e, m) << std::endl;);
 
-        // -------------------------------------------------------------------------------
-        //   if (arg[2] >= length(arg[0]))                          // ite2
-        //     resAst = -1
-        //   else
-        //     args[0] = prefix . suffix
-        //     /\ indexAst = indexof(suffix, arg[1])
-        //     /\ args[2] = len(prefix)
-        //     /\ if (indexAst == -1)  resAst = indexAst            // ite3
-        //        else   resAst = args[2] + indexAst
-        // -------------------------------------------------------------------------------
+        // str.indexof(H, N, i):
+        // i < 0 --> -1
+        // i == 0 --> str.indexof(H, N, 0)
+        // i >= len(H) --> -1
+        // 0 < i < len(H) -->
+        //     H = hd ++ tl
+        //     len(hd) = i
+        //     str.indexof(tl, N, 0)
 
-        expr_ref resAst(mk_int_var("res"), m);
-        expr_ref indexAst(mk_int_var("index"), m);
-        expr_ref prefix(mk_str_var("prefix"), m);
-        expr_ref suffix(mk_str_var("suffix"), m);
-        expr_ref prefixLen(mk_strlen(prefix), m);
-        expr_ref zeroAst(mk_int(0), m);
-        expr_ref negOneAst(mk_int(-1), m);
+        expr * H; // "haystack"
+        expr * N; // "needle"
+        expr * i; // start index
+        u.str.is_index(e, H, N, i);
 
-        expr_ref ite3(m.mk_ite(
-                          ctx.mk_eq_atom(indexAst, negOneAst),
-                          ctx.mk_eq_atom(resAst, negOneAst),
-                          ctx.mk_eq_atom(resAst, m_autil.mk_add(expr->get_arg(2), indexAst))
-                               ),m);
+        expr_ref minus_one(m_autil.mk_numeral(rational::minus_one(), true), m);
+        expr_ref zero(m_autil.mk_numeral(rational::zero(), true), m);
 
-        expr_ref_vector ite2ElseItems(m);
-        ite2ElseItems.push_back(ctx.mk_eq_atom(expr->get_arg(0), mk_concat(prefix, suffix)));
-        ite2ElseItems.push_back(ctx.mk_eq_atom(indexAst, mk_indexof(suffix, expr->get_arg(1))));
-        ite2ElseItems.push_back(ctx.mk_eq_atom(expr->get_arg(2), prefixLen));
-        ite2ElseItems.push_back(ite3);
-        expr_ref ite2Else(mk_and(ite2ElseItems), m);
-        SASSERT(ite2Else);
+        // case split
 
-        expr_ref ite2(m.mk_ite(
-                          //m_autil.mk_ge(expr->get_arg(2), mk_strlen(expr->get_arg(0))),
-                          m_autil.mk_ge(m_autil.mk_add(expr->get_arg(2), m_autil.mk_mul(mk_int(-1), mk_strlen(expr->get_arg(0)))), zeroAst),
-                          ctx.mk_eq_atom(resAst, negOneAst),
-                          ite2Else
-                               ), m);
-        SASSERT(ite2);
+        // case 1: i < 0
+        {
+            expr_ref premise(m_autil.mk_le(i, minus_one), m);
+            expr_ref conclusion(ctx.mk_eq_atom(e, minus_one), m);
+            assert_implication(premise, conclusion);
+        }
 
-        expr_ref ite1(m.mk_ite(
-                          //m_autil.mk_lt(expr->get_arg(2), zeroAst),
-                          mk_not(m, m_autil.mk_ge(expr->get_arg(2), zeroAst)),
-                          ctx.mk_eq_atom(resAst, mk_indexof(expr->get_arg(0), expr->get_arg(1))),
-                          ite2
-                               ), m);
-        SASSERT(ite1);
-        assert_axiom(ite1);
+        // case 2: i = 0
+        {
+            expr_ref premise(ctx.mk_eq_atom(i, zero), m);
+            // reduction to simpler case
+            expr_ref conclusion(ctx.mk_eq_atom(e, mk_indexof(H, N)), m);
+            assert_implication(premise, conclusion);
+        }
+        // case 3: i >= len(H)
+        {
+            //expr_ref _premise(m_autil.mk_ge(i, mk_strlen(H)), m);
+            //expr_ref premise(_premise);
+            //th_rewriter rw(m);
+            //rw(premise);
+            expr_ref premise(m_autil.mk_ge(m_autil.mk_add(i, m_autil.mk_mul(minus_one, mk_strlen(H))), zero), m);
+            expr_ref conclusion(ctx.mk_eq_atom(e, minus_one), m);
+            assert_implication(premise, conclusion);
+        }
+        // case 4: 0 < i < len(H)
+        {
+            expr_ref premise1(m_autil.mk_gt(i, zero), m);
+            //expr_ref premise2(m_autil.mk_lt(i, mk_strlen(H)), m);
+            expr_ref premise2(m.mk_not(m_autil.mk_ge(m_autil.mk_add(i, m_autil.mk_mul(minus_one, mk_strlen(H))), zero)), m);
+            expr_ref _premise(m.mk_and(premise1, premise2), m);
+            expr_ref premise(_premise);
+            th_rewriter rw(m);
+            rw(premise);
 
-        expr_ref reduceTerm(ctx.mk_eq_atom(expr, resAst), m);
-        SASSERT(reduceTerm);
-        assert_axiom(reduceTerm);
+            expr_ref hd(mk_str_var("hd"), m);
+            expr_ref tl(mk_str_var("tl"), m);
+
+            expr_ref_vector conclusion_terms(m);
+            conclusion_terms.push_back(ctx.mk_eq_atom(H, mk_concat(hd, tl)));
+            conclusion_terms.push_back(ctx.mk_eq_atom(mk_strlen(hd), i));
+            conclusion_terms.push_back(ctx.mk_eq_atom(e, mk_indexof(tl, N)));
+
+            expr_ref conclusion(mk_and(conclusion_terms), m);
+            assert_implication(premise, conclusion);
+        }
 
         {
             // heuristic: integrate with str.contains information
             // (but don't introduce it if it isn't already in the instance)
-            expr_ref haystack(expr->get_arg(0), m), needle(expr->get_arg(1), m), startIdx(expr->get_arg(2), m);
             // (H contains N) <==> (H indexof N, i) >= 0
-            expr_ref premise(u.str.mk_contains(haystack, needle), m);
+            expr_ref premise(u.str.mk_contains(H, N), m);
             ctx.internalize(premise, false);
-            expr_ref conclusion(m_autil.mk_ge(expr, zeroAst), m);
+            expr_ref conclusion(m_autil.mk_ge(e, zero), m);
             expr_ref containsAxiom(ctx.mk_eq_atom(premise, conclusion), m);
             SASSERT(containsAxiom);
             // we can't assert this during init_search as it breaks an invariant if the instance becomes inconsistent
-            m_delayed_axiom_setup_terms.push_back(containsAxiom);
+            m_delayed_assertions_todo.push_back(containsAxiom);
         }
     }
 
@@ -2380,9 +2445,8 @@ namespace smt {
             } else {
                 expr_ref_vector items(m);
                 int pos = 0;
-                std::map<expr*, expr*>::iterator itor = resolvedMap.begin();
-                for (; itor != resolvedMap.end(); ++itor) {
-                    items.push_back(ctx.mk_eq_atom(itor->first, itor->second));
+                for (auto itor : resolvedMap) {
+                    items.push_back(ctx.mk_eq_atom(itor.first, itor.second));
                     pos += 1;
                 }
                 expr_ref premise(mk_and(items), m);
@@ -2558,8 +2622,7 @@ namespace smt {
         context & ctx = get_context();
         // pull each literal out of the arrangement disjunction
         literal_vector ls;
-        for (unsigned i = 0; i < terms.size(); ++i) {
-            expr * e = terms.get(i);
+        for (expr * e : terms) {
             literal l = ctx.get_literal(e);
             ls.push_back(l);
         }
@@ -4497,8 +4560,7 @@ namespace smt {
             }
         }
 
-        for (std::list<unsigned int>::iterator itor = overlapLen.begin(); itor != overlapLen.end(); itor++) {
-            unsigned int overLen = *itor;
+        for (unsigned int overLen : overlapLen) {
             zstring prefix = str1Value.extract(0, str1Len - overLen);
             zstring suffix = str2Value.extract(overLen, str2Len - overLen);
 
@@ -4579,10 +4641,10 @@ namespace smt {
 
         TRACE("str", tout << "concat = " << mk_pp(concat, mgr) << ", unroll = " << mk_pp(unroll, mgr) << std::endl;);
 
-        std::pair<expr*, expr*> key = std::make_pair(concat, unroll);
         expr_ref toAssert(mgr);
+        expr * _toAssert;
 
-        if (concat_eq_unroll_ast_map.find(key) == concat_eq_unroll_ast_map.end()) {
+        if (!concat_eq_unroll_ast_map.find(concat, unroll, _toAssert)) {
             expr_ref arg1(to_app(concat)->get_arg(0), mgr);
             expr_ref arg2(to_app(concat)->get_arg(1), mgr);
             expr_ref r1(to_app(unroll)->get_arg(0), mgr);
@@ -4633,9 +4695,9 @@ namespace smt {
 
             toAssert = mgr.mk_and(opAnd1, opAnd2);
             m_trail.push_back(toAssert);
-            concat_eq_unroll_ast_map[key] = toAssert;
+            concat_eq_unroll_ast_map.insert(concat, unroll, toAssert);
         } else {
-            toAssert = concat_eq_unroll_ast_map[key];
+            toAssert = _toAssert;
         }
 
         assert_axiom(toAssert);
@@ -4919,11 +4981,10 @@ namespace smt {
 
         expr_ref_vector litems(m);
 
-        if (contain_pair_idx_map.find(varNode) != contain_pair_idx_map.end()) {
-            std::set<std::pair<expr*, expr*> >::iterator itor1 = contain_pair_idx_map[varNode].begin();
-            for (; itor1 != contain_pair_idx_map[varNode].end(); ++itor1) {
-                expr * strAst = itor1->first;
-                expr * substrAst = itor1->second;
+        if (contain_pair_idx_map.contains(varNode)) {
+            for (auto entry : contain_pair_idx_map[varNode]) {
+                expr * strAst = entry.first;
+                expr * substrAst = entry.second;
 
                 expr * boolVar = nullptr;
                 if (!contain_pair_bool_map.find(strAst, substrAst, boolVar)) {
@@ -4981,23 +5042,18 @@ namespace smt {
                         // collect eqc concat
                         std::set<expr*> eqcConcats;
                         get_concats_in_eqc(substrAst, eqcConcats);
-                        for (std::set<expr*>::iterator concatItor = eqcConcats.begin();
-                             concatItor != eqcConcats.end(); concatItor++) {
+                        for (expr * aConcat : eqcConcats) {
                             expr_ref_vector constList(m);
                             bool counterEgFound = false;
-                            // get constant strings in concat
-                            expr * aConcat = *concatItor;
                             get_const_str_asts_in_node(aConcat, constList);
-                            for (expr_ref_vector::iterator cstItor = constList.begin();
-                                 cstItor != constList.end(); cstItor++) {
+                            for (auto const& cst : constList) {
                                 zstring pieceStr;
-                                u.str.is_string(*cstItor, pieceStr);
+                                u.str.is_string(cst, pieceStr);
                                 if (!strConst.contains(pieceStr)) {
                                     counterEgFound = true;
                                     if (aConcat != substrAst) {
                                         litems.push_back(ctx.mk_eq_atom(substrAst, aConcat));
                                     }
-                                    //implyR = Z3_mk_eq(ctx, boolVar, Z3_mk_false(ctx));
                                     implyR = mk_not(m, boolVar);
                                     break;
                                 }
@@ -5056,11 +5112,10 @@ namespace smt {
         ast_manager & m = get_manager();
         expr_ref_vector litems(m);
 
-        if (contain_pair_idx_map.find(varNode) != contain_pair_idx_map.end()) {
-            std::set<std::pair<expr*, expr*> >::iterator itor1 = contain_pair_idx_map[varNode].begin();
-            for (; itor1 != contain_pair_idx_map[varNode].end(); ++itor1) {
-                expr * strAst = itor1->first;
-                expr * substrAst = itor1->second;
+        if (contain_pair_idx_map.contains(varNode)) {
+            for (auto entry : contain_pair_idx_map[varNode]) {
+                expr * strAst = entry.first;
+                expr * substrAst = entry.second;
 
                 expr * boolVar = nullptr;
                 if (!contain_pair_bool_map.find(strAst, substrAst, boolVar)) {
@@ -5089,17 +5144,16 @@ namespace smt {
                         zstring strConst;
                         u.str.is_string(strValue, strConst);
                         // iterate eqc (also eqc-to-be) of substr
-                        for (expr_ref_vector::iterator itAst = willEqClass.begin(); itAst != willEqClass.end(); itAst++) {
+                        for (auto itAst : willEqClass) {
                             bool counterEgFound = false;
-                            if (u.str.is_concat(to_app(*itAst))) {
+                            if (u.str.is_concat(to_app(itAst))) {
                                 expr_ref_vector constList(m);
                                 // get constant strings in concat
-                                app * aConcat = to_app(*itAst);
+                                app * aConcat = to_app(itAst);
                                 get_const_str_asts_in_node(aConcat, constList);
-                                for (expr_ref_vector::iterator cstItor = constList.begin();
-                                     cstItor != constList.end(); cstItor++) {
+                                for (auto cst : constList) {
                                     zstring pieceStr;
-                                    u.str.is_string(*cstItor, pieceStr);
+                                    u.str.is_string(cst, pieceStr);
                                     if (!strConst.contains(pieceStr)) {
                                         TRACE("str", tout << "Inconsistency found!" << std::endl;);
                                         counterEgFound = true;
@@ -5124,7 +5178,7 @@ namespace smt {
     }
 
     bool theory_str::in_contain_idx_map(expr * n) {
-        return contain_pair_idx_map.find(n) != contain_pair_idx_map.end();
+        return contain_pair_idx_map.contains(n);
     }
 
     void theory_str::check_contain_by_eq_nodes(expr * n1, expr * n2) {
@@ -5132,12 +5186,9 @@ namespace smt {
         ast_manager & m = get_manager();
 
         if (in_contain_idx_map(n1) && in_contain_idx_map(n2)) {
-            std::set<std::pair<expr*, expr*> >::iterator keysItor1 = contain_pair_idx_map[n1].begin();
-            std::set<std::pair<expr*, expr*> >::iterator keysItor2;
-
-            for (; keysItor1 != contain_pair_idx_map[n1].end(); keysItor1++) {
+            for (auto const& key1 : contain_pair_idx_map[n1]) {
                 // keysItor1 is on set {<.., n1>, ..., <n1, ...>, ...}
-                std::pair<expr*, expr*> key1 = *keysItor1;
+                //std::pair<expr*, expr*> key1 = *keysItor1;
                 if (key1.first == n1 && key1.second == n2) {
                     expr_ref implyL(m);
                     expr_ref implyR(contain_pair_bool_map[key1], m);
@@ -5149,10 +5200,10 @@ namespace smt {
                     }
                 }
 
-                for (keysItor2 = contain_pair_idx_map[n2].begin();
-                     keysItor2 != contain_pair_idx_map[n2].end(); keysItor2++) {
+                //for (keysItor2 = contain_pair_idx_map[n2].begin(); keysItor2 != contain_pair_idx_map[n2].end(); keysItor2++) {
+                for (auto const& key2 : contain_pair_idx_map[n2]) {
                     // keysItor2 is on set {<.., n2>, ..., <n2, ...>, ...}
-                    std::pair<expr*, expr*> key2 = *keysItor2;
+                    //std::pair<expr*, expr*> key2 = *keysItor2;
                     // skip if the pair is eq
                     if (key1 == key2) {
                         continue;
@@ -5246,10 +5297,12 @@ namespace smt {
                                 // * key1.first = key2.first
                                 //   check eqc(key1.second) and eqc(key2.second)
                                 // -----------------------------------------------------------
-                                expr_ref_vector::iterator eqItorSub1 = subAst1Eqc.begin();
-                                for (; eqItorSub1 != subAst1Eqc.end(); eqItorSub1++) {
-                                    expr_ref_vector::iterator eqItorSub2 = subAst2Eqc.begin();
-                                    for (; eqItorSub2 != subAst2Eqc.end(); eqItorSub2++) {
+                                //expr_ref_vector::iterator eqItorSub1 = subAst1Eqc.begin();
+                                //for (; eqItorSub1 != subAst1Eqc.end(); eqItorSub1++) {
+                                for (auto eqSubVar1 : subAst1Eqc) {
+                                    //expr_ref_vector::iterator eqItorSub2 = subAst2Eqc.begin();
+                                    //for (; eqItorSub2 != subAst2Eqc.end(); eqItorSub2++) {
+                                    for (auto eqSubVar2 : subAst2Eqc) {
                                         // ------------
                                         // key1.first = key2.first /\ containPairBoolMap[<eqc(key1.second), eqc(key2.second)>]
                                         // ==>  (containPairBoolMap[key1] --> containPairBoolMap[key2])
@@ -5259,11 +5312,11 @@ namespace smt {
                                             if (n1 != n2) {
                                                 litems3.push_back(ctx.mk_eq_atom(n1, n2));
                                             }
-                                            expr * eqSubVar1 = *eqItorSub1;
+
                                             if (eqSubVar1 != subAst1) {
                                                 litems3.push_back(ctx.mk_eq_atom(subAst1, eqSubVar1));
                                             }
-                                            expr * eqSubVar2 = *eqItorSub2;
+
                                             if (eqSubVar2 != subAst2) {
                                                 litems3.push_back(ctx.mk_eq_atom(subAst2, eqSubVar2));
                                             }
@@ -5284,11 +5337,11 @@ namespace smt {
                                             if (n1 != n2) {
                                                 litems4.push_back(ctx.mk_eq_atom(n1, n2));
                                             }
-                                            expr * eqSubVar1 = *eqItorSub1;
+
                                             if (eqSubVar1 != subAst1) {
                                                 litems4.push_back(ctx.mk_eq_atom(subAst1, eqSubVar1));
                                             }
-                                            expr * eqSubVar2 = *eqItorSub2;
+
                                             if (eqSubVar2 != subAst2) {
                                                 litems4.push_back(ctx.mk_eq_atom(subAst2, eqSubVar2));
                                             }
@@ -5396,20 +5449,18 @@ namespace smt {
                                 // * key1.second = key2.second
                                 //   check eqc(key1.first) and eqc(key2.first)
                                 // -----------------------------------------------------------
-                                expr_ref_vector::iterator eqItorStr1 = str1Eqc.begin();
-                                for (; eqItorStr1 != str1Eqc.end(); eqItorStr1++) {
-                                    expr_ref_vector::iterator eqItorStr2 = str2Eqc.begin();
-                                    for (; eqItorStr2 != str2Eqc.end(); eqItorStr2++) {
+                                for (auto const& eqStrVar1 : str1Eqc) {
+                                    for (auto const& eqStrVar2 : str2Eqc) {
                                         {
                                             expr_ref_vector litems3(m);
                                             if (n1 != n2) {
                                                 litems3.push_back(ctx.mk_eq_atom(n1, n2));
                                             }
-                                            expr * eqStrVar1 = *eqItorStr1;
+
                                             if (eqStrVar1 != str1) {
                                                 litems3.push_back(ctx.mk_eq_atom(str1, eqStrVar1));
                                             }
-                                            expr * eqStrVar2 = *eqItorStr2;
+
                                             if (eqStrVar2 != str2) {
                                                 litems3.push_back(ctx.mk_eq_atom(str2, eqStrVar2));
                                             }
@@ -5432,11 +5483,9 @@ namespace smt {
                                             if (n1 != n2) {
                                                 litems4.push_back(ctx.mk_eq_atom(n1, n2));
                                             }
-                                            expr * eqStrVar1 = *eqItorStr1;
                                             if (eqStrVar1 != str1) {
                                                 litems4.push_back(ctx.mk_eq_atom(str1, eqStrVar1));
                                             }
-                                            expr *eqStrVar2 = *eqItorStr2;
                                             if (eqStrVar2 != str2) {
                                                 litems4.push_back(ctx.mk_eq_atom(str2, eqStrVar2));
                                             }
@@ -5482,8 +5531,7 @@ namespace smt {
         expr * constStrAst = (constStrAst_1 != nullptr) ? constStrAst_1 : constStrAst_2;
 
         TRACE("str", tout << "eqc of n1 is {";
-              for (expr_ref_vector::iterator it = willEqClass.begin(); it != willEqClass.end(); ++it) {
-                  expr * el = *it;
+              for (expr * el : willEqClass) {
                   tout << " " << mk_pp(el, m);
               }
               tout << std::endl;
@@ -5496,12 +5544,11 @@ namespace smt {
 
         // step 1: we may have constant values for Contains checks now
         if (constStrAst != nullptr) {
-            expr_ref_vector::iterator itAst = willEqClass.begin();
-            for (; itAst != willEqClass.end(); itAst++) {
-                if (*itAst == constStrAst) {
+            for (auto a : willEqClass) {
+                if (a == constStrAst) {
                     continue;
                 }
-                check_contain_by_eqc_val(*itAst, constStrAst);
+                check_contain_by_eqc_val(a, constStrAst);
             }
         } else {
             // no concrete value to be put in eqc, solely based on context
@@ -5513,9 +5560,8 @@ namespace smt {
             //   * "EQC(M) U EQC(concat(..., "jio", ...))" as substr and
             //   * If strAst registered has an eqc constant in the context
             // -------------------------------------------------------------
-            expr_ref_vector::iterator itAst = willEqClass.begin();
-            for (; itAst != willEqClass.end(); ++itAst) {
-                check_contain_by_substr(*itAst, willEqClass);
+            for (auto a : willEqClass) {
+                check_contain_by_substr(a, willEqClass);
             }
         }
 
@@ -5532,12 +5578,8 @@ namespace smt {
         //         (9) containPairBoolMap[<eqc(y), eqc(x)>] /\ m = n  ==>  (b1 -> b2)
         // ------------------------------------------
 
-        expr_ref_vector::iterator varItor1 = willEqClass.begin();
-        for (; varItor1 != willEqClass.end(); ++varItor1) {
-            expr * varAst1 = *varItor1;
-            expr_ref_vector::iterator varItor2 = varItor1;
-            for (; varItor2 != willEqClass.end(); ++varItor2) {
-                expr * varAst2 = *varItor2;
+        for (auto varAst1 : willEqClass) {
+            for (auto varAst2 : willEqClass) {
                 check_contain_by_eq_nodes(varAst1, varAst2);
             }
         }
@@ -5851,11 +5893,10 @@ namespace smt {
                                       std::map<expr*, expr*> & concatAliasMap, std::map<expr*, expr*> & varConstMap,
                                       std::map<expr*, expr*> & concatConstMap, std::map<expr*, std::map<expr*, int> > & varEqConcatMap) {
         std::map<expr*, std::map<std::vector<expr*>, std::set<expr*> > > groundedMap;
-        theory_str_contain_pair_bool_map_t::iterator containItor = contain_pair_bool_map.begin();
-        for (; containItor != contain_pair_bool_map.end(); containItor++) {
-            expr* containBoolVar = containItor->get_value();
-            expr* str = containItor->get_key1();
-            expr* subStr = containItor->get_key2();
+        for (auto const& kv : contain_pair_bool_map) {
+            expr* containBoolVar = kv.get_value();
+            expr* str = kv.get_key1();
+            expr* subStr = kv.get_key2();
 
             expr* strDeAlias = dealias_node(str, varAliasMap, concatAliasMap);
             expr* subStrDeAlias = dealias_node(subStr, varAliasMap, concatAliasMap);
@@ -6457,7 +6498,7 @@ namespace smt {
         } else {
             expr_ref_vector::iterator itor = eqNodeSet.begin();
             for (; itor != eqNodeSet.end(); itor++) {
-                if (regex_in_var_reg_str_map.find(*itor) != regex_in_var_reg_str_map.end()) {
+                if (regex_in_var_reg_str_map.contains(*itor)) {
                     std::set<zstring>::iterator strItor = regex_in_var_reg_str_map[*itor].begin();
                     for (; strItor != regex_in_var_reg_str_map[*itor].end(); strItor++) {
                         zstring regStr = *strItor;
@@ -6916,10 +6957,12 @@ namespace smt {
 
                     if (!map_effectively_empty) {
                         map_effectively_empty = true;
-                        for (expr * indicator : fvar_lenTester_map[v]) {
-                            if (internal_variable_set.contains(indicator)) {
-                                map_effectively_empty = false;
-                                break;
+                        if (fvar_lenTester_map.contains(v)) {
+                            for (expr * indicator : fvar_lenTester_map[v]) {
+                                if (internal_variable_set.contains(indicator)) {
+                                    map_effectively_empty = false;
+                                    break;
+                                }
                             }
                         }
                     }
@@ -6964,16 +7007,19 @@ namespace smt {
                         }
                         // now create a fake length tester over this finite disjunction of lengths
 
-                        fvar_len_count_map[v] = 1;
+                        fvar_len_count_map.insert(v, 1);
                         unsigned int testNum = fvar_len_count_map[v];
 
                         expr_ref indicator(mk_internal_lenTest_var(v, testNum), m);
                         SASSERT(indicator);
                         m_trail.push_back(indicator);
 
+                        if (!fvar_lenTester_map.contains(v)) {
+                            fvar_lenTester_map.insert(v, ptr_vector<expr>());
+                        }
                         fvar_lenTester_map[v].shrink(0);
                         fvar_lenTester_map[v].push_back(indicator);
-                        lenTester_fvar_map[indicator] = v;
+                        lenTester_fvar_map.insert(indicator, v);
 
                         expr_ref_vector orList(m);
                         expr_ref_vector andList(m);
@@ -7040,7 +7086,12 @@ namespace smt {
                 }
             }
         } else {
-            int lenTesterCount = fvar_lenTester_map[fVar].size();
+            int lenTesterCount;
+            if (fvar_lenTester_map.contains(fVar)) {
+                lenTesterCount = fvar_lenTester_map[fVar].size();
+            } else {
+                lenTesterCount = 0;
+            }
 
             expr * effectiveLenInd = nullptr;
             zstring effectiveLenIndiStr = "";
@@ -7411,8 +7462,7 @@ namespace smt {
 
             if (is_app(ex)) {
                 app * ap = to_app(ex);
-                // TODO indexof2/lastindexof
-                if (u.str.is_index(ap) /* || is_Indexof2(ap) || is_LastIndexof(ap) */) {
+                if (u.str.is_index(ap)) {
                     m_library_aware_axiom_todo.push_back(n);
                 } else if (u.str.is_stoi(ap)) {
                     TRACE("str", tout << "found string-integer conversion term: " << mk_pp(ex, get_manager()) << std::endl;);
@@ -7945,11 +7995,12 @@ namespace smt {
         // Step 1: get variables / concat AST appearing in the context
         // the thing we iterate over should just be variable_set - internal_variable_set
         // so we avoid computing the set difference (but this might be slower)
-        for(obj_hashtable<expr>::iterator it = variable_set.begin(); it != variable_set.end(); ++it) {
-            expr* var = *it;
+        for (expr* var : variable_set) {
+        //for(obj_hashtable<expr>::iterator it = variable_set.begin(); it != variable_set.end(); ++it) {
+            //expr* var = *it;
             if (internal_variable_set.find(var) == internal_variable_set.end()) {
                 TRACE("str", tout << "new variable: " << mk_pp(var, m) << std::endl;);
-                strVarMap[*it] = 1;
+                strVarMap[var] = 1;
             }
         }
         classify_ast_by_type_in_positive_context(strVarMap, concatMap, unrollMap);
@@ -9360,13 +9411,12 @@ namespace smt {
         // check whether any value tester is actually in scope
         TRACE("str", tout << "checking scope of previous value testers" << std::endl;);
         bool map_effectively_empty = true;
-        if (fvar_valueTester_map[freeVar].find(len) !=  fvar_valueTester_map[freeVar].end()) {
+        if (fvar_valueTester_map.contains(freeVar) &&
+            fvar_valueTester_map[freeVar].find(len) != fvar_valueTester_map[freeVar].end()) {
             // there's *something* in the map, but check its scope
-            svector<std::pair<int, expr*> > entries = fvar_valueTester_map[freeVar][len];
-            for (svector<std::pair<int,expr*> >::iterator it = entries.begin(); it != entries.end(); ++it) {
-                std::pair<int,expr*> entry = *it;
+            for (auto const& entry : fvar_valueTester_map[freeVar][len]) {
                 expr * aTester = entry.second;
-                if (internal_variable_set.find(aTester) == internal_variable_set.end()) {
+                if (!internal_variable_set.contains(aTester)) {
                     TRACE("str", tout << mk_pp(aTester, m) << " out of scope" << std::endl;);
                 } else {
                     TRACE("str", tout << mk_pp(aTester, m) << " in scope" << std::endl;);
@@ -9381,6 +9431,9 @@ namespace smt {
             int tries = 0;
             expr * val_indicator = mk_internal_valTest_var(freeVar, len, tries);
             valueTester_fvar_map.insert(val_indicator, freeVar);
+            if (!fvar_valueTester_map.contains(freeVar)) {
+                fvar_valueTester_map.insert(freeVar, std::map<int, svector<std::pair<int, expr*> > >());
+            }
             fvar_valueTester_map[freeVar][len].push_back(std::make_pair(sLevel, val_indicator));
             print_value_tester_list(fvar_valueTester_map[freeVar][len]);
             return gen_val_options(freeVar, len_indicator, val_indicator, len_valueStr, tries);
@@ -9396,7 +9449,7 @@ namespace smt {
                 expr * aTester = fvar_valueTester_map[freeVar][len][i].second;
 
                 // it's probably worth checking scope here, actually
-                if (internal_variable_set.find(aTester) == internal_variable_set.end()) {
+                if (!internal_variable_set.contains(aTester)) {
                     TRACE("str", tout << "value tester " << mk_pp(aTester, m) << " out of scope, skipping" << std::endl;);
                     continue;
                 }
@@ -10260,13 +10313,14 @@ namespace smt {
 
                 // assume empty and find a counterexample
                 map_effectively_empty = true;
-                ptr_vector<expr> indicator_set = fvar_lenTester_map[freeVar];
-                for (expr * indicator : indicator_set) {
-                    if (internal_variable_set.contains(indicator)) {
-                        TRACE("str", tout <<"found active internal variable " << mk_ismt2_pp(indicator, m)
-                              << " in fvar_lenTester_map[freeVar]" << std::endl;);
-                        map_effectively_empty = false;
-                        break;
+                if (fvar_lenTester_map.contains(freeVar)) {
+                    for (expr * indicator : fvar_lenTester_map[freeVar]) {
+                        if (internal_variable_set.find(indicator) != internal_variable_set.end()) {
+                            TRACE("str", tout <<"found active internal variable " << mk_ismt2_pp(indicator, m)
+                                    << " in fvar_lenTester_map[freeVar]" << std::endl;);
+                            map_effectively_empty = false;
+                            break;
+                        }
                     }
                 }
                 CTRACE("str", map_effectively_empty, tout << "all variables in fvar_lenTester_map[freeVar] out of scope" << std::endl;);
@@ -10283,6 +10337,9 @@ namespace smt {
                 SASSERT(indicator);
 
                 // since the map is "effectively empty", we can remove those variables that have left scope...
+                if (!fvar_lenTester_map.contains(freeVar)) {
+                    fvar_lenTester_map.insert(freeVar, ptr_vector<expr>());
+                }
                 fvar_lenTester_map[freeVar].shrink(0);
                 fvar_lenTester_map[freeVar].push_back(indicator);
                 lenTester_fvar_map.insert(indicator, freeVar);
@@ -10295,7 +10352,12 @@ namespace smt {
 
                 expr * effectiveLenInd = nullptr;
                 zstring effectiveLenIndiStr("");
-                int lenTesterCount = (int) fvar_lenTester_map[freeVar].size();
+                int lenTesterCount;
+                if (fvar_lenTester_map.contains(freeVar)) {
+                    lenTesterCount = fvar_lenTester_map[freeVar].size();
+                } else {
+                    lenTesterCount = 0;
+                }
 
                 TRACE("str",
                       tout << lenTesterCount << " length testers in fvar_lenTester_map[" << mk_pp(freeVar, m) << "]:" << std::endl;
