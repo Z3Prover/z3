@@ -600,9 +600,8 @@ public:
 
     core_hashtable& operator|=(core_hashtable const& other) {
         if (this == &other) return *this;
-        iterator i = other.begin(), e = other.end();
-        for (; i != e; ++i) {
-            insert(*i);
+        for (const data& d : other) {
+            insert(d);
         }
         return *this;
     }
@@ -610,10 +609,9 @@ public:
     core_hashtable& operator&=(core_hashtable const& other) {
         if (this == &other) return *this;
         core_hashtable copy(*this);
-        iterator i = copy.begin(), e = copy.end();
-        for (; i != e; ++i) {
-            if (!other.contains(*i)) {
-                remove(*i);
+        for (const data& d : copy) {
+            if (!other.contains(d)) {
+                remove(d);
             }
         }
         return *this;
@@ -622,9 +620,8 @@ public:
     core_hashtable& operator=(core_hashtable const& other) {
         if (this == &other) return *this;
         reset();
-        iterator i = other.begin(), e = other.end();
-        for (; i != e; ++i) {
-            insert(*i);
+        for (const data& d : e) {
+            insert(d);
         }
         return *this;
     }

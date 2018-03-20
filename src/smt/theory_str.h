@@ -295,7 +295,8 @@ protected:
     obj_hashtable<expr> input_var_in_len;
 
     obj_map<expr, unsigned int> fvar_len_count_map;
-    std::map<expr*, ptr_vector<expr> > fvar_lenTester_map;
+    // std::map<expr*, ptr_vector<expr> > fvar_lenTester_map;
+    obj_map<expr, ptr_vector<expr> > fvar_lenTester_map;
     obj_map<expr, expr*> lenTester_fvar_map;
 
     // TBD: need to replace by obj_map for determinism

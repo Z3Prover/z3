@@ -8,13 +8,13 @@ cmake -DBUILD_DOTNET_BINDINGS=True -DBUILD_JAVA_BINDINGS=True -DBUILD_PYTHON_BIN
 nmake
 if ERRORLEVEL 1 exit 1
 
-echo "Test python bindings"
-pushd python
-python z3test.py z3
-if ERRORLEVEL 1 exit 1
-python z3test.py z3num
-if ERRORLEVEL 1 exit 1
-popd
+rem echo "Test python bindings"
+rem pushd python
+rem python z3test.py z3
+rem if ERRORLEVEL 1 exit 1
+rem python z3test.py z3num
+rem if ERRORLEVEL 1 exit 1
+rem popd
 
 echo "Build and run examples"
 nmake cpp_example

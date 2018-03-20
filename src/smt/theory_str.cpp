@@ -169,6 +169,8 @@ namespace smt {
     }
 
     void theory_str::assert_axiom(expr * _e) {
+        if (_e == nullptr) 
+            return;
         if (opt_VerifyFinalCheckProgress) {
             finalCheckProgressIndicator = true;
         }
@@ -6914,10 +6916,8 @@ namespace smt {
 
                     if (!map_effectively_empty) {
                         map_effectively_empty = true;
-                        ptr_vector<expr> indicator_set = fvar_lenTester_map[v];
-                        for (ptr_vector<expr>::iterator it = indicator_set.begin(); it != indicator_set.end(); ++it) {
-                            expr * indicator = *it;
-                            if (internal_variable_set.find(indicator) != internal_variable_set.end()) {
+                        for (expr * indicator : fvar_lenTester_map[v]) {
+                            if (internal_variable_set.contains(indicator)) {
                                 map_effectively_empty = false;
                                 break;
                             }
@@ -8977,12 +8977,12 @@ namespace smt {
 
         CTRACE("str", needToAssignFreeVars,
                tout << "Need to assign values to the following free variables:" << std::endl;
-               for (std::set<expr*>::iterator itx = free_variables.begin(); itx != free_variables.end(); ++itx) {
-                   tout << mk_ismt2_pp(*itx, m) << std::endl;
+               for (expr* v : free_variables) {
+                   tout << mk_ismt2_pp(v, m) << std::endl;
                }
                tout << "freeVar_map has the following entries:" << std::endl;
-               for (std::map<expr*, int>::iterator fvIt = freeVar_map.begin(); fvIt != freeVar_map.end(); fvIt++) {
-                   expr * var = fvIt->first;
+               for (auto const& kv : freeVar_map) {
+                   expr * var = kv.first;
                    tout << mk_ismt2_pp(var, m) << std::endl;
                }
                );
@@ -9360,7 +9360,7 @@ namespace smt {
         // check whether any value tester is actually in scope
         TRACE("str", tout << "checking scope of previous value testers" << std::endl;);
         bool map_effectively_empty = true;
-        if (fvar_valueTester_map[freeVar].find(len) != fvar_valueTester_map[freeVar].end()) {
+        if (fvar_valueTester_map[freeVar].find(len) !=  fvar_valueTester_map[freeVar].end()) {
             // there's *something* in the map, but check its scope
             svector<std::pair<int, expr*> > entries = fvar_valueTester_map[freeVar][len];
             for (svector<std::pair<int,expr*> >::iterator it = entries.begin(); it != entries.end(); ++it) {
@@ -9721,8 +9721,8 @@ namespace smt {
         int dist = opt_LCMUnrollStep;
         expr_ref_vector litems(mgr);
         expr_ref moreAst(mk_string("more"), mgr);
-        for (std::set<expr*>::iterator itor = unrolls.begin(); itor != unrolls.end(); itor++) {
-            expr_ref item(ctx.mk_eq_atom(var, *itor), mgr);
+        for (expr * e : unrolls) {
+            expr_ref item(ctx.mk_eq_atom(var, e), mgr);
             TRACE("str", tout << "considering unroll " << mk_pp(item, mgr) << std::endl;);
             litems.push_back(item);
         }
@@ -9731,10 +9731,8 @@ namespace smt {
 
         ptr_vector<expr> outOfScopeTesters;
 
-        for (ptr_vector<expr>::iterator it = unroll_tries_map[var][unrolls].begin();
-             it != unroll_tries_map[var][unrolls].end(); ++it) {
-            expr * tester = *it;
-            bool inScope = (internal_unrollTest_vars.find(tester) != internal_unrollTest_vars.end());
+        for (expr * tester : unroll_tries_map[var][unrolls]) {
+            bool inScope = internal_unrollTest_vars.contains(tester);
             TRACE("str", tout << "unroll test var " << mk_pp(tester, mgr)
                   << (inScope ? " in scope" : " out of scope")
                   << std::endl;);
@@ -9743,11 +9741,9 @@ namespace smt {
             }
         }
 
-        for (ptr_vector<expr>::iterator it = outOfScopeTesters.begin();
-             it != outOfScopeTesters.end(); ++it) {
-            unroll_tries_map[var][unrolls].erase(*it);
+        for (expr* e : outOfScopeTesters) {
+            unroll_tries_map[var][unrolls].erase(e);
         }
-
 
         if (unroll_tries_map[var][unrolls].size() == 0) {
             unroll_tries_map[var][unrolls].push_back(mk_unroll_test_var());
@@ -10265,9 +10261,8 @@ namespace smt {
                 // assume empty and find a counterexample
                 map_effectively_empty = true;
                 ptr_vector<expr> indicator_set = fvar_lenTester_map[freeVar];
-                for (ptr_vector<expr>::iterator it = indicator_set.begin(); it != indicator_set.end(); ++it) {
-                    expr * indicator = *it;
-                    if (internal_variable_set.find(indicator) != internal_variable_set.end()) {
+                for (expr * indicator : indicator_set) {
+                    if (internal_variable_set.contains(indicator)) {
                         TRACE("str", tout <<"found active internal variable " << mk_ismt2_pp(indicator, m)
                               << " in fvar_lenTester_map[freeVar]" << std::endl;);
                         map_effectively_empty = false;
@@ -10437,14 +10432,14 @@ namespace smt {
     void theory_str::process_free_var(std::map<expr*, int> & freeVar_map) {
         context & ctx = get_context();
 
-        std::set<expr*> eqcRepSet;
-        std::set<expr*> leafVarSet;
-        std::map<int, std::set<expr*> > aloneVars;
+        obj_hashtable<expr> eqcRepSet;
+        obj_hashtable<expr> leafVarSet;
+        std::map<int, obj_hashtable<expr> > aloneVars;
 
-        for (std::map<expr*, int>::iterator fvIt = freeVar_map.begin(); fvIt != freeVar_map.end(); fvIt++) {
-            expr * freeVar = fvIt->first;
+        for (auto const& kv : freeVar_map) {
+            expr * freeVar = kv.first;
             // skip all regular expression vars
-            if (regex_variable_set.find(freeVar) != regex_variable_set.end()) {
+            if (regex_variable_set.contains(freeVar)) {
                 continue;
             }
 
@@ -10454,10 +10449,10 @@ namespace smt {
             get_var_in_eqc(freeVar, eqVarSet);
             bool duplicated = false;
             expr * dupVar = nullptr;
-            for (std::set<expr*>::iterator itorEqv = eqVarSet.begin(); itorEqv != eqVarSet.end(); itorEqv++) {
-                if (eqcRepSet.find(*itorEqv) != eqcRepSet.end()) {
+            for (expr* eq : eqVarSet) {
+                if (eqcRepSet.contains(eq)) {
                     duplicated = true;
-                    dupVar = *itorEqv;
+                    dupVar = eq;
                     break;
                 }
             }
@@ -10470,13 +10465,9 @@ namespace smt {
             }
         }
 
-        for (std::set<expr*>::iterator fvIt = eqcRepSet.begin(); fvIt != eqcRepSet.end(); fvIt++) {
-            bool standAlone = true;
-            expr * freeVar = *fvIt;
+        for (expr * freeVar : eqcRepSet) {
             // has length constraint initially
-            if (input_var_in_len.find(freeVar) != input_var_in_len.end()) {
-                standAlone = false;
-            }
+            bool standAlone = !input_var_in_len.contains(freeVar);
             // iterate parents
             if (standAlone) {
                 // I hope this works!
@@ -10507,25 +10498,19 @@ namespace smt {
             }
         }
 
-        for(std::set<expr*>::iterator itor1 = leafVarSet.begin();
-            itor1 != leafVarSet.end(); ++itor1) {
-            expr * toAssert = gen_len_val_options_for_free_var(*itor1, nullptr, "");
+        for (expr* lv : leafVarSet) {
+            expr * toAssert = gen_len_val_options_for_free_var(lv, nullptr, "");
             // gen_len_val_options_for_free_var() can legally return NULL,
             // as methods that it calls may assert their own axioms instead.
-            if (toAssert != nullptr) {
-                assert_axiom(toAssert);
-            }
+            if (toAssert) assert_axiom(toAssert);
+            
         }
 
-        for (std::map<int, std::set<expr*> >::iterator mItor = aloneVars.begin();
-             mItor != aloneVars.end(); ++mItor) {
-            std::set<expr*>::iterator itor2 = mItor->second.begin();
-            for(; itor2 != mItor->second.end(); ++itor2) {
-                expr * toAssert = gen_len_val_options_for_free_var(*itor2, nullptr, "");
+        for (auto const& kv : aloneVars) {
+            for (expr* av : kv.second) {
+                expr * toAssert = gen_len_val_options_for_free_var(av, nullptr, "");
                 // same deal with returning a NULL axiom here
-                if(toAssert != nullptr) {
-                    assert_axiom(toAssert);
-                }
+                if (toAssert) assert_axiom(toAssert);                
             }
         }
     }
