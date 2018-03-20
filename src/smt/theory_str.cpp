@@ -803,8 +803,20 @@ namespace smt {
         context & ctx = get_context();
         while (can_propagate()) {
             TRACE("str", tout << "propagating..." << std::endl;);
-            for (auto const& el : m_basicstr_axiom_todo) {
-                instantiate_basic_string_axioms(el);
+            while(true) {
+                // this can potentially recursively activate itself
+                unsigned start_count = m_basicstr_axiom_todo.size();
+                ptr_vector<enode> axioms_tmp(m_basicstr_axiom_todo);
+                for (auto const& el : axioms_tmp) {
+                    instantiate_basic_string_axioms(el);
+                }
+                unsigned end_count = m_basicstr_axiom_todo.size();
+                if (end_count > start_count) {
+                    TRACE("str", tout << "new basic string axiom terms added -- checking again" << std::endl;);
+                    continue;
+                } else {
+                    break;
+                }
             }
             m_basicstr_axiom_todo.reset();
             TRACE("str", tout << "reset m_basicstr_axiom_todo" << std::endl;);
