@@ -3,7 +3,7 @@ set
 echo "Build"
 md build
 cd build
-call "C:\Program Files (x86)\Microsoft Visual Studio\2013\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+call "C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\vcvarsall.bat" amd64
 cmake -DBUILD_DOTNET_BINDINGS=True -DBUILD_JAVA_BINDINGS=True -DBUILD_PYTHON_BINDINGS=True -G "NMake Makefiles" ../
 nmake
 if ERRORLEVEL 1 exit 1
