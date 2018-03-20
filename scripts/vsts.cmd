@@ -14,17 +14,16 @@ popd
 
 echo "Build and run examples"
 nmake cpp_example
-cpp_example.exe
+examples\cpp_example_build_dir\cpp_example.exe
 
 nmake c_example
-c_example.exe
+examples\c_example_build_dir\c_example.exe
 
-nmake java_example
-java_example.exe
+rem nmake java_example
+rem java_example.exe
 
-nmake dotnet_example
-dotnet_example.exe
-
+rem nmake dotnet_example
+rem dotnet_example.exe
 
 echo "Build and run unit tests"
 nmake test-z3
