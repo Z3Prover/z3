@@ -34,6 +34,7 @@ rem test-z3.exe -a
 
 cd ..
 echo "Run regression tests"
-git pull https://github.com/z3prover/z3test z3test
-cd z3test
+git clone https://github.com/z3prover/z3test z3test
+z3test\scripts\test_benchmarks.py build\z3.exe z3test\regressions\smt2
+
 
