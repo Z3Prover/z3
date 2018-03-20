@@ -8,6 +8,7 @@ cmake -DBUILD_DOTNET_BINDINGS=True -DBUILD_JAVA_BINDINGS=True -DBUILD_PYTHON_BIN
 nmake
 if ERRORLEVEL 1 exit 1
 
+if %1 == "x86" goto :BUILD_EXAMPLES
 echo "Test python bindings"
 pushd python
 python z3test.py z3
@@ -16,6 +17,7 @@ python z3test.py z3num
 if ERRORLEVEL 1 exit 1
 popd
 
+:BUILD_EXAMPLES
 echo "Build and run examples"
 nmake cpp_example
 examples\cpp_example_build_dir\cpp_example.exe
