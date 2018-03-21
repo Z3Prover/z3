@@ -17,6 +17,8 @@ Author:
 Notes:
 
 --*/
+
+#include <cmath>
 #include "sat/sat_solver.h"
 #include "sat/sat_extension.h"
 #include "sat/sat_lookahead.h"
