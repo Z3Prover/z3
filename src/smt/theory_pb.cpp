@@ -2185,6 +2185,7 @@ namespace smt {
         unsigned idx = lits.size()-1;
         b_justification js;
         literal conseq = ~confl[2];
+        int bound = 1;
 
         while (m_num_marks > 0) {
 
@@ -2221,8 +2222,8 @@ namespace smt {
             //
             // Resolve selected conseq with antecedents.
             // 
-
-            int bound = 1;
+            
+            bound = 1;
 
             switch(js.get_kind()) {
                 
