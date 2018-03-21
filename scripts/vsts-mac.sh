@@ -8,10 +8,11 @@ make
 make test-z3
 make cpp_example
 make c_example
-make java_example
-make python_example
+# make java_example
+# make python_example
 ./cpp_example
-./c_example
+./test_capi
 
-
+git clone https://github.com/z3prover/z3test.git z3test
+python z3test/scripts/test_benchmarks.py z3 z3test/regressions/smt2
 
