@@ -1040,7 +1040,7 @@ public:
     
     virtual ~fail_if_tactic() {}
 
-    void cleanup() {}
+    void cleanup() override {}
 
     void  operator()(goal_ref const & in, goal_ref_buffer& result) override {
         if (m_p->operator()(*(in.get())).is_true()) {
@@ -1093,7 +1093,7 @@ public:
         }
     }
 
-    virtual tactic * translate(ast_manager & m) { return translate_core<if_no_unsat_cores_tactical>(m); }
+    tactic * translate(ast_manager & m) override { return translate_core<if_no_unsat_cores_tactical>(m); }
 };
 
 class if_no_models_tactical : public unary_tactical {
@@ -1109,7 +1109,9 @@ public:
         }
     }
 
-    virtual tactic * translate(ast_manager & m) { return translate_core<if_no_models_tactical>(m); }
+    tactic * translate(ast_manager & m) override { 
+        return translate_core<if_no_models_tactical>(m); 
+    }
 };
 
 tactic * if_no_proofs(tactic * t) {

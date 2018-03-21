@@ -120,7 +120,7 @@ public:
         m = m_model;
     }
 
-    void operator()(labels_vec & r) {
+    void operator()(labels_vec & r) override {
         r.append(m_labels.size(), m_labels.c_ptr());
     }
 
