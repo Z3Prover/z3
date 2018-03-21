@@ -17,6 +17,7 @@ Revision History:
 
 --*/
 
+#include <cmath>
 #include "sat/ba_solver.h"
 #include "sat/sat_types.h"
 #include "util/mpz.h"
