@@ -1941,8 +1941,8 @@ namespace z3 {
         }
         // fails for some compilers: 
         // void add(expr_vector const& v) { check_context(*this, v); for (expr e : v) add(e); }
-        void from_file(char const* file) { Z3_solver_from_file(ctx(), m_solver, file); ctx().check_parser_error(); }
-        void from_string(char const* s) { Z3_solver_from_string(ctx(), m_solver, s); ctx().check_parser_error(); }
+        void from_file(char const* file) { Z3_solver_from_file(ctx(), m_solver, file); check_error(); }
+        void from_string(char const* s) { Z3_solver_from_string(ctx(), m_solver, s); check_error(); }
         check_result check() { Z3_lbool r = Z3_solver_check(ctx(), m_solver); check_error(); return to_check_result(r); }
         check_result check(unsigned n, expr * const assumptions) {
             array<Z3_ast> _assumptions(n);
