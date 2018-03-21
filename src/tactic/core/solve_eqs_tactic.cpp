@@ -711,7 +711,7 @@ public:
         m_imp = alloc(imp, m, p, r, owner);
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(solve_eqs_tactic, m, m_params, mk_expr_simp_replacer(m, m_params), true);
     }
         
@@ -719,12 +719,12 @@ public:
         dealloc(m_imp);
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_params = p;
         m_imp->updt_params(p);
     }
 
-    virtual void collect_param_descrs(param_descrs & r) {
+    void collect_param_descrs(param_descrs & r) override {
         r.insert("solve_eqs_max_occs", CPK_UINT, "(default: infty) maximum number of occurrences for considering a variable for gaussian eliminations.");
         r.insert("theory_solver", CPK_BOOL, "(default: true) use theory solvers.");
         r.insert("ite_solver", CPK_BOOL, "(default: true) use if-then-else solver.");
@@ -736,7 +736,7 @@ public:
         report_tactic_progress(":num-elim-vars", m_imp->get_num_eliminated_vars());
     }
     
-    virtual void cleanup() {
+    void cleanup() override {
         unsigned num_elim_vars = m_imp->m_num_eliminated_vars;
         ast_manager & m = m_imp->m();
         expr_replacer * r = m_imp->m_r;
@@ -751,11 +751,11 @@ public:
         dealloc(d);
     }
 
-    virtual void collect_statistics(statistics & st) const {
+    void collect_statistics(statistics & st) const override {
         st.update("eliminated vars", m_imp->get_num_eliminated_vars());
     }
 
-    virtual void reset_statistics() {
+    void reset_statistics() override {
         m_imp->m_num_eliminated_vars = 0;
     }
     
