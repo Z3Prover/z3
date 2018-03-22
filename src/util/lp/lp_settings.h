@@ -106,6 +106,8 @@ struct stats {
     unsigned m_cut_solver_true;
     unsigned m_cut_solver_false;
     unsigned m_cut_solver_undef;
+    unsigned m_gcd_calls;
+    unsigned m_gcd_conflicts;
     stats() { reset(); }
     void reset() { memset(this, 0, sizeof(*this)); }
 };

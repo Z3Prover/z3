@@ -166,7 +166,7 @@ template <typename T, typename X>
 std::set<std::pair<unsigned, unsigned>>  static_matrix<T, X>::get_domain() {
     std::set<std::pair<unsigned, unsigned>> ret;
     for (unsigned i = 0; i < m_rows.size(); i++) {
-        for (auto it : m_rows[i]) {
+        for (auto &it : m_rows[i]) {
             ret.insert(std::make_pair(i, it.m_j));
         }
     }

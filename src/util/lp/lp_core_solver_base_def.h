@@ -978,7 +978,7 @@ template <typename T, typename X>  void lp_core_solver_base<T, X>::pivot_fixed_v
         if (get_column_type(basic_j) != column_type::fixed) continue;
         T a;
         unsigned j;
-        for (auto c : m_A.m_rows[i]) {
+        for (auto &c : m_A.m_rows[i]) {
             j = c.var();
             if (j == basic_j)
                 continue;

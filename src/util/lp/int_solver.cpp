@@ -490,9 +490,16 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
     // from theory_arith_int.h with the addition of cut_solver
     if (!has_inf_int()) 
         return lia_move::ok;
-    if (settings().m_run_gcd_test)
-        if (!gcd_test(ex))
+    if (settings().m_run_gcd_test || true) {
+        settings().st().m_gcd_calls++;
+        if (!gcd_test(ex)) {
+            TRACE("gcd_test", tout << "conflict";);
+            settings().st().m_gcd_conflicts++;
             return lia_move::conflict;
+        }
+    } else {
+        TRACE("gcd_test", tout << "no test";);
+    }
     pivoted_rows_tracking_control pc(m_lar_solver);
     /* if (m_params.m_arith_euclidean_solver) apply_euclidean_solver();  */
     //m_lar_solver->pivot_fixed_vars_from_basis();
@@ -687,7 +694,7 @@ bool int_solver::gcd_test_for_row(static_matrix<mpq, numeric_pair<mpq>> & A, uns
     mpq least_coeff(0);
     bool    least_coeff_is_bounded = false;
     unsigned j;
-    for (auto c : A.m_rows[i]) {
+    for (auto &c : A.m_rows[i]) {
         j = c.var();
         const mpq& a = c.coeff();
         if (m_lar_solver->column_is_fixed(j)) {
@@ -728,6 +735,7 @@ bool int_solver::gcd_test_for_row(static_matrix<mpq, numeric_pair<mpq>> & A, uns
     }
         
     if (!(consts / gcds).is_int()) {
+        TRACE("gcd_test", tout << "row failed the GCD test:\n"; display_row_info(tout, i););
         fill_explanation_from_fixed_columns(A.m_rows[i], ex);
         return false;
     }
@@ -761,7 +769,6 @@ bool int_solver::gcd_test(explanation & ex) {
     auto & A = m_lar_solver->A_r(); // getting the matrix
     for (unsigned i = 0; i < A.row_count(); i++)
         if (!gcd_test_for_row(A, i, ex)) {
-            std::cout << "false from gcd_test\n" ;
             return false;
         }
         
@@ -1068,13 +1075,13 @@ lp_settings& int_solver::settings() {
 
 void int_solver::display_row_info(std::ostream & out, unsigned row_index) const  {
     auto & rslv = m_lar_solver->m_mpq_lar_core_solver.m_r_solver;
-    for (auto c: rslv.m_A.m_rows[row_index]) {
+    for (auto &c: rslv.m_A.m_rows[row_index]) {
         if (numeric_traits<mpq>::is_pos(c.coeff()))
             out << "+";
         out << c.coeff() << rslv.column_name(c.var()) << " ";
     }
 
-    for (auto c: rslv.m_A.m_rows[row_index]) {
+    for (auto& c: rslv.m_A.m_rows[row_index]) {
         rslv.print_column_bound_info(c.var(), out);
     }
     rslv.print_column_bound_info(rslv.m_basis[row_index], out);

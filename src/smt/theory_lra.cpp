@@ -2795,6 +2795,8 @@ public:
         st.update("cut_solver-true", m_solver->settings().st().m_cut_solver_true);
         st.update("cut_solver-false", m_solver->settings().st().m_cut_solver_false);
         st.update("cut_solver-undef", m_solver->settings().st().m_cut_solver_undef);
+        st.update("gcd_calls", m_solver->settings().st().m_gcd_calls);
+        st.update("gcd_conflict", m_solver->settings().st().m_gcd_conflicts);
     }        
 };
     
