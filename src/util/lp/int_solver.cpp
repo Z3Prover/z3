@@ -490,7 +490,7 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
     // from theory_arith_int.h with the addition of cut_solver
     if (!has_inf_int()) 
         return lia_move::ok;
-    if (settings().m_run_gcd_test || true) {
+    if (settings().m_run_gcd_test) {
         settings().st().m_gcd_calls++;
         if (!gcd_test(ex)) {
             TRACE("gcd_test", tout << "conflict";);
