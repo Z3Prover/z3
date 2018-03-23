@@ -326,7 +326,7 @@ lia_move int_solver::mk_gomory_cut(lar_term& t, mpq& k, explanation & expl, unsi
           tout << "inf_col = " << inf_col << std::endl;
           );
         
-    // gomory will be   t >= k
+    // gomory will be   t <= k and the current solution has a property t > k
     k = 1;
     mpq lcm_den(1);
     unsigned x_j;

@@ -1255,7 +1255,7 @@ public:
         return FC_GIVEUP;
     }
 
-    // create a bound atom representing term <= k
+    // create a bound atom representing term >= k is lower_bound is true, and term <= k if it is false
     app_ref mk_bound(lp::lar_term const& term, rational const& k, bool lower_bound) {
         app_ref t = mk_term(term, k.is_int());
         app_ref atom(m);
