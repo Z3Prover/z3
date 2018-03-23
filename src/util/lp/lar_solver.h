@@ -58,30 +58,71 @@ class lar_solver : public column_namer {
         unsigned internal_j() const { return m_internal_j;}
         bool is_integer() const {return m_is_integer;}
     };
+#if Z3DEBUG_CHECK_UNIQUE_TERMS
+    struct term_hasher {
+        std::size_t operator()(const lar_term *t) const
+        {
+            using std::size_t;
+            using std::hash;
+            using std::string;
+            size_t seed = 0;
+            for (const auto& p : t->m_coeffs) {
+                hash_combine(seed, p);
+            }
+            return seed;
+        }
+    };
+
+    struct term_ls_comparer {
+        bool operator()(const lar_term *a, const lar_term* b) const
+        {
+            // a is contained in b
+            for (auto & p : a->m_coeffs) {
+                auto t = b->m_coeffs.find(p.first);
+                if (t == b->m_coeffs.end())
+                    return false;
+                if (p.second != t->second)
+                    return false;
+            }
+            // zz is contained in b
+            for (auto & p : b->m_coeffs) {
+                auto t = a->m_coeffs.find(p.first);
+                if (t == a->m_coeffs.end())
+                    return false;
+                if (p.second != t->second)
+                    return false;
+            }
+            return true;
+        }
+    };
+    std::unordered_set<lar_term*, term_hasher, term_ls_comparer>    m_set_of_terms;
+#endif
+    
     //////////////////// fields //////////////////////////
-    lp_settings m_settings;
-    lp_status m_status;
-    stacked_value<simplex_strategy_enum> m_simplex_strategy;
-    std::unordered_map<unsigned, ext_var_info> m_ext_vars_to_columns;
-    vector<unsigned> m_columns_to_ext_vars_or_term_indices;
-    stacked_vector<ul_pair> m_columns_to_ul_pairs;
-    vector<lar_base_constraint*> m_constraints;
+    lp_settings                                         m_settings;
+    lp_status                                           m_status;
+    stacked_value<simplex_strategy_enum>                m_simplex_strategy;
+    std::unordered_map<unsigned, ext_var_info>          m_ext_vars_to_columns;
+    vector<unsigned>                                    m_columns_to_ext_vars_or_term_indices;
+    stacked_vector<ul_pair>                             m_columns_to_ul_pairs;
+    vector<lar_base_constraint*>                        m_constraints;
+private:
+    stacked_value<unsigned>                             m_constraint_count;
+    // the set of column indices j such that bounds have changed for j
+    int_set                                             m_columns_with_changed_bound;
+    int_set                                             m_rows_with_changed_bounds;
+    int_set                                             m_basic_columns_with_changed_cost;
+    stacked_value<int>                                  m_infeasible_column_index; // such can be found at the initialization step
+    stacked_value<unsigned>                             m_term_count;
+    vector<lar_term*>                                   m_terms;
+    const var_index                                     m_terms_start_index;
+    indexed_vector<mpq>                                 m_column_buffer;
+
+    
 public :
     const vector<lar_base_constraint*>& constraints() const {
         return m_constraints;
     }
-private:
-    stacked_value<unsigned> m_constraint_count;
-    // the set of column indices j such that bounds have changed for j
-    int_set m_columns_with_changed_bound;
-    int_set m_rows_with_changed_bounds;
-    int_set m_basic_columns_with_changed_cost;
-    stacked_value<int> m_infeasible_column_index; // such can be found at the initialization step
-    stacked_value<unsigned> m_term_count;
-    vector<lar_term*> m_terms;
-    const var_index m_terms_start_index;
-    indexed_vector<mpq> m_column_buffer;
-public:
     lar_core_solver m_mpq_lar_core_solver;
 private:
     std::function<void (unsigned)> m_tracker_of_x_change;
@@ -136,12 +177,16 @@ public:
     void add_new_var_to_core_fields_for_mpq(bool register_in_basis);
 
 
-    var_index add_term_undecided(const vector<std::pair<mpq, var_index>> & coeffs,
-                                 const mpq &m_v);
 
     // terms
     var_index add_term(const vector<std::pair<mpq, var_index>> & coeffs,
                        const mpq &m_v);
+
+    var_index add_term_undecided(const vector<std::pair<mpq, var_index>> & coeffs,
+                                 const mpq &m_v);
+
+    bool term_coeffs_are_ok(const vector<std::pair<mpq, var_index>> & coeffs, const mpq& v);
+    void push_and_register_term(lar_term* t);
 
     void add_row_for_term(const lar_term * term, unsigned term_ext_index);
 

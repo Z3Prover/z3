@@ -74,7 +74,7 @@ void eta_matrix<T, X>::apply_from_right(vector<T> & w) {
         t += w[it.first] * it.second;
     }
     w[m_column_index] = t;
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     // lp_assert(vectors_are_equal<T>(clone_w, w, get_number_of_rows()));
     // delete clone_w;
 #endif
@@ -114,7 +114,7 @@ void eta_matrix<T, X>::apply_from_right(indexed_vector<T> & w) {
         }
     }
     
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     // lp_assert(w.is_OK());
     // lp_assert(vectors_are_equal<T>(wcopy, w.m_data));
 #endif
@@ -144,7 +144,7 @@ void eta_matrix<T, X>::conjugate_by_permutation(permutation_matrix<T, X> & p) {
     for (auto & pair : m_column_vector.m_data) {
         pair.first = p.get_rev(pair.first);
     }
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     // lp_assert(deb == *this);
 #endif
 }

@@ -378,16 +378,18 @@ int int_solver::find_free_var_in_gomory_row(const row_strip<mpq>& row) {
     return -1;
 }
 
-lia_move int_solver::proceed_with_gomory_cut(lar_term& t, mpq& k, explanation& ex, unsigned j) {
+lia_move int_solver::proceed_with_gomory_cut(lar_term& t, mpq& k, explanation& ex, unsigned j, bool & upper) {
     lia_move ret;
     
     const row_strip<mpq>& row = m_lar_solver->get_row(row_of_basic_column(j));
     int free_j = find_free_var_in_gomory_row(row);
     if (free_j != -1) {
-        ret = create_branch_on_column(j, t, k, true);
+        ret = create_branch_on_column(j, t, k, true, upper);
     } else if (!is_gomory_cut_target(row)) {
-        ret = create_branch_on_column(j, t, k, false);
+        bool upper;
+        ret = create_branch_on_column(j, t, k, false, upper);
     } else {
+        upper = false;
         ret = mk_gomory_cut(t, k, ex, j, row);
     }
     return ret;
@@ -482,7 +484,7 @@ void int_solver::catch_up_in_adding_constraints_to_cut_solver() {
     }
 }
 
-lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
+lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex, bool & upper) {
     init_check_data();
     lp_assert(inf_int_set_is_correct());
     // it is a reimplementation of 
@@ -541,10 +543,11 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
         int j = find_inf_int_base_column();
         if (j == -1) return lia_move::ok;
         TRACE("arith_int", tout << "j = " << j << " does not have an integer assignment: " << get_value(j) << "\n";);
-        return proceed_with_gomory_cut(t, k, ex, j);
+        
+        return proceed_with_gomory_cut(t, k, ex, j, upper);
     }
     TRACE("check_main_int", tout << "branch"; );
-    return create_branch_on_column(find_inf_int_base_column(), t, k, false);
+    return create_branch_on_column(find_inf_int_base_column(), t, k, false, upper);
 }
 
 bool int_solver::move_non_basic_column_to_bounds(unsigned j) {
@@ -1179,11 +1182,18 @@ const impq& int_solver::lower_bound(unsigned j) const {
     return m_lar_solver->column_lower_bound(j);
 }
 
-lia_move int_solver::create_branch_on_column(int j, lar_term& t, mpq& k, bool free_column) const {
+lia_move int_solver::create_branch_on_column(int j, lar_term& t, mpq& k, bool free_column, bool & upper) {
     lp_assert(t.is_empty());
     lp_assert(j != -1);
     t.add_monomial(mpq(1), m_lar_solver->adjust_column_index_to_term_index(j));
-    k = free_column? mpq(0) : floor(get_value(j));
+    if (free_column) {
+        upper = true;
+        k = mpq(0);
+    } else {
+        upper = left_branch_is_more_narrow_than_right(j);
+        k = upper? floor(get_value(j)) : ceil(get_value(j));        
+    }
+
     TRACE("arith_int", tout << "branching v" << j << " = " << get_value(j) << "\n";
           display_column(tout, j);
           tout << "k = " << k << std::endl;
@@ -1192,6 +1202,25 @@ lia_move int_solver::create_branch_on_column(int j, lar_term& t, mpq& k, bool fr
 
 }
 
+bool int_solver::left_branch_is_more_narrow_than_right(unsigned j) {
+    return settings().random_next() % 2;
+    switch (m_lar_solver->m_mpq_lar_core_solver.m_r_solver.m_column_types[j] ) {
+    case column_type::fixed:
+        return false;
+    case column_type::boxed:
+        {
+            auto k = floor(get_value(j));
+            return k - lower_bound(j).x < upper_bound(j).x - (k + mpq(1));
+        }
+    case column_type::lower_bound: 
+        return true;
+    case column_type::upper_bound:
+        return false;
+    default:
+        return false;
+    }       
+}
+    
 const impq& int_solver::upper_bound(unsigned j) const {
     return m_lar_solver->column_upper_bound(j);
 }

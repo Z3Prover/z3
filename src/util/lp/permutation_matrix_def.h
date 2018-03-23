@@ -74,7 +74,7 @@ void permutation_matrix<T, X>::apply_from_left(vector<X> & w, lp_settings & ) {
     while (i-- > 0) {
         w[i] = m_X_buffer[i];
     }
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     // lp_assert(vectors_are_equal<L>(deb_w, w, row_count()));
     // delete [] deb_w;
 #endif
@@ -109,7 +109,7 @@ template <typename T, typename X> void permutation_matrix<T, X>::apply_from_righ
     for (unsigned i = 0; i < size(); i++) {
         w[i] = m_T_buffer[i];
     }
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     // lp_assert(vectors_are_equal<T>(deb_w, w, row_count()));
     // delete [] deb_w;
 #endif
@@ -133,7 +133,7 @@ template <typename T, typename X> void permutation_matrix<T, X>::apply_from_righ
         w.set_value(buffer[i], pj);
     }
     lp_assert(w.is_OK());
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     lp_assert(vectors_are_equal(wcopy, w.m_data));
 #endif
 }
@@ -180,7 +180,7 @@ void permutation_matrix<T, X>::apply_reverse_from_left(indexed_vector<L> & w) {
         w[j] = t[i];
         w.m_index[i] = j;
     }
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     // lp_assert(vectors_are_equal<L>(deb_w, w.m_data, row_count()));
     // delete [] deb_w;
 #endif

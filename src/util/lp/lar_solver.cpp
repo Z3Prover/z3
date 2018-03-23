@@ -400,6 +400,9 @@ void lar_solver::pop(unsigned k) {
     m_constraints.resize(m_constraint_count);
     m_term_count.pop(k);
     for (unsigned i = m_term_count; i < m_terms.size(); i++) {
+#if Z3DEBUG_CHECK_UNIQUE_TERMS
+        m_set_of_terms.erase(m_terms[i]);
+#endif
         delete m_terms[i];
     }
     m_terms.resize(m_term_count);
@@ -1017,7 +1020,7 @@ bool lar_solver::the_right_sides_do_not_sum_to_zero(const vector<std::pair<mpq, 
 }
 
 bool lar_solver::explanation_is_correct(const vector<std::pair<mpq, unsigned>>& explanation) const {
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     lconstraint_kind kind;
     lp_assert(the_relations_are_of_same_type(explanation, kind));
     lp_assert(the_left_sides_sum_to_zero(explanation));
@@ -1042,7 +1045,7 @@ bool lar_solver::explanation_is_correct(const vector<std::pair<mpq, unsigned>>& 
 }
 
 bool lar_solver::inf_explanation_is_correct() const {
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     vector<std::pair<mpq, unsigned>> explanation;
     get_infeasibility_explanation(explanation);
     return explanation_is_correct(explanation);
@@ -1600,8 +1603,50 @@ void lar_solver::add_new_var_to_core_fields_for_mpq(bool register_in_basis) {
 
 var_index lar_solver::add_term_undecided(const vector<std::pair<mpq, var_index>> & coeffs,
                                          const mpq &m_v) {
-    m_terms.push_back(new lar_term(coeffs, m_v));
+    push_and_register_term(new lar_term(coeffs, m_v));
     return m_terms_start_index + m_terms.size() - 1;
+}
+
+#if Z3DEBUG_CHECK_UNIQUE_TERMS
+bool lar_solver::term_coeffs_are_ok(const vector<std::pair<mpq, var_index>> & coeffs, const mpq& v) {
+    if (coeffs.empty()) {
+        return is_zero(v);
+    }
+
+    for (const auto & p : coeffs) {
+        if (column_is_real(p.second))
+            return true;
+    }
+    
+    mpq g;
+    bool g_is_set = false;
+    for (const auto & p : coeffs) {
+        if (!p.first.is_int()) {
+            std::cout << "p.first = " << p.first << " is not an int\n";
+            return false;
+        }
+        if (!g_is_set) {
+            g_is_set = true;
+            g = p.first;
+        } else {
+            g = gcd(g, p.first);
+        }
+    }
+    if (g == one_of_type<mpq>())
+        return true;
+
+    std::cout << "term is not ok: g = " << g << std::endl;
+    this->print_linear_combination_of_column_indices_only(coeffs, std::cout);
+    std::cout << " rs = " << v << std::endl;
+    return false;
+}
+#endif
+void lar_solver::push_and_register_term(lar_term* t) {
+#if Z3DEBUG_CHECK_UNIQUE_TERMS
+    lp_assert(m_set_of_terms.find(t) == m_set_of_terms.end());
+    m_set_of_terms.insert(t);
+#endif
+    m_terms.push_back(t);
 }
 
 // terms
@@ -1610,7 +1655,7 @@ var_index lar_solver::add_term(const vector<std::pair<mpq, var_index>> & coeffs,
     if (strategy_is_undecided())
         return add_term_undecided(coeffs, m_v);
 
-    m_terms.push_back(new lar_term(coeffs, m_v));
+    push_and_register_term(new lar_term(coeffs, m_v));
     unsigned adjusted_term_index = m_terms.size() - 1;
     var_index ret = m_terms_start_index + adjusted_term_index;
     if (use_tableau() && !coeffs.empty()) {

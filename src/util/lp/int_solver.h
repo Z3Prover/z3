@@ -63,7 +63,7 @@ public:
     const int_set& inf_int_set() const;
     // main function to check that the solution provided by lar_solver is valid for integral values,
     // or provide a way of how it can be adjusted.
-    lia_move check(lar_term& t, mpq& k, explanation& ex);
+    lia_move check(lar_term& t, mpq& k, explanation& ex, bool & upper);
     bool move_non_basic_column_to_bounds(unsigned j);
     lia_move check_wrapper(lar_term& t, mpq& k, explanation& ex);
 private:
@@ -129,7 +129,7 @@ private:
     lia_move report_conflict_from_gomory_cut(mpq & k);
     void adjust_term_and_k_for_some_ints_case_gomory(lar_term& t, mpq& k, mpq& lcm_den);
     void init_check_data();
-    lia_move proceed_with_gomory_cut(lar_term& t, mpq& k, explanation& ex, unsigned j);
+    lia_move proceed_with_gomory_cut(lar_term& t, mpq& k, explanation& ex, unsigned j, bool & upper);
     int find_free_var_in_gomory_row(const row_strip<mpq>& );
     bool is_gomory_cut_target(const row_strip<mpq>&);
     bool at_bound(unsigned j) const;
@@ -161,7 +161,7 @@ public:
 private:
     unsigned random();
     bool has_inf_int() const;
-    lia_move create_branch_on_column(int j, lar_term& t, mpq& k, bool free_column) const;
+    lia_move create_branch_on_column(int j, lar_term& t, mpq& k, bool free_column, bool & upper);
     void catch_up_in_adding_constraints_to_cut_solver();
 public:
     void display_inf_or_int_inf_columns(std::ostream & out) const;
@@ -175,5 +175,6 @@ public:
     void pop(unsigned);
     void push();
     void copy_values_from_cut_solver();
+    bool left_branch_is_more_narrow_than_right(unsigned);
 };
 }

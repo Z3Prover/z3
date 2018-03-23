@@ -159,7 +159,7 @@ solve_Bd(unsigned entering) {
         m_columns_nz[entering] = m_ed.m_index.size();
     lp_assert(m_ed.is_OK());
     lp_assert(m_w.is_OK());
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     // auto B = get_B(*m_factorization, m_basis);
     // vector<T>  a(m_m());
     // m_A.copy_column_to_vector(entering, a);

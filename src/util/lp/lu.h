@@ -34,7 +34,7 @@ Revision History:
 #include "util/lp/square_dense_submatrix.h"
 #include "util/lp/dense_matrix.h"
 namespace lp {
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
 template <typename T, typename X> // print the nr x nc submatrix at the top left corner
 void print_submatrix(sparse_matrix<T, X> & m, unsigned mr, unsigned nc);
 
@@ -113,7 +113,7 @@ public:
 #endif
         m_i = p.apply_reverse(m_i);
 
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
         // lp_assert(*this == deb);
 #endif
     }

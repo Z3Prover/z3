@@ -25,7 +25,7 @@ Revision History:
 #include "util/debug.h"
 #include "util/lp/lu.h"
 namespace lp {
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
 template <typename T, typename X> // print the nr x nc submatrix at the top left corner
 void print_submatrix(sparse_matrix<T, X> & m, unsigned mr, unsigned nc, std::ostream & out) {
     vector<vector<std::string>> A;
@@ -138,12 +138,12 @@ lu<T, X>::lu(static_matrix<T, X> const & A,
     m_row_eta_work_vector(A.row_count()),
     m_refactor_counter(0) {
     lp_assert(!(numeric_traits<T>::precise() && settings.use_tableau()));
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     debug_test_of_basis(A, basis);
 #endif
     ++m_settings.st().m_num_factorizations;
     create_initial_factorization();
-#ifdef LEAN_DEBUG
+#ifdef Z3DEBUG
     // lp_assert(check_correctness());
 #endif
 }
