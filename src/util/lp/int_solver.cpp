@@ -357,7 +357,7 @@ lia_move int_solver::mk_gomory_cut(lar_term& t, mpq& k, explanation & expl, unsi
 
     lp_assert(current_solution_is_inf_on_cut(t, k));
     m_lar_solver->subs_term_columns(t);
-    TRACE("gomory_cut", tout<<"precut:"; m_lar_solver->print_term(t, tout); tout << ">= " << k << std::endl;);
+    TRACE("gomory_cut", tout<<"precut:"; m_lar_solver->print_term(t, tout); tout << " >= " << k << std::endl;);
     return lia_move::cut;
     
 }

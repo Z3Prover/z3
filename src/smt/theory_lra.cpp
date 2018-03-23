@@ -1289,7 +1289,7 @@ public:
         case lp::lia_move::ok:
             return l_true;
         case lp::lia_move::branch: {
-            app_ref b = mk_bound(term, k, upper);
+            app_ref b = mk_bound(term, k, !upper);
             // branch on term >= k + 1
             // branch on term <= k
             // TBD: ctx().force_phase(ctx().get_literal(b));
@@ -1300,7 +1300,7 @@ public:
         case lp::lia_move::cut: {
             ++m_stats.m_gomory_cuts;
             // m_explanation implies term <= k
-            app_ref b = mk_bound(term, k, upper);
+            app_ref b = mk_bound(term, k, true);
             m_eqs.reset();
             m_core.reset();
             m_params.reset();
