@@ -5210,6 +5210,17 @@ extern "C" {
 
 
     /**
+       \brief Parse and evaluate and SMT-LIB2 command sequence. The state from a previous call is saved so the next
+              evaluation builds on top of the previous call.
+
+       \returns output generated from processing commands.
+
+       def_API('Z3_eval_smtlib2_string', STRING, (_in(CONTEXT), _in(STRING),))
+    */
+
+    Z3_string Z3_API Z3_eval_smtlib2_string(Z3_context, Z3_string str);
+    
+    /**
        \brief Retrieve that last error message information generated from parsing.
 
        def_API('Z3_get_parser_error', STRING, (_in(CONTEXT), ))

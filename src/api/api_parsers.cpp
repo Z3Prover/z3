@@ -117,4 +117,31 @@ extern "C" {
         RETURN_Z3(r);
         Z3_CATCH_RETURN(nullptr);
     }
+
+    Z3_string Z3_API Z3_eval_smtlib2_string(Z3_context c, Z3_string str) {
+        Z3_TRY;
+        LOG_Z3_eval_smtlib2_string(c, str);
+        if (!mk_c(c)->cmd()) {
+            mk_c(c)->cmd() = alloc(cmd_context, false, &(mk_c(c)->m()));
+        }
+        scoped_ptr<cmd_context>& ctx = mk_c(c)->cmd();
+        std::string s(str);
+        std::istringstream is(s);
+        std::stringstream ous;
+        ctx->set_regular_stream(ous);
+        try {
+            if (!parse_smt2_commands(*ctx.get(), is)) {
+                mk_c(c)->m_parser_error_buffer = ous.str();
+                SET_ERROR_CODE(Z3_PARSER_ERROR);
+                RETURN_Z3(nullptr);
+            }
+        }
+        catch (z3_exception& e) {
+            mk_c(c)->m_parser_error_buffer = e.msg();
+            SET_ERROR_CODE(Z3_PARSER_ERROR);
+            RETURN_Z3(nullptr);
+        }
+        RETURN_Z3(mk_c(c)->mk_external_string(ous.str()));
+        Z3_CATCH_RETURN(nullptr);
+    }
 };
