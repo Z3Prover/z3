@@ -830,5 +830,6 @@ public:
         }
     }
 
+    const vector<unsigned>& r_basis() const { return m_r_basis; }
 };
 }

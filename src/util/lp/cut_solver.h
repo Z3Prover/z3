@@ -33,7 +33,7 @@
 #include "util/lp/constraint.h"
 #include "util/lp/active_set.h"
 #include "util/lp/indexer_of_constraints.h"
-
+#include "util/lp/lar_term.h"
 namespace lp {
 class cut_solver; //forward definition
 
@@ -396,6 +396,7 @@ public:
     unsigned                                       m_number_of_constraints_tried_for_propagaton;
     unsigned                                       m_pushes_to_trail;
     indexer_of_constraints                         m_indexer_of_constraints;
+    
     
     bool is_lower_bound(literal & l) const {
         return l.is_lower();
@@ -2132,11 +2133,11 @@ public:
         }
         
         if (number_of_lemmas == m_lemmas_container.size()) {
-            if (lemma_has_been_modified) {
+            if (lemma_has_been_modified && lemma->poly().number_of_monomials() != 0) {
                 add_lemma_as_not_active(lemma);
             }
             else {
-                delete_constraint(lemma);;
+                delete_constraint(lemma);
             }
         }
     }
@@ -2420,6 +2421,7 @@ public:
     }
 
     void add_lemma_common(constraint* lemma) {
+		lp_assert(lemma->poly().number_of_monomials() > 0);
         m_lemmas_container.add_lemma(lemma);
         polynomial & p = lemma->poly();
         simplify_ineq(p);
@@ -2485,7 +2487,39 @@ public:
     }
 
     unsigned number_of_constraints() const { return m_asserts.size() + m_lemmas_container.size(); }
+
+    void copy_poly_coeffs_to_term(polynomial& poly, lar_term & t) {
+        for (auto & p :poly.m_coeffs)
+            t.add_monomial(p.coeff(), p.var());
+    }
     
+    bool try_getting_cut(lar_term& t, mpq &k, vector<impq>& x) {
+	// todo : create an efficient version based on var_info bounds
+
+        vector<constraint*> short_lemmas;
+        unsigned size = static_cast<unsigned>(-1);
+        for (constraint *c : m_lemmas_container.m_lemmas ) {
+            if (!c->is_ineq()) continue;
+            const auto & p = c->poly();
+            if (p.number_of_monomials() > size)
+                continue;
+            if (is_pos(c->poly().value(x))) {
+                if (p.number_of_monomials() < size) {
+                    size = p.number_of_monomials();
+                    // even is size == 1 it makes sense to look for a random cut
+                    short_lemmas.clear();
+                }
+                short_lemmas.push_back(c);
+            }
+        }
+        unsigned n = short_lemmas.size();
+        if (n == 0) return false;
+        constraint *c = short_lemmas[m_settings.random_next() % n];    
+        k = - c->poly().m_a;
+        copy_poly_coeffs_to_term(c->poly(), t);
+        TRACE("cut_solver_cuts", trace_print_constraint(tout, *c););
+        return true;
+    }
 };
 
 inline polynomial operator*(const mpq & a, polynomial & p) {

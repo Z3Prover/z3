@@ -44,29 +44,35 @@ void int_solver::trace_inf_rows() const {
           );
 }
 
-int_set& int_solver::inf_int_set() {
-    return m_lar_solver->m_inf_int_set;
-}
-
-const int_set& int_solver::inf_int_set() const {
-    return m_lar_solver->m_inf_int_set;
-}
-
 bool int_solver::has_inf_int() const {
-    return !inf_int_set().is_empty();
+    return m_lar_solver->has_inf_int();
 }
 
 int int_solver::find_inf_int_base_column() {
-    if (inf_int_set().is_empty())
+    unsigned inf_int_count;
+    int j = find_inf_int_boxed_base_column_with_smallest_range(inf_int_count);
+	if (j != -1)
+		return j;
+    if (inf_int_count == 0)
         return -1;
-    int j = find_inf_int_boxed_base_column_with_smallest_range();
-    if (j != -1)
-        return j;
-    unsigned k = settings().random_next() % inf_int_set().m_index.size();
-    return inf_int_set().m_index[k];
+    unsigned k = random() % inf_int_count;
+    return get_kth_inf_int(k);
 }
 
-int int_solver::find_inf_int_boxed_base_column_with_smallest_range() {
+int int_solver::get_kth_inf_int(unsigned k) const {
+    unsigned inf_int_count = 0;
+    for (unsigned j : m_lar_solver->r_basis()) {
+        if (! column_is_int_inf(j) )
+            continue;
+        if (inf_int_count++ == k)
+            return j;
+    }
+    lp_assert(false);
+    return -1;
+}
+
+int int_solver::find_inf_int_boxed_base_column_with_smallest_range(unsigned & inf_int_count) {
+    inf_int_count = 0;
     int result = -1;
     mpq range;
     mpq new_range;
@@ -74,11 +80,13 @@ int int_solver::find_inf_int_boxed_base_column_with_smallest_range() {
     unsigned n;
     lar_core_solver & lcs = m_lar_solver->m_mpq_lar_core_solver;
 
-    for (int j : inf_int_set().m_index) {
-        lp_assert(is_base(j) && column_is_int_inf(j));
-        lp_assert(!is_fixed(j));
+    for (unsigned j : m_lar_solver->r_basis()) {
+        if (!column_is_int_inf(j))
+            continue;
+        inf_int_count++;
         if (!is_boxed(j))
             continue;
+        lp_assert(!is_fixed(j));
         new_range  = lcs.m_r_upper_bounds()[j].x - lcs.m_r_lower_bounds()[j].x;
         if (new_range > small_range_thresold) 
             continue;
@@ -325,7 +333,7 @@ lia_move int_solver::mk_gomory_cut(lar_term& t, mpq& k, explanation & expl, unsi
           tout << "inf_col = " << inf_col << std::endl;
           );
         
-    // gomory will be   t >= k
+    // gomory will be   t <= k and the current solution has a property t > k
     k = 1;
     mpq lcm_den(1);
     unsigned x_j;
@@ -356,7 +364,7 @@ lia_move int_solver::mk_gomory_cut(lar_term& t, mpq& k, explanation & expl, unsi
 
     lp_assert(current_solution_is_inf_on_cut(t, k));
     m_lar_solver->subs_term_columns(t);
-    TRACE("gomory_cut", tout<<"precut:"; m_lar_solver->print_term(t, tout); tout << ">= " << k << std::endl;);
+    TRACE("gomory_cut", tout<<"precut:"; m_lar_solver->print_term(t, tout); tout << " <= " << k << std::endl;);
     return lia_move::cut;
 }
 
@@ -476,15 +484,69 @@ void int_solver::copy_values_from_cut_solver() {
 }
 
 void int_solver::catch_up_in_adding_constraints_to_cut_solver() {
-    lp_assert(m_cut_solver.number_of_asserts() <= m_lar_solver->constraints().size());
+	lp_assert(m_cut_solver.number_of_asserts() <= m_lar_solver->constraints().size());
     for (unsigned j = m_cut_solver.number_of_asserts(); j < m_lar_solver->constraints().size(); j++) {
         add_constraint_to_cut_solver(j, m_lar_solver->constraints()[j]);
     }
 }
 
+bool int_solver::tighten_term_for_cube(unsigned i) {
+    unsigned ti = i + m_lar_solver->terms_start_index();
+    if (!m_lar_solver->term_is_used_as_row(ti))
+        return true;
+    const lar_term* t = m_lar_solver->terms()[i];
+    mpq delta = zero_of_type<mpq>();
+    for (const auto & p : *t) {
+        delta += abs(p.coeff());
+    }
+    delta *= mpq(1, 2);
+    TRACE("cube", m_lar_solver->print_term_as_indices(*t, tout); tout << ", delta = " << delta;);
+
+    return m_lar_solver->tighten_term_bounds_by_delta(i, delta);
+}
+
+bool int_solver::tighten_terms_for_cube() {
+    for (unsigned i = 0; i < m_lar_solver->terms().size(); i++)
+        if (!tighten_term_for_cube(i)) {
+            TRACE("cube", tout << "cannot tighten";);
+            return false;
+        }
+    return true;
+}
+
+bool int_solver::find_cube() {
+	if (m_branch_cut_counter % settings().m_int_branch_find_cube != 0)
+        return false;
+    
+    settings().st().m_cube_calls++;
+    TRACE("cube",
+          for (unsigned j = 0; j < m_lar_solver->A_r().column_count(); j++)
+              display_column(tout, j);
+          m_lar_solver->print_terms(tout);
+          );
+    m_lar_solver->push();
+    if(!tighten_terms_for_cube()) {
+        m_lar_solver->pop();
+        return false;
+    }
+
+    lp_status st = m_lar_solver->find_feasible_solution();
+    if (st != lp_status::FEASIBLE && st != lp_status::OPTIMAL) {
+        TRACE("cube", tout << "cannot find a feasiblie solution";);
+        m_lar_solver->pop();
+        move_non_basic_columns_to_bounds();
+        m_lar_solver->find_feasible_solution();
+        lp_assert(m_lar_solver->get_status() == lp_status::OPTIMAL);
+        // it can happen that we found an integer solution here
+        return !m_lar_solver->r_basis_has_inf_int();
+    }
+    m_lar_solver->round_to_integer_solution();
+    m_lar_solver->pop();
+    return true;
+}
+
 lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex, bool & upper) {
     init_check_data();
-    lp_assert(inf_int_set_is_correct());
     // it is a reimplementation of 
     // final_check_status theory_arith<Ext>::check_int_feasibility()
     // from theory_arith_int.h with the addition of cut_solver
@@ -507,7 +569,14 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex, bool & upper) {
     if (!has_inf_int())
         return lia_move::ok;
 
-    if ((++m_branch_cut_counter) % settings().m_int_branch_cut_solver == 0) {
+    ++m_branch_cut_counter;
+    if (find_cube()){
+        settings().st().m_cube_success++;
+        return lia_move::ok;
+    }
+    TRACE("cube", tout << "cube did not succeed";);
+    
+    if ((m_branch_cut_counter) % settings().m_int_branch_cut_solver == 0) {
         TRACE("check_main_int", tout<<"cut_solver";);
         catch_up_in_adding_constraints_to_cut_solver();
         auto check_res = m_cut_solver.check();
@@ -520,9 +589,18 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex, bool & upper) {
         case cut_solver::lbool::l_true:
             settings().st().m_cut_solver_true++;
             copy_values_from_cut_solver();
+            lp_assert(m_lar_solver->all_constraints_hold());
             return lia_move::ok;
         case cut_solver::lbool::l_undef:
             settings().st().m_cut_solver_undef++;
+            if (m_cut_solver.try_getting_cut(t, k, m_lar_solver->m_mpq_lar_core_solver.m_r_x)) {
+                m_lar_solver->subs_term_columns(t);
+                TRACE("cut_solver_cuts",
+                      tout<<"precut from cut_solver:"; m_lar_solver->print_term(t, tout); tout << " <= " << k << std::endl;);
+
+
+                return lia_move::cut;
+            }
             break;
         default:
             return lia_move::give_up;
@@ -598,7 +676,6 @@ void int_solver::set_value_for_nbasic_column_ignore_old_values(unsigned j, const
     auto & x = m_lar_solver->m_mpq_lar_core_solver.m_r_x[j];
     auto delta = new_val - x;
     x = new_val;
-    update_column_in_int_inf_set(j);
     m_lar_solver->change_basic_columns_dependend_on_a_given_nb_column(j, delta);
 }
 
@@ -612,7 +689,6 @@ void int_solver::set_value_for_nbasic_column(unsigned j, const impq & new_val) {
     }
     auto delta = new_val - x;
     x = new_val;
-    update_column_in_int_inf_set(j);
     m_lar_solver->change_basic_columns_dependend_on_a_given_nb_column(j, delta);
 }
 
@@ -677,7 +753,6 @@ void int_solver::patch_int_infeasible_nbasic_columns() {
         move_non_basic_columns_to_bounds();
         m_lar_solver->find_feasible_solution();
     }
-    lp_assert(is_feasible() && inf_int_set_is_correct());
 }
 
 mpq get_denominators_lcm(const row_strip<mpq> & row) {
@@ -990,25 +1065,8 @@ void int_solver::display_column(std::ostream & out, unsigned j) const {
     m_lar_solver->m_mpq_lar_core_solver.m_r_solver.print_column_info(j, out);
 }
 
-bool int_solver::inf_int_set_is_correct() const {
-    for (unsigned j = 0; j < m_lar_solver->A_r().column_count(); j++) {
-        if (inf_int_set().contains(j) != (is_int(j) && (!value_is_int(j)))) {
-            TRACE("arith_int", tout << "j= " << j << " inf_int_set().contains(j) = " << inf_int_set().contains(j) << ", is_int(j) = "   << is_int(j) << "\nvalue_is_int(j) = " << value_is_int(j) << ", val = " << get_value(j) << std::endl;); 
-            return false;
-        }
-    }
-    return true;
-}
-
 bool int_solver::column_is_int_inf(unsigned j) const {
     return is_int(j) && (!value_is_int(j));
-}
-    
-void int_solver::update_column_in_int_inf_set(unsigned j) {
-    if (is_int(j) && (!value_is_int(j)))
-        inf_int_set().insert(j);
-    else
-        inf_int_set().erase(j);
 }
 
 bool int_solver::is_base(unsigned j) const {
@@ -1181,6 +1239,7 @@ const impq& int_solver::lower_bound(unsigned j) const {
 }
 
 lia_move int_solver::create_branch_on_column(int j, lar_term& t, mpq& k, bool free_column, bool & upper) {
+    TRACE("check_main_int", tout << "branching" << std::endl;);
     lp_assert(t.is_empty());
     lp_assert(j != -1);
     t.add_monomial(mpq(1), m_lar_solver->adjust_column_index_to_term_index(j));
@@ -1201,7 +1260,6 @@ lia_move int_solver::create_branch_on_column(int j, lar_term& t, mpq& k, bool fr
 }
 
 bool int_solver::left_branch_is_more_narrow_than_right(unsigned j) {
-    return settings().random_next() % 2;
     switch (m_lar_solver->m_mpq_lar_core_solver.m_r_solver.m_column_types[j] ) {
     case column_type::fixed:
         return false;
@@ -1222,16 +1280,7 @@ bool int_solver::left_branch_is_more_narrow_than_right(unsigned j) {
 const impq& int_solver::upper_bound(unsigned j) const {
     return m_lar_solver->column_upper_bound(j);
 }
-void int_solver::display_inf_or_int_inf_columns(std::ostream & out) const {
-    out << "int inf\n";
-    for (unsigned j : m_lar_solver->m_inf_int_set.m_index) {
-        display_column(out, j);
-    }
-    out << "regular inf\n";
-    for (unsigned j : m_lar_solver->m_mpq_lar_core_solver.m_r_solver.m_inf_set.m_index) {
-        display_column(out, j);
-    }
-}
+
 bool int_solver::is_term(unsigned j) const {
     return m_lar_solver->column_corresponds_to_term(j);
 }
@@ -1250,8 +1299,8 @@ void int_solver::pop(unsigned k) {
     m_cut_solver.pop_constraints();
 }
 
-void int_solver::push() {
-    m_cut_solver.push();
-}
+void int_solver::push() { m_cut_solver.push(); }
+
+unsigned int_solver::column_count() const  { return m_lar_solver->column_count(); }
 
 }

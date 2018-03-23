@@ -1095,7 +1095,7 @@ public:
     }
 
     void init_variable_values() {
-        if (m_solver.get() && th.get_num_vars() > 0) {
+        if (!m.canceled() && m_solver.get() && th.get_num_vars() > 0) {
             m_solver->get_model(m_variable_values);
         }
     }
@@ -1255,7 +1255,7 @@ public:
         return FC_GIVEUP;
     }
 
-    // create a bound atom representing term <= k
+    // create a bound atom representing term >= k is lower_bound is true, and term <= k if it is false
     app_ref mk_bound(lp::lar_term const& term, rational const& k, bool lower_bound) {
         app_ref t = mk_term(term, k.is_int());
         app_ref atom(m);
@@ -1289,7 +1289,7 @@ public:
         case lp::lia_move::ok:
             return l_true;
         case lp::lia_move::branch: {
-            app_ref b = mk_bound(term, k, upper);
+            app_ref b = mk_bound(term, k, !upper);
             // branch on term >= k + 1
             // branch on term <= k
             // TBD: ctx().force_phase(ctx().get_literal(b));
@@ -1300,7 +1300,7 @@ public:
         case lp::lia_move::cut: {
             ++m_stats.m_gomory_cuts;
             // m_explanation implies term <= k
-            app_ref b = mk_bound(term, k, upper);
+            app_ref b = mk_bound(term, k, false);
             m_eqs.reset();
             m_core.reset();
             m_params.reset();
@@ -2683,10 +2683,14 @@ public:
         if (!term.m_v.is_zero()) {
             args.push_back(a.mk_numeral(term.m_v, is_int));
         }
-        if (args.size() == 1) {
+        switch (args.size()) {
+        case 0:
+            return app_ref(a.mk_numeral(rational::zero(), is_int), m);
+        case 1:
             return app_ref(to_app(args[0].get()), m);
+        default:
+            return app_ref(a.mk_add(args.size(), args.c_ptr()), m);
         }
-        return app_ref(a.mk_add(args.size(), args.c_ptr()), m);
     }
 
     app_ref mk_obj(theory_var v) {
@@ -2806,12 +2810,14 @@ public:
         st.update("arith-make-feasible", m_solver->settings().st().m_make_feasible);
         st.update("arith-max-columns", m_solver->settings().st().m_max_cols);
         st.update("arith-max-rows", m_solver->settings().st().m_max_rows);
-        st.update("cut_solver-calls", m_solver->settings().st().m_cut_solver_calls);
-        st.update("cut_solver-true", m_solver->settings().st().m_cut_solver_true);
-        st.update("cut_solver-false", m_solver->settings().st().m_cut_solver_false);
-        st.update("cut_solver-undef", m_solver->settings().st().m_cut_solver_undef);
-        st.update("gcd_calls", m_solver->settings().st().m_gcd_calls);
-        st.update("gcd_conflict", m_solver->settings().st().m_gcd_conflicts);
+        st.update("cut-solver-calls", m_solver->settings().st().m_cut_solver_calls);
+        st.update("cut-solver-true", m_solver->settings().st().m_cut_solver_true);
+        st.update("cut-solver-false", m_solver->settings().st().m_cut_solver_false);
+        st.update("cut-solver-undef", m_solver->settings().st().m_cut_solver_undef);
+        st.update("gcd-calls", m_solver->settings().st().m_gcd_calls);
+        st.update("gcd-conflict", m_solver->settings().st().m_gcd_conflicts);
+        st.update("cube-calls", m_solver->settings().st().m_cube_calls);
+        st.update("cube-success", m_solver->settings().st().m_cube_success);
     }        
 };
     

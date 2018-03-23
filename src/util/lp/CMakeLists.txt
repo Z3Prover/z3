@@ -23,7 +23,6 @@ z3_add_component(lp
     matrix.cpp
     nra_solver.cpp
     permutation_matrix.cpp
-    quick_xplain.cpp
     row_eta_matrix.cpp
     scaler.cpp
     sparse_matrix.cpp
