@@ -21,8 +21,11 @@ Revision History:
 #include "api/api_context.h"
 #include "api/api_util.h"
 #include "cmd_context/cmd_context.h"
+#include "smt/smt_solver.h"
 #include "parsers/smt2/smt2parser.h"
 #include "solver/solver_na2as.h"
+#include "tactic/portfolio/smt_strategic_solver.h"
+
 
 extern "C" {
 
@@ -123,6 +126,7 @@ extern "C" {
         LOG_Z3_eval_smtlib2_string(c, str);
         if (!mk_c(c)->cmd()) {
             mk_c(c)->cmd() = alloc(cmd_context, false, &(mk_c(c)->m()));
+            mk_c(c)->cmd()->set_solver_factory(mk_smt_strategic_solver_factory());
         }
         scoped_ptr<cmd_context>& ctx = mk_c(c)->cmd();
         std::string s(str);
