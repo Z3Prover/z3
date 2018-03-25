@@ -245,14 +245,14 @@ namespace sat {
             m_pos.push_back(l);
             m_neg.push_back(~l);
         }
-#if 1
         compare_left cmp(big);
         std::sort(m_pos.begin(), m_pos.end(), cmp);
         std::sort(m_neg.begin(), m_neg.end(), cmp);
-#else
-        radix_sort(big, m_pos);
-        radix_sort(big, m_neg);
-#endif
+
+        // alternative: worse
+        // radix_sort(big, m_pos);
+        // radix_sort(big, m_neg);
+
         IF_VERBOSE(100, 
                    for (literal l : m_pos) verbose_stream() << big.get_left(l) << " "; 
                    verbose_stream() << "\n";

@@ -117,19 +117,13 @@ namespace sat {
             else {
                 unsigned new_sz = j;
                 CTRACE("sat_cleaner_bug", new_sz < 2, tout << "new_sz: " << new_sz << "\n";
-                       if (c.size() > 0) tout << "unit: " << c[0] << "\n";);
-                SASSERT(c.frozen() || new_sz >= 2);
+                       if (c.size() > 0) tout << "unit: " << c[0] << "\n";
+                       s.display_watches(tout););
                 if (new_sz == 0) {
-                    // It can only happen with frozen clauses.
-                    // active clauses would have signed the conflict.
-                    SASSERT(c.frozen());
                     s.set_conflict(justification());
                     s.del_clause(c);
                 }
                 else if (new_sz == 1) {
-                    // It can only happen with frozen clauses.
-                    // active clauses would have propagated the literal
-                    SASSERT(c.frozen());
                     s.assign(c[0], justification());
                     s.del_clause(c);
                 }
@@ -188,6 +182,7 @@ namespace sat {
         CASSERT("cleaner_bug", s.check_invariant());
         unsigned trail_sz = s.m_trail.size();
         s.propagate(false); // make sure that everything was propagated.
+        TRACE("sat_cleaner_bug", s.display(tout); s.display_watches(tout););
         if (s.m_inconsistent)
             return false;
         if (m_last_num_units == trail_sz)

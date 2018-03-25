@@ -45,7 +45,14 @@ namespace sat {
         bool safe_reach(literal u, literal v);
         literal next(literal u, literal v) const;
 
+        std::ostream& display_path(std::ostream& out, literal u, literal v) const;
+
+        void add_del(literal u, literal v);
+        bool in_del(literal u, literal v) const;
+
     public:
+
+        // static svector<std::pair<literal, literal>> s_del_bin;
 
         big(random_gen& rand);
         /**
