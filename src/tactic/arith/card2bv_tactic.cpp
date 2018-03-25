@@ -36,24 +36,24 @@ public:
         m_params(p) {
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(card2bv_tactic, m, m_params);
     }
 
-    virtual ~card2bv_tactic() {
+    ~card2bv_tactic() override {
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_params = p;
     }
 
-    virtual void collect_param_descrs(param_descrs & r) {  
+    void collect_param_descrs(param_descrs & r) override {  
         r.insert("keep_cardinality_constraints", CPK_BOOL, "(default: true) retain cardinality constraints for solver");        
     }
 
     
-    virtual void operator()(goal_ref const & g, 
-                            goal_ref_buffer & result) {
+    void operator()(goal_ref const & g, 
+                    goal_ref_buffer & result) override {
         TRACE("card2bv-before", g->display(tout););
         SASSERT(g->is_well_sorted());
         result.reset();
@@ -97,7 +97,7 @@ public:
         SASSERT(g->is_well_sorted());
     }
     
-    virtual void cleanup() {
+    void cleanup() override {
     }
 };
 

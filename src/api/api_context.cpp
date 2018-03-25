@@ -19,7 +19,6 @@ Revision History:
 --*/
 #include<typeinfo>
 #include "api/api_context.h"
-#include "parsers/smt/smtparser.h"
 #include "util/version.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
@@ -71,7 +70,7 @@ namespace api {
     // ------------------------
 
     context::context(context_params * p, bool user_ref_count):
-        m_params(p != 0 ? *p : context_params()),
+        m_params(p != nullptr ? *p : context_params()),
         m_user_ref_count(user_ref_count),
         m_manager(m_params.mk_ast_manager()),
         m_plugins(m()),
@@ -89,10 +88,8 @@ namespace api {
         m_print_mode = Z3_PRINT_SMTLIB_FULL;
         m_searching  = false;
         
-        m_smtlib_parser           = 0;
-        m_smtlib_parser_has_decls = false;
 
-        m_interruptable = 0;                
+        m_interruptable = nullptr;
         m_error_handler = &default_error_handler;
 
         m_basic_fid = m().get_basic_family_id();
@@ -111,13 +108,13 @@ namespace api {
 
 
     context::~context() {
-        reset_parser();
-        m_last_obj = 0;
+        m_last_obj = nullptr;
         u_map<api::object*>::iterator it = m_allocated_objects.begin();
         while (it != m_allocated_objects.end()) {
-            DEBUG_CODE(warning_msg("Uncollected memory: %d: %s", it->m_key, typeid(*it->m_value).name()););
+            api::object* val = it->m_value;
+            DEBUG_CODE(warning_msg("Uncollected memory: %d: %s", it->m_key, typeid(*val).name()););
             m_allocated_objects.remove(it->m_key);
-            dealloc(it->m_value);
+            dealloc(val);
             it = m_allocated_objects.begin();
         }
     }
@@ -134,7 +131,7 @@ namespace api {
     context::set_interruptable::~set_interruptable() {
         #pragma omp critical (set_interruptable) 
         {
-            m_ctx.m_interruptable = 0;
+            m_ctx.m_interruptable = nullptr;
         }
     }
 
@@ -155,6 +152,12 @@ namespace api {
         }
     }
 
+    void context::reset_error_code() { 
+        m_error_code = Z3_OK; 
+    }
+
+
+
     void context::check_searching() {
         if (m_searching) { 
             set_error_code(Z3_INVALID_USAGE); // TBD: error code could be fixed.
@@ -172,7 +175,7 @@ namespace api {
     }
 
     expr * context::mk_numeral_core(rational const & n, sort * s) {
-        expr* e = 0;
+        expr* e = nullptr;
         family_id fid  = s->get_family_id();
         if (fid == m_arith_fid) {
             e = m_arith_util.mk_numeral(n, s);
@@ -236,7 +239,7 @@ namespace api {
     void context::reset_last_result() {
         if (m_user_ref_count)
             m_last_result.reset();
-        m_last_obj = 0;
+        m_last_obj = nullptr;
     }
 
     void context::save_object(object * r) {
@@ -304,46 +307,13 @@ namespace api {
         }
     }
 
-
-    // ------------------------
-    //
-    // Parser interface for backward compatibility 
-    //
-    // ------------------------
-    
-    void context::reset_parser() {
-        if (m_smtlib_parser) {
-            dealloc(m_smtlib_parser);
-            m_smtlib_parser = 0;
-            m_smtlib_parser_has_decls = false;
-            m_smtlib_parser_decls.reset();
-            m_smtlib_parser_sorts.reset();
-        }
-        SASSERT(!m_smtlib_parser_has_decls);
-    }
-    
-    void context::extract_smtlib_parser_decls() {
-        if (m_smtlib_parser) {
-            if (!m_smtlib_parser_has_decls) {
-                smtlib::symtable * table = m_smtlib_parser->get_benchmark()->get_symtable();
-                table->get_func_decls(m_smtlib_parser_decls);
-                table->get_sorts(m_smtlib_parser_sorts);
-                m_smtlib_parser_has_decls = true;
-            }
-        }
-        else {
-            m_smtlib_parser_decls.reset();
-            m_smtlib_parser_sorts.reset();
-        }
-    }
-
     // ------------------------
     //
     // RCF manager
     //
     // -----------------------
     realclosure::manager & context::rcfm() {
-        if (m_rcf_manager.get() == 0) {
+        if (m_rcf_manager.get() == nullptr) {
             m_rcf_manager = alloc(realclosure::manager, m_limit, m_rcf_qm);
         }
         return *(m_rcf_manager.get());
@@ -366,7 +336,7 @@ extern "C" {
         memory::initialize(UINT_MAX);
         Z3_context r = reinterpret_cast<Z3_context>(alloc(api::context, reinterpret_cast<context_params*>(c), false));
         RETURN_Z3(r);
-        Z3_CATCH_RETURN_NO_HANDLE(0);
+        Z3_CATCH_RETURN_NO_HANDLE(nullptr);
     }
 
     Z3_context Z3_API Z3_mk_context_rc(Z3_config c) {
@@ -375,7 +345,7 @@ extern "C" {
         memory::initialize(UINT_MAX);
         Z3_context r = reinterpret_cast<Z3_context>(alloc(api::context, reinterpret_cast<context_params*>(c), true));
         RETURN_Z3(r);
-        Z3_CATCH_RETURN_NO_HANDLE(0);
+        Z3_CATCH_RETURN_NO_HANDLE(nullptr);
     }
 
     void Z3_API Z3_del_context(Z3_context c) {
@@ -489,7 +459,7 @@ extern "C" {
         case Z3_INTERNAL_FATAL:    return "internal error";
         case Z3_INVALID_USAGE:     return "invalid usage";
         case Z3_DEC_REF_ERROR:     return "invalid dec_ref command";
-        case Z3_EXCEPTION:         return c == 0 ? "Z3 exception" : mk_c(c)->get_exception_msg();
+        case Z3_EXCEPTION:         return c == nullptr ? "Z3 exception" : mk_c(c)->get_exception_msg();
         default:                   return "unknown";
         }
     }

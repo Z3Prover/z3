@@ -46,16 +46,16 @@ public:
     str_value_factory(ast_manager & m, family_id fid) :
         value_factory(m, fid),
         u(m), delim("!"), m_next(0) {}
-    virtual ~str_value_factory() {}
-    virtual expr * get_some_value(sort * s) {
+    ~str_value_factory() override {}
+    expr * get_some_value(sort * s) override {
         return u.str.mk_string(symbol("some value"));
     }
-    virtual bool get_some_values(sort * s, expr_ref & v1, expr_ref & v2) {
+    bool get_some_values(sort * s, expr_ref & v1, expr_ref & v2) override {
         v1 = u.str.mk_string(symbol("value 1"));
         v2 = u.str.mk_string(symbol("value 2"));
         return true;
     }
-    virtual expr * get_fresh_value(sort * s) {
+    expr * get_fresh_value(sort * s) override {
         if (u.is_string(s)) {
             while (true) {
                 std::ostringstream strm;
@@ -66,36 +66,19 @@ public:
                 return u.str.mk_string(sym);
             }
         }
-        sort* seq = 0;
+        sort* seq = nullptr;
         if (u.is_re(s, seq)) {
             expr* v0 = get_fresh_value(seq);
             return u.re.mk_to_re(v0);
         }
         TRACE("t_str", tout << "unexpected sort in get_fresh_value(): " << mk_pp(s, m_manager) << std::endl;);
-        UNREACHABLE(); return NULL;
+        UNREACHABLE(); return nullptr;
     }
-    virtual void register_value(expr * n) { /* Ignore */ }
+    void register_value(expr * n) override { /* Ignore */ }
 };
 
-// rather than modify obj_pair_map I inherit from it and add my own helper methods
-class theory_str_contain_pair_bool_map_t : public obj_pair_map<expr, expr, expr*> {
-public:
-    expr * operator[](std::pair<expr*, expr*> key) const {
-        expr * value;
-        bool found = this->find(key.first, key.second, value);
-        if (found) {
-            return value;
-        } else {
-            TRACE("t_str", tout << "WARNING: lookup miss in contain_pair_bool_map!" << std::endl;);
-            return NULL;
-        }
-    }
-
-    bool contains(std::pair<expr*, expr*> key) const {
-        expr * unused;
-        return this->find(key.first, key.second, unused);
-    }
-};
+// NSB: added operator[] and contains to obj_pair_hashtable
+class theory_str_contain_pair_bool_map_t : public obj_pair_map<expr, expr, expr*> {};
 
 template<typename Ctx>
 class binary_search_trail : public trail<Ctx> {
@@ -104,8 +87,8 @@ class binary_search_trail : public trail<Ctx> {
 public:
     binary_search_trail(obj_map<expr, ptr_vector<expr> > & target, expr * entry) :
         target(target), entry(entry) {}
-    virtual ~binary_search_trail() {}
-    virtual void undo(Ctx & ctx) {
+    ~binary_search_trail() override {}
+    void undo(Ctx & ctx) override {
         TRACE("t_str_binary_search", tout << "in binary_search_trail::undo()" << std::endl;);
         if (target.contains(entry)) {
             if (!target[entry].empty()) {
@@ -169,7 +152,7 @@ class theory_str : public theory {
     struct T_cut
     {
         int level;
-        std::map<expr*, int> vars;
+        obj_map<expr, int> vars;
 
         T_cut() {
             level = -100;
@@ -267,6 +250,10 @@ protected:
 
     str_value_factory * m_factory;
 
+    // Unique identifier appended to unused variables to ensure that model construction
+    // does not introduce equalities when they weren't enforced.
+    unsigned m_unused_id;
+
     // terms we couldn't go through set_up_axioms() with because they weren't internalized
     expr_ref_vector m_delayed_axiom_setup_terms;
 
@@ -275,6 +262,7 @@ protected:
     ptr_vector<enode> m_concat_axiom_todo;
     ptr_vector<enode> m_string_constant_length_todo;
     ptr_vector<enode> m_concat_eval_todo;
+    expr_ref_vector m_delayed_assertions_todo;
 
     // enode lists for library-aware/high-level string terms (e.g. substr, contains)
     ptr_vector<enode> m_library_aware_axiom_todo;
@@ -288,8 +276,8 @@ protected:
     int tmpXorVarCount;
     int tmpLenTestVarCount;
     int tmpValTestVarCount;
-    std::map<std::pair<expr*, expr*>, std::map<int, expr*> > varForBreakConcat;
-
+    // obj_pair_map<expr, expr, std::map<int, expr*> > varForBreakConcat;
+    std::map<std::pair<expr*,expr*>, std::map<int, expr*> > varForBreakConcat;
     bool avoidLoopCut;
     bool loopDetected;
     obj_map<expr, std::stack<T_cut*> > cut_var_map;
@@ -299,7 +287,7 @@ protected:
     obj_hashtable<expr> variable_set;
     obj_hashtable<expr> internal_variable_set;
     obj_hashtable<expr> regex_variable_set;
-    std::map<int, std::set<expr*> > internal_variable_scope_levels;
+    std::map<int, obj_hashtable<expr> > internal_variable_scope_levels;
 
     obj_hashtable<expr> internal_lenTest_vars;
     obj_hashtable<expr> internal_valTest_vars;
@@ -308,30 +296,31 @@ protected:
     obj_hashtable<expr> input_var_in_len;
 
     obj_map<expr, unsigned int> fvar_len_count_map;
-    std::map<expr*, ptr_vector<expr> > fvar_lenTester_map;
+    obj_map<expr, ptr_vector<expr> > fvar_lenTester_map;
     obj_map<expr, expr*> lenTester_fvar_map;
 
-    std::map<expr*, std::map<int, svector<std::pair<int, expr*> > > > fvar_valueTester_map;
-    std::map<expr*, expr*> valueTester_fvar_map;
 
-    std::map<expr*, int_vector> val_range_map;
+    obj_map<expr, std::map<int, svector<std::pair<int, expr*> > > > fvar_valueTester_map;
+
+    obj_map<expr, expr*> valueTester_fvar_map;
+
+    obj_map<expr, int_vector> val_range_map;
 
     // This can't be an expr_ref_vector because the constructor is wrong,
     // we would need to modify the allocator so we pass in ast_manager
-    std::map<expr*, std::map<std::set<expr*>, ptr_vector<expr> > > unroll_tries_map;
-    std::map<expr*, expr*> unroll_var_map;
-    std::map<std::pair<expr*, expr*>, expr*> concat_eq_unroll_ast_map;
+    obj_map<expr, std::map<std::set<expr*>, ptr_vector<expr> > > unroll_tries_map;
+    obj_map<expr, expr*> unroll_var_map;
+    obj_pair_map<expr, expr, expr*> concat_eq_unroll_ast_map;
 
     expr_ref_vector contains_map;
 
     theory_str_contain_pair_bool_map_t contain_pair_bool_map;
-    //obj_map<expr, obj_pair_set<expr, expr> > contain_pair_idx_map;
-    std::map<expr*, std::set<std::pair<expr*, expr*> > > contain_pair_idx_map;
+    obj_map<expr, std::set<std::pair<expr*, expr*> > > contain_pair_idx_map;
 
+    // TBD: do a curried map for determinism.
     std::map<std::pair<expr*, zstring>, expr*> regex_in_bool_map;
-    std::map<expr*, std::set<zstring> > regex_in_var_reg_str_map;
-
-    std::map<expr*, nfa> regex_nfa_cache; // Regex term --> NFA
+    obj_map<expr, std::set<zstring> > regex_in_var_reg_str_map;
+    obj_map<expr, nfa> regex_nfa_cache; // Regex term --> NFA
 
     svector<char> char_set;
     std::map<char, int>  charSetLookupTable;
@@ -358,8 +347,8 @@ protected:
     // cache mapping each string S to Length(S)
     obj_map<expr, app*> length_ast_map;
 
-    th_union_find m_find;
     th_trail_stack m_trail_stack;
+    th_union_find m_find;
     theory_var get_var(expr * n) const;
     expr * get_eqc_next(expr * n);
     app * get_ast(theory_var i);
@@ -443,7 +432,7 @@ protected:
     void instantiate_axiom_suffixof(enode * e);
     void instantiate_axiom_Contains(enode * e);
     void instantiate_axiom_Indexof(enode * e);
-    void instantiate_axiom_Indexof2(enode * e);
+    void instantiate_axiom_Indexof_extended(enode * e);
     void instantiate_axiom_LastIndexof(enode * e);
     void instantiate_axiom_Substr(enode * e);
     void instantiate_axiom_Replace(enode * e);
@@ -491,10 +480,11 @@ protected:
             std::map<expr*, expr*> & concatAliasMap, std::map<expr*, expr *> & varConstMap,
             std::map<expr*, expr*> & concatConstMap, std::map<expr*, std::map<expr*, int> > & varEqConcatMap);
     expr * dealias_node(expr * node, std::map<expr*, expr*> & varAliasMap, std::map<expr*, expr*> & concatAliasMap);
-    void get_grounded_concats(expr* node, std::map<expr*, expr*> & varAliasMap,
-            std::map<expr*, expr*> & concatAliasMap, std::map<expr*, expr*> & varConstMap,
-            std::map<expr*, expr*> & concatConstMap, std::map<expr*, std::map<expr*, int> > & varEqConcatMap,
-            std::map<expr*, std::map<std::vector<expr*>, std::set<expr*> > > & groundedMap);
+    void get_grounded_concats(unsigned depth,
+                              expr* node, std::map<expr*, expr*> & varAliasMap,
+                              std::map<expr*, expr*> & concatAliasMap, std::map<expr*, expr*> & varConstMap,
+                              std::map<expr*, expr*> & concatConstMap, std::map<expr*, std::map<expr*, int> > & varEqConcatMap,
+                              std::map<expr*, std::map<std::vector<expr*>, std::set<expr*> > > & groundedMap);
     void print_grounded_concat(expr * node, std::map<expr*, std::map<std::vector<expr*>, std::set<expr*> > > & groundedMap);
     void check_subsequence(expr* str, expr* strDeAlias, expr* subStr, expr* subStrDeAlias, expr* boolVar,
             std::map<expr*, std::map<std::vector<expr*>, std::set<expr*> > > & groundedMap);
@@ -612,10 +602,10 @@ protected:
 
 public:
     theory_str(ast_manager & m, theory_str_params const & params);
-    virtual ~theory_str();
+    ~theory_str() override;
 
-    virtual char const * get_name() const { return "seq"; }
-    virtual void display(std::ostream & out) const;
+    char const * get_name() const override { return "seq"; }
+    void display(std::ostream & out) const override;
 
     bool overlapping_variables_detected() const { return loopDetected; }
 
@@ -624,33 +614,33 @@ public:
     void after_merge_eh(theory_var r1, theory_var r2, theory_var v1, theory_var v2) { }
     void unmerge_eh(theory_var v1, theory_var v2) {}
 protected:
-    virtual bool internalize_atom(app * atom, bool gate_ctx);
-    virtual bool internalize_term(app * term);
+    bool internalize_atom(app * atom, bool gate_ctx) override;
+    bool internalize_term(app * term) override;
     virtual enode* ensure_enode(expr* e);
-    virtual theory_var mk_var(enode * n);
+    theory_var mk_var(enode * n) override;
 
-    virtual void new_eq_eh(theory_var, theory_var);
-    virtual void new_diseq_eh(theory_var, theory_var);
+    void new_eq_eh(theory_var, theory_var) override;
+    void new_diseq_eh(theory_var, theory_var) override;
 
-    virtual theory* mk_fresh(context*) { return alloc(theory_str, get_manager(), m_params); }
-    virtual void init_search_eh();
-    virtual void add_theory_assumptions(expr_ref_vector & assumptions);
-    virtual lbool validate_unsat_core(expr_ref_vector & unsat_core);
-    virtual void relevant_eh(app * n);
-    virtual void assign_eh(bool_var v, bool is_true);
-    virtual void push_scope_eh();
-    virtual void pop_scope_eh(unsigned num_scopes);
-    virtual void reset_eh();
+    theory* mk_fresh(context*) override { return alloc(theory_str, get_manager(), m_params); }
+    void init_search_eh() override;
+    void add_theory_assumptions(expr_ref_vector & assumptions) override;
+    lbool validate_unsat_core(expr_ref_vector & unsat_core) override;
+    void relevant_eh(app * n) override;
+    void assign_eh(bool_var v, bool is_true) override;
+    void push_scope_eh() override;
+    void pop_scope_eh(unsigned num_scopes) override;
+    void reset_eh() override;
 
-    virtual bool can_propagate();
-    virtual void propagate();
+    bool can_propagate() override;
+    void propagate() override;
 
-    virtual final_check_status final_check_eh();
+    final_check_status final_check_eh() override;
     virtual void attach_new_th_var(enode * n);
 
-    virtual void init_model(model_generator & m);
-    virtual model_value_proc * mk_value(enode * n, model_generator & mg);
-    virtual void finalize_model(model_generator & mg);
+    void init_model(model_generator & m) override;
+    model_value_proc * mk_value(enode * n, model_generator & mg) override;
+    void finalize_model(model_generator & mg) override;
 };
 
 };

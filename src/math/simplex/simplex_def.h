@@ -634,7 +634,7 @@ namespace simplex {
         //
         //   max { c*x | A*x = 0 and l <= x <= u }
         //
-        // start with feasible assigment 
+        // start with feasible assignment
         // A*x0 = 0 and l <= x0 <= u
         //
         // Identify pivot: i, j: such that x_i is base,
@@ -745,7 +745,7 @@ namespace simplex {
             numeral const& base_coeff = vs.m_base_coeff;
             SASSERT(!m.is_zero(coeff));
             bool base_to_lower = (m.is_pos(coeff) != m.is_pos(base_coeff)) == to_lower;
-            eps_numeral const* bound = 0;
+            eps_numeral const* bound = nullptr;
             if (!base_to_lower && vs.m_upper_valid) {
                 bound = &vs.m_upper;
             }

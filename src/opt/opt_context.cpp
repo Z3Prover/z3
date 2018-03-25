@@ -122,7 +122,8 @@ namespace opt {
         m_arith(m),
         m_bv(m),
         m_hard_constraints(m),
-        m_solver(0),
+        m_solver(nullptr),
+        m_pareto1(false),
         m_box_index(UINT_MAX),
         m_optsmt(m),
         m_scoped_state(m),
@@ -138,6 +139,7 @@ namespace opt {
         p.set_bool("unsat_core", true);
         p.set_bool("elim_to_real", true);
         updt_params(p);
+        m_model_counter = 0;
     }
 
     context::~context() {
@@ -279,16 +281,15 @@ namespace opt {
         if (pri == symbol("lns")) {
             return execute_lns();
         }
-
-        IF_VERBOSE(1, verbose_stream() << "(optimize:check-sat)\n");
-        lbool is_sat = s.check_sat(0,0);
-        TRACE("opt", s.display(tout << "initial search result: " << is_sat << "\n");); 
+        display_benchmark();
+        IF_VERBOSE(1, verbose_stream() << "(optimize:check-sat)\n";);
+        lbool is_sat = s.check_sat(0,nullptr);
+        TRACE("opt", tout << "initial search result: " << is_sat << "\n";
+              s.display(tout););
         if (is_sat != l_false) {
             s.get_model(m_model);
             s.get_labels(m_labels);
-            if (is_sat == l_true) {
-                validate_model();
-            }
+            model_updated(m_model.get());
         }
         if (is_sat != l_true) {
             TRACE("opt", tout << m_hard_constraints << "\n";);            
@@ -303,7 +304,14 @@ namespace opt {
         case 0:
             break;
         case 1:
-            is_sat = execute(m_objectives[0], true, false);
+            if (m_pareto1) {
+                is_sat = l_false;
+                m_pareto1 = false;
+            }
+            else {
+                m_pareto1 = (pri == symbol("pareto"));
+                is_sat = execute(m_objectives[0], true, false);
+            }
             break;
         default: {
             opt_params optp(m_params);
@@ -318,9 +326,9 @@ namespace opt {
                 is_sat = execute_box();
             }
             else {
-                is_sat = execute_lex();
+                m_pareto1 = (pri == symbol("pareto"));
+                is_sat = execute(m_objectives[0], true, false);
             }
-            break;
         }
         }
         if (is_sat == l_true) validate_model();
@@ -358,12 +366,24 @@ namespace opt {
         fix_model(mdl);
     }
 
+    bool context::contains_quantifiers() const {
+        for (expr* f : m_hard_constraints) {
+            if (has_quantifiers(f)) return true;
+        }
+        return false;
+    }
+
+
     lbool context::execute_min_max(unsigned index, bool committed, bool scoped, bool is_max) {
         if (scoped) get_solver().push();            
         lbool result = m_optsmt.lex(index, is_max);
         if (result == l_true) m_optsmt.get_model(m_model, m_labels);
         if (scoped) get_solver().pop(1);        
         if (result == l_true && committed) m_optsmt.commit_assignment(index);
+        if (result == l_true && m_optsmt.is_unbounded(index, is_max) && contains_quantifiers()) {
+            throw default_exception("unbounded objectives on quantified constraints is not supported");
+            result = l_undef;
+        }
         return result;
     }
     
@@ -396,8 +416,8 @@ namespace opt {
     */
     bool context::scoped_lex() {
         if (m_maxsat_engine == symbol("maxres")) {
-            for (unsigned i = 0; i < m_objectives.size(); ++i) {
-                if (m_objectives[i].m_type != O_MAXSMT) return true;
+            for (auto const& o : m_objectives) {
+                if (o.m_type != O_MAXSMT) return true;
             }
             return false;
         }
@@ -407,14 +427,16 @@ namespace opt {
     lbool context::execute_lex() {
         lbool r = l_true;
         bool sc = scoped_lex();
-        IF_VERBOSE(1, verbose_stream() << "(optsmt:lex)\n";);
-        for (unsigned i = 0; r == l_true && i < m_objectives.size(); ++i) {
-            bool is_last = i + 1 == m_objectives.size();
-            r = execute(m_objectives[i], i + 1 < m_objectives.size(), sc && !is_last);
+        IF_VERBOSE(1, verbose_stream() << "(opt :lex)\n";);
+        unsigned sz = m_objectives.size();
+        for (unsigned i = 0; r == l_true && i < sz; ++i) {
+            objective const& o = m_objectives[i];
+            bool is_last = i + 1 == sz;            
+            r = execute(o, i + 1 < sz, sc && !is_last && o.m_type != O_MAXSMT);
             if (r == l_true && !get_lower_as_num(i).is_finite()) {
                 return r;
             }
-            if (r == l_true && i + 1 < m_objectives.size()) {
+            if (r == l_true && i + 1 < sz) {
                 update_lower();
             }
         }
@@ -429,7 +451,7 @@ namespace opt {
             return l_true;
         }
         if (m_box_index < m_objectives.size()) {
-            m_model = 0;
+            m_model = nullptr;
             ++m_box_index;
             return l_undef;
         }
@@ -678,8 +700,7 @@ namespace opt {
         expr_fast_mark1 visited;
         is_bv proc(m);
         try {
-            for (unsigned i = 0; i < m_objectives.size(); ++i) {
-                objective & obj = m_objectives[i];
+            for (objective& obj : m_objectives) {
                 if (obj.m_type != O_MAXSMT) return false;
                 maxsmt& ms = *m_maxsmts.find(obj.m_id);
                 for (unsigned j = 0; j < ms.size(); ++j) {
@@ -690,8 +711,8 @@ namespace opt {
             for (unsigned i = 0; i < sz; i++) {
                 quick_for_each_expr(proc, visited, get_solver().get_assertion(i));
             }
-            for (unsigned i = 0; i < m_hard_constraints.size(); ++i) {
-                quick_for_each_expr(proc, visited, m_hard_constraints[i].get());
+            for (expr* f : m_hard_constraints) {
+                quick_for_each_expr(proc, visited, f);
             }
         }
         catch (is_bv::found) {
@@ -937,7 +958,7 @@ namespace opt {
         func_decl* f = m.mk_fresh_func_decl(name,"", domain.size(), domain.c_ptr(), m.mk_bool_sort());
         m_objective_fns.insert(f, index);
         m_objective_refs.push_back(f);
-        m_objective_orig.insert(f, sz > 0 ? args[0] : 0);        
+        m_objective_orig.insert(f, sz > 0 ? args[0] : nullptr);
         return m.mk_app(f, sz, args);
     }
 
@@ -979,7 +1000,7 @@ namespace opt {
                 }
                 mk_atomic(terms);
                 SASSERT(obj.m_id == id);
-                obj.m_term = orig_term?to_app(orig_term):0;
+                obj.m_term = orig_term?to_app(orig_term):nullptr;
                 obj.m_terms.reset();
                 obj.m_terms.append(terms);
                 obj.m_weights.reset();
@@ -1038,6 +1059,22 @@ namespace opt {
         }
     }
 
+    void context::model_updated(model* md) {
+        opt_params optp(m_params);
+        symbol prefix = optp.solution_prefix();
+        if (prefix == symbol::null || prefix == symbol("")) return;        
+        model_ref mdl = md->copy();
+        fix_model(mdl);
+        std::ostringstream buffer;
+        buffer << prefix << (m_model_counter++) << ".smt2";
+        std::ofstream out(buffer.str());        
+        if (out) {
+            model_smt2_pp(out, m, *mdl, 0);
+            out.close();
+        }
+    }
+
+
     bool context::verify_model(unsigned index, model* md, rational const& _v) {
         rational r;
         app_ref term = m_objectives[index].m_term;
@@ -1046,10 +1083,6 @@ namespace opt {
         }
         rational v = m_objectives[index].m_adjust_value(_v);
         expr_ref val(m);
-        //
-        // we have to clone the model so that maxsat solver can use 
-        // internal variables that are otherwise deleted from the model.
-        //
         model_ref mdl = md->copy();
         fix_model(mdl);
 
@@ -1277,6 +1310,9 @@ namespace opt {
     }
 
     void context::display_assignment(std::ostream& out) {
+        if (m_scoped_state.m_objectives.size() != m_objectives.size()) {
+            throw default_exception("check-sat has not been called with latest objectives");
+        }
         out << "(objectives\n";
         for (unsigned i = 0; i < m_scoped_state.m_objectives.size(); ++i) {
             objective const& obj = m_scoped_state.m_objectives[i];
@@ -1408,6 +1444,7 @@ namespace opt {
 
     void context::set_pareto(pareto_base* p) {
         m_pareto = p;        
+        m_pareto1 = p != nullptr;
     }
 
     void context::collect_statistics(statistics& stats) const {

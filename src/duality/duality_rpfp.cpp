@@ -234,6 +234,7 @@ namespace Duality {
             func_decl f = t.decl();
             std::vector<Term> args;
             int nargs = t.num_args();
+            args.reserve(nargs);
             for (int i = 0; i < nargs; i++)
                 args.push_back(LocalizeRec(e, memo, t.arg(i)));
             hash_map<func_decl, int>::iterator rit = e->relMap.find(f);
@@ -352,6 +353,7 @@ namespace Duality {
             func_decl f = t.decl();
             std::vector<Term> args;
             int nargs = t.num_args();
+            args.reserve(nargs);
             for (int i = 0; i < nargs; i++)
                 args.push_back(SubstRec(memo, t.arg(i)));
             res = f(args.size(), VEC2PTR(args));
@@ -379,6 +381,7 @@ namespace Duality {
             func_decl f = t.decl();
             std::vector<Term> args;
             int nargs = t.num_args();
+            args.reserve(nargs);
             for (int i = 0; i < nargs; i++)
                 args.push_back(SubstRec(memo, map, t.arg(i)));
             hash_map<func_decl, func_decl>::iterator it = map.find(f);
@@ -409,6 +412,7 @@ namespace Duality {
             func_decl f = t.decl();
             std::vector<Term> args;
             int nargs = t.num_args();
+            args.reserve(nargs);
             for (int i = 0; i < nargs; i++)
                 args.push_back(ExtractStores(memo, t.arg(i), cnstrs, renaming));
             res = f(args.size(), VEC2PTR(args));
@@ -655,6 +659,7 @@ namespace Duality {
             func_decl f = t.decl();
             std::vector<Term> args;
             int nargs = t.num_args();
+            args.reserve(nargs);
             for (int i = 0; i < nargs; i++)
                 args.push_back(RemoveRedundancyRec(memo, smemo, t.arg(i)));
 
@@ -703,6 +708,7 @@ namespace Duality {
             func_decl f = t.decl();
             std::vector<Term> args;
             int nargs = t.num_args();
+            args.reserve(nargs);
             for (int i = 0; i < nargs; i++)
                 args.push_back(IneqToEqRec(memo, t.arg(i)));
 
@@ -749,6 +755,7 @@ namespace Duality {
                 res = ctx.constant(name.c_str(), t.get_sort());
                 return res;
             }
+            args.reserve(nargs);
             for (int i = 0; i < nargs; i++)
                 args.push_back(SubstRec(memo, t.arg(i)));
             res = f(args.size(), VEC2PTR(args));
@@ -1338,8 +1345,8 @@ namespace Duality {
     {
         timer_start("Solve");
         TermTree *tree = GetConstraintTree(root);
-        TermTree *interpolant = NULL;
-        TermTree *goals = NULL;
+        TermTree *interpolant = nullptr;
+        TermTree *goals = nullptr;
         if(ls->need_goals)
             goals = GetGoalTree(root);
         ClearProofCore();
@@ -1389,11 +1396,11 @@ namespace Duality {
         timer_start("Solve");
         TermTree *tree = CollapseTermTree(GetConstraintTree(root,node));
         tree->getChildren().push_back(CollapseTermTree(ToTermTree(node)));
-        TermTree *interpolant = NULL;
+        TermTree *interpolant = nullptr;
         ClearProofCore();
 
         timer_start("interpolate_tree");
-        lbool res = ls_interpolate_tree(tree, interpolant, dualModel,0,true);
+        lbool res = ls_interpolate_tree(tree, interpolant, dualModel,nullptr,true);
         timer_stop("interpolate_tree");
         if (res == l_false) {
             DecodeTree(node, interpolant->getChildren()[0], 0);
@@ -1416,7 +1423,7 @@ namespace Duality {
 
     void RPFP::DisposeDualModel()
     {
-        dualModel = model(ctx,NULL);
+        dualModel = model(ctx,nullptr);
     }
   
     RPFP::Term RPFP::UnderapproxFlag(Node *n){
@@ -1484,16 +1491,16 @@ namespace Duality {
         return res;
     }      
 
-    /** Determines the value in the counterexample of a symbol occuring in the transformer formula of
+    /** Determines the value in the counterexample of a symbol occurring in the transformer formula of
      *  a given edge. */
 
-    RPFP::Term RPFP::Eval(Edge *e, Term t)
+    RPFP::Term RPFP::Eval(Edge *e, const Term& t)
     {
         Term tl = Localize(e, t);
         return dualModel.eval(tl);
     }
 
-    /** Returns true if the given node is empty in the primal solution. For proecudure summaries,
+    /** Returns true if the given node is empty in the primal solution. For proceudure summaries,
         this means that the procedure is not called in the current counter-model. */
   
     bool RPFP::Empty(Node *p)
@@ -1575,6 +1582,7 @@ namespace Duality {
     */
 
     int RPFP::SubtermTruth(hash_map<ast, int> &memo, const Term &f) {
+        TRACE("duality", tout << f << "\n";);
         if (memo.find(f) != memo.end()) {
             return memo[f];
         }
@@ -1657,83 +1665,6 @@ namespace Duality {
         ands and, or, not. Returns result in memo. 
     */
 
-#if 0
-    int RPFP::GetLabelsRec(hash_map<ast,int> *memo, const Term &f, std::vector<symbol> &labels, bool labpos){
-        if(memo[labpos].find(f) != memo[labpos].end()){
-            return memo[labpos][f];
-        }
-        int res;
-        if(f.is_app()){
-            int nargs = f.num_args();
-            decl_kind k = f.decl().get_decl_kind();
-            if(k == Implies){
-                res = GetLabelsRec(memo,f.arg(1) || !f.arg(0), labels, labpos);
-                goto done;
-            }
-            if(k == And) {
-                res = 1; 
-                for(int i = 0; i < nargs; i++){
-                    int ar = GetLabelsRec(memo,f.arg(i), labels, labpos);
-                    if(ar == 0){
-                        res = 0;
-                        goto done;
-                    }
-                    if(ar == 2)res = 2; 
-                }
-                goto done;
-            }
-            else if(k == Or) {
-                res = 0;
-                for(int i = 0; i < nargs; i++){
-                    int ar = GetLabelsRec(memo,f.arg(i), labels, labpos);
-                    if(ar == 1){
-                        res = 1;
-                        goto done;
-                    }
-                    if(ar == 2)res = 2; 
-                }
-                goto done;
-            }
-            else if(k == Not) {
-                int ar = GetLabelsRec(memo,f.arg(0), labels, !labpos);
-                res = (ar == 0) ? 1 : ((ar == 1) ? 0 : 2);
-                goto done;
-            }
-        }
-        {
-            bool pos; std::vector<symbol> names;
-            if(f.is_label(pos,names)){
-                res = GetLabelsRec(memo,f.arg(0), labels, labpos);
-                if(pos == labpos && res == (pos ? 1 : 0))
-                    for(unsigned i = 0; i < names.size(); i++)
-                        labels.push_back(names[i]);
-                goto done;
-            }
-        }
-        {
-            expr bv = dualModel.eval(f);
-            if(bv.is_app() && bv.decl().get_decl_kind() == Equal && 
-               bv.arg(0).is_array()){
-                bv = EvalArrayEquality(bv);
-            }
-            // Hack!!!! array equalities can occur negatively!
-            if(bv.is_app() && bv.decl().get_decl_kind() == Not && 
-               bv.arg(0).decl().get_decl_kind() == Equal &&
-               bv.arg(0).arg(0).is_array()){
-                bv = dualModel.eval(!EvalArrayEquality(bv.arg(0)));
-            }
-            if(eq(bv,ctx.bool_val(true)))
-                res = 1;
-            else if(eq(bv,ctx.bool_val(false)))
-                res = 0;
-            else
-                res = 2;
-        }
-    done:
-        memo[labpos][f] = res;
-        return res;
-    }
-#endif
 
     void RPFP::GetLabelsRec(hash_map<ast, int> &memo, const Term &f, std::vector<symbol> &labels,
                             hash_set<ast> *done, bool truth) {
@@ -1748,8 +1679,13 @@ namespace Duality {
             }
             if (k == Iff) {
                 int b = SubtermTruth(memo, f.arg(0));
-                if (b == 2)
-                    throw "disaster in GetLabelsRec";
+                if (b == 2) {
+                    goto done;
+                    // bypass error
+                    std::ostringstream os;
+                    os << "disaster in SubtermTruth processing " << f;
+                    throw default_exception(os.str());
+                }
                 GetLabelsRec(memo, f.arg(1), labels, done, truth ? b : !b);
                 goto done;
             }
@@ -1825,8 +1761,11 @@ namespace Duality {
             }
             if (k == Iff) {
                 int b = SubtermTruth(memo, f.arg(0));
-                if (b == 2)
-                    throw "disaster in ImplicantRed";
+                if (b == 2) {
+                    std::ostringstream os;
+                    os << "disaster in SubtermTruth processing " << f;
+                    throw default_exception(os.str());
+                }
                 ImplicantRed(memo, f.arg(1), lits, done, truth ? b : !b, dont_cares);
                 goto done;
             }
@@ -2225,7 +2164,7 @@ namespace Duality {
         std::vector<Term> la_pos_vars;
         bool fixing;
     
-        void IndexLAcoeff(const Term &coeff1, const Term &coeff2, Term t, int id) {
+        void IndexLAcoeff(const Term &coeff1, const Term &coeff2, const Term &t, int id) {
             Term coeff = coeff1 * coeff2;
             coeff = coeff.simplify();
             Term is_pos = (coeff >= ctx.int_val(0));
@@ -3342,9 +3281,9 @@ namespace Duality {
             {
                 stack_entry &back = stack.back();
                 for(std::list<Edge *>::iterator it = back.edges.begin(), en = back.edges.end(); it != en; ++it)
-                    (*it)->dual = expr(ctx,NULL);
+                    (*it)->dual = expr(ctx,nullptr);
                 for(std::list<Node *>::iterator it = back.nodes.begin(), en = back.nodes.end(); it != en; ++it)
-                    (*it)->dual = expr(ctx,NULL);
+                    (*it)->dual = expr(ctx,nullptr);
                 for(std::list<std::pair<Edge *,Term> >::iterator it = back.constraints.begin(), en = back.constraints.end(); it != en; ++it)
                     (*it).first->constraints.pop_back();
                 stack.pop_back();
@@ -3371,11 +3310,12 @@ namespace Duality {
     // This returns a new FuncDel with same sort as top-level function
     // of term t, but with numeric suffix appended to name.
 
-    Z3User::FuncDecl Z3User::SuffixFuncDecl(Term t, int n)
+    Z3User::FuncDecl Z3User::SuffixFuncDecl(const Term &t, int n)
     {
         std::string name = t.decl().name().str() + "_" + string_of_int(n);
         std::vector<sort> sorts;
         int nargs = t.num_args();
+        sorts.reserve(nargs);
         for(int i = 0; i < nargs; i++)
             sorts.push_back(t.arg(i).get_sort());
         return ctx.function(name.c_str(), nargs, VEC2PTR(sorts), t.get_sort());
@@ -3387,8 +3327,9 @@ namespace Duality {
         name = name.substr(0,name.rfind('_')) + "_" + string_of_int(n);
         int arity = f.arity();
         std::vector<sort> domain;
+        domain.reserve(arity);
         for(int i = 0; i < arity; i++)
-        domain.push_back(f.domain(i));
+            domain.push_back(f.domain(i));
         return ctx.function(name.c_str(), arity, VEC2PTR(domain), f.range());
     }
 
@@ -3398,8 +3339,9 @@ namespace Duality {
         name = name + "_" + string_of_int(n);
         int arity = f.arity();
         std::vector<sort> domain;
+        domain.reserve(arity);
         for(int i = 0; i < arity; i++)
-        domain.push_back(f.domain(i));
+            domain.push_back(f.domain(i));
         return ctx.function(name.c_str(), arity, VEC2PTR(domain), f.range());
     }
 
@@ -3423,6 +3365,7 @@ namespace Duality {
             }
             int nargs = t.num_args();
             std::vector<Term> args;
+            args.reserve(nargs);
             for(int i = 0; i < nargs; i++)
                 args.push_back(ScanBody(memo,t.arg(i),pmap,parms,nodes));
             res = f(nargs, VEC2PTR(args));
@@ -3471,6 +3414,7 @@ namespace Duality {
             else {
                 int nargs = t.num_args();
                 std::vector<Term> args;
+                args.reserve(nargs);
                 for(int i = 0; i < nargs; i++)
                     args.push_back(RemoveLabelsRec(memo,t.arg(i),lbls));
                 res = f(nargs, VEC2PTR(args));
@@ -3500,6 +3444,7 @@ namespace Duality {
                 func_decl f = t.decl();
                 std::vector<Term> args;
                 int nargs = t.num_args();
+                args.reserve(nargs);
                 if(nargs == 0 && f.get_decl_kind() == Uninterpreted)
                     ls->declare_constant(f);  // keep track of background constants
                 for(int i = 0; i < nargs; i++)
@@ -3542,6 +3487,7 @@ namespace Duality {
                 func_decl f = t.decl();
                 std::vector<Term> args;
                 int nargs = t.num_args();
+                args.reserve(nargs);
                 for(int i = 0; i < nargs; i++)
                     args.push_back(DeleteBoundRec(memo, level, num, t.arg(i)));
                 res = f(args.size(), VEC2PTR(args));
@@ -3938,6 +3884,7 @@ namespace Duality {
     void RPFP::AddParamsToNode(Node *node, const std::vector<expr> &params){
         int arity = node->Annotation.IndParams.size();
         std::vector<sort> domain;
+        domain.reserve(arity + params.size());
         for(int i = 0; i < arity; i++)
             domain.push_back(node->Annotation.IndParams[i].get_sort());
         for(unsigned i = 0; i < params.size(); i++)
@@ -4004,6 +3951,7 @@ namespace Duality {
                     func_decl fd = SuffixFuncDecl(new_lit,j);
                     int nargs = new_lit.num_args();
                     std::vector<Term> args;
+                    args.reserve(nargs);
                     for(int k = 0; k < nargs; k++)
                         args.push_back(new_lit.arg(k));
                     new_lit = fd(nargs, VEC2PTR(args));
@@ -4194,6 +4142,7 @@ namespace Duality {
                 // int idx;
                 std::vector<Term> args;
                 int nargs = t.num_args();
+                args.reserve(nargs);
                 for(int i = 0; i < nargs; i++)
                     args.push_back(ToRuleRec(e, memo, t.arg(i),quants));
                 hash_map<func_decl,int>::iterator rit = e->relMap.find(f);                 

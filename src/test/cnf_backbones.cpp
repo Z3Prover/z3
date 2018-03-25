@@ -11,7 +11,7 @@ Copyright (c) 2017 Microsoft Corporation
 #include "sat/sat_solver.h"
 #include "util/gparams.h"
 
-static sat::solver * g_solver = 0;
+static sat::solver * g_solver = nullptr;
 static clock_t       g_start_time;
 
 static void display_statistics() {

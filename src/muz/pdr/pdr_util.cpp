@@ -244,7 +244,7 @@ namespace pdr {
         }
 
         bool test_eq(expr* e) const {
-            expr* lhs = 0, *rhs = 0;
+            expr* lhs = nullptr, *rhs = nullptr;
             VERIFY(m.is_eq(e, lhs, rhs));
             if (!a.is_int_real(lhs)) {
                 return true;

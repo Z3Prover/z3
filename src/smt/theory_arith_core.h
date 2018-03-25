@@ -40,7 +40,7 @@ namespace smt {
     template<typename Ext>
     void theory_arith<Ext>::found_underspecified_op(app * n) {
         if (!m_found_underspecified_op) {
-            TRACE("arith", tout << "found underspecificed expression:\n" << mk_pp(n, get_manager()) << "\n";);
+            TRACE("arith", tout << "found underspecified expression:\n" << mk_pp(n, get_manager()) << "\n";);
             get_context().push_trail(value_trail<context, bool>(m_found_underspecified_op));
             m_found_underspecified_op = true;
         }
@@ -443,7 +443,7 @@ namespace smt {
     }
 
     template<typename Ext>
-    void theory_arith<Ext>::mk_axiom(expr * ante, expr * conseq) {
+    void theory_arith<Ext>::mk_axiom(expr * ante, expr * conseq, bool simplify_conseq) {
         ast_manager & m = get_manager();
         context & ctx   = get_context();
         th_rewriter & s  = ctx.get_rewriter();
@@ -459,7 +459,8 @@ namespace smt {
         literal l_ante = ctx.get_literal(s_ante);
         if (negated) l_ante.neg();
 
-        s(conseq, s_conseq);
+        s_conseq = conseq;
+        if (simplify_conseq) s(conseq, s_conseq);
         if (ctx.get_cancel_flag()) return;
         negated = m.is_not(s_conseq, s_conseq_n);
         if (negated) s_conseq = s_conseq_n;
@@ -468,10 +469,11 @@ namespace smt {
         if (negated) l_conseq.neg();
 
         TRACE("arith_axiom", tout << mk_pp(ante, m) << "\n" << mk_pp(conseq, m) << "\n";
-              tout << s_ante << "\n" << s_conseq << "\n";);
+              tout << s_ante << "\n" << s_conseq << "\n";
+              tout << l_ante << "\n" << l_conseq << "\n";);
 
         // literal lits[2] = {l_ante, l_conseq};
-        mk_clause(l_ante, l_conseq, 0, 0);
+        mk_clause(l_ante, l_conseq, 0, nullptr);
         if (ctx.relevancy()) {
             if (l_ante == false_literal) {
                 ctx.mark_as_relevant(l_conseq);
@@ -507,26 +509,30 @@ namespace smt {
     template<typename Ext>
     void theory_arith<Ext>::mk_idiv_mod_axioms(expr * dividend, expr * divisor) {
         if (!m_util.is_zero(divisor)) {
-            // if divisor is zero, then idiv and mod are uninterpreted functions.
             ast_manager & m = get_manager();
-            expr_ref div(m), mod(m), zero(m), abs_divisor(m);
+            bool is_numeral = m_util.is_numeral(divisor);
+            // if divisor is zero, then idiv and mod are uninterpreted functions.
+            expr_ref div(m), mod(m), zero(m), abs_divisor(m), one(m);
             expr_ref eqz(m), eq(m), lower(m), upper(m);
+            th_rewriter & s  = get_context().get_rewriter();
             div         = m_util.mk_idiv(dividend, divisor);
             mod         = m_util.mk_mod(dividend, divisor);
-            zero        = m_util.mk_numeral(rational(0), true);
-            abs_divisor = m.mk_ite(m_util.mk_lt(divisor, zero), m_util.mk_sub(zero, divisor), divisor);
+            zero        = m_util.mk_int(0);
+            one        = m_util.mk_int(1);
+            abs_divisor = m_util.mk_sub(m.mk_ite(m_util.mk_lt(divisor, zero), m_util.mk_sub(zero, divisor), divisor), one);
+            s(abs_divisor);
             eqz         = m.mk_eq(divisor, zero);
             eq          = m.mk_eq(m_util.mk_add(m_util.mk_mul(divisor, div), mod), dividend);
-            lower       = m_util.mk_le(zero, mod);
-            upper       = m_util.mk_lt(mod, abs_divisor);
+            lower       = m_util.mk_ge(mod, zero);
+            upper       = m_util.mk_le(mod, abs_divisor);
             TRACE("div_axiom_bug", 
-                  tout << "eqz:   " << mk_pp(eqz, m) << "\neq: " << mk_pp(eq, m) << "\n";
-                  tout << "lower: " << mk_pp(lower, m) << "\n";
-                  tout << "upper: " << mk_pp(upper, m) << "\n";);
+                  tout << "eqz:   " << eqz << " neq: " << eq << "\n";
+                  tout << "lower: " << lower << "\n";
+                  tout << "upper: " << upper << "\n";);
 
-            mk_axiom(eqz, eq);
-            mk_axiom(eqz, lower);
-            mk_axiom(eqz, upper);
+            mk_axiom(eqz, eq, !is_numeral);
+            mk_axiom(eqz, lower, !is_numeral);
+            mk_axiom(eqz, upper, !is_numeral);
             rational k;
             if (m_params.m_arith_enum_const_mod && m_util.is_numeral(divisor, k) && 
                 k.is_pos() && k < rational(8)) {
@@ -584,13 +590,13 @@ namespace smt {
     }
 
     //
-    // create the term: s := to_real(to_int(x)) - x
+    // create the term: s := x - to_real(to_int(x))
     // add the bounds 0 <= s < 1   
     //
     template<typename Ext>
     void theory_arith<Ext>::mk_to_int_axiom(app * n) {
         SASSERT(m_util.is_to_int(n));
-        ast_manager & m    = get_manager();
+        ast_manager & m  = get_manager();
         expr* x = n->get_arg(0);
 
         // to_int (to_real x) = x
@@ -598,11 +604,15 @@ namespace smt {
             mk_axiom(m.mk_false(), m.mk_eq(to_app(x)->get_arg(0), n));
             return;
         }
-        expr* to_r = m_util.mk_to_real(n);
-        expr_ref lo(m_util.mk_le(to_r, x), m);
-        expr_ref hi(m_util.mk_lt(x, m_util.mk_add(to_r, m_util.mk_numeral(rational(1), false))), m);
-        mk_axiom(m.mk_false(), lo);
-        mk_axiom(m.mk_false(), hi);
+        expr_ref to_r(m_util.mk_to_real(n), m);
+        expr_ref diff(m_util.mk_add(x, m_util.mk_mul(m_util.mk_real(-1), to_r)), m);
+        
+        expr_ref lo(m_util.mk_ge(diff, m_util.mk_real(0)), m);
+        expr_ref hi(m_util.mk_ge(diff, m_util.mk_real(1)), m);
+        hi = m.mk_not(hi);
+
+        mk_axiom(m.mk_false(), lo, false);
+        mk_axiom(m.mk_false(), hi, false);
     }
 
     template<typename Ext>
@@ -1197,7 +1207,7 @@ namespace smt {
 
     template<typename Ext>
     bool theory_arith<Ext>::internalize_atom(app * n, bool gate_ctx) {
-        TRACE("arith_internalize", tout << "internalising atom:\n" << mk_pp(n, this->get_manager()) << "\n";);
+        TRACE("arith_internalize", tout << "internalizing atom:\n" << mk_pp(n, this->get_manager()) << "\n";);
         context & ctx = get_context();
         SASSERT(m_util.is_le(n) || m_util.is_ge(n) || m_util.is_is_int(n));
         SASSERT(!ctx.b_internalized(n));
@@ -1342,8 +1352,8 @@ namespace smt {
                 std::swap(n1, n2);
             }
             rational k;
-            bound * b1 = 0;
-            bound * b2 = 0;
+            bound * b1 = nullptr;
+            bound * b2 = nullptr;
             if (m_util.is_numeral(n2->get_owner(), k)) {
                 inf_numeral val(k);
                 b1 = alloc(eq_bound, v1, val, B_LOWER, n1, n2);
@@ -2337,7 +2347,7 @@ namespace smt {
         row const & r         = m_rows[get_var_row(x_i)];
         int idx               = r.get_idx_of(x_i);
         SASSERT(idx >= 0);
-        bound * b             = 0;
+        bound * b             = nullptr;
 
         // Remark:
         // if x_i is an integer variable, then delta can be negative:
@@ -2611,7 +2621,7 @@ namespace smt {
                     return;
                 }
                 bool is_pos = it->m_coeff.is_pos();
-                if (lower(it->m_var) == 0) {
+                if (lower(it->m_var) == nullptr) {
                     if (is_pos) {
                         UPDATE_IDX(upper_idx);
                     }
@@ -2619,7 +2629,7 @@ namespace smt {
                         UPDATE_IDX(lower_idx);
                     }
                 }
-                if (upper(it->m_var) == 0) {
+                if (upper(it->m_var) == nullptr) {
                     if (is_pos) {
                         UPDATE_IDX(lower_idx);
                     }
@@ -2656,7 +2666,7 @@ namespace smt {
             if (entry.m_coeff.is_pos() == is_lower) {
                 // implied_k is a lower bound for entry.m_var
                 bound * curr = lower(entry.m_var);
-                if (curr == 0 || implied_k > curr->get_value()) {
+                if (curr == nullptr || implied_k > curr->get_value()) {
                     TRACE("arith_imply_bound", 
                           tout << "implying lower bound for v" << entry.m_var << " " << implied_k << " using row:\n";
                           display_row_info(tout, r);
@@ -2667,7 +2677,7 @@ namespace smt {
             else {
                 // implied_k is an upper bound for it->m_var 
                 bound * curr = upper(entry.m_var);
-                if (curr == 0 || implied_k < curr->get_value()) {
+                if (curr == nullptr || implied_k < curr->get_value()) {
                     TRACE("arith_imply_bound", 
                           tout << "implying upper bound for v" << entry.m_var << " " << implied_k << " using row:\n";
                           display_row_info(tout, r);
@@ -2717,7 +2727,7 @@ namespace smt {
                 if (it->m_coeff.is_pos() == is_lower) {
                     // implied_k is a lower bound for it->m_var
                     bound * curr = lower(it->m_var);
-                    if (curr == 0 || implied_k > curr->get_value()) {
+                    if (curr == nullptr || implied_k > curr->get_value()) {
                         // improved lower bound
                         TRACE("arith_imply_bound",
                               tout << "implying lower bound for v" << it->m_var << " " << implied_k << " using row:\n";
@@ -2729,7 +2739,7 @@ namespace smt {
                 else {
                     // implied_k is an upper bound for it->m_var 
                     bound * curr = upper(it->m_var);
-                    if (curr == 0 || implied_k < curr->get_value()) {
+                    if (curr == nullptr || implied_k < curr->get_value()) {
                         // improved upper bound
                         TRACE("arith_imply_bound",
                               tout << "implying upper bound for v" << it->m_var << " " << implied_k << " using row:\n";
@@ -2804,7 +2814,7 @@ namespace smt {
                 TRACE("propagate_bounds_bug", tout << "is_b_lower: " << is_b_lower << " k1: " << k_1 << " limit_k1: " 
                       << limit_k1 << " delta: " << delta << " coeff: " << coeff << "\n";);
                 inf_numeral k_2 = k_1;
-                atom * new_atom = 0;
+                atom * new_atom = nullptr;
                 atoms const & as           = m_var_occs[it->m_var];
                 typename atoms::const_iterator it  = as.begin();
                 typename atoms::const_iterator end = as.end();
@@ -2839,7 +2849,7 @@ namespace smt {
                 }
                 SASSERT(!is_b_lower || k_2 <= k_1);
                 SASSERT(is_b_lower  || k_2 >= k_1);
-                if (new_atom == 0) {
+                if (new_atom == nullptr) {
                     b->push_justification(ante, coeff, coeffs_enabled());
                     continue;
                 }
@@ -2971,12 +2981,12 @@ namespace smt {
             literal_vector::const_iterator end = ante.lits().end();
             for (; it != end; ++it)
                 lits.push_back(~(*it));
-            justification * js = 0;
+            justification * js = nullptr;
             if (proofs_enabled()) {
                 js = alloc(theory_lemma_justification, get_id(), ctx, lits.size(), lits.c_ptr(),
                            ante.num_params(), ante.params("assign-bounds"));
             }
-            ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, 0);
+            ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, nullptr);
         }
         else {
             region & r = ctx.get_region();
@@ -3164,9 +3174,9 @@ namespace smt {
         for (theory_var v = 0; v < num; v++) {
             bound * l = lower(v);
             bound * u = upper(v);
-            if (l != 0)
+            if (l != nullptr)
                 update_epsilon(l->get_value(), get_value(v));
-            if (u != 0)
+            if (u != nullptr)
                 update_epsilon(get_value(v), u->get_value());
         }
         TRACE("epsilon_bug", tout << "epsilon: " << m_epsilon << "\n";);
@@ -3284,14 +3294,14 @@ namespace smt {
     template<typename Ext>
     bool theory_arith<Ext>::get_lower(enode * n, expr_ref & r) {        
         theory_var v = n->get_th_var(get_id());
-        bound* b = (v == null_theory_var) ? 0 : lower(v);
+        bound* b = (v == null_theory_var) ? nullptr : lower(v);
         return b && to_expr(b->get_value(), is_int(v), r);
     }
     
     template<typename Ext>
     bool theory_arith<Ext>::get_upper(enode * n, expr_ref & r) {        
         theory_var v = n->get_th_var(get_id());
-        bound* b = (v == null_theory_var) ? 0 : upper(v);
+        bound* b = (v == null_theory_var) ? nullptr : upper(v);
         return b && to_expr(b->get_value(), is_int(v), r);
     }
     
@@ -3383,7 +3393,7 @@ namespace smt {
             bound *    b = it->get_old_bound();
             SASSERT(is_base(v) || is_non_base(v));
             restore_bound(v, b, it->is_upper());
-            if (lazy_pivoting_lvl() > 2 && b == 0 && is_base(v) && is_free(v)) {
+            if (lazy_pivoting_lvl() > 2 && b == nullptr && is_base(v) && is_free(v)) {
                 SASSERT(!has_var_kind(get_var_row(v), BASE));
                 SASSERT(!has_var_kind(get_var_row(v), QUASI_BASE));
                 eliminate<false>(v, false);

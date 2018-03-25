@@ -1,3 +1,4 @@
+
 /**
 Copyright (c) 2012-2014 Microsoft Corporation
    
@@ -119,6 +120,23 @@ public class Solver extends Z3Object {
                     a.getNativeObject());
         }
     }
+
+    /**
+     * Load solver assertions from a file.
+     */
+    public void fromFile(String file) 
+    {
+        Native.solverFromFile(getContext().nCtx(), getNativeObject(), file);	
+    }
+
+    /**
+     * Load solver assertions from a string.
+     */
+    public void fromString(String str) 
+    {
+        Native.solverFromString(getContext().nCtx(), getNativeObject(), str);	
+    }
+
 
     /** 
      *  Assert multiple constraints into the solver, and track them (in the

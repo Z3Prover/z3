@@ -59,7 +59,7 @@ class eq2bv_tactic : public tactic {
         bool rewrite_patterns() const { return false; }
         bool flat_assoc(func_decl * f) const { return false; }
         br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
-            result_pr = 0;
+            result_pr = nullptr;
             return mk_app_core(f, num, args, result);
         }
         eq_rewriter_cfg(eq2bv_tactic& t):m(t.m), t(t) {}
@@ -82,7 +82,7 @@ class eq2bv_tactic : public tactic {
             m_map.insert(c_new, c_old);
         }
 
-        virtual void operator()(model_ref& mdl) {
+        void operator()(model_ref& mdl) override {
             ast_manager& m = mdl->get_manager();
             bv_util bv(m);
             arith_util a(m);
@@ -105,7 +105,7 @@ class eq2bv_tactic : public tactic {
             mdl = new_m;
         }
         
-        virtual model_converter* translate(ast_translation & translator) {
+        model_converter* translate(ast_translation & translator) override {
             bvmc* v = alloc(bvmc);
             for (auto const& kv : m_map) {
                 v->m_map.insert(translator(kv.m_key), translator(kv.m_value));
@@ -144,14 +144,14 @@ public:
         m_bounds(m) {
     }
 
-    virtual ~eq2bv_tactic() {
+    ~eq2bv_tactic() override {
     }
         
         
-    void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
     }
     
-    virtual void operator()(goal_ref const & g, goal_ref_buffer & result) {
+    void operator()(goal_ref const & g, goal_ref_buffer & result) override {
         SASSERT(g->is_well_sorted());
         m_trail.reset();
         m_fd.reset();
@@ -178,7 +178,7 @@ public:
             expr_ref   new_curr(m);
             proof_ref  new_pr(m);  
             if (is_bound(g->form(i))) {
-                g->update(i, m.mk_true(), 0, 0);
+                g->update(i, m.mk_true(), nullptr, nullptr);
                 continue;
             }
             m_rw(g->form(i), new_curr, new_pr);
@@ -215,14 +215,14 @@ public:
     }
 
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(eq2bv_tactic, m);
     }
         
-    virtual void collect_param_descrs(param_descrs & r) {
+    void collect_param_descrs(param_descrs & r) override {
     }
         
-    virtual void cleanup() {        
+    void cleanup() override {
     }
 
     void cleanup_fd(ref<bvmc>& mc) {

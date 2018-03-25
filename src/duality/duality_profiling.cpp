@@ -55,7 +55,7 @@ namespace Duality {
   
     node::node(){
         time =  0;
-        parent = 0;
+        parent = nullptr;
     }
   
     struct node *current;

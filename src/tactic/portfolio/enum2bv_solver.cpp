@@ -46,9 +46,9 @@ public:
         solver::updt_params(p);
     }
 
-    virtual ~enum2bv_solver() {}
+    ~enum2bv_solver() override {}
 
-    virtual solver* translate(ast_manager& dst_m, params_ref const& p) {   
+    solver* translate(ast_manager& dst_m, params_ref const& p) override {   
         solver* result = alloc(enum2bv_solver, dst_m, p, m_solver->translate(dst_m, p));
         model_converter_ref mc = external_model_converter();
         if (mc) {
@@ -58,7 +58,7 @@ public:
         return result;
     }
     
-    virtual void assert_expr_core(expr * t) {
+    void assert_expr_core(expr * t) override {
         expr_ref tmp(t, m);
         expr_ref_vector bounds(m);
         proof_ref tmp_proof(m);
@@ -68,17 +68,17 @@ public:
         m_solver->assert_expr(bounds);
     }
 
-    virtual void push_core() {
+    void push_core() override {
         m_rewriter.push();
         m_solver->push();
     }
 
-    virtual void pop_core(unsigned n) {
+    void pop_core(unsigned n) override {
         m_solver->pop(n);
         m_rewriter.pop(n);
     }
 
-    virtual lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions) {
+    lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions) override {
         m_solver->updt_params(get_params());
         return m_solver->check_sat(num_assumptions, assumptions);
     }
@@ -160,7 +160,7 @@ public:
 
         // translate bit-vector consequences back to enumeration types
         for (unsigned i = 0; i < consequences.size(); ++i) {
-            expr* a = 0, *b = 0, *u = 0, *v = 0;
+            expr* a = nullptr, *b = nullptr, *u = nullptr, *v = nullptr;
             func_decl* f;
             rational num;
             unsigned bvsize;
@@ -180,11 +180,11 @@ public:
 
 
 
-    virtual unsigned get_num_assertions() const {
+    unsigned get_num_assertions() const override {
         return m_solver->get_num_assertions();
     }
 
-    virtual expr * get_assertion(unsigned idx) const {
+    expr * get_assertion(unsigned idx) const override {
         return m_solver->get_assertion(idx);
     }
 

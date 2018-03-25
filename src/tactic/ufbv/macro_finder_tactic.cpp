@@ -62,8 +62,8 @@ class macro_finder_tactic : public tactic {
             g->reset();
             for (unsigned i = 0; i < new_forms.size(); i++)
                 g->assert_expr(new_forms.get(i),
-                               produce_proofs ? new_proofs.get(i) : 0,
-                               unsat_core_enabled ? new_deps.get(i) : 0);
+                               produce_proofs ? new_proofs.get(i) : nullptr,
+                               unsat_core_enabled ? new_deps.get(i) : nullptr);
 
             generic_model_converter * evmc = alloc(generic_model_converter, mm.get_manager(), "macro_finder");
             unsigned num = mm.get_num_macros();
@@ -92,32 +92,32 @@ public:
         m_imp = alloc(imp, m, p);
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(macro_finder_tactic, m, m_params);
     }
 
-    virtual ~macro_finder_tactic() {
+    ~macro_finder_tactic() override {
         dealloc(m_imp);
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_params = p;
         m_imp->updt_params(p);
     }
 
-    virtual void collect_param_descrs(param_descrs & r) {
+    void collect_param_descrs(param_descrs & r) override {
         insert_max_memory(r);
         insert_produce_models(r);
         insert_produce_proofs(r);
         r.insert("elim_and", CPK_BOOL, "(default: false) eliminate conjunctions during (internal) calls to the simplifier.");
     }
 
-    virtual void operator()(goal_ref const & in,
-                            goal_ref_buffer & result) {
+    void operator()(goal_ref const & in,
+                    goal_ref_buffer & result) override {
         (*m_imp)(in, result);
     }
 
-    virtual void cleanup() {
+    void cleanup() override {
         ast_manager & m = m_imp->m();
         imp * d = alloc(imp, m, m_params);
         std::swap(d, m_imp);

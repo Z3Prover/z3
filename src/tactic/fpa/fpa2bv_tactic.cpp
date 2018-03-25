@@ -120,24 +120,24 @@ public:
         m_imp = alloc(imp, m, p);
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(fpa2bv_tactic, m, m_params);
     }
 
-    virtual ~fpa2bv_tactic() {
+    ~fpa2bv_tactic() override {
         dealloc(m_imp);
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_params = p;
         m_imp->updt_params(p);
     }
 
-    virtual void collect_param_descrs(param_descrs & r) {
+    void collect_param_descrs(param_descrs & r) override {
     }
 
-    virtual void operator()(goal_ref const & in,
-                            goal_ref_buffer & result) {
+    void operator()(goal_ref const & in,
+                    goal_ref_buffer & result) override {
         try {
             (*m_imp)(in, result);
         }
@@ -146,7 +146,7 @@ public:
         }
     }
 
-    virtual void cleanup() {
+    void cleanup() override {
         imp * d = alloc(imp, m_imp->m, m_params);
         std::swap(d, m_imp);
         dealloc(d);

@@ -34,6 +34,7 @@ Revision History:
 #include "util/event_handler.h"
 #include "cmd_context/tactic_manager.h"
 #include "cmd_context/context_params.h"
+#include "cmd_context/cmd_context.h"
 #include "api/api_polynomial.h"
 #include "util/hashtable.h"
 
@@ -51,8 +52,9 @@ namespace api {
     class context : public tactic_manager {
         struct add_plugins {  add_plugins(ast_manager & m); };
         context_params             m_params;
-        bool                       m_user_ref_count; //!< if true, the user is responsible for managing referenc counters.
+        bool                       m_user_ref_count; //!< if true, the user is responsible for managing reference counters.
         scoped_ptr<ast_manager>    m_manager;
+        scoped_ptr<cmd_context>    m_cmd;
         add_plugins                m_plugins;
 
         arith_util                 m_arith_util;
@@ -114,6 +116,7 @@ namespace api {
         ast_manager & m() const { return *(m_manager.get()); }
 
         context_params & params() { m_params.updt_params(); return m_params; }
+        scoped_ptr<cmd_context>& cmd() { return m_cmd; }
         bool produce_proofs() const { return m().proofs_enabled(); }
         bool produce_models() const { return m_params.m_model; }
         bool produce_unsat_cores() const { return m_params.m_unsat_core; }
@@ -138,7 +141,7 @@ namespace api {
         datatype_decl_plugin * get_dt_plugin() const { return m_dt_plugin; }
 
         Z3_error_code get_error_code() const { return m_error_code; }
-        void reset_error_code() { m_error_code = Z3_OK; }
+        void reset_error_code();
         void set_error_code(Z3_error_code err);
         void set_error_handler(Z3_error_handler h) { m_error_handler = h; }
         // Sign an error if solver is searching
@@ -158,7 +161,7 @@ namespace api {
         // Create a numeral of the given sort
         expr * mk_numeral_core(rational const & n, sort * s);
         
-        // Return a conjuction that will be exposed to the "external" world.
+        // Return a conjunction that will be exposed to the "external" world.
         expr * mk_and(unsigned num_exprs, expr * const * exprs);
 
         // Hack for preventing an AST for being GC when ref-count is not used
@@ -220,19 +223,11 @@ namespace api {
 
         // ------------------------
         //
-        // Parser interface for backward compatibility 
+        // Parser interface 
         //
         // ------------------------
 
-        // TODO: move to a "parser" object visible to the external world.
-        std::string                m_smtlib_error_buffer;
-        smtlib::parser *           m_smtlib_parser;
-        bool                       m_smtlib_parser_has_decls;
-        ptr_vector<func_decl>      m_smtlib_parser_decls;
-        ptr_vector<sort>           m_smtlib_parser_sorts;
-        
-        void reset_parser();
-        void extract_smtlib_parser_decls();
+        std::string m_parser_error_buffer;        
         
     };
     

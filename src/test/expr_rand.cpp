@@ -25,8 +25,8 @@ void tst_expr_arith(unsigned num_files) {
     er.initialize_arith(20);
 
     family_id fid = m.mk_family_id("arith");
-    sort* int_ty  = m.mk_sort(fid, INT_SORT, 0, 0);
-    sort* real_ty = m.mk_sort(fid, REAL_SORT, 0, 0);
+    sort* int_ty  = m.mk_sort(fid, INT_SORT, 0, nullptr);
+    sort* real_ty = m.mk_sort(fid, REAL_SORT, 0, nullptr);
 
     er.initialize_array(3, int_ty, int_ty);
     er.initialize_array(3, int_ty, real_ty);
@@ -40,10 +40,10 @@ void tst_expr_arith(unsigned num_files) {
 
         pp.set_logic(symbol("QF_AUFLIA"));
         std::ostringstream buffer;
-        buffer << "random_arith_" << i << ".smt";
+        buffer << "random_arith_" << i << ".smt2";
         std::cout << buffer.str() << "\n";
         std::ofstream file(buffer.str().c_str());
-        pp.display(file, e.get());
+        pp.display_smt2(file, e.get());
         file.close();
     }
     
@@ -83,10 +83,10 @@ void tst_expr_rand(unsigned num_files) {
 
         pp.set_logic(symbol("QF_AUFBV"));
         std::ostringstream buffer;
-        buffer << "random_bv_" << i << ".smt";
+        buffer << "random_bv_" << i << ".smt2";
         std::cout << buffer.str() << "\n";
         std::ofstream file(buffer.str().c_str());
-        pp.display(file, e.get());
+        pp.display_smt2(file, e.get());
         file.close();
 
     }

@@ -1120,7 +1120,7 @@ namespace datalog {
         //and clear local deltas
         make_inloop_delta_transition(global_head_deltas, global_tail_deltas, local_deltas, *loop_body);
 
-        loop_body->set_observer(0);
+        loop_body->set_observer(nullptr);
         acc.push_back(instruction::mk_while_loop(loop_control_regs.size(),
             loop_control_regs.c_ptr(), loop_body));
     }
@@ -1316,7 +1316,7 @@ namespace datalog {
         
         pred2idx empty_pred2idx_map;
 
-        compile_strats(m_rule_set.get_stratifier(), static_cast<pred2idx *>(0), 
+        compile_strats(m_rule_set.get_stratifier(), static_cast<pred2idx *>(nullptr),
             empty_pred2idx_map, true, execution_code);
 
 
@@ -1331,7 +1331,7 @@ namespace datalog {
             termination_code.push_back(instruction::mk_store(m_context.get_manager(), pred, reg));
         }
 
-        acc.set_observer(0);
+        acc.set_observer(nullptr);
 
         TRACE("dl", execution_code.display(execution_context(m_context), tout););
     }

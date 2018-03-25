@@ -140,10 +140,10 @@ void goal::push_back(expr * f, proof * pr, expr_dependency * d) {
 }
 
 void goal::quick_process(bool save_first, expr_ref& f, expr_dependency * d) {
-    expr* g = 0;
+    expr* g = nullptr;
     if (!m().is_and(f) && !(m().is_not(f, g) && m().is_or(g))) {
         if (!save_first) {
-            push_back(f, 0, d);
+            push_back(f, nullptr, d);
         }
         return;
     }
@@ -187,7 +187,7 @@ void goal::quick_process(bool save_first, expr_ref& f, expr_dependency * d) {
                 save_first = false;
             }
             else {
-                push_back(curr, 0, d);
+                push_back(curr, nullptr, d);
             }
         }
     }
@@ -256,7 +256,7 @@ void goal::assert_expr(expr * f, proof * pr, expr_dependency * d) {
 }
 
 void goal::assert_expr(expr * f, expr_dependency * d) {
-    assert_expr(f, proofs_enabled() ? m().mk_asserted(f) : 0, d);
+    assert_expr(f, proofs_enabled() ? m().mk_asserted(f) : nullptr, d);
 }
 
 void goal::get_formulas(ptr_vector<expr> & result) {
@@ -299,7 +299,7 @@ void goal::update(unsigned i, expr * f, proof * pr, expr_dependency * d) {
         quick_process(true, fr, d);
         if (!m_inconsistent) {
             if (m().is_false(fr)) {
-                push_back(f, 0, d);
+                push_back(f, nullptr, d);
             }
             else {
                 m().set(m_forms, i, fr);
@@ -579,7 +579,7 @@ void goal::elim_redundancies() {
             if (neg_lits.is_marked(atom))
                 continue;
             if (pos_lits.is_marked(atom)) {
-                proof * p = 0;
+                proof * p = nullptr;
                 if (proofs_enabled()) {
                     proof * prs[2] = { pr(get_idx(atom)), pr(i) };
                     p = m().mk_unit_resolution(2, prs);
@@ -596,7 +596,7 @@ void goal::elim_redundancies() {
             if (pos_lits.is_marked(f))
                 continue;
             if (neg_lits.is_marked(f)) {
-                proof * p = 0;
+                proof * p = nullptr;
                 if (proofs_enabled()) {
                     proof * prs[2] = { pr(get_not_idx(f)), pr(i) };
                     p = m().mk_unit_resolution(2, prs);

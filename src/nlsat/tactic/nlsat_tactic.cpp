@@ -32,11 +32,11 @@ class nlsat_tactic : public tactic {
         ast_manager & m;
         expr_ref_vector m_var2expr;
         expr_display_var_proc(ast_manager & _m):m(_m), m_var2expr(_m) {}
-        virtual void operator()(std::ostream & out, nlsat::var x) const { 
+        std::ostream& operator()(std::ostream & out, nlsat::var x) const override {
             if (x < m_var2expr.size())
-                out << mk_ismt2_pp(m_var2expr.get(x), m); 
+                return out << mk_ismt2_pp(m_var2expr.get(x), m); 
             else
-                out << "x!" << x;
+                return out << "x!" << x;
         }
     };
 
@@ -51,7 +51,7 @@ class nlsat_tactic : public tactic {
             m(_m),
             m_params(p),
             m_display_var(_m),
-            m_solver(m.limit(), p) {
+            m_solver(m.limit(), p, false) {
         }
         
         void updt_params(params_ref const & p) {
@@ -68,7 +68,7 @@ class nlsat_tactic : public tactic {
             }
             for (unsigned b = 0; b < b2a.size(); b++) {
                 expr * a = b2a.get(b);
-                if (a == 0)
+                if (a == nullptr)
                     continue;
                 if (is_uninterp_const(a))
                     continue;
@@ -116,7 +116,7 @@ class nlsat_tactic : public tactic {
             }
             for (unsigned b = 0; b < b2a.size(); b++) {
                 expr * a = b2a.get(b);
-                if (a == 0 || !is_uninterp_const(a))
+                if (a == nullptr || !is_uninterp_const(a))
                     continue;
                 lbool val = m_solver.bvalue(b);
                 if (val == l_undef)
@@ -171,7 +171,7 @@ class nlsat_tactic : public tactic {
                 }
             }
             else {
-                expr_dependency* lcore = 0;
+                expr_dependency* lcore = nullptr;
                 if (g->unsat_core_enabled()) {
                     vector<nlsat::assumption, false> assumptions;
                     m_solver.get_core(assumptions);
@@ -180,7 +180,7 @@ class nlsat_tactic : public tactic {
                         lcore = m.mk_join(lcore, d);
                     }
                 }
-                g->assert_expr(m.mk_false(), 0, lcore);
+                g->assert_expr(m.mk_false(), nullptr, lcore);
             }
             
             g->inc_depth();
@@ -202,36 +202,36 @@ class nlsat_tactic : public tactic {
 
         ~scoped_set_imp() {
             m_owner.m_imp->m_solver.collect_statistics(m_owner.m_stats);
-            m_owner.m_imp = 0;
+            m_owner.m_imp = nullptr;
         }
     };
 
 public:
     nlsat_tactic(params_ref const & p):
         m_params(p) {
-        m_imp = 0;
+        m_imp = nullptr;
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(nlsat_tactic, m_params);
     }
         
-    virtual ~nlsat_tactic() {
+    ~nlsat_tactic() override {
         SASSERT(m_imp == 0);
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_params = p;
     }
 
-    virtual void collect_param_descrs(param_descrs & r) {
+    void collect_param_descrs(param_descrs & r) override {
         goal2nlsat::collect_param_descrs(r);
         nlsat::solver::collect_param_descrs(r);
         algebraic_numbers::manager::collect_param_descrs(r);
     }
     
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result) {
+    void operator()(goal_ref const & in, 
+                    goal_ref_buffer & result) override {
         try {
             imp local_imp(in->m(), m_params);
             scoped_set_imp setter(*this, local_imp);
@@ -246,13 +246,13 @@ public:
         }
     }
     
-    virtual void cleanup() {}
+    void cleanup() override {}
     
-    virtual void collect_statistics(statistics & st) const {
+    void collect_statistics(statistics & st) const override {
         st.copy(m_stats);
     }
 
-    virtual void reset_statistics() {
+    void reset_statistics() override {
         m_stats.reset();
     }
 };

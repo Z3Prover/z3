@@ -33,7 +33,7 @@ public:
 
     equiv_proof_converter(ast_manager& m): m(m), m_replace(m) {}
 
-    virtual ~equiv_proof_converter() {}
+    ~equiv_proof_converter() override {}
 
     proof_ref operator()(ast_manager & m, unsigned num_source, proof * const * source) override {
         return m_replace(m, num_source, source);

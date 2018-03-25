@@ -92,7 +92,7 @@ class normalize_bounds_tactic : public tactic {
                 return;
             }
             
-            generic_model_converter   * gmc  = 0;
+            generic_model_converter   * gmc  = nullptr;
             if (produce_models) {
                 gmc = alloc(generic_model_converter, m, "normalize_bounds");
                 in->add(gmc);
@@ -105,7 +105,7 @@ class normalize_bounds_tactic : public tactic {
                 if (is_target(x, val)) {
                     num_norm_bounds++;
                     sort * s = m.get_sort(x);
-                    app * x_prime = m.mk_fresh_const(0, s);
+                    app * x_prime = m.mk_fresh_const(nullptr, s);
                     expr * def = m_util.mk_add(x_prime, m_util.mk_numeral(val, s));
                     subst.insert(x, def);
                     if (produce_models) {
@@ -145,25 +145,25 @@ public:
         m_imp = alloc(imp, m, p);
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(normalize_bounds_tactic, m, m_params);
     }
 
-    virtual ~normalize_bounds_tactic() {
+    ~normalize_bounds_tactic() override {
         dealloc(m_imp);
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_imp->updt_params(p);
     }
 
-    virtual void collect_param_descrs(param_descrs & r) { 
+    void collect_param_descrs(param_descrs & r) override {
         insert_produce_models(r);
         r.insert("norm_int_only", CPK_BOOL, "(default: true) normalize only the bounds of integer constants.");
     }
 
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result) {
+    void operator()(goal_ref const & in, 
+                    goal_ref_buffer & result) override {
         try {
             (*m_imp)(in, result);
         }
@@ -172,7 +172,7 @@ public:
         }
     }
     
-    virtual void cleanup() {
+    void cleanup() override {
         ast_manager & m = m_imp->m;
         imp * d = alloc(imp, m, m_params);
         std::swap(d, m_imp);        

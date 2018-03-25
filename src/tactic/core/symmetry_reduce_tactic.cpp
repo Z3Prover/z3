@@ -32,15 +32,15 @@ class symmetry_reduce_tactic : public tactic {
 public:
     symmetry_reduce_tactic(ast_manager & m);
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(symmetry_reduce_tactic, m);
     }
     
-    virtual ~symmetry_reduce_tactic();
+    ~symmetry_reduce_tactic() override;
     
-    virtual void operator()(goal_ref const & g, 
-                            goal_ref_buffer & result);
-    virtual void cleanup();
+    void operator()(goal_ref const & g, 
+                    goal_ref_buffer & result) override;
+    virtual void cleanup() override;
 };
 
 class ac_rewriter {
@@ -85,7 +85,7 @@ struct ac_rewriter_cfg : public default_rewriter_cfg {
     bool rewrite_patterns() const { return false; }
     bool flat_assoc(func_decl * f) const { return false; }
     br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
-        result_pr = 0;
+        result_pr = nullptr;
         return m_r.mk_app_core(f, num, args, result);
     }
     ac_rewriter_cfg(ast_manager & m):m_r(m) {}
@@ -472,7 +472,7 @@ private:
         T.reset();
         ptr_vector<expr> todo;
         todo.push_back(fml);
-        app* t = 0;
+        app* t = nullptr;
         while (!todo.empty()) {
             fml = todo.back();
             todo.pop_back();
@@ -487,24 +487,24 @@ private:
     bool is_range_restriction(expr* form, term_set const& C, app*& t) {
         if (!m().is_or(form)) return false;
         unsigned sz = to_app(form)->get_num_args();
-        t = 0;
+        t = nullptr;
         for (unsigned i = 0; i < sz; ++i) {
             expr* e = to_app(form)->get_arg(i);
             expr* e1, *e2;
             if (!m().is_eq(e, e1, e2)) return false;
             if (!is_app(e1) || !is_app(e2)) return false;
             app* a1 = to_app(e1), *a2 = to_app(e2);
-            if (C.contains(a1) && (t == 0 || t == a2)) {
+            if (C.contains(a1) && (t == nullptr || t == a2)) {
                 t = a2;
             }
-            else if (C.contains(a2) && (t == 0 || t == a1)) {
+            else if (C.contains(a2) && (t == nullptr || t == a1)) {
                 t = a1;
             }
             else {
                 return false;
             }
         }
-        return t != 0;
+        return t != nullptr;
     }
 
 

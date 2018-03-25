@@ -67,11 +67,11 @@ class reduce_args_tactic : public tactic {
 public:
     reduce_args_tactic(ast_manager & m);
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(reduce_args_tactic, m);
     }
 
-    virtual ~reduce_args_tactic();
+    ~reduce_args_tactic() override;
     
     void operator()(goal_ref const & g, goal_ref_buffer & result) override;
     void cleanup() override;
@@ -103,7 +103,7 @@ struct reduce_args_tactic::imp {
     }
 
     static bool may_be_unique(ast_manager& m, bv_util& bv, expr* e, expr*& base) {
-        base = 0;
+        base = nullptr;
         return m.is_unique_value(e) || is_var_plus_offset(m, bv, e, base);
     }
 
@@ -340,7 +340,7 @@ struct reduce_args_tactic::imp {
         }
         
         br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
-            result_pr = 0;
+            result_pr = nullptr;
             if (f->get_arity() == 0)
                 return BR_FAILED; // ignore constants
             if (f->get_family_id() != null_family_id)
@@ -356,7 +356,7 @@ struct reduce_args_tactic::imp {
             }
 
             app_ref tmp(m.mk_app(f, num, args), m);
-            func_decl *& new_f = map->insert_if_not_there2(tmp, 0)->get_data().m_value;
+            func_decl *& new_f = map->insert_if_not_there2(tmp, nullptr)->get_data().m_value;
             if (!new_f) {
                 // create fresh symbol
                 ptr_buffer<sort> domain;
@@ -397,7 +397,7 @@ struct reduce_args_tactic::imp {
         for (auto const& kv : decl2arg2funcs) {
             func_decl * f  = kv.m_key;
             arg2func * map = kv.m_value;
-            expr * def     = 0;
+            expr * def     = nullptr;
             SASSERT(decl2args.contains(f));
             bit_vector & bv = decl2args.find(f);
             new_vars.reset();
@@ -415,7 +415,7 @@ struct reduce_args_tactic::imp {
                 f_mc->hide(new_def);
                 SASSERT(new_def->get_arity() == new_args.size());
                 app * new_t = m_manager.mk_app(new_def, new_args.size(), new_args.c_ptr());
-                if (def == 0) {
+                if (def == nullptr) {
                     def = new_t;
                 }
                 else {

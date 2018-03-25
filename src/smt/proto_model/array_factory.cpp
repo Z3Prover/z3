@@ -62,7 +62,7 @@ void array_factory::get_some_args_for(sort * s, ptr_buffer<expr> & args) {
 
 expr * array_factory::get_some_value(sort * s) {
     TRACE("array_factory", tout << mk_pp(s, m_manager) << "\n";);
-    value_set * set = 0;
+    value_set * set = nullptr;
     if (m_sort2value_set.find(s, set) && !set->empty())
         return *(set->begin());
     func_interp * fi;
@@ -99,7 +99,7 @@ bool array_factory::mk_two_diff_values_for(sort * s) {
 }
 
 bool array_factory::get_some_values(sort * s, expr_ref & v1, expr_ref & v2) {
-    value_set * set = 0;
+    value_set * set = nullptr;
     if (!m_sort2value_set.find(s, set) || set->size() == 0) {
         if (!mk_two_diff_values_for(s))
             return false;
@@ -111,7 +111,7 @@ bool array_factory::get_some_values(sort * s, expr_ref & v1, expr_ref & v2) {
     if (set->size() == 1) {
         v1 = *(set->begin());
         v2 = get_fresh_value(s);
-        return v2.get() != 0;
+        return v2.get() != nullptr;
     }
     else {
         SASSERT(set->size() >= 2);
@@ -139,7 +139,7 @@ expr * array_factory::get_fresh_value(sort * s) {
     }
     sort * range    = get_array_range(s);
     expr * range_val = m_model.get_fresh_value(range);
-    if (range_val != 0) {
+    if (range_val != nullptr) {
         // easy case
         func_interp * fi;
         expr * val = mk_array_interp(s, fi);
@@ -170,7 +170,7 @@ expr * array_factory::get_fresh_value(sort * s) {
                 if (!found) {
                     expr * arg1 = m_model.get_fresh_value(d);
                     expr * arg2 = m_model.get_fresh_value(d);
-                    if (arg1 != 0 && arg2 != 0) {
+                    if (arg1 != nullptr && arg2 != nullptr) {
                         found = true;
                         args1.push_back(arg1);
                         args2.push_back(arg2);
@@ -201,6 +201,6 @@ expr * array_factory::get_fresh_value(sort * s) {
     
     // failed to create a fresh array value
     TRACE("array_factory_bug", tout << "failed to build fresh array value\n";);
-    return 0;
+    return nullptr;
 }
 

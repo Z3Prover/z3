@@ -51,7 +51,7 @@ class symbol {
     static symbol m_dummy;
 public:
     symbol():
-        m_data(0) {
+        m_data(nullptr) {
     }
     explicit symbol(char const * d);
     explicit symbol(unsigned idx):
@@ -69,9 +69,9 @@ public:
     unsigned int get_num() const { SASSERT(is_numerical()); return UNBOXINT(m_data); }
     std::string str() const;
     friend bool operator==(symbol const & s1, char const * s2) {
-        if (s1.m_data == 0 && s2 == 0)
+        if (s1.m_data == nullptr && s2 == nullptr)
             return true;
-        if (s1.m_data == 0 || s2 == 0)
+        if (s1.m_data == nullptr || s2 == nullptr)
             return false;
         if (!s1.is_numerical())
             return strcmp(s1.bare_str(), s2) == 0;
@@ -87,7 +87,7 @@ public:
         return s;
     }
     unsigned hash() const { 
-        if (m_data == 0) return 0x9e3779d9;
+        if (m_data == nullptr) return 0x9e3779d9;
         else if (is_numerical()) return get_num(); 
         else return static_cast<unsigned>(reinterpret_cast<size_t const *>(m_data)[-1]);
     }

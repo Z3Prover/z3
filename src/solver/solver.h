@@ -48,7 +48,7 @@ class solver : public check_sat_result {
     bool       m_enforce_model_conversion;
 public:
     solver(): m_enforce_model_conversion(false) {}
-    virtual ~solver() {}
+    ~solver() override {}
 
     /**
     \brief Creates a clone of the solver.

@@ -30,7 +30,7 @@ namespace datalog {
     public:
         scale_model_converter(ast_manager& m): m(m), m_trail(m), a(m) {}
 
-        virtual ~scale_model_converter() {}
+        ~scale_model_converter() override {}
 
         void add_new2old(func_decl* new_f, func_decl* old_f) {
             m_trail.push_back(old_f);
@@ -38,9 +38,9 @@ namespace datalog {
             m_new2old.insert(new_f, old_f);
         }
        
-        virtual void get_units(obj_map<expr, bool>& units) { units.reset(); }
+        void get_units(obj_map<expr, bool>& units) override { units.reset(); }
 
-        virtual void operator()(model_ref& md) {
+        void operator()(model_ref& md) override {
             model_ref old_model = alloc(model, m);
             for (auto const& kv : m_new2old) {
                 func_decl* old_p = kv.m_value;
@@ -95,9 +95,9 @@ namespace datalog {
             //TRACE("dl", model_smt2_pp(tout, m, *md, 0); );
         }
 
-        virtual model_converter * translate(ast_translation & translator) {
+        model_converter * translate(ast_translation & translator) override {
             UNREACHABLE();
-            return 0;
+            return nullptr;
         }
 
         virtual void display(std::ostream& out) { out << "(scale-model-converter)\n"; }
@@ -119,7 +119,7 @@ namespace datalog {
         
     rule_set * mk_scale::operator()(rule_set const & source) {
         if (!m_ctx.scale()) {
-            return 0;
+            return nullptr;
         }
         rule_manager& rm = source.get_rule_manager();
         rule_set * result = alloc(rule_set, m_ctx);

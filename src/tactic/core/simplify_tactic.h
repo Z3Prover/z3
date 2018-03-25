@@ -28,7 +28,7 @@ class simplify_tactic : public tactic {
     params_ref m_params;
 public:
     simplify_tactic(ast_manager & m, params_ref const & ref = params_ref());
-    virtual ~simplify_tactic();
+    ~simplify_tactic() override;
 
     void updt_params(params_ref const & p) override;
 

@@ -55,7 +55,6 @@ namespace sat {
 
         struct report;
 
-        void reset_cache(literal l);
         void cache_bins(literal l, unsigned old_tr_sz);
         bool try_lit(literal l, bool updt_cache);
         void process(bool_var v);
@@ -66,6 +65,7 @@ namespace sat {
         
         bool operator()(bool force = false);
 
+        void reset_cache(literal l);
         void updt_params(params_ref const & p);
         static void collect_param_descrs(param_descrs & d);
 
@@ -77,10 +77,10 @@ namespace sat {
         // return the literals implied by l.
         // return 0, if the cache is not available
         literal_vector * cached_implied_lits(literal l) {
-            if (!m_probing_cache) return 0;
-            if (l.index() >= m_cached_bins.size()) return 0;
+            if (!m_probing_cache) return nullptr;
+            if (l.index() >= m_cached_bins.size()) return nullptr;
             cache_entry & e = m_cached_bins[l.index()];
-            if (!e.m_available) return 0;
+            if (!e.m_available) return nullptr;
             return &(e.m_lits);
         }
 

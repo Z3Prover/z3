@@ -272,7 +272,7 @@ bool iz3base::is_sat(const std::vector<ast> &q, ast &_proof, std::vector<ast> &v
 
     for(unsigned i = 0; i < q.size(); i++)
         s.assert_expr(to_expr(q[i].raw()));
-    lbool res = s.check_sat(0,0);
+    lbool res = s.check_sat(0,nullptr);
     if (m().canceled()) {
         throw iz3_exception(Z3_CANCELED_MSG);
     }
@@ -293,7 +293,7 @@ bool iz3base::is_sat(const std::vector<ast> &q, ast &_proof, std::vector<ast> &v
             vars[i] = cook(r.get());
         }
     }
-    solver = 0;
+    solver = nullptr;
     return res != l_false;
 }
 

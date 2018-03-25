@@ -30,7 +30,7 @@ public:
     typedef typename C::allocator     allocator;
 private:
     static size_t capacity(value * vs) {
-        return vs == 0 ? 0 : (reinterpret_cast<size_t*>(vs))[-1];
+        return vs == nullptr ? 0 : (reinterpret_cast<size_t*>(vs))[-1];
     }
 
     value * allocate_values(size_t c) {
@@ -44,7 +44,7 @@ private:
     }
 
     void deallocate_values(value * vs) {
-        if (vs == 0)
+        if (vs == nullptr)
             return;
         size_t c     = capacity(vs);
         TRACE("parray_mem", tout << "deallocated values[" << c << "]: " << vs << "\n";);
@@ -73,7 +73,7 @@ private:
         unsigned size() const { SASSERT(kind() == ROOT); return m_size; }
         cell * next() const { SASSERT(kind() != ROOT); return m_next; }
         value const & elem() const { SASSERT(kind() == SET || kind() == PUSH_BACK); return m_elem; }
-        cell(ckind k):m_ref_count(1), m_kind(k), m_size(0), m_values(0) {}
+        cell(ckind k):m_ref_count(1), m_kind(k), m_size(0), m_values(nullptr) {}
     };
 
     value_manager &  m_vmanager;
@@ -105,7 +105,7 @@ private:
 
     void del(cell * c) {
         while (true) {
-            cell * next = 0;
+            cell * next = nullptr;
             switch (c->kind()) {
             case SET:
             case PUSH_BACK:
@@ -123,7 +123,7 @@ private:
             TRACE("parray_mem", tout << "deallocated cell: " << c << "\n";);
             c->~cell();
             m_allocator.deallocate(sizeof(cell), c);
-            if (next == 0)
+            if (next == nullptr)
                 return;
             SASSERT(next->m_ref_count > 0);
             next->m_ref_count--;
@@ -214,7 +214,7 @@ private:
         }
         SASSERT(r->kind() == ROOT);
         unsigned sz = r->m_size;
-        vs = 0;
+        vs = nullptr;
         copy_values(r->m_values, sz, vs);
         unsigned i = cs.size();
         while (i > 0) {
@@ -246,7 +246,7 @@ private:
         dec_ref(c->m_next);
         if (c->kind() == SET || c->kind() == PUSH_BACK)
             dec_ref(c->m_elem);
-        c->m_next     = 0;
+        c->m_next     = nullptr;
         c->m_kind     = ROOT;
         c->m_size     = sz;
         c->m_values   = vs;
@@ -262,7 +262,7 @@ public:
         bool unshared() const { return m_ref->m_ref_count == 1; }
         friend class parray_manager;
     public:
-        ref():m_ref(0), m_updt_counter(0) {}
+        ref():m_ref(nullptr), m_updt_counter(0) {}
     };
 
 public:
@@ -283,7 +283,7 @@ public:
 
     void del(ref & r) {
         dec_ref(r.m_ref);
-        r.m_ref          = 0;
+        r.m_ref          = nullptr;
         r.m_updt_counter = 0;
     }
     
@@ -296,7 +296,7 @@ public:
 
     unsigned size(ref const & r) const {
         cell * c = r.m_ref;
-        if (c == 0) return 0;
+        if (c == nullptr) return 0;
         while (true) {
             switch (c->kind()) {
             case SET:
@@ -397,7 +397,7 @@ public:
     }
 
     void push_back(ref & r, value const & v) {
-        if (r.m_ref == 0)
+        if (r.m_ref == nullptr)
             mk(r);
         if (r.root()) {
             if (r.unshared()) {

@@ -59,16 +59,16 @@ protected:
 public:
     concat_converter(T * c1, T * c2):m_c1(c1), m_c2(c2) {}
     
-    virtual ~concat_converter() {}
+    ~concat_converter() override {}
 
-    virtual void cancel() {
+    void cancel() override {
         m_c2->cancel();
         m_c1->cancel();
     }
 
     virtual char const * get_name() const = 0;
     
-    virtual void display(std::ostream & out) {
+    void display(std::ostream & out) override {
         m_c1->display(out);
         m_c2->display(out);
     }
@@ -83,10 +83,10 @@ protected:
 
     template<typename T2>
     T * translate_core(ast_translation & translator) {
-        T * t1 = m_c1 ? m_c1->translate(translator) : 0;
+        T * t1 = m_c1 ? m_c1->translate(translator) : nullptr;
         ptr_buffer<T> t2s;
         for (T* c : m_c2s)
-            t2s.push_back(c ? c->translate(translator) : 0);
+            t2s.push_back(c ? c->translate(translator) : nullptr);
         return alloc(T2, t1, m_c2s.size(), t2s.c_ptr(), m_szs.c_ptr());
     }
 
@@ -102,12 +102,12 @@ public:
         }
     }
 
-    virtual ~concat_star_converter() {
+    ~concat_star_converter() override {
         for (T* c : m_c2s)
             if (c) c->dec_ref();
     }
 
-    virtual void cancel() {
+    void cancel() override {
         if (m_c1)
             m_c1->cancel();
         for (T* c : m_c2s)
@@ -116,7 +116,7 @@ public:
 
     virtual char const * get_name() const = 0;
     
-    virtual void display(std::ostream & out) {
+    void display(std::ostream & out) override {
         if (m_c1)
             m_c1->display(out);
         for (T* c : m_c2s) 

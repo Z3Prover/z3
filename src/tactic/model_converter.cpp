@@ -98,9 +98,9 @@ public:
 };
 
 model_converter * concat(model_converter * mc1, model_converter * mc2) {
-    if (mc1 == 0)
+    if (mc1 == nullptr)
         return mc2;
-    if (mc2 == 0)
+    if (mc2 == nullptr)
         return mc1;
     return alloc(concat_model_converter, mc1, mc2);
 }
@@ -114,7 +114,7 @@ public:
 
     model2mc(model * m, labels_vec const & r):m_model(m), m_labels(r) {}
 
-    virtual ~model2mc() {}
+    ~model2mc() override {}
 
     void operator()(model_ref & m) override {
         m = m_model;

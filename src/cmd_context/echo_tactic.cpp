@@ -27,8 +27,8 @@ class echo_tactic : public skip_tactic {
 public:
     echo_tactic(cmd_context & ctx, char const * msg, bool newline):m_ctx(ctx), m_msg(msg), m_newline(newline) {}
     
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result) {
+    void operator()(goal_ref const & in, 
+                    goal_ref_buffer & result) override {
         #pragma omp critical (echo_tactic)
         {
             m_ctx.regular_stream() << m_msg;
@@ -54,12 +54,12 @@ public:
         m_p->inc_ref(); 
     }
     
-    ~probe_value_tactic() {
+    ~probe_value_tactic() override {
         m_p->dec_ref();
     }
     
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result) {
+    void operator()(goal_ref const & in, 
+                    goal_ref_buffer & result) override {
         double val = (*m_p)(*(in.get())).get_value();
         #pragma omp critical (probe_value_tactic)
         {

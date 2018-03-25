@@ -65,7 +65,7 @@ class horn_tactic : public tactic {
 
         void normalize(expr_ref& f) {
             bool is_positive = true;
-            expr* e = 0;
+            expr* e = nullptr;
             while (true) {
                 if (is_forall(f) && is_positive) {
                     f = to_quantifier(f)->get_expr();
@@ -141,7 +141,7 @@ class horn_tactic : public tactic {
             ast_mark mark;
             expr_ref_vector args(m), body(m);
             expr_ref head(m);
-            expr* a = 0, *a1 = 0;
+            expr* a = nullptr, *a1 = nullptr;
             flatten_or(tmp, args);
             for (unsigned i = 0; i < args.size(); ++i) {
                 a = args[i].get(); 
@@ -270,7 +270,7 @@ class horn_tactic : public tactic {
                 if (produce_proofs) {
                     proof_ref proof = m_ctx.get_proof();
                     pc = proof2proof_converter(m, proof);
-                    g->assert_expr(m.mk_false(), proof, 0);
+                    g->assert_expr(m.mk_false(), proof, nullptr);
                 }
                 else {
                     g->assert_expr(m.mk_false());
@@ -365,40 +365,40 @@ public:
         m_imp = alloc(imp, t, m, p);
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(horn_tactic, m_is_simplify, m, m_params);
     }
         
-    virtual ~horn_tactic() {
+    ~horn_tactic() override {
         dealloc(m_imp);
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_params = p;
         m_imp->updt_params(p);
     }
 
    
-    virtual void collect_param_descrs(param_descrs & r) {
+    void collect_param_descrs(param_descrs & r) override {
         m_imp->collect_param_descrs(r);
     }
     
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result) {
+    void operator()(goal_ref const & in, 
+                    goal_ref_buffer & result) override {
         (*m_imp)(in, result);
     }
     
-    virtual void collect_statistics(statistics & st) const {
+    void collect_statistics(statistics & st) const override {
         m_imp->collect_statistics(st);
         st.copy(m_stats);
     }
 
-    virtual void reset_statistics() {
+    void reset_statistics() override {
         m_stats.reset();
         m_imp->reset_statistics();
     }
     
-    virtual void cleanup() {
+    void cleanup() override {
         ast_manager & m = m_imp->m;
         m_imp->collect_statistics(m_stats);
         dealloc(m_imp);

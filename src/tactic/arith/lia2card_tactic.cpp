@@ -91,7 +91,7 @@ class lia2card_tactic : public tactic {
         bool rewrite_patterns() const { return false; }
         bool flat_assoc(func_decl * f) const { return false; }
         br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
-            result_pr = 0;
+            result_pr = nullptr;
             return mk_app_core(f, num, args, result);
         }
         lia_rewriter_cfg(lia2card_tactic& t):m(t.m), t(t), a(m), args(m) {}
@@ -129,11 +129,11 @@ public:
         m_max_ub = 100;
     }
 
-    virtual ~lia2card_tactic() {
+    ~lia2card_tactic() override {
         dealloc(m_todo);
     }
                 
-    void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_params = p;
         m_compile_equality = p.get_bool("compile_equality", true);
     }
@@ -161,7 +161,7 @@ public:
         return expr_ref(r, m);        
     }    
 
-    virtual void operator()(goal_ref const & g, goal_ref_buffer & result) {
+    void operator()(goal_ref const & g, goal_ref_buffer & result) override {
         SASSERT(g->is_well_sorted());
         m_bounds.reset();
         m_mc.reset();
@@ -351,21 +351,20 @@ public:
         }
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(lia2card_tactic, m, m_params);
     }
         
-    virtual void collect_param_descrs(param_descrs & r) {
+    void collect_param_descrs(param_descrs & r) override {
         r.insert("compile_equality", CPK_BOOL, 
                  "(default:false) compile equalities into pseudo-Boolean equality");
     }
         
-    virtual void cleanup() {        
-        bounds_map* d = alloc(bounds_map);
+    void cleanup() override {        
         ptr_vector<expr>* todo = alloc(ptr_vector<expr>);
         std::swap(m_todo, todo);        
-        dealloc(d);
         dealloc(todo);
+        m_bounds.reset();
     }
 };
 

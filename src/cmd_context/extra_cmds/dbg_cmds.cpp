@@ -104,15 +104,15 @@ class subst_cmd : public cmd {
     ptr_vector<expr> m_subst;
 public:
     subst_cmd():cmd("dbg-subst") {}
-    virtual char const * get_usage() const { return "<symbol> (<symbol>*) <symbol>"; }
-    virtual char const * get_descr(cmd_context & ctx) const { return "substitute the free variables in the AST referenced by <symbol> using the ASTs referenced by <symbol>*"; }
-    virtual unsigned get_arity() const { return 3; }
-    virtual void prepare(cmd_context & ctx) { m_idx = 0; m_source = 0; }
-    virtual cmd_arg_kind next_arg_kind(cmd_context & ctx) const {
+    char const * get_usage() const override { return "<symbol> (<symbol>*) <symbol>"; }
+    char const * get_descr(cmd_context & ctx) const override { return "substitute the free variables in the AST referenced by <symbol> using the ASTs referenced by <symbol>*"; }
+    unsigned get_arity() const override { return 3; }
+    void prepare(cmd_context & ctx) override { m_idx = 0; m_source = nullptr; }
+    cmd_arg_kind next_arg_kind(cmd_context & ctx) const override {
         if (m_idx == 1) return CPK_SYMBOL_LIST;
         return CPK_SYMBOL;
     }
-    virtual void set_next_arg(cmd_context & ctx, symbol const & s) {
+    void set_next_arg(cmd_context & ctx, symbol const & s) override {
         if (m_idx == 0) {
             m_source = get_expr_ref(ctx, s);
         }
@@ -121,7 +121,7 @@ public:
         }
         m_idx++;
     }
-    virtual void set_next_arg(cmd_context & ctx, unsigned num, symbol const * s) {
+    void set_next_arg(cmd_context & ctx, unsigned num, symbol const * s) override {
         m_subst.reset();
         unsigned i = num;
         while (i > 0) {
@@ -130,7 +130,7 @@ public:
         }
         m_idx++;
     }
-    virtual void execute(cmd_context & ctx) {
+    void execute(cmd_context & ctx) override {
         expr_ref r(ctx.m());
         beta_reducer p(ctx.m());
         p(m_source, m_subst.size(), m_subst.c_ptr(), r);
@@ -179,18 +179,18 @@ class lt_cmd : public cmd {
     expr *           m_t2;
 public:
     lt_cmd():cmd("dbg-lt") {}
-    virtual char const * get_usage() const { return "<term> <term>"; }
-    virtual char const * get_descr(cmd_context & ctx) const { return "return true if the first term is smaller than the second one in the internal Z3 total order on terms."; }
-    virtual unsigned get_arity() const { return 2; }
-    virtual void prepare(cmd_context & ctx) { m_t1 = 0; }
-    virtual cmd_arg_kind next_arg_kind(cmd_context & ctx) const { return CPK_EXPR; }
-    virtual void set_next_arg(cmd_context & ctx, expr * arg) {
-        if (m_t1 == 0)
+    char const * get_usage() const override { return "<term> <term>"; }
+    char const * get_descr(cmd_context & ctx) const override { return "return true if the first term is smaller than the second one in the internal Z3 total order on terms."; }
+    unsigned get_arity() const override { return 2; }
+    void prepare(cmd_context & ctx) override { m_t1 = nullptr; }
+    cmd_arg_kind next_arg_kind(cmd_context & ctx) const override { return CPK_EXPR; }
+    void set_next_arg(cmd_context & ctx, expr * arg) override {
+        if (m_t1 == nullptr)
             m_t1 = arg;
         else
             m_t2 = arg;
     }
-    virtual void execute(cmd_context & ctx) {
+    void execute(cmd_context & ctx) override {
         bool r = lt(m_t1, m_t2);
         ctx.regular_stream() << (r ? "true" : "false") << std::endl;
     }
@@ -283,23 +283,23 @@ protected:
     ptr_vector<expr> m_args;
 public:
     instantiate_cmd_core(char const * name):cmd(name) {}
-    virtual char const * get_usage() const { return "<quantifier> (<symbol>*)"; }
-    virtual char const * get_descr(cmd_context & ctx) const { return "instantiate the quantifier using the given expressions."; }
-    virtual unsigned get_arity() const { return 2; }
-    virtual void prepare(cmd_context & ctx) { m_q = 0; m_args.reset(); }
+    char const * get_usage() const override { return "<quantifier> (<symbol>*)"; }
+    char const * get_descr(cmd_context & ctx) const override { return "instantiate the quantifier using the given expressions."; }
+    unsigned get_arity() const override { return 2; }
+    void prepare(cmd_context & ctx) override { m_q = nullptr; m_args.reset(); }
 
-    virtual cmd_arg_kind next_arg_kind(cmd_context & ctx) const {
-        if (m_q == 0) return CPK_EXPR;
+    cmd_arg_kind next_arg_kind(cmd_context & ctx) const override {
+        if (m_q == nullptr) return CPK_EXPR;
         else return CPK_EXPR_LIST;
     }
 
-    virtual void set_next_arg(cmd_context & ctx, expr * s) {
+    void set_next_arg(cmd_context & ctx, expr * s) override {
         if (!is_quantifier(s))
             throw cmd_exception("invalid command, quantifier expected.");
         m_q = to_quantifier(s);
     }
 
-    virtual void set_next_arg(cmd_context & ctx, unsigned num, expr * const * ts) {
+    void set_next_arg(cmd_context & ctx, unsigned num, expr * const * ts) override {
         if (num != m_q->get_num_decls())
             throw cmd_exception("invalid command, mismatch between the number of quantified variables and the number of arguments.");
         unsigned i = num;
@@ -315,7 +315,7 @@ public:
         m_args.append(num, ts);
     }
 
-    virtual void execute(cmd_context & ctx) {
+    void execute(cmd_context & ctx) override {
         expr_ref r(ctx.m());
         instantiate(ctx.m(), m_q, m_args.c_ptr(), r);
         ctx.display(ctx.regular_stream(), r);
@@ -332,9 +332,9 @@ class instantiate_nested_cmd : public instantiate_cmd_core {
 public:
     instantiate_nested_cmd():instantiate_cmd_core("dbg-instantiate-nested") {}
 
-    virtual char const * get_descr(cmd_context & ctx) const { return "instantiate the quantifier nested in the outermost quantifier, this command is used to test the instantiation procedure with quantifiers that contain free variables."; }
+    char const * get_descr(cmd_context & ctx) const override { return "instantiate the quantifier nested in the outermost quantifier, this command is used to test the instantiation procedure with quantifiers that contain free variables."; }
 
-    virtual void set_next_arg(cmd_context & ctx, expr * s) {
+    void set_next_arg(cmd_context & ctx, expr * s) override {
         instantiate_cmd_core::set_next_arg(ctx, s);
         if (!is_quantifier(m_q->get_expr()))
             throw cmd_exception("invalid command, nested quantifier expected");
@@ -345,11 +345,11 @@ public:
 class print_dimacs_cmd : public cmd {
 public:
     print_dimacs_cmd():cmd("display-dimacs") {}
-    virtual char const * get_usage() const { return ""; }
-    virtual char const * get_descr(cmd_context & ctx) const { return "print benchmark in DIMACS format"; }
-    virtual unsigned get_arity() const { return 0; }
-    virtual void prepare(cmd_context & ctx) {}
-    virtual void execute(cmd_context & ctx) { ctx.display_dimacs(); }
+    char const * get_usage() const override { return ""; }
+    char const * get_descr(cmd_context & ctx) const override { return "print benchmark in DIMACS format"; }
+    unsigned get_arity() const override { return 0; }
+    void prepare(cmd_context & ctx) override {}
+    void execute(cmd_context & ctx) override { ctx.display_dimacs(); }
 };
 
 

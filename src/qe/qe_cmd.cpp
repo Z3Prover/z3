@@ -14,36 +14,36 @@ class qe_cmd : public parametric_cmd {
 public:
     qe_cmd(char const* name = "elim-quantifiers"):parametric_cmd(name) {}
     
-    virtual char const * get_usage() const { return "<term> (<keyword> <value>)*"; }
+    char const * get_usage() const override { return "<term> (<keyword> <value>)*"; }
 
-    virtual char const * get_main_descr() const { 
+    char const * get_main_descr() const override {
         return "apply quantifier elimination to the supplied expression";
     }
     
-    virtual void init_pdescrs(cmd_context & ctx, param_descrs & p) {
+    void init_pdescrs(cmd_context & ctx, param_descrs & p) override {
         insert_timeout(p);
         p.insert("print", CPK_BOOL, "(default: true)  print the simplified term.");
         p.insert("print_statistics", CPK_BOOL, "(default: false) print statistics.");
     }
     
-    virtual ~qe_cmd() {
+    ~qe_cmd() override {
     }
     
-    virtual void prepare(cmd_context & ctx) { 
+    void prepare(cmd_context & ctx) override {
         parametric_cmd::prepare(ctx);
-        m_target   = 0; 
+        m_target   = nullptr;
     }
 
-    virtual cmd_arg_kind next_arg_kind(cmd_context & ctx) const {
-        if (m_target == 0) return CPK_EXPR;
+    cmd_arg_kind next_arg_kind(cmd_context & ctx) const override {
+        if (m_target == nullptr) return CPK_EXPR;
         return parametric_cmd::next_arg_kind(ctx);
     }
     
-    virtual void set_next_arg(cmd_context & ctx, expr * arg) {
+    void set_next_arg(cmd_context & ctx, expr * arg) override {
         m_target = arg;
     }
     
-    virtual void execute(cmd_context & ctx) {
+    void execute(cmd_context & ctx) override {
         proof_ref pr(ctx.m());
         qe::simplify_rewriter_star qe(ctx.m());
         expr_ref result(ctx.m());

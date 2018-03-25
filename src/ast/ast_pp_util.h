@@ -21,9 +21,11 @@ Revision History:
 
 #include "ast/decl_collector.h"
 #include "ast/ast_smt2_pp.h"
+#include "util/obj_hashtable.h"
 
 class ast_pp_util {
     ast_manager&        m;
+    obj_hashtable<func_decl> m_removed;
     smt2_pp_environment_dbg m_env;
  public:        
 
@@ -36,6 +38,8 @@ class ast_pp_util {
     void collect(unsigned n, expr* const* es);
 
     void collect(expr_ref_vector const& es);
+
+    void remove_decl(func_decl* f);
 
     void display_decls(std::ostream& out);
 

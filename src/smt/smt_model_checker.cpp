@@ -32,19 +32,20 @@ namespace smt {
     model_checker::model_checker(ast_manager & m, qi_params const & p, model_finder & mf):
         m(m),
         m_params(p),
-        m_qm(0),
-        m_context(0),
-        m_root2value(0),
+        m_autil(m),
+        m_qm(nullptr),
+        m_context(nullptr),
+        m_root2value(nullptr),
         m_model_finder(mf),
         m_max_cexs(1),
         m_iteration_idx(0),
-        m_curr_model(0),
+        m_curr_model(nullptr),
         m_pinned_exprs(m) {
     }
 
     model_checker::~model_checker() {
-        m_aux_context = 0; // delete aux context before fparams
-        m_fparams = 0;
+        m_aux_context = nullptr; // delete aux context before fparams
+        m_fparams = nullptr;
     }
 
     quantifier * model_checker::get_flat_quantifier(quantifier * q) {
@@ -71,7 +72,7 @@ namespace smt {
                 m_value2expr.insert(val, n->get_owner());
             }
         }
-        expr * t = 0;
+        expr * t = nullptr;
         m_value2expr.find(val, t);
         return t;
     }
@@ -110,10 +111,10 @@ namespace smt {
         ptr_buffer<expr> subst_args;
         unsigned num_decls = q->get_num_decls();
         subst_args.resize(num_decls, 0);
-        sks.resize(num_decls, 0);
+        sks.resize(num_decls, nullptr);
         for (unsigned i = 0; i < num_decls; i++) {
             sort * s  = q->get_decl_sort(num_decls - i - 1);
-            expr * sk = m.mk_fresh_const(0, s);
+            expr * sk = m.mk_fresh_const(nullptr, s);
             sks[num_decls - i - 1]        = sk;
             subst_args[num_decls - i - 1] = sk;
             if (m_curr_model->is_finite(s)) {
@@ -131,7 +132,7 @@ namespace smt {
     }
 
     bool model_checker::add_instance(quantifier * q, model * cex, expr_ref_vector & sks, bool use_inv) {
-        if (cex == 0) {
+        if (cex == nullptr) {
             TRACE("model_checker", tout << "no model is available\n";);
             return false;
         }
@@ -157,7 +158,7 @@ namespace smt {
             if (use_inv) {
                 unsigned sk_term_gen;
                 expr * sk_term = m_model_finder.get_inv(q, i, sk_value, sk_term_gen);
-                if (sk_term != 0) {
+                if (sk_term != nullptr) {
                     TRACE("model_checker", tout << "Found inverse " << mk_pp(sk_term, m) << "\n";);
                     SASSERT(!m.is_model_value(sk_term));
                     if (sk_term_gen > max_generation)
@@ -171,7 +172,7 @@ namespace smt {
             }
             else {
                 expr * sk_term = get_term_from_ctx(sk_value);
-                if (sk_term != 0) {
+                if (sk_term != nullptr) {
                     sk_value = sk_term;
                 }
             }
@@ -205,13 +206,13 @@ namespace smt {
     }
 
     void model_checker::operator()(expr *n) {
-        if (m.is_model_value(n)) {
+        if (m.is_model_value(n) || m_autil.is_as_array(n)) {
             throw is_model_value();
         }
     }
 
     bool model_checker::contains_model_value(expr* n) {
-        if (m.is_model_value(n)) {
+        if (m.is_model_value(n) || m_autil.is_as_array(n)) {
             return true;
         }
         if (is_app(n) && to_app(n)->get_num_args() == 0) {
@@ -322,7 +323,7 @@ namespace smt {
         bool is_undef = false;
         expr_ref_vector args(m);
         unsigned num_decls = q->get_num_decls();
-        args.resize(num_decls, 0);
+        args.resize(num_decls, nullptr);
         var_subst sub(m);
         expr_ref tmp(m), result(m);
         for (; it != end; ++it) {
@@ -501,7 +502,7 @@ namespace smt {
                       expr_ref inst_expr(m);
                       instantiate(m, q, inst->m_bindings, inst_expr);
                       tout << "(assert " << mk_ismt2_pp(inst_expr, m) << ")\n";);
-                m_context->add_instance(q, 0, num_decls, bindings.c_ptr(), gen, gen, gen, dummy);
+                m_context->add_instance(q, nullptr, num_decls, bindings.c_ptr(), gen, gen, gen, dummy);
                 TRACE("model_checker_bug_detail", tout << "after instantiating, inconsistent: " << m_context->inconsistent() << "\n";);
             }
         }

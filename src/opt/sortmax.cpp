@@ -89,7 +89,7 @@ namespace opt {
             while (l_true == is_sat && first < out.size() && m_lower < m_upper) {
                 trace_bounds("sortmax");
                 s().assert_expr(out[first]);
-                is_sat = s().check_sat(0, 0);
+                is_sat = s().check_sat(0, nullptr);
                 TRACE("opt", tout << is_sat << "\n"; s().display(tout); tout << "\n";);
                 if (m.canceled()) {
                     is_sat = l_undef;

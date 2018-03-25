@@ -101,9 +101,9 @@ public:
     pb_preprocess_tactic(ast_manager& m, params_ref const& p = params_ref()): 
         m(m), pb(m), m_r(m) {}
 
-    virtual ~pb_preprocess_tactic() {}
+    ~pb_preprocess_tactic() override {}
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(pb_preprocess_tactic, m);
     }
     
@@ -212,7 +212,7 @@ public:
                 if (!to_ge(g->form(k), args2, coeffs2, k2)) continue;
                 if (subsumes(args1, coeffs1, k1, args2, coeffs2, k2)) {
                     IF_VERBOSE(3, verbose_stream() << "replace " << mk_pp(g->form(k), m) << "\n";);
-                    g->update(k, m.mk_true(), 0, m.mk_join(g->dep(m_ge[i]), g->dep(k))); 
+                    g->update(k, m.mk_true(), nullptr, m.mk_join(g->dep(m_ge[i]), g->dep(k)));
                     m_progress = true;
                 }
             }
@@ -223,15 +223,15 @@ public:
         return m_progress;
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
     }
 
-    virtual void cleanup() {
+    void cleanup() override {
     }
 
 private:
 
-    void reset() {
+    void reset() override {
         m_ge.reset();
         m_other.reset();
         m_vars.reset();
@@ -290,12 +290,12 @@ private:
                 for (unsigned j = 0; j < cuts.size(); ++j) {
                     unsigned end = cuts[j];
                     fml1 = decompose_cut(a, start, end, cut_args, cut_coeffs); 
-                    g->assert_expr(fml1, 0, g->dep(i));
+                    g->assert_expr(fml1, nullptr, g->dep(i));
                     start = end;
                     TRACE("pb", tout << fml1 << "\n";);
                 }
                 fml2 = pb.mk_ge(cut_args.size(), cut_coeffs.c_ptr(), cut_args.c_ptr(), pb.get_k(e));
-                g->update(i, fml2, 0, g->dep(i));
+                g->update(i, fml2, nullptr, g->dep(i));
                 TRACE("pb", tout << fml2 << "\n";);
             }
         }
@@ -540,8 +540,8 @@ private:
               tout << "resolve: " << mk_pp(fml1, m) << "\n" << mk_pp(fml2, m) << "\n" << tmp1 << "\n";
               tout << "to\n" << mk_pp(fml2, m) << " -> " << tmp2 << "\n";);
 
-        g->update(idx2, tmp2, 0, m.mk_join(g->dep(idx1), g->dep(idx2)));
-        g->update(idx1, m.mk_true(), 0, 0); 
+        g->update(idx2, tmp2, nullptr, m.mk_join(g->dep(idx1), g->dep(idx2)));
+        g->update(idx1, m.mk_true(), nullptr, nullptr);
         m_progress = true;
         //IF_VERBOSE(0, if (!g->inconsistent()) display_annotation(verbose_stream(), g););
     }
@@ -613,7 +613,7 @@ private:
                 }
             }
         }
-        m_r.set_substitution(0);
+        m_r.set_substitution(nullptr);
     }
 
     bool subsumes(expr_ref_vector const& args1, 

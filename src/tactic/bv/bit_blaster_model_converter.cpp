@@ -52,7 +52,7 @@ struct bit_blaster_model_converter : public model_converter {
             m_newbits.push_back(f);
     }
     
-    virtual ~bit_blaster_model_converter() {
+    ~bit_blaster_model_converter() override {
     }
     
     void collect_bits(obj_hashtable<func_decl> & bits) {
@@ -123,7 +123,7 @@ struct bit_blaster_model_converter : public model_converter {
                     SASSERT(is_uninterp_const(bit));
                     func_decl * bit_decl = to_app(bit)->get_decl();
                     expr * bit_val = old_model->get_const_interp(bit_decl);
-                    if (bit_val == 0) {
+                    if (bit_val == nullptr) {
                         goto bail;
                     }
                     if (m().is_true(bit_val))
@@ -141,7 +141,7 @@ struct bit_blaster_model_converter : public model_converter {
                     func_decl * bit_decl = to_app(bit)->get_decl();
                     expr * bit_val = old_model->get_const_interp(bit_decl);
                     // remark: if old_model does not assign bit_val, then assume it is false.
-                    if (bit_val == 0) {
+                    if (bit_val == nullptr) {
                         goto bail;
                     }
                     if (!util.is_zero(bit_val))

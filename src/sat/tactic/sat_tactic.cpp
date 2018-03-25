@@ -64,7 +64,7 @@ class sat_tactic : public tactic {
             dep2assumptions(dep2asm, assumptions);
             lbool r = m_solver.check(assumptions.size(), assumptions.c_ptr());
             if (r == l_false) {
-                expr_dependency * lcore = 0;
+                expr_dependency * lcore = nullptr;
                 if (produce_core) {
                     sat::literal_vector const& ucore = m_solver.get_core();
                     u_map<expr*> asm2dep;
@@ -75,7 +75,7 @@ class sat_tactic : public tactic {
                         lcore = m.mk_join(lcore, m.mk_leaf(dep));                        
                     }
                 }
-                g->assert_expr(m.mk_false(), 0, lcore);
+                g->assert_expr(m.mk_false(), nullptr, lcore);
             }
             else if (r == l_true && !map.interpreted_atoms()) {
                 // register model
@@ -140,7 +140,7 @@ class sat_tactic : public tactic {
         }
         
         ~scoped_set_imp() {
-            m_owner->m_imp = 0;        
+            m_owner->m_imp = nullptr;
         }
     };
 
@@ -150,30 +150,30 @@ class sat_tactic : public tactic {
 
 public:
     sat_tactic(ast_manager & m, params_ref const & p):
-        m_imp(0),
+        m_imp(nullptr),
         m_params(p) {
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(sat_tactic, m, m_params);
     }
 
-    virtual ~sat_tactic() {
+    ~sat_tactic() override {
         SASSERT(m_imp == 0);
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_params = p;
     }
 
-    virtual void collect_param_descrs(param_descrs & r) {
+    void collect_param_descrs(param_descrs & r) override {
         goal2sat::collect_param_descrs(r);
         sat2goal::collect_param_descrs(r);
         sat::solver::collect_param_descrs(r);
     }
     
     void operator()(goal_ref const & g, 
-                    goal_ref_buffer & result) {
+                    goal_ref_buffer & result) override {
         imp proc(g->m(), m_params);
         scoped_set_imp set(this, &proc);
         try {
@@ -187,15 +187,15 @@ public:
         TRACE("sat_stats", m_stats.display_smt2(tout););
     }
 
-    virtual void cleanup() {
+    void cleanup() override {
         SASSERT(m_imp == 0);
     }
 
-    virtual void collect_statistics(statistics & st) const {
+    void collect_statistics(statistics & st) const override {
         st.copy(m_stats);
     }
 
-    virtual void reset_statistics() {
+    void reset_statistics() override {
         m_stats.reset();
     }
 

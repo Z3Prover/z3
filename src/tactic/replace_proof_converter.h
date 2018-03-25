@@ -32,7 +32,7 @@ public:
 
     replace_proof_converter(ast_manager& _m): m(_m), m_proofs(m) {}
 
-    virtual ~replace_proof_converter() {}
+    ~replace_proof_converter() override {}
 
     proof_ref operator()(ast_manager & _m, unsigned num_source, proof * const * source) override;
 

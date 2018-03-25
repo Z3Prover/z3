@@ -53,7 +53,7 @@ class split_clause_tactic : public tactic {
         split_pc(ast_manager & m, app * cls, proof * pr):m(m), m_clause(cls, m), m_clause_pr(pr, m) {
         }
 
-        virtual ~split_pc() { }
+        ~split_pc() override { }
 
         proof_ref operator()(ast_manager & m, unsigned num_source, proof * const * source) override {
             // Let m_clause be of the form (l_0 or ... or l_{num_source - 1})
@@ -83,13 +83,13 @@ public:
         updt_params(ref);
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         split_clause_tactic * t = alloc(split_clause_tactic);
         t->m_largest_clause = m_largest_clause;
         return t;
     }
     
-    virtual ~split_clause_tactic() {
+    ~split_clause_tactic() override {
     }
 
     void updt_params(params_ref const & p) override {
@@ -119,7 +119,7 @@ public:
         for (expr* lit_i : *cls) {
             goal * subgoal_i = alloc(goal, *in);
             subgoal_i->set(in->mc());
-            proof * pr_i = 0;
+            proof * pr_i = nullptr;
             if (produce_proofs)
                 pr_i = m.mk_hypothesis(lit_i);
             subgoal_i->update(cls_pos, lit_i, pr_i, cls_dep);
@@ -130,7 +130,7 @@ public:
         in->add(dependency_converter::concat(result.size(), result.c_ptr()));
     }
     
-    virtual void cleanup() {
+    void cleanup() override {
         // do nothing this tactic is too simple
     }
 };

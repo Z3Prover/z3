@@ -36,12 +36,13 @@ Revision History:
 #include "util/file_path.h"
 #include "util/gparams.h"
 #include "util/env_params.h"
+#include "util/file_path.h"
 #include "shell/lp_frontend.h"
 
-typedef enum { IN_UNSPECIFIED, IN_SMTLIB, IN_SMTLIB_2, IN_DATALOG, IN_DIMACS, IN_WCNF, IN_OPB, IN_LP, IN_Z3_LOG, IN_MPS } input_kind;
+typedef enum { IN_UNSPECIFIED, IN_SMTLIB_2, IN_DATALOG, IN_DIMACS, IN_WCNF, IN_OPB, IN_LP, IN_Z3_LOG, IN_MPS } input_kind;
 
 std::string         g_aux_input_file;
-char const *        g_input_file          = 0;
+char const *        g_input_file          = nullptr;
 bool                g_standard_input      = false;
 input_kind          g_input_kind          = IN_UNSPECIFIED;
 bool                g_display_statistics  = false;
@@ -115,7 +116,7 @@ void display_usage() {
    
 void parse_cmd_line_args(int argc, char ** argv) {
     int i = 1;
-    char * eq_pos = 0;
+    char * eq_pos = nullptr;
     while (i < argc) {
         char * arg = argv[i];    
 
@@ -147,7 +148,7 @@ void parse_cmd_line_args(int argc, char ** argv) {
             // allow names such as --help
             if (*opt_name == '-')
                 opt_name++;
-            char * opt_arg  = 0;
+            char * opt_arg  = nullptr;
             char * colon    = strchr(arg, ':');
             if (colon) {
                 opt_arg = colon + 1;
@@ -171,9 +172,6 @@ void parse_cmd_line_args(int argc, char ** argv) {
 #endif
                 std::cout << "\n";
                 exit(0);
-            }
-            else if (strcmp(opt_name, "smt") == 0) {
-                g_input_kind = IN_SMTLIB;
             }
             else if (strcmp(opt_name, "smt2") == 0) {
                 g_input_kind = IN_SMTLIB_2;
@@ -208,7 +206,7 @@ void parse_cmd_line_args(int argc, char ** argv) {
             else if (strcmp(opt_name, "v") == 0) {
                 if (!opt_arg)
                     error("option argument (-v:level) is missing.");
-                long lvl = strtol(opt_arg, 0, 10);
+                long lvl = strtol(opt_arg, nullptr, 10);
                 set_verbosity_level(lvl);
             }
             else if (strcmp(opt_name, "file") == 0) {
@@ -217,7 +215,7 @@ void parse_cmd_line_args(int argc, char ** argv) {
             else if (strcmp(opt_name, "T") == 0) {
                 if (!opt_arg)
                     error("option argument (-T:timeout) is missing.");
-                long tm = strtol(opt_arg, 0, 10);
+                long tm = strtol(opt_arg, nullptr, 10);
                 set_timeout(tm * 1000);
             }
             else if (strcmp(opt_name, "t") == 0) {
@@ -336,9 +334,6 @@ int STD_CALL main(int argc, char ** argv) {
                 else if (strcmp(ext, "smt2") == 0) {
                     g_input_kind = IN_SMTLIB_2;
                 }
-                else if (strcmp(ext, "smt") == 0) {
-                    g_input_kind = IN_SMTLIB;
-                }
                 else if (strcmp(ext, "mps") == 0 || strcmp(ext, "sif") == 0 ||
                          strcmp(ext, "MPS") == 0 || strcmp(ext, "SIF") == 0) {
                     g_input_kind = IN_MPS;
@@ -346,9 +341,6 @@ int STD_CALL main(int argc, char ** argv) {
             }
     }
         switch (g_input_kind) {
-        case IN_SMTLIB:
-            return_value = read_smtlib_file(g_input_file);
-            break;
         case IN_SMTLIB_2:
             memory::exit_when_out_of_memory(true, "(error \"out of memory\")");
             return_value = read_smtlib2_commands(g_input_file);

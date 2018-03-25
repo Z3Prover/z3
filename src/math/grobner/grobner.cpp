@@ -29,7 +29,7 @@ grobner::grobner(ast_manager & m, v_dependency_manager & d):
     m_var_lt(m_var2weight),
     m_monomial_lt(m_var_lt),
     m_changed_leading_term(false),
-    m_unsat(0) {
+    m_unsat(nullptr) {
 }
 
 grobner::~grobner() {
@@ -116,7 +116,7 @@ void grobner::reset() {
     m_to_process.reset();
     m_equations_to_unfreeze.reset();
     m_equations_to_delete.reset();
-    m_unsat = 0;
+    m_unsat = nullptr;
 }
 
 void grobner::display_var(std::ostream & out, expr * var) const {
@@ -410,7 +410,7 @@ void grobner::assert_monomial_tautology(expr * m) {
     m1->m_vars.push_back(m);
     eq->m_monomials.push_back(m1);
     normalize_coeff(eq->m_monomials);                                          
-    init_equation(eq, static_cast<v_dependency*>(0));                                                          \
+    init_equation(eq, static_cast<v_dependency*>(nullptr));                                                          \
     m_to_process.insert(eq);
 }
 
@@ -625,7 +625,7 @@ grobner::equation * grobner::copy_equation(equation const * eq) {
 grobner::equation * grobner::simplify(equation const * source, equation * target) {
     TRACE("grobner", tout << "simplifying: "; display_equation(tout, *target); tout << "using: "; display_equation(tout, *source););
     if (source->get_num_monomials() == 0)
-        return 0;
+        return nullptr;
     m_stats.m_simplify++;
     bool result = false;
     bool simplified;
@@ -676,7 +676,7 @@ grobner::equation * grobner::simplify(equation const * source, equation * target
     }
     while (simplified && !m_manager.canceled());
     TRACE("grobner", tout << "result: "; display_equation(tout, *target););
-    return result ? target : 0;
+    return result ? target : nullptr;
 }
 
 /**
@@ -702,13 +702,13 @@ grobner::equation * grobner::simplify_using_processed(equation * eq) {
                 eq         = new_eq;
             }
             if (m_manager.canceled()) {
-                return 0;
+                return nullptr;
             }
         }        
     }
     while (simplified);
     TRACE("grobner", tout << "simplification result: "; display_equation(tout, *eq););
-    return result ? eq : 0;
+    return result ? eq : nullptr;
 }
 
 /**
@@ -732,7 +732,7 @@ bool grobner::is_better_choice(equation * eq1, equation * eq2) {
    \brief Pick next unprocessed equation
 */
 grobner::equation * grobner::pick_next() {
-    equation * r = 0;
+    equation * r = nullptr;
     ptr_buffer<equation> to_delete;
     equation_set::iterator it  = m_to_process.begin();
     equation_set::iterator end = m_to_process.end();
@@ -767,7 +767,7 @@ bool grobner::simplify_processed(equation * eq) {
         m_changed_leading_term = false;
         // if the leading term is simplified, then the equation has to be moved to m_to_process
         equation * new_curr    = simplify(eq, curr);
-        if (new_curr != 0) {
+        if (new_curr != nullptr) {
             if (new_curr != curr) {
                 m_equations_to_unfreeze.push_back(curr);
                 to_remove.push_back(curr);
@@ -817,7 +817,7 @@ void grobner::simplify_to_process(equation * eq) {
     for (; it != end; ++it) {
         equation * curr     = *it;
         equation * new_curr = simplify(eq, curr);
-        if (new_curr != 0 && new_curr != curr) {
+        if (new_curr != nullptr && new_curr != curr) {
             m_equations_to_unfreeze.push_back(curr);
             to_insert.push_back(new_curr);
             to_remove.push_back(curr);
@@ -947,7 +947,7 @@ bool grobner::compute_basis_step() {
     }
 #endif
     equation * new_eq = simplify_using_processed(eq);
-    if (new_eq != 0 && eq != new_eq) {
+    if (new_eq != nullptr && eq != new_eq) {
         // equation was updated using non destructive updates
         m_equations_to_unfreeze.push_back(eq);
         eq = new_eq;

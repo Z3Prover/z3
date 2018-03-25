@@ -38,10 +38,10 @@ template <typename T> class numeric_traits {};
 template <>  class numeric_traits<unsigned> {
 public:
     static bool precise() { return true; }
-    static unsigned const zero() { return 0; }
-    static unsigned const one() { return 1; }
+    static unsigned zero() { return 0; }
+    static unsigned one() { return 1; }
     static bool is_zero(unsigned v) { return v == 0; }
-    static double const get_double(unsigned const & d) { return d; }
+    static double get_double(unsigned const & d) { return d; }
 };
 
 template <>  class numeric_traits<double> {
@@ -66,7 +66,7 @@ template <>  class numeric_traits<double> {
         static rational const & zero() { return rational::zero(); }
         static rational const & one() { return rational::one(); }
         static bool is_zero(const rational & v) { return v.is_zero(); }
-        static double const  get_double(const rational  & d) { return d.get_double();}
+        static double get_double(const rational  & d) { return d.get_double();}
         static rational log(rational const& r) { UNREACHABLE(); return r; }
         static rational from_string(std::string const & str) { return rational(str.c_str()); }
         static bool is_pos(const rational & d) {return d.is_pos();}

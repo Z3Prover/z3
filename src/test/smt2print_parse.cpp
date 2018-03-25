@@ -28,11 +28,11 @@ void test_print(Z3_context ctx, Z3_ast_vector av) {
         Z3_parse_smtlib2_string(ctx, 
                                 spec1,
                                 0,
+                                nullptr,
+                                nullptr,
                                 0,
-                                0,
-                                0,
-                                0,
-                                0);
+                                nullptr,
+                                nullptr);
     std::cout << "parse successful, converting ast->string\n";
     Z3_ast_vector_inc_ref(ctx, b);
     char const* spec2 = Z3_ast_vector_to_string(ctx, b);
@@ -41,18 +41,18 @@ void test_print(Z3_context ctx, Z3_ast_vector av) {
 }
 
 void test_parseprint(char const* spec) {
-    Z3_context ctx = Z3_mk_context(0);
+    Z3_context ctx = Z3_mk_context(nullptr);
     std::cout << "spec:\n" << spec << "\n";
 
     Z3_ast_vector a = 
         Z3_parse_smtlib2_string(ctx, 
                                 spec,
                                 0,
+                                nullptr,
+                                nullptr,
                                 0,
-                                0,
-                                0,
-                                0,
-                                0);
+                                nullptr,
+                                nullptr);
     
     std::cout << "done parsing\n";
     Z3_ast_vector_inc_ref(ctx, a);

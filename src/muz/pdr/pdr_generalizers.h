@@ -30,8 +30,8 @@ namespace pdr {
         unsigned m_failure_limit;
     public:
         core_bool_inductive_generalizer(context& ctx, unsigned failure_limit) : core_generalizer(ctx), m_failure_limit(failure_limit) {}
-        virtual ~core_bool_inductive_generalizer() {}
-        virtual void operator()(model_node& n, expr_ref_vector& core, bool& uses_level);
+        ~core_bool_inductive_generalizer() override {}
+        void operator()(model_node& n, expr_ref_vector& core, bool& uses_level) override;
     };
 
     template <typename T>
@@ -61,17 +61,17 @@ namespace pdr {
         bool substitute_alias(rational const&r, expr* x, expr* e, expr_ref& result);
     public:
         core_arith_inductive_generalizer(context& ctx);
-        virtual ~core_arith_inductive_generalizer() {}
-        virtual void operator()(model_node& n, expr_ref_vector& core, bool& uses_level);
+        ~core_arith_inductive_generalizer() override {}
+        void operator()(model_node& n, expr_ref_vector& core, bool& uses_level) override;
     };
 
     class core_farkas_generalizer : public core_generalizer {
         farkas_learner m_farkas_learner;
     public:
         core_farkas_generalizer(context& ctx, ast_manager& m, smt_params& p);
-        virtual ~core_farkas_generalizer() {}
-        virtual void operator()(model_node& n, expr_ref_vector& core, bool& uses_level);  
-        virtual void collect_statistics(statistics& st) const;
+        ~core_farkas_generalizer() override {}
+        void operator()(model_node& n, expr_ref_vector& core, bool& uses_level) override;
+        void collect_statistics(statistics& st) const override;
     };
 
 
@@ -85,26 +85,26 @@ namespace pdr {
         bool is_unsat(expr_ref_vector const& As, expr* B);
     public:
         core_convex_hull_generalizer(context& ctx, bool is_closure);
-        virtual ~core_convex_hull_generalizer() {}
-        virtual void operator()(model_node& n, expr_ref_vector const& core, bool uses_level, cores& new_cores);
-        virtual void operator()(model_node& n, expr_ref_vector& core, bool& uses_level);
+        ~core_convex_hull_generalizer() override {}
+        void operator()(model_node& n, expr_ref_vector const& core, bool uses_level, cores& new_cores) override;
+        void operator()(model_node& n, expr_ref_vector& core, bool& uses_level) override;
     };
 
     class core_multi_generalizer : public core_generalizer {
         core_bool_inductive_generalizer m_gen;
     public:
         core_multi_generalizer(context& ctx, unsigned max_failures): core_generalizer(ctx), m_gen(ctx, max_failures) {}
-        virtual ~core_multi_generalizer() {}
-        virtual void operator()(model_node& n, expr_ref_vector& core, bool& uses_level);
-        virtual void operator()(model_node& n, expr_ref_vector const& core, bool uses_level, cores& new_cores);
+        ~core_multi_generalizer() override {}
+        void operator()(model_node& n, expr_ref_vector& core, bool& uses_level) override;
+        void operator()(model_node& n, expr_ref_vector const& core, bool uses_level, cores& new_cores) override;
     };
 
     class core_induction_generalizer : public core_generalizer {
         class imp;
     public:
         core_induction_generalizer(context& ctx): core_generalizer(ctx) {}
-        virtual ~core_induction_generalizer() {}
-        virtual void operator()(model_node& n, expr_ref_vector& core, bool& uses_level);
+        ~core_induction_generalizer() override {}
+        void operator()(model_node& n, expr_ref_vector& core, bool& uses_level) override;
     };
 };
 #endif

@@ -870,7 +870,7 @@ bool goal2sat::has_unsupported_bool(goal const & g) {
     return test<unsupported_bool_proc>(g);
 }
 
-goal2sat::goal2sat():m_imp(0), m_interpreted_atoms(0) {
+goal2sat::goal2sat():m_imp(nullptr), m_interpreted_atoms(nullptr) {
 }
 
 void goal2sat::collect_param_descrs(param_descrs & r) {
@@ -884,7 +884,7 @@ struct goal2sat::scoped_set_imp {
         m_owner->m_imp = i;        
     }
     ~scoped_set_imp() {
-        m_owner->m_imp = 0;        
+        m_owner->m_imp = nullptr;
     }
 };
 
@@ -1236,7 +1236,7 @@ struct sat2goal::imp {
 
 };
 
-sat2goal::sat2goal():m_imp(0) {
+sat2goal::sat2goal():m_imp(nullptr) {
 }
 
 void sat2goal::collect_param_descrs(param_descrs & r) {
@@ -1250,7 +1250,7 @@ struct sat2goal::scoped_set_imp {
         m_owner->m_imp = i;        
     }
     ~scoped_set_imp() {
-        m_owner->m_imp = 0;        
+        m_owner->m_imp = nullptr;
     }
 };
 

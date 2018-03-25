@@ -934,7 +934,7 @@ public class Context implements AutoCloseable {
      * exposed. It follows the semantics prescribed by the SMT-LIB standard.
      * 
      * You can take the floor of a real by creating an auxiliary integer Term
-     * {@code k} and and asserting
+     * {@code k} and asserting
      * {@code MakeInt2Real(k) &lt;= t1 &lt; MkInt2Real(k)+1}. The argument
      * must be of integer sort. 
      **/
@@ -1978,7 +1978,7 @@ public class Context implements AutoCloseable {
     }
     
     /**
-     * Concatentate sequences.
+     * Concatenate sequences.
      */
     public SeqExpr mkConcat(SeqExpr... t)
     {
@@ -2234,7 +2234,7 @@ public class Context implements AutoCloseable {
     }
 
     /**
-     * Create a Term of a given sort. This function can be use to create
+     * Create a Term of a given sort. This function can be used to create
      * numerals that fit in a machine integer. It is slightly faster than
      * {@code MakeNumeral} since it is not necessary to parse a string.
      * 
@@ -2250,7 +2250,7 @@ public class Context implements AutoCloseable {
     }
 
     /**
-     * Create a Term of a given sort. This function can be use to create
+     * Create a Term of a given sort. This function can be used to create
      * numerals that fit in a machine integer. It is slightly faster than
      * {@code MakeNumeral} since it is not necessary to parse a string.
      * 
@@ -2438,7 +2438,7 @@ public class Context implements AutoCloseable {
     }
 
     /**
-     * Creates an existential quantifier using de-Brujin indexed variables. 
+     * Creates an existential quantifier using de-Bruijn indexed variables.
      * @see #mkForall(Sort[],Symbol[],Expr,int,Pattern[],Expr[],Symbol,Symbol)
      **/
     public Quantifier mkExists(Sort[] sorts, Symbol[] names, Expr body,
@@ -2541,155 +2541,23 @@ public class Context implements AutoCloseable {
     }
 
     /**
-     * Parse the given string using the SMT-LIB parser.
-     * Remarks:  The symbol
-     * table of the parser can be initialized using the given sorts and
-     * declarations. The symbols in the arrays {@code sortNames} and
-     * {@code declNames} don't need to match the names of the sorts
-     * and declarations in the arrays {@code sorts} and {@code decls}. This is a useful feature since we can use arbitrary names
-     * to reference sorts and declarations. 
-     **/
-    public void parseSMTLIBString(String str, Symbol[] sortNames, Sort[] sorts,
-            Symbol[] declNames, FuncDecl[] decls)
-    {
-        int csn = Symbol.arrayLength(sortNames);
-        int cs = Sort.arrayLength(sorts);
-        int cdn = Symbol.arrayLength(declNames);
-        int cd = AST.arrayLength(decls);
-        if (csn != cs || cdn != cd)
-            throw new Z3Exception("Argument size mismatch");
-        Native.parseSmtlibString(nCtx(), str, AST.arrayLength(sorts),
-                Symbol.arrayToNative(sortNames), AST.arrayToNative(sorts),
-                AST.arrayLength(decls), Symbol.arrayToNative(declNames),
-                AST.arrayToNative(decls));
-    }
-
-    /**
-     * Parse the given file using the SMT-LIB parser. 
-     * @see #parseSMTLIBString
-     **/
-    public void parseSMTLIBFile(String fileName, Symbol[] sortNames,
-            Sort[] sorts, Symbol[] declNames, FuncDecl[] decls)
-           
-    {
-        int csn = Symbol.arrayLength(sortNames);
-        int cs = Sort.arrayLength(sorts);
-        int cdn = Symbol.arrayLength(declNames);
-        int cd = AST.arrayLength(decls);
-        if (csn != cs || cdn != cd)
-            throw new Z3Exception("Argument size mismatch");
-        Native.parseSmtlibFile(nCtx(), fileName, AST.arrayLength(sorts),
-                Symbol.arrayToNative(sortNames), AST.arrayToNative(sorts),
-                AST.arrayLength(decls), Symbol.arrayToNative(declNames),
-                AST.arrayToNative(decls));
-    }
-
-    /**
-     * The number of SMTLIB formulas parsed by the last call to
-     * {@code ParseSMTLIBString} or {@code ParseSMTLIBFile}.
-     **/
-    public int getNumSMTLIBFormulas()
-    {
-        return Native.getSmtlibNumFormulas(nCtx());
-    }
-
-    /**
-     * The formulas parsed by the last call to {@code ParseSMTLIBString} or
-     * {@code ParseSMTLIBFile}.
-     **/
-    public BoolExpr[] getSMTLIBFormulas()
-    {
-
-        int n = getNumSMTLIBFormulas();
-        BoolExpr[] res = new BoolExpr[n];
-        for (int i = 0; i < n; i++)
-            res[i] = (BoolExpr) Expr.create(this,
-                    Native.getSmtlibFormula(nCtx(), i));
-        return res;
-    }
-
-    /**
-     * The number of SMTLIB assumptions parsed by the last call to
-     * {@code ParseSMTLIBString} or {@code ParseSMTLIBFile}.
-     **/
-    public int getNumSMTLIBAssumptions()
-    {
-        return Native.getSmtlibNumAssumptions(nCtx());
-    }
-
-    /**
-     * The assumptions parsed by the last call to {@code ParseSMTLIBString}
-     * or {@code ParseSMTLIBFile}.
-     **/
-    public BoolExpr[] getSMTLIBAssumptions()
-    {
-
-        int n = getNumSMTLIBAssumptions();
-        BoolExpr[] res = new BoolExpr[n];
-        for (int i = 0; i < n; i++)
-            res[i] = (BoolExpr) Expr.create(this,
-                    Native.getSmtlibAssumption(nCtx(), i));
-        return res;
-    }
-
-    /**
-     * The number of SMTLIB declarations parsed by the last call to
-     * {@code ParseSMTLIBString} or {@code ParseSMTLIBFile}.
-     **/
-    public int getNumSMTLIBDecls()
-    {
-        return Native.getSmtlibNumDecls(nCtx());
-    }
-
-    /**
-     * The declarations parsed by the last call to
-     * {@code ParseSMTLIBString} or {@code ParseSMTLIBFile}.
-     **/
-    public FuncDecl[] getSMTLIBDecls()
-    {
-
-        int n = getNumSMTLIBDecls();
-        FuncDecl[] res = new FuncDecl[n];
-        for (int i = 0; i < n; i++)
-            res[i] = new FuncDecl(this, Native.getSmtlibDecl(nCtx(), i));
-        return res;
-    }
-
-    /**
-     * The number of SMTLIB sorts parsed by the last call to
-     * {@code ParseSMTLIBString} or {@code ParseSMTLIBFile}.
-     **/
-    public int getNumSMTLIBSorts()
-    {
-        return Native.getSmtlibNumSorts(nCtx());
-    }
-
-    /**
-     * The declarations parsed by the last call to
-     * {@code ParseSMTLIBString} or {@code ParseSMTLIBFile}.
-     **/
-    public Sort[] getSMTLIBSorts()
-    {
-
-        int n = getNumSMTLIBSorts();
-        Sort[] res = new Sort[n];
-        for (int i = 0; i < n; i++)
-            res[i] = Sort.create(this, Native.getSmtlibSort(nCtx(), i));
-        return res;
-    }
-
-    /**
      * Parse the given string using the SMT-LIB2 parser. 
-     * @see #parseSMTLIBString
      * 
-     * @return A conjunction of assertions in the scope (up to push/pop) at the
-     *         end of the string.
+     * @return A conjunction of assertions.
+     *         
+     * If the string contains push/pop commands, the
+     * set of assertions returned are the ones in the 
+     * last scope level.
      **/
+<<<<<<< HEAD
     public BoolExpr[] parseSMTLIB2String(String str, Symbol[] sortNames,
             Sort[] sorts, Symbol[] declNames, FuncDecl[] decls)
            
+=======
+    public BoolExpr parseSMTLIB2String(String str, Symbol[] sortNames,
+            Sort[] sorts, Symbol[] declNames, FuncDecl[] decls)           
+>>>>>>> fc719a5ee82361ffedb9ef46793e3401fdc32cc5
     {
-
         int csn = Symbol.arrayLength(sortNames);
         int cs = Sort.arrayLength(sorts);
         int cdn = Symbol.arrayLength(declNames);
@@ -2922,7 +2790,7 @@ public class Context implements AutoCloseable {
     }
 
     /**
-     * Create a tactic that fails if the goal is not triviall satisfiable (i.e.,
+     * Create a tactic that fails if the goal is not trivially satisfiable (i.e.,
      * empty) or trivially unsatisfiable (i.e., contains `false').
      **/
     public Tactic failIfNotDecided()
@@ -3910,7 +3778,7 @@ public class Context implements AutoCloseable {
      * @param sz Size of the resulting bit-vector.
      * @param signed Indicates whether the result is a signed or unsigned bit-vector.
      * Remarks:
-     * Produces a term that represents the conversion of the floating-poiunt term t into a
+     * Produces a term that represents the conversion of the floating-point term t into a
      * bit-vector term of size sz in 2's complement format (signed when signed==true). If necessary, 
      * the result will be rounded according to rounding mode rm.        
      * @throws Z3Exception 
@@ -3927,7 +3795,7 @@ public class Context implements AutoCloseable {
      * Conversion of a floating-point term into a real-numbered term.
      * @param t FloatingPoint term
      * Remarks:
-     * Produces a term that represents the conversion of the floating-poiunt term t into a
+     * Produces a term that represents the conversion of the floating-point term t into a
      * real number. Note that this type of conversion will often result in non-linear 
      * constraints over real terms.
      * @throws Z3Exception 
@@ -3943,7 +3811,7 @@ public class Context implements AutoCloseable {
      * Remarks:
      * The size of the resulting bit-vector is automatically determined. Note that 
      * IEEE 754-2008 allows multiple different representations of NaN. This conversion 
-     * knows only one NaN and it will always produce the same bit-vector represenatation of 
+     * knows only one NaN and it will always produce the same bit-vector representation of
      * that NaN. 
      * @throws Z3Exception 
      **/

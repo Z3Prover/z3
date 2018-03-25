@@ -54,8 +54,8 @@ namespace nlsat {
         void * m_data;
     public:
         enum kind { NULL_JST = 0, DECISION, CLAUSE, LAZY };
-        justification():m_data(TAG(void *, static_cast<void*>(0), NULL_JST)) { SASSERT(is_null()); }
-        justification(bool):m_data(TAG(void *, static_cast<void*>(0), DECISION)) { SASSERT(is_decision()); }
+        justification():m_data(TAG(void *, nullptr, NULL_JST)) { SASSERT(is_null()); }
+        justification(bool):m_data(TAG(void *, nullptr, DECISION)) { SASSERT(is_decision()); }
         justification(clause * c):m_data(TAG(void *, c, CLAUSE)) { SASSERT(is_clause()); }
         justification(lazy_justification * j):m_data(TAG(void *, j, LAZY)) { SASSERT(is_lazy()); }
         kind get_kind() const { return static_cast<kind>(GET_TAG(m_data)); }

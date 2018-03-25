@@ -26,7 +26,7 @@ Revision History:
 #include "sat/sat_solver.h"
 
 extern bool          g_display_statistics;
-static sat::solver * g_solver = 0;
+static sat::solver * g_solver = nullptr;
 static clock_t       g_start_time;
 
 static void display_statistics() {

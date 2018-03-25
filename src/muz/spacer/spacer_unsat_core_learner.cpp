@@ -46,7 +46,7 @@ void unsat_core_learner::compute_unsat_core(proof *root, expr_set& asserted_b, e
            verbose_stream() << "Reduced proof:\n" << mk_ismt2_pp(pr, m) << "\n";
     );
 
-    // compute symbols occuring in B
+    // compute symbols occurring in B
     collect_symbols_b(asserted_b);
 
     // traverse proof
@@ -301,7 +301,7 @@ public:
     void operator()(quantifier*) {}
 };
 
-void unsat_core_learner::collect_symbols_b(expr_set axioms_b)
+void unsat_core_learner::collect_symbols_b(const expr_set& axioms_b)
 {
     expr_mark visited;
     collect_pure_proc proc(m_symbols_b);

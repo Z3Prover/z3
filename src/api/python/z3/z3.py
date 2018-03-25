@@ -112,27 +112,29 @@ def _symbol2py(ctx, s):
     else:
         return Z3_get_symbol_string(ctx.ref(), s)
 
-_error_handler_fptr = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_uint)
-
 # Hack for having nary functions that can receive one argument that is the
 # list of arguments.
+# Use this when function takes a single list of arguments
 def _get_args(args):
-    try:
-        if len(args) == 1 and (isinstance(args[0], tuple) or isinstance(args[0], list)):
+     try:
+       if len(args) == 1 and (isinstance(args[0], tuple) or isinstance(args[0], list)):
             return args[0]
-        elif len(args) == 1 and (isinstance(args[0], set) or isinstance(args[0], AstVector)):
+       elif len(args) == 1 and (isinstance(args[0], set) or isinstance(args[0], AstVector)):
             return [arg for arg in args[0]]
-        else:
+       else:
             return args
-    except:  # len is not necessarily defined when args is not a sequence (use reflection?)
+     except:  # len is not necessarily defined when args is not a sequence (use reflection?)
         return args
 
-def _Z3python_error_handler_core(c, e):
-    # Do nothing error handler, just avoid exit(0)
-    # The wrappers in z3core.py will raise a Z3Exception if an error is detected
-    return
-
-_Z3Python_error_handler = _error_handler_fptr(_Z3python_error_handler_core)
+# Use this when function takes multiple arguments
+def _get_args_ast_list(args):
+    try:
+        if isinstance(args, set) or isinstance(args, AstVector) or isinstance(args, tuple):
+            return [arg for arg in args]
+        else:
+            return args
+    except:
+        return args
 
 def _to_param_value(val):
     if isinstance(val, bool):
@@ -142,6 +144,11 @@ def _to_param_value(val):
             return "false"
     else:
         return str(val)
+
+def z3_error_handler(c, e):
+    # Do nothing error handler, just avoid exit(0)
+    # The wrappers in z3core.py will raise a Z3Exception if an error is detected
+    return
 
 class Context:
     """A Context manages all other Z3 objects, global configuration options, etc.
@@ -168,17 +175,15 @@ class Context:
             else:
                 Z3_set_param_value(conf, str(prev), _to_param_value(a))
                 prev = None
-        self.lib = lib()
         self.ctx = Z3_mk_context_rc(conf)
+        self.eh = Z3_set_error_handler(self.ctx, z3_error_handler)
         Z3_set_ast_print_mode(self.ctx, Z3_PRINT_SMTLIB2_COMPLIANT)
-        lib().Z3_set_error_handler.restype  = None
-        lib().Z3_set_error_handler.argtypes = [ContextObj, _error_handler_fptr]
-        lib().Z3_set_error_handler(self.ctx, _Z3Python_error_handler)
         Z3_del_config(conf)
 
     def __del__(self):
-        self.lib.Z3_del_context(self.ctx)
+        Z3_del_context(self.ctx)        
         self.ctx = None
+        self.eh = None
 
     def ref(self):
         """Return a reference to the actual C pointer to the Z3 context."""
@@ -188,7 +193,7 @@ class Context:
         """Interrupt a solver performing a satisfiability test, a tactic processing a goal, or simplify functions.
 
         This method can be invoked from a thread different from the one executing the
-        interruptable procedure.
+        interruptible procedure.
         """
         Z3_interrupt(self.ref())
 
@@ -370,6 +375,9 @@ class AstRef(Z3PPObject):
         if __debug__:
             _z3_assert(isinstance(target, Context), "argument must be a Z3 context")
         return _to_ast_ref(Z3_translate(self.ctx.ref(), self.as_ast(), target.ref()), target)
+
+    def __copy__(self):
+        return self.translate(self.ctx)
 
     def hash(self):
         """Return a hashcode for the `self`.
@@ -602,7 +610,7 @@ def _sort(ctx, a):
     return _to_sort_ref(Z3_get_sort(ctx.ref(), a), ctx)
 
 def DeclareSort(name, ctx=None):
-    """Create a new uninterpred sort named `name`.
+    """Create a new uninterpreted sort named `name`.
 
     If `ctx=None`, then the new sort is declared in the global Z3Py context.
 
@@ -724,7 +732,7 @@ class FuncDeclRef(AstRef):
 
         The arguments must be Z3 expressions. This method assumes that
         the sorts of the elements in `args` match the sorts of the
-        domain. Limited coersion is supported.  For example, if
+        domain. Limited coercion is supported.  For example, if
         args[0] is a Python integer, and the function expects a Z3
         integer, then the argument is automatically converted into a
         Z3 integer.
@@ -2439,7 +2447,7 @@ def is_rational_value(a):
     return is_arith(a) and a.is_real() and _is_numeral(a.ctx, a.as_ast())
 
 def is_algebraic_value(a):
-    """Return `True` if `a` is an algerbraic value of sort Real.
+    """Return `True` if `a` is an algebraic value of sort Real.
 
     >>> is_algebraic_value(RealVal("3/5"))
     False
@@ -3585,6 +3593,14 @@ def BV2Int(a, is_signed=False):
     ## investigate problem with bv2int
     return ArithRef(Z3_mk_bv2int(ctx.ref(), a.as_ast(), is_signed), ctx)
 
+def Int2BV(a, num_bits):
+    """Return the z3 expression Int2BV(a, num_bits).
+    It is a bit-vector of width num_bits and represents the
+    modulo of a by 2^num_bits
+    """
+    ctx = a.ctx
+    return BitVecRef(Z3_mk_int2bv(ctx.ref(), num_bits, a.as_ast()), ctx)
+
 def BitVecSort(sz, ctx=None):
     """Return a Z3 bit-vector sort of the given size. If `ctx=None`, then the global context is used.
 
@@ -4010,6 +4026,58 @@ def BVRedOr(a):
         _z3_assert(is_bv(a), "First argument must be a Z3 Bitvector expression")
     return BitVecRef(Z3_mk_bvredor(a.ctx_ref(), a.as_ast()), a.ctx)
 
+def BVAddNoOverflow(a, b, signed):
+    """A predicate the determines that bit-vector addition does not overflow"""
+    _check_bv_args(a, b)
+    a, b = _coerce_exprs(a, b)
+    return BoolRef(Z3_mk_bvadd_no_overflow(a.ctx_ref(), a.as_ast(), b.as_ast(), signed), a.ctx)
+
+def BVAddNoUnderflow(a, b):
+    """A predicate the determines that signed bit-vector addition does not underflow"""
+    _check_bv_args(a, b)
+    a, b = _coerce_exprs(a, b)
+    return BoolRef(Z3_mk_bvadd_no_underflow(a.ctx_ref(), a.as_ast(), b.as_ast()), a.ctx)
+
+def BVSubNoOverflow(a, b):
+    """A predicate the determines that bit-vector subtraction does not overflow"""
+    _check_bv_args(a, b)
+    a, b = _coerce_exprs(a, b)
+    return BoolRef(Z3_mk_bvsub_no_overflow(a.ctx_ref(), a.as_ast(), b.as_ast()), a.ctx)
+    
+
+def BVSubNoUnderflow(a, b, signed):
+    """A predicate the determines that bit-vector subtraction does not underflow"""
+    _check_bv_args(a, b)
+    a, b = _coerce_exprs(a, b)
+    return BoolRef(Z3_mk_bvsub_no_underflow(a.ctx_ref(), a.as_ast(), b.as_ast(), signed), a.ctx)
+
+def BVSDivNoOverflow(a, b):
+    """A predicate the determines that bit-vector signed division does not overflow"""
+    _check_bv_args(a, b)
+    a, b = _coerce_exprs(a, b)
+    return BoolRef(Z3_mk_bvsdiv_no_overflow(a.ctx_ref(), a.as_ast(), b.as_ast()), a.ctx)
+
+def BVSNegNoOverflow(a):
+    """A predicate the determines that bit-vector unary negation does not overflow"""
+    if __debug__:
+        _z3_assert(is_bv(a), "Argument should be a bit-vector")
+    return BoolRef(Z3_mk_bvneg_no_overflow(a.ctx_ref(), a.as_ast()), a.ctx)
+
+def BVMulNoOverflow(a, b, signed):
+    """A predicate the determines that bit-vector multiplication does not overflow"""
+    _check_bv_args(a, b)
+    a, b = _coerce_exprs(a, b)
+    return BoolRef(Z3_mk_bvmul_no_overflow(a.ctx_ref(), a.as_ast(), b.as_ast(), signed), a.ctx)
+
+
+def BVMulNoUnderflow(a, b):
+    """A predicate the determines that bit-vector signed multiplication does not underflow"""
+    _check_bv_args(a, b)
+    a, b = _coerce_exprs(a, b)
+    return BoolRef(Z3_mk_bvmul_no_underflow(a.ctx_ref(), a.as_ast(), b.as_ast()), a.ctx)
+
+
+
 #########################################
 #
 # Arrays
@@ -4388,7 +4456,7 @@ class Datatype:
         """Declare constructor named `name` with the given accessors `args`.
         Each accessor is a pair `(name, sort)`, where `name` is a string and `sort` a Z3 sort or a reference to the datatypes being declared.
 
-        In the followin example `List.declare('cons', ('car', IntSort()), ('cdr', List))`
+        In the following example `List.declare('cons', ('car', IntSort()), ('cdr', List))`
         declares the constructor named `cons` that builds a new List using an integer and a List.
         It also declares the accessors `car` and `cdr`. The accessor `car` extracts the integer of a `cons` cell,
         and `cdr` the list of a `cons` cell. After all constructors were declared, we use the method create() to create
@@ -4402,13 +4470,13 @@ class Datatype:
         if __debug__:
             _z3_assert(isinstance(name, str), "String expected")
             _z3_assert(name != "", "Constructor name cannot be empty")
-        return self.declare_core(name, "is_" + name, *args)
+        return self.declare_core(name, "is-" + name, *args)
 
     def __repr__(self):
         return "Datatype(%s, %s)" % (self.name, self.constructors)
 
     def create(self):
-        """Create a Z3 datatype based on the constructors declared using the mehtod `declare()`.
+        """Create a Z3 datatype based on the constructors declared using the method `declare()`.
 
         The function `CreateDatatypes()` must be used to define mutually recursive datatypes.
 
@@ -4526,7 +4594,7 @@ def CreateDatatypes(*ds):
                 cref = cref()
             setattr(dref, cref_name, cref)
             rref  = dref.recognizer(j)
-            setattr(dref, rref.name(), rref)
+            setattr(dref, "is_" + cref_name, rref)
             for k in range(cref_arity):
                 aref = dref.accessor(j, k)
                 setattr(dref, aref.name(), aref)
@@ -4580,16 +4648,16 @@ class DatatypeSortRef(SortRef):
         >>> List.num_constructors()
         2
         >>> List.recognizer(0)
-        is_cons
+        is(cons)
         >>> List.recognizer(1)
-        is_nil
+        is(nil)
         >>> simplify(List.is_nil(List.cons(10, List.nil)))
         False
         >>> simplify(List.is_cons(List.cons(10, List.nil)))
         True
         >>> l = Const('l', List)
         >>> simplify(List.is_cons(l))
-        is_cons(l)
+        is(cons, l)
         """
         if __debug__:
             _z3_assert(idx < self.num_constructors(), "Invalid recognizer index")
@@ -5038,6 +5106,12 @@ class Goal(Z3PPObject):
             _z3_assert(isinstance(target, Context), "target must be a context")
         return Goal(goal=Z3_goal_translate(self.ctx.ref(), self.goal, target.ref()), ctx=target)
 
+    def __copy__(self):
+        return self.translate(self.ctx)
+
+    def __deepcopy__(self):
+        return self.translate(self.ctx)
+
     def simplify(self, *arguments, **keywords):
         """Return a new simplified goal.
 
@@ -5130,9 +5204,18 @@ class AstVector(Z3PPObject):
         >>> A[1]
         y
         """
-        if i >= self.__len__():
-            raise IndexError
-        return _to_ast_ref(Z3_ast_vector_get(self.ctx.ref(), self.vector, i), self.ctx)
+
+        if isinstance(i, int):
+            if i < 0:
+                i += self.__len__()
+
+            if i >= self.__len__():
+                raise IndexError
+            return _to_ast_ref(Z3_ast_vector_get(self.ctx.ref(), self.vector, i), self.ctx)
+
+        elif isinstance(i, slice):
+            return [_to_ast_ref(Z3_ast_vector_get(self.ctx.ref(), self.vector, ii), self.ctx) for ii in range(*i.indices(self.__len__()))]
+
 
     def __setitem__(self, i, v):
         """Update AST at position `i`.
@@ -5210,6 +5293,12 @@ class AstVector(Z3PPObject):
         [x]
         """
         return AstVector(Z3_ast_vector_translate(self.ctx.ref(), self.vector, other_ctx.ref()), other_ctx)
+
+    def __copy__(self):
+        return self.translate(self.ctx)
+
+    def __deepcopy__(self):
+        return self.translate(self.ctx)
 
     def __repr__(self):
         return obj_to_string(self)
@@ -5548,6 +5637,17 @@ class FuncInterp(Z3PPObject):
             raise IndexError
         return FuncEntry(Z3_func_interp_get_entry(self.ctx.ref(), self.f, idx), self.ctx)
 
+    def translate(self, other_ctx):
+        """Copy model 'self' to context 'other_ctx'.
+        """
+        return ModelRef(Z3_model_translate(self.ctx.ref(), self.model, other_ctx.ref()), other_ctx)
+
+    def __copy__(self):
+        return self.translate(self.ctx)
+
+    def __deepcopy__(self):
+        return self.translate(self.ctx)
+
     def as_list(self):
         """Return the function interpretation as a Python list.
         >>> f = Function('f', IntSort(), IntSort())
@@ -5576,9 +5676,6 @@ class ModelRef(Z3PPObject):
         self.model = m
         self.ctx   = ctx
         Z3_model_inc_ref(self.ctx.ref(), self.model)
-
-    def __deepcopy__(self, memo={}):
-        return ModelRef(self.m, self.ctx)
 
     def __del__(self):
         if self.ctx.ref() is not None:
@@ -5696,7 +5793,7 @@ class ModelRef(Z3PPObject):
             return None
 
     def num_sorts(self):
-        """Return the number of unintepreted sorts that contain an interpretation in the model `self`.
+        """Return the number of uninterpreted sorts that contain an interpretation in the model `self`.
 
         >>> A = DeclareSort('A')
         >>> a, b = Consts('a b', A)
@@ -5711,7 +5808,7 @@ class ModelRef(Z3PPObject):
         return int(Z3_model_get_num_sorts(self.ctx.ref(), self.model))
 
     def get_sort(self, idx):
-        """Return the unintepreted sort at position `idx` < self.num_sorts().
+        """Return the uninterpreted sort at position `idx` < self.num_sorts().
 
         >>> A = DeclareSort('A')
         >>> B = DeclareSort('B')
@@ -5751,7 +5848,7 @@ class ModelRef(Z3PPObject):
         return [ self.get_sort(i) for i in range(self.num_sorts()) ]
 
     def get_universe(self, s):
-        """Return the intepretation for the uninterpreted sort `s` in the model `self`.
+        """Return the interpretation for the uninterpreted sort `s` in the model `self`.
 
         >>> A = DeclareSort('A')
         >>> a, b = Consts('a b', A)
@@ -5771,7 +5868,7 @@ class ModelRef(Z3PPObject):
             return None
 
     def __getitem__(self, idx):
-        """If `idx` is an integer, then the declaration at position `idx` in the model `self` is returned. If `idx` is a declaration, then the actual interpreation is returned.
+        """If `idx` is an integer, then the declaration at position `idx` in the model `self` is returned. If `idx` is a declaration, then the actual interpretation is returned.
 
         The elements can be retrieved using position or the actual declaration.
 
@@ -5815,7 +5912,7 @@ class ModelRef(Z3PPObject):
         return None
 
     def decls(self):
-        """Return a list with all symbols that have an interpreation in the model `self`.
+        """Return a list with all symbols that have an interpretation in the model `self`.
         >>> f = Function('f', IntSort(), IntSort())
         >>> x = Int('x')
         >>> s = Solver()
@@ -5832,6 +5929,20 @@ class ModelRef(Z3PPObject):
         for i in range(Z3_model_get_num_funcs(self.ctx.ref(), self.model)):
             r.append(FuncDeclRef(Z3_model_get_func_decl(self.ctx.ref(), self.model, i), self.ctx))
         return r
+
+    def translate(self, target):
+        """Translate `self` to the context `target`. That is, return a copy of `self` in the context `target`.
+        """
+        if __debug__:
+            _z3_assert(isinstance(target, Context), "argument must be a Z3 context")
+        model = Z3_model_translate(self.ctx.ref(), self.model, target.ref())
+        return Model(model, target)
+
+    def __copy__(self):
+        return self.translate(self.ctx)
+
+    def __deepcopy__(self):
+        return self.translate(self.ctx)
 
 def is_as_array(n):
     """Return true if n is a Z3 expression of the form (_ as-array f)."""
@@ -6035,9 +6146,6 @@ class Solver(Z3PPObject):
         else:
             self.solver = solver
         Z3_solver_inc_ref(self.ctx.ref(), self.solver)
-
-    def __deepcopy__(self, memo={}):
-        return Solver(self.solver, self.ctx)
 
     def __del__(self):
         if self.solver is not None and self.ctx.ref() is not None:
@@ -6323,6 +6431,20 @@ class Solver(Z3PPObject):
         sz = len(consequences)
         consequences = [ consequences[i] for i in range(sz) ]
         return CheckSatResult(r), consequences
+
+    def from_file(self, filename):
+        """Parse assertions from a file"""
+        try:
+            Z3_solver_from_file(self.ctx.ref(), self.solver, filename)
+        except Z3Exception as e:
+            _handle_parse_error(e, self.ctx)
+
+    def from_string(self, s):
+        """Parse assertions from a string"""
+        try:
+           Z3_solver_from_string(self.ctx.ref(), self.solver, s)
+        except Z3Exception as e:
+            _handle_parse_error(e, self.ctx)        
     
     def cube(self, vars = None):
         """Get set of cubes"""
@@ -6429,6 +6551,12 @@ class Solver(Z3PPObject):
             _z3_assert(isinstance(target, Context), "argument must be a Z3 context")
         solver = Z3_solver_translate(self.ctx.ref(), self.solver, target.ref())
         return Solver(solver, target)
+
+    def __copy__(self):
+        return self.translate(self.ctx)
+
+    def __deepcopy__(self):
+        return self.translate(self.ctx)
 
     def sexpr(self):
         """Return a formatted string (in Lisp-like format) with all added constraints. We say the string is in s-expression format.
@@ -6699,11 +6827,17 @@ class Fixedpoint(Z3PPObject):
 
     def parse_string(self, s):
         """Parse rules and queries from a string"""
-        return AstVector(Z3_fixedpoint_from_string(self.ctx.ref(), self.fixedpoint, s), self.ctx)
+        try:
+            return AstVector(Z3_fixedpoint_from_string(self.ctx.ref(), self.fixedpoint, s), self.ctx)
+        except Z3Exception as e:
+            _handle_parse_error(e, self.ctx)
 
     def parse_file(self, f):
         """Parse rules and queries from a file"""
-        return AstVector(Z3_fixedpoint_from_file(self.ctx.ref(), self.fixedpoint, f), self.ctx)
+        try:
+            return AstVector(Z3_fixedpoint_from_file(self.ctx.ref(), self.fixedpoint, f), self.ctx)
+        except Z3Exception as e:
+            _handle_parse_error(e, self.ctx)
 
     def get_rules(self):
         """retrieve rules that have been added to fixedpoint context"""
@@ -6769,8 +6903,8 @@ class FiniteDomainSortRef(SortRef):
 
     def size(self):
         """Return the size of the finite domain sort"""
-        r = (ctype.c_ulonglong * 1)()
-        if Z3_get_finite_domain_sort_size(self.ctx_ref(), self.ast(), r):
+        r = (ctypes.c_ulonglong * 1)()
+        if Z3_get_finite_domain_sort_size(self.ctx_ref(), self.ast, r):
             return r[0]
         else:
             raise Z3Exception("Failed to retrieve finite domain sort size")
@@ -7026,15 +7160,21 @@ class Optimize(Z3PPObject):
     def upper_values(self, obj):
         if not isinstance(obj, OptimizeObjective):
             raise Z3Exception("Expecting objective handle returned by maximize/minimize")
-        return obj.upper_values()
+        return obj.upper_values()    
 
     def from_file(self, filename):
         """Parse assertions and objectives from a file"""
-        Z3_optimize_from_file(self.ctx.ref(), self.optimize, filename)
+        try:
+            Z3_optimize_from_file(self.ctx.ref(), self.optimize, filename)
+        except Z3Exception as e:
+            _handle_parse_error(e, self.ctx)
 
     def from_string(self, s):
         """Parse assertions and objectives from a string"""
-        Z3_optimize_from_string(self.ctx.ref(), self.optimize, s)
+        try:
+            Z3_optimize_from_string(self.ctx.ref(), self.optimize, s)
+        except Z3Exception as e:
+            _handle_parse_error(e, self.ctx)
 
     def assertions(self):
         """Return an AST vector containing all added constraints."""
@@ -7360,6 +7500,19 @@ def With(t, *args, **keys):
     ctx = keys.pop('ctx', None)
     t = _to_tactic(t, ctx)
     p = args2params(args, keys, t.ctx)
+    return Tactic(Z3_tactic_using_params(t.ctx.ref(), t.tactic, p.params), t.ctx)
+
+def WithParams(t, p):
+    """Return a tactic that applies tactic `t` using the given configuration options.
+
+    >>> x, y = Ints('x y')
+    >>> p = ParamsRef()
+    >>> p.set("som", True)
+    >>> t = WithParams(Tactic('simplify'), p)
+    >>> t((x + 1)*(y + 2) == 0)
+    [[2*x + y + x*y == -2]]
+    """
+    t = _to_tactic(t, None)
     return Tactic(Z3_tactic_using_params(t.ctx.ref(), t.tactic, p.params), t.ctx)
 
 def Repeat(t, max=4294967295, ctx=None):
@@ -7848,8 +8001,10 @@ def AtLeast(*args):
     return BoolRef(Z3_mk_atleast(ctx.ref(), sz, _args, k), ctx)
 
 
-def _pb_args_coeffs(args):
-    args  = _get_args(args)
+def _pb_args_coeffs(args, default_ctx = None):
+    args  = _get_args_ast_list(args)
+    if len(args) == 0:
+       return _get_ctx(default_ctx), 0, (Ast * 0)(), (ctypes.c_int * 0)()
     args, coeffs = zip(*args)
     if __debug__:
         _z3_assert(len(args) > 0, "Non empty list of arguments expected")
@@ -7881,7 +8036,7 @@ def PbGe(args, k):
     ctx, sz, _args, _coeffs = _pb_args_coeffs(args)
     return BoolRef(Z3_mk_pbge(ctx.ref(), sz, _args, _coeffs, k), ctx)
 
-def PbEq(args, k):
+def PbEq(args, k, ctx = None):
     """Create a Pseudo-Boolean inequality k constraint.
 
     >>> a, b, c = Bools('a b c')
@@ -8072,6 +8227,12 @@ def _dict2darray(decls, ctx):
         i = i + 1
     return sz, _names, _decls
 
+def _handle_parse_error(ex, ctx):
+    msg = Z3_get_parser_error(ctx.ref())
+    if msg != "":
+        raise Z3Exception(msg)
+    raise ex
+
 def parse_smt2_string(s, sorts={}, decls={}, ctx=None):
     """Parse a string in SMT 2.0 format using the given sorts and decls.
 
@@ -8090,7 +8251,14 @@ def parse_smt2_string(s, sorts={}, decls={}, ctx=None):
     ctx = _get_ctx(ctx)
     ssz, snames, ssorts = _dict2sarray(sorts, ctx)
     dsz, dnames, ddecls = _dict2darray(decls, ctx)
+<<<<<<< HEAD
     return AstVector(Z3_parse_smtlib2_string(ctx.ref(), s, ssz, snames, ssorts, dsz, dnames, ddecls), ctx)
+=======
+    try: 
+        return _to_expr_ref(Z3_parse_smtlib2_string(ctx.ref(), s, ssz, snames, ssorts, dsz, dnames, ddecls), ctx)
+    except Z3Exception as e:
+        _handle_parse_error(e, ctx)
+>>>>>>> fc719a5ee82361ffedb9ef46793e3401fdc32cc5
 
 def parse_smt2_file(f, sorts={}, decls={}, ctx=None):
     """Parse a file in SMT 2.0 format using the given sorts and decls.
@@ -8100,7 +8268,14 @@ def parse_smt2_file(f, sorts={}, decls={}, ctx=None):
     ctx = _get_ctx(ctx)
     ssz, snames, ssorts = _dict2sarray(sorts, ctx)
     dsz, dnames, ddecls = _dict2darray(decls, ctx)
+<<<<<<< HEAD
     return AstVector(Z3_parse_smtlib2_file(ctx.ref(), f, ssz, snames, ssorts, dsz, dnames, ddecls), ctx)
+=======
+    try: 
+        return _to_expr_ref(Z3_parse_smtlib2_file(ctx.ref(), f, ssz, snames, ssorts, dsz, dnames, ddecls), ctx)
+    except Z3Exception as e:
+        _handle_parse_error(e, ctx)
+>>>>>>> fc719a5ee82361ffedb9ef46793e3401fdc32cc5
 
 def Interpolant(a,ctx=None):
     """Create an interpolation operator.
@@ -8156,7 +8331,7 @@ def tree_interpolant(pat,p=None,ctx=None):
     solver that determines satisfiability.
 
     >>> x = Int('x')
-    >>> y = Int('y')
+    >>> y = Int('y')	
     >>> print(tree_interpolant(And(Interpolant(x < 0), Interpolant(y > 2), x == y)))
     [Not(x >= 0), Not(y <= 2)]
 
@@ -8764,7 +8939,7 @@ class FPNumRef(FPRef):
     def isSubnormal(self):
         return Z3_fpa_is_numeral_subnormal(self.ctx.ref(), self.as_ast())
 
-    """Indicates whether the numeral is postitive."""
+    """Indicates whether the numeral is positive."""
     def isPositive(self):
         return Z3_fpa_is_numeral_positive(self.ctx.ref(), self.as_ast())
 
@@ -9146,7 +9321,7 @@ def fpMul(rm, a, b, ctx=None):
     return _mk_fp_bin(Z3_mk_fpa_mul, rm, a, b, ctx)
 
 def fpDiv(rm, a, b, ctx=None):
-    """Create a Z3 floating-point divison expression.
+    """Create a Z3 floating-point division expression.
 
     >>> s = FPSort(8, 24)
     >>> rm = RNE()
@@ -9173,7 +9348,7 @@ def fpRem(a, b, ctx=None):
     return _mk_fp_bin_norm(Z3_mk_fpa_rem, a, b, ctx)
 
 def fpMin(a, b, ctx=None):
-    """Create a Z3 floating-point minimium expression.
+    """Create a Z3 floating-point minimum expression.
 
     >>> s = FPSort(8, 24)
     >>> rm = RNE()
@@ -9560,7 +9735,7 @@ def fpToIEEEBV(x, ctx=None):
     The size of the resulting bit-vector is automatically determined.
 
     Note that IEEE 754-2008 allows multiple different representations of NaN. This conversion
-    knows only one NaN and it will always produce the same bit-vector represenatation of
+    knows only one NaN and it will always produce the same bit-vector representation of
     that NaN.
 
     >>> x = FP('x', FPSort(8, 24))
@@ -9735,13 +9910,13 @@ def Empty(s):
     raise Z3Exception("Non-sequence, non-regular expression sort passed to Empty")
 
 def Full(s):
-    """Create the regular expression that accepts the universal langauge
+    """Create the regular expression that accepts the universal language
     >>> e = Full(ReSort(SeqSort(IntSort())))
     >>> print(e)
     re.all
     >>> e1 = Full(ReSort(StringSort()))
     >>> print(e1)
-    re.allchar
+    re.all
     """
     if isinstance(s, ReSortRef):
        return ReRef(Z3_mk_re_full(s.ctx_ref(), s.ast), s.ctx)

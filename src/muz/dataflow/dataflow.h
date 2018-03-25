@@ -62,8 +62,7 @@ namespace datalog {
         rule_set::decl2rules m_body2rules;
 
         void init_bottom_up() {
-            for (rule_set::iterator it = m_rules.begin(); it != m_rules.end(); ++it) {
-                rule* cur = *it;
+            for (rule* cur : m_rules) {
                 for (unsigned i = 0; i < cur->get_uninterpreted_tail_size(); ++i) {
                     func_decl *d = cur->get_decl(i);
                     rule_set::decl2rules::obj_map_entry *e = m_body2rules.insert_if_not_there2(d, 0);
@@ -83,31 +82,25 @@ namespace datalog {
         }
 
         void init_top_down() {
-            const func_decl_set& output_preds = m_rules.get_output_predicates();
-            for (func_decl_set::iterator I = output_preds.begin(),
-                E = output_preds.end(); I != E; ++I) {
-                func_decl* sym = *I;
+            for (func_decl* sym : m_rules.get_output_predicates()) {
                 TRACE("dl", tout << sym->get_name() << "\n";);
                 const rule_vector& output_rules = m_rules.get_predicate_rules(sym);
-                for (unsigned i = 0; i < output_rules.size(); ++i) {
-                    m_facts.insert_if_not_there2(sym, Fact())->get_data().m_value.init_down(m_context, output_rules[i]);
+                for (rule* r : output_rules) {
+                    m_facts.insert_if_not_there2(sym, Fact())->get_data().m_value.init_down(m_context, r);
                     m_todo[m_todo_idx].insert(sym);
                 }
             }
         }
 
         void step_bottom_up() {
-            for(todo_set::iterator I = m_todo[m_todo_idx].begin(),                    
-                E = m_todo[m_todo_idx].end(); I!=E; ++I) {
+            for (func_decl* f : m_todo[m_todo_idx]) {
                 ptr_vector<rule> * rules; 
-                if (!m_body2rules.find(*I, rules))
+                if (!m_body2rules.find(f, rules))
                     continue;
-
-                for (ptr_vector<rule>::iterator I2 = rules->begin(),
-                    E2 = rules->end(); I2 != E2; ++I2) {
-                    func_decl* head_sym = (*I2)->get_head()->get_decl();
-                    fact_reader<Fact> tail_facts(m_facts, *I2);
-                    bool new_info = m_facts.insert_if_not_there2(head_sym, Fact())->get_data().m_value.propagate_up(m_context, *I2, tail_facts);
+                for (rule* r : *rules) {
+                    func_decl* head_sym = r->get_head()->get_decl();
+                    fact_reader<Fact> tail_facts(m_facts, r);
+                    bool new_info = m_facts.insert_if_not_there2(head_sym, Fact())->get_data().m_value.propagate_up(m_context, r, tail_facts);
                     if (new_info) {
                         m_todo[!m_todo_idx].insert(head_sym);
                     }
@@ -119,15 +112,11 @@ namespace datalog {
         }
 
         void step_top_down() {
-            for(todo_set::iterator I = m_todo[m_todo_idx].begin(),
-                E = m_todo[m_todo_idx].end(); I!=E; ++I) {
-                func_decl* head_sym = *I;
+            for (func_decl* head_sym : m_todo[m_todo_idx]) {
                 // We can't use a reference here because we are changing the map while using the reference
                 const Fact head_fact = m_facts.get(head_sym, Fact::null_fact);
                 const rule_vector& deps = m_rules.get_predicate_rules(head_sym);
-                const unsigned deps_size = deps.size();
-                for (unsigned i = 0; i < deps_size; ++i) {
-                    rule *trg_rule = deps[i];
+                for (rule* trg_rule : deps) {
                     fact_writer<Fact> writer(m_facts, trg_rule, m_todo[!m_todo_idx]);
                     // Generate new facts
                     head_fact.propagate_down(m_context, trg_rule, writer);
@@ -146,16 +135,13 @@ namespace datalog {
         dataflow_engine(typename Fact::ctx_t& ctx, const rule_set& rules) : m_rules(rules), m_todo_idx(0), m_context(ctx) {}
 
         ~dataflow_engine() {
-            for (rule_set::decl2rules::iterator it = m_body2rules.begin(); it != m_body2rules.end(); ++it) {
-                dealloc(it->m_value);
-            }
+            for (auto & kv : m_body2rules) 
+                dealloc(kv.m_value);            
         }
 
         void dump(std::ostream& outp) {
             obj_hashtable<func_decl> visited;
-            for (rule_set::iterator I = m_rules.begin(),
-                E = m_rules.end(); I != E; ++I) {
-                const rule* r = *I;
+            for (rule const* r : m_rules) {
                 func_decl* head_decl = r->get_decl();
                 obj_hashtable<func_decl>::entry *dummy;
                 if (visited.insert_if_not_there_core(head_decl, dummy)) {
@@ -194,30 +180,30 @@ namespace datalog {
         iterator end() const { return m_facts.end(); }
 
         void join(const dataflow_engine<Fact>& oth) {
-            for (typename fact_db::iterator I = oth.m_facts.begin(),
-                E = oth.m_facts.end(); I != E; ++I) {
+            for (auto const& kv : oth.m_facts) {
                 typename fact_db::entry* entry;
-                if (m_facts.insert_if_not_there_core(I->m_key, entry)) {
-                    entry->get_data().m_value = I->m_value;
-                } else {
-                    entry->get_data().m_value.join(m_context, I->m_value);
+                if (m_facts.insert_if_not_there_core(kv.m_key, entry)) {
+                    entry->get_data().m_value = kv.m_value;
+                } 
+                else {
+                    entry->get_data().m_value.join(m_context, kv.m_value);
                 }
             }
         }
 
         void intersect(const dataflow_engine<Fact>& oth) {
-            vector<func_decl*> to_delete;
-            for (typename fact_db::iterator I = m_facts.begin(),
-                E = m_facts.end(); I != E; ++I) {
+            ptr_vector<func_decl> to_delete;
+            for (auto const& kv : m_facts) {
                 
-                if (typename fact_db::entry *entry = oth.m_facts.find_core(I->m_key)) {
-                    I->m_value.intersect(m_context, entry->get_data().m_value);
-                } else {
-                     to_delete.push_back(I->m_key);
+                if (typename fact_db::entry *entry = oth.m_facts.find_core(kv.m_key)) {
+                    kv.m_value.intersect(m_context, entry->get_data().m_value);
+                } 
+                else {
+                     to_delete.push_back(kv.m_key);
                 }
             }
-            for (unsigned i = 0; i < to_delete.size(); ++i) {
-                m_facts.erase(to_delete[i]);
+            for (func_decl* f : to_delete) {
+                m_facts.erase(f);
             }
         }
     };

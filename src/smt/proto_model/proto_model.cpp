@@ -53,11 +53,11 @@ void proto_model::register_aux_decl(func_decl * d) {
 */
 void proto_model::reregister_decl(func_decl * f, func_interp * new_fi, func_decl * f_aux) {
     func_interp * fi = get_func_interp(f);
-    if (fi == 0) {
+    if (fi == nullptr) {
         register_decl(f, new_fi);
     }
     else {
-        if (f_aux != 0) {
+        if (f_aux != nullptr) {
             register_decl(f_aux, fi);
             m_aux_decls.insert(f_aux);
         }
@@ -135,7 +135,7 @@ void proto_model::cleanup_func_interp(func_interp * fi, func_decl_set & found_au
             todo.pop_back();
             func_decl * a_decl = to_app(a)->get_decl();
             expr * ai = get_const_interp(a_decl);
-            if (ai == 0) {
+            if (ai == nullptr) {
                 ai = get_some_value(a_decl->get_range());
                 register_decl(a_decl, ai);
             }
@@ -148,7 +148,7 @@ void proto_model::cleanup_func_interp(func_interp * fi, func_decl_set & found_au
                 bool visited = true;
                 args.reset();
                 for (expr* t_arg : *t) {
-                    expr * arg = 0;
+                    expr * arg = nullptr;
                     if (!cache.find(t_arg, arg)) {
                         visited = false;
                         todo.push_back(t_arg);
@@ -346,7 +346,7 @@ void proto_model::complete_partial_func(func_decl * f) {
     func_interp * fi = get_func_interp(f);
     if (fi && fi->is_partial()) {
         expr * else_value = fi->get_max_occ_result();
-        if (else_value == 0)
+        if (else_value == nullptr)
             else_value = get_some_value(f->get_range());
         fi->set_else(else_value);
     }

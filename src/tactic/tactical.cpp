@@ -37,7 +37,7 @@ public:
         SASSERT(m_t2);
     }
     
-    virtual ~binary_tactical() {}
+    ~binary_tactical() override { }
     
     void updt_params(params_ref const & p) override {
         m_t1->updt_params(p);
@@ -99,7 +99,7 @@ struct false_pred {
 class and_then_tactical : public binary_tactical {
 public:
     and_then_tactical(tactic * t1, tactic * t2):binary_tactical(t1, t2) {}
-    virtual ~and_then_tactical() {}
+    ~and_then_tactical() override {}
 
     void operator()(goal_ref const & in, goal_ref_buffer& result) override { 
 
@@ -231,7 +231,7 @@ public:
         }
     }
 
-    virtual ~nary_tactical() {}
+    ~nary_tactical() override { }
 
     void updt_params(params_ref const & p) override {
         TRACE("nary_tactical_updt_params", tout << "updt_params: " << p << "\n";);
@@ -283,7 +283,7 @@ class or_else_tactical : public nary_tactical {
 public:
     or_else_tactical(unsigned num, tactic * const * ts):nary_tactical(num, ts) { SASSERT(num > 0); }
 
-    virtual ~or_else_tactical() {}
+    ~or_else_tactical() override {}
 
     void operator()(goal_ref const & in, goal_ref_buffer& result) override {
         goal orig(*(in.get()));
@@ -373,7 +373,7 @@ class par_tactical : public or_else_tactical {
 
 public:
     par_tactical(unsigned num, tactic * const * ts):or_else_tactical(num, ts) {}
-    virtual ~par_tactical() {}
+    ~par_tactical() override {}
 
     
 
@@ -496,7 +496,7 @@ tactic * par(tactic * t1, tactic * t2, tactic * t3, tactic * t4) {
 class par_and_then_tactical : public and_then_tactical {
 public:
     par_and_then_tactical(tactic * t1, tactic * t2):and_then_tactical(t1, t2) {}
-    virtual ~par_and_then_tactical() {}
+    ~par_and_then_tactical() override {}
 
     void operator()(goal_ref const & in, goal_ref_buffer& result) override {
         bool use_seq;
@@ -685,9 +685,8 @@ public:
                     // update proof converter of r1[i]
                     r1[i]->set(concat(r1[i]->pc(), result.size() - j, result.c_ptr() + j));
                 }
-
                 expr_dependency_translation td(translator);
-                if (core_buffer[i] != 0) {
+                if (core_buffer[i] != nullptr) {
                     expr_dependency_ref curr_core(m);
                     curr_core = td(*(core_buffer[i]));
                     core = m.mk_join(curr_core, core);
@@ -1015,7 +1014,7 @@ public:
             m_t2->operator()(in, result);
     }
 
-    tactic * translate(ast_manager & m) override { 
+    tactic * translate(ast_manager & m) override {
         tactic * new_t1 = m_t1->translate(m);
         tactic * new_t2 = m_t2->translate(m);
         return alloc(cond_tactical, m_p.get(), new_t1, new_t2);
@@ -1049,7 +1048,7 @@ public:
         result.push_back(in.get());
     }
 
-    tactic * translate(ast_manager & m) override { 
+    tactic * translate(ast_manager & m) override {
         return this;
     }
 };
@@ -1075,9 +1074,7 @@ public:
         }
     }
 
-    tactic * translate(ast_manager & m) override { 
-        return translate_core<if_no_proofs_tactical>(m); 
-    }
+    tactic * translate(ast_manager & m) override { return translate_core<if_no_proofs_tactical>(m); }
 };
 
 class if_no_unsat_cores_tactical : public unary_tactical {
@@ -1112,6 +1109,7 @@ public:
     tactic * translate(ast_manager & m) override { 
         return translate_core<if_no_models_tactical>(m); 
     }
+
 };
 
 tactic * if_no_proofs(tactic * t) {
@@ -1130,4 +1128,3 @@ tactic * skip_if_failed(tactic * t) {
     return or_else(t, mk_skip_tactic());
 }
 
-    

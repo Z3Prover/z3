@@ -246,28 +246,28 @@ public:
         m_eq = alloc(rewriter_eq, m, *m_map, p);
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(injectivity_tactic, m, m_params);
     }
 
-    virtual ~injectivity_tactic() {
+    ~injectivity_tactic() override {
         dealloc(m_finder);
         dealloc(m_eq);
         dealloc(m_map);
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_params = p;
         m_finder->updt_params(p);
     }
 
-    virtual void collect_param_descrs(param_descrs & r) {
+    void collect_param_descrs(param_descrs & r) override {
         insert_max_memory(r);
         insert_produce_models(r);
     }
 
-    virtual void operator()(goal_ref const & g,
-                            goal_ref_buffer & result) {
+    void operator()(goal_ref const & g,
+                    goal_ref_buffer & result) override {
         (*m_finder)(g, result);
 
         for (unsigned i = 0; i < g->size(); ++i) {
@@ -280,7 +280,7 @@ public:
         result.push_back(g.get());
     }
 
-    virtual void cleanup() {
+    void cleanup() override {
         InjHelper * m = alloc(InjHelper, m_manager);
         finder * f = alloc(finder, m_manager, *m, m_params);
         rewriter_eq * r = alloc(rewriter_eq, m_manager, *m, m_params);

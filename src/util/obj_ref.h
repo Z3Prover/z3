@@ -43,7 +43,7 @@ public:
     }
 
     explicit obj_ref(TManager & m):
-        m_obj(0),
+        m_obj(nullptr),
         m_manager(m) {
     }
 
@@ -53,7 +53,7 @@ public:
         inc_ref();
     }
 
-    obj_ref(obj_ref && other) : m_obj(0), m_manager(other.m_manager) {
+    obj_ref(obj_ref && other) : m_obj(nullptr), m_manager(other.m_manager) {
         std::swap(m_obj, other.m_obj);
     }
 
@@ -67,9 +67,9 @@ public:
 
     T * get() const { return m_obj; }
 
-    operator bool() const { return m_obj != 0; }
+    operator bool() const { return m_obj != nullptr; }
 
-    bool operator!() const { return m_obj == 0; }
+    bool operator!() const { return m_obj == nullptr; }
 
     operator T*() const { return m_obj; }
 
@@ -94,7 +94,7 @@ public:
 
     void reset() {
         dec_ref();
-        m_obj = 0;
+        m_obj = nullptr;
     }
 
     void swap(obj_ref & n) {

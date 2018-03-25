@@ -323,7 +323,7 @@ public:
         {
             for (unsigned i = 0, sz = m_reach_facts.size (); i < sz; ++i)
                 if(v == m_reach_facts [i]->get()) { return m_reach_facts[i]; }
-            return NULL;
+            return nullptr;
         }
 
     void add_rule(datalog::rule* r) { m_rules.push_back(r); }
@@ -348,7 +348,7 @@ public:
     void collect_statistics(statistics& st) const;
     void reset_statistics();
 
-    bool is_must_reachable (expr* state, model_ref* model = 0);
+    bool is_must_reachable (expr* state, model_ref* model = nullptr);
     /// \brief Returns reachability fact active in the given model
     /// all determines whether initial reachability facts are included as well
     reach_fact *get_used_reach_fact (model_evaluator_util& mev, bool all = true);
@@ -397,7 +397,7 @@ public:
                        vector<bool>& reach_pred_used,
                        unsigned& num_reuse_reach);
     bool is_invariant(unsigned level, expr* lemma,
-                      unsigned& solver_level, expr_ref_vector* core = 0);
+                      unsigned& solver_level, expr_ref_vector* core = nullptr);
     bool check_inductive(unsigned level, expr_ref_vector& state,
                          unsigned& assumes_level);
 
@@ -475,7 +475,7 @@ public:
     void set_derivation (derivation *d) {m_derivation = d;}
     bool has_derivation () const {return (bool)m_derivation;}
     derivation &get_derivation() const {return *m_derivation.get ();}
-    void reset_derivation () {set_derivation (NULL);}
+    void reset_derivation () {set_derivation (nullptr);}
     /// detaches derivation from the node without deallocating
     derivation* detach_derivation () {return m_derivation.detach ();}
 
@@ -503,7 +503,7 @@ public:
     /// clean a dirty node
     void clean();
 
-    void reset () {clean (); m_derivation = NULL; m_open = true;}
+    void reset () {clean (); m_derivation = nullptr; m_open = true;}
 
     bool is_closed () const { return !m_open; }
     void close();
@@ -563,7 +563,7 @@ class derivation {
 
     public:
         premise (pred_transformer &pt, unsigned oidx, expr *summary, bool must,
-                 const ptr_vector<app> *aux_vars = NULL);
+                 const ptr_vector<app> *aux_vars = nullptr);
         premise (const premise &p);
 
         bool is_must () {return m_must;}
@@ -575,7 +575,7 @@ class derivation {
         /// \brief Updated the summary.
         /// The new summary is over n-variables.
         void set_summary (expr * summary, bool must,
-                          const ptr_vector<app> *aux_vars = NULL);
+                          const ptr_vector<app> *aux_vars = nullptr);
     };
 
 
@@ -600,7 +600,7 @@ public:
     derivation (pob& parent, datalog::rule const& rule,
                 expr *trans, app_ref_vector const &evars);
     void add_premise (pred_transformer &pt, unsigned oidx,
-                      expr * summary, bool must, const ptr_vector<app> *aux_vars = NULL);
+                      expr * summary, bool must, const ptr_vector<app> *aux_vars = nullptr);
 
     /// creates the first child. Must be called after all the premises
     /// are added. The model must be valid for the premises
@@ -628,7 +628,7 @@ class pob_queue {
                         pob_ref_gt>     m_obligations;
 
 public:
-    pob_queue(): m_root(NULL), m_max_level(0), m_min_depth(0) {}
+    pob_queue(): m_root(nullptr), m_max_level(0), m_min_depth(0) {}
     ~pob_queue();
 
     void reset();
@@ -833,7 +833,7 @@ public:
     pob& get_root() const { return m_pob_queue.get_root(); }
 
     expr_ref get_constraints (unsigned lvl);
-    void add_constraints (unsigned lvl, expr_ref c);
+    void add_constraints (unsigned lvl, const expr_ref& c);
 };
 
 inline bool pred_transformer::use_native_mbp () {return ctx.use_native_mbp ();}

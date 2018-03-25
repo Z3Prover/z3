@@ -35,7 +35,7 @@ namespace nlsat {
         struct imp;
         imp * m_imp;
     public:
-        solver(reslimit& rlim, params_ref const & p);
+        solver(reslimit& rlim, params_ref const & p, bool incremental);
         ~solver();
 
         /**
@@ -108,7 +108,7 @@ namespace nlsat {
         /**
            \brief Create a new clause.
         */
-        void mk_clause(unsigned num_lits, literal * lits, assumption a = 0);
+        void mk_clause(unsigned num_lits, literal * lits, assumption a = nullptr);
 
         // -----------------------
         //

@@ -124,7 +124,7 @@ namespace Microsoft.Z3
             /// <summary>
             /// Retrieve a lower bound for the objective handle.
             /// </summary>                   
-            public ArithExpr Lower
+            public Expr Lower
             {
                 get { return opt.GetLower(handle); }
             }
@@ -132,7 +132,7 @@ namespace Microsoft.Z3
             /// <summary>
             /// Retrieve an upper bound for the objective handle.
             /// </summary>                   
-            public ArithExpr Upper
+            public Expr Upper
             {
                 get { return opt.GetUpper(handle); }
             }
@@ -140,7 +140,7 @@ namespace Microsoft.Z3
             /// <summary>
             /// Retrieve the value of an objective.
             /// </summary>                   
-            public ArithExpr Value
+            public Expr Value
             {
                 get { return Lower; }
             }
@@ -148,7 +148,7 @@ namespace Microsoft.Z3
             /// <summary>
             /// Retrieve a lower bound for the objective handle.
             /// </summary>                   
-            public ArithExpr[] LowerAsVector
+            public Expr[] LowerAsVector
             {
                 get { return opt.GetLowerAsVector(handle); }
             }
@@ -156,7 +156,7 @@ namespace Microsoft.Z3
             /// <summary>
             /// Retrieve an upper bound for the objective handle.
             /// </summary>                   
-            public ArithExpr[] UpperAsVector
+            public Expr[] UpperAsVector
             {
                 get { return opt.GetUpperAsVector(handle); }
             }
@@ -240,8 +240,9 @@ namespace Microsoft.Z3
         /// Declare an arithmetical maximization objective.
         /// Return a handle to the objective. The handle is used as
         /// to retrieve the values of objectives after calling Check.
+        /// The expression can be either an arithmetical expression or bit-vector.
         /// </summary>            
-        public Handle MkMaximize(ArithExpr e)
+        public Handle MkMaximize(Expr e)
         {
             return new Handle(this, Native.Z3_optimize_maximize(Context.nCtx, NativeObject, e.NativeObject));
         }
@@ -250,45 +251,46 @@ namespace Microsoft.Z3
         /// Declare an arithmetical minimization objective. 
         /// Similar to MkMaximize.
         /// </summary>            
-        public Handle MkMinimize(ArithExpr e)
+        public Handle MkMinimize(Expr e)
         {
             return new Handle(this, Native.Z3_optimize_minimize(Context.nCtx, NativeObject, e.NativeObject));
         }
 
+
         /// <summary>
         /// Retrieve a lower bound for the objective handle.
         /// </summary>            
-        private ArithExpr GetLower(uint index)
+        private Expr GetLower(uint index)
         {
-            return (ArithExpr)Expr.Create(Context, Native.Z3_optimize_get_lower(Context.nCtx, NativeObject, index));
+            return Expr.Create(Context, Native.Z3_optimize_get_lower(Context.nCtx, NativeObject, index));
         }
 
 
         /// <summary>
         /// Retrieve an upper bound for the objective handle.
         /// </summary>            
-        private ArithExpr GetUpper(uint index)
+        private Expr GetUpper(uint index)
         {
-            return (ArithExpr)Expr.Create(Context, Native.Z3_optimize_get_upper(Context.nCtx, NativeObject, index));
+            return Expr.Create(Context, Native.Z3_optimize_get_upper(Context.nCtx, NativeObject, index));
         }
 
         /// <summary>
         /// Retrieve a lower bound for the objective handle.
         /// </summary>            
-        private ArithExpr[] GetLowerAsVector(uint index)
+        private Expr[] GetLowerAsVector(uint index)
         {
             ASTVector v = new ASTVector(Context, Native.Z3_optimize_get_lower_as_vector(Context.nCtx, NativeObject, index));
-            return v.ToArithExprArray();
+            return v.ToExprArray();
         }
 
 
         /// <summary>
         /// Retrieve an upper bound for the objective handle.
         /// </summary>            
-        private ArithExpr[] GetUpperAsVector(uint index)
+        private Expr[] GetUpperAsVector(uint index)
         {
             ASTVector v = new ASTVector(Context, Native.Z3_optimize_get_upper_as_vector(Context.nCtx, NativeObject, index));
-            return v.ToArithExprArray();
+            return v.ToExprArray();
         }
 
     /// <summary>

@@ -43,7 +43,7 @@ namespace smt {
         m_assigned_literals(assigned_literals),
         m_lemma_atoms(m),
         m_todo_js_qhead(0),
-        m_antecedents(0),
+        m_antecedents(nullptr),
         m_watches(watches),
         m_new_proofs(m),
         m_lemma_proof(m)
@@ -204,7 +204,7 @@ namespace smt {
                 eq2literals(p.first, p.second);
             }
             if (m_todo_js_qhead == m_todo_js.size()) {
-                m_antecedents = 0;
+                m_antecedents = nullptr;
                 return;
             }
         }
@@ -257,10 +257,8 @@ namespace smt {
         literal_vector & antecedents = m_tmp_literal_vector;
         antecedents.reset();
         justification2literals(js, antecedents);
-        literal_vector::iterator it  = antecedents.begin();
-        literal_vector::iterator end = antecedents.end();
-        for(; it != end; ++it)
-            r = std::max(r, m_ctx.get_assign_level(*it));
+        for (literal lit : antecedents) 
+            r = std::max(r, m_ctx.get_assign_level(lit));
         return r;
     }
 
@@ -315,8 +313,8 @@ namespace smt {
         SASSERT(var < static_cast<int>(m_ctx.get_num_bool_vars()));
         TRACE("conflict", tout << "processing antecedent (level " << lvl << "):";
               m_ctx.display_literal(tout, antecedent);
-              m_ctx.display_detailed_literal(tout << " ", antecedent); tout << "\n";);
-
+              m_ctx.display_detailed_literal(tout << " ", antecedent) << "\n";);
+        
         if (!m_ctx.is_marked(var) && lvl > m_ctx.get_base_level()) {
             m_ctx.set_mark(var);
             m_ctx.inc_bvar_activity(var);
@@ -330,11 +328,11 @@ namespace smt {
 
             if (get_manager().has_trace_stream()) {
                 get_manager().trace_stream() << "[resolve-lit] " << m_conflict_lvl - lvl << " ";
-                m_ctx.display_literal(get_manager().trace_stream(), ~antecedent);
-                get_manager().trace_stream() << "\n";
+                m_ctx.display_literal(get_manager().trace_stream(), ~antecedent) << "\n";
             }
 
             if (lvl == m_conflict_lvl) {
+                TRACE("conflict", m_ctx.display_literal(tout << "marking:", antecedent) << "\n";);
                 num_marks++;
             }
             else {
@@ -392,7 +390,7 @@ namespace smt {
               << " search_lvl: " << m_ctx.get_search_level() << "\n";
               tout << "js.kind: " << js.get_kind() << "\n";
               tout << "consequent: " << consequent << ": ";
-              m_ctx.display_literal_verbose(tout, consequent); tout << "\n";
+              m_ctx.display_literal_verbose(tout, consequent) << "\n";
               m_ctx.display(tout, js); tout << "\n";
           );
 
@@ -431,32 +429,16 @@ namespace smt {
     void conflict_resolution::finalize_resolve(b_justification conflict, literal not_l) {
         unmark_justifications(0);
 
-        TRACE("conflict",
-              tout << "before minimization:\n";
-              m_ctx.display_literals(tout, m_lemma);
-              tout << "\n";);
+        TRACE("conflict", m_ctx.display_literals(tout << "before minimization:\n", m_lemma) << "\n";);
 
-        TRACE("conflict_verbose",
-              tout << "before minimization:\n";
-              m_ctx.display_literals_verbose(tout, m_lemma);
-              tout << "\n";);
+        TRACE("conflict_verbose",m_ctx.display_literals_verbose(tout << "before minimization:\n", m_lemma) << "\n";);
 
         if (m_params.m_minimize_lemmas)
             minimize_lemma();
 
-        TRACE("conflict",
-              tout << "after minimization:\n";
-              m_ctx.display_literals(tout, m_lemma);
-              tout << "\n";);
-
-        TRACE("conflict_verbose",
-              tout << "after minimization:\n";
-              m_ctx.display_literals_verbose(tout, m_lemma);
-              tout << "\n";);
-
-        TRACE("conflict_bug",
-              m_ctx.display_literals_verbose(tout, m_lemma);
-              tout << "\n";);
+        TRACE("conflict", m_ctx.display_literals(tout << "after minimization:\n", m_lemma) << "\n";);
+        TRACE("conflict_verbose", m_ctx.display_literals_verbose(tout << "after minimization:\n", m_lemma) << "\n";);
+        TRACE("conflict_bug", m_ctx.display_literals_verbose(tout, m_lemma) << "\n";);
 
         literal_vector::iterator it  = m_lemma.begin();
         literal_vector::iterator end = m_lemma.end();
@@ -498,7 +480,7 @@ namespace smt {
 
         // save space for first uip
         m_lemma.push_back(null_literal);
-        m_lemma_atoms.push_back(0);
+        m_lemma_atoms.push_back(nullptr);
 
         unsigned num_marks = 0;
         if (not_l != null_literal) {
@@ -514,7 +496,8 @@ namespace smt {
                 get_manager().trace_stream() << "\n";
             }
 
-            TRACE("conflict", tout << "processing consequent: "; m_ctx.display_literal_verbose(tout, consequent); tout << "\n";
+            TRACE("conflict", tout << "processing consequent id: " << idx << " lit: " << consequent << " "; m_ctx.display_literal(tout, consequent); 
+                  m_ctx.display_literal_verbose(tout, consequent) << "\n";
                   tout << "num_marks: " << num_marks << ", js kind: " << js.get_kind() << " level: " << m_ctx.get_assign_level(consequent) << "\n";
                   );
             SASSERT(js != null_b_justification);
@@ -566,8 +549,10 @@ namespace smt {
                 if (m_ctx.is_marked(l.var()))
                     break;
                 CTRACE("conflict", m_ctx.get_assign_level(l) != m_conflict_lvl && m_ctx.get_assign_level(l) != m_ctx.get_base_level(),
-                       tout << "assign_level(l): " << m_ctx.get_assign_level(l) << ", conflict_lvl: " << m_conflict_lvl << ", l: "; m_ctx.display_literal_verbose(tout, l);
-                       tout << "\n";);
+                       tout << "assign_level(l): " << m_ctx.get_assign_level(l) << ", conflict_lvl: ";
+                       tout << m_conflict_lvl << ", l: "; m_ctx.display_literal_verbose(tout, l);
+                       tout << "\n";
+                       tout << "num marks: " << num_marks << "\n";);
                 SASSERT(m_ctx.get_assign_level(l) == m_conflict_lvl ||
                         // it may also be an (out-of-order) asserted literal
                         m_ctx.get_assign_level(l) == m_ctx.get_base_level());
@@ -606,10 +591,8 @@ namespace smt {
     */
     level_approx_set conflict_resolution::get_lemma_approx_level_set() {
         level_approx_set result;
-        literal_vector::const_iterator it  = m_lemma.begin();
-        literal_vector::const_iterator end = m_lemma.end();
-        for(; it != end; ++it)
-            result.insert(m_ctx.get_assign_level(*it));
+        for (literal l : m_lemma) 
+            result.insert(m_ctx.get_assign_level(l));
         return result;
     }
 
@@ -660,10 +643,8 @@ namespace smt {
         // The method unmark_justifications must be invoked to reset these caches.
         // Remark: The method reset_unmark_and_justifications invokes unmark_justifications.
         justification2literals_core(js, antecedents);
-        literal_vector::iterator it  = antecedents.begin();
-        literal_vector::iterator end = antecedents.end();
-        for(; it != end; ++it)
-            if (!process_antecedent_for_minimization(*it))
+        for (literal l : antecedents) 
+            if (!process_antecedent_for_minimization(l))
                 return false;
         return true;
     }
@@ -777,7 +758,7 @@ namespace smt {
             return pr;
         }
         m_todo_pr.push_back(tp_elem(n1, n2));
-        return 0;
+        return nullptr;
     }
 
     /**
@@ -785,7 +766,7 @@ namespace smt {
     */
     proof * conflict_resolution::norm_eq_proof(enode * n1, enode * n2, proof * pr) {
         if (!pr)
-            return 0;
+            return nullptr;
         SASSERT(m_manager.has_fact(pr));
         app * fact     = to_app(m_manager.get_fact(pr));
         app * n1_owner = n1->get_owner();
@@ -833,7 +814,7 @@ namespace smt {
         switch (js.get_kind()) {
         case eq_justification::AXIOM:
             UNREACHABLE();
-            return 0;
+            return nullptr;
         case eq_justification::EQUATION:
             TRACE("proof_gen_bug", tout << js.get_literal() << "\n"; m_ctx.display_literal_info(tout, js.get_literal()););
             return norm_eq_proof(n1, n2, get_proof(js.get_literal()));
@@ -864,11 +845,11 @@ namespace smt {
                         visited = false;
                 }
                 if (!visited)
-                    return 0;
+                    return nullptr;
                 app * e1 = n1->get_owner();
                 app * e2 = n2->get_owner();
                 app * e2_prime = m_manager.mk_app(e2->get_decl(), e2->get_arg(1), e2->get_arg(0));
-                proof * pr1 = 0;
+                proof * pr1 = nullptr;
                 if (!prs.empty()) {
                     pr1 = m_manager.mk_congruence(e1, e2_prime, prs.size(), prs.c_ptr());
                     m_new_proofs.push_back(pr1);
@@ -896,14 +877,14 @@ namespace smt {
                     }
                 }
                 if (!visited)
-                    return 0;
+                    return nullptr;
                 proof * pr = m_manager.mk_congruence(n1->get_owner(), n2->get_owner(), prs.size(), prs.c_ptr());
                 m_new_proofs.push_back(pr);
                 return pr;
             }
         default:
             UNREACHABLE();
-            return 0;
+            return nullptr;
         }
     }
 
@@ -918,7 +899,7 @@ namespace smt {
             return pr;
         }
         m_todo_pr.push_back(tp_elem(l));
-        return 0;
+        return nullptr;
     }
 
     /**
@@ -964,7 +945,7 @@ namespace smt {
                 SASSERT(js);
                 proof * pr         = get_proof(js);
                 ptr_buffer<proof> prs;
-                bool visited       = pr != 0;
+                bool visited       = pr != nullptr;
                 TRACE("get_proof_bug", if (pr != 0) tout << js->get_name() << "\n";);
                 CTRACE("get_proof_bug_after", invocation_counter >= DUMP_AFTER_NUM_INVOCATIONS, if (pr != 0) tout << js->get_name() << "\n";);
                 CTRACE("get_proof_bug_after", invocation_counter >= DUMP_AFTER_NUM_INVOCATIONS, if (pr != 0) js->display_debug_info(*this, tout););
@@ -992,7 +973,7 @@ namespace smt {
                         visited = false;
                 }
                 if (!visited)
-                    return 0;
+                    return nullptr;
                 expr_ref l_exr(m_manager);
                 m_ctx.literal2expr(l, l_exr);
                 TRACE("get_proof_bug",
@@ -1053,7 +1034,7 @@ namespace smt {
         }
         SASSERT(js != 0);
         m_todo_pr.push_back(tp_elem(js));
-        return 0;
+        return nullptr;
     }
 
     void conflict_resolution::init_mk_proof() {
@@ -1063,10 +1044,8 @@ namespace smt {
         m_eq2proof.reset();
         m_lit2proof.reset();
         m_js2proof.reset();
-        literal_vector::iterator it  = m_lemma.begin();
-        literal_vector::iterator end = m_lemma.end();
-        for (; it != end;  ++it)
-            m_ctx.set_mark((*it).var());
+        for (literal lit : m_lemma)
+            m_ctx.set_mark(lit.var());
     }
 
     bool conflict_resolution::visit_b_justification(literal l, b_justification js) {
@@ -1082,7 +1061,7 @@ namespace smt {
         SASSERT(js.get_kind() != b_justification::AXIOM);
         if (js.get_kind() == b_justification::CLAUSE) {
             clause * cls      = js.get_clause();
-            bool visited      = get_proof(cls->get_justification()) != 0;
+            bool visited      = get_proof(cls->get_justification()) != nullptr;
             unsigned num_lits = cls->get_num_literals();
             unsigned i        = 0;
             if (l != false_literal) {
@@ -1091,20 +1070,20 @@ namespace smt {
                 }
                 else {
                     SASSERT(cls->get_literal(1) == l);
-                    if (get_proof(~cls->get_literal(0)) == 0)
+                    if (get_proof(~cls->get_literal(0)) == nullptr)
                         visited = false;
                     i = 2;
                 }
             }
             for (; i < num_lits; i++) {
                 SASSERT(cls->get_literal(i) != l);
-                if (get_proof(~cls->get_literal(i)) == 0)
+                if (get_proof(~cls->get_literal(i)) == nullptr)
                     visited = false;
             }
             return visited;
         }
         else
-            return get_proof(js.get_justification()) != 0;
+            return get_proof(js.get_justification()) != nullptr;
     }
 
     void conflict_resolution::mk_proof(literal l, b_justification js) {
@@ -1135,11 +1114,11 @@ namespace smt {
                 UNREACHABLE();
                 break;
             case eq_justification::EQUATION:
-                if (get_proof(js.get_literal()) == 0)
+                if (get_proof(js.get_literal()) == nullptr)
                     visited = false;
                 break;
             case eq_justification::JUSTIFICATION:
-                if (get_proof(js.get_justification()) == 0)
+                if (get_proof(js.get_justification()) == nullptr)
                     visited = false;
                 break;
             case eq_justification::CONGRUENCE: {
@@ -1153,16 +1132,16 @@ namespace smt {
                     enode * c1_2 = n1->get_arg(1);
                     enode * c2_1 = n2->get_arg(0);
                     enode * c2_2 = n2->get_arg(1);
-                    if (c1_1 != c2_2 && get_proof(c1_1, c2_2) == 0)
+                    if (c1_1 != c2_2 && get_proof(c1_1, c2_2) == nullptr)
                         visited = false;
-                    if (c1_2 != c2_1 && get_proof(c1_2, c2_1) == 0)
+                    if (c1_2 != c2_1 && get_proof(c1_2, c2_1) == nullptr)
                         visited = false;
                 }
                 else {
                     for (unsigned i = 0; i < num_args; i++) {
                         enode * c1 = n1->get_arg(i);
                         enode * c2 = n2->get_arg(i);
-                        if (c1 != c2 && get_proof(c1, c2) == 0)
+                        if (c1 != c2 && get_proof(c1, c2) == nullptr)
                             visited = false;
                     }
                 }
@@ -1225,7 +1204,7 @@ namespace smt {
             }
             prs2.pop_back();
         }
-        proof * pr = 0;
+        proof * pr = nullptr;
         SASSERT(!prs1.empty());
         if (prs1.size() == 1)
             pr = prs1[0];
@@ -1246,12 +1225,9 @@ namespace smt {
         SASSERT(conflict.get_kind() != b_justification::BIN_CLAUSE);
         SASSERT(conflict.get_kind() != b_justification::AXIOM);
         SASSERT(not_l == null_literal || conflict.get_kind() == b_justification::JUSTIFICATION);
-        TRACE("mk_conflict_proof", tout << "lemma literals: ";
-              literal_vector::iterator it  = m_lemma.begin();
-              literal_vector::iterator end = m_lemma.end();
-              for (; it != end; ++it) {
-                  m_ctx.display_literal(tout, *it);
-                  tout << " ";
+        TRACE("mk_conflict_proof", tout << "lemma literals:";
+              for (literal lit : m_lemma) {
+                  m_ctx.display_literal(tout << " ", lit);
               }
               tout << "\n";);
         init_mk_proof();
@@ -1314,13 +1290,13 @@ namespace smt {
         }
 
         SASSERT(visit_b_justification(consequent, conflict));
-        proof * pr = 0;
+        proof * pr = nullptr;
         if (not_l == null_literal) {
             pr = get_proof(false_literal, conflict);
             SASSERT(pr);
         }
         else {
-            proof * prs[2] = { 0, 0};
+            proof * prs[2] = { nullptr, nullptr};
             m_lit2proof.find(not_l, prs[0]);
             SASSERT(prs[0]);
             prs[1]         = get_proof(consequent, conflict);
@@ -1328,21 +1304,19 @@ namespace smt {
             pr = m_manager.mk_unit_resolution(2, prs);
         }
         expr_ref_buffer lits(m_manager);
-        literal_vector::iterator it  = m_lemma.begin();
-        literal_vector::iterator end = m_lemma.end();
-        for (; it != end; ++it) {
-            m_ctx.unset_mark((*it).var());
+        for (literal lit : m_lemma) {
+            m_ctx.unset_mark(lit.var());
             expr_ref l_expr(m_manager);
-            m_ctx.literal2expr(*it, l_expr);
+            m_ctx.literal2expr(lit, l_expr);
             lits.push_back(l_expr);
         }
-        expr * fact = 0;
+        expr * fact = nullptr;
         switch (lits.size()) {
-        case 0:  fact = 0; break;
+        case 0:  fact = nullptr; break;
         case 1:  fact = lits[0]; break;
         default: fact = m_manager.mk_or(lits.size(), lits.c_ptr());
         }
-        if (fact == 0)
+        if (fact == nullptr)
             m_lemma_proof = pr;
         else
             m_lemma_proof = m_manager.mk_lemma(pr, fact);
@@ -1369,10 +1343,8 @@ namespace smt {
         literal_vector & antecedents = m_tmp_literal_vector;
         antecedents.reset();
         justification2literals_core(js, antecedents);
-        literal_vector::iterator it  = antecedents.begin();
-        literal_vector::iterator end = antecedents.end();
-        for(; it != end; ++it)
-            process_antecedent_for_unsat_core(*it);
+        for (literal lit : antecedents) 
+            process_antecedent_for_unsat_core(lit);
     }
 
     void conflict_resolution::mk_unsat_core(b_justification conflict, literal not_l) {

@@ -146,32 +146,31 @@ public:
         m_imp = alloc(imp, m, p);
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(blast_term_ite_tactic, m, m_params);
     }
         
-    virtual ~blast_term_ite_tactic() {
+    ~blast_term_ite_tactic() override {
         dealloc(m_imp);
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_params = p;
         m_imp->m_rw.cfg().updt_params(p);
     }
 
-    virtual void collect_param_descrs(param_descrs & r) {
+    void collect_param_descrs(param_descrs & r) override {
         insert_max_memory(r);
         insert_max_steps(r);
         r.insert("max_args", CPK_UINT, 
                  "(default: 128) maximum number of arguments (per application) that will be considered by the greedy (quadratic) heuristic.");
     }
     
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result) {
+    void operator()(goal_ref const & in, goal_ref_buffer & result) override {
         (*m_imp)(in, result);
     }
     
-    virtual void cleanup() {
+    void cleanup() override {
         ast_manager & m = m_imp->m;
         dealloc(m_imp);
         m_imp = alloc(imp, m, m_params);

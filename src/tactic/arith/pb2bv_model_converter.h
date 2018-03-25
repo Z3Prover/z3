@@ -30,7 +30,7 @@ class pb2bv_model_converter : public model_converter {
 public:
     pb2bv_model_converter(ast_manager & _m);
     pb2bv_model_converter(ast_manager & _m, obj_map<func_decl, expr*> const & c2bit, bound_manager const & bm);
-    virtual ~pb2bv_model_converter();
+    ~pb2bv_model_converter() override;
     void operator()(model_ref & md) override;
     void display(std::ostream & out) override;
     void get_units(obj_map<expr, bool>& units) override;

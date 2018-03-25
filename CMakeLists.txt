@@ -33,10 +33,9 @@ endif()
 # Project version
 ################################################################################
 set(Z3_VERSION_MAJOR 4)
-set(Z3_VERSION_MINOR 5)
-set(Z3_VERSION_PATCH 1)
-set(Z3_VERSION_TWEAK 0304)
-set(Z3_FULL_VERSION 0)
+set(Z3_VERSION_MINOR 6)
+set(Z3_VERSION_PATCH 2)
+set(Z3_VERSION_TWEAK 0)
 set(Z3_VERSION "${Z3_VERSION_MAJOR}.${Z3_VERSION_MINOR}.${Z3_VERSION_PATCH}.${Z3_VERSION_TWEAK}")
 set(Z3_FULL_VERSION_STR "${Z3_VERSION}") # Note this might be modified
 message(STATUS "Z3 version ${Z3_VERSION}")
@@ -241,6 +240,9 @@ elseif ("${CMAKE_SYSTEM_NAME}" STREQUAL "Darwin")
 elseif ("${CMAKE_SYSTEM_NAME}" MATCHES "FreeBSD")
   message(STATUS "Platform: FreeBSD")
   list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_FREEBSD_")
+elseif ("${CMAKE_SYSTEM_NAME}" MATCHES "NetBSD")
+  message(STATUS "Platform: NetBSD")
+  list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_NetBSD_")
 elseif ("${CMAKE_SYSTEM_NAME}" MATCHES "OpenBSD")
   message(STATUS "Platform: OpenBSD")
   list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_OPENBSD_")
@@ -258,6 +260,46 @@ list(APPEND Z3_COMPONENT_EXTRA_INCLUDE_DIRS
   "${CMAKE_BINARY_DIR}/src"
   "${CMAKE_SOURCE_DIR}/src"
 )
+
+################################################################################
+# Linux specific configuration
+################################################################################
+if ("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
+  # Try to detect if it is necessary to link against librt.
+  # Note that glibc < 2.17 required librt to be linked to use clock_gettime()
+  # and friends.
+  set(CLOCK_GETTIME_REQUIRES_LIBRT_TEST_CODE
+    "
+    #include <time.h>
+    int main() {
+      timespec res;
+      int result = clock_gettime(CLOCK_REALTIME, &res);
+      return result == 0;
+    }
+    "
+  )
+  check_cxx_source_compiles(
+    "${CLOCK_GETTIME_REQUIRES_LIBRT_TEST_CODE}"
+    CLOCK_GETTIME_NO_REQUIRE_LIBRT
+  )
+  if (NOT CLOCK_GETTIME_NO_REQUIRE_LIBRT)
+    # Try again with librt
+    message(STATUS "Failed to link against clock_gettime(), trying with librt")
+    set(CMAKE_REQUIRED_LIBRARIES_OLD "${CMAKE_REQUIRED_LIBRARIES}")
+    set(CMAKE_REQUIRED_LIBRARIES "${CMAKE_REQUIRED_LIBRARIES} rt")
+    check_cxx_source_compiles(
+      "${CLOCK_GETTIME_REQUIRES_LIBRT_TEST_CODE}"
+      CLOCK_GETTIME_REQUIRES_LIBRT
+    )
+    set(CMAKE_REQUIRED_LIBRARIES "${CMAKE_REQUIRED_LIBRARIES_OLD}")
+    if (CLOCK_GETTIME_REQUIRES_LIBRT)
+      list(APPEND Z3_DEPENDENT_LIBS "rt")
+    else()
+      message(FATAL_ERROR "Failed to link against clock_gettime()")
+    endif()
+  endif()
+endif()
+
 ################################################################################
 # GNU multiple precision library support
 ################################################################################
@@ -371,6 +413,20 @@ list(APPEND Z3_DEPENDENT_LIBS ${CMAKE_THREAD_LIBS_INIT})
 include(${CMAKE_SOURCE_DIR}/cmake/compiler_warnings.cmake)
 
 ################################################################################
+# If using Ninja, force color output for Clang (and gcc, disabled to check build).
+################################################################################
+if (UNIX AND CMAKE_GENERATOR STREQUAL "Ninja")
+  if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fcolor-diagnostics")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fcolor-diagnostics")
+  endif()
+#  if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+#    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fdiagnostics-color")
+#    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fdiagnostics-color")
+#  endif()
+endif()
+
+################################################################################
 # Option to control what type of library we build
 ################################################################################
 option(BUILD_LIBZ3_SHARED "Build libz3 as a shared library if true, otherwise build a static library" ON)
@@ -395,7 +451,7 @@ else()
 endif()
 
 ################################################################################
-# Postion independent code
+# Position independent code
 ################################################################################
 # This is required because code built in the components will end up in a shared
 # library. If not building a shared library ``-fPIC`` isn't needed and would add

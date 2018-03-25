@@ -17,12 +17,12 @@ Copyright (c) 2015 Microsoft Corporation
 #include "ast/reg_decl_plugins.h"
 #include "model/model_smt2_pp.h"
 #include "opt/opt_context.h"
-#include "opt/opt_parse.h"
 #include "shell/opt_frontend.h"
+#include "opt/opt_parse.h"
 
 extern bool g_display_statistics;
 static bool g_first_interrupt = true;
-static opt::context* g_opt = 0;
+static opt::context* g_opt = nullptr;
 static double g_start_time = 0;
 static unsigned_vector g_handles;
 
@@ -135,8 +135,8 @@ static unsigned parse_opt(std::istream& in, opt_format f) {
     #pragma omp critical (g_display_stats) 
     {
         display_statistics();
-        register_on_timeout_proc(0);
-        g_opt = 0;
+        register_on_timeout_proc(nullptr);
+        g_opt = nullptr;
     }    
     return 0;
 }

@@ -95,13 +95,13 @@ class diff_neq_tactic : public tactic {
             if (is_uninterp_const(lhs) && u.is_numeral(rhs, k) && m_max_neg_k <= k && k <= m_max_k) {
                 var x  = mk_var(lhs);
                 int _k = static_cast<int>(k.get_int64());
-                m_upper[x] = _k;
+                m_upper[x] = std::min(m_upper[x], _k);
                 
             }
             else if (is_uninterp_const(rhs) && u.is_numeral(lhs, k) && m_max_neg_k <= k && k <= m_max_k) {
                 var x  = mk_var(rhs);
                 int _k = static_cast<int>(k.get_int64()); 
-                m_lower[x] = _k;
+                m_lower[x] = std::max(m_lower[x], _k);
             }
             else {
                 throw_not_supported();
@@ -352,28 +352,28 @@ public:
         m_imp = alloc(imp, m, p);
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(diff_neq_tactic, m, m_params);
     }
 
-    virtual ~diff_neq_tactic() {
+    ~diff_neq_tactic() override {
         dealloc(m_imp);
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_params = p;
         m_imp->updt_params(p);
     }
 
-    virtual void collect_param_descrs(param_descrs & r) { 
+    void collect_param_descrs(param_descrs & r) override {
         r.insert("diff_neq_max_k", CPK_UINT, "(default: 1024) maximum variable upper bound for diff neq solver.");
     }
 
-    virtual void collect_statistics(statistics & st) const {
+    void collect_statistics(statistics & st) const override {
         st.update("conflicts", m_imp->m_num_conflicts);
     }
 
-    virtual void reset_statistics() {
+    void reset_statistics() override {
         m_imp->m_num_conflicts = 0;
     }
 
@@ -381,12 +381,12 @@ public:
        \brief Fix a DL variable in s to 0.
        If s is not really in the difference logic fragment, then this is a NOOP.
     */
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result) {
+    void operator()(goal_ref const & in, 
+                    goal_ref_buffer & result) override {
         (*m_imp)(in, result);
     }
     
-    virtual void cleanup() {
+    void cleanup() override {
         imp * d = alloc(imp, m_imp->m, m_params);
         d->m_num_conflicts = m_imp->m_num_conflicts;
         std::swap(d, m_imp);        

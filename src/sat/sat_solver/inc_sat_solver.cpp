@@ -104,7 +104,7 @@ public:
         return m_solver.get_config().m_incremental;
     }
 
-    virtual ~inc_sat_solver() {}
+    ~inc_sat_solver() override {}
 
     solver* translate(ast_manager& dst_m, params_ref const& p) override {
         if (m_num_scopes > 0) {
@@ -132,7 +132,7 @@ public:
     void set_progress_callback(progress_callback * callback) override {}
 
     void display_weighted(std::ostream& out, unsigned sz, expr * const * assumptions, unsigned const* weights) {
-        if (weights != 0) {
+        if (weights != nullptr) {
             for (unsigned i = 0; i < sz; ++i) m_weights.push_back(weights[i]);
         }
         init_preprocess();
@@ -299,7 +299,7 @@ public:
     }
     proof * get_proof() override {
         UNREACHABLE();
-        return 0;
+        return nullptr;
     }
 
     expr_ref_vector cube(expr_ref_vector& vs, unsigned backtrack_level) override {
@@ -527,8 +527,8 @@ private:
         catch (tactic_exception & ex) {
             IF_VERBOSE(0, verbose_stream() << "exception in tactic " << ex.msg() << "\n";);
             TRACE("sat", tout << "exception: " << ex.msg() << "\n";);
-            m_preprocess = 0;
-            m_bb_rewriter = 0;
+            m_preprocess = nullptr;
+            m_bb_rewriter = nullptr;
             return l_undef;
         }        
         if (m_subgoals.size() != 1) {
@@ -646,7 +646,7 @@ private:
         expr_ref_vector conj(m);
         internalize_value(value, v, val);
         while (!premises.empty()) {
-            expr* e = 0;
+            expr* e = nullptr;
             VERIFY(asm2dep.find(premises.pop().index(), e));
             conj.push_back(e);
         }
@@ -746,7 +746,7 @@ private:
 
         m_core.reset();
         for (sat::literal c : core) {
-            expr* e = 0;
+            expr* e = nullptr;
             VERIFY(asm2dep.find(c.index(), e));
             if (asm2fml.contains(e)) {
                 e = asm2fml.find(e);

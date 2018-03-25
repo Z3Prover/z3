@@ -39,7 +39,7 @@ class propagate_values_tactic : public tactic {
         imp(ast_manager & m, params_ref const & p):
             m(m),
             m_r(m, p),
-            m_goal(0),
+            m_goal(nullptr),
             m_occs(m, true /* track atoms */) {
             updt_params_core(p);
         }
@@ -93,7 +93,7 @@ class propagate_values_tactic : public tactic {
             if (m_goal->unsat_core_enabled()) {
                 new_d = m_goal->dep(m_idx);
                 expr_dependency * used_d = m_r.get_used_dependencies();
-                if (used_d != 0) {
+                if (used_d != nullptr) {
                     new_d = m.mk_join(new_d, used_d);
                     m_r.reset_used_dependencies();
                 }
@@ -220,8 +220,7 @@ class propagate_values_tactic : public tactic {
             SASSERT(m_goal->is_well_sorted());
             TRACE("propagate_values", tout << "end\n"; m_goal->display(tout););
             TRACE("propagate_values_core", m_goal->display_with_dependencies(tout););
-            //IF_VERBOSE(0, m_goal->display(verbose_stream()));
-            m_goal = 0;
+            m_goal = nullptr;
         }
     };
     
@@ -233,20 +232,20 @@ public:
         m_imp = alloc(imp, m, p);
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(propagate_values_tactic, m, m_params);
     }
     
-    virtual ~propagate_values_tactic() {
+    ~propagate_values_tactic() override {
         dealloc(m_imp);
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_params = p;
         m_imp->updt_params(p);
     }
 
-    virtual void collect_param_descrs(param_descrs & r) {
+    void collect_param_descrs(param_descrs & r) override {
         th_rewriter::get_param_descrs(r);
         r.insert("max_rounds", CPK_UINT, "(default: 2) maximum number of rounds.");
     }
@@ -260,10 +259,11 @@ public:
         }
     }
     
-    virtual void cleanup() {
+    void cleanup() override {
         ast_manager & m = m_imp->m;
-        dealloc(m_imp);
-        m_imp = alloc(imp, m, m_params);
+        params_ref p = std::move(m_params);
+        m_imp->~imp();
+        new (m_imp) imp(m, p);
     }
     
 };

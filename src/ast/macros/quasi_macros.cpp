@@ -91,7 +91,7 @@ public:
     void operator()(var * n) { m_bitset.set(n->get_idx(), true); }
     void operator()(quantifier * n) {}
     void operator()(app * n) {}
-    bool all_used(void) {
+    bool all_used() {
         for (unsigned i = 0; i < m_bitset.size() ; i++)
             if (!m_bitset.get(i))
                 return false;
@@ -281,10 +281,10 @@ bool quasi_macros::find_macros(unsigned n, expr * const * exprs) {
             quasi_macro_to_macro(to_quantifier(exprs[i]), a, t, macro);
             TRACE("quasi_macros", tout << "Found quasi macro: " << mk_pp(exprs[i], m_manager) << std::endl;
                                   tout << "Macro: " << mk_pp(macro, m_manager) << std::endl; );
-            proof * pr = 0;
+            proof * pr = nullptr;
             if (m_manager.proofs_enabled())
                 pr = m_manager.mk_def_axiom(macro);
-            expr_dependency * dep = 0;
+            expr_dependency * dep = nullptr;
             if (m_macro_manager.insert(a->get_decl(), macro, pr, dep))
                 res = true;
         }
@@ -320,7 +320,7 @@ bool quasi_macros::find_macros(unsigned n, justified_expr const * exprs) {
             quasi_macro_to_macro(to_quantifier(exprs[i].get_fml()), a, t, macro);
             TRACE("quasi_macros", tout << "Found quasi macro: " << mk_pp(exprs[i].get_fml(), m_manager) << std::endl;
                                   tout << "Macro: " << mk_pp(macro, m_manager) << std::endl; );
-            proof * pr = 0;
+            proof * pr = nullptr;
             if (m_manager.proofs_enabled())
                 pr = m_manager.mk_def_axiom(macro);
             if (m_macro_manager.insert(a->get_decl(), macro, pr))
@@ -336,7 +336,7 @@ void quasi_macros::apply_macros(unsigned n, expr * const * exprs, proof * const 
         expr_ref r(m_manager), rs(m_manager);
         proof_ref pr(m_manager), ps(m_manager);
         expr_dependency_ref dep(m_manager);
-        proof * p = m_manager.proofs_enabled() ? prs[i] : 0;
+        proof * p = m_manager.proofs_enabled() ? prs[i] : nullptr;
         
         m_macro_manager.expand_macros(exprs[i], p, deps[i], r, pr, dep);
         m_rewriter(r);
@@ -366,9 +366,9 @@ void quasi_macros::apply_macros(unsigned n, justified_expr const* fmls, vector<j
     for ( unsigned i = 0 ; i < n ; i++ ) {
         expr_ref r(m_manager), rs(m_manager);
         proof_ref pr(m_manager), ps(m_manager);
-        proof * p = m_manager.proofs_enabled() ? fmls[i].get_proof() : 0;
+        proof * p = m_manager.proofs_enabled() ? fmls[i].get_proof() : nullptr;
         expr_dependency_ref dep(m_manager);
-        m_macro_manager.expand_macros(fmls[i].get_fml(), p, 0, r, pr, dep);
+        m_macro_manager.expand_macros(fmls[i].get_fml(), p, nullptr, r, pr, dep);
         m_rewriter(r);
         new_fmls.push_back(justified_expr(m_manager, r, pr));
     }

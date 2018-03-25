@@ -190,14 +190,14 @@ namespace qe {
 
     class is_relevant_default : public i_expr_pred {
     public:
-        bool operator()(expr* e) {
+        bool operator()(expr* e) override {
             return true;
         }
     };
 
     class mk_atom_default : public i_nnf_atom {
     public:
-        virtual void operator()(expr* e, bool pol, expr_ref& result) {
+        void operator()(expr* e, bool pol, expr_ref& result) override {
             if (pol) result = e;
             else result = result.get_manager().mk_not(e);
         }
@@ -595,7 +595,7 @@ namespace qe {
                     // c*x + t = 0  <=>  x = -t/c
                     expr_ref eq_term (mk_mul (-(rational::one ()/m_coeffs[eq_idx]), m_terms.get (eq_idx)), m);
                     m_rw (eq_term);
-                    map.insert (m_var->x (), eq_term, 0);
+                    map.insert (m_var->x (), eq_term, nullptr);
                     TRACE ("qe",
                             tout << "Using equality term: " << mk_pp (eq_term, m) << "\n";
                           );
@@ -680,7 +680,7 @@ namespace qe {
                     } else {
                         new_lit = m.mk_true ();
                     }
-                    map.insert (m_lits.get (i), new_lit, 0);
+                    map.insert (m_lits.get (i), new_lit, nullptr);
                     TRACE ("qe",
                             tout << "Old literal: " << mk_pp (m_lits.get (i), m) << "\n";
                             tout << "New literal: " << mk_pp (new_lit, m) << "\n";
@@ -722,7 +722,7 @@ namespace qe {
                     } else {
                         new_lit = m.mk_true ();
                     }
-                    map.insert (m_lits.get (i), new_lit, 0);
+                    map.insert (m_lits.get (i), new_lit, nullptr);
                     TRACE ("qe",
                             tout << "Old literal: " << mk_pp (m_lits.get (i), m) << "\n";
                             tout << "New literal: " << mk_pp (new_lit, m) << "\n";
@@ -932,7 +932,7 @@ namespace qe {
                     if (!all_done) continue;
                     // all args so far have been processed
                     // get the correct arg to use
-                    proof* pr = 0; expr* new_arg = 0;
+                    proof* pr = nullptr; expr* new_arg = nullptr;
                     factored_terms.get (old_arg, new_arg, pr);
                     if (new_arg) {
                         // changed
@@ -965,7 +965,7 @@ namespace qe {
                         mdl.register_decl (new_var->get_decl (), val);
                     }
                     if (changed) {
-                        factored_terms.insert (e, new_term, 0);
+                        factored_terms.insert (e, new_term, nullptr);
                     }
                     done.mark (e, true);
                     todo.pop_back ();
@@ -973,7 +973,7 @@ namespace qe {
             }
 
             // mk new fml
-            proof* pr = 0; expr* new_fml = 0;
+            proof* pr = nullptr; expr* new_fml = nullptr;
             factored_terms.get (fml, new_fml, pr);
             if (new_fml) {
                 fml = new_fml;
@@ -994,9 +994,9 @@ namespace qe {
          * the divisibility atom is a special mod term ((t1-t2) % num == 0)
          */
         void mod2div (expr_ref& fml, expr_map& map) {
-            expr* new_fml = 0;
+            expr* new_fml = nullptr;
 
-            proof *pr = 0;
+            proof *pr = nullptr;
             map.get (fml, new_fml, pr);
             if (new_fml) {
                 fml = new_fml;
@@ -1065,7 +1065,7 @@ namespace qe {
                 new_fml = m.mk_app (a->get_decl (), children.size (), children.c_ptr ());
             }
 
-            map.insert (fml, new_fml, 0);
+            map.insert (fml, new_fml, nullptr);
             fml = new_fml;
         }
 
@@ -1133,7 +1133,7 @@ namespace qe {
                                            z);
                     }
                 }
-                map.insert (m_lits.get (i), new_lit, 0);
+                map.insert (m_lits.get (i), new_lit, nullptr);
                 TRACE ("qe",
                         tout << "Old literal: " << mk_pp (m_lits.get (i), m) << "\n";
                         tout << "New literal: " << mk_pp (new_lit, m) << "\n";
@@ -1145,7 +1145,7 @@ namespace qe {
             expr_substitution sub (m);
             // literals
             for (unsigned i = 0; i < lits.size (); i++) {
-                expr* new_lit = 0; proof* pr = 0;
+                expr* new_lit = nullptr; proof* pr = nullptr;
                 app* old_lit = lits.get (i);
                 map.get (old_lit, new_lit, pr);
                 if (new_lit) {
@@ -1157,7 +1157,7 @@ namespace qe {
                 }
             }
             // substitute for x, if any
-            expr* x_term = 0; proof* pr = 0;
+            expr* x_term = nullptr; proof* pr = nullptr;
             map.get (m_var->x (), x_term, pr);
             if (x_term) {
                 sub.insert (m_var->x (), x_term);
@@ -1292,9 +1292,9 @@ namespace qe {
         model_evaluator_array_util  m_mev;
 
         void reset_v () {
-            m_v = 0;
+            m_v = nullptr;
             m_has_stores_v.reset ();
-            m_subst_term_v = 0;
+            m_subst_term_v = nullptr;
             m_true_sub_v.reset ();
             m_false_sub_v.reset ();
             m_aux_lits_v.reset ();
@@ -1302,7 +1302,7 @@ namespace qe {
         }
 
         void reset () {
-            M = 0;
+            M = nullptr;
             reset_v ();
             m_aux_vars.reset ();
         }
@@ -1393,7 +1393,7 @@ namespace qe {
                         todo.push_back (to_app (arg));
                     }
                     else if (all_done) { // all done so far..
-                        expr* arg_new = 0; proof* pr;
+                        expr* arg_new = nullptr; proof* pr;
                         sel_cache.get (arg, arg_new, pr);
                         if (!arg_new) {
                             arg_new = arg;
@@ -1423,12 +1423,12 @@ namespace qe {
                 }
 
                 if (a != a_new) {
-                    sel_cache.insert (a, a_new, 0);
+                    sel_cache.insert (a, a_new, nullptr);
                     pinned.push_back (a_new);
                 }
                 done.mark (a, true);
             }
-            expr* res = 0; proof* pr;
+            expr* res = nullptr; proof* pr;
             sel_cache.get (fml, res, pr);
             if (res) {
                 fml = to_app (res);
@@ -1478,7 +1478,7 @@ namespace qe {
 
         void find_subst_term (app* eq) {
             app_ref p_exp (m);
-            mk_peq (eq->get_arg (0), eq->get_arg (1), 0, 0, p_exp);
+            mk_peq (eq->get_arg (0), eq->get_arg (1), 0, nullptr, p_exp);
             bool subst_eq_found = false;
             while (true) {
                 TRACE ("qe",
@@ -1672,7 +1672,7 @@ namespace qe {
                 expr* rhs = eq->get_arg (1);
                 bool lhs_has_v = (lhs == m_v || m_has_stores_v.is_marked (lhs));
                 bool rhs_has_v = (rhs == m_v || m_has_stores_v.is_marked (rhs));
-                app* store = 0;
+                app* store = nullptr;
 
                 SASSERT (lhs_has_v || rhs_has_v);
 
@@ -1829,7 +1829,7 @@ namespace qe {
             m_cache.reset ();
             m_pinned.reset ();
             m_idx_lits.reset ();
-            M = 0;
+            M = nullptr;
             m_arr_test.reset ();
             m_has_stores.reset ();
             m_reduce_all_selects = false;
@@ -1864,7 +1864,7 @@ namespace qe {
         bool reduce (expr_ref& e) {
             if (!is_app (e)) return true;
 
-            expr *r = 0;
+            expr *r = nullptr;
             if (m_cache.find (e, r)) {
                 e = r;
                 return true;
@@ -1882,7 +1882,7 @@ namespace qe {
 
                 for (unsigned i = 0; i < a->get_num_args (); ++i) {
                     expr *arg = a->get_arg (i);
-                    expr *narg = 0;
+                    expr *narg = nullptr;
 
                     if (!is_app (arg)) args.push_back (arg);
                     else if (m_cache.find (arg, narg)) {
@@ -2025,7 +2025,7 @@ namespace qe {
             m_idx_vals.reset ();
             m_sel_consts.reset ();
             m_idx_lits.reset ();
-            M = 0;
+            M = nullptr;
             m_sub.reset ();
             m_arr_test.reset ();
         }

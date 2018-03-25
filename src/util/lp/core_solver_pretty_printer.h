@@ -86,7 +86,7 @@ public:
 
     unsigned get_column_width(unsigned column);
 
-    unsigned regular_cell_width(unsigned row, unsigned column, std::string name) {
+    unsigned regular_cell_width(unsigned row, unsigned column, const std::string & name) {
         return regular_cell_string(row, column, name).size();
     }
 

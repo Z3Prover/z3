@@ -110,29 +110,29 @@ public:
         m_imp = alloc(imp, m, p);
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(bvarray2uf_tactic, m, m_params);
     }
 
-    virtual ~bvarray2uf_tactic() {
+    ~bvarray2uf_tactic() override {
         dealloc(m_imp);
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_params = p;
         m_imp->updt_params(p);
     }
 
-    virtual void collect_param_descrs(param_descrs & r) {
+    void collect_param_descrs(param_descrs & r) override {
         insert_produce_models(r);
     }
 
-    virtual void operator()(goal_ref const & in,
-                            goal_ref_buffer & result) {
+    void operator()(goal_ref const & in,
+                    goal_ref_buffer & result) override {
         (*m_imp)(in, result);
     }
 
-    virtual void cleanup() {
+    void cleanup() override {
         ast_manager & m = m_imp->m();
         imp * d = alloc(imp, m, m_params);
         std::swap(d, m_imp);

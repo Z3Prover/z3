@@ -139,7 +139,7 @@ namespace datalog {
             return;
         }
         expr* arg = pat->get_arg(i);
-        ptr_vector<expr>* terms = 0;
+        ptr_vector<expr>* terms = nullptr;
     
         if (m_funs.find(to_app(arg)->get_decl(), terms)) {
             for (unsigned k = 0; k < terms->size(); ++k) {
@@ -185,7 +185,7 @@ namespace datalog {
             }
             if (is_app(e)) {
                 app* ap = to_app(e);
-                ptr_vector<expr>* terms = 0;
+                ptr_vector<expr>* terms = nullptr;
                 if (!m_funs.find(ap->get_decl(), terms)) {
                     terms = alloc(ptr_vector<expr>);
                     m_funs.insert(ap->get_decl(), terms);
@@ -250,7 +250,7 @@ namespace datalog {
         
     rule_set * mk_quantifier_instantiation::operator()(rule_set const & source) {
         if (!m_ctx.instantiate_quantifiers()) {
-            return 0;
+            return nullptr;
         }
         bool has_quantifiers = false;
         unsigned sz = source.get_num_rules();
@@ -259,11 +259,11 @@ namespace datalog {
             rule& r = *source.get_rule(i);
             has_quantifiers = has_quantifiers || rm.has_quantifiers(r);   
             if (r.has_negation()) {
-                return 0;
+                return nullptr;
             }
         }
         if (!has_quantifiers) {
-            return 0;
+            return nullptr;
         }
 
         expr_ref_vector conjs(m);
@@ -291,7 +291,7 @@ namespace datalog {
         }
         else {
             dealloc(result);
-            result = 0;
+            result = nullptr;
         }
         return result;
     }

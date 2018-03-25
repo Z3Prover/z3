@@ -39,9 +39,9 @@ public:
 };
 
 proof_converter * concat(proof_converter * pc1, proof_converter * pc2) {
-    if (pc1 == 0)
+    if (pc1 == nullptr)
         return pc2;
-    if (pc2 == 0)
+    if (pc2 == nullptr)
         return pc1;
     return alloc(concat_proof_converter, pc1, pc2);
 }
@@ -62,6 +62,7 @@ public:
         proof_converter_ref_buffer pc_buffer;          
         for (goal_ref g : m_goals) {
             pc_buffer.push_back(g->pc());
+
         }
         return apply(m, m_pc, pc_buffer);
     }
@@ -85,7 +86,7 @@ class proof2pc : public proof_converter {
     proof_ref m_pr;
 public:
     proof2pc(ast_manager & m, proof * pr):m_pr(pr, m) {}
-    virtual ~proof2pc() {}
+    ~proof2pc() override {}
 
     proof_ref operator()(ast_manager & m, unsigned num_source, proof * const * source) override {
         SASSERT(num_source == 0);
@@ -102,8 +103,8 @@ public:
 };
 
 proof_converter * proof2proof_converter(ast_manager & m, proof * pr) {
-    if (pr == 0)
-        return 0;
+    if (pr == nullptr)
+        return nullptr;
     return alloc(proof2pc, m, pr);
 }
 

@@ -93,7 +93,7 @@ class degree_shift_tactic : public tactic {
             m_autil(_m),
             m_pinned(_m),
             m_one(1),
-            m_rw(0) {
+            m_rw(nullptr) {
         }
 
 
@@ -196,7 +196,7 @@ class degree_shift_tactic : public tactic {
 
         void prepare_substitution(model_converter_ref & mc) {
             SASSERT(!m_var2degree.empty());
-            generic_model_converter * xmc = 0;
+            generic_model_converter * xmc = nullptr;
             if (m_produce_models) {
                 xmc = alloc(generic_model_converter, m, "degree_shift");
                 mc = xmc;
@@ -257,12 +257,12 @@ class degree_shift_tactic : public tactic {
                     if (kv.m_value.is_even()) {
                         app * new_var  = m_var2var.find(kv.m_key);
                         app * new_c    = m_autil.mk_ge(new_var, m_autil.mk_numeral(rational(0), false));
-                        proof * new_pr = 0;
+                        proof * new_pr = nullptr;
                         if (m_produce_proofs) {
                             proof * pr = m_var2pr.find(kv.m_key);
                             new_pr     = m.mk_th_lemma(m_autil.get_family_id(), new_c, 1, &pr);
                         }
-                        g->assert_expr(new_c, new_pr, 0);
+                        g->assert_expr(new_c, new_pr, nullptr);
                     }
                 }
             }
@@ -280,20 +280,20 @@ public:
         m_imp = alloc(imp, m);
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(degree_shift_tactic, m);
     }
         
-    virtual ~degree_shift_tactic() {
+    ~degree_shift_tactic() override {
         dealloc(m_imp);
     }
 
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result) {
+    void operator()(goal_ref const & in, 
+                    goal_ref_buffer & result) override {
         (*m_imp)(in, result);
     }
     
-    virtual void cleanup() {
+    void cleanup() override {
         imp * d = alloc(imp, m_imp->m);
         std::swap(d, m_imp);        
         dealloc(d);

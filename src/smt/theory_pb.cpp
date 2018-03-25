@@ -693,7 +693,7 @@ namespace smt {
     void theory_pb::watch_literal(literal lit, ineq* c) {
         init_watch(lit.var());
         ptr_vector<ineq>* ineqs = m_var_infos[lit.var()].m_lit_watch[lit.sign()];
-        if (ineqs == 0) {
+        if (ineqs == nullptr) {
             ineqs = alloc(ptr_vector<ineq>);
             m_var_infos[lit.var()].m_lit_watch[lit.sign()] = ineqs;
         }
@@ -704,7 +704,7 @@ namespace smt {
     void theory_pb::watch_var(bool_var v, ineq* c) {
         init_watch(v);
         ptr_vector<ineq>* ineqs = m_var_infos[v].m_var_watch;
-        if (ineqs == 0) {
+        if (ineqs == nullptr) {
             ineqs = alloc(ptr_vector<ineq>);
             m_var_infos[v].m_var_watch = ineqs;
         }
@@ -1005,7 +1005,7 @@ namespace smt {
         init_watch(v);
         TRACE("pb", tout << "assign: " << ~nlit << "\n";);
         ineqs = m_var_infos[v].m_lit_watch[nlit.sign()];
-        if (ineqs != 0) {
+        if (ineqs != nullptr) {
             for (unsigned i = 0; i < ineqs->size(); ++i) {
                 SASSERT((*ineqs)[i]->is_ge());
                 if (assign_watch_ge(v, is_true, *ineqs, i)) {
@@ -1015,14 +1015,14 @@ namespace smt {
             }
         }
         ineqs = m_var_infos[v].m_var_watch;
-        if (ineqs != 0) {
+        if (ineqs != nullptr) {
             for (unsigned i = 0; i < ineqs->size(); ++i) {
                 ineq* c = (*ineqs)[i]; 
                 assign_watch(v, is_true, *c);
             }
         }
         ineq* c = m_var_infos[v].m_ineq;
-        if (c != 0) {
+        if (c != nullptr) {
             if (c->is_ge()) {
                 assign_ineq(*c, is_true);
             }
@@ -1120,7 +1120,7 @@ namespace smt {
         ineq&      c;
     public:
         rewatch_vars(theory_pb& p, ineq& c): pb(p), c(c) {}        
-        virtual void undo(context& ctx) {
+        void undo(context& ctx) override {
             for (unsigned i = 0; i < c.size(); ++i) {
                 pb.watch_var(c.lit(i).var(), &c);
             }
@@ -1132,7 +1132,7 @@ namespace smt {
         ineq& c;
     public:
         negate_ineq(ineq& c): c(c) {}
-        virtual void undo(context& ctx) {
+        void undo(context& ctx) override {
             c.negate();
         }
     };
@@ -1425,7 +1425,7 @@ namespace smt {
 
         void mk_clause(unsigned n, literal const* ls) {
             literal_vector tmp(n, ls);
-            ctx.mk_clause(n, tmp.c_ptr(), th.justify(tmp), CLS_AUX, 0);
+            ctx.mk_clause(n, tmp.c_ptr(), th.justify(tmp), CLS_AUX, nullptr);
         }
 
         literal mk_false() { return false_literal; }
@@ -1625,7 +1625,7 @@ namespace smt {
             bool_var v = m_ineqs_trail.back();
             ineq* c = m_var_infos[v].m_ineq;
             clear_watch(*c);
-            m_var_infos[v].m_ineq = 0;
+            m_var_infos[v].m_ineq = nullptr;
             m_ineqs_trail.pop_back();
             m_to_compile.erase(c);
             dealloc(c);
@@ -1669,7 +1669,7 @@ namespace smt {
     public:
         unwatch_ge(theory_pb& p, ineq& c): pb(p), c(c) {}
         
-        virtual void undo(context& ctx) {
+        void undo(context& ctx) override {
             for (unsigned i = 0; i < c.watch_size(); ++i) {
                 pb.unwatch_literal(c.lit(i), &c);
             }
@@ -2104,7 +2104,6 @@ namespace smt {
     }
 
     bool theory_pb::can_propagate() { return m_cardinality_lemma; }
-
     
     void theory_pb::propagate() {
         context& ctx = get_context();
@@ -2258,12 +2257,12 @@ namespace smt {
                 break;
             case b_justification::JUSTIFICATION: {
                 justification* j = js.get_justification(); 
-                card_justification* pbj = 0;
+                card_justification* pbj = nullptr;
 
                 if (j->get_from_theory() == get_id()) {
                     pbj = dynamic_cast<card_justification*>(j);
                 }
-                if (pbj == 0) {
+                if (pbj == nullptr) {
                     TRACE("pb", tout << "skip justification for " << conseq << "\n";);
                     inc_coeff(conseq, offset);
                 }
@@ -2393,7 +2392,7 @@ namespace smt {
 
     justification* theory_pb::justify(literal l1, literal l2) {
         literal lits[2] = { l1, l2 };
-        justification* js = 0;
+        justification* js = nullptr;
         if (proofs_enabled()) {                                         
             js = get_context().mk_justification(theory_axiom_justification(get_id(), get_context().get_region(), 2, lits));
         }
@@ -2401,7 +2400,7 @@ namespace smt {
     }
 
     justification* theory_pb::justify(literal_vector const& lits) {
-        justification* js = 0;
+        justification* js = nullptr;
         if (proofs_enabled()) {                                         
             js = get_context().mk_justification(theory_axiom_justification(get_id(), get_context().get_region(), lits.size(), lits.c_ptr()));
         }
@@ -2646,11 +2645,11 @@ namespace smt {
             m_dependencies.push_back(model_value_dependency(n)); 
         }
 
-        virtual void get_dependencies(buffer<model_value_dependency> & result) {
+        void get_dependencies(buffer<model_value_dependency> & result) override {
             result.append(m_dependencies.size(), m_dependencies.c_ptr());
         }
 
-        virtual app * mk_value(model_generator & mg, ptr_vector<expr> & values) {
+        app * mk_value(model_generator & mg, ptr_vector<expr> & values) override {
             ast_manager& m = mg.get_manager();
             SASSERT(values.size() == m_dependencies.size());
             SASSERT(values.size() == m_app->get_num_args());
@@ -2676,9 +2675,9 @@ namespace smt {
                 return (sum >= k)?m.mk_true():m.mk_false();
             default:
                 UNREACHABLE();
-                return 0;
+                return nullptr;
             }
-            return 0;
+            return nullptr;
         }
     };
 
@@ -2687,18 +2686,18 @@ namespace smt {
         pb_factory(ast_manager& m, family_id fid):
             value_factory(m, fid) {}
         
-        virtual expr * get_some_value(sort * s) {
+        expr * get_some_value(sort * s) override {
             return m_manager.mk_true();
         }        
-        virtual bool get_some_values(sort * s, expr_ref & v1, expr_ref & v2) {
+        bool get_some_values(sort * s, expr_ref & v1, expr_ref & v2) override {
             v1 = m_manager.mk_true();
             v2 = m_manager.mk_false();
             return true;
         }        
-        virtual expr * get_fresh_value(sort * s) {
-            return 0;
+        expr * get_fresh_value(sort * s) override {
+            return nullptr;
         }
-        virtual void register_value(expr * n) { }
+        void register_value(expr * n) override { }
     };
 
     void theory_pb::init_model(model_generator & m) {

@@ -20,7 +20,6 @@ Revision History:
 #include "qe/qe_lite.h"
 #include "ast/expr_abstract.h"
 #include "ast/used_vars.h"
-#include "ast/occurs.h"
 #include "ast/rewriter/rewriter_def.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
@@ -39,6 +38,30 @@ Revision History:
 #include "qe/qe_vartest.h"
 
 namespace eq {
+
+    bool occurs_var(unsigned idx, expr* e) {
+        ptr_buffer<expr> todo;
+        todo.push_back(e);        
+        ast_mark mark;
+        while (!todo.empty()) {
+            expr* e = todo.back();
+            todo.pop_back();
+            if (mark.is_marked(e)) continue;
+            mark.mark(e, true);
+            if (is_var(e)) {
+                if (to_var(e)->get_idx() == idx) return true;
+            }
+            else if (is_app(e)) {
+                todo.append(to_app(e)->get_num_args(), to_app(e)->get_args());
+            }
+            else if (is_quantifier(e)) {
+                quantifier* q = to_quantifier(e);
+                if (occurs_var(idx + q->get_num_decls(), q->get_expr())) return true;
+            }
+        }
+        return false;
+    }
+
     class der {
         ast_manager &   m;
         arith_util      a;
@@ -65,7 +88,7 @@ namespace eq {
             for (unsigned i = 0; i < definitions.size(); i++) {
                 var * v  = vars[i];
                 expr * t = definitions[i];
-                if (t == 0 || has_quantifiers(t) || occurs(v, t))
+                if (t == nullptr || has_quantifiers(t) || occurs_var(v->get_idx(), t))
                     definitions[i] = 0;
                 else
                     found = true; // found at least one candidate
@@ -102,7 +125,7 @@ namespace eq {
                         vidx = to_var(t)->get_idx();
                         if (fr.second == 0) {
                             CTRACE("der_bug", vidx >= definitions.size(), tout << "vidx: " << vidx << "\n";);
-                            // Remark: The size of definitions may be smaller than the number of variables occuring in the quantified formula.
+                            // Remark: The size of definitions may be smaller than the number of variables occurring in the quantified formula.
                             if (definitions.get(vidx, 0) != 0) {
                                 if (visiting.is_marked(t)) {
                                     // cycle detected: remove t
@@ -419,7 +442,7 @@ namespace eq {
 
         void create_substitution(unsigned sz) {
             m_subst_map.reset();
-            m_subst_map.resize(sz, 0);
+            m_subst_map.resize(sz, nullptr);
             for (unsigned i = 0; i < m_order.size(); i++) {
                 expr_ref cur(m_map[m_order[i]], m);
                 // do all the previous substitutions before inserting
@@ -521,7 +544,7 @@ namespace eq {
             }
 
             if (m.proofs_enabled()) {
-                pr = r == q ? 0 : m.mk_der(q, r);
+                pr = r == q ? nullptr : m.mk_der(q, r);
             }
         }
 
@@ -669,7 +692,7 @@ namespace eq {
                 }
             }
             else {
-                func_decl* rec = dt.get_constructor_recognizer(d);
+                func_decl* rec = dt.get_constructor_is(d);
                 conjs.push_back(m.mk_app(rec, r));
                 ptr_vector<func_decl> const& acc = *dt.get_constructor_accessors(d);
                 for (unsigned i = 0; i < acc.size(); ++i) {
@@ -679,9 +702,9 @@ namespace eq {
         }
 
         bool is_unconstrained(var* x, expr* t, unsigned i, expr_ref_vector const& conjs) {
-            bool occ = occurs(x, t);
+            bool occ = occurs_var(x->get_idx(), t);
             for (unsigned j = 0; !occ && j < conjs.size(); ++j) {
-                occ = (i != j) && occurs(x, conjs[j]);
+                occ = (i != j) && occurs_var(x->get_idx(), conjs[j]);
             }
             return !occ;
         }
@@ -753,7 +776,7 @@ namespace eq {
             m(m),
             a(m),
             dt(m),
-            m_is_variable(0),
+            m_is_variable(nullptr),
             m_subst(m),
             m_new_exprs(m),
             m_subst_map(m),
@@ -765,7 +788,7 @@ namespace eq {
 
         void operator()(quantifier * q, expr_ref & r, proof_ref & pr) {
             TRACE("qe_lite", tout << mk_pp(q, m) << "\n";);
-            pr = 0;
+            pr = nullptr;
             r  = q;
             reduce_quantifier(q, r, pr);
             if (r != q) {
@@ -932,7 +955,7 @@ namespace ar {
 
     public:
 
-        der(ast_manager& m): m(m), a(m), m_is_variable(0) {}
+        der(ast_manager& m): m(m), a(m), m_is_variable(nullptr) {}
 
         void operator()(expr_ref_vector& fmls) {
             for (unsigned i = 0; i < fmls.size(); ++i) {
@@ -951,7 +974,7 @@ namespace ar {
 
 
 // ------------------------------------------------------------
-// fm_tactic adapted to eliminate designated de-Brujin indices.
+// fm_tactic adapted to eliminate designated de-Bruijn indices.
 
 namespace fm {
     typedef ptr_vector<app> clauses;
@@ -1450,7 +1473,7 @@ namespace fm {
 
         fm(ast_manager & _m):
             m(_m),
-            m_is_variable(0),
+            m_is_variable(nullptr),
             m_allocator("fm-elim"),
             m_util(m),
             m_bvar2expr(m),
@@ -1511,7 +1534,7 @@ namespace fm {
             reset_constraints();
             m_bvar2expr.reset();
             m_bvar2sign.reset();
-            m_bvar2expr.push_back(0); // bvar 0 is not used
+            m_bvar2expr.push_back(nullptr); // bvar 0 is not used
             m_bvar2sign.push_back(0);
             m_expr2var.reset();
             m_is_int.reset();
@@ -1524,7 +1547,7 @@ namespace fm {
             m_new_fmls.reset();
             m_counter = 0;
             m_inconsistent = false;
-            m_inconsistent_core = 0;
+            m_inconsistent_core = nullptr;
             init_forbidden_set(g);
         }
 
@@ -1560,7 +1583,7 @@ namespace fm {
                 // 0 <= 0 -- > true
                 if (c.m_c.is_pos() || (!c.m_strict && c.m_c.is_zero()))
                     return m.mk_true();
-                ineq = 0;
+                ineq = nullptr;
             }
             else {
                 bool int_cnstr = all_int(c);
@@ -1810,7 +1833,7 @@ namespace fm {
             for (unsigned i = 0; !m_inconsistent && i < sz; i++) {
                 expr * f = g[i];
                 if (is_occ(f))
-                    add_constraint(f, 0);
+                    add_constraint(f, nullptr);
                 else
                     m_new_fmls.push_back(f);
             }
@@ -2042,7 +2065,7 @@ namespace fm {
                       display(tout, l);
                       tout << "\n";
                       display(tout, u); tout << "\n";);
-                return 0; // no constraint needs to be created.
+                return nullptr; // no constraint needs to be created.
             }
 
             new_lits.reset();
@@ -2086,7 +2109,7 @@ namespace fm {
                       display(tout, l);
                       tout << "\n";
                       display(tout, u); tout << "\n";);
-                return 0;
+                return nullptr;
             }
 
             expr_dependency * new_dep = m.mk_join(l.m_dep, u.m_dep);
@@ -2098,7 +2121,7 @@ namespace fm {
                       display(tout, u); tout << "\n";);
                 m_inconsistent      = true;
                 m_inconsistent_core = new_dep;
-                return 0;
+                return nullptr;
             }
 
             constraint * new_cnstr = mk_constraint(new_lits.size(),
@@ -2168,7 +2191,7 @@ namespace fm {
                     constraint const & l_c = *(l[i]);
                     constraint const & u_c = *(u[j]);
                     constraint * new_c = resolve(l_c, u_c, x);
-                    if (new_c != 0) {
+                    if (new_c != nullptr) {
                         num_new_cnstrs++;
                         new_constraints.push_back(new_c);
                     }
@@ -2580,40 +2603,40 @@ public:
         m_imp = alloc(imp, m, p);
     }
 
-    virtual ~qe_lite_tactic() {
+    ~qe_lite_tactic() override {
         dealloc(m_imp);
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(qe_lite_tactic, m, m_params);
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_params = p;
         // m_imp->updt_params(p);
     }
 
 
-    virtual void collect_param_descrs(param_descrs & r) {
+    void collect_param_descrs(param_descrs & r) override {
         // m_imp->collect_param_descrs(r);
     }
 
-    virtual void operator()(goal_ref const & in,
-                            goal_ref_buffer & result) {
+    void operator()(goal_ref const & in,
+                    goal_ref_buffer & result) override {
         (*m_imp)(in, result);
     }
 
 
-    virtual void collect_statistics(statistics & st) const {
+    void collect_statistics(statistics & st) const override {
         // m_imp->collect_statistics(st);
     }
 
-    virtual void reset_statistics() {
+    void reset_statistics() override {
         // m_imp->reset_statistics();
     }
 
 
-    virtual void cleanup() {
+    void cleanup() override {
         ast_manager & m = m_imp->m;
         dealloc(m_imp);
         m_imp = alloc(imp, m, m_params);

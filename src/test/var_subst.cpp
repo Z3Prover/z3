@@ -27,7 +27,7 @@ Revision History:
 namespace find_q {
     struct proc {
         quantifier * m_q;
-        proc():m_q(0) {}
+        proc():m_q(nullptr) {}
         void operator()(var * n) {}
         void operator()(app * n) {}
         void operator()(quantifier * n) { m_q = n; }

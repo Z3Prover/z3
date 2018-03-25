@@ -1402,7 +1402,6 @@ struct
   let is_rewrite (x:expr) = (AST.is_app x) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) = OP_PR_REWRITE)
   let is_rewrite_star (x:expr) = (AST.is_app x) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) = OP_PR_REWRITE_STAR)
   let is_pull_quant (x:expr) = (AST.is_app x) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) = OP_PR_PULL_QUANT)
-  let is_pull_quant_star (x:expr) = (AST.is_app x) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) = OP_PR_PULL_QUANT_STAR)
   let is_push_quant (x:expr) = (AST.is_app x) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) = OP_PR_PUSH_QUANT)
   let is_elim_unused_vars (x:expr) = (AST.is_app x) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) = OP_PR_ELIM_UNUSED_VARS)
   let is_der (x:expr) = (AST.is_app x) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) = OP_PR_DER)
@@ -1419,8 +1418,6 @@ struct
   let is_iff_oeq (x:expr) = (AST.is_app x) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) = OP_PR_IFF_OEQ)
   let is_nnf_pos (x:expr) = (AST.is_app x) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) = OP_PR_NNF_POS)
   let is_nnf_neg (x:expr) = (AST.is_app x) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) = OP_PR_NNF_NEG)
-  let is_nnf_star (x:expr) = (AST.is_app x) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) = OP_PR_NNF_STAR)
-  let is_cnf_star (x:expr) = (AST.is_app x) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) = OP_PR_CNF_STAR)
   let is_skolemize (x:expr) = (AST.is_app x) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) = OP_PR_SKOLEMIZE)
   let is_modus_ponens_oeq (x:expr) = (AST.is_app x) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) = OP_PR_MODUS_PONENS_OEQ)
   let is_theory_lemma (x:expr) = (AST.is_app x) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) = OP_PR_TH_LEMMA)
@@ -1975,56 +1972,6 @@ struct
       (List.length assumptions) assumptions
       formula
 
-  let parse_smtlib_string (ctx:context) (str:string) (sort_names:Symbol.symbol list) (sorts:Sort.sort list) (decl_names:Symbol.symbol list) (decls:func_decl list) =
-    let csn = List.length sort_names in
-    let cs = List.length sorts in
-    let cdn = List.length decl_names in
-    let cd = List.length decls in
-    if (csn <> cs || cdn <> cd) then
-      raise (Error "Argument size mismatch")
-    else
-      Z3native.parse_smtlib_string ctx str
-        cs sort_names sorts cd decl_names decls
-
-  let parse_smtlib_file (ctx:context) (file_name:string) (sort_names:Symbol.symbol list) (sorts:Sort.sort list) (decl_names:Symbol.symbol list) (decls:func_decl list) =
-    let csn = (List.length sort_names) in
-    let cs = (List.length sorts) in
-    let cdn = (List.length decl_names) in
-    let cd = (List.length decls) in
-    if (csn <> cs || cdn <> cd) then
-      raise (Error "Argument size mismatch")
-    else
-      Z3native.parse_smtlib_file ctx file_name
-        cs sort_names sorts cd decl_names decls
-
-  let get_num_smtlib_formulas (ctx:context) = Z3native.get_smtlib_num_formulas ctx
-
-  let get_smtlib_formulas (ctx:context) =
-    let n = get_num_smtlib_formulas ctx in
-    let f i = Z3native.get_smtlib_formula ctx i in
-    mk_list f n
-
-  let get_num_smtlib_assumptions (ctx:context) = Z3native.get_smtlib_num_assumptions ctx
-
-  let get_smtlib_assumptions (ctx:context) =
-    let n = get_num_smtlib_assumptions ctx in
-    let f i = Z3native.get_smtlib_assumption ctx i in
-    mk_list f n
-
-  let get_num_smtlib_decls (ctx:context) = Z3native.get_smtlib_num_decls ctx
-
-  let get_smtlib_decls (ctx:context) =
-    let n = get_num_smtlib_decls ctx in
-    let f i = Z3native.get_smtlib_decl ctx i in
-    mk_list f n
-
-  let get_num_smtlib_sorts (ctx:context)  = Z3native.get_smtlib_num_sorts ctx
-
-  let get_smtlib_sorts (ctx:context) =
-    let n = get_num_smtlib_sorts ctx in
-    let f i = Z3native.get_smtlib_sort ctx i in
-    mk_list f n
-
   let parse_smtlib2_string (ctx:context) (str:string) (sort_names:Symbol.symbol list) (sorts:Sort.sort list) (decl_names:Symbol.symbol list) (decls:func_decl list) =
     let csn = List.length sort_names in
     let cs = List.length sorts in
@@ -2044,7 +1991,7 @@ struct
     if csn <> cs || cdn <> cd then
       raise (Error "Argument size mismatch")
     else
-      Z3native.parse_smtlib2_string ctx file_name
+      Z3native.parse_smtlib2_file ctx file_name
         cs sort_names sorts cd decl_names decls
 end
 

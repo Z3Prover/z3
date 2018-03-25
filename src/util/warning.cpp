@@ -62,8 +62,8 @@ void STD_CALL myInvalidParameterHandler(
 
 static bool g_warning_msgs   = true;
 static bool g_use_std_stdout = false;
-static std::ostream* g_error_stream = 0;
-static std::ostream* g_warning_stream = 0;
+static std::ostream* g_error_stream = nullptr;
+static std::ostream* g_warning_stream = nullptr;
 static bool g_show_error_msg_prefix = true;
 
 void send_warnings_to_stdout(bool flag) {

@@ -49,7 +49,7 @@ timeit::timeit(bool enable, char const * msg, std::ostream & out) {
     if (enable)
         m_imp = alloc(imp, msg, out);
     else
-        m_imp = 0;
+        m_imp = nullptr;
 }
    
 timeit::~timeit() {

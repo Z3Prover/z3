@@ -49,7 +49,7 @@ void mpz_matrix_manager::mk(unsigned m, unsigned n, mpz_matrix & A) {
 }
 
 void mpz_matrix_manager::del(mpz_matrix & A) {
-    if (A.a_ij != 0) {
+    if (A.a_ij != nullptr) {
         for (unsigned i = 0; i < A.m; i++)
             for (unsigned j = 0; j < A.n; j++)
                 nm().del(A(i,j));
@@ -57,7 +57,7 @@ void mpz_matrix_manager::del(mpz_matrix & A) {
         m_allocator.deallocate(sz, A.a_ij);
         A.m = 0;
         A.n = 0;
-        A.a_ij = 0;
+        A.a_ij = nullptr;
     }
 }
 
@@ -208,7 +208,7 @@ bool mpz_matrix_manager::eliminate(mpz_matrix & A, mpz * b, unsigned k1, unsigne
             // a_ik <- 0
             nm().set(A(i, k2), 0);
             // normalize row i
-            if (!normalize_row(A.row(i), A.n, b ? &(b[i]) : 0, int_solver))
+            if (!normalize_row(A.row(i), A.n, b ? &(b[i]) : nullptr, int_solver))
                 return false;
         }
         SASSERT(nm().is_zero(A(i, k2)));
@@ -386,7 +386,7 @@ unsigned mpz_matrix_manager::linear_independent_rows(mpz_matrix const & _A, unsi
         r_sz++;
         if (r_sz >= A.n())
             break;
-        eliminate(A, 0, k1, k2, false);
+        eliminate(A, nullptr, k1, k2, false);
         k2++;
     }
     std::sort(r, r + r_sz);

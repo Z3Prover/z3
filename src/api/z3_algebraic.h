@@ -31,7 +31,7 @@ extern "C" {
     /** @name Algebraic Numbers */
     /*@{*/
     /**
-       \brief Return Z3_TRUE if \c can be used as value in the Z3 real algebraic
+       \brief Return Z3_TRUE if \c a can be used as value in the Z3 real algebraic
        number package.
 
        def_API('Z3_algebraic_is_value', BOOL, (_in(CONTEXT), _in(AST)))

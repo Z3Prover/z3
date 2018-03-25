@@ -43,7 +43,7 @@ struct iz3checker : iz3base {
     /* HACK: for tree interpolants, we assume that uninterpreted functions
        are global. This is because in the current state of the tree interpolation
        code, symbols that appear in sibling sub-trees have to be global, and
-       we have no way to eliminate such function symbols. When tree interpoaltion is
+       we have no way to eliminate such function symbols. When tree interpolation is
        fixed, we can tree function symbols the same as constant symbols. */
 
     bool is_tree;
@@ -98,7 +98,7 @@ struct iz3checker : iz3base {
                 s->assert_expr(to_expr(itp[cs[j]].raw()));
             if(i != num-1)
                 s->assert_expr(to_expr(mk_not(itp[i]).raw()));
-            lbool result = s->check_sat(0,0);
+            lbool result = s->check_sat(0,nullptr);
             if(result != l_false){
                 err << "interpolant " << i << " is incorrect";
 
@@ -110,7 +110,7 @@ struct iz3checker : iz3base {
                         s->assert_expr(to_expr(cnsts[j].raw()));
                 if(i != num-1)
                     s->assert_expr(to_expr(mk_not(itp[i]).raw()));
-                lbool result = s->check_sat(0,0);
+                lbool result = s->check_sat(0,nullptr);
                 if(result != l_false)
                     err << "interpolant " << i << " is not implied by its downeard closurn";
 

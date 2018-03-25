@@ -38,7 +38,7 @@ pb2bv_model_converter::pb2bv_model_converter(ast_manager & _m, obj_map<func_decl
         if (!c2bit.contains(d)) {
             SASSERT(d->get_arity() == 0);
             m.inc_ref(d);
-            m_c2bit.push_back(func_decl_pair(d, static_cast<func_decl*>(0)));
+            m_c2bit.push_back(func_decl_pair(d, static_cast<func_decl*>(nullptr)));
         }
     }
 }
@@ -62,7 +62,7 @@ void pb2bv_model_converter::operator()(model_ref & md) {
     for (auto const& kv : m_c2bit) {
         if (kv.second) {
             expr * val = md->get_const_interp(kv.second);
-            if (val == 0 || m.is_false(val)) {
+            if (val == nullptr || m.is_false(val)) {
                 /* false's and don't cares get the integer 0 solution*/ 
                 md->register_decl(kv.first, a_util.mk_numeral(rational(0), true));
             } 

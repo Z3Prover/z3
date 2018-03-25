@@ -68,7 +68,7 @@ struct bv_bound_chk_rewriter_cfg : public default_rewriter_cfg {
     }
 
     br_status reduce_app_core(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
-        result_pr = 0;
+        result_pr = nullptr;
         const family_id fid = f->get_family_id();
         if (fid != m_b_rw.get_fid()) return BR_FAILED;
         bv_bounds bvb(m());
@@ -111,7 +111,7 @@ struct bv_bound_chk_rewriter : public rewriter_tpl<bv_bound_chk_rewriter_cfg> {
         updt_params(p);
     }
 
-    virtual ~bv_bound_chk_rewriter() {}
+    ~bv_bound_chk_rewriter() override {}
 
     void updt_params(params_ref const & _p) {
         m_cfg.updt_params(_p);
@@ -135,13 +135,13 @@ class bv_bound_chk_tactic : public tactic {
     bv_bound_chk_stats          m_stats;
 public:
     bv_bound_chk_tactic(ast_manager & m, params_ref const & p);
-    virtual ~bv_bound_chk_tactic();
     void operator()(goal_ref const & g, goal_ref_buffer & result) override;
-    virtual tactic * translate(ast_manager & m);
-    virtual void updt_params(params_ref const & p);
-    void cleanup();
-    void collect_statistics(statistics & st) const;
-    void reset_statistics();
+    ~bv_bound_chk_tactic() override;
+    tactic * translate(ast_manager & m) override;
+    void updt_params(params_ref const & p) override;
+    void cleanup() override;
+    void collect_statistics(statistics & st) const override;
+    void reset_statistics() override;
 };
 
 class bv_bound_chk_tactic::imp {

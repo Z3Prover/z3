@@ -64,7 +64,7 @@ Notes:
 #include "opt/opt_params.hpp"
 #include "opt/maxsmt.h"
 #include "opt/maxres.h"
-#include "opt/mss.h"
+// #include "opt/mss.h"
 
 using namespace opt;
 
@@ -91,7 +91,6 @@ private:
     obj_map<expr, rational> m_asm2weight;
     ptr_vector<expr> m_new_core;
     mus              m_mus;
-    mss              m_mss;
     expr_ref_vector  m_trail;
     strategy_t       m_st;
     rational         m_max_upper;    
@@ -122,7 +121,6 @@ public:
         m_index(index), 
         m_B(m), m_asms(m), m_defs(m),
         m_mus(c.get_solver()),
-        m_mss(c.get_solver(), m),
         m_trail(m),
         m_st(st),
         m_correction_set_size(0),
@@ -244,7 +242,7 @@ public:
             case l_true: 
                 get_current_correction_set(cs);
                 if (cs.empty()) {
-                    m_found_feasible_optimum = m_model.get() != 0;
+                    m_found_feasible_optimum = m_model.get() != nullptr;
                     m_lower = m_upper;
                 }
                 else {
@@ -448,7 +446,7 @@ public:
         rational w = split_core(corr_set);
         cs_max_resolve(corr_set, w);       
         IF_VERBOSE(2, verbose_stream() << "(opt.maxres.correction-set " << corr_set.size() << ")\n";);
-        m_csmodel = 0;
+        m_csmodel = nullptr;
         m_correction_set_size = 0;
     }
 
@@ -493,7 +491,7 @@ public:
     }
     
     void process_unsat(exprs const& core) {
-        IF_VERBOSE(3, verbose_stream() << "(maxres cs model valid: " << (m_csmodel.get() != 0) << " cs size:" << m_correction_set_size << " core: " << core.size() << ")\n";);
+        IF_VERBOSE(3, verbose_stream() << "(maxres cs model valid: " << (m_csmodel.get() != nullptr) << " cs size:" << m_correction_set_size << " core: " << core.size() << ")\n";);
         expr_ref fml(m);
         remove_core(core);
         SASSERT(!core.empty());
@@ -529,7 +527,7 @@ public:
         if (m_c.sat_enabled()) {
             // SAT solver core extracts some model 
             // during unsat core computation.
-            mdl = 0;
+            mdl = nullptr;
             s().get_model(mdl);
         }
         else {
@@ -538,7 +536,7 @@ public:
         if (mdl.get() && w < m_upper) {
             update_assignment(mdl.get());
         }
-        return 0 != mdl.get();
+        return nullptr != mdl.get();
     }
 
     lbool minimize_core(exprs& core) {
@@ -728,7 +726,7 @@ public:
             }
         }
 
-        if (upper >= m_upper) {
+        if (upper > m_upper) {
             return;
         }
 
@@ -737,6 +735,7 @@ public:
         }
 
         m_model = mdl;
+        m_c.model_updated(mdl);
 
         TRACE("opt", model_smt2_pp(tout << "updated model\n", m, *m_model, 0););
 
@@ -834,7 +833,7 @@ public:
         m_found_feasible_optimum = false;
         m_last_index = 0;
         add_upper_bound_block();
-        m_csmodel = 0;
+        m_csmodel = nullptr;
         m_correction_set_size = 0;
         return l_true;
     }
@@ -858,7 +857,7 @@ public:
             smt_solver->assert_expr(s().get_assertion(i));
         }
         smt_solver->assert_expr(core);
-        lbool is_sat = smt_solver->check_sat(0, 0);
+        lbool is_sat = smt_solver->check_sat(0, nullptr);
         if (is_sat == l_true) {
             IF_VERBOSE(0, verbose_stream() << "not a core\n";);
         }        
@@ -878,7 +877,7 @@ public:
             }
             smt_solver->assert_expr(n);
         }
-        lbool is_sat = smt_solver->check_sat(0, 0);
+        lbool is_sat = smt_solver->check_sat(0, nullptr);
         if (is_sat == l_false) {
             IF_VERBOSE(0, verbose_stream() << "assignment is infeasible\n";);
         }

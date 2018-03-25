@@ -373,7 +373,7 @@ namespace pdr {
     farkas_learner::farkas_learner(smt_params& params, ast_manager& outer_mgr) 
         : m_proof_params(get_proof_params(params)), 
           m_pr(PGM_ENABLED),
-          m_constr(0),
+          m_constr(nullptr),
           m_combine_farkas_coefficients(true),
           p2o(m_pr, outer_mgr),
           o2p(outer_mgr, m_pr)

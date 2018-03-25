@@ -30,8 +30,8 @@ class cancel_eh : public event_handler {
     T & m_obj;
 public:
     cancel_eh(T & o): m_canceled(false), m_obj(o) {}
-    ~cancel_eh() { if (m_canceled) m_obj.dec_cancel(); }
-    virtual void operator()(event_handler_caller_t caller_id) {
+    ~cancel_eh() override { if (m_canceled) m_obj.dec_cancel(); }
+    void operator()(event_handler_caller_t caller_id) override {
         if (!m_canceled) {
             m_caller_id = caller_id;
             m_canceled = true;

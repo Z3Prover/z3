@@ -123,7 +123,6 @@ namespace smt {
             return m_kernel.preferred_sat(asms, cores);
         }
 
-
         lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) {
             return m_kernel.find_mutexes(vars, mutexes);
         }
@@ -196,9 +195,7 @@ namespace smt {
         }
 
         void updt_params(params_ref const & p) {
-            // We don't need params2smt_params anymore. smt_params has support for reading params_ref.
-            // The update is performed at smt_kernel "users".
-            // params2smt_params(p, fparams());
+            m_kernel.updt_params(p);
         }
     };
 
@@ -217,7 +214,6 @@ namespace smt {
     void  kernel::copy(kernel& src, kernel& dst) {
         imp::copy(*src.m_imp, *dst.m_imp);
     }
-
 
     bool kernel::set_logic(symbol logic) {
         return m_imp->set_logic(logic);
@@ -263,9 +259,9 @@ namespace smt {
     }
 
     void kernel::reset() {
-        ast_manager & _m       = m();
+        ast_manager & _m = m();
         smt_params & fps = m_imp->fparams();
-        params_ref ps          = m_imp->params();
+        params_ref ps    = m_imp->params();
         #pragma omp critical (smt_kernel)
         {
             m_imp->~imp();

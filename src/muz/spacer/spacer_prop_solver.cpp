@@ -43,10 +43,10 @@ prop_solver::prop_solver(manager& pm, fixedpoint_params const& p, symbol const& 
     m(pm.get_manager()),
     m_pm(pm),
     m_name(name),
-    m_ctx(NULL),
+    m_ctx(nullptr),
     m_pos_level_atoms(m),
     m_neg_level_atoms(m),
-    m_core(0),
+    m_core(nullptr),
     m_subset_based_core(false),
     m_uses_level(infty_level()),
     m_delta_level(false),
@@ -72,7 +72,7 @@ void prop_solver::add_level()
     unsigned idx = level_cnt();
     std::stringstream name;
     name << m_name << "#level_" << idx;
-    func_decl * lev_pred = m.mk_fresh_func_decl(name.str().c_str(), 0, 0, m.mk_bool_sort());
+    func_decl * lev_pred = m.mk_fresh_func_decl(name.str().c_str(), 0, nullptr, m.mk_bool_sort());
     m_level_preds.push_back(lev_pred);
 
     app_ref pos_la(m.mk_const(lev_pred), m);
@@ -196,7 +196,7 @@ lbool prop_solver::internal_check_assumptions(
     // XXX Turn model generation if m_model != 0
     SASSERT(m_ctx);
     SASSERT(m_ctx_fparams);
-    flet<bool> _model(m_ctx_fparams->m_model, m_model != 0);
+    flet<bool> _model(m_ctx_fparams->m_model, m_model != nullptr);
 
     if (m_in_level) { assert_level_atoms(m_current_level); }
     lbool result = maxsmt(hard_atoms, soft_atoms);
@@ -280,8 +280,8 @@ lbool prop_solver::check_assumptions(const expr_ref_vector & _hard,
     SASSERT(soft_sz >= soft.size());
 
     // -- reset all parameters
-    m_core = 0;
-    m_model = 0;
+    m_core = nullptr;
+    m_model = nullptr;
     m_subset_based_core = false;
     return res;
 }
