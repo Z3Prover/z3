@@ -101,6 +101,15 @@ struct polynomial {
         const mpq & a = coeff(j);
         return a == 1 || a == -1;
     }
+
+    template <typename c> // c plays a role of a map from indices to impq
+    mpq value(const c& v) const {
+        mpq r = m_a;
+        for (auto & p : m_coeffs)
+            r += v[p.var()].x * p.coeff();
+        return r;
+    }
+    
     const vector<monomial> & coeffs() const { return m_coeffs; }
 };
 }

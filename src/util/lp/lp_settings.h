@@ -228,7 +228,7 @@ public:
                     backup_costs(true),
                     column_number_threshold_for_using_lu_in_lar_solver(4000),
                     m_int_branch_cut_gomory_threshold(4),
-                    m_int_branch_cut_solver(8),
+                    m_int_branch_cut_solver(4), // todo: experimenting with the settings 
                     m_run_gcd_test(true),
                     m_cut_solver_cycle_on_var(10)
     {}

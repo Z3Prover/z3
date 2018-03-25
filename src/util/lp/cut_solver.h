@@ -33,7 +33,7 @@
 #include "util/lp/constraint.h"
 #include "util/lp/active_set.h"
 #include "util/lp/indexer_of_constraints.h"
-
+#include "util/lp/lar_term.h"
 namespace lp {
 class cut_solver; //forward definition
 
@@ -396,6 +396,7 @@ public:
     unsigned                                       m_number_of_constraints_tried_for_propagaton;
     unsigned                                       m_pushes_to_trail;
     indexer_of_constraints                         m_indexer_of_constraints;
+    
     
     bool is_lower_bound(literal & l) const {
         return l.is_lower();
@@ -2485,7 +2486,24 @@ public:
     }
 
     unsigned number_of_constraints() const { return m_asserts.size() + m_lemmas_container.size(); }
+
+    void copy_poly_coeffs_to_term(polynomial& poly, lar_term & t) {
+        for (auto & p :poly.m_coeffs)
+            t.add_monomial(p.coeff(), p.var());
+    }
     
+    bool try_getting_cut(lar_term& t, mpq &k, vector<impq>& x) {
+        for (constraint *c : m_lemmas_container.m_lemmas ) {
+            if (!c->is_ineq()) continue;
+            if (is_pos(c->poly().value(x))) {
+                k = - c->poly().m_a;
+                copy_poly_coeffs_to_term(c->poly(), t);
+                TRACE("cut_solver_cuts", trace_print_constraint(tout, *c););
+                return true;
+            }
+        }
+        return false;
+    }
 };
 
 inline polynomial operator*(const mpq & a, polynomial & p) {

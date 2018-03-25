@@ -357,7 +357,7 @@ lia_move int_solver::mk_gomory_cut(lar_term& t, mpq& k, explanation & expl, unsi
 
     lp_assert(current_solution_is_inf_on_cut(t, k));
     m_lar_solver->subs_term_columns(t);
-    TRACE("gomory_cut", tout<<"precut:"; m_lar_solver->print_term(t, tout); tout << " >= " << k << std::endl;);
+    TRACE("gomory_cut", tout<<"precut:"; m_lar_solver->print_term(t, tout); tout << " <= " << k << std::endl;);
     return lia_move::cut;
     
 }
@@ -525,6 +525,14 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex, bool & upper) {
             return lia_move::ok;
         case cut_solver::lbool::l_undef:
             settings().st().m_cut_solver_undef++;
+            if (m_cut_solver.try_getting_cut(t, k, m_lar_solver->m_mpq_lar_core_solver.m_r_x)) {
+                m_lar_solver->subs_term_columns(t);
+                TRACE("cut_solver_cuts",
+                      tout<<"precut from cut_solver:"; m_lar_solver->print_term(t, tout); tout << " <= " << k << std::endl;);
+
+
+                return lia_move::cut;
+            }
             break;
         default:
             return lia_move::give_up;
@@ -1203,7 +1211,6 @@ lia_move int_solver::create_branch_on_column(int j, lar_term& t, mpq& k, bool fr
 }
 
 bool int_solver::left_branch_is_more_narrow_than_right(unsigned j) {
-    return settings().random_next() % 2;
     switch (m_lar_solver->m_mpq_lar_core_solver.m_r_solver.m_column_types[j] ) {
     case column_type::fixed:
         return false;
