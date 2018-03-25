@@ -164,8 +164,19 @@ namespace sat {
         DEBUG_CODE(for (unsigned i = 0; i < num_lits; ++i) { VERIFY(m_left[i] < m_right[i]);});
     }
 
-    unsigned big::reduce_tr(solver& s) {
+    // svector<std::pair<literal, literal>> big::s_del_bin;
 
+    bool big::in_del(literal u, literal v) const {
+        if (u.index() > v.index()) std::swap(u, v);
+        return m_del_bin.contains(std::make_pair(u, v));
+    }
+
+    void big::add_del(literal u, literal v) {
+        if (u.index() > v.index()) std::swap(u, v);
+        m_del_bin.push_back(std::make_pair(u, v));
+    }
+
+    unsigned big::reduce_tr(solver& s) {
         unsigned num_lits = s.num_vars() * 2;
         unsigned idx = 0;
         unsigned elim = 0;
@@ -182,7 +193,8 @@ namespace sat {
                     literal v = w.get_literal();
                     if (u != get_parent(v) && safe_reach(u, v)) {
                         ++elim;
-                        m_del_bin.push_back(std::make_pair(~u, v));
+                        add_del(~u, v);
+                        // IF_VERBOSE(1, verbose_stream() << "remove " << u << " -> " << v << "\n");
                         if (find_binary_watch(wlist, ~v)) {
                             IF_VERBOSE(10, verbose_stream() << "binary: " << ~u << "\n");
                             s.assign(~u, justification());
@@ -197,6 +209,23 @@ namespace sat {
             }
             wlist.set_end(itprev);
         }        
+
+#if 0
+        s_del_bin.append(m_del_bin);
+        IF_VERBOSE(1, 
+                   display(verbose_stream() << "Learned: " << learned() << ":");
+                   verbose_stream() << "del-bin\n";
+                   for (auto p : m_del_bin) {
+                       verbose_stream() << p.first << " " << p.second << "\n";
+                       if (safe_reach(~p.first, p.second)) {
+                           display_path(verbose_stream(), ~p.first, p.second) << " " << "\n";
+                       }
+                       else {
+                           display_path(verbose_stream(), ~p.second, p.first) << " " << "\n";
+                       }                       
+                   }
+                   );
+#endif
         s.propagate(false);
         return elim;
     }
@@ -205,8 +234,7 @@ namespace sat {
         if (!reaches(u, v)) return false;
         while (u != v) {
             literal w = next(u, v);
-            if (m_del_bin.contains(std::make_pair(~u, w)) ||
-                m_del_bin.contains(std::make_pair(~w, u))) {
+            if (in_del(~u, w)) {
                 return false;
             }
             u = w;
@@ -216,11 +244,27 @@ namespace sat {
 
     literal big::next(literal u, literal v) const {
         SASSERT(reaches(u, v));
+        literal result = null_literal;
+        int left = m_right[u.index()];
+        // identify the path from the reachability graph
         for (literal w : m_dag[u.index()]) {
-            if (reaches(u, w) && (w == v || reaches(w, v))) return w;
+            if (reaches(u, w) && 
+                (w == v || reaches(w, v)) &&
+                m_left[w.index()] < left) {
+                left = m_left[w.index()];
+                result = w;
+            }
         }
-        UNREACHABLE();
-        return null_literal;
+        SASSERT(result != null_literal);
+        return result;
+    }
+
+    std::ostream& big::display_path(std::ostream& out, literal u, literal v) const {
+        while (u != v) {
+            out << u << " -> ";
+            u = next(u, v);
+        }
+        return out << v;
     }
 
     void big::display(std::ostream& out) const {
@@ -228,6 +272,12 @@ namespace sat {
         for (auto& next : m_dag) {
             if (!next.empty()) {
                 out << to_literal(idx) << " : " << m_left[idx] << ":" << m_right[idx] << " -> " << next << "\n";
+#if 0
+                for (literal n : next) {
+                    out << n << "[" << m_left[n.index()] << ":" << m_right[n.index()] << "] ";
+                }
+                out << "\n";
+#endif
             }
             ++idx;
         }

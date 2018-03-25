@@ -1634,6 +1634,15 @@ namespace sat {
         }
         TRACE("sat_mc_bug", m_mc.display(tout););
 
+#if 0
+        IF_VERBOSE(0, for (bool_var v = 0; v < num; v++) verbose_stream() << v << ": " << m_model[v] << "\n";);
+        for (auto p : big::s_del_bin) {
+            if (value(p.first) != l_true && value(p.second) != l_true) {
+                IF_VERBOSE(0, verbose_stream() << "binary violation: " << p.first << " " << p.second << "\n");
+            }
+        }
+#endif
+
         IF_VERBOSE(10, verbose_stream() << "\"checking model\"\n";);
         if (!check_clauses(m_model)) {
             throw solver_exception("check model failed");
