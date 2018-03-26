@@ -117,7 +117,7 @@ namespace opt {
         void maximize_objectives(expr_ref_vector& blockers);
         inf_eps const & saved_objective_value(unsigned obj_index);
         inf_eps current_objective_value(unsigned obj_index);
-        model* get_model(unsigned obj_index) { return m_models[obj_index]; }
+        model* get_model_idx(unsigned obj_index) { return m_models[obj_index]; }
         bool objective_is_model_valid(unsigned obj_index) const {
             return m_valid_objectives[obj_index];
         }

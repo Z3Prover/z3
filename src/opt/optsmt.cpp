@@ -46,7 +46,7 @@ namespace opt {
         for (unsigned i = 0; i < src.size(); ++i) {
             if (src[i] >= dst[i]) {
                 dst[i] = src[i];
-                m_models.set(i, m_s->get_model(i));
+                m_models.set(i, m_s->get_model_idx(i));
                 m_s->get_labels(m_labels);
                 m_lower_fmls[i] = fmls[i].get();
                 if (dst[i].is_pos() && !dst[i].is_finite()) { // review: likely done already.
