@@ -460,7 +460,6 @@ namespace sat {
 
         // try asymmetric branching
         // clause must not be used for propagation
-
         scoped_detach scoped_d(s, c);
         unsigned new_sz = c.size();
         unsigned flip_position = m_rand(c.size()); 
