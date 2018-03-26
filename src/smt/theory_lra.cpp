@@ -2683,10 +2683,14 @@ public:
         if (!term.m_v.is_zero()) {
             args.push_back(a.mk_numeral(term.m_v, is_int));
         }
-        if (args.size() == 1) {
+        switch (args.size()) {
+        case 0:
+            return app_ref(a.mk_numeral(rational::zero(), is_int), m);
+        case 1:
             return app_ref(to_app(args[0].get()), m);
+        default:
+            return app_ref(a.mk_add(args.size(), args.c_ptr()), m);
         }
-        return app_ref(a.mk_add(args.size(), args.c_ptr()), m);
     }
 
     app_ref mk_obj(theory_var v) {
