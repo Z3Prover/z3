@@ -459,9 +459,9 @@ namespace sat {
 
         // try asymmetric branching
         // clause must not be used for propagation
-		s.propagate(false);
-		if (s.inconsistent())
-			return true;
+        s.propagate(false);
+        if (s.inconsistent())
+            return true;
         scoped_detach scoped_d(s, c);
         unsigned new_sz = c.size();
         unsigned flip_position = m_rand(c.size()); 
