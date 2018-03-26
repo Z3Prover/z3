@@ -324,7 +324,7 @@ namespace sat {
         case 2:
             mk_bin_clause(lits[0], lits[1], learned);
             if (learned && m_par) m_par->share_clause(*this, lits[0], lits[1]);
-            return 0;
+            return nullptr;
         case 3:
             return mk_ter_clause(lits, learned);
         default:

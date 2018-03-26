@@ -108,7 +108,6 @@ namespace sat {
         int64 limit = -m_asymm_branch_limit;
         std::stable_sort(clauses.begin(), clauses.end(), clause_size_lt());
         m_counter -= clauses.size();
-        SASSERT(s.m_qhead == s.m_trail.size());
         clause_vector::iterator it  = clauses.begin();
         clause_vector::iterator it2 = it;
         clause_vector::iterator end = clauses.end();
@@ -120,7 +119,6 @@ namespace sat {
                     }
                     break;
                 }
-                SASSERT(s.m_qhead == s.m_trail.size());
                 clause & c = *(*it);
                 if (m_counter < limit || s.inconsistent() || c.was_removed()) {
                     *it2 = *it;
@@ -414,19 +412,16 @@ namespace sat {
             s.assign(c[0], justification());
             s.propagate_core(false); 
             scoped_d.del_clause();
-            SASSERT(s.inconsistent() || s.m_qhead == s.m_trail.size());
             return false; // check_missed_propagation() may fail, since m_clauses is not in a consistent state.
         case 2:
             SASSERT(s.value(c[0]) == l_undef && s.value(c[1]) == l_undef);
             s.mk_bin_clause(c[0], c[1], c.is_learned());
             scoped_d.del_clause();
-            SASSERT(s.m_qhead == s.m_trail.size());
             return false;
         default:
             c.shrink(new_sz);
             if (s.m_config.m_drat) s.m_drat.add(c, true);
             // if (s.m_config.m_drat) s.m_drat.del(c0); // TBD
-            SASSERT(s.m_qhead == s.m_trail.size());
             return true;
         }
     }
@@ -445,12 +440,8 @@ namespace sat {
     bool asymm_branch::process(clause & c) {
         TRACE("asymm_branch_detail", tout << "processing: " << c << "\n";);
         SASSERT(s.scope_lvl() == 0);
-        SASSERT(s.m_qhead == s.m_trail.size());
         SASSERT(!s.inconsistent());
 
-#ifdef Z3DEBUG
-        unsigned trail_sz = s.m_trail.size();
-#endif
         unsigned sz = c.size();
         SASSERT(sz > 0);
         unsigned i;
@@ -468,14 +459,15 @@ namespace sat {
 
         // try asymmetric branching
         // clause must not be used for propagation
+		s.propagate(false);
+		if (s.inconsistent())
+			return true;
         scoped_detach scoped_d(s, c);
         unsigned new_sz = c.size();
         unsigned flip_position = m_rand(c.size()); 
         bool found_conflict = flip_literal_at(c, flip_position, new_sz);
         SASSERT(!s.inconsistent());
         SASSERT(s.scope_lvl() == 0);
-        SASSERT(trail_sz == s.m_trail.size());
-        SASSERT(s.m_qhead == s.m_trail.size());
         if (!found_conflict) {
             // clause size can't be reduced.
             return true;
