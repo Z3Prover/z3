@@ -229,6 +229,7 @@ namespace opt {
         inf_eps val = get_optimizer().maximize(v, blocker, has_shared);
         get_model(m_model);
         inf_eps val2;
+        std::cout << m_valid_objectives.size() << " " << i << "\n";
         m_valid_objectives[i] = true;
         TRACE("opt", tout << (has_shared?"has shared":"non-shared") << "\n";);
         if (!m_models[i]) {
@@ -341,6 +342,7 @@ namespace opt {
         
     smt::theory_var opt_solver::add_objective(app* term) {
         smt::theory_var v = get_optimizer().add_objective(term);
+        std::cout << "add objective " << v << "\n";
         m_objective_vars.push_back(v);
         m_objective_values.push_back(inf_eps(rational(-1), inf_rational()));
         m_objective_terms.push_back(term);
@@ -436,6 +438,7 @@ namespace opt {
     } 
 
     void opt_solver::reset_objectives() {
+        std::cout << "reset-objectives\n";
         m_objective_vars.reset();
         m_objective_values.reset();
         m_objective_terms.reset();
