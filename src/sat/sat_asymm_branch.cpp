@@ -416,6 +416,7 @@ namespace sat {
         case 2:
             SASSERT(s.value(c[0]) == l_undef && s.value(c[1]) == l_undef);
             s.mk_bin_clause(c[0], c[1], c.is_learned());
+            if (s.m_trail.size() > s.m_qhead) s.propagate_core(false);
             scoped_d.del_clause();
             return false;
         default:
@@ -459,9 +460,7 @@ namespace sat {
 
         // try asymmetric branching
         // clause must not be used for propagation
-		s.propagate(false);
-		if (s.inconsistent())
-			return true;
+
         scoped_detach scoped_d(s, c);
         unsigned new_sz = c.size();
         unsigned flip_position = m_rand(c.size()); 
