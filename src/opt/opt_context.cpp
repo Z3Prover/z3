@@ -256,9 +256,6 @@ namespace opt {
         if (m_pareto) {
             return execute_pareto();
         }
-        if (m_lns) {
-            return execute_lns();
-        }
         if (m_box_index != UINT_MAX) {
             return execute_box();
         }
@@ -278,14 +275,10 @@ namespace opt {
         
         opt_params optp(m_params);
         symbol pri = optp.priority();
-        if (pri == symbol("lns")) {
-            return execute_lns();
-        }
-        display_benchmark();
-        IF_VERBOSE(1, verbose_stream() << "(optimize:check-sat)\n";);
-        lbool is_sat = s.check_sat(0,nullptr);
-        TRACE("opt", tout << "initial search result: " << is_sat << "\n";
-              s.display(tout););
+
+        IF_VERBOSE(1, verbose_stream() << "(optimize:check-sat)\n");
+        lbool is_sat = s.check_sat(0,0);
+        TRACE("opt", s.display(tout << "initial search result: " << is_sat << "\n");); 
         if (is_sat != l_false) {
             s.get_model(m_model);
             s.get_labels(m_labels);
@@ -318,9 +311,6 @@ namespace opt {
             symbol pri = optp.priority();
             if (pri == symbol("pareto")) {
                 is_sat = execute_pareto();
-            }
-            else if (pri == symbol("lns")) {
-                is_sat = execute_lns();
             }
             else if (pri == symbol("box")) {
                 is_sat = execute_box();
@@ -558,12 +548,8 @@ namespace opt {
     }
 
     void context::yield() {
-        if (m_pareto) {
-            m_pareto->get_model(m_model, m_labels);
-        }
-        else if (m_lns) {
-            m_lns->get_model(m_model, m_labels);
-        }
+        SASSERT (m_pareto);
+        m_pareto->get_model(m_model, m_labels);
         update_bound(true);
         update_bound(false);
     }
@@ -582,19 +568,6 @@ namespace opt {
         return is_sat;
     }
 
-    lbool context::execute_lns() {
-        if (!m_lns) {
-            m_lns = alloc(lns, *this, m_solver.get());
-        }
-        lbool is_sat = (*(m_lns.get()))();
-        if (is_sat != l_true) {
-            m_lns = nullptr;
-        }
-        if (is_sat == l_true) {
-            yield();
-        }
-        return l_undef;
-    }
 
     std::string context::reason_unknown() const { 
         if (m.canceled()) {
@@ -1041,23 +1014,6 @@ namespace opt {
         }
     }
 
-    /**
-       \brief retrieve literals used by the neighborhood search feature.
-     */
-
-    void context::get_lns_literals(expr_ref_vector& lits) {
-        for (objective & obj : m_objectives) {
-            switch(obj.m_type) {
-            case O_MAXSMT: 
-                for (expr* f : obj.m_terms) {
-                    lits.push_back(f);
-                }
-                break;
-            default:
-                break;
-            }
-        }
-    }
 
     void context::model_updated(model* md) {
         opt_params optp(m_params);
@@ -1437,7 +1393,6 @@ namespace opt {
 
     void context::clear_state() {
         m_pareto = nullptr;
-        m_lns = nullptr;
         m_box_index = UINT_MAX;
         m_model.reset();
     }

@@ -110,31 +110,6 @@ namespace opt {
         lbool preferred_sat(expr_ref_vector const& asms, vector<expr_ref_vector>& cores) override;
         expr_ref_vector cube(expr_ref_vector&, unsigned) override { return expr_ref_vector(m); }
 
-#if 0
-        virtual ~opt_solver();
-
-        virtual solver* translate(ast_manager& m, params_ref const& p);
-        virtual void updt_params(params_ref const& p);
-        virtual void collect_param_descrs(param_descrs & r);
-        virtual void collect_statistics(statistics & st) const;
-        virtual void assert_expr_core(expr * t);
-        virtual void assert_lemma(expr* t) {}
-        virtual void push_core();
-        virtual void pop_core(unsigned n);
-        virtual lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions);        
-        virtual void get_unsat_core(ptr_vector<expr> & r);
-        virtual void get_model_core(model_ref & _m);        
-        virtual proof * get_proof();
-        virtual std::string reason_unknown() const;
-        virtual void set_reason_unknown(char const* msg);
-        virtual void get_labels(svector<symbol> & r);
-        virtual void set_progress_callback(progress_callback * callback);
-        virtual unsigned get_num_assertions() const;
-        virtual expr * get_assertion(unsigned idx) const;
-        virtual ast_manager& get_manager() const { return m; } 
-        virtual lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes);
-        virtual lbool preferred_sat(expr_ref_vector const& asms, vector<expr_ref_vector>& cores);
-#endif
         void set_logic(symbol const& logic);
 
         smt::theory_var add_objective(app* term);
@@ -143,7 +118,7 @@ namespace opt {
         void maximize_objectives(expr_ref_vector& blockers);
         inf_eps const & saved_objective_value(unsigned obj_index);
         inf_eps current_objective_value(unsigned obj_index);
-        model* get_model(unsigned obj_index) { return m_models[obj_index]; }
+        model* get_model_idx(unsigned obj_index) { return m_models[obj_index]; }
         bool objective_is_model_valid(unsigned obj_index) const {
             return m_valid_objectives[obj_index];
         }

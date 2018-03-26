@@ -150,8 +150,8 @@ public:
     bool is_well_sorted() const;
 
     dependency_converter* dc() { return m_dc.get(); }
-    model_converter* mc() { return m_mc.get(); }
-    proof_converter* pc() { return inconsistent() ? proof2proof_converter(m(), pr(0)) : m_pc.get(); }
+    model_converter* mc() const { return m_mc.get(); }
+    proof_converter* pc() const { return inconsistent() ? proof2proof_converter(m(), pr(0)) : m_pc.get(); }
     void add(dependency_converter* d) { m_dc = dependency_converter::concat(m_dc.get(), d); }
     void add(model_converter* m) { m_mc = concat(m_mc.get(), m); }
     void add(proof_converter* p) { m_pc = concat(m_pc.get(), p); }
