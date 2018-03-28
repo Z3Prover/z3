@@ -115,7 +115,6 @@ private:
     void failed();
     bool is_feasible() const;
     const impq & get_value(unsigned j) const;
-    void display_column(std::ostream & out, unsigned j) const;
     bool inf_int_set_is_correct() const;
     void update_column_in_int_inf_set(unsigned j);
     bool column_is_int_inf(unsigned j) const;
@@ -143,6 +142,7 @@ private:
     }
 
 public:
+    void display_column(std::ostream & out, unsigned j) const;
     inline static
     mpq fractional_part(const impq & n) {
         lp_assert(is_rational(n));
@@ -176,5 +176,8 @@ public:
     void push();
     void copy_values_from_cut_solver();
     bool left_branch_is_more_narrow_than_right(unsigned);
+    bool find_cube();
+    bool tighten_terms_for_cube();
+    bool tighten_term_for_cube(unsigned);
 };
 }

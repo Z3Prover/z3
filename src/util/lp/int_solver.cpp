@@ -484,6 +484,59 @@ void int_solver::catch_up_in_adding_constraints_to_cut_solver() {
     }
 }
 
+bool int_solver::tighten_term_for_cube(unsigned i) {
+    const lar_term* t = m_lar_solver->terms()[i];
+    mpq delta = zero_of_type<mpq>();
+    for (const auto & p : *t) {
+        delta += abs(p.coeff());
+    }
+    delta *= mpq(1, 2);
+    TRACE("cube", m_lar_solver->print_term_as_indices(*t, tout); tout << ", delta = " << delta;);
+
+    return m_lar_solver->tighten_term_bounds_by_delta(i, delta);
+}
+
+bool int_solver::tighten_terms_for_cube() {
+    for (unsigned i = 0; i < m_lar_solver->terms().size(); i++)
+        if (!tighten_term_for_cube(i)) {
+            TRACE("cube", tout << "cannot tighten";);
+            return false;
+        }
+    return true;
+}
+
+bool int_solver::find_cube() {
+    if (m_branch_cut_counter % settings().m_int_branch_find_cube != 0)
+        return false;
+    
+    settings().st().m_cube_calls++;
+    TRACE("cube",
+          for (unsigned j = 0; j < m_lar_solver->A_r().column_count(); j++)
+              display_column(tout, j);
+          m_lar_solver->print_terms(tout);
+          );
+    m_lar_solver->push();
+    if(!tighten_terms_for_cube()) {
+        m_lar_solver->pop();
+        return false;
+    }
+
+    vector<impq> backup_x = m_lar_solver->m_mpq_lar_core_solver.m_r_x;
+    lp_status st = m_lar_solver->find_feasible_solution();
+    if (st != lp_status::FEASIBLE && st != lp_status::OPTIMAL) {
+        TRACE("cube", tout << "cannot find a feasiblie solution";);
+        m_lar_solver->pop();
+        for (unsigned j = 0; j < backup_x.size(); j++) 
+            m_lar_solver->m_mpq_lar_core_solver.m_r_solver.update_x_with_feasibility_tracking(j,  backup_x[j]);
+        move_non_basic_columns_to_bounds();
+        return inf_int_set().size() == 0;
+    }
+    m_lar_solver->round_to_integer_solution();
+    inf_int_set().clear();
+    m_lar_solver->pop();
+    return true;
+}
+
 lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex, bool & upper) {
     init_check_data();
     lp_assert(inf_int_set_is_correct());
@@ -509,7 +562,14 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex, bool & upper) {
     if (!has_inf_int())
         return lia_move::ok;
 
-    if ((++m_branch_cut_counter) % settings().m_int_branch_cut_solver == 0) {
+    ++m_branch_cut_counter;
+    if (find_cube()){
+        settings().st().m_cube_success++;
+        return lia_move::ok;
+    }
+    TRACE("cube", tout << "cube did not succeed";);
+    
+    if ((m_branch_cut_counter) % settings().m_int_branch_cut_solver == 0) {
         TRACE("check_main_int", tout<<"cut_solver";);
         catch_up_in_adding_constraints_to_cut_solver();
         auto check_res = m_cut_solver.check();
@@ -1191,6 +1251,7 @@ const impq& int_solver::lower_bound(unsigned j) const {
 }
 
 lia_move int_solver::create_branch_on_column(int j, lar_term& t, mpq& k, bool free_column, bool & upper) {
+    TRACE("check_main_int", tout << "branching" << std::endl;);
     lp_assert(t.is_empty());
     lp_assert(j != -1);
     t.add_monomial(mpq(1), m_lar_solver->adjust_column_index_to_term_index(j));

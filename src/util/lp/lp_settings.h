@@ -108,6 +108,8 @@ struct stats {
     unsigned m_cut_solver_undef;
     unsigned m_gcd_calls;
     unsigned m_gcd_conflicts;
+    unsigned m_cube_calls;
+    unsigned m_cube_success;
     stats() { reset(); }
     void reset() { memset(this, 0, sizeof(*this)); }
 };
@@ -228,7 +230,8 @@ public:
                     backup_costs(true),
                     column_number_threshold_for_using_lu_in_lar_solver(4000),
                     m_int_branch_cut_gomory_threshold(4),
-                    m_int_branch_cut_solver(4), // todo: experimenting with the settings 
+                    m_int_branch_cut_solver(4),
+                    m_int_branch_find_cube(4),
                     m_run_gcd_test(true),
                     m_cut_solver_cycle_on_var(10)
     {}
@@ -334,13 +337,14 @@ public:
     bool use_breakpoints_in_feasibility_search;
     unsigned random_next() { return m_rand(); }
     void set_random_seed(unsigned s) { m_rand.set_seed(s); }
-    unsigned max_row_length_for_bound_propagation;
-    bool backup_costs;
-    unsigned column_number_threshold_for_using_lu_in_lar_solver;
-    unsigned m_int_branch_cut_gomory_threshold;
-    unsigned m_int_branch_cut_solver;
-    bool m_run_gcd_test;
-    unsigned m_cut_solver_cycle_on_var;
+    unsigned         max_row_length_for_bound_propagation;
+    bool             backup_costs;
+    unsigned         column_number_threshold_for_using_lu_in_lar_solver;
+    unsigned         m_int_branch_cut_gomory_threshold;
+    unsigned         m_int_branch_cut_solver;
+    unsigned         m_int_branch_find_cube;
+    bool             m_run_gcd_test;
+    unsigned         m_cut_solver_cycle_on_var;
 }; // end of lp_settings class
 
 

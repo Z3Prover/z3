@@ -1750,7 +1750,7 @@ void lar_solver::update_column_type_and_bound(var_index j, lconstraint_kind kind
 void lar_solver::add_var_bound_on_constraint_for_term(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index ci) {
     lp_assert(is_term(j));
     unsigned adjusted_term_index = adjust_term_index(j);
-    lp_assert(!term_is_int(m_terms[adjusted_term_index]) || right_side.is_int());
+    //    lp_assert(!term_is_int(m_terms[adjusted_term_index]) || right_side.is_int());
     auto it = m_ext_vars_to_columns.find(j);
     if (it != m_ext_vars_to_columns.end()) {
         unsigned term_j = it->second.internal_j();
@@ -2165,6 +2165,81 @@ var_index lar_solver:: to_var_index(unsigned ext_j) const {
     lp_assert(it != m_ext_vars_to_columns.end());
     return it->second.internal_j();
 }
+
+bool lar_solver::tighten_term_bounds_by_delta(unsigned term_index, const mpq& delta) {
+    unsigned tj = term_index + m_terms_start_index;
+    unsigned j = to_var_index(tj);
+    auto & slv = m_mpq_lar_core_solver.m_r_solver;
+    TRACE("cube", tout << "delta = " << delta << std::endl;
+          m_int_solver->display_column(tout, j); );
+    if (slv.column_has_upper_bound(j) && slv.column_has_lower_bound(j)) {
+        if (slv.m_upper_bounds[j].x - delta < slv.m_lower_bounds[j].x) {
+            TRACE("cube", tout << "cannot tighten, delta = " << delta;);
+            return false;
+        }
+    }
+    TRACE("cube", tout << "can tighten";);
+    if (slv.column_has_upper_bound(j)) {
+        add_var_bound(tj, lconstraint_kind::LE, slv.m_upper_bounds[j].x - delta);
+    }
+    if (slv.column_has_lower_bound(j)) {
+        add_var_bound(tj, lconstraint_kind::GE, slv.m_lower_bounds[j].x + delta);
+    }
+    return true;
+}
+
+void lar_solver::update_delta_for_terms(const impq & delta, unsigned j, const vector<unsigned>& terms_of_var) {
+    for (unsigned i : terms_of_var) {
+        lar_term & t = *m_terms[i];
+        auto it = t.m_coeffs.find(j);
+        unsigned tj = to_var_index(i + m_terms_start_index);
+        TRACE("cube",
+              tout << "t.apply = " << t.apply(m_mpq_lar_core_solver.m_r_x) << ", m_mpq_lar_core_solver.m_r_x[tj]= " << m_mpq_lar_core_solver.m_r_x[tj];);
+        TRACE("cube", print_term_as_indices(t, tout);
+              tout << ", it->second = " << it->second;
+              tout << ", tj = " << tj << ", ";
+              m_int_solver->display_column(tout, tj);
+              );
+        
+        m_mpq_lar_core_solver.m_r_x[tj] += it->second * delta;
+        lp_assert(t.apply(m_mpq_lar_core_solver.m_r_x) == m_mpq_lar_core_solver.m_r_x[tj]);
+        TRACE("cube", m_int_solver->display_column(tout, tj); );
+    }
+}
+
+
+void lar_solver::fill_vars_to_terms(vector<vector<unsigned>> & vars_to_terms) {
+   for (unsigned j = 0; j < m_terms.size(); j++) {
+        for (const auto & p : * m_terms[j]) {
+            if (p.var() >= vars_to_terms.size())
+                vars_to_terms.resize(p.var() + 1);
+            vars_to_terms[p.var()].push_back(j);
+        }
+    }
+}
+
+void lar_solver::round_to_integer_solution() {
+    vector<vector<unsigned>> vars_to_terms;
+    fill_vars_to_terms(vars_to_terms);
+
+    for (unsigned j : m_inf_int_set.m_index) {
+        if (column_corresponds_to_term(j)) continue;
+        TRACE("cube", m_int_solver->display_column(tout, j););
+        impq& v =  m_mpq_lar_core_solver.m_r_x[j];
+        lp_assert(!v.is_int());
+        impq flv = floor(v);
+        auto del = flv - v; // del is negative
+        if (del < - mpq(1, 2)) {
+            del = impq(one_of_type<mpq>()) + del;
+            v = ceil(v);
+        } else {
+            v = flv;
+        }
+        TRACE("cube", m_int_solver->display_column(tout, j); tout << "v = " << v << " ,del = " << del;);
+        update_delta_for_terms(del, j, vars_to_terms[j]);
+    }
+}
+
 } // namespace lp
 
 

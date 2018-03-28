@@ -120,6 +120,7 @@ private:
 
     
 public :
+    const vector<lar_term*> terms() const { return m_terms; }
     const vector<lar_base_constraint*>& constraints() const {
         return m_constraints;
     }
@@ -568,8 +569,10 @@ public:
         if (!has_int_var())
             return true;
         for (unsigned j = 0; j < A_r().column_count(); j++) {
-            if (inf_int_set_is_correct_for_column(j) == false)
+            if (inf_int_set_is_correct_for_column(j) == false) {
+                TRACE("inf_int_set_is_correct", m_int_solver->display_column(tout, j););
                 return false;
+            }
         }
         return true;
     }
@@ -589,5 +592,9 @@ public:
     bool column_corresponds_to_term(unsigned) const;
     void catch_up_in_updating_int_solver();
     var_index to_var_index(unsigned ext_j) const;
+    bool tighten_term_bounds_by_delta(unsigned, const mpq&);
+    void round_to_integer_solution();
+    void update_delta_for_terms(const impq & delta, unsigned j, const vector<unsigned>&);
+    void fill_vars_to_terms(vector<vector<unsigned>> & vars_to_terms);
 };
 }
