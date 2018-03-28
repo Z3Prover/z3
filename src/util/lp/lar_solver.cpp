@@ -1496,7 +1496,7 @@ bool lar_solver::column_is_fixed(unsigned j) const {
 bool lar_solver::ext_var_is_int(var_index ext_var) const {
     auto it = m_ext_vars_to_columns.find(ext_var);
     lp_assert(it != m_ext_vars_to_columns.end());
-    return it == m_ext_vars_to_columns.end() || it->second.is_integer();
+    return it->second.is_integer();
 }
 
 // below is the initialization functionality of lar_solver
@@ -2168,7 +2168,10 @@ var_index lar_solver:: to_var_index(unsigned ext_j) const {
 
 bool lar_solver::tighten_term_bounds_by_delta(unsigned term_index, const mpq& delta) {
     unsigned tj = term_index + m_terms_start_index;
-    unsigned j = to_var_index(tj);
+	auto it = m_ext_vars_to_columns.find(tj);
+	if (it == m_ext_vars_to_columns.end())
+		return true;
+	unsigned j = it->second.internal_j();
     auto & slv = m_mpq_lar_core_solver.m_r_solver;
     TRACE("cube", tout << "delta = " << delta << std::endl;
           m_int_solver->display_column(tout, j); );
@@ -2209,13 +2212,15 @@ void lar_solver::update_delta_for_terms(const impq & delta, unsigned j, const ve
 
 
 void lar_solver::fill_vars_to_terms(vector<vector<unsigned>> & vars_to_terms) {
-   for (unsigned j = 0; j < m_terms.size(); j++) {
-        for (const auto & p : * m_terms[j]) {
-            if (p.var() >= vars_to_terms.size())
-                vars_to_terms.resize(p.var() + 1);
-            vars_to_terms[p.var()].push_back(j);
-        }
-    }
+	for (unsigned j = 0; j < m_terms.size(); j++) {
+		if (!term_is_used_as_row(j + m_terms_start_index))
+			continue;
+		for (const auto & p : *m_terms[j]) {
+			if (p.var() >= vars_to_terms.size())
+				vars_to_terms.resize(p.var() + 1);
+			vars_to_terms[p.var()].push_back(j);
+		}
+	}
 }
 
 void lar_solver::round_to_integer_solution() {

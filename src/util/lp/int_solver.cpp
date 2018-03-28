@@ -485,6 +485,9 @@ void int_solver::catch_up_in_adding_constraints_to_cut_solver() {
 }
 
 bool int_solver::tighten_term_for_cube(unsigned i) {
+    unsigned ti = i + m_lar_solver->terms_start_index();
+    if (!m_lar_solver->term_is_used_as_row(ti))
+        return true;
     const lar_term* t = m_lar_solver->terms()[i];
     mpq delta = zero_of_type<mpq>();
     for (const auto & p : *t) {
