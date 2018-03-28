@@ -530,7 +530,9 @@ bool int_solver::find_cube() {
         m_lar_solver->pop();
         move_non_basic_columns_to_bounds();
         m_lar_solver->find_feasible_solution();
-        return false;
+        TRACE("cube", tout << "number of inf int vars = " << inf_int_set().size(););
+        // it can happen that we found an integer solution here
+        return inf_int_set().size() == 0;
     }
     m_lar_solver->round_to_integer_solution();
     inf_int_set().clear();
