@@ -117,7 +117,11 @@ private:
     vector<lar_term*>                                   m_terms;
     const var_index                                     m_terms_start_index;
     indexed_vector<mpq>                                 m_column_buffer;
-
+    
+public:
+    lar_core_solver                                     m_mpq_lar_core_solver;
+private:
+    int_solver *                                        m_int_solver;
     
 public :
     unsigned terms_start_index() const { return m_terms_start_index; }
@@ -125,11 +129,6 @@ public :
     const vector<lar_base_constraint*>& constraints() const {
         return m_constraints;
     }
-    lar_core_solver m_mpq_lar_core_solver;
-private:
-    std::function<void (unsigned)> m_tracker_of_x_change;
-    int_solver * m_int_solver;
-public:
     void set_int_solver(int_solver * int_slv) {
         m_int_solver = int_slv;
     }
@@ -138,7 +137,6 @@ public:
     }
     unsigned constraint_count() const;
     const lar_base_constraint& get_constraint(unsigned ci) const;
-    int_set m_inf_int_set; 
     ////////////////// methods ////////////////////////////////
     static_matrix<mpq, numeric_pair<mpq>> & A_r();
     static_matrix<mpq, numeric_pair<mpq>> const & A_r() const;
@@ -553,40 +551,13 @@ public:
         }
     }
 
-    bool inf_int_set_is_correct_for_column(unsigned j) const {
-        if (m_inf_int_set.contains(j) != (column_is_int(j) && (!column_value_is_integer(j)))) {
-            TRACE("arith_int",
-                  tout << "j= " << j <<
-                  " inf_int_set().contains(j) = " << m_inf_int_set.contains(j) <<
-                  ", column_is_int(j) = "   << column_is_int(j) <<
-                  "\n column_value_is_integer(j) = " << column_value_is_integer(j) <<
-                  ", val = " << get_column_value(j) << std::endl;); 
-            return false;
-        }
-        return true;
-    }
-    
-    bool inf_int_set_is_correct() const {
-        if (!has_int_var())
-            return true;
-        for (unsigned j = 0; j < A_r().column_count(); j++) {
-            if (inf_int_set_is_correct_for_column(j) == false) {
-                TRACE("inf_int_set_is_correct", m_int_solver->display_column(tout, j););
-                return false;
-            }
-        }
-        return true;
-    }
     bool has_int_var() const;
-    void call_assignment_tracker(unsigned j) {
-        if (!var_is_int(j)) {
-            lp_assert(m_inf_int_set.contains(j) == false);
-            return;
+    bool has_inf_int() const {
+        for (unsigned j = 0; j < column_count(); j++) {
+            if (column_is_int(j) && ! column_value_is_int(j))
+                return true;
         }
-        if (m_mpq_lar_core_solver.m_r_x[j].is_int())
-            m_inf_int_set.erase(j);
-        else
-            m_inf_int_set.insert(j);
+        return false;
     }
 
     lar_core_solver & get_core_solver() { return m_mpq_lar_core_solver; }
@@ -597,5 +568,7 @@ public:
     void round_to_integer_solution();
     void update_delta_for_terms(const impq & delta, unsigned j, const vector<unsigned>&);
     void fill_vars_to_terms(vector<vector<unsigned>> & vars_to_terms);
+    unsigned column_count() const { return A_r().column_count(); }
+    const vector<unsigned> & r_basis() const { return m_mpq_lar_core_solver.r_basis(); }
 };
 }

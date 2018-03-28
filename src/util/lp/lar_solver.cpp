@@ -31,10 +31,6 @@ lar_solver::lar_solver() : m_status(lp_status::OPTIMAL),
                            m_infeasible_column_index(-1),
                            m_terms_start_index(1000000),
                            m_mpq_lar_core_solver(m_settings, *this),
-                           m_tracker_of_x_change([&](unsigned j) {
-                                   call_assignment_tracker(j);
-                               }
-                               ),
                            m_int_solver(nullptr)
 {}
     
@@ -281,7 +277,6 @@ bool lar_solver::has_int_var() const {
 }
 
 lp_status lar_solver::find_feasible_solution() {
-    lp_assert(inf_int_set_is_correct());
     m_settings.st().m_make_feasible++;
     if (A_r().column_count() > m_settings.st().m_max_cols)
         m_settings.st().m_max_cols = A_r().column_count();
@@ -290,19 +285,12 @@ lp_status lar_solver::find_feasible_solution() {
     if (strategy_is_undecided())
         decide_on_strategy_and_adjust_initial_state();
 
-    if (has_int_var()) {
-        m_inf_int_set.resize(A_r().column_count());
-    }
-    
     m_mpq_lar_core_solver.m_r_solver.m_look_for_feasible_solution_only = true;
     auto ret = solve();
-    TRACE("intinf", m_int_solver->display_inf_or_int_inf_columns(tout););
-    lp_assert(inf_int_set_is_correct());
     return ret;
 }
     
 lp_status lar_solver::solve() {
-    lp_assert(inf_int_set_is_correct());
     if (m_status == lp_status::INFEASIBLE) {
         return m_status;
     }
@@ -313,7 +301,6 @@ lp_status lar_solver::solve() {
     }
        
     m_columns_with_changed_bound.clear();
-    lp_assert(inf_int_set_is_correct());
     return m_status;
 }
 
@@ -363,7 +350,6 @@ void lar_solver::shrink_inf_set_after_pop(unsigned n, int_set & set) {
     
 void lar_solver::pop(unsigned k) {
     TRACE("arith_int", tout << "pop" << std::endl;);
-    lp_assert(inf_int_set_is_correct());
     TRACE("lar_solver", tout << "k = " << k << std::endl;);
 
     int n_was = static_cast<int>(m_ext_vars_to_columns.size());
@@ -381,11 +367,8 @@ void lar_solver::pop(unsigned k) {
 
     m_mpq_lar_core_solver.pop(k);
     clean_popped_elements(n, m_columns_with_changed_bound);
-    clean_popped_elements(n, m_inf_int_set);
     unsigned m = A_r().row_count();
-    lp_assert(inf_int_set_is_correct());
     clean_popped_elements(m, m_rows_with_changed_bounds);
-    lp_assert(inf_int_set_is_correct());
     clean_inf_set_of_r_solver_after_pop();
     lp_assert(m_settings.simplex_strategy() == simplex_strategy_enum::undecided ||
               (!use_tableau()) || m_mpq_lar_core_solver.m_r_solver.reduced_costs_are_correct_tableau());
@@ -662,7 +645,6 @@ bool lar_solver::costs_are_used() const {
 }
     
 void lar_solver::change_basic_columns_dependend_on_a_given_nb_column(unsigned j, const numeric_pair<mpq> & delta) {
-    lp_assert(inf_int_set_is_correct());
     if (use_tableau()) {
         for (const auto & c : A_r().m_columns[j]) {
             unsigned bj = m_mpq_lar_core_solver.m_r_basis[c.m_i];
@@ -684,7 +666,6 @@ void lar_solver::change_basic_columns_dependend_on_a_given_nb_column(unsigned j,
             m_mpq_lar_core_solver.m_r_solver.update_x_with_delta_and_track_feasibility(bj, -m_column_buffer[i] * delta); 
         }
     }
-    lp_assert(inf_int_set_is_correct());
 }
 
 void lar_solver::update_x_and_inf_costs_for_column_with_changed_bounds(unsigned j) {
@@ -754,10 +735,8 @@ void lar_solver::solve_with_core_solver() {
         update_x_and_inf_costs_for_columns_with_changed_bounds_tableau();
     else 
         update_x_and_inf_costs_for_columns_with_changed_bounds();
-    TRACE("intinf", m_int_solver->display_inf_or_int_inf_columns(tout););
     m_mpq_lar_core_solver.solve();
     set_status(m_mpq_lar_core_solver.m_r_solver.get_status());
-    lp_assert(inf_int_set_is_correct());
     lp_assert(m_status != lp_status::OPTIMAL || all_constraints_hold());
 }
 
@@ -1277,7 +1256,6 @@ void lar_solver::random_update(unsigned sz, var_index const * vars) {
     fill_var_set_for_random_update(sz, vars, column_list);
     random_updater ru(*this, column_list);
     ru.update();
-    lp_assert(inf_int_set_is_correct());
 }
 
 
@@ -1407,7 +1385,6 @@ void lar_solver::pop_tableau() {
 }
 
 void lar_solver::clean_inf_set_of_r_solver_after_pop() {
-    lp_assert(inf_int_set_is_correct());
     vector<unsigned> became_feas;
     clean_popped_elements(A_r().column_count(), m_mpq_lar_core_solver.m_r_solver.m_inf_set);
     std::unordered_set<unsigned> basic_columns_with_changed_cost;
@@ -1530,10 +1507,6 @@ var_index lar_solver::add_var(unsigned ext_j, bool is_int) {
     m_columns_to_ul_pairs.push_back(ul_pair(static_cast<unsigned>(-1)));
     add_non_basic_var_to_core_fields(ext_j, is_int);
     lp_assert(sizes_are_correct());
-    if (is_int) {
-        m_mpq_lar_core_solver.m_r_solver.set_tracker_of_x(& m_tracker_of_x_change);
-    }
-    lp_assert(inf_int_set_is_correct());
     return i;
 }
 
@@ -1549,7 +1522,6 @@ void lar_solver::add_non_basic_var_to_core_fields(unsigned ext_j, bool is_int) {
     register_new_ext_var_index(ext_j, is_int);
     m_mpq_lar_core_solver.m_column_types.push_back(column_type::free_column);
     m_columns_with_changed_bound.increase_size_by_one();
-    m_inf_int_set.increase_size_by_one();
     add_new_var_to_core_fields_for_mpq(false);
     if (use_lu())
         add_new_var_to_core_fields_for_doubles(false);
@@ -1687,7 +1659,6 @@ void lar_solver::add_row_from_term_no_constraint(const lar_term * term, unsigned
     m_mpq_lar_core_solver.m_r_solver.update_x_and_call_tracker(j, get_basic_var_value_from_row_directly(A_r().row_count() - 1));
     if (use_lu())
         fill_last_row_of_A_d(A_d(), term);
-    lp_assert(inf_int_set_is_correct());
 }
 
 void lar_solver::add_basic_var_to_core_fields() {
@@ -1696,7 +1667,6 @@ void lar_solver::add_basic_var_to_core_fields() {
     m_mpq_lar_core_solver.m_column_types.push_back(column_type::free_column);
     m_columns_with_changed_bound.increase_size_by_one();
     m_rows_with_changed_bounds.increase_size_by_one();
-    m_inf_int_set.increase_size_by_one();
     add_new_var_to_core_fields_for_mpq(true);
     if (use_lu)
         add_new_var_to_core_fields_for_doubles(true);
@@ -1721,7 +1691,6 @@ constraint_index lar_solver::add_var_bound(var_index j, lconstraint_kind kind, c
         add_var_bound_on_constraint_for_term(j, kind, right_side, ci);
     }
     lp_assert(sizes_are_correct());
-    lp_assert(inf_int_set_is_correct());
     return ci;
 }
 
@@ -2227,11 +2196,12 @@ void lar_solver::round_to_integer_solution() {
     vector<vector<unsigned>> vars_to_terms;
     fill_vars_to_terms(vars_to_terms);
 
-    for (unsigned j : m_inf_int_set.m_index) {
+    for (unsigned j = 0; j < column_count(); j++) {
         if (column_corresponds_to_term(j)) continue;
         TRACE("cube", m_int_solver->display_column(tout, j););
         impq& v =  m_mpq_lar_core_solver.m_r_x[j];
-        lp_assert(!v.is_int());
+        if (v.is_int())
+            continue;
         impq flv = floor(v);
         auto del = flv - v; // del is negative
         if (del < - mpq(1, 2)) {

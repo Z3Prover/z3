@@ -59,8 +59,7 @@ public:
     cut_solver m_cut_solver;
     // methods
     int_solver(lar_solver* lp);
-    int_set& inf_int_set();
-    const int_set& inf_int_set() const;
+
     // main function to check that the solution provided by lar_solver is valid for integral values,
     // or provide a way of how it can be adjusted.
     lia_move check(lar_term& t, mpq& k, explanation& ex, bool & upper);
@@ -115,12 +114,11 @@ private:
     void failed();
     bool is_feasible() const;
     const impq & get_value(unsigned j) const;
-    bool inf_int_set_is_correct() const;
-    void update_column_in_int_inf_set(unsigned j);
     bool column_is_int_inf(unsigned j) const;
     void trace_inf_rows() const;
     int find_inf_int_base_column();
-    int find_inf_int_boxed_base_column_with_smallest_range();
+    int find_inf_int_boxed_base_column_with_smallest_range(unsigned&);
+    int get_kth_inf_int(unsigned) const;
     lp_settings& settings();
     bool move_non_basic_columns_to_bounds();
     void branch_infeasible_int_var(unsigned);
@@ -164,7 +162,6 @@ private:
     lia_move create_branch_on_column(int j, lar_term& t, mpq& k, bool free_column, bool & upper);
     void catch_up_in_adding_constraints_to_cut_solver();
 public:
-    void display_inf_or_int_inf_columns(std::ostream & out) const;
     template <typename T>
     void fill_cut_solver_vars();
     template <typename T>
@@ -179,5 +176,6 @@ public:
     bool find_cube();
     bool tighten_terms_for_cube();
     bool tighten_term_for_cube(unsigned);
+    unsigned column_count() const;
 };
 }
