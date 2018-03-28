@@ -521,15 +521,13 @@ bool int_solver::find_cube() {
         return false;
     }
 
-    vector<impq> backup_x = m_lar_solver->m_mpq_lar_core_solver.m_r_x;
     lp_status st = m_lar_solver->find_feasible_solution();
     if (st != lp_status::FEASIBLE && st != lp_status::OPTIMAL) {
         TRACE("cube", tout << "cannot find a feasiblie solution";);
         m_lar_solver->pop();
-        for (unsigned j = 0; j < backup_x.size(); j++) 
-            m_lar_solver->m_mpq_lar_core_solver.m_r_solver.update_x_with_feasibility_tracking(j,  backup_x[j]);
         move_non_basic_columns_to_bounds();
-        return inf_int_set().size() == 0;
+        m_lar_solver->find_feasible_solution();
+        return false;
     }
     m_lar_solver->round_to_integer_solution();
     inf_int_set().clear();
