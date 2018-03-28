@@ -560,6 +560,14 @@ public:
         return false;
     }
 
+    bool r_basis_has_inf_int() const {
+        for (unsigned j : r_basis()) {
+            if (column_is_int(j) && ! column_value_is_int(j))
+                return true;
+        }
+        return false;
+    }
+    
     lar_core_solver & get_core_solver() { return m_mpq_lar_core_solver; }
     bool column_corresponds_to_term(unsigned) const;
     void catch_up_in_updating_int_solver();
