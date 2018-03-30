@@ -80,7 +80,7 @@ DEFINE_TYPE(Z3_rcf_num);
 */
 
 /**
-   \brief Z3 Boolean type. It is just an alias for \c int.
+   \brief Z3 Boolean type. It is just an alias for \c bool.
 */
 typedef bool Z3_bool;
 
