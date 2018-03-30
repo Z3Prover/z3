@@ -60,7 +60,7 @@ FIRST_OBJ_ID = 100
 def is_obj(ty):
     return ty >= FIRST_OBJ_ID
 
-Type2Str = { VOID : 'void', VOID_PTR : 'void*', INT : 'int', UINT : 'unsigned', INT64 : '__int64', UINT64 : '__uint64', DOUBLE : 'double',
+Type2Str = { VOID : 'void', VOID_PTR : 'void*', INT : 'int', UINT : 'unsigned', INT64 : 'int64_t', UINT64 : 'uint64_t', DOUBLE : 'double',
              FLOAT : 'float', STRING : 'Z3_string', STRING_PTR : 'Z3_string_ptr', BOOL : 'Z3_bool', SYMBOL : 'Z3_symbol',
              PRINT_MODE : 'Z3_ast_print_mode', ERROR_CODE : 'Z3_error_code'
              }
@@ -577,9 +577,6 @@ def mk_java(java_dir, package_name):
     java_wrapper = open(java_wrapperf, 'w')
     pkg_str = package_name.replace('.', '_')
     java_wrapper.write('// Automatically generated file\n')
-    java_wrapper.write('#ifdef _CYGWIN\n')
-    java_wrapper.write('typedef long long __int64;\n')
-    java_wrapper.write('#endif\n')
     java_wrapper.write('#include<jni.h>\n')
     java_wrapper.write('#include<stdlib.h>\n')
     java_wrapper.write('#include"z3.h"\n')

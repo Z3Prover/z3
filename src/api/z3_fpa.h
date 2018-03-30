@@ -349,7 +349,7 @@ extern "C" {
 
         def_API('Z3_mk_fpa_numeral_int64_uint64', AST, (_in(CONTEXT), _in(BOOL), _in(INT64), _in(UINT64), _in(SORT)))
     */
-    Z3_ast Z3_API Z3_mk_fpa_numeral_int64_uint64(Z3_context c, Z3_bool sgn, __int64 exp, __uint64 sig, Z3_sort ty);
+    Z3_ast Z3_API Z3_mk_fpa_numeral_int64_uint64(Z3_context c, Z3_bool sgn, int64_t exp, uint64_t sig, Z3_sort ty);
 
     /**
         \brief Floating-point absolute value
@@ -956,7 +956,7 @@ extern "C" {
 
         def_API('Z3_fpa_get_numeral_significand_uint64', BOOL, (_in(CONTEXT), _in(AST), _out(UINT64)))
     */
-    Z3_bool Z3_API Z3_fpa_get_numeral_significand_uint64(Z3_context c, Z3_ast t, __uint64 * n);
+    Z3_bool Z3_API Z3_fpa_get_numeral_significand_uint64(Z3_context c, Z3_ast t, uint64_t * n);
 
     /**
         \brief Return the exponent value of a floating-point numeral as a string.
@@ -985,7 +985,7 @@ extern "C" {
 
         def_API('Z3_fpa_get_numeral_exponent_int64', BOOL, (_in(CONTEXT), _in(AST), _out(INT64), _in(BOOL)))
     */
-    Z3_bool Z3_API Z3_fpa_get_numeral_exponent_int64(Z3_context c, Z3_ast t, __int64 * n, Z3_bool biased);
+    Z3_bool Z3_API Z3_fpa_get_numeral_exponent_int64(Z3_context c, Z3_ast t, int64_t * n, Z3_bool biased);
 
     /**
         \brief Retrieves the exponent of a floating-point literal as a bit-vector expression.
