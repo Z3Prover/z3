@@ -52,7 +52,7 @@ public:
         result.push_back(resg.get());
         // report model
         if (g->models_enabled()) {
-            g->add(mk_ackermannize_bv_model_converter(m, lackr.get_info()));
+            resg->add(mk_ackermannize_bv_model_converter(m, lackr.get_info()));
         }
         
         resg->inc_depth();

@@ -333,13 +333,18 @@ namespace sat {
         if (!m_to_delete.empty()) {
             unsigned j = 0;
             for (unsigned i = 0; i < c.size(); ++i) {
-                if (!m_to_delete.contains(c[i])) {
-                    c[j] = c[i];
-                    ++j;
-                }
-                else {
-                    m_pos.erase(c[i]);
-                    m_neg.erase(~c[i]);
+                literal lit = c[i];
+                switch (s.value(lit)) {
+                case l_true:
+                    scoped_d.del_clause();
+                    return false;
+                case l_false:    
+                    break;
+                default:
+                    if (!m_to_delete.contains(lit)) {
+                        c[j++] = lit;
+                    }
+                    break;
                 }
             }
             return re_attach(scoped_d, c, j);
@@ -359,6 +364,7 @@ namespace sat {
     }
 
     bool asymm_branch::flip_literal_at(clause const& c, unsigned flip_index, unsigned& new_sz) {
+        VERIFY(s.m_trail.size() == s.m_qhead);
         bool found_conflict = false;
         unsigned i = 0, sz = c.size();        
         s.push();
@@ -399,6 +405,7 @@ namespace sat {
     }
 
     bool asymm_branch::re_attach(scoped_detach& scoped_d, clause& c, unsigned new_sz) {
+        VERIFY(s.m_trail.size() == s.m_qhead);
         m_elim_literals += c.size() - new_sz;
         if (c.is_learned()) {
             m_elim_learned_literals += c.size() - new_sz; 
@@ -415,6 +422,7 @@ namespace sat {
             return false; // check_missed_propagation() may fail, since m_clauses is not in a consistent state.
         case 2:
             SASSERT(s.value(c[0]) == l_undef && s.value(c[1]) == l_undef);
+            VERIFY(s.value(c[0]) == l_undef && s.value(c[1]) == l_undef);
             s.mk_bin_clause(c[0], c[1], c.is_learned());
             if (s.m_trail.size() > s.m_qhead) s.propagate_core(false);
             scoped_d.del_clause();

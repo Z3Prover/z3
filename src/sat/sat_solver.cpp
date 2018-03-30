@@ -333,6 +333,13 @@ namespace sat {
     }
 
     void solver::mk_bin_clause(literal l1, literal l2, bool learned) {
+#if 0
+        if ((l1 == literal(5981, false) && l2 == literal(16764, false)) ||
+            (l2 == literal(5981, false) && l1 == literal(16764, false))) {
+            IF_VERBOSE(0, display(verbose_stream()));
+            //VERIFY(false);
+        }
+#endif
         if (find_binary_watch(get_wlist(~l1), ~l2)) {
             assign(l1, justification());
             return;
@@ -1656,6 +1663,7 @@ namespace sat {
         
         if (!check_clauses(m_model)) {
             IF_VERBOSE(0, verbose_stream() << "failure checking clauses on transformed model\n";);
+            IF_VERBOSE(10, m_mc.display(verbose_stream()));
             throw solver_exception("check model failed");
         }
 

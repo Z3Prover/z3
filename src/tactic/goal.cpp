@@ -85,6 +85,9 @@ goal::goal(goal const & src, bool):
     m_core_enabled(src.unsat_core_enabled()),
     m_inconsistent(false),
     m_precision(src.m_precision) {
+    m_mc = src.m_mc.get();
+    m_pc = src.m_pc.get();
+    m_dc = src.m_dc.get();
 }
 
 goal::~goal() {

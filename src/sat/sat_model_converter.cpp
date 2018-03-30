@@ -75,7 +75,7 @@ namespace sat {
     void model_converter::operator()(model & m) const {
         vector<entry>::const_iterator begin = m_entries.begin();
         vector<entry>::const_iterator it    = m_entries.end();
-        bool first = true;
+        bool first = false; // true;
         //SASSERT(!m_solver || m_solver->check_clauses(m));
         while (it != begin) {
             --it;
@@ -99,8 +99,8 @@ namespace sat {
                         process_stack(m, clause, st->stack());
                     }
                     sat = false;
-                    if (false && first && m_solver && !m_solver->check_clauses(m)) {
-                        display(std::cout, *it) << "\n";
+                    if (first && m_solver && !m_solver->check_clauses(m)) {
+                        IF_VERBOSE(0, display(verbose_stream() << "after processing stack\n", *it) << "\n");
                         first = false;
                     }
                     ++index;
@@ -125,8 +125,8 @@ namespace sat {
                     m[v] = sign ? l_false : l_true;
                     // if (first) std::cout << "set: " << l << "\n";
                     sat = true;
-                    if (false && first && m_solver && !m_solver->check_clauses(m)) {
-                        display(std::cout, *it)  << "\n";;
+                    if (first && m_solver && !m_solver->check_clauses(m)) {
+                        IF_VERBOSE(0, display(verbose_stream() << "after flipping undef\n", *it)  << "\n");
                         first = false;
                     }
                 }
