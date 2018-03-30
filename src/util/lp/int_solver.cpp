@@ -532,6 +532,7 @@ bool int_solver::find_cube() {
     }
 
     lp_status st = m_lar_solver->find_feasible_solution();
+                                                                                                  
     if (st != lp_status::FEASIBLE && st != lp_status::OPTIMAL) {
         TRACE("cube", tout << "cannot find a feasiblie solution";);
         m_lar_solver->pop();
@@ -590,6 +591,7 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex, bool & upper) {
         case cut_solver::lbool::l_true:
             settings().st().m_cut_solver_true++;
             copy_values_from_cut_solver();
+            lp_assert(m_lar_solver->all_constraints_hold());
             return lia_move::ok;
         case cut_solver::lbool::l_undef:
             settings().st().m_cut_solver_undef++;

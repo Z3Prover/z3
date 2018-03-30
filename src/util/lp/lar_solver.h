@@ -39,7 +39,6 @@ Revision History:
 #include "util/lp/stacked_unordered_set.h"
 #include "util/lp/implied_bound.h"
 #include "util/lp/bound_analyzer_on_row.h"
-#include "util/lp/quick_xplain.h"
 #include "util/lp/conversion_helper.h"
 #include "util/lp/int_solver.h"
 #include "util/lp/nra_solver.h"
@@ -117,11 +116,12 @@ private:
     vector<lar_term*>                                   m_terms;
     const var_index                                     m_terms_start_index;
     indexed_vector<mpq>                                 m_column_buffer;
-    
 public:
     lar_core_solver                                     m_mpq_lar_core_solver;
 private:
     int_solver *                                        m_int_solver;
+    bool                                                m_has_int_var;
+
     
 public :
     unsigned terms_start_index() const { return m_terms_start_index; }

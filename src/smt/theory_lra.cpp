@@ -1095,7 +1095,7 @@ public:
     }
 
     void init_variable_values() {
-        if (m_solver.get() && th.get_num_vars() > 0) {
+        if (!m.canceled() && m_solver.get() && th.get_num_vars() > 0) {
             m_solver->get_model(m_variable_values);
         }
     }

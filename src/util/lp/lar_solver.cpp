@@ -31,7 +31,8 @@ lar_solver::lar_solver() : m_status(lp_status::OPTIMAL),
                            m_infeasible_column_index(-1),
                            m_terms_start_index(1000000),
                            m_mpq_lar_core_solver(m_settings, *this),
-                           m_int_solver(nullptr)
+                           m_int_solver(nullptr),
+                           m_has_int_var(false)
 {}
     
 void lar_solver::set_track_pivoted_rows(bool v) {
@@ -273,7 +274,7 @@ lp_status lar_solver::get_status() const { return m_status;}
 void lar_solver::set_status(lp_status s) {m_status = s;}
 
 bool lar_solver::has_int_var() const {
-    return m_mpq_lar_core_solver.m_r_solver.m_tracker_of_x_change != nullptr;
+    return m_has_int_var;
 }
 
 lp_status lar_solver::find_feasible_solution() {
@@ -1118,8 +1119,8 @@ void lar_solver::get_infeasibility_explanation_for_inf_sign(
 }
 
 void lar_solver::get_model(std::unordered_map<var_index, mpq> & variable_values) const {
-    mpq delta = mpq(1, 2); // start from 0.5 to have less clashes
     lp_assert(m_status == lp_status::OPTIMAL);
+    mpq delta = mpq(1, 2); // start from 0.5 to have less clashes
     unsigned i;
     do {
         // different pairs have to produce different singleton values
@@ -1427,12 +1428,6 @@ void lar_solver::clean_inf_set_of_r_solver_after_pop() {
     }
 }
 
-void lar_solver::shrink_explanation_to_minimum(vector<std::pair<mpq, constraint_index>> & explanation) const {
-    // implementing quickXplain
-    quick_xplain::run(explanation, *this);
-    lp_assert(this->explanation_is_correct(explanation));
-}
-
 bool lar_solver::model_is_int_feasible() const {
     unsigned n = A_r().column_count();
     for (unsigned j = 0; j < n; j++) {
@@ -1489,6 +1484,8 @@ void lar_solver::catch_up_in_updating_int_solver() {
 }
 
 var_index lar_solver::add_var(unsigned ext_j, bool is_int) {
+    if (is_int)
+        m_has_int_var = true;
     if (is_int && !has_int_var())
         catch_up_in_updating_int_solver();
         
@@ -2145,7 +2142,7 @@ bool lar_solver::tighten_term_bounds_by_delta(unsigned term_index, const mpq& de
     TRACE("cube", tout << "delta = " << delta << std::endl;
           m_int_solver->display_column(tout, j); );
     if (slv.column_has_upper_bound(j) && slv.column_has_lower_bound(j)) {
-        if (slv.m_upper_bounds[j].x - delta < slv.m_lower_bounds[j].x) {
+        if (slv.m_upper_bounds[j].x - delta < slv.m_lower_bounds[j].x + delta) {
             TRACE("cube", tout << "cannot tighten, delta = " << delta;);
             return false;
         }

@@ -52,6 +52,14 @@ public:
         bool operator==(B const& other) const {
             return m_vec.m_vector[m_i] == other;
         }
+        B& operator+=(B const &delta) {
+            // not tracking the change here!
+            return m_vec.m_vector[m_i] += delta;
+        }
+        B& operator-=(B const &delta) {
+            // not tracking the change here!
+            return m_vec.m_vector[m_i] -= delta;
+        }
     };
 
     class ref_const {
