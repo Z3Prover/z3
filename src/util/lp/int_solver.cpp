@@ -52,9 +52,10 @@ bool int_solver::has_inf_int() const {
 int int_solver::find_inf_int_base_column() {
     unsigned inf_int_count;
     int j = find_inf_int_boxed_base_column_with_smallest_range(inf_int_count);
-    if (j != -1)
-        return j;
-    
+	if (j != -1)
+		return j;
+    if (inf_int_count == 0)
+        return -1;
     unsigned k = random() % inf_int_count;
     return get_kth_inf_int(k);
 }
@@ -485,7 +486,7 @@ void int_solver::copy_values_from_cut_solver() {
 }
 
 void int_solver::catch_up_in_adding_constraints_to_cut_solver() {
-    lp_assert(m_cut_solver.number_of_asserts() <= m_lar_solver->constraints().size());
+	lp_assert(m_cut_solver.number_of_asserts() <= m_lar_solver->constraints().size());
     for (unsigned j = m_cut_solver.number_of_asserts(); j < m_lar_solver->constraints().size(); j++) {
         add_constraint_to_cut_solver(j, m_lar_solver->constraints()[j]);
     }
@@ -516,7 +517,7 @@ bool int_solver::tighten_terms_for_cube() {
 }
 
 bool int_solver::find_cube() {
-    if (m_branch_cut_counter % settings().m_int_branch_find_cube != 0)
+	if (m_branch_cut_counter % settings().m_int_branch_find_cube != 0)
         return false;
     
     settings().st().m_cube_calls++;
@@ -532,7 +533,6 @@ bool int_solver::find_cube() {
     }
 
     lp_status st = m_lar_solver->find_feasible_solution();
-                                                                                                  
     if (st != lp_status::FEASIBLE && st != lp_status::OPTIMAL) {
         TRACE("cube", tout << "cannot find a feasiblie solution";);
         m_lar_solver->pop();
