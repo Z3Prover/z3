@@ -3951,7 +3951,7 @@ namespace smt {
 #if 0
             {
                 static unsigned counter = 0;
-                static uint64 total = 0;
+                static uint64_t total = 0;
                 static unsigned max = 0;
                 counter++;
                 total += num_lits;

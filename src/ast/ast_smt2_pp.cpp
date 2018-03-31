@@ -387,7 +387,7 @@ format * smt2_pp_environment::pp_string_literal(app * t) {
 }
 
 format * smt2_pp_environment::pp_datalog_literal(app * t) {
-    uint64 v;
+    uint64_t v;
     VERIFY (get_dlutil().is_numeral(t, v));
     std::ostringstream buffer;
     buffer << v;

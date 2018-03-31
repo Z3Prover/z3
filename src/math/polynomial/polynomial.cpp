@@ -5479,7 +5479,7 @@ namespace polynomial {
             }
             p_prime = derivative(p, x);
             resultant(p, p_prime, x, r);
-            bool sign = (static_cast<uint64>(m) * static_cast<uint64>(m-1))%4 != 0;
+            bool sign = (static_cast<uint64_t>(m) * static_cast<uint64_t>(m-1))%4 != 0;
             TRACE("resultant", tout << "discriminant sign: " << sign << "\n";);
             scoped_numeral lc(m_manager);
             if (const_coeff(p, x, m, lc)) {
@@ -6963,7 +6963,7 @@ namespace polynomial {
         return m_imp->m().set_zp(p);
     }
 
-    void manager::set_zp(uint64 p) {
+    void manager::set_zp(uint64_t p) {
         return m_imp->m().set_zp(p);
     }
 

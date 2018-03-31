@@ -75,8 +75,8 @@ public:
     static void set(double & a, char const * val) { a = atof(val); }
     static void set(double & a, int val) { a = static_cast<double>(val); }
     static void set(double & a, unsigned val) { a = static_cast<double>(val); }
-    static void set(double & a, int64 val) { a = static_cast<double>(val); }
-    static void set(double & a, uint64 val) { a = static_cast<double>(val); }
+    static void set(double & a, int64_t val) { a = static_cast<double>(val); }
+    static void set(double & a, uint64_t val) { a = static_cast<double>(val); }
     static void swap(double & a, double & b) { std::swap(a, b); }
     bool is_pos(double a) const { return a > m_zero_tolerance; }
     bool is_neg(double a) const { return a < m_zero_tolerance; }
@@ -93,11 +93,11 @@ public:
     }
 
     static unsigned hash(double a) { 
-        return hash_ull(static_cast<uint64>(a));
+        return hash_ull(static_cast<uint64_t>(a));
     }
 };
 
-static_assert(sizeof(uint64) == sizeof(double), "");
+static_assert(sizeof(uint64_t) == sizeof(double), "");
 
 #endif /* DOUBLE_MANAGER_H_ */
 

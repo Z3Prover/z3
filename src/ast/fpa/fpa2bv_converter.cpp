@@ -1071,7 +1071,7 @@ void fpa2bv_converter::mk_rem(sort * s, expr_ref & x, expr_ref & y, expr_ref & r
     SASSERT(m_mpz_manager.is_int64(max_exp_diff));
     SASSERT(m_mpz_manager.get_uint64(max_exp_diff) <= UINT_MAX);
 
-    uint64 max_exp_diff_ui64 = m_mpz_manager.get_uint64(max_exp_diff);
+    uint64_t max_exp_diff_ui64 = m_mpz_manager.get_uint64(max_exp_diff);
     SASSERT(max_exp_diff_ui64 <= UINT_MAX);
     unsigned max_exp_diff_ui = (unsigned)max_exp_diff_ui64;
     m_mpz_manager.del(max_exp_diff);

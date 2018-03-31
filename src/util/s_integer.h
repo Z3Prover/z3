@@ -46,9 +46,9 @@ public:
     s_integer(const s_integer & r):m_val(r.m_val) {}
     explicit s_integer(int n):m_val(n) {}
     struct i64 {};
-    explicit s_integer(int64 i, i64):m_val(static_cast<int>(i)) {}
+    explicit s_integer(int64_t i, i64):m_val(static_cast<int>(i)) {}
     struct ui64 {};
-    explicit s_integer(uint64 i, ui64):m_val(static_cast<int>(i)) {}
+    explicit s_integer(uint64_t i, ui64):m_val(static_cast<int>(i)) {}
     explicit s_integer(const char * str);
     explicit s_integer(const rational & r):m_val(static_cast<int>(r.get_int64())) {}
 
@@ -60,8 +60,8 @@ public:
     static bool is_int64() { return true; }
     static bool is_uint64() { return true; }
     int get_int() const { return m_val; }
-    int64 get_int64() const { return m_val; }
-    uint64 get_uint64() const { return m_val; }
+    int64_t get_int64() const { return m_val; }
+    uint64_t get_uint64() const { return m_val; }
     static bool is_unsigned() { return true; }
     unsigned get_unsigned() const { return static_cast<unsigned>(m_val); }
     s_integer const& get_s_integer() const { return *this; }

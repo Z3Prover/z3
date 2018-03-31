@@ -172,7 +172,7 @@ extern "C" {
         if (mk_c(c)->bvutil().is_numeral(e, r, bv_size)) {
             return Z3_TRUE;
         }
-        uint64 v;
+        uint64_t v;
         if (mk_c(c)->datalog_util().is_numeral(e, v)) {
             r = rational(v, rational::ui64());
             return Z3_TRUE;

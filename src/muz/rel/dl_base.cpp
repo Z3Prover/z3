@@ -384,7 +384,7 @@ namespace datalog {
 
         VERIFY(sig.first_functional() == 1);
 
-        uint64 upper_bound = get_signature()[0];
+        uint64_t upper_bound = get_signature()[0];
         bool empty_table = empty();
 
         if (upper_bound > (1 << 18)) {
