@@ -79,21 +79,27 @@ namespace sat {
         //SASSERT(!m_solver || m_solver->check_clauses(m));
         while (it != begin) {
             --it;
-            SASSERT(it->get_kind() != ELIM_VAR || m[it->var()] == l_undef);
-            // if it->get_kind() == BLOCK_LIT, then it might be the case that m[it->var()] != l_undef,
+            bool_var v0 = it->var();
+            SASSERT(it->get_kind() != ELIM_VAR || m[v0] == l_undef);
+            // if it->get_kind() == BLOCK_LIT, then it might be the case that m[v] != l_undef,
             // and the following procedure flips its value.
             bool sat = false;
             bool var_sign = false;
             unsigned index = 0;
             literal_vector clause;
-            VERIFY(legal_to_flip(it->var()));
+            VERIFY(legal_to_flip(v0));
             for (literal l : it->m_clauses) {
                 if (l == null_literal) {
                     // end of clause
+                    if (v0 == 36858) 
+                        IF_VERBOSE(0, verbose_stream() << "clause: " << clause << "\n";
+                                   for (literal lit : clause) verbose_stream() << m[lit.var()] << " ";
+                                   verbose_stream() << "\n";);
+
                     elim_stack* st = it->m_elim_stack[index];
                     if (!sat) {     
-                        VERIFY(legal_to_flip(it->var()));                        
-                        m[it->var()] = var_sign ? l_false : l_true;
+                        VERIFY(legal_to_flip(v0));                        
+                        m[v0] = var_sign ? l_false : l_true;
                     }
                     if (st) {
                         process_stack(m, clause, st->stack());
@@ -115,11 +121,11 @@ namespace sat {
                 bool_var v = l.var();
                 if (v >= m.size()) std::cout << v << " model size: " << m.size() << "\n";
                 VERIFY(v < m.size());
-                if (v == it->var())
+                if (v == v0)
                     var_sign = sign;
                 if (value_at(l, m) == l_true)
                     sat = true;
-                else if (!sat && v != it->var() && m[v] == l_undef) {
+                else if (!sat && v != v0 && m[v] == l_undef) {
                     VERIFY(legal_to_flip(v));
                     // clause can be satisfied by assigning v.
                     m[v] = sign ? l_false : l_true;

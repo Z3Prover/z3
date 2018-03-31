@@ -1007,7 +1007,7 @@ namespace sat {
         }
 
         bool process_var(bool_var v) {
-            return !s.s.is_assumption(v) && !s.was_eliminated(v) && !s.is_external(v);
+            return !s.s.is_assumption(v) && !s.was_eliminated(v) && !s.is_external(v) && s.value(v) == l_undef;
         }
 
         enum elim_type {
@@ -1184,7 +1184,7 @@ namespace sat {
                 if (m_covered_antecedent[i] == clause_ante()) s.mark_visited(lit);
                 if (s.is_marked(lit)) idx = i; 
             }
-            if (_blocked.var() == 16774 && false) {
+            if (false && _blocked.var() == 16774) {
                 IF_VERBOSE(0, verbose_stream() << "covered: " << m_covered_clause << "\n";
                            verbose_stream() << "tautology: " << m_tautology << "\n";
                            verbose_stream() << "index: " << idx << "\n";
@@ -1232,7 +1232,7 @@ namespace sat {
             // unsigned sz0 = m_covered_clause.size();
             m_covered_clause.resize(j);
             VERIFY(j >= m_clause.size());
-            if (_blocked.var() == 16774 && false) {
+            if (false && _blocked.var() == 16774) {
                 IF_VERBOSE(0, verbose_stream() << "covered: " << m_covered_clause << "\n");
             }
             // IF_VERBOSE(0, verbose_stream() << "reduced from size " << sz0 << " to " << m_covered_clause << "\n" << m_clause << "\n";);
