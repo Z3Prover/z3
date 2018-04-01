@@ -1518,6 +1518,14 @@ namespace sat {
         }
 
         void block_covered_clause(clause& c, literal l, model_converter::kind k) {
+            if (false && l.var() == 39021) {
+                IF_VERBOSE(0, verbose_stream() << "blocked: " << l << " @ " << c << " :covered " << m_covered_clause << "\n";
+                           s.m_use_list.display(verbose_stream() << "use  " << l << ":", l);
+                           s.m_use_list.display(verbose_stream() << "use  " << ~l << ":", ~l);
+                           /*s.s.display(verbose_stream());*/
+                           );
+                
+            }
             TRACE("blocked_clause", tout << "new blocked clause: " << c << "\n";);
             SASSERT(!s.is_external(l));
             model_converter::entry& new_entry = mc.mk(k, l.var());
@@ -1563,7 +1571,6 @@ namespace sat {
             for (literal l2 : m_intersection) {
                 watched* w = find_binary_watch(s.get_wlist(~l), ~l2);
                 if (!w) {
-                    IF_VERBOSE(10, verbose_stream() << "bca " << l << " " << ~l2 << "\n";);
                     s.s.mk_bin_clause(l, ~l2, true);
                     ++s.m_num_bca;
                 }
@@ -1934,6 +1941,7 @@ namespace sat {
                 m_new_cls.reset();
                 if (!resolve(c1, c2, pos_l, m_new_cls))
                     continue;
+                // if (v == 39063) IF_VERBOSE(0, verbose_stream() << "elim: " << c1 << " +  " << c2 << " -> " << m_new_cls << "\n");
                 TRACE("resolution_new_cls", tout << c1 << "\n" << c2 << "\n-->\n" << m_new_cls << "\n";);
                 if (cleanup_clause(m_new_cls))
                     continue; // clause is already satisfied.
@@ -2045,7 +2053,7 @@ namespace sat {
         m_subsumption             = p.subsumption();
         m_subsumption_limit       = p.subsumption_limit();
         m_elim_vars               = p.elim_vars();
-        m_elim_vars_bdd           = p.elim_vars_bdd();
+        m_elim_vars_bdd           = false && p.elim_vars_bdd(); // buggy
         m_elim_vars_bdd_delay     = p.elim_vars_bdd_delay();
         m_incremental_mode        = s.get_config().m_incremental && !p.override_incremental();
     }

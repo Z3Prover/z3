@@ -114,10 +114,10 @@ class parallel_tactic : public tactic {
                     dec_wait();
                     return st;
                 }
-				{
-					std::unique_lock<std::mutex> lock(m_mutex);
-					m_cond.wait(lock);
-				}
+                {
+                    std::unique_lock<std::mutex> lock(m_mutex);
+                    m_cond.wait(lock);
+                }
                 dec_wait();
             }
             return nullptr;
@@ -233,7 +233,9 @@ class parallel_tactic : public tactic {
 
         void inc_depth(unsigned inc) { m_depth += inc; }
 
-        void inc_width(unsigned w) { m_width *= w;  }
+        void inc_width(unsigned w) { 
+            m_width *= w;  
+        }
         
         double get_width() const { return m_width; }
 
@@ -280,14 +282,14 @@ class parallel_tactic : public tactic {
         void set_cube_params() {
             unsigned cutoff = m_cube_cutoff;
             double fraction = m_cube_fraction; 
-            if (m_depth == 1 && cutoff > 0) {
-                fraction = 0; // use fixed cubing at depth 1.
+            if (true || (m_depth == 1 && cutoff > 0)) {
+                m_params.set_sym("lookahead.cube.cutoff", symbol("depth"));
+                m_params.set_uint("lookahead.cube.depth", std::max(m_depth, 10u));
             }
             else {
-                cutoff = 0;   // use dynamic cubing beyond depth 1
+                m_params.set_sym("lookahead.cube.cutoff", symbol("adaptive_psat"));
+                m_params.set_double("lookahead.cube.fraction", fraction);
             }
-            m_params.set_uint ("lookahead.cube.cutoff", cutoff);
-            m_params.set_double("lookahead.cube.fraction", fraction);
             get_solver().updt_params(m_params);
         }
         
@@ -329,6 +331,7 @@ private:
     task_queue   m_queue;
     std::mutex   m_mutex;
     double       m_progress;
+    unsigned     m_branches;
     bool         m_has_undef;
     bool         m_allsat;
     unsigned     m_num_unsat;
@@ -341,8 +344,14 @@ private:
         m_has_undef = false;
         m_allsat = false;
         m_num_unsat = 0;
+        m_branches = 0;
         m_exn_code = 0;
         m_params.set_bool("override_incremental", true);
+    }
+
+    void add_branches(unsigned b) {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_branches += b;
     }
 
     void close_branch(solver_state& s, lbool status) {
@@ -350,11 +359,12 @@ private:
         {
             std::lock_guard<std::mutex> lock(m_mutex);
             m_progress += f;
+            --m_branches;
         }
-        IF_VERBOSE(1, verbose_stream() << "(tactic.parallel :progress " << m_progress << "% ";
+        IF_VERBOSE(0, verbose_stream() << "(tactic.parallel :progress " << m_progress << "% ";
                    if (status == l_true)  verbose_stream() << ":status sat ";
                    if (status == l_undef) verbose_stream() << ":status unknown ";
-                   verbose_stream() << ":unsat " << m_num_unsat << ")\n";);
+                   verbose_stream() << ":unsat " << m_num_unsat << " :branches " << m_branches << ")\n";);
     }
 
     void report_sat(solver_state& s) {
@@ -401,7 +411,7 @@ private:
         cube.reset();
         cube.append(s.split_cubes(1));
         SASSERT(cube.size() <= 1);
-        IF_VERBOSE(2, verbose_stream() << "(sat.parallel :split-cube " << cube.size() << ")\n";);
+        IF_VERBOSE(2, verbose_stream() << "(tactic.parallel :split-cube " << cube.size() << ")\n";);
         if (!s.cubes().empty()) m_queue.add_task(s.clone());
         if (!cube.empty()) s.assert_cube(cube.get(0));
         s.inc_depth(1);
@@ -430,8 +440,8 @@ private:
             cubes.push_back(mk_and(c));            
         }
 
-        IF_VERBOSE(1, verbose_stream() << "(parallel_tactic :cubes " << cubes.size() << ")\n";);
-        IF_VERBOSE(10, verbose_stream() << "(parallel_tactic :cubes " << cubes << ")\n";);
+        IF_VERBOSE(1, verbose_stream() << "(tactic.parallel :cubes " << cubes.size() << ")\n";);
+        IF_VERBOSE(12, verbose_stream() << "(tactic.parallel :cubes " << cubes << ")\n";);
 
         if (cubes.empty()) {
             report_unsat(s);
@@ -439,6 +449,7 @@ private:
         }
         else {
             s.inc_width(cubes.size());
+            add_branches(cubes.size());
             s.set_cubes(cubes);
             s.set_type(conquer_task);            
             goto conquer;
@@ -462,7 +473,7 @@ private:
             }
             if (canceled(s)) return;
         }
-        IF_VERBOSE(1, verbose_stream() << "(parallel_tactic :cubes " << cubes.size() << " :hard-cubes " << hard_cubes.size() << ")\n";);
+        IF_VERBOSE(1, verbose_stream() << "(tactic.parallel :cubes " << cubes.size() << " :hard-cubes " << hard_cubes.size() << ")\n";);
         if (hard_cubes.empty()) return;
 
         s.set_cubes(hard_cubes);
@@ -534,7 +545,7 @@ private:
         m_stats.display(out);
         m_queue.display(out);
         std::lock_guard<std::mutex> lock(m_mutex);
-        out << "(parallel_tactic :unsat " << m_num_unsat << " :progress " << m_progress << "% :models " << m_models.size() << ")\n";
+        out << "(tactic.parallel :unsat " << m_num_unsat << " :progress " << m_progress << "% :models " << m_models.size() << ")\n";
         return out;
     }
 

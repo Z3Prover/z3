@@ -57,7 +57,7 @@ namespace sat {
         bdd make_clauses(literal lit);
         bdd mk_literal(literal l);
         void get_clauses(bdd const& b, literal_vector& lits, clause_vector& clauses, literal_vector& units);
-        void add_clauses(bdd const& b, literal_vector& lits);
+        void add_clauses(bool_var v, bdd const& b, literal_vector& lits);
         bool elim_var(bool_var v, bdd const& b);
         bdd  elim_var(bool_var v);
 

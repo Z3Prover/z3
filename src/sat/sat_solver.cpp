@@ -1654,11 +1654,10 @@ namespace sat {
 
         // m_mc.set_solver(nullptr);
         m_mc(m_model);
-
         
         if (!check_clauses(m_model)) {
             IF_VERBOSE(0, verbose_stream() << "failure checking clauses on transformed model\n";);
-            IF_VERBOSE(10, m_mc.display(verbose_stream()));
+            // IF_VERBOSE(10, m_mc.display(verbose_stream()));
             throw solver_exception("check model failed");
         }
 

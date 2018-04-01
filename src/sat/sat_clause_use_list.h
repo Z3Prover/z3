@@ -124,6 +124,15 @@ namespace sat {
         };
         
         iterator mk_iterator() const { return iterator(const_cast<clause_use_list*>(this)->m_clauses); }
+
+        std::ostream& display(std::ostream& out) const {
+            iterator it = mk_iterator();
+            while (!it.at_end()) {
+                out << it.curr() << "\n";
+                it.next();
+            }
+            return out;
+        }
     };
 
 };

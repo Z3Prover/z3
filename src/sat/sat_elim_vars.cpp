@@ -101,7 +101,7 @@ namespace sat{
         pos_occs.reset();
         neg_occs.reset();
         literal_vector lits;
-        add_clauses(b, lits);         
+        add_clauses(v, b, lits);         
         return true;
     }
 
@@ -157,7 +157,7 @@ namespace sat{
         return b;
     }
 
-    void elim_vars::add_clauses(bdd const& b, literal_vector& lits) {
+    void elim_vars::add_clauses(bool_var v0, bdd const& b, literal_vector& lits) {
         if (b.is_true()) {
             // no-op
         }
@@ -167,6 +167,7 @@ namespace sat{
             if (simp.cleanup_clause(c)) 
                 return;
             
+            if (v0 == 39063) IF_VERBOSE(0, verbose_stream() << "bdd: " << c << "\n");
             switch (c.size()) {
             case 0:
                 s.set_conflict(justification());
@@ -198,10 +199,10 @@ namespace sat{
         else {
             unsigned v = m_vars[b.var()];
             lits.push_back(literal(v, false));
-            add_clauses(b.lo(), lits);
+            add_clauses(v0, b.lo(), lits);
             lits.pop_back();
             lits.push_back(literal(v, true));
-            add_clauses(b.hi(), lits);
+            add_clauses(v0, b.hi(), lits);
             lits.pop_back();
         }
     }

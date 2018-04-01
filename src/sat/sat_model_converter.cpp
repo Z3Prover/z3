@@ -91,11 +91,6 @@ namespace sat {
             for (literal l : it->m_clauses) {
                 if (l == null_literal) {
                     // end of clause
-                    if (v0 == 36858) 
-                        IF_VERBOSE(0, verbose_stream() << "clause: " << clause << "\n";
-                                   for (literal lit : clause) verbose_stream() << m[lit.var()] << " ";
-                                   verbose_stream() << "\n";);
-
                     elim_stack* st = it->m_elim_stack[index];
                     if (!sat) {     
                         VERIFY(legal_to_flip(v0));                        
