@@ -171,6 +171,9 @@ namespace smt {
             m_interpreted = true;
         }
 
+        inline bool equal(const enode & other) const {
+            return m_owner == other.m_owner;
+        }
 
         void del_eh(ast_manager & m, bool update_children_parent = true);
         
@@ -422,6 +425,10 @@ namespace smt {
     };
 
 };
+
+inline bool operator==(const smt::enode & e1, const smt::enode & e2) {
+    return e1.equal(e2);
+}
 
 #endif /* SMT_ENODE_H_ */
 

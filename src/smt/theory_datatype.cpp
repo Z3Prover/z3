@@ -389,14 +389,13 @@ namespace smt {
     final_check_status theory_datatype::final_check_eh() {
         int num_vars = get_num_vars();
         final_check_status r = FC_DONE;
-        init_final_check();
+        final_check_st _guard(this); // RAII for managing state
         for (int v = 0; v < num_vars; v++) {
             if (v == static_cast<int>(m_find.find(v))) {
                 enode * node = get_enode(v);
                 if (occurs_check(node)) {
                     // conflict was detected... 
                     // return...
-                    cleanup_final_check();
                     return FC_CONTINUE;
                 }
                 if (m_params.m_dt_lazy_splits > 0) {
@@ -409,8 +408,60 @@ namespace smt {
                 }
             }
         }
-        cleanup_final_check();
         return r;
+    }
+
+    // explain the cycle root -> … -> app -> root
+    void theory_datatype::occurs_check_explain(enode * app, enode * const root) {
+        TRACE("datatype", tout << "occurs_check_explain " << mk_bounded_pp(app->get_owner(), get_manager()) << " <-> " << mk_bounded_pp(root->get_owner(), get_manager()) << "\n";);
+        enode* app_parent = nullptr;
+
+        while (app->get_root() != root->get_root()) {
+            theory_var v = app->get_root()->get_th_var(get_id());
+            SASSERT(v != null_theory_var);
+            v = m_find.find(v);
+            var_data * d = m_var_data[v];
+            SASSERT(d->m_constructor);
+            if (app != d->m_constructor)
+                m_used_eqs.push_back(enode_pair(app, d->m_constructor));
+            bool found = m_parent.find(app, app_parent);
+            SASSERT(found);
+            app = app_parent;
+        }
+
+        SASSERT(app->get_root() == root->get_root());
+        if (app != root)
+          m_used_eqs.push_back(enode_pair(app, root));
+    }
+
+    // start exploring subgraph below `app`
+    bool theory_datatype::occurs_check_enter(enode * app) {
+        oc_mark_on_stack(app);
+        theory_var v = app->get_root()->get_th_var(get_id());
+        if (v != null_theory_var) {
+            v = m_find.find(v);
+            var_data * d = m_var_data[v];
+            if (d->m_constructor) {
+                unsigned num_args = d->m_constructor->get_num_args();
+                for (unsigned i = 0; i < num_args; i++) {
+                    enode * arg = d->m_constructor->get_arg(i);
+                    if (oc_cycle_free(arg)) {
+                        return false;
+                    }
+                    if (oc_on_stack(arg)) {
+                        // arg was explored before app, and is still on the stack: cycle
+                        occurs_check_explain(app, arg);
+                        return true;
+                    }
+                    // explore `arg` (with parent `app`)
+                    if (m_util.is_datatype(get_manager().get_sort(arg->get_owner()))) {
+                        m_parent.insert(arg, app);
+                        oc_push_stack(arg);
+                    }
+                }
+            }
+        }
+        return false;
     }
 
     /**
@@ -421,67 +472,46 @@ namespace smt {
        a3 = cons(v3, a1)
     */
     bool theory_datatype::occurs_check(enode * n) {
-        TRACE("datatype", tout << "occurs check: #" << n->get_owner_id() << "\n";);
-        m_to_unmark.reset();
-        m_used_eqs.reset();
-        m_main   = n;
-        bool res = occurs_check_core(m_main);
-        unmark_enodes(m_to_unmark.size(), m_to_unmark.c_ptr());
+        TRACE("datatype", tout << "occurs check: #" << n->get_owner_id() << " " << mk_bounded_pp(n->get_owner(), get_manager()) << "\n";);
+        m_stats.m_occurs_check++;
+
+        bool res = false;
+        oc_push_stack(n);
+
+        // DFS traversal from `n`. Look at top element and explore it.
+        while (!res && !m_stack.empty()) {
+            stack_op op = m_stack.back().first;
+            enode * app = m_stack.back().second;
+            m_stack.pop_back();
+
+            if (oc_cycle_free(app)) continue;
+
+            TRACE("datatype", tout << "occurs check loop: #" << app->get_owner_id() << " " << mk_bounded_pp(app->get_owner(), get_manager()) << (op==ENTER?" enter":" exit")<< "\n";);
+
+            switch (op) {
+            case ENTER:
+              res = occurs_check_enter(app) || res;
+              break;
+
+            case EXIT:
+              oc_mark_cycle_free(app);
+              break;
+            }
+        }
+
         if (res) {
+            // m_used_eqs should contain conflict
             context & ctx = get_context();
             region & r    = ctx.get_region();
             ctx.set_conflict(ctx.mk_justification(ext_theory_conflict_justification(get_id(), r, 0, nullptr, m_used_eqs.size(), m_used_eqs.c_ptr())));
-            TRACE("occurs_check",
+            TRACE("datatype",
                   tout << "occurs_check: true\n";
                   for (enode_pair const& p : m_used_eqs) {
                       tout << "eq: #" << p.first->get_owner_id() << " #" << p.second->get_owner_id() << "\n";
                       tout << mk_bounded_pp(p.first->get_owner(), get_manager()) << " " << mk_bounded_pp(p.second->get_owner(), get_manager()) << "\n";
                   });
-        } else {
-            oc_mark_cycle_free(n);
         }
         return res;
-    }
-
-    /**
-       \brief Auxiliary method for occurs_check.
-       TODO: improve performance.
-    */
-    bool theory_datatype::occurs_check_core(enode * app) {
-        if (oc_cycle_free(app) || oc_explored(app))
-            return false;
-        
-        m_stats.m_occurs_check++;
-        oc_mark_explore(app);
-        
-        TRACE("datatype", tout << "occurs check_core: #" << app->get_owner_id() << " #" << m_main->get_owner_id() << "\n";);
-
-        theory_var v = app->get_root()->get_th_var(get_id());
-        if (v != null_theory_var) {
-            v = m_find.find(v);
-            var_data * d = m_var_data[v];
-            if (d->m_constructor) {
-                if (app != d->m_constructor)
-                    m_used_eqs.push_back(enode_pair(app, d->m_constructor));
-                unsigned num_args = d->m_constructor->get_num_args();
-                for (unsigned i = 0; i < num_args; i++) {
-                    enode * arg = d->m_constructor->get_arg(i);
-                    if (arg->get_root() == m_main->get_root()) {
-                        if (arg != m_main)
-                            m_used_eqs.push_back(enode_pair(arg, m_main));
-                        return true;
-                    }
-                    if (m_util.is_datatype(get_manager().get_sort(arg->get_owner())) && occurs_check_core(arg))
-                        return true;
-                }
-                if (app != d->m_constructor) {
-                    SASSERT(m_used_eqs.back().first  == app);
-                    SASSERT(m_used_eqs.back().second == d->m_constructor);
-                    m_used_eqs.pop_back();
-                }
-            }
-        }
-        return false;
     }
         
     void theory_datatype::reset_eh() {
