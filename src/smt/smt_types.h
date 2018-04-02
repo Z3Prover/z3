@@ -21,6 +21,7 @@ Revision History:
 
 #include "util/list.h"
 #include "util/vector.h"
+#include "util/hashtable.h"
 #include "util/lbool.h"
 
 class model;
@@ -46,6 +47,7 @@ namespace smt {
     typedef ptr_vector<enode> enode_vector;
     typedef std::pair<enode *, enode *> enode_pair;
     typedef svector<enode_pair> enode_pair_vector;
+    typedef ptr_hashtable<enode, obj_ptr_hash<enode>, deref_eq<enode> > enode_tbl;
 
     class context;
 
