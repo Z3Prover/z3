@@ -74,8 +74,24 @@ namespace smt {
         void sign_recognizer_conflict(enode * c, enode * r);
 
         ptr_vector<enode>    m_to_unmark;
+        ptr_vector<enode>    m_to_unmark2;
         enode_pair_vector    m_used_eqs;
         enode *              m_main;
+
+        void oc_mark_explore(enode * n) { n->set_mark(); m_to_unmark.push_back(n); }
+        bool oc_explored(enode * n) const { n->is_marked(); }
+
+        void oc_mark_cycle_free(enode * n) { n->set_mark2(); m_to_unmark2.push_back(n); }
+        bool oc_cycle_free(enode * n) const { n->is_marked2(); }
+
+        void init_final_check() {
+          m_to_unmark2.reset();
+        }
+        void cleanup_final_check() {
+          unmark_enodes2(m_to_unmark2.size(), m_to_unmark2.c_ptr());
+          m_to_unmark2.reset();
+        }
+
         bool occurs_check(enode * n);
         bool occurs_check_core(enode * n);
 

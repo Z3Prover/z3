@@ -389,12 +389,14 @@ namespace smt {
     final_check_status theory_datatype::final_check_eh() {
         int num_vars = get_num_vars();
         final_check_status r = FC_DONE;
+        init_final_check();
         for (int v = 0; v < num_vars; v++) {
             if (v == static_cast<int>(m_find.find(v))) {
                 enode * node = get_enode(v);
                 if (occurs_check(node)) {
                     // conflict was detected... 
                     // return...
+                    cleanup_final_check();
                     return FC_CONTINUE;
                 }
                 if (m_params.m_dt_lazy_splits > 0) {
@@ -407,6 +409,7 @@ namespace smt {
                 }
             }
         }
+        cleanup_final_check();
         return r;
     }
 
@@ -434,6 +437,8 @@ namespace smt {
                       tout << "eq: #" << p.first->get_owner_id() << " #" << p.second->get_owner_id() << "\n";
                       tout << mk_bounded_pp(p.first->get_owner(), get_manager()) << " " << mk_bounded_pp(p.second->get_owner(), get_manager()) << "\n";
                   });
+        } else {
+            oc_mark_cycle_free(n);
         }
         return res;
     }
@@ -443,12 +448,11 @@ namespace smt {
        TODO: improve performance.
     */
     bool theory_datatype::occurs_check_core(enode * app) {
-        if (app->is_marked())
+        if (oc_cycle_free(app) || oc_explored(app))
             return false;
         
         m_stats.m_occurs_check++;
-        app->set_mark();
-        m_to_unmark.push_back(app);
+        oc_mark_explore(app);
         
         TRACE("datatype", tout << "occurs check_core: #" << app->get_owner_id() << " #" << m_main->get_owner_id() << "\n";);
 
