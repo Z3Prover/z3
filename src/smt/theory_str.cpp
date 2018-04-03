@@ -1854,6 +1854,9 @@ namespace smt {
             std::pair<expr*, zstring> key1(ex->get_arg(0), regexStr);
             // skip Z3str's map check, because we already check if we set up axioms on this term
             regex_in_bool_map[key1] = ex;
+            if (!regex_in_var_reg_str_map.contains(ex->get_arg(0))) {
+                regex_in_var_reg_str_map.insert(ex->get_arg(0), std::set<zstring>());
+            }
             regex_in_var_reg_str_map[ex->get_arg(0)].insert(regexStr);
         }
 
