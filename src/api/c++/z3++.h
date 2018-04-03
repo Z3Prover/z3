@@ -267,6 +267,15 @@ namespace z3 {
            and in \c ts the predicates for testing if terms of the enumeration sort correspond to an enumeration.
         */
         sort enumeration_sort(char const * name, unsigned n, char const * const * enum_names, func_decl_vector & cs, func_decl_vector & ts);
+
+        /**
+           \brief Return a tuple constructor.
+           \c name is the name of the returned constructor,
+           \c n are the number of arguments, \c names and \c sorts are their projected sorts.
+           \c projs is an output paramter. It contains the set of projection functions.
+        */
+        func_decl tuple_sort(char const * name, unsigned n, char const * const * names, sort const* sorts, func_decl_vector & projs);
+
         /**
            \brief create an uninterpreted sort with the name given by the string or symbol.
          */
@@ -2432,6 +2441,19 @@ namespace z3 {
         for (unsigned i = 0; i < n; i++) { cs.push_back(func_decl(*this, _cs[i])); ts.push_back(func_decl(*this, _ts[i])); }
         return s;
     }
+    inline func_decl context::tuple_sort(char const * name, unsigned n, char const * const * names, sort const* sorts, func_decl_vector & projs) {
+        array<Z3_symbol> _names(n);
+        array<Z3_sort> _sorts(n);
+        for (unsigned i = 0; i < n; i++) { _names[i] = Z3_mk_string_symbol(*this, names[i]); _sorts[i] = sorts[i]; }
+        array<Z3_func_decl> _projs(n);
+        Z3_symbol _name = Z3_mk_string_symbol(*this, name);
+        Z3_func_decl tuple;
+        sort _ignore_s = to_sort(*this, Z3_mk_tuple_sort(*this, _name, n, _names.ptr(), _sorts.ptr(), &tuple, _projs.ptr()));
+        check_error();
+        for (unsigned i = 0; i < n; i++) { projs.push_back(func_decl(*this, _projs[i])); }
+        return func_decl(*this, tuple);
+    }
+
     inline sort context::uninterpreted_sort(char const* name) {
         Z3_symbol _name = Z3_mk_string_symbol(*this, name);
         return to_sort(*this, Z3_mk_uninterpreted_sort(*this, _name));
