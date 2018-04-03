@@ -393,7 +393,7 @@ namespace smt {
         for (int v = 0; v < num_vars; v++) {
             if (v == static_cast<int>(m_find.find(v))) {
                 enode * node = get_enode(v);
-                if (occurs_check(node)) {
+                if (!oc_cycle_free(node) && occurs_check(node)) {
                     // conflict was detected... 
                     // return...
                     return FC_CONTINUE;

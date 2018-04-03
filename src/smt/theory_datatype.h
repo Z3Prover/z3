@@ -104,8 +104,8 @@ namespace smt {
             theory_datatype * th;
             public:
             final_check_st(theory_datatype * th) : th(th) {
-                th->m_to_unmark2.reset();
                 th->m_to_unmark.reset();
+                th->m_to_unmark2.reset();
                 th->m_used_eqs.reset();
                 th->m_stack.reset();
                 th->m_parent.reset();
@@ -115,6 +115,7 @@ namespace smt {
                 unmark_enodes2(th->m_to_unmark2.size(), th->m_to_unmark2.c_ptr());
                 th->m_to_unmark.reset();
                 th->m_to_unmark2.reset();
+                th->m_used_eqs.reset();
                 th->m_stack.reset();
                 th->m_parent.reset();
             }
