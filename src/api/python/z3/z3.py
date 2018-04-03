@@ -114,15 +114,26 @@ def _symbol2py(ctx, s):
 
 # Hack for having nary functions that can receive one argument that is the
 # list of arguments.
+# Use this when function takes a single list of arguments
 def _get_args(args):
-    try:
-        if len(args) == 1 and (isinstance(args[0], tuple) or isinstance(args[0], list)):
+     try:
+       if len(args) == 1 and (isinstance(args[0], tuple) or isinstance(args[0], list)):
             return args[0]
-        elif len(args) == 1 and (isinstance(args[0], set) or isinstance(args[0], AstVector)):
+       elif len(args) == 1 and (isinstance(args[0], set) or isinstance(args[0], AstVector)):
             return [arg for arg in args[0]]
+       else:
+            return args
+     except:  # len is not necessarily defined when args is not a sequence (use reflection?)
+        return args
+
+# Use this when function takes multiple arguments
+def _get_args_ast_list(args):
+    try:
+        if isinstance(args, set) or isinstance(args, AstVector) or isinstance(args, tuple):
+            return [arg for arg in args]
         else:
             return args
-    except:  # len is not necessarily defined when args is not a sequence (use reflection?)
+    except:
         return args
 
 def _to_param_value(val):
@@ -366,9 +377,6 @@ class AstRef(Z3PPObject):
         return _to_ast_ref(Z3_translate(self.ctx.ref(), self.as_ast(), target.ref()), target)
 
     def __copy__(self):
-        return self.translate(self.ctx)
-
-    def __deepcopy__(self):
         return self.translate(self.ctx)
 
     def hash(self):
@@ -7946,8 +7954,10 @@ def AtLeast(*args):
     return BoolRef(Z3_mk_atleast(ctx.ref(), sz, _args, k), ctx)
 
 
-def _pb_args_coeffs(args):
-    args  = _get_args(args)
+def _pb_args_coeffs(args, default_ctx = None):
+    args  = _get_args_ast_list(args)
+    if len(args) == 0:
+       return _get_ctx(default_ctx), 0, (Ast * 0)(), (ctypes.c_int * 0)()
     args, coeffs = zip(*args)
     if __debug__:
         _z3_assert(len(args) > 0, "Non empty list of arguments expected")
@@ -7979,7 +7989,7 @@ def PbGe(args, k):
     ctx, sz, _args, _coeffs = _pb_args_coeffs(args)
     return BoolRef(Z3_mk_pbge(ctx.ref(), sz, _args, _coeffs, k), ctx)
 
-def PbEq(args, k):
+def PbEq(args, k, ctx = None):
     """Create a Pseudo-Boolean inequality k constraint.
 
     >>> a, b, c = Bools('a b c')

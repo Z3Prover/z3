@@ -2404,8 +2404,7 @@ bool theory_seq::add_stoi_val_axiom(expr* e) {
             lits.push_back(~is_digit(ith_char));
             nums.push_back(digit2int(ith_char));
         }        
-        for (unsigned i = sz-1, c = 1; i > 0; c *= 10) {
-            --i;
+        for (unsigned i = sz, c = 1; i-- > 0; c *= 10) {
             coeff = m_autil.mk_int(c);
             nums[i] = m_autil.mk_mul(coeff, nums[i].get());
         }
@@ -2414,9 +2413,10 @@ bool theory_seq::add_stoi_val_axiom(expr* e) {
         lits.push_back(mk_eq(e, num, false));
         ++m_stats.m_add_axiom;
         m_new_propagation = true;
-        for (unsigned i = 0; i < lits.size(); ++i) {
-            ctx.mark_as_relevant(lits[i]);
+        for (literal lit : lits) {
+            ctx.mark_as_relevant(lit);
         }
+        TRACE("seq", ctx.display_literals_verbose(tout, lits); tout << "\n";);
         ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
         m_stoi_axioms.insert(val);
         m_trail_stack.push(insert_map<theory_seq, rational_set, rational>(m_stoi_axioms, val));

@@ -255,12 +255,12 @@ public:
         catch (const char *msg) {
             throw interpolation_failure(msg);
         }
-        catch (const iz3translation::unsupported &) {
-            TRACE("iz3", tout << "unsupported\n";);
+        catch (const iz3translation::unsupported & ex) {
+            TRACE("iz3", tout << "unsupported " << "\n";);
             throw interpolation_error();
         }
-        catch (const iz3proof::proof_error &) {
-            TRACE("iz3", tout << "proof error\n";);
+        catch (const iz3proof::proof_error & ex) {
+            TRACE("iz3", tout << "proof error " << "\n";);
             throw interpolation_error();
         }
         profiling::timer_stop("Proof translation");
@@ -306,8 +306,8 @@ public:
             catch (const char *msg) {
                 throw interpolation_failure(msg);
             }
-            catch (const iz3translation::unsupported &) {
-                TRACE("iz3", tout << "unsupported\n";);
+            catch (const iz3translation::unsupported & ex) {
+                TRACE("iz3", tout << "unsupported " << "\n";);
                 throw interpolation_error();
             }
             catch (const iz3proof::proof_error &) {
