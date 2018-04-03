@@ -424,7 +424,7 @@ namespace smt {
             SASSERT(d->m_constructor);
             if (app != d->m_constructor)
                 m_used_eqs.push_back(enode_pair(app, d->m_constructor));
-            bool found = m_parent.find(app, app_parent);
+            bool found = m_parent.find(app->get_root(), app_parent);
             SASSERT(found);
             app = app_parent;
         }
@@ -455,7 +455,7 @@ namespace smt {
                     }
                     // explore `arg` (with parent `app`)
                     if (m_util.is_datatype(get_manager().get_sort(arg->get_owner()))) {
-                        m_parent.insert(arg, app);
+                        m_parent.insert(arg->get_root(), app);
                         oc_push_stack(arg);
                     }
                 }
