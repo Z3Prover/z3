@@ -949,8 +949,9 @@ namespace smt2 {
             check_duplicate(d, line, pos);
 
             d->commit(pm());
-            check_rparen_next("invalid end of datatype declaration, ')' expected");
+            check_rparen("invalid end of datatype declaration, ')' expected");
             m_ctx.print_success();
+            next();
         }
 
 
