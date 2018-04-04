@@ -45,6 +45,13 @@ void int_solver::trace_inf_rows() const {
           );
 }
 
+bool int_solver::all_columns_are_bounded() const {
+    for (unsigned j = 0; j < m_lar_solver->column_count(); j++)
+        if (m_lar_solver->column_is_bounded(j) == false)
+            return false;
+    return true;
+}
+
 bool int_solver::has_inf_int() const {
     return m_lar_solver->has_inf_int();
 }
@@ -578,7 +585,7 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex, bool & upper) {
     }
     TRACE("cube", tout << "cube did not succeed";);
     
-    if ((m_branch_cut_counter) % settings().m_int_branch_cut_solver == 0) {
+    if ((m_branch_cut_counter) % settings().m_int_branch_cut_solver == 0 && all_columns_are_bounded()) {
         TRACE("check_main_int", tout<<"cut_solver";);
         catch_up_in_adding_constraints_to_cut_solver();
         auto check_res = m_cut_solver.check();
@@ -700,7 +707,6 @@ void int_solver::patch_int_infeasible_non_basic_column(unsigned j) {
     impq l, u;
     mpq m;
     if (!get_value(j).is_int() || !get_freedom_interval_for_column(j, inf_l, l, inf_u, u, m)) {
-        move_non_basic_column_to_bounds(j);
         return;
     }
     auto & lcs = m_lar_solver->m_mpq_lar_core_solver; 
@@ -724,7 +730,6 @@ void int_solver::patch_int_infeasible_non_basic_column(unsigned j) {
         if (inf_u || l <= u) {
             TRACE("patch_int",
                   tout << "patching with l: " << l << '\n';);
-
             set_value_for_nbasic_column(j, l);
         }
         else {
@@ -748,13 +753,9 @@ void int_solver::patch_int_infeasible_nbasic_columns() {
     lp_assert(is_feasible());
     for (unsigned j : m_lar_solver->m_mpq_lar_core_solver.m_r_nbasis) {
         patch_int_infeasible_non_basic_column(j);
-        if (!is_feasible())
-            break;
     }
-    if (!is_feasible()) {
-        move_non_basic_columns_to_bounds();
-        m_lar_solver->find_feasible_solution();
-    }
+    
+    lp_assert(is_feasible());
 }
 
 mpq get_denominators_lcm(const row_strip<mpq> & row) {
@@ -1019,7 +1020,7 @@ bool int_solver::get_freedom_interval_for_column(unsigned j, bool & inf_l, impq 
             if (has_low(i))
                 set_upper(u, inf_u, xj + (xi - lcs.m_r_lower_bounds()[i]) / a);
         }
-        if (!inf_l && !inf_u && l == u) break;;                
+        if (!inf_l && !inf_u && l >= u) break;                
     }
 
     TRACE("freedom_interval",
@@ -1031,11 +1032,9 @@ bool int_solver::get_freedom_interval_for_column(unsigned j, bool & inf_l, impq 
           if (inf_u) tout << "oo";  else tout << u;
           tout << "]\n";
           tout << "val = " << get_value(j) << "\n";
+          tout << "return " << (inf_l || inf_u || l <= u);
           );
-    lp_assert(inf_l || l <= get_value(j));
-    lp_assert(inf_u || u >= get_value(j));
-    return true;
-
+    return (inf_l || inf_u || l <= u);
 }
 
 bool int_solver::is_int(unsigned j) const {

@@ -177,5 +177,6 @@ public:
     bool tighten_terms_for_cube();
     bool tighten_term_for_cube(unsigned);
     unsigned column_count() const;
+    bool all_columns_are_bounded() const;
 };
 }
