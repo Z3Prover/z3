@@ -499,18 +499,43 @@ void int_solver::catch_up_in_adding_constraints_to_cut_solver() {
     }
 }
 
+impq int_solver::get_cube_delta_for_term(const lar_term& t) const {
+    if (t.size() == 2) {
+        bool seen_minus = false;
+        bool seen_plus = false;
+        for(const auto & p : t) {
+            const mpq & c = p.coeff();
+            if (c == one_of_type<mpq>()) {
+                seen_plus = true;
+            } else if (c == -one_of_type<mpq>()) {
+                seen_minus = true;
+            } else {
+                goto usual_delta;
+            }
+        }
+        if (seen_minus && seen_plus)
+            return zero_of_type<impq>();
+        return impq(0, 1);
+    }
+ usual_delta:
+    mpq delta = zero_of_type<mpq>();
+    for (const auto & p : t) {
+        delta += abs(p.coeff());
+    }
+    delta *= mpq(1, 2);
+    return impq(delta);
+}
+
 bool int_solver::tighten_term_for_cube(unsigned i) {
     unsigned ti = i + m_lar_solver->terms_start_index();
     if (!m_lar_solver->term_is_used_as_row(ti))
         return true;
     const lar_term* t = m_lar_solver->terms()[i];
-    mpq delta = zero_of_type<mpq>();
-    for (const auto & p : *t) {
-        delta += abs(p.coeff());
-    }
-    delta *= mpq(1, 2);
+    
+    impq delta = get_cube_delta_for_term(*t);
     TRACE("cube", m_lar_solver->print_term_as_indices(*t, tout); tout << ", delta = " << delta;);
-
+    if (is_zero(delta))
+        return true;
     return m_lar_solver->tighten_term_bounds_by_delta(i, delta);
 }
 
