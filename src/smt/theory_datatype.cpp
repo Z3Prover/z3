@@ -412,7 +412,7 @@ namespace smt {
     }
 
     // explain the cycle root -> … -> app -> root
-    void theory_datatype::occurs_check_explain(enode * app, enode * const root) {
+    void theory_datatype::occurs_check_explain(enode * app, enode * root) {
         TRACE("datatype", tout << "occurs_check_explain " << mk_bounded_pp(app->get_owner(), get_manager()) << " <-> " << mk_bounded_pp(root->get_owner(), get_manager()) << "\n";);
         enode* app_parent = nullptr;
 
@@ -424,8 +424,7 @@ namespace smt {
             SASSERT(d->m_constructor);
             if (app != d->m_constructor)
                 m_used_eqs.push_back(enode_pair(app, d->m_constructor));
-            bool found = m_parent.find(app->get_root(), app_parent);
-            SASSERT(found);
+            app_parent = m_parent[app->get_root()];
             app = app_parent;
         }
 
