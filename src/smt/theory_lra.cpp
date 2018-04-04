@@ -306,9 +306,11 @@ class theory_lra::imp {
         reset_variable_values();
         m_solver->settings().bound_propagation() = BP_NONE != propagation_mode();
         m_solver->set_track_pivoted_rows(lp.bprop_on_pivoted_rows());
-        m_solver->settings().m_int_branch_cut_gomory_threshold = ctx().get_fparams().m_arith_branch_cut_ratio;
-        m_solver->settings().m_int_branch_cut_solver = std::max(8u, ctx().get_fparams().m_arith_branch_cut_ratio);
-        m_solver->settings().m_run_gcd_test = ctx().get_fparams().m_arith_gcd_test;
+        m_solver->settings().m_int_gomory_cut_period = ctx().get_fparams().m_arith_branch_cut_ratio;
+        m_solver->settings().m_int_cuts_etc_period = ctx().get_fparams().m_arith_branch_cut_ratio;
+        m_solver->settings().m_int_cut_solver_period = std::max(8u, ctx().get_fparams().m_arith_branch_cut_ratio);
+        m_solver->settings().m_int_run_gcd_test = ctx().get_fparams().m_arith_gcd_test;
+        
         m_solver->settings().set_random_seed(ctx().get_fparams().m_random_seed);
         //m_solver->settings().set_ostream(0);
         m_lia = alloc(lp::int_solver, m_solver.get());
@@ -1286,7 +1288,7 @@ public:
         lp::explanation ex; // TBD, this should be streamlined accross different explanations
         bool upper;
         switch(m_lia->check(term, k, ex, upper)) {
-        case lp::lia_move::ok:
+        case lp::lia_move::sat:
             return l_true;
         case lp::lia_move::branch: {
             app_ref b = mk_bound(term, k, !upper);
@@ -1321,8 +1323,8 @@ public:
             m_explanation = ex.m_explanation;
             set_conflict1();
             return l_false;
-        case lp::lia_move::give_up:
-            TRACE("arith", tout << "lia giveup\n";);
+        case lp::lia_move::undef:
+            TRACE("arith", tout << "lia undef\n";);
             return l_undef;
         default:
             UNREACHABLE();
@@ -2818,6 +2820,8 @@ public:
         st.update("gcd-conflict", m_solver->settings().st().m_gcd_conflicts);
         st.update("cube-calls", m_solver->settings().st().m_cube_calls);
         st.update("cube-success", m_solver->settings().st().m_cube_success);
+        st.update("arith-patches", m_solver->settings().st().m_patches);
+        st.update("arith-patches-success", m_solver->settings().st().m_patches_success);
     }        
 };
     

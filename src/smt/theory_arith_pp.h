@@ -38,6 +38,8 @@ namespace smt {
         st.update("arith gcd tests", m_stats.m_gcd_tests);
         st.update("arith ineq splits", m_stats.m_branches);
         st.update("arith gomory cuts", m_stats.m_gomory_cuts);
+        st.update("arith patches", m_stats.m_patches);
+        st.update("arith patches_succ", m_stats.m_patches_succ);
         st.update("arith max-min", m_stats.m_max_min);
         st.update("arith grobner", m_stats.m_gb_compute_basis);
         st.update("arith pseudo nonlinear", m_stats.m_nl_linear);

@@ -2131,7 +2131,7 @@ var_index lar_solver:: to_var_index(unsigned ext_j) const {
     return it->second.internal_j();
 }
 
-bool lar_solver::tighten_term_bounds_by_delta(unsigned term_index, const mpq& delta) {
+bool lar_solver::tighten_term_bounds_by_delta(unsigned term_index, const impq& delta) {
     unsigned tj = term_index + m_terms_start_index;
 	auto it = m_ext_vars_to_columns.find(tj);
 	if (it == m_ext_vars_to_columns.end())
@@ -2141,17 +2141,23 @@ bool lar_solver::tighten_term_bounds_by_delta(unsigned term_index, const mpq& de
     TRACE("cube", tout << "delta = " << delta << std::endl;
           m_int_solver->display_column(tout, j); );
     if (slv.column_has_upper_bound(j) && slv.column_has_lower_bound(j)) {
-        if (slv.m_upper_bounds[j].x - delta < slv.m_lower_bounds[j].x + delta) {
+        if (slv.m_upper_bounds[j] - delta < slv.m_lower_bounds[j] + delta) {
             TRACE("cube", tout << "cannot tighten, delta = " << delta;);
             return false;
         }
     }
     TRACE("cube", tout << "can tighten";);
     if (slv.column_has_upper_bound(j)) {
-        add_var_bound(tj, lconstraint_kind::LE, slv.m_upper_bounds[j].x - delta);
+        if (!is_zero(delta.y))
+            add_var_bound(tj, lconstraint_kind::LT, slv.m_upper_bounds[j].x - delta.x);
+        else 
+            add_var_bound(tj, lconstraint_kind::LE, slv.m_upper_bounds[j].x - delta.x);
     }
     if (slv.column_has_lower_bound(j)) {
-        add_var_bound(tj, lconstraint_kind::GE, slv.m_lower_bounds[j].x + delta);
+        if (!is_zero(delta.y))
+            add_var_bound(tj, lconstraint_kind::GT, slv.m_lower_bounds[j].x + delta.x);
+        else 
+            add_var_bound(tj, lconstraint_kind::GE, slv.m_lower_bounds[j].x + delta.x);
     }
     return true;
 }

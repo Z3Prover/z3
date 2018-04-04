@@ -1335,7 +1335,7 @@ namespace smt {
                       }
                   }
               });
-
+        m_stats.m_patches++;
         patch_int_infeasible_vars();
         fix_non_base_vars();
         
@@ -1368,6 +1368,7 @@ namespace smt {
         
         theory_var int_var = find_infeasible_int_base_var();
         if (int_var == null_theory_var) {
+            m_stats.m_patches_succ++;
             TRACE("arith_int_incomp", tout << "FC_DONE 2...\n"; display(tout););
             return m_liberal_final_check || !m_changed_assignment ? FC_DONE : FC_CONTINUE;
         }

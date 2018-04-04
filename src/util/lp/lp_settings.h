@@ -110,6 +110,8 @@ struct stats {
     unsigned m_gcd_conflicts;
     unsigned m_cube_calls;
     unsigned m_cube_success;
+    unsigned m_patches;
+    unsigned m_patches_success;
     stats() { reset(); }
     void reset() { memset(this, 0, sizeof(*this)); }
 };
@@ -229,10 +231,14 @@ public:
                     max_row_length_for_bound_propagation(300),
                     backup_costs(true),
                     column_number_threshold_for_using_lu_in_lar_solver(4000),
-                    m_int_branch_cut_gomory_threshold(4),
-                    m_int_branch_cut_solver(8),
-                    m_run_gcd_test(true),
-                    m_cut_solver_cycle_on_var(10)
+                    m_int_gomory_cut_period(4),
+                    m_int_cut_solver_period(8),
+                    m_int_find_cube_period(4),
+                    m_int_cuts_etc_period(4),
+                    m_int_run_gcd_test(true),
+                    m_cut_solver_cycle_on_var(10),
+                    m_int_pivot_fixed_vars_from_basis(false),
+                    m_int_patch_only_integer_values(true)
     {}
 
     void set_resource_limit(lp_resource_limit& lim) { m_resource_limit = &lim; }
@@ -339,11 +345,14 @@ public:
     unsigned         max_row_length_for_bound_propagation;
     bool             backup_costs;
     unsigned         column_number_threshold_for_using_lu_in_lar_solver;
-    unsigned         m_int_branch_cut_gomory_threshold;
-    unsigned         m_int_branch_cut_solver;
-    unsigned         m_int_branch_find_cube;
-    bool             m_run_gcd_test;
+    unsigned         m_int_gomory_cut_period;
+    unsigned         m_int_cut_solver_period;
+    unsigned         m_int_find_cube_period;
+    unsigned         m_int_cuts_etc_period;
+    bool             m_int_run_gcd_test;
     unsigned         m_cut_solver_cycle_on_var;
+    bool             m_int_pivot_fixed_vars_from_basis;
+    bool             m_int_patch_only_integer_values;
 }; // end of lp_settings class
 
 

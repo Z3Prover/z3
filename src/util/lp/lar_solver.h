@@ -572,11 +572,12 @@ public:
     bool column_corresponds_to_term(unsigned) const;
     void catch_up_in_updating_int_solver();
     var_index to_var_index(unsigned ext_j) const;
-    bool tighten_term_bounds_by_delta(unsigned, const mpq&);
+    bool tighten_term_bounds_by_delta(unsigned, const impq&);
     void round_to_integer_solution();
     void update_delta_for_terms(const impq & delta, unsigned j, const vector<unsigned>&);
     void fill_vars_to_terms(vector<vector<unsigned>> & vars_to_terms);
     unsigned column_count() const { return A_r().column_count(); }
     const vector<unsigned> & r_basis() const { return m_mpq_lar_core_solver.r_basis(); }
+    const vector<unsigned> & r_nbasis() const { return m_mpq_lar_core_solver.r_nbasis(); }
 };
 }

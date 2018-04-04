@@ -1715,7 +1715,7 @@ public:
             m_cancelled = true;
             return true;
         }
-        unsigned bound = m_asserts.size() * 200 /  (1 + m_settings.m_int_branch_cut_solver);
+        unsigned bound = m_asserts.size() * 200 /  (1 + m_settings.m_int_cut_solver_period);
         if (m_trail.size()  > bound || m_number_of_conflicts > bound) {
             m_cancelled = true;
             return true;
