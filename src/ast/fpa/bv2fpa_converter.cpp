@@ -262,11 +262,11 @@ func_interp * bv2fpa_converter::convert_func_interp(model_core * mc, func_decl *
 
     unsigned arity = bv_f->get_arity();
     func_interp * bv_fi = mc->get_func_interp(bv_f);
+    result = alloc(func_interp, m, arity);
 
     if (bv_fi) {
         fpa_rewriter rw(m);
         expr_ref ai(m);
-        result = alloc(func_interp, m, arity);
 
         for (unsigned i = 0; i < bv_fi->num_entries(); i++) {
             func_entry const * bv_fe = bv_fi->get_entry(i);
@@ -311,6 +311,8 @@ func_interp * bv2fpa_converter::convert_func_interp(model_core * mc, func_decl *
             result->set_else(ft_els);
         }
     }
+    else
+        result->set_else(m.get_some_value(f->get_range()));
 
     return result;
 }
@@ -467,24 +469,18 @@ void bv2fpa_converter::convert_uf2bvuf(model_core * mc, model_core * target_mode
                 // it->m_value contains the model for the unspecified cases of it->m_key.
 
                 func_interp * fmv = convert_func_interp(mc, f, it->m_value);
-                if (fmv) {
+                SASSERT(fmv);
 #if 0
-                    // Upon request, add this 'recursive' definition?
-                    unsigned n = fmv->get_arity();
-                    expr_ref_vector args(m);
-                    for (unsigned i = 0; i < n; i++)
-                        args.push_back(m.mk_var(i, f->get_domain()[i]));
-                    fmv->set_else(m.mk_app(it->m_key, n, args.c_ptr()));
+                // Upon request, add this 'recursive' definition?
+                unsigned n = fmv->get_arity();
+                expr_ref_vector args(m);
+                for (unsigned i = 0; i < n; i++)
+                    args.push_back(m.mk_var(i, f->get_domain()[i]));
+                fmv->set_else(m.mk_app(it->m_key, n, args.c_ptr()));
 #else
-
-                    fmv->set_else(0);
+                fmv->set_else(0); // Make sure it's not left open.
 #endif
-                    target_model->register_decl(f, fmv);
-                }
-            }
-            else {
-                func_interp * fmv = convert_func_interp(mc, f, it->m_value);
-                if (fmv) target_model->register_decl(f, fmv);
+                target_model->register_decl(f, fmv);
             }
         }
     }
