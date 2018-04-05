@@ -1194,7 +1194,7 @@ void mpf_manager::to_sbv_mpq(mpf_rounding_mode rm, const mpf & x, scoped_mpq & o
     m_mpz_manager.set(z, t.significand());
     mpf_exp_t e = (mpf_exp_t)t.exponent() - t.sbits() + 1;
     if (e < 0) {
-        bool last = false, round = false, sticky = m_mpz_manager.is_odd(z);
+        bool last = m_mpz_manager.is_odd(z), round = false, sticky = false;
         for (; e != 0; e++) {
             m_mpz_manager.machine_div2k(z, 1);
             sticky |= round;
@@ -1204,7 +1204,7 @@ void mpf_manager::to_sbv_mpq(mpf_rounding_mode rm, const mpf & x, scoped_mpq & o
         bool inc = false;
         switch (rm) {
         case MPF_ROUND_NEAREST_TEVEN: inc = round && (last || sticky); break;
-        case MPF_ROUND_NEAREST_TAWAY: inc = round && (!last || sticky); break; // CMW: Check!
+        case MPF_ROUND_NEAREST_TAWAY: inc = round; break;
         case MPF_ROUND_TOWARD_POSITIVE: inc = (!x.sign && (round || sticky)); break;
         case MPF_ROUND_TOWARD_NEGATIVE: inc = (x.sign && (round || sticky)); break;
         case MPF_ROUND_TOWARD_ZERO: inc = false; break;
