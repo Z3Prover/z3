@@ -2452,7 +2452,6 @@ Z3_lbool ext_check(Z3_ext_context ctx) {
         }
         printf("\n");
     }
-
     return result;
 }
 
@@ -2464,7 +2463,7 @@ void incremental_example1() {
     Z3_context     ctx     = ext_ctx->m_context;
     Z3_ast x, y, z, two, one;
     unsigned c1, c2, c3, c4;
-    Z3_bool result;
+    Z3_lbool result;
 
     printf("\nincremental_example1\n");
     LOG_MSG("incremental_example1");
@@ -2485,7 +2484,7 @@ void incremental_example1() {
     c4 = assert_retractable_cnstr(ext_ctx, Z3_mk_lt(ctx, y, one));
 
     result = ext_check(ext_ctx);
-    if (result != Z3_L_FALSE)
+    if (result != Z3_L_FALSE) 
         exitf("bug in Z3");
     printf("unsat\n");
 

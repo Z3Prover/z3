@@ -821,6 +821,10 @@ namespace datatype {
         return d;
     }
 
+    app* util::mk_is(func_decl * c, expr *f) {
+        return m.mk_app(get_constructor_is(c), 1, &f);
+    }
+
     func_decl * util::get_recognizer_constructor(func_decl * recognizer) const {
         SASSERT(is_recognizer(recognizer));
         return to_func_decl(recognizer->get_parameter(0).get_ast());

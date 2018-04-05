@@ -21,8 +21,11 @@ Revision History:
 #include "api/api_context.h"
 #include "api/api_util.h"
 #include "cmd_context/cmd_context.h"
+#include "smt/smt_solver.h"
 #include "parsers/smt2/smt2parser.h"
 #include "solver/solver_na2as.h"
+#include "tactic/portfolio/smt_strategic_solver.h"
+
 
 extern "C" {
 
@@ -116,5 +119,35 @@ extern "C" {
         Z3_ast r = parse_smtlib2_stream(false, c, is, num_sorts, sort_names, sorts, num_decls, decl_names, decls);
         RETURN_Z3(r);
         Z3_CATCH_RETURN(nullptr);
+    }
+
+    Z3_string Z3_API Z3_eval_smtlib2_string(Z3_context c, Z3_string str) {
+        std::stringstream ous;
+        Z3_TRY;
+        LOG_Z3_eval_smtlib2_string(c, str);
+        if (!mk_c(c)->cmd()) {
+            mk_c(c)->cmd() = alloc(cmd_context, false, &(mk_c(c)->m()));
+            mk_c(c)->cmd()->set_solver_factory(mk_smt_strategic_solver_factory());
+        }
+        scoped_ptr<cmd_context>& ctx = mk_c(c)->cmd();
+        std::string s(str);
+        std::istringstream is(s);
+        ctx->set_regular_stream(ous);
+        ctx->set_diagnostic_stream(ous);
+        try {
+            if (!parse_smt2_commands(*ctx.get(), is)) {
+                mk_c(c)->m_parser_error_buffer = ous.str();
+                SET_ERROR_CODE(Z3_PARSER_ERROR);
+                RETURN_Z3(mk_c(c)->mk_external_string(ous.str()));
+            }
+        }
+        catch (z3_exception& e) {
+            if (ous.str().empty()) ous << e.msg();
+            mk_c(c)->m_parser_error_buffer = ous.str();
+            SET_ERROR_CODE(Z3_PARSER_ERROR);
+            RETURN_Z3(mk_c(c)->mk_external_string(ous.str()));
+        }
+        RETURN_Z3(mk_c(c)->mk_external_string(ous.str()));
+        Z3_CATCH_RETURN(mk_c(c)->mk_external_string(ous.str()));
     }
 };

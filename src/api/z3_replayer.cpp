@@ -630,6 +630,12 @@ struct z3_replayer::imp {
         return m_int_arrays[idx].c_ptr();
     }
 
+    bool * get_bool_array(unsigned pos) const {
+        check_arg(pos, UINT_ARRAY);
+        unsigned idx = static_cast<unsigned>(m_args[pos].m_uint);
+        return reinterpret_cast<bool*>(m_unsigned_arrays[idx].c_ptr());
+    }
+
     Z3_symbol * get_symbol_array(unsigned pos) const {
         check_arg(pos, SYMBOL_ARRAY);
         unsigned idx = static_cast<unsigned>(m_args[pos].m_uint);
@@ -759,6 +765,10 @@ unsigned * z3_replayer::get_uint_array(unsigned pos) const {
 
 int * z3_replayer::get_int_array(unsigned pos) const {
     return m_imp->get_int_array(pos);
+}
+
+bool * z3_replayer::get_bool_array(unsigned pos) const {
+    return m_imp->get_bool_array(pos);
 }
 
 Z3_symbol * z3_replayer::get_symbol_array(unsigned pos) const {

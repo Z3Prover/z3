@@ -2029,8 +2029,8 @@ public:
             case PR_IFF_FALSE: { // turns ~p into p <-> false, noop for us
                 if(is_local(con))
                     res = args[0];
-                else
-                    throw_unsupported(con);
+                else 
+                    throw_unsupported(proof);
                 break;
             }
             case PR_COMMUTATIVITY: {

@@ -406,6 +406,7 @@ public:
     void reset_user_tactics();
     void set_regular_stream(char const * name) { m_regular.set(name); }
     void set_regular_stream(std::ostream& out) { m_regular.set(out); }
+    void set_diagnostic_stream(std::ostream& out) { m_diagnostic.set(out); }
     void set_diagnostic_stream(char const * name);
     std::ostream & regular_stream() override { return *m_regular; }
     std::ostream & diagnostic_stream() override { return *m_diagnostic; }

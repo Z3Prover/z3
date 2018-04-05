@@ -80,9 +80,9 @@ DEFINE_TYPE(Z3_rcf_num);
 */
 
 /**
-   \brief Z3 Boolean type. It is just an alias for \c int.
+   \brief Z3 Boolean type. It is just an alias for \c bool.
 */
-typedef int Z3_bool;
+typedef bool Z3_bool;
 
 /**
    \brief Z3 string type. It is just an alias for \ccode{const char *}.
@@ -5209,6 +5209,17 @@ extern "C" {
                                         Z3_func_decl const decls[]);
 
 
+    /**
+       \brief Parse and evaluate and SMT-LIB2 command sequence. The state from a previous call is saved so the next
+              evaluation builds on top of the previous call.
+
+       \returns output generated from processing commands.
+
+       def_API('Z3_eval_smtlib2_string', STRING, (_in(CONTEXT), _in(STRING),))
+    */
+
+    Z3_string Z3_API Z3_eval_smtlib2_string(Z3_context, Z3_string str);
+    
     /**
        \brief Retrieve that last error message information generated from parsing.
 
