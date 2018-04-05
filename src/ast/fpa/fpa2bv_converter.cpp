@@ -3243,8 +3243,13 @@ void fpa2bv_converter::mk_to_bv(func_decl * f, unsigned num, expr * const * args
 
     expr_ref ul(m), ovfl(m), in_range(m);
     if (!is_signed) {
+        expr_ref incd(m), pr_is_zero(m);
+        incd = m.mk_eq(rounding_decision, bv1);
+        pr_is_zero = m.mk_eq(pre_rounded, m_bv_util.mk_numeral(0, bv_sz + 3));
         ul = m_bv_util.mk_zero_extend(3, m_bv_util.mk_numeral(-1, bv_sz));
-        in_range = m.mk_and(m.mk_not(x_is_neg), m_bv_util.mk_ule(pre_rounded, ul));
+        in_range = m.mk_and(m.mk_not(x_is_neg),
+                            m.mk_not(m.mk_and(incd, pr_is_zero)),
+                            m_bv_util.mk_ule(pre_rounded, ul));
     }
     else {
         expr_ref ll(m);
