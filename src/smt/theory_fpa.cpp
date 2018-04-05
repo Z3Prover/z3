@@ -32,13 +32,13 @@ namespace smt {
     public:
         fpa2bv_conversion_trail_elem(ast_manager & m, obj_map<expr, expr*> & map, expr * e) :
             m(m), m_map(map), key(e, m) { }
-        virtual ~fpa2bv_conversion_trail_elem() { }
-        virtual void undo(theory_fpa & th) {
+        ~fpa2bv_conversion_trail_elem() override { }
+        void undo(theory_fpa & th) override {
             expr * val = m_map.find(key);
             m_map.remove(key);
             m.dec_ref(key);
             m.dec_ref(val);
-            key = 0;
+            key = nullptr;
         }
     };
 
@@ -208,7 +208,7 @@ namespace smt {
               for (unsigned i = 0; i < values.size(); i++)
               tout << "value[" << i << "] = " << mk_ismt2_pp(values[i], m) << std::endl;);
 
-        app * result = 0;
+        app * result = nullptr;
         unsigned bv_sz;
 
         rational val(0);
@@ -256,7 +256,7 @@ namespace smt {
             }
 
             func_decl_ref wrap_fd(m);
-            wrap_fd = m.mk_func_decl(get_family_id(), OP_FPA_BVWRAP, 0, 0, 1, &es, bv_srt);
+            wrap_fd = m.mk_func_decl(get_family_id(), OP_FPA_BVWRAP, 0, nullptr, 1, &es, bv_srt);
             res = m.mk_app(wrap_fd, e);
         }
 
@@ -705,7 +705,7 @@ namespace smt {
         m_trail_stack.pop_scope(m_trail_stack.get_num_scopes());
         if (m_factory) {
             dealloc(m_factory);
-            m_factory = 0;
+            m_factory = nullptr;
         }
         ast_manager & m = get_manager();
         dec_ref_map_key_values(m, m_conversions);
@@ -743,7 +743,7 @@ namespace smt {
             return alloc(expr_wrapper_proc, owner);
         }
 
-        model_value_proc * res = 0;
+        model_value_proc * res = nullptr;
 
         app_ref wrapped(m);
         wrapped = wrap(owner);

@@ -311,7 +311,7 @@ bool expr_context_simplifier::is_false(expr* e) const {
 // 
 
 expr_strong_context_simplifier::expr_strong_context_simplifier(smt_params& p, ast_manager& m): 
-    m_manager(m), m_arith(m), m_fn(0,m), m_solver(m, p) {
+    m_manager(m), m_arith(m), m_fn(nullptr,m), m_solver(m, p) {
     sort* i_sort = m_arith.mk_int();
     m_fn = m.mk_func_decl(symbol(0xbeef101), i_sort, m.mk_bool_sort());
 }
@@ -358,7 +358,7 @@ void expr_strong_context_simplifier::simplify_basic(expr* fml, expr_ref& result)
     m_solver.push();
     while (!todo.empty()) {
 
-        r = 0;
+        r = nullptr;
         ptr_buffer<expr> args;
         expr* e = todo.back();
         unsigned pos = parent_ids.back();
@@ -405,7 +405,7 @@ void expr_strong_context_simplifier::simplify_basic(expr* fml, expr_ref& result)
         self_pos = self_ids.back();
         sz = a->get_num_args();
 
-        n2 = 0;
+        n2 = nullptr;
         for (unsigned i = 0; i < sz; ++i) {
             expr* arg = a->get_arg(i);
 
@@ -620,7 +620,7 @@ void expr_strong_context_simplifier::simplify_model_based(expr* fml, expr_ref& r
     m_solver.push();
     while (!todo.empty()) {
 
-        r = 0;
+        r = nullptr;
         ptr_buffer<expr> args;
         expr* e = todo.back();
         unsigned pos = parent_ids.back();
@@ -681,7 +681,7 @@ void expr_strong_context_simplifier::simplify_model_based(expr* fml, expr_ref& r
         self_pos = self_ids.back();
         sz = a->get_num_args();
 
-        n2 = 0;
+        n2 = nullptr;
         for (unsigned i = 0; i < sz; ++i) {
             expr* arg = a->get_arg(i);
 

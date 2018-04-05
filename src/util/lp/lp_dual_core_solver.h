@@ -207,6 +207,6 @@ public:
 
     void solve();
 
-    bool low_bounds_are_set() const { return true; }
+    bool low_bounds_are_set() const override { return true; }
 };
 }

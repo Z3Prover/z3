@@ -28,9 +28,9 @@ public:
         , model_constructor(lmc)
     { }
 
-    virtual ~lackr_model_converter_lazy() { }
+    ~lackr_model_converter_lazy() override { }
 
-    virtual void operator()(model_ref & md, unsigned goal_idx) {
+    void operator()(model_ref & md, unsigned goal_idx) override {
         SASSERT(goal_idx == 0);
         SASSERT(md.get() == 0 || (!md->get_num_constants() && !md->get_num_functions()));
         SASSERT(model_constructor.get());
@@ -39,13 +39,13 @@ public:
         model_constructor->make_model(md);
     }
 
-    virtual void operator()(model_ref & md) {
+    void operator()(model_ref & md) override {
         operator()(md, 0);
     }
 
     //void display(std::ostream & out);
 
-    virtual model_converter * translate(ast_translation & translator) {
+    model_converter * translate(ast_translation & translator) override {
         NOT_IMPLEMENTED_YET();
     }
 protected:

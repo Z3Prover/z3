@@ -24,7 +24,7 @@ Notes:
 params_ref params_ref::g_empty_params_ref;
 
 std::string norm_param_name(char const * n) {
-    if (n == 0)
+    if (n == nullptr)
         return "_";
     if (*n == ':')
         n++;
@@ -62,9 +62,9 @@ struct param_descrs::imp {
 
         info():
             m_kind(CPK_INVALID), 
-            m_descr(0), 
-            m_default(0),
-            m_module(0) {
+            m_descr(nullptr),
+            m_default(nullptr),
+            m_module(nullptr) {
         }
     };
 
@@ -130,21 +130,21 @@ struct param_descrs::imp {
         info i;
         if (m_info.find(name, i)) 
             return i.m_module;
-        return 0;
+        return nullptr;
     }
 
     char const * get_descr(symbol const & name) const {
         info i;
         if (m_info.find(name, i))
             return i.m_descr;
-        return 0;
+        return nullptr;
     }
 
     char const * get_default(symbol const & name) const {
         info i;
         if (m_info.find(name, i))
             return i.m_default;
-        return 0;
+        return nullptr;
     }
 
     unsigned size() const {
@@ -191,7 +191,7 @@ struct param_descrs::imp {
             out << " (" << d.m_kind << ")";
             if (include_descr)
                 out << " " << d.m_descr;
-            if (d.m_default != 0)
+            if (d.m_default != nullptr)
                 out << " (default: " << d.m_default << ")";
             out << "\n";
         }
@@ -510,7 +510,7 @@ params_ref::~params_ref() {
 }
 
 params_ref::params_ref(params_ref const & p):
-    m_params(0) {
+    m_params(nullptr) {
     operator=(p);
 }
 
@@ -554,7 +554,7 @@ params_ref & params_ref::operator=(params_ref const & p) {
 }
 
 void params_ref::copy(params_ref const & src) {
-    if (m_params == 0)
+    if (m_params == nullptr)
         operator=(src);
     else {
         init();
@@ -563,7 +563,7 @@ void params_ref::copy(params_ref const & src) {
 }
 
 void params_ref::copy_core(params const * src) {
-    if (src == 0)
+    if (src == nullptr)
         return;
     svector<params::entry>::const_iterator it  = src->m_entries.begin();  
     svector<params::entry>::const_iterator end = src->m_entries.end();    

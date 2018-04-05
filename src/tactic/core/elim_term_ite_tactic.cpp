@@ -51,7 +51,7 @@ class elim_term_ite_tactic : public tactic {
             proof_ref new_def_pr(m);
             app_ref _result(m);
             if (m_defined_names.mk_name(new_ite, new_def, new_def_pr, _result, result_pr)) {
-                m_goal->assert_expr(new_def, new_def_pr, 0);
+                m_goal->assert_expr(new_def, new_def_pr, nullptr);
                 m_num_fresh++;
                 if (m_produce_models) {
                     if (!m_mc)
@@ -65,9 +65,9 @@ class elim_term_ite_tactic : public tactic {
         
         rw_cfg(ast_manager & _m, params_ref const & p):
             m(_m),
-            m_defined_names(m, 0 /* don't use prefix */) {
+            m_defined_names(m, nullptr /* don't use prefix */) {
             updt_params(p);
-            m_goal      = 0;
+            m_goal      = nullptr;
             m_num_fresh = 0;
         }
 
@@ -105,7 +105,7 @@ class elim_term_ite_tactic : public tactic {
                         proof_converter_ref & pc,
                         expr_dependency_ref & core) {
             SASSERT(g->is_well_sorted());
-            mc = 0; pc = 0; core = 0;
+            mc = nullptr; pc = nullptr; core = nullptr;
             tactic_report report("elim-term-ite", *g);
             bool produce_proofs = g->proofs_enabled();
             m_rw.cfg().m_produce_models = g->models_enabled();
@@ -141,35 +141,35 @@ public:
         m_imp = alloc(imp, m, p);
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(elim_term_ite_tactic, m, m_params);
     }
         
-    virtual ~elim_term_ite_tactic() {
+    ~elim_term_ite_tactic() override {
         dealloc(m_imp);
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_params = p;
         m_imp->m_rw.cfg().updt_params(p);
     }
 
-    virtual void collect_param_descrs(param_descrs & r) {
+    void collect_param_descrs(param_descrs & r) override {
         insert_max_memory(r);
         insert_max_steps(r);
         r.insert("max_args", CPK_UINT, 
                  "(default: 128) maximum number of arguments (per application) that will be considered by the greedy (quadratic) heuristic.");
     }
     
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
+    void operator()(goal_ref const & in,
+                    goal_ref_buffer & result,
+                    model_converter_ref & mc,
+                    proof_converter_ref & pc,
+                    expr_dependency_ref & core) override {
         (*m_imp)(in, result, mc, pc, core);
     }
     
-    virtual void cleanup() {
+    void cleanup() override {
         ast_manager & m = m_imp->m;
         m_imp->~imp();
         m_imp = new (m_imp) imp(m, m_params);

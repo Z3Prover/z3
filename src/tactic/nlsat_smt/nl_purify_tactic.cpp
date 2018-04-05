@@ -131,7 +131,7 @@ public:
                 m_interface_cache.insert(arg, arg);                
                 return arg;
             }
-            r = m.mk_fresh_const(0, u().mk_real());
+            r = m.mk_fresh_const(nullptr, u().mk_real());
             m_new_reals.push_back(to_app(r));
             m_owner.m_fmc->insert(to_app(r)->get_decl());
             m_interface_cache.insert(arg, r);
@@ -156,7 +156,7 @@ public:
         void mk_interface_bool(func_decl * f, unsigned num, expr* const* args, expr_ref& result, proof_ref& pr) {
             expr_ref old_pred(m.mk_app(f, num, args), m);
             polarity_t pol = m_polarities.find(old_pred);
-            result = m.mk_fresh_const(0, m.mk_bool_sort());
+            result = m.mk_fresh_const(nullptr, m.mk_bool_sort());
             m_polarities.insert(result, pol);
             m_new_preds.push_back(to_app(result));
             m_owner.m_fmc->insert(to_app(result)->get_decl());
@@ -425,8 +425,8 @@ private:
 
     void core2result(expr_dependency_ref & lcore, goal_ref const& g, goal_ref_buffer& result) {
         result.reset();
-        proof * pr = 0;
-        lcore = 0;
+        proof * pr = nullptr;
+        lcore = nullptr;
         g->reset();
         obj_hashtable<expr>::iterator it = m_used_asms.begin(), end = m_used_asms.end();
         for (; it != end; ++it) {
@@ -488,7 +488,7 @@ private:
             nums.push_back(r);
             if (num2var.find(r, v)) {
                 if (!m_eq_pairs.find(v, w, pred)) {
-                    pred = m.mk_fresh_const(0, m.mk_bool_sort());
+                    pred = m.mk_fresh_const(nullptr, m.mk_bool_sort());
                     m_eq_preds.push_back(pred);
                     m_eq_values.push_back(l_true);
                     m_fmc->insert(to_app(pred)->get_decl());
@@ -558,7 +558,7 @@ private:
     }
 
     void translate(expr_safe_replace& num2num, expr* e, expr_ref& result) {
-        result = 0;
+        result = nullptr;
         if (e) {
             num2num(e, result);
         }
@@ -699,9 +699,9 @@ public:
         m(m),
         m_util(m),
         m_params(p),
-        m_fmc(0),
+        m_fmc(nullptr),
         m_nl_tac(mk_nlsat_tactic(m, p)),
-        m_nl_g(0),
+        m_nl_g(nullptr),
         m_solver(mk_smt_solver(m, p, symbol::null)),
         m_eq_preds(m),
         m_new_reals(m),
@@ -709,27 +709,27 @@ public:
         m_asms(m)
     {}
 
-    virtual ~nl_purify_tactic() {}
+    ~nl_purify_tactic() override {}
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_params = p;
     }
 
-    virtual tactic * translate(ast_manager& m) {
+    tactic * translate(ast_manager& m) override {
         return alloc(nl_purify_tactic, m, m_params);
     }
 
-    virtual void collect_statistics(statistics & st) const {
+    void collect_statistics(statistics & st) const override {
         m_nl_tac->collect_statistics(st);
         m_solver->collect_statistics(st);                
     }
     
-    virtual void reset_statistics() {
+    void reset_statistics() override {
         m_nl_tac->reset_statistics();        
     }
 
 
-    virtual void cleanup() {
+    void cleanup() override {
         m_solver = mk_smt_solver(m, m_params, symbol::null);
         m_nl_tac->cleanup();
         m_eq_preds.reset();
@@ -744,17 +744,17 @@ public:
         m_bool2dep.reset();
     }
     
-    virtual void operator()(goal_ref const & g, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
+    void operator()(goal_ref const & g,
+                    goal_ref_buffer & result,
+                    model_converter_ref & mc,
+                    proof_converter_ref & pc,
+                    expr_dependency_ref & core) override {
 
         tactic_report report("qfufnl-purify", *g);
         TRACE("nlsat_smt", g->display(tout););
 
         m_produce_proofs = g->proofs_enabled();
-        mc = 0; pc = 0; core = 0;
+        mc = nullptr; pc = nullptr; core = nullptr;
 
         fail_if_proof_generation("qfufnra-purify", g);
         // fail_if_unsat_core_generation("qfufnra-purify", g);        

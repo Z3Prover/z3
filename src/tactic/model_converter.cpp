@@ -23,33 +23,33 @@ class concat_model_converter : public concat_converter<model_converter> {
 public:
     concat_model_converter(model_converter * mc1, model_converter * mc2):concat_converter<model_converter>(mc1, mc2) {}
 
-    virtual void operator()(model_ref & m) {
+    void operator()(model_ref & m) override {
         this->m_c2->operator()(m);
         this->m_c1->operator()(m);
     }
 
-    virtual void operator()(model_ref & m, unsigned goal_idx) {
+    void operator()(model_ref & m, unsigned goal_idx) override {
         this->m_c2->operator()(m, goal_idx);
         this->m_c1->operator()(m, 0);
     }
 
-    virtual void operator()(labels_vec & r, unsigned goal_idx) {
+    void operator()(labels_vec & r, unsigned goal_idx) override {
         this->m_c2->operator()(r, goal_idx);
         this->m_c1->operator()(r, 0);
     }
 
   
-    virtual char const * get_name() const { return "concat-model-converter"; }
+    char const * get_name() const override { return "concat-model-converter"; }
 
-    virtual model_converter * translate(ast_translation & translator) {
+    model_converter * translate(ast_translation & translator) override {
         return this->translate_core<concat_model_converter>(translator);
     }
 };
 
 model_converter * concat(model_converter * mc1, model_converter * mc2) {
-    if (mc1 == 0)
+    if (mc1 == nullptr)
         return mc2;
-    if (mc2 == 0)
+    if (mc2 == nullptr)
         return mc1;
     return alloc(concat_model_converter, mc1, mc2);
 }
@@ -60,12 +60,12 @@ public:
         concat_star_converter<model_converter>(mc1, num, mc2s, szs) {
     }
 
-    virtual void operator()(model_ref & m) {
+    void operator()(model_ref & m) override {
         // TODO: delete method after conversion is complete
         UNREACHABLE();
     }
 
-    virtual void operator()(model_ref & m, unsigned goal_idx) {
+    void operator()(model_ref & m, unsigned goal_idx) override {
         unsigned num = this->m_c2s.size();
         for (unsigned i = 0; i < num; i++) {
             if (goal_idx < this->m_szs[i]) {
@@ -83,7 +83,7 @@ public:
         UNREACHABLE();
     }
 
-    virtual void operator()(labels_vec & r, unsigned goal_idx) {
+    void operator()(labels_vec & r, unsigned goal_idx) override {
         unsigned num = this->m_c2s.size();
         for (unsigned i = 0; i < num; i++) {
             if (goal_idx < this->m_szs[i]) {
@@ -101,9 +101,9 @@ public:
         UNREACHABLE();
     }
     
-    virtual char const * get_name() const { return "concat-star-model-converter"; }
+    char const * get_name() const override { return "concat-star-model-converter"; }
 
-    virtual model_converter * translate(ast_translation & translator) {
+    model_converter * translate(ast_translation & translator) override {
         return this->translate_core<concat_star_model_converter>(translator);
     }
 };
@@ -114,7 +114,7 @@ model_converter * concat(model_converter * mc1, unsigned num, model_converter * 
         return concat(mc1, mc2s[0]);
     unsigned i;
     for (i = 0; i < num; i++) {
-        if (mc2s[i] != 0)
+        if (mc2s[i] != nullptr)
             break;
     }
     if (i == num) {
@@ -132,44 +132,44 @@ public:
 
     model2mc(model * m, buffer<symbol> const & r):m_model(m), m_labels(r) {}
 
-    virtual ~model2mc() {}
+    ~model2mc() override {}
 
-    virtual void operator()(model_ref & m) {
+    void operator()(model_ref & m) override {
         m = m_model;
     }
 
-    virtual void operator()(model_ref & m, unsigned goal_idx) {
+    void operator()(model_ref & m, unsigned goal_idx) override {
         m = m_model;
     }
 
-    virtual void operator()(labels_vec & r, unsigned goal_idx) {
+    void operator()(labels_vec & r, unsigned goal_idx) override {
       r.append(m_labels.size(), m_labels.c_ptr());
     }
 
-  virtual void cancel() {
+  void cancel() override {
     }
     
-    virtual void display(std::ostream & out) {
+    void display(std::ostream & out) override {
         out << "(model->model-converter-wrapper\n";
         model_v2_pp(out, *m_model);
         out << ")\n";
     }    
     
-    virtual model_converter * translate(ast_translation & translator) {
+    model_converter * translate(ast_translation & translator) override {
         model * m = m_model->translate(translator);
         return alloc(model2mc, m);
     }
 };
 
 model_converter * model2model_converter(model * m) {
-    if (m == 0)
-        return 0;
+    if (m == nullptr)
+        return nullptr;
     return alloc(model2mc, m);
 }
 
 model_converter * model_and_labels2model_converter(model * m, buffer<symbol> & r) {
-    if (m == 0)
-        return 0;
+    if (m == nullptr)
+        return nullptr;
     return alloc(model2mc, m, r);
 }
 

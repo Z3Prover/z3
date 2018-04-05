@@ -368,9 +368,6 @@ class AstRef(Z3PPObject):
     def __copy__(self):
         return self.translate(self.ctx)
 
-    def __deepcopy__(self):
-        return self.translate(self.ctx)
-
     def hash(self):
         """Return a hashcode for the `self`.
 
@@ -2428,7 +2425,7 @@ def is_rational_value(a):
     return is_arith(a) and a.is_real() and _is_numeral(a.ctx, a.as_ast())
 
 def is_algebraic_value(a):
-    """Return `True` if `a` is an algerbraic value of sort Real.
+    """Return `True` if `a` is an algebraic value of sort Real.
 
     >>> is_algebraic_value(RealVal("3/5"))
     False
@@ -4437,7 +4434,7 @@ class Datatype:
         """Declare constructor named `name` with the given accessors `args`.
         Each accessor is a pair `(name, sort)`, where `name` is a string and `sort` a Z3 sort or a reference to the datatypes being declared.
 
-        In the followin example `List.declare('cons', ('car', IntSort()), ('cdr', List))`
+        In the following example `List.declare('cons', ('car', IntSort()), ('cdr', List))`
         declares the constructor named `cons` that builds a new List using an integer and a List.
         It also declares the accessors `car` and `cdr`. The accessor `car` extracts the integer of a `cons` cell,
         and `cdr` the list of a `cons` cell. After all constructors were declared, we use the method create() to create
@@ -4451,13 +4448,13 @@ class Datatype:
         if __debug__:
             _z3_assert(isinstance(name, str), "String expected")
             _z3_assert(name != "", "Constructor name cannot be empty")
-        return self.declare_core(name, "is_" + name, *args)
+        return self.declare_core(name, "is-" + name, *args)
 
     def __repr__(self):
         return "Datatype(%s, %s)" % (self.name, self.constructors)
 
     def create(self):
-        """Create a Z3 datatype based on the constructors declared using the mehtod `declare()`.
+        """Create a Z3 datatype based on the constructors declared using the method `declare()`.
 
         The function `CreateDatatypes()` must be used to define mutually recursive datatypes.
 
@@ -4575,7 +4572,7 @@ def CreateDatatypes(*ds):
                 cref = cref()
             setattr(dref, cref_name, cref)
             rref  = dref.recognizer(j)
-            setattr(dref, rref.name(), rref)
+            setattr(dref, "is_" + cref_name, rref)
             for k in range(cref_arity):
                 aref = dref.accessor(j, k)
                 setattr(dref, aref.name(), aref)
@@ -4629,16 +4626,16 @@ class DatatypeSortRef(SortRef):
         >>> List.num_constructors()
         2
         >>> List.recognizer(0)
-        is_cons
+        is(cons)
         >>> List.recognizer(1)
-        is_nil
+        is(nil)
         >>> simplify(List.is_nil(List.cons(10, List.nil)))
         False
         >>> simplify(List.is_cons(List.cons(10, List.nil)))
         True
         >>> l = Const('l', List)
         >>> simplify(List.is_cons(l))
-        is_cons(l)
+        is(cons, l)
         """
         if __debug__:
             _z3_assert(idx < self.num_constructors(), "Invalid recognizer index")
@@ -6818,8 +6815,8 @@ class FiniteDomainSortRef(SortRef):
 
     def size(self):
         """Return the size of the finite domain sort"""
-        r = (ctype.c_ulonglong * 1)()
-        if Z3_get_finite_domain_sort_size(self.ctx_ref(), self.ast(), r):
+        r = (ctypes.c_ulonglong * 1)()
+        if Z3_get_finite_domain_sort_size(self.ctx_ref(), self.ast, r):
             return r[0]
         else:
             raise Z3Exception("Failed to retrieve finite domain sort size")
@@ -7445,6 +7442,19 @@ def With(t, *args, **keys):
     ctx = keys.pop('ctx', None)
     t = _to_tactic(t, ctx)
     p = args2params(args, keys, t.ctx)
+    return Tactic(Z3_tactic_using_params(t.ctx.ref(), t.tactic, p.params), t.ctx)
+
+def WithParams(t, p):
+    """Return a tactic that applies tactic `t` using the given configuration options.
+
+    >>> x, y = Ints('x y')
+    >>> p = ParamsRef()
+    >>> p.set("som", True)
+    >>> t = WithParams(Tactic('simplify'), p)
+    >>> t((x + 1)*(y + 2) == 0)
+    [[2*x + y + x*y == -2]]
+    """
+    t = _to_tactic(t, None)
     return Tactic(Z3_tactic_using_params(t.ctx.ref(), t.tactic, p.params), t.ctx)
 
 def Repeat(t, max=4294967295, ctx=None):
@@ -8253,7 +8263,7 @@ def tree_interpolant(pat,p=None,ctx=None):
     solver that determines satisfiability.
 
     >>> x = Int('x')
-    >>> y = Int('y')
+    >>> y = Int('y')	
     >>> print(tree_interpolant(And(Interpolant(x < 0), Interpolant(y > 2), x == y)))
     [Not(x >= 0), Not(y <= 2)]
 
@@ -8861,7 +8871,7 @@ class FPNumRef(FPRef):
     def isSubnormal(self):
         return Z3_fpa_is_numeral_subnormal(self.ctx.ref(), self.as_ast())
 
-    """Indicates whether the numeral is postitive."""
+    """Indicates whether the numeral is positive."""
     def isPositive(self):
         return Z3_fpa_is_numeral_positive(self.ctx.ref(), self.as_ast())
 
@@ -9657,7 +9667,7 @@ def fpToIEEEBV(x, ctx=None):
     The size of the resulting bit-vector is automatically determined.
 
     Note that IEEE 754-2008 allows multiple different representations of NaN. This conversion
-    knows only one NaN and it will always produce the same bit-vector represenatation of
+    knows only one NaN and it will always produce the same bit-vector representation of
     that NaN.
 
     >>> x = FP('x', FPSort(8, 24))
@@ -9832,7 +9842,7 @@ def Empty(s):
     raise Z3Exception("Non-sequence, non-regular expression sort passed to Empty")
 
 def Full(s):
-    """Create the regular expression that accepts the universal langauge
+    """Create the regular expression that accepts the universal language
     >>> e = Full(ReSort(SeqSort(IntSort())))
     >>> print(e)
     re.all

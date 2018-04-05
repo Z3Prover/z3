@@ -97,7 +97,7 @@ public:
     lbool check_assumptions(const expr_ref_vector & hard,
                             expr_ref_vector & soft,
                             unsigned num_bg = 0,
-                            expr * const *bg = NULL,
+                            expr * const *bg = nullptr,
                             unsigned solver_id = 0);
 
     void collect_statistics(statistics& st) const;

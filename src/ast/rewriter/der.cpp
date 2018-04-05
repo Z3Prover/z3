@@ -118,7 +118,7 @@ bool der::is_var_diseq(expr * e, unsigned num_decls, var * & v, expr_ref & t) {
 
 void der::operator()(quantifier * q, expr_ref & r, proof_ref & pr) {
     bool reduced = false;
-    pr = 0;
+    pr = nullptr;
     r  = q;
 
     TRACE("der", tout << mk_pp(q, m_manager) << "\n";);
@@ -149,14 +149,14 @@ void der::operator()(quantifier * q, expr_ref & r, proof_ref & pr) {
 
 void der::reduce1(quantifier * q, expr_ref & r, proof_ref & pr) {
     if (!is_forall(q)) {
-        pr = 0;
+        pr = nullptr;
         r  = q;
         return;
     }
 
     expr * e = q->get_expr();
     unsigned num_decls = q->get_num_decls();
-    var * v = 0;
+    var * v = nullptr;
     expr_ref t(m_manager);
 
     if (m_manager.is_or(e)) {
@@ -211,7 +211,7 @@ void der::reduce1(quantifier * q, expr_ref & r, proof_ref & pr) {
         r = q;
 
     if (m_manager.proofs_enabled()) {
-        pr = r == q ? 0 : m_manager.mk_der(q, r);
+        pr = r == q ? nullptr : m_manager.mk_der(q, r);
     }
 }
 
@@ -223,7 +223,7 @@ void der_sort_vars(ptr_vector<var> & vars, ptr_vector<expr> & definitions, unsig
     for (unsigned i = 0; i < definitions.size(); i++) {
         var * v  = vars[i];
         expr * t = definitions[i];
-        if (t == 0 || has_quantifiers(t) || occurs(v, t))
+        if (t == nullptr || has_quantifiers(t) || occurs(v, t))
             definitions[i] = 0;
         else
             found = true; // found at least one candidate
@@ -260,7 +260,7 @@ void der_sort_vars(ptr_vector<var> & vars, ptr_vector<expr> & definitions, unsig
                 vidx = to_var(t)->get_idx();
                 if (fr.second == 0) {
                     CTRACE("der_bug", vidx >= definitions.size(), tout << "vidx: " << vidx << "\n";);
-                    // Remark: The size of definitions may be smaller than the number of variables occuring in the quantified formula.
+                    // Remark: The size of definitions may be smaller than the number of variables occurring in the quantified formula.
                     if (definitions.get(vidx, 0) != 0) {
                         if (visiting.is_marked(t)) {
                             // cycle detected: remove t
@@ -342,7 +342,7 @@ void der::get_elimination_order() {
 
 void der::create_substitution(unsigned sz) {
     m_subst_map.reset();
-    m_subst_map.resize(sz, 0);
+    m_subst_map.resize(sz, nullptr);
 
     for(unsigned i = 0; i < m_order.size(); i++) {
         expr_ref cur(m_map[m_order[i]], m_manager);

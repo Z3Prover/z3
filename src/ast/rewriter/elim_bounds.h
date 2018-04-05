@@ -70,7 +70,7 @@ public:
         m_cfg(m)
     {} 
 
-    virtual ~elim_bounds_rw() {}
+    ~elim_bounds_rw() override {}
 };
 
 #endif /* ELIM_BOUNDS2_H_ */

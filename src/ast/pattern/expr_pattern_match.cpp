@@ -83,7 +83,7 @@ expr_pattern_match::instantiate(expr* a, unsigned num_bound, subst& s, expr_ref&
     
     inst_proc proc(m_manager, s, b, m_regs);
     for_each_ast(proc, a);
-    expr* v = 0;
+    expr* v = nullptr;
     proc.m_memoize.find(a, v);
     SASSERT(v);
     result = v;

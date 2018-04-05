@@ -98,7 +98,7 @@ br_status mk_simplified_app::mk_core(func_decl * decl, unsigned num, expr * cons
 }
 
 void mk_simplified_app::operator()(func_decl * decl, unsigned num, expr * const * args, expr_ref & result) {
-    result = 0;
+    result = nullptr;
     mk_core(decl, num, args, result);
     if (!result) 
         result = m_imp->m.mk_app(decl, num, args);

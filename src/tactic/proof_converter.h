@@ -25,7 +25,7 @@ Notes:
 
 class proof_converter : public converter {
 public:
-    virtual ~proof_converter() { }
+    ~proof_converter() override { }
     virtual void operator()(ast_manager & m, unsigned num_source, proof * const * source, proof_ref & result) = 0;
     virtual proof_converter * translate(ast_translation & translator) = 0;
 };

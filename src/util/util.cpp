@@ -40,7 +40,7 @@ std::ostream& verbose_stream() {
 }
 
 
-static void (*g_fatal_error_handler)(int) = 0;
+static void (*g_fatal_error_handler)(int) = nullptr;
 
 void fatal_error(int error_code) {
     if (g_fatal_error_handler) {
@@ -120,7 +120,7 @@ bool product_iterator_next(unsigned n, unsigned const * sz, unsigned * it) {
 }
 
 char const * escaped::end() const {
-    if (m_str == 0) return 0;
+    if (m_str == nullptr) return nullptr;
     char const * it = m_str;
     char const * e  = m_str;
     while (*it) {

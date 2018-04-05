@@ -867,7 +867,7 @@ namespace smt {
         }
         else {
             context& ctx = get_context();
-            enode * e = 0;
+            enode * e = nullptr;
             theory_var v = 0;
             if (ctx.e_internalized(n)) {
                 e = ctx.get_enode(to_app(n));                

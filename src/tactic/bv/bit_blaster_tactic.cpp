@@ -55,7 +55,7 @@ class bit_blaster_tactic : public tactic {
                         model_converter_ref & mc, 
                         proof_converter_ref & pc,
                         expr_dependency_ref & core) {
-            mc = 0; pc = 0; core = 0;
+            mc = nullptr; pc = nullptr; core = nullptr;
             bool proofs_enabled = g->proofs_enabled();
 
             if (proofs_enabled && m_blast_quant)
@@ -90,7 +90,7 @@ class bit_blaster_tactic : public tactic {
             if (change && g->models_enabled())  
                 mc = mk_bit_blaster_model_converter(m(), m_rewriter->const2bits());
             else
-                mc = 0;
+                mc = nullptr;
             g->inc_depth();
             result.push_back(g.get());
             TRACE("after_bit_blaster", g->display(tout); if (mc) mc->display(tout); tout << "\n";);
@@ -111,21 +111,21 @@ public:
         m_imp = alloc(imp, m, m_rewriter, p);
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         SASSERT(!m_rewriter); // assume translation isn't used where rewriter is external.
-        return alloc(bit_blaster_tactic, m, 0, m_params); 
+        return alloc(bit_blaster_tactic, m, nullptr, m_params);
     }
 
-    virtual ~bit_blaster_tactic() {
+    ~bit_blaster_tactic() override {
         dealloc(m_imp);
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_params = p;
         m_imp->updt_params(p);
     }
 
-    virtual void collect_param_descrs(param_descrs & r) { 
+    void collect_param_descrs(param_descrs & r) override {
         insert_max_memory(r);
         insert_max_steps(r);
         r.insert("blast_mul", CPK_BOOL, "(default: true) bit-blast multipliers (and dividers, remainders).");
@@ -134,11 +134,11 @@ public:
         r.insert("blast_full", CPK_BOOL, "(default: false) bit-blast any term with bit-vector sort, this option will make E-matching ineffective in any pattern containing bit-vector terms.");
     }
      
-    virtual void operator()(goal_ref const & g, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
+    void operator()(goal_ref const & g,
+                    goal_ref_buffer & result,
+                    model_converter_ref & mc,
+                    proof_converter_ref & pc,
+                    expr_dependency_ref & core) override {
         try {
             (*m_imp)(g, result, mc, pc, core);
         }
@@ -147,7 +147,7 @@ public:
         }
     }
 
-    virtual void cleanup() {
+    void cleanup() override {
         imp * d = alloc(imp, m_imp->m(), m_rewriter, m_params);
         std::swap(d, m_imp);        
         dealloc(d);
@@ -161,7 +161,7 @@ public:
 
 
 tactic * mk_bit_blaster_tactic(ast_manager & m, params_ref const & p) {
-    return clean(alloc(bit_blaster_tactic, m, 0, p));
+    return clean(alloc(bit_blaster_tactic, m, nullptr, p));
 }
 
 tactic * mk_bit_blaster_tactic(ast_manager & m, bit_blaster_rewriter* rw, params_ref const & p) {

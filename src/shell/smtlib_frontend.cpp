@@ -34,7 +34,7 @@ Revision History:
 
 extern bool g_display_statistics;
 static clock_t             g_start_time;
-static cmd_context *       g_cmd_context = 0;
+static cmd_context *       g_cmd_context = nullptr;
 
 static void display_statistics() {
     clock_t end_time = clock();
@@ -102,7 +102,7 @@ unsigned read_smtlib2_commands(char const * file_name) {
     #pragma omp critical (g_display_stats)
     {
         display_statistics();
-        g_cmd_context = 0;
+        g_cmd_context = nullptr;
     }
     return result ? 0 : 1;
 }

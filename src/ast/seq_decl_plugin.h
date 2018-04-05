@@ -162,34 +162,34 @@ class seq_decl_plugin : public decl_plugin {
 
     void init();
 
-    virtual void set_manager(ast_manager * m, family_id id);
+    void set_manager(ast_manager * m, family_id id) override;
 
 public:
     seq_decl_plugin();
 
-    virtual ~seq_decl_plugin() {}
-    virtual void finalize();
+    ~seq_decl_plugin() override {}
+    void finalize() override;
 
-    virtual decl_plugin * mk_fresh() { return alloc(seq_decl_plugin); }
+    decl_plugin * mk_fresh() override { return alloc(seq_decl_plugin); }
 
-    virtual sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters);
+    sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) override;
 
-    virtual func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
-                                     unsigned arity, sort * const * domain, sort * range);
+    func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
+                             unsigned arity, sort * const * domain, sort * range) override;
 
-    virtual void get_op_names(svector<builtin_name> & op_names, symbol const & logic);
+    void get_op_names(svector<builtin_name> & op_names, symbol const & logic) override;
 
-    virtual void get_sort_names(svector<builtin_name> & sort_names, symbol const & logic);
+    void get_sort_names(svector<builtin_name> & sort_names, symbol const & logic) override;
 
-    virtual bool is_value(app * e) const;
+    bool is_value(app * e) const override;
 
-    virtual bool is_unique_value(app * e) const { return false; }
+    bool is_unique_value(app * e) const override { return false; }
 
-    virtual bool are_equal(app* a, app* b) const;
+    bool are_equal(app* a, app* b) const override;
 
-    virtual bool are_distinct(app* a, app* b) const;
+    bool are_distinct(app* a, app* b) const override;
 
-    virtual expr * get_some_value(sort * s);
+    expr * get_some_value(sort * s) override;
 
     bool is_char(ast* a) const { return a == m_char; }
 
@@ -233,8 +233,8 @@ public:
         str(seq_util& u): u(u), m(u.m), m_fid(u.m_fid) {}
 
         sort* mk_seq(sort* s) { parameter param(s); return m.mk_sort(m_fid, SEQ_SORT, 1, &param); }
-        sort* mk_string_sort() const { return m.mk_sort(m_fid, _STRING_SORT, 0, 0); }
-        app* mk_empty(sort* s) const { return m.mk_const(m.mk_func_decl(m_fid, OP_SEQ_EMPTY, 0, 0, 0, (expr*const*)0, s)); }
+        sort* mk_string_sort() const { return m.mk_sort(m_fid, _STRING_SORT, 0, nullptr); }
+        app* mk_empty(sort* s) const { return m.mk_const(m.mk_func_decl(m_fid, OP_SEQ_EMPTY, 0, nullptr, 0, (expr*const*)nullptr, s)); }
         app* mk_string(zstring const& s);
         app* mk_string(symbol const& s) { return u.seq.mk_string(s); }
         app* mk_char(char ch);

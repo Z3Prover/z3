@@ -507,7 +507,7 @@ namespace smt {
         m_params.m_nnf_cnf             = false;
         if (st.m_max_ite_tree_depth > 50) {
             m_params.m_arith_eq2ineq        = false;
-            m_params.m_pull_cheap_ite_trees = true;
+            m_params.m_pull_cheap_ite       = true;
             m_params.m_arith_propagate_eqs  = true;
             m_params.m_relevancy_lvl        = 2; 
             m_params.m_relevancy_lemma      = false;

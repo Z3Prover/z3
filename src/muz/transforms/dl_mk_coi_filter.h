@@ -42,7 +42,7 @@ namespace datalog {
             m(ctx.get_manager()),
             m_context(ctx) {}
 
-        rule_set * operator()(rule_set const & source);
+        rule_set * operator()(rule_set const & source) override;
     };
 }
 

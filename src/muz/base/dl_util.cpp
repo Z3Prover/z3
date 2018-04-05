@@ -34,7 +34,7 @@ Revision History:
 
 namespace datalog {
 
-    verbose_action::verbose_action(char const* msg, unsigned lvl): m_lvl(lvl), m_sw(0) {
+    verbose_action::verbose_action(char const* msg, unsigned lvl): m_lvl(lvl), m_sw(nullptr) {
         IF_VERBOSE(m_lvl, 
                    (verbose_stream() << msg << "...").flush(); 
                    m_sw = alloc(stopwatch); 
@@ -87,7 +87,7 @@ namespace datalog {
             else {
                 SASSERT(is_var(arg));
                 int vidx      = to_var(arg)->get_idx();
-                var * new_var = 0;
+                var * new_var = nullptr;
                 if (!varidx2var.find(vidx, new_var)) {
                     new_var = m.mk_var(next_idx, to_var(arg)->get_sort());
                     next_idx++;
@@ -385,7 +385,7 @@ namespace datalog {
     public:
         skip_model_converter() {}
  
-        virtual model_converter * translate(ast_translation & translator) { 
+        model_converter * translate(ast_translation & translator) override {
             return alloc(skip_model_converter);
         }
 
@@ -394,12 +394,12 @@ namespace datalog {
     model_converter* mk_skip_model_converter() { return alloc(skip_model_converter); }
 
     class skip_proof_converter : public proof_converter {
-        virtual void operator()(ast_manager & m, unsigned num_source, proof * const * source, proof_ref & result) {
+        void operator()(ast_manager & m, unsigned num_source, proof * const * source, proof_ref & result) override {
             SASSERT(num_source == 1);
             result = source[0];
         }
 
-        virtual proof_converter * translate(ast_translation & translator) {
+        proof_converter * translate(ast_translation & translator) override {
             return alloc(skip_proof_converter);
         }
 
@@ -428,7 +428,7 @@ namespace datalog {
 
         unsigned tgt_sz = max_var_idx+1;
         unsigned tgt_ofs = tgt_sz-1;
-        tgt.resize(tgt_sz, 0);
+        tgt.resize(tgt_sz, nullptr);
         for(unsigned i=0; i<src_sz; i++) {
             expr * e = src[src_ofs-i];
             if(!e) {
@@ -446,7 +446,7 @@ namespace datalog {
         out << "(";
         for(int i=len-1; i>=0; i--) {
             out << (len-1-i) <<"->";
-            if(cont.get(i)==0) {
+            if(cont.get(i)==nullptr) {
                 out << "{none}";
             }
             else {

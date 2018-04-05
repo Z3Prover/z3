@@ -86,7 +86,7 @@ func_decl * pb_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, p
     }
     default:
         UNREACHABLE();
-        return 0;
+        return nullptr;
     }
 }
 
@@ -299,6 +299,6 @@ bool pb_util::has_unit_coefficients(func_decl* f) const {
 
 app* pb_util::mk_fresh_bool() {
     symbol name = m.mk_fresh_var_name("pb");
-    func_decl_info info(m_fid, OP_PB_AUX_BOOL, 0, 0);
-    return m.mk_const(m.mk_func_decl(name, 0, (sort *const*)0, m.mk_bool_sort(), info));
+    func_decl_info info(m_fid, OP_PB_AUX_BOOL, 0, nullptr);
+    return m.mk_const(m.mk_func_decl(name, 0, (sort *const*)nullptr, m.mk_bool_sort(), info));
 }

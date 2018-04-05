@@ -38,7 +38,7 @@ class propagate_values_tactic : public tactic {
         imp(ast_manager & m, params_ref const & p):
             m(m),
             m_r(m, p),
-            m_goal(0),
+            m_goal(nullptr),
             m_occs(m, true /* track atoms */) {
             updt_params_core(p);
         }
@@ -92,7 +92,7 @@ class propagate_values_tactic : public tactic {
             if (m_goal->unsat_core_enabled()) {
                 new_d = m_goal->dep(m_idx);
                 expr_dependency * used_d = m_r.get_used_dependencies();
-                if (used_d != 0) {
+                if (used_d != nullptr) {
                     new_d = m.mk_join(new_d, used_d);
                     m_r.reset_used_dependencies();
                 }
@@ -141,7 +141,7 @@ class propagate_values_tactic : public tactic {
                         proof_converter_ref & pc,
                         expr_dependency_ref & core) {
             SASSERT(g->is_well_sorted());
-            mc = 0; pc = 0; core = 0;
+            mc = nullptr; pc = nullptr; core = nullptr;
             tactic_report report("propagate-values", *g);
             m_goal = g.get();
 
@@ -210,7 +210,7 @@ class propagate_values_tactic : public tactic {
             SASSERT(m_goal->is_well_sorted());
             TRACE("propagate_values", tout << "end\n"; m_goal->display(tout););
             TRACE("propagate_values_core", m_goal->display_with_dependencies(tout););
-            m_goal = 0;
+            m_goal = nullptr;
         }
     };
     
@@ -222,29 +222,29 @@ public:
         m_imp = alloc(imp, m, p);
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(propagate_values_tactic, m, m_params);
     }
     
-    virtual ~propagate_values_tactic() {
+    ~propagate_values_tactic() override {
         dealloc(m_imp);
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_params = p;
         m_imp->updt_params(p);
     }
 
-    virtual void collect_param_descrs(param_descrs & r) {
+    void collect_param_descrs(param_descrs & r) override {
         th_rewriter::get_param_descrs(r);
         r.insert("max_rounds", CPK_UINT, "(default: 2) maximum number of rounds.");
     }
     
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
+    void operator()(goal_ref const & in,
+                    goal_ref_buffer & result,
+                    model_converter_ref & mc,
+                    proof_converter_ref & pc,
+                    expr_dependency_ref & core) override {
         try {
             (*m_imp)(in, result, mc, pc, core);
         }
@@ -253,7 +253,7 @@ public:
         }
     }
     
-    virtual void cleanup() {
+    void cleanup() override {
         ast_manager & m = m_imp->m;
         params_ref p = std::move(m_params);
         m_imp->~imp();

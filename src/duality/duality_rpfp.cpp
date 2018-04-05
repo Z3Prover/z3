@@ -1345,8 +1345,8 @@ namespace Duality {
     {
         timer_start("Solve");
         TermTree *tree = GetConstraintTree(root);
-        TermTree *interpolant = NULL;
-        TermTree *goals = NULL;
+        TermTree *interpolant = nullptr;
+        TermTree *goals = nullptr;
         if(ls->need_goals)
             goals = GetGoalTree(root);
         ClearProofCore();
@@ -1396,11 +1396,11 @@ namespace Duality {
         timer_start("Solve");
         TermTree *tree = CollapseTermTree(GetConstraintTree(root,node));
         tree->getChildren().push_back(CollapseTermTree(ToTermTree(node)));
-        TermTree *interpolant = NULL;
+        TermTree *interpolant = nullptr;
         ClearProofCore();
 
         timer_start("interpolate_tree");
-        lbool res = ls_interpolate_tree(tree, interpolant, dualModel,0,true);
+        lbool res = ls_interpolate_tree(tree, interpolant, dualModel,nullptr,true);
         timer_stop("interpolate_tree");
         if (res == l_false) {
             DecodeTree(node, interpolant->getChildren()[0], 0);
@@ -1423,7 +1423,7 @@ namespace Duality {
 
     void RPFP::DisposeDualModel()
     {
-        dualModel = model(ctx,NULL);
+        dualModel = model(ctx,nullptr);
     }
   
     RPFP::Term RPFP::UnderapproxFlag(Node *n){
@@ -1491,16 +1491,16 @@ namespace Duality {
         return res;
     }      
 
-    /** Determines the value in the counterexample of a symbol occuring in the transformer formula of
+    /** Determines the value in the counterexample of a symbol occurring in the transformer formula of
      *  a given edge. */
 
-    RPFP::Term RPFP::Eval(Edge *e, Term t)
+    RPFP::Term RPFP::Eval(Edge *e, const Term& t)
     {
         Term tl = Localize(e, t);
         return dualModel.eval(tl);
     }
 
-    /** Returns true if the given node is empty in the primal solution. For proecudure summaries,
+    /** Returns true if the given node is empty in the primal solution. For proceudure summaries,
         this means that the procedure is not called in the current counter-model. */
   
     bool RPFP::Empty(Node *p)
@@ -3281,9 +3281,9 @@ namespace Duality {
             {
                 stack_entry &back = stack.back();
                 for(std::list<Edge *>::iterator it = back.edges.begin(), en = back.edges.end(); it != en; ++it)
-                    (*it)->dual = expr(ctx,NULL);
+                    (*it)->dual = expr(ctx,nullptr);
                 for(std::list<Node *>::iterator it = back.nodes.begin(), en = back.nodes.end(); it != en; ++it)
-                    (*it)->dual = expr(ctx,NULL);
+                    (*it)->dual = expr(ctx,nullptr);
                 for(std::list<std::pair<Edge *,Term> >::iterator it = back.constraints.begin(), en = back.constraints.end(); it != en; ++it)
                     (*it).first->constraints.pop_back();
                 stack.pop_back();

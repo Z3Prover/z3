@@ -53,7 +53,7 @@ public:
         }
     }
 
-    virtual ~pool_solver() {
+    ~pool_solver() override {
         if (m_pushed) pop(get_scope_level());
         if (is_virtual()) {
             m_pred = m.mk_not(m_pred);
@@ -63,12 +63,12 @@ public:
 
     solver* base_solver() { return m_base.get(); }
 
-    virtual solver* translate(ast_manager& m, params_ref const& p) { UNREACHABLE(); return nullptr; }
-    virtual void updt_params(params_ref const& p) { solver::updt_params(p); m_base->updt_params(p); }
-    virtual void collect_param_descrs(param_descrs & r) { m_base->collect_param_descrs(r); }
-    virtual void collect_statistics(statistics & st) const { m_base->collect_statistics(st); }
+    solver* translate(ast_manager& m, params_ref const& p) override { UNREACHABLE(); return nullptr; }
+    void updt_params(params_ref const& p) override { solver::updt_params(p); m_base->updt_params(p); }
+    void collect_param_descrs(param_descrs & r) override { m_base->collect_param_descrs(r); }
+    void collect_statistics(statistics & st) const override { m_base->collect_statistics(st); }
 
-    virtual void get_unsat_core(ptr_vector<expr> & r) {
+    void get_unsat_core(ptr_vector<expr> & r) override {
         m_base->get_unsat_core(r);
         unsigned j = 0;
         for (unsigned i = 0; i < r.size(); ++i) 
@@ -77,12 +77,12 @@ public:
         r.shrink(j);
     }
 
-    virtual unsigned get_num_assumptions() const {
+    unsigned get_num_assumptions() const override {
         unsigned sz = solver_na2as::get_num_assumptions();
         return is_virtual() ? sz - 1 : sz;
     }
 
-    virtual proof * get_proof() {
+    proof * get_proof() override {
         scoped_watch _t_(m_pool.m_proof_watch);
         if (!m_proof.get()) {
             elim_aux_assertions pc(m_pred);
@@ -101,7 +101,7 @@ public:
         }
     }
 
-    virtual lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions) {
+    lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions) override {
         SASSERT(!m_pushed || get_scope_level() > 0);
         m_proof.reset();
         scoped_watch _t_(m_pool.m_check_watch);
@@ -158,7 +158,7 @@ public:
         return res;
     }
 
-    virtual void push_core() {
+    void push_core() override {
         SASSERT(!m_pushed || get_scope_level() > 0);
         if (m_in_delayed_scope) {
             // second push
@@ -178,7 +178,7 @@ public:
         }
     }
 
-    virtual void pop_core(unsigned n) {
+    void pop_core(unsigned n) override {
         SASSERT(!m_pushed || get_scope_level() > 0);
         if (m_pushed) {
             SASSERT(!m_in_delayed_scope);
@@ -190,7 +190,7 @@ public:
         }
     }
     
-    virtual void assert_expr(expr * e) {
+    void assert_expr(expr * e) override {
         SASSERT(!m_pushed || get_scope_level() > 0);
         if (m.is_true(e)) return; 
         if (m_in_delayed_scope) {
@@ -211,18 +211,18 @@ public:
         }
     }   
 
-    virtual void get_model(model_ref & _m) { m_base->get_model(_m); }
+    void get_model(model_ref & _m) override { m_base->get_model(_m); }
 
-    virtual expr * get_assumption(unsigned idx) const {
+    expr * get_assumption(unsigned idx) const override {
         return solver_na2as::get_assumption(idx + is_virtual());
     }
 
-    virtual std::string reason_unknown() const { return m_base->reason_unknown(); }
-    virtual void set_reason_unknown(char const* msg) { return m_base->set_reason_unknown(msg); }
-    virtual void get_labels(svector<symbol> & r) { return m_base->get_labels(r); }
-    virtual void set_progress_callback(progress_callback * callback) { m_base->set_progress_callback(callback); }
+    std::string reason_unknown() const override { return m_base->reason_unknown(); }
+    void set_reason_unknown(char const* msg) override { return m_base->set_reason_unknown(msg); }
+    void get_labels(svector<symbol> & r) override { return m_base->get_labels(r); }
+    void set_progress_callback(progress_callback * callback) override { m_base->set_progress_callback(callback); }
 
-    virtual ast_manager& get_manager() const { return m_base->get_manager(); } 
+    ast_manager& get_manager() const override { return m_base->get_manager(); }
 
     void refresh(solver* new_base) {
         SASSERT(!m_pushed);

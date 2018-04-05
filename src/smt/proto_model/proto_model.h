@@ -60,7 +60,7 @@ class proto_model : public model_core {
 
 public:
     proto_model(ast_manager & m, params_ref const & p = params_ref());
-    virtual ~proto_model() {}
+    ~proto_model() override {}
 
     void register_factory(value_factory * f) { m_factories.register_plugin(f); }
 
@@ -69,7 +69,7 @@ public:
     
     value_factory * get_factory(family_id fid);
 
-    virtual expr * get_some_value(sort * s);
+    expr * get_some_value(sort * s) override;
 
     bool get_some_values(sort * s, expr_ref & v1, expr_ref & v2);
 
@@ -93,9 +93,9 @@ public:
     void freeze_universe(sort * s);
     bool is_finite(sort * s) const;
     obj_hashtable<expr> const & get_known_universe(sort * s) const;
-    virtual ptr_vector<expr> const & get_universe(sort * s) const;
-    virtual unsigned get_num_uninterpreted_sorts() const;
-    virtual sort * get_uninterpreted_sort(unsigned idx) const;
+    ptr_vector<expr> const & get_universe(sort * s) const override;
+    unsigned get_num_uninterpreted_sorts() const override;
+    sort * get_uninterpreted_sort(unsigned idx) const override;
 
     //
     // Complete partial function interps

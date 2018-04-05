@@ -17,7 +17,7 @@ Author:
 #include "util/gparams.h"
 #include <signal.h>
 
-static lp::lp_solver<double, double>* g_solver = 0;
+static lp::lp_solver<double, double>* g_solver = nullptr;
 
 static void display_statistics() {
     if (g_solver && g_solver->settings().print_statistics) {
@@ -49,7 +49,7 @@ struct front_end_resource_limit : public lp::lp_resource_limit {
         m_reslim(lim)
     {}
 
-    virtual bool get_cancel_flag() { return !m_reslim.inc(); }
+    bool get_cancel_flag() override { return !m_reslim.inc(); }
 };
 
 void run_solver(lp_params & params, char const * mps_file_name) {
@@ -95,8 +95,8 @@ void run_solver(lp_params & params, char const * mps_file_name) {
 //    #pragma omp critical (g_display_stats)
     {
         display_statistics();
-        register_on_timeout_proc(0);
-        g_solver = 0;
+        register_on_timeout_proc(nullptr);
+        g_solver = nullptr;
     }
     delete solver;
 }

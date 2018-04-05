@@ -33,13 +33,13 @@ public:
 
     equiv_proof_converter(ast_manager& m): m(m), m_replace(m) {}
 
-    virtual ~equiv_proof_converter() {}
+    ~equiv_proof_converter() override {}
 
-    virtual void operator()(ast_manager & m, unsigned num_source, proof * const * source, proof_ref & result) {
+    void operator()(ast_manager & m, unsigned num_source, proof * const * source, proof_ref & result) override {
         m_replace(m, num_source, source, result);
     }
 
-    virtual proof_converter * translate(ast_translation & translator) {
+    proof_converter * translate(ast_translation & translator) override {
         return m_replace.translate(translator);
     }
 

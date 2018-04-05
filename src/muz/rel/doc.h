@@ -373,7 +373,7 @@ class doc_ref {
     doc_manager& dm;
     doc* d;
 public:
-    doc_ref(doc_manager& dm):dm(dm),d(0) {}
+    doc_ref(doc_manager& dm):dm(dm),d(nullptr) {}
     doc_ref(doc_manager& dm, doc* d):dm(dm),d(d) {}
     ~doc_ref() {
         if (d) dm.deallocate(d);
@@ -385,8 +385,8 @@ public:
     }
     doc& operator*() { return *d; }
     doc* operator->() { return d; }
-    doc* detach() { doc* r = d; d = 0; return r; }
-    operator bool() const { return d != 0; }
+    doc* detach() { doc* r = d; d = nullptr; return r; }
+    operator bool() const { return d != nullptr; }
 };
 
 #endif /* DOC_H_ */

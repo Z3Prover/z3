@@ -41,7 +41,7 @@ public:
     checked_int64(checked_int64 const& other) { m_value = other.m_value; }
 
     class overflow_exception : public z3_exception {
-        virtual char const * msg() const { return "checked_int64 overflow/underflow";}
+        char const * msg() const override { return "checked_int64 overflow/underflow";}
     };
 
     bool is_zero() const { return m_value == 0; }

@@ -85,7 +85,7 @@ struct pull_quant::imp {
                         var_sorts.push_back(nested_q->get_decl_sort(j));
                         symbol s = nested_q->get_decl_name(j);
                         if (std::find(var_names.begin(), var_names.end(), s) != var_names.end())
-                            var_names.push_back(m_manager.mk_fresh_var_name(s.is_numerical() ? 0 : s.bare_str()));
+                            var_names.push_back(m_manager.mk_fresh_var_name(s.is_numerical() ? nullptr : s.bare_str()));
                         else
                             var_names.push_back(s);
                     }
@@ -215,7 +215,7 @@ struct pull_quant::imp {
         
         // Code for proof generation...
         void pull_quant2(expr * n, expr_ref & r, proof_ref & pr) {
-            pr = 0;
+            pr = nullptr;
             if (is_app(n)) {
                 expr_ref_buffer   new_args(m_manager);
                 expr_ref          new_arg(m_manager);
@@ -231,8 +231,8 @@ struct pull_quant::imp {
                 pull_quant1(to_app(n)->get_decl(), new_args.size(), new_args.c_ptr(), r);
                 if (m_manager.proofs_enabled()) {
                     app   * r1 = m_manager.mk_app(to_app(n)->get_decl(), new_args.size(), new_args.c_ptr());
-                    proof * p1 = proofs.empty() ? 0 : m_manager.mk_congruence(to_app(n), r1, proofs.size(), proofs.c_ptr());
-                    proof * p2 = r1 == r ? 0 : m_manager.mk_pull_quant(r1, to_quantifier(r));
+                    proof * p1 = proofs.empty() ? nullptr : m_manager.mk_congruence(to_app(n), r1, proofs.size(), proofs.c_ptr());
+                    proof * p2 = r1 == r ? nullptr : m_manager.mk_pull_quant(r1, to_quantifier(r));
                     pr = m_manager.mk_transitivity(p1, p2);
                 }
             }
@@ -242,12 +242,12 @@ struct pull_quant::imp {
                 pull_quant1(to_quantifier(n), new_expr, r);
                 if (m_manager.proofs_enabled()) {
                     quantifier * q1 = m_manager.update_quantifier(to_quantifier(n), new_expr);
-                    proof * p1 = 0;
+                    proof * p1 = nullptr;
                     if (n != q1) {
                         proof * p0 = m_manager.mk_pull_quant(n, to_quantifier(new_expr));
                         p1 = m_manager.mk_quant_intro(to_quantifier(n), q1, p0);
                     }
-                    proof * p2 = q1 == r ? 0 : m_manager.mk_pull_quant(q1, to_quantifier(r));
+                    proof * p2 = q1 == r ? nullptr : m_manager.mk_pull_quant(q1, to_quantifier(r));
                     pr = m_manager.mk_transitivity(p1, p2);
                 }
             }

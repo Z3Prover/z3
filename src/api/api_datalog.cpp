@@ -45,14 +45,14 @@ namespace api {
         ast_ref_vector               m_trail;        
     public:
         fixedpoint_context(ast_manager& m, smt_params& p): 
-            m_state(0), 
-            m_reduce_app(0), 
-            m_reduce_assign(0), 
+            m_state(nullptr),
+            m_reduce_app(nullptr),
+            m_reduce_assign(nullptr),
             m_context(m, m_register_engine, p),
             m_trail(m) {}
 
-        virtual ~fixedpoint_context() {}
-        family_id get_family_id() const { return const_cast<datalog::context&>(m_context).get_decl_util().get_family_id(); }
+        ~fixedpoint_context() override {}
+        family_id get_family_id() const override { return const_cast<datalog::context&>(m_context).get_decl_util().get_family_id(); }
         void set_state(void* state) {
             SASSERT(!m_state);
             m_state = state;
@@ -73,8 +73,8 @@ namespace api {
         void set_reduce_assign(reduce_assign_callback_fptr f) { 
             m_reduce_assign = f; 
         }
-        virtual void reduce(func_decl* f, unsigned num_args, expr * const* args, expr_ref& result) {
-            expr* r = 0;
+        void reduce(func_decl* f, unsigned num_args, expr * const* args, expr_ref& result) override {
+            expr* r = nullptr;
             if (m_reduce_app) {
                 m_reduce_app(m_state, f, num_args, args, &r);
                 result = r;
@@ -85,12 +85,12 @@ namespace api {
                 m_trail.push_back(r);
             }
             // allow fallthrough.
-            if (r == 0) {
+            if (r == nullptr) {
                 ast_manager& m = m_context.get_manager();
                 result = m.mk_app(f, num_args, args);
             }
         }
-        virtual void reduce_assign(func_decl* f, unsigned num_args, expr * const* args, unsigned num_out, expr* const* outs) {
+        void reduce_assign(func_decl* f, unsigned num_args, expr * const* args, unsigned num_out, expr* const* outs) override {
             if (m_reduce_assign) {
                 m_trail.push_back(f);
                 for (unsigned i = 0; i < num_args; ++i) {
@@ -171,22 +171,22 @@ extern "C" {
         sort * r = to_sort(s);
         if (Z3_get_sort_kind(c, s) != Z3_RELATION_SORT) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         if (col >= r->get_num_parameters()) {
             SET_ERROR_CODE(Z3_IOB);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         parameter const& p = r->get_parameter(col);
         if (!p.is_ast() || !is_sort(p.get_ast())) {
             UNREACHABLE();
             warning_msg("Sort parameter expected at %d", col);
             SET_ERROR_CODE(Z3_INTERNAL_FATAL);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         Z3_sort res = of_sort(to_sort(p.get_ast()));
         RETURN_Z3(res);
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_sort Z3_API Z3_mk_finite_domain_sort(Z3_context c, Z3_symbol name, __uint64 size) {
@@ -196,7 +196,7 @@ extern "C" {
         sort* s = mk_c(c)->datalog_util().mk_sort(to_symbol(name), size);
         mk_c(c)->save_ast_trail(s);
         RETURN_Z3(of_sort(s));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_bool Z3_API Z3_get_finite_domain_sort_size(Z3_context c, Z3_sort s, __uint64 * out) {
@@ -228,7 +228,7 @@ extern "C" {
         mk_c(c)->save_object(d);
         Z3_fixedpoint r = of_datalog(d);
         RETURN_Z3(r);
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     void Z3_API Z3_fixedpoint_inc_ref(Z3_context c, Z3_fixedpoint s) {
@@ -331,7 +331,7 @@ extern "C" {
         expr* e = to_fixedpoint_ref(d)->ctx().get_answer_as_formula();
         mk_c(c)->save_ast_trail(e);
         RETURN_Z3(of_expr(e));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_string Z3_API Z3_fixedpoint_get_reason_unknown(Z3_context c,Z3_fixedpoint d) {
@@ -366,7 +366,7 @@ extern "C" {
         ctx.set_ignore_check(true);
         if (!parse_smt2_commands(ctx, s)) {
             SET_ERROR_CODE(Z3_PARSER_ERROR);
-            return 0;
+            return nullptr;
         }
 
         Z3_ast_vector_ref* v = alloc(Z3_ast_vector_ref, *mk_c(c), m);
@@ -398,7 +398,7 @@ extern "C" {
         std::string str(s);
         std::istringstream is(str);
         RETURN_Z3(Z3_fixedpoint_from_stream(c, d, is));
-        Z3_CATCH_RETURN(0);        
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast_vector Z3_API Z3_fixedpoint_from_file(
@@ -410,10 +410,10 @@ extern "C" {
         std::ifstream is(s);
         if (!is) {
             SET_ERROR_CODE(Z3_PARSER_ERROR);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         RETURN_Z3(Z3_fixedpoint_from_stream(c, d, is));
-        Z3_CATCH_RETURN(0);        
+        Z3_CATCH_RETURN(nullptr);
     }
 
 
@@ -426,7 +426,7 @@ extern "C" {
         mk_c(c)->save_object(st);
         Z3_stats r = of_stats(st);
         RETURN_Z3(r);
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
     
     void Z3_API Z3_fixedpoint_register_relation(Z3_context c,Z3_fixedpoint d, Z3_func_decl f) {
@@ -473,7 +473,7 @@ extern "C" {
             v->m_ast_vector.push_back(m.mk_not(queries[i].get()));
         }
         RETURN_Z3(of_ast_vector(v));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast_vector Z3_API Z3_fixedpoint_get_assertions(
@@ -490,7 +490,7 @@ extern "C" {
             v->m_ast_vector.push_back(to_fixedpoint_ref(d)->ctx().get_assertion(i));
         }
         RETURN_Z3(of_ast_vector(v));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
     
     void Z3_API Z3_fixedpoint_set_reduce_assign_callback(
@@ -541,7 +541,7 @@ extern "C" {
         expr_ref r = to_fixedpoint_ref(d)->get_cover_delta(level, to_func_decl(pred));
         mk_c(c)->save_ast_trail(r);        
         RETURN_Z3(of_expr(r.get()));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     void Z3_API Z3_fixedpoint_add_cover(Z3_context c, Z3_fixedpoint d, int level, Z3_func_decl pred, Z3_ast property) {
@@ -573,7 +573,7 @@ extern "C" {
         to_fixedpoint_ref(f)->collect_param_descrs(d->m_descrs);
         Z3_param_descrs r = of_param_descrs(d);
         RETURN_Z3(r);
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
     
     void Z3_API Z3_fixedpoint_set_params(Z3_context c, Z3_fixedpoint d, Z3_params p) {

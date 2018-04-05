@@ -138,7 +138,7 @@ public:
     }
         
     dependency * mk_empty() {
-        return 0;
+        return nullptr;
     }
 
     dependency * mk_leaf(value const & v) {
@@ -148,10 +148,10 @@ public:
     }
     
     dependency * mk_join(dependency * d1, dependency * d2) {
-        if (d1 == 0) {
+        if (d1 == nullptr) {
             return d2;
         }
-        else if (d2 == 0) {
+        else if (d2 == nullptr) {
             return d1; 
         }
         else if (d1 == d2) {

@@ -1609,7 +1609,6 @@ public:
                 display_inference(out, "rewrite", "thm", p);
                 break;
             case Z3_OP_PR_PULL_QUANT: 
-            case Z3_OP_PR_PULL_QUANT_STAR: 
                 display_inference(out, "pull_quant", "thm", p);
                 break;
             case Z3_OP_PR_PUSH_QUANT: 
@@ -1669,12 +1668,6 @@ public:
             case Z3_OP_PR_NNF_NEG: 
                 display_inference(out, "nnf_neg", "sab", p); 
                 break;
-            case Z3_OP_PR_NNF_STAR: 
-                display_inference(out, "nnf", "sab", p); 
-                break;
-            case Z3_OP_PR_CNF_STAR: 
-                display_inference(out, "cnf", "sab", p); 
-                break;
             case Z3_OP_PR_SKOLEMIZE:
                 display_inference(out, "skolemize", "sab", p); 
                 break;                
@@ -1706,10 +1699,6 @@ public:
             return display_hyp_inference(out, "modus_ponens", "thm", conclusion, hyp, hyp2);
         }
         case Z3_OP_PR_NNF_POS:
-        case Z3_OP_PR_NNF_STAR: 
-            return display_hyp_inference(out, "nnf", "sab", conclusion, hyp);
-        case Z3_OP_PR_CNF_STAR: 
-            return display_hyp_inference(out, "cnf", "sab", conclusion, hyp);
         case Z3_OP_PR_SKOLEMIZE:
             return display_hyp_inference(out, "skolemize", "sab", conclusion, hyp);
         case Z3_OP_PR_TRANSITIVITY:

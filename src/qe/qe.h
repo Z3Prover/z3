@@ -49,13 +49,13 @@ namespace qe {
             i_solver_context& m_s;
         public:
             is_relevant(i_solver_context& s):m_s(s) {}
-            virtual bool operator()(expr* e);
+            bool operator()(expr* e) override;
         };
         class mk_atom_fn : public i_nnf_atom {
             i_solver_context& m_s;
         public:
             mk_atom_fn(i_solver_context& s) : m_s(s) {}
-            void operator()(expr* e, bool p, expr_ref& result);
+            void operator()(expr* e, bool p, expr_ref& result) override;
         };
 
         is_relevant                  m_is_relevant;
@@ -97,7 +97,7 @@ namespace qe {
         virtual void          add_var(app* x) = 0;
 
         // callback to add constraints in branch.
-        virtual void          add_constraint(bool use_var, expr* l1 = 0, expr* l2 = 0, expr* l3 = 0) = 0;
+        virtual void          add_constraint(bool use_var, expr* l1 = nullptr, expr* l2 = nullptr, expr* l3 = nullptr) = 0;
 
         // eliminate finite domain variable 'var' from fml.
         virtual void blast_or(app* var, expr_ref& fml) = 0;

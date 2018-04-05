@@ -293,7 +293,7 @@ static void tst5() {
     bool is_even[1] = { false };
     nlsat::bool_var b = s.mk_ineq_atom(nlsat::atom::GT, 1, _p, is_even);
     nlsat::atom * a = s.bool_var2atom(b);
-    ENSURE(a != 0);
+    ENSURE(a != nullptr);
     scoped_anum zero(am);
     am.set(zero, 0);
     as.set(0, zero);

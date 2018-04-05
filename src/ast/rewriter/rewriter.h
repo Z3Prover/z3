@@ -150,7 +150,7 @@ class var_shifter : public var_shifter_core {
     unsigned  m_bound;
     unsigned  m_shift1;
     unsigned  m_shift2;
-    virtual void process_var(var * v);
+    void process_var(var * v) override;
 public:
     var_shifter(ast_manager & m):var_shifter_core(m) {}
     void operator()(expr * t, unsigned bound, unsigned shift1, unsigned shift2, expr_ref & r);
@@ -183,7 +183,7 @@ public:
 class inv_var_shifter : public var_shifter_core {
 protected:
     unsigned m_shift;
-    virtual void process_var(var * v);
+    void process_var(var * v) override;
 public:
     inv_var_shifter(ast_manager & m):var_shifter_core(m) {}
     void operator()(expr * t, unsigned shift, expr_ref & r);
@@ -339,7 +339,7 @@ public:
     Config & cfg() { return m_cfg; }
     Config const & cfg() const { return m_cfg; }
 
-    ~rewriter_tpl();
+    ~rewriter_tpl() override;
     
     void reset();
     void cleanup();

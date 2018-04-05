@@ -55,7 +55,7 @@ namespace smt {
             updt_params(p);
         }
 
-        virtual solver * translate(ast_manager & m, params_ref const & p) {
+        solver * translate(ast_manager & m, params_ref const & p) override {
             ast_translation translator(get_manager(), m);
 
             smt_solver * result = alloc(smt_solver, m, p, m_logic);
@@ -68,11 +68,11 @@ namespace smt {
             return result;
         }
 
-        virtual ~smt_solver() {
+        ~smt_solver() override {
             dec_ref_values(get_manager(), m_name2assertion);
         }
 
-        virtual void updt_params(params_ref const & p) {
+        void updt_params(params_ref const & p) override {
             solver::updt_params(p);
             m_smt_params.updt_params(p);
             m_context.updt_params(p);
@@ -82,28 +82,28 @@ namespace smt {
             m_core_extend_nonlocal_patterns = smth.core_extend_nonlocal_patterns();
         }
 
-        virtual void collect_param_descrs(param_descrs & r) {
+        void collect_param_descrs(param_descrs & r) override {
             m_context.collect_param_descrs(r);
         }
 
-        virtual void collect_statistics(statistics & st) const {
+        void collect_statistics(statistics & st) const override {
             m_context.collect_statistics(st);
         }
 
-        virtual lbool get_consequences_core(expr_ref_vector const& assumptions, expr_ref_vector const& vars, expr_ref_vector& conseq) {
+        lbool get_consequences_core(expr_ref_vector const& assumptions, expr_ref_vector const& vars, expr_ref_vector& conseq) override {
             expr_ref_vector unfixed(m_context.m());
             return m_context.get_consequences(assumptions, vars, conseq, unfixed);
         }
 
-        virtual lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) {
+        lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) override {
             return m_context.find_mutexes(vars, mutexes);
         }
 
-        virtual void assert_expr(expr * t) {
+        void assert_expr(expr * t) override {
             m_context.assert_expr(t);
         }
 
-        virtual void assert_expr(expr * t, expr * a) {
+        void assert_expr(expr * t, expr * a) override {
             if (m_name2assertion.contains(a)) {
                 throw default_exception("named assertion defined twice");
             }
@@ -112,11 +112,11 @@ namespace smt {
             m_name2assertion.insert(a, t);
         }
 
-        virtual void push_core() {
+        void push_core() override {
             m_context.push();
         }
 
-        virtual void pop_core(unsigned n) {
+        void pop_core(unsigned n) override {
             unsigned cur_sz = m_assumptions.size();
             if (n > 0 && cur_sz > 0) {
                 unsigned lvl = m_scopes.size();
@@ -135,7 +135,7 @@ namespace smt {
             m_context.pop(n);
         }
 
-        virtual lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions) {
+        lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions) override {
             TRACE("solver_na2as", tout << "smt_solver::check_sat_core: " << num_assumptions << "\n";);
             return m_context.check(num_assumptions, assumptions);
         }
@@ -154,7 +154,7 @@ namespace smt {
             }
         };
 
-        virtual void get_unsat_core(ptr_vector<expr> & r) {
+        void get_unsat_core(ptr_vector<expr> & r) override {
             unsigned sz = m_context.get_unsat_core_size();
             for (unsigned i = 0; i < sz; i++) {
                 r.push_back(m_context.get_unsat_core_expr(i));
@@ -177,40 +177,40 @@ namespace smt {
                 add_nonlocal_pattern_literals_to_core(r);
         }
 
-        virtual void get_model(model_ref & m) {
+        void get_model(model_ref & m) override {
             m_context.get_model(m);
         }
 
-        virtual proof * get_proof() {
+        proof * get_proof() override {
             return m_context.get_proof();
         }
 
-        virtual std::string reason_unknown() const {
+        std::string reason_unknown() const override {
             return m_context.last_failure_as_string();
         }
 
-        virtual void set_reason_unknown(char const* msg) {
+        void set_reason_unknown(char const* msg) override {
             m_context.set_reason_unknown(msg);
         }
 
-        virtual void get_labels(svector<symbol> & r) {
+        void get_labels(svector<symbol> & r) override {
             buffer<symbol> tmp;
-            m_context.get_relevant_labels(0, tmp);
+            m_context.get_relevant_labels(nullptr, tmp);
             r.append(tmp.size(), tmp.c_ptr());
         }
 
-        virtual ast_manager & get_manager() const { return m_context.m(); }
+        ast_manager & get_manager() const override { return m_context.m(); }
 
-        virtual void set_progress_callback(progress_callback * callback) {
+        void set_progress_callback(progress_callback * callback) override {
             m_callback = callback;
             m_context.set_progress_callback(callback);
         }
 
-        virtual unsigned get_num_assertions() const {
+        unsigned get_num_assertions() const override {
             return m_context.size();
         }
 
-        virtual expr * get_assertion(unsigned idx) const {
+        expr * get_assertion(unsigned idx) const override {
             SASSERT(idx < get_num_assertions());
             return m_context.get_formula(idx);
         }
@@ -368,7 +368,7 @@ solver * mk_smt_solver(ast_manager & m, params_ref const & p, symbol const & log
 
 class smt_solver_factory : public solver_factory {
 public:
-    virtual solver * operator()(ast_manager & m, params_ref const & p, bool proofs_enabled, bool models_enabled, bool unsat_core_enabled, symbol const & logic) {
+    solver * operator()(ast_manager & m, params_ref const & p, bool proofs_enabled, bool models_enabled, bool unsat_core_enabled, symbol const & logic) override {
         return mk_smt_solver(m, p, logic);
     }
 };

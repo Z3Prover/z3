@@ -891,7 +891,7 @@ namespace qe {
             
             while (m_arith.is_add(p)) {
                 bool found_x = false;
-                expr* next_p = 0;
+                expr* next_p = nullptr;
                 for (unsigned i = 0; i < to_app(p)->get_num_args(); ++i) {
                     expr* arg = to_app(p)->get_arg(i);
                     if (contains_x(arg)) {
@@ -1287,7 +1287,7 @@ namespace qe {
             m_div_coeffs.reset();
             m_div_divisors.reset();
             m_div_atoms.reset();
-            m_div_z = 0;
+            m_div_z = nullptr;
             m_nested_div_terms.reset();
             m_nested_div_coeffs.reset();
             m_nested_div_divisors.reset();
@@ -1485,7 +1485,7 @@ public:
         expr*    m_term;
         ptr_vector<app> m_vars;
 
-        branch_formula(): m_fml(0), m_var(0), m_branch(0), m_result(0), m_term(0) {}
+        branch_formula(): m_fml(nullptr), m_var(nullptr), m_branch(0), m_result(nullptr), m_term(nullptr) {}
         
         branch_formula(expr* fml, app* var, unsigned b, expr* r, rational coeff, expr* term, app_ref_vector const& vars):
             m_fml(fml),
@@ -1536,14 +1536,14 @@ public:
             m_trail(m)
         {}
 
-        ~arith_plugin() {
+        ~arith_plugin() override {
             bounds_cache::iterator it = m_bounds_cache.begin(), end = m_bounds_cache.end();
             for (; it != end; ++it) {
                 dealloc(it->get_value());
             }
         }
 
-        virtual void assign(contains_app& contains_x, expr* fml, rational const& vl) {
+        void assign(contains_app& contains_x, expr* fml, rational const& vl) override {
             SASSERT(vl.is_unsigned());
             app* x = contains_x.x();
             unsigned v     = vl.get_unsigned();
@@ -1633,7 +1633,7 @@ public:
         }
 
 
-        virtual bool get_num_branches(contains_app& contains_x, expr* fml, rational& nb) { 
+        bool get_num_branches(contains_app& contains_x, expr* fml, rational& nb) override {
             app* x = contains_x.x();
             if (!update_bounds(contains_x, fml)) {
                 return false;
@@ -1645,7 +1645,7 @@ public:
             return true;
         }
 
-        virtual void subst(contains_app& contains_x, rational const& vl, expr_ref& fml, expr_ref* def) {
+        void subst(contains_app& contains_x, rational const& vl, expr_ref& fml, expr_ref* def) override {
             SASSERT(vl.is_unsigned());            
             if (def) {
                get_def(contains_x, vl.get_unsigned(), fml, *def);
@@ -1654,7 +1654,7 @@ public:
             TRACE("qe", tout << mk_pp(contains_x.x(), m) << " " << vl << "\n" << mk_pp(fml, m) << "\n";);
         } 
 
-        virtual bool project(contains_app& x, model_ref& model, expr_ref& fml) {
+        bool project(contains_app& x, model_ref& model, expr_ref& fml) override {
             if (!update_bounds(x, fml)) {
                 TRACE("qe", tout << mk_pp(x.x(), m) << " failed to update bounds\n";);
                 return false;
@@ -1668,19 +1668,19 @@ public:
         }
 
 
-        virtual unsigned get_weight(contains_app& contains_x, expr* fml) {
+        unsigned get_weight(contains_app& contains_x, expr* fml) override {
             return 2;
         }
 
-        virtual bool solve(conj_enum& conjs, expr* fml) {
+        bool solve(conj_enum& conjs, expr* fml) override {
             return m_util.solve(conjs, fml);
         }
 
-        virtual bool mk_atom(expr* e, bool p, expr_ref& result) {
+        bool mk_atom(expr* e, bool p, expr_ref& result) override {
             return m_util.mk_atom(e, p, result);
         }
 
-        virtual bool is_uninterpreted(app* f) {
+        bool is_uninterpreted(app* f) override {
             switch(f->get_decl_kind()) {
             case OP_NUM:
             case OP_LE:
@@ -1750,7 +1750,7 @@ public:
             x_subst x_t(m_util);
             bounds_proc& bounds = get_bounds(x, fml);    
             branch_formula bf;
-            VERIFY (m_subst.find(branch_formula(fml, x, v, 0, rational::zero(), 0, m_util.m_vars_added), bf));
+            VERIFY (m_subst.find(branch_formula(fml, x, v, nullptr, rational::zero(), nullptr, m_util.m_vars_added), bf));
             x_t.set_term(bf.m_term);
             x_t.set_coeff(bf.m_coeff);
 
@@ -1949,7 +1949,7 @@ public:
                 }
             }
             assign(x, fml, vl);
-            subst(x, vl, fml, 0);
+            subst(x, vl, fml, nullptr);
             TRACE("qe", tout << mk_pp(fml, m) << "\n";);            
             return true;
         }
@@ -1972,7 +1972,7 @@ public:
                 vl = numeral(0);
             }
             assign(x, fml, vl);
-            subst(x, vl, fml, 0);
+            subst(x, vl, fml, nullptr);
             TRACE("qe", tout << mk_pp(fml, m) << "\n";);
             
             return true;
@@ -2037,7 +2037,7 @@ public:
         
         bool get_cache(app* x, expr* fml, unsigned v, expr_ref& result) {
             branch_formula bf;
-            if (!m_subst.find(branch_formula(fml, x, v, 0, rational::zero(), 0, m_util.m_vars_added), bf)) {
+            if (!m_subst.find(branch_formula(fml, x, v, nullptr, rational::zero(), nullptr, m_util.m_vars_added), bf)) {
                 return false;
             }
             SASSERT(bf.m_result);
@@ -2171,7 +2171,7 @@ public:
         }
 
         bounds_proc& get_bounds(app* x, expr* fml) {
-            bounds_proc* result = 0;
+            bounds_proc* result = nullptr;
             VERIFY (m_bounds_cache.find(x, fml, result));
             return *result;
         }      
@@ -2407,7 +2407,7 @@ public:
         }
 
         bool update_bounds(contains_app& contains_x, expr* fml) {
-            bounds_proc* bounds = 0;
+            bounds_proc* bounds = nullptr;
             if (m_bounds_cache.find(contains_x.x(), fml, bounds)) {
                 return true;
             }
@@ -2456,7 +2456,7 @@ public:
             m_util.set_enable_linear(true); // (produce_models);
         }
 
-        virtual ~nlarith_plugin() {
+        ~nlarith_plugin() override {
             bcs_t::iterator it = m_cache.begin(), end = m_cache.end();
             for (; it != end; ++it) {
                 dealloc(it->get_value());
@@ -2467,7 +2467,7 @@ public:
             }                        
         }
 
-        virtual bool simplify(expr_ref& fml) { 
+        bool simplify(expr_ref& fml) override {
             expr_ref tmp(m), tmp2(m);
             m_factor_rw(fml, tmp);
             m_rewriter(tmp, tmp2);
@@ -2478,8 +2478,8 @@ public:
             return false; 
         }
                 
-        virtual void assign(contains_app& x, expr* fml, rational const& vl) {
-            nlarith::branch_conditions *brs = 0;
+        void assign(contains_app& x, expr* fml, rational const& vl) override {
+            nlarith::branch_conditions *brs = nullptr;
             VERIFY (m_cache.find(x.x(), fml, brs));
             SASSERT(vl.is_unsigned());
             SASSERT(vl.get_unsigned() < brs->size());
@@ -2491,8 +2491,8 @@ public:
             m_ctx.add_constraint(true, result);
         }
         
-        virtual bool get_num_branches(contains_app& x, 
-                                      expr* fml, rational& num_branches) {
+        bool get_num_branches(contains_app& x,
+                              expr* fml, rational& num_branches) override {
             nlarith::branch_conditions *brs;
             if (m_cache.find(x.x(), fml, brs)) {
                 num_branches = rational(brs->size());
@@ -2515,8 +2515,8 @@ public:
             return true;
         }
         
-        virtual void subst(contains_app& x, rational const& vl, expr_ref& fml, expr_ref* def) {
-            nlarith::branch_conditions *brs = 0;
+        void subst(contains_app& x, rational const& vl, expr_ref& fml, expr_ref* def) override {
+            nlarith::branch_conditions *brs = nullptr;
             VERIFY (m_cache.find(x.x(), fml, brs));
             SASSERT(vl.is_unsigned());
             SASSERT(vl.get_unsigned() < brs->size());
@@ -2534,8 +2534,8 @@ public:
         }
 
         
-        virtual unsigned get_weight(contains_app& x, expr* fml) { 
-            obj_map<app, unsigned>* weights = 0;
+        unsigned get_weight(contains_app& x, expr* fml) override {
+            obj_map<app, unsigned>* weights = nullptr;
             unsigned weight = 0;
             if (!m_weights.find(fml, weights)) {
                 weights = alloc(weight_m);
@@ -2553,12 +2553,12 @@ public:
             return UINT_MAX; 
         }
 
-        virtual bool solve(conj_enum& conjs, expr* fml) { return false; }
+        bool solve(conj_enum& conjs, expr* fml) override { return false; }
 
         // we don't need to modify the atom.
-        virtual bool mk_atom(expr* e, bool p, expr_ref& result) { return false;  }
+        bool mk_atom(expr* e, bool p, expr_ref& result) override { return false;  }
 
-        virtual bool is_uninterpreted(app* f) {
+        bool is_uninterpreted(app* f) override {
             if (m_produce_models) {
                 return true;
             }

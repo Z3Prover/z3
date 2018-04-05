@@ -56,7 +56,7 @@ extern "C" {
         sort * s = ctx->fpautil().mk_rm_sort();
         mk_c(c)->save_ast_trail(s);
         RETURN_Z3(of_sort(s));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_fpa_round_nearest_ties_to_even(Z3_context c) {
@@ -67,7 +67,7 @@ extern "C" {
         expr * a = ctx->fpautil().mk_round_nearest_ties_to_even();
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_fpa_rne(Z3_context c) {
@@ -78,7 +78,7 @@ extern "C" {
         expr * a = ctx->fpautil().mk_round_nearest_ties_to_even();
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_fpa_round_nearest_ties_to_away(Z3_context c) {
@@ -89,7 +89,7 @@ extern "C" {
         expr * a = ctx->fpautil().mk_round_nearest_ties_to_away();
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_fpa_rna(Z3_context c) {
@@ -100,7 +100,7 @@ extern "C" {
         expr * a = ctx->fpautil().mk_round_nearest_ties_to_away();
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_fpa_round_toward_positive(Z3_context c) {
@@ -111,7 +111,7 @@ extern "C" {
         expr * a = ctx->fpautil().mk_round_toward_positive();
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_fpa_rtp(Z3_context c) {
@@ -122,7 +122,7 @@ extern "C" {
         expr * a = ctx->fpautil().mk_round_toward_positive();
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_fpa_round_toward_negative(Z3_context c) {
@@ -133,7 +133,7 @@ extern "C" {
         expr * a = ctx->fpautil().mk_round_toward_negative();
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_fpa_rtn(Z3_context c) {
@@ -144,7 +144,7 @@ extern "C" {
         expr * a = ctx->fpautil().mk_round_toward_negative();
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_fpa_round_toward_zero(Z3_context c) {
@@ -155,7 +155,7 @@ extern "C" {
         expr * a = ctx->fpautil().mk_round_toward_zero();
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_fpa_rtz(Z3_context c) {
@@ -166,7 +166,7 @@ extern "C" {
         expr * a = ctx->fpautil().mk_round_toward_zero();
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
 
@@ -181,7 +181,7 @@ extern "C" {
         sort * s = ctx->fpautil().mk_float_sort(ebits, sbits);
         ctx->save_ast_trail(s);
         RETURN_Z3(of_sort(s));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_sort Z3_API Z3_mk_fpa_sort_half(Z3_context c) {
@@ -220,50 +220,50 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_mk_fpa_nan(c, s);
         RESET_ERROR_CODE();
-        CHECK_VALID_AST(s, 0);
+        CHECK_VALID_AST(s, nullptr);
         if (!is_fp_sort(c, s)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         api::context * ctx = mk_c(c);
         expr * a = ctx->fpautil().mk_nan(to_sort(s));
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_fpa_inf(Z3_context c, Z3_sort s, Z3_bool negative) {
         Z3_TRY;
         LOG_Z3_mk_fpa_inf(c, s, negative);
         RESET_ERROR_CODE();
-        CHECK_VALID_AST(s, 0);
+        CHECK_VALID_AST(s, nullptr);
         if (!is_fp_sort(c, s)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         api::context * ctx = mk_c(c);
         expr * a = negative != 0 ? ctx->fpautil().mk_ninf(to_sort(s)) :
                                    ctx->fpautil().mk_pinf(to_sort(s));
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_fpa_zero(Z3_context c, Z3_sort s, Z3_bool negative) {
         Z3_TRY;
         LOG_Z3_mk_fpa_inf(c, s, negative);
         RESET_ERROR_CODE();
-        CHECK_VALID_AST(s, 0);
+        CHECK_VALID_AST(s, nullptr);
         if (!is_fp_sort(c, s)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         api::context * ctx = mk_c(c);
         expr * a = negative != 0 ? ctx->fpautil().mk_nzero(to_sort(s)) :
                                    ctx->fpautil().mk_pzero(to_sort(s));
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_fpa_fp(Z3_context c, Z3_ast sgn, Z3_ast exp, Z3_ast sig) {
@@ -272,13 +272,13 @@ extern "C" {
         RESET_ERROR_CODE();
         if (!is_bv(c, sgn) || !is_bv(c, exp) || !is_bv(c, sig)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         api::context * ctx = mk_c(c);
         expr * a = ctx->fpautil().mk_fp(to_expr(sgn), to_expr(exp), to_expr(sig));
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_fpa_numeral_float(Z3_context c, float v, Z3_sort ty) {
@@ -287,7 +287,7 @@ extern "C" {
         RESET_ERROR_CODE();
         if (!is_fp_sort(c, ty)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         api::context * ctx = mk_c(c);
         scoped_mpf tmp(ctx->fpautil().fm());
@@ -298,7 +298,7 @@ extern "C" {
         expr * a = ctx->fpautil().mk_value(tmp);
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_fpa_numeral_double(Z3_context c, double v, Z3_sort ty) {
@@ -307,7 +307,7 @@ extern "C" {
         RESET_ERROR_CODE();
         if (!is_fp_sort(c, ty)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         api::context * ctx = mk_c(c);
         scoped_mpf tmp(ctx->fpautil().fm());
@@ -315,7 +315,7 @@ extern "C" {
         expr * a = ctx->fpautil().mk_value(tmp);
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_fpa_numeral_int(Z3_context c, signed v, Z3_sort ty) {
@@ -324,7 +324,7 @@ extern "C" {
         RESET_ERROR_CODE();
         if (!is_fp_sort(c, ty)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         api::context * ctx = mk_c(c);
         scoped_mpf tmp(ctx->fpautil().fm());
@@ -335,7 +335,7 @@ extern "C" {
         expr * a = ctx->fpautil().mk_value(tmp);
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_fpa_numeral_int_uint(Z3_context c, Z3_bool sgn, signed exp, unsigned sig, Z3_sort ty) {
@@ -344,7 +344,7 @@ extern "C" {
         RESET_ERROR_CODE();
         if (!is_fp_sort(c, ty)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         api::context * ctx = mk_c(c);
         scoped_mpf tmp(ctx->fpautil().fm());
@@ -355,7 +355,7 @@ extern "C" {
         expr * a = ctx->fpautil().mk_value(tmp);
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_fpa_numeral_int64_uint64(Z3_context c, Z3_bool sgn, __int64 exp, __uint64 sig, Z3_sort ty) {
@@ -364,7 +364,7 @@ extern "C" {
         RESET_ERROR_CODE();
         if (!is_fp_sort(c, ty)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         api::context * ctx = mk_c(c);
         scoped_mpf tmp(ctx->fpautil().fm());
@@ -375,7 +375,7 @@ extern "C" {
         expr * a = ctx->fpautil().mk_value(tmp);
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_fpa_abs(Z3_context c, Z3_ast t) {
@@ -384,13 +384,13 @@ extern "C" {
         RESET_ERROR_CODE();
         if (!is_fp(c, t)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         api::context * ctx = mk_c(c);
         expr * a = ctx->fpautil().mk_abs(to_expr(t));
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_fpa_neg(Z3_context c, Z3_ast t) {
@@ -399,13 +399,13 @@ extern "C" {
         RESET_ERROR_CODE();
         if (!is_fp(c, t)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         api::context * ctx = mk_c(c);
         expr * a = ctx->fpautil().mk_neg(to_expr(t));
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_fpa_add(Z3_context c, Z3_ast rm, Z3_ast t1, Z3_ast t2) {
@@ -414,13 +414,13 @@ extern "C" {
         RESET_ERROR_CODE();
         if (!is_rm(c, rm) || !is_fp(c, t1) || !is_fp(c, t2)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         api::context * ctx = mk_c(c);
         expr * a = ctx->fpautil().mk_add(to_expr(rm), to_expr(t1), to_expr(t2));
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_fpa_sub(Z3_context c, Z3_ast rm, Z3_ast t1, Z3_ast t2) {
@@ -429,13 +429,13 @@ extern "C" {
         RESET_ERROR_CODE();
         if (!is_rm(c, rm) || !is_fp(c, t1) || !is_fp(c, t2)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         api::context * ctx = mk_c(c);
         expr * a = ctx->fpautil().mk_sub(to_expr(rm), to_expr(t1), to_expr(t2));
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_fpa_mul(Z3_context c, Z3_ast rm, Z3_ast t1, Z3_ast t2) {
@@ -444,13 +444,13 @@ extern "C" {
         RESET_ERROR_CODE();
         if (!is_rm(c, rm) || !is_fp(c, t1) || !is_fp(c, t2)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         api::context * ctx = mk_c(c);
         expr * a = ctx->fpautil().mk_mul(to_expr(rm), to_expr(t1), to_expr(t2));
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_fpa_div(Z3_context c, Z3_ast rm, Z3_ast t1, Z3_ast t2) {
@@ -459,13 +459,13 @@ extern "C" {
         RESET_ERROR_CODE();
         if (!is_rm(c, rm) || !is_fp(c, t1) || !is_fp(c, t2)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         api::context * ctx = mk_c(c);
         expr * a = ctx->fpautil().mk_div(to_expr(rm), to_expr(t1), to_expr(t2));
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_fpa_fma(Z3_context c, Z3_ast rm, Z3_ast t1, Z3_ast t2, Z3_ast t3) {
@@ -474,13 +474,13 @@ extern "C" {
         RESET_ERROR_CODE();
         if (!is_rm(c, rm) || !is_fp(c, t1) || !is_fp(c, t2) || !is_fp(c, t3)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         api::context * ctx = mk_c(c);
         expr * a = ctx->fpautil().mk_fma(to_expr(rm), to_expr(t1), to_expr(t2), to_expr(t3));
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_fpa_sqrt(Z3_context c, Z3_ast rm, Z3_ast t) {
@@ -489,13 +489,13 @@ extern "C" {
         RESET_ERROR_CODE();
         if (!is_rm(c, rm) || !is_fp(c, t)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         api::context * ctx = mk_c(c);
         expr * a = ctx->fpautil().mk_sqrt(to_expr(rm), to_expr(t));
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_fpa_rem(Z3_context c, Z3_ast t1, Z3_ast t2) {
@@ -504,13 +504,13 @@ extern "C" {
         RESET_ERROR_CODE();
         if (!is_fp(c, t1) || !is_fp(c, t2)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         api::context * ctx = mk_c(c);
         expr * a = ctx->fpautil().mk_rem(to_expr(t1), to_expr(t2));
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_fpa_round_to_integral(Z3_context c, Z3_ast rm, Z3_ast t) {
@@ -519,13 +519,13 @@ extern "C" {
         RESET_ERROR_CODE();
         if (!is_rm(c, rm) || !is_fp(c, t)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         api::context * ctx = mk_c(c);
         expr * a = ctx->fpautil().mk_round_to_integral(to_expr(rm), to_expr(t));
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_fpa_min(Z3_context c, Z3_ast t1, Z3_ast t2) {
@@ -534,13 +534,13 @@ extern "C" {
         RESET_ERROR_CODE();
         if (!is_fp(c, t1) || !is_fp(c, t2)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         api::context * ctx = mk_c(c);
         expr * a = ctx->fpautil().mk_min(to_expr(t1), to_expr(t2));
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_fpa_max(Z3_context c, Z3_ast t1, Z3_ast t2) {
@@ -549,13 +549,13 @@ extern "C" {
         RESET_ERROR_CODE();
         if (!is_fp(c, t1) || !is_fp(c, t2)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         api::context * ctx = mk_c(c);
         expr * a = ctx->fpautil().mk_max(to_expr(t1), to_expr(t2));
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_fpa_leq(Z3_context c, Z3_ast t1, Z3_ast t2) {
@@ -564,13 +564,13 @@ extern "C" {
         RESET_ERROR_CODE();
         if (!is_fp(c, t1) || !is_fp(c, t2)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         api::context * ctx = mk_c(c);
         expr * a = ctx->fpautil().mk_le(to_expr(t1), to_expr(t2));
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_fpa_lt(Z3_context c, Z3_ast t1, Z3_ast t2) {
@@ -579,13 +579,13 @@ extern "C" {
         RESET_ERROR_CODE();
         if (!is_fp(c, t1) || !is_fp(c, t2)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         api::context * ctx = mk_c(c);
         expr * a = ctx->fpautil().mk_lt(to_expr(t1), to_expr(t2));
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_fpa_geq(Z3_context c, Z3_ast t1, Z3_ast t2) {
@@ -594,13 +594,13 @@ extern "C" {
         RESET_ERROR_CODE();
         if (!is_fp(c, t1) || !is_fp(c, t2)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         api::context * ctx = mk_c(c);
         expr * a = ctx->fpautil().mk_ge(to_expr(t1), to_expr(t2));
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_fpa_gt(Z3_context c, Z3_ast t1, Z3_ast t2) {
@@ -609,13 +609,13 @@ extern "C" {
         RESET_ERROR_CODE();
         if (!is_fp(c, t1) || !is_fp(c, t2)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         api::context * ctx = mk_c(c);
         expr * a = ctx->fpautil().mk_gt(to_expr(t1), to_expr(t2));
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_fpa_eq(Z3_context c, Z3_ast t1, Z3_ast t2) {
@@ -624,13 +624,13 @@ extern "C" {
         RESET_ERROR_CODE();
         if (!is_fp(c, t1) || !is_fp(c, t2)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         api::context * ctx = mk_c(c);
         expr * a = ctx->fpautil().mk_float_eq(to_expr(t1), to_expr(t2));
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_fpa_is_normal(Z3_context c, Z3_ast t) {
@@ -639,13 +639,13 @@ extern "C" {
         RESET_ERROR_CODE();
         if (!is_fp(c, t)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         api::context * ctx = mk_c(c);
         expr * a = ctx->fpautil().mk_is_normal(to_expr(t));
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_fpa_is_subnormal(Z3_context c, Z3_ast t) {
@@ -654,13 +654,13 @@ extern "C" {
         RESET_ERROR_CODE();
         if (!is_fp(c, t)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         api::context * ctx = mk_c(c);
         expr * a = ctx->fpautil().mk_is_subnormal(to_expr(t));
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_fpa_is_zero(Z3_context c, Z3_ast t) {
@@ -669,13 +669,13 @@ extern "C" {
         RESET_ERROR_CODE();
         if (!is_fp(c, t)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         api::context * ctx = mk_c(c);
         expr * a = ctx->fpautil().mk_is_zero(to_expr(t));
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_fpa_is_infinite(Z3_context c, Z3_ast t) {
@@ -684,13 +684,13 @@ extern "C" {
         RESET_ERROR_CODE();
         if (!is_fp(c, t)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         api::context * ctx = mk_c(c);
         expr * a = ctx->fpautil().mk_is_inf(to_expr(t));
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_fpa_is_nan(Z3_context c, Z3_ast t) {
@@ -699,13 +699,13 @@ extern "C" {
         RESET_ERROR_CODE();
         if (!is_fp(c, t)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         api::context * ctx = mk_c(c);
         expr * a = ctx->fpautil().mk_is_nan(to_expr(t));
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_fpa_is_negative(Z3_context c, Z3_ast t) {
@@ -714,13 +714,13 @@ extern "C" {
         RESET_ERROR_CODE();
         if (!is_fp(c, t)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         api::context * ctx = mk_c(c);
         expr * a = ctx->fpautil().mk_is_negative(to_expr(t));
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_fpa_is_positive(Z3_context c, Z3_ast t) {
@@ -729,13 +729,13 @@ extern "C" {
         RESET_ERROR_CODE();
         if (!is_fp(c, t)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         api::context * ctx = mk_c(c);
         expr * a = ctx->fpautil().mk_is_positive(to_expr(t));
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
 
@@ -745,19 +745,19 @@ extern "C" {
         RESET_ERROR_CODE();
         if (!is_bv(c, bv) || !is_fp_sort(c, s)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         api::context * ctx = mk_c(c);
         fpa_util & fu = ctx->fpautil();
         if (!ctx->bvutil().is_bv(to_expr(bv)) ||
             !fu.is_float(to_sort(s))) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            return 0;
+            return nullptr;
         }
         expr * a = fu.mk_to_fp(to_sort(s), to_expr(bv));
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_fpa_to_fp_float(Z3_context c, Z3_ast rm, Z3_ast t, Z3_sort s) {
@@ -770,12 +770,12 @@ extern "C" {
             !fu.is_float(to_expr(t)) ||
             !fu.is_float(to_sort(s))) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            return 0;
+            return nullptr;
         }
         expr * a = fu.mk_to_fp(to_sort(s), to_expr(rm), to_expr(t));
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_fpa_to_fp_real(Z3_context c, Z3_ast rm, Z3_ast t, Z3_sort s) {
@@ -788,12 +788,12 @@ extern "C" {
             !ctx->autil().is_real(to_expr(t)) ||
             !fu.is_float(to_sort(s))) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            return 0;
+            return nullptr;
         }
         expr * a = fu.mk_to_fp(to_sort(s), to_expr(rm), to_expr(t));
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_fpa_to_fp_signed(Z3_context c, Z3_ast rm, Z3_ast t, Z3_sort s) {
@@ -806,12 +806,12 @@ extern "C" {
             !ctx->bvutil().is_bv(to_expr(t)) ||
             !fu.is_float(to_sort(s))) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            return 0;
+            return nullptr;
         }
         expr * a = fu.mk_to_fp(to_sort(s), to_expr(rm), to_expr(t));
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_fpa_to_fp_unsigned(Z3_context c, Z3_ast rm, Z3_ast t, Z3_sort s) {
@@ -824,12 +824,12 @@ extern "C" {
             !ctx->bvutil().is_bv(to_expr(t)) ||
             !fu.is_float(to_sort(s))) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            return 0;
+            return nullptr;
         }
         expr * a = fu.mk_to_fp_unsigned(to_sort(s), to_expr(rm), to_expr(t));
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_fpa_to_ubv(Z3_context c, Z3_ast rm, Z3_ast t, unsigned sz) {
@@ -838,13 +838,13 @@ extern "C" {
         RESET_ERROR_CODE();
         if (!is_rm(c, rm) || !is_fp(c, t)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         api::context * ctx = mk_c(c);
         expr * a = ctx->fpautil().mk_to_ubv(to_expr(rm), to_expr(t), sz);
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_fpa_to_sbv(Z3_context c, Z3_ast rm, Z3_ast t, unsigned sz) {
@@ -853,13 +853,13 @@ extern "C" {
         RESET_ERROR_CODE();
         if (!is_rm(c, rm) || !is_fp(c, t)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         api::context * ctx = mk_c(c);
         expr * a = ctx->fpautil().mk_to_sbv(to_expr(rm), to_expr(t), sz);
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_fpa_to_real(Z3_context c, Z3_ast t) {
@@ -868,13 +868,13 @@ extern "C" {
         RESET_ERROR_CODE();
         if (!is_fp(c, t)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         api::context * ctx = mk_c(c);
         expr * a = ctx->fpautil().mk_to_real(to_expr(t));
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     unsigned Z3_API Z3_fpa_get_ebits(Z3_context c, Z3_sort s) {
@@ -911,7 +911,7 @@ extern "C" {
         RESET_ERROR_CODE();
         CHECK_NON_NULL(t, 0);
         CHECK_VALID_AST(t, 0);
-        if (sgn == 0) {
+        if (sgn == nullptr) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             return 0;
         }
@@ -939,8 +939,8 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_fpa_get_numeral_sign_bv(c, t);
         RESET_ERROR_CODE();
-        CHECK_NON_NULL(t, 0);
-        CHECK_VALID_AST(t, 0);
+        CHECK_NON_NULL(t, nullptr);
+        CHECK_VALID_AST(t, nullptr);
         ast_manager & m = mk_c(c)->m();
         mpf_manager & mpfm = mk_c(c)->fpautil().fm();
         family_id fid = mk_c(c)->get_fpa_fid();
@@ -949,13 +949,13 @@ extern "C" {
         expr * e = to_expr(t);
         if (!is_app(e) || is_app_of(e, fid, OP_FPA_NAN) || !is_fp(c, t)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         scoped_mpf val(mpfm);
         bool r = plugin->is_numeral(to_expr(t), val);
         if (!r || mpfm.is_nan(val)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            return 0;
+            return nullptr;
         }
         app * a;
         if (mpfm.is_pos(val))
@@ -964,15 +964,15 @@ extern "C" {
             a = ctx->bvutil().mk_numeral(1, 1);
         mk_c(c)->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_fpa_get_numeral_significand_bv(Z3_context c, Z3_ast t) {
         Z3_TRY;
         LOG_Z3_fpa_get_numeral_significand_bv(c, t);
         RESET_ERROR_CODE();
-        CHECK_NON_NULL(t, 0);
-        CHECK_VALID_AST(t, 0);
+        CHECK_NON_NULL(t, nullptr);
+        CHECK_VALID_AST(t, nullptr);
         ast_manager & m = mk_c(c)->m();
         mpf_manager & mpfm = mk_c(c)->fpautil().fm();
         unsynch_mpq_manager & mpqm = mpfm.mpq_manager();
@@ -982,13 +982,13 @@ extern "C" {
         expr * e = to_expr(t);
         if (!is_app(e) || is_app_of(e, fid, OP_FPA_NAN) || !is_fp(c, t)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         scoped_mpf val(mpfm);
         bool r = plugin->is_numeral(e, val);
         if (!r || !(mpfm.is_normal(val) || mpfm.is_denormal(val) || mpfm.is_zero(val) || mpfm.is_inf(val))) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         unsigned sbits = val.get().get_sbits();
         scoped_mpq q(mpqm);
@@ -997,15 +997,15 @@ extern "C" {
         app * a = mk_c(c)->bvutil().mk_numeral(q.get(), sbits-1);
         mk_c(c)->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_string Z3_API Z3_fpa_get_numeral_significand_string(Z3_context c, Z3_ast t) {
         Z3_TRY;
         LOG_Z3_fpa_get_numeral_significand_string(c, t);
         RESET_ERROR_CODE();
-        CHECK_NON_NULL(t, 0);
-        CHECK_VALID_AST(t, 0);
+        CHECK_NON_NULL(t, nullptr);
+        CHECK_VALID_AST(t, nullptr);
         ast_manager & m = mk_c(c)->m();
         mpf_manager & mpfm = mk_c(c)->fpautil().fm();
         unsynch_mpq_manager & mpqm = mpfm.mpq_manager();
@@ -1041,7 +1041,7 @@ extern "C" {
         RESET_ERROR_CODE();
         CHECK_NON_NULL(t, 0);
         CHECK_VALID_AST(t, 0);
-        if (n == 0) {
+        if (n == nullptr) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             return 0;
         }
@@ -1076,8 +1076,8 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_fpa_get_numeral_exponent_string(c, t, biased);
         RESET_ERROR_CODE();
-        CHECK_NON_NULL(t, 0);
-        CHECK_VALID_AST(t, 0);
+        CHECK_NON_NULL(t, nullptr);
+        CHECK_VALID_AST(t, nullptr);
         ast_manager & m = mk_c(c)->m();
         mpf_manager & mpfm = mk_c(c)->fpautil().fm();
         family_id fid = mk_c(c)->get_fpa_fid();
@@ -1119,7 +1119,7 @@ extern "C" {
         RESET_ERROR_CODE();
         CHECK_NON_NULL(t, 0);
         CHECK_VALID_AST(t, 0);
-        if (n == 0) {
+        if (n == nullptr) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             return 0;
         }
@@ -1161,8 +1161,8 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_fpa_get_numeral_exponent_bv(c, t, biased);
         RESET_ERROR_CODE();
-        CHECK_NON_NULL(t, 0);
-        CHECK_VALID_AST(t, 0);
+        CHECK_NON_NULL(t, nullptr);
+        CHECK_VALID_AST(t, nullptr);
         ast_manager & m = mk_c(c)->m();
         mpf_manager & mpfm = mk_c(c)->fpautil().fm();
         family_id fid = mk_c(c)->get_fpa_fid();
@@ -1170,13 +1170,13 @@ extern "C" {
         expr * e = to_expr(t);
         if (!is_app(e) || is_app_of(e, fid, OP_FPA_NAN) || !is_fp(c, t)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         scoped_mpf val(mpfm);
         bool r = plugin->is_numeral(e, val);
         if (!r || !(mpfm.is_normal(val) || mpfm.is_denormal(val) || mpfm.is_zero(val) || mpfm.is_inf(val))) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         unsigned ebits = val.get().get_ebits();
         mpf_exp_t exp;
@@ -1194,23 +1194,23 @@ extern "C" {
         app * a = mk_c(c)->bvutil().mk_numeral(exp, ebits);
         mk_c(c)->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_fpa_to_ieee_bv(Z3_context c, Z3_ast t) {
         Z3_TRY;
         LOG_Z3_mk_fpa_to_ieee_bv(c, t);
         RESET_ERROR_CODE();
-        CHECK_NON_NULL(t, 0);
-        CHECK_VALID_AST(t, 0);
+        CHECK_NON_NULL(t, nullptr);
+        CHECK_VALID_AST(t, nullptr);
         if (!is_fp(c, t)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         api::context * ctx = mk_c(c);
         Z3_ast r = of_ast(ctx->fpautil().mk_to_ieee_bv(to_expr(t)));
         RETURN_Z3(r);
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_fpa_to_fp_int_real(Z3_context c, Z3_ast rm, Z3_ast exp, Z3_ast sig, Z3_sort s) {
@@ -1224,12 +1224,12 @@ extern "C" {
             !ctx->autil().is_real(to_expr(sig)) ||
             !fu.is_float(to_sort(s))) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            return 0;
+            return nullptr;
         }
         expr * a = fu.mk_to_fp(to_sort(s), to_expr(rm), to_expr(exp), to_expr(sig));
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_bool Z3_API Z3_fpa_is_numeral_nan(Z3_context c, Z3_ast t) {

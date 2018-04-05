@@ -66,7 +66,7 @@ public:
         m.insert(s,t);
     }
 
-    virtual void undo(Ctx& ctx) {
+    void undo(Ctx& ctx) override {
         m_map.pop();
     }    
 };

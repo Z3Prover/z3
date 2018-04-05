@@ -190,7 +190,7 @@ namespace upolynomial {
 
     // Copy elements from p to buffer.
     void core_manager::set(unsigned sz, numeral const * p, numeral_vector & buffer) {
-        if (p != 0 && buffer.c_ptr() == p) {
+        if (p != nullptr && buffer.c_ptr() == p) {
             SASSERT(buffer.size() == sz);
             return;
         }
@@ -781,17 +781,15 @@ namespace upolynomial {
                 set(q.size(), q.c_ptr(), C);
                 m().set(bound, p);
             }
+            else if (q.size() < C.size() || m().m().is_even(p) || m().m().is_even(bound)) {
+                // discard accumulated image, it was affected by unlucky primes
+                TRACE("mgcd", tout << "discarding image\n";);
+                set(q.size(), q.c_ptr(), C);
+                m().set(bound, p);
+            }
             else {
-                if (q.size() < C.size()) {
-                    // discard accumulated image, it was affected by unlucky primes
-                    TRACE("mgcd", tout << "discarding image\n";);
-                    set(q.size(), q.c_ptr(), C);
-                    m().set(bound, p);
-                }
-                else {
-                    CRA_combine_images(q, p, C, bound);
-                    TRACE("mgcd", tout << "new combined:\n"; display_star(tout, C); tout << "\n";);
-                }
+                CRA_combine_images(q, p, C, bound);
+                TRACE("mgcd", tout << "new combined:\n"; display_star(tout, C); tout << "\n";);
             }
             numeral_vector & candidate = q;
             get_primitive(C, candidate);

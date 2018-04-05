@@ -68,14 +68,14 @@ class reduce_args_tactic : public tactic {
 public:
     reduce_args_tactic(ast_manager & m);
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(reduce_args_tactic, m);
     }
 
-    virtual ~reduce_args_tactic();
+    ~reduce_args_tactic() override;
     
-    virtual void operator()(goal_ref const & g, goal_ref_buffer & result, model_converter_ref & mc, proof_converter_ref & pc, expr_dependency_ref & core);
-    virtual void cleanup();
+    void operator()(goal_ref const & g, goal_ref_buffer & result, model_converter_ref & mc, proof_converter_ref & pc, expr_dependency_ref & core) override;
+    void cleanup() override;
 };
 
 tactic * mk_reduce_args_tactic(ast_manager & m, params_ref const & p) {
@@ -104,7 +104,7 @@ struct reduce_args_tactic::imp {
     }
 
     static bool may_be_unique(ast_manager& m, bv_util& bv, expr* e, expr*& base) {
-        base = 0;
+        base = nullptr;
         return m.is_unique_value(e) || is_var_plus_offset(m, bv, e, base);
     }
 
@@ -341,7 +341,7 @@ struct reduce_args_tactic::imp {
         }
         
         br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
-            result_pr = 0;
+            result_pr = nullptr;
             if (f->get_arity() == 0)
                 return BR_FAILED; // ignore constants
             if (f->get_family_id() != null_family_id)
@@ -357,7 +357,7 @@ struct reduce_args_tactic::imp {
             }
 
             app_ref tmp(m.mk_app(f, num, args), m);
-            func_decl *& new_f = map->insert_if_not_there2(tmp, 0)->get_data().m_value;
+            func_decl *& new_f = map->insert_if_not_there2(tmp, nullptr)->get_data().m_value;
             if (!new_f) {
                 // create fresh symbol
                 ptr_buffer<sort> domain;
@@ -401,7 +401,7 @@ struct reduce_args_tactic::imp {
         for (; it != end; ++it) {
             func_decl * f  = it->m_key;
             arg2func * map = it->m_value;
-            expr * def     = 0;
+            expr * def     = nullptr;
             SASSERT(decl2args.contains(f));
             bit_vector & bv = decl2args.find(f);
             new_vars.reset();
@@ -419,7 +419,7 @@ struct reduce_args_tactic::imp {
                 f_mc->insert(new_def);
                 SASSERT(new_def->get_arity() == new_args.size());
                 app * new_t = m_manager.mk_app(new_def, new_args.size(), new_args.c_ptr());
-                if (def == 0) {
+                if (def == nullptr) {
                     def = new_t;
                 }
                 else {
@@ -494,7 +494,7 @@ void reduce_args_tactic::operator()(goal_ref const & g,
     SASSERT(g->is_well_sorted());
     fail_if_proof_generation("reduce-args", g);
     fail_if_unsat_core_generation("reduce-args", g);
-    mc = 0; pc = 0; core = 0; result.reset();
+    mc = nullptr; pc = nullptr; core = nullptr; result.reset();
     m_imp->operator()(*(g.get()), mc);
     g->inc_depth();
     result.push_back(g.get());

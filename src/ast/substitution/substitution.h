@@ -178,7 +178,7 @@ public:
        to the variable x+delta[i]. 
     */
     void apply(unsigned num_actual_offsets, unsigned const * deltas, expr_offset const & n, expr_ref & result) {
-        apply(num_actual_offsets, deltas, n, expr_offset(0, 0), expr_offset(0, 0), result);
+        apply(num_actual_offsets, deltas, n, expr_offset(nullptr, 0), expr_offset(nullptr, 0), result);
     }
     
     /**

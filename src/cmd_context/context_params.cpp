@@ -62,7 +62,7 @@ void context_params::set_uint(unsigned & opt, char const * param, char const * v
     }
 
     if (is_uint) {
-        long val = strtol(value, 0, 10);
+        long val = strtol(value, nullptr, 10);
         opt = static_cast<unsigned>(val);
     }
     else {
@@ -198,7 +198,7 @@ void context_params::get_solver_params(ast_manager const & m, params_ref & p, bo
 ast_manager * context_params::mk_ast_manager() {
     ast_manager * r = alloc(ast_manager,
                             m_proof ? PGM_ENABLED : PGM_DISABLED,
-                            m_trace ? m_trace_file_name.c_str() : 0);
+                            m_trace ? m_trace_file_name.c_str() : nullptr);
     if (m_smtlib2_compliant)
         r->enable_int_real_coercions(false);
     if (m_debug_ref_count)

@@ -30,7 +30,7 @@ class solver;
 class solver_factory;
 
 solver * mk_tactic2solver(ast_manager & m, 
-                          tactic * t = 0, 
+                          tactic * t = nullptr,
                           params_ref const & p = params_ref(), 
                           bool produce_proofs = false, 
                           bool produce_models = true, 

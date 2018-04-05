@@ -44,7 +44,7 @@ namespace datalog {
             void apply(app * a, app_ref& res);
         public:
             rule_substitution(context & ctx)
-                : m(ctx.get_manager()), m_context(ctx), m_subst(m), m_unif(m), m_head(m), m_tail(m), m_rule(0) {}
+                : m(ctx.get_manager()), m_context(ctx), m_subst(m), m_unif(m), m_head(m), m_tail(m), m_rule(nullptr) {}
 
             /**
             Reset substitution and get it ready for working with rule r.
@@ -53,7 +53,7 @@ namespace datalog {
             */
             void reset(rule * r);
 
-            /** Reset subtitution and unify tail tgt_idx of the target rule and the head of the src rule */
+            /** Reset substitution and unify tail tgt_idx of the target rule and the head of the src rule */
             bool unify(expr * e1, expr * e2);
 
             void get_result(rule_ref & res);
@@ -90,7 +90,7 @@ namespace datalog {
         bool transform_rules(const rule_set & orig, rule_set & tgt);
     public:
         mk_interp_tail_simplifier(context & ctx, unsigned priority=40000);
-        virtual ~mk_interp_tail_simplifier();
+        ~mk_interp_tail_simplifier() override;
 
         /**If rule should be retained, assign transformed version to res and return true;
         if rule can be deleted, return false.
@@ -100,7 +100,7 @@ namespace datalog {
         */
         bool transform_rule(rule * r, rule_ref& res);
 
-        rule_set * operator()(rule_set const & source);
+        rule_set * operator()(rule_set const & source) override;
     };
 
 };

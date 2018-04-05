@@ -1011,7 +1011,7 @@ public:
         return ret;
     }
 
-    std::string get_column_name(unsigned j) const {
+    std::string get_column_name(unsigned j) const override {
         if (j >= m_terms_start_index)
             return std::string("_t") + T_to_string(j);
         if (j >= m_columns_to_ext_vars_or_term_indices.size())

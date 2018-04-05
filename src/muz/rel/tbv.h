@@ -130,7 +130,7 @@ class tbv_ref {
     tbv_manager& mgr;
     tbv* d;
 public:
-    tbv_ref(tbv_manager& mgr):mgr(mgr),d(0) {}
+    tbv_ref(tbv_manager& mgr):mgr(mgr),d(nullptr) {}
     tbv_ref(tbv_manager& mgr, tbv* d):mgr(mgr),d(d) {}
     ~tbv_ref() {
         if (d) mgr.deallocate(d);
@@ -143,7 +143,7 @@ public:
     tbv& operator*() { return *d; }
     tbv* operator->() { return d; }
     tbv* get() { return d; }
-    tbv* detach() { tbv* result = d; d = 0; return result; }
+    tbv* detach() { tbv* result = d; d = nullptr; return result; }
 };
 
 

@@ -702,7 +702,7 @@ class smt_printer {
 
 public:
     smt_printer(std::ostream& out, ast_manager& m, ptr_vector<quantifier>& ql, smt_renaming& rn,
-                symbol logic, bool no_lets, bool simplify_implies, unsigned indent, unsigned num_var_names = 0, char const* const* var_names = 0) :
+                symbol logic, bool no_lets, bool simplify_implies, unsigned indent, unsigned num_var_names = 0, char const* const* var_names = nullptr) :
         m_out(out),
         m_manager(m),
         m_qlists(ql),
@@ -768,7 +768,7 @@ public:
         }
         m_mark.reset();
         m_num_lets = 0;
-        m_top = 0;
+        m_top = nullptr;
     }
 
     void pp_dt(ast_mark& mark, sort* s) {
@@ -952,6 +952,10 @@ void ast_smt_pp::display_smt2(std::ostream& strm, expr* n) {
         strm << "; " << m_attributes.c_str();
     }
 
+#if 0
+    decls.display_decls(strm);
+#else
+    decls.order_deps();
     ast_mark sort_mark;
     for (unsigned i = 0; i < decls.get_num_sorts(); ++i) {
         sort* s = decls.get_sorts()[i];
@@ -978,18 +982,19 @@ void ast_smt_pp::display_smt2(std::ostream& strm, expr* n) {
             strm << "\n";
         }
     }
+#endif
 
-    for (unsigned i = 0; i < m_assumptions.size(); ++i) {
+    for (expr* a : m_assumptions) {
         smt_printer p(strm, m, ql, rn, m_logic, false, true, m_simplify_implies, 1);
         strm << "(assert\n ";
-        p(m_assumptions[i].get());
+        p(a);
         strm << ")\n";
     }
 
-    for (unsigned i = 0; i < m_assumptions_star.size(); ++i) {
+    for (expr* a : m_assumptions_star) {
         smt_printer p(strm, m, ql, rn, m_logic, false, true, m_simplify_implies, 1);
         strm << "(assert\n ";
-        p(m_assumptions_star[i].get());
+        p(a);
         strm << ")\n";
     }
 

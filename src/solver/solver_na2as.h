@@ -32,21 +32,21 @@ class solver_na2as : public solver {
     void restore_assumptions(unsigned old_sz);
 public:
     solver_na2as(ast_manager & m);
-    virtual ~solver_na2as();
+    ~solver_na2as() override;
 
-    virtual void assert_expr(expr * t, expr * a);
-    virtual void assert_expr(expr * t) = 0;
+    void assert_expr(expr * t, expr * a) override;
+    void assert_expr(expr * t) override = 0;
     
     // Subclasses of solver_na2as should redefine the following *_core methods instead of these ones.
-    virtual lbool check_sat(unsigned num_assumptions, expr * const * assumptions);
-    virtual void push();
-    virtual void pop(unsigned n);
-    virtual unsigned get_scope_level() const;
+    lbool check_sat(unsigned num_assumptions, expr * const * assumptions) override;
+    void push() override;
+    void pop(unsigned n) override;
+    unsigned get_scope_level() const override;
     
-    virtual unsigned get_num_assumptions() const { return m_assumptions.size(); }
-    virtual expr * get_assumption(unsigned idx) const { return m_assumptions[idx]; }
-    virtual lbool get_consequences(expr_ref_vector const& asms, expr_ref_vector const& vars, expr_ref_vector& consequences);
-    virtual lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes);
+    unsigned get_num_assumptions() const override { return m_assumptions.size(); }
+    expr * get_assumption(unsigned idx) const override { return m_assumptions[idx]; }
+    lbool get_consequences(expr_ref_vector const& asms, expr_ref_vector const& vars, expr_ref_vector& consequences) override;
+    lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) override;
 protected:
     virtual lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions) = 0;
     virtual void push_core() = 0;

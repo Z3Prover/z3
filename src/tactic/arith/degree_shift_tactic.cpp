@@ -94,7 +94,7 @@ class degree_shift_tactic : public tactic {
             m_autil(_m),
             m_pinned(_m),
             m_one(1),
-            m_rw(0) {
+            m_rw(nullptr) {
         }
 
 
@@ -205,8 +205,8 @@ class degree_shift_tactic : public tactic {
 
         void prepare_substitution(model_converter_ref & mc) {
             SASSERT(!m_var2degree.empty());
-            filter_model_converter * fmc = 0;
-            extension_model_converter * xmc = 0;
+            filter_model_converter * fmc = nullptr;
+            extension_model_converter * xmc = nullptr;
             if (m_produce_models) {
                 fmc = alloc(filter_model_converter, m);
                 xmc = alloc(extension_model_converter, m);
@@ -217,7 +217,7 @@ class degree_shift_tactic : public tactic {
             for (; it != end; ++it) {
                 SASSERT(it->m_value.is_int());
                 SASSERT(it->m_value >= rational(2));
-                app * fresh = m.mk_fresh_const(0, it->m_key->get_decl()->get_range());
+                app * fresh = m.mk_fresh_const(nullptr, it->m_key->get_decl()->get_range());
                 m_pinned.push_back(fresh);
                 m_var2var.insert(it->m_key, fresh);
                 if (m_produce_models) {
@@ -241,7 +241,7 @@ class degree_shift_tactic : public tactic {
                         proof_converter_ref & pc,
                         expr_dependency_ref & core) {
             SASSERT(g->is_well_sorted());
-            mc = 0; pc = 0; core = 0;
+            mc = nullptr; pc = nullptr; core = nullptr;
             m_produce_proofs = g->proofs_enabled();
             m_produce_models = g->models_enabled();
             tactic_report report("degree_shift", *g);
@@ -275,12 +275,12 @@ class degree_shift_tactic : public tactic {
                     if (it->m_value.is_even()) {
                         app * new_var  = m_var2var.find(it->m_key);
                         app * new_c    = m_autil.mk_ge(new_var, m_autil.mk_numeral(rational(0), false));
-                        proof * new_pr = 0;
+                        proof * new_pr = nullptr;
                         if (m_produce_proofs) {
                             proof * pr = m_var2pr.find(it->m_key);
                             new_pr     = m.mk_th_lemma(m_autil.get_family_id(), new_c, 1, &pr);
                         }
-                        g->assert_expr(new_c, new_pr, 0);
+                        g->assert_expr(new_c, new_pr, nullptr);
                     }
                 }
             }
@@ -297,23 +297,23 @@ public:
         m_imp = alloc(imp, m);
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(degree_shift_tactic, m);
     }
         
-    virtual ~degree_shift_tactic() {
+    ~degree_shift_tactic() override {
         dealloc(m_imp);
     }
 
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
+    void operator()(goal_ref const & in,
+                    goal_ref_buffer & result,
+                    model_converter_ref & mc,
+                    proof_converter_ref & pc,
+                    expr_dependency_ref & core) override {
         (*m_imp)(in, result, mc, pc, core);
     }
     
-    virtual void cleanup() {
+    void cleanup() override {
         imp * d = alloc(imp, m_imp->m);
         std::swap(d, m_imp);        
         dealloc(d);

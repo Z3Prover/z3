@@ -43,7 +43,7 @@ class unsat_core_plugin_lemma : public unsat_core_plugin {
 public:
     unsat_core_plugin_lemma(unsat_core_learner& learner) : unsat_core_plugin(learner){};
 
-    virtual void compute_partial_core(proof* step) override;
+    void compute_partial_core(proof* step) override;
 
 private:
     void add_lowest_split_to_core(proof* step) const;
@@ -55,7 +55,7 @@ class unsat_core_plugin_farkas_lemma : public unsat_core_plugin {
 public:
     unsat_core_plugin_farkas_lemma(unsat_core_learner& learner, bool split_literals, bool use_constant_from_a=true) : unsat_core_plugin(learner), m_split_literals(split_literals), m_use_constant_from_a(use_constant_from_a) {};
 
-    virtual void compute_partial_core(proof* step) override;
+    void compute_partial_core(proof* step) override;
 
 private:
     bool m_split_literals;
@@ -71,8 +71,8 @@ private:
     public:
         unsat_core_plugin_farkas_lemma_optimized(unsat_core_learner& learner, ast_manager& m) : unsat_core_plugin(learner), m(m) {};
 
-        virtual void compute_partial_core(proof* step) override;
-        virtual void finalize() override;
+        void compute_partial_core(proof* step) override;
+        void finalize() override;
 
     protected:
         vector<vector<std::pair<app*, rational> > > m_linear_combinations;
@@ -88,7 +88,7 @@ private:
     public:
         unsat_core_plugin_farkas_lemma_bounded(unsat_core_learner& learner, ast_manager& m) : unsat_core_plugin_farkas_lemma_optimized(learner, m) {};
 
-        virtual void finalize() override;
+        void finalize() override;
     };
 
     class unsat_core_plugin_min_cut : public unsat_core_plugin {
@@ -96,8 +96,8 @@ private:
     public:
         unsat_core_plugin_min_cut(unsat_core_learner& learner, ast_manager& m);
 
-        virtual void compute_partial_core(proof* step) override;
-        virtual void finalize() override;
+        void compute_partial_core(proof* step) override;
+        void finalize() override;
     private:
         ast_manager& m;
 

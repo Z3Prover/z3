@@ -1124,7 +1124,7 @@ public:
         for(unsigned i = 0; i < la.size(); i++)
             lits.push_back(mk_not(from_ast(conc(la[i]))));
         // lits.push_back(from_ast(conc(proof)));
-        Iproof::node res =fix_lemma(lits,hyps, lemma_nll ? nll : 0);
+        Iproof::node res =fix_lemma(lits,hyps, lemma_nll ? nll : nullptr);
         for(unsigned i = 0; i < la.size(); i++){
             Iproof::node q = translate_main(la[i],nll,false);
             ast pnode = from_ast(conc(la[i]));
@@ -1200,7 +1200,7 @@ public:
         Iproof::node res = iproof->make_contra(ipf,lits);
 
         for(unsigned i = 0; i < la.size(); i++){
-            Iproof::node q = translate_main(la[i],0,false);
+            Iproof::node q = translate_main(la[i],nullptr,false);
             ast pnode = from_ast(conc(la[i]));
             assert(is_local(pnode) ||  equivs.find(pnode) != equivs.end());
             Iproof::node neg = res;
@@ -1381,8 +1381,8 @@ public:
 
     non_local_lits *find_nll(ResolventAppSet &proofs){
         if(proofs.empty())
-            return (non_local_lits *)0;
-        std::pair<non_local_lits,non_local_lits *> foo(non_local_lits(proofs),(non_local_lits *)0);
+            return (non_local_lits *)nullptr;
+        std::pair<non_local_lits,non_local_lits *> foo(non_local_lits(proofs),(non_local_lits *)nullptr);
         std::pair<hash_map<non_local_lits, non_local_lits *>::iterator,bool> bar = 
             non_local_lits_unique.insert(foo);
         non_local_lits *&res = bar.first->second;
@@ -1392,7 +1392,7 @@ public:
     }
 
     Z3_resolvent *find_resolvent(ast proof, bool unit, ast pivot){
-        std::pair<Z3_resolvent,Z3_resolvent *> foo(Z3_resolvent(proof,unit,pivot),(Z3_resolvent *)0);
+        std::pair<Z3_resolvent,Z3_resolvent *> foo(Z3_resolvent(proof,unit,pivot),(Z3_resolvent *)nullptr);
         std::pair<hash_map<Z3_resolvent, Z3_resolvent *>::iterator,bool> bar = 
             Z3_resolvent_unique.insert(foo);
         Z3_resolvent *&res = bar.first->second;
@@ -1611,9 +1611,9 @@ public:
             // 1) Translate ast proof term to Zproof
             // 2) Translate Zproof to Iproof
 
-            Iproof::node translate(ast proof, Iproof &dst){
+            Iproof::node translate(ast proof, Iproof &dst) override {
                 iproof = &dst;
-                Iproof::node Ipf = translate_main(proof,0);  // builds result in dst
+                Iproof::node Ipf = translate_main(proof,nullptr);  // builds result in dst
                 return Ipf;
             }
 
@@ -1629,7 +1629,7 @@ public:
                     traced_lit = ast();
                 }
 
-            ~iz3translation_direct(){
+            ~iz3translation_direct() override {
                 for(hash_map<non_local_lits, non_local_lits *>::iterator
                         it = non_local_lits_unique.begin(),
                         en = non_local_lits_unique.end();
