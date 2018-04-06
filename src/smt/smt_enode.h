@@ -216,6 +216,15 @@ namespace smt {
             return m_args;
         }
 
+        class args {
+            enode const& n;
+        public:
+            args(enode const& n):n(n) {}
+            args(enode const* n):n(*n) {}
+            enode_vector::const_iterator begin() const { return n.get_args(); }
+            enode_vector::const_iterator end() const { return n.get_args() + n.get_num_args(); }
+        };
+
         // unsigned get_id() const { 
         //    return m_id; 
         // }
@@ -284,6 +293,16 @@ namespace smt {
         bool is_commutative() const {
             return m_commutative;
         }
+
+        class parents {
+            enode const& n;
+        public:
+            parents(enode const& _n):n(_n) {}
+            parents(enode const* _n):n(*_n) {}
+            enode_vector::const_iterator begin() const { return n.begin_parents(); }
+            enode_vector::const_iterator end() const { return n.end_parents(); }
+        };
+
 
         unsigned get_num_parents() const {
             return m_parents.size();

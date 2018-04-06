@@ -927,7 +927,10 @@ void tuple_example() {
     sort sorts[2] = { ctx.int_sort(), ctx.bool_sort() };
     func_decl_vector projs(ctx);
     func_decl pair = ctx.tuple_sort("pair", 2, names, sorts, projs);
-    std::cout << pair << "\n";
+    sorts[1] = pair.range();
+    func_decl pair2 = ctx.tuple_sort("pair2", 2, names, sorts, projs);
+    
+    std::cout << pair2 << "\n";
 }
 
 void expr_vector_example() {
