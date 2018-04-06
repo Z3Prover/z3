@@ -623,13 +623,6 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex, bool & upper) {
     if (patch_nbasic_columns())
         return lia_move::ok;
 	
-    if (move_non_basic_columns_to_bounds()) {
-        lp_status st = m_lar_solver->find_feasible_solution();
-        lp_assert(non_basic_columns_are_at_bounds());
-        if (st != lp_status::FEASIBLE && st != lp_status::OPTIMAL) {
-            return lia_move::give_up;
-        }
-    }
 
     ++m_branch_cut_counter;
     if (find_cube()){
@@ -649,9 +642,18 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex, bool & upper) {
     return create_branch_on_column(find_inf_int_base_column(), t, k, false, upper);
 }
 
-lia_move int_solver::calc_gomory_cut(lar_term& t, mpq& k, explanation& ex, bool & upper) {    
+lia_move int_solver::calc_gomory_cut(lar_term& t, mpq& k, explanation& ex, bool & upper) {
+    if (move_non_basic_columns_to_bounds()) {
+        lp_status st = m_lar_solver->find_feasible_solution();
+        lp_assert(non_basic_columns_are_at_bounds());
+        if (st != lp_status::FEASIBLE && st != lp_status::OPTIMAL) {
+            return lia_move::give_up;
+        }
+    }
+
     int j = find_inf_int_base_column();
-    if (j == -1) return lia_move::ok;
+    if (j == -1)
+        return lia_move::ok;
     return proceed_with_gomory_cut(t, k, ex, j, upper);
 }
 
