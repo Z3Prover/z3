@@ -333,6 +333,12 @@ namespace sat {
     }
 
     void solver::mk_bin_clause(literal l1, literal l2, bool learned) {
+#if 0
+        if ((l1.var() == 2039 || l2.var() == 2039) &&
+            (l1.var() == 27042 || l2.var() == 27042)) { 
+            IF_VERBOSE(1, verbose_stream() << "mk_bin: " << l1 << " " << l2 << " " << learned << "\n");
+        }
+#endif
         if (find_binary_watch(get_wlist(~l1), ~l2)) {
             assign(l1, justification());
             return;
@@ -345,13 +351,13 @@ namespace sat {
         if (w0) {
             if (w0->is_learned() && !learned) {
                 w0->set_learned(false);
-            }            
-            w0 = find_binary_watch(get_wlist(~l2), l1);
-        }
-        if (w0) {
-            if (w0->is_learned() && !learned) {
-                w0->set_learned(false);
-            }            
+            }
+            else {
+                return;
+            }
+            w0 = find_binary_watch(get_wlist(~l2), l1);            
+            VERIFY(w0);
+            w0->set_learned(false);                        
             return;
         }
         if (m_config.m_drat) 
@@ -671,7 +677,6 @@ namespace sat {
         TRACE("sat_assign_core", tout << l << " " << j << " level: " << scope_lvl() << "\n";);
         if (at_base_lvl()) {
             if (m_config.m_drat) m_drat.add(l, !j.is_none());
-
             j = justification(); // erase justification for level 0
         }
         m_assignment[l.index()]    = l_true;
@@ -1215,7 +1220,7 @@ namespace sat {
                 }
             }
             if (num_in > 0 || num_out > 0) {
-                IF_VERBOSE(1, verbose_stream() << "(sat-sync out: " << num_out << " in: " << num_in << ")\n";);
+                IF_VERBOSE(2, verbose_stream() << "(sat-sync out: " << num_out << " in: " << num_in << ")\n";);
             }
         }
     }
@@ -1657,7 +1662,11 @@ namespace sat {
         
         if (!check_clauses(m_model)) {
             IF_VERBOSE(0, verbose_stream() << "failure checking clauses on transformed model\n";);
-            // IF_VERBOSE(10, m_mc.display(verbose_stream()));
+            IF_VERBOSE(10, m_mc.display(verbose_stream()));
+            //IF_VERBOSE(0, display_units(verbose_stream()));
+            //IF_VERBOSE(0, display(verbose_stream()));
+            IF_VERBOSE(0, for (bool_var v = 0; v < num; v++) verbose_stream() << v << ": " << m_model[v] << "\n";);
+
             throw solver_exception("check model failed");
         }
 

@@ -410,6 +410,7 @@ namespace sat {
         if (c.is_learned()) {
             m_elim_learned_literals += c.size() - new_sz; 
         }
+
         switch(new_sz) {
         case 0:
             s.set_conflict(justification());

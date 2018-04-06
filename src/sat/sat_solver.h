@@ -236,6 +236,10 @@ namespace sat {
         void set_learned(clause& c, bool learned);
         void set_learned(literal l1, literal l2, bool learned);
         void set_learned1(literal l1, literal l2, bool learned);
+        void add_ate(clause& c) { m_mc.add_ate(c); }        
+        void add_ate(literal l1, literal l2) { m_mc.add_ate(l1, l2); }        
+        void add_ate(literal_vector const& lits) { m_mc.add_ate(lits); }
+
         class scoped_disable_checkpoint {
             solver& s;
         public:

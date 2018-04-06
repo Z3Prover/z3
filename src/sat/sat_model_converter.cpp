@@ -75,33 +75,41 @@ namespace sat {
     void model_converter::operator()(model & m) const {
         vector<entry>::const_iterator begin = m_entries.begin();
         vector<entry>::const_iterator it    = m_entries.end();
-        bool first = false; // true;
+        bool first = true; // false; // true; // false; // true;
         //SASSERT(!m_solver || m_solver->check_clauses(m));
         while (it != begin) {
             --it;
             bool_var v0 = it->var();
-            SASSERT(it->get_kind() != ELIM_VAR || m[v0] == l_undef);
-            // if it->get_kind() == BLOCK_LIT, then it might be the case that m[v] != l_undef,
+            SASSERT(it->get_kind() != ELIM_VAR || v0 == null_bool_var || m[v0] == l_undef);
+            // if it->get_kind() == BCE, then it might be the case that m[v] != l_undef,
             // and the following procedure flips its value.
             bool sat = false;
             bool var_sign = false;
             unsigned index = 0;
             literal_vector clause;
-            VERIFY(legal_to_flip(v0));
+            VERIFY(v0 == null_bool_var || legal_to_flip(v0));
             for (literal l : it->m_clauses) {
                 if (l == null_literal) {
                     // end of clause
-                    elim_stack* st = it->m_elim_stack[index];
-                    if (!sat) {     
+                    if (!sat && it->get_kind() == ATE) {
+                        IF_VERBOSE(0, display(verbose_stream() << "violated ate\n", *it) << "\n");
+                        IF_VERBOSE(0, for (unsigned v = 0; v < m.size(); ++v) verbose_stream() << v << " := " << m[v] << "\n";);
+                        IF_VERBOSE(0, display(verbose_stream()));
+                        exit(0);
+                        first = false;
+                    }
+                    if (!sat && it->get_kind() != ATE && v0 != null_bool_var) {     
                         VERIFY(legal_to_flip(v0));                        
                         m[v0] = var_sign ? l_false : l_true;
                     }
+                    elim_stack* st = it->m_elim_stack[index];
                     if (st) {
                         process_stack(m, clause, st->stack());
                     }
                     sat = false;
                     if (first && m_solver && !m_solver->check_clauses(m)) {
                         IF_VERBOSE(0, display(verbose_stream() << "after processing stack\n", *it) << "\n");
+                        IF_VERBOSE(0, display(verbose_stream()));
                         first = false;
                     }
                     ++index;
@@ -191,8 +199,34 @@ namespace sat {
         entry & e = m_entries.back();
         SASSERT(e.var() == v);
         SASSERT(e.get_kind() == k);
-        VERIFY(legal_to_flip(v));
+        VERIFY(v == null_bool_var || legal_to_flip(v));
         return e;
+    }
+
+    void model_converter::add_ate(clause const& c) {
+        if (stackv().empty()) return;
+        insert(mk(ATE, null_bool_var), c);
+    }
+
+    void model_converter::add_ate(literal_vector const& lits) {
+        if (stackv().empty()) return;
+        insert(mk(ATE, null_bool_var), lits);
+    }
+
+    void model_converter::add_ate(literal l1, literal l2) {
+        if (stackv().empty()) return;
+        insert(mk(ATE, null_bool_var), l1, l2);
+    }
+
+    void model_converter::add_elim_stack(entry & e) {
+        e.m_elim_stack.push_back(stackv().empty() ? nullptr : alloc(elim_stack, stackv()));
+#if 0
+        if (!stackv().empty() && e.get_kind() == ATE) {
+            IF_VERBOSE(0, display(verbose_stream(), e) << "\n");
+        }
+#endif
+        for (auto const& s : stackv()) VERIFY(legal_to_flip(s.second.var()));
+        stackv().reset();
     }
 
     void model_converter::insert(entry & e, clause const & c) {
@@ -201,7 +235,7 @@ namespace sat {
         SASSERT(&e < m_entries.end());
         for (literal l : c) e.m_clauses.push_back(l);
         e.m_clauses.push_back(null_literal);
-        e.m_elim_stack.push_back(nullptr);
+        add_elim_stack(e);
         TRACE("sat_mc_bug", tout << "adding: " << c << "\n";);
     }
 
@@ -212,7 +246,7 @@ namespace sat {
         e.m_clauses.push_back(l1);
         e.m_clauses.push_back(l2);
         e.m_clauses.push_back(null_literal);
-        e.m_elim_stack.push_back(nullptr);
+        add_elim_stack(e);
         TRACE("sat_mc_bug", tout << "adding (binary): " << l1 << " " << l2 << "\n";);
     }
 
@@ -224,18 +258,17 @@ namespace sat {
         for (unsigned i = 0; i < sz; ++i) 
             e.m_clauses.push_back(c[i]);
         e.m_clauses.push_back(null_literal);
-        e.m_elim_stack.push_back(nullptr);
+        add_elim_stack(e);
         // TRACE("sat_mc_bug", tout << "adding (wrapper): "; for (literal l : c) tout << l << " "; tout << "\n";);
     }
 
-    void model_converter::insert(entry & e, literal_vector const& c, elim_stackv const& elims) {
+    void model_converter::insert(entry & e, literal_vector const& c) {
         SASSERT(c.contains(literal(e.var(), false)) || c.contains(literal(e.var(), true)));
         SASSERT(m_entries.begin() <= &e);
         SASSERT(&e < m_entries.end());
         for (literal l : c) e.m_clauses.push_back(l);
         e.m_clauses.push_back(null_literal);
-        e.m_elim_stack.push_back(elims.empty() ? nullptr : alloc(elim_stack, elims));
-        for (auto const& s : elims) VERIFY(legal_to_flip(s.second.var()));
+        add_elim_stack(e);
         TRACE("sat_mc_bug", tout << "adding: " << c << "\n";);
     }
 
@@ -246,7 +279,7 @@ namespace sat {
         vector<entry>::const_iterator it  = m_entries.begin();
         vector<entry>::const_iterator end = m_entries.end();
         for (; it != end; ++it) {
-            SASSERT(it->var() < num_vars);
+            SASSERT(it->var() == null_bool_var || it->var() < num_vars);
             if (it->get_kind() == ELIM_VAR) {
                 svector<entry>::const_iterator it2 = it;
                 it2++;
@@ -276,7 +309,8 @@ namespace sat {
     }
 
     std::ostream& model_converter::display(std::ostream& out, entry const& entry) const {
-        out << "  (" << entry.get_kind() << " " << entry.var(); 
+        out << "  (" << entry.get_kind() << " ";
+        if (entry.var() != null_bool_var) out << entry.var(); 
         bool start = true;
         unsigned index = 0;
         for (literal l : entry.m_clauses) {
@@ -306,7 +340,7 @@ namespace sat {
         }
         out << ")";
         for (literal l : entry.m_clauses) {
-            if (l != null_literal) {
+            if (l != null_literal && l.var() != null_bool_var) {
                 if (false && m_solver && m_solver->was_eliminated(l.var())) out << "\neliminated: " << l;
             }
         }
@@ -333,7 +367,7 @@ namespace sat {
         for (entry const& e : m_entries) {
             for (literal l : e.m_clauses) {
                 if (l != null_literal) {
-                    if (l.var() > result)
+                    if (l.var() != null_bool_var && l.var() > result)
                         result = l.var();
                 }
             }
@@ -372,9 +406,11 @@ namespace sat {
                             update_stack.push_back(null_literal);
                         }
                     }
-                    swap(e.var(), clause.size(), clause);
-                    update_stack.append(clause);
-                    update_stack.push_back(null_literal);
+                    if (e.var() != null_bool_var) {
+                        swap(e.var(), clause.size(), clause);
+                        update_stack.append(clause);
+                        update_stack.push_back(null_literal);
+                    }
                     clause.reset();
                 }
                 else {
