@@ -54,12 +54,12 @@ namespace smt {
         m_unused_id(0),
         m_delayed_axiom_setup_terms(m),
         m_delayed_assertions_todo(m),
+        m_persisted_axioms(m),
+        m_persisted_axiom_todo(m),
         tmpStringVarCount(0),
         tmpXorVarCount(0),
         tmpLenTestVarCount(0),
         tmpValTestVarCount(0),
-        m_persisted_axioms(m),
-        m_persisted_axiom_todo(m),
         avoidLoopCut(true),
         loopDetected(false),
         m_theoryStrOverlapAssumption_term(m),
@@ -6865,7 +6865,7 @@ namespace smt {
             finalResult.push_back(r2);
             expr_ref retval(mk_and(finalResult), m);
             return retval;
-        } else if (u.re.is_star(re, sub1)) {
+        } else if (u.re.is_star(re, sub1) || u.re.is_plus(re, sub1)) {
             // stars are generated as a linear combination of all possible subterm lengths;
             // this requires that there are no stars under this one
             /*
@@ -6898,27 +6898,16 @@ namespace smt {
                     expr * n = mk_int_var("rstar");
                     freeVariables.push_back(n);
                     expr_ref term(m_autil.mk_mul(m_autil.mk_numeral(lenOption, true), n), m);
-                    sum_terms.push_back(term);
+                    expr_ref term2(term, m);
+                    if (u.re.is_plus(re)) {
+                        // n effectively starts at 1
+                        term2 = m_autil.mk_add(m_autil.mk_numeral(lenOption, true), term);
+                    }
+                    sum_terms.push_back(term2);
                 }
                 expr_ref retval(ctx.mk_eq_atom(lenVar, m_autil.mk_add_simplify(sum_terms)), m);
                 return retval;
             }
-        } else if (u.re.is_plus(re, sub1)) {
-            /*
-            expr * v = mk_int_var("rlen");
-            expr * n = mk_int_var("rstar");
-            freeVariables.push_back(v);
-            freeVariables.push_back(n);
-            expr_ref rsub = infer_all_regex_lengths(v, sub1, freeVariables);
-            expr_ref_vector finalResult(m);
-            finalResult.push_back(rsub);
-            finalResult.push_back(ctx.mk_eq_atom(lenVar, m_autil.mk_mul(v, n)));
-            finalResult.push_back(m_autil.mk_ge(n, m_autil.mk_numeral(rational::one(), true)));
-            expr_ref retval(mk_and(finalResult), m);
-            return retval;
-            */
-            // TODO this should really be done as a sub-case of star
-            NOT_IMPLEMENTED_YET();
         } else if (u.re.is_range(re, sub1, sub2)) {
             SASSERT(u.str.is_string(sub1));
             SASSERT(u.str.is_string(sub2));
