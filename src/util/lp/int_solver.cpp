@@ -785,18 +785,16 @@ bool int_solver::column_is_patched(unsigned j) const {
 
 bool int_solver::patch_nbasic_columns() {
     settings().st().m_patches++;
+    bool ret = true;
     //    m_lar_solver->pivot_fixed_vars_from_basis();
     for (unsigned j : m_lar_solver->m_mpq_lar_core_solver.m_r_nbasis) {
-        if (!patch_nbasic_column(j)) {
-            return false;
-        }
-        lp_assert(is_feasible());
-        lp_assert(column_is_patched(j));
+        if (!patch_nbasic_column(j))
+            ret = false;
     }
     lp_assert(is_feasible());
-    lp_assert(!has_inf_int());
+    lp_assert(!ret || !has_inf_int());
     settings().st().m_patches_success++;
-    return true;
+    return ret;
 }
 
 mpq get_denominators_lcm(const row_strip<mpq> & row) {
