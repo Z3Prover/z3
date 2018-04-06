@@ -121,6 +121,7 @@ namespace smt {
             }
         };
 
+        enode * oc_get_cstor(enode * n);
         bool occurs_check(enode * n);
         bool occurs_check_enter(enode * n);
         void occurs_check_explain(enode * top, enode * root);
