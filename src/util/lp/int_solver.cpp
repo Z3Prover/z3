@@ -721,81 +721,65 @@ void int_solver::set_value_for_nbasic_column(unsigned j, const impq & new_val) {
     m_lar_solver->change_basic_columns_dependend_on_a_given_nb_column(j, delta);
 }
 
-bool int_solver::patch_column_up(unsigned j, bool m_is_one, const mpq &m, const impq& l, const impq& u) {
-    impq lm = m_is_one ? ceil(l) : m * ceil(l / m);
-    if (lm <= u) {
-        set_value_for_nbasic_column(j, lm);
-        lp_assert(l <= lm);
-        return true;
-    }
-    return false;
-}
 
-bool int_solver::patch_column_down(unsigned j, bool m_is_one, const mpq& m, const impq& l, const impq & u) {
-    impq um = m_is_one ? floor(u) : m * floor(u / m);
-    if (l <= um ) {
-        lp_assert(um <= u);
-        set_value_for_nbasic_column(j, um);
-        return true;
-    }
-    return false;
-}
-
-// make sure that aij*xj is an integer for every i and the delta in xj is small enough that basic vars remain feasible
-bool int_solver::patch_nbasic_column(unsigned j) {
+// try to make aij*xj to be an integer for every i, but keep the cnange in xj small enough that basic vars remain feasible
+void int_solver::patch_nbasic_column(unsigned j) {
     bool infinite_l, infinite_u;
     impq l, u;
     mpq m;
-    if (!get_freedom_interval_for_column(j, infinite_l, l, infinite_u, u, m)) {
-        return false;
+	if (!get_freedom_interval_for_column(j, infinite_l, l, infinite_u, u, m))
+		return;
+    if (m.is_one() && get_value(j).is_int())
+        return;
+	if ((get_value(j)/ m).is_int())
+		return;
+    if (!infinite_l)
+        l = ceil(l);
+    if (!infinite_u)
+        u = floor(u);
+    if (!m.is_one()) {
+        if (!infinite_l)
+            l = m * ceil(l / m);
+        if (!infinite_u)
+            u = m * floor(u / m);
     }
-    bool m_is_one = m.is_one();
     if (!infinite_l && !infinite_u) {
-        lp_assert(l <= u);
-        if (m_cut_solver.flip_coin()) {
-            if (!patch_column_up(j, m_is_one, m, l, u) && ! patch_column_down(j, m_is_one, m, l, u)) {
-                return false;
-            }
-        } else {
-            if (!patch_column_down(j, m_is_one, m, l, u) && ! patch_column_up(j, m_is_one, m, l, u)) {
-                return false;
-            }
+        if (l > u) {
+            return;
         }
-    }
+        set_value_for_nbasic_column(j, flip_coin()? l : u);
+    } 
     else if (!infinite_u) {
-        set_value_for_nbasic_column(j, m_is_one ? floor(u) : m * floor(u / m));
-    } else if (!infinite_l) {
-        set_value_for_nbasic_column(j, m_is_one ? ceil(l) : m * ceil(l / m));
+        set_value_for_nbasic_column(j, u);
+    }
+    else if (!infinite_l) {
+        set_value_for_nbasic_column(j, l);
     }
     else {
         set_value_for_nbasic_column(j, impq(0));
     }
-    return true;
-}
-
-bool int_solver::column_is_patched(unsigned j) const {
-    const auto & x = get_value(j);
-    for (const auto & c : m_lar_solver->A_r().column(j))
-        if (!((x*c.coeff()).is_int())) {
-            std::cout << "column " << j << " is not patched" << std::endl;
-            return false;
-        }
-    return true;
+    return;
 }
 
 bool int_solver::patch_nbasic_columns() {
     settings().st().m_patches++;
-    bool ret = true;
-    //    m_lar_solver->pivot_fixed_vars_from_basis();
-    for (unsigned j : m_lar_solver->m_mpq_lar_core_solver.m_r_nbasis) {
-        if (!patch_nbasic_column(j))
-            ret = false;
-    }
-    lp_assert(is_feasible());
-    lp_assert(!ret || !has_inf_int());
-    if (ret)
+    m_lar_solver->pivot_fixed_vars_from_basis();
+    for (unsigned j : m_lar_solver->m_mpq_lar_core_solver.m_r_nbasis)
+        patch_nbasic_column(j);
+
+	for (unsigned j : m_lar_solver->m_mpq_lar_core_solver.m_r_nbasis) {
+		if (!get_value(j).is_int())
+			set_value_for_nbasic_column(j,
+                                        flip_coin() ? floor(get_value(j)) : ceil(get_value(j))
+                                        );
+	}
+    m_lar_solver->find_feasible_solution();
+    lp_assert(m_lar_solver->get_status() == lp_status::FEASIBLE || m_lar_solver->get_status() == lp_status::OPTIMAL);
+    if (!has_inf_int()) {
         settings().st().m_patches_success++;
-    return ret;
+        return true;
+    }
+    return false;
 }
 
 mpq get_denominators_lcm(const row_strip<mpq> & row) {
@@ -1027,9 +1011,7 @@ bool int_solver::get_freedom_interval_for_column(unsigned j, bool & infinite_l, 
 
     impq const & xj = get_value(j);
     
-    infinite_l = true;
-    infinite_u = true;
-    l = u = zero_of_type<impq>();
+    infinite_l = infinite_u = true;
     m = mpq(1);
 
     if (has_low(j)) {
@@ -1064,7 +1046,9 @@ bool int_solver::get_freedom_interval_for_column(unsigned j, bool & infinite_l, 
             if (has_low(rj))
                 set_upper(u, infinite_u, xj + (xrj - lcs.m_r_lower_bounds()[rj]) / a);
         }
-        if (!infinite_l && !infinite_u && l > u) break;                
+        if (!infinite_l && !infinite_u && l > u)
+            return false;
+        // even if l == u we should continue to update the common denominator m
     }
 
     TRACE("freedom_interval",
@@ -1078,7 +1062,7 @@ bool int_solver::get_freedom_interval_for_column(unsigned j, bool & infinite_l, 
           tout << "val = " << get_value(j) << "\n";
           tout << "return " << (infinite_l || infinite_u || l <= u);
           );
-    return (infinite_l || infinite_u || l <= u);
+    return true; //(infinite_l || infinite_u || l <= u);
 }
 
 bool int_solver::is_int(unsigned j) const {
@@ -1202,7 +1186,8 @@ bool int_solver::shift_var(unsigned j, unsigned range) {
     bool infinite_l, infinite_u;
     impq l, u;
     mpq m;
-    get_freedom_interval_for_column(j, infinite_l, l, infinite_u, u, m);
+    if (!get_freedom_interval_for_column(j, infinite_l, l, infinite_u, u, m))
+        return false;
     if (infinite_l && infinite_u) {
         impq new_val = impq(random() % (range + 1));
         set_value_for_nbasic_column_ignore_old_values(j, new_val);

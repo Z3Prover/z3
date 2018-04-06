@@ -96,7 +96,7 @@ private:
                       explanation & ex);
     void fill_explanation_from_fixed_columns(const row_strip<mpq> & row, explanation &);
     void add_to_explanation_from_fixed_or_boxed_column(unsigned j, explanation &);
-    bool patch_nbasic_column(unsigned j);
+    void patch_nbasic_column(unsigned j);
     bool patch_nbasic_columns();
     bool get_freedom_interval_for_column(unsigned j, bool & inf_l, impq & l, bool & inf_u, impq & u, mpq & m);
     const impq & lower_bound(unsigned j) const;
@@ -181,8 +181,6 @@ public:
     impq get_cube_delta_for_term(const lar_term&) const;
     lia_move call_cut_solver(lar_term& t, mpq& k, explanation& ex);
     lia_move calc_gomory_cut(lar_term&, mpq&, explanation&, bool &);
-    bool column_is_patched(unsigned j) const;
-    bool patch_column_up(unsigned j, bool, const mpq& , const impq&, const impq&);
-    bool patch_column_down(unsigned j, bool, const mpq& , const impq& , const impq&);
+    bool flip_coin() { return m_cut_solver.flip_coin(); }
 };
 }
