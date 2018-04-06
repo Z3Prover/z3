@@ -785,7 +785,7 @@ bool int_solver::column_is_patched(unsigned j) const {
 
 bool int_solver::patch_nbasic_columns() {
     settings().st().m_patches++;
-    m_lar_solver->pivot_fixed_vars_from_basis();
+    //    m_lar_solver->pivot_fixed_vars_from_basis();
     for (unsigned j : m_lar_solver->m_mpq_lar_core_solver.m_r_nbasis) {
         if (!patch_nbasic_column(j)) {
             return false;

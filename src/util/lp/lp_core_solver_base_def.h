@@ -972,7 +972,7 @@ template <typename T, typename X>  void lp_core_solver_base<T, X>::pivot_fixed_v
     indexed_vector<T> w(m_basis.size()); // the buffer
     for (unsigned i = 0; i < m_basis.size(); i++) {
         unsigned basic_j = m_basis[i];
-        if (get_column_type(basic_j) != column_type::fixed)
+        if (get_column_type(basic_j) == column_type::fixed)
             pivot_fixed_vars_from_basis_for_row(i, basic_j, w);
     }
 }
