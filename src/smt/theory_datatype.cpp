@@ -452,7 +452,7 @@ namespace smt {
 
         SASSERT(app->get_root() == root->get_root());
         if (app != root)
-          m_used_eqs.push_back(enode_pair(app, root));
+            m_used_eqs.push_back(enode_pair(app, root));
     }
 
     // start exploring subgraph below `app`
@@ -511,7 +511,7 @@ namespace smt {
 
             switch (op) {
             case ENTER:
-              res = occurs_check_enter(app) || res;
+              res = occurs_check_enter(app);
               break;
 
             case EXIT:
