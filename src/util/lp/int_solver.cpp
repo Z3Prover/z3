@@ -793,7 +793,8 @@ bool int_solver::patch_nbasic_columns() {
     }
     lp_assert(is_feasible());
     lp_assert(!ret || !has_inf_int());
-    settings().st().m_patches_success++;
+    if (ret)
+        settings().st().m_patches_success++;
     return ret;
 }
 
