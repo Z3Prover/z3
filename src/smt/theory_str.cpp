@@ -6831,8 +6831,6 @@ namespace smt {
      * In some cases, the returned formula requires one or more free integer variables to be created.
      * These variables are returned in the reference parameter `freeVariables`.
      * Extra assertions should be made for these free variables constraining them to be non-negative.
-     *
-     * TODO: star unrolling?
      */
     expr_ref theory_str::infer_all_regex_lengths(expr * lenVar, expr * re, expr_ref_vector & freeVariables) {
         ENSURE(u.is_re(re));
