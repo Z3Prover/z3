@@ -429,9 +429,7 @@ namespace smt {
         // first: explain that root=v, given that app=cstor(…,v,…)
         {
             enode * app_cstor = oc_get_cstor(app);
-            unsigned n_args_app = app_cstor->get_num_args();
-            for (unsigned i=0; i < n_args_app; ++i) {
-                enode * arg = app_cstor->get_arg(i);
+            for (enode * arg : enode::args(app_cstor)) {
                 // found an argument which is equal to root
                 if (arg->get_root() == root->get_root()) {
                     if (arg != root)
@@ -463,9 +461,7 @@ namespace smt {
             v = m_find.find(v);
             var_data * d = m_var_data[v];
             if (d->m_constructor) {
-                unsigned num_args = d->m_constructor->get_num_args();
-                for (unsigned i = 0; i < num_args; i++) {
-                    enode * arg = d->m_constructor->get_arg(i);
+                for (enode * arg : enode::args(d->m_constructor)) {
                     if (oc_cycle_free(arg)) {
                         return false;
                     }
