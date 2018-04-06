@@ -2845,7 +2845,7 @@ void fpa2bv_converter::mk_to_fp_signed(func_decl * f, unsigned num, expr * const
     expr_ref is_neg(m), x_abs(m), neg_x(m);
     is_neg_bit = m_bv_util.mk_extract(bv_sz - 1, bv_sz - 1, x);
     is_neg = m.mk_eq(is_neg_bit, bv1_1);
-    neg_x = m_bv_util.mk_bv_neg(x);
+    neg_x = m_bv_util.mk_bv_neg(x); // overflow problem?
     x_abs = m.mk_ite(is_neg, neg_x, x);
     dbg_decouple("fpa2bv_to_fp_signed_is_neg", is_neg);
     // x_abs has an extra bit in the front.
@@ -2882,11 +2882,13 @@ void fpa2bv_converter::mk_to_fp_signed(func_decl * f, unsigned num, expr * const
         SASSERT(is_well_sorted(m, lz));
     }
     SASSERT(m_bv_util.get_bv_size(sig_4) == sig_sz);
+    dbg_decouple("fpa2bv_to_fp_signed_sig_4", sig_4);
 
     expr_ref s_exp(m), exp_rest(m);
     s_exp = m_bv_util.mk_bv_sub(m_bv_util.mk_numeral(bv_sz - 2, bv_sz), lz);
     // s_exp = (bv_sz-2) + (-lz) signed
     SASSERT(m_bv_util.get_bv_size(s_exp) == bv_sz);
+    dbg_decouple("fpa2bv_to_fp_signed_s_exp", s_exp);
 
     unsigned exp_sz = ebits + 2; // (+2 for rounder)
     exp_2 = m_bv_util.mk_extract(exp_sz - 1, 0, s_exp);
@@ -2907,10 +2909,9 @@ void fpa2bv_converter::mk_to_fp_signed(func_decl * f, unsigned num, expr * const
         mk_max_exp(exp_sz, max_exp);
         max_exp_bvsz = m_bv_util.mk_zero_extend(bv_sz - exp_sz, max_exp);
 
-        exp_too_large = m_bv_util.mk_ule(m_bv_util.mk_bv_add(
-            max_exp_bvsz,
-            m_bv_util.mk_numeral(1, bv_sz)),
-            s_exp);
+        exp_too_large = m_bv_util.mk_sle(
+                            m_bv_util.mk_bv_add(max_exp_bvsz, m_bv_util.mk_numeral(1, bv_sz)),
+                            s_exp);
         zero_sig_sz = m_bv_util.mk_numeral(0, sig_sz);
         sig_4 = m.mk_ite(exp_too_large, zero_sig_sz, sig_4);
         exp_2 = m.mk_ite(exp_too_large, max_exp, exp_2);
@@ -3040,7 +3041,7 @@ void fpa2bv_converter::mk_to_fp_unsigned(func_decl * f, unsigned num, expr * con
         mk_max_exp(exp_sz, max_exp);
         max_exp_bvsz = m_bv_util.mk_zero_extend(bv_sz - exp_sz, max_exp);
 
-        exp_too_large = m_bv_util.mk_ule(m_bv_util.mk_bv_add(
+        exp_too_large = m_bv_util.mk_sle(m_bv_util.mk_bv_add(
             max_exp_bvsz,
             m_bv_util.mk_numeral(1, bv_sz)),
             s_exp);
