@@ -1048,9 +1048,11 @@ bool int_solver::get_freedom_interval_for_column(unsigned j, bool & infinite_l, 
             if (has_low(rj))
                 set_upper(u, infinite_u, xj + (xrj - lcs.m_r_lower_bounds()[rj]) / a);
         }
-        if (!infinite_l && !infinite_u && l > u)
-            return false;
-        // even if l == u we should continue to update the common denominator m
+        if (!infinite_l && !infinite_u && l >= u) {
+            if (l > u)
+                return false;
+            return true;
+        }
     }
 
     TRACE("freedom_interval",
