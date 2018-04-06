@@ -11,16 +11,16 @@
 namespace lp {
 
 void int_solver::failed() {
-    auto & lcs = m_lar_solver->m_mpq_lar_core_solver;
+    // auto & lcs = m_lar_solver->m_mpq_lar_core_solver;
     
-    for (unsigned j : m_old_values_set.m_index) {
-        lcs.m_r_x[j] = m_old_values_data[j];
-        lp_assert(lcs.m_r_solver.column_is_feasible(j));
-        lcs.m_r_solver.remove_column_from_inf_set(j);
-    }
-    lp_assert(lcs.m_r_solver.calc_current_x_is_feasible_include_non_basis());
-    lp_assert(lcs.m_r_solver.current_x_is_feasible());
-    m_old_values_set.clear();
+    // for (unsigned j : m_old_values_set.m_index) {
+    //     lcs.m_r_x[j] = m_old_values_data[j];
+    //     lp_assert(lcs.m_r_solver.column_is_feasible(j));
+    //     lcs.m_r_solver.remove_column_from_inf_set(j);
+    // }
+    // lp_assert(lcs.m_r_solver.calc_current_x_is_feasible_include_non_basis());
+    // lp_assert(lcs.m_r_solver.current_x_is_feasible());
+    // m_old_values_set.clear();
 }
 
 void int_solver::trace_inf_rows() const {
@@ -378,9 +378,9 @@ lia_move int_solver::mk_gomory_cut(lar_term& t, mpq& k, explanation & expl, unsi
 }
 
 void int_solver::init_check_data() {
-    unsigned n = m_lar_solver->A_r().column_count();
-    m_old_values_set.resize(n);
-    m_old_values_data.resize(n);
+    // unsigned n = m_lar_solver->A_r().column_count();
+    // m_old_values_set.resize(n);
+    // m_old_values_data.resize(n);
 }
 
 int int_solver::find_free_var_in_gomory_row(const row_strip<mpq>& row) {
@@ -712,10 +712,10 @@ void int_solver::set_value_for_nbasic_column_ignore_old_values(unsigned j, const
 void int_solver::set_value_for_nbasic_column(unsigned j, const impq & new_val) {
     lp_assert(!is_base(j));
     auto & x = m_lar_solver->m_mpq_lar_core_solver.m_r_x[j];
-    if (m_lar_solver->has_int_var() && !m_old_values_set.contains(j)) {
-        m_old_values_set.insert(j);
-        m_old_values_data[j] = x;
-    }
+    // if (m_lar_solver->has_int_var() && !m_old_values_set.contains(j)) {
+    //     m_old_values_set.insert(j);
+    //     m_old_values_data[j] = x;
+    // }
     auto delta = new_val - x;
     x = new_val;
     m_lar_solver->change_basic_columns_dependend_on_a_given_nb_column(j, delta);
@@ -974,9 +974,9 @@ int_solver::int_solver(lar_solver* lar_slv) :
                  [this]() {return m_lar_solver->A_r().column_count();},
                  [this](unsigned j) {return get_value(j);},
                  settings()) {
-    lp_assert(m_old_values_set.size() == 0);
-    m_old_values_set.resize(lar_slv->A_r().column_count());
-    m_old_values_data.resize(lar_slv->A_r().column_count(), zero_of_type<impq>());
+    //    lp_assert(m_old_values_set.size() == 0);
+    // m_old_values_set.resize(lar_slv->A_r().column_count());
+    // m_old_values_data.resize(lar_slv->A_r().column_count(), zero_of_type<impq>());
     m_lar_solver->set_int_solver(this);
 }
 
