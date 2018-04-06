@@ -75,7 +75,7 @@ namespace sat {
     void model_converter::operator()(model & m) const {
         vector<entry>::const_iterator begin = m_entries.begin();
         vector<entry>::const_iterator it    = m_entries.end();
-        bool first = true; // false; // true; // false; // true;
+        bool first = false; // true; // false; // // true;
         //SASSERT(!m_solver || m_solver->check_clauses(m));
         while (it != begin) {
             --it;
@@ -101,6 +101,7 @@ namespace sat {
                     if (!sat && it->get_kind() != ATE && v0 != null_bool_var) {     
                         VERIFY(legal_to_flip(v0));                        
                         m[v0] = var_sign ? l_false : l_true;
+                        //IF_VERBOSE(0, verbose_stream() << "assign " << v0 << " "<< m[v0] << "\n");
                     }
                     elim_stack* st = it->m_elim_stack[index];
                     if (st) {

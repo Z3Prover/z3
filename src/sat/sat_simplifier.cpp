@@ -1174,7 +1174,8 @@ namespace sat {
            This routine removes literals that were not relevant to establishing it was blocked.
 
            It has a bug: literals that are used to prune tautologies during resolution intersection should be included
-           in the dependencies.
+           in the dependencies. They may get used in some RI prunings and then they have to be included to avoid flipping
+           RI literals.
          */
         void minimize_covered_clause(unsigned idx) {
             // IF_VERBOSE(0, verbose_stream() << "minimize: " << m_covered_clause 
@@ -1199,8 +1200,8 @@ namespace sat {
             }
             for (unsigned i = idx; i > 0; --i) {
                 literal lit = m_covered_clause[i];
-                //s.mark_visited(lit);
-                //continue;
+                s.mark_visited(lit);
+                continue;
                 if (!s.is_marked(lit)) continue;
                 clause_ante const& ante = m_covered_antecedent[i];
                 if (ante.cls()) {
@@ -1617,13 +1618,6 @@ namespace sat {
             for (literal l2 : m_intersection) {
                 watched* w = find_binary_watch(s.get_wlist(~l), ~l2);
                 if (!w) {
-#if 0
-                    IF_VERBOSE(0, verbose_stream() << "bca " << l << " " << ~l2 << "\n"); 
-                    if (l.var() == 10219 && l2.var() == 10202) {
-                        IF_VERBOSE(0, s.s.display(verbose_stream()));
-                        exit(0);
-                    }
-#endif
                     s.s.mk_bin_clause(l, ~l2, true);
                     ++s.m_num_bca;
                 }
