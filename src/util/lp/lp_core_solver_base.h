@@ -453,6 +453,7 @@ public:
     void init_lu();
     int pivots_in_column_and_row_are_different(int entering, int leaving) const;
     void pivot_fixed_vars_from_basis();
+    void pivot_fixed_vars_from_basis_for_row(unsigned i, unsigned basic_j, indexed_vector<T> & w);
     bool pivot_column_general(unsigned j, unsigned j_basic, indexed_vector<T> & w);
     bool pivot_for_tableau_on_basis();
     bool pivot_row_for_tableau_on_basis(unsigned row);

@@ -110,6 +110,8 @@ struct stats {
     unsigned m_gcd_conflicts;
     unsigned m_cube_calls;
     unsigned m_cube_success;
+    unsigned m_patches;
+    unsigned m_patches_success;
     stats() { reset(); }
     void reset() { memset(this, 0, sizeof(*this)); }
 };

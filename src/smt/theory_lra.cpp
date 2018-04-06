@@ -2818,6 +2818,8 @@ public:
         st.update("gcd-conflict", m_solver->settings().st().m_gcd_conflicts);
         st.update("cube-calls", m_solver->settings().st().m_cube_calls);
         st.update("cube-success", m_solver->settings().st().m_cube_success);
+        st.update("arith-patches", m_solver->settings().st().m_patches);
+        st.update("arith-patches-success", m_solver->settings().st().m_patches_success);
     }        
 };
     

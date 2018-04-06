@@ -554,8 +554,9 @@ public:
     bool has_int_var() const;
     bool has_inf_int() const {
         for (unsigned j = 0; j < column_count(); j++) {
-            if (column_is_int(j) && ! column_value_is_int(j))
+            if (column_is_int(j) && ! column_value_is_int(j)) {
                 return true;
+            }
         }
         return false;
     }
