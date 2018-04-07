@@ -24,19 +24,22 @@ Revision History:
 #include<iostream>
 #include<climits>
 #include<limits>
+#include<stdint.h>
 
 #ifndef SIZE_MAX
 #define SIZE_MAX std::numeric_limits<std::size_t>::max()
 #endif
 
+#undef uint64
 #ifndef uint64
-typedef unsigned long long uint64;
+typedef uint64_t uint64;
 #endif
 
 static_assert(sizeof(uint64) == 8, "64 bits please");
 
+#undef int64
 #ifndef int64
-typedef long long int64;
+typedef int64_t int64;
 #endif
 
 static_assert(sizeof(int64) == 8, "64 bits");
