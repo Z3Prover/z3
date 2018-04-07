@@ -463,7 +463,7 @@ namespace smt {
             if (d->m_constructor) {
                 for (enode * arg : enode::args(d->m_constructor)) {
                     if (oc_cycle_free(arg)) {
-                        return false;
+                        continue;
                     }
                     if (oc_on_stack(arg)) {
                         // arg was explored before app, and is still on the stack: cycle
