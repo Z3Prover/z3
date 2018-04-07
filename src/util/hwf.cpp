@@ -413,12 +413,12 @@ void hwf_manager::to_rational(hwf const & x, unsynch_mpq_manager & qm, mpq & o) 
     scoped_mpz n(qm), d(qm);
 
     if (is_normal(x))
-        qm.set(n, sig(x) | 0x0010000000000000ull);
+        qm.set(n, (uint64)(sig(x) | 0x0010000000000000ull));
     else
         qm.set(n, sig(x));
     if (sgn(x))
         qm.neg(n);
-    qm.set(d, 0x0010000000000000ull);
+    qm.set(d, (uint64)0x0010000000000000ull);
     int e = exp(x);
     if (e >= 0)
         qm.mul2k(n, (unsigned)e);
