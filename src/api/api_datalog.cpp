@@ -213,7 +213,9 @@ extern "C" {
         // must start loggging here, since function uses Z3_get_sort_kind above
         LOG_Z3_get_finite_domain_sort_size(c, s, out);
         RESET_ERROR_CODE();  
-        VERIFY(mk_c(c)->datalog_util().try_get_size(to_sort(s), *out));
+        uint64 _out = 0;
+        VERIFY(mk_c(c)->datalog_util().try_get_size(to_sort(s), _out));
+        *out = static_cast<__uint64>(_out);
         return Z3_TRUE;
 
         Z3_CATCH_RETURN(Z3_FALSE);
