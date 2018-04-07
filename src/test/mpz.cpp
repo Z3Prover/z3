@@ -127,8 +127,8 @@ static void bug3() {
 static void bug4() {
     synch_mpz_manager m;
     mpz x, y;
-    m.set(y, 4294967295ull);
-    m.set(x, 4026531839ull);
+    m.set(y, static_cast<uint64>(4294967295ull));
+    m.set(x, static_cast<uint64>(4026531839ull));
     mpz result1;
     m.bitwise_or(x, y, result1);
 
