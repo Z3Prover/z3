@@ -53,8 +53,8 @@ class int_solver {
 public:
     // fields
     lar_solver *m_lar_solver;
-    int_set m_old_values_set;
-    vector<impq> m_old_values_data;
+    // int_set m_old_values_set;
+    // vector<impq> m_old_values_data;
     unsigned m_branch_cut_counter;
     cut_solver m_cut_solver;
     // methods
