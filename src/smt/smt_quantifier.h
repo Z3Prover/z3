@@ -23,6 +23,7 @@ Revision History:
 #include "util/statistics.h"
 #include "util/params.h"
 #include "smt/smt_types.h"
+#include <tuple>
 
 class proto_model;
 struct smt_params;
@@ -57,7 +58,7 @@ namespace smt {
                           unsigned max_generation,
                           unsigned min_top_generation,
                           unsigned max_top_generation,
-                          ptr_vector<enode> & used_enodes);
+                          vector<std::tuple<enode *, enode *>> & used_enodes);
         bool add_instance(quantifier * q, unsigned num_bindings, enode * const * bindings, unsigned generation = 0);
 
         void init_search_eh();

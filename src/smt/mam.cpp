@@ -1866,7 +1866,7 @@ namespace smt {
         enode *             m_n2;
         enode *             m_app;
         const bind *        m_b;
-        ptr_vector<enode>   m_used_enodes;
+        vector<std::tuple<enode *, enode *>> m_used_enodes;
         unsigned            m_curr_used_enodes_size;
         ptr_vector<enode>   m_pattern_instances; // collect the pattern instances... used for computing min_top_generation and max_top_generation
         unsigned_vector     m_min_top_generation, m_max_top_generation;
@@ -1883,11 +1883,11 @@ namespace smt {
             m_pool.recycle(v);
         }
 
-        void update_max_generation(enode * n) {
+        void update_max_generation(enode * n, enode * prev) {
             m_max_generation = std::max(m_max_generation, n->get_generation());
 
             if (m_ast_manager.has_trace_stream())
-                m_used_enodes.push_back(n);
+                m_used_enodes.push_back(std::make_tuple(prev, n));
         }
 
         // We have to provide the number of expected arguments because we have flat-assoc applications such as +.
@@ -1896,7 +1896,7 @@ namespace smt {
             enode * first = curr;
             do {
                 if (curr->get_decl() == lbl && curr->is_cgr() && curr->get_num_args() == num_expected_args) {
-                    update_max_generation(curr);
+                    update_max_generation(curr, first);
                     return curr;
                 }
                 curr = curr->get_next();
@@ -1909,7 +1909,7 @@ namespace smt {
             curr = curr->get_next();
             while (curr != first) {
                 if (curr->get_decl() == lbl && curr->is_cgr() && curr->get_num_args() == num_expected_args) {
-                    update_max_generation(curr);
+                    update_max_generation(curr, first);
                     return curr;
                 }
                 curr = curr->get_next();
@@ -1933,7 +1933,7 @@ namespace smt {
                 do {
                     if (n->get_decl() == f &&
                         n->get_arg(0)->get_root() == m_args[0]) {
-                        update_max_generation(n);
+                        update_max_generation(n, first);
                         return true;
                     }
                     n = n->get_next();
@@ -1948,7 +1948,7 @@ namespace smt {
                     if (n->get_decl() == f &&
                         n->get_arg(0)->get_root() == m_args[0] &&
                         n->get_arg(1)->get_root() == m_args[1]) {
-                        update_max_generation(n);
+                        update_max_generation(n, first);
                         return true;
                     }
                     n = n->get_next();
@@ -1968,7 +1968,7 @@ namespace smt {
                                 break;
                         }
                         if (i == num_args) {
-                            update_max_generation(n);
+                            update_max_generation(n, first);
                             return true;
                         }
                     }
@@ -2213,7 +2213,7 @@ namespace smt {
         if (bp.m_it == bp.m_end)
             return nullptr;
         m_top++;
-        update_max_generation(*(bp.m_it));
+        update_max_generation(*(bp.m_it), nullptr);
         return *(bp.m_it);
     }
 
@@ -2294,7 +2294,7 @@ namespace smt {
 
         if (m_ast_manager.has_trace_stream()) {
             m_used_enodes.reset();
-            m_used_enodes.push_back(n);
+            m_used_enodes.push_back(std::make_tuple(nullptr, n));
         }
 
         m_pc             = t->get_root();
@@ -2399,6 +2399,9 @@ namespace smt {
             SASSERT(m_n2 != 0);
             if (m_n1->get_root() != m_n2->get_root())
                 goto backtrack;
+            
+            m_used_enodes.push_back(std::make_tuple(m_n1, m_n2));
+
             m_pc = m_pc->m_next;
             goto main_loop;
 
@@ -2793,7 +2796,7 @@ namespace smt {
                     m_pattern_instances.pop_back();
                     m_pattern_instances.push_back(m_app);
                     // continue succeeded
-                    update_max_generation(m_app);
+                    update_max_generation(m_app, nullptr);
                     TRACE("mam_int", tout << "continue next candidate:\n" << mk_ll_pp(m_app->get_owner(), m_ast_manager););
                     m_num_args = c->m_num_args;
                     m_oreg     = c->m_oreg;
@@ -3932,7 +3935,7 @@ namespace smt {
         }
 #endif
 
-        void on_match(quantifier * qa, app * pat, unsigned num_bindings, enode * const * bindings, unsigned max_generation, ptr_vector<enode> & used_enodes) override {
+        void on_match(quantifier * qa, app * pat, unsigned num_bindings, enode * const * bindings, unsigned max_generation, vector<std::tuple<enode *, enode *>> & used_enodes) override {
             TRACE("trigger_bug", tout << "found match " << mk_pp(qa, m_ast_manager) << "\n";);
 #ifdef Z3DEBUG
             if (m_check_missing_instances) {
