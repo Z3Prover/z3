@@ -35,7 +35,7 @@ static void tst1() {
     m.display_decimal(std::cout, a); std::cout << "\n";
 }
 
-static void tst_prev_power_2(int64 n, uint64 d, unsigned expected) {
+static void tst_prev_power_2(int64_t n, uint64_t d, unsigned expected) {
     mpfx_manager m;
     scoped_mpfx a(m);
     m.set(a, n, d);

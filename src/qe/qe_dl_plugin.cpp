@@ -70,7 +70,7 @@ namespace qe {
                 return false;
             }
             eq_atoms& eqs = get_eqs(x.x(), fml);
-            uint64 domain_size;
+            uint64_t domain_size;
             if (is_small_domain(x, eqs, domain_size)) {
                 num_branches = rational(domain_size, rational::ui64());
             }
@@ -84,7 +84,7 @@ namespace qe {
             SASSERT(v.is_unsigned());
             eq_atoms& eqs = get_eqs(x.x(), fml);            
             unsigned uv = v.get_unsigned();
-            uint64 domain_size;
+            uint64_t domain_size;
             if (is_small_domain(x, eqs, domain_size)) {
                 SASSERT(v < rational(domain_size, rational::ui64()));
                 assign_small_domain(x, eqs, uv);
@@ -98,7 +98,7 @@ namespace qe {
             SASSERT(v.is_unsigned());
             eq_atoms& eqs = get_eqs(x.x(), fml);           
             unsigned uv = v.get_unsigned();
-            uint64 domain_size;
+            uint64_t domain_size;
             if (is_small_domain(x, eqs, domain_size)) {
                 SASSERT(uv < domain_size);
                 subst_small_domain(x, eqs, uv, fml);
@@ -115,7 +115,7 @@ namespace qe {
 
     private:
 
-        bool is_small_domain(contains_app& x, eq_atoms& eqs, uint64& domain_size) {
+        bool is_small_domain(contains_app& x, eq_atoms& eqs, uint64_t& domain_size) {
             VERIFY(m_util.try_get_size(m.get_sort(x.x()), domain_size));
             return domain_size < eqs.num_eqs() + eqs.num_neqs();
         }

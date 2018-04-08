@@ -38,9 +38,9 @@ unsigned get_p_from_manager(zp_numeral_manager const & zp_nm) {
     if (!nm.is_uint64(p)) {
         throw upolynomial_exception("The prime number attempted in factorization is too big!");
     }
-    uint64 p_uint64 = nm.get_uint64(p);
+    uint64_t p_uint64 = nm.get_uint64(p);
     unsigned p_uint = static_cast<unsigned>(p_uint64);
-    if (((uint64)p_uint) != p_uint64) {
+    if (((uint64_t)p_uint) != p_uint64) {
         throw upolynomial_exception("The prime number attempted in factorization is too big!");
     }
     return p_uint;
@@ -1075,7 +1075,7 @@ bool factor_square_free(z_manager & upm, numeral_vector const & f, factors & fs,
     while (trials < params.m_p_trials) {
         upm.checkpoint();
         // construct prime to check 
-        uint64 next_prime = prime_it.next();
+        uint64_t next_prime = prime_it.next();
         if (next_prime > params.m_max_p) {
             fs.push_back(f_pp, k);
             return false;

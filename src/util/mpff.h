@@ -92,7 +92,7 @@ class mpff_manager {
     // 
     // Remarks:
     //
-    // - All values of type int, unsigned, int64 and uint64 can be precisely represented as mpff numerals.
+    // - All values of type int, unsigned, int64_t and uint64_t can be precisely represented as mpff numerals.
     //
     // - Hardware float and double values (corresponding to rationals) can also be precisely represented as mpff numerals.
     //   That is, NaN, +oo and -oo are not supported by this module.
@@ -141,14 +141,14 @@ class mpff_manager {
     // copy (and shift by m_precision_bits) n to buffer idx 
     void to_buffer_shifting(unsigned idx, mpff const & n) const;
 
-    void inc_significand(unsigned * s, int64 & exp);
+    void inc_significand(unsigned * s, int64_t & exp);
     void inc_significand(mpff & a);
     void dec_significand(mpff & a);
     bool min_significand(mpff const & a) const;
     void set_min_significand(mpff & a);
     void set_max_significand(mpff & a);
-    void set_big_exponent(mpff & a, int64 e);
-    void set_exponent(mpff & a, int64 e) {
+    void set_big_exponent(mpff & a, int64_t e);
+    void set_exponent(mpff & a, int64_t e) {
         if (e > INT_MAX || e < INT_MIN) 
             set_big_exponent(a, e);
         else
@@ -286,12 +286,12 @@ public:
     bool is_plus_epsilon(mpff const & a) const;
 
     /**
-       \brief Return true if \c a is an integer and fits in an int64 machine integer.
+       \brief Return true if \c a is an integer and fits in an int64_t machine integer.
     */
     bool is_int64(mpff const & a) const;
 
     /**
-       \brief Return true if \c a is a non-negative integer and fits in an int64 machine integer.
+       \brief Return true if \c a is a non-negative integer and fits in an int64_t machine integer.
     */
     bool is_uint64(mpff const & a) const;
     
@@ -372,10 +372,10 @@ public:
     
     void set(mpff & n, int v);
     void set(mpff & n, unsigned v);
-    void set(mpff & n, int64 v);
-    void set(mpff & n, uint64 v);
+    void set(mpff & n, int64_t v);
+    void set(mpff & n, uint64_t v);
     void set(mpff & n, int num, unsigned den);
-    void set(mpff & n, int64 num, uint64 den);
+    void set(mpff & n, int64_t num, uint64_t den);
     void set(mpff & n, mpff const & v);
     void set(mpff & n, unsynch_mpz_manager & m, mpz const & v);
     void set(mpff & n, synch_mpz_manager & m, mpz const & v); 
@@ -448,14 +448,14 @@ public:
 
        \pre is_int64(n)
     */
-    int64 get_int64(mpff const & n) const;
+    int64_t get_int64(mpff const & n) const;
 
     /**
        \brief Return n as an uint64.
 
        \pre is_uint64(n)
     */
-    uint64 get_uint64(mpff const & n) const;
+    uint64_t get_uint64(mpff const & n) const;
 
     /**
        \brief Return the biggest k s.t. 2^k <= a.

@@ -206,7 +206,7 @@ namespace datalog {
             return find(t);
         }
 
-        tbv* allocate(uint64 v, unsigned hi, unsigned lo) {
+        tbv* allocate(uint64_t v, unsigned hi, unsigned lo) {
             return m_tbv.allocate(v, hi, lo);
         }
 
@@ -437,7 +437,7 @@ namespace datalog {
             }
         }
         
-        tbv* allocate(unsigned num_bits, uint64 v, unsigned hi, unsigned lo) {
+        tbv* allocate(unsigned num_bits, uint64_t v, unsigned hi, unsigned lo) {
             return get(num_bits).allocate(v, hi, lo);
         }
         void insert(unsigned num_bits, tbv const& t) {

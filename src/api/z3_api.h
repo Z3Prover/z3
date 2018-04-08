@@ -36,14 +36,6 @@ DEFINE_TYPE(Z3_fixedpoint);
 DEFINE_TYPE(Z3_optimize);
 DEFINE_TYPE(Z3_rcf_num);
 
-#ifndef __int64
-#define __int64 long long
-#endif
-
-#ifndef __uint64
-#define __uint64 unsigned long long
-#endif
-
 /** \defgroup capi C API */
 /*@{*/
 
@@ -1843,7 +1835,7 @@ extern "C" {
 
        def_API('Z3_mk_finite_domain_sort', SORT, (_in(CONTEXT), _in(SYMBOL), _in(UINT64)))
     */
-    Z3_sort Z3_API Z3_mk_finite_domain_sort(Z3_context c, Z3_symbol name, __uint64 size);
+    Z3_sort Z3_API Z3_mk_finite_domain_sort(Z3_context c, Z3_symbol name, uint64_t size);
 
     /**
        \brief Create an array type.
@@ -3200,26 +3192,26 @@ extern "C" {
     /**
        \brief Create a numeral of a int, bit-vector, or finite-domain sort.
 
-       This function can be used to create numerals that fit in a machine __int64 integer.
+       This function can be used to create numerals that fit in a machine \c int64_t integer.
        It is slightly faster than #Z3_mk_numeral since it is not necessary to parse a string.
 
        \sa Z3_mk_numeral
 
        def_API('Z3_mk_int64', AST, (_in(CONTEXT), _in(INT64), _in(SORT)))
     */
-    Z3_ast Z3_API Z3_mk_int64(Z3_context c, __int64 v, Z3_sort ty);
+    Z3_ast Z3_API Z3_mk_int64(Z3_context c, int64_t v, Z3_sort ty);
 
     /**
        \brief Create a numeral of a int, bit-vector, or finite-domain sort.
 
-       This function can be used to create numerals that fit in a machine __uint64 integer.
+       This function can be used to create numerals that fit in a machine \c uint64_t integer.
        It is slightly faster than #Z3_mk_numeral since it is not necessary to parse a string.
 
        \sa Z3_mk_numeral
 
        def_API('Z3_mk_unsigned_int64', AST, (_in(CONTEXT), _in(UINT64), _in(SORT)))
     */
-    Z3_ast Z3_API Z3_mk_unsigned_int64(Z3_context c, __uint64 v, Z3_sort ty);
+    Z3_ast Z3_API Z3_mk_unsigned_int64(Z3_context c, uint64_t v, Z3_sort ty);
 
     /**
        \brief create a bit-vector numeral from a vector of Booleans.
@@ -3868,7 +3860,7 @@ extern "C" {
 
         def_API('Z3_get_finite_domain_sort_size', BOOL, (_in(CONTEXT), _in(SORT), _out(UINT64)))
     */
-    Z3_bool_opt Z3_API Z3_get_finite_domain_sort_size(Z3_context c, Z3_sort s, __uint64* r);
+    Z3_bool_opt Z3_API Z3_get_finite_domain_sort_size(Z3_context c, Z3_sort s, uint64_t* r);
 
     /**
        \brief Return the domain of the given array sort.
@@ -4425,7 +4417,7 @@ extern "C" {
 
        def_API('Z3_get_numeral_small', BOOL, (_in(CONTEXT), _in(AST), _out(INT64), _out(INT64)))
     */
-    Z3_bool Z3_API Z3_get_numeral_small(Z3_context c, Z3_ast a, __int64* num, __int64* den);
+    Z3_bool Z3_API Z3_get_numeral_small(Z3_context c, Z3_ast a, int64_t* num, int64_t* den);
 
     /**
        \brief Similar to #Z3_get_numeral_string, but only succeeds if
@@ -4453,7 +4445,7 @@ extern "C" {
 
     /**
        \brief Similar to #Z3_get_numeral_string, but only succeeds if
-       the value can fit in a machine __uint64 int. Return Z3_TRUE if the call succeeded.
+       the value can fit in a machine \c uint64_t int. Return Z3_TRUE if the call succeeded.
 
        \pre Z3_get_ast_kind(c, v) == Z3_NUMERAL_AST
 
@@ -4461,11 +4453,11 @@ extern "C" {
 
        def_API('Z3_get_numeral_uint64', BOOL, (_in(CONTEXT), _in(AST), _out(UINT64)))
     */
-    Z3_bool Z3_API Z3_get_numeral_uint64(Z3_context c, Z3_ast v, __uint64* u);
+    Z3_bool Z3_API Z3_get_numeral_uint64(Z3_context c, Z3_ast v, uint64_t* u);
 
     /**
        \brief Similar to #Z3_get_numeral_string, but only succeeds if
-       the value can fit in a machine __int64 int. Return Z3_TRUE if the call succeeded.
+       the value can fit in a machine \c int64_t int. Return Z3_TRUE if the call succeeded.
 
        \pre Z3_get_ast_kind(c, v) == Z3_NUMERAL_AST
 
@@ -4473,11 +4465,11 @@ extern "C" {
 
        def_API('Z3_get_numeral_int64', BOOL, (_in(CONTEXT), _in(AST), _out(INT64)))
     */
-    Z3_bool Z3_API Z3_get_numeral_int64(Z3_context c, Z3_ast v, __int64* i);
+    Z3_bool Z3_API Z3_get_numeral_int64(Z3_context c, Z3_ast v, int64_t* i);
 
     /**
        \brief Similar to #Z3_get_numeral_string, but only succeeds if
-       the value can fit as a rational number as machine __int64 int. Return Z3_TRUE if the call succeeded.
+       the value can fit as a rational number as machine \c int64_t int. Return Z3_TRUE if the call succeeded.
 
        \pre Z3_get_ast_kind(c, v) == Z3_NUMERAL_AST
 
@@ -4485,7 +4477,7 @@ extern "C" {
 
        def_API('Z3_get_numeral_rational_int64', BOOL, (_in(CONTEXT), _in(AST), _out(INT64), _out(INT64)))
     */
-    Z3_bool Z3_API Z3_get_numeral_rational_int64(Z3_context c, Z3_ast v, __int64* num, __int64* den);
+    Z3_bool Z3_API Z3_get_numeral_rational_int64(Z3_context c, Z3_ast v, int64_t* num, int64_t* den);
 
     /**
        \brief Return a lower bound for the given real algebraic number.
@@ -6248,7 +6240,7 @@ extern "C" {
 
     def_API('Z3_get_estimated_alloc_size', UINT64, ())
     */
-    __uint64 Z3_API Z3_get_estimated_alloc_size(void);
+    uint64_t Z3_API Z3_get_estimated_alloc_size(void);
 
     /*@}*/
 
