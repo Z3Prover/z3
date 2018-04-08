@@ -805,15 +805,26 @@ bool int_solver::patch_nbasic_column(unsigned j) {
     return true;
 }
 
+void int_solver::round_nbasic_columns() {
+     for (unsigned j : m_lar_solver->m_mpq_lar_core_solver.m_r_nbasis) {
+         if (is_int(j) && ! get_value(j).is_int())
+             set_value_for_nbasic_column(j, flip_coin()? floor(get_value(j)) : ceil(get_value(j)));
+     }
+     m_lar_solver->find_feasible_solution();
+     lp_assert(m_lar_solver->get_status() == lp_status::OPTIMAL || m_lar_solver->get_status() == lp_status::FEASIBLE);
+}
+
 bool int_solver::patch_nbasic_columns() {
     settings().st().m_patches++;
+    if (!is_feasible()) //todo : investigate how it can happen!
+        m_lar_solver->find_feasible_solution();
 	lp_assert(is_feasible());
 	m_lar_solver->pivot_fixed_vars_from_basis();
-    bool success = true;
     for (unsigned j : m_lar_solver->m_mpq_lar_core_solver.m_r_nbasis) {
-		if (!patch_nbasic_column(j))
-			return false;
-		lp_assert(is_feasible());
+		if (!patch_nbasic_column(j)) {
+            round_nbasic_columns();
+            break;
+        }
 	}
 	lp_assert(is_feasible());
     if (!has_inf_int()) {
