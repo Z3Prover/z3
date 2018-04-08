@@ -663,7 +663,6 @@ basic_decl_plugin::basic_decl_plugin():
     m_not_or_elim_decl(nullptr),
     m_rewrite_decl(nullptr),
     m_pull_quant_decl(nullptr),
-    m_pull_quant_star_decl(nullptr),
     m_push_quant_decl(nullptr),
     m_elim_unused_vars_decl(nullptr),
     m_der_decl(nullptr),
@@ -827,7 +826,6 @@ func_decl * basic_decl_plugin::mk_proof_decl(basic_op_kind k, unsigned num_paren
     case PR_REWRITE:                      return mk_proof_decl("rewrite", k, 0, m_rewrite_decl);
     case PR_REWRITE_STAR:                 return mk_proof_decl("rewrite*", k, num_parents, m_rewrite_star_decls);
     case PR_PULL_QUANT:                   return mk_proof_decl("pull-quant", k, 0, m_pull_quant_decl);
-    case PR_PULL_QUANT_STAR:              return mk_proof_decl("pull-quant*", k, 0, m_pull_quant_star_decl);
     case PR_PUSH_QUANT:                   return mk_proof_decl("push-quant", k, 0, m_push_quant_decl);
     case PR_ELIM_UNUSED_VARS:             return mk_proof_decl("elim-unused", k, 0, m_elim_unused_vars_decl);
     case PR_DER:                          return mk_proof_decl("der", k, 0, m_der_decl);
@@ -844,8 +842,6 @@ func_decl * basic_decl_plugin::mk_proof_decl(basic_op_kind k, unsigned num_paren
     case PR_IFF_OEQ:                      return mk_proof_decl("iff~", k, 1, m_iff_oeq_decl);
     case PR_NNF_POS:                      return mk_proof_decl("nnf-pos", k, num_parents, m_nnf_pos_decls);
     case PR_NNF_NEG:                      return mk_proof_decl("nnf-neg", k, num_parents, m_nnf_neg_decls);
-    case PR_NNF_STAR:                     return mk_proof_decl("nnf*", k, num_parents, m_nnf_star_decls);
-    case PR_CNF_STAR:                     return mk_proof_decl("cnf*", k, num_parents, m_cnf_star_decls);
     case PR_SKOLEMIZE:                    return mk_proof_decl("sk", k, 0, m_skolemize_decl);
     case PR_MODUS_PONENS_OEQ:             return mk_proof_decl("mp~", k, 2, m_mp_oeq_decl);
     case PR_TH_LEMMA:                     return mk_proof_decl("th-lemma", k, num_parents, m_th_lemma_decls);
@@ -949,7 +945,6 @@ void basic_decl_plugin::finalize() {
     DEC_REF(m_not_or_elim_decl);
     DEC_REF(m_rewrite_decl);
     DEC_REF(m_pull_quant_decl);
-    DEC_REF(m_pull_quant_star_decl);
     DEC_REF(m_push_quant_decl);
     DEC_REF(m_elim_unused_vars_decl);
     DEC_REF(m_der_decl);
@@ -975,8 +970,6 @@ void basic_decl_plugin::finalize() {
     DEC_ARRAY_REF(m_apply_def_decls);
     DEC_ARRAY_REF(m_nnf_pos_decls);
     DEC_ARRAY_REF(m_nnf_neg_decls);
-    DEC_ARRAY_REF(m_nnf_star_decls);
-    DEC_ARRAY_REF(m_cnf_star_decls);
 
     DEC_ARRAY_REF(m_th_lemma_decls);
     DEC_REF(m_hyper_res_decl0);
@@ -1532,32 +1525,39 @@ void ast_manager::copy_families_plugins(ast_manager const & from) {
               tout << "fid: " << fid << " fidname: " << get_family_name(fid) << "\n";
           });
     ast_translation trans(const_cast<ast_manager&>(from), *this, false);
+    // Inheriting plugins can create new family ids. Since new family ids are
+    // assigned in the order that they are created, this can result in differing
+    // family ids. To avoid this, we first assign all family ids and only then inherit plugins.
     for (family_id fid = 0; from.m_family_manager.has_family(fid); fid++) {
-      SASSERT(from.is_builtin_family_id(fid) == is_builtin_family_id(fid));
-      SASSERT(!from.is_builtin_family_id(fid) || m_family_manager.has_family(fid));
-      symbol fid_name   = from.get_family_name(fid);
-      TRACE("copy_families_plugins", tout << "copying: " << fid_name << ", src fid: " << fid
-            << ", target has_family: " << m_family_manager.has_family(fid) << "\n";
-            if (m_family_manager.has_family(fid)) tout << get_family_id(fid_name) << "\n";);
-      if (!m_family_manager.has_family(fid)) {
-          family_id new_fid = mk_family_id(fid_name);
-          (void)new_fid;
-          TRACE("copy_families_plugins", tout << "new target fid created: " << new_fid << " fid_name: " << fid_name << "\n";);
-      }
-      TRACE("copy_families_plugins", tout << "target fid: " << get_family_id(fid_name) << "\n";);
-      SASSERT(fid == get_family_id(fid_name));
-      if (from.has_plugin(fid) && !has_plugin(fid)) {
-          decl_plugin * new_p = from.get_plugin(fid)->mk_fresh();
-          register_plugin(fid, new_p);
-          SASSERT(new_p->get_family_id() == fid);
-          SASSERT(has_plugin(fid));
-      }
-      if (from.has_plugin(fid)) {
-          get_plugin(fid)->inherit(from.get_plugin(fid), trans);
-      }
-      SASSERT(from.m_family_manager.has_family(fid) == m_family_manager.has_family(fid));
-      SASSERT(from.get_family_id(fid_name) == get_family_id(fid_name));
-      SASSERT(!from.has_plugin(fid) || has_plugin(fid));
+        symbol fid_name   = from.get_family_name(fid);
+        if (!m_family_manager.has_family(fid)) {
+            family_id new_fid = mk_family_id(fid_name);
+            (void)new_fid;
+            TRACE("copy_families_plugins", tout << "new target fid created: " << new_fid << " fid_name: " << fid_name << "\n";);
+        }
+    }
+    for (family_id fid = 0; from.m_family_manager.has_family(fid); fid++) {
+        SASSERT(from.is_builtin_family_id(fid) == is_builtin_family_id(fid));
+        SASSERT(!from.is_builtin_family_id(fid) || m_family_manager.has_family(fid));
+        symbol fid_name   = from.get_family_name(fid);
+        (void)fid_name;
+        TRACE("copy_families_plugins", tout << "copying: " << fid_name << ", src fid: " << fid
+              << ", target has_family: " << m_family_manager.has_family(fid) << "\n";
+              if (m_family_manager.has_family(fid)) tout << get_family_id(fid_name) << "\n";);
+        TRACE("copy_families_plugins", tout << "target fid: " << get_family_id(fid_name) << "\n";);
+        SASSERT(fid == get_family_id(fid_name));
+        if (from.has_plugin(fid) && !has_plugin(fid)) {
+            decl_plugin * new_p = from.get_plugin(fid)->mk_fresh();
+            register_plugin(fid, new_p);
+            SASSERT(new_p->get_family_id() == fid);
+            SASSERT(has_plugin(fid));
+        }
+        if (from.has_plugin(fid)) {
+            get_plugin(fid)->inherit(from.get_plugin(fid), trans);
+        }
+        SASSERT(from.m_family_manager.has_family(fid) == m_family_manager.has_family(fid));
+        SASSERT(from.get_family_id(fid_name) == get_family_id(fid_name));
+        SASSERT(!from.has_plugin(fid) || has_plugin(fid));
     }
 }
 
@@ -2837,12 +2837,6 @@ proof * ast_manager::mk_pull_quant(expr * e, quantifier * q) {
     return mk_app(m_basic_family_id, PR_PULL_QUANT, mk_iff(e, q));
 }
 
-proof * ast_manager::mk_pull_quant_star(expr * e, quantifier * q) {
-    if (proofs_disabled())
-        return nullptr;
-    return mk_app(m_basic_family_id, PR_PULL_QUANT_STAR, mk_iff(e, q));
-}
-
 proof * ast_manager::mk_push_quant(quantifier * q, expr * e) {
     if (proofs_disabled())
         return nullptr;
@@ -3087,30 +3081,12 @@ proof * ast_manager::mk_nnf_neg(expr * s, expr * t, unsigned num_proofs, proof *
     return mk_app(m_basic_family_id, PR_NNF_NEG, args.size(), args.c_ptr());
 }
 
-proof * ast_manager::mk_nnf_star(expr * s, expr * t, unsigned num_proofs, proof * const * proofs) {
-    if (proofs_disabled())
-        return nullptr;
-    ptr_buffer<expr> args;
-    args.append(num_proofs, (expr**) proofs);
-    args.push_back(mk_oeq(s, t));
-    return mk_app(m_basic_family_id, PR_NNF_STAR, args.size(), args.c_ptr());
-}
-
 proof * ast_manager::mk_skolemization(expr * q, expr * e) {
     if (proofs_disabled())
         return nullptr;
     SASSERT(is_bool(q));
     SASSERT(is_bool(e));
     return mk_app(m_basic_family_id, PR_SKOLEMIZE, mk_oeq(q, e));
-}
-
-proof * ast_manager::mk_cnf_star(expr * s, expr * t, unsigned num_proofs, proof * const * proofs) {
-    if (proofs_disabled())
-        return nullptr;
-    ptr_buffer<expr> args;
-    args.append(num_proofs, (expr**) proofs);
-    args.push_back(mk_oeq(s, t));
-    return mk_app(m_basic_family_id, PR_CNF_STAR, args.size(), args.c_ptr());
 }
 
 proof * ast_manager::mk_and_elim(proof * p, unsigned i) {

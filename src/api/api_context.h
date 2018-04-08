@@ -34,6 +34,7 @@ Revision History:
 #include "util/event_handler.h"
 #include "cmd_context/tactic_manager.h"
 #include "cmd_context/context_params.h"
+#include "cmd_context/cmd_context.h"
 #include "api/api_polynomial.h"
 #include "util/hashtable.h"
 
@@ -53,6 +54,7 @@ namespace api {
         context_params             m_params;
         bool                       m_user_ref_count; //!< if true, the user is responsible for managing reference counters.
         scoped_ptr<ast_manager>    m_manager;
+        scoped_ptr<cmd_context>    m_cmd;
         add_plugins                m_plugins;
 
         arith_util                 m_arith_util;
@@ -114,6 +116,7 @@ namespace api {
         ast_manager & m() const { return *(m_manager.get()); }
 
         context_params & params() { return m_params; }
+        scoped_ptr<cmd_context>& cmd() { return m_cmd; }
         bool produce_proofs() const { return m().proofs_enabled(); }
         bool produce_models() const { return m_params.m_model; }
         bool produce_unsat_cores() const { return m_params.m_unsat_core; }

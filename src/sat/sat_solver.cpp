@@ -1139,7 +1139,7 @@ namespace sat {
     }
 
     void solver::reinit_assumptions() {
-        if (tracking_assumptions() && scope_lvl() == 0) {
+        if (tracking_assumptions() && scope_lvl() == 0 && !inconsistent()) {
             TRACE("sat", tout << m_assumptions << "\n";);
             push();
             for (unsigned i = 0; !inconsistent() && i < m_user_scope_literals.size(); ++i) {

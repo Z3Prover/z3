@@ -116,7 +116,7 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
-    Z3_ast Z3_API Z3_mk_int64(Z3_context c, long long value, Z3_sort ty) {
+    Z3_ast Z3_API Z3_mk_int64(Z3_context c, int64_t value, Z3_sort ty) {
         Z3_TRY;
         LOG_Z3_mk_int64(c, value, ty);
         RESET_ERROR_CODE();
@@ -129,7 +129,7 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
-    Z3_ast Z3_API Z3_mk_unsigned_int64(Z3_context c, unsigned long long value, Z3_sort ty) {
+    Z3_ast Z3_API Z3_mk_unsigned_int64(Z3_context c, uint64_t value, Z3_sort ty) {
         Z3_TRY;
         LOG_Z3_mk_unsigned_int64(c, value, ty);
         RESET_ERROR_CODE();
@@ -172,7 +172,7 @@ extern "C" {
         if (mk_c(c)->bvutil().is_numeral(e, r, bv_size)) {
             return Z3_TRUE;
         }
-        uint64 v;
+        uint64_t v;
         if (mk_c(c)->datalog_util().is_numeral(e, v)) {
             r = rational(v, rational::ui64());
             return Z3_TRUE;
@@ -262,7 +262,7 @@ extern "C" {
         Z3_CATCH_RETURN("");
     }
 
-    Z3_bool Z3_API Z3_get_numeral_small(Z3_context c, Z3_ast a, long long* num, long long* den) {
+    Z3_bool Z3_API Z3_get_numeral_small(Z3_context c, Z3_ast a, int64_t* num, int64_t* den) {
         Z3_TRY;
         // This function invokes Z3_get_numeral_rational, but it is still ok to add LOG command here because it does not return a Z3 object.
         LOG_Z3_get_numeral_small(c, a, num, den);
@@ -296,7 +296,7 @@ extern "C" {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             return Z3_FALSE;
         }
-        long long l;
+        int64_t l;
         if (Z3_get_numeral_int64(c, v, &l) && l >= INT_MIN && l <= INT_MAX) {
             *i = static_cast<int>(l);
             return Z3_TRUE;
@@ -314,7 +314,7 @@ extern "C" {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             return Z3_FALSE;
         }
-        unsigned long long l;
+        uint64_t l;
         if (Z3_get_numeral_uint64(c, v, &l) && (l <= 0xFFFFFFFF)) {
             *u = static_cast<unsigned>(l);
             return Z3_TRUE;
@@ -323,7 +323,7 @@ extern "C" {
         Z3_CATCH_RETURN(Z3_FALSE);
     }
 
-    Z3_bool Z3_API Z3_get_numeral_uint64(Z3_context c, Z3_ast v, unsigned long long* u) {
+    Z3_bool Z3_API Z3_get_numeral_uint64(Z3_context c, Z3_ast v, uint64_t* u) {
         Z3_TRY;
         // This function invokes Z3_get_numeral_rational, but it is still ok to add LOG command here because it does not return a Z3 object.
         LOG_Z3_get_numeral_uint64(c, v, u);
@@ -343,7 +343,7 @@ extern "C" {
         Z3_CATCH_RETURN(Z3_FALSE);
     }
 
-    Z3_bool Z3_API Z3_get_numeral_int64(Z3_context c, Z3_ast v, long long* i) {
+    Z3_bool Z3_API Z3_get_numeral_int64(Z3_context c, Z3_ast v, int64_t* i) {
         Z3_TRY;
         // This function invokes Z3_get_numeral_rational, but it is still ok to add LOG command here because it does not return a Z3 object.
         LOG_Z3_get_numeral_int64(c, v, i);
@@ -362,7 +362,7 @@ extern "C" {
         Z3_CATCH_RETURN(Z3_FALSE);
     }
 
-    Z3_bool Z3_API Z3_get_numeral_rational_int64(Z3_context c, Z3_ast v, long long* num, long long* den) {
+    Z3_bool Z3_API Z3_get_numeral_rational_int64(Z3_context c, Z3_ast v, int64_t* num, int64_t* den) {
         Z3_TRY;
         // This function invokes Z3_get_numeral_rational, but it is still ok to add LOG command here because it does not return a Z3 object.
         LOG_Z3_get_numeral_rational_int64(c, v, num, den);

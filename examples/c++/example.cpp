@@ -920,6 +920,19 @@ void enum_sort_example() {
     std::cout << "2: " << result_goal.as_expr() << std::endl;
 }
 
+void tuple_example() {
+    std::cout << "tuple example\n";
+    context ctx;
+    const char * names[] = { "first", "second" };
+    sort sorts[2] = { ctx.int_sort(), ctx.bool_sort() };
+    func_decl_vector projs(ctx);
+    func_decl pair = ctx.tuple_sort("pair", 2, names, sorts, projs);
+    sorts[1] = pair.range();
+    func_decl pair2 = ctx.tuple_sort("pair2", 2, names, sorts, projs);
+    
+    std::cout << pair2 << "\n";
+}
+
 void expr_vector_example() {
     std::cout << "expr_vector example\n";
     context c;
@@ -1179,6 +1192,7 @@ int main() {
         incremental_example2(); std::cout << "\n";
         incremental_example3(); std::cout << "\n";
         enum_sort_example(); std::cout << "\n";
+        tuple_example(); std::cout << "\n";
         expr_vector_example(); std::cout << "\n";
         exists_expr_vector_example(); std::cout << "\n";
         substitute_example(); std::cout << "\n";

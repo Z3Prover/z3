@@ -7,7 +7,7 @@ Module Name:
 
 Abstract:
 
-    Add scale factor to linear (Real) arithemetic Horn clauses.
+    Add scale factor to linear (Real) arithmetic Horn clauses.
     The transformation replaces occurrences of isolated constants by
     a scale multiplied to each constant. 
 

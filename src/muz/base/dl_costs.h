@@ -95,7 +95,7 @@ namespace datalog {
         stopwatch * m_stopwatch;
 
         bool m_running;
-        uint64 m_last_time;
+        uint64_t m_last_time;
     public:
         cost_recorder();
         ~cost_recorder();

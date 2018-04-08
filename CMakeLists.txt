@@ -33,8 +33,8 @@ endif()
 # Project version
 ################################################################################
 set(Z3_VERSION_MAJOR 4)
-set(Z3_VERSION_MINOR 6)
-set(Z3_VERSION_PATCH 1)
+set(Z3_VERSION_MINOR 7)
+set(Z3_VERSION_PATCH 0)
 set(Z3_VERSION_TWEAK 0)
 set(Z3_VERSION "${Z3_VERSION_MAJOR}.${Z3_VERSION_MINOR}.${Z3_VERSION_PATCH}.${Z3_VERSION_TWEAK}")
 set(Z3_FULL_VERSION_STR "${Z3_VERSION}") # Note this might be modified
@@ -240,6 +240,9 @@ elseif ("${CMAKE_SYSTEM_NAME}" STREQUAL "Darwin")
 elseif ("${CMAKE_SYSTEM_NAME}" MATCHES "FreeBSD")
   message(STATUS "Platform: FreeBSD")
   list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_FREEBSD_")
+elseif ("${CMAKE_SYSTEM_NAME}" MATCHES "NetBSD")
+  message(STATUS "Platform: NetBSD")
+  list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_NetBSD_")
 elseif ("${CMAKE_SYSTEM_NAME}" MATCHES "OpenBSD")
   message(STATUS "Platform: OpenBSD")
   list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_OPENBSD_")
@@ -410,6 +413,20 @@ list(APPEND Z3_DEPENDENT_LIBS ${CMAKE_THREAD_LIBS_INIT})
 include(${CMAKE_SOURCE_DIR}/cmake/compiler_warnings.cmake)
 
 ################################################################################
+# If using Ninja, force color output for Clang (and gcc, disabled to check build).
+################################################################################
+if (UNIX AND CMAKE_GENERATOR STREQUAL "Ninja")
+  if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fcolor-diagnostics")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fcolor-diagnostics")
+  endif()
+#  if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+#    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fdiagnostics-color")
+#    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fdiagnostics-color")
+#  endif()
+endif()
+
+################################################################################
 # Option to control what type of library we build
 ################################################################################
 option(BUILD_LIBZ3_SHARED "Build libz3 as a shared library if true, otherwise build a static library" ON)
@@ -434,7 +451,7 @@ else()
 endif()
 
 ################################################################################
-# Postion independent code
+# Position independent code
 ################################################################################
 # This is required because code built in the components will end up in a shared
 # library. If not building a shared library ``-fPIC`` isn't needed and would add

@@ -298,11 +298,11 @@ class sort_size {
         SS_FINITE_VERY_BIG,
         SS_INFINITE
     } m_kind;
-    uint64 m_size; // It is only meaningful if m_kind == SS_FINITE
-    sort_size(kind_t k, uint64 r):m_kind(k), m_size(r) {}
+    uint64_t m_size; // It is only meaningful if m_kind == SS_FINITE
+    sort_size(kind_t k, uint64_t r):m_kind(k), m_size(r) {}
 public:
     sort_size():m_kind(SS_INFINITE) {}
-    sort_size(uint64 const & sz):m_kind(SS_FINITE), m_size(sz) {}
+    sort_size(uint64_t const & sz):m_kind(SS_FINITE), m_size(sz) {}
     sort_size(sort_size const& other): m_kind(other.m_kind), m_size(other.m_size) {}
     explicit sort_size(rational const& r) {
         if (r.is_uint64()) {
@@ -316,7 +316,7 @@ public:
     }
     static sort_size mk_infinite() { return sort_size(SS_INFINITE, 0); }
     static sort_size mk_very_big() { return sort_size(SS_FINITE_VERY_BIG, 0); }
-    static sort_size mk_finite(uint64 r) { return sort_size(SS_FINITE, r); }
+    static sort_size mk_finite(uint64_t r) { return sort_size(SS_FINITE, r); }
 
     bool is_infinite() const { return m_kind == SS_INFINITE; }
     bool is_very_big() const { return m_kind == SS_FINITE_VERY_BIG; }
@@ -324,7 +324,7 @@ public:
 
     static bool is_very_big_base2(unsigned power) { return power >= 64; }
 
-    uint64 size() const { SASSERT(is_finite()); return m_size; }
+    uint64_t size() const { SASSERT(is_finite()); return m_size; }
 };
 
 std::ostream& operator<<(std::ostream& out, sort_size const & ss);
@@ -346,7 +346,7 @@ public:
         decl_info(family_id, k, num_parameters, parameters, private_parameters) {
     }
 
-    sort_info(family_id family_id, decl_kind k, uint64 num_elements,
+    sort_info(family_id family_id, decl_kind k, uint64_t num_elements,
               unsigned num_parameters = 0, parameter const * parameters = nullptr, bool private_parameters = false):
         decl_info(family_id, k, num_parameters, parameters, private_parameters), m_num_elements(num_elements) {
     }
@@ -1042,11 +1042,11 @@ enum basic_op_kind {
 
     PR_UNDEF, PR_TRUE, PR_ASSERTED, PR_GOAL, PR_MODUS_PONENS, PR_REFLEXIVITY, PR_SYMMETRY, PR_TRANSITIVITY, PR_TRANSITIVITY_STAR, PR_MONOTONICITY, PR_QUANT_INTRO,
     PR_DISTRIBUTIVITY, PR_AND_ELIM, PR_NOT_OR_ELIM, PR_REWRITE, PR_REWRITE_STAR, PR_PULL_QUANT,
-    PR_PULL_QUANT_STAR, PR_PUSH_QUANT, PR_ELIM_UNUSED_VARS, PR_DER, PR_QUANT_INST,
+    PR_PUSH_QUANT, PR_ELIM_UNUSED_VARS, PR_DER, PR_QUANT_INST,
 
     PR_HYPOTHESIS, PR_LEMMA, PR_UNIT_RESOLUTION, PR_IFF_TRUE, PR_IFF_FALSE, PR_COMMUTATIVITY, PR_DEF_AXIOM,
 
-    PR_DEF_INTRO, PR_APPLY_DEF, PR_IFF_OEQ, PR_NNF_POS, PR_NNF_NEG, PR_NNF_STAR, PR_SKOLEMIZE, PR_CNF_STAR,
+    PR_DEF_INTRO, PR_APPLY_DEF, PR_IFF_OEQ, PR_NNF_POS, PR_NNF_NEG, PR_SKOLEMIZE, 
     PR_MODUS_PONENS_OEQ, PR_TH_LEMMA, PR_HYPER_RESOLVE, LAST_BASIC_PR
 };
 
@@ -1080,7 +1080,6 @@ protected:
     func_decl * m_not_or_elim_decl;
     func_decl * m_rewrite_decl;
     func_decl * m_pull_quant_decl;
-    func_decl * m_pull_quant_star_decl;
     func_decl * m_push_quant_decl;
     func_decl * m_elim_unused_vars_decl;
     func_decl * m_der_decl;
@@ -1106,8 +1105,6 @@ protected:
     ptr_vector<func_decl> m_apply_def_decls;
     ptr_vector<func_decl> m_nnf_pos_decls;
     ptr_vector<func_decl> m_nnf_neg_decls;
-    ptr_vector<func_decl> m_nnf_star_decls;
-    ptr_vector<func_decl> m_cnf_star_decls;
 
     ptr_vector<func_decl> m_th_lemma_decls;
     func_decl * m_hyper_res_decl0;
@@ -2182,7 +2179,6 @@ public:
     proof * mk_oeq_rewrite(expr * s, expr * t);
     proof * mk_rewrite_star(expr * s, expr * t, unsigned num_proofs, proof * const * proofs);
     proof * mk_pull_quant(expr * e, quantifier * q);
-    proof * mk_pull_quant_star(expr * e, quantifier * q);
     proof * mk_push_quant(quantifier * q, expr * e);
     proof * mk_elim_unused_vars(quantifier * q, expr * r);
     proof * mk_der(quantifier * q, expr * r);
@@ -2201,9 +2197,8 @@ public:
 
     proof * mk_nnf_pos(expr * s, expr * t, unsigned num_proofs, proof * const * proofs);
     proof * mk_nnf_neg(expr * s, expr * t, unsigned num_proofs, proof * const * proofs);
-    proof * mk_nnf_star(expr * s, expr * t, unsigned num_proofs, proof * const * proofs);
     proof * mk_skolemization(expr * q, expr * e);
-    proof * mk_cnf_star(expr * s, expr * t, unsigned num_proofs, proof * const * proofs);
+
 
     proof * mk_and_elim(proof * p, unsigned i);
     proof * mk_not_or_elim(proof * p, unsigned i);

@@ -45,7 +45,7 @@ namespace datalog {
     protected:
         sort_ref m_sort;
         bool m_limited_size;
-        uint64 m_size;
+        uint64_t m_size;
 
         sort_domain(sort_kind k, context & ctx, sort * s)
             : m_kind(k), m_sort(s, ctx.get_manager()) {
@@ -103,15 +103,15 @@ namespace datalog {
     };
 
     class context::uint64_sort_domain : public sort_domain {
-        typedef map<uint64,       finite_element,   uint64_hash, default_eq<uint64> > el2num;
-        typedef svector<uint64> num2el;
+        typedef map<uint64_t,     finite_element,   uint64_hash, default_eq<uint64_t> > el2num;
+        typedef svector<uint64_t> num2el;
 
         el2num m_el_numbers;
         num2el m_el_names;
     public:
         uint64_sort_domain(context & ctx, sort * s) : sort_domain(SK_UINT64, ctx, s) {}
 
-        finite_element get_number(uint64 el) {
+        finite_element get_number(uint64_t el) {
             //we number symbols starting from zero, so table->size() is equal to the
             //index of the symbol to be added next
 
@@ -368,14 +368,14 @@ namespace datalog {
         return dom.get_number(sym);
     }
 
-    context::finite_element context::get_constant_number(relation_sort srt, uint64 el) {
+    context::finite_element context::get_constant_number(relation_sort srt, uint64_t el) {
         sort_domain & dom0 = get_sort_domain(srt);
         SASSERT(dom0.get_kind()==SK_UINT64);
         uint64_sort_domain & dom = static_cast<uint64_sort_domain &>(dom0);
         return dom.get_number(el);
     }
 
-    void context::print_constant_name(relation_sort srt, uint64 num, std::ostream & out)
+    void context::print_constant_name(relation_sort srt, uint64_t num, std::ostream & out)
     {
         if (has_sort_domain(srt)) {
             SASSERT(num<=UINT_MAX);
@@ -386,7 +386,7 @@ namespace datalog {
         }
     }
 
-    bool context::try_get_sort_constant_count(relation_sort srt, uint64 & constant_count) {
+    bool context::try_get_sort_constant_count(relation_sort srt, uint64_t & constant_count) {
         if (!has_sort_domain(srt)) {
             return false;
         }
@@ -394,18 +394,18 @@ namespace datalog {
         return true;
     }
 
-    uint64 context::get_sort_size_estimate(relation_sort srt) {
+    uint64_t context::get_sort_size_estimate(relation_sort srt) {
         if (get_decl_util().is_rule_sort(srt)) {
             return 1;
         }
-        uint64 res;
+        uint64_t res;
         if (!try_get_sort_constant_count(srt, res)) {
             const sort_size & sz = srt->get_num_elements();
             if (sz.is_finite()) {
                 res = sz.size();
             }
             else {
-                res = std::numeric_limits<uint64>::max();
+                res = std::numeric_limits<uint64_t>::max();
             }
         }
         return res;
@@ -1106,6 +1106,16 @@ namespace datalog {
             names.push_back(m_rule_names[i]);            
         }
     }
+
+    static std::ostream& display_symbol(std::ostream& out, symbol const& nm) {
+        if (is_smt2_quoted_symbol(nm)) {
+            out << mk_smt2_quoted_symbol(nm);
+        }
+        else {
+            out << nm;
+        }
+        return out;
+    }
  
     void context::display_smt2(unsigned num_queries, expr* const* qs, std::ostream& out) {
         ast_manager& m = get_manager();
@@ -1148,13 +1158,13 @@ namespace datalog {
         if (!use_fixedpoint_extensions) {
             out << "(set-logic HORN)\n";
         }
+        for (func_decl * f : rels) 
+            visitor.remove_decl(f);
 
         visitor.display_decls(out);
-        func_decl_set::iterator it = rels.begin(), end = rels.end();
-        for (; it != end; ++it) {
-            func_decl* f = *it;
+
+        for (func_decl * f : rels) 
             display_rel_decl(out, f);
-        }
 
         if (use_fixedpoint_extensions && do_declare_vars) {
             declare_vars(rules, fresh_names, out);
@@ -1185,13 +1195,7 @@ namespace datalog {
                     nm = symbol(s.str().c_str());                    
                 }
                 fresh_names.add(nm);
-                if (is_smt2_quoted_symbol(nm)) {
-                    out << mk_smt2_quoted_symbol(nm);
-                }
-                else {
-                    out << nm;
-                }
-                out << ")";
+                display_symbol(out, nm) << ")";
             }
             out << ")\n";
         }
@@ -1219,7 +1223,8 @@ namespace datalog {
                     PP(qfn);
                     out << ")\n";
                 }
-                out << "(query " << fn->get_name() << ")\n";
+                out << "(query ";
+                display_symbol(out, fn->get_name()) << ")\n";
             }
         }
         else {
@@ -1238,7 +1243,8 @@ namespace datalog {
 
     void context::display_rel_decl(std::ostream& out, func_decl* f) {
         smt2_pp_environment_dbg env(m);
-        out << "(declare-rel " << f->get_name() << " (";
+        out << "(declare-rel ";
+        display_symbol(out, f->get_name()) << " (";
         for (unsigned i = 0; i < f->get_arity(); ++i) {                
             ast_smt2_pp(out, f->get_domain(i), env);
             if (i + 1 < f->get_arity()) {

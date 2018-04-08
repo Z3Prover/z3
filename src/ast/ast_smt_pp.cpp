@@ -952,6 +952,10 @@ void ast_smt_pp::display_smt2(std::ostream& strm, expr* n) {
         strm << "; " << m_attributes.c_str();
     }
 
+#if 0
+    decls.display_decls(strm);
+#else
+    decls.order_deps();
     ast_mark sort_mark;
     for (unsigned i = 0; i < decls.get_num_sorts(); ++i) {
         sort* s = decls.get_sorts()[i];
@@ -978,18 +982,19 @@ void ast_smt_pp::display_smt2(std::ostream& strm, expr* n) {
             strm << "\n";
         }
     }
+#endif
 
-    for (unsigned i = 0; i < m_assumptions.size(); ++i) {
+    for (expr* a : m_assumptions) {
         smt_printer p(strm, m, ql, rn, m_logic, false, true, m_simplify_implies, 1);
         strm << "(assert\n ";
-        p(m_assumptions[i].get());
+        p(a);
         strm << ")\n";
     }
 
-    for (unsigned i = 0; i < m_assumptions_star.size(); ++i) {
+    for (expr* a : m_assumptions_star) {
         smt_printer p(strm, m, ql, rn, m_logic, false, true, m_simplify_implies, 1);
         strm << "(assert\n ";
-        p(m_assumptions_star[i].get());
+        p(a);
         strm << ")\n";
     }
 

@@ -114,15 +114,26 @@ def _symbol2py(ctx, s):
 
 # Hack for having nary functions that can receive one argument that is the
 # list of arguments.
+# Use this when function takes a single list of arguments
 def _get_args(args):
-    try:
-        if len(args) == 1 and (isinstance(args[0], tuple) or isinstance(args[0], list)):
+     try:
+       if len(args) == 1 and (isinstance(args[0], tuple) or isinstance(args[0], list)):
             return args[0]
-        elif len(args) == 1 and (isinstance(args[0], set) or isinstance(args[0], AstVector)):
+       elif len(args) == 1 and (isinstance(args[0], set) or isinstance(args[0], AstVector)):
             return [arg for arg in args[0]]
+       else:
+            return args
+     except:  # len is not necessarily defined when args is not a sequence (use reflection?)
+        return args
+
+# Use this when function takes multiple arguments
+def _get_args_ast_list(args):
+    try:
+        if isinstance(args, set) or isinstance(args, AstVector) or isinstance(args, tuple):
+            return [arg for arg in args]
         else:
             return args
-    except:  # len is not necessarily defined when args is not a sequence (use reflection?)
+    except:
         return args
 
 def _to_param_value(val):
@@ -366,9 +377,6 @@ class AstRef(Z3PPObject):
         return _to_ast_ref(Z3_translate(self.ctx.ref(), self.as_ast(), target.ref()), target)
 
     def __copy__(self):
-        return self.translate(self.ctx)
-
-    def __deepcopy__(self):
         return self.translate(self.ctx)
 
     def hash(self):
@@ -2428,7 +2436,7 @@ def is_rational_value(a):
     return is_arith(a) and a.is_real() and _is_numeral(a.ctx, a.as_ast())
 
 def is_algebraic_value(a):
-    """Return `True` if `a` is an algerbraic value of sort Real.
+    """Return `True` if `a` is an algebraic value of sort Real.
 
     >>> is_algebraic_value(RealVal("3/5"))
     False
@@ -4437,7 +4445,7 @@ class Datatype:
         """Declare constructor named `name` with the given accessors `args`.
         Each accessor is a pair `(name, sort)`, where `name` is a string and `sort` a Z3 sort or a reference to the datatypes being declared.
 
-        In the followin example `List.declare('cons', ('car', IntSort()), ('cdr', List))`
+        In the following example `List.declare('cons', ('car', IntSort()), ('cdr', List))`
         declares the constructor named `cons` that builds a new List using an integer and a List.
         It also declares the accessors `car` and `cdr`. The accessor `car` extracts the integer of a `cons` cell,
         and `cdr` the list of a `cons` cell. After all constructors were declared, we use the method create() to create
@@ -4451,13 +4459,13 @@ class Datatype:
         if __debug__:
             _z3_assert(isinstance(name, str), "String expected")
             _z3_assert(name != "", "Constructor name cannot be empty")
-        return self.declare_core(name, "is_" + name, *args)
+        return self.declare_core(name, "is-" + name, *args)
 
     def __repr__(self):
         return "Datatype(%s, %s)" % (self.name, self.constructors)
 
     def create(self):
-        """Create a Z3 datatype based on the constructors declared using the mehtod `declare()`.
+        """Create a Z3 datatype based on the constructors declared using the method `declare()`.
 
         The function `CreateDatatypes()` must be used to define mutually recursive datatypes.
 
@@ -4575,7 +4583,7 @@ def CreateDatatypes(*ds):
                 cref = cref()
             setattr(dref, cref_name, cref)
             rref  = dref.recognizer(j)
-            setattr(dref, rref.name(), rref)
+            setattr(dref, "is_" + cref_name, rref)
             for k in range(cref_arity):
                 aref = dref.accessor(j, k)
                 setattr(dref, aref.name(), aref)
@@ -4629,16 +4637,16 @@ class DatatypeSortRef(SortRef):
         >>> List.num_constructors()
         2
         >>> List.recognizer(0)
-        is_cons
+        is(cons)
         >>> List.recognizer(1)
-        is_nil
+        is(nil)
         >>> simplify(List.is_nil(List.cons(10, List.nil)))
         False
         >>> simplify(List.is_cons(List.cons(10, List.nil)))
         True
         >>> l = Const('l', List)
         >>> simplify(List.is_cons(l))
-        is_cons(l)
+        is(cons, l)
         """
         if __debug__:
             _z3_assert(idx < self.num_constructors(), "Invalid recognizer index")
@@ -6818,8 +6826,8 @@ class FiniteDomainSortRef(SortRef):
 
     def size(self):
         """Return the size of the finite domain sort"""
-        r = (ctype.c_ulonglong * 1)()
-        if Z3_get_finite_domain_sort_size(self.ctx_ref(), self.ast(), r):
+        r = (ctypes.c_ulonglong * 1)()
+        if Z3_get_finite_domain_sort_size(self.ctx_ref(), self.ast, r):
             return r[0]
         else:
             raise Z3Exception("Failed to retrieve finite domain sort size")
@@ -7946,8 +7954,10 @@ def AtLeast(*args):
     return BoolRef(Z3_mk_atleast(ctx.ref(), sz, _args, k), ctx)
 
 
-def _pb_args_coeffs(args):
-    args  = _get_args(args)
+def _pb_args_coeffs(args, default_ctx = None):
+    args  = _get_args_ast_list(args)
+    if len(args) == 0:
+       return _get_ctx(default_ctx), 0, (Ast * 0)(), (ctypes.c_int * 0)()
     args, coeffs = zip(*args)
     if __debug__:
         _z3_assert(len(args) > 0, "Non empty list of arguments expected")
@@ -7979,7 +7989,7 @@ def PbGe(args, k):
     ctx, sz, _args, _coeffs = _pb_args_coeffs(args)
     return BoolRef(Z3_mk_pbge(ctx.ref(), sz, _args, _coeffs, k), ctx)
 
-def PbEq(args, k):
+def PbEq(args, k, ctx = None):
     """Create a Pseudo-Boolean inequality k constraint.
 
     >>> a, b, c = Bools('a b c')
@@ -8266,7 +8276,7 @@ def tree_interpolant(pat,p=None,ctx=None):
     solver that determines satisfiability.
 
     >>> x = Int('x')
-    >>> y = Int('y')
+    >>> y = Int('y')	
     >>> print(tree_interpolant(And(Interpolant(x < 0), Interpolant(y > 2), x == y)))
     [Not(x >= 0), Not(y <= 2)]
 
@@ -8874,7 +8884,7 @@ class FPNumRef(FPRef):
     def isSubnormal(self):
         return Z3_fpa_is_numeral_subnormal(self.ctx.ref(), self.as_ast())
 
-    """Indicates whether the numeral is postitive."""
+    """Indicates whether the numeral is positive."""
     def isPositive(self):
         return Z3_fpa_is_numeral_positive(self.ctx.ref(), self.as_ast())
 
@@ -9670,7 +9680,7 @@ def fpToIEEEBV(x, ctx=None):
     The size of the resulting bit-vector is automatically determined.
 
     Note that IEEE 754-2008 allows multiple different representations of NaN. This conversion
-    knows only one NaN and it will always produce the same bit-vector represenatation of
+    knows only one NaN and it will always produce the same bit-vector representation of
     that NaN.
 
     >>> x = FP('x', FPSort(8, 24))
@@ -9845,7 +9855,7 @@ def Empty(s):
     raise Z3Exception("Non-sequence, non-regular expression sort passed to Empty")
 
 def Full(s):
-    """Create the regular expression that accepts the universal langauge
+    """Create the regular expression that accepts the universal language
     >>> e = Full(ReSort(SeqSort(IntSort())))
     >>> print(e)
     re.all

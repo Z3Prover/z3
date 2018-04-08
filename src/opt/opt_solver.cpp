@@ -227,9 +227,13 @@ namespace opt {
         smt::theory_var v = m_objective_vars[i];
         bool has_shared = false;
         inf_eps val = get_optimizer().maximize(v, blocker, has_shared);
+        get_model(m_model);
         inf_eps val2;
         m_valid_objectives[i] = true;
         TRACE("opt", tout << (has_shared?"has shared":"non-shared") << "\n";);
+        if (!m_models[i]) {
+            set_model(i);
+        }
         if (m_context.get_context().update_model(has_shared)) {
             if (has_shared && val != current_objective_value(i)) {
                 decrement_value(i, val);
@@ -247,7 +251,7 @@ namespace opt {
                 tout << "objective:     " << mk_pp(m_objective_terms[i].get(), m) << "\n";
                 tout << "maximal value: " << val << "\n"; 
                 tout << "new condition: " << blocker << "\n";
-                model_smt2_pp(tout << "update model:\n", m, *m_models[i], 0); });
+                if (m_models[i]) model_smt2_pp(tout << "update model:\n", m, *m_models[i], 0); });
     }
 
     void opt_solver::set_model(unsigned i) {
@@ -299,6 +303,7 @@ namespace opt {
 
     void opt_solver::get_model(model_ref & m) {
         m_context.get_model(m);
+        if (!m) m = m_model; else m_model = m;
     }
     
     proof * opt_solver::get_proof() {

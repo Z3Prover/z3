@@ -507,8 +507,10 @@ namespace smt {
         void add_elim_string_axiom(expr* n);
         void add_at_axiom(expr* n);
         void add_in_re_axiom(expr* n);
-        bool add_stoi_axiom(expr* n);
-        bool add_itos_axiom(expr* n);
+        void add_itos_axiom(expr* n);
+        void add_stoi_axiom(expr* n);
+        bool add_stoi_val_axiom(expr* n);
+        bool add_itos_val_axiom(expr* n);
         literal is_digit(expr* ch);
         expr_ref digit2int(expr* ch);
         void add_itos_length_axiom(expr* n);

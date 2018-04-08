@@ -36,14 +36,6 @@ DEFINE_TYPE(Z3_fixedpoint);
 DEFINE_TYPE(Z3_optimize);
 DEFINE_TYPE(Z3_rcf_num);
 
-#ifndef __int64
-#define __int64 long long
-#endif
-
-#ifndef __uint64
-#define __uint64 unsigned long long
-#endif
-
 /** \defgroup capi C API */
 /*@{*/
 
@@ -80,9 +72,9 @@ DEFINE_TYPE(Z3_rcf_num);
 */
 
 /**
-   \brief Z3 Boolean type. It is just an alias for \c int.
+   \brief Z3 Boolean type. It is just an alias for \c bool.
 */
-typedef int Z3_bool;
+typedef bool Z3_bool;
 
 /**
    \brief Z3 string type. It is just an alias for \ccode{const char *}.
@@ -459,7 +451,7 @@ typedef enum
        [trans T1 T2]: (R t u)
        }
 
-   - Z3_OP_PR_TRANSITIVITY_STAR: Condensed transitivity proof. This proof object is only used if the parameter PROOF_MODE is 1.
+   - Z3_OP_PR_TRANSITIVITY_STAR: Condensed transitivity proof. 
      It combines several symmetry and transitivity proofs.
 
           Example:
@@ -539,20 +531,13 @@ typedef enum
           }
 
    - Z3_OP_PR_REWRITE_STAR: A proof for rewriting an expression t into an expression s.
-       This proof object is used if the parameter PROOF_MODE is 1.
        This proof object can have n antecedents.
        The antecedents are proofs for equalities used as substitution rules.
-       The object is also used in a few cases if the parameter PROOF_MODE is 2.
-       The cases are:
+       The proof rule is used in a few cases. The cases are:
          - When applying contextual simplification (CONTEXT_SIMPLIFIER=true)
          - When converting bit-vectors to Booleans (BIT2BOOL=true)
-         - When pulling ite expression up (PULL_CHEAP_ITE_TREES=true)
 
    - Z3_OP_PR_PULL_QUANT: A proof for (iff (f (forall (x) q(x)) r) (forall (x) (f (q x) r))). This proof object has no antecedents.
-
-   - Z3_OP_PR_PULL_QUANT_STAR: A proof for (iff P Q) where Q is in prenex normal form.
-       This proof object is only used if the parameter PROOF_MODE is 1.
-       This proof object has no antecedents.
 
    - Z3_OP_PR_PUSH_QUANT: A proof for:
 
@@ -726,15 +711,6 @@ typedef enum
          [nnf-neg T1 T2 T3 T4]: (~ (not (iff s_1 s_2))
                                    (and (or r_1 r_2) (or r_1' r_2')))
        }
-   - Z3_OP_PR_NNF_STAR: A proof for (~ P Q) where Q is in negation normal form.
-
-       This proof object is only used if the parameter PROOF_MODE is 1.
-
-       This proof object may have n antecedents. Each antecedent is a PR_DEF_INTRO.
-
-   - Z3_OP_PR_CNF_STAR: A proof for (~ P Q) where Q is in conjunctive normal form.
-       This proof object is only used if the parameter PROOF_MODE is 1.
-       This proof object may have n antecedents. Each antecedent is a PR_DEF_INTRO.
 
    - Z3_OP_PR_SKOLEMIZE: Proof for:
 
@@ -875,6 +851,8 @@ typedef enum
       - Z3_OP_DT_CONSTRUCTOR: datatype constructor.
 
       - Z3_OP_DT_RECOGNISER: datatype recognizer.
+
+      - Z3_OP_DT_IS: datatype recognizer.
 
       - Z3_OP_DT_ACCESSOR: datatype accessor.
 
@@ -1140,7 +1118,6 @@ typedef enum {
     Z3_OP_PR_REWRITE,
     Z3_OP_PR_REWRITE_STAR,
     Z3_OP_PR_PULL_QUANT,
-    Z3_OP_PR_PULL_QUANT_STAR,
     Z3_OP_PR_PUSH_QUANT,
     Z3_OP_PR_ELIM_UNUSED_VARS,
     Z3_OP_PR_DER,
@@ -1157,8 +1134,6 @@ typedef enum {
     Z3_OP_PR_IFF_OEQ,
     Z3_OP_PR_NNF_POS,
     Z3_OP_PR_NNF_NEG,
-    Z3_OP_PR_NNF_STAR,
-    Z3_OP_PR_CNF_STAR,
     Z3_OP_PR_SKOLEMIZE,
     Z3_OP_PR_MODUS_PONENS_OEQ,
     Z3_OP_PR_TH_LEMMA,
@@ -1220,6 +1195,7 @@ typedef enum {
     // Datatypes
     Z3_OP_DT_CONSTRUCTOR=0x800,
     Z3_OP_DT_RECOGNISER,
+    Z3_OP_DT_IS,
     Z3_OP_DT_ACCESSOR,
     Z3_OP_DT_UPDATE_FIELD,
 
@@ -1474,7 +1450,6 @@ extern "C" {
     /*@{*/
 
     /**
-        \deprecated
         \brief Create a configuration object for the Z3 context object.
 
         Configurations are created in order to assign parameters prior to creating
@@ -1507,7 +1482,6 @@ extern "C" {
     Z3_config Z3_API Z3_mk_config(void);
 
     /**
-        \deprecated
         \brief Delete the given configuration object.
 
         \sa Z3_mk_config
@@ -1517,7 +1491,6 @@ extern "C" {
     void Z3_API Z3_del_config(Z3_config c);
 
     /**
-        \deprecated
         \brief Set a configuration parameter.
 
         The following parameters can be set for
@@ -1534,7 +1507,6 @@ extern "C" {
     /*@{*/
 
     /**
-       \deprecated
        \brief Create a context using the given configuration.
 
        After a context is created, the configuration cannot be changed,
@@ -1614,7 +1586,6 @@ extern "C" {
     void Z3_API Z3_dec_ref(Z3_context c, Z3_ast a);
 
     /**
-       \deprecated
        \brief Set a value of a context parameter.
 
        \sa Z3_global_param_set
@@ -1864,7 +1835,7 @@ extern "C" {
 
        def_API('Z3_mk_finite_domain_sort', SORT, (_in(CONTEXT), _in(SYMBOL), _in(UINT64)))
     */
-    Z3_sort Z3_API Z3_mk_finite_domain_sort(Z3_context c, Z3_symbol name, __uint64 size);
+    Z3_sort Z3_API Z3_mk_finite_domain_sort(Z3_context c, Z3_symbol name, uint64_t size);
 
     /**
        \brief Create an array type.
@@ -3221,26 +3192,26 @@ extern "C" {
     /**
        \brief Create a numeral of a int, bit-vector, or finite-domain sort.
 
-       This function can be used to create numerals that fit in a machine __int64 integer.
+       This function can be used to create numerals that fit in a machine \c int64_t integer.
        It is slightly faster than #Z3_mk_numeral since it is not necessary to parse a string.
 
        \sa Z3_mk_numeral
 
        def_API('Z3_mk_int64', AST, (_in(CONTEXT), _in(INT64), _in(SORT)))
     */
-    Z3_ast Z3_API Z3_mk_int64(Z3_context c, __int64 v, Z3_sort ty);
+    Z3_ast Z3_API Z3_mk_int64(Z3_context c, int64_t v, Z3_sort ty);
 
     /**
        \brief Create a numeral of a int, bit-vector, or finite-domain sort.
 
-       This function can be used to create numerals that fit in a machine __uint64 integer.
+       This function can be used to create numerals that fit in a machine \c uint64_t integer.
        It is slightly faster than #Z3_mk_numeral since it is not necessary to parse a string.
 
        \sa Z3_mk_numeral
 
        def_API('Z3_mk_unsigned_int64', AST, (_in(CONTEXT), _in(UINT64), _in(SORT)))
     */
-    Z3_ast Z3_API Z3_mk_unsigned_int64(Z3_context c, __uint64 v, Z3_sort ty);
+    Z3_ast Z3_API Z3_mk_unsigned_int64(Z3_context c, uint64_t v, Z3_sort ty);
 
     /**
        \brief create a bit-vector numeral from a vector of Booleans.
@@ -3889,7 +3860,7 @@ extern "C" {
 
         def_API('Z3_get_finite_domain_sort_size', BOOL, (_in(CONTEXT), _in(SORT), _out(UINT64)))
     */
-    Z3_bool_opt Z3_API Z3_get_finite_domain_sort_size(Z3_context c, Z3_sort s, __uint64* r);
+    Z3_bool_opt Z3_API Z3_get_finite_domain_sort_size(Z3_context c, Z3_sort s, uint64_t* r);
 
     /**
        \brief Return the domain of the given array sort.
@@ -4371,7 +4342,7 @@ extern "C" {
     Z3_bool Z3_API Z3_is_numeral_ast(Z3_context c, Z3_ast a);
 
     /**
-       \brief Return true if the give AST is a real algebraic number.
+       \brief Return true if the given AST is a real algebraic number.
 
        def_API('Z3_is_algebraic_number', BOOL, (_in(CONTEXT), _in(AST)))
     */
@@ -4446,7 +4417,7 @@ extern "C" {
 
        def_API('Z3_get_numeral_small', BOOL, (_in(CONTEXT), _in(AST), _out(INT64), _out(INT64)))
     */
-    Z3_bool Z3_API Z3_get_numeral_small(Z3_context c, Z3_ast a, __int64* num, __int64* den);
+    Z3_bool Z3_API Z3_get_numeral_small(Z3_context c, Z3_ast a, int64_t* num, int64_t* den);
 
     /**
        \brief Similar to #Z3_get_numeral_string, but only succeeds if
@@ -4474,7 +4445,7 @@ extern "C" {
 
     /**
        \brief Similar to #Z3_get_numeral_string, but only succeeds if
-       the value can fit in a machine __uint64 int. Return Z3_TRUE if the call succeeded.
+       the value can fit in a machine \c uint64_t int. Return Z3_TRUE if the call succeeded.
 
        \pre Z3_get_ast_kind(c, v) == Z3_NUMERAL_AST
 
@@ -4482,11 +4453,11 @@ extern "C" {
 
        def_API('Z3_get_numeral_uint64', BOOL, (_in(CONTEXT), _in(AST), _out(UINT64)))
     */
-    Z3_bool Z3_API Z3_get_numeral_uint64(Z3_context c, Z3_ast v, __uint64* u);
+    Z3_bool Z3_API Z3_get_numeral_uint64(Z3_context c, Z3_ast v, uint64_t* u);
 
     /**
        \brief Similar to #Z3_get_numeral_string, but only succeeds if
-       the value can fit in a machine __int64 int. Return Z3_TRUE if the call succeeded.
+       the value can fit in a machine \c int64_t int. Return Z3_TRUE if the call succeeded.
 
        \pre Z3_get_ast_kind(c, v) == Z3_NUMERAL_AST
 
@@ -4494,11 +4465,11 @@ extern "C" {
 
        def_API('Z3_get_numeral_int64', BOOL, (_in(CONTEXT), _in(AST), _out(INT64)))
     */
-    Z3_bool Z3_API Z3_get_numeral_int64(Z3_context c, Z3_ast v, __int64* i);
+    Z3_bool Z3_API Z3_get_numeral_int64(Z3_context c, Z3_ast v, int64_t* i);
 
     /**
        \brief Similar to #Z3_get_numeral_string, but only succeeds if
-       the value can fit as a rational number as machine __int64 int. Return Z3_TRUE if the call succeeded.
+       the value can fit as a rational number as machine \c int64_t int. Return Z3_TRUE if the call succeeded.
 
        \pre Z3_get_ast_kind(c, v) == Z3_NUMERAL_AST
 
@@ -4506,7 +4477,7 @@ extern "C" {
 
        def_API('Z3_get_numeral_rational_int64', BOOL, (_in(CONTEXT), _in(AST), _out(INT64), _out(INT64)))
     */
-    Z3_bool Z3_API Z3_get_numeral_rational_int64(Z3_context c, Z3_ast v, __int64* num, __int64* den);
+    Z3_bool Z3_API Z3_get_numeral_rational_int64(Z3_context c, Z3_ast v, int64_t* num, int64_t* den);
 
     /**
        \brief Return a lower bound for the given real algebraic number.
@@ -5230,6 +5201,17 @@ extern "C" {
                                         Z3_func_decl const decls[]);
 
 
+    /**
+       \brief Parse and evaluate and SMT-LIB2 command sequence. The state from a previous call is saved so the next
+              evaluation builds on top of the previous call.
+
+       \returns output generated from processing commands.
+
+       def_API('Z3_eval_smtlib2_string', STRING, (_in(CONTEXT), _in(STRING),))
+    */
+
+    Z3_string Z3_API Z3_eval_smtlib2_string(Z3_context, Z3_string str);
+    
     /**
        \brief Retrieve that last error message information generated from parsing.
 
@@ -6258,7 +6240,7 @@ extern "C" {
 
     def_API('Z3_get_estimated_alloc_size', UINT64, ())
     */
-    __uint64 Z3_API Z3_get_estimated_alloc_size(void);
+    uint64_t Z3_API Z3_get_estimated_alloc_size(void);
 
     /*@}*/
 

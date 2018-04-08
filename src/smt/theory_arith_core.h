@@ -469,7 +469,8 @@ namespace smt {
         if (negated) l_conseq.neg();
 
         TRACE("arith_axiom", tout << mk_pp(ante, m) << "\n" << mk_pp(conseq, m) << "\n";
-              tout << s_ante << "\n" << s_conseq << "\n";);
+              tout << s_ante << "\n" << s_conseq << "\n";
+              tout << l_ante << "\n" << l_conseq << "\n";);
 
         // literal lits[2] = {l_ante, l_conseq};
         mk_clause(l_ante, l_conseq, 0, nullptr);
@@ -589,13 +590,13 @@ namespace smt {
     }
 
     //
-    // create the term: s := to_real(to_int(x)) - x
+    // create the term: s := x - to_real(to_int(x))
     // add the bounds 0 <= s < 1   
     //
     template<typename Ext>
     void theory_arith<Ext>::mk_to_int_axiom(app * n) {
         SASSERT(m_util.is_to_int(n));
-        ast_manager & m    = get_manager();
+        ast_manager & m  = get_manager();
         expr* x = n->get_arg(0);
 
         // to_int (to_real x) = x
@@ -603,11 +604,15 @@ namespace smt {
             mk_axiom(m.mk_false(), m.mk_eq(to_app(x)->get_arg(0), n));
             return;
         }
-        expr* to_r = m_util.mk_to_real(n);
-        expr_ref lo(m_util.mk_le(to_r, x), m);
-        expr_ref hi(m_util.mk_lt(x, m_util.mk_add(to_r, m_util.mk_numeral(rational(1), false))), m);
-        mk_axiom(m.mk_false(), lo);
-        mk_axiom(m.mk_false(), hi);
+        expr_ref to_r(m_util.mk_to_real(n), m);
+        expr_ref diff(m_util.mk_add(x, m_util.mk_mul(m_util.mk_real(-1), to_r)), m);
+        
+        expr_ref lo(m_util.mk_ge(diff, m_util.mk_real(0)), m);
+        expr_ref hi(m_util.mk_ge(diff, m_util.mk_real(1)), m);
+        hi = m.mk_not(hi);
+
+        mk_axiom(m.mk_false(), lo, false);
+        mk_axiom(m.mk_false(), hi, false);
     }
 
     template<typename Ext>
@@ -1202,7 +1207,7 @@ namespace smt {
 
     template<typename Ext>
     bool theory_arith<Ext>::internalize_atom(app * n, bool gate_ctx) {
-        TRACE("arith_internalize", tout << "internalising atom:\n" << mk_pp(n, this->get_manager()) << "\n";);
+        TRACE("arith_internalize", tout << "internalizing atom:\n" << mk_pp(n, this->get_manager()) << "\n";);
         context & ctx = get_context();
         SASSERT(m_util.is_le(n) || m_util.is_ge(n) || m_util.is_is_int(n));
         SASSERT(!ctx.b_internalized(n));

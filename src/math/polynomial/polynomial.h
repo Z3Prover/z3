@@ -218,7 +218,7 @@ namespace polynomial {
            \brief Set manager as Z_p[X1, ..., Xn]
         */
         void set_zp(numeral const & p);
-        void set_zp(uint64 p);
+        void set_zp(uint64_t p);
 
         /**
            \brief Abstract event handler.
@@ -1043,7 +1043,7 @@ namespace polynomial {
         scoped_numeral m_p;
     public:
         scoped_set_zp(manager & _m, numeral const & p):m(_m), m_modular(m.modular()), m_p(m.m()) {  m_p = m.p(); m.set_zp(p); }
-        scoped_set_zp(manager & _m, uint64 p):m(_m), m_modular(m.modular()), m_p(m.m()) {  m_p = m.p(); m.set_zp(p); }
+        scoped_set_zp(manager & _m, uint64_t p):m(_m), m_modular(m.modular()), m_p(m.m()) {  m_p = m.p(); m.set_zp(p); }
         ~scoped_set_zp() {  if (m_modular) m.set_zp(m_p); else m.set_z(); }
     };
 };

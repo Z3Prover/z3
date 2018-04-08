@@ -1978,7 +1978,7 @@ public class Context implements AutoCloseable {
     }
     
     /**
-     * Concatentate sequences.
+     * Concatenate sequences.
      */
     public SeqExpr mkConcat(SeqExpr... t)
     {
@@ -2543,14 +2543,15 @@ public class Context implements AutoCloseable {
     /**
      * Parse the given string using the SMT-LIB2 parser. 
      * 
-     * @return A conjunction of assertions in the scope (up to push/pop) at the
-     *         end of the string.
+     * @return A conjunction of assertions.
+     *         
+     * If the string contains push/pop commands, the
+     * set of assertions returned are the ones in the 
+     * last scope level.
      **/
     public BoolExpr parseSMTLIB2String(String str, Symbol[] sortNames,
-            Sort[] sorts, Symbol[] declNames, FuncDecl[] decls)
-           
+            Sort[] sorts, Symbol[] declNames, FuncDecl[] decls)           
     {
-
         int csn = Symbol.arrayLength(sortNames);
         int cs = Sort.arrayLength(sorts);
         int cdn = Symbol.arrayLength(declNames);
@@ -2781,7 +2782,7 @@ public class Context implements AutoCloseable {
     }
 
     /**
-     * Create a tactic that fails if the goal is not triviall satisfiable (i.e.,
+     * Create a tactic that fails if the goal is not trivially satisfiable (i.e.,
      * empty) or trivially unsatisfiable (i.e., contains `false').
      **/
     public Tactic failIfNotDecided()
@@ -3769,7 +3770,7 @@ public class Context implements AutoCloseable {
      * @param sz Size of the resulting bit-vector.
      * @param signed Indicates whether the result is a signed or unsigned bit-vector.
      * Remarks:
-     * Produces a term that represents the conversion of the floating-poiunt term t into a
+     * Produces a term that represents the conversion of the floating-point term t into a
      * bit-vector term of size sz in 2's complement format (signed when signed==true). If necessary, 
      * the result will be rounded according to rounding mode rm.        
      * @throws Z3Exception 
@@ -3786,7 +3787,7 @@ public class Context implements AutoCloseable {
      * Conversion of a floating-point term into a real-numbered term.
      * @param t FloatingPoint term
      * Remarks:
-     * Produces a term that represents the conversion of the floating-poiunt term t into a
+     * Produces a term that represents the conversion of the floating-point term t into a
      * real number. Note that this type of conversion will often result in non-linear 
      * constraints over real terms.
      * @throws Z3Exception 
@@ -3802,7 +3803,7 @@ public class Context implements AutoCloseable {
      * Remarks:
      * The size of the resulting bit-vector is automatically determined. Note that 
      * IEEE 754-2008 allows multiple different representations of NaN. This conversion 
-     * knows only one NaN and it will always produce the same bit-vector represenatation of 
+     * knows only one NaN and it will always produce the same bit-vector representation of
      * that NaN. 
      * @throws Z3Exception 
      **/

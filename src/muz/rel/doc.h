@@ -61,9 +61,9 @@ public:
     doc* allocate(doc const& src);
     doc* allocate(tbv const& src);
     doc* allocate(tbv * src);
-    doc* allocate(uint64 n);
+    doc* allocate(uint64_t n);
     doc* allocate(rational const& r);
-    doc* allocate(uint64 n, unsigned hi, unsigned lo);
+    doc* allocate(uint64_t n, unsigned hi, unsigned lo);
     doc* allocate(doc const& src, unsigned const* permutation);
     void deallocate(doc* src);        
     void copy(doc& dst, doc const& src);
