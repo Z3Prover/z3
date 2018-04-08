@@ -159,8 +159,6 @@ class parallel_tactic : public tactic {
         ref<solver>     m_solver;                 // solver state
         unsigned        m_depth;                  // number of nested calls to cubing
         double          m_width;                  // estimate of fraction of problem handled by state
-        unsigned        m_cube_cutoff;            // saved configuration value
-        double          m_cube_fraction;          // saved configuration value
         unsigned        m_restart_max;            // saved configuration value
 
         expr_ref_vector cube_literals(expr* cube) {
@@ -185,8 +183,6 @@ class parallel_tactic : public tactic {
             m_depth(0),
             m_width(1.0)
         {
-            m_cube_cutoff   = p.get_uint("sat.lookahead.cube.cutoff", 8);
-            m_cube_fraction = p.get_double("sat.lookahead.cube.fraction", 0.4);
             m_restart_max   = p.get_uint("sat.restart.max", 10);
         }
 
@@ -280,17 +276,7 @@ class parallel_tactic : public tactic {
         }        
 
         void set_cube_params() {
-            unsigned cutoff = m_cube_cutoff;
-            double fraction = m_cube_fraction; 
-            if (true || (m_depth == 1 && cutoff > 0)) {
-                m_params.set_sym("lookahead.cube.cutoff", symbol("depth"));
-                m_params.set_uint("lookahead.cube.depth", std::max(m_depth, 10u));
-            }
-            else {
-                m_params.set_sym("lookahead.cube.cutoff", symbol("adaptive_psat"));
-                m_params.set_double("lookahead.cube.fraction", fraction);
-            }
-            get_solver().updt_params(m_params);
+            // get_solver().updt_params(m_params);
         }
         
         void set_conquer_params() {            

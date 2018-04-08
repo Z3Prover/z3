@@ -1069,8 +1069,8 @@ namespace sat {
         // Find literals that are in the intersection of all resolvents with l.
         //
         bool resolution_intersection(literal l, bool adding) {
+            unsigned tsz = m_tautology.size();
             reset_intersection();
-            m_tautology.reset();
             if (!process_var(l.var())) return false;
             bool first = true;
             VERIFY(s.value(l) == l_undef);
@@ -1086,6 +1086,7 @@ namespace sat {
                     }
                     if (!first || s.is_marked(lit)) {
                         reset_intersection();
+                        m_tautology.shrink(tsz);
                         return false; // intersection is empty or does not add anything new.
                     }
                     first = false;
@@ -1122,22 +1123,30 @@ namespace sat {
                         for (literal lit : m_new_intersection) 
                             add_intersection(lit);
                     }
-                    if (m_intersection.empty()) 
+                    if (m_intersection.empty()) {
+                        m_tautology.shrink(tsz);
                         return false;
+                    }
                 }
+            }
+            if (m_intersection.empty()) {
+                m_tautology.shrink(tsz);
             }
             // if (first) IF_VERBOSE(0, verbose_stream() << "taut: " << m_tautology << "\n";);
             return first;
         }
 
         bool check_abce_tautology(literal l) {
-            m_tautology.reset();
+            unsigned tsz = m_tautology.size();
             if (!process_var(l.var())) return false;
             for (watched & w : s.get_wlist(l)) {
                 if (w.is_binary_non_learned_clause()) {
                     literal lit = w.get_literal();
                     VERIFY(lit != ~l);
-                    if (!s.is_marked(~lit)) return false;
+                    if (!s.is_marked(~lit)) {
+                        m_tautology.shrink(tsz);
+                        return false;
+                    }
                     m_tautology.push_back(~lit);
                 }
             }
@@ -1153,7 +1162,10 @@ namespace sat {
                         break;
                     }
                 }
-                if (!tautology) return false;
+                if (!tautology) {
+                    m_tautology.shrink(tsz);
+                    return false;
+                }
             }
             return true;
         }
@@ -1352,6 +1364,7 @@ namespace sat {
             unsigned sz = 0, sz0 = m_covered_clause.size();     
             for (literal l : m_covered_clause) s.mark_visited(l);
             shuffle<literal>(m_covered_clause.size(), m_covered_clause.c_ptr(), s.s.m_rand);
+            m_tautology.reset();
             m_mc.stackv().reset();
             m_ala_qhead = 0;
 
@@ -1394,7 +1407,6 @@ namespace sat {
                          * tautology depends on resolution intersection. 
                          * literals used for resolution intersection may have to be flipped.
                          */
-                        m_tautology.reset();
                         for (literal l : m_covered_clause) {
                             m_tautology.push_back(l);
                             s.mark_visited(l);
@@ -1610,6 +1622,7 @@ namespace sat {
           Then the following binary clause is blocked: l \/ ~l'
          */
         void bca(literal l) {
+            m_tautology.reset();
             if (resolution_intersection(l, true)) {
                 // this literal is pure. 
                 return;
