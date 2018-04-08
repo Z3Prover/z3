@@ -32,11 +32,11 @@ public:
    \brief Prime generator
 */
 class prime_generator {
-    svector<uint64> m_primes;
-    void process_next_k_numbers(uint64 k);
+    svector<uint64_t> m_primes;
+    void process_next_k_numbers(uint64_t k);
 public:
     prime_generator();
-    uint64 operator()(unsigned idx);
+    uint64_t operator()(unsigned idx);
     void finalize();
 };
 
@@ -46,7 +46,7 @@ class prime_iterator {
     bool              m_global;
 public:
     prime_iterator(prime_generator * g = nullptr);
-    uint64 next();
+    uint64_t next();
     static void finalize();
     /*
       ADD_FINALIZER('prime_iterator::finalize();')

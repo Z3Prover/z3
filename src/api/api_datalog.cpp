@@ -189,7 +189,7 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
-    Z3_sort Z3_API Z3_mk_finite_domain_sort(Z3_context c, Z3_symbol name, __uint64 size) {
+    Z3_sort Z3_API Z3_mk_finite_domain_sort(Z3_context c, Z3_symbol name, uint64_t size) {
         Z3_TRY;
         LOG_Z3_mk_finite_domain_sort(c, name, size);
         RESET_ERROR_CODE();
@@ -199,7 +199,7 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
-    Z3_bool Z3_API Z3_get_finite_domain_sort_size(Z3_context c, Z3_sort s, __uint64 * out) {
+    Z3_bool Z3_API Z3_get_finite_domain_sort_size(Z3_context c, Z3_sort s, uint64_t * out) {
         Z3_TRY;
         if (out) {
             *out = 0;
@@ -213,11 +213,8 @@ extern "C" {
         // must start loggging here, since function uses Z3_get_sort_kind above
         LOG_Z3_get_finite_domain_sort_size(c, s, out);
         RESET_ERROR_CODE();  
-        uint64 _out = 0;
-        VERIFY(mk_c(c)->datalog_util().try_get_size(to_sort(s), _out));
-        *out = static_cast<__uint64>(_out);
+        VERIFY(mk_c(c)->datalog_util().try_get_size(to_sort(s), *out));
         return Z3_TRUE;
-
         Z3_CATCH_RETURN(Z3_FALSE);
     }
 

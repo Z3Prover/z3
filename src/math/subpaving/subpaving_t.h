@@ -73,17 +73,17 @@ public:
             // TODO: add SIN, COS, TAN, ...
         };
     protected:
-        kind   m_kind;
-        uint64 m_timestamp;
+        kind     m_kind;
+        uint64_t m_timestamp;
     public:
         constraint(kind k):m_kind(k), m_timestamp(0) {}
         
         kind get_kind() const { return m_kind; }
         
         // Return the timestamp of the last propagation visit
-        uint64 timestamp() const { return m_timestamp; }
+        uint64_t timestamp() const { return m_timestamp; }
         // Reset propagation visit time
-        void set_visited(uint64 ts) { m_timestamp = ts; }
+        void set_visited(uint64_t ts) { m_timestamp = ts; }
     };
 
     /**
@@ -149,17 +149,17 @@ public:
         unsigned      m_lower:1;
         unsigned      m_open:1;
         unsigned      m_mark:1;
-        uint64        m_timestamp;
+        uint64_t      m_timestamp;
         bound *       m_prev;
         justification m_jst;
-        void set_timestamp(uint64 ts) { m_timestamp = ts; }
+        void set_timestamp(uint64_t ts) { m_timestamp = ts; }
     public:
         var x() const { return static_cast<var>(m_x); }
         numeral const & value() const { return m_val; }
         numeral & value() { return m_val; }
         bool is_lower() const { return m_lower; }
         bool is_open() const { return m_open; }
-        uint64 timestamp() const { return m_timestamp; }
+        uint64_t timestamp() const { return m_timestamp; }
         bound * prev() const { return m_prev; }
         justification jst() const { return m_jst; }
         void display(std::ostream & out, numeral_manager & nm, display_var_proc const & proc = display_var_proc());
@@ -486,7 +486,7 @@ private:
     
     id_gen                    m_node_id_gen;
 
-    uint64                    m_timestamp;
+    uint64_t                  m_timestamp;
     node *                    m_root;
     // m_leaf_head is the head of a doubly linked list of leaf nodes to be processed.
     node *                    m_leaf_head; 

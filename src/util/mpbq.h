@@ -84,7 +84,7 @@ public:
     void set(mpbq & a, mpz const & n, unsigned k) { m_manager.set(a.m_num, n); a.m_k = k; normalize(a); }
     void set(mpbq & a, mpz const & n) { m_manager.set(a.m_num, n); a.m_k = 0; }
     void set(mpbq & a, mpbq const & b) { m_manager.set(a.m_num, b.m_num); a.m_k = b.m_k; }
-    void set(mpbq & a, int64 n, unsigned k) { m_manager.set(a.m_num, n); a.m_k = k; normalize(a); }
+    void set(mpbq & a, int64_t n, unsigned k) { m_manager.set(a.m_num, n); a.m_k = k; normalize(a); }
 
     bool is_int(mpbq const & a) const { return a.m_k == 0; }
     void get_numerator(mpbq const & a, mpz & n) { m_manager.set(n, a.m_num); }

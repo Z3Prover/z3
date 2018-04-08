@@ -93,7 +93,7 @@ namespace datalog {
     //
     // -----------------------------------
 
-    unsigned get_domain_length(uint64 dom_size) {
+    unsigned get_domain_length(uint64_t dom_size) {
         SASSERT(dom_size>0);
 
         unsigned length = 0;
@@ -128,7 +128,7 @@ namespace datalog {
         unsigned sig_sz = sig.size();
         unsigned first_functional = sig_sz-m_functional_col_cnt;
         for (unsigned i=0; i<sig_sz; i++) {
-            uint64 dom_size = sig[i];
+            uint64_t dom_size = sig[i];
             unsigned length = get_domain_length(dom_size);
             SASSERT(length>0);
             SASSERT(length<=64);

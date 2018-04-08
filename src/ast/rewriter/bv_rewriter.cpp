@@ -680,8 +680,8 @@ br_status bv_rewriter::mk_extract(unsigned high, unsigned low, expr * arg, expr_
         if (v.is_neg())
             mod(v, rational::power_of_two(sz), v);
         if (v.is_uint64()) {
-            uint64 u  = v.get_uint64();
-            uint64 e  = shift_right(u, low) & (shift_left(1ull, sz) - 1ull);
+            uint64_t u  = v.get_uint64();
+            uint64_t e  = shift_right(u, low) & (shift_left(1ull, sz) - 1ull);
             result    = mk_numeral(numeral(e, numeral::ui64()), sz);
             return BR_DONE;
         }
@@ -811,7 +811,7 @@ br_status bv_rewriter::mk_bv_shl(expr * arg1, expr * arg2, expr_ref & result) {
                 SASSERT(r1.is_uint64() && r2.is_uint64());
                 SASSERT(r2.get_uint64() < bv_size);
 
-                uint64 r = shift_left(r1.get_uint64(), r2.get_uint64());
+                uint64_t r = shift_left(r1.get_uint64(), r2.get_uint64());
                 numeral rn(r, numeral::ui64());
                 rn = m_util.norm(rn, bv_size);
                 result   = mk_numeral(rn, bv_size);
@@ -860,7 +860,7 @@ br_status bv_rewriter::mk_bv_lshr(expr * arg1, expr * arg2, expr_ref & result) {
             if (bv_size <= 64) {
                 SASSERT(r1.is_uint64());
                 SASSERT(r2.is_uint64());
-                uint64 r = shift_right(r1.get_uint64(), r2.get_uint64());
+                uint64_t r = shift_right(r1.get_uint64(), r2.get_uint64());
                 numeral rn(r, numeral::ui64());
                 rn = m_util.norm(rn, bv_size);
                 result = mk_numeral(rn, bv_size);
@@ -902,11 +902,11 @@ br_status bv_rewriter::mk_bv_ashr(expr * arg1, expr * arg2, expr_ref & result) {
     bool is_num1 = is_numeral(arg1, r1, bv_size);
 
     if (bv_size <= 64 && is_num1 && is_num2) {
-        uint64 n1      = r1.get_uint64();
-        uint64 n2_orig = r2.get_uint64();
-        uint64 n2      = n2_orig % bv_size;
+        uint64_t n1      = r1.get_uint64();
+        uint64_t n2_orig = r2.get_uint64();
+        uint64_t n2      = n2_orig % bv_size;
         SASSERT(n2 < bv_size);
-        uint64 r       = shift_right(n1, n2);
+        uint64_t r       = shift_right(n1, n2);
         bool   sign    = (n1 & shift_left(1ull, bv_size - 1ull)) != 0;
         if (n2_orig > n2) {
             if (sign) {
@@ -917,9 +917,9 @@ br_status bv_rewriter::mk_bv_ashr(expr * arg1, expr * arg2, expr_ref & result) {
             }
         }
         else if (sign) {
-            uint64 allone  = shift_left(1ull, bv_size) - 1ull;
-            uint64 mask    = ~(shift_left(1ull, bv_size - n2) - 1ull);
-            mask          &= allone;
+            uint64_t allone = shift_left(1ull, bv_size) - 1ull;
+            uint64_t mask   = ~(shift_left(1ull, bv_size - n2) - 1ull);
+            mask &= allone;
             r |= mask;
         }
         result = mk_numeral(numeral(r, numeral::ui64()), bv_size);
@@ -2021,7 +2021,7 @@ br_status bv_rewriter::mk_bv_ext_rotate_left(expr * arg1, expr * arg2, expr_ref 
     numeral r2;
     unsigned bv_size;
     if (is_numeral(arg2, r2, bv_size)) {
-        unsigned shift = static_cast<unsigned>((r2 % numeral(bv_size)).get_uint64() % static_cast<uint64>(bv_size));
+        unsigned shift = static_cast<unsigned>((r2 % numeral(bv_size)).get_uint64() % static_cast<uint64_t>(bv_size));
         return mk_bv_rotate_left(shift, arg1, result);
     }
     return BR_FAILED;
@@ -2031,7 +2031,7 @@ br_status bv_rewriter::mk_bv_ext_rotate_right(expr * arg1, expr * arg2, expr_ref
     numeral r2;
     unsigned bv_size;
     if (is_numeral(arg2, r2, bv_size)) {
-        unsigned shift = static_cast<unsigned>((r2 % numeral(bv_size)).get_uint64() % static_cast<uint64>(bv_size));
+        unsigned shift = static_cast<unsigned>((r2 % numeral(bv_size)).get_uint64() % static_cast<uint64_t>(bv_size));
         return mk_bv_rotate_right(shift, arg1, result);
     }
     return BR_FAILED;

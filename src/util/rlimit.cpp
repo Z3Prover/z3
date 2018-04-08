@@ -26,7 +26,7 @@ reslimit::reslimit():
     m_limit(0) {
 }
 
-uint64 reslimit::count() const {
+uint64_t reslimit::count() const {
     return m_count;
 }
 
@@ -41,7 +41,7 @@ bool reslimit::inc(unsigned offset) {
 }
 
 void reslimit::push(unsigned delta_limit) {
-    uint64 new_limit = delta_limit + m_count;
+    uint64_t new_limit = delta_limit + m_count;
     if (new_limit <= m_count) {
         new_limit = 0;
     }

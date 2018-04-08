@@ -23,8 +23,8 @@ static std::ostream & operator<<(std::ostream & out, ll_escaped const & d);
 
 static void __declspec(noinline) R()  { *g_z3_log << "R\n"; g_z3_log->flush(); }
 static void __declspec(noinline) P(void * obj)  { *g_z3_log << "P " << obj << "\n"; g_z3_log->flush(); }
-static void __declspec(noinline) I(__int64 i)   { *g_z3_log << "I " << i << "\n"; g_z3_log->flush(); }
-static void __declspec(noinline) U(__uint64 u)   { *g_z3_log << "U " << u << "\n"; g_z3_log->flush(); }
+static void __declspec(noinline) I(int64_t i)   { *g_z3_log << "I " << i << "\n"; g_z3_log->flush(); }
+static void __declspec(noinline) U(uint64_t u)   { *g_z3_log << "U " << u << "\n"; g_z3_log->flush(); }
 static void __declspec(noinline) D(double d)   { *g_z3_log << "D " << d << "\n"; g_z3_log->flush(); }
 static void __declspec(noinline) S(Z3_string str) { *g_z3_log << "S \"" << ll_escaped(str) << "\"\n"; g_z3_log->flush(); }
 static void __declspec(noinline) Sy(Z3_symbol sym) { 

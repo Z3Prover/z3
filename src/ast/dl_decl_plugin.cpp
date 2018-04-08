@@ -652,9 +652,9 @@ namespace datalog {
 
     // create a constant belonging to a given finite domain.
 
-    app* dl_decl_util::mk_numeral(uint64 value, sort* s) {
+    app* dl_decl_util::mk_numeral(uint64_t value, sort* s) {
         if (is_finite_sort(s)) {
-            uint64 sz = 0;
+            uint64_t sz = 0;
             if (try_get_size(s, sz) && sz <= value) {
                 m.raise_exception("value is out of bounds");
             }
@@ -680,7 +680,7 @@ namespace datalog {
         return nullptr;
     }
 
-    bool dl_decl_util::is_numeral(const expr* e, uint64& v) const {
+    bool dl_decl_util::is_numeral(const expr* e, uint64_t& v) const {
         if (is_numeral(e)) {
             const app* c = to_app(e);
             SASSERT(c->get_decl()->get_num_parameters() == 2);
@@ -693,7 +693,7 @@ namespace datalog {
         return false;
     }
 
-    bool dl_decl_util::is_numeral_ext(expr* e, uint64& v) const {
+    bool dl_decl_util::is_numeral_ext(expr* e, uint64_t& v) const {
         if (is_numeral(e, v)) {
             return true;
         }
@@ -724,7 +724,7 @@ namespace datalog {
         return m.is_true(c) || m.is_false(c);
     }
 
-    sort* dl_decl_util::mk_sort(const symbol& name, uint64  domain_size) {
+    sort* dl_decl_util::mk_sort(const symbol& name, uint64_t  domain_size) {
         if (domain_size == 0) {
             std::stringstream sstm;
             sstm << "Domain size of sort '" << name << "' may not be 0";
@@ -734,7 +734,7 @@ namespace datalog {
         return m.mk_sort(m_fid, DL_FINITE_SORT, 2, params);
     }
 
-    bool dl_decl_util::try_get_size(const sort * s, uint64& size) const {
+    bool dl_decl_util::try_get_size(const sort * s, uint64_t& size) const {
         sort_size sz = s->get_info()->get_num_elements();
         if (sz.is_finite()) {
             size = sz.size();

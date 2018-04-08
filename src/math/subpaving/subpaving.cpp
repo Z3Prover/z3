@@ -150,12 +150,12 @@ namespace subpaving {
         void int2hwf(mpz const & a, hwf & o) {
             if (!m_qm.is_int64(a))
                 throw subpaving::exception();
-            int64 val   = m_qm.get_int64(a);
+            int64_t val   = m_qm.get_int64(a);
             double dval = static_cast<double>(val);
             m_ctx.nm().set(o, dval);
             double _dval = m_ctx.nm().m().to_double(o);
             // TODO check the following test
-            if (static_cast<int64>(_dval) != val)
+            if (static_cast<int64_t>(_dval) != val)
                 throw subpaving::exception();
         }
         
