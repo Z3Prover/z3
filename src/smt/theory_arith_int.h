@@ -1266,40 +1266,9 @@ namespace smt {
     */
     template<typename Ext>
     final_check_status theory_arith<Ext>::check_int_feasibility() {
-        TRACE("arith_int_detail", get_context().display(tout););
         if (!has_infeasible_int_var()) {
-            TRACE("arith", tout << "FC_DONE 1...\n"; display(tout););
             return FC_DONE;
         }
-
-        TRACE("arith",
-              int num = get_num_vars();
-              for (theory_var v = 0; v < num; v++) {
-                  if (is_int(v) && !get_value(v).is_int()) {
-                      numeral f1 = get_value(v).get_rational() - floor(get_value(v).get_rational());
-                      numeral f2 = ceil(get_value(v).get_rational()) - get_value(v).get_rational();
-                      if (f2 < f1)
-                          f1 = f2;
-                      tout << "v" << v << " -> " << f1 << " ";
-                      display_var(tout, v);
-                  }
-              });
-
-        TRACE("arith_int_fracs_min_max",
-              numeral max(0);
-              numeral min(1);
-              int num = get_num_vars();
-              for (theory_var v = 0; v < num; v++) {
-                  if (is_int(v) && !get_value(v).is_int()) {
-                      numeral f1 = get_value(v).get_rational() - floor(get_value(v).get_rational());
-                      numeral f2 = ceil(get_value(v).get_rational()) - get_value(v).get_rational();
-                      if (f1 < min) min = f1;
-                      if (f2 < min) min = f2;
-                      if (f1 > max) max = f1;
-                      if (f2 > max) max = f2;
-                  }
-              }
-              tout << "max: " << max << ", min: " << min << "\n";);
 
         if (m_params.m_arith_ignore_int) {
             TRACE("arith", tout << "Ignore int: give up\n";);
@@ -1317,79 +1286,22 @@ namespace smt {
 
         remove_fixed_vars_from_base();
 
-        TRACE("arith_int_freedom",
-              int num = get_num_vars();
-              bool inf_l; bool inf_u;
-              inf_numeral l; inf_numeral u;
-              numeral m;
-              for (theory_var v = 0; v < num; v++) {
-                  if (is_non_base(v)) {
-                      get_freedom_interval(v, inf_l, l, inf_u, u, m);
-                      if ((!m.is_one() /* && !l.is_zero() */) || !get_value(v).is_int()) {
-                          tout << "TARGET v" << v << " -> [";
-                          if (inf_l) tout << "-oo"; else tout << ceil(l);
-                          tout << ", ";
-                          if (inf_u) tout << "oo"; else tout << floor(u);
-                          tout << "]";
-                          tout << ", m: " << m << ", val: " << get_value(v) << ", is_int: " << is_int(v) << "\n";
-                      }
-                  }
-              });
-
         m_stats.m_patches++;
-        patch_int_infeasible_vars();
+        //        patch_int_infeasible_vars();
         fix_non_base_vars();
         
         if (get_context().inconsistent())
             return FC_CONTINUE;
         
-        TRACE("arith_int_inf",
-              int num = get_num_vars();
-              for (theory_var v = 0; v < num; v++) {
-                  if (is_int(v) && !get_value(v).is_int()) {
-                      display_var(tout, v);
-                  }
-              });
-
-        TRACE("arith_int_rows",
-              unsigned num = 0;
-              typename vector<row>::const_iterator it  = m_rows.begin();
-              typename vector<row>::const_iterator end = m_rows.end();
-              for (; it != end; ++it) {
-                  theory_var v = it->get_base_var();
-                  if (v == null_theory_var)
-                      continue;
-                  if (is_int(v) && !get_value(v).is_int()) {
-                      num++;
-                      display_simplified_row(tout, *it);
-                      tout << "\n";
-                  }
-              }
-              tout << "num infeasible: " << num << "\n";);
-        
         theory_var int_var = find_infeasible_int_base_var();
         if (int_var == null_theory_var) {
             m_stats.m_patches_succ++;
-            TRACE("arith_int_incomp", tout << "FC_DONE 2...\n"; display(tout););
             return m_liberal_final_check || !m_changed_assignment ? FC_DONE : FC_CONTINUE;
         }
         
-#if 0
-        if (find_bounded_infeasible_int_base_var() == null_theory_var) {
-            // TODO: this is too expensive... I should replace it by a procedure
-            // that refine bounds using the current state of the tableau.
-            if (!max_min_infeasible_int_vars())
-                return FC_CONTINUE;
-            if (!gcd_test())
-                return FC_CONTINUE;
-        }
-#endif 
 
         m_branch_cut_counter++;
-        // TODO: add giveup code
-        TRACE("gomory_cut", tout << m_branch_cut_counter << ", " << m_params.m_arith_branch_cut_ratio << std::endl;);
         if (m_branch_cut_counter % m_params.m_arith_branch_cut_ratio == 0) {
-            TRACE("opt_verbose", display(tout););
             move_non_base_vars_to_bounds();
             if (!make_feasible()) {
                 TRACE("arith_int", tout << "failed to move variables to bounds.\n";);

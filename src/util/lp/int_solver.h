@@ -53,8 +53,8 @@ class int_solver {
 public:
     // fields
     lar_solver *m_lar_solver;
-    // int_set m_old_values_set;
-    // vector<impq> m_old_values_data;
+    int_set m_old_values_set;
+    vector<impq> m_old_values_data;
     unsigned m_branch_cut_counter;
     cut_solver m_cut_solver;
     // methods
@@ -96,7 +96,7 @@ private:
                       explanation & ex);
     void fill_explanation_from_fixed_columns(const row_strip<mpq> & row, explanation &);
     void add_to_explanation_from_fixed_or_boxed_column(unsigned j, explanation &);
-    void patch_nbasic_column(unsigned j);
+    bool patch_nbasic_column(unsigned j);
     bool patch_nbasic_columns();
     bool get_freedom_interval_for_column(unsigned j, bool & inf_l, impq & l, bool & inf_u, impq & u, mpq & m);
     const impq & lower_bound(unsigned j) const;
@@ -111,14 +111,18 @@ private:
     void set_value_for_nbasic_column(unsigned j, const impq & new_val);
     void set_value_for_nbasic_column_ignore_old_values(unsigned j, const impq & new_val);
     bool non_basic_columns_are_at_bounds() const;
-    void failed();
+    void restore_old_values();
     bool is_feasible() const;
     const impq & get_value(unsigned j) const;
     bool column_is_int_inf(unsigned j) const;
     void trace_inf_rows() const;
     int find_inf_int_base_column();
+    int find_inf_int_column();
+    int find_inf_int_boxed_column_with_smallest_range(unsigned&);
     int find_inf_int_boxed_base_column_with_smallest_range(unsigned&);
     int get_kth_inf_int(unsigned) const;
+    int get_kth_inf_int_base(unsigned) const;
+    void update_best_so_far_inf_int_column(unsigned j, int & result, mpq& range, unsigned & inf_int_count, unsigned &n);
     lp_settings& settings();
     bool move_non_basic_columns_to_bounds();
     void branch_infeasible_int_var(unsigned);
@@ -181,6 +185,6 @@ public:
     impq get_cube_delta_for_term(const lar_term&) const;
     lia_move call_cut_solver(lar_term& t, mpq& k, explanation& ex);
     lia_move calc_gomory_cut(lar_term&, mpq&, explanation&, bool &);
-    bool flip_coin() { return m_cut_solver.flip_coin(); }
+    bool flip_coin() { return true || m_cut_solver.flip_coin(); }
 };
 }
