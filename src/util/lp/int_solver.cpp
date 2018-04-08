@@ -67,17 +67,6 @@ int int_solver::find_inf_int_base_column() {
     return get_kth_inf_int_base(k);
 }
 
-int int_solver::find_inf_int_column() {
-    unsigned inf_int_count;
-    int j = find_inf_int_boxed_column_with_smallest_range(inf_int_count);
-	if (j != -1)
-		return j;
-    if (inf_int_count == 0)
-        return -1;
-    unsigned k = random() % inf_int_count;
-    return get_kth_inf_int(k);
-}
-
 int int_solver::get_kth_inf_int_base(unsigned k) const {
     unsigned inf_int_count = 0;
     for (unsigned j : m_lar_solver->r_basis()) {
@@ -142,21 +131,6 @@ int int_solver::find_inf_int_boxed_base_column_with_smallest_range(unsigned & in
     mpq new_range;
     unsigned n;
     for (unsigned j : m_lar_solver->r_basis()) {
-        update_best_so_far_inf_int_column(j, result, range, inf_int_count, n);
-    }
-    return result;
-}
-
-int int_solver::find_inf_int_boxed_column_with_smallest_range(unsigned & inf_int_count) {
-    inf_int_count = 0;
-    int result = -1;
-    mpq range;
-    mpq new_range;
-    mpq small_range_thresold(1024);
-    unsigned n;
-    lar_core_solver & lcs = m_lar_solver->m_mpq_lar_core_solver;
-
-    for (unsigned j = 0; j < m_lar_solver->A_r().column_count(); j++) {
         update_best_so_far_inf_int_column(j, result, range, inf_int_count, n);
     }
     return result;
@@ -681,7 +655,7 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex, bool & upper) {
     if (patch_nbasic_columns())
         return lia_move::ok;
 	
-    return create_branch_on_column(find_inf_int_column(), t, k, false, upper);
+    return create_branch_on_column(find_inf_int_base_column(), t, k, false, upper);
 }
 
 lia_move int_solver::calc_gomory_cut(lar_term& t, mpq& k, explanation& ex, bool & upper) {
@@ -771,11 +745,12 @@ bool int_solver::patch_nbasic_column(unsigned j) {
     bool infinite_l, infinite_u;
     impq l, u;
     mpq m;
+    if (!is_int(j))
+        return true;
 	if (!get_freedom_interval_for_column(j, infinite_l, l, infinite_u, u, m))
 		return false;
-    if (m.is_one() && get_value(j).is_int())
-        return true;
-	if ((get_value(j) / m).is_int())
+    lp_assert(m.is_pos());
+    if ((m.is_one() && get_value(j).is_int()) || ((get_value(j) / m).is_int()))
 		return true;
     if (!infinite_l)
         l = ceil(l);
@@ -805,8 +780,8 @@ bool int_solver::patch_nbasic_column(unsigned j) {
     return true;
 }
 
-void int_solver::round_nbasic_columns() {
-     for (unsigned j : m_lar_solver->m_mpq_lar_core_solver.m_r_nbasis) {
+void int_solver::round_nbasic_columns(const vector<unsigned> & cols) {
+     for (unsigned j : cols) {
          if (is_int(j) && ! get_value(j).is_int())
              set_value_for_nbasic_column(j, flip_coin()? floor(get_value(j)) : ceil(get_value(j)));
      }
@@ -820,13 +795,13 @@ bool int_solver::patch_nbasic_columns() {
         m_lar_solver->find_feasible_solution();
 	lp_assert(is_feasible());
 	m_lar_solver->pivot_fixed_vars_from_basis();
+    vector<unsigned> columns_to_round; // these are the columns that we are not succedded to patch
     for (unsigned j : m_lar_solver->m_mpq_lar_core_solver.m_r_nbasis) {
 		if (!patch_nbasic_column(j)) {
-            round_nbasic_columns();
-            break;
+            columns_to_round.push_back(j);
         }
 	}
-	lp_assert(is_feasible());
+    round_nbasic_columns(columns_to_round);
     if (!has_inf_int()) {
         settings().st().m_patches_success++;
         return true;

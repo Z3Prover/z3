@@ -98,7 +98,7 @@ private:
     void add_to_explanation_from_fixed_or_boxed_column(unsigned j, explanation &);
     bool patch_nbasic_column(unsigned j);
     bool patch_nbasic_columns();
-    void round_nbasic_columns();
+    void round_nbasic_columns(const vector<unsigned>&);
     bool get_freedom_interval_for_column(unsigned j, bool & inf_l, impq & l, bool & inf_u, impq & u, mpq & m);
     const impq & lower_bound(unsigned j) const;
     const impq & upper_bound(unsigned j) const;
@@ -118,8 +118,6 @@ private:
     bool column_is_int_inf(unsigned j) const;
     void trace_inf_rows() const;
     int find_inf_int_base_column();
-    int find_inf_int_column();
-    int find_inf_int_boxed_column_with_smallest_range(unsigned&);
     int find_inf_int_boxed_base_column_with_smallest_range(unsigned&);
     int get_kth_inf_int(unsigned) const;
     int get_kth_inf_int_base(unsigned) const;
