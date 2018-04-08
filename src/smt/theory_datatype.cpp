@@ -36,6 +36,41 @@ namespace smt {
         theory_id get_from_theory() const override { return null_theory_id; }
     };
 
+    theory_datatype::final_check_st::final_check_st(theory_datatype * th) : th(th) {
+        SASSERT(th->m_to_unmark.empty());
+        SASSERT(th->m_to_unmark2.empty());
+        th->m_used_eqs.reset();
+        th->m_stack.reset();
+        th->m_parent.reset();
+    }
+
+    theory_datatype::final_check_st::~final_check_st() {
+        unmark_enodes(th->m_to_unmark.size(), th->m_to_unmark.c_ptr());
+        unmark_enodes2(th->m_to_unmark2.size(), th->m_to_unmark2.c_ptr());
+        th->m_to_unmark.reset();
+        th->m_to_unmark2.reset();
+        th->m_used_eqs.reset();
+        th->m_stack.reset();
+        th->m_parent.reset();
+    }   
+    
+    void theory_datatype::oc_mark_on_stack(enode * n) {
+        n = n->get_root();
+        n->set_mark();
+        m_to_unmark.push_back(n); 
+    }
+
+    void theory_datatype::oc_mark_cycle_free(enode * n) {
+        n = n->get_root();
+        n->set_mark2();
+        m_to_unmark2.push_back(n); 
+    }
+
+    void theory_datatype::oc_push_stack(enode * n) {
+        m_stack.push_back(std::make_pair(EXIT, n));
+        m_stack.push_back(std::make_pair(ENTER, n));
+    }
+
 
     theory* theory_datatype::mk_fresh(context* new_ctx) { 
         return alloc(theory_datatype, new_ctx->get_manager(), m_params); 
@@ -421,25 +456,22 @@ namespace smt {
         return d->m_constructor;
     }
 
-    // explain the cycle root -> … -> app -> root
+    // explain the cycle root -> ... -> app -> root
     void theory_datatype::occurs_check_explain(enode * app, enode * root) {
         TRACE("datatype", tout << "occurs_check_explain " << mk_bounded_pp(app->get_owner(), get_manager()) << " <-> " << mk_bounded_pp(root->get_owner(), get_manager()) << "\n";);
         enode* app_parent = nullptr;
 
         // first: explain that root=v, given that app=cstor(…,v,…)
-        {
-            enode * app_cstor = oc_get_cstor(app);
-            for (enode * arg : enode::args(app_cstor)) {
-                // found an argument which is equal to root
-                if (arg->get_root() == root->get_root()) {
-                    if (arg != root)
-                        m_used_eqs.push_back(enode_pair(arg, root));
-                    break;
-                }
+        for (enode * arg : enode::args(oc_get_cstor(app))) {
+            // found an argument which is equal to root
+            if (arg->get_root() == root->get_root()) {
+                if (arg != root)
+                    m_used_eqs.push_back(enode_pair(arg, root));
+                break;
             }
         }
 
-        // now explain app=cstor(…,v,…) where v=root, and recurse with parent of app
+        // now explain app=cstor(..,v,..) where v=root, and recurse with parent of app
         while (app->get_root() != root->get_root()) {
             enode * app_cstor = oc_get_cstor(app);
             if (app != app_cstor)
@@ -447,7 +479,7 @@ namespace smt {
             app_parent = m_parent[app->get_root()];
             app = app_parent;
         }
-
+        
         SASSERT(app->get_root() == root->get_root());
         if (app != root)
             m_used_eqs.push_back(enode_pair(app, root));

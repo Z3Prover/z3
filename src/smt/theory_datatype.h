@@ -82,43 +82,20 @@ namespace smt {
         parent_tbl            m_parent; // parent explanation for occurs_check
         svector<stack_entry>  m_stack; // stack for DFS for occurs_check
 
-        void oc_mark_on_stack(enode * n) {
-          n = n->get_root();
-          n->set_mark();
-          m_to_unmark.push_back(n); }
+        void oc_mark_on_stack(enode * n);
         bool oc_on_stack(enode * n) const { return n->get_root()->is_marked(); }
 
-        void oc_mark_cycle_free(enode * n) {
-          n = n->get_root();
-          n->set_mark2();
-          m_to_unmark2.push_back(n); }
+        void oc_mark_cycle_free(enode * n);
         bool oc_cycle_free(enode * n) const { return n->get_root()->is_marked2(); }
 
-        void oc_push_stack(enode * n) {
-            m_stack.push_back(std::make_pair(EXIT, n));
-            m_stack.push_back(std::make_pair(ENTER, n));
-        }
+        void oc_push_stack(enode * n);
 
         // class for managing state of final_check
         class final_check_st {
             theory_datatype * th;
-            public:
-            final_check_st(theory_datatype * th) : th(th) {
-                SASSERT(th->m_to_unmark.empty());
-                SASSERT(th->m_to_unmark2.empty());
-                th->m_used_eqs.reset();
-                th->m_stack.reset();
-                th->m_parent.reset();
-            }
-            ~final_check_st() {
-                unmark_enodes(th->m_to_unmark.size(), th->m_to_unmark.c_ptr());
-                unmark_enodes2(th->m_to_unmark2.size(), th->m_to_unmark2.c_ptr());
-                th->m_to_unmark.reset();
-                th->m_to_unmark2.reset();
-                th->m_used_eqs.reset();
-                th->m_stack.reset();
-                th->m_parent.reset();
-            }
+        public:
+            final_check_st(theory_datatype * th);
+            ~final_check_st();
         };
 
         enode * oc_get_cstor(enode * n);
