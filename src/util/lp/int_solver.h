@@ -30,14 +30,14 @@ class lar_solver;
 template <typename T, typename X>
 struct lp_constraint;
 enum class lia_move {
-    ok,
-        branch,
-        cut,
-        conflict,
-        continue_with_check,
-        give_up,
-        unsat
-        };
+    sat,
+    branch,
+    cut,
+    conflict,
+    undef,
+    give_up,
+    unsat
+};
 
 struct explanation {
     vector<std::pair<mpq, constraint_index>> m_explanation;
@@ -79,7 +79,7 @@ private:
     // this is unsolvable because 5/3 is not an integer.
     // so we create a lemma that rules out this condition.
     // 
-    bool gcd_test(explanation & ); // returns false in case of failure. Creates a theory lemma in case of failure.
+    lia_move gcd_test(explanation & ); // Creates a theory lemma in case of failure and returns lia_move::conflict
 
     // create goromy cuts
     // either creates a conflict or a bound.
@@ -128,7 +128,6 @@ private:
     lia_move mk_gomory_cut(lar_term& t, mpq& k,explanation & ex, unsigned inf_col, const row_strip<mpq>& row);
     lia_move report_conflict_from_gomory_cut(mpq & k);
     void adjust_term_and_k_for_some_ints_case_gomory(lar_term& t, mpq& k, mpq& lcm_den);
-    void init_check_data();
     lia_move proceed_with_gomory_cut(lar_term& t, mpq& k, explanation& ex, unsigned j, bool & upper);
     int find_free_var_in_gomory_row(const row_strip<mpq>& );
     bool is_gomory_cut_target(const row_strip<mpq>&);
@@ -185,5 +184,6 @@ public:
     lia_move call_cut_solver(lar_term& t, mpq& k, explanation& ex);
     lia_move calc_gomory_cut(lar_term&, mpq&, explanation&, bool &);
     bool flip_coin() { return true || m_cut_solver.flip_coin(); }
+    lia_move cuts_etc(lar_term& t, mpq& k, explanation & ex, bool & upper);
 };
 }

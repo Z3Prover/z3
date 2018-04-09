@@ -391,13 +391,6 @@ lia_move int_solver::mk_gomory_cut(lar_term& t, mpq& k, explanation & expl, unsi
     
 }
 
-void int_solver::init_check_data() {
-    // unsigned n = m_lar_solver->A_r().column_count();
-    // m_old_values_set.clear();
-    // m_old_values_set.resize(n);
-    // m_old_values_data.resize(n);
-}
-
 int int_solver::find_free_var_in_gomory_row(const row_strip<mpq>& row) {
     unsigned j;
     for (auto p : row) {
@@ -564,7 +557,7 @@ bool int_solver::tighten_terms_for_cube() {
 }
 
 bool int_solver::find_cube() {
-	if (m_branch_cut_counter % settings().m_int_branch_find_cube != 0)
+	if (m_branch_cut_counter % settings().m_int_find_cube_period != 0)
         return false;
     
     settings().st().m_cube_calls++;
@@ -578,20 +571,19 @@ bool int_solver::find_cube() {
         m_lar_solver->pop();
         return false;
     }
-
     lp_status st = m_lar_solver->find_feasible_solution();
     if (st != lp_status::FEASIBLE && st != lp_status::OPTIMAL) {
         TRACE("cube", tout << "cannot find a feasiblie solution";);
         m_lar_solver->pop();
-        move_non_basic_columns_to_bounds();
         m_lar_solver->find_feasible_solution();
         lp_assert(m_lar_solver->get_status() == lp_status::OPTIMAL);
         // it can happen that we found an integer solution here
         return !m_lar_solver->r_basis_has_inf_int();
     }
-    m_lar_solver->round_to_integer_solution();
     m_lar_solver->pop();
-    return true;
+	m_lar_solver->round_to_integer_solution();
+	lp_assert(is_feasible());
+	return true;
 }
 
 lia_move int_solver::call_cut_solver(lar_term& t, mpq& k, explanation& ex) {
@@ -608,7 +600,7 @@ lia_move int_solver::call_cut_solver(lar_term& t, mpq& k, explanation& ex) {
         settings().st().m_cut_solver_true++;
         copy_values_from_cut_solver();
         lp_assert(m_lar_solver->all_constraints_hold());
-        return lia_move::ok;
+        return lia_move::sat;
     case cut_solver::lbool::l_undef:
         settings().st().m_cut_solver_undef++;
         if (m_cut_solver.try_getting_cut(t, k, m_lar_solver->m_mpq_lar_core_solver.m_r_x)) {
@@ -620,40 +612,50 @@ lia_move int_solver::call_cut_solver(lar_term& t, mpq& k, explanation& ex) {
             return lia_move::cut;
         }
     default:
-        return lia_move::give_up;
+        return lia_move::undef;
     }
  }
 
-
-lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex, bool & upper) {
-    if (!has_inf_int()) 
-        return lia_move::ok;
-    init_check_data();
-    if (!gcd_test(ex)) {
+// it does everything except branching
+lia_move int_solver::cuts_etc(lar_term& t, mpq& k, explanation & ex, bool & upper) {
+    if (gcd_test(ex) == lia_move::conflict) {
         settings().st().m_gcd_conflicts++;
         return lia_move::conflict;
     }
-
-    pivoted_rows_tracking_control pc(m_lar_solver);
    
-    ++m_branch_cut_counter;
     if (find_cube()){
         settings().st().m_cube_success++;
-        return lia_move::ok;
+        return lia_move::sat;
     }
 
-    if ((m_branch_cut_counter) % settings().m_int_branch_cut_solver == 0 && all_columns_are_bounded()) {
+    if ((m_branch_cut_counter) % settings().m_int_cut_solver_period == 0 && all_columns_are_bounded()) {
         auto r = call_cut_solver(t, k, ex);
-        if (r != lia_move::give_up)
+        if (r != lia_move::undef)
             return r;
     }
 
-    if ((m_branch_cut_counter) % settings().m_int_branch_cut_gomory_threshold == 0) {
+    if ((m_branch_cut_counter) % settings().m_int_gomory_cut_period == 0) {
         return calc_gomory_cut(t, k, ex, upper);
     }
+    
+    return lia_move::undef;
+}
 
+lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex, bool & upper) {
+    if (!has_inf_int()) 
+        return lia_move::sat;
+
+    pivoted_rows_tracking_control pc(m_lar_solver);
+    ++m_branch_cut_counter;
+
+    if (m_branch_cut_counter % settings().m_int_cuts_etc_period == 0) {
+        lia_move m = cuts_etc(t, k , ex, upper);
+        if(m != lia_move::undef)
+            return m;
+    }
+            
     if (patch_nbasic_columns())
-        return lia_move::ok;
+        return lia_move::sat;
 	
     return create_branch_on_column(find_inf_int_base_column(), t, k, false, upper);
 }
@@ -669,7 +671,7 @@ lia_move int_solver::calc_gomory_cut(lar_term& t, mpq& k, explanation& ex, bool 
 
     int j = find_inf_int_base_column();
     if (j == -1)
-        return lia_move::ok;
+        return lia_move::sat;
     return proceed_with_gomory_cut(t, k, ex, j, upper);
 }
 
@@ -895,18 +897,18 @@ void int_solver::fill_explanation_from_fixed_columns(const row_strip<mpq> & row,
     }
 }
     
-bool int_solver::gcd_test(explanation & ex) {
-    if (!settings().m_run_gcd_test)
-        return true;
+lia_move int_solver::gcd_test(explanation & ex) {
+    if (!settings().m_int_run_gcd_test)
+        return lia_move::undef;
     settings().st().m_gcd_calls++;
     auto & A = m_lar_solver->A_r(); // getting the matrix
     for (unsigned i = 0; i < A.row_count(); i++)
         if (!gcd_test_for_row(A, i, ex)) {
             settings().st().m_gcd_conflicts++;
-            return false;
+            return lia_move::conflict;
         }
         
-    return true;
+    return lia_move::undef;
 }
 
 bool int_solver::ext_gcd_test(const row_strip<mpq> & row,
@@ -1300,7 +1302,7 @@ lia_move int_solver::create_branch_on_column(int j, lar_term& t, mpq& k, bool fr
     TRACE("check_main_int", tout << "branching" << std::endl;);
     lp_assert(t.is_empty());
 	if (j == -1)
-		return lia_move::ok;
+		return lia_move::sat;
     t.add_monomial(mpq(1), m_lar_solver->adjust_column_index_to_term_index(j));
     if (free_column) {
         upper = true;
