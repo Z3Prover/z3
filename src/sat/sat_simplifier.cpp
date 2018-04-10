@@ -1129,7 +1129,8 @@ namespace sat {
                     }
                 }
             }
-            if (m_intersection.empty()) {
+            // remove tautology literals if literal has no resolution intersection
+            if (m_intersection.empty() && !first) {
                 m_tautology.shrink(tsz);
             }
             // if (first) IF_VERBOSE(0, verbose_stream() << "taut: " << m_tautology << "\n";);
@@ -1202,7 +1203,7 @@ namespace sat {
                 if (m_covered_antecedent[i] == clause_ante()) s.mark_visited(lit);
                 if (s.is_marked(lit)) idx = i; 
             }
-            if (false) {
+            if (false && _blocked.var() == 8074) {
                 IF_VERBOSE(0, verbose_stream() << "covered: " << m_covered_clause << "\n";
                            verbose_stream() << "tautology: " << m_tautology << "\n";
                            verbose_stream() << "index: " << idx << "\n";
@@ -1212,8 +1213,8 @@ namespace sat {
             }
             for (unsigned i = idx; i > 0; --i) {
                 literal lit = m_covered_clause[i];
-                s.mark_visited(lit);
-                continue;
+                //s.mark_visited(lit);
+                //continue;
                 if (!s.is_marked(lit)) continue;
                 clause_ante const& ante = m_covered_antecedent[i];
                 if (ante.cls()) {

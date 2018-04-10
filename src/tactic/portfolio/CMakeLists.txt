@@ -18,8 +18,6 @@ z3_add_component(portfolio
     smtlogic_tactics
     subpaving_tactic
     ufbv_tactic
-  PYG_FILES
-    parallel_params.pyg
   TACTIC_HEADERS
     default_tactic.h
     fd_solver.h

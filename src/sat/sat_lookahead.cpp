@@ -1832,7 +1832,7 @@ namespace sat {
         unsigned dl_truth = base + m_lookahead.size() * m_config.m_dl_max_iterations;
         scoped_level _sl(*this, dl_truth);
         //SASSERT(get_level(m_trail.back()) == dl_truth);
-        IF_VERBOSE(2, verbose_stream() << "(sat-lookahead :double " << l << " :depth " << m_trail_lim.size() << ")\n";);
+        IF_VERBOSE(3, verbose_stream() << "(sat-lookahead :double " << l << " :depth " << m_trail_lim.size() << ")\n";);
         lookahead_backtrack();
         assign(l);
         propagate();

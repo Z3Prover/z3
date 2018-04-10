@@ -29,7 +29,7 @@ Notes:
 #include "tactic/aig/aig_tactic.h"
 #include "sat/tactic/sat_tactic.h"
 #include "tactic/portfolio/parallel_tactic.h"
-#include "tactic/portfolio/parallel_params.hpp"
+#include "tactic/smtlogics/parallel_params.hpp"
 #include "ackermannization/ackermannize_bv_tactic.h"
 
 #define MEMLIMIT 300

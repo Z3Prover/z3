@@ -75,7 +75,7 @@ namespace sat {
     void model_converter::operator()(model & m) const {
         vector<entry>::const_iterator begin = m_entries.begin();
         vector<entry>::const_iterator it    = m_entries.end();
-        bool first = false; // true; // false; // // true;
+        bool first =  false; // true; // false; // // true;
         //SASSERT(!m_solver || m_solver->check_clauses(m));
         while (it != begin) {
             --it;
