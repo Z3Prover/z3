@@ -575,6 +575,7 @@ bool int_solver::find_cube() {
     if (st != lp_status::FEASIBLE && st != lp_status::OPTIMAL) {
         TRACE("cube", tout << "cannot find a feasiblie solution";);
         m_lar_solver->pop();
+        move_non_basic_columns_to_bounds();
         m_lar_solver->find_feasible_solution();
         lp_assert(m_lar_solver->get_status() == lp_status::OPTIMAL);
         // it can happen that we found an integer solution here
