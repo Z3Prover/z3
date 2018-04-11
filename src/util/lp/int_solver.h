@@ -52,11 +52,9 @@ struct explanation {
 class int_solver {
 public:
     // fields
-    lar_solver *m_lar_solver;
-    // int_set m_old_values_set;
-    // vector<impq> m_old_values_data;
-    unsigned m_branch_cut_counter;
-    cut_solver m_cut_solver;
+    lar_solver *        m_lar_solver;
+    unsigned            m_branch_cut_counter;
+    cut_solver          m_cut_solver;
     // methods
     int_solver(lar_solver* lp);
 
@@ -185,5 +183,9 @@ public:
     lia_move calc_gomory_cut(lar_term&, mpq&, explanation&, bool &);
     bool flip_coin() { return true || m_cut_solver.flip_coin(); }
     lia_move cuts_etc(lar_term& t, mpq& k, explanation & ex, bool & upper);
+    int find_column_for_gomory_cut();
+    int check_row_for_gomory_cut(unsigned);
+    void move_row_columns_to_bounds(const row_strip<mpq>&);
+    void find_feasible_solution();
 };
 }

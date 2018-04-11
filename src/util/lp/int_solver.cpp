@@ -142,12 +142,8 @@ bool int_solver::is_gomory_cut_target(const row_strip<mpq>& row) {
     for (auto p : row) {
         j = p.var();
         if (is_base(j)) continue;
-        if (!is_zero(get_value(j).y)) {
-            TRACE("gomory_cut", tout << "row is not gomory cut target:\n";
-                  display_column(tout, j);
-                  tout << "infinitesimal: " << !is_zero(get_value(j).y) << "\n";);
+        if (!at_bound(j) || !is_zero(get_value(j).y))
             return false;
-        }
     }
     return true;
 }
@@ -402,20 +398,13 @@ int int_solver::find_free_var_in_gomory_row(const row_strip<mpq>& row) {
 }
 
 lia_move int_solver::proceed_with_gomory_cut(lar_term& t, mpq& k, explanation& ex, unsigned j, bool & upper) {
-    lia_move ret;
+    if (is_free(j))
+        return create_branch_on_column(j, t, k, true, upper);
     
     const row_strip<mpq>& row = m_lar_solver->get_row(row_of_basic_column(j));
-    int free_j = find_free_var_in_gomory_row(row);
-    if (free_j != -1) {
-        ret = create_branch_on_column(j, t, k, true, upper);
-    } else if (!is_gomory_cut_target(row)) {
-        bool upper;
-        ret = create_branch_on_column(j, t, k, false, upper);
-    } else {
-        upper = false;
-        ret = mk_gomory_cut(t, k, ex, j, row);
-    }
-    return ret;
+    lp_assert(is_gomory_cut_target(row));
+    upper = false;
+    return mk_gomory_cut(t, k, ex, j, row);
 }
 
 
@@ -571,20 +560,19 @@ bool int_solver::find_cube() {
         m_lar_solver->pop();
         return false;
     }
-    lp_status st = m_lar_solver->find_feasible_solution();
-    if (st != lp_status::FEASIBLE && st != lp_status::OPTIMAL) {
+    m_lar_solver->find_feasible_solution();
+    if (!is_feasible()) {
         TRACE("cube", tout << "cannot find a feasiblie solution";);
         m_lar_solver->pop();
         move_non_basic_columns_to_bounds();
-        m_lar_solver->find_feasible_solution();
-        lp_assert(m_lar_solver->get_status() == lp_status::OPTIMAL);
+        find_feasible_solution();
         // it can happen that we found an integer solution here
         return !m_lar_solver->r_basis_has_inf_int();
     }
     m_lar_solver->pop();
-	m_lar_solver->round_to_integer_solution();
-	lp_assert(is_feasible());
-	return true;
+    m_lar_solver->round_to_integer_solution();
+    lp_assert(is_feasible());
+    return true;
 }
 
 lia_move int_solver::call_cut_solver(lar_term& t, mpq& k, explanation& ex) {
@@ -661,18 +649,65 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex, bool & upper) {
     return create_branch_on_column(find_inf_int_base_column(), t, k, false, upper);
 }
 
-lia_move int_solver::calc_gomory_cut(lar_term& t, mpq& k, explanation& ex, bool & upper) {
-    if (move_non_basic_columns_to_bounds()) {
-        lp_status st = m_lar_solver->find_feasible_solution();
-        lp_assert(non_basic_columns_are_at_bounds());
-        if (st != lp_status::FEASIBLE && st != lp_status::OPTIMAL) {
-            return lia_move::give_up;
-        }
+void int_solver::move_row_columns_to_bounds(const row_strip<mpq> & row) {
+    bool change = false;
+    for (const auto & c : row) {
+        if (is_base(c.var()))
+            continue;
+        if(move_non_basic_column_to_bounds(c.var()))
+           change = true;
     }
+    if (change)
+        find_feasible_solution();
+}
 
-    int j = find_inf_int_base_column();
-    if (j == -1)
-        return lia_move::sat;
+void int_solver::find_feasible_solution() {
+    m_lar_solver->find_feasible_solution();
+    lp_assert(lp_status::OPTIMAL == m_lar_solver->get_status() || lp_status::FEASIBLE == m_lar_solver->get_status());
+}
+
+// If the row of j does not contain a free var, then the columns of the row
+// will be moved to their boundaries
+int int_solver::check_row_for_gomory_cut(unsigned i) {
+    unsigned j = m_lar_solver->m_mpq_lar_core_solver.m_r_basis[i];
+    const row_strip<mpq>& row = m_lar_solver->A_r().m_rows[i];
+    int free_j = find_free_var_in_gomory_row(row);
+    if (free_j != -1)
+        return free_j;
+    move_row_columns_to_bounds(row);
+    if(is_gomory_cut_target(row)  && column_is_int_inf(j))
+        return j;
+    return -1;
+}
+
+// if it returns a basic column, we create the cut on the corresponding row,
+// if it return a nbasic columns then this columns has to be free and we create a branch,
+// otherwise it return -1, and it means we found a solution
+int int_solver::find_column_for_gomory_cut() {
+    auto & lcs = m_lar_solver->m_mpq_lar_core_solver;
+    unsigned n = lcs.m_r_basis.size();
+    // q is a queue of rows
+    binary_heap_priority_queue<unsigned> q(n);
+    for (unsigned i = 0; i < n; i++) {
+        unsigned l = m_lar_solver->A_r().m_rows[i].size();
+        unsigned priority = l * 100 + random() % 100;
+        q.enqueue(i , priority); 
+    }
+    while (!q.is_empty()) {
+        int j = check_row_for_gomory_cut(q.dequeue());
+        if (j != -1)
+            return j;
+    } 
+    return -1;
+}
+
+lia_move int_solver::calc_gomory_cut(lar_term& t, mpq& k, explanation& ex, bool & upper) {
+    int j = find_column_for_gomory_cut();
+    if (j == -1) {
+        if (!has_inf_int())
+            return lia_move::sat;
+        return lia_move::undef;
+    }
     return proceed_with_gomory_cut(t, k, ex, j, upper);
 }
 
@@ -681,8 +716,8 @@ bool int_solver::move_non_basic_column_to_bounds(unsigned j) {
     auto & val = lcs.m_r_x[j];
     switch (lcs.m_column_types()[j]) {
     case column_type::boxed:
-        if (val != lcs.m_r_lower_bounds()[j] && val != lcs.m_r_upper_bounds()[j]) {
-            if (random() % 2 == 0)
+        if (val != lcs.m_r_lower_bounds()[j] && val != lcs.m_r_upper_bounds()[j]) { 
+            if (val - lcs.m_r_lower_bounds()[j] < lcs.m_r_upper_bounds()[j] - val) // closest rounding!
                 set_value_for_nbasic_column(j, lcs.m_r_lower_bounds()[j]);
             else
                 set_value_for_nbasic_column(j, lcs.m_r_upper_bounds()[j]);
@@ -788,22 +823,20 @@ void int_solver::round_nbasic_columns(const vector<unsigned> & cols) {
          if (is_int(j) && ! get_value(j).is_int())
              set_value_for_nbasic_column(j, flip_coin()? floor(get_value(j)) : ceil(get_value(j)));
      }
-     m_lar_solver->find_feasible_solution();
-     lp_assert(m_lar_solver->get_status() == lp_status::OPTIMAL || m_lar_solver->get_status() == lp_status::FEASIBLE);
+     find_feasible_solution();
 }
 
 bool int_solver::patch_nbasic_columns() {
     settings().st().m_patches++;
     if (!is_feasible()) //todo : investigate how it can happen!
-        m_lar_solver->find_feasible_solution();
-	lp_assert(is_feasible());
+        find_feasible_solution();
 	m_lar_solver->pivot_fixed_vars_from_basis();
     vector<unsigned> columns_to_round; // these are the columns that we are not succedded to patch
     for (unsigned j : m_lar_solver->m_mpq_lar_core_solver.m_r_nbasis) {
-		if (!patch_nbasic_column(j)) {
+        if (!patch_nbasic_column(j)) {
             columns_to_round.push_back(j);
         }
-	}
+    }
     round_nbasic_columns(columns_to_round);
     if (!has_inf_int()) {
         settings().st().m_patches_success++;
