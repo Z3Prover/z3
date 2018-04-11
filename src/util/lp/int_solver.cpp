@@ -674,7 +674,6 @@ int int_solver::check_row_for_gomory_cut(unsigned i) {
     int free_j = find_free_var_in_gomory_row(row);
     if (free_j != -1)
         return free_j;
-    move_row_columns_to_bounds(row);
     if(is_gomory_cut_target(row)  && column_is_int_inf(j))
         return j;
     return -1;
@@ -687,8 +686,10 @@ int int_solver::find_column_for_gomory_cut() {
     auto & lcs = m_lar_solver->m_mpq_lar_core_solver;
     unsigned n = lcs.m_r_basis.size();
     // q is a queue of rows
-    binary_heap_priority_queue<unsigned> q(n);
+    binary_heap_priority_queue<unsigned> q(n); // todo : remove the queue
     for (unsigned i = 0; i < n; i++) {
+        if (column_is_int_inf(lcs.m_r_basis[i]))
+            continue;
         unsigned l = m_lar_solver->A_r().m_rows[i].size();
         unsigned priority = l * 100 + random() % 100;
         q.enqueue(i , priority); 
@@ -703,6 +704,9 @@ int int_solver::find_column_for_gomory_cut() {
 
 lia_move int_solver::calc_gomory_cut(lar_term& t, mpq& k, explanation& ex, bool & upper) {
     int j = find_column_for_gomory_cut();
+    if (j == -1)
+        move_non_basic_columns_to_bounds();
+    j = find_column_for_gomory_cut();
     if (j == -1) {
         if (!has_inf_int())
             return lia_move::sat;
