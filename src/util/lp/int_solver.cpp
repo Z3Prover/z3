@@ -704,8 +704,10 @@ int int_solver::find_column_for_gomory_cut() {
 
 lia_move int_solver::calc_gomory_cut(lar_term& t, mpq& k, explanation& ex, bool & upper) {
     int j = find_column_for_gomory_cut();
-    if (j == -1)
+    if (j == -1) {
         move_non_basic_columns_to_bounds();
+        find_feasible_solution();
+    }
     j = find_column_for_gomory_cut();
     if (j == -1) {
         if (!has_inf_int())
