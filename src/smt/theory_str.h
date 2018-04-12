@@ -395,6 +395,7 @@ protected:
     obj_map<expr, std::set<zstring> > regex_in_var_reg_str_map;
 
     // regex automata
+    scoped_ptr_vector<eautomaton> m_automata;
     ptr_vector<eautomaton> regex_automata;
     obj_hashtable<expr> regex_terms;
     obj_map<expr, ptr_vector<expr> > regex_terms_by_string; // S --> [ (str.in.re S *) ]

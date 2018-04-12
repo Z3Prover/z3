@@ -77,6 +77,9 @@ namespace smt {
 
     theory_str::~theory_str() {
         m_trail_stack.reset();
+        for (eautomaton * aut : regex_automata) {
+            dealloc(aut);
+        }
         regex_automata.clear();
     }
 
@@ -10559,6 +10562,7 @@ namespace smt {
                             if ( (current_assignment == l_true && aut.get_polarity())
                                     || (current_assignment == l_false && !aut.get_polarity())) {
                                 aut_inter = m_mk_aut.mk_product(aut_inter, aut.get_automaton());
+                                m_automata.push_back(aut_inter);
                             } else {
                                 // need to complement first
                                 expr_ref rc(u.re.mk_complement(aut.get_regex_term()), m);
@@ -10567,6 +10571,7 @@ namespace smt {
                                 // TODO is there any way to build a complement automaton from an existing one?
                                 // this discards length information
                                 aut_inter = m_mk_aut.mk_product(aut_inter, aut_c);
+                                m_automata.push_back(aut_inter);
                             }
                             used_intersect_constraints.push_back(aut);
                             if (aut_inter->is_empty()) {
