@@ -298,11 +298,11 @@ class sort_size {
         SS_FINITE_VERY_BIG,
         SS_INFINITE
     } m_kind;
-    uint64 m_size; // It is only meaningful if m_kind == SS_FINITE
-    sort_size(kind_t k, uint64 r):m_kind(k), m_size(r) {}
+    uint64_t m_size; // It is only meaningful if m_kind == SS_FINITE
+    sort_size(kind_t k, uint64_t r):m_kind(k), m_size(r) {}
 public:
     sort_size():m_kind(SS_INFINITE) {}
-    sort_size(uint64 const & sz):m_kind(SS_FINITE), m_size(sz) {}
+    sort_size(uint64_t const & sz):m_kind(SS_FINITE), m_size(sz) {}
     sort_size(sort_size const& other): m_kind(other.m_kind), m_size(other.m_size) {}
     explicit sort_size(rational const& r) {
         if (r.is_uint64()) {
@@ -316,7 +316,7 @@ public:
     }
     static sort_size mk_infinite() { return sort_size(SS_INFINITE, 0); }
     static sort_size mk_very_big() { return sort_size(SS_FINITE_VERY_BIG, 0); }
-    static sort_size mk_finite(uint64 r) { return sort_size(SS_FINITE, r); }
+    static sort_size mk_finite(uint64_t r) { return sort_size(SS_FINITE, r); }
 
     bool is_infinite() const { return m_kind == SS_INFINITE; }
     bool is_very_big() const { return m_kind == SS_FINITE_VERY_BIG; }
@@ -324,7 +324,7 @@ public:
 
     static bool is_very_big_base2(unsigned power) { return power >= 64; }
 
-    uint64 size() const { SASSERT(is_finite()); return m_size; }
+    uint64_t size() const { SASSERT(is_finite()); return m_size; }
 };
 
 std::ostream& operator<<(std::ostream& out, sort_size const & ss);
@@ -346,7 +346,7 @@ public:
         decl_info(family_id, k, num_parameters, parameters, private_parameters) {
     }
 
-    sort_info(family_id family_id, decl_kind k, uint64 num_elements,
+    sort_info(family_id family_id, decl_kind k, uint64_t num_elements,
               unsigned num_parameters = 0, parameter const * parameters = nullptr, bool private_parameters = false):
         decl_info(family_id, k, num_parameters, parameters, private_parameters), m_num_elements(num_elements) {
     }

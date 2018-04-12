@@ -87,7 +87,7 @@ public:
         setup_p();
     }
 
-    mpzzp_manager(numeral_manager & _m, uint64 p, bool prime = true):
+    mpzzp_manager(numeral_manager & _m, uint64_t p, bool prime = true):
         m_manager(_m),
         m_z(false) {
         m().set(m_p, p);
@@ -120,7 +120,7 @@ public:
 
     void set_z() { m_z = true; }
     void set_zp(mpz const & new_p) { m_z = false; m_p_prime = true; m().set(m_p, new_p); setup_p(); }
-    void set_zp(uint64 new_p) { m_z = false; m_p_prime = true; m().set(m_p, new_p); setup_p(); }
+    void set_zp(uint64_t new_p) { m_z = false; m_p_prime = true; m().set(m_p, new_p); setup_p(); }
     // p = p^2
     void set_p_sq() { SASSERT(!m_z); m_p_prime = false; m().mul(m_p, m_p, m_p); setup_p(); }
     void set_zp_swap(mpz & new_p) { SASSERT(!m_z); m().swap(m_p, new_p); setup_p(); }
@@ -230,14 +230,14 @@ public:
     void set(mpz & a, int val) { m().set(a, val); p_normalize(a); }    
     void set(mpz & a, unsigned val) { m().set(a, val); p_normalize(a); }
     void set(mpz & a, char const * val) { m().set(a, val); p_normalize(a); }
-    void set(mpz & a, int64 val) { m().set(a, val); p_normalize(a); }
-    void set(mpz & a, uint64 val) { m().set(a, val); p_normalize(a); }
+    void set(mpz & a, int64_t val) { m().set(a, val); p_normalize(a); }
+    void set(mpz & a, uint64_t val) { m().set(a, val); p_normalize(a); }
     void set(mpz & a, mpz const & val) { m().set(a, val); p_normalize(a); }
 
     bool is_uint64(mpz & a) const { const_cast<mpzzp_manager*>(this)->p_normalize(a); return m().is_uint64(a); }
     bool is_int64(mpz & a) const { const_cast<mpzzp_manager*>(this)->p_normalize(a); return m().is_int64(a); }
-    uint64 get_uint64(mpz & a) const { const_cast<mpzzp_manager*>(this)->p_normalize(a); return m().get_uint64(a); }
-    int64 get_int64(mpz & a) const { const_cast<mpzzp_manager*>(this)->p_normalize(a); return m().get_int64(a); }
+    uint64_t get_uint64(mpz & a) const { const_cast<mpzzp_manager*>(this)->p_normalize(a); return m().get_uint64(a); }
+    int64_t get_int64(mpz & a) const { const_cast<mpzzp_manager*>(this)->p_normalize(a); return m().get_int64(a); }
     double get_double(mpz & a) const { const_cast<mpzzp_manager*>(this)->p_normalize(a); return m().get_double(a); }
     void power(mpz const & a, unsigned k, mpz & b) { 
         SASSERT(is_p_normalized(a));
@@ -265,8 +265,8 @@ public:
 
     bool is_uint64(mpz const & a) const { return m().is_uint64(a); }
     bool is_int64(mpz const & a) const { return m().is_int64(a); }
-    uint64 get_uint64(mpz const & a) const { return m().get_uint64(a); }
-    int64 get_int64(mpz const & a) const { return m().get_int64(a); }
+    uint64_t get_uint64(mpz const & a) const { return m().get_uint64(a); }
+    int64_t get_int64(mpz const & a) const { return m().get_int64(a); }
 
     void mul2k(mpz & a, unsigned k) { m().mul2k(a, k); p_normalize(a); }
     void mul2k(mpz const & a, unsigned k, mpz & r) { m().mul2k(a, k, r); p_normalize(r); }

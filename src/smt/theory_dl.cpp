@@ -182,7 +182,7 @@ namespace smt {
                 
                 if (n->get_decl() != v) {
                     expr* rep = m().mk_app(r, n);
-                    uint64 vl;
+                    uint64_t vl;
                     if (u().is_numeral_ext(n, vl)) {
                         assert_cnstr(m().mk_eq(rep, mk_bv_constant(vl, s)));
                     }
@@ -237,12 +237,12 @@ namespace smt {
             return true;
         }
 
-        app* mk_bv_constant(uint64 val, sort* s) {
+        app* mk_bv_constant(uint64_t val, sort* s) {
             return b().mk_numeral(rational(val, rational::ui64()), 64);
         }
 
         app* max_value(sort* s) {
-            uint64 sz;
+            uint64_t sz;
             VERIFY(u().try_get_size(s, sz));
             SASSERT(sz > 0);
             return mk_bv_constant(sz-1, s);

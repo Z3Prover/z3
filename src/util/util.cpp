@@ -80,7 +80,7 @@ unsigned log2(unsigned v) {
     return r;
 }
 
-unsigned uint64_log2(uint64 v) {
+unsigned uint64_log2(uint64_t v) {
     unsigned r = 0;
     if (v & 0xFFFFFFFF00000000ull) {
         v >>= 32;

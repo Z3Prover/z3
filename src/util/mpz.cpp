@@ -81,7 +81,7 @@ static T gcd_core(T u, T v) {
 }
 
 unsigned u_gcd(unsigned u, unsigned v) { return gcd_core(u, v); }
-uint64 u64_gcd(uint64 u, uint64 v) { return gcd_core(u, v); }
+uint64_t u64_gcd(uint64_t u, uint64_t v) { return gcd_core(u, v); }
 
 template<bool SYNCH>
 mpz_manager<SYNCH>::mpz_manager():
@@ -89,7 +89,7 @@ mpz_manager<SYNCH>::mpz_manager():
     if (SYNCH)
         omp_init_nest_lock(&m_lock);
 #ifndef _MP_GMP
-    if (sizeof(digit_t) == sizeof(uint64)) {
+    if (sizeof(digit_t) == sizeof(uint64_t)) {
         // 64-bit machine
         m_init_cell_capacity = 4;
     }
@@ -101,7 +101,7 @@ mpz_manager<SYNCH>::mpz_manager():
         m_arg[i] = allocate(m_init_cell_capacity);
         m_arg[i]->m_size = 1;
     }
-    set(m_int_min, -static_cast<int64>(INT_MIN));
+    set(m_int_min, -static_cast<int64_t>(INT_MIN));
 #else
     // GMP
     mpz_init(m_tmp);
@@ -122,8 +122,8 @@ mpz_manager<SYNCH>::mpz_manager():
     mpz_init(m_int64_max);
     mpz_init(m_int64_min);
 
-    max_l = static_cast<unsigned>(INT64_MAX % static_cast<int64>(UINT_MAX));
-    max_h = static_cast<unsigned>(INT64_MAX / static_cast<int64>(UINT_MAX));
+    max_l = static_cast<unsigned>(INT64_MAX % static_cast<int64_t>(UINT_MAX));
+    max_h = static_cast<unsigned>(INT64_MAX / static_cast<int64_t>(UINT_MAX));
     mpz_set_ui(m_int64_max, max_h);
     mpz_set_ui(m_tmp, UINT_MAX);
     mpz_mul(m_int64_max, m_tmp, m_int64_max);
@@ -134,7 +134,7 @@ mpz_manager<SYNCH>::mpz_manager():
 #endif
     
     mpz one(1);
-    set(m_two64, (uint64)UINT64_MAX);
+    set(m_two64, (uint64_t)UINT64_MAX);
     add(m_two64, one, m_two64);
 }
 
@@ -162,13 +162,13 @@ mpz_manager<SYNCH>::~mpz_manager() {
 }
 
 template<bool SYNCH>
-void mpz_manager<SYNCH>::set_big_i64(mpz & c, int64 v) {
+void mpz_manager<SYNCH>::set_big_i64(mpz & c, int64_t v) {
 #ifndef _MP_GMP
     if (is_small(c)) {
         c.m_ptr = allocate(m_init_cell_capacity);
     }
     SASSERT(capacity(c) >= m_init_cell_capacity);
-    uint64 _v;
+    uint64_t _v;
     if (v < 0) {
         _v = -v;
         c.m_val = -1;
@@ -177,7 +177,7 @@ void mpz_manager<SYNCH>::set_big_i64(mpz & c, int64 v) {
         _v = v;
         c.m_val = 1;
     }
-    if (sizeof(digit_t) == sizeof(uint64)) {
+    if (sizeof(digit_t) == sizeof(uint64_t)) {
         // 64-bit machine
         digits(c)[0] = static_cast<digit_t>(_v);
         c.m_ptr->m_size = 1;
@@ -192,7 +192,7 @@ void mpz_manager<SYNCH>::set_big_i64(mpz & c, int64 v) {
     if (is_small(c)) {
         c.m_ptr = allocate();
     }
-    uint64 _v;
+    uint64_t _v;
     bool sign;
     if (v < 0) {
         _v   = -v;
@@ -212,14 +212,14 @@ void mpz_manager<SYNCH>::set_big_i64(mpz & c, int64 v) {
 }
 
 template<bool SYNCH>
-void mpz_manager<SYNCH>::set_big_ui64(mpz & c, uint64 v) {
+void mpz_manager<SYNCH>::set_big_ui64(mpz & c, uint64_t v) {
 #ifndef _MP_GMP
     if (is_small(c)) {
         c.m_ptr = allocate(m_init_cell_capacity);
     }
     SASSERT(capacity(c) >= m_init_cell_capacity);
     c.m_val = 1;
-    if (sizeof(digit_t) == sizeof(uint64)) {
+    if (sizeof(digit_t) == sizeof(uint64_t)) {
         // 64-bit machine
         digits(c)[0] = static_cast<digit_t>(v);
         c.m_ptr->m_size = 1;
@@ -726,7 +726,7 @@ void mpz_manager<SYNCH>::gcd(mpz const & a, mpz const & b, mpz & c) {
         // For now, it only works if sizeof(digit_t) == sizeof(unsigned)
         static_assert(sizeof(digit_t) == sizeof(unsigned), "");
         
-        int64 a_hat, b_hat, A, B, C, D, T, q, a_sz, b_sz;
+        int64_t a_hat, b_hat, A, B, C, D, T, q, a_sz, b_sz;
         mpz a1, b1, t, r, tmp;
         set(a1, a);
         set(b1, b);
@@ -766,10 +766,10 @@ void mpz_manager<SYNCH>::gcd(mpz const & a, mpz const & b, mpz & c) {
             D = 1;
             while (true) {
                 // Loop invariants
-                SASSERT(a_hat + A <= static_cast<int64>(UINT_MAX) + 1);
-                SASSERT(a_hat + B <  static_cast<int64>(UINT_MAX) + 1);
-                SASSERT(b_hat + C <  static_cast<int64>(UINT_MAX) + 1);
-                SASSERT(b_hat + D <= static_cast<int64>(UINT_MAX) + 1);
+                SASSERT(a_hat + A <= static_cast<int64_t>(UINT_MAX) + 1);
+                SASSERT(a_hat + B <  static_cast<int64_t>(UINT_MAX) + 1);
+                SASSERT(b_hat + C <  static_cast<int64_t>(UINT_MAX) + 1);
+                SASSERT(b_hat + D <= static_cast<int64_t>(UINT_MAX) + 1);
                 // overflows can't happen since I'm using int64
                 if (b_hat + C == 0 || b_hat + D == 0)
                     break;
@@ -1035,7 +1035,7 @@ void mpz_manager<SYNCH>::bitwise_or(mpz const & a, mpz const & b, mpz & c) {
             mod(a1, m_two64, a2);
             mod(b1, m_two64, b2);
             TRACE("mpz", tout << "a2: " << to_string(a2) << ", b2: " << to_string(b2) << "\n";);
-            uint64 v = get_uint64(a2) | get_uint64(b2);
+            uint64_t v = get_uint64(a2) | get_uint64(b2);
             TRACE("mpz", tout << "uint(a2): " << get_uint64(a2) << ", uint(b2): " << get_uint64(b2) << "\n";);
             set(tmp, v);
             mul(tmp, m, tmp);
@@ -1082,7 +1082,7 @@ void mpz_manager<SYNCH>::bitwise_and(mpz const & a, mpz const & b, mpz & c) {
         while (!is_zero(a1) && !is_zero(b1)) {
             mod(a1, m_two64, a2);
             mod(b1, m_two64, b2);
-            uint64 v = get_uint64(a2) & get_uint64(b2);
+            uint64_t v = get_uint64(a2) & get_uint64(b2);
             set(tmp, v);
             mul(tmp, m, tmp);
             add(c, tmp, c); // c += m * v
@@ -1119,7 +1119,7 @@ void mpz_manager<SYNCH>::bitwise_xor(mpz const & a, mpz const & b, mpz & c) {
         while (!is_zero(a1) && !is_zero(b1)) {
             mod(a1, m_two64, a2);
             mod(b1, m_two64, b2);
-            uint64 v = get_uint64(a2) ^ get_uint64(b2);
+            uint64_t v = get_uint64(a2) ^ get_uint64(b2);
             set(tmp, v);
             mul(tmp, m, tmp);
             add(c, tmp, c); // c += m * v
@@ -1151,7 +1151,7 @@ template<bool SYNCH>
 void mpz_manager<SYNCH>::bitwise_not(unsigned sz, mpz const & a, mpz & c) {
     SASSERT(is_nonneg(a));
     if (is_small(a) && sz <= 63) {
-        int64 mask = (static_cast<int64>(1) << sz) - static_cast<int64>(1);
+        int64_t mask = (static_cast<int64_t>(1) << sz) - static_cast<int64_t>(1);
         set_i64(c, (~ i64(a)) & mask);
     }
     else {
@@ -1161,11 +1161,11 @@ void mpz_manager<SYNCH>::bitwise_not(unsigned sz, mpz const & a, mpz & c) {
         set(c, 0);
         while (sz > 0) {
             mod(a1, m_two64, a2);
-            uint64 n = get_uint64(a2);
-            uint64 v = ~n;
+            uint64_t n = get_uint64(a2);
+            uint64_t v = ~n;
             SASSERT(~v == n);
             if (sz < 64) {
-                uint64 mask = (1ull << static_cast<uint64>(sz)) - 1ull;
+                uint64_t mask = (1ull << static_cast<uint64_t>(sz)) - 1ull;
                 v = mask & v;
             }
             TRACE("bitwise_not", tout << "sz: " << sz << ", v: " << v << ", n: " << n << "\n";);
@@ -1265,7 +1265,7 @@ bool mpz_manager<SYNCH>::is_uint64(mpz const & a) const {
         return false;
     if (is_small(a))
         return true;
-    if (sizeof(digit_t) == sizeof(uint64)) {
+    if (sizeof(digit_t) == sizeof(uint64_t)) {
         return size(a) <= 1;
     }
     else {
@@ -1286,9 +1286,9 @@ bool mpz_manager<SYNCH>::is_int64(mpz const & a) const {
 #ifndef _MP_GMP
     if (!is_abs_uint64(a)) 
         return false;
-    uint64 num = big_abs_to_uint64(a);
-    uint64 msb = static_cast<uint64>(1) << 63;
-    uint64 msb_val = msb & num;
+    uint64_t num = big_abs_to_uint64(a);
+    uint64_t msb = static_cast<uint64_t>(1) << 63;
+    uint64_t msb_val = msb & num;
     if (a.m_val >= 0) {
         // non-negative number.
         return (0 == msb_val);
@@ -1307,54 +1307,54 @@ bool mpz_manager<SYNCH>::is_int64(mpz const & a) const {
 }
 
 template<bool SYNCH>
-uint64 mpz_manager<SYNCH>::get_uint64(mpz const & a) const {
+uint64_t mpz_manager<SYNCH>::get_uint64(mpz const & a) const {
     if (is_small(a)) 
-        return static_cast<uint64>(a.m_val);
+        return static_cast<uint64_t>(a.m_val);
 #ifndef _MP_GMP
     SASSERT(a.m_ptr->m_size > 0);
     return big_abs_to_uint64(a);
 #else
     // GMP version
-    if (sizeof(uint64) == sizeof(unsigned long)) {
+    if (sizeof(uint64_t) == sizeof(unsigned long)) {
         return mpz_get_ui(*a.m_ptr);
     }
     else {
         mpz_manager * _this = const_cast<mpz_manager*>(this);
         mpz_set(_this->m_tmp, *a.m_ptr);
         mpz_mod(_this->m_tmp, m_tmp, m_two32);
-        uint64 r = static_cast<uint64>(mpz_get_ui(m_tmp));
+        uint64_t r = static_cast<uint64_t>(mpz_get_ui(m_tmp));
         mpz_set(_this->m_tmp, *a.m_ptr);
         mpz_div(_this->m_tmp, m_tmp, m_two32);
-        r += static_cast<uint64>(mpz_get_ui(m_tmp)) << static_cast<uint64>(32);
+        r += static_cast<uint64_t>(mpz_get_ui(m_tmp)) << static_cast<uint64_t>(32);
         return r;
     }
 #endif
 }
 
 template<bool SYNCH>
-int64 mpz_manager<SYNCH>::get_int64(mpz const & a) const {
+int64_t mpz_manager<SYNCH>::get_int64(mpz const & a) const {
     if (is_small(a))
-        return static_cast<int64>(a.m_val);
+        return static_cast<int64_t>(a.m_val);
 #ifndef _MP_GMP
     SASSERT(is_int64(a));
-    uint64 num = big_abs_to_uint64(a);
+    uint64_t num = big_abs_to_uint64(a);
     if (a.m_val < 0) {
         if (num != 0 && (num << 1) == 0)
             return INT64_MIN;
-        return -static_cast<int64>(num);
+        return -static_cast<int64_t>(num);
     }
-    return static_cast<int64>(num);
+    return static_cast<int64_t>(num);
 #else
     // GMP
-    if (sizeof(int64) == sizeof(long) || mpz_fits_slong_p(*a.m_ptr)) {
+    if (sizeof(int64_t) == sizeof(long) || mpz_fits_slong_p(*a.m_ptr)) {
         return mpz_get_si(*a.m_ptr);
     }
     else {
         mpz_manager * _this = const_cast<mpz_manager*>(this);
         mpz_mod(_this->m_tmp, *a.m_ptr, m_two32);
-        int64 r = static_cast<int64>(mpz_get_ui(m_tmp));
+        int64_t r = static_cast<int64_t>(mpz_get_ui(m_tmp));
         mpz_div(_this->m_tmp, *a.m_ptr, m_two32);
-        r += static_cast<int64>(mpz_get_si(m_tmp)) << static_cast<int64>(32);
+        r += static_cast<int64_t>(mpz_get_si(m_tmp)) << static_cast<int64_t>(32);
         return r;
     }
 #endif
@@ -1370,7 +1370,7 @@ double mpz_manager<SYNCH>::get_double(mpz const & a) const {
     unsigned sz = size(a);
     for (unsigned i = 0; i < sz; i++) {
         r += d * static_cast<double>(digits(a)[i]);
-        if (sizeof(digit_t) == sizeof(uint64))
+        if (sizeof(digit_t) == sizeof(uint64_t))
             d *= static_cast<double>(UINT64_MAX); // 64-bit version
         else
             d *= static_cast<double>(UINT_MAX);   // 32-bit version
@@ -1696,7 +1696,7 @@ void mpz_manager<SYNCH>::mul2k(mpz & a, unsigned k) {
     if (k == 0 || is_zero(a))
         return;
     if (is_small(a) && k < 32) {
-        set_i64(a, i64(a) * (static_cast<int64>(1) << k));
+        set_i64(a, i64(a) * (static_cast<int64_t>(1) << k));
         return;
     }
 #ifndef _MP_GMP
@@ -1798,9 +1798,9 @@ unsigned mpz_manager<SYNCH>::power_of_two_multiple(mpz const & a) {
             if (sizeof(digit_t) == 8) {
                 // TODO: we can remove this if after we move to MPN
                 // In MPN the digit_t is always an unsigned integer
-                if (static_cast<uint64>(v) % (static_cast<uint64>(1) << 32) == 0) {
+                if (static_cast<uint64_t>(v) % (static_cast<uint64_t>(1) << 32) == 0) {
                     r += 32;                     
-                    v = static_cast<digit_t>(static_cast<uint64>(v) / (static_cast<uint64>(1) << 32));
+                    v = static_cast<digit_t>(static_cast<uint64_t>(v) / (static_cast<uint64_t>(1) << 32));
                 }                                
             }
             COUNT_DIGIT_RIGHT_ZEROS();

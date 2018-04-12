@@ -267,6 +267,15 @@ namespace z3 {
            and in \c ts the predicates for testing if terms of the enumeration sort correspond to an enumeration.
         */
         sort enumeration_sort(char const * name, unsigned n, char const * const * enum_names, func_decl_vector & cs, func_decl_vector & ts);
+
+        /**
+           \brief Return a tuple constructor.
+           \c name is the name of the returned constructor,
+           \c n are the number of arguments, \c names and \c sorts are their projected sorts.
+           \c projs is an output paramter. It contains the set of projection functions.
+        */
+        func_decl tuple_sort(char const * name, unsigned n, char const * const * names, sort const* sorts, func_decl_vector & projs);
+
         /**
            \brief create an uninterpreted sort with the name given by the string or symbol.
          */
@@ -294,21 +303,21 @@ namespace z3 {
 
         expr int_val(int n);
         expr int_val(unsigned n);
-        expr int_val(__int64 n);
-        expr int_val(__uint64 n);
+        expr int_val(int64_t n);
+        expr int_val(uint64_t n);
         expr int_val(char const * n);
 
         expr real_val(int n, int d);
         expr real_val(int n);
         expr real_val(unsigned n);
-        expr real_val(__int64 n);
-        expr real_val(__uint64 n);
+        expr real_val(int64_t n);
+        expr real_val(uint64_t n);
         expr real_val(char const * n);
 
         expr bv_val(int n, unsigned sz);
         expr bv_val(unsigned n, unsigned sz);
-        expr bv_val(__int64 n, unsigned sz);
-        expr bv_val(__uint64 n, unsigned sz);
+        expr bv_val(int64_t n, unsigned sz);
+        expr bv_val(uint64_t n, unsigned sz);
         expr bv_val(char const * n, unsigned sz);
         expr bv_val(unsigned n, bool const* bits);
 
@@ -660,8 +669,8 @@ namespace z3 {
            small integers, 64 bit integers or rational or decimal strings.
         */
         bool is_numeral() const { return kind() == Z3_NUMERAL_AST; }
-        bool is_numeral_i64(__int64& i) const { bool r = 0 != Z3_get_numeral_int64(ctx(), m_ast, &i); check_error(); return r;}
-        bool is_numeral_u64(__uint64& i) const { bool r = 0 != Z3_get_numeral_uint64(ctx(), m_ast, &i); check_error(); return r;}
+        bool is_numeral_i64(int64_t& i) const { bool r = 0 != Z3_get_numeral_int64(ctx(), m_ast, &i); check_error(); return r;}
+        bool is_numeral_u64(uint64_t& i) const { bool r = 0 != Z3_get_numeral_uint64(ctx(), m_ast, &i); check_error(); return r;}
         bool is_numeral_i(int& i) const { bool r = 0 != Z3_get_numeral_int(ctx(), m_ast, &i); check_error(); return r;}
         bool is_numeral_u(unsigned& i) const { bool r = 0 != Z3_get_numeral_uint(ctx(), m_ast, &i); check_error(); return r;}
         bool is_numeral(std::string& s) const { if (!is_numeral()) return false; s = Z3_get_numeral_string(ctx(), m_ast); check_error(); return true; }
@@ -744,35 +753,35 @@ namespace z3 {
         }
         
         /**
-           \brief Return __int64 value of numeral, throw if result cannot fit in
-           __int64
+           \brief Return \c int64_t value of numeral, throw if result cannot fit in
+           \c int64_t.
            
            \pre is_numeral()
         */
-        __int64 get_numeral_int64() const {
+        int64_t get_numeral_int64() const {
             assert(is_numeral());
-            __int64 result = 0;
+            int64_t result = 0;
             if (!is_numeral_i64(result)) {
                 assert(ctx().enable_exceptions());
                 if (!ctx().enable_exceptions()) return 0;
-                Z3_THROW(exception("numeral does not fit in machine __int64"));
+                Z3_THROW(exception("numeral does not fit in machine int64_t"));
             }
             return result;
         }
         
         /**
-           \brief Return __uint64 value of numeral, throw if result cannot fit in
-           __uint64
+           \brief Return \c uint64_t value of numeral, throw if result cannot fit in
+           \c uint64_t.
            
            \pre is_numeral()
         */
-        __uint64 get_numeral_uint64() const {
+        uint64_t get_numeral_uint64() const {
             assert(is_numeral());
-            __uint64 result = 0;
+            uint64_t result = 0;
             if (!is_numeral_u64(result)) {
                 assert(ctx().enable_exceptions());
                 if (!ctx().enable_exceptions()) return 0;
-                Z3_THROW(exception("numeral does not fit in machine __uint64"));
+                Z3_THROW(exception("numeral does not fit in machine uint64_t"));
             }
             return result;
         }
@@ -2432,6 +2441,19 @@ namespace z3 {
         for (unsigned i = 0; i < n; i++) { cs.push_back(func_decl(*this, _cs[i])); ts.push_back(func_decl(*this, _ts[i])); }
         return s;
     }
+    inline func_decl context::tuple_sort(char const * name, unsigned n, char const * const * names, sort const* sorts, func_decl_vector & projs) {
+        array<Z3_symbol> _names(n);
+        array<Z3_sort> _sorts(n);
+        for (unsigned i = 0; i < n; i++) { _names[i] = Z3_mk_string_symbol(*this, names[i]); _sorts[i] = sorts[i]; }
+        array<Z3_func_decl> _projs(n);
+        Z3_symbol _name = Z3_mk_string_symbol(*this, name);
+        Z3_func_decl tuple;
+        sort _ignore_s = to_sort(*this, Z3_mk_tuple_sort(*this, _name, n, _names.ptr(), _sorts.ptr(), &tuple, _projs.ptr()));
+        check_error();
+        for (unsigned i = 0; i < n; i++) { projs.push_back(func_decl(*this, _projs[i])); }
+        return func_decl(*this, tuple);
+    }
+
     inline sort context::uninterpreted_sort(char const* name) {
         Z3_symbol _name = Z3_mk_string_symbol(*this, name);
         return to_sort(*this, Z3_mk_uninterpreted_sort(*this, _name));
@@ -2526,21 +2548,21 @@ namespace z3 {
 
     inline expr context::int_val(int n) { Z3_ast r = Z3_mk_int(m_ctx, n, int_sort()); check_error(); return expr(*this, r); }
     inline expr context::int_val(unsigned n) { Z3_ast r = Z3_mk_unsigned_int(m_ctx, n, int_sort()); check_error(); return expr(*this, r); }
-    inline expr context::int_val(__int64 n) { Z3_ast r = Z3_mk_int64(m_ctx, n, int_sort()); check_error(); return expr(*this, r); }
-    inline expr context::int_val(__uint64 n) { Z3_ast r = Z3_mk_unsigned_int64(m_ctx, n, int_sort()); check_error(); return expr(*this, r); }
+    inline expr context::int_val(int64_t n) { Z3_ast r = Z3_mk_int64(m_ctx, n, int_sort()); check_error(); return expr(*this, r); }
+    inline expr context::int_val(uint64_t n) { Z3_ast r = Z3_mk_unsigned_int64(m_ctx, n, int_sort()); check_error(); return expr(*this, r); }
     inline expr context::int_val(char const * n) { Z3_ast r = Z3_mk_numeral(m_ctx, n, int_sort()); check_error(); return expr(*this, r); }
 
     inline expr context::real_val(int n, int d) { Z3_ast r = Z3_mk_real(m_ctx, n, d); check_error(); return expr(*this, r); }
     inline expr context::real_val(int n) { Z3_ast r = Z3_mk_int(m_ctx, n, real_sort()); check_error(); return expr(*this, r); }
     inline expr context::real_val(unsigned n) { Z3_ast r = Z3_mk_unsigned_int(m_ctx, n, real_sort()); check_error(); return expr(*this, r); }
-    inline expr context::real_val(__int64 n) { Z3_ast r = Z3_mk_int64(m_ctx, n, real_sort()); check_error(); return expr(*this, r); }
-    inline expr context::real_val(__uint64 n) { Z3_ast r = Z3_mk_unsigned_int64(m_ctx, n, real_sort()); check_error(); return expr(*this, r); }
+    inline expr context::real_val(int64_t n) { Z3_ast r = Z3_mk_int64(m_ctx, n, real_sort()); check_error(); return expr(*this, r); }
+    inline expr context::real_val(uint64_t n) { Z3_ast r = Z3_mk_unsigned_int64(m_ctx, n, real_sort()); check_error(); return expr(*this, r); }
     inline expr context::real_val(char const * n) { Z3_ast r = Z3_mk_numeral(m_ctx, n, real_sort()); check_error(); return expr(*this, r); }
 
     inline expr context::bv_val(int n, unsigned sz) { sort s = bv_sort(sz); Z3_ast r = Z3_mk_int(m_ctx, n, s); check_error(); return expr(*this, r); }
     inline expr context::bv_val(unsigned n, unsigned sz) { sort s = bv_sort(sz); Z3_ast r = Z3_mk_unsigned_int(m_ctx, n, s); check_error(); return expr(*this, r); }
-    inline expr context::bv_val(__int64 n, unsigned sz) { sort s = bv_sort(sz); Z3_ast r = Z3_mk_int64(m_ctx, n, s); check_error(); return expr(*this, r); }
-    inline expr context::bv_val(__uint64 n, unsigned sz) { sort s = bv_sort(sz); Z3_ast r = Z3_mk_unsigned_int64(m_ctx, n, s); check_error(); return expr(*this, r); }
+    inline expr context::bv_val(int64_t n, unsigned sz) { sort s = bv_sort(sz); Z3_ast r = Z3_mk_int64(m_ctx, n, s); check_error(); return expr(*this, r); }
+    inline expr context::bv_val(uint64_t n, unsigned sz) { sort s = bv_sort(sz); Z3_ast r = Z3_mk_unsigned_int64(m_ctx, n, s); check_error(); return expr(*this, r); }
     inline expr context::bv_val(char const * n, unsigned sz) { sort s = bv_sort(sz); Z3_ast r = Z3_mk_numeral(m_ctx, n, s); check_error(); return expr(*this, r); }
     inline expr context::bv_val(unsigned n, bool const* bits) { 
         array<Z3_bool> _bits(n);

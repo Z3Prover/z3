@@ -40,8 +40,8 @@ struct z3_replayer::imp {
     int                      m_line;  // line
     svector<char>            m_string;
     symbol                   m_id;
-    __int64                  m_int64;
-    __uint64                 m_uint64;
+    int64_t                  m_int64;
+    uint64_t                 m_uint64;
     double                   m_double;
     float                    m_float;
     size_t                   m_ptr;
@@ -85,8 +85,8 @@ struct z3_replayer::imp {
     struct value {
         value_kind m_kind;
         union {
-            __int64      m_int;
-            __uint64     m_uint;
+            int64_t      m_int;
+            uint64_t     m_uint;
             double       m_double;
             char const * m_str;
             void *       m_obj;
@@ -95,8 +95,8 @@ struct z3_replayer::imp {
         value():m_kind(OBJECT), m_int(0) {}
         value(void * obj):m_kind(OBJECT), m_obj(obj) {}
         value(value_kind k, char const * str):m_kind(k), m_str(str) {}
-        value(value_kind k, __uint64 u):m_kind(k), m_uint(u) {}
-        value(value_kind k, __int64 i):m_kind(k), m_int(i) {}
+        value(value_kind k, uint64_t u):m_kind(k), m_uint(u) {}
+        value(value_kind k, int64_t i):m_kind(k), m_int(i) {}
         value(value_kind k, double d):m_kind(k), m_double(d) {}
         value(value_kind k, float f):m_kind(k), m_float(f) {}
     };
@@ -342,7 +342,7 @@ struct z3_replayer::imp {
         unsigned   asz = m_args.size();
         if (sz > asz)
             throw z3_replayer_exception("invalid array size");
-        __uint64   aidx;
+        uint64_t   aidx;
         value_kind nk;
         for (unsigned i = asz - sz; i < asz; i++) {
             if (m_args[i].m_kind != k)
@@ -400,7 +400,7 @@ struct z3_replayer::imp {
 #define TICK_FREQUENCY 100000
 
     void parse() {
-        unsigned long long counter = 0;
+        uint64_t counter = 0;
         unsigned tick = 0;
         while (true) {
             IF_VERBOSE(1, {
@@ -577,7 +577,7 @@ struct z3_replayer::imp {
         return static_cast<int>(m_args[pos].m_int);
     }
 
-    __int64 get_int64(unsigned pos) const {
+    int64_t get_int64(unsigned pos) const {
         check_arg(pos, INT64);
         return m_args[pos].m_int;
     }
@@ -587,7 +587,7 @@ struct z3_replayer::imp {
         return static_cast<unsigned>(m_args[pos].m_uint);
     }
 
-    __uint64 get_uint64(unsigned pos) const {
+    uint64_t get_uint64(unsigned pos) const {
         check_arg(pos, UINT64);
         return m_args[pos].m_uint;
     }
@@ -656,7 +656,7 @@ struct z3_replayer::imp {
         return reinterpret_cast<int*>(&(m_args[pos].m_int));
     }
 
-    __int64 * get_int64_addr(unsigned pos) {
+    int64_t * get_int64_addr(unsigned pos) {
         check_arg(pos, INT64);
         return &(m_args[pos].m_int);
     }
@@ -666,7 +666,7 @@ struct z3_replayer::imp {
         return reinterpret_cast<unsigned*>(&(m_args[pos].m_uint));
     }
 
-    __uint64 * get_uint64_addr(unsigned pos) {
+    uint64_t * get_uint64_addr(unsigned pos) {
         check_arg(pos, UINT64);
         return &(m_args[pos].m_uint);
     }
@@ -731,11 +731,11 @@ unsigned z3_replayer::get_uint(unsigned pos) const {
     return m_imp->get_uint(pos);
 }
 
-__int64 z3_replayer::get_int64(unsigned pos) const {
+int64_t z3_replayer::get_int64(unsigned pos) const {
     return m_imp->get_int64(pos);
 }
 
-__uint64 z3_replayer::get_uint64(unsigned pos) const {
+uint64_t z3_replayer::get_uint64(unsigned pos) const {
     return m_imp->get_uint64(pos);
 }
 
@@ -783,7 +783,7 @@ int * z3_replayer::get_int_addr(unsigned pos) {
     return m_imp->get_int_addr(pos);
 }
 
-__int64 * z3_replayer::get_int64_addr(unsigned pos) {
+int64_t * z3_replayer::get_int64_addr(unsigned pos) {
     return m_imp->get_int64_addr(pos);
 }
 
@@ -791,7 +791,7 @@ unsigned * z3_replayer::get_uint_addr(unsigned pos) {
     return m_imp->get_uint_addr(pos);
 }
 
-__uint64 * z3_replayer::get_uint64_addr(unsigned pos) {
+uint64_t * z3_replayer::get_uint64_addr(unsigned pos) {
     return m_imp->get_uint64_addr(pos);
 }
 

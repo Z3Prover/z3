@@ -35,7 +35,7 @@ typedef enum {
     MPF_ROUND_TOWARD_ZERO
 } mpf_rounding_mode;
 
-typedef int64 mpf_exp_t;
+typedef int64_t mpf_exp_t;
 
 class mpf {
     friend class mpf_manager;
@@ -80,7 +80,7 @@ public:
     void set(mpf & o, unsigned ebits, unsigned sbits, mpf_rounding_mode rm, mpq const & value);
     void set(mpf & o, unsigned ebits, unsigned sbits, mpf_rounding_mode rm, char const * value);
     void set(mpf & o, unsigned ebits, unsigned sbits, mpf_rounding_mode rm, mpz const & exponent, mpq const & significand);
-    void set(mpf & o, unsigned ebits, unsigned sbits, bool sign, mpf_exp_t exponent, uint64 significand);
+    void set(mpf & o, unsigned ebits, unsigned sbits, bool sign, mpf_exp_t exponent, uint64_t significand);
     void set(mpf & o, unsigned ebits, unsigned sbits, bool sign, mpf_exp_t exponent, mpz const & significand);
     void set(mpf & o, mpf const & x);
     void set(mpf & o, unsigned ebits, unsigned sbits, mpf_rounding_mode rm, mpf const & x);

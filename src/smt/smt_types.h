@@ -21,6 +21,7 @@ Revision History:
 
 #include "util/list.h"
 #include "util/vector.h"
+#include "util/hashtable.h"
 #include "util/lbool.h"
 
 class model;
