@@ -54,7 +54,8 @@ namespace sat {
         PB_SOLVER,
         PB_CIRCUIT,
         PB_SORTING,
-        PB_TOTALIZER
+        PB_TOTALIZER,
+        PB_SEGMENTED
     };
 
     enum reward_t {

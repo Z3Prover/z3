@@ -178,8 +178,10 @@ namespace sat {
             m_pb_solver = PB_TOTALIZER;
         else if (s == symbol("solver")) 
             m_pb_solver = PB_SOLVER;
+        else if (s == symbol("segmented")) 
+            m_pb_solver = PB_SEGMENTED;
         else 
-            throw sat_param_exception("invalid PB solver: solver, totalizer, circuit, sorting");
+            throw sat_param_exception("invalid PB solver: solver, totalizer, circuit, sorting, segmented");
 
         m_card_solver = p.cardinality_solver();
 
