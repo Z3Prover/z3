@@ -251,4 +251,16 @@ if (BUILD_JAVA_BINDINGS)
   add_subdirectory(api/java)
 endif()
 
-# TODO: Implement support for other bindigns
+################################################################################
+# OCaml bindings
+################################################################################
+option(BUILD_ML_BINDINGS "Build OCaml bindings for Z3" OFF)
+if (BUILD_ML_BINDINGS)
+  if (NOT BUILD_LIBZ3_SHARED)
+    message(FATAL_ERROR "The OCaml bindings will not work with a static libz3. "
+      "You either need to disable BUILD_ML_BINDINGS or enable BUILD_LIBZ3_SHARED")
+  endif()
+  add_subdirectory(api/ml)
+endif()
+
+# TODO: Implement support for other bindings
