@@ -31,4 +31,10 @@ void theory_str_params::updt_params(params_ref const & _p) {
     m_UseBinarySearch = p.str_use_binary_search();
     m_BinarySearchInitialUpperBound = p.str_binary_search_start();
     m_OverlapTheoryAwarePriority = p.str_overlap_priority();
+    m_RegexAutomata = p.str_regex_automata();
+    m_RegexAutomata_DifficultyThreshold = p.str_regex_automata_difficulty_threshold();
+    m_RegexAutomata_IntersectionDifficultyThreshold = p.str_regex_automata_intersection_difficulty_threshold();
+    m_RegexAutomata_FailedAutomatonThreshold = p.str_regex_automata_failed_automaton_threshold();
+    m_RegexAutomata_FailedIntersectionThreshold = p.str_regex_automata_failed_intersection_threshold();
+    m_RegexAutomata_LengthAttemptThreshold = p.str_regex_automata_length_attempt_threshold();
 }
