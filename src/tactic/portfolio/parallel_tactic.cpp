@@ -208,6 +208,8 @@ class parallel_tactic : public tactic {
 
         solver& get_solver() { return *m_solver; }
 
+        solver* copy_solver() { return m_solver->translate(m_solver->get_manager(), m_params); }
+
         solver const& get_solver() const { return *m_solver; }
 
         solver_state* clone() {
@@ -405,11 +407,8 @@ private:
 
     void cube_and_conquer(solver_state& s) {
         ast_manager& m = s.m();
-        // expr_ref_vector cube(m), hard_cubes(m);
         vector<cube_var> cube, hard_cubes, cubes;
         expr_ref_vector vars(m);
-
-        add_branches(1);
 
         switch (s.type()) {
         case cube_task: goto cube;
@@ -497,6 +496,142 @@ private:
         goto cube;        
     }
 
+    void cube_and_conquer2(solver_state& s) {
+        ast_manager& m = s.m();
+        vector<cube_var> cube, hard_cubes, cubes;
+        expr_ref_vector vars(m);
+        SASSERT(s.type() == cube_task);
+
+        // extract up to one cube and add it.
+        cube.reset();
+        cube.append(s.split_cubes(1));
+        SASSERT(cube.size() <= 1);
+        IF_VERBOSE(2, verbose_stream() << "(tactic.parallel :split-cube " << cube.size() << ")\n";);
+        if (!s.cubes().empty()) m_queue.add_task(s.clone());
+        if (!cube.empty()) {
+            s.assert_cube(cube.get(0).cube());
+            vars.reset();
+            vars.append(cube.get(0).vars());
+        }
+        s.inc_depth(1);
+
+        // simplify
+        switch (s.simplify()) {
+        case l_undef: break;
+        case l_true:  report_sat(s); return;
+        case l_false: report_unsat(s); return;                
+        }
+        if (canceled(s)) return;
+        
+        // extract cubes.
+        cubes.reset();
+        s.set_cube_params();
+        solver_ref conquer = s.copy_solver();
+        unsigned cutoff = UINT_MAX;
+        while (true) {
+            expr_ref_vector c = s.get_solver().cube(vars, cutoff);
+            if (c.empty()) {
+                report_undef(s);
+                return;
+            }
+            if (m.is_false(c.back())) {                
+                break;
+            }
+            lbool is_sat = conquer->check_sat(c);
+            switch (is_sat) {
+            case l_false: {
+                // TBD: minimize core instead.
+                expr_ref_vector core(m);
+                conquer->get_unsat_core(core);
+                obj_hashtable<expr> hcore;
+                for (expr* e : core) hcore.insert(e);
+                for (unsigned i = c.size(); i-- > 0; ) {
+                    if (hcore.contains(c[i].get())) {
+                        cutoff = i;
+                        break;
+                    }
+                }
+                break;
+            }
+            case l_true:
+                report_sat(s);
+                return;
+            case l_undef:
+                IF_VERBOSE(2, verbose_stream() << "(tactic.parallel :cube " << cubes.size() << " :vars " << vars.size() << ")\n"); 
+                cubes.push_back(cube_var(mk_and(c), vars));
+                cutoff = UINT_MAX;
+                break;
+            }
+            // TBD flush cube task early
+        }
+        
+        IF_VERBOSE(1, verbose_stream() << "(tactic.parallel :cubes " << cubes.size() << ")\n";);
+
+        if (cubes.empty()) {
+            report_unsat(s);
+            return;
+        }
+        else {
+            s.inc_width(cubes.size());
+            add_branches(cubes.size() - 1);
+            NOT_IMPLEMENTED_YET();
+            // TBD add as a cube task.
+        }        
+    }
+
+    expr_ref_vector baktrack(expr_ref_vector const& c) {
+
+    }
+
+#if 0
+        public BoolExpr[] Backtrack(Statistics stats, BoolExpr[] _asms)
+        {
+            int count = _asms.Count();
+            stats.Stopwatch.Start();
+            var asms = new List<BoolExpr>(_asms);
+            _Backtrack(stats, asms);
+            stats.AddBacktrackStats((uint)(count - asms.Count()), stats.Stopwatch.Elapsed());
+            return asms.ToArray();
+        }
+
+        public void _Backtrack(Statistics stats, List<BoolExpr> asms)
+        {
+            HashSet<BoolExpr> core = new HashSet<BoolExpr>(Solver.UnsatCore);
+            while (asms.Count > 0 && !core.Contains(asms.Last()))
+            {
+                asms.RemoveAt(asms.Count - 1);
+            }
+            stats.Cores++;
+            Solver.Add(!Context.MkAnd(core));
+            if (asms.Count > 0)
+            {
+                BoolExpr last = asms.Last();
+                BoolExpr not_last = last.IsNot ? (BoolExpr)last.Args[0] : Context.MkNot(last);
+                asms.RemoveAt(asms.Count - 1);
+                asms.Add(not_last);
+                Status status = CheckSat(null, asms);
+                asms.RemoveAt(asms.Count - 1);
+                if (status != Status.UNSATISFIABLE)
+                {
+                    asms.Add(last);
+                    return;
+                }
+                core = new HashSet<BoolExpr>(Solver.UnsatCore);
+                if (core.Contains(not_last))
+                {
+                    stats.Cores++;
+                    Solver.Add(!Context.MkAnd(core));
+                    status = CheckSat(null, asms);
+                }
+                if (status == Status.UNSATISFIABLE)
+                {
+                    _Backtrack(stats, asms);
+                }
+            }
+        }
+
+#endif
+
     bool canceled(solver_state& s) {
         if (s.canceled()) {
             m_has_undef = true;
@@ -509,6 +644,7 @@ private:
 
     void run_solver() {
         try {
+            add_branches(1);
             while (solver_state* st = m_queue.get_task()) {
                 cube_and_conquer(*st);
                 collect_statistics(*st);
