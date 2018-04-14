@@ -1503,7 +1503,7 @@ namespace sat {
         m_restarts                = 0;
         m_simplifications         = 0;
         m_conflicts_since_init    = 0;
-        m_next_simplify           = 0;
+        m_next_simplify           = m_config.m_simplify_delay;
         m_min_d_tk                = 1.0;
         m_search_lvl              = 0;
         m_conflicts_since_gc      = 0;

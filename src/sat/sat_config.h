@@ -116,6 +116,7 @@ namespace sat {
         unsigned           m_simplify_mult1;
         double             m_simplify_mult2;
         unsigned           m_simplify_max;
+        unsigned           m_simplify_delay;
 
         unsigned           m_variable_decay;
 
@@ -125,6 +126,7 @@ namespace sat {
         unsigned           m_gc_small_lbd;
         unsigned           m_gc_k;
         bool               m_gc_burst;
+
 
         bool               m_minimize_lemmas;
         bool               m_dyn_sub_res;

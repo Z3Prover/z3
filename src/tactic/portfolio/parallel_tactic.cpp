@@ -107,6 +107,11 @@ class parallel_tactic : public tactic {
             }            
         } 
 
+        bool is_idle() {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            return m_tasks.empty() && m_num_waiters > 0;
+        }
+
         solver_state* get_task() { 
             while (!m_shutdown) {
                 inc_wait();
@@ -153,19 +158,21 @@ class parallel_tactic : public tactic {
 
     class cube_var {
         expr_ref_vector m_vars;
-        expr_ref        m_cube;
+        expr_ref_vector m_cube;
     public:
-        cube_var(expr* c, expr_ref_vector& vs):
-            m_vars(vs), m_cube(c, vs.get_manager()) {}
+        cube_var(expr_ref_vector& c, expr_ref_vector& vs):
+            m_vars(vs), m_cube(c) {}
 
         cube_var operator()(ast_translation& tr) {
             expr_ref_vector vars(tr.to());
+            expr_ref_vector cube(tr.to());
             for (expr* v : m_vars) vars.push_back(tr(v));
-            return cube_var(tr(m_cube.get()), vars);
+            for (expr* c : m_cube) cube.push_back(tr(c));
+            return cube_var(cube, vars);
         }
 
-        expr* cube() const { return m_cube; }
-        expr_ref_vector const& vars() { return m_vars; }
+        expr_ref_vector const& cube() const { return m_cube; }
+        expr_ref_vector const& vars() const { return m_vars; }
     };
 
     class solver_state {
@@ -178,17 +185,6 @@ class parallel_tactic : public tactic {
         unsigned        m_depth;                  // number of nested calls to cubing
         double          m_width;                  // estimate of fraction of problem handled by state
         unsigned        m_restart_max;            // saved configuration value
-
-        expr_ref_vector cube_literals(expr* cube) {
-            expr_ref_vector literals(m());
-            if (m().is_and(cube)) {
-                literals.append(to_app(cube)->get_num_args(), to_app(cube)->get_args());
-            }
-            else {
-                literals.push_back(cube);
-            }
-            return literals;
-        }
 
     public:
         solver_state(ast_manager* m, solver* s, params_ref const& p, task_type t): 
@@ -212,12 +208,12 @@ class parallel_tactic : public tactic {
 
         solver const& get_solver() const { return *m_solver; }
 
-        solver_state* clone() {
+        solver_state* clone(solver* s0 = nullptr) {
             SASSERT(!m_cubes.empty());
             ast_manager& m = m_solver->get_manager();
             ast_manager* new_m = alloc(ast_manager, m, !m.proof_mode());
             ast_translation tr(m, *new_m);
-            solver* s = m_solver->translate(*new_m, m_params);
+            solver* s = (s0 ? s0 : m_solver.get())->translate(*new_m, m_params);
             solver_state* st = alloc(solver_state, new_m, s, m_params, m_type);
             for (auto & c : m_cubes) st->m_cubes.push_back(c(tr));
             for (expr* c : m_asserted_cubes) st->m_asserted_cubes.push_back(tr(c));
@@ -284,15 +280,14 @@ class parallel_tactic : public tactic {
             return r;            
         }
 
-        void assert_cube(expr* cube) {
+        void assert_cube(expr_ref_vector const& cube) {
             get_solver().assert_expr(cube);
-            m_asserted_cubes.append(cube_literals(cube));            
+            m_asserted_cubes.append(cube);
         }
 
-        lbool solve(expr* cube) {
+        lbool solve(expr_ref_vector const& cube) {
             set_conquer_params();
-            expr_ref_vector literals = cube_literals(cube);
-            return get_solver().check_sat(literals);
+            return get_solver().check_sat(cube);
         }        
 
         void set_cube_params() {
@@ -300,22 +295,33 @@ class parallel_tactic : public tactic {
         }
         
         void set_conquer_params() {            
-            m_params.set_bool("gc.initial", true);
-            m_params.set_bool("lookahead_simplify", false);
-            m_params.set_uint("restart.max", m_restart_max);
-            get_solver().updt_params(m_params);
+            set_conquer_params(get_solver());
+        }
+
+        void set_conquer_params(solver& s) {
+            params_ref p;
+            p.copy(m_params);
+            p.set_bool("gc.burst", true);             // apply eager gc
+            p.set_uint("simplify.delay", 1000);       // delay simplification by 1000 conflicts
+            p.set_bool("lookahead_simplify", false);
+            p.set_uint("restart.max", m_restart_max);
+            p.set_uint("inprocess.max", UINT_MAX);    // base bounds on restart.max
+            s.updt_params(p);
         }
 
         void set_simplify_params(bool pb_simp, bool retain_blocked) {
             parallel_params pp(m_params);
-            m_params.set_bool("cardinality.solver", pb_simp);
-            m_params.set_sym ("pb.solver", pb_simp ? symbol("solver") : symbol("circuit"));
-            if (m_params.get_uint("inprocess.max", UINT_MAX) == UINT_MAX) 
-                m_params.set_uint("inprocess.max", pp.inprocess_max());
-            m_params.set_bool("lookahead_simplify", true);
-            m_params.set_uint("restart.max", UINT_MAX);
-            m_params.set_bool("retain_blocked_clauses", retain_blocked);
-            get_solver().updt_params(m_params);
+            params_ref p;
+            p.copy(m_params);
+
+            p.set_bool("cardinality.solver", pb_simp);
+            p.set_sym ("pb.solver", pb_simp ? symbol("solver") : symbol("circuit"));
+            if (p.get_uint("inprocess.max", UINT_MAX) == UINT_MAX) 
+                p.set_uint("inprocess.max", pp.inprocess_max());
+            p.set_bool("lookahead_simplify", true);
+            p.set_uint("restart.max", UINT_MAX);
+            p.set_bool("retain_blocked_clauses", retain_blocked);
+            get_solver().updt_params(p);
         }
 
         bool canceled() { 
@@ -340,6 +346,8 @@ private:
     std::mutex   m_mutex;
     double       m_progress;
     unsigned     m_branches;
+    unsigned     m_backtrack_frequency;
+    unsigned     m_conquer_threshold;
     bool         m_has_undef;
     bool         m_allsat;
     unsigned     m_num_unsat;
@@ -351,15 +359,32 @@ private:
         m_progress = 0;
         m_has_undef = false;
         m_allsat = false;
-        m_num_unsat = 0;
-        m_branches = 0;
+        m_branches = 0;    
+        m_num_unsat = 0;    
+        m_backtrack_frequency = 10;
+        m_conquer_threshold = 10;
         m_exn_code = 0;
         m_params.set_bool("override_incremental", true);
     }
 
+    void log_branches(lbool status) {
+        IF_VERBOSE(0, verbose_stream() << "(tactic.parallel :progress " << m_progress << "% ";
+                   if (status == l_true)  verbose_stream() << ":status sat ";
+                   if (status == l_undef) verbose_stream() << ":status unknown ";
+                   verbose_stream() << ":closed " << m_num_unsat << " :open " << m_branches << ")\n";);
+    }
+
     void add_branches(unsigned b) {
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            m_branches += b;
+        }
+        log_branches(l_false);
+    }
+
+    void dec_branch() {
         std::lock_guard<std::mutex> lock(m_mutex);
-        m_branches += b;
+        --m_branches;
     }
 
     void close_branch(solver_state& s, lbool status) {
@@ -369,10 +394,7 @@ private:
             m_progress += f;
             --m_branches;
         }
-        IF_VERBOSE(0, verbose_stream() << "(tactic.parallel :progress " << m_progress << "% ";
-                   if (status == l_true)  verbose_stream() << ":status sat ";
-                   if (status == l_undef) verbose_stream() << ":status unknown ";
-                   verbose_stream() << ":unsat " << m_num_unsat << " :open-branches " << m_branches << ")\n";);
+        log_branches(status);
     }
 
     void report_sat(solver_state& s) {
@@ -392,11 +414,13 @@ private:
         }
     }
 
+    void inc_unsat() {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        ++m_num_unsat;
+    }
+
     void report_unsat(solver_state& s) {        
-        {
-            std::lock_guard<std::mutex> lock(m_mutex);
-            ++m_num_unsat;
-        }
+        inc_unsat();
         close_branch(s, l_false);
     }
         
@@ -405,7 +429,7 @@ private:
         close_branch(s, l_undef);
     }
 
-    void cube_and_conquer(solver_state& s) {
+    void cube_and_conquer1(solver_state& s) {
         ast_manager& m = s.m();
         vector<cube_var> cube, hard_cubes, cubes;
         expr_ref_vector vars(m);
@@ -452,7 +476,7 @@ private:
             if (m.is_false(c.back())) {                
                 break;
             }
-            cubes.push_back(cube_var(mk_and(c), vars));
+            cubes.push_back(cube_var(c, vars));
             IF_VERBOSE(2, verbose_stream() << "(tactic.parallel :cube " << cubes.size() << " :vars " << vars.size() << ")\n"); 
         }
 
@@ -500,8 +524,9 @@ private:
         ast_manager& m = s.m();
         vector<cube_var> cube, hard_cubes, cubes;
         expr_ref_vector vars(m);
-        SASSERT(s.type() == cube_task);
 
+    cube_again:
+        SASSERT(s.type() == cube_task);
         // extract up to one cube and add it.
         cube.reset();
         cube.append(s.split_cubes(1));
@@ -515,7 +540,9 @@ private:
         }
         s.inc_depth(1);
 
+    simplify_again:
         // simplify
+        if (canceled(s)) return;
         switch (s.simplify()) {
         case l_undef: break;
         case l_true:  report_sat(s); return;
@@ -526,111 +553,123 @@ private:
         // extract cubes.
         cubes.reset();
         s.set_cube_params();
-        solver_ref conquer = s.copy_solver();
+        solver_ref conquer;
+        
         unsigned cutoff = UINT_MAX;
-        while (true) {
+        bool first = true;
+        unsigned num_backtracks = 0, width = 0;
+        while (cutoff > 0 && !canceled(s)) {
             expr_ref_vector c = s.get_solver().cube(vars, cutoff);
             if (c.empty()) {
-                report_undef(s);
-                return;
+                goto simplify_again;
             }
             if (m.is_false(c.back())) {                
                 break;
             }
-            lbool is_sat = conquer->check_sat(c);
-            switch (is_sat) {
-            case l_false: {
-                // TBD: minimize core instead.
-                expr_ref_vector core(m);
-                conquer->get_unsat_core(core);
-                obj_hashtable<expr> hcore;
-                for (expr* e : core) hcore.insert(e);
-                for (unsigned i = c.size(); i-- > 0; ) {
-                    if (hcore.contains(c[i].get())) {
-                        cutoff = i;
-                        break;
-                    }
-                }
-                break;
+            lbool is_sat = l_undef;
+            if (width >= m_conquer_threshold && !conquer) {
+                conquer = s.copy_solver();
+                s.set_conquer_params(*conquer.get());
             }
+            if (conquer) {
+                is_sat = conquer->check_sat(c);
+            }
+            switch (is_sat) {
+            case l_false: 
+                cutoff = c.size();
+                backtrack(*conquer.get(), c, (num_backtracks++) % m_backtrack_frequency == 0);
+                if (cutoff != c.size()) {
+                    IF_VERBOSE(0, verbose_stream() << "(tactic.parallel :backtrack " << cutoff << " -> " << c.size() << ")\n");
+                    cutoff = c.size();
+                }
+                inc_unsat();
+                log_branches(l_false);
+                break;
+
             case l_true:
                 report_sat(s);
+                if (conquer) {
+                    collect_statistics(*conquer.get());
+                }
                 return;
+
             case l_undef:
-                IF_VERBOSE(2, verbose_stream() << "(tactic.parallel :cube " << cubes.size() << " :vars " << vars.size() << ")\n"); 
-                cubes.push_back(cube_var(mk_and(c), vars));
+                ++width;
+                IF_VERBOSE(2, verbose_stream() << "(tactic.parallel :cube " << c.size() << " :vars " << vars.size() << ")\n"); 
+                cubes.push_back(cube_var(c, vars));
                 cutoff = UINT_MAX;
                 break;
-            }
-            // TBD flush cube task early
-        }
-        
-        IF_VERBOSE(1, verbose_stream() << "(tactic.parallel :cubes " << cubes.size() << ")\n";);
 
-        if (cubes.empty()) {
+            }
+            if (cubes.size() >= conquer_batch_size() || (!cubes.empty() && m_queue.is_idle())) {
+                spawn_cubes(s, std::max(2u, width), cubes);
+                first = false;
+                cubes.reset();
+            }
+        }
+
+        if (conquer) {
+            collect_statistics(*conquer.get());
+        }
+
+        if (cubes.empty() && first) {
             report_unsat(s);
+        }
+        else if (cubes.empty()) {
+            dec_branch();
             return;
         }
         else {
-            s.inc_width(cubes.size());
-            add_branches(cubes.size() - 1);
-            NOT_IMPLEMENTED_YET();
-            // TBD add as a cube task.
+            s.inc_width(width);
+            add_branches(cubes.size()-1);
+            s.set_cubes(cubes);
+            goto cube_again;
+        }                
+    }
+
+    void spawn_cubes(solver_state& s, unsigned width, vector<cube_var>& cubes) {
+        if (cubes.empty()) return;
+        add_branches(cubes.size());
+        s.set_cubes(cubes);
+        solver_state* s1 = s.clone();
+        s1->inc_width(width);
+        m_queue.add_task(s1);
+    }
+
+    /*
+     * \brief backtrack from unsatisfiable core
+     */
+    void backtrack(solver& s, expr_ref_vector& asms, bool full) {
+        ast_manager& m = s.get_manager();
+        expr_ref_vector core(m);
+        obj_hashtable<expr> hcore;
+        s.get_unsat_core(core);
+        while (!asms.empty() && !core.contains(asms.back())) asms.pop_back();
+        if (!full) return;
+
+        //s.assert_expr(m.mk_not(mk_and(core)));
+        if (!asms.empty()) {
+            expr* last = asms.back();
+            expr_ref not_last(mk_not(m, last), m);
+            asms.pop_back();
+            asms.push_back(not_last);
+            lbool r = s.check_sat(asms);
+            asms.pop_back();
+            if (r != l_false) {
+                asms.push_back(last);
+                return;
+            }
+            core.reset();
+            s.get_unsat_core(core);
+            if (core.contains(not_last)) {
+                //s.assert_expr(m.mk_not(mk_and(core)));
+                r = s.check_sat(asms);
+            }
+            if (r == l_false) {
+                backtrack(s, asms, full);
+            }            
         }        
     }
-
-    expr_ref_vector baktrack(expr_ref_vector const& c) {
-
-    }
-
-#if 0
-        public BoolExpr[] Backtrack(Statistics stats, BoolExpr[] _asms)
-        {
-            int count = _asms.Count();
-            stats.Stopwatch.Start();
-            var asms = new List<BoolExpr>(_asms);
-            _Backtrack(stats, asms);
-            stats.AddBacktrackStats((uint)(count - asms.Count()), stats.Stopwatch.Elapsed());
-            return asms.ToArray();
-        }
-
-        public void _Backtrack(Statistics stats, List<BoolExpr> asms)
-        {
-            HashSet<BoolExpr> core = new HashSet<BoolExpr>(Solver.UnsatCore);
-            while (asms.Count > 0 && !core.Contains(asms.Last()))
-            {
-                asms.RemoveAt(asms.Count - 1);
-            }
-            stats.Cores++;
-            Solver.Add(!Context.MkAnd(core));
-            if (asms.Count > 0)
-            {
-                BoolExpr last = asms.Last();
-                BoolExpr not_last = last.IsNot ? (BoolExpr)last.Args[0] : Context.MkNot(last);
-                asms.RemoveAt(asms.Count - 1);
-                asms.Add(not_last);
-                Status status = CheckSat(null, asms);
-                asms.RemoveAt(asms.Count - 1);
-                if (status != Status.UNSATISFIABLE)
-                {
-                    asms.Add(last);
-                    return;
-                }
-                core = new HashSet<BoolExpr>(Solver.UnsatCore);
-                if (core.Contains(not_last))
-                {
-                    stats.Cores++;
-                    Solver.Add(!Context.MkAnd(core));
-                    status = CheckSat(null, asms);
-                }
-                if (status == Status.UNSATISFIABLE)
-                {
-                    _Backtrack(stats, asms);
-                }
-            }
-        }
-
-#endif
 
     bool canceled(solver_state& s) {
         if (s.canceled()) {
@@ -644,9 +683,8 @@ private:
 
     void run_solver() {
         try {
-            add_branches(1);
             while (solver_state* st = m_queue.get_task()) {
-                cube_and_conquer(*st);
+                cube_and_conquer2(*st);
                 collect_statistics(*st);
                 m_queue.task_done(st);
                 if (st->m().canceled()) m_queue.shutdown();
@@ -669,11 +707,16 @@ private:
     }
 
     void collect_statistics(solver_state& s) {
+        collect_statistics(s.get_solver());
+    }
+
+    void collect_statistics(solver& s) {
         std::lock_guard<std::mutex> lock(m_mutex);
-        s.get_solver().collect_statistics(m_stats);
+        s.collect_statistics(m_stats);
     }
 
     lbool solve(model_ref& mdl) {        
+        add_branches(1);
         vector<std::thread> threads;
         for (unsigned i = 0; i < m_num_threads; ++i) 
             threads.push_back(std::thread([this]() { run_solver(); }));
@@ -706,7 +749,7 @@ public:
     parallel_tactic(ast_manager& m, params_ref const& p) :
         m_manager(m),
         m_params(p) {
-        init();        
+        init();
     }
 
     void operator ()(const goal_ref & g,goal_ref_buffer & result) {
@@ -746,23 +789,13 @@ public:
         result.push_back(g.get());
     }
 
-    virtual void collect_param_descrs(param_descrs & r) {
-        r.insert("conquer_batch_size", CPK_UINT, "(default: 1000) batch size of cubes to conquer");
-    }
-
     unsigned conquer_batch_size() const {
         parallel_params pp(m_params);
         return pp.conquer_batch_size();
     }
 
-    bool filter_cubes() const {
-        parallel_params pp(m_params);
-        return pp.filter_cubes();
-    }
-
     void cleanup() {
         m_queue.reset();
-        init();
     }
 
     tactic* translate(ast_manager& m) {
@@ -771,6 +804,8 @@ public:
 
     virtual void updt_params(params_ref const & p) {
         m_params.copy(p);
+        parallel_params pp(p);
+        m_conquer_threshold = pp.conquer_threshold();
     }
 
     virtual void collect_statistics(statistics & st) const {

@@ -119,6 +119,7 @@ namespace sat {
         m_simplify_mult2  = _p.get_double("simplify_mult2", 1.5);
         m_simplify_max    = _p.get_uint("simplify_max", 500000);
         // --------------------------------
+        m_simplify_delay  = p.simplify_delay();
 
         s = p.gc();
         if (s == symbol("dyn_psm")) 
