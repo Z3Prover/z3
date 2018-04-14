@@ -443,8 +443,9 @@ private:
         // extract cubes.
         cubes.reset();
         s.set_cube_params();
+        unsigned cutoff = UINT_MAX;
         while (true) {
-            expr_ref_vector c = s.get_solver().cube(vars, UINT_MAX); // TBD tune this
+            expr_ref_vector c = s.get_solver().cube(vars, cutoff);
             if (c.empty()) {
                 report_undef(s);
                 return;
@@ -616,6 +617,11 @@ public:
     unsigned conquer_batch_size() const {
         parallel_params pp(m_params);
         return pp.conquer_batch_size();
+    }
+
+    bool filter_cubes() const {
+        parallel_params pp(m_params);
+        return pp.filter_cubes();
     }
 
     void cleanup() {

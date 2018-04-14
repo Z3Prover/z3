@@ -7,4 +7,5 @@ def_module_params('parallel',
                           ('conquer_batch_size', UINT, 1000, 'number of cubes to batch together for fast conquer'),
                           ('inprocess.max', UINT, 2, 'maximal number of inprocessing steps during simplification'),
                           ('restart.max', UINT, 100, 'maximal number of restarts during conquer phase'),
+                          ('filter_cubes', BOOL, False, 'filter cubes using a short running check'),
                           ))
