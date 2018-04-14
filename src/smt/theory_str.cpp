@@ -10130,10 +10130,11 @@ namespace smt {
                             // increment LengthAttemptCount
                             regex_inc_counter(regex_length_attempt_count, re);
 
-                            {
-                                unsigned v = regex_get_counter(regex_length_attempt_count, re);
-                                TRACE("str", tout << "length attempt count for " << mk_pp(re, m) << " is " << v << std::endl;);
-                            }
+                            TRACE("str", 
+                                  {
+                                      unsigned v = regex_get_counter(regex_length_attempt_count, re);
+                                      tout << "length attempt count for " << mk_pp(re, m) << " is " << v << std::endl;
+                                  });                            
 
                             continue;
                         }
@@ -10541,11 +10542,12 @@ namespace smt {
                         continue;
                     }
 
-                    {
-                        unsigned v = regex_get_counter(regex_length_attempt_count, aut.get_regex_term());
-                        TRACE("str", tout << "length attempt count of " << mk_pp(aut.get_regex_term(), m) << " is " << v
-                                << ", threshold is " << m_params.m_RegexAutomata_LengthAttemptThreshold << std::endl;);
-                    }
+                    TRACE("str", 
+                          {
+                              unsigned v = regex_get_counter(regex_length_attempt_count, aut.get_regex_term());
+                              tout << "length attempt count of " << mk_pp(aut.get_regex_term(), m) << " is " << v
+                                   << ", threshold is " << m_params.m_RegexAutomata_LengthAttemptThreshold << std::endl;
+                          });
 
                     if (regex_get_counter(regex_length_attempt_count, aut.get_regex_term()) >= m_params.m_RegexAutomata_LengthAttemptThreshold) {
                         unsigned intersectionDifficulty = estimate_automata_intersection_difficulty(aut_inter, aut.get_automaton());

@@ -622,7 +622,7 @@ namespace datalog {
     }
 
     bool string_to_uint64(const char * s, uint64_t & res) {
-#if _WINDOWS
+#if 1
         int converted = sscanf_s(s, "%I64u", &res);
 #else
         int converted = sscanf(s, "%llu", &res);
