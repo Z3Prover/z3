@@ -41,8 +41,13 @@ Notes:
 #include "solver/solver.h"
 #include "solver/solver2tactic.h"
 #include "tactic/tactic.h"
+#include "tactic/tactical.h"
 #include "tactic/portfolio/fd_solver.h"
 #include "tactic/smtlogics/parallel_params.hpp"
+#include "smt/tactic/smt_tactic.h"
+#include "smt/smt_solver.h"
+#include "sat/sat_solver/inc_sat_solver.h"
+#include "sat/tactic/sat_tactic.h"
 
 class parallel_tactic : public tactic {
 
@@ -184,7 +189,6 @@ class parallel_tactic : public tactic {
         ref<solver>     m_solver;                 // solver state
         unsigned        m_depth;                  // number of nested calls to cubing
         double          m_width;                  // estimate of fraction of problem handled by state
-        unsigned        m_restart_max;            // saved configuration value
 
     public:
         solver_state(ast_manager* m, solver* s, params_ref const& p, task_type t): 
@@ -196,8 +200,6 @@ class parallel_tactic : public tactic {
             m_depth(0),
             m_width(1.0)
         {
-            parallel_params pp(p);
-            m_restart_max = pp.restart_max();
         }
 
         ast_manager& m() { return m_solver->get_manager(); }
@@ -255,27 +257,12 @@ class parallel_tactic : public tactic {
 
         lbool simplify() {
             lbool r = l_undef;
-            if (m_depth == 1) {
-                IF_VERBOSE(2, verbose_stream() << "(parallel.tactic simplify-1)\n";);
-                set_simplify_params(true, true);         // retain PB, retain blocked
-                r = get_solver().check_sat(0,0);
-                if (r != l_undef) return r;
-                
-                // copy over the resulting clauses with a configuration that blasts PB constraints
-                set_simplify_params(false, true);
-                expr_ref_vector fmls(m());
-                get_solver().get_assertions(fmls);
-                model_converter_ref mc = get_solver().get_model_converter();
-                m_solver = mk_fd_solver(m(), m_params);
-                m_solver->set_model_converter(mc.get());
-                m_solver->assert_expr(fmls);
-            }
-            IF_VERBOSE(2, verbose_stream() << "(parallel.tactic simplify-2)\n";);
-            set_simplify_params(false, true);         // remove PB, retain blocked
+            IF_VERBOSE(2, verbose_stream() << "(parallel.tactic simplify-1)\n";);
+            set_simplify_params(true);         // retain blocked
             r = get_solver().check_sat(0,0);
             if (r != l_undef) return r;
-            IF_VERBOSE(2, verbose_stream() << "(parallel.tactic simplify-3)\n";);
-            set_simplify_params(false, false);        // remove any PB, remove blocked
+            IF_VERBOSE(2, verbose_stream() << "(parallel.tactic simplify-2)\n";);
+            set_simplify_params(false);        // remove blocked
             r = get_solver().check_sat(0,0);
             return r;            
         }
@@ -299,27 +286,26 @@ class parallel_tactic : public tactic {
         }
 
         void set_conquer_params(solver& s) {
+            parallel_params pp(m_params);
             params_ref p;
             p.copy(m_params);
             p.set_bool("gc.burst", true);             // apply eager gc
             p.set_uint("simplify.delay", 1000);       // delay simplification by 1000 conflicts
             p.set_bool("lookahead_simplify", false);
-            p.set_uint("restart.max", m_restart_max);
+            p.set_uint("restart.max", pp.conquer_restart_max());
             p.set_uint("inprocess.max", UINT_MAX);    // base bounds on restart.max
             s.updt_params(p);
         }
 
-        void set_simplify_params(bool pb_simp, bool retain_blocked) {
+        void set_simplify_params(bool retain_blocked) {
             parallel_params pp(m_params);
+            double mul = pp.simplify_multiplier();
+            unsigned mult = (mul == 0 ? 1 : std::max((unsigned)1, static_cast<unsigned>(m_depth * mul)));
             params_ref p;
             p.copy(m_params);
-
-            p.set_bool("cardinality.solver", pb_simp);
-            p.set_sym ("pb.solver", pb_simp ? symbol("solver") : symbol("circuit"));
-            if (p.get_uint("inprocess.max", UINT_MAX) == UINT_MAX) 
-                p.set_uint("inprocess.max", pp.inprocess_max());
+            p.set_uint("inprocess.max", pp.simplify_inprocess_max() * mult);
+            p.set_uint("restart.max", pp.simplify_restart_max() * mult);
             p.set_bool("lookahead_simplify", true);
-            p.set_uint("restart.max", UINT_MAX);
             p.set_bool("retain_blocked_clauses", retain_blocked);
             get_solver().updt_params(p);
         }
@@ -337,6 +323,7 @@ class parallel_tactic : public tactic {
 
 private:
 
+    solver_ref   m_solver;
     ast_manager& m_manager;
     params_ref   m_params;
     sref_vector<model> m_models;
@@ -355,7 +342,8 @@ private:
     std::string  m_exn_msg;
 
     void init() {
-        m_num_threads = omp_get_num_procs();  // TBD adjust by possible threads used inside each solver.
+        parallel_params pp(m_params);
+        m_num_threads = std::min((unsigned)omp_get_num_procs(), pp.threads_max());
         m_progress = 0;
         m_has_undef = false;
         m_allsat = false;
@@ -375,6 +363,7 @@ private:
     }
 
     void add_branches(unsigned b) {
+        if (b == 0) return;
         {
             std::lock_guard<std::mutex> lock(m_mutex);
             m_branches += b;
@@ -617,7 +606,6 @@ private:
         }
         else if (cubes.empty()) {
             dec_branch();
-            return;
         }
         else {
             s.inc_width(width);
@@ -746,15 +734,16 @@ private:
 
 public:
 
-    parallel_tactic(ast_manager& m, params_ref const& p) :
-        m_manager(m),
+    parallel_tactic(solver* s, params_ref const& p) :
+        m_solver(s),
+        m_manager(s->get_manager()),        
         m_params(p) {
         init();
     }
 
     void operator ()(const goal_ref & g,goal_ref_buffer & result) {
         ast_manager& m = g->m();
-        solver* s = mk_fd_solver(m, m_params);
+        solver* s = m_solver->translate(m, m_params);
         solver_state* st = alloc(solver_state, 0, s, m_params, cube_task);
         m_queue.add_task(st);
         expr_ref_vector clauses(m);
@@ -799,7 +788,8 @@ public:
     }
 
     tactic* translate(ast_manager& m) {
-        return alloc(parallel_tactic, m, m_params);
+        solver* s = m_solver->translate(m, m_params);
+        return alloc(parallel_tactic, s, m_params);
     }
 
     virtual void updt_params(params_ref const & p) {
@@ -817,12 +807,40 @@ public:
     virtual void reset_statistics() {
         m_stats.reset();
     }
-
 };
 
 
 
-tactic * mk_parallel_tactic(ast_manager& m, params_ref const& p) {
-    return alloc(parallel_tactic, m, p);
+tactic * mk_parallel_qffd_tactic(ast_manager& m, params_ref const& p) {
+    solver* s = mk_fd_solver(m, p);
+    return alloc(parallel_tactic, s, p);
 }
 
+tactic * mk_parallel_tactic(solver* s, params_ref const& p) {
+    return alloc(parallel_tactic, s, p);
+}
+
+
+tactic * mk_psat_tactic(ast_manager& m, params_ref const& p) {
+    parallel_params pp(p);
+    bool use_parallel = pp.enable();
+    return pp.enable() ? mk_parallel_tactic(mk_inc_sat_solver(m, p), p) : mk_sat_tactic(m);
+}
+
+tactic * mk_psmt_tactic(ast_manager& m, params_ref const& p, symbol const& logic) {
+    parallel_params pp(p);
+    bool use_parallel = pp.enable();
+    return pp.enable() ? mk_parallel_tactic(mk_smt_solver(m, p, logic), p) : mk_smt_tactic(p);
+}
+
+tactic * mk_psmt_tactic_using(ast_manager& m, bool auto_config, params_ref const& _p, symbol const& logic) {
+    parallel_params pp(_p);
+    bool use_parallel = pp.enable();
+    params_ref p = _p;
+    p.set_bool("auto_config", auto_config);
+    return using_params(pp.enable() ? mk_parallel_tactic(mk_smt_solver(m, p, logic), p) : mk_smt_tactic(p), p);
+}
+
+tactic * mk_parallel_smt_tactic(ast_manager& m, params_ref const& p) {
+    return mk_parallel_tactic(mk_smt_solver(m, p, symbol::null), p);
+}

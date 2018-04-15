@@ -213,6 +213,11 @@ namespace smt {
         void get_guessed_literals(expr_ref_vector & result);
 
         /**
+           \brief return the next case split literal.
+        */
+        expr* next_decision();
+
+        /**
            \brief (For debubbing purposes) Prints the state of the kernel
         */
         void display(std::ostream & out) const;

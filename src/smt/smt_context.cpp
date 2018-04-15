@@ -1829,6 +1829,15 @@ namespace smt {
         m_bvar_inc *= INV_ACTIVITY_LIMIT;
     }
 
+    expr* context::next_decision() {
+        bool_var var;
+        lbool phase;
+        m_case_split_queue->next_case_split(var, phase);
+        if (var == null_bool_var) return m_manager.mk_true();
+        m_case_split_queue->unassign_var_eh(var);
+        return bool_var2expr(var);
+    }
+
     /**
        \brief Execute next clase split, return false if there are no
        more case splits to be performed.
@@ -3433,6 +3442,7 @@ namespace smt {
         m_num_conflicts                = 0;
         m_num_conflicts_since_restart  = 0;
         m_num_conflicts_since_lemma_gc = 0;
+        m_num_restarts                 = 0;
         m_restart_threshold            = m_fparams.m_restart_initial;
         m_restart_outer_threshold      = m_fparams.m_restart_initial;
         m_agility                      = 0.0;
@@ -3564,7 +3574,7 @@ namespace smt {
         inc_limits();
         if (status == l_true || !m_fparams.m_restart_adaptive || m_agility < m_fparams.m_restart_agility_threshold) {
             SASSERT(!inconsistent());
-                IF_VERBOSE(2, verbose_stream() << "(smt.restarting :propagations " << m_stats.m_num_propagations
+            IF_VERBOSE(2, verbose_stream() << "(smt.restarting :propagations " << m_stats.m_num_propagations
                        << " :decisions " << m_stats.m_num_decisions
                        << " :conflicts " << m_stats.m_num_conflicts << " :restart " << m_restart_threshold;
                        if (m_fparams.m_restart_strategy == RS_IN_OUT_GEOMETRIC) {
@@ -3573,9 +3583,10 @@ namespace smt {
                        if (m_fparams.m_restart_adaptive) {
                            verbose_stream() << " :agility " << m_agility;
                        }
-                       verbose_stream() << ")" << std::endl; verbose_stream().flush(););
+                       verbose_stream() << ")\n");
             // execute the restart
             m_stats.m_num_restarts++;
+            m_num_restarts++;
             if (m_scope_lvl > curr_lvl) {
                 pop_scope(m_scope_lvl - curr_lvl);
                 SASSERT(at_search_level());
@@ -3591,6 +3602,11 @@ namespace smt {
             if (inconsistent()) {
                 VERIFY(!resolve_conflict());
                 status = l_false;
+                return false;
+            }
+            if (m_num_restarts >= m_fparams.m_restart_max) {
+                status = l_undef;
+                m_last_search_failure = NUM_CONFLICTS;
                 return false;
             }
         }

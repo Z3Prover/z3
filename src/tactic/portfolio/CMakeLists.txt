@@ -8,6 +8,7 @@ z3_add_component(portfolio
     pb2bv_solver.cpp
     smt_strategic_solver.cpp
     solver2lookahead.cpp
+    solver_sat_extension.cpp
   COMPONENT_DEPENDENCIES
     aig_tactic
     fp

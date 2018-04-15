@@ -1034,7 +1034,7 @@ namespace sat {
         }
         
         if (m_s.m_ext) {
-            m_ext = m_s.m_ext->copy(this, learned);
+            // m_ext = m_s.m_ext->copy(this, learned);
         }
         propagate();
         m_qhead = m_trail.size();

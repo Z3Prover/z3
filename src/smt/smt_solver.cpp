@@ -30,9 +30,35 @@ Notes:
 namespace smt {
 
     class smt_solver : public solver_na2as {
+
+        struct cuber {
+            smt_solver& m_solver;
+            unsigned    m_round;
+            expr_ref    m_result;
+            cuber(smt_solver& s):
+                m_solver(s),
+                m_round(0),
+                m_result(s.get_manager()) {}
+            expr_ref cube() {
+                switch (m_round) {
+                case 0:
+                    m_result = m_solver.m_context.next_decision();
+                    break;
+                case 1:
+                    m_result = m_solver.get_manager().mk_not(m_result);
+                    break;
+                default:
+                    m_result = m_solver.get_manager().mk_false();
+                    break;
+                }
+                ++m_round;
+                return m_result;
+            }
+        };
+
         smt_params           m_smt_params;
         smt::kernel          m_context;
-        progress_callback  * m_callback;
+        cuber*               m_cuber;
         symbol               m_logic;
         bool                 m_minimizing_core;
         bool                 m_core_extend_patterns;
@@ -45,6 +71,7 @@ namespace smt {
             solver_na2as(m),
             m_smt_params(p),
             m_context(m, m_smt_params),
+            m_cuber(nullptr),
             m_minimizing_core(false),
             m_core_extend_patterns(false),
             m_core_extend_patterns_max_distance(UINT_MAX),
@@ -72,6 +99,7 @@ namespace smt {
 
         virtual ~smt_solver() {
             dec_ref_values(get_manager(), m_name2assertion);
+            dealloc(m_cuber);
         }
 
         virtual void updt_params(params_ref const & p) {
@@ -204,7 +232,6 @@ namespace smt {
         virtual ast_manager & get_manager() const { return m_context.m(); }
 
         virtual void set_progress_callback(progress_callback * callback) {
-            m_callback = callback;
             m_context.set_progress_callback(callback);
         }
 
@@ -217,13 +244,24 @@ namespace smt {
             return m_context.get_formula(idx);
         }
 
-        virtual expr_ref lookahead(expr_ref_vector const& assumptions, expr_ref_vector const& candidates) { 
+        virtual expr_ref_vector cube(expr_ref_vector& vars, unsigned cutoff) {
             ast_manager& m = get_manager();
-            return expr_ref(m.mk_true(), m);
-        }
-
-        virtual expr_ref_vector cube(expr_ref_vector&, unsigned) {
-            return expr_ref_vector(get_manager());
+            if (!m_cuber) {
+                m_cuber = alloc(cuber, *this);
+            }
+            expr_ref result = m_cuber->cube();
+            expr_ref_vector lits(m);
+            if (m.is_false(result)) {
+                dealloc(m_cuber);
+                m_cuber = nullptr;
+            }
+            if (m.is_true(result)) {
+                dealloc(m_cuber);
+                m_cuber = nullptr;
+                return lits;
+            }
+            lits.push_back(result);
+            return lits;
         }
 
         struct collect_fds_proc {
