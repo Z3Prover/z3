@@ -454,6 +454,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
 
         func_decl* f = m_ar.get_as_array_func_decl(to_app(a));
         func_interp* g = m_model.get_func_interp(f);
+		if (!g) return false;
         unsigned sz = g->num_entries();
         unsigned arity = f->get_arity();
         unsigned base_sz = stores.size();

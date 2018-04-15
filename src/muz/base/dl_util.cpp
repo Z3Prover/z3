@@ -625,7 +625,7 @@ namespace datalog {
 #if _WINDOWS
         int converted = sscanf_s(s, "%I64u", &res);
 #else
-        int converted = sscanf(s, "%llu", &res);
+        int converted = sscanf(s, "%I64u", &res);
 #endif
         if(converted==0) {
             return false;

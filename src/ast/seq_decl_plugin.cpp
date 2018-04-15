@@ -213,6 +213,9 @@ std::string zstring::encode() const {
         else if (ch == '\\') {
             strm << "\\\\";
         }
+        else if (ch >= 128) {
+            strm << "\\x" << std::hex << (unsigned)ch << std::dec; 
+        }
         else {
             strm << (char)(ch);
         }

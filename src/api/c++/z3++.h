@@ -2680,6 +2680,12 @@ namespace z3 {
     inline func_decl function(char const * name, sort const & d1, sort const & d2, sort const & d3, sort const & d4, sort const & d5, sort const & range) {
         return range.ctx().function(name, d1, d2, d3, d4, d5, range);
     }
+    inline func_decl function(char const* name, sort_vector const& domain, sort const& range) {
+        return range.ctx().function(name, domain, range);
+    }
+    inline func_decl function(std::string const& name, sort_vector const& domain, sort const& range) {
+        return range.ctx().function(name.c_str(), domain, range);
+    }
 
     inline expr select(expr const & a, expr const & i) {
         check_context(a, i);
