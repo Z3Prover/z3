@@ -71,6 +71,11 @@ public:
 
     template<typename T>
     T * operator()(T const * n) { 
+        return translate(n);
+    }
+
+    template<typename T>
+    T * translate(T const * n) { 
         if (&from() == &to()) return const_cast<T*>(n);
         SASSERT(!n || from().contains(const_cast<T*>(n)));
         ast * r = process(n);
@@ -78,8 +83,16 @@ public:
         return static_cast<T*>(r);
     }
 
+
     ast_manager & from() const { return m_from_manager; }
     ast_manager & to() const { return m_to_manager; }
+
+    template<typename T>
+    ref_vector<T, ast_manager> operator()(ref_vector<T, ast_manager> const& src) {
+        ref_vector<T, ast_manager> dst(to());
+        for (expr* v : src) dst.push_back(translate(v));
+        return dst;
+    }
 
     void reset_cache();
     void cleanup();
@@ -99,6 +112,7 @@ inline ast * translate(ast const * a, ast_manager & from, ast_manager & to) {
 inline expr * translate(expr const * e, ast_manager & from, ast_manager & to) {
     return ast_translation(from, to)(e);
 }
+
 
 class expr_dependency_translation {
     ast_translation & m_translation;

@@ -31,11 +31,11 @@ Notes:
 #include "tactic/arith/card2bv_tactic.h"
 #include "tactic/bv/bit_blaster_tactic.h"
 #include "tactic/core/simplify_tactic.h"
+#include "tactic/core/solve_eqs_tactic.h"
+#include "tactic/bv/bit_blaster_model_converter.h"
 #include "model/model_smt2_pp.h"
 #include "model/model_v2_pp.h"
 #include "model/model_evaluator.h"
-#include "tactic/bv/bit_blaster_model_converter.h"
-#include "tactic/core/propagate_values_tactic.h"
 #include "sat/sat_solver.h"
 #include "sat/sat_params.hpp"
 #include "sat/tactic/goal2sat.h"
@@ -501,7 +501,10 @@ public:
         simp2_p.set_bool("elim_and", true);
         simp2_p.set_bool("blast_distinct", true);
         m_preprocess =
-            and_then(mk_card2bv_tactic(m, m_params),                  // updates model converter
+            and_then(mk_simplify_tactic(m),
+                     mk_propagate_values_tactic(m),
+                     //time consuming if done in inner loop: mk_solve_eqs_tactic(m, simp2_p),
+                     mk_card2bv_tactic(m, m_params),                  // updates model converter
                      using_params(mk_simplify_tactic(m), simp2_p),
                      mk_max_bv_sharing_tactic(m),
                      mk_bit_blaster_tactic(m, m_bb_rewriter.get()),   // updates model converter
