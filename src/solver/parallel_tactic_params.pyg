@@ -1,6 +1,6 @@
 def_module_params('parallel',
                   description='parameters for parallel solver',
-                  class_name='parallel_params',
+                  class_name='parallel_tactic_params',
                   export=True,
                   params=(
                           ('enable', BOOL, False, 'enable parallel solver by default on selected tactics (for QF_BV)'),

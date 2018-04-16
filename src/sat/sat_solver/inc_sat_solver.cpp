@@ -24,6 +24,8 @@ Notes:
 #include "ast/ast_util.h"
 #include "solver/solver.h"
 #include "solver/tactic2solver.h"
+#include "solver/parallel_params.hpp"
+#include "solver/parallel_tactic.h"
 #include "tactic/tactical.h"
 #include "tactic/aig/aig_tactic.h"
 #include "tactic/core/propagate_values_tactic.h"
@@ -39,6 +41,7 @@ Notes:
 #include "sat/sat_solver.h"
 #include "sat/sat_params.hpp"
 #include "sat/tactic/goal2sat.h"
+#include "sat/tactic/sat_tactic.h"
 #include "sat/sat_simplifier_params.hpp"
 
 // incremental SAT solver.
@@ -865,3 +868,9 @@ void inc_sat_display(std::ostream& out, solver& _s, unsigned sz, expr*const* sof
     s.display_weighted(out, sz, soft, weights.c_ptr());
 }
 
+
+tactic * mk_psat_tactic(ast_manager& m, params_ref const& p) {
+    parallel_params pp(p);
+    bool use_parallel = pp.enable();
+    return pp.enable() ? mk_parallel_tactic(mk_inc_sat_solver(m, p, false), p) : mk_sat_tactic(m);
+}
