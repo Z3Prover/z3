@@ -33,6 +33,12 @@ extern "C" {
 #define CAMLlocal8(X1,X2,X3,X4,X5,X6,X7,X8)                             \
   CAMLlocal5(X1,X2,X3,X4,X5);                                           \
   CAMLlocal3(X6,X7,X8)
+#define CAMLlocal9(X1,X2,X3,X4,X5,X6,X7,X8,X9)                             \
+  CAMLlocal5(X1,X2,X3,X4,X5);                                           \
+  CAMLlocal4(X6,X7,X8,X9)
+#define CAMLlocal10(X1,X2,X3,X4,X5,X6,X7,X8,X9,X10)                             \
+  CAMLlocal5(X1,X2,X3,X4,X5);                                           \
+  CAMLlocal5(X6,X7,X8,X9,X10)
 
 #define CAMLparam6(X1,X2,X3,X4,X5,X6)                                   \
   CAMLparam5(X1,X2,X3,X4,X5);                                           \
