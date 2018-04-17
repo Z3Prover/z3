@@ -21,7 +21,7 @@
 #
 
 function(add_ocaml_library name)
-    CMAKE_PARSE_ARGUMENTS(ARG "" "" "OCAML;OCAMLGEN;OCAMLDEP;C;CFLAGS;PKG" ${ARGN})
+    CMAKE_PARSE_ARGUMENTS(ARG "" "" "OCAML;OCAMLGEN;OCAMLDEP;C;CGEN;CFLAGS;PKG" ${ARGN})
 
     set(src ${CMAKE_CURRENT_SOURCE_DIR})
     set(bin ${CMAKE_CURRENT_BINARY_DIR})
@@ -52,6 +52,19 @@ function(add_ocaml_library name)
         list(APPEND ocaml_flags ${dep_ocaml_flags})
     endforeach()
 
+    foreach( ocaml_file ${ARG_OCAMLGEN} )
+        list(APPEND sources "${ocaml_file}.ml.pre")
+
+        list(APPEND ocaml_inputs "${bin}/${ocaml_file}.ml")
+
+        list(APPEND ocaml_outputs "${bin}/${ocaml_file}.cmi" "${bin}/${ocaml_file}.cmo")
+        if( HAVE_OCAMLOPT )
+            list(APPEND ocaml_outputs
+                 "${bin}/${ocaml_file}.cmx"
+                 "${bin}/${ocaml_file}${CMAKE_C_OUTPUT_EXTENSION}")
+        endif()
+    endforeach()
+
     foreach( ocaml_file ${ARG_OCAML} )
         list(APPEND sources "${ocaml_file}.mli" "${ocaml_file}.ml")
 
@@ -65,22 +78,15 @@ function(add_ocaml_library name)
         endif()
     endforeach()
 
-    foreach( ocaml_file ${ARG_OCAMLGEN} )
-        #list(APPEND sources "${ocaml_file}.mli" "${ocaml_file}.ml")
-
-        list(APPEND ocaml_inputs "${bin}/${ocaml_file}.ml")
-
-        list(APPEND ocaml_outputs "${bin}/${ocaml_file}.cmi" "${bin}/${ocaml_file}.cmo")
-        if( HAVE_OCAMLOPT )
-            list(APPEND ocaml_outputs
-                 "${bin}/${ocaml_file}.cmx"
-                 "${bin}/${ocaml_file}${CMAKE_C_OUTPUT_EXTENSION}")
-        endif()
-    endforeach()
-
-
     foreach( c_file ${ARG_C} )
         list(APPEND sources "${c_file}.c")
+
+        list(APPEND c_inputs  "${bin}/${c_file}.c")
+        list(APPEND c_outputs "${bin}/${c_file}${CMAKE_C_OUTPUT_EXTENSION}")
+    endforeach()
+
+    foreach( c_file ${ARG_CGEN} )
+        list(APPEND sources "${c_file}.h" "${c_file}.c.pre")
 
         list(APPEND c_inputs  "${bin}/${c_file}.c")
         list(APPEND c_outputs "${bin}/${c_file}${CMAKE_C_OUTPUT_EXTENSION}")
@@ -99,7 +105,7 @@ function(add_ocaml_library name)
         get_filename_component(basename "${c_input}" NAME_WE)
         add_custom_command(
             OUTPUT "${basename}${CMAKE_C_OUTPUT_EXTENSION}"
-            COMMAND "${OCAMLFIND}" "ocamlc" "-c" "${c_input}" -ccopt "${ARG_CFLAGS}"
+            COMMAND "${OCAMLFIND}" "ocamlc" "-c" "${c_input}" "-I" ${src} -ccopt "${ARG_CFLAGS}"
             DEPENDS "${c_input}"
             COMMENT "Building OCaml stub object file ${basename}${CMAKE_C_OUTPUT_EXTENSION}"
             VERBATIM)
