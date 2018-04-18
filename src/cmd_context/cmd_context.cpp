@@ -1350,9 +1350,10 @@ void cmd_context::restore_func_decls(unsigned old_sz) {
 }
 
 void cmd_context::restore_psort_inst(unsigned old_sz) {
-    for (unsigned i = old_sz; i < m_psort_inst_stack.size(); ++i) {
+    for (unsigned i = m_psort_inst_stack.size(); i-- > old_sz; ) {
         pdecl * s = m_psort_inst_stack[i];
-        s->reset_cache(*m_pmanager);
+        s->reset_cache(pm());
+        pm().dec_ref(s);
     }
     m_psort_inst_stack.resize(old_sz);
 }
@@ -2024,8 +2025,8 @@ void cmd_context::dt_eh::operator()(sort * dt, pdecl* pd) {
         }
     }
     if (m_owner.m_scopes.size() > 0) {
+        m_owner.pm().inc_ref(pd);
         m_owner.m_psort_inst_stack.push_back(pd);
-
     }
 }
 
