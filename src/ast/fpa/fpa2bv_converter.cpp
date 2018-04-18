@@ -3252,7 +3252,9 @@ void fpa2bv_converter::mk_to_bv(func_decl * f, unsigned num, expr * const * args
     expr_ref ul(m), in_range(m);
     if (!is_signed) {
         ul = m_bv_util.mk_zero_extend(3, m_bv_util.mk_bv_neg(m_bv_util.mk_numeral(1, bv_sz)));
-        in_range = m.mk_and(m.mk_not(x_is_neg), m.mk_not(ovfl),
+        in_range = m.mk_and(m.mk_or(m.mk_not(x_is_neg),
+                                    m.mk_eq(pre_rounded, m_bv_util.mk_numeral(0, bv_sz+3))),
+                            m.mk_not(ovfl),
                             m_bv_util.mk_ule(pre_rounded, ul));
     }
     else {
