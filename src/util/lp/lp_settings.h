@@ -236,7 +236,9 @@ public:
                     m_int_find_cube_period(4),
                     m_int_cuts_etc_period(4),
                     m_int_run_gcd_test(true),
-                    m_cut_solver_cycle_on_var(10)
+                    m_cut_solver_cycle_on_var(10),
+                    m_int_pivot_fixed_vars_from_basis(false),
+                    m_int_patch_only_integer_values(true)
     {}
 
     void set_resource_limit(lp_resource_limit& lim) { m_resource_limit = &lim; }
@@ -349,6 +351,8 @@ public:
     unsigned         m_int_cuts_etc_period;
     bool             m_int_run_gcd_test;
     unsigned         m_cut_solver_cycle_on_var;
+    bool             m_int_pivot_fixed_vars_from_basis;
+    bool             m_int_patch_only_integer_values;
 }; // end of lp_settings class
 
 

@@ -1323,8 +1323,8 @@ public:
             m_explanation = ex.m_explanation;
             set_conflict1();
             return l_false;
-        case lp::lia_move::give_up:
-            TRACE("arith", tout << "lia giveup\n";);
+        case lp::lia_move::undef:
+            TRACE("arith", tout << "lia undef\n";);
             return l_undef;
         default:
             UNREACHABLE();

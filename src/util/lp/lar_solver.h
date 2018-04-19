@@ -554,9 +554,8 @@ public:
     bool has_int_var() const;
     bool has_inf_int() const {
         for (unsigned j = 0; j < column_count(); j++) {
-            if (column_is_int(j) && ! column_value_is_int(j)) {
+            if (column_is_int(j) && ! column_value_is_int(j))
                 return true;
-            }
         }
         return false;
     }
@@ -579,5 +578,6 @@ public:
     void fill_vars_to_terms(vector<vector<unsigned>> & vars_to_terms);
     unsigned column_count() const { return A_r().column_count(); }
     const vector<unsigned> & r_basis() const { return m_mpq_lar_core_solver.r_basis(); }
+    const vector<unsigned> & r_nbasis() const { return m_mpq_lar_core_solver.r_nbasis(); }
 };
 }

@@ -970,45 +970,23 @@ template <typename T, typename X> bool lp_core_solver_base<T, X>::pivot_column_g
 template <typename T, typename X>  void lp_core_solver_base<T, X>::pivot_fixed_vars_from_basis() {
     // run over basis and non-basis at the same time
     indexed_vector<T> w(m_basis.size()); // the buffer
-    for (unsigned i = 0; i < m_basis.size(); i++) {
+    unsigned i = 0; // points to basis
+    for (; i < m_basis.size(); i++) {
         unsigned basic_j = m_basis[i];
-        if (get_column_type(basic_j) == column_type::fixed)
-            pivot_fixed_vars_from_basis_for_row(i, basic_j, w);
-    }
-}
 
-template <typename T, typename X>  void lp_core_solver_base<T, X>::
-pivot_fixed_vars_from_basis_for_row(unsigned i, unsigned basic_j, indexed_vector<T>& w) {
-    vector<unsigned> candidates;
-    unsigned j;
-    unsigned column_length = m_A.row_count() + 1;
-    for (auto &c : m_A.m_rows[i]) {
-        j = c.var();
-        if (j == basic_j)
-            continue;
-        if (get_column_type(j) == column_type::fixed) continue;
-
-        if (m_A.m_columns[j].size() < column_length) {
-            candidates.clear();
-            candidates.push_back(j);
-            column_length = m_A.m_columns[j].size();
-        } else if (column_length == m_A.m_columns[j].size()) {
-            candidates.push_back(j);
+        if (get_column_type(basic_j) != column_type::fixed) continue;
+        T a;
+        unsigned j;
+        for (auto &c : m_A.m_rows[i]) {
+            j = c.var();
+            if (j == basic_j)
+                continue;
+            if (get_column_type(j) != column_type::fixed) {
+                if (pivot_column_general(j, basic_j, w))
+                    break;
+            }
         }
     }
-        
-    unsigned k = candidates.size();
-    if (k == 0)
-        return;
-    j = m_settings.random_next() % k;
-    while (k--) {
-        if (pivot_column_general(candidates[j], basic_j, w))
-            return;
-        if (++j == candidates.size())
-            j = 0;
-    }
-
-    lp_assert(false);
 }
 
 template <typename T, typename X> bool 

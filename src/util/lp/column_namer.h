@@ -27,7 +27,7 @@ public:
     template <typename T>
     void print_row(const row_strip<T> & row, std::ostream & out) const {
         vector<std::pair<T, unsigned>> coeff;
-        for (auto p : row) {
+        for (auto & p : row) {
             coeff.push_back(std::make_pair(p.coeff(), p.var()));
         }
         print_linear_combination_of_column_indices(coeff, out);
