@@ -191,5 +191,4 @@ See [``examples/python``](examples/python) for examples.
 
 ### ``Web Assembly``
 
-[WebAssembly](https://github.com/cpitclaudel/z3.wasm)
-Web Assembly bindings are provided by Clément Pit-Claudel.
+[WebAssembly](https://github.com/cpitclaudel/z3.wasm) bindings are provided by Clément Pit-Claudel.
