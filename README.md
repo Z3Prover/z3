@@ -189,3 +189,7 @@ python -c 'import z3; print(z3.get_version_string())'
 
 See [``examples/python``](examples/python) for examples.
 
+### ``Web Assembly``
+
+[WebAssembly](https://github.com/cpitclaudel/z3.wasm)
+Web Assembly bindings are provided by Clément Pit-Claudel.
