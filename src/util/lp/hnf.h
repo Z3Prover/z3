@@ -28,7 +28,7 @@ class hnf {
     unsigned     m_n;
 
     void buffer_p_col_i_plus_q_col_j(const mpq & p, unsigned i, const mpq & q, unsigned j) {
-        for (unsigned k = i; k < m_n; k++) {
+        for (unsigned k = i; k < m_m; k++) {
             m_buffer[k] = p * m_A[k][i] + q * m_A[k][j];
         }
     }
@@ -36,13 +36,13 @@ class hnf {
     void replace_column_j_by_col(mpq u, unsigned i, mpq v, unsigned j) {
         lp_assert(is_zero(u * m_A[i][i] + v * m_A[i][j]));
         m_A[i][j] = zero_of_type<mpq>();
-        for (unsigned k = i + 1; k < m_n; k ++)
+        for (unsigned k = i + 1; k < m_m; k ++)
             m_A[k][j] = u * m_A[k][i] + v * m_A[k][j];
                   
     }
 
     void copy_buffer_to_col_i(unsigned i) {
-        for (unsigned k = i; k < m_n; k++)
+        for (unsigned k = i; k < m_m; k++)
             m_A[k][i] = m_buffer[k];
     }
     
@@ -70,12 +70,29 @@ class hnf {
         }
         // continue step 3 here
     }
+
+    void replace_column_j_by_j_minus_u_col_i(unsigned i, unsigned j, const mpq & u) {
+        lp_assert(j < i);
+        for (unsigned k = i; k < m_m; k++) {
+            m_A[k][j] -= u * m_A[k][i];
+        }
+    }
+
+    void work_on_columns_under_row_i(unsigned i) {
+        for (unsigned j = 0; j < i; j++) {
+            mpq u = ceil(m_A[i][j]/m_A[i][i]);
+            if (is_zero(u))
+                return;
+            replace_column_j_by_j_minus_u_col_i(i, j, u);
+        }
+    }
     
     void process_row(unsigned i) {
         for (unsigned j = i + 1; j < m_n; j++)
             process_row_column(i, j);
         if (is_neg(m_A[i][i]))
             switch_sign_for_column(i);
+        work_on_columns_under_row_i(i);
         m_A.print(std::cout);
     }
     

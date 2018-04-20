@@ -3423,16 +3423,19 @@ void test_hnf() {
     v.push_back(mpq(2));
     v.push_back(mpq(6));
     v.push_back(mpq(1));
+    v.push_back(mpq(3));
     A.m_data.push_back(v);
     v.clear();
     v.push_back(mpq(4));
     v.push_back(mpq(7));
     v.push_back(mpq(7));
+    v.push_back(mpq(3));
     A.m_data.push_back(v);
     v.clear();
     v.push_back(mpq(0));
     v.push_back(mpq(0));
     v.push_back(mpq(1));
+    v.push_back(mpq(5));
     A.m_data.push_back(v);
     hnf<matrix_A> h(A);
 #endif
