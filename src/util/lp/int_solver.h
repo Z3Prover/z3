@@ -175,5 +175,6 @@ public:
     int find_inf_int_nbasis_column() const;
     lia_move run_gcd_test();
     lia_move call_cut_solver();
+    lia_move gomory_cut();
 };
 }

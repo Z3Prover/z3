@@ -616,6 +616,26 @@ lia_move int_solver::call_cut_solver() {
     }
 }
 
+lia_move int_solver::gomory_cut() {
+    TRACE("check_main_int", tout << "gomory";);
+    if (move_non_basic_columns_to_bounds()) {
+        lp_status st = m_lar_solver->find_feasible_solution();
+        if (st != lp_status::FEASIBLE && st != lp_status::OPTIMAL) {
+            TRACE("arith_int", tout << "give_up\n";);
+            return lia_move::undef;
+        }
+    }
+    int j = find_inf_int_base_column(); 
+    if (j == -1) {
+        j = find_inf_int_nbasis_column();
+        return j == -1? lia_move::sat : create_branch_on_column(j);
+    }
+    lia_move r = proceed_with_gomory_cut(j);
+    if (r != lia_move::undef)
+        return r;
+    return create_branch_on_column(j);
+}
+
 lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex, bool & upper) {
     if (!has_inf_int()) 
         return lia_move::sat;
@@ -641,30 +661,8 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex, bool & upper) {
         return r;
     
     if ((m_branch_cut_counter) % settings().m_int_gomory_cut_period == 0) {
-        TRACE("check_main_int", tout << "gomory";);
-        if (move_non_basic_columns_to_bounds()) {
-            lp_status st = m_lar_solver->find_feasible_solution();
-            lp_assert(non_basic_columns_are_at_bounds());
-            if (st != lp_status::FEASIBLE && st != lp_status::OPTIMAL) {
-                TRACE("arith_int", tout << "give_up\n";);
-                return lia_move::undef;
-            }
-        }
-        int j = find_inf_int_base_column(); 
-        if (j == -1) {
-            j = find_inf_int_nbasis_column();
-            return j == -1? lia_move::sat : create_branch_on_column(j);
-        }
-        
-        TRACE("arith_int", tout << "j = " << j << " does not have an integer assignment: " << get_value(j) << "\n";);
-        
-        r = proceed_with_gomory_cut(j);
-        if (r != lia_move::undef)
-            return r;
-        return create_branch_on_column(j);
+        return gomory_cut();
     }
-    
-    TRACE("check_main_int", tout << "branch"; );
     int j = find_inf_int_base_column();
     if (j == -1) {
         j = find_inf_int_nbasis_column();
